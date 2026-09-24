@@ -183,6 +183,17 @@ written, since a mesh file does not carry one. The points file is the
 package's, not the solver's: the run converts its points to the simulation's
 length unit and writes the file the solver imports.
 
+A points file is checked against its mesh before any solver starts
+(`read_trailing_edge_points` and `check_trailing_edge_points`, in
+`pyflightstream.workspace.wake_edges`). Its first line must name a solver
+length unit, and every point must lie within the import's tolerance of a
+mesh-edge mid-point, compared in the simulation's length unit. The first point
+that does not is refused by its position, its file line, its coordinates and
+its distance, and two points nearest one edge are refused as well, since the
+solver would mark that edge once. A file of the edges' end vertices fails this
+check at its first point. The checked points come back in the simulation's
+unit.
+
 <!-- skip: next -->
 ```python
 from pyflightstream.workspace import write_trailing_edge_node_file

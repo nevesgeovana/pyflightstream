@@ -37,10 +37,12 @@ from pyflightstream.workspace.wake_edges import (
     TRAILING_EDGE_DETECTION_COMMAND,
     WAKE_EDGE_IMPORT_COMMAND,
     WakeEdgeImport,
+    check_trailing_edge_points,
     edge_types,
     evidence_notice,
     length_scale,
     node_file_units,
+    read_trailing_edge_points,
     tolerance_unit,
     write_node_file,
 )
@@ -416,3 +418,160 @@ def test_something_that_is_not_coordinates_is_refused_in_this_catalogue(unreadab
         )
     assert "array of coordinates" in str(raised.value)
     assert not (tmp_path / "unreadable.csv").exists()
+
+
+# --- T05: the trailing-edge points file, checked against the mesh before the run ---
+#
+# The package-side points file a geometry names carries its unit on the first line
+# and one edge mid-point per line after it. Before any seat is spent, every point
+# must lie within the import's tolerance of a mesh-edge mid-point: the solver drops
+# a point outside it in silence, and an edge's end vertex is such a point.
+
+
+def _blade_points_file(tmp_path, *, unit="METER"):
+    """The synthetic blade's mesh and the points file the extraction writes for it."""
+    from pyflightstream.workspace import write_trailing_edge_node_file
+    from tests.tier1_offline.test_trailing_edges import _blade_file
+
+    mesh, _, trailing = _blade_file(tmp_path)
+    points = write_trailing_edge_node_file(
+        mesh, tmp_path / "blade.te.txt", axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0), unit=unit
+    )
+    return mesh, points, trailing
+
+
+def test_the_points_file_the_extraction_writes_passes_the_mesh_check(tmp_path):
+    """T05. The file the extraction writes reads back as its unit and 24 points, and
+    every point lies on a mesh-edge mid-point, so the check returns them, in the
+    simulation's unit."""
+    mesh, path, _ = _blade_points_file(tmp_path)
+    read = read_trailing_edge_points(path)
+    assert read.unit == "METER"
+    assert read.points.shape == (24, 3)
+    assert read.lines == tuple(range(2, 26))
+    checked = check_trailing_edge_points(
+        read.points,
+        points_unit=read.unit,
+        mesh=mesh,
+        mesh_unit="METER",
+        simulation_unit="METER",
+        tolerance=1.0e-4,
+        source=str(path),
+        lines=read.lines,
+    )
+    assert checked.shape == (24, 3)
+    assert numpy.allclose(checked, read.points, rtol=0.0, atol=0.0)
+
+
+def test_a_point_moved_off_its_edge_midpoint_is_refused_by_its_line_and_position(tmp_path):
+    """T05. Point 3 moved 0.2 mm along x, twice the tolerance: the first point that
+    matches no edge is refused by its position, its file line, its coordinates as
+    written and its distance, before the run."""
+    mesh, path, _ = _blade_points_file(tmp_path)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    x, y, z = (float(value) for value in lines[3].split(","))
+    lines[3] = f"{x + 2.0e-4!r},{y!r},{z!r}"
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    read = read_trailing_edge_points(path)
+    with pytest.raises(InputArtifactError) as raised:
+        check_trailing_edge_points(
+            read.points,
+            points_unit=read.unit,
+            mesh=mesh,
+            mesh_unit="METER",
+            simulation_unit="METER",
+            tolerance=1.0e-4,
+            source=str(path),
+            lines=read.lines,
+        )
+    message = str(raised.value)
+    assert "point 3 of 24" in message and "line 4" in message, message
+    assert lines[3] in message, message
+    assert "0.0002" in message and "0.0001" in message, message
+
+
+def test_an_end_vertex_in_place_of_a_midpoint_is_refused(tmp_path):
+    """T05. A file of the trailing edge's end VERTICES is the layout that marks
+    nothing, and each vertex lies half an edge from the nearest mid-point."""
+    mesh, _, trailing = _blade_points_file(tmp_path)
+    path = tmp_path / "vertices.te.txt"
+    rows = [",".join(repr(float(value)) for value in point) for point in trailing]
+    path.write_text("\n".join(["METER", *rows]) + "\n", encoding="utf-8")
+    read = read_trailing_edge_points(path)
+    with pytest.raises(InputArtifactError, match="point 1 of 25"):
+        check_trailing_edge_points(
+            read.points,
+            points_unit=read.unit,
+            mesh=mesh,
+            mesh_unit="METER",
+            simulation_unit="METER",
+            tolerance=1.0e-4,
+            source=str(path),
+            lines=read.lines,
+        )
+
+
+def test_a_points_file_without_a_unit_line_is_refused(tmp_path):
+    """T05. The first line names the unit, from the solver's length-unit vocabulary;
+    a line of numbers there is a file with no unit, and OTHER names no scale."""
+    path = tmp_path / "no_unit.te.txt"
+    path.write_text("1.0,-3.75,0.0\n1.0,-3.25,0.0\n", encoding="utf-8")
+    with pytest.raises(InputArtifactError) as raised:
+        read_trailing_edge_points(path)
+    message = str(raised.value)
+    assert "unit line" in message and "METER" in message and "MILLIMETER" in message
+    path.write_text("OTHER\n1.0,-3.75,0.0\n", encoding="utf-8")
+    with pytest.raises(InputArtifactError, match="OTHER"):
+        read_trailing_edge_points(path)
+    path.write_text("METER\n1.0,-3.75\n", encoding="utf-8")
+    with pytest.raises(InputArtifactError, match="line 2"):
+        read_trailing_edge_points(path)
+    path.write_text("METER\n", encoding="utf-8")
+    with pytest.raises(InputArtifactError, match="no point"):
+        read_trailing_edge_points(path)
+
+
+def test_a_points_file_in_millimetres_is_checked_and_converted(tmp_path):
+    """T05. Points written in millimetres over a mesh in metres are compared in the
+    simulation's unit and come back in it: the solver reads no unit from its file,
+    so the conversion is the package's."""
+    mesh, path, _ = _blade_points_file(tmp_path)
+    metres = read_trailing_edge_points(path).points
+    millimetres = tmp_path / "blade_mm.te.txt"
+    rows = [",".join(repr(float(value) * 1000.0) for value in point) for point in metres]
+    millimetres.write_text("\n".join(["MILLIMETER", *rows]) + "\n", encoding="utf-8")
+    read = read_trailing_edge_points(millimetres)
+    assert read.unit == "MILLIMETER"
+    checked = check_trailing_edge_points(
+        read.points,
+        points_unit=read.unit,
+        mesh=mesh,
+        mesh_unit="METER",
+        simulation_unit="METER",
+        tolerance=1.0e-4,
+        source=str(millimetres),
+        lines=read.lines,
+    )
+    assert numpy.allclose(checked, metres, rtol=0.0, atol=1.0e-12)
+
+
+def test_two_points_on_one_edge_are_refused_before_the_run(tmp_path):
+    """T05. Two points nearest one mid-point mark one edge, so the solver would log
+    fewer imported edges than points written and the run would be refused after the
+    seat is spent; the check refuses it first, naming both points."""
+    mesh, path, _ = _blade_points_file(tmp_path)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    lines.insert(3, lines[2])
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    read = read_trailing_edge_points(path)
+    with pytest.raises(InputArtifactError, match="points 2 and 3 of 25"):
+        check_trailing_edge_points(
+            read.points,
+            points_unit=read.unit,
+            mesh=mesh,
+            mesh_unit="METER",
+            simulation_unit="METER",
+            tolerance=1.0e-4,
+            source=str(path),
+            lines=read.lines,
+        )

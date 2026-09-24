@@ -47,12 +47,15 @@ default in its own table (SRC-750 p.324, SRC-751 p.323).
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from fractions import Fraction
 from pathlib import Path
+from typing import Any, NamedTuple
 
 import numpy
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from pyflightstream._mesh import read_mesh
 from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.script import CommandArgumentError
 from pyflightstream.script.helpers import _plain_decimal, render_wake_edge_node_file
@@ -64,11 +67,14 @@ __all__ = [
     "LENGTH_UNIT_COMMAND",
     "TRAILING_EDGE_DETECTION_COMMAND",
     "WAKE_EDGE_IMPORT_COMMAND",
+    "TrailingEdgePoints",
     "WakeEdgeImport",
+    "check_trailing_edge_points",
     "edge_types",
     "evidence_notice",
     "length_scale",
     "node_file_units",
+    "read_trailing_edge_points",
     "tolerance_unit",
     "write_node_file",
     "write_trailing_edge_points",
@@ -521,6 +527,305 @@ def write_trailing_edge_points(
     rows = [",".join(_plain_decimal(float(value)) for value in point) for point in array]
     destination.write_text("\n".join([unit, *rows]) + "\n", encoding="utf-8")
     return destination
+
+
+class TrailingEdgePoints(NamedTuple):
+    """A trailing-edge points file as read.
+
+    Attributes
+    ----------
+    unit : str
+        The length unit its first line names.
+    points : numpy.ndarray
+        The points, shape (n, 3), in ``unit``, in file order.
+    lines : tuple of int
+        The 1-based file line each point was read from, so a refusal can
+        name the line a user has to open.
+    """
+
+    unit: str
+    points: numpy.ndarray
+    lines: tuple[int, ...]
+
+
+def read_trailing_edge_points(path: str | Path) -> TrailingEdgePoints:
+    """Read a trailing-edge points file: a unit line, then one x,y,z per line.
+
+    The file :func:`write_trailing_edge_points` writes, or a user writes by
+    hand. Its first non-blank line names the length unit of the points, a
+    token of ``SET_SIMULATION_LENGTH_UNITS`` other than ``OTHER``; every
+    later non-blank line is one point, three finite numbers separated by
+    commas. The unit is what lets the run convert the points to the
+    simulation's unit, since the solver's own file carries none.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        The points file.
+
+    Returns
+    -------
+    TrailingEdgePoints
+        Its unit, its points and the file line of each point.
+
+    Raises
+    ------
+    InputArtifactError
+        If the file cannot be read, opens with anything but a unit line
+        (a line of numbers there is a file without one), names ``OTHER``,
+        carries a line after the unit that is not three finite numbers
+        (named by its line), or names no point.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.wake_edges import read_trailing_edge_points
+    >>> read = read_trailing_edge_points(tmp_path / "wing.te.txt")  # doctest: +SKIP
+    >>> read.unit, read.points.shape  # doctest: +SKIP
+    ('METER', (16, 3))
+    """
+    source = Path(path)
+    try:
+        text = source.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise InputArtifactError(
+            f"the trailing-edge points file {source} cannot be read: {error}",
+            kind="wake_edges",
+        ) from error
+    scaled = ", ".join(unit for unit in node_file_units() if unit in _METRES_PER_UNIT)
+    unit: str | None = None
+    points: list[list[float]] = []
+    lines: list[int] = []
+    for number, raw in enumerate(text.splitlines(), start=1):
+        line = raw.strip()
+        if not line:
+            continue
+        if unit is None:
+            if line == "OTHER":
+                raise InputArtifactError(
+                    f"{source}: the unit line names OTHER, which names no scale, so its "
+                    "points cannot be converted to the simulation's length unit. Name the "
+                    f"unit the points are in, one of: {scaled}",
+                    kind="wake_edges",
+                )
+            if line not in _METRES_PER_UNIT:
+                raise InputArtifactError(
+                    f"{source}: line {number} reads {line!r}, and a trailing-edge points "
+                    "file opens with a unit line naming the length unit its points are "
+                    f"in, one of: {scaled}. A line of numbers there is a file with no unit "
+                    "line, and its points would have no scale to convert by",
+                    kind="wake_edges",
+                )
+            unit = line
+            continue
+        try:
+            values = [float(field) for field in line.split(",")]
+        except ValueError:
+            values = []
+        if len(values) != 3 or not all(math.isfinite(value) for value in values):
+            raise InputArtifactError(
+                f"{source}: line {number} reads {line!r}, and every line after the unit "
+                "line is one trailing-edge point: x, y and z, three finite numbers "
+                "separated by commas",
+                kind="wake_edges",
+            )
+        points.append(values)
+        lines.append(number)
+    if unit is None:
+        raise InputArtifactError(
+            f"{source} is empty, and a trailing-edge points file opens with a unit line "
+            f"naming the length unit of its points, one of: {scaled}",
+            kind="wake_edges",
+        )
+    if not points:
+        raise InputArtifactError(
+            f"{source} names its unit, {unit}, and no point after it. The points name the "
+            "edges to mark, and with none the import marks nothing and says nothing",
+            kind="wake_edges",
+        )
+    return TrailingEdgePoints(
+        unit=unit, points=numpy.asarray(points, dtype=float), lines=tuple(lines)
+    )
+
+
+def _mesh_edge_midpoints(mesh: Any) -> numpy.ndarray:
+    """Return the mid-point of every edge of a surface mesh, shape (k, 3).
+
+    A file holding several bodies loads as a scene, and its bodies are
+    joined, since a points file may name edges on more than one of them.
+    """
+    loaded = mesh
+    if isinstance(mesh, (str, Path)):
+        try:
+            loaded = read_mesh(mesh)
+        except (OSError, ValueError, NotImplementedError) as error:
+            raise InputArtifactError(
+                f"the mesh file {mesh} could not be read to check the trailing-edge "
+                f"points against it: {error}",
+                kind="wake_edges",
+            ) from error
+    if getattr(loaded, "faces", None) is None and hasattr(loaded, "to_mesh"):
+        loaded = loaded.to_mesh()
+    vertices = numpy.asarray(getattr(loaded, "vertices", ()), dtype=float)
+    faces = numpy.asarray(getattr(loaded, "faces", ()), dtype=int)
+    if faces.ndim != 2 or faces.shape[0] == 0 or faces.shape[1] != 3 or vertices.ndim != 2:
+        raise InputArtifactError(
+            f"the mesh carries no triangular faces (their array has shape "
+            f"{tuple(faces.shape)}), so it has no edges for a trailing-edge point to lie on",
+            kind="wake_edges",
+        )
+    edges = numpy.unique(numpy.sort(faces[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2), axis=1), axis=0)
+    return (vertices[edges[:, 0]] + vertices[edges[:, 1]]) / 2.0
+
+
+def _nearest(
+    points: numpy.ndarray, candidates: numpy.ndarray
+) -> tuple[numpy.ndarray, numpy.ndarray]:
+    """For each point, the index of and the distance to its nearest candidate.
+
+    Brute force in blocks sized to keep the difference array near three
+    million numbers, so a fine mesh costs time and not memory, and no
+    proximity library is needed.
+    """
+    index = numpy.empty(len(points), dtype=int)
+    distance = numpy.empty(len(points), dtype=float)
+    step = max(1, 1_000_000 // max(1, len(candidates)))
+    for start in range(0, len(points), step):
+        block = points[start : start + step]
+        gaps = numpy.linalg.norm(block[:, None, :] - candidates[None, :, :], axis=2)
+        chosen = gaps.argmin(axis=1)
+        index[start : start + step] = chosen
+        distance[start : start + step] = gaps[numpy.arange(len(block)), chosen]
+    return index, distance
+
+
+def _as_written(point: Sequence[float]) -> str:
+    """Spell a point as a points file line: x,y,z."""
+    return ",".join(repr(float(value)) for value in point)
+
+
+def check_trailing_edge_points(
+    points: object,
+    *,
+    points_unit: str,
+    mesh: Any,
+    mesh_unit: str,
+    simulation_unit: str,
+    tolerance: float = DEFAULT_TOLERANCE,
+    source: str = "the trailing-edge points",
+    lines: Sequence[int] | None = None,
+) -> numpy.ndarray:
+    """Check every trailing-edge point against the mesh, before any run.
+
+    The import marks an edge whose mid-point lies within ``tolerance`` of a
+    point and marks nothing, in silence, for a point outside that distance
+    of every edge's mid-point (RPT-061); an end vertex of an edge is such a
+    point. So each point must lie within the tolerance of a mesh-edge
+    mid-point, compared in the simulation's length unit, and no two points
+    may be nearest one edge, since the solver would then log fewer
+    imported edges than points written and the run would be refused after
+    the seat is spent.
+
+    Parameters
+    ----------
+    points : array_like
+        The points, shape (n, 3), in ``points_unit``.
+    points_unit : str
+        Their unit, a token of :func:`node_file_units` other than OTHER.
+    mesh : str, pathlib.Path or trimesh.Trimesh
+        The surface the points name edges of, as a file (a scene's bodies
+        are joined) or loaded.
+    mesh_unit : str
+        The unit the mesh coordinates are in.
+    simulation_unit : str
+        The simulation's length unit, the one the tolerance is in and the
+        one the points come back in.
+    tolerance : float
+        The import's tolerance, in ``simulation_unit``; positive and finite.
+    source : str
+        What the points are, for the refusal: ordinarily the file's path.
+    lines : sequence of int, optional
+        The file line of each point, as :func:`read_trailing_edge_points`
+        returns them, so a refusal names the line to open.
+
+    Returns
+    -------
+    numpy.ndarray
+        The points converted to ``simulation_unit``, shape (n, 3), ready
+        for :func:`pyflightstream.script.helpers.mark_wake_edges`.
+
+    Raises
+    ------
+    InputArtifactError
+        On the FIRST point farther than the tolerance from every mesh-edge
+        mid-point, naming its position, its file line, its coordinates and
+        its distance; on two points nearest one edge; and on a unit with no
+        scale, a tolerance that is not positive and finite, points that are
+        not (n, 3) finite coordinates, or a mesh with no faces.
+
+    Notes
+    -----
+    The mesh's edges are those of its triangles, so a mesh read from quads
+    carries the diagonals its reader added, and a point on a diagonal's
+    mid-point passes here although no edge of the solver's mesh may lie
+    there. A trailing edge seldom runs along a diagonal; it is stated so a
+    passing check is not read as more than it is.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.wake_edges import (
+    ...     check_trailing_edge_points,
+    ...     read_trailing_edge_points,
+    ... )
+    >>> read = read_trailing_edge_points("wing.te.txt")  # doctest: +SKIP
+    >>> in_metres = check_trailing_edge_points(
+    ...     read.points,
+    ...     points_unit=read.unit,
+    ...     mesh="wing.stl",
+    ...     mesh_unit="METER",
+    ...     simulation_unit="METER",
+    ...     source="wing.te.txt",
+    ...     lines=read.lines,
+    ... )  # doctest: +SKIP
+    """
+    array = _coordinates(points)
+    if not math.isfinite(tolerance) or tolerance <= 0.0:
+        raise InputArtifactError(
+            f"the trailing-edge points were to be checked with a tolerance of "
+            f"{tolerance!r} {tolerance_unit()}, and the tolerance is the distance within "
+            "which a mesh-edge mid-point counts as a point; it must be positive and finite",
+            kind="wake_edges",
+        )
+    scaled = array * length_scale(points_unit, simulation_unit)
+    midpoints = _mesh_edge_midpoints(mesh) * length_scale(mesh_unit, simulation_unit)
+    nearest, distance = _nearest(scaled, midpoints)
+    count = len(scaled)
+    for position in range(count):
+        if distance[position] <= tolerance:
+            continue
+        where = f", file line {lines[position]}" if lines is not None else ""
+        raise InputArtifactError(
+            f"{source}: point {position + 1} of {count}{where} ({_as_written(array[position])} "
+            f"{points_unit}) lies {distance[position]:.6g} {simulation_unit} from the nearest "
+            f"mesh-edge mid-point ({_as_written(midpoints[nearest[position]])} "
+            f"{simulation_unit}). The import matches an edge whose mid-point is within "
+            f"{tolerance:g} {simulation_unit} of a point and marks nothing, silently, for a "
+            "point outside that distance of every edge; an end vertex of an edge is such a "
+            "point. Write the mid-point of each trailing-edge mesh edge",
+            kind="wake_edges",
+        )
+    first_on: dict[int, int] = {}
+    for position, edge in enumerate(nearest.tolist()):
+        if edge in first_on:
+            raise InputArtifactError(
+                f"{source}: points {first_on[edge] + 1} and {position + 1} of {count} both "
+                f"lie nearest the mesh-edge mid-point {_as_written(midpoints[edge])} "
+                f"{simulation_unit}, so the import would mark one edge for two points and "
+                "the solver would log fewer imported edges than points written. Name each "
+                "edge once",
+                kind="wake_edges",
+            )
+        first_on[edge] = position
+    return scaled
 
 
 def write_node_file(
