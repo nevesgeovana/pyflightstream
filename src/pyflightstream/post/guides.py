@@ -80,8 +80,9 @@ from pyflightstream.cases.workflows import (
     RATE_VARIABLES,
     ROW_KEY_MEANINGS,
     WORKFLOWS,
+    command_accepted_on,
 )
-from pyflightstream.commands import CommandRegistry, Status
+from pyflightstream.commands import CommandRegistry
 from pyflightstream.post._tables import CONTEXT_COLUMNS
 from pyflightstream.post.products import (
     PHASE_LOCKED_COLUMNS,
@@ -1014,10 +1015,14 @@ def _field_values(
 
 
 def _builds(commands: Sequence[str]) -> str:
-    """Return the registered builds on which one of ``commands`` is documented or verified.
+    """Return the registered builds on which a row may reach one of ``commands``.
 
-    Empty when that is every registered build: the command's own evidence
-    restricts nothing, so the row says nothing.
+    By :func:`~pyflightstream.cases.workflows.command_accepted_on`, the rule
+    the builders refuse by: documented or verified, and verified for a command
+    a feature reaches only once a run verified it (``SOLVER_TIME_AVERAGING``),
+    so a key is never listed on a build that refuses it. Empty when that is
+    every registered build: the command's own evidence restricts nothing, so
+    the row says nothing.
     """
     if not commands:
         return ""
@@ -1027,8 +1032,7 @@ def _builds(commands: Sequence[str]) -> str:
     for version in versions:
         for name in commands:
             entry = registry.commands.get(name)
-            record = entry.status_in(version) if entry is not None else None
-            if record is not None and record.status in (Status.DOCUMENTED, Status.VERIFIED):
+            if entry is not None and command_accepted_on(entry, version):
                 accepting.append(version.canonical)
                 break
     if len(accepting) == len(versions):

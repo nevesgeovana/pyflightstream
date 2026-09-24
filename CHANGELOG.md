@@ -499,6 +499,15 @@ FlightStream versions.
   refusal is shown on a matrix of its own, `wing_probes.fs`, and the example
   ends by checking that the workspace it printed records no point, that
   `wing.fs` still plans and that its additional post binds `p002` (D11).
+- **`INPUTS.md` lists the builds a key is accepted on by the rule that
+  refuses it.** `Accepted by` read a command documented on a build as the key
+  accepted there, so `time_averaging` listed 26.122 and 26.123, where an
+  unsteady row stating `[time_averaging]` is refused: the table needs
+  `SOLVER_TIME_AVERAGING` verified on the build, and no build records it so.
+  The column now reads the builds off `cases.workflows.command_accepted_on`,
+  the rule the builder refuses by, which asks a verified record of a command
+  in `cases.workflows.VERIFIED_ONLY_COMMANDS`; `time_averaging` reads "no
+  registered build" (G08).
 
 ### Changed
 

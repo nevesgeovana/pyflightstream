@@ -125,6 +125,7 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases import windows as _windows
 from pyflightstream.commands import (
+    CommandEntry,
     CommandNotInVersionError,
     CommandRegistry,
     Phase,
@@ -206,6 +207,7 @@ __all__ = [
     "UNSTEADY_COUNTER_ACTION",
     "UNSTEADY_EXPORTS_ACTION",
     "UnsteadyExportThreshold",
+    "VERIFIED_ONLY_COMMANDS",
     "WHOLE_RUN_EXPORT_KINDS",
     "LOADS_SELECTION_KEYS",
     "END_OF_RUN_EXPORT_KINDS",
@@ -221,6 +223,7 @@ __all__ = [
     "additional_outputs",
     "build_additional_script",
     "build_script",
+    "command_accepted_on",
     "covered_builds",
     "emit_rotor_motion",
     "export_window",
@@ -11683,6 +11686,51 @@ WORKFLOWS: Mapping[str, Workflow] = {
 }
 
 
+#: THE COMMANDS A ROW REACHES ONLY WHERE A RUN VERIFIED THEM on the build,
+#: which asks more than the documented status any other emission needs.
+#: ``SOLVER_TIME_AVERAGING`` is documented from 26.122 and was measured hanging
+#: 26.124 (C01, 2026-09-19), so ``[time_averaging]`` is refused on every build
+#: whose record is not verified. :func:`build_script` refuses by
+#: :func:`command_accepted_on`, and the input glossary states the builds a key
+#: is accepted on by the same function, so the two cannot disagree.
+VERIFIED_ONLY_COMMANDS: frozenset[str] = frozenset({"SOLVER_TIME_AVERAGING"})
+
+
+def command_accepted_on(entry: CommandEntry, version: FsVersion) -> bool:
+    """Say whether a row may reach a command on a build: the rule the builders refuse by.
+
+    A command documented or verified on the build is one a script emits there;
+    a command of :data:`VERIFIED_ONLY_COMMANDS` must be verified there. A
+    build with no record of the command, or one recording it broken or
+    removed, accepts it under neither rule.
+
+    Parameters
+    ----------
+    entry : CommandEntry
+        The command's database entry.
+    version : FsVersion
+        The build, whose record is read with hotfix inheritance.
+
+    Returns
+    -------
+    bool
+        True where a row reaching the command is not refused for its status.
+
+    Examples
+    --------
+    >>> from pyflightstream.commands import CommandRegistry
+    >>> from pyflightstream.versions import resolve
+    >>> command_accepted_on(CommandRegistry.load().commands["SOLVER_SET_AOA"], resolve("26.120"))
+    True
+    """
+    record = entry.status_in(version)
+    if record is None:
+        return False
+    if entry.name in VERIFIED_ONLY_COMMANDS:
+        return record.status is Status.VERIFIED
+    return record.status in (Status.DOCUMENTED, Status.VERIFIED)
+
+
 def build_script(
     case: SimCase,
     script: Script,
@@ -11741,8 +11789,8 @@ def build_script(
     require_coverage(workflow, script.version, registry=registry)
     if case.pproc is not None and case.pproc.time_averaging is not None:
         entry = script.entry("SOLVER_TIME_AVERAGING")
-        record = entry.status_in(script.version)
-        if record is None or record.status is not Status.VERIFIED:
+        if not command_accepted_on(entry, script.version):
+            record = entry.status_in(script.version)
             reason = (record.note if record is not None else None) or "No execution is verified."
             raise CampaignConfigError(
                 f"[time_averaging] requires SOLVER_TIME_AVERAGING verified on "
