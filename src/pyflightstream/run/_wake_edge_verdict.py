@@ -237,8 +237,46 @@ def script_log_names(script_text: str | None) -> list[str]:
 #: script exports: a log by its name wherever it is collected.
 SOLVER_OWN_LOG = "FlightStreamLog.txt"
 
-#: The suffixes of a collected output read for the four G06 sentences.
+#: The suffixes of a collected output read for the four G06 sentences whole.
 _TEXT_SUFFIXES = (".txt", ".log")
+
+#: The kinds that are never text: every other collected output is scanned for
+#: the four sentences, line by line, keeping only the lines that carry one.
+_BINARY_SUFFIXES = (
+    ".fsm",
+    ".vtk",
+    ".vtu",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".bmp",
+    ".gif",
+    ".zip",
+    ".gz",
+    ".7z",
+    ".npz",
+    ".npy",
+    ".h5",
+    ".hdf5",
+)
+
+
+def _refusal_excerpt(path: Path) -> str:
+    """Return the lines of ``path`` that carry a G06 sentence, each with the line after.
+
+    Streamed, so a large export costs one pass and no more memory than a line.
+    """
+    kept: list[str] = []
+    take_next = False
+    with path.open(encoding="utf-8", errors="replace") as stream:
+        for line in stream:
+            if take_next:
+                kept.append(line)
+                take_next = False
+            if any(sentence in line for sentence in ACTUATOR_PROFILE_REFUSALS):
+                kept.append(line)
+                take_next = True
+    return "".join(kept)
 
 
 def collected_log_texts(
@@ -296,12 +334,20 @@ def collected_log_texts(
     # before the declared logs were recorded names it nowhere else.
     named = {PureWindowsPath(str(name)).name.casefold() for name in declared}
     named.add(SOLVER_OWN_LOG.casefold())
-    return [
-        path.read_text(encoding="utf-8", errors="replace")
-        for path in (folder / entry for entry in collected)
-        if (path.suffix.casefold() in _TEXT_SUFFIXES or path.name.casefold() in named)
-        and path.is_file()
-    ]
+    texts: list[str] = []
+    for path in (folder / entry for entry in collected):
+        if not path.is_file():
+            continue
+        suffix = path.suffix.casefold()
+        if suffix in _TEXT_SUFFIXES or path.name.casefold() in named:
+            texts.append(path.read_text(encoding="utf-8", errors="replace"))
+        elif suffix not in _BINARY_SUFFIXES:
+            # Any other kind a child script may have exported its log under
+            # (``step_iteration=11.out``): only the lines that carry a sentence.
+            excerpt = _refusal_excerpt(path)
+            if excerpt:
+                texts.append(excerpt)
+    return texts
 
 
 def wake_edge_import_verdict(

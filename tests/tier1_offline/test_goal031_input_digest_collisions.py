@@ -755,3 +755,40 @@ def test_a_descriptor_named_like_a_program_the_run_writes_is_refused(tmp_path):
             recorded={},
             run_writes=_descriptor_of(submitting, tmp_path),
         )
+
+
+def test_two_run_written_files_on_one_path_are_refused_whatever_their_spelling(tmp_path):
+    """A machine profile whose descriptor name is the steady job's main script: the two
+    files the run writes are one path spelled the same way, and the descriptor would
+    replace the script the record hashed. Refused before anything is written."""
+    main = tmp_path / "scripts" / "P9014-AL+sweep.txt"
+    case = SimCase(
+        sim_id="9014",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="actions",
+        outputs=["loads_{point}.txt"],
+    )
+    with pytest.raises(CampaignConfigError, match=r"written by the run for two things"):
+        _write_pending_files(
+            Script("26.124"), tmp_path, case=case, recorded={}, run_writes=(main, main)
+        )
+
+
+def test_a_collected_output_of_any_text_kind_is_read_for_the_refusal_lines(tmp_path):
+    """A child action exports the log each step as ``step.out``, which the solver files as
+    ``step_iteration=11.out``: every collected output that is not a binary kind is read
+    for the four sentences, streamed, whatever its suffix; a binary kind is not read."""
+    from pyflightstream.run._wake_edge_verdict import (
+        ACTUATOR_PROFILE_REFUSALS,
+        actuator_profile_verdict,
+        collected_log_texts,
+    )
+
+    refusal = ACTUATOR_PROFILE_REFUSALS[1] + "\nC:/w/prop.txt\n"
+    (tmp_path / "step_iteration=11.out").write_text("line\n" + refusal, encoding="utf-8")
+    (tmp_path / "point.fsm").write_text(refusal, encoding="utf-8")
+    texts = collected_log_texts(tmp_path, ["step_iteration=11.out"], declared=[])
+    assert actuator_profile_verdict(*texts) is not None, texts
+    assert collected_log_texts(tmp_path, ["point.fsm"], declared=[]) == []

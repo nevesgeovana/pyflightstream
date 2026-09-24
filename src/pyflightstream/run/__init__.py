@@ -5674,7 +5674,7 @@ def _write_pending_files(
     # into the record, when the point is submitted.
     for own in run_writes:
         key = one_file(placed(str(own)))
-        if key in reserved and reserved[key] != str(own):
+        if key in reserved:
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: {own} is written by the run for two things: it is "
                 f"{reserved[key]}, which the run writes itself and hashes, and a file the "

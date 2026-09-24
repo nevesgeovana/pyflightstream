@@ -847,7 +847,11 @@ gone (`docs/migrating-to-0.27.0.md`).
   beside the geometry or on a path several points share, is refused before the
   solver starts, since another point's run would rewrite it before a queued
   point read it. Pass `mark_wake_edges` and `actuator_disc` a path in
-  `script.working_dir`, as the workflow builders do (G02, G06).
+  `script.working_dir`, as the workflow builders do (G02, G06). The files the
+  run writes itself are checked against one another, so a machine profile's
+  descriptor name on the main script's or a program's path is refused naming
+  the descriptor; and every collected output that is not a binary kind is
+  scanned for the profile's refusal, line by line, whatever its suffix (G06).
 
 ### Changed
 
