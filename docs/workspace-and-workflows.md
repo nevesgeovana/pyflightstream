@@ -2300,6 +2300,14 @@ token of another shape, an alias the reference does not declare or a list of
 them, a frame nothing defines, an axis of zero length, and the key on a
 `LEGACY` row.
 
+**A row's move is not the geometry's.** A raw mesh's own scale, rename,
+mirror, translation and rotation, the ones that make the file into the body,
+are declared once in its sidecar as `[[import.operations]]` and applied right
+after the import, before any frame exists, for every row that names the file
+([mesh inputs](mesh-inputs.md#the-mesh-operations-of-an-import)). `TRANSLATE`
+and `ROTATE` are the study's moves, per row, after the frames, and they act on
+the body those operations left.
+
 ## Worked rows, and where to get the files
 
 Every row below is a real row of `tests/tier3_licensed/matriz_vocab.fs`,

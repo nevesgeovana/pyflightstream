@@ -88,6 +88,7 @@ from pyflightstream.cases import (
     AXES_PLOT_COMPONENTS,
     AXES_PLOT_GROUP,
     AXIS_UNIT_VECTORS,
+    EVERY_SURFACE,
     EXPANDING_FRAMES,
     EXPORT_KINDS,
     FORCE_PLOT_PARAMETERS,
@@ -96,6 +97,7 @@ from pyflightstream.cases import (
     ROTOR_PLOT_GROUP_PREFIX,
     CampaignConfigError,
     CustomFlag,
+    MeshOperation,
     PhaseLockedSpec,
     RotorBlock,
     ScriptRecipe,
@@ -110,7 +112,13 @@ from pyflightstream.cases import (
     warn_a_selector_that_guesses,
 )
 from pyflightstream.cases import windows as _windows
-from pyflightstream.commands import CommandRegistry, Phase, Status, VersionView
+from pyflightstream.commands import (
+    CommandNotInVersionError,
+    CommandRegistry,
+    Phase,
+    Status,
+    VersionView,
+)
 from pyflightstream.script import (
     MARCH_ACTIONS,
     MARCH_SINGLE,
@@ -590,6 +598,26 @@ SIMULATION_LENGTH_UNIT = "METER"
 #: it: ``OTHER`` names no length, so its scale would be the solver's to
 #: choose, which is the assumed unit the table exists to rule out.
 _UNIT_THAT_NAMES_NO_LENGTH = "OTHER"
+
+#: The command each mesh operation of an import becomes (G03). A rotation is
+#: not here: it goes through :func:`pyflightstream.script.helpers.rotate_surfaces`,
+#: which emits the rotation command the build documents, one name up to
+#: 26.121 and another from 26.122.
+_IMPORT_COMMANDS: Mapping[str, str] = MappingProxyType(
+    {
+        "scale": "SURFACE_SCALE",
+        "rename": "SURFACE_RENAME",
+        "mirror": "SURFACE_MIRROR",
+        "translate": "TRANSLATE_SURFACE_IN_FRAME",
+    }
+)
+
+#: ``SURFACE_MIRROR``'s plane is an INDEX and not letters (SRC-003 p.311).
+_MIRROR_PLANES: Mapping[str, int] = MappingProxyType({"YZ": 1, "XZ": 2, "XY": 3})
+
+#: The frame every import operation acts in: the reference, the one frame
+#: that exists before the setup creates any.
+_IMPORT_FRAME = 1
 
 
 class WorkflowCoverageError(PyflightstreamError, RuntimeError):
@@ -2532,7 +2560,14 @@ def _inventory_source(case: SimCase) -> str:
     """Say where this case's boundary inventory was read from, for a message."""
     file_name = PurePath(str(case.geometry)).name
     if case.inventory is not None:
-        return f"the sidecar {PurePath(str(case.geometry)).stem}.boundaries.toml beside {file_name}"
+        sidecar = f"the sidecar {PurePath(str(case.geometry)).stem}.boundaries.toml"
+        # A RAW MESH'S NAMES ARE THE SIDECAR'S AS ITS RENAMES LEFT THEM (G03), so
+        # a refusal listing them says so, or the list reads as a misquote.
+        renames = case.mesh_import is not None and any(
+            operation.op == "rename" for operation in case.mesh_import.operations
+        )
+        after = " (after the renames of its [[import.operations]])" if renames else ""
+        return f"{sidecar} beside {file_name}{after}"
     return f"the mesh block of {file_name}"
 
 
@@ -4097,10 +4132,21 @@ def _import_mesh(case: SimCase, script: Script, file_type: str) -> None:
 
         NEW_SIMULATION
         IMPORT  UNITS <the sidecar's unit>  FILE_TYPE <OBJ|STL>  FILE <staged copy>  CLEAR
+        <the geometry-phase import operations: scale, rename, mirror>
         SET_SIMULATION_LENGTH_UNITS METER
+        <the setup-phase import operations: translate, rotate>
 
     and then the boundary inventory is declared, from the sidecar's
-    ``boundaries``, since a raw mesh carries no mesh block to read it from.
+    ``boundaries`` as the operations' renames left them, since a raw mesh
+    carries no mesh block to read it from and the ledger cannot relabel a
+    name once declared.
+
+    THE OPERATIONS ARE THE SIDECAR'S ``[[import.operations]]`` (G03), in
+    the order written and in the reference frame. Each one's phase is read
+    from the command database, so an order the script's phases cannot emit
+    (a scale after a translation) is refused naming both, never reordered.
+    Every cited surface is resolved by name, against the names at its own
+    step, before anything is emitted (:func:`_plan_import_operations`).
 
     THE UNIT IS NEVER ASSUMED. The file's unit is the ``[import]`` table's
     ``units`` and goes to ``IMPORT`` alone; the simulation is set to metres
@@ -4119,8 +4165,9 @@ def _import_mesh(case: SimCase, script: Script, file_type: str) -> None:
         table, naming the table, the key, the sidecar and the units this
         build's ``IMPORT`` takes; the table states a unit that ``IMPORT``
         does not take on this build, or ``OTHER``, which names no length;
-        or the setup asks to load a stored solver state, which a new
-        simulation does not have.
+        the setup asks to load a stored solver state, which a new
+        simulation does not have; or an import operation is refused by
+        :func:`_plan_import_operations`.
     """
     geometry = PurePath(str(case.geometry))
     sidecar = geometry.stem + ".boundaries.toml"
@@ -4161,11 +4208,206 @@ def _import_mesh(case: SimCase, script: Script, file_type: str) -> None:
             f"Drop the setting, or stage a saved simulation ({SIMULATION_SUFFIX}) that "
             "carries the state."
         )
+    steps, names = _plan_import_operations(case, script, sidecar)
     script.emit("NEW_SIMULATION")
     script.emit("IMPORT", spec.units, file_type, case.geometry, clear=True)
+    for step in steps:
+        if step.geometry_phase:
+            _emit_import_operation(script, step, spec.units)
     script.emit("SET_SIMULATION_LENGTH_UNITS", SIMULATION_LENGTH_UNIT)
-    # THE SIDECAR'S NAMES, and the file is not read for a block it cannot have.
-    _declare_boundaries(case, script, stated=case.inventory or ())
+    for step in steps:
+        if not step.geometry_phase:
+            _emit_import_operation(script, step, spec.units)
+    # THE SIDECAR'S NAMES AS THE RENAMES LEFT THEM, declared once, after the
+    # operations: the ledger cannot relabel, and the file is not read for a
+    # block it cannot have.
+    _declare_boundaries(case, script, stated=names)
+
+
+@dataclass(frozen=True)
+class _ImportStep:
+    """One mesh operation of an import, resolved before anything is emitted (G03)."""
+
+    position: int
+    operation: MeshOperation
+    command: str
+    geometry_phase: bool
+    #: The 1-based position of the surface it acts on, at its own step; None
+    #: for every surface.
+    surface: int | None
+
+
+def _import_operation_command(script: Script, op: str) -> str:
+    """Return the command one import operation emits on this script's build."""
+    if op != "rotate":
+        return _IMPORT_COMMANDS[op]
+    for name in helpers.ROTATION_COMMANDS:
+        try:
+            script.entry(name)
+        except CommandNotInVersionError:
+            continue
+        return name
+    # No registered build documents neither; the lookup of the phase below
+    # then refuses naming the build, still before anything is emitted.
+    return helpers.ROTATION_COMMANDS[0]
+
+
+def _plan_import_operations(
+    case: SimCase, script: Script, sidecar: str
+) -> tuple[list[_ImportStep], tuple[str, ...]]:
+    """Resolve the import operations the sidecar declares, refusing before any emission (G03).
+
+    Returns the steps in the order written and the boundary names as the
+    renames leave them. Walked once, in order, on a LOCAL copy of the names,
+    because the script's own ledger cannot relabel a name once declared and
+    the solver renames only when the script runs.
+
+    Raises
+    ------
+    CampaignConfigError
+        A geometry-phase operation written after a setup-phase one, naming
+        both by position and kind; a surface name absent at its step,
+        listing the names at that step; a name two surfaces carry at its
+        step; or a rename onto a name another surface carries.
+    """
+    spec = case.mesh_import
+    if spec is None:
+        return [], tuple(case.inventory or ())
+    names = list(case.inventory or ())
+    steps: list[_ImportStep] = []
+    first_setup: _ImportStep | None = None
+    for position, operation in enumerate(spec.operations, start=1):
+        command = _import_operation_command(script, operation.op)
+        # THE PHASE IS THE DATABASE'S, per build, never a list written here.
+        geometry_phase = script.entry(command).phase is Phase.GEOMETRY
+        if geometry_phase and first_setup is not None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: {sidecar} declares operation {position} "
+                f"({operation.op}) after operation {first_setup.position} "
+                f"({first_setup.operation.op}); {operation.op} is a geometry command "
+                f"({command}) and {first_setup.operation.op} a setup command "
+                f"({first_setup.command}), and a script cannot return to the geometry "
+                "phase once it has reached the setup phase, so the two cannot be emitted "
+                "in the order written, and they are never reordered. Write every scale, "
+                "rename and mirror before the first translate or rotate, restating a "
+                "translation in the scaled size if the scale was meant to act on it "
+                "(docs/mesh-inputs.md)."
+            )
+        surface = None
+        if operation.surface != EVERY_SURFACE:
+            surface = _import_surface(case, sidecar, names, position, operation)
+        if operation.op == "rename" and surface is not None and operation.to is not None:
+            taken = [
+                index
+                for index, name in enumerate(names, start=1)
+                if name == operation.to and index != surface
+            ]
+            if taken:
+                raise CampaignConfigError(
+                    f"case {case.sim_id!r}: operation {position} (rename) of {sidecar} "
+                    f"renames {operation.surface!r} to {operation.to!r}, which surface "
+                    f"{taken[0]} already carries at that step, and two surfaces of one "
+                    "name cannot be cited apart. Choose a name no other surface carries."
+                )
+            names[surface - 1] = operation.to
+        step = _ImportStep(position, operation, command, geometry_phase, surface)
+        if not geometry_phase and first_setup is None:
+            first_setup = step
+        steps.append(step)
+    return steps, tuple(names)
+
+
+def _import_surface(
+    case: SimCase, sidecar: str, names: Sequence[str], position: int, operation: MeshOperation
+) -> int:
+    """Return the 1-based position of the surface one import operation names, at its step."""
+    found = [index for index, name in enumerate(names, start=1) if name == operation.surface]
+    where = (
+        f"case {case.sim_id!r}: operation {position} ({operation.op}) of {sidecar} names "
+        f"the surface {operation.surface!r}"
+    )
+    if not found:
+        known = ", ".join(repr(name) for name in names) or (
+            "none, since the sidecar states no boundaries"
+        )
+        raise CampaignConfigError(
+            f"{where}, and the surfaces at that step are {known}. Cite a surface by the "
+            "name the file gives it, or by the name an earlier rename gave it, exactly as "
+            "written; never by position (docs/mesh-inputs.md)."
+        )
+    if len(found) > 1:
+        raise CampaignConfigError(
+            f"{where}, which {len(found)} surfaces carry at that step (positions "
+            f"{', '.join(str(index) for index in found)}), so it selects none of them. "
+            "Give those surfaces distinct names in the mesh file."
+        )
+    return found[0]
+
+
+def _emit_import_operation(script: Script, step: _ImportStep, units: str) -> None:
+    """Emit one resolved import operation, in the reference frame (G03)."""
+    operation = step.operation
+    if operation.op == "rotate":
+        # MeshOperation's own check states both for a rotation; this narrows the type.
+        assert operation.axis is not None and operation.angle_deg is not None
+        helpers.rotate_surfaces(
+            script,
+            frame=_IMPORT_FRAME,
+            axis=operation.axis,
+            angle_deg=operation.angle_deg,
+            boundaries="all" if step.surface is None else [step.surface],
+        )
+        return
+    if operation.op == "rename":
+        script.emit(step.command, index=step.surface, name=operation.to)
+        return
+    if operation.op == "mirror":
+        # JOINED TO ITS SOURCE, which survives: the surface count is unchanged,
+        # and the other three outcomes add or replace a surface whose name and
+        # position are unmeasured.
+        assert operation.plane is not None
+        script.emit(
+            step.command,
+            surface=step.surface,
+            coordinate_system=_IMPORT_FRAME,
+            mirror_plane=_MIRROR_PLANES[operation.plane],
+            combine_flag="TRUE",
+            delete_source_flag="FALSE",
+        )
+        return
+    # EVERY SURFACE IS EACH COMMAND'S OWN SENTINEL, read from the database:
+    # -1 on SURFACE_SCALE and 0 on TRANSLATE_SURFACE_IN_FRAME.
+    surface = step.surface
+    if surface is None:
+        argument = next(arg for arg in script.entry(step.command).args if arg.name == "surface")
+        surface = argument.all_sentinel
+    if operation.op == "scale":
+        assert operation.factors is not None
+        scale_x, scale_y, scale_z = operation.factors
+        script.emit(
+            step.command,
+            frame=_IMPORT_FRAME,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            scale_z=scale_z,
+            surface=surface,
+        )
+        return
+    assert operation.vector is not None
+    x, y, z = operation.vector
+    # IN THE FILE'S UNIT, which the command states on its own line. A named
+    # surface splits its vertices from its neighbours, as the row's own
+    # translation does (RPT-048); every surface together has none to split from.
+    script.emit(
+        step.command,
+        frame=_IMPORT_FRAME,
+        x=x,
+        y=y,
+        z=z,
+        units=units,
+        surface=surface,
+        split_vertices="DISABLE" if step.surface is None else "ENABLE",
+    )
 
 
 def _base_region_families(case: SimCase) -> list[str]:

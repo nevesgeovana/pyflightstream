@@ -2212,19 +2212,26 @@ def read_inventory(sidecar: str | Path) -> tuple[str, ...]:
 
 
 def read_mesh_import(sidecar: str | Path) -> MeshImport | None:
-    """Return the ``[import]`` table a geometry's sidecar states, or None (G01).
+    """Return the ``[import]`` table a geometry's sidecar states, or None (G01, G03).
 
-    The table states the length unit a raw mesh is written in::
+    The table states the length unit a raw mesh is written in, and the
+    mesh operations applied right after the import, in the order written::
 
-        boundaries = ["Wing"]
+        boundaries = ["naca"]
 
         [import]
         units = "MILLIMETER"
 
+        [[import.operations]]
+        op = "rename"
+        surface = "naca"
+        to = "Wing"
+
     Read at binding, beside :func:`read_inventory`, so a table that does
-    not hold its shape is refused with the row before any seat is spent.
-    Whether the unit is one ``IMPORT`` takes, and whether the geometry is a
-    raw mesh at all, is the builder's to judge, per build.
+    not hold its shape is refused with the row before any seat is spent,
+    an operation named by its position. Whether the unit is one ``IMPORT``
+    takes, whether the geometry is a raw mesh at all, and whether each
+    cited surface exists at its step, is the builder's to judge, per build.
 
     Parameters
     ----------
@@ -2240,8 +2247,10 @@ def read_mesh_import(sidecar: str | Path) -> MeshImport | None:
     ------
     InputArtifactError
         A file that does not read as TOML, an ``import`` key that is not a
-        table, or a table that states no ``units`` or a key it does not
-        read, each naming the sidecar.
+        table, a table that states no ``units`` or a key it does not read,
+        or an operation that does not hold its shape (its own keys, finite
+        numbers, scale factors above zero, a named surface for a rename or
+        a mirror), each naming the sidecar and the operation's position.
     """
     path = Path(sidecar)
     table = _sidecar_data(path).get(IMPORT_TABLE)
@@ -2267,13 +2276,24 @@ def read_mesh_import(sidecar: str | Path) -> MeshImport | None:
                 'units = "MILLIMETER". A unit is never assumed (docs/mesh-inputs.md).'
             ) from error
         problems = "; ".join(
-            f"{'.'.join(str(part) for part in item['loc']) or 'the table'}: {item['msg']}"
+            f"{_where_in_the_import_table(item['loc'])}: "
+            f"{str(item['msg']).removeprefix('Value error, ')}"
             for item in error.errors()
         )
         raise InputArtifactError(
             f"{path}: the [{IMPORT_TABLE}] table is refused: {problems}. It holds `units`, "
-            "the length unit the mesh file is written in (docs/mesh-inputs.md)."
+            "the length unit the mesh file is written in, and the mesh operations of the "
+            f"import as [[{IMPORT_TABLE}.operations]], numbered in the order written "
+            "(docs/mesh-inputs.md)."
         ) from error
+
+
+def _where_in_the_import_table(loc: Sequence[int | str]) -> str:
+    """Name a place of the ``[import]`` table as its reader counts it: ``operation 2 (factors)``."""
+    if len(loc) >= 2 and loc[0] == "operations" and isinstance(loc[1], int):
+        rest = ".".join(str(part) for part in loc[2:])
+        return f"operation {loc[1] + 1}" + (f" ({rest})" if rest else "")
+    return ".".join(str(part) for part in loc) or "the table"
 
 
 # --- one subfolder per geometry (PFS-2032.05) ----------------------------------------

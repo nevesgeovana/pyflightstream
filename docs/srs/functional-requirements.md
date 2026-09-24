@@ -1796,6 +1796,16 @@ nodes.
     measured on any build. The clause above is left standing, as a
     requirement records what was believed when it was written.
 
+    AMENDED 0.27.0 (G03), pending with it: the same table declares the
+    mesh operations of the import, `[[import.operations]]` (scale,
+    rename, mirror joined to its source, translate in the table's unit,
+    rotate), applied in the order written right after `IMPORT`, in the
+    reference frame, each citing a surface by the file's name or by the
+    name an earlier rename gave it and never by position; an order the
+    script's phases cannot emit is refused naming both operations, never
+    reordered; and the boundary inventory a row cites is the sidecar's as
+    the renames leave it.
+
     This reverses a rule the 0.10.1 library defends in four arms at
     `workspace/matrix.py:566-637`, which is why it is a minor release and
     why the migration of every shipped matrix travels with it.

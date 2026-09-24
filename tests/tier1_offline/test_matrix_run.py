@@ -3067,7 +3067,7 @@ def test_an_obj_row_imports_the_staged_copy_in_the_unit_its_sidecar_declares(
     )
     assert "OPEN" not in lines
     assert records[0].inputs_sha256 == {f"wing{suffix}": file_sha256(library)}
-    assert records[0].mesh_import == {"units": units}
+    assert records[0].mesh_import == {"units": units, "operations": []}
 
 
 @pytest.mark.parametrize(
@@ -3110,6 +3110,182 @@ def test_an_import_table_without_units_is_refused_naming_the_sidecar(tmp_path):
     with pytest.raises(InputArtifactError, match=r"\[import\].*units") as caught:
         resolve_geometry_row(tmp_path, workspace, " / VELOCITY: 30.0 / GEOMETRY: wing.obj")
     assert "wing.boundaries.toml" in str(caught.value)
+
+
+# --- G03: the mesh operations of an import, declared with the geometry ----------------
+
+#: Two surfaces, named as a CAD export names them.
+_OBJ_TWO = (
+    b"o naca\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\no tail\nv 0 0 1\nv 1 0 1\nv 0 1 1\nf 4 5 6\n"
+)
+_SCALE = '[[import.operations]]\nop = "scale"\nfactors = [2, 2, 2]\n\n'
+_RENAME = '[[import.operations]]\nop = "rename"\nsurface = "naca"\nto = "Wing"\n\n'
+_MIRROR = '[[import.operations]]\nop = "mirror"\nsurface = "Wing"\nplane = "XZ"\n\n'
+_TRANSLATE_TAIL = (
+    '[[import.operations]]\nop = "translate"\nsurface = "tail"\nvector = [500, 0, 0]\n\n'
+)
+_ROTATE = '[[import.operations]]\nop = "rotate"\naxis = "Y"\nangle_deg = 2.0\n\n'
+
+
+def _stage_with_operations(workspace, operations):
+    """Stage the two-surface OBJ with a sidecar in millimetres carrying ``operations``."""
+    library = stage_geometry(workspace, "wing.obj", _OBJ_TWO)
+    library.with_name("wing.boundaries.toml").write_text(
+        'boundaries = ["naca", "tail"]\n\n[import]\nunits = "MILLIMETER"\n\n' + operations,
+        encoding="utf-8",
+    )
+    return library
+
+
+def _bound_row(tmp_path, workspace, tail=""):
+    try:
+        return resolve_geometry_row(
+            tmp_path, workspace, " / VELOCITY: 30.0 / GEOMETRY: wing.obj" + tail
+        )
+    except InputArtifactError as refused:
+        pytest.fail(f"the sidecar's operations never reached a case: {refused}")
+
+
+def test_the_import_operations_emit_in_the_order_the_sidecar_writes_them(tmp_path):
+    """G03: each operation emits in the order written, geometry ones before the unit line.
+
+    Scale, rename and mirror are geometry-phase commands and come right after
+    the import; the translation and the rotation are setup-phase and come
+    after the simulation's length unit. Every surface is cited by the name
+    the file gives it, or by the name an earlier rename gave, and the
+    inventory the row cites is the renamed one. The translation is in the
+    file's unit, 500 mm; the rotation renders as the build's own command,
+    the keyword block on 26.120.
+    """
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    _stage_with_operations(workspace, _SCALE + _RENAME + _MIRROR + _TRANSLATE_TAIL + _ROTATE)
+    case = _bound_row(tmp_path, workspace)
+    script = Script("26.120")
+    try:
+        build_script(case, script)
+    except CampaignConfigError as refused:
+        pytest.fail(f"the import operations never reached a script: {refused}")
+    lines = script.render().splitlines()
+    start = lines.index("CLEAR") + 2
+    assert lines[start : start + 13] == [
+        "SURFACE_SCALE 1 2.0 2.0 2.0 -1",
+        "SURFACE_RENAME 1 Wing",
+        "SURFACE_MIRROR 1 1 2 TRUE FALSE",
+        "SET_SIMULATION_LENGTH_UNITS METER",
+        "TRANSLATE_SURFACE_IN_FRAME 1 500.0 0.0 0.0 MILLIMETER 2 ENABLE",
+        "SURFACE_ROTATE",
+        "FRAME 1",
+        "AXIS Y",
+        "ANGLE 2.0",
+        "SURFACES -1",
+        "SPLIT_VERTICES DISABLE",
+        "ADAPTIVE_MESH DISABLE",
+        "DETACH_NORMAL_TO_AXIS DISABLE",
+    ]
+    assert script.entities.labels("boundaries") == {"Wing": 1, "tail": 2}
+
+
+@pytest.mark.parametrize(
+    ("cited", "cites"), [("Wing", True), ("naca", False)], ids=["new-name", "old-name"]
+)
+def test_a_renamed_surface_is_cited_by_its_new_name_and_the_old_one_is_refused(
+    tmp_path, cited, cites
+):
+    """G03: the rename feeds the inventory, so a row cites the new name and not the file's."""
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script, ScriptReferenceError
+
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    _stage_with_operations(workspace, _RENAME)
+    case = _bound_row(tmp_path, workspace, f" / BASE_REGIONS: {cited}")
+    script = Script("26.120")
+    if cites:
+        try:
+            build_script(case, script)
+        except (CampaignConfigError, ScriptReferenceError) as refused:
+            pytest.fail(f"the renamed surface cannot be cited by its new name: {refused}")
+        assert "DETECT_BASE_REGIONS_BY_SURFACE 1" in script.render().splitlines()
+        return
+    with pytest.raises((ScriptReferenceError, CampaignConfigError)) as caught:
+        build_script(case, script)
+    message = str(caught.value)
+    assert "'naca'" in message and "declares no boundary" in message, message
+
+
+def test_an_import_operation_the_phase_order_cannot_emit_is_refused_naming_both(tmp_path):
+    """G03: a scale after a translation cannot be emitted in the order written; never reordered."""
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    translate = '[[import.operations]]\nop = "translate"\nvector = [1, 0, 0]\n\n'
+    _stage_with_operations(workspace, translate + _SCALE)
+    case = _bound_row(tmp_path, workspace)
+    script = Script("26.120")
+    with pytest.raises(CampaignConfigError) as caught:
+        build_script(case, script)
+    message = str(caught.value)
+    for needle in ("operation 1", "translate", "operation 2", "scale", "wing.boundaries.toml"):
+        assert needle in message, f"the refusal does not name {needle!r}: {message}"
+    assert script.render().strip() == "", "the refusal left lines in the script"
+
+
+@pytest.mark.parametrize(
+    ("operation", "needle"),
+    [
+        ('op = "scale"\nfactors = [0, 1, 1]\n', "greater than zero"),
+        ('op = "rename"\nto = "Wing"\n', "names the surface"),
+        ('op = "mirror"\nsurface = "naca"\nplane = "XZ"\nangle_deg = 2.0\n', "angle_deg"),
+    ],
+    ids=["a-zero-factor", "a-rename-of-every-surface", "a-key-mirror-does-not-read"],
+)
+def test_an_import_operation_that_does_not_hold_its_shape_is_refused_at_binding(
+    tmp_path, operation, needle
+):
+    """G03: an operation is checked with its table, naming the sidecar and its position."""
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    _stage_with_operations(workspace, _SCALE + "[[import.operations]]\n" + operation)
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_geometry_row(tmp_path, workspace, " / VELOCITY: 30.0 / GEOMETRY: wing.obj")
+    message = str(caught.value)
+    assert "wing.boundaries.toml" in message and "operation 2" in message, message
+    assert needle in message, message
+
+
+@pytest.mark.parametrize(
+    ("operations", "needle"),
+    [
+        ('[[import.operations]]\nop = "scale"\nsurface = "nose"\nfactors = [2, 2, 2]\n', "'nose'"),
+        (
+            _RENAME + '[[import.operations]]\nop = "rename"\nsurface = "tail"\nto = "Wing"\n',
+            "'Wing'",
+        ),
+    ],
+    ids=["a-name-the-file-lacks", "a-rename-onto-a-name-in-use"],
+)
+def test_an_import_operation_citing_a_name_it_cannot_resolve_is_refused_before_emitting(
+    tmp_path, operations, needle
+):
+    """G03: surfaces are cited by name, resolved against the names at that step, never guessed."""
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    _stage_with_operations(workspace, operations)
+    case = _bound_row(tmp_path, workspace)
+    script = Script("26.120")
+    with pytest.raises(CampaignConfigError) as caught:
+        build_script(case, script)
+    message = str(caught.value)
+    assert needle in message and "wing.boundaries.toml" in message, message
+    assert script.render().strip() == "", "the refusal left lines in the script"
 
 
 def test_a_campaign_runs_under_the_relative_root_the_cli_defaults_to(tmp_path, monkeypatch):

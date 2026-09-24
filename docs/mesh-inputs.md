@@ -19,7 +19,10 @@ database, so the CAD, CAD Create and Mesh Operations chapters are
 emittable in full, and the last of those is this page's own subject,
 everything that translates, rotates, scales, mirrors, copies, cuts,
 selects or deletes a surface between import and solver initialization.
-The mesh-wrapper chapter is in too, as of 2026-08-08.
+The mesh-wrapper chapter is in too, as of 2026-08-08. Since 0.27.0 five
+of those commands, scale, rename, mirror, translate and rotate, are also
+declared with a raw mesh's geometry and applied by a workflow row
+([the mesh operations of an import](#the-mesh-operations-of-an-import)).
 
 **Read the scope of that claim, because a ninth edition has arrived
 since.** It is a statement about the eight editions swept in August 2026
@@ -203,14 +206,120 @@ surface in the order the file holds them, and a row cites those names as it
 cites a `.fsm`'s. They are a statement the run trusts rather than verifies:
 the file carries nothing this package reads its names from, so a name in the
 wrong position cites the wrong surface, and nothing refuses it before the
-solver runs. A row whose `.fsm` has a sidecar is
-checked when the script opens the file: a sidecar that disagrees with the
-file's own block is refused before any seat is spent, naming both lists,
-and an agreeing one is recorded in the run record as the inventory source
-(`inventory_source: sidecar`; `mesh_block` when the file alone declared the
-names). The sidecar is what lets a name resolve for a file whose mesh
-block a reader cannot open, and it is otherwise a statement the run
-verifies rather than trusts.
+solver runs.
+
+A row whose `.fsm` has a sidecar is checked when the script opens the file:
+a sidecar that disagrees with the file's own block is refused before any
+seat is spent, naming both lists, and an agreeing one is recorded in the
+run record as the inventory source (`inventory_source: sidecar`;
+`mesh_block` when the file alone declared the names). The sidecar is what
+lets a name resolve for a file whose mesh block a reader cannot open, and
+it is otherwise a statement the run verifies rather than trusts.
+
+### The mesh operations of an import
+
+A raw mesh is often not yet the body: a CAD export at another scale, half a
+model, surfaces named by the tool that wrote them. The operations that make
+it the body are declared with the geometry, in its sidecar, one
+`[[import.operations]]` table each, so every row that names the file shares
+them:
+
+```toml
+boundaries = ["naca", "tail"]
+
+[import]
+units = "MILLIMETER"
+
+[[import.operations]]
+op = "scale"
+factors = [2.0, 2.0, 2.0]
+
+[[import.operations]]
+op = "rename"
+surface = "naca"
+to = "Wing"
+
+[[import.operations]]
+op = "mirror"
+surface = "Wing"
+plane = "XZ"
+
+[[import.operations]]
+op = "translate"
+surface = "tail"
+vector = [500.0, 0.0, 0.0]
+
+[[import.operations]]
+op = "rotate"
+axis = "Y"
+angle_deg = 2.0
+```
+
+| `op` | it states | it emits | every surface |
+|---|---|---|---|
+| `scale` | `factors = [fx, fy, fz]`, each above zero | `SURFACE_SCALE` | `-1` |
+| `rename` | `surface` and `to`, a name without spaces | `SURFACE_RENAME` | none: it names one surface |
+| `mirror` | `surface` and `plane`: `YZ`, `XZ` or `XY` | `SURFACE_MIRROR` | none: it names one surface |
+| `translate` | `vector = [x, y, z]`, in the `[import]` unit | `TRANSLATE_SURFACE_IN_FRAME` | `0` |
+| `rotate` | `axis` (`X`, `Y` or `Z`) and `angle_deg` | the build's rotation command | `-1` |
+
+Each acts in the reference frame, the one frame that exists before the setup
+creates any. `surface` names the surface acted on by the name the file gives
+it, or by the name an earlier rename gave it, exactly as written and never by
+position; it is `"all"`, every surface, when left out, and the last column is
+the value each command takes for that. A named surface's translation splits
+its vertices from its neighbours, as a row's own translation does; every
+surface together is moved without the split. The rotation is
+`SURFACE_ROTATE` up to 26.121 and `ROTATE_SURFACE` from 26.122, as for a
+row's `ROTATE`.
+
+**They are applied in the order written, right after the import.** The
+script reads:
+
+```text
+NEW_SIMULATION
+IMPORT ...
+SURFACE_SCALE 1 2.0 2.0 2.0 -1
+SURFACE_RENAME 1 Wing
+SURFACE_MIRROR 1 1 2 TRUE FALSE
+SET_SIMULATION_LENGTH_UNITS METER
+TRANSLATE_SURFACE_IN_FRAME 1 500.0 0.0 0.0 MILLIMETER 2 ENABLE
+<the rotation>
+```
+
+Scale, rename and mirror are geometry commands and come before the
+simulation's length unit; translate and rotate are setup commands and come
+after it. A script's phases only move forward, so an order the phases cannot
+emit, a scale written after a translation, is refused naming both
+operations by position and kind, and is never reordered: write every scale,
+rename and mirror before the first translate or rotate, and restate a
+translation in the scaled size if the scale was meant to act on it.
+
+**A mirror joins its source.** It is emitted with the combine flag on and the
+delete-source flag off, so the mirrored copy is combined with the surface it
+came from and the source is kept, and the inventory the run declares is the
+one it had. The command's other three outcomes, which add or replace a
+surface, are not offered: the name and position the solver gives that
+surface are unmeasured.
+
+**A rename feeds the inventory.** Operations before it cite the file's name,
+and operations after it and every row cite the new one: the names the run
+declares are the sidecar's `boundaries` as the renames leave them. A name
+absent at its step is refused listing the names at that step, and so are a
+name two surfaces carry and a rename onto a name another surface carries,
+each before anything is emitted. A file whose surfaces share a name cannot
+cite them apart; give them distinct names in the mesh file.
+
+**These are the file's, and a row's `TRANSLATE` and `ROTATE` stay the
+row's.** The sidecar's operations make the file into the body, once, for
+every row that names it, before any frame exists. A row's `TRANSLATE` and
+`ROTATE` are the study's own moves of a part, emitted after the frames, and
+they act on the body the operations left. The run record keeps the
+operations in `mesh_import`, beside the unit.
+
+What the solver does with each operation after an import is not measured
+yet: the grammar is the manual's, and the vertex split is carried over from
+the row's translation, where it was measured (RPT-048).
 
 ## Marking a blade's trailing edge from its mesh
 
