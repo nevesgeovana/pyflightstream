@@ -3739,6 +3739,12 @@ def write_recorded_polar(
 #: The manifest of the products: which file came from which runs and pproc.
 PRODUCTS_MANIFEST = "products.json"
 
+# The post's log beside the manifest, and its machine-readable twin (R02).
+# Private so the public surface does not grow: the manifest names both, under
+# `log` and `log_json`, and a reader takes the names from there.
+_POST_LOG = "post.log"
+_POST_LOG_JSON = "post.log.json"
+
 #: The folder under a matrix's products where the per-polar tables and
 #: their ``.dat`` companions land (FR-88).
 #:
@@ -6330,6 +6336,45 @@ def products_to_retire(
     return refused
 
 
+#: One record of the post log: the keys `point`, `product`, `message` and
+#: `remedy`, the last None when the message states no remedy apart from itself.
+_LogRecord = dict[str, str | None]
+
+#: A warning that names its own point and product, as most of the package's do.
+_NAMED_WARNING = re.compile(r"^point=(\S+) product=(\S+): (.*)$", re.S)
+
+
+def _log_record(point: str, product: str, message: str, remedy: str | None) -> _LogRecord:
+    """Return one post-log record, the single source of a WARNING line and its JSON (R02)."""
+    return {"point": point, "product": product, "message": message, "remedy": remedy}
+
+
+def _warning_record(text: str) -> _LogRecord:
+    """Return the record of one collected warning, on one line.
+
+    A warning that begins ``point=X product=Y:`` is recorded under that point
+    and product; any other is the stage's own, under ``campaign`` and
+    ``stage``. The remedy is None: the package's warnings state what would
+    settle them inside their prose, in shapes too varied for a parser to lift
+    honestly, so the message is kept whole.
+    """
+    flat = " ".join(text.splitlines())
+    named = _NAMED_WARNING.match(flat)
+    if named is None:
+        return _log_record("campaign", "stage", flat, None)
+    point, product, message = named.groups()
+    return _log_record(point, product, message, None)
+
+
+def _log_line(record: _LogRecord) -> str:
+    """Render one record as its ``post.log`` line."""
+    remedy = f" Remedy: {record['remedy']}" if record["remedy"] else ""
+    return (
+        f"WARNING point={record['point']} product={record['product']}: "
+        f"{record['message']}{remedy}\n"
+    )
+
+
 def write_campaign_products(
     workspace: CampaignWorkspace,
     *,
@@ -6339,15 +6384,17 @@ def write_campaign_products(
     matrix_stem: str | None = None,
     check_frozen: bool = False,
 ) -> list[Path]:
-    """Write campaign products and post.log; refuse doubts only with check_frozen=True.
+    """Write campaign products, post.log and its JSON; refuse doubts only with check_frozen=True.
 
     The log is beside products.json, even on a clean or interrupted post. It
     records every named skip and every warning the package raises during the
     post, collected in a sink of this thread's own, so two posts in two
-    threads each log only their own (RPT-058). After the log is written the
-    warnings are re-emitted to the caller's filters, outside every sink. A
-    warning raised by code outside the package is not logged. A rebuild
-    archives the log with the same stamp as the products. See
+    threads each log only their own (RPT-058). ``post.log.json`` beside it
+    carries the same header and the same records for a program, rendered
+    from ONE list so the two cannot disagree (R02). After the log is written
+    the warnings are re-emitted to the caller's filters, outside every sink.
+    A warning raised by code outside the package is not logged. A rebuild
+    archives both files with the same stamp as the products. See
     docs/post-processing-definitions.md for the sample and refusal rules.
     """
     import pyflightstream
@@ -6355,24 +6402,34 @@ def write_campaign_products(
     stamp = archive_stamp or datetime.now()
     out = workspace.products_dir(matrix_stem)
     out.mkdir(parents=True, exist_ok=True)
-    log = out / "post.log"
-    if log.exists():
-        if not overwrite:
-            raise ProductExistsError(f"{log} already exists; pass overwrite=True to rebuild")
-        _refuse_an_existing_product(log, archive=archive, stamp=stamp)
+    for existing in (out / _POST_LOG, out / _POST_LOG_JSON):
+        if existing.exists():
+            if not overwrite:
+                raise ProductExistsError(
+                    f"{existing} already exists; pass overwrite=True to rebuild"
+                )
+            _refuse_an_existing_product(existing, archive=archive, stamp=stamp)
+    header: dict[str, object] = {
+        "version": pyflightstream.__version__,
+        "workspace": str(workspace.root),
+        "matrix": matrix_stem,
+        "time": datetime.now().astimezone().isoformat(),
+        "check_frozen": check_frozen,
+    }
+    records: list[_LogRecord] = []
     token = _POST_REFUSES.set(check_frozen)
     verdict_token = _POST_VERDICTS.set({})
     caught: list[warnings.WarningMessage] = []
     try:
         with (
-            log.open("w", encoding="utf-8") as stream,
+            (out / _POST_LOG).open("w", encoding="utf-8") as stream,
             collecting_warnings() as caught,
         ):
             stream.write(
-                f"pyflightstream {pyflightstream.__version__} post\n"
-                f"workspace={workspace.root}\nmatrix={matrix_stem}\n"
-                f"time={datetime.now().astimezone().isoformat()}\n"
-                f"check_frozen={check_frozen} (refuse instead of warn)\n"
+                f"pyflightstream {header['version']} post\n"
+                f"workspace={header['workspace']}\nmatrix={header['matrix']}\n"
+                f"time={header['time']}\n"
+                f"check_frozen={header['check_frozen']} (refuse instead of warn)\n"
             )
             stream.flush()
             try:
@@ -6385,25 +6442,41 @@ def write_campaign_products(
                     check_frozen=check_frozen,
                 )
             except BaseException as error:
-                stream.write(
-                    f"WARNING point=campaign product=stage: {type(error).__name__}: {error}; "
-                    "correct the stated input and post again.\n"
+                records.append(
+                    _log_record(
+                        "campaign",
+                        "stage",
+                        " ".join(f"{type(error).__name__}: {error}".splitlines()),
+                        "correct the stated input and post again.",
+                    )
                 )
                 raise
             finally:
-                for warning in caught:
-                    message = " ".join(str(warning.message).splitlines())
-                    stream.write(f"WARNING point=campaign product=stage: {message}\n")
+                records.extend(_warning_record(str(warning.message)) for warning in caught)
                 manifest_path = out / PRODUCTS_MANIFEST
-                if manifest_path.is_file():
-                    document = json.loads(manifest_path.read_text(encoding="utf-8"))
-                    for name, reason in document.get("skipped", {}).items():
-                        detail = " ".join(str(reason).splitlines())
-                        stream.write(
-                            f"WARNING point={name} product={name}: {detail} "
-                            "Remedy: restore the required data or correct the stated inputs "
-                            "and post again.\n"
-                        )
+                try:
+                    if manifest_path.is_file():
+                        document = json.loads(manifest_path.read_text(encoding="utf-8"))
+                        for name, reason in document.get("skipped", {}).items():
+                            records.append(
+                                _log_record(
+                                    name,
+                                    name,
+                                    " ".join(str(reason).splitlines()),
+                                    "restore the required data or correct the stated "
+                                    "inputs and post again.",
+                                )
+                            )
+                finally:
+                    # ONE LIST, TWO RENDERINGS: the lines and the JSON are
+                    # written from the same records, on a clean, a failed and
+                    # an interrupted post alike, and even when the manifest
+                    # cannot be read back, with what was collected before it.
+                    stream.writelines(_log_line(record) for record in records)
+                    (out / _POST_LOG_JSON).write_text(
+                        json.dumps({**header, "records": records}, indent=1) + "\n",
+                        encoding="utf-8",
+                    )
     finally:
         _POST_REFUSES.reset(token)
         _POST_VERDICTS.reset(verdict_token)
@@ -6559,7 +6632,11 @@ def _campaign_products(
                 )
     written: list[Path] = []
     products_index: dict[str, dict[str, object]] = {}
-    manifest: dict[str, object] = {"products": products_index, "log": "post.log"}
+    manifest: dict[str, object] = {
+        "products": products_index,
+        "log": _POST_LOG,
+        "log_json": _POST_LOG_JSON,
+    }
     # PFS-2031.16. A simulation whose product is REFUSED by design, the
     # polar under sideslip among them, is recorded as skipped with the
     # reason, and the others are written: until 2026-09-08 the first

@@ -262,6 +262,10 @@ def test_a_clean_empty_campaign_also_has_a_log(tmp_path):
     manifest = _products_manifest(workspace)
     assert manifest["log"] == "post.log"
     assert "WARNING" not in (workspace.products_dir(None) / "post.log").read_text()
+    # R02: a clean post writes its machine-readable twin too, with no record.
+    assert manifest.get("log_json") == "post.log.json", sorted(manifest)
+    document = json.loads((workspace.products_dir(None) / "post.log.json").read_text())
+    assert document["records"] == [], document
 
 
 def test_failed_incomplete_point_keeps_computable_products_by_default(tmp_path):
@@ -324,6 +328,83 @@ def test_interrupted_post_keeps_its_log_and_warning(tmp_path, monkeypatch):
     assert manifest["log"] == "post.log" and manifest["complete"] is False
     log = (workspace.products_dir(None) / "post.log").read_text()
     assert "restore the missing data" in log and "interrupted by the test" in log
+    # R02: the interrupted post writes its machine-readable twin too, and the
+    # interrupted manifest names it.
+    assert manifest.get("log_json") == "post.log.json", sorted(manifest)
+    records = json.loads(
+        (workspace.products_dir(None) / "post.log.json").read_text(encoding="utf-8")
+    )["records"]
+    assert {
+        "point": "AL-020",
+        "product": "probe",
+        "message": "restore the missing data",
+        "remedy": None,
+    } in records, records
+    assert any(
+        (record["point"], record["product"], record["remedy"])
+        == ("campaign", "stage", "correct the stated input and post again.")
+        and "interrupted by the test" in record["message"]
+        for record in records
+    ), records
+
+
+def _rendered(record):
+    """The WARNING line of one record, spelled as the page states it (R02)."""
+    remedy = f" Remedy: {record['remedy']}" if record["remedy"] else ""
+    named = f"point={record['point']} product={record['product']}"
+    return f"WARNING {named}: {record['message']}{remedy}"
+
+
+def test_post_log_json_is_the_same_records_as_post_log(tmp_path):
+    """post.log.json holds the records post.log renders, one per WARNING line, in order (R02).
+
+    One lifted warning (the failed point's available exports) and one named
+    skip with its remedy, so the comparison is never of two empty lists. The
+    header lines are rendered from the document's own values, so the two files
+    have one source for the header as well as for the records.
+    """
+    from pyflightstream.workspace import RunStatus
+
+    workspace = _post_workspace(tmp_path, 2411, (58, 61), status=RunStatus.FAILED_INCOMPLETE_OUTPUT)
+    _make_one_step_unreadable(workspace, 58)
+    write_campaign_products(workspace, check_frozen=True)
+    manifest = _products_manifest(workspace)
+    assert manifest.get("log_json") == "post.log.json", sorted(manifest)
+    out = workspace.products_dir(None)
+    before = (out / manifest["log_json"]).read_bytes()
+    document = json.loads(before)
+    header = {key: document.get(key) for key in ("version", "workspace", "matrix", "check_frozen")}
+    assert header == {
+        "version": __version__,
+        "workspace": str(workspace.root),
+        "matrix": None,
+        "check_frozen": True,
+    }, header
+    lines = (out / manifest["log"]).read_text(encoding="utf-8").splitlines()
+    assert lines[:5] == [
+        f"pyflightstream {document['version']} post",
+        f"workspace={document['workspace']}",
+        f"matrix={document['matrix']}",
+        f"time={document['time']}",
+        f"check_frozen={document['check_frozen']} (refuse instead of warn)",
+    ], lines[:5]
+    records = document["records"]
+    assert all(set(record) == {"point", "product", "message", "remedy"} for record in records)
+    # SAME RECORDS, SAME COUNT, SAME ORDER: every WARNING line is one record.
+    assert [_rendered(record) for record in records] == [
+        line for line in lines if line.startswith("WARNING ")
+    ]
+    skip = next(iter(manifest["skipped"]))
+    assert any(record["point"] == skip and record["remedy"] for record in records), records
+    # THE LIFT: the warning names its own point and product, and the record
+    # carries them rather than `point=campaign product=stage` in front of them.
+    assert any(
+        record["product"] == "available-exports" and record["point"] != "campaign"
+        for record in records
+    ), records
+    write_campaign_products(workspace, overwrite=True, check_frozen=True)
+    copies = list(out.glob("archive/*/post.log.json"))
+    assert len(copies) == 1 and copies[0].read_bytes() == before, copies
 
 
 # RPT-058. Every wait below has a timeout and every join one longer than any

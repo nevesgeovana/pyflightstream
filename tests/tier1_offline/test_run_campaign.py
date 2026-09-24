@@ -3341,6 +3341,7 @@ def test_the_campaign_writes_its_products_and_names_them(tmp_path):
     assert sorted(p.name for p in products.iterdir()) == [
         "polars",  # FR-88: the per-polar tables have a directory of their own
         "post.log",  # since 0.26.0 every post writes its log beside the manifest
+        "post.log.json",  # since 0.27.0 its machine-readable twin (R02)
         "products.json",
         "provenance",  # one PROV-JSON document per recorded run (PFS-2012.08.01)
     ]

@@ -1282,10 +1282,12 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
     # FR-88 and FR-85: under polars/, and named by the point name (0.21.0).
     # This point sweeps nothing, so every field carries its value.
     stem = "P3207-M200AL-020"
-    # Since 0.26.0 every post writes its own log beside the manifest.
+    # Since 0.26.0 every post writes its own log beside the manifest, and
+    # since 0.27.0 its machine-readable twin (R02).
     assert sorted(p.name for p in out.iterdir()) == [
         "polars",
         "post.log",
+        "post.log.json",
         "products.json",
         "provenance",
     ]

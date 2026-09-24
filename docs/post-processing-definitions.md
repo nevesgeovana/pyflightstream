@@ -833,9 +833,13 @@ creates `post.log` beside `products.json`, under `post/<matrix stem>/` or
 `post/products/` when no matrix is named. The manifest names it under `log`.
 A clean campaign writes the log too. Its header states the package version,
 workspace, matrix stem, local time with UTC offset, and `check_frozen` choice.
-Each WARNING names the point and product, the step where one applies, and what
-would settle the issue. Every named manifest skip and every warning the package
-emits during the post is recorded there. A rebuild
+Each WARNING is one line, `WARNING point=<point> product=<product>: <message>`,
+under the point and product the warning itself names; a warning that names
+none is the stage's own and reads `point=campaign product=stage`. The message
+names the step where one applies and what would settle the issue. A named skip
+and an interrupted post state their remedy apart from the message, at the end
+of the line after `Remedy:`. Every named manifest skip and every warning the
+package emits during the post is recorded there. A rebuild
 archives the previous log with the same timestamp as its products. An
 interrupted post keeps its header and the warnings collected before it stopped.
 Each post collects the package's warnings in its own campaign-local sink, held
@@ -845,6 +849,18 @@ After the log is written, the post re-emits its warnings to its caller's warning
 filters, outside every sink. A warning raised during a post by code outside the
 package is not logged. A thread the post itself started would not inherit the
 sink; the post starts none (`reports/RPT-058`, closed in 0.27.0).
+
+`post.log.json` beside it (since 0.27.0) carries the same records for a
+program. It holds the header, as `version`, `workspace`, `matrix`, `time` and
+`check_frozen` with the values the text header prints (`matrix` is `null` where
+the text says `None`), and `records`, one per WARNING line in the same order,
+each with `point`, `product`, `message` and `remedy`. `remedy` is `null` when
+the warning states what would settle it inside its message rather than apart
+from it, which every warning the package raises does; a named skip and an
+interrupted post carry theirs. Both files are written from one list of records,
+on a clean, a failed and an interrupted post alike, so they cannot disagree.
+The manifest names the file under `log_json`, and a rebuild archives it with
+the log.
 
 A frozen solve, an unread native-log block, a reference mismatch, or a failed
 point's status is a

@@ -20,6 +20,14 @@ FlightStream versions.
   the caller supplies; it is refused beside any executor that submits, the
   package's own or a caller's adapter implementing the `Submitting`
   protocol. `LocalExecutor` takes `forced_local` by keyword only.
+- **`post.log.json` beside `post.log`.** The same records, machine-readable:
+  the header (`version`, `workspace`, `matrix`, `time`, `check_frozen`) and
+  `records`, one per WARNING line in the same order, each with `point`,
+  `product`, `message` and `remedy` (`null` where the warning states its
+  remedy inside its message). Both files are written from one list of
+  records on a clean, a failed and an interrupted post, so they cannot
+  disagree. `products.json` names it under `log_json`, and a rebuild
+  archives it with the log (R02).
   A manifest holding a forced-local record needs 0.27.0 to read it: an
   older reader refuses the key (measured 2026-09-23 against the 0.26.0
   schema), so post such a workspace with the same version that ran it.
@@ -100,6 +108,12 @@ FlightStream versions.
   accepts a tuple of boundary indices, the empty one meaning a default that
   emits no line. The snapshot of a script that selects nothing is unchanged
   (PFS-2006.01).
+- **A `post.log` WARNING line names the point and product its warning
+  names**: `WARNING point=camp/sim_7001/AL-020 product=available-exports:
+  ...` where 0.26.0 wrote `WARNING point=campaign product=stage:
+  point=camp/sim_7001/AL-020 product=available-exports: ...`. A warning that
+  names none still reads `point=campaign product=stage`, and an interrupted
+  post's line ends `Remedy: correct the stated input and post again.` (R02).
 - **A warning raised during a post by code outside the package is no longer
   written to `post.log`.** It reaches the caller's warning filters as before;
   the package's own warnings are logged as they were (RPT-058).

@@ -57,3 +57,21 @@ need the moments. In your own scripts, call
 `analysis_setup(loads_frame=..., moments_model=...)` before `start_solver`,
 and the analysis selections (`load_units`, `boundaries`, `inviscid_only`)
 in a second call after it.
+
+## 5. `post.log.json` beside `post.log`, and a WARNING line names its own point (R02)
+
+The top of each matrix's products folder holds a third loose file,
+`post.log.json`, beside `post.log` and `products.json`. It carries the same
+header and records as the log, one per WARNING line, each with `point`,
+`product`, `message` and `remedy`. `products.json` names it under a new key,
+`log_json`, and `log` still names `post.log`. A check that lists that
+folder's loose files or the manifest's keys will see one more of each. A
+rebuild archives it with the log.
+
+A warning that names its own point and product is now logged under them:
+`WARNING point=camp/sim_7001/AL-020 product=available-exports: ...` where
+0.26.0 wrote `WARNING point=campaign product=stage: point=camp/sim_7001/AL-020
+product=available-exports: ...`. A warning that names none still reads
+`point=campaign product=stage`. An interrupted post's line ends `Remedy:
+correct the stated input and post again.` If you parse `post.log`, read
+`post.log.json` instead: it holds the same records as fields.
