@@ -485,6 +485,41 @@ FlightStream versions.
   three body axes to their signs (`roll` -1, `pitch` +1, `yaw` -1) where it was
   one float. The roll and yaw scorings of OPS-2011.01.03 against the recorded
   probes pass, and their strict xfails are removed (G13).
+- **`INPUTS.md` no longer lists a key the script never carries as a setting
+  the run applies.** `ROTOR_SHEDDING` read as the direction a rotor's relaxed
+  wake sheds in, and two rotor rows stating `AXIAL` and `AZIMUTH` build the
+  same script: a workflow row checks the value and does not apply it. Its row
+  now says so, and says how the direction is applied: through
+  `rotor_relaxed_trailing_edges`, into the component definition the geometry
+  carries. Every row key and solver setting whose value reaches no line of the
+  script now says "No line of the script carries its value" and what takes it:
+  `WALLTIME` (the scheduler and the wall-clock program),
+  `EXPORT_UNSTEADY_AFTER_ITER` and `EXPORT_UNSTEADY_AFTER_REV` (the per-step
+  program), `LAST_ITERS_AVG`, `LAST_REVS_AVG` and `BLADES` (the post stage),
+  `ADDITIONAL_PPROC` (`pyfs-matrix post --additional-pproc`), `timeout_s` (the
+  executor) and `walltime_margin_s` (the wall-clock program). `COLD_START`
+  says that a row whose every point is its own job starts every point cold.
+  The unit of `WALLTIME` reads a number and its unit, as `240m` or `4h`, where
+  it read `s`, a bare number the reader refuses. `InputKey` takes
+  `unscripted`, the sentence a key registers for this (G08).
+- **`examples/additional_post.py` leaves a workspace its licensed
+  continuation runs in.** Its refusal demonstration rewrote `wing.fs` to name
+  the probing `p003` and never restored it, and its stand-in point sat in the
+  same manifest, so `pyfs-matrix run wing.fs` refused the recorded point and
+  `pyfs-matrix post wing.fs --additional-pproc` refused `p003` at binding. The
+  stand-in point is now recorded in a rehearsal copy beside the workspace, the
+  refusal is shown on a matrix of its own, `wing_probes.fs`, and the example
+  ends by checking that the workspace it printed records no point, that
+  `wing.fs` still plans and that its additional post binds `p002` (D11).
+- **`INPUTS.md` lists the builds a key is accepted on by the rule that
+  refuses it.** `Accepted by` read a command documented on a build as the key
+  accepted there, so `time_averaging` listed 26.122 and 26.123, where an
+  unsteady row stating `[time_averaging]` is refused: the table needs
+  `SOLVER_TIME_AVERAGING` verified on the build, and no build records it so.
+  The column now reads the builds off `cases.workflows.command_accepted_on`,
+  the rule the builder refuses by, which asks a verified record of a command
+  in `cases.workflows.VERIFIED_ONLY_COMMANDS`; `time_averaging` reads "no
+  registered build" (G08).
 
 - **A point whose solver could not use its actuator disc's profile file is no
   longer recorded as a success.** When the solver cannot use the radial thrust
@@ -696,8 +731,11 @@ FlightStream versions.
   shows its file name; no word of any page changed. Two faults the code block
   had hidden are fixed: a blank line splitting the reserved-names table, and a
   link to a heading that no longer exists. A tier-1 test renders every page
-  with the site's extensions and fails on a fence, a heading or a table row
-  the site would lose.
+  with the site's extensions and fails on a fence, a heading, a table row or a
+  table cell the site would lose. The site's table reader cuts a row wider
+  than its header to the header's width and renders the rest of the row as a
+  row, so the test compares every cell of every table a page writes with the
+  table the site renders, and names each cell the rendering drops (D07).
 
 - **The tier-3 page states which induced-drag form each case uses.** Every
   row whose golden script carries `SET_VORTICITY_DRAG_BOUNDARIES` names its

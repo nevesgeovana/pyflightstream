@@ -87,8 +87,9 @@ from pyflightstream.cases.workflows import (
     RATE_VARIABLES,
     ROW_KEY_MEANINGS,
     WORKFLOWS,
+    command_accepted_on,
 )
-from pyflightstream.commands import CommandRegistry, Status
+from pyflightstream.commands import CommandRegistry
 from pyflightstream.post._tables import CONTEXT_COLUMNS
 from pyflightstream.post.products import (
     PHASE_LOCKED_COLUMNS,
@@ -667,6 +668,27 @@ _FIELD_COMMANDS: Mapping[tuple[str, str], str] = MappingProxyType(
     }
 )
 
+#: The words a row says after its meaning when no line of the run's script
+#: carries its key's value, followed by what takes the value instead. A column
+#: headed "What it sets" otherwise reads as a solver input the run applies, and
+#: a key the builders only check (``ROTOR_SHEDDING``) or leave to the post
+#: stage, the scheduler or a program beside the script would read as one.
+_NO_SCRIPT_LINE = "No line of the script carries its value"
+
+#: What takes the value of an input model's field that no line of the script
+#: carries, by model and field; the registries of keys carry theirs on their
+#: :class:`InputKey` (``unscripted``). A tier-1 test builds every solver
+#: setting at two values and holds both halves: a field named here leaves the
+#: script byte-identical, and a field not named here changes it.
+_FIELD_UNSCRIPTED: Mapping[tuple[str, str], str] = MappingProxyType(
+    {
+        ("SolverSettings", "timeout_s"): "the executor stops the solver process at it.",
+        ("SolverSettings", "walltime_margin_s"): (
+            "the wall-clock program the run writes beside the script reads it."
+        ),
+    }
+)
+
 #: What each artifact is, one paragraph, under its heading.
 _ARTIFACT_INTROS: Mapping[str, str] = MappingProxyType(
     {
@@ -704,7 +726,9 @@ _PAGE_INTRO = (
     "sets, its unit or the values it takes, the run types or builds that accept it "
     "where the code says, and the solver command it reaches where one does. Each "
     "meaning is read from the code beside the key, so a key the package gains "
-    "arrives here with its meaning. A blank `Accepted by` means the code states no "
+    "arrives here with its meaning. A key whose value no line of the run's script "
+    f'carries says so, "{_NO_SCRIPT_LINE}", and names what takes the value '
+    "instead. A blank `Accepted by` means the code states no "
     "restriction of run type or build; a blank command means the key reaches no "
     f"command of its own. What the products state is in `{PPROC_GUIDE_NAMES[0]}` "
     "beside this page."
@@ -1007,10 +1031,14 @@ def _field_values(
 
 
 def _builds(commands: Sequence[str]) -> str:
-    """Return the registered builds on which one of ``commands`` is documented or verified.
+    """Return the registered builds on which a row may reach one of ``commands``.
 
-    Empty when that is every registered build: the command's own evidence
-    restricts nothing, so the row says nothing.
+    By :func:`~pyflightstream.cases.workflows.command_accepted_on`, the rule
+    the builders refuse by: documented or verified, and verified for a command
+    a feature reaches only once a run verified it (``SOLVER_TIME_AVERAGING``),
+    so a key is never listed on a build that refuses it. Empty when that is
+    every registered build: the command's own evidence restricts nothing, so
+    the row says nothing.
     """
     if not commands:
         return ""
@@ -1020,8 +1048,7 @@ def _builds(commands: Sequence[str]) -> str:
     for version in versions:
         for name in commands:
             entry = registry.commands.get(name)
-            record = entry.status_in(version) if entry is not None else None
-            if record is not None and record.status in (Status.DOCUMENTED, Status.VERIFIED):
+            if entry is not None and command_accepted_on(entry, version):
                 accepting.append(version.canonical)
                 break
     if len(accepting) == len(versions):
@@ -1037,6 +1064,17 @@ def _joined(*parts: str) -> str:
     return "; ".join(part for part in parts if part)
 
 
+def _meaning_and_what_takes_it(meaning: str, unscripted: str) -> str:
+    """Return a meaning, then what takes the value where no line of the script carries it.
+
+    Nothing is added to an EMPTY meaning: a key registered without one must
+    stay a row with no meaning, which the glossary's test refuses.
+    """
+    if not meaning or not unscripted:
+        return meaning
+    return f"{meaning} {_NO_SCRIPT_LINE}: {unscripted}"
+
+
 def _field_row(model: type, name: str, field: Any, path: str) -> GlossaryRow:
     """One field of an input model as a row: its meaning, values, builds and command."""
     if model is SolverSettings:
@@ -1048,7 +1086,10 @@ def _field_row(model: type, name: str, field: Any, path: str) -> GlossaryRow:
     nested = _nested_model(field.annotation)
     return GlossaryRow(
         key=name,
-        meaning=_field_meaning(model, name, field),
+        meaning=_meaning_and_what_takes_it(
+            _field_meaning(model, name, field),
+            _FIELD_UNSCRIPTED.get((model.__name__, name), ""),
+        ),
         values=_field_values(field, nested, path, commands),
         accepted=_joined(restriction, _builds(commands)),
         commands=commands,
@@ -1111,7 +1152,7 @@ def _key_rows(keys: Mapping[str, InputKey]) -> tuple[GlossaryRow, ...]:
         rows.append(
             GlossaryRow(
                 key=key,
-                meaning=_markdown(entry.meaning),
+                meaning=_markdown(_meaning_and_what_takes_it(entry.meaning, entry.unscripted)),
                 values=entry.values,
                 accepted=_joined(entry.accepted, _builds(commands)),
                 commands=commands,
@@ -1134,7 +1175,7 @@ def _matrix_tables() -> list[GlossaryTable]:
         rows.append(
             GlossaryRow(
                 key=key,
-                meaning=entry.meaning,
+                meaning=_meaning_and_what_takes_it(entry.meaning, entry.unscripted),
                 values=entry.values,
                 accepted=_joined(run_types or entry.accepted, _builds(commands)),
                 commands=commands,

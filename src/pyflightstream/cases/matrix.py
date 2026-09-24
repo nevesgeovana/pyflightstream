@@ -109,11 +109,14 @@ from pyflightstream.cases.workflows import (
     ROTATION_FAMILIES_KEY,
     ROTATION_OPTIONAL_KEYS,
     ROTATION_RECORD_KEYS,
+    ROW_KEY_MEANINGS,
     SWEEP_WORD,
     TRANSLATE_VARIABLE,
     TRANSLATION_ALIAS_KEY,
     TRANSLATION_OPTIONAL_KEYS,
     TRANSLATION_RECORD_KEYS,
+    WALLTIME_UNITS_GLOSS,
+    WALLTIME_VARIABLE,
     workflow_names,
 )
 
@@ -250,7 +253,8 @@ COLUMN_MEANINGS: Mapping[str, InputKey] = {
     "WALLTIME": InputKey(
         "The wall clock the row asks for: the scheduler's limit on a cluster, and what "
         "the watchdog counts down on an unsteady row.",
-        "s",
+        f"a number and its unit, {WALLTIME_UNITS_GLOSS}, as 240m or 4h",
+        unscripted=ROW_KEY_MEANINGS[WALLTIME_VARIABLE].unscripted,
     ),
     "FS_BUILD": InputKey(
         "The solver build the row runs on, as inputs/executables.toml names it.",

@@ -125,6 +125,7 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases import windows as _windows
 from pyflightstream.commands import (
+    CommandEntry,
     CommandNotInVersionError,
     CommandRegistry,
     Phase,
@@ -206,6 +207,7 @@ __all__ = [
     "UNSTEADY_COUNTER_ACTION",
     "UNSTEADY_EXPORTS_ACTION",
     "UnsteadyExportThreshold",
+    "VERIFIED_ONLY_COMMANDS",
     "WHOLE_RUN_EXPORT_KINDS",
     "LOADS_SELECTION_KEYS",
     "END_OF_RUN_EXPORT_KINDS",
@@ -221,6 +223,7 @@ __all__ = [
     "additional_outputs",
     "build_additional_script",
     "build_script",
+    "command_accepted_on",
     "covered_builds",
     "emit_rotor_motion",
     "export_window",
@@ -11221,6 +11224,9 @@ _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
 #: unit or the values, and the command, and says where a key is written when
 #: that is not the ``VAR_NAMES_VALUES`` cell. A key registered above without an
 #: entry here is a row of the glossary with no meaning, which its test refuses.
+#: A key whose VALUE no line of the script carries says what takes it instead
+#: (``unscripted``), and a test builds every key at two values to hold both
+#: halves: a row without it changes the script, a row with it does not.
 ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
     {
         GEOMETRY_VARIABLE: InputKey(
@@ -11334,7 +11340,12 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         WALLTIME_VARIABLE: InputKey(
             "The wall clock the row asks for: the scheduler's limit on a cluster, and "
             "what the watchdog counts down on an unsteady row; written in its column.",
-            "s",
+            f"a number and its unit, {WALLTIME_UNITS_GLOSS}, as 240m or 4h",
+            unscripted=(
+                "on an unsteady row, stating it registers the wall-clock actions, and the "
+                "run writes the deadline into the program they run; on a cluster, the job "
+                "asks the scheduler for it."
+            ),
         ),
         CONFIGURATION_VARIABLE: InputKey(
             "The user's own name for the configuration; it configures nothing, and "
@@ -11367,16 +11378,24 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         # additional post is measured on, so a command here would lend the key
         # builds it is refused on.
         ADDITIONAL_PPROC_VARIABLE: InputKey(
-            "A second pproc the row names for the additional post. No builder reads it, "
-            "so the row runs byte for byte as it would without it; pyfs-matrix post "
-            "--additional-pproc reads it, reopens each recorded point's final .fsm with no "
-            "solve and extracts that pproc from it. On 26.124 only, and refused on a "
-            "LEGACY row.",
+            "A second pproc the row names for the additional post; on 26.124 only, and "
+            "refused on a LEGACY row.",
             "one pproc id, p<id>",
+            unscripted=(
+                "no builder reads it, so the row runs byte for byte as it would without "
+                "it; pyfs-matrix post --additional-pproc reads it, reopens each recorded "
+                "point's final .fsm with no solve and extracts that pproc from it."
+            ),
         ),
+        # A PER-RUN-TYPE ABSENCE, said in the meaning: the clear is a line of the
+        # steady sweep's one script, and a row whose every point is its own job
+        # (every unsteady row, a steady row sweeping the flow) has no previous
+        # point to clear.
         COLD_START_VARIABLE: InputKey(
-            "Starts each point of a steady sweep from a cleared solution instead of the "
-            "previous point's converged one.",
+            "Starts each point of a steady sweep over the attitude from a cleared "
+            "solution instead of the previous point's converged one; a row whose every "
+            "point is its own job, an unsteady row or a steady row sweeping the flow, "
+            "starts every point cold whatever it states.",
             "true or false; absent is a warm start",
             "CLEAR_SOLUTION",
         ),
@@ -11406,16 +11425,22 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "The averaging window of a row that turns no rotor: the last time steps every "
             "unsteady product is averaged over.",
             "time steps",
+            unscripted="the post stage averages the products over it.",
         ),
         BLADES_VARIABLE: InputKey(
             "The blade count of the row's reductions, where no rotor block of the "
             "reference states it.",
             "a count",
+            unscripted="the post stage's reductions read it.",
         ),
         EXPORT_UNSTEADY_AFTER_ITER_VARIABLE: InputKey(
             "The time step from which the per-step exports begin, each file stamped with "
             "its iteration.",
             "a time step",
+            unscripted=(
+                "stating it registers the per-step actions, and the run writes the step "
+                "into the program they run."
+            ),
         ),
         RESTART_VARIABLE: InputKey(
             "How to continue a run that stopped on the wall clock.",
@@ -11425,6 +11450,7 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "The averaging window of a rotor row: the last revolutions every unsteady "
             "product is averaged over.",
             "revolutions, a float",
+            unscripted="the post stage averages the products over it.",
         ),
         CLOCK_MOTION_VARIABLE: InputKey(
             "The motion that owns the row's clock: the time step and the run length are "
@@ -11454,9 +11480,21 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "three coordinates, comma separated, or a rotor point of inputs/reference_points.toml",
             "CREATE_NEW_COORDINATE_SYSTEM",
         ),
+        # READ, CHECKED AND NOT APPLIED: the direction is a field of the relaxed
+        # trailing-edge component definition and no command carries it (see
+        # `rotor_shedding_direction`). Two rotor rows stating AXIAL and AZIMUTH
+        # build byte-identical scripts, so the row says so rather than read as
+        # a wake setting the run applies.
         ROTOR_SHEDDING_VARIABLE: InputKey(
             "The direction the relaxed trailing edges of a rotor case shed their wake.",
             "AXIAL or AZIMUTH; absent asks nothing",
+            unscripted=(
+                "a workflow row checks it, refusing anything but AXIAL or AZIMUTH, and does "
+                "not apply it, because the direction is a field of the relaxed trailing-edge "
+                "component definition and no command sets it. To shed in it, pass the "
+                "definition's specifications through rotor_relaxed_trailing_edges and "
+                "write the ones it returns back into the definition the geometry carries."
+            ),
         ),
         MOVING_BOUNDARIES_VARIABLE: InputKey(
             "The boundaries a flat rotor row turns; a MOTIONS record names its rotor by "
@@ -11473,6 +11511,10 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         EXPORT_UNSTEADY_AFTER_REV_VARIABLE: InputKey(
             "The revolution of the rotor clock from which the per-step exports begin.",
             "revolutions",
+            unscripted=(
+                "stating it registers the per-step actions, and the run writes the step it "
+                "falls on into the program they run."
+            ),
         ),
         RAW_VARIABLE: InputKey(
             "Solver command lines the row states verbatim, one record each or a file of "
@@ -11718,6 +11760,51 @@ WORKFLOWS: Mapping[str, Workflow] = {
 }
 
 
+#: THE COMMANDS A ROW REACHES ONLY WHERE A RUN VERIFIED THEM on the build,
+#: which asks more than the documented status any other emission needs.
+#: ``SOLVER_TIME_AVERAGING`` is documented from 26.122 and was measured hanging
+#: 26.124 (C01, 2026-09-19), so ``[time_averaging]`` is refused on every build
+#: whose record is not verified. :func:`build_script` refuses by
+#: :func:`command_accepted_on`, and the input glossary states the builds a key
+#: is accepted on by the same function, so the two cannot disagree.
+VERIFIED_ONLY_COMMANDS: frozenset[str] = frozenset({"SOLVER_TIME_AVERAGING"})
+
+
+def command_accepted_on(entry: CommandEntry, version: FsVersion) -> bool:
+    """Say whether a row may reach a command on a build: the rule the builders refuse by.
+
+    A command documented or verified on the build is one a script emits there;
+    a command of :data:`VERIFIED_ONLY_COMMANDS` must be verified there. A
+    build with no record of the command, or one recording it broken or
+    removed, accepts it under neither rule.
+
+    Parameters
+    ----------
+    entry : CommandEntry
+        The command's database entry.
+    version : FsVersion
+        The build, whose record is read with hotfix inheritance.
+
+    Returns
+    -------
+    bool
+        True where a row reaching the command is not refused for its status.
+
+    Examples
+    --------
+    >>> from pyflightstream.commands import CommandRegistry
+    >>> from pyflightstream.versions import resolve
+    >>> command_accepted_on(CommandRegistry.load().commands["SOLVER_SET_AOA"], resolve("26.120"))
+    True
+    """
+    record = entry.status_in(version)
+    if record is None:
+        return False
+    if entry.name in VERIFIED_ONLY_COMMANDS:
+        return record.status is Status.VERIFIED
+    return record.status in (Status.DOCUMENTED, Status.VERIFIED)
+
+
 def build_script(
     case: SimCase,
     script: Script,
@@ -11776,8 +11863,8 @@ def build_script(
     require_coverage(workflow, script.version, registry=registry)
     if case.pproc is not None and case.pproc.time_averaging is not None:
         entry = script.entry("SOLVER_TIME_AVERAGING")
-        record = entry.status_in(script.version)
-        if record is None or record.status is not Status.VERIFIED:
+        if not command_accepted_on(entry, script.version):
+            record = entry.status_in(script.version)
             reason = (record.note if record is not None else None) or "No execution is verified."
             raise CampaignConfigError(
                 f"[time_averaging] requires SOLVER_TIME_AVERAGING verified on "

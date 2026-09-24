@@ -11,11 +11,16 @@
 # 1. write a wing, its reference, a setup and two post-processing artifacts:
 #    the one the row runs with, and the additional one, which cuts sections;
 # 2. write the row, on FlightStream 26.124, naming the additional artifact;
-# 3. record the point as a run records it: its script, its outputs with the
-#    saved simulation among them, and the run record with every hash;
+# 3. record the point as a run records it, in a rehearsal copy of the
+#    workspace: its script, its outputs with the saved simulation among them,
+#    and the run record with every hash;
 # 4. plan the additional post and print the extraction script it would run;
-# 5. show one refusal: an additional artifact that probes the flow off the
-#    body, which a reopened simulation does not give back.
+# 5. show one refusal, from a matrix of its own: an additional artifact that
+#    probes the flow off the body, which a reopened simulation does not give
+#    back.
+#
+# The workspace it prints first is left as a licensed run finds it: no point
+# recorded, and `wing.fs` naming `p002`. The last section runs it.
 #
 # A reopened saved simulation was measured on 26.124 alone (RPT-062): the
 # loads, the surface solution, the sections and their sectional loads come
@@ -25,6 +30,7 @@
 # %%
 """The additional post over a recorded point: the extraction script and a refusal, no solver."""
 
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -106,10 +112,14 @@ HEADER = (
 )
 
 
-def write_matrix(path: Path, additional: str) -> Path:
-    """Write the one-row matrix naming ``additional`` as its additional pproc."""
+def write_matrix(path: Path, additional: str, pol: int = 3001) -> Path:
+    """Write the one-row matrix naming ``additional`` as its additional pproc.
+
+    A POL is stated once in a whole workspace, so a second matrix beside the
+    first takes a POL of its own.
+    """
     row = (
-        "3001 | 0 | 1 | Wing | - | sections_after_the_run | MACH:0.1, REmi:2.3, ALPHA:sweep "
+        f"{pol} | 0 | 1 | Wing | - | sections_after_the_run | MACH:0.1, REmi:2.3, ALPHA:sweep "
         f"| {ALPHA_DEG} | wing.stl | r001 | s001 | p001 | NONE | - | - | - | {BUILD} | steady "
         f"| ADDITIONAL_PPROC: {additional}"
     )
@@ -133,8 +143,18 @@ print(plan.summary())
 # calls do it, and the one thing a solver would have written is stood in for:
 # the loads table and the saved simulation are written as placeholders, since
 # the plan below reads the saved simulation by its hash and never opens it.
+#
+# IN A REHEARSAL COPY of the workspace, beside it. A stand-in recorded in the
+# workspace itself would be a point `pyfs-matrix run` refuses to run again,
+# over a saved simulation no solver wrote.
 
 # %%
+licensed = workspace  # left as a licensed run finds it; the last section runs it
+workspace = CampaignWorkspace(
+    Path(shutil.copytree(licensed.root, workdir / "rehearsal")),
+    naming=NamingTemplate(point_name=MATRIX_POINT_NAME),
+)
+matrix = workspace.root / matrix.name
 resolved = resolve_matrix(matrix, workspace, name="wing_study", fs_version=BUILD, recipes={})
 (case,) = resolved.campaign.sims
 point = {"alpha": ALPHA_DEG}
@@ -220,16 +240,19 @@ for never in ("START_SOLVER", "SAVEAS", "UPDATE_PROBE_POINTS"):
 # artifact declaring `[[probes]]` is refused when the matrix is bound, naming
 # the report, before any seat is spent. So are a volume section, the plots of
 # a march, a surface averaged in time and a base region.
+#
+# The refusal is shown on a matrix of its own, `wing_probes.fs`: the same row
+# naming the probing artifact. `wing.fs` keeps naming `p002`.
 
 # %%
-(inputs / "pproc" / "p003.toml").write_text(
+(workspace.inputs_dir / "pproc" / "p003.toml").write_text(
     '[[probes]]\nframe = "MRP"\n\n'
     "[[probes.lines]]\nstart = [1.5, -4.0, 0.0]\nend = [1.5, 4.0, 0.0]\n",
     encoding="utf-8",
 )
-write_matrix(matrix, "p003")  # the same row, naming the probing artifact instead
+probing = write_matrix(workspace.root / "wing_probes.fs", "p003", pol=3002)
 try:
-    plan_additional_post(matrix, workspace)
+    plan_additional_post(probing, workspace)
 except CampaignConfigError as error:
     print(f"refused, as it should be:\n  {error}")
     if "RPT-062" not in str(error):
@@ -242,8 +265,27 @@ else:
 # %% [markdown]
 # ## Running it (licensed)
 #
-# On a licensed machine with 26.124 registered: `pyfs-matrix run wing.fs`,
-# then `pyfs-matrix post wing.fs --workspace . --additional-pproc`. The
-# extraction lands in the point's `datapoints/DP-<point>/additional/p002/`,
-# is recorded in `additional.json` beside `runs.json`, which it never writes,
-# and its products are posted under `post/wing/additional/p002/`.
+# The workspace printed first, `wing_study`, is the one to run: no point is
+# recorded there and `wing.fs` names `p002`, which the lines below check. On
+# a licensed machine with 26.124 registered, point `inputs/executables.toml`
+# at that installation, then, from the workspace, run `pyfs-matrix run
+# wing.fs` and `pyfs-matrix post wing.fs --additional-pproc`. The extraction
+# lands in the point's `datapoints/DP-<point>/additional/p002/`, is recorded
+# in `additional.json` beside `runs.json`, which it never writes, and its
+# products are posted under `post/wing/additional/p002/`.
+
+# %%
+if licensed.read_raw_manifest():
+    raise AssertionError("the workspace to run records a point, which pyfs-matrix run refuses")
+continuation = plan_matrix(
+    licensed.root / "wing.fs",
+    licensed,
+    name="wing_study",
+    recipes={},
+    recipe_registry=workflow_registry(),
+    write_plan=False,
+)
+if [entry.status for entry in continuation.points] != [entry.status for entry in plan.points]:
+    raise AssertionError(f"wing.fs no longer plans as it did:\n{continuation.summary()}")
+plan_additional_post(licensed.root / "wing.fs", licensed)  # binds p002, refusing nothing
+print(f"to run on a licensed machine: {licensed.root}, where wing.fs names p002")

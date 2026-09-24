@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.extras import EXTRAS
 
 REPO = Path(__file__).resolve().parents[2]
@@ -207,6 +207,70 @@ def test_each_example_runs(name, tmp_path):
         "what a reader copies, so a warning it provokes is either a defect in the "
         f"example or a warning that should not fire here.\nstderr:\n{result.stderr[-2000:]}"
     )
+
+
+def test_the_additional_post_example_leaves_a_continuation_that_binds(tmp_path):
+    """D11: the licensed continuation the example documents runs as written.
+
+    The example ends by telling a reader to run ``pyfs-matrix run wing.fs`` and
+    then ``pyfs-matrix post wing.fs --additional-pproc`` in the workspace it
+    printed, and promises the extraction under ``additional/p002/``. Its
+    refusal demonstration used to rewrite that same ``wing.fs`` to name the
+    probing ``p003`` and never restored it, so the matrix the reader was sent
+    to refused at binding; and its stand-in point sat in that workspace's
+    manifest, which ``pyfs-matrix run`` refuses to run again.
+
+    So the offline half is run as a reader runs it, its temporary folder
+    placed under this test's, and the workspace it leaves is then bound the
+    way the two commands bind it: the matrix names ``p002``, no point is
+    recorded, every point plans as the example's own plan did, and the
+    additional post binds its artifact without a refusal.
+    """
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.run import PlanStatus
+    from pyflightstream.run.matrix import plan_additional_post, plan_matrix
+    from pyflightstream.workspace import CampaignWorkspace
+    from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
+
+    environment = os.environ.copy()
+    for variable in ("TMPDIR", "TEMP", "TMP"):
+        environment[variable] = str(tmp_path)
+    result = subprocess.run(
+        [sys.executable, str(EXAMPLES / "additional_post.py")],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        timeout=300,
+        env=environment,
+    )
+    assert result.returncode == 0, (
+        f"examples/additional_post.py exited {result.returncode}.\n"
+        f"stdout:\n{result.stdout[-2000:]}\nstderr:\n{result.stderr[-2000:]}"
+    )
+    (root,) = tmp_path.glob("pyfs_additional_post_*/wing_study")
+    workspace = CampaignWorkspace(root, naming=NamingTemplate(point_name=MATRIX_POINT_NAME))
+    matrix = root / "wing.fs"
+    assert "ADDITIONAL_PPROC: p002" in matrix.read_text(encoding="utf-8"), (
+        "the matrix the continuation runs no longer names p002, the artifact whose "
+        "extraction the example promises"
+    )
+    assert not workspace.read_raw_manifest(), (
+        "the workspace the continuation runs in records a point, and pyfs-matrix run "
+        "refuses a point already in the manifest"
+    )
+    try:
+        plan = plan_matrix(
+            matrix,
+            workspace,
+            name="wing_study",
+            recipes={},
+            recipe_registry=workflow_registry(),
+            write_plan=False,
+        )
+        plan_additional_post(matrix, workspace)
+    except PyflightstreamError as error:
+        pytest.fail(f"the continuation's matrix does not bind: {error}")
+    assert [entry.status for entry in plan.points] == [PlanStatus.READY], plan.summary()
 
 
 @pytest.mark.parametrize("name", sorted(EXAMPLE_EXTRAS))
