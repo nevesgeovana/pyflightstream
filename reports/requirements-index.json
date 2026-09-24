@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 114,
+  "cited_by_a_test": 115,
   "total": 160,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -218,10 +218,10 @@
   {
    "id": "FR-22a",
    "text": "A boundary without a user-defined trailing-edge condition, once assigned to the vorticity induced-drag list, returns a not-computed sentinel distinguishable from a physical zero.",
-   "priority": "D",
-   "status": "deferred",
-   "evidence": "*Origin: Phase 4 split of FR-22, accepted 2026-07-27.*",
-   "verification": "review"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of FR-22, accepted 2026-07-27; deferred until 0.27.0 (PFS-2006.03). Evidence: tests/tier1_offline/test_pfs2006_declined_induced_drag.py (a listed surface printed at zero is NA in the polar and named in a warning that reaches post.log, a surface off the list keeps its printed zero, and each recorded selection read one way).*",
+   "verification": "test"
   },
   {
    "id": "FR-22b",

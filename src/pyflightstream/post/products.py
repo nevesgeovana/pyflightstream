@@ -90,7 +90,7 @@ import string
 import tempfile
 import warnings
 from collections import Counter as Counter
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime
@@ -246,6 +246,7 @@ from pyflightstream.results import (
     parse_unsteady_plots,
     superseded_by_a_continuation,
 )
+from pyflightstream.script.solver_setup import VORTICITY_COMMAND
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.flight_condition import resolve_flight_condition
 from pyflightstream.workspace.inputs import resolve_reference, rotor_integration_groups
@@ -731,6 +732,11 @@ class PolarPoint:
     #: swept value in place, its air. None on a caller that builds a point by
     #: hand, which then states the simulation's.
     state: PointState | None = None
+    #: The induced-drag boundary selection the point's run RECORDED
+    #: (``SET_VORTICITY_DRAG_BOUNDARIES``: ``"all"``, a list of 1-based boundary
+    #: indices, or the empty default), read by :func:`declined_induced_drag`.
+    #: None where no record is at hand, which declines nothing.
+    vorticity_selection: object = None
 
     @property
     def alpha_deg(self) -> float:
@@ -750,6 +756,7 @@ def group_coefficients(
     bref_m: float,
     aliases: Mapping[str, Sequence[str]] | None = None,
     empty_is_every: bool = False,
+    declined: Collection[str] = (),
 ) -> GroupCoefficients:
     """Sum the loads table's rows over the families of one group.
 
@@ -771,6 +778,14 @@ def group_coefficients(
     for it. A Python caller that built ``families`` by filtering and got
     an empty list still sums to zero, which is what this function did
     before and what its docstring promised.
+
+    ``declined`` names the surfaces whose induced drag the solver did not
+    compute (PFS-2006.03, FR-22a), as :func:`declined_induced_drag` finds them.
+    A member among them makes ``drag_induced`` and ``drag`` NaN, which every
+    CSV product writes as `NA`: its printed ``CDi`` of zero is not a zero, and a sum
+    that took it as one would be a number a reader believes. ``force`` keeps the
+    printed ``Cx``; a NaN there would reach, through the turn, columns the x
+    force does not touch, so :func:`polar_row` masks exactly the ones it does.
     """
     cref = loads.reference_length
     if cref is None:
@@ -785,14 +800,17 @@ def group_coefficients(
     for family in selected:
         row = loads.surfaces[family]
         used.append(family)
-        drag += row["CDi"] + row["CDo"]
+        # NOT COMPUTED IS NOT ZERO (PFS-2006.03): the printed 0.0 of a declined
+        # surface stays in the parsed table, and no sum made here takes it.
+        cdi = math.nan if family in declined else row["CDi"]
+        drag += cdi + row["CDo"]
         side += row["Cy"]
         lift += row["CL"]
         roll -= row["CMx"] * cref / bref_m
         pitch += row["CMy"]
         yaw -= row["CMz"] * cref / bref_m
         profile += row["CDo"]
-        induced += row["CDi"]
+        induced += cdi
         for at, (f, m) in enumerate((("Cx", "CMx"), ("Cy", "CMy"), ("Cz", "CMz"))):
             force[at] += row[f]
             moment[at] += row[m]
@@ -801,6 +819,43 @@ def group_coefficients(
         force=(force[0], force[1], force[2]),
         moment=(moment[0], moment[1], moment[2]),
     )  # fmt: skip
+
+
+def declined_induced_drag(loads: LoadsReport, selection: object) -> tuple[str, ...]:
+    """Return the surfaces whose induced drag the solver did not compute, in table order.
+
+    PFS-2006.03, FR-22a. A boundary on the vorticity induced-drag list
+    (``SET_VORTICITY_DRAG_BOUNDARIES``) without a defined trailing edge is not
+    computed, and the export prints its ``CDi`` as zero (SRC-003 p.202). A
+    surface is declined when ``selection`` puts it on that list AND its printed
+    ``CDi`` is exactly ``0.0``. The list is what decides, not the zero: a body
+    left off it is integrated by surface pressure and can print a real zero.
+
+    ``selection`` is the value the run record keeps for that command: ``"all"``
+    (the ``-1`` the script emits) is every surface; a list of 1-based boundary
+    indices is those surfaces, boundary ``i`` read as the table's ``i``-th
+    surface row, since the export prints one row per boundary in the order the
+    geometry numbers them. A list holding anything the table cannot place -- a
+    label, a bool, an index out of range -- is read as every surface, because a
+    false `NA` is loud and a false zero is a number a reader believes. The empty
+    default, None and anything else decline nothing.
+
+    A trailing-edged surface whose induced drag rounds to zero at the printed
+    precision is declined too; ``SET_SIGNIFICANT_DIGITS`` narrows that band.
+    """
+    names = list(loads.surfaces)
+    if isinstance(selection, str):
+        listed = set(names) if selection == "all" else set()
+    elif isinstance(selection, Sequence) and selection:
+        placed = [
+            names[item - 1]
+            for item in selection
+            if isinstance(item, int) and not isinstance(item, bool) and 1 <= item <= len(names)
+        ]
+        listed = set(placed) if len(placed) == len(selection) else set(names)
+    else:
+        return ()
+    return tuple(name for name in names if name in listed and loads.surfaces[name]["CDi"] == 0.0)
 
 
 def polar_row(
@@ -836,11 +891,23 @@ def polar_row(
     AN OMITTED ``beta_deg`` ASSERTS ZERO SIDESLIP. The axes are turned by it, so
     a caller whose point flew at sideslip states it, or gets the row of a point
     that did not.
+
+    AN INDUCED DRAG THE SOLVER DECLINED (PFS-2006.03) is ``CDI`` NaN, and so is
+    every axis column the x force reaches at this point's angles: the export's
+    ``Cx`` holds the same ``CDi`` the solver printed as zero (its wind-axis drag
+    IS ``CDi + CDo``), so it is short by exactly what was not computed. The
+    columns it does not reach, the moments and ``CLB`` among them, keep their
+    numbers.
     """
     g = coefficients
     axes = polar_axis_coefficients(
         g.force, g.moment, alpha_deg, beta_deg, cref_m=cref_m, bref_m=bref_m
     )
+    if math.isnan(g.drag_induced):
+        reach = polar_axis_coefficients(
+            (1.0, 0.0, 0.0), (0.0, 0.0, 0.0), alpha_deg, beta_deg, cref_m=cref_m, bref_m=bref_m
+        )
+        axes = tuple(math.nan if r != 0.0 else a for a, r in zip(axes, reach, strict=True))
     return (alpha_deg, beta_deg, mach, reynolds_millions, *axes, g.drag_profile, g.drag_induced)
 
 
@@ -3545,6 +3612,8 @@ def _polar_rows(
 
     This is the ARTIFACT's path, so an empty member list is every family
     (the design decision of 2026-09-09) and the summer is asked for that reading.
+    A surface whose induced drag the point's record says the solver declined
+    is `NA` in the sum (:func:`declined_induced_drag`, PFS-2006.03).
     """
     rows = []
     for point in points:
@@ -3563,6 +3632,7 @@ def _polar_rows(
             bref_m=reference.bref_m,
             aliases=aliases,
             empty_is_every=True,
+            declined=declined_induced_drag(point.loads, point.vorticity_selection),
         )
         rows.append(
             polar_row(
@@ -3600,6 +3670,11 @@ def write_recorded_polar(
     artifact's ``[groups]`` table, name to families), a sections table per
     point whose export declares sections, and, when asked, a plots table
     per point that has a plots export. Returns the paths written, in order.
+
+    The point folders carry no run record, so nothing here knows which
+    boundaries were on the vorticity induced-drag list: every printed ``CDi``
+    is summed as printed, a zero included. The campaign stage, which holds the
+    record, writes `NA` for an induced drag the solver declined (PFS-2006.03).
     """
     polar_dir = Path(polar_dir)
     out = Path(out_dir)
@@ -4534,6 +4609,13 @@ def _effective_pproc(
     return _resolve_post_pproc(workspace, pproc_id)
 
 
+def _vorticity_selection(record: RunRecord) -> object:
+    """Return the induced-drag boundary selection a run recorded, or None where it recorded none."""
+    flags = (record.solver_setup or {}).get("flags")
+    flag = flags.get(VORTICITY_COMMAND) if isinstance(flags, Mapping) else None
+    return flag.get("value") if isinstance(flag, Mapping) else None
+
+
 def _sim_products(
     workspace: CampaignWorkspace,
     sim_id: str,
@@ -4634,9 +4716,25 @@ def _sim_products(
                 loads_path=by_name[loads_name],
                 point=dict(record.point),
                 state=point_state(record),
+                vorticity_selection=_vorticity_selection(record),
             )
         )
         record_of[stem] = record
+        declined = declined_induced_drag(report, points[-1].vorticity_selection)
+        if declined:
+            # ONCE PER POINT, not once per group: the polar of every group
+            # holding one of these surfaces writes NA where it sums them.
+            warnings.warn(
+                f"point={stem} product=polars: the solver printed CDi exactly 0 for "
+                f"{', '.join(declined)}, on the vorticity induced-drag list "
+                "(SET_VORTICITY_DRAG_BOUNDARIES); a boundary there without a defined "
+                "trailing edge is not computed (SRC-003 p.202). The Total row keeps the "
+                "solver's printed number; every sum this package makes over those surfaces "
+                "is NA. Give them a trailing edge, leave them off the list, or raise "
+                "SET_SIGNIFICANT_DIGITS if the induced drag is merely small.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         log_path = by_name.get(kinds.get("log", ""))
         if log_path is not None:
             frozen = freeze_of_log(

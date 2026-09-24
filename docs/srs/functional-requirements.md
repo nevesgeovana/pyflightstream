@@ -756,21 +756,27 @@ the base could not offer while it bundled several.
     the ordered list in `commands/_meta.yaml` is the sole ordering
     authority, so that 26.100 sorts before 26.120.
 
-!!! requirement "FR-22a Not-computed induced-drag sentinel <span class='srs-deferred'>deferred</span>"
-    *Origin: Phase 4 split of FR-22, accepted 2026-07-27.*
+!!! requirement "FR-22a Not-computed induced-drag sentinel <span class='srs-implemented'>implemented</span>"
+    *Origin: Phase 4 split of FR-22, accepted 2026-07-27; deferred until
+    0.27.0 (PFS-2006.03). Evidence:
+    `tests/tier1_offline/test_pfs2006_declined_induced_drag.py` (a listed
+    surface printed at zero is `NA` in the polar and named in a warning
+    that reaches `post.log`, a surface off the list keeps its printed zero,
+    and each recorded selection read one way).*
 
     A boundary without a user-defined trailing-edge condition, once
     assigned to the vorticity induced-drag list, returns a not-computed
     sentinel distinguishable from a physical zero.
 
-    Deferred, not implemented, and the correction is worth stating
-    because the first draft of this box claimed otherwise. Parsed
-    coefficients are plain floats today, so a solver-reported zero and
-    a not-computed value are the same bytes; the distinction this
-    requirement asks for does not exist in the code. Its own acceptance
-    also gated the sentinel VALUE on the FR-22 probe promotion, which
-    the same batch deferred for lack of licensed evidence, so promoting
-    it here would have run ahead of the evidence it depends on.
+    The sentinel is `NA`: a surface the run record puts on the list and
+    whose printed `CDi` is exactly zero makes every sum the package
+    computes over it `NA` -- the group's `CDI` and every axis column the
+    export's x force reaches -- while the solver's Total row and the
+    parsed per-surface value keep the printed number and a warning names
+    the surfaces. The parsed coefficients stay plain floats, so there a
+    printed zero and a value not computed are the same bytes; the list in
+    the run record is what tells them apart, which is why the rule reads
+    it.
 
 !!! requirement "FR-22b Vorticity selection is an explicit input <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-22, accepted 2026-07-27. Evidence: the

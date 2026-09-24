@@ -27,10 +27,11 @@ SET_VORTICITY_DRAG_BOUNDARIES:
     circulation integration; -1 selects all boundaries. Boundaries
     without trailing-edge boundary conditions on this list report zero
     induced drag (SRC-003 p.202);
-    bluff bodies belong to surface-pressure integration instead, which
-    is why the results layer never sums per-boundary drag of its own
-    accord and reports the solver's per-surface and total rows as
-    printed. Boundaries left off the list, including every boundary
+    bluff bodies belong to surface-pressure integration instead. The
+    results layer reports the solver's per-surface and total rows as
+    printed, and every group sum the post makes writes NA for a boundary
+    on this list whose printed induced drag is exactly zero
+    (PFS-2006.03). Boundaries left off the list, including every boundary
     when the command is never emitted, use that surface-pressure
     integration, which the manual also prescribes for all components
     in ground effect (SRC-003 p.202): not emitting this command is a

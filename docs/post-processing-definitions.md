@@ -150,6 +150,28 @@ export's own vector equals its `CDi + CDo`, which the recorded exports
 confirm to their printed precision, under sideslip too. `CD0` and `CDI` are
 those two integrals as the solver states them.
 
+**A drag the solver declined is `NA`.** A boundary on the vorticity
+induced-drag list (`SET_VORTICITY_DRAG_BOUNDARIES`) without a defined trailing
+edge is not computed, and the export prints its `CDi` as zero (SRC-003 p.202).
+So a surface is DECLINED at a point when that point's run record puts it on
+the list AND its printed `CDi` is exactly zero. The list decides, not the zero:
+a surface left off it is integrated by surface pressure and can print a real
+zero, which is summed as one. `"all"` is every surface, and boundary `i` of an
+index list is the table's `i`-th surface row; a list holding anything the table
+cannot place is read as every surface. A group holding a declined surface
+writes `NA` in `CDI` and in every axis column the x force reaches at that
+point's angles, because the export's `Cx` is short by the same drag. Those
+are `CDB`, `CDS` and `CDW` always, `CLS` and `CLW` at a non-zero angle of
+attack, and `CYW` under sideslip. The moments, `CYB`, `CLB`, `CYS` and `CD0`
+keep their numbers. The solver's own Total row and the parsed per-surface `CDi`
+keep the number the export printed, and `post.log` names the declined surfaces
+of each point. The rule reads the printed digits, so a trailing-edged surface
+whose induced drag rounds to zero is declined too. `SET_SIGNIFICANT_DIGITS`
+narrows that band. A polar rebuilt from point folders alone
+(`write_recorded_polar`) has no run record and declines nothing. The
+fixed-width custom polar carries the same missing value as `nan` in the
+column's own width, since its format writes every number `%10.5f`.
+
 **`CLW` is NOT the solver's `CL`.** The `CL` an export prints sits
 between 0.10 and 0.25 per cent above the wind-axis lift of the vector printed
 beside it on 27 of the 28 lifting recorded exports (lift above 0.05) in

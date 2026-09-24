@@ -53,6 +53,28 @@ FlightStream versions.
   licensed solver (26.000, 0.20.0). The solver model is still the preset's
   and no row cell chooses it; `BLADES` still changes no emitted line (B02).
 
+### Changed
+
+- **An induced drag the solver did not compute is `NA` in every sum the
+  package makes.** A boundary on the vorticity induced-drag list
+  (`SET_VORTICITY_DRAG_BOUNDARIES`) without a defined trailing edge is not
+  computed, and the export prints its `CDi` as zero (SRC-003 p.202). The
+  steady polar summed that zero as a measurement, so a group holding such a
+  surface wrote a `CDI`, `CDB`, `CDS` and `CDW` short by an induced drag
+  nobody computed. A surface the point's run record puts on the list, and
+  whose printed `CDi` is exactly zero, now makes the group's `CDI` `NA` in the
+  polar table and the superfile, and so does every axis column the export's x
+  force reaches at that point's angles: `CDB`, `CDS` and `CDW`; `CLS` and
+  `CLW` at a non-zero angle of attack; `CYW` under sideslip. The moments,
+  `CYB`, `CLB`, `CYS` and `CD0` keep their numbers; the fixed-width custom
+  polar writes the missing value as `nan`. The solver's Total row and the
+  parsed per-surface `CDi` keep what the export printed, and `post.log` names
+  the declined surfaces of each point. A surface off the list keeps its
+  printed zero. A trailing-edged surface whose induced drag rounds to zero at
+  the printed precision reads `NA` too; `SET_SIGNIFICANT_DIGITS` narrows that
+  band. `write_recorded_polar`, which holds no run record, is unchanged
+  (PFS-2006.03, FR-22a).
+
 ### Documentation
 
 - **The tier-3 page states which induced-drag form each case uses.** Every
