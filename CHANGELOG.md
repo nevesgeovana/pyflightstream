@@ -164,10 +164,10 @@ FlightStream versions.
   beside `kutta_joukowski_lift = true` plans with a warning (G14).
 - **A volume section, declared in the pproc and exported by every steady point
   (G05, FR-110).** `[volume_section]` declares ONE flow-field plane: `shape =
-  "rectangle"` (`corners = [x1, y1, x2, y2]`, optional `refinement_layers`) or
-  `"circle"` (`radii = [r1, r2]`, `points = [ipts, jpts]`), in a `plane` (XY,
-  XZ, YZ) of a `frame` (`MRP` unless stated) at an `offset`, with `format`
-  `vtk` or `tecplot`. Each point of a steady row cuts it after its solve and
+  "rectangle"` (`corners_m = [x1, y1, x2, y2]`, optional `refinement_layers`)
+  or `"circle"` (`radii_m = [r1, r2]`, `points = [ipts, jpts]`), in a `plane`
+  (XY, XZ, YZ) of a `frame` (`MRP` unless stated) at an `offset_m`, every
+  length in metres, with `format` `vtk` or `tecplot`. Each point of a steady row cuts it after its solve and
   exports it to `<point>_vsec.vtk` or `<point>_vsec.dat`, collected into its
   `datapoints/DP-<point>/` and hashed in its record; a later point of a sweep
   deletes the previous section first. The five commands are verified one at a

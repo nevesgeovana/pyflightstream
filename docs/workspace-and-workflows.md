@@ -1713,14 +1713,15 @@ it under the point's own name (FR-110):
 shape = "rectangle"                 # or "circle"
 frame = "MRP"                       # the frame the plane lies in; MRP unless stated
 plane = "XZ"                        # XY, XZ or YZ of that frame
-offset = 0.0                        # along the plane's normal, simulation length units
-corners = [-1.0, -1.0, 1.0, 1.0]    # rectangle: x1, y1, x2, y2, two diagonal corners
+offset_m = 0.0                      # along the plane's normal, in metres
+corners_m = [-1.0, -1.0, 1.0, 1.0]  # rectangle: x1, y1, x2, y2, two diagonal corners
 format = "vtk"                      # or "tecplot"
 ```
 
-A circle states `radii = [r1, r2]` (inner and outer, `0 <= r1 < r2`) and
-`points = [ipts, jpts]` (radial and azimuthal segments) instead of `corners`;
-a rectangle may state `refinement_layers` (1 unless stated). Each shape's keys
+A circle states `radii_m = [r1, r2]` (inner and outer, `0 <= r1 < r2`) and
+`points = [ipts, jpts]` (radial and azimuthal segments) instead of `corners_m`;
+a rectangle may state `refinement_layers` (1 unless stated). Every length is
+in metres, the simulation's length unit, and its key says so. Each shape's keys
 are refused on the other, and a shape missing its own is refused naming them.
 The frame is `MRP` or a frame the reference declares or a rotor carries, and a
 frame the run did not create is refused when the script is built, naming the

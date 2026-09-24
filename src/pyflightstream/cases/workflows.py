@@ -8562,13 +8562,13 @@ def _pproc_volume_section(case: SimCase, script: Script, frames: Frames) -> None
         script.emit("DELETE_VOLUME_SECTION", _VOLUME_SECTION_INDEX)
     prisms_type, thickness, layers, growth_rate = VOLUME_SECTION_PRISMS
     if section.shape == "rectangle":
-        assert section.corners is not None  # the model refuses a rectangle without
-        x1, y1, x2, y2 = section.corners
+        assert section.corners_m is not None  # the model refuses a rectangle without
+        x1, y1, x2, y2 = section.corners_m
         script.emit(
             _VOLUME_SECTION_COMMANDS["rectangle"],
             frame=frame,
             plane=section.plane,
-            offset=section.offset,
+            offset=section.offset_m,
             refinement_layers=section.refinement_layers,
             x1=x1,
             y1=y1,
@@ -8580,16 +8580,16 @@ def _pproc_volume_section(case: SimCase, script: Script, frames: Frames) -> None
             growth_rate=growth_rate,
         )
     else:
-        assert section.radii is not None and section.points is not None
+        assert section.radii_m is not None and section.points is not None
         script.emit(
             _VOLUME_SECTION_COMMANDS["circle"],
             frame=frame,
             plane=section.plane,
-            offset=section.offset,
+            offset=section.offset_m,
             ipts=section.points[0],
             jpts=section.points[1],
-            r1=section.radii[0],
-            r2=section.radii[1],
+            r1=section.radii_m[0],
+            r2=section.radii_m[1],
             prisms_type=prisms_type,
             thickness=thickness,
             layers=layers,

@@ -57,12 +57,12 @@ from tests.tier1_offline.test_matrix_run import (
 )
 from tests.tier1_offline.test_workflows import rotor_case, unsteady_case
 
-RECTANGLE = {"shape": "rectangle", "plane": "XZ", "corners": [-1, -1, 1, 1]}
+RECTANGLE = {"shape": "rectangle", "plane": "XZ", "corners_m": [-1, -1, 1, 1]}
 CIRCLE = {
     "shape": "circle",
     "plane": "YZ",
-    "offset": 1.5,
-    "radii": [0.2, 1.0],
+    "offset_m": 1.5,
+    "radii_m": [0.2, 1.0],
     "points": [10, 12],
     "format": "tecplot",
 }
@@ -115,19 +115,21 @@ def test_g05_a_pproc_declares_one_volume_section():
 @pytest.mark.parametrize(
     ("table", "words"),
     [
-        ({**RECTANGLE, "radii": [0.1, 0.5]}, "shape = 'rectangle' states radii"),
+        ({**RECTANGLE, "radii_m": [0.1, 0.5]}, "shape = 'rectangle' states radii_m"),
         ({**RECTANGLE, "points": [4, 4]}, "shape = 'rectangle' states points"),
-        ({"shape": "rectangle", "plane": "XZ"}, "shape = 'rectangle' needs corners"),
-        ({**CIRCLE, "corners": [-1, -1, 1, 1]}, "shape = 'circle' states corners"),
+        ({"shape": "rectangle", "plane": "XZ"}, "shape = 'rectangle' needs corners_m"),
+        ({**CIRCLE, "corners_m": [-1, -1, 1, 1]}, "shape = 'circle' states corners_m"),
         ({**CIRCLE, "refinement_layers": 2}, "shape = 'circle' states refinement_layers"),
         (
             {key: value for key, value in CIRCLE.items() if key != "points"},
-            "shape = 'circle' needs points; a circle takes radii",
+            "shape = 'circle' needs points; a circle takes radii_m",
         ),
-        ({**CIRCLE, "radii": [1.0, 0.2]}, "inner radius"),
-        ({**RECTANGLE, "corners": [-1, 0, 1, 0]}, "enclose no area"),
+        ({**CIRCLE, "radii_m": [1.0, 0.2]}, "inner radius"),
+        ({**RECTANGLE, "corners_m": [-1, 0, 1, 0]}, "enclose no area"),
         ({**RECTANGLE, "plane": "XX"}, r"volume_section\.plane"),
         ({**RECTANGLE, "prisms_type": "PRISMS"}, r"volume_section\.prisms_type"),
+        # The lengths carry their unit in the key; the bare word is not a key.
+        ({**CIRCLE, "offset": 1.5}, r"volume_section\.offset\b"),
     ],
 )
 def test_g05_a_malformed_volume_section_is_refused_naming_the_key(table, words):
@@ -239,7 +241,7 @@ def test_g05_the_volume_file_is_collected_and_hashed(tmp_path):
     workspace, matrix = _matrix(tmp_path, condition="MACH:0.2, REmi:2.3, ALPHA:sweep", values="0.0")
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(
         '[groups]\n"1" = "all"\n\n'
-        '[volume_section]\nshape = "rectangle"\nplane = "XZ"\ncorners = [-1.0, -1.0, 1.0, 1.0]\n',
+        '[volume_section]\nshape = "rectangle"\nplane = "XZ"\ncorners_m = [-1.0, -1.0, 1.0, 1.0]\n',
         encoding="utf-8",
     )
     records = run_matrix(

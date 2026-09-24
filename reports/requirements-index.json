@@ -1041,7 +1041,7 @@
   },
   {
    "id": "FR-110",
-   "text": "A pproc artifact declares at most ONE [volume_section]: a rectangle (corners) or a circle (radii, points) in a plane of a named frame at an offset, and a format, vtk or tecplot. Every point of a steady row creates it after its solve, in the analysis phase, and exports it to {name}_vsec.vtk or {name}_vsec.dat, which the point declares, collects and hashes like its other outputs; a later point of a sweep deletes the previous section first, so each export writes its own point's plane.",
+   "text": "A pproc artifact declares at most ONE [volume_section]: a rectangle (corners_m) or a circle (radii_m, points) in a plane of a named frame at an offset_m, every length in metres, and a format, vtk or tecplot. Every point of a steady row creates it after its solve, in the analysis phase, and exports it to {name}_vsec.vtk or {name}_vsec.dat, which the point declares, collects and hashes like its other outputs; a later point of a sweep deletes the previous section first, so each export writes its own point's plane.",
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: G05 of the 0.27.0 scope, the basic GUI steps through the workflow: a volume section and its VTK or Tecplot export were reachable from no row. Evidence: tests/tier1_offline/test_g05_volume_section.py (the table and each shape's own keys, the section created after the solve and exported to the point's name, the delete before each later point of a warm sweep, the file never classified as a surface export, the refusal on both unsteady run types, and the file collected and hashed). The five commands it emits are verified one at a time on 26.120 to 26.124 by the compat probes; no licensed row has run the whole path yet.*",

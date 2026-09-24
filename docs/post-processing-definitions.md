@@ -802,7 +802,7 @@ files above, and the package writes no product from it:
 | field | definition |
 |---|---|
 | file | `{name}_vsec.vtk` (`format = "vtk"`, `EXPORT_VOLUME_SECTION_VTK`) or `{name}_vsec.dat` (`format = "tecplot"`, `EXPORT_VOLUME_SECTION_TECPLOT`), in the point's `datapoints/DP-<point>/`, hashed in its record |
-| plane | a rectangle between two diagonal corners, or an annulus between two radii, in the `plane` of the named `frame`, `offset` along its normal |
+| plane | a rectangle between two diagonal corners (`corners_m`), or an annulus between two radii (`radii_m`), in the `plane` of the named `frame`, `offset_m` along its normal; every length in metres |
 | instant | the converged state of THAT point: the section is created after the point's `START_SOLVER`, and a later point of a sweep deletes the previous section before creating its own, so each file is its own point's plane |
 
 The `_vsec` infix is what tells the file from a surface export of the same

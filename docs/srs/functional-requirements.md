@@ -4394,12 +4394,13 @@ requirement below is one seam of that division.
     compat probes; no licensed row has run the whole path yet.*
 
     A pproc artifact declares at most ONE `[volume_section]`: a rectangle
-    (`corners`) or a circle (`radii`, `points`) in a `plane` of a named `frame`
-    at an `offset`, and a `format`, `vtk` or `tecplot`. Every point of a
-    steady row creates it after its solve, in the analysis phase, and exports
-    it to `{name}_vsec.vtk` or `{name}_vsec.dat`, which the point declares,
-    collects and hashes like its other outputs; a later point of a sweep deletes
-    the previous section first, so each export writes its own point's plane.
+    (`corners_m`) or a circle (`radii_m`, `points`) in a `plane` of a named
+    `frame` at an `offset_m`, every length in metres, and a `format`, `vtk` or
+    `tecplot`. Every point of a steady row creates it after its solve, in the
+    analysis phase, and exports it to `{name}_vsec.vtk` or `{name}_vsec.dat`,
+    which the point declares, collects and hashes like its other outputs; a
+    later point of a sweep deletes the previous section first, so each export
+    writes its own point's plane.
 
     - Each shape's keys are refused on the other, and a shape missing its own
       is refused naming them. The prism-layer arguments are not the table's:

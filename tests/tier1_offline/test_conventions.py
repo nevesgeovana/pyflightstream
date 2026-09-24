@@ -168,6 +168,9 @@ _DIMENSIONLESS_OR_DEBT = {
     # the table, as ProbeLine.end's rides its entry's `scale`.
     "factors",  # MeshOperation.factors
     "vector",  # MeshOperation.vector
+    # 0.27.0 G06: a FRACTION, 0 to 1, of the swirl velocity an actuator disc
+    # keeps downstream (SET_PROP_ACTUATOR_SWIRL), so there is no unit to carry.
+    "swirl",  # ActuatorBlock.swirl
     # Unit DIRECTIONS in the reference frame, not lengths (FR-100).
     "axes",  # FramePlacement.axes
     "reference",  # RunRecord: the block by column name, SREF m2 and CREF/BREF/XMOM..ZMOM m
