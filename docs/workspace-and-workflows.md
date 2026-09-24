@@ -616,8 +616,10 @@ names as often as in this package's. Both are read: `NITER`,
 `proximity_avoidance`, `solver_minimum_cp`, `induced_wake_velocity`,
 `unsteady_pressure_kutta`, `additional_wake_relaxation_iteration`,
 `reynolds_averaged_drag_forces` and `unsteady_N_revolutions_wake` are
-aliases of the fields the emitter names. A preset transcribed from a
-working session keeps working as written.
+aliases of the fields the emitter names, and so, since 0.27.0, are
+`set_solver_analysis_boundaries`, `set_loads_and_moments_units` and
+`set_inviscid_loads`. A preset transcribed from a working session keeps
+working as written.
 
 Three things can happen to a key, and the third is the one worth
 knowing.
@@ -664,7 +666,7 @@ solver's default. Those runs converge, export and publish numbers
 against a physics nobody selected. A refusal costs an edit; a silent
 drop costs a result.
 
-**Two keys of a preset select BOUNDARIES rather than set a number**, and both
+**Three keys of a preset select BOUNDARIES rather than set a number**, and all
 take FAMILY NAMES resolved against the geometry the run opens. You never write
 an index: an index is a fact about the order of a file and it does not survive a
 mesh being rebuilt, while a family name is a fact about the aircraft.
@@ -673,13 +675,15 @@ mesh being rebuilt, while a family name is a fact about the aircraft.
 |---|---|---|
 | `vorticity_drag_families` | families whose induced drag comes from vorticity integration | `SET_VORTICITY_DRAG_BOUNDARIES` |
 | `axial_separation_families` | families on the axial flow separation list | `SET_AXIAL_SEPARATION_BOUNDARIES` |
+| `analysis_families` (since 0.27.0, steady rows) | families that enter the loads; every other boundary leaves the analysis | `SET_SOLVER_ANALYSIS_BOUNDARIES` |
 
 ```toml
 vorticity_drag_families   = ["Wing", "HTP", "VTP"]
 axial_separation_families = ["Nacelle"]
+analysis_families         = ["Wing", "Fuselage"]
 ```
 
-**Both follow one rule**, and it is one function rather than two copies:
+**All three follow one rule**, and it is one function rather than three copies:
 
 - A family the opened geometry does not carry is **left out**, as the reference
   driver filtered a preset's list to the configuration it opened.
@@ -687,6 +691,41 @@ axial_separation_families = ["Nacelle"]
   key and the families it could not find. An empty selection would reach the
   solver as its DEFAULT, and the preset asked for something else.
 - A preset that says nothing emits neither the `SET` nor the `DELETE`.
+
+**Two keys decide what the loads table holds**, since 0.27.0, and a steady row
+alone may state them, with `analysis_families` above:
+
+```toml
+load_units     = "NEWTONS"   # COEFFICIENTS, NEWTONS, KILO-NEWTONS, POUND-FORCE, KILOGRAM-FORCE
+inviscid_loads = true        # the loads and moments without their viscous part
+```
+
+`load_units` reaches `SET_LOADS_AND_MOMENTS_UNITS` and `inviscid_loads`
+`SET_INVISCID_LOADS`. Both, and `SET_SOLVER_ANALYSIS_BOUNDARIES`, are
+analysis commands: the script states them after `START_SOLVER` and before
+the point's exports, on every point of a steady sweep, and each is checked
+against the command database for the row's build. A unit the command does
+not take is refused when the preset is read, naming the five it does
+(`load_units = 'FOO' is not one of COEFFICIENTS, NEWTONS, KILO-NEWTONS,
+POUND-FORCE, KILOGRAM-FORCE`). What each means for the products:
+
+- **`load_units`**: every product reads the loads table as coefficients, so
+  a point whose table's footer names another unit writes no product row; the
+  post stage skips it, naming the unit and `load_units`. The export itself is
+  collected and hashed as usual.
+- **`inviscid_loads`**: the verified run of this command on 26.120 and
+  26.123 exported `CDo` exactly zero, so a polar of such a row is inviscid by
+  construction.
+- **`analysis_families`**: the polar sums the loads table's rows by group,
+  so a group naming a family left out of the analysis sums what the table
+  prints for it, which has not been measured on any build.
+
+A row naming `unsteady` or `unsteady_rotor` whose preset states any of the
+three is refused at plan, naming the run type and the key. Stated after the
+solve starts, on a march they would reach the final export and not the step
+exports and plots the unsteady products are read from, which is what was
+measured for the loads frame (RPT-064); drop the key from the preset, or give
+the row a preset of its own.
 
 !!! warning "`axial_separation_families` runs on 26.100 and is refused above it"
     `SET_AXIAL_SEPARATION_BOUNDARIES` is documented to 26.100 and no further, and
@@ -698,8 +737,10 @@ axial_separation_families = ["Nacelle"]
     its replacement field empty.
 
 `vorticity_drag_boundaries` (also spelled `set_vorticity_drag_boundaries`) is an
-accepted spelling of the first. Stating either as an EMPTY list is refused when
-the file is read, at `pyfs-matrix plan` (PFS-2005.02):
+accepted spelling of the first, and `set_solver_analysis_boundaries` of
+`analysis_families`. Stating any of them, or `vorticity_drag_families` or
+`analysis_families`, as an EMPTY list is refused when the file is read, at
+`pyfs-matrix plan` (PFS-2005.02):
 
 ```toml
 iterations = 800

@@ -4632,6 +4632,21 @@ def _vorticity_selection(record: RunRecord) -> object:
     return flag.get("value") if isinstance(flag, Mapping) else None
 
 
+def _in_coefficients(report: LoadsReport) -> bool:
+    """Whether a loads table prints coefficients, the unit every product here reads.
+
+    G09 (0.27.0). The table's own footer says so. Every product reads its
+    columns by coefficient name, and what header the solver prints under
+    ``SET_LOADS_AND_MOMENTS_UNITS NEWTONS`` has not been measured, so a table
+    whose footer names another unit is not summed as though it held
+    coefficients.
+    """
+    return all(
+        units.strip().lower() == "coefficients"
+        for units in (report.force_units, report.moment_units)
+    )
+
+
 def _sim_products(
     workspace: CampaignWorkspace,
     sim_id: str,
@@ -4722,6 +4737,17 @@ def _sim_products(
             skipped[f"runs/{record.run_id}"] = (
                 f"{by_name[loads_name]} is not a loads table: {error}. "
                 "Recollect the complete loads export or run this point again."
+            )
+            continue
+        if not _in_coefficients(report):
+            # G09 (0.27.0): a setup's load_units makes the solver print forces and
+            # moments under the columns every product reads as coefficients.
+            skipped[f"runs/{record.run_id}"] = (
+                f"{by_name[loads_name]} prints its loads in {report.force_units or 'no unit'} "
+                f"and its moments in {report.moment_units or 'no unit'}, and every product "
+                "here is written in coefficients, so none holds a row of it. The setup this "
+                "row names states load_units; drop it, or state COEFFICIENTS, and run the "
+                "point again."
             )
             continue
         stem = loads_name[: -len(".txt")]

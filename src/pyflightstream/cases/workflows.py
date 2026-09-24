@@ -189,6 +189,7 @@ __all__ = [
     "UNSTEADY_EXPORTS_ACTION",
     "UnsteadyExportThreshold",
     "WHOLE_RUN_EXPORT_KINDS",
+    "LOADS_SELECTION_KEYS",
     "END_OF_RUN_EXPORT_KINDS",
     "Workflow",
     "WorkflowConventions",
@@ -5083,6 +5084,65 @@ def _axial_separation_indices(case: SimCase, script: Script) -> list[int] | None
     )
 
 
+def _analysis_indices(case: SimCase, script: Script) -> list[int] | None:
+    """Resolve the families that enter the loads (G09), by the per-family rule."""
+    return _family_indices(
+        case,
+        script,
+        case.solver.analysis_families,
+        keyword="boundaries",
+        preset_key="analysis_families",
+        dropped="every boundary enters the loads",
+    )
+
+
+#: The setup keys that select what the loads analysis reads (G09 of 0.27.0), each
+#: an analysis-phase command emitted after START_SOLVER, which is why a row of an
+#: unsteady run type may not state them.
+LOADS_SELECTION_KEYS: tuple[str, ...] = ("analysis_families", "load_units", "inviscid_loads")
+
+
+def _loads_selections(case: SimCase, script: Script) -> None:
+    """Emit the setup's selections of the loads analysis, after the solve (G09).
+
+    ANALYSIS PHASE, SO AFTER ``START_SOLVER`` and before the exports, which is
+    the order the verified inviscid-loads probe ran: the command, then the
+    export that reads it. Called once per point, so every point of a warm sweep
+    restates them. A setup that states none emits nothing.
+    """
+    solver = case.solver
+    boundaries = _analysis_indices(case, script)
+    if boundaries is None and solver.load_units is None and solver.inviscid_loads is None:
+        return
+    helpers.analysis_setup(
+        script,
+        load_units=solver.load_units,
+        boundaries=boundaries,
+        inviscid_only=solver.inviscid_loads,
+    )
+
+
+def _refuse_the_loads_selections_on_a_march(case: SimCase) -> None:
+    """Refuse a loads selection on a row of an unsteady run type (G09).
+
+    Emitted after the solve starts, it would reach the final export and not the
+    per-step exports and plots an unsteady product is read from, which is the
+    shape RPT-064 measured for the loads frame; moving it before the solve is not
+    measured. In 0.27.0 they are a steady row's.
+    """
+    stated = [key for key in LOADS_SELECTION_KEYS if getattr(case.solver, key) is not None]
+    if not stated:
+        return
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} names the run type {case.recipe!r} and its setup states "
+        f"{', '.join(stated)}. The loads selections are applied after the solve starts, "
+        "and on a march that reaches only the final export, not the step exports and "
+        "plots the unsteady products are read from (RPT-064 measured this for the loads "
+        "frame); in 0.27.0 they are a steady row's. Drop the key from the preset this "
+        "row names, or give the row a preset of its own."
+    )
+
+
 def _analysis(case: SimCase, script: Script, frame: int | None) -> None:
     """Point the analysis at the MRP frame, BEFORE the solver starts (B05, RPT-064).
 
@@ -6298,6 +6358,8 @@ def _script_solve_and_export(
     """
     _raw_commands(case, script, "exec")
     helpers.start_solver(script)
+    if not unsteady:
+        _loads_selections(case, script)
     _raw_commands(case, script, "analysis")
     # FR-81: a STEADY row creates the probe points it exports. `NEW_PROBE_LINE`
     # is an ANALYSIS command, so this is the only position the phase order
@@ -9576,6 +9638,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     motion, and a clock stated directly rather than derived from a
     speed. Both refusals run before the first emission.
     """
+    _refuse_the_loads_selections_on_a_march(case)
     # A CONTINUATION IS A DIFFERENT SCRIPT, not this one with a shorter
     # march, so the branch is HERE and not further down: every line below
     # describes a run that starts from a mesh, and a continuation starts
@@ -9639,6 +9702,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     with nothing said, and the rotary motion would then turn about a
     frame that no longer exists.
     """
+    _refuse_the_loads_selections_on_a_march(case)
     # A CONTINUATION IS A DIFFERENT SCRIPT, not this one with a shorter
     # march: the branch is here because every line below starts from a
     # mesh, and a continuation starts from the state a stopped run saved.

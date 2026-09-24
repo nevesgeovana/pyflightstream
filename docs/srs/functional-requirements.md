@@ -1777,6 +1777,16 @@ nodes.
     six times the recorded value, the periodic copy count, because the reference setup
     stated the symmetry loads off and the package emitted nothing.
 
+    AMENDED 0.27.0 (G09), pending with it: a setup may select the
+    families that enter the loads (`analysis_families`, resolved like the
+    other family lists), the unit the loads table prints (`load_units`,
+    one of the tokens `SET_LOADS_AND_MOMENTS_UNITS` takes, refused when the
+    preset is read otherwise) and the inviscid loads (`inviscid_loads`),
+    each emitted after `START_SOLVER` and before the exports of every
+    point of a steady row; a row of an unsteady run type stating any of
+    them is refused at plan; and a point whose loads table is not in
+    coefficients writes no product row, the post stage naming the unit.
+
 !!! requirement "FR-55 A row states its geometry as a file, and the geometry carries its own boundary inventory <span class='srs-pending'>pending</span>"
     *Origin: feedback items #2 and #6 of 2026-09-02. Carried by
     PFS-2029.06 and its children, PFS-2029.09 and its children, and

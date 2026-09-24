@@ -3178,6 +3178,41 @@ class SolverSettings(BaseModel):
     #: may carry an initialised solver, and loading it would start the run
     #: from a state the row never declared (PFS-2030.03.01).
     load_solver_initialization: SolverToggle | None = None
+    #: THE SELECTIONS OF THE LOADS ANALYSIS (G09 of 0.27.0), analysis-phase
+    #: commands the builders emit after ``START_SOLVER`` and before the exports,
+    #: on a STEADY row only: set after the solve starts, a march's per-step
+    #: exports would not see them (the shape RPT-064 measured for the loads
+    #: frame), so a row of an unsteady run type stating one is refused. None
+    #: emits nothing.
+    #:
+    #: SET_SOLVER_ANALYSIS_BOUNDARIES written as FAMILY NAMES, resolved like
+    #: :attr:`vorticity_drag_families`: the boundaries that enter the loads, every
+    #: other one leaving the analysis (SRC-003 p.351). A family the geometry does
+    #: not carry is left out, and a list that resolves to none is refused.
+    analysis_families: list[str] | None = None
+    #: SET_LOADS_AND_MOMENTS_UNITS: the unit the loads table prints, one of the
+    #: tokens the command takes on the row's build. The polar and every product
+    #: read coefficients, so a point exported in another unit writes no product.
+    load_units: str | None = None
+    #: SET_INVISCID_LOADS: the loads and moments without their viscous part.
+    inviscid_loads: SolverToggle | None = None
+
+    @field_validator("load_units")
+    @classmethod
+    def _a_unit_the_command_takes(cls, value: str | None) -> str | None:
+        # Read from the command database, as the VTK variables are, so the list
+        # a refusal prints is the one the emitter would enforce.
+        if value is None:
+            return None
+        entry = CommandRegistry.load().commands["SET_LOADS_AND_MOMENTS_UNITS"]
+        allowed = [str(token) for token in entry.args[0].values or ()]
+        for token in allowed:
+            if token.upper() == str(value).strip().upper():
+                return token
+        raise ValueError(
+            f"load_units = {value!r} is not one of {', '.join(allowed)} "
+            f"(SET_LOADS_AND_MOMENTS_UNITS, {entry.citation})"
+        )
 
 
 class FluidState(BaseModel):
