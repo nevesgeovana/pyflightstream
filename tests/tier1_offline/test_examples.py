@@ -40,6 +40,10 @@ PACKAGE = REPO / "src" / "pyflightstream"
 EXAMPLE_EXTRAS: dict[str, frozenset[str]] = {
     "campaign_matrix.py": frozenset(),
     "fsi_campbell_diagram.py": frozenset({"fsi"}),
+    # 0.27.0 (D11): one example per new capability, each a dry run that
+    # plans a workflow row and prints what its script carries.
+    "obj_wing_trailing_edge_file.py": frozenset(),
+    "roll_rate_row.py": frozenset(),
     "steady_polar.py": frozenset(),
     "wing_static_deflection.py": frozenset({"fsi"}),
 }

@@ -25,6 +25,8 @@ EXAMPLES = [
     "campaign_matrix.py",
     "wing_static_deflection.py",
     "fsi_campbell_diagram.py",
+    "obj_wing_trailing_edge_file.py",
+    "roll_rate_row.py",
 ]
 
 for path, content in markdown_reference_pages().items():
