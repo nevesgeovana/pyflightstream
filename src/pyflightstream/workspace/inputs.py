@@ -92,6 +92,7 @@ from pyflightstream._retired_names import (
 )
 from pyflightstream.cases import (
     EVERY_SURFACE,
+    ActuatorBlock,
     BoundaryAliases,
     CampaignConfigError,
     CustomFlag,
@@ -409,6 +410,10 @@ class ReferenceArtifact(BaseModel):
     #: :attr:`~pyflightstream.cases.RotorBlock.alias`, which is the word a
     #: row moves, so a caller iterating this mapping may use either.
     rotors: dict[str, RotorBlock] = Field(default_factory=dict)
+    #: One entry per actuator disc, keyed by the block's name, read out of
+    #: every top-level table whose ``kind`` is ``actuator`` (G06). The name is
+    #: what a row's ``ACTUATOR`` cites; a disc no row names emits nothing.
+    actuators: dict[str, ActuatorBlock] = Field(default_factory=dict)
     #: The named points of the configuration that are NOT rotors, keyed by
     #: the block's name: today the airframe point a configuration writes
     #: beside its rotors.
@@ -548,7 +553,7 @@ class PprocArtifact(PprocSpec):
     """The post-processing artifact (``inputs/pproc/<id>.toml``).
 
     PFS-2029.07.01, the design decision of 2026-09-02: the groups artifact IS the
-    home of post-processing and is renamed. The file carries nine tables,
+    home of post-processing and is renamed. The file carries twelve tables,
     every one optional: ``[groups]`` maps each product name to one alias string;
     define several members in the reference's ``[aliases]`` table;
     ``[exports]`` which of the export kinds a point writes, where the
@@ -557,8 +562,11 @@ class PprocArtifact(PprocSpec):
     ``plot_loads``, ``plot_sections_cp``) can;
     ``[sections]``, ``[plots]`` and ``[[probes]]`` the solver definitions
     the builders emit; ``[products]`` the post-processed files written
-    after the run; and, since 0.24.0, ``[phase_locked]``, ``[equations]`` and
-    ``[glossary]``, which the post stage reads. Group aliases are stored
+    after the run; since 0.24.0, ``[phase_locked]``, ``[equations]``,
+    ``[glossary]`` and ``[names]``, which the post stage reads;
+    ``[time_averaging]`` the surface window; and, since 0.27.0,
+    ``[volume_section]``, the one flow-field plane a steady point cuts and
+    exports. Group aliases are stored
     verbatim and resolved by the script layer at emission time. Member lists,
     including empty lists, were retired at 0.26.0. The
     shape is
@@ -994,6 +1002,11 @@ def resolve_reference(inputs_dir: Path, artifact_id: str) -> ReferenceArtifact:
 #: with that sentence rather than as an unknown key.
 _ROTOR_ONLY_KEYS = ("families_blades", "families_general", "diameter_m", "rpm_sign", "blade1")
 
+#: The ``kind`` of a reference block that is an actuator disc (G06), and the
+#: keys only such a block carries, for the refusal of one that forgot its kind.
+ACTUATOR_KIND = "actuator"
+_ACTUATOR_ONLY_KEYS = ("tip_radius_m", "hub_radius_m", "profile_units", "swirl")
+
 #: The frames a rotor instantiates, as spellings to compare a declared
 #: name against: ``<ALIAS>_SMRP``, ``<ALIAS>_RMRP`` and ``<ALIAS>_RMRP<k>``
 #: for each blade k. The digits are matched rather than enumerated,
@@ -1053,6 +1066,8 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
       ``rotors``; the block's NAME becomes an alias over everything the
       rotor owns, the general families first, so a row citing it moves the
       spinner with the blades (the wording of 2026-09-10);
+    * a table declaring ``kind = "actuator"`` is an actuator disc and goes to
+      ``actuators`` (G06); its name may be no rotor's, alias's or frame's;
     * a table declaring any other point ``kind`` goes to ``points``;
     * ``[aliases]`` and ``[[frames]]`` are lifted by name.
 
@@ -1066,6 +1081,7 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
     frames = rest.pop(FRAMES_TABLE, []) or []
     rotors: dict[str, Any] = {}
     points: dict[str, Any] = {}
+    actuators: dict[str, Any] = {}
     for name, value in list(rest.items()):
         if not isinstance(value, dict):
             continue
@@ -1085,6 +1101,21 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
                     "quantity.",
                     kind="reference",
                 )
+            # The same for an actuator disc that forgot its kind (G06).
+            disc = sorted(key for key in _ACTUATOR_ONLY_KEYS if key in value)
+            if disc:
+                raise InputArtifactError(
+                    f"the reference artifact {path} declares [{name}] with "
+                    f"{', '.join(disc)} and no kind. A block that states an actuator "
+                    'disc\'s own keys is a disc, and a disc says so: add kind = "actuator" '
+                    "to it.",
+                    kind="reference",
+                )
+            continue
+        if value.get("kind") == ACTUATOR_KIND:
+            # G06: A DISC IS NEITHER A ROTOR NOR A POINT, and it is routed before
+            # the branch below sends every kind that is not a rotor to the points.
+            actuators[name] = rest.pop(name)
             continue
         if value.get("kind") != "rotor":
             points[name] = rest.pop(name)
@@ -1185,8 +1216,37 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
         rest[ALIASES_TABLE] = aliases
     if frames:
         rest[FRAMES_TABLE] = frames
+    # A DISC'S NAME IS THE WORD A ROW'S `ACTUATOR` CITES (G06), so it may not
+    # also be an alias's (which every rotor's name is, above) or a frame's: one
+    # word would then name two things in one file. Case folded, as every other
+    # name comparison of this file is.
+    for name in actuators:
+        if not re.fullmatch(r"[A-Za-z0-9_.\-]+", name):
+            raise InputArtifactError(
+                f"the reference artifact {path} declares the actuator disc {name!r}. Its name "
+                "is the actuator's name on the solver's command line, which is read word by "
+                "word, so it is one word of letters, digits, dots, underscores and hyphens.",
+                kind="reference",
+            )
+        taken = [
+            what
+            for what, names in (
+                ("rotor or alias", list(aliases)),
+                ("frame", [str(frame.get("name", "")) for frame in frames]),
+            )
+            if any(other.casefold() == name.casefold() for other in names)
+        ]
+        if taken:
+            raise InputArtifactError(
+                f"the reference artifact {path} declares the actuator disc {name!r} and "
+                f"a {' and a '.join(taken)} of the same name. A row's ACTUATOR cites the "
+                "disc by that word, so it names one thing in this file; rename one of them.",
+                kind="reference",
+            )
     if rotors:
         rest["rotors"] = rotors
+    if actuators:
+        rest["actuators"] = actuators
     if points:
         rest["points"] = points
     return rest

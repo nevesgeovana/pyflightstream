@@ -72,6 +72,7 @@ __all__ = [
     "BladeDatum",
     "ROTOR_BLADE_ROTATION_AXIS",
     "RotorBlock",
+    "ActuatorBlock",
     "ROTATION_OFFSET_KEY",
     "ROTATION_SWEEP_KEY",
     "Campaign",
@@ -108,6 +109,9 @@ __all__ = [
     "SurfaceTimeAveragingSpec",
     "RESERVED_FRAME_NAMES",
     "SectionsSpec",
+    "VOLUME_SECTION_KINDS",
+    "VOLUME_SECTION_PRISMS",
+    "VolumeSectionSpec",
     "PlotsSpec",
     "ProbesSpec",
     "ProductsSpec",
@@ -402,6 +406,11 @@ EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
         "EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS",
         False,
     ),
+    # G05 (0.27.0): the pproc's ONE volume section, in the format its table
+    # names. `_vsec` is the only thing telling the file from a surface export
+    # of the same extension, so it is claimed first (the longest suffix).
+    ("volume_section_vtk", "_vsec.vtk", "EXPORT_VOLUME_SECTION_VTK", False),
+    ("volume_section_tecplot", "_vsec.dat", "EXPORT_VOLUME_SECTION_TECPLOT", False),
     ("sections", "_cp.txt", "EXPORT_ALL_SURFACE_SECTIONS", False),
     ("sectional_loads", "_sloads.txt", "EXPORT_SURFACE_SECTIONAL_LOADS", False),
     ("probes", "_probes.txt", "EXPORT_PROBE_POINTS", False),
@@ -424,6 +433,16 @@ PLOT_TYPES: dict[str, str] = {
     "plot_loads": "LOADS",
     "plot_sections_cp": "SECTIONS_CP",
 }
+
+#: THE VOLUME-SECTION KINDS, by the format ``[volume_section]`` names (G05).
+#: They are NOT in the default export set and ``[exports]`` cannot name them:
+#: a point declares one only because its pproc declares a section, and in the
+#: format that section says.
+VOLUME_SECTION_KINDS: dict[str, str] = {
+    "vtk": "volume_section_vtk",
+    "tecplot": "volume_section_tecplot",
+}
+
 
 #: The kinds only a STEADY point leaves. An unsteady point samples its probes
 #: through fluid plots and exports its force and fluid histories as
@@ -460,7 +479,9 @@ def default_outputs(
     surface sections to plot. The
     artifact cannot set ``loads`` or ``simulation`` to false
     (:class:`PprocSpec` refuses both), so every row naming a run type
-    declares its loads table and its final saved simulation.
+    declares its loads table and its final saved simulation. The two
+    volume-section kinds are never here: :meth:`PprocSpec.outputs` adds the
+    one a declared ``[volume_section]`` names.
     """
     chosen = exports or {}
 
@@ -473,6 +494,7 @@ def default_outputs(
         f"{{name}}{suffix}"
         for kind, suffix, _, only_unsteady in EXPORT_KINDS
         if (unsteady or not only_unsteady)
+        and kind not in VOLUME_SECTION_KINDS.values()
         and not (unsteady and kind in STEADY_ONLY_EXPORT_KINDS)
         and wanted(kind)
     ]
@@ -680,6 +702,128 @@ class SectionsSpec(BaseModel):
     plot_direction: Literal[1, 2] = 1
     include_symmetry: bool = False
     distributions: list[SectionDistribution] = Field(default_factory=list)
+
+
+#: THE PRISM-LAYER ARGUMENTS EVERY VOLUME SECTION IS CREATED WITH (G05):
+#: ``prisms_type``, ``thickness``, ``layers`` and ``growth_rate``, in the order
+#: both create commands take them. They are the values the verified create
+#: probes sent (``qa/specs.py``, the volume-section specs, verified on 26.120
+#: to 26.124); with ``NONE`` the manual reads no prism layer, and what the other
+#: three then mean is the manual's (SRC-003 p.366). A pproc cannot state them:
+#: a value no run has sent is not one this package offers.
+VOLUME_SECTION_PRISMS: tuple[str, float, int, float] = ("NONE", 0.1, 1, 1.2)
+
+#: The keys each volume-section shape states, and so the keys the other refuses.
+_VOLUME_SECTION_SHAPE_KEYS: dict[str, tuple[str, ...]] = {
+    "rectangle": ("corners", "refinement_layers"),
+    "circle": ("radii", "points"),
+}
+
+
+class VolumeSectionSpec(BaseModel):
+    """The ``[volume_section]`` table: one flow-field plane a steady point exports (G05).
+
+    The GUI's volume section, declared once in the pproc and cut by every
+    point of a steady row after its solve: ``CREATE_NEW_RECTANGLE_VOLUME_SECTION``
+    or ``CREATE_NEW_CIRCLE_VOLUME_SECTION`` in the named frame's plane, then
+    ``EXPORT_VOLUME_SECTION_VTK`` or ``EXPORT_VOLUME_SECTION_TECPLOT`` to
+    ``{name}_vsec.vtk`` or ``{name}_vsec.dat``.
+
+    ONE SECTION PER PPROC. The point's outputs hold one name per export kind,
+    so a second plane would need a kind that carries several names; that is a
+    later release's.
+
+    Attributes
+    ----------
+    shape : {'rectangle', 'circle'}
+        Which create command cuts the plane.
+    frame : str
+        The frame the plane lies in: ``MRP``, or a frame the reference's
+        ``[[frames]]`` table declares or a rotor carries. A frame the run did
+        not create is refused when the script is built.
+    plane : {'XY', 'XZ', 'YZ'}
+        The frame's plane the section lies in.
+    offset : float
+        The plane's distance from the frame origin along its normal, in
+        simulation length units.
+    corners : tuple of four floats
+        Rectangle only: ``x1, y1, x2, y2``, the two diagonal corners the
+        command takes, in the plane. Which in-plane axis each pair runs along
+        is the manual's (SRC-003 p.366); the verified probes cut the square
+        from -1 to 1 and nothing else.
+    refinement_layers : int
+        Rectangle only: the command's refinement layer count, 1 unless stated.
+        Only 1 has been sent to a solver.
+    radii : tuple of two floats
+        Circle only: the inner and outer radius, ``0 <= r1 < r2``.
+    points : tuple of two ints
+        Circle only: ``ipts`` radial and ``jpts`` azimuthal segments.
+    format : {'vtk', 'tecplot'}
+        The export: ``EXPORT_VOLUME_SECTION_VTK`` or
+        ``EXPORT_VOLUME_SECTION_TECPLOT``.
+    """
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    shape: Literal["rectangle", "circle"]
+    frame: str = "MRP"
+    plane: Plane
+    offset: float = 0.0
+    corners: tuple[float, float, float, float] | None = None
+    refinement_layers: int = Field(default=1, ge=1)
+    radii: tuple[float, float] | None = None
+    points: tuple[Annotated[int, Field(ge=1)], Annotated[int, Field(ge=1)]] | None = None
+    format: Literal["vtk", "tecplot"] = "vtk"
+
+    _frame_is_named = field_validator("frame")(_a_named_frame)
+
+    @model_validator(mode="after")
+    def _each_shape_states_its_own_keys(self) -> VolumeSectionSpec:
+        """Refuse a key of the other shape, and a shape missing its own.
+
+        ``refinement_layers`` has a default, so it is judged by whether the
+        table STATED it: a circle table writing it names a rectangle's key.
+        """
+        own = _VOLUME_SECTION_SHAPE_KEYS[self.shape]
+        other = next(shape for shape in _VOLUME_SECTION_SHAPE_KEYS if shape != self.shape)
+        stray = [
+            key
+            for key in _VOLUME_SECTION_SHAPE_KEYS[other]
+            if key in self.model_fields_set and getattr(self, key) is not None
+        ]
+        if stray:
+            raise ValueError(
+                f"[volume_section] shape = {self.shape!r} states {', '.join(stray)}, which "
+                f"{'is' if len(stray) == 1 else 'are'} a {other}'s; a {self.shape} takes "
+                f"{' and '.join(own)}"
+            )
+        needed = [key for key in own if key != "refinement_layers" and getattr(self, key) is None]
+        if needed:
+            raise ValueError(
+                f"[volume_section] shape = {self.shape!r} needs {' and '.join(needed)}; "
+                + (
+                    "a rectangle takes corners, the two diagonal corners x1, y1, x2, y2 "
+                    "in the plane"
+                    if self.shape == "rectangle"
+                    else "a circle takes radii, the inner and outer radius r1, r2, and "
+                    "points, the ipts radial and jpts azimuthal segments"
+                )
+            )
+        if self.corners is not None:
+            x1, y1, x2, y2 = self.corners
+            if x1 == x2 or y1 == y2:
+                raise ValueError(
+                    f"[volume_section] corners = {list(self.corners)} enclose no area: two "
+                    "diagonal corners differ in both coordinates"
+                )
+        if self.radii is not None:
+            inner, outer = self.radii
+            if not 0.0 <= inner < outer:
+                raise ValueError(
+                    f"[volume_section] radii = {list(self.radii)}: the inner radius r1 is at "
+                    "least 0 and smaller than the outer r2"
+                )
+        return self
 
 
 #: The FRAME KINDS a post-processing entry may cite instead of a frame's
@@ -1654,6 +1798,87 @@ class RotorBlock(BaseModel):
         return self
 
 
+class ActuatorBlock(BaseModel):
+    """One actuator disc, declared as one block of the reference artifact (G06).
+
+    The linearized propeller slipstream the solver models with an actuator
+    (SRC-003 pp.185-187). Its GEOMETRY is the configuration's, so it lives in
+    the reference beside the rotors and the frames, as a top-level table with
+    ``kind = "actuator"`` whose NAME is the disc's name; its LOADING is the
+    condition's, so a row states it (``ACTUATOR``, ``ACTUATOR_RPM`` and one of
+    ``ACTUATOR_THRUST`` or ``PROFILE``). A reference declaring a disc moves
+    nothing on a row that names none.
+
+    Attributes
+    ----------
+    frame : str
+        The frame the disc's axis belongs to: a name the reference's
+        ``[[frames]]`` declares, ``MRP``, or a rotor's frame. The command
+        places a disc on a local frame, never on the reference frame, and a
+        name the run did not create is refused when the script is built.
+    axis : {'X', 'Y', 'Z'}
+        The frame's axis the disc turns about.
+    offset_m : float
+        The disc's position along that axis, from the frame's origin.
+    tip_radius_m, hub_radius_m : float
+        The disc's outer and inner radius, ``0 <= hub < tip``.
+    rpm_sign : int
+        ``+1`` is the right-hand rule about ``axis``, as a rotor block's; the
+        row's ``ACTUATOR_RPM`` is a magnitude and this is its hand.
+    blades : int, optional
+        The blade count a profile file's distribution is read per; required
+        by a row stating ``PROFILE``.
+    swirl : float, optional
+        The fraction, 0 to 1, of the swirl velocity kept downstream
+        (``SET_PROP_ACTUATOR_SWIRL``); unstated, no swirl command is emitted.
+    profile_units : str
+        The force unit a profile file is written in, as the command database
+        spells ``SET_PROP_ACTUATOR_PROFILE``'s ``units_type``.
+    """
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    kind: Literal["actuator"] = "actuator"
+    frame: str
+    axis: Literal["X", "Y", "Z"]
+    offset_m: float = 0.0
+    tip_radius_m: float = Field(gt=0.0)
+    hub_radius_m: float = Field(ge=0.0)
+    rpm_sign: int = 1
+    blades: int | None = Field(default=None, ge=1)
+    swirl: float | None = Field(default=None, ge=0.0, le=1.0)
+    profile_units: Literal["NEWTONS", "KILO-NEWTONS", "POUND-FORCE", "KILOGRAM-FORCE"] = "NEWTONS"
+
+    @field_validator("frame")
+    @classmethod
+    def _a_frame_name(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError(
+                "frame names the frame the disc's axis belongs to, a name the reference's "
+                "[[frames]] declares; it is empty"
+            )
+        return value
+
+    @field_validator("rpm_sign")
+    @classmethod
+    def _a_sign(cls, value: int) -> int:
+        if value not in (1, -1):
+            raise ValueError(
+                f"rpm_sign = {value!r} is not a sign; write 1 or -1, where +1 is the "
+                "right-hand rule about axis"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _the_hub_is_inside_the_tip(self) -> ActuatorBlock:
+        if self.hub_radius_m >= self.tip_radius_m:
+            raise ValueError(
+                f"hub_radius_m = {self.hub_radius_m} is not inside tip_radius_m = "
+                f"{self.tip_radius_m}: a disc is the annulus between the two"
+            )
+        return self
+
+
 def frame_basis_for_shaft(
     shaft: tuple[float, float, float],
     datum: tuple[float, float, float],
@@ -1835,7 +2060,7 @@ class PprocSpec(BaseModel):
     """The post-processing specification a matrix row's PPROC cell names.
 
     PFS-2029.07.01, the design decision of 2026-09-02: the groups artifact IS the
-    home of post-processing and is renamed pproc. Ten tables. ``groups``
+    home of post-processing and is renamed pproc. Twelve tables. ``groups``
     is exactly what the groups file held, a number to the families it
     aggregates, and the polar tables are written per group of it; a
     member is resolved by :func:`select_group_members`, and an empty
@@ -1853,7 +2078,9 @@ class PprocSpec(BaseModel):
     user's own symbols mean, and ``names`` renames the unsteady polar's plot
     columns for a downstream tool. The four ship together, because the model
     forbids unknown keys and an artifact written for one of them is refused by
-    an install that lacks it.
+    an install that lacks it. ``time_averaging`` asks for time-averaged
+    surfaces, and since 0.27.0 ``volume_section`` declares the one flow-field
+    plane a steady point cuts and exports (G05).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1903,6 +2130,11 @@ class PprocSpec(BaseModel):
         return value
 
     sections: SectionsSpec = Field(default_factory=SectionsSpec)
+    #: G05 (0.27.0): ONE flow-field plane each point of a STEADY row cuts after
+    #: its solve and exports to ``{name}_vsec.vtk`` or ``{name}_vsec.dat``.
+    #: Absent, the default, nothing is cut, declared or exported. An unsteady
+    #: row naming an artifact that declares it is refused by its builder.
+    volume_section: VolumeSectionSpec | None = None
     plots: PlotsSpec = Field(default_factory=PlotsSpec)
     #: FR-77: a LIST, so one artifact probes several frames on one row. It was
     #: a single table until 0.16.0 and a `[probes]` written that way is refused
@@ -2066,7 +2298,16 @@ class PprocSpec(BaseModel):
     @field_validator("exports")
     @classmethod
     def _known_export_kinds(cls, value: dict[str, bool]) -> dict[str, bool]:
-        kinds = [kind for kind, _, _, _ in EXPORT_KINDS]
+        volume = sorted(set(value) & set(VOLUME_SECTION_KINDS.values()))
+        if volume:
+            raise ValueError(
+                f"[exports] names {', '.join(volume)}: the volume section export is declared "
+                "by [volume_section] format, not by [exports]; a point exports the one "
+                "section its pproc declares, in the format that table names"
+            )
+        kinds = [
+            kind for kind, _, _, _ in EXPORT_KINDS if kind not in VOLUME_SECTION_KINDS.values()
+        ]
         unknown = sorted(set(value) - set(kinds))
         if unknown:
             raise ValueError(
@@ -2119,10 +2360,20 @@ class PprocSpec(BaseModel):
         return re.match(self.blade_pattern, family) is not None
 
     def outputs(self, unsteady: bool) -> list[str]:
-        """Return the output names a row naming this artifact declares."""
-        return default_outputs(
+        """Return the output names a row naming this artifact declares.
+
+        The volume section's file joins a STEADY row's set when the artifact
+        declares one (G05); an unsteady row declares none, and its builder
+        refuses the artifact.
+        """
+        names = default_outputs(
             unsteady, self.exports, has_sections=bool(self.sections.distributions)
         )
+        if self.volume_section is not None and not unsteady:
+            kind = VOLUME_SECTION_KINDS[self.volume_section.format]
+            suffix = next(suffix for name, suffix, _, _ in EXPORT_KINDS if name == kind)
+            names.append(f"{{name}}{suffix}")
+        return names
 
 
 #: The two selector words this release retires, each to its ledger entry.
@@ -3784,6 +4035,16 @@ class SimCase(BaseModel):
     #: hubs. Empty for a configuration with no rotor block, which is
     #: every one written before 0.15.0.
     rotors: dict[str, RotorBlock] = Field(default_factory=dict)
+    #: The actuator discs the row's reference declares (G06), keyed by the
+    #: block's name, which is what a row's ``ACTUATOR`` names. Empty for a
+    #: configuration declaring none, which is every one written before 0.27.0;
+    #: a disc declared and not named by the row emits nothing.
+    actuators: dict[str, ActuatorBlock] = Field(default_factory=dict)
+    #: The ABSOLUTE path of the file a row's ``PROFILE`` names under the
+    #: workspace's ``inputs/profiles/`` (G06), resolved when the row binds and
+    #: read where it lives; the run hashes it into the record's
+    #: ``inputs_sha256``. None for a row stating no profile.
+    actuator_profile: str | None = None
     #: The boundary order a sidecar beside the geometry states
     #: (PFS-2029.06.03), bound by the workspace; the builder refuses the
     #: run when the file's own mesh block disagrees with it.

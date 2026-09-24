@@ -97,6 +97,9 @@ from pyflightstream.cases import (
     ROTOR_BLADE_ROTATION_AXIS,
     ROTOR_PLOT_GROUP_PREFIX,
     STEADY_ONLY_EXPORT_KINDS,
+    VOLUME_SECTION_KINDS,
+    VOLUME_SECTION_PRISMS,
+    ActuatorBlock,
     CampaignConfigError,
     CustomFlag,
     MeshOperation,
@@ -137,8 +140,13 @@ from pyflightstream.script._surface_averaging import SurfaceAveragingWindow
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
 __all__ = [
+    "ACTUATOR_KEYS",
+    "ACTUATOR_RPM_VARIABLE",
+    "ACTUATOR_THRUST_VARIABLE",
+    "ACTUATOR_VARIABLE",
     "ADVANCE_RATIO_VARIABLE",
     "BLADES_VARIABLE",
+    "PROFILE_VARIABLE",
     "DELTA_THETA_VARIABLE",
     "DELTA_TIME_VARIABLE",
     "EXPORT_UNSTEADY_AFTER_ITER_VARIABLE",
@@ -544,6 +552,28 @@ COLD_START_VARIABLE = "COLD_START"
 #: phase-resolved march through one blade passage, which is an unsteady
 #: capability and not a steady one.
 RESTART_VARIABLE = "RESTART"
+
+#: G06: THE ACTUATOR DISC OF A ROW. The disc's geometry is a block of the row's
+#: reference (``kind = "actuator"``) and the row states its loading: which
+#: block, at what speed, and ONE of a net thrust or a profile file. Registered
+#: on every run type; a row stating none emits no disc whatever its reference
+#: declares. ONE DISC PER ROW.
+ACTUATOR_VARIABLE = "ACTUATOR"
+#: The disc's speed in rev/min, a MAGNITUDE: the hand is the block's ``rpm_sign``.
+ACTUATOR_RPM_VARIABLE = "ACTUATOR_RPM"
+#: The disc's net thrust in N, which selects the ELLIPTICAL model.
+ACTUATOR_THRUST_VARIABLE = "ACTUATOR_THRUST"
+#: The stem of a file of ``inputs/profiles/``, which selects the CUSTOM model;
+#: the workspace resolves it to the absolute path on
+#: :attr:`~pyflightstream.cases.SimCase.actuator_profile` when the row binds.
+PROFILE_VARIABLE = "PROFILE"
+#: The four, in the order a refusal names them.
+ACTUATOR_KEYS: tuple[str, ...] = (
+    ACTUATOR_VARIABLE,
+    ACTUATOR_RPM_VARIABLE,
+    ACTUATOR_THRUST_VARIABLE,
+    PROFILE_VARIABLE,
+)
 
 
 #: How many periodic copies the sector stands for, dimensionless count.
@@ -6615,6 +6645,10 @@ def _script_solve_and_export(
     # fluid plots long before this point and needs nothing here.
     if frames is not None:
         _pproc_probes(case, script, frames, unsteady=unsteady, analysis=True)
+        # G05: the volume section is cut HERE, after the solve and in the
+        # analysis phase, where the verified probes cut it. Only a steady row
+        # reaches this with a section declared: the unsteady builders refuse it.
+        _pproc_volume_section(case, script, frames)
     _raw_commands(case, script, "export")
     _export_block(conventions, case, script, unsteady=unsteady)
 
@@ -6785,6 +6819,140 @@ def _setup_frames(case: SimCase, script: Script) -> dict[str, int]:
             label=spec.name,
         )
     return created
+
+
+@dataclass(frozen=True)
+class _RowActuator:
+    """The disc a row names and the loading it states (G06), resolved before emission."""
+
+    name: str
+    block: ActuatorBlock
+    rpm: float
+    thrust: float | None
+    profile: str | None
+
+
+def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
+    """Resolve the row's disc and its loading, or refuse naming the key (G06).
+
+    CALLED BEFORE THE FIRST EMISSION by every builder that emits a disc, so a
+    row that cannot be built is refused with nothing written. A row stating
+    none of the four keys returns None, whatever its reference declares: a
+    reference's disc moves nothing a row does not name.
+    """
+    stated = [key for key in ACTUATOR_KEYS if _variable(case, key) is not None]
+    if not stated:
+        return None
+    name = _variable(case, ACTUATOR_VARIABLE)
+    if name is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {', '.join(stated)} and no {ACTUATOR_VARIABLE}. "
+            "Those keys load the actuator disc the row names, so the row names one: "
+            f"'{ACTUATOR_VARIABLE}: <block>', a block its reference declares with "
+            'kind = "actuator".'
+        )
+    block = case.actuators.get(name)
+    if block is None:
+        declared = ", ".join(sorted(case.actuators)) or "none"
+        reference = case.variables.get("matrix_ref")
+        whose = f"its reference {reference!r}" if reference else "its reference"
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {ACTUATOR_VARIABLE}: {name}, and {whose} declares "
+            f"no actuator of that name (it declares: {declared}). Name a block the "
+            'reference declares with kind = "actuator".'
+        )
+    if _variable(case, ACTUATOR_RPM_VARIABLE) is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names {ACTUATOR_VARIABLE}: {name} and states no "
+            f"{ACTUATOR_RPM_VARIABLE}. The disc turns at the speed the row states, in "
+            f"rev/min: '{ACTUATOR_RPM_VARIABLE}: <speed>'."
+        )
+    rpm = _required_float(case, ACTUATOR_RPM_VARIABLE, quantity="disc speed", unit="rev/min")
+    if rpm <= 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {ACTUATOR_RPM_VARIABLE}: "
+            f"{_variable(case, ACTUATOR_RPM_VARIABLE)}; the speed is a magnitude and the "
+            f"sense is the block's rpm_sign (+1 the right-hand rule about its axis), "
+            f"which the reference's {name!r} states as {block.rpm_sign:+d}."
+        )
+    thrust_text = _variable(case, ACTUATOR_THRUST_VARIABLE)
+    profile_stem = _variable(case, PROFILE_VARIABLE)
+    if thrust_text is not None and profile_stem is not None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {ACTUATOR_THRUST_VARIABLE} and {PROFILE_VARIABLE}; "
+            "a disc takes one loading, the net thrust (the ELLIPTICAL model) or a radial "
+            "profile (the CUSTOM model). Keep one."
+        )
+    if thrust_text is None and profile_stem is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names {ACTUATOR_VARIABLE}: {name} and states neither "
+            f"{ACTUATOR_THRUST_VARIABLE} nor {PROFILE_VARIABLE}. A disc is loaded by its net "
+            f"thrust in N ('{ACTUATOR_THRUST_VARIABLE}: <N>') or by a profile file of "
+            f"inputs/profiles/ ('{PROFILE_VARIABLE}: <stem>')."
+        )
+    thrust: float | None = None
+    profile: str | None = None
+    if thrust_text is not None:
+        thrust = _required_float(
+            case, ACTUATOR_THRUST_VARIABLE, quantity="disc's net thrust", unit="N"
+        )
+    else:
+        if block.blades is None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {PROFILE_VARIABLE}: {profile_stem} for the disc "
+                f"{name!r}, whose reference block states no blades. The imported "
+                "distribution is read per blade, so the block states blades = <count>."
+            )
+        if case.actuator_profile is None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {PROFILE_VARIABLE}: {profile_stem} and carries no "
+                "resolved profile file. A matrix row's PROFILE is resolved against the "
+                "workspace's inputs/profiles/ when the row binds; a case built in Python "
+                "sets actuator_profile to the file's absolute path."
+            )
+        profile = case.actuator_profile
+    return _RowActuator(name=name, block=block, rpm=rpm, thrust=thrust, profile=profile)
+
+
+def _actuator_disc(
+    case: SimCase, script: Script, frames: Frames, disc: _RowActuator | None
+) -> None:
+    """Emit the row's actuator disc in the frame its block names (G06).
+
+    AFTER EVERY FRAME EXISTS and before the solver is initialised: the disc is
+    a setup definition, and ``SET_ACTUATOR_AXIS`` cites a frame that must
+    already exist. The emission itself is the curated helper's, which refuses
+    the profile route on a build whose grammar takes no blade count.
+    """
+    if disc is None:
+        return
+    frame = frames.get(disc.block.frame)
+    if not isinstance(frame, int):
+        created = sorted(key for key, value in frames.items() if isinstance(value, int))
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the actuator disc {disc.name!r} of its reference is placed "
+            f"in frame {disc.block.frame!r}, and this run created no such frame (created: "
+            f"{', '.join(created) or 'none'}). A disc's frame is one the reference's "
+            "[[frames]] declares, MRP, or a frame of a rotor this row turns."
+        )
+    block = disc.block
+    helpers.actuator_disc(
+        script,
+        disc.name,
+        frame=frame,
+        axis=block.axis,
+        offset=block.offset_m,
+        r_tip=block.tip_radius_m,
+        r_hub=block.hub_radius_m,
+        rpm=block.rpm_sign * disc.rpm,
+        thrust=disc.thrust,
+        thrust_type="NEWTONS",
+        profile=disc.profile,
+        profile_force_unit=block.profile_units,
+        n_blades=block.blades,
+        swirl=block.swirl,
+        label=f"actuator:{disc.name}",
+    )
 
 
 _AXIS_TOKEN = re.compile(r"^(?P<frame>.+)-(?P<axis>[XYZ])$")
@@ -8359,6 +8527,95 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
 _SECTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
 _SECTION_SYMMETRY_ARG = "include_symmetry"
 
+#: The create command of each volume-section shape (G05).
+_VOLUME_SECTION_COMMANDS = {
+    "rectangle": "CREATE_NEW_RECTANGLE_VOLUME_SECTION",
+    "circle": "CREATE_NEW_CIRCLE_VOLUME_SECTION",
+}
+#: The index every volume-section export and delete cites. The section is the
+#: script's only one, and a later point of a sweep deletes it before cutting its
+#: own, so it is always the first.
+_VOLUME_SECTION_INDEX = 1
+
+
+def _pproc_volume_section(case: SimCase, script: Script, frames: Frames) -> None:
+    """Cut the pproc's volume section for this point, after its solve (G05).
+
+    THE ANALYSIS PHASE, AFTER ``START_SOLVER``, which is where the verified
+    create probes cut it (26.120 to 26.124: a section created there exports a
+    file). A section is a cut through a solution, and one created before the
+    solve cuts a field that does not exist yet.
+
+    A LATER POINT OF A SWEEP DELETES THE PREVIOUS SECTION FIRST. A steady row is
+    one script, so a section created per point would take indices 1, 2, 3 and
+    each point's export of index 1 would write the first point's plane under
+    its own name. `DELETE_VOLUME_SECTION` is verified alone on the same five
+    builds; the delete-then-create sequence inside one script is not measured,
+    and neither is whether a `COLD_START` clear removes a section.
+    """
+    pproc = case.pproc
+    if pproc is None or pproc.volume_section is None:
+        return
+    section = pproc.volume_section
+    frame = _pproc_frame(case, frames, section.frame, "the volume section")
+    if script.volume_section_created:
+        script.emit("DELETE_VOLUME_SECTION", _VOLUME_SECTION_INDEX)
+    prisms_type, thickness, layers, growth_rate = VOLUME_SECTION_PRISMS
+    if section.shape == "rectangle":
+        assert section.corners is not None  # the model refuses a rectangle without
+        x1, y1, x2, y2 = section.corners
+        script.emit(
+            _VOLUME_SECTION_COMMANDS["rectangle"],
+            frame=frame,
+            plane=section.plane,
+            offset=section.offset,
+            refinement_layers=section.refinement_layers,
+            x1=x1,
+            y1=y1,
+            x2=x2,
+            y2=y2,
+            prisms_type=prisms_type,
+            thickness=thickness,
+            layers=layers,
+            growth_rate=growth_rate,
+        )
+    else:
+        assert section.radii is not None and section.points is not None
+        script.emit(
+            _VOLUME_SECTION_COMMANDS["circle"],
+            frame=frame,
+            plane=section.plane,
+            offset=section.offset,
+            ipts=section.points[0],
+            jpts=section.points[1],
+            r1=section.radii[0],
+            r2=section.radii[1],
+            prisms_type=prisms_type,
+            thickness=thickness,
+            layers=layers,
+            growth_rate=growth_rate,
+        )
+    script.volume_section_created = True
+
+
+def _refuse_a_volume_section_off_a_steady_row(case: SimCase, name: str) -> None:
+    """Refuse an unsteady row whose pproc declares a volume section (G05).
+
+    The section is cut after the solve, and an unsteady row's step exports and
+    wall-clock rescue run DURING the march, before it exists; the end of the run
+    alone would be a third meaning of "the section of this point". Called before
+    a continuation is built too, since that reopens the same row.
+    """
+    if case.pproc is None or case.pproc.volume_section is None:
+        return
+    raise CampaignConfigError(
+        f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} declares "
+        f"[volume_section] and the row names the run type {name!r}. The section is cut "
+        "after the solve, and an unsteady row's step and wall-clock exports run during "
+        "the march, before it exists; a volume section is a steady row's in 0.27.0. "
+        "Name a pproc without the table on this row."
+    )
+
 
 def surface_time_averaging(case: SimCase) -> SurfaceAveragingWindow | None:
     """Resolve the pproc's surface window on the same clock as LAST_REVS_AVG."""
@@ -8411,6 +8668,17 @@ def _surface_export(script: Script, case: SimCase, kind: str, name: str) -> bool
         if any(arg.name == "frame" for arg in script.entry(verb).args):
             args.append(1)
         script.emit(verb, *args, -1)
+    elif kind in VOLUME_SECTION_KINDS.values():
+        # G05. An export of a section nobody cut is an export of nothing, which
+        # a declared output then reports as missing on a seat; refused here.
+        if not script.volume_section_created:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} declares the volume-section output {name!r} and its "
+                "script cuts no volume section: the section is declared by the pproc's "
+                "[volume_section] table on a steady row, which also names the output"
+            )
+        verb = next(verb for each, _, verb, _ in EXPORT_KINDS if each == kind)
+        script.emit(verb, _VOLUME_SECTION_INDEX, name)
     else:
         return False
     return True
@@ -8653,6 +8921,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     # the time loop it lacks (PFS-2031.18); a row stating none returns.
     unsteady_export_threshold(case, conventions, version=script.version)
     _refuse_unregistered_keys(case, "steady")
+    disc = _the_actuator_the_row_names(case)
     _raw_commands(case, script, "control")
     _custom_flags(case, script, "control")
     _raw_commands(case, script, "geometry")
@@ -8670,6 +8939,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     moved = {"MRP": frame, **setup_frames}
     frames.update(_translations(case, script, moved))
     frames.update(_rotations(case, script, moved))
+    _actuator_disc(case, script, frames, disc)
     _significant_digits(case, script)
     _free_stream(case, script, frames)
     _fluid(case, script)
@@ -8730,6 +9000,9 @@ def build_steady_sweep(
     _refuse_a_coupling_step_without_a_clock(first)
     unsteady_export_threshold(first, conventions, version=script.version)
     _refuse_unregistered_keys(first, "steady")
+    # THE DISC IS THE ROW'S, emitted once with the setup: a steady sweep varies
+    # the attitude between points and nothing else (G06).
+    disc = _the_actuator_the_row_names(first)
     _raw_commands(first, script, "control")
     _custom_flags(first, script, "control")
     _raw_commands(first, script, "geometry")
@@ -8747,6 +9020,7 @@ def build_steady_sweep(
     moved = {"MRP": frame, **setup_frames}
     frames.update(_translations(first, script, moved))
     frames.update(_rotations(first, script, moved))
+    _actuator_disc(first, script, frames, disc)
     _significant_digits(first, script)
     _free_stream(first, script, frames)
     _fluid(first, script)
@@ -9179,6 +9453,11 @@ def action_export_lines(
     if case.recipe in _UNSTEADY_RECIPES:
         for kind in STEADY_ONLY_EXPORT_KINDS:
             kinds.pop(kind, None)
+    # G05: an action fires during the march and a volume section is cut after
+    # it; the builders refuse the table on these rows, and this is the second
+    # half of that, so an action never exports a section nobody cut.
+    for kind in VOLUME_SECTION_KINDS.values():
+        kinds.pop(kind, None)
     lines: list[str] = []
     if any(kind in kinds for kind in _UPDATED_KINDS):
         lines += ["UPDATE_ALL_SURFACE_SECTIONS", "COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS"]
@@ -9904,6 +10183,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     speed. Both refusals run before the first emission.
     """
     _refuse_the_loads_selections_on_a_march(case)
+    _refuse_a_volume_section_off_a_steady_row(case, "unsteady")
     # A CONTINUATION IS A DIFFERENT SCRIPT, not this one with a shorter
     # march, so the branch is HERE and not further down: every line below
     # describes a run that starts from a mesh, and a continuation starts
@@ -9923,6 +10203,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     threshold = unsteady_export_threshold(case, conventions, version=script.version)
     _refuse_unregistered_keys(case, "unsteady")
     _require_the_averaging_window(case, "unsteady")
+    disc = _the_actuator_the_row_names(case)
     _raw_commands(case, script, "control")
     _custom_flags(case, script, "control")
     _raw_commands(case, script, "geometry")
@@ -9939,6 +10220,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     moved = {"MRP": frame, **rotor_frames, **setup_frames}
     frames.update(_translations(case, script, moved))
     frames.update(_rotations(case, script, moved))
+    _actuator_disc(case, script, frames, disc)
     _pproc_plots(case, script, frames)
     _pproc_probes(case, script, frames, unsteady=True, analysis=False)
     _significant_digits(case, script)
@@ -9968,6 +10250,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     frame that no longer exists.
     """
     _refuse_the_loads_selections_on_a_march(case)
+    _refuse_a_volume_section_off_a_steady_row(case, "unsteady_rotor")
     # A CONTINUATION IS A DIFFERENT SCRIPT, not this one with a shorter
     # march: the branch is here because every line below starts from a
     # mesh, and a continuation starts from the state a stopped run saved.
@@ -9986,6 +10269,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     threshold = unsteady_export_threshold(case, conventions, version=script.version)
     _refuse_unregistered_keys(case, "unsteady_rotor")
     _require_the_averaging_window(case, "unsteady_rotor")
+    disc = _the_actuator_the_row_names(case)
     _raw_commands(case, script, "control")
     _custom_flags(case, script, "control")
     _raw_commands(case, script, "geometry")
@@ -10020,7 +10304,9 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         )
     setup_frames = _setup_frames(case, script)
     if case.motions:
-        _rotor_motions(conventions, case, script, frame, rotor_frame, threshold, setup_frames)
+        _rotor_motions(
+            conventions, case, script, frame, rotor_frame, threshold, setup_frames, disc=disc
+        )
         return
     # NARROWED, not asserted: the branch above raises when this is None and
     # the row states no MOTIONS, and a row that states them returned there.
@@ -10052,6 +10338,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
             spinning={name: _blade_indices(case, script) for name in rotor_frames},
         )
     )
+    _actuator_disc(case, script, frames, disc)
     _pproc_plots(case, script, frames)
     _pproc_probes(case, script, frames, unsteady=True, analysis=False)
     _significant_digits(case, script)
@@ -10132,6 +10419,8 @@ def _rotor_motions(
     rotor_frame: int | None,
     threshold: UnsteadyExportThreshold | None,
     setup_frames: Mapping[str, int],
+    *,
+    disc: _RowActuator | None = None,
 ) -> None:
     """Finish a rotor script whose row states N motions (PFS-2029.11.03).
 
@@ -10263,6 +10552,7 @@ def _rotor_motions(
     # of 2026-09-09: PUSHER_X in ROTOR_MRP2 while the lifters spin).
     frames.update({name: index for name, index in named.items() if index is not None})
     frames.update(blade_frames)
+    _actuator_disc(case, script, frames, disc)
     _pproc_plots(case, script, frames)
     _pproc_probes(case, script, frames, unsteady=True, analysis=False)
     _significant_digits(case, script)
@@ -10712,6 +11002,10 @@ _STEADY_KEYS: tuple[str, ...] = (
     NCPUS_VARIABLE,
     WALLTIME_VARIABLE,
     CONFIGURATION_VARIABLE,
+    # G06: the actuator disc a row names and loads, on every run type, since
+    # every run type emits it before the solver is initialised. What a disc
+    # does on an unsteady or rotor row is not measured; the docs say so.
+    *ACTUATOR_KEYS,
     # Steady's alone, and it stays in the free cell because it is
     # conditional: warm start is a property of a SWEEP over a condition,
     # and an unsteady point marches in time from its own initial state.

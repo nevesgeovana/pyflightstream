@@ -1244,6 +1244,10 @@ rotor (FR-59, FR-60, FR-72).
     [<ROTOR>] kind = "rotor"  one block per rotor, and the block's NAME
                                is an alias over everything it owns
 
+Since 0.27.0 a fourth kind of block sits beside them: `[<DISC>] kind =
+"actuator"`, an actuator disc a row names by its block's name
+([One row, one actuator disc](#one-row-one-actuator-disc)).
+
 ONE WORD, AND IT IS ROTOR. The block, the key, the frame, the point and
 the probe scale all say it, because a propeller is a rotor and so is a
 lift fan: the general word is the one that never has to be changed again
@@ -1330,9 +1334,10 @@ row exactly as the built-in `unsteady_rotor` workflow does.
 v0.11.0 this was the groups artifact, `inputs/groups/e<id>.toml`, a flat
 table of group name to members that nothing on the run path read; the
 owning seat decided on 2026-09-02 that it is the home of post-processing and it
-was renamed (PFS-2029.07). It carries ten tables, every one optional, and a
-file holding `[groups]` alone is what the old file was. Four are new in
-0.24.0. `[names]` renames the unsteady polar's plot columns to the names a
+was renamed (PFS-2029.07). It carries twelve tables, every one optional, and a
+file holding `[groups]` alone is what the old file was. `[volume_section]` is
+new in 0.27.0 and has [its own paragraph below](#a-volume-section-steady-rows).
+Four are new in 0.24.0. `[names]` renames the unsteady polar's plot columns to the names a
 downstream tool reads, the whole dictionary or none of it, and is defined on
 [the definition of record](post-processing-definitions.md); the other three,
 `[phase_locked]`, `[equations]` and `[glossary]`, are described under [the three tables that reduce and derive](#the-three-tables-that-reduce-and-derive).
@@ -1693,7 +1698,59 @@ and the saved simulation cannot be switched off: `loads = false` and, since
 0.27.0, `simulation = false` are refused naming the file. A setup artifact
 that names one of these tables is refused pointing here: a setup carries
 solver settings only (PFS-2029.16). The run record names the pproc id each
-point was run for.
+point was run for. The volume section's file (`_vsec.vtk` or `_vsec.dat`) is
+not an `[exports]` kind: `[volume_section]` declares it, and `[exports]`
+naming `volume_section_vtk` or `volume_section_tecplot` is refused.
+
+#### A volume section (steady rows)
+
+Since 0.27.0 the pproc may declare ONE flow-field plane, the GUI's volume
+section, and every point of a STEADY row cuts it after its solve and exports
+it under the point's own name (FR-110):
+
+```toml
+[volume_section]
+shape = "rectangle"                 # or "circle"
+frame = "MRP"                       # the frame the plane lies in; MRP unless stated
+plane = "XZ"                        # XY, XZ or YZ of that frame
+offset = 0.0                        # along the plane's normal, simulation length units
+corners = [-1.0, -1.0, 1.0, 1.0]    # rectangle: x1, y1, x2, y2, two diagonal corners
+format = "vtk"                      # or "tecplot"
+```
+
+A circle states `radii = [r1, r2]` (inner and outer, `0 <= r1 < r2`) and
+`points = [ipts, jpts]` (radial and azimuthal segments) instead of `corners`;
+a rectangle may state `refinement_layers` (1 unless stated). Each shape's keys
+are refused on the other, and a shape missing its own is refused naming them.
+The frame is `MRP` or a frame the reference declares or a rotor carries, and a
+frame the run did not create is refused when the script is built, naming the
+ones it did.
+
+What the script does, per point: after `START_SOLVER`, in the analysis phase,
+`CREATE_NEW_RECTANGLE_VOLUME_SECTION` or `CREATE_NEW_CIRCLE_VOLUME_SECTION`,
+then `EXPORT_VOLUME_SECTION_VTK 1` or `EXPORT_VOLUME_SECTION_TECPLOT 1` to
+`{name}_vsec.vtk` or `{name}_vsec.dat`, collected into the point's
+`datapoints/DP-<point>/` and hashed in its record like every other output. A
+later point of a steady sweep, which runs in the same script, first emits
+`DELETE_VOLUME_SECTION 1`, so its export writes its own plane. The prism-layer
+arguments are not the table's: the package sends `NONE 0.1 1 1.2`, the values
+the verified probes sent.
+
+WHAT HAS RUN WHERE, from the command database. The five commands the table
+emits (the two creates, the two exports and the delete) are verified on
+26.120 to 26.124, each by a probe that ran it alone, and documented only on
+25.000 to 26.101. The delete-then-create sequence of a sweep is not measured,
+nor is whether `COLD_START`'s clear removes a section, nor any
+`refinement_layers` other than 1. `UPDATE_ALL_VOLUME_SECTIONS` is not emitted:
+it ran without abort in the probes of 26.120 to 26.124 and its effect was never
+observed. `DELETE_ALL_VOLUME_SECTIONS`, `VOLUME_SECTION_WIREFRAME` and
+`EXPORT_VOLUME_SECTION_2D_VTK` have never run on any build, and
+`VOLUME_SECTION_BOUNDARY_LAYER` is documented on builds before 26.120 only;
+none of the four is reachable from the table.
+
+An unsteady or rotor row whose pproc declares the table is refused before any
+line is written: its step and wall-clock exports run during the march, before a
+section cut after it exists.
 
 ### How a point is named
 
@@ -2264,6 +2321,81 @@ Two things about that conversion are worth knowing before you run it:
   That row is one run per sideslip and each new row needs a POL of its
   own, which is run identity and not a converter's to invent. Split them
   by hand, giving each the POL you want, then run the command.
+
+### One row, one actuator disc
+
+Since 0.27.0 a row may carry an actuator disc, the solver's linearized
+propeller slipstream (FR-109). The disc's GEOMETRY belongs to the
+configuration, so it is a block of the row's reference, beside the rotors and
+the frames; its LOADING belongs to the condition, so the row states it:
+
+```toml
+[[frames]]
+name = "HUB"
+origin = [1.0, 0.0, 0.0]
+
+[PROP]
+kind = "actuator"
+frame = "HUB"          # the frame the disc's axis belongs to
+axis = "X"             # X, Y or Z of that frame
+offset_m = 0.0         # along the axis, from the frame's origin
+tip_radius_m = 0.5
+hub_radius_m = 0.1     # 0 <= hub < tip
+rpm_sign = 1           # +1 the right-hand rule about axis; the row's speed is a magnitude
+blades = 3             # needed by a row stating PROFILE
+swirl = 0.8            # optional: the fraction of the swirl velocity kept downstream
+profile_units = "NEWTONS"   # the force unit a profile file is written in
+```
+
+```text
+ACTUATOR: PROP / ACTUATOR_RPM: 2400 / ACTUATOR_THRUST: 120
+ACTUATOR: PROP / ACTUATOR_RPM: 2400 / PROFILE: prop_ct
+```
+
+`ACTUATOR` names the block; `ACTUATOR_RPM` is the speed in rev/min, a
+magnitude whose hand is the block's `rpm_sign`; and the row states exactly one
+loading: `ACTUATOR_THRUST`, the net thrust in N (the ELLIPTICAL model, thrust
+given in NEWTONS as the manual recommends), or `PROFILE`, the stem of a file of
+the workspace's `inputs/profiles/` (the CUSTOM model). A `PROFILE` is resolved
+when the row is planned, to the absolute path the script imports, and a stem
+the folder does not hold is refused naming what it does hold; the file is read
+where it lives, never copied beside the mesh, and its sha256 joins the
+record's `inputs_sha256`. ONE DISC PER ROW. A reference declaring a disc
+changes nothing on a row that names none.
+
+The script creates the disc after every frame exists and before the solver is
+initialised: `CREATE_NEW_ACTUATOR PROPELLER ELLIPTICAL|CUSTOM <name>`,
+`SET_ACTUATOR_AXIS`, `SET_ACTUATOR_RADIUS`, `SET_PROP_ACTUATOR_RPM`, then
+`SET_PROP_ACTUATOR_THRUST` or `SET_PROP_ACTUATOR_PROFILE` (the file on the next
+line), `SET_PROP_ACTUATOR_SWIRL` when the block states a swirl, and
+`ENABLE_ACTUATOR`. Each way to get the row wrong is refused before a line is
+written, naming the key: a block the reference does not declare (listing the
+ones it does), a speed missing or not above zero, both loadings or neither, a
+`PROFILE` on a block stating no `blades`, a loading key without `ACTUATOR`, and
+a frame the run did not create. The block itself is refused when its name is
+not one word, when it shares its name with a rotor, an alias or a frame, and
+when it forgets `kind = "actuator"`.
+
+WHAT HAS RUN WHERE, from the command database. `CREATE_NEW_ACTUATOR` is
+verified on 26.100 and 26.120 to 26.124; `SET_ACTUATOR_AXIS`,
+`SET_ACTUATOR_RADIUS`, `SET_PROP_ACTUATOR_RPM` and `SET_PROP_ACTUATOR_SWIRL`
+are verified on 26.121 to 26.124, each by a probe reading the saved simulation.
+`SET_PROP_ACTUATOR_THRUST` and `ENABLE_ACTUATOR` ran without abort or logged
+error in the probes of 26.120 to 26.124, and their effect has never been
+observed, so they are documented only: a run can converge with the disc's
+thrust not applied and nothing here would say so. `SET_PROP_ACTUATOR_PROFILE`
+has NEVER RUN on any build. Every other build of the range is documented only.
+The profile route is refused on 25.000 and 25.100, whose editions print the
+command without a blade count.
+
+NOT MEASURED: the disc on an unsteady row; the disc on a rotor row, where a
+flat row with no blade frames turns every frame with its motion
+(`SET_MOTION_MOVING_FRAMES 1 -1`), the disc's frame included; the disc under
+mirror symmetry; and the format the solver expects of a profile file, which
+the package passes through unread. A continuation reopens the saved
+simulation, which carries the disc, and emits it again nowhere. Deriving the
+disc's speed from an advance ratio and its diameter is not offered; the row
+states `ACTUATOR_RPM`.
 
 ### One row, one geometry, turned
 

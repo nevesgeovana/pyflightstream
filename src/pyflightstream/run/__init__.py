@@ -4753,6 +4753,32 @@ def _prepare_case(
         # every path derived from it safe to hand to the solver; the
         # reasoning is there rather than repeated at each boundary.
         staged_geometry = str(staged)
+    if case.actuator_profile is not None:
+        # G06. THE ACTUATOR PROFILE IS HASHED WHERE IT LIVES and joins the
+        # record's inputs, as the trailing-edge node file does: it is a file
+        # the solver reads, and a record that cannot say which bytes it read
+        # cannot be reproduced. NOT STAGED beside the geometry, because a
+        # second folder among the staged files turns the geometry's link into a
+        # copy (`CampaignWorkspace.stage_inputs`), which is the size every mesh
+        # is kept out of the simulation folder for.
+        profile = Path(case.actuator_profile)
+        if not profile.is_file():
+            return (
+                recipe,
+                f"the actuator profile {profile} the row's PROFILE resolved to is no longer "
+                "there; it is read where it lives, under the workspace's inputs/profiles/",
+                {},
+                None,
+            )
+        if profile.name in inputs_sha256:
+            return (
+                recipe,
+                f"the actuator profile and the geometry share the file name {profile.name!r}, "
+                "and the record keys its inputs by name; rename one of them",
+                {},
+                None,
+            )
+        inputs_sha256 = {**inputs_sha256, profile.name: file_sha256(profile)}
     return recipe, None, inputs_sha256, staged_geometry
 
 

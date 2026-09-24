@@ -887,6 +887,11 @@ class Script:
         #: sections table could not say which rows belong to which surface, and
         #: nothing at post can recover a name the script never wrote.
         self.section_blocks: list[dict[str, object]] = []
+        #: WHETHER THIS SCRIPT HAS ALREADY CUT ITS VOLUME SECTION (G05). A steady
+        #: sweep is one script, and a section created per point would take index
+        #: 1, 2, 3 while each point exports index 1; the builder deletes the one
+        #: it cut before cutting the next, and this is how it knows there is one.
+        self.volume_section_created: bool = False
         #: THE OPENED GEOMETRY'S BOUNDARY NAMES, in the solver's order, the
         #: name at position ``i`` being boundary ``i`` (R03 of 0.27.0). Filled
         #: where the workflow declares the inventory at OPEN, for the reason
