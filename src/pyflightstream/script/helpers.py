@@ -551,6 +551,9 @@ def actuator_disc(
         convention must match the solver formulation (SRC-003 p.187).
     profile : str, optional
         Path of the radial thrust profile file for the CUSTOM model.
+        Refused, before anything is emitted, on a build whose
+        ``SET_PROP_ACTUATOR_PROFILE`` takes no blade count (25.000 and
+        25.100). No build has run the command.
     profile_force_unit : str
         Force unit used inside the profile file: ``NEWTONS``,
         ``KILO-NEWTONS``, ``POUND-FORCE``, or ``KILOGRAM-FORCE``.
@@ -584,6 +587,22 @@ def actuator_disc(
             "actuator_disc with a profile file needs n_blades, because the imported "
             "radial distribution is per blade (SRC-003 pp.323-324)"
         )
+    if profile is not None:
+        # REFUSED BY BUILD, BEFORE ANY LINE IS WRITTEN (G06). The 25.000 and
+        # 25.100 editions print SET_PROP_ACTUATOR_PROFILE with no blade count,
+        # so the call below would reach the emitter with one argument too many
+        # after the disc was half written; and dropping the count would send
+        # a distribution those builds may read differently, which no edition
+        # says and no run has measured.
+        entry = script.entry("SET_PROP_ACTUATOR_PROFILE")
+        if "n_blades" not in {arg.name for arg in entry.args}:
+            raise CommandArgumentError(
+                f"actuator_disc with a profile file is refused on FlightStream "
+                f"{script.version.canonical}: that build's SET_PROP_ACTUATOR_PROFILE takes "
+                f"no blade count ({entry.citation}), where the editions from 26.000 take one, "
+                "and what the file means there is not documented. Load the disc by its net "
+                "thrust on this build, or run the profile on 26.000 or later."
+            )
     if swirl is not None and not 0.0 <= swirl <= 1.0:
         raise CommandArgumentError(
             f"actuator_disc swirl must lie between 0 and 1, got {swirl}: it is the "

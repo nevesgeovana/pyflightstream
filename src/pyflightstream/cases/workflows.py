@@ -97,6 +97,7 @@ from pyflightstream.cases import (
     ROTOR_PLOT_GROUP_PREFIX,
     VOLUME_SECTION_KINDS,
     VOLUME_SECTION_PRISMS,
+    ActuatorBlock,
     CampaignConfigError,
     CustomFlag,
     MeshOperation,
@@ -135,8 +136,13 @@ from pyflightstream.script._surface_averaging import SurfaceAveragingWindow
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
 __all__ = [
+    "ACTUATOR_KEYS",
+    "ACTUATOR_RPM_VARIABLE",
+    "ACTUATOR_THRUST_VARIABLE",
+    "ACTUATOR_VARIABLE",
     "ADVANCE_RATIO_VARIABLE",
     "BLADES_VARIABLE",
+    "PROFILE_VARIABLE",
     "DELTA_THETA_VARIABLE",
     "DELTA_TIME_VARIABLE",
     "EXPORT_UNSTEADY_AFTER_ITER_VARIABLE",
@@ -539,6 +545,28 @@ COLD_START_VARIABLE = "COLD_START"
 #: phase-resolved march through one blade passage, which is an unsteady
 #: capability and not a steady one.
 RESTART_VARIABLE = "RESTART"
+
+#: G06: THE ACTUATOR DISC OF A ROW. The disc's geometry is a block of the row's
+#: reference (``kind = "actuator"``) and the row states its loading: which
+#: block, at what speed, and ONE of a net thrust or a profile file. Registered
+#: on every run type; a row stating none emits no disc whatever its reference
+#: declares. ONE DISC PER ROW.
+ACTUATOR_VARIABLE = "ACTUATOR"
+#: The disc's speed in rev/min, a MAGNITUDE: the hand is the block's ``rpm_sign``.
+ACTUATOR_RPM_VARIABLE = "ACTUATOR_RPM"
+#: The disc's net thrust in N, which selects the ELLIPTICAL model.
+ACTUATOR_THRUST_VARIABLE = "ACTUATOR_THRUST"
+#: The stem of a file of ``inputs/profiles/``, which selects the CUSTOM model;
+#: the workspace resolves it to the absolute path on
+#: :attr:`~pyflightstream.cases.SimCase.actuator_profile` when the row binds.
+PROFILE_VARIABLE = "PROFILE"
+#: The four, in the order a refusal names them.
+ACTUATOR_KEYS: tuple[str, ...] = (
+    ACTUATOR_VARIABLE,
+    ACTUATOR_RPM_VARIABLE,
+    ACTUATOR_THRUST_VARIABLE,
+    PROFILE_VARIABLE,
+)
 
 
 #: How many periodic copies the sector stands for, dimensionless count.
@@ -6481,6 +6509,140 @@ def _setup_frames(case: SimCase, script: Script) -> dict[str, int]:
     return created
 
 
+@dataclass(frozen=True)
+class _RowActuator:
+    """The disc a row names and the loading it states (G06), resolved before emission."""
+
+    name: str
+    block: ActuatorBlock
+    rpm: float
+    thrust: float | None
+    profile: str | None
+
+
+def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
+    """Resolve the row's disc and its loading, or refuse naming the key (G06).
+
+    CALLED BEFORE THE FIRST EMISSION by every builder that emits a disc, so a
+    row that cannot be built is refused with nothing written. A row stating
+    none of the four keys returns None, whatever its reference declares: a
+    reference's disc moves nothing a row does not name.
+    """
+    stated = [key for key in ACTUATOR_KEYS if _variable(case, key) is not None]
+    if not stated:
+        return None
+    name = _variable(case, ACTUATOR_VARIABLE)
+    if name is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {', '.join(stated)} and no {ACTUATOR_VARIABLE}. "
+            "Those keys load the actuator disc the row names, so the row names one: "
+            f"'{ACTUATOR_VARIABLE}: <block>', a block its reference declares with "
+            'kind = "actuator".'
+        )
+    block = case.actuators.get(name)
+    if block is None:
+        declared = ", ".join(sorted(case.actuators)) or "none"
+        reference = case.variables.get("matrix_ref")
+        whose = f"its reference {reference!r}" if reference else "its reference"
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {ACTUATOR_VARIABLE}: {name}, and {whose} declares "
+            f"no actuator of that name (it declares: {declared}). Name a block the "
+            'reference declares with kind = "actuator".'
+        )
+    if _variable(case, ACTUATOR_RPM_VARIABLE) is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names {ACTUATOR_VARIABLE}: {name} and states no "
+            f"{ACTUATOR_RPM_VARIABLE}. The disc turns at the speed the row states, in "
+            f"rev/min: '{ACTUATOR_RPM_VARIABLE}: <speed>'."
+        )
+    rpm = _required_float(case, ACTUATOR_RPM_VARIABLE, quantity="disc speed", unit="rev/min")
+    if rpm <= 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {ACTUATOR_RPM_VARIABLE}: "
+            f"{_variable(case, ACTUATOR_RPM_VARIABLE)}; the speed is a magnitude and the "
+            f"sense is the block's rpm_sign (+1 the right-hand rule about its axis), "
+            f"which the reference's {name!r} states as {block.rpm_sign:+d}."
+        )
+    thrust_text = _variable(case, ACTUATOR_THRUST_VARIABLE)
+    profile_stem = _variable(case, PROFILE_VARIABLE)
+    if thrust_text is not None and profile_stem is not None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {ACTUATOR_THRUST_VARIABLE} and {PROFILE_VARIABLE}; "
+            "a disc takes one loading, the net thrust (the ELLIPTICAL model) or a radial "
+            "profile (the CUSTOM model). Keep one."
+        )
+    if thrust_text is None and profile_stem is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names {ACTUATOR_VARIABLE}: {name} and states neither "
+            f"{ACTUATOR_THRUST_VARIABLE} nor {PROFILE_VARIABLE}. A disc is loaded by its net "
+            f"thrust in N ('{ACTUATOR_THRUST_VARIABLE}: <N>') or by a profile file of "
+            f"inputs/profiles/ ('{PROFILE_VARIABLE}: <stem>')."
+        )
+    thrust: float | None = None
+    profile: str | None = None
+    if thrust_text is not None:
+        thrust = _required_float(
+            case, ACTUATOR_THRUST_VARIABLE, quantity="disc's net thrust", unit="N"
+        )
+    else:
+        if block.blades is None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {PROFILE_VARIABLE}: {profile_stem} for the disc "
+                f"{name!r}, whose reference block states no blades. The imported "
+                "distribution is read per blade, so the block states blades = <count>."
+            )
+        if case.actuator_profile is None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {PROFILE_VARIABLE}: {profile_stem} and carries no "
+                "resolved profile file. A matrix row's PROFILE is resolved against the "
+                "workspace's inputs/profiles/ when the row binds; a case built in Python "
+                "sets actuator_profile to the file's absolute path."
+            )
+        profile = case.actuator_profile
+    return _RowActuator(name=name, block=block, rpm=rpm, thrust=thrust, profile=profile)
+
+
+def _actuator_disc(
+    case: SimCase, script: Script, frames: Frames, disc: _RowActuator | None
+) -> None:
+    """Emit the row's actuator disc in the frame its block names (G06).
+
+    AFTER EVERY FRAME EXISTS and before the solver is initialised: the disc is
+    a setup definition, and ``SET_ACTUATOR_AXIS`` cites a frame that must
+    already exist. The emission itself is the curated helper's, which refuses
+    the profile route on a build whose grammar takes no blade count.
+    """
+    if disc is None:
+        return
+    frame = frames.get(disc.block.frame)
+    if not isinstance(frame, int):
+        created = sorted(key for key, value in frames.items() if isinstance(value, int))
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the actuator disc {disc.name!r} of its reference is placed "
+            f"in frame {disc.block.frame!r}, and this run created no such frame (created: "
+            f"{', '.join(created) or 'none'}). A disc's frame is one the reference's "
+            "[[frames]] declares, MRP, or a frame of a rotor this row turns."
+        )
+    block = disc.block
+    helpers.actuator_disc(
+        script,
+        disc.name,
+        frame=frame,
+        axis=block.axis,
+        offset=block.offset_m,
+        r_tip=block.tip_radius_m,
+        r_hub=block.hub_radius_m,
+        rpm=block.rpm_sign * disc.rpm,
+        thrust=disc.thrust,
+        thrust_type="NEWTONS",
+        profile=disc.profile,
+        profile_force_unit=block.profile_units,
+        n_blades=block.blades,
+        swirl=block.swirl,
+        label=f"actuator:{disc.name}",
+    )
+
+
 _AXIS_TOKEN = re.compile(r"^(?P<frame>.+)-(?P<axis>[XYZ])$")
 
 
@@ -8388,6 +8550,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     # the time loop it lacks (PFS-2031.18); a row stating none returns.
     unsteady_export_threshold(case, conventions, version=script.version)
     _refuse_unregistered_keys(case, "steady")
+    disc = _the_actuator_the_row_names(case)
     _raw_commands(case, script, "control")
     _custom_flags(case, script, "control")
     _raw_commands(case, script, "geometry")
@@ -8405,6 +8568,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     moved = {"MRP": frame, **setup_frames}
     frames.update(_translations(case, script, moved))
     frames.update(_rotations(case, script, moved))
+    _actuator_disc(case, script, frames, disc)
     _significant_digits(case, script)
     _free_stream(case, script, frames)
     _fluid(case, script)
@@ -8464,6 +8628,9 @@ def build_steady_sweep(
     _refuse_wake_termination_without_a_clock(first)
     unsteady_export_threshold(first, conventions, version=script.version)
     _refuse_unregistered_keys(first, "steady")
+    # THE DISC IS THE ROW'S, emitted once with the setup: a steady sweep varies
+    # the attitude between points and nothing else (G06).
+    disc = _the_actuator_the_row_names(first)
     _raw_commands(first, script, "control")
     _custom_flags(first, script, "control")
     _raw_commands(first, script, "geometry")
@@ -8481,6 +8648,7 @@ def build_steady_sweep(
     moved = {"MRP": frame, **setup_frames}
     frames.update(_translations(first, script, moved))
     frames.update(_rotations(first, script, moved))
+    _actuator_disc(first, script, frames, disc)
     _significant_digits(first, script)
     _free_stream(first, script, frames)
     _fluid(first, script)
@@ -9654,6 +9822,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     threshold = unsteady_export_threshold(case, conventions, version=script.version)
     _refuse_unregistered_keys(case, "unsteady")
     _require_the_averaging_window(case, "unsteady")
+    disc = _the_actuator_the_row_names(case)
     _raw_commands(case, script, "control")
     _custom_flags(case, script, "control")
     _raw_commands(case, script, "geometry")
@@ -9670,6 +9839,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     moved = {"MRP": frame, **rotor_frames, **setup_frames}
     frames.update(_translations(case, script, moved))
     frames.update(_rotations(case, script, moved))
+    _actuator_disc(case, script, frames, disc)
     _pproc_plots(case, script, frames)
     _pproc_probes(case, script, frames, unsteady=True, analysis=False)
     _significant_digits(case, script)
@@ -9717,6 +9887,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     threshold = unsteady_export_threshold(case, conventions, version=script.version)
     _refuse_unregistered_keys(case, "unsteady_rotor")
     _require_the_averaging_window(case, "unsteady_rotor")
+    disc = _the_actuator_the_row_names(case)
     _raw_commands(case, script, "control")
     _custom_flags(case, script, "control")
     _raw_commands(case, script, "geometry")
@@ -9751,7 +9922,9 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         )
     setup_frames = _setup_frames(case, script)
     if case.motions:
-        _rotor_motions(conventions, case, script, frame, rotor_frame, threshold, setup_frames)
+        _rotor_motions(
+            conventions, case, script, frame, rotor_frame, threshold, setup_frames, disc=disc
+        )
         return
     # NARROWED, not asserted: the branch above raises when this is None and
     # the row states no MOTIONS, and a row that states them returned there.
@@ -9783,6 +9956,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
             spinning={name: _blade_indices(case, script) for name in rotor_frames},
         )
     )
+    _actuator_disc(case, script, frames, disc)
     _pproc_plots(case, script, frames)
     _pproc_probes(case, script, frames, unsteady=True, analysis=False)
     _significant_digits(case, script)
@@ -9863,6 +10037,8 @@ def _rotor_motions(
     rotor_frame: int | None,
     threshold: UnsteadyExportThreshold | None,
     setup_frames: Mapping[str, int],
+    *,
+    disc: _RowActuator | None = None,
 ) -> None:
     """Finish a rotor script whose row states N motions (PFS-2029.11.03).
 
@@ -9994,6 +10170,7 @@ def _rotor_motions(
     # of 2026-09-09: PUSHER_X in ROTOR_MRP2 while the lifters spin).
     frames.update({name: index for name, index in named.items() if index is not None})
     frames.update(blade_frames)
+    _actuator_disc(case, script, frames, disc)
     _pproc_plots(case, script, frames)
     _pproc_probes(case, script, frames, unsteady=True, analysis=False)
     _significant_digits(case, script)
@@ -10443,6 +10620,10 @@ _STEADY_KEYS: tuple[str, ...] = (
     NCPUS_VARIABLE,
     WALLTIME_VARIABLE,
     CONFIGURATION_VARIABLE,
+    # G06: the actuator disc a row names and loads, on every run type, since
+    # every run type emits it before the solver is initialised. What a disc
+    # does on an unsteady or rotor row is not measured; the docs say so.
+    *ACTUATOR_KEYS,
     # Steady's alone, and it stays in the free cell because it is
     # conditional: warm start is a property of a SWEEP over a condition,
     # and an unsteady point marches in time from its own initial state.

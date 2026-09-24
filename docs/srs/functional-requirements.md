@@ -4283,6 +4283,42 @@ requirement below is one seam of that division.
     `plan.json` records it too, so the rehearsal is the same command line the
     run executes. The library takes the same keyword.
 
+!!! requirement "FR-109 A row names an actuator disc of its reference and its loading, and the run type emits it <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G06 of the 0.27.0 scope and the planning row PFS-2008.02.02, the
+    actuator study through the workflow: the curated helper existed and no run
+    type reached it, and a row stating the keys was refused as stating keys of
+    no run type. Evidence: `tests/tier1_offline/test_g06_actuator_disc.py`
+    (the disc emitted before the solver is initialised on every run type, the
+    motions rotor path and the steady sweep included; the block read from the
+    reference and each way it is refused; the hand; a profile resolved at plan
+    and hashed into the record; each refusal of the row; the control of a row
+    naming none; the profile route refused by build before any emission). The
+    thrust and enable commands ran unobserved and the profile command never
+    ran; the planning row closes on a licensed run, which is owed.*
+
+    A reference artifact declares an actuator disc as a top-level block of
+    `kind = "actuator"`: its `frame`, `axis`, `offset_m`, `tip_radius_m`,
+    `hub_radius_m`, `rpm_sign`, and optionally `blades`, `swirl` and
+    `profile_units`. A row names ONE by `ACTUATOR`, states its speed by
+    `ACTUATOR_RPM` (a magnitude; the block's `rpm_sign` is the hand) and
+    exactly one loading, `ACTUATOR_THRUST` (net thrust in N) or `PROFILE` (the
+    stem of a file of `inputs/profiles/`, resolved at plan, read where it lives
+    and hashed into the record's `inputs_sha256`); every run type then emits
+    the disc in the block's frame before the solver is initialised.
+
+    - A reference disc that no row names emits nothing.
+    - A block the reference does not declare, a speed not above zero or
+      missing, both loadings or neither, a profile on a block with no blade
+      count, a loading key without `ACTUATOR`, and a frame the run did not
+      create are each refused naming the key, before any line is written.
+    - The profile route is refused on 25.000 and 25.100, whose grammar of
+      `SET_PROP_ACTUATOR_PROFILE` takes no blade count.
+    - Not measured: the disc on an unsteady or rotor row, where a motion that
+      moves every frame moves the disc's; the disc under mirror symmetry;
+      whether the thrust and enable commands take effect; and the profile
+      command on any build.
+
 !!! requirement "FR-110 The pproc declares a volume section and each steady point exports it <span class='srs-implemented'>implemented</span>"
 
     *Origin: G05 of the 0.27.0 scope, the basic GUI steps through the

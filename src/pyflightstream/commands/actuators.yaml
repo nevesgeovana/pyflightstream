@@ -214,7 +214,7 @@ SET_PROP_ACTUATOR_THRUST:
     "26.101": {status: documented, note: "SRC-725 p.323, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.328, unchanged from SRC-750 p.328"}
-    "26.124": {status: documented, note: "SRC-752 p.328, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: documented, note: "SRC-752 p.328, the SRC-751 file, carried from 26.123; it ran on 26.124 without abort or logged error in reports/compat/CMP-26124_2026-09-14_full-sim.yaml, its effect not observable there (unprobed), so it stays documented"}
   notes: >
     Net thrust of the disc. The manual warns to verify that the
     coefficient convention matches the solver formulation and
@@ -270,7 +270,7 @@ ENABLE_ACTUATOR:
     "26.101": {status: documented, note: "SRC-725 p.323, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.328, unchanged from SRC-750 p.328"}
-    "26.124": {status: documented, note: "SRC-752 p.328, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: documented, note: "SRC-752 p.328, the SRC-751 file, carried from 26.123; it ran on 26.124 without abort or logged error in reports/compat/CMP-26124_2026-09-14_full-sim.yaml, its effect not observable there (unprobed), so it stays documented"}
   notes: >
     FEBRUARY 2026 IS THE ONE EDITION WHOSE HEADING AND SAMPLE DISAGREE
     ABOUT WHETHER THIS COMMAND TAKES AN ARGUMENT. SRC-741 p.319 prints

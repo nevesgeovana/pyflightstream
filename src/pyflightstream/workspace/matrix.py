@@ -91,6 +91,7 @@ from pyflightstream.cases.matrix import (
 from pyflightstream.cases.workflows import (
     GEOMETRY_VARIABLE,
     IGNORE_MISSING_FAMILIES_VARIABLE,
+    PROFILE_VARIABLE,
     ROTOR_ORIGIN_POINT_KEY,
 )
 from pyflightstream.script.toggles import resolve_toggle
@@ -1377,6 +1378,40 @@ def _resolve_cited_profiles(workspace: CampaignWorkspace, pproc, code: str, pol:
     return pproc.model_copy(update={"probes": probes})
 
 
+def _resolve_actuator_profile(workspace: CampaignWorkspace, row: MatrixRow) -> str | None:
+    """Give a row's ``PROFILE`` the absolute path of its file under ``inputs/profiles/`` (G06).
+
+    THE PROBE SURVEY IS THE PRECEDENT (:func:`_resolve_cited_profiles`): the
+    file is imported where it lives, by the absolute path resolved here, and a
+    name the folder does not hold is refused when the row is PLANNED, naming
+    what the folder holds. The cell names the file by its STEM, which is how
+    the profile library registers a file.
+
+    It is not copied beside the geometry. Staging it with the mesh would stage
+    two folders, and the library links a geometry only when every staged file
+    sits in its folder, so every disc row stating a profile would have copied
+    its mesh. The run hashes the file into the record's ``inputs_sha256``.
+    """
+    stem = row.variables.get(PROFILE_VARIABLE, "")
+    if not stem:
+        return None
+    folder = Path(workspace.inputs_dir) / "profiles"
+    try:
+        path = workspace.resolve_profile(stem)
+    except InputArtifactError as error:
+        held = sorted(p.name for p in folder.iterdir() if p.is_file()) if folder.is_dir() else []
+        raise InputArtifactError(
+            f"matrix row POL {row.pol}: PROFILE names {stem!r}, and {folder} holds no "
+            "single file of that stem"
+            + (f"; it holds {', '.join(held)}" if held else ", or holds nothing")
+            + ". An actuator profile lives in the workspace's inputs/profiles/ folder "
+            f"and the cell names it by its stem ({error})",
+            kind="profile",
+            artifact_id=stem,
+        ) from None
+    return str(path.resolve())
+
+
 @dataclass(frozen=True)
 class PolChange:
     """One row of a matrix that :func:`renumber_repeated_pols` moved to a new POL.
@@ -2023,6 +2058,10 @@ def resolve_matrix(
             # hubs. A reference declaring none leaves this empty and every
             # row written before 0.15.0 resolves exactly as it did.
             "rotors": dict(reference.rotors),
+            # THE ACTUATOR DISCS RIDE ON THE CASE (G06), as the rotors do: the
+            # row's ACTUATOR names one and its loading keys load it. A reference
+            # declaring none leaves this empty and every row resolves as before.
+            "actuators": dict(reference.actuators),
             # THE PPROC ARTIFACT RIDES ON THE CASE (PFS-2029.07.03): the
             # builders emit its sections, plots and probes and export the
             # kinds it selects, and the record names its id. A LEGACY row's
@@ -2059,6 +2098,13 @@ def resolve_matrix(
             update["geometry"] = str(geometry_path)
             update["inventory"], update["inventory_source"] = _inventory_of(geometry_path)
             update["mesh_import"] = _mesh_import_of(geometry_path, row.pol)
+        # G06: A ROW'S PROFILE IS A FILE OF inputs/profiles/, resolved HERE, when
+        # the row is planned, to the absolute path the script imports. A LEGACY
+        # row keeps the word, because its recipe is the reader of its keys.
+        if row.workflow != LEGACY_WORKFLOW:
+            profile = _resolve_actuator_profile(workspace, row)
+            if profile is not None:
+                update["actuator_profile"] = profile
         if row.motions:
             update["motions"] = [_bind_motion(workspace, record, row.pol) for record in row.motions]
         # THE FLAT ROW'S OWN HUB, bound the same way (PFS-2031.12): one rotor

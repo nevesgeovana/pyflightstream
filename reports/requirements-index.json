@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 116,
-  "total": 161,
+  "cited_by_a_test": 117,
+  "total": 162,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -1029,6 +1029,14 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: a matrix row can be wrong in a way the correction does not rename, and the package then had no way to run that point again: the recorded point is refused as a fork and resume skips it. Evidence: tests/tier1_offline/test_goal026_force_rerun.py (the named point running again, the points not named keeping their records, the manifest archived into archive/, the outputs archived per point, an unmatched name refused, the pair with resume refused before anything is read, and the per-point campaign that the one-job fixture cannot reach). AMENDS FR-34.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-109",
+   "text": "A reference artifact declares an actuator disc as a top-level block of kind = \"actuator\": its frame, axis, offset_m, tip_radius_m, hub_radius_m, rpm_sign, and optionally blades, swirl and profile_units. A row names ONE by ACTUATOR, states its speed by ACTUATOR_RPM (a magnitude; the block's rpm_sign is the hand) and exactly one loading, ACTUATOR_THRUST (net thrust in N) or PROFILE (the stem of a file of inputs/profiles/, resolved at plan, read where it lives and hashed into the record's inputs_sha256); every run type then emits the disc in the block's frame before the solver is initialised.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: G06 of the 0.27.0 scope and the planning row PFS-2008.02.02, the actuator study through the workflow: the curated helper existed and no run type reached it, and a row stating the keys was refused as stating keys of no run type. Evidence: tests/tier1_offline/test_g06_actuator_disc.py (the disc emitted before the solver is initialised on every run type, the motions rotor path and the steady sweep included; the block read from the reference and each way it is refused; the hand; a profile resolved at plan and hashed into the record; each refusal of the row; the control of a row naming none; the profile route refused by build before any emission). The thrust and enable commands ran unobserved and the profile command never ran; the planning row closes on a licensed run, which is owed.*",
    "verification": "test"
   },
   {

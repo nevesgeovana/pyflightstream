@@ -72,6 +72,7 @@ __all__ = [
     "BladeDatum",
     "ROTOR_BLADE_ROTATION_AXIS",
     "RotorBlock",
+    "ActuatorBlock",
     "ROTATION_OFFSET_KEY",
     "ROTATION_SWEEP_KEY",
     "Campaign",
@@ -1727,6 +1728,87 @@ class RotorBlock(BaseModel):
                 f"{degrees:.2f} degrees from the shaft direction {shaft}. An azimuth "
                 "measured from a datum that nearly lies along the shaft locates nothing, "
                 "so it is refused rather than reported. Choose a datum square to the disk"
+            )
+        return self
+
+
+class ActuatorBlock(BaseModel):
+    """One actuator disc, declared as one block of the reference artifact (G06).
+
+    The linearized propeller slipstream the solver models with an actuator
+    (SRC-003 pp.185-187). Its GEOMETRY is the configuration's, so it lives in
+    the reference beside the rotors and the frames, as a top-level table with
+    ``kind = "actuator"`` whose NAME is the disc's name; its LOADING is the
+    condition's, so a row states it (``ACTUATOR``, ``ACTUATOR_RPM`` and one of
+    ``ACTUATOR_THRUST`` or ``PROFILE``). A reference declaring a disc moves
+    nothing on a row that names none.
+
+    Attributes
+    ----------
+    frame : str
+        The frame the disc's axis belongs to: a name the reference's
+        ``[[frames]]`` declares, ``MRP``, or a rotor's frame. The command
+        places a disc on a local frame, never on the reference frame, and a
+        name the run did not create is refused when the script is built.
+    axis : {'X', 'Y', 'Z'}
+        The frame's axis the disc turns about.
+    offset_m : float
+        The disc's position along that axis, from the frame's origin.
+    tip_radius_m, hub_radius_m : float
+        The disc's outer and inner radius, ``0 <= hub < tip``.
+    rpm_sign : int
+        ``+1`` is the right-hand rule about ``axis``, as a rotor block's; the
+        row's ``ACTUATOR_RPM`` is a magnitude and this is its hand.
+    blades : int, optional
+        The blade count a profile file's distribution is read per; required
+        by a row stating ``PROFILE``.
+    swirl : float, optional
+        The fraction, 0 to 1, of the swirl velocity kept downstream
+        (``SET_PROP_ACTUATOR_SWIRL``); unstated, no swirl command is emitted.
+    profile_units : str
+        The force unit a profile file is written in, as the command database
+        spells ``SET_PROP_ACTUATOR_PROFILE``'s ``units_type``.
+    """
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    kind: Literal["actuator"] = "actuator"
+    frame: str
+    axis: Literal["X", "Y", "Z"]
+    offset_m: float = 0.0
+    tip_radius_m: float = Field(gt=0.0)
+    hub_radius_m: float = Field(ge=0.0)
+    rpm_sign: int = 1
+    blades: int | None = Field(default=None, ge=1)
+    swirl: float | None = Field(default=None, ge=0.0, le=1.0)
+    profile_units: Literal["NEWTONS", "KILO-NEWTONS", "POUND-FORCE", "KILOGRAM-FORCE"] = "NEWTONS"
+
+    @field_validator("frame")
+    @classmethod
+    def _a_frame_name(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError(
+                "frame names the frame the disc's axis belongs to, a name the reference's "
+                "[[frames]] declares; it is empty"
+            )
+        return value
+
+    @field_validator("rpm_sign")
+    @classmethod
+    def _a_sign(cls, value: int) -> int:
+        if value not in (1, -1):
+            raise ValueError(
+                f"rpm_sign = {value!r} is not a sign; write 1 or -1, where +1 is the "
+                "right-hand rule about axis"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _the_hub_is_inside_the_tip(self) -> ActuatorBlock:
+        if self.hub_radius_m >= self.tip_radius_m:
+            raise ValueError(
+                f"hub_radius_m = {self.hub_radius_m} is not inside tip_radius_m = "
+                f"{self.tip_radius_m}: a disc is the annulus between the two"
             )
         return self
 
@@ -3709,6 +3791,16 @@ class SimCase(BaseModel):
     #: hubs. Empty for a configuration with no rotor block, which is
     #: every one written before 0.15.0.
     rotors: dict[str, RotorBlock] = Field(default_factory=dict)
+    #: The actuator discs the row's reference declares (G06), keyed by the
+    #: block's name, which is what a row's ``ACTUATOR`` names. Empty for a
+    #: configuration declaring none, which is every one written before 0.27.0;
+    #: a disc declared and not named by the row emits nothing.
+    actuators: dict[str, ActuatorBlock] = Field(default_factory=dict)
+    #: The ABSOLUTE path of the file a row's ``PROFILE`` names under the
+    #: workspace's ``inputs/profiles/`` (G06), resolved when the row binds and
+    #: read where it lives; the run hashes it into the record's
+    #: ``inputs_sha256``. None for a row stating no profile.
+    actuator_profile: str | None = None
     #: The boundary order a sidecar beside the geometry states
     #: (PFS-2029.06.03), bound by the workspace; the builder refuses the
     #: run when the file's own mesh block disagrees with it.
