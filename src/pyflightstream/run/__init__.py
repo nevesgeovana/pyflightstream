@@ -4768,6 +4768,27 @@ def _prepare_case(
                 None,
             )
         inputs_sha256 = {**inputs_sha256, profile.name: file_sha256(profile)}
+    if case.freestream_profile is not None:
+        # G15. THE CUSTOM FREE STREAM, hashed where it lives for the same
+        # reason as the actuator profile above: the solver reads it.
+        field = Path(case.freestream_profile)
+        if not field.is_file():
+            return (
+                recipe,
+                f"the custom free stream {field} the row's FREESTREAM resolved to is no longer "
+                "there; it is read where it lives, under the workspace's inputs/freestreams/",
+                {},
+                None,
+            )
+        if field.name in inputs_sha256:
+            return (
+                recipe,
+                f"the custom free stream shares the file name {field.name!r} with another input "
+                "of the row, and the record keys its inputs by name; rename one of them",
+                {},
+                None,
+            )
+        inputs_sha256 = {**inputs_sha256, field.name: file_sha256(field)}
     return recipe, None, inputs_sha256, staged_geometry
 
 

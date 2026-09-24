@@ -48,6 +48,10 @@ The library tree, created by ``CampaignWorkspace.init``:
   :func:`migrate_geometry_layout` moves a flat library into folders.
 - ``inputs/profiles/``: input profile files (for example actuator
   thrust distributions), registered by file name.
+- ``inputs/freestreams/``: custom free-stream fields a row's
+  ``FREESTREAM`` names by stem (G15, since 0.27.0), ``<stem>.txt`` in the
+  manual's STRUCTURED form or ``<stem>.dat`` in its UNSTRUCTURED form; the
+  matrix binding resolves them (``workspace.matrix``).
 - ``inputs/executables.toml``: the build registry, mapping a
   FlightStream build id to its executable path; an explicit override
   path bypasses the registry, and that override is the only way to run
@@ -128,7 +132,7 @@ from pyflightstream.versions import (
     resolve,
 )
 
-INPUT_KINDS = ("geometries", "references", "setups", "pproc", "profiles", "hpc")
+INPUT_KINDS = ("geometries", "references", "setups", "pproc", "profiles", "freestreams", "hpc")
 EXECUTABLES_FILE = "executables.toml"
 #: This machine's overlay of the build registry (PFS-2031.15). A workspace
 #: kept in version control carries placeholder paths in the registry,

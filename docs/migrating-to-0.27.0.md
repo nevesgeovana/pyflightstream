@@ -251,3 +251,18 @@ the opposite sign to 0.26.0: `roll_rate:40` writes
   that: 0.27.0 solves the rate as written.
 - Code that read `cases.workflows.FREESTREAM_ROTATION_SIGN` as a number now gets
   a mapping: read `FREESTREAM_ROTATION_SIGN["roll"]`, `["pitch"]` or `["yaw"]`.
+
+## 16. A row may name a custom free stream (G15)
+
+- A matrix whose rows state `FREESTREAM` cannot be planned by 0.26.0 or older,
+  which refuses it as a key of no run type. A row without the key plans and runs
+  exactly as before, its script byte for byte what it was.
+- `pyfs-workspace init` creates `inputs/freestreams/` beside `inputs/profiles/`;
+  run it again on an existing workspace, which keeps everything it holds, or
+  make the folder by hand. `workspace.INPUT_KINDS` lists it.
+- A setup whose `[[flags]]` declares a flag named `FREESTREAM` (any case) is now
+  refused, because a run type reads that word. Rename the flag.
+- The record of a point that ran with a custom field carries the file's sha256
+  in `inputs_sha256`, under the file's name. A record without it, which is every
+  record written before, posts as it did.
+- `SimCase` gains `freestream_profile`, None by default.
