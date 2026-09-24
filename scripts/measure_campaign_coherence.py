@@ -387,11 +387,16 @@ def rotor_checks(out: Path, manifest: dict) -> dict[str, dict[str, object]]:
     workspace = out.parent.parent
     points: list[dict[str, object]] = []
     for table in sorted((out / "polars").glob("P*_rotor.csv")):
-        alias = table.read_text(encoding="utf-8").splitlines()[0].strip()
+        first = table.read_text(encoding="utf-8").splitlines()[0]
+        # Before 0.27.0 a rotor table opened with its alias alone on a line; since
+        # 0.27.0 (G16) its first line is the header and the alias is the ROTOR column.
+        titled = "," not in first
+        rows = _table(table, skip=1 if titled else 0)
+        alias = first.strip() if titled else (rows[0].get("ROTOR", "") if rows else "")
         entry = products.get(f"polars/{table.name}", {})
         source = str(entry.get("source", ""))
         group = source.rsplit(" ", 1)[-1] if "plot group" in source else None
-        for row in _table(table, skip=1):
+        for row in rows:
             numbers = {
                 k: _number(row.get(f"{k}_{alias}"))
                 for k in ("J", "CT", "CP", "ETA", "ETAW", "RPM", "DIAMETER")
