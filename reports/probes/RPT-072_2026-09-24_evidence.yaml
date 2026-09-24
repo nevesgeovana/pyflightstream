@@ -1,0 +1,53 @@
+report: reports/RPT-072_the-additional-post-end-to-end_2026-09-24.md
+date: '2026-09-24'
+question: does pyfs-matrix post --additional-pproc extract from each saved simulation without solving, skip what
+  it cannot with its reason, leave the run untouched and not repeat itself (T10)
+where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
+executable_sha256:
+  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+scripts_sha256:
+  P4101-M100RE230AL+040.txt: bff0e93654eb39c877a31f6a7f63ab059df717e120030b421140c18b5eb86eec
+  P4105-M100RE230AL+020.txt: fe08203d4c44005905893dab98aaa2734dff5069f434b9162e295f4524830418
+checks:
+  4101_loads_equal_the_run: true
+  4101_total:
+  - Total,+0.0134646,-0.0000075,+0.3306237,+0.3293351,+0.0288962,+0.0075988,+0.0021894,-0.0070
+  - Total,+0.0134646,-0.0000075,+0.3306237,+0.3293351,+0.0288962,+0.0075988,+0.0021894,-0.0070
+  4101_script_P4101-M100RE230AL+040.txt:
+    opens_then_blank: true
+    START_SOLVER: false
+  4101_sloads_rows: 12
+  4105_loads_equal_the_run: true
+  4105_total:
+  - Total,+0.0204339,-0.0000094,+0.1801001,+0.1794990,+0.0193077,+0.0073992,+0.0027363,-0.0047
+  - Total,+0.0204339,-0.0000094,+0.1801001,+0.1794990,+0.0193077,+0.0073992,+0.0027363,-0.0047
+  4105_script_P4105-M100RE230AL+020.txt:
+    opens_then_blank: true
+    START_SOLVER: false
+  4105_sloads_rows: 32
+  4101_additional_record:
+    records: 1
+    fsm_hash_matches_run_before_and_after: true
+  4105_additional_record:
+    records: 1
+    fsm_hash_matches_run_before_and_after: true
+  runs_json_unchanged: true
+  original_outputs_changed: []
+  post_log_mentions_4105: true
+  problems: []
+observations:
+  extracted:
+  - '4101'
+  - '4105'
+  skipped_no_saved_simulation:
+  - 4102 (its .fsm deleted on purpose)
+  skipped_no_key:
+  - '4103'
+  - '4104'
+  - '4111'
+  - '4112'
+  - '4113'
+  second_pass: 4101 and 4105 ALREADY_EXTRACTED, 4102 NO_SAVED_SIMULATION, no solver launched (2.7 s)
+  scripts_solve: 'none: each extraction script opens the saved simulation and carries no START_SOLVER'
+verdict: 'VERIFIED: the additional post extracts from the saved simulation without solving, skips what it cannot
+  with its reason, leaves the run''s record and outputs untouched, and does not repeat itself'

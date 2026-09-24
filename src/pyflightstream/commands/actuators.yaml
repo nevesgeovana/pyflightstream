@@ -186,11 +186,16 @@ SET_PROP_ACTUATOR_PROFILE:
     "26.101": {status: documented, note: "SRC-725 p.322, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.123": {status: documented, note: "SRC-751 p.327, unchanged from SRC-750 p.327"}
-    "26.124": {status: documented, note: "SRC-752 p.327, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: documented, note: "SRC-752 p.327, the SRC-751 file, carried from 26.123; ran on 26.124 under a licensed probe (reports/RPT-070_the-gui-rows-volume-section-and-actuator-disc_2026-09-24.md): eleven rows r,F ending in a final newline were read as twelve points, the log said the solver failed to read the custom radial thrust profile file, and a modal dialog refused the file and held the run until a person closed it; a count or a header line first was read as one point more and every value read as zero; CR LF line ends, a space or tab separator and a dimensional radius changed nothing; the same eleven rows with NO final newline were read as eleven points, with no dialog and no refusal logged, and the saved simulation carries the radii and forces"}
   notes: >
     Imports a custom radial thrust profile; the TXT file path follows
     on the line after the inline arguments. UNITS_TYPE gives the force
-    unit used inside the file.
+    unit used inside the file. THE FILE FORM 26.124 READS (RPT-070):
+    two numbers per line, r and F separated by one comma, no header,
+    no count line, and NO final newline, since every line is read as a
+    point: a final newline adds one more, and the file is refused. A
+    matrix row's run writes its own copy of the user's file in that
+    form where the point runs and names the copy (G06).
 
 SET_PROP_ACTUATOR_THRUST:
   layout: inline

@@ -306,13 +306,21 @@ now open with `POL`, the polar each row comes from, named as the matrix names
 its polar column. The campaign sweep, whose rows mix polars, carries each row's
 own.
 
-- **A reader by name is unaffected.** Every column 0.26.0 wrote is still there,
-  under the same name and in the same order after the new ones.
-- **A reader by position must change.** Every column moved one place to the
-  right, and in a rotor table two: `POL` and then `ROTOR`, the rotor's alias,
-  lead every row of `polars/P<sim>-<alias>_rotor.csv`. A script that took the
-  first column of a sections table as `STEP`, of a polar as `POLAR` or of a
-  probes table as `PROBE` finds it one place further on.
+- **`POLAR` is gone, and a reader by name reads `POL`.** The steady polar
+  `polars/P<sim>-<sweep name>_<group>.csv` and its super file opened with
+  `POLAR` in 0.26.0; they open with `POL` in its place and carry no `POLAR`
+  column, so the polar is stated once in every table. A script that read the
+  column `POLAR` reads `POL`. Every other column 0.26.0 wrote is still there,
+  under the same name and in the same order after the new ones. The super
+  file's union reads the `POLAR` of a polar table written before 0.27.0 as
+  `POL`.
+- **A reader by position must change, except on a steady polar.** Every column
+  moved one place to the right, and in a rotor table two: `POL` and then
+  `ROTOR`, the rotor's alias, lead every row of
+  `polars/P<sim>-<alias>_rotor.csv`. A script that took the first column of a
+  sections table as `STEP` or of a probes table as `PROBE` finds it one place
+  further on. A steady polar and its super file keep every position: `POL`
+  stands where `POLAR` stood.
 - **A rotor table's first line is its header.** From 0.23.0 to 0.26.x the alias
   stood alone on the first line, so a reader skipped one line
   (`read_csv_table(path, skip=1)`, `pandas.read_csv(path, skiprows=1)`). Drop
@@ -321,8 +329,6 @@ own.
 - The plots table `probes/<point>_plots.csv` opens with `POL` before the
   export's own header. `plots_table_series` reads every column after it as a
   plotted quantity, and reads a plots table written before 0.27.0 as it did.
-- The steady polar and its super file keep their `POLAR` column, which holds
-  the same simulation id as `POL`, right after it.
 - `post.products.REDUCTION_COLUMNS` begins with `POL`, so a pproc `[names]`
   entry may not give a plotted column that name.
 - The table writers `write_sections_table`, `write_plots_table`,
@@ -403,3 +409,10 @@ own.
   in `inputs_sha256`, under the file's name. A record without it, which is every
   record written before, posts as it did.
 - `SimCase` gains `freestream_profile`, None by default.
+- A row stating `FREESTREAM` and `RESTART` continues only a run that read the
+  same field: a stopped run whose record hashes no file of that name, or other
+  bytes under it, is refused at plan and at run. Remove `RESTART` to march the
+  point from the start in the field.
+- A field whose file name is the name of a file the run writes for the solver
+  (the trailing-edge node file of a raw mesh, the disc's profile copy) is
+  refused before the solver starts. Rename the field's file.

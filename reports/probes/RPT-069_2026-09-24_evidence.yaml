@@ -1,0 +1,50 @@
+report: reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md
+date: '2026-09-24'
+question: does one body give its control's coefficients through the saved simulation, its OBJ with the trailing
+  edge from a points file, and its OBJ with the trailing edge detected (T07)
+where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
+executable_sha256:
+  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+band: 'Band (T07): 1e-4 relative, floor 1e-3, committed at 3e40129c before the first solve'
+export:
+  10_WING.fsm: 410 vertices, 816 faces, max vertex distance 4.6e-9 m, same face order
+  30_BLADE.fsm: 262 vertices, 520 faces, max vertex distance 6.9e-9 m, same face order
+scripts_sha256:
+  P4101-M100RE230AL+040.txt: a52ddc8db2c0c852545fc7451b270151defa80839d9975ee3c13c737d1b53abb
+  P4102-M100RE230AL+040.txt: f7ae4d5f568e395ce0f914cfdab6edc7e014d41fee84c860127dc3e96c398e59
+  P4103-M100RE230AL+040.txt: ed857af16e33f27a45c01ac26fe0f1b6920316a40149486981841a36f987029b
+  P4104-M100RE230AL+040.txt: caa240c560971b445ef4fd3f2c774e35475009297e29e4cea09d16f43274d4b9
+  P4105-M100RE230AL+020.txt: 5b1ef635b6cbde184a4fd0562923cfff65b3765934de9d367c219aafb3e4a928
+  P4111-M144RE438AL+000BE+000.txt: 983079449f0cf0417237391fb6087c85abd77d94324cde6e9db950a4e2663341
+  P4112-M144RE438AL+000BE+000.txt: cda43e7788d27b17c283cf972910f11ec9d403e95ce939379c0b4a80074bd098
+  P4113-M144RE438AL+000BE+000.txt: b26d86f65b8b8b7afb4830a0050e3c3ef91a18fc6a10ed23d75fdfed24b2729b
+checks:
+  band_committed_before_the_solves: 'Band (T07): 1e-4 at 3e40129c, 2026-09-24 10:16:57, before t07_mesh 11:05:40'
+  export_surface_mesh_round_trip_exact: true
+  every_point_terminal: true
+  wing_routes_within_band: true
+  millimetre_obj_equals_metre: true
+  blade_detection_within_band: true
+  blade_file_route_first_run_outside_band: CL 8.94e-5 vs 1.315e-4, CDi 0.0232103 vs 0.023631, CMy 0.0137619 vs 0.0139297
+  blade_file_route_after_the_order_fix_within_band: true
+  mesh_routes_outside_the_band_after_rerun: {}
+coefficients:
+  wing:
+    CL: 0.3293351
+    CDi: 0.0288962
+    CMy: -0.0070039
+  blade:
+    CL: 0.0001315
+    CDi: 0.023631
+    CMy: 0.0139297
+cause_of_the_first_gap: no wake-termination node at the blade root after IMPORT_WAKE_EDGES_FROM_FILE; settled by
+  four one-thing probes, each a copy of the file route script with one change and its outputs redirected
+probes:
+  forced_300_iterations: the same gap on both routes
+  points_file_reversed: identical to the file route
+  detection_by_surface: no termination node; identical to the file route
+  detection_after_initialisation: the root node saved; loads unchanged
+  initialise_again: the root node saved; loads equal to the control (CL 0.0001315, CDi 0.023631, CMy 0.0139297,
+    205 iterations)
+verdict: 'VERIFIED: every route of the wing and the blade gives its control''s coefficients within the committed
+  band (the blade''s file route after the order fix this run found); the import converts millimetres'

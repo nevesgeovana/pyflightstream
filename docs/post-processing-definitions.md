@@ -62,11 +62,15 @@ polar column, holding in each row the POL of the point that row comes from
 (`test_g16_every_table_the_post_writes_opens_with_the_polar_of_its_rows`). A
 table whose rows mix polars, the campaign sweep, carries each row's own. What a
 table states about all its rows is a column too, never a line before the
-header: the rotor table's rotor is its `ROTOR` column, right after `POL`. Every
-other column keeps its name and its order after them. The solver's own files
-under `datapoints/DP-<point>/` are never rewritten, and the fixed-width custom
-polar (`.dat`) keeps the title lines its format specifies; a super file written
-in the fixed-width `legacy_polar` format opens with `POL` too.
+header: the rotor table's rotor is its `ROTOR` column, right after `POL`. `POL`
+is the only column that states the polar: a steady polar table and its super
+file written by 0.26.0 opened with it as `POLAR`, and no table the post writes
+carries `POLAR` since 0.27.0
+(`test_g16_every_table_the_post_writes_opens_with_the_polar_of_its_rows`).
+Every other column keeps its name and its order after them. The solver's own
+files under `datapoints/DP-<point>/` are never rewritten, and the fixed-width
+custom polar (`.dat`) keeps the title lines its format specifies; a super file
+written in the fixed-width `legacy_polar` format opens with `POL` too.
 
 **No cell holds a comma or a double quote, and no cell is quoted** (since
 0.27.0), so a reader that splits each line on `,`, as `numpy.genfromtxt` does,
@@ -149,10 +153,15 @@ skip for that point's polar row; it cannot suppress another point's products.
 The unsteady polar follows the same naming rule using only points whose plots
 history actually contributes an averaged row, rather than every readable load.
 
-A steady polar row opens with `POL`, then `POLAR` (the same simulation id, in
-the place it has always had), `DESCRIPTION`, `GROUP`, the reference block
-`SREF, CREF, BREF, XMOM, YMOM, ZMOM`, the condition the twenty-four do not
-carry, and the twenty-four. Its super file opens with the same columns.
+A steady polar row opens with `POL`, the polar, then `DESCRIPTION`, `GROUP`,
+the reference block `SREF, CREF, BREF, XMOM, YMOM, ZMOM`, the condition the
+twenty-four do not carry, and the twenty-four. Its super file opens with the
+same columns, in the fixed-width `legacy_polar` format too
+(`test_g16_the_steady_polar_and_its_super_file_state_the_polar_once_as_pol`,
+`test_g16_a_super_file_in_the_fixed_width_format_states_the_polar_once_as_pol`).
+A 0.26.0 table carried the polar as `POLAR`, in the place `POL` has now; the
+super file's union reads such a table's `POLAR` as `POL`
+(`test_g16_a_polar_table_written_before_the_rule_gives_the_union_its_polar_as_pol`).
 
 The loads export states ONE force and ONE moment per surface, in the
 geometry's own frame: **x aft, y right, z up**. Every axis column of a steady
@@ -871,7 +880,7 @@ files above, and the package writes no product from it:
 |---|---|
 | file | `{name}_vsec.vtk` (`format = "vtk"`, `EXPORT_VOLUME_SECTION_VTK`) or `{name}_vsec.dat` (`format = "tecplot"`, `EXPORT_VOLUME_SECTION_TECPLOT`), in the point's `datapoints/DP-<point>/`, hashed in its record |
 | plane | a rectangle between two diagonal corners (`corners_m`), or an annulus between two radii (`radii_m`), in the `plane` of the named `frame`, `offset_m` along its normal; every length in metres, written in the simulation's length unit, and a saved simulation whose unit the package cannot read is refused at plan ([the workflows page](workspace-and-workflows.md#one-row-one-actuator-disc)) |
-| instant | the converged state of THAT point: the section is created after the point's `START_SOLVER`, its flow computed by `UPDATE_ALL_VOLUME_SECTIONS` before the export, and a later point of a sweep deletes the previous section before creating its own, so each file is its own point's plane; a section exported with no update held every cell at 0.0 in the licensed run of 2026-09-24 (RPT-070), and that the update fills it is not yet measured |
+| instant | the converged state of THAT point: the section is created after the point's `START_SOLVER`, its flow computed by `UPDATE_ALL_VOLUME_SECTIONS` before the export, and a later point of a sweep deletes the previous section before creating its own, so each file is its own point's plane; a section exported with no update held every cell at 0.0 in the licensed run of 2026-09-24 (RPT-070), and with the update the rerun's 96 cell values of each point are all non-zero and differ between its two points (RPT-070) |
 | which section | the pproc's own: the export and the delete cite the index the pproc's section takes in the solver's list, counting every section the script cuts, a raw line's included, so a section a raw line cut before it never fills the pproc's file; a raw line deleting the pproc's section leaves the file nothing to export, and the row is refused when its script is built |
 
 The `_vsec` infix is what tells the file from a surface export of the same

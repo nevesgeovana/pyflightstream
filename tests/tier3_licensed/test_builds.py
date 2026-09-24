@@ -18,7 +18,7 @@ from __future__ import annotations
 import pytest
 
 from pyflightstream.commands import CommandRegistry
-from tests.tier3_licensed.conftest import TERMINAL_OK, line
+from tests.tier3_licensed.conftest import TERMINAL_OK, line, requested_version
 
 pytestmark = pytest.mark.needs_flightstream
 
@@ -49,7 +49,10 @@ ROWS = (("7001", "26.120"), ("7002", "26.123"))
 def test_the_rotor_row_ran_terminal_on_the_build_it_names(runs, pol, build):
     record = runs.one(MATRIX, pol, alpha=0.0, beta=0.0)
     assert record.status in TERMINAL_OK, (record.status, record.error)
-    assert record.fs_version_requested == build
+    # The version the workspace's build registry declares for the row's build:
+    # the build itself on the author's machine, 26.124 where an overlay sent
+    # every id there (T12 of 0.27.0).
+    assert record.fs_version_requested == requested_version(build)
     assert record.fs_version_source == "row"
 
 

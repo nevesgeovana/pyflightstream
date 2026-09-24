@@ -22,7 +22,7 @@ import pytest
 
 from pyflightstream.qa.matrix import reduce_physics
 from pyflightstream.qa.physics import CaseResult, PhysicsRun, Verdict
-from tests.tier3_licensed.conftest import HERE, TERMINAL_OK
+from tests.tier3_licensed.conftest import HERE, TERMINAL_OK, requested_version
 
 pytestmark = pytest.mark.needs_flightstream
 
@@ -68,11 +68,13 @@ def test_every_physics_row_is_recorded_terminal(runs):
         assert len(records) == count, (pol, len(records))
         for record in records:
             assert record.status in TERMINAL_OK, (record.run_id, record.status, record.error)
-            assert record.fs_version_requested == "26.120"
+            # The version the build registry declares for the rows' 26.120: the
+            # build itself on the author's machine, 26.124 under T12's overlay.
+            assert record.fs_version_requested == requested_version("26.120")
 
 
 def test_the_run_names_the_build_and_every_case_the_rows_state(physics):
-    assert physics.version == "26.120"
+    assert physics.version == requested_version("26.120")
     assert [result.case_id for result in physics.results] == [
         "PHY-01",
         "PHY-02",
@@ -91,7 +93,13 @@ def test_phy01_the_lift_slope_of_the_wing_polar_against_its_reference(physics):
 
 def test_phy02_the_mirrored_half_span_reproduces_the_full_span(physics):
     result = _case(physics, "PHY-02")
-    assert [point.label for point in result.points] == ["sim_5002/a+04.0", "sim_5003/a+04.0"]
+    # A point is named by its flight condition since 0.21.0 (GOAL-024 arm 2,
+    # docs/migrating-to-0.21.0.md section 1): the label ends with the point name,
+    # where it ended with the 0.20 tag a+04.0.
+    assert [point.label for point in result.points] == [
+        "sim_5002/V0300RHO12250AL+040",
+        "sim_5003/V0300RHO12250AL+040",
+    ]
     _judge(result)
 
 

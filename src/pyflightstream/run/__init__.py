@@ -102,6 +102,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases.workflows import (
     COLD_START_VARIABLE,
     EXPORT_LOG_VARIABLE,
+    FREESTREAM_VARIABLE,
     RAW_MESH_FORMATS,
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
@@ -145,6 +146,7 @@ from pyflightstream.results.tables import sweep_table, write_table
 from pyflightstream.run._actions_counter import render_program
 from pyflightstream.run._wake_edge_verdict import (
     actuator_profile_verdict,
+    collected_log_texts,
     collected_solver_log,
     reads_as_residual_history,
     wake_edge_import_verdict,
@@ -2130,8 +2132,8 @@ def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Recons
         script names for it, among the simulation's staged inputs, or in
         the folder the run ran in (the record's ``cwd``), where the run
         writes the files it parks beside the script (the trailing-edge node
-        file, the unsteady action programs). It reads ``"missing"`` only
-        when the file is not where the run read it.
+        file, the actuator profile's copy, the unsteady action programs). It
+        reads ``"missing"`` only when the file is not where the run read it.
 
     Raises
     ------
@@ -2195,11 +2197,11 @@ def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Recons
     script_text = script.read_text(encoding="utf-8")
     verified = {record.script_path: state(script, record.script_sha256)}
     # EACH INPUT WHERE THE RUN READ IT. Only the geometry is staged in the
-    # simulation's inputs/; the trailing-edge node file and the action programs
-    # are written in the folder the run ran in, and the actuator profile is read
-    # where it lives. Looked for among the staged inputs, every one of them read
-    # "missing", and a node file whose name the input library also holds read
-    # "differs" against a file the run never read.
+    # simulation's inputs/; the trailing-edge node file, the actuator profile's
+    # copy and the action programs are written in the folder the run ran in, and
+    # a custom free stream is read where it lives. Looked for among the staged
+    # inputs, every one of them read "missing", and a node file whose name the
+    # input library also holds read "differs" against a file the run never read.
     work_dir = Path(record.cwd) if record.cwd else sim
     named = _paths_a_script_names(script_text, work_dir)
     for name, digest in record.inputs_sha256.items():
@@ -2244,9 +2246,10 @@ def _where_the_run_read(name: str, sim: Path, work_dir: Path, named: Sequence[Pa
     In this order:
 
     1. A path the script names that ends in the input's name is where the
-       solver read it: the actuator profile where it lives, the node file in
-       the folder the run ran in. When that path is this simulation's own
-       staged input (``sim_<id>/inputs/<name>``), it is checked in this
+       solver read it: a custom free stream where it lives, the node file and
+       the actuator profile's copy in the folder the run ran in. When that
+       path is this simulation's own staged input
+       (``sim_<id>/inputs/<name>``), it is checked in this
        workspace's staged inputs, which a moved workspace still holds; else
        the first such path that holds a file, else the first, which reads
        "missing". A staged input of the same name is never substituted for it.
@@ -4612,9 +4615,10 @@ def _plan_point(
     # and the difference is one argument: the plan runs before
     # anything is staged, so a case naming a geometry renders `OPEN
     # <library path>` here and `OPEN <staged copy>` at run time. A raw mesh
-    # on the trailing-edge file route differs in a second: the script is given
-    # no working folder here, so its node file is named by its bare name (G02,
-    # `Script.working_dir`). Nothing
+    # on the trailing-edge file route, and an actuator disc loaded by a
+    # profile, differ in a second: the script is given no working folder here,
+    # so the node file and the profile's copy are named by their bare names
+    # (G02, G06, `Script.working_dir`). Nothing
     # depends on that today (the plan checks the library file exists, the
     # builder judges only the suffix, and plan.json carries no script
     # text), and it is written down so a later reader does not reuse this
@@ -4905,34 +4909,26 @@ def _prepare_case(
         # reasoning is there rather than repeated at each boundary.
         staged_geometry = str(staged)
     if case.actuator_profile is not None:
-        # G06. THE ACTUATOR PROFILE IS HASHED WHERE IT LIVES and joins the
-        # record's inputs, as the trailing-edge node file does: it is a file
-        # the solver reads, and a record that cannot say which bytes it read
-        # cannot be reproduced. NOT STAGED beside the geometry, because a
-        # second folder among the staged files turns the geometry's link into a
-        # copy (`CampaignWorkspace.stage_inputs`), which is the size every mesh
-        # is kept out of the simulation folder for.
+        # G06. THE SOLVER NEVER READS THE USER'S PROFILE: the builder parks the
+        # run's own copy of its rows, in the form 26.124 reads, and
+        # `_write_pending_files` writes it where the point runs and hashes it
+        # into the record, as it does the trailing-edge node file. So the
+        # user's file is neither staged nor hashed here, only looked for, so a
+        # file gone since the plan fails the case by name before the build.
         profile = Path(case.actuator_profile)
         if not profile.is_file():
             return (
                 recipe,
                 f"the actuator profile {profile} the row's PROFILE resolved to is no longer "
-                "there; it is read where it lives, under the workspace's inputs/profiles/",
+                "there; the run copies it from where it lives, under the workspace's "
+                "inputs/profiles/",
                 {},
                 None,
             )
-        if profile.name in inputs_sha256:
-            return (
-                recipe,
-                f"the actuator profile and the geometry share the file name {profile.name!r}, "
-                "and the record keys its inputs by name; rename one of them",
-                {},
-                None,
-            )
-        inputs_sha256 = {**inputs_sha256, profile.name: file_sha256(profile)}
     if case.freestream_profile is not None:
-        # G15. THE CUSTOM FREE STREAM, hashed where it lives for the same
-        # reason as the actuator profile above: the solver reads it.
+        # G15. THE CUSTOM FREE STREAM, hashed where it lives: the solver reads
+        # it there, and a record that cannot say which bytes it read cannot be
+        # reproduced.
         field = Path(case.freestream_profile)
         if not field.is_file():
             return (
@@ -5359,8 +5355,16 @@ def _execute_sweep(
     # and a local executor has no such method and is handed nothing.
     # G02, and PFS-2031.13 on this path too: the files the script parked are
     # written before the solver starts, and the data files' digests join the
-    # job's inputs. This path wrote none of them until 0.27.0.
-    written = _write_pending_files(script, sim_dir)
+    # job's inputs. This path wrote none of them until 0.27.0. One that
+    # shares its name with another input is refused here, before the job.
+    try:
+        written = _write_pending_files(script, sim_dir, case=case, recorded=inputs_sha256)
+    except CampaignConfigError as error:
+        return RunRecord(
+            **base,
+            status=RunStatus.FAILED_SCRIPT,
+            error=f"{type(error).__name__}: {error}",
+        )
     if written:
         base["inputs_sha256"] = {**base["inputs_sha256"], **written}
     _bind_submission_values(executor, case, point_cases[0][2])
@@ -5521,9 +5525,14 @@ def _execute_sweep(
             else wake_edge_import_verdict(script.wake_edge_points, log_text),
         )
         # G06. A point whose log says the solver could not use its actuator
-        # disc's profile file ran on with a loading that is not the file's.
+        # disc's profile file ran on with a loading that is not the file's. Every
+        # collected log is read for it, a log that is no residual history too.
         status, error = with_wake_edge_verdict(
-            status, error, actuator_profile_verdict(log_text, result.log_text)
+            status,
+            error,
+            actuator_profile_verdict(
+                log_text, result.log_text, *collected_log_texts(sim_dir, collected)
+            ),
         )
         collected_all.extend(collected)
         ran.append(
@@ -5557,23 +5566,48 @@ def _execute_sweep(
     )
 
 
-def _write_pending_files(script: Script, work_dir: Path) -> dict[str, str]:
+def _write_pending_files(
+    script: Script, work_dir: Path, *, case: SimCase, recorded: Mapping[str, str]
+) -> dict[str, str]:
     """Write every file the script parked for the run, before the solver starts.
 
     Two kinds, both named by the script and written where it names them (a
     relative path lands in ``work_dir``, the solver's working directory):
     the child scripts of SCRIPT actions (PFS-2031.13) and the data files a
-    command reads, the trailing-edge node file today (G02). One writer for
-    both, called by the point path and by the sweep path alike; the sweep
-    path wrote neither until 0.27.0.
+    command reads, the trailing-edge node file (G02) and the run's own copy
+    of an actuator disc's radial thrust profile (G06). One writer for all,
+    called by the point path and by the sweep path alike; the sweep path
+    wrote neither kind until 0.27.0.
+
+    A data file parked as TEXT is written in text mode, as the node file
+    always was; one parked as BYTES is written exactly as it is, which is how
+    the profile's copy keeps the one form 26.124 was measured to read: rows
+    joined by a newline and no final newline (RPT-070).
+
+    ONE KEY, ONE FILE. The record keys each input the solver reads by its file
+    name, and ``recorded`` holds the ones the case declared, hashed when it was
+    prepared: its staged geometry and its custom free stream (G15), which is
+    read where it lives. A data file written here under a name already held by
+    a DIFFERENT file, one of those or another written here, would replace that
+    file's digest in the record, which would then name bytes the solver did not
+    read under that name and leave the others unverified: a free stream named
+    ``wing.wake_nodes.txt`` beside the node file of ``wing.stl``. So that is
+    refused, naming the key and both files, before the solver starts. The same
+    bytes arriving twice under one name are one file's digest, not two files.
 
     Returns
     -------
     dict of str to str
         The sha256 of each DATA file, keyed by its file name, for the
-        record's ``inputs_sha256``: the node file is an input the solver
-        read, and a record that could not say which bytes it read could not
-        be reproduced. The action scripts are hashed nowhere, as before.
+        record's ``inputs_sha256``: each is an input the solver read, and a
+        record that could not say which bytes it read could not be
+        reproduced. The action scripts are hashed nowhere, as before.
+
+    Raises
+    ------
+    CampaignConfigError
+        If a data file's name is a key ``recorded`` or another data file
+        holds with a different digest.
     """
 
     def placed(name: str) -> Path:
@@ -5585,12 +5619,37 @@ def _write_pending_files(script: Script, work_dir: Path) -> dict[str, str]:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(action_text, encoding="utf-8")
     digests: dict[str, str] = {}
-    for input_file, text in script.pending_input_files.items():
+    written: dict[str, Path] = {}
+    for input_file, content in script.pending_input_files.items():
         target = placed(input_file)
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text, encoding="utf-8")
-        digests[target.name] = file_sha256(target)
+        if isinstance(content, bytes):
+            target.write_bytes(content)
+        else:
+            target.write_text(content, encoding="utf-8")
+        name, digest = target.name, file_sha256(target)
+        held = digests.get(name, recorded.get(name))
+        if held is not None and held != digest:
+            other = str(written[name]) if name in written else _declared_input(case, name)
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the run writes {target} for the solver to read, and "
+                f"{other} is a different file of the same name. The record keys each input "
+                f"the solver reads by its file name (inputs_sha256), so {name!r} would hold "
+                "one digest for two files and could not say which bytes the solver read. "
+                "Rename one of them; the solver was not started."
+            )
+        digests[name] = digest
+        written[name] = target
     return digests
+
+
+def _declared_input(case: SimCase, name: str) -> str:
+    """Name the input of ``case`` the record holds under ``name``, for a refusal."""
+    if case.freestream_profile is not None and Path(case.freestream_profile).name == name:
+        return f"the row's custom free stream {case.freestream_profile}"
+    if case.geometry is not None and Path(case.geometry).name == name:
+        return f"the row's geometry {case.geometry}"
+    return f"the row's input {name!r}"
 
 
 def _run_log_text(
@@ -5760,12 +5819,60 @@ def resolve_continuation(
             "continuation reopens that file, so it cannot start without it; restore it, or "
             f"remove the {RESTART_VARIABLE} key to march the point from the start."
         )
+    _refuse_a_field_the_stopped_run_did_not_read(case, tag, previous)
     return {
         "continues": previous.run_id,
         "iterations": iterations,
         "saved": str(saved),
         "form": request.form,
     }
+
+
+def _refuse_a_field_the_stopped_run_did_not_read(
+    case: SimCase, tag: str, previous: RunRecord
+) -> None:
+    """Refuse a custom free stream the run being continued did not solve in (G15).
+
+    A CONTINUATION WRITES NO FREE STREAM: it reopens the saved simulation,
+    which carries the one the stopped run solved in, and marches on in it. So
+    the field a continuing row names must be the one that run read, the file
+    its record hashes under the same name to the same digest. Any other field,
+    a key added to a row that stopped under the CONSTANT free stream or a file
+    edited since the stop, would be hashed into the new record and never
+    solved. A file no longer there is the builder's to refuse, by name.
+    """
+    if case.freestream_profile is None:
+        return
+    field = Path(case.freestream_profile)
+    if not field.is_file():
+        return
+    recorded = previous.inputs_sha256.get(field.name)
+    current = file_sha256(field)
+    if recorded == current:
+        return
+    stated = case.variables.get(FREESTREAM_VARIABLE)
+    named = (
+        f"{FREESTREAM_VARIABLE}: {stated}"
+        if stated is not None
+        else f"the custom free stream {field}"
+    )
+    if recorded is None:
+        what = f"its record hashes no {field.name}, so it solved in another free stream"
+        remedy = f"without {FREESTREAM_VARIABLE}"
+    else:
+        what = (
+            f"it read {field.name} with other bytes than the file holds now (sha256 "
+            f"{recorded[:12]}... then, {current[:12]}... now)"
+        )
+        remedy = "with the file restored to the bytes it read"
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} point {tag} states {named} and {RESTART_VARIABLE}, and the run "
+        f"it continues, {previous.run_id!r}, did not solve in that field: {what}. A "
+        "continuation reopens the saved simulation and writes no free stream, so it would "
+        "march on in the stopped run's and record this field as read. Remove the "
+        f"{RESTART_VARIABLE} key to march the point from the start in the field, or continue "
+        f"it {remedy}."
+    )
 
 
 #: Every status a run ends in when it FAILED, read off the enum by name so a
@@ -6332,8 +6439,16 @@ def _execute_point(
     # to this folder below, as they are for a submitted point. The steady job
     # of several points keeps the simulation folder (`_execute_sweep`).
     # G02: and the data files a command reads, the trailing-edge node file,
-    # whose digests join the inputs the record states.
-    written = _write_pending_files(script, work_dir)
+    # whose digests join the inputs the record states; one that shares its
+    # name with another input is refused here, before the solver starts.
+    try:
+        written = _write_pending_files(script, work_dir, case=case, recorded=inputs_sha256)
+    except CampaignConfigError as error:
+        return RunRecord(
+            **base,
+            status=RunStatus.FAILED_SCRIPT,
+            error=f"{type(error).__name__}: {error}",
+        )
     if written:
         inputs_sha256 = {**inputs_sha256, **written}
         base["inputs_sha256"] = inputs_sha256
@@ -6626,9 +6741,14 @@ def _execute_point(
     # G06. A run whose log says the solver could not use its actuator disc's
     # profile file went on to the end with a loading that is not the file's, and
     # its outputs look like any other run's; the line is the one statement of it.
-    # The log the solver left is read too, where the collected log is another.
+    # The log the solver left is read too, where the collected log is another,
+    # and so is every collected log, a log that is no residual history too.
     status, error = with_wake_edge_verdict(
-        status, error, actuator_profile_verdict(log_text, result.log_text)
+        status,
+        error,
+        actuator_profile_verdict(
+            log_text, result.log_text, *collected_log_texts(sim_dir, collected)
+        ),
     )
     return RunRecord(
         **base,

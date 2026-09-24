@@ -1,0 +1,40 @@
+report: reports/RPT-070_the-gui-rows-volume-section-and-actuator-disc_2026-09-24.md
+date: '2026-09-24'
+question: do the volume section and the actuator disc (by net thrust and by a radial profile file) run and come
+  back on 26.124, and in what form does the build read a profile file
+where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
+executable_sha256:
+  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+volume_section:
+  first_run: both points of 5007 exported 25 points and 16 cells, every cell value 0.0, byte-identical
+  after_UPDATE_ALL_VOLUME_SECTIONS: 96 non-zero cell values per point; the two points differ
+disc_by_net_thrust:
+  5008_CDi: -0.0221
+  5010_control_CDi: 0.0049
+  5008_CL: 0.3451
+  5010_control_CL: 0.3385
+  saved_simulation_names_PROP: true
+profile_probes:
+  final_newline: 12 points saved for 11 rows; 'Failed to read custom radial thrust profile file'; modal dialog
+  count_line_first: 13 points, every value zero; refused
+  header_line_first: 13 points, every value zero; refused
+  crlf: refused as the final-newline file
+  space_separated: refused as the final-newline file
+  tab_separated: refused as the final-newline file
+  dimensional_radius: refused as the final-newline file
+  no_final_newline: 11 points saved, no dialog, no refusal line
+row_5009_rerun_on_the_runs_copy:
+  status: CONVERGED
+  refusal_line: false
+  points_saved: 11
+  CDi: -0.0208
+  CL: 0.3439
+saved_simulation_unit_head:
+  metre:
+  - '1.0'
+  - '5'
+  millimetre:
+  - '1.0E-03'
+  - '2'
+verdict: 'VERIFIED: the volume section (after the update fix), the disc by its net thrust and the disc by a profile
+  file in the measured form run and come back on 26.124'

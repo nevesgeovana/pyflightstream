@@ -440,7 +440,7 @@ def test_a_point_whose_record_is_missing_borrows_no_other_points_values(tmp_path
         reductions = {"rpm": -837.3278}
 
     theirs = superfile_row(
-        polar_columns=("POLAR",),
+        polar_columns=("POL",),
         polar_values=("0001",),
         matrix_row=None,
         record=_Record(),
@@ -448,7 +448,7 @@ def test_a_point_whose_record_is_missing_borrows_no_other_points_values(tmp_path
         plots_row=None,
     )
     mine = superfile_row(
-        polar_columns=("POLAR",),
+        polar_columns=("POL",),
         polar_values=("0001",),
         matrix_row=None,
         record=None,
@@ -464,7 +464,7 @@ def test_a_point_whose_record_is_missing_borrows_no_other_points_values(tmp_path
     borrowed = {
         k: mine[k]
         for k in set(mine) & set(theirs)
-        if k != "POLAR" and mine[k] and mine[k] == theirs[k]
+        if k != "POL" and mine[k] and mine[k] == theirs[k]
     }
     assert not borrowed, f"a point with no record carried {borrowed}"
     # AND THE FILE'S HEADER IS STILL WHOLE, because `write_superfiles` unions

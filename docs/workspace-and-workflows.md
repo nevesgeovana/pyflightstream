@@ -1781,8 +1781,9 @@ on every build of the range and ran without abort in the probes of 26.120 to
 run of 2026-09-24 (RPT-070, 26.124) exported the two points of a steady sweep
 that cut a section and exported it with no update as byte-identical files whose
 every cell value was 0.0, and the manual computes a section's flow with
-"Update all" after the solution has converged. That the update fills the file
-is not yet measured. `DELETE_ALL_VOLUME_SECTIONS`, `VOLUME_SECTION_WIREFRAME` and
+"Update all" after the solution has converged. With the update the row was run
+again: every cell value of each point's file is non-zero and the two points
+differ (RPT-070). `DELETE_ALL_VOLUME_SECTIONS`, `VOLUME_SECTION_WIREFRAME` and
 `EXPORT_VOLUME_SECTION_2D_VTK` have never run on any build, and
 `VOLUME_SECTION_BOUNDARY_LAYER` is documented on builds before 26.120 only;
 none of the four is reachable from the table.
@@ -2398,18 +2399,45 @@ ACTUATOR: PROP / ACTUATOR_RPM: 2400 / PROFILE: prop_ct
 magnitude whose hand is the block's `rpm_sign`; and the row states exactly one
 loading: `ACTUATOR_THRUST`, the net thrust in N (the ELLIPTICAL model, thrust
 given in NEWTONS as the manual recommends), or `PROFILE`, the stem of a file of
-the workspace's `inputs/profiles/` (the CUSTOM model). A `PROFILE` is resolved
-when the row is planned, to the absolute path the script imports, and a stem
-the folder does not hold is refused naming what it does hold; the file is read
-where it lives, never copied beside the mesh, and its sha256 joins the
-record's `inputs_sha256`. ONE DISC PER ROW. A reference declaring a disc
-changes nothing on a row that names none.
+the workspace's `inputs/profiles/` (the CUSTOM model). ONE DISC PER ROW. A
+reference declaring a disc changes nothing on a row that names none.
+
+**THE PROFILE FILE** holds the radial distribution, one station per line: two
+numbers separated by one comma, `r,F`, the radial station (normalised or
+dimensional, as you write it; the package does not convert it) and the force
+there, per blade, in the block's `profile_units`. No header line and no count
+line:
+
+```text
+0.2,0.0
+0.6,127.3
+1.0,0.0
+```
+
+Save it as any editor saves it. The solver is never handed your file: the run
+writes its own copy, `<stem>.actuator_profile.txt`, in the folder the point
+runs in (a steady row of several points: its simulation folder), and the
+script names the copy. The copy holds your rows with the blank lines and the
+spaces around the numbers removed, joined by a newline, and NO final newline,
+because 26.124 reads every line of the file as a point: measured on 26.124
+(RPT-070), eleven rows ending in a newline were read as twelve points, logged
+as unreadable and refused in a dialog that holds the solver until a person
+closes it, while the same eleven rows without the final newline were read,
+radii and forces. The copy's sha256 joins the record's `inputs_sha256`, and
+your file is never written. A `PROFILE` is resolved when the row is planned,
+and a stem the folder does not hold is refused naming what it does hold. A
+file the solver would misread is refused then too, naming the file and the
+line: a header or a count first (each read as one point more, which set every
+value to zero), a row that is not two numbers separated by one comma, a number
+that is not finite, or fewer than two rows. A case written in Python sets
+`SimCase.actuator_profile` to the file's absolute path and is held to the same
+form when its script is built.
 
 The script creates the disc after every frame exists and before the solver is
 initialised: `CREATE_NEW_ACTUATOR PROPELLER ELLIPTICAL|CUSTOM <name>`,
 `SET_ACTUATOR_AXIS`, `SET_ACTUATOR_RADIUS`, `SET_PROP_ACTUATOR_RPM`, then
-`SET_PROP_ACTUATOR_THRUST` or `SET_PROP_ACTUATOR_PROFILE` (the file on the next
-line), `SET_PROP_ACTUATOR_SWIRL` when the block states a swirl, and
+`SET_PROP_ACTUATOR_THRUST` or `SET_PROP_ACTUATOR_PROFILE` (the run's copy of the
+profile on the next line), `SET_PROP_ACTUATOR_SWIRL` when the block states a swirl, and
 `ENABLE_ACTUATOR`. Each way to get the row wrong is refused before a line is
 written, naming the key: a block the reference does not declare (listing the
 ones it does), a speed missing or not above zero, both loadings or neither, a
@@ -2462,9 +2490,12 @@ are verified on 26.121 to 26.124, each by a probe reading the saved simulation.
 error in the probes of 26.120 to 26.124, and their effect has never been
 observed, so they are documented only: a run can converge with the disc's
 thrust not applied and nothing here would say so. `SET_PROP_ACTUATOR_PROFILE`
-has NEVER RUN on any build. Every other build of the range is documented only.
-The profile route is refused on 25.000 and 25.100, whose editions print the
-command without a blade count.
+ran on 26.124 under a licensed probe (RPT-070), which measured the file form
+above by reading the saved simulation, with no solve; it stays documented
+there, since what a profile the solver read does to the loads has not been
+observed, and every other build of the range is documented only. The profile
+route is refused on 25.000 and 25.100, whose editions print the command without
+a blade count.
 
 A PROFILE THE SOLVER COULD NOT USE FAILS THE POINT. When the solver cannot use
 the file, it logs `Failed to find`, `Failed to read`, `No data found in` or
@@ -2479,9 +2510,11 @@ whose outputs name no log is not held to it.
 NOT MEASURED: the disc on an unsteady row; the disc on a rotor row, where a
 flat row with no blade frames turns every frame with its motion
 (`SET_MOTION_MOVING_FRAMES 1 -1`), the disc's frame included; the disc under
-mirror symmetry; and the format the solver expects of a profile file, which
-the package passes through unread. A continuation reopens the saved
-simulation, which carries the disc, and emits it again nowhere. Deriving the
+mirror symmetry; the loads of a disc whose profile the solver read; and the
+profile file on any build but 26.124. A continuation reopens the saved
+simulation, which carries the disc, and emits it again nowhere; a disc added
+to a row after its run stopped does not reach the continuation and is not yet
+refused there. Deriving the
 disc's speed from an advance ratio and its diameter is not offered; the row
 states `ACTUATOR_RPM`.
 
@@ -2585,21 +2618,31 @@ steady rows of `tests/tier3_licensed/matriz_gui.fs` on the 12_WING_PHY wing at
 | 5011 | the uniform field, vx = 30 m/s | 4 deg | 0.0021 | 0.0002 | 0.0065 |
 
 The uniform field loads as the constant free stream it equals, to the digits
-printed, so the file is read in m and m/s; the sheared field moves the lift;
-and at 4 deg the field loads near its own 0 deg self and far from the constant
-free stream at 4 deg, although the angle still moves the result a little (CL
-0.0021 against 0.0023, CDi 0.0002 against 0.0000). That is the refusal above.
+printed, with both divided by the same stated reference velocity, so the field's
+speed is read in m/s (the grid's coordinates, which a uniform field cannot
+show, were not probed on their own); the sheared field moves the lift; and at
+4 deg, the one angle run, the field loads near its own 0 deg self and far from
+the constant free stream at 4 deg, although the angle still moves the result a
+little (CL 0.0021 against 0.0023, CDi 0.0002 against 0.0000). That is the
+refusal above.
 Row 5011 is retired from the matrix, since the plan refuses it now; its run is
 the report's evidence. `tests/tier3_licensed/test_freestream.py` holds 5012 to
 5014 to what they measured. Every other build is documented only, and the
 ROTATION form ran on 26.124 under RPT-052.
 
-NOT MEASURED: the UNSTRUCTURED form; the sideslip beside a field; a custom
+NOT MEASURED: the UNSTRUCTURED form; the unit of the grid's coordinates; angles
+other than 4 deg; the sideslip beside a field; a custom
 field on an unsteady or a rotor row; what the solver takes at a point outside
 the file's grid, so a field should cover the body's YZ extent and its wake
-with margin; and whether a saved simulation carries the field, so a
-continuation (`RESTART`), which reopens the saved simulation and writes no free
-stream, is taken on trust, as it is for a body rate.
+with margin; and whether a saved simulation carries the field. A continuation
+(`RESTART`) reopens the saved simulation and writes no free stream, so it
+continues only a run whose record hashes the same field under the file's name:
+a stopped run that read no field, or the file with other bytes, is refused at
+plan and at run, and the angle is judged beside the field as on a run from the
+mesh. That the saved file carries the field is taken on trust, as it is for a
+body rate. A field whose file name is the name of a file the run writes for the
+solver, the trailing-edge node file or the disc's profile copy, is refused
+before the solver starts, because the record keys each input by its name.
 
 ### One row, one geometry, turned
 

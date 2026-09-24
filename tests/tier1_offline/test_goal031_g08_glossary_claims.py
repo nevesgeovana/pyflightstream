@@ -160,7 +160,7 @@ def _continuing(restart: str, owed: str) -> SimCase:
 def _profile(tmp: Path, stem: str) -> SimCase:
     """PROFILE as the plan resolves it: the stem, and the file of that stem."""
     path = tmp / f"{stem}.txt"
-    path.write_text("0.10 1.0\n0.50 2.0\n", encoding="utf-8")
+    path.write_text("0.10,1.0\n0.50,2.0\n", encoding="utf-8")
     case = steady_case(ACTUATOR="PROP", ACTUATOR_RPM="2400", PROFILE=stem)
     return _with_disc(case, actuator_profile=str(path))
 

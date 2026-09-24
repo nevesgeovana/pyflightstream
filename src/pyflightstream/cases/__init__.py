@@ -4566,9 +4566,11 @@ class SimCase(BaseModel):
     #: a disc declared and not named by the row emits nothing.
     actuators: dict[str, ActuatorBlock] = Field(default_factory=dict)
     #: The ABSOLUTE path of the file a row's ``PROFILE`` names under the
-    #: workspace's ``inputs/profiles/`` (G06), resolved when the row binds and
-    #: read where it lives; the run hashes it into the record's
-    #: ``inputs_sha256``. None for a row stating no profile.
+    #: workspace's ``inputs/profiles/`` (G06), resolved and checked when the
+    #: row binds. The solver never reads it: the builder reads its rows into
+    #: the run's own copy, in the one form 26.124 reads, which the run writes
+    #: where the point runs and hashes into the record's ``inputs_sha256``.
+    #: None for a row stating no profile.
     actuator_profile: str | None = None
     #: The boundary order a sidecar beside the geometry states
     #: (PFS-2029.06.03), bound by the workspace; the builder refuses the

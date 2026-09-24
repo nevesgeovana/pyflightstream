@@ -78,6 +78,7 @@ from pathlib import Path
 
 import numpy as np
 
+from pyflightstream._tokens import POLAR_ID_COLUMN
 from pyflightstream.cases import SUPERFILE_FORMATS
 from pyflightstream.cases.matrix import (
     COLUMNS_THAT_MAY_BE_UNSTATED,
@@ -625,6 +626,10 @@ def write_superfiles(
 #: the pattern itself rather than an outcome that is satisfied by nothing.
 POLAR_TABLE_GLOB = "P*-*_*.csv"
 
+#: The name a steady polar table gave the polar until 0.26.x, where
+#: :data:`~pyflightstream._tokens.POLAR_ID_COLUMN` stands since 0.27.0 (G16).
+_POLAR_COLUMN_BEFORE_0270 = "POLAR"
+
 
 def _header(path: Path) -> set[str]:
     """Return the column names of one product table.
@@ -636,13 +641,22 @@ def _header(path: Path) -> set[str]:
     into the union as if it were a column and left the table's real columns
     out. So a rotor table's first line of ONE cell is the old title and is
     passed over; a header always holds more than one.
+
+    THE POLAR IS `POL`, whatever release wrote the table. A steady polar table
+    written before 0.27.0 names it `POLAR` and has no `POL`; no super file
+    carries `POLAR` any more, so that name, read as written, would be a field
+    the union demands and no super file could hold. It is read as `POL`.
     """
     with path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.reader(handle)
         first = next(reader, None)
         if first is not None and len(first) == 1 and path.name.endswith(ROTOR_TABLE_SUFFIX):
             first = next(reader, None)
-        return set(first) if first is not None else set()
+    names = set(first) if first is not None else set()
+    if _POLAR_COLUMN_BEFORE_0270 in names:
+        names.discard(_POLAR_COLUMN_BEFORE_0270)
+        names.add(POLAR_ID_COLUMN)
+    return names
 
 
 def _matrix_names(path: Path, pols: Iterable[str]) -> set[str]:

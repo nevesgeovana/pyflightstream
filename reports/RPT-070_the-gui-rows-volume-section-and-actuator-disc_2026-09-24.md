@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-24
 **Found by:** the licensed rows of `matriz_gui.fs` of the 0.27.0 work (G05, G06)
-**Status:** CLOSED in 0.27.0 (G05: the section is updated before its export; G06: a disc stated by its net thrust runs, and a point whose profile file the solver could not read fails)
+**Status:** CLOSED in 0.27.0 (G05: the section is updated before its export; G06: a disc runs by its net thrust or by a profile file, which the run writes in the form 26.124 reads, and a point whose profile the solver could not read fails)
 **Affects:** `CREATE_NEW_RECTANGLE_VOLUME_SECTION`, `UPDATE_ALL_VOLUME_SECTIONS`, `EXPORT_VOLUME_SECTION_VTK`, `CREATE_NEW_ACTUATOR`, `SET_PROP_ACTUATOR_THRUST`, `SET_PROP_ACTUATOR_PROFILE`, on 26.124
 
 ## What this settles
@@ -37,16 +37,25 @@ before each.
 - **The disc by its net thrust reaches the solve.** 5008 against its control
   5010: CDi -0.0221 against +0.0049, CL 0.3451 against 0.3385; its saved
   simulation names the disc `PROP`, the control's does not.
-- **The profile file was not read.** The first run of `SET_PROP_ACTUATOR_PROFILE`
-  on any build put up a modal dialog, "Invalid file format. Please check file for
-  consistency.", that held the solver until a person dismissed it, and its log
-  says "Failed to read custom radial thrust profile file: <path>". The point then
-  ran to the end with the disc acting on a loading that is not the file's (CDi
-  -0.0208, near the net-thrust row) and was recorded as converged. **A point whose
-  log carries one of the solver's four "custom radial thrust profile file" lines
-  is now FAILED_SCRIPT** (G06), on the point path, the steady job and collect. The
-  format the build reads is not settled by this run: the file had two columns,
-  `r,F`, as the manual prints, and no header line.
+- **The profile file, and the form 26.124 reads.** The first run of
+  `SET_PROP_ACTUATOR_PROFILE` on any build put up a modal dialog, "Invalid file
+  format. Please check file for consistency.", that held the solver until a
+  person dismissed it, and its log says "Failed to read custom radial thrust
+  profile file: <path>"; the point was recorded converged. Eight one-thing probes
+  (the setup up to the disc, saved, no solve, a watcher closing the dialog)
+  settled why: the file's rows `r,F` are right, and **a final newline is read as
+  one more, empty point** (the saved disc holds 12 points for 11 rows) which the
+  build refuses. A count line or a header line first is read as a point too and
+  zeros every value; CRLF, spaces, tabs or a dimensional radius change nothing.
+  **The same rows with no final newline are read whole**: 11 points saved, no
+  dialog, no refusal. 0.27.0 therefore writes the run's own copy of the profile
+  in that form, where the point runs, and names it in the script; a header or a
+  count line in the user's file is refused at plan; and a point whose log still
+  carries one of the solver's four "custom radial thrust profile file" lines is
+  FAILED_SCRIPT (G06). Row 5009 was run again on the copy: no dialog, no refusal
+  line, the saved disc holds the 11 points, and its loads equal the first run's
+  (CDi -0.0208, CL 0.3439), which had read the 11 points before refusing the
+  empty twelfth.
 
 ## A saved simulation's length unit
 
@@ -60,11 +69,11 @@ as metres.
 
 ## What this does not settle
 
-- The profile format 26.124 accepts, and the modal dialog that holds an
-  unattended run on an unreadable file.
+- The modal dialog that holds an unattended run on a file the build cannot read
+  (the package's copy avoids it; nothing watches for it).
+- A profile file with CRLF line ends and no final newline.
 - The circle form of the volume section, and the Tecplot export.
 
-**Verdict: PARTIAL.** The volume section and the disc by its net thrust run and
-come back on 26.124 (the section after the update fix); the disc by a profile
-file does not read the file, and 0.27.0 now fails such a point instead of
-recording it converged.
+**Verdict: VERIFIED.** The volume section (after the update fix), the disc by its
+net thrust and the disc by a profile file (in the form measured here, which the
+package now writes) run and come back on 26.124.

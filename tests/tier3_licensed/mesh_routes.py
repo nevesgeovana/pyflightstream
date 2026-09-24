@@ -35,8 +35,13 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from tests.tier3_licensed.conftest import source_repository
+
 HERE = Path(__file__).resolve().parent
-REPO = HERE.parents[1]
+#: The checkout whose history holds the Band line: this folder's repository, or,
+#: for a copy of the workspace outside Git (T12 of 0.27.0), the checkout the
+#: package under test was loaded from.
+REPO = source_repository()
 MATRIX = "matriz_mesh"
 
 #: The coefficients the band is stated on.

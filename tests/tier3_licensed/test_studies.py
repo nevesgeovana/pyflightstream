@@ -211,12 +211,18 @@ def test_a_boundary_renamed_before_the_save_reaches_every_export_by_its_new_name
     assert record.status in TERMINAL_OK, (record.status, record.error)
     loads = runs.loads(record)
     assert list(loads.surfaces) == ["MainWing"], list(loads.surfaces)
-    raw = runs.workspace.sim_dir("4004") / "raw"
+    # The point's outputs are collected into its own datapoint folder, where
+    # 0.13.0 collected them into raw/ (FR-84 and FR-92 of 0.16.0).
+    folder = runs.workspace.sim_dir("4004") / "datapoints" / f"DP-{record.point_name}"
+    assert record.outputs
     for output in record.outputs:
-        text = (runs.workspace.sim_dir("4004") / output).read_bytes().decode("utf-8", "replace")
+        path = runs.workspace.sim_dir("4004") / output
+        assert path.parent == folder, output
+        text = path.read_bytes().decode("utf-8", "replace")
         assert " Wing" not in text and "\tWing" not in text and ",Wing" not in text, output
-    assert raw.is_dir()
-    table = runs.products("matriz_geometry") / "4004_M10_g01.csv"
+    # The polar table lives under polars/ and is named for the point (FR-88 of
+    # 0.16.0, the point name of 0.21.0); runs.polar finds it through products.json.
+    table = runs.polar("matriz_geometry", "4004", 1)
     assert table.is_file(), "p004 group 1 is MainWing, resolved by the products stage"
     plain = runs.total(runs.one("matriz_geometry", "4001", alpha=4.0))
     assert abs(runs.total(record)["CL"] - plain["CL"]) < 1e-6, (
@@ -228,7 +234,8 @@ def test_a_boundary_renamed_before_the_save_reaches_every_export_by_its_new_name
 def test_the_blunt_body_row_detects_its_base_and_the_base_group_has_a_table(runs):
     record = runs.one("matriz_geometry", "4003", alpha=4.0)
     assert "DETECT_BASE_REGIONS_BY_SURFACE" in runs.script(record)
-    table = runs.products("matriz_geometry") / "4003_M10_g03.csv"
+    # Under polars/ and named for the point since 0.16.0 (FR-88) and 0.21.0.
+    table = runs.polar("matriz_geometry", "4003", 3)
     assert table.is_file(), "p002 group 3 is Body and Base"
     with table.open(encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))

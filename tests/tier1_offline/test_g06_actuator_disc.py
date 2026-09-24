@@ -18,6 +18,13 @@ rotors and frames, and its LOADING is the row's:
 * a reference declaring a disc moves nothing on a row that names none;
 * the profile route is refused by build on 25.000 and 25.100, whose grammar
   takes no blade count, before anything is emitted;
+* the solver reads a COPY the run writes where the point runs, the user's rows
+  as two numbers ``r,F`` per line with no final newline, the one form 26.124
+  was measured to read (RPT-070); the script names the copy, the record hashes
+  it, and the user's file is left as its editor saved it;
+* a profile the solver would misread is refused at plan, naming the file and
+  the line: a header or a count first, a row that is not two numbers
+  separated by one comma, fewer than two rows;
 * a point whose solver log says the profile file could not be used is
   FAILED_SCRIPT whichever assessor judged it: on a local point, on the steady
   one-job path and at collect.
@@ -27,16 +34,18 @@ rotors and frames, and its LOADING is the row's:
 * a saved simulation that already carries an actuator is refused naming it,
   since the created disc would be cited by the saved one's index.
 
-Nothing here runs a solver. `SET_PROP_ACTUATOR_PROFILE` has never run on any
-build; the thrust and the enable ran without abort on 26.120 to 26.124 with
-their effect unobserved.
+Nothing here runs a solver. `SET_PROP_ACTUATOR_PROFILE` ran on 26.124 under a
+licensed probe (RPT-070): a file ending in a newline is read as one point more,
+refused in a modal dialog and logged as unreadable, and the same rows without
+the final newline are read. The thrust and the enable ran without abort on
+26.120 to 26.124 with their effect unobserved.
 """
 
 from __future__ import annotations
 
 import re
 from collections.abc import Sequence
-from pathlib import Path
+from pathlib import Path, PurePath
 
 import pytest
 
@@ -283,7 +292,23 @@ def test_g06_a_row_naming_no_actuator_emits_none():
     )
 
 
-def _profile_workspace(tmp_path, cell: str):
+#: THE USER'S PROFILE AS AN EDITOR SAVES IT: CR LF line ends, a blank line,
+#: spaces around the numbers and a FINAL NEWLINE. 26.124 reads a final newline
+#: as one point more, refuses the file in a modal dialog and logs it as
+#: unreadable (RPT-070), so this is exactly the file the solver must not be
+#: handed as it stands.
+AS_SAVED = b"0.10, 1.0\r\n\r\n 0.50,2.0 \r\n"
+
+#: THE RUN'S OWN COPY of :data:`AS_SAVED`, the one form 26.124 was measured to
+#: read: the rows ``r,F``, the numbers as written, joined by a newline, and NO
+#: final newline.
+AS_READ = b"0.10,1.0\n0.50,2.0"
+
+#: The name the run gives its copy of ``inputs/profiles/prop_ct.txt``.
+COPY = "prop_ct.actuator_profile.txt"
+
+
+def _profile_workspace(tmp_path, cell: str, body: bytes = AS_SAVED):
     workspace, matrix = _matrix(
         tmp_path, condition="MACH:0.2, REmi:2.3, ALPHA:sweep", values="0.0", cell=cell
     )
@@ -293,17 +318,32 @@ def _profile_workspace(tmp_path, cell: str):
     profiles = workspace.inputs_dir / "profiles"
     profiles.mkdir(exist_ok=True)
     profile = profiles / "prop_ct.txt"
-    profile.write_text("0.10 1.0\n0.50 2.0\n", encoding="utf-8")
+    profile.write_bytes(body)
     return workspace, matrix, profile
 
 
-def test_g06_a_profile_row_resolves_inputs_profiles_at_plan_and_hashes_it(tmp_path):
-    """PROFILE names a stem, the plan finds the file, and the record hashes what was read."""
-    workspace, matrix, profile = _profile_workspace(
-        tmp_path, "ACTUATOR: PROP / ACTUATOR_RPM: 2400 / PROFILE: prop_ct"
+@pytest.mark.parametrize("values", ["0.0", "0.0,2.0"], ids=["one-point", "a-steady-job"])
+def test_g06_the_solver_reads_the_run_s_own_copy_of_the_profile_without_a_final_newline(
+    tmp_path, values
+):
+    """PROFILE names a stem, the plan finds the file, and the run writes ITS OWN COPY where
+    the point runs, the rows with no final newline; the script names the copy, the record
+    hashes it, and the user's file is left exactly as it was saved."""
+    workspace, matrix = _matrix(
+        tmp_path,
+        condition="MACH:0.2, REmi:2.3, ALPHA:sweep",
+        values=values,
+        cell="ACTUATOR: PROP / ACTUATOR_RPM: 2400 / PROFILE: prop_ct",
     )
+    (workspace.inputs_dir / "references" / "r003.toml").write_text(
+        REFERENCE_WITH_A_DISC, encoding="utf-8"
+    )
+    profiles = workspace.inputs_dir / "profiles"
+    profiles.mkdir(exist_ok=True)
+    profile = profiles / "prop_ct.txt"
+    profile.write_bytes(AS_SAVED)
     plan = _plan(workspace, matrix)
-    assert [entry.status for entry in plan.points] == [PlanStatus.READY], [
+    assert {entry.status for entry in plan.points} == {PlanStatus.READY}, [
         entry.reason for entry in plan.points
     ]
     records = run_matrix(
@@ -320,12 +360,168 @@ def test_g06_a_profile_row_resolves_inputs_profiles_at_plan_and_hashes_it(tmp_pa
         record.error for record in records
     ]
     record = records[0]
-    assert record.inputs_sha256.get("prop_ct.txt") == file_sha256(profile), record.inputs_sha256
     script = (workspace.sim_dir(record.sim_id) / record.script_path).read_text(encoding="utf-8")
     lines = script.splitlines()
     at = lines.index("SET_PROP_ACTUATOR_PROFILE 1 NEWTONS 3")
-    assert Path(lines[at + 1]) == profile.resolve(), lines[at : at + 2]
+    named = Path(lines[at + 1])
+    assert named == Path(record.cwd) / COPY, (
+        f"the script names {named} for the profile, and the run's own copy is {COPY} in the "
+        f"folder the point runs in, {record.cwd}: the user's file ends in a newline, which "
+        "26.124 reads as one point more and refuses in a dialog that holds the solver"
+    )
+    assert named.read_bytes() == AS_READ, (
+        f"the copy the solver reads holds {named.read_bytes()!r}; 26.124 reads the rows r,F "
+        f"joined by a newline with NO final newline, {AS_READ!r} (RPT-070)"
+    )
+    assert record.inputs_sha256.get(COPY) == file_sha256(named), record.inputs_sha256
+    assert "prop_ct.txt" not in record.inputs_sha256, (
+        "the record hashes the user's file, which the solver never read; it hashes the copy"
+    )
+    assert profile.read_bytes() == AS_SAVED, "the run wrote over the user's profile"
     assert "CREATE_NEW_ACTUATOR PROPELLER CUSTOM PROP" in lines
+
+
+@pytest.mark.parametrize(
+    "make",
+    [steady_case, unsteady_case, rotor_case],
+    ids=["steady", "unsteady", "unsteady_rotor"],
+)
+def test_g06_every_run_type_names_the_copy_where_the_script_runs(tmp_path, make):
+    """Every builder names the copy in the script's working folder and parks its bytes for
+    the run to write; a script with no working folder (the plan's rehearsal) names it bare."""
+    user = tmp_path / "prop_ct.txt"
+    user.write_bytes(AS_SAVED)
+    case = _with_disc(
+        make(ACTUATOR="PROP", ACTUATOR_RPM="2400", PROFILE="prop_ct"),
+        actuator_profile=str(user),
+        actuators={"PROP": PROP.model_copy(update={"blades": 3})},
+    )
+    for working_dir in (str(tmp_path / "DP-point"), None):
+        script = Script("26.124")
+        script.working_dir = working_dir
+        build_script(case, script)
+        lines = script.render().splitlines()
+        at = lines.index("SET_PROP_ACTUATOR_PROFILE 1 NEWTONS 3")
+        copy = COPY if working_dir is None else str(PurePath(working_dir) / COPY)
+        assert lines[at + 1] == copy, (working_dir, lines[at : at + 2])
+        assert script.pending_input_files.get(copy) == AS_READ, script.pending_input_files
+        assert str(user) not in script.render(), "the script still names the user's file"
+
+
+def test_g06_a_steady_sweep_names_one_copy_for_its_one_disc(tmp_path):
+    """A steady row of three points is one script and one disc: one copy, named once."""
+    user = tmp_path / "prop_ct.txt"
+    user.write_bytes(AS_SAVED)
+    base = _with_disc(
+        steady_case(ACTUATOR="PROP", ACTUATOR_RPM="2400", PROFILE="prop_ct"),
+        actuator_profile=str(user),
+        actuators={"PROP": PROP.model_copy(update={"blades": 3})},
+    )
+    points = [case_at_point(base, {"alpha": alpha}) for alpha in (-2.0, 0.0, 2.0)]
+    script = Script("26.124")
+    script.working_dir = str(tmp_path / "sim")
+    build_steady_sweep(points, script)
+    copy = str(PurePath(script.working_dir) / COPY)
+    assert script.render().splitlines().count(copy) == 1
+    assert script.pending_input_files == {copy: AS_READ}, script.pending_input_files
+
+
+#: A profile the solver would misread, and what its refusal names: the line
+#: (1-based, blank lines counted, where the user will look) and why.
+MISREAD = {
+    "a-header-first": (b"r,F\n0.1,1.0\n0.5,2.0\n", r"line 1: 'r,F' is a header line"),
+    "a-count-first": (b"2\n0.1,1.0\n0.5,2.0\n", r"line 1: '2' is one number, a count line"),
+    "spaces-for-the-comma": (
+        b"0.1 1.0\n0.5 2.0\n",
+        r"line 1: '0\.1 1\.0' is not two numbers separated by one comma",
+    ),
+    "a-bad-row-after-a-blank": (
+        b"0.1,1.0\n\n0.5;2.0\n",
+        r"line 3: '0\.5;2\.0' is not two numbers separated by one comma",
+    ),
+    "three-columns": (
+        b"0.1,1.0,3\n0.5,2.0\n",
+        r"line 1: '0\.1,1\.0,3' is not two numbers separated by one comma",
+    ),
+    "not-finite": (b"0.1,1.0\n0.5,1e999\n", r"line 2: '1e999' is not a finite number"),
+    "one-row": (b"0.1,1.0\n", r"holds 1 row of r,F, and a radial distribution needs at least two"),
+    "no-row": (b"\r\n\r\n", r"holds 0 rows of r,F, and a radial distribution needs at least two"),
+}
+
+
+@pytest.mark.parametrize(("body", "words"), MISREAD.values(), ids=MISREAD.keys())
+def test_g06_a_profile_the_solver_would_misread_is_refused_at_plan_naming_the_line(
+    tmp_path, body, words
+):
+    """At plan, before a seat is spent: the refusal names the row, the file and the line."""
+    workspace, matrix, profile = _profile_workspace(
+        tmp_path, "ACTUATOR: PROP / ACTUATOR_RPM: 2400 / PROFILE: prop_ct", body
+    )
+    with pytest.raises(InputArtifactError) as refused:
+        resolve_matrix(matrix, workspace, name="m", fs_version="26.120", recipes=RECIPES)
+    message = str(refused.value)
+    assert re.search(words, message), message
+    assert "POL 3207" in message and str(profile.resolve()) in message, message
+
+
+@pytest.mark.parametrize(("body", "words"), MISREAD.values(), ids=MISREAD.keys())
+def test_g06_a_case_built_in_python_is_refused_the_same_before_a_line(tmp_path, body, words):
+    """A case that never passed a plan is held to the same form when its script is built."""
+    user = tmp_path / "prop_ct.txt"
+    user.write_bytes(body)
+    case = _with_disc(
+        steady_case(ACTUATOR="PROP", ACTUATOR_RPM="2400", PROFILE="prop_ct"),
+        actuator_profile=str(user),
+        actuators={"PROP": PROP.model_copy(update={"blades": 3})},
+    )
+    with pytest.raises(CampaignConfigError) as refused:
+        _lines(case)
+    message = str(refused.value)
+    assert re.search(words, message), message
+    assert str(user) in message, message
+
+
+def test_g06_what_an_editor_adds_is_not_refused():
+    """THE CONTROL: a final newline, blank lines, CR LF, spaces and a BOM are the package's
+    to remove, not the user's; the numbers stay as written."""
+    text = "\ufeff\n 0.2 , 0.0\r\n\r\n0.60,127.3\t\r\n1.0,0.0\r\n\r\n"
+    assert helpers.render_actuator_profile(text) == "0.2,0.0\n0.60,127.3\n1.0,0.0"
+
+
+def test_g06_the_helper_parks_the_profile_it_is_given_and_refuses_one_before_a_line():
+    """helpers.actuator_disc(profile_text=...) parks the copy's bytes under ``profile``; a
+    text the solver would misread is refused with the script untouched."""
+    script = Script("26.124")
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    before = script.render()
+    disc = {
+        "frame": 2,
+        "axis": "X",
+        "offset": 0.0,
+        "r_tip": 0.5,
+        "r_hub": 0.1,
+        "rpm": 2400.0,
+        "profile": "prop_ct.actuator_profile.txt",
+        "n_blades": 3,
+    }
+    with pytest.raises(CommandArgumentError, match=r"line 1: 'r,F' is a header line"):
+        helpers.actuator_disc(script, "PROP", **disc, profile_text="r,F\n0.1,1.0\n0.5,2.0\n")
+    assert script.render() == before and script.pending_input_files == {}
+    helpers.actuator_disc(script, "PROP", **disc, profile_text=AS_SAVED.decode())
+    assert script.pending_input_files == {"prop_ct.actuator_profile.txt": AS_READ}
+    # One path is one file: a second disc parking OTHER rows there is refused.
+    with pytest.raises(CommandArgumentError, match=r"already writes a different file"):
+        helpers.actuator_disc(script, "FAN", **disc, profile_text="0.1,5.0\n0.5,6.0")
+    # A text with no path to write it to names nothing the solver would read.
+    with pytest.raises(CommandArgumentError, match=r"profile_text is the text of the file"):
+        helpers.actuator_disc(
+            script,
+            "FAN",
+            **{**disc, "profile": None, "n_blades": None},
+            thrust=120.0,
+            profile_text=AS_SAVED.decode(),
+        )
+    assert script.pending_input_files == {"prop_ct.actuator_profile.txt": AS_READ}
 
 
 def test_g06_a_profile_the_folder_does_not_hold_is_refused_at_plan(tmp_path):
@@ -458,6 +654,22 @@ def _solver_log(line: str | None) -> str:
     return text.replace("\n", "\r\n\x00\r\n")
 
 
+def _log_without_residuals(line: str | None) -> str:
+    """A log carrying the solver's banner, its script line and ``line``, and no residual table.
+
+    A scheduler's log of a job, or an export the solver cut short, has this
+    shape: it does not read as a residual history, so nothing finds it by
+    content, and the default assessor names no log for it.
+    """
+    text = (Path(__file__).parent / "fixtures" / "log_residuals_26.120.txt").read_text(
+        encoding="utf-8"
+    )
+    anchor = "script.txt\n"
+    head = text[: text.index(anchor) + len(anchor)]
+    body = head if line is None else f"{head}\n{line}\n"
+    return body.replace("\n", "\r\n\x00\r\n")
+
+
 def _writes_every_export_and_the_log(log: Path) -> str:
     """WRITES_EVERY_EXPORT, with every EXPORT_LOG written from ``log``."""
     return (
@@ -473,8 +685,12 @@ def _writes_every_export_and_the_log(log: Path) -> str:
     )
 
 
-def _run_a_profile_row(tmp_path, *, values: str, refused: bool):
-    """Run a PROFILE row through run_matrix with a log that does or does not refuse the file."""
+def _run_a_profile_row(tmp_path, *, values: str, refused: bool, log_form=None):
+    """Run a PROFILE row through run_matrix with a log that does or does not refuse the file.
+
+    ``log_form`` writes the exported log from the refusal line (``_solver_log``
+    when not given).
+    """
     workspace, matrix = _matrix(
         tmp_path,
         condition="MACH:0.2, REmi:2.3, ALPHA:sweep",
@@ -487,10 +703,10 @@ def _run_a_profile_row(tmp_path, *, values: str, refused: bool):
     profiles = workspace.inputs_dir / "profiles"
     profiles.mkdir(exist_ok=True)
     profile = profiles / "prop_ct.txt"
-    profile.write_text("0.10 1.0\n0.50 2.0\n", encoding="utf-8")
+    profile.write_bytes(AS_SAVED)
     line = f"{PROFILE_REFUSALS[1]}{profile.resolve()}" if refused else None
     log = tmp_path / "log_to_write.txt"
-    log.write_bytes(_solver_log(line).encode("utf-8"))
+    log.write_bytes((log_form or _solver_log)(line).encode("utf-8"))
     try:
         run_matrix(
             matrix,
@@ -638,25 +854,153 @@ def test_g06_a_collected_steady_job_judges_each_point_by_its_own_log(tmp_path):
     assert refused in outcome.record.error, outcome.record.error
 
 
+# --- a log that is no residual history is read for the four lines too -------------------
+#
+# The package's own assessor names a log only when it reads as a residual
+# history, and an assessor a caller passes names none, so a collected log
+# carrying no residual table (a scheduler's log of the job, copied to the row's
+# declared log) was never read for the four lines: its point, whose loads
+# converged, was recorded CONVERGED. Every collected log is read for them.
+
+
+@pytest.mark.parametrize("assessor", ["the-package-s", "a-caller-s"])
+@pytest.mark.parametrize(
+    "refusal", [*PROFILE_REFUSALS, None], ids=["find", "read", "no-data", "load", "none"]
+)
+def test_g06_a_collected_log_that_is_no_residual_history_still_refuses_the_profile(
+    tmp_path, refusal, assessor
+):
+    """A submitted point whose loads converged and whose scheduler log carries one of
+    the four lines and no residual table is FAILED_SCRIPT at collect, whichever
+    assessor judged it; the same log without the line keeps CONVERGED."""
+    from pyflightstream.run.collect import collect_once
+    from tests.tier1_offline.test_collect_stage import _no_sleep
+    from tests.tier1_offline.test_goal028_hpc_collect import _native_log_workspace
+
+    workspace, work = _native_log_workspace(tmp_path)
+    line = None if refusal is None else f"{refusal}{work / COPY}"
+    (work / "FTS9001.l3714205").write_bytes(_log_without_residuals(line).encode("utf-8"))
+
+    def passed(record, sim_dir):
+        return RunStatus.CONVERGED, None
+
+    report = collect_once(
+        workspace,
+        interval=0.0,
+        sleep=_no_sleep,
+        assessor=passed if assessor == "a-caller-s" else None,
+    )
+    (outcome,) = report.collected + report.failed
+    record = outcome.record
+    assert record is not None, outcome.detail
+    # THE SHAPE OF THE FINDING: no assessor named the log, and nothing found it by content.
+    assert record.log_file_used is None, record.log_file_used
+    if line is None:
+        assert record.status is RunStatus.CONVERGED, record.error
+        assert record.error is None
+        return
+    assert record.status is RunStatus.FAILED_SCRIPT, (record.status, record.error)
+    assert line in record.error, record.error
+    assert "the actuator disc did not use the file" in record.error, record.error
+
+
+def test_g06_a_collected_steady_job_reads_a_point_log_that_is_no_residual_history(tmp_path):
+    """Each point of a submitted steady job is held to the four lines in its own log,
+    whether or not that log reads as a residual history."""
+    import json
+
+    from pyflightstream.run.collect import collect_once
+    from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
+
+    declared = {
+        "AL+000": ["AL+000.txt", "AL+000_log.txt"],
+        "AL+020": ["AL+020.txt", "AL+020_log.txt"],
+    }
+    workspace, sim = _submitted_workspace(
+        tmp_path, declared=tuple(name for names in declared.values() for name in names)
+    )
+    record = workspace.read_manifest()[0]
+    points = {"AL+000": {"alpha": 0.0}, "AL+020": {"alpha": 2.0}}
+    job = record.model_copy(
+        update={
+            "submission": {
+                **(record.submission or {}),
+                "declared_by_point": declared,
+                "points_by_tag": points,
+            },
+            "points_ran": [
+                {"tag": tag, "point": point, "status": "SUBMITTED"} for tag, point in points.items()
+            ],
+        }
+    )
+    workspace.manifest_path.write_text(
+        json.dumps([json.loads(job.model_dump_json())], indent=2) + "\n", encoding="utf-8"
+    )
+    refused = f"{PROFILE_REFUSALS[0]}{sim / COPY}"
+    for tag in declared:
+        (sim / f"{tag}.txt").write_text("numbers", encoding="utf-8")
+    (sim / "AL+000_log.txt").write_bytes(_log_without_residuals(refused).encode("utf-8"))
+    (sim / "AL+020_log.txt").write_bytes(_log_without_residuals(None).encode("utf-8"))
+
+    def passed(record, sim_dir):
+        return RunStatus.CONVERGED, None
+
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=passed)
+    (outcome,) = report.collected + report.failed
+    assert outcome.record is not None, outcome.detail
+    by_tag = {entry["tag"]: entry["status"] for entry in outcome.record.points_ran or []}
+    assert by_tag == {"AL+000": "FAILED_SCRIPT", "AL+020": "CONVERGED"}, (
+        by_tag,
+        outcome.record.error,
+    )
+    assert refused in outcome.record.error, outcome.record.error
+
+
+@pytest.mark.parametrize("refused", [True, False], ids=["refused", "control"])
+@pytest.mark.parametrize("values", ["0.0", "0.0,2.0"], ids=["one-point", "a-steady-job"])
+def test_g06_a_local_point_whose_log_is_no_residual_history_still_refuses_the_profile(
+    tmp_path, values, refused
+):
+    """The local path reads the exported log for the four lines too, when neither the
+    assessor names it nor its content reads as a residual history and the solver
+    left no log of its own beside it."""
+    record, profile, line = _run_a_profile_row(
+        tmp_path, values=values, refused=refused, log_form=_log_without_residuals
+    )
+    if not refused:
+        assert record.status is RunStatus.CONVERGED, (record.status, record.error)
+        return
+    assert record.status is RunStatus.FAILED_SCRIPT, (record.status, record.error)
+    assert line in record.error, record.error
+    assert f"file {profile}" in record.error, record.error
+    statuses = [entry["status"] for entry in record.points_ran or []]
+    assert statuses == ["FAILED_SCRIPT"] * len(statuses), record.points_ran
+
+
 @pytest.mark.parametrize("values", ["0.0", "0.0,2.0"], ids=["one-point", "a-steady-job"])
 def test_g06_reconstruct_verifies_the_profile_where_the_run_read_it(tmp_path, values):
-    """The profile is hashed where it lives, in the workspace's inputs/profiles/,
-    and read there; it is never staged among the simulation's inputs. A
-    reconstruction checks it where the script named it: it matches while
-    unchanged, differs once edited and is missing once deleted."""
+    """The solver read the run's own copy, written in the folder the point ran in and
+    hashed there; it is never staged among the simulation's inputs. A reconstruction
+    checks it where the script named it: it matches while unchanged, differs once
+    edited and is missing once deleted. The user's file is not what the solver read,
+    so editing it after the run leaves the record faithful."""
     from pyflightstream.run import reconstruct
 
     record, profile, _ = _run_a_profile_row(tmp_path, values=values, refused=False)
     workspace = CampaignWorkspace(tmp_path / "camp")
-    assert record.inputs_sha256.get("prop_ct.txt") == file_sha256(profile)
+    copy = Path(record.cwd) / COPY
+    key = f"inputs/{COPY}"
+    assert record.inputs_sha256.get(COPY) == file_sha256(copy), record.inputs_sha256
     rebuilt = reconstruct(record, workspace=workspace)
-    assert rebuilt.verified["inputs/prop_ct.txt"] == "match", rebuilt.verified
+    assert rebuilt.verified[key] == "match", rebuilt.verified
     assert rebuilt.faithful, rebuilt.verified
 
-    profile.write_text("0.10 9.0\n", encoding="utf-8")
-    assert reconstruct(record, workspace=workspace).verified["inputs/prop_ct.txt"] == "differs"
-    profile.unlink()
-    assert reconstruct(record, workspace=workspace).verified["inputs/prop_ct.txt"] == "missing"
+    profile.write_bytes(b"0.10,9.0\n0.50,2.0\n")
+    assert reconstruct(record, workspace=workspace).verified[key] == "match"
+    copy.write_bytes(b"0.10,9.0\n0.50,2.0")
+    assert reconstruct(record, workspace=workspace).verified[key] == "differs"
+    copy.unlink()
+    assert reconstruct(record, workspace=workspace).verified[key] == "missing"
 
 
 # --- the disc's metres reach the solver in the simulation's unit -------------

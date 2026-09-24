@@ -190,11 +190,12 @@ FlightStream versions.
   `profile_units`). A row names it with `ACTUATOR`, gives its speed with
   `ACTUATOR_RPM` (a magnitude; the block's `rpm_sign` is the hand) and exactly
   one loading: `ACTUATOR_THRUST` (net thrust, N) or `PROFILE` (a file of
-  `inputs/profiles/`, resolved at plan, read where it lives, hashed into
-  `inputs_sha256`). Every run type emits it before the solver is initialised.
-  `SET_PROP_ACTUATOR_PROFILE` has never run on any build, and the thrust and
-  enable commands ran with their effect unobserved; a disc on unsteady and
-  rotor rows is not measured. `helpers.actuator_disc` refuses the profile
+  `inputs/profiles/`, rows `r,F`, resolved and checked at plan; the solver
+  reads the run's own copy, below under Fixed). Every run type emits it before
+  the solver is initialised. `SET_PROP_ACTUATOR_PROFILE` ran on 26.124 under a
+  licensed probe that measured the file form it reads (RPT-070); the thrust
+  and enable commands ran with their effect unobserved, and a disc on unsteady
+  and rotor rows is not measured. `helpers.actuator_disc` refuses the profile
   route on 25.000 and 25.100 before writing anything.
 - **A custom free stream on a matrix row (G15).** `FREESTREAM: <stem>` names a
   file of the workspace's `inputs/freestreams/`, which `pyfs-workspace init`
@@ -255,7 +256,9 @@ FlightStream versions.
   `run_additional_post` in `pyflightstream.run.matrix`, `AdditionalRecord` and
   `ExtractionStatus` in `pyflightstream.workspace`, `build_additional_script`
   and its helpers in `pyflightstream.cases.workflows`, and
-  `Script.frames_by_name`.
+  `Script.frames_by_name`. A licensed run on 26.124 extracted two finished
+  points end to end, the loads equal to the run's own, and a second post
+  extracted nothing again (`reports/RPT-072`).
 
 - **`inputs/pproc/INPUTS.md`, the glossary of every input key, generated from
   the code (G08).** Beside `VARIABLES.md`, `pyfs-workspace init`, `pyfs-matrix
@@ -309,6 +312,16 @@ FlightStream versions.
 
 ### Fixed
 
+- **A continuation no longer passes over its row's custom free stream** (G15).
+  A row stating `RESTART` built its continuation before reading `FREESTREAM`,
+  so it planned and ran beside a non-zero `ALPHA` or `BETA` the same row is
+  refused without `RESTART`, and a key added to a row that stopped under the
+  CONSTANT free stream reopened that state, wrote no `SET_FREESTREAM` and was
+  recorded with the field's sha256 as read. A continuation still writes no free
+  stream, since the saved simulation carries the stopped run's; the row's field
+  is now read and refused as a run from the mesh reads and refuses it, and a
+  field the stopped run's record does not hash, or hashes with other bytes, is
+  refused at plan and at run, naming the point, the key and the run continued.
 - **`pyfs-matrix plan` calls a recorded job's points recorded, and resume
   runs a recorded job's new angles one each.** A steady row of several points
   is one job, recorded under the row's id and not under its points', and the
@@ -668,12 +681,43 @@ FlightStream versions.
   failure, whichever assessor judged it, on a local point, on each point of a
   steady row run as one job, and at `pyfs-matrix collect`; its `error` quotes
   the line, names the file and says the disc did not use it (G06).
+- **The profile file's refusal is read in every collected log, not only in a
+  log that reads as a residual history.** The four lines were looked for in the
+  log the assessor named or found by its residual table, so a log carrying no
+  residual table, as a scheduler's log copied to the row's declared log can,
+  was never read for them: a submitted point whose loads converged was recorded
+  `CONVERGED` at `pyfs-matrix collect` with the line in its log, and so was a
+  local point whose solver left no log of its own beside the export. Every
+  collected output named as a log (`_log.txt`) is now read for them too, on a
+  local point, on each point of a steady row run as one job and at collect,
+  and the point is `FAILED_SCRIPT` (G06).
+- **The actuator disc's profile file is read as it was written, and never
+  stops an unattended run in a dialog.** The script named the user's file under
+  `inputs/profiles/`, and an editor ends a file in a newline: 26.124 reads
+  every line of the file as a point, so eleven rows read as twelve, the file
+  was logged as unreadable and refused in a modal dialog that held the solver
+  until a person closed it, and the point ran on with a loading that was not
+  the file's (measured by a licensed probe, RPT-070). The run now writes its
+  own copy, `<stem>.actuator_profile.txt`, in the folder the point runs in (a
+  steady row of several points: its simulation folder): the user's rows, blank
+  lines and surrounding spaces removed, joined by a newline and with NO final
+  newline, the one form measured to be read, radii and forces. The script
+  names the copy, the record hashes it in `inputs_sha256` (the user's file,
+  which the solver does not read, is not hashed), and the user's file is left
+  as saved, on every run type that emits a disc. The plan refuses, naming the
+  file and the line, a profile the solver would misread: a header or a count
+  first (26.124 reads either as one more point, and every value then reads as
+  zero), a row that is not two numbers separated by one comma, a number that
+  is not finite, or fewer than two rows; a case built in Python is held to the
+  same form when its script is built. New: `helpers.render_actuator_profile`,
+  the form; `helpers.actuator_disc(profile_text=...)`, which parks the copy on
+  the script; `cases.workflows.read_actuator_profile`; and
+  `Script.pending_input_files` values may be bytes, written as they are (G06).
 - **`reconstruct()` checks each recorded input where the run read it.** It
   looked for every name of a record's `inputs_sha256` in the simulation's
-  `inputs/`, where only the staged geometry is: the trailing-edge node file
-  (written in the folder the point ran in), the actuator profile (read in the
-  workspace's `inputs/profiles/`) and the unsteady action and clock programs
-  (written in the folder the point ran in) all read `missing`, so no record
+  `inputs/`, where only the staged geometry is: the trailing-edge node file,
+  the actuator profile's copy and the unsteady action and clock programs, all
+  written in the folder the point ran in, read `missing`, so no record
   carrying one was `faithful`, and a node file whose name the input library
   also held read `differs` against a file the run never read. Each input is
   now checked at the path the script names for it, among the staged inputs,
@@ -682,6 +726,21 @@ FlightStream versions.
   `Reconstruction.verified` are unchanged. An action script rewritten during
   the run reads `differs`, since the record hashes the empty file the run
   wrote.
+- **Two different files the solver reads no longer share one key of
+  `inputs_sha256`.** The record keys each input by its file name, and the
+  digests of the files a run writes for the solver, the trailing-edge node
+  file `<geometry stem>.wake_nodes.txt` and the actuator profile's copy
+  `<profile stem>.actuator_profile.txt`, were merged over the inputs the case
+  declared. A custom free stream named like either,
+  `FREESTREAM: wing.wake_nodes` beside the file-route wing `wing.stl`, ran with
+  the generated file's digest in place of the field's, so the record no longer
+  said which field the solver read, and `reconstruct()` verified the node file
+  under that key and never the field. A file the run writes under a name
+  another input of the case already holds with different bytes is now refused
+  before the solver starts, on a point and on a steady row run as one job: the
+  point is `FAILED_SCRIPT`, its error names the key and both files, and its
+  record keeps the declared file's digest. The same bytes under one name are
+  one file and run (G15, G02, G06).
 
 ### Changed
 
@@ -782,15 +841,19 @@ FlightStream versions.
   comes from; the sweep, whose rows mix polars, carries each row's own. The
   rotor table's alias, alone on its first line before the header since 0.23.0,
   is now the `ROTOR` column right after `POL`, so its first line is its header
-  and a CSV reader takes the file as written. Every other column keeps its name
-  and its order after them: a reader by name is unaffected, a reader by
-  position finds each column one place to the right, two in a rotor table. The
-  package's own readers follow: the reductions read every plots column but
-  `POL` as a plotted quantity, the super file's union reads a rotor table's
-  header from its first line and passes over the alias line of one written
-  before, and `REDUCTION_COLUMNS` begins with `POL`, so a `[names]` entry
-  cannot take the name. The public table writers take `pol=` (`NA` where the
-  caller states none), `results.sweep_table` and `results.run_table` lead with
+  and a CSV reader takes the file as written. **`POLAR` is gone:** the steady
+  polar and its super file, which opened with `POLAR` in 0.26.0, open with
+  `POL` in its place and carry no `POLAR` column, so a reader by name reads
+  `POL` where it read `POLAR`, and a reader by position finds every column of
+  those two tables where it was. Every other column keeps its name and its
+  order after them: a reader of any other table by position finds each column
+  one place to the right, two in a rotor table. The package's own readers
+  follow: the reductions read every plots column but `POL` as a plotted
+  quantity, the super file's union reads a rotor table's header from its first
+  line, passes over the alias line of one written before and reads the `POLAR`
+  of a polar table written before as `POL`, and `REDUCTION_COLUMNS` begins with
+  `POL`, so a `[names]` entry cannot take the name. The public table writers
+  take `pol=` (`NA` where the caller states none), `results.sweep_table` and `results.run_table` lead with
   `POL`, `ROTOR_TABLE_LEAD_LINES` is 0, and `rotor_table_alias_line` is removed
   with the line it wrote. The solver's own files are not touched. See
   `docs/migrating-to-0.27.0.md`.
@@ -884,8 +947,6 @@ FlightStream versions.
 
 ### Owed
 
-- **The licensed end-to-end run of the additional post** (T10): until it runs,
-  the extraction script is pinned by its goldens and the stub solver alone.
 - **The submitting half of the additional post** (0.28.0): completing an
   extraction handed to a scheduler.
 

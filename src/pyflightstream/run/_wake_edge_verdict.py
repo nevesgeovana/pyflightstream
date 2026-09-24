@@ -17,6 +17,7 @@ import re
 from collections.abc import Sequence
 from pathlib import Path
 
+from pyflightstream.cases import EXPORT_KINDS
 from pyflightstream.results import (
     IncompleteOutputError,
     imported_trailing_edges,
@@ -28,6 +29,7 @@ __all__ = [
     "ACTUATOR_PROFILE_REFUSALS",
     "actuator_profile_refusals",
     "actuator_profile_verdict",
+    "collected_log_texts",
     "collected_solver_log",
     "reads_as_residual_history",
     "wake_edge_import_verdict",
@@ -94,9 +96,10 @@ def actuator_profile_verdict(*log_texts: str | None) -> tuple[RunStatus, str] | 
     Parameters
     ----------
     *log_texts : str or None
-        Every log of the run there is to read: the collected log, and the one
-        the solver left or the job's. None and empty entries are skipped, and a
-        line logged in two of them is named once.
+        Every log of the run there is to read: the collected log, every
+        collected output named as a log (:func:`collected_log_texts`), and the
+        one the solver left or the job's. None and empty entries are skipped,
+        and a line logged in two of them is named once.
 
     Returns
     -------
@@ -184,6 +187,44 @@ def collected_solver_log(folder: Path, collected: Sequence[str], named: str | No
     if len(candidates) == 1:
         return candidates[0].read_text(encoding="utf-8", errors="replace")
     return None
+
+
+#: The suffix every solver log the package names carries (the ``log`` kind of
+#: EXPORT_KINDS): the name EXPORT_LOG writes, the name `collect` copies a
+#: scheduler's log to, and the name a local run writes the printed output under.
+_LOG_SUFFIX = next(suffix for kind, suffix, _, _ in EXPORT_KINDS if kind == "log")
+
+
+def collected_log_texts(folder: Path, collected: Sequence[str]) -> list[str]:
+    """Return the text of every collected output named as a solver log.
+
+    FOR THE FOUR LINES OF G06, which decide wherever they are logged. The log
+    :func:`collected_solver_log` finds is ONE, found by the name an assessor
+    gives or by reading as a residual history, and a log carrying no residual
+    table is neither: a scheduler's log of the job, copied to the row's declared
+    log, or an export the solver cut short. Its refusal line was not read, and a
+    point whose loads converged was recorded CONVERGED on a disc that did not use
+    its file. So the refusal is also read in every output named as a log, which
+    is every log this package declares, whatever its content.
+
+    Parameters
+    ----------
+    folder : Path
+        The simulation folder the collected entries are relative to.
+    collected : sequence of str
+        The point's collected outputs.
+
+    Returns
+    -------
+    list of str
+        The text of each collected output whose name ends in ``_log.txt``, in
+        the order collected; empty when none is collected.
+    """
+    return [
+        path.read_text(encoding="utf-8", errors="replace")
+        for path in (folder / entry for entry in collected)
+        if path.name.endswith(_LOG_SUFFIX) and path.is_file()
+    ]
 
 
 def wake_edge_import_verdict(

@@ -204,9 +204,11 @@ def test_polar_table_round_trips(tmp_path):
     assert target.name == "3207_M20_g01.csv"
     columns, rows = read_csv_table(target)
     assert columns == POLAR_COLUMNS
+    # THE POLAR ONCE, as `POL` (G16, 0.27.0): `POLAR`, its name until 0.26.x, is gone.
+    assert "POLAR" not in columns
     assert len(rows) == 1
     assert (
-        rows[0]["POLAR"] == "3207"
+        rows[0]["POL"] == "3207"
         and rows[0]["DESCRIPTION"] == "STEADY_WB"
         and rows[0]["GROUP"] == "1"
     )
