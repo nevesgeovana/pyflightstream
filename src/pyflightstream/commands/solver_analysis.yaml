@@ -59,7 +59,7 @@ DELETE_VORTICITY_DRAG_BOUNDARIES:
 
 SET_SOLVER_ANALYSIS_LOADS_FRAME:
   layout: inline
-  phase: analysis
+  phase: init
   args:
     - name: load_frame
       type: int
@@ -78,11 +78,16 @@ SET_SOLVER_ANALYSIS_LOADS_FRAME:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.356, the SRC-751 file, carried from 26.123"}
   notes: >
     Coordinate system used for evaluating aerodynamic loads and
-    moments; index 1 is the reference frame.
+    moments; index 1 is the reference frame. Phase init on measured
+    evidence (RPT-064, 26.124, 2026-09-24): the unsteady step exports
+    are written during the march, and set after START_SOLVER this
+    frame reached only the final export, every step export printing
+    the reference frame; set before START_SOLVER, every step export
+    printed it and the last step's moments equalled the final export's.
 
 SET_ANALYSIS_MOMENTS_MODEL:
   layout: inline
-  phase: analysis
+  phase: init
   args:
     - name: model
       type: enum
@@ -100,7 +105,10 @@ SET_ANALYSIS_MOMENTS_MODEL:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.350, unchanged from SRC-750 p.350"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.350, the SRC-751 file, carried from 26.123"}
   notes: >
-    PRESSURE is the solver default.
+    PRESSURE is the solver default. Phase init with the loads frame
+    (RPT-064, 26.124, 2026-09-24): the package emits the two together,
+    and that run moved them together before START_SOLVER, so this
+    model's own effect on the step exports was not separated there.
 
 SET_ANALYSIS_SYMMETRY_LOADS:
   layout: inline

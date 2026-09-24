@@ -58,6 +58,19 @@ FlightStream versions.
   re-emitted only by the thread that raised it. One post silencing the sweep
   table's warning no longer silences, and loses, another post's warning
   ([RPT-058](reports/RPT-058_post-log-captures-warnings-process-wide_2026-09-23.md)).
+- **The unsteady step exports and the loads series state moments about the
+  row's moment point.** The loads frame and the moments model were emitted
+  after `START_SOLVER`, so every step export written during an unsteady march
+  printed `Coordinate frame for analysis: Reference` and stated its moments
+  about the reference frame's origin, while the final export stated the row's
+  frame. Both lines are now emitted before `START_SOLVER` on every run type
+  (each point of a sweep restates them), and are init-phase commands in the
+  database, so a script placing either after the start is refused. A loads
+  series (`series/<point>_loads_series.csv`) written before 0.27.0 from an
+  unsteady row states its moment columns about the reference origin; its
+  forces are right
+  ([RPT-064](reports/RPT-064_a-loads-frame-set-before-the-solve-reaches-every-step_2026-09-24.md),
+  B05).
 
 ### Changed
 

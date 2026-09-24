@@ -42,3 +42,18 @@ two posts running in two threads of one process no longer write each other's
 warnings. A warning raised during a post by code outside pyflightstream is no
 longer written to `post.log`; it still reaches your warning filters, and
 pyflightstream's own warnings are logged as before.
+
+## 4. The moments of the unsteady step exports are about the moment point (B05)
+
+The loads frame and the moments model were emitted after `START_SOLVER`, so
+every step export an unsteady row wrote during the march stated its moments
+about the reference frame's origin, while the final export stated the row's
+moment point. Both are now emitted before the solve, on every run type, and
+are init-phase commands: a script of yours that places either after
+`START_SOLVER` is refused. A loads series (`series/<point>_loads_series.csv`)
+made before 0.27.0 from an unsteady row states its moment columns about the
+reference origin; its forces are right, so rebuild it from a rerun if you
+need the moments. In your own scripts, call
+`analysis_setup(loads_frame=..., moments_model=...)` before `start_solver`,
+and the analysis selections (`load_units`, `boundaries`, `inviscid_only`)
+in a second call after it.

@@ -1736,7 +1736,9 @@ nodes.
     recorded as pinned; every builder states the reference velocity, the
     sideslip and the initialisation flag on the opened simulation; the
     reference artifact's moment point becomes the analysis loads frame and
-    the moments model is stated; a setup's vorticity-drag families resolve
+    the moments model is stated, both before the solver starts, so the step
+    exports an unsteady row writes during the march carry them (RPT-064);
+    a setup's vorticity-drag families resolve
     through the geometry's inventory; significant digits and the wake
     termination in time steps have emitters; and a setup that states
     `symmetry_loads` emits it as stated, an absent key remaining

@@ -738,21 +738,30 @@ _spec(
     assert_effect=_unobservable,
     effect_note="the vorticity-drag boundary list is not exposed by any instrument yet",
 )
+# THE LOADS FRAME AND THE MOMENTS MODEL ARE PROBED BEFORE THE SOLVE, where the
+# package emits them since 0.27.0 (B05): both are init-phase commands on the
+# evidence of RPT-064, where set after START_SOLVER the frame reached the final
+# export and none of the step exports written during the march. The SOLVER tier
+# ends at INITIALIZE_SOLVER, so the target lands where a workflow puts it, and
+# the frame's epilogue starts the solver BEFORE the sheet: the sheet then says
+# whether the frame survived the solve, which is what the step exports rest on,
+# rather than only whether the line was accepted.
 _spec(
     command="SET_SOLVER_ANALYSIS_LOADS_FRAME",
     build_target=_emit("SET_SOLVER_ANALYSIS_LOADS_FRAME", 2),
-    requires=Requires.SOLUTION,
+    requires=Requires.SOLVER,
     early_prelude=_named_frame("PYFS_FRAME_NAME"),
-    epilogue=_sheet,
+    epilogue=_seq(_emit("START_SOLVER"), _sheet),
     assert_effect=sheet_matches(r"Coordinate frame for analysis:\s+PYFS_FRAME_NAME", strict=True),
     effect_note=(
-        "the settings sheet reports the analysis frame by its probe-given name PYFS_FRAME_NAME"
+        "the settings sheet exported after the solve reports the analysis frame set "
+        "before it, by its probe-given name PYFS_FRAME_NAME"
     ),
 )
 _spec(
     command="SET_ANALYSIS_MOMENTS_MODEL",
     build_target=_emit("SET_ANALYSIS_MOMENTS_MODEL", "VORTICITY"),
-    requires=Requires.SOLUTION,
+    requires=Requires.SOLVER,
     save_state=True,
     assert_effect=fsm_changed(),
     effect_note=("the saved simulation carries the moments-model choice"),

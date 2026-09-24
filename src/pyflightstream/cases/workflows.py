@@ -473,14 +473,12 @@ EXPORT_UNSTEADY_AFTER_ITER_VARIABLE = "EXPORT_UNSTEADY_AFTER_ITER"
 #: staged the half. Nothing here can check that, which is why it is
 #: written where the mode is chosen rather than only in the helper.
 #:
-#: AND A SECOND CAUTION THIS KEY CANNOT REACH. No workflow calls
-#: :func:`pyflightstream.script.helpers.analysis_setup`, so nothing
-#: emits ``SET_ANALYSIS_SYMMETRY_LOADS`` and a MIRROR row takes the
-#: solver's own default for whether the reported loads are the half
-#: model's or the full one's. That default was calibrated on a licensed
-#: 26.120 as ENABLE, which is the value a mirrored study wants, so what
-#: is missing is the DECLARATION and not the number. The user guide
-#: emits it explicitly for that reason.
+#: AND A SECOND KEY STATES THE LOADS. Whether the reported loads are the
+#: half model's or the full one's is the row's ``SYMMETRY_LOADS`` column
+#: (FR-66), emitted as ``SET_ANALYSIS_SYMMETRY_LOADS`` through
+#: :func:`pyflightstream.script.helpers.analysis_setup`; where neither the
+#: row nor the setup states it, the run takes the solver's own default,
+#: calibrated as ENABLE on a licensed 26.120.
 #:
 #: THIS KEY IS WHY 0.8.1 IS A DEFECT RELEASE AND NOT A FEATURE ONE. A
 #: periodic sector solved under ``SYMMETRY NONE`` is not a failed run: it
@@ -4730,12 +4728,24 @@ def _axial_separation_indices(case: SimCase, script: Script) -> list[int] | None
 
 
 def _analysis(case: SimCase, script: Script, frame: int | None) -> None:
-    """Point the analysis at the MRP frame, once the solver has started.
+    """Point the analysis at the MRP frame, BEFORE the solver starts (B05, RPT-064).
 
-    The loads frame and the moments model are analysis-phase commands, so
-    they follow START_SOLVER in this package's phase order; the solver
-    applies them to the analysis that follows either way, and the reference
-    scripts wrote them before the start with the same effect on the table.
+    THE ORDER DECIDES WHAT THE STEP EXPORTS STATE. This docstring said the
+    solver applied the two lines to the analysis that follows wherever they
+    sat, and that was true of the FINAL export only. An unsteady row's
+    per-step exports are written during the march, and with the two lines
+    after `START_SOLVER` every one of them printed `Coordinate frame for
+    analysis: Reference`, its CMy and CMz about the reference origin
+    (RPT-062). RPT-064 moved only these two lines, on 26.124: set before
+    `START_SOLVER`, every step export printed the MRP and the last step's
+    moments equalled the final export's; the forces agreed in every run.
+
+    So both are init-phase commands in the database, and every run type
+    emits them here, from :func:`_script_init`, once the solver is
+    initialised and the sections are declared: one position for all run
+    types. A steady row's numbers do not move, because its export follows
+    the solve. A row with no moment point (and a continuation, which
+    passes none) emits neither.
     """
     if frame is None:
         return
@@ -5843,14 +5853,15 @@ def _script_tail(
     (PFS-2033.01) meet each phase at one seam rather than at four copies
     of it.
     """
-    _script_init(case, script, frames=frames, reopens_a_saved_state=reopens_a_saved_state)
-    _script_solve_and_export(conventions, case, script, frame, unsteady=unsteady, frames=frames)
+    _script_init(case, script, frame, frames=frames, reopens_a_saved_state=reopens_a_saved_state)
+    _script_solve_and_export(conventions, case, script, unsteady=unsteady, frames=frames)
     script.emit("CLOSE_FLIGHTSTREAM")
 
 
 def _script_init(
     case: SimCase,
     script: Script,
+    frame: int | None,
     *,
     frames: Frames | None,
     reopens_a_saved_state: bool = False,
@@ -5861,6 +5872,12 @@ def _script_init(
     emit it once and then loop the solve. Nothing moved: a single-point
     build calls this and :func:`_script_solve_and_export` in the order the
     one function used, and renders the same bytes.
+
+    It ENDS WITH THE LOADS FRAME AND THE MOMENTS MODEL since 0.27.0 (B05,
+    RPT-064), which :func:`_script_solve_and_export` emitted after
+    `START_SOLVER` until then; :func:`_analysis` says why the order
+    decides what an unsteady row's step exports state. A warm steady sweep
+    therefore states them once, before its first `START_SOLVER`.
     """
     _raw_commands(case, script, "init")
     surface_window = surface_time_averaging(case)
@@ -5900,13 +5917,17 @@ def _script_init(
             "of them would be emitted. That is a defect in the builder rather than "
             "in the artifact."
         )
+    # THE LOADS FRAME AND THE MOMENTS MODEL, LAST IN THE INIT GROUP (B05). After
+    # the initialisation and the sections, which is run A of RPT-064, and before
+    # the raw exec commands, which open the exec phase and would leave no init
+    # position behind them.
+    _analysis(case, script, frame)
 
 
 def _script_solve_and_export(
     conventions: WorkflowConventions,
     case: SimCase,
     script: Script,
-    frame: int | None,
     *,
     unsteady: bool,
     frames: Frames | None = None,
@@ -5928,7 +5949,6 @@ def _script_solve_and_export(
     # fluid plots long before this point and needs nothing here.
     if frames is not None:
         _pproc_probes(case, script, frames, unsteady=unsteady, analysis=True)
-    _analysis(case, script, frame)
     _raw_commands(case, script, "export")
     _export_block(conventions, case, script, unsteady=unsteady)
 
@@ -8005,7 +8025,7 @@ def build_steady_sweep(
     _free_stream(first, script, frames)
     _fluid(first, script)
     _settings(first, script)
-    _script_init(first, script, frames=frames)
+    _script_init(first, script, frame, frames=frames)
     for index, point_case in enumerate(point_cases):
         if index:
             # A NEW POINT REOPENS THE CYCLE. The phase guard is monotonic
@@ -8034,6 +8054,12 @@ def build_steady_sweep(
             _refuse_sideslip_under_mirror(point_case)
             script.emit("SOLVER_SET_AOA", _angle(point_case, "alpha"))
             script.emit("SOLVER_SET_SIDESLIP", _angle(point_case, "beta"))
+            # THE LOADS FRAME AND THE MOMENTS MODEL ARE RESTATED PER POINT
+            # (B05). Until 0.27.0 each point stated them after its own
+            # START_SOLVER; they now belong before it (RPT-064), and whether a
+            # CLEAR_SOLUTION between points resets them is not measured, so
+            # every point states them again rather than relying on the first.
+            _analysis(point_case, script, frame)
 
         # EACH POINT EXPORTS ITS OWN NAMES, so each gets its own
         # conventions. One set for the whole sweep would have every point
@@ -8057,7 +8083,6 @@ def build_steady_sweep(
             WorkflowConventions.for_case(point_case),
             point_case,
             script,
-            frame,
             unsteady=False,
             frames=frames,
         )

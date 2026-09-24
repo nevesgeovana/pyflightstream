@@ -2752,7 +2752,10 @@ so the two agree by construction; a record written before the clock
 leaves the time unstated -- which the table writes as `NA`, blank until
 0.23.0 -- and reads the azimuth off its reductions plan. The
 loads series is wide, one row per step and one column per surface and
-coefficient (`Total_CL`, `Blade1_CMx`, ...); the sections series (from
+coefficient (`Total_CL`, `Blade1_CMx`, ...); its moment columns are about
+the row's moment point, and a loads series written before 0.27.0 from an
+unsteady row states them about the reference frame's origin, with its
+forces right (RPT-064); the sections series (from
 the sectional loads export, `_sloads`, the same export the sections
 table of the products reads) and the probes series are long, one row per
 step and section or probe, with the export's own columns. A kind with no

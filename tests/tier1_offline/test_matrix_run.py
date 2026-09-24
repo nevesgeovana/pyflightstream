@@ -1043,6 +1043,40 @@ def test_goal019_warm_cold_start_clears_the_solution_between_points(tmp_path):
     )
 
 
+def test_every_point_of_a_sweep_states_its_loads_frame_before_its_own_solve(tmp_path):
+    """B05: the loads frame precedes EVERY START_SOLVER of a sweep, not only the first.
+
+    The frame and the moments model moved before the solve (RPT-064). A sweep
+    is several points in one script, and until 0.27.0 each point stated them
+    after its own start; whether a CLEAR_SOLUTION between points resets them
+    is not measured, so each point restates them rather than trusting the
+    first point's.
+    """
+    workspace, matrix = _steady_sweep_matrix(tmp_path, cell=" / COLD_START: True")
+    run_matrix(
+        matrix,
+        workspace,
+        name="cold",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=CountingStub(WRITES_EVERY_EXPORT),
+    )
+    (script,) = sorted((workspace.root / "sims" / "sim_5001" / "scripts").glob("*.txt"))
+    lines = script.read_text(encoding="utf-8").splitlines()
+    starts = [i for i, line in enumerate(lines) if line == "START_SOLVER"]
+    assert len(starts) == 3, starts
+    previous = -1
+    for start in starts:
+        between = lines[previous + 1 : start]
+        assert any(line.startswith("SET_SOLVER_ANALYSIS_LOADS_FRAME") for line in between), (
+            f"the START_SOLVER at line {start + 1} is not preceded by its point's loads frame"
+        )
+        assert "SET_ANALYSIS_MOMENTS_MODEL PRESSURE" in between
+        previous = start
+
+
 # --- run_matrix: the one-call entry -----------------------------------------
 
 

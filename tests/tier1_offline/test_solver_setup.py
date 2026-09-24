@@ -447,6 +447,48 @@ def test_analysis_setup_flushes_only_when_it_reaches_the_analysis_phase():
     assert text.index(VORTICITY_COMMAND) < text.index("SET_LOADS_AND_MOMENTS_UNITS")
 
 
+def test_the_loads_frame_and_moments_model_leave_the_selection_deferred_to_the_start():
+    """B05, RPT-064: the init group precedes START_SOLVER and does not flush.
+
+    The loads frame and the moments model are init-phase settings since
+    0.27.0, emitted before the start. Flushing the induced-drag selection
+    with them, as a call carrying them did while they were analysis
+    commands, would put an analysis-phase line before the start, and the
+    phase guard would then refuse START_SOLVER on every row naming
+    vorticity-drag families. The selection lands after the start, as it
+    always did.
+    """
+    script = Script(version="26.120")
+    helpers.solver_settings(script, vorticity_drag_boundaries="all")
+    helpers.analysis_setup(script, loads_frame=1, moments_model="PRESSURE")
+    assert VORTICITY_COMMAND not in script.render()
+    helpers.start_solver(script)
+    lines = script.render().splitlines()
+    frame_at = lines.index("SET_SOLVER_ANALYSIS_LOADS_FRAME 1")
+    model_at = lines.index("SET_ANALYSIS_MOMENTS_MODEL PRESSURE")
+    start_at = lines.index("START_SOLVER")
+    assert frame_at < model_at < start_at < lines.index("SET_VORTICITY_DRAG_BOUNDARIES -1")
+
+
+@pytest.mark.parametrize(
+    "arguments", [{"loads_frame": 1}, {"moments_model": "PRESSURE"}], ids=["frame", "model"]
+)
+def test_the_loads_frame_after_the_start_is_refused(arguments):
+    """B05, RPT-064: the position that reached the final export only is refused.
+
+    A command has one phase, so reclassifying the two as init refuses
+    the post-start position everywhere, a hand-built script included.
+    That is the intent: that position wrote step exports whose moments
+    are about the reference origin, with nothing said.
+    """
+    from pyflightstream.script import ScriptOrderError
+
+    script = Script(version="26.120")
+    helpers.start_solver(script)
+    with pytest.raises(ScriptOrderError, match="is a init command"):
+        helpers.analysis_setup(script, **arguments)
+
+
 # --- the library minimum-Cp default -----------------------------------------
 
 
