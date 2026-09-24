@@ -95,7 +95,7 @@ license: MIT
 # v0.17.0 for a day. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
-version: 0.27.0.dev6
+version: 0.27.0.dev7
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi
