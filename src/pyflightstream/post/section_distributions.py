@@ -9,6 +9,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import cast
 
+from pyflightstream._digest import text_sha256
 from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
@@ -24,7 +25,11 @@ from pyflightstream.cases import (
     SimCase,
     select_families,
 )
-from pyflightstream.cases.workflows import ORIGINAL_FRAME_SUFFIX, pproc_emissions
+from pyflightstream.cases.workflows import (
+    ORIGINAL_FRAME_SUFFIX,
+    creates_surface_sections,
+    pproc_emissions,
+)
 from pyflightstream.fsi.loads import parse_sectional_loads
 from pyflightstream.post._tables import (
     CONTEXT_COLUMNS,
@@ -78,7 +83,7 @@ def _distributions(
     of 0.27.0). They settle a NAME and never cost a split: where they name
     no single owner, the cuts decide as before and the rows are kept.
     """
-    if not record.sections_layout:
+    if record.sections_layout is None:
         raise ProductError(
             "distribution split needs the recorded sections_layout; never guessed. "
             "A new run is needed to record the missing layout."
@@ -127,6 +132,35 @@ def _distributions(
         for k, entry in enumerate(pproc.sections.distributions, 1):
             selections.setdefault(k, entry.families)
     return layout, selections
+
+
+def _with_the_layout_its_script_proves(sim_dir: Path, record: RunRecord) -> RunRecord:
+    """Return the record with the EMPTY layout its recorded script proves, or unchanged.
+
+    A run before 0.27.0 wrote no layout where its script created no
+    distribution, so the record reads as one written before 0.24.0. Its script
+    is on disk and its digest is in the record, so the question is answered
+    by the script's own text and never guessed: a script whose bytes hash as
+    recorded and that adds or removes no surface section created none, and the
+    empty list is its whole layout. Nothing else is recovered here. A
+    continuation creates none and reopens the distributions of the run it
+    continues, and a script that is missing, no longer hashes as recorded, or
+    changes a section, leaves the record as it was, and the split is refused.
+    """
+    if record.sections_layout is not None or record.continues is not None:
+        return record
+    if not record.script_path or not record.script_sha256:
+        return record
+    try:
+        text = (sim_dir / record.script_path).read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError):
+        return record
+    # The bytes read ONCE and hashed as read, so the text judged is the text
+    # the record's digest names: `text_sha256` hashes the UTF-8 encoding, and
+    # a strict decode with no newline translation gives those bytes back.
+    if text_sha256(text) != record.script_sha256 or creates_surface_sections(text):
+        return record
+    return record.model_copy(update={"sections_layout": []})
 
 
 EXPANDING_WORDS = frozenset({"LOCAL_AXIS", "RMRP", "SMRP"})
@@ -963,6 +997,7 @@ def write_section_distributions(
     tuple[list[Path], dict[str, dict[str, object]]]
         Written paths and their product-manifest entries.
     """
+    record = _with_the_layout_its_script_proves(sim_dir, record)
     geometry = list(inventory) if inventory is not None else record.inventory
     folders = [sim_dir / Path(output).parent for output in record.outputs]
     stamped = stamped_exports(sim_dir, stem, *folders)
@@ -985,6 +1020,10 @@ def write_section_distributions(
                 PyflightstreamWarning,
                 stacklevel=2,
             )
+        return [], {}
+    if not layout and not selections:
+        # THE SCRIPT CREATED NO DISTRIBUTION AND THE PPROC ASKS FOR NONE, so
+        # there is no distribution to split into and nothing to name as missed.
         return [], {}
     names = _file_names(selections)
     integrate, matching_errors = _integration_requests(

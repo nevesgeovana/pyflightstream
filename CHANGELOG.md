@@ -282,6 +282,32 @@ FlightStream versions.
 
 ### Fixed
 
+- **`pyfs-matrix plan` calls a recorded job's points recorded, and resume
+  runs a recorded job's new angles one each.** A steady row of several points
+  is one job, recorded under the row's id and not under its points', and the
+  plan looked for the points' own ids: it reported every point of a recorded
+  steady sweep ready while `run --resume` skipped them all. It now reports
+  them already recorded, from the same question resume asks, so its ready
+  points are the ones resume runs. Resume ran two or more angles added to such
+  a row as a second job under the recorded job's id, so the solver ran and the
+  manifest then refused the record as a duplicate; they now run one each, as a
+  single added angle did, and naming the job to `--force-rerun` still runs the
+  whole row as one job. A row cut back to angles its job ran runs nothing,
+  where it was run again as a point and refused by that point's own outputs.
+- **A point whose script created no section distribution is no longer refused
+  its split.** Its record carried no `sections_layout`, which reads as a record
+  written before 0.24.0, so the post named `sections/<point>_sloads#distributions`
+  and `..._cp#distributions` as skipped on every steady point of a pproc
+  declaring no distribution, and advised a new run that recorded nothing more
+  (0.25.0 to 0.26.0). A run now records `sections_layout = []` where its
+  rendered script adds or removes no surface section, on the point path and
+  the steady one-job path, and a continuation records the layout of the run it
+  continues. A record written before this is given the empty layout at post
+  when its recorded script hashes as the record says and creates no surface
+  section, so no new run is needed; a script that creates one, one that no
+  longer hashes, and an older continuation keep the refusal.
+  `pyflightstream.cases.workflows.creates_surface_sections` answers the
+  question for a rendered script.
 - **`pyfs-matrix run --local` applies the HPC profile's log decision.** A
   profile stating `[log] export_log = false` says the solver build on that
   cluster aborts at `EXPORT_LOG`; the decision reached a submitted job only,

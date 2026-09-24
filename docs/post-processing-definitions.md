@@ -299,6 +299,28 @@ ambiguous match is a named skip. Without a recorded layout,
 A layout whose counts disagree with an export is likewise refused for that
 export kind, rather than assigning rows to guessed distributions.
 
+**The empty layout is a layout (since 0.27.0).** A run whose script adds or
+removes no surface section records `sections_layout = []`, which is every
+steady point of a pproc declaring no distribution: its sections exports state
+`Number of Surface Sections: 0`. With no distribution declared and none
+created there is nothing to split and nothing is named as skipped
+(`test_a_steady_row_that_created_no_distribution_is_not_refused_a_split`); a
+declared entry the geometry left out gets its named skip as above
+(`test_an_entry_the_geometry_leaves_out_is_named_as_such_not_as_a_missing_layout`).
+A continuation records the layout of the run it continues, whose saved
+simulation it reopens
+(`test_a_continuation_records_the_layout_of_the_run_it_continues`). A record written before 0.27.0 with no layout at all is given the
+empty one when its recorded script is on disk, its bytes hash as the record's
+`script_sha256` says, and it carries none of `NEW_SURFACE_SECTION_DISTRIBUTION`,
+`CREATE_NEW_SURFACE_SECTION`, `DELETE_SURFACE_SECTION` and
+`DELETE_ALL_SURFACE_SECTIONS`; that is read off the script and needs no new
+run (`test_an_old_record_takes_the_empty_layout_its_script_proves`). A record
+whose script creates a section or no longer hashes as recorded, and a
+continuation recorded before 0.27.0, are not given it, and their split stays
+refused (`test_an_old_record_whose_script_creates_a_distribution_keeps_the_refusal`,
+`test_an_old_record_whose_script_no_longer_hashes_keeps_the_refusal`,
+`test_an_old_continuation_keeps_the_refusal`).
+
 Each manifest entry states `distribution` (1-based), `families` (the original
 alias/selection), and `steps_tabled`. A pproc entry with no recorded blocks
 gets a named skip rather than a guessed share of another entry's rows.
