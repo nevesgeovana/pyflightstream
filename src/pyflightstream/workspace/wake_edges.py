@@ -70,7 +70,7 @@ __all__ = [
     "WAKE_EDGE_IMPORT_COMMAND",
     "TrailingEdgePoints",
     "WakeEdgeImport",
-    "check_trailing_edge_points",
+    "matched_trailing_edge_points",
     "edge_types",
     "evidence_notice",
     "length_scale",
@@ -745,7 +745,7 @@ def _as_written(point: Sequence[float]) -> str:
     return ",".join(repr(float(value)) for value in point)
 
 
-def check_trailing_edge_points(
+def matched_trailing_edge_points(
     points: object,
     *,
     points_unit: str,
@@ -756,9 +756,11 @@ def check_trailing_edge_points(
     source: str = "the trailing-edge points",
     lines: Sequence[int] | None = None,
 ) -> numpy.ndarray:
-    """Check every trailing-edge point against the mesh, before any run.
+    """Return the trailing-edge points in the simulation unit, each matched to a mesh edge.
 
-    The import marks an edge whose mid-point lies within ``tolerance`` of a
+    Every point is checked against the mesh before any run, and the first
+    that matches no edge is refused. The import marks an edge whose
+    mid-point lies within ``tolerance`` of a
     point and marks nothing, in silence, for a point outside that distance
     of every edge's mid-point (RPT-061); an end vertex of an edge is such a
     point. So each point must lie within the tolerance of a mesh-edge
@@ -815,11 +817,11 @@ def check_trailing_edge_points(
     Examples
     --------
     >>> from pyflightstream.workspace.wake_edges import (
-    ...     check_trailing_edge_points,
+    ...     matched_trailing_edge_points,
     ...     read_trailing_edge_points,
     ... )
     >>> read = read_trailing_edge_points("wing.te.txt")  # doctest: +SKIP
-    >>> in_metres = check_trailing_edge_points(
+    >>> in_metres = matched_trailing_edge_points(
     ...     read.points,
     ...     points_unit=read.unit,
     ...     mesh="wing.stl",

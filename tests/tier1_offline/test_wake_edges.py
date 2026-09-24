@@ -37,10 +37,10 @@ from pyflightstream.workspace.wake_edges import (
     TRAILING_EDGE_DETECTION_COMMAND,
     WAKE_EDGE_IMPORT_COMMAND,
     WakeEdgeImport,
-    check_trailing_edge_points,
     edge_types,
     evidence_notice,
     length_scale,
+    matched_trailing_edge_points,
     node_file_units,
     read_trailing_edge_points,
     tolerance_unit,
@@ -457,7 +457,7 @@ def test_the_points_file_the_extraction_writes_passes_the_mesh_check(tmp_path):
     assert read.unit == "METER"
     assert read.points.shape == (24, 3)
     assert read.lines == tuple(range(2, 26))
-    checked = check_trailing_edge_points(
+    checked = matched_trailing_edge_points(
         read.points,
         points_unit=read.unit,
         mesh=mesh,
@@ -482,7 +482,7 @@ def test_a_point_moved_off_its_edge_midpoint_is_refused_by_its_line_and_position
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     read = read_trailing_edge_points(path)
     with pytest.raises(InputArtifactError) as raised:
-        check_trailing_edge_points(
+        matched_trailing_edge_points(
             read.points,
             points_unit=read.unit,
             mesh=mesh,
@@ -507,7 +507,7 @@ def test_an_end_vertex_in_place_of_a_midpoint_is_refused(tmp_path):
     path.write_text("\n".join(["METER", *rows]) + "\n", encoding="utf-8")
     read = read_trailing_edge_points(path)
     with pytest.raises(InputArtifactError, match="point 1 of 25"):
-        check_trailing_edge_points(
+        matched_trailing_edge_points(
             read.points,
             points_unit=read.unit,
             mesh=mesh,
@@ -550,7 +550,7 @@ def test_a_points_file_in_millimetres_is_checked_and_converted(tmp_path):
     millimetres.write_text("\n".join(["MILLIMETER", *rows]) + "\n", encoding="utf-8")
     read = read_trailing_edge_points(millimetres)
     assert read.unit == "MILLIMETER"
-    checked = check_trailing_edge_points(
+    checked = matched_trailing_edge_points(
         read.points,
         points_unit=read.unit,
         mesh=mesh,
@@ -573,7 +573,7 @@ def test_two_points_on_one_edge_are_refused_before_the_run(tmp_path):
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     read = read_trailing_edge_points(path)
     with pytest.raises(InputArtifactError, match="points 2 and 3 of 25"):
-        check_trailing_edge_points(
+        matched_trailing_edge_points(
             read.points,
             points_unit=read.unit,
             mesh=mesh,

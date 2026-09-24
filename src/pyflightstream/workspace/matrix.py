@@ -865,7 +865,7 @@ def _raw_mesh_conditions_of(
     points_file = Path(marking.points_file)
     try:
         read = wake_edges.read_trailing_edge_points(points_file)
-        points = wake_edges.check_trailing_edge_points(
+        points = wake_edges.matched_trailing_edge_points(
             read.points,
             points_unit=read.unit,
             mesh=geometry,

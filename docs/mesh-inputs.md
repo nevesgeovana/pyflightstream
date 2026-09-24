@@ -467,7 +467,7 @@ length unit and writes the file the solver imports. It is the file a
 naming the blade then marks exactly these edges.
 
 A points file is checked against its mesh before any solver starts
-(`read_trailing_edge_points` and `check_trailing_edge_points`, in
+(`read_trailing_edge_points` and `matched_trailing_edge_points`, in
 `pyflightstream.workspace.wake_edges`). Its first line must name a solver
 length unit, and every point must lie within the import's tolerance of a
 mesh-edge mid-point, compared in the simulation's length unit. The first point
