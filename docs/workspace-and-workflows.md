@@ -1781,8 +1781,9 @@ on every build of the range and ran without abort in the probes of 26.120 to
 run of 2026-09-24 (RPT-070, 26.124) exported the two points of a steady sweep
 that cut a section and exported it with no update as byte-identical files whose
 every cell value was 0.0, and the manual computes a section's flow with
-"Update all" after the solution has converged. That the update fills the file
-is not yet measured. `DELETE_ALL_VOLUME_SECTIONS`, `VOLUME_SECTION_WIREFRAME` and
+"Update all" after the solution has converged. With the update the row was run
+again: every cell value of each point's file is non-zero and the two points
+differ (RPT-070). `DELETE_ALL_VOLUME_SECTIONS`, `VOLUME_SECTION_WIREFRAME` and
 `EXPORT_VOLUME_SECTION_2D_VTK` have never run on any build, and
 `VOLUME_SECTION_BOUNDARY_LAYER` is documented on builds before 26.120 only;
 none of the four is reachable from the table.
@@ -2615,16 +2616,20 @@ steady rows of `tests/tier3_licensed/matriz_gui.fs` on the 12_WING_PHY wing at
 | 5011 | the uniform field, vx = 30 m/s | 4 deg | 0.0021 | 0.0002 | 0.0065 |
 
 The uniform field loads as the constant free stream it equals, to the digits
-printed, so the file is read in m and m/s; the sheared field moves the lift;
-and at 4 deg the field loads near its own 0 deg self and far from the constant
-free stream at 4 deg, although the angle still moves the result a little (CL
-0.0021 against 0.0023, CDi 0.0002 against 0.0000). That is the refusal above.
+printed, with both divided by the same stated reference velocity, so the field's
+speed is read in m/s (the grid's coordinates, which a uniform field cannot
+show, were not probed on their own); the sheared field moves the lift; and at
+4 deg, the one angle run, the field loads near its own 0 deg self and far from
+the constant free stream at 4 deg, although the angle still moves the result a
+little (CL 0.0021 against 0.0023, CDi 0.0002 against 0.0000). That is the
+refusal above.
 Row 5011 is retired from the matrix, since the plan refuses it now; its run is
 the report's evidence. `tests/tier3_licensed/test_freestream.py` holds 5012 to
 5014 to what they measured. Every other build is documented only, and the
 ROTATION form ran on 26.124 under RPT-052.
 
-NOT MEASURED: the UNSTRUCTURED form; the sideslip beside a field; a custom
+NOT MEASURED: the UNSTRUCTURED form; the unit of the grid's coordinates; angles
+other than 4 deg; the sideslip beside a field; a custom
 field on an unsteady or a rotor row; what the solver takes at a point outside
 the file's grid, so a field should cover the body's YZ extent and its wake
 with margin; and whether a saved simulation carries the field, so a

@@ -53,13 +53,16 @@ free-stream velocity the script set.
 
 ## What it means for the package
 
-- **Units.** The uniform field equal to the row's own free stream gives the
-  CONSTANT row's loads to the print (5012 = 5013). The file is read in metres
-  and metres per second in the global frame, which is what the package writes
-  and what its page says; no conversion is applied.
-- **The angle does not turn the field.** At 4 deg the uniform field loads as
-  it does at 0 deg (CL 0.0021 against 0.0023), and nowhere near the CONSTANT
-  row at 4 deg (CL 0.3385). With a custom field the direction of the flow is
+- **The speed is read in m/s.** The uniform field equal to the row's own free
+  stream gives the CONSTANT row's loads to the print (5012 = 5013), and every
+  coefficient is divided by the reference velocity the script states (30 m/s,
+  the same in both): a field read in another unit of speed would scale every
+  force, and so CDo (0.0066 in both) and CL, by that unit's factor squared. The
+  grid's coordinates were not probed on their own: the field is uniform, so
+  where its stations sit does not reach the loads. No conversion is applied.
+- **At 4 deg the angle does not turn the lift of a uniform field.** At 4 deg
+  the uniform field loads as it does at 0 deg (CL 0.0021 against 0.0023), and
+  nowhere near the CONSTANT row at 4 deg (CL 0.3385); one angle was run. With a custom field the direction of the flow is
   the field's own; `SOLVER_SET_AOA` still moves the result a little (CDi
   0.0002 against 0.0000), which this run does not explain. A row that swept
   ALPHA over a custom field would therefore have run every point at the field's
@@ -75,8 +78,13 @@ free-stream velocity the script set.
 ## What this does not settle
 
 - The UNSTRUCTURED form (`.dat`) did not run.
+- The unit of the grid's coordinates, which a uniform field cannot show; a
+  sheared field against the same field shifted in z would.
+- Angles other than 4 deg, and a field that carries the incidence in its vz
+  compared with the CONSTANT row at that angle (the advice of the refusal).
 - What the solver does with a point of the geometry outside the field's grid.
-- Why the angle still moves the result a little over a custom field.
+- Why the angle still moves the result a little over a custom field (CDi 0.0002
+  against 0.0000).
 - Whether a saved simulation reopened later carries the custom field.
 
 ## Evidence
@@ -89,5 +97,6 @@ field file's sha256 in `inputs_sha256`. The licensed checks of rows 5012 to
 5014 are `tests/tier3_licensed/test_freestream.py`; the refusal is
 `tests/tier1_offline/test_g15_custom_freestream.py`.
 
-**Verdict: VERIFIED.** `SET_FREESTREAM CUSTOM STRUCTURED` runs on 26.124 and
-reads its file in m and m/s; the angle of attack does not turn a custom field.
+**Verdict: VERIFIED**, for what was run: `SET_FREESTREAM CUSTOM STRUCTURED` runs
+on 26.124, a uniform field's speed is read in m/s, and at 4 deg the angle of
+attack does not turn its lift. The grid's unit and other angles are open.

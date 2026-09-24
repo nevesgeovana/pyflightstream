@@ -1,0 +1,42 @@
+report: reports/RPT-071_a-custom-free-stream-sets-the-flow-direction_2026-09-24.md
+date: '2026-09-24'
+question: does SET_FREESTREAM CUSTOM STRUCTURED run on 26.124, how is its file read, and does the angle of attack
+  turn a custom field (T14)
+where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
+executable_sha256:
+  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+reference_velocity_m_s: 30.0
+scripts_sha256:
+  P5010-V0300RHO12250AL+040.txt: 949005098e3991a22d3a2161d1afe94ef1043504a1d972a49cb333be1e798c82
+  P5011-V0300RHO12250AL+040.txt: efaafe62c34a6cee7fcdb0ff2d659e4a0e08b560b67f3d7ad47cdfac5c842292
+  P5012-V0300RHO12250AL+000.txt: b3fa77faadf28d3e5730f4560cb754b1b02a259fe3d0bffb86eba78ee4b51ef0
+  P5013-V0300RHO12250AL+000.txt: 77be2fa5a721db8cc9b3edadc85704ff34bc91da57bd74d2dc59b3b1eb6de518
+  P5014-V0300RHO12250AL+000.txt: f4adcc18c5fbd15a3fb531325299608ed2dcb794a09affe5f856df1185c90d37
+loads_4_decimals:
+  5010_constant_4deg:
+    CL: 0.3385
+    CDi: 0.0049
+    CDo: 0.0071
+  5011_uniform_4deg:
+    CL: 0.0021
+    CDi: 0.0002
+    CDo: 0.0065
+  5012_uniform_0deg:
+    CL: 0.0023
+    CDi: 0.0
+    CDo: 0.0066
+  5013_constant_0deg:
+    CL: 0.0023
+    CDi: 0.0
+    CDo: 0.0066
+  5014_sheared_0deg:
+    CL: 0.0045
+    CDi: 0.0
+    CDo: 0.0066
+checks:
+  every_point_terminal: true
+  uniform_field_at_0_deg_equals_constant_at_0_deg: true
+  angle_turns_the_field: false
+  sheared_field_changes_the_loads: true
+verdict: 'VERIFIED: SET_FREESTREAM CUSTOM STRUCTURED runs on 26.124 and reads its file in m and m/s; the angle of
+  attack does not turn a custom field; a sheared field changes the loads'
