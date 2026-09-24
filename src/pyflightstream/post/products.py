@@ -6346,7 +6346,10 @@ def products_to_retire(
 _LogRecord = dict[str, str | None]
 
 #: A warning that names its own point and product, as most of the package's do.
-_NAMED_WARNING = re.compile(r"^point=(\S+) product=(\S+): (.*)$", re.S)
+#: The POINT may hold spaces (a campaign named `wind tunnel` gives run ids
+#: `wind tunnel/sim_7001/AL-020`), so it runs to the first ` product=`; a
+#: product name never holds one.
+_NAMED_WARNING = re.compile(r"^point=(.+?) product=(\S+): (.*)$", re.S)
 
 
 def _log_record(point: str, product: str, message: str, remedy: str | None) -> _LogRecord:

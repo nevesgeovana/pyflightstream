@@ -5876,8 +5876,9 @@ def _script_init(
     It ENDS WITH THE LOADS FRAME AND THE MOMENTS MODEL since 0.27.0 (B05,
     RPT-064), which :func:`_script_solve_and_export` emitted after
     `START_SOLVER` until then; :func:`_analysis` says why the order
-    decides what an unsteady row's step exports state. A warm steady sweep
-    therefore states them once, before its first `START_SOLVER`.
+    decides what an unsteady row's step exports state. A steady sweep, warm
+    or cold, states them here for its first point and again before each
+    later point's `START_SOLVER` (:func:`build_steady_sweep`).
     """
     _raw_commands(case, script, "init")
     surface_window = surface_time_averaging(case)

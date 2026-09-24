@@ -636,3 +636,23 @@ def test_no_bare_warnings_warn_where_a_post_reaches():
     sites = [f"{relative}:{line}" for relative, line in sorted(bare)]
     assert not sites, f"warn through pyflightstream._errors.warn instead: {sites}"
     assert routed >= 38, f"the walk found {routed} `warn(` calls, below the floor of 38"
+
+
+def test_a_warning_keeps_its_point_when_the_campaign_name_has_a_space():
+    """The reading of GitHub main after block 2: a campaign named `wind tunnel` is valid.
+
+    Its run ids read `wind tunnel/sim_7001/AL-020`, and the lift required a point
+    with no whitespace, so such a warning fell back to `point=campaign
+    product=stage` in both logs, its identity buried in the message.
+    """
+    from pyflightstream.post.products import _warning_record
+
+    record = _warning_record(
+        "point=wind tunnel/sim_7001/AL-020 product=available-exports: the recorded status is "
+        "FAILED_INCOMPLETE_OUTPUT."
+    )
+    assert record["point"] == "wind tunnel/sim_7001/AL-020", record
+    assert record["product"] == "available-exports", record
+    assert record["message"].startswith("the recorded status is"), record
+    plain = _warning_record("a warning that names no point")
+    assert (plain["point"], plain["product"]) == ("campaign", "stage")

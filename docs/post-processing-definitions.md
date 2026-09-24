@@ -834,7 +834,8 @@ creates `post.log` beside `products.json`, under `post/<matrix stem>/` or
 A clean campaign writes the log too. Its header states the package version,
 workspace, matrix stem, local time with UTC offset, and `check_frozen` choice.
 Each WARNING is one line, `WARNING point=<point> product=<product>: <message>`,
-under the point and product the warning itself names; a warning that names
+under the point and product the warning itself names (a point may hold
+spaces, as a campaign's name may; a product never does); a warning that names
 none is the stage's own and reads `point=campaign product=stage`. The message
 names the step where one applies and what would settle the issue. A named skip
 and an interrupted post state their remedy apart from the message, at the end
