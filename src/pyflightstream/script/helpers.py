@@ -1945,6 +1945,16 @@ def analysis_setup(
 ) -> None:
     """Select how loads and moments are analyzed (SRC-003 pp.350-351).
 
+    TWO GROUPS, TWO POSITIONS. ``symmetry_loads``, ``loads_frame`` and
+    ``moments_model`` are init-phase settings and go in a call made
+    BEFORE :func:`start_solver`: the solve reads them, and an unsteady
+    run's step exports, written during the march, state their moments in
+    the frame set when they are written (RPT-064). The other arguments
+    are analysis-phase selections and go in a call made after it. A call
+    mixing the two groups fits neither position: before the start it
+    reaches the analysis phase and the phase guard then refuses
+    START_SOLVER; after the start the guard refuses the init setting.
+
     Parameters
     ----------
     script : Script
@@ -1952,9 +1962,11 @@ def analysis_setup(
     loads_frame : int or str, optional
         Coordinate system for evaluating loads and moments; index 1 is
         the reference frame, and created frames may be cited by their
-        creation label.
+        creation label. Init phase since v0.27.0: set after
+        START_SOLVER it reached the final export only (RPT-064).
     moments_model : str, optional
-        ``PRESSURE`` (solver default) or ``VORTICITY``.
+        ``PRESSURE`` (solver default) or ``VORTICITY``. Init phase since
+        v0.27.0, with the loads frame.
     symmetry_loads : bool or 'ENABLE' or 'DISABLE', optional
         Include symmetry boundary loads; relevant to half-model runs.
     load_units : str, optional
@@ -2018,17 +2030,26 @@ def analysis_setup(
             PyflightstreamDeprecationWarning,
             stacklevel=2,
         )
-    # symmetry_loads first: it is an init-phase setting consumed by the
-    # in-solve monitors (per-step force plots), so a call mixing it
-    # with the analysis-phase selections is only valid before
-    # START_SOLVER; pass it alone in that position.
+    # THE INIT GROUP FIRST, and it does not flush. symmetry_loads, the loads
+    # frame and the moments model are init-phase settings, read DURING the
+    # solve: the per-step force plots consume the symmetry setting, and the
+    # step exports written during an unsteady march state their moments in
+    # whatever frame is set when they are written (RPT-064, B05). So they
+    # precede START_SOLVER, and the induced-drag selection deferred by
+    # solver_settings stays deferred to after it: flushing it here would put
+    # an analysis-phase line before the start, and the phase guard would then
+    # refuse START_SOLVER. A call mixing the init group with the analysis
+    # selections below is therefore valid in neither position; make one call
+    # of each, the first before the start and the second after it.
     if symmetry_loads is not None:
         script.emit("SET_ANALYSIS_SYMMETRY_LOADS", _toggle(symmetry_loads))
+    if loads_frame is not None:
+        script.emit("SET_SOLVER_ANALYSIS_LOADS_FRAME", loads_frame)
+    if moments_model is not None:
+        script.emit("SET_ANALYSIS_MOMENTS_MODEL", moments_model)
     if any(
         argument is not None
         for argument in (
-            loads_frame,
-            moments_model,
             load_units,
             boundaries,
             inviscid_only,
@@ -2040,10 +2061,6 @@ def analysis_setup(
         # unless this call carries its own, which replaces it below.
         if chosen is None:
             _flush_pending_vorticity(script)
-    if loads_frame is not None:
-        script.emit("SET_SOLVER_ANALYSIS_LOADS_FRAME", loads_frame)
-    if moments_model is not None:
-        script.emit("SET_ANALYSIS_MOMENTS_MODEL", moments_model)
     if load_units is not None:
         script.emit("SET_LOADS_AND_MOMENTS_UNITS", load_units)
     if boundaries is not None:

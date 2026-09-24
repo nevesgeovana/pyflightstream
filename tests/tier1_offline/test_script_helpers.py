@@ -127,8 +127,14 @@ def build_rotor_unsteady(script: Script) -> None:
         ref_area=0.8,
         ref_length=0.25,
     )
+    # TWO CALLS SINCE 0.27.0 (B05). The loads frame is an init-phase setting,
+    # because the step exports written during an unsteady march state their
+    # moments in the frame set when they are written (RPT-064), so it goes
+    # before the start; the units are an analysis selection and follow it.
+    # The golden moved the frame line above START_SOLVER and nothing else.
+    helpers.analysis_setup(script, loads_frame=2)
     helpers.start_solver(script)
-    helpers.analysis_setup(script, loads_frame=2, load_units="NEWTONS")
+    helpers.analysis_setup(script, load_units="NEWTONS")
     helpers.probe_line(script, points=25, start=(0.0, 0.0, 0.5), end=(2.5, 0.0, 0.5))
     helpers.export_probes(script, "C:/cases/out/wake_line.txt")
     helpers.export_results(

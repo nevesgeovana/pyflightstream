@@ -138,12 +138,14 @@ def build_capture(stl: Path, out: Path) -> tuple[Script, dict[str, str]]:
     # solution, and an export that writes nothing is a spent seat.
     script.emit("SET_BOUNDARY_LAYER_TYPE", "TURBULENT")
     script.emit("SET_SOLVER_VISCOUS_COUPLING", "ENABLE")
+    # The moments model is an init command since 0.27.0 (RPT-064): stated
+    # before the solve, so every export the solver writes carries it.
+    script.emit("SET_ANALYSIS_MOMENTS_MODEL", "PRESSURE")
     script.emit("START_SOLVER")
 
     # EVERY DEFINITION HERE IS PHASE `analysis` and every export below is
     # phase `export`, so the script is grouped rather than interleaved. The
     # emitter refuses any other order.
-    script.emit("SET_ANALYSIS_MOMENTS_MODEL", "PRESSURE")
     script.emit("NEW_PROBE_POINT", "VOLUME", 2.0, 0.0, 0.3)
     script.emit("NEW_PROBE_POINT", "VOLUME", 3.0, 0.0, 0.3)
     script.emit(

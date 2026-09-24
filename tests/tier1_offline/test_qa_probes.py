@@ -301,13 +301,23 @@ def test_after_log_is_exported_before_the_epilogue(tmp_path):
 
 def test_early_prelude_lands_between_open_and_setup(tmp_path):
     spec = PROBE_SPECS["SET_SOLVER_ANALYSIS_LOADS_FRAME"]
-    assert spec.requires is Requires.SOLUTION
+    # SOLVER AND NOT SOLUTION since 0.27.0 (B05): the loads frame is an init
+    # command on the evidence of RPT-064, so the solution tier, which ends at
+    # START_SOLVER, would put the target where the phase guard refuses it.
+    assert spec.requires is Requires.SOLVER
     script = generate_probe_script(spec, "26.120", tmp_path, fsm=tmp_path / "dummy.fsm")
     lines = script.render().splitlines()
     open_at = lines.index("OPEN")
     create_at = lines.index("CREATE_NEW_COORDINATE_SYSTEM")
+    target_at = lines.index("SET_SOLVER_ANALYSIS_LOADS_FRAME 2")
     start_at = lines.index("START_SOLVER")
-    assert open_at < create_at < start_at
+    sheet_at = lines.index("EXPORT_PROBE_POINTS")
+    assert open_at < create_at < lines.index("INITIALIZE_SOLVER") < target_at < start_at, (
+        "the frame is probed where a workflow emits it: initialised, not yet started"
+    )
+    assert start_at < sheet_at, (
+        "the sheet is exported after the solve, so it says whether the frame survived it"
+    )
 
 
 # --- the saved-state instrument ----------------------------------------------

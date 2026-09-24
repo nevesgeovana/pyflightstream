@@ -139,3 +139,26 @@ when it marks something.
 moved, the harness outcome, the edges marked, the edge type, the solver's first
 line after the begin sentinel with local paths removed, and the digest of the
 script it ran. The solver outputs stayed on the measuring machine (invariant 5).
+
+
+---
+
+## Amended 2026-09-23, after the opening review round of 0.27.0
+
+Nothing above is changed; three statements are made checkable or narrowed here.
+
+- **"Exactly the edges angle detection marks" rested on counts.** It is now settled by the
+  saved states: the four trailing-edge rows of the whole-span import are byte-identical to
+  the detection's. With TYPE `STANDARD` the import's saved state differs from the
+  detection's in one line only, a header value of order 1e-309 that is not the same in every
+  save (with `RELAXED` it came out equal, and only the edge-type row differs). `reports/probes/RPT-061_2026-09-23_supplement.yaml` lists the rows and the lines.
+- **"The third token is ignored" is narrower than it reads.** `METER` and `MILLIMETER` were
+  tried on a file that marks, and marked the same edges. `1`, `0` and a path were tried
+  only on a file that marks nothing, so all that is shown for them is that they are
+  accepted.
+- **The manual pages** behind the grammar and the layouts are SRC-752 p.323 (the command's
+  signature and sample, two values) and SRC-752 p.179 (the GUI's import page, the count,
+  unit and id layout, with end vertices). `TRAILING_EDGES_IMPORT` is still listed in the
+  Script Index of the same edition while its page is gone.
+- **Where the fix is tracked:** the command, the helper and the node-file writer change
+  together as item G02 of the 0.27.0 scope, and the release's CHANGELOG names it.

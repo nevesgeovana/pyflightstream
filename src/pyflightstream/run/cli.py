@@ -531,8 +531,8 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "REFUSE instead of WARN for averages touched by a frozen solve or "
             "an unread native-log block. By default computable products are written "
-            "and post.log warns. Both modes write post.log with the point, product, "
-            "step and remedy; refusals are also named in products.json"
+            "and post.log warns. Both modes write post.log and post.log.json with the "
+            "point, product, step and remedy; refusals are also named in products.json"
         ),
     )
     collect.add_argument(
@@ -584,8 +584,8 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "REFUSE instead of WARN for averages touched by a frozen solve or "
             "an unread native-log block. By default computable products are written "
-            "and post.log warns. Both modes write post.log with the point, product, "
-            "step and remedy; refusals are also named in products.json"
+            "and post.log warns. Both modes write post.log and post.log.json with the "
+            "point, product, step and remedy; refusals are also named in products.json"
         ),
     )
     post.add_argument(

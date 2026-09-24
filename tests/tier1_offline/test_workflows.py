@@ -3960,12 +3960,56 @@ def test_the_moment_point_becomes_the_loads_frame():
         "the MRP is frame 2, as the author's scripts numbered it"
     )
     assert "SET_ANALYSIS_MOMENTS_MODEL PRESSURE" in lines
-    assert lines.index("SET_SOLVER_ANALYSIS_LOADS_FRAME 2") > lines.index("START_SOLVER"), (
-        "an analysis-phase command follows the solver start in this package's phase order"
+    # FLIPPED AT 0.27.0 (B05). This asserted the frame AFTER START_SOLVER, as an
+    # analysis-phase command; RPT-064 measured that position reaching the final
+    # export only, so both lines are init commands now and precede the start on
+    # every run type, the steady one included, which keeps one rule.
+    assert lines.index("SET_SOLVER_ANALYSIS_LOADS_FRAME 2") < lines.index("START_SOLVER"), (
+        "the loads frame is an init-phase command since 0.27.0 and precedes the solver start"
     )
     # A reference with no moment point creates nothing and names no frame.
     bare = steady_case().model_copy(update={"reference": ReferenceData(area=50.0, length=2.526)})
     assert "SET_SOLVER_ANALYSIS_LOADS_FRAME" not in rendered(bare)
+
+
+@pytest.mark.parametrize(
+    ("make", "threshold"),
+    [(rotor_case, "EXPORT_UNSTEADY_AFTER_REV"), (unsteady_case, "EXPORT_UNSTEADY_AFTER_ITER")],
+    ids=["unsteady_rotor", "unsteady"],
+)
+def test_the_loads_frame_is_set_before_the_solve_so_every_step_export_carries_it(make, threshold):
+    """B05, RPT-064: the two analysis lines precede START_SOLVER, after the initialisation.
+
+    The per-step exports are written DURING the march, by the unsteady solver
+    actions registered before INITIALIZE_SOLVER. RPT-062 saw every one of them
+    print `Coordinate frame for analysis: Reference` while the final export
+    printed the row's frame, and RPT-064 measured why on 26.124: with the two
+    lines after `START_SOLVER` the steps state their moments about the
+    reference origin; with the two lines just before `START_SOLVER`, after
+    `INITIALIZE_SOLVER` and the sections, every step export prints the MRP and
+    the last step's CMy and CMz equal the final export's. The forces agreed in
+    every run, so the order moves only the moments, which is why nothing but a
+    test on the order can see it.
+    """
+    from pyflightstream.cases import ReferenceData
+
+    reference = ReferenceData(area=50.0, length=2.526, moment_point_m=(9.152, 0.0, 0.0))
+    case = make(**{threshold: "1"}).model_copy(update={"reference": reference})
+    lines = rendered(case, "26.124").splitlines()
+    start = lines.index("START_SOLVER")
+    initialised = lines.index("INITIALIZE_SOLVER")
+    actions = [
+        i for i, line in enumerate(lines) if line.startswith("SET_NEW_UNSTEADY_SOLVER_ACTION")
+    ]
+    assert actions, "the row asks for per-step exports, so the actions must be registered"
+    for line in ("SET_SOLVER_ANALYSIS_LOADS_FRAME 2", "SET_ANALYSIS_MOMENTS_MODEL PRESSURE"):
+        assert lines.count(line) == 1, f"{line} must be emitted exactly once"
+        at = lines.index(line)
+        assert initialised < at < start, (
+            f"{line} sits at line {at}, and START_SOLVER at {start}: set after the start, "
+            "the step exports written during the march state their moments about the "
+            "reference origin rather than the row's moment point (RPT-064)"
+        )
 
 
 def test_vorticity_drag_families_resolve_through_the_inventory(tmp_path):
@@ -4385,8 +4429,8 @@ def test_a_pproc_frame_the_run_did_not_create_is_refused_naming_the_created_ones
         rendered(case)
 
 
-def test_a_mesh_file_is_refused_naming_the_release(tmp_path):
-    """PFS-2029.09.03: a cell `wing.obj` passes the reader; the pre-flight names 0.12.0."""
+def test_a_mesh_file_is_refused_naming_the_route_and_no_release(tmp_path):
+    """PFS-2029.09.03: a cell `wing.obj` is refused naming the .fsm route, promising no release."""
     from pyflightstream.cases import CampaignConfigError
 
     mesh = tmp_path / "wing.obj"
@@ -4394,8 +4438,12 @@ def test_a_mesh_file_is_refused_naming_the_release(tmp_path):
     with pytest.raises(CampaignConfigError) as caught:
         rendered(steady_case(geometry=str(mesh)))
     message = str(caught.value)
-    assert "no boundary conditions" in message and "0.12.0" in message
+    assert "no boundary conditions" in message
     assert "docs/mesh-inputs.md" in message
+    assert "0.12.0" not in message, "the refusal promises a release, and 0.12.0 shipped without it"
+    assert "release" not in message.lower(), (
+        "the refusal promises a release, and no release is scheduled"
+    )
 
 
 # --- PFS-2029.06.03: the sidecar and the file must agree at OPEN ---------------------

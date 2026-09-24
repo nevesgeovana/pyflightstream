@@ -1,0 +1,88 @@
+report: reports/RPT-060_roll-and-yaw-rates-are-emitted-reversed_2026-09-23.md
+date: '2026-09-23'
+why: the opening review round of 0.27.0 asked for the numbers the report states and its evidence did not carry
+wall_time_s_per_point:
+  sim_4201: 10.3
+  sim_4202: 9.67
+  sim_4203: 9.29
+  sim_4204: 10.0
+  sim_4205: 9.41
+  sim_4206: 9.72
+  sim_4207: 9.92
+wing_section_Fz_newtons:
+  note: Offset along the span, then Fz of the wing's section at that station, from the sectional-loads export
+  control_4201:
+  - - -9.622
+    - 1630.0
+  - - -8.866
+    - 2554.0
+  - - -8.11
+    - 3085.0
+  - - -7.354
+    - 3439.0
+  - - -6.598
+    - 3694.0
+  - - -5.842
+    - 3884.0
+  - - -5.086
+    - 4036.0
+  - - -4.33
+    - 4139.0
+  - - -3.574
+    - 4200.0
+  - - -2.818
+    - 4223.0
+  - - -2.062
+    - 4204.0
+  - - -1.306
+    - 4177.0
+  roll_plus_40_4203:
+  - - -9.622
+    - 2848.0
+  - - -8.866
+    - 4305.0
+  - - -8.11
+    - 5043.0
+  - - -7.354
+    - 5453.0
+  - - -6.598
+    - 5676.0
+  - - -5.842
+    - 5773.0
+  - - -5.086
+    - 5796.0
+  - - -4.33
+    - 5745.0
+  - - -3.574
+    - 5632.0
+  - - -2.818
+    - 5470.0
+  - - -2.062
+    - 5264.0
+  - - -1.306
+    - 5076.0
+roll_plus_40_increment_over_the_control_section_load:
+- - -9.622
+  - 0.747
+- - -8.866
+  - 0.686
+- - -8.11
+  - 0.635
+- - -7.354
+  - 0.586
+- - -6.598
+  - 0.537
+- - -5.842
+  - 0.486
+- - -5.086
+  - 0.436
+- - -4.33
+  - 0.388
+- - -3.574
+  - 0.341
+- - -2.818
+  - 0.295
+- - -2.062
+  - 0.252
+- - -1.306
+  - 0.215

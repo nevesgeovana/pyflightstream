@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 114,
+  "cited_by_a_test": 115,
   "total": 160,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -218,10 +218,10 @@
   {
    "id": "FR-22a",
    "text": "A boundary without a user-defined trailing-edge condition, once assigned to the vorticity induced-drag list, returns a not-computed sentinel distinguishable from a physical zero.",
-   "priority": "D",
-   "status": "deferred",
-   "evidence": "*Origin: Phase 4 split of FR-22, accepted 2026-07-27.*",
-   "verification": "review"
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: Phase 4 split of FR-22, accepted 2026-07-27; deferred until 0.27.0 (PFS-2006.03). Evidence: tests/tier1_offline/test_pfs2006_declined_induced_drag.py (a listed surface printed at zero is NA in the polar and named in a warning that reaches post.log, a surface off the list keeps its printed zero, and each recorded selection read one way).*",
+   "verification": "test"
   },
   {
    "id": "FR-22b",
@@ -500,7 +500,7 @@
    "text": "Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sense of rotation derived into the reference of the recorded campaign is for the domain seat to confirm, and it is asked in writing rather than decided.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Evidence: reference.CONVENTIONS, rendered offline and on the docs site from one source; tests/tier1_offline/test_conventions.py. The implemented status covers the STATING half: the conventions are published from one home and guarded there. That every emitted coefficient conforms to them is asserted by no test, and saying so here is the alternative to a badge that implies one.*",
+   "evidence": "*Origin: Phase 4 review, accepted 2026-07-27. Evidence: reference.CONVENTIONS, rendered offline and on the docs site from one source; tests/tier1_offline/test_conventions.py. The implemented status covers the STATING half: the conventions are published from one home and guarded there. The CONFORMING half is decided by RPT-063 (0.27.0, OPS-2011.01): each family is scored against the solver's own recorded output or published as not scored. Scored: the body-axis forces, the wind-axis drag and the stability and wind lift of the emitted polar row, against 48 recorded loads exports (tests/tier1_offline/test_goal028_axes_recorded_exports.py), and the body-rate sense against the recorded rate probes (tests/tier1_offline/test_ops2011_rate_sense_against_recorded_probes.py, where roll and yaw read reversed until their sign is fixed). Not scored, each waiting for a recorded export that could tell a right sign from a wrong one: the stability- and wind-axis moments and side force, the rotor coefficients, the sectional loads, the unsteady history and the far field. The conventions entry \"Axes and signs of every emitted coefficient\" says the same, per family.*",
    "verification": "test"
   },
   {
@@ -593,7 +593,7 @@
   },
   {
    "id": "FR-54",
-   "text": "A matrix row can state the fluid constants its writer pinned (density, viscosity, sonic velocity, temperature, pressure) as flight-condition keys that override the standard atmosphere and are recorded as pinned; every builder states the reference velocity, the sideslip and the initialisation flag on the opened simulation; the reference artifact's moment point becomes the analysis loads frame and the moments model is stated; a setup's vorticity-drag families resolve through the geometry's inventory; significant digits and the wake termination in time steps have emitters; and a setup that states symmetry_loads emits it as stated, an absent key remaining recorded-only and warning as before.",
+   "text": "A matrix row can state the fluid constants its writer pinned (density, viscosity, sonic velocity, temperature, pressure) as flight-condition keys that override the standard atmosphere and are recorded as pinned; every builder states the reference velocity, the sideslip and the initialisation flag on the opened simulation; the reference artifact's moment point becomes the analysis loads frame and the moments model is stated, both before the solver starts, so the step exports an unsteady row writes during the march carry them (RPT-064); a setup's vorticity-drag families resolve through the geometry's inventory; significant digits and the wake termination in time steps have emitters; and a setup that states symmetry_loads emits it as stated, an absent key remaining recorded-only and warning as before.",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: the script diff of 2026-09-02 between the 0.10.1 pre-flight of the reference rows and the recorded scripts. Carried by PFS-2030.02, PFS-2030.03 and its four children, and PFS-2028.05 on the design decision of 2026-09-02. Evidence owed: the tests each node names.*",

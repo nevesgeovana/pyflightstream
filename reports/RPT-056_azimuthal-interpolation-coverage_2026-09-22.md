@@ -111,3 +111,34 @@ BOTH ARE NOW DONE, so this report is a record rather than a debt:
 WHAT REMAINS REGISTERED from the second half of this report: the cross-family assertion for
 `J_CLOCK` and `RPM_CLOCK`, which is coverage of a different promise and is not what the reading
 held the tag for.
+
+---
+
+## CLOSED in 0.27.0, 2026-09-23: the clock columns at the product
+
+**Status:** CLOSED in 0.27.0
+
+The half this report still registered after its closure of 2026-09-22, the cross-family
+assertion for `J_CLOCK` and `RPM_CLOCK`, was not closed by 0.26.0: `git log v0.25.1..v0.26.0
+--grep RPT-056` names none of the 61 commits in that range, and the clock tests that release
+carries, in `tests/tier1_offline/test_clock_rotor_columns.py`, are unit cases that post no
+campaign. It is closed by `tests/tier1_offline/test_clock_columns_at_the_product.py`. The test
+posts ONE rotor campaign once through `write_campaign_products`: the rotor variant of the freeze
+fixture, whose reference declares rotor `PUSHER` with `diameter_m = 2.0`, whose record turned it
+at 2200 rev/min and whose matrix row names it as `CLOCK_MOTION`, with three stamped loads exports
+of steps 3 to 5 and an export window naming them, so the per-step series exists. It reads the two
+columns out of every data row of every CSV product that carries them -- the polar
+`P7001_AL-020_uns_avg.csv`, the rotor table `P7001-PUSHER_rotor.csv` (its header on the second
+row, under the rotor's title), the loads series `AL-020_loads_series.csv`, and beside them the
+time average, the phase-locked average and the sections table -- requires the first three to be
+present, and asserts that every product states the polar's values and that none is `NA`:
+`J_CLOCK` 0.92806 and `RPM_CLOCK` 2200.00000, which is `68.058 / (2200 / 60 * 2.0)` from the
+export's free stream. A second case writes the row's clock as `pusher` against the reference's
+`PUSHER` and asserts the same. Both cases pass. Each mutant was made on a scratch copy of the
+source, and the pytest process reported importing `pyflightstream` from that copy with the
+mutated text in the module it loaded: deleting `clock=` from the rotor-table caller failed both
+cases with exit 1, the rotor table alone reading `NA` in both columns; deleting it from the
+loads-series caller failed both cases with exit 1, the series alone reading `NA` in both columns;
+matching the clock name exactly instead of case-folded failed the second case alone with exit 1,
+the polar reading `J_CLOCK` `NA` beside `RPM_CLOCK` 2200.00000; an unmutated copy under the same
+harness passed both. No solver was run.

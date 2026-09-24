@@ -1009,13 +1009,15 @@ class LocalExecutor:
         termination (SRC-003 p.280). Disable only for local debugging
         with the interface visible.
     forced_local : bool
-        Whether a caller asked for this machine when the platform would
-        have submitted (``pyfs-matrix run --local``, 0.27.0). Recorded on
-        every point's executor entry; it changes nothing about how the
-        solver is called.
+        Keyword only. Whether the local switch kept this run on a machine
+        that would otherwise have submitted (``pyfs-matrix run --local``,
+        0.27.0): a cluster carrying a profile. Recorded on every point's
+        executor entry; it changes nothing about how the solver is called.
     """
 
-    def __init__(self, fs_exe: str | Path, hidden: bool = True, forced_local: bool = False):
+    def __init__(
+        self, fs_exe: str | Path, hidden: bool = True, *, forced_local: bool = False
+    ) -> None:
         self.fs_exe = Path(fs_exe)
         self.hidden = hidden
         self.forced_local = forced_local

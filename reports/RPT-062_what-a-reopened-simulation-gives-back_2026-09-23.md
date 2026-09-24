@@ -120,3 +120,23 @@ does not.
 digest and per-export result, the new-block comparisons, the derangement against row
 4202, the probe differences column by column, and the last-step comparison. The solver
 outputs stayed on the measuring machine (invariant 5).
+
+
+---
+
+## Amended 2026-09-23, after the opening review round of 0.27.0
+
+Nothing above is changed; two statements are made checkable or narrowed here, and the
+registration the report promised is named.
+
+- **"Zero: not stored"** is now shown by value, not by a difference.
+  `reports/probes/RPT-062_2026-09-23_supplement.yaml` reads the sectional loads exported at
+  once after reopening: on the steady point all 12 rows, and on the unsteady point all 20,
+  carry their station's offset and exactly zero in every other column.
+- **"The per-step history is not in the file"** was not measured. What was measured is
+  what the reopened file gives when asked for its current state and its force-plot
+  history. Whether an earlier step's surface solution can be recovered from it was not
+  tried.
+- **The two defects seen on the way** are items B04 (steady probe lines emitted N squared
+  times) and B05 (the unsteady step exports in the reference frame) of the 0.27.0 scope.
+  The release's CHANGELOG names each fix under its id, and B04's is already there.

@@ -756,21 +756,27 @@ the base could not offer while it bundled several.
     the ordered list in `commands/_meta.yaml` is the sole ordering
     authority, so that 26.100 sorts before 26.120.
 
-!!! requirement "FR-22a Not-computed induced-drag sentinel <span class='srs-deferred'>deferred</span>"
-    *Origin: Phase 4 split of FR-22, accepted 2026-07-27.*
+!!! requirement "FR-22a Not-computed induced-drag sentinel <span class='srs-implemented'>implemented</span>"
+    *Origin: Phase 4 split of FR-22, accepted 2026-07-27; deferred until
+    0.27.0 (PFS-2006.03). Evidence:
+    `tests/tier1_offline/test_pfs2006_declined_induced_drag.py` (a listed
+    surface printed at zero is `NA` in the polar and named in a warning
+    that reaches `post.log`, a surface off the list keeps its printed zero,
+    and each recorded selection read one way).*
 
     A boundary without a user-defined trailing-edge condition, once
     assigned to the vorticity induced-drag list, returns a not-computed
     sentinel distinguishable from a physical zero.
 
-    Deferred, not implemented, and the correction is worth stating
-    because the first draft of this box claimed otherwise. Parsed
-    coefficients are plain floats today, so a solver-reported zero and
-    a not-computed value are the same bytes; the distinction this
-    requirement asks for does not exist in the code. Its own acceptance
-    also gated the sentinel VALUE on the FR-22 probe promotion, which
-    the same batch deferred for lack of licensed evidence, so promoting
-    it here would have run ahead of the evidence it depends on.
+    The sentinel is `NA`: a surface the run record puts on the list and
+    whose printed `CDi` is exactly zero makes every sum the package
+    computes over it `NA` -- the group's `CDI` and every axis column the
+    export's x force reaches -- while the solver's Total row and the
+    parsed per-surface value keep the printed number and a warning names
+    the surfaces. The parsed coefficients stay plain floats, so there a
+    printed zero and a value not computed are the same bytes; the list in
+    the run record is what tells them apart, which is why the rule reads
+    it.
 
 !!! requirement "FR-22b Vorticity selection is an explicit input <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-22, accepted 2026-07-27. Evidence: the
@@ -783,7 +789,9 @@ the base could not offer while it bundled several.
 
     Read with PFS-2030.03.03 at 0.11.0, which lets the selection be
     written as family names in a setup and resolved through the
-    geometry's inventory, as the reference scripts did.
+    geometry's inventory, as the reference scripts did. The default and
+    its citation live in the command entry, where the database's
+    validator sees them (PFS-2006.01).
 
 !!! requirement "FR-22c Unknown rather than assumed default <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-22, accepted 2026-07-27. Evidence: the
@@ -1361,9 +1369,20 @@ the base could not offer while it bundled several.
     `reference.CONVENTIONS`, rendered offline and on the docs site from
     one source; `tests/tier1_offline/test_conventions.py`. The implemented status
     covers the STATING half: the conventions are published from one
-    home and guarded there. That every emitted coefficient conforms to
-    them is asserted by no test, and saying so here is the alternative
-    to a badge that implies one.*
+    home and guarded there. The CONFORMING half is decided by RPT-063
+    (0.27.0, OPS-2011.01): each family is scored against the solver's own
+    recorded output or published as not scored. Scored: the body-axis
+    forces, the wind-axis drag and the stability and wind lift of the
+    emitted polar row, against 48 recorded loads exports
+    (`tests/tier1_offline/test_goal028_axes_recorded_exports.py`), and the
+    body-rate sense against the recorded rate probes
+    (`tests/tier1_offline/test_ops2011_rate_sense_against_recorded_probes.py`,
+    where roll and yaw read reversed until their sign is fixed). Not
+    scored, each waiting for a recorded export that could tell a right
+    sign from a wrong one: the stability- and wind-axis moments and side
+    force, the rotor coefficients, the sectional loads, the unsteady
+    history and the far field. The conventions entry "Axes and signs of
+    every emitted coefficient" says the same, per family.*
 
     Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sense of rotation derived into the reference of the recorded campaign is for the domain seat to confirm, and it is asked in writing rather than decided.
 
@@ -1717,7 +1736,9 @@ nodes.
     recorded as pinned; every builder states the reference velocity, the
     sideslip and the initialisation flag on the opened simulation; the
     reference artifact's moment point becomes the analysis loads frame and
-    the moments model is stated; a setup's vorticity-drag families resolve
+    the moments model is stated, both before the solver starts, so the step
+    exports an unsteady row writes during the march carry them (RPT-064);
+    a setup's vorticity-drag families resolve
     through the geometry's inventory; significant digits and the wake
     termination in time steps have emitters; and a setup that states
     `symmetry_loads` emits it as stated, an absent key remaining

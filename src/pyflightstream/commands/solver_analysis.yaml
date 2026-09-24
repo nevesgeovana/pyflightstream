@@ -11,6 +11,10 @@ SET_VORTICITY_DRAG_BOUNDARIES:
       cites: boundaries
       required: false
   manual_ref: "SRC-003 p.350"
+  # PFS-2006.01: no boundary on the list, the command never emitted; the
+  # solver-setup snapshot reads both fields rather than restating them.
+  default: []
+  default_ref: "SRC-003 p.202"
   versions:
     "25.000": {status: documented, note: "SRC-749 p.311, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.324, same grammar as 26.120"}
@@ -27,10 +31,11 @@ SET_VORTICITY_DRAG_BOUNDARIES:
     circulation integration; -1 selects all boundaries. Boundaries
     without trailing-edge boundary conditions on this list report zero
     induced drag (SRC-003 p.202);
-    bluff bodies belong to surface-pressure integration instead, which
-    is why the results layer never sums per-boundary drag of its own
-    accord and reports the solver's per-surface and total rows as
-    printed. Boundaries left off the list, including every boundary
+    bluff bodies belong to surface-pressure integration instead. The
+    results layer reports the solver's per-surface and total rows as
+    printed, and every group sum the post makes writes NA for a boundary
+    on this list whose printed induced drag is exactly zero
+    (PFS-2006.03). Boundaries left off the list, including every boundary
     when the command is never emitted, use that surface-pressure
     integration, which the manual also prescribes for all components
     in ground effect (SRC-003 p.202): not emitting this command is a
@@ -54,7 +59,7 @@ DELETE_VORTICITY_DRAG_BOUNDARIES:
 
 SET_SOLVER_ANALYSIS_LOADS_FRAME:
   layout: inline
-  phase: analysis
+  phase: init
   args:
     - name: load_frame
       type: int
@@ -73,11 +78,16 @@ SET_SOLVER_ANALYSIS_LOADS_FRAME:
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.356, the SRC-751 file, carried from 26.123"}
   notes: >
     Coordinate system used for evaluating aerodynamic loads and
-    moments; index 1 is the reference frame.
+    moments; index 1 is the reference frame. Phase init on measured
+    evidence (RPT-064, 26.124, 2026-09-24): the unsteady step exports
+    are written during the march, and set after START_SOLVER this
+    frame reached only the final export, every step export printing
+    the reference frame; set before START_SOLVER, every step export
+    printed it and the last step's moments equalled the final export's.
 
 SET_ANALYSIS_MOMENTS_MODEL:
   layout: inline
-  phase: analysis
+  phase: init
   args:
     - name: model
       type: enum
@@ -95,7 +105,10 @@ SET_ANALYSIS_MOMENTS_MODEL:
     "26.123": {status: verified, report: "reports/compat/CMP-26123_2026-08-17_full-sim.yaml", note: "SRC-751 p.350, unchanged from SRC-750 p.350"}
     "26.124": {status: verified, report: "reports/compat/CMP-26124_2026-09-14_full-sim.yaml", note: "SRC-752 p.350, the SRC-751 file, carried from 26.123"}
   notes: >
-    PRESSURE is the solver default.
+    PRESSURE is the solver default. Phase init with the loads frame
+    (RPT-064, 26.124, 2026-09-24): the package emits the two together,
+    and that run moved them together before START_SOLVER, so this
+    model's own effect on the step exports was not separated there.
 
 SET_ANALYSIS_SYMMETRY_LOADS:
   layout: inline

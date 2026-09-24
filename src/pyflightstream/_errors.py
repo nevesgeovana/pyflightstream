@@ -34,13 +34,29 @@ that filter is parsed by IMPORTING ``module`` before anything else in
 the process runs. A category whose home imports half the package makes
 every such command pay for the import and fail on the FILTER rather
 than on a warning when the home cannot be imported at all. This module
-imports nothing, which is exactly what a warnings filter wants to name.
+imports nothing from the package and only the standard library, which is
+exactly what a warnings filter wants to name.
+
+A FOURTH KIND is not a class: :func:`warn`, the one route of the
+package's own warnings (RPT-058). A campaign post collects the warnings
+of its own thread with :func:`collecting_warnings`, a sink held in a
+``ContextVar``, where ``warnings.catch_warnings`` swapped filters that
+are process-wide, so two posts in two threads each logged the other's
+warnings and one post's silenced sweep table silenced the other's. It
+lives here because every layer warns and this module is below all of
+them.
 
 Neither kind changes the name a user catches. Adding a class here is a
 deliberate decision about layering, never a convenience.
 """
 
 from __future__ import annotations
+
+import sys
+import warnings
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 
 class PyflightstreamError(Exception):
@@ -252,3 +268,76 @@ class PyflightstreamDeprecationWarning(PyflightstreamWarning, DeprecationWarning
     >>> issubclass(PyflightstreamDeprecationWarning, DeprecationWarning)
     True
     """
+
+
+#: The warnings the running post collects, or None outside every post. Held
+#: per context, and a new thread starts with an empty context on CPython
+#: 3.12, so two posts in two threads never share a sink (RPT-058).
+_SINK: ContextVar[list[warnings.WarningMessage] | None] = ContextVar(
+    "pyflightstream_warning_sink", default=None
+)
+
+
+def warn(
+    message: str, category: type[Warning] = PyflightstreamWarning, stacklevel: int = 1
+) -> None:
+    """Warn through the package's one route: into the sink collecting, else as usual.
+
+    Called as :func:`warnings.warn` is, and outside a sink it IS
+    ``warnings.warn``, attributed to the same line. Inside
+    :func:`collecting_warnings` the warning is appended to that sink and
+    reaches no filter, so neither a caller's filter nor another thread's
+    can drop it, and it reaches no other thread's sink. The post that
+    collected it replays it afterwards, outside every sink.
+
+    Parameters
+    ----------
+    message : str
+        The warning text.
+    category : type of Warning
+        The category, :class:`PyflightstreamWarning` or a subclass at every
+        site of the package.
+    stacklevel : int
+        As for :func:`warnings.warn`: 1 is the line that calls this
+        function and 2 is its caller.
+
+    Examples
+    --------
+    >>> from pyflightstream._errors import collecting_warnings, warn
+    >>> with collecting_warnings() as caught:
+    ...     warn("the campaign declares no outputs")
+    >>> [str(warning.message) for warning in caught]
+    ['the campaign declares no outputs']
+    """
+    sink = _SINK.get()
+    if sink is None:
+        warnings.warn(message, category, stacklevel=stacklevel + 1)
+        return
+    try:
+        frame = sys._getframe(stacklevel)
+        where = (frame.f_code.co_filename, frame.f_lineno)
+    except ValueError:  # a stack shallower than asked, as warnings.warn reads it
+        where = ("sys", 1)
+    sink.append(warnings.WarningMessage(category(message), category, *where))
+
+
+@contextmanager
+def collecting_warnings() -> Iterator[list[warnings.WarningMessage]]:
+    """Collect every warning :func:`warn` routes in this context, and only here.
+
+    The sink is a fresh list, so a nested collection keeps its warnings
+    from the outer one; leaving the block restores whichever sink was
+    active before, even on an exception. Nothing is emitted: what to do
+    with the collected warnings is the caller's.
+
+    Yields
+    ------
+    list of warnings.WarningMessage
+        The warnings collected so far, filled as they are raised.
+    """
+    collected: list[warnings.WarningMessage] = []
+    token = _SINK.set(collected)
+    try:
+        yield collected
+    finally:
+        _SINK.reset(token)

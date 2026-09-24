@@ -13,12 +13,119 @@ FlightStream versions.
   cluster (FR-99): a workspace carrying a submission profile submits from
   Linux and runs locally on Windows, with no cell to remember. The flag keeps
   a Linux run local, for a workstation or a smoke test on the machine itself;
-  the executable resolves as on Windows and every record's executor entry
-  says `forced_local`. It changes nothing on a machine that would not have
-  submitted, and it is refused beside a submitting executor given in code.
+  the executable resolves as on Windows, and each point the switch kept on a
+  machine that would have submitted (Linux with a profile) records
+  `forced_local` on its executor entry. It changes nothing, and records
+  nothing, on a machine that would not have submitted or beside an executor
+  the caller supplies; it is refused beside any executor that submits, the
+  package's own or a caller's adapter implementing the `Submitting`
+  protocol. `LocalExecutor` takes `forced_local` by keyword only.
+- **`post.log.json` beside `post.log`.** The same records, machine-readable:
+  the header (`version`, `workspace`, `matrix`, `time`, `check_frozen`) and
+  `records`, one per WARNING line in the same order, each with `point`,
+  `product`, `message` and `remedy` (`null` where the warning states its
+  remedy inside its message). Both files are written from one list of
+  records on a clean, a failed and an interrupted post, so they cannot
+  disagree. `products.json` names it under `log_json`, and a rebuild
+  archives it with the log (R02).
   A manifest holding a forced-local record needs 0.27.0 to read it: an
   older reader refuses the key (measured 2026-09-23 against the 0.26.0
   schema), so post such a workspace with the same version that ran it.
+- **The axes and signs of every emitted coefficient are published in one
+  place**, `help()` and the conventions page, and each family says whether it
+  is scored against the solver's own recorded output, and by which test, or
+  not yet, and which export it waits for. The emitted steady polar row is now
+  scored column by column against 48 recorded loads exports, and the body-rate
+  sense against the recorded rate probes (OPS-2011.01, RPT-063, FR-42).
+
+### Fixed
+
+- **A workflow refusing a mesh file no longer promises a release.** The
+  refusal of a non-`.fsm` geometry said 0.12.0 would define boundary
+  conditions for a mesh cell; 0.12.0 shipped without them. It now names the
+  `.fsm` route and says no matrix cell declares boundary conditions for a
+  mesh (PFS-2029.09.03).
+- **A steady row emits each probe line once.** A pproc declaring N probe
+  lines gave N squared `NEW_PROBE_LINE` commands on a steady row, so the
+  solver created and exported every point N times: three lines of eleven
+  points gave 99 points where 33 were asked for (RPT-062). A single line hid
+  it. A steady probe export made before this release from a pproc with more
+  than one line holds the declared lines N times over, in N repeated blocks
+  (B04).
+- **The limits list of `docs/workspace-and-workflows.md` no longer denies
+  what ships.** It said nothing runs the four reductions after a campaign
+  (the products stage has since 0.13.0), that a row's `REF` changes no
+  emitted line (the reference and the fluid state reach the script since
+  0.9.0), that no cell reaches the symmetry-loads setting (`SYMMETRY_LOADS`,
+  FR-66, since 0.15.0) and that no `unsteady_rotor` script had run on a
+  licensed solver (26.000, 0.20.0). The solver model is still the preset's
+  and no row cell chooses it; `BLADES` still changes no emitted line (B02).
+- **Two campaign posts in two threads of one process no longer share
+  warnings.** Each post collects the package's warnings in a sink of its own
+  thread, so a warning reaches only its own campaign's `post.log` and is
+  re-emitted only by the thread that raised it. One post silencing the sweep
+  table's warning no longer silences, and loses, another post's warning
+  ([RPT-058](reports/RPT-058_post-log-captures-warnings-process-wide_2026-09-23.md)).
+- **The unsteady step exports and the loads series state moments about the
+  row's moment point.** The loads frame and the moments model were emitted
+  after `START_SOLVER`, so every step export written during an unsteady march
+  printed `Coordinate frame for analysis: Reference` and stated its moments
+  about the reference frame's origin, while the final export stated the row's
+  frame. Both lines are now emitted before `START_SOLVER` on every run type
+  (each point of a sweep restates them), and are init-phase commands in the
+  database, so a script placing either after the start is refused. A loads
+  series (`series/<point>_loads_series.csv`) written before 0.27.0 from an
+  unsteady row states its moment columns about the reference origin; its
+  forces are right
+  ([RPT-064](reports/RPT-064_a-loads-frame-set-before-the-solve-reaches-every-step_2026-09-24.md),
+  B05).
+
+### Changed
+
+- **An induced drag the solver did not compute is `NA` in every sum the
+  package makes.** A boundary on the vorticity induced-drag list
+  (`SET_VORTICITY_DRAG_BOUNDARIES`) without a defined trailing edge is not
+  computed, and the export prints its `CDi` as zero (SRC-003 p.202). The
+  steady polar summed that zero as a measurement, so a group holding such a
+  surface wrote a `CDI`, `CDB`, `CDS` and `CDW` short by an induced drag
+  nobody computed. A surface the point's run record puts on the list, and
+  whose printed `CDi` is exactly zero, now makes the group's `CDI` `NA` in the
+  polar table and the superfile, and so does every axis column the export's x
+  force reaches at that point's angles: `CDB`, `CDS` and `CDW`; `CLS` and
+  `CLW` at a non-zero angle of attack; `CYW` under sideslip. The moments,
+  `CYB`, `CLB`, `CYS` and `CD0` keep their numbers; the fixed-width custom
+  polar writes the missing value as `nan`. The solver's Total row and the
+  parsed per-surface `CDi` keep what the export printed, and `post.log` names
+  the declined surfaces of each point. A surface off the list keeps its
+  printed zero. A trailing-edged surface whose induced drag rounds to zero at
+  the printed precision reads `NA` too; `SET_SIGNIFICANT_DIGITS` narrows that
+  band. `write_recorded_polar`, which holds no run record, is unchanged
+  (PFS-2006.03, FR-22a).
+- **The induced-drag default lives in the command database.**
+  `SET_VORTICITY_DRAG_BOUNDARIES` records `default: []` with
+  `default_ref: SRC-003 p.202`, and the solver-setup snapshot reads both from
+  the entry instead of restating them in code; a command entry's `default`
+  accepts a tuple of boundary indices, the empty one meaning a default that
+  emits no line. The snapshot of a script that selects nothing is unchanged
+  (PFS-2006.01).
+- **A `post.log` WARNING line names the point and product its warning
+  names**: `WARNING point=camp/sim_7001/AL-020 product=available-exports:
+  ...` where 0.26.0 wrote `WARNING point=campaign product=stage:
+  point=camp/sim_7001/AL-020 product=available-exports: ...`. A warning that
+  names none still reads `point=campaign product=stage`, and an interrupted
+  post's line ends `Remedy: correct the stated input and post again.` (R02).
+- **A warning raised during a post by code outside the package is no longer
+  written to `post.log`.** It reaches the caller's warning filters as before;
+  the package's own warnings are logged as they were (RPT-058).
+
+### Documentation
+
+- **The tier-3 page states which induced-drag form each case uses.** Every
+  row whose golden script carries `SET_VORTICITY_DRAG_BOUNDARIES` names its
+  selection, the single-boundary wing geometries on which `-1` and `1` are
+  the same set, and the two local-only SMI cases that put a body on the
+  vorticity list; a test keeps the page in step with the goldens. The re-run
+  of those references is 1.0 work (PFS-2006.02).
 
 ### Owed
 

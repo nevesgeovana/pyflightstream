@@ -69,14 +69,13 @@ which is one line and is what every shipped example already did.
 from __future__ import annotations
 
 import math
-import warnings
 from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.extras import missing_extra
 from pyflightstream.results import (
     DATA_ORIGIN_CODES,
@@ -742,7 +741,7 @@ def sweep_table(
     # row carried the continuation's coefficients under another run id.
     superseded = superseded_by_a_continuation(records)
     if superseded:
-        warnings.warn(
+        warn(
             "the sweep table leaves out every run a later run continued, because its "
             "record names the files its continuation wrote: "
             + "; ".join(f"{old} (continued by {new})" for old, new in superseded.items()),
@@ -799,7 +798,7 @@ def sweep_table(
             )
             if require_loads:
                 raise LoadsNotFoundError(complaint)
-            warnings.warn(complaint, PyflightstreamWarning, stacklevel=2)
+            warn(complaint, PyflightstreamWarning, stacklevel=2)
     return pd.DataFrame(rows)
 
 

@@ -100,3 +100,24 @@ stating `pitch_rate` is unaffected.
 `reports/probes/RPT-060_2026-09-23_evidence.yaml`: the scripts' digests, the
 free-stream line of every point, the convergence of each, and the increments per
 group. The solver outputs stayed on the measuring machine (invariant 5).
+
+
+---
+
+## Amended 2026-09-23, after the opening review round of 0.27.0
+
+Nothing above is changed; three statements are made checkable or narrowed here.
+
+- **The wall times** were 9.29 to 10.3 s per point, not "9 to 10 s":
+  `reports/probes/RPT-060_2026-09-23_supplement.yaml` carries each point's.
+- **The spanwise increments** 0.22, 0.49 and 0.75 are the +40 deg/s roll point's section
+  load over the control's at the same station, at the root cut, mid span and the tip cut:
+  0.215, 0.486 and 0.747. The supplement carries both sections' loads at all twelve
+  stations, so the ratios can be recomputed.
+- **What results already produced means is narrower than it reads.** What holds for every
+  package from 0.21.0 to 0.26.0 is the EMITTER: a row stating `roll_rate` or `yaw_rate`
+  wrote the free-stream rotation with the one sign the package used for all three axes.
+  That this solves the OPPOSITE rate is MEASURED on 26.124 and on this configuration's
+  axes only. On any other build it is the same emitted line with an unmeasured response.
+- **Where the fix is tracked:** the per-axis sign is item G13 of the 0.27.0 scope, and the
+  release's CHANGELOG names it when it lands.

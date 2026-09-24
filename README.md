@@ -77,7 +77,9 @@ on Linux with a profile in `inputs/hpc/h<>.toml` it renders that cluster's
 descriptor, hands the job to the scheduler and returns without waiting, and the
 record is `SUBMITTED`. The setup artifact stays multiplatform and states nothing
 about a cluster, so the same matrix, unchanged in every cell, runs locally on
-Windows and submits on Linux. `NCPUS` is ONE number for both: what the solver is
+Windows and submits on Linux. `pyfs-matrix run --local` keeps a profiled Linux run
+on the machine itself, and each point it kept records `forced_local`. `NCPUS` is
+ONE number for both: what the solver is
 told and what the scheduler is asked for. **v0.17.0 had no collect stage**, so a
 submitted job's outputs were collected by hand; 0.18.0 added `pyfs-matrix
 collect`, and that is said here because a reader planning a cluster run owes the

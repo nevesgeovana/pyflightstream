@@ -642,6 +642,59 @@ def test_a_steady_row_records_its_points_too(tmp_path):
     assert "NEW_PROBE_LINE" in script.render()
 
 
+def test_a_steady_row_emits_each_declared_probe_line_once(tmp_path):
+    """B04: three declared lines are three `NEW_PROBE_LINE` commands, not nine.
+
+    The emitting block sat inside the loop over the lines, so a pproc with N
+    lines gave N squared commands on a steady row and the solver exported
+    every point N times (RPT-062 saw 99 points where 33 were asked for). One
+    line hides it, which is why the test above never failed: 1 squared is 1.
+    """
+    from pyflightstream.cases import PprocSpec, ReferenceData, SimCase, SweepAxis
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    geometry = tmp_path / "g.fsm"
+    geometry.write_text("nothing\n", encoding="utf-8")
+    declared = [
+        ([12.0, 0.0, -3.0], [12.0, 0.0, 3.0]),
+        ([14.0, 0.0, -3.0], [14.0, 0.0, 3.0]),
+        ([16.0, 0.0, -3.0], [16.0, 0.0, 3.0]),
+    ]
+    case = SimCase(
+        sim_id="7004",
+        aircraft="WB",
+        recipe="steady",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        variables={"WORKFLOW": "steady", "VELOCITY": "30.0"},
+        geometry=str(geometry),
+        outputs=["loads_a+00.0.txt"],
+        reference=ReferenceData(area=8.0, length=1.0, span_m=4.0, moment_point_m=(0.0, 0.0, 0.0)),
+        pproc=PprocSpec(
+            probes=[
+                ProbesSpec(
+                    frame="MRP",
+                    parameters=["MACH", "VELOCITY", "STATIC_PRESSURE_RATIO"],
+                    points=11,
+                    lines=[ProbeLine(start=start, end=end) for start, end in declared],
+                )
+            ]
+        ),
+        point={"alpha": 0.0},
+    )
+    script = Script("26.123")
+    build_script(case, script)
+    emitted = [line for line in script.render().splitlines() if line.startswith("NEW_PROBE_LINE")]
+    expected = [
+        "NEW_PROBE_LINE 11 " + " ".join(str(value) for value in [*start, *end])
+        for start, end in declared
+    ]
+    assert emitted == expected, (
+        f"{len(emitted)} NEW_PROBE_LINE command(s) for {len(declared)} declared line(s)"
+    )
+    assert len(script.probe_points) == 33
+
+
 def test_an_empty_file_in_the_way_is_refused_like_any_other(tmp_path):
     """The absolute the guard states is true of the EMPTY file too.
 

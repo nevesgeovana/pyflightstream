@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import math
 import re
-import warnings
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import cast
 
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream._fsm import family_of
 from pyflightstream._tokens import INTEGRATED_SECTION_COLUMNS
 from pyflightstream.cases import (
@@ -800,7 +799,7 @@ def write_section_distributions(
         for kind in ("sloads", "cp"):
             skipped[f"sections/{stem}_{kind}#distributions"] = str(error)
         if pproc is not None and any(entry.integrate for entry in pproc.sections.distributions):
-            warnings.warn(
+            warn(
                 f"{stem}: ambiguous or missing distribution identity; no integration: {error}",
                 PyflightstreamWarning,
                 stacklevel=2,
@@ -934,7 +933,7 @@ def write_section_distributions(
             if kind == "sloads" and (k in integrate or k in matching_errors):
                 if k in integration_errors:
                     skipped[f"{relative}#integration"] = integration_errors[k]
-                    warnings.warn(
+                    warn(
                         f"{stem}: {relative} written without integrated columns: "
                         f"{integration_errors[k]}",
                         PyflightstreamWarning,

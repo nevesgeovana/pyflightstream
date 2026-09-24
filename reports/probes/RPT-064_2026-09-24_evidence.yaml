@@ -1,0 +1,109 @@
+report: reports/RPT-064_a-loads-frame-set-before-the-solve-reaches-every-step_2026-09-24.md
+date: '2026-09-24'
+question: does SET_SOLVER_ANALYSIS_LOADS_FRAME set before START_SOLVER reach the unsteady step exports
+where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
+build: 26.124 (build 8172026)
+point: 40_PUSHER, tier-3 row 9001 run again on 26.124 with farfield layers 5 (RPT-062's unsteady point)
+columns_of_a_total: Cx, Cy, Cz, CL, CDi, CDo, CMx, CMy, CMz
+control_the_package_order:
+  step_frames:
+    6: Reference
+    7: Reference
+    8: Reference
+    9: Reference
+    10: Reference
+    11: Reference
+    12: Reference
+  last_step: 12
+  last_step_total:
+  - -0.6573515
+  - 0.0017467
+  - 0.0002316
+  - 0.000228
+  - -0.6619732
+  - 0.0046217
+  - -0.1351748
+  - -6.02e-05
+  - 0.0013362
+  final_frame: MRP
+  final_total:
+  - -0.6573515
+  - 0.0017467
+  - 0.0002316
+  - 0.000228
+  - -0.6619732
+  - 0.0046217
+  - -0.1351748
+  - 0.0002003
+  - -0.0006288
+variants:
+  A:
+    step_frames:
+      6: MRP
+      7: MRP
+      8: MRP
+      9: MRP
+      10: MRP
+      11: MRP
+      12: MRP
+    last_step: 12
+    last_step_total:
+    - -0.6573515
+    - 0.0017467
+    - 0.0002316
+    - 0.000228
+    - -0.6619732
+    - 0.0046217
+    - -0.1351748
+    - 0.0002003
+    - -0.0006288
+    final_frame: MRP
+    final_total:
+    - -0.6573515
+    - 0.0017467
+    - 0.0002316
+    - 0.000228
+    - -0.6619732
+    - 0.0046217
+    - -0.1351748
+    - 0.0002003
+    - -0.0006288
+    moved_before: START_SOLVER
+    script_sha256: a0f3987505d6c0314da7359bd0fb33f302ef430333b64a42599d85d1e2c7e67a
+    wall_time_s: 10.35
+    return_code: 0
+  B:
+    step_frames:
+      6: MRP
+      7: MRP
+      8: MRP
+      9: MRP
+      10: MRP
+      11: MRP
+      12: MRP
+    last_step: 12
+    last_step_total:
+    - -0.6573515
+    - 0.0017467
+    - 0.0002316
+    - 0.000228
+    - -0.6619732
+    - 0.0046217
+    - -0.1351748
+    - 0.0002003
+    - -0.0006288
+    final_frame: MRP
+    final_total:
+    - -0.6573515
+    - 0.0017467
+    - 0.0002316
+    - 0.000228
+    - -0.6619732
+    - 0.0046217
+    - -0.1351748
+    - 0.0002003
+    - -0.0006288
+    moved_before: INITIALIZE_SOLVER
+    script_sha256: e687351f20d85f08fce97fed7564cd32fd3b25904109da5dd407bc423fbcce40
+    wall_time_s: 9.97
+    return_code: 0

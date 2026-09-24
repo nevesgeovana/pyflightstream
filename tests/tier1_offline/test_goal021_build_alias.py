@@ -153,12 +153,26 @@ def test_goal021_build_alias_the_same_matrix_submits_both_rows_when_both_are_map
     profile = documented_profile().replace(
         '"26.123" = "26.1"', '"26.123" = "26.1"\n"26.120" = "26.1"'
     )
+    import pyflightstream.run as run_module
     from pyflightstream.run import CampaignErrors
 
     workspace, matrix = _two_build_cluster(tmp_path, monkeypatch, profile)
-    # THE SCHEDULER IS NOT INSTALLED HERE, so each submission is rejected and
-    # the campaign raises after recording both. The descriptor is written
-    # BEFORE the scheduler is called, which is what this control measures.
+    # THE SCHEDULER IS STUBBED AT THE SUBPROCESS BOUNDARY (the opening round of
+    # 0.27.0). This test used to rely on the scheduler NOT being installed, so on
+    # a machine that has it a tier-1 test would have submitted real jobs. The
+    # stub answers the way a missing client does, so each submission is
+    # rejected and the campaign raises after recording both; the descriptor is
+    # written BEFORE the scheduler is called, which is what this control measures.
+    submitted = []
+    real_run = run_module.subprocess.run
+
+    def no_scheduler(argv, **kwargs):
+        if not (isinstance(argv, list) and argv and argv[0] == "esub"):
+            return real_run(argv, **kwargs)
+        submitted.append(list(argv))
+        raise OSError("no scheduler in a tier-1 test")
+
+    monkeypatch.setattr(run_module.subprocess, "run", no_scheduler)
     with pytest.raises(CampaignErrors):
         _run_on_the_cluster(workspace, matrix)
     assert len(workspace.read_manifest()) == 2, workspace.read_manifest()
@@ -167,6 +181,11 @@ def test_goal021_build_alias_the_same_matrix_submits_both_rows_when_both_are_map
     for descriptor in descriptors:
         text = descriptor.read_text(encoding="utf-8")
         assert text.count('version: "26.1"') == 1, text
+    assert len(submitted) == 2, submitted
+    assert all(
+        any(descriptor.as_posix() in part for part in argv for descriptor in descriptors)
+        for argv in submitted
+    ), submitted
 
 
 @pytest.mark.parametrize(

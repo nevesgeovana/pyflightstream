@@ -41,13 +41,14 @@ from pyflightstream.run import (
     LocalExecutor,
     OutcomeAssessor,
     SolverBuild,
+    Submitting,
     SubmittingExecutor,
     on_a_cluster,
     plan_campaign,
     run_campaign,
 )
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, write_input_guides
-from pyflightstream.workspace.inputs import resolve_hpc_profile
+from pyflightstream.workspace.inputs import hpc_profiles, resolve_hpc_profile
 from pyflightstream.workspace.matrix import ResolvedMatrix, resolve_matrix
 
 
@@ -681,6 +682,7 @@ def run_matrix(
     # installation a row names, and building a LocalExecutor beside it
     # would send some rows somewhere the caller never asked for.
     supplied = executor
+    forced = False
     if executor is None:
         # The matrix has a HIDDEN column and it used to be read into the
         # matrix_hidden variable and never acted on, so a row saying 0
@@ -710,9 +712,21 @@ def run_matrix(
         # is recorded on every point's executor entry as `forced_local`, so a
         # record never has to be read against the platform to know why a
         # profiled workspace ran without a queue.
+        #
+        # `forced_local` IS THE SWITCH'S MEASURED EFFECT, not the request (the
+        # opening round of 0.27.0): it is recorded only where the platform
+        # would have submitted, a cluster with a profile. On Windows, or on a
+        # Linux box with none, the run was local anyway and nothing was forced.
+        # The profile is COUNTED rather than resolved, so a local run is never
+        # refused over an ambiguity in a profile it does not use.
         submitting = None if local else _cluster_executor(workspace, resolved)
-        executor = submitting or LocalExecutor(resolved.fs_exe, hidden=hidden, forced_local=local)
-    if local and isinstance(executor, SubmittingExecutor):
+        forced = local and on_a_cluster() and bool(hpc_profiles(workspace.inputs_dir))
+        executor = submitting or LocalExecutor(resolved.fs_exe, hidden=hidden, forced_local=forced)
+    # THE PROTOCOL, NOT THE CLASS: the runner submits through anything that
+    # implements `Submitting`, so a caller's own scheduler adapter that does
+    # not inherit SubmittingExecutor passed a class check and could submit
+    # under local=True (the opening round of 0.27.0, all five lenses).
+    if local and isinstance(executor, Submitting):
         raise ExecutorConfigurationError(
             "local=True keeps the run on this machine, and the executor given is a "
             "submitting one; drop one of the two"
@@ -743,7 +757,7 @@ def run_matrix(
             return supplied
         if isinstance(executor, SubmittingExecutor):
             return executor
-        return LocalExecutor(exe, hidden=windowless, forced_local=local)
+        return LocalExecutor(exe, hidden=windowless, forced_local=forced)
 
     # AFTER the executor exists, because a `SolverBuild` names one, and
     # after the pre-flight above, which is planned from the resolved
