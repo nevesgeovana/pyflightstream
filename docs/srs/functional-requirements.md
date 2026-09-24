@@ -1369,9 +1369,20 @@ the base could not offer while it bundled several.
     `reference.CONVENTIONS`, rendered offline and on the docs site from
     one source; `tests/tier1_offline/test_conventions.py`. The implemented status
     covers the STATING half: the conventions are published from one
-    home and guarded there. That every emitted coefficient conforms to
-    them is asserted by no test, and saying so here is the alternative
-    to a badge that implies one.*
+    home and guarded there. The CONFORMING half is decided by RPT-063
+    (0.27.0, OPS-2011.01): each family is scored against the solver's own
+    recorded output or published as not scored. Scored: the body-axis
+    forces, the wind-axis drag and the stability and wind lift of the
+    emitted polar row, against 48 recorded loads exports
+    (`tests/tier1_offline/test_goal028_axes_recorded_exports.py`), and the
+    body-rate sense against the recorded rate probes
+    (`tests/tier1_offline/test_ops2011_rate_sense_against_recorded_probes.py`,
+    where roll and yaw read reversed until their sign is fixed). Not
+    scored, each waiting for a recorded export that could tell a right
+    sign from a wrong one: the stability- and wind-axis moments and side
+    force, the rotor coefficients, the sectional loads, the unsteady
+    history and the far field. The conventions entry "Axes and signs of
+    every emitted coefficient" says the same, per family.*
 
     Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sense of rotation derived into the reference of the recorded campaign is for the domain seat to confirm, and it is asked in writing rather than decided.
 

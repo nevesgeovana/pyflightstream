@@ -1,4 +1,4 @@
-"""OPS-2011.01.03 (RPT-063): the emitted body-rate sense, scored against recorded probes.
+"""OPS-2011.01.03 (RPT-063, FR-42): the emitted body-rate sense, scored against recorded probes.
 
 A row states a body rate in flight-mechanics signs. What the package emits for
 it is a free-stream line; what the solver does with that line was measured on

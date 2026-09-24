@@ -117,7 +117,7 @@ def _emitted_polar_row(row: dict[str, str]) -> dict[str, float]:
 
 @pytest.mark.parametrize("row", ROWS, ids=[row["export"] for row in ROWS])
 def test_every_emitted_polar_force_column_agrees_with_the_export_that_printed_it(row):
-    """OPS-2011.01.02 (RPT-063): the EMITTED row is scored, not the module under it.
+    """OPS-2011.01.02 (RPT-063, FR-42): the EMITTED row is scored, not the module under it.
 
     The test above scores the rotation; this one scores the tuple a polar writes,
     under sideslip and for lift too: the wind-axis drag is the export's CDi + CDo
