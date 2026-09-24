@@ -779,9 +779,11 @@ class CommandEntry(BaseModel):
         keys). Versions without an entry have no recorded evidence.
     notes : str, optional
         Paraphrased usage caveats with citations.
-    default : int, float, or str, optional
+    default : int, float, str, or tuple of int, optional
         Documented default value the solver applies when the command
-        is never issued, recorded only when the manual states it and
+        is never issued (a tuple of boundary indices for a
+        boundary-selection command, the empty one a default that emits
+        no line), recorded only when the manual states it and
         always together with ``default_ref`` (evidence rule, CONTRIBUTING.md
         invariant 3). Consumed by the solver-setup snapshot
         (:mod:`pyflightstream.script.solver_setup`) so an unset flag
@@ -803,7 +805,7 @@ class CommandEntry(BaseModel):
     probe_ref: str = ""
     versions: dict[str, VersionStatus]
     notes: str | None = None
-    default: int | float | str | None = None
+    default: int | float | str | tuple[int, ...] | None = None
     default_ref: str | None = None
 
     @model_validator(mode="before")

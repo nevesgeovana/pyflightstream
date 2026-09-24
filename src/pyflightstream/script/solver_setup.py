@@ -828,17 +828,20 @@ def _vorticity_record(
     selection = passed.get("vorticity_drag_boundaries")
     if selection is not None:
         return FlagRecord(**base, provenance=_EXPLICIT, value=_normalize(selection), emitted=True)
-    if available:
+    # THE DEFAULT AND ITS CITATION ARE THE ENTRY'S (PFS-2006.01): restated
+    # here they were a second copy no validator of the database could see.
+    # An entry carrying no default leaves the record honestly unknown.
+    if available and isinstance(entry.default, tuple):
         return FlagRecord(
             **base,
             provenance=_DEFAULT,
-            value=[],
+            value=list(entry.default),
             emitted=False,
             evidence=(
                 "the script emits no selection, so it places no boundary on the "
                 "vorticity CDi list; boundaries outside that list use the solver's "
-                "surface pressure integration (SRC-003 p.202). A simulation file "
-                "opened by the script may carry a selection of its own"
+                f"surface pressure integration ({entry.default_ref}). A simulation "
+                "file opened by the script may carry a selection of its own"
             ),
         )
     return FlagRecord(**base, provenance=_UNKNOWN, value=None, emitted=False)

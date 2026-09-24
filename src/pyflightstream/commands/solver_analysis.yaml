@@ -11,6 +11,10 @@ SET_VORTICITY_DRAG_BOUNDARIES:
       cites: boundaries
       required: false
   manual_ref: "SRC-003 p.350"
+  # PFS-2006.01: no boundary on the list, the command never emitted; the
+  # solver-setup snapshot reads both fields rather than restating them.
+  default: []
+  default_ref: "SRC-003 p.202"
   versions:
     "25.000": {status: documented, note: "SRC-749 p.311, same grammar as 26.120"}
     "25.100": {status: documented, note: "SRC-748 p.324, same grammar as 26.120"}

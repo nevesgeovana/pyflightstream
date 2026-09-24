@@ -74,6 +74,13 @@ FlightStream versions.
   the printed precision reads `NA` too; `SET_SIGNIFICANT_DIGITS` narrows that
   band. `write_recorded_polar`, which holds no run record, is unchanged
   (PFS-2006.03, FR-22a).
+- **The induced-drag default lives in the command database.**
+  `SET_VORTICITY_DRAG_BOUNDARIES` records `default: []` with
+  `default_ref: SRC-003 p.202`, and the solver-setup snapshot reads both from
+  the entry instead of restating them in code; a command entry's `default`
+  accepts a tuple of boundary indices, the empty one meaning a default that
+  emits no line. The snapshot of a script that selects nothing is unchanged
+  (PFS-2006.01).
 
 ### Documentation
 

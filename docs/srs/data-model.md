@@ -21,7 +21,7 @@ Each command entry records:
 | manual_ref | The manual page citation backing the entry; exclusive with `probe_ref` |
 | probe_ref | A committed probe report backing an entry no manual edition documents; exclusive with `manual_ref` |
 | versions | Per-version presence, status, and (where they differ) per-version argument grammars, each stating its DIFFERENCE from the entry-level grammar rather than replacing it |
-| default / default_ref | Optional evidence-cited default value of a settings flag |
+| default / default_ref | Optional evidence-cited default value of a settings flag, including an empty boundary selection, a default that emits no line |
 
 ### A per-version grammar states its difference
 

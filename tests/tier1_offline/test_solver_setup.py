@@ -220,6 +220,29 @@ def test_an_unset_selection_emits_nothing_and_leaves_the_solver_default():
     assert counts["explicit"] + counts["default"] + counts["unknown"] == len(setup.flags)
 
 
+def test_the_unset_selection_reads_its_default_and_citation_from_the_command_entry():
+    """PFS-2006.01: the default and its citation live in the command entry, not in code.
+
+    The empty selection and "SRC-003 p.202" were restated in the snapshot's
+    Python while the entry carried neither, so no validator could see them.
+    The entry now records both, and the record reads them: a registry whose
+    entry cites another page is cited in the record, the literal is not.
+    """
+    registry = CommandRegistry.load()
+    entry = registry.commands[VORTICITY_COMMAND]
+    assert entry.default == () and entry.default_ref == "SRC-003 p.202"
+    moved = CommandRegistry(
+        commands={
+            **registry.commands,
+            VORTICITY_COMMAND: entry.model_copy(update={"default_ref": "SRC-752 p.202"}),
+        }
+    )
+    setup = helpers.solver_settings(Script(version="26.120", registry=moved), aoa=3.0)
+    record = setup.flags[VORTICITY_COMMAND]
+    assert record.provenance == "default" and record.value == [] and not record.emitted
+    assert "SRC-752 p.202" in record.evidence and "SRC-003 p.202" not in record.evidence
+
+
 def test_an_unset_selection_stays_unknown_without_the_command_in_the_version(monkeypatch):
     """No evidence for the selection command means no claimed default.
 

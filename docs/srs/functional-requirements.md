@@ -789,7 +789,9 @@ the base could not offer while it bundled several.
 
     Read with PFS-2030.03.03 at 0.11.0, which lets the selection be
     written as family names in a setup and resolved through the
-    geometry's inventory, as the reference scripts did.
+    geometry's inventory, as the reference scripts did. The default and
+    its citation live in the command entry, where the database's
+    validator sees them (PFS-2006.01).
 
 !!! requirement "FR-22c Unknown rather than assumed default <span class='srs-implemented'>implemented</span>"
     *Origin: Phase 4 split of FR-22, accepted 2026-07-27. Evidence: the
