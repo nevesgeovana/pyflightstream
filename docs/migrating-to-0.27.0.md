@@ -409,3 +409,10 @@ own.
   in `inputs_sha256`, under the file's name. A record without it, which is every
   record written before, posts as it did.
 - `SimCase` gains `freestream_profile`, None by default.
+- A row stating `FREESTREAM` and `RESTART` continues only a run that read the
+  same field: a stopped run whose record hashes no file of that name, or other
+  bytes under it, is refused at plan and at run. Remove `RESTART` to march the
+  point from the start in the field.
+- A field whose file name is the name of a file the run writes for the solver
+  (the trailing-edge node file of a raw mesh, the disc's profile copy) is
+  refused before the solver starts. Rename the field's file.

@@ -2512,7 +2512,9 @@ flat row with no blade frames turns every frame with its motion
 (`SET_MOTION_MOVING_FRAMES 1 -1`), the disc's frame included; the disc under
 mirror symmetry; the loads of a disc whose profile the solver read; and the
 profile file on any build but 26.124. A continuation reopens the saved
-simulation, which carries the disc, and emits it again nowhere. Deriving the
+simulation, which carries the disc, and emits it again nowhere; a disc added
+to a row after its run stopped does not reach the continuation and is not yet
+refused there. Deriving the
 disc's speed from an advance ratio and its diameter is not offered; the row
 states `ACTUATOR_RPM`.
 
@@ -2632,9 +2634,15 @@ NOT MEASURED: the UNSTRUCTURED form; the unit of the grid's coordinates; angles
 other than 4 deg; the sideslip beside a field; a custom
 field on an unsteady or a rotor row; what the solver takes at a point outside
 the file's grid, so a field should cover the body's YZ extent and its wake
-with margin; and whether a saved simulation carries the field, so a
-continuation (`RESTART`), which reopens the saved simulation and writes no free
-stream, is taken on trust, as it is for a body rate.
+with margin; and whether a saved simulation carries the field. A continuation
+(`RESTART`) reopens the saved simulation and writes no free stream, so it
+continues only a run whose record hashes the same field under the file's name:
+a stopped run that read no field, or the file with other bytes, is refused at
+plan and at run, and the angle is judged beside the field as on a run from the
+mesh. That the saved file carries the field is taken on trust, as it is for a
+body rate. A field whose file name is the name of a file the run writes for the
+solver, the trailing-edge node file or the disc's profile copy, is refused
+before the solver starts, because the record keys each input by its name.
 
 ### One row, one geometry, turned
 

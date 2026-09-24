@@ -22,6 +22,11 @@ because nothing documented says which directory the solver runs an action
 from, whether it passes arguments, or what environment the child gets
 (RPT-030); the record each invocation appends carries those three so the
 same run answers them too.
+
+The log and the numbered exports are this probe's files and not the run's
+collected outputs, so ``--force-rerun`` leaves them where they are and a second
+run appends to the first: T12 read 16 invocations that way on 2026-09-24. Move
+them aside before the row runs again.
 """
 
 from __future__ import annotations
