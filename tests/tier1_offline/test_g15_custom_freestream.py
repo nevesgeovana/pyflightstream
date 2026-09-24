@@ -24,7 +24,11 @@ the rows alone. So:
   asks; a file stated twice or not at all, a LEGACY row and a body rate beside
   it are refused at plan;
 * the additional post rebuilds such a row, and a record without the hash (every
-  record written before this) still posts.
+  record written before this) still posts;
+* the licensed probe's rows (T14, ``matriz_gui.fs`` 5011 to 5014) each compare
+  one thing against a CONSTANT control, and their two fields are the ones
+  ``tests/tier3_licensed/freestreams.py`` writes from the wing's mesh block,
+  covering it with their margin at the rows' own speed.
 
 Nothing here runs a solver. What the solver does with a custom field (its
 units, whether the row's angle of attack still turns it) is the licensed
@@ -535,3 +539,82 @@ def test_g15_a_record_without_the_fields_hash_still_posts(tmp_path):
     assert products_of(workspace, matrix)["products"], "the post wrote no product"
     plans, _ = extract(workspace, matrix, a_stub(tmp_path))
     assert [plan.status for plan in plans] == ["READY"] * 2, [plan.message for plan in plans]
+
+
+# ------------------------------------ the licensed probe's rows, offline (T14) --
+#
+# Rows 5011 to 5014 of tests/tier3_licensed/matriz_gui.fs run on the seat; what a
+# clone can decide without one is that each compares ONE thing, that the fields
+# are the ones their generator writes from the wing's mesh block, and that they
+# cover the wing with their margin.
+
+TIER3 = Path(__file__).resolve().parents[1] / "tier3_licensed"
+GUI = TIER3 / "matriz_gui.fs"
+#: Each custom row, its CONSTANT control and the field it names.
+T14_ROWS = {
+    "5011": ("5010", "fs_uniform"),
+    "5012": ("5013", "fs_uniform"),
+    "5014": ("5013", "fs_shear"),
+}
+
+
+def _read_field(path: Path) -> list[list[float]]:
+    lines = path.read_text(encoding="utf-8").split("\n")
+    return [[float(value) for value in line.split()] for line in lines[1:] if line.strip()]
+
+
+def test_g15_the_tier3_fields_are_what_their_generator_writes():
+    from tests.tier3_licensed import freestreams
+
+    assert freestreams.stale() == [], (
+        "regenerate with python -m tests.tier3_licensed.freestreams --write"
+    )
+
+
+def test_g15_the_tier3_fields_cover_the_wing_with_their_margin_at_the_rows_own_speed():
+    from pyflightstream.cases.matrix import read_matrix
+    from tests.tier3_licensed import freestreams
+
+    ymin, ymax, zmin, zmax = freestreams.extents()
+    assert (ymin, ymax) == (-4.0, 4.0) and 0.0 < zmax < 0.1, "not the AR8 wing"
+    ys, zs = freestreams.grid()
+    margin = freestreams.MARGIN_M
+    assert ys[0] <= ymin - margin and ys[-1] >= ymax + margin, ys
+    assert zs[0] <= zmin - margin and zs[-1] >= zmax + margin, zs
+    rows = {row.pol: row for row in read_matrix(GUI)}
+    for pol in ("5010", "5011", "5012", "5013", "5014"):
+        assert rows[pol].flight_condition["TASmps"] == freestreams.SPEED_M_S, pol
+    uniform = _read_field(freestreams.FOLDER / "fs_uniform.txt")
+    sheared = _read_field(freestreams.FOLDER / "fs_shear.txt")
+    assert len(uniform) == len(sheared) == len(ys) * len(zs)
+    assert {tuple(row[3:]) for row in uniform} == {(freestreams.SPEED_M_S, 0.0, 0.0)}
+    assert all(row[3] == pytest.approx(30.0 + 2.5 * row[2]) for row in sheared)
+    assert {row[0] for row in uniform + sheared} == {0.0}, "a field lies in one YZ plane"
+
+
+def test_g15_each_tier3_custom_row_differs_from_its_control_in_one_thing():
+    """5011, 5012 and 5014 against their CONSTANT controls, in the free-stream lines
+    alone; 5011 against 5012, the same field, in the angle of attack alone."""
+    from pyflightstream.cases.matrix import read_matrix
+    from tests.tier3_licensed import offline
+
+    rows = {row.pol: row for row in read_matrix(GUI)}
+    rendered = {
+        stem[1:].split("-", 1)[0]: text.replace(stem, "<point>").splitlines()
+        for stem, text in offline.render(GUI)[1].items()
+    }
+    for pol, (control, name) in T14_ROWS.items():
+        for cell in ("ref_code", "set_code", "pproc_code", "fs_build", "workflow"):
+            assert getattr(rows[pol], cell) == getattr(rows[control], cell), (pol, cell)
+        assert rows[pol].variables == {**rows[control].variables, KEY: name}, pol
+        lines, reference = rendered[pol], rendered[control]
+        at = lines.index("SET_FREESTREAM CUSTOM STRUCTURED")
+        assert lines[at + 1] == f"<tier3>/inputs/freestreams/{name}.txt", lines[at + 1]
+        written = lines[:at] + ["SET_FREESTREAM CONSTANT"] + lines[at + 3 :]
+        assert written == reference, f"{pol} differs from {control} beyond its free stream"
+    turned = [
+        (one, other)
+        for one, other in zip(rendered["5011"], rendered["5012"], strict=True)
+        if one != other
+    ]
+    assert turned == [("SOLVER_SET_AOA 4.0", "SOLVER_SET_AOA 0.0")], turned

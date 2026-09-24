@@ -1,0 +1,15 @@
+# Provenance of the tier-3 custom free stream fs_shear.txt, read by the rows of
+# matriz_gui.fs stating FREESTREAM: fs_shear through SET_FREESTREAM CUSTOM STRUCTURED.
+# Written by tests/tier3_licensed/freestreams.py from the mesh block of
+# 12_WING_PHY.fsm, in the STRUCTURED form of the 26.124 manual. The package reads
+# the file against that form at plan and converts nothing: metres and metres per
+# second, in the global frame.
+form = "STRUCTURED: Npts Mpts, then Npts x Mpts rows x y z vx vy vz, y outer, z inner"
+field = "vx = 30 + 2.5 z m/s (sheared in z about the rows' TASmps), vy = vz = 0"
+body_y_m = [-4.0, 4.0]
+body_z_m = [-0.05997147781, 0.05997147781]
+margin_m = 4.0
+grid_y_m = [-8.0, 8.0]
+grid_z_m = [-5.0, 5.0]
+points = [9, 11]
+x_m = 0.0
