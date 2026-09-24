@@ -308,6 +308,15 @@ FlightStream versions.
   from the solver's printed output and warns, naming the profile, when it
   finds none. `ExecutionResult.captured_output()` returns that printed output,
   standard output then standard error.
+- **The additional post reads an older record's boundaries by its geometry's
+  hash** (G12). A run record written before 0.27.0 states no boundary names,
+  and the extraction compared none, so a point whose saved simulation holds
+  `W, B` over a geometry that declares `B, W` today was extracted with today's
+  indices: a distribution asked of `W` cut the body and was recorded as the
+  wing. The names are now read from the geometry file whose sha256 the record
+  carries, as the post reads them, and compared; a point whose names nothing
+  on disk recovers, while the geometry declares names today, is skipped
+  `SCRIPT_DRIFT` naming the record and the file.
 - **`pyfs-matrix collect` finishes a submitted steady job on a machine that
   exports no log.** A steady row of several points is one job, and where the
   profile states `export_log = false` its scheduler writes ONE log of the job.

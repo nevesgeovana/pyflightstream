@@ -231,6 +231,11 @@ base from a body.
   `--fs-exe`, `--local` and `--recipe`, each refused without it.
 - A forced rerun or a continuation archives a point's `additional/` folder
   with the rest of its files; extract it again after one.
+- A point recorded by 0.26.0 or older, over a geometry declaring boundary
+  names, is extracted only while the geometry file its record hashes is on
+  disk with those bytes, since that file is the one source of the boundary
+  order its saved simulation holds; where it is gone or changed the point is
+  skipped `SCRIPT_DRIFT`, naming the file.
 - `ResolvedMatrix` gains a last field, `additional_pprocs`; positional
   construction keeps working.
 

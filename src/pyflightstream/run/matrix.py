@@ -1554,6 +1554,15 @@ def _script_drift(
     indices and declared the same boundaries, and otherwise the sentence saying
     where they part. The script compared is the one of the run that STARTED a
     continuation chain, since a continuation reopens and creates no frame.
+
+    THE BOUNDARIES THE SAVED SIMULATION HOLDS ARE THE RECORD'S, never today's
+    file's. A record written since 0.27.0 states them; an older one states none,
+    and they are read from the geometry file whose sha256 it carries
+    (:meth:`~pyflightstream.workspace.CampaignWorkspace.recorded_inventory`),
+    the point's record first and then the record of the run that started its
+    chain. Where nothing recovers them and the geometry declares names today,
+    the point is refused naming why: an index read off today's file would cut
+    whichever surface holds that index in the saved one.
     """
     first = _first_of_the_chain(point, by_run)
     if first is None:
@@ -1580,12 +1589,29 @@ def _script_drift(
             f"the row creates other frames today than the run created, so a distribution "
             f"would be cut in the wrong one: {_first_difference(was, now)}"
         )
-    if point.inventory is not None and list(shadow.boundary_inventory or ()) != list(
-        point.inventory
-    ):
+    held = workspace.recorded_inventory(point)
+    if held is None and first is not point:
+        held = workspace.recorded_inventory(first)
+    today = shadow.boundary_inventory
+    if held is None and today is not None:
+        looked = sorted(
+            {
+                name
+                for record in (point, first)
+                for name in record.inputs_sha256
+                if name and PurePath(name).name == name
+            }
+        )
         return (
-            f"the run declared the boundaries {', '.join(point.inventory)} and the geometry "
-            f"declares {', '.join(shadow.boundary_inventory or ()) or 'none'} today"
+            f"the record of {point.run_id} states no boundary names, and no geometry file on "
+            f"disk hashes as its inputs_sha256 says ({', '.join(looked) or 'it names none'}), "
+            "so which boundary is which in its saved simulation cannot be read; the geometry "
+            f"declares {', '.join(today)} today"
+        )
+    if held is not None and list(today or ()) != list(held):
+        return (
+            f"the run declared the boundaries {', '.join(held)} and the geometry "
+            f"declares {', '.join(today or ()) or 'none'} today"
         )
     return shadow
 

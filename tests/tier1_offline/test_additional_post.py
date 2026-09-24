@@ -22,7 +22,8 @@ by a test on its link:
   and the run's own record, manifest and files are untouched; a row without
   the key, an absent ``.fsm`` and an ``.fsm`` that does not hash as its record
   says are each skipped by name, as are a row whose frames moved since the run,
-  a build that changed, a surface averaged in time, a row no longer active, a
+  an older record whose boundaries the geometry's hash recovers in another
+  order or not at all, a build that changed, a surface averaged in time, a row no longer active, a
   point still in a queue and a run a continuation replaced; a copy that does
   not hash as recorded launches nothing, and an original that changes during
   the extraction fails it; an unsteady point is one instant and says so;
@@ -807,6 +808,70 @@ def test_g12_a_point_whose_boundaries_moved_since_the_run_is_skipped(tmp_path):
     plans, records = extract(workspace, matrix, stub)
     assert [plan.reason for plan in plans] == ["SCRIPT_DRIFT"] * 2, plans
     assert all("declared the boundaries B, W" in plan.message for plan in plans), plans
+    assert records == [] and stub.invocations == []
+
+
+def a_record_from_before_0_27_0(workspace: CampaignWorkspace) -> None:
+    """Take ``inventory`` out of every row of runs.json: a record 0.26.0 wrote states none."""
+    manifest = workspace.manifest_path
+    raw = json.loads(manifest.read_text(encoding="utf-8"))
+    for entry in raw:
+        assert entry.pop("inventory") == ["W", "B"], entry
+    manifest.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+
+
+def test_g12_an_older_record_is_held_to_the_boundaries_its_geometry_hash_recovers(tmp_path):
+    """The saved simulation holds [W, B] and the row opens [B, W] today: skipped, naming both.
+
+    A record written before 0.27.0 states no boundary names. The geometry its
+    run opened is still in the library, byte for byte, so its names are read by
+    the hash the record carries (R04); the row names another geometry today,
+    the same two boundaries in the other order. Extracting would cut the body
+    under the wing's name, so both points are skipped naming both orders and
+    nothing launches. The same older record with the row unchanged plans READY:
+    the names came from the hash, not from nowhere.
+    """
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    a_record_from_before_0_27_0(workspace)
+    plans = additional_post().plan_additional_post(matrix, workspace, default_fs_version=BUILD)
+    assert [plan.status for plan in plans] == ["READY"] * 2, [plan.message for plan in plans]
+    swapped = _saved_simulation(tmp_path / "swapped.fsm", ["B", "W"]).read_bytes()
+    stage_geometry(workspace, "wing_swapped.fsm", body=swapped)
+    matrix.write_text(
+        matrix.read_text(encoding="utf-8").replace("wing_clean.fsm", "wing_swapped.fsm"),
+        encoding="utf-8",
+    )
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    assert [plan.reason for plan in plans] == ["SCRIPT_DRIFT"] * 2, [
+        (plan.status, plan.message) for plan in plans
+    ]
+    for plan in plans:
+        assert "declared the boundaries W, B" in plan.message, plan.message
+        assert "declares B, W today" in plan.message, plan.message
+    assert records == [] and stub.invocations == []
+
+
+def test_g12_an_older_record_whose_boundaries_no_hash_recovers_is_skipped_naming_why(tmp_path):
+    """The geometry was replaced in place, [W, B] by [B, W]: nothing on disk is the file that ran.
+
+    A record written before 0.27.0 cannot say which order its saved simulation
+    holds, and no file hashes as its ``inputs_sha256`` says, so the point is
+    skipped naming the record, the file and the key it looked for, and nothing
+    launches. Reading today's file would extract the body as the wing.
+    """
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    a_record_from_before_0_27_0(workspace)
+    swapped = _saved_simulation(tmp_path / "swapped.fsm", ["B", "W"]).read_bytes()
+    stage_geometry(workspace, "wing_clean.fsm", body=swapped)
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    assert [plan.reason for plan in plans] == ["SCRIPT_DRIFT"] * 2, [
+        (plan.status, plan.message) for plan in plans
+    ]
+    for plan in plans:
+        for named in ("inputs_sha256", "wing_clean.fsm", "B, W today"):
+            assert named in plan.message, (named, plan.message)
     assert records == [] and stub.invocations == []
 
 

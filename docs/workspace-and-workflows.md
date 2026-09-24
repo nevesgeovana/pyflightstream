@@ -3002,7 +3002,13 @@ name, with the path or the hashes involved, when:
   or declared other boundaries (`SCRIPT_DRIFT`,
   `test_g12_a_row_whose_frames_changed_since_the_run_is_skipped`,
   `test_g12_a_point_whose_boundaries_moved_since_the_run_is_skipped`): a
-  distribution would be cut in the wrong frame;
+  distribution would be cut in the wrong frame. The run's boundaries are the
+  names its record states or, on a record written before 0.27.0, the names of
+  the geometry file whose sha256 the record carries
+  (`test_g12_an_older_record_is_held_to_the_boundaries_its_geometry_hash_recovers`);
+  a point whose names nothing on disk recovers, while the geometry declares
+  names today, is skipped naming the file
+  (`test_g12_an_older_record_whose_boundaries_no_hash_recovers_is_skipped_naming_why`);
 - the point is still in a scheduler's queue (`NOT_FINISHED`,
   `test_g12_a_point_still_in_a_queue_is_skipped`), a continuation replaced it
   (`SUPERSEDED`,

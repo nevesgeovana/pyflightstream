@@ -887,6 +887,19 @@ extraction's `leading_sections` counts the run's rows at the head
 A layout whose counts do not add up to the export states `NA`, as on the run's
 own table.
 
+**Which boundaries it cites.** The extraction cites the boundaries the saved
+simulation holds, which are the run's and never today's file's: the names the
+run's record states or, on a record written before 0.27.0, the names read by
+the geometry's hash as the post's own tables read them (*The geometry's names*,
+above). A point whose row declares the boundaries in another order today is
+skipped `SCRIPT_DRIFT` naming both orders
+(`test_g12_an_older_record_is_held_to_the_boundaries_its_geometry_hash_recovers`),
+and so is one whose names nothing on disk recovers while the geometry declares
+names today
+(`test_g12_an_older_record_whose_boundaries_no_hash_recovers_is_skipped_naming_why`):
+an index read off today's file would cut whichever surface holds that index in
+the saved one, under the name the pproc asked for.
+
 **When an extraction stops counting.** Only a CURRENT extraction has products:
 its point is a record the post admits, the point's saved simulation still
 hashes as the one the extraction opened, and every file the extraction wrote is
