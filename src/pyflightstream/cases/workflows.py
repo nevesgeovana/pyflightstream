@@ -102,6 +102,7 @@ from pyflightstream.cases import (
     ActuatorBlock,
     CampaignConfigError,
     CustomFlag,
+    InputKey,
     MeshOperation,
     PhaseLockedSpec,
     RawMeshConditions,
@@ -168,6 +169,7 @@ __all__ = [
     "RAW_VARIABLE",
     "REVOLUTIONS_VARIABLE",
     "ROTORLESS_REFUSED_KEYS",
+    "ROW_KEY_MEANINGS",
     "ROTOR_AXIS_VARIABLE",
     "ROTOR_ORIGIN_POINT_KEY",
     "ROTOR_ORIGIN_VARIABLE",
@@ -11065,6 +11067,264 @@ _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
     MOVING_BOUNDARIES_VARIABLE,
     MOTIONS_VARIABLE,
     EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
+)
+
+#: WHAT EACH ROW KEY SETS, one entry per key the three tables above register
+#: and one for ``RAW``, which the matrix reader takes out of the cell before a
+#: run type sees it (G08 of 0.27.0). The generated input glossary,
+#: ``INPUTS.md``, reads the run types that accept a key off the tables above
+#: and the builds off the command's own evidence; this states the meaning, the
+#: unit or the values, and the command, and says where a key is written when
+#: that is not the ``VAR_NAMES_VALUES`` cell. A key registered above without an
+#: entry here is a row of the glossary with no meaning, which its test refuses.
+ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
+    {
+        GEOMETRY_VARIABLE: InputKey(
+            "The geometry the row opens, a file of inputs/geometries/; written in the "
+            "GEOMETRY column since 0.17.0.",
+            "a file name with its extension",
+            "OPEN, IMPORT",
+        ),
+        SYMMETRY_VARIABLE: InputKey(
+            "The symmetry the solver is initialized under, which states what was "
+            "meshed; written in the SYMMETRY column since 0.17.0.",
+            "NONE, MIRROR or PERIODIC, as the build's database spells them; absent is NONE",
+            "INITIALIZE_SOLVER",
+        ),
+        SYMMETRY_LOADS_VARIABLE: InputKey(
+            "Whether the reported loads are the meshed sector's or the whole wheel's; "
+            "written in its column, and it wins over the setup's symmetry_loads.",
+            "true or false",
+            "SET_ANALYSIS_SYMMETRY_LOADS",
+        ),
+        ALPHA_VARIABLE: InputKey(
+            "The angle of attack, stated in the FLIGHT_CONDITION cell as a number or as "
+            "the word sweep.",
+            "deg",
+            "SOLVER_SET_AOA",
+        ),
+        BETA_VARIABLE: InputKey(
+            "The sideslip angle, stated in the FLIGHT_CONDITION cell as a number or as "
+            "the word sweep.",
+            "deg",
+            "SOLVER_SET_SIDESLIP",
+        ),
+        IGNORE_MISSING_FAMILIES_VARIABLE: InputKey(
+            "Whether a family the opened mesh lacks is left out or refuses the point; "
+            "set by --ignore-missing-families of the command line and refused in a cell.",
+            "true or false; the command line's default is true",
+        ),
+        EXPORT_LOG_VARIABLE: InputKey(
+            "Whether the script exports the solver log; written by the run from the HPC "
+            "profile's [log] table, never by a cell.",
+            "false, the only value ever written",
+            "EXPORT_LOG",
+        ),
+        PERIODIC_COPIES_VARIABLE: InputKey(
+            "How many periodic copies the meshed sector stands for; required with "
+            "SYMMETRY PERIODIC and refused otherwise.",
+            "a count",
+            "INITIALIZE_SOLVER",
+        ),
+        BASE_REGIONS_VARIABLE: InputKey(
+            "The boundaries that become base regions, the flat base and never the body "
+            "carrying it; it wins over the pproc's base_regions.",
+            "boundary names, comma separated",
+            "DETECT_BASE_REGIONS_BY_SURFACE",
+        ),
+        ROTATE_VARIABLE: InputKey(
+            "Rotations of the opened mesh, one record each, applied in the order written "
+            "and after every translation.",
+            "records {ANGLE: deg / AXIS: <frame>-<X|Y|Z> / ALIAS: <alias>}, with "
+            "AUX_FRAMES optional",
+            "ROTATE_SURFACE, SURFACE_ROTATE",
+        ),
+        TRANSLATE_VARIABLE: InputKey(
+            "Translations of the opened mesh, one record each along one axis of a frame, "
+            "applied in the order written and before every rotation.",
+            "records {DISTANCE: m / AXIS: <frame>-<X|Y|Z> / ALIAS: <alias>}, with "
+            "AUX_FRAMES optional",
+            "TRANSLATE_SURFACE_IN_FRAME",
+        ),
+        VELOCITY_VARIABLE: InputKey(
+            "The free-stream velocity of a case written in Python; a matrix row's comes "
+            "from its FLIGHT_CONDITION.",
+            "m/s",
+            "SOLVER_SET_VELOCITY",
+        ),
+        # NO COMMAND, although a rotor row turns it into SET_MOTION_ROTOR_RPM:
+        # the other two run types read it only to name the point, and a command
+        # here would lend them that command's builds.
+        ADVANCE_RATIO_VARIABLE: InputKey(
+            "The rotor speed as an advance ratio, J = V / (n D) with D the rotor's "
+            "diameter; stated in the FLIGHT_CONDITION cell or in a MOTIONS record, and "
+            "written in the point's name.",
+            "dimensionless",
+        ),
+        **{
+            key: InputKey(
+                f"The {axis} rate of the aircraft about the {axis} axis of the REF's "
+                f"[body_axes], {sense}; stated in the FLIGHT_CONDITION cell, it turns the "
+                "free stream.",
+                "deg/s",
+                "SET_FREESTREAM",
+            )
+            for key, axis, sense in (
+                ("roll_rate", "roll", "positive right wing down"),
+                ("pitch_rate", "pitch", "positive nose up"),
+                ("yaw_rate", "yaw", "positive nose right"),
+            )
+        },
+        LOG_OUTPUT_VARIABLE: InputKey(
+            "Which of a case's OUTPUTS is the solver log; a case written in Python states "
+            "it, and a matrix row is refused it.",
+            "a 1-based position",
+            "EXPORT_LOG",
+        ),
+        NCPUS_VARIABLE: InputKey(
+            "The processor count: the solver's thread count and, on a cluster, the "
+            "scheduler's ncpus; written in the NCPUS column.",
+            "a count",
+            "SET_MAX_PARALLEL_THREADS",
+        ),
+        WALLTIME_VARIABLE: InputKey(
+            "The wall clock the row asks for: the scheduler's limit on a cluster, and "
+            "what the watchdog counts down on an unsteady row; written in its column.",
+            "s",
+        ),
+        CONFIGURATION_VARIABLE: InputKey(
+            "The user's own name for the configuration; it configures nothing, and "
+            "reaches a comment of the script and the custom polar header.",
+            "text",
+        ),
+        ACTUATOR_VARIABLE: InputKey(
+            "The actuator disc the row loads: the name of a block of the row's REF that "
+            'declares kind = "actuator"; one disc per row.',
+            "a block name",
+            "CREATE_NEW_ACTUATOR",
+        ),
+        ACTUATOR_RPM_VARIABLE: InputKey(
+            "The disc's speed, a magnitude: its hand is the block's rpm_sign.",
+            "rev/min",
+            "SET_PROP_ACTUATOR_RPM",
+        ),
+        ACTUATOR_THRUST_VARIABLE: InputKey(
+            "The disc's net thrust, which selects the elliptical model.",
+            "N",
+            "SET_PROP_ACTUATOR_THRUST",
+        ),
+        PROFILE_VARIABLE: InputKey(
+            "The profile file of the disc, which selects the custom model.",
+            "the stem of a file of inputs/profiles/",
+            "SET_PROP_ACTUATOR_PROFILE",
+        ),
+        COLD_START_VARIABLE: InputKey(
+            "Starts each point of a steady sweep from a cleared solution instead of the "
+            "previous point's converged one.",
+            "true or false; absent is a warm start",
+            "CLEAR_SOLUTION",
+        ),
+        DELTA_TIME_VARIABLE: InputKey(
+            "The physical time step of the run.",
+            "s",
+            "SET_SOLVER_UNSTEADY",
+        ),
+        TIME_ITERATIONS_VARIABLE: InputKey(
+            "The number of physical time steps of the run.",
+            "a count",
+            "SET_SOLVER_UNSTEADY",
+        ),
+        DELTA_THETA_VARIABLE: InputKey(
+            "The rotor's rotation per time step, from which the time step follows at the "
+            "rotor's speed.",
+            "deg",
+            "SET_SOLVER_UNSTEADY",
+        ),
+        REVOLUTIONS_VARIABLE: InputKey(
+            "The total revolutions of the run, from which, with DELTA_THETA, the number "
+            "of time steps follows.",
+            "revolutions",
+            "SET_SOLVER_UNSTEADY",
+        ),
+        LAST_ITERS_AVG_VARIABLE: InputKey(
+            "The averaging window of a row that turns no rotor: the last time steps every "
+            "unsteady product is averaged over.",
+            "time steps",
+        ),
+        BLADES_VARIABLE: InputKey(
+            "The blade count of the row's reductions, where no rotor block of the "
+            "reference states it.",
+            "a count",
+        ),
+        EXPORT_UNSTEADY_AFTER_ITER_VARIABLE: InputKey(
+            "The time step from which the per-step exports begin, each file stamped with "
+            "its iteration.",
+            "a time step",
+        ),
+        RESTART_VARIABLE: InputKey(
+            "How to continue a run that stopped on the wall clock.",
+            "{FINISH_PENDING}, {ADDITIONAL_ITERS=<n>} or {ADDITIONAL_REVS=<n>}",
+        ),
+        LAST_REVS_AVG_VARIABLE: InputKey(
+            "The averaging window of a rotor row: the last revolutions every unsteady "
+            "product is averaged over.",
+            "revolutions, a float",
+        ),
+        CLOCK_MOTION_VARIABLE: InputKey(
+            "The motion that owns the row's clock: the time step and the run length are "
+            "that motion's.",
+            "a motion the row states",
+        ),
+        RPM_VARIABLE: InputKey(
+            "The rotor speed; stated in the FLIGHT_CONDITION cell, it reaches every motion "
+            "that states none.",
+            "rev/min",
+            "SET_MOTION_ROTOR_RPM",
+        ),
+        RPM_SIGN_VARIABLE: InputKey(
+            "The hand of a speed derived from ADVANCE_RATIO; refused beside an explicit "
+            "RPM, and a rotor block's rpm_sign wins over it.",
+            "1 or -1; absent is 1",
+            "SET_MOTION_ROTOR_RPM",
+        ),
+        ROTOR_AXIS_VARIABLE: InputKey(
+            "The axis the rotor of a flat row turns about; a rotor block of the reference "
+            "states its own.",
+            "X, Y or Z",
+            "SET_MOTION_ROTOR_AXIS",
+        ),
+        ROTOR_ORIGIN_VARIABLE: InputKey(
+            "The hub of the rotor of a flat row; a rotor block of the reference states its own.",
+            "three coordinates, comma separated, or a rotor point of inputs/reference_points.toml",
+            "CREATE_NEW_COORDINATE_SYSTEM",
+        ),
+        ROTOR_SHEDDING_VARIABLE: InputKey(
+            "The direction the relaxed trailing edges of a rotor case shed their wake.",
+            "AXIAL or AZIMUTH; absent asks nothing",
+        ),
+        MOVING_BOUNDARIES_VARIABLE: InputKey(
+            "The boundaries a flat rotor row turns; a MOTIONS record names its rotor by "
+            "MOVING_BC_ALIAS instead.",
+            "family names, or an alias",
+            "SET_MOTION_BOUNDARIES",
+        ),
+        MOTIONS_VARIABLE: InputKey(
+            "The rotor motions of the row, one record each, every rotor named by the "
+            "alias of a rotor block of the reference.",
+            "records {MOVING_BC_ALIAS: <alias> / RPM: rev/min}, or ADVANCE_RATIO in place of RPM",
+            "CREATE_NEW_MOTION",
+        ),
+        EXPORT_UNSTEADY_AFTER_REV_VARIABLE: InputKey(
+            "The revolution of the rotor clock from which the per-step exports begin.",
+            "revolutions",
+        ),
+        RAW_VARIABLE: InputKey(
+            "Solver command lines the row states verbatim, one record each or a file of "
+            "them, each emitted before the phase it names.",
+            "records {COMMAND: <line> / BEFORE: <phase>}, or FILE: <path> in place of COMMAND",
+            accepted="every run type, and a LEGACY row",
+        ),
+    }
 )
 
 #: The converter's namespace in the case variables (``matrix_ref``,

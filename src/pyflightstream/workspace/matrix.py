@@ -53,6 +53,7 @@ import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from pydantic import ValidationError
@@ -63,6 +64,7 @@ from pyflightstream.cases import (
     POINT_AXIS_KEYS,
     Campaign,
     FluidState,
+    InputKey,
     MeshImport,
     PointState,
     RawCommand,
@@ -125,6 +127,8 @@ from pyflightstream.workspace.flight_condition import (
 # registry is read once through the function that returns both
 # (PFS-2009.05).
 from pyflightstream.workspace.inputs import (
+    FLAGS_TABLE,
+    RAW_TABLE,
     RegisteredBuild,
     inventory_sidecar,
     is_valid_artifact_id,
@@ -143,6 +147,9 @@ from pyflightstream.workspace.naming import group_token
 
 __all__ = [
     "GEOMETRY_VARIABLE",
+    "PRESET_ALIASES",
+    "PRESET_RECORDED_ONLY",
+    "PRESET_RESERVED_KEYS",
     "PolChange",
     "ResolvedMatrix",
     "renumber_repeated_pols",
@@ -998,6 +1005,53 @@ _PRESET_RECORDED_ONLY_KEY = "recorded_only"
 #: the key loop that would otherwise refuse it as one; its contents are
 #: judged by the resolver, which owns the pin vocabulary.
 _FLIGHT_CONDITION_TABLE = "flight_condition"
+
+#: The two preset tables above, read-only and public, for the generated
+#: input glossary ``INPUTS.md`` (G08 of 0.27.0): the solver's own spelling
+#: to the field it names, and each recorded-only key to its reason.
+PRESET_ALIASES: Mapping[str, str] = MappingProxyType(_PRESET_ALIASES)
+PRESET_RECORDED_ONLY: Mapping[str, str] = MappingProxyType(_PRESET_RECORDED_ONLY)
+
+#: THE KEYS A PRESET MAY STATE THAT ARE NOT SOLVER SETTINGS, each with what it
+#: holds, for the same glossary. Every one of them is consumed before the loop
+#: that refuses a key naming no setting (:func:`_solver_from_setup`, and
+#: :func:`pyflightstream.workspace.inputs.resolve_setup` for the two tables).
+#: The tables a preset is refused for naming since 0.15.0, ``[[frames]]`` and
+#: ``[aliases]``, are not here: their home is the reference.
+PRESET_RESERVED_KEYS: Mapping[str, InputKey] = MappingProxyType(
+    {
+        _PRESET_RECORDED_ONLY_KEY: InputKey(
+            "The keys of this preset to keep in the artifact and emit nowhere; each "
+            "still warns, naming itself.",
+            "a list of key names",
+        ),
+        _FLIGHT_CONDITION_TABLE: InputKey(
+            "Fluid pins every row naming this setup inherits; a row stating one wins over it.",
+            "a table of the pins below",
+        ),
+        "stabilization": InputKey(
+            "Switches the stabilization whose strength stabilization_strength states; "
+            "disabled, nothing is emitted.",
+            "true or false, or ENABLE or DISABLE; beside solver_stabilization, refused",
+            "SOLVER_STABILIZATION",
+        ),
+        "stabilization_strength": InputKey(
+            "The strength of the stabilization the key above switches.",
+            "a number",
+            "SOLVER_STABILIZATION",
+        ),
+        RAW_TABLE: InputKey(
+            "Solver command lines stated verbatim, every row naming this setup emitting "
+            "each before the phase it names.",
+            "an array of tables; see `[[raw]]` below",
+        ),
+        FLAGS_TABLE: InputKey(
+            "Solver commands this setup exposes to the matrix under a word, the row "
+            "stating the value.",
+            "an array of tables; see `[[flags]]` below",
+        ),
+    }
+)
 
 
 def condition_defaults_origin(set_code: str) -> str:

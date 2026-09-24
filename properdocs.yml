@@ -49,6 +49,7 @@ nav:
   - What a run cost: solver-cost.md
   - The workspace and the workflow: workspace-and-workflows.md
   - Post-processing definitions: post-processing-definitions.md
+  - The input glossary: inputs.md
   - The test tiers and the licensed workspace: tiers.md
   - Flight conditions: flight-conditions.md
   # One section, newest first, so a release adds a line here and not an

@@ -80,6 +80,7 @@ from pyflightstream.cases import (
     ROTATION_OFFSET_KEY,
     ROTATION_SWEEP_KEY,
     Campaign,
+    InputKey,
     RawCommand,
     SimCase,
     SweepAxis,
@@ -117,6 +118,7 @@ from pyflightstream.cases.workflows import (
 )
 
 __all__ = [
+    "COLUMN_MEANINGS",
     "COLUMNS_NEW_AT_0_17_0",
     "COLUMNS_THAT_MAY_BE_UNSTATED",
     "UNSTATED_CELL",
@@ -186,6 +188,84 @@ _COLUMNS = (
     "WORKFLOW",
     "VAR_NAMES_VALUES",
 )
+
+#: WHAT EACH COLUMN SETS, one entry per column of the layout above and in its
+#: order, for the generated input glossary ``INPUTS.md`` (G08 of 0.27.0). A
+#: column added to the layout without an entry here is a row of the glossary
+#: with no meaning, which its test refuses.
+COLUMN_MEANINGS: Mapping[str, InputKey] = {
+    "POL": InputKey(
+        "The row's identifier: the simulation id its points are recorded and named under.",
+        "an id, unique in the matrix",
+    ),
+    "HIDDEN": InputKey("Whether the solver runs without its window.", "1 is hidden"),
+    "RUN": InputKey("Whether the row runs at all; only a row reading 1 is active.", "an integer"),
+    "AIRCRAFT": InputKey("The configuration's name.", "text"),
+    "CONFIGURATION": InputKey(
+        "The user's own label for the configuration; it configures nothing.", "text"
+    ),
+    "DESCRIPTION": InputKey("Free text about the row.", "text"),
+    "FLIGHT_CONDITION": InputKey(
+        "The flow condition and the attitude of every point: the keys given decide "
+        "which quantity is solved for, and the swept key carries the word sweep.",
+        "KEY:value pairs, comma separated; see the table below",
+    ),
+    "SWEEP_VALUES": InputKey(
+        "The values of the key the FLIGHT_CONDITION cell sweeps, one point each.",
+        "numbers, comma separated",
+    ),
+    "GEOMETRY": InputKey(
+        "The geometry the row opens, a file of inputs/geometries/.",
+        "a file name with its extension",
+        "OPEN, IMPORT",
+    ),
+    "REF": InputKey(
+        "The reference artifact the row's lengths, frames, rotors and discs come from.",
+        "an id of inputs/references/",
+    ),
+    "SET": InputKey(
+        "The setup artifact the row's solver settings come from.",
+        "an id of inputs/setups/",
+    ),
+    "PPROC": InputKey(
+        "The post-processing artifact the row's sections, plots, probes, exports and "
+        "products come from.",
+        "an id of inputs/pproc/",
+    ),
+    "SYMMETRY": InputKey(
+        "The symmetry the solver is initialized under, which states what was meshed.",
+        "NONE, MIRROR or PERIODIC",
+        "INITIALIZE_SOLVER",
+    ),
+    "SYMMETRY_LOADS": InputKey(
+        "Whether the reported loads are the meshed sector's or the whole wheel's.",
+        "true or false",
+        "SET_ANALYSIS_SYMMETRY_LOADS",
+    ),
+    "NCPUS": InputKey(
+        "The processor count: the solver's thread count and, on a cluster, the scheduler's ncpus.",
+        "a count",
+        "SET_MAX_PARALLEL_THREADS",
+    ),
+    "WALLTIME": InputKey(
+        "The wall clock the row asks for: the scheduler's limit on a cluster, and what "
+        "the watchdog counts down on an unsteady row.",
+        "s",
+    ),
+    "FS_BUILD": InputKey(
+        "The solver build the row runs on, as inputs/executables.toml names it.",
+        "a build identifier",
+    ),
+    "WORKFLOW": InputKey(
+        "The run type that builds the row's script, or LEGACY for a row a recipe of "
+        "the user builds.",
+        "steady, unsteady, unsteady_rotor or LEGACY",
+    ),
+    "VAR_NAMES_VALUES": InputKey(
+        "The row's own keys, the ones its run type reads; see the table of row keys.",
+        "KEY: value pairs separated by /",
+    ),
+}
 
 #: The layout of v0.15.0 to v0.16.0, frozen as a literal for the same
 #: reason the three older ones are: it is RECOGNISED and converted,

@@ -30,7 +30,7 @@ from datetime import UTC, datetime
 from importlib import import_module
 from inspect import Parameter, signature
 from pathlib import Path
-from typing import Annotated, Literal, Protocol, runtime_checkable
+from typing import Annotated, Literal, NamedTuple, Protocol, runtime_checkable
 
 from pydantic import (
     AfterValidator,
@@ -90,6 +90,9 @@ __all__ = [
     "SolverSettings",
     "SolverToggle",
     "EXPORT_KINDS",
+    "EXPORT_KIND_MEANINGS",
+    "InputKey",
+    "SOLVER_SETTING_COMMANDS",
     "OPT_IN_EXPORT_KINDS",
     "PLOT_TYPES",
     "STEADY_ONLY_EXPORT_KINDS",
@@ -164,6 +167,36 @@ ROTATION_OFFSET_KEY = "angle_deg"
 #: hold. A case naming two or more of these AND an aerodynamic sweep of
 #: two or more points is refused (:func:`multiplied_sweep`).
 ROTATION_SWEEP_KEY = "angle_sweep_deg"
+
+
+class InputKey(NamedTuple):
+    """One key of an input artifact, with what it means (G08 of 0.27.0).
+
+    The registries of keys that are not the fields of a model carry one of
+    these per key, beside the key: the matrix columns, the row keys of the run
+    types, the reserved keys of a setup preset and the tables of a geometry
+    sidecar. The generated input glossary, ``INPUTS.md``, is written from them
+    and from the models, whose fields state their meaning in their own
+    docstrings. So a key added to one of these registries arrives WITH its
+    meaning, and a key that arrives without one fails the glossary's test.
+
+    Attributes
+    ----------
+    meaning : str
+        What the key sets, in one sentence.
+    values : str
+        Its unit, or the values it takes; empty where the meaning says it.
+    command : str
+        The solver command it reaches, or several separated by ``", "``;
+        empty where it reaches none of its own.
+    accepted : str
+        Where the key is accepted, for a key whose registry does not say it.
+    """
+
+    meaning: str
+    values: str = ""
+    command: str = ""
+    accepted: str = ""
 
 
 class CampaignConfigError(PyflightstreamError, ValueError):
@@ -457,6 +490,28 @@ STEADY_ONLY_EXPORT_KINDS: frozenset[str] = frozenset({"probes", *PLOT_TYPES})
 #: where they are wanted.
 OPT_IN_EXPORT_KINDS: tuple[str, ...] = ("vtk", "csv", "force_distributions")
 
+#: What each kind an ``[exports]`` table may name leaves, one sentence each,
+#: for the generated input glossary ``INPUTS.md`` (G08 of 0.27.0). The command
+#: and the run types a kind is written on are read off :data:`EXPORT_KINDS`
+#: and the two tuples above, so this states what the file IS and nothing else.
+#: The two volume-section kinds are not here: ``[exports]`` cannot name them.
+EXPORT_KIND_MEANINGS: dict[str, str] = {
+    "simulation": "The point's final saved simulation, its solver state after the solve.",
+    "loads": "The loads table, the export every run is judged by.",
+    "tecplot": "The surface solution in Tecplot format.",
+    "vtk": "The surface solution in VTK format.",
+    "csv": "The surface solution as a CSV table.",
+    "force_distributions": ("The per-panel force distribution, saved once at the end of the run."),
+    "sections": "The pressure distribution of every surface section the pproc declares.",
+    "sectional_loads": "The sectional loads of every surface section the pproc declares.",
+    "probes": "The flow quantities at the probe points, after a steady solve.",
+    "plots": "The force and fluid plot histories of an unsteady run, one row per time step.",
+    "plot_residuals": "The solver's residual history as a text series, one row per iteration.",
+    "plot_loads": "The solver's load history as a text series, one row per iteration.",
+    "plot_sections_cp": "The section Cp plot as a text series, one x and Cp pair per section.",
+    "log": "The solver log, which turns a run into a residual verdict.",
+}
+
 
 def default_outputs(
     unsteady: bool,
@@ -655,7 +710,27 @@ def _check_family_selection(value: object) -> str | list[str]:
 
 
 class SectionDistribution(BaseModel):
-    """One surface-section distribution: families, frame and planes."""
+    """One surface-section distribution: families, frame and planes.
+
+    Attributes
+    ----------
+    families : str or list of str
+        What the sections cut: a selector word, an alias, a family name, or a
+        list of those.
+    frame : str
+        The frame the planes belong to: ``MRP``, a frame the reference
+        declares, or a rotor's.
+    planes : list of {'XY', 'XZ', 'YZ'}
+        The planes of that frame the sections lie in, one distribution each.
+    count : int, optional
+        The number of sections of this entry; unstated, the ``[sections]``
+        table's.
+    plot_direction : {1, 2}, optional
+        The plot direction of this entry; unstated, the ``[sections]`` table's.
+    integrate : bool
+        Appends the midpoint-strip integrals of the sectional loads to this
+        distribution's CSV.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -694,7 +769,20 @@ class SectionDistribution(BaseModel):
 
 
 class SectionsSpec(BaseModel):
-    """The ``[sections]`` table: NEW_SURFACE_SECTION_DISTRIBUTION per entry and plane."""
+    """The ``[sections]`` table: NEW_SURFACE_SECTION_DISTRIBUTION per entry and plane.
+
+    Attributes
+    ----------
+    count : int
+        The number of sections of every distribution that states none.
+    plot_direction : {1, 2}
+        The plot direction of every distribution that states none.
+    include_symmetry : bool
+        The command's INCLUDE_SYMMETRY argument, one value for the whole
+        artifact, because symmetry is a property of the case.
+    distributions : list of SectionDistribution
+        The distributions, one command per entry and plane.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -865,6 +953,18 @@ class ForcePlotGroup(BaseModel):
     rotor's own frame; one citing `LOCAL_AXIS` is one per BLADE. The
     `each` selector stays beside them, because one group per family in a
     COMMON frame is a reading no frame implies.
+
+    Attributes
+    ----------
+    name : str
+        The group's name, which names its plots ``<parameter>_<name>``; it
+        carries ``{family}`` exactly when the entry expands.
+    frame : str
+        The frame the loads are measured in, which decides how many groups the
+        entry is.
+    families : str or list of str
+        The families summed: a selector word, an alias, a family name, or a
+        list of those.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -978,7 +1078,16 @@ class ForcePlotGroup(BaseModel):
 
 
 class PlotsSpec(BaseModel):
-    """The ``[plots]`` table: which parameters, over which groups of families."""
+    """The ``[plots]`` table: which parameters, over which groups of families.
+
+    Attributes
+    ----------
+    parameters : list of str
+        The force and moment parameters plotted for every group; unstated,
+        all of them.
+    groups : list of ForcePlotGroup
+        The groups of families, one plot per parameter each.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -1057,7 +1166,15 @@ def _probes_are_a_list(value):
 
 
 class ProbeLine(BaseModel):
-    """One line of fluid probes, from one vertex to another, sampled at ``points``."""
+    """One line of fluid probes, from one vertex to another, sampled at ``points``.
+
+    Attributes
+    ----------
+    start : tuple of three floats
+        The first vertex, in the entry's frame and scale.
+    end : tuple of three floats
+        The last vertex, in the entry's frame and scale.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -1076,6 +1193,19 @@ class ProbeRectangle(BaseModel):
     The grid runs from `origin` toward `along_u` in `points_u` stations and
     toward `along_v` in `points_v`, both ends included, so a 3 by 4 rectangle
     is twelve points and its corners are three of the declared vertices.
+
+    Attributes
+    ----------
+    origin : tuple of three floats
+        The corner the grid starts from.
+    along_u : tuple of three floats
+        The corner the grid runs toward in its first direction.
+    along_v : tuple of three floats
+        The corner the grid runs toward in its second direction.
+    points_u : int
+        The stations from ``origin`` to ``along_u``, both ends included.
+    points_v : int
+        The stations from ``origin`` to ``along_v``, both ends included.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1113,6 +1243,19 @@ class ProbeCircle(BaseModel):
     `points_azimuth` around, so the centre appears once rather than once per
     azimuth: a survey that sampled its own centre eight times would weight it
     eight times in anything that averages the file.
+
+    Attributes
+    ----------
+    center : tuple of three floats
+        The centre of the disk.
+    normal : tuple of three floats
+        The axis the disk is perpendicular to.
+    radius : float
+        The disk's radius, in the entry's scale.
+    points_radial : int
+        The stations from the centre to the rim, both included.
+    points_azimuth : int
+        The stations around.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1150,6 +1293,27 @@ class ProbesSpec(BaseModel):
     2026-09-10 rewrote `propeller` here into `rotor` and left the sentence
     arguing against the change it explains (the technical writing lens of
     the 0.15.0 release review).
+
+    Attributes
+    ----------
+    frame : str
+        The frame the lines and planes are laid out in; empty, the rotor's own
+        hub frame.
+    parameters : list of str
+        The fluid parameters sampled at every point.
+    points : int
+        The vertices each line is sampled at, both ends included.
+    scale : {'m', 'rotor_radius'}
+        What the coordinates are in: metres, or radii of the row's rotor.
+    lines : list of ProbeLine
+        Lines of probes, each from one vertex to another.
+    rectangles : list of ProbeRectangle
+        Rectangular probe planes, each gridded point by point.
+    circles : list of ProbeCircle
+        Circular probe planes, each gridded in polar coordinates.
+    points_file : str, optional
+        The name of a points file of ``inputs/profiles/``, cited instead of
+        drawing lines and planes.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1266,6 +1430,21 @@ class ProductsSpec(BaseModel):
     (PFS-2014.01.01), ``<polar>_M<mach code>_g<group>.dat``. Off by
     default, since it is a second serialization of the polar table for
     one reader.
+
+    Attributes
+    ----------
+    polars : bool
+        Writes one polar table per group of ``[groups]``, the group's
+        coefficients per point.
+    sections : bool
+        Writes one sections table per point, from its sectional loads export.
+    plots : bool
+        Writes one plots table per unsteady point, from its plots export.
+    custom_polar_format : bool
+        Writes, beside every polar table, the same rows in the fixed-width
+        custom polar format.
+    superfile_format : str
+        The format the super file is written in.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1426,6 +1605,18 @@ class RawCommand(BaseModel):
     curated helper uses, so the database's grammar, version, argument
     and phase checks apply to it unchanged. ``setup`` is the artifact
     the entry came from, bound by the workspace for the run record.
+
+    Attributes
+    ----------
+    command : str
+        The command line as the solver reads it, arguments included.
+    before : str
+        The phase the line is emitted before: ``control`` for a line at the
+        head of the script, or one of the command database's phases.
+    setup : str or None
+        The artifact the entry came from, bound by the workspace.
+    source : str or None
+        Where the line came from, for the run record and a refusal.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1469,7 +1660,7 @@ class RawCommand(BaseModel):
 
 
 class FrameSpec(BaseModel):
-    """One custom coordinate system a setup artifact defines (PFS-2034.01).
+    """One custom coordinate system the reference's ``[[frames]]`` defines (PFS-2034.01, FR-72).
 
     The design of 2026-09-09 (design/69): the row's rotation names an
     axis as ``<frame>-<X|Y|Z>``, and the frame is one the setup defined
@@ -1478,6 +1669,19 @@ class FrameSpec(BaseModel):
     reference frame, in the simulation's length unit, and the two axes
     are direction vectors in that frame; the third axis is the right-handed cross product,
     as :func:`pyflightstream.script.helpers.coordinate_frame` computes it.
+
+    Attributes
+    ----------
+    name : str
+        The frame's name, which a row's ``AXIS`` and a pproc entry's
+        ``frame`` cite.
+    origin : tuple of three floats
+        The frame's origin, in the geometry's own frame, in metres.
+    x_axis : tuple of three floats
+        The direction of the frame's first axis.
+    y_axis : tuple of three floats
+        The direction of the frame's second axis; the third is their
+        right-handed cross product.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1590,6 +1794,13 @@ class BladeDatum(BaseModel):
     axis letter with an optional sign, refused when it is parallel to the
     axis the rotor turns about, because an angle measured from that axis
     locates nothing.
+
+    Attributes
+    ----------
+    azimuth_deg : float
+        Where blade one is, measured from ``zero`` about the rotor's axis.
+    zero : str
+        The axis letter the azimuth is measured from, with at most one sign.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1671,6 +1882,9 @@ class RotorBlock(BaseModel):
         carrying one blade of four still reduces over four.
     blade1 : BladeDatum
         Where blade one sits, and the axis its azimuth is measured from.
+    kind : str
+        ``"rotor"``, which is what makes a top-level table of the reference
+        a rotor block.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1811,6 +2025,9 @@ class ActuatorBlock(BaseModel):
 
     Attributes
     ----------
+    kind : str
+        ``"actuator"``, which is what makes a top-level table of the reference
+        an actuator disc.
     frame : str
         The frame the disc's axis belongs to: a name the reference's
         ``[[frames]]`` declares, ``MRP``, or a rotor's frame. The command
@@ -1820,8 +2037,10 @@ class ActuatorBlock(BaseModel):
         The frame's axis the disc turns about.
     offset_m : float
         The disc's position along that axis, from the frame's origin.
-    tip_radius_m, hub_radius_m : float
-        The disc's outer and inner radius, ``0 <= hub < tip``.
+    tip_radius_m : float
+        The disc's outer radius.
+    hub_radius_m : float
+        The disc's inner radius, ``0 <= hub < tip``.
     rpm_sign : int
         ``+1`` is the right-hand rule about ``axis``, as a rotor block's; the
         row's ``ACTUATOR_RPM`` is a magnitude and this is its hand.
@@ -1999,6 +2218,16 @@ class EquationSpec(BaseModel):
     is checked when the pproc is read, so a construct outside that set is
     refused at load and never at the end of a campaign.
 
+    Attributes
+    ----------
+    expression : str
+        The arithmetic, over the columns the unsteady polar's row holds.
+    meshes_alias : str
+        The alias the coefficient is about, and the suffix of its column
+        ``<NAME>_<alias>``; never a family list.
+    frame : str, optional
+        The frame whose plotted columns a symbol finds first.
+
     Examples
     --------
     >>> spec = EquationSpec(expression="FX / (0.5 * RHO * VINF**2 * SREF)", meshes_alias="PUSHER")
@@ -2042,7 +2271,17 @@ class EquationSpec(BaseModel):
 
 
 class SurfaceTimeAveragingSpec(BaseModel):
-    """The last iterations or revolutions used for solver surface averaging."""
+    """The last iterations or revolutions used for solver surface averaging.
+
+    Attributes
+    ----------
+    last_revs : float, optional
+        Averages the surface exports over the last revolutions of the rotor
+        clock.
+    last_iters : int, optional
+        Averages the surface exports over the last time iterations; a table
+        states exactly one of the two.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -2081,6 +2320,50 @@ class PprocSpec(BaseModel):
     an install that lacks it. ``time_averaging`` asks for time-averaged
     surfaces, and since 0.27.0 ``volume_section`` declares the one flow-field
     plane a steady point cuts and exports (G05).
+
+    Attributes
+    ----------
+    groups : dict of str to str
+        The groups the polar tables are written per, each naming ONE alias of
+        the reference.
+    phase_locked : PhaseLockedSpec, optional
+        When the phase-locked reduction is generated, and over how many
+        revolutions; absent, it is the series of blade passages.
+    equations : dict of str to EquationSpec
+        Coefficients the post stage derives into the unsteady polar, keyed by
+        the derived coefficient's name.
+    glossary : dict of str to str
+        What each of the user's own symbols means, listed in ``VARIABLES.md``
+        beside the package's definitions.
+    names : dict of str to str
+        Renames a plot column of the unsteady polar and of the reductions, from
+        the name the export prints to the one a reader's tool expects.
+    exports : dict of str to bool
+        Which of the export kinds a point writes.
+    time_averaging : SurfaceTimeAveragingSpec, optional
+        Asks the solver for surface exports averaged over the last iterations
+        or revolutions of the run.
+    vtk_variables : list of str, optional
+        The variables the VTK surface export writes.
+    sections : SectionsSpec
+        The surface-section distributions the script declares before the
+        solve.
+    volume_section : VolumeSectionSpec, optional
+        The one flow-field plane each point of a steady row cuts after its
+        solve and exports.
+    plots : PlotsSpec
+        The unsteady force plots: which parameters, over which groups of
+        families.
+    probes : list of ProbesSpec
+        The fluid probe entries, one per frame sampled.
+    products : ProductsSpec
+        Which post-processed tables the campaign writes.
+    blade_pattern : str
+        How a blade family is told from the airframe: a regular expression
+        over the family name.
+    base_regions : list of str
+        The boundaries that become base regions, detected after ``OPEN``; a
+        row's ``BASE_REGIONS`` wins over it.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -3247,23 +3530,28 @@ class SolverSettings(BaseModel):
         Run the full iteration count regardless of convergence. The
         solver's own words are accepted too (see below).
     boundary_layer : str, optional
-        ``LAMINAR``, ``TRANSITIONAL``, or ``TURBULENT``.
+        The boundary layer model: ``LAMINAR``, ``TRANSITIONAL``, or
+        ``TURBULENT``.
     viscous_coupling : bool, optional
         Couple the boundary layer model to the potential solution.
         The solver's own words are accepted too (see below).
     max_threads : int, optional
-        Parallel core count.
+        Parallel core count; a row's ``NCPUS`` column wins over it.
     timeout_s : float, optional
         Wall-clock limit for one point's solver process; enforced by
         the executor, not by FlightStream.
+    walltime_margin_s : float, optional
+        How much of a row's ``WALLTIME`` to leave for the exports, in
+        seconds; twenty minutes when unstated. It emits nothing.
     solver_model : str, optional
-        ``INCOMPRESSIBLE``, ``SUBSONIC_PRANDTL_GLAUERT``,
-        ``TRANSONIC_FIELD_PANEL``, ``TANGENT_CONE`` or
-        ``MODIFIED_NEWTONIAN``; an argument of ``INITIALIZE_SOLVER``.
-        None leaves the emitter's own default, which is
-        ``INCOMPRESSIBLE``.
+        The flow model the solver is initialized with, ``INCOMPRESSIBLE``,
+        ``SUBSONIC_PRANDTL_GLAUERT``, ``TRANSONIC_FIELD_PANEL``,
+        ``TANGENT_CONE`` or ``MODIFIED_NEWTONIAN``; an argument of
+        ``INITIALIZE_SOLVER``. None leaves the emitter's own default, which
+        is ``INCOMPRESSIBLE``.
     wall_collision_avoidance : bool, optional
-        The other ``INITIALIZE_SOLVER`` argument a preset states.
+        The wall-collision avoidance argument of ``INITIALIZE_SOLVER``, the
+        other one a preset states.
     convergence_iterations : int, optional
         Iterations the residual must hold under the threshold before
         the solver calls the run converged.
@@ -3271,20 +3559,99 @@ class SolverSettings(BaseModel):
         Floor applied to the pressure coefficient.
     farfield_layers : int, optional
         Farfield layer count.
-    mesh_induced_wake_velocity, unsteady_pressure_and_kutta,
-    wake_on_wake_induction, additional_wake_relaxation,
+    mesh_induced_wake_velocity : bool, optional
+        Switches the solver's mesh-induced wake velocity. This toggle
+        and the four below it are advanced settings, and the solver's
+        own ENABLE and DISABLE are read as well as Python booleans.
+    unsteady_pressure_and_kutta : bool, optional
+        Switches the unsteady Bernoulli and Kutta terms of the unsteady
+        solver.
+    wake_on_wake_induction : bool, optional
+        Switches the wake-on-wake induced velocity computation.
+    additional_wake_relaxation : bool, optional
+        Asks for one additional wake relaxation iteration.
     reynolds_averaged_drag : bool, optional
-        Advanced-settings toggles; the solver's own ENABLE and DISABLE
-        are read as well as Python booleans.
+        Switches the Reynolds-averaged (flat plate) boundary layer
+        calculations.
     solver_stabilization : float, optional
         Stabilization strength. A preset that gates it with a separate
         ENABLE/DISABLE key resolves the pair before it arrives here:
         disabled means None, not zero.
+    laminar_separation : bool, optional
+        Switches laminar boundary layer separation.
+    kutta_joukowski_lift : bool, optional
+        Computes the inviscid lift by the Kutta-Joukowski theorem, from
+        the bound circulation, instead of integrating the surface
+        pressure.
+    aeroelastic_rbf_type : str, optional
+        The radial basis function of the aeroelastic mesh morphing.
+    print_rotor_induced_velocities : bool, optional
+        Prints the rotor-induced velocities to the log at every time
+        step of an unsteady run.
+    adaptive_field_grid_refinement : bool, optional
+        Refines the field-source grid where the solution needs it; the
+        manual marks it transonic only.
+    rotor_induced_velocity_blending : float, optional
+        Blending factor for wake stabilization, dimensionless, between
+        0 and 1.
+    wake_numerical_relaxation : float, optional
+        Relaxation factor applied to the wake between iterations,
+        dimensionless, between 0 and 1.
+    wake_relaxation : bool, optional
+        Relaxes the wake geometry between solver iterations.
+    wake_decay_constant_per_m : float, optional
+        Rate at which wake vorticity decays with distance, per metre.
+    wake_streamwise_agglomeration : bool, optional
+        Agglomerates wake filament edges along the streamwise direction,
+        so the solver carries fewer wake elements.
+    jet_wake_decay_normalized_length : float, optional
+        Distance at which a jet wake decays to a tenth of its strength,
+        in jet wake diameters.
+    jet_wake_filaments_grid_induction : bool, optional
+        Whether the jet wake filaments induce velocity on the mesh.
+    adverse_gradient_boundary_layer : bool, optional
+        Switches the adverse-pressure-gradient treatment of the
+        boundary-layer model.
+    vortex_ring_normalization : bool, optional
+        Normalizes the vortex-ring strengths on the wake panels.
     wake_termination_revolutions : float, optional
         Wake termination stated in revolutions, negative counting
         backwards from the end of the run. Converted to time steps by
         the rotor builder, which is the only layer that knows how many
         steps a revolution is.
+    wake_termination_steps : int, optional
+        Wake termination stated in time steps, negative counting
+        backwards from the end of the run, for a run type with a clock
+        and no rotor.
+    symmetry_loads : bool, optional
+        Whether the reported loads are the meshed half's or sector's or
+        the whole model's; a row's ``SYMMETRY_LOADS`` column wins over it.
+    significant_digits : int, optional
+        How many decimals the solver prints in every export.
+    reference_velocity_m_per_s : float, optional
+        The velocity the coefficients are normalised on, in m/s; unstated,
+        the free-stream velocity.
+    vorticity_drag_families : list of str, optional
+        The families whose induced drag comes from vorticity integration,
+        by family name.
+    axial_separation_families : list of str, optional
+        The families on the axial flow separation list, by family name.
+    load_solver_initialization : bool, optional
+        Whether ``OPEN`` loads the solver initialization a saved
+        simulation carries; unstated, it does not.
+    analysis_families : list of str, optional
+        The families that enter the loads, by family name; every other
+        boundary leaves the analysis.
+    load_units : str, optional
+        The unit the loads table prints its forces and moments in.
+    inviscid_loads : bool, optional
+        Reports the loads and moments without their viscous part.
+    vorticity_lift_model : bool, optional
+        Computes the lift from the vorticity field rather than from the
+        integrated surface pressure.
+    unsteady_viscous_coupling_iteration : int, optional
+        The time step at which an unsteady run switches the viscous
+        coupling on.
 
     Notes
     -----
@@ -3481,6 +3848,62 @@ class SolverSettings(BaseModel):
         )
 
 
+#: The solver command each :class:`SolverSettings` field reaches, for the
+#: generated input glossary ``INPUTS.md`` (G08 of 0.27.0), which reads the
+#: builds a setting is accepted on off the command's own evidence. A field
+#: absent here reaches no command: ``timeout_s`` is the executor's and
+#: ``walltime_margin_s`` the wall-clock program's. Written out rather than
+#: matched by name against the helper's flags, because two fields share a
+#: helper keyword's name and reach another command: ``solver_model`` and
+#: ``wall_collision_avoidance`` are arguments of ``INITIALIZE_SOLVER``.
+SOLVER_SETTING_COMMANDS: dict[str, str] = {
+    "iterations": "SOLVER_SET_ITERATIONS",
+    "convergence": "SOLVER_SET_CONVERGENCE",
+    "forced_iterations": "SOLVER_SET_FORCED_ITERATIONS",
+    "boundary_layer": "SET_BOUNDARY_LAYER_TYPE",
+    "viscous_coupling": "SET_SOLVER_VISCOUS_COUPLING",
+    "max_threads": "SET_MAX_PARALLEL_THREADS",
+    "solver_model": "INITIALIZE_SOLVER",
+    "wall_collision_avoidance": "INITIALIZE_SOLVER",
+    "convergence_iterations": "SET_SOLVER_CONVERGENCE_ITERATIONS",
+    "minimum_cp": "SOLVER_MINIMUM_CP",
+    "farfield_layers": "SOLVER_SET_FARFIELD_LAYERS",
+    "mesh_induced_wake_velocity": "SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY",
+    "unsteady_pressure_and_kutta": "SOLVER_UNSTEADY_PRESSURE_AND_KUTTA",
+    "wake_on_wake_induction": "SET_WAKE_ON_WAKE_INDUCTION",
+    "additional_wake_relaxation": "ADDITIONAL_WAKE_RELAXATION_ITERATION",
+    "reynolds_averaged_drag": "REYNOLDS_AVERAGED_DRAG_FORCES",
+    "solver_stabilization": "SOLVER_STABILIZATION",
+    "laminar_separation": "LAMINAR_SEPARATION",
+    "kutta_joukowski_lift": "KUTTA_JOUKOWSKI_LIFT_FORCES",
+    "aeroelastic_rbf_type": "AEROELASTIC_RBF_TYPE",
+    "print_rotor_induced_velocities": "PRINT_ROTOR_INDUCED_VELOCITIES",
+    "adaptive_field_grid_refinement": "SET_ADAPTIVE_FIELD_GRID_REFINEMENT",
+    "rotor_induced_velocity_blending": "ROTOR_INDUCED_VELOCITY_BLENDING",
+    "wake_numerical_relaxation": "SET_WAKE_NUMERICAL_RELAXATION",
+    "wake_relaxation": "SET_WAKE_RELAXATION",
+    "wake_decay_constant_per_m": "SET_WAKE_DECAY_CONSTANT",
+    "wake_streamwise_agglomeration": "SET_WAKE_STREAMWISE_AGGLOMERATION",
+    "jet_wake_decay_normalized_length": "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH",
+    "jet_wake_filaments_grid_induction": "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION",
+    "adverse_gradient_boundary_layer": "SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER",
+    "vortex_ring_normalization": "SOLVER_VORTEX_RING_NORMALIZATION",
+    "wake_termination_revolutions": "SET_WAKE_TERMINATION_TIME_STEPS",
+    "wake_termination_steps": "SET_WAKE_TERMINATION_TIME_STEPS",
+    "symmetry_loads": "SET_ANALYSIS_SYMMETRY_LOADS",
+    "significant_digits": "SET_SIGNIFICANT_DIGITS",
+    "reference_velocity_m_per_s": "SOLVER_SET_REF_VELOCITY",
+    "vorticity_drag_families": "SET_VORTICITY_DRAG_BOUNDARIES",
+    "axial_separation_families": "SET_AXIAL_SEPARATION_BOUNDARIES",
+    "load_solver_initialization": "OPEN",
+    "analysis_families": "SET_SOLVER_ANALYSIS_BOUNDARIES",
+    "load_units": "SET_LOADS_AND_MOMENTS_UNITS",
+    "inviscid_loads": "SET_INVISCID_LOADS",
+    "vorticity_lift_model": "SET_VORTICITY_LIFT_MODEL",
+    "unsteady_viscous_coupling_iteration": "SET_UNSTEADY_VISCOUS_COUPLING_ITERATION",
+}
+
+
 class FluidState(BaseModel):
     """The resolved air state a case runs at (PFS-2027.05, PFS-2025.02.05).
 
@@ -3643,6 +4066,26 @@ class MeshOperation(BaseModel):
     or by a name an earlier rename gave; never by position. It is
     :data:`EVERY_SURFACE` by default, which ``rename`` and ``mirror`` do not
     take: each acts on one named surface.
+
+    Attributes
+    ----------
+    op : {'scale', 'rename', 'mirror', 'translate', 'rotate'}
+        Which operation, and so which of the keys below it states.
+    surface : str
+        The surface acted on, by the file's name or an earlier rename's;
+        ``"all"`` for every surface, which a rename and a mirror do not take.
+    factors : tuple of three floats, optional
+        A scale's factor along each axis, each greater than zero.
+    vector : tuple of three floats, optional
+        A translation's vector, in the ``[import]`` unit.
+    axis : {'X', 'Y', 'Z'}, optional
+        The axis a rotation turns about.
+    angle_deg : float, optional
+        The angle of a rotation, in degrees.
+    plane : {'YZ', 'XZ', 'XY'}, optional
+        The plane a mirror reflects in; the copy joins its source.
+    to : str, optional
+        A rename's new name, one word.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -3725,6 +4168,14 @@ class MeshImport(BaseModel):
     ``operations`` are the mesh operations applied right after the import,
     in the order written (G03, :class:`MeshOperation`); empty when the
     table declares none.
+
+    Attributes
+    ----------
+    units : str
+        The length unit the mesh file is written in; never assumed.
+    operations : tuple of MeshOperation
+        The mesh operations applied right after the import, in the order
+        written.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
