@@ -210,6 +210,12 @@ FAILED_INCOMPLETE_OUTPUT, FAILED_DIVERGED), iterations, residual,
 wall time, output paths, error text, and (since the v0.3 line) the
 solver-setup provenance snapshot.
 
+A run whose script imports trailing edges from a file is also held to
+the solver's own count: the log's imported edges must equal the points
+the script wrote, or the run is recorded FAILED_SCRIPT, and with no
+solver log read it is recorded FAILED_INCOMPLETE_OUTPUT. The node file
+the run wrote for the import is among the input hashes (G02).
+
 The manifest is the sole authority on run identity. Folder and file
 names are generated conveniences (templatable for human readability)
 and are never parsed back; the absence of any parse-back API is

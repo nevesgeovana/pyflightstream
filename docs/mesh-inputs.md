@@ -194,6 +194,14 @@ solver would mark that edge once. A file of the edges' end vertices fails this
 check at its first point. The checked points come back in the simulation's
 unit.
 
+A run that imports the file writes the solver's node file before the solver
+starts and records its digest among the run's inputs. After the run it compares
+the solver's own count of imported edges, which the solver logs, with the
+number of points it wrote, and records the run FAILED_SCRIPT when they differ:
+a point that matches no edge marks nothing and the solver says nothing about
+it. The solver log therefore has to be among the row's outputs; a run that
+imported a file and read no log is recorded FAILED_INCOMPLETE_OUTPUT.
+
 <!-- skip: next -->
 ```python
 from pyflightstream.workspace import write_trailing_edge_node_file
