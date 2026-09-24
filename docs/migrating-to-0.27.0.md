@@ -265,6 +265,12 @@ the opposite sign to 0.26.0: `roll_rate:40` writes
   submission; an extraction's log is what the solver printed, or absent with
   the reason in its `note`. The build-identity pre-flight exports no log there
   either, and a build the solver did not print is a warning, not a refusal.
+- A submitted steady job of several points on such a cluster is collected
+  once its points' other outputs and its scheduler's log have settled: the log
+  is filed as `<job script stem>_log.txt` in the simulation folder, its points
+  carry no `_log.txt` among their `outputs`, and each point's `residual_note`
+  names the job's log. A job left WAITING by an earlier version is collected
+  by running `pyfs-matrix collect` again.
 - A record `FAILED_INCOMPLETE_OUTPUT` for a missing declared output now lists
   the outputs that were written, in `datapoints/DP-<point>/`, with their
   hashes; before, it listed none and they stayed where the solver wrote them.

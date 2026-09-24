@@ -306,6 +306,16 @@ FlightStream versions.
   from the solver's printed output and warns, naming the profile, when it
   finds none. `ExecutionResult.captured_output()` returns that printed output,
   standard output then standard error.
+- **`pyfs-matrix collect` finishes a submitted steady job on a machine that
+  exports no log.** A steady row of several points is one job, and where the
+  profile states `export_log = false` its scheduler writes ONE log of the job.
+  The collector copied it to the first point's declared log and waited for
+  every other point's, which no scheduler writes, so the job stayed WAITING
+  and `collect --watch` never ended. The job's log is now filed once, as
+  `<job script stem>_log.txt` in the simulation folder where the job ran, no
+  point waits for a log of its own, each point is judged from its loads
+  export, each point's and the job's `residual_note` names the job's log, and a
+  file-route row holds every point to the import count in it.
 - **A missing declared output no longer strands the others.** Collection
   refused before moving anything when one declared output was missing, so a
   point whose log never came left every other export in the solver's working

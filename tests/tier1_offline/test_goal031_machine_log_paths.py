@@ -7,12 +7,16 @@ met the same build without it:
 
 A. the additional post, whose extraction scripts exported the log whether it
    ran with ``--local`` or was planned for a submission, and the build-identity
-   pre-flight, whose sentinel script exports a log to read the build from.
+   pre-flight, whose sentinel script exports a log to read the build from;
+B. the collection of a submitted steady job of several points, which waited
+   for a log per point while the scheduler writes ONE log for the job, so a
+   ``collect --watch`` never finished.
 """
 
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -22,15 +26,24 @@ from pyflightstream.results import VersionMismatchWarning
 from pyflightstream.run import (
     ExecutionResult,
     ExecutorConfigurationError,
+    LoadsAssessor,
     LocalExecutor,
+    SubmittingExecutor,
     check_solver_identity,
 )
+from pyflightstream.run.collect import collect_and_post
+from pyflightstream.run.matrix import run_matrix
 from pyflightstream.versions import resolve
+from pyflightstream.workspace import RunStatus
+from pyflightstream.workspace.inputs import read_hpc_profile
 from tests.tier1_offline.test_goal031_local_run_log import (
+    FIXTURES,
     LOG,
     PROFILE,
+    STUB,
+    _matrix,
 )
-from tests.tier1_offline.test_matrix_run import CountingStub
+from tests.tier1_offline.test_matrix_run import RECIPES, CountingStub, workflow_registry
 
 # --- A. the build-identity pre-flight ----------------------------------------
 
@@ -205,3 +218,108 @@ def test_an_additional_post_off_the_cluster_still_exports_its_log(tmp_path, monk
     plans = plan_additional_post(matrix, workspace, default_fs_version=BUILD)
     ready = [plan for plan in plans if plan.status == "READY"]
     assert ready and all("EXPORT_LOG" in (plan.script_text or "").splitlines() for plan in ready)
+
+
+# --- B. a submitted steady job of several points -----------------------------
+
+
+def _no_sleep(_seconds: float) -> None:
+    """The clock, injected: the watch's rounds are counted, not waited."""
+
+
+def _submitted_steady_job(tmp_path, *, native=LOG):
+    """Submit a three-point steady row on such a machine, then do what its scheduler does.
+
+    The job runs its one script in the simulation folder, where the stand-in
+    writes every point's exports (no point exports a log: the script carries
+    no EXPORT_LOG), and the scheduler writes its own log of the job there.
+    """
+    workspace, matrix = _matrix(tmp_path, sweep="-2.0,0.0,2.0")
+    directory = workspace.inputs_dir / "hpc"
+    directory.mkdir(parents=True, exist_ok=True)
+    profile = directory / "h001.toml"
+    profile.write_text(PROFILE, encoding="utf-8")
+    run_matrix(
+        matrix,
+        workspace,
+        name="local",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=LoadsAssessor(),
+        executor=SubmittingExecutor(
+            read_hpc_profile(profile), values={"fs_build": "26.120"}, submit=False
+        ),
+    )
+    (job,) = workspace.read_manifest()
+    assert job.status is RunStatus.SUBMITTED, (job.status, job.error)
+    sim = workspace.sim_dir("5001")
+    stub = tmp_path / "stub_solver.py"
+    stub.write_text(STUB, encoding="utf-8")
+    subprocess.run(
+        [
+            sys.executable,
+            str(stub),
+            str(sim / str(job.script_path)),
+            str(FIXTURES / "loads_steady_26.120.txt"),
+            "-",
+            "abort",
+        ],
+        cwd=sim,
+        check=True,
+    )
+    (sim / "FTS5001.l4242").write_text(native, encoding="utf-8")
+    return workspace, job
+
+
+def test_collect_files_a_steady_job_whose_scheduler_logs_the_job_once(tmp_path):
+    """A bounded watch collects the job: it waits for no log a point cannot have.
+
+    Three rounds is the bound; the scheduler's log and every point's export
+    are on disk before the first, so a collector still waiting after the third
+    is one that waits forever.
+    """
+    workspace, job = _submitted_steady_job(tmp_path)
+    report = collect_and_post(
+        workspace, watch=True, rounds=3, interval=0.0, watch_interval=0.0, sleep=_no_sleep
+    )
+    assert not report.waiting, [outcome.detail for outcome in report.waiting]
+    assert [outcome.state for outcome in report.collected] == ["COLLECTED"], report.lines()
+    (collected,) = workspace.read_manifest()
+    assert collected.status is RunStatus.CONVERGED, (collected.status, collected.error)
+    sim = workspace.sim_dir("5001")
+    job_log = f"{Path(str(job.script_path)).stem}_log.txt"
+    assert (sim / job_log).read_text(encoding="utf-8") == LOG
+    for entry in collected.points_ran:
+        assert entry["status"] == "CONVERGED", entry
+        assert entry.get("outputs") and not any(
+            name.endswith("_log.txt") for name in entry["outputs"]
+        ), entry
+        note = str(entry.get("residual_note") or "")
+        assert "scheduler" in note and job_log in note, note
+    for point in collected.as_points():
+        assert point.residual_note and job_log in point.residual_note, point.residual_note
+
+
+def test_a_steady_job_that_imported_trailing_edges_is_held_to_the_job_s_log(tmp_path):
+    """The one import line is the job's, so every point is held to the scheduler's log."""
+    from tests.tier1_offline.test_run_wake_edge_count import LOG_AROUND
+
+    for line, expected in (
+        ("16 trailing edges imported for boundary Wing", "CONVERGED"),
+        ("15 trailing edges imported for boundary Wing", "FAILED_SCRIPT"),
+    ):
+        root = tmp_path / expected
+        root.mkdir()
+        workspace, _ = _submitted_steady_job(root, native=LOG_AROUND.format(line=line))
+        rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+        rows[0]["submission"]["wake_edge_points"] = 16
+        workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+        collect_and_post(
+            workspace, watch=True, rounds=3, interval=0.0, watch_interval=0.0, sleep=_no_sleep
+        )
+        (collected,) = workspace.read_manifest()
+        assert [entry["status"] for entry in collected.points_ran] == [expected] * 3, (
+            line,
+            collected.error,
+        )

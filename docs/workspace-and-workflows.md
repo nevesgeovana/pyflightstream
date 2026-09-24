@@ -3417,6 +3417,20 @@ points and one script, submits from and runs in the simulation folder, and
 collection files each point's outputs in its own folder. FR-99 states the
 requirement.
 
+**A steady job's log on a machine that exports none.** Where the profile
+states `[log] export_log = false`, the job's script exports no log for any of
+its points, and its scheduler writes one log of the whole job. `collect`
+therefore waits for each point's other outputs and for that one log, and files
+the log once, under the job's script name with `_log.txt`
+(`P<POL>-<sweep name>_log.txt`), in the simulation folder where the job ran; no
+point waits for a log of its own, which until 0.27.0 kept `collect --watch`
+waiting for files no scheduler writes. Each point is judged from its loads
+export, and each point's `residual_note`, and the job's, names the job's log. A
+row that imports its trailing edges from a file holds every point to the count
+in that one log
+(`test_collect_files_a_steady_job_whose_scheduler_logs_the_job_once`,
+`test_a_steady_job_that_imported_trailing_edges_is_held_to_the_job_s_log`).
+
 ### Naming the build to a cluster's scheduler
 
 A row's `FS_BUILD` names ONE build, `26.123`. A scheduler often knows only an
