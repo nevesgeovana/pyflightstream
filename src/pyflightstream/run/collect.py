@@ -969,8 +969,15 @@ def _log_verdicts(
     declared = _declared_log_names(record, sim_dir)
     # The solver's own log, where the job ran, whether or not a row declared it:
     # it carries the four lines on a job that collected nothing else as a log.
+    # Where the job ran: the datapoint folder its submission names relative to
+    # the simulation, which holds when the workspace was moved after the
+    # submission, and the absolute cwd the record kept, which holds when not.
+    relative = str((record.submission or {}).get("working_dir") or "")
     cwd = getattr(record, "cwd", None)
-    ran_in = [Path(cwd)] if isinstance(cwd, str) and cwd else []
+    ran_in = [
+        *([sim_dir / relative] if relative else []),
+        *([Path(cwd)] if isinstance(cwd, str) and cwd else []),
+    ]
     own = [
         (folder / SOLVER_OWN_LOG).read_text(encoding="utf-8", errors="replace")
         for folder in dict.fromkeys([*ran_in, sim_dir])

@@ -840,7 +840,14 @@ gone (`docs/migrating-to-0.27.0.md`).
   staged geometry, which can be the library's own file through the inputs
   folder) is refused before it is written, so the input keeps its bytes; and
   collection reads the solver's own `FlightStreamLog.txt` where the job ran,
-  declared or not (G06).
+  declared or not, in the datapoint folder the submission names even when the
+  workspace was moved (G06). A data file the run writes and hashes (the
+  trailing-edge node file, a disc's profile copy) is the point's own and is
+  written in the folder the point runs in: one a recipe parks anywhere else,
+  beside the geometry or on a path several points share, is refused before the
+  solver starts, since another point's run would rewrite it before a queued
+  point read it. Pass `mark_wake_edges` and `actuator_disc` a path in
+  `script.working_dir`, as the workflow builders do (G02, G06).
 
 ### Changed
 

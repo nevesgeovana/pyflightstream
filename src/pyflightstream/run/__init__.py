@@ -5672,6 +5672,23 @@ def _write_pending_files(
     reserved.update({one_file(placed(str(own))): str(own) for own in run_writes})
     hashed = set(recorded.values())
     untouched: set[str] = set()
+    # A DATA FILE THE RUN WRITES AND HASHES IS THE POINT'S OWN, written in the
+    # folder the point runs in. One parked anywhere else, a path several points
+    # share, is rewritten by the next point's run while an earlier point that
+    # was submitted and has not read it yet keeps the digest of the first bytes.
+    # Action scripts are hashed nowhere and keep their paths (RPT-030).
+    root = os.path.normcase(os.path.normpath(os.path.abspath(work_dir)))
+    for parked in script.pending_input_files:
+        here = os.path.normcase(os.path.normpath(os.path.abspath(placed(parked))))
+        if here != root and not here.startswith(root + os.sep):
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the run would write {placed(parked)} for the solver "
+                f"and record its digest, and it is outside {work_dir}, the folder the "
+                "point runs in. A data file the run writes is the point's own: another "
+                "point's run would rewrite a shared one before this point's solver read "
+                "it. Give it a path relative to the point's folder; the solver was not "
+                "started."
+            )
     targets: dict[str, tuple[Path, bytes]] = {}
     for parked, content in (
         *script.pending_action_scripts.items(),

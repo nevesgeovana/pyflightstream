@@ -157,8 +157,13 @@ with 0.27.0.
 
 - `mark_wake_edges(script, edge_type=, tolerance=)` becomes
   `mark_wake_edges(script, edge_type=, tolerance=, units="<simulation unit>",
-  node_file="<absolute path>", midpoints=<edge mid-points in that unit>)`. It
-  works on 26.124 only; 26.122 and 26.123 now refuse.
+  node_file="<path>", midpoints=<edge mid-points in that unit>)`. It
+  works on 26.124 only; 26.122 and 26.123 now refuse. The node file is written
+  in the folder the point runs in (`script.working_dir`, a name relative to it):
+  a data file the run writes and hashes is the point's own, and one parked
+  anywhere else, beside the geometry for instance, is refused before the solver
+  starts, because another point's run would rewrite it before a queued point
+  read it. The same holds for a disc's profile copy (`actuator_disc`).
 - `write_node_file(path, nodes, unit=U)` becomes `write_node_file(path,
   midpoints, unit=U, simulation_unit=<simulation unit>)`. The file has no unit
   line and no ids, and it takes mid-points, not vertices.

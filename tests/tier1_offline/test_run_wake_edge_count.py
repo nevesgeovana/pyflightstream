@@ -84,7 +84,10 @@ def wake_recipe(case, script):
         edge_type="STANDARD",
         tolerance=0.0001,
         units="METER",
-        node_file=str(Path(case.geometry).with_suffix(".wake_nodes.txt")),
+        node_file=str(
+            Path(script.working_dir or ".")
+            / Path(case.geometry).with_suffix(".wake_nodes.txt").name
+        ),
         midpoints=MIDPOINTS,
     )
     helpers.free_stream(script)

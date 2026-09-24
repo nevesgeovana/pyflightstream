@@ -610,12 +610,12 @@ def test_a_file_parked_on_a_hashed_input_is_refused_before_it_is_written(tmp_pat
         outputs=["loads_{point}.txt"],
     )
     recorded = {"wing.obj": file_sha256(geometry)}
-    with pytest.raises(CampaignConfigError, match=r"already hashed"):
+    with pytest.raises(CampaignConfigError, match=r"already hashed|folder the point runs in"):
         _write_pending_files(script, tmp_path / "DP-point", case=case, recorded=recorded)
     assert geometry.read_bytes() == b"v 0 0 0\n", "the input was overwritten before the refusal"
 
     same = Script("26.124")
-    same._pending_input_files[str(geometry)] = b"v 0 0 0\n"
+    same._pending_action_scripts[str(geometry)] = "v 0 0 0\n"
     _write_pending_files(same, tmp_path / "DP-point", case=case, recorded=recorded)
     assert geometry.read_bytes() == b"v 0 0 0\n"
 
@@ -672,3 +672,58 @@ def test_a_parked_file_equal_to_a_hashed_input_leaves_it_untouched(tmp_path):
     _write_pending_files(script, tmp_path / "DP-point", case=case, recorded=recorded)
     assert geometry.read_bytes() == b"v 0 0 0\nv 1 0 0\n"
     assert file_sha256(geometry) == recorded["wing.obj"]
+
+
+def test_a_data_file_the_run_writes_is_the_points_own(tmp_path):
+    """Two submitted points whose recipe parks one shared absolute profile with its own
+    loading each: the second submission rewrote the file the first job had not read
+    yet, under the first record's digest. A data file the run writes and hashes is the
+    point's own and is written in the folder the point runs in; one parked anywhere
+    else is refused before anything is written."""
+    shared = tmp_path / "shared" / "prop.txt"
+    script = Script("26.124")
+    script._pending_input_files[str(shared)] = b"0.5,1.0\n1.0,0.0"
+    case = SimCase(
+        sim_id="9011",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="discs",
+        outputs=["loads_{point}.txt"],
+    )
+    work = tmp_path / "sims" / "sim_9011" / "datapoints" / "DP-AL+000"
+    with pytest.raises(CampaignConfigError, match=r"folder the point runs in"):
+        _write_pending_files(script, work, case=case, recorded={})
+    assert not shared.exists(), "the shared file was written before the refusal"
+
+    inside = Script("26.124")
+    inside._pending_input_files["prop.txt"] = b"0.5,1.0\n1.0,0.0"
+    assert set(_write_pending_files(inside, work, case=case, recorded={})) == {"prop.txt"}
+
+
+def test_collection_reads_the_solvers_log_in_a_moved_workspace(tmp_path):
+    """A workspace moved after submission: the record's cwd names the old place, and the
+    solver's own log sits in the datapoint folder the submission names relative to the
+    simulation; collection reads it there."""
+    from pyflightstream.run._wake_edge_verdict import ACTUATOR_PROFILE_REFUSALS
+    from pyflightstream.run.collect import _log_verdicts
+    from pyflightstream.workspace import RunRecord
+
+    sim_dir = tmp_path / "moved" / "sims" / "sim_9012"
+    work = sim_dir / "datapoints" / "DP-AL+000"
+    work.mkdir(parents=True)
+    (work / "loads.txt").write_text("the loads", encoding="utf-8")
+    (work / "FlightStreamLog.txt").write_text(
+        ACTUATOR_PROFILE_REFUSALS[1] + "\nC:/w/prop.txt\n", encoding="utf-8"
+    )
+    record = RunRecord.model_construct(
+        run_id="camp/sim_9012/AL+000",
+        sim_id="9012",
+        script_path=None,
+        submission={"working_dir": "datapoints/DP-AL+000"},
+        cwd=str(tmp_path / "where-it-was" / "sims" / "sim_9012" / "datapoints" / "DP-AL+000"),
+    )
+    status, verdict = _log_verdicts(
+        record, sim_dir, ["datapoints/DP-AL+000/loads.txt"], None, RunStatus.CONVERGED, None
+    )
+    assert status is RunStatus.FAILED_SCRIPT, (status, verdict)
