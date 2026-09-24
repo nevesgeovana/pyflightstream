@@ -184,3 +184,40 @@ one case red:
 No solver was run.
 
 **Status:** CLOSED in 0.27.0
+
+## Erratum, 2026-09-24
+
+Two statements of the closing section above no longer hold. The reading of
+GitHub main after block 3 of 0.27.0 measured that the geometry's names give the
+builder's reading in a common frame only. In a frame spelt like a rotor's
+(`<alias>_RMRP`, `<alias>_RMRP<n>`, `<alias>_SMRP`, `<alias>_SMRP_ORIGINAL`) the
+builder resolves an expanding entry against the reference's rotor families,
+never over the names alone. Over the names, `Blade1` on `RMRP` integrated
+rotor ACTIVE's block of Blade11 and Blade12, where the builder asks for the
+rotor owning Blade1 and emitted nothing for it. A legacy block of ACTIVE's
+Blade1 and Blade2, over the names Blade, Blade1 and Blade2, went by elimination
+to an entry that emitted nothing, where `Blade` on `RMRP` had emitted it. The
+names now settle a selection only for a block recorded in a common frame, or
+where the live reference's rotor definitions are in hand; anywhere else the
+match is 0.26.0's. So:
+
+- the two entries on a user's own `X_RMRP` do not integrate. Both are refused
+  as ambiguous, by name, with their raw rows kept, as *A user's own frame spelt
+  like a rotor's* above describes;
+- the legacy ownership case of this report, in `ACTIVE_RMRP` with no rotor
+  definition, is named by the cuts again: `sections/<point>_sloads_Blade1.csv`,
+  distribution 1, as *The one case ownership gets wrong by name* above
+  describes. The ownership match never holds a rotor definition, so the names
+  cannot settle it. The same block recorded in a common frame (`MRP`) is
+  settled as the closing section says: `..._ACTIVE.csv`, distribution 2.
+
+The rest of the closing section stands, and its list of what stays refused by
+name gains every block recorded in a frame spelt like a rotor's while no rotor
+definition is in hand. The tests are in
+`tests/tier1_offline/test_r03_r04_recorded_inventory.py`:
+`test_r03_a_numbered_name_on_a_rotor_frame_is_not_read_over_the_names`,
+`test_r04_a_legacy_block_on_a_rotor_frame_is_owned_by_the_cuts`,
+`test_r03_a_users_frame_spelt_like_a_rotors_stays_refused_over_the_inventory`,
+and the `settled-by-hash` and `a-rotors-frame-is-read-by-the-cuts` cases of
+`test_r04_a_legacy_split_is_named_after_the_entry_the_geometry_leaves`. No line
+above was changed.

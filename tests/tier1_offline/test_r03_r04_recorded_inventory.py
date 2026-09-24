@@ -4,23 +4,33 @@ R03. Every run record carries the boundary names its script read at OPEN
 (``inventory``), and the steady one-job path records its sections layout as
 the point path does. The integration match then reads a selection by the
 export builder's own expansion over those names: a family stem, a numbered
-name over a wider family, ``all`` and a user's frame spelt like a rotor's
-integrate where the geometry settles them, and stay refused where it does not.
+name over a wider family and ``all`` integrate where the geometry settles
+them, and stay refused where it does not.
 
 R04. A record written before the inventory existed takes it from the mesh
 block of the geometry file whose sha256 the record carries, and a legacy
-split is named after the one entry the geometry leaves as its emitter. A
-geometry changed since the run recovers nothing, and where the geometry
-names no single owner the cuts decide as before and the rows are kept.
+split in a common frame is named after the one entry the geometry leaves as
+its emitter. A geometry changed since the run recovers nothing, however its
+size and time read, and where the geometry names no single owner, or gives
+one name to two boundaries, the cuts decide as before and the rows are kept.
+
+The names settle a selection ONLY for a block recorded in a common frame, or
+where the rotor definitions are in hand (the reading of GitHub main after
+block 3). In a frame spelt like a rotor's the builder resolved an expanding
+entry against the reference's rotor families, never over the names alone, so
+there the match is 0.26.0's: a user's own `X_RMRP` stays refused by name.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import time
 
 import pytest
 
+import pyflightstream.workspace as workspace_module
 from pyflightstream._digest import file_sha256
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.post.products import read_csv_table, write_campaign_products
@@ -150,6 +160,9 @@ def test_a_steady_job_records_its_sections_layout(tmp_path):
         ("all", [], "MRP", "MRP", None, False),
         ("ACTIVE", ["Blade11", "Blade12"], "ACTIVE_RMRP", "RMRP", ["Blade11", "Blade12"], False),
         ("Blade", ["Blade1", "Blade2"], "MRP", "MRP", None, False),
+        ("Wing", [], "MRP", "MRP", ["Tail", "Tail", "Wing"], False),
+        ("Wing", [], "MRP", "MRP", ["Wing", "Tail", "Tail"], False),
+        ("all", [], "MRP", "MRP", ["Tail", "Tail", "Wing"], False),
     ],
     ids=[
         "stem-settled",
@@ -161,6 +174,9 @@ def test_a_steady_job_records_its_sections_layout(tmp_path):
         "all-no-inventory",
         "rotor-name-stays-refused",
         "stem-no-inventory",
+        "all-block-duplicate-first",
+        "all-block-duplicate-last",
+        "all-over-a-duplicate",
     ],
 )
 def test_r03_a_recorded_inventory_settles_the_selection(
@@ -174,6 +190,13 @@ def test_r03_a_recorded_inventory_settles_the_selection(
     inventory. A rotor's name that no definition in hand spells resolves to
     nothing over the names and stays refused by name. Without an inventory
     every case keeps its raw columns, as it did before.
+
+    A NAME TWO BOUNDARIES CARRY settles nothing (the pre-push read of block
+    3, both lenses): the builder leaves it out of its labels, so over the
+    names an `all` block read as the one uniquely named boundary and a `Wing`
+    request integrated a block that covered every boundary. Such a geometry
+    is read as no geometry, before or after the unique name, and `all` over
+    it is refused as `all` without an inventory is.
     """
     workspace = _case(tmp_path, monkeypatch)
     record = workspace.read_manifest()[0]
@@ -197,15 +220,22 @@ def test_r03_a_recorded_inventory_settles_the_selection(
     assert ("missing" in reason) is (not integrated), reason
 
 
-@pytest.mark.parametrize("inventory", [["Blade1", "Blade2"], None], ids=["settled", "no-inventory"])
-def test_r03_a_users_frame_spelt_like_a_rotors_integrates_over_the_inventory(
+@pytest.mark.parametrize(
+    "inventory", [["Blade1", "Blade2"], None], ids=["with-inventory", "no-inventory"]
+)
+def test_r03_a_users_frame_spelt_like_a_rotors_stays_refused_over_the_inventory(
     tmp_path, monkeypatch, inventory
 ):
-    """Two entries on a user's own `X_RMRP`, each integrating its own recorded block.
+    """Two entries on a user's own `X_RMRP`, each asking to integrate its own recorded block.
 
-    With the geometry's names each entry's selection is exactly its block,
-    so each owns it alone; without them both stay ambiguous by name, which is
-    the refusal `test_gh3_post.py` pins for the rotor-shaped case.
+    Both stay ambiguous by name, with the geometry's names and without them,
+    which is the refusal `test_gh3_post.py` pins for the rotor-shaped case.
+    Block 3 of 0.27.0 integrated both over the names; the reading of GitHub
+    main after block 3 withdrew that. No block records which entry it came
+    from, and a frame spelt like a rotor's may hold an expanding entry's
+    emission, which the builder resolved against the rotor families and never
+    over the names alone, so without the rotor definitions the names settle
+    nothing there and the match is 0.26.0's.
     """
     workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1)])
     record = workspace.read_manifest()[0]
@@ -225,12 +255,8 @@ def test_r03_a_users_frame_spelt_like_a_rotors_integrates_over_the_inventory(
         key = f"sections/AL-020_sloads_Blade{k}.csv"
         columns, rows = read_csv_table(workspace.products_dir(None) / key)
         assert len(rows) == 2 and {row["FAMILY"] for row in rows} == {f"Blade{k}"}
-        if inventory is not None:
-            assert tuple(columns[-4:]) == EXTRA, manifest["skipped"]
-            assert f"{key}#integration" not in manifest["skipped"]
-        else:
-            assert not set(EXTRA) & set(columns)
-            assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", "")
+        assert not set(EXTRA) & set(columns), manifest["skipped"]
+        assert "ambiguous" in manifest["skipped"].get(f"{key}#integration", "")
 
 
 # --- R04: an older record, by the geometry's hash ------------------------------
@@ -282,43 +308,105 @@ def test_r04_an_old_record_takes_its_inventory_by_the_geometry_hash(tmp_path):
     assert workspace.recorded_inventory(own) == ("X",)
 
 
+def test_r04_a_same_size_replacement_keeping_its_time_recovers_nothing(tmp_path):
+    """The digest is computed from the file as it is when its names are read.
+
+    The pre-push read of block 3 (both lenses): a digest remembered by path,
+    size and modification time authenticated a replacement that kept all
+    three, while the names were read from the replacement, so an older record
+    resolved its selections against a geometry it never ran. Both files here
+    are a minute old, past any racy-clean window a memo could claim.
+    """
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    library = _saved_simulation_with(workspace.inputs_dir / "geometries" / "geo.fsm", ["Wing1"])
+    record = _record(inputs_sha256={"geo.fsm": file_sha256(library)})
+    aged = (time.time_ns() // 1_000_000_000 - 60) * 1_000_000_000
+    os.utime(library, ns=(aged, aged))
+    size = library.stat().st_size
+    assert workspace.recorded_inventory(record) == ("Wing1",)
+
+    _saved_simulation_with(library, ["Wing2"])
+    os.utime(library, ns=(aged, aged))
+    status = library.stat()
+    assert (status.st_size, status.st_mtime_ns) == (size, aged), "the replacement moved the key"
+    assert file_sha256(library) != record.inputs_sha256["geo.fsm"], "the replacement is the file"
+    assert workspace.recorded_inventory(record) is None, "a remembered digest vouched for new names"
+
+
 @pytest.mark.parametrize(
-    ("first", "rivals", "edited", "owner", "distribution"),
+    ("before", "after", "read_first"),
+    [("Wing1", "Wing2", False), ("Wing2", "Wing1", True)],
+    ids=["changed-during-the-read", "restored-during-the-read"],
+)
+def test_r04_a_geometry_changing_while_its_names_are_read_recovers_nothing(
+    tmp_path, monkeypatch, before, after, read_first
+):
+    """The file is hashed before and after its names are read, and both must be the record's.
+
+    Changed during the read, the names are the new file's while the first
+    hash was the recorded one; restored during the read, the names are the
+    other file's while the second hash is the recorded one. Either way the
+    names are not vouched for by the bytes they were read from.
+    """
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    library = _saved_simulation_with(workspace.inputs_dir / "geometries" / "geo.fsm", ["Wing1"])
+    record = _record(inputs_sha256={"geo.fsm": file_sha256(library)})
+    _saved_simulation_with(library, [before])
+    read = workspace_module.boundary_names
+
+    def read_while_it_changes(path):
+        names = read(path) if read_first else None
+        _saved_simulation_with(library, [after])
+        return names if read_first else read(path)
+
+    monkeypatch.setattr(workspace_module, "boundary_names", read_while_it_changes)
+    assert workspace.recorded_inventory(record) is None
+
+
+@pytest.mark.parametrize(
+    ("first", "rivals", "edited", "frame", "owner", "distribution"),
     [
-        ("Blade1", ("ACTIVE",), False, "ACTIVE", 2),
-        ("Blade1", ("ACTIVE",), True, "Blade1", 1),
-        ("Blade1", ("ACTIVE", "OTHER"), False, "Blade1", 1),
-        ("Blade", ("ACTIVE",), False, "Blade", 1),
+        ("Blade1", ("ACTIVE",), False, "MRP", "ACTIVE", 2),
+        ("Blade1", ("ACTIVE",), True, "MRP", "Blade1", 1),
+        ("Blade1", ("ACTIVE", "OTHER"), False, "MRP", "Blade1", 1),
+        ("Blade1", ("ACTIVE",), False, "RMRP", "Blade1", 1),
+        ("Blade", ("ACTIVE",), False, "RMRP", "Blade", 1),
     ],
     ids=[
         "settled-by-hash",
         "edited-geometry",
         "two-unreadable-rivals",
+        "a-rotors-frame-is-read-by-the-cuts",
         "a-certain-rival-on-a-rotor-frame",
     ],
 )
 def test_r04_a_legacy_split_is_named_after_the_entry_the_geometry_leaves(
-    tmp_path, monkeypatch, first, rivals, edited, owner, distribution
+    tmp_path, monkeypatch, first, rivals, edited, frame, owner, distribution
 ):
-    """RPT-059's own case: a 0.24.x block of rotor ACTIVE, with no rotor definition in hand.
+    """RPT-059's case: a 0.24.x block of rotor ACTIVE's Blade11 and Blade12, no rotor definition.
 
-    Entry 1 selects `Blade1`, which the geometry carries as a boundary of its
-    own, so it did not emit a block of Blade11 and Blade12; the only entry
-    that could have is the one whose word nothing resolves, and the block is
-    named after it. Ownership adds no number: nothing is integrated either way.
+    IN A COMMON FRAME (`MRP`, entries citing it literally) the builder read
+    each entry by its common expansion over the names, a rotor's name as that
+    rotor's families. Entry 1 selects `Blade1`, which the geometry carries as
+    a boundary of its own, so it did not emit this block; the only entry that
+    could have is the one whose word nothing in hand resolves, and the block
+    is named after it. Two such entries name no owner, and neither does an
+    edited geometry: the cuts decide. Ownership adds no number: nothing is
+    integrated either way.
 
-    An entry the geometry reads with certainty is not thereby excluded on a
-    rotor's frame with no rotor definition: `Blade` selects Blade1, Blade11
-    and Blade12, and rotor ACTIVE may own exactly the last two, so it remains
-    a possible emitter beside ACTIVE, the geometry names no single owner, and
-    the cuts decide as they did before.
+    IN A ROTOR'S FRAME (`ACTIVE_RMRP`, entries on `RMRP`) the builder
+    resolved each entry against the reference's rotor families, never over
+    the names alone, so with no rotor definition in hand the names settle
+    nothing and the cuts decide, as in 0.26.0 (the reading of GitHub main
+    after block 3, P1). RPT-059's case in ACTIVE_RMRP is named after `Blade1`
+    again, which block 3 had renamed after ACTIVE by elimination.
     """
     workspace = _case(tmp_path, monkeypatch)
     record = workspace.read_manifest()[0]
     block = record.sections_layout[0]
     del block["distribution"]
     del block["distribution_families"]
-    block.update(families=["Blade11", "Blade12"], frame="ACTIVE_RMRP")
+    block.update(families=["Blade11", "Blade12"], frame="ACTIVE_RMRP" if frame == "RMRP" else frame)
     geometry = _saved_simulation_with(
         workspace.inputs_dir / "geometries" / "geo.fsm", ["Blade1", "Blade11", "Blade12"]
     )
@@ -328,9 +416,9 @@ def test_r04_a_legacy_split_is_named_after_the_entry_the_geometry_leaves(
     spec = workspace.resolve_pproc("p001")
     entry = spec.sections.distributions[0]
     spec.sections.distributions = [
-        entry.model_copy(update={"families": first, "frame": "RMRP", "integrate": True}),
+        entry.model_copy(update={"families": first, "frame": frame, "integrate": True}),
         *[
-            entry.model_copy(update={"families": name, "frame": "RMRP", "integrate": False})
+            entry.model_copy(update={"families": name, "frame": frame, "integrate": False})
             for name in rivals
         ],
     ]
@@ -346,3 +434,195 @@ def test_r04_a_legacy_split_is_named_after_the_entry_the_geometry_leaves(
         k for k in manifest["products"] if k.startswith("sections/AL-020_sloads_") and k != key
     }
     assert not others, f"the one block was written under {sorted(others)} as well"
+
+
+@pytest.mark.parametrize(
+    "inventory",
+    [["Tail", "Tail", "Wing"], ["Wing", "Tail", "Tail"]],
+    ids=["duplicate-first", "duplicate-last"],
+)
+def test_r04_a_name_two_boundaries_carry_names_no_owner(tmp_path, monkeypatch, inventory):
+    """An `all` block of a legacy layout, over a geometry giving two boundaries one name.
+
+    The builder leaves such a name out of its labels, so over the names the
+    block read as the `Wing` entry's and the split was named after Wing (the
+    pre-push read of block 3, both lenses). The names settle nothing here and
+    the cuts decide as they did before 0.27.0, which is the refusal: nothing
+    of the cuts says an `all` block is Wing's.
+    """
+    workspace = _case(tmp_path, monkeypatch)
+    record = workspace.read_manifest()[0]
+    block = record.sections_layout[0]
+    del block["distribution"]
+    del block["distribution_families"]
+    block.update(families=[], frame="MRP")
+    record.inventory = inventory
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "Wing", "frame": "MRP", "integrate": True})
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    split = sorted(k for k in manifest["products"] if k.startswith("sections/AL-020_sloads_"))
+    assert not split, f"the all block was named after {split}"
+    reason = manifest["skipped"].get("sections/AL-020_sloads#distributions", "")
+    assert "does not identify each pproc distribution unambiguously" in reason, manifest["skipped"]
+
+
+# --- The reading of GitHub main after block 3: where the names are trusted -----
+
+
+def test_r03_a_numbered_name_on_a_rotor_frame_is_not_read_over_the_names(tmp_path, monkeypatch):
+    """P1 of the reading of GitHub main after block 3, the integration half.
+
+    At export, rotor ACTIVE owned Blade11 and Blade12 and rotor OTHER owned
+    Blade1, which this geometry does not carry; the recorded ACTIVE_RMRP block
+    of Blade11 and Blade12 is ACTIVE's. An entry `Blade1` on `RMRP` asks the
+    builder for the rotor whose family is Blade1, which is OTHER, so it emits
+    nothing here. Over the names alone `Blade1` read as the numbered name over
+    Blade11 and Blade12, and ACTIVE's block was integrated with no warning and
+    no skip. With no rotor definition in hand the names settle nothing on a
+    rotor's frame: the match is 0.26.0's, refused by name, raw columns kept.
+    """
+    workspace = _case(tmp_path, monkeypatch)
+    record = workspace.read_manifest()[0]
+    record.sections_layout[0].update(
+        families=["Blade11", "Blade12"], distribution_families="ACTIVE", frame="ACTIVE_RMRP"
+    )
+    record.inventory = ["Blade11", "Blade12"]
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    entry.families = "Blade1"
+    entry.frame = "RMRP"
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    key = "sections/AL-020_sloads_ACTIVE.csv"
+    assert key in manifest["products"], manifest["skipped"]
+    columns, rows = read_csv_table(workspace.products_dir(None) / key)
+    assert len(rows) == 4
+    assert not set(EXTRA) & set(columns), "a numbered name on a rotor's frame integrated ACTIVE's"
+    reason = manifest["skipped"].get(f"{key}#integration", "")
+    assert "missing pproc match" in reason, manifest["skipped"]
+
+
+@pytest.mark.parametrize(
+    "turned_a_rotor", [False, True], ids=["no-rotor", "a-rotor-named-like-a-stem"]
+)
+def test_r03_a_rotors_name_is_not_read_as_a_stem_on_a_common_frame(
+    tmp_path, monkeypatch, turned_a_rotor
+):
+    """The fourth reading of the names, closed before a reading had to find it.
+
+    The builder takes a word naming a rotor as that rotor's families before
+    any stem, on a common frame too. A run that turned rotor `Prop` beside
+    boundaries Prop1 and Prop2 read the entry `Prop` as the rotor at export,
+    which no name of the geometry states; over the names alone it read as the
+    stem of Prop1 and Prop2 and would be integrated. With no rotor definition
+    in hand the match is 0.26.0's for such a run. The control (no rotor turned)
+    shows the same block DOES integrate over the names, so the refusal is the
+    rotor's and not the case's.
+    """
+    workspace = _case(tmp_path, monkeypatch)
+    record = workspace.read_manifest()[0]
+    record.sections_layout[0].update(
+        families=["Prop1", "Prop2"], distribution_families="Prop", frame="MRP"
+    )
+    record.inventory = ["Prop1", "Prop2"]
+    if turned_a_rotor:
+        record.motions = [{"alias": "Prop"}]
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    entry.families = "Prop"
+    entry.frame = "MRP"
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    key = "sections/AL-020_sloads_Prop.csv"
+    assert key in manifest["products"], manifest["skipped"]
+    columns, _ = read_csv_table(workspace.products_dir(None) / key)
+    integrated = bool(set(EXTRA) & set(columns))
+    assert integrated is not turned_a_rotor, (
+        "a rotor's name was read as a stem over the names"
+        if turned_a_rotor
+        else "the control did not integrate"
+    )
+
+
+def test_r04_a_legacy_block_on_a_rotor_frame_is_owned_by_the_cuts(tmp_path, monkeypatch):
+    """P1 of the reading of GitHub main after block 3, the ownership half.
+
+    Geometry Blade, Blade1 and Blade2; at export rotor ACTIVE owned Blade1 and
+    Blade2, and rotor OTHER owned families this geometry does not carry. An
+    entry `Blade` on `RMRP` asks the builder for every rotor with a family of
+    that stem, which is ACTIVE, and emitted this block of Blade1 and Blade2;
+    OTHER emitted nothing. Over the names `Blade` read as the boundary of that
+    name, so the block went by elimination to OTHER. On a rotor's frame with no
+    rotor definition the cuts decide, as in 0.26.0, and the block is `Blade`'s.
+    """
+    workspace = _case(tmp_path, monkeypatch)
+    record = workspace.read_manifest()[0]
+    block = record.sections_layout[0]
+    del block["distribution"]
+    del block["distribution_families"]
+    block.update(families=["Blade1", "Blade2"], frame="ACTIVE_RMRP")
+    geometry = _saved_simulation_with(
+        workspace.inputs_dir / "geometries" / "geo.fsm", ["Blade", "Blade1", "Blade2"]
+    )
+    record.inputs_sha256 = {"geo.fsm": file_sha256(geometry)}
+    assert workspace.recorded_inventory(record) == ("Blade", "Blade1", "Blade2")
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": name, "frame": "RMRP", "integrate": False})
+        for name in ("Blade", "OTHER")
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    split = {
+        key: product["distribution"]
+        for key, product in manifest["products"].items()
+        if key.startswith("sections/AL-020_sloads_")
+    }
+    assert split == {"sections/AL-020_sloads_Blade.csv": 1}, (split, manifest["skipped"])
+
+
+@pytest.mark.parametrize("frame", ["R_SMRP", "F"], ids=["a-rotors-hub", "a-users-frame"])
+def test_r03_a_frame_and_its_original_twin_keep_both_emitters(tmp_path, monkeypatch, frame):
+    """P2 of the reading of GitHub main after block 3: an `_ORIGINAL` twin is a second emitter.
+
+    Over inventory ["Wing"], entry 1 selects Wing on the literal frame `frame`
+    with integration off, and entry 2 selects Wing on `<frame>_ORIGINAL` with
+    it on. Where `<frame>_ORIGINAL` exists the builder emits entry 1 into both
+    frames (FR-71: the rotated hub's, and a setup frame so named alike) and
+    entry 2 into the original, so a block on the original frame has two
+    possible emitters and entry 2's file keeps its raw columns with the
+    ambiguity named, as it does without the names. Over the names an early
+    return took the strict reading's refusal of entry 1 there, which compares
+    frames by equality and never models the twin, as the builder's own, left
+    entry 2 alone and integrated its file.
+    """
+    workspace = _case(tmp_path, monkeypatch, blocks=[(0, 1), (0, 1), (0, 1)])
+    record = workspace.read_manifest()[0]
+    twin = f"{frame}_ORIGINAL"
+    for block, (owner, block_frame) in zip(
+        record.sections_layout, [(1, frame), (1, twin), (2, twin)], strict=True
+    ):
+        block.update(
+            distribution=owner, distribution_families="Wing", families=["Wing"], frame=block_frame
+        )
+    record.inventory = ["Wing"]
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "Wing", "frame": frame, "integrate": False}),
+        entry.model_copy(update={"families": "Wing", "frame": twin, "integrate": True}),
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    key = "sections/AL-020_sloads_Wing_2.csv"
+    assert key in manifest["products"], manifest["skipped"]
+    columns, rows = read_csv_table(workspace.products_dir(None) / key)
+    assert len(rows) == 2 and {row["FAMILY"] for row in rows} == {"Wing"}
+    assert not set(EXTRA) & set(columns), "the twin's second emitter was dropped"
+    reason = manifest["skipped"].get(f"{key}#integration", "")
+    assert "ambiguous pproc match" in reason, manifest["skipped"]
