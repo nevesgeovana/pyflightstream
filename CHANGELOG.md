@@ -190,11 +190,12 @@ FlightStream versions.
   `profile_units`). A row names it with `ACTUATOR`, gives its speed with
   `ACTUATOR_RPM` (a magnitude; the block's `rpm_sign` is the hand) and exactly
   one loading: `ACTUATOR_THRUST` (net thrust, N) or `PROFILE` (a file of
-  `inputs/profiles/`, resolved at plan, read where it lives, hashed into
-  `inputs_sha256`). Every run type emits it before the solver is initialised.
-  `SET_PROP_ACTUATOR_PROFILE` has never run on any build, and the thrust and
-  enable commands ran with their effect unobserved; a disc on unsteady and
-  rotor rows is not measured. `helpers.actuator_disc` refuses the profile
+  `inputs/profiles/`, rows `r,F`, resolved and checked at plan; the solver
+  reads the run's own copy, below under Fixed). Every run type emits it before
+  the solver is initialised. `SET_PROP_ACTUATOR_PROFILE` ran on 26.124 under a
+  licensed probe that measured the file form it reads (RPT-070); the thrust
+  and enable commands ran with their effect unobserved, and a disc on unsteady
+  and rotor rows is not measured. `helpers.actuator_disc` refuses the profile
   route on 25.000 and 25.100 before writing anything.
 - **A custom free stream on a matrix row (G15).** `FREESTREAM: <stem>` names a
   file of the workspace's `inputs/freestreams/`, which `pyfs-workspace init`
@@ -668,12 +669,33 @@ FlightStream versions.
   failure, whichever assessor judged it, on a local point, on each point of a
   steady row run as one job, and at `pyfs-matrix collect`; its `error` quotes
   the line, names the file and says the disc did not use it (G06).
+- **The actuator disc's profile file is read as it was written, and never
+  stops an unattended run in a dialog.** The script named the user's file under
+  `inputs/profiles/`, and an editor ends a file in a newline: 26.124 reads
+  every line of the file as a point, so eleven rows read as twelve, the file
+  was logged as unreadable and refused in a modal dialog that held the solver
+  until a person closed it, and the point ran on with a loading that was not
+  the file's (measured by a licensed probe, RPT-070). The run now writes its
+  own copy, `<stem>.actuator_profile.txt`, in the folder the point runs in (a
+  steady row of several points: its simulation folder): the user's rows, blank
+  lines and surrounding spaces removed, joined by a newline and with NO final
+  newline, the one form measured to be read, radii and forces. The script
+  names the copy, the record hashes it in `inputs_sha256` (the user's file,
+  which the solver does not read, is not hashed), and the user's file is left
+  as saved, on every run type that emits a disc. The plan refuses, naming the
+  file and the line, a profile the solver would misread: a header or a count
+  first (26.124 reads either as one more point, and every value then reads as
+  zero), a row that is not two numbers separated by one comma, a number that
+  is not finite, or fewer than two rows; a case built in Python is held to the
+  same form when its script is built. New: `helpers.render_actuator_profile`,
+  the form; `helpers.actuator_disc(profile_text=...)`, which parks the copy on
+  the script; `cases.workflows.read_actuator_profile`; and
+  `Script.pending_input_files` values may be bytes, written as they are (G06).
 - **`reconstruct()` checks each recorded input where the run read it.** It
   looked for every name of a record's `inputs_sha256` in the simulation's
-  `inputs/`, where only the staged geometry is: the trailing-edge node file
-  (written in the folder the point ran in), the actuator profile (read in the
-  workspace's `inputs/profiles/`) and the unsteady action and clock programs
-  (written in the folder the point ran in) all read `missing`, so no record
+  `inputs/`, where only the staged geometry is: the trailing-edge node file,
+  the actuator profile's copy and the unsteady action and clock programs, all
+  written in the folder the point ran in, read `missing`, so no record
   carrying one was `faithful`, and a node file whose name the input library
   also held read `differs` against a file the run never read. Each input is
   now checked at the path the script names for it, among the staged inputs,

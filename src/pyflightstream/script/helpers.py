@@ -497,6 +497,111 @@ def atmosphere(
     )
 
 
+#: One number of a radial thrust profile row as the check reads it: a plain
+#: decimal, optionally signed, with an optional exponent. A word, a NaN and an
+#: infinity are not one; an exponent too large for a float is refused as not
+#: finite.
+_PROFILE_NUMBER = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
+
+#: The form a radial thrust profile takes, quoted by every refusal of one.
+_PROFILE_FORM = (
+    "A radial thrust profile is rows of two numbers separated by one comma, r,F: the "
+    "radial station, normalised or dimensional, and the force there; no header line "
+    "and no count line"
+)
+
+#: The report that measured what 26.124 makes of a profile file.
+_ACTUATOR_PROFILE_REPORT = "RPT-070"
+
+
+def render_actuator_profile(text: str, *, source: str = "the radial thrust profile") -> str:
+    r"""Return a radial thrust profile's rows in the one form 26.124 was measured to read.
+
+    MEASURED ON 26.124 (RPT-070): ``SET_PROP_ACTUATOR_PROFILE`` reads every
+    line of the file as a point, the empty one after a final newline
+    included. Eleven rows ending in a newline were read as twelve points, the
+    file was logged as unreadable and refused in a modal dialog that holds
+    the solver until a person closes it; the same eleven rows with no final
+    newline were read, radii and forces. A first line that is a count or a
+    header was read as one more point too, and every value then read as
+    zero. Line ends, spaces, tabs and a dimensional radius changed nothing
+    of the refusal.
+
+    So the text returned is the rows, each ``r,F`` with its two numbers as
+    written, joined by a newline, and NO final newline. What an editor adds
+    is removed rather than refused: blank lines, the whitespace around a
+    line and around each number, a byte-order mark. The numbers are not
+    converted, so ``r`` stays normalised or dimensional as written.
+
+    Parameters
+    ----------
+    text : str
+        The profile file's text, as the user saved it.
+    source : str
+        What the refusals call the text, the file's path for one read from
+        disk.
+
+    Returns
+    -------
+    str
+        The file's text for the solver: newline separated, NOT newline
+        terminated.
+
+    Raises
+    ------
+    CommandArgumentError
+        Naming the line, 1-based with blank lines counted: a first row that
+        is one number (a count) or holds a word (a header); a row that is
+        not two numbers separated by one comma; a number that is not finite;
+        or fewer than two rows.
+
+    Examples
+    --------
+    >>> from pyflightstream.script import helpers
+    >>> print(helpers.render_actuator_profile("0.2, 0.0\n0.6,127.3\n1.0,0.0\n"))
+    0.2,0.0
+    0.6,127.3
+    1.0,0.0
+    """
+    rows: list[str] = []
+    for number, raw in enumerate(text.removeprefix("\ufeff").splitlines(), start=1):
+        line = raw.strip()
+        if not line:
+            continue
+        where = f"{source}, line {number}: {line!r}"
+        parts = [part.strip() for part in line.split(",")]
+        if len(parts) != 2 or not all(_PROFILE_NUMBER.fullmatch(part) for part in parts):
+            words = [word for word in re.split(r"[\s,;]+", line) if word]
+            numbers = all(_PROFILE_NUMBER.fullmatch(word) for word in words)
+            if not rows and numbers and len(words) == 1:
+                raise CommandArgumentError(
+                    f"{where} is one number, a count line; remove it. On 26.124 a count is "
+                    "read as one more point and every value of the profile then reads as zero "
+                    f"({_ACTUATOR_PROFILE_REPORT}). {_PROFILE_FORM}"
+                )
+            if not rows and not numbers:
+                raise CommandArgumentError(
+                    f"{where} is a header line; remove it. On 26.124 a header is read as one "
+                    "more point and every value of the profile then reads as zero "
+                    f"({_ACTUATOR_PROFILE_REPORT}). {_PROFILE_FORM}"
+                )
+            raise CommandArgumentError(
+                f"{where} is not two numbers separated by one comma. {_PROFILE_FORM}"
+            )
+        for part in parts:
+            if not math.isfinite(float(part)):
+                raise CommandArgumentError(
+                    f"{source}, line {number}: {part!r} is not a finite number. {_PROFILE_FORM}"
+                )
+        rows.append(",".join(parts))
+    if len(rows) < 2:
+        raise CommandArgumentError(
+            f"{source} holds {len(rows)} row{'' if len(rows) == 1 else 's'} of r,F, and a radial "
+            f"distribution needs at least two. {_PROFILE_FORM}"
+        )
+    return "\n".join(rows)
+
+
 def actuator_disc(
     script: Script,
     name: str,
@@ -512,6 +617,7 @@ def actuator_disc(
     profile: str | None = None,
     profile_force_unit: str = "NEWTONS",
     n_blades: int | None = None,
+    profile_text: str | None = None,
     swirl: float | None = None,
     enable: Toggle = True,
     label: str | None = None,
@@ -550,15 +656,25 @@ def actuator_disc(
         recommends dimensional thrust because the coefficient
         convention must match the solver formulation (SRC-003 p.187).
     profile : str, optional
-        Path of the radial thrust profile file for the CUSTOM model.
-        Refused, before anything is emitted, on a build whose
-        ``SET_PROP_ACTUATOR_PROFILE`` takes no blade count (25.000 and
-        25.100). No build has run the command.
+        Path of the radial thrust profile file for the CUSTOM model, the
+        path the command's next line names. Refused, before anything is
+        emitted, on a build whose ``SET_PROP_ACTUATOR_PROFILE`` takes no
+        blade count (25.000 and 25.100). Run on 26.124 (RPT-070), which
+        reads a file in the form :func:`render_actuator_profile` returns
+        and refuses one ending in a newline.
     profile_force_unit : str
         Force unit used inside the profile file: ``NEWTONS``,
         ``KILO-NEWTONS``, ``POUND-FORCE``, or ``KILOGRAM-FORCE``.
     n_blades : int, optional
         Blade count; required with ``profile``.
+    profile_text : str, optional
+        The profile's text, when the run is to write the file ``profile``
+        names: put in the form 26.124 reads by
+        :func:`render_actuator_profile`, which refuses a text the solver
+        would misread before anything is emitted, and parked on the script
+        (:attr:`~pyflightstream.script.Script.pending_input_files`) as the
+        bytes the run writes there before the solver starts. Without it
+        the file at ``profile`` is named as it stands.
     swirl : float, optional
         Fraction between 0 and 1 of the swirl velocity kept
         downstream; below 1 mimics a de-swirling stator
@@ -587,6 +703,11 @@ def actuator_disc(
             "actuator_disc with a profile file needs n_blades, because the imported "
             "radial distribution is per blade (SRC-003 pp.323-324)"
         )
+    if profile_text is not None and profile is None:
+        raise CommandArgumentError(
+            "actuator_disc: profile_text is the text of the file profile names, and no "
+            "profile was given. Name the path the run writes the profile to as profile"
+        )
     if profile is not None:
         # REFUSED BY BUILD, BEFORE ANY LINE IS WRITTEN (G06). The 25.000 and
         # 25.100 editions print SET_PROP_ACTUATOR_PROFILE with no blade count,
@@ -602,6 +723,21 @@ def actuator_disc(
                 f"no blade count ({entry.citation}), where the editions from 26.000 take one, "
                 "and what the file means there is not documented. Load the disc by its net "
                 "thrust on this build, or run the profile on 26.000 or later."
+            )
+    # THE RUN'S OWN COPY (G06), checked and rendered BEFORE ANY LINE IS WRITTEN,
+    # so a text the solver would misread leaves the script untouched. Parked as
+    # BYTES, written as they are: the last row ends the file, and a text-mode
+    # write is free to change the line ends of the one form measured (RPT-070).
+    copy: bytes | None = None
+    if profile_text is not None and profile is not None:
+        copy = render_actuator_profile(profile_text).encode("utf-8")
+        already = script._pending_input_files.get(fspath(profile))
+        if already is not None and already != copy:
+            raise CommandArgumentError(
+                f"actuator_disc: this script already writes a different file to {profile!r}. "
+                "One path is one file, so the second would silently replace the first and "
+                "both discs would read whichever won. Give this disc's profile a path of "
+                "its own"
             )
     if swirl is not None and not 0.0 <= swirl <= 1.0:
         raise CommandArgumentError(
@@ -622,6 +758,8 @@ def actuator_disc(
         script.emit("SET_PROP_ACTUATOR_THRUST", index, thrust, thrust_type)
     else:
         script.emit("SET_PROP_ACTUATOR_PROFILE", index, profile_force_unit, n_blades, profile)
+        if copy is not None and profile is not None:
+            script._pending_input_files[fspath(profile)] = copy
     if swirl is not None:
         script.emit("SET_PROP_ACTUATOR_SWIRL", index, swirl)
     if enable:

@@ -21,10 +21,13 @@ the goldens are compared with every absolute path of this folder replaced by
 ``<tier3>``; a clone elsewhere then reads the same golden.
 
 THE GOLDEN IS THE PLAN-TIME RENDER, NOT THE RUN'S BYTES, and the two differ
-in two known ways ``pyflightstream.run._plan_point`` states beside its own
+in the known ways ``pyflightstream.run._plan_point`` states beside its own
 render: the plan renders ``OPEN <library path>`` where the run renders
-``OPEN <staged copy>``, and the run writes the script in text mode, so the
-solver's bytes carry CRLF where ``render()`` returns LF. The golden pins
+``OPEN <staged copy>``; a data file the run writes where the point runs (a
+raw mesh's trailing-edge node file, an actuator profile's copy) is named by
+its bare name, since the plan gives the script no working folder; and the run
+writes the script in text mode, so the solver's bytes carry CRLF where
+``render()`` returns LF. The golden pins
 what the builders emit for a row; what the solver received is read from
 ``sims/<sim>/scripts/`` by the tier-3 tests (``conftest.Runs.script``),
 which is a different artifact under a similar name.

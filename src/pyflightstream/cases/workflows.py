@@ -65,6 +65,7 @@ import sys
 import warnings
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
+from os import PathLike, fspath
 from pathlib import Path, PurePath
 from types import MappingProxyType
 from typing import NoReturn
@@ -150,6 +151,7 @@ from pyflightstream.versions import FsVersion, known_versions, resolve
 
 __all__ = [
     "ACTUATOR_KEYS",
+    "ACTUATOR_PROFILE_COPY_SUFFIX",
     "ADDITIONAL_POST_BUILDS",
     "ADDITIONAL_PPROC_VARIABLE",
     "ACTUATOR_RPM_VARIABLE",
@@ -238,6 +240,7 @@ __all__ = [
     "frames_of_the_run",
     "reduction_plan",
     "reduction_windows",
+    "read_actuator_profile",
     "refuse_an_additional_post_build",
     "refuse_what_a_saved_point_cannot_give",
     "surface_time_averaging",
@@ -598,6 +601,12 @@ ACTUATOR_KEYS: tuple[str, ...] = (
     ACTUATOR_THRUST_VARIABLE,
     PROFILE_VARIABLE,
 )
+#: WHAT THE RUN'S OWN COPY OF A PROFILE IS CALLED, after the stem of the user's
+#: file (G06): ``prop_ct.txt`` is read by the solver as
+#: ``prop_ct.actuator_profile.txt`` in the folder the script runs in. The
+#: suffix keeps the copy from being taken for the user's file, and from
+#: sharing a name with an output written to the same folder.
+ACTUATOR_PROFILE_COPY_SUFFIX = ".actuator_profile.txt"
 
 #: G15 (0.27.0): THE CUSTOM FREE STREAM OF A ROW. The stem of a file of the
 #: workspace's ``inputs/freestreams/``, a velocity field over the YZ plane of
@@ -7264,13 +7273,66 @@ def _setup_frames(case: SimCase, script: Script) -> dict[str, int]:
 
 @dataclass(frozen=True)
 class _RowActuator:
-    """The disc a row names and the loading it states (G06), resolved before emission."""
+    """The disc a row names and the loading it states (G06), resolved before emission.
+
+    ``profile`` is the user's file and ``profile_text`` what the run's own
+    copy of it holds (:func:`read_actuator_profile`); both None for a disc
+    loaded by its net thrust.
+    """
 
     name: str
     block: ActuatorBlock
     rpm: float
     thrust: float | None
     profile: str | None
+    profile_text: str | None = None
+
+
+def read_actuator_profile(path: str | PathLike[str]) -> str:
+    """Read a radial thrust profile file into the text the solver is given (G06).
+
+    The user's file stays as its editor saved it; the run writes its own
+    copy for the solver, and this is that copy's text: the file's rows put
+    in the one form 26.124 was measured to read by
+    :func:`pyflightstream.script.helpers.render_actuator_profile`, two
+    numbers ``r,F`` per line with NO final newline (RPT-070). A final
+    newline, blank lines, CR LF line ends, surrounding spaces and a
+    byte-order mark are removed rather than refused.
+
+    One reader for both places that ask: the plan, when a row's ``PROFILE``
+    is resolved, and every builder that emits the disc, so a case built in
+    Python is held to the same form.
+
+    Parameters
+    ----------
+    path : str or path-like
+        The profile file, where it lives.
+
+    Returns
+    -------
+    str
+        The copy's text, newline separated and not newline terminated.
+
+    Raises
+    ------
+    CampaignConfigError
+        The file cannot be read as UTF-8 text, or is not in the form the
+        solver reads, naming the file and the line: a header or a count
+        first, a row that is not two numbers separated by one comma, a
+        number that is not finite, fewer than two rows.
+    """
+    where = f"the actuator profile {fspath(path)}"
+    try:
+        text = Path(path).read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeError) as error:
+        raise CampaignConfigError(
+            f"{where} cannot be read as UTF-8 text: {error}. A radial thrust profile is a "
+            "text file of rows r,F."
+        ) from error
+    try:
+        return helpers.render_actuator_profile(text, source=where)
+    except CommandArgumentError as error:
+        raise CampaignConfigError(str(error)) from None
 
 
 def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
@@ -7281,7 +7343,8 @@ def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
     none of the four keys returns None, whatever its reference declares: a
     reference's disc moves nothing a row does not name. A saved simulation
     that already carries an actuator is refused here too
-    (:func:`_refuse_a_disc_beside_a_saved_one`).
+    (:func:`_refuse_a_disc_beside_a_saved_one`), and a profile file the
+    solver would misread, naming its line (:func:`read_actuator_profile`).
     """
     stated = [key for key in ACTUATOR_KEYS if _variable(case, key) is not None]
     if not stated:
@@ -7335,6 +7398,7 @@ def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
         )
     thrust: float | None = None
     profile: str | None = None
+    profile_text: str | None = None
     if thrust_text is not None:
         thrust = _required_float(
             case, ACTUATOR_THRUST_VARIABLE, quantity="disc's net thrust", unit="N"
@@ -7354,8 +7418,21 @@ def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
                 "sets actuator_profile to the file's absolute path."
             )
         profile = case.actuator_profile
+        try:
+            profile_text = read_actuator_profile(profile)
+        except CampaignConfigError as error:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {PROFILE_VARIABLE}: {profile_stem}, and {error}"
+            ) from None
     _refuse_a_disc_beside_a_saved_one(case, name)
-    return _RowActuator(name=name, block=block, rpm=rpm, thrust=thrust, profile=profile)
+    return _RowActuator(
+        name=name,
+        block=block,
+        rpm=rpm,
+        thrust=thrust,
+        profile=profile,
+        profile_text=profile_text,
+    )
 
 
 def _refuse_a_disc_beside_a_saved_one(case: SimCase, name: str) -> None:
@@ -7469,6 +7546,18 @@ def _actuator_disc(
     THE BLOCK'S METRES ARE WRITTEN IN THE SIMULATION'S UNIT, which is the unit
     the two commands read (:func:`_from_metres`); a unit the package cannot
     know is refused naming the three keys.
+
+    A PROFILE IS READ FROM THE RUN'S OWN COPY, never from the user's file: the
+    copy, ``<stem>.actuator_profile.txt``
+    (:data:`ACTUATOR_PROFILE_COPY_SUFFIX`), is named in the folder the script
+    runs in (:attr:`~pyflightstream.script.Script.working_dir`), and its text
+    (:func:`read_actuator_profile`) is parked on the script, which the run
+    writes there before the solver starts and hashes into the record, as it
+    does the trailing-edge node file. The user's file stays as its editor
+    saved it, usually ending in a newline, and 26.124 reads that newline as
+    one point more, refuses the file and holds the run in a dialog (RPT-070). A
+    script with no working folder (a plan's rehearsal, a case built in
+    Python) names the copy by its bare name.
     """
     if disc is None:
         return
@@ -7487,6 +7576,10 @@ def _actuator_disc(
         script,
         f"the offset_m, tip_radius_m and hub_radius_m of the actuator disc {disc.name!r}",
     )
+    copy: str | None = None
+    if disc.profile is not None:
+        name = f"{PurePath(disc.profile).stem}{ACTUATOR_PROFILE_COPY_SUFFIX}"
+        copy = name if script.working_dir is None else str(PurePath(script.working_dir) / name)
     helpers.actuator_disc(
         script,
         disc.name,
@@ -7498,9 +7591,10 @@ def _actuator_disc(
         rpm=block.rpm_sign * disc.rpm,
         thrust=disc.thrust,
         thrust_type="NEWTONS",
-        profile=disc.profile,
+        profile=copy,
         profile_force_unit=block.profile_units,
         n_blades=block.blades,
+        profile_text=disc.profile_text,
         swirl=block.swirl,
         label=f"actuator:{disc.name}",
     )
