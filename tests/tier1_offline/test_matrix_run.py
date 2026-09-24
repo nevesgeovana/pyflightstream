@@ -93,12 +93,15 @@ WRITES_LOADS = (
 #: The same, and the saved simulation beside it: a row naming a run type
 #: declares its final .fsm on every point since 0.27.0 (G11), and no pproc
 #: artifact can switch it off, so a stub carrying such a row writes it too.
+#: And the file each SAVE_PLOT_TO_FILE names: a steady point declares the
+#: solver's residual and load plots by default since 0.27.0 (G04).
 WRITES_LOADS_AND_THE_SIMULATION = (
     "import pathlib, sys; "
     "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
-    "[pathlib.Path(lines[i + 1]).write_text('LOADS' if line.startswith('EXPORT') else 'FSM') "
+    "[pathlib.Path(lines[i + 1]).write_text("
+    "{'SAVEAS': 'FSM', 'SAVE_PLOT_TO_FILE': 'PLOT'}.get(line, 'LOADS')) "
     "for i, line in enumerate(lines) "
-    "if line in ('EXPORT_SOLVER_ANALYSIS_SPREADSHEET', 'SAVEAS')]"
+    "if line in ('EXPORT_SOLVER_ANALYSIS_SPREADSHEET', 'SAVEAS', 'SAVE_PLOT_TO_FILE')]"
 )
 
 

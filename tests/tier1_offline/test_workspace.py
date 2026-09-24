@@ -2242,8 +2242,14 @@ def test_the_pproc_artifact_validates_its_six_tables(tmp_path):
         "{name}_cp.txt",
         "{name}_sloads.txt",
         "{name}_probes.txt",
+        "{name}_plot_residuals.txt",
+        "{name}_plot_loads.txt",
+        "{name}_plot_cp_sections.txt",
         "{name}_log.txt",
-    ], "tecplot is deselected, the plots file is unsteady-only"
+    ], (
+        "tecplot is deselected, the plots file is unsteady-only, and the solver's "
+        "section Cp plot joins its residual and load plots because sections are declared"
+    )
     assert pproc.sections.count == 40 and pproc.sections.distributions[0].families == ["W"]
     assert pproc.plots.parameters == ["CL", "FX"] and pproc.plots.groups[0].name == "MRP_TOTAL"
     # FR-77: `probes` is a LIST of tables since 0.16.0.

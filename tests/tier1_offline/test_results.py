@@ -1919,13 +1919,17 @@ def test_the_csv_refuses_a_row_that_is_not_four_numbers():
         parse_solver_analysis_csv(text, field="   ")
 
 
-def test_the_owed_tranche_is_the_boundary_layer_profile_alone():
-    """One format still owed, and its note says why the SOLVER is the reason.
+def test_the_owed_tranche_is_the_boundary_layer_profile_and_the_plot_save():
+    """Two formats owed, and each note says what the debt is.
 
+    The boundary-layer profile's note says why the SOLVER is the reason.
     That distinction is the whole content of the entry: every other owed
     format was owed a capture, and this one has had two licensed runs spent
     on it. A note reading "no observed export captured" would send the next
     reader to spend a third.
+
+    The plot save joined on 2026-09-24 (G04 of 0.27.0, RPT-067): its file is
+    captured and collected, and its note says it is never a coefficient source.
     """
     from pyflightstream.results import EXPORT_CONVERSIONS, EXPORT_OWED
 
@@ -1934,7 +1938,9 @@ def test_the_owed_tranche_is_the_boundary_layer_profile_alone():
         for command, entry in EXPORT_CONVERSIONS.items()
         if entry.verdict == EXPORT_OWED
     }
-    assert set(owed) == {"EXPORT_BL_VELOCITY_PROFILE"}
+    assert set(owed) == {"EXPORT_BL_VELOCITY_PROFILE", "SAVE_PLOT_TO_FILE"}
+    plot = owed["SAVE_PLOT_TO_FILE"].note
+    assert "RPT-067" in plot and "never read as a coefficient source" in plot, plot
     note = owed["EXPORT_BL_VELOCITY_PROFILE"].note
     assert "never been observed" in note
     assert "RPT-027" in note, "the note points at the report that measured the cause"
@@ -1945,10 +1951,11 @@ def test_the_owed_tranche_is_the_boundary_layer_profile_alone():
 def test_every_default_set_export_now_has_a_parser_and_a_conversion():
     """The acceptance of PFS-2014.02, read off the classification itself.
 
-    Default set means: not excluded, and not one of the two entries that
-    export nothing. Every member of it but one names a parser, that parser
-    resolves to a callable, and the one that does not is the format the
-    solver will not write unattended.
+    Default set means: not excluded, and not one of the entries that
+    export nothing. Every member of it but two names a parser, that parser
+    resolves to a callable, and the two that do not are the format the
+    solver will not write unattended and the solver's own plot save, whose
+    file is a display of the solve (G04 of 0.27.0, RPT-067).
     """
     import importlib
 
@@ -1964,16 +1971,16 @@ def test_every_default_set_export_now_has_a_parser_and_a_conversion():
         for command, entry in EXPORT_CONVERSIONS.items()
         if entry.verdict not in (EXPORT_EXCLUDED, EXPORT_NOT_AN_EXPORT)
     }
-    assert len(default_set) == 11, (
-        f"the default set resolved {len(default_set)} command(s); eighteen exports "
-        "less five excluded and two that export nothing is eleven"
+    assert len(default_set) == 12, (
+        f"the default set resolved {len(default_set)} command(s); twenty exports "
+        "less five excluded and three that export nothing is twelve"
     )
     parsed = {
         command: entry.parser
         for command, entry in default_set.items()
         if entry.verdict == EXPORT_PARSED
     }
-    assert len(parsed) == 10, f"ten of the eleven are parsed today, not {len(parsed)}"
+    assert len(parsed) == 10, f"ten of the twelve are parsed today, not {len(parsed)}"
     for command, dotted in parsed.items():
         assert dotted is not None
         module_name, _, attribute = dotted.rpartition(".")

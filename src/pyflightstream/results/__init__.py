@@ -698,7 +698,9 @@ class ExportConversion:
 #: five excluded, two that export nothing, one owed. It read four parsed
 #: and seven owed until that day, when the capture run of
 #: ``scripts/capture_export_corpus.py`` put six of the seven formats on
-#: disk and PFS-2014.02 wrote their parsers against the files.
+#: disk and PFS-2014.02 wrote their parsers against the files. Twenty since
+#: 2026-09-24, when the two plot commands moved to the export phase on
+#: RPT-067's measurement: one more that exports nothing, one more owed.
 EXPORT_CONVERSIONS: dict[str, ExportConversion] = {
     "EXPORT_SOLVER_ANALYSIS_SPREADSHEET": ExportConversion(
         EXPORT_PARSED,
@@ -744,6 +746,18 @@ EXPORT_CONVERSIONS: dict[str, ExportConversion] = {
     ),
     "DELETE_BL_VELOCITY_PROFILE": ExportConversion(
         EXPORT_NOT_AN_EXPORT, None, None, "deletes a profile; it writes no file"
+    ),
+    "SET_PLOT_TYPE": ExportConversion(
+        EXPORT_NOT_AN_EXPORT, None, None, "chooses which plot a later SAVE_PLOT_TO_FILE writes"
+    ),
+    "SAVE_PLOT_TO_FILE": ExportConversion(
+        EXPORT_OWED,
+        None,
+        None,
+        "the plotted series as text, a run header, one row per point of the plot and "
+        "a units footer (RPT-067); collected and hashed as a product of the point, and "
+        "never read as a coefficient source, because a plot is a display of the solve: "
+        "its pitching moment is not the exported CMy",
     ),
     "EXPORT_SOLVER_ANALYSIS_CSV": ExportConversion(
         EXPORT_PARSED,

@@ -89,6 +89,9 @@ __all__ = [
     "SolverSettings",
     "SolverToggle",
     "EXPORT_KINDS",
+    "OPT_IN_EXPORT_KINDS",
+    "PLOT_TYPES",
+    "STEADY_ONLY_EXPORT_KINDS",
     "FAMILY_SELECTORS",
     "FLUID_PLOT_PARAMETERS",
     "AXES_PLOT_COMPONENTS",
@@ -376,42 +379,102 @@ class SweepAxis(BaseModel):
 #: point leaves plots history in their place. The suffix is
 #: what pairs a declared output name with its verb, longest suffix first, so
 #: ``x_cp.txt`` is the sections export and never the loads table.
+#:
+#: NO SUFFIX ENDS WITH ANOTHER KIND'S, except a bare extension. The longest-first
+#: rule settles ``_cp.txt`` against ``.txt``, and only that shape: the sections
+#: plot is ``_plot_cp_sections.txt`` and not ``_plot_sections_cp.txt``, which
+#: would end with the sections kind's ``_cp.txt``, and no plot suffix ends with
+#: the unsteady kind's ``_plots.txt``.
+#:
+#: THE SOLVER'S OWN PLOTS (G04 of 0.27.0, RPT-067) are three kinds sharing one
+#: verb, ``SAVE_PLOT_TO_FILE``, which saves whichever plot ``SET_PLOT_TYPE``
+#: chose; :data:`PLOT_TYPES` names the plot each kind chooses. They sit after
+#: every other export and before the log, which is where RPT-067 ran them.
 EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
     ("simulation", ".fsm", "SAVEAS", False),
     ("loads", ".txt", "EXPORT_SOLVER_ANALYSIS_SPREADSHEET", False),
     ("tecplot", ".dat", "EXPORT_SOLVER_ANALYSIS_TECPLOT", False),
     ("vtk", ".vtk", "EXPORT_SOLVER_ANALYSIS_VTK", False),
     ("csv", ".csv", "EXPORT_SOLVER_ANALYSIS_CSV", False),
+    (
+        "force_distributions",
+        "_force_distributions.txt",
+        "EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS",
+        False,
+    ),
     ("sections", "_cp.txt", "EXPORT_ALL_SURFACE_SECTIONS", False),
     ("sectional_loads", "_sloads.txt", "EXPORT_SURFACE_SECTIONAL_LOADS", False),
     ("probes", "_probes.txt", "EXPORT_PROBE_POINTS", False),
     ("plots", "_plots.txt", "UNSTEADY_SOLVER_EXPORT_PLOTS", True),
+    ("plot_residuals", "_plot_residuals.txt", "SAVE_PLOT_TO_FILE", False),
+    ("plot_loads", "_plot_loads.txt", "SAVE_PLOT_TO_FILE", False),
+    ("plot_sections_cp", "_plot_cp_sections.txt", "SAVE_PLOT_TO_FILE", False),
     ("log", "_log.txt", "EXPORT_LOG", False),
 )
 
+#: The plot each solver-plot kind chooses with ``SET_PLOT_TYPE`` before its
+#: ``SAVE_PLOT_TO_FILE`` (RPT-067, 26.124). The file is the plotted SERIES as
+#: text: the residual and load histories one row per solver iteration, the
+#: section Cp one x/Cp column pair per section. A plot is a display of the
+#: solve and never a source of a coefficient: RPT-067's plotted pitching
+#: moment is not the exported CMy, so every coefficient keeps coming from the
+#: loads export.
+PLOT_TYPES: dict[str, str] = {
+    "plot_residuals": "RESIDUALS",
+    "plot_loads": "LOADS",
+    "plot_sections_cp": "SECTIONS_CP",
+}
 
-def default_outputs(unsteady: bool, exports: Mapping[str, bool] | None = None) -> list[str]:
+#: The kinds only a STEADY point leaves. An unsteady point samples its probes
+#: through fluid plots and exports its force and fluid histories as
+#: ``<point>_plots.txt``, and its per-step action would save a solver plot at
+#: every step; so an unsteady row declares none of these, and a pproc stating
+#: a plot kind true on one is refused by the builder.
+STEADY_ONLY_EXPORT_KINDS: frozenset[str] = frozenset({"probes", *PLOT_TYPES})
+
+#: The kinds a pproc must switch ON: every other kind is on unless its
+#: ``[exports]`` entry says false. The surface fields and the per-panel force
+#: distribution (G10 of 0.27.0) grow with the mesh, so they are asked for
+#: where they are wanted.
+OPT_IN_EXPORT_KINDS: tuple[str, ...] = ("vtk", "csv", "force_distributions")
+
+
+def default_outputs(
+    unsteady: bool,
+    exports: Mapping[str, bool] | None = None,
+    *,
+    has_sections: bool = False,
+) -> list[str]:
     """Return the output names a workflow row gets when it declares none.
 
     Every kind hangs off ``{name}``, the point's rendered stem, so the
     naming template decides the stem and this list decides the suffixes
     (PFS-2029.19); a steady row leaves out the plots file, and an unsteady row
-    leaves out the probe-points instant export. ``exports`` is
+    leaves out every kind of :data:`STEADY_ONLY_EXPORT_KINDS`: the probe-points
+    instant export and the solver's own plots. ``exports`` is
     the pproc artifact's
     ``[exports]`` table (PFS-2029.14.02): a kind set to false is left
-    out. Unstated kinds are kept except ``vtk`` and ``csv``, which are
-    opt-in, so an empty table preserves the existing export set. The
+    out. Unstated kinds are kept except those of :data:`OPT_IN_EXPORT_KINDS`,
+    so an empty table preserves the existing export set, and except the
+    section Cp plot, which is on where ``has_sections`` says the pproc declares
+    surface sections to plot. The
     artifact cannot set ``loads`` or ``simulation`` to false
     (:class:`PprocSpec` refuses both), so every row naming a run type
     declares its loads table and its final saved simulation.
     """
     chosen = exports or {}
+
+    def wanted(kind: str) -> bool:
+        if kind == "plot_sections_cp":
+            return chosen.get(kind, has_sections)
+        return chosen.get(kind, kind not in OPT_IN_EXPORT_KINDS)
+
     return [
         f"{{name}}{suffix}"
         for kind, suffix, _, only_unsteady in EXPORT_KINDS
         if (unsteady or not only_unsteady)
-        and chosen.get(kind, kind not in ("vtk", "csv"))
-        and not (unsteady and kind == "probes")
+        and not (unsteady and kind in STEADY_ONLY_EXPORT_KINDS)
+        and wanted(kind)
     ]
 
 
@@ -1778,7 +1841,11 @@ class PprocSpec(BaseModel):
     member is resolved by :func:`select_group_members`, and an empty
     group is every family (the design decision of 2026-09-09); ``exports`` says which of
     the export kinds a point writes, with VTK and CSV opt-in and the
-    existing kinds enabled unless set to false; ``sections``, ``plots`` and
+    existing kinds enabled unless set to false (since 0.27.0 the per-panel
+    ``force_distributions`` is opt-in too, and a steady point
+    also saves the solver's residual and load plots, and its section Cp plot
+    where ``sections`` declares any: ``plot_residuals``, ``plot_loads`` and
+    ``plot_sections_cp``); ``sections``, ``plots`` and
     ``probes`` are the solver definitions the builders emit before the solver runs; ``products``
     says which post-processed files are written after it. Since 0.24.0
     ``phase_locked`` gates and shapes the phase-locked reduction, ``equations``
@@ -2022,6 +2089,20 @@ class PprocSpec(BaseModel):
             )
         return value
 
+    @model_validator(mode="after")
+    def _a_sections_plot_needs_sections(self) -> PprocSpec:
+        # G04 (0.27.0): the section Cp plot is on by default only where the
+        # artifact declares sections; an explicit true without them would save
+        # the plot of no section, so it is refused naming the table it needs.
+        if self.exports.get("plot_sections_cp") and not self.sections.distributions:
+            raise ValueError(
+                "[exports] plot_sections_cp = true and the artifact declares no "
+                "[[sections.distributions]], so the solver would save the Cp plot of no "
+                "section. Declare the sections to plot, or remove the key: the plot is "
+                "saved by default wherever sections are declared"
+            )
+        return self
+
     @field_validator("blade_pattern")
     @classmethod
     def _compiles(cls, value: str) -> str:
@@ -2039,7 +2120,9 @@ class PprocSpec(BaseModel):
 
     def outputs(self, unsteady: bool) -> list[str]:
         """Return the output names a row naming this artifact declares."""
-        return default_outputs(unsteady, self.exports)
+        return default_outputs(
+            unsteady, self.exports, has_sections=bool(self.sections.distributions)
+        )
 
 
 #: The two selector words this release retires, each to its ledger entry.
@@ -3098,6 +3181,53 @@ class SolverSettings(BaseModel):
     #: may carry an initialised solver, and loading it would start the run
     #: from a state the row never declared (PFS-2030.03.01).
     load_solver_initialization: SolverToggle | None = None
+    #: THE SELECTIONS OF THE LOADS ANALYSIS (G09 of 0.27.0), analysis-phase
+    #: commands the builders emit after ``START_SOLVER`` and before the exports,
+    #: on a STEADY row only: set after the solve starts, a march's per-step
+    #: exports would not see them (the shape RPT-064 measured for the loads
+    #: frame), so a row of an unsteady run type stating one is refused. None
+    #: emits nothing.
+    #:
+    #: SET_SOLVER_ANALYSIS_BOUNDARIES written as FAMILY NAMES, resolved like
+    #: :attr:`vorticity_drag_families`: the boundaries that enter the loads, every
+    #: other one leaving the analysis (SRC-003 p.351). A family the geometry does
+    #: not carry is left out, and a list that resolves to none is refused.
+    analysis_families: list[str] | None = None
+    #: SET_LOADS_AND_MOMENTS_UNITS: the unit the loads table prints, one of the
+    #: tokens the command takes on the row's build. The polar and every product
+    #: read coefficients, so a point exported in another unit writes no product.
+    load_units: str | None = None
+    #: SET_INVISCID_LOADS: the loads and moments without their viscous part.
+    inviscid_loads: SolverToggle | None = None
+    #: SET_VORTICITY_LIFT_MODEL (G14 of 0.27.0): lift from the vorticity field
+    #: rather than from the integrated surface pressure, stated before the
+    #: solver is initialised on every run type. None emits nothing. The command
+    #: database decides the builds: 26.124 answers the name as an unrecognized
+    #: command (RPT-068), so a row on it is refused at plan.
+    vorticity_lift_model: SolverToggle | None = None
+    #: SET_UNSTEADY_VISCOUS_COUPLING_ITERATION (G14 of 0.27.0): the time step at
+    #: which an unsteady run switches the viscous coupling on, stated before the
+    #: solver is initialised. The unsteady run types only; documented by the
+    #: 25.000, 25.100 and 26.000 editions alone, so the database refuses it on
+    #: every later build, naming the build.
+    unsteady_viscous_coupling_iteration: int | None = Field(default=None, ge=1)
+
+    @field_validator("load_units")
+    @classmethod
+    def _a_unit_the_command_takes(cls, value: str | None) -> str | None:
+        # Read from the command database, as the VTK variables are, so the list
+        # a refusal prints is the one the emitter would enforce.
+        if value is None:
+            return None
+        entry = CommandRegistry.load().commands["SET_LOADS_AND_MOMENTS_UNITS"]
+        allowed = [str(token) for token in entry.args[0].values or ()]
+        for token in allowed:
+            if token.upper() == str(value).strip().upper():
+                return token
+        raise ValueError(
+            f"load_units = {value!r} is not one of {', '.join(allowed)} "
+            f"(SET_LOADS_AND_MOMENTS_UNITS, {entry.citation})"
+        )
 
 
 class FluidState(BaseModel):

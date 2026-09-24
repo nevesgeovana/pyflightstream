@@ -637,7 +637,10 @@ names as often as in this package's. Both are read: `NITER`,
 `proximity_avoidance`, `solver_minimum_cp`, `induced_wake_velocity`,
 `unsteady_pressure_kutta`, `additional_wake_relaxation_iteration`,
 `reynolds_averaged_drag_forces` and `unsteady_N_revolutions_wake` are
-aliases of the fields the emitter names. A preset transcribed from a
+aliases of the fields the emitter names, and so, since 0.27.0, are
+`set_solver_analysis_boundaries`, `set_loads_and_moments_units`,
+`set_inviscid_loads`, `set_vorticity_lift_model` and
+`set_unsteady_viscous_coupling_iteration`. A preset transcribed from a
 working session keeps working as written.
 
 Three things can happen to a key, and the third is the one worth
@@ -685,7 +688,7 @@ solver's default. Those runs converge, export and publish numbers
 against a physics nobody selected. A refusal costs an edit; a silent
 drop costs a result.
 
-**Two keys of a preset select BOUNDARIES rather than set a number**, and both
+**Three keys of a preset select BOUNDARIES rather than set a number**, and all
 take FAMILY NAMES resolved against the geometry the run opens. You never write
 an index: an index is a fact about the order of a file and it does not survive a
 mesh being rebuilt, while a family name is a fact about the aircraft.
@@ -694,13 +697,15 @@ mesh being rebuilt, while a family name is a fact about the aircraft.
 |---|---|---|
 | `vorticity_drag_families` | families whose induced drag comes from vorticity integration | `SET_VORTICITY_DRAG_BOUNDARIES` |
 | `axial_separation_families` | families on the axial flow separation list | `SET_AXIAL_SEPARATION_BOUNDARIES` |
+| `analysis_families` (since 0.27.0, steady rows) | families that enter the loads; every other boundary leaves the analysis | `SET_SOLVER_ANALYSIS_BOUNDARIES` |
 
 ```toml
 vorticity_drag_families   = ["Wing", "HTP", "VTP"]
 axial_separation_families = ["Nacelle"]
+analysis_families         = ["Wing", "Fuselage"]
 ```
 
-**Both follow one rule**, and it is one function rather than two copies:
+**All three follow one rule**, and it is one function rather than three copies:
 
 - A family the opened geometry does not carry is **left out**, as the reference
   driver filtered a preset's list to the configuration it opened.
@@ -708,6 +713,73 @@ axial_separation_families = ["Nacelle"]
   key and the families it could not find. An empty selection would reach the
   solver as its DEFAULT, and the preset asked for something else.
 - A preset that says nothing emits neither the `SET` nor the `DELETE`.
+
+**Two keys decide what the loads table holds**, since 0.27.0, and a steady row
+alone may state them, with `analysis_families` above:
+
+```toml
+load_units     = "NEWTONS"   # COEFFICIENTS, NEWTONS, KILO-NEWTONS, POUND-FORCE, KILOGRAM-FORCE
+inviscid_loads = true        # the loads and moments without their viscous part
+```
+
+`load_units` reaches `SET_LOADS_AND_MOMENTS_UNITS` and `inviscid_loads`
+`SET_INVISCID_LOADS`. Both, and `SET_SOLVER_ANALYSIS_BOUNDARIES`, are
+analysis commands: the script states them after `START_SOLVER` and before
+the point's exports, on every point of a steady sweep, and each is checked
+against the command database for the row's build. A unit the command does
+not take is refused when the preset is read, naming the five it does
+(`load_units = 'FOO' is not one of COEFFICIENTS, NEWTONS, KILO-NEWTONS,
+POUND-FORCE, KILOGRAM-FORCE`). What each means for the products:
+
+- **`load_units`**: every product reads the loads table as coefficients, so
+  a point whose table's footer names another unit writes no product row; the
+  post stage skips it, naming the unit and `load_units`. The export itself is
+  collected and hashed as usual.
+- **`inviscid_loads`**: the verified run of this command on 26.120 and
+  26.123 exported `CDo` exactly zero, so a polar of such a row is inviscid by
+  construction.
+- **`analysis_families`**: the polar sums the loads table's rows by group,
+  so a group naming a family left out of the analysis sums what the table
+  prints for it, which has not been measured on any build.
+
+A row naming `unsteady` or `unsteady_rotor` whose preset states any of the
+three is refused at plan, naming the run type and the key. Stated after the
+solve starts, on a march they would reach the final export and not the step
+exports and plots the unsteady products are read from, which is what was
+measured for the loads frame (RPT-064); drop the key from the preset, or give
+the row a preset of its own.
+
+**Two keys reach two documented commands that no build has been seen to run**,
+since 0.27.0, each before the solver is initialised:
+
+```toml
+vorticity_lift_model                = true  # SET_VORTICITY_LIFT_MODEL ENABLE; false writes DISABLE
+unsteady_viscous_coupling_iteration = 20    # SET_UNSTEADY_VISCOUS_COUPLING_ITERATION 20
+```
+
+`vorticity_lift_model` computes the lift from the vorticity field rather than
+from the integrated surface pressure, on every run type. `kutta_joukowski_lift`
+is another route to the lift, and no edition says what the solver does with
+both: a setup stating both `true` is planned with a warning naming the two
+keys. `unsteady_viscous_coupling_iteration` is the time step at which an
+unsteady run switches the viscous coupling on, a whole number from 1, and
+only the unsteady run types take it: a steady row whose preset states it is
+refused at plan, having no time step for the coupling to begin at. A value
+that is not `true`, `false`, `ENABLE` or `DISABLE`, or a step below 1, is
+refused when the preset is read.
+
+!!! warning "Neither runs on 26.124, and the coupling step runs on 25.100 and 26.000 alone"
+    26.124 answers both command names as it answers a name no edition
+    documents, `Unrecognized command`, and the script stops at that line
+    (RPT-068). The command database records that answer, so a row on 26.124
+    whose preset states either key is refused **at plan**, naming the build
+    and the report, instead of stopping mid-run after the seat is spent. On
+    the builds before it `vorticity_lift_model` emits its command, which the
+    manual documents and no run has measured. `unsteady_viscous_coupling_iteration`
+    is documented by the 25.000, 25.100 and 26.000 editions and by none after,
+    so it emits on 25.100 and 26.000, the two of those that render an
+    unsteady script, and is refused on 26.100 and every later build, naming
+    the build.
 
 !!! warning "`axial_separation_families` runs on 26.100 and is refused above it"
     `SET_AXIAL_SEPARATION_BOUNDARIES` is documented to 26.100 and no further, and
@@ -719,8 +791,10 @@ axial_separation_families = ["Nacelle"]
     its replacement field empty.
 
 `vorticity_drag_boundaries` (also spelled `set_vorticity_drag_boundaries`) is an
-accepted spelling of the first. Stating either as an EMPTY list is refused when
-the file is read, at `pyfs-matrix plan` (PFS-2005.02):
+accepted spelling of the first, and `set_solver_analysis_boundaries` of
+`analysis_families`. Stating any of them, or `vorticity_drag_families` or
+`analysis_families`, as an EMPTY list is refused when the file is read, at
+`pyfs-matrix plan` (PFS-2005.02):
 
 ```toml
 iterations = 800
@@ -1265,7 +1339,9 @@ downstream tool reads, the whole dictionary or none of it, and is defined on
 
 Omitted export kinds follow the run type's defaults; they are not all enabled.
 See [Native surface flow exports](post-processing-definitions.md#native-surface-flow-exports)
-for the VTK/CSV opt-in rule and [The probes table](post-processing-definitions.md#the-probes-table)
+for the VTK, CSV and force-distribution opt-in rule, [The solver's own plots](post-processing-definitions.md#the-solvers-own-plots)
+for the residual, load and section Cp plots a steady point saves, and
+[The probes table](post-processing-definitions.md#the-probes-table)
 for the unsteady plots source, whose defaults omit the probe-points export.
 
 ```toml
@@ -1280,6 +1356,8 @@ ROTOR = "Blade"                # a family is every member of it: Blade1, Blade2,
 tecplot = false                # disable Tecplot; loads and simulation cannot be off
 vtk = true                     # opt in to VTK surface export
 csv = true                     # opt in to CSV surface export
+force_distributions = true     # opt in to the per-panel force distribution, at run end
+plot_loads = false             # a steady point saves the solver's plots; switch one off
 
 [sections]                     # NEW_SURFACE_SECTION_DISTRIBUTION per entry and plane
 count = 50
@@ -1602,7 +1680,15 @@ The `[exports]` table decides the row's export set (FR-51): a workflow row
 declares no `OUTPUTS` of its own any more, every export is named for the
 point with the study's suffixes (`.fsm`, `.txt`, `.dat`, `_cp.txt`,
 `_sloads.txt`, `_probes.txt`, `_plots.txt`, `_log.txt`), and a workflow row
-that still carries `OUTPUTS` is refused naming this table. The loads table
+that still carries `OUTPUTS` is refused naming this table. Since 0.27.0 a
+steady point also saves the solver's residual and load plots
+(`_plot_residuals.txt`, `_plot_loads.txt`) and, where the artifact declares
+sections, its section Cp plot (`_plot_cp_sections.txt`); each is switched off
+with `false` (`plot_residuals`, `plot_loads`, `plot_sections_cp`), an unsteady
+row saves none, and a missing one fails the point `FAILED_INCOMPLETE_OUTPUT`
+like any declared export. `force_distributions = true` opts a row of any run
+type into `_force_distributions.txt`, the per-panel force distribution of every
+surface, saved once at the end of the run. The loads table
 and the saved simulation cannot be switched off: `loads = false` and, since
 0.27.0, `simulation = false` are refused naming the file. A setup artifact
 that names one of these tables is refused pointing here: a setup carries

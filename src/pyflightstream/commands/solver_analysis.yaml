@@ -222,10 +222,26 @@ SET_VORTICITY_LIFT_MODEL:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.353, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.356, unchanged from SRC-750 p.356"}
-    "26.124": {status: documented, note: "SRC-752 p.356, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124":
+      status: removed
+      probe_ref: "reports/RPT-068_two-documented-setup-commands-are-unrecognized-on-26124_2026-09-24.md"
+      note: >-
+        Measured 2026-09-24: the 26.124 solver answers
+        SET_VORTICITY_LIFT_MODEL ENABLE as an unrecognized command and the
+        script stops at that line, the same answer and the same stopped
+        script it gives a name no edition documents, while the edition of
+        this build still prints the command. Whether the model moved under
+        another name, and whether the builds before 26.124 answer it, is not
+        measured
   notes: >
     Computes lift from the vorticity field rather than by integrating
     surface pressure.
+
+    UNRECOGNIZED ON 26.124 (RPT-068, 2026-09-24): the build answers the
+    name as it answers one no edition documents, although its edition
+    prints it. The setup key vorticity_lift_model is refused there at
+    plan, naming the report; on the other builds it emits the command,
+    documented and never run.
 
     IT IS THE LIFT COUNTERPART OF A DECISION THIS PACKAGE ALREADY
     MODELS FOR DRAG. SET_VORTICITY_DRAG_BOUNDARIES selects the

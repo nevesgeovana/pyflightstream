@@ -92,9 +92,11 @@ from pyflightstream.cases import (
     EXPANDING_FRAMES,
     EXPORT_KINDS,
     FORCE_PLOT_PARAMETERS,
+    PLOT_TYPES,
     RAW_PHASES,
     ROTOR_BLADE_ROTATION_AXIS,
     ROTOR_PLOT_GROUP_PREFIX,
+    STEADY_ONLY_EXPORT_KINDS,
     CampaignConfigError,
     CustomFlag,
     MeshOperation,
@@ -189,6 +191,8 @@ __all__ = [
     "UNSTEADY_EXPORTS_ACTION",
     "UnsteadyExportThreshold",
     "WHOLE_RUN_EXPORT_KINDS",
+    "LOADS_SELECTION_KEYS",
+    "END_OF_RUN_EXPORT_KINDS",
     "Workflow",
     "WorkflowConventions",
     "WorkflowCoverageError",
@@ -5283,6 +5287,65 @@ def _axial_separation_indices(case: SimCase, script: Script) -> list[int] | None
     )
 
 
+def _analysis_indices(case: SimCase, script: Script) -> list[int] | None:
+    """Resolve the families that enter the loads (G09), by the per-family rule."""
+    return _family_indices(
+        case,
+        script,
+        case.solver.analysis_families,
+        keyword="boundaries",
+        preset_key="analysis_families",
+        dropped="every boundary enters the loads",
+    )
+
+
+#: The setup keys that select what the loads analysis reads (G09 of 0.27.0), each
+#: an analysis-phase command emitted after START_SOLVER, which is why a row of an
+#: unsteady run type may not state them.
+LOADS_SELECTION_KEYS: tuple[str, ...] = ("analysis_families", "load_units", "inviscid_loads")
+
+
+def _loads_selections(case: SimCase, script: Script) -> None:
+    """Emit the setup's selections of the loads analysis, after the solve (G09).
+
+    ANALYSIS PHASE, SO AFTER ``START_SOLVER`` and before the exports, which is
+    the order the verified inviscid-loads probe ran: the command, then the
+    export that reads it. Called once per point, so every point of a warm sweep
+    restates them. A setup that states none emits nothing.
+    """
+    solver = case.solver
+    boundaries = _analysis_indices(case, script)
+    if boundaries is None and solver.load_units is None and solver.inviscid_loads is None:
+        return
+    helpers.analysis_setup(
+        script,
+        load_units=solver.load_units,
+        boundaries=boundaries,
+        inviscid_only=solver.inviscid_loads,
+    )
+
+
+def _refuse_the_loads_selections_on_a_march(case: SimCase) -> None:
+    """Refuse a loads selection on a row of an unsteady run type (G09).
+
+    Emitted after the solve starts, it would reach the final export and not the
+    per-step exports and plots an unsteady product is read from, which is the
+    shape RPT-064 measured for the loads frame; moving it before the solve is not
+    measured. In 0.27.0 they are a steady row's.
+    """
+    stated = [key for key in LOADS_SELECTION_KEYS if getattr(case.solver, key) is not None]
+    if not stated:
+        return
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} names the run type {case.recipe!r} and its setup states "
+        f"{', '.join(stated)}. The loads selections are applied after the solve starts, "
+        "and on a march that reaches only the final export, not the step exports and "
+        "plots the unsteady products are read from (RPT-064 measured this for the loads "
+        "frame); in 0.27.0 they are a steady row's. Drop the key from the preset this "
+        "row names, or give the row a preset of its own."
+    )
+
+
 def _analysis(case: SimCase, script: Script, frame: int | None) -> None:
     """Point the analysis at the MRP frame, BEFORE the solver starts (B05, RPT-064).
 
@@ -5433,6 +5496,7 @@ def _settings(
         vortex_ring_normalization=solver.vortex_ring_normalization,
         wake_termination_time_steps=wake_termination_time_steps,
     )
+    _lift_and_coupling(case, script)
     # SYMMETRY LOADS AS STATED, the design decision of 2026-09-02 (PFS-2028.05): an
     # init-phase setting, emitted alone here as the helper asks; an absent
     # key emits nothing, so a preset written before this release is silent
@@ -5440,6 +5504,49 @@ def _settings(
     symmetry_loads = _row_symmetry_loads(case, solver.symmetry_loads)
     if symmetry_loads is not None:
         helpers.analysis_setup(script, symmetry_loads=symmetry_loads)
+
+
+def _lift_and_coupling(case: SimCase, script: Script) -> None:
+    """Emit the vorticity lift model and the viscous coupling step a setup states (G14).
+
+    Both are init-phase commands, so they precede ``INITIALIZE_SOLVER`` and every
+    export of a march sees them. Each emission is validated by the command
+    database for the script's build, which is what refuses a build that does not
+    carry the command, naming it: 26.124 answers both names as unrecognized
+    (RPT-068), and the coupling step is documented by 25.000 to 26.000 alone. A
+    setup that states neither emits nothing.
+    """
+    solver = case.solver
+    if solver.vorticity_lift_model is not None:
+        if solver.vorticity_lift_model and solver.kutta_joukowski_lift:
+            warn(
+                f"case {case.sim_id!r}: its setup states vorticity_lift_model = true and "
+                "kutta_joukowski_lift = true, two routes to the lift, and no edition of "
+                "the manual says what the solver does with both. The run goes ahead with "
+                "both lines; state one of them false to know which lift the loads carry.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+        script.emit(
+            "SET_VORTICITY_LIFT_MODEL", "ENABLE" if solver.vorticity_lift_model else "DISABLE"
+        )
+    if solver.unsteady_viscous_coupling_iteration is not None:
+        script.emit(
+            "SET_UNSTEADY_VISCOUS_COUPLING_ITERATION", solver.unsteady_viscous_coupling_iteration
+        )
+
+
+def _refuse_a_coupling_step_without_a_clock(case: SimCase) -> None:
+    """Refuse the viscous coupling step on a steady row (G14): it has no time step."""
+    step = case.solver.unsteady_viscous_coupling_iteration
+    if step is None:
+        return
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} inherits unsteady_viscous_coupling_iteration = {step} from "
+        "its solver preset and is a STEADY run, which has no time steps for the viscous "
+        "coupling to begin at, so the setting would reach no line. Drop the key from the "
+        "preset this row names, or give the row a preset of its own."
+    )
 
 
 def row_ncpus(case: SimCase, from_setup: int | None) -> int | None:
@@ -6498,6 +6605,8 @@ def _script_solve_and_export(
     """
     _raw_commands(case, script, "exec")
     helpers.start_solver(script)
+    if not unsteady:
+        _loads_selections(case, script)
     _raw_commands(case, script, "analysis")
     # FR-81: a STEADY row creates the probe points it exports. `NEW_PROBE_LINE`
     # is an ANALYSIS command, so this is the only position the phase order
@@ -8279,8 +8388,21 @@ def surface_time_averaging(case: SimCase) -> SurfaceAveragingWindow | None:
 
 
 def _surface_export(script: Script, case: SimCase, kind: str, name: str) -> bool:
-    """Emit the surface formats with payloads, validated on the selected build."""
-    if kind == "vtk":
+    """Emit the kinds whose export is more than ``<verb>`` and a name, validated on the build.
+
+    The surface formats and the force distribution carry a payload. A solver
+    plot is two commands: its
+    ``SET_PLOT_TYPE`` first, because ``SAVE_PLOT_TO_FILE`` saves whichever plot
+    is showing, then the save with the path on the line after it (RPT-067).
+    False for every other kind, which the caller emits as ``<verb>`` and a name.
+    """
+    if kind in PLOT_TYPES:
+        script.emit("SET_PLOT_TYPE", PLOT_TYPES[kind])
+        script.emit("SAVE_PLOT_TO_FILE", name)
+    elif kind == "force_distributions":
+        # Every surface: the command takes a count, and -1 is all of them.
+        helpers.export_results(script, force_distributions=name)
+    elif kind == "vtk":
         variables = case.pproc.vtk_variables if case.pproc is not None else None
         helpers.export_results(script, vtk=name, vtk_variables=variables or "all")
     elif kind == "csv":
@@ -8320,7 +8442,9 @@ def _export_block(
     names = list(conventions.outputs or case.outputs)
     kinds = classify_outputs(names)
     if unsteady:
-        kinds.pop("probes", None)
+        _refuse_a_solver_plot_on_a_march(case)
+        for kind in STEADY_ONLY_EXPORT_KINDS:
+            kinds.pop(kind, None)
     if "loads" not in kinds:
         raise CampaignConfigError(
             f"case {case.sim_id!r} declares outputs {names or 'nothing'} and none of them "
@@ -8328,7 +8452,7 @@ def _export_block(
             "export suffixes). The loads table is the export this package judges a run "
             "by, so every row leaves one; the default outputs name it {point}.txt."
         )
-    if any(kind in kinds for kind in ("sections", "sectional_loads", "probes")):
+    if any(kind in kinds for kind in _UPDATED_KINDS):
         script.emit("UPDATE_ALL_SURFACE_SECTIONS")
         script.emit("COMPUTE_SURFACE_SECTIONAL_LOADS", "NEWTONS")
         # F01: only a row that still exports probe points updates them; an
@@ -8369,6 +8493,33 @@ def _export_block(
             script.emit(verb, kinds[kind])
     if declared_log:
         _export_log(conventions, case, script, claimed=(names.index(kinds["loads"]) + 1,))
+
+
+#: The kinds whose export reads the surface sections, the sectional loads or
+#: the probe points, so the three updates precede the exports when any is
+#: declared. The section Cp plot is one: it plots the sections, and a point
+#: whose pproc switched every other section export off still updates them.
+_UPDATED_KINDS: tuple[str, ...] = ("sections", "sectional_loads", "probes", "plot_sections_cp")
+
+
+def _refuse_a_solver_plot_on_a_march(case: SimCase) -> None:
+    """Refuse a solver plot a pproc states true on an unsteady row (G04, RPT-067).
+
+    An unsteady row declares none by default; a key stated true would reach no
+    line, which is the silence this package refuses rather than keeps.
+    """
+    exports = case.pproc.exports if case.pproc is not None else {}
+    stated = sorted(kind for kind in PLOT_TYPES if exports.get(kind))
+    if not stated:
+        return
+    keys = " and ".join(f"{kind} = true" for kind in stated)
+    raise CampaignConfigError(
+        f"case {case.sim_id!r}: its pproc artifact states [exports] {keys} and the row "
+        f"names the run type {case.recipe!r}. The solver's plot saves were measured on a "
+        "steady point (RPT-067), and an unsteady point already writes its force and "
+        "fluid histories as <point>_plots.txt through [plots] and [[probes]]; remove "
+        "the key or state it false."
+    )
 
 
 def _exports_its_log(case: SimCase) -> bool:
@@ -8497,6 +8648,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     the lines this workflow emitted before 0.8.1.
     """
     _refuse_wake_termination_without_a_clock(case)
+    _refuse_a_coupling_step_without_a_clock(case)
     # A steady row stating an export threshold is refused there, naming
     # the time loop it lacks (PFS-2031.18); a row stating none returns.
     unsteady_export_threshold(case, conventions, version=script.version)
@@ -8575,6 +8727,7 @@ def build_steady_sweep(
     first = point_cases[0]
     conventions = WorkflowConventions.for_case(first)
     _refuse_wake_termination_without_a_clock(first)
+    _refuse_a_coupling_step_without_a_clock(first)
     unsteady_export_threshold(first, conventions, version=script.version)
     _refuse_unregistered_keys(first, "steady")
     _raw_commands(first, script, "control")
@@ -8918,6 +9071,12 @@ WALLTIME_MARGIN_DEFAULT_S = 1200
 #: by the row's outputs, which the pproc artifact's export set rendered;
 #: nothing here retypes a verb or a suffix.
 WHOLE_RUN_EXPORT_KINDS: tuple[str, ...] = ("simulation", "plots", "log")
+#: The kinds saved ONCE, at the end of the run, and never per step (G10 of
+#: 0.27.0): the per-panel force distribution is the size of the mesh, and a
+#: stamped per-step copy is a file nothing lists (``post.series`` reads the
+#: stamped sections, sectional loads and probes). The wall clock's rescue is
+#: the end of the run, so it keeps them, as it keeps the whole-run kinds.
+END_OF_RUN_EXPORT_KINDS: tuple[str, ...] = ("force_distributions",)
 
 
 @dataclass(frozen=True)
@@ -9000,7 +9159,8 @@ def action_export_lines(
     sections nobody updated is an export of the previous state.
 
     ``whole_run`` KEEPS THE KINDS A PER-STEP ACTION MUST DROP: the
-    simulation file, the plots table and the log. A per-step action must
+    simulation file, the plots table, the log and, since 0.27.0, the force
+    distribution (:data:`END_OF_RUN_EXPORT_KINDS`). A per-step action must
     drop them, because a simulation file written every time step is not a
     per-step export; the wall clock's rescue is the opposite case, the
     LAST thing a stopped run does, and it needs them MOST. Sharing this
@@ -9014,12 +9174,13 @@ def action_export_lines(
     kinds = {
         kind: name
         for kind, name in classify_outputs(names).items()
-        if whole_run or kind not in WHOLE_RUN_EXPORT_KINDS
+        if whole_run or kind not in (*WHOLE_RUN_EXPORT_KINDS, *END_OF_RUN_EXPORT_KINDS)
     }
     if case.recipe in _UNSTEADY_RECIPES:
-        kinds.pop("probes", None)
+        for kind in STEADY_ONLY_EXPORT_KINDS:
+            kinds.pop(kind, None)
     lines: list[str] = []
-    if any(kind in kinds for kind in ("sections", "sectional_loads", "probes")):
+    if any(kind in kinds for kind in _UPDATED_KINDS):
         lines += ["UPDATE_ALL_SURFACE_SECTIONS", "COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS"]
         if "probes" in kinds:  # F01: an unsteady row has no probe points to update
             lines.append("UPDATE_PROBE_POINTS")
@@ -9742,6 +9903,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     motion, and a clock stated directly rather than derived from a
     speed. Both refusals run before the first emission.
     """
+    _refuse_the_loads_selections_on_a_march(case)
     # A CONTINUATION IS A DIFFERENT SCRIPT, not this one with a shorter
     # march, so the branch is HERE and not further down: every line below
     # describes a run that starts from a mesh, and a continuation starts
@@ -9805,6 +9967,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     with nothing said, and the rotary motion would then turn about a
     frame that no longer exists.
     """
+    _refuse_the_loads_selections_on_a_march(case)
     # A CONTINUATION IS A DIFFERENT SCRIPT, not this one with a shorter
     # march: the branch is here because every line below starts from a
     # mesh, and a continuation starts from the state a stopped run saved.
@@ -10743,6 +10906,8 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "EXPORT_ALL_SURFACE_SECTIONS",
             "EXPORT_SURFACE_SECTIONAL_LOADS",
             "EXPORT_PROBE_POINTS",
+            "SET_PLOT_TYPE",
+            "SAVE_PLOT_TO_FILE",
             "EXPORT_LOG",
             "CLOSE_FLIGHTSTREAM",
         ),

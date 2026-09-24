@@ -552,7 +552,9 @@ class PprocArtifact(PprocSpec):
     every one optional: ``[groups]`` maps each product name to one alias string;
     define several members in the reference's ``[aliases]`` table;
     ``[exports]`` which of the export kinds a point writes, where the
-    loads table and the saved simulation cannot be switched off;
+    loads table and the saved simulation cannot be switched off and, since
+    0.27.0, a steady point's solver plots (``plot_residuals``,
+    ``plot_loads``, ``plot_sections_cp``) can;
     ``[sections]``, ``[plots]`` and ``[[probes]]`` the solver definitions
     the builders emit; ``[products]`` the post-processed files written
     after the run; and, since 0.24.0, ``[phase_locked]``, ``[equations]`` and
@@ -781,6 +783,13 @@ _VORTICITY_EMPTY = (
     "induced drag against a setup nobody selected."
 )
 
+_ANALYSIS_EMPTY = (
+    "The command enables the boundaries it lists and leaves every other one out of the "
+    "analysis (SRC-003 p.351), and every boundary entering the loads, the solver's "
+    "default, is expressed by never emitting it; so a stated empty list asks for a "
+    "selection and names none, and the loads table would sum a setup nobody selected."
+)
+
 #: Every artifact key that selects entities, with the domain seat's verdict on
 #: an empty list beside it. The readers consult this table; the docs page
 #: repeats it. A key that is not here is not an entity selection, and a new
@@ -802,6 +811,16 @@ ENTITY_SELECTIONS: tuple[EntitySelection, ...] = (
     ),
     EntitySelection(
         "setup", "vorticity_drag_families", "SET_VORTICITY_DRAG_BOUNDARIES", False, _VORTICITY_EMPTY
+    ),
+    EntitySelection(
+        "setup", "analysis_families", "SET_SOLVER_ANALYSIS_BOUNDARIES", False, _ANALYSIS_EMPTY
+    ),
+    EntitySelection(
+        "setup",
+        "set_solver_analysis_boundaries",
+        "SET_SOLVER_ANALYSIS_BOUNDARIES",
+        False,
+        _ANALYSIS_EMPTY,
     ),
     EntitySelection(
         "setup",

@@ -813,8 +813,9 @@ def test_a_row_on_a_second_build_is_run_under_that_builds_grammar(tmp_path, monk
     )
     matrix = root / "two_builds.fs"
     matrix.write_text("\n".join([header, rule, steady, actions]) + "\n", encoding="utf-8")
-    # The stand-in solver writes the loads table alone, so the artifacts the
-    # two rows cite declare no other export (test_qa_matrix's STUB_PPROC).
+    # The stand-in solver writes the loads table, the saved simulation and the
+    # solver's plots alone, so the artifacts the two rows cite declare no other
+    # export (test_qa_matrix's STUB_PPROC).
     for artifact in ("p001", "p002"):
         (root / "inputs" / "pproc" / f"{artifact}.toml").write_text(STUB_PPROC, encoding="utf-8")
     stub = tmp_path / "stub_solver.py"

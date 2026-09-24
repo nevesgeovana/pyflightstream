@@ -1647,6 +1647,25 @@ nodes.
     export command the reference driver emits carries a row on 26.120 and
     on 26.123 in the command database, six of them verified.
 
+    AMENDED 0.27.0 (G04), pending with it: a steady point also saves the
+    solver's own residual and load plots, and its section Cp plot where
+    the post-processing artifact declares sections, each chosen with
+    `SET_PLOT_TYPE` and saved with `SAVE_PLOT_TO_FILE` after the other
+    exports and before the log, named for the point
+    (`_plot_residuals.txt`, `_plot_loads.txt`, `_plot_cp_sections.txt`),
+    collected and hashed like every export and never read as a source of
+    a coefficient; the artifact may deselect each; an unsteady point
+    saves none, and an artifact stating one on an unsteady row is refused
+    at plan. Measured on 26.124 (RPT-067): the files are the plotted
+    series as text, and the solve and its exports are unchanged by the
+    saves.
+
+    AMENDED 0.27.0 (G10), pending with it: the artifact may opt a row of
+    any run type into the per-panel force distribution of every surface
+    (`force_distributions`, `_force_distributions.txt`), off by default as
+    the VTK and CSV surface exports are, and exported once at the end of
+    the run, never by an unsteady row's per-step exports.
+
 !!! requirement "FR-52 Post-processing is declared in the pproc artifact and runs as part of the campaign <span class='srs-pending'>pending</span>"
     *Origin: feedback item #3 of 2026-09-02 and the design decision of the
     same day that the groups artifact becomes `pproc`, and the reference
@@ -1757,6 +1776,26 @@ nodes.
     isolated-rotor row of the 0.10.1 reproduction workspace reported loads
     six times the recorded value, the periodic copy count, because the reference setup
     stated the symmetry loads off and the package emitted nothing.
+
+    AMENDED 0.27.0 (G09), pending with it: a setup may select the
+    families that enter the loads (`analysis_families`, resolved like the
+    other family lists), the unit the loads table prints (`load_units`,
+    one of the tokens `SET_LOADS_AND_MOMENTS_UNITS` takes, refused when the
+    preset is read otherwise) and the inviscid loads (`inviscid_loads`),
+    each emitted after `START_SOLVER` and before the exports of every
+    point of a steady row; a row of an unsteady run type stating any of
+    them is refused at plan; and a point whose loads table is not in
+    coefficients writes no product row, the post stage naming the unit.
+
+    AMENDED 0.27.0 (G14), pending with it: a setup may state the vorticity
+    lift model (`vorticity_lift_model`, every run type) and the step at
+    which an unsteady run couples its boundary layer
+    (`unsteady_viscous_coupling_iteration`, the unsteady run types, refused
+    on a steady row), each emitted before `INITIALIZE_SOLVER` and validated
+    against the command database for the row's build, so a build that does
+    not carry the command refuses the row at plan naming the build; 26.124
+    answers both names as unrecognized (RPT-068), and a setup stating the
+    lift model beside `kutta_joukowski_lift` is planned with a warning.
 
 !!! requirement "FR-55 A row states its geometry as a file, and the geometry carries its own boundary inventory <span class='srs-pending'>pending</span>"
     *Origin: feedback items #2 and #6 of 2026-09-02. Carried by

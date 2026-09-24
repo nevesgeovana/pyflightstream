@@ -1,0 +1,38 @@
+
+
+
+
+                              FlightStream plot
+
+
+     Simulation file:                            point.fsm
+     Angle of attack (Deg)                       2.000
+     Side-slip angle (Deg)                       .000
+     Freestream velocity (m/s)                   68.058
+     Requested solver iterations                 500
+     Solver convergence limit                     1.000E-05
+     Force solver to run all iterations           F
+     Time increment (sec)                        1.000
+     Solver model:                               Subsonic (Prandtl-Glauert)
+     Solver mode:                                Steady
+     Reference velocity (m/s)                    68.058
+     Reference length (m)                        2.526
+     Reference area (m^2)                        50.000
+     Altitude (ft)                               .000
+                                                  
+     Wake refinement size (% average mesh size)  1000.000
+     Reynolds Number                             11771675.
+     Coordinate frame for analysis:              MRP
+     Current solver iteration number:            181
+----------------------------------------------------------------------------------------------------
+Surface cross-section 1_X, Surface cross-section 1_Y, Surface cross-section 2_X, Surface cross-section 2_Y, Surface cross-section 3_X, Surface cross-section 3_Y, Surface cross-section 4_X, Surface cross-section 4_Y, Surface cross-section 5_X, Surface cross-section 5_Y, Surface cross-section 6_X, Surface cross-section 6_Y, Surface cross-section 7_X, Surface cross-section 7_Y, Surface cross-section 8_X, Surface cross-section 8_Y, Surface cross-section 9_X, Surface cross-section 9_Y, Surface cross-section 10_X, Surface cross-section 10_Y, Surface cross-section 11_X, Surface cross-section 11_Y, Surface cross-section 12_X, Surface cross-section 12_Y, 
+----------------------------------------------------------------------------------------------------
+0.1462987305952733E+01,0.4454675660118466E+00,0.1529973470277418E+01,0.4699332689253408E+00,0.1596959634482110E+01,0.4268964027625312E+00,0.1663945795235773E+01,0.4366123867429769E+00,0.1730931949993359E+01,0.4444538206065707E+00,0.1797918096847300E+01,0.4537969479343116E+00,0.1864904234443628E+01,0.4597819383541799E+00,0.1931890362006702E+01,0.4666817299012659E+00,0.1998876479064446E+01,0.4703616594243519E+00,0.2065862585446086E+01,0.4738243109684564E+00,0.2132848681260136E+01,0.4797497189846385E+00,0.2199834766393823E+01,0.4950931727876918E+00,
+0.1459049521660014E+01,0.4060681760729518E+00,0.1525905945361768E+01,0.4344937378991380E+00,0.1592762365734687E+01,0.4051455577375749E+00,0.1659618771929321E+01,0.4150202476541502E+00,0.1726475155600913E+01,0.4232633304494496E+00,0.1793331510652375E+01,0.4311320719434559E+00,0.1860187832733009E+01,0.4375406046342851E+00,0.1927044119392763E+01,0.4450928701152009E+00,0.1993900369230846E+01,0.4485770673983721E+00,0.2060756581757866E+01,0.4519766312358036E+00,0.2127612757572608E+01,0.4596703955933796E+00,0.2194468895969445E+01,0.4736465749656286E+00,
+0.1454048726836801E+01,0.3239283187553155E+00,0.1520742092095807E+01,0.3586214225490595E+00,0.1587435444878285E+01,0.3498143403818250E+00,0.1654128764796719E+01,0.3593786486578458E+00,0.1720822036342353E+01,0.3678838576406473E+00,0.1787515248126774E+01,0.3760516429035908E+00,0.1854208392161214E+01,0.3830391447799063E+00,0.1920901464140454E+01,0.3912821868762541E+00,0.1987594461641288E+01,0.3939359895291866E+00,0.2054287384026488E+01,0.4008774519154336E+00,0.2120980232536906E+01,0.4106851305615527E+00,0.2187673005369021E+01,0.4204486631135398E+00,
+     ----------------------------------------------------------------------------------------------------
+     Force Units: Coefficients
+     Moment Units: Coefficients
+     Software : Flightstream version 26.1, build #8172026
+     Company  : Altair
+     Date: 9/24/2026, Time: 0237 hours (local)

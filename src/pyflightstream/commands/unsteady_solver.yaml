@@ -280,6 +280,10 @@ SET_UNSTEADY_VISCOUS_COUPLING_ITERATION:
     coupling switches on, so the early steps run inviscid and the
     boundary-layer coupling starts once the wake has developed.
     Documented by the three pre-26.100 editions and by none after.
+    Measured unrecognized on 26.124 (RPT-068, 2026-09-24); 26.123
+    carries no record. The setup key unsteady_viscous_coupling_iteration
+    emits it on 25.100 and 26.000, the builds that document it and
+    render an unsteady script, and is refused at plan on every other.
   versions:
     "25.000":
       status: documented
@@ -326,6 +330,15 @@ SET_UNSTEADY_VISCOUS_COUPLING_ITERATION:
         solver, which is the weakest of the three ways a removal
         is recorded here; no probe has asked this build whether
         it still answers the name.
+    "26.124":
+      status: removed
+      probe_ref: "reports/RPT-068_two-documented-setup-commands-are-unrecognized-on-26124_2026-09-24.md"
+      note: >-
+        Measured 2026-09-24: the 26.124 solver answers
+        SET_UNSTEADY_VISCOUS_COUPLING_ITERATION 5 as an unrecognized
+        command and the script stops at that line, the same answer and
+        the same stopped script it gives a name no edition documents.
+        Its edition does not print the command either
 
 SOLVER_TIME_AVERAGING:
   layout: inline

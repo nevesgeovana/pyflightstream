@@ -1,0 +1,100 @@
+schema: pyflightstream-compat-report/1
+fs_version: '26.124'
+date: '2026-09-24'
+fs_exe: Flightstream_26124.exe
+fs_exe_sha256: 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+measured_at: '2026-09-24T02:37:30-0300'
+source: >
+  Transcription of the licensed probe T13 of the 0.27.0 work, reported as
+  RPT-067 (reports/RPT-067_the-plot-commands-write-the-plotted-series-as-text_2026-09-24.md,
+  evidence reports/probes/RPT-067_2026-09-24_evidence.yaml). Four solves of one
+  steady point on 26.124, launched one at a time, detached, with no solver alive
+  before the first; no solver was invoked while writing this transcription, and
+  it does not claim a probe-harness execution.
+summary:
+  verified: 2
+  broken: 0
+  removed: 0
+  unprobed: 0
+commands:
+  SET_PLOT_TYPE:
+    outcome: verified
+    detail: >-
+      Measured 2026-09-24 on FlightStream 26.124: SET_PLOT_TYPE RESIDUALS, LOADS
+      and SECTIONS_CP each chose the plot the following SAVE_PLOT_TO_FILE wrote
+      (the residual history, the load history and the section Cp, told apart by
+      their column names), after every export of a solved steady point and before
+      EXPORT_LOG; every run returned 0 and exported its log after the plot lines.
+      The other twenty tokens were not run.
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    return_code: 0
+    measurement:
+      - variant: T13_RES
+        plot_type: RESIDUALS
+        columns: [Residual Velocity_X, Residual Velocity_Y, Residual Pressure_X, Residual Pressure_Y]
+        script_sha256: 51b8cbcaf47af44ecceb2bfc153c2f1d7b1808e33cd297ac59e0457e46b8a115
+      - variant: T13_LOADS
+        plot_type: LOADS
+        columns:
+          - Lift coefficient_X
+          - Lift coefficient_Y
+          - Induced drag coefficient (vorticity)_X
+          - Induced drag coefficient (vorticity)_Y
+          - Pitching moment coefficient_X
+          - Pitching moment coefficient_Y
+        script_sha256: ee9cc983e69cf2b304c8067354e270f5746b547a3e22b96736658940794600a0
+      - variant: T13_SCP
+        plot_type: SECTIONS_CP
+        columns: 24 (one x/Cp pair for each of the script's 12 sections)
+        script_sha256: e11f199ddedb7a2b4dda3038fe3eedd6b1bdce7969fb8c24a8fc9a3a4b63bf05
+  SAVE_PLOT_TO_FILE:
+    outcome: verified
+    detail: >-
+      Measured 2026-09-24 on FlightStream 26.124: with the path on the line after
+      the command and a blank line after it, SAVE_PLOT_TO_FILE wrote the chosen
+      plot as a text series (the run header, the column names, one row per point
+      of the plot, the units footer) in each of three runs, 18791, 27395 and 49727
+      bytes; the residual and load histories held 181 rows for a solve that
+      converged at iteration 181. The control without it wrote no plot file, and
+      every run exported the same Total row of the loads table. The path was
+      absolute; a relative path, a save before a solve and a folder that does not
+      exist were not tried.
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    return_code: 0
+    measurement:
+      control:
+        variant: T13_C
+        return_code: 0
+        plot_file_written: false
+        loads_total_row: Total,+0.0052422,-0.0515552,+0.2397826,+0.2401794,+0.0043872,+0.0092201,-0.4304278,-0.0246709,+0.0233391
+        script_sha256: 47d76052e08654cc6470c21fcdffec8c67fd55d1e3efe35b36211cf621d17b51
+      with_command:
+        - variant: T13_RES
+          return_code: 0
+          wall_time_s: 5.9
+          plot_bytes: 18791
+          rows: 181
+          loads_total_row_equals_control: true
+          script_sha256: 51b8cbcaf47af44ecceb2bfc153c2f1d7b1808e33cd297ac59e0457e46b8a115
+        - variant: T13_LOADS
+          return_code: 0
+          wall_time_s: 6.89
+          plot_bytes: 27395
+          rows: 181
+          loads_total_row_equals_control: true
+          script_sha256: ee9cc983e69cf2b304c8067354e270f5746b547a3e22b96736658940794600a0
+        - variant: T13_SCP
+          return_code: 0
+          wall_time_s: 5.84
+          plot_bytes: 49727
+          loads_total_row_equals_control: true
+          script_sha256: e11f199ddedb7a2b4dda3038fe3eedd6b1bdce7969fb8c24a8fc9a3a4b63bf05
+      solver_log_lines_between_the_sentinels: 0

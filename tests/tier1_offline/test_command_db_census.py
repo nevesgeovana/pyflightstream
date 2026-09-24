@@ -96,7 +96,11 @@ EMITTABLE = {
     # 2026-09-14, registered with the 26.123 manual itself (SRC-752 is the
     # SRC-751 file), so every row 26.123 documents was carried and the count
     # is the same 371, the removed spelling again not counted.
-    "26.124": 371,
+    # FELL by one on 2026-09-24, a measured removal and not a lost row: the
+    # build answers SET_VORTICITY_LIFT_MODEL as an unrecognized command
+    # (RPT-068). The row stays, as removed. SET_UNSTEADY_VISCOUS_COUPLING_
+    # ITERATION gained a removed row on the same run and was never counted here.
+    "26.124": 370,
 }
 
 #: Rows recording `verified` per build, measured the same day. Pinned
@@ -150,7 +154,9 @@ VERIFIED = {
     # The rotor-path sweep 26.123 received is not yet run on this build.
     # +1 on 2026-09-24: IMPORT_WAKE_EDGES_FROM_FILE, verified by the compat probe
     # CMP-26124_2026-09-24_wake-edge-import (the qa wing's sixteen edges): 87.
-    "26.124": 87,
+    # +2 the same day: SET_PLOT_TYPE and SAVE_PLOT_TO_FILE, verified from the
+    # compat-format transcription of RPT-067's run (CMP-26124_2026-09-24_plots): 89.
+    "26.124": 89,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the
