@@ -727,3 +727,31 @@ def test_collection_reads_the_solvers_log_in_a_moved_workspace(tmp_path):
         record, sim_dir, ["datapoints/DP-AL+000/loads.txt"], None, RunStatus.CONVERGED, None
     )
     assert status is RunStatus.FAILED_SCRIPT, (status, verdict)
+
+
+def test_a_descriptor_named_like_a_program_the_run_writes_is_refused(tmp_path):
+    """A machine profile whose descriptor name is the wall-clock program's path: the
+    descriptor, written at submission, would replace the program the record hashed.
+    The run's own files are checked against one another before anything is written."""
+    from types import SimpleNamespace
+
+    from pyflightstream.cases.workflows import WALLTIME_CLOCK_PROGRAM
+    from pyflightstream.run import _descriptor_of
+
+    submitting = SimpleNamespace(profile=SimpleNamespace(descriptor_name=WALLTIME_CLOCK_PROGRAM))
+    case = SimCase(
+        sim_id="9013",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="actions",
+        outputs=["loads_{point}.txt"],
+    )
+    with pytest.raises(CampaignConfigError, match=r"descriptor|writes .* itself"):
+        _write_pending_files(
+            Script("26.124"),
+            tmp_path,
+            case=case,
+            recorded={},
+            run_writes=_descriptor_of(submitting, tmp_path),
+        )

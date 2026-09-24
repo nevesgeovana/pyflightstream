@@ -5669,7 +5669,20 @@ def _write_pending_files(
     # And the files the caller already wrote and hashed: the point's main
     # script and its probe points file. A file parked there would replace
     # them, and the solver would run other commands than script_sha256 names.
-    reserved.update({one_file(placed(str(own))): str(own) for own in run_writes})
+    # The run's own files, checked against one another: a machine profile's
+    # descriptor name on a program's path would replace that program, hashed
+    # into the record, when the point is submitted.
+    for own in run_writes:
+        key = one_file(placed(str(own)))
+        if key in reserved and reserved[key] != str(own):
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: {own} is written by the run for two things: it is "
+                f"{reserved[key]}, which the run writes itself and hashes, and a file the "
+                "caller writes too (the machine profile's descriptor name, the main "
+                "script, the probe points file). Rename the descriptor in the machine "
+                "profile; the solver was not started."
+            )
+        reserved[key] = str(own)
     hashed = set(recorded.values())
     untouched: set[str] = set()
     # A DATA FILE THE RUN WRITES AND HASHES IS THE POINT'S OWN, written in the
