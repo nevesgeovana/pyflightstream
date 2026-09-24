@@ -2055,14 +2055,14 @@ def test_a_case_naming_no_geometry_emits_nothing_new():
     ["runs/7002/inputs/blade.stl", "runs/7002/inputs/blade.obj", "runs/7002/inputs/blade"],
 )
 def test_a_suffix_that_is_not_fsm_is_refused_with_the_documented_route(geometry):
-    """A raw mesh is refused rather than imported, and the refusal routes.
+    """A raw mesh stating no unit, or a suffix no workflow reads, is refused naming the route.
 
     IMPORT's FIRST argument is the length units of the mesh file
-    (SRC-003 p.307) and no matrix cell declares them, so importing here
-    would mean defaulting a unit: a body of the wrong size, solved,
-    exported and reported without a word. That is the class of defect
-    this release exists to remove, so the narrowing is deliberate and
-    the refusal names the route the user already has.
+    (SRC-003 p.307) and the file carries none, so importing a mesh whose
+    sidecar states no ``[import]`` table would mean defaulting a unit: a
+    body of the wrong size, solved, exported and reported without a word
+    (G01). The ``.stl`` and ``.obj`` cases here state none, and the bare
+    stem is no format at all; each refusal names the documented route.
     """
     script = Script("26.120")
     with pytest.raises(CampaignConfigError) as raised:
@@ -4430,7 +4430,8 @@ def test_a_pproc_frame_the_run_did_not_create_is_refused_naming_the_created_ones
 
 
 def test_a_mesh_file_is_refused_naming_the_route_and_no_release(tmp_path):
-    """PFS-2029.09.03: a cell `wing.obj` is refused naming the .fsm route, promising no release."""
+    """PFS-2029.09.03 and G01: a cell `wing.obj` stating no unit is refused naming the
+    key to write, and promising no release."""
     from pyflightstream.cases import CampaignConfigError
 
     mesh = tmp_path / "wing.obj"
@@ -4438,7 +4439,9 @@ def test_a_mesh_file_is_refused_naming_the_route_and_no_release(tmp_path):
     with pytest.raises(CampaignConfigError) as caught:
         rendered(steady_case(geometry=str(mesh)))
     message = str(caught.value)
-    assert "no boundary conditions" in message
+    assert "[import]" in message and "units =" in message, (
+        "the refusal does not name the table and the key a raw mesh states its unit in"
+    )
     assert "docs/mesh-inputs.md" in message
     assert "0.12.0" not in message, "the refusal promises a release, and 0.12.0 shipped without it"
     assert "release" not in message.lower(), (

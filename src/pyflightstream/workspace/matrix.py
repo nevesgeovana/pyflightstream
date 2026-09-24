@@ -63,6 +63,7 @@ from pyflightstream.cases import (
     POINT_AXIS_KEYS,
     Campaign,
     FluidState,
+    MeshImport,
     PointState,
     RawCommand,
     ReferenceData,
@@ -117,6 +118,7 @@ from pyflightstream.workspace.inputs import (
     inventory_sidecar,
     is_valid_artifact_id,
     read_inventory,
+    read_mesh_import,
     resolve_build,
     rotor_integration_groups,
 )
@@ -785,6 +787,27 @@ def _inventory_of(geometry: Path) -> tuple[tuple[str, ...] | None, str | None]:
     except MeshReadError:
         return None, None
     return None, ("mesh_block" if declared else None)
+
+
+def _mesh_import_of(geometry: Path, pol: str) -> MeshImport | None:
+    """Return the ``[import]`` table of the sidecar beside the geometry, if it states one (G01).
+
+    Read here, at binding, beside :func:`_inventory_of`, so a table that does
+    not hold its shape is refused with the row before any seat is spent.
+    Whether the geometry is a raw mesh, and whether the build's ``IMPORT``
+    takes the unit, is the builder's check, because both are judged per
+    build and a case built in Python meets them too.
+    """
+    sidecar = inventory_sidecar(geometry)
+    if not sidecar.is_file():
+        return None
+    try:
+        return read_mesh_import(sidecar)
+    except InputArtifactError as error:
+        raise InputArtifactError(
+            f"matrix row POL {pol}: the {GEOMETRY_VARIABLE} variable names {geometry.name}, "
+            f"and {error}"
+        ) from error
 
 
 def _resolve_geometry(workspace: CampaignWorkspace, name: str, pol: str) -> Path:
@@ -2035,6 +2058,7 @@ def resolve_matrix(
             geometry_path = _resolve_geometry(workspace, stem, row.pol)
             update["geometry"] = str(geometry_path)
             update["inventory"], update["inventory_source"] = _inventory_of(geometry_path)
+            update["mesh_import"] = _mesh_import_of(geometry_path, row.pol)
         if row.motions:
             update["motions"] = [_bind_motion(workspace, record, row.pol) for record in row.motions]
         # THE FLAT ROW'S OWN HUB, bound the same way (PFS-2031.12): one rotor

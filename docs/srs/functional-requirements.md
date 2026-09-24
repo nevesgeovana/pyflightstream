@@ -1780,6 +1780,32 @@ nodes.
     name the mesh families the base-region autodetect is allowed to
     consider.
 
+    AMENDED 0.27.0 (G01), and pending acceptance as the requirement it
+    amends is. The builders no longer refuse every mesh file: a raw mesh
+    (`.obj`, `.stl`) is imported in the length unit the `[import]` table
+    of its sidecar states (`units`, one of the units `IMPORT` takes on the
+    row's build), into a simulation whose length unit is metres, the unit
+    of every length the reference and the row state; a raw mesh whose
+    sidecar states no such table is refused before any seat is spent,
+    naming the table, the key and the sidecar, and naming no release; a
+    saved simulation whose sidecar states one is refused; the raw mesh's
+    boundary inventory is the sidecar's `boundaries`, written by hand in
+    the file's order, since the file carries no mesh block to read it
+    from; and the run record carries the table as `mesh_import`. Whether
+    `IMPORT` converts the file's unit into the simulation's is not
+    measured on any build. The clause above is left standing, as a
+    requirement records what was believed when it was written.
+
+    AMENDED 0.27.0 (G03), pending with it: the same table declares the
+    mesh operations of the import, `[[import.operations]]` (scale,
+    rename, mirror joined to its source, translate in the table's unit,
+    rotate), applied in the order written right after `IMPORT`, in the
+    reference frame, each citing a surface by the file's name or by the
+    name an earlier rename gave it and never by position; an order the
+    script's phases cannot emit is refused naming both operations, never
+    reordered; and the boundary inventory a row cites is the sidecar's as
+    the renames leave it.
+
     This reverses a rule the 0.10.1 library defends in four arms at
     `workspace/matrix.py:566-637`, which is why it is a minor release and
     why the migration of every shipped matrix travels with it.

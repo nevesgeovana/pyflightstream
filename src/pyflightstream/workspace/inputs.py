@@ -95,6 +95,7 @@ from pyflightstream.cases import (
     CampaignConfigError,
     CustomFlag,
     FrameSpec,
+    MeshImport,
     PprocSpec,
     RawCommand,
     RotorBlock,
@@ -2151,8 +2152,9 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
     if not names:
         raise InputArtifactError(
             f"{path} carries no mesh block, so it states no boundary order to write. "
-            "A saved simulation (.fsm) carries one; a raw mesh does not, and its order "
-            "is only known once the solver has opened it (docs/mesh-inputs.md)."
+            "A saved simulation (.fsm) carries one; a raw mesh (.obj, .stl) does not, so "
+            f"write its surface names by hand in {sidecar.name}, in the file's order, "
+            "beside the [import] table that states its units (docs/mesh-inputs.md)."
         )
     body = [
         f"# Boundary inventory of {path.name}, read from its mesh block by "
@@ -2167,6 +2169,29 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
     return sidecar
 
 
+#: The table of a geometry's sidecar that states how a raw mesh is imported
+#: (G01): ``[import]``, holding ``units``.
+IMPORT_TABLE = "import"
+
+
+def _sidecar_data(sidecar: Path) -> dict[str, Any]:
+    """Parse one geometry sidecar, refusing a file that does not read as TOML, by name.
+
+    ONE PARSE, ONE READER PER TABLE. The sidecar holds the boundary order
+    (``boundaries``) and, beside a raw mesh, the ``[import]`` table; each
+    is read by its own function over this parse, and no reader refuses a
+    table it does not read. A table added to the file later is therefore
+    one more reader beside these, and the readers already here are left as
+    they are.
+    """
+    try:
+        return tomllib.loads(sidecar.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        raise InputArtifactError(
+            f"{sidecar} cannot be read as a geometry sidecar: {error}"
+        ) from error
+
+
 def read_inventory(sidecar: str | Path) -> tuple[str, ...]:
     """Return the ordered boundary names a sidecar states.
 
@@ -2176,20 +2201,100 @@ def read_inventory(sidecar: str | Path) -> tuple[str, ...]:
         A sidecar without a ``boundaries`` list of strings, naming it.
     """
     path = Path(sidecar)
-    try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError) as error:
-        raise InputArtifactError(
-            f"{path} cannot be read as a boundary inventory: {error}"
-        ) from error
-    names = data.get("boundaries")
+    names = _sidecar_data(path).get("boundaries")
     if not isinstance(names, list) or not names or not all(isinstance(n, str) for n in names):
         raise InputArtifactError(
             f"{path} does not state `boundaries` as a non-empty list of strings; "
             "rewrite it from the file with `pyfs-matrix inventory <geometry>`, "
-            "overwrite (CLI: --overwrite)."
+            "overwrite (CLI: --overwrite); for a raw mesh (.obj, .stl), which that "
+            "command cannot read, write its surface names in the file's order."
         )
     return tuple(names)
+
+
+def read_mesh_import(sidecar: str | Path) -> MeshImport | None:
+    """Return the ``[import]`` table a geometry's sidecar states, or None (G01, G03).
+
+    The table states the length unit a raw mesh is written in, and the
+    mesh operations applied right after the import, in the order written::
+
+        boundaries = ["naca"]
+
+        [import]
+        units = "MILLIMETER"
+
+        [[import.operations]]
+        op = "rename"
+        surface = "naca"
+        to = "Wing"
+
+    Read at binding, beside :func:`read_inventory`, so a table that does
+    not hold its shape is refused with the row before any seat is spent,
+    an operation named by its position. Whether the unit is one ``IMPORT``
+    takes, whether the geometry is a raw mesh at all, and whether each
+    cited surface exists at its step, is the builder's to judge, per build.
+
+    Parameters
+    ----------
+    sidecar : str or Path
+        The ``<stem>.boundaries.toml`` beside the geometry.
+
+    Returns
+    -------
+    MeshImport or None
+        None when the file holds no ``[import]`` table.
+
+    Raises
+    ------
+    InputArtifactError
+        A file that does not read as TOML, an ``import`` key that is not a
+        table, a table that states no ``units`` or a key it does not read,
+        or an operation that does not hold its shape (its own keys, finite
+        numbers, scale factors above zero, a named surface for a rename or
+        a mirror), each naming the sidecar and the operation's position.
+    """
+    path = Path(sidecar)
+    table = _sidecar_data(path).get(IMPORT_TABLE)
+    if table is None:
+        return None
+    if not isinstance(table, dict):
+        raise InputArtifactError(
+            f"{path} states `{IMPORT_TABLE}` as a {type(table).__name__}; write it as the "
+            f'table [{IMPORT_TABLE}], with units = "MILLIMETER" (the unit the mesh file is '
+            "written in) beneath it."
+        )
+    try:
+        return MeshImport.model_validate(table)
+    except ValidationError as error:
+        missing = any(
+            item["type"] == "missing" and tuple(item["loc"]) == ("units",)
+            for item in error.errors()
+        )
+        if missing:
+            raise InputArtifactError(
+                f"{path}: the [{IMPORT_TABLE}] table does not state `units`, the length "
+                "unit the mesh file is written in; write it beneath the table, as "
+                'units = "MILLIMETER". A unit is never assumed (docs/mesh-inputs.md).'
+            ) from error
+        problems = "; ".join(
+            f"{_where_in_the_import_table(item['loc'])}: "
+            f"{str(item['msg']).removeprefix('Value error, ')}"
+            for item in error.errors()
+        )
+        raise InputArtifactError(
+            f"{path}: the [{IMPORT_TABLE}] table is refused: {problems}. It holds `units`, "
+            "the length unit the mesh file is written in, and the mesh operations of the "
+            f"import as [[{IMPORT_TABLE}.operations]], numbered in the order written "
+            "(docs/mesh-inputs.md)."
+        ) from error
+
+
+def _where_in_the_import_table(loc: Sequence[int | str]) -> str:
+    """Name a place of the ``[import]`` table as its reader counts it: ``operation 2 (factors)``."""
+    if len(loc) >= 2 and loc[0] == "operations" and isinstance(loc[1], int):
+        rest = ".".join(str(part) for part in loc[2:])
+        return f"operation {loc[1] + 1}" + (f" ({rest})" if rest else "")
+    return ".".join(str(part) for part in loc) or "the table"
 
 
 # --- one subfolder per geometry (PFS-2032.05) ----------------------------------------

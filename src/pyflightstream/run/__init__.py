@@ -4973,6 +4973,9 @@ def _execute_sweep(
         "pproc": case.pproc_id,
         "velocity_requested_m_s": case.velocity,
         "inventory_source": case.inventory_source,
+        "mesh_import": None
+        if case.mesh_import is None
+        else case.mesh_import.model_dump(mode="json", exclude_none=True),
         "motions": [dict(record) for record in case.motions],
         "point_name_template": workspace.naming.point_name,
         "description": case.description or None,
@@ -5593,6 +5596,9 @@ def _execute_point(
         # the point was run for without opening the matrix.
         "pproc": case.pproc_id,
         "inventory_source": case.inventory_source,
+        "mesh_import": None
+        if case.mesh_import is None
+        else case.mesh_import.model_dump(mode="json", exclude_none=True),
         "motions": [dict(record) for record in case.motions],
         # The windows of every reduction the products stage will write for
         # this point (PFS-2015.04), resolved off the row HERE, where the
