@@ -27,6 +27,9 @@ the rows alone. So:
   licensed probe T14 measured on 26.124 that the field sets the flow's
   direction and SOLVER_SET_AOA does not turn it, so such a row would solve at
   the field's own incidence and report its own;
+* a continuation writes no free stream, so the field its row names must be the
+  one the stopped run's record hashes, and an angle beside it is refused there
+  as on a run from the mesh;
 * the additional post rebuilds such a row, and a record without the hash (every
   record written before this) still posts;
 * the licensed probe's rows (T14, ``matriz_gui.fs`` 5012 to 5014) each compare
@@ -41,6 +44,7 @@ Nothing here runs a solver; what T14 measured on the seat is read by
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -58,7 +62,7 @@ from pyflightstream.cases.workflows import build_script, build_steady_sweep, wor
 from pyflightstream.run import PlanStatus
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.script import Script
-from pyflightstream.workspace import CampaignWorkspace, InputArtifactError, RunStatus
+from pyflightstream.workspace import CampaignWorkspace, InputArtifactError, RunRecord, RunStatus
 from pyflightstream.workspace.matrix import resolve_matrix
 from tests.tier1_offline.test_additional_post import (
     a_campaign,
@@ -66,6 +70,8 @@ from tests.tier1_offline.test_additional_post import (
     extract,
     products_of,
 )
+from tests.tier1_offline.test_goal021_inputs_absolute import _rotor_row as _a_rotor_matrix
+from tests.tier1_offline.test_goal021_inputs_absolute import _workspace as _a_rotor_workspace
 from tests.tier1_offline.test_goal024_point_name import _matrix, _plan
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
@@ -606,6 +612,98 @@ def test_g15_a_field_beside_an_angle_in_the_flight_condition_blocks_every_point_
         assert words in (entry.error or "") and "SOLVER_SET_AOA does not turn it" in (
             entry.error or ""
         ), entry.error
+
+
+# ------------------------------------------------------------ the continuation --
+
+
+def _plan_on(workspace, matrix, build: str = "26.123"):
+    """Plan under the rotor row's own build, which its registry entry states no version of."""
+    return plan_matrix(
+        matrix,
+        workspace,
+        name="continued",
+        default_fs_version=build,
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        write_plan=False,
+    )
+
+
+def _a_continuation_of_a_stopped_point(tmp_path, *, alpha: str, stopped: str):
+    """Plan a rotor row stating the field and RESTART over a stopped run of its point.
+
+    ``stopped`` is what the stopped run's record hashes as the field: the file as it
+    is (``under-the-field``), the file before it was edited
+    (``under-the-field-since-edited``), or nothing, a run under the CONSTANT free
+    stream to which the row added the key (``under-constant``)."""
+    workspace = _a_rotor_workspace(tmp_path)
+    path = field(workspace.inputs_dir / FOLDER)
+    read = file_sha256(path)
+    if stopped == "under-the-field-since-edited":
+        field(workspace.inputs_dir / FOLDER, text=UNIFORM)
+    matrix = _a_rotor_matrix(
+        tmp_path, sweep=alpha, extra=f" / RESTART: {{FINISH_PENDING}} / {KEY}: shear"
+    )
+    name = _plan_on(workspace, matrix).points[0].run_id.rsplit("/", 1)[-1]
+    folder = workspace.sim_dir("7001") / "datapoints" / f"DP-{name}"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / f"{name}.fsm").write_text("a stopped march", encoding="utf-8")
+    workspace.append_record(
+        RunRecord(
+            run_id=f"rotor/sim_7001/{name}",
+            sim_id="7001",
+            point={"alpha": float(alpha)},
+            status=RunStatus.WALLTIME_REACHED,
+            matrix_stem="rotor",
+            fs_version_requested="26.123",
+            package_version="0.27.0",
+            script_sha256="c" * 64,
+            inputs_sha256={} if stopped == "under-constant" else {"shear.txt": read},
+            raw_flag=False,
+            outputs=[f"datapoints/DP-{name}/{name}.fsm"],
+            export_window={"time_iterations": 720},
+            stopped_at={"step": 250},
+        )
+    )
+    return _plan_on(workspace, matrix).points[0]
+
+
+@pytest.mark.parametrize(
+    ("alpha", "stopped", "words"),
+    [
+        ("0.0", "under-the-field", None),
+        (
+            "0.0",
+            "under-constant",
+            r"FREESTREAM: shear.*hashes no shear\.txt.*writes no free stream",
+        ),
+        (
+            "0.0",
+            "under-the-field-since-edited",
+            r"FREESTREAM: shear.*read shear\.txt with other bytes.*writes no free stream",
+        ),
+        ("4.0", "under-the-field", r"ALPHA over 4 deg\. .*" + TURNS_NOTHING),
+    ],
+    ids=["the-field-it-read", "a-constant-stop", "the-field-edited-since", "an-angle"],
+)
+def test_g15_a_continuation_refuses_a_field_its_stopped_run_did_not_read_or_an_angle(
+    alpha, stopped, words, tmp_path
+):
+    """A continuation reopens the saved simulation and writes no free stream, so it
+    marches on under the one the stopped run solved in. A row naming a field that run
+    did not read (it stopped under CONSTANT, or the file changed since) is refused at
+    plan, since the record would hash a field the solver never met; and an angle beside
+    the field is refused on a continuation exactly as on a run from the mesh. THE
+    CONTROL: the field the stopped run read, at zero incidence, plans READY."""
+    entry = _a_continuation_of_a_stopped_point(tmp_path, alpha=alpha, stopped=stopped)
+    if words is None:
+        assert entry.status == PlanStatus.READY, entry.error
+        return
+    assert entry.status == PlanStatus.BLOCKED, (
+        f"the continuation planned {entry.status} over a stop {stopped} at ALPHA {alpha}"
+    )
+    assert re.search(words, entry.error or "", re.S), entry.error
 
 
 # ------------------------------------------ the additional post and the post --

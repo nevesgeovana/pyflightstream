@@ -654,6 +654,22 @@ def _solver_log(line: str | None) -> str:
     return text.replace("\n", "\r\n\x00\r\n")
 
 
+def _log_without_residuals(line: str | None) -> str:
+    """A log carrying the solver's banner, its script line and ``line``, and no residual table.
+
+    A scheduler's log of a job, or an export the solver cut short, has this
+    shape: it does not read as a residual history, so nothing finds it by
+    content, and the default assessor names no log for it.
+    """
+    text = (Path(__file__).parent / "fixtures" / "log_residuals_26.120.txt").read_text(
+        encoding="utf-8"
+    )
+    anchor = "script.txt\n"
+    head = text[: text.index(anchor) + len(anchor)]
+    body = head if line is None else f"{head}\n{line}\n"
+    return body.replace("\n", "\r\n\x00\r\n")
+
+
 def _writes_every_export_and_the_log(log: Path) -> str:
     """WRITES_EVERY_EXPORT, with every EXPORT_LOG written from ``log``."""
     return (
@@ -669,8 +685,12 @@ def _writes_every_export_and_the_log(log: Path) -> str:
     )
 
 
-def _run_a_profile_row(tmp_path, *, values: str, refused: bool):
-    """Run a PROFILE row through run_matrix with a log that does or does not refuse the file."""
+def _run_a_profile_row(tmp_path, *, values: str, refused: bool, log_form=None):
+    """Run a PROFILE row through run_matrix with a log that does or does not refuse the file.
+
+    ``log_form`` writes the exported log from the refusal line (``_solver_log``
+    when not given).
+    """
     workspace, matrix = _matrix(
         tmp_path,
         condition="MACH:0.2, REmi:2.3, ALPHA:sweep",
@@ -686,7 +706,7 @@ def _run_a_profile_row(tmp_path, *, values: str, refused: bool):
     profile.write_bytes(AS_SAVED)
     line = f"{PROFILE_REFUSALS[1]}{profile.resolve()}" if refused else None
     log = tmp_path / "log_to_write.txt"
-    log.write_bytes(_solver_log(line).encode("utf-8"))
+    log.write_bytes((log_form or _solver_log)(line).encode("utf-8"))
     try:
         run_matrix(
             matrix,
@@ -832,6 +852,129 @@ def test_g06_a_collected_steady_job_judges_each_point_by_its_own_log(tmp_path):
     )
     assert outcome.record.status is RunStatus.FAILED_SCRIPT, outcome.record.error
     assert refused in outcome.record.error, outcome.record.error
+
+
+# --- a log that is no residual history is read for the four lines too -------------------
+#
+# The package's own assessor names a log only when it reads as a residual
+# history, and an assessor a caller passes names none, so a collected log
+# carrying no residual table (a scheduler's log of the job, copied to the row's
+# declared log) was never read for the four lines: its point, whose loads
+# converged, was recorded CONVERGED. Every collected log is read for them.
+
+
+@pytest.mark.parametrize("assessor", ["the-package-s", "a-caller-s"])
+@pytest.mark.parametrize(
+    "refusal", [*PROFILE_REFUSALS, None], ids=["find", "read", "no-data", "load", "none"]
+)
+def test_g06_a_collected_log_that_is_no_residual_history_still_refuses_the_profile(
+    tmp_path, refusal, assessor
+):
+    """A submitted point whose loads converged and whose scheduler log carries one of
+    the four lines and no residual table is FAILED_SCRIPT at collect, whichever
+    assessor judged it; the same log without the line keeps CONVERGED."""
+    from pyflightstream.run.collect import collect_once
+    from tests.tier1_offline.test_collect_stage import _no_sleep
+    from tests.tier1_offline.test_goal028_hpc_collect import _native_log_workspace
+
+    workspace, work = _native_log_workspace(tmp_path)
+    line = None if refusal is None else f"{refusal}{work / COPY}"
+    (work / "FTS9001.l3714205").write_bytes(_log_without_residuals(line).encode("utf-8"))
+
+    def passed(record, sim_dir):
+        return RunStatus.CONVERGED, None
+
+    report = collect_once(
+        workspace,
+        interval=0.0,
+        sleep=_no_sleep,
+        assessor=passed if assessor == "a-caller-s" else None,
+    )
+    (outcome,) = report.collected + report.failed
+    record = outcome.record
+    assert record is not None, outcome.detail
+    # THE SHAPE OF THE FINDING: no assessor named the log, and nothing found it by content.
+    assert record.log_file_used is None, record.log_file_used
+    if line is None:
+        assert record.status is RunStatus.CONVERGED, record.error
+        assert record.error is None
+        return
+    assert record.status is RunStatus.FAILED_SCRIPT, (record.status, record.error)
+    assert line in record.error, record.error
+    assert "the actuator disc did not use the file" in record.error, record.error
+
+
+def test_g06_a_collected_steady_job_reads_a_point_log_that_is_no_residual_history(tmp_path):
+    """Each point of a submitted steady job is held to the four lines in its own log,
+    whether or not that log reads as a residual history."""
+    import json
+
+    from pyflightstream.run.collect import collect_once
+    from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
+
+    declared = {
+        "AL+000": ["AL+000.txt", "AL+000_log.txt"],
+        "AL+020": ["AL+020.txt", "AL+020_log.txt"],
+    }
+    workspace, sim = _submitted_workspace(
+        tmp_path, declared=tuple(name for names in declared.values() for name in names)
+    )
+    record = workspace.read_manifest()[0]
+    points = {"AL+000": {"alpha": 0.0}, "AL+020": {"alpha": 2.0}}
+    job = record.model_copy(
+        update={
+            "submission": {
+                **(record.submission or {}),
+                "declared_by_point": declared,
+                "points_by_tag": points,
+            },
+            "points_ran": [
+                {"tag": tag, "point": point, "status": "SUBMITTED"} for tag, point in points.items()
+            ],
+        }
+    )
+    workspace.manifest_path.write_text(
+        json.dumps([json.loads(job.model_dump_json())], indent=2) + "\n", encoding="utf-8"
+    )
+    refused = f"{PROFILE_REFUSALS[0]}{sim / COPY}"
+    for tag in declared:
+        (sim / f"{tag}.txt").write_text("numbers", encoding="utf-8")
+    (sim / "AL+000_log.txt").write_bytes(_log_without_residuals(refused).encode("utf-8"))
+    (sim / "AL+020_log.txt").write_bytes(_log_without_residuals(None).encode("utf-8"))
+
+    def passed(record, sim_dir):
+        return RunStatus.CONVERGED, None
+
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=passed)
+    (outcome,) = report.collected + report.failed
+    assert outcome.record is not None, outcome.detail
+    by_tag = {entry["tag"]: entry["status"] for entry in outcome.record.points_ran or []}
+    assert by_tag == {"AL+000": "FAILED_SCRIPT", "AL+020": "CONVERGED"}, (
+        by_tag,
+        outcome.record.error,
+    )
+    assert refused in outcome.record.error, outcome.record.error
+
+
+@pytest.mark.parametrize("refused", [True, False], ids=["refused", "control"])
+@pytest.mark.parametrize("values", ["0.0", "0.0,2.0"], ids=["one-point", "a-steady-job"])
+def test_g06_a_local_point_whose_log_is_no_residual_history_still_refuses_the_profile(
+    tmp_path, values, refused
+):
+    """The local path reads the exported log for the four lines too, when neither the
+    assessor names it nor its content reads as a residual history and the solver
+    left no log of its own beside it."""
+    record, profile, line = _run_a_profile_row(
+        tmp_path, values=values, refused=refused, log_form=_log_without_residuals
+    )
+    if not refused:
+        assert record.status is RunStatus.CONVERGED, (record.status, record.error)
+        return
+    assert record.status is RunStatus.FAILED_SCRIPT, (record.status, record.error)
+    assert line in record.error, record.error
+    assert f"file {profile}" in record.error, record.error
+    statuses = [entry["status"] for entry in record.points_ran or []]
+    assert statuses == ["FAILED_SCRIPT"] * len(statuses), record.points_ran
 
 
 @pytest.mark.parametrize("values", ["0.0", "0.0,2.0"], ids=["one-point", "a-steady-job"])

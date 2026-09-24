@@ -312,6 +312,16 @@ FlightStream versions.
 
 ### Fixed
 
+- **A continuation no longer passes over its row's custom free stream** (G15).
+  A row stating `RESTART` built its continuation before reading `FREESTREAM`,
+  so it planned and ran beside a non-zero `ALPHA` or `BETA` the same row is
+  refused without `RESTART`, and a key added to a row that stopped under the
+  CONSTANT free stream reopened that state, wrote no `SET_FREESTREAM` and was
+  recorded with the field's sha256 as read. A continuation still writes no free
+  stream, since the saved simulation carries the stopped run's; the row's field
+  is now read and refused as a run from the mesh reads and refuses it, and a
+  field the stopped run's record does not hash, or hashes with other bytes, is
+  refused at plan and at run, naming the point, the key and the run continued.
 - **`pyfs-matrix plan` calls a recorded job's points recorded, and resume
   runs a recorded job's new angles one each.** A steady row of several points
   is one job, recorded under the row's id and not under its points', and the
@@ -671,6 +681,16 @@ FlightStream versions.
   failure, whichever assessor judged it, on a local point, on each point of a
   steady row run as one job, and at `pyfs-matrix collect`; its `error` quotes
   the line, names the file and says the disc did not use it (G06).
+- **The profile file's refusal is read in every collected log, not only in a
+  log that reads as a residual history.** The four lines were looked for in the
+  log the assessor named or found by its residual table, so a log carrying no
+  residual table, as a scheduler's log copied to the row's declared log can,
+  was never read for them: a submitted point whose loads converged was recorded
+  `CONVERGED` at `pyfs-matrix collect` with the line in its log, and so was a
+  local point whose solver left no log of its own beside the export. Every
+  collected output named as a log (`_log.txt`) is now read for them too, on a
+  local point, on each point of a steady row run as one job and at collect,
+  and the point is `FAILED_SCRIPT` (G06).
 - **The actuator disc's profile file is read as it was written, and never
   stops an unattended run in a dialog.** The script named the user's file under
   `inputs/profiles/`, and an editor ends a file in a newline: 26.124 reads
@@ -706,6 +726,21 @@ FlightStream versions.
   `Reconstruction.verified` are unchanged. An action script rewritten during
   the run reads `differs`, since the record hashes the empty file the run
   wrote.
+- **Two different files the solver reads no longer share one key of
+  `inputs_sha256`.** The record keys each input by its file name, and the
+  digests of the files a run writes for the solver, the trailing-edge node
+  file `<geometry stem>.wake_nodes.txt` and the actuator profile's copy
+  `<profile stem>.actuator_profile.txt`, were merged over the inputs the case
+  declared. A custom free stream named like either,
+  `FREESTREAM: wing.wake_nodes` beside the file-route wing `wing.stl`, ran with
+  the generated file's digest in place of the field's, so the record no longer
+  said which field the solver read, and `reconstruct()` verified the node file
+  under that key and never the field. A file the run writes under a name
+  another input of the case already holds with different bytes is now refused
+  before the solver starts, on a point and on a steady row run as one job: the
+  point is `FAILED_SCRIPT`, its error names the key and both files, and its
+  record keeps the declared file's digest. The same bytes under one name are
+  one file and run (G15, G02, G06).
 
 ### Changed
 
