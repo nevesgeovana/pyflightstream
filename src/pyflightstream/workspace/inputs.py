@@ -97,6 +97,7 @@ from pyflightstream.cases import (
     CampaignConfigError,
     CustomFlag,
     FrameSpec,
+    InputKey,
     MeshImport,
     PprocSpec,
     RawCommand,
@@ -372,8 +373,23 @@ class ReferenceArtifact(BaseModel):
         naming this field.
     moment_point : PointXyz
         Moment reference point in the simulation geometry frame, m.
+    body_axes : dict of str to str
+        Which model axis, ``X``, ``Y`` or ``Z``, each body rate turns about,
+        keyed ``roll``, ``pitch`` and ``yaw``.
     rotor : RotorReference, optional
         Rotor block, present for propulsive configurations.
+    aliases : dict of str to list of str
+        Names for groups of boundaries, each standing for the boundary names,
+        families or aliases listed under it.
+    frames : list of FrameSpec
+        The custom coordinate systems of the configuration, in the order
+        written.
+    rotors : dict of str to RotorBlock
+        One rotor per top-level table stating ``kind = "rotor"``.
+    actuators : dict of str to ActuatorBlock
+        One actuator disc per top-level table stating ``kind = "actuator"``.
+    points : dict of str to PointXyz
+        One named point per top-level table stating another point ``kind``.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -2382,12 +2398,114 @@ RAW_MESH_CONDITION_TABLES = (TRAILING_EDGES_TABLE, WAKE_TERMINATION_TABLE, BASE_
 #: The word a ``detect`` key takes for detection over every surface.
 DETECT_EVERYWHERE = "auto"
 
+#: WHAT A GEOMETRY'S SIDECAR MAY HOLD AT ITS TOP LEVEL, each with what it
+#: sets, for the generated input glossary ``INPUTS.md`` (G08 of 0.27.0). The
+#: tables' own keys are in the registries below, which are the ones their
+#: readers read, so a key a reader gains is a key the glossary states.
+GEOMETRY_SIDECAR_KEYS: Mapping[str, InputKey] = {
+    "boundaries": InputKey(
+        "The mesh's boundary names in the solver's order, the name at position i being "
+        "boundary i; read from a saved simulation by pyfs-matrix inventory, written by "
+        "hand for a raw mesh.",
+        "a list of names",
+    ),
+    "file": InputKey(
+        "The file the inventory was read from, as pyfs-matrix inventory writes it; "
+        "nothing reads it back.",
+        "a file name",
+    ),
+    IMPORT_TABLE: InputKey(
+        "How a raw mesh is imported: the unit it is written in and the operations "
+        "applied right after.",
+        "a table; see `[import]` below",
+        "IMPORT",
+    ),
+    TRAILING_EDGES_TABLE: InputKey(
+        "How a raw mesh's trailing edges are marked, which every raw mesh a workflow "
+        "imports declares.",
+        "a table; see `[trailing_edges]` below",
+        "IMPORT_WAKE_EDGES_FROM_FILE, AUTO_DETECT_TRAILING_EDGES, DETECT_TRAILING_EDGES_BY_SURFACE",
+    ),
+    WAKE_TERMINATION_TABLE: InputKey(
+        "Detects a raw mesh's wake-termination nodes, only when written.",
+        "a table; see `[wake_termination]` below",
+        "AUTO_DETECT_WAKE_TERMINATION_NODES, DETECT_WAKE_TERMINATION_NODES_BY_SURFACE",
+    ),
+    BASE_REGIONS_TABLE: InputKey(
+        "Detects a raw mesh's base regions over the whole mesh, only when written.",
+        "a table; see `[base_regions]` below",
+        "AUTO_DETECT_BASE_REGIONS",
+    ),
+}
+
+#: THE KEYS EACH BOUNDARY-CONDITION TABLE OF A SIDECAR READS, each with what it
+#: sets. The readers below read THESE: a key outside its table's entry is
+#: refused naming itself, so a key added here is read and stated at once, and
+#: one read without a meaning cannot exist.
+RAW_MESH_CONDITION_KEYS: Mapping[str, Mapping[str, InputKey]] = {
+    TRAILING_EDGES_TABLE: {
+        "file": InputKey(
+            "The points file beside the sidecar holding the mid-point of every "
+            "trailing-edge mesh edge, under a line naming their length unit; the "
+            "default route.",
+            "a file name",
+            "IMPORT_WAKE_EDGES_FROM_FILE",
+        ),
+        "type": InputKey(
+            "The edge type every point of the file is given.",
+            'text, default `"STANDARD"`',
+            "IMPORT_WAKE_EDGES_FROM_FILE",
+        ),
+        "tolerance": InputKey(
+            "The distance within which an edge's mid-point counts as a point of the file.",
+            "m, > 0, default `0.0001`",
+            "IMPORT_WAKE_EDGES_FROM_FILE",
+        ),
+        "detect": InputKey(
+            "Marks the edges by the solver's detection instead of a file, over every "
+            "surface or on the surfaces named.",
+            '`"auto"`, or a table; see `detect = { ... }` below',
+            "AUTO_DETECT_TRAILING_EDGES, DETECT_TRAILING_EDGES_BY_SURFACE",
+        ),
+    },
+    WAKE_TERMINATION_TABLE: {
+        "detect": InputKey(
+            "Detects the wake-termination nodes over every surface, or on the surfaces named.",
+            '`"auto"`, or `{ surfaces = ["<name>"] }`',
+            "AUTO_DETECT_WAKE_TERMINATION_NODES, DETECT_WAKE_TERMINATION_NODES_BY_SURFACE",
+        ),
+    },
+    BASE_REGIONS_TABLE: {
+        "detect": InputKey(
+            "Detects the base regions over the whole mesh; a named boundary is the "
+            "row's BASE_REGIONS key's.",
+            '`"auto"`',
+            "AUTO_DETECT_BASE_REGIONS",
+        ),
+    },
+}
+
+#: The keys a ``detect = { ... }`` table of ``[trailing_edges]`` reads, with
+#: what each sets, read by :func:`_read_trailing_edge_detection`.
+TRAILING_EDGE_DETECT_KEYS: Mapping[str, InputKey] = {
+    "surfaces": InputKey(
+        "The surfaces to detect on, by the sidecar's names.",
+        'a list of names, or `"all"` for every surface',
+        "DETECT_TRAILING_EDGES_BY_SURFACE",
+    ),
+    "sweep_angle": InputKey(
+        "The sweep angle set before the detection, only when stated.",
+        "deg",
+        "SET_TRAILING_EDGE_SWEEP_ANGLE",
+    ),
+}
+
 #: The keys ``[trailing_edges]`` reads: ``file`` with ``type`` and
 #: ``tolerance``, the default route, or ``detect`` alone.
-_TRAILING_EDGE_KEYS = ("file", "type", "tolerance", "detect")
+_TRAILING_EDGE_KEYS = tuple(RAW_MESH_CONDITION_KEYS[TRAILING_EDGES_TABLE])
 
 #: The keys a ``detect = { ... }`` table of ``[trailing_edges]`` reads.
-_DETECT_KEYS = ("surfaces", "sweep_angle")
+_DETECT_KEYS = tuple(TRAILING_EDGE_DETECT_KEYS)
 
 _TRAILING_EDGE_ROUTES = (
     'file = "<points file>", the default route: the mid-point of every trailing-edge '
@@ -2584,7 +2702,7 @@ def _read_detection(
     shapes = f'detect = "{DETECT_EVERYWHERE}"' + (
         ' or detect = { surfaces = ["<name>"] }' if by_surface else ""
     )
-    foreign = sorted(set(table) - {"detect"})
+    foreign = sorted(set(table) - set(RAW_MESH_CONDITION_KEYS[name]))
     if foreign or "detect" not in table:
         stated = f"reads no {', '.join(foreign)}" if foreign else "states no detect"
         raise InputArtifactError(f"{where} {stated}; it reads one key, {shapes}.")

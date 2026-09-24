@@ -12,6 +12,7 @@ from pathlib import Path
 import mkdocs_gen_files
 
 from pyflightstream.overview import markdown_overview
+from pyflightstream.post.guides import input_glossary_markdown
 from pyflightstream.reference import (
     conventions_markdown,
     markdown_build_table,
@@ -51,6 +52,11 @@ with mkdocs_gen_files.open("builds.md", "w") as page:
 # never disagree.
 with mkdocs_gen_files.open("conventions.md", "w") as page:
     page.write("# House conventions\n\n" + conventions_markdown())
+
+# The input glossary (G08 of 0.27.0): the page `pyfs-workspace init` writes into
+# a workspace's `inputs/pproc/INPUTS.md`, from the same function.
+with mkdocs_gen_files.open("inputs.md", "w") as page:
+    page.write(input_glossary_markdown())
 
 for script_name in EXAMPLES:
     source = (Path("examples") / script_name).read_text(encoding="utf-8")

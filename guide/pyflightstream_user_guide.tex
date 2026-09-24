@@ -958,6 +958,13 @@ FLIGHT_CONDITION: TASmps:68.08, ALTFT:10000, dISA:5
   \end{itemize}
 \end{frame}
 
+\begin{frame}{Every input key, in one generated page}
+  \begin{itemize}
+    \item \code{inputs/pproc/INPUTS.md} lists every key an input artifact may state: the matrix row by run type, the setup, the pproc, the reference and the geometry sidecar. Each row says what the key sets, its unit or values, the run types or builds that accept it where the code says, and the solver command it reaches.
+    \item It is \textbf{generated from the code}, beside \code{VARIABLES.md}, by \code{pyfs-workspace init}, \code{pyfs-matrix plan} and \code{post}, and rewritten only when its content changes; the documentation site carries the same page. A key the package gains arrives there with its meaning, and a test fails for a key that arrives without one.
+  \end{itemize}
+\end{frame}
+
 \begin{frame}[fragile]{Recipe 7 addendum: migrating a run matrix}
   \begin{itemize}
     \item Coming from spreadsheet-driven run matrices (the pipe-delimited layout with a \code{SWEEP\_TYPE} column of \code{AL} and \code{BE} codes)? \textbf{First upgrade the file.} The layout has broken four times and a matrix written under any earlier one is recognised by its header and refused rather than misread. v0.9.0 replaced the \code{RE} and \code{MACH} columns with one mandatory \code{FLIGHT\_CONDITION} cell; v0.15.0 removed \code{SWEEP\_TYPE} itself, because that cell now says which variable varies by carrying the word \code{sweep} where its value would be, so \code{AL} becomes \code{ALPHA:sweep}. The one row the converter will not do for you is one that varies BOTH angles: that is one row per sideslip, each needing a \code{POL} of its own, and it is refused by name.

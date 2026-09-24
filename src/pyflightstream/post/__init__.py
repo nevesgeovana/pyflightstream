@@ -50,8 +50,10 @@ module, which is stated rather than left to be discovered:
   over the averaged columns of an unsteady polar. Reached through its own
   module: the products stage is its caller, and a user writing an equation
   reads the generated ``WRITING-EQUATIONS.md`` first;
-* :mod:`pyflightstream.post.guides` writes the two generated pproc guides,
-  ``VARIABLES.md`` and ``WRITING-EQUATIONS.md``. Re-exported here;
+* :mod:`pyflightstream.post.guides` writes the generated input guides beside
+  a workspace's pproc artifacts: ``VARIABLES.md`` and ``WRITING-EQUATIONS.md``,
+  and since 0.27.0 the input glossary ``INPUTS.md``, every key an input
+  artifact may state (G08). Re-exported here;
 * :mod:`pyflightstream.post._tables` is PRIVATE: the table primitives
   (the condition block, the CSV writer, the column renaming) the product
   modules share, so that no two of them import each other.
@@ -72,8 +74,11 @@ Sweep assembly is not here either, it is
 from pathlib import Path
 
 from pyflightstream.post.guides import (
+    INPUT_GLOSSARY_NAME,
     PPROC_GUIDE_NAMES,
+    write_input_glossary,
     write_pproc_guides,
+    write_workspace_input_glossary,
     write_workspace_pproc_guides,
 )
 from pyflightstream.post.products import (
@@ -149,7 +154,9 @@ __all__ = [
     "write_plots_table",
     "write_polar_table",
     "write_recorded_polar",
+    "INPUT_GLOSSARY_NAME",
     "PPROC_GUIDE_NAMES",
+    "write_input_glossary",
     "write_pproc_guides",
     "write_reduction",
     "write_sections_table",
@@ -166,11 +173,14 @@ register_post_stage(write_campaign_products)
 # THE GENERATED PPROC GUIDES reach the workspace init and the plan, which live
 # below this layer, through the same kind of registry the post stage uses.
 register_input_guide(write_workspace_pproc_guides)
+# THE INPUT GLOSSARY (G08 of 0.27.0), beside them and by the same registry.
+register_input_guide(write_workspace_input_glossary)
 
 
 def _the_guides_stage(workspace: object, **_options: object) -> list[Path]:
-    """Refresh the generated pproc guides at post; a guide is not a product, so return none."""
+    """Refresh the generated input guides at post; a guide is not a product, so return none."""
     write_workspace_pproc_guides(workspace.inputs_dir)  # type: ignore[attr-defined]
+    write_workspace_input_glossary(workspace.inputs_dir)  # type: ignore[attr-defined]
     return []
 
 

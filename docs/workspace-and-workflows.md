@@ -557,6 +557,10 @@ inputs/
                           [glossary] of each pproc artifact
   pproc/WRITING-EQUATIONS.md  GENERATED beside it: how to write [equations],
                           [glossary] and [phase_locked], and how to rename a group
+  pproc/INPUTS.md         GENERATED beside them: every key an input artifact may
+                          state (the matrix row by run type, the setup, the pproc,
+                          the reference, the geometry sidecar), what it sets, its
+                          unit or values, and the command it reaches
   executables.toml        which executable, and optionally which version,
                           each build identifier means
   executables.local.toml  this machine's paths for the same identifiers,
@@ -569,6 +573,20 @@ the same one. The identifier is yours to choose; the matrix and the
 file name simply have to agree. An identifier that is not staged is
 refused before anything runs, and the refusal names the identifier, the
 kind and what is available.
+
+**`inputs/pproc/INPUTS.md` is the glossary of every input key** (since
+0.27.0). It holds one table per table of each artifact, the matrix row by
+run type, the setup, the pproc, the reference and the geometry sidecar,
+and one row per key: what the key sets, its unit or the values it takes,
+the run types or builds that accept it where the code says, and the solver
+command it reaches. `pyfs-workspace init`, `pyfs-matrix plan` and
+`pyfs-matrix post` write it beside `VARIABLES.md`, rewriting it only when
+its content changes. It is generated from the registries the readers and
+the builders use and from the fields of the input models, and each meaning
+is read from the code beside its key, so the page cannot list a key the
+package does not read, and a key added without a meaning fails the suite
+(`test_goal031_g08_input_glossary.py`). The documentation site renders the
+same page as [the input glossary](inputs.md).
 
 ### The geometry library: flat, or one folder per geometry
 
@@ -671,8 +689,10 @@ knowing.
     That list is maintained by hand and this page is not generated, so
     **read the warning your own preset prints** rather than this
     paragraph: it names every key of YOUR file that was recorded, each
-    with its reason. What the paragraph is for is that the set is
-    closed and short enough to see at once.
+    with its reason. The generated `inputs/pproc/INPUTS.md` lists the
+    package's set with its reasons, beside every setting and every alias
+    of the solver's own names. What the paragraph is for is that the set
+    is closed and short enough to see at once.
 
     A preset may declare its own with `recorded_only = ["my_setting"]`,
     for a setting from a build or a workflow this package has not met. A
