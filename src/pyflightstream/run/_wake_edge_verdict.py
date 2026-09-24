@@ -33,6 +33,7 @@ __all__ = [
     "collected_solver_log",
     "reads_as_residual_history",
     "script_log_names",
+    "SOLVER_OWN_LOG",
     "wake_edge_import_verdict",
     "with_wake_edge_verdict",
 ]
@@ -232,6 +233,11 @@ def script_log_names(script_text: str | None) -> list[str]:
     return names
 
 
+#: The file the solver writes its own log to in its working folder, whatever the
+#: script exports: a log by its name wherever it is collected.
+SOLVER_OWN_LOG = "FlightStreamLog.txt"
+
+
 def collected_log_texts(
     folder: Path, collected: Sequence[str], declared: Collection[str] = ()
 ) -> list[str]:
@@ -272,8 +278,11 @@ def collected_log_texts(
         one of ``declared``, in the order collected; empty when none is collected.
     """
     # A name equal to a declared one but for case is the same file on a
-    # case-insensitive file system, so the names are compared casefolded.
+    # case-insensitive file system, so the names are compared casefolded. The
+    # solver's own log is a log by its name, declared or not: a job submitted
+    # before the declared logs were recorded names it nowhere else.
     named = {PureWindowsPath(str(name)).name.casefold() for name in declared}
+    named.add(SOLVER_OWN_LOG.casefold())
     return [
         path.read_text(encoding="utf-8", errors="replace")
         for path in (folder / entry for entry in collected)

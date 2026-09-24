@@ -146,6 +146,7 @@ from pyflightstream.results.conditions import ConditionBinding, bind_conditions
 from pyflightstream.results.tables import sweep_table, write_table
 from pyflightstream.run._actions_counter import render_program
 from pyflightstream.run._wake_edge_verdict import (
+    SOLVER_OWN_LOG,
     actuator_profile_verdict,
     collected_log_texts,
     collected_solver_log,
@@ -227,7 +228,7 @@ __all__ = [
     "run_campaign",
 ]
 
-_LOG_NAME = "FlightStreamLog.txt"
+_LOG_NAME = SOLVER_OWN_LOG
 
 #: The suffix of the solver log among a point's declared outputs, the one the
 #: log's export kind carries and the one `collect` copies a scheduler's log to.
@@ -5630,6 +5631,29 @@ def _write_pending_files(
         target = Path(name)
         return target if target.is_absolute() else work_dir / target
 
+    # ONE PATH, ONE FILE, BEFORE ANY IS WRITTEN. The action scripts and the data
+    # files are written into one folder, and two of them whose paths are equal
+    # but for case are one file on a case-insensitive file system, as on
+    # Windows: the second would replace the first, and an action or an import
+    # would read the other's text. Different contents under such paths are
+    # refused before a byte is written; the same contents are one file.
+    targets: dict[str, tuple[Path, bytes]] = {}
+    for parked, content in (
+        *script.pending_action_scripts.items(),
+        *script.pending_input_files.items(),
+    ):
+        target = placed(parked)
+        data = content if isinstance(content, bytes) else content.encode("utf-8")
+        first = targets.setdefault(str(target).casefold(), (target, data))
+        if first[1] != data:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the run writes {first[0]} and {target} for the "
+                "solver with different contents, and on a case-insensitive file system, "
+                "as on Windows, the two paths are one file, so the second would replace "
+                "the first and the record, which keys each input by its file name "
+                "(inputs_sha256), could not say which bytes the solver read. Rename one "
+                "of them; the solver was not started."
+            )
     for action_file, action_text in script.pending_action_scripts.items():
         target = placed(action_file)
         target.parent.mkdir(parents=True, exist_ok=True)

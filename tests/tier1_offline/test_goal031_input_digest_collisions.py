@@ -364,13 +364,66 @@ def test_a_node_file_named_like_a_parked_one_but_for_case_is_refused_by_the_help
 
 
 def test_a_declared_log_is_read_whatever_the_case_of_its_name(tmp_path):
-    """A log the script names ``FlightStreamLog.txt`` and a row collects as
-    ``flightstreamlog.txt`` is one file on a case-insensitive file system, so its text
-    is read for the refusal lines; a collected output named nowhere as a log is not."""
+    """A log the script names ``RunLog.txt`` and a row collects as ``runlog.txt`` is one
+    file on a case-insensitive file system, so its text is read for the refusal lines; a
+    collected output named nowhere as a log is not."""
+    from pyflightstream.run._wake_edge_verdict import collected_log_texts
+
+    (tmp_path / "runlog.txt").write_text("the log", encoding="utf-8")
+    (tmp_path / "loads.txt").write_text("the loads", encoding="utf-8")
+    collected = ["runlog.txt", "loads.txt"]
+    assert collected_log_texts(tmp_path, collected, declared=["RunLog.txt"]) == ["the log"]
+    assert collected_log_texts(tmp_path, collected, declared=[]) == []
+
+
+def test_two_action_scripts_whose_names_differ_only_in_case_are_refused(tmp_path):
+    """``actions/step.txt`` setting the incidence and ``actions/STEP.txt`` exporting the
+    loads are one file on a case-insensitive file system: both actions would run the
+    export and the incidence command would be lost. The helper refuses the second where
+    it is registered, and the run's writer refuses them however they were parked,
+    before it writes any file; the same text under both spellings is one file."""
+    script = Script("26.124")
+    helpers.unsteady_action(
+        script,
+        name="incidence",
+        kind="SCRIPT",
+        filename="actions/step.txt",
+        action_script="SOLVER_SET_AOA 2.0",
+    )
+    before = script.render()
+    with pytest.raises(CommandArgumentError, match=r"only in case"):
+        helpers.unsteady_action(
+            script,
+            name="loads",
+            kind="SCRIPT",
+            filename="actions/STEP.txt",
+            action_script="EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
+        )
+    assert script.render() == before, "the refused action left lines in the script"
+
+    script._pending_action_scripts["actions/STEP.txt"] = "EXPORT_SOLVER_ANALYSIS_SPREADSHEET"
+    case = SimCase(
+        sim_id="9003",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="actions",
+        outputs=["loads_{point}.txt"],
+    )
+    work = tmp_path / "DP-point"
+    with pytest.raises(CampaignConfigError, match=r"case-insensitive"):
+        _write_pending_files(script, work, case=case, recorded={})
+    assert not work.exists() or not any(work.rglob("*")), "a file was written before the refusal"
+
+
+def test_the_solvers_own_log_is_read_on_a_job_that_declared_no_log(tmp_path):
+    """A job submitted before the declared logs were recorded, whose LEGACY recipe named
+    the solver's own ``FlightStreamLog.txt`` through LOG_OUTPUT alone, with no EXPORT_LOG:
+    the file is the solver's own log by its name, so it is read for the refusal lines
+    whatever was declared, in any case."""
     from pyflightstream.run._wake_edge_verdict import collected_log_texts
 
     (tmp_path / "flightstreamlog.txt").write_text("the log", encoding="utf-8")
     (tmp_path / "loads.txt").write_text("the loads", encoding="utf-8")
     collected = ["flightstreamlog.txt", "loads.txt"]
-    assert collected_log_texts(tmp_path, collected, declared=["FlightStreamLog.txt"]) == ["the log"]
-    assert collected_log_texts(tmp_path, collected, declared=[]) == []
+    assert collected_log_texts(tmp_path, collected, declared=[]) == ["the log"]

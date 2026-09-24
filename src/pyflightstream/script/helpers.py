@@ -3116,11 +3116,22 @@ def unsteady_action(
             "be changed afterwards, so the name is the only handle a reader has on "
             "which action is which; give the second one a name of its own"
         )
-    already = script._pending_action_scripts.get(filename)
-    if already is not None and action_script is not None:
+    # A filename equal to a parked one but for case is the same file on a
+    # case-insensitive file system (Windows), so it is held to the same rule.
+    parked = next(
+        (key for key in script._pending_action_scripts if key.casefold() == filename.casefold()),
+        None,
+    )
+    if parked is not None and action_script is not None:
+        where = (
+            repr(filename)
+            if parked == filename
+            else f"{parked!r}, which differs from {filename!r} only in case: a "
+            "case-insensitive file system reads the two as one file"
+        )
         raise CommandArgumentError(
             f"unsteady_action: this script already writes an action script to "
-            f"{filename!r}. One path is one file, so the second would silently replace "
+            f"{where}. One path is one file, so the second would silently replace "
             "the first and both registration lines would point at whichever text won. "
             "Give this action a filename of its own"
         )

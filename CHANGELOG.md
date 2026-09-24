@@ -817,7 +817,14 @@ gone (`docs/migrating-to-0.27.0.md`).
   the record keeps each name as the script spelled it (G06).
   `helpers.mark_wake_edges` holds a trailing-edge node file to the same rule,
   and a declared log whose collected name differs from the script's only in
-  case is read for the profile's refusal (G02, G06).
+  case is read for the profile's refusal (G02, G06). So does
+  `helpers.unsteady_action` for an action script, and the run checks every file
+  it writes for the solver, action scripts and data files together, before it
+  writes the first: two paths equal but for case with different contents are
+  refused, since one action or import would read the other's text. The
+  solver's own `FlightStreamLog.txt` is read for the profile's refusal wherever
+  it is collected, a job submitted before the declared logs were recorded
+  included.
 
 ### Changed
 
