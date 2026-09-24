@@ -279,7 +279,42 @@ detect = "auto"
 ```
 
 `[wake_termination]` emits `AUTO_DETECT_WAKE_TERMINATION_NODES`, or one
-`DETECT_WAKE_TERMINATION_NODES_BY_SURFACE` per surface named.
+`DETECT_WAKE_TERMINATION_NODES_BY_SURFACE` per surface named. On the
+detection route it follows the detected edges, before the solver is
+initialized.
+
+**On the file route the wake termination waits for the solver.** Right after
+the edges are imported from a file, the detection finds no termination node,
+and the solver uses a node it marks only when it initializes. So the script
+initializes the solver, detects, and initializes it again with the same
+settings; the second initialization replaces the first, and the solver then
+runs once, with the node:
+
+```text
+INITIALIZE_SOLVER
+SOLVER_MODEL INCOMPRESSIBLE
+SURFACES -1
+WAKE_TERMINATION_X DEFAULT
+SYMMETRY NONE
+
+AUTO_DETECT_WAKE_TERMINATION_NODES
+INITIALIZE_SOLVER
+SOLVER_MODEL INCOMPRESSIBLE
+SURFACES -1
+WAKE_TERMINATION_X DEFAULT
+SYMMETRY NONE
+
+...
+START_SOLVER
+```
+
+Without that order a twisted blade lost the termination node at its root and
+solved 1.8 % low in induced drag; with it, the file route equals the detection
+route and the saved simulation. Every run type takes this order, a steady row
+of several points included, since its points all begin after the second
+initialization. A file route without `[wake_termination]` initializes once, as
+before.
+
 `[base_regions]` emits `AUTO_DETECT_BASE_REGIONS`. It is refused beside a
 row's `BASE_REGIONS` or a pproc's `base_regions`, which would mark the base a
 second time.
@@ -415,7 +450,7 @@ named as a group offers nothing the reader can see.
 | What the file marks | Exactly the edges it names, since initialisation adds none. | RPT-065 |
 | What detection marks | An edge where the surface creases, so the angle decides: on 26.124 a blade detected with the default angle marked 12 edges, and with 10 degrees 3 of them. | RPT-065 |
 | `[base_regions]` | On 26.124 it marked the flat base of a body, the same faces the by-surface form marks when given the base boundary. | RPT-066 |
-| `[wake_termination]` | **What it marks is not verified**: on the one geometry tried on 26.124, neither command changed the saved state or printed a line, so a geometry that needs termination nodes is still owed before the option can be called measured. | RPT-066 |
+| `[wake_termination]` | On 26.124 the automatic form marked the root end of a twisted blade, on the detection route and on the file route between two initializations; right after a file import neither form marked anything. On the steady point measured, that order made the file route equal the other routes; an unsteady run takes the same order and is not measured. On the geometry tried before, neither command changed the saved state. | RPT-T07, RPT-066 |
 | The mesh operations | Not measured after an import: the grammar is the manual's, and the vertex split is carried over from the row's translation, where it was measured. | RPT-048 |
 | `IMPORT`'s unit | Whether it converts the body from the file's unit into metres is not measured on any build (above). On the file route, a body that does not come out in metres leaves the node file's points off its edges, and the count check records the point `FAILED_SCRIPT`. | none yet |
 | The surface names | Trusted, not verified: the file carries nothing this package reads them from. | none |

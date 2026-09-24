@@ -96,10 +96,10 @@ FlightStream versions.
   a compat probe; 26.122 and 26.123 are refused naming RPT-061, and earlier
   builds are refused. `detect = "auto"` or `detect = { surfaces = [...],
   sweep_angle = ... }` applies automatic detection only when written.
-  `[wake_termination]` (automatic or by surface; what it marks is
-  unverified, RPT-066) and `[base_regions]` (`detect = "auto"`) apply only
-  when written. Refused at plan: a raw mesh with no trailing edge; a table
-  stating both routes or neither; a file-route row whose outputs carry no
+  `[wake_termination]` (automatic or by surface; on 26.124 it marked the root
+  end of a twisted blade, RPT-T07) and `[base_regions]` (`detect = "auto"`)
+  apply only when written. Refused at plan: a raw mesh with no trailing
+  edge; a table stating both routes or neither; a file-route row whose outputs carry no
   solver log, or that states `EXPORT_LOG: false`, which leaves its script
   exporting none (a machine whose HPC profile turns the export off and
   names a `native_log` runs the row, and the count is read from the log
@@ -466,6 +466,18 @@ FlightStream versions.
   into `inputs/geometries/`. New: `Script.working_dir`, the folder the run
   gives a script before building it; a script built outside a run names its
   node file by its bare name (G02).
+- **A file-route row's wake-termination detection marks its node.** On 26.124
+  the detection emitted right after `IMPORT_WAKE_EDGES_FROM_FILE` marks
+  nothing, so a raw mesh that marks its trailing edge by file and writes
+  `[wake_termination]` solved with no termination node: a twisted blade lost
+  the node at its root and solved 1.8 % low in induced drag against the same
+  blade detected and saved (RPT-T07). The script now initializes the solver,
+  detects, and initializes it again with the same settings before the solve,
+  on every run type; the detection route, a file route without
+  `[wake_termination]` and a continuation are unchanged. New:
+  `Script.emit_after_initialization`, the one way a setup command reaches an
+  initialized solver, which refuses the solver's start until it is initialized
+  again (G02).
 - **The compat report of the trailing-edge import records the lines its
   verdict was made on.** Its evidence line was the specification's fixed
   note, which names the import the probe wrote, so it read the same whatever
@@ -500,6 +512,32 @@ FlightStream versions.
   three body axes to their signs (`roll` -1, `pitch` +1, `yaw` -1) where it was
   one float. The roll and yaw scorings of OPS-2011.01.03 against the recorded
   probes pass, and their strict xfails are removed (G13).
+
+- **A point whose solver could not use its actuator disc's profile file is no
+  longer recorded as a success.** When the solver cannot use the radial thrust
+  profile a row's `PROFILE` names, it logs `Failed to find`, `Failed to read`,
+  `No data found in` or `Failed to load custom radial thrust profile file:
+  <path>` and runs on to the end with the disc acting on a loading that is not
+  the file's; the point was recorded with the assessor's status, `CONVERGED` on
+  loads that are not the row's. A point whose solver log carries one of the
+  four lines is now `FAILED_SCRIPT` over any status that is not already a
+  failure, whichever assessor judged it, on a local point, on each point of a
+  steady row run as one job, and at `pyfs-matrix collect`; its `error` quotes
+  the line, names the file and says the disc did not use it (G06).
+- **`reconstruct()` checks each recorded input where the run read it.** It
+  looked for every name of a record's `inputs_sha256` in the simulation's
+  `inputs/`, where only the staged geometry is: the trailing-edge node file
+  (written in the folder the point ran in), the actuator profile (read in the
+  workspace's `inputs/profiles/`) and the unsteady action and clock programs
+  (written in the folder the point ran in) all read `missing`, so no record
+  carrying one was `faithful`, and a node file whose name the input library
+  also held read `differs` against a file the run never read. Each input is
+  now checked at the path the script names for it, among the staged inputs,
+  or in the folder the run ran in (the record's `cwd`), reads `missing` only
+  when it is not there, and still reads `differs` once changed; the keys of
+  `Reconstruction.verified` are unchanged. An action script rewritten during
+  the run reads `differs`, since the record hashes the empty file the run
+  wrote.
 
 ### Changed
 

@@ -2412,6 +2412,16 @@ has NEVER RUN on any build. Every other build of the range is documented only.
 The profile route is refused on 25.000 and 25.100, whose editions print the
 command without a blade count.
 
+A PROFILE THE SOLVER COULD NOT USE FAILS THE POINT. When the solver cannot use
+the file, it logs `Failed to find`, `Failed to read`, `No data found in` or
+`Failed to load custom radial thrust profile file: <path>` and runs on to the
+end with the disc acting on a loading that is not the file's: the loads
+converge and nothing else in the outputs says so. A point whose solver log
+carries one of those lines is recorded `FAILED_SCRIPT` whichever assessor
+judged it, on a local run and at `pyfs-matrix collect`, and its `error` quotes
+the line and names the file. The line is read from the solver log, so a row
+whose outputs name no log is not held to it.
+
 NOT MEASURED: the disc on an unsteady row; the disc on a rotor row, where a
 flat row with no blade frames turns every frame with its motion
 (`SET_MOTION_MOVING_FRAMES 1 -1`), the disc's frame included; the disc under
@@ -3671,10 +3681,12 @@ worse than no page at all.
   documents are refused by a workflow; a recipe of your own imports them,
   declaring the units itself.
 - **A raw mesh's trailing edge by file runs on 26.124 only, and its wake
-  termination is unverified.** The file route was run on that build alone,
-  and the other builds are refused; detection runs on every build that
-  carries it. The sidecar's `[wake_termination]` emits its detection, and
-  what that marks was not observable on the one geometry tried
+  termination is measured on a steady point only.** The file route was run
+  on that build alone, and the other builds are refused; detection runs on
+  every build that carries it. On the file route the sidecar's
+  `[wake_termination]` detection runs between two initializations of the
+  solver, the order that marked a blade's root node on a steady point; an
+  unsteady run takes the same order, not yet measured there
   ([mesh inputs](mesh-inputs.md#the-boundary-conditions-of-a-raw-mesh)).
 - **A workflow row that names no `GEOMETRY` emits no open, and is told
   nothing.** That is what keeps every pre-v0.8.1 matrix rendering as it
