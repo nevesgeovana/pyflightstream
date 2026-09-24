@@ -1,0 +1,65 @@
+# r008: r005, the reference of the qa wing cases on 12_WING_PHY, with ONE
+# actuator disc declared beside it (G06, FR-109): a three-blade propeller of
+# tip radius 0.5 m and hub radius 0.1 m, turning about X in a frame of its own
+# 1 m ahead of the root's leading edge. The disc is the configuration's, so it
+# lives here; its loading is the condition's, so rows 5008 and 5009 of
+# matriz_gui.fs state it (by net thrust and by a profile file) and row 5010,
+# the control, names no disc and runs this same reference with none.
+area_m2 = 8.0      # SREF, m^2: chord x span
+chord_m = 1.0      # CREF, m
+span_m = 8.0       # BREF, m
+rotor_diameter_m = 3.6576   # as r001, so the unsteady wing row's clock resolves
+
+
+# THE STUDY'S OWN WORDS (FR-59). `airframe` and `blades` were SELECTOR words
+# until 0.15.0: the package decided what was a blade from a pattern over the
+# family name, so a mesh whose blades are spelled another way got an airframe
+# with blades in it and nothing said so. A study that names its surfaces
+# cannot be guessed wrong. A member the opened mesh does not carry is left
+# out, which is what lets one table serve every geometry this reference is
+# cited against.
+[aliases]
+selection_p001_1 = ["Wing", "Body", "Base", "Blade1", "Blade2"]
+selection_p001_3 = ["Body", "Base"]
+selection_p001_4 = ["Blade1", "Blade2"]
+selection_p002_1 = ["Wing", "Body", "Base"]
+selection_p002_3 = ["Body", "Base"]
+selection_p003_1 = ["Wing", "Body", "Base", "Blade1", "Blade2"]
+selection_p003_3 = ["Body", "Base"]
+selection_p003_4 = ["Blade1", "Blade2"]
+selection_p005_1 = ["airframe", "rotors"]
+selection_p006_1 = ["airframe", "rotors"]
+airframe = ["Wing", "MainWing", "Body", "Base"]
+blades = ["Blade1", "Blade2"]
+
+[moment_point]
+x_m = 0.0
+y_m = 0.0
+z_m = 0.0
+
+[rotor]
+radius_m = 1.8288
+n_blades = 2
+pitch_deg = 0.0
+toe_deg = 0.0
+
+[rotor.position]
+x_m = -3.0
+y_m = 0.0
+z_m = 0.0
+
+# THE DISC'S FRAME, owned by no rotor: the disc turns about its X axis.
+[[frames]]
+name = "HUB"
+origin = [-1.0, 0.0, 0.0]
+
+[PROP]
+kind = "actuator"
+frame = "HUB"
+axis = "X"
+offset_m = 0.0
+tip_radius_m = 0.5
+hub_radius_m = 0.1
+rpm_sign = 1
+blades = 3                 # the profile row's distribution is read per blade
+profile_units = "NEWTONS"  # inputs/profiles/prop_ct.txt is in N per metre of span

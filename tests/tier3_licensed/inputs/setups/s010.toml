@@ -1,0 +1,18 @@
+# s010: s005, the qa physics preset of the wing cases, with the far field
+# stated at five layers, which every licensed run of this workspace states
+# from 0.27.0 on. The rows of matriz_gui.fs run on it: the volume section and
+# the actuator disc on the 12_WING_PHY wing, beside a control with neither.
+# Everything else is s005's, to the digit, so a difference between those rows
+# is the section or the disc and not the preset.
+convergence = 1e-5
+NITER = 500
+set_solver_model = "INCOMPRESSIBLE"
+proximity_avoidance = "DISABLE"            # WALL_COLLISION_AVOIDANCE DISABLE
+vorticity_drag_boundaries = ["Wing"]       # SET_VORTICITY_DRAG_BOUNDARIES, the one boundary
+farfield_layers = 5                        # SOLVER_SET_FARFIELD_LAYERS
+
+[flight_condition]
+MUPas = 1.7894e-5
+ASMPS = 340.29
+TK = 288.15
+PPA = 101325

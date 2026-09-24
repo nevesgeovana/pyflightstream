@@ -1,0 +1,19 @@
+# p007: p002's groups and ONE volume section (G05, FR-110): the YZ plane of the
+# MRP frame 2.5 m downstream of its origin, the leading edge of the 12_WING_PHY
+# root, so 1.5 m behind the trailing edge; the rectangle between the corners
+# (-5, -1) and (5, 1) of the plane's two axes, taken in the order the manual
+# gives them, exported as VTK. Every point of a steady row cuts it after its
+# solve, and the second point of a sweep deletes the first point's section
+# first.
+[groups]
+"1" = "selection_p002_1"
+"2" = "Wing"
+"3" = "selection_p002_3"
+
+[volume_section]
+shape = "rectangle"
+frame = "MRP"
+plane = "YZ"
+offset_m = 2.5
+corners_m = [-5.0, -1.0, 5.0, 1.0]
+format = "vtk"

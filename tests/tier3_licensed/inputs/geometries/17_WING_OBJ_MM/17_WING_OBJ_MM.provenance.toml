@@ -1,0 +1,16 @@
+# Provenance of a GENERATED raw mesh of the tier-3 workspace, for the mesh
+# matrix (matriz_mesh.fs). The OBJ is never committed (invariant 5): the
+# generator below writes it beside this record, and Git ignores it. Nothing
+# of the author's went into it: its source is the synthetic saved simulation
+# named here, itself made from public shape laws.
+source = "10_WING.fsm"
+source_sha256 = "92b656b97199c7f67478d817f6c1b1afffbc12accfa8b28e56ffc7abf4638f0b"
+generator = "python -m tests.tier3_licensed.prepare mesh"
+exporter = "pyflightstream.run.export_surface_mesh, file type OBJ, every surface"
+build = "26.124"
+vertex_scale = 1000.0
+units = "MILLIMETER"
+stand_in = "where no export is on disk, the offline control writes the source's own mesh block (pyflightstream._fsm.surface_mesh) so a clone plans the matrix; the export replaces it"
+record = "_generated/mesh_export.json on the preparing machine: the export digest, its round trip against the source block, and the points check"
+derived = "the METER export with every vertex line multiplied by the scale, every other line as the solver wrote it"
+sidecar = "17_WING_OBJ_MM.boundaries.toml"

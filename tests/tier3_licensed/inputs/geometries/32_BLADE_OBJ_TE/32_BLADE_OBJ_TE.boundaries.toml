@@ -1,0 +1,27 @@
+# 32_BLADE_OBJ_TE: the tier-3 blade, 30_BLADE.fsm, as a raw mesh, its
+# trailing edge marked by a points file (the default route). The OBJ beside
+# this file is generated and never committed; its provenance record says by
+# what.
+#
+# The file holds one surface, renamed by position to `Blade1`, the name
+# 30_BLADE.fsm carries.
+boundaries = ["BLADE_OBJ"]
+
+[import]
+units = "METER"
+
+[[import.operations]]
+op = "rename"
+surface = "BLADE_OBJ"
+to = "Blade1"
+
+[trailing_edges]
+# The 12 edges the saved 30_BLADE.fsm flags as trailing, by their mid-points;
+# pyflightstream.workspace.trailing_edge_midpoints finds the same twelve on
+# the blade's surface (about X, hub at the origin, 12 sections).
+file = "32_BLADE_OBJ_TE.te.txt"
+
+# The saved simulation was prepared with its wake termination nodes detected
+# after its trailing edges (recipes.prepare_geometry), so the import is too.
+[wake_termination]
+detect = "auto"

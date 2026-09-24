@@ -124,3 +124,10 @@ tests/tier3_licensed/sweep.csv
 # time on 2026-09-13 because no earlier tier-3 run had written one, which is
 # why the rule is added rather than having been here all along.
 tests/tier3_licensed/reports/
+# The raw meshes of the mesh matrix (matriz_mesh.fs): each OBJ is generated,
+# by `python -m tests.tier3_licensed.prepare mesh` (the solver's own export) or,
+# where none is on disk, by the offline control from the saved simulation's
+# mesh block. A mesh never enters Git (invariant 5); its sidecar, its points
+# file and its provenance record, in the same folder, do.
+tests/tier3_licensed/inputs/geometries/*/*.obj
+tests/tier3_licensed/inputs/geometries/*/.*.tmp

@@ -2267,8 +2267,8 @@ refusal. From Python the same step is
 `pyflightstream.workspace.matrix.renumber_repeated_pols(path, workspace)`.
 
 The tier-3 workspace of this repository, `tests/tier3_licensed`, is the
-worked example: nine matrices, one library, one manifest, and a thousands
-digit per matrix in their POLs.
+worked example: eleven matrices, one library, one manifest, and POLs no two
+matrices share.
 
 ### One row, several rotors
 

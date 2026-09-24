@@ -1,0 +1,6 @@
+# p008: the mesh matrix's one group, every surface the opened body carries.
+# The matrix runs a wing and a blade through the same artifact, and `all`
+# resolves against either, so the three routes of one body are post-processed
+# by one file and differ in nothing but how the body entered the solver.
+[groups]
+"1" = "all"

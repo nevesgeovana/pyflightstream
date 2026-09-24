@@ -1,0 +1,20 @@
+# p009: the ADDITIONAL post-processing of the mesh matrix's wing rows (their
+# ADDITIONAL_PPROC). No builder reads it: `pyfs-matrix post --additional-pproc`
+# reopens each recorded point's saved simulation and extracts this with no
+# solve. One new section distribution across the span, its sectional loads,
+# and the surface as VTK; nothing the reopened file cannot give back
+# (RPT-062), so no probes, no volume section, no plots and no time averaging.
+[groups]
+"1" = "Wing"
+
+[exports]
+vtk = true
+
+[sections]
+count = 12
+include_symmetry = false
+
+[[sections.distributions]]
+families = ["Wing"]
+frame = "MRP"
+planes = ["XZ"]

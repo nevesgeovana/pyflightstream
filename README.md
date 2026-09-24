@@ -222,7 +222,7 @@ migrate-geometries` moves a library into it, and `pyfs-workspace archive
 states what it reads, the run record says how the solver was called
 (`executor`, `export_window`, the waived commands by their name), and the
 whole test suite is organized by tier, with the licensed tier a campaign
-workspace of nine run matrices whose goldens are rendered offline on every
+workspace of eleven run matrices whose goldens are rendered offline on every
 commit.
 
 **v0.12.0 changed no column of the run-matrix file and no cell already in
@@ -497,7 +497,7 @@ table is that boundary.
 |---|---|---|
 | Command database, script builder, version refusals | supported | tier 1 over every registered version; probe reports under `reports/` |
 | Parsers, tables, run manifest, reconstruction | supported | tier 1 on committed solver fixtures |
-| Campaigns, run matrices, workspace, pre-flight | supported | tier 1 end-to-end with a stub solver; tier 3 on the licensed machine, `tests/tier3_licensed`, a workspace of nine matrices with one test per row |
+| Campaigns, run matrices, workspace, pre-flight | supported | tier 1 end-to-end with a stub solver; tier 3 on the licensed machine, `tests/tier3_licensed`, a workspace of eleven matrices with one test per row |
 | Far-field ledgers and probe surveys | **experimental** | tier 1 on synthetic fields; the licensed far-field acceptance work is deferred, not done |
 | FSI structural beam and modal analysis | **experimental** | tier 1 against analytic beam solutions; `examples/wing_static_deflection.py`, `examples/fsi_campbell_diagram.py` |
 | FSI coupled driver (the four-phase loop) | **experimental** | tier 1 offline replay on archived WP1 fixtures only; never run against a live solver in CI |

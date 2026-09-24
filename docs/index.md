@@ -120,7 +120,7 @@ a person. Both write only with an explicit `--write`.
   page is right; it marks the sections the code does not implement yet.
 * [The test tiers and the licensed workspace](tiers.md): the three
   folders of the suite and what each proves, and `tests/tier3_licensed`,
-  which IS a campaign workspace: nine matrices over one synthetic library,
+  which IS a campaign workspace: eleven matrices over one synthetic library,
   every capability of the matrix as a row, one test per row, and the qa
   physics cases judged against their references through the workflow.
 * [The numeric settings codebook](settings-codebook.md): the frozen
@@ -168,7 +168,7 @@ The three QA tiers behind the statuses:
   validity on a licensed machine; reports live under `reports/compat/`
   and statuses are promoted only from them.
 * Tier 3 (`tests/tier3_licensed`) is a campaign workspace run on the
-  licensed machine: nine matrices over a synthetic library, the qa
+  licensed machine: eleven matrices over a synthetic library, the qa
   physics cases among them judged against `qa/references/`; the
   cross-version drift suite (`pyfs-qa`) writes under `reports/physics/`.
   [The tiers page](tiers.md) walks it.

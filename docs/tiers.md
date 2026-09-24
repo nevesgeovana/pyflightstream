@@ -20,7 +20,7 @@ their matrices are sound.
 workspace. It IS a campaign workspace, laid out exactly as
 [the workspace page](workspace-and-workflows.md) describes: `inputs/`
 with the library, `sims/` and `post/` written by the runs, `runs.json`
-as the one manifest, and nine run matrices at the root. The tests sit
+as the one manifest, and eleven run matrices at the root. The tests sit
 beside the matrices and read what the runs recorded. That makes it the
 largest usage example this repository carries: every feature of the
 matrix, set through the workspace, with the row that sets it and the
@@ -44,36 +44,58 @@ folder without its provenance record.
 ```text
 python -m tests.tier3_licensed.prepare            # every missing shape
 python -m tests.tier3_licensed.prepare twin       # one shape
+python -m tests.tier3_licensed.prepare mesh       # the raw meshes, on 26.124
 ```
 
-The rest of the library is five references (`r001` the wing, `r002`
+Five folders beside them hold the RAW MESHES of the mesh matrix, one
+folder per geometry: `15_WING_OBJ_TE`, `16_WING_OBJ_DET` and
+`17_WING_OBJ_MM` are `10_WING.fsm`, and `32_BLADE_OBJ_TE` and
+`33_BLADE_OBJ_DET` are `30_BLADE.fsm`, each as an OBJ. The OBJ is the
+saved simulation exported by the package's own `export_surface_mesh`
+(`prepare mesh`, one solver run per source), and it is never committed:
+a mesh file does not enter Git, so what each folder commits is its
+sidecar (the unit, a rename to the saved file's surface name, and the
+trailing edge by a points file or by detection), its points file where
+the route takes one (the mid-points of the edges the saved file flags as
+trailing, 16 on the wing and 12 on the blade), and a provenance record.
+Where no export is on disk, the offline control writes a stand-in from
+the saved file's own mesh block, the same vertices and triangles, so a
+clone with no seat plans the matrix; `prepare mesh` replaces it and
+records how far its export is from that block.
+
+The rest of the library is eight references (`r001` the wing, `r002`
 the body, `r003` the isolated rotor, `r004` the installed rotor, `r005`
-the qa cases' block with the moment point at the origin), eight setups
-(`s001` the tour preset through `s008`, each a comment on what it
+the qa cases' block with the moment point at the origin, `r006` and
+`r007` the vocabulary's twin and the rotation null test, `r008` `r005`
+with an actuator disc), eleven setups
+(`s001` the tour preset through `s011`, each a comment on what it
 changes; `s008` is `s001` plus one raw solver line before init
 (PFS-2033.01), whose row 2004 is booked to run on the licensed seat
-(PFS-2033.03)), three
-post-processing profiles, and a reference-point file
+(PFS-2033.03), and `s009` to `s011` are `s001`, `s005` and `s002` with
+five far-field layers, which every row of the two 0.27.0 matrices
+states), nine post-processing profiles, one actuator profile file
+(`inputs/profiles/prop_ct.txt`), and a reference-point file
 with the airframe point `ARP` and the rotor points `ERP1` to `ERP3`.
 
 ### The machine's own file
 
-The committed `inputs/executables.toml` maps the build ids `26.120` and
-`26.123` onto placeholder paths, because an installation path is machine
-configuration and never enters Git. The machine that runs tier 3 writes
-`inputs/executables.local.toml` beside it, gitignored, with the same ids
-and its own paths (PFS-2031.15):
+The committed `inputs/executables.toml` maps the build ids `26.120`,
+`26.123` and `26.124` onto placeholder paths, because an installation path
+is machine configuration and never enters Git. The machine that runs tier 3
+writes `inputs/executables.local.toml` beside it, gitignored, with the same
+ids and its own paths (PFS-2031.15):
 
 ```toml
 "26.120" = "C:/builds/26120/FlightStream.exe"
 "26.123" = "C:/builds/26123/FlightStream.exe"
+"26.124" = "C:/builds/26124/FlightStream.exe"
 ```
 
 The package reads that overlay over the registry, so every row runs on
 the build its `FS_BUILD` cell names and nothing is passed on the command
 line but the matrix and the workspace.
 
-### The nine matrices
+### The eleven matrices
 
 | Matrix | What it is | Rows |
 |---|---|---|
@@ -82,6 +104,8 @@ line but the matrix and the workspace.
 | `matriz_vocab.fs` | the 0.15.0 vocabulary, on the twin geometry | 8001 a rotor named by alias, 8002 two rotors at two speeds from ONE advance ratio, 8003 one rotor held while the other sweeps, 8004 a rotation citing an alias and keeping the frame it turned from, 8005 a raw solver command the row states itself. It is the workspace the getting-started walkthrough sends a reader to copy, so its files are written to be read: `r006.toml` and `p005.toml` state the same aircraft as `r004.toml` and `p003.toml` in the newer vocabulary, and the two pairs are kept side by side so the difference can be diffed rather than described |
 | `matriz_time.fs` | one rotor at six step sizes, 30 down to 2.5 deg, one wing at two | 3001 to 3006, 3010 and 3011 |
 | `matriz_geometry.fs` | one condition, four shapes | 4001 the wing, 4002 its mirrored half, 4003 the body, 4004 the wing with its boundary renamed before the save (RPT-044) |
+| `matriz_mesh.fs` | one body through three routes, on 26.124 | 4101 the wing's saved simulation, the control; 4102 the same wing as an OBJ, its trailing edge by the points file; 4103 the OBJ with the edge detected; 4104 the OBJ written in millimetres, which asks whether the import converts it; 4105 the saved wing unsteady, for the additional post; 4111 to 4113 the blade the same three ways. The routes of one body share every cell but the geometry, and their scripts differ in the geometry lines alone; `mesh_routes.py` reads how far each OBJ row lands from its control: the points-file row is judged against the committed `Band (T07)` line, the detection row and the millimetre row are reported with their difference |
+| `matriz_gui.fs` | two GUI steps on a row, on 26.124 | 5007 a volume section behind the wing at each point of a two-point sweep; 5008 an actuator disc loaded by its net thrust, 5009 the same disc by a radial profile file, 5010 their control, the same reference with no disc named |
 | `matriz_physics.fs` | the qa physics cases as rows | 5001 PHY-01, 5002 and 5003 PHY-02, 5005 PHY-05, 5006 PHY-06 |
 | `matriz_actions.fs` | the unsteady solver actions | 6001 on 26.123, RPT-041 the script-action re-read probe; 6002 the `unsteady` type exporting after iteration 4 of 8 through the two actions of PFS-2031.18, RPT-045 |
 | `matriz_builds.fs` | one rotor row per build this machine holds | 7001 on 26.120 and 7002 on 26.123, RPT-043 the thirteen solver-setting emitters of the rotor path |
@@ -89,7 +113,7 @@ line but the matrix and the workspace.
 
 Each matrix keeps its own `plan.json`, `campaign_sweep.csv` and products under
 `post/<matrix stem>/` (PFS-2031.04); `runs.json` holds every point of
-all nine.
+all eleven.
 
 ### Which induced-drag form each case uses
 
@@ -106,6 +130,7 @@ written after the `+`.
 | 2002 | `SET_VORTICITY_DRAG_BOUNDARIES 1` + `1` (setup `s003` names `Wing`) | `10_WING` | vorticity on the wing |
 | 5001, 5002, 5006 | `SET_VORTICITY_DRAG_BOUNDARIES 1` + `1` (setup `s005`) | `12_WING_PHY`, one boundary | vorticity on the wing: PHY-01, PHY-02 full span, PHY-06 |
 | 5003 | `SET_VORTICITY_DRAG_BOUNDARIES 1` + `1` (setup `s007`) | `13_HALFWING_PHY`, one boundary | vorticity on the wing: PHY-02 half span |
+| 5007, 5008, 5009, 5010 | `SET_VORTICITY_DRAG_BOUNDARIES 1` + `1` (setup `s010`) | `12_WING_PHY`, one boundary | vorticity on the wing: the volume section, the two disc rows and their control |
 | every other row, 5005 (PHY-05) included | none | | surface pressure integration on every boundary |
 | SMI-01, SMI-02 (local only, no row) | `SET_VORTICITY_DRAG_BOUNDARIES -1` from `build_smi_script` | an isolated body; a wing-body-tail | every boundary on the vorticity list, bodies included |
 
@@ -124,7 +149,8 @@ pytest -m needs_flightstream tests/tier3_licensed
 ```
 
 `test_tour.py`, `test_studies.py`, `test_physics.py`,
-`test_actions_probe.py`, `test_actions.py` and `test_builds.py` read the manifest, the script each point's
+`test_actions_probe.py`, `test_actions.py`, `test_builds.py`, `test_mesh.py`
+and `test_gui.py` read the manifest, the script each point's
 solver received, the loads it exported and the products the run left,
 through the package's own readers, and assert per row what the row's
 cell was meant to reach. The physics module asks
@@ -176,7 +202,11 @@ golden under `tests/tier3_licensed/goldens/`, with the workspace path
 replaced by `<tier3>` and its separators written as forward slashes, so one
 set of goldens serves Windows and Linux and a change in the package that
 moves a tier-3
-script is seen on the row it moves before any seat is spent; and it
+script is seen on the row it moves before any seat is spent. For the mesh
+matrix it writes the stand-in of any raw mesh not on disk first, and it
+holds the routes of one body to scripts that differ in their geometry lines
+alone and each points file to the saved trailing edge it was written from;
+and it
 plans the refusals, six one-row matrices over a copy of the library and
 one second matrix stating a POL the tour states, each asserting that the
 workspace refuses the row naming the cause. Regenerate

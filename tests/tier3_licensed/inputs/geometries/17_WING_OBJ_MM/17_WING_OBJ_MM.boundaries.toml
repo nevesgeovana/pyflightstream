@@ -1,0 +1,23 @@
+# 17_WING_OBJ_MM: the tier-3 wing, 10_WING.fsm, as a raw mesh WRITTEN IN
+# MILLIMETRES: the METER export of 16_WING_OBJ_DET with every vertex times
+# 1000, and nothing else changed. The row that imports it asks whether IMPORT
+# converts a body from the file's unit into the simulation's metres, which no
+# build has answered (docs/mesh-inputs.md): its coefficients either match the
+# METER row's or they do not. The trailing edge is detected, so the row solves
+# whichever body the import makes and the answer is read off its loads; a
+# points file would stop the point at the import count instead.
+boundaries = ["WING_OBJ"]
+
+[import]
+units = "MILLIMETER"
+
+[[import.operations]]
+op = "rename"
+surface = "WING_OBJ"
+to = "Wing"
+
+[trailing_edges]
+detect = "auto"
+
+[wake_termination]
+detect = "auto"

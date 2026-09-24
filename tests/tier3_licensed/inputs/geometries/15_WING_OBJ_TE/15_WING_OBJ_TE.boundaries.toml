@@ -1,0 +1,26 @@
+# 15_WING_OBJ_TE: the tier-3 wing, 10_WING.fsm, as a raw mesh, its trailing
+# edge marked by a points file (the default route). The OBJ beside this file
+# is generated and never committed; its provenance record says by what.
+#
+# The file holds one surface. The rename is emitted by position, so whatever
+# name the solver takes from the file, the surface is `Wing` afterwards, the
+# name 10_WING.fsm carries: the three routes of the mesh matrix export their
+# loads under one name.
+boundaries = ["WING_OBJ"]
+
+[import]
+units = "METER"
+
+[[import.operations]]
+op = "rename"
+surface = "WING_OBJ"
+to = "Wing"
+
+[trailing_edges]
+# The 16 edges the saved 10_WING.fsm flags as trailing, by their mid-points.
+file = "15_WING_OBJ_TE.te.txt"
+
+# The saved simulation was prepared with its wake termination nodes detected
+# after its trailing edges (recipes.prepare_geometry), so the import is too.
+[wake_termination]
+detect = "auto"

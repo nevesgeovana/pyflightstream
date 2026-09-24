@@ -1,0 +1,24 @@
+# 16_WING_OBJ_DET: the tier-3 wing, 10_WING.fsm, as a raw mesh, its trailing
+# edge detected by the solver (the second route, applied because it is
+# written here). The OBJ beside this file is generated and never committed;
+# its provenance record says by what.
+#
+# The file holds one surface, renamed by position to `Wing`, the name
+# 10_WING.fsm carries.
+boundaries = ["WING_OBJ"]
+
+[import]
+units = "METER"
+
+[[import.operations]]
+op = "rename"
+surface = "WING_OBJ"
+to = "Wing"
+
+[trailing_edges]
+detect = "auto"
+
+# The saved simulation was prepared with its wake termination nodes detected
+# after its trailing edges (recipes.prepare_geometry), so the import is too.
+[wake_termination]
+detect = "auto"

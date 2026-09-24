@@ -11,6 +11,11 @@ script on purpose.
     python -m tests.tier3_licensed.offline           # report: rows, goldens
     python -m tests.tier3_licensed.offline --write   # regenerate the goldens
 
+The raw meshes of ``matriz_mesh.fs`` are not in Git: ``render`` writes the
+stand-in of any that is missing before it plans (``prepare.ensure_mesh_inputs``),
+and the golden is the same whichever OBJ is on disk, since a script names
+the file and never its bytes.
+
 A path in a rendered script is the workspace's own (the staged geometry), so
 the goldens are compared with every absolute path of this folder replaced by
 ``<tier3>``; a clone elsewhere then reads the same golden.
@@ -53,13 +58,20 @@ def portable(text: str) -> str:
     every tier-3 golden as differing on 2026-09-08. The placeholder's paths
     are therefore written with forward slashes on every machine. The
     interpreter of the machine that rendered is replaced the same way.
+
+    FROM THE PLACEHOLDER TO THE END OF ITS LINE, wherever it stands. Until
+    0.27.0 every such path began its line; a raw mesh's import writes
+    ``FILE <path>`` on one line (G01), so the separators of the path after
+    the keyword are rewritten too, and the text before the placeholder is
+    left as the builder wrote it.
     """
     for spelling in (HERE.as_posix(), str(HERE), str(HERE).replace("\\", "\\\\")):
         text = text.replace(spelling, PLACEHOLDER)
     text = text.replace(sys.executable, INTERPRETER)
     lines = []
     for line in text.replace("\r\n", "\n").split("\n"):
-        lines.append(line.replace("\\", "/") if line.startswith(PLACEHOLDER) else line)
+        at = line.find(PLACEHOLDER)
+        lines.append(line if at < 0 else line[:at] + line[at:].replace("\\", "/"))
     return "\n".join(lines)
 
 
@@ -74,6 +86,12 @@ def render(matrix: Path) -> tuple[int, dict[str, str]]:
     from pyflightstream.script import Script
     from pyflightstream.workspace import CampaignWorkspace
     from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
+    from tests.tier3_licensed.prepare import ensure_mesh_inputs
+
+    # The raw meshes of the mesh matrix are generated and never committed:
+    # where no OBJ is on disk, its stand-in is written from the saved
+    # simulation's own mesh block, so a clone plans the matrix it cannot run.
+    ensure_mesh_inputs()
 
     rendered: dict[str, str] = {}
     original = prun._plan_point

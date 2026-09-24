@@ -1,0 +1,27 @@
+# s011: s002, the unsteady preset, with the far field at five layers where
+# s002 states three: five is what every licensed run of this workspace states
+# from 0.27.0 on. The unsteady row of the mesh matrix (4105) runs on it, the
+# one whose saved simulation the additional post reopens at its last instant.
+boundary_layer_type = "TURBULENT"
+viscous_coupling = false
+convergence = 1e-5
+NITER = 300
+set_solver_model = "SUBSONIC_PRANDTL_GLAUERT"
+proximity_avoidance = "DISABLE"
+stabilization = "ENABLE"
+stabilization_strength = 1.0
+induced_wake_velocity = true
+farfield_layers = 5
+significant_digits = 7
+convergence_iterations = 10
+solver_minimum_cp = -100
+unsteady_pressure_kutta = "DISABLE"
+additional_wake_relaxation_iteration = "DISABLE"
+reynolds_averaged_drag_forces = "DISABLE"
+wake_on_wake_induction = "ENABLE"
+
+[flight_condition]
+MUPas = 1.789e-5
+ASMPS = 340.29
+TK = 288.15
+PPA = 101325

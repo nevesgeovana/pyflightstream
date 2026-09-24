@@ -1,0 +1,26 @@
+# s009: s001, the steady preset of the tour, with the far field stated at five
+# layers, which every licensed run of this workspace states from 0.27.0 on.
+# The mesh matrix (matriz_mesh.fs) runs every row on it, so the three routes
+# of one body share one setup to the line; the far field is the only line
+# s001 does not carry.
+boundary_layer_type = "TURBULENT"        # SET_BOUNDARY_LAYER_TYPE
+viscous_coupling = false                 # SET_SOLVER_VISCOUS_COUPLING
+convergence = 1e-5                       # SOLVER_SET_CONVERGENCE
+NITER = 300                              # SOLVER_SET_ITERATIONS
+set_solver_model = "SUBSONIC_PRANDTL_GLAUERT"
+proximity_avoidance = "ENABLE"
+stabilization = "ENABLE"
+stabilization_strength = 1.0
+induced_wake_velocity = true             # SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY
+farfield_layers = 5                      # SOLVER_SET_FARFIELD_LAYERS
+significant_digits = 7
+convergence_iterations = 20              # SET_SOLVER_CONVERGENCE_ITERATIONS
+solver_minimum_cp = -100
+# No induced-drag selection, as in s001: the solver's own default applies,
+# and one preset serves the wing and the blade alike.
+
+[flight_condition]
+MUPas = 1.789e-5
+ASMPS = 340.29
+TK = 288.15
+PPA = 101325

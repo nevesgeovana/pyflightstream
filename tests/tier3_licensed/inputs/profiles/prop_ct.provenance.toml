@@ -1,0 +1,14 @@
+# Provenance of the tier-3 actuator profile prop_ct.txt, read by row 5009 of
+# matriz_gui.fs (PROFILE: prop_ct) through SET_PROP_ACTUATOR_PROFILE.
+# Written by hand in the format the 26.124 manual prints for a custom thrust
+# profile (SRC-752 p.185): two comma-separated columns, the radial station as
+# r/R and the sectional thrust per unit span of ONE blade in the unit the
+# reference block's profile_units names (NEWTONS: N/m), positive thrust
+# forward, zero at the stations inside the hub. The package passes the file
+# through unread; what the solver makes of it is the first thing 5009 answers.
+format = "r/R,F per line; no header"
+blades = 3
+tip_radius_m = 0.5
+hub_radius_m = 0.1
+distribution = "elliptic between the hub (r/R 0.2) and the tip (r/R 1.0), peak 127.3 N/m at r/R 0.6"
+net_thrust_n = "about 114 (trapezoid over the eleven stations, times three blades), near row 5008's ACTUATOR_THRUST of 120"

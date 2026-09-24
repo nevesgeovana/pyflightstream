@@ -1,7 +1,7 @@
 # The build registry of the tier-3 workspace (GOAL-012, PFS-2031.03).
 #
-# Two builds, so that one matrix can send rows to two installations, which is
-# what the FS_BUILD column exists for. The PATHS ARE PLACEHOLDERS on purpose:
+# Three builds, so that one matrix can send rows to several installations,
+# which is what the FS_BUILD column exists for. The PATHS ARE PLACEHOLDERS on purpose:
 # where a solver is installed is machine configuration and never enters Git
 # (the container-directory guard of tests/tier1_offline/test_house_style.py).
 # The machine that runs tier 3 writes the gitignored overlay beside this file,
@@ -11,3 +11,7 @@
 # build its FS_BUILD cell names. Tier 1 resolves these entries as they are.
 "26.120" = { path = "FlightStream_26120.exe", version = "26.120" }
 "26.123" = { path = "FlightStream_26123.exe", version = "26.123" }
+# The build the 0.27.0 rows run on: the raw-mesh import with its trailing edge
+# by file was run on this build only (RPT-061), and every licensed run of the
+# mesh and GUI matrices is on it.
+"26.124" = { path = "FlightStream_26124.exe", version = "26.124" }

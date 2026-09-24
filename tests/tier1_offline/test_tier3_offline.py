@@ -1237,3 +1237,131 @@ def test_a_legacy_row_naming_a_setup_with_a_frames_or_raw_table_is_refused(tmp_p
     # reader needs; one sentence is better than two.
     assert "s093" in message, message
     assert ("LEGACY" in message) or ("reference" in message), message
+
+
+# --- the 0.27.0 matrices: one body three ways, and two GUI steps on a row ----------
+#
+# matriz_mesh.fs runs the tier-3 wing and blade as the saved simulation, as an
+# OBJ with its trailing edge by a points file and as an OBJ with the edge
+# detected (T07); matriz_gui.fs runs a volume section and an actuator disc
+# beside the disc's control (G05, G06). What is decided offline is that each
+# comparison compares one thing: the scripts of a comparison differ where the
+# comparison says and nowhere else, and every input the routes share is the
+# input the saved simulation carries.
+
+MESH = TIER3 / "matriz_mesh.fs"
+GUI = TIER3 / "matriz_gui.fs"
+#: Each body's control row and the OBJ rows that run it another way.
+MESH_ROUTES = {"4101": ("4102", "4103", "4104"), "4111": ("4112", "4113")}
+
+
+def _by_pol(rendered):
+    return {stem[1:].split("-", 1)[0]: (stem, text) for stem, text in rendered.items()}
+
+
+def _from_the_first_frame(stem, text):
+    """A rendered script from its first frame on, its own point stem written <point>."""
+    lines = text.replace(stem, "<point>").splitlines()
+    return lines[lines.index("CREATE_NEW_COORDINATE_SYSTEM") :]
+
+
+def test_t07_the_routes_of_one_body_share_every_cell_but_the_geometry():
+    from pyflightstream.cases.matrix import read_matrix
+
+    rows = {row.pol: row for row in read_matrix(MESH)}
+    shared = ("flight_condition", "sweep", "ref_code", "set_code", "pproc_code", "fs_build")
+    for control, routes in MESH_ROUTES.items():
+        for pol in routes:
+            for cell in shared:
+                assert getattr(rows[pol], cell) == getattr(rows[control], cell), (pol, cell)
+            for key in ("SYMMETRY", "SYMMETRY_LOADS", "NCPUS"):
+                assert rows[pol].variables[key] == rows[control].variables[key], (pol, key)
+            assert rows[pol].workflow == rows[control].workflow == "steady", pol
+            assert rows[pol].fs_build == "26.124", "the file route runs on 26.124 alone (RPT-061)"
+
+
+def test_t07_the_routes_of_one_body_differ_in_their_geometry_lines_alone():
+    """From the first frame to CLOSE_FLIGHTSTREAM an OBJ row's script is its
+    control's, line for line: the setup, the solve, the exports and the save.
+    So a difference between their loads is how the body entered the solver."""
+    rendered = _by_pol(offline.render(MESH)[1])
+    for control, routes in MESH_ROUTES.items():
+        control_stem, control_text = rendered[control]
+        assert control_text.startswith("OPEN\n"), control
+        for pol in routes:
+            stem, text = rendered[pol]
+            assert text.startswith("NEW_SIMULATION\nIMPORT\n"), pol
+            assert _from_the_first_frame(stem, text) == _from_the_first_frame(
+                control_stem, control_text
+            ), f"{pol} differs from {control} beyond the geometry lines"
+
+
+def test_t07_each_points_file_is_its_saved_simulations_trailing_edge_and_passes_the_check():
+    """Q3: the wing's points file is written from the trailing-edge rows of the
+    saved 10_WING.fsm (16 mid-points) and the blade's from 30_BLADE.fsm (12),
+    each passes T05's check against the OBJ on disk, and the blade's twelve are
+    the ones the package's own extraction finds on the blade's surface."""
+    import numpy as np
+
+    from pyflightstream.workspace import trailing_edge_midpoints
+    from tests.tier3_licensed import prepare
+
+    prepare.ensure_mesh_inputs()
+    counts = {}
+    for name in ("15_WING_OBJ_TE", "32_BLADE_OBJ_TE"):
+        source = prepare.MESH_INPUTS[name].source
+        written = prepare.points_path(name).read_text(encoding="utf-8").replace("\r\n", "\n")
+        assert written == prepare.points_text(source), f"{name}'s points are not {source}'s"
+        counts[name] = prepare.check_points(name)["points"]
+    assert counts == {"15_WING_OBJ_TE": 16, "32_BLADE_OBJ_TE": 12}
+    found = trailing_edge_midpoints(
+        prepare.mesh_path("32_BLADE_OBJ_TE"), axis=(1.0, 0.0, 0.0), hub=(0.0, 0.0, 0.0), sections=12
+    )
+    saved = np.asarray(prepare.trailing_edge_midpoints(prepare.LIBRARY / "30_BLADE.fsm"))
+    assert found.shape == saved.shape
+    assert np.abs(np.sort(found, axis=0) - np.sort(saved, axis=0)).max() < 1e-9
+
+
+def test_t07_the_millimetre_mesh_is_the_metre_mesh_times_a_thousand():
+    """The unit row asks one question, so its mesh differs in one thing."""
+    import numpy as np
+
+    from tests.tier3_licensed import prepare
+
+    prepare.ensure_mesh_inputs()
+    metre = prepare.read_obj(prepare.mesh_path("16_WING_OBJ_DET"))
+    millimetre = prepare.read_obj(prepare.mesh_path("17_WING_OBJ_MM"))
+    assert np.array_equal(metre[1], millimetre[1]), "the triangles differ"
+    assert np.allclose(millimetre[0], metre[0] * 1000.0, rtol=1e-12, atol=0.0)
+    assert prepare.mesh_round_trip(
+        prepare.LIBRARY / "10_WING.fsm", prepare.mesh_path("17_WING_OBJ_MM"), scale=1000.0
+    )["faces_in_the_same_order"]
+
+
+def test_g06_the_disc_rows_differ_from_their_control_in_the_disc_lines_alone():
+    rendered = _by_pol(offline.render(GUI)[1])
+    control_stem, control_text = rendered["5010"]
+    control = control_text.replace(control_stem, "<point>").splitlines()
+    assert not [line for line in control if "ACTUATOR" in line], "the control carries a disc"
+    for pol, loading in (
+        ("5008", "SET_PROP_ACTUATOR_THRUST"),
+        ("5009", "SET_PROP_ACTUATOR_PROFILE"),
+    ):
+        stem, text = rendered[pol]
+        lines = text.replace(stem, "<point>").splitlines()
+        first = next(i for i, line in enumerate(lines) if line.startswith("CREATE_NEW_ACTUATOR"))
+        last = next(i for i, line in enumerate(lines) if line.startswith("ENABLE_ACTUATOR"))
+        assert any(line.startswith(loading) for line in lines[first : last + 1]), pol
+        assert lines[:first] + lines[last + 1 :] == control, f"{pol} differs beyond its disc"
+
+
+def test_every_solving_script_of_the_0_27_0_matrices_states_five_farfield_layers():
+    """Every licensed run of this workspace states five far-field layers from
+    0.27.0 on, and each new row's setup carries the line, so every script the
+    two matrices render emits it once."""
+    for matrix in (MESH, GUI):
+        rendered = offline.render(matrix)[1]
+        assert rendered, matrix.name
+        for stem, text in rendered.items():
+            assert "START_SOLVER" in text, stem
+            assert text.splitlines().count("SOLVER_SET_FARFIELD_LAYERS 5") == 1, stem

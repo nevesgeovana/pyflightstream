@@ -192,7 +192,7 @@ migrate-geometries` moves a library into it, and `pyfs-workspace archive
 states what it reads, the run record says how the solver was called
 (`executor`, `export_window`, the waived commands by their name), and the
 whole test suite is organized by tier, with the licensed tier a campaign
-workspace of nine run matrices whose goldens are rendered offline on every
+workspace of eleven run matrices whose goldens are rendered offline on every
 commit.
 
 ## v0.12.0
