@@ -50,7 +50,6 @@ PRIVATE_ID_COUNTS: dict[str, int] = {
     # to avoid.
     "CONTRIBUTING.md": 4,
     "README.md": 1,
-    "docs/mesh-inputs.md": 1,
     "docs/srs/data-model.md": 2,
     "docs/srs/functional-requirements.md": 39,
     "docs/srs/index.md": 4,
