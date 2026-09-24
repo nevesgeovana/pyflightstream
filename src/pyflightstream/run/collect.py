@@ -941,9 +941,13 @@ def _log_verdicts(
     file the package's own assessor names, or, for an assessor a caller passed,
     which answers with a status and names nothing, the one collected output
     that reads as a residual history, as the package's own assessor finds it.
+    The four G06 lines are read in every collected log besides, found by its
+    name: a log carrying no residual table, a scheduler's, is found by neither
+    rule, and its refusal line was left unread under a CONVERGED point.
     """
     from pyflightstream.run._wake_edge_verdict import (
         actuator_profile_verdict,
+        collected_log_texts,
         collected_solver_log,
         wake_edge_import_verdict,
         with_wake_edge_verdict,
@@ -959,7 +963,11 @@ def _log_verdicts(
         status, verdict = with_wake_edge_verdict(
             status, verdict, wake_edge_import_verdict(expected, log_text)
         )
-    return with_wake_edge_verdict(status, verdict, actuator_profile_verdict(log_text, job_log))
+    return with_wake_edge_verdict(
+        status,
+        verdict,
+        actuator_profile_verdict(log_text, job_log, *collected_log_texts(sim_dir, collected)),
+    )
 
 
 def _collect_by_point(

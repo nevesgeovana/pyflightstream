@@ -669,6 +669,16 @@ FlightStream versions.
   failure, whichever assessor judged it, on a local point, on each point of a
   steady row run as one job, and at `pyfs-matrix collect`; its `error` quotes
   the line, names the file and says the disc did not use it (G06).
+- **The profile file's refusal is read in every collected log, not only in a
+  log that reads as a residual history.** The four lines were looked for in the
+  log the assessor named or found by its residual table, so a log carrying no
+  residual table, as a scheduler's log copied to the row's declared log can,
+  was never read for them: a submitted point whose loads converged was recorded
+  `CONVERGED` at `pyfs-matrix collect` with the line in its log, and so was a
+  local point whose solver left no log of its own beside the export. Every
+  collected output named as a log (`_log.txt`) is now read for them too, on a
+  local point, on each point of a steady row run as one job and at collect,
+  and the point is `FAILED_SCRIPT` (G06).
 - **The actuator disc's profile file is read as it was written, and never
   stops an unattended run in a dialog.** The script named the user's file under
   `inputs/profiles/`, and an editor ends a file in a newline: 26.124 reads
