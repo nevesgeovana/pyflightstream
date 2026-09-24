@@ -1,0 +1,809 @@
+report: reports/RPT-073_every-changed-tier3-row-on-26124-against-its-recorded-run_2026-09-24.md
+date: '2026-09-24'
+question: does every tier-3 point whose script changed since 0.26.0 converge on 26.124, or complete its declared
+  time steps if it is unsteady, and collect every output it declares; and how far do its coefficients sit from its
+  recorded run (T12)
+where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
+executable_sha256:
+  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+pass_condition: 'set before the run: every point converges, or completes its declared time steps if unsteady, and
+  collects every declared output; a coefficient delta above 5 percent against the recorded run is a finding to investigate,
+  reported with the two causes known in advance (far field: every setup states five layers, where the records stated
+  none or three; build: every build id runs on 26.124, where the records ran 26.120 or 26.123)'
+rows:
+  selected_by: git diff --name-only v0.26.0 2a7ba141 -- tests/tier1_offline/goldens tests/tier3_licensed/goldens,
+    the tier3 .txt paths
+  count: 76
+  the_same_at_7ae26337: true; the source changes after 2a7ba141 (three refusals at plan and at collect) move no
+    golden
+  the_same_at_af13e23c: true; af13e23c moved nine goldens by their ORIGIN_Y line (P1022 and the eight points of
+    8001 to 8006), all of them already among the 76
+  modified_since_0_26_0: 60
+  added_since_0_26_0: 16
+  paths:
+  - tests/tier3_licensed/goldens/matriz/P1001-M100RE230AL+000.txt
+  - tests/tier3_licensed/goldens/matriz/P1001-M100RE230AL+020.txt
+  - tests/tier3_licensed/goldens/matriz/P1001-M100RE230AL+040.txt
+  - tests/tier3_licensed/goldens/matriz/P1001-M100RE230AL-020.txt
+  - tests/tier3_licensed/goldens/matriz/P1002-V0340RHO12250AL+040.txt
+  - tests/tier3_licensed/goldens/matriz/P1003-M100ALT05000DT+100BE+000.txt
+  - tests/tier3_licensed/goldens/matriz/P1003-M100ALT05000DT+100BE+040.txt
+  - tests/tier3_licensed/goldens/matriz/P1003-M100ALT05000DT+100BE-040.txt
+  - tests/tier3_licensed/goldens/matriz/P1004-M100RE230MU18000A3400T2900PS100000AL+020BE+020.txt
+  - tests/tier3_licensed/goldens/matriz/P1004-M100RE230MU18000A3400T2900PS100000AL+040BE+020.txt
+  - tests/tier3_licensed/goldens/matriz/P1005-M100RE230AL+000.txt
+  - tests/tier3_licensed/goldens/matriz/P1010-M100RE230AL+020.txt
+  - tests/tier3_licensed/goldens/matriz/P1011-M100RE230AL+020.txt
+  - tests/tier3_licensed/goldens/matriz/P1020-M144RE438AL+000BE+000.txt
+  - tests/tier3_licensed/goldens/matriz/P1021-M100RE230AL+000.txt
+  - tests/tier3_licensed/goldens/matriz/P1022-M100RE230AL+000.txt
+  - tests/tier3_licensed/goldens/matriz/P1090-M100RE230AL+000.txt
+  - tests/tier3_licensed/goldens/matriz/P1090-M100RE230AL+020.txt
+  - tests/tier3_licensed/goldens/matriz_actions/P6001-M100RE230AL+020.txt
+  - tests/tier3_licensed/goldens/matriz_actions/P6002-M100RE230AL+020.txt
+  - tests/tier3_licensed/goldens/matriz_builds/P7001-M144RE438AL+000BE+000.txt
+  - tests/tier3_licensed/goldens/matriz_builds/P7002-M144RE438AL+000BE+000.txt
+  - tests/tier3_licensed/goldens/matriz_geometry/P4001-M100RE230AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_geometry/P4002-M100RE230AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_geometry/P4003-M100RE230AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_geometry/P4004-M100RE230AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_gui/P5007-V0300RHO12250AL+000.txt
+  - tests/tier3_licensed/goldens/matriz_gui/P5007-V0300RHO12250AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_gui/P5008-V0300RHO12250AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_gui/P5009-V0300RHO12250AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_gui/P5010-V0300RHO12250AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_gui/P5012-V0300RHO12250AL+000.txt
+  - tests/tier3_licensed/goldens/matriz_gui/P5013-V0300RHO12250AL+000.txt
+  - tests/tier3_licensed/goldens/matriz_gui/P5014-V0300RHO12250AL+000.txt
+  - tests/tier3_licensed/goldens/matriz_mesh/P4101-M100RE230AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_mesh/P4102-M100RE230AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_mesh/P4103-M100RE230AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_mesh/P4104-M100RE230AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_mesh/P4105-M100RE230AL+020.txt
+  - tests/tier3_licensed/goldens/matriz_mesh/P4111-M144RE438AL+000BE+000.txt
+  - tests/tier3_licensed/goldens/matriz_mesh/P4112-M144RE438AL+000BE+000.txt
+  - tests/tier3_licensed/goldens/matriz_mesh/P4113-M144RE438AL+000BE+000.txt
+  - tests/tier3_licensed/goldens/matriz_physics/P5001-V0300RHO12250AL+000.txt
+  - tests/tier3_licensed/goldens/matriz_physics/P5001-V0300RHO12250AL+020.txt
+  - tests/tier3_licensed/goldens/matriz_physics/P5001-V0300RHO12250AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_physics/P5001-V0300RHO12250AL+060.txt
+  - tests/tier3_licensed/goldens/matriz_physics/P5002-V0300RHO12250AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_physics/P5003-V0300RHO12250AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_physics/P5005-V0490RHO12250AL+000BE+000.txt
+  - tests/tier3_licensed/goldens/matriz_physics/P5006-V0300RHO12250AL+000.txt
+  - tests/tier3_licensed/goldens/matriz_physics/P5006-V0300RHO12250AL+020.txt
+  - tests/tier3_licensed/goldens/matriz_physics/P5006-V0300RHO12250AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_physics/P5006-V0300RHO12250AL+060.txt
+  - tests/tier3_licensed/goldens/matriz_rotate/P9001-M100RE230AL+000.txt
+  - tests/tier3_licensed/goldens/matriz_rotate/P9002-M100RE230AL+060.txt
+  - tests/tier3_licensed/goldens/matriz_rotate/P9003-M100RE230AL-060.txt
+  - tests/tier3_licensed/goldens/matriz_setup/P2001-M100RE230AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_setup/P2002-M100RE230AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_setup/P2003-M100RE230AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_setup/P2004-M100RE230AL+040.txt
+  - tests/tier3_licensed/goldens/matriz_time/P3001-M144RE438AL+000BE+000.txt
+  - tests/tier3_licensed/goldens/matriz_time/P3002-M144RE438AL+000BE+000.txt
+  - tests/tier3_licensed/goldens/matriz_time/P3003-M144RE438AL+000BE+000.txt
+  - tests/tier3_licensed/goldens/matriz_time/P3004-M144RE438AL+000BE+000.txt
+  - tests/tier3_licensed/goldens/matriz_time/P3005-M144RE438AL+000BE+000.txt
+  - tests/tier3_licensed/goldens/matriz_time/P3006-M144RE438AL+000BE+000.txt
+  - tests/tier3_licensed/goldens/matriz_time/P3010-M100RE230AL+020.txt
+  - tests/tier3_licensed/goldens/matriz_time/P3011-M100RE230AL+020.txt
+  - tests/tier3_licensed/goldens/matriz_vocab/P8001-M100RE230AL+000BE+000.txt
+  - tests/tier3_licensed/goldens/matriz_vocab/P8002-M100RE230AL+000BE+000J+060.txt
+  - tests/tier3_licensed/goldens/matriz_vocab/P8002-M100RE230AL+000BE+000J+080.txt
+  - tests/tier3_licensed/goldens/matriz_vocab/P8003-M100RE230AL+000BE+000J+060.txt
+  - tests/tier3_licensed/goldens/matriz_vocab/P8003-M100RE230AL+000BE+000J+080.txt
+  - tests/tier3_licensed/goldens/matriz_vocab/P8004-M100RE230AL+000BE+000.txt
+  - tests/tier3_licensed/goldens/matriz_vocab/P8005-M100RE230AL+000BE+000.txt
+  - tests/tier3_licensed/goldens/matriz_vocab/P8006-M100RE230AL+000BE+000.txt
+workspace: a fresh copy of tests/tier3_licensed with no run state; a local executables overlay sent the build ids
+  26.120, 26.123 and 26.124 to the 26.124 executable; no committed FS_BUILD changed
+runs:
+  first_pass: 2026-09-24 14:22 to 14:33, the eleven matrices one after another, one solver at a time
+  attempt_15h07: 'refused at plan before any solve: the copy''s root was not on the path the recipe rows import
+    from'
+  rerun_15h10: 1003 (COLD_START, d2b78f0e), 1090 and 6001 (the far-field line their recipes had not passed, 159851cf),
+    each with --force-rerun and its first outputs archived
+  rerun_15h13: 6001 alone, the probe's log and numbered exports moved aside first
+  rerun_15h49: 1022 and 8001 to 8006 (nine points), after af13e23c put r006's hubs at y = +2.5 and -2.5 m, each
+    with --force-rerun and its first outputs archived
+  solver_processes_before_each_launch: 0
+  package: 0.27.0.dev7; the first pass ran source equal to 2a7ba141's (12a32044, and bad9e76d for matriz_gui); the
+    15:10 and 15:13 re-runs imported the package at e305d21e, whose source differs from 2a7ba141's by G06 (the actuator
+    profile's copy) and G16 (POLAR leaving the tables) only; the 15:49 re-run imported the package at f2d91ea9 (0.27.0),
+    whose source equals af13e23c's
+scripts_sha256:
+  P1001-M100RE230AL+sweep.txt: a7285badaaad5f05edaf5a8455c8736a9809e848a8513fe9817f4d1ec8b7d80f
+  P1002-V0340RHO12250AL+040.txt: 87829df5628027f527c42e0750270bfcb63ced5f15f4da3a83b0c63ba8ca6554
+  P1003-M100ALT05000DT+100BE+sweep.txt: 11e549e79607acf7a5fef98e9129fd393e13186733631b6fe7dfde4b988f666c
+  P1004-M100RE230MU18000A3400T2900PS100000AL+sweepBE+020.txt: d5c4e89fe4a543719e14dc06b25fe202e2dd4eea2a520fce5bd061f092962060
+  P1005-M100RE230AL+000.txt: 96411eb79f4d95e6c6f2564192295c8c1c523f686f7b687897c788c690b9151e
+  P1010-M100RE230AL+020.txt: 3208c565dd1529477bce17249933c40a0e18072706cb8488b96346372230dd01
+  P1011-M100RE230AL+020.txt: 1d34ca1be4be3f318e305fec763f4ac997f4ea8d17f79cc9033a442f26643e7b
+  P1020-M144RE438AL+000BE+000.txt: 186a7ecbcf9b9b9dcc2231bd8db1eced8c023e395bbc43376c48d0c41f018e59
+  P1021-M100RE230AL+000.txt: 1d0db0bdd85f7dc5b4953fb4e02fb85524560c24bffb3462250808e943b5c091
+  P1022-M100RE230AL+000.txt: de64cfa7c077bde0b64c98f7f601956743b3607fcc5d5ea0a734ede3e9b099c2
+  P1090-M100RE230AL+000.txt: 33427886f4488b982fb5ac36afd8ed6c4ce27813949f76faf54928a867e51a42
+  P1090-M100RE230AL+020.txt: e9505c5e5710fc91f3d90d34805a88fbac9342dc02743693a501fad0f2314f06
+  P2001-M100RE230AL+040.txt: 9a5c2bd7322f47cd7ca32f98a2af8c96b0f30b9dca50ada861e5a354a8cfd54d
+  P2002-M100RE230AL+040.txt: 44b3681f7208b28005e63aa0bea09e1e87a893c12113ac09fbd39cf5abf9ef96
+  P2003-M100RE230AL+040.txt: df09744d748b72faacace7604636daa37c0fa04b8b304ff700df017fd4082398
+  P2004-M100RE230AL+040.txt: 04cb53f396c23f70102089e4f77d7a6efc41260a04145f2b2f628c7aa325b918
+  P3001-M144RE438AL+000BE+000.txt: b473caae46ebf3a2ada8f486edb9ca4a551d4773442efd476dafa6eb95c01cc8
+  P3002-M144RE438AL+000BE+000.txt: 12e2a21f16d924fc6ef62d5dc261dd8ab47324d1fbb3a05eecd5bccc31f4f464
+  P3003-M144RE438AL+000BE+000.txt: c47dcff371623303f8d541f5cdc973fc9cb1781b281246cb7f5bb7e799b81242
+  P3004-M144RE438AL+000BE+000.txt: ee1379b3292f1030c40f4d65e6b158d4407518442dadf4861e697086606a597f
+  P3005-M144RE438AL+000BE+000.txt: 64584b81a17fec8fbafa607f25a5ccc7ad371c90995febc6333ce7669ca7a4bb
+  P3006-M144RE438AL+000BE+000.txt: b041f0e1d89679d8967bb608f2eeb7f33f74c48bff4a403a09b1472960514683
+  P3010-M100RE230AL+020.txt: ec03f73b6189038cedea8e4292ca9e378f9d4c1dd3ea58d76096fff01a2c41f2
+  P3011-M100RE230AL+020.txt: 797cb2cad89cc5f89bb98d14adaa09bc7a3673380482759f61b6a82c51780172
+  P4001-M100RE230AL+040.txt: b82b60bed7dd3d17a8504712c3a447e17d274acf17d29a94093468fbdece570e
+  P4002-M100RE230AL+040.txt: db1f19672e951f8bb0ac5ddb151e236235581596c787f712573583799698cbaa
+  P4003-M100RE230AL+040.txt: df1acf8928f627c3ba586f20bce271b26d255e9ab3d446fb8ac92fd727c0bcca
+  P4004-M100RE230AL+040.txt: 7343dbf6bc0d237a86759766b445fb0bddb418a516259229c2ca6f71cf4c1cec
+  P4101-M100RE230AL+040.txt: f6e60588848479ebfd6e46b88fb8fd17df173cc89842d90ffc1f9288543d78f8
+  P4102-M100RE230AL+040.txt: 9db4c514e71942008aff8c67f2274e11a04e695fcc592e52ffaee028272521a7
+  P4103-M100RE230AL+040.txt: e5aa083b004505d7d41688b9572994bc64aa504f7ceee7749a188b65c3acf75d
+  P4104-M100RE230AL+040.txt: 7ca1c8397afb84f4c5078e981de62b99ae5dfd14d099a6ea498b7b29b3a26c34
+  P4105-M100RE230AL+020.txt: ef68971afaa783a30111b5451472694e8b7e1f8836874882639207cbc0fe9be9
+  P4111-M144RE438AL+000BE+000.txt: a047233cbe344df26aac580f3efb557234dca2d6a9e3c6d78c19e570b295f186
+  P4112-M144RE438AL+000BE+000.txt: c360722851f63c280ee40f5f762412aeca7f3f9fda7656a71ee6832e705a5830
+  P4113-M144RE438AL+000BE+000.txt: f5c859884647b33cdb3765222b55ca85b6b043556589b7ab5e11c01d27781f18
+  P5001-V0300RHO12250AL+sweep.txt: 3e5bc0959354ee75c7c1a3fa3aeea67643aacc5d7dab76deacfa867d52a03bf9
+  P5002-V0300RHO12250AL+040.txt: 5567ae2e86a803a0c5c73b6dac99ec49111fd488c00e4426c39f283ddd9cb658
+  P5003-V0300RHO12250AL+040.txt: e262dedfc07be8f227ed5c442e2b775088f86728ac763bc95d355b1a259fee38
+  P5005-V0490RHO12250AL+000BE+000.txt: 66ab04e867ca54530fd6c2b4e8e581794851f0fd03f96546ffa606bb1eaaf5a8
+  P5006-V0300RHO12250AL+000.txt: 4d2282420d1139ddd86974288cc67fae503a59235954e805aa4af70a477fc8ea
+  P5006-V0300RHO12250AL+020.txt: 7165c58807b90ad822815fa6f3776f06a74d379b7f29f3652385e6b2b600e433
+  P5006-V0300RHO12250AL+040.txt: 41d6898eed949e5099027e4aa606995d68674c4e1814d204975b656cf8f89f01
+  P5006-V0300RHO12250AL+060.txt: 05902edf0e8763fb9dc383096d0358f103b72054ecf73e8ce75f777f3a0fd988
+  P5007-V0300RHO12250AL+sweep.txt: 21b7924a11177aff2ce35fed6f1a7a58bf3842a1d072b55d8e8e6c83b66a3000
+  P5008-V0300RHO12250AL+040.txt: 70e8644ae507de681b4df56d426c19a86540c2607d08b4d92b4c6060c661b73b
+  P5009-V0300RHO12250AL+040.txt: 4949580e9dcd56d53d92da088bf3090d21143d989e36104feb2b1b6bb04ce770
+  P5010-V0300RHO12250AL+040.txt: 3e0778ce0db001049bfa398f14d3e9c45e79222925f5588ad11120cb03bb2f15
+  P5012-V0300RHO12250AL+000.txt: 6c43a8fdd6a0b6d6117f44e507b48c8935294d001a9d2d2b6d3852bebf3986f1
+  P5013-V0300RHO12250AL+000.txt: e41cc551fc43b35fd68bae9d9ea164712b2e1a156e081fb9feaad37198d3b017
+  P5014-V0300RHO12250AL+000.txt: 89fcee8db444a215e5953551aa9c25dc0eb2574e9b3d030dc2ebdd2217ab2924
+  P6001-M100RE230AL+020.txt: ee0aea0759b4ddf70ffab8291826a8b25c8062ef408080bfe81b143162cd6845
+  P6002-M100RE230AL+020.txt: 785bd371957a1b1d453cf13d82e9a608ae2a62ab70eb3a0f716d3c9d55edf186
+  P7001-M144RE438AL+000BE+000.txt: 6aa7a0054eaaba37b29815f56e7d1b871ecf3ecfa9c1d47190d7d50fa3960e59
+  P7002-M144RE438AL+000BE+000.txt: b48f84d58bf8170c1a64bba7a50ef10983e108de0114dcef174215d89bd14a86
+  P8001-M100RE230AL+000BE+000.txt: 5980b2b1525b078ceb6fd94715efeed08730ac99ef5bf84eb5bbdedca95ea1c5
+  P8002-M100RE230AL+000BE+000J+060.txt: 1331bae87df75318b20e2ff513d7105e422374da99b2a05fc5a731c739695c4f
+  P8002-M100RE230AL+000BE+000J+080.txt: b8eb2a9b1abe0abda283cb1be5f59550cea0b5d3d149362748cf02b4cb1c1062
+  P8003-M100RE230AL+000BE+000J+060.txt: c5ec33f3fad7fdaf8ce6ed5aa29380577c2afdee2321e8f238ceef23dc9c122b
+  P8003-M100RE230AL+000BE+000J+080.txt: a9f3be9f87394671cb71bb1bc72a7e4a82894749557e88b55dea9cc1c2ebd0af
+  P8004-M100RE230AL+000BE+000.txt: 989ae1ae70d8d979884e64234a5f7c48cd39aba6a8d6c42bb426c30c392950ae
+  P8005-M100RE230AL+000BE+000.txt: 83aa0b0d7f3a689d412cf5936fe7e0803367043b32253794b901329789b4f12c
+  P8006-M100RE230AL+000BE+000.txt: c6effe2c3a1200ab38f7aef7c5a565d1b45a062b50a85ea69c4bbad47afaf95e
+  P9001-M100RE230AL+000.txt: ec1b43aed2db44b0a416b346a349121a8c9ef8e095c6e35c32b87a6628556c68
+  P9002-M100RE230AL+060.txt: 80ac1881397262195fb182a1c4594d7c9f7afd76fbaba0495846bbb4f9bb156d
+  P9003-M100RE230AL-060.txt: 7fd5306e6ba35e57fdb9b67bc4148d67340ba33527acfdc440f1031d433cd602
+replaced_attempts_sha256:
+  P1003-M100ALT05000DT+100BE+sweep.txt (warm, first pass): f5a63f5bd6c3bdacf2e53f478651d751bc0eff5491ec63b1cace6080b7af0fc8
+  P1090-M100RE230AL+000.txt (no far-field line, first pass): bc4a7473055ee24639a82f413b9c0df855e75443c5e421b002c69ebc35230033
+  P1090-M100RE230AL+020.txt (no far-field line, first pass): 3bc0b571a523228fd319921b324c55633d77d46188bde48144bc7185588866aa
+  P6001-M100RE230AL+020.txt (no far-field line, first pass): cb7bb5469c2a20e114192b35f28358aec0d84ca321f1b0e046997bd548342196
+  P6001-M100RE230AL+020.txt (15:10, the same script as 15:13): ee0aea0759b4ddf70ffab8291826a8b25c8062ef408080bfe81b143162cd6845
+  P1022-M100RE230AL+000.txt (hubs at y = +/-0.9144 m, first pass): 5e5ffc1047b12de29d2437bfa0cb42121ce79b79f51a65c64f0da98bacc08722
+  P8001-M100RE230AL+000BE+000.txt (hubs at y = +/-0.9144 m, first pass): e8b3aec9e9752210853395da9e8494545dc451095ce570b25c08fddadc6e0c83
+  P8002-M100RE230AL+000BE+000J+060.txt (hubs at y = +/-0.9144 m, first pass): d17adeb20ac31a05f39ca4fe2c53a5e4aa8ae55419206ec82bc0333be59820c7
+  P8002-M100RE230AL+000BE+000J+080.txt (hubs at y = +/-0.9144 m, first pass): f26658b39794436e83453605c4bd20cbc8c1810febdfe338190f191786cb7de1
+  P8003-M100RE230AL+000BE+000J+060.txt (hubs at y = +/-0.9144 m, first pass): 227a3ff750d9246baa9a8a22cac4a23d10b8f170c10373328809f441417ce7cf
+  P8003-M100RE230AL+000BE+000J+080.txt (hubs at y = +/-0.9144 m, first pass): 4f6ae2f7cd431cc8a01aa90f9df7ef6941aaacda282b1dce333a17749ccd1b7f
+  P8004-M100RE230AL+000BE+000.txt (hubs at y = +/-0.9144 m, first pass): 6ccdee464215f460e4d0540de48a7ff3a08ae38440a4fdef011da544f4c78e17
+  P8005-M100RE230AL+000BE+000.txt (hubs at y = +/-0.9144 m, first pass): c911651da49375c416cc3d82e88e537b304b24aee7066ca3d031f313987def64
+  P8006-M100RE230AL+000BE+000.txt (hubs at y = +/-0.9144 m, first pass): 888a23b4a3596b7fc98e3944c81c7c7907d9b754404c62a63e0c8851af905dfc
+scripts_against_the_goldens:
+  goldens_at: af13e23c
+  equal_after_the_workspace_path_is_replaced: 51
+  differ_only_in_a_path_spelling: 10
+  sweep_jobs_carrying_their_goldens_commands: 5 jobs of 15 points (1001, 1003, 1004, 5001, 5007), plus CLEAR_SOLUTION
+    (1003) and DELETE_VOLUME_SECTION 1 (5007)
+checks:
+  every_point_terminal: true
+  converged: 67
+  completed_max_iter: 9
+  completed_max_iter_points_all_unsteady_at_their_last_declared_time_step: true
+  failed: 0
+  outputs_declared: 596
+  outputs_on_disk: 596
+  solving_scripts: 66
+  solving_scripts_stating_SOLVER_SET_FARFIELD_LAYERS_5: 66
+  licensed_checks_first_pass: 24 failed, 59 passed
+  licensed_checks_after_2b48b3fc: 1 failed, 82 passed (test_1003_sideslip_antisymmetry_of_the_side_force)
+  licensed_checks_after_the_15h10_reruns: '1 failed, 82 passed (test_the_script_action_reread_verdict_is_recorded,
+    Invocations: 16)'
+  licensed_checks_after_the_15h13_run: 83 passed, 0 failed, 14 warnings
+  licensed_checks_final: 83 passed, 0 failed, 14 warnings, after af13e23c and the 15:49 re-run; 1022's check asserts
+    the hubs at y = +2.5 and -2.5 m again
+point_status:
+  matriz/P1001-M100RE230AL+000: CONVERGED, 115 iterations, 9 of 9 outputs on disk
+  matriz/P1001-M100RE230AL+020: CONVERGED, 162 iterations, 9 of 9 outputs on disk
+  matriz/P1001-M100RE230AL+040: CONVERGED, 210 iterations, 9 of 9 outputs on disk
+  matriz/P1001-M100RE230AL-020: CONVERGED, 69 iterations, 9 of 9 outputs on disk
+  matriz/P1002-V0340RHO12250AL+040: CONVERGED, 42 iterations, 9 of 9 outputs on disk
+  matriz/P1003-M100ALT05000DT+100BE+000: CONVERGED, 67 iterations, 9 of 9 outputs on disk
+  matriz/P1003-M100ALT05000DT+100BE+040: CONVERGED, 67 iterations, 9 of 9 outputs on disk
+  matriz/P1003-M100ALT05000DT+100BE-040: CONVERGED, 66 iterations, 9 of 9 outputs on disk
+  matriz/P1004-M100RE230MU18000A3400T2900PS100000AL+020BE+020: CONVERGED, 66 iterations, 9 of 9 outputs on disk
+  matriz/P1004-M100RE230MU18000A3400T2900PS100000AL+040BE+020: CONVERGED, 113 iterations, 9 of 9 outputs on disk
+  matriz/P1005-M100RE230AL+000: CONVERGED, 36 iterations, 9 of 9 outputs on disk
+  matriz/P1010-M100RE230AL+020: CONVERGED, 176 iterations, 7 of 7 outputs on disk
+  matriz/P1011-M100RE230AL+020: CONVERGED, 110 iterations, 7 of 7 outputs on disk
+  matriz/P1020-M144RE438AL+000BE+000: CONVERGED, 300 iterations, 7 of 7 outputs on disk
+  matriz/P1021-M100RE230AL+000: CONVERGED, 406 iterations, 7 of 7 outputs on disk
+  matriz/P1022-M100RE230AL+000: COMPLETED_MAX_ITER, 671 iterations, 7 of 7 outputs on disk, time step 6 of 6
+  matriz/P1090-M100RE230AL+000: CONVERGED, 63 iterations, 1 of 1 outputs on disk
+  matriz/P1090-M100RE230AL+020: CONVERGED, 60 iterations, 1 of 1 outputs on disk
+  matriz_actions/P6001-M100RE230AL+020: COMPLETED_MAX_ITER, 172 iterations, 1 of 1 outputs on disk, time step 8
+    of 8
+  matriz_actions/P6002-M100RE230AL+020: CONVERGED, 132 iterations, 7 of 7 outputs on disk
+  matriz_builds/P7001-M144RE438AL+000BE+000: CONVERGED, 300 iterations, 7 of 7 outputs on disk
+  matriz_builds/P7002-M144RE438AL+000BE+000: CONVERGED, 300 iterations, 7 of 7 outputs on disk
+  matriz_geometry/P4001-M100RE230AL+040: CONVERGED, 63 iterations, 9 of 9 outputs on disk
+  matriz_geometry/P4002-M100RE230AL+040: CONVERGED, 42 iterations, 9 of 9 outputs on disk
+  matriz_geometry/P4003-M100RE230AL+040: CONVERGED, 36 iterations, 9 of 9 outputs on disk
+  matriz_geometry/P4004-M100RE230AL+040: CONVERGED, 63 iterations, 9 of 9 outputs on disk
+  matriz_gui/P5007-V0300RHO12250AL+000: CONVERGED, 51 iterations, 10 of 10 outputs on disk
+  matriz_gui/P5007-V0300RHO12250AL+040: CONVERGED, 106 iterations, 10 of 10 outputs on disk
+  matriz_gui/P5008-V0300RHO12250AL+040: CONVERGED, 58 iterations, 9 of 9 outputs on disk
+  matriz_gui/P5009-V0300RHO12250AL+040: CONVERGED, 58 iterations, 9 of 9 outputs on disk
+  matriz_gui/P5010-V0300RHO12250AL+040: CONVERGED, 58 iterations, 9 of 9 outputs on disk
+  matriz_gui/P5012-V0300RHO12250AL+000: CONVERGED, 51 iterations, 9 of 9 outputs on disk
+  matriz_gui/P5013-V0300RHO12250AL+000: CONVERGED, 51 iterations, 9 of 9 outputs on disk
+  matriz_gui/P5014-V0300RHO12250AL+000: CONVERGED, 51 iterations, 9 of 9 outputs on disk
+  matriz_mesh/P4101-M100RE230AL+040: CONVERGED, 63 iterations, 9 of 9 outputs on disk
+  matriz_mesh/P4102-M100RE230AL+040: CONVERGED, 63 iterations, 9 of 9 outputs on disk
+  matriz_mesh/P4103-M100RE230AL+040: CONVERGED, 63 iterations, 9 of 9 outputs on disk
+  matriz_mesh/P4104-M100RE230AL+040: CONVERGED, 63 iterations, 9 of 9 outputs on disk
+  matriz_mesh/P4105-M100RE230AL+020: CONVERGED, 176 iterations, 7 of 7 outputs on disk
+  matriz_mesh/P4111-M144RE438AL+000BE+000: CONVERGED, 205 iterations, 9 of 9 outputs on disk
+  matriz_mesh/P4112-M144RE438AL+000BE+000: CONVERGED, 205 iterations, 9 of 9 outputs on disk
+  matriz_mesh/P4113-M144RE438AL+000BE+000: CONVERGED, 205 iterations, 9 of 9 outputs on disk
+  matriz_physics/P5001-V0300RHO12250AL+000: CONVERGED, 51 iterations, 9 of 9 outputs on disk
+  matriz_physics/P5001-V0300RHO12250AL+020: CONVERGED, 87 iterations, 9 of 9 outputs on disk
+  matriz_physics/P5001-V0300RHO12250AL+040: CONVERGED, 130 iterations, 9 of 9 outputs on disk
+  matriz_physics/P5001-V0300RHO12250AL+060: CONVERGED, 174 iterations, 9 of 9 outputs on disk
+  matriz_physics/P5002-V0300RHO12250AL+040: CONVERGED, 58 iterations, 9 of 9 outputs on disk
+  matriz_physics/P5003-V0300RHO12250AL+040: CONVERGED, 64 iterations, 9 of 9 outputs on disk
+  matriz_physics/P5005-V0490RHO12250AL+000BE+000: CONVERGED, 1006 iterations, 7 of 7 outputs on disk
+  matriz_physics/P5006-V0300RHO12250AL+000: CONVERGED, 1954 iterations, 7 of 7 outputs on disk
+  matriz_physics/P5006-V0300RHO12250AL+020: CONVERGED, 1962 iterations, 7 of 7 outputs on disk
+  matriz_physics/P5006-V0300RHO12250AL+040: CONVERGED, 1988 iterations, 7 of 7 outputs on disk
+  matriz_physics/P5006-V0300RHO12250AL+060: CONVERGED, 2002 iterations, 7 of 7 outputs on disk
+  matriz_rotate/P9001-M100RE230AL+000: CONVERGED, 594 iterations, 7 of 7 outputs on disk
+  matriz_rotate/P9002-M100RE230AL+060: CONVERGED, 617 iterations, 7 of 7 outputs on disk
+  matriz_rotate/P9003-M100RE230AL-060: CONVERGED, 594 iterations, 7 of 7 outputs on disk
+  matriz_setup/P2001-M100RE230AL+040: CONVERGED, 63 iterations, 9 of 9 outputs on disk
+  matriz_setup/P2002-M100RE230AL+040: CONVERGED, 106 iterations, 9 of 9 outputs on disk
+  matriz_setup/P2003-M100RE230AL+040: CONVERGED, 63 iterations, 9 of 9 outputs on disk
+  matriz_setup/P2004-M100RE230AL+040: CONVERGED, 63 iterations, 9 of 9 outputs on disk
+  matriz_time/P3001-M144RE438AL+000BE+000: CONVERGED, 300 iterations, 7 of 7 outputs on disk
+  matriz_time/P3002-M144RE438AL+000BE+000: CONVERGED, 401 iterations, 7 of 7 outputs on disk
+  matriz_time/P3003-M144RE438AL+000BE+000: CONVERGED, 488 iterations, 7 of 7 outputs on disk
+  matriz_time/P3004-M144RE438AL+000BE+000: CONVERGED, 564 iterations, 7 of 7 outputs on disk
+  matriz_time/P3005-M144RE438AL+000BE+000: CONVERGED, 718 iterations, 7 of 7 outputs on disk
+  matriz_time/P3006-M144RE438AL+000BE+000: CONVERGED, 1166 iterations, 7 of 7 outputs on disk
+  matriz_time/P3010-M100RE230AL+020: CONVERGED, 110 iterations, 7 of 7 outputs on disk
+  matriz_time/P3011-M100RE230AL+020: CONVERGED, 176 iterations, 7 of 7 outputs on disk
+  matriz_vocab/P8001-M100RE230AL+000BE+000: COMPLETED_MAX_ITER, 613 iterations, 7 of 7 outputs on disk, time step
+    6 of 6
+  matriz_vocab/P8002-M100RE230AL+000BE+000J+060: COMPLETED_MAX_ITER, 635 iterations, 7 of 7 outputs on disk, time
+    step 6 of 6
+  matriz_vocab/P8002-M100RE230AL+000BE+000J+080: COMPLETED_MAX_ITER, 665 iterations, 7 of 7 outputs on disk, time
+    step 6 of 6
+  matriz_vocab/P8003-M100RE230AL+000BE+000J+060: COMPLETED_MAX_ITER, 646 iterations, 7 of 7 outputs on disk, time
+    step 6 of 6
+  matriz_vocab/P8003-M100RE230AL+000BE+000J+080: COMPLETED_MAX_ITER, 558 iterations, 7 of 7 outputs on disk, time
+    step 6 of 6
+  matriz_vocab/P8004-M100RE230AL+000BE+000: COMPLETED_MAX_ITER, 613 iterations, 7 of 7 outputs on disk, time step
+    6 of 6
+  matriz_vocab/P8005-M100RE230AL+000BE+000: CONVERGED, 659 iterations, 7 of 7 outputs on disk
+  matriz_vocab/P8006-M100RE230AL+000BE+000: COMPLETED_MAX_ITER, 613 iterations, 7 of 7 outputs on disk, time step
+    6 of 6
+comparison:
+  control: 'the tier-3 workspace''s recorded runs of 2026-09-08 to 2026-09-13: 52 points, 44 on 26.120 and 8 on
+    26.123, package 0.13.0.dev0 (48) and 0.18.0.dev0 (4); every record''s script on disk with its record''s digest'
+  source: campaign_sweep.csv of each matrix on both sides (data origin, reduction, frame and units agree for every
+    pair); the per-surface lines of the loads exports where a delta was located; the records carry no rotor table
+  records_farfield_layers:
+    none: 32
+    three: 19
+    five: 1
+  compared: 52
+  new_rows_no_record:
+  - '4101'
+  - '4102'
+  - '4103'
+  - '4104'
+  - '4105'
+  - '4111'
+  - '4112'
+  - '4113'
+  - 5007 (two points)
+  - '5008'
+  - '5009'
+  - '5010'
+  - '5012'
+  - '5013'
+  - '5014'
+  existing_rows_no_recorded_run:
+  - '8001'
+  - 8002 (two points)
+  - 8003 (two points)
+  - '8004'
+  - '8005'
+  - '8006'
+  new_rows_against_the_block_8_reports: 'equal to the print: 4101 to 4104 CL 0.3293351, CDi 0.0288962, CMy -0.0070039
+    and 4111 to 4113 CL 0.0001315, CDi 0.023631, CMy 0.0139297 (RPT-069); 4105 CL 0.179499, CDi 0.0193077 (RPT-072);
+    5008 CL 0.3451, CDi -0.0221; 5009 CL 0.3439, CDi -0.0208; 5010 CL 0.3385, CDi 0.0049 (RPT-070); 5012 and 5013
+    CL 0.0023, 5014 CL 0.0045, CDo 0.0066 (RPT-071); 5007 has no published loads'
+  relative_delta_floor: 0.001
+  deltas_over_5_percent: 145
+  near_zero_deltas_over_5_percent:
+    note: 'coefficients below 1e-3 on both sides, where the relative delta is noise: the symmetric wing''s Cy and
+      CMz at zero sideslip, a rotor''s CL, Cz and CDo at zero incidence, the physics wing''s CMx; largest absolute
+      delta 6.1e-4 (a pusher''s Cy)'
+    points:
+      P1001-M100RE230AL-020:
+        Cy: -4e-06 to -1.03e-05, -157.5 percent
+        CMz: 0.0001238 to 0.0001606, +29.7 percent
+      P1001-M100RE230AL+000:
+        Cy: -3.2e-06 to -1e-05, -212.5 percent
+        CMz: 0.0001611 to 0.0002051, +27.3 percent
+      P1001-M100RE230AL+020:
+        Cy: -2.1e-06 to -8.6e-06, -309.5 percent
+        CMz: 0.0001961 to 0.000226, +15.2 percent
+      P1001-M100RE230AL+040:
+        Cy: -1.2e-06 to -7.6e-06, -533.3 percent
+        CMz: 0.0002393 to 0.0002556, +6.8 percent
+      P1004-M100RE230MU18000A3400T2900PS100000AL+020BE+020:
+        CMz: -0.0003291 to -0.0001719, +47.8 percent
+      P1004-M100RE230MU18000A3400T2900PS100000AL+040BE+020:
+        CMz: -0.0001785 to -0.0002088, -17.0 percent
+      P1010-M100RE230AL+020:
+        Cy: -4.5e-06 to -9.4e-06, -108.9 percent
+        CMz: 0.0001196 to 0.0001924, +60.9 percent
+      P1011-M100RE230AL+020:
+        Cy: -4.1e-06 to -9.3e-06, -126.8 percent
+        CMz: 0.0001448 to 0.0002033, +40.4 percent
+      P1020-M144RE438AL+000BE+000:
+        CL: 0.0004523 to 0.000401, -11.3 percent
+        CDo: 0.0004315 to 0.0004547, +5.4 percent
+        CMz: -0.0008828 to -0.0008024, +9.1 percent
+        Cz: 0.0004885 to 0.0004356, -10.8 percent
+      P1021-M100RE230AL+000:
+        CL: 3.37e-05 to -2.04e-05, -160.5 percent
+        CMy: -3.99e-05 to -1.11e-05, +72.2 percent
+        CMz: 0.0001031 to -0.0001722, -267.0 percent
+        Cz: 2.76e-05 to -2.15e-05, -177.9 percent
+      P1003-M100ALT05000DT+100BE-040:
+        CMz: 0.0002767 to 5.47e-05, -80.2 percent
+      P1003-M100ALT05000DT+100BE+000:
+        Cy: -3.3e-06 to -9.9e-06, -200.0 percent
+        CMz: 0.0001604 to 0.0002092, +30.4 percent
+      P1003-M100ALT05000DT+100BE+040:
+        CMz: 6.5e-05 to 0.0001507, +131.8 percent
+      P1090-M100RE230AL+000:
+        CDi: 0 to 0.0001, from zero
+        Cy: -0 to -0.0001, from zero
+      P6002-M100RE230AL+020:
+        Cy: -4.4e-06 to -9.4e-06, -113.6 percent
+        CMz: 0.0001314 to 0.0001966, +49.6 percent
+      P7001-M144RE438AL+000BE+000:
+        CL: 0.0004523 to 0.000401, -11.3 percent
+        CDo: 0.0004315 to 0.0004547, +5.4 percent
+        CMz: -0.0008828 to -0.0008024, +9.1 percent
+        Cz: 0.0004885 to 0.0004356, -10.8 percent
+      P7002-M144RE438AL+000BE+000:
+        CL: 0.0004326 to 0.000401, -7.3 percent
+        CDo: 0.0004799 to 0.0004547, -5.3 percent
+        CMz: -0.0008472 to -0.0008024, +5.3 percent
+        Cz: 0.0004764 to 0.0004356, -8.6 percent
+      P4001-M100RE230AL+040:
+        Cy: -1.2e-06 to -7.5e-06, -525.0 percent
+        CMz: 0.0002393 to 0.0002891, +20.8 percent
+      P4004-M100RE230AL+040:
+        Cy: -1.2e-06 to -7.5e-06, -525.0 percent
+        CMz: 0.0002393 to 0.0002891, +20.8 percent
+      P5001-V0300RHO12250AL+060:
+        CMx: 0.0006 to 0.0008, +33.3 percent
+      P5002-V0300RHO12250AL+040:
+        CMx: 0.0007 to 0.0009, +28.6 percent
+      P5005-V0490RHO12250AL+000BE+000:
+        CL: -8.61e-05 to -7.91e-05, +8.1 percent
+        CDo: 0.0007011 to 0.0006214, -11.4 percent
+      P5006-V0300RHO12250AL+000:
+        CMx: -0.0001 to -0, +100.0 percent
+      P5006-V0300RHO12250AL+020:
+        CMx: -0.0002 to -0, +100.0 percent
+      P5006-V0300RHO12250AL+040:
+        CMx: -0.0002 to -0, +100.0 percent
+      P5006-V0300RHO12250AL+060:
+        CMx: -0.0003 to -0, +100.0 percent
+      P9001-M100RE230AL+000:
+        CL: -8.2e-06 to -3.16e-05, -285.4 percent
+        Cy: 0.0001972 to -0.0004158, -310.9 percent
+        CMy: 5.25e-05 to -3.18e-05, -160.6 percent
+        CMz: -0.0004286 to 6.45e-05, +115.0 percent
+        Cz: -9.4e-06 to -3.29e-05, -250.0 percent
+      P9003-M100RE230AL-060:
+        CL: -4.9e-06 to -4.53e-05, -824.5 percent
+        Cy: 0.0001916 to -0.0003737, -295.0 percent
+        CMy: 5.66e-05 to -4.82e-05, -185.2 percent
+      P2001-M100RE230AL+040:
+        Cy: -1.2e-06 to -7.5e-06, -525.0 percent
+        CMz: 0.0002393 to 0.0002891, +20.8 percent
+      P2002-M100RE230AL+040:
+        Cy: -3.5e-06 to -9.2e-06, -162.9 percent
+        CMz: 0.0001491 to 0.0002169, +45.5 percent
+      P2003-M100RE230AL+040:
+        Cy: -1.2e-06 to -7.5e-06, -525.0 percent
+        CMz: 0.0002382 to 0.000288, +20.9 percent
+      P2004-M100RE230AL+040:
+        Cy: -1.2e-06 to -7.5e-06, -525.0 percent
+        CMz: 0.0002401 to 0.0002891, +20.4 percent
+      P3001-M144RE438AL+000BE+000:
+        CL: 0.0004523 to 0.000401, -11.3 percent
+        CDo: 0.0004315 to 0.0004547, +5.4 percent
+        CMz: -0.0008828 to -0.0008024, +9.1 percent
+        Cz: 0.0004885 to 0.0004356, -10.8 percent
+      P3002-M144RE438AL+000BE+000:
+        CL: 0.0003813 to 0.0003394, -11.0 percent
+        CDo: 0.0004164 to 0.0004445, +6.7 percent
+        CMz: -0.0008171 to -0.0007454, +8.8 percent
+        Cz: 0.0004203 to 0.0003747, -10.8 percent
+      P3003-M144RE438AL+000BE+000:
+        CL: 0.0003648 to 0.0003251, -10.9 percent
+        CDo: 0.0004118 to 0.0004471, +8.6 percent
+        CMz: -0.0007983 to -0.0007296, +8.6 percent
+        Cz: 0.0004054 to 0.0003606, -11.1 percent
+      P3004-M144RE438AL+000BE+000:
+        CL: 0.0003609 to 0.000322, -10.8 percent
+        CDo: 0.0004103 to 0.0004441, +8.2 percent
+        CMz: -0.0007918 to -0.0007248, +8.5 percent
+        Cz: 0.0004025 to 0.0003563, -11.5 percent
+      P3005-M144RE438AL+000BE+000:
+        CL: 0.0003595 to 0.0003212, -10.7 percent
+        CMz: -0.0007874 to -0.000723, +8.2 percent
+        Cz: 0.0004025 to 0.0003506, -12.9 percent
+      P3006-M144RE438AL+000BE+000:
+        CL: 0.0003601 to 0.0003216, -10.7 percent
+        CMz: -0.000784 to -0.0007244, +7.6 percent
+        Cz: 0.000406 to 0.0003448, -15.1 percent
+      P3010-M100RE230AL+020:
+        Cy: -4.1e-06 to -9.4e-06, -129.3 percent
+        CMz: 0.0001439 to 0.0002016, +40.1 percent
+      P3011-M100RE230AL+020:
+        Cy: -4.5e-06 to -9.4e-06, -108.9 percent
+        CMz: 0.0001196 to 0.0001924, +60.9 percent
+  known_causes_measured_apart:
+    1090_build_alone: 'the record (26.120, no far field) against T12''s first attempt (26.124, the same commands
+      in the same order): at 0 deg CL 0.0313 to 0.0578, CMx 0.0136 to 0.0186, CMy -0.0146 to -0.0256; at 2 deg CL
+      1.3375 to 1.3427, CMx 0.0135 to 0.0180 (reference area 1, four decimals)'
+    1090_far_field_alone: 'T12''s first attempt against its re-run with five layers: equal to the print at both
+      angles'
+    6001_build_alone: '26.123 to 26.124: CL 1.4798 to 1.4857, CMx 0.0181 to 0.0234, CMz 0.0010 to 0.0015'
+    6001_far_field_alone: 'none to 5 on 26.124: CMx 0.0234 to 0.0232, CMz 0.0015 to 0.0014, CL equal'
+    2001_on_26120_and_2004_on_26123: CMx 0.0017258 and 0.0017259, both to 0.0021894 on 26.124
+  deltas_over_5_percent_by_cause:
+  - cause: build 26.120 to 26.124; far field none to 5
+    points:
+      P1001-M100RE230AL-020:
+        CDi: 0.0179061 to 0.0195154, +9.0 percent
+        CMx: 0.0017406 to 0.0024306, +39.6 percent
+        CMy: 0.0025865 to 0.001471, -43.1 percent
+        Cx: 0.0198398 to 0.0215157, +8.4 percent
+      P1002-V0340RHO12250AL+040:
+        CDi: 0.0333598 to 0.0382123, +14.5 percent
+        CMy: -0.0077344 to -0.0062401, +19.3 percent
+        Cx: 0.0185097 to 0.0243981, +31.8 percent
+      P1004-M100RE230MU18000A3400T2900PS100000AL+020BE+020:
+        CDi: 0.0180059 to 0.0192882, +7.1 percent
+        CMx: 0.001165 to 0.0016888, +45.0 percent
+        Cx: 0.0198485 to 0.0211188, +6.4 percent
+      P1090-M100RE230AL+000:
+        CL: 0.0313 to 0.0578, +84.7 percent
+        CDo: 0.034 to 0.0322, -5.3 percent
+        CMx: 0.0136 to 0.0186, +36.8 percent
+        CMy: -0.0146 to -0.0256, -75.3 percent
+        CMz: 0.0012 to 0.0018, +50.0 percent
+        Cx: 0.0341 to 0.0323, -5.3 percent
+        Cz: 0.0313 to 0.0578, +84.7 percent
+      P1090-M100RE230AL+020:
+        CMx: 0.0135 to 0.018, +33.3 percent
+        CMz: 0.0018 to 0.0019, +5.6 percent
+      P4001-M100RE230AL+040:
+        CMx: 0.0017258 to 0.0021894, +26.9 percent
+        CMy: -0.0077213 to -0.0070039, +9.3 percent
+        Cx: 0.0125821 to 0.0134646, +7.0 percent
+      P4002-M100RE230AL+040:
+        CDi: 0.0333601 to 0.0382126, +14.5 percent
+        CMy: -0.0077342 to -0.0062399, +19.3 percent
+        Cx: 0.0185243 to 0.0244125, +31.8 percent
+      P4004-M100RE230AL+040:
+        CMx: 0.0017258 to 0.0021894, +26.9 percent
+        CMy: -0.0077213 to -0.0070039, +9.3 percent
+        Cx: 0.0125821 to 0.0134646, +7.0 percent
+      P5001-V0300RHO12250AL+000:
+        CL: -0.0004 to 0.0023, +675.0 percent
+        CMx: 0.0009 to 0.0011, +22.2 percent
+        CMy: 0.0001 to -0.0014, -1500.0 percent
+        Cz: -0.0004 to 0.0023, +675.0 percent
+      P5006-V0300RHO12250AL+000:
+        CL: -0 to 0.0031, from zero
+        CMy: 0 to -0.0016, from zero
+        Cz: -0 to 0.0031, from zero
+      P5006-V0300RHO12250AL+020:
+        Cx: 0.0022 to 0.002, -9.1 percent
+      P2001-M100RE230AL+040:
+        CMx: 0.0017258 to 0.0021894, +26.9 percent
+        CMy: -0.0077213 to -0.0070039, +9.3 percent
+        Cx: 0.0125821 to 0.0134646, +7.0 percent
+      P2002-M100RE230AL+040:
+        CMx: 0.0018035 to 0.0022458, +24.5 percent
+        CMy: -0.0077201 to -0.007007, +9.2 percent
+      P2003-M100RE230AL+040:
+        CMx: 0.001719 to 0.0021806, +26.9 percent
+        CMy: -0.0077038 to -0.0069889, +9.3 percent
+        Cx: 0.012537 to 0.0134136, +7.0 percent
+  - cause: build 26.120 to 26.124; far field none to 5; warm start (FR-95), the record's point was cold
+    points:
+      P1001-M100RE230AL+000:
+        CL: 0.0039564 to 0.007476, +89.0 percent
+        CDi: 0.0146709 to 0.0160991, +9.7 percent
+        CMx: 0.0017213 to 0.0024852, +44.4 percent
+        CMy: -0.0008479 to -0.0014029, -65.5 percent
+        Cx: 0.0221621 to 0.0233981, +5.6 percent
+        Cz: 0.0039597 to 0.0074575, +88.3 percent
+      P1001-M100RE230AL+020:
+        CDi: 0.0180328 to 0.0192035, +6.5 percent
+        CMx: 0.0017161 to 0.0025354, +47.7 percent
+      P1001-M100RE230AL+040:
+        CMx: 0.0017258 to 0.0025827, +49.7 percent
+        CMy: -0.0077213 to -0.0070036, +9.3 percent
+        Cx: 0.0125821 to 0.0133085, +5.8 percent
+      P1004-M100RE230MU18000A3400T2900PS100000AL+040BE+020:
+        CMx: 0.0006332 to 0.0012998, +105.3 percent
+        CMy: -0.0077119 to -0.0070016, +9.2 percent
+        Cx: 0.0126325 to 0.0136438, +8.0 percent
+      P5001-V0300RHO12250AL+020:
+        CDi: 0.0012 to 0.0013, +8.3 percent
+        CMx: 0.0008 to 0.0014, +75.0 percent
+        Cx: 0.0023 to 0.0021, -8.7 percent
+      P5001-V0300RHO12250AL+040:
+        CMx: 0.0007 to 0.001, +42.9 percent
+  - cause: base region now marked (RPT-066); build 26.123 to 26.124; far field none to 5
+    points:
+      P1005-M100RE230AL+000:
+        CL: -0.0031772 to 0.0004371, +113.8 percent
+        CDi: 0.0498877 to 0.255288, +411.7 percent
+        CDo: 0.0355581 to 0.042872, +20.6 percent
+        Cy: 0.0017761 to 0.0005879, -66.9 percent
+        CMy: 0.0026674 to -0.0005815, -121.8 percent
+        CMz: 0.0026823 to -0.0012213, -145.5 percent
+        Cx: 0.0854458 to 0.29816, +248.9 percent
+        Cz: -0.0032502 to 0.0004548, +114.0 percent
+  - cause: build 26.120 to 26.124; far field 3 to 5
+    points:
+      P1010-M100RE230AL+020:
+        CDi: 0.0180107 to 0.0193077, +7.2 percent
+        CMx: 0.00213 to 0.0027363, +28.5 percent
+        Cx: 0.0193191 to 0.0204339, +5.8 percent
+      P1011-M100RE230AL+020:
+        CDi: 0.0181666 to 0.0194517, +7.1 percent
+        CMx: 0.0021801 to 0.0028077, +28.8 percent
+        Cx: 0.0190855 to 0.0201939, +5.8 percent
+      P3010-M100RE230AL+020:
+        CDi: 0.0181544 to 0.0194457, +7.1 percent
+        CMx: 0.0021403 to 0.002757, +28.8 percent
+        Cx: 0.0191362 to 0.0202493, +5.8 percent
+      P3011-M100RE230AL+020:
+        CDi: 0.0180107 to 0.0193077, +7.2 percent
+        CMx: 0.00213 to 0.0027363, +28.5 percent
+        Cx: 0.0193191 to 0.0204339, +5.8 percent
+  - cause: base region now marked (RPT-066); build 26.120 to 26.124; far field 3 to 5
+    points:
+      P1021-M100RE230AL+000:
+        CDi: -0.739518 to -0.683288, +7.6 percent
+        CDo: 0.0051047 to 0.004821, -5.6 percent
+        Cy: 0.0014102 to -0.0002946, -120.9 percent
+        CMx: -0.162354 to -0.14804, +8.8 percent
+        Cx: -0.734414 to -0.678467, +7.6 percent
+  - cause: build 26.120 to 26.124; far field none to 5 (cold on both sides)
+    points:
+      P1003-M100ALT05000DT+100BE-040:
+        CL: 0.0039051 to 0.0072083, +84.6 percent
+        CDi: 0.0145096 to 0.0160052, +10.3 percent
+        CMx: 0.0017474 to 0.002464, +41.0 percent
+        CMy: -0.0008265 to -0.0013835, -67.4 percent
+        Cx: 0.0220363 to 0.023689, +7.5 percent
+        Cz: 0.0038831 to 0.0071942, +85.3 percent
+      P1003-M100ALT05000DT+100BE+000:
+        CL: 0.0039395 to 0.0072495, +84.0 percent
+        CDi: 0.0145974 to 0.0161126, +10.4 percent
+        CMx: 0.0017145 to 0.0023283, +35.8 percent
+        CMy: -0.0008437 to -0.001379, -63.4 percent
+        Cx: 0.022285 to 0.0235974, +5.9 percent
+        Cz: 0.0039428 to 0.0072312, +83.4 percent
+      P1003-M100ALT05000DT+100BE+040:
+        CL: 0.0039219 to 0.0072152, +84.0 percent
+        CDi: 0.014494 to 0.0159931, +10.3 percent
+        CMx: 0.0016459 to 0.0021813, +32.5 percent
+        CMy: -0.0008376 to -0.0013801, -64.8 percent
+        Cx: 0.0221791 to 0.0237063, +6.9 percent
+        Cz: 0.0039192 to 0.007205, +83.8 percent
+  - cause: build 26.120 to 26.124; far field 3 to 5; the hubs where the record had them since af13e23c (before it
+      the rotors turned 1.5856 m from their blades, fixed in 0.27.0)
+    points:
+      P1022-M100RE230AL+000:
+        CL: -0.0044553 to -0.0038552, +13.5 percent
+        CDo: 0.0257302 to 0.0212221, -17.5 percent
+        Cy: -0.0014549 to -0.0019968, -37.2 percent
+        CMx: -0.0014292 to 0.0004281, +130.0 percent
+        CMy: 0.0026974 to 0.0020553, -23.8 percent
+        CMz: 0.0018474 to -0.0025906, -240.2 percent
+        Cz: -0.0044277 to -0.0038564, +12.9 percent
+  - cause: build 26.123 to 26.124; far field 3 to 5
+    points:
+      P6002-M100RE230AL+020:
+        CDi: 0.0181062 to 0.0193987, +7.1 percent
+        CMx: 0.0021592 to 0.0027784, +28.7 percent
+        Cx: 0.0191689 to 0.0202818, +5.8 percent
+  - cause: build 26.123 to 26.124; far field none to 5
+    points:
+      P6001-M100RE230AL+020:
+        CMx: 0.0181 to 0.0232, +28.2 percent
+        CMz: 0.001 to 0.0014, +40.0 percent
+      P2004-M100RE230AL+040:
+        CMx: 0.0017259 to 0.0021894, +26.9 percent
+        CMy: -0.007722 to -0.0070039, +9.3 percent
+        Cx: 0.0125807 to 0.0134646, +7.0 percent
+  - cause: base region now marked (RPT-066); build 26.120 to 26.124; far field none to 5
+    points:
+      P4003-M100RE230AL+040:
+        CDi: 0.0493269 to 0.255382, +417.7 percent
+        CDo: 0.040793 to 0.0464543, +13.9 percent
+        Cy: 0.0024573 to 0.0012924, -47.4 percent
+        CMy: 0.0698961 to 0.0617358, -11.7 percent
+        CMz: 0.0024201 to -0.0014086, -158.2 percent
+        Cx: 0.0858829 to 0.297042, +245.9 percent
+        Cz: 0.0637393 to 0.0790991, +24.1 percent
+  - cause: rotation hand reversed since 0.22.0; base region now marked (RPT-066); build 26.123 to 26.124; far field
+      3 to 5
+    points:
+      P9001-M100RE230AL+000:
+        CDi: -0.755404 to -0.638151, +15.5 percent
+        CDo: 0.0128086 to 0.0050456, -60.6 percent
+        CMx: -0.215029 to -0.132978, +38.2 percent
+        Cx: -0.742595 to -0.633105, +14.7 percent
+      P9002-M100RE230AL+060:
+        CL: 0.171842 to 0.150264, -12.6 percent
+        CDi: -0.74144 to -0.627373, +15.4 percent
+        CDo: 0.0134568 to 0.0054919, -59.2 percent
+        Cy: -0.0092324 to -0.0041358, +55.2 percent
+        CMx: -0.214489 to -0.133991, +37.5 percent
+        CMz: 0.0221667 to 0.0137328, -38.0 percent
+        Cx: -0.741852 to -0.634173, +14.5 percent
+        Cz: 0.0937993 to 0.0843567, -10.1 percent
+      P9003-M100RE230AL-060:
+        CDi: -0.755403 to -0.638206, +15.5 percent
+        CDo: 0.0128086 to 0.0050457, -60.6 percent
+        CMx: -0.213896 to -0.132256, +38.2 percent
+        CMz: 0.0220505 to 0.0139668, -36.7 percent
+        Cx: -0.738527 to -0.629696, +14.7 percent
+        Cz: 0.0776161 to 0.0661369, -14.8 percent
+findings:
+  row_1022_and_the_vocabulary_rows_fixed_in_0_27_0:
+    the_defect: from 0.15.0 (41bbb1c7) r006 put PORT and STARBOARD at (4.5, +/-0.9144, 0) m while 41_TWIN carries
+      its blades at (4.5, +/-2.5, 0) m (TWIN_Y_M, ERP1 and ERP2), so rows 1022 and 8001 to 8006 turned each blade
+      about an axis 1.5856 m inboard of its hub
+    how_t12_found_it: 'the comparison of 1022 with its 0.13.0 record: the record put the thrust on the blades (Blade1
+      Cx -0.7823014, Blade2 -0.7772204, Body +0.0055928); the first pass put Cx -7.3899033 on the Body with its
+      CL, Cy and CDo at 0.0000000 and +0.0001377 on each blade; 8001 carried Cy +2.0818731 at zero sideslip. The
+      triage (2b48b3fc) had rewritten 1022''s check from ORIGIN_Y 2.5 and -2.5 to r006''s hubs'
+    the_fix: 'af13e23c: r006 puts PORT and STARBOARD at y = +2.5 and -2.5 m; 1022''s check asserts (2.5, -2.5) again;
+      nine goldens moved by their ORIGIN_Y line'
+    the_rerun_15h49: '1022 COMPLETED_MAX_ITER, 6 of 6 time steps, 671 iterations: Blade1 Cx -0.7605203, Blade2 -0.761744,
+      Body +0.0052046; Total Cx -1.5170599 against the record''s -1.553929 (-2.4 percent in size), CDi -1.5382819
+      against -1.5796592 (-2.6). 8001 to 8004 and 8006 COMPLETED_MAX_ITER, 8005 CONVERGED, each 6 of 6 time steps;
+      8001 Cy +0.0015629'
+  the_build: 26.124 moves the NACA 0012 wing's CL at 0 deg (0.0040 to 0.0075; physics wing -0.0004 to 0.0023, inside
+    PHY-01's absolute warn band of 0.005) and its rolling moment (CMx +24 to +50 percent); 26.120 and 26.123 agree;
+    the mirrored half wing moves most (CDi +14.5, Cx +31.8, CMy +19.3 percent)
+  the_base_region: '1005 and 4003 solve with their base marked for the first time (RPT-066): Base Cx 0.2029636,
+    where the records'' Base carried 0.0000074 and 0.0000075; the Body''s own CDi +4.9 and +7.3 percent'
+  the_rotation_hand: 9001 to 9003 turn the other way since 0.22.0 (SET_MOTION_ROTOR_RPM 1 -800.0, r007's rpm_sign
+    -1); 9001 Blade1 Cx -0.7480747 to -0.6553909, CMx -0.2150342 to -0.1329840, CDo 0.0100266 to 0.0019323
+row_1003:
+  warm_first_pass:
+    Cy:
+    - 0.000476
+    - -2.42e-05
+    - -0.0005027
+    CL:
+    - 0.0072083
+    - 0.007377
+    - 0.0074312
+    CMz:
+    - 5.47e-05
+    - -0.0004564
+    - -0.0005097
+    iterations_cumulative:
+    - 66
+    - 89
+    - 116
+    antisymmetry_percent_of_Cy_plus_4: 5.31
+  cold_probe_in_a_separate_fresh_copy:
+    the_one_change: 'COLD_START: true; same build, package and far field'
+    Cy:
+    - 0.000476
+    - -9.9e-06
+    - -0.0004883
+    CL:
+    - 0.0072083
+    - 0.0072495
+    - 0.0072152
+    CMz:
+    - 5.47e-05
+    - 0.0002092
+    - 0.0001507
+    iterations:
+    - 66
+    - 67
+    - 67
+    antisymmetry_percent_of_Cy_plus_4: 2.52
+  cold_t12_rerun: equal to the cold probe to the last digit on every coefficient
+  record_26120_no_far_field_cold:
+    Cy:
+    - 0.000471
+    - -3.3e-06
+    - -0.0004864
+    CL:
+    - 0.0039051
+    - 0.0039395
+    - 0.0039219
+    CMz:
+    - 0.0002767
+    - 0.0001604
+    - 6.5e-05
+    iterations:
+    - 66
+    - 68
+    - 67
+    antisymmetry_percent_of_Cy_plus_4: 3.17
+  the_row_since_d2b78f0e: 'states COLD_START: true, the condition its side-force band was set in'
+  the_warm_sweeps_own_difference: registered for 0.28.0 (R13); the default is not decided here
+warm_against_cold_on_an_alpha_polar:
+  pair: 1001's fourth point (4 deg, warm after -2, 0 and 2 deg) against 4001 (the same commands at 4 deg, cold)
+  CL:
+  - 0.3298506
+  - 0.3293351
+  CDi:
+  - 0.0287527
+  - 0.0288962
+  CMy:
+  - -0.0070036
+  - -0.0070039
+  CMx:
+  - 0.0025827
+  - 0.0021894
+  iterations:
+  - 48 after the previous point
+  - 63
+set_new_unsteady_solver_action_on_26124:
+  row: 6001, three runs of eight time steps each
+  each_run: 8 invocations, no arguments, no solver-named environment, working folder the point's datapoint folder;
+    exports probe_export_<n>_iteration=1 to _iteration=8
+  reread_verdict_from_the_files: YES, 8 invocations
+  command_database_26124_row: reads 'not run on 26.124'; this report is evidence for it and does not edit it
+  probe_files_episode: the probe's log and numbered exports are the fixture's files, not collected outputs, so --force-rerun
+    did not archive them and the 15:10 run's invocations 9 to 16 were appended; both runs' files are kept in the
+    simulation folder's probe-archive, and the 15:13 run started from zero
+verdict: 'VERIFIED: the 76 points the golden diff selects ran on 26.124, each converged or completed its declared
+  time steps and collected every declared output, and the 83 licensed checks pass; against the 52 recorded points
+  the deltas above 5 percent are the build''s, the far field''s and four changes of the rows since their records;
+  the comparison also found row 1022''s rotor hubs 1.5856 m from its blades since 0.15.0, fixed in 0.27.0 (af13e23c),
+  and the nine points it moved ran again within the pass condition'
