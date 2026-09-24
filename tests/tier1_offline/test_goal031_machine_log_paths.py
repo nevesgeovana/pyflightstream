@@ -16,6 +16,7 @@ B. the collection of a submitted steady job of several points, which waited
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -267,6 +268,7 @@ def _submitted_steady_job(tmp_path, *, native=LOG):
         ],
         cwd=sim,
         check=True,
+        env=os.environ.copy(),
     )
     (sim / "FTS5001.l4242").write_text(native, encoding="utf-8")
     return workspace, job
