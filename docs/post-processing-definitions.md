@@ -665,6 +665,16 @@ csv = true
 last_revs = 1.5 # OR last_iters = 54; exactly one, positive
 ```
 
+**The force distribution is off by default too** (since 0.27.0).
+`force_distributions = true` under `[exports]` saves
+`<point>_force_distributions.txt` on every run type: the pressure and viscous
+force coefficients of every surface panel, by boundary, which
+`pyflightstream.results.parse_force_distributions` reads. It is exported once,
+at the end of the run, with every surface (`SURFACES -1`): an unsteady row does
+not add it to its per-step exports, and its wall-clock rescue does write it.
+The file grows with the mesh, which is why it is asked for rather than given.
+An export taken before the solver has iterated can hold no panel.
+
 Without `vtk_variables`, VTK uses the command's all-variables form. Both forms
 exclude the wake. CSV exports `CP-FREESTREAM`, `PASCALS`, all surfaces, in the
 solver reference frame (frame 1 on builds whose grammar includes it). Unknown

@@ -1660,6 +1660,12 @@ nodes.
     series as text, and the solve and its exports are unchanged by the
     saves.
 
+    AMENDED 0.27.0 (G10), pending with it: the artifact may opt a row of
+    any run type into the per-panel force distribution of every surface
+    (`force_distributions`, `_force_distributions.txt`), off by default as
+    the VTK and CSV surface exports are, and exported once at the end of
+    the run, never by an unsteady row's per-step exports.
+
 !!! requirement "FR-52 Post-processing is declared in the pproc artifact and runs as part of the campaign <span class='srs-pending'>pending</span>"
     *Origin: feedback item #3 of 2026-09-02 and the design decision of the
     same day that the groups artifact becomes `pproc`, and the reference

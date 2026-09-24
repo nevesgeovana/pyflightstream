@@ -1244,7 +1244,7 @@ downstream tool reads, the whole dictionary or none of it, and is defined on
 
 Omitted export kinds follow the run type's defaults; they are not all enabled.
 See [Native surface flow exports](post-processing-definitions.md#native-surface-flow-exports)
-for the VTK/CSV opt-in rule, [The solver's own plots](post-processing-definitions.md#the-solvers-own-plots)
+for the VTK, CSV and force-distribution opt-in rule, [The solver's own plots](post-processing-definitions.md#the-solvers-own-plots)
 for the residual, load and section Cp plots a steady point saves, and
 [The probes table](post-processing-definitions.md#the-probes-table)
 for the unsteady plots source, whose defaults omit the probe-points export.
@@ -1261,6 +1261,7 @@ ROTOR = "Blade"                # a family is every member of it: Blade1, Blade2,
 tecplot = false                # disable Tecplot; loads and simulation cannot be off
 vtk = true                     # opt in to VTK surface export
 csv = true                     # opt in to CSV surface export
+force_distributions = true     # opt in to the per-panel force distribution, at run end
 plot_loads = false             # a steady point saves the solver's plots; switch one off
 
 [sections]                     # NEW_SURFACE_SECTION_DISTRIBUTION per entry and plane
@@ -1588,7 +1589,9 @@ steady point also saves the solver's residual and load plots
 sections, its section Cp plot (`_plot_cp_sections.txt`); each is switched off
 with `false` (`plot_residuals`, `plot_loads`, `plot_sections_cp`), an unsteady
 row saves none, and a missing one fails the point `FAILED_INCOMPLETE_OUTPUT`
-like any declared export. The loads table
+like any declared export. `force_distributions = true` opts a row of any run
+type into `_force_distributions.txt`, the per-panel force distribution of every
+surface, saved once at the end of the run. The loads table
 and the saved simulation cannot be switched off: `loads = false` and, since
 0.27.0, `simulation = false` are refused naming the file. A setup artifact
 that names one of these tables is refused pointing here: a setup carries

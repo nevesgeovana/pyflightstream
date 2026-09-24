@@ -189,6 +189,7 @@ __all__ = [
     "UNSTEADY_EXPORTS_ACTION",
     "UnsteadyExportThreshold",
     "WHOLE_RUN_EXPORT_KINDS",
+    "END_OF_RUN_EXPORT_KINDS",
     "Workflow",
     "WorkflowConventions",
     "WorkflowCoverageError",
@@ -8080,7 +8081,8 @@ def surface_time_averaging(case: SimCase) -> SurfaceAveragingWindow | None:
 def _surface_export(script: Script, case: SimCase, kind: str, name: str) -> bool:
     """Emit the kinds whose export is more than ``<verb>`` and a name, validated on the build.
 
-    The surface formats carry a payload. A solver plot is two commands: its
+    The surface formats and the force distribution carry a payload. A solver
+    plot is two commands: its
     ``SET_PLOT_TYPE`` first, because ``SAVE_PLOT_TO_FILE`` saves whichever plot
     is showing, then the save with the path on the line after it (RPT-067).
     False for every other kind, which the caller emits as ``<verb>`` and a name.
@@ -8088,6 +8090,9 @@ def _surface_export(script: Script, case: SimCase, kind: str, name: str) -> bool
     if kind in PLOT_TYPES:
         script.emit("SET_PLOT_TYPE", PLOT_TYPES[kind])
         script.emit("SAVE_PLOT_TO_FILE", name)
+    elif kind == "force_distributions":
+        # Every surface: the command takes a count, and -1 is all of them.
+        helpers.export_results(script, force_distributions=name)
     elif kind == "vtk":
         variables = case.pproc.vtk_variables if case.pproc is not None else None
         helpers.export_results(script, vtk=name, vtk_variables=variables or "all")
@@ -8739,6 +8744,12 @@ WALLTIME_MARGIN_DEFAULT_S = 1200
 #: by the row's outputs, which the pproc artifact's export set rendered;
 #: nothing here retypes a verb or a suffix.
 WHOLE_RUN_EXPORT_KINDS: tuple[str, ...] = ("simulation", "plots", "log")
+#: The kinds saved ONCE, at the end of the run, and never per step (G10 of
+#: 0.27.0): the per-panel force distribution is the size of the mesh, and a
+#: stamped per-step copy is a file nothing lists (``post.series`` reads the
+#: stamped sections, sectional loads and probes). The wall clock's rescue is
+#: the end of the run, so it keeps them, as it keeps the whole-run kinds.
+END_OF_RUN_EXPORT_KINDS: tuple[str, ...] = ("force_distributions",)
 
 
 @dataclass(frozen=True)
@@ -8821,7 +8832,8 @@ def action_export_lines(
     sections nobody updated is an export of the previous state.
 
     ``whole_run`` KEEPS THE KINDS A PER-STEP ACTION MUST DROP: the
-    simulation file, the plots table and the log. A per-step action must
+    simulation file, the plots table, the log and, since 0.27.0, the force
+    distribution (:data:`END_OF_RUN_EXPORT_KINDS`). A per-step action must
     drop them, because a simulation file written every time step is not a
     per-step export; the wall clock's rescue is the opposite case, the
     LAST thing a stopped run does, and it needs them MOST. Sharing this
@@ -8835,7 +8847,7 @@ def action_export_lines(
     kinds = {
         kind: name
         for kind, name in classify_outputs(names).items()
-        if whole_run or kind not in WHOLE_RUN_EXPORT_KINDS
+        if whole_run or kind not in (*WHOLE_RUN_EXPORT_KINDS, *END_OF_RUN_EXPORT_KINDS)
     }
     if case.recipe in _UNSTEADY_RECIPES:
         for kind in STEADY_ONLY_EXPORT_KINDS:

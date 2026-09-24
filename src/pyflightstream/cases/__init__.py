@@ -394,6 +394,12 @@ EXPORT_KINDS: tuple[tuple[str, str, str, bool], ...] = (
     ("tecplot", ".dat", "EXPORT_SOLVER_ANALYSIS_TECPLOT", False),
     ("vtk", ".vtk", "EXPORT_SOLVER_ANALYSIS_VTK", False),
     ("csv", ".csv", "EXPORT_SOLVER_ANALYSIS_CSV", False),
+    (
+        "force_distributions",
+        "_force_distributions.txt",
+        "EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS",
+        False,
+    ),
     ("sections", "_cp.txt", "EXPORT_ALL_SURFACE_SECTIONS", False),
     ("sectional_loads", "_sloads.txt", "EXPORT_SURFACE_SECTIONAL_LOADS", False),
     ("probes", "_probes.txt", "EXPORT_PROBE_POINTS", False),
@@ -425,9 +431,10 @@ PLOT_TYPES: dict[str, str] = {
 STEADY_ONLY_EXPORT_KINDS: frozenset[str] = frozenset({"probes", *PLOT_TYPES})
 
 #: The kinds a pproc must switch ON: every other kind is on unless its
-#: ``[exports]`` entry says false. The surface fields are large and are asked
-#: for where they are wanted.
-OPT_IN_EXPORT_KINDS: tuple[str, ...] = ("vtk", "csv")
+#: ``[exports]`` entry says false. The surface fields and the per-panel force
+#: distribution (G10 of 0.27.0) grow with the mesh, so they are asked for
+#: where they are wanted.
+OPT_IN_EXPORT_KINDS: tuple[str, ...] = ("vtk", "csv", "force_distributions")
 
 
 def default_outputs(
@@ -1832,7 +1839,8 @@ class PprocSpec(BaseModel):
     member is resolved by :func:`select_group_members`, and an empty
     group is every family (the design decision of 2026-09-09); ``exports`` says which of
     the export kinds a point writes, with VTK and CSV opt-in and the
-    existing kinds enabled unless set to false (since 0.27.0 a steady point
+    existing kinds enabled unless set to false (since 0.27.0 the per-panel
+    ``force_distributions`` is opt-in too, and a steady point
     also saves the solver's residual and load plots, and its section Cp plot
     where ``sections`` declares any: ``plot_residuals``, ``plot_loads`` and
     ``plot_sections_cp``); ``sections``, ``plots`` and
