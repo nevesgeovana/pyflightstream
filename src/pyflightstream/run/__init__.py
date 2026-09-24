@@ -5543,6 +5543,7 @@ def _execute_sweep(
             actuator_profile_verdict(
                 log_text,
                 result.log_text,
+                printed,
                 *collected_log_texts(sim_dir, collected, _declared_logs(point_case, rendered)),
             ),
         )
@@ -5637,14 +5638,38 @@ def _write_pending_files(
     # Windows: the second would replace the first, and an action or an import
     # would read the other's text. Different contents under such paths are
     # refused before a byte is written; the same contents are one file.
+    # A path through a parent folder names the file its folded form names, so
+    # the key is the normalised path, case-folded. The files the run writes
+    # ITSELF after these, the counter and clock programs and the state files it
+    # removes, are reserved: a file parked on one would be replaced or deleted
+    # after its digest was recorded.
+    def one_file(target: Path) -> str:
+        return os.path.normpath(str(target)).casefold()
+
+    reserved = {
+        one_file(placed(own)): own
+        for own in (
+            UNSTEADY_ACTION_PROGRAM,
+            UNSTEADY_ACTION_COUNT,
+            WALLTIME_CLOCK_PROGRAM,
+            WALLTIME_CLOCK_STATE,
+        )
+    }
     targets: dict[str, tuple[Path, bytes]] = {}
     for parked, content in (
         *script.pending_action_scripts.items(),
         *script.pending_input_files.items(),
     ):
         target = placed(parked)
+        if one_file(target) in reserved:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the run writes {reserved[one_file(target)]} itself, "
+                f"after the files a script parks, and {target} is that file, so what was "
+                "parked there would be replaced or removed after its digest was "
+                "recorded. Rename it; the solver was not started."
+            )
         data = content if isinstance(content, bytes) else content.encode("utf-8")
-        first = targets.setdefault(str(target).casefold(), (target, data))
+        first = targets.setdefault(one_file(target), (target, data))
         if first[1] != data:
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: the run writes {first[0]} and {target} for the "
@@ -6813,7 +6838,15 @@ def _execute_point(
     named_log = assessment.log_file_used or (
         Path(local_log.written).name if local_log.written else None
     )
-    log_text = _run_log_text(sim_dir, collected, named_log, result)
+    # On a machine that cannot export the log, what the solver printed is the
+    # point's log when nothing else is, as it is a local steady job's: a row that
+    # declares no log output wrote none from it above.
+    printed = (
+        result.captured_output()
+        if isinstance(executor, LocalExecutor) and not executor.export_log
+        else ""
+    )
+    log_text = _run_log_text(sim_dir, collected, named_log, result) or (printed or None)
     status, error = with_wake_edge_verdict(
         status,
         assessment.error,
@@ -6833,6 +6866,7 @@ def _execute_point(
         actuator_profile_verdict(
             log_text,
             result.log_text,
+            printed,
             *collected_log_texts(sim_dir, collected, _declared_logs(point_case, rendered)),
         ),
     )

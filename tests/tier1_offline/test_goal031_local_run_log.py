@@ -453,7 +453,7 @@ def _wake_recipe_with_a_log(case, script):
     script.emit("CLOSE_FLIGHTSTREAM")
 
 
-def _file_route_point(tmp_path, *, prints):
+def _file_route_point(tmp_path, *, prints, outputs=None, variables=None):
     """Run one file-route point on 26.124 with the executor --local builds on such a machine."""
     from pyflightstream.cases import Campaign, SimCase, SweepAxis
     from pyflightstream.run import run_campaign
@@ -468,7 +468,8 @@ def _file_route_point(tmp_path, *, prints):
         geometry=str(geometry),
         sweep=SweepAxis(type="alpha", values=[2.0]),
         recipe="wake",
-        outputs=["loads_{point}.txt", "loads_{point}_log.txt"],
+        outputs=outputs or ["loads_{point}.txt", "loads_{point}_log.txt"],
+        variables=variables or {},
     )
     campaign = Campaign(name="camp", fs_version="26.124", fs_exe=sys.executable, sims=[case])
     workspace = CampaignWorkspace(tmp_path / "camp")
@@ -570,3 +571,28 @@ def test_profiles_that_disagree_about_the_log_are_refused_under_local(tmp_path, 
     assert "h001.toml: export_log = false" in message, message
     assert "h002.toml: export_log = true" in message, message
     assert not workspace.manifest_path.exists(), "a refused run recorded a point"
+
+
+@pytest.mark.parametrize("refused", [True, False], ids=["refused", "control"])
+def test_a_local_point_declaring_no_log_reads_what_the_solver_printed(tmp_path, refused):
+    """A local point on a machine that cannot export the log, whose row declares no log
+    output: what the solver printed is its only log, and it is read for the imported
+    count and for the disc profile's refusal, as a local steady job reads it."""
+    from pyflightstream.cases.workflows import EXPORT_LOG_VARIABLE
+    from pyflightstream.run._wake_edge_verdict import ACTUATOR_PROFILE_REFUSALS
+    from tests.tier1_offline.test_run_wake_edge_count import LOG_AROUND
+
+    printed = LOG_AROUND.format(line="16 trailing edges imported for boundary Wing")
+    if refused:
+        printed += ACTUATOR_PROFILE_REFUSALS[1] + "\r\nC:/w/prop.txt\r\n"
+    record = _file_route_point(
+        tmp_path,
+        prints=printed,
+        outputs=["loads_{point}.txt"],
+        variables={EXPORT_LOG_VARIABLE: "false"},
+    )
+    if refused:
+        assert record.status is RunStatus.FAILED_SCRIPT, (record.status, record.error)
+        assert ACTUATOR_PROFILE_REFUSALS[1] in (record.error or ""), record.error
+    else:
+        assert record.status is RunStatus.CONVERGED, (record.status, record.error)

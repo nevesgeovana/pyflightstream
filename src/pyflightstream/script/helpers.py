@@ -57,6 +57,7 @@ fields, so they take no ``script`` and produce text (SRC-751 p.85).
 from __future__ import annotations
 
 import math
+import os
 import re
 import warnings
 from collections.abc import Mapping, Sequence
@@ -602,6 +603,29 @@ def render_actuator_profile(text: str, *, source: str = "the radial thrust profi
     return "\n".join(rows)
 
 
+def _same_file(parked: str, path: str) -> bool:
+    """Whether two paths a script parks are one file where the run writes them.
+
+    A path through a parent folder (``sub/../x``) names the file the folded path
+    names, and a path equal to another but for case is the same file on a
+    case-insensitive file system, as on Windows; the run's writer holds every
+    parked file to the same rule (run._write_pending_files).
+    """
+    return os.path.normpath(parked).casefold() == os.path.normpath(path).casefold()
+
+
+def _where_parked(parked: str, path: str) -> str:
+    """How a refusal names the parked file that ``path`` would replace."""
+    if parked == path:
+        return repr(path)
+    if parked.casefold() == path.casefold():
+        return (
+            f"{parked!r}, which differs from {path!r} only in case: a case-insensitive "
+            "file system reads the two as one file"
+        )
+    return f"{parked!r}, which is the file {path!r} names through a parent folder: one file"
+
+
 def actuator_disc(
     script: Script,
     name: str,
@@ -735,14 +759,9 @@ def actuator_disc(
         copy = render_actuator_profile(profile_text).encode("utf-8")
         path = fspath(profile)
         for parked, already in script._pending_input_files.items():
-            if parked.casefold() != path.casefold() or already == copy:
+            if not _same_file(parked, path) or already == copy:
                 continue
-            where = (
-                repr(profile)
-                if parked == path
-                else f"{parked!r}, which differs from {profile!r} only in case: a "
-                "case-insensitive file system reads the two as one file"
-            )
+            where = _where_parked(parked, path)
             raise CommandArgumentError(
                 f"actuator_disc: this script already writes a different file to {where}. "
                 "One path is one file, so the second would silently replace the first and "
@@ -3119,16 +3138,11 @@ def unsteady_action(
     # A filename equal to a parked one but for case is the same file on a
     # case-insensitive file system (Windows), so it is held to the same rule.
     parked = next(
-        (key for key in script._pending_action_scripts if key.casefold() == filename.casefold()),
+        (key for key in script._pending_action_scripts if _same_file(key, filename)),
         None,
     )
     if parked is not None and action_script is not None:
-        where = (
-            repr(filename)
-            if parked == filename
-            else f"{parked!r}, which differs from {filename!r} only in case: a "
-            "case-insensitive file system reads the two as one file"
-        )
+        where = _where_parked(parked, filename)
         raise CommandArgumentError(
             f"unsteady_action: this script already writes an action script to "
             f"{where}. One path is one file, so the second would silently replace "
@@ -3406,14 +3420,9 @@ def mark_wake_edges(
     # case-insensitive file system (Windows), so it is held to the same rule,
     # as actuator_disc holds a profile.
     for parked, already in script._pending_input_files.items():
-        if parked.casefold() != path.casefold() or already == text:
+        if not _same_file(parked, path) or already == text:
             continue
-        where = (
-            repr(path)
-            if parked == path
-            else f"{parked!r}, which differs from {path!r} only in case: a "
-            "case-insensitive file system reads the two as one file"
-        )
+        where = _where_parked(parked, path)
         raise CommandArgumentError(
             f"mark_wake_edges: this script already writes a different node file to "
             f"{where}. One path is one file, so the second would silently replace "

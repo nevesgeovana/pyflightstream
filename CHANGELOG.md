@@ -824,7 +824,13 @@ gone (`docs/migrating-to-0.27.0.md`).
   refused, since one action or import would read the other's text. The
   solver's own `FlightStreamLog.txt` is read for the profile's refusal wherever
   it is collected, a job submitted before the declared logs were recorded
-  included.
+  included. A path through a parent folder (`sub/../x`) is the file it names
+  under the same rule, and a file cannot be parked on a path the run writes
+  itself (the unsteady counter and wall-clock programs and their state files),
+  which would replace or remove it after its digest was recorded. On a machine
+  that cannot export the log, what a local point's solver printed is read for
+  the imported trailing-edge count and the profile's refusal when the row
+  declares no log output, as a local steady job's already was (G02, G06).
 
 ### Changed
 

@@ -427,3 +427,60 @@ def test_the_solvers_own_log_is_read_on_a_job_that_declared_no_log(tmp_path):
     (tmp_path / "loads.txt").write_text("the loads", encoding="utf-8")
     collected = ["flightstreamlog.txt", "loads.txt"]
     assert collected_log_texts(tmp_path, collected, declared=[]) == ["the log"]
+
+
+def test_one_file_spelled_through_a_parent_folder_is_one_file(tmp_path):
+    """``step.txt`` and ``sub/../STEP.txt`` are one file wherever the path is resolved:
+    the helper refuses the second action where it is registered, and the run's writer
+    refuses such a pair however it was parked, before it writes any file."""
+    script = Script("26.124")
+    helpers.unsteady_action(
+        script,
+        name="incidence",
+        kind="SCRIPT",
+        filename="actions/step.txt",
+        action_script="SOLVER_SET_AOA 2.0",
+    )
+    with pytest.raises(CommandArgumentError, match=r"one file"):
+        helpers.unsteady_action(
+            script,
+            name="loads",
+            kind="SCRIPT",
+            filename="actions/sub/../STEP.txt",
+            action_script="EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
+        )
+    script._pending_action_scripts["actions/sub/../STEP.txt"] = "EXPORT_SOLVER_ANALYSIS_SPREADSHEET"
+    case = SimCase(
+        sim_id="9004",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="actions",
+        outputs=["loads_{point}.txt"],
+    )
+    work = tmp_path / "DP-point"
+    with pytest.raises(CampaignConfigError, match=r"one file"):
+        _write_pending_files(script, work, case=case, recorded={})
+    assert not work.exists() or not any(work.rglob("*")), "a file was written before the refusal"
+
+
+def test_a_parked_file_on_a_path_the_run_writes_itself_is_refused(tmp_path):
+    """The counter and clock programs, and the state files the run removes, are written
+    after the parked files: a data file parked on one of those paths would be replaced or
+    deleted after its digest was recorded. Refused before any file is written."""
+    from pyflightstream.cases.workflows import UNSTEADY_ACTION_PROGRAM
+
+    script = Script("26.124")
+    script._pending_input_files[UNSTEADY_ACTION_PROGRAM.upper()] = b"not the program"
+    case = SimCase(
+        sim_id="9005",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="actions",
+        outputs=["loads_{point}.txt"],
+    )
+    work = tmp_path / "DP-point"
+    with pytest.raises(CampaignConfigError, match=r"the run writes .* itself"):
+        _write_pending_files(script, work, case=case, recorded={})
+    assert not work.exists() or not any(work.rglob("*")), "a file was written before the refusal"
