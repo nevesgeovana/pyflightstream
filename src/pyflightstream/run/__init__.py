@@ -5594,6 +5594,11 @@ def _write_pending_files(
     ``wing.wake_nodes.txt`` beside the node file of ``wing.stl``. So that is
     refused, naming the key and both files, before the solver starts. The same
     bytes arriving twice under one name are one file's digest, not two files.
+    Names are compared ignoring case: ``prop.txt`` and ``PROP.txt`` are one
+    file on a case-insensitive file system (Windows), where the second write
+    replaces the first and the digest recorded under the first name is of
+    bytes the solver never read. The record keeps each name as the script
+    spelled it.
 
     Returns
     -------
@@ -5606,8 +5611,8 @@ def _write_pending_files(
     Raises
     ------
     CampaignConfigError
-        If a data file's name is a key ``recorded`` or another data file
-        holds with a different digest.
+        If a data file's name, ignoring case, is a key ``recorded`` or
+        another data file holds with a different digest.
     """
 
     def placed(name: str) -> Path:
@@ -5620,6 +5625,10 @@ def _write_pending_files(
         target.write_text(action_text, encoding="utf-8")
     digests: dict[str, str] = {}
     written: dict[str, Path] = {}
+    # Each name held, by its case-folded form: (the name as spelled, its digest).
+    held: dict[str, tuple[str, str]] = {
+        key.casefold(): (key, digest) for key, digest in recorded.items()
+    }
     for input_file, content in script.pending_input_files.items():
         target = placed(input_file)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -5628,18 +5637,30 @@ def _write_pending_files(
         else:
             target.write_text(content, encoding="utf-8")
         name, digest = target.name, file_sha256(target)
-        held = digests.get(name, recorded.get(name))
-        if held is not None and held != digest:
-            other = str(written[name]) if name in written else _declared_input(case, name)
+        key, held_digest = held.get(name.casefold(), (name, None))
+        if held_digest is not None and held_digest != digest:
+            other = str(written[key]) if key in written else _declared_input(case, key)
+            if key == name:
+                why = (
+                    "is a different file of the same name. The record keys each input the "
+                    f"solver reads by its file name (inputs_sha256), so {name!r} would hold "
+                    "one digest for two files and could not say which bytes the solver read."
+                )
+            else:
+                why = (
+                    f"is a different file named {key!r}, the same name but for case. The "
+                    "record keys each input the solver reads by its file name "
+                    "(inputs_sha256), and on a case-insensitive file system, as on Windows, "
+                    "names equal but for case are one file, so the two keys could not say "
+                    "which bytes the solver read."
+                )
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: the run writes {target} for the solver to read, and "
-                f"{other} is a different file of the same name. The record keys each input "
-                f"the solver reads by its file name (inputs_sha256), so {name!r} would hold "
-                "one digest for two files and could not say which bytes the solver read. "
-                "Rename one of them; the solver was not started."
+                f"{other} {why} Rename one of them; the solver was not started."
             )
         digests[name] = digest
         written[name] = target
+        held[name.casefold()] = (name, digest)
     return digests
 
 

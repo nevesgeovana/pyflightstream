@@ -788,6 +788,19 @@ gone (`docs/migrating-to-0.27.0.md`).
   point is `FAILED_SCRIPT`, its error names the key and both files, and its
   record keeps the declared file's digest. The same bytes under one name are
   one file and run (G15, G02, G06).
+- **Two disc profiles whose paths differ only in case are refused, not merged
+  into one file.** A recipe calling `helpers.actuator_disc(profile_text=...)`
+  twice, on `prop.txt` and `PROP.txt` with different loadings, passed both
+  guards, which compared names as written: on a case-insensitive file system,
+  as on Windows, the second write replaced the first before the solver started,
+  so both discs read the second loading while `inputs_sha256['prop.txt']`
+  recorded the first. Names equal but for case are now one file to both
+  guards: `actuator_disc` refuses a second profile whose path differs from a
+  parked one only in case, before a line of its disc is written, and the run
+  refuses, before the solver starts, any file it writes for the solver whose
+  name differs only in case from another input of the case with different
+  bytes, naming both files. The same bytes under both spellings still run, and
+  the record keeps each name as the script spelled it (G06).
 
 ### Changed
 

@@ -728,13 +728,23 @@ def actuator_disc(
     # so a text the solver would misread leaves the script untouched. Parked as
     # BYTES, written as they are: the last row ends the file, and a text-mode
     # write is free to change the line ends of the one form measured (RPT-070).
+    # A path equal to a parked one but for case is the same file on a
+    # case-insensitive file system (Windows), so it is held to the same rule.
     copy: bytes | None = None
     if profile_text is not None and profile is not None:
         copy = render_actuator_profile(profile_text).encode("utf-8")
-        already = script._pending_input_files.get(fspath(profile))
-        if already is not None and already != copy:
+        path = fspath(profile)
+        for parked, already in script._pending_input_files.items():
+            if parked.casefold() != path.casefold() or already == copy:
+                continue
+            where = (
+                repr(profile)
+                if parked == path
+                else f"{parked!r}, which differs from {profile!r} only in case: a "
+                "case-insensitive file system reads the two as one file"
+            )
             raise CommandArgumentError(
-                f"actuator_disc: this script already writes a different file to {profile!r}. "
+                f"actuator_disc: this script already writes a different file to {where}. "
                 "One path is one file, so the second would silently replace the first and "
                 "both discs would read whichever won. Give this disc's profile a path of "
                 "its own"
