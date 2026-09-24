@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-24
 **Found by:** the licensed probe T13 of the 0.27.0 work
-**Status:** REGISTERED for 0.27.0 (G04 saves the residual and load plots of every point by default, and the section Cp plot when the point has sections)
+**Status:** CLOSED in 0.27.0 (G04 saves the residual and load plots of every point by default, and the section Cp plot when the point has sections)
 **Affects:** `SET_PLOT_TYPE` and `SAVE_PLOT_TO_FILE`, which the command database records as documented and not run on 26.124
 
 ## What this settles

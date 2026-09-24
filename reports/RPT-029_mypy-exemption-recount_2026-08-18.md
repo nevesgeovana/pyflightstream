@@ -53,14 +53,14 @@
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 761 errors in 18 files (checked 100 source files)
+>     Found 812 errors in 18 files (checked 100 source files)
 >     Success: no issues found in 100 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-24: 761 errors in 18 of 100 modules.**
+**mypy recount 2026-09-24: 812 errors in 18 of 100 modules.**
 
 The module total rises by the four modules 0.25.0 adds
 (post/section_distributions, post/provenance, post/custom_polar and
@@ -342,7 +342,7 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 761 errors in 18 files (checked 100 source files)
+    Found 812 errors in 18 files (checked 100 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
@@ -657,3 +657,14 @@ in the exempted set (the run module carries 578 of the 761). The dirty
 modules are still eighteen and the shipped configuration is green over all
 100. The sentence at the top of this report is this measurement; the earlier
 ones stay above as the history of the figure.
+
+## Re-measured 2026-09-24, the v0.27.0 release tree
+
+`python scripts/mypy_recount.py` on 2026-09-24, at the tree tagged v0.27.0: 812 errors in 18 of 100 modules,
+against 0.26.0's 710 in 18 of 97. Three modules arrived clean (`_decimal.py`,
+`run/_wake_edge_verdict.py`, `_lengths.py`); the errors more sit inside the
+exempted set, most on the run module's record builders, which carry 628 of the
+812. The dirty count still reads 18 and the shipped configuration is
+green over all 100 modules. The quoted mypy lines above are this run's.
+The sentence at the top of this report is this measurement; the earlier ones
+stay above as the history of the figure.

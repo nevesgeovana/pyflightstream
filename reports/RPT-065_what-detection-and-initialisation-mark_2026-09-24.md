@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-24
 **Found by:** the licensed probe T03 of the 0.27.0 work
-**Status:** REGISTERED for 0.27.0 (G02 relies on it: the trailing-edge file is the default route, and a run checks the solver's import count)
+**Status:** CLOSED in 0.27.0 (G02 relies on it: the trailing-edge file is the default route, and a run checks the solver's import count)
 **Affects:** how a raw mesh gets its trailing edges through pyfs; the probe specification of `AUTO_DETECT_TRAILING_EDGES`, whose note assumed initialisation detects edges by itself
 
 ## What this settles

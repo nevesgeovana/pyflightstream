@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-24
 **Found by:** the licensed probe T04 of the 0.27.0 work
-**Status:** REGISTERED for 0.27.0 (G02: the base-region route names the base boundary; wake termination stays unverified)
+**Status:** CLOSED in 0.27.0 (G02: the base-region route names the base boundary; wake termination stays unverified)
 **Affects:** every workflow row carrying `BASE_REGIONS`, which emits `DETECT_BASE_REGIONS_BY_SURFACE` with the index of the boundary the row names; the tier-3 rows 1005, 1021, 4003 and 9001 to 9003 name the body
 
 ## What this settles

@@ -7,6 +7,42 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Owed
+
+- **The Zenodo archive row of v0.27.0 is owed.** A version DOI is minted from
+  the GitHub release object and recorded one commit after the tag, so between
+  the tag and that commit this release has no archive row; cite the concept DOI
+  until it lands.
+- **The submitting half of the additional post** (0.28.0): completing an
+  extraction handed to a scheduler.
+
+- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
+  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
+  concept record lists NINETEEN archived versions and v0.14.0 is not among
+  them. The earlier reading of 2026-09-10 said the same and could not be
+  confirmed for four days because the service was answering 504; it is
+  confirmed now, so this is a fact about the archive rather than about its
+  availability.
+  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
+  had what it needs and the archive still has no version for it. Whatever
+  failed, it failed silently, and re-triggering it is the repair.
+  Until that row lands this section says so, because a shipped release that
+  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
+  release by the concept DOI, which resolves to the newest archived version.
+
+## [0.27.0] - 2026-09-24
+
+THE BASIC GUI STEPS THROUGH pyfs. A raw OBJ or STL runs from a matrix row with
+its unit declared, its mesh operations in the declared order and its trailing
+edges read from a node file by default or detected; the solver saves its own
+plots; a volume section, an actuator disc and a custom free stream sit on a
+row; the loads' surfaces, units and inviscid part are setup keys; every point
+keeps its final saved simulation, and a new pproc extracts from it without
+solving again. Every table the post writes opens with POL and holds no comma
+in a cell. Each route is proved on 26.124 by a licensed run (RPT-069 to
+RPT-073). A reader of the post tables changes one thing: the POLAR column is
+gone (`docs/migrating-to-0.27.0.md`).
+
 ### Added
 
 - **`pyfs-matrix run --local` keeps a run on this machine.** Linux is the
@@ -867,12 +903,13 @@ FlightStream versions.
   break as a space, through one rule, `pyflightstream._tokens.plain_cell`,
   called by the products' funnel and by the tabular layer's `write_table`.
 
-### Changed (the type-checker debt, re-measured)
+### Changed (the type-checker debt, re-measured on the release tree)
 
-- mypy recount 2026-09-24: 761 errors in 18 of 100 modules, against 0.26.0's 710 in 18 of 97. The three
+- mypy recount 2026-09-24: 812 errors in 18 of 100 modules, against 0.26.0's 710 in 18 of 97. The three
   modules that arrived, `_decimal.py`, `run/_wake_edge_verdict.py` and
-  `_lengths.py`, are clean; the fifty-one errors more sit inside the exempted
-  set, most on the run module's record builders (`reports/RPT-029`).
+  `_lengths.py`, are clean; the hundred and two errors more sit inside the
+  exempted set, most on the run module's record builders, which carry 628
+  of the 812 (`reports/RPT-029`).
 
 ### Documentation
 
@@ -943,26 +980,6 @@ FlightStream versions.
   the same set, and the two local-only SMI cases that put a body on the
   vorticity list; a test keeps the page in step with the goldens. The re-run
   of those references is 1.0 work (PFS-2006.02).
-
-
-### Owed
-
-- **The submitting half of the additional post** (0.28.0): completing an
-  extraction handed to a scheduler.
-
-- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
-  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
-  concept record lists NINETEEN archived versions and v0.14.0 is not among
-  them. The earlier reading of 2026-09-10 said the same and could not be
-  confirmed for four days because the service was answering 504; it is
-  confirmed now, so this is a fact about the archive rather than about its
-  availability.
-  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
-  had what it needs and the archive still has no version for it. Whatever
-  failed, it failed silently, and re-triggering it is the repair.
-  Until that row lands this section says so, because a shipped release that
-  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
-  release by the concept DOI, which resolves to the newest archived version.
 
 ## [0.26.0] - 2026-09-23
 
@@ -12394,7 +12411,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.26.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.27.0
 [0.26.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.26.0
 [0.25.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.25.1
 [0.25.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.25.0

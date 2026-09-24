@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-23
 **Found by:** the licensed probe T09 of the 0.27.0 work
-**Status:** REGISTERED for 0.27.0 (G12 extracts from a saved simulation exactly what this run
+**Status:** CLOSED in 0.27.0 (G12 extracts from a saved simulation exactly what this run
 reproduced, and the plan refuses the rest)
 **Affects:** the additional post-processing of 0.27.0; nothing shipped before it opens a
 solved simulation to extract from it

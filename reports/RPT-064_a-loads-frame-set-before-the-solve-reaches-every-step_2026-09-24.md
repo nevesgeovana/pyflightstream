@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-24
 **Found by:** the acceptance run of item B05 of the 0.27.0 work, before its code
-**Status:** REGISTERED for 0.27.0 (B05 moves the loads frame and the moments model before `START_SOLVER`)
+**Status:** CLOSED in 0.27.0 (B05 moves the loads frame and the moments model before `START_SOLVER`)
 **Affects:** every unsteady row since the per-step exports existed: its step
 spreadsheets, and the loads series built from them, state moments about the
 reference frame's origin rather than about the row's moment point

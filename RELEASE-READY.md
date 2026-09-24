@@ -1,24 +1,18 @@
-# v0.26.0 is released by this sequence, followed as written
+# v0.27.0 is released by this sequence, followed as written
 
-0.26.0 is the release in which THE POST NEVER BLOCKS BY DEFAULT AND ALWAYS WRITES
-ITS LOG, the owner's rule of 2026-09-22 made code: every `pyfs-matrix post` writes
-`post.log` beside `products.json`, a clean campaign included, and a doubt about a
-point (a frozen solve, a block the solver stopped under, a failed status, a
-reference mismatch) is a warning line naming the point, the product, the step and
-what would settle it, while every computable product is written; `--check-frozen`
-refuses instead of warning. It ADDS THE INTEGRATED SECTIONAL LOADS she asked for:
-`integrate = true` on a pproc distribution appends the strip length and the
-integrated force and moment per station to the sloads file, strips midpoint to
-midpoint, the moment about the quarter chord. It REARCHITECTS THE FREEZE CHECK:
-the reducers state the plotted steps they read and the guard does no arithmetic
-of its own (RPT-057 closed), a residual block cut before its anchor is unread
-where the log has printed a page (RPT-055 closed). And NO COMPATIBILITY PROMISE
-WAITS PAST IT: six forms are refused naming their replacement, and the reader of
-`broken_commands` in recorded manifests stays as plain compatibility with no
-countdown. IT CHANGES PUBLISHED NUMBERS BY THE OWNER'S DECISION, in the one way
-the rule implies: what 0.25.x refused for a doubt is now written and warned. The
-change log's `[0.26.0]` section is the record; `docs/migrating-to-0.26.0.md`
-says what a reader's files must change (the removals) and what they may add.
+0.27.0 is the release in which THE BASIC GUI STEPS THROUGH pyfs, the owner's theme
+of 2026-09-23: a raw OBJ or STL runs from a matrix row with its unit declared and
+its mesh operations in order; its trailing edges come from a node file by default,
+initialised, detected and initialised again, or from the solver's detection; the
+solver saves its residual, load and section plots; a volume section, an actuator
+disc (by net thrust or by a radial profile) and a custom free stream are keys of a
+row; the loads' surfaces, units and inviscid part are setup keys; every point keeps
+its final saved simulation as a written guarantee, and `pyfs-matrix post
+--additional-pproc` extracts a new pproc from it without solving again. Every table
+the post writes opens with POL and holds no comma in a cell, and a point run
+locally runs in its own folder. IT CHANGES WHAT A READER OF THE POST TABLES READS
+in one way: the POLAR column is gone. The change log's `[0.27.0]` section is the
+record; `docs/migrating-to-0.27.0.md` says what a reader's files must change.
 
 **THIS FILE IS RE-TITLED AND RE-MEASURED PER TAG.** It carried the v0.22.0 title,
 commands and readings through the whole 0.23.0 release, and it carried the v0.24.0
@@ -33,10 +27,10 @@ it is re-titled, and the lapse is recorded here rather than repeated silently.
 
 ```
 # 1. the release commit: set the version and CONFIRM the change log's date.
-#    pyproject.toml says 0.26.0.dev0 (the development tree) until this step, deliberately: a tree that
-#    already said 0.26.0 would have every run made from it reporting the released
+#    pyproject.toml says 0.27.0.dev7 (the development tree) until this step, deliberately: a tree that
+#    already said 0.27.0 would have every run made from it reporting the released
 #    version while being a different tree.
-#    (pyproject.toml: version = "0.26.0")
+#    (pyproject.toml: version = "0.27.0")
 #
 #    AND BOTH FRONT PAGES NAME THE NEW VERSION: the status line of README.md,
 #    which is the PyPI project page, and of docs/index.md.
@@ -63,7 +57,7 @@ it is re-titled, and the lapse is recorded here rather than repeated silently.
 #    the rule inside the bullet: a footnote mentioning `owed` satisfies the guard
 #    on its own. IT GOES UNDER [Unreleased] -> Owed, not under the dated section:
 #    under the dated section the tag fails its own archive gate.
-git commit -m "chore: v0.26.0"
+git commit -m "chore: v0.27.0"
 
 # 2. THE INTERNAL REVIEW ROUND over the release range, every finding fixed or
 #    registered, recorded in the lane's rounds ledger.
@@ -93,22 +87,22 @@ git push origin main
 #    two rounds and thirty-one findings, three of them behaviour.
 
 # 5. the tag, annotated, on the reviewed commit, once CI is green on it
-git tag -a v0.26.0 -m "v0.26.0"
+git tag -a v0.27.0 -m "v0.27.0"
 
 # 6. push the tag. THIS PUBLISHES TO PyPI and nothing else.
-git push origin v0.26.0
+git push origin v0.27.0
 
 # 7. THE RELEASE OBJECT. This is the step that was missed at v0.17.0.
-gh release create v0.26.0 --title "v0.26.0" --notes-file <the section body and its limits>
+gh release create v0.27.0 --title "v0.27.0" --notes-file <the section body and its limits>
 
 # 8. the archive DOI. Zenodo's webhook fires on the RELEASE OBJECT of step 7,
 #    not on the tag of step 6. Read the new version DOI off the Zenodo record.
 
 # 9. the citation row, one commit after the tag
 #    CITATION.cff gains the version DOI from step 8, and the Owed line for
-#    v0.26.0 leaves the change log in the same commit. THE TREE MOVES TO THE NEXT
+#    v0.27.0 leaves the change log in the same commit. THE TREE MOVES TO THE NEXT
 #    .dev0 IN THAT COMMIT: the post-tag dev bump was missed after v0.21.1.
-git commit -m "chore: the v0.26.0 archive row"
+git commit -m "chore: the v0.27.0 archive row"
 
 # 10. confirm, rather than assume
 python scripts/check_release_published.py    # online is the default; --offline skips the network
@@ -135,66 +129,53 @@ minted a version DOI that `CITATION.cff` records; anything less is a tag.
 Every number comes from a command run at the moment this file was written, with
 the command beside it.
 
-Readings of 2026-09-23, each status read from the process:
+Readings of 2026-09-24, each status read from the process:
 
 - `ruff check .` exit 0; `ruff format --check .` exit 0; `mypy` exit 0, "Success: no issues
-  found in 97 source files".
+  found in 100 source files".
 - The full tier-1 suite, detached, one process per file, through
-  `check_goal_030.py --suite`, on the release tree.
-- `python scripts/mypy_recount.py`: 710 errors in 18 of 97 modules, against 0.25.1's 713
+  `check_goal_031.py --suite`, on the release tree.
+- `python scripts/mypy_recount.py`: 812 errors in 18 of 100 modules, against 0.26.0's 710 in 18 of 97
   (reports/RPT-029).
-- Review OF THIS RELEASE, recorded in REL-0260_rounds.ledger: an OPENING round of five
-  lenses over v0.25.1..d2fa9d3 (21 findings, 13 distinct defects, 11 fixed in two passes,
-  one registered as RPT-058, one answered in the docs; four lenses found the same P1
-  independently, a failed point's malformed export removing the healthy points'
-  products), then a CLOSING round of five lenses over v0.25.1..12a488b (11 findings, 8
-  distinct, EVERY ONE about an opening-round fix; fix D had been widened, found by all
-  five), fixed in one pass with 29 regression cases red at 12a488b, then a QA read of
-  that fix merge. Between the merges the suite arm one file per process found nine red
-  files the passes had not run, four of them behaviour. Then THE INDEPENDENT REVIEW OF
-  GitHub main, recorded in `REL-0260_independent-review.json`.
-  The reviews of 0.25.1 belong to that release and are recorded with it.
+- Review OF THIS RELEASE: an OPENING round of five lenses before the first block, a
+  CLOSING round of five lenses over v0.26.0..e305d21e and the POLAR branch (nine
+  findings: six fixed, three registered for 0.28.0), and eight INDEPENDENT READINGS OF
+  GitHub main, one after each pushed block and one of this commit, each finding fixed
+  before the next block.
 
 ## What this release carries
 
 In one line each:
 
-- **`post.log`, always.** Beside `products.json`, named in the manifest, archived with
-  the products on a rebuild; every named skip and every warning is a line.
-- **Nothing blocks by default.** A doubt is a warning and the product is written;
-  `--check-frozen` refuses instead. What still skips is an impossibility (no data, a
-  malformed export, an unassignable layout, frame, family or clock), each a log line.
-- **The reducer states its samples.** `read_steps` from the averaging code path, the
-  guard judges that set; the polar, the rotor table and the reductions agree on it.
-- **Integrated sectional loads**, `integrate = true`, off by default and byte-identical
-  when off; the strip rule and the moment point are on the definitions page.
-- **The seven promises settled.** Six refused with the replacement named; the seventh
-  read silently.
-- **A failed point fails alone.** Its malformed export is its own named skip and its
-  previous products are retired; the healthy points keep theirs.
+- **A raw mesh runs.** OBJ or STL, unit declared, operations in order (G01, G03).
+- **Trailing edges by file or by detection** (G02), the file route checked by the
+  solver's own import count.
+- **The solver's plots, sections, discs and a custom free stream on a row** (G04, G05,
+  G06, G15).
+- **The loads' surfaces, units and inviscid part, and the force distribution** as keys
+  (G09, G10); two more setup keys, refused on the build that does not know them (G14).
+- **The final saved simulation of every point, and the additional post** from it (G11,
+  G12).
+- **The roll and yaw rates emitted with the sign the solver reads** (G13).
+- **INPUTS.md**, the glossary of every input key, beside VARIABLES.md (G08).
+- **POL first in every table, no comma in a cell, no title line before a header** (G16).
 
 ## What the licensed campaign measured, and what it did not
 
-NO SEAT WAS SPENT ON THIS RELEASE. The owner granted seats on her master's
-geometries for the strips-against-the-polar case; they were not needed, because
-the vendor manual states the moment point (SRC-751 p.253) and the offline fixture
-states its own polar, and a seat would only have re-read what the manual says.
-The road-to-1.0 report (in the control plane) carries the licensed tests this
-release leaves owed, each with its build, its run count and what only a seat
-proves.
-
-The licensed campaigns of 0.25.0 (`reports/pfs0250/`) and 0.24.0 (`reports/pfs0240/`)
-are unchanged by this release; `SOLVER_TIME_AVERAGING` stays refused on every
-selectable build for the reason 0.25.0 recorded.
+Every route this release adds ran on 26.124, one run at a time, each with five
+far-field layers: the three routes to one body and the file route's root node
+(RPT-069), the volume section and the actuator disc (RPT-070), the custom free
+stream (RPT-071), the additional post end to end (RPT-072), and the licensed
+regression of every tier-3 row whose script changed (RPT-073), whose one finding,
+a warm steady sweep moving the later points' coefficients against a cold one, is
+registered for 0.28.0 rather than absorbed into a band.
 
 ## What is NOT done, and is not being hidden
 
-- `SOLVER_TIME_AVERAGING` is measured broken on 26.124 and unverified on the other
-  builds; the averaging feature is refused on every selectable build.
-- RPT-058: `post.log` is built from a process-wide warning capture, so two campaigns
-  posting concurrently in threads of one process can cross their lines; every
-  documented path posts one campaign per process. Registered for 0.27.0.
-- The envelope of the integrated loads over a revolution, which the owner left out of
-  this release deliberately; and an unambiguous whole-family selector for a pproc group,
-  since `"all"` collides with a reference alias of that name (documented; 0.27.0).
-- The Zenodo version DOI of v0.26.0 is owed one commit after the tag.
+- The warm sweep (the default since 0.16.0) against a cold one: on one wing in
+  sideslip the later points differ by 3 percent in CL and in the sign of CMz. The
+  default is the owner's call, with a probe on a cruise polar first (0.28.0).
+- Inlets and outlets on a row (G07), which waits for a geometry to prove it on.
+- The submitting half of the additional post; the grid unit of a custom field.
+- The fixed-width super file overflows a text longer than its field (registered).
+- The Zenodo version DOI of v0.27.0 is owed one commit after the tag.

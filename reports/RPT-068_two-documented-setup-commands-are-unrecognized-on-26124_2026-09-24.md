@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-24
 **Found by:** a licensed probe of the 0.27.0 work, run before item G14 was built
-**Status:** REGISTERED for 0.27.0 (G14: both setup keys are refused on 26.124 at plan, naming this report, and the 26.124 rows record the build's answer)
+**Status:** CLOSED in 0.27.0 (G14: both setup keys are refused on 26.124 at plan, naming this report, and the 26.124 rows record the build's answer)
 **Affects:** `SET_VORTICITY_LIFT_MODEL`, which the command database records as documented on every build and never run, and `SET_UNSTEADY_VISCOUS_COUPLING_ITERATION`, documented only by the 25.000 to 26.000 editions
 
 ## What this settles

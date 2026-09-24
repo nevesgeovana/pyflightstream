@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-23
 **Found by:** the licensed probe T11 of the 0.27.0 work, run to measure what RPT-052 left unmeasured
-**Status:** REGISTERED for 0.27.0 (G13 fixes the sign per axis)
+**Status:** CLOSED in 0.27.0 (G13 fixes the sign per axis)
 **Affects:** every matrix row that states `roll_rate` or `yaw_rate`, since 0.21.0; `pitch_rate` is right
 
 ## What this settles

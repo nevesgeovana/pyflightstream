@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-23
 **Found by:** the licensed probe T02 of the 0.27.0 work
-**Status:** REGISTERED for 0.27.0 (G02 emits the grammar and writes the file measured here)
+**Status:** CLOSED in 0.27.0 (G02 emits the grammar and writes the file measured here)
 **Affects:** `IMPORT_WAKE_EDGES_FROM_FILE` on 26.124; `helpers.mark_wake_edges` and
 `workspace.wake_edges.write_node_file` as shipped since 0.8.0, which emit a form this
 build refuses
