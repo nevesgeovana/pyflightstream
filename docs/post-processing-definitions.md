@@ -253,9 +253,9 @@ where they are known (see *The geometry's names* under the integrated loads
 below): a block whose only possible emitter is an entry citing a word nothing
 resolves, such as a rotor's name with no rotor definition in hand, is that
 entry's, and the split file is named after it. Where the names leave no single
-owner, or no file carries the recorded hash, the recorded cuts decide as
-before and the rows are kept. An ambiguous match is a named skip. Without a
-recorded layout,
+owner, where two boundaries carry one name, or where no file carries the
+recorded hash, the recorded cuts decide as before and the rows are kept. An
+ambiguous match is a named skip. Without a recorded layout,
 **no split file is written**: `products.json` names the layout requirement.
 A layout whose counts disagree with an export is likewise refused for that
 export kind, rather than assigning rows to guessed distributions.
@@ -295,7 +295,9 @@ geometry's boundary names in the solver's order as the script read them at
 from the mesh block of the geometry file whose sha256 the record carries in
 `inputs_sha256`: the simulation's own staged copy first, then the library's
 file of that name. The hash, never the name, says the file is the one that
-ran: a geometry changed or deleted since the run recovers nothing, and the
+ran, and it is computed from the file each time its names are read, before
+and after the read, never remembered: a geometry changed or deleted since the
+run recovers nothing, nor does one changed while its names are read, and the
 `<stem>.boundaries.toml` sidecar is not read for it, because nothing hashed
 it. With the names in hand, a selection is read by the export builder's own
 expansion over them, for integration and for the ownership of a legacy layout
@@ -303,7 +305,10 @@ alike: a family stem, a numbered name, `all` and the aliases resolve as they
 did at export, and an `all` block (recorded as an empty family list) is the
 whole inventory. So `families = "Blade"` integrates a recorded Blade1 and
 Blade2 block where the geometry carries no third blade and no boundary named
-`Blade`, and is refused, by name, where it carries either. A word that
+`Blade`, and is refused, by name, where it carries either. Names that give
+one name to two boundaries settle nothing: the builder leaves that name out
+of its labels, so the rest no longer say what `all` or a stem selected, and
+the record is read as one without the names. A word that
 resolves to nothing over the names and that no alias or rotor definition in
 hand names (a rotor's name with no rotor definition) leaves its entry a
 possible owner of every block of its frame kind, plane and count, so the
@@ -314,8 +319,9 @@ frame with no rotor definition the recorded-frame grouping below still
 decides, because the names say what a selection holds and not which rotor
 owns it, and an entry the grouping refuses stays a possible owner there.
 
-**Without the names** (a run that opened no geometry declaring them, or an
-older record whose geometry is gone or changed), ownership of a legacy layout
+**Without the names** (a run that opened no geometry declaring them, an
+older record whose geometry is gone or changed, or names that give one name
+to two boundaries), ownership of a legacy layout
 (a name and a grouping for raw files, no number added) resolves the recorded
 pproc's selectors over the recorded cuts, the only evidence there is, a
 family stem and a numbered name included. Integration is never matched that

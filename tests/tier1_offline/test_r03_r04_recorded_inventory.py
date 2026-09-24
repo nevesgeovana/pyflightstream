@@ -10,17 +10,21 @@ integrate where the geometry settles them, and stay refused where it does not.
 R04. A record written before the inventory existed takes it from the mesh
 block of the geometry file whose sha256 the record carries, and a legacy
 split is named after the one entry the geometry leaves as its emitter. A
-geometry changed since the run recovers nothing, and where the geometry
-names no single owner the cuts decide as before and the rows are kept.
+geometry changed since the run recovers nothing, however its size and time
+read, and where the geometry names no single owner, or gives one name to two
+boundaries, the cuts decide as before and the rows are kept.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import time
 
 import pytest
 
+import pyflightstream.workspace as workspace_module
 from pyflightstream._digest import file_sha256
 from pyflightstream.cases.workflows import workflow_registry
 from pyflightstream.post.products import read_csv_table, write_campaign_products
@@ -150,6 +154,9 @@ def test_a_steady_job_records_its_sections_layout(tmp_path):
         ("all", [], "MRP", "MRP", None, False),
         ("ACTIVE", ["Blade11", "Blade12"], "ACTIVE_RMRP", "RMRP", ["Blade11", "Blade12"], False),
         ("Blade", ["Blade1", "Blade2"], "MRP", "MRP", None, False),
+        ("Wing", [], "MRP", "MRP", ["Tail", "Tail", "Wing"], False),
+        ("Wing", [], "MRP", "MRP", ["Wing", "Tail", "Tail"], False),
+        ("all", [], "MRP", "MRP", ["Tail", "Tail", "Wing"], False),
     ],
     ids=[
         "stem-settled",
@@ -161,6 +168,9 @@ def test_a_steady_job_records_its_sections_layout(tmp_path):
         "all-no-inventory",
         "rotor-name-stays-refused",
         "stem-no-inventory",
+        "all-block-duplicate-first",
+        "all-block-duplicate-last",
+        "all-over-a-duplicate",
     ],
 )
 def test_r03_a_recorded_inventory_settles_the_selection(
@@ -174,6 +184,13 @@ def test_r03_a_recorded_inventory_settles_the_selection(
     inventory. A rotor's name that no definition in hand spells resolves to
     nothing over the names and stays refused by name. Without an inventory
     every case keeps its raw columns, as it did before.
+
+    A NAME TWO BOUNDARIES CARRY settles nothing (the pre-push read of block
+    3, both lenses): the builder leaves it out of its labels, so over the
+    names an `all` block read as the one uniquely named boundary and a `Wing`
+    request integrated a block that covered every boundary. Such a geometry
+    is read as no geometry, before or after the unique name, and `all` over
+    it is refused as `all` without an inventory is.
     """
     workspace = _case(tmp_path, monkeypatch)
     record = workspace.read_manifest()[0]
@@ -282,6 +299,61 @@ def test_r04_an_old_record_takes_its_inventory_by_the_geometry_hash(tmp_path):
     assert workspace.recorded_inventory(own) == ("X",)
 
 
+def test_r04_a_same_size_replacement_keeping_its_time_recovers_nothing(tmp_path):
+    """The digest is computed from the file as it is when its names are read.
+
+    The pre-push read of block 3 (both lenses): a digest remembered by path,
+    size and modification time authenticated a replacement that kept all
+    three, while the names were read from the replacement, so an older record
+    resolved its selections against a geometry it never ran. Both files here
+    are a minute old, past any racy-clean window a memo could claim.
+    """
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    library = _saved_simulation_with(workspace.inputs_dir / "geometries" / "geo.fsm", ["Wing1"])
+    record = _record(inputs_sha256={"geo.fsm": file_sha256(library)})
+    aged = (time.time_ns() // 1_000_000_000 - 60) * 1_000_000_000
+    os.utime(library, ns=(aged, aged))
+    size = library.stat().st_size
+    assert workspace.recorded_inventory(record) == ("Wing1",)
+
+    _saved_simulation_with(library, ["Wing2"])
+    os.utime(library, ns=(aged, aged))
+    status = library.stat()
+    assert (status.st_size, status.st_mtime_ns) == (size, aged), "the replacement moved the key"
+    assert file_sha256(library) != record.inputs_sha256["geo.fsm"], "the replacement is the file"
+    assert workspace.recorded_inventory(record) is None, "a remembered digest vouched for new names"
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "read_first"),
+    [("Wing1", "Wing2", False), ("Wing2", "Wing1", True)],
+    ids=["changed-during-the-read", "restored-during-the-read"],
+)
+def test_r04_a_geometry_changing_while_its_names_are_read_recovers_nothing(
+    tmp_path, monkeypatch, before, after, read_first
+):
+    """The file is hashed before and after its names are read, and both must be the record's.
+
+    Changed during the read, the names are the new file's while the first
+    hash was the recorded one; restored during the read, the names are the
+    other file's while the second hash is the recorded one. Either way the
+    names are not vouched for by the bytes they were read from.
+    """
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    library = _saved_simulation_with(workspace.inputs_dir / "geometries" / "geo.fsm", ["Wing1"])
+    record = _record(inputs_sha256={"geo.fsm": file_sha256(library)})
+    _saved_simulation_with(library, [before])
+    read = workspace_module.boundary_names
+
+    def read_while_it_changes(path):
+        names = read(path) if read_first else None
+        _saved_simulation_with(library, [after])
+        return names if read_first else read(path)
+
+    monkeypatch.setattr(workspace_module, "boundary_names", read_while_it_changes)
+    assert workspace.recorded_inventory(record) is None
+
+
 @pytest.mark.parametrize(
     ("first", "rivals", "edited", "owner", "distribution"),
     [
@@ -346,3 +418,37 @@ def test_r04_a_legacy_split_is_named_after_the_entry_the_geometry_leaves(
         k for k in manifest["products"] if k.startswith("sections/AL-020_sloads_") and k != key
     }
     assert not others, f"the one block was written under {sorted(others)} as well"
+
+
+@pytest.mark.parametrize(
+    "inventory",
+    [["Tail", "Tail", "Wing"], ["Wing", "Tail", "Tail"]],
+    ids=["duplicate-first", "duplicate-last"],
+)
+def test_r04_a_name_two_boundaries_carry_names_no_owner(tmp_path, monkeypatch, inventory):
+    """An `all` block of a legacy layout, over a geometry giving two boundaries one name.
+
+    The builder leaves such a name out of its labels, so over the names the
+    block read as the `Wing` entry's and the split was named after Wing (the
+    pre-push read of block 3, both lenses). The names settle nothing here and
+    the cuts decide as they did before 0.27.0, which is the refusal: nothing
+    of the cuts says an `all` block is Wing's.
+    """
+    workspace = _case(tmp_path, monkeypatch)
+    record = workspace.read_manifest()[0]
+    block = record.sections_layout[0]
+    del block["distribution"]
+    del block["distribution_families"]
+    block.update(families=[], frame="MRP")
+    record.inventory = inventory
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    spec.sections.distributions = [
+        entry.model_copy(update={"families": "Wing", "frame": "MRP", "integrate": True})
+    ]
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    split = sorted(k for k in manifest["products"] if k.startswith("sections/AL-020_sloads_"))
+    assert not split, f"the all block was named after {split}"
+    reason = manifest["skipped"].get("sections/AL-020_sloads#distributions", "")
+    assert "does not identify each pproc distribution unambiguously" in reason, manifest["skipped"]

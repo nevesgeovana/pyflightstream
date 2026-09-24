@@ -116,7 +116,10 @@ FlightStream versions.
   raw columns. They stay refused by name where the geometry also carries the
   stem as a boundary, a third blade, or the numbered name itself; a rotor's
   name with no rotor definition in hand is still refused by name, and so is
-  a record whose geometry is gone or changed
+  a record whose geometry is gone or changed. A geometry that gives one name
+  to two boundaries settles nothing: the builder leaves that name out, so
+  the names no longer say what `all` or a stem selected, and the match is
+  read over the cuts as in 0.26.0
   ([RPT-059](reports/RPT-059_integration-match-without-rotor-definition-refuses-by-name_2026-09-23.md),
   R03).
 - **A sections split of a record written before 0.25.0 is named after the
@@ -125,8 +128,10 @@ FlightStream versions.
   copy first, then the library's file. A block the builder's reading leaves
   to one entry alone is that entry's: `sections/<point>_sloads_Blade1.csv`
   becomes `..._ACTIVE.csv`, and `products.json` says `distribution` 2. Where
-  the geometry names no single entry, the cuts decide as before. A geometry
-  changed since the run recovers nothing, and the unhashed
+  the geometry names no single entry, or gives one name to two boundaries,
+  the cuts decide as before. A geometry changed since the run recovers
+  nothing: the file is hashed each time its names are read, before and after
+  the read, and never remembered by path, size or time. The unhashed
   `.boundaries.toml` sidecar is not read (RPT-059, R04).
 - **A steady row of several points records its sections layout.** Since
   0.24.0 the one-job path recorded no `sections_layout`, so the post refused
