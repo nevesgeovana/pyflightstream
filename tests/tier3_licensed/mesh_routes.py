@@ -29,6 +29,7 @@ route answers it, either way.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -70,6 +71,7 @@ def committed_band(repo: Path = REPO) -> float | None:
     done = subprocess.run(
         ["git", "log", "--format=%B"],
         cwd=repo,
+        env=os.environ.copy(),
         capture_output=True,
         text=True,
         encoding="utf-8",

@@ -184,6 +184,9 @@ workspace.append_record(
         package_version=pyflightstream.__version__,
         script_path=script_path.relative_to(sim_dir).as_posix(),
         script_sha256=script_sha256,
+        # the geometry's boundary names in the solver's order, which a run
+        # records and the extraction cites the surfaces by
+        inventory=list(script.boundary_inventory or []),
         raw_flag=False,
         status=RunStatus.CONVERGED,
         outputs=collected,

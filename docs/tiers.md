@@ -72,8 +72,8 @@ with an actuator disc), eleven setups
 changes; `s008` is `s001` plus one raw solver line before init
 (PFS-2033.01), whose row 2004 is booked to run on the licensed seat
 (PFS-2033.03), and `s009` to `s011` are `s001`, `s005` and `s002` with
-five far-field layers, which every row of the two 0.27.0 matrices
-states), nine post-processing profiles, one actuator profile file
+five far-field layers, which every row of `matriz_mesh.fs` and
+`matriz_gui.fs` states), nine post-processing profiles, one actuator profile file
 (`inputs/profiles/prop_ct.txt`), two custom free-stream fields
 (`inputs/freestreams/fs_uniform.txt` and `fs_shear.txt`, written by
 `python -m tests.tier3_licensed.freestreams --write` from the wing's mesh
