@@ -316,7 +316,9 @@ def test_the_record_after_a_stub_run_carries_the_count_and_the_two_staged_files(
     )
     record = records[0]
     assert record.status is RunStatus.CONVERGED, record.error
-    sim_dir = workspace.sim_dir("9001")
+    # WHERE THE POINT RAN, its own datapoint folder since 0.27.0: the action
+    # files are written relative to the solver's working directory.
+    sim_dir = workspace.sim_dir("9001") / "datapoints" / f"DP-{record.point_name}"
     assert record.action_program == PROGRAM
     assert record.action_script == SCRIPT_FILE
     assert record.action_count == 4
@@ -361,7 +363,7 @@ def test_a_run_without_a_threshold_records_none_for_the_three_fields(tmp_path):
     record = records[0]
     assert record.status is RunStatus.CONVERGED, record.error
     assert (record.action_program, record.action_script, record.action_count) == (None,) * 3
-    assert not (workspace.sim_dir("9001") / "actions").exists()
+    assert not any(workspace.sim_dir("9001").rglob("actions"))
 
 
 # --- the worked example on the page is the one this module builds -------------------
@@ -462,7 +464,8 @@ def test_the_series_of_a_rotor_stub_run_agrees_with_the_counter_on_the_azimuth(t
     record = records[0]
     assert record.status is RunStatus.CONVERGED, record.error
     assert record.export_window["step_deg"] == pytest.approx(0.72), record.export_window
-    state = json.loads((workspace.sim_dir("9002") / COUNT_FILE).read_text(encoding="utf-8"))
+    ran_in = workspace.sim_dir("9002") / "datapoints" / f"DP-{record.point_name}"
+    state = json.loads((ran_in / COUNT_FILE).read_text(encoding="utf-8"))
     write_campaign_products(workspace, overwrite=True)
     table = workspace.root / "post" / "products" / "series" / "loads_AL+000_loads_series.csv"
     body = [line.split(",") for line in table.read_text(encoding="utf-8").splitlines()[1:]]
@@ -494,7 +497,9 @@ def test_the_series_of_a_stub_run_agrees_with_the_counter_step_for_step(tmp_path
     assert record.status is RunStatus.CONVERGED, record.error
     assert record.export_window["delta_time_s"] == pytest.approx(0.01), record.export_window
     assert "step_deg" not in record.export_window, "a rotorless row has no azimuth"
-    sim_dir = workspace.sim_dir("9001")
+    # The per-step exports are written where the point runs, its datapoint
+    # folder since 0.27.0, and the series finds them there.
+    sim_dir = workspace.sim_dir("9001") / "datapoints" / f"DP-{record.point_name}"
     stamped = sorted(p.name for p in sim_dir.iterdir() if "_iteration=" in p.name)
     assert stamped == [f"loads_AL+000_iteration={n}.txt" for n in (2, 3, 4)], stamped
     state = json.loads((sim_dir / COUNT_FILE).read_text(encoding="utf-8"))

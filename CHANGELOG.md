@@ -280,6 +280,52 @@ FlightStream versions.
 
 ### Fixed
 
+- **`pyfs-matrix run --local` applies the HPC profile's log decision.** A
+  profile stating `[log] export_log = false` says the solver build on that
+  cluster aborts at `EXPORT_LOG`; the decision reached a submitted job only,
+  so a run kept local there still exported the log, the solver stopped at
+  `EXPORT_LOG` after every other export, and every point was recorded
+  `FAILED_INCOMPLETE_OUTPUT`.
+  Under `--local` on such a machine the script now leaves `EXPORT_LOG` out, and
+  the run writes the declared log from the solver's captured standard output
+  then standard error; when the solver printed nothing the log is not a
+  missing output, the point is judged from its loads export, and
+  `residual_note` says why. A steady row of several points, one job, writes no
+  point's log from the job's output and says so on the job. A file-route row
+  whose solver printed nothing is recorded `FAILED_INCOMPLETE_OUTPUT` naming
+  the machine. `LocalExecutor` takes `export_log` by keyword only; profiles
+  that disagree about the log are refused under `--local`.
+- **The additional post and the identity pre-flight follow the profile's log
+  decision too.** On a cluster whose profile states `export_log = false`, the
+  extraction scripts of `pyfs-matrix post --additional-pproc` exported the log
+  whether planned for `--local` or for a submission, so every extraction on
+  that build stopped at `EXPORT_LOG`; they now carry none, write the declared
+  log from what the solver printed, and, with nothing printed, record in the
+  extraction's `note` why there is no log instead of failing it. The
+  build-identity pre-flight no longer exports a log there: it reads the build
+  from the solver's printed output and warns, naming the profile, when it
+  finds none. `ExecutionResult.captured_output()` returns that printed output,
+  standard output then standard error.
+- **`pyfs-matrix collect` finishes a submitted steady job on a machine that
+  exports no log.** A steady row of several points is one job, and where the
+  profile states `export_log = false` its scheduler writes ONE log of the job.
+  The collector copied it to the first point's declared log and waited for
+  every other point's, which no scheduler writes, so the job stayed WAITING
+  and `collect --watch` never ended. The job's log is now filed once, as
+  `<job script stem>_log.txt` in the simulation folder where the job ran, no
+  point waits for a log of its own, each point is judged from its loads
+  export, each point's and the job's `residual_note` names the job's log, and a
+  file-route row holds every point to the import count in it.
+- **A missing declared output no longer strands the others.** Collection
+  refused before moving anything when one declared output was missing, so a
+  point whose log never came left every other export in the solver's working
+  directory under a record with `outputs = []`, and the post skipped it as
+  naming no output file. Every declared output that exists is now filed in the
+  point's `datapoints/DP-<point>/`, listed in `outputs` and hashed in
+  `outputs_sha256`, and the error names only the missing files; the status is
+  still `FAILED_INCOMPLETE_OUTPUT`. `CampaignWorkspace.collect_outputs` raises
+  the new `MissingOutputsError`, a `WorkspaceError` whose `collected` lists
+  what it filed, and `pyfs-matrix collect` lists them on the record too.
 - **A workflow refusing a mesh file no longer promises a release.** The
   refusal of a non-`.fsm` geometry said 0.12.0 would define boundary
   conditions for a mesh cell; 0.12.0 shipped without them. A raw mesh is now
@@ -397,6 +443,19 @@ FlightStream versions.
 
 ### Changed
 
+- **A local point runs in its own datapoint folder.** A point run on this
+  machine, with `--local` or on Windows, now runs the solver with
+  `sims/sim_<id>/datapoints/DP-<point>/` as its working directory, as a
+  submitted point has since 0.18.1, so every export, the per-step ones and the
+  solver's own `FlightStreamLog.txt` included, is written where it is filed
+  rather than moved there by collection, and a point whose run fails leaves
+  nothing in the folder its row shares. The script is unchanged, and its hash
+  with it: its exports are named relative to the working directory and its
+  inputs by absolute path. The action program, the wall clock and the
+  trailing-edge node file a point writes before its solve are written there
+  too, and the record's `cwd` names the folder. A steady row of several
+  points is one job over one script and still runs in the simulation folder,
+  as its submitted form does.
 - **An induced drag the solver did not compute is `NA` in every sum the
   package makes.** A boundary on the vorticity induced-drag list
   (`SET_VORTICITY_DRAG_BOUNDARIES`) without a defined trailing edge is not

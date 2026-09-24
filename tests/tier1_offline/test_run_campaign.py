@@ -1215,12 +1215,14 @@ def test_a_file_that_was_already_there_is_not_collected_as_this_point(tmp_path):
     as its evidence, and that file held whatever had been sitting in the
     folder. Nothing distinguished the record from a real one.
 
-    Every point of a case shares one simulation folder, and collection asks
-    only whether the declared output EXISTS.
+    Collection asks only whether the declared output EXISTS. The leftover
+    sits in the folder the point runs in, which is its datapoint folder since
+    0.27.0 (the simulation folder before).
     """
     campaign = make_campaign(tmp_path, alphas=(0.0,))
     workspace = CampaignWorkspace(tmp_path / "camp")
-    sim_dir = workspace.create_sim("9001")
+    sim_dir = workspace.create_sim("9001") / "datapoints" / "DP-AL+000"
+    sim_dir.mkdir(parents=True)
     (sim_dir / "loads_AL+000.txt").write_text("LEFT BEHIND BY SOMETHING ELSE", encoding="utf-8")
 
     with pytest.raises(CampaignErrors):
@@ -1415,7 +1417,8 @@ def test_a_recorded_run_reconstructs_from_the_manifest_alone(tmp_path):
     record = records[0]
     assert record.manifest_schema == MANIFEST_SCHEMA
     assert record.argv and record.argv[0] == sys.executable
-    assert record.cwd == str(workspace.sim_dir("9001"))
+    # The point's own folder, where it runs since 0.27.0.
+    assert record.cwd == str(workspace.sim_dir("9001") / "datapoints" / "DP-AL+000")
     assert record.recipe == "steady"
     assert (
         record.recipe_sha256
@@ -3590,7 +3593,9 @@ def test_the_run_writes_the_child_script_of_a_script_action_before_the_solver_st
         recipes={"acting": acting_recipe},
     )
     assert records[0].status is RunStatus.CONVERGED, records[0].error
-    sim_dir = workspace.sim_dir("9001")
+    # WHERE THE POINT RUNS, its own datapoint folder since 0.27.0: the child
+    # script named relative to the working directory is written there.
+    sim_dir = workspace.sim_dir("9001") / "datapoints" / "DP-AL+000"
     seen = (sim_dir / "seen_by_the_solver.txt").read_text(encoding="utf-8")
     assert seen == child, f"the solver found: {seen!r}"
     assert (sim_dir / "actions" / "sections.txt").read_text(encoding="utf-8") == child

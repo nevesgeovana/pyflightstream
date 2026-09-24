@@ -78,6 +78,7 @@ from ..cases import CampaignConfigError
 from ..workspace import (
     SIM_DATAPOINTS_DIR,
     CampaignWorkspace,
+    MissingOutputsError,
     PointName,
     RunRecord,
     RunStatus,
@@ -533,6 +534,14 @@ def collect_once(
                 CollectOutcome(run_id=record.run_id, state="FAILED", detail=str(error))
             )
             continue
+        # A STEADY JOB OF SEVERAL POINTS ON A MACHINE THAT EXPORTS NO LOG
+        # (0.27.0): its scheduler writes ONE log, the job's, and no point's log
+        # ever arrives. The job is waited for by its points' other outputs and
+        # by that one log, filed once under the job's name where the job ran;
+        # waiting for a log per point was waiting forever.
+        job_log = _job_log_name(workspace, record, names)
+        if job_log is not None:
+            names = [name for name in names if not name.endswith(LOG_SUFFIX)] + [job_log]
         # THE SCHEDULER'S OWN LOG IS PUT WHERE THE ROW SAID, before anything
         # waits on it: on a machine that aborts at EXPORT_LOG the declared log
         # is the one file that never arrives, and the sweep would wait forever.
@@ -577,12 +586,42 @@ def collect_once(
             continue
         # SETTLED, so this is the log of a job that has stopped writing it.
         _copy_native_log(native)
-        outcome = _complete(workspace, record, names, sim_dir, assessor)
+        outcome = _complete(
+            workspace,
+            record,
+            names,
+            sim_dir,
+            assessor,
+            job_log=None if job_log is None else work_dir / job_log,
+        )
         if outcome.state == "COLLECTED":
             report.collected.append(outcome)
         else:
             report.failed.append(outcome)
     return report
+
+
+def _job_log_name(
+    workspace: CampaignWorkspace, record: RunRecord, names: Sequence[str]
+) -> str | None:
+    """Name the one log a steady job's scheduler writes, where no point exports its own.
+
+    0.27.0. A steady row of several points is ONE job over one script, and on a
+    machine whose HPC profile states ``export_log = false`` the script exports
+    no log for any point: the scheduler writes one log of the whole job. So the
+    job's log is filed once, under the job's script stem, and no point's
+    declared log is waited for. None for anything else: a job on a machine that
+    exports its logs, a job whose points declare none, and a record that is one
+    point, whose scheduler log is its own and is copied to its declared name.
+    """
+    if not _is_a_sweep_job(record) or not record.script_path:
+        return None
+    if not any(name.endswith(LOG_SUFFIX) for name in names):
+        return None
+    profile = resolve_hpc_profile(workspace.inputs_dir)
+    if profile is None or profile.export_log:
+        return None
+    return f"{Path(record.script_path).stem}{LOG_SUFFIX}"
 
 
 def _complete(
@@ -591,6 +630,8 @@ def _complete(
     names: Sequence[str],
     sim_dir: Path,
     assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None,
+    *,
+    job_log: Path | None = None,
 ) -> CollectOutcome:
     """Collect one settled job's outputs and write its completed record.
 
@@ -606,7 +647,7 @@ def _complete(
     it and carries a comment about the defect that taught it.
     """
     if _is_a_sweep_job(record):
-        return _complete_sweep(workspace, record, sim_dir, assessor)
+        return _complete_sweep(workspace, record, sim_dir, assessor, job_log=job_log)
     try:
         collected = _collect_by_point(workspace, record, names, _working_dir(workspace, record))
     except (WorkspaceError, CampaignConfigError) as error:
@@ -614,12 +655,15 @@ def _complete(
         # reason: collection refuses for two kinds of reason and only one of
         # them is a WorkspaceError, and an uncaught one here would abort a
         # sweep over every other submitted point in the workspace.
-        failed = record.model_copy(
-            update={
-                "status": RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                "error": str(error),
-            }
-        )
+        refused: dict[str, object] = {
+            "status": RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            "error": str(error),
+        }
+        # WHAT WAS FILED IS LISTED (0.27.0): a missing output no longer strands
+        # the others, and a record naming none of them would strand them anyway.
+        if isinstance(error, MissingOutputsError):
+            refused["outputs"] = list(error.collected)
+        failed = record.model_copy(update=refused)
         _write(workspace, failed)
         return CollectOutcome(
             run_id=record.run_id,
@@ -712,6 +756,8 @@ def _complete_sweep(
     record: RunRecord,
     sim_dir: Path,
     assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None,
+    *,
+    job_log: Path | None = None,
 ) -> CollectOutcome:
     """Collect, assess and finalise EACH point of a submitted sweep (0.24.0).
 
@@ -739,7 +785,26 @@ def _complete_sweep(
     ran_here = bool(submission.get("working_dir"))
     collected_by_tag: dict[str, list[str]] = {}
     refused: dict[str, str] = {}
+    # 0.27.0: THE JOB'S ONE LOG, where the machine exports none per point
+    # (`_job_log_name`). No point is held to a log of its own, each is judged
+    # from its loads export, and the job's log is read for the one import count
+    # the job's script states. Every point, and the job, says where it is.
+    job_note: str | None = None
+    job_log_text: str | None = None
+    if job_log is not None:
+        where = (
+            job_log.relative_to(sim_dir).as_posix() if job_log.is_relative_to(sim_dir) else job_log
+        )
+        job_note = (
+            "no solver log of its own: this machine's HPC profile states export_log = false, so "
+            f"the job's one log is the scheduler's, filed as {where} in the simulation folder, "
+            "where the job ran; each point is judged from its loads export"
+        )
+        if job_log.is_file():
+            job_log_text = job_log.read_text(encoding="utf-8", errors="replace")
     for tag, owned in by_point.items():
+        if job_log is not None:
+            owned = [name for name in owned if not str(name).endswith(LOG_SUFFIX)]
         try:
             if tag not in points:
                 raise WorkspaceError(
@@ -755,6 +820,10 @@ def _complete_sweep(
                     ran_in_datapoint=ran_here,
                 )
             )
+        except MissingOutputsError as error:
+            # Filed and listed, and the point still fails (0.27.0).
+            collected_by_tag[tag] = list(error.collected)
+            refused[tag] = str(error)
         except (WorkspaceError, CampaignConfigError) as error:
             refused[tag] = str(error)
 
@@ -765,13 +834,15 @@ def _complete_sweep(
     for tag in by_point:
         point = dict(points.get(tag) or {})
         if tag in refused:
-            ran.append(
-                {
-                    "tag": tag,
-                    "point": point,
-                    "status": str(RunStatus.FAILED_INCOMPLETE_OUTPUT),
-                }
-            )
+            refused_entry: dict[str, object] = {
+                "tag": tag,
+                "point": point,
+                "status": str(RunStatus.FAILED_INCOMPLETE_OUTPUT),
+            }
+            if collected_by_tag.get(tag):
+                refused_entry["outputs"] = list(collected_by_tag[tag])
+                collected_all.extend(collected_by_tag[tag])
+            ran.append(refused_entry)
             worst = worse_of(worst, RunStatus.FAILED_INCOMPLETE_OUTPUT)
             error_lines.append(f"{tag}: {refused[tag]}")
             continue
@@ -799,6 +870,7 @@ def _complete_sweep(
                 assessment.log_file_used,
                 assessment.status,
                 assessment.error,
+                job_log=job_log_text,
             )
             entry.update(
                 status=str(status),
@@ -809,9 +881,11 @@ def _complete_sweep(
         else:
             status, verdict = assessor(as_point, sim_dir)
             status, verdict = _wake_edge_verdict(
-                record, sim_dir, collected_by_tag[tag], None, status, verdict
+                record, sim_dir, collected_by_tag[tag], None, status, verdict, job_log=job_log_text
             )
             entry.update(status=str(status), outputs=list(collected_by_tag[tag]))
+        if job_note is not None:
+            entry["residual_note"] = job_note
         ran.append(entry)
         collected_all.extend(collected_by_tag[tag])
         if str(status).startswith("FAILED"):
@@ -824,6 +898,7 @@ def _complete_sweep(
             "outputs": collected_all,
             "error": "; ".join(error_lines) or None,
             "points_ran": ran,
+            **({"residual_note": job_note} if job_note is not None else {}),
         }
     )
     _write(workspace, completed)
@@ -845,6 +920,8 @@ def _wake_edge_verdict(
     log_file_used: str | None,
     status: RunStatus,
     verdict: str | None,
+    *,
+    job_log: str | None = None,
 ) -> tuple[RunStatus, str | None]:
     """Hold a collected job that imported trailing edges to the count its log states.
 
@@ -869,6 +946,10 @@ def _wake_edge_verdict(
     if not isinstance(expected, int):
         return status, verdict
     log_text = collected_solver_log(sim_dir, collected, log_file_used)
+    # 0.27.0: a point with no log of its own is held to the job's, which is
+    # the scheduler's on a machine that exports none (`_job_log_name`).
+    if log_text is None:
+        log_text = job_log
     return with_wake_edge_verdict(status, verdict, wake_edge_import_verdict(expected, log_text))
 
 

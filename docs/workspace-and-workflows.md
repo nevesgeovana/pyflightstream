@@ -2016,11 +2016,13 @@ record and its collected outputs and runs it again, keeping everything else
 where it is; the section below is for retiring a whole simulation. Archiving
 the simulation to redo one point takes the row's other points with it.
 
-Every point of a row runs in the same simulation folder and collects
-into its OWN folder beneath it. A run refuses to collect onto a name
-already in that point's folder, or to start a point whose declared
-output is already sitting in the simulation folder before the solver has
-written it, rather than attribute somebody else's file to the new point.
+Every point of a row keeps its outputs in its OWN folder beneath the
+simulation folder, and since 0.27.0 a point runs in that folder too (a
+steady row of several points is one job and runs in the simulation folder).
+A run refuses to collect onto a name already in that point's folder, or to
+start a point whose declared output is already sitting in the folder it
+runs in before the solver has written it, rather than attribute somebody
+else's file to the new point.
 Those refusals say to archive the simulation, and this is the command they
 mean:
 
@@ -2852,6 +2854,16 @@ matrix printed above runs as printed, row 7002's two alphas included,
 and that is what the acceptance case in the suite does with the
 committed fixture unmodified.
 
+**A missing output strands nothing** (0.27.0). A point one of whose
+declared outputs was not written is recorded `FAILED_INCOMPLETE_OUTPUT`, and
+every declared output it did write is still filed in its
+`datapoints/DP-<point>/`, listed in the record's `outputs` and hashed in its
+`outputs_sha256`; the error names the missing files and nothing else. Until
+0.27.0 one missing file, typically the solver log, left every other export
+of the point where the solver wrote it and a record naming no output, which
+the post then skipped. The collection method raises `MissingOutputsError`, a
+`WorkspaceError` whose `collected` lists what it filed.
+
 **Every point of a row that names a run type leaves its final saved
 simulation** (a written guarantee since 0.27.0, G11). After the point's
 solve, first among its exports, the script saves the solver's state with
@@ -3043,6 +3055,16 @@ profile, the additional post is refused before anything is written, naming
 `--local`: completing a submitted extraction is not built in 0.27.0
 (`test_g12_a_workspace_that_submits_is_refused_naming_local`).
 
+**On a cluster whose profile states `[log] export_log = false`** the extraction
+scripts carry no `EXPORT_LOG`, whether the plan is built for `--local` or for a
+submission, since the build there aborts at it either way
+(`test_an_additional_post_planned_for_a_submission_exports_no_log`). The
+extraction writes its declared log from what the solver printed, as a run
+kept local does, and with nothing printed the log is not required; the
+extraction record's `note` says which
+(`test_an_additional_post_under_local_exports_no_log_on_such_a_machine`,
+`test_an_additional_post_writes_the_printed_output_as_its_log`).
+
 **A rerun or a continuation archives the extraction with its run**, since
 `additional/` sits inside the point's own folder. The old extraction is then
 stale, the post skips it under its own key and retires none of the run's
@@ -3233,8 +3255,9 @@ table of the products reads) and the probes series are long, one row per
 step and section or probe, with the export's own columns. A kind with no
 stamped file is NOT written, and `products.json` names it under `skipped`
 with the folders that were searched (a header-only table recorded as written,
-until 0.24.0). The stamped files are looked for where the point RAN: the
-simulation folder for a local run, `datapoints/DP-<point>/` for a submitted one. A
+until 0.24.0). The stamped files are looked for where the point RAN: its
+`datapoints/DP-<point>/`, where every point runs since 0.27.0, and the
+simulation folder, where a local point ran before 0.27.0. A
 step the solver never stamped is absent and the `products.json` entry
 says which steps were tabled; the surface sections export (`_cp`) and
 the Tecplot file (`.dat`) of the window are listed there by path, as
@@ -3255,11 +3278,37 @@ from Linux and runs locally on Windows, and no cell says so. When the Linux
 machine is a workstation, or the point is a smoke test on the machine itself,
 `pyfs-matrix run --local` keeps the run on that machine: the cluster is not
 asked, the executable resolves as on Windows (the `FS_BUILD` column through
-`inputs/executables.toml`, or `--fs-exe`), the outputs land in the simulation
-folder as for any local run, and every record's `executor` entry says
+`inputs/executables.toml`, or `--fs-exe`), each point runs and writes its
+outputs in its own `datapoints/DP-<point>/` as any point does, and every
+record's `executor` entry says
 `forced_local`. The flag changes nothing on a machine that would not have
 submitted, and `collect` is not needed afterwards: a local point runs to its
 end before its record is written.
+
+**The profile's log decision still holds under `--local`.** A profile stating
+`[log] export_log = false` says the solver build on that cluster aborts at
+`EXPORT_LOG`, and it aborts there whether the job is submitted or run on the
+machine, so a run `--local` keeps there leaves `EXPORT_LOG` out of the script
+as a submitted job does. No scheduler writes the log of a local run, so the
+run writes the declared `_log.txt` from what it captured of the solver, its
+standard output then its standard error, as a scheduler's job log holds them,
+and the point is judged by it when it reads as a residual history. When the
+solver printed nothing, the log is not counted as a missing output: the point
+is judged from its loads export, as any point that exports no log is, and the
+record's `residual_note` says why it has no log. The same note says so when
+the log is the captured output. A steady row of several points runs as one job
+and one process, so what it printed is no single point's log: no point's log
+is written from it, each point is judged from its loads export, and the job's
+`residual_note` says why. A row that imports its trailing edges from a file is
+held to the count the solver logs, read from the captured output; with nothing
+captured the point is recorded `FAILED_INCOMPLETE_OUTPUT` naming the machine,
+and such a row is run submitted, where the scheduler's log is collected. Every
+profile of the workspace is read for this, and profiles that disagree about
+the log are refused under `--local`. The build-identity pre-flight, which
+runs once per installation before the first point, exports no log on such a
+machine either: it reads the build from what the solver printed, refuses a
+build other than the registered one as it always does, and when the solver
+printed none it warns, naming the profile, and never refuses.
 
 ### The build is an input
 
@@ -3358,9 +3407,29 @@ and the wall clock with its state are written there, so every point of a
 swept row is submitted in one invocation and no queued job shares a file with
 another. The run record names the folder as `working_dir`, and
 `pyfs-matrix collect` waits for the declared outputs there and records them
-where they were written. A steady row, which is ONE job over all its points,
-submits from the simulation folder, and a run on a workstation still runs in
-the simulation folder. FR-99 states the requirement.
+where they were written. A point run on this machine runs in the same
+folder since 0.27.0, so its exports, the per-step ones included, are written
+where they are filed, and a point whose run fails leaves them there rather
+than in the folder every point of the row shares; the script is the same
+either way, since its exports are named relative to the working directory and
+its inputs by absolute path. A steady row, which is ONE job over all its
+points and one script, submits from and runs in the simulation folder, and
+collection files each point's outputs in its own folder. FR-99 states the
+requirement.
+
+**A steady job's log on a machine that exports none.** Where the profile
+states `[log] export_log = false`, the job's script exports no log for any of
+its points, and its scheduler writes one log of the whole job. `collect`
+therefore waits for each point's other outputs and for that one log, and files
+the log once, under the job's script name with `_log.txt`
+(`P<POL>-<sweep name>_log.txt`), in the simulation folder where the job ran; no
+point waits for a log of its own, which until 0.27.0 kept `collect --watch`
+waiting for files no scheduler writes. Each point is judged from its loads
+export, and each point's `residual_note`, and the job's, names the job's log. A
+row that imports its trailing edges from a file holds every point to the count
+in that one log
+(`test_collect_files_a_steady_job_whose_scheduler_logs_the_job_once`,
+`test_a_steady_job_that_imported_trailing_edges_is_held_to_the_job_s_log`).
 
 ### Naming the build to a cluster's scheduler
 
