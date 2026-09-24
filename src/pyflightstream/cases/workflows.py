@@ -5293,6 +5293,7 @@ def _settings(
         vortex_ring_normalization=solver.vortex_ring_normalization,
         wake_termination_time_steps=wake_termination_time_steps,
     )
+    _lift_and_coupling(case, script)
     # SYMMETRY LOADS AS STATED, the design decision of 2026-09-02 (PFS-2028.05): an
     # init-phase setting, emitted alone here as the helper asks; an absent
     # key emits nothing, so a preset written before this release is silent
@@ -5300,6 +5301,49 @@ def _settings(
     symmetry_loads = _row_symmetry_loads(case, solver.symmetry_loads)
     if symmetry_loads is not None:
         helpers.analysis_setup(script, symmetry_loads=symmetry_loads)
+
+
+def _lift_and_coupling(case: SimCase, script: Script) -> None:
+    """Emit the vorticity lift model and the viscous coupling step a setup states (G14).
+
+    Both are init-phase commands, so they precede ``INITIALIZE_SOLVER`` and every
+    export of a march sees them. Each emission is validated by the command
+    database for the script's build, which is what refuses a build that does not
+    carry the command, naming it: 26.124 answers both names as unrecognized
+    (RPT-068), and the coupling step is documented by 25.000 to 26.000 alone. A
+    setup that states neither emits nothing.
+    """
+    solver = case.solver
+    if solver.vorticity_lift_model is not None:
+        if solver.vorticity_lift_model and solver.kutta_joukowski_lift:
+            warn(
+                f"case {case.sim_id!r}: its setup states vorticity_lift_model = true and "
+                "kutta_joukowski_lift = true, two routes to the lift, and no edition of "
+                "the manual says what the solver does with both. The run goes ahead with "
+                "both lines; state one of them false to know which lift the loads carry.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+        script.emit(
+            "SET_VORTICITY_LIFT_MODEL", "ENABLE" if solver.vorticity_lift_model else "DISABLE"
+        )
+    if solver.unsteady_viscous_coupling_iteration is not None:
+        script.emit(
+            "SET_UNSTEADY_VISCOUS_COUPLING_ITERATION", solver.unsteady_viscous_coupling_iteration
+        )
+
+
+def _refuse_a_coupling_step_without_a_clock(case: SimCase) -> None:
+    """Refuse the viscous coupling step on a steady row (G14): it has no time step."""
+    step = case.solver.unsteady_viscous_coupling_iteration
+    if step is None:
+        return
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} inherits unsteady_viscous_coupling_iteration = {step} from "
+        "its solver preset and is a STEADY run, which has no time steps for the viscous "
+        "coupling to begin at, so the setting would reach no line. Drop the key from the "
+        "preset this row names, or give the row a preset of its own."
+    )
 
 
 def row_ncpus(case: SimCase, from_setup: int | None) -> int | None:
@@ -8385,6 +8429,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     the lines this workflow emitted before 0.8.1.
     """
     _refuse_wake_termination_without_a_clock(case)
+    _refuse_a_coupling_step_without_a_clock(case)
     # A steady row stating an export threshold is refused there, naming
     # the time loop it lacks (PFS-2031.18); a row stating none returns.
     unsteady_export_threshold(case, conventions, version=script.version)
@@ -8463,6 +8508,7 @@ def build_steady_sweep(
     first = point_cases[0]
     conventions = WorkflowConventions.for_case(first)
     _refuse_wake_termination_without_a_clock(first)
+    _refuse_a_coupling_step_without_a_clock(first)
     unsteady_export_threshold(first, conventions, version=script.version)
     _refuse_unregistered_keys(first, "steady")
     _raw_commands(first, script, "control")

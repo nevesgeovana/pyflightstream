@@ -96,7 +96,11 @@ EMITTABLE = {
     # 2026-09-14, registered with the 26.123 manual itself (SRC-752 is the
     # SRC-751 file), so every row 26.123 documents was carried and the count
     # is the same 371, the removed spelling again not counted.
-    "26.124": 371,
+    # FELL by one on 2026-09-24, a measured removal and not a lost row: the
+    # build answers SET_VORTICITY_LIFT_MODEL as an unrecognized command
+    # (RPT-068). The row stays, as removed. SET_UNSTEADY_VISCOUS_COUPLING_
+    # ITERATION gained a removed row on the same run and was never counted here.
+    "26.124": 370,
 }
 
 #: Rows recording `verified` per build, measured the same day. Pinned

@@ -1787,6 +1787,16 @@ nodes.
     them is refused at plan; and a point whose loads table is not in
     coefficients writes no product row, the post stage naming the unit.
 
+    AMENDED 0.27.0 (G14), pending with it: a setup may state the vorticity
+    lift model (`vorticity_lift_model`, every run type) and the step at
+    which an unsteady run couples its boundary layer
+    (`unsteady_viscous_coupling_iteration`, the unsteady run types, refused
+    on a steady row), each emitted before `INITIALIZE_SOLVER` and validated
+    against the command database for the row's build, so a build that does
+    not carry the command refuses the row at plan naming the build; 26.124
+    answers both names as unrecognized (RPT-068), and a setup stating the
+    lift model beside `kutta_joukowski_lift` is planned with a warning.
+
 !!! requirement "FR-55 A row states its geometry as a file, and the geometry carries its own boundary inventory <span class='srs-pending'>pending</span>"
     *Origin: feedback items #2 and #6 of 2026-09-02. Carried by
     PFS-2029.06 and its children, PFS-2029.09 and its children, and

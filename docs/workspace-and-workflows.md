@@ -617,9 +617,10 @@ names as often as in this package's. Both are read: `NITER`,
 `unsteady_pressure_kutta`, `additional_wake_relaxation_iteration`,
 `reynolds_averaged_drag_forces` and `unsteady_N_revolutions_wake` are
 aliases of the fields the emitter names, and so, since 0.27.0, are
-`set_solver_analysis_boundaries`, `set_loads_and_moments_units` and
-`set_inviscid_loads`. A preset transcribed from a working session keeps
-working as written.
+`set_solver_analysis_boundaries`, `set_loads_and_moments_units`,
+`set_inviscid_loads`, `set_vorticity_lift_model` and
+`set_unsteady_viscous_coupling_iteration`. A preset transcribed from a
+working session keeps working as written.
 
 Three things can happen to a key, and the third is the one worth
 knowing.
@@ -726,6 +727,38 @@ solve starts, on a march they would reach the final export and not the step
 exports and plots the unsteady products are read from, which is what was
 measured for the loads frame (RPT-064); drop the key from the preset, or give
 the row a preset of its own.
+
+**Two keys reach two documented commands that no build has been seen to run**,
+since 0.27.0, each before the solver is initialised:
+
+```toml
+vorticity_lift_model                = true  # SET_VORTICITY_LIFT_MODEL ENABLE; false writes DISABLE
+unsteady_viscous_coupling_iteration = 20    # SET_UNSTEADY_VISCOUS_COUPLING_ITERATION 20
+```
+
+`vorticity_lift_model` computes the lift from the vorticity field rather than
+from the integrated surface pressure, on every run type. `kutta_joukowski_lift`
+is another route to the lift, and no edition says what the solver does with
+both: a setup stating both `true` is planned with a warning naming the two
+keys. `unsteady_viscous_coupling_iteration` is the time step at which an
+unsteady run switches the viscous coupling on, a whole number from 1, and
+only the unsteady run types take it: a steady row whose preset states it is
+refused at plan, having no time step for the coupling to begin at. A value
+that is not `true`, `false`, `ENABLE` or `DISABLE`, or a step below 1, is
+refused when the preset is read.
+
+!!! warning "Neither runs on 26.124, and the coupling step runs on 25.100 and 26.000 alone"
+    26.124 answers both command names as it answers a name no edition
+    documents, `Unrecognized command`, and the script stops at that line
+    (RPT-068). The command database records that answer, so a row on 26.124
+    whose preset states either key is refused **at plan**, naming the build
+    and the report, instead of stopping mid-run after the seat is spent. On
+    the builds before it `vorticity_lift_model` emits its command, which the
+    manual documents and no run has measured. `unsteady_viscous_coupling_iteration`
+    is documented by the 25.000, 25.100 and 26.000 editions and by none after,
+    so it emits on 25.100 and 26.000, the two of those that render an
+    unsteady script, and is refused on 26.100 and every later build, naming
+    the build.
 
 !!! warning "`axial_separation_families` runs on 26.100 and is refused above it"
     `SET_AXIAL_SEPARATION_BOUNDARIES` is documented to 26.100 and no further, and

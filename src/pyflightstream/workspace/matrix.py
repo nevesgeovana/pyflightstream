@@ -860,6 +860,9 @@ _PRESET_ALIASES = {
     "set_solver_analysis_boundaries": "analysis_families",
     "set_loads_and_moments_units": "load_units",
     "set_inviscid_loads": "inviscid_loads",
+    # G14 of 0.27.0, by the command's name.
+    "set_vorticity_lift_model": "vorticity_lift_model",
+    "set_unsteady_viscous_coupling_iteration": "unsteady_viscous_coupling_iteration",
 }
 
 #: Preset keys that are RECORDED and deliberately emit nothing, each

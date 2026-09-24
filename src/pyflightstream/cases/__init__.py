@@ -3196,6 +3196,18 @@ class SolverSettings(BaseModel):
     load_units: str | None = None
     #: SET_INVISCID_LOADS: the loads and moments without their viscous part.
     inviscid_loads: SolverToggle | None = None
+    #: SET_VORTICITY_LIFT_MODEL (G14 of 0.27.0): lift from the vorticity field
+    #: rather than from the integrated surface pressure, stated before the
+    #: solver is initialised on every run type. None emits nothing. The command
+    #: database decides the builds: 26.124 answers the name as an unrecognized
+    #: command (RPT-068), so a row on it is refused at plan.
+    vorticity_lift_model: SolverToggle | None = None
+    #: SET_UNSTEADY_VISCOUS_COUPLING_ITERATION (G14 of 0.27.0): the time step at
+    #: which an unsteady run switches the viscous coupling on, stated before the
+    #: solver is initialised. The unsteady run types only; documented by the
+    #: 25.000, 25.100 and 26.000 editions alone, so the database refuses it on
+    #: every later build, naming the build.
+    unsteady_viscous_coupling_iteration: int | None = Field(default=None, ge=1)
 
     @field_validator("load_units")
     @classmethod
