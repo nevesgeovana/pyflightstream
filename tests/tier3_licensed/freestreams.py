@@ -1,8 +1,8 @@
 """The custom free-stream fields of the tier-3 workspace (G15, the licensed probe T14).
 
-Rows 5011 to 5014 of ``matriz_gui.fs`` run the 12_WING_PHY wing under a custom
-free stream, each against a CONSTANT control that differs from it in one thing
-(``test_freestream.py`` says which). Their two fields are written HERE, from the
+Rows 5012 and 5014 of ``matriz_gui.fs`` run the 12_WING_PHY wing under a custom
+free stream at 0 deg, each against the CONSTANT control 5013, which differs from
+it in the free stream alone (``test_freestream.py``). Their two fields are written HERE, from the
 wing's own mesh block, so the grid covers the body's YZ extent with a margin
 this module states, and ``tests/tier1_offline/test_g15_custom_freestream.py``
 holds the committed files to what this module writes.

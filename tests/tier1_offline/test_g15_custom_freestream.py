@@ -23,16 +23,19 @@ the rows alone. So:
   the plan does, and each refusal names the file, the line and what the form
   asks; a file stated twice or not at all, a LEGACY row and a body rate beside
   it are refused at plan;
+* so is a non-zero angle of attack or sideslip beside it, fixed or swept: the
+  licensed probe T14 measured on 26.124 that the field sets the flow's
+  direction and SOLVER_SET_AOA does not turn it, so such a row would solve at
+  the field's own incidence and report its own;
 * the additional post rebuilds such a row, and a record without the hash (every
   record written before this) still posts;
-* the licensed probe's rows (T14, ``matriz_gui.fs`` 5011 to 5014) each compare
+* the licensed probe's rows (T14, ``matriz_gui.fs`` 5012 to 5014) each compare
   one thing against a CONSTANT control, and their two fields are the ones
   ``tests/tier3_licensed/freestreams.py`` writes from the wing's mesh block,
   covering it with their margin at the rows' own speed.
 
-Nothing here runs a solver. What the solver does with a custom field (its
-units, whether the row's angle of attack still turns it) is the licensed
-probe T14's to answer.
+Nothing here runs a solver; what T14 measured on the seat is read by
+``tests/tier3_licensed/test_freestream.py``.
 """
 
 from __future__ import annotations
@@ -184,10 +187,15 @@ def test_g15_the_script_differs_from_its_control_in_the_free_stream_lines_alone(
 
 
 def test_g15_a_steady_sweep_writes_its_field_once_with_the_setup(tmp_path):
-    """A steady row of three points is one script; the field is the row's, written once."""
+    """A steady row of three points is one script; the field is the row's, written once.
+
+    At zero incidence, since a field is refused beside any other (T14): the three
+    points sweep the advance ratio, which a steady row runs as one job."""
     path = field(tmp_path / FOLDER)
-    base = with_field(steady_case(), path)
-    points = [case_at_point(base, {"alpha": alpha}) for alpha in (-2.0, 0.0, 2.0)]
+    base = with_field(steady_case(), path).model_copy(
+        update={"sweep": SweepAxis(type="advance_ratio", values=[0.2, 0.4, 0.6])}
+    )
+    points = [case_at_point(base, {"alpha": 0.0, "advance_ratio": j}) for j in (0.2, 0.4, 0.6)]
     script = Script("26.124")
     build_steady_sweep(points, script)
     lines = script.render().splitlines()
@@ -258,6 +266,95 @@ def test_g15_a_field_beside_a_body_rate_is_refused(make, words, tmp_path):
     path = field(tmp_path / FOLDER)
     with pytest.raises(CampaignConfigError, match=words):
         lines_of(with_field(make(), path))
+
+
+#: What every refusal of an angle beside a field says, after naming the angle.
+TURNS_NOTHING = r"SOLVER_SET_AOA does not turn it.*T14.*vy and vz.*ALPHA and BETA as 0"
+
+
+def _angled(make, *, sweep=None, point=None, **variables):
+    def build():
+        case = make(**variables)
+        update = {}
+        if sweep is not None:
+            update["sweep"] = SweepAxis(type=sweep[0], values=sweep[1])
+        if point is not None:
+            update["point"] = point
+        return case.model_copy(update=update)
+
+    return build
+
+
+@pytest.mark.parametrize(
+    ("make", "words"),
+    [
+        (_angled(steady_case, point={"alpha": 4.0}), r"ALPHA: 4 deg"),
+        (_angled(steady_case, point={"alpha": 0.0, "beta": 2.0}), r"BETA: 2 deg"),
+        (_angled(steady_case, point={}, ALPHA="-3"), r"ALPHA: -3 deg"),
+        (
+            _angled(steady_case, sweep=("alpha", [0.0, 4.0]), point={"alpha": 0.0}),
+            r"sweeps ALPHA over 0, 4 deg",
+        ),
+        (
+            _angled(steady_case, sweep=("beta", [0.0, -3.0]), point={"alpha": 0.0, "beta": 0.0}),
+            r"sweeps BETA over 0, -3 deg",
+        ),
+        (
+            _angled(
+                steady_case,
+                sweep=("alpha_beta", [(0.0, 0.0), (0.0, 2.0)]),
+                point={"alpha": 0.0, "beta": 0.0},
+            ),
+            r"sweeps BETA over 0, 2 deg",
+        ),
+        (_angled(unsteady_case, point={"alpha": 4.0}), r"ALPHA: 4 deg"),
+        (_angled(rotor_case, point={"alpha": 4.0}), r"ALPHA: 4 deg"),
+    ],
+    ids=[
+        "alpha",
+        "beta",
+        "alpha-in-the-variables",
+        "alpha-swept",
+        "beta-swept",
+        "beta-paired",
+        "unsteady",
+        "unsteady_rotor",
+    ],
+)
+def test_g15_a_field_beside_an_angle_of_attack_or_a_sideslip_is_refused(make, words, tmp_path):
+    """The field sets the flow's direction and SOLVER_SET_AOA does not turn it (T14, 26.124):
+    a row stating an angle would solve at the field's own and report its own. A swept angle
+    is refused at every point, the one at zero too; the sideslip, not measured, likewise."""
+    path = field(tmp_path / FOLDER)
+    with pytest.raises(CampaignConfigError, match=words + r"\. .*" + TURNS_NOTHING):
+        lines_of(with_field(make(), path))
+
+
+def test_g15_a_steady_sweep_of_the_angle_beside_a_field_is_refused_before_any_line(tmp_path):
+    """The warm sweep is one script: its first point, at zero, answers for the row."""
+    path = field(tmp_path / FOLDER)
+    base = with_field(steady_case(), path).model_copy(
+        update={"sweep": SweepAxis(type="alpha", values=[0.0, 2.0, 4.0])}
+    )
+    points = [case_at_point(base, {"alpha": alpha}) for alpha in (0.0, 2.0, 4.0)]
+    script = Script("26.124")
+    with pytest.raises(CampaignConfigError, match=r"sweeps ALPHA over 0, 2, 4 deg"):
+        build_steady_sweep(points, script)
+    assert script.render().strip() == "", "a line was written before the refusal"
+
+
+def test_g15_zero_angles_sit_beside_the_field(tmp_path):
+    """ALPHA and BETA stated as 0, fixed or swept over zero alone, are the field's own."""
+    path = field(tmp_path / FOLDER)
+    case = with_field(
+        steady_case(ALPHA="0", BETA="0.0").model_copy(
+            update={"sweep": SweepAxis(type="alpha", values=[0.0]), "point": {"alpha": 0.0}}
+        ),
+        path,
+    )
+    lines = lines_of(case)
+    assert free_stream_lines(lines) == ["SET_FREESTREAM CUSTOM STRUCTURED", str(path)]
+    assert "SOLVER_SET_AOA 0.0" in lines and "SOLVER_SET_SIDESLIP 0.0" in lines
 
 
 @pytest.mark.parametrize(
@@ -487,12 +584,40 @@ def test_g15_a_field_beside_a_rate_in_the_flight_condition_is_refused_at_plan(tm
     assert "one SET_FREESTREAM" in (plan.points[0].error or "")
 
 
+@pytest.mark.parametrize(
+    ("condition", "values", "words"),
+    [
+        ("MACH:0.2, REmi:2.3, ALPHA:sweep", "0.0,4.0", "sweeps ALPHA over 0, 4 deg"),
+        ("MACH:0.2, REmi:2.3, BETA:2.0, ALPHA:sweep", "0.0", "BETA: 2 deg"),
+    ],
+    ids=["a-swept-alpha", "a-held-beta"],
+)
+def test_g15_a_field_beside_an_angle_in_the_flight_condition_blocks_every_point_at_plan(
+    condition, values, words, tmp_path
+):
+    """The whole row is refused, its point at zero incidence too: an alpha sweep that
+    runs would stay near zero and report the angles it names."""
+    workspace, matrix = _matrix(tmp_path, condition=condition, values=values, cell=f"{KEY}: shear")
+    field(workspace.inputs_dir / FOLDER)
+    plan = _plan(workspace, matrix)
+    assert {entry.status for entry in plan.points} == {PlanStatus.BLOCKED}, plan.summary()
+    assert len(plan.points) == len(values.split(","))
+    for entry in plan.points:
+        assert words in (entry.error or "") and "SOLVER_SET_AOA does not turn it" in (
+            entry.error or ""
+        ), entry.error
+
+
 # ------------------------------------------ the additional post and the post --
 
 
 def _recorded(tmp_path):
-    """A recorded campaign whose row states a custom free stream and an additional pproc."""
-    workspace, matrix = a_campaign(tmp_path, cell=f"ADDITIONAL_PPROC: p002 / {KEY}: shear")
+    """A recorded campaign whose row states a custom free stream and an additional pproc.
+
+    One point, at zero incidence: a field is refused beside any other (T14)."""
+    workspace, matrix = a_campaign(
+        tmp_path, cell=f"ADDITIONAL_PPROC: p002 / {KEY}: shear", values="0.0"
+    )
     path = field(workspace.inputs_dir / FOLDER)
     run_matrix(
         matrix,
@@ -512,8 +637,8 @@ def test_g15_the_additional_post_rebuilds_a_row_with_a_field_and_extracts_it(tmp
     for record in workspace.read_manifest():
         assert record.inputs_sha256.get("shear.txt") == file_sha256(path), record.inputs_sha256
     plans, records = extract(workspace, matrix, a_stub(tmp_path))
-    assert [plan.status for plan in plans] == ["READY"] * 2, [plan.message for plan in plans]
-    assert [record.status for record in records] == ["EXTRACTED"] * 2
+    assert [plan.status for plan in plans] == ["READY"], [plan.message for plan in plans]
+    assert [record.status for record in records] == ["EXTRACTED"]
 
 
 def test_g15_a_record_without_the_fields_hash_still_posts(tmp_path):
@@ -538,24 +663,22 @@ def test_g15_a_record_without_the_fields_hash_still_posts(tmp_path):
     assert all("shear.txt" not in r.inputs_sha256 for r in workspace.read_manifest())
     assert products_of(workspace, matrix)["products"], "the post wrote no product"
     plans, _ = extract(workspace, matrix, a_stub(tmp_path))
-    assert [plan.status for plan in plans] == ["READY"] * 2, [plan.message for plan in plans]
+    assert [plan.status for plan in plans] == ["READY"], [plan.message for plan in plans]
 
 
 # ------------------------------------ the licensed probe's rows, offline (T14) --
 #
-# Rows 5011 to 5014 of tests/tier3_licensed/matriz_gui.fs run on the seat; what a
+# Rows 5012 to 5014 of tests/tier3_licensed/matriz_gui.fs ran on the seat; what a
 # clone can decide without one is that each compares ONE thing, that the fields
 # are the ones their generator writes from the wing's mesh block, and that they
-# cover the wing with their margin.
+# cover the wing with their margin. Row 5011, the uniform field at 4 deg, ran
+# once and is retired: it is the evidence the angle refusal rests on, and the
+# plan now refuses it.
 
 TIER3 = Path(__file__).resolve().parents[1] / "tier3_licensed"
 GUI = TIER3 / "matriz_gui.fs"
 #: Each custom row, its CONSTANT control and the field it names.
-T14_ROWS = {
-    "5011": ("5010", "fs_uniform"),
-    "5012": ("5013", "fs_uniform"),
-    "5014": ("5013", "fs_shear"),
-}
+T14_ROWS = {"5012": ("5013", "fs_uniform"), "5014": ("5013", "fs_shear")}
 
 
 def _read_field(path: Path) -> list[list[float]]:
@@ -582,7 +705,7 @@ def test_g15_the_tier3_fields_cover_the_wing_with_their_margin_at_the_rows_own_s
     assert ys[0] <= ymin - margin and ys[-1] >= ymax + margin, ys
     assert zs[0] <= zmin - margin and zs[-1] >= zmax + margin, zs
     rows = {row.pol: row for row in read_matrix(GUI)}
-    for pol in ("5010", "5011", "5012", "5013", "5014"):
+    for pol in ("5012", "5013", "5014"):
         assert rows[pol].flight_condition["TASmps"] == freestreams.SPEED_M_S, pol
     uniform = _read_field(freestreams.FOLDER / "fs_uniform.txt")
     sheared = _read_field(freestreams.FOLDER / "fs_shear.txt")
@@ -593,8 +716,8 @@ def test_g15_the_tier3_fields_cover_the_wing_with_their_margin_at_the_rows_own_s
 
 
 def test_g15_each_tier3_custom_row_differs_from_its_control_in_one_thing():
-    """5011, 5012 and 5014 against their CONSTANT controls, in the free-stream lines
-    alone; 5011 against 5012, the same field, in the angle of attack alone."""
+    """5012 and 5014 against their CONSTANT control 5013, in the free-stream lines
+    alone, all three at zero incidence and sideslip, which is where a field runs."""
     from pyflightstream.cases.matrix import read_matrix
     from tests.tier3_licensed import offline
 
@@ -612,9 +735,7 @@ def test_g15_each_tier3_custom_row_differs_from_its_control_in_one_thing():
         assert lines[at + 1] == f"<tier3>/inputs/freestreams/{name}.txt", lines[at + 1]
         written = lines[:at] + ["SET_FREESTREAM CONSTANT"] + lines[at + 3 :]
         assert written == reference, f"{pol} differs from {control} beyond its free stream"
-    turned = [
-        (one, other)
-        for one, other in zip(rendered["5011"], rendered["5012"], strict=True)
-        if one != other
-    ]
-    assert turned == [("SOLVER_SET_AOA 4.0", "SOLVER_SET_AOA 0.0")], turned
+    for pol in ("5012", "5013", "5014"):
+        assert (
+            "SOLVER_SET_AOA 0.0" in rendered[pol] and "SOLVER_SET_SIDESLIP 0.0" in (rendered[pol])
+        ), pol

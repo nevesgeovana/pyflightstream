@@ -257,6 +257,12 @@ the opposite sign to 0.26.0: `roll_rate:40` writes
 - A matrix whose rows state `FREESTREAM` cannot be planned by 0.26.0 or older,
   which refuses it as a key of no run type. A row without the key plans and runs
   exactly as before, its script byte for byte what it was.
+- A row stating `FREESTREAM` runs at zero angle of attack and sideslip: on
+  26.124 `SOLVER_SET_AOA` does not turn a custom field (the licensed probe T14,
+  RPT-T14), so a non-zero `ALPHA` or `BETA` beside the key, fixed or swept, is
+  refused at plan, every point of the row. Write the incidence into the field's
+  `vy` and `vz` components and state `ALPHA` and `BETA` as 0. The sideslip was
+  not measured and is refused for the same reason.
 - `pyfs-workspace init` creates `inputs/freestreams/` beside `inputs/profiles/`;
   run it again on an existing workspace, which keeps everything it holds, or
   make the folder by hand. `workspace.INPUT_KINDS` lists it.

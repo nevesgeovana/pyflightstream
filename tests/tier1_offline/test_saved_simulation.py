@@ -77,10 +77,11 @@ CELLS = [
 ]
 #: The number of tier-3 scripts of rows naming a run type: 57 measured at
 #: bff91d6, 70 since the mesh matrix (8) and the GUI matrix (5) of 0.27.0, and
-#: 74 since the GUI matrix's custom free-stream rows (4, G15).
+#: 73 since the GUI matrix's custom free-stream rows (4, G15), less the one T14
+#: retired (5011, a field at 4 deg, which the plan now refuses).
 #: A floor, so a matrix that gains rows keeps passing and one that loses its
 #: goldens does not pass by checking nothing.
-TIER3_WORKFLOW_GOLDENS = 74
+TIER3_WORKFLOW_GOLDENS = 73
 #: The words the plan warning and the page share with these tests.
 UNSAVED = "declare no saved simulation"
 

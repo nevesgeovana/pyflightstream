@@ -207,12 +207,20 @@ FlightStream versions.
   states it in `SimCase.freestream_profile`. The plan refuses, by name, a stem
   the folder does not hold or holds as both forms, the key on a `LEGACY` row,
   the key beside a non-zero or swept body rate (a run has one
-  `SET_FREESTREAM`), and a file not in its form, naming the file, the line and
-  what the form asks. The CUSTOM form has run on no build; the licensed probe
-  T14 (rows 5011 to 5014 of `tests/tier3_licensed/matriz_gui.fs`, on 26.124)
-  measures whether the solver reads the file in m/s as written and whether it
-  still turns a custom field by the row's angle of attack. A custom field on an
-  unsteady or rotor row is not measured.
+  `SET_FREESTREAM`), the key beside a non-zero angle of attack or sideslip,
+  fixed or swept (below), and a file not in its form, naming the file, the line
+  and what the form asks. MEASURED on 26.124 by the licensed probe T14
+  (RPT-T14), the CUSTOM STRUCTURED form's first runs, rows 5012 to 5014 of
+  `tests/tier3_licensed/matriz_gui.fs`: a uniform field of the row's own speed
+  loads as the CONSTANT free stream to the printed digits, so the file is read
+  in m and m/s as written, and a field sheared in z moves the lift. And
+  `SOLVER_SET_AOA` does not turn a custom field: at 4 deg the uniform field
+  loaded near its own 0 deg self (CL 0.0021) and far from the CONSTANT free
+  stream at 4 deg (CL 0.3385). So a row stating the key states `ALPHA` and
+  `BETA` as 0 and writes its incidence into the field's `vy` and `vz`; the
+  sideslip, not measured, is refused for the same reason. The probe's row at
+  4 deg (5011) is retired from the matrix. The UNSTRUCTURED form, and a custom
+  field on an unsteady or rotor row, are not measured.
 
 - **`pyfs-matrix post --additional-pproc` extracts more from a finished point
   without solving it again** (G12, FR-111). A row may state `ADDITIONAL_PPROC:

@@ -5844,6 +5844,47 @@ _ONE_FREE_STREAM = (
     "custom free stream."
 )
 
+#: THE FIELD IS THE FLOW'S DIRECTION, MEASURED (T14, 0.27.0). On FlightStream
+#: 26.124 a uniform field of the row's own speed loaded as the CONSTANT free
+#: stream at 0 deg, and at 4 deg it loaded near its own 0 deg self and far from
+#: the CONSTANT free stream at 4 deg: ``SOLVER_SET_AOA`` does not turn a custom
+#: field. A row stating an angle beside one would solve at the field's
+#: incidence and report its own, so the angle is refused rather than written.
+#: The sideslip is the same mechanism and was not measured; it is refused for
+#: the same reason. The sentence every such refusal ends on.
+_NO_ANGLE_BESIDE_A_FIELD = (
+    "The custom field sets the flow's direction: SOLVER_SET_AOA does not turn it, measured "
+    "on FlightStream 26.124 by the licensed probe T14 (RPT-T14), and the sideslip, not "
+    "measured, is refused for the same reason. The run would solve at the field's own "
+    "incidence and report the angle the row states. Write the incidence into the field's "
+    "vy and vz components, and state ALPHA and BETA as 0 in the row."
+)
+
+
+def _an_angle_beside_a_field(case: SimCase) -> str | None:
+    """Name the non-zero incidence or sideslip a case states, swept or fixed, or None (G15).
+
+    A SWEEP IS THE ROW'S, so an angle any of its points states refuses every
+    point, the one at zero too: the warm sweep builds all of them from its
+    first. A fixed angle is the one the builder writes, the point's or else the
+    row's variable (:func:`_angle`). An angle written 0 is none.
+    """
+    sweep = case.sweep
+    for axis, key in (("alpha", ALPHA_VARIABLE), ("beta", BETA_VARIABLE)):
+        swept: list[float] = []
+        for entry in sweep.values:
+            if isinstance(entry, tuple | list):
+                if sweep.type == "alpha_beta":
+                    swept.append(float(entry[0 if axis == "alpha" else 1]))
+            elif sweep.type == axis:
+                swept.append(float(entry))
+        if any(value != 0.0 for value in swept):
+            return f"sweeps {key} over {', '.join(f'{value:g}' for value in swept)} deg"
+        angle = _angle(case, axis)
+        if angle != 0.0:
+            return f"{key}: {angle:g} deg"
+    return None
+
 
 @dataclass(frozen=True)
 class _RowFreestream:
@@ -5953,7 +5994,9 @@ def _the_custom_freestream(case: SimCase) -> _RowFreestream | None:
 
     Refused, each by name: the key with no resolved file; a key and a file
     of two stems; a swept body rate or a non-zero one, since each writes
-    ``ROTATION`` and a run has one ``SET_FREESTREAM``; a file that is neither
+    ``ROTATION`` and a run has one ``SET_FREESTREAM``; a non-zero angle of
+    attack or sideslip, swept or fixed, since the field sets the flow's
+    direction (T14, :data:`_NO_ANGLE_BESIDE_A_FIELD`); a file that is neither
     of the two forms the manual ties to an extension, or no longer there; and
     a file not in its form (:func:`_read_custom_freestream`).
     """
@@ -5987,6 +6030,11 @@ def _the_custom_freestream(case: SimCase) -> _RowFreestream | None:
         key, _, rate = turning
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {stated} and {key}: {rate:g} deg/s. {_ONE_FREE_STREAM}"
+        )
+    angled = _an_angle_beside_a_field(case)
+    if angled is not None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {stated} and {angled}. {_NO_ANGLE_BESIDE_A_FIELD}"
         )
     form = FREESTREAM_FORMS.get(file.suffix.lower())
     if form is None:
@@ -11523,7 +11571,9 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         FREESTREAM_VARIABLE: InputKey(
             "A custom free stream in place of the uniform one: a velocity field over the YZ "
             "plane of the global frame, in m and m/s, read from its file when the point is "
-            "built; refused beside a non-zero or swept body rate and on a LEGACY row.",
+            "built. The field is the flow's direction (SOLVER_SET_AOA does not turn it, T14 "
+            "on 26.124), so it is refused beside a non-zero ALPHA or BETA, as beside a "
+            "non-zero or swept body rate and on a LEGACY row.",
             "the stem of a file of inputs/freestreams/, whose extension is its form: a .txt "
             "is the STRUCTURED form (a first line 'Npts Mpts', then the rows), a .dat the "
             "UNSTRUCTURED form (rows 'x y z vx vy vz' only)",
