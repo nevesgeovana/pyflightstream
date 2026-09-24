@@ -22,11 +22,13 @@ by a test on its link:
   and the run's own record, manifest and files are untouched; a row without
   the key, an absent ``.fsm`` and an ``.fsm`` that does not hash as its record
   says are each skipped by name, as are a row whose frames moved since the run,
-  an older record whose boundaries the geometry's hash recovers in another
-  order or not at all, a build that changed, a surface averaged in time, a row no longer active, a
-  point still in a queue and a run a continuation replaced; a copy that does
-  not hash as recorded launches nothing, and an original that changes during
-  the extraction fails it; an unsteady point is one instant and says so;
+  by any line that places or moves one and under a name kept too, an older
+  record whose boundaries the geometry's hash recovers in another order or not
+  at all, a build that changed, a surface averaged in time, a row no longer
+  active, a point still in a queue and a run a continuation replaced; a copy
+  that does not hash as recorded launches nothing, and an original that
+  changes during the extraction fails it; an unsteady point is one instant and
+  says so;
   ``pyfs-matrix post --additional-pproc`` prints each point, exits 2 when an
   extraction fails, counts under ``--strict`` only the skips that ask
   something, and refuses its flags without it;
@@ -759,6 +761,90 @@ def test_g12_a_row_whose_frames_changed_since_the_run_is_skipped(tmp_path):
     assert [plan.reason for plan in plans] == ["SCRIPT_DRIFT"] * 2, plans
     assert all("frame" in plan.message for plan in plans)
     assert records == [] and stub.invocations == []
+
+
+#: A frame of the reference, placed at the nacelle, its x and y axes as given.
+NAC_FRAME = '\n[[frames]]\nname = "NAC"\norigin = [0.42, 0.0, 0.11]\nx_axis = {x}\ny_axis = {y}\n'
+
+
+def test_g12_a_frame_turned_since_the_run_under_the_same_name_is_skipped(tmp_path):
+    """The reference's NAC keeps its name and origin and turns 90 degrees about z after the run.
+
+    The saved simulation holds the NAC the run created; a distribution the
+    additional pproc cites in NAC means the turned one today. A frame is
+    compared by everything the script says of it, its origin and its three
+    axes as well as its index and name, so both points are skipped naming the
+    frame and the line that differs, and nothing launches. The same frame
+    unturned plans READY.
+    """
+    workspace, matrix = a_campaign(tmp_path, additional=SECTIONS_TOML.replace('"MRP"', '"NAC"'))
+    reference = workspace.inputs_dir / "references" / "r050.toml"
+    reference.write_text(
+        REFERENCE_TOML + NAC_FRAME.format(x="[1.0, 0.0, 0.0]", y="[0.0, 1.0, 0.0]"),
+        encoding="utf-8",
+    )
+    run_matrix(
+        matrix,
+        workspace,
+        name="extracted",
+        default_fs_version=BUILD,
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=a_stub(tmp_path),
+    )
+    plans = additional_post().plan_additional_post(matrix, workspace, default_fs_version=BUILD)
+    assert [plan.status for plan in plans] == ["READY"] * 2, [plan.message for plan in plans]
+    reference.write_text(
+        REFERENCE_TOML + NAC_FRAME.format(x="[0.0, 1.0, 0.0]", y="[-1.0, 0.0, 0.0]"),
+        encoding="utf-8",
+    )
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    assert [plan.reason for plan in plans] == ["SCRIPT_DRIFT"] * 2, [
+        (plan.status, plan.message) for plan in plans
+    ]
+    for plan in plans:
+        assert "NAME NAC" in plan.message and "VECTOR_X_X" in plan.message, plan.message
+    assert records == [] and stub.invocations == []
+
+
+@pytest.mark.parametrize(
+    ("command", "arguments"),
+    [
+        ("ROTATE_COORDINATE_SYSTEM", {"rotation_frame": 1, "rotation_axis": "Z", "angle": None}),
+        ("SET_COORDINATE_SYSTEM_ORIGIN", {"x": None, "y": 0.0, "z": 0.11, "units": "METER"}),
+        ("TRANSLATE_COORDINATE_SYSTEM", {"x": None, "y": 0.0, "z": 0.0, "units": "METER"}),
+    ],
+)
+def test_g12_a_frame_moved_after_it_was_placed_differs_by_the_move(command, arguments):
+    """A turn or a move after the edit that placed a frame is part of the frame compared.
+
+    Two scripts place NAC alike and then move it, by the same amount and by
+    another: the first two compare equal, the second pair does not, so a frame
+    turned or moved since the run under its old name and place is not taken for
+    the one the saved simulation holds.
+    """
+    from pyflightstream.script import helpers
+
+    def placed_then(amount: float) -> tuple:
+        script = Script(BUILD)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            nac = helpers.coordinate_frame(
+                script, name="NAC", origin=(0.42, 0.0, 0.11), x_axis=(1, 0, 0), y_axis=(0, 1, 0)
+            )
+            script.emit(
+                command,
+                frame=nac,
+                **{key: amount if value is None else value for key, value in arguments.items()},
+            )
+        return workflows.frame_definitions(script.render())
+
+    assert placed_then(10.0) == placed_then(10.0)
+    moved = placed_then(20.0)
+    assert placed_then(10.0) != moved, moved
+    assert any(block[0].startswith(command) for block in moved), moved
 
 
 def test_g12_a_point_whose_build_changed_is_skipped(tmp_path):

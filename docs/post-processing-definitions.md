@@ -887,11 +887,20 @@ extraction's `leading_sections` counts the run's rows at the head
 A layout whose counts do not add up to the export states `NA`, as on the run's
 own table.
 
-**Which boundaries it cites.** The extraction cites the boundaries the saved
-simulation holds, which are the run's and never today's file's: the names the
-run's record states or, on a record written before 0.27.0, the names read by
-the geometry's hash as the post's own tables read them (*The geometry's names*,
-above). A point whose row declares the boundaries in another order today is
+**Which frames and boundaries it cites.** The extraction cites the frames and
+the boundaries the saved simulation holds, which are the run's. A frame is the
+run's only while the row creates it today exactly as the run's recorded script
+did, in every line a script defines or moves a frame with: its index and name,
+its origin and three axes, and every later turn, move, copy or deletion. A
+point whose row creates a frame differing in any of them, a frame turned under
+its old name and place included, is skipped `SCRIPT_DRIFT` naming the line
+(`test_g12_a_frame_turned_since_the_run_under_the_same_name_is_skipped`,
+`test_g12_a_frame_moved_after_it_was_placed_differs_by_the_move`), since a
+distribution cited in it would be cut in the frame the file holds and not the
+one the pproc means. The boundaries are the run's and never today's file's:
+the names the run's record states or, on a record written before 0.27.0, the
+names read by the geometry's hash as the post's own tables read them (*The
+geometry's names*, above). A point whose row declares the boundaries in another order today is
 skipped `SCRIPT_DRIFT` naming both orders
 (`test_g12_an_older_record_is_held_to_the_boundaries_its_geometry_hash_recovers`),
 and so is one whose names nothing on disk recovers while the geometry declares

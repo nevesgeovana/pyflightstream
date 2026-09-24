@@ -317,6 +317,15 @@ FlightStream versions.
   carries, as the post reads them, and compared; a point whose names nothing
   on disk recovers, while the geometry declares names today, is skipped
   `SCRIPT_DRIFT` naming the record and the file.
+- **The additional post compares a frame by everything the script says of it**
+  (G12). The run's frames were compared with the row's by index and name
+  alone, so a reference frame turned since the run under the same name and
+  origin passed, and a distribution the additional pproc cited in it was cut
+  in the frame the saved simulation holds rather than the one it meant. Every
+  command of a coordinate system is now compared with all its lines (origin,
+  three axes, and any later turn, move, copy or deletion), and the skip names
+  the first line that differs. `cases.workflows.frame_definitions` replaces
+  `frame_pairs`, which no release carried.
 - **`pyfs-matrix collect` finishes a submitted steady job on a machine that
   exports no log.** A steady row of several points is one job, and where the
   profile states `export_log = false` its scheduler writes ONE log of the job.

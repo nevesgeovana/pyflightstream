@@ -33,6 +33,7 @@ import warnings
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
+from itertools import zip_longest
 from pathlib import Path, PurePath
 
 import pyflightstream
@@ -65,7 +66,7 @@ from pyflightstream.cases.workflows import (
     WORKFLOW_KEY,
     additional_outputs,
     build_additional_script,
-    frame_pairs,
+    frame_definitions,
     frames_of_the_run,
 )
 from pyflightstream.results.tables import superseded_by_a_continuation
@@ -1166,12 +1167,27 @@ def _first_of_the_chain(point: RunRecord, by_run: Mapping[str, RunRecord]) -> Ru
     return current
 
 
-def _first_difference(recorded: tuple, today: tuple) -> str:
+def _first_difference(
+    recorded: tuple[tuple[str, ...], ...], today: tuple[tuple[str, ...], ...]
+) -> str:
+    """Name the first line where the run's frame commands and the row's part."""
     for at, (was, now) in enumerate(zip(recorded, today, strict=False)):
-        if was != now:
-            return f"frame {at + 1} of the run was {' '.join(was)} and is {' '.join(now)} today"
+        if was == now:
+            continue
+        said, says = next(
+            (one, other)
+            for one, other in zip_longest(was, now, fillvalue="nothing")
+            if one != other
+        )
+        return (
+            f"frame command {at + 1} of the run ({', '.join(was[:3])}) said {said} where "
+            f"the row says {says} today"
+        )
     if len(recorded) != len(today):
-        return f"the run created {len(recorded)} frame(s) and the row creates {len(today)} today"
+        return (
+            f"the run's script carries {len(recorded)} frame command(s) and the row's "
+            f"carries {len(today)} today"
+        )
     return "no frame differs"
 
 
@@ -1551,9 +1567,11 @@ def _script_drift(
     """Build the point's run script again and compare it with the one the run recorded.
 
     Returns the rebuilt script when the two created the same frames at the same
-    indices and declared the same boundaries, and otherwise the sentence saying
-    where they part. The script compared is the one of the run that STARTED a
-    continuation chain, since a continuation reopens and creates no frame.
+    indices, placed and moved alike (every line of every frame command,
+    :func:`~pyflightstream.cases.workflows.frame_definitions`), and declared the
+    same boundaries, and otherwise the sentence saying where they part. The
+    script compared is the one of the run that STARTED a continuation chain,
+    since a continuation reopens and creates no frame.
 
     THE BOUNDARIES THE SAVED SIMULATION HOLDS ARE THE RECORD'S, never today's
     file's. A record written since 0.27.0 states them; an older one states none,
@@ -1582,8 +1600,8 @@ def _script_drift(
         shadow = frames_of_the_run(point_case, version)
     except (PyflightstreamError, ValueError) as error:
         return f"the row no longer builds the run it recorded: {type(error).__name__}: {error}"
-    was = frame_pairs(recorded.read_text(encoding="utf-8", errors="replace"))
-    now = frame_pairs(shadow.render())
+    was = frame_definitions(recorded.read_text(encoding="utf-8", errors="replace"))
+    now = frame_definitions(shadow.render())
     if was != now:
         return (
             f"the row creates other frames today than the run created, so a distribution "
