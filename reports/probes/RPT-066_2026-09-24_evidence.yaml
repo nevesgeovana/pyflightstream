@@ -1,0 +1,102 @@
+report: reports/RPT-066_base-regions-mark-the-base-boundary-and-wake-termination-is-unobserved_2026-09-24.md
+date: '2026-09-24'
+question: what wake-termination and base-region detection mark, automatic and by surface, and what initialisation
+  marks
+where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
+executable_sha256:
+  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+geometries:
+  WB: a half wing-body, boundaries [W, B] (RPT-052's mesh)
+  BD: the tier-3 20_BODY, boundaries [Body, Base]
+instrument: which lines of the saved file move between the save before the command and the save after it, the header
+  value of order 1e-309 set aside; flag rows by line with their count of 1 or T
+checks:
+  controls_move_nothing: true
+  auto_base_regions_marks_24_faces: true
+  by_surface_with_the_base_boundary_marks_the_same_faces: true
+  the_two_states_differ_in_one_four_flag_line_only: true
+  by_surface_with_the_body_boundary_marks_nothing: true
+  initialisation_alone_marks_no_base_region: true
+  wake_termination_detection_moves_nothing_on_the_wing_body: true
+steps:
+- variant: WB_C0
+  geometry: WB
+  moved: the wing-body, nothing moved (control)
+  lines_moved: 0
+  flag_rows_moved: []
+  solver_said: []
+  script_sha256: 2cda5053b15f15435fc1856ae541a06fe53f0148ccf86e180521cb831e5f92f0
+- variant: WB_W1
+  geometry: WB
+  moved: AUTO_DETECT_WAKE_TERMINATION_NODES
+  lines_moved: 0
+  flag_rows_moved: []
+  solver_said: []
+  script_sha256: 975ef9f346d4fad6ae8301590b2167a9b7dc42ec492eef1364b39e7662b864cb
+- variant: WB_W2
+  geometry: WB
+  moved: DETECT_WAKE_TERMINATION_NODES_BY_SURFACE 2 (the body)
+  lines_moved: 0
+  flag_rows_moved: []
+  solver_said: []
+  script_sha256: c9d30cd859f274f03c913324a609f67a827384e5b35fed8bbd3efc7637723ad6
+- variant: WB_W3
+  geometry: WB
+  moved: INITIALIZE_SOLVER alone (farfield layers 5)
+  lines_moved: 107
+  flag_rows_moved: []
+  solver_said:
+  - Symmetry is disabled.
+  - 'Trefftz plane location: 40.000'
+  - 'Coordinate frame for analysis: Reference'
+  - 'Following geometry is being initialized:'
+  script_sha256: e3c6f49af34849e38367f1678191c8a2ff4217a7459d5a12d875b4dd7ad9d4fd
+- variant: BD_C0
+  geometry: BD
+  moved: the body with a base, nothing moved (control)
+  lines_moved: 0
+  flag_rows_moved: []
+  solver_said: []
+  script_sha256: b6b8300f266a39ad97a1e750c7f29f14f90baf375bc9bec9cc1f06b139b53222
+- variant: BD_B1
+  geometry: BD
+  moved: AUTO_DETECT_BASE_REGIONS
+  lines_moved: 192
+  flag_rows_moved:
+  - - 33
+    - '01'
+    - - 0
+      - 24
+  solver_said:
+  - 24 base region faces marked on surface Base
+  script_sha256: 25850006c65b8a4350ee1c2ec9b61190875b4abd943d0e1bb971609ac54ee265
+- variant: BD_B2
+  geometry: BD
+  moved: 'DETECT_BASE_REGIONS_BY_SURFACE 1 (the Body boundary; the index the workflow emits for BASE_REGIONS: Body)'
+  lines_moved: 0
+  flag_rows_moved: []
+  solver_said: []
+  script_sha256: 47c8bae44a53e75a5f06685351fcebe8650fc9fa841fbaa522fe33824cdfc28e
+- variant: BD_B3
+  geometry: BD
+  moved: INITIALIZE_SOLVER alone (farfield layers 5)
+  lines_moved: 97
+  flag_rows_moved: []
+  solver_said:
+  - Symmetry is disabled.
+  - 'Trefftz plane location: 8.000'
+  - 'Coordinate frame for analysis: Reference'
+  - 'Following geometry is being initialized:'
+  script_sha256: f80a4a0ca0264afbab2cd5958ec847e7e452400fa461737bd605ecaa16f51dd0
+- variant: BD_B2_2
+  geometry: BD
+  moved: DETECT_BASE_REGIONS_BY_SURFACE 2 (the Base boundary)
+  lines_moved: 192
+  flag_rows_moved:
+  - - 33
+    - '01'
+    - - 0
+      - 24
+  solver_said:
+  - 24 base region faces marked on surface Base
+  script_sha256: 8e329127bea03e4c671f925723702c7ccc7b37979b3e60e6ca82c2b207deb3c4
