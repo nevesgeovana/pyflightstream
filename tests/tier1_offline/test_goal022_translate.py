@@ -150,7 +150,7 @@ def test_goal022_cell_grammar_the_list_reaches_the_row_the_case_and_the_super_fi
     ).sims[0]
     assert case.translations == row.translations
     super_row = superfile_row(
-        polar_columns=("POLAR",),
+        polar_columns=("POL",),
         polar_values=("0001",),
         matrix_row=row,
         record=None,
@@ -162,7 +162,7 @@ def test_goal022_cell_grammar_the_list_reaches_the_row_the_case_and_the_super_fi
     # The column is written for every row, empty where the row states none.
     bare = _row_file(tmp_path, "steady", "GEOMETRY: wb.fsm")
     empty = superfile_row(
-        polar_columns=("POLAR",),
+        polar_columns=("POL",),
         polar_values=("0001",),
         matrix_row=read_matrix(bare, active_only=False)[0],
         record=None,

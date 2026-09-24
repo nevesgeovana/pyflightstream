@@ -169,15 +169,32 @@ def test_unsteady_drag_is_checked_against_the_plotted_drag(tmp_path, cdw, verdic
     assert len(result["measured"]["unsteady_polar_rows"]) == 1
 
 
+#: A rotor table as 0.26.0 wrote it (its alias alone on the first line) and as
+#: 0.27.0 writes it (G16: the header first, the polar and the alias as columns).
+ROTOR_TABLE_FORMS = {
+    "titled": (
+        "PROP\nALPHA,RHO,J_PROP,CT_PROP,CP_PROP,ETA_PROP,ETAW_PROP,RPM_PROP,DIAMETER_PROP\n",
+        "",
+    ),
+    "g16": (
+        "POL,ROTOR,ALPHA,RHO,J_PROP,CT_PROP,CP_PROP,ETA_PROP,ETAW_PROP,RPM_PROP,DIAMETER_PROP\n",
+        "1,PROP,",
+    ),
+}
+
+
+@pytest.mark.parametrize("form", sorted(ROTOR_TABLE_FORMS))
 @pytest.mark.parametrize("sign,verdict", [(1, "coherent"), (-1, "INCOHERENT")])
-def test_etaw_is_checked_against_signed_history_even_if_eta_is_flipped(tmp_path, sign, verdict):
+def test_etaw_is_checked_against_signed_history_even_if_eta_is_flipped(
+    tmp_path, sign, verdict, form
+):
     # rho=1, RPM=60, D=1 give unit_N=1. At alpha=30 a force (-2,0,0)
     # projects to -sqrt(3) N; J=CP=1 make ETAW=-sqrt(3) and shaft ETA=-2.
+    head, lead = ROTOR_TABLE_FORMS[form]
     (tmp_path / "polars").mkdir()
     (tmp_path / "probes").mkdir()
     (tmp_path / "polars" / "P1_PROP_rotor.csv").write_text(
-        "PROP\nALPHA,RHO,J_PROP,CT_PROP,CP_PROP,ETA_PROP,ETAW_PROP,RPM_PROP,DIAMETER_PROP\n"
-        f"30,1,1,-2,1,{-2 * sign},{-math.sqrt(3) * sign},60,1\n",
+        head + f"{lead}30,1,1,-2,1,{-2 * sign},{-math.sqrt(3) * sign},60,1\n",
         encoding="utf-8",
     )
     point = "P1-AL+300"

@@ -29,6 +29,12 @@ AND EVERY LINE SPLITS ON ',' TO THE HEADER'S COUNT. The same reader loads these 
 counted as two columns or more. The matrix cells the super content echoes did exactly that
 (`SWEEP_VALUES`, `FLIGHT_CONDITION`). So no cell holds a comma or a double quote: a comma is
 written `;`, a double quote a single one, and nothing is quoted.
+
+AND THE POLAR IS STATED ONCE, AS `POL`. The steady polar and its super file carried the same
+simulation id a second time, under `POLAR`, the name 0.26.0 gave it. That column is gone from
+every table: the walk refuses any header that still names it, the fixed-width super file
+included, and a table written before 0.27.0, which names the polar `POLAR` and has no `POL`,
+still reads into the super file's union as the polar.
 """
 
 from __future__ import annotations
@@ -55,6 +61,14 @@ from pyflightstream.workspace import CampaignWorkspace
 #: The polar column, spelled as a matrix file writes it rather than imported, so a tree that
 #: names it otherwise fails on the tables and not on an import.
 POL = "POL"
+
+#: The name 0.26.0 gave the polar in the steady polar table and its super file. No table the post
+#: writes states it since 0.27.0: `POL` alone carries the polar.
+RETIRED = "POLAR"
+
+#: The first columns of a steady polar table and of its super file: the polar, then what 0.26.0
+#: wrote after its `POLAR`, in the same order.
+STEADY_POLAR_LEAD = ("POL", "DESCRIPTION", "GROUP", "SREF", "CREF", "BREF", "XMOM", "YMOM", "ZMOM")
 
 #: The header of a rotor table as 0.26.0 wrote it on its SECOND line, after the alias alone
 #: on the first. Every one of these names must survive, in this order, after `POL, ROTOR`.
@@ -290,6 +304,9 @@ def _problems_of(workspace: CampaignWorkspace, out: Path) -> tuple[list[str], li
             problems.append(f"{relative}: states {POL} {header.count(POL)} times")
         if header.count("ROTOR") > 1:
             problems.append(f"{relative}: states ROTOR {header.count('ROTOR')} times")
+        if RETIRED in header:
+            # The polar a second time, under the name 0.26.0 gave it.
+            problems.append(f"{relative}: states {RETIRED}; {POL} alone carries the polar")
         if not body:
             problems.append(f"{relative}: holds no row")
         for number, row in enumerate(body, start=2):
@@ -385,6 +402,59 @@ def test_g16_a_rotor_table_written_before_the_rule_still_reads_into_the_union(tm
     new = tmp_path / "P4014-LIFT_rotor.csv"
     new.write_text(f"POL,ROTOR,{ROTOR_COLUMNS_BEFORE}\n")
     assert _header(new) == {POL, "ROTOR", *ROTOR_COLUMNS_BEFORE.split(",")}
+
+
+# ----------------------------------------------------------------- the steady polar --
+
+
+def test_g16_the_steady_polar_and_its_super_file_state_the_polar_once_as_pol(tmp_path, monkeypatch):
+    """`POL`, then what 0.26.0 wrote after its `POLAR`, in order; and no `POLAR` anywhere."""
+    workspace = _matriz_two_polars(tmp_path, monkeypatch)
+    polars = workspace.products_dir("matriz") / "polars"
+    (table,) = sorted(polars.glob("P6001-*_g01.csv"))
+    (superfile,) = sorted(polars.glob("SUPER-6001-*_g01.csv"))
+    for path in (table, superfile):
+        first, second = path.read_text(encoding="utf-8").splitlines()[:2]
+        header = first.split(",")
+        assert tuple(header[: len(STEADY_POLAR_LEAD)]) == STEADY_POLAR_LEAD, (path.name, header)
+        assert RETIRED not in header, (path.name, header)
+        assert second.split(",")[0] == "6001", (path.name, second[:60])
+
+
+def test_g16_a_super_file_in_the_fixed_width_format_states_the_polar_once_as_pol(tmp_path):
+    """The `legacy_polar` super file carries the csv form's columns, so it loses `POLAR` too."""
+    from tests.tier1_offline.test_post_superfile import _post, _workspace
+
+    workspace = _workspace(tmp_path)
+    for code in ("p001", "p002"):
+        path = workspace.inputs_dir / "pproc" / f"{code}.toml"
+        path.write_text(
+            path.read_text(encoding="utf-8") + '\n[products]\nsuperfile_format = "legacy_polar"\n',
+            encoding="utf-8",
+        )
+    supers = [Path(p) for p in _post(workspace) if Path(p).name.startswith("SUPER-")]
+    assert supers, "the post wrote no super file"
+    for path in supers:
+        header = path.read_text(encoding="utf-8").splitlines()[0].split()
+        assert header[: len(STEADY_POLAR_LEAD)] == list(STEADY_POLAR_LEAD), (path.name, header)
+        assert RETIRED not in header, (path.name, header[:6])
+
+
+def test_g16_a_polar_table_written_before_the_rule_gives_the_union_its_polar_as_pol(tmp_path):
+    """A 0.26.0 polar table names the polar `POLAR` and has no `POL`: the union reads it as `POL`.
+
+    The super file's union reads the header of every polar table under `polars/`, one an earlier
+    release wrote included. Read as written, that table put `POLAR` into what the workspace knows,
+    a name no super file carries any more, and the superset the union measures could not hold.
+    """
+    from pyflightstream.post.superfile import _header
+
+    old = tmp_path / "P3207-M20AL-020BE+000_g01.csv"
+    old.write_text("POLAR,DESCRIPTION,GROUP,SREF\n3207,STEADY_WB,1,50.00000\n", encoding="utf-8")
+    assert _header(old) == {POL, "DESCRIPTION", "GROUP", "SREF"}
+    new = tmp_path / "P3208-M20AL-020BE+000_g01.csv"
+    new.write_text("POL,DESCRIPTION,GROUP,SREF\n3208,STEADY_WB,1,50.00000\n", encoding="utf-8")
+    assert _header(new) == {POL, "DESCRIPTION", "GROUP", "SREF"}
 
 
 # ------------------------------------------------------------------ the readers --

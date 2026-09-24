@@ -39,7 +39,7 @@ def _drafts(tmp_path):
     return [
         SuperfileDraft(
             path=tmp_path / "SUPER-0001-M150_PUSHER.csv",
-            rows=[{"POLAR": "0001", "ALPHA": -2.0, "CT_PUSHER": 0.12}],
+            rows=[{"POL": "0001", "ALPHA": -2.0, "CT_PUSHER": 0.12}],
             entry={"runs": ["camp/sim_1/P"]},
         )
     ]
@@ -54,7 +54,7 @@ def test_the_default_is_the_format_she_already_reads(tmp_path):
     """Adding a format may not change what an existing workspace writes."""
     written, _, columns = write_superfiles(_drafts(tmp_path), target=lambda path: path)
     text = written[0].read_text(encoding="utf-8")
-    assert text.splitlines()[0].startswith("POLAR,"), text.splitlines()[0]
+    assert text.splitlines()[0].startswith("POL,"), text.splitlines()[0]
     assert "ALPHA" in columns
 
 
@@ -202,7 +202,7 @@ def test_a_pproc_that_chose_csv_is_not_overridden_by_the_campaign(tmp_path):
     """
     chose_csv = SuperfileDraft(
         path=tmp_path / "chose" / "SUPER-0001-M150_PUSHER.csv",
-        rows=({"POLAR": "0001", "ALPHA": "-2.0"},),
+        rows=({"POL": "0001", "ALPHA": "-2.0"},),
         entry={},
         fmt="csv",
     )
@@ -219,7 +219,7 @@ def test_a_draft_that_states_no_format_takes_the_campaigns(tmp_path):
     """The other half, so the fix is not satisfied by ignoring `fmt` entirely."""
     silent = SuperfileDraft(
         path=tmp_path / "silent" / "SUPER-0001-M150_PUSHER.csv",
-        rows=({"POLAR": "0001", "ALPHA": "-2.0"},),
+        rows=({"POL": "0001", "ALPHA": "-2.0"},),
         entry={},
     )
     written, _, _ = write_superfiles(

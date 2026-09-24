@@ -782,15 +782,19 @@ FlightStream versions.
   comes from; the sweep, whose rows mix polars, carries each row's own. The
   rotor table's alias, alone on its first line before the header since 0.23.0,
   is now the `ROTOR` column right after `POL`, so its first line is its header
-  and a CSV reader takes the file as written. Every other column keeps its name
-  and its order after them: a reader by name is unaffected, a reader by
-  position finds each column one place to the right, two in a rotor table. The
-  package's own readers follow: the reductions read every plots column but
-  `POL` as a plotted quantity, the super file's union reads a rotor table's
-  header from its first line and passes over the alias line of one written
-  before, and `REDUCTION_COLUMNS` begins with `POL`, so a `[names]` entry
-  cannot take the name. The public table writers take `pol=` (`NA` where the
-  caller states none), `results.sweep_table` and `results.run_table` lead with
+  and a CSV reader takes the file as written. **`POLAR` is gone:** the steady
+  polar and its super file, which opened with `POLAR` in 0.26.0, open with
+  `POL` in its place and carry no `POLAR` column, so a reader by name reads
+  `POL` where it read `POLAR`, and a reader by position finds every column of
+  those two tables where it was. Every other column keeps its name and its
+  order after them: a reader of any other table by position finds each column
+  one place to the right, two in a rotor table. The package's own readers
+  follow: the reductions read every plots column but `POL` as a plotted
+  quantity, the super file's union reads a rotor table's header from its first
+  line, passes over the alias line of one written before and reads the `POLAR`
+  of a polar table written before as `POL`, and `REDUCTION_COLUMNS` begins with
+  `POL`, so a `[names]` entry cannot take the name. The public table writers
+  take `pol=` (`NA` where the caller states none), `results.sweep_table` and `results.run_table` lead with
   `POL`, `ROTOR_TABLE_LEAD_LINES` is 0, and `rotor_table_alias_line` is removed
   with the line it wrote. The solver's own files are not touched. See
   `docs/migrating-to-0.27.0.md`.
