@@ -2458,8 +2458,19 @@ manual ties them:
 That file is a field of 30 m/s along x at z = 0, sheared by 2.5 m/s per metre
 of z, over 16 m of span and 8 m of height. THE FILE IS IN METRES AND METRES PER
 SECOND, IN THE GLOBAL FRAME, as the simulation is: nothing is converted, and
-the rows are written to the solver as they are. Whether the solver reads them
-so is what the licensed probe T14 measures (below).
+the rows are written to the solver as they are, which is how 26.124 reads them
+(the licensed probe T14, RPT-T14, below).
+
+THE FIELD IS THE FLOW'S DIRECTION. On 26.124 `SOLVER_SET_AOA` does not turn a
+custom field (T14), so a row stating one states `ALPHA` and `BETA` as 0, or
+neither, and writes the incidence it wants into the field's `vy` and `vz`
+components. A non-zero angle of attack or sideslip beside the key, fixed or
+swept, is refused at plan, a sweep at every point, the one at zero too
+(`test_g15_a_field_beside_an_angle_of_attack_or_a_sideslip_is_refused`,
+`test_g15_a_field_beside_an_angle_in_the_flight_condition_blocks_every_point_at_plan`):
+run, such a row would solve near zero incidence and report the angle it names.
+The sideslip was not measured; it is the same mechanism and is refused for the
+same reason.
 
 The script writes `SET_FREESTREAM CUSTOM STRUCTURED`, or `UNSTRUCTURED`, and
 the file's absolute path on the next line, in place of
@@ -2468,7 +2479,7 @@ the file's absolute path on the next line, in place of
 `test_g15_a_dat_file_is_the_unstructured_form`,
 `test_g15_a_steady_sweep_writes_its_field_once_with_the_setup`). Nothing else
 of the script moves, so the row's `FLIGHT_CONDITION` still writes
-`SOLVER_SET_AOA`, `SOLVER_SET_SIDESLIP` and `SOLVER_SET_VELOCITY`
+`SOLVER_SET_AOA 0.0`, `SOLVER_SET_SIDESLIP 0.0` and `SOLVER_SET_VELOCITY`
 (`test_g15_the_script_differs_from_its_control_in_the_free_stream_lines_alone`).
 The file is resolved when the row is planned, to the absolute path the script
 names; it is read where it lives, never copied beside the mesh, and its sha256
@@ -2497,21 +2508,34 @@ rate writes `SET_FREESTREAM ROTATION` and a run has one `SET_FREESTREAM`
 straight flight and sits beside it.
 
 WHAT HAS RUN WHERE. `SET_FREESTREAM` is documented on every build, and its
-CUSTOM form has run on none: the command database records the ROTATION form
-running on 26.124 (RPT-052) and no probe of the other two. The licensed probe
-T14 runs rows 5011 to 5014 of `tests/tier3_licensed/matriz_gui.fs` on 26.124:
-a uniform field equal to the row's own speed against the CONSTANT control 5010
-at the same angle of attack, the same field at 0 deg against the CONSTANT
-control 5013, and a field sheared in z at 0 deg. It answers what nothing here
-can: whether the solver reads the file in m/s as written, and whether it still
-turns a custom field by the row's angle of attack.
+CUSTOM STRUCTURED form ran on 26.124 under the licensed probe T14 (RPT-T14),
+steady rows of `tests/tier3_licensed/matriz_gui.fs` on the 12_WING_PHY wing at
+30 m/s, five far-field layers (the loads table prints four decimals):
 
-NOT MEASURED, until T14 reports: everything the solver does with the field.
-Beyond it: a custom field on an unsteady or a rotor row; what the solver takes
-at a point outside the file's grid, so a field should cover the body's YZ
-extent and its wake with margin; and whether a saved simulation carries the
-field, so a continuation (`RESTART`), which reopens the saved simulation and
-writes no free stream, is taken on trust, as it is for a body rate.
+| row | free stream | angle of attack | CL | CDi | CDo |
+|---|---|---|---|---|---|
+| 5013 | CONSTANT | 0 deg | 0.0023 | 0.0000 | 0.0066 |
+| 5012 | the uniform field, vx = 30 m/s | 0 deg | 0.0023 | 0.0000 | 0.0066 |
+| 5014 | the field sheared in z, vx = 30 + 2.5 z m/s | 0 deg | 0.0045 | 0.0000 | 0.0066 |
+| 5010 | CONSTANT | 4 deg | 0.3385 | 0.0049 | 0.0071 |
+| 5011 | the uniform field, vx = 30 m/s | 4 deg | 0.0021 | 0.0002 | 0.0065 |
+
+The uniform field loads as the constant free stream it equals, to the digits
+printed, so the file is read in m and m/s; the sheared field moves the lift;
+and at 4 deg the field loads near its own 0 deg self and far from the constant
+free stream at 4 deg, although the angle still moves the result a little (CL
+0.0021 against 0.0023, CDi 0.0002 against 0.0000). That is the refusal above.
+Row 5011 is retired from the matrix, since the plan refuses it now; its run is
+the report's evidence. `tests/tier3_licensed/test_freestream.py` holds 5012 to
+5014 to what they measured. Every other build is documented only, and the
+ROTATION form ran on 26.124 under RPT-052.
+
+NOT MEASURED: the UNSTRUCTURED form; the sideslip beside a field; a custom
+field on an unsteady or a rotor row; what the solver takes at a point outside
+the file's grid, so a field should cover the body's YZ extent and its wake
+with margin; and whether a saved simulation carries the field, so a
+continuation (`RESTART`), which reopens the saved simulation and writes no free
+stream, is taken on trust, as it is for a body rate.
 
 ### One row, one geometry, turned
 

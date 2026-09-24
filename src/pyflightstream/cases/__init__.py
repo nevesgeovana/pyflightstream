@@ -4333,7 +4333,10 @@ class SimCase(BaseModel):
         and a ``.dat`` its UNSTRUCTURED form. A matrix row states
         ``FREESTREAM: <stem>`` and the workspace resolves it here against
         ``inputs/freestreams/`` when the row binds; a case built in Python
-        sets it directly. None, the default, is the uniform free stream.
+        sets it directly. None, the default, is the uniform free stream. The
+        field sets the flow's direction, since ``SOLVER_SET_AOA`` does not
+        turn it (measured on 26.124), so the case's angle of attack and
+        sideslip are 0 and its builder refuses any other.
     geometry : str, optional
         Path of the geometry or simulation file the recipe opens or
         imports (an ``.fsm`` for OPEN, a mesh file for IMPORT); the
