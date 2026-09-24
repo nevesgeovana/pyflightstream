@@ -1,0 +1,453 @@
+question: does the loads table print one row per boundary in the order of the geometry's inventory (its .boundaries.toml),
+  so a vorticity-list index i names the table's i-th row
+date: '2026-09-24'
+why: the read of block 2 of 0.27.0 found the rule of PFS-2006.03 stated without committed evidence
+where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
+exports_measured: 40
+geometries:
+- 10_WING
+- 11_HALFWING
+- 12_WING_PHY
+- 13_HALFWING_PHY
+- 14_WING_RENAMED
+- 20_BODY
+- 30_BLADE
+- 30_WB
+- 31_BLADE_PHY
+- 40_PUSHER
+- 41_TWIN
+geometries_with_more_than_one_boundary:
+- 20_BODY
+- 30_WB
+- 40_PUSHER
+- 41_TWIN
+every_export_in_inventory_order: true
+exports:
+- workspace: tier-3
+  row: '1001'
+  geometry: 10_WING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-1001_M10AL+000BE+000.txt
+  export_sha256: 7d7895685641f0fb8907f591f147469b022b835b8eb38fc8e0a3240aec99aadb
+- workspace: tier-3
+  row: '1002'
+  geometry: 11_HALFWING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-1002_M10AL+040BE+000.txt
+  export_sha256: 590868ee2977c06dddbd522dfb46db88894fa88f971b7d50ac7d01c2997beca0
+- workspace: tier-3
+  row: '1003'
+  geometry: 10_WING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-1003_M10AL+000BE+000.txt
+  export_sha256: e2967d54149f1bc1d26b1bddfcaedfb7f1f35addda7cee347673f4adb618acd4
+- workspace: tier-3
+  row: '1004'
+  geometry: 10_WING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-1004_M10AL+020BE+020.txt
+  export_sha256: 88e0d0af5579362ec75a707cca3fcd75527fed34a3378bb264684bb8e292616e
+- workspace: tier-3
+  row: '1005'
+  geometry: 20_BODY
+  inventory:
+  - Body
+  - Base
+  loads_table_rows:
+  - Body
+  - Base
+  same_order: true
+  export: POLAR-1005_M10AL+000BE+000.txt
+  export_sha256: 92ee8af02ddc9a3196b08856436cec36b29956d39dce1de2aee95df37e6b6492
+- workspace: tier-3
+  row: '1010'
+  geometry: 10_WING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-1010_M10AL+020BE+000.txt
+  export_sha256: 6c4a333616abb520a8e3196b37f3cf5db72b4b8f3c7ec515c8e1bc0271eeb4b6
+- workspace: tier-3
+  row: '1011'
+  geometry: 10_WING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-1011_M10AL+020BE+000J+130.txt
+  export_sha256: 243879c194be90d3a9daaa881507cc3c55e5354d09c11fdaba282f5210ae6f48
+- workspace: tier-3
+  row: '1020'
+  geometry: 30_BLADE
+  inventory:
+  - Blade1
+  loads_table_rows:
+  - Blade1
+  same_order: true
+  export: POLAR-1020_M14AL+000BE+000J+170.txt
+  export_sha256: 7ba1a17d965feddb2111a02b7e38441fa6bbb2f376b72e5cdedd1747f00a0f10
+- workspace: tier-3
+  row: '1021'
+  geometry: 40_PUSHER
+  inventory:
+  - Body
+  - Base
+  - Blade1
+  loads_table_rows:
+  - Body
+  - Base
+  - Blade1
+  same_order: true
+  export: POLAR-1021_M10AL+000BE+000.txt
+  export_sha256: da8c598d5eb73ef3ae9be7216d1572b51eb1239a0f547ac0ee72a4ce7f26f27f
+- workspace: tier-3
+  row: '1022'
+  geometry: 41_TWIN
+  inventory:
+  - Body
+  - Base
+  - Blade1
+  - Blade2
+  loads_table_rows:
+  - Body
+  - Base
+  - Blade1
+  - Blade2
+  same_order: true
+  export: POLAR-1022_M10AL+000BE+000.txt
+  export_sha256: 4b7aa78b88d3315ff827cac39a457719997710f9f5f2c4018b1aada95655b997
+- workspace: tier-3
+  row: '1090'
+  geometry: 10_WING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: loads_a+00.0.txt
+  export_sha256: e709b3995f962cdd2fa65266eb03d08aa2af2880ba1eb630e26ca9ba4dc77402
+- workspace: tier-3
+  row: '2001'
+  geometry: 10_WING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-2001_M10AL+040BE+000.txt
+  export_sha256: 782ff9fb3bf4c6bf4351b20fe905dcbdadaf388cef9f42c7ce4afb34452bd81c
+- workspace: tier-3
+  row: '2002'
+  geometry: 10_WING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-2002_M10AL+040BE+000.txt
+  export_sha256: 872782afbe084813e083997469a8387634b23a9b2398ebc49af88bc14b840779
+- workspace: tier-3
+  row: '2003'
+  geometry: 10_WING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-2003_M10AL+040BE+000.txt
+  export_sha256: 79726d43f1737046e809dd98a1d938fe3fdf11348810e14922884ccc79263fbe
+- workspace: tier-3
+  row: '2004'
+  geometry: 10_WING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-2004_M10AL+040BE+000.txt
+  export_sha256: bc7ccc989ebe67b93b8eaee22e041fd665e6344841e7c2bac5e4bf0c7131f866
+- workspace: tier-3
+  row: '3001'
+  geometry: 30_BLADE
+  inventory:
+  - Blade1
+  loads_table_rows:
+  - Blade1
+  same_order: true
+  export: POLAR-3001_M14AL+000BE+000J+170.txt
+  export_sha256: 02b2b6f1cbb95f2c60ed49d89b1066306c586502c47171b24742e6461d31145a
+- workspace: tier-3
+  row: '3002'
+  geometry: 30_BLADE
+  inventory:
+  - Blade1
+  loads_table_rows:
+  - Blade1
+  same_order: true
+  export: POLAR-3002_M14AL+000BE+000J+170.txt
+  export_sha256: b2375de20c2d9a5e5c79c4ff184e42c43834d2735d83963e6218116c2e359d01
+- workspace: tier-3
+  row: '3003'
+  geometry: 30_BLADE
+  inventory:
+  - Blade1
+  loads_table_rows:
+  - Blade1
+  same_order: true
+  export: POLAR-3003_M14AL+000BE+000J+170.txt
+  export_sha256: 2ba4489a6daafd8ec3fd86dca51970a5cbb925d5f7f136713ed3e7831101a023
+- workspace: tier-3
+  row: '3004'
+  geometry: 30_BLADE
+  inventory:
+  - Blade1
+  loads_table_rows:
+  - Blade1
+  same_order: true
+  export: POLAR-3004_M14AL+000BE+000J+170.txt
+  export_sha256: 616ad49a8bef2687b5920ca7c013906823a0c122ce0d512465fb3721ecd7f35d
+- workspace: tier-3
+  row: '3005'
+  geometry: 30_BLADE
+  inventory:
+  - Blade1
+  loads_table_rows:
+  - Blade1
+  same_order: true
+  export: POLAR-3005_M14AL+000BE+000J+170.txt
+  export_sha256: 92cf4e3aca2b2bad5084a15f10295b4e14eeec7d35020851f495aec586a64af0
+- workspace: tier-3
+  row: '3006'
+  geometry: 30_BLADE
+  inventory:
+  - Blade1
+  loads_table_rows:
+  - Blade1
+  same_order: true
+  export: POLAR-3006_M14AL+000BE+000J+170.txt
+  export_sha256: 6e1022043d4ae8c53cb289befc76a02b49bf852b1a03eb1a878d68b49e6bbafd
+- workspace: tier-3
+  row: '3010'
+  geometry: 10_WING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-3010_M10AL+020BE+000.txt
+  export_sha256: 208deefb27b31af4198af9519ebc90338a5eaf80ecc10a4e0d901660ad0668ac
+- workspace: tier-3
+  row: '3011'
+  geometry: 10_WING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-3011_M10AL+020BE+000.txt
+  export_sha256: eff3ff782e65698119ade46f8488e70a6a9422ff9365e76a7a0d69f3e4a55525
+- workspace: tier-3
+  row: '4001'
+  geometry: 10_WING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-4001_M10AL+040BE+000.txt
+  export_sha256: 63ff818645800fae04c570c9292d1a0763f0d75a3bd20407da42246b3475c8a7
+- workspace: tier-3
+  row: '4002'
+  geometry: 11_HALFWING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-4002_M10AL+040BE+000.txt
+  export_sha256: 1b1381a4287da4496dc393015d5f8b6115c8a8912579a7e282d1b2373e53138e
+- workspace: tier-3
+  row: '4003'
+  geometry: 20_BODY
+  inventory:
+  - Body
+  - Base
+  loads_table_rows:
+  - Body
+  - Base
+  same_order: true
+  export: POLAR-4003_M10AL+040BE+000.txt
+  export_sha256: acc83e8ac9d0ad6541a1551654e26be91348dfe8773ab571b687dc4c2862cfeb
+- workspace: tier-3
+  row: '4004'
+  geometry: 14_WING_RENAMED
+  inventory:
+  - MainWing
+  loads_table_rows:
+  - MainWing
+  same_order: true
+  export: POLAR-4004_M10AL+040BE+000.txt
+  export_sha256: ad87019aa58385d302e3973b7fb895463adc351f5e0a87998ad9f8b994c5fe0e
+- workspace: tier-3
+  row: '5001'
+  geometry: 12_WING_PHY
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-5001_M09AL+000BE+000.txt
+  export_sha256: 97152d19e73b10d4da356a5ebaf6f6a24c75ca091288678c5a471a5769f9356b
+- workspace: tier-3
+  row: '5002'
+  geometry: 12_WING_PHY
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-5002_M09AL+040BE+000.txt
+  export_sha256: 9156b56c57d3e760f5d34b8f0501a33edda32a54d70a489f9ee6b580347138df
+- workspace: tier-3
+  row: '5003'
+  geometry: 13_HALFWING_PHY
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-5003_M09AL+040BE+000.txt
+  export_sha256: 0580880d9491c1f2a4b38cfa6c4a8a1f7462bd21555ceb289f9f4fe1d8a908b6
+- workspace: tier-3
+  row: '5005'
+  geometry: 31_BLADE_PHY
+  inventory:
+  - Blade1
+  loads_table_rows:
+  - Blade1
+  same_order: true
+  export: POLAR-5005_M14AL+000BE+000J+170.txt
+  export_sha256: b488fa6b1ca487c5b4dee65f7d8c8210660e0ad2b532fbba6214cef18ecf9329
+- workspace: tier-3
+  row: '5006'
+  geometry: 12_WING_PHY
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-5006_M09AL+000BE+000.txt
+  export_sha256: 2db66abd88534c5c19cec75ef9b47b843d041f9e881b13edb585602119beb85b
+- workspace: tier-3
+  row: '6001'
+  geometry: 10_WING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: loads_a+02.0.txt
+  export_sha256: 97609c0e8779a7ccc163d804962192761366c1371e274acbc03f96ce3745c512
+- workspace: tier-3
+  row: '6002'
+  geometry: 10_WING
+  inventory:
+  - Wing
+  loads_table_rows:
+  - Wing
+  same_order: true
+  export: POLAR-6002_M10AL+020BE+000.txt
+  export_sha256: 4e6d6f6fe4d8a606c09cd8c5b6b263097a584e47b7c8f3679e495f2c8b1b5c0d
+- workspace: tier-3
+  row: '7001'
+  geometry: 30_BLADE
+  inventory:
+  - Blade1
+  loads_table_rows:
+  - Blade1
+  same_order: true
+  export: POLAR-7001_M14AL+000BE+000J+170.txt
+  export_sha256: da95ae6b52860a5790bd8440e16a92f3cce6737859dcf8e265f39d99e0407f8f
+- workspace: tier-3
+  row: '7002'
+  geometry: 30_BLADE
+  inventory:
+  - Blade1
+  loads_table_rows:
+  - Blade1
+  same_order: true
+  export: POLAR-7002_M14AL+000BE+000J+170.txt
+  export_sha256: 36976084630c8eb6a662fd274adf191776b994de9d82b65e759c5e916fd4e607
+- workspace: tier-3
+  row: '9001'
+  geometry: 40_PUSHER
+  inventory:
+  - Body
+  - Base
+  - Blade1
+  loads_table_rows:
+  - Body
+  - Base
+  - Blade1
+  same_order: true
+  export: POLAR-9001_M10AL+000BE+000.txt
+  export_sha256: d06d2f82a1f1cc13e00133ec43d258de145ce2b89ba9d08254783e88f7017523
+- workspace: tier-3
+  row: '9002'
+  geometry: 40_PUSHER
+  inventory:
+  - Body
+  - Base
+  - Blade1
+  loads_table_rows:
+  - Body
+  - Base
+  - Blade1
+  same_order: true
+  export: POLAR-9002_M10AL+060BE+000.txt
+  export_sha256: 8d85a6777654cb5fe74f93d99282532b23471a194dc35e02d8321fb70140ec4e
+- workspace: tier-3
+  row: '9003'
+  geometry: 40_PUSHER
+  inventory:
+  - Body
+  - Base
+  - Blade1
+  loads_table_rows:
+  - Body
+  - Base
+  - Blade1
+  same_order: true
+  export: POLAR-9003_M10AL-060BE+000.txt
+  export_sha256: 6490eca3df331067af7530bad26a1800f41328b93a693a05be12957b489ea393
+- workspace: RPT-060 probe (26.124)
+  row: '4201'
+  geometry: 30_WB
+  inventory:
+  - W
+  - B
+  loads_table_rows:
+  - W
+  - B
+  same_order: true
+  export: P4201-M200RE1177AL+020BE+000P+000R+000.txt
+  export_sha256: 3e33d108828d96b98f38b89f2197ccd4831db72aac2d762c84a3f7748758457f

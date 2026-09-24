@@ -96,14 +96,16 @@ all nine.
 A boundary on the vorticity induced-drag list takes its induced drag from
 the vorticity it sheds, and one without a defined trailing edge reports zero
 there (SRC-003 p.202). Every other boundary takes it from surface pressure
-integration. The rows state their form as follows (PFS-2006.02).
+integration. The rows state their form as follows (PFS-2006.02); a count
+other than `-1` is followed by the line of boundary indices it selects,
+written after the `+`.
 
 | Rows | Line in the golden script | Geometry | Form |
 |---|---|---|---|
 | 1090, 6001 | `SET_VORTICITY_DRAG_BOUNDARIES -1` (the LEGACY recipes pass `"all"`) | `10_WING`, one boundary | vorticity on the wing; on this geometry every boundary IS the wing, so it is the same selection as `1` |
-| 2002 | `SET_VORTICITY_DRAG_BOUNDARIES 1` (setup `s003` names `Wing`) | `10_WING` | vorticity on the wing |
-| 5001, 5002, 5006 | `SET_VORTICITY_DRAG_BOUNDARIES 1` (setup `s005`) | `12_WING_PHY`, one boundary | vorticity on the wing: PHY-01, PHY-02 full span, PHY-06 |
-| 5003 | `SET_VORTICITY_DRAG_BOUNDARIES 1` (setup `s007`) | `13_HALFWING_PHY`, one boundary | vorticity on the wing: PHY-02 half span |
+| 2002 | `SET_VORTICITY_DRAG_BOUNDARIES 1` + `1` (setup `s003` names `Wing`) | `10_WING` | vorticity on the wing |
+| 5001, 5002, 5006 | `SET_VORTICITY_DRAG_BOUNDARIES 1` + `1` (setup `s005`) | `12_WING_PHY`, one boundary | vorticity on the wing: PHY-01, PHY-02 full span, PHY-06 |
+| 5003 | `SET_VORTICITY_DRAG_BOUNDARIES 1` + `1` (setup `s007`) | `13_HALFWING_PHY`, one boundary | vorticity on the wing: PHY-02 half span |
 | every other row, 5005 (PHY-05) included | none | | surface pressure integration on every boundary |
 | SMI-01, SMI-02 (local only, no row) | `SET_VORTICITY_DRAG_BOUNDARIES -1` from `build_smi_script` | an isolated body; a wing-body-tail | every boundary on the vorticity list, bodies included |
 

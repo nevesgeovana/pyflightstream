@@ -167,3 +167,62 @@ def test_the_fixed_width_polar_writes_a_declined_column_as_nan_and_reads_it_back
     back = read_custom_polar_format(path)
     assert math.isnan(back.rows[0]["CDI"])
     assert back.rows[0]["CDB"] == pytest.approx(0.01)
+
+
+def test_under_sideslip_the_wind_axis_side_force_is_declined_too(tmp_path):
+    """The read of block 2: CYW's refusal was promised and never exercised (every case had beta 0).
+
+    Under sideslip the wind axes turn about z, so the export's x force reaches
+    the wind-axis side force as well, and a declined drag makes it NA. The same
+    point with the surface off the list keeps a number there.
+    """
+    from pyflightstream.post.products import _polar_rows
+    from tests.tier1_offline.test_post_products import LOADS, REFERENCE
+
+    level = "     Side-slip angle (Deg)                       .000"
+    assert LOADS.count(level) == 1
+    text = _b_printed_at_zero(LOADS).replace(
+        level, "     Side-slip angle (Deg)                       5.000"
+    )
+    path = tmp_path / "AL-020BE+050.txt"
+    path.write_text(text, encoding="utf-8")
+
+    def row(selection):
+        point = PolarPoint(
+            name="AL-020BE+050",
+            loads=parse_loads(text),
+            loads_path=path,
+            vorticity_selection=selection,
+        )
+        (values,) = _polar_rows([point], [], mach=0.2, reference=REFERENCE)
+        return dict(zip(COEFFICIENT_COLUMNS, values, strict=True))
+
+    declined, kept = row("all"), row([1])
+    assert declined["BETA"] == pytest.approx(5.0)
+    assert math.isnan(declined["CYW"]), "at beta 5 the x force reaches CYW, short by B's drag"
+    assert math.isfinite(declined["CYB"]) and math.isfinite(declined["CYS"])
+    assert math.isfinite(kept["CYW"]), "off the list, nothing is declined and CYW keeps its number"
+
+
+def test_the_positional_reading_rests_on_committed_evidence():
+    """The rule reads boundary i as the table's i-th row; the evidence for it is committed.
+
+    The read of block 2 found that reading stated with no measurement behind it.
+    The evidence file lists every recorded export measured, its geometry's
+    inventory and its table's rows, and this keeps the docstring pointing at it.
+    """
+    import yaml
+
+    from pyflightstream.post.products import declined_induced_drag
+
+    name = "PFS-2006-03_2026-09-24_row-order.yaml"
+    evidence = yaml.safe_load(
+        (Path(__file__).resolve().parents[2] / "reports" / "probes" / name).read_text(
+            encoding="utf-8"
+        )
+    )
+    exports = evidence["exports"]
+    assert exports and all(e["inventory"] == e["loads_table_rows"] for e in exports)
+    assert evidence["every_export_in_inventory_order"] is True
+    assert len(evidence["geometries_with_more_than_one_boundary"]) >= 3
+    assert name in (declined_induced_drag.__doc__ or "")

@@ -49,9 +49,9 @@ FlightStream versions.
   lines gave N squared `NEW_PROBE_LINE` commands on a steady row, so the
   solver created and exported every point N times: three lines of eleven
   points gave 99 points where 33 were asked for (RPT-062). A single line hid
-  it. A steady probe export made before this release from a pproc with more
-  than one line holds the declared lines N times over, in N repeated blocks
-  (B04).
+  it. A steady probe export made before this release from a probe entry with
+  more than one line holds that entry's lines N times over, in N repeated
+  blocks; rectangles and circles were emitted once (B04).
 - **The limits list of `docs/workspace-and-workflows.md` no longer denies
   what ships.** It said nothing runs the four reductions after a campaign
   (the products stage has since 0.13.0), that a row's `REF` changes no

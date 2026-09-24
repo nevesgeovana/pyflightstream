@@ -12,11 +12,14 @@ steady row: three lines of eleven points exported 99 points where 33 were asked
 for, as N repeated blocks of the declared lines. From 0.27.0 each line is
 emitted once.
 
-If you read a steady probe export made before 0.27.0 from a pproc with more
-than one line, keep only its first N-th rows: they are the declared lines, in
-declaration order, and the other blocks repeat them value for value (measured
-on a 26.124 export of three lines). An export from a pproc with one line is
-unaffected.
+The repetition was of the LINES of one probe entry: rectangles and circles
+were emitted once, point by point. So for an export made before 0.27.0 from a
+pproc whose only probe entry declares lines and nothing else, keep its first
+N-th rows: they are the declared lines, in declaration order, and the other
+blocks repeat them value for value (measured on a 26.124 export of three
+lines). For any other layout (several entries, or lines beside a rectangle or
+a circle) do not cut the file: rerun the point, or rebuild the post from a
+0.27.0 run. An export from an entry with one line is unaffected.
 
 ## 2. An induced drag the solver did not compute is `NA` (B03)
 

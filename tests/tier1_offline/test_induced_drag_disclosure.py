@@ -19,6 +19,8 @@ import inspect
 import re
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 PAGE = ROOT / "docs" / "tiers.md"
 GOLDENS = ROOT / "tests" / "tier3_licensed" / "goldens"
@@ -33,13 +35,25 @@ def _section() -> str:
 
 
 def _forms() -> dict[str, set[str]]:
+    """Each row's selections as the table writes them: the count, and the indices line after it.
+
+    The command is `payload_lines`: `-1` stands alone, any other count is
+    followed by the line of boundary indices it selects. The count alone would
+    let a change from boundary 1 to boundary 2 pass (the read of block 2).
+    """
     forms: dict[str, set[str]] = {}
     for script in sorted(GOLDENS.glob("*/P*.txt")):
         sim = re.match(r"P(\d{4})", script.name)
         assert sim, f"a golden script name carries no row id: {script.name}"
-        for line in script.read_text(encoding="utf-8").splitlines():
-            if line.startswith(COMMAND):
-                forms.setdefault(sim.group(1), set()).add(line.split()[1])
+        lines = script.read_text(encoding="utf-8").splitlines()
+        for index, line in enumerate(lines):
+            if not line.startswith(COMMAND):
+                continue
+            count = line.split()[1]
+            form = f"`{COMMAND} {count}`"
+            if count != "-1":
+                form += f" + `{lines[index + 1].strip()}`"
+            forms.setdefault(sim.group(1), set()).add(form)
     return forms
 
 
@@ -56,8 +70,8 @@ def test_every_golden_script_on_the_vorticity_list_is_disclosed_with_its_selecti
             "no row for it; add one naming the selection and the geometry"
         )
         for selection in selections:
-            assert f"{COMMAND} {selection}`" in row, (
-                f"row {sim} emits `{COMMAND} {selection}` and its table row does not say so"
+            assert selection in row, (
+                f"row {sim} emits {selection} and its table row does not say so"
             )
 
 
@@ -69,3 +83,19 @@ def test_the_local_smi_cases_are_disclosed_with_the_form_their_builder_emits():
     assert f'"{COMMAND}", -1' in source, "the SMI builder no longer emits -1; update the page"
     smi = next((line for line in _section().splitlines() if "SMI-01" in line), None)
     assert smi is not None and f"{COMMAND} -1" in smi
+
+
+def test_a_changed_selection_with_the_same_count_is_caught(tmp_path, monkeypatch):
+    """The negative control: boundary 2 instead of 1, the count unchanged, must fail the guard."""
+    import tests.tier1_offline.test_induced_drag_disclosure as guard
+
+    source = next(GOLDENS.glob("matriz_setup/P2002-*.txt"))
+    lines = source.read_text(encoding="utf-8").splitlines()
+    at = next(i for i, line in enumerate(lines) if line.startswith(COMMAND))
+    assert lines[at] == f"{COMMAND} 1" and lines[at + 1].strip() == "1"
+    lines[at + 1] = "2"
+    (tmp_path / "matriz_setup").mkdir()
+    (tmp_path / "matriz_setup" / source.name).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    monkeypatch.setattr(guard, "GOLDENS", tmp_path)
+    with pytest.raises(AssertionError, match="row 2002 emits"):
+        guard.test_every_golden_script_on_the_vorticity_list_is_disclosed_with_its_selection()
