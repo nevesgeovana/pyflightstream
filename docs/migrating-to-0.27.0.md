@@ -141,7 +141,10 @@ plan. On the file route the row must export its solver log (a run type's
 default outputs do), and a pproc that turns `[exports] log` off, or a row
 that states `EXPORT_LOG: false`, is refused there, because the run compares
 the solver's count of imported edges with the points it wrote. The file
-route runs on 26.124 only. A `.fsm` row is unchanged, except that a `.fsm`
+route runs on 26.124 only. A file-route script whose sidecar writes
+`[wake_termination]` carries `INITIALIZE_SOLVER` twice, with the same
+settings and the detection between them, because right after a file import
+the detection marks nothing (G02). A `.fsm` row is unchanged, except that a `.fsm`
 whose sidecar states an `[import]`, `[trailing_edges]`, `[wake_termination]`
 or `[base_regions]` table is now refused, because nothing would read it;
 delete the table. The raw-mesh

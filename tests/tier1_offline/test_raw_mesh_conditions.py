@@ -38,7 +38,12 @@ import pytest
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases import workflows as workflows_module
 from pyflightstream.cases.matrix import MatrixError
-from pyflightstream.cases.workflows import build_script, workflow_registry
+from pyflightstream.cases.workflows import (
+    WORKFLOW_KEY,
+    build_script,
+    build_steady_sweep,
+    workflow_registry,
+)
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.qa.geometry import WingSpec, generate_wing_stl
 from pyflightstream.run import (
@@ -57,6 +62,7 @@ from pyflightstream.workspace.matrix import resolve_matrix
 from tests.tier1_offline.test_goal024_profile_log import LOG_TABLE as NATIVE_LOG_TABLE
 from tests.tier1_offline.test_goal024_profile_log import PROFILE as NATIVE_LOG_PROFILE
 from tests.tier1_offline.test_matrix_run import RECIPES, make_library, write_matrix
+from tests.tier1_offline.test_workflows import FIXTURE_ROTOR
 
 GOLDENS = Path(__file__).parent / "goldens" / "raw_mesh"
 
@@ -80,6 +86,11 @@ DETECT_BY_SURFACE_WITH_WAKE_AND_BASE = (
     '[trailing_edges]\ndetect = { surfaces = ["Wing"], sweep_angle = 60 }\n\n'
     '[wake_termination]\ndetect = { surfaces = ["Wing"] }\n\n'
     '[base_regions]\ndetect = "auto"\n'
+)
+#: The file route with both options: the one that waits for an initialisation
+#: and the one that does not.
+FILE_ROUTE_WITH_WAKE_AND_BASE = (
+    FILE_ROUTE + '\n[wake_termination]\ndetect = "auto"\n\n[base_regions]\ndetect = "auto"\n'
 )
 
 
@@ -193,8 +204,9 @@ def test_detection_is_emitted_only_when_written(tmp_path):
             "te_detect_by_surface_with_wake_and_base__26.124",
             DETECT_BY_SURFACE_WITH_WAKE_AND_BASE,
         ),
+        ("te_file_with_wake_and_base__26.124", FILE_ROUTE_WITH_WAKE_AND_BASE),
     ],
-    ids=["file", "detect-auto", "detect-by-surface-wake-base"],
+    ids=["file", "detect-auto", "detect-by-surface-wake-base", "file-wake-base"],
 )
 def test_each_raw_mesh_route_renders_its_committed_bytes(tmp_path, name, tables):
     """One golden per route, byte for byte, with the machine's folder as <WORKDIR>."""
@@ -355,6 +367,157 @@ def test_the_two_options_emit_their_detection_only_when_written(tmp_path):
     lines = _render(_case(other, _library(other, tables))).splitlines()
     detected = lines.index("AUTO_DETECT_TRAILING_EDGES")
     assert lines[detected + 1] == "AUTO_DETECT_WAKE_TERMINATION_NODES", lines
+
+
+# --- the wake termination of the file route waits for an initialisation (T07) -----------
+
+
+def _initialization_blocks(lines: list[str]) -> list[tuple[int, list[str]]]:
+    """Each ``INITIALIZE_SOLVER`` of a render: its line and its lines up to the blank one."""
+    return [
+        (at, lines[at : lines.index("", at)])
+        for at, line in enumerate(lines)
+        if line == "INITIALIZE_SOLVER"
+    ]
+
+
+def _assert_detected_between_two_initializations(lines: list[str], marks: list[str]) -> None:
+    """The T07 order: import, first initialisation, detection, the same initialisation again."""
+    blocks = _initialization_blocks(lines)
+    assert len(blocks) == 2, (
+        f"the file route initialises the solver {len(blocks)} time(s); it must initialise, "
+        "detect the wake-termination nodes and initialise again, because before an "
+        "initialisation the detection finds nothing on edges imported from a file"
+    )
+    (first_at, first), (second_at, second) = blocks
+    assert first == second, (
+        f"the first initialisation {first} is not the final one {second}; the second clears "
+        "the first, so the first must be the same setting and nothing of its own"
+    )
+    between = [line for line in lines[first_at + len(first) : second_at] if line]
+    assert between == marks, (
+        f"between the two initialisations the script carries {between}, and the "
+        f"wake-termination detection {marks} is the one thing that belongs there"
+    )
+    before = [line for line in lines[:first_at] if "WAKE_TERMINATION_NODES" in line]
+    assert not before, f"a detection before the first initialisation marks nothing: {before}"
+    imported = [at for at, line in enumerate(lines) if line.startswith("IMPORT_WAKE_EDGES")]
+    assert imported and imported[0] < first_at, "the edges are imported before any initialisation"
+    started = [at for at, line in enumerate(lines) if line == "START_SOLVER"]
+    assert started and started[0] > second_at, (
+        "the solver starts before the second initialisation, so it solves without the "
+        "wake-termination nodes the detection marked"
+    )
+
+
+@pytest.mark.parametrize(
+    ("detect", "marks"),
+    [
+        ('"auto"', ["AUTO_DETECT_WAKE_TERMINATION_NODES"]),
+        ('{ surfaces = ["Wing"] }', ["DETECT_WAKE_TERMINATION_NODES_BY_SURFACE 1"]),
+    ],
+    ids=["auto", "by-surface"],
+)
+def test_the_file_route_detects_its_wake_termination_between_two_initializations(
+    tmp_path, detect, marks
+):
+    """G02, T07 on 26.124. Run right after an import from a file, the termination
+    detection marks nothing; run after the initialisation it marks the node, which
+    the solver, initialised without it, does not use until it initialises again (the
+    log reports the trailing-edge groups only during an initialisation, the inferred
+    reason). So the file route initialises, detects, and initialises again with the
+    same settings, then starts the solver."""
+    tables = FILE_ROUTE + f"\n[wake_termination]\ndetect = {detect}\n"
+    lines = _render(_case(tmp_path, _library(tmp_path, tables))).splitlines()
+    _assert_detected_between_two_initializations(lines, marks)
+
+
+@pytest.mark.parametrize(
+    "tables",
+    [DETECT_AUTO + '\n[wake_termination]\ndetect = "auto"\n', FILE_ROUTE],
+    ids=["detection-route-with-wake-termination", "file-route-without-wake-termination"],
+)
+def test_a_script_with_nothing_waiting_for_an_initialization_initializes_once(tmp_path, tables):
+    """The detection route marks the ends with the edges it detects, before the
+    initialisation, and a file route with no ``[wake_termination]`` has nothing to
+    detect: each initialises once, as before (the goldens pin the bytes)."""
+    lines = _render(_case(tmp_path, _library(tmp_path, tables))).splitlines()
+    assert lines.count("INITIALIZE_SOLVER") == 1, lines
+    marks = [at for at, line in enumerate(lines) if "WAKE_TERMINATION_NODES" in line]
+    assert all(at < lines.index("INITIALIZE_SOLVER") for at in marks), lines
+
+
+def _unsteady(case, run_type: str):
+    """The raw-mesh case as a row of an unsteady run type, the steady row's own keys dropped."""
+    variables = {k: v for k, v in case.variables.items() if k not in ("OUTPUTS", "RECIPE")}
+    variables[WORKFLOW_KEY] = run_type
+    if run_type == "unsteady":
+        variables.update(DELTA_TIME="0.01", TIME_ITERATIONS="12", LAST_ITERS_AVG="6")
+        return case.model_copy(update={"recipe": run_type, "variables": variables})
+    variables.update(
+        RPM="1200",
+        ROTOR_AXIS="X",
+        BLADES="1",
+        DELTA_TIME="0.0001",
+        TIME_ITERATIONS="720",
+        LAST_REVS_AVG="0.25",
+    )
+    rotor = FIXTURE_ROTOR.model_copy(update={"families_blades": ["Wing"]})
+    return case.model_copy(
+        update={"recipe": run_type, "variables": variables, "rotors": {rotor.alias: rotor}}
+    )
+
+
+def _steady_job(case, *, cold: bool) -> Script:
+    points = [
+        case.model_copy(
+            update={
+                "point": {"alpha": alpha},
+                "outputs": [name.replace("a+00.0", f"a{alpha:+05.1f}") for name in case.outputs],
+            }
+        )
+        for alpha in (0.0, 2.0)
+    ]
+    script = Script("26.124")
+    build_steady_sweep(points, script, cold=cold)
+    return script
+
+
+@pytest.mark.parametrize(
+    "run_type",
+    ["steady", "steady-job-warm", "steady-job-cold", "unsteady", "unsteady_rotor"],
+)
+def test_every_run_type_on_the_file_route_detects_between_two_initializations(tmp_path, run_type):
+    """G02, T07: every run type that imports a raw mesh takes the same order, a steady
+    row of several points (one job, warm or cold) included; its points begin after
+    the second initialisation, so each solves with the node marked."""
+    tables = FILE_ROUTE + '\n[wake_termination]\ndetect = "auto"\n'
+    case = _case(tmp_path, _library(tmp_path, tables))
+    if run_type.startswith("steady-job"):
+        script = _steady_job(case, cold=run_type.endswith("cold"))
+    else:
+        script = Script("26.124")
+        build_script(case if run_type == "steady" else _unsteady(case, run_type), script)
+    _assert_detected_between_two_initializations(
+        script.render().splitlines(), ["AUTO_DETECT_WAKE_TERMINATION_NODES"]
+    )
+
+
+def test_a_continuation_of_a_file_route_row_marks_nothing_and_initializes_once(tmp_path):
+    """A continuation reopens the simulation the stopped run saved, which carries the
+    edges and the node that run marked, so it imports nothing and detects nothing."""
+    tables = FILE_ROUTE + '\n[wake_termination]\ndetect = "auto"\n'
+    case = _unsteady(_case(tmp_path, _library(tmp_path, tables)), "unsteady")
+    case.variables.update(
+        RESTART="{FINISH_PENDING}", RESTART_FROM="stopped.fsm", RESTART_ITERATIONS="6"
+    )
+    script = Script("26.124")
+    build_script(case, script)
+    lines = script.render().splitlines()
+    assert lines[:3] == ["OPEN", "stopped.fsm", "LOAD_SOLVER_INITIALIZATION ENABLE"], lines[:3]
+    marking = [line for line in lines if "IMPORT" in line or "WAKE_TERMINATION_NODES" in line]
+    assert not marking, lines
+    assert lines.count("INITIALIZE_SOLVER") == 1, lines
 
 
 def test_base_regions_declared_by_the_sidecar_and_by_the_row_is_refused(tmp_path):
@@ -773,6 +936,7 @@ if __name__ == "__main__":  # pragma: no cover - the golden writer, run by hand
         ("te_file__26.124", FILE_ROUTE),
         ("te_detect_auto__26.124", DETECT_AUTO),
         ("te_detect_by_surface_with_wake_and_base__26.124", DETECT_BY_SURFACE_WITH_WAKE_AND_BASE),
+        ("te_file_with_wake_and_base__26.124", FILE_ROUTE_WITH_WAKE_AND_BASE),
     ):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder).resolve()

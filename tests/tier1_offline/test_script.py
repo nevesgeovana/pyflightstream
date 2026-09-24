@@ -149,6 +149,80 @@ def test_phase_order_is_enforced_with_a_didactic_message():
         script.emit("CREATE_NEW_COORDINATE_SYSTEM")
 
 
+# --- G02: one setup command on an initialised solver, which initialises again ---
+
+_INITIALIZATION = {
+    "solver_model": "INCOMPRESSIBLE",
+    "surfaces": -1,
+    "wake_termination_x": "DEFAULT",
+    "symmetry": "NONE",
+}
+
+
+def _initialized() -> Script:
+    script = Script(version="26.124")
+    script.emit("INITIALIZE_SOLVER", **_INITIALIZATION)
+    return script
+
+
+def test_a_setup_command_passes_an_initialised_solver_through_its_door_only():
+    """The guard still refuses it through emit(); the door carries it, and the solver
+    is initialised again before it starts (T07 on 26.124)."""
+    script = _initialized()
+    with pytest.raises(ScriptOrderError, match="INITIALIZE_SOLVER at line 1"):
+        script.emit("AUTO_DETECT_WAKE_TERMINATION_NODES")
+    script.emit_after_initialization("AUTO_DETECT_WAKE_TERMINATION_NODES")
+    script.emit("INITIALIZE_SOLVER", **_INITIALIZATION)
+    script.emit("START_SOLVER")
+    lines = script.render().splitlines()
+    detected = lines.index("AUTO_DETECT_WAKE_TERMINATION_NODES")
+    initializations = [at for at, line in enumerate(lines) if line == "INITIALIZE_SOLVER"]
+    assert initializations[0] < detected < initializations[1] < lines.index("START_SOLVER")
+
+
+def test_the_door_leaves_the_phase_where_it_was():
+    """A frame after the door is refused as it was before it: the door moves nothing."""
+    script = _initialized()
+    script.emit_after_initialization("AUTO_DETECT_WAKE_TERMINATION_NODES")
+    with pytest.raises(ScriptOrderError, match="init phase"):
+        script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+
+
+def test_a_solver_started_before_it_initialises_again_is_refused_naming_what_waits():
+    script = _initialized()
+    script.emit_after_initialization("AUTO_DETECT_WAKE_TERMINATION_NODES")
+    script.emit("SOLVER_SET_AOA", 2.0)  # an init command may still come between
+    with pytest.raises(ScriptOrderError) as caught:
+        script.emit("START_SOLVER")
+    message = str(caught.value)
+    waiting = "AUTO_DETECT_WAKE_TERMINATION_NODES at line 7"
+    for needle in ("START_SOLVER belongs to the exec phase", waiting, "INITIALIZE_SOLVER"):
+        assert needle in message, message
+
+
+@pytest.mark.parametrize(
+    ("before", "name", "needle"),
+    [
+        ([], "AUTO_DETECT_WAKE_TERMINATION_NODES", "no INITIALIZE_SOLVER precedes it"),
+        (["INITIALIZE_SOLVER"], "SOLVER_SET_AOA", "SOLVER_SET_AOA belongs to the init phase"),
+        (["INITIALIZE_SOLVER"], "NEW_SIMULATION", "NEW_SIMULATION belongs to the geometry"),
+        (["INITIALIZE_SOLVER", "START_SOLVER"], "AUTO_DETECT_WAKE_TERMINATION_NODES", "exec phase"),
+    ],
+    ids=["not-initialised", "an-init-command", "a-geometry-command", "solver-started"],
+)
+def test_the_door_refuses_what_it_is_not_for(before, name, needle):
+    script = Script(version="26.124")
+    for command in before:
+        if command == "INITIALIZE_SOLVER":
+            script.emit(command, **_INITIALIZATION)
+        else:
+            script.emit(command)
+    arguments = (2.0,) if name == "SOLVER_SET_AOA" else ()
+    with pytest.raises(ScriptOrderError, match=re.escape(needle)):
+        script.emit_after_initialization(name, *arguments)
+    assert name not in script.render().splitlines(), "a refused command reached the script"
+
+
 def test_control_commands_are_exempt_from_phase_ordering():
     script = Script(version="26.120")
     script.emit("START_SOLVER")

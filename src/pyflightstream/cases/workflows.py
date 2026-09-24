@@ -4360,8 +4360,13 @@ def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
       every surface or ``DETECT_TRAILING_EDGES_BY_SURFACE`` on the surfaces
       named.
     * ``[wake_termination]``: ``AUTO_DETECT_WAKE_TERMINATION_NODES``, or one
-      ``DETECT_WAKE_TERMINATION_NODES_BY_SURFACE`` per surface named. What
-      either marks is unobserved on every geometry tried (RPT-066).
+      ``DETECT_WAKE_TERMINATION_NODES_BY_SURFACE`` per surface named, on the
+      detection route only. On the file route the detection waits for the
+      solver to initialise and is emitted by :func:`_script_init` between two
+      initialisations (:func:`_wake_termination_after_initialization`), since
+      right after a file import it marks nothing (RPT-T07 (T07)). Its surfaces
+      are resolved here on both routes, so a name the sidecar does not carry
+      is refused before anything else is emitted.
     * ``[base_regions]``: ``AUTO_DETECT_BASE_REGIONS``, which marked the
       base of a body with a flat base on 26.124 (RPT-066).
 
@@ -4407,12 +4412,13 @@ def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
                 case, script, sidecar, "[trailing_edges]", marking.detect_surfaces
             )
             script.emit("DETECT_TRAILING_EDGES_BY_SURFACE", len(indices), indices)
-    wake = conditions.wake_termination
-    if wake == "auto":
-        script.emit("AUTO_DETECT_WAKE_TERMINATION_NODES")
-    elif wake is not None:
-        for index in _sidecar_surfaces(case, script, sidecar, "[wake_termination]", wake):
-            script.emit("DETECT_WAKE_TERMINATION_NODES_BY_SURFACE", index)
+    # RESOLVED ON BOTH ROUTES, so a surface the sidecar does not name is refused
+    # here; EMITTED here on the detection route only (the file route's waits for
+    # an initialisation, :func:`_script_init`).
+    detection = _wake_termination_detection(case, script, sidecar)
+    if marking.route != "file":
+        for command, arguments in detection:
+            script.emit(command, *arguments)
     if conditions.base_regions is not None:
         named = _base_region_families(case)
         if named:
@@ -4424,6 +4430,64 @@ def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
                 f"boundaries that become the base ({page})."
             )
         script.emit("AUTO_DETECT_BASE_REGIONS")
+
+
+def _wake_termination_detection(
+    case: SimCase, script: Script, sidecar: str
+) -> list[tuple[str, tuple[int, ...]]]:
+    """Return the ``[wake_termination]`` detection a raw mesh's sidecar writes (G02).
+
+    ``AUTO_DETECT_WAKE_TERMINATION_NODES`` for ``detect = "auto"``, or one
+    ``DETECT_WAKE_TERMINATION_NODES_BY_SURFACE`` per surface named, cited
+    by the sidecar's names exactly; nothing when the table is not written.
+    Each command comes with its arguments. WHERE it is emitted is the
+    route's: with the detected edges on the detection route
+    (:func:`_raw_mesh_boundary_conditions`), between two initialisations
+    on the file route (:func:`_wake_termination_after_initialization`).
+    """
+    conditions = case.raw_mesh_conditions
+    wake = None if conditions is None else conditions.wake_termination
+    if wake is None:
+        return []
+    if wake == "auto":
+        return [("AUTO_DETECT_WAKE_TERMINATION_NODES", ())]
+    return [
+        ("DETECT_WAKE_TERMINATION_NODES_BY_SURFACE", (index,))
+        for index in _sidecar_surfaces(case, script, sidecar, "[wake_termination]", wake)
+    ]
+
+
+def _wake_termination_after_initialization(
+    case: SimCase, script: Script
+) -> list[tuple[str, tuple[int, ...]]]:
+    """Return the wake-termination detection that waits for an initialisation (G02, T07).
+
+    MEASURED ON 26.124 (RPT-T07 (T07)), on a twisted blade whose root end is
+    its one wake-termination node. Right after ``IMPORT_WAKE_EDGES_FROM_FILE``
+    the detection, automatic or by surface, marks nothing. Run after
+    ``INITIALIZE_SOLVER`` it marks the node, and the loads do not move,
+    because the solver was initialised without it. Initialised again, which
+    clears the first initialisation, the run equals the saved simulation and
+    the detection route to the printed digit; without the node its induced
+    drag was 1.8 % lower. The log reports the trailing-edge groups only
+    during an initialisation, which is the inferred reason: the detection
+    finds the ends of groups the file route has not created yet.
+
+    So this is non-empty exactly for a script that imported its trailing
+    edges from a file (:attr:`~pyflightstream.script.Script.wake_edge_points`
+    is set) of a raw mesh whose sidecar writes ``[wake_termination]``, and
+    :func:`_script_init` emits it between two initialisations with the same
+    settings. A continuation reopens a saved simulation that carries the
+    node and imports nothing, so it gets nothing here.
+    """
+    conditions = case.raw_mesh_conditions
+    if script.wake_edge_points is None or conditions is None:
+        return []
+    marking = conditions.trailing_edges
+    if marking is None or marking.route != "file":
+        return []
+    sidecar = PurePath(str(case.geometry)).stem + ".boundaries.toml"
+    return _wake_termination_detection(case, script, sidecar)
 
 
 def _mark_trailing_edges_from_file(
@@ -6666,6 +6730,16 @@ def _script_init(
         assert isinstance(bounds, list)
         script.emit("SOLVER_TIME_AVERAGING", "ENABLE", *bounds)
         script.surface_time_averaging = surface_window
+    # THE FILE ROUTE'S WAKE TERMINATION, BETWEEN TWO INITIALISATIONS (G02, T07).
+    # After a file import the detection marks nothing until the solver has
+    # initialised, and the solver uses what it marked only once it initialises
+    # again. The first is the final one's settings exactly, since the second
+    # clears it; nothing else moves.
+    detection = _wake_termination_after_initialization(case, script)
+    if detection:
+        _initialize(case, script)
+        for command, arguments in detection:
+            script.emit_after_initialization(command, *arguments)
     _initialize(case, script)
     # THE SECTION DISTRIBUTIONS SIT HERE, between the solver being initialised
     # and being started, which is where the reference working scripts put

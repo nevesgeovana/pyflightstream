@@ -190,6 +190,9 @@ _DELETION_COMMANDS = {
     "DELETE_ACTUATOR": "actuators",
     "DELETE_MOTION": "motions",
 }
+#: The command that initialises the solver. The script keeps where it last
+#: emitted it, which :meth:`Script.emit_after_initialization` needs (G02).
+_INITIALIZATION_COMMAND = "INITIALIZE_SOLVER"
 
 
 def _vector(bound: Mapping[str, object], *names: str) -> _Vector:
@@ -252,7 +255,9 @@ class ScriptOrderError(PyflightstreamError, ValueError):
     The script builder tracks the highest phase reached (geometry,
     setup, init, exec, analysis, export); FlightStream expects
     auxiliary definitions such as coordinate systems, actuators, and
-    motions before solver initialization. Control commands are exempt.
+    motions before solver initialization. Control commands are exempt,
+    and a setup command that acts on an initialised solver passes
+    through :meth:`Script.emit_after_initialization` alone.
     """
 
 
@@ -850,6 +855,15 @@ class Script:
         self.march_strategy: MarchStrategy | None = None
         self._phase_index: int | None = None
         self._phase_setter: tuple[str, int] | None = None
+        # THE ONE DOOR PAST THE INIT PHASE (G02 of 0.27.0), for
+        # :meth:`emit_after_initialization`: the line of the last
+        # INITIALIZE_SOLVER, None before the first; the command that passed
+        # the door and waits for the solver to initialise again, with its
+        # line, None when nothing waits; and whether the door is open for the
+        # one emission in progress.
+        self._initialized_at: int | None = None
+        self._reinitialization_owed: tuple[str, int] | None = None
+        self._through_the_door = False
         self.entities = EntityRegistry()
         self.solver_setup: SolverSetup | None = None
         # Induced-drag boundary selection, owned by the helpers: the
@@ -1250,6 +1264,9 @@ class Script:
             self._broken_uses[entry.name] = self._broken_uses[entry.name].model_copy(
                 update={"first_line": block[0] if block else ""}
             )
+        if entry.name == _INITIALIZATION_COMMAND:
+            self._initialized_at = len(self._lines) + 1
+            self._reinitialization_owed = None
         self._lines.extend(block)
         if multiline:
             self._lines.append("")
@@ -1616,10 +1633,107 @@ class Script:
             self._phase_index = init
             self._phase_setter = ("begin_point", len(self._lines) + 1)
 
+    def emit_after_initialization(self, name: str, /, *args: object, **kwargs: object) -> None:
+        """Emit one setup command on an initialised solver, to be initialised again (G02).
+
+        :meth:`emit` refuses a setup command once ``INITIALIZE_SOLVER`` is
+        in the script, and that is right for nearly all of them: a frame,
+        a motion or a fluid is read when the solver initialises, so after
+        it they come too late. A few act on what only the initialisation
+        creates. On FlightStream 26.124 the wake-termination detection
+        emitted right after a file import of the trailing edges marks
+        nothing; emitted after an initialisation it marks the node, and
+        the solver uses what it marked only once it initialises again,
+        which clears the first initialisation (RPT-T07 (T07)). The log
+        reports the trailing-edge groups only during an initialisation,
+        which is the inferred reason.
+
+        THIS IS THE ONE DOOR PAST THE PHASE GUARD, AND IT IS NARROW. The
+        command must be a setup command; an ``INITIALIZE_SOLVER`` must
+        precede it and the solver must not have started. The phase does
+        not move, so a frame or a motion after it is still refused. Until
+        ``INITIALIZE_SOLVER`` is emitted again, a command of the exec phase
+        or a later one, ``START_SOLVER`` first, is refused naming the
+        command that waits. Every other check of :meth:`emit` applies.
+
+        Parameters
+        ----------
+        name : str
+            A setup command of this build's database.
+        *args, **kwargs
+            Its arguments, as :meth:`emit` takes them.
+
+        Raises
+        ------
+        ScriptOrderError
+            If ``name`` is not a setup command, if no ``INITIALIZE_SOLVER``
+            precedes it, or if the solver was already started.
+        CommandNotInVersionError, CommandArgumentError, ScriptReferenceError
+            As :meth:`emit` raises them.
+
+        Examples
+        --------
+        >>> from pyflightstream.script import Script
+        >>> script = Script(version="26.124")
+        >>> initialization = dict(
+        ...     solver_model="INCOMPRESSIBLE", surfaces=-1,
+        ...     wake_termination_x="DEFAULT", symmetry="NONE",
+        ... )
+        >>> script.emit("INITIALIZE_SOLVER", **initialization)
+        >>> script.emit_after_initialization("AUTO_DETECT_WAKE_TERMINATION_NODES")
+        >>> script.emit("INITIALIZE_SOLVER", **initialization)
+        >>> script.emit("START_SOLVER")
+        >>> script.render().count("INITIALIZE_SOLVER")
+        2
+        """
+        entry = self._view[name]
+        if entry.phase is not Phase.SETUP:
+            raise ScriptOrderError(
+                f"{name} belongs to the {entry.phase} phase, and emit_after_initialization carries "
+                "a setup command past an initialised solver and nothing else. Emit it "
+                "with emit(), which holds it to the phase order"
+            )
+        if self._initialized_at is None:
+            raise ScriptOrderError(
+                f"{name}: no {_INITIALIZATION_COMMAND} precedes it, so there is no "
+                "initialised solver for it to act on. Emit it with emit(), before the "
+                "init phase, where a setup command belongs"
+            )
+        init = _ORDERED_PHASES.index(Phase.INIT)
+        if self._phase_index is not None and self._phase_index > init:
+            setter_name, setter_line = self._phase_setter or ("", 0)
+            raise ScriptOrderError(
+                f"{name}: the script already reached the "
+                f"{_ORDERED_PHASES[self._phase_index]} phase ({setter_name} at line "
+                f"{setter_line}), so the solver ran on the initialisation at line "
+                f"{self._initialized_at}. A setup command after an initialisation acts "
+                f"only through a second {_INITIALIZATION_COMMAND}, emitted before the "
+                "solver starts"
+            )
+        line = len(self._lines) + 1
+        self._through_the_door = True
+        try:
+            self.emit(name, *args, **kwargs)
+        finally:
+            self._through_the_door = False
+        self._reinitialization_owed = (name, line)
+
     def _check_phase(self, entry: CommandEntry) -> None:
         if entry.phase is Phase.CONTROL:
             return
+        if self._through_the_door:
+            # emit_after_initialization judged this emission, and it moves no
+            # phase: the next command still meets the init phase.
+            return
         index = _ORDERED_PHASES.index(entry.phase)
+        if self._reinitialization_owed is not None and index > _ORDERED_PHASES.index(Phase.INIT):
+            waiting, line = self._reinitialization_owed
+            raise ScriptOrderError(
+                f"{entry.name} belongs to the {entry.phase} phase, and {waiting} at line {line} "
+                "was emitted on an initialised solver, which uses what it marked only "
+                f"once it initialises again. Emit {_INITIALIZATION_COMMAND} after it, "
+                "with the settings of the first, before the solver starts"
+            )
         if self._phase_index is not None and index < self._phase_index:
             setter_name, setter_line = self._phase_setter
             current = _ORDERED_PHASES[self._phase_index]
