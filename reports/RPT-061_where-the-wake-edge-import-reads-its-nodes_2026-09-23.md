@@ -195,3 +195,24 @@ drew is now in the package, and a workflow reaches it.
 What stays open is what the section "What this does NOT establish" lists: one build, the
 third token's role, whether the count is read, and one geometry. The twisted blade is
 T07's licensed run.
+
+## Amended 2026-09-24: where the run writes the node file
+
+Nothing above is changed except where the route writes the file. "Beside the point's
+staged geometry" was one file for every simulation on the mesh, because staging links a
+simulation's inputs to the geometry library: a second case on the mesh could replace a
+queued job's points before it read them, with the same count. The node file is now
+written in the folder the point runs in (`datapoints/DP-<point>/`, or the simulation
+folder of a steady row of several points), and the script names it there by absolute
+path. Nothing measured here depends on where the file lies. Test:
+`tests/tier1_offline/test_raw_mesh_conditions.py::test_two_queued_cases_on_one_mesh_each_keep_the_edges_they_declared`.
+
+## Amended 2026-09-24: what the command's compat report records
+
+`reports/compat/CMP-26124_2026-09-24_wake-edge-import.yaml`, cited under "The command's
+standing" above, was judged by a substring of the import line, and its evidence line is
+the probe specification's fixed note. It records the verdict, verified with effect true,
+and not the lines the solver printed, so it does not show that exactly one import of 16
+edges on `Wing` was logged. The probe now records the import lines it judged, and a
+re-run on 26.124 establishes the exact criterion. Test:
+`tests/tier1_offline/test_qa_probes.py::test_a_verified_wake_edge_import_report_carries_lines_the_exact_judge_passes`.

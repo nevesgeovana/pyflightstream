@@ -28,6 +28,8 @@ imported from a file and detected by angle on 26.124 (RPT-061, RPT-065).
 
 from __future__ import annotations
 
+import hashlib
+import os
 import sys
 from pathlib import Path
 
@@ -45,6 +47,7 @@ from pyflightstream.run import (
     LocalExecutor,
     PlanStatus,
     SubmittingExecutor,
+    run_campaign,
 )
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.script import Script
@@ -204,20 +207,34 @@ def test_each_raw_mesh_route_renders_its_committed_bytes(tmp_path, name, tables)
     )
 
 
-def test_the_file_route_writes_the_checked_points_in_metres_beside_the_staged_geometry(tmp_path):
-    """The node file is parked for the run: the count, the placeholder, then the points."""
+def test_the_file_route_writes_the_checked_points_in_metres_in_the_folder_the_script_runs_in(
+    tmp_path,
+):
+    """The node file is parked for the run: the count, the placeholder, then the points.
+
+    It is named inside the folder the run gives the script (G02), by absolute
+    path, as the geometry is, and never beside the staged geometry: a staged
+    geometry is a link into the input library that every simulation on the
+    same mesh shares. With no folder given, the bare file name.
+    """
     points = [(1000.0 * x, 1000.0 * y, 1000.0 * z) for x, y, z in MIDPOINTS]
     workspace = _library(tmp_path, FILE_ROUTE, points=_points_text(points, "MILLIMETER"))
     case = _case(tmp_path, workspace)
+    folder = tmp_path / "camp" / "sims" / "sim_7001" / "datapoints" / "DP-point"
     script = Script("26.124")
+    script.working_dir = str(folder)
     build_script(case, script)
     lines = script.render().splitlines()
     at = lines.index("IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER")
-    node_file = Path(lines[at + 1])
-    assert node_file == Path(case.geometry).with_name("wing.wake_nodes.txt")
+    assert Path(lines[at + 1]) == folder / "wing.wake_nodes.txt", lines[at + 1]
     parked = script.pending_input_files[lines[at + 1]].splitlines()
     assert parked[:3] == ["16", "0,0,0", "1.0,-3.75,0.0"], parked
     assert script.wake_edge_points == 16
+
+    bare = Script("26.124")
+    build_script(case, bare)
+    rendered = bare.render().splitlines()
+    assert rendered[rendered.index(lines[at]) + 1] == "wing.wake_nodes.txt", rendered
 
 
 @pytest.mark.parametrize(
@@ -568,6 +585,131 @@ def test_a_file_route_row_is_submitted_where_the_machine_writes_its_own_log(tmp_
     assert record.submission["wake_edge_points"] == 16, record.submission
     script = workspace.sim_dir("7001") / record.script_path
     assert "EXPORT_LOG" not in script.read_text(encoding="utf-8").splitlines()
+
+
+# --- the node file is the run's own, never a file of the input library (G02) ----------
+
+
+def _submitting(workspace) -> SubmittingExecutor:
+    """An executor of a machine whose scheduler writes the log, that submits nothing.
+
+    Each job is written and left as if queued, which is the window in which a
+    later submission could replace a file the queued job has yet to read.
+    """
+    profile = workspace.inputs_dir / "hpc" / "h001.toml"
+    profile.parent.mkdir(parents=True, exist_ok=True)
+    profile.write_text(NATIVE_LOG_PROFILE + NATIVE_LOG_TABLE, encoding="utf-8")
+    return SubmittingExecutor(read_hpc_profile(profile), values={}, submit=False)
+
+
+def _named_node_file(workspace, record) -> Path:
+    """The node file a record's script names, on the line after its import line."""
+    script = workspace.sim_dir(record.sim_id) / record.script_path
+    lines = script.read_text(encoding="utf-8").splitlines()
+    (at,) = [i for i, line in enumerate(lines) if line.startswith("IMPORT_WAKE_EDGES_FROM_FILE")]
+    return Path(lines[at + 1])
+
+
+def _points_in(node_file: Path) -> list[tuple[float, ...]]:
+    """The mid-points a node file holds, after its count and its placeholder line."""
+    rows = node_file.read_text(encoding="utf-8").splitlines()[2:]
+    return [tuple(float(value) for value in row.split(",")) for row in rows]
+
+
+def _real(path: Path) -> Path:
+    """Where ``path`` is on disk, through every link and junction on the way."""
+    return Path(os.path.realpath(path))
+
+
+@pytest.mark.parametrize("sweep", ["0.0", "0.0,2.0"], ids=["one-point", "a-steady-job"])
+def test_two_queued_cases_on_one_mesh_each_keep_the_edges_they_declared(tmp_path, sweep):
+    """G02. Two cases on one mesh, each stating half the span in Python, are
+    submitted and left queued: one point each, or one steady job of two points
+    each. Staging links each simulation's inputs to the library folder of the
+    mesh, so a node file named beside the staged geometry is ONE file for both,
+    and the second submission replaced the first's selection before its job
+    read it, with the same count, so the count check could not tell. Each job's
+    script must name a file of its own run folder holding its own points, and
+    each record must hash the bytes its job reads."""
+    workspace = _library(tmp_path, FILE_ROUTE)
+    matrix = write_matrix(
+        tmp_path / "raw_mesh.fs",
+        [
+            ROW.format(build="26.124", outputs=WITH_LOG, geometry="wing.stl", tail="").replace(
+                "| AL | 0.0 |", f"| AL | {sweep} |"
+            )
+        ],
+    )
+    resolved = resolve_matrix(
+        matrix, workspace, name="matrix", fs_version="26.124", recipes=RECIPES
+    )
+    (case,) = resolved.campaign.sims
+    marking = case.raw_mesh_conditions.trailing_edges
+    halves = {
+        "7001": tuple(point for point in MIDPOINTS if point[1] < 0),
+        "7002": tuple(point for point in MIDPOINTS if point[1] > 0),
+    }
+    cases = []
+    for sim_id, points in halves.items():
+        stated = marking.model_copy(update={"points_m": points})
+        conditions = case.raw_mesh_conditions.model_copy(update={"trailing_edges": stated})
+        cases.append(case.model_copy(update={"sim_id": sim_id, "raw_mesh_conditions": conditions}))
+    library = _real(workspace.inputs_dir / "geometries")
+    held_before = sorted(path.name for path in library.iterdir())
+    records = run_campaign(
+        resolved.campaign.model_copy(update={"sims": cases}),
+        _submitting(workspace),
+        workspace,
+        assess=_converged_reading_the_exported_log,
+        recipes=workflow_registry(),
+        quiet=True,
+    )
+    assert sorted(record.sim_id for record in records) == ["7001", "7002"], records
+    for record in records:
+        assert record.status is RunStatus.SUBMITTED, (record.status, record.error)
+        named = _named_node_file(workspace, record)
+        held = _points_in(named)
+        assert held == list(halves[record.sim_id]), (
+            f"sim {record.sim_id}'s job names {named}, which holds the points of y from "
+            f"{held[0][1]} to {held[-1][1]}, and the case declared y from "
+            f"{halves[record.sim_id][0][1]} to {halves[record.sim_id][-1][1]}"
+        )
+        assert _real(named).is_relative_to(_real(workspace.sim_dir(record.sim_id))), (
+            f"sim {record.sim_id}'s node file {named} is on disk at {_real(named)}, "
+            "outside its own simulation folder"
+        )
+        assert not _real(named).is_relative_to(library), _real(named)
+        digest = hashlib.sha256(named.read_bytes()).hexdigest()
+        assert record.inputs_sha256[named.name] == digest, record.inputs_sha256
+    held_after = sorted(path.name for path in library.iterdir())
+    assert held_after == held_before, f"a run wrote into the input library: {held_after}"
+
+
+def test_a_points_file_named_like_the_node_file_is_left_as_its_author_wrote_it(tmp_path):
+    """G02. The sidecar may name its points file ``wing.wake_nodes.txt``, the name
+    the run gives its node file. The points file is the author's, with its unit
+    line, and a run writes nothing into the library that holds it."""
+    table = '[trailing_edges]\nfile = "wing.wake_nodes.txt"\n'
+    workspace = _library(tmp_path, table)
+    authored = workspace.inputs_dir / "geometries" / "wing.wake_nodes.txt"
+    authored.write_text(_points_text(), encoding="utf-8")
+    before = authored.read_bytes()
+    (record,) = run_matrix(
+        _matrix(tmp_path),
+        workspace,
+        name="matrix",
+        default_fs_version="26.124",
+        recipes=RECIPES,
+        assess=_converged_reading_the_exported_log,
+        executor=_submitting(workspace),
+        recipe_registry=workflow_registry(),
+    )
+    assert record.status is RunStatus.SUBMITTED, (record.status, record.error)
+    assert authored.read_bytes() == before, (
+        "the run wrote over the author's points file: it now starts "
+        f"{authored.read_text(encoding='utf-8').splitlines()[:2]}"
+    )
+    assert _points_in(_named_node_file(workspace, record)) == MIDPOINTS
 
 
 if __name__ == "__main__":  # pragma: no cover - the golden writer, run by hand

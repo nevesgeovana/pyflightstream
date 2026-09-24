@@ -920,6 +920,17 @@ class Script:
         #: SCRIPT so a continuation, which imports nothing, is never held to
         #: a count its own script did not write.
         self.wake_edge_points: int | None = None
+        #: THE FOLDER THE SOLVER RUNS THIS SCRIPT IN, absolute, when the run
+        #: layer knows it before the build, or None (G02). Set by the run: a
+        #: point's ``datapoints/DP-<point>/``, or the simulation folder for a
+        #: steady job of several points. A workflow names the data files it
+        #: parks for the run inside it, by absolute path as it names the
+        #: geometry, so each is the run's own file: never one of the input
+        #: library, which a staged geometry is a link into and every
+        #: simulation on the same mesh shares. None outside a run (a plan's
+        #: rehearsal, a case built in Python), where such a file is named by
+        #: its bare name. The script layer neither opens nor resolves it.
+        self.working_dir: str | None = None
         #: Force plot groups actually emitted, with their frame, families and parameters.
         self.plot_groups: list[dict[str, object]] = []
         #: WHERE THIS SCRIPT PUT EACH COORDINATE SYSTEM (FR-100), keyed by

@@ -4343,8 +4343,12 @@ def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
     WHAT IS EMITTED, right after the import, in this order:
 
     * the file route, the default: ``IMPORT_WAKE_EDGES_FROM_FILE <TYPE>
-      <TOLERANCE> METER`` with the node file beside the staged geometry on
-      the next line (:func:`pyflightstream.script.helpers.mark_wake_edges`).
+      <TOLERANCE> METER`` with the node file on the next line, named in the
+      folder the script runs in
+      (:attr:`pyflightstream.script.Script.working_dir`), which the run
+      writes it into, and never beside the staged geometry, a link into the
+      shared input library
+      (:func:`pyflightstream.script.helpers.mark_wake_edges`).
       The points were read and checked against the mesh when the row was
       bound, and are in the simulation's metres. The file marks exactly the
       edges it names, since initialisation adds none (RPT-065), and the run
@@ -4456,15 +4460,23 @@ def _mark_trailing_edges_from_file(
             "them against the mesh; a case built in Python states them, in metres, as "
             f"TrailingEdgeMarking.points_m ({page})."
         )
+    # IN THE FOLDER THE SCRIPT RUNS IN, never beside the staged geometry. A
+    # staged geometry is a link into the input library, one folder every
+    # simulation on the same mesh shares, so a node file named beside it was one
+    # file for all of them: a case submitted while another on the mesh was still
+    # queued replaced that job's points before it read them, with the same count,
+    # and a points file its author had named like the node file was written
+    # over. The run gives the script its working folder (a point's datapoint
+    # folder, a steady job's simulation folder), writes the file there before
+    # the solver starts, and hashes those bytes into the record.
+    name = f"{geometry.stem}.wake_nodes.txt"
+    node_file = name if script.working_dir is None else str(PurePath(script.working_dir) / name)
     helpers.mark_wake_edges(
         script,
         edge_type=marking.edge_type,
         tolerance=marking.tolerance,
         units=SIMULATION_LENGTH_UNIT,
-        # BESIDE THE STAGED GEOMETRY, which is where the run writes it and what
-        # the record hashes: the path the case carries at build time is the
-        # point's own staged copy (see _open_geometry).
-        node_file=str(geometry.with_suffix(".wake_nodes.txt")),
+        node_file=node_file,
         midpoints=marking.points_m,
     )
 

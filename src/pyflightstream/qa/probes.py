@@ -372,6 +372,14 @@ class ProbeSpec:
     effect_note : str
         One sentence naming the asserted effect; quoted in the compat
         report evidence line.
+    observe : callable, optional
+        ``observe(artifacts) -> str`` says what the instrument READ, in
+        the form ``assert_effect`` judged it, and is appended to the
+        evidence line of every judged effect (verified, broken or
+        unobservable) as ``The instrument read: <reading>``. The note
+        names what the probe expected and reads the same whatever the
+        solver did, so a report whose verdict is to be re-judged later
+        needs the reading beside it (G02). None records the note alone.
     timeout_s : float, optional
         Per-probe override of the run timeout; halting probes use a
         short one because the hidden solver may idle after the halt.
@@ -388,6 +396,7 @@ class ProbeSpec:
     save_state: bool = False
     dump_state: bool = False
     effect_note: str = ""
+    observe: Callable[[ProbeArtifacts], str] | None = None
     timeout_s: float | None = None
 
     def __post_init__(self) -> None:
@@ -1529,13 +1538,20 @@ def _judge(
             "judged from the artifacts they left)"
         )
     effect = spec.assert_effect(artifacts)
+    # WHAT THE INSTRUMENT READ, beside the note (G02). The note is fixed text
+    # naming the effect the probe expected, so an evidence line made of it
+    # alone reads the same whatever the solver did, and a report could not be
+    # re-judged from what it recorded: the import probe's line said "16 trailing
+    # edges imported for boundary Wing" for 116 edges, for 16 on "Winglet" and
+    # for a second import beside the first, under the judge of that day.
+    reading = "" if spec.observe is None else f". The instrument read: {spec.observe(artifacts)}"
     if effect is None:
         return ProbeResult(
             outcome=ProbeOutcome.UNPROBED,
             detail=(
                 "the command ran without a script abort or logged error, but its "
                 "effect is not observable with the current instruments; asserted "
-                f"effect: {spec.effect_note}{epilogue_note}"
+                f"effect: {spec.effect_note}{epilogue_note}{reading}"
             ),
             effect=None,
             **common,
@@ -1545,7 +1561,7 @@ def _judge(
             outcome=ProbeOutcome.BROKEN,
             detail=(
                 "the command ran (script processing continued past it) but its effect "
-                f"was not observed; expected: {spec.effect_note}{epilogue_note}"
+                f"was not observed; expected: {spec.effect_note}{epilogue_note}{reading}"
             ),
             effect=False,
             **common,
@@ -1555,6 +1571,7 @@ def _judge(
         detail=(
             "script processing continued past the command, no error between the "
             f"sentinels, and the effect was observed: {spec.effect_note}{epilogue_note}"
+            f"{reading}"
         ),
         effect=True,
         **common,

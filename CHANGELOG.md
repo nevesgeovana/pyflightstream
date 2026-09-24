@@ -91,7 +91,7 @@ FlightStream versions.
   optional `type` (STANDARD unless written) and `tolerance`. The points file
   (a unit line, then one edge mid-point per line) is checked against the mesh
   when the row is bound, converted to metres, written as the solver's node
-  file beside the point's staged geometry, and imported with
+  file in the folder the point runs in, and imported with
   `IMPORT_WAKE_EDGES_FROM_FILE` on 26.124, where that command is verified by
   a compat probe; 26.122 and 26.123 are refused naming RPT-061, and earlier
   builds are refused. `detect = "auto"` or `detect = { surfaces = [...],
@@ -133,7 +133,9 @@ FlightStream versions.
   row verified by the compat probe of 2026-09-24 (the qa wing's sixteen
   trailing edges imported and saved). The probe verifies only the import it
   wrote: exactly one import line, 16 edges for boundary `Wing`; another
-  count, another boundary or a second import line is `broken`.
+  count, another boundary or a second import line is `broken`. The report of
+  2026-09-24 was judged before that criterion and records the verdict, not
+  the lines the solver printed; a re-run on 26.124 records them.
 
 - **A steady point saves the solver's own plots, by default.** After its other
   exports and before its log, every point of a steady workflow row chooses a
@@ -423,6 +425,37 @@ FlightStream versions.
 - **The plan's cost table counts a raw-mesh row's marked boundaries** from
   its sidecar's names as the renames leave them; it printed NA for every
   raw-mesh row (G02).
+- **Two runs on one mesh no longer share a trailing-edge node file.** The
+  node file was named beside the point's staged geometry, and staging links a
+  simulation's inputs to the geometry library, so every simulation on one mesh
+  wrote one file in `inputs/geometries/`. A case submitted while another case
+  on the same mesh was queued replaced that job's points before it read them,
+  and the count check could not tell when both imported the same number of
+  edges; a points file named `<stem>.wake_nodes.txt` was written over. The
+  node file is now written in the folder the point runs in,
+  `sims/sim_<id>/datapoints/DP-<point>/`, or the simulation folder for a
+  steady row of several points, which runs as one job; the script names it
+  there by absolute path and the record hashes those bytes. Nothing is written
+  into `inputs/geometries/`. New: `Script.working_dir`, the folder the run
+  gives a script before building it; a script built outside a run names its
+  node file by its bare name (G02).
+- **The compat report of the trailing-edge import records the lines its
+  verdict was made on.** Its evidence line was the specification's fixed
+  note, which names the import the probe wrote, so it read the same whatever
+  the solver printed and a report could not be judged again from what it
+  recorded. A probe specification may now state `observe`
+  (`ProbeSpec.observe`), and the evidence line of a judged effect then ends
+  with `The instrument read: ...`; the `IMPORT_WAKE_EDGES_FROM_FILE` probe
+  records every import line of the target region as the judge parsed it,
+  `import lines [{"Wing": 16}]` when verified (G02).
+- **The `AUTO_DETECT_TRAILING_EDGES` probe no longer says initialisation
+  detects trailing edges.** Its evidence line, quoted by every compat report,
+  said `INITIALIZE_SOLVER` marks them on its own and that no instrument
+  separates the two. On 26.124 initialisation alone marks none, and the
+  saved-state reader of RPT-065 is that instrument. The line now states that,
+  and that the probe still asserts on the log line, a silent region being
+  unprobed
+  ([RPT-065](reports/RPT-065_what-detection-and-initialisation-mark_2026-09-24.md)).
 
 - **A row stating `roll_rate` or `yaw_rate` turns the free stream the way the
   rate says.** From 0.21.0 all three body rates were emitted with one sign of

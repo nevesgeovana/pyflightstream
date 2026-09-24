@@ -78,3 +78,12 @@ initialisation prints neither.
 before and after, the solver's lines, and the script's digest; the eight checks
 above as booleans; the three blade mid-points kept at 10 degrees. The solver outputs
 stayed on the measuring machine (invariant 5).
+
+## Amended 2026-09-24: the probe's note
+
+Nothing above is changed. The note of the `AUTO_DETECT_TRAILING_EDGES` probe
+specification (`src/pyflightstream/qa/specs.py`), which every compat report quotes, said
+`INITIALIZE_SOLVER` detects edges on its own and that no instrument separates the two.
+It now states what this report measured on 26.124, and that the saved-state reader used
+here is not yet that probe's assertion: the probe still asserts a line of the log, and a
+silent region is still unprobed.

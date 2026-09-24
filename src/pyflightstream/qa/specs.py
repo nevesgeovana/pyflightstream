@@ -22,6 +22,7 @@ pass.
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Callable
 from pathlib import Path
@@ -411,8 +412,12 @@ _spec(
     requires=Requires.SIM,
     assert_effect=region_printed_lax("trailing edge"),
     effect_note=(
-        "the command runs silently and INITIALIZE_SOLVER detects edges on its own; no "
-        "instrument separates the two yet"
+        "a line of the target region naming trailing edges, which detection prints as "
+        "N trailing edges marked on surface <name>; INITIALIZE_SOLVER alone marks no "
+        "trailing edge and prints no such line, measured on 26.124 (RPT-065). A silent "
+        "region is unprobed: the saved-state reader of RPT-065, the instrument that "
+        "separates what detection and initialisation mark, is not this probe's "
+        "assertion yet"
     ),
 )
 _spec(
@@ -507,23 +512,37 @@ def _wake_edge_import_target(script: Script, workdir: Path) -> None:
     script.emit("IMPORT_WAKE_EDGES_FROM_FILE", "STANDARD", 0.0001, "METER", nodes)
 
 
+def _import_lines(artifacts: ProbeArtifacts) -> list[dict[str, int]]:
+    """Every import line of the target region, each as ``{boundary: count}``, in order.
+
+    Read by the parser the run reads the count with, one line at a time, so two
+    lines on one boundary stay two entries. The judge and the reading both call
+    this, so the lines a report records are the lines the verdict was made on.
+    """
+    lines = artifacts.target_region().splitlines()
+    return [found for found in map(imported_trailing_edges, lines) if found]
+
+
 def _imported_exactly(boundary: str, count: int) -> Callable[[ProbeArtifacts], bool]:
     """Effect: the target region logs exactly one import, ``count`` edges on ``boundary``.
 
     Strict. Every import line of the region (``N trailing edges imported for
-    boundary <name>``, RPT-061) is read with its count and its boundary by the
-    parser the run reads the count with, one line at a time, and the whole list
-    is compared with the one import the probe wrote. A substring of the line
-    would verify 116 edges, 16 on a boundary named ``Winglet``, or a second
-    import beside the first; silence is a file that marked nothing.
+    boundary <name>``, RPT-061) is read with its count and its boundary
+    (:func:`_import_lines`), and the whole list is compared with the one import
+    the probe wrote. A substring of the line would verify 116 edges, 16 on a
+    boundary named ``Winglet``, or a second import beside the first; silence is
+    a file that marked nothing.
     """
 
     def check(artifacts: ProbeArtifacts) -> bool:
-        lines = artifacts.target_region().splitlines()
-        logged = [found for found in map(imported_trailing_edges, lines) if found]
-        return logged == [{boundary: count}]
+        return _import_lines(artifacts) == [{boundary: count}]
 
     return check
+
+
+def _import_lines_read(artifacts: ProbeArtifacts) -> str:
+    """Return the reading the report records: the import lines the judge compared, as JSON."""
+    return "import lines " + json.dumps(_import_lines(artifacts))
 
 
 _spec(
@@ -532,6 +551,7 @@ _spec(
     prelude=_wake_edge_wing_prelude,
     save_state=True,
     assert_effect=_imported_exactly("Wing", _WAKE_EDGE_WING.n_span),
+    observe=_import_lines_read,
     effect_note=(
         "the solver logs one import line, 16 trailing edges imported for boundary Wing, "
         "one per trailing-edge mesh edge of the wing, and no other; it prints the line "
