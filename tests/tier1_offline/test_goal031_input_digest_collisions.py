@@ -528,7 +528,9 @@ def test_a_parked_file_on_the_main_script_s_path_is_refused(tmp_path):
         recipe="actions",
         outputs=["loads_{point}.txt"],
     )
-    with pytest.raises(CampaignConfigError, match=r"the run writes .* itself"):
+    with pytest.raises(
+        CampaignConfigError, match=r"the run writes .* itself|other points name the files"
+    ):
         _write_pending_files(
             script, sim_dir / "DP-point", case=case, recorded={}, run_writes=(main,)
         )
@@ -904,3 +906,36 @@ def test_a_data_file_parked_through_a_link_leading_outside_the_point_is_refused(
     with pytest.raises(CampaignConfigError, match=r"folder the point runs in"):
         _write_pending_files(script, work, case=case, recorded={})
     assert not (shared / "prop.txt").exists(), "the shared file was written before the refusal"
+
+
+@pytest.mark.parametrize("where", ["scripts", "another-point"])
+def test_nothing_parked_lands_where_other_points_records_point(tmp_path, where):
+    """Point B's recipe parks an action on point A's hashed main script, or in A's
+    datapoint folder, in the same campaign invocation: A is queued and has not read
+    them yet. Refused before anything is written; a path under the simulation's own
+    folder that is neither, where the tier-3 re-read probe parks its action, is not."""
+    sim = tmp_path / "camp" / "sims" / "sim_9018"
+    main_a = sim / "scripts" / "P9018-AL+000.txt"
+    main_a.parent.mkdir(parents=True)
+    main_a.write_text("A's script", encoding="utf-8")
+    work_b = sim / "datapoints" / "DP-AL+020"
+    work_b.mkdir(parents=True)
+    target = main_a if where == "scripts" else sim / "datapoints" / "DP-AL+000" / "step.txt"
+    script = Script("26.124")
+    script._pending_action_scripts[str(target)] = "EXPORT_SOLVER_ANALYSIS_SPREADSHEET"
+    case = SimCase(
+        sim_id="9018",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[2.0]),
+        recipe="actions",
+        outputs=["loads_{point}.txt"],
+    )
+    with pytest.raises(CampaignConfigError, match=r"other points name the files"):
+        _write_pending_files(script, work_b, case=case, recorded={})
+    assert main_a.read_text(encoding="utf-8") == "A's script"
+
+    probe = Script("26.124")
+    probe._pending_action_scripts[str(sim / "actions" / "reread.txt")] = "EXPORT_LOG"
+    _write_pending_files(probe, work_b, case=case, recorded={})
+    assert (sim / "actions" / "reread.txt").is_file()

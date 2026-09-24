@@ -857,7 +857,10 @@ gone (`docs/migrating-to-0.27.0.md`).
   Paths are compared by the real path with those folded, and a file the run
   would write under such a name is refused naming the reason, the scheduler's
   descriptor included; a data file's place in the point's folder is judged
-  through its resolved path, a link or a junction followed (G06). What these
+  through its resolved path, a link or a junction followed (G06). Nothing a
+  recipe parks may land in a simulation's `scripts/` folder or in another
+  point's datapoint folder, where other points' records name the files their
+  queued solvers will read (G06). What these
   guards cover, and the file-system arrangements they do not defend against,
   is stated in `docs/workspace-and-workflows.md`, "What the record's digests
   guard, and where that stops".
