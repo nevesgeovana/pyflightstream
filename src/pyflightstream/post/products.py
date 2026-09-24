@@ -7171,6 +7171,11 @@ def _current_extraction(
     continuation archives the point's folder, extraction included, and saves
     another), and every file the extraction wrote is on disk and hashes as it
     recorded.
+
+    THE SAVED SIMULATION IS HASHED ON DISK, not only read off the two records:
+    a file deleted or replaced under a record nobody rewrote is not the state
+    the extraction opened, and a product of it would describe a state nothing on
+    disk holds.
     """
     if point is None:
         return (
@@ -7187,12 +7192,20 @@ def _current_extraction(
             "(pyfs-matrix post --additional-pproc)"
         )
     folder = workspace.sim_dir(extraction.sim_id)
-    for name in extraction.outputs:
-        path = folder / name
-        if not path.is_file():
-            return f"stale: {path} is gone; extract the point again"
-        if extraction.outputs_sha256.get(name) != file_sha256(path):
-            return f"stale: {path} no longer hashes as its extraction recorded"
+    saved = folder / extraction.fsm
+    on_disk = file_sha256(saved) if saved.is_file() else None
+    if on_disk != extraction.fsm_sha256:
+        found = "is gone" if on_disk is None else f"hashes {on_disk[:12]} on disk"
+        return (
+            f"stale: the point's saved simulation {saved} {found}, and the extraction "
+            f"opened {extraction.fsm_sha256[:12]}; its products would describe a state "
+            "nothing on disk holds"
+        )
+    # ONE PREDICATE WITH THE REUSE OF THE EXTRACTION PASS, so a file refused
+    # here is one the next --additional-pproc extracts again.
+    changed = workspace.changed_extraction_file(extraction)
+    if changed is not None:
+        return f"stale: {changed}; extract the point again (pyfs-matrix post --additional-pproc)"
     return None
 
 

@@ -930,18 +930,48 @@ extraction's `leading_sections` counts the run's rows at the head
 A layout whose counts do not add up to the export states `NA`, as on the run's
 own table.
 
+**Which frames and boundaries it cites.** The extraction cites the frames and
+the boundaries the saved simulation holds, which are the run's. A frame is the
+run's only while the row creates it today exactly as the run's recorded script
+did, in every line a script defines or moves a frame with: its index and name,
+its origin and three axes, and every later turn, move, copy or deletion. A
+point whose row creates a frame differing in any of them, a frame turned under
+its old name and place included, is skipped `SCRIPT_DRIFT` naming the line
+(`test_g12_a_frame_turned_since_the_run_under_the_same_name_is_skipped`,
+`test_g12_a_frame_moved_after_it_was_placed_differs_by_the_move`), since a
+distribution cited in it would be cut in the frame the file holds and not the
+one the pproc means. The boundaries are the run's and never today's file's:
+the names the run's record states or, on a record written before 0.27.0, the
+names read by the geometry's hash as the post's own tables read them (*The
+geometry's names*, above). A point whose row declares the boundaries in another order today is
+skipped `SCRIPT_DRIFT` naming both orders
+(`test_g12_an_older_record_is_held_to_the_boundaries_its_geometry_hash_recovers`),
+and so is one whose names nothing on disk recovers while the geometry declares
+names today
+(`test_g12_an_older_record_whose_boundaries_no_hash_recovers_is_skipped_naming_why`):
+an index read off today's file would cut whichever surface holds that index in
+the saved one, under the name the pproc asked for.
+
 **When an extraction stops counting.** Only a CURRENT extraction has products:
 its point is a record the post admits, the point's saved simulation still
-hashes as the one the extraction opened, and every file the extraction wrote is
-on disk and hashes as recorded
-(`test_g12_an_extraction_of_another_state_of_the_point_is_stale`). A point that
-ran again, by a forced rerun or a continuation, archives its folder with the
-extraction in it; the old extraction is then stale, the post skips it under
+hashes as the one the extraction opened, in the point's record and as the file
+on disk, and every file the extraction wrote is on disk and hashes as recorded
+(`test_g12_an_extraction_of_another_state_of_the_point_is_stale`). A saved
+simulation deleted or replaced under a record nobody rewrote leaves every
+extraction of it stale, named by the path
+(`test_g12_an_extraction_whose_saved_simulation_left_the_disk_is_stale`). A
+point that ran again, by a forced rerun or a continuation, archives its folder
+with the extraction in it; the old extraction is then stale, the post skips it under
 `additional/<pid>/runs/<extraction id>` and never under the run's own key, so
 no product of the run is retired for it, and a previous additional product
 nothing current supplies is archived like a refused table. The next
 `--additional-pproc` extracts the point again
-(`test_g12_a_stale_extraction_is_skipped_and_retires_no_main_product`).
+(`test_g12_a_stale_extraction_is_skipped_and_retires_no_main_product`). The
+extraction pass reuses an extraction by the same test of its files, so one
+whose file was changed or truncated since is extracted again by the next
+`--additional-pproc` rather than called already extracted, and its products
+come back
+(`test_g12_an_extraction_whose_file_changed_is_extracted_again`).
 
 ---
 

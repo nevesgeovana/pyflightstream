@@ -19,21 +19,27 @@ by a test on its link:
   sectional loads every time; one golden per pproc kind pins its bytes;
 * a recorded point is extracted into ``datapoints/DP-<point>/additional/<pid>/``
   once, hashed, from a copy of its ``.fsm``, recorded in ``additional.json``,
-  and the run's own record, manifest and files are untouched; a row without
+  and again only when a file it wrote no longer hashes as recorded, the test
+  the post withholds its products by; the run's own record, manifest and files
+  are untouched; a row without
   the key, an absent ``.fsm`` and an ``.fsm`` that does not hash as its record
   says are each skipped by name, as are a row whose frames moved since the run,
-  a build that changed, a surface averaged in time, a row no longer active, a
-  point still in a queue and a run a continuation replaced; a copy that does
-  not hash as recorded launches nothing, and an original that changes during
-  the extraction fails it; an unsteady point is one instant and says so;
+  by any line that places or moves one and under a name kept too, an older
+  record whose boundaries the geometry's hash recovers in another order or not
+  at all, a build that changed, a surface averaged in time, a row no longer
+  active, a point still in a queue and a run a continuation replaced; a copy
+  that does not hash as recorded launches nothing, and an original that
+  changes during the extraction fails it; an unsteady point is one instant and
+  says so;
   ``pyfs-matrix post --additional-pproc`` prints each point, exits 2 when an
   extraction fails, counts under ``--strict`` only the skips that ask
   something, and refuses its flags without it;
 * the post writes the products of every current extraction under
   ``additional/<pid>/``, marked ``pproc``, ``additional`` and ``extraction``,
   leaves every main product as it was, keeps the run's section rows ahead of
-  the additional ones, skips a stale extraction by its own key and files the
-  one-instant warning of an unsteady point in the post log;
+  the additional ones, skips a stale extraction by its own key, a saved
+  simulation deleted or replaced on disk under an unchanged record included,
+  and files the one-instant warning of an unsteady point in the post log;
 * the workflows page and the definition of record state it, and every test
   the page cites is in this module.
 
@@ -760,6 +766,90 @@ def test_g12_a_row_whose_frames_changed_since_the_run_is_skipped(tmp_path):
     assert records == [] and stub.invocations == []
 
 
+#: A frame of the reference, placed at the nacelle, its x and y axes as given.
+NAC_FRAME = '\n[[frames]]\nname = "NAC"\norigin = [0.42, 0.0, 0.11]\nx_axis = {x}\ny_axis = {y}\n'
+
+
+def test_g12_a_frame_turned_since_the_run_under_the_same_name_is_skipped(tmp_path):
+    """The reference's NAC keeps its name and origin and turns 90 degrees about z after the run.
+
+    The saved simulation holds the NAC the run created; a distribution the
+    additional pproc cites in NAC means the turned one today. A frame is
+    compared by everything the script says of it, its origin and its three
+    axes as well as its index and name, so both points are skipped naming the
+    frame and the line that differs, and nothing launches. The same frame
+    unturned plans READY.
+    """
+    workspace, matrix = a_campaign(tmp_path, additional=SECTIONS_TOML.replace('"MRP"', '"NAC"'))
+    reference = workspace.inputs_dir / "references" / "r050.toml"
+    reference.write_text(
+        REFERENCE_TOML + NAC_FRAME.format(x="[1.0, 0.0, 0.0]", y="[0.0, 1.0, 0.0]"),
+        encoding="utf-8",
+    )
+    run_matrix(
+        matrix,
+        workspace,
+        name="extracted",
+        default_fs_version=BUILD,
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=a_stub(tmp_path),
+    )
+    plans = additional_post().plan_additional_post(matrix, workspace, default_fs_version=BUILD)
+    assert [plan.status for plan in plans] == ["READY"] * 2, [plan.message for plan in plans]
+    reference.write_text(
+        REFERENCE_TOML + NAC_FRAME.format(x="[0.0, 1.0, 0.0]", y="[-1.0, 0.0, 0.0]"),
+        encoding="utf-8",
+    )
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    assert [plan.reason for plan in plans] == ["SCRIPT_DRIFT"] * 2, [
+        (plan.status, plan.message) for plan in plans
+    ]
+    for plan in plans:
+        assert "NAME NAC" in plan.message and "VECTOR_X_X" in plan.message, plan.message
+    assert records == [] and stub.invocations == []
+
+
+@pytest.mark.parametrize(
+    ("command", "arguments"),
+    [
+        ("ROTATE_COORDINATE_SYSTEM", {"rotation_frame": 1, "rotation_axis": "Z", "angle": None}),
+        ("SET_COORDINATE_SYSTEM_ORIGIN", {"x": None, "y": 0.0, "z": 0.11, "units": "METER"}),
+        ("TRANSLATE_COORDINATE_SYSTEM", {"x": None, "y": 0.0, "z": 0.0, "units": "METER"}),
+    ],
+)
+def test_g12_a_frame_moved_after_it_was_placed_differs_by_the_move(command, arguments):
+    """A turn or a move after the edit that placed a frame is part of the frame compared.
+
+    Two scripts place NAC alike and then move it, by the same amount and by
+    another: the first two compare equal, the second pair does not, so a frame
+    turned or moved since the run under its old name and place is not taken for
+    the one the saved simulation holds.
+    """
+    from pyflightstream.script import helpers
+
+    def placed_then(amount: float) -> tuple:
+        script = Script(BUILD)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            nac = helpers.coordinate_frame(
+                script, name="NAC", origin=(0.42, 0.0, 0.11), x_axis=(1, 0, 0), y_axis=(0, 1, 0)
+            )
+            script.emit(
+                command,
+                frame=nac,
+                **{key: amount if value is None else value for key, value in arguments.items()},
+            )
+        return workflows.frame_definitions(script.render())
+
+    assert placed_then(10.0) == placed_then(10.0)
+    moved = placed_then(20.0)
+    assert placed_then(10.0) != moved, moved
+    assert any(block[0].startswith(command) for block in moved), moved
+
+
 def test_g12_a_point_whose_build_changed_is_skipped(tmp_path):
     """The row names another build today; a saved simulation reopens on the one that saved it."""
     workspace, matrix = a_recorded_campaign(tmp_path)
@@ -807,6 +897,70 @@ def test_g12_a_point_whose_boundaries_moved_since_the_run_is_skipped(tmp_path):
     plans, records = extract(workspace, matrix, stub)
     assert [plan.reason for plan in plans] == ["SCRIPT_DRIFT"] * 2, plans
     assert all("declared the boundaries B, W" in plan.message for plan in plans), plans
+    assert records == [] and stub.invocations == []
+
+
+def a_record_from_before_0_27_0(workspace: CampaignWorkspace) -> None:
+    """Take ``inventory`` out of every row of runs.json: a record 0.26.0 wrote states none."""
+    manifest = workspace.manifest_path
+    raw = json.loads(manifest.read_text(encoding="utf-8"))
+    for entry in raw:
+        assert entry.pop("inventory") == ["W", "B"], entry
+    manifest.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+
+
+def test_g12_an_older_record_is_held_to_the_boundaries_its_geometry_hash_recovers(tmp_path):
+    """The saved simulation holds [W, B] and the row opens [B, W] today: skipped, naming both.
+
+    A record written before 0.27.0 states no boundary names. The geometry its
+    run opened is still in the library, byte for byte, so its names are read by
+    the hash the record carries (R04); the row names another geometry today,
+    the same two boundaries in the other order. Extracting would cut the body
+    under the wing's name, so both points are skipped naming both orders and
+    nothing launches. The same older record with the row unchanged plans READY:
+    the names came from the hash, not from nowhere.
+    """
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    a_record_from_before_0_27_0(workspace)
+    plans = additional_post().plan_additional_post(matrix, workspace, default_fs_version=BUILD)
+    assert [plan.status for plan in plans] == ["READY"] * 2, [plan.message for plan in plans]
+    swapped = _saved_simulation(tmp_path / "swapped.fsm", ["B", "W"]).read_bytes()
+    stage_geometry(workspace, "wing_swapped.fsm", body=swapped)
+    matrix.write_text(
+        matrix.read_text(encoding="utf-8").replace("wing_clean.fsm", "wing_swapped.fsm"),
+        encoding="utf-8",
+    )
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    assert [plan.reason for plan in plans] == ["SCRIPT_DRIFT"] * 2, [
+        (plan.status, plan.message) for plan in plans
+    ]
+    for plan in plans:
+        assert "declared the boundaries W, B" in plan.message, plan.message
+        assert "declares B, W today" in plan.message, plan.message
+    assert records == [] and stub.invocations == []
+
+
+def test_g12_an_older_record_whose_boundaries_no_hash_recovers_is_skipped_naming_why(tmp_path):
+    """The geometry was replaced in place, [W, B] by [B, W]: nothing on disk is the file that ran.
+
+    A record written before 0.27.0 cannot say which order its saved simulation
+    holds, and no file hashes as its ``inputs_sha256`` says, so the point is
+    skipped naming the record, the file and the key it looked for, and nothing
+    launches. Reading today's file would extract the body as the wing.
+    """
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    a_record_from_before_0_27_0(workspace)
+    swapped = _saved_simulation(tmp_path / "swapped.fsm", ["B", "W"]).read_bytes()
+    stage_geometry(workspace, "wing_clean.fsm", body=swapped)
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    assert [plan.reason for plan in plans] == ["SCRIPT_DRIFT"] * 2, [
+        (plan.status, plan.message) for plan in plans
+    ]
+    for plan in plans:
+        for named in ("inputs_sha256", "wing_clean.fsm", "B, W today"):
+            assert named in plan.message, (named, plan.message)
     assert records == [] and stub.invocations == []
 
 
@@ -1198,6 +1352,77 @@ def test_g12_an_extraction_of_another_state_of_the_point_is_stale(tmp_path):
         reason = document["skipped"][f"additional/p002/runs/{record.extraction_id}"]
         assert "stale" in reason and record.fsm_sha256[:12] in reason, reason
     assert not any(entry.get("additional") for entry in document["products"].values())
+
+
+@pytest.mark.parametrize("change", ["deleted", "replaced"])
+def test_g12_an_extraction_whose_saved_simulation_left_the_disk_is_stale(change, tmp_path):
+    """The point's record is untouched and its .fsm is gone, or other bytes: no product of it.
+
+    CURRENT means the saved simulation ON DISK still hashes as the state the
+    extraction opened, not only that the two records agree (the definition of
+    record, "When an extraction stops counting"). Each extraction is skipped
+    under its own key naming the file, and no additional product is written.
+    """
+    workspace, matrix = a_recorded_campaign(tmp_path, additional=POST_ADDITIONAL_TOML)
+    _, records = extract(workspace, matrix, a_stub(tmp_path))
+    assert records and all(record.status == "EXTRACTED" for record in records)
+    before = products_of(workspace, matrix)
+    assert any(entry.get("additional") for entry in before["products"].values()), "no control"
+    saved = saved_simulations(workspace)
+    for path in saved.values():
+        if change == "deleted":
+            path.unlink()
+        else:
+            path.write_bytes(b"another state of the point")
+    document = products_of(workspace, matrix)
+    for record in records:
+        key = f"additional/p002/runs/{record.extraction_id}"
+        assert key in document["skipped"], (
+            f"{record.extraction_id} is still current with its saved simulation {change}"
+        )
+        reason = document["skipped"][key]
+        assert "stale" in reason and str(saved[record.run_id]) in reason, reason
+        assert record.fsm_sha256[:12] in reason, reason
+    assert not any(entry.get("additional") for entry in document["products"].values())
+
+
+@pytest.mark.parametrize("kind", ["loads", "tecplot"])
+def test_g12_an_extraction_whose_file_changed_is_extracted_again(kind, tmp_path):
+    """One file of one extraction is truncated in place: the next pass extracts that point again.
+
+    Reuse and currency are one predicate, the hash of every file the
+    extraction wrote. The post withholds the point's products because the file
+    no longer hashes as recorded, and the next ``--additional-pproc`` launches
+    that point again instead of calling it already extracted, so its products
+    come back. The other point, whose files are intact, launches nothing. The
+    loads table is a file the products are built from; the surface solution is
+    one they index as the solver wrote it, which only that predicate reads.
+    """
+    from pyflightstream.cases import classify_outputs
+
+    workspace, matrix = a_recorded_campaign(tmp_path, additional=POST_ADDITIONAL_TOML)
+    _, first = extract(workspace, matrix, a_stub(tmp_path))
+    assert len(first) == 2 and all(record.status == "EXTRACTED" for record in first)
+    changed = first[0]
+    path = workspace.sim_dir(changed.sim_id) / classify_outputs(changed.outputs)[kind]
+    text = path.read_text(encoding="utf-8")
+    path.write_text(text[: len(text) // 2], encoding="utf-8")
+    stale = f"additional/p002/runs/{changed.extraction_id}"
+    assert stale in products_of(workspace, matrix)["skipped"], "the post took the changed file"
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    by_run = {plan.run_id: plan for plan in plans}
+    assert by_run[changed.run_id].status == "READY", (
+        by_run[changed.run_id].reason,
+        by_run[changed.run_id].message,
+    )
+    assert [plan.reason for plan in plans if plan.run_id != changed.run_id] == ["ALREADY_EXTRACTED"]
+    assert [record.run_id for record in records] == [changed.run_id]
+    assert len(stub.invocations) == 1 and records[0].status == "EXTRACTED", records[0].error
+    document = products_of(workspace, matrix)
+    assert stale not in document["skipped"], document["skipped"][stale]
+    marked = [entry for entry in document["products"].values() if entry.get("additional")]
+    assert any(changed.extraction_id in entry.get("extraction", []) for entry in marked)
 
 
 def test_g12_an_unsteady_extractions_sections_table_is_the_last_instant(tmp_path):

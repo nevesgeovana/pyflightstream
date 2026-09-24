@@ -308,6 +308,39 @@ FlightStream versions.
   from the solver's printed output and warns, naming the profile, when it
   finds none. `ExecutionResult.captured_output()` returns that printed output,
   standard output then standard error.
+- **The additional post reads an older record's boundaries by its geometry's
+  hash** (G12). A run record written before 0.27.0 states no boundary names,
+  and the extraction compared none, so a point whose saved simulation holds
+  `W, B` over a geometry that declares `B, W` today was extracted with today's
+  indices: a distribution asked of `W` cut the body and was recorded as the
+  wing. The names are now read from the geometry file whose sha256 the record
+  carries, as the post reads them, and compared; a point whose names nothing
+  on disk recovers, while the geometry declares names today, is skipped
+  `SCRIPT_DRIFT` naming the record and the file.
+- **The additional post compares a frame by everything the script says of it**
+  (G12). The run's frames were compared with the row's by index and name
+  alone, so a reference frame turned since the run under the same name and
+  origin passed, and a distribution the additional pproc cited in it was cut
+  in the frame the saved simulation holds rather than the one it meant. Every
+  command of a coordinate system is now compared with all its lines (origin,
+  three axes, and any later turn, move, copy or deletion), and the skip names
+  the first line that differs. `cases.workflows.frame_definitions` replaces
+  `frame_pairs`, which no release carried.
+- **An additional product stops being current when its saved simulation
+  leaves the disk** (G12). The post compared the hash the point's record
+  holds with the one the extraction opened, and never the file, so a `.fsm`
+  deleted or replaced under an unchanged `runs.json` kept its additional
+  products published. The saved simulation on disk must now hash as the state
+  extracted, as the definition of record says; otherwise each extraction of it
+  is skipped under `additional/<pid>/runs/<extraction id>`, naming the path.
+- **An extraction whose file changed is extracted again** (G12). The
+  extraction pass reused an extraction whose files were merely present, while
+  the post withheld its products because a file no longer hashed as recorded,
+  so a truncated export was never extracted again and the point's additional
+  products stayed withheld whatever was rerun. Both now ask one question,
+  `CampaignWorkspace.changed_extraction_file(record)`, which hashes every file
+  an extraction wrote and names the first gone or changed; the next
+  `pyfs-matrix post --additional-pproc` extracts such a point again.
 - **`pyfs-matrix collect` finishes a submitted steady job on a machine that
   exports no log.** A steady row of several points is one job, and where the
   profile states `export_log = false` its scheduler writes ONE log of the job.

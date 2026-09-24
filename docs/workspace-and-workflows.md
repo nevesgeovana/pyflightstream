@@ -3003,8 +3003,12 @@ name, with the path or the hashes involved, when:
 - the file does not hash as its record says (`HASH_MISMATCH`, naming both
   digests,
   `test_g12_a_point_whose_saved_simulation_does_not_match_its_record_is_skipped_naming_both_hashes`);
-- the same artifact was already extracted from the same bytes
-  (`ALREADY_EXTRACTED`, `test_g12_an_extracted_point_is_not_extracted_twice`);
+- the same artifact was already extracted from the same bytes into files that
+  still hash as recorded (`ALREADY_EXTRACTED`,
+  `test_g12_an_extracted_point_is_not_extracted_twice`); an extraction whose
+  file was changed since is extracted again, as the post, which withholds its
+  products, asks
+  (`test_g12_an_extraction_whose_file_changed_is_extracted_again`);
 - the build the row names today is not the one the point ran on
   (`BUILD_CHANGED`, `test_g12_a_point_whose_build_changed_is_skipped`): a saved
   simulation is reopened on the build that saved it;
@@ -3015,7 +3019,16 @@ name, with the path or the hashes involved, when:
   or declared other boundaries (`SCRIPT_DRIFT`,
   `test_g12_a_row_whose_frames_changed_since_the_run_is_skipped`,
   `test_g12_a_point_whose_boundaries_moved_since_the_run_is_skipped`): a
-  distribution would be cut in the wrong frame;
+  distribution would be cut in the wrong frame. Frames are compared by every
+  line the script defines or moves one with, so a frame turned or moved since
+  the run under its old name counts as another
+  (`test_g12_a_frame_turned_since_the_run_under_the_same_name_is_skipped`).
+  The run's boundaries are the names its record states or, on a record written
+  before 0.27.0, the names of the geometry file whose sha256 the record carries
+  (`test_g12_an_older_record_is_held_to_the_boundaries_its_geometry_hash_recovers`);
+  a point whose names nothing on disk recovers, while the geometry declares
+  names today, is skipped naming the file
+  (`test_g12_an_older_record_whose_boundaries_no_hash_recovers_is_skipped_naming_why`);
 - the point is still in a scheduler's queue (`NOT_FINISHED`,
   `test_g12_a_point_still_in_a_queue_is_skipped`), a continuation replaced it
   (`SUPERSEDED`,

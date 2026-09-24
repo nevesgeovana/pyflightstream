@@ -227,7 +227,7 @@ __all__ = [
     "covered_builds",
     "emit_rotor_motion",
     "export_window",
-    "frame_pairs",
+    "frame_definitions",
     "frames_of_the_run",
     "reduction_plan",
     "reduction_windows",
@@ -12091,30 +12091,61 @@ def additional_outputs(pproc: PprocSpec, *, stem: str, unsteady: bool) -> tuple[
     return tuple(f"{stem}{suffix[kind]}" for kind in kinds)
 
 
-def frame_pairs(text: str) -> tuple[tuple[str, str], ...]:
-    """Return the ``FRAME n`` and ``NAME x`` lines of every frame a rendered script edits.
+def frame_definitions(
+    text: str, *, registry: CommandRegistry | None = None
+) -> tuple[tuple[str, ...], ...]:
+    """Return every command of a rendered script that defines or moves a frame, with its lines.
 
-    One pair per ``EDIT_COORDINATE_SYSTEM``, in order. It is how a saved
-    simulation's frames are compared with the frames a script built today
-    would create: two scripts whose pairs agree created the same frames at the
-    same indices.
+    One entry per command of the database whose name says it is about a
+    coordinate system, in order: the ones that create, place, edit, turn,
+    translate, rename, normalise, copy, mirror or delete a frame, and the ones
+    that assign it (the set the frame ledger of
+    :class:`~pyflightstream.script.Script` classifies command by command).
+    Each entry is the command's line and every line after it up to a blank
+    line, a comment or the next command of the database, stripped: an
+    ``EDIT_COORDINATE_SYSTEM`` carries its ``FRAME``, ``NAME``, origin and
+    three axis vectors, a ``ROTATE_COORDINATE_SYSTEM`` its frame, axis and
+    angle.
+
+    It is how a saved simulation's frames are compared with the frames a script
+    built today would create (G12): two scripts whose definitions agree created
+    the same frames at the same indices, with the same names, in the same place
+    and orientation, and moved them alike afterwards. Index and name alone take
+    a frame turned since the run under its old name for the one it was.
 
     Parameters
     ----------
     text : str
         A rendered script.
+    registry : CommandRegistry, optional
+        The command database whose names end a command's lines; the committed
+        one by default.
 
     Returns
     -------
-    tuple of (str, str)
-        The two lines after each ``EDIT_COORDINATE_SYSTEM``, stripped.
+    tuple of tuple of str
+        One tuple of lines per frame command, the command's own line first.
     """
+    known = (registry or CommandRegistry.load()).commands
     lines = [line.strip() for line in text.splitlines()]
-    return tuple(
-        (lines[index + 1], lines[index + 2])
-        for index, line in enumerate(lines)
-        if line == "EDIT_COORDINATE_SYSTEM" and index + 2 < len(lines)
-    )
+    found: list[tuple[str, ...]] = []
+    at = 0
+    while at < len(lines):
+        head = lines[at].split(" ", 1)[0]
+        at += 1
+        if head not in known or "COORDINATE_SYSTEM" not in head:
+            continue
+        block = [lines[at - 1]]
+        while (
+            at < len(lines)
+            and lines[at]
+            and not lines[at].startswith("#")
+            and lines[at].split(" ", 1)[0] not in known
+        ):
+            block.append(lines[at])
+            at += 1
+        found.append(tuple(block))
+    return tuple(found)
 
 
 def frames_of_the_run(
@@ -12127,8 +12158,8 @@ def frames_of_the_run(
     ``boundary_inventory`` and ``section_blocks`` describe the frames, the
     boundaries and the distributions the point's saved simulation holds,
     PROVIDED the run's recorded script created the same frames: the caller
-    compares the two scripts' :func:`frame_pairs` before trusting it, because the
-    row may have been edited since the run.
+    compares the two scripts' :func:`frame_definitions` before trusting it,
+    because the row may have been edited since the run.
 
     A continuation creates no frame of its own, so a case stating ``RESTART`` is
     built without it and its two resolved facts: the script is then the one the

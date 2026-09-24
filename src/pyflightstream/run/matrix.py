@@ -33,6 +33,7 @@ import warnings
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
+from itertools import zip_longest
 from pathlib import Path, PurePath
 
 import pyflightstream
@@ -65,7 +66,7 @@ from pyflightstream.cases.workflows import (
     WORKFLOW_KEY,
     additional_outputs,
     build_additional_script,
-    frame_pairs,
+    frame_definitions,
     frames_of_the_run,
 )
 from pyflightstream.results.tables import superseded_by_a_continuation
@@ -1058,7 +1059,8 @@ class AdditionalSkip(enum.StrEnum):
     NO_SAVED_SIMULATION = "NO_SAVED_SIMULATION"
     #: The file on disk does not hash as the record says, or the record holds no hash.
     HASH_MISMATCH = "HASH_MISMATCH"
-    #: This pproc was already extracted over these bytes with this artifact.
+    #: This pproc was already extracted over these bytes with this artifact, and
+    #: every file it wrote still hashes as recorded.
     ALREADY_EXTRACTED = "ALREADY_EXTRACTED"
     #: The build the row names today is not the one the point ran on.
     BUILD_CHANGED = "BUILD_CHANGED"
@@ -1166,12 +1168,27 @@ def _first_of_the_chain(point: RunRecord, by_run: Mapping[str, RunRecord]) -> Ru
     return current
 
 
-def _first_difference(recorded: tuple, today: tuple) -> str:
+def _first_difference(
+    recorded: tuple[tuple[str, ...], ...], today: tuple[tuple[str, ...], ...]
+) -> str:
+    """Name the first line where the run's frame commands and the row's part."""
     for at, (was, now) in enumerate(zip(recorded, today, strict=False)):
-        if was != now:
-            return f"frame {at + 1} of the run was {' '.join(was)} and is {' '.join(now)} today"
+        if was == now:
+            continue
+        said, says = next(
+            (one, other)
+            for one, other in zip_longest(was, now, fillvalue="nothing")
+            if one != other
+        )
+        return (
+            f"frame command {at + 1} of the run ({', '.join(was[:3])}) said {said} where "
+            f"the row says {says} today"
+        )
     if len(recorded) != len(today):
-        return f"the run created {len(recorded)} frame(s) and the row creates {len(today)} today"
+        return (
+            f"the run's script carries {len(recorded)} frame command(s) and the row's "
+            f"carries {len(today)} today"
+        )
     return "no frame differs"
 
 
@@ -1180,11 +1197,6 @@ def _latest_extractions(records: list[AdditionalRecord]) -> dict[str, Additional
     for record in records:
         latest[record.extraction_id] = record
     return latest
-
-
-def _outputs_present(workspace: CampaignWorkspace, record: AdditionalRecord) -> bool:
-    folder = workspace.sim_dir(record.sim_id)
-    return bool(record.outputs) and all((folder / name).is_file() for name in record.outputs)
 
 
 def _layout_of(point: RunRecord, script: Script, pproc: str) -> tuple[list[dict[str, object]], int]:
@@ -1234,7 +1246,9 @@ def plan_additional_post(
     checked in this order: the row is active, it states ``ADDITIONAL_PPROC``,
     no continuation replaced it, it is not in a queue, its saved simulation is
     on disk, that file hashes as the record says, it was not already extracted
-    over those bytes with that artifact, its build is the one the row names
+    over those bytes with that artifact into files that still hash as recorded
+    (the post's own test of an extraction, so an extraction whose file changed
+    is made again), its build is the one the row names
     today, it did not average its surface in time, and the run's recorded
     script created the frames and declared the boundaries the row gives today.
     A point passing every check is READY with its extraction script built.
@@ -1428,7 +1442,9 @@ def _plan_point(
         and done.status is ExtractionStatus.EXTRACTED
         and done.fsm_sha256 == recorded
         and done.pproc_sha256 == pproc_sha256
-        and _outputs_present(workspace, done)
+        # THE POST'S OWN PREDICATE, the hash of every file it wrote: a file the
+        # post would refuse is extracted again here, never called done.
+        and workspace.changed_extraction_file(done) is None
     ):
         return _skipped(
             point,
@@ -1551,9 +1567,20 @@ def _script_drift(
     """Build the point's run script again and compare it with the one the run recorded.
 
     Returns the rebuilt script when the two created the same frames at the same
-    indices and declared the same boundaries, and otherwise the sentence saying
-    where they part. The script compared is the one of the run that STARTED a
-    continuation chain, since a continuation reopens and creates no frame.
+    indices, placed and moved alike (every line of every frame command,
+    :func:`~pyflightstream.cases.workflows.frame_definitions`), and declared the
+    same boundaries, and otherwise the sentence saying where they part. The
+    script compared is the one of the run that STARTED a continuation chain,
+    since a continuation reopens and creates no frame.
+
+    THE BOUNDARIES THE SAVED SIMULATION HOLDS ARE THE RECORD'S, never today's
+    file's. A record written since 0.27.0 states them; an older one states none,
+    and they are read from the geometry file whose sha256 it carries
+    (:meth:`~pyflightstream.workspace.CampaignWorkspace.recorded_inventory`),
+    the point's record first and then the record of the run that started its
+    chain. Where nothing recovers them and the geometry declares names today,
+    the point is refused naming why: an index read off today's file would cut
+    whichever surface holds that index in the saved one.
     """
     first = _first_of_the_chain(point, by_run)
     if first is None:
@@ -1573,19 +1600,36 @@ def _script_drift(
         shadow = frames_of_the_run(point_case, version)
     except (PyflightstreamError, ValueError) as error:
         return f"the row no longer builds the run it recorded: {type(error).__name__}: {error}"
-    was = frame_pairs(recorded.read_text(encoding="utf-8", errors="replace"))
-    now = frame_pairs(shadow.render())
+    was = frame_definitions(recorded.read_text(encoding="utf-8", errors="replace"))
+    now = frame_definitions(shadow.render())
     if was != now:
         return (
             f"the row creates other frames today than the run created, so a distribution "
             f"would be cut in the wrong one: {_first_difference(was, now)}"
         )
-    if point.inventory is not None and list(shadow.boundary_inventory or ()) != list(
-        point.inventory
-    ):
+    held = workspace.recorded_inventory(point)
+    if held is None and first is not point:
+        held = workspace.recorded_inventory(first)
+    today = shadow.boundary_inventory
+    if held is None and today is not None:
+        looked = sorted(
+            {
+                name
+                for record in (point, first)
+                for name in record.inputs_sha256
+                if name and PurePath(name).name == name
+            }
+        )
         return (
-            f"the run declared the boundaries {', '.join(point.inventory)} and the geometry "
-            f"declares {', '.join(shadow.boundary_inventory or ()) or 'none'} today"
+            f"the record of {point.run_id} states no boundary names, and no geometry file on "
+            f"disk hashes as its inputs_sha256 says ({', '.join(looked) or 'it names none'}), "
+            "so which boundary is which in its saved simulation cannot be read; the geometry "
+            f"declares {', '.join(today)} today"
+        )
+    if held is not None and list(today or ()) != list(held):
+        return (
+            f"the run declared the boundaries {', '.join(held)} and the geometry "
+            f"declares {', '.join(today or ()) or 'none'} today"
         )
     return shadow
 
