@@ -116,7 +116,7 @@ def _thrust_coefficient(force_n: float, density: float) -> float:
 def test_the_rotor_table_is_the_mean_over_the_rows_window_in_the_spelling_a_run_emits(tmp_path):
     written, manifest, density = _posted(tmp_path)
     (table,) = [path for path in written if path.name.endswith("-PUSHER_rotor.csv")]
-    _columns, rows = read_csv_table(table, skip=1)
+    _columns, rows = read_csv_table(table)
     thrust = abs(float(rows[0]["CT_PUSHER"]))
     # The table prints five decimals, so half a unit of the last one is the tolerance;
     # the last step and the whole history are 7e-3 and 9e-3 away.

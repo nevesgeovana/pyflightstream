@@ -86,7 +86,6 @@ from pyflightstream.cases.matrix import (
     read_matrix,
 )
 from pyflightstream.post._tables import (
-    ROTOR_TABLE_LEAD_LINES,
     ROTOR_TABLE_SUFFIX,
     ProductError,
     write_csv_table,
@@ -389,7 +388,8 @@ def superfile_row(
         # reader parsed rather than re-read off the file: the cell is kept
         # so a reader sees the row as it was written, and every key inside
         # it is ALSO a column of its own below, so nothing is only inside a
-        # string.
+        # string. Its commas reach the file as `;` (G16, 0.27.0): the funnel
+        # writes no cell a reader splitting on `,` would count twice.
         _take(row, "FLIGHT_CONDITION", _condition_cell(matrix_row))
         _take(row, "SWEEP_VALUES", ",".join(_free(value) for value in matrix_row.sweep.values))
         _take(row, "SWEEP_VARIABLE", matrix_row.sweep.type)
@@ -629,20 +629,20 @@ POLAR_TABLE_GLOB = "P*-*_*.csv"
 def _header(path: Path) -> set[str]:
     """Return the column names of one product table.
 
-    A ROTOR TABLE'S HEADER IS ITS SECOND LINE (NL-03). Its first is the rotor's
-    alias, alone, and the polar glob matches it: read as a header, that line
-    put the alias into the union as if it were a column and left the table's
-    real columns out.
+    EVERY TABLE'S HEADER IS ITS FIRST LINE since 0.27.0 (G16), a rotor table's
+    included: its alias is the `ROTOR` column now. A rotor table written by
+    0.23.0 to 0.26.x still leads with the alias alone on its first line (NL-03),
+    and the polar glob matches it: read as a header, that line put the alias
+    into the union as if it were a column and left the table's real columns
+    out. So a rotor table's first line of ONE cell is the old title and is
+    passed over; a header always holds more than one.
     """
     with path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.reader(handle)
-        if path.name.endswith(ROTOR_TABLE_SUFFIX):
-            for _ in range(ROTOR_TABLE_LEAD_LINES):
-                next(reader, None)
-        try:
-            return set(next(reader))
-        except StopIteration:
-            return set()
+        first = next(reader, None)
+        if first is not None and len(first) == 1 and path.name.endswith(ROTOR_TABLE_SUFFIX):
+            first = next(reader, None)
+        return set(first) if first is not None else set()
 
 
 def _matrix_names(path: Path, pols: Iterable[str]) -> set[str]:

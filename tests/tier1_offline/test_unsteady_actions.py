@@ -498,10 +498,12 @@ def test_the_series_of_a_rotor_stub_run_agrees_with_the_counter_on_the_azimuth(t
     state = json.loads((ran_in / COUNT_FILE).read_text(encoding="utf-8"))
     write_campaign_products(workspace, overwrite=True)
     table = workspace.root / "post" / "products" / "series" / "loads_AL+000_loads_series.csv"
+    # `POL` FIRST since 0.27.0 (G16): the step, its time and its azimuth follow it.
     body = [line.split(",") for line in table.read_text(encoding="utf-8").splitlines()[1:]]
-    assert [int(cells[0]) for cells in body] == [2, 3, 4]
-    assert float(body[-1][2]) == pytest.approx(state["azimuth_deg"])
-    assert float(body[-1][1]) == pytest.approx(state["time_s"])
+    assert {cells[0] for cells in body} == {"9002"}
+    assert [int(cells[1]) for cells in body] == [2, 3, 4]
+    assert float(body[-1][3]) == pytest.approx(state["azimuth_deg"])
+    assert float(body[-1][2]) == pytest.approx(state["time_s"])
 
 
 def test_the_series_of_a_stub_run_agrees_with_the_counter_step_for_step(tmp_path):
@@ -538,18 +540,20 @@ def test_the_series_of_a_stub_run_agrees_with_the_counter_step_for_step(tmp_path
     table = workspace.root / "post" / "products" / "series" / "loads_AL+000_loads_series.csv"
     assert table.is_file(), sorted((workspace.root / "post").rglob("*"))
     rows = table.read_text(encoding="utf-8").splitlines()
-    assert rows[0].startswith("STEP,time_s,azimuth_deg,"), rows[0]
+    # `POL` FIRST since 0.27.0 (G16): the step, its time and its azimuth follow it.
+    assert rows[0].startswith("POL,STEP,time_s,azimuth_deg,"), rows[0]
     body = [line.split(",") for line in rows[1:]]
-    assert [int(cells[0]) for cells in body] == [2, 3, 4]
+    assert {cells[0] for cells in body} == {"9001"}
+    assert [int(cells[1]) for cells in body] == [2, 3, 4]
     # The counter's last state is step 4 at 4 * DELTA_TIME; the table's last row says the same.
-    assert float(body[-1][1]) == pytest.approx(state["time_s"])
+    assert float(body[-1][2]) == pytest.approx(state["time_s"])
     # `NA` AND NOT BLANK since 0.23.0. A row with no rotor has no azimuth,
     # and this is the exact shape the owner reported from a production
     # superfile: a column declared for the union of every run type, empty on
     # a row whose run type does not have it. Her reader cannot parse the
     # blank, and no reader can tell it from a zero.
-    assert all(cells[2] == NOT_APPLICABLE for cells in body), "no rotor, no azimuth"
-    assert not any(cells[2] == "" for cells in body), "a blank cell is the defect, not the fix"
+    assert all(cells[3] == NOT_APPLICABLE for cells in body), "no rotor, no azimuth"
+    assert not any(cells[3] == "" for cells in body), "a blank cell is the defect, not the fix"
 
 
 # --- FR-98, GOAL-019 item 7: the wall-clock watchdog --------------------------

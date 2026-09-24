@@ -62,7 +62,7 @@ def _flat(tmp_path, *, rotors=("PUSHER",), rpm: float | None = 2200.0):
 def test_the_one_rotor_of_a_flat_row_gets_its_table_at_the_rows_speed(tmp_path):
     _workspace_, written = _flat(tmp_path)
     (table,) = [path for path in written if path.name.endswith("-PUSHER_rotor.csv")]
-    columns, rows = read_csv_table(table, skip=1)
+    columns, rows = read_csv_table(table)
     assert rows, "the table holds no row"
     assert {float(row["RPM_PUSHER"]) for row in rows} == {2200.0}
 

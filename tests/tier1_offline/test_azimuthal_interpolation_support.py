@@ -104,7 +104,11 @@ def test_a_clean_azimuthal_campaign_writes_its_product(tmp_path, steps_per_revol
         / "probes"
         / "AL-020_per_blade.csv"
     ).read_text(encoding="utf-8")
-    families = [row.split(",")[3] for row in per_blade.splitlines()[1:]]
+    # BY NAME: the column moved one place right when every table gained `POL`
+    # first (G16), and a reader by position was the one that broke.
+    lines = per_blade.splitlines()
+    at = lines[0].split(",").index("FAMILY")
+    families = [row.split(",")[at] for row in lines[1:]]
     assert families == ["Blade1", "Blade2"], families
 
 

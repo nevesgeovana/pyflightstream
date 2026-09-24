@@ -248,6 +248,7 @@ PROBE_POINTS_FRAME_SCHEMA = {
 #: sweeps alpha, and a campaign sweeping beta or advance ratio carries
 #: that axis's name in its place.
 SWEEP_TABLE_SCHEMA = {
+    "POL": "the polar each row belongs to, as the run matrix names that column (G16)",
     "run_id": "manifest run identity, campaign/sim/point",
     "sim_id": "simulation identity of the case",
     "data_origin": "raw off the run or reduced by post-processing (PFS-2014.05)",
@@ -350,6 +351,7 @@ def test_probe_points_frame_exposes_its_complete_column_schema():
 #: It is a label-to-meaning mapping now, like its three siblings, with the
 #: duplicate check the set comparison cannot make by itself.
 RUN_ROW_SCHEMA = {
+    "POL": "the polar the run belongs to, as the run matrix names that column (G16)",
     "run_id": "manifest run identity, campaign/sim/point",
     "sim_id": "simulation identity of the case",
     "data_origin": "raw off the run or reduced by post-processing (PFS-2014.05)",
@@ -415,7 +417,8 @@ def test_run_table_joins_identity_conditions_and_total_coefficients():
     frame = run_table(record, loads=loads)
     assert frame.shape[0] == 1
     row = frame.iloc[0]
-    assert list(frame.columns[:6]) == [
+    assert list(frame.columns[:7]) == [
+        "POL",
         "run_id",
         "sim_id",
         "data_origin",

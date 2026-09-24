@@ -155,7 +155,7 @@ def test_every_row_of_the_written_rotor_table_is_normalised_by_its_own_point(tmp
         target, rotor=plan["rotor"], rows=plan["rows"], reference=reference, left_out=left_out
     )
     assert written is not None and not left_out, left_out
-    _columns, rows = read_csv_table(written, skip=1)
+    _columns, rows = read_csv_table(written)
     assert len(rows) == 2, rows
 
     assert [row["J_PUSHER"] for row in rows] == ["0.83333", "2.50000"], rows

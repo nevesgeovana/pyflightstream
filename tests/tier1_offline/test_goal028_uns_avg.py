@@ -52,7 +52,8 @@ def test_the_window_leads_the_row_and_is_the_matrix_window_of_that_point(table):
     _workspace_, path = table
     assert path.name.startswith("P6002_"), path.name
     columns, rows = read_csv_table(path)
-    assert list(columns[:3]) == ["FIRST_STEP", "LAST_STEP", "STEPS"], columns[:6]
+    # THE POLAR FIRST since 0.27.0 (G16), then the window.
+    assert list(columns[:4]) == ["POL", "FIRST_STEP", "LAST_STEP", "STEPS"], columns[:6]
     # Half of a 2-step revolution is one step, ending at the run's last step, 2.
     assert [(row["FIRST_STEP"], row["LAST_STEP"], row["STEPS"]) for row in rows] == [
         ("2", "2", "1")
