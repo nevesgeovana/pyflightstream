@@ -209,8 +209,11 @@ def test_no_forbidden_identifier_in_the_versioned_tree() -> None:
     # docs/migrating-to-0.25.0.md, and `docs/` is an exempt TREE, so a release
     # that writes its migration page moves this number by one without widening
     # any exemption. The cap allows two more pages before it is read again.
-    assert numbers["exempt"] <= 43, (
-        f"{numbers['exempt']} files exempt, up from the 41 measured at 0.25.0. "
+    # 44 measured at 0.27.0: docs/ gained migrating-to-0.26.0.md,
+    # migrating-to-0.27.0.md and gui-to-pyfs.md (D06), and no exemption was
+    # widened. The cap allows 0.28.0's migration page and nothing more.
+    assert numbers["exempt"] <= 45, (
+        f"{numbers['exempt']} files exempt, up from the 44 measured at 0.27.0. "
         "An exemption was widened, or a tree grew by more than a release's own "
         "pages; widen this number in the same commit and say why in "
         "tools/shipped_surface.conf."

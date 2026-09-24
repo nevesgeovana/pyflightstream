@@ -1390,6 +1390,69 @@ def test_the_wake_edge_import_probe_emits_the_measured_grammar_and_counts_the_ed
     assert check(_wake_edge_region(tmp_path, None)) is False
 
 
+_SIXTEEN_ON_WING = "16 trailing edges imported for boundary Wing"
+
+
+@pytest.mark.parametrize(
+    ("logged", "verdict"),
+    [
+        ([_SIXTEEN_ON_WING], True),
+        (["15 trailing edges imported for boundary Wing"], False),
+        (["116 trailing edges imported for boundary Wing"], False),
+        (["16 trailing edges imported for boundary Winglet"], False),
+        ([_SIXTEEN_ON_WING, "3 trailing edges imported for boundary Tail"], False),
+        ([_SIXTEEN_ON_WING, _SIXTEEN_ON_WING], False),
+        ([], False),
+    ],
+    ids=[
+        "sixteen-on-wing",
+        "fifteen",
+        "one-hundred-and-sixteen",
+        "another-boundary",
+        "an-additional-import",
+        "the-import-twice",
+        "silence",
+    ],
+)
+def test_the_wake_edge_import_probe_verifies_only_the_exact_import_it_wrote(
+    tmp_path, logged, verdict
+):
+    """The probe wrote 16 points on the boundary Wing, so the one effect that
+    verifies it is the solver saying exactly that, once: every import line in the
+    region is read with its count and its boundary, and the whole set is compared.
+    A count that merely contains 16, a boundary whose name begins with Wing, and a
+    second import line are each an effect other than the one the probe wrote."""
+    region = "\r\n\x00\r\n".join(logged) if logged else None
+    check = PROBE_SPECS["IMPORT_WAKE_EDGES_FROM_FILE"].assert_effect
+    assert check(_wake_edge_region(tmp_path, region)) is verdict
+
+
+def test_the_committed_wake_edge_compat_report_stands_under_the_exact_judge(tmp_path):
+    """CMP-26124_2026-09-24 was judged by the substring judge. Its evidence says the
+    solver logged 16 trailing edges imported for boundary Wing; that line, fed to
+    the exact judge, is still verified, so the committed row stands."""
+    import re
+
+    import yaml
+
+    report = (
+        Path(__file__).resolve().parents[2]
+        / "reports"
+        / "compat"
+        / "CMP-26124_2026-09-24_wake-edge-import.yaml"
+    )
+    entry = yaml.safe_load(report.read_text(encoding="utf-8"))["commands"][
+        "IMPORT_WAKE_EDGES_FROM_FILE"
+    ]
+    assert entry["outcome"] == "verified" and entry["signals"]["effect"] is True, entry
+    (quoted,) = re.findall(
+        r"the solver logs (\d+ trailing edges imported for boundary \w+),", entry["detail"]
+    )
+    assert quoted == _SIXTEEN_ON_WING, entry["detail"]
+    check = PROBE_SPECS["IMPORT_WAKE_EDGES_FROM_FILE"].assert_effect
+    assert check(_wake_edge_region(tmp_path, quoted)) is True
+
+
 def test_the_wake_edge_import_probe_is_unprobed_where_the_route_was_not_measured(tmp_path):
     """On 26.123 the grammar has no third token, so the probe script does not
     build; the harness records that UNPROBED, never broken, because what does not

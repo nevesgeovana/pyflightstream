@@ -43,7 +43,8 @@ from pyflightstream.cases.workflows import (
 )
 from pyflightstream.commands import CommandRegistry, Phase, Status
 from pyflightstream.results import parse_loads
-from pyflightstream.run import LoadsAssessor, _reads_as_residual_history
+from pyflightstream.run import LoadsAssessor
+from pyflightstream.run._wake_edge_verdict import reads_as_residual_history
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import RunStatus
@@ -254,7 +255,7 @@ def test_g04_a_plot_file_is_neither_a_loads_table_nor_a_solver_log(tmp_path):
         assert "FlightStream plot" in text, path.name
         with pytest.raises(ValueError):
             parse_loads(text)
-        assert not _reads_as_residual_history(path), path.name
+        assert not reads_as_residual_history(path), path.name
     # The judgment of a point folder with and without them is the same.
     verdicts = []
     for with_plots in (False, True):
