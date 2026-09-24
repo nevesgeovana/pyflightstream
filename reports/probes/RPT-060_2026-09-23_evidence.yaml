@@ -1,0 +1,97 @@
+# RPT-060 evidence, collected from the probe workspace on the measuring machine.
+report: reports/RPT-060_roll-and-yaw-rates-are-emitted-reversed_2026-09-23.md
+date: '2026-09-23'
+question: the sense of roll_rate and yaw_rate as the package emits them, on 26.124
+where_the_raw_files_are: 'The solver outputs stayed on the measuring machine and are not committed (invariant 5).'
+geometry: 30_WB (the RPT-052 mesh)
+input_mesh_sha256: 3a5f174c594e6cd6b47517da4da9b633ea4c95cf9f00d17f4ddfd5d1539bd00a
+executable_sha256:
+  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+package: {version: 0.27.0.dev0, commit: b705329}
+setup: RPT-052 preset plus farfield_layers = 5 (every script carries SOLVER_SET_FARFIELD_LAYERS 5)
+points:
+  - run_id: t11-roll-yaw/sim_4201/M200RE1177AL+020BE+000P+000R+000
+    status: CONVERGED
+    fs_build: '8172026'
+    iterations: 181
+    script_sha256: 47d76052e08654cc6470c21fcdffec8c67fd55d1e3efe35b36211cf621d17b51
+    free_stream: 'SET_FREESTREAM CONSTANT'
+  - run_id: t11-roll-yaw/sim_4202/M200RE1177AL+020BE+000P+040R+000
+    status: CONVERGED
+    fs_build: '8172026'
+    iterations: 182
+    script_sha256: 2635f9cb8ddb76c0f2f33a1466b9a950626f214e069d7d3fdaf0f4c554918875
+    free_stream: 'SET_FREESTREAM ROTATION 2 X 0.6666666666666666'
+  - run_id: t11-roll-yaw/sim_4203/M200RE1177AL+020BE+000P+400R+000
+    status: CONVERGED
+    fs_build: '8172026'
+    iterations: 187
+    script_sha256: 6723c40e618f807dc4f3dbedd95ba2b413e4571d1e6793351af129ed7954e801
+    free_stream: 'SET_FREESTREAM ROTATION 2 X 6.666666666666666'
+  - run_id: t11-roll-yaw/sim_4204/M200RE1177AL+020BE+000P-400R+000
+    status: CONVERGED
+    fs_build: '8172026'
+    iterations: 173
+    script_sha256: b2a51d7d4860b37669b94bdb17ecb9f01113c27238868c59f0c46ef4f558a26f
+    free_stream: 'SET_FREESTREAM ROTATION 2 X -6.666666666666666'
+  - run_id: t11-roll-yaw/sim_4205/M200RE1177AL+020BE+000P+000R+040
+    status: CONVERGED
+    fs_build: '8172026'
+    iterations: 181
+    script_sha256: 7db50713c34f80a3db1c2ae285b37499c8fee061b8f1c747fb00bb0f7986ddd2
+    free_stream: 'SET_FREESTREAM ROTATION 2 Z 0.6666666666666666'
+  - run_id: t11-roll-yaw/sim_4206/M200RE1177AL+020BE+000P+000R+400
+    status: CONVERGED
+    fs_build: '8172026'
+    iterations: 182
+    script_sha256: 9e735f79de1e0cabb6e2ee6ea71968a60a35d8271da13a1094ae9373482d9416
+    free_stream: 'SET_FREESTREAM ROTATION 2 Z 6.666666666666666'
+  - run_id: t11-roll-yaw/sim_4207/M200RE1177AL+020BE+000P+000R-400
+    status: CONVERGED
+    fs_build: '8172026'
+    iterations: 180
+    script_sha256: 8857c30578d4df224155642b51982a20f26b0c39ff3b35eb74daebd9222cb82d
+    free_stream: 'SET_FREESTREAM ROTATION 2 Z -6.666666666666666'
+increments_over_4201:
+  '4202':
+    axis: roll
+    rate_deg_s: 4.0
+    g01: {"CLB": 0.01012, "CYB": -0.00071, "CDB": -0.00107, "CRB25": 0.00287, "CMB25": 0.00029, "CNB25": 0.00035}
+    g02: {"CLB": 0.00989, "CYB": -0.00014, "CDB": -0.00107, "CRB25": 0.0029, "CMB25": 7e-05, "CNB25": 0.0003}
+    g03: {"CLB": 0.00023, "CYB": -0.00057, "CDB": 0.0, "CRB25": -3e-05, "CMB25": 0.00022, "CNB25": 5e-05}
+    section_dFz_by_offset: [[-9.622, 121.0], [-8.866, 174.0], [-8.11, 196.0], [-7.354, 201.0], [-6.598, 197.0], [-5.842, 190.0], [-5.086, 176.0], [-4.33, 160.0], [-3.574, 143.0], [-2.818, 124.0], [-2.062, 105.0], [-1.306, 89.0]]
+  '4203':
+    axis: roll
+    rate_deg_s: 40.0
+    g01: {"CLB": 0.10171, "CYB": -0.00773, "CDB": -0.01502, "CRB25": 0.0288, "CMB25": 0.00261, "CNB25": 0.00479}
+    g02: {"CLB": 0.09946, "CYB": -0.0018, "CDB": -0.01489, "CRB25": 0.02913, "CMB25": 0.00041, "CNB25": 0.00435}
+    g03: {"CLB": 0.00224, "CYB": -0.00592, "CDB": -0.00013, "CRB25": -0.00034, "CMB25": 0.0022, "CNB25": 0.00045}
+    section_dFz_by_offset: [[-9.622, 1218.0], [-8.866, 1751.0], [-8.11, 1958.0], [-7.354, 2014.0], [-6.598, 1982.0], [-5.842, 1889.0], [-5.086, 1760.0], [-4.33, 1606.0], [-3.574, 1432.0], [-2.818, 1247.0], [-2.062, 1060.0], [-1.306, 899.0]]
+  '4204':
+    axis: roll
+    rate_deg_s: -40.0
+    g01: {"CLB": -0.10213, "CYB": 0.00622, "CDB": 0.00619, "CRB25": -0.02892, "CMB25": -0.00289, "CNB25": -0.00188}
+    g02: {"CLB": -0.0998, "CYB": 0.00091, "CDB": 0.00607, "CRB25": -0.02922, "CMB25": -0.00083, "CNB25": -0.00146}
+    g03: {"CLB": -0.00233, "CYB": 0.00532, "CDB": 0.00012, "CRB25": 0.0003, "CMB25": -0.00206, "CNB25": -0.00041}
+    section_dFz_by_offset: [[-9.622, -1201.6], [-8.866, -1761.1], [-8.11, -1971.0], [-7.354, -2026.0], [-6.598, -1992.0], [-5.842, -1897.0], [-5.086, -1768.0], [-4.33, -1611.0], [-3.574, -1435.0], [-2.818, -1248.0], [-2.062, -1059.0], [-1.306, -902.0]]
+  '4205':
+    axis: yaw
+    rate_deg_s: 4.0
+    g01: {"CLB": -0.00138, "CYB": -0.00051, "CDB": -6e-05, "CRB25": -0.00055, "CMB25": -0.00078, "CNB25": 3e-05}
+    g02: {"CLB": -0.00148, "CYB": 3e-05, "CDB": -8e-05, "CRB25": -0.00051, "CMB25": -5e-05, "CNB25": 3e-05}
+    g03: {"CLB": 0.0001, "CYB": -0.00055, "CDB": 2e-05, "CRB25": -3e-05, "CMB25": -0.00073, "CNB25": 0.0}
+    section_dFz_by_offset: [[-9.622, -25.0], [-8.866, -36.0], [-8.11, -39.0], [-7.354, -39.0], [-6.598, -38.0], [-5.842, -34.0], [-5.086, -29.0], [-4.33, -23.0], [-3.574, -16.0], [-2.818, -8.0], [-2.062, 2.0], [-1.306, 14.0]]
+  '4206':
+    axis: yaw
+    rate_deg_s: 40.0
+    g01: {"CLB": -0.01281, "CYB": -0.00485, "CDB": -0.00066, "CRB25": -0.00517, "CMB25": -0.00781, "CNB25": 0.00021}
+    g02: {"CLB": -0.01391, "CYB": 0.00032, "CDB": -0.00084, "CRB25": -0.00488, "CMB25": -0.00049, "CNB25": 0.00028}
+    g03: {"CLB": 0.0011, "CYB": -0.00517, "CDB": 0.00018, "CRB25": -0.00029, "CMB25": -0.00732, "CNB25": -8e-05}
+    section_dFz_by_offset: [[-9.622, -242.0], [-8.866, -342.0], [-8.11, -375.0], [-7.354, -376.0], [-6.598, -357.0], [-5.842, -322.0], [-5.086, -279.0], [-4.33, -225.0], [-3.574, -158.0], [-2.818, -79.0], [-2.062, 21.0], [-1.306, 145.0]]
+  '4207':
+    axis: yaw
+    rate_deg_s: -40.0
+    g01: {"CLB": 0.00753, "CYB": 0.00574, "CDB": 0.00076, "CRB25": 0.00386, "CMB25": 0.00799, "CNB25": -0.00034}
+    g02: {"CLB": 0.00889, "CYB": -0.00028, "CDB": 0.00086, "CRB25": 0.00352, "CMB25": 0.00088, "CNB25": -0.00038}
+    g03: {"CLB": -0.00136, "CYB": 0.00602, "CDB": -0.0001, "CRB25": 0.00034, "CMB25": 0.0071, "CNB25": 5e-05}
+    section_dFz_by_offset: [[-9.622, 202.0], [-8.866, 271.0], [-8.11, 287.0], [-7.354, 282.0], [-6.598, 261.0], [-5.842, 231.0], [-5.086, 189.0], [-4.33, 140.0], [-3.574, 78.0], [-2.818, 3.0], [-2.062, -91.0], [-1.306, -209.0]]
