@@ -887,6 +887,15 @@ class Script:
         #: sections table could not say which rows belong to which surface, and
         #: nothing at post can recover a name the script never wrote.
         self.section_blocks: list[dict[str, object]] = []
+        #: HOW MANY TRAILING-EDGE POINTS THIS SCRIPT IMPORTS, or None when it
+        #: imports none (G02). Set by
+        #: :func:`~pyflightstream.script.helpers.mark_wake_edges` after it
+        #: emits, and summed over its calls. The run compares it with the
+        #: count the solver logs as imported, because a point that matches
+        #: no mesh edge is dropped in silence (RPT-061); it is kept on the
+        #: SCRIPT so a continuation, which imports nothing, is never held to
+        #: a count its own script did not write.
+        self.wake_edge_points: int | None = None
         #: Force plot groups actually emitted, with their frame, families and parameters.
         self.plot_groups: list[dict[str, object]] = []
         #: WHERE THIS SCRIPT PUT EACH COORDINATE SYSTEM (FR-100), keyed by
@@ -923,6 +932,12 @@ class Script:
         # layer touches a path.
         self._unsteady_actions: dict[str, UnsteadyActionUse] = {}
         self._pending_action_scripts: dict[str, str] = {}
+        # DATA FILES THE SCRIPT NAMES AND THE RUN WRITES (G02), keyed by the
+        # path the command line names: the trailing-edge node file today.
+        # Parked here for the reason the action scripts are: the script
+        # layer is text-only, and the file lands through the run layer's
+        # writer before the solver starts.
+        self._pending_input_files: dict[str, str] = {}
 
     @property
     def unsteady_actions(self) -> tuple[UnsteadyActionUse, ...]:
@@ -949,6 +964,20 @@ class Script:
             opens nor resolves a path.
         """
         return dict(self._pending_action_scripts)
+
+    @property
+    def pending_input_files(self) -> dict[str, str]:
+        """Data files the script names, waiting to be written, by their path.
+
+        Returns
+        -------
+        dict of str to str
+            A copy, keyed by the path the emitted command names and valued
+            by the file's text. The run layer writes these before the
+            solver starts, as it writes :attr:`pending_action_scripts`; the
+            script layer neither opens nor resolves a path.
+        """
+        return dict(self._pending_input_files)
 
     @property
     def registry(self) -> CommandRegistry:
