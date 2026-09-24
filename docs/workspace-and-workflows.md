@@ -2949,8 +2949,10 @@ committed fixture unmodified.
 **A missing output strands nothing** (0.27.0). A point one of whose
 declared outputs was not written is recorded `FAILED_INCOMPLETE_OUTPUT`, and
 every declared output it did write is still filed in its
-`datapoints/DP-<point>/`, listed in the record's `outputs` and hashed in its
-`outputs_sha256`; the error names the missing files and nothing else. Until
+`datapoints/DP-<point>/`, listed in the record's `outputs` with its sha256 in
+`outputs_sha256`; the error names the missing files and nothing else
+(`test_a_missing_log_strands_no_other_output_of_a_local_point`,
+`test_collection_files_every_output_that_exists_and_names_only_the_missing`). Until
 0.27.0 one missing file, typically the solver log, left every other export
 of the point where the solver wrote it and a record naming no output, which
 the post then skipped. The collection method raises `MissingOutputsError`, a
