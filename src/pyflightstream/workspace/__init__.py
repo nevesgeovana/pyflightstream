@@ -68,12 +68,22 @@ from pathlib import Path
 # below 3.12, and this import branched on the interpreter while the floor
 # was 3.11. The floor follows SPEC 0 since 0.13.0 (PFS-2024.07) and is
 # 3.12, so the branch went with the leg.
-from typing import NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    ValidationError,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream._retired_names import WORKSPACE_ENGINE_POINT, RetiredAttributeError
 from pyflightstream.cases import BoundaryAliases, RawCommand
 from pyflightstream.cases.windows import surface_averaging_window
@@ -964,6 +974,21 @@ class RunRecord(BaseModel):
     #: Where the boundary inventory came from, ``sidecar`` or ``mesh_block``
     #: (PFS-2029.06.03); None when the geometry declares none.
     inventory_source: str | None = None
+    #: THE BOUNDARY NAMES THE SCRIPT WAS BUILT OVER (R03 of 0.27.0), in the
+    #: solver's order, the name at position ``i`` being boundary ``i``: what
+    #: the builder read at OPEN from the source ``inventory_source`` names.
+    #: The post reads a section distribution's selection over them, where
+    #: the cuts alone cannot say what a family stem or ``all`` selected.
+    #: None on every record written before 0.27.0, which the post recovers
+    #: by the geometry's hash (:meth:`CampaignWorkspace.recorded_inventory`),
+    #: and on a run that opened no geometry declaring names.
+    #:
+    #: Adding it did not move MANIFEST_SCHEMA. The key is ABSENT where the
+    #: value is None, as ``forced_local`` of the executor entry is where
+    #: nothing was forced: a reader older than 0.27.0 refuses a record that
+    #: carries a key it does not know, so only a record that has names to
+    #: state writes one.
+    inventory: list[str] | None = None
     #: How the inputs were staged (PFS-2029.17): ``link``, a directory
     #: junction on Windows and a symbolic link elsewhere, at the geometry's
     #: own folder of the library or at the flat library (PFS-2032.04), or
@@ -1006,6 +1031,23 @@ class RunRecord(BaseModel):
         if isinstance(data, dict) and "broken_commands" in data and "waived_commands" not in data:
             data = {**data, "waived_commands": data["broken_commands"]}
             del data["broken_commands"]
+        return data
+
+    @model_serializer(mode="wrap")
+    def _leave_an_unrecorded_inventory_out(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> dict[str, Any]:
+        """Write no ``inventory`` key where the record states no names (R03 of 0.27.0).
+
+        The rule ``forced_local`` follows: a key a reader older than 0.27.0
+        does not know is written only where something was recorded, so a
+        manifest of LEGACY or geometry-less records stays readable by it.
+        A serializer rather than ``Field(exclude_if=...)``, which needs
+        pydantic 2.11 where this package's floor is pydantic 2.
+        """
+        data: dict[str, Any] = handler(self)
+        if data.get("inventory") is None:
+            data.pop("inventory", None)
         return data
 
     #: How the solver was called (PFS-2012.04), None where no solver ran
@@ -1148,6 +1190,14 @@ class RunRecord(BaseModel):
 def _is_link(path: Path) -> bool:
     """Whether ``path`` is a symbolic link or, on Windows, a directory junction."""
     return path.is_symlink() or (sys.platform == "win32" and _is_junction(path))
+
+
+def _same_file(one: Path, other: Path) -> bool:
+    """Whether two paths are one file, a staged link and the library file included."""
+    try:
+        return os.path.samefile(one, other)
+    except OSError:
+        return False
 
 
 def _is_junction(path: Path) -> bool:
@@ -1616,6 +1666,10 @@ class CampaignWorkspace:
         #: ``("link", None)`` or ``("copy", reason)``; :meth:`staged_as` reads
         #: the disk for a simulation this object did not stage.
         self._staging: dict[str, tuple[str, str | None]] = {}
+        #: The sha256 of each geometry :meth:`recorded_inventory` hashed, by
+        #: (resolved path, size, modification time), so the points of one
+        #: older job hash their shared mesh once.
+        self._digests: dict[tuple[str, int, int], str] = {}
 
     @classmethod
     def init(cls, root: str | Path, naming: NamingTemplate | None = None) -> CampaignWorkspace:
@@ -2216,6 +2270,77 @@ class CampaignWorkspace:
         if inputs.is_dir() and any(inputs.iterdir()):
             return "copy", "the copies were staged by an earlier session, which kept the reason"
         return None, None
+
+    def recorded_inventory(self, record: RunRecord) -> tuple[str, ...] | None:
+        """Return the boundary names of the geometry one record's run opened, or None.
+
+        A record written since 0.27.0 states them (:attr:`RunRecord.inventory`)
+        and they are returned as written, with nothing hashed. An older record
+        states none, and they are read from the mesh block of the file whose
+        sha256 the record carries in ``inputs_sha256`` (R04 of 0.27.0): the
+        simulation's own staged copy first, then the geometry library's file
+        of that name, flat or in its own folder.
+
+        THE HASH, NEVER THE NAME, SAYS A FILE IS THE ONE THAT RAN. A geometry
+        edited or deleted since the run recovers nothing, and neither does a
+        file carrying no mesh block. The ``<stem>.boundaries.toml`` sidecar is
+        not read, because nothing hashed it; at run time the builder refused
+        a sidecar that disagreed with the mesh block, so the block of the
+        hash-matched file is the authority.
+
+        Parameters
+        ----------
+        record : RunRecord
+            The run whose geometry is asked for.
+
+        Returns
+        -------
+        tuple of str or None
+            The names in the solver's order, the name at position ``i``
+            being boundary ``i``, or None where nothing carries them.
+        """
+        if record.inventory is not None:
+            return tuple(record.inventory)
+        for name, digest in record.inputs_sha256.items():
+            if not name or Path(name).name != name:
+                continue  # a geometry is staged by its file name, never a path
+            candidates = [self.sim_dir(record.sim_id) / "inputs" / name]
+            try:
+                candidates.append(self.resolve_geometry(name))
+            except (InputArtifactError, OSError):
+                pass
+            read: list[Path] = []
+            for path in candidates:
+                if not path.is_file() or any(_same_file(path, other) for other in read):
+                    continue
+                read.append(path)
+                try:
+                    if self._digest_of(path) != digest:
+                        continue
+                    names = boundary_names(path)
+                except (MeshReadError, OSError):
+                    continue
+                if names:
+                    return tuple(names)
+        return None
+
+    def _digest_of(self, path: Path) -> str:
+        """Hash one file, remembering the answer while its size and time stand.
+
+        RACY-CLEAN, as git's index calls it: a modification time is as coarse
+        as the filesystem's clock, so a file rewritten within one tick keeps
+        its size and its time. A digest is remembered only for a file last
+        written more than two seconds ago, and a younger one is hashed again.
+        """
+        status = path.stat()
+        key = (os.path.normcase(str(path.resolve())), status.st_size, status.st_mtime_ns)
+        known = self._digests.get(key)
+        if known is not None:
+            return known
+        digest = _sha256(path)
+        if time.time_ns() - status.st_mtime_ns > 2_000_000_000:
+            self._digests[key] = digest
+        return digest
 
     def write_script(self, sim_id: str, name: str, text: str) -> tuple[Path, str]:
         """Write one generated script into ``scripts/`` and hash it.

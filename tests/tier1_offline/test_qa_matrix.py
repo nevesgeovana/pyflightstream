@@ -40,9 +40,11 @@ SRC = Path(pyflightstream.__file__).resolve().parent
 #: coefficients are linear in alpha with the slope of the committed
 #: PHY-01 reference, the mirrored half carries a slightly larger slope so
 #: the PHY-02 deltas are nonzero, and a script that creates a motion is
-#: the rotor and writes the PHY-05 reference values. Every other export
-#: the script names is left unwritten, which is why the workspace below
-#: narrows the export set to the loads table.
+#: the rotor and writes the PHY-05 reference values. It also writes the
+#: saved simulation, which every point of a row naming a run type declares
+#: since 0.27.0 (G11). Every other export the script names is left
+#: unwritten, which is why the workspace below narrows the export set to
+#: the loads table and the saved simulation.
 STUB_SOLVER = r"""
 import pathlib
 import re
@@ -103,14 +105,17 @@ for index, line in enumerate(lines):
         velocity = float(line.split()[1])
     elif line == "EXPORT_SOLVER_ANALYSIS_SPREADSHEET":
         export(alpha, beta, velocity, lines[index + 1])
+    elif line == "SAVEAS":
+        pathlib.Path(lines[index + 1]).write_text("FSM", encoding="utf-8")
 """
 
 #: The post-processing artifact of the stub workspace: the groups the
-#: products are written per, and every export but the loads table
-#: switched off, because the stand-in solver writes the loads table alone
-#: and a declared export that is not there fails the point.
+#: products are written per, and every export that can be switched off
+#: switched off, because the stand-in solver writes the loads table and
+#: the saved simulation alone and a declared export that is not there
+#: fails the point. The saved simulation cannot be switched off (0.27.0).
 STUB_PPROC = (
-    '[groups]\n"1" = "all"\n\n[exports]\nsimulation = false\ntecplot = false\n'
+    '[groups]\n"1" = "all"\n\n[exports]\ntecplot = false\n'
     "sections = false\nsectional_loads = false\nprobes = false\nplots = false\nlog = false\n"
 )
 

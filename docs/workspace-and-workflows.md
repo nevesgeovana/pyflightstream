@@ -78,9 +78,13 @@ key of its variables (until v0.11.0 that code sat in a column of its own,
 `FS_SCRIPT`, which `pyfs-matrix upgrade` moves). Since 0.13.0 that cell may
 carry the reference itself, `package.module:function`, and a row written so
 plans and runs with no `--recipe` option at all; a bare code such as `003`
-is still mapped by that option (PFS-2031.11). `HIDDEN` and `RUN` sit
-directly after `POL` since v0.17.0; `RUN` is the switch that says whether
-the row takes part at all, and `HIDDEN` whether the solver shows a window.
+is still mapped by that option (PFS-2031.11). A `LEGACY` row's recipe also
+decides what it saves: these two rows declare a loads table and no `.fsm`,
+so since 0.27.0 `pyfs-matrix plan` warns, naming both, that no final saved
+simulation of theirs is collected, and plans them as before. `HIDDEN` and
+`RUN` sit directly after `POL` since v0.17.0; `RUN` is the switch that says
+whether the row takes part at all, and `HIDDEN` whether the solver shows a
+window.
 
 **SIX COLUMNS ARRIVED AT v0.17.0** and each of them was expressible before,
 four as keys inside `VAR_NAMES_VALUES` and two inside the setup artifact.
@@ -1251,7 +1255,7 @@ AIRFRAME = "airframe"          # an alias of the row's reference, under its [ali
 ROTOR = "Blade"                # a family is every member of it: Blade1, Blade2, ...
 
 [exports]                      # override the defaults for this run type
-tecplot = false                # disable Tecplot; loads cannot be off
+tecplot = false                # disable Tecplot; loads and simulation cannot be off
 vtk = true                     # opt in to VTK surface export
 csv = true                     # opt in to CSV surface export
 
@@ -1574,7 +1578,9 @@ The `[exports]` table decides the row's export set (FR-51): a workflow row
 declares no `OUTPUTS` of its own any more, every export is named for the
 point with the study's suffixes (`.fsm`, `.txt`, `.dat`, `_cp.txt`,
 `_sloads.txt`, `_probes.txt`, `_plots.txt`, `_log.txt`), and a workflow row
-that still carries `OUTPUTS` is refused naming this table. A setup artifact
+that still carries `OUTPUTS` is refused naming this table. The loads table
+and the saved simulation cannot be switched off: `loads = false` and, since
+0.27.0, `simulation = false` are refused naming the file. A setup artifact
 that names one of these tables is refused pointing here: a setup carries
 solver settings only (PFS-2029.16). The run record names the pproc id each
 point was run for.
@@ -2574,6 +2580,26 @@ matrix printed above runs as printed, row 7002's two alphas included,
 and that is what the acceptance case in the suite does with the
 committed fixture unmodified.
 
+**Every point of a row that names a run type leaves its final saved
+simulation** (a written guarantee since 0.27.0, G11). After the point's
+solve, first among its exports, the script saves the solver's state with
+`SAVEAS` under the point's file stem, and the file is collected into
+`sims/sim_<POL>/datapoints/DP-<point>/P<POL>-<point>.fsm` (the stem as
+`pyfs-matrix` names it). It is listed in the run record's `outputs` and
+hashed in its `outputs_sha256`, and a point whose file is not there is
+recorded `FAILED_INCOMPLETE_OUTPUT`, like any declared export that is
+missing. It holds for `steady` (each point of a steady sweep saves its
+own), `unsteady` and `unsteady_rotor`, on every registered build a run type
+renders on (`test_g11_every_workflow_script_saves_its_final_simulation`,
+`test_g11_the_saved_simulation_is_collected_and_hashed`); 25.000 renders
+no script for any run type, so it has no point to save. A pproc cannot
+turn it off: `[exports] simulation = false` is refused, as `loads = false`
+is. A `LEGACY` row saves one only if its recipe writes `SAVEAS` to a name
+its `OUTPUTS` declare, and `pyfs-matrix plan` warns naming every `LEGACY`
+row whose `OUTPUTS` declare no `.fsm`; the warning blocks nothing. A case
+written in Python that declares its own `outputs` exports exactly those,
+with no saved simulation unless one of them ends in `.fsm`.
+
 **Name your outputs per point.** The folders no longer collide, but the
 PRODUCTS do: a point's polar, plots and probe tables are named after the
 stem of its loads file, so two points sharing a name produce one table
@@ -2726,7 +2752,9 @@ step as the existing sections table does. That table and the combined sections
 series remain available. `products.json` records each distribution, its original
 families/alias and `steps_tabled`, with named skips for missing exports or steps.
 No recorded `sections_layout` means no split: post names the missing layout.
-Older layouts require an unambiguous match to their recorded pproc. See the
+Older layouts require an unambiguous match to their recorded pproc, read over the
+geometry's boundary names where the record carries them or its geometry hash
+recovers them. See the
 [sections definitions](post-processing-definitions.md#per-distribution-sectional-loads-and-cp-0250).
 
 **The stamped files as a series** (since 0.14.0, PFS-2031.18.01). Thirty

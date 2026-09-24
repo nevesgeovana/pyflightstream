@@ -840,12 +840,14 @@ def declined_induced_drag(loads: LoadsReport, selection: object) -> tuple[str, .
     geometry numbers them: measured on 40 recorded exports of 11 geometries,
     four of them with several boundaries, every table in its inventory's order
     (``reports/probes/PFS-2006-03_2026-09-24_row-order.yaml``). Resolving the
-    index through the inventory recorded with each run, rather than through
-    the table's order, is the stronger reading and waits for that record
-    (R03 of 0.27.0). A list holding anything the table cannot place -- a
-    label, a bool, an index out of range -- is read as every surface, because a
-    false `NA` is loud and a false zero is a number a reader believes. The empty
-    default, None and anything else decline nothing.
+    index through the boundary names each run records since 0.27.0
+    (``RunRecord.inventory``, R03), rather than through the table's order, is
+    the stronger reading; the record now exists, and reading the index
+    through it is not done here yet and is owed to 0.28.0. A list holding
+    anything the table cannot place -- a label, a bool, an index out of
+    range -- is read as every surface, because a false `NA` is loud and a
+    false zero is a number a reader believes. The empty default, None and
+    anything else decline nothing.
 
     A trailing-edged surface whose induced drag rounds to zero at the printed
     precision is declined too; ``SET_SIGNIFICANT_DIGITS`` narrows that band.
@@ -5739,6 +5741,10 @@ def _point_series(
         condition=condition,
         reference=reference,
         rotors=_section_rotors(live, aliases, record),
+        # R03 and R04 of 0.27.0: the geometry's names, recorded since 0.27.0 or
+        # recovered by the hash an older record carries; hashed only for a
+        # point that recorded a layout to match.
+        inventory=workspace.recorded_inventory(record) if record.sections_layout else None,
     )
     try:
         written, names = write_point_series(

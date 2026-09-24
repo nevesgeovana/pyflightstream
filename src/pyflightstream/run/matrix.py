@@ -27,13 +27,20 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 from pyflightstream._deprecations import MATRIX_FS_VERSION
-from pyflightstream._errors import InputArtifactError, PyflightstreamDeprecationWarning
-from pyflightstream.cases import Campaign, ScriptRecipe
+from pyflightstream._errors import (
+    InputArtifactError,
+    PyflightstreamDeprecationWarning,
+    PyflightstreamWarning,
+    warn,
+)
+from pyflightstream.cases import Campaign, ScriptRecipe, classify_outputs
 from pyflightstream.cases.matrix import (
+    LEGACY_WORKFLOW,
     MatrixError,
     read_matrix,
     refuse_silent_rows_without_default,
 )
+from pyflightstream.cases.workflows import WORKFLOW_KEY
 from pyflightstream.run import (
     CampaignPlan,
     Executor,
@@ -178,6 +185,36 @@ def _default_version(
     # which runs before anything is bound; what went is the requirement
     # to repeat on the command line a build every row already states.
     return default_fs_version
+
+
+def _warn_the_legacy_rows_saving_no_simulation(resolved: ResolvedMatrix) -> None:
+    """Name each LEGACY row whose outputs declare no saved simulation (G11, 0.27.0).
+
+    A row naming a run type saves its final ``.fsm`` on every point, which the
+    pproc artifact cannot switch off. A LEGACY row's recipe decides what it
+    writes, and only a ``.fsm`` name among its OUTPUTS is collected and hashed,
+    so a row declaring none leaves no final state in its record. A warning,
+    never a refusal: such a row runs as it always did. Called from
+    :func:`plan_matrix` alone, so ``run`` does not repeat what ``plan`` said.
+    """
+    unsaved = [
+        sim.sim_id
+        for sim in resolved.campaign.sims
+        if sim.variables.get(WORKFLOW_KEY) == LEGACY_WORKFLOW
+        and "simulation" not in classify_outputs(sim.outputs)
+    ]
+    if unsaved:
+        warn(
+            f"POL {', '.join(unsaved)}: {LEGACY_WORKFLOW} row(s) that declare no saved "
+            "simulation. No name among their OUTPUTS ends in .fsm, so no final .fsm of "
+            "theirs is collected into datapoints/DP-<point>/ or hashed in their run "
+            "record, and nothing can reopen it from the record. A row naming a run type "
+            f"saves one on every point; a {LEGACY_WORKFLOW} recipe saves one only when it "
+            "writes SAVEAS to a name its OUTPUTS declare, so declare that name and save "
+            "to it, or leave the row as it is if its final state is not wanted.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 def _refuse_a_run_that_names_no_build(path: str | Path, default: str | None) -> None:
@@ -406,6 +443,13 @@ def plan_matrix(
         raises through the same call; this list said REF, SET and ENTRY
         only until the review that noticed.
 
+    Warns
+    -----
+    pyflightstream.exceptions.PyflightstreamWarning
+        Naming every ``LEGACY`` row whose OUTPUTS declare no ``.fsm``, so no
+        final saved simulation of it is collected or hashed (0.27.0). It
+        blocks nothing.
+
     Examples
     --------
     >>> from pyflightstream.run.matrix import plan_matrix
@@ -430,6 +474,7 @@ def plan_matrix(
         fs_exe=fs_exe,
         ignore_missing_families=ignore_missing_families,
     )
+    _warn_the_legacy_rows_saving_no_simulation(resolved)
     plan = plan_campaign(
         resolved.campaign,
         workspace,

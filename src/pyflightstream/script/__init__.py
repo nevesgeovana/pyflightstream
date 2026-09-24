@@ -887,6 +887,15 @@ class Script:
         #: sections table could not say which rows belong to which surface, and
         #: nothing at post can recover a name the script never wrote.
         self.section_blocks: list[dict[str, object]] = []
+        #: THE OPENED GEOMETRY'S BOUNDARY NAMES, in the solver's order, the
+        #: name at position ``i`` being boundary ``i`` (R03 of 0.27.0). Filled
+        #: where the workflow declares the inventory at OPEN, for the reason
+        #: ``section_blocks`` is filled by the loop that emits: the names
+        #: recorded cannot drift from the names the script was built over.
+        #: Every name is kept, a duplicated one included, so a position
+        #: still means that boundary. None for a script that opened no
+        #: geometry declaring names, which includes every LEGACY recipe.
+        self.boundary_inventory: tuple[str, ...] | None = None
         #: Force plot groups actually emitted, with their frame, families and parameters.
         self.plot_groups: list[dict[str, object]] = []
         #: WHERE THIS SCRIPT PUT EACH COORDINATE SYSTEM (FR-100), keyed by

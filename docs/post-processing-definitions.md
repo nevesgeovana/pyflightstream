@@ -248,7 +248,14 @@ The recorded `sections_layout` assigns sections to blocks. New records also
 retain each block's pproc entry position and original `families` selection;
 editing the pproc cannot reassign those recorded blocks. For a 0.24.0 layout,
 the recorded pproc must match each block unambiguously by families, plane,
-frame and count. An ambiguous match is a named skip. Without a recorded layout,
+frame and count. Since 0.27.0 that match reads the geometry's boundary names
+where they are known (see *The geometry's names* under the integrated loads
+below): a block whose only possible emitter is an entry citing a word nothing
+resolves, such as a rotor's name with no rotor definition in hand, is that
+entry's, and the split file is named after it. Where the names leave no single
+owner, or no file carries the recorded hash, the recorded cuts decide as
+before and the rows are kept. An ambiguous match is a named skip. Without a
+recorded layout,
 **no split file is written**: `products.json` names the layout requirement.
 A layout whose counts disagree with an export is likewise refused for that
 export kind, rather than assigning rows to guessed distributions.
@@ -280,18 +287,46 @@ still resolves through the recorded pproc. Section selectors, including `each`,
 use the same expansion as the export builder, resolving current aliases through
 the live reference to the recorded boundary families, including rotor names and
 aliases of rotor names. An expanded emission's family set must equal the recorded
-block's set. Ownership of a legacy layout (a name and a grouping for raw
-files, no number added) resolves the recorded pproc's selectors over the
-recorded cuts, the only evidence there is, a family stem and a numbered name
-included. Integration is never matched that way, whoever asks, because the
-post cannot tell a recorded specification from a current one (two
-resolutions of one artifact id compare equal after an edit, and a recorded
-entry may have emitted nothing): a selector is knowable only by exact
-recorded boundary names, by aliases and by the live reference's rotor
-definitions, whose members count even when they have no sectional block;
-`RunRecord` carries no complete geometry inventory, layout silence never
-proves a family absent, and any other word (a family stem, an unrecorded
-name, a whole-geometry selector) leaves membership uncertain, establishes no
+block's set.
+
+**The geometry's names (since 0.27.0).** Each run records `inventory`, the
+geometry's boundary names in the solver's order as the script read them at
+`OPEN`. A record written before 0.27.0 carries none, and the post reads them
+from the mesh block of the geometry file whose sha256 the record carries in
+`inputs_sha256`: the simulation's own staged copy first, then the library's
+file of that name. The hash, never the name, says the file is the one that
+ran: a geometry changed or deleted since the run recovers nothing, and the
+`<stem>.boundaries.toml` sidecar is not read for it, because nothing hashed
+it. With the names in hand, a selection is read by the export builder's own
+expansion over them, for integration and for the ownership of a legacy layout
+alike: a family stem, a numbered name, `all` and the aliases resolve as they
+did at export, and an `all` block (recorded as an empty family list) is the
+whole inventory. So `families = "Blade"` integrates a recorded Blade1 and
+Blade2 block where the geometry carries no third blade and no boundary named
+`Blade`, and is refused, by name, where it carries either. A word that
+resolves to nothing over the names and that no alias or rotor definition in
+hand names (a rotor's name with no rotor definition) leaves its entry a
+possible owner of every block of its frame kind, plane and count, so the
+integration match is refused by name; for the ownership of a legacy layout
+that same entry owns a block by elimination, when every other entry either
+did not emit it by the builder's reading or could not have. On an expanding
+frame with no rotor definition the recorded-frame grouping below still
+decides, because the names say what a selection holds and not which rotor
+owns it, and an entry the grouping refuses stays a possible owner there.
+
+**Without the names** (a run that opened no geometry declaring them, or an
+older record whose geometry is gone or changed), ownership of a legacy layout
+(a name and a grouping for raw files, no number added) resolves the recorded
+pproc's selectors over the recorded cuts, the only evidence there is, a
+family stem and a numbered name included. Integration is never matched that
+way, whoever asks, because the post cannot tell a recorded specification
+from a current one (two resolutions of one artifact id compare equal after an
+edit, and a recorded entry may have emitted nothing): a selector is knowable
+only by exact recorded boundary names, by aliases and by the live reference's
+rotor definitions, whose members count even when they have no sectional
+block; without the geometry's names layout silence never proves a family
+absent, and any other word (a family stem, an unrecorded name, a
+whole-geometry selector) leaves membership uncertain, establishes no
 integration match and keeps the raw columns with a named skip. `each` and
 `each_blade` still identify one known family per block without claiming a
 complete inventory.

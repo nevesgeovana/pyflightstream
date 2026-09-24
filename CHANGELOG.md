@@ -38,6 +38,32 @@ FlightStream versions.
   scored column by column against 48 recorded loads exports, and the body-rate
   sense against the recorded rate probes (OPS-2011.01, RPT-063, FR-42).
 
+- **Every point of a row naming a run type leaves its final saved
+  simulation, now a written guarantee.** After the point's solve, first
+  among its exports, the script saves the solver state as `<point file
+  stem>.fsm`. It is collected into `sims/sim_<POL>/datapoints/DP-<point>/`
+  and listed in the run record's `outputs`, with its sha256 in
+  `outputs_sha256`, on every run type, on every build a run type renders on
+  (25.000 renders none), and for each point of a steady sweep. Every
+  workflow script already did this; the workflows page now states it and
+  `tests/tier1_offline/test_saved_simulation.py` holds it. A case written in
+  Python that declares its own `outputs` still exports exactly those (G11).
+- **`pyfs-matrix plan` warns naming each `LEGACY` row whose `OUTPUTS`
+  declare no `.fsm`**, because no final state of such a row is collected or
+  hashed in its record. It blocks nothing; the row plans and runs as before
+  (G11).
+- **Each run record carries its geometry's boundary names** (`inventory`,
+  in the solver's order as the script read them at `OPEN`, the name at
+  position i being boundary i), on the point path and the steady one-job
+  path alike. A run that opened no geometry declaring names (a `LEGACY`
+  recipe, a file without a mesh block) writes no key.
+  `CampaignWorkspace.recorded_inventory(record)` returns them, and for a
+  record written before 0.27.0 reads them from the mesh block of the
+  geometry file whose sha256 the record carries. A manifest holding such a
+  record needs 0.27.0 to read it: an older reader refuses the key (measured
+  2026-09-24 against the 0.26.0 `RunRecord`), so post such a workspace with
+  0.27.0 (R03).
+
 ### Fixed
 
 - **A workflow refusing a mesh file no longer promises a release.** The
@@ -80,6 +106,34 @@ FlightStream versions.
   ([RPT-064](reports/RPT-064_a-loads-frame-set-before-the-solve-reaches-every-step_2026-09-24.md),
   B05).
 
+- **Integrated sectional loads match where the geometry settles the
+  selection.** With the geometry's names in hand, recorded since 0.27.0 or
+  recovered by the hash an older record carries, a selection is read by the
+  export builder's own expansion over them. A family stem (`families =
+  "Blade"` over Blade1 and Blade2), a numbered name over a wider family
+  (`Blade1` over Blade11 and Blade12), `all`, and two entries on a user's own
+  frame spelt like a rotor's (`X_RMRP`) now integrate where 0.26.0 kept the
+  raw columns. They stay refused by name where the geometry also carries the
+  stem as a boundary, a third blade, or the numbered name itself; a rotor's
+  name with no rotor definition in hand is still refused by name, and so is
+  a record whose geometry is gone or changed
+  ([RPT-059](reports/RPT-059_integration-match-without-rotor-definition-refuses-by-name_2026-09-23.md),
+  R03).
+- **A sections split of a record written before 0.25.0 is named after the
+  entry that emitted it.** The post reads the geometry's names from the mesh
+  block of the file whose sha256 the record carries, the simulation's staged
+  copy first, then the library's file. A block the builder's reading leaves
+  to one entry alone is that entry's: `sections/<point>_sloads_Blade1.csv`
+  becomes `..._ACTIVE.csv`, and `products.json` says `distribution` 2. Where
+  the geometry names no single entry, the cuts decide as before. A geometry
+  changed since the run recovers nothing, and the unhashed
+  `.boundaries.toml` sidecar is not read (RPT-059, R04).
+- **A steady row of several points records its sections layout.** Since
+  0.24.0 the one-job path recorded no `sections_layout`, so the post refused
+  the per-distribution split of every multi-point steady row with sections,
+  and the FAMILY, PLANE and ROTOR columns read `NA`. A job run before 0.27.0
+  keeps that; run it again for the split (R03).
+
 ### Changed
 
 - **An induced drag the solver did not compute is `NA` in every sum the
@@ -117,6 +171,12 @@ FlightStream versions.
 - **A warning raised during a post by code outside the package is no longer
   written to `post.log`.** It reaches the caller's warning filters as before;
   the package's own warnings are logged as they were (RPT-058).
+
+- **`[exports] simulation = false` is refused**, as `loads = false` has
+  been: every point of a row naming a run type leaves its final saved
+  simulation (G11). `pyfs-matrix plan` refuses an artifact stating it with
+  `matrix not planned: ...` and exit 2, naming the row and the file; remove
+  the key.
 
 ### Documentation
 

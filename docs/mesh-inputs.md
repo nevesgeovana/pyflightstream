@@ -149,7 +149,9 @@ checked when the script opens the file: a sidecar that disagrees with the
 file's own block is refused before any seat is spent, naming both lists,
 and an agreeing one is recorded in the run record as the inventory source
 (`inventory_source: sidecar`; `mesh_block` when the file alone declared the
-names). The sidecar is what lets a name resolve for a file whose mesh
+names). Since 0.27.0 the record also carries the names themselves,
+`inventory`, in the file's order; the post reads a section distribution's
+selection over them. The sidecar is what lets a name resolve for a file whose mesh
 block a reader cannot open, and it is otherwise a statement the run
 verifies rather than trusts.
 

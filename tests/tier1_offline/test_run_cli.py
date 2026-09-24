@@ -77,6 +77,10 @@ WRITES_LOADS = (
     "        body = template if alpha is None else re.sub("
     "pattern, lambda f: f.group(1) + ('%.3f' % alpha), template)\n"
     "        pathlib.Path(lines[i + 1]).write_text(body, encoding='utf-8')\n"
+    # The saved simulation, which every point of a row naming a run type
+    # declares since 0.27.0 and no pproc artifact can switch off (G11).
+    "    elif line == 'SAVEAS':\n"
+    "        pathlib.Path(lines[i + 1]).write_text('FSM', encoding='utf-8')\n"
 )
 
 
@@ -123,11 +127,12 @@ def make_workspace(tmp_path: Path) -> CampaignWorkspace:
     (inputs / "setups" / "s002.toml").write_text(
         "iterations = 500\nconvergence = 1e-5\n", encoding="utf-8"
     )
-    # The stub solver writes the loads table alone, so the artifact selects
-    # exactly that export (PFS-2029.14.02); the test of the default set
-    # below rewrites the artifact to select nothing out.
+    # The stub solver writes the loads table and the saved simulation alone,
+    # so the artifact selects exactly those exports (PFS-2029.14.02; the saved
+    # simulation cannot be switched off since 0.27.0); the test of the default
+    # set below rewrites the artifact to select nothing out.
     (inputs / "pproc" / "p001.toml").write_text(
-        '[groups]\n"1" = "Wing"\n\n[exports]\nsimulation = false\ntecplot = false\n'
+        '[groups]\n"1" = "Wing"\n\n[exports]\ntecplot = false\n'
         "sections = false\nsectional_loads = false\nprobes = false\nplots = false\n"
         "log = false\n",
         encoding="utf-8",
@@ -452,10 +457,11 @@ def test_a_workflow_row_declaring_no_outputs_gets_the_study_export_set(tmp_path,
     Until 0.11.0 this row was refused before any solver time. Now the
     workflow row declares the study's export set by default, every kind
     hanging off the point, and the run judges each point on what it
-    declared: the stub solver writes the loads table alone, so every
-    point ends FAILED_INCOMPLETE_OUTPUT naming the kinds it did not find,
-    which is the refusal moving from before the run to the record, where a
-    real solver that wrote all eight would have passed.
+    declared: the stub solver writes the loads table and the saved
+    simulation alone, so every point ends FAILED_INCOMPLETE_OUTPUT naming
+    the kinds it did not find, which is the refusal moving from before the
+    run to the record, where a real solver that wrote all eight would have
+    passed.
     """
     from pyflightstream.cases import default_outputs
 
@@ -473,7 +479,8 @@ def test_a_workflow_row_declaring_no_outputs_gets_the_study_export_set(tmp_path,
         # this read 7001 alone, which the steady subset never exposed.
         unsteady = record.sim_id in ("7001", "7003")
         assert record.status.name == "FAILED_INCOMPLETE_OUTPUT", (
-            f"{record.run_id}: the stub wrote only the loads table, so the point cannot be complete"
+            f"{record.run_id}: the stub wrote only the loads table and the saved simulation, "
+            "so the point cannot be complete"
         )
         # A failed point collects nothing, so the declared set is read off the
         # refusal, which names every declared output the run did not find.
@@ -481,16 +488,15 @@ def test_a_workflow_row_declaring_no_outputs_gets_the_study_export_set(tmp_path,
         # what the refusal names. Reading EXPORT_KINDS instead counted kinds
         # that exist and are NOT default: an unsteady row exports no probe
         # points (F01) and neither VTK nor CSV unless the pproc asks (F03).
+        written = ("{name}.txt", "{name}.fsm")
         missing = [
-            name.removeprefix("{name}")
-            for name in default_outputs(unsteady)
-            if name != "{name}.txt"
+            name.removeprefix("{name}") for name in default_outputs(unsteady) if name not in written
         ]
         for suffix in missing:
             assert suffix in (record.error or ""), (
                 f"{record.run_id}: the refusal does not name the default {suffix} export"
             )
-        assert len(default_outputs(unsteady)) == len(missing) + 1
+        assert len(default_outputs(unsteady)) == len(missing) + len(written)
 
 
 def test_a_code_given_both_a_recipe_and_a_workflow_is_refused_naming_both(tmp_path, capsys):
