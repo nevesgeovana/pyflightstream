@@ -1,0 +1,52 @@
+report: reports/RPT-068_two-documented-setup-commands-are-unrecognized-on-26124_2026-09-24.md
+date: '2026-09-24'
+question: does FlightStream 26.124 answer SET_VORTICITY_LIFT_MODEL and SET_UNSTEADY_VISCOUS_COUPLING_ITERATION
+where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
+executable_sha256:
+  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+before:
+  solver_processes: 0
+  free_gb: 2.32
+geometry: a copy of the half wing-body of RPT-052, opened with the blank line after its path
+instrument: whether the script reaches the sentinel after the one block and exports its log, and the solver's own
+  log (FlightStreamLog.txt, written on an abnormal end), error lines with the machine-local script path cut
+checks:
+  the_control_reaches_its_second_sentinel_and_exports_its_log: true
+  an_unknown_name_stops_the_script_as_an_unrecognized_command: true
+  set_vorticity_lift_model_is_answered_as_an_unknown_name: true
+  set_unsteady_viscous_coupling_iteration_is_answered_as_an_unknown_name: true
+steps:
+- variant: G14_C
+  block: []
+  return_code: 0
+  reached_second_sentinel: true
+  log_exported: true
+  solver_error_lines: []
+  script_sha256: 78b94aa60e1886057e74490bf4b805772e4742e8d6a58d9ee797133abd96787c
+- variant: G14_X
+  block:
+  - PYFS_NO_SUCH_COMMAND 1
+  return_code: 0
+  reached_second_sentinel: false
+  log_exported: false
+  solver_error_lines:
+  - ERROR | Syntax | 'PYFS_NO_SUCH_COMMAND 1' | Unrecognized command
+  script_sha256: 1c3d8f4fb4c9091e955c79578ec9133464457787de31cb4339a12112b2b298a2
+- variant: G14_V
+  block:
+  - SET_VORTICITY_LIFT_MODEL ENABLE
+  return_code: 0
+  reached_second_sentinel: false
+  log_exported: false
+  solver_error_lines:
+  - ERROR | Syntax | 'SET_VORTICITY_LIFT_MODEL ENABLE' | Unrecognized command
+  script_sha256: 639590ce89e35ecb612e797d9135455fa1fd8c5ebe847abc4bf793ab14bdb9dd
+- variant: G14_U
+  block:
+  - SET_UNSTEADY_VISCOUS_COUPLING_ITERATION 5
+  return_code: 0
+  reached_second_sentinel: false
+  log_exported: false
+  solver_error_lines:
+  - ERROR | Syntax | 'SET_UNSTEADY_VISCOUS_COUPLING_ITERATION 5' | Unrecognized command
+  script_sha256: 66ba55f952d010e86421abecebc8dc3e102eb8c69f5815aeb202b3dab43e5fdb
