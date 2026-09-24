@@ -2730,6 +2730,15 @@ for entry in record.points_ran:
     print(entry["tag"], entry["status"])
 ```
 
+A point a recorded job ran is recorded, although no record carries its own
+point name: `pyfs-matrix plan` reports it as already recorded and
+`run --resume` skips it (`test_the_plan_reports_a_recorded_jobs_points_as_recorded`).
+Angles added to such a row later run one each on resume, each its own record
+ending with its point name, because the row's job id is taken
+(`test_two_new_angles_of_a_recorded_job_are_recorded_one_each`); the plan
+calls exactly those ready. To run the whole row again as one job, name the
+job to `--force-rerun`, which archives it first.
+
 An unsteady row is unchanged: a point that marches in time starts from
 its own initial state, so it is its own job and its own record.
 

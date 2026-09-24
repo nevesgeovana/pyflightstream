@@ -282,6 +282,18 @@ FlightStream versions.
 
 ### Fixed
 
+- **`pyfs-matrix plan` calls a recorded job's points recorded, and resume
+  runs a recorded job's new angles one each.** A steady row of several points
+  is one job, recorded under the row's id and not under its points', and the
+  plan looked for the points' own ids: it reported every point of a recorded
+  steady sweep ready while `run --resume` skipped them all. It now reports
+  them already recorded, from the same question resume asks, so its ready
+  points are the ones resume runs. Resume ran two or more angles added to such
+  a row as a second job under the recorded job's id, so the solver ran and the
+  manifest then refused the record as a duplicate; they now run one each, as a
+  single added angle did, and naming the job to `--force-rerun` still runs the
+  whole row as one job. A row cut back to angles its job ran runs nothing,
+  where it was run again as a point and refused by that point's own outputs.
 - **A point whose script created no section distribution is no longer refused
   its split.** Its record carried no `sections_layout`, which reads as a record
   written before 0.24.0, so the post named `sections/<point>_sloads#distributions`

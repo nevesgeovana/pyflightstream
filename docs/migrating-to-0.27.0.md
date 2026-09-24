@@ -305,3 +305,21 @@ the opposite sign to 0.26.0: `roll_rate:40` writes
 - A continuation records the layout of the run it continues, so its split
   and its identity columns are written where they were refused. A
   continuation recorded before this keeps the refusal.
+
+## 18. The plan calls a recorded job's points recorded, and new angles of its row run one each
+
+- `pyfs-matrix plan` reports every point a recorded steady job ran as
+  already recorded, where it reported them ready although `run --resume`
+  skipped them. A plan's ready count, and `--cost`, drop by those points.
+- `run --resume` over a steady row whose job is recorded runs the angles the
+  job did not run one each, each its own record ending with its point name, as
+  a single new angle already ran. Two or more used to run as a second job
+  under the recorded job's id, which spent the solver and was then refused its
+  record. Such an attempt left its exports in the new points'
+  `datapoints/DP-<point>/` and nothing in the manifest, so resuming it as it
+  is records each of those points `FAILED_INCOMPLETE_OUTPUT` before the solver
+  starts, naming the files: move them out of those folders first. Naming the
+  job to `--force-rerun` still runs the whole row as one job.
+- A row cut back to angles its recorded job already ran runs nothing on
+  resume; it was run again as a point and refused by that point's own
+  outputs, which left a `FAILED_INCOMPLETE_OUTPUT` record.

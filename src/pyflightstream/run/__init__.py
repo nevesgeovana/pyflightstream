@@ -2967,11 +2967,10 @@ def run_campaign(
         # above reads point ids, so without this a recorded job looked
         # entirely unrun and a resume re-ran every point of it, which is
         # the opposite of what resume is for and would spend the seat twice.
-        if (
-            _is_one_job(campaign, case)
-            and len(case_points) > 1
-            and _job_run_id(campaign, case) in recorded
-        ):
+        # `plan_campaign` asks the same question of the same helper, so what
+        # the plan calls READY is what this runs.
+        ran = _points_the_recorded_job_ran(campaign, case, manifest)
+        if ran is not None:
             already = [_job_run_id(campaign, case)]
             # WHICH POINTS THE JOB ACTUALLY RAN, read off its record, and
             # not "all of them because the job id is there". A sweep
@@ -2981,8 +2980,6 @@ def run_campaign(
             # id alone, and a user reads that as done. Found by the
             # independent Codex review of `main`, 2026-09-13
             # (GEO-047-C05); `points_ran` is what it is for.
-            job = manifest.get(_job_run_id(campaign, case))
-            ran = {str(entry.get("tag") or "") for entry in (job.points_ran if job else []) or []}
             remaining = [point for point in case_points if point_name(case, point) not in ran]
             case_points = remaining
             run_ids = [_run_id(campaign, case, point) for point in remaining]
@@ -3150,7 +3147,20 @@ def run_campaign(
         # because nothing cleared it. The unsteady run types keep the point
         # path below unchanged, and correctly: a point that marches in time
         # starts from its own initial state and is its own job.
-        if _is_one_job(campaign, case) and len(pending) > 1:
+        #
+        # A ROW WHOSE JOB IS RECORDED RUNS ITS NEW POINTS ONE EACH, as one new
+        # point always has: the row's job id is the recorded job's, so a second
+        # job of the row ran, spent the seat, and was then refused its record
+        # as a duplicate id. A redo supersedes the job first, which takes its id
+        # out of `recorded`, and runs the whole row as one job again.
+        job_recorded = _job_run_id(campaign, case) in recorded
+        if _is_one_job(campaign, case) and len(pending) > 1 and job_recorded:
+            _say(
+                f"  -> {_job_run_id(campaign, case)} is recorded; its "
+                f"{len(pending)} new point(s) run one each",
+                quiet=quiet,
+            )
+        if _is_one_job(campaign, case) and len(pending) > 1 and not job_recorded:
             _say(
                 f"  -> {_job_run_id(campaign, case)}  [{case.recipe}]  "
                 f"{len(pending)} point(s) in one job",
@@ -4260,9 +4270,11 @@ def plan_campaign(
     version, and entity references without a solver, and the dry-run
     script is not written to ``scripts/``, so the files of a later
     real run stay the only scripts on disk). Points whose ``run_id``
-    is already in the manifest are marked ALREADY_RECORDED, which is
-    exactly what ``run_campaign(..., resume=True)`` would skip; this
-    pairing is what lets a sweep grow points and re-run safely.
+    is already in the manifest, and the points a recorded job of their
+    steady row ran, are marked ALREADY_RECORDED, which is exactly what
+    ``run_campaign(..., resume=True)`` would skip; this pairing is what
+    lets a sweep grow points and re-run safely. The new points of a row
+    whose job is recorded are READY, and resume runs them one each.
 
     Nothing is executed and nothing is appended to the manifest: a
     broken recipe or a missing geometry surfaces here, before any
@@ -4323,7 +4335,8 @@ def plan_campaign(
     # states: a missing build is knowable up front, and discovering it
     # halfway leaves a plan that describes part of a campaign.
     case_builds = [_case_build(case, builds) for case in campaign.sims]
-    recorded = {record.run_id for record in workspace.read_manifest()}
+    manifest = {record.run_id: record for record in workspace.read_manifest()}
+    recorded = set(manifest)
     points: list[PointPlan] = []
     shared = _names_two_cases_share(campaign, workspace)
     for case, build in zip(campaign.sims, case_builds, strict=True):
@@ -4342,7 +4355,20 @@ def plan_campaign(
                 if recipes and case.recipe in recipes
                 else resolve_recipe(case.recipe)
             )
-        for point in case.sweep.points():
+        # A POINT A RECORDED JOB OF ITS ROW RAN IS RECORDED, although no record
+        # carries the point's own id: the question `run_campaign` asks before a
+        # resume, asked here of the same helper, so READY is what resume runs.
+        # Until 0.27.0 every point of a recorded steady sweep planned READY.
+        case_points = list(case.sweep.points())
+        recorded_here = recorded
+        ran = _points_the_recorded_job_ran(campaign, case, manifest)
+        if ran is not None:
+            recorded_here = recorded | {
+                _run_id(campaign, case, point)
+                for point in case_points
+                if point_name(case, point) in ran
+            }
+        for point in case_points:
             points.append(
                 _plan_point(
                     campaign,
@@ -4351,7 +4377,7 @@ def plan_campaign(
                     workspace,
                     recipe,
                     case_error,
-                    recorded,
+                    recorded_here,
                     fs_version=case_version,
                 )
             )
@@ -4936,6 +4962,27 @@ def _job_run_id(campaign: Campaign, case: SimCase) -> str:
     of their tags, so it ends with :data:`JOB_TAG` instead.
     """
     return f"{campaign.name}/sim_{case.sim_id}/{JOB_TAG}"
+
+
+def _points_the_recorded_job_ran(
+    campaign: Campaign, case: SimCase, manifest: Mapping[str, RunRecord]
+) -> tuple[str, ...] | None:
+    """Return the point names the recorded job of this row ran, in order, or None.
+
+    A STEADY ROW OF A MATRIX IS ONE JOB, recorded under the row's id and not
+    under its points' (FR-95), so a point the job ran is recorded although no
+    record carries the point's own id. None where the row is not one job or no
+    job of it is recorded. ``run_campaign`` skips these points on resume and
+    ``plan_campaign`` reports them ALREADY_RECORDED, both from here: the plan
+    read the points' own ids and called every point of a recorded job READY,
+    while resume ran none of them.
+    """
+    if not _is_one_job(campaign, case):
+        return None
+    job = manifest.get(_job_run_id(campaign, case))
+    if job is None:
+        return None
+    return tuple(str(entry.get("tag") or "") for entry in job.points_ran or [])
 
 
 #: The run type whose points are ONE job since 0.17.0.
