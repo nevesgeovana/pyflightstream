@@ -101,7 +101,8 @@ Separately, `pyfs-matrix plan` now warns naming each `LEGACY` row whose
 - Integrated columns now appear where 0.26.0 kept the raw ones: a stem, a
   numbered name, `all`, a frame spelt like a rotor's. This applies to 0.25
   and 0.26 records too, while their geometry file still matches the recorded
-  hash, and it changes those CSVs' column set.
+  hash, and it changes those CSVs' column set. A geometry that gives one name
+  to two boundaries changes nothing: its names settle no selection.
 - A 0.24.x split may be renamed after the entry that emitted it
   (`..._sloads_Blade1.csv` becomes `..._ACTIVE.csv`, `distribution` 2). A
   check that lists the sections files will see the new name.

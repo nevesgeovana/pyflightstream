@@ -1666,10 +1666,6 @@ class CampaignWorkspace:
         #: ``("link", None)`` or ``("copy", reason)``; :meth:`staged_as` reads
         #: the disk for a simulation this object did not stage.
         self._staging: dict[str, tuple[str, str | None]] = {}
-        #: The sha256 of each geometry :meth:`recorded_inventory` hashed, by
-        #: (resolved path, size, modification time), so the points of one
-        #: older job hash their shared mesh once.
-        self._digests: dict[tuple[str, int, int], str] = {}
 
     @classmethod
     def init(cls, root: str | Path, naming: NamingTemplate | None = None) -> CampaignWorkspace:
@@ -2283,10 +2279,13 @@ class CampaignWorkspace:
 
         THE HASH, NEVER THE NAME, SAYS A FILE IS THE ONE THAT RAN. A geometry
         edited or deleted since the run recovers nothing, and neither does a
-        file carrying no mesh block. The ``<stem>.boundaries.toml`` sidecar is
-        not read, because nothing hashed it; at run time the builder refused
-        a sidecar that disagreed with the mesh block, so the block of the
-        hash-matched file is the authority.
+        file carrying no mesh block. The file is hashed on each call, before
+        and after its names are read, and both digests must be the recorded
+        one; nothing is remembered by path, size or time, which a replacement
+        can keep. The ``<stem>.boundaries.toml`` sidecar is not read, because
+        nothing hashed it; at run time the builder refused a sidecar that
+        disagreed with the mesh block, so the block of the hash-matched file
+        is the authority.
 
         Parameters
         ----------
@@ -2314,33 +2313,24 @@ class CampaignWorkspace:
                 if not path.is_file() or any(_same_file(path, other) for other in read):
                     continue
                 read.append(path)
+                # HASHED WHEN ITS NAMES ARE READ, BEFORE AND AFTER, and never
+                # remembered (the pre-push read of block 3, both lenses). A
+                # digest kept by path, size and modification time vouched for
+                # a replacement that kept all three while the names came from
+                # the replacement. The names count only when the bytes on both
+                # sides of the read are the recorded ones, so a file changed
+                # or restored while it was read recovers nothing.
                 try:
-                    if self._digest_of(path) != digest:
+                    if _sha256(path) != digest:
                         continue
                     names = boundary_names(path)
+                    if _sha256(path) != digest:
+                        continue
                 except (MeshReadError, OSError):
                     continue
                 if names:
                     return tuple(names)
         return None
-
-    def _digest_of(self, path: Path) -> str:
-        """Hash one file, remembering the answer while its size and time stand.
-
-        RACY-CLEAN, as git's index calls it: a modification time is as coarse
-        as the filesystem's clock, so a file rewritten within one tick keeps
-        its size and its time. A digest is remembered only for a file last
-        written more than two seconds ago, and a younger one is hashed again.
-        """
-        status = path.stat()
-        key = (os.path.normcase(str(path.resolve())), status.st_size, status.st_mtime_ns)
-        known = self._digests.get(key)
-        if known is not None:
-            return known
-        digest = _sha256(path)
-        if time.time_ns() - status.st_mtime_ns > 2_000_000_000:
-            self._digests[key] = digest
-        return digest
 
     def write_script(self, sim_id: str, name: str, text: str) -> tuple[Path, str]:
         """Write one generated script into ``scripts/`` and hash it.

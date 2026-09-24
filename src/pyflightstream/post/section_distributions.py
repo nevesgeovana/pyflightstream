@@ -212,7 +212,10 @@ def _matching_distributions(
     expansion over the names the builder read, so a family stem, a numbered
     name, ``all`` and the aliases resolve as they did at export, and a word
     that resolves to nothing (a rotor's name no definition in hand spells)
-    leaves its entry uncertain, a possible owner, and the match refused.
+    leaves its entry uncertain, a possible owner, and the match refused. A
+    geometry that gives one name to two boundaries is read as no geometry,
+    because the builder leaves that name out and the rest no longer say what
+    a selection held.
 
     Without it, ``ownership`` says the match assigns a legacy layout's
     blocks to the recorded pproc's entries, which is a name and a grouping
@@ -226,9 +229,19 @@ def _matching_distributions(
     to no entry where two could.
     """
     literal = literal | _literal_frames(pproc)
+    if geometry is not None and boundary_labels(list(geometry))[1]:
+        # A NAME TWO BOUNDARIES CARRY SETTLES NOTHING (the pre-push read of
+        # block 3, both lenses). The builder leaves such a name out of its
+        # label map (`_inventory(script)` in cases/workflows.py), so the names
+        # left no longer say what `all` or a stem selected: over them an `all`
+        # block read as the one uniquely named boundary, a `Wing` request
+        # integrated a block that covered every boundary, and a legacy split
+        # was named after Wing. No block is attributed on such names'
+        # authority; the match goes as if no geometry were given, over the
+        # recorded cuts alone, as before 0.27.0.
+        geometry = None
     # THE BUILDER'S INVENTORY, REBUILT: the labels the script declared at
-    # OPEN in index order, a name carried by two boundaries left out as the
-    # builder leaves it out (`_inventory(script)` in cases/workflows.py).
+    # OPEN in index order (`_inventory(script)` in cases/workflows.py).
     exact = (
         None
         if geometry is None
@@ -880,7 +893,9 @@ def write_section_distributions(
         Omitted, the record's own ``inventory`` is read, and None there leaves
         the match to the recorded cuts. With the names, a selection is read
         by the export builder's own expansion over them, for integration and
-        for the ownership of a layout recorded before 0.25.0. See
+        for the ownership of a layout recorded before 0.25.0; names that give
+        one name to two boundaries settle nothing and leave the match to the
+        cuts as well. See
         `Integrated sectional loads
         <../post-processing-definitions.md#integrated-sectional-loads-since-0260>`_.
 
