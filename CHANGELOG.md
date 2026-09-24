@@ -456,6 +456,20 @@ FlightStream versions.
   and that the probe still asserts on the log line, a silent region being
   unprobed
   ([RPT-065](reports/RPT-065_what-detection-and-initialisation-mark_2026-09-24.md)).
+- **An actuator disc's and a volume section's metres reach the solver in the
+  simulation's length unit.** `offset_m`, `tip_radius_m`, `hub_radius_m`,
+  `corners_m` and `radii_m` went to commands that carry no unit and are read in
+  the simulation's unit, unconverted, so a simulation in millimetres read a
+  0.5 m radius as 0.5 mm. They are now converted into the unit the script set
+  after the open (the metres of a raw mesh, or a setup line's
+  `SET_SIMULATION_LENGTH_UNITS`), and on a saved simulation it set none on,
+  into the unit the file was saved in, read from the head of its global block.
+  Only the head every save read carries, the saves known to be in metres among
+  them, is read, as metres; a file opening otherwise is refused at plan naming
+  the keys, since whether a save in another unit writes another head is not
+  measured. `Script.simulation_length_unit` follows the unit a script sets, and
+  the length table moved to `pyflightstream._lengths`, which the trailing-edge
+  node file is converted with too (G05, G06).
 
 - **A row stating `roll_rate` or `yaw_rate` turns the free stream the way the
   rate says.** From 0.21.0 all three body rates were emitted with one sign of
@@ -568,10 +582,10 @@ FlightStream versions.
 
 ### Changed (the type-checker debt, re-measured)
 
-- mypy recount 2026-09-24: 736 errors in 18 of 99 modules, against 0.26.0's 710 in 18 of 97. The two
-  modules that arrived, `_decimal.py` and `run/_wake_edge_verdict.py`, are
-  clean; the twenty-six errors more sit inside the exempted set, most on the
-  run module's record builders (`reports/RPT-029`).
+- mypy recount 2026-09-24: 761 errors in 18 of 100 modules, against 0.26.0's 710 in 18 of 97. The three
+  modules that arrived, `_decimal.py`, `run/_wake_edge_verdict.py` and
+  `_lengths.py`, are clean; the fifty-one errors more sit inside the exempted
+  set, most on the run module's record builders (`reports/RPT-029`).
 
 ### Documentation
 

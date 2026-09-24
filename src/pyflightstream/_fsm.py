@@ -39,6 +39,12 @@ exactly mesh-block order. A fourth measurement was reported by a review
 agent and EXCLUDED from the report, because the session writing it could
 not reproduce the reading. A claim resting only on a docstring is what a
 verification review refused here, correctly.
+
+A POSITIONAL READING OUTSIDE THE MESH BLOCK (0.27.0) is the line map the
+paragraph above says the mesh reading is not, so it reads only the shape it
+was measured on and refuses every other: :func:`saved_length_unit` reads the
+first two lines of the global block, and reads one head as metres and no
+other. ``tests/tier1_offline/test_g06_actuator_disc.py`` holds it.
 """
 
 from __future__ import annotations
@@ -63,6 +69,7 @@ __all__ = [
     "boundary_labels",
     "boundary_names",
     "resolve_family",
+    "saved_length_unit",
     "surface_mesh",
     "trailing_edge_midpoints",
 ]
@@ -157,6 +164,90 @@ def element_count(path: str | Path) -> int | None:
     except OSError:
         return None
     return None
+
+
+def _block(path: str | Path, name: str) -> list[str] | None:
+    """Return the lines of one ``$<name>_START$`` block, or None when the file has none.
+
+    Read line by line, for the reason :func:`boundary_names` gives: the mesh
+    block before it can hold a single line of a megabyte. A block that opens
+    and never closes is refused, since its last lines would be read as some
+    other block's.
+    """
+    target = Path(path)
+    start, end = f"${name}_START$", f"${name}_END$"
+    try:
+        handle = target.open(encoding="utf-8", errors="replace")
+    except OSError as error:
+        raise MeshReadError(f"{target.name}: cannot be read: {error}") from error
+    with handle:
+        for line in handle:
+            if line.strip() == start:
+                break
+        else:
+            return None
+        lines: list[str] = []
+        for line in handle:
+            if line.strip() == end:
+                return lines
+            lines.append(line.rstrip("\r\n"))
+    raise MeshReadError(f"{target.name}: the block {start} opens and never closes")
+
+
+#: THE HEAD OF THE GLOBAL BLOCK OF EVERY SAVED SIMULATION READ, and what it is
+#: read as (G05, G06 of 0.27.0): the two values its first two lines carry.
+#: Every save read on 2026-09-24, builds 26.120 to 26.124, opens with these two
+#: and no other, among them the tier-3 geometries, which their preparation put
+#: in metres (``SET_SIMULATION_LENGTH_UNITS METER`` before the save), and the
+#: licensed saves made from them. 1.0 is a metre in metres, and 5 is METER's
+#: position in the unit list the manual prints for that command.
+#: WHETHER A SAVE IN ANOTHER UNIT WRITES ANOTHER HEAD IS NOT MEASURED: no save
+#: in another unit has been read. So the head is not decoded into a unit; a
+#: save carrying this head is read as metres, and one carrying any other head
+#: is refused as a unit this package has not read.
+_METRE_HEAD = (1.0, "5")
+
+
+def saved_length_unit(path: str | Path) -> str | None:
+    """Return the length unit a saved simulation was saved in, as far as it is read.
+
+    Parameters
+    ----------
+    path : str or Path
+        A saved simulation file.
+
+    Returns
+    -------
+    str or None
+        ``"METER"`` when the global block opens with the head every save read
+        carries (:data:`_METRE_HEAD`). None when the file carries no global
+        block at all, which no save of the solver lacks: a placeholder staged
+        by a test reads as None, as it reads as no boundary inventory.
+
+    Raises
+    ------
+    MeshReadError
+        If the file cannot be read, or its global block opens with any other
+        head, naming the two lines: the unit it was saved in is then not one
+        this package has read, and a length converted on a guess is a body of
+        the wrong size that solves without a word.
+    """
+    block = _block(path, "GLOBAL")
+    if block is None:
+        return None
+    scale, index = (block + ["", ""])[:2]
+    try:
+        read = (float(scale), index.strip())
+    except ValueError:
+        read = (float("nan"), index.strip())
+    if read != _METRE_HEAD:
+        raise MeshReadError(
+            f"{Path(path).name}: its global block opens with {scale.strip()!r} and "
+            f"{index.strip()!r}, where every saved simulation this package has read opens "
+            f"with {_METRE_HEAD[0]!r} and {_METRE_HEAD[1]!r}, the saves known to be in metres "
+            "among them; the unit it was saved in is not one this package has read"
+        )
+    return "METER"
 
 
 def boundary_names(path: str | Path) -> tuple[str, ...] | None:

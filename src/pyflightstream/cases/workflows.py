@@ -83,7 +83,9 @@ from pyflightstream._fsm import (
     MeshReadError,
     boundary_labels,
     boundary_names,
+    saved_length_unit,
 )
+from pyflightstream._lengths import scale
 from pyflightstream._retired_names import retired_frame
 from pyflightstream.cases import (
     AXES_PLOT_COMPONENTS,
@@ -7000,6 +7002,64 @@ def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
     return _RowActuator(name=name, block=block, rpm=rpm, thrust=thrust, profile=profile)
 
 
+def _from_metres(case: SimCase, script: Script, what: str) -> float:
+    """Return the factor that writes a length in metres in the simulation's unit (G05, G06).
+
+    The disc's and the section's lengths are stated in metres, and their
+    commands carry no unit: the solver reads them in the SIMULATION's length
+    unit, which an opened saved simulation keeps from its save. The unit is
+    taken, in this order:
+
+    * the unit THIS SCRIPT set, which the phase order puts after the open
+      (:attr:`~pyflightstream.script.Script.simulation_length_unit`): the
+      metres a raw mesh is set to after its import, or a unit a setup line
+      states;
+    * else, on a saved simulation, the unit it was saved in, as far as
+      :func:`pyflightstream._fsm.saved_length_unit` reads it: metres for the
+      head every save read carries, and refused for any other;
+    * else nothing states a unit (a case that opens nothing, or a placeholder
+      with no global block, which no solver save lacks), and the lengths are
+      written as stated, as such a file's boundary inventory is left
+      undeclared.
+
+    The conversion is the package's one table (:mod:`pyflightstream._lengths`),
+    the table the trailing-edge node file is converted with.
+
+    Raises
+    ------
+    CampaignConfigError
+        Naming ``what``: the saved simulation's unit is not one this package
+        has read, or the script set a unit that names no scale (OTHER).
+    """
+    unit = script.simulation_length_unit
+    geometry = case.geometry
+    if (
+        unit is None
+        and geometry is not None
+        and PurePath(str(geometry)).suffix.lower() == SIMULATION_SUFFIX
+    ):
+        try:
+            unit = saved_length_unit(geometry)
+        except MeshReadError as error:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: {what} are in metres, and the solver reads them in "
+                f"the simulation's length unit, which this saved simulation does not let the "
+                f"package know: {error}. State the unit it was saved in after the open, the "
+                "row's RAW: {COMMAND: SET_SIMULATION_LENGTH_UNITS <unit> / BEFORE: setup} or "
+                "the same line in its setup's [[raw]], and the lengths are converted into it."
+            ) from error
+    if unit is None:
+        return 1.0
+    factor = scale("METER", unit)
+    if factor is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: {what} are in metres, and this script sets the "
+            f"simulation's length unit to {unit!r}, which names no scale, so no metre can be "
+            "written in it. Set a unit with a scale."
+        )
+    return factor
+
+
 def _actuator_disc(
     case: SimCase, script: Script, frames: Frames, disc: _RowActuator | None
 ) -> None:
@@ -7009,6 +7069,10 @@ def _actuator_disc(
     a setup definition, and ``SET_ACTUATOR_AXIS`` cites a frame that must
     already exist. The emission itself is the curated helper's, which refuses
     the profile route on a build whose grammar takes no blade count.
+
+    THE BLOCK'S METRES ARE WRITTEN IN THE SIMULATION'S UNIT, which is the unit
+    the two commands read (:func:`_from_metres`); a unit the package cannot
+    know is refused naming the three keys.
     """
     if disc is None:
         return
@@ -7022,14 +7086,19 @@ def _actuator_disc(
             "[[frames]] declares, MRP, or a frame of a rotor this row turns."
         )
     block = disc.block
+    factor = _from_metres(
+        case,
+        script,
+        f"the offset_m, tip_radius_m and hub_radius_m of the actuator disc {disc.name!r}",
+    )
     helpers.actuator_disc(
         script,
         disc.name,
         frame=frame,
         axis=block.axis,
-        offset=block.offset_m,
-        r_tip=block.tip_radius_m,
-        r_hub=block.hub_radius_m,
+        offset=block.offset_m * factor,
+        r_tip=block.tip_radius_m * factor,
+        r_hub=block.hub_radius_m * factor,
         rpm=block.rpm_sign * disc.rpm,
         thrust=disc.thrust,
         thrust_type="NEWTONS",
@@ -8638,23 +8707,30 @@ def _pproc_volume_section(case: SimCase, script: Script, frames: Frames) -> None
     its own name. `DELETE_VOLUME_SECTION` is verified alone on the same five
     builds; the delete-then-create sequence inside one script is not measured,
     and neither is whether a `COLD_START` clear removes a section.
+
+    THE TABLE'S METRES ARE WRITTEN IN THE SIMULATION'S UNIT (:func:`_from_metres`),
+    and a unit the package cannot know is refused naming the keys. The prism
+    filler (:data:`~pyflightstream.cases.VOLUME_SECTION_PRISMS`) is not a
+    length the table states and is sent as the verified probes sent it.
     """
     pproc = case.pproc
     if pproc is None or pproc.volume_section is None:
         return
     section = pproc.volume_section
     frame = _pproc_frame(case, frames, section.frame, "the volume section")
+    shape_key = "corners_m" if section.shape == "rectangle" else "radii_m"
+    factor = _from_metres(case, script, f"the offset_m and {shape_key} of the [volume_section]")
     if script.volume_section_created:
         script.emit("DELETE_VOLUME_SECTION", _VOLUME_SECTION_INDEX)
     prisms_type, thickness, layers, growth_rate = VOLUME_SECTION_PRISMS
     if section.shape == "rectangle":
         assert section.corners_m is not None  # the model refuses a rectangle without
-        x1, y1, x2, y2 = section.corners_m
+        x1, y1, x2, y2 = (corner * factor for corner in section.corners_m)
         script.emit(
             _VOLUME_SECTION_COMMANDS["rectangle"],
             frame=frame,
             plane=section.plane,
-            offset=section.offset_m,
+            offset=section.offset_m * factor,
             refinement_layers=section.refinement_layers,
             x1=x1,
             y1=y1,
@@ -8671,11 +8747,11 @@ def _pproc_volume_section(case: SimCase, script: Script, frames: Frames) -> None
             _VOLUME_SECTION_COMMANDS["circle"],
             frame=frame,
             plane=section.plane,
-            offset=section.offset_m,
+            offset=section.offset_m * factor,
             ipts=section.points[0],
             jpts=section.points[1],
-            r1=section.radii_m[0],
-            r2=section.radii_m[1],
+            r1=section.radii_m[0] * factor,
+            r2=section.radii_m[1] * factor,
             prisms_type=prisms_type,
             thickness=thickness,
             layers=layers,

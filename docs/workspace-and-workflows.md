@@ -1742,11 +1742,12 @@ format = "vtk"                      # or "tecplot"
 A circle states `radii_m = [r1, r2]` (inner and outer, `0 <= r1 < r2`) and
 `points = [ipts, jpts]` (radial and azimuthal segments) instead of `corners_m`;
 a rectangle may state `refinement_layers` (1 unless stated). Every length is
-in metres, the simulation's length unit, and its key says so. Each shape's keys
-are refused on the other, and a shape missing its own is refused naming them.
-The frame is `MRP` or a frame the reference declares or a rotor carries, and a
-frame the run did not create is refused when the script is built, naming the
-ones it did.
+in metres, and its key says so; the script writes it in the simulation's length
+unit, as [the disc's](#one-row-one-actuator-disc) lengths are written. Each
+shape's keys are refused on the other, and a shape missing its own is refused
+naming them. The frame is `MRP` or a frame the reference declares or a rotor
+carries, and a frame the run did not create is refused when the script is
+built, naming the ones it did.
 
 What the script does, per point: after `START_SOLVER`, in the analysis phase,
 `CREATE_NEW_RECTANGLE_VOLUME_SECTION` or `CREATE_NEW_CIRCLE_VOLUME_SECTION`,
@@ -2399,6 +2400,27 @@ ones it does), a speed missing or not above zero, both loadings or neither, a
 a frame the run did not create. The block itself is refused when its name is
 not one word, when it shares its name with a rotor, an alias or a frame, and
 when it forgets `kind = "actuator"`.
+
+**THE METRES ARE WRITTEN IN THE SIMULATION'S LENGTH UNIT.** `SET_ACTUATOR_AXIS`
+and `SET_ACTUATOR_RADIUS` carry no unit, and the solver reads their lengths in
+the simulation's unit, so the script converts `offset_m`, `tip_radius_m` and
+`hub_radius_m` (and a volume section's lengths the same way) into:
+
+* the unit the script set itself after the open: the metres a raw mesh is set
+  to after its import, or a unit a setup line states, as the row's
+  `RAW: {COMMAND: SET_SIMULATION_LENGTH_UNITS MILLIMETER / BEFORE: setup}`
+  does, which turns a 0.5 m radius into `500.0`;
+* on a saved simulation the script set no unit on, the unit the file was saved
+  in. The package reads it from the head of the file's global block, and it
+  reads one head only: the one every save read so far carries, the saves known
+  to be in metres among them, which it takes as metres. A file opening
+  otherwise is refused at `pyfs-matrix plan`, naming the keys, because
+  whether a save in another unit writes another head has not been measured.
+  Stating the unit the file was saved in with that setup line makes it known,
+  and the lengths are converted into it.
+
+A case that opens nothing, or a placeholder file with no global block, has no
+unit to read, and its lengths are written as stated.
 
 WHAT HAS RUN WHERE, from the command database. `CREATE_NEW_ACTUATOR` is
 verified on 26.100 and 26.120 to 26.124; `SET_ACTUATOR_AXIS`,

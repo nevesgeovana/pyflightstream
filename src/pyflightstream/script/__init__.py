@@ -191,6 +191,9 @@ _DELETION_COMMANDS = {
     "DELETE_MOTION": "motions",
 }
 
+#: The command that states the simulation's length unit (G05, G06 of 0.27.0).
+_LENGTH_UNIT_COMMAND = "SET_SIMULATION_LENGTH_UNITS"
+
 
 def _vector(bound: Mapping[str, object], *names: str) -> _Vector:
     """Read three bound arguments as one vector, for the frame ledger."""
@@ -902,6 +905,11 @@ class Script:
         #: 1, 2, 3 while each point exports index 1; the builder deletes the one
         #: it cut before cutting the next, and this is how it knows there is one.
         self.volume_section_created: bool = False
+        # THE SIMULATION'S LENGTH UNIT, as far as THIS SCRIPT set it (G05, G06
+        # of 0.27.0), read through :attr:`simulation_length_unit`. Filled by
+        # :meth:`emit` for the reason ``_frame_placements`` is: the unit
+        # recorded cannot drift from the unit emitted.
+        self._simulation_length_unit: str | None = None
         #: THE OPENED GEOMETRY'S BOUNDARY NAMES, in the solver's order, the
         #: name at position ``i`` being boundary ``i`` (R03 of 0.27.0). Filled
         #: where the workflow declares the inventory at OPEN, for the reason
@@ -1254,6 +1262,7 @@ class Script:
         if multiline:
             self._lines.append("")
         self._follow_frame_placement(entry.name, bound)
+        self._follow_length_unit(entry.name, bound)
         if entry.name in _CREATION_COMMANDS:
             self.entities.create(_CREATION_COMMANDS[entry.name], label=label)
         elif entry.name in _DELETION_COMMANDS:
@@ -1290,6 +1299,34 @@ class Script:
             follower(self._frame_placements, frame, bound)
         elif name in _UNFOLLOWED_FRAME_COMMANDS:
             self._frame_placements[frame] = FramePlacement(origin=None, axes=None)
+
+    @property
+    def simulation_length_unit(self) -> str | None:
+        """The simulation's length unit, as far as THIS SCRIPT set it (G05, G06).
+
+        The token of the last ``SET_SIMULATION_LENGTH_UNITS`` emitted, or None
+        while the script has set none: a simulation ``OPEN`` loads keeps the
+        unit it was saved in, which the script layer cannot read. The phase
+        order puts every ``OPEN`` and ``NEW_SIMULATION`` (geometry commands)
+        before the first setup command, so a unit recorded here was always set
+        after the simulation was opened or started. Filled by :meth:`emit` and
+        nowhere else, so a reader converting a length into the simulation's
+        unit reads the unit the script actually wrote.
+
+        Examples
+        --------
+        >>> from pyflightstream.script import Script
+        >>> script = Script("26.124")
+        >>> script.emit("SET_SIMULATION_LENGTH_UNITS", "MILLIMETER")
+        >>> script.simulation_length_unit
+        'MILLIMETER'
+        """
+        return self._simulation_length_unit
+
+    def _follow_length_unit(self, name: str, bound: Mapping[str, object]) -> None:
+        """Keep :attr:`simulation_length_unit` in step with a command just emitted."""
+        if name == _LENGTH_UNIT_COMMAND:
+            self._simulation_length_unit = str(bound["units"])
 
     def entry(self, name: str, /) -> CommandEntry:
         """Return the database entry of ``name`` on this script's build.

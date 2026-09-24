@@ -16,7 +16,8 @@ row creates it after its solve and exports it under the point's own name:
   export always cites index 1 and names that point's file;
 * the file is never handed to a surface kind (``_vsec`` is claimed first);
 * an unsteady or rotor row naming the table is refused before any emission;
-* the file is collected into the point's folder and hashed in the record.
+* the file is collected into the point's folder and hashed in the record;
+* the table's metres reach the solver in the simulation's length unit.
 
 Nothing here runs a solver. What the delete-then-create sequence does on a
 seat is not measured: DELETE_VOLUME_SECTION is verified alone.
@@ -48,6 +49,12 @@ from pyflightstream.cases.workflows import (
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import RunStatus
+from tests.tier1_offline.test_g06_actuator_disc import (
+    MILLIMETRES,
+    WING_PHY,
+    _saved_block,
+    _saved_copy,
+)
 from tests.tier1_offline.test_goal024_point_name import _matrix
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
@@ -262,3 +269,38 @@ def test_g05_the_volume_file_is_collected_and_hashed(tmp_path):
     assert re.fullmatch(r"datapoints/DP-(?P<tag>[^/]+)/P3207-(?P=tag)_vsec\.vtk", volume[0])
     on_disk = workspace.sim_dir("3207") / volume[0]
     assert records[0].outputs_sha256[volume[0]] == file_sha256(on_disk)
+
+
+# --- the section's metres reach the solver in the simulation's unit ----------
+
+
+def test_g05_a_millimetre_simulation_takes_the_section_in_millimetres():
+    """Both create commands read their lengths in the simulation's unit: every one times 1000."""
+    rectangle = _lines(
+        _steady(_pproc(**{**RECTANGLE, "offset_m": 0.5})).model_copy(
+            update={"raw_commands": [MILLIMETRES]}
+        )
+    )
+    assert "SET_SIMULATION_LENGTH_UNITS MILLIMETER" in rectangle, "the fixture sets no unit"
+    created = next(line for line in rectangle if line.startswith("CREATE_NEW_RECTANGLE"))
+    assert created == (
+        "CREATE_NEW_RECTANGLE_VOLUME_SECTION 2 XZ 500.0 1 -1000.0 -1000.0 1000.0 1000.0 "
+        "NONE 0.1 1 1.2"
+    ), f"a 2 m square 0.5 m off its plane was cut as {created!r} in a simulation in millimetres"
+    circle = _lines(_steady(_pproc(**CIRCLE)).model_copy(update={"raw_commands": [MILLIMETRES]}))
+    cut = next(line for line in circle if line.startswith("CREATE_NEW_CIRCLE"))
+    assert (
+        cut == "CREATE_NEW_CIRCLE_VOLUME_SECTION 2 YZ 1500.0 10 12 200.0 1000.0 NONE 0.1 1 1.2"
+    ), f"an annulus of 0.2 m to 1 m, 1.5 m off its plane, was cut as {cut!r} in millimetres"
+
+
+def test_g05_a_saved_simulation_whose_unit_is_not_read_is_refused_naming_the_keys(tmp_path):
+    """The section is refused on a save whose global block the package has not read in metres."""
+    head = _saved_block("GLOBAL")
+    other = _saved_copy(tmp_path / "wing_other.fsm", "GLOBAL", [head[0], "1", *head[2:]])
+    case = _steady(_pproc(**CIRCLE)).model_copy(update={"geometry": str(other)})
+    with pytest.raises(CampaignConfigError, match=r"offset_m and radii_m.*in metres"):
+        _lines(case)
+    # THE CONTROL: the committed geometry, saved in metres, cuts the numbers as written.
+    control = _lines(_steady(_pproc(**CIRCLE)).model_copy(update={"geometry": str(WING_PHY)}))
+    assert "CREATE_NEW_CIRCLE_VOLUME_SECTION 2 YZ 1.5 10 12 0.2 1.0 NONE 0.1 1 1.2" in control
