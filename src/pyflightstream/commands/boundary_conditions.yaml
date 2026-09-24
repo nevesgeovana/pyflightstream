@@ -366,6 +366,17 @@ TRAILING_EDGES_IMPORT:
     "26.101": {status: documented, note: "SRC-725 p.318, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.322, same grammar as 26.120"}
+    "26.124":
+      status: removed
+      successor: IMPORT_WAKE_EDGES_FROM_FILE
+      probe_ref: "reports/RPT-061_where-the-wake-edge-import-reads-its-nodes_2026-09-23.md"
+      note: >-
+        Measured 2026-09-23: the 26.124 solver answers the name as an
+        unrecognized command, with its file present and with it absent,
+        and with end vertices or edge mid-points in the file; its edition
+        stops printing the command, as SRC-751 did. Trailing edges are
+        marked from a file on this build by IMPORT_WAKE_EDGES_FROM_FILE,
+        whose file names edge mid-points rather than vertices (RPT-061)
   notes: >
     Marks trailing edges at vertices listed in a CSV file, the path on
     the next line. This is the exact route rather than the detection
@@ -407,6 +418,13 @@ TRAILING_EDGES_IMPORT:
     vendor dropped, is a fact about a DOCUMENT rather than about the
     solver, which the four statuses are all about. The absence carries
     that distinction correctly and this paragraph carries the reason.
+
+    26.124 WAS ASKED, AND ITS ROW IS REMOVED (RPT-061). Its edition is
+    the SRC-751 file, so the document says what it says for 26.123; the
+    run of 2026-09-23 is what differs, and the solver answered the name
+    as an unrecognized command with a file present and absent. That is
+    a fact about the solver, so the row is removed and cites the run.
+    26.123 stays absent, because no run has asked that build.
 
 DETECT_WAKE_TERMINATION_NODES_BY_SURFACE:
   layout: inline

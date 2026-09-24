@@ -47,6 +47,7 @@ default in its own table (SRC-750 p.324, SRC-751 p.323).
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Sequence
 from fractions import Fraction
 from pathlib import Path
@@ -163,6 +164,25 @@ def _verified_builds(command: str) -> tuple[str, ...]:
     )
 
 
+#: A narrative report id, as a row's note cites the run behind a grammar.
+_REPORT_ID = re.compile(r"\bRPT-\d{3}\b")
+
+
+def _runs_in_notes(command: str) -> dict[str, tuple[str, ...]]:
+    """Return the report ids each build's own note cites, where it cites one.
+
+    A row whose grammar was settled by a run outside the compatibility
+    harness keeps its documented status and names the run in its note, so
+    the note is where that evidence is read from.
+    """
+    entry = CommandRegistry.load().commands[command]
+    found = {
+        canonical: tuple(sorted(set(_REPORT_ID.findall(row.note or ""))))
+        for canonical, row in entry.versions.items()
+    }
+    return {canonical: ids for canonical, ids in sorted(found.items()) if ids}
+
+
 def _reports_for(command: str) -> tuple[str, ...]:
     """Every committed report a command's own rows cite, sorted and unique."""
     entry = CommandRegistry.load().commands[command]
@@ -203,8 +223,19 @@ def evidence_notice(canonical: str) -> str:
     import_reports = _reports_for(WAKE_EDGE_IMPORT_COMMAND)
     detection_verified = _verified_builds(TRAILING_EDGE_DETECTION_COMMAND)
 
+    runs = _runs_in_notes(WAKE_EDGE_IMPORT_COMMAND)
     if import_reports:
         standing = "cites a probe report on this database: " + ", ".join(import_reports)
+    elif runs:
+        # A GRAMMAR SETTLED BY A RUN IS NOT A STATUS PROMOTED BY ONE. The
+        # 26.124 row states the form that build reads because RPT-061 ran it,
+        # and it is still documented, because only a compat report promotes.
+        # The sentence says both halves, so neither reads as the other.
+        measured = "; ".join(f"{build} by {', '.join(ids)}" for build, ids in runs.items())
+        standing = (
+            "cites no compat report on any build and is verified on none, its grammar "
+            f"having been measured by a run outside the compatibility harness on {measured}"
+        )
     else:
         # PRECISE, because the loose wording was wrong. The command IS
         # named by the compat runs that reached its builds; each records

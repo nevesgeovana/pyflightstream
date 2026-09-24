@@ -148,10 +148,12 @@ def test_the_evidence_behind_the_default_route_is_stated_with_both_commands():
 
     Marking wake edges from a file replaces an angle criterion that
     cannot mark the edges this capability exists for. The replacement is
-    documented and has been run by nobody; what it replaces carries
-    committed probe reports on three builds. A later reader who meets
-    only the default reads it as settled practice, which is what this
-    sentence exists to prevent.
+    verified on no build: it was run once outside the compatibility
+    harness, on 26.124 (RPT-061), which settled its grammar there and
+    promoted nothing, while what it replaces carries committed probe
+    reports on three builds. A later reader who meets only the default
+    reads it as settled practice, which is what this sentence exists to
+    prevent.
 
     Derived from the registry rather than written out, so the day a
     probe promotes the command the sentence moves with it.
@@ -172,6 +174,11 @@ def test_the_evidence_behind_the_default_route_is_stated_with_both_commands():
             f"the notice does not name {canonical}, one of the builds a committed "
             "probe report covers for the command being replaced"
         )
+
+    later = evidence_notice("26.124")
+    assert "RPT-061" in later and "verified on none" in later, (
+        "the notice does not say that the 26.124 grammar rests on a run that promoted no status"
+    )
 
     imported = registry.commands[WAKE_EDGE_IMPORT_COMMAND]
     assert not [row for row in imported.versions.values() if row.report], (
@@ -575,3 +582,21 @@ def test_two_points_on_one_edge_are_refused_before_the_run(tmp_path):
             source=str(path),
             lines=read.lines,
         )
+
+
+def test_the_vertex_file_import_is_removed_on_26124_by_the_run_that_asked():
+    """G02 (RPT-061). 26.124 answers TRAILING_EDGES_IMPORT as an unrecognized
+    command, so its row is removed and the refusal cites the run and names the
+    route that marks from a file there; 26.123, which no run asked, stays absent."""
+    from pyflightstream.commands import CommandNotInVersionError
+
+    registry = CommandRegistry.load()
+    row = registry.commands["TRAILING_EDGES_IMPORT"].versions["26.124"]
+    assert row.status.value == "removed"
+    assert row.probe_ref and "RPT-061" in row.probe_ref
+    with pytest.raises(CommandNotInVersionError) as refused:
+        registry.for_version("26.124")["TRAILING_EDGES_IMPORT"]
+    message = str(refused.value)
+    assert "removed in FlightStream 26.124" in message
+    assert "RPT-061" in message and "Use IMPORT_WAKE_EDGES_FROM_FILE instead" in message
+    assert "26.123" not in registry.commands["TRAILING_EDGES_IMPORT"].versions
