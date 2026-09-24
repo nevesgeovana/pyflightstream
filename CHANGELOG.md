@@ -121,7 +121,8 @@ FlightStream versions.
   a rotor's the builder resolved an expanding entry against the rotor
   families, never over the names alone, so without them such a block is
   matched as in 0.26.0, and two entries on a user's own `X_RMRP` stay
-  refused by name. A geometry that gives one name to two boundaries settles
+  refused by name; so is any block of a run that turned a rotor, since the
+  builder reads a rotor's name before any stem. A geometry that gives one name to two boundaries settles
   nothing: the builder leaves that name out, so the names no longer say
   what `all` or a stem selected, and the match is read over the cuts as in
   0.26.0

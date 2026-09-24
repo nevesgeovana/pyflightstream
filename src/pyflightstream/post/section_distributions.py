@@ -276,6 +276,18 @@ def _matching_distributions(
         # block, and one call over two inventories would let the names of the
         # one make an entry of the other falsely unique.
         geometry = None
+    if (
+        geometry is not None
+        and not rotors
+        and (record.motions or (record.reductions or {}).get("rotors"))
+    ):
+        # A RUN THAT TURNED A ROTOR READS A ROTOR'S NAME BEFORE ANY STEM, on a
+        # common frame too: the builder takes a word naming a rotor as that
+        # rotor's families, which no name of the geometry states. So a rotor
+        # `Prop` beside boundaries Prop1 and Prop2 is not the stem `Prop` at
+        # export, whatever the names say, and with no rotor definition in hand
+        # nothing here can tell which reading ran. The match is 0.26.0's.
+        geometry = None
     # THE BUILDER'S INVENTORY, REBUILT: the labels the script declared at
     # OPEN in index order (`_inventory(script)` in cases/workflows.py).
     exact = (

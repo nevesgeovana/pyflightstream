@@ -506,6 +506,48 @@ def test_r03_a_numbered_name_on_a_rotor_frame_is_not_read_over_the_names(tmp_pat
     assert "missing pproc match" in reason, manifest["skipped"]
 
 
+@pytest.mark.parametrize(
+    "turned_a_rotor", [False, True], ids=["no-rotor", "a-rotor-named-like-a-stem"]
+)
+def test_r03_a_rotors_name_is_not_read_as_a_stem_on_a_common_frame(
+    tmp_path, monkeypatch, turned_a_rotor
+):
+    """The fourth reading of the names, closed before a reading had to find it.
+
+    The builder takes a word naming a rotor as that rotor's families before
+    any stem, on a common frame too. A run that turned rotor `Prop` beside
+    boundaries Prop1 and Prop2 read the entry `Prop` as the rotor at export,
+    which no name of the geometry states; over the names alone it read as the
+    stem of Prop1 and Prop2 and would be integrated. With no rotor definition
+    in hand the match is 0.26.0's for such a run. The control (no rotor turned)
+    shows the same block DOES integrate over the names, so the refusal is the
+    rotor's and not the case's.
+    """
+    workspace = _case(tmp_path, monkeypatch)
+    record = workspace.read_manifest()[0]
+    record.sections_layout[0].update(
+        families=["Prop1", "Prop2"], distribution_families="Prop", frame="MRP"
+    )
+    record.inventory = ["Prop1", "Prop2"]
+    if turned_a_rotor:
+        record.motions = [{"alias": "Prop"}]
+    spec = workspace.resolve_pproc("p001")
+    entry = spec.sections.distributions[0]
+    entry.families = "Prop"
+    entry.frame = "MRP"
+    write_campaign_products(workspace)
+    manifest = _products_manifest(workspace)
+    key = "sections/AL-020_sloads_Prop.csv"
+    assert key in manifest["products"], manifest["skipped"]
+    columns, _ = read_csv_table(workspace.products_dir(None) / key)
+    integrated = bool(set(EXTRA) & set(columns))
+    assert integrated is not turned_a_rotor, (
+        "a rotor's name was read as a stem over the names"
+        if turned_a_rotor
+        else "the control did not integrate"
+    )
+
+
 def test_r04_a_legacy_block_on_a_rotor_frame_is_owned_by_the_cuts(tmp_path, monkeypatch):
     """P1 of the reading of GitHub main after block 3, the ownership half.
 

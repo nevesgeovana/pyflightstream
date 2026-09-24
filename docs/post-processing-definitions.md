@@ -311,7 +311,11 @@ against the reference's rotor families, never over the names alone:
 rotor with a Blade family. With no rotor definition in hand such a block is
 matched as without the names, below, as in 0.26.0. No block records which
 entry emitted it, so a user's own frame spelt like a rotor's (`X_RMRP`) is
-read that way too, and two entries on it stay refused by name. Where the
+read that way too, and two entries on it stay refused by name. A run that
+turned a rotor is matched as without the names in any frame unless the
+rotor definitions are in hand, because the builder reads a word naming a
+rotor as that rotor's families before any stem: a rotor `Prop` beside
+boundaries Prop1 and Prop2 is not the stem `Prop`. Where the
 names are read, a selection is read by the export builder's own expansion
 over them, for integration and for the ownership of a legacy layout alike:
 a family stem, a numbered name, `all` and the aliases resolve as they
