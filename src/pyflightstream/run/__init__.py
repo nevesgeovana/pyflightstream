@@ -38,7 +38,9 @@ it, and one dash is the spelling every registered build accepts
 (RPT-023). In hidden mode an
 abnormal termination writes ``FlightStreamLog.txt`` into the command
 execution directory, which is why the executor runs the solver inside
-the simulation folder and captures that file (SRC-003 p.280). An HPC
+the point's own datapoint folder and captures that file (SRC-003 p.280);
+a steady row of several points is one job and runs in the simulation
+folder. An HPC
 executor with the same interface is deferred (FR-15).
 
 Judging solver quality (converged, iteration limited, diverged) needs
@@ -86,6 +88,7 @@ from pyflightstream._errors import (
 )
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import (
+    EXPORT_KINDS,
     Campaign,
     CampaignConfigError,
     ScriptRecipe,
@@ -155,6 +158,7 @@ from pyflightstream.workspace import (
     SIM_OUTPUTS_DIR,
     CampaignWorkspace,
     ExecutorRecord,
+    MissingOutputsError,
     NamingTemplateError,
     RunRecord,
     RunStatus,
@@ -218,6 +222,10 @@ __all__ = [
 ]
 
 _LOG_NAME = "FlightStreamLog.txt"
+
+#: The suffix of the solver log among a point's declared outputs, the one the
+#: log's export kind carries and the one `collect` copies a scheduler's log to.
+_LOG_OUTPUT_SUFFIX = next(suffix for kind, suffix, _, _ in EXPORT_KINDS if kind == "log")
 
 #: The two values :attr:`~pyflightstream.workspace.RunRecord.fs_version_source`
 #: takes, spelled once here rather than at the branch that chooses between
@@ -331,6 +339,21 @@ class ExecutionResult:
     def failed(self) -> bool:
         """Whether the process timed out or returned a nonzero code."""
         return self.timed_out or self.return_code != 0
+
+    def captured_output(self) -> str:
+        """Return what the solver printed, as a scheduler's job log holds it (0.27.0).
+
+        Standard output, then standard error, one after the other. The text a
+        run writes as the declared log on a machine whose HPC profile states
+        ``export_log = false``, where no scheduler writes one for a run kept
+        local, and the text the build-identity pre-flight reads the build from
+        there. An empty string when the solver printed nothing on either.
+        """
+        stdout, stderr = self.stdout or "", self.stderr or ""
+        if stdout and stderr and not stdout.endswith("\n"):
+            stdout += "\n"
+        captured = stdout + stderr
+        return captured if captured.strip() else ""
 
     def diagnosis(self) -> str:
         """Say what happened, from every channel this run captured.
@@ -1021,14 +1044,31 @@ class LocalExecutor:
         that would otherwise have submitted (``pyfs-matrix run --local``,
         0.27.0): a cluster carrying a profile. Recorded on every point's
         executor entry; it changes nothing about how the solver is called.
+    export_log : bool
+        Keyword only. Whether the scripts this executor runs export the
+        solver log. False on a run the local switch kept on a cluster whose
+        HPC profile states ``export_log = false``: that machine's build aborts
+        at ``EXPORT_LOG`` whether the job is submitted or run where it is, so
+        the profile's decision is the MACHINE's (0.27.0, measured on a cluster
+        2026-09-24). No scheduler writes the log of a local run, so the run
+        writes the declared log from what this executor captured of the
+        solver, its standard output then its standard error; with nothing
+        captured the point is judged from its loads export and its record says
+        why it has no log.
     """
 
     def __init__(
-        self, fs_exe: str | Path, hidden: bool = True, *, forced_local: bool = False
+        self,
+        fs_exe: str | Path,
+        hidden: bool = True,
+        *,
+        forced_local: bool = False,
+        export_log: bool = True,
     ) -> None:
         self.fs_exe = Path(fs_exe)
         self.hidden = hidden
         self.forced_local = forced_local
+        self.export_log = export_log
         if not self.fs_exe.is_file():
             raise ExecutorConfigurationError(
                 f"FlightStream executable not found at {self.fs_exe}. The path is "
@@ -2261,6 +2301,11 @@ def check_solver_identity(
     Does nothing at all when the version has no registered build: there
     is nothing to compare, so no solver process is spent.
 
+    On a machine that cannot export the log (an executor whose HPC profile
+    states ``export_log = false``, 0.27.0) the sentinel script exports none and
+    the build is read from what the solver printed; a build it did not print
+    is warned about, naming the profile, and never refused.
+
     Parameters
     ----------
     executor : Executor
@@ -2303,10 +2348,16 @@ def check_solver_identity(
     log_path = workdir / "preflight_log.txt"
     if log_path.exists():
         log_path.unlink()
+    # 0.27.0: A MACHINE THAT ABORTS AT EXPORT_LOG IS NOT ASKED TO EXPORT ONE HERE
+    # EITHER. Its HPC profile says so (`export_log = false`), and the build is
+    # read from what the solver printed instead; a build it did not print is a
+    # warning naming the profile, never a refusal.
+    exports_log = _machine_exports_log(executor)
     script = Script(version)
     script.comment("pre-flight: which FlightStream build is actually installed")
     script.emit("PRINT", _IDENTITY_MARKER)
-    script.emit("EXPORT_LOG", log_path)
+    if exports_log:
+        script.emit("EXPORT_LOG", log_path)
     script.emit("CLOSE_FLIGHTSTREAM")
     script_path = workdir / "preflight.txt"
     script_path.write_text(script.render(), encoding="utf-8")
@@ -2316,8 +2367,19 @@ def check_solver_identity(
         # Real 26.120 hidden-mode exports carry NUL bytes (RPT-001).
         text = log_path.read_text(encoding="utf-8", errors="replace").replace("\x00", "")
     else:
-        text = ""
+        text = "" if exports_log else result.captured_output().replace("\x00", "")
     found = _BUILD_LINE.search(text)
+    if found is None and not exports_log:
+        warnings.warn(
+            "this machine's HPC profile (inputs/hpc/) states [log] export_log = false, so the "
+            "identity pre-flight exported no log, and the solver printed no build number "
+            "either: the installation at the campaign's executable was neither confirmed nor "
+            f"refused as {version.canonical} (build #{version.build}). Every parsed result is "
+            "still cross-checked against the registered build.",
+            VersionMismatchWarning,
+            stacklevel=2,
+        )
+        return
     if found is None:
         # THE CAUSE IS NAMED WHEN IT IS KNOWN. The result of the run was
         # discarded here, so a solver that failed to start, or one killed
@@ -4450,9 +4512,12 @@ def _plan_point(
         )
     # The dry run built the same COMMANDS the campaign will, so the two
     # provenance flags are already determined here. Not the same bytes,
-    # and the difference is exactly one argument: the plan runs before
+    # and the difference is one argument: the plan runs before
     # anything is staged, so a case naming a geometry renders `OPEN
-    # <library path>` here and `OPEN <staged copy>` at run time. Nothing
+    # <library path>` here and `OPEN <staged copy>` at run time. A raw mesh
+    # on the trailing-edge file route differs in a second: the script is given
+    # no working folder here, so its node file is named by its bare name (G02,
+    # `Script.working_dir`). Nothing
     # depends on that today (the plan checks the library file exists, the
     # builder judges only the suffix, and plan.json carries no script
     # text), and it is written down so a later reader does not reuse this
@@ -5052,6 +5117,9 @@ def _execute_sweep(
         )
 
     script = Script(version=fs_version)
+    # G02: the job runs in the simulation folder, which no other simulation
+    # shares, so the node file its one script imports is named there.
+    script.working_dir = str(sim_dir)
     try:
         build_steady_sweep([pc for _, _, pc in point_cases], script, cold=cold)
         # G02: the switch is the row's, so the first point's case states it.
@@ -5231,6 +5299,20 @@ def _execute_sweep(
     error_lines: list[str] = []
     collected_by_tag: dict[str, list[str]] = {}
     failed_tags: dict[str, str] = {}
+    # 0.27.0: ON A MACHINE THAT CANNOT EXPORT THE LOG, run locally, no point's
+    # declared log is written and none is missing. What the solver printed is
+    # the whole job's and no single point's, and a job log judged as a point's
+    # would end at the last point's iteration; so each point is judged from its
+    # loads export, the job's record says why, and the printed output is read
+    # for the trailing-edge count the one script imported, as a job's is.
+    cannot_log = isinstance(executor, LocalExecutor) and not executor.export_log
+    printed = result.captured_output() if cannot_log else ""
+    excused = {
+        name
+        for _, _, point_case in point_cases
+        for name in point_case.outputs
+        if cannot_log and name.endswith(_LOG_OUTPUT_SUFFIX) and not (sim_dir / name).is_file()
+    }
     for point, _stem, point_case in point_cases:
         tag = point_name(case, point)
         try:
@@ -5239,21 +5321,27 @@ def _execute_sweep(
                 # ABSOLUTE, as the point path passes them: the names on the
                 # case are relative to the execution directory and the
                 # collector is handed paths, not names.
-                [sim_dir / name for name in point_case.outputs],
+                [sim_dir / name for name in point_case.outputs if name not in excused],
                 datapoint=PointName(tag),
             )
+        except MissingOutputsError as error:
+            # FILED, LISTED AND HASHED, and the point still fails (0.27.0).
+            collected_by_tag[tag] = error.collected
+            failed_tags[tag] = str(error)
         except (WorkspaceError, CampaignConfigError) as error:
             failed_tags[tag] = str(error)
     for point, _stem, point_case in point_cases:
         tag = point_name(case, point)
         if tag in failed_tags:
-            ran.append(
-                {
-                    "tag": tag,
-                    "point": dict(point),
-                    "status": str(RunStatus.FAILED_INCOMPLETE_OUTPUT),
-                }
-            )
+            entry: dict[str, object] = {
+                "tag": tag,
+                "point": dict(point),
+                "status": str(RunStatus.FAILED_INCOMPLETE_OUTPUT),
+            }
+            if collected_by_tag.get(tag):
+                entry["outputs"] = list(collected_by_tag[tag])
+                collected_all.extend(collected_by_tag[tag])
+            ran.append(entry)
             worst = RunStatus.FAILED_INCOMPLETE_OUTPUT
             error_lines.append(f"{tag}: {failed_tags[tag]}")
             continue
@@ -5262,13 +5350,15 @@ def _execute_sweep(
         # G02. The job's one script imported the trailing edges once, and each
         # point is held to that count through the log it collected, else the
         # job's own.
+        log_text = _run_log_text(sim_dir, collected, assessment.log_file_used, result) or (
+            printed or None
+        )
         status, error = with_wake_edge_verdict(
             assessment.status,
             assessment.error,
-            wake_edge_import_verdict(
-                script.wake_edge_points,
-                _run_log_text(sim_dir, collected, assessment.log_file_used, result),
-            ),
+            _no_local_log_verdict(script.wake_edge_points, log_text, _NO_JOB_LOG_NOTE)
+            if cannot_log
+            else wake_edge_import_verdict(script.wake_edge_points, log_text),
         )
         collected_all.extend(collected)
         ran.append(
@@ -5297,6 +5387,7 @@ def _execute_sweep(
         status=worst,
         outputs=collected_all,
         outputs_sha256=workspace.output_digests(case.sim_id, collected_all),
+        residual_note=_NO_JOB_LOG_NOTE if excused else None,
         error="; ".join(error_lines) or None,
     )
 
@@ -5613,6 +5704,24 @@ def _profile_of(executor: object) -> HpcProfile | None:
     return profile if isinstance(profile, HpcProfile) else None
 
 
+def _machine_exports_log(executor: object) -> bool:
+    """Whether the machine an executor runs on lets a script export the solver log.
+
+    The profile's ``export_log`` for an executor submitting through one, and a
+    local executor's own ``export_log``, which is False on a run the local
+    switch kept on a cluster whose profile turns the export off (0.27.0): the
+    build there aborts at ``EXPORT_LOG`` whether the job is submitted or not,
+    and until 0.27.0 only a submitted job was spared it. True for any other
+    executor.
+    """
+    profile = _profile_of(executor)
+    if profile is not None:
+        return profile.export_log
+    if isinstance(executor, LocalExecutor):
+        return executor.export_log
+    return True
+
+
 def _with_the_profile_s_log(case: SimCase, executor: object) -> SimCase:
     """Return the case as the EXECUTOR's machine writes its log (0.21.0).
 
@@ -5622,11 +5731,101 @@ def _with_the_profile_s_log(case: SimCase, executor: object) -> SimCase:
     way the command line writes IGNORE_MISSING_FAMILIES, and only the FALSE
     side is ever written: a run on any other machine, or through any other
     executor, renders byte for byte what it rendered before.
+
+    THE MACHINE'S DECISION, submitted or not (0.27.0): a run the local switch
+    keeps on such a cluster carries it on its local executor, because the build
+    that aborts at ``EXPORT_LOG`` is the same build either way. Read through
+    the profile alone, a point run there with ``--local`` stopped at
+    ``EXPORT_LOG`` after every other export (measured on a cluster, 2026-09-24).
     """
-    profile = _profile_of(executor)
-    if profile is None or profile.export_log:
+    if _machine_exports_log(executor):
         return case
     return case.model_copy(update={"variables": {**case.variables, EXPORT_LOG_VARIABLE: "false"}})
+
+
+@dataclass(frozen=True)
+class _LocalLog:
+    """What a local run on a machine that cannot export its log did about the log.
+
+    0.27.0. Such a machine's scheduler writes the log of a SUBMITTED job, and
+    `collect` copies it to the declared name; a run kept local has no
+    scheduler, so the declared log is written from what the executor captured
+    of the solver, or, when it captured nothing, excused: the machine cannot
+    write one locally, which is not an output the run failed to produce.
+    """
+
+    #: The declared log written from the captured output, as declared.
+    written: str | None = None
+    #: The declared log excused because nothing was captured, as declared.
+    excused: str | None = None
+    #: The sentence the record carries about it, in ``residual_note``.
+    note: str | None = None
+
+
+#: The sentence a local run's record carries when its log is the captured output.
+_CAPTURED_LOG_NOTE = (
+    "{name} is the solver's captured standard output and error, written by this package: "
+    "this machine's HPC profile states export_log = false and the local switch (--local) "
+    "kept the run here, where no scheduler writes a log"
+)
+#: The sentence a steady job's record carries on such a machine, whatever was printed.
+_NO_JOB_LOG_NOTE = (
+    "no point of this job has a solver log: this machine's HPC profile states export_log = "
+    "false and the local switch (--local) kept the job here, where no scheduler writes one; "
+    "what the solver printed is the whole job's and no single point's, so each point is "
+    "judged from its loads export alone"
+)
+#: The sentence it carries when the solver printed nothing to capture.
+_NO_LOCAL_LOG_NOTE = (
+    "no solver log: this machine's HPC profile states export_log = false, the local switch "
+    "(--local) kept the run here, where no scheduler writes one, and the solver printed "
+    "nothing to capture, so the point is judged from its loads export alone"
+)
+
+
+def _the_local_log(
+    executor: object, outputs: Sequence[str], work_dir: Path, result: ExecutionResult
+) -> _LocalLog:
+    """Write a local point's declared log from the solver's output, or excuse it (0.27.0).
+
+    Only on a local executor whose machine cannot export the log; on any other
+    run nothing is written and nothing is excused. The declared log is the
+    output named like one (``_log.txt``), the name `collect` copies a
+    scheduler's log to, and a log the solver did write is never overwritten.
+    """
+    if not isinstance(executor, LocalExecutor) or executor.export_log:
+        return _LocalLog()
+    declared = [str(name) for name in outputs if str(name).endswith(_LOG_OUTPUT_SUFFIX)]
+    if not declared or (work_dir / declared[0]).is_file():
+        return _LocalLog()
+    captured = result.captured_output()
+    if captured:
+        (work_dir / declared[0]).write_text(captured, encoding="utf-8", newline="")
+        return _LocalLog(
+            written=declared[0], note=_CAPTURED_LOG_NOTE.format(name=Path(declared[0]).name)
+        )
+    return _LocalLog(excused=declared[0], note=_NO_LOCAL_LOG_NOTE)
+
+
+def _no_local_log_verdict(
+    expected: int | None, log_text: str | None, note: str
+) -> tuple[RunStatus, str] | None:
+    """Judge the trailing-edge count of a local run whose machine could write no log.
+
+    G02 on such a machine: the count is read from the log, and with none the
+    point is recorded FAILED_INCOMPLETE_OUTPUT naming the MACHINE as the reason
+    rather than telling the row to export a log it did declare.
+    """
+    if expected is None or log_text is not None:
+        return wake_edge_import_verdict(expected, log_text)
+    return (
+        RunStatus.FAILED_INCOMPLETE_OUTPUT,
+        f"the script imported {expected} trailing-edge points and no solver log was read "
+        f"({note}), so whether the file marked anything cannot be told: a file whose "
+        "points match no edge marks nothing and says nothing. Run this row where its log "
+        "is written, submitted from this cluster (without --local), where the scheduler's "
+        "log is collected",
+    )
 
 
 def _refuse_an_import_count_nothing_logs(
@@ -5652,6 +5851,11 @@ def _refuse_an_import_count_nothing_logs(
     declared name and the count is read from it there. The plan does not know
     the machine, so it refuses the switch in the row, where it is never needed:
     a machine that writes its own log says so in its profile.
+
+    RUN LOCALLY ON SUCH A MACHINE (``--local``, 0.27.0) the point runs too: the
+    declared log is written from what the solver printed and the count read
+    from it, and a solver that printed nothing leaves the point recorded
+    FAILED_INCOMPLETE_OUTPUT naming the machine, never accepted in silence.
     """
     if script.wake_edge_points is None:
         return
@@ -5663,8 +5867,7 @@ def _refuse_an_import_count_nothing_logs(
         return  # a word the builder reads, and refuses there by name
     if "EXPORT_LOG" in script.render().splitlines():
         return
-    profile = _profile_of(executor)
-    if profile is not None and not profile.export_log:
+    if not _machine_exports_log(executor):
         return
     raise CampaignConfigError(
         f"case {case.sim_id!r} imports {script.wake_edge_points} trailing-edge points from "
@@ -5860,6 +6063,11 @@ def _execute_point(
     # The BUILD's version, so a case sent to a second installation emits
     # the commands that installation documents rather than the campaign's.
     script = Script(version=fs_version)
+    # G02: the folder this point runs in (see below), given to the script before
+    # the build, so a data file it parks is named there and not beside the
+    # staged geometry, a link into the library every simulation on the mesh shares.
+    work_dir = sim_dir / SIM_DATAPOINTS_DIR / datapoint_dir_name(PointName(point_name(case, point)))
+    script.working_dir = str(work_dir)
     try:
         recipe(point_case, script)
         # G02: before the solver starts, and knowing the machine this time.
@@ -5926,8 +6134,8 @@ def _execute_point(
     # PFS-2031.13. The child script of a SCRIPT action is parked on the
     # script by helpers.unsteady_action and written HERE, before the
     # solver starts, where the registration line names it: a relative
-    # path lands in the simulation folder, which is the solver's working
-    # directory, an absolute one where it says. Until this existed the
+    # path lands in the solver's working directory, the point's own
+    # datapoint folder since 0.27.0, an absolute one where it says. Until this existed the
     # helper promised a writer that did not exist, and a SCRIPT action
     # registered through it named a file that was never there.
     #
@@ -5939,16 +6147,18 @@ def _execute_point(
     # the reason a second submitted point of a row was refused, which was
     # that all of them rewrote those files under a job still in a queue.
     #
-    # A LOCAL POINT STILL RUNS IN THE SIMULATION FOLDER. Local points run one
-    # after another and never shared a folder at the same moment, and moving
-    # them would change every local workspace for no defect. Every input the
-    # script reads is named by absolute path since 0.18.1, which is what
-    # makes the working directory free to move at all (GOAL-021 item 2).
-    work_dir = (
-        sim_dir / SIM_DATAPOINTS_DIR / datapoint_dir_name(PointName(point_name(case, point)))
-        if isinstance(executor, Submitting)
-        else sim_dir
-    )
+    # A LOCAL POINT RUNS THERE TOO, since 0.27.0, so every output is WRITTEN
+    # where it is filed rather than moved there by collection. It ran in the
+    # simulation folder until then, and a point whose run or collection failed
+    # left its exports there, the per-step ones included, in the folder every
+    # point of the row shares (measured on a cluster, 2026-09-24). The script
+    # is unchanged: its exports are named relative to the working directory,
+    # the form measured on 26.124, and every input it reads is named by
+    # absolute path since 0.18.1, which is what makes the working directory
+    # free to move at all (GOAL-021 item 2). The files it parks, the action
+    # program, the clock and the trailing-edge node file, are written relative
+    # to this folder below, as they are for a submitted point. The steady job
+    # of several points keeps the simulation folder (`_execute_sweep`).
     # G02: and the data files a command reads, the trailing-edge node file,
     # whose digests join the inputs the record states.
     written = _write_pending_files(script, work_dir)
@@ -6029,8 +6239,8 @@ def _execute_point(
     # probe measured not to work.
     base["waived_commands"] = [use.model_dump(mode="json") for use in script.waived_commands]
 
-    # PYFS-006. Every point of a case runs in the same simulation folder,
-    # and collection asks only whether the declared output EXISTS, never
+    # PYFS-006. Every point of a case ran in the same simulation folder until
+    # 0.27.0, and collection asks only whether the declared output EXISTS, never
     # whether this run produced it. A file left there by anything else, a
     # point that failed after the solver wrote, a hand copy, an aborted
     # sweep, was collected as this point's evidence and the point was
@@ -6043,23 +6253,26 @@ def _execute_point(
     # cannot tell a rewritten identical file from an untouched one, and it
     # spends solver time before saying so. The script is already written,
     # so the refused point still records the script it would have run.
-    # IN THE WORKING DIRECTORY, which for a submitted point is its datapoint
-    # folder: a file an earlier run of the point left there is exactly what
-    # this refuses to collect as the new run's evidence.
+    # IN THE WORKING DIRECTORY, which is the point's datapoint folder, for a
+    # submitted point and, since 0.27.0, for a local one: a file an earlier run
+    # of the point left there is exactly what this refuses to collect as the
+    # new run's evidence.
     stale = [name for name in point_case.outputs if (work_dir / name).exists()]
     if stale:
         return RunRecord(
             **base,
             status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
             error=(
-                f"declared output(s) {', '.join(stale)} already exist in the simulation "
-                "folder before this point ran, so collecting them would attribute "
-                "somebody else's file to this run. Every point of a case shares the "
-                "folder, and collection cannot tell a file this solver wrote from one "
-                "that was already there. Archive the simulation (pyfs-workspace "
-                "archive <root> <sim_id>) or remove the leftover, then re-run."
+                f"declared output(s) {', '.join(stale)} already exist in "
+                f"{work_dir.relative_to(sim_dir).as_posix()}/, the folder this point runs "
+                "in, before it ran, so collecting them would attribute somebody else's "
+                "file to this run: collection cannot tell a file this solver wrote from "
+                "one that was already there. Redo the point with pyfs-matrix run "
+                "--force-rerun <point>, which archives what is there first, or remove "
+                "the leftover, then re-run."
             ),
         )
+    work_dir.mkdir(parents=True, exist_ok=True)
 
     # FR-99, GEO-047-C04. THE REFUSAL OF A SECOND SUBMITTED POINT OF A ROW IS
     # GONE FROM THIS PATH, and deliberately from this path only (the
@@ -6160,10 +6373,15 @@ def _execute_point(
             },
         )
 
+    # 0.27.0: ON A MACHINE THAT CANNOT EXPORT THE LOG, the declared log is
+    # written from what the solver printed, or, with nothing printed, excused:
+    # the machine cannot write one locally, which is not an output the run
+    # failed to produce. Nothing happens here on any other run.
+    local_log = _the_local_log(executor, point_case.outputs, work_dir, result)
     try:
         collected = workspace.collect_outputs(
             case.sim_id,
-            [sim_dir / name for name in point_case.outputs],
+            [work_dir / name for name in point_case.outputs if name != local_log.excused],
             # FR-92. THE POINT'S OWN FOLDER, always, steady or unsteady.
             # Every point of one case collected into one `outputs/` until
             # 0.16.0, so from the second point of a swept row onward that
@@ -6172,6 +6390,22 @@ def _execute_point(
             # The point's checked NAME is passed and the folder is rendered
             # there, so a caller cannot name a folder the assessor will not read.
             datapoint=PointName(point_name(case, point)),
+            # 0.27.0: every point runs in that folder, so its outputs are
+            # filed where the solver wrote them.
+            ran_in_datapoint=True,
+        )
+    except MissingOutputsError as error:
+        # WHAT WAS WRITTEN IS FILED, LISTED AND HASHED, and the error names
+        # only what is missing (0.27.0). An empty record here left a point's
+        # exports out of every product (measured on a cluster, 2026-09-24).
+        return RunRecord(
+            **base,
+            status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            wall_time_s=result.wall_time_s,
+            outputs=error.collected,
+            outputs_sha256=workspace.output_digests(case.sim_id, error.collected),
+            residual_note=local_log.note,
+            error=str(error),
         )
     except (WorkspaceError, CampaignConfigError) as error:
         # BOTH, because collection can refuse for two reasons and only one of
@@ -6202,13 +6436,20 @@ def _execute_point(
     )
     # G02. A run that imported trailing edges is held to the count the solver
     # logged, over any status that is not already a failure.
+    # The log is found by the name the assessor read it under, else by the name
+    # a local run on a machine that cannot export one wrote it under (0.27.0):
+    # the solver's printed output need not read as a residual history to carry
+    # the count.
+    named_log = assessment.log_file_used or (
+        Path(local_log.written).name if local_log.written else None
+    )
+    log_text = _run_log_text(sim_dir, collected, named_log, result)
     status, error = with_wake_edge_verdict(
         status,
         assessment.error,
-        wake_edge_import_verdict(
-            script.wake_edge_points,
-            _run_log_text(sim_dir, collected, assessment.log_file_used, result),
-        ),
+        _no_local_log_verdict(script.wake_edge_points, log_text, local_log.note)
+        if local_log.excused and local_log.note
+        else wake_edge_import_verdict(script.wake_edge_points, log_text),
     )
     return RunRecord(
         **base,
@@ -6232,7 +6473,8 @@ def _execute_point(
         # point it claims", and that question is the whole finding.
         conditions=assessment.conditions,
         log_file_used=assessment.log_file_used,
-        residual_note=assessment.residual_note,
+        residual_note="; ".join(note for note in (assessment.residual_note, local_log.note) if note)
+        or None,
         solver_run_time_s=assessment.solver_run_time_s,
         solver_initialization_s=assessment.solver_initialization_s,
         time_steps=assessment.time_steps,

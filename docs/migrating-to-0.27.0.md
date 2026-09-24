@@ -251,3 +251,38 @@ the opposite sign to 0.26.0: `roll_rate:40` writes
   that: 0.27.0 solves the rate as written.
 - Code that read `cases.workflows.FREESTREAM_ROTATION_SIGN` as a number now gets
   a mapping: read `FREESTREAM_ROTATION_SIGN["roll"]`, `["pitch"]` or `["yaw"]`.
+
+## 16. Where a local point runs, its log on a cluster that aborts at `EXPORT_LOG`, and a missing output
+
+- On a cluster whose HPC profile states `[log] export_log = false`,
+  `pyfs-matrix run --local` no longer writes `EXPORT_LOG` into the script, as
+  a submitted job never did. The declared log of such a point holds what the
+  solver printed, written by the run, and a point whose solver printed nothing
+  has no log among its `outputs`, a `residual_note` saying why, and the status
+  its loads export gives it. Nothing changes on any other machine.
+- On such a cluster the extraction scripts of `pyfs-matrix post
+  --additional-pproc` carry no `EXPORT_LOG`, with `--local` or planned for a
+  submission; an extraction's log is what the solver printed, or absent with
+  the reason in its `note`. The build-identity pre-flight exports no log there
+  either, and a build the solver did not print is a warning, not a refusal.
+- A submitted steady job of several points on such a cluster is collected
+  once its points' other outputs and its scheduler's log have settled: the log
+  is filed as `<job script stem>_log.txt` in the simulation folder, its points
+  carry no `_log.txt` among their `outputs`, and each point's `residual_note`
+  names the job's log. A job left WAITING by an earlier version is collected
+  by running `pyfs-matrix collect` again.
+- A record `FAILED_INCOMPLETE_OUTPUT` for a missing declared output now lists
+  the outputs that were written, in `datapoints/DP-<point>/`, with their
+  hashes; before, it listed none and they stayed where the solver wrote them.
+  Code that took `outputs == []` to mean such a failure reads `status`.
+- `CampaignWorkspace.collect_outputs` files the declared outputs that exist
+  before it raises for the missing ones, and raises `MissingOutputsError`, a
+  `WorkspaceError`, so an existing `except WorkspaceError` still catches it.
+- A point run on this machine runs in its own `datapoints/DP-<point>/`, as a
+  submitted point does: its exports, per-step ones included, its
+  `FlightStreamLog.txt`, its action files and its node file are written there,
+  and its record's `cwd` names the folder. A script of your own that looked for
+  them in `sims/sim_<id>/` looks in the point's folder; a leftover in the
+  simulation folder no longer stops a point, and a leftover in the point's
+  folder does. A steady row of several points still runs in the simulation
+  folder.

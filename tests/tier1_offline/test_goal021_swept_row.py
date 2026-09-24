@@ -154,8 +154,12 @@ def test_goal021_swept_row_a_second_submission_in_the_same_invocation_is_not_ref
     ]
 
 
-def test_goal021_swept_row_a_local_point_still_runs_in_the_simulation_folder(tmp_path):
-    """Local points never shared a folder at the same moment, and are not moved."""
+def test_goal021_swept_row_a_local_point_runs_in_its_datapoint_folder(tmp_path):
+    """0.27.0: a local point runs where a submitted one does, its own datapoint folder.
+
+    It ran in the simulation folder until then, and a point whose run or
+    collection failed left its exports in the folder every point shares.
+    """
     workspace = _workspace(tmp_path)
     stub = CountingStub(WRITES_EVERY_EXPORT)
     try:
@@ -163,7 +167,8 @@ def test_goal021_swept_row_a_local_point_still_runs_in_the_simulation_folder(tmp
     except CampaignErrors:
         records = workspace.read_manifest()
     assert records, "the local run recorded nothing"
-    assert Path(records[0].cwd) == workspace.sim_dir("7001"), records[0].cwd
+    folder = workspace.sim_dir("7001") / "datapoints" / f"DP-{records[0].point_name}"
+    assert Path(records[0].cwd) == folder, records[0].cwd
 
 
 def test_goal021_swept_row_the_steady_job_still_runs_in_the_simulation_folder(tmp_path):

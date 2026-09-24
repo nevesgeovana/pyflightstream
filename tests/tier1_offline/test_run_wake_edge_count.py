@@ -183,7 +183,9 @@ def test_the_node_file_is_written_before_the_solver_and_hashed(tmp_path):
     record, sim = _run(
         tmp_path, LOG_AROUND.format(line="16 trailing edges imported for boundary Wing")
     )
-    seen = (sim / "node_file_seen.txt").read_text(encoding="utf-8").splitlines()
+    # The stand-in writes where it runs, the point's own folder since 0.27.0.
+    folder = sim / "datapoints" / f"DP-{record.point_name}"
+    seen = (folder / "node_file_seen.txt").read_text(encoding="utf-8").splitlines()
     assert seen[:3] == ["16", "0,0,0", "1.0,-3.75,0.0"], seen
     assert len(seen) == 18
     node_file = next(sim.rglob("wing.wake_nodes.txt"))

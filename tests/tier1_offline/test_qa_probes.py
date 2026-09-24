@@ -1427,30 +1427,135 @@ def test_the_wake_edge_import_probe_verifies_only_the_exact_import_it_wrote(
     assert check(_wake_edge_region(tmp_path, region)) is verdict
 
 
-def test_the_committed_wake_edge_compat_report_stands_under_the_exact_judge(tmp_path):
-    """CMP-26124_2026-09-24 was judged by the substring judge. Its evidence says the
-    solver logged 16 trailing edges imported for boundary Wing; that line, fed to
-    the exact judge, is still verified, so the committed row stands."""
+def _import_lines_recorded(detail: str) -> list[dict[str, int]] | None:
+    """The import lines a probe's detail says the judge read, or None when it names none."""
+    import json
     import re
 
+    found = re.search(r"The instrument read: import lines (\[.*\])\s*$", detail)
+    return None if found is None else json.loads(found.group(1))
+
+
+def _verified_import_row(report_text: str) -> bool:
+    """Whether a compat report's YAML carries IMPORT_WAKE_EDGES_FROM_FILE as verified.
+
+    Read off the text, so the committed reports that do not are never parsed;
+    the test of the probe's detail runs it over a report the writer wrote.
+    """
+    import re
+
+    row = re.compile(r"^  IMPORT_WAKE_EDGES_FROM_FILE:\s*\n\s+outcome: verified$", re.M)
+    return row.search(report_text) is not None
+
+
+@pytest.mark.parametrize(
+    ("logged", "read"),
+    [
+        ([_SIXTEEN_ON_WING], [{"Wing": 16}]),
+        (["15 trailing edges imported for boundary Wing"], [{"Wing": 15}]),
+        (["116 trailing edges imported for boundary Wing"], [{"Wing": 116}]),
+        (["16 trailing edges imported for boundary Winglet"], [{"Winglet": 16}]),
+        (
+            [_SIXTEEN_ON_WING, "3 trailing edges imported for boundary Tail"],
+            [{"Wing": 16}, {"Tail": 3}],
+        ),
+        ([_SIXTEEN_ON_WING, _SIXTEEN_ON_WING], [{"Wing": 16}, {"Wing": 16}]),
+        ([], []),
+    ],
+    ids=[
+        "sixteen-on-wing",
+        "fifteen",
+        "one-hundred-and-sixteen",
+        "another-boundary",
+        "an-additional-import",
+        "the-import-twice",
+        "silence",
+    ],
+)
+def test_the_wake_edge_import_probe_s_detail_records_the_import_lines_it_read(
+    tmp_path, logged, read
+):
+    """G02. The compat report's detail is the evidence a later reader re-judges, so
+    it carries what the judge read: every import line of the target region, parsed
+    as the judge parses them. The specification's note names the one import the
+    probe WROTE, so a detail made of the note alone read the same whatever the
+    solver printed, and a report could not show which lines met the criterion.
+
+    Read back from the report the writer writes, as the test of the committed
+    reports below reads them, so the reading survives the YAML it travels in."""
     import yaml
 
-    report = (
-        Path(__file__).resolve().parents[2]
-        / "reports"
-        / "compat"
-        / "CMP-26124_2026-09-24_wake-edge-import.yaml"
+    from pyflightstream.qa.compat import write_compat_report
+    from pyflightstream.qa.probes import DEFAULT_ERROR_PATTERNS, ProbeRun, _judge
+
+    spec = PROBE_SPECS["IMPORT_WAKE_EDGES_FROM_FILE"]
+    region = "\r\n\x00\r\n".join(logged) if logged else None
+    result = _judge(spec, _wake_edge_region(tmp_path, region), DEFAULT_ERROR_PATTERNS, "sha", 60.0)
+    verified = read == [{"Wing": 16}]
+    assert result.outcome is (ProbeOutcome.VERIFIED if verified else ProbeOutcome.BROKEN)
+    run = ProbeRun(
+        version="26.124",
+        solver_identity=("FlightStream version 26.1, build #8172026",),
+        fs_exe_name="Flightstream_26124.exe",
+        package_version="0.27.0",
+        results=(result,),
     )
-    entry = yaml.safe_load(report.read_text(encoding="utf-8"))["commands"][
-        "IMPORT_WAKE_EDGES_FROM_FILE"
-    ]
-    assert entry["outcome"] == "verified" and entry["signals"]["effect"] is True, entry
-    (quoted,) = re.findall(
-        r"the solver logs (\d+ trailing edges imported for boundary \w+),", entry["detail"]
-    )
-    assert quoted == _SIXTEEN_ON_WING, entry["detail"]
+    written, _ = write_compat_report(run, tmp_path / "compat", date="2026-09-25")
+    text = written.read_text(encoding="utf-8")
+    assert _verified_import_row(text) is verified, text
+    detail = yaml.safe_load(text)["commands"]["IMPORT_WAKE_EDGES_FROM_FILE"]["detail"]
+    assert _import_lines_recorded(detail) == read, detail
+
+
+#: The one committed report of the import written before the probe recorded the
+#: lines it read; its detail is the specification's note of that day.
+_REPORT_WITHOUT_THE_LINES = "CMP-26124_2026-09-24_wake-edge-import.yaml"
+
+
+def test_a_verified_wake_edge_import_report_carries_lines_the_exact_judge_passes(tmp_path):
+    """What a committed compat report of the import establishes, and what it cannot.
+
+    A report the probe writes now carries, in its detail, the import lines the
+    judge read between the sentinels. Each verified row of such a report is
+    re-judged here, from those lines, by the exact judge: exactly one import, of
+    16 edges, on boundary Wing.
+
+    CMP-26124_2026-09-24 was written before the probe recorded them. Its detail is
+    the specification's note of that day, which names the import the probe wrote
+    and read the same whatever the solver printed: 116 edges, 16 on Winglet, or a
+    second import beside the first each gave that detail under the judge of that
+    day. So what it records is a verdict, verified with effect true, by that
+    judge; it cannot show that the solver printed exactly one import of 16 on Wing,
+    and this test does not claim it did. The exact criterion is established by a
+    re-run of the probe, whose report carries its lines. That report is the one
+    allowed to carry none; any other verified row without them fails here.
+    """
+    import yaml
+
+    folder = Path(__file__).resolve().parents[2] / "reports" / "compat"
     check = PROBE_SPECS["IMPORT_WAKE_EDGES_FROM_FILE"].assert_effect
-    assert check(_wake_edge_region(tmp_path, quoted)) is True
+    without_lines = []
+    for report in sorted(folder.glob("CMP-*.yaml")):
+        text = report.read_text(encoding="utf-8")
+        if not _verified_import_row(text):
+            continue
+        entry = yaml.safe_load(text)["commands"]["IMPORT_WAKE_EDGES_FROM_FILE"]
+        assert entry["outcome"] == "verified" and entry["signals"]["effect"] is True, entry
+        read = _import_lines_recorded(entry["detail"])
+        if read is None:
+            without_lines.append(report.name)
+            continue
+        assert read == [{"Wing": 16}], f"{report.name} records the import lines {read}"
+        region = "\r\n\x00\r\n".join(
+            f"{count} trailing edges imported for boundary {boundary}"
+            for line in read
+            for boundary, count in line.items()
+        )
+        assert check(_wake_edge_region(tmp_path, region)) is True, report.name
+    assert without_lines == [_REPORT_WITHOUT_THE_LINES], (
+        "a verified report of IMPORT_WAKE_EDGES_FROM_FILE records no import lines, so "
+        f"nothing in it can be re-judged: {without_lines}"
+    )
 
 
 def test_the_wake_edge_import_probe_is_unprobed_where_the_route_was_not_measured(tmp_path):

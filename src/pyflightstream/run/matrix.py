@@ -46,6 +46,7 @@ from pyflightstream._errors import (
     warn,
 )
 from pyflightstream.cases import (
+    EXPORT_KINDS,
     Campaign,
     ScriptRecipe,
     SimCase,
@@ -60,6 +61,7 @@ from pyflightstream.cases.matrix import (
 )
 from pyflightstream.cases.workflows import (
     ADDITIONAL_PPROC_VARIABLE,
+    EXPORT_LOG_VARIABLE,
     WORKFLOW_KEY,
     additional_outputs,
     build_additional_script,
@@ -95,7 +97,11 @@ from pyflightstream.workspace import (
     RunStatus,
     write_input_guides,
 )
-from pyflightstream.workspace.inputs import hpc_profiles, resolve_hpc_profile
+from pyflightstream.workspace.inputs import (
+    hpc_profiles,
+    read_hpc_profile,
+    resolve_hpc_profile,
+)
 from pyflightstream.workspace.matrix import ResolvedMatrix, resolve_matrix
 
 
@@ -656,6 +662,7 @@ def _campaign_executor(
     # would send some rows somewhere the caller never asked for.
     supplied = executor
     forced = False
+    machine: dict[str, bool] = {}
     if executor is None:
         # The matrix has a HIDDEN column and it used to be read into the
         # matrix_hidden variable and never acted on, so a row saying 0
@@ -692,9 +699,23 @@ def _campaign_executor(
         # Linux box with none, the run was local anyway and nothing was forced.
         # The profile is COUNTED rather than resolved, so a local run is never
         # refused over an ambiguity in a profile it does not use.
+        #
+        # EXCEPT ITS LOG, WHICH IS THE MACHINE'S (0.27.0). A profile stating
+        # `export_log = false` says the build on this cluster aborts at
+        # EXPORT_LOG, and it aborts there whether the job is submitted or run
+        # here: a point run with --local on such a cluster stopped at
+        # EXPORT_LOG after every other export (measured 2026-09-24). So a run
+        # the switch keeps here reads the decision and carries it on its
+        # executor. Only the false side is passed, as `_with_the_profile_s_log`
+        # writes only the false side onto a case: every other executor is
+        # built exactly as it was.
         submitting = None if local else _cluster_executor(workspace, resolved)
         forced = local and on_a_cluster() and bool(hpc_profiles(workspace.inputs_dir))
-        executor = submitting or LocalExecutor(resolved.fs_exe, hidden=hidden, forced_local=forced)
+        if forced and not _exports_its_log_here(workspace):
+            machine = {"export_log": False}
+        executor = submitting or LocalExecutor(
+            resolved.fs_exe, hidden=hidden, forced_local=forced, **machine
+        )
     # THE PROTOCOL, NOT THE CLASS: the runner submits through anything that
     # implements `Submitting`, so a caller's own scheduler adapter that does
     # not inherit SubmittingExecutor passed a class check and could submit
@@ -730,9 +751,36 @@ def _campaign_executor(
             return supplied
         if isinstance(executor, SubmittingExecutor):
             return executor
-        return LocalExecutor(exe, hidden=windowless, forced_local=forced)
+        return LocalExecutor(exe, hidden=windowless, forced_local=forced, **machine)
 
     return executor, executor_for
+
+
+def _exports_its_log_here(workspace: CampaignWorkspace) -> bool:
+    """Whether a run the local switch keeps on this cluster exports its solver log (0.27.0).
+
+    The profile's ``export_log``, READ rather than counted: it is the one field
+    of a profile a local run uses, because it states what the build on this
+    machine does at ``EXPORT_LOG``. A profile this package cannot read is
+    refused by name, as it would be for a submitted job; several profiles that
+    disagree about the log are refused, because which of them is this machine
+    is not a guess to make about the file a run is judged by.
+    """
+    stated = {
+        path.name: read_hpc_profile(path).export_log for path in hpc_profiles(workspace.inputs_dir)
+    }
+    if len(set(stated.values())) > 1:
+        said = ", ".join(
+            f"{name}: export_log = {str(value).lower()}" for name, value in sorted(stated.items())
+        )
+        raise InputArtifactError(
+            f"{workspace.inputs_dir / 'hpc'} holds {len(stated)} profiles that disagree about "
+            f"the solver log ({said}), and a run kept on this machine by passing "
+            "local (CLI: --local) follows its machine's: whether the build here aborts at "
+            "EXPORT_LOG is not a guess this package makes. Keep the profile of this cluster "
+            "alone in inputs/hpc/."
+        )
+    return all(stated.values())
 
 
 def run_matrix(
@@ -1260,6 +1308,12 @@ def _plan_all(
     by_run = {point.run_id: point for _, point in points}
     latest = _latest_extractions(workspace.read_additional())
     exe_digests: dict[Path, str | None] = {}
+    # THE MACHINE'S LOG DECISION REACHES THE EXTRACTION SCRIPTS (0.27.0). On a
+    # cluster whose profile states `export_log = false` the build aborts at
+    # EXPORT_LOG whether the extraction runs here or is submitted, so the plan,
+    # which is built before either is chosen, asks the machine and not the
+    # executor. Off the cluster the profile describes another machine.
+    exports_log = not on_a_cluster() or _exports_its_log_here(workspace)
     plans: list[AdditionalPointPlan] = []
     for record, point in points:
         plans.append(
@@ -1274,6 +1328,7 @@ def _plan_all(
                 latest=latest,
                 default=default_fs_version,
                 exe_digests=exe_digests,
+                exports_log=exports_log,
             )
         )
     for plan in plans:
@@ -1298,6 +1353,7 @@ def _plan_point(
     latest: Mapping[str, AdditionalRecord],
     default: str | None,
     exe_digests: dict[Path, str | None],
+    exports_log: bool = True,
 ) -> AdditionalPointPlan:
     """Judge one recorded point, and build its extraction script where it passes."""
     found = cases.get(point.sim_id)
@@ -1438,6 +1494,14 @@ def _plan_point(
             "pproc": artifact,
             "pproc_id": pid,
             "outputs": list(additional_outputs(artifact, stem=stem, unsteady=unsteady)),
+            # Only the false side is written, as `_with_the_profile_s_log`
+            # writes it onto a run's case: every other extraction is the one
+            # it was, byte for byte.
+            **(
+                {}
+                if exports_log
+                else {"variables": {**point_case.variables, EXPORT_LOG_VARIABLE: "false"}}
+            ),
         }
     )
     script = Script(version)
@@ -1466,6 +1530,7 @@ def _plan_point(
             "fsm_sha256": recorded,
             "pproc_sha256": pproc_sha256,
             "extraction_id": extraction_id,
+            "exports_log": exports_log,
             "layout": layout,
             "leading": leading,
             "frames": dict(shadow.frames_by_name or {}),
@@ -1698,6 +1763,8 @@ def _extract(
         )
     relative = folder.relative_to(sim_dir).as_posix()
     names = [f"{relative}/{name}" for name in case.outputs]
+    if not context.get("exports_log", True):
+        names = _the_extraction_s_log(base, names, sim_dir, result.captured_output())
     missing = [name for name in names if not (sim_dir / name).is_file()]
     if missing:
         return _recorded(
@@ -1716,6 +1783,41 @@ def _extract(
         original=original,
         outputs=names,
     )
+
+
+#: The suffix of a declared solver log, the log export kind's own.
+_LOG_SUFFIX = next(suffix for kind, suffix, _, _ in EXPORT_KINDS if kind == "log")
+
+
+def _the_extraction_s_log(
+    base: dict[str, object], names: list[str], sim_dir: Path, printed: str
+) -> list[str]:
+    """Write an extraction's declared log from what the solver printed, or excuse it (0.27.0).
+
+    On a machine that cannot export the log the extraction script carries no
+    ``EXPORT_LOG``, as a run's does there. What the solver printed is written
+    as the declared log; with nothing printed the log is not required, since
+    the machine cannot write one. Either way the record's ``note`` says so.
+    Returns the names the extraction is held to.
+    """
+    logs = [name for name in names if name.endswith(_LOG_SUFFIX) and not (sim_dir / name).is_file()]
+    if not logs:
+        return names
+    if printed:
+        (sim_dir / logs[0]).write_text(printed, encoding="utf-8", newline="")
+        said = (
+            f"{PurePath(logs[0]).name} is the solver's captured standard output and error, "
+            "written by this package: this machine's HPC profile states export_log = false, "
+            "so the extraction script exports no log"
+        )
+    else:
+        names = [name for name in names if name != logs[0]]
+        said = (
+            "no solver log: this machine's HPC profile states export_log = false, so the "
+            "extraction script exports none, and the solver printed nothing to capture"
+        )
+    base["note"] = "; ".join(str(part) for part in (base.get("note"), said) if part)
+    return names
 
 
 def _script_name(pproc: str, stem: str) -> str:

@@ -36,7 +36,13 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.cases import MeshImport, MeshOperation, TrailingEdgeMarking, case_at_point
+from pyflightstream.cases import (
+    MeshImport,
+    MeshOperation,
+    TrailingEdgeMarking,
+    case_at_point,
+    point_name,
+)
 from pyflightstream.cases.matrix import read_matrix
 from pyflightstream.cases.workflows import SIMULATION_LENGTH_UNIT, build_script
 from pyflightstream.run.cli import main as pyfs_matrix
@@ -44,6 +50,7 @@ from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace import inputs as sidecar_reader
 from pyflightstream.workspace.matrix import resolve_matrix
+from pyflightstream.workspace.naming import SIM_DATAPOINTS_DIR, PointName, datapoint_dir_name
 
 REPO = Path(__file__).resolve().parents[2]
 PAGE = REPO / "docs" / "mesh-inputs.md"
@@ -201,8 +208,13 @@ def test_the_complete_example_plans_and_renders_the_script_the_page_shows(tmp_pa
     geometry = Path(case.geometry)
     assert case.sweep.values, "the example's row sweeps nothing"
     for value in case.sweep.values:
+        point = {case.sweep.type: value}
         script = Script(row.fs_build)
-        build_script(case_at_point(case, {case.sweep.type: value}), script)
+        # The folder the run gives the point to run in, where the script names
+        # its node file (G02), so the line the page shows is the run's.
+        folder = SIM_DATAPOINTS_DIR, datapoint_dir_name(PointName(point_name(case, point)))
+        script.working_dir = str(workspace.sim_dir(case.sim_id).joinpath(*folder))
+        build_script(case_at_point(case, point), script)
         lines = [line.replace("\\", "/") for line in script.render().splitlines()]
 
         # The import, in the unit the page's sidecar states.
@@ -239,7 +251,9 @@ def test_the_complete_example_plans_and_renders_the_script_the_page_shows(tmp_pa
         assert float(words[2]) == marking.get("tolerance", defaults["tolerance"].default), words
         assert words[3] == SIMULATION_LENGTH_UNIT, words
         node_path = script.render().splitlines()[at + 1]
-        assert Path(node_path).name == f"{geometry.stem}.wake_nodes.txt", node_path
+        assert Path(node_path) == Path(script.working_dir, f"{geometry.stem}.wake_nodes.txt"), (
+            node_path
+        )
         written = script.pending_input_files[node_path].splitlines()
         assert written == node_lines, (
             f"the node file the page shows and the one the package writes differ:\n"
