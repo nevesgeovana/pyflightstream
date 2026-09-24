@@ -234,6 +234,11 @@ base from a body.
   `--fs-exe`, `--local` and `--recipe`, each refused without it.
 - A forced rerun or a continuation archives a point's `additional/` folder
   with the rest of its files; extract it again after one.
+- A point recorded by 0.26.0 or older, over a geometry declaring boundary
+  names, is extracted only while the geometry file its record hashes is on
+  disk with those bytes, since that file is the one source of the boundary
+  order its saved simulation holds; where it is gone or changed the point is
+  skipped `SCRIPT_DRIFT`, naming the file.
 - `ResolvedMatrix` gains a last field, `additional_pprocs`; positional
   construction keeps working.
 
@@ -290,7 +295,55 @@ the opposite sign to 0.26.0: `roll_rate:40` writes
   folder does. A steady row of several points still runs in the simulation
   folder.
 
-## 17. A row may name a custom free stream (G15)
+## 17. Every table opens with the polar, no cell holds a comma, and a rotor table's first line is its header (G16)
+
+Every table the post writes under `post/<matrix>/`, the additional post's under
+`additional/<pid>/` included, and the campaign sweep table `campaign_sweep.csv`
+now open with `POL`, the polar each row comes from, named as the matrix names
+its polar column. The campaign sweep, whose rows mix polars, carries each row's
+own.
+
+- **A reader by name is unaffected.** Every column 0.26.0 wrote is still there,
+  under the same name and in the same order after the new ones.
+- **A reader by position must change.** Every column moved one place to the
+  right, and in a rotor table two: `POL` and then `ROTOR`, the rotor's alias,
+  lead every row of `polars/P<sim>-<alias>_rotor.csv`. A script that took the
+  first column of a sections table as `STEP`, of a polar as `POLAR` or of a
+  probes table as `PROBE` finds it one place further on.
+- **A rotor table's first line is its header.** From 0.23.0 to 0.26.x the alias
+  stood alone on the first line, so a reader skipped one line
+  (`read_csv_table(path, skip=1)`, `pandas.read_csv(path, skiprows=1)`). Drop
+  the skip for a table written by 0.27.0 and read the rotor from its `ROTOR`
+  column. `ROTOR_TABLE_LEAD_LINES` is now 0.
+- The plots table `probes/<point>_plots.csv` opens with `POL` before the
+  export's own header. `plots_table_series` reads every column after it as a
+  plotted quantity, and reads a plots table written before 0.27.0 as it did.
+- The steady polar and its super file keep their `POLAR` column, which holds
+  the same simulation id as `POL`, right after it.
+- `post.products.REDUCTION_COLUMNS` begins with `POL`, so a pproc `[names]`
+  entry may not give a plotted column that name.
+- The table writers `write_sections_table`, `write_plots_table`,
+  `write_probes_table`, `write_reduction_table`, `write_per_blade_table`,
+  `write_phase_locked_table`, `write_unsteady_polar` and `write_rotor_table`
+  take a keyword `pol=`; a caller that states none writes `NA` in the column.
+  `rotor_table_alias_line`, a helper outside the module's public list
+  (`__all__`), is removed with the line it wrote.
+- `results.sweep_table` and `results.run_table` return `POL` as their first
+  column.
+- **No cell holds a comma or a double quote, and nothing is quoted**, so a
+  reader that splits each line on `,` (`numpy.genfromtxt`) reads every row to
+  the header's count. A text cell writes `;` where it held a comma: the super
+  content a super file or an unsteady polar echoes from the matrix row reads
+  `-2.0;0.0` under `SWEEP_VALUES` and `MACH:0.2; REmi:2.3; ALPHA:sweep` under
+  `FLIGHT_CONDITION`, where 0.26.0 wrote them quoted with commas inside. A
+  double quote is written as a single one and a line break as a space. A script
+  that split such a cell on `,` splits it on `;`; a CSV reader of a table
+  written before 0.27.0 still reads its quoted cells as it did.
+- A table written by an earlier release keeps its old shape until you post
+  again; `pyfs-matrix post` archives it before writing the new one. The solver's
+  own files under `datapoints/DP-<point>/` are not touched.
+
+## 18. A row may name a custom free stream (G15)
 
 - A matrix whose rows state `FREESTREAM` cannot be planned by 0.26.0 or older,
   which refuses it as a key of no run type. A row without the key plans and runs

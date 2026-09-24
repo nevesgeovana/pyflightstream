@@ -202,6 +202,6 @@ def test_rotor_table_keeps_the_reference_aliases_when_summing_loads(tmp_path, mo
         aliases={"hub": ["Spinner"]},
     )
     write_rotor_table(destination, rotor=rotor, rows=plan["rows"], reference=reference)
-    _, rows = read_csv_table(destination, skip=1)
+    _, rows = read_csv_table(destination)
     # q S = 1 N; the rotor owns 1 + 2 N. rho n^2 D^4 = 200 N.
     assert float(rows[0]["CT_PROP"]) == 0.015, "the spinner alias lost 2 N of rotor thrust"

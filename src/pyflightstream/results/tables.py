@@ -76,6 +76,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
+from pyflightstream._tokens import POLAR_ID_COLUMN, plain_cell
 from pyflightstream.extras import missing_extra
 from pyflightstream.results import (
     DATA_ORIGIN_CODES,
@@ -125,7 +126,10 @@ _RAN_TO_OUTPUTS = ("CONVERGED", "COMPLETED_MAX_ITER", "WALLTIME_REACHED")
 
 # Fixed identity and outcome columns of one run row, in output order;
 # sweep point axes are inserted after sim_id and must not collide.
-_RUN_IDENTITY_COLUMNS = ("run_id", "sim_id")
+# `POL` LEADS SINCE 0.27.0 (G16): the polar each row comes from, under the
+# name the run matrix gives its polar column, first in every table the
+# campaign's post folder holds. The sweep MIXES polars, so it is per row.
+_RUN_IDENTITY_COLUMNS = (POLAR_ID_COLUMN, "run_id", "sim_id")
 _RUN_OUTCOME_COLUMNS = (
     "fs_version_requested",
     "fs_version_reported",
@@ -384,7 +388,14 @@ def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = True
             f"{target} already exists and overwrite=False; write under a name that "
             "carries the point, or pass overwrite=True to replace it deliberately"
         )
-    frame.to_csv(target, index=False)
+    # NO CELL HOLDS A COMMA OR A DOUBLE QUOTE (G16, 0.27.0), and nothing is
+    # quoted: a reader that splits each line on `,` (`numpy.genfromtxt` does, and
+    # honours no CSV quoting) reads every row to the header's count. The campaign
+    # sweep table is written here, beside the products that `post._tables` writes
+    # under the same rule, and on a copy, so the caller's frame keeps its text.
+    plain = frame.rename(columns=lambda name: plain_cell(str(name)))
+    plain = plain.map(lambda value: plain_cell(value) if isinstance(value, str) else value)
+    plain.to_csv(target, index=False)
     return target
 
 
@@ -495,7 +506,9 @@ def run_table(record: RunRecord, *, loads: LoadsReport | None = None) -> pd.Data
     """Join one manifest record with its parsed loads into one wide row.
 
     The row carries the run identity and conditions from the manifest
-    (``run_id``, ``sim_id``, the ``data_origin`` and ``reduction`` pair
+    (``POL`` first since 0.27.0, the polar the run belongs to under the
+    name the run matrix gives its polar column, then ``run_id``,
+    ``sim_id``, the ``data_origin`` and ``reduction`` pair
     of PFS-2014.05, the sweep point axes in their sweep units:
     alpha and beta in deg, advance_ratio dimensionless), the recorded
     versions and outcome (``fs_version_requested``,
@@ -1119,7 +1132,11 @@ def _looks_like_sectional(result: object) -> bool:
 
 def _run_row(record: RunRecord, loads: LoadsReport | None) -> dict[str, object]:
     """Build the wide row of one run: manifest identity plus coefficients."""
-    row: dict[str, object] = {"run_id": record.run_id, "sim_id": record.sim_id}
+    row: dict[str, object] = {
+        POLAR_ID_COLUMN: record.sim_id,
+        "run_id": record.run_id,
+        "sim_id": record.sim_id,
+    }
     # PER ROW, straight after the identity, because this is the one table
     # this package writes that MIXES provenances: a steady point's
     # coefficients are a direct integration and an unsteady point's are the

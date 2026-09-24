@@ -58,6 +58,47 @@ NOT_APPLICABLE = "NA"
 #: their existing public spellings as re-exports.
 ADVANCE_RATIO_COLUMN = "J"
 
+#: The FIRST COLUMN of every table the post writes (G16, 0.27.0): the polar a
+#: row comes from, spelled exactly as the run matrix spells its own polar
+#: column, the first column of ``cases.matrix``'s layout. One value per row, the
+#: POL of that row's point, so a reader filtering by polar needs no file name.
+#: Below every layer because the campaign sweep table is written by ``results``
+#: and the products by ``post``, and both state it.
+POLAR_ID_COLUMN = "POL"
+
+#: The column saying which rotor a row is about. A rotor table carries it right
+#: after :data:`POLAR_ID_COLUMN` since 0.27.0; until then the alias stood alone
+#: on the table's first line, before the header, and no CSV reader took the file
+#: as written.
+ROTOR_ID_COLUMN = "ROTOR"
+
+#: What a text cell writes where it would have held the delimiter (G16, 0.27.0).
+#:
+#: NO CELL OF A TABLE HOLDS A COMMA OR A DOUBLE QUOTE, and no cell is quoted, so
+#: a reader that splits each line on ``,`` -- `numpy.genfromtxt` does, and it
+#: honours no CSV quoting -- reads the header and every row to the same count. A
+#: cell that echoes a list, the matrix row's ``SWEEP_VALUES`` or its
+#: ``FLIGHT_CONDITION``, was written quoted with its commas inside, and such a
+#: reader counted every comma of it as a column: ``-2.0,0.0`` is ``-2.0;0.0`` now.
+CELL_LIST_SEPARATOR = ";"
+
+
+def plain_cell(text: str) -> str:
+    """Return ``text`` as a table cell no reader has to unquote (G16, 0.27.0).
+
+    A comma becomes :data:`CELL_LIST_SEPARATOR`, a double quote a single one, and
+    a line break a space, so the cell holds neither the delimiter, nor the quote
+    character, nor a line end, and a CSV writer has nothing to quote.
+    """
+    return (
+        text.replace(",", CELL_LIST_SEPARATOR)
+        .replace('"', "'")
+        .replace("\r\n", " ")
+        .replace("\r", " ")
+        .replace("\n", " ")
+    )
+
+
 #: Optional sectional strip columns, in the export's mixed-case naming idiom.
 STRIP_LENGTH = "Strip_length"
 FX_INT = "Fx_int"
@@ -126,12 +167,15 @@ CONTEXT_COLUMNS: tuple[str, ...] = (*FLIGHT_CONDITION_COLUMNS, *REFERENCE_LENGTH
 
 #: Fixed reduction headings, reserved during pproc validation and written in this order.
 REDUCTION_COLUMNS: tuple[str, ...] = (
+    # 0.27.0 (G16). THE POLAR FIRST, as in every table the post writes; reserved
+    # here with the rest, so a `[names]` entry cannot give a plot column its name.
+    POLAR_ID_COLUMN,
     "REDUCTION",
     # 0.24.0. THE ROTOR AS A COLUMN, `NA` on the time average. The alias lived in
     # the file name alone, which does not decompose (both the reduction and the
     # alias carry underscores), so two rotors' files were identical inside and
     # could not be told apart once read into one table.
-    "ROTOR",
+    ROTOR_ID_COLUMN,
     "WINDOW",
     "FIRST_STEP",
     "LAST_STEP",

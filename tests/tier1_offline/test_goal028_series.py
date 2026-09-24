@@ -51,7 +51,8 @@ def test_every_series_spells_the_step_in_capitals_and_states_the_condition(tmp_p
     write_campaign_products(workspace)
     for name in ("loads", "sections", "probes"):
         columns, rows = _series(workspace, f"AL-020_{name}_series.csv")
-        assert columns[0] == "STEP" and "step" not in columns, (name, columns[:4])
+        # BEHIND THE POLAR since 0.27.0 (G16), which every table opens with.
+        assert columns[:2] == ["POL", "STEP"] and "step" not in columns, (name, columns[:4])
         at = columns.index("ALPHA")
         assert tuple(columns[at : at + len(CONTEXT_COLUMNS)]) == CONTEXT_COLUMNS, (name, columns)
         # The record states Mach 0.2 and SREF 50; the loads export states alpha.
@@ -89,7 +90,8 @@ def test_a_sections_series_row_says_which_distribution_it_belongs_to(tmp_path):
     )
     write_campaign_products(workspace)
     columns, rows = _series(workspace, "AL-020_sections_series.csv")
-    assert columns[:6] == ["STEP", "time_s", "FAMILY", "PLANE", "ROTOR", "AZIMUTH"], columns[:7]
+    lead = ["POL", "STEP", "time_s", "FAMILY", "PLANE", "ROTOR", "AZIMUTH"]
+    assert columns[: len(lead)] == lead, columns[:8]
     assert [(r["STEP"], r["FAMILY"], r["PLANE"]) for r in rows[:2]] == [
         ("3", "W", "XZ"),
         ("3", "B", "XY"),

@@ -191,12 +191,19 @@ class InputKey(NamedTuple):
         empty where it reaches none of its own.
     accepted : str
         Where the key is accepted, for a key whose registry does not say it.
+    unscripted : str
+        For a key whose VALUE no line of the run's script carries: what takes
+        the value instead, or that nothing applies it. The glossary writes it
+        after the meaning, behind "No line of the script carries its value",
+        so a row cannot read as a solver input the script never states. Empty
+        for a key whose value reaches the script.
     """
 
     meaning: str
     values: str = ""
     command: str = ""
     accepted: str = ""
+    unscripted: str = ""
 
 
 class CampaignConfigError(PyflightstreamError, ValueError):

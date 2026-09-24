@@ -123,14 +123,14 @@ AUTO_DETECT_WAKE_TERMINATION_NODES:
       status: documented
       note: >-
         SRC-752 p.325, the SRC-751 file, carried from 26.123. Ran on 26.124
-        (reports/RPT-T07 (T07)): after IMPORT_WAKE_EDGES_FROM_FILE it marks
+        (reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07): after IMPORT_WAKE_EDGES_FROM_FILE it marks
         nothing until the solver has initialised, and a repeated
         INITIALIZE_SOLVER clears the first initialisation and initialises
         again with the node it marked
   notes: >
     Finds and marks all wake termination nodes in the geometry.
 
-    RAN ON 26.124 (reports/RPT-T07 (T07)), on a twisted blade whose root
+    RAN ON 26.124 (reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07), on a twisted blade whose root
     end is its one wake-termination node. Emitted after
     AUTO_DETECT_TRAILING_EDGES, the saved simulation carries that node.
     Emitted right after IMPORT_WAKE_EDGES_FROM_FILE, which marked the same
@@ -471,7 +471,7 @@ DETECT_WAKE_TERMINATION_NODES_BY_SURFACE:
       status: documented
       note: >-
         SRC-752 p.325, the SRC-751 file, carried from 26.123. Ran on 26.124
-        once (reports/RPT-T07 (T07)), right after IMPORT_WAKE_EDGES_FROM_FILE
+        once (reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07), right after IMPORT_WAKE_EDGES_FROM_FILE
         and before the solver was initialised, where it marked nothing, as
         AUTO_DETECT_WAKE_TERMINATION_NODES marks nothing there
   notes: >
@@ -698,7 +698,7 @@ IMPORT_WAKE_EDGES_FROM_FILE:
     builds before.
 
     WHAT IT LEAVES TO THE INITIALISATION, MEASURED ON 26.124
-    (reports/RPT-T07 (T07)). A twisted blade marked by this command, by
+    (reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07). A twisted blade marked by this command, by
     AUTO_DETECT_TRAILING_EDGES and from its saved simulation carried the
     same twelve edges, and only this route solved 1.8 % below the other
     two in induced drag: its saved simulation carried no wake-termination
@@ -726,7 +726,7 @@ IMPORT_WAKE_EDGES_FROM_FILE:
         third token (RPT-061). After it a wake-termination detection marks
         nothing until the solver has initialised, and a repeated
         INITIALIZE_SOLVER clears the first initialisation and initialises
-        again (reports/RPT-T07 (T07))
+        again (reports/RPT-069_three-routes-to-one-body-and-the-file-routes-root-node_2026-09-24.md, T07)
       args:
         - name: type
         - name: tolerance

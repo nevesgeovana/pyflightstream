@@ -97,7 +97,7 @@ FlightStream versions.
   builds are refused. `detect = "auto"` or `detect = { surfaces = [...],
   sweep_angle = ... }` applies automatic detection only when written.
   `[wake_termination]` (automatic or by surface; on 26.124 it marked the root
-  end of a twisted blade, RPT-T07) and `[base_regions]` (`detect = "auto"`)
+  end of a twisted blade, RPT-069) and `[base_regions]` (`detect = "auto"`)
   apply only when written. Refused at plan: a raw mesh with no trailing
   edge; a table stating both routes or neither; a file-route row whose outputs carry no
   solver log, or that states `EXPORT_LOG: false`, which leaves its script
@@ -335,6 +335,39 @@ FlightStream versions.
   from the solver's printed output and warns, naming the profile, when it
   finds none. `ExecutionResult.captured_output()` returns that printed output,
   standard output then standard error.
+- **The additional post reads an older record's boundaries by its geometry's
+  hash** (G12). A run record written before 0.27.0 states no boundary names,
+  and the extraction compared none, so a point whose saved simulation holds
+  `W, B` over a geometry that declares `B, W` today was extracted with today's
+  indices: a distribution asked of `W` cut the body and was recorded as the
+  wing. The names are now read from the geometry file whose sha256 the record
+  carries, as the post reads them, and compared; a point whose names nothing
+  on disk recovers, while the geometry declares names today, is skipped
+  `SCRIPT_DRIFT` naming the record and the file.
+- **The additional post compares a frame by everything the script says of it**
+  (G12). The run's frames were compared with the row's by index and name
+  alone, so a reference frame turned since the run under the same name and
+  origin passed, and a distribution the additional pproc cited in it was cut
+  in the frame the saved simulation holds rather than the one it meant. Every
+  command of a coordinate system is now compared with all its lines (origin,
+  three axes, and any later turn, move, copy or deletion), and the skip names
+  the first line that differs. `cases.workflows.frame_definitions` replaces
+  `frame_pairs`, which no release carried.
+- **An additional product stops being current when its saved simulation
+  leaves the disk** (G12). The post compared the hash the point's record
+  holds with the one the extraction opened, and never the file, so a `.fsm`
+  deleted or replaced under an unchanged `runs.json` kept its additional
+  products published. The saved simulation on disk must now hash as the state
+  extracted, as the definition of record says; otherwise each extraction of it
+  is skipped under `additional/<pid>/runs/<extraction id>`, naming the path.
+- **An extraction whose file changed is extracted again** (G12). The
+  extraction pass reused an extraction whose files were merely present, while
+  the post withheld its products because a file no longer hashed as recorded,
+  so a truncated export was never extracted again and the point's additional
+  products stayed withheld whatever was rerun. Both now ask one question,
+  `CampaignWorkspace.changed_extraction_file(record)`, which hashes every file
+  an extraction wrote and names the first gone or changed; the next
+  `pyfs-matrix post --additional-pproc` extracts such a point again.
 - **`pyfs-matrix collect` finishes a submitted steady job on a machine that
   exports no log.** A steady row of several points is one job, and where the
   profile states `export_log = false` its scheduler writes ONE log of the job.
@@ -471,7 +504,7 @@ FlightStream versions.
   nothing, so a raw mesh that marks its trailing edge by file and writes
   `[wake_termination]` solved with no termination node: a twisted blade lost
   the node at its root and solved 1.8 % low in induced drag against the same
-  blade detected and saved (RPT-T07). The script now initializes the solver,
+  blade detected and saved (RPT-069). The script now initializes the solver,
   detects, and initializes it again with the same settings before the solve,
   on every run type; the detection route, a file route without
   `[wake_termination]` and a continuation are unchanged. New:
@@ -512,6 +545,41 @@ FlightStream versions.
   three body axes to their signs (`roll` -1, `pitch` +1, `yaw` -1) where it was
   one float. The roll and yaw scorings of OPS-2011.01.03 against the recorded
   probes pass, and their strict xfails are removed (G13).
+- **`INPUTS.md` no longer lists a key the script never carries as a setting
+  the run applies.** `ROTOR_SHEDDING` read as the direction a rotor's relaxed
+  wake sheds in, and two rotor rows stating `AXIAL` and `AZIMUTH` build the
+  same script: a workflow row checks the value and does not apply it. Its row
+  now says so, and says how the direction is applied: through
+  `rotor_relaxed_trailing_edges`, into the component definition the geometry
+  carries. Every row key and solver setting whose value reaches no line of the
+  script now says "No line of the script carries its value" and what takes it:
+  `WALLTIME` (the scheduler and the wall-clock program),
+  `EXPORT_UNSTEADY_AFTER_ITER` and `EXPORT_UNSTEADY_AFTER_REV` (the per-step
+  program), `LAST_ITERS_AVG`, `LAST_REVS_AVG` and `BLADES` (the post stage),
+  `ADDITIONAL_PPROC` (`pyfs-matrix post --additional-pproc`), `timeout_s` (the
+  executor) and `walltime_margin_s` (the wall-clock program). `COLD_START`
+  says that a row whose every point is its own job starts every point cold.
+  The unit of `WALLTIME` reads a number and its unit, as `240m` or `4h`, where
+  it read `s`, a bare number the reader refuses. `InputKey` takes
+  `unscripted`, the sentence a key registers for this (G08).
+- **`examples/additional_post.py` leaves a workspace its licensed
+  continuation runs in.** Its refusal demonstration rewrote `wing.fs` to name
+  the probing `p003` and never restored it, and its stand-in point sat in the
+  same manifest, so `pyfs-matrix run wing.fs` refused the recorded point and
+  `pyfs-matrix post wing.fs --additional-pproc` refused `p003` at binding. The
+  stand-in point is now recorded in a rehearsal copy beside the workspace, the
+  refusal is shown on a matrix of its own, `wing_probes.fs`, and the example
+  ends by checking that the workspace it printed records no point, that
+  `wing.fs` still plans and that its additional post binds `p002` (D11).
+- **`INPUTS.md` lists the builds a key is accepted on by the rule that
+  refuses it.** `Accepted by` read a command documented on a build as the key
+  accepted there, so `time_averaging` listed 26.122 and 26.123, where an
+  unsteady row stating `[time_averaging]` is refused: the table needs
+  `SOLVER_TIME_AVERAGING` verified on the build, and no build records it so.
+  The column now reads the builds off `cases.workflows.command_accepted_on`,
+  the rule the builder refuses by, which asks a verified record of a command
+  in `cases.workflows.VERIFIED_ONLY_COMMANDS`; `time_averaging` reads "no
+  registered build" (G08).
 
 - **A point whose solver could not use its actuator disc's profile file is no
   longer recorded as a success.** When the solver cannot use the radial thrust
@@ -630,6 +698,34 @@ FlightStream versions.
 - `ACTUATOR`, `ACTUATOR_RPM`, `ACTUATOR_THRUST` and `PROFILE` are row keys of
   every run type, so a setup flag taking one of those words is refused (FR-74)
   (G06).
+- **The first column of every table is the polar, and no line precedes the
+  header (G16).** Every table the post writes under `post/<matrix>/`, the
+  additional post's included, and `campaign_sweep.csv` open with `POL`, named as
+  the run matrix names its polar column, holding the POL of the point each row
+  comes from; the sweep, whose rows mix polars, carries each row's own. The
+  rotor table's alias, alone on its first line before the header since 0.23.0,
+  is now the `ROTOR` column right after `POL`, so its first line is its header
+  and a CSV reader takes the file as written. Every other column keeps its name
+  and its order after them: a reader by name is unaffected, a reader by
+  position finds each column one place to the right, two in a rotor table. The
+  package's own readers follow: the reductions read every plots column but
+  `POL` as a plotted quantity, the super file's union reads a rotor table's
+  header from its first line and passes over the alias line of one written
+  before, and `REDUCTION_COLUMNS` begins with `POL`, so a `[names]` entry
+  cannot take the name. The public table writers take `pol=` (`NA` where the
+  caller states none), `results.sweep_table` and `results.run_table` lead with
+  `POL`, `ROTOR_TABLE_LEAD_LINES` is 0, and `rotor_table_alias_line` is removed
+  with the line it wrote. The solver's own files are not touched. See
+  `docs/migrating-to-0.27.0.md`.
+- **No cell of a table holds a comma or a double quote, and nothing is quoted
+  (G16).** A reader that splits each line on `,`, as `numpy.genfromtxt` does,
+  counted the commas inside the quoted list cells a super file and an unsteady
+  polar echo from the matrix row (`SWEEP_VALUES`, `FLIGHT_CONDITION`) as
+  columns, so a row read wider than its header. Every text cell of
+  every table the post writes, header names included, and of the campaign
+  sweep now writes a comma as `;`, a double quote as a single one and a line
+  break as a space, through one rule, `pyflightstream._tokens.plain_cell`,
+  called by the products' funnel and by the tabular layer's `write_table`.
 
 ### Changed (the type-checker debt, re-measured)
 
@@ -695,8 +791,11 @@ FlightStream versions.
   shows its file name; no word of any page changed. Two faults the code block
   had hidden are fixed: a blank line splitting the reserved-names table, and a
   link to a heading that no longer exists. A tier-1 test renders every page
-  with the site's extensions and fails on a fence, a heading or a table row
-  the site would lose.
+  with the site's extensions and fails on a fence, a heading, a table row or a
+  table cell the site would lose. The site's table reader cuts a row wider
+  than its header to the header's width and renders the rest of the row as a
+  row, so the test compares every cell of every table a page writes with the
+  table the site renders, and names each cell the rendering drops (D07).
 
 - **The tier-3 page states which induced-drag form each case uses.** Every
   row whose golden script carries `SET_VORTICITY_DRAG_BOUNDARIES` names its

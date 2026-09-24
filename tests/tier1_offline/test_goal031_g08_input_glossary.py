@@ -335,6 +335,68 @@ def test_the_keys_of_blocks_four_and_five_are_on_the_page(page):
     )
 
 
+def _builds_in(cell: str) -> list[str] | None:
+    """The builds an `Accepted by` cell names: a list, or None for every registered build."""
+    if "no registered build" in cell:
+        return []
+    named = [part for part in cell.split(";") if part.strip().startswith("builds ")]
+    if not named:
+        return None
+    return re.findall(r"\d+\.\d{3}", named[0])
+
+
+def test_time_averaging_is_accepted_by_the_builds_that_build_it(page):
+    """G08: `Accepted by` is the feature's acceptance, measured by building it.
+
+    The column read a command's DOCUMENTED status as the key's acceptance, and
+    `[time_averaging]` asks more of its command than that: the definition of
+    record says the key is available only where `SOLVER_TIME_AVERAGING` is
+    verified, because documentation alone sent a command that hangs the
+    solver. So the page listed 26.122 and 26.123, and an unsteady row with
+    `[time_averaging]` is refused on both.
+
+    Measured here and never read off the generator: an unsteady case is built
+    with and without the table on every registered build; a build where the
+    case without it builds is one that can answer, and the builds the page
+    names among those must be exactly the ones where the case with it builds.
+    """
+    from pyflightstream._errors import PyflightstreamError
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+    from pyflightstream.versions import known_versions
+    from tests.tier1_offline.test_workflows import unsteady_case
+
+    averaged = PprocSpec.model_validate({"time_averaging": {"last_iters": 10}})
+    answering, accepting = [], []
+    for version in known_versions():
+        try:
+            build_script(unsteady_case(), Script(version.canonical))
+        except PyflightstreamError:
+            continue
+        answering.append(version.canonical)
+        try:
+            build_script(
+                unsteady_case().model_copy(update={"pproc": averaged}), Script(version.canonical)
+            )
+        except PyflightstreamError as error:
+            # The table's own refusal, or its command missing from the build.
+            assert "time_averaging" in str(error).lower(), (
+                f"{version.canonical} refused for another reason: {error}"
+            )
+            continue
+        accepting.append(version.canonical)
+    assert answering, "the case without the table builds on no registered build"
+    column = guides.GLOSSARY_COLUMNS.index("Accepted by") - 1
+    cell = dict(page[("pproc", "The tables and top-level keys")])["time_averaging"][column]
+    stated = _builds_in(cell)
+    named = answering if stated is None else [build for build in stated if build in answering]
+    assert named == accepting, (
+        f"`Accepted by` of time_averaging reads {cell!r}, and of the builds that can answer "
+        f"({', '.join(answering)}) an unsteady case with [time_averaging] builds on "
+        f"{', '.join(accepting) or 'none'}"
+    )
+
+
 def test_a_key_the_registry_marks_for_a_run_type_or_a_build_says_so(page):
     """ "The run types or builds that accept it, where the code says."""
     rows = dict(page[("matrix", "The row keys, by run type")])

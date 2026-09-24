@@ -1115,7 +1115,7 @@ CP = 2 pi CQ sign(n)   ETA = J CT / CP     ETAW = J CTW / CP
     \item \code{n} is signed revolutions per SECOND: its magnitude sets \code{J}, its rotation sign multiplies \code{CP}, and \code{CQ} keeps the torque sign about the fixed rotor axis. \code{CTW} is the rotor's force projected on the free stream, against it, over \code{rho n^2 D^4}. \code{ETAW} equals \code{ETA} when the shaft lies along the stream.
     \item Every column carries the rotor's ALIAS, because these make physical sense for ONE rotor and not for several summed: the diameters and speeds that normalise them are different numbers.
     \item \code{ETA} and \code{ETAW} read \code{NA} on a static point, where both are 0/0. A figure of merit is the static measure and you define it.
-    \item The table names its alias on its FIRST LINE, alone, so a script that has already loaded the file still knows which group it holds.
+    \item The table names its alias in its \code{ROTOR} column, right after \code{POL}, on every row, so a script that has already loaded the file still knows which rotor and which polar it holds. From 0.23.0 to 0.26.x the alias stood alone on the first line, before the header; since 0.27.0 the first line of every table is its header and its first column the polar.
   \end{itemize}
 \end{frame}
 

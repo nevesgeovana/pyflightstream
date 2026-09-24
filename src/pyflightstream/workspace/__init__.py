@@ -3465,6 +3465,40 @@ class CampaignWorkspace:
             temporary.write_text(json.dumps(raw, indent=2) + "\n", encoding="utf-8")
             temporary.replace(self.additional_path)
 
+    def changed_extraction_file(self, record: AdditionalRecord) -> str | None:
+        """Say which file of one extraction is gone or changed, or None while all are (G12).
+
+        THE ONE PREDICATE of whether an extraction's files are still the ones it
+        wrote, read by both halves of the additional post: an extraction is
+        reused (``ALREADY_EXTRACTED``) only while this answers None, and the post
+        writes its products only while this answers None. A file the post
+        refuses is therefore one the next ``--additional-pproc`` extracts again,
+        where a check of existence alone would call it done forever. Every file
+        is hashed on each call against ``outputs_sha256``; an extraction that
+        recorded no file has nothing to vouch for it and answers too.
+
+        Parameters
+        ----------
+        record : AdditionalRecord
+            The extraction whose files are asked for.
+
+        Returns
+        -------
+        str or None
+            The sentence naming the first file gone or no longer hashing as
+            recorded, or None when every one does.
+        """
+        if not record.outputs:
+            return f"the extraction {record.extraction_id} recorded no file"
+        folder = self.sim_dir(record.sim_id)
+        for name in record.outputs:
+            path = folder / name
+            if not path.is_file():
+                return f"{path} is gone"
+            if record.outputs_sha256.get(name) != _sha256(path):
+                return f"{path} no longer hashes as its extraction recorded"
+        return None
+
     def supersede_records(
         self, run_ids: Sequence[str], *, stamp: datetime | None = None
     ) -> Path | None:

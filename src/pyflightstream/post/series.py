@@ -26,6 +26,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream._tokens import POLAR_ID_COLUMN
 from pyflightstream.fsi.loads import parse_sectional_loads
 from pyflightstream.post._tables import (
     CONTEXT_COLUMNS,
@@ -65,11 +66,12 @@ SERIES_KINDS: tuple[tuple[str, str | None], ...] = (
     ("sections", "_sloads"),
     ("probes", "_probes"),
 )
-#: The three columns every series table leads with. `STEP` since 0.24.0, the ONE
+#: The three columns every series table leads with, after `POL` (the polar, first
+#: in every table the post writes since 0.27.0). `STEP` since 0.24.0, the ONE
 #: name of the solver step across the package's tables; it was `step` here,
 #: `ITERATION` in the sections table and `STEP` in the probe table.
 SERIES_LEAD: tuple[str, ...] = ("STEP", "time_s", "azimuth_deg")
-#: What a SECTIONS series row leads with (0.24.0): the step and its time, then
+#: What a SECTIONS series row leads with after `POL` (0.24.0): the step and its time, then
 #: which distribution the row belongs to and where THAT rotor's blade one is.
 #: `azimuth_deg`, the row clock's unwrapped angle, is not carried beside an
 #: `AZIMUTH` that means something else.
@@ -455,7 +457,11 @@ def write_point_series(
                 "manifest, or a target that decides what becomes of it (the products stage "
                 "passes one that archives it first)"
             )
-        done = write_csv_table(path, columns, rows)
+        # THE POLAR FIRST (G16, 0.27.0), the run record's own: every row of a
+        # series is a step of this one point.
+        done = write_csv_table(
+            path, (POLAR_ID_COLUMN, *columns), [(record.sim_id, *row) for row in rows]
+        )
         written.append(done)
         tabled = sorted(step for step in steps if step in files)
         entry: dict[str, object] = {

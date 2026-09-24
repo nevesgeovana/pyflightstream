@@ -86,8 +86,9 @@ def test_the_columns_are_the_names_the_export_prints(tmp_path):
     # IT LED THE ROW UNTIL 0.24.0, WHEN THE REQUIREMENT CHANGED: the window the
     # average was taken over (`FIRST_STEP, LAST_STEP, STEPS`) now opens the row, so
     # the file says it is an average and over what. The block follows it.
-    assert list(columns[:3]) == ["FIRST_STEP", "LAST_STEP", "STEPS"], columns
-    assert tuple(columns[3 : 3 + len(CONTEXT_COLUMNS)]) == tuple(CONTEXT_COLUMNS), columns
+    # THE POLAR FIRST since 0.27.0 (G16), then the window.
+    assert list(columns[:4]) == ["POL", "FIRST_STEP", "LAST_STEP", "STEPS"], columns
+    assert tuple(columns[4 : 4 + len(CONTEXT_COLUMNS)]) == tuple(CONTEXT_COLUMNS), columns
     assert rows[0]["ALPHA"] == "2.00000", rows[0]
 
 

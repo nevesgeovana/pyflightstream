@@ -186,16 +186,16 @@ def test_the_shaft_angle_to_the_free_stream_is_reported_for_etaw():
     assert on_z.shaft_angle_deg == pytest.approx(90.0), on_z
 
 
-def test_the_rotor_table_is_written_with_its_alias_on_the_first_line(tmp_path):
+def test_the_rotor_table_is_written_with_its_alias_in_every_row(tmp_path):
     """THE PRODUCT, which is what item 6 asks for and what nothing wrote.
 
-    `rotor_coefficients`, `rotor_coefficient_columns` and
-    `rotor_table_alias_line` all existed with no caller: three pieces of a
-    table and no table. This writes one and reads it back.
+    `rotor_coefficients` and `rotor_coefficient_columns` existed with no
+    caller: pieces of a table and no table. This writes one and reads it back.
 
-    THE ALIAS LEADS THE FILE, alone on its first line, which is item 18: a
-    script that has already LOADED the file no longer has its name, so the
-    alias has to be inside the bytes.
+    THE ALIAS IS INSIDE THE BYTES, which is item 18: a script that has
+    already LOADED the file no longer has its name. Since 0.27.0 (G16) it is
+    the `ROTOR` column right after `POL`, and the first line is the header;
+    until then it stood alone on the first line, before the header.
     """
     from pyflightstream.post.products import read_csv_table, write_rotor_table
 
@@ -220,9 +220,10 @@ def test_the_rotor_table_is_written_with_its_alias_on_the_first_line(tmp_path):
     assert written is not None and written.is_file(), written
 
     first = written.read_text(encoding="utf-8").splitlines()[0]
-    assert first.strip() == "PUSHER", first
+    assert first.split(",")[:2] == ["POL", "ROTOR"], first
 
-    columns, rows = read_csv_table(written, skip=1)
+    columns, rows = read_csv_table(written)
+    assert rows[0]["ROTOR"] == "PUSHER", rows[0]
     assert "CT_PUSHER" in columns, columns
     assert "ETAW_PUSHER" in columns, columns
     assert len(rows) == 1, rows
@@ -271,7 +272,7 @@ def test_a_static_point_reads_not_applicable_because_nothing_is_recoverable(tmp_
         ],
         reference=_reference(),
     )
-    _, rows = read_csv_table(written, skip=1)
+    _, rows = read_csv_table(written)
     # ALL FIVE, not the four this asserted. `CP` was the column the docstring
     # covered and the assertion did not, which is how "every coefficient" stayed
     # unchallenged while one of them wrote a number.
@@ -374,8 +375,8 @@ def test_a_counter_rotating_rotor_keeps_its_table(tmp_path):
         "a counter-rotating rotor lost its entire table; a negative rpm is a "
         "direction, not a stopped rotor"
     )
-    _, fwd = read_csv_table(forward, skip=1)
-    _, rev = read_csv_table(reverse, skip=1)
+    _, fwd = read_csv_table(forward)
+    _, rev = read_csv_table(reverse)
 
     # THE FIXTURE MUST DISCRIMINATE, asserted before the comparisons that rest
     # on it. With a zero torque every check below passes under a wrong fix.
@@ -522,7 +523,7 @@ def test_an_unsteady_rotor_table_is_the_window_average_and_not_the_last_step(tmp
         assert written is not None, written
         from pyflightstream.post.products import read_csv_table
 
-        _, rows = read_csv_table(written, skip=1)
+        _, rows = read_csv_table(written)
         return float(rows[0]["CT_PUSHER"])
 
     early = _thrust((1, 2))
@@ -675,7 +676,8 @@ def test_the_post_stage_writes_a_rotor_table_from_a_recorded_workspace(tmp_path)
     still in the workspace. That is the route, and it costs nothing she has.
 
     This asserts the product: a recorded campaign whose reference declares a
-    rotor gets a rotor table, with the alias on its first line.
+    rotor gets a rotor table, its first line the header and its alias the
+    `ROTOR` column (G16; until 0.27.0 the alias alone on the first line).
     """
     from pathlib import Path
 
@@ -722,10 +724,10 @@ def test_the_post_stage_writes_a_rotor_table_from_a_recorded_workspace(tmp_path)
         f"it wrote {sorted(Path(p).name for p in written)}"
     )
     first = tables[0].read_text(encoding="utf-8").splitlines()[0]
-    assert first.strip() == "PUSHER", first
+    assert first.split(",")[:2] == ["POL", "ROTOR"], first
 
     # AND A VALUE, DERIVED HERE FROM THE EXPORT AND THE DEFINITION, which is what
-    # the alias line alone never proved. The shaft is X, so the thrust is the X
+    # the header line alone never proves. The shaft is X, so the thrust is the X
     # force of family B: `Cx * q * S`, and `CT = T / (rho n^2 D^4)`.
     from pyflightstream.post.products import read_csv_table
     from pyflightstream.results import parse_loads
@@ -737,7 +739,8 @@ def test_the_post_stage_writes_a_rotor_table_from_a_recorded_workspace(tmp_path)
     rps = 2200.0 / 60.0
     thrust = report.surfaces["B"]["Cx"] * 0.5 * rho * speed**2 * 50.0
     expected = thrust / (rho * rps**2 * 1.2**4)
-    _columns, rows = read_csv_table(tables[0], skip=1)
+    _columns, rows = read_csv_table(tables[0])
+    assert (rows[0]["POL"], rows[0]["ROTOR"]) == ("6002", "PUSHER"), rows[0]
     assert expected != 0.0, "the fixture's family carries no X force, so nothing is proved"
     assert float(rows[0]["CT_PUSHER"]) == pytest.approx(expected, rel=1e-4), rows[0]
 

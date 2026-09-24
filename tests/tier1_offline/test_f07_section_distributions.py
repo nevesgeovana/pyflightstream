@@ -118,8 +118,10 @@ def test_two_distributions_keep_export_values_and_every_step(
             relative = f"sections/AL-020_{kind}_{name}.csv"
             assert (out / relative).is_file(), f"missing distribution product {relative}"
             columns, rows = read_csv_table(out / relative)
-            assert list(columns[:6]) == ["STEP", "time_s", "FAMILY", "PLANE", "ROTOR", "AZIMUTH"]
-            assert columns[6] == "ALPHA"
+            lead = ["POL", "STEP", "time_s", "FAMILY", "PLANE", "ROTOR", "AZIMUTH"]
+            assert list(columns[: len(lead)]) == lead
+            assert columns[len(lead)] == "ALPHA"
+            assert {row["POL"] for row in rows} == {"7001"}
             steps = [3, 4, 5] if stamped else [154 if kind == "sloads" else 65]
             assert sorted({int(row["STEP"]) for row in rows}) == steps
             assert len(rows) == len(steps) * (1 if kind == "sloads" else 6)

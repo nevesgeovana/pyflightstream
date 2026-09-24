@@ -107,6 +107,7 @@ from pyflightstream._errors import (
     collecting_warnings,
     warn,
 )
+from pyflightstream._tokens import POLAR_ID_COLUMN, ROTOR_ID_COLUMN
 from pyflightstream._tokens import REDUCTION_COLUMNS as REDUCTION_COLUMNS
 from pyflightstream.cases import (
     AXES_PLOT_COMPONENTS,
@@ -369,7 +370,12 @@ _POLAR_CONDITION_COLUMNS: tuple[str, ...] = tuple(
 #: A polar table's columns: the polar, its description, the group, the
 #: reference block, the condition the twenty-four do not carry, the
 #: twenty-four coefficients.
+#:
+#: `POL` FIRST SINCE 0.27.0 (G16), as in every table the post writes, under the
+#: name the run matrix gives its polar column. `POLAR` beside it holds the same
+#: simulation id and keeps its name and place, because a reader takes it by name.
 POLAR_COLUMNS: tuple[str, ...] = (
+    POLAR_ID_COLUMN,
     "POLAR",
     "DESCRIPTION",
     "GROUP",
@@ -984,33 +990,13 @@ def swept_polar_file_name(
 ROTOR_COEFFICIENT_COLUMNS: tuple[str, ...] = ("J", "CT", "CQ", "CP", "ETA", "ETAW")
 
 
-def rotor_table_alias_line(alias: str) -> str:
-    """Return the first line of a rotor table: the rotor's alias, alone.
-
-    v0.23.0 item 18: the alias is written on the first line so that a script
-    that has loaded the table can tell which group it belongs to.
-
-    WHY THE FILE NAME IS NOT ENOUGH, which is the whole reason this exists. A
-    script that has already LOADED the file no longer has its name: it holds an
-    array of numbers. The alias has to be inside the bytes.
-
-    ALONE ON THE LINE, with no label and no separator. A line carrying a label
-    and the alias makes every reader strip a prefix, and a prefix is the kind
-    of thing that gets spelled two ways within a year -- which is the defect
-    this release spent a round removing from the `NA` token.
-    """
-    token = str(alias).strip()
-    if not token:
-        raise ProductError(
-            "a rotor table's first line is its rotor's alias, and none was given; a "
-            "first line that names nobody is worse than no first line"
-        )
-    if "\n" in token or "\r" in token:
-        raise ProductError(
-            f"the rotor alias {alias!r} spans more than one line, and the first LINE is "
-            "the unit a reader takes; an alias carrying a newline breaks the file's shape"
-        )
-    return token + "\n"
+# `rotor_table_alias_line` WAS HERE, and 0.27.0 (G16) retired it with the line it
+# wrote. From 0.23.0 (item 18) a rotor table opened with its alias alone on the
+# first line, because a script that has LOADED the file no longer has its name
+# and the alias has to be inside the bytes. That reason stands; the form did not:
+# a line before the header is a file no CSV reader takes as written. The alias is
+# the `ROTOR` column now, right after `POL`, on every row, so a loaded table still
+# knows which rotor and which polar it holds, and its first line is the header.
 
 
 def rotor_coefficient_columns(alias: str) -> tuple[str, ...]:
@@ -1461,10 +1447,10 @@ def read_csv_table(
     number; a row whose width differs from the header is refused naming
     the line, which is what makes the round trip a proof.
 
-    ``skip`` drops that many lines before the header, for the ONE product that
-    leads with something else: the rotor table's first line is its alias, alone
-    (item 18), so that a script which has already loaded the file still knows
-    which rotor it holds.
+    ``skip`` drops that many lines before the header. No table the post writes
+    since 0.27.0 has one (G16): its first line is the header and its first
+    column `POL`. A rotor table written by 0.23.0 to 0.26.x leads with its
+    rotor's alias alone on the first line, and ``skip=1`` reads it.
     """
     target = Path(path)
     with target.open("r", encoding="utf-8", newline="") as handle:
@@ -2313,8 +2299,9 @@ def write_rotor_table(
     reference: ReferenceValues,
     left_out: list[tuple[str, str]] | None = None,
     written_runs: list[str] | None = None,
+    pol: str | int | None = None,
 ) -> Path | None:
-    """Write ONE rotor's coefficient table (items 6 and 18).
+    """Write ONE rotor's coefficient table (items 6 and 18, and G16 of 0.27.0).
 
     ``left_out`` collects ``(run_id, reason)`` for every row this refuses, and
     ``written_runs`` collects the run id of every row it DID write. Both are
@@ -2322,13 +2309,18 @@ def write_rotor_table(
     used to leave the table shorter with the provenance still naming its run,
     so the file claimed a point it does not contain.
 
-    `rotor_coefficients`, `rotor_coefficient_columns` and
-    `rotor_table_alias_line` all existed with no caller: three pieces of a table
-    and no table. This is the table.
+    ``pol`` is the polar the rows come from, the matrix row's POL, written in
+    the first column of every row; `NA` where the caller states none.
 
-    THE ALIAS LEADS THE FILE, alone on its first line, because a script that has
-    already LOADED the file no longer has its name -- it holds an array of
-    numbers, and the alias has to be inside the bytes.
+    `rotor_coefficients` and `rotor_coefficient_columns` existed with no
+    caller: pieces of a table and no table. This is the table.
+
+    THE FIRST LINE IS THE HEADER (G16). The table opens with `POL` and then
+    `ROTOR`, the rotor's alias, on every row, because a script that has already
+    LOADED the file no longer has its name -- it holds an array of numbers, and
+    the alias has to be inside the bytes. From 0.23.0 to 0.26.x the alias stood
+    alone on the first line instead, before the header, and no CSV reader took
+    the file as written.
 
     EVERY COLUMN CARRIES THE ALIAS TOO, which is physical rather than cosmetic:
     two rotors summed into one `CT` is not a worse `CT`, it is not a `CT` at
@@ -2343,7 +2335,11 @@ def write_rotor_table(
     # 0.24.0: THE SPEED AND THE DIAMETER THE COEFFICIENTS DIVIDED BY, beside them.
     # Every coefficient here is over `rho n^2 D^4` or `D^5`; `RHO` is in the shared
     # block, and the rotor's own `n` and `D` were stated nowhere in the file.
+    # 0.27.0 (G16): the polar and the rotor lead, and every column after them
+    # keeps its name and its order.
     columns = (
+        POLAR_ID_COLUMN,
+        ROTOR_ID_COLUMN,
         *CONTEXT_COLUMNS,
         f"RPM_{alias}",
         f"DIAMETER_{alias}",
@@ -2478,6 +2474,8 @@ def write_rotor_table(
         condition = dict(stated_condition) if isinstance(stated_condition, Mapping) else {}
         written.append(
             (
+                pol,
+                alias,
                 *context_row(condition, reference.as_lengths()),
                 rpm,
                 diameter,
@@ -2490,10 +2488,6 @@ def write_rotor_table(
         return None
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    # THE ALIAS LINE IS WRITTEN FIRST and the table appended, rather than the
-    # table written and the line prepended: prepending rewrites a file that is
-    # already correct, and a failure between the two leaves a table nobody can
-    # attribute.
     # THROUGH `write_csv_table`, which is THE funnel: every cell of every
     # product is rendered by `_cell` there, so a value this table cannot fill
     # reads `NA` like every other product rather than by a rule of its own.
@@ -2501,24 +2495,22 @@ def write_rotor_table(
     # its own absences, which is the drift item 5 repaired.
     # THE SCRATCH FILE IS REMOVED WHATEVER HAPPENS, and it was not for one
     # commit. `write_csv_table` refuses a malformed row, and the refusal left
-    # `<product>.rows` behind IN THE POLARS FOLDER -- a headed table with no
-    # alias line, which is exactly what the write order below claims to
-    # prevent, and nothing on any later run cleans it up. A QA round reproduced
-    # it by shrinking the column tuple.
+    # `<product>.rows` behind IN THE POLARS FOLDER, and nothing on any later run
+    # cleans it up. A QA round reproduced it by shrinking the column tuple.
     # It goes in a TEMPORARY DIRECTORY rather than beside the product, so a
-    # process killed between the two steps leaves nothing in the user's workspace at
-    # all. This machine killed three runs for memory today; that is not a
-    # hypothetical.
+    # process killed or a row refused before the table is whole leaves nothing
+    # in the user's workspace at all. This machine killed three runs for memory
+    # in one day; that is not a hypothetical.
     with tempfile.TemporaryDirectory() as scratch_dir:
         scratch = Path(scratch_dir) / "rows.csv"
         write_csv_table(scratch, columns, written)
-        table = scratch.read_text(encoding="utf-8")
-    # ONE WRITE. `rotor_table_alias_line` ALREADY ENDS IN A NEWLINE -- it is a
-    # LINE -- and adding a second put a blank between the alias and the header,
-    # which the reader then took for the header and refused the file this
-    # function had just written. The reader was right and I had written the
-    # separator twice.
-    target.write_text(rotor_table_alias_line(alias) + table.lstrip("\r\n"), encoding="utf-8")
+        table = scratch.read_bytes()
+    # ONE WRITE, AND NOTHING BEFORE THE HEADER (G16). Until 0.27.0 the alias was
+    # written alone on the first line and the table appended after it, through a
+    # text-mode write that ended its lines the platform's way; the alias is the
+    # `ROTOR` column now, so the file is the funnel's bytes, line ends included,
+    # as every other table's is.
+    target.write_bytes(table)
     return target
 
 
@@ -2557,7 +2549,9 @@ def polar_table_rows(
             "are two sources for the same column; pass the advance ratio inside "
             "conditions as 'J' and drop advance_ratios"
         )
-    lead = (str(polar), description, str(group), *reference.as_row())
+    # THE POLAR TWICE, AND ON PURPOSE: `POL` is the first column every table
+    # opens with (G16) and `POLAR` the column this table has always carried.
+    lead = (str(polar), str(polar), description, str(group), *reference.as_row())
     if conditions is not None:
         states: list[Mapping[str, object]] = list(conditions)
     elif advance_ratios is not None:
@@ -2660,8 +2654,12 @@ def write_sections_table(
     condition: Mapping[str, object] | None = None,
     layout: Sequence[Mapping[str, object]] | None = None,
     rotors: Mapping[str, Mapping[str, object]] | None = None,
+    pol: str | int | None = None,
 ) -> Path | None:
     """Write one sections table from a sectional loads export.
+
+    ``pol`` is the polar the point belongs to, the matrix row's POL: the first
+    column of every row since 0.27.0 (G16), `NA` where the caller states none.
 
     ``layout`` is WHICH DISTRIBUTION EACH ROW BELONGS TO (0.24.0): the blocks the
     run's script created, in order, as the run record states them under
@@ -2772,13 +2770,15 @@ def write_sections_table(
     context = context_row(stated, None if reference is None else reference.as_lengths())
     identity = section_identity(len(table), layout, rotors, step, azimuth_deg)
     rows = [
-        (step, *identity[at], *context, *(float(v) for v in row[:7]))
+        (pol, step, *identity[at], *context, *(float(v) for v in row[:7]))
         for at, row in enumerate(table)
     ]
     return write_csv_table(path, SECTION_COLUMNS, rows)
 
 
-def write_plots_table(path: str | Path, export_text: str) -> Path | None:
+def write_plots_table(
+    path: str | Path, export_text: str, *, pol: str | int | None = None
+) -> Path | None:
     """Write one plots table from an unsteady plots export.
 
     The coefficient columns (``CL_``, ``CDI_``, ``CDO_``, ``CD_``) are
@@ -2787,6 +2787,11 @@ def write_plots_table(path: str | Path, export_text: str) -> Path | None:
     reads as free-stream coefficients. An export the reader cannot parse is
     a refusal naming the file, never a silent skip; an export with no step
     returns None.
+
+    ``pol`` is the polar the point belongs to. It is the table's FIRST column
+    since 0.27.0 (G16), `NA` where the caller states none, and the export's own
+    header follows it unchanged; :func:`plots_table_series` reads every column
+    AFTER it back as a plotted quantity.
     """
     try:
         report: UnsteadyPlotsReport = parse_unsteady_plots(export_text)
@@ -2806,7 +2811,9 @@ def write_plots_table(path: str | Path, export_text: str) -> Path | None:
         if name.startswith(_COEFFICIENT_PLOT_PREFIXES):
             scaled[:, index] *= scale
     return write_csv_table(
-        path, tuple(report.columns), [tuple(float(v) for v in row) for row in scaled]
+        path,
+        (POLAR_ID_COLUMN, *report.columns),
+        [(pol, *(float(v) for v in row)) for row in scaled],
     )
 
 
@@ -2842,7 +2849,13 @@ def write_plots_table(path: str | Path, export_text: str) -> Path | None:
 #: still arrive in the export's own order after it. Inserting the condition
 #: between them would have moved the fluid columns twice: once now and once
 #: whenever the condition grows.
-PROBE_SPINE: tuple[str, ...] = (*PROBE_POSITION_COLUMNS, "STEP", *CONTEXT_COLUMNS)
+#: `POL` LEADS IT SINCE 0.27.0 (G16), as it leads every table the post writes.
+PROBE_SPINE: tuple[str, ...] = (
+    POLAR_ID_COLUMN,
+    *PROBE_POSITION_COLUMNS,
+    "STEP",
+    *CONTEXT_COLUMNS,
+)
 
 
 def _probe_parameters(pproc, *, drawn_only: bool = False) -> tuple[str, ...]:
@@ -2943,8 +2956,9 @@ def _probe_spine(
     *,
     stated: tuple[float, float, float] | None = None,
     context: Sequence[object] = (),
+    pol: str | int | None = None,
 ) -> tuple[object, ...]:
-    """One row's spine: the point, where it is, its frame, and the step.
+    """One row's spine: the polar, the point, where it is, its frame, and the step.
 
     ``stated`` is the position the EXPORT ITSELF carries, which a steady
     probe export does and an unsteady plots export does not. Where the
@@ -2966,9 +2980,9 @@ def _probe_spine(
     elif recorded is not None:
         x, y, z = recorded[0], recorded[1], recorded[2]
     else:
-        return (vertex, "", "", "", "", step, *context)
+        return (pol, vertex, "", "", "", "", step, *context)
     frame = "" if recorded is None else recorded[3]
-    return (vertex, x, y, z, frame, step, *context)
+    return (pol, vertex, x, y, z, frame, step, *context)
 
 
 def write_probes_table(
@@ -2978,8 +2992,12 @@ def write_probes_table(
     positions: Mapping[int, tuple[float, float, float, str]] | None = None,
     condition: Mapping[str, object] | None = None,
     reference: ReferenceValues | None = None,
+    pol: str | int | None = None,
 ) -> Path | None:
     """Write one probe-points table from an EXPORT_PROBE_POINTS export (FR-87, FR-91).
+
+    ``pol`` is the polar the point belongs to, the first column of every row
+    since 0.27.0 (G16); `NA` where the caller states none.
 
     The flow-field samples of a point that is not an unsteady history:
     one row per probe point, the export's own columns in its own order
@@ -3041,7 +3059,7 @@ def write_probes_table(
             stated = (float(row[axes["X"]]), float(row[axes["Y"]]), float(row[axes["Z"]]))
         rows.append(
             (
-                *_probe_spine(order, known, stated=stated, context=context),
+                *_probe_spine(order, known, stated=stated, context=context, pol=pol),
                 *(float(row[columns.index(name)]) for name in rest),
             )
         )
@@ -3057,8 +3075,14 @@ def write_unsteady_probes_table(
     condition: Mapping[str, object] | None = None,
     reference: ReferenceValues | None = None,
     notes: list[str] | None = None,
+    pol: str | int | None = None,
 ) -> Path | None:
     """Write the probe table of an UNSTEADY row, from its plots table (FR-91).
+
+    ``pol`` is the polar the point belongs to, the first column of every row
+    since 0.27.0 (G16); `NA` where the caller states none. The plots table it
+    reads carries its own `POL` first, which is read by name and never as a
+    probe group.
 
     The export that an unsteady row produces for its probes is the plots
     table, and it carries one NUMBERED GROUP per probe point:
@@ -3149,7 +3173,7 @@ def write_unsteady_probes_table(
         for vertex, names in groups:
             out.append(
                 (
-                    *_probe_spine(vertex, positions, step, context=context),
+                    *_probe_spine(vertex, positions, step, context=context, pol=pol),
                     *(float(row[name]) if name in present else None for name in names),
                 )
             )
@@ -3218,12 +3242,19 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
     Read from the WRITTEN table rather than from the export in memory, so a
     reduction is of the file a user holds and can be recomputed from it.
 
+    `POL` IS NOT A PLOTTED QUANTITY (G16, 0.27.0). The table opens with the
+    polar its point belongs to, which says which polar the file is OF and is
+    no field of any sample: it is left out of the columns and of the series,
+    so no reduction averages it and no reduction states it twice. A table
+    written before 0.27.0 carries no such column and reads as it always did.
+
     Returns
     -------
     tuple
-        The table's columns, in its order, and the series.
+        The table's plotted columns, in its order, and the series.
     """
-    columns, rows = read_csv_table(path)
+    header, rows = read_csv_table(path)
+    columns = tuple(name for name in header if name != POLAR_ID_COLUMN)
     values = np.asarray([[float(row[name]) for name in columns] for row in rows], dtype=float)
     return columns, TimestepSeries(
         steps=_stated_steps(columns, values, len(rows)),
@@ -3250,8 +3281,13 @@ def write_reduction_table(
     condition: Mapping[str, object] | None = None,
     reference: ReferenceValues | None = None,
     rotor: str | None = None,
+    pol: str | int | None = None,
 ) -> Path:
     """Write one reduction of a plots table: one row per window, the table's columns averaged.
+
+    ``pol`` is the polar the point belongs to, the first column of every row
+    since 0.27.0 (G16) and the first of :data:`REDUCTION_COLUMNS`; `NA` where the
+    caller states none.
 
     THE CLOCK IS NOT AVERAGED (0.24.0). Every column of the plots table used to
     be, `Time-step` among them, so a row stated FIRST_STEP 1, LAST_STEP 8 and
@@ -3321,6 +3357,7 @@ def write_reduction_table(
         average = blade_passage_average(series, window=(int(first), int(last)))
         rows.append(
             (
+                pol,
                 reduction,
                 rotor,
                 index,
@@ -3341,10 +3378,11 @@ def write_reduction_table(
     return write_csv_table(path, heading, rows)
 
 
-#: What a per-blade row states before the condition: which reduction, which rotor,
-#: which blade and its family, the ONE window every blade shares, and where THAT
-#: blade was when the window opened and when it closed.
+#: What a per-blade row states before the condition: the polar (first since 0.27.0,
+#: G16), which reduction, which rotor, which blade and its family, the ONE window
+#: every blade shares, and where THAT blade was when the window opened and closed.
 PER_BLADE_COLUMNS: tuple[str, ...] = (
+    POLAR_ID_COLUMN,
     "REDUCTION",
     "ROTOR",
     "BLADE",
@@ -3372,8 +3410,12 @@ def write_per_blade_table(
     facts: Mapping[str, object],
     condition: Mapping[str, object] | None = None,
     reference: ReferenceValues | None = None,
+    pol: str | int | None = None,
 ) -> Path:
     """Write the per-blade reduction: ONE ROW PER BLADE over the one shared window.
+
+    ``pol`` is the polar the point belongs to, the first column of every row
+    since 0.27.0 (G16); `NA` where the caller states none.
 
     ``facts`` is what the run and the reference state of the rotor, as
     :func:`write_sections_table` takes it: its blade ``families`` in order, its
@@ -3463,6 +3505,7 @@ def write_per_blade_table(
                 names.append(name)
     table = [
         (
+            pol,
             "per_blade",
             rotor,
             row["BLADE"],
@@ -3483,10 +3526,12 @@ def write_per_blade_table(
 
 
 #: What a row of the azimuthal phase-locked table states before the condition:
-#: which reduction and rotor, WHERE blade one is, the step of the last revolution
+#: the polar (first since 0.27.0, G16), which reduction and rotor, WHERE blade one
+#: is, the step of the last revolution
 #: that azimuth falls on, how many revolutions entered the mean, and the steps
 #: those revolutions span.
 PHASE_LOCKED_COLUMNS: tuple[str, ...] = (
+    POLAR_ID_COLUMN,
     "REDUCTION",
     "ROTOR",
     "AZIMUTH",
@@ -3515,8 +3560,12 @@ def write_phase_locked_table(
     facts: Mapping[str, object],
     condition: Mapping[str, object] | None = None,
     reference: ReferenceValues | None = None,
+    pol: str | int | None = None,
 ) -> Path:
     """Write the phase-locked reduction a ``[phase_locked]`` table asks for: ONE ROW PER AZIMUTH.
+
+    ``pol`` is the polar the point belongs to, the first column of every row
+    since 0.27.0 (G16); `NA` where the caller states none.
 
     Each row is an azimuthal position of the rotor's last revolution, and each
     value the mean of the samples AT that position across the last
@@ -3575,6 +3624,7 @@ def write_phase_locked_table(
     )
     table = [
         (
+            pol,
             "phase_locked",
             rotor,
             row["AZIMUTH"],
@@ -3728,6 +3778,7 @@ def write_recorded_polar(
                 # what this caller has, and it is what a coefficient most needs
                 # beside it.
                 reference=ref,
+                pol=polar,
             )
             if target is not None:
                 written.append(target)
@@ -3736,6 +3787,7 @@ def write_recorded_polar(
             target = write_plots_table(
                 out / PROBES_DIR / f"{point.name}_plots.csv",
                 plots_export.read_text(encoding="utf-8", errors="replace"),
+                pol=polar,
             )
             if target is not None:
                 written.append(target)
@@ -4196,8 +4248,13 @@ def write_unsteady_polar(
     equation_notes: list[str] | None = None,
     frozen: Mapping[str, FrozenSolve] | None = None,
     contributor_path: Callable[[Sequence[str]], Path] | None = None,
+    pol: str | int | None = None,
 ) -> Path | None:
     """Write the POLAR of one unsteady simulation from the PLOTS history (item 17).
+
+    ``pol`` is the simulation's polar, the matrix row's POL, the FIRST column of
+    every row since 0.27.0 (G16); `NA` where the caller states none. The super
+    content's own `POL` cell is that same polar and is not written a second time.
 
     THE PPROC'S ``[equations]`` ARE EVALUATED HERE (0.24.0), into columns named
     ``<NAME>_<alias>`` that follow the axis block and precede the super content.
@@ -4372,15 +4429,29 @@ def write_unsteady_polar(
     lengths = None if reference is None else reference.as_lengths()
     moment = None if reference is None else reference.as_moment_point()
     columns = [*columns, *axis_columns]
-    stated = {*_WINDOW_COLUMNS, *CONTEXT_COLUMNS, *_MOMENT_POINT_COLUMNS, *columns}
+    stated = {
+        POLAR_ID_COLUMN,
+        *_WINDOW_COLUMNS,
+        *CONTEXT_COLUMNS,
+        *_MOMENT_POINT_COLUMNS,
+        *columns,
+    }
     extra: list[str] = []
     for _condition, _values, _window, content in rows:
         for key in content:
             if key not in stated and key not in extra:
                 extra.append(key)
-    header = (*_WINDOW_COLUMNS, *CONTEXT_COLUMNS, *_MOMENT_POINT_COLUMNS, *columns, *extra)
+    header = (
+        POLAR_ID_COLUMN,
+        *_WINDOW_COLUMNS,
+        *CONTEXT_COLUMNS,
+        *_MOMENT_POINT_COLUMNS,
+        *columns,
+        *extra,
+    )
     table = [
         (
+            pol,
             span[0],
             span[1],
             span[1] - span[0] + 1,
@@ -5205,6 +5276,7 @@ def _sim_products(
                     unsteady=record_of[point.name].recipe in ("unsteady", "unsteady_rotor"),
                     layout=record_of[point.name].sections_layout,
                     rotors=_section_rotors(live, aliases, record_of[point.name]),
+                    pol=sim_id,
                 )
             except ProductError as error:
                 skipped[relative] = str(error)
@@ -5262,6 +5334,7 @@ def _sim_products(
                         clock=clock_rotor_facts(record_of.get(point.name), matrix_row, live),
                     ),
                     reference=reference,
+                    pol=sim_id,
                 )
             except ProductError as error:
                 skipped[relative] = str(error)
@@ -5280,7 +5353,9 @@ def _sim_products(
             target = _target(out / relative)
             try:
                 done = write_plots_table(
-                    target, plots_path.read_text(encoding="utf-8", errors="replace")
+                    target,
+                    plots_path.read_text(encoding="utf-8", errors="replace"),
+                    pol=sim_id,
                 )
             except (ProductError, OSError) as error:
                 # THE SAME RULE (MT-01): this point loses its plots table and the
@@ -5318,6 +5393,7 @@ def _sim_products(
                             ),
                             reference=reference,
                             notes=probe_notes,
+                            pol=sim_id,
                         )
                     except (ProductError, OSError, ValueError) as error:
                         skipped[probe_relative] = (
@@ -5388,6 +5464,7 @@ def _sim_products(
                     # own record, as the sections table takes them.
                     rotor_facts=_section_rotors(live, aliases, record_of[point.name]),
                     names=getattr(pproc, "names", None) or None,
+                    pol=sim_id,
                 )
     # ITEM 17, AT THE OUTER NESTING AND NOT INSIDE THE SUPERFILE GUARD.
     # IT WAS INSIDE, AND THE ARCHITECT LENS OF THE RELEASE ROUND MEASURED WHAT
@@ -5453,6 +5530,7 @@ def _sim_products(
             reference=reference,
             left_out=rotor_left_out,
             written_runs=rotor_runs,
+            pol=sim_id,
         )
         relative = destination.relative_to(out).as_posix()
         if done:
@@ -5550,6 +5628,7 @@ def _sim_products(
             names=getattr(pproc, "names", None) or None,
             name_notes=name_notes,
             contributor_path=unsteady_destination,
+            pol=sim_id,
         )
         # THE DICTIONARY, like the two blocks above: what was not applied is SAID.
         if name_notes and done is not None:
@@ -6003,8 +6082,12 @@ def _point_reductions(
     rotor_facts: Mapping[str, Mapping[str, object]] | None = None,
     names: Mapping[str, str] | None = None,
     frozen: FrozenSolve | None = None,
+    pol: str | int | None = None,
 ) -> None:
     """Write every applicable reduction of one plots table beside it (PFS-2015.04).
+
+    ``pol`` is the point's polar, the first column of every reduction since
+    0.27.0 (G16).
 
     ``names`` is the pproc's dictionary. It renames the columns of the averaged
     reductions; a dictionary the plots table cannot honour is said ONCE for the
@@ -6186,6 +6269,7 @@ def _point_reductions(
                     rotor_facts=rotor_facts or {},
                     condition=condition,
                     reference=reference,
+                    pol=pol,
                 )
                 # ONE WINDOW, and the manifest says the one the file holds.
                 windows = [(windows[0][0], windows[-1][1])]
@@ -6204,6 +6288,7 @@ def _point_reductions(
                     facts=facts,
                     condition=condition,
                     reference=reference,
+                    pol=pol,
                 )
             else:
                 done = write_reduction_table(
@@ -6222,6 +6307,7 @@ def _point_reductions(
                     condition=condition,
                     reference=reference,
                     rotor=rotor,
+                    pol=pol,
                 )
         except ProductError as error:
             skipped[relative] = str(error)
@@ -6298,6 +6384,7 @@ def _write_the_per_blade_table(
     rotor_facts: Mapping[str, Mapping[str, object]],
     condition: Mapping[str, object] | None,
     reference: ReferenceValues | None,
+    pol: str | int | None = None,
 ) -> Path:
     """Resolve which rotor a per-blade file is about, and write one row per blade.
 
@@ -6320,6 +6407,7 @@ def _write_the_per_blade_table(
         facts=facts,
         condition=condition,
         reference=reference,
+        pol=pol,
     )
 
 
@@ -7083,6 +7171,11 @@ def _current_extraction(
     continuation archives the point's folder, extraction included, and saves
     another), and every file the extraction wrote is on disk and hashes as it
     recorded.
+
+    THE SAVED SIMULATION IS HASHED ON DISK, not only read off the two records:
+    a file deleted or replaced under a record nobody rewrote is not the state
+    the extraction opened, and a product of it would describe a state nothing on
+    disk holds.
     """
     if point is None:
         return (
@@ -7099,12 +7192,20 @@ def _current_extraction(
             "(pyfs-matrix post --additional-pproc)"
         )
     folder = workspace.sim_dir(extraction.sim_id)
-    for name in extraction.outputs:
-        path = folder / name
-        if not path.is_file():
-            return f"stale: {path} is gone; extract the point again"
-        if extraction.outputs_sha256.get(name) != file_sha256(path):
-            return f"stale: {path} no longer hashes as its extraction recorded"
+    saved = folder / extraction.fsm
+    on_disk = file_sha256(saved) if saved.is_file() else None
+    if on_disk != extraction.fsm_sha256:
+        found = "is gone" if on_disk is None else f"hashes {on_disk[:12]} on disk"
+        return (
+            f"stale: the point's saved simulation {saved} {found}, and the extraction "
+            f"opened {extraction.fsm_sha256[:12]}; its products would describe a state "
+            "nothing on disk holds"
+        )
+    # ONE PREDICATE WITH THE REUSE OF THE EXTRACTION PASS, so a file refused
+    # here is one the next --additional-pproc extracts again.
+    changed = workspace.changed_extraction_file(extraction)
+    if changed is not None:
+        return f"stale: {changed}; extract the point again (pyfs-matrix post --additional-pproc)"
     return None
 
 

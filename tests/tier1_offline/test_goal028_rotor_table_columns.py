@@ -40,7 +40,7 @@ def test_the_table_states_the_speed_and_the_diameter_it_divided_by(tmp_path):
     written = write_rotor_table(
         tmp_path / "P1-PUSHER_rotor.csv", rotor=rotor, rows=[_row()], reference=_reference()
     )
-    columns, rows = read_csv_table(written, skip=1)
+    columns, rows = read_csv_table(written)
     assert "RPM_PUSHER" in columns and "DIAMETER_PUSHER" in columns, columns
     assert float(rows[0]["RPM_PUSHER"]) == pytest.approx(3000.0)
     assert float(rows[0]["DIAMETER_PUSHER"]) == pytest.approx(rotor.diameter_m)
@@ -54,7 +54,7 @@ def test_the_advance_ratio_is_the_free_streams_and_the_forces_are_the_reference_
     written = write_rotor_table(
         tmp_path / "P1-PUSHER_rotor.csv", rotor=rotor, rows=[_row()], reference=_reference()
     )
-    _columns, rows = read_csv_table(written, skip=1)
+    _columns, rows = read_csv_table(written)
     n = 3000.0 / 60.0
     assert float(rows[0]["J_PUSHER"]) == pytest.approx(40.0 / (n * rotor.diameter_m), rel=1e-5)
     # The force was normalised by the solver with VREF, so it comes back with VREF.
