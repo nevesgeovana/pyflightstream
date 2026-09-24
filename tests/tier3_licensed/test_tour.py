@@ -264,8 +264,9 @@ def test_1022_two_rotors_from_a_motions_list_with_origins_by_reference_point(run
     rotors PORT and STARBOARD of r006, whose blocks carry each hub, axis and sign,
     where the 0.13.0 row placed its hubs at the reference points ERP1 and ERP2 of
     r004 (y = +2.5 and -2.5 m). Each motion turns about its rotor's <ALIAS>_SMRP
-    frame, at the hub r006 states (y = +0.9144 and -0.9144 m), and STARBOARD's
-    rpm_sign -1 turns the row's RPM 800 into -800."""
+    frame, at the hub r006 states, which is where the twin mesh has its rotors
+    (y = +2.5 and -2.5 m; r006 said 0.9144 m from 0.15.0 until T12 found it), and
+    STARBOARD's rpm_sign -1 turns the row's RPM 800 into -800."""
     record = runs.one(MATRIX, "1022", alpha=0.0)
     script = runs.script(record)
     assert lines(script, "CREATE_NEW_MOTION") == ["CREATE_NEW_MOTION ROTARY"] * 2
@@ -278,7 +279,7 @@ def test_1022_two_rotors_from_a_motions_list_with_origins_by_reference_point(run
         f"SET_MOTION_COORDINATE_SYSTEM 1 {frames['PORT_SMRP'][0]}",
         f"SET_MOTION_COORDINATE_SYSTEM 2 {frames['STARBOARD_SMRP'][0]}",
     ]
-    assert (frames["PORT_SMRP"][1], frames["STARBOARD_SMRP"][1]) == (0.9144, -0.9144)
+    assert (frames["PORT_SMRP"][1], frames["STARBOARD_SMRP"][1]) == (2.5, -2.5)
     assert len(record.motions) == 2
     assert [m.get("MOVING_BC_ALIAS") for m in record.motions] == ["PORT", "STARBOARD"]
     assert [m.get("RPM") for m in record.motions] == ["800", "800"]
