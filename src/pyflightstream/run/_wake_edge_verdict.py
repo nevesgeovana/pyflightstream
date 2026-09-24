@@ -271,11 +271,13 @@ def collected_log_texts(
         The text of each collected output whose name ends in ``_log.txt`` or is
         one of ``declared``, in the order collected; empty when none is collected.
     """
-    named = {PureWindowsPath(str(name)).name for name in declared}
+    # A name equal to a declared one but for case is the same file on a
+    # case-insensitive file system, so the names are compared casefolded.
+    named = {PureWindowsPath(str(name)).name.casefold() for name in declared}
     return [
         path.read_text(encoding="utf-8", errors="replace")
         for path in (folder / entry for entry in collected)
-        if (path.name.endswith(_LOG_SUFFIX) or path.name in named) and path.is_file()
+        if (path.name.endswith(_LOG_SUFFIX) or path.name.casefold() in named) and path.is_file()
     ]
 
 

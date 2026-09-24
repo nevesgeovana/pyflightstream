@@ -344,3 +344,33 @@ def test_two_files_whose_names_differ_only_in_case_are_one_file_and_refused(tmp_
         helpers.actuator_disc(same, name, **disc, profile=path, n_blades=3, profile_text=LOADING)
     digest = _write_pending_files(same, work, case=case, recorded={})
     assert digest == dict.fromkeys(("prop.txt", "PROP.txt"), file_sha256(work / "prop.txt"))
+
+
+def test_a_node_file_named_like_a_parked_one_but_for_case_is_refused_by_the_helper(tmp_path):
+    """``mark_wake_edges`` holds its node file to the rule ``actuator_disc`` holds a
+    profile to: a path equal to a parked one but for case is the same file on a
+    case-insensitive file system, so different points under it are refused where the
+    second file is parked, and the same points under both spellings are accepted."""
+    script = Script("26.124")
+    common = {"edge_type": "STANDARD", "tolerance": 0.0001, "units": "METER"}
+    lower, upper = str(tmp_path / "wing.txt"), str(tmp_path / "WING.txt")
+    helpers.mark_wake_edges(script, **common, node_file=lower, midpoints=MIDPOINTS)
+    before = script.render()
+    moved = [(x + 0.25, y, z) for x, y, z in MIDPOINTS]
+    with pytest.raises(CommandArgumentError, match=r"only in case"):
+        helpers.mark_wake_edges(script, **common, node_file=upper, midpoints=moved)
+    assert script.render() == before, "the refused import left lines in the script"
+    helpers.mark_wake_edges(script, **common, node_file=upper, midpoints=MIDPOINTS)
+
+
+def test_a_declared_log_is_read_whatever_the_case_of_its_name(tmp_path):
+    """A log the script names ``FlightStreamLog.txt`` and a row collects as
+    ``flightstreamlog.txt`` is one file on a case-insensitive file system, so its text
+    is read for the refusal lines; a collected output named nowhere as a log is not."""
+    from pyflightstream.run._wake_edge_verdict import collected_log_texts
+
+    (tmp_path / "flightstreamlog.txt").write_text("the log", encoding="utf-8")
+    (tmp_path / "loads.txt").write_text("the loads", encoding="utf-8")
+    collected = ["flightstreamlog.txt", "loads.txt"]
+    assert collected_log_texts(tmp_path, collected, declared=["FlightStreamLog.txt"]) == ["the log"]
+    assert collected_log_texts(tmp_path, collected, declared=[]) == []

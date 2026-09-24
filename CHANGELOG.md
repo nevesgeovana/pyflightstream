@@ -815,6 +815,9 @@ gone (`docs/migrating-to-0.27.0.md`).
   name differs only in case from another input of the case with different
   bytes, naming both files. The same bytes under both spellings still run, and
   the record keeps each name as the script spelled it (G06).
+  `helpers.mark_wake_edges` holds a trailing-edge node file to the same rule,
+  and a declared log whose collected name differs from the script's only in
+  case is read for the profile's refusal (G02, G06).
 
 ### Changed
 

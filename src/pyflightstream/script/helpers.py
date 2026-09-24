@@ -3391,11 +3391,21 @@ def mark_wake_edges(
         )
     text = render_wake_edge_node_file(midpoints)
     path = fspath(node_file)
-    already = script._pending_input_files.get(path)
-    if already is not None and already != text:
+    # A path equal to a parked one but for case is the same file on a
+    # case-insensitive file system (Windows), so it is held to the same rule,
+    # as actuator_disc holds a profile.
+    for parked, already in script._pending_input_files.items():
+        if parked.casefold() != path.casefold() or already == text:
+            continue
+        where = (
+            repr(path)
+            if parked == path
+            else f"{parked!r}, which differs from {path!r} only in case: a "
+            "case-insensitive file system reads the two as one file"
+        )
         raise CommandArgumentError(
             f"mark_wake_edges: this script already writes a different node file to "
-            f"{path!r}. One path is one file, so the second would silently replace "
+            f"{where}. One path is one file, so the second would silently replace "
             "the first and both import lines would read whichever text won. Give "
             "this import a node file of its own"
         )
