@@ -196,6 +196,25 @@ FlightStream versions.
   enable commands ran with their effect unobserved; a disc on unsteady and
   rotor rows is not measured. `helpers.actuator_disc` refuses the profile
   route on 25.000 and 25.100 before writing anything.
+- **A custom free stream on a matrix row (G15).** `FREESTREAM: <stem>` names a
+  file of the workspace's `inputs/freestreams/`, which `pyfs-workspace init`
+  now creates: `<stem>.txt` in the manual's STRUCTURED form (a first line
+  `Npts Mpts`, then Npts x Mpts rows `x y z vx vy vz`) or `<stem>.dat` in its
+  UNSTRUCTURED form (the rows alone), a velocity field over the YZ plane of the
+  global frame in m and m/s, converted in no way. Every run type writes
+  `SET_FREESTREAM CUSTOM STRUCTURED` or `UNSTRUCTURED` and the file's absolute
+  path in place of `SET_FREESTREAM CONSTANT`, once for a steady sweep, and
+  nothing else of the script moves. The file is resolved at plan, read where it
+  lives and hashed into the record's `inputs_sha256`; a case written in Python
+  states it in `SimCase.freestream_profile`. The plan refuses, by name, a stem
+  the folder does not hold or holds as both forms, the key on a `LEGACY` row,
+  the key beside a non-zero or swept body rate (a run has one
+  `SET_FREESTREAM`), and a file not in its form, naming the file, the line and
+  what the form asks. The CUSTOM form has run on no build; the licensed probe
+  T14 (rows 5011 to 5014 of `tests/tier3_licensed/matriz_gui.fs`, on 26.124)
+  measures whether the solver reads the file in m/s as written and whether it
+  still turns a custom field by the row's angle of attack. A custom field on an
+  unsteady or rotor row is not measured.
 
 - **`pyfs-matrix post --additional-pproc` extracts more from a finished point
   without solving it again** (G12, FR-111). A row may state `ADDITIONAL_PPROC:

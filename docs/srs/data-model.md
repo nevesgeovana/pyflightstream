@@ -236,6 +236,7 @@ The managed folder tree of a campaign:
     setups/          named solver-setup presets
     pproc/           post-processing artifacts (named boundary groups and the product tables; groups/ until 0.11.0)
     profiles/        input profiles (e.g. actuator loading shapes)
+    freestreams/     custom free-stream fields a row's FREESTREAM names (G15): <stem>.txt or <stem>.dat
     hpc/             how a cluster is asked to run a job; read on Linux
     executables.toml the build-id to executable registry, with an
                      optional declared version per build

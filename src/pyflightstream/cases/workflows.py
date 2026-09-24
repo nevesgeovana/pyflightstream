@@ -154,6 +154,9 @@ __all__ = [
     "ADVANCE_RATIO_VARIABLE",
     "BLADES_VARIABLE",
     "PROFILE_VARIABLE",
+    "FREESTREAM_DIR",
+    "FREESTREAM_FORMS",
+    "FREESTREAM_VARIABLE",
     "DELTA_THETA_VARIABLE",
     "DELTA_TIME_VARIABLE",
     "EXPORT_UNSTEADY_AFTER_ITER_VARIABLE",
@@ -587,6 +590,27 @@ ACTUATOR_KEYS: tuple[str, ...] = (
     ACTUATOR_RPM_VARIABLE,
     ACTUATOR_THRUST_VARIABLE,
     PROFILE_VARIABLE,
+)
+
+#: G15 (0.27.0): THE CUSTOM FREE STREAM OF A ROW. The stem of a file of the
+#: workspace's ``inputs/freestreams/``, a velocity field over the YZ plane of
+#: the GLOBAL frame that the run writes as ``SET_FREESTREAM CUSTOM`` in place of
+#: ``CONSTANT``. The workspace resolves it to the absolute path on
+#: :attr:`~pyflightstream.cases.SimCase.freestream_profile` when the row binds.
+#: Registered on every run type, since every run type writes its free stream
+#: through :func:`_free_stream`; refused on a LEGACY row, whose recipe writes
+#: its own, and beside a body rate, which writes ``ROTATION``: a run has ONE
+#: ``SET_FREESTREAM``.
+FREESTREAM_VARIABLE = "FREESTREAM"
+#: The folder of the workspace's ``inputs/`` a ``FREESTREAM`` names a file of.
+FREESTREAM_DIR = "freestreams"
+#: The two forms of a custom free-stream file, by the extension the 26.124
+#: manual ties each to: a ``*.txt`` is STRUCTURED, a first line ``Npts Mpts``
+#: and Npts x Mpts rows ``x y z vx vy vz``; a ``*.dat`` is UNSTRUCTURED, one
+#: such row per vertex and no header. The extension is the file's statement of
+#: its form, so a row never states the form separately.
+FREESTREAM_FORMS: Mapping[str, str] = MappingProxyType(
+    {".txt": "STRUCTURED", ".dat": "UNSTRUCTURED"}
 )
 
 #: G12 (0.27.0): THE ADDITIONAL POST OF A ROW. One pproc id, read by
@@ -5803,8 +5827,207 @@ def _turning_rate(case: SimCase) -> tuple[str, str, float] | None:
     return turning[0]
 
 
-def _free_stream(case: SimCase, script: Script, frames: Frames) -> None:
-    """Emit the free-stream definition: CONSTANT, or ROTATION where a rate turns it.
+#: What each form of a custom free-stream file is, in the words a refusal
+#: ends on, so a refused user reads the form beside the line that broke it.
+_FREESTREAM_FORM_TEXT: Mapping[str, str] = MappingProxyType(
+    {
+        "STRUCTURED": (
+            "The manual's STRUCTURED form (a .txt) is a first line 'Npts Mpts', two "
+            "positive integers, then Npts x Mpts rows 'x y z vx vy vz', the first index "
+            "outer and the second inner, in m and m/s in the global frame."
+        ),
+        "UNSTRUCTURED": (
+            "The manual's UNSTRUCTURED form (a .dat) is one row 'x y z vx vy vz' per "
+            "vertex and no header, in m and m/s in the global frame."
+        ),
+    }
+)
+
+#: A number as the manual prints one: a sign, digits with a decimal point, an
+#: exponent. Nothing a solver's reader might not take: no underscore, no word.
+_FIELD_NUMBER = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
+#: A count of the STRUCTURED header: digits, and nothing a float would carry.
+_FIELD_COUNT = re.compile(r"\+?\d+")
+
+#: The sentence both refusals of a custom field beside a body rate end on.
+_ONE_FREE_STREAM = (
+    "A run has one SET_FREESTREAM: the custom field its file describes (CUSTOM) or the "
+    "free stream turning at a body rate (ROTATION), never both. Drop the rate, or the "
+    "custom free stream."
+)
+
+
+@dataclass(frozen=True)
+class _RowFreestream:
+    """The custom free stream a row states (G15), resolved and read before emission."""
+
+    path: str
+    form: str
+
+
+def _read_custom_freestream(path: str, form: str) -> None:
+    """Read a custom free-stream file against the manual's form, or refuse naming the line (G15).
+
+    THE 26.124 MANUAL IS THE ONLY SOURCE of the form, and every check here is
+    one of its sentences: the field varies within the YZ plane of the global
+    frame, so every row states one x and at least two distinct y and two
+    distinct z; a STRUCTURED file opens with ``Npts Mpts``, two positive
+    integers, and holds exactly Npts x Mpts rows; every row is six numbers
+    ``x y z vx vy vz``. A blank line carries nothing and is read past. Nothing
+    is converted: the file is in metres and metres per second in the global
+    frame, as the simulation is, and the licensed probe T14 measures what the
+    solver makes of it.
+
+    Each refusal names the file, the line (1-based, blank lines counted) and
+    what the form asks, since the file is the user's and the line is where
+    they will look.
+    """
+    what = _FREESTREAM_FORM_TEXT[form]
+    where = f"the custom free stream {path}"
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        raise CampaignConfigError(f"{where} cannot be read: {error}. {what}") from error
+    lines = [
+        (number, line.strip())
+        for number, line in enumerate(text.splitlines(), start=1)
+        if line.strip()
+    ]
+    if not lines:
+        raise CampaignConfigError(f"{where} holds no row. {what}")
+    header: tuple[int, int, int] | None = None
+    if form == "STRUCTURED":
+        (number, first), *lines = lines
+        counts = first.split()
+        if len(counts) != 2 or not all(
+            _FIELD_COUNT.fullmatch(count) and int(count) > 0 for count in counts
+        ):
+            raise CampaignConfigError(
+                f"{where}, line {number}: {first!r} is not 'Npts Mpts', two positive "
+                f"integers. {what}"
+            )
+        header = (number, int(counts[0]), int(counts[1]))
+    rows: list[tuple[int, list[float]]] = []
+    for number, line in lines:
+        tokens = line.split()
+        if len(tokens) != 6:
+            raise CampaignConfigError(
+                f"{where}, line {number}: {line!r} is not six numbers 'x y z vx vy vz' (it "
+                f"holds {len(tokens)}). {what}"
+            )
+        values = [float(token) if _FIELD_NUMBER.fullmatch(token) else math.nan for token in tokens]
+        for token, value in zip(tokens, values, strict=True):
+            if not math.isfinite(value):
+                raise CampaignConfigError(
+                    f"{where}, line {number}: {token!r} is not a finite number; each row is "
+                    f"six finite numbers 'x y z vx vy vz'. {what}"
+                )
+        rows.append((number, values))
+    if header is not None and len(rows) != header[1] * header[2]:
+        number, npts, mpts = header
+        raise CampaignConfigError(
+            f"{where}, line {number}: 'Npts Mpts' = {npts} {mpts} asks for {npts * mpts} rows "
+            f"and the file holds {len(rows)}. {what}"
+        )
+    first_number, first_values = rows[0]
+    for number, values in rows[1:]:
+        if values[0] != first_values[0]:
+            raise CampaignConfigError(
+                f"{where}, line {number}: x = {values[0]:g} where line {first_number} states "
+                f"x = {first_values[0]:g}. The field varies within the YZ plane of the global "
+                f"frame, so every row states the one x of that plane. {what}"
+            )
+    span = (
+        f"lines {rows[0][0]} to {rows[-1][0]} state"
+        if len(rows) > 1
+        else f"line {rows[0][0]} states"
+    )
+    for axis, column in (("y", 1), ("z", 2)):
+        distinct = {values[column] for _, values in rows}
+        if len(distinct) < 2:
+            raise CampaignConfigError(
+                f"{where}: {span} one {axis} ({next(iter(distinct)):g}). The field varies "
+                "within the YZ plane of the global frame, so its rows state at least two "
+                f"distinct y and two distinct z. {what}"
+            )
+
+
+def _the_custom_freestream(case: SimCase) -> _RowFreestream | None:
+    """Resolve and read the row's custom free stream, or refuse naming why (G15).
+
+    CALLED BEFORE THE FIRST EMISSION by every builder that writes a free
+    stream, so a row whose field cannot be written is refused with nothing
+    written; the plan builds every point's script, so this is the plan's
+    refusal too. The statement is the case's ``freestream_profile``, the
+    file's absolute path, which the workspace binds from a row's
+    ``FREESTREAM`` and a case built in Python sets itself. A case stating
+    neither returns None and writes the free stream it always wrote.
+
+    Refused, each by name: the key with no resolved file; a key and a file
+    of two stems; a swept body rate or a non-zero one, since each writes
+    ``ROTATION`` and a run has one ``SET_FREESTREAM``; a file that is neither
+    of the two forms the manual ties to an extension, or no longer there; and
+    a file not in its form (:func:`_read_custom_freestream`).
+    """
+    stem = _variable(case, FREESTREAM_VARIABLE)
+    path = case.freestream_profile
+    if stem is None and path is None:
+        return None
+    if path is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {FREESTREAM_VARIABLE}: {stem} and carries no resolved "
+            f"file. A matrix row's {FREESTREAM_VARIABLE} is resolved against the workspace's "
+            f"inputs/{FREESTREAM_DIR}/ when the row binds; a case built in Python sets "
+            "freestream_profile to the file's absolute path."
+        )
+    file = Path(path)
+    if stem is not None and stem != file.stem:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {FREESTREAM_VARIABLE}: {stem} and carries the file "
+            f"{path}, whose stem is {file.stem!r}. The key names its file by the stem; state "
+            "the two alike."
+        )
+    stated = (
+        f"{FREESTREAM_VARIABLE}: {stem}" if stem is not None else f"the custom free stream {path}"
+    )
+    if case.sweep.type in {key for key, _ in RATE_VARIABLES}:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {stated} and sweeps {case.sweep.type}. {_ONE_FREE_STREAM}"
+        )
+    turning = _turning_rate(case)
+    if turning is not None:
+        key, _, rate = turning
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {stated} and {key}: {rate:g} deg/s. {_ONE_FREE_STREAM}"
+        )
+    form = FREESTREAM_FORMS.get(file.suffix.lower())
+    if form is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the custom free stream {path} is neither a .txt (the "
+            "STRUCTURED form) nor a .dat (the UNSTRUCTURED form); the manual ties each form of "
+            "SET_FREESTREAM CUSTOM to its extension."
+        )
+    if not file.is_file():
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the custom free stream {path} is not a file. A row's "
+            f"{FREESTREAM_VARIABLE} resolves to a file of inputs/{FREESTREAM_DIR}/ when the "
+            "row binds, and the file is read where it lives."
+        )
+    _read_custom_freestream(path, form)
+    return _RowFreestream(path=path, form=form)
+
+
+def _free_stream(
+    case: SimCase, script: Script, frames: Frames, custom: _RowFreestream | None
+) -> None:
+    """Emit the free-stream definition: CUSTOM, CONSTANT, or ROTATION where a rate turns it.
+
+    A ROW STATING A CUSTOM FIELD WRITES IT (G15): ``SET_FREESTREAM CUSTOM``
+    with the form its file's extension states, and the file's absolute path
+    on the next line, in place of ``CONSTANT``. ``custom`` is what
+    :func:`_the_custom_freestream` resolved before the first emission, which
+    also refused it beside a body rate. It is a required argument, so a
+    builder cannot reach this line without having asked.
 
     A row states ONE body rate in
     deg/s, in flight-mechanics signs, and the free stream turns about the
@@ -5822,6 +6045,9 @@ def _free_stream(case: SimCase, script: Script, frames: Frames) -> None:
     not, because forward is -x and down is -z of a frame that points aft and
     up (G13, 0.27.0; RPT-052 and RPT-060 measured the sense on 26.124).
     """
+    if custom is not None:
+        helpers.free_stream(script, "CUSTOM", filetype=custom.form, profile=custom.path)
+        return
     turning = _turning_rate(case)
     if turning is None:
         helpers.free_stream(script)
@@ -9008,6 +9234,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     unsteady_export_threshold(case, conventions, version=script.version)
     _refuse_unregistered_keys(case, "steady")
     disc = _the_actuator_the_row_names(case)
+    custom = _the_custom_freestream(case)
     _raw_commands(case, script, "control")
     _custom_flags(case, script, "control")
     _raw_commands(case, script, "geometry")
@@ -9027,7 +9254,7 @@ def _build_steady(case: SimCase, script: Script, conventions: WorkflowConvention
     frames.update(_rotations(case, script, moved))
     _actuator_disc(case, script, frames, disc)
     _significant_digits(case, script)
-    _free_stream(case, script, frames)
+    _free_stream(case, script, frames, custom)
     _fluid(case, script)
     _settings(case, script)
     _script_tail(conventions, case, script, frame, unsteady=False, frames=frames)
@@ -9087,8 +9314,10 @@ def build_steady_sweep(
     unsteady_export_threshold(first, conventions, version=script.version)
     _refuse_unregistered_keys(first, "steady")
     # THE DISC IS THE ROW'S, emitted once with the setup: a steady sweep varies
-    # the attitude between points and nothing else (G06).
+    # the attitude between points and nothing else (G06). So is the custom
+    # free stream (G15).
     disc = _the_actuator_the_row_names(first)
+    custom = _the_custom_freestream(first)
     _raw_commands(first, script, "control")
     _custom_flags(first, script, "control")
     _raw_commands(first, script, "geometry")
@@ -9108,7 +9337,7 @@ def build_steady_sweep(
     frames.update(_rotations(first, script, moved))
     _actuator_disc(first, script, frames, disc)
     _significant_digits(first, script)
-    _free_stream(first, script, frames)
+    _free_stream(first, script, frames, custom)
     _fluid(first, script)
     _settings(first, script)
     _script_init(first, script, frame, frames=frames)
@@ -10290,6 +10519,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _refuse_unregistered_keys(case, "unsteady")
     _require_the_averaging_window(case, "unsteady")
     disc = _the_actuator_the_row_names(case)
+    custom = _the_custom_freestream(case)
     _raw_commands(case, script, "control")
     _custom_flags(case, script, "control")
     _raw_commands(case, script, "geometry")
@@ -10310,7 +10540,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _pproc_plots(case, script, frames)
     _pproc_probes(case, script, frames, unsteady=True, analysis=False)
     _significant_digits(case, script)
-    _free_stream(case, script, frames)
+    _free_stream(case, script, frames, custom)
     _fluid(case, script)
     stepping = unsteady_time_stepping(case)
     helpers.unsteady_solver(
@@ -10356,6 +10586,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     _refuse_unregistered_keys(case, "unsteady_rotor")
     _require_the_averaging_window(case, "unsteady_rotor")
     disc = _the_actuator_the_row_names(case)
+    custom = _the_custom_freestream(case)
     _raw_commands(case, script, "control")
     _custom_flags(case, script, "control")
     _raw_commands(case, script, "geometry")
@@ -10391,7 +10622,15 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     setup_frames = _setup_frames(case, script)
     if case.motions:
         _rotor_motions(
-            conventions, case, script, frame, rotor_frame, threshold, setup_frames, disc=disc
+            conventions,
+            case,
+            script,
+            frame,
+            rotor_frame,
+            threshold,
+            setup_frames,
+            disc=disc,
+            custom=custom,
         )
         return
     # NARROWED, not asserted: the branch above raises when this is None and
@@ -10428,7 +10667,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     _pproc_plots(case, script, frames)
     _pproc_probes(case, script, frames, unsteady=True, analysis=False)
     _significant_digits(case, script)
-    _free_stream(case, script, frames)
+    _free_stream(case, script, frames, custom)
     _fluid(case, script)
     # RESOLVED ONCE AND THREADED. The ratio was previously converted
     # twice per case, here and again for the clock, which is the saving
@@ -10507,6 +10746,7 @@ def _rotor_motions(
     setup_frames: Mapping[str, int],
     *,
     disc: _RowActuator | None = None,
+    custom: _RowFreestream | None,
 ) -> None:
     """Finish a rotor script whose row states N motions (PFS-2029.11.03).
 
@@ -10642,7 +10882,7 @@ def _rotor_motions(
     _pproc_plots(case, script, frames)
     _pproc_probes(case, script, frames, unsteady=True, analysis=False)
     _significant_digits(case, script)
-    _free_stream(case, script, frames)
+    _free_stream(case, script, frames, custom)
     _fluid(case, script)
     speeds = [rotor_speed(view) for view in views]
     for number, (view, radical) in enumerate(zip(views, radicals, strict=True), start=1):
@@ -11092,6 +11332,10 @@ _STEADY_KEYS: tuple[str, ...] = (
     # every run type emits it before the solver is initialised. What a disc
     # does on an unsteady or rotor row is not measured; the docs say so.
     *ACTUATOR_KEYS,
+    # G15: the custom free stream, on every run type, since every run type
+    # writes its free stream through `_free_stream`. What a custom field does
+    # on an unsteady or rotor row is not measured; the docs say so.
+    FREESTREAM_VARIABLE,
     # G12: the additional post's pproc, on every run type because every run
     # type saves its final .fsm (G11). No builder reads it: it is registered
     # so the row can state it, and `pyfs-matrix post --additional-pproc` is
@@ -11287,6 +11531,15 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "The profile file of the disc, which selects the custom model.",
             "the stem of a file of inputs/profiles/",
             "SET_PROP_ACTUATOR_PROFILE",
+        ),
+        FREESTREAM_VARIABLE: InputKey(
+            "A custom free stream in place of the uniform one: a velocity field over the YZ "
+            "plane of the global frame, in m and m/s, read from its file when the point is "
+            "built; refused beside a non-zero or swept body rate and on a LEGACY row.",
+            "the stem of a file of inputs/freestreams/, whose extension is its form: a .txt "
+            "is the STRUCTURED form (a first line 'Npts Mpts', then the rows), a .dat the "
+            "UNSTRUCTURED form (rows 'x y z vx vy vz' only)",
+            "SET_FREESTREAM",
         ),
         # NO COMMAND: the key reaches no line of the run's own script, and the
         # extraction's commands are verified on more builds than the one the

@@ -93,6 +93,9 @@ from pyflightstream.cases.matrix import (
 )
 from pyflightstream.cases.workflows import (
     ADDITIONAL_PPROC_VARIABLE,
+    FREESTREAM_DIR,
+    FREESTREAM_FORMS,
+    FREESTREAM_VARIABLE,
     GEOMETRY_VARIABLE,
     IGNORE_MISSING_FAMILIES_VARIABLE,
     PROFILE_VARIABLE,
@@ -1565,6 +1568,59 @@ def _resolve_actuator_profile(workspace: CampaignWorkspace, row: MatrixRow) -> s
     return str(path.resolve())
 
 
+def _resolve_freestream(workspace: CampaignWorkspace, row: MatrixRow) -> str | None:
+    """Give a row's ``FREESTREAM`` the absolute path of its file of ``inputs/freestreams/`` (G15).
+
+    THE ACTUATOR PROFILE IS THE PRECEDENT (:func:`_resolve_actuator_profile`):
+    the cell names the file by its STEM, the plan resolves it to the absolute
+    path the script names, and the file is read where it lives, never staged
+    beside the mesh; the run hashes it into the record's ``inputs_sha256``.
+
+    The EXTENSION IS THE FORM, as the manual ties them: ``<stem>.txt`` is
+    STRUCTURED and ``<stem>.dat`` UNSTRUCTURED. So the folder must hold exactly
+    one of the two, and both, or neither, is refused naming the folder and
+    what it holds. A LEGACY row stating the key is refused: its script is its
+    recipe's, which writes its own free stream, so the key would change
+    nothing about the run while reading as though it had.
+    """
+    stem = row.variables.get(FREESTREAM_VARIABLE, "")
+    if not stem:
+        return None
+    if row.workflow == LEGACY_WORKFLOW:
+        raise MatrixError(
+            f"POL {row.pol} writes LEGACY and states {FREESTREAM_VARIABLE}: {stem}. A custom "
+            "free stream is written by a run type's free-stream step, and a LEGACY row's "
+            "script is its own recipe's, which the package does not read. Name a run type in "
+            "the WORKFLOW column, or drop the key."
+        )
+    folder = Path(workspace.inputs_dir) / FREESTREAM_DIR
+    held = sorted(p.name for p in folder.iterdir() if p.is_file()) if folder.is_dir() else []
+    found = [f"{stem}{suffix}" for suffix in FREESTREAM_FORMS if f"{stem}{suffix}" in held]
+    if len(found) == 1:
+        return str((folder / found[0]).resolve())
+    if found:
+        raise InputArtifactError(
+            f"matrix row POL {row.pol}: {FREESTREAM_VARIABLE} names {stem!r}, and {folder} "
+            f"holds both {' and '.join(found)}. The extension states the form (.txt "
+            "STRUCTURED, .dat UNSTRUCTURED), so one stem names one file: rename or remove one "
+            "of them.",
+            kind="freestream",
+            artifact_id=stem,
+        )
+    forms = " nor ".join(
+        f"{stem}{suffix} (the {form} form)" for suffix, form in FREESTREAM_FORMS.items()
+    )
+    raise InputArtifactError(
+        f"matrix row POL {row.pol}: {FREESTREAM_VARIABLE} names {stem!r}, and {folder} holds "
+        f"neither {forms}"
+        + (f"; it holds {', '.join(held)}" if held else ", or holds nothing")
+        + f". A custom free stream lives in the workspace's inputs/{FREESTREAM_DIR}/ folder, "
+        "and the cell names it by its stem, without the extension.",
+        kind="freestream",
+        artifact_id=stem,
+    )
+
+
 @dataclass(frozen=True)
 class PolChange:
     """One row of a matrix that :func:`renumber_repeated_pols` moved to a new POL.
@@ -2271,6 +2327,11 @@ def resolve_matrix(
             profile = _resolve_actuator_profile(workspace, row)
             if profile is not None:
                 update["actuator_profile"] = profile
+        # G15: AND ITS CUSTOM FREE STREAM, a file of inputs/freestreams/, the
+        # same way; a LEGACY row stating one is refused there, by name.
+        freestream = _resolve_freestream(workspace, row)
+        if freestream is not None:
+            update["freestream_profile"] = freestream
         if row.motions:
             update["motions"] = [_bind_motion(workspace, record, row.pol) for record in row.motions]
         # THE FLAT ROW'S OWN HUB, bound the same way (PFS-2031.12): one rotor

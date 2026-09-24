@@ -2421,6 +2421,98 @@ simulation, which carries the disc, and emits it again nowhere. Deriving the
 disc's speed from an advance ratio and its diameter is not offered; the row
 states `ACTUATOR_RPM`.
 
+### One row, one custom free stream
+
+Since 0.27.0 a row may replace the uniform free stream with a velocity field
+read from a file (G15), the GUI's custom free stream, imported under the free
+stream's profile. The field varies within the YZ plane of the GLOBAL frame,
+which is how the solver reads it. The row names the file by its stem:
+
+```text
+FREESTREAM: shear
+```
+
+`FREESTREAM` names a file of the workspace's `inputs/freestreams/`, a folder
+`pyfs-workspace init` creates, and the extension is the form, as the solver's
+manual ties them:
+
+- `shear.txt` is the STRUCTURED form: a first line `Npts Mpts`, two positive
+  integers, then Npts x Mpts rows `x y z vx vy vz`, the rows of the first
+  index outer and those of the second inner;
+- `shear.dat` is the UNSTRUCTURED form: one row `x y z vx vy vz` per vertex,
+  and no header.
+
+```text
+3 3
+0.0 -8.0 -4.0 20.0 0.0 0.0
+0.0 -8.0  0.0 30.0 0.0 0.0
+0.0 -8.0  4.0 40.0 0.0 0.0
+0.0  0.0 -4.0 20.0 0.0 0.0
+0.0  0.0  0.0 30.0 0.0 0.0
+0.0  0.0  4.0 40.0 0.0 0.0
+0.0  8.0 -4.0 20.0 0.0 0.0
+0.0  8.0  0.0 30.0 0.0 0.0
+0.0  8.0  4.0 40.0 0.0 0.0
+```
+
+That file is a field of 30 m/s along x at z = 0, sheared by 2.5 m/s per metre
+of z, over 16 m of span and 8 m of height. THE FILE IS IN METRES AND METRES PER
+SECOND, IN THE GLOBAL FRAME, as the simulation is: nothing is converted, and
+the rows are written to the solver as they are. Whether the solver reads them
+so is what the licensed probe T14 measures (below).
+
+The script writes `SET_FREESTREAM CUSTOM STRUCTURED`, or `UNSTRUCTURED`, and
+the file's absolute path on the next line, in place of
+`SET_FREESTREAM CONSTANT`, on every run type and once for a whole steady sweep
+(`test_g15_a_row_naming_a_freestream_writes_custom_in_place_of_constant`,
+`test_g15_a_dat_file_is_the_unstructured_form`,
+`test_g15_a_steady_sweep_writes_its_field_once_with_the_setup`). Nothing else
+of the script moves, so the row's `FLIGHT_CONDITION` still writes
+`SOLVER_SET_AOA`, `SOLVER_SET_SIDESLIP` and `SOLVER_SET_VELOCITY`
+(`test_g15_the_script_differs_from_its_control_in_the_free_stream_lines_alone`).
+The file is resolved when the row is planned, to the absolute path the script
+names; it is read where it lives, never copied beside the mesh, and its sha256
+joins the record's `inputs_sha256`
+(`test_g15_a_row_resolves_inputs_freestreams_at_plan_and_the_record_hashes_it`).
+A case written in Python states the file's absolute path in
+`SimCase.freestream_profile` (`test_g15_a_case_built_in_python_states_the_file_alone`).
+
+The file is read against its form when each point is built, which the plan
+does, so a file not in it is refused before any seat, naming the file, the
+line and what the form asks: a header that is not two positive integers, a row
+count other than Npts x Mpts, a row that is not six finite numbers, rows whose
+x differ (the field lies in one YZ plane, so every row states the x of that
+plane) and rows stating a single y or a single z
+(`test_g15_a_file_not_in_the_manuals_form_is_refused_naming_the_file_and_the_line`,
+`test_g15_a_file_not_in_the_form_blocks_the_point_at_plan`). A blank line is
+read past. Refused at plan as well: a stem the folder does not hold, naming
+what it holds, and a stem written with its extension; a stem the folder holds
+as both a `.txt` and a `.dat`; the key on a `LEGACY` row, whose recipe writes
+its own free stream; and the key beside a non-zero or swept body rate, since a
+rate writes `SET_FREESTREAM ROTATION` and a run has one `SET_FREESTREAM`
+(`test_g15_a_stem_the_folder_does_not_hold_is_refused_at_plan_naming_what_it_holds`,
+`test_g15_a_stem_carried_by_both_forms_is_refused_at_plan_naming_the_folder`,
+`test_g15_the_key_on_a_legacy_row_is_refused_at_plan`,
+`test_g15_a_field_beside_a_body_rate_is_refused`). A rate written as 0 is
+straight flight and sits beside it.
+
+WHAT HAS RUN WHERE. `SET_FREESTREAM` is documented on every build, and its
+CUSTOM form has run on none: the command database records the ROTATION form
+running on 26.124 (RPT-052) and no probe of the other two. The licensed probe
+T14 runs rows 5011 to 5014 of `tests/tier3_licensed/matriz_gui.fs` on 26.124:
+a uniform field equal to the row's own speed against the CONSTANT control 5010
+at the same angle of attack, the same field at 0 deg against the CONSTANT
+control 5013, and a field sheared in z at 0 deg. It answers what nothing here
+can: whether the solver reads the file in m/s as written, and whether it still
+turns a custom field by the row's angle of attack.
+
+NOT MEASURED, until T14 reports: everything the solver does with the field.
+Beyond it: a custom field on an unsteady or a rotor row; what the solver takes
+at a point outside the file's grid, so a field should cover the body's YZ
+extent and its wake with margin; and whether a saved simulation carries the
+field, so a continuation (`RESTART`), which reopens the saved simulation and
+writes no free stream, is taken on trust, as it is for a body rate.
+
 ### One row, one geometry, turned
 
 An installed rotor's incidence is a parametric study: the same mesh, the

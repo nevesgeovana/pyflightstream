@@ -76,10 +76,11 @@ CELLS = [
     if (name, build) not in NOT_YET_RENDERED
 ]
 #: The number of tier-3 scripts of rows naming a run type: 57 measured at
-#: bff91d6, and 70 since the mesh matrix (8) and the GUI matrix (5) of 0.27.0.
+#: bff91d6, 70 since the mesh matrix (8) and the GUI matrix (5) of 0.27.0, and
+#: 74 since the GUI matrix's custom free-stream rows (4, G15).
 #: A floor, so a matrix that gains rows keeps passing and one that loses its
 #: goldens does not pass by checking nothing.
-TIER3_WORKFLOW_GOLDENS = 70
+TIER3_WORKFLOW_GOLDENS = 74
 #: The words the plan warning and the page share with these tests.
 UNSAVED = "declare no saved simulation"
 

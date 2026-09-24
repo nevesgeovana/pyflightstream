@@ -4325,6 +4325,15 @@ class SimCase(BaseModel):
         Free-stream Mach number.
     velocity : float, optional
         Free-stream velocity in m/s.
+    freestream_profile : str, optional
+        The ABSOLUTE path of a custom free-stream file (G15 of 0.27.0): a
+        velocity field over the YZ plane of the global frame, in metres and
+        metres per second, which the run writes as ``SET_FREESTREAM CUSTOM``
+        in place of ``CONSTANT``. A ``.txt`` is the manual's STRUCTURED form
+        and a ``.dat`` its UNSTRUCTURED form. A matrix row states
+        ``FREESTREAM: <stem>`` and the workspace resolves it here against
+        ``inputs/freestreams/`` when the row binds; a case built in Python
+        sets it directly. None, the default, is the uniform free stream.
     geometry : str, optional
         Path of the geometry or simulation file the recipe opens or
         imports (an ``.fsm`` for OPEN, a mesh file for IMPORT); the
@@ -4408,6 +4417,11 @@ class SimCase(BaseModel):
     reynolds: float | None = None
     mach: float | None = None
     velocity: float | None = None
+    #: THE FREE STREAM'S OWN FILE (G15), beside the free-stream state whose
+    #: uniformity it replaces: read where it lives, hashed into the run
+    #: record's ``inputs_sha256``, never copied beside the mesh. None for every
+    #: case written before 0.27.0, which renders exactly what it rendered.
+    freestream_profile: str | None = None
     geometry: str | None = None
     sweep: SweepAxis
     flight_condition: dict[str, float] = Field(default_factory=dict)
