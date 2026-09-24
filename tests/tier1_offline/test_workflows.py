@@ -4189,6 +4189,9 @@ def test_default_outputs_and_their_classification():
         "{name}_cp.txt",
         "{name}_sloads.txt",
         "{name}_probes.txt",
+        # G04 (0.27.0): the solver's residual and load plots, on every steady row.
+        "{name}_plot_residuals.txt",
+        "{name}_plot_loads.txt",
         "{name}_log.txt",
     ]
     assert "{name}_plots.txt" in default_outputs(unsteady=True)

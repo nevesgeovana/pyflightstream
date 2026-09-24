@@ -150,7 +150,9 @@ VERIFIED = {
     # The rotor-path sweep 26.123 received is not yet run on this build.
     # +1 on 2026-09-24: IMPORT_WAKE_EDGES_FROM_FILE, verified by the compat probe
     # CMP-26124_2026-09-24_wake-edge-import (the qa wing's sixteen edges): 87.
-    "26.124": 87,
+    # +2 the same day: SET_PLOT_TYPE and SAVE_PLOT_TO_FILE, verified from the
+    # compat-format transcription of RPT-067's run (CMP-26124_2026-09-24_plots): 89.
+    "26.124": 89,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the

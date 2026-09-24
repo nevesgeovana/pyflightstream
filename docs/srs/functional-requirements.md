@@ -1647,6 +1647,19 @@ nodes.
     export command the reference driver emits carries a row on 26.120 and
     on 26.123 in the command database, six of them verified.
 
+    AMENDED 0.27.0 (G04), pending with it: a steady point also saves the
+    solver's own residual and load plots, and its section Cp plot where
+    the post-processing artifact declares sections, each chosen with
+    `SET_PLOT_TYPE` and saved with `SAVE_PLOT_TO_FILE` after the other
+    exports and before the log, named for the point
+    (`_plot_residuals.txt`, `_plot_loads.txt`, `_plot_cp_sections.txt`),
+    collected and hashed like every export and never read as a source of
+    a coefficient; the artifact may deselect each; an unsteady point
+    saves none, and an artifact stating one on an unsteady row is refused
+    at plan. Measured on 26.124 (RPT-067): the files are the plotted
+    series as text, and the solve and its exports are unchanged by the
+    saves.
+
 !!! requirement "FR-52 Post-processing is declared in the pproc artifact and runs as part of the campaign <span class='srs-pending'>pending</span>"
     *Origin: feedback item #3 of 2026-09-02 and the design decision of the
     same day that the groups artifact becomes `pproc`, and the reference

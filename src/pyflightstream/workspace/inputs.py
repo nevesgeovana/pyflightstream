@@ -549,7 +549,9 @@ class PprocArtifact(PprocSpec):
     every one optional: ``[groups]`` maps each product name to one alias string;
     define several members in the reference's ``[aliases]`` table;
     ``[exports]`` which of the export kinds a point writes, where the
-    loads table and the saved simulation cannot be switched off;
+    loads table and the saved simulation cannot be switched off and, since
+    0.27.0, a steady point's solver plots (``plot_residuals``,
+    ``plot_loads``, ``plot_sections_cp``) can;
     ``[sections]``, ``[plots]`` and ``[[probes]]`` the solver definitions
     the builders emit; ``[products]`` the post-processed files written
     after the run; and, since 0.24.0, ``[phase_locked]``, ``[equations]`` and

@@ -3644,19 +3644,24 @@ def test_the_surface_index_report_writes_to_the_log_when_given_no_path():
 
 @pytest.mark.parametrize("version", ["26.100", "26.101", "26.120", "26.121"])
 def test_the_tail_of_the_edge_and_section_chapters_emits(version):
-    """Trailing edges, wake nodes, and the section deletes and exports."""
+    """Trailing edges, wake nodes, and the section deletes and exports.
+
+    The plot pair comes LAST since 0.27.0: both commands are export-phase on
+    RPT-067's measurement, and the phase guard refuses the analysis-phase
+    section commands after them.
+    """
     script = Script(version=version)
     script.emit("DETECT_TRAILING_EDGES_BY_SURFACE", surfaces=2, surface_indices=[2, 4])
     script.emit("TRAILING_EDGES_IMPORT", "trailing_edges.csv")
     script.emit("DETECT_WAKE_TERMINATION_NODES_BY_SURFACE", 2)
     script.emit("SET_VORTICITY_LIFT_MODEL", "ENABLE")
     script.emit("SET_SCENE_CONTOUR", "mach_number")
-    script.emit("SET_PLOT_TYPE", "FORCE_Z_AXIS_Y")
-    script.emit("SAVE_PLOT_TO_FILE", "Test_Plot.txt")
     script.emit("VOLUME_SECTION_WIREFRAME", 2, "ENABLE")
     script.emit("EXPORT_VOLUME_SECTION_2D_VTK", 2, "section_2d.vtk")
     script.emit("DELETE_ALL_SURFACE_SECTIONS")
     script.emit("DELETE_ALL_VOLUME_SECTIONS")
+    script.emit("SET_PLOT_TYPE", "FORCE_Z_AXIS_Y")
+    script.emit("SAVE_PLOT_TO_FILE", "Test_Plot.txt")
     golden = (GOLDENS / "tail_edges_and_sections.txt").read_text(encoding="utf-8")
     assert script.render() == golden
 

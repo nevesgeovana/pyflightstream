@@ -92,9 +92,11 @@ from pyflightstream.cases import (
     EXPANDING_FRAMES,
     EXPORT_KINDS,
     FORCE_PLOT_PARAMETERS,
+    PLOT_TYPES,
     RAW_PHASES,
     ROTOR_BLADE_ROTATION_AXIS,
     ROTOR_PLOT_GROUP_PREFIX,
+    STEADY_ONLY_EXPORT_KINDS,
     CampaignConfigError,
     CustomFlag,
     MeshOperation,
@@ -8076,8 +8078,17 @@ def surface_time_averaging(case: SimCase) -> SurfaceAveragingWindow | None:
 
 
 def _surface_export(script: Script, case: SimCase, kind: str, name: str) -> bool:
-    """Emit the surface formats with payloads, validated on the selected build."""
-    if kind == "vtk":
+    """Emit the kinds whose export is more than ``<verb>`` and a name, validated on the build.
+
+    The surface formats carry a payload. A solver plot is two commands: its
+    ``SET_PLOT_TYPE`` first, because ``SAVE_PLOT_TO_FILE`` saves whichever plot
+    is showing, then the save with the path on the line after it (RPT-067).
+    False for every other kind, which the caller emits as ``<verb>`` and a name.
+    """
+    if kind in PLOT_TYPES:
+        script.emit("SET_PLOT_TYPE", PLOT_TYPES[kind])
+        script.emit("SAVE_PLOT_TO_FILE", name)
+    elif kind == "vtk":
         variables = case.pproc.vtk_variables if case.pproc is not None else None
         helpers.export_results(script, vtk=name, vtk_variables=variables or "all")
     elif kind == "csv":
@@ -8117,7 +8128,9 @@ def _export_block(
     names = list(conventions.outputs or case.outputs)
     kinds = classify_outputs(names)
     if unsteady:
-        kinds.pop("probes", None)
+        _refuse_a_solver_plot_on_a_march(case)
+        for kind in STEADY_ONLY_EXPORT_KINDS:
+            kinds.pop(kind, None)
     if "loads" not in kinds:
         raise CampaignConfigError(
             f"case {case.sim_id!r} declares outputs {names or 'nothing'} and none of them "
@@ -8125,7 +8138,7 @@ def _export_block(
             "export suffixes). The loads table is the export this package judges a run "
             "by, so every row leaves one; the default outputs name it {point}.txt."
         )
-    if any(kind in kinds for kind in ("sections", "sectional_loads", "probes")):
+    if any(kind in kinds for kind in _UPDATED_KINDS):
         script.emit("UPDATE_ALL_SURFACE_SECTIONS")
         script.emit("COMPUTE_SURFACE_SECTIONAL_LOADS", "NEWTONS")
         # F01: only a row that still exports probe points updates them; an
@@ -8150,6 +8163,33 @@ def _export_block(
             script.emit(verb, kinds[kind])
     if declared_log:
         _export_log(conventions, case, script, claimed=(names.index(kinds["loads"]) + 1,))
+
+
+#: The kinds whose export reads the surface sections, the sectional loads or
+#: the probe points, so the three updates precede the exports when any is
+#: declared. The section Cp plot is one: it plots the sections, and a point
+#: whose pproc switched every other section export off still updates them.
+_UPDATED_KINDS: tuple[str, ...] = ("sections", "sectional_loads", "probes", "plot_sections_cp")
+
+
+def _refuse_a_solver_plot_on_a_march(case: SimCase) -> None:
+    """Refuse a solver plot a pproc states true on an unsteady row (G04, RPT-067).
+
+    An unsteady row declares none by default; a key stated true would reach no
+    line, which is the silence this package refuses rather than keeps.
+    """
+    exports = case.pproc.exports if case.pproc is not None else {}
+    stated = sorted(kind for kind in PLOT_TYPES if exports.get(kind))
+    if not stated:
+        return
+    keys = " and ".join(f"{kind} = true" for kind in stated)
+    raise CampaignConfigError(
+        f"case {case.sim_id!r}: its pproc artifact states [exports] {keys} and the row "
+        f"names the run type {case.recipe!r}. The solver's plot saves were measured on a "
+        "steady point (RPT-067), and an unsteady point already writes its force and "
+        "fluid histories as <point>_plots.txt through [plots] and [[probes]]; remove "
+        "the key or state it false."
+    )
 
 
 def _exports_its_log(case: SimCase) -> bool:
@@ -8798,9 +8838,10 @@ def action_export_lines(
         if whole_run or kind not in WHOLE_RUN_EXPORT_KINDS
     }
     if case.recipe in _UNSTEADY_RECIPES:
-        kinds.pop("probes", None)
+        for kind in STEADY_ONLY_EXPORT_KINDS:
+            kinds.pop(kind, None)
     lines: list[str] = []
-    if any(kind in kinds for kind in ("sections", "sectional_loads", "probes")):
+    if any(kind in kinds for kind in _UPDATED_KINDS):
         lines += ["UPDATE_ALL_SURFACE_SECTIONS", "COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS"]
         if "probes" in kinds:  # F01: an unsteady row has no probe points to update
             lines.append("UPDATE_PROBE_POINTS")
@@ -10524,6 +10565,8 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "EXPORT_ALL_SURFACE_SECTIONS",
             "EXPORT_SURFACE_SECTIONAL_LOADS",
             "EXPORT_PROBE_POINTS",
+            "SET_PLOT_TYPE",
+            "SAVE_PLOT_TO_FILE",
             "EXPORT_LOG",
             "CLOSE_FLIGHTSTREAM",
         ),

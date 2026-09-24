@@ -1,0 +1,38 @@
+
+
+
+
+                              FlightStream plot
+
+
+     Simulation file:                            point.fsm
+     Angle of attack (Deg)                       2.000
+     Side-slip angle (Deg)                       .000
+     Freestream velocity (m/s)                   68.058
+     Requested solver iterations                 500
+     Solver convergence limit                     1.000E-05
+     Force solver to run all iterations           F
+     Time increment (sec)                        1.000
+     Solver model:                               Subsonic (Prandtl-Glauert)
+     Solver mode:                                Steady
+     Reference velocity (m/s)                    68.058
+     Reference length (m)                        2.526
+     Reference area (m^2)                        50.000
+     Altitude (ft)                               .000
+                                                  
+     Wake refinement size (% average mesh size)  1000.000
+     Reynolds Number                             11771675.
+     Coordinate frame for analysis:              MRP
+     Current solver iteration number:            181
+----------------------------------------------------------------------------------------------------
+Lift coefficient_X, Lift coefficient_Y, Induced drag coefficient (vorticity)_X, Induced drag coefficient (vorticity)_Y, Pitching moment coefficient_X, Pitching moment coefficient_Y, 
+----------------------------------------------------------------------------------------------------
+0.1000000000000000E+01,-0.1338184218759541E-01,0.1000000000000000E+01,0.1355252715606881E-19,0.1000000000000000E+01,0.5267819336219286E-01,
+0.2000000000000000E+01,-0.6344044629892193E-02,0.2000000000000000E+01,0.1983551996374182E-04,0.2000000000000000E+01,0.6020232036180474E-01,
+0.3000000000000000E+01,0.3378008555560591E-02,0.3000000000000000E+01,0.7007071204792690E-04,0.3000000000000000E+01,0.3210251866957527E-01,
+     ----------------------------------------------------------------------------------------------------
+     Force Units: Coefficients
+     Moment Units: Coefficients
+     Software : Flightstream version 26.1, build #8172026
+     Company  : Altair
+     Date: 9/24/2026, Time: 0237 hours (local)

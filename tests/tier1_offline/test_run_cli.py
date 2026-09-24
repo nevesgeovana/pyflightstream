@@ -81,6 +81,10 @@ WRITES_LOADS = (
     # declares since 0.27.0 and no pproc artifact can switch off (G11).
     "    elif line == 'SAVEAS':\n"
     "        pathlib.Path(lines[i + 1]).write_text('FSM', encoding='utf-8')\n"
+    # The solver's residual and load plots, which a steady point declares by
+    # default since 0.27.0 (G04): the file named on the line after the save.
+    "    elif line == 'SAVE_PLOT_TO_FILE':\n"
+    "        pathlib.Path(lines[i + 1]).write_text('PLOT', encoding='utf-8')\n"
 )
 
 
@@ -457,8 +461,8 @@ def test_a_workflow_row_declaring_no_outputs_gets_the_study_export_set(tmp_path,
     Until 0.11.0 this row was refused before any solver time. Now the
     workflow row declares the study's export set by default, every kind
     hanging off the point, and the run judges each point on what it
-    declared: the stub solver writes the loads table and the saved
-    simulation alone, so every point ends FAILED_INCOMPLETE_OUTPUT naming
+    declared: the stub solver writes the loads table, the saved simulation
+    and the solver's plots alone, so every point ends FAILED_INCOMPLETE_OUTPUT naming
     the kinds it did not find, which is the refusal moving from before the
     run to the record, where a real solver that wrote all eight would have
     passed.
@@ -479,8 +483,8 @@ def test_a_workflow_row_declaring_no_outputs_gets_the_study_export_set(tmp_path,
         # this read 7001 alone, which the steady subset never exposed.
         unsteady = record.sim_id in ("7001", "7003")
         assert record.status.name == "FAILED_INCOMPLETE_OUTPUT", (
-            f"{record.run_id}: the stub wrote only the loads table and the saved simulation, "
-            "so the point cannot be complete"
+            f"{record.run_id}: the stub wrote only the loads table, the saved simulation "
+            "and the solver's plots, so the point cannot be complete"
         )
         # A failed point collects nothing, so the declared set is read off the
         # refusal, which names every declared output the run did not find.
@@ -488,7 +492,11 @@ def test_a_workflow_row_declaring_no_outputs_gets_the_study_export_set(tmp_path,
         # what the refusal names. Reading EXPORT_KINDS instead counted kinds
         # that exist and are NOT default: an unsteady row exports no probe
         # points (F01) and neither VTK nor CSV unless the pproc asks (F03).
-        written = ("{name}.txt", "{name}.fsm")
+        # The stub also writes each file a SAVE_PLOT_TO_FILE names, and only a
+        # steady point saves the solver's plots (G04 of 0.27.0).
+        written: tuple[str, ...] = ("{name}.txt", "{name}.fsm")
+        if not unsteady:
+            written += ("{name}_plot_residuals.txt", "{name}_plot_loads.txt")
         missing = [
             name.removeprefix("{name}") for name in default_outputs(unsteady) if name not in written
         ]
