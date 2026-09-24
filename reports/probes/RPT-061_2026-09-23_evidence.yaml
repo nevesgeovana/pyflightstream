@@ -1,0 +1,530 @@
+report: reports/RPT-061_where-the-wake-edge-import-reads-its-nodes_2026-09-23.md
+date: '2026-09-23'
+question: where IMPORT_WAKE_EDGES_FROM_FILE reads its node list on 26.124, and what it marks
+where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
+geometry: the tier-3 10_WING mesh, 816 faces, 16 trailing-edge edges at x = 1, z = 0
+executable_sha256:
+  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+package:
+  version: 0.27.0.dev0
+  commit: 2f3c10e
+instrument: the saved simulation's per-face trailing-edge rows (two 0/1 rows, two T/F rows) counted before and after,
+  and the edge-type row; the probe's sentinels and the solver log between them
+steps:
+- step: run0
+  moved: 'the clean wing: import the STL, save, no detection'
+  outcome: ok
+  script_sha256: 2f3ab23f0bfc6392c968e8964174e2d090418f332a5b412e70131bbef7c4140b
+  te_faces_marked: 0
+- step: c0
+  command: AUTO_DETECT_TRAILING_EDGES
+  moved: 'instrument reference: AUTO_DETECT_TRAILING_EDGES on the clean wing'
+  outcome: verified
+  log_errors: []
+  solver_said: 16 trailing edges marked on surface Wing
+  harness_detail: 'script processing continued past the command, no error between the sentinels, and the effect
+    was observed: GOAL-031 T02 instrument reference'
+  te_edges_marked: 16
+  type_code: 1,
+  script_sha256: 98428e1fe24004aa05f257a175dd23f017aaea7313b39491a1a03134955c9382
+- step: v0
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: the documented two-argument line, no path anywhere
+  outcome: broken
+  log_errors: []
+  solver_said: 'ERROR | Scripting | N/A | Error in script ''<path>'' at line 12: ''IMPORT_WAKE_EDGES_FROM_FILE VORTEX_SHEDDING
+    0.0001'' | Review command syntax and arguments.'
+  harness_detail: 'script processing aborted at the command: the log exported before it exists, the one after it
+    never appeared (END sentinel missing)'
+  te_edges_marked: null
+  type_code: null
+  script_sha256: ab084a4fdeaf6365ca5bb38dff3ef80083e59cc6fcb707c0925daa59d4884720
+- step: v1
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: two arguments, the node file's path on the next line
+  outcome: broken
+  log_errors: []
+  solver_said: 'ERROR | Scripting | N/A | Error in script ''<path>'' at line 12: ''IMPORT_WAKE_EDGES_FROM_FILE VORTEX_SHEDDING
+    0.0001'' | Review command syntax and arguments.'
+  harness_detail: 'script processing aborted at the command: the log exported before it exists, the one after it
+    never appeared (END sentinel missing)'
+  te_edges_marked: null
+  type_code: null
+  script_sha256: aee025f09a0427bacedc28f8289e38a5c61fa4995cf28b3e3c828abb940213b9
+- step: v2
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: the path as a third token, nothing on the next line
+  outcome: broken
+  log_errors:
+  - Invalid file format. Please check file for consistency.
+  solver_said: Invalid file format. Please check file for consistency.
+  harness_detail: 'the solver logged errors between the probe sentinels: Invalid file format. Please check file
+    for consistency.'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: f3895302e2f52328f52a792843b9858193328a5d1bc82fd5cfa8453fb676a58a
+- step: f1_no_units
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: v2's form; file without the units line
+  outcome: broken
+  log_errors:
+  - Invalid file format. Please check file for consistency.
+  solver_said: Invalid file format. Please check file for consistency.
+  harness_detail: 'the solver logged errors between the probe sentinels: Invalid file format. Please check file
+    for consistency.'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: b24b3f7474ca0beff063c3e562ac9ef0782e9c81cfa650666383081e7204a847
+- step: f2_no_ids
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: v2's form; file without the ids
+  outcome: broken
+  log_errors:
+  - Invalid file format. Please check file for consistency.
+  solver_said: Invalid file format. Please check file for consistency.
+  harness_detail: 'the solver logged errors between the probe sentinels: Invalid file format. Please check file
+    for consistency.'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 1409385453a95f131be2c56f6adb8c6d7fa8e2ce15b2ef36bb10f2cb70e50551
+- step: f3_bare_xyz
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: v2's form; file of count and x,y,z only
+  outcome: broken
+  log_errors:
+  - Invalid file format. Please check file for consistency.
+  solver_said: Invalid file format. Please check file for consistency.
+  harness_detail: 'the solver logged errors between the probe sentinels: Invalid file format. Please check file
+    for consistency.'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 701532adea5b22cb71466d1ef3f9ecc507ad61aa3bd982422cdf48807dbb8fcd
+- step: f4_spaces
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: v2's form; fields separated by spaces
+  outcome: broken
+  log_errors:
+  - Invalid file format. Please check file for consistency.
+  solver_said: Invalid file format. Please check file for consistency.
+  harness_detail: 'the solver logged errors between the probe sentinels: Invalid file format. Please check file
+    for consistency.'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 8e6718347491089382611c8c2acf16cfd033eaf6ace5d28bc859f1f97b14c6ac
+- step: e_csv
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: v2's form; the documented file named .csv
+  outcome: broken
+  log_errors:
+  - Invalid file format. Please check file for consistency.
+  solver_said: Invalid file format. Please check file for consistency.
+  harness_detail: 'the solver logged errors between the probe sentinels: Invalid file format. Please check file
+    for consistency.'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 1577c3e9d02b7ebeeb8e6dfdce34e4be7f1a2af96b90c69c04532eaa82136b4d
+- step: e_dat
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: v2's form; the documented file named .dat
+  outcome: broken
+  log_errors:
+  - Invalid file format. Please check file for consistency.
+  solver_said: Invalid file format. Please check file for consistency.
+  harness_detail: 'the solver logged errors between the probe sentinels: Invalid file format. Please check file
+    for consistency.'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 1461fb71fedf20ac0f8ed4fafdb3eb769976ed686cd55313b8033525169950ea
+- step: v2m
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: as v2, the path pointing at an absent file
+  outcome: broken
+  log_errors:
+  - Invalid file format. Please check file for consistency.
+  solver_said: Invalid file format. Please check file for consistency.
+  harness_detail: 'the solver logged errors between the probe sentinels: Invalid file format. Please check file
+    for consistency.'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 7af645ab9202f2c9678a488b83a0677197183c432b6b40e3797ee3af7ae0bb66
+- step: te_v
+  command: TRAILING_EDGES_IMPORT
+  moved: TRAILING_EDGES_IMPORT, path on the next line, the 9 end vertices
+  outcome: removed
+  log_errors: []
+  solver_said: ERROR | Syntax | 'TRAILING_EDGES_IMPORT' | Unrecognized command in script '<path>' at line 12 | Check
+    command spelling and syntax.
+  harness_detail: the solver refused the name as an unrecognised command, so this build does not carry it; measured,
+    not read off an edition's silence
+  te_edges_marked: null
+  type_code: null
+  script_sha256: bf5132580e7a3439ceb372bb4a424b1036bc85c8ac40439ddfc137a16b94e7e9
+- step: te_m
+  command: TRAILING_EDGES_IMPORT
+  moved: as te_v, an absent file
+  outcome: removed
+  log_errors: []
+  solver_said: ERROR | Syntax | 'TRAILING_EDGES_IMPORT' | Unrecognized command in script '<path>' at line 12 | Check
+    command spelling and syntax.
+  harness_detail: the solver refused the name as an unrecognised command, so this build does not carry it; measured,
+    not read off an edition's silence
+  te_edges_marked: null
+  type_code: null
+  script_sha256: e60afc2a8a3464a0e41729fbe53be7589ab2ba1783e7f65f5c44196ae8561a94
+- step: te_mid
+  command: TRAILING_EDGES_IMPORT
+  moved: as te_v, the 8 mid-points
+  outcome: removed
+  log_errors: []
+  solver_said: ERROR | Syntax | 'TRAILING_EDGES_IMPORT' | Unrecognized command in script '<path>' at line 12 | Check
+    command spelling and syntax.
+  harness_detail: the solver refused the name as an unrecognised command, so this build does not carry it; measured,
+    not read off an edition's silence
+  te_edges_marked: null
+  type_code: null
+  script_sha256: 811d0a5c869b9f58feb02a0f23fcd7ec9e49c2068385350f7bbd0efbb4472b52
+- step: v5
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: a third token AND the path on the next line; the documented file
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 v5'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: d5a3e30a4c2d7f385b49e411c0c98b7ae7ea9cda4f44bc459b558db8a03a942c
+- step: f5_crlf
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: v2's form; the documented file with CRLF endings
+  outcome: broken
+  log_errors:
+  - Invalid file format. Please check file for consistency.
+  solver_said: Invalid file format. Please check file for consistency.
+  harness_detail: 'the solver logged errors between the probe sentinels: Invalid file format. Please check file
+    for consistency.'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: cbe00df6417ef2f1a746fe6713fe55e737806b257abc75068d5fd2796ba55fa2
+- step: f6_vert9
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: v2's form; the 9 end vertices
+  outcome: broken
+  log_errors:
+  - Invalid file format. Please check file for consistency.
+  solver_said: Invalid file format. Please check file for consistency.
+  harness_detail: 'the solver logged errors between the probe sentinels: Invalid file format. Please check file
+    for consistency.'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 25fba0677af9f180891ff79fb9e8bf1e26bfe2d69a39560e2bb9984e7328f073
+- step: f7_zero_ids
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: v2's form; ids from 0
+  outcome: broken
+  log_errors:
+  - Invalid file format. Please check file for consistency.
+  solver_said: Invalid file format. Please check file for consistency.
+  harness_detail: 'the solver logged errors between the probe sentinels: Invalid file format. Please check file
+    for consistency.'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 96054d51a4604ee440439c9e5e9bdd534bad2cd559877a698afa5f3c7a203c61
+- step: x_meter
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: v5 with METER as the third token
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 x_meter'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 509d390579e8d792a1e942dfc49557193df814d01e39ff5ddf065479363e9dd4
+- step: x_one
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: v5 with 1 as the third token
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 x_one'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 3e0076ce990a04ffe6e9117b5fbabdf8d0d364895718d091a3b49923b4966242
+- step: x_zero
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: v5 with 0 as the third token
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 x_zero'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 13050e2519259a3eeef819639943342f258a744ae126417f1f3080d6d27f03f2
+- step: x_swapped
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: v5 with TOLERANCE before TYPE (the parameter table's order)
+  outcome: broken
+  log_errors: []
+  solver_said: 'ERROR | Scripting | N/A | Error in script ''<path>'' at line 12: ''IMPORT_WAKE_EDGES_FROM_FILE 0.0001
+    VORTEX_SHEDDING <path>'' | Review command syntax and arguments.'
+  harness_detail: 'script processing aborted at the command: the log exported before it exists, the one after it
+    never appeared (END sentinel missing)'
+  te_edges_marked: null
+  type_code: null
+  script_sha256: 35eaf2ddfa7c8a390295be53ad297773a2db819e82b4d485a11b70e635a2da05
+- step: x_tol
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: v5 with a tolerance of 0.01
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 x_tol'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: a64270ee8308361254b04136e65cb70e693e5595f4289240a02df7501316e11f
+- step: n_no_units
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: next-line form; file count / id,x,y,z
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 n_no_units'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 241b356bbaf518b4d76d454ad9fdb9b65321d48b8d42ab0c9a77fbdcaa65aeb4
+- step: n_no_ids
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: next-line form; file count / METER / x,y,z (the manual's layout without ids)
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 n_no_ids'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 6952e5d3013f50c73273ba2ce5ff05f3c1ee0d168b40ba31982bbedee1a93376
+- step: n_bare
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: next-line form; file count / x,y,z, the 8 mid-points
+  outcome: verified
+  log_errors: []
+  solver_said: 7 trailing edges imported for boundary Wing
+  harness_detail: 'script processing continued past the command, no error between the sentinels, and the effect
+    was observed: GOAL-031 T02 n_bare'
+  te_edges_marked: 7
+  type_code: 4,
+  script_sha256: dba57e4d57ee2a19a47986caeca3da1bb0dbd3a78dbf39f254eb5ddfa12ad833
+- step: n_spaces
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: next-line form; the documented file with spaces
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 n_spaces'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: c843a4e49b4c88f416eb4bf88d94b45f96c5912bbe0e501cf4b600fc9f07d114
+- step: n_vert9
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: next-line form; the documented file of the 9 end vertices
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 n_vert9'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 50635715ce130857e385e491570498eb354169a2a42935296ae8133a61531f60
+- step: n_doc_on_detected
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: next-line form; the documented file, on the auto-detected state
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 n_doc_on_detected'
+  te_edges_marked: 16
+  type_code: 1,
+  script_sha256: 87a72ee09f8a08223d55e54be4fb48ccfb775cacfd511764f7451bf55b3b09f4
+- step: b_vert9
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: next-line form; count / x,y,z of the 9 end vertices
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 b_vert9'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: eecaa970111ee5abf4e2f91a717cfa9ce2fcfd60b978d3f8d1c2c7adcc1135a4
+- step: b_dup_first
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: next-line form; count / x,y,z with the first mid-point written twice
+  outcome: verified
+  log_errors: []
+  solver_said: 8 trailing edges imported for boundary Wing
+  harness_detail: 'script processing continued past the command, no error between the sentinels, and the effect
+    was observed: GOAL-031 T02 b_dup_first'
+  te_edges_marked: 8
+  type_code: 4,
+  script_sha256: 547fc507fccadef3976199dd73025cc5c0b37995bb9033c086ce5046bb448146
+- step: b_shifted_vert9
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: next-line form; the 9 end vertices moved 10 mm aft
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 b_shifted_vert9'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: e7be5c3798bd06fcdf146aa634d8a5901c987924491609186ffaa2873841d951
+- step: b_vert17
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: next-line form; the 17 end vertices of the whole span
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 b_vert17'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: e4c4e7d3f0f83406bfd28753bca88849c74db64dc747c9a567030d88b322dc1d
+- step: u_mm
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: count / MILLIMETER / the mid-points in mm
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 u_mm'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 5ffff4b594db3608a38a2b6fdfc1cc81bfa3a7849819195ad76540413c035c55
+- step: u_inch
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: count / INCH / the mid-points in inches
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 u_inch'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 95619057d5e80aef48586f72797325a0487ff3f5bf5e0510f5214016476dd552
+- step: u_blank
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: count / an empty line / the mid-points
+  outcome: verified
+  log_errors: []
+  solver_said: 7 trailing edges imported for boundary Wing
+  harness_detail: 'script processing continued past the command, no error between the sentinels, and the effect
+    was observed: GOAL-031 T02 u_blank'
+  te_edges_marked: 7
+  type_code: 4,
+  script_sha256: 76a44d6a91262277810e0cf262e4413eaabc430e7ed959f79ef2a7a9f528bb96
+- step: u_text
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: count / a word / the mid-points
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 u_text'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: c18edcaba7fd1a3363b7e3e29d9284ae06876d8781096c2ecda3b5b6ccb20f00
+- step: s_full16
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: count / a placeholder triple / the 16 mid-points of the whole span
+  outcome: verified
+  log_errors: []
+  solver_said: 16 trailing edges imported for boundary Wing
+  harness_detail: 'script processing continued past the command, no error between the sentinels, and the effect
+    was observed: GOAL-031 T02 s_full16'
+  te_edges_marked: 16
+  type_code: 4,
+  script_sha256: 1baa41c8e32cc225e33d741486ddcbf072d726780626e983b687b116f12b5cc9
+- step: t_in
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: as s_full16 for 8 mid-points moved 0.05 mm aft (inside the 0.0001 tolerance)
+  outcome: verified
+  log_errors: []
+  solver_said: 8 trailing edges imported for boundary Wing
+  harness_detail: 'script processing continued past the command, no error between the sentinels, and the effect
+    was observed: GOAL-031 T02 t_in'
+  te_edges_marked: 8
+  type_code: 4,
+  script_sha256: 367e88e2009ba05e41ec5dd934ee2326ab886e31b7872d4df85ba0b02cbbbad5
+- step: t_out
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: as s_full16 for 8 mid-points moved 0.2 mm aft (outside the tolerance)
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 t_out'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: c6dd7be465126d12bf2e4d626bb2b994056dc777c61535932ff292d0ad7f296c
+- step: k_standard
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: s_full16 with TYPE STANDARD
+  outcome: verified
+  log_errors: []
+  solver_said: 16 trailing edges imported for boundary Wing
+  harness_detail: 'script processing continued past the command, no error between the sentinels, and the effect
+    was observed: GOAL-031 T02 k_standard'
+  te_edges_marked: 16
+  type_code: 1,
+  script_sha256: f5ee13539664dfcb27cf0255921789f1bfd13ac368879d7fef48455de7bc16d2
+- step: k_relaxed
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: s_full16 with TYPE RELAXED
+  outcome: verified
+  log_errors: []
+  solver_said: 16 trailing edges imported for boundary Wing
+  harness_detail: 'script processing continued past the command, no error between the sentinels, and the effect
+    was observed: GOAL-031 T02 k_relaxed'
+  te_edges_marked: 16
+  type_code: 2,
+  script_sha256: 07794bc1049d1dd4ccb1868f584ae196a8aeea4c9855b299567e954e5fbd693f
+- step: z_scalar
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: count / a bare 0 / the 8 mid-points
+  outcome: verified
+  log_errors: []
+  solver_said: 7 trailing edges imported for boundary Wing
+  harness_detail: 'script processing continued past the command, no error between the sentinels, and the effect
+    was observed: GOAL-031 T02 z_scalar'
+  te_edges_marked: 7
+  type_code: 4,
+  script_sha256: 78d8f3a18388b84c1a517f69621d7b4cba13588f6cfe6fe28b5c03a70cfbdade
+- step: q_mm_scaled
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: s_full16 in mm, third token MILLIMETER
+  outcome: broken
+  log_errors: []
+  solver_said: (nothing between the sentinels)
+  harness_detail: 'the command ran (script processing continued past it) but its effect was not observed; expected:
+    GOAL-031 T02 q_mm_scaled'
+  te_edges_marked: 0
+  type_code: null
+  script_sha256: 99a359d9ca8b00e8c6f9da242b5236de9150373dc769334251a158ebe4105f55
+- step: q_mm_unscaled
+  command: IMPORT_WAKE_EDGES_FROM_FILE
+  moved: s_full16 in metres, third token MILLIMETER
+  outcome: verified
+  log_errors: []
+  solver_said: 16 trailing edges imported for boundary Wing
+  harness_detail: 'script processing continued past the command, no error between the sentinels, and the effect
+    was observed: GOAL-031 T02 q_mm_unscaled'
+  te_edges_marked: 16
+  type_code: 4,
+  script_sha256: e0bbe28470885f039615b4d8775ab3c4a46252b252db49c40d7059aaad604fc0
