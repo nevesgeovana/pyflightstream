@@ -2990,8 +2990,12 @@ name, with the path or the hashes involved, when:
 - the file does not hash as its record says (`HASH_MISMATCH`, naming both
   digests,
   `test_g12_a_point_whose_saved_simulation_does_not_match_its_record_is_skipped_naming_both_hashes`);
-- the same artifact was already extracted from the same bytes
-  (`ALREADY_EXTRACTED`, `test_g12_an_extracted_point_is_not_extracted_twice`);
+- the same artifact was already extracted from the same bytes into files that
+  still hash as recorded (`ALREADY_EXTRACTED`,
+  `test_g12_an_extracted_point_is_not_extracted_twice`); an extraction whose
+  file was changed since is extracted again, as the post, which withholds its
+  products, asks
+  (`test_g12_an_extraction_whose_file_changed_is_extracted_again`);
 - the build the row names today is not the one the point ran on
   (`BUILD_CHANGED`, `test_g12_a_point_whose_build_changed_is_skipped`): a saved
   simulation is reopened on the build that saved it;

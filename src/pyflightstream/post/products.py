@@ -7113,12 +7113,11 @@ def _current_extraction(
             f"opened {extraction.fsm_sha256[:12]}; its products would describe a state "
             "nothing on disk holds"
         )
-    for name in extraction.outputs:
-        path = folder / name
-        if not path.is_file():
-            return f"stale: {path} is gone; extract the point again"
-        if extraction.outputs_sha256.get(name) != file_sha256(path):
-            return f"stale: {path} no longer hashes as its extraction recorded"
+    # ONE PREDICATE WITH THE REUSE OF THE EXTRACTION PASS, so a file refused
+    # here is one the next --additional-pproc extracts again.
+    changed = workspace.changed_extraction_file(extraction)
+    if changed is not None:
+        return f"stale: {changed}; extract the point again (pyfs-matrix post --additional-pproc)"
     return None
 
 

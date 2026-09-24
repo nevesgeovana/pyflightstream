@@ -1059,7 +1059,8 @@ class AdditionalSkip(enum.StrEnum):
     NO_SAVED_SIMULATION = "NO_SAVED_SIMULATION"
     #: The file on disk does not hash as the record says, or the record holds no hash.
     HASH_MISMATCH = "HASH_MISMATCH"
-    #: This pproc was already extracted over these bytes with this artifact.
+    #: This pproc was already extracted over these bytes with this artifact, and
+    #: every file it wrote still hashes as recorded.
     ALREADY_EXTRACTED = "ALREADY_EXTRACTED"
     #: The build the row names today is not the one the point ran on.
     BUILD_CHANGED = "BUILD_CHANGED"
@@ -1198,11 +1199,6 @@ def _latest_extractions(records: list[AdditionalRecord]) -> dict[str, Additional
     return latest
 
 
-def _outputs_present(workspace: CampaignWorkspace, record: AdditionalRecord) -> bool:
-    folder = workspace.sim_dir(record.sim_id)
-    return bool(record.outputs) and all((folder / name).is_file() for name in record.outputs)
-
-
 def _layout_of(point: RunRecord, script: Script, pproc: str) -> tuple[list[dict[str, object]], int]:
     """Return the run's own section blocks, then the extraction's, numbered on after the run's.
 
@@ -1250,7 +1246,9 @@ def plan_additional_post(
     checked in this order: the row is active, it states ``ADDITIONAL_PPROC``,
     no continuation replaced it, it is not in a queue, its saved simulation is
     on disk, that file hashes as the record says, it was not already extracted
-    over those bytes with that artifact, its build is the one the row names
+    over those bytes with that artifact into files that still hash as recorded
+    (the post's own test of an extraction, so an extraction whose file changed
+    is made again), its build is the one the row names
     today, it did not average its surface in time, and the run's recorded
     script created the frames and declared the boundaries the row gives today.
     A point passing every check is READY with its extraction script built.
@@ -1444,7 +1442,9 @@ def _plan_point(
         and done.status is ExtractionStatus.EXTRACTED
         and done.fsm_sha256 == recorded
         and done.pproc_sha256 == pproc_sha256
-        and _outputs_present(workspace, done)
+        # THE POST'S OWN PREDICATE, the hash of every file it wrote: a file the
+        # post would refuse is extracted again here, never called done.
+        and workspace.changed_extraction_file(done) is None
     ):
         return _skipped(
             point,

@@ -19,7 +19,9 @@ by a test on its link:
   sectional loads every time; one golden per pproc kind pins its bytes;
 * a recorded point is extracted into ``datapoints/DP-<point>/additional/<pid>/``
   once, hashed, from a copy of its ``.fsm``, recorded in ``additional.json``,
-  and the run's own record, manifest and files are untouched; a row without
+  and again only when a file it wrote no longer hashes as recorded, the test
+  the post withholds its products by; the run's own record, manifest and files
+  are untouched; a row without
   the key, an absent ``.fsm`` and an ``.fsm`` that does not hash as its record
   says are each skipped by name, as are a row whose frames moved since the run,
   by any line that places or moves one and under a name kept too, an older
@@ -1382,6 +1384,45 @@ def test_g12_an_extraction_whose_saved_simulation_left_the_disk_is_stale(change,
         assert "stale" in reason and str(saved[record.run_id]) in reason, reason
         assert record.fsm_sha256[:12] in reason, reason
     assert not any(entry.get("additional") for entry in document["products"].values())
+
+
+@pytest.mark.parametrize("kind", ["loads", "tecplot"])
+def test_g12_an_extraction_whose_file_changed_is_extracted_again(kind, tmp_path):
+    """One file of one extraction is truncated in place: the next pass extracts that point again.
+
+    Reuse and currency are one predicate, the hash of every file the
+    extraction wrote. The post withholds the point's products because the file
+    no longer hashes as recorded, and the next ``--additional-pproc`` launches
+    that point again instead of calling it already extracted, so its products
+    come back. The other point, whose files are intact, launches nothing. The
+    loads table is a file the products are built from; the surface solution is
+    one they index as the solver wrote it, which only that predicate reads.
+    """
+    from pyflightstream.cases import classify_outputs
+
+    workspace, matrix = a_recorded_campaign(tmp_path, additional=POST_ADDITIONAL_TOML)
+    _, first = extract(workspace, matrix, a_stub(tmp_path))
+    assert len(first) == 2 and all(record.status == "EXTRACTED" for record in first)
+    changed = first[0]
+    path = workspace.sim_dir(changed.sim_id) / classify_outputs(changed.outputs)[kind]
+    text = path.read_text(encoding="utf-8")
+    path.write_text(text[: len(text) // 2], encoding="utf-8")
+    stale = f"additional/p002/runs/{changed.extraction_id}"
+    assert stale in products_of(workspace, matrix)["skipped"], "the post took the changed file"
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    by_run = {plan.run_id: plan for plan in plans}
+    assert by_run[changed.run_id].status == "READY", (
+        by_run[changed.run_id].reason,
+        by_run[changed.run_id].message,
+    )
+    assert [plan.reason for plan in plans if plan.run_id != changed.run_id] == ["ALREADY_EXTRACTED"]
+    assert [record.run_id for record in records] == [changed.run_id]
+    assert len(stub.invocations) == 1 and records[0].status == "EXTRACTED", records[0].error
+    document = products_of(workspace, matrix)
+    assert stale not in document["skipped"], document["skipped"][stale]
+    marked = [entry for entry in document["products"].values() if entry.get("additional")]
+    assert any(changed.extraction_id in entry.get("extraction", []) for entry in marked)
 
 
 def test_g12_an_unsteady_extractions_sections_table_is_the_last_instant(tmp_path):

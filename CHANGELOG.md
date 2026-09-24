@@ -333,6 +333,14 @@ FlightStream versions.
   products published. The saved simulation on disk must now hash as the state
   extracted, as the definition of record says; otherwise each extraction of it
   is skipped under `additional/<pid>/runs/<extraction id>`, naming the path.
+- **An extraction whose file changed is extracted again** (G12). The
+  extraction pass reused an extraction whose files were merely present, while
+  the post withheld its products because a file no longer hashed as recorded,
+  so a truncated export was never extracted again and the point's additional
+  products stayed withheld whatever was rerun. Both now ask one question,
+  `CampaignWorkspace.changed_extraction_file(record)`, which hashes every file
+  an extraction wrote and names the first gone or changed; the next
+  `pyfs-matrix post --additional-pproc` extracts such a point again.
 - **`pyfs-matrix collect` finishes a submitted steady job on a machine that
   exports no log.** A steady row of several points is one job, and where the
   profile states `export_log = false` its scheduler writes ONE log of the job.

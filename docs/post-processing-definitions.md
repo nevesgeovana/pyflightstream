@@ -923,7 +923,12 @@ with the extraction in it; the old extraction is then stale, the post skips it u
 no product of the run is retired for it, and a previous additional product
 nothing current supplies is archived like a refused table. The next
 `--additional-pproc` extracts the point again
-(`test_g12_a_stale_extraction_is_skipped_and_retires_no_main_product`).
+(`test_g12_a_stale_extraction_is_skipped_and_retires_no_main_product`). The
+extraction pass reuses an extraction by the same test of its files, so one
+whose file was changed or truncated since is extracted again by the next
+`--additional-pproc` rather than called already extracted, and its products
+come back
+(`test_g12_an_extraction_whose_file_changed_is_extracted_again`).
 
 ---
 
