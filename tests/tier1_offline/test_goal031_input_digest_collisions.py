@@ -649,3 +649,26 @@ def test_collection_reads_the_solvers_own_log_where_the_job_ran(tmp_path, refuse
         assert status is RunStatus.FAILED_SCRIPT, (status, verdict)
     else:
         assert status is RunStatus.CONVERGED, (status, verdict)
+
+
+def test_a_parked_file_equal_to_a_hashed_input_leaves_it_untouched(tmp_path):
+    """The same bytes parked on a hashed input are the same file, and the writer leaves
+    the input as it is: an action script is written in text mode, and on Windows a
+    rewrite would turn the input's LF into CRLF under the digest the record keeps."""
+    geometry = tmp_path / "sims" / "sim_9010" / "inputs" / "wing.obj"
+    geometry.parent.mkdir(parents=True)
+    geometry.write_bytes(b"v 0 0 0\nv 1 0 0\n")
+    script = Script("26.124")
+    script._pending_action_scripts[str(geometry)] = "v 0 0 0\nv 1 0 0\n"
+    case = SimCase(
+        sim_id="9010",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="actions",
+        outputs=["loads_{point}.txt"],
+    )
+    recorded = {"wing.obj": file_sha256(geometry)}
+    _write_pending_files(script, tmp_path / "DP-point", case=case, recorded=recorded)
+    assert geometry.read_bytes() == b"v 0 0 0\nv 1 0 0\n"
+    assert file_sha256(geometry) == recorded["wing.obj"]

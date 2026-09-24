@@ -5671,6 +5671,7 @@ def _write_pending_files(
     # them, and the solver would run other commands than script_sha256 names.
     reserved.update({one_file(placed(str(own))): str(own) for own in run_writes})
     hashed = set(recorded.values())
+    untouched: set[str] = set()
     targets: dict[str, tuple[Path, bytes]] = {}
     for parked, content in (
         *script.pending_action_scripts.items(),
@@ -5698,6 +5699,9 @@ def _write_pending_files(
                     "the solver starts. Park it under another name; the solver was not "
                     "started and the input was not written."
                 )
+            # The same bytes are the same file, and it is LEFT AS IT IS: a text-mode
+            # rewrite would change its line ends on Windows under the kept digest.
+            untouched.add(one_file(target))
         first = targets.setdefault(one_file(target), (target, data))
         if first[1] != data:
             raise CampaignConfigError(
@@ -5710,6 +5714,8 @@ def _write_pending_files(
             )
     for action_file, action_text in script.pending_action_scripts.items():
         target = placed(action_file)
+        if one_file(target) in untouched:
+            continue
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(action_text, encoding="utf-8")
     digests: dict[str, str] = {}
@@ -5721,7 +5727,9 @@ def _write_pending_files(
     for input_file, content in script.pending_input_files.items():
         target = placed(input_file)
         target.parent.mkdir(parents=True, exist_ok=True)
-        if isinstance(content, bytes):
+        if one_file(target) in untouched:
+            pass
+        elif isinstance(content, bytes):
             target.write_bytes(content)
         else:
             target.write_text(content, encoding="utf-8")
