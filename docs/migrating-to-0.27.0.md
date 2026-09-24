@@ -78,3 +78,33 @@ product=available-exports: ...`. A warning that names none still reads
 `point=campaign product=stage`. An interrupted post's line ends `Remedy:
 correct the stated input and post again.` If you parse `post.log`, read
 `post.log.json` instead: it holds the same records as fields.
+
+## 6. A pproc can no longer switch the saved simulation off (G11)
+
+A post-processing artifact whose `[exports]` table says `simulation = false`
+is refused, as one saying `loads = false` has been. `pyfs-matrix plan` stops
+with `matrix not planned: matrix row POL <pol>: the pproc artifact at <path>
+does not validate ... the saved simulation cannot be deselected`; remove the
+key. This applies to every row whose `PPROC` names such an artifact, `LEGACY`
+rows included, where the key never had an effect. Every point of a row that
+names a run type then saves its final state as
+`datapoints/DP-<point>/P<POL>-<point>.fsm`, one `.fsm` per point on disk.
+Separately, `pyfs-matrix plan` now warns naming each `LEGACY` row whose
+`OUTPUTS` declare no `.fsm`; the warning blocks nothing.
+
+## 7. Run records carry the geometry's names, and some sections files change (R03, R04)
+
+- A manifest holding a 0.27.0 workflow record of a `.fsm` with a mesh block
+  carries `inventory`, and 0.26.0 refuses it (`extra_forbidden`); post it
+  with 0.27.0. A 0.27.0 record with no names writes no key, and 0.26.0 still
+  reads it.
+- Integrated columns now appear where 0.26.0 kept the raw ones: a stem, a
+  numbered name, `all`, a frame spelt like a rotor's. This applies to 0.25
+  and 0.26 records too, while their geometry file still matches the recorded
+  hash, and it changes those CSVs' column set.
+- A 0.24.x split may be renamed after the entry that emitted it
+  (`..._sloads_Blade1.csv` becomes `..._ACTIVE.csv`, `distribution` 2). A
+  check that lists the sections files will see the new name.
+- A multi-point steady row now writes per-distribution sections files and
+  identity columns where 0.26.0 wrote a named `#distributions` skip. A job
+  run before 0.27.0 keeps the skip; run it again.
