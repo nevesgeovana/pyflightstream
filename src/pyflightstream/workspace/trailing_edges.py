@@ -4,17 +4,27 @@ THE ROTOR FRAME IS WHERE THE CRITERION IS COMPUTED, NOT WHERE THE
 COORDINATES LAND, and this line said otherwise until a review pass on
 2026-08-20 traced two public sentences back to it. The axis and the hub
 define the spanwise and tangential directions that decide which end of a
-section is aft; the nodes returned are SELECTED MESH VERTICES, never
-transformed, so they are in the mesh's own reference frame and length
-units. A reader who believed otherwise would apply an inverse transform
-before writing the node list and mark the wrong edges, which is the
-failure this capability exists to remove.
+section is aft; the points returned are SELECTED MESH VERTICES and the
+mid-points of MESH EDGES, never transformed, so they are in the mesh's
+own reference frame and length units. A reader who believed otherwise
+would apply an inverse transform before writing the points and mark the
+wrong edges, which is the failure this capability exists to remove.
 
 Pipeline role: workspace layer. It turns a surface mesh the user already
-has into the node list a wake-edge import reads, and hands that list to
-:func:`pyflightstream.workspace.wake_edges.write_node_file`, which is the
-one artifact both documented import routes consume. The extraction is
-the last piece of a rotor campaign that the user had to do by hand.
+has into the trailing-edge points file a geometry names: the mid-point of
+every mesh edge on the trailing edge, under a unit line
+(:func:`pyflightstream.workspace.wake_edges.write_trailing_edge_points`),
+which the run converts into the node file the wake-edge import reads.
+The extraction is the last piece of a rotor campaign that the user had to
+do by hand.
+
+MID-POINTS, BECAUSE THAT IS WHAT THE IMPORT MATCHES (RPT-061). The import
+marks an edge whose mid-point lies within its tolerance of a point in
+the file, and a list of the edges' end vertices marks nothing. So
+:func:`trailing_edge_midpoints` finds the EDGES: the sections below give
+one aftmost vertex each, consecutive ones are joined by the shortest path
+along mesh edges that are the aft ridge of both their faces, and each
+edge of that path contributes its mid-point.
 
 THE CRITERION IS NOT A CREASE, AND THAT IS THE WHOLE POINT (design note
 DD-27, decided 2026-08-20). The obvious implementation is a dihedral
@@ -37,11 +47,22 @@ position:
    section's own extent, never from a global axis, which is what makes
    the answer survive twist;
 4. the trailing-edge node of the section is the AFTMOST vertex along
-   that direction, and the node list is those vertices ordered by span.
+   that direction, and the node list is those vertices ordered by span;
+5. for the mid-points, an interior mesh edge is a trailing-edge
+   CANDIDATE when the far vertex of each of its two faces lies forward of
+   it, forward meaning against the aft chord of its section with the
+   edge's own direction removed. That is a question about which side of
+   the edge the surface is on, in the rotor frame, and no angle is
+   compared with a threshold;
+6. consecutive sections' aftmost vertices are joined by the shortest
+   path through candidate edges, the chain is extended past the first
+   and last section along the one outward candidate edge while there is
+   exactly one, and the chain's edges give the mid-points.
 
-It needs vertices and a section plane. It needs no adjacency angle, no
-watertightness test and no proximity query, so it runs on a base install
-with none of this package's optional extras (``PFS-2025.20.03``).
+It needs vertices, faces and a section plane. It needs no adjacency
+angle, no watertightness test and no proximity query, so it runs on a
+base install with none of this package's optional extras
+(``PFS-2025.20.03``).
 
 WHICH END OF THE CHORD IS AFT is decided by the rotor frame and not
 guessed. A section's extent gives a LINE, which has two ends and no
@@ -60,15 +81,17 @@ naming both. Guessing a global axis is exactly how a twisted blade gets
 the wrong edge silently, which is the failure this capability exists to
 remove.
 
-WHAT IT IS NOT EVIDENCE ABOUT. Nothing here has been run against the
-solver. Whether the file this feeds is the file the import command reads
-is stated as open in
-:func:`~pyflightstream.workspace.wake_edges.write_node_file`, and this
-module changes nothing about that.
+WHAT IT IS EVIDENCE ABOUT. The mid-point criterion was scored against
+the solver's own detection stored in a saved simulation of a twisted
+blade, and finds exactly the twelve edges the solver marked there; the
+import itself was run on a straight wing (RPT-061). The twisted blade has
+not been marked by a file on a licensed machine.
 """
 
 from __future__ import annotations
 
+import heapq
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -77,13 +100,14 @@ import numpy
 
 from pyflightstream._mesh import read_mesh
 from pyflightstream.workspace.inputs import InputArtifactError
-from pyflightstream.workspace.wake_edges import write_node_file
+from pyflightstream.workspace.wake_edges import write_trailing_edge_points
 
 __all__ = [
     "DEFAULT_SECTIONS",
     "MINIMUM_SECTION_VERTICES",
     "TrailingEdge",
     "extract_trailing_edge",
+    "trailing_edge_midpoints",
     "write_trailing_edge_node_file",
 ]
 
@@ -122,8 +146,8 @@ class TrailingEdge:
 
     Coordinates are in the MESH's own length units throughout. This
     class never learns what that unit is, because the mesh file does not
-    carry one; the unit is declared when the node list is written
-    (:meth:`write_node_file`), which is where the solver reads it.
+    carry one; the unit is declared when the points file is written
+    (:func:`write_trailing_edge_node_file`).
 
     Attributes
     ----------
@@ -154,43 +178,40 @@ class TrailingEdge:
     sections: int
 
     def write_node_file(self, path: str | Path, *, unit: str, overwrite: bool = False) -> Path:
-        """Write this edge as the node list a wake-edge import reads.
+        """Refuse: a list of section vertices marks nothing.
 
-        The route ``PFS-2025.16`` names: the extraction produces
-        coordinates and
-        :func:`pyflightstream.workspace.wake_edges.write_node_file`
-        turns them into the file, with no third-party mesh type crossing
-        the boundary.
+        This wrote the extraction's vertices as the node list until 0.27.0.
+        The wake-edge import matches an edge by its MID-POINT, and a file of
+        the edges' end vertices marks nothing, in silence (RPT-061); the
+        vertices here are one per section, not even consecutive mesh
+        vertices, so no pairing of them gives the edges either. The points
+        file is written from the mesh's edges by
+        :func:`write_trailing_edge_node_file`.
 
         Parameters
         ----------
         path : str or pathlib.Path
-            Destination file.
+            The destination that is not written.
         unit : str
-            Length unit the mesh coordinates are in, one of
-            :func:`~pyflightstream.workspace.wake_edges.node_file_units`.
-            The solver reads the file in the simulation's unit and reads
-            no unit from it (RPT-061), so this must be the simulation's
-            unit as well as the mesh's; nothing here can check that,
-            which is why it is required rather than defaulted.
+            Unused.
         overwrite : bool
-            Replace an existing destination.
-
-        Returns
-        -------
-        pathlib.Path
-            The file written.
+            Unused.
 
         Raises
         ------
         InputArtifactError
-            Every refusal
-            :func:`~pyflightstream.workspace.wake_edges.write_node_file`
-            makes, unchanged: an unrecorded unit token, an existing
-            destination without ``overwrite``, and the rest.
+            Always, naming the report and the call that writes the
+            mid-points.
         """
-        return write_node_file(
-            path, self.nodes, unit=unit, simulation_unit=unit, overwrite=overwrite
+        raise InputArtifactError(
+            f"TrailingEdge.write_node_file would write {len(self.nodes)} section vertices "
+            f"to {path}, and a list of vertices marks nothing: the wake-edge import "
+            "matches an edge by its mid-point and ignores a point farther than its "
+            "tolerance, silently (RPT-061). Write the trailing-edge points file from the "
+            "mesh instead, with write_trailing_edge_node_file(mesh, path, axis=..., "
+            "hub=..., unit=...), which writes the mid-point of every trailing-edge mesh "
+            "edge",
+            kind=_KIND,
         )
 
 
@@ -237,8 +258,8 @@ def _unit_axis(value: Any) -> numpy.ndarray:
     return array / length
 
 
-def _mesh_vertices(mesh: Any) -> numpy.ndarray:
-    """Return the (n, 3) vertex array of a mesh or of a mesh file path."""
+def _loaded(mesh: Any) -> Any:
+    """Return the mesh itself, reading it first when it is a file path."""
     if isinstance(mesh, (str, Path)):
         try:
             mesh = read_mesh(mesh)
@@ -256,6 +277,11 @@ def _mesh_vertices(mesh: Any) -> numpy.ndarray:
                 "the two that usually arrive here",
                 kind=_KIND,
             ) from error
+    return mesh
+
+
+def _mesh_vertices(mesh: Any) -> numpy.ndarray:
+    """Return the (n, 3) vertex array of a LOADED mesh, or refuse."""
     vertices = getattr(mesh, "vertices", None)
     if vertices is None:
         raise InputArtifactError(
@@ -287,6 +313,32 @@ def _mesh_vertices(mesh: Any) -> numpy.ndarray:
             "the mesh carries a vertex coordinate that is not a finite number, so "
             "the spanwise coordinate of that vertex is undefined and it would fall "
             "into no section",
+            kind=_KIND,
+        )
+    return array
+
+
+def _mesh_faces(mesh: Any, vertex_count: int) -> numpy.ndarray:
+    """Return the (m, 3) triangle array of a LOADED mesh, or refuse.
+
+    The trailing-edge mid-points are of mesh EDGES, so a mesh with no
+    faces names none; and an index outside the vertices would pair
+    coordinates that are not an edge.
+    """
+    faces = getattr(mesh, "faces", None)
+    array = numpy.asarray(faces if faces is not None else (), dtype=int)
+    if array.ndim != 2 or array.shape[0] == 0 or array.shape[1] != 3:
+        raise InputArtifactError(
+            f"the mesh carries no triangular faces (their array has shape "
+            f"{tuple(array.shape)}), and a trailing edge is found as a chain of mesh "
+            "EDGES whose mid-points the import matches. A vertex cloud names no edge; "
+            "pass the blade's surface mesh",
+            kind=_KIND,
+        )
+    if int(array.min()) < 0 or int(array.max()) >= vertex_count:
+        raise InputArtifactError(
+            f"a face of the mesh names a vertex outside the {vertex_count} it carries, "
+            "so its edges join coordinates that do not exist",
             kind=_KIND,
         )
     return array
@@ -412,6 +464,21 @@ def extract_trailing_edge(
     >>> edge.nodes.shape  # doctest: +SKIP
     (20, 3)
     """
+    unit_axis, hub_point = _rotor_frame(axis, hub)
+    vertices = _mesh_vertices(_loaded(mesh))
+    cut = _sectioned(vertices, unit_axis, hub_point, sections)
+    order = numpy.asarray(cut.chosen, dtype=int)
+    return TrailingEdge(
+        nodes=vertices[order],
+        span=cut.span[order],
+        axis=unit_axis,
+        hub=hub_point,
+        sections=sections,
+    )
+
+
+def _rotor_frame(axis: Any, hub: Any) -> tuple[numpy.ndarray, numpy.ndarray]:
+    """Read the rotor axis (normalised) and the hub, or refuse naming both."""
     if axis is None or hub is None:
         missing = ", ".join(name for name, value in (("axis", axis), ("hub", hub)) if value is None)
         raise InputArtifactError(
@@ -424,10 +491,41 @@ def extract_trailing_edge(
             "remove. Pass axis=(x, y, z) and hub=(x, y, z) in the mesh's own frame",
             kind=_KIND,
         )
-    unit_axis = _unit_axis(axis)
-    hub_point = _three_vector(hub, "hub position")
-    vertices = _mesh_vertices(mesh)
+    return _unit_axis(axis), _three_vector(hub, "hub position")
 
+
+@dataclass(frozen=True)
+class _Sections:
+    """The chordwise sectioning of one blade in its rotor frame.
+
+    Attributes
+    ----------
+    span : numpy.ndarray
+        Spanwise coordinate of every vertex, shape (n,).
+    bounds : numpy.ndarray
+        The sections' span boundaries, shape (sections + 1,).
+    chords : numpy.ndarray
+        Each section's unit chord direction, pointing AFT, shape
+        (sections, 3).
+    chosen : tuple of int
+        Each section's aftmost vertex, by index, in span order.
+    """
+
+    span: numpy.ndarray
+    bounds: numpy.ndarray
+    chords: numpy.ndarray
+    chosen: tuple[int, ...]
+
+    def section_of(self, span: numpy.ndarray) -> numpy.ndarray:
+        """Return the 0-based section each spanwise coordinate falls in."""
+        last = len(self.bounds) - 2
+        return numpy.clip(numpy.searchsorted(self.bounds, span, side="right") - 1, 0, last)
+
+
+def _sectioned(
+    vertices: numpy.ndarray, unit_axis: numpy.ndarray, hub_point: numpy.ndarray, sections: Any
+) -> _Sections:
+    """Cut the span into sections, orient each chord aft, pick each aftmost vertex."""
     if not isinstance(sections, int) or isinstance(sections, bool) or sections < 2:
         raise InputArtifactError(
             f"the extraction was asked for {sections!r} chordwise sections, and a "
@@ -521,15 +619,249 @@ def extract_trailing_edge(
             "the chordwise sections no longer partition the vertices: two of them "
             f"chose the same mesh vertex out of {sections}"
         )
-
-    order = numpy.asarray(chosen, dtype=int)
-    return TrailingEdge(
-        nodes=vertices[order],
-        span=span[order],
-        axis=unit_axis,
-        hub=hub_point,
-        sections=sections,
+    return _Sections(
+        span=span, bounds=edges, chords=numpy.asarray(chords, dtype=float), chosen=tuple(chosen)
     )
+
+
+def _interior_edges(faces: numpy.ndarray) -> tuple[numpy.ndarray, numpy.ndarray]:
+    """Return every edge two faces share, and the far vertex of each face.
+
+    An edge seen by one face is a boundary of the surface and an edge
+    seen by three or more is not a surface edge anyone can call aft of
+    both its faces, so only edges shared by exactly two faces are kept.
+
+    Returns
+    -------
+    numpy.ndarray
+        The edges, shape (k, 2), as sorted vertex-index pairs.
+    numpy.ndarray
+        For each edge, the vertex of each of its two faces that is not on
+        it, shape (k, 2).
+    """
+    pairs = faces[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2)
+    far = faces[:, [2, 0, 1]].reshape(-1)
+    keys = numpy.sort(pairs, axis=1)
+    order = numpy.lexsort((keys[:, 1], keys[:, 0]))
+    keys = keys[order]
+    far = far[order]
+    fresh = numpy.ones(len(keys), dtype=bool)
+    fresh[1:] = numpy.any(keys[1:] != keys[:-1], axis=1)
+    starts = numpy.flatnonzero(fresh)
+    counts = numpy.diff(numpy.append(starts, len(keys)))
+    shared = starts[counts == 2]
+    return keys[shared], numpy.stack([far[shared], far[shared + 1]], axis=1)
+
+
+def _aft_ridge_edges(
+    vertices: numpy.ndarray,
+    faces: numpy.ndarray,
+    unit_axis: numpy.ndarray,
+    hub_point: numpy.ndarray,
+    cut: _Sections,
+) -> dict[int, list[tuple[int, float]]]:
+    """Return the trailing-edge candidate edges as an adjacency, with their lengths.
+
+    An interior edge is a candidate when the far vertex of EACH of its two
+    faces lies forward of it: forward along the aft chord of the section
+    its mid-point falls in, with the component along the edge itself
+    removed, so an edge running across the chord at an angle is judged by
+    the side its faces lie on and not by its own slant. Nothing here
+    compares an angle with a threshold (DD-27).
+    """
+    edges, far = _interior_edges(faces)
+    first = vertices[edges[:, 0]]
+    second = vertices[edges[:, 1]]
+    middle = (first + second) / 2.0
+    direction = second - first
+    length = numpy.linalg.norm(direction, axis=1)
+    usable = length > 0.0
+    direction[usable] /= length[usable][:, None]
+    offset = middle - hub_point
+    span = numpy.linalg.norm(offset - numpy.outer(offset @ unit_axis, unit_axis), axis=1)
+    chord = cut.chords[cut.section_of(span)]
+    across = chord - numpy.einsum("ij,ij->i", chord, direction)[:, None] * direction
+    size = numpy.linalg.norm(across, axis=1)
+    usable &= size > 1.0e-9
+    across[usable] /= size[usable][:, None]
+    ahead_first = numpy.einsum("ij,ij->i", vertices[far[:, 0]] - middle, across) < 0.0
+    ahead_second = numpy.einsum("ij,ij->i", vertices[far[:, 1]] - middle, across) < 0.0
+    adjacency: dict[int, list[tuple[int, float]]] = {}
+    for index in numpy.flatnonzero(usable & ahead_first & ahead_second):
+        a, b = int(edges[index, 0]), int(edges[index, 1])
+        adjacency.setdefault(a, []).append((b, float(length[index])))
+        adjacency.setdefault(b, []).append((a, float(length[index])))
+    return adjacency
+
+
+def _shortest_path(
+    adjacency: dict[int, list[tuple[int, float]]], start: int, goal: int
+) -> tuple[list[int], int] | None:
+    """Return the shortest path between two vertices, and how many share its length.
+
+    Dijkstra over the candidate edges, counting the paths of equal length
+    as it goes, so a caller can refuse a join it would otherwise pick
+    between two equal answers arbitrarily. None when no path exists.
+    """
+    best: dict[int, float] = {start: 0.0}
+    ways: dict[int, int] = {start: 1}
+    previous: dict[int, int] = {}
+    done: set[int] = set()
+    queue: list[tuple[float, int]] = [(0.0, start)]
+    while queue:
+        distance, vertex = heapq.heappop(queue)
+        if vertex in done:
+            continue
+        done.add(vertex)
+        if vertex == goal:
+            break
+        for neighbour, length in adjacency.get(vertex, ()):
+            if neighbour in done:
+                continue
+            reached = distance + length
+            slack = 1.0e-12 * max(1.0, reached)
+            known = best.get(neighbour)
+            if known is None or reached < known - slack:
+                best[neighbour] = reached
+                ways[neighbour] = ways[vertex]
+                previous[neighbour] = vertex
+                heapq.heappush(queue, (reached, neighbour))
+            elif abs(reached - known) <= slack:
+                ways[neighbour] += ways[vertex]
+    if goal not in done:
+        return None
+    path = [goal]
+    while path[-1] != start:
+        path.append(previous[path[-1]])
+    return path[::-1], ways[goal]
+
+
+def _walk_outward(
+    chain: list[int], adjacency: dict[int, list[tuple[int, float]]], span: numpy.ndarray
+) -> Iterator[tuple[bool, int]]:
+    """Yield the vertices that extend the chain past its first and last section.
+
+    From each end, the chain grows along the ONE candidate edge that moves
+    outward in span, and stops where there is none or more than one: a
+    capped tip or a split root offers a choice, and the extraction does not
+    guess between them.
+    """
+    taken = set(chain)
+    for at_root in (True, False):
+        end = chain[0] if at_root else chain[-1]
+        while True:
+            outward = [
+                neighbour
+                for neighbour, _ in adjacency.get(end, ())
+                if neighbour not in taken
+                and (span[neighbour] < span[end] if at_root else span[neighbour] > span[end])
+            ]
+            if len(outward) != 1:
+                break
+            end = outward[0]
+            taken.add(end)
+            yield at_root, end
+
+
+def trailing_edge_midpoints(
+    mesh: Any,
+    *,
+    axis: Any = None,
+    hub: Any = None,
+    sections: int = DEFAULT_SECTIONS,
+) -> numpy.ndarray:
+    """Return the mid-point of every mesh edge on a blade's trailing edge.
+
+    The form the wake-edge import matches (RPT-061): an edge is marked when
+    a point in the file lies within the tolerance of its mid-point, and the
+    edges' end vertices mark nothing. The criterion is in the module
+    docstring: the aftmost vertex of each chordwise section, joined section
+    to section along the edges that are the aft ridge of both their faces.
+
+    Parameters
+    ----------
+    mesh : str, pathlib.Path or trimesh.Trimesh
+        The blade surface, as a mesh file to read (``.obj`` or ``.stl``)
+        or as a loaded mesh. Its vertices AND faces are read.
+    axis : array_like
+        REQUIRED. Rotor axis of rotation; see :func:`extract_trailing_edge`,
+        whose sense rule is this one's.
+    hub : array_like
+        REQUIRED. A point on the axis of rotation; see
+        :func:`extract_trailing_edge`.
+    sections : int
+        Chordwise sections the span is cut into. Unlike the vertex
+        extraction it does NOT set how many points come back: every mesh
+        edge on the trailing edge gives one, whatever the count, as long as
+        each section holds a vertex of it.
+
+    Returns
+    -------
+    numpy.ndarray
+        The mid-points, shape (m, 3), in the mesh's reference frame and
+        length unit, in order along the edge from the root to the tip.
+
+    Raises
+    ------
+    InputArtifactError
+        Every refusal of :func:`extract_trailing_edge`; a mesh with no
+        triangular faces; two consecutive sections whose aftmost vertices
+        no path of candidate edges joins, or two paths of equal length
+        join (the shape of a blunt trailing edge, which is not read here);
+        and a chain that doubles back on itself.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.trailing_edges import trailing_edge_midpoints
+    >>> points = trailing_edge_midpoints(
+    ...     "blade.obj", axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0)
+    ... )  # doctest: +SKIP
+    """
+    unit_axis, hub_point = _rotor_frame(axis, hub)
+    loaded = _loaded(mesh)
+    vertices = _mesh_vertices(loaded)
+    faces = _mesh_faces(loaded, len(vertices))
+    cut = _sectioned(vertices, unit_axis, hub_point, sections)
+    adjacency = _aft_ridge_edges(vertices, faces, unit_axis, hub_point, cut)
+
+    chain = [cut.chosen[0]]
+    for position in range(len(cut.chosen) - 1):
+        found = _shortest_path(adjacency, cut.chosen[position], cut.chosen[position + 1])
+        if found is None:
+            raise InputArtifactError(
+                f"no chain of trailing-edge mesh edges joins the aftmost vertex of "
+                f"chordwise section {position + 1} of {sections} to that of section "
+                f"{position + 2}: an edge is taken as trailing when both its faces lie "
+                "forward of it, and none of those connects the two. A gap in the "
+                "mesh along the trailing edge, or sections finer than its edges, are "
+                "the usual causes; ask for fewer sections",
+                kind=_KIND,
+            )
+        path, ways = found
+        if ways > 1:
+            raise InputArtifactError(
+                f"{ways} chains of trailing-edge mesh edges of equal length join "
+                f"chordwise sections {position + 1} and {position + 2} of {sections}, "
+                "so which edges are the trailing edge cannot be told. That is the shape "
+                "of a blunt trailing edge, two aft corners per station, which this "
+                "extraction does not read",
+                kind=_KIND,
+            )
+        chain.extend(path[1:])
+    for at_root, vertex in _walk_outward(chain, adjacency, cut.span):
+        if at_root:
+            chain.insert(0, vertex)
+        else:
+            chain.append(vertex)
+    if len(set(chain)) != len(chain):
+        raise InputArtifactError(
+            "the chain of trailing-edge mesh edges passes one vertex twice, so it "
+            "doubles back rather than running along the span; ask for fewer sections, "
+            "or check the axis and the hub",
+            kind=_KIND,
+        )
+    ends = numpy.asarray(chain, dtype=int)
+    return (vertices[ends[:-1]] + vertices[ends[1:]]) / 2.0
 
 
 def _orient(
@@ -607,21 +939,22 @@ def write_trailing_edge_node_file(
     sections: int = DEFAULT_SECTIONS,
     overwrite: bool = False,
 ) -> Path:
-    """Extract a blade's trailing edge and write it as an import node list.
+    """Extract a blade's trailing edge and write it as its points file.
 
     The whole route ``PFS-2025.16`` names, in one call: read the mesh,
-    take the aftmost vertex of each chordwise section, and hand the
-    coordinates to
-    :func:`pyflightstream.workspace.wake_edges.write_node_file`. Nothing
-    of the mesh library crosses into the file: what is written is
-    coordinates.
+    find the mid-point of every mesh edge on the trailing edge
+    (:func:`trailing_edge_midpoints`), and write them under a unit line
+    (:func:`pyflightstream.workspace.wake_edges.write_trailing_edge_points`),
+    the points file a geometry names. The run converts it into the node
+    file the wake-edge import reads. Nothing of the mesh library crosses
+    into the file: what is written is coordinates.
 
     Parameters
     ----------
     mesh : str, pathlib.Path or trimesh.Trimesh
-        The blade surface; see :func:`extract_trailing_edge`.
+        The blade surface; see :func:`trailing_edge_midpoints`.
     path : str or pathlib.Path
-        Destination node file.
+        Destination points file.
     axis : array_like
         Rotor axis of rotation; see :func:`extract_trailing_edge`.
     hub : array_like
@@ -629,12 +962,11 @@ def write_trailing_edge_node_file(
         :func:`extract_trailing_edge`.
     unit : str
         Length unit the MESH coordinates are in, one of
-        :func:`~pyflightstream.workspace.wake_edges.node_file_units`.
-        Required rather than defaulted: the file declares its own unit
-        and the solver reads the coordinates in it, and nothing here can
-        read a unit out of a mesh file.
+        :func:`~pyflightstream.workspace.wake_edges.node_file_units` other
+        than OTHER, written as the file's first line. Required rather than
+        defaulted: nothing here can read a unit out of a mesh file.
     sections : int
-        Number of chordwise sections, which is the number of nodes.
+        Number of chordwise sections; see :func:`trailing_edge_midpoints`.
     overwrite : bool
         Replace an existing destination.
 
@@ -646,8 +978,8 @@ def write_trailing_edge_node_file(
     Raises
     ------
     InputArtifactError
-        Every refusal of :func:`extract_trailing_edge` and of
-        :func:`~pyflightstream.workspace.wake_edges.write_node_file`.
+        Every refusal of :func:`trailing_edge_midpoints` and of
+        :func:`~pyflightstream.workspace.wake_edges.write_trailing_edge_points`.
         The extraction runs FIRST, so a refused extraction leaves no
         file behind.
 
@@ -658,11 +990,11 @@ def write_trailing_edge_node_file(
     ... )
     >>> write_trailing_edge_node_file(
     ...     "blade.obj",
-    ...     "wake_edges.csv",
+    ...     "blade.te.txt",
     ...     axis=(0.0, 0.0, 1.0),
     ...     hub=(0.0, 0.0, 0.0),
     ...     unit="METER",
     ... )  # doctest: +SKIP
     """
-    edge = extract_trailing_edge(mesh, axis=axis, hub=hub, sections=sections)
-    return edge.write_node_file(path, unit=unit, overwrite=overwrite)
+    points = trailing_edge_midpoints(mesh, axis=axis, hub=hub, sections=sections)
+    return write_trailing_edge_points(path, points, unit=unit, overwrite=overwrite)

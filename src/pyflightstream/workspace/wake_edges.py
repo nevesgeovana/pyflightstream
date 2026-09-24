@@ -55,7 +55,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.script import CommandArgumentError
-from pyflightstream.script.helpers import render_wake_edge_node_file
+from pyflightstream.script.helpers import _plain_decimal, render_wake_edge_node_file
 from pyflightstream.workspace.inputs import InputArtifactError, PointXyz
 
 __all__ = [
@@ -71,6 +71,7 @@ __all__ = [
     "node_file_units",
     "tolerance_unit",
     "write_node_file",
+    "write_trailing_edge_points",
 ]
 
 #: The command this module's inputs are assembled for.
@@ -407,6 +408,121 @@ def node_file_units() -> tuple[str, ...]:
     return ()
 
 
+def _coordinates(nodes: object) -> numpy.ndarray:
+    """Read an (n, 3) array of finite coordinates, at least one row, or refuse."""
+    try:
+        array = numpy.asarray(nodes, dtype=float)
+    except (TypeError, ValueError) as error:
+        # Found by the adversarial pass: a string, a ragged list or an
+        # object array reached numpy and left a bare ValueError on a
+        # public name, which is the one exception shape this repository
+        # refuses (FR-39). The cause is named rather than re-worded.
+        raise InputArtifactError(
+            "the node list could not be read as an array of coordinates: "
+            f"{error}. It is an (n, 3) array of numbers, or any nested sequence "
+            "numpy can read as one; a ragged list of rows and a list of strings are "
+            "the two that usually arrive here",
+            kind="wake_edges",
+        ) from error
+    if array.ndim != 2 or array.shape[1] != 3:
+        raise InputArtifactError(
+            f"the node list has shape {tuple(array.shape)}, and a node file carries one "
+            "row of three coordinates per node, so the array is (n, 3). An (n, 2) array "
+            "is usually a planar extraction that lost its third component, and a "
+            "one-dimensional one is usually a flattened list",
+            kind="wake_edges",
+        )
+    if array.shape[0] == 0:
+        raise InputArtifactError(
+            f"the node list carries {array.shape[0]} node coordinates, and the imported "
+            "list is what names the edges to mark. With none the solver marks nothing "
+            "and reports nothing, so the run completes with no wake where the wake was "
+            "the point",
+            kind="wake_edges",
+        )
+    finite = numpy.isfinite(array)
+    if not finite.all():
+        row = int(numpy.argmax(~finite.all(axis=1))) + 1
+        raise InputArtifactError(
+            f"the node list carries a coordinate that is not a finite number, first at "
+            f"row {row} of {array.shape[0]}. It would be written into the file as a "
+            "word, and the solver would read that word as a coordinate. A NaN here is "
+            "usually an extraction that produced no intersection for one node",
+            kind="wake_edges",
+        )
+    return array
+
+
+def _refuse_an_existing_file(destination: Path, overwrite: bool) -> None:
+    """Refuse to replace a file that exists unless asked to."""
+    if destination.exists() and not overwrite:
+        raise InputArtifactError(
+            f"{destination} already exists. Pass overwrite=True to replace it "
+            "deliberately, or write under a name that carries the geometry: one path is "
+            "one file, so a second node list written here would silently win and both "
+            "scripts citing it would import whichever ran last",
+            kind="wake_edges",
+        )
+
+
+def write_trailing_edge_points(
+    path: str | Path,
+    points: object,
+    *,
+    unit: str,
+    overwrite: bool = False,
+) -> Path:
+    """Write a trailing-edge points file: its unit, then one mid-point per line.
+
+    The PACKAGE-SIDE file a geometry names for its trailing edge, which a
+    user may also write by hand. It is not the file the solver reads: the
+    run reads it, checks every point against the mesh, converts the points
+    to the simulation's unit and writes the solver's node file from them
+    (:func:`write_node_file`). So the unit is stated here, on the first
+    line, where the solver's file carries none.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        Destination file.
+    points : array_like
+        The mid-points of the mesh edges on the trailing edge, shape (n, 3),
+        in ``unit``.
+    unit : str
+        The unit the points are in, one of :func:`node_file_units` other
+        than ``OTHER``, written alone on the first line.
+    overwrite : bool
+        Replace an existing destination.
+
+    Returns
+    -------
+    pathlib.Path
+        The file written.
+
+    Raises
+    ------
+    InputArtifactError
+        On the refusals of :func:`write_node_file`: no points, a shape
+        other than (n, 3), a coordinate that is not finite, a unit with no
+        scale, or an existing file without ``overwrite``. Each fires before
+        the file is opened.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.wake_edges import write_trailing_edge_points
+    >>> written = write_trailing_edge_points(
+    ...     tmp_path / "wing.te.txt", [(1.0, -3.75, 0.0)], unit="METER"
+    ... )  # doctest: +SKIP
+    """
+    destination = Path(path)
+    array = _coordinates(points)
+    length_scale(unit, unit)
+    _refuse_an_existing_file(destination, overwrite)
+    rows = [",".join(_plain_decimal(float(value)) for value in point) for point in array]
+    destination.write_text("\n".join([unit, *rows]) + "\n", encoding="utf-8")
+    return destination
+
+
 def write_node_file(
     path: str | Path,
     nodes: object,
@@ -492,58 +608,12 @@ def write_node_file(
     ... )  # doctest: +SKIP
     """
     destination = Path(path)
-    try:
-        array = numpy.asarray(nodes, dtype=float)
-    except (TypeError, ValueError) as error:
-        # Found by the adversarial pass: a string, a ragged list or an
-        # object array reached numpy and left a bare ValueError on a
-        # public name, which is the one exception shape this repository
-        # refuses (FR-39). The cause is named rather than re-worded.
-        raise InputArtifactError(
-            "the node list could not be read as an array of coordinates: "
-            f"{error}. It is an (n, 3) array of numbers, or any nested sequence "
-            "numpy can read as one; a ragged list of rows and a list of strings are "
-            "the two that usually arrive here",
-            kind="wake_edges",
-        ) from error
-    if array.ndim != 2 or array.shape[1] != 3:
-        raise InputArtifactError(
-            f"the node list has shape {tuple(array.shape)}, and a node file carries one "
-            "row of three coordinates per node, so the array is (n, 3). An (n, 2) array "
-            "is usually a planar extraction that lost its third component, and a "
-            "one-dimensional one is usually a flattened list",
-            kind="wake_edges",
-        )
-    if array.shape[0] == 0:
-        raise InputArtifactError(
-            f"the node list carries {array.shape[0]} node coordinates, and the imported "
-            "list is what names the edges to mark. With none the solver marks nothing "
-            "and reports nothing, so the run completes with no wake where the wake was "
-            "the point",
-            kind="wake_edges",
-        )
-    finite = numpy.isfinite(array)
-    if not finite.all():
-        row = int(numpy.argmax(~finite.all(axis=1))) + 1
-        raise InputArtifactError(
-            f"the node list carries a coordinate that is not a finite number, first at "
-            f"row {row} of {array.shape[0]}. It would be written into the file as a "
-            "word, and the solver would read that word as a coordinate. A NaN here is "
-            "usually an extraction that produced no intersection for one node",
-            kind="wake_edges",
-        )
+    array = _coordinates(nodes)
     # Both units are checked before anything is opened: the solver reads the
     # coordinates in the simulation's unit and no unit from the file, so a
     # token with no scale leaves nothing to convert by.
     scale = length_scale(unit, simulation_unit)
-    if destination.exists() and not overwrite:
-        raise InputArtifactError(
-            f"{destination} already exists. Pass overwrite=True to replace it "
-            "deliberately, or write under a name that carries the geometry: one path is "
-            "one file, so a second node list written here would silently win and both "
-            "scripts citing it would import whichever ran last",
-            kind="wake_edges",
-        )
+    _refuse_an_existing_file(destination, overwrite)
 
     try:
         text = render_wake_edge_node_file((array * scale).tolist())
