@@ -712,6 +712,57 @@ def test_a_points_file_named_like_the_node_file_is_left_as_its_author_wrote_it(t
     assert _points_in(_named_node_file(workspace, record)) == MIDPOINTS
 
 
+@pytest.mark.parametrize("sweep", ["0.0", "0.0,2.0"], ids=["one-point", "a-steady-job"])
+@pytest.mark.parametrize(
+    "points_file",
+    ["wing.te.txt", "wing.wake_nodes.txt"],
+    ids=["points-file-of-its-own-name", "points-file-named-like-the-node-file"],
+)
+def test_reconstruct_verifies_the_node_file_where_the_run_wrote_it(tmp_path, sweep, points_file):
+    """The node file is an input the record hashes, and it is written in the folder
+    the run ran in, never among the simulation's staged inputs. A reconstruction
+    checks it there: it matches while it is the file the run wrote, differs once
+    edited, and is missing once deleted, even where the input library holds a
+    points file of the same name, which the staged inputs lead to."""
+    from pyflightstream.run import reconstruct
+
+    workspace = _library(tmp_path, f'[trailing_edges]\nfile = "{points_file}"\n')
+    (workspace.inputs_dir / "geometries" / points_file).write_text(_points_text(), encoding="utf-8")
+    stub = tmp_path / "stub_solver.py"
+    stub.write_text(STUB, encoding="utf-8")
+    log = tmp_path / "log_to_write.txt"
+    log.write_text(f"{_SIXTEEN_ON_WING}\n", encoding="utf-8")
+    run_matrix(
+        write_matrix(
+            tmp_path / "raw_mesh.fs",
+            [
+                ROW.format(build="26.124", outputs=WITH_LOG, geometry="wing.stl", tail="").replace(
+                    "| AL | 0.0 |", f"| AL | {sweep} |"
+                )
+            ],
+        ),
+        workspace,
+        name="matrix",
+        default_fs_version="26.124",
+        recipes=RECIPES,
+        assess=_converged_reading_the_exported_log,
+        executor=_Solver(stub, log),
+        recipe_registry=workflow_registry(),
+    )
+    (record,) = workspace.read_manifest()
+    assert record.status is RunStatus.CONVERGED, (record.status, record.error)
+    key = "inputs/wing.wake_nodes.txt"
+    rebuilt = reconstruct(record, workspace=workspace)
+    assert rebuilt.verified[key] == "match", rebuilt.verified
+    assert rebuilt.faithful, rebuilt.verified
+
+    node_file = _named_node_file(workspace, record)
+    node_file.write_text("16\n0,0,0\n", encoding="utf-8")
+    assert reconstruct(record, workspace=workspace).verified[key] == "differs"
+    node_file.unlink()
+    assert reconstruct(record, workspace=workspace).verified[key] == "missing"
+
+
 if __name__ == "__main__":  # pragma: no cover - the golden writer, run by hand
     import tempfile
 

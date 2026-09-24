@@ -47,7 +47,7 @@ from pyflightstream.cases.workflows import build_script, build_steady_sweep, wor
 from pyflightstream.run import CampaignErrors, PlanStatus
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.script import CommandArgumentError, Script, helpers
-from pyflightstream.workspace import InputArtifactError, RunStatus
+from pyflightstream.workspace import CampaignWorkspace, InputArtifactError, RunStatus
 from pyflightstream.workspace.inputs import resolve_reference
 from pyflightstream.workspace.matrix import resolve_matrix
 from tests.tier1_offline.test_goal024_point_name import _matrix, _plan
@@ -581,3 +581,24 @@ def test_g06_a_collected_steady_job_judges_each_point_by_its_own_log(tmp_path):
     )
     assert outcome.record.status is RunStatus.FAILED_SCRIPT, outcome.record.error
     assert refused in outcome.record.error, outcome.record.error
+
+
+@pytest.mark.parametrize("values", ["0.0", "0.0,2.0"], ids=["one-point", "a-steady-job"])
+def test_g06_reconstruct_verifies_the_profile_where_the_run_read_it(tmp_path, values):
+    """The profile is hashed where it lives, in the workspace's inputs/profiles/,
+    and read there; it is never staged among the simulation's inputs. A
+    reconstruction checks it where the script named it: it matches while
+    unchanged, differs once edited and is missing once deleted."""
+    from pyflightstream.run import reconstruct
+
+    record, profile, _ = _run_a_profile_row(tmp_path, values=values, refused=False)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    assert record.inputs_sha256.get("prop_ct.txt") == file_sha256(profile)
+    rebuilt = reconstruct(record, workspace=workspace)
+    assert rebuilt.verified["inputs/prop_ct.txt"] == "match", rebuilt.verified
+    assert rebuilt.faithful, rebuilt.verified
+
+    profile.write_text("0.10 9.0\n", encoding="utf-8")
+    assert reconstruct(record, workspace=workspace).verified["inputs/prop_ct.txt"] == "differs"
+    profile.unlink()
+    assert reconstruct(record, workspace=workspace).verified["inputs/prop_ct.txt"] == "missing"

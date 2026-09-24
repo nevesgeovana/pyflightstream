@@ -116,6 +116,15 @@ not" are different problems: the first says somebody edited a result,
 the second says the run you are looking at is not the run that produced
 it.
 
+Each input the record hashes is checked where the run read it, under the
+key `inputs/<name>`: the staged geometry in the simulation's `inputs/`, a
+file the script names by its path (an actuator profile in the workspace's
+`inputs/profiles/`) at that path, and a file the run wrote beside its script
+(the trailing-edge node file, the unsteady action programs) in the folder it
+ran in, `rebuilt.cwd`. An action script rewritten during the run reads
+`"differs"`, because the record hashes the empty file the run wrote before
+the solver started.
+
 The executable is checked too, when the record captured its hash. A
 solver upgraded in place is the quietest way for a reproduction to
 diverge, because nothing else about the run folder changes.

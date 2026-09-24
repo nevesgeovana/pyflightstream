@@ -485,6 +485,20 @@ FlightStream versions.
   failure, whichever assessor judged it, on a local point, on each point of a
   steady row run as one job, and at `pyfs-matrix collect`; its `error` quotes
   the line, names the file and says the disc did not use it (G06).
+- **`reconstruct()` checks each recorded input where the run read it.** It
+  looked for every name of a record's `inputs_sha256` in the simulation's
+  `inputs/`, where only the staged geometry is: the trailing-edge node file
+  (written in the folder the point ran in), the actuator profile (read in the
+  workspace's `inputs/profiles/`) and the unsteady action and clock programs
+  (written in the folder the point ran in) all read `missing`, so no record
+  carrying one was `faithful`, and a node file whose name the input library
+  also held read `differs` against a file the run never read. Each input is
+  now checked at the path the script names for it, among the staged inputs,
+  or in the folder the run ran in (the record's `cwd`), reads `missing` only
+  when it is not there, and still reads `differs` once changed; the keys of
+  `Reconstruction.verified` are unchanged. An action script rewritten during
+  the run reads `differs`, since the record hashes the empty file the run
+  wrote.
 
 ### Changed
 

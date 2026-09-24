@@ -2062,8 +2062,10 @@ class Reconstruction:
         Text of the generated script, read from the workspace.
     verified : dict of str to str
         One entry per artifact whose recorded hash was checked against
-        the file on disk today: the script, each staged input, each
-        collected output, and the solver executable. Three values, and
+        the file on disk today: the script, each recorded input (keyed
+        ``inputs/<name>`` by its name in ``inputs_sha256``, and checked
+        where the run read it, see :func:`reconstruct`), each collected
+        output, and the solver executable. Three values, and
         the third exists because collapsing it into the second was
         wrong: ``"match"``, ``"differs"`` (the file is there and its
         bytes moved, so somebody edited a result), and ``"missing"``
@@ -2122,7 +2124,13 @@ def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Recons
     -------
     Reconstruction
         The invocation, the script text, and a per-artifact verdict on
-        whether the files still hash to what the record says.
+        whether the files still hash to what the record says. Each
+        recorded input is checked where the run read it: at the path the
+        script names for it, among the simulation's staged inputs, or in
+        the folder the run ran in (the record's ``cwd``), where the run
+        writes the files it parks beside the script (the trailing-edge node
+        file, the unsteady action programs). It reads ``"missing"`` only
+        when the file is not where the run read it.
 
     Raises
     ------
@@ -2183,9 +2191,18 @@ def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Recons
             return "missing"
         return "match" if digest == recorded else "differs"
 
+    script_text = script.read_text(encoding="utf-8")
     verified = {record.script_path: state(script, record.script_sha256)}
+    # EACH INPUT WHERE THE RUN READ IT. Only the geometry is staged in the
+    # simulation's inputs/; the trailing-edge node file and the action programs
+    # are written in the folder the run ran in, and the actuator profile is read
+    # where it lives. Looked for among the staged inputs, every one of them read
+    # "missing", and a node file whose name the input library also holds read
+    # "differs" against a file the run never read.
+    work_dir = Path(record.cwd) if record.cwd else sim
+    named = _paths_a_script_names(script_text, work_dir)
     for name, digest in record.inputs_sha256.items():
-        verified[f"inputs/{name}"] = state(sim / "inputs" / name, digest)
+        verified[f"inputs/{name}"] = state(_where_the_run_read(name, sim, work_dir, named), digest)
     for name, digest in record.outputs_sha256.items():
         verified[name] = state(sim / name, digest)
     if record.fs_exe and record.fs_exe_sha256:
@@ -2194,9 +2211,61 @@ def reconstruct(run: RunRecord | str, *, workspace: CampaignWorkspace) -> Recons
         argv=tuple(record.argv),
         cwd=record.cwd or str(sim),
         timeout_s=record.timeout_s,
-        script_text=script.read_text(encoding="utf-8"),
+        script_text=script_text,
         verified=verified,
     )
+
+
+def _paths_a_script_names(script_text: str, work_dir: Path) -> list[Path]:
+    """Return every path a script names on a line of its own, as the solver resolves it.
+
+    A command that reads a file names it on the line after the command, by
+    absolute path since 0.18.1; a relative one is resolved against the folder
+    the run ran in, as the solver resolves it. A line holding whitespace is a
+    command with its arguments unless it is an absolute path.
+    """
+    named: list[Path] = []
+    for line in script_text.splitlines():
+        text = line.strip()
+        if not text:
+            continue
+        path = Path(text)
+        if path.is_absolute():
+            named.append(path)
+        elif not any(character.isspace() for character in text):
+            named.append(work_dir / path)
+    return named
+
+
+def _where_the_run_read(name: str, sim: Path, work_dir: Path, named: Sequence[Path]) -> Path:
+    """Return where a run read one input its record hashes, for :func:`reconstruct`.
+
+    In this order:
+
+    1. A path the script names that ends in the input's name is where the
+       solver read it: the actuator profile where it lives, the node file in
+       the folder the run ran in. When that path is this simulation's own
+       staged input (``sim_<id>/inputs/<name>``), it is checked in this
+       workspace's staged inputs, which a moved workspace still holds; else
+       the first such path that holds a file, else the first, which reads
+       "missing". A staged input of the same name is never substituted for it.
+    2. An input the script does not name is the staged one when the staged
+       inputs hold it (a recipe that never names its geometry), else the file
+       the run wrote beside the script in the folder it ran in: the action
+       programs and the clock.
+    """
+    wanted = Path(name).parts
+    staged = sim / "inputs" / name
+    by_script = [path for path in named if path.parts[-len(wanted) :] == wanted]
+    for path in by_script:
+        if path.parts[-len(wanted) - 2 : -len(wanted)] == (sim.name, "inputs"):
+            return staged
+    for path in by_script:
+        if path.is_file():
+            return path
+    if by_script:
+        return by_script[0]
+    return staged if staged.is_file() else work_dir / name
 
 
 @lru_cache(maxsize=1)
