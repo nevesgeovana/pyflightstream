@@ -477,6 +477,15 @@ FlightStream versions.
   simulation's actuators are read from its physics block, walked by its own
   counts, and a block out of the measured shape is refused as unreadable
   (G06).
+- **A run recorded before 0.27.0 keeps its `_vsec` files as surface exports.**
+  The post read every recorded output by this release's suffixes, so a 0.26.0
+  record's `P_vsec.vtk` or `P_vsec.dat`, a surface VTK or Tecplot export when
+  written, became a volume section: it left the native-surface entries of
+  `products.json` and lost its surface metadata in PROV-JSON. A recorded
+  output is now read by the kinds its record's `package_version` knew:
+  `classify_outputs` takes `package_version`, and
+  `cases.EXPORT_KIND_SINCE` names the release each kind of 0.27.0 entered
+  (the volume-section, force-distribution and solver-plot kinds) (G05).
 - **A volume section's export and delete cite the pproc's own section.** Both
   cited index 1, so a raw line cutting a section before the analysis made the
   pproc's file hold the raw section's plane, and a later point of a sweep
@@ -601,8 +610,9 @@ FlightStream versions.
   `SET_UNSTEADY_VISCOUS_COUPLING_ITERATION` are `removed` on 26.124, citing
   RPT-068; emittable 26.124 commands go from 371 to 370 (G14).
 - An output name ending `_vsec.vtk` or `_vsec.dat` is now the volume-section
-  export, not a surface VTK or Tecplot export. A case declaring one without a
-  cut section is refused (G05).
+  export, not a surface VTK or Tecplot export, in a case being built and in a
+  run recorded by 0.27.0 or later; a run recorded before keeps the surface
+  meaning. A case declaring one without a cut section is refused (G05).
 - `ACTUATOR`, `ACTUATOR_RPM`, `ACTUATOR_THRUST` and `PROFILE` are row keys of
   every run type, so a setup flag taking one of those words is refused (FR-74)
   (G06).

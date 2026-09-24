@@ -6872,7 +6872,9 @@ def _write_the_products(
         # and never the stage's abort: the same rule the polar below follows
         # since 2026-09-08 (the V&V lens of REL-0140).
         for record in sim_records:
-            output_kinds = classify_outputs(record.outputs)
+            # THE RECORD'S OWN RELEASE reads its outputs (G05): a 0.26.0 record's
+            # `_vsec.vtk` is the surface export it was when written.
+            output_kinds = classify_outputs(record.outputs, package_version=record.package_version)
             surface_freeze: FrozenSolve | None = None
             if record.surface_time_averaging is not None and "log" in output_kinds:
                 log_path = workspace.sim_dir(sim_id) / output_kinds["log"]

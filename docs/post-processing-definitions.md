@@ -812,7 +812,13 @@ files above, and the package writes no product from it:
 | which section | the pproc's own: the export and the delete cite the index the pproc's section takes in the solver's list, counting every section the script cuts, a raw line's included, so a section a raw line cut before it never fills the pproc's file; a raw line deleting the pproc's section leaves the file nothing to export, and the row is refused when its script is built |
 
 The `_vsec` infix is what tells the file from a surface export of the same
-extension. There is one section per pproc; an unsteady row naming a pproc that
+extension, in a run recorded by 0.27.0 or later. **A run recorded before 0.27.0
+keeps the meaning its release gave the name**: its `P_vsec.vtk` or
+`P_vsec.dat` was a surface VTK or Tecplot export, and the post keeps it one, a
+native-surface entry of `products.json` with its instant or average metadata in
+PROV-JSON, because upgrading the reader does not rewrite what a record says.
+The post reads every recorded output by the kinds the record's
+`package_version` knew. There is one section per pproc; an unsteady row naming a pproc that
 declares one is refused, because its step exports run before a section cut
 after the march exists. The commands are verified on 26.120 to 26.124 one at a
 time; the delete-then-create sequence of a sweep is not measured.

@@ -17,7 +17,9 @@ row creates it after its solve and exports it under the point's own name:
   own index, so the export names that point's file with that point's plane;
 * every point computes its section with ``UPDATE_ALL_VOLUME_SECTIONS`` between
   the cut and the export (RPT-070: exported without it, every cell was 0.0);
-* the file is never handed to a surface kind (``_vsec`` is claimed first);
+* the file is never handed to a surface kind (``_vsec`` is claimed first),
+  while a run recorded before 0.27.0 keeps its ``_vsec`` files the surface
+  exports they were when written;
 * an unsteady or rotor row naming the table is refused before any emission;
 * the file is collected into the point's folder and hashed in the record;
 * the table's metres reach the solver in the simulation's length unit.
@@ -28,7 +30,9 @@ seat is not measured: DELETE_VOLUME_SECTION is verified alone.
 
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -50,9 +54,10 @@ from pyflightstream.cases.workflows import (
     build_steady_sweep,
     workflow_registry,
 )
+from pyflightstream.post.products import _prov_document, write_campaign_products
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.script import Script
-from pyflightstream.workspace import RunStatus
+from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from tests.tier1_offline.test_g06_actuator_disc import (
     MILLIMETRES,
     WING_PHY,
@@ -387,6 +392,78 @@ def test_g05_classify_never_hands_a_volume_file_to_a_surface_kind():
         "volume_section_tecplot": "P_vsec.dat",
         "loads": "P.txt",
     }
+
+
+def _recorded(tmp_path: Path, version: str) -> tuple[CampaignWorkspace, RunRecord]:
+    """A converged point whose record, written by ``version``, names two ``_vsec`` files."""
+    workspace = CampaignWorkspace(tmp_path / f"camp-{version}")
+    record = RunRecord(
+        run_id="camp/sim_7003/AL+000",
+        sim_id="7003",
+        point_name="AL+000",
+        fs_version_requested="26.124",
+        status=RunStatus.CONVERGED,
+        outputs=["P_vsec.vtk", "P_vsec.dat"],
+        package_version=version,
+        script_sha256="",
+        raw_flag=False,
+    )
+    sim = workspace.sim_dir("7003")
+    sim.mkdir(parents=True, exist_ok=True)
+    for name in record.outputs:
+        (sim / name).write_text("native surface", encoding="utf-8")
+    workspace.append_record(record)
+    return workspace, record
+
+
+def _surface_meaning(
+    workspace: CampaignWorkspace, record: RunRecord
+) -> tuple[dict[str, object], dict[str, object]]:
+    """What the post makes of the record's files: products.json formats, PROV-JSON kinds."""
+    write_campaign_products(workspace, overwrite=True)
+    manifest = json.loads(
+        (workspace.products_dir(None) / "products.json").read_text(encoding="utf-8")
+    )
+    formats = {
+        Path(path).name: entry["format"]
+        for path, entry in manifest["products"].items()
+        if entry.get("format") in ("tecplot", "vtk", "csv")
+    }
+    document = _prov_document(record, workspace.sim_dir(record.sim_id))
+    kinds = {
+        node["pyfs:name"]: node.get("pyfs:kind")
+        for node in document["entity"].values()
+        if node.get("prov:type") == "pyfs:Output"
+    }
+    return formats, kinds
+
+
+def test_g05_a_record_from_before_0_27_0_keeps_its_vsec_files_surface_exports(tmp_path):
+    """A 0.26.0 record's ``P_vsec.vtk`` was a surface export when written, and stays one.
+
+    The suffix names a volume section since 0.27.0; a record written before
+    that release named a surface file, and upgrading the reader does not
+    rewrite what the record says.
+    """
+    formats, kinds = _surface_meaning(*_recorded(tmp_path, "0.26.0"))
+    assert formats == {"P_vsec.vtk": "vtk", "P_vsec.dat": "tecplot"}, (
+        f"products.json holds {formats} for the surface exports of a 0.26.0 record: the "
+        "reader's new suffix took them out of the native-surface entries"
+    )
+    assert kinds == {"P_vsec.vtk": "instant", "P_vsec.dat": "instant"}, (
+        f"PROV-JSON gives the 0.26.0 surface exports the kinds {kinds}"
+    )
+    # THE CONTROL: the same files in a 0.27.0 record are volume sections.
+    formats, kinds = _surface_meaning(*_recorded(tmp_path, "0.27.0.dev6"))
+    assert formats == {} and kinds == {"P_vsec.vtk": None, "P_vsec.dat": None}, (formats, kinds)
+    # AND THE CLASSIFIER BOTH READ THROUGH, by the record's version.
+    names = ["P_vsec.vtk", "P_vsec.dat", "P.txt"]
+    assert classify_outputs(names, package_version="0.26.0") == {
+        "vtk": "P_vsec.vtk",
+        "tecplot": "P_vsec.dat",
+        "loads": "P.txt",
+    }
+    assert classify_outputs(names, package_version="0.27.0") == classify_outputs(names)
 
 
 @pytest.mark.parametrize(
