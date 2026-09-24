@@ -787,9 +787,10 @@ already exports its force and fluid histories as `<point>_plots.txt` through
 `[plots]` and `[[probes]]`, and its per-step exports would otherwise save a
 plot at every step.
 
-**Not yet run as a campaign writes it.** The run that verified the commands
-saved to an absolute path; a point saves to its own name, relative to its
-working directory, as every export of the point does.
+**Run as a campaign writes it.** A point saves each plot to its own name,
+relative to its working directory, as every export of the point does; a run
+of that exact block on 26.124, two saves in a row, left both files in the
+working directory (RPT-067, its addendum).
 
 ## A volume section
 

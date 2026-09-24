@@ -1,0 +1,31 @@
+report: reports/RPT-067_the-plot-commands-write-the-plotted-series-as-text_2026-09-24.md
+addendum: the relative form, 2026-09-24
+question: do two plot saves in a row, each to the point's own RELATIVE name, as a steady workflow point emits them,
+  land in the working folder on 26.124
+where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
+executable_sha256:
+  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+before:
+  solver_processes: 0
+  free_gb: 2.79
+block:
+- SET_PLOT_TYPE RESIDUALS
+- SAVE_PLOT_TO_FILE
+- <point>_plot_residuals.txt
+- ''
+- SET_PLOT_TYPE LOADS
+- SAVE_PLOT_TO_FILE
+- <point>_plot_loads.txt
+- ''
+checks:
+  return_code_0: true
+  residuals_plot_written_in_the_working_folder_with_its_header: true
+  loads_plot_written_in_the_working_folder_with_its_header: true
+  the_loads_export_is_identical_to_the_t13_control: true
+  the_log_is_exported_after_the_plots: true
+plot_bytes:
+  residuals: 18791
+  loads: 27395
+loads_total_row: Total,+0.0052422,-0.0515552,+0.2397826,+0.2401794,+0.0043872,+0.0092201,-0.4304278,-0.0246709,+0.0233391
+script_sha256: 478481b2cd3a0e893d3b0198bb4df4aa98c6935ae3248c7b83e22bf17f62601a
+wall_time_s: 6.64

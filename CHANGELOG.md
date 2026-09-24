@@ -127,6 +127,66 @@ FlightStream versions.
   row verified by the compat probe of 2026-09-24 (the qa wing's sixteen
   trailing edges imported and saved).
 
+- **A steady point saves the solver's own plots, by default.** After its other
+  exports and before its log, every point of a steady workflow row chooses a
+  plot with `SET_PLOT_TYPE` and saves it with `SAVE_PLOT_TO_FILE`. The
+  residual history goes to `<point>_plot_residuals.txt`, the load history to
+  `<point>_plot_loads.txt`, and, where the pproc declares
+  `[[sections.distributions]]`, the section Cp to
+  `<point>_plot_cp_sections.txt`. Each file is the plotted series as text
+  (RPT-067). It is collected into `datapoints/DP-<point>/`, hashed in
+  `outputs_sha256`, and never read as a coefficient source. Each is an
+  `[exports]` kind that `false` switches off (`plot_residuals`, `plot_loads`,
+  `plot_sections_cp`), and `plot_sections_cp = true` without sections is
+  refused. An unsteady row saves none, and a pproc stating one `true` on an
+  unsteady row is refused at plan (G04).
+- **`[exports] force_distributions = true`** saves
+  `<point>_force_distributions.txt`, the per-panel pressure and viscous force
+  coefficients of every surface, on every run type. It is off by default like
+  VTK and CSV, exported once at the end of the run, and never written by an
+  unsteady row's per-step exports (G10).
+- **Setup keys for the loads analysis, on steady rows:** `analysis_families`
+  (`SET_SOLVER_ANALYSIS_BOUNDARIES`, family names resolved like
+  `vorticity_drag_families`); `load_units` (`SET_LOADS_AND_MOMENTS_UNITS`, one
+  of COEFFICIENTS, NEWTONS, KILO-NEWTONS, POUND-FORCE, KILOGRAM-FORCE);
+  `inviscid_loads` (`SET_INVISCID_LOADS`). They are stated after
+  `START_SOLVER` on every point, and the solver's own spellings are aliases. A
+  row of an unsteady run type stating one is refused at plan. A point whose
+  loads table is not in coefficients writes no product row, and the post stage
+  names the unit (G09).
+- **Setup keys `vorticity_lift_model` and
+  `unsteady_viscous_coupling_iteration`** reach `SET_VORTICITY_LIFT_MODEL`
+  (every run type) and `SET_UNSTEADY_VISCOUS_COUPLING_ITERATION` (unsteady run
+  types; refused on a steady row) before `INITIALIZE_SOLVER`. Each is checked
+  against the command database for the row's build: the coupling step emits on
+  25.100 and 26.000 alone, and neither runs on 26.124 (RPT-068), where a row
+  stating either is refused at plan naming the report. The lift model stated
+  beside `kutta_joukowski_lift = true` plans with a warning (G14).
+- **A volume section, declared in the pproc and exported by every steady point
+  (G05, FR-110).** `[volume_section]` declares ONE flow-field plane: `shape =
+  "rectangle"` (`corners = [x1, y1, x2, y2]`, optional `refinement_layers`) or
+  `"circle"` (`radii = [r1, r2]`, `points = [ipts, jpts]`), in a `plane` (XY,
+  XZ, YZ) of a `frame` (`MRP` unless stated) at an `offset`, with `format`
+  `vtk` or `tecplot`. Each point of a steady row cuts it after its solve and
+  exports it to `<point>_vsec.vtk` or `<point>_vsec.dat`, collected into its
+  `datapoints/DP-<point>/` and hashed in its record; a later point of a sweep
+  deletes the previous section first. The five commands are verified one at a
+  time on 26.120 to 26.124 and documented on earlier builds; the
+  delete-then-create sequence is not measured. An unsteady or rotor row naming
+  such a pproc is refused before anything is emitted.
+- **An actuator disc on a matrix row (G06, FR-109).** A reference block of
+  `kind = "actuator"` declares the disc (`frame`, `axis`, `offset_m`,
+  `tip_radius_m`, `hub_radius_m`, `rpm_sign`, optional `blades`, `swirl`,
+  `profile_units`). A row names it with `ACTUATOR`, gives its speed with
+  `ACTUATOR_RPM` (a magnitude; the block's `rpm_sign` is the hand) and exactly
+  one loading: `ACTUATOR_THRUST` (net thrust, N) or `PROFILE` (a file of
+  `inputs/profiles/`, resolved at plan, read where it lives, hashed into
+  `inputs_sha256`). Every run type emits it before the solver is initialised.
+  `SET_PROP_ACTUATOR_PROFILE` has never run on any build, and the thrust and
+  enable commands ran with their effect unobserved; a disc on unsteady and
+  rotor rows is not measured. `helpers.actuator_disc` refuses the profile
+  route on 25.000 and 25.100 before writing anything.
+
 ### Fixed
 
 - **A workflow refusing a mesh file no longer promises a release.** The
@@ -287,6 +347,24 @@ FlightStream versions.
   becomes the base** (RPT-066). `DETECT_BASE_REGIONS_BY_SURFACE` given a
   body's own boundary marks nothing and says nothing; the page and FR-55
   state it, and the emission is unchanged.
+
+- **Every steady workflow script gains its plot saves**, eight lines per point
+  between `EXPORT_PROBE_POINTS` and `EXPORT_LOG`. Every steady point declares
+  two more outputs (three with sections), and a missing one fails the point
+  `FAILED_INCOMPLETE_OUTPUT`. LEGACY rows and outputs declared in Python are
+  unchanged (G04).
+- **Command database:** `SET_PLOT_TYPE` and `SAVE_PLOT_TO_FILE` are
+  export-phase commands, `verified` on 26.124 from the transcription
+  `reports/compat/CMP-26124_2026-09-24_plots.yaml` of RPT-067's run; verified
+  26.124 rows go from 87 to 89 (G04). `SET_VORTICITY_LIFT_MODEL` and
+  `SET_UNSTEADY_VISCOUS_COUPLING_ITERATION` are `removed` on 26.124, citing
+  RPT-068; emittable 26.124 commands go from 371 to 370 (G14).
+- An output name ending `_vsec.vtk` or `_vsec.dat` is now the volume-section
+  export, not a surface VTK or Tecplot export. A case declaring one without a
+  cut section is refused (G05).
+- `ACTUATOR`, `ACTUATOR_RPM`, `ACTUATOR_THRUST` and `PROFILE` are row keys of
+  every run type, so a setup flag taking one of those words is refused (FR-74)
+  (G06).
 
 ### Documentation
 

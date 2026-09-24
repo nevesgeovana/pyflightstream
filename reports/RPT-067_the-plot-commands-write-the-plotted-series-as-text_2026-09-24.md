@@ -72,3 +72,24 @@ it saves a plot.
 return code, the size of the file written, the exported `Total` row, and the
 script's digest; the eight checks as booleans, and the columns and last values
 compared above. The solver outputs stayed on the measuring machine (invariant 5).
+
+## Addendum, 2026-09-24: the relative form
+
+The run above saved one plot per script to an absolute path. A steady
+workflow point saves two in a row, each to its own RELATIVE name, after its
+exports and before its log. One more run of the same control point, launched
+detached with no solver alive before it, emitted exactly that block:
+
+    SET_PLOT_TYPE RESIDUALS
+    SAVE_PLOT_TO_FILE
+    <point>_plot_residuals.txt
+
+    SET_PLOT_TYPE LOADS
+    SAVE_PLOT_TO_FILE
+    <point>_plot_loads.txt
+
+Both files landed in the run's working folder, each under the plot header,
+the loads export was identical to the control's, and the log was exported
+after them. So the form a campaign writes is the form measured, on 26.124.
+Evidence: `reports/probes/RPT-067_2026-09-24_relative-form.yaml`. No line
+above was changed.

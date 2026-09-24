@@ -172,3 +172,43 @@ boundary it is given as the base, and given the body it marks nothing. Write
 the base boundary (`BASE_REGIONS: Base`), and the same in a pproc's
 `base_regions`. Nothing refuses the body's name, since nothing offline tells a
 base from a body.
+
+## 11. A steady point saves its residual and load plots (G04)
+
+- Every steady workflow script now saves the solver's residual and load plots
+  after its exports and before `EXPORT_LOG`, and the section Cp plot where the
+  pproc declares sections. Each point leaves two more files (three with
+  sections) in `datapoints/DP-<point>/`, listed in its run record with their
+  sha256. A missing one fails the point `FAILED_INCOMPLETE_OUTPUT`, as any
+  declared export does.
+- To keep the previous export set, state `plot_residuals = false`, `plot_loads
+  = false` and `plot_sections_cp = false` under `[exports]`.
+- A stand-in solver or harness that writes each declared export must also
+  write the file named on the line after `SAVE_PLOT_TO_FILE`.
+- Unsteady rows, `LEGACY` rows and cases written in Python with their own
+  `outputs` are unchanged.
+- A `[[raw]]` `SET_PLOT_TYPE` declared before `analysis` or `exec` is now
+  refused at plan, because the command is export-phase; declare it before
+  `export`.
+- `plot_sections_cp = true` with no `[[sections.distributions]]` is refused.
+
+## 12. Two setup commands 26.124 does not answer, and loads not in coefficients (G14, G09)
+
+- A `[[raw]]` `SET_VORTICITY_LIFT_MODEL` on a 26.124 row is refused at plan,
+  naming RPT-068. Until now it reached the solver, which stops the script at
+  that line.
+- A point exported with `SET_LOADS_AND_MOMENTS_UNITS` set to anything but
+  `COEFFICIENTS` (through `[[raw]]` before 0.27.0, or `load_units` now) writes
+  no product row. Its loads export is still collected and hashed.
+
+## 13. Two new tables, and four words a flag can no longer take (G05, G06)
+
+- A case written in Python that declares an output ending in `_vsec.vtk` or
+  `_vsec.dat` used to export it as a surface file. That suffix now names the
+  volume-section export, and without a `[volume_section]` table the case is
+  refused. Rename the output.
+- A setup whose `[[flags]]` declares a flag named `ACTUATOR`, `ACTUATOR_RPM`,
+  `ACTUATOR_THRUST` or `PROFILE` (any case) is now refused, because a run type
+  reads those words. Rename the flag.
+- A reference block with `kind = "actuator"` used to be refused as naming no
+  point kind; it is now an actuator disc.
