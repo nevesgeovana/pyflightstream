@@ -46,6 +46,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import TextIO
 
 from pyflightstream._errors import PyflightstreamError
 
@@ -62,6 +63,8 @@ __all__ = [
     "boundary_labels",
     "boundary_names",
     "resolve_family",
+    "surface_mesh",
+    "trailing_edge_midpoints",
 ]
 
 #: Opens the mesh section of a saved simulation. It is SEARCHED for and
@@ -103,10 +106,14 @@ _FAMILY_INDEX = re.compile(r"[\s_.-]*\d+$")
 class MeshReadError(PyflightstreamError, ValueError):
     """A saved simulation carries a mesh block this reader cannot trust.
 
-    Raised only for a block that OPENS and then does not hold its shape.
-    A file carrying no mesh block at all is not an error and reads as
-    None: the campaign suite stages placeholder geometries deliberately,
-    and FR-30c already licenses an undeclared inventory as permissive.
+    The boundary readers raise it only for a block that OPENS and then
+    does not hold its shape. A file carrying no mesh block at all is not
+    an error to them and reads as None: the campaign suite stages
+    placeholder geometries deliberately, and FR-30c already licenses an
+    undeclared inventory as permissive. The two readers of the block's
+    CONTENTS, :func:`surface_mesh` and :func:`trailing_edge_midpoints`,
+    refuse a file with no block, because they are asked for what the
+    block holds and None would read as an empty mesh.
     """
 
 
@@ -345,3 +352,240 @@ def resolve_family(token: str, labels: Mapping[str, int]) -> tuple[int, ...]:
     family is a word the user chooses.
     """
     return tuple(sorted(labels[name] for name in names_of(token, list(labels))))
+
+
+#: The number of per-face T/F rows the mesh block carries after its 0/1
+#: rows, measured on every saved simulation of the tier-3 library. A block
+#: with another number is not the shape the trailing-edge reading below
+#: was measured on, so it is refused rather than read by position.
+_FLAG_ROWS = 5
+
+#: Which T/F row flags which edge of a triangle, as the pair of the face's
+#: vertex slots the edge joins (1-based row, 0-based slots). Rows 2, 3 and
+#: 4 are the three edge slots (1,2), (2,3) and (3,1); rows 1 and 5 are set
+#: on every face of the files read and carry no trailing-edge meaning that
+#: has been established. The reading is measured, not documented: on the
+#: solver's own saves of a straight wing these rows give exactly the
+#: sixteen mid-points of its trailing edge and on a twisted blade the
+#: twelve its detection marked, with every edge flagged from both of its
+#: faces (RPT-065, the instrument of that report).
+_EDGE_SLOT_ROWS = {2: (0, 1), 3: (1, 2), 4: (2, 0)}
+
+#: A token of a T/F row.
+_FLAGS = frozenset({"T", "F"})
+
+#: The mesh a block holds: vertices, 0-based triangles, and the T/F rows.
+_Block = tuple[
+    tuple[tuple[float, float, float], ...],
+    tuple[tuple[int, int, int], ...],
+    tuple[tuple[bool, ...], ...],
+]
+
+
+def _tokens(line: str) -> list[str]:
+    """Return the comma-separated tokens of one block row, blanks dropped.
+
+    The id and per-face rows end in a comma, so a plain split leaves one
+    empty token that is not a value.
+    """
+    return [token.strip() for token in line.split(",") if token.strip()]
+
+
+class _BlockReader:
+    """Reads a mesh block row by row, refusing by name any row out of shape."""
+
+    def __init__(self, handle: TextIO, name: str) -> None:
+        self.handle = handle
+        self.name = name
+
+    def refuse(self, detail: str) -> MeshReadError:
+        return MeshReadError(
+            f"{self.name}: {detail}. The mesh block is not the shape this reader knows, so no "
+            "surface or trailing edge is read from it rather than a wrong one being guessed at"
+        )
+
+    def row(self, what: str) -> str:
+        line = self.handle.readline()
+        if not line:
+            raise self.refuse(f"the mesh block ends before its {what}")
+        return line.rstrip("\r\n")
+
+    def count(self, what: str) -> int:
+        text = self.row(what).strip()
+        if not text.isdigit():
+            raise self.refuse(f"its {what} reads {text!r}, which is not a count")
+        return int(text)
+
+    def sized(self, what: str, size: int, unit: str) -> list[str]:
+        tokens = _tokens(self.row(what))
+        if len(tokens) != size:
+            raise self.refuse(
+                f"its {what} holds {len(tokens)} values where the block states {size} {unit}"
+            )
+        return tokens
+
+
+def _mesh_block(path: str | Path) -> _Block:
+    """Read the mesh block's vertices, triangles and five T/F rows.
+
+    Everything is located by the block's own counts, never by an absolute
+    line: the boundary count gives the records to step over, the face
+    count gives every per-face row's length, and the vertex count gives
+    the coordinate rows'. The layout read, after the boundary records, is
+    the face count, the face ids, the vertices per face, three
+    vertex-index rows (1-based), the 0/1 rows, the five T/F rows, a line
+    reading 0, the vertex count, and the x, y and z rows. Every deviation
+    is refused by name.
+    """
+    target = Path(path)
+    try:
+        handle = target.open(encoding="utf-8", errors="replace")
+    except OSError as error:
+        raise MeshReadError(f"{target.name}: cannot be read: {error}") from error
+    with handle:
+        for line in handle:
+            if line.strip() == MESH_MARKER:
+                break
+        else:
+            raise MeshReadError(
+                f"{target.name}: carries no mesh block ({MESH_MARKER}), so it has no surface "
+                "mesh and no trailing-edge rows to read"
+            )
+        block = _BlockReader(handle, target.name)
+        for _ in range(_LINES_BEFORE_COUNT):
+            block.row("header")
+        boundaries = block.count("boundary count")
+        for position in range(1, boundaries + 1):
+            head = block.row(f"boundary record {position}").strip()
+            if not _HEAD_LINE.match(head):
+                raise block.refuse(f"boundary {position} of {boundaries} begins with {head!r}")
+            block.row(f"boundary record {position}")
+            block.row(f"boundary record {position}")
+        faces = block.count("face count")
+        block.sized("face id row", faces, "faces")
+        corners = block.sized("vertices-per-face row", faces, "faces")
+        odd = next((value for value in corners if value != "3"), None)
+        if odd is not None:
+            raise block.refuse(
+                f"a face has {odd!r} vertices, and only a triangle's three edge slots have "
+                "been read in this format"
+            )
+        try:
+            slots = [
+                [int(value) - 1 for value in block.sized("vertex-index row", faces, "faces")]
+                for _ in range(3)
+            ]
+        except ValueError as error:
+            raise block.refuse(f"a vertex-index row holds a non-integer ({error})") from error
+        # The 0/1 rows run until the first T/F row; their number is not
+        # used, and each is held to the face count like every per-face row.
+        while True:
+            tokens = block.sized("per-face flag row", faces, "faces")
+            if set(tokens) <= _FLAGS:
+                break
+        flags = [tuple(token == "T" for token in tokens)]
+        while True:
+            line = block.row("line after the T/F rows")
+            tokens = _tokens(line)
+            if not tokens or not set(tokens) <= _FLAGS:
+                break
+            if len(tokens) != faces:
+                raise block.refuse(
+                    f"a T/F row holds {len(tokens)} values where the block states {faces} faces"
+                )
+            flags.append(tuple(token == "T" for token in tokens))
+        if len(flags) != _FLAG_ROWS:
+            raise block.refuse(
+                f"it carries {len(flags)} T/F rows where every block read carries five"
+            )
+        if line.strip() != "0":
+            raise block.refuse(
+                f"the line after the five T/F rows reads {line.strip()!r} where every block "
+                "read carries 0"
+            )
+        points = block.count("vertex count")
+        axes: list[list[float]] = []
+        for axis in "xyz":
+            try:
+                axes.append([float(v) for v in block.sized(f"{axis} row", points, "vertices")])
+            except ValueError as error:
+                raise block.refuse(f"its {axis} row holds a non-number ({error})") from error
+    if any(not 0 <= index < points for slot in slots for index in slot):
+        raise block.refuse(f"a face names a vertex outside the {points} the block states")
+    vertices = tuple(zip(axes[0], axes[1], axes[2], strict=True))
+    triangles = tuple(zip(slots[0], slots[1], slots[2], strict=True))
+    return vertices, triangles, tuple(flags)
+
+
+def surface_mesh(
+    path: str | Path,
+) -> tuple[tuple[tuple[float, float, float], ...], tuple[tuple[int, int, int], ...]]:
+    """Return the surface mesh a saved simulation's mesh block holds.
+
+    Parameters
+    ----------
+    path : str or Path
+        A saved simulation file.
+
+    Returns
+    -------
+    tuple of (x, y, z)
+        The vertices, in the block's order, in the simulation's length unit.
+    tuple of (int, int, int)
+        The triangles, as 0-based indices into the vertices.
+
+    Raises
+    ------
+    MeshReadError
+        If the file cannot be read, carries no mesh block, or carries one
+        that does not hold the shape read here: a face that is not a
+        triangle, a T/F row count other than five, or a row whose length
+        is not the count the block states.
+    """
+    vertices, triangles, _ = _mesh_block(path)
+    return vertices, triangles
+
+
+def trailing_edge_midpoints(path: str | Path) -> tuple[tuple[float, float, float], ...]:
+    """Return the mid-points of the mesh edges a saved simulation marks as trailing edges.
+
+    The mesh block flags a trailing edge per face and per edge slot; this
+    reads the three edge-slot rows and returns the mid-point of every
+    flagged edge once, sorted. The mid-point is the form the wake-edge
+    import reads, so a save can be compared as a set with the file that
+    marked it, and a saved detection can be written back as a file
+    (RPT-061, RPT-065).
+
+    Parameters
+    ----------
+    path : str or Path
+        A saved simulation file.
+
+    Returns
+    -------
+    tuple of (x, y, z)
+        The unique mid-points in the simulation's length unit, sorted.
+        Empty when nothing is marked.
+
+    Raises
+    ------
+    MeshReadError
+        As :func:`surface_mesh`.
+
+    Notes
+    -----
+    Every edge is flagged from both of its faces, in whichever slot it
+    occupies on each, so an edge cleared from one side is still read from
+    the other. A multi-boundary file shares one face array across its
+    boundaries, so the result is every boundary's trailing edge together.
+    Only triangular meshes have been read.
+    """
+    vertices, triangles, flags = _mesh_block(path)
+    found: set[tuple[float, float, float]] = set()
+    for row, (first, second) in _EDGE_SLOT_ROWS.items():
+        for face, flagged in enumerate(flags[row - 1]):
+            if flagged:
+                a = vertices[triangles[face][first]]
+                b = vertices[triangles[face][second]]
+                found.add(((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2))
+    return tuple(sorted(found))
