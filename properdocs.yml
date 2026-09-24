@@ -37,6 +37,17 @@ markdown_extensions:
   - attr_list
   - toc:
       permalink: true
+  # The fence reader the pages are written for (D07 of 0.27.0). The built-in
+  # one reads neither a titled fence, ```toml title="inputs/pproc/p001.toml",
+  # nor a fence inside a list item: the first rendered 286 lines of the
+  # workflows page as one code block and cut the mesh page's complete example,
+  # the second lost the code block of four list items on four pages. Both ship
+  # with the material theme (pymdown-extensions, MIT, a dependency of
+  # mkdocs-material, which RPT-033 cards), so nothing new is installed.
+  # tests/tier1_offline/test_goal031_d07_pages.py renders every page with this
+  # list and fails on a fence, a heading or a table row it would lose.
+  - pymdownx.highlight
+  - pymdownx.superfences
 
 extra_css:
   - stylesheets/extra.css

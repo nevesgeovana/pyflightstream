@@ -206,6 +206,25 @@ def test_goal024_freestream_rotation_the_sign_per_rate_is_the_export_to_body_tur
         assert FREESTREAM_ROTATION_SIGN[name] == float(EXPORT_TO_BODY[index, index]), name
 
 
+def test_goal024_freestream_rotation_a_permuted_axis_turns_with_its_rates_sign(tmp_path):
+    """D07: ``roll = "Y"`` turns a roll rate about Y, with roll's sign and not pitch's.
+
+    What the page promises for a ``[body_axes]`` table that permutes the axes.
+    No probe has measured such a mesh; this holds the emitted line only.
+    """
+    permuted = '\n[body_axes]\nroll = "Y"\npitch = "X"\nyaw = "Z"\n'
+    for key, axis, sign in (("roll_rate", "Y", -1.0), ("pitch_rate", "X", 1.0)):
+        workspace, matrix = _rate_matrix(
+            tmp_path / key,
+            condition=f"MACH:0.2, REmi:2.3, ALPHA:sweep, {key}:6.0",
+            axes=permuted,
+        )
+        words = _free_stream(_script(workspace, matrix))
+        assert words[:2] == ["SET_FREESTREAM", "ROTATION"], words
+        assert words[3] == axis, (key, words)
+        assert float(words[4]) == pytest.approx(sign * 6.0 * 60.0 / 360.0), (key, words)
+
+
 def test_goal024_freestream_rotation_every_rate_zero_writes_constant(tmp_path):
     """A rate stated as zero is not a rotation: the row renders as it always did."""
     workspace, matrix = _rate_matrix(

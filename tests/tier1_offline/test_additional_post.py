@@ -22,9 +22,13 @@ by a test on its link:
   and the run's own record, manifest and files are untouched; a row without
   the key, an absent ``.fsm`` and an ``.fsm`` that does not hash as its record
   says are each skipped by name, as are a row whose frames moved since the run,
-  a build that changed and a surface averaged in time; an unsteady point is one
-  instant and says so; ``pyfs-matrix post --additional-pproc`` prints each
-  point and refuses its flags without it;
+  a build that changed, a surface averaged in time, a row no longer active, a
+  point still in a queue and a run a continuation replaced; a copy that does
+  not hash as recorded launches nothing, and an original that changes during
+  the extraction fails it; an unsteady point is one instant and says so;
+  ``pyfs-matrix post --additional-pproc`` prints each point, exits 2 when an
+  extraction fails, counts under ``--strict`` only the skips that ask
+  something, and refuses its flags without it;
 * the post writes the products of every current extraction under
   ``additional/<pid>/``, marked ``pproc``, ``additional`` and ``extraction``,
   leaves every main product as it was, keeps the run's section rows ahead of
@@ -249,6 +253,14 @@ def test_g12_the_key_changes_no_byte_of_the_run_script(kind, tmp_path):
         build_script(each, script)
         scripts.append(script.render())
     assert scripts[0] == scripts[1]
+
+
+def test_g12_the_run_record_never_carries_the_key(tmp_path):
+    """D07: the run records the pproc it ran with; the additional one is nowhere in runs.json."""
+    workspace, _ = a_recorded_campaign(tmp_path)
+    text = workspace.manifest_path.read_text(encoding="utf-8")
+    assert '"pproc": "p010"' in text, "the control: the record names the pproc the row ran with"
+    assert KEY not in text and "p002" not in text
 
 
 def test_g12_an_additional_pproc_the_library_lacks_is_refused_at_plan_naming_the_key(tmp_path):
@@ -782,6 +794,124 @@ def test_g12_a_run_that_averaged_its_surface_in_time_is_skipped(tmp_path):
     assert records == []
 
 
+def test_g12_a_point_whose_boundaries_moved_since_the_run_is_skipped(tmp_path):
+    """D07: the run declared other boundaries than the geometry declares today."""
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    manifest = workspace.manifest_path
+    raw = json.loads(manifest.read_text(encoding="utf-8"))
+    for entry in raw:
+        assert entry["inventory"] == ["W", "B"], entry["inventory"]
+        entry["inventory"] = ["B", "W"]
+    manifest.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    assert [plan.reason for plan in plans] == ["SCRIPT_DRIFT"] * 2, plans
+    assert all("declared the boundaries B, W" in plan.message for plan in plans), plans
+    assert records == [] and stub.invocations == []
+
+
+def test_g12_a_point_whose_row_is_no_longer_active_is_skipped(tmp_path):
+    """D07: RUN 0 after the run, so nothing states what to extract; nothing launches.
+
+    A second, active row keeps the matrix bindable: a matrix with no active row
+    is refused whole, which is another message than this one.
+    """
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    header, rule, row = matrix.read_text(encoding="utf-8").splitlines()
+    assert row.startswith("3207 | 0 | 1 |"), row
+    lines = [
+        header,
+        rule,
+        row.replace("3207 | 0 | 1 |", "3207 | 0 | 0 |", 1),
+        row.replace("3207 | 0 | 1 |", "3208 | 0 | 1 |", 1),
+    ]
+    matrix.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    assert [plan.reason for plan in plans] == ["ROW_NOT_ACTIVE"] * 2, plans
+    assert all("POL 3207" in plan.message for plan in plans), [plan.message for plan in plans]
+    assert records == [] and stub.invocations == []
+
+
+def test_g12_a_point_still_in_a_queue_is_skipped(tmp_path):
+    """D07: a point a scheduler still holds has no final state to reopen; collect it first."""
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    manifest = workspace.manifest_path
+    raw = json.loads(manifest.read_text(encoding="utf-8"))
+    for entry in raw:
+        entry["status"] = "SUBMITTED"
+        for ran in entry.get("points_ran") or []:
+            ran["status"] = "SUBMITTED"
+    manifest.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    stub = a_stub(tmp_path)
+    plans, records = extract(workspace, matrix, stub)
+    assert [plan.reason for plan in plans] == ["NOT_FINISHED"] * 2, plans
+    assert all("pyfs-matrix collect" in plan.message for plan in plans)
+    assert records == [] and stub.invocations == []
+
+
+def test_g12_a_run_a_continuation_replaced_is_skipped_and_the_continuation_extracted(tmp_path):
+    """D07: the continuation's saved simulation is the point's, so it is the one reopened."""
+    workspace, matrix = a_recorded_campaign(
+        tmp_path, workflow="unsteady", cell=f"{UNSTEADY_CELL} / {KEY}: p002", values="0.0"
+    )
+    manifest = workspace.manifest_path
+    (first,) = json.loads(manifest.read_text(encoding="utf-8"))
+    continued = {**first, "run_id": f"{first['run_id']}-continued", "continues": first["run_id"]}
+    manifest.write_text(json.dumps([first, continued], indent=2), encoding="utf-8")
+    stub = a_stub(tmp_path)
+    with pytest.warns(PyflightstreamWarning, match="one instant"):
+        plans, records = extract(workspace, matrix, stub)
+    by_run = {plan.run_id: plan for plan in plans}
+    assert by_run[first["run_id"]].reason == "SUPERSEDED", plans
+    assert continued["run_id"] in by_run[first["run_id"]].message
+    assert [record.run_id for record in records] == [continued["run_id"]]
+    assert len(stub.invocations) == 1
+
+
+def test_g12_a_copy_that_does_not_hash_as_recorded_fails_and_launches_nothing(
+    tmp_path, monkeypatch
+):
+    """D07: the copy is checked before the launch, and a copy that differs runs nothing."""
+    import shutil
+
+    workspace, matrix = a_recorded_campaign(tmp_path, values="0.0")
+
+    def a_copy_that_differs(source, target):
+        shutil.copyfile(source, target)
+        with open(target, "ab") as handle:
+            handle.write(b"!")
+
+    monkeypatch.setattr(additional_post().shutil, "copy2", a_copy_that_differs)
+    stub = a_stub(tmp_path)
+    _, (record,) = extract(workspace, matrix, stub)
+    assert record.status == "FAILED_EXECUTION", record
+    assert "nothing ran" in str(record.error), record.error
+    assert stub.invocations == []
+    folder = workspace.sim_dir(record.sim_id) / record.working_dir
+    assert not list(folder.glob("*.reopened.fsm")), "the copy stayed"
+
+
+def test_g12_an_original_that_changes_during_the_extraction_fails_it(tmp_path):
+    """D07: the original is hashed again after the launch; one that moved fails the extraction."""
+    workspace, matrix = a_recorded_campaign(tmp_path, values="0.0")
+    (original,) = saved_simulations(workspace).values()
+    stub = a_stub(tmp_path)
+    launch = stub.run_script
+
+    def launch_and_write_the_original(script_path, working_dir, timeout_s=None):
+        result = launch(script_path, working_dir, timeout_s=timeout_s)
+        with original.open("ab") as handle:
+            handle.write(b"!")
+        return result
+
+    stub.run_script = launch_and_write_the_original
+    _, (record,) = extract(workspace, matrix, stub)
+    assert record.status == "FAILED_EXECUTION", record
+    assert "MOVED" in str(record.error) and str(original) in str(record.error), record.error
+    assert record.fsm_sha256_after == file_sha256(original) != record.fsm_sha256
+
+
 def test_g12_an_unsteady_point_is_one_instant_and_says_so(tmp_path):
     """Warned, recorded as unsteady with the one-instant note, and its plots history exported."""
     workspace, matrix = a_recorded_campaign(
@@ -852,6 +982,61 @@ def test_g12_the_cli_post_additional_pproc_prints_each_point_and_exits(
     out = capsys.readouterr().out
     assert status == 0
     assert out.count("skipped (ALREADY_EXTRACTED)") == 2, out
+
+
+def test_g12_the_cli_exits_2_on_a_failed_extraction_and_counts_under_strict_a_skip_that_asks(
+    tmp_path, monkeypatch, capsys
+):
+    """D07: exit 2 when an extraction fails; --strict counts only the skips that ask.
+
+    The recorded campaign's own products already skip what its stub exports
+    cannot give, so ``post --strict`` exits 3 before any extraction; the
+    number it names is the control. A second pass over extracted points adds
+    nothing to it, since an extraction already done asks nothing; a row whose
+    frames moved since the run adds one per point, since it asks the user to
+    look.
+    """
+    workspace, matrix = a_recorded_campaign(tmp_path)
+    plain = ["post", str(matrix), "--workspace", str(workspace.root)]
+    command = [*plain, "--additional-pproc"]
+
+    def strict_count(arguments: list[str]) -> int:
+        assert matrix_cli.main([*arguments, "--strict"]) == 3
+        said = re.search(r"--strict: (\d+) simulation\(s\) skipped", capsys.readouterr().err)
+        assert said, "--strict named no count"
+        return int(said.group(1))
+
+    control = strict_count(plain)
+
+    class WritesNothing(CountingStub):
+        def __init__(self, fs_exe, hidden=True, *, forced_local=False):
+            super().__init__("pass")
+
+    monkeypatch.setattr("pyflightstream.run.matrix.LocalExecutor", WritesNothing)
+    assert matrix_cli.main(command) == 2
+    captured = capsys.readouterr()
+    assert captured.out.count("failed (FAILED_INCOMPLETE_OUTPUT)") == 2, captured.out
+    assert "2 extraction(s) failed" in captured.err, captured.err
+
+    made: list = []
+    monkeypatch.setattr(
+        "pyflightstream.run.matrix.LocalExecutor",
+        a_local_executor_writing_every_export(tmp_path, made),
+    )
+    reference = workspace.inputs_dir / "references" / "r050.toml"
+    as_run = reference.read_text(encoding="utf-8")
+    reference.write_text(
+        as_run + '\n[[frames]]\nname = "NAC"\norigin = [0.42, 0.0, 0.11]\n', encoding="utf-8"
+    )
+    assert matrix_cli.main(command) == 0
+    assert capsys.readouterr().out.count("skipped (SCRIPT_DRIFT)") == 2
+    assert strict_count(command) == control + 2
+
+    reference.write_text(as_run, encoding="utf-8")
+    assert matrix_cli.main(command) == 0
+    assert capsys.readouterr().out.count("[p002]: extracted into") == 2
+    assert strict_count(command) == control, "an extraction already done asks nothing"
+    assert sum(len(stub.invocations) for stub in made) == 2
 
 
 @pytest.mark.parametrize(
@@ -1013,6 +1198,29 @@ def test_g12_an_extraction_of_another_state_of_the_point_is_stale(tmp_path):
         reason = document["skipped"][f"additional/p002/runs/{record.extraction_id}"]
         assert "stale" in reason and record.fsm_sha256[:12] in reason, reason
     assert not any(entry.get("additional") for entry in document["products"].values())
+
+
+def test_g12_an_unsteady_extractions_sections_table_is_the_last_instant(tmp_path):
+    """D07: the definition of record says STEP is the run's last step and the kind is instant."""
+    workspace, matrix = a_recorded_campaign(
+        tmp_path, workflow="unsteady", cell=f"{UNSTEADY_CELL} / {KEY}: p002", values="0.0"
+    )
+    with pytest.warns(PyflightstreamWarning):
+        extract(workspace, matrix, a_stub(tmp_path))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        document = products_of(workspace, matrix)
+    tables = [
+        name
+        for name, entry in document["products"].items()
+        if entry.get("additional") and name.endswith("_sections.csv")
+    ]
+    assert tables, sorted(document["products"])
+    last_step = int(re.search(r"TIME_ITERATIONS: (\d+)", UNSTEADY_CELL).group(1))
+    for name in tables:
+        assert document["products"][name]["kind"] == "instant", document["products"][name]
+        _columns, rows = read_csv_table(workspace.products_dir(matrix.stem) / name)
+        assert rows and {int(row["STEP"]) for row in rows} == {last_step}, rows[:2]
 
 
 def test_g12_an_unsteady_extraction_is_one_instant_in_the_post_log(tmp_path):

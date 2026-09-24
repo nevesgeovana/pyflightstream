@@ -287,11 +287,13 @@ def test_every_link_lands_on_a_page_and_a_heading():
     not read.
 
     THE HEADINGS ARE READ FROM THE SOURCE, not from the rendered site, so a
-    heading the renderer swallows is outside this check: on the tree this page
-    was written against, a strict docs build rendered about 285 lines of the
+    heading the renderer swallows is outside this check. On the tree this page
+    was written against, a strict docs build rendered 286 lines of the
     workflows page, `### A rotor row states the decisions, ...` among them, as
-    one code block, and that heading has no anchor on the site. The page links
-    around it.
+    one code block, and that heading had no anchor on the site. D07 fixed the
+    cause, a titled fence the site's Markdown did not read, and
+    ``test_goal031_d07_pages.py`` holds every hand-written page to render each
+    of its headings as one.
     """
     nav = (REPO / "properdocs.yml").read_text(encoding="utf-8")
     broken = []

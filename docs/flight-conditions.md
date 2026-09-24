@@ -193,7 +193,10 @@ script writes
 
 instead of `SET_FREESTREAM CONSTANT`. That is how a run states a pull-up, a
 roll or a yaw rather than straight flight: the free stream turns about the
-MOMENT REFERENCE POINT of the row's `REF`, at the rate the row wrote.
+MOMENT REFERENCE POINT of the row's `REF`, at the rate the row wrote
+(`test_goal024_freestream_rotation_a_pitch_rate_turns_the_free_stream`). The
+rate is a key of the cell like any other, so a row can sweep it
+(`test_goal024_freestream_rotation_a_rate_sweeps_like_any_other_variable`).
 
 **Which axis is which belongs to the configuration.** A mesh is built in
 whatever orientation its author chose, so the reference artifact says it:
@@ -203,10 +206,15 @@ whatever orientation its author chose, so the reference artifact says it:
     pitch = "Y"
     yaw = "Z"
 
-A row stating a rate against a reference that declares none is refused by name,
+A row stating a rate against a reference that declares none is refused by name
+(`test_goal024_freestream_rotation_a_reference_declaring_no_axes_is_refused_by_name`),
 and so is a row stating two non-zero rates: the free stream turns about one
 axis at one speed, and two rates would be composed into an axis the row does
-not write. Every rate zero, or no rate at all, writes `CONSTANT`.
+not write (`test_goal024_freestream_rotation_two_non_zero_rates_are_refused_by_name`,
+`test_goal024_freestream_rotation_a_case_authored_in_python_is_refused_too`).
+Every rate zero, or no rate at all, writes `CONSTANT`
+(`test_goal024_freestream_rotation_every_rate_zero_writes_constant`,
+`test_goal024_freestream_rotation_a_row_with_no_rate_at_all_writes_constant`).
 
 **The sign of the emitted rotation is the sign of its body axis in the
 geometry's frame** (since 0.27.0). Positive p is right wing down, q nose up and
@@ -215,7 +223,24 @@ frame, the one a loads export states its forces in, points x aft, y right and
 z up, and the solver turns the free stream as a right-hand rotation about the
 frame axis it is given. So p = -omega_x, q = +omega_y and r = -omega_z: a row
 stating `roll_rate:40` writes `ROTATION <frame> X -6.667`, `pitch_rate:40`
-writes `Y 6.667`, and `yaw_rate:40` writes `Z -6.667` (rev/min, rounded here).
+writes `Y 6.667`, and `yaw_rate:40` writes `Z -6.667` (rev/min, rounded here;
+`test_goal024_freestream_rotation_each_rate_turns_in_the_flight_mechanics_sense`,
+`test_goal024_freestream_rotation_each_rate_takes_its_own_axis`). The sign per
+axis is the diagonal of the turn the post takes a loads export into body axes
+by, so the two cannot part
+(`test_goal024_freestream_rotation_the_sign_per_rate_is_the_export_to_body_turn`).
+
+**The measured sense of all three**, on FlightStream 26.124: for each rate, the
+line the package emits today for +40 deg/s, and what the solver answered to
+that very line in the licensed probes
+(`test_the_emitted_rotation_is_the_one_the_probe_recorded_producing_that_rate`
+looks the line up in the recorded evidence and checks the sign of the answer):
+
+| rate | positive is | emitted for +40 deg/s | the solver's answer to that line | measured by |
+|---|---|---|---|---|
+| `roll_rate` | right wing down | `ROTATION <frame> X -6.667` | the meshed left wing loses lift (-0.0998 in its lift coefficient) and the rolling moment opposes the roll: the damping of a positive roll rate | T11, RPT-060 |
+| `pitch_rate` | nose up | `ROTATION <frame> Y 6.667` | the airframe gains lift (+0.0227) and the pitching moment turns nose down (-0.0012): the damping of a positive pitch rate | RPT-052 |
+| `yaw_rate` | nose right | `ROTATION <frame> Z -6.667` | the meshed left wing, now advancing, gains lift (+0.0089): the response of a positive yaw rate | T11, RPT-060 |
 
 **What the solver does with a positive angular velocity is not documented by
 any edition of the manual**, so the sense was MEASURED on FlightStream 26.124,
@@ -243,8 +268,9 @@ reversal is measured on 26.124 and on one configuration's axes; on another
 build the same line was emitted and its response is unmeasured.
 
 A `[body_axes]` table that permutes the axes (`roll = "Y"`, say) turns about
-the axis it declares with its rate's sign above; no probe has measured such a
-mesh.
+the axis it declares with its rate's sign above
+(`test_goal024_freestream_rotation_a_permuted_axis_turns_with_its_rates_sign`);
+no probe has measured such a mesh.
 
 ## Which quantity gets solved for
 

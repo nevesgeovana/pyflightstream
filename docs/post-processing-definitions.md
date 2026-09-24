@@ -820,11 +820,15 @@ time; the delete-then-create sequence of a sweep is not measured.
 
 A row that names a second pproc, `ADDITIONAL_PPROC: p<id>`, has that pproc
 extracted from each recorded point's final saved simulation by
-`pyfs-matrix post <matrix> --additional-pproc`, with no solve (since 0.27.0).
-This section defines what comes back and what the products of it are.
+`pyfs-matrix post <matrix> --additional-pproc`, with no solve (since 0.27.0,
+`test_g12_the_extraction_lands_in_additional_and_is_hashed`,
+`test_g12_the_additional_script_never_solves_and_never_saves`). This section
+defines what comes back and what the products of it are.
 
-**What a reopened saved simulation gives back.** Measured on 26.124 against the
-run's own exports ([RPT-062](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-062_what-a-reopened-simulation-gives-back_2026-09-23.md)):
+**What a reopened saved simulation gives back.** Measured by the licensed probe
+T09 on 26.124, on two saved points (a steady half wing-body and an unsteady
+pusher rotor) reopened from a copy with no solve, against the run's own exports
+([RPT-062](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-062_what-a-reopened-simulation-gives-back_2026-09-23.md)):
 
 | export | reopened, with no solve |
 |---|---|
@@ -833,26 +837,33 @@ run's own exports ([RPT-062](https://github.com/nevesgeovana/pyflightstream/blob
 | surface sections, a distribution created after reopening included | identical |
 | sectional loads | identical once computed after reopening, and zero until then: the file stores the sections and not their loads, so the extraction computes them every time |
 | plots history of an unsteady point | identical |
-| probe points, off the body | NOT identical: updated or created after reopening, they differ from the run's |
+| probe points, off the body | NOT identical: updated or created after reopening, they differ from the run's, by up to 4 percent in speed and 0.094 in Cp |
 
-Only 26.124 was measured, so a row on another build stating the key is refused
-at plan. The field off the body (probe points and a volume section), the plots
-of a march and a surface averaged in time are refused in an additional pproc
-for the same reason: nothing measured says a reopened file gives them back.
+The saved file of the unsteady point is its last instant. Only 26.124 was
+measured, so a row on another build stating the key is refused at plan
+(`test_g12_a_row_on_another_build_is_refused_naming_rpt062`). The field off the
+body (probe points and a volume section), the plots of a march and a surface
+averaged in time are refused in an additional pproc for the same reason:
+nothing measured says a reopened file gives them back
+(`test_g12_an_additional_pproc_with_probes_is_refused_naming_rpt062`,
+`test_g12_an_additional_pproc_that_asks_what_a_reopened_file_cannot_give_is_refused`).
 
 **One instant on an unsteady point.** The saved simulation of an unsteady run
 is its LAST instant, so every table of an unsteady extraction is one instant
 and not the run's history: the sections table's `STEP` is the run's last time
-step and its entry says `"kind": "instant"`, and the post log says it once per
-extraction. The plots history the extraction exports is the run's own, so the
-plots tables and the reductions over it are the run's history read under the
-additional pproc.
+step and its entry says `"kind": "instant"`
+(`test_g12_an_unsteady_extractions_sections_table_is_the_last_instant`), and
+the post log says it once per extraction
+(`test_g12_an_unsteady_extraction_is_one_instant_in_the_post_log`). The plots
+history the extraction exports is the run's own, so the plots tables and the
+reductions over it are the run's history read under the additional pproc.
 
 **The products.** Written by the post under `post/<matrix>/additional/<pid>/`,
 beside the run's own and never over them, by the builders the run's products
 use: the additional pproc's group polars on a steady point, one sections table
 per point, and on an unsteady point the plots tables and their reductions.
-Every entry of `products.json` for them carries:
+Every entry of `products.json` for them carries
+(`test_g12_additional_products_are_marked_with_the_pproc`):
 
 | key | meaning |
 |---|---|
@@ -871,19 +882,23 @@ distributions the run created FIRST and the additional pproc's after them
 (RPT-062). The table keeps every row: the layout the extraction records is the
 run's own blocks followed by the new ones, numbered on after the run's and
 marked with the pproc, so `FAMILY` and `PLANE` say which row is which, and the
-extraction's `leading_sections` counts the run's rows at the head. A layout
-whose counts do not add up to the export states `NA`, as on the run's own
-table.
+extraction's `leading_sections` counts the run's rows at the head
+(`test_g12_the_additional_sections_table_holds_the_run_rows_then_the_additional_ones`).
+A layout whose counts do not add up to the export states `NA`, as on the run's
+own table.
 
 **When an extraction stops counting.** Only a CURRENT extraction has products:
 its point is a record the post admits, the point's saved simulation still
 hashes as the one the extraction opened, and every file the extraction wrote is
-on disk and hashes as recorded. A point that ran again, by a forced rerun or a
-continuation, archives its folder with the extraction in it; the old extraction
-is then stale, the post skips it under `additional/<pid>/runs/<extraction id>`
-and never under the run's own key, so no product of the run is retired for it,
-and a previous additional product nothing current supplies is archived like a
-refused table. The next `--additional-pproc` extracts the point again.
+on disk and hashes as recorded
+(`test_g12_an_extraction_of_another_state_of_the_point_is_stale`). A point that
+ran again, by a forced rerun or a continuation, archives its folder with the
+extraction in it; the old extraction is then stale, the post skips it under
+`additional/<pid>/runs/<extraction id>` and never under the run's own key, so
+no product of the run is retired for it, and a previous additional product
+nothing current supplies is archived like a refused table. The next
+`--additional-pproc` extracts the point again
+(`test_g12_a_stale_extraction_is_skipped_and_retires_no_main_product`).
 
 ---
 

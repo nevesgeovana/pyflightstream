@@ -4,12 +4,14 @@ The guarantee the workflows page states, held by a test on each of its links:
 
 * every workflow script of every run type, on every build a run type renders
   on, saves the point's ``.fsm`` once, after its last solve and before the
-  close, and each point of a steady sweep saves its own;
+  close, first among the point's exports, and each point of a steady sweep
+  saves its own;
 * every tier-3 script of a row naming a run type does, rendered through the
   real matrix path with the real post-processing artifacts;
 * a pproc artifact cannot switch it off, as it cannot switch the loads off;
 * the file reaches ``datapoints/DP-<point>/`` and the run record, with its
-  sha256;
+  sha256, and a point whose file is not there is recorded
+  ``FAILED_INCOMPLETE_OUTPUT``;
 * ``pyfs-matrix plan`` names every ``LEGACY`` row whose outputs declare none,
   because its final state is neither collected nor recorded.
 
@@ -29,7 +31,13 @@ import pytest
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamWarning
-from pyflightstream.cases import PprocSpec, SimCase, case_at_point, classify_outputs
+from pyflightstream.cases import (
+    EXPORT_KINDS,
+    PprocSpec,
+    SimCase,
+    case_at_point,
+    classify_outputs,
+)
 from pyflightstream.cases.matrix import LEGACY_WORKFLOW, OUTPUTS_VARIABLE, read_matrix
 from pyflightstream.cases.workflows import (
     LOG_OUTPUT_VARIABLE,
@@ -38,7 +46,7 @@ from pyflightstream.cases.workflows import (
     build_steady_sweep,
     workflow_registry,
 )
-from pyflightstream.run import PlanStatus
+from pyflightstream.run import CampaignErrors, PlanStatus
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.script import Script
 from pyflightstream.versions import known_versions
@@ -124,6 +132,31 @@ def test_g11_every_workflow_script_saves_its_final_simulation(name, build):
         assert last < at < lines.index("CLOSE_FLIGHTSTREAM"), (
             f"{name} {label} on {build}: SAVEAS at line {at}, the last START_SOLVER at "
             f"{last}; the save must hold the state the point ended in"
+        )
+
+
+#: The verbs that write a point's files, the save apart: what "first among its
+#: exports" is measured against.
+EXPORT_VERBS = frozenset(verb for _kind, _suffix, verb, _ in EXPORT_KINDS) - {"SAVEAS"}
+
+
+@pytest.mark.parametrize(("name", "build"), CELLS, ids=[f"{n}-{b}" for n, b in CELLS])
+def test_g11_the_save_comes_first_among_the_points_exports(name, build):
+    """D07: the page says the save comes "first among its exports"; every export follows it."""
+    for label, make in sorted(GOLDEN_CASES[name].items()):
+        case = as_a_matrix_row(make(), name, f"P{make().sim_id}-M100AL+000")
+        script = Script(build)
+        build_script(case, script)
+        lines = script.render().splitlines()
+        ((at, _),) = saves(lines)
+        last = starts(lines)[-1]
+        exports = [
+            index for index in range(last, len(lines)) if lines[index].split(" ")[0] in EXPORT_VERBS
+        ]
+        assert exports, f"{name} {label} on {build} exports nothing after its last solve"
+        assert at < exports[0], (
+            f"{name} {label} on {build}: {lines[exports[0]]} at line {exports[0]} comes "
+            f"before the SAVEAS at line {at}"
         )
 
 
@@ -244,6 +277,30 @@ def test_g11_the_saved_simulation_is_collected_and_hashed(tmp_path, workflow, ce
             assert record.outputs_sha256[name] == file_sha256(on_disk), name
             saved.append(name)
     assert len(saved) == points, f"{points} points and the records name {saved}"
+
+
+def test_g11_a_point_whose_saved_simulation_is_missing_is_recorded_incomplete(tmp_path):
+    """D07: a solver that writes every export but the .fsm leaves an incomplete point."""
+    saves_nothing = WRITES_EVERY_EXPORT.replace(
+        "verbs = {kind[2] for kind in EXPORT_KINDS}; ",
+        "verbs = {kind[2] for kind in EXPORT_KINDS} - {'SAVEAS'}; ",
+    )
+    assert saves_nothing != WRITES_EVERY_EXPORT, "the stub no longer reads as expected"
+    workspace, matrix = _matrix(tmp_path, condition="MACH:0.2, REmi:2.3, ALPHA:sweep", values="0.0")
+    with pytest.raises(CampaignErrors, match="FAILED_INCOMPLETE_OUTPUT"):
+        run_matrix(
+            matrix,
+            workspace,
+            name="unsaved",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            recipe_registry=workflow_registry(),
+            assess=converged,
+            executor=CountingStub(saves_nothing),
+        )
+    (record,) = workspace.read_manifest()
+    assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT, (record.status, record.error)
+    assert ".fsm" in str(record.error), record.error
 
 
 # ------------------------------------------------------------------ the plan --
