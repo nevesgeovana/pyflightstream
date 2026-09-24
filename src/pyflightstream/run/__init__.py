@@ -115,6 +115,7 @@ from pyflightstream.cases.workflows import (
     WorkflowConventions,
     build_steady_sweep,
     parse_restart,
+    read_a_choice,
     reduction_windows,
     restart_iterations,
     row_ncpus,
@@ -138,7 +139,12 @@ from pyflightstream.results import (
 from pyflightstream.results.conditions import ConditionBinding, bind_conditions
 from pyflightstream.results.tables import sweep_table, write_table
 from pyflightstream.run._actions_counter import render_program
-from pyflightstream.run._wake_edge_verdict import wake_edge_import_verdict, with_wake_edge_verdict
+from pyflightstream.run._wake_edge_verdict import (
+    collected_solver_log,
+    reads_as_residual_history,
+    wake_edge_import_verdict,
+    with_wake_edge_verdict,
+)
 from pyflightstream.script import MarchStrategy, Script
 from pyflightstream.versions import FsVersion, resolve
 from pyflightstream.workspace import (
@@ -1290,26 +1296,6 @@ class OutcomeAssessor(Protocol):
         ...
 
 
-def _reads_as_residual_history(path: Path) -> bool:
-    """Whether one collected file parses as a solver residual history.
-
-    The identification is by CONTENT and never by name, the same rule
-    the loads table is found under: a swept case names its outputs per
-    point, so no literal could name them all. False on anything that
-    does not parse, including a file this process cannot read, because
-    the caller's fallback is the judgment that existed before and never
-    an error about a file nobody asked it to read.
-    """
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return False
-    try:
-        return bool(parse_residual_history(text))
-    except (IncompleteOutputError, ValueError):
-        return False
-
-
 def _read_loads(path: Path, requested_version: str | FsVersion | None):
     """Parse one collected file as a loads table, or say why not."""
     try:
@@ -1743,7 +1729,7 @@ class LoadsAssessor:
             candidates = [
                 path
                 for path in collected
-                if path != report_path and _reads_as_residual_history(path)
+                if path != report_path and reads_as_residual_history(path)
             ]
             if len(candidates) == 1:
                 log_path = candidates[0]
@@ -4451,6 +4437,9 @@ def _plan_point(
     script = Script(version=fs_version)
     try:
         recipe(point_case, script)
+        # G02: the plan knows no machine, so a log export the row turned off
+        # is refused here, before any run can spend a seat on it.
+        _refuse_an_import_count_nothing_logs(point_case, script, None)
         script.render()
     except Exception as error:  # recipes are user code; any failure blocks the point
         return PointPlan(
@@ -5039,6 +5028,8 @@ def _execute_sweep(
     script = Script(version=fs_version)
     try:
         build_steady_sweep([pc for _, _, pc in point_cases], script, cold=cold)
+        # G02: the switch is the row's, so the first point's case states it.
+        _refuse_an_import_count_nothing_logs(point_cases[0][2], script, executor)
     except Exception as error:  # a build failure is the job's failure
         return RunRecord(
             **base,
@@ -5323,20 +5314,18 @@ def _write_pending_files(script: Script, work_dir: Path) -> dict[str, str]:
 def _run_log_text(
     sim_dir: Path, collected: Sequence[str], log_file_used: str | None, result: ExecutionResult
 ) -> str | None:
-    """Return a point's solver log: the collected one the assessor read, else the run's own.
+    """Return a point's solver log: the collected one, else the run's own.
 
-    The collected log is the one the script exported and the assessor
-    named, found among the point's collected outputs; without one, the log
-    the executor read after the process (``FlightStreamLog.txt``). None
-    when neither exists.
+    The collected log is the one the script exported, found among the
+    point's collected outputs whichever assessor judged the point
+    (:func:`~pyflightstream.run._wake_edge_verdict.collected_solver_log`):
+    the file the assessor names when it names one, else the one collected
+    output that reads as a residual history. Without one, the log the
+    executor read after the process (``FlightStreamLog.txt``). None when
+    neither exists.
     """
-    if log_file_used:
-        for entry in collected:
-            if Path(entry).name == log_file_used:
-                path = sim_dir / entry
-                if path.is_file():
-                    return path.read_text(encoding="utf-8", errors="replace")
-    return result.log_text
+    collected_log = collected_solver_log(sim_dir, collected, log_file_used)
+    return collected_log if collected_log is not None else result.log_text
 
 
 def _walltime_stop(state_path: Path) -> dict | None:
@@ -5614,6 +5603,57 @@ def _with_the_profile_s_log(case: SimCase, executor: object) -> SimCase:
     return case.model_copy(update={"variables": {**case.variables, EXPORT_LOG_VARIABLE: "false"}})
 
 
+def _refuse_an_import_count_nothing_logs(
+    case: SimCase, script: Script, executor: object | None
+) -> None:
+    """Refuse a script that imports trailing edges after its log export was turned off.
+
+    G02. The run holds a trailing-edge import to the count the solver logs as
+    imported, because a point that matches no edge marks nothing and the
+    solver says nothing about it; the solver writes a log of its own only when
+    it ends abnormally, so the count is read from the log the script exports.
+    The builder refuses a file-route row whose outputs name no log, but it
+    reads the NAMES, and ``EXPORT_LOG: false`` then leaves the named log with
+    nothing to write it: the point built, ran, and was recorded
+    FAILED_INCOMPLETE_OUTPUT after the seat (the qa lens, 2026-09-24).
+
+    So this reads the script as built, after every switch: a case that states
+    the switch false and a script that carries no ``EXPORT_LOG`` is refused,
+    at plan (``executor`` None) and before the solver starts. The one
+    exception is a machine whose HPC profile turns the export off itself
+    (``export_log = false``, which a profile states only beside a
+    ``native_log``): its scheduler writes the log, `collect` copies it to the
+    declared name and the count is read from it there. The plan does not know
+    the machine, so it refuses the switch in the row, where it is never needed:
+    a machine that writes its own log says so in its profile.
+    """
+    if script.wake_edge_points is None:
+        return
+    stated = case.variables.get(EXPORT_LOG_VARIABLE)
+    try:
+        if stated is None or read_a_choice(stated, context=EXPORT_LOG_VARIABLE):
+            return
+    except ValueError:
+        return  # a word the builder reads, and refuses there by name
+    if "EXPORT_LOG" in script.render().splitlines():
+        return
+    profile = _profile_of(executor)
+    if profile is not None and not profile.export_log:
+        return
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} imports {script.wake_edge_points} trailing-edge points from "
+        f"a file and states {EXPORT_LOG_VARIABLE}: {stated}, so its script exports no "
+        "solver log and the log it declares has nothing to write it. The run compares the "
+        "count of trailing edges the solver logs as imported with the points it wrote, "
+        "because a point that matches no edge marks nothing and the solver says nothing "
+        "about it; without the log the count cannot be read and the point would be "
+        f"recorded FAILED_INCOMPLETE_OUTPUT after the solve. Take {EXPORT_LOG_VARIABLE} "
+        "out of the row. A machine that aborts at EXPORT_LOG says so in its HPC profile "
+        "([log] export_log = false, with native_log naming the log its scheduler writes), "
+        "and the count is then read from that log."
+    )
+
+
 def _execute_point(
     *,
     campaign: Campaign,
@@ -5796,6 +5836,8 @@ def _execute_point(
     script = Script(version=fs_version)
     try:
         recipe(point_case, script)
+        # G02: before the solver starts, and knowing the machine this time.
+        _refuse_an_import_count_nothing_logs(point_case, script, executor)
     except Exception as error:  # recipes are user code; any failure is a build failure
         return RunRecord(
             **base,

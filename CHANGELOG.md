@@ -100,9 +100,12 @@ FlightStream versions.
   unverified, RPT-066) and `[base_regions]` (`detect = "auto"`) apply only
   when written. Refused at plan: a raw mesh with no trailing edge; a table
   stating both routes or neither; a file-route row whose outputs carry no
-  solver log; the file route beside an import operation that scales,
-  mirrors, translates or rotates the body; a `.fsm` whose sidecar states any
-  of the three tables. New names: `cases.TrailingEdgeMarking`,
+  solver log, or that states `EXPORT_LOG: false`, which leaves its script
+  exporting none (a machine whose HPC profile turns the export off and
+  names a `native_log` runs the row, and the count is read from the log
+  its scheduler writes); the file route beside an import operation that
+  scales, mirrors, translates or rotates the body; a `.fsm` whose sidecar
+  states any of the three tables. New names: `cases.TrailingEdgeMarking`,
   `cases.RawMeshConditions`, `SimCase.raw_mesh_conditions`,
   `MeshImport.moving_operations`, `MeshImport.names_after_renames`,
   `workspace.inputs.read_raw_mesh_conditions`.
@@ -110,10 +113,13 @@ FlightStream versions.
   It writes the node file before the solver starts, hashes it into the
   record's inputs, and compares the solver's count of imported edges with
   the points it wrote: FAILED_SCRIPT when they differ, FAILED_INCOMPLETE_OUTPUT
-  when no log was read, on the local path and at collect. A point that
-  matches no mesh edge is dropped by the solver in silence (RPT-061), and
-  initialisation adds nothing to an import (RPT-065), so this count is the
-  only warning of a wrong file. `results.imported_trailing_edges` reads the
+  when no log was read, on the local path and at collect. The log is the
+  collected one the assessor names or, for an assessor of the caller's that
+  names none, the one collected output that reads as a residual history, as
+  the package's assessor finds it. A point that matches no mesh edge is
+  dropped by the solver in silence (RPT-061), and initialisation adds
+  nothing to an import (RPT-065), so this count is the only warning of a
+  wrong file. `results.imported_trailing_edges` reads the
   count; the sweep-job path now writes the files a script parks (G02).
 - **A trailing-edge points file is checked against the mesh before the
   run** (T05): `read_trailing_edge_points`, `matched_trailing_edge_points`,
@@ -125,7 +131,9 @@ FlightStream versions.
   trailing-edge mesh edge of a blade.
 - **A probe specification for `IMPORT_WAKE_EDGES_FROM_FILE`**, and its 26.124
   row verified by the compat probe of 2026-09-24 (the qa wing's sixteen
-  trailing edges imported and saved).
+  trailing edges imported and saved). The probe verifies only the import it
+  wrote: exactly one import line, 16 edges for boundary `Wing`; another
+  count, another boundary or a second import line is `broken`.
 
 ### Fixed
 

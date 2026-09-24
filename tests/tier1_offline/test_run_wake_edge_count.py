@@ -246,3 +246,54 @@ def test_a_collected_job_is_held_to_the_count_its_submission_recorded(
     assert str(outcome.record.status) == expected_status, outcome.record.error
     if expected_status == "FAILED_SCRIPT":
         assert "16" in outcome.record.error and "15" in outcome.record.error
+
+
+def _residual_log(line: str) -> str:
+    """A recorded 26.120 solver log with ``line`` printed before its residual table."""
+    fixture = Path(__file__).parent / "fixtures" / "log_residuals_26.120.txt"
+    text = fixture.read_text(encoding="utf-8")
+    anchor = "script.txt\n"
+    assert anchor in text, "the fixture no longer carries the line the import is put after"
+    return text.replace(anchor, f"{anchor}\n{line}\n", 1)
+
+
+@pytest.mark.parametrize(
+    ("logged", "expected_status"),
+    [(16, "CONVERGED"), (15, "FAILED_SCRIPT"), (None, "FAILED_INCOMPLETE_OUTPUT")],
+    ids=["every-point-imported", "one-point-dropped", "no-log-collected"],
+)
+def test_a_collected_job_judged_by_a_custom_assessor_is_held_to_the_count(
+    tmp_path, logged, expected_status
+):
+    """The assessor a caller passes to collect answers ``(status, error)`` and names
+    no file. The count is read from the collected log found the way the package's
+    own assessor finds it, among the collected outputs, so a log carrying all 16
+    keeps the caller's verdict, one carrying 15 is FAILED_SCRIPT, and a job that
+    collected no log is FAILED_INCOMPLETE_OUTPUT."""
+    import json
+
+    from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
+
+    declared = ("loads.txt", "run_log.txt") if logged is not None else ("loads.txt",)
+    workspace, sim = _submitted_workspace(tmp_path, declared=declared)
+    raw = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    raw[0]["submission"]["wake_edge_points"] = 16
+    workspace.manifest_path.write_text(json.dumps(raw), encoding="utf-8")
+    (sim / "loads.txt").write_text("numbers", encoding="utf-8")
+    if logged is not None:
+        line = f"{logged} trailing edges imported for boundary Wing"
+        (sim / "run_log.txt").write_text(_residual_log(line), encoding="utf-8")
+
+    def the_caller_s(record, sim_dir):
+        return RunStatus.CONVERGED, None
+
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=the_caller_s)
+    (outcome,) = report.collected + report.failed
+    assert outcome.record is not None, outcome.detail
+    assert str(outcome.record.status) == expected_status, outcome.record.error
+    if expected_status == "CONVERGED":
+        assert outcome.record.error is None, outcome.record.error
+    elif expected_status == "FAILED_SCRIPT":
+        assert "16" in outcome.record.error and "15" in outcome.record.error
+    else:
+        assert "no solver log was read" in outcome.record.error, outcome.record.error

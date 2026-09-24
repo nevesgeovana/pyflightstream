@@ -373,7 +373,11 @@ the points it wrote, and records the point `FAILED_SCRIPT` when they differ.
 That number is read from the solver log, so a file-route row declares its
 log among its outputs, a name ending in `_log.txt`, which a run type's
 default outputs carry; a row that declares none is refused when the script
-is built.
+is built, and a row that states `EXPORT_LOG: false`, which leaves the script
+exporting no log, is refused at plan. A machine whose HPC profile turns the
+export off itself (`export_log = false` beside a `native_log`) runs the row:
+`collect` copies the log its scheduler writes to the declared name, and the
+count is read from it there.
 
 The file route runs on FlightStream 26.124, the one build it was run on
 (RPT-061). 26.122 and 26.123 document a form 26.124 refuses, and are refused
@@ -485,7 +489,10 @@ a point that matches no edge marks nothing and the solver says nothing about
 it. The solver log therefore has to be among the row's outputs: a workflow row
 that declares none is refused when its script is built, and a recipe of your
 own that imports a file and exports no log is recorded
-FAILED_INCOMPLETE_OUTPUT.
+FAILED_INCOMPLETE_OUTPUT. The count is read from the collected log the
+assessor names; an assessor of your own that names none, locally or at
+`collect`, has it read from the one collected output that parses as a
+residual history, the log the package's own assessor would find.
 
 <!-- skip: next -->
 ```python

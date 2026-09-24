@@ -138,12 +138,13 @@ The simulation's length unit is metres whatever the file's unit; whether
 yet, and a mesh written in metres (`units = "METER"`) does not depend on the
 answer. A raw mesh whose sidecar declares no trailing edge is refused at
 plan. On the file route the row must export its solver log (a run type's
-default outputs do), and a pproc that turns `[exports] log` off is refused
-there, because the run compares the solver's count of imported edges with
-the points it wrote. The file route runs on 26.124 only. A `.fsm` row is
-unchanged, except that a `.fsm` whose sidecar states an `[import]`,
-`[trailing_edges]`, `[wake_termination]` or `[base_regions]` table is now
-refused, because nothing would read it; delete the table. The raw-mesh
+default outputs do), and a pproc that turns `[exports] log` off, or a row
+that states `EXPORT_LOG: false`, is refused there, because the run compares
+the solver's count of imported edges with the points it wrote. The file
+route runs on 26.124 only. A `.fsm` row is unchanged, except that a `.fsm`
+whose sidecar states an `[import]`, `[trailing_edges]`, `[wake_termination]`
+or `[base_regions]` table is now refused, because nothing would read it;
+delete the table. The raw-mesh
 refusal's text changed: it names `[import]` and `units =`, and quotes the
 anchor 'A RAW MESH STATES ITS UNITS'. A record of a point that imported a
 raw mesh carries `mesh_import`, which 0.26.0 refuses; post such a workspace

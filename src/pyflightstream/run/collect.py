@@ -850,12 +850,17 @@ def _wake_edge_verdict(
 
     G02. The local path judges a point the same way the moment its solver
     returns; a submitted job is judged here instead, from the number its
-    submission recorded and the log the assessor read among the collected
-    outputs. A job whose submission records no count imported nothing and is
-    returned unchanged; one that did, with no log read, cannot be told to have
-    marked anything.
+    submission recorded and the solver log among the collected outputs. The
+    log is found whichever assessor judged the job: the file the package's own
+    assessor names, or, for an assessor a caller passed, which answers with a
+    status and names nothing, the one collected output that reads as a
+    residual history, as the package's own assessor finds it. A job whose
+    submission records no count imported nothing and is returned unchanged;
+    one that did, with no log collected, cannot be told to have marked
+    anything.
     """
     from pyflightstream.run._wake_edge_verdict import (
+        collected_solver_log,
         wake_edge_import_verdict,
         with_wake_edge_verdict,
     )
@@ -863,12 +868,7 @@ def _wake_edge_verdict(
     expected = (record.submission or {}).get("wake_edge_points")
     if not isinstance(expected, int):
         return status, verdict
-    log_text: str | None = None
-    for entry in collected if log_file_used else ():
-        path = sim_dir / entry
-        if Path(entry).name == log_file_used and path.is_file():
-            log_text = path.read_text(encoding="utf-8", errors="replace")
-            break
+    log_text = collected_solver_log(sim_dir, collected, log_file_used)
     return with_wake_edge_verdict(status, verdict, wake_edge_import_verdict(expected, log_text))
 
 
