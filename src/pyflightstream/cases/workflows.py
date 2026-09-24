@@ -8697,6 +8697,16 @@ def _pproc_volume_section(case: SimCase, script: Script, frames: Frames) -> None
     file). A section is a cut through a solution, and one created before the
     solve cuts a field that does not exist yet.
 
+    THEN ``UPDATE_ALL_VOLUME_SECTIONS``, which computes the flow on it. A
+    section cut and exported straight away holds nothing: the licensed run of
+    2026-09-24 (RPT-070, 26.124) exported both points of a steady sweep that way
+    as byte-identical files whose every cell value was 0.0. The manual computes
+    the flow on a volume section with "Update all", after the solution has
+    converged (SRC-752 p.256; the command is p.372), so every point
+    updates after cutting its own section and before any export. The command is
+    documented on every build of the range and ran without abort in the probes
+    of 26.120 to 26.124; that it fills the export is not yet measured.
+
     A LATER POINT OF A SWEEP DELETES THE PREVIOUS SECTION FIRST, BY ITS OWN
     INDEX. A steady row is one script, so a section created per point would
     take indices 1, 2, 3 and each point's export would write another point's
@@ -8760,6 +8770,9 @@ def _pproc_volume_section(case: SimCase, script: Script, frames: Frames) -> None
         )
     # THE SECTION JUST CUT IS THE LAST OF THE LIST, so its index is the count.
     script.volume_section_index = script.volume_sections
+    # COMPUTED BEFORE IT IS EXPORTED (RPT-070): the solve has run, and the cut
+    # holds no flow until the sections are updated.
+    script.emit("UPDATE_ALL_VOLUME_SECTIONS")
 
 
 def _refuse_a_volume_section_off_a_steady_row(case: SimCase, name: str) -> None:

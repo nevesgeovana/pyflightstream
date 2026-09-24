@@ -480,6 +480,16 @@ FlightStream versions.
   `Script.volume_sections` counts the sections a script has cut, and
   `Script.volume_section_index`, the pproc's own, replaces
   `volume_section_created` (G05).
+- **A volume section is updated before it is exported.** Each point cut its
+  section after the solve and exported it at once, and the licensed run of
+  2026-09-24 (RPT-070, 26.124) wrote both points of a steady sweep as
+  byte-identical files whose every cell value was 0.0: the manual computes the
+  flow on a section with "Update all", after the solution has converged. Every
+  point, each point of a steady one-job sweep included, now emits
+  `UPDATE_ALL_VOLUME_SECTIONS` after cutting its section and before its
+  export. The command is documented on every build of the range and ran
+  without abort in the probes of 26.120 to 26.124; that it fills the export is
+  not yet measured (G05).
 
 - **A row stating `roll_rate` or `yaw_rate` turns the free stream the way the
   rate says.** From 0.21.0 all three body rates were emitted with one sign of

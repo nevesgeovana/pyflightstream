@@ -15,6 +15,8 @@ row creates it after its solve and exports it under the point's own name:
   unless a raw line of the row cut a section before it;
 * each later point of a warm sweep deletes the previous section first, by its
   own index, so the export names that point's file with that point's plane;
+* every point computes its section with ``UPDATE_ALL_VOLUME_SECTIONS`` between
+  the cut and the export (RPT-070: exported without it, every cell was 0.0);
 * the file is never handed to a surface kind (``_vsec`` is claimed first);
 * an unsteady or rotor row naming the table is refused before any emission;
 * the file is collected into the point's folder and hashed in the record;
@@ -318,6 +320,59 @@ def test_g05_a_raw_delete_below_the_pproc_s_section_moves_its_index_down():
     lines = _lines(_steady(_pproc(**RECTANGLE)).model_copy(update={"raw_commands": above}))
     export = next(i for i, line in enumerate(lines) if line.startswith("EXPORT_VOLUME_SECTION"))
     assert lines[export] == "EXPORT_VOLUME_SECTION_VTK 1", lines[export]
+
+
+# --- the section is computed before it is exported ---------------------------
+#
+# The licensed run of 2026-09-24 (RPT-070) exported the two points of a steady
+# one-job sweep that cut a section after START_SOLVER and exported it straight
+# away: both files were byte-identical, and every cell value in them was 0.0.
+# The manual computes the flow on a volume section with "Update all", after the
+# solution has converged, which the script command UPDATE_ALL_VOLUME_SECTIONS is.
+
+
+def _volume_lines(lines: list[str]) -> list[str]:
+    """The solves, the volume-section commands and the volume exports, in order."""
+    return [
+        line
+        for line in lines
+        if line == "START_SOLVER"
+        or ("VOLUME_SECTION" in line and not line.startswith("VOLUME_SECTION_"))
+    ]
+
+
+@pytest.mark.parametrize(
+    ("table", "export"),
+    [(RECTANGLE, "EXPORT_VOLUME_SECTION_VTK 1"), (CIRCLE, "EXPORT_VOLUME_SECTION_TECPLOT 1")],
+    ids=["rectangle-vtk", "circle-tecplot"],
+)
+def test_g05_the_section_is_updated_after_the_solve_and_before_its_export(table, export):
+    """A steady point: solve, cut, UPDATE_ALL_VOLUME_SECTIONS, and only then the export."""
+    volume = _volume_lines(_lines(_steady(_pproc(**table))))
+    assert volume[1].startswith("CREATE_NEW_"), volume
+    assert volume == ["START_SOLVER", volume[1], "UPDATE_ALL_VOLUME_SECTIONS", export], (
+        f"the point's volume commands are {volume}: a section exported without "
+        "UPDATE_ALL_VOLUME_SECTIONS after the solve holds no flow (RPT-070)"
+    )
+
+
+def test_g05_every_point_of_a_one_job_sweep_updates_its_own_section():
+    """Each point of a steady sweep, one script: solve, delete, cut, update, export."""
+    pproc = _pproc(**RECTANGLE)
+    points = [
+        case_at_point(_steady(pproc, stem=f"P-A{int(alpha):+d}", alpha=alpha), {"alpha": alpha})
+        for alpha in (0.0, 4.0, 8.0)
+    ]
+    script = Script("26.124")
+    build_steady_sweep(points, script)
+    volume = _volume_lines(script.render().splitlines())
+    cut = next(line for line in volume if line.startswith("CREATE_NEW_RECTANGLE"))
+    first = ["START_SOLVER", cut, "UPDATE_ALL_VOLUME_SECTIONS", "EXPORT_VOLUME_SECTION_VTK 1"]
+    later = ["START_SOLVER", "DELETE_VOLUME_SECTION 1", *first[1:]]
+    assert volume == first + later + later, (
+        f"the sweep's volume commands are {volume}: every point updates the section it cut "
+        "before exporting it (RPT-070)"
+    )
 
 
 def test_g05_classify_never_hands_a_volume_file_to_a_surface_kind():

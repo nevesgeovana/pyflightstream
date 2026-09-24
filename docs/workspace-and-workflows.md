@@ -1751,6 +1751,7 @@ built, naming the ones it did.
 
 What the script does, per point: after `START_SOLVER`, in the analysis phase,
 `CREATE_NEW_RECTANGLE_VOLUME_SECTION` or `CREATE_NEW_CIRCLE_VOLUME_SECTION`,
+then `UPDATE_ALL_VOLUME_SECTIONS`, which computes the flow on the section,
 then `EXPORT_VOLUME_SECTION_VTK <i>` or `EXPORT_VOLUME_SECTION_TECPLOT <i>` to
 `{name}_vsec.vtk` or `{name}_vsec.dat`, collected into the point's
 `datapoints/DP-<point>/` and hashed in its record like every other output. A
@@ -1774,9 +1775,14 @@ emits (the two creates, the two exports and the delete) are verified on
 26.120 to 26.124, each by a probe that ran it alone, and documented only on
 25.000 to 26.101. The delete-then-create sequence of a sweep is not measured,
 nor is whether `COLD_START`'s clear removes a section, nor any
-`refinement_layers` other than 1. `UPDATE_ALL_VOLUME_SECTIONS` is not emitted:
-it ran without abort in the probes of 26.120 to 26.124 and its effect was never
-observed. `DELETE_ALL_VOLUME_SECTIONS`, `VOLUME_SECTION_WIREFRAME` and
+`refinement_layers` other than 1. `UPDATE_ALL_VOLUME_SECTIONS` is documented
+on every build of the range and ran without abort in the probes of 26.120 to
+26.124, with its effect not observed there. It is emitted because the licensed
+run of 2026-09-24 (RPT-070, 26.124) exported the two points of a steady sweep
+that cut a section and exported it with no update as byte-identical files whose
+every cell value was 0.0, and the manual computes a section's flow with
+"Update all" after the solution has converged. That the update fills the file
+is not yet measured. `DELETE_ALL_VOLUME_SECTIONS`, `VOLUME_SECTION_WIREFRAME` and
 `EXPORT_VOLUME_SECTION_2D_VTK` have never run on any build, and
 `VOLUME_SECTION_BOUNDARY_LAYER` is documented on builds before 26.120 only;
 none of the four is reachable from the table.
