@@ -4759,6 +4759,17 @@ def _declare_boundaries(
         names = tuple(case.inventory)
     if not names:
         return
+    _declare_inventory(case, script, names)
+
+
+def _declare_inventory(case: SimCase, script: Script, names: Sequence[str]) -> None:
+    """Declare boundary names onto the script, the name at position i being boundary i.
+
+    The tail of :func:`_declare_boundaries`, split out at 0.27.0 (G12) so the
+    additional post declares the inventory a saved simulation holds by the
+    same rule the run declared it by, and every label resolves as it did in
+    the run.
+    """
     # R03 of 0.27.0: the run record carries these names, so the post reads a
     # selection over the geometry the script was built over rather than over
     # the cuts alone. Every name, duplicates included: position i is boundary i.
@@ -4772,7 +4783,9 @@ def _declare_boundaries(
             "cannot select either one. Those boundaries are citable by position only; "
             "every other name in the file resolves.",
             PyflightstreamWarning,
-            stacklevel=2,
+            # One frame deeper than before the split, so the warning still
+            # points at the caller of `_declare_boundaries`.
+            stacklevel=3,
         )
     if labels:
         script.declare_existing(boundaries=labels)
@@ -6573,6 +6586,11 @@ def _script_init(
     or cold, states them here for its first point and again before each
     later point's `START_SOLVER` (:func:`build_steady_sweep`).
     """
+    if frames is not None:
+        # G12: THE FRAMES THIS RUN CREATED, kept on the script by name, so the
+        # additional post can cite them in the saved simulation without
+        # creating them again. Nothing is emitted here.
+        script.frames_by_name = dict(frames)
     _raw_commands(case, script, "init")
     surface_window = surface_time_averaging(case)
     if surface_window is not None:
