@@ -21,6 +21,11 @@ rotors and frames, and its LOADING is the row's:
 * a point whose solver log says the profile file could not be used is
   FAILED_SCRIPT whichever assessor judged it: on a local point, on the steady
   one-job path and at collect.
+* the block's metres reach the solver in the simulation's length unit: the
+  unit the script set, or the unit a saved simulation was saved in as far as
+  its global block is read, and a head that is not read is refused;
+* a saved simulation that already carries an actuator is refused naming it,
+  since the created disc would be cited by the saved one's index.
 
 Nothing here runs a solver. `SET_PROP_ACTUATOR_PROFILE` has never run on any
 build; the thrust and the enable ran without abort on 26.120 to 26.124 with
@@ -30,15 +35,18 @@ their effect unobserved.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 
 from pyflightstream._digest import file_sha256
+from pyflightstream._fsm import MeshReadError, saved_actuators, saved_length_unit
 from pyflightstream.cases import (
     ActuatorBlock,
     CampaignConfigError,
     FrameSpec,
+    RawCommand,
     ReferenceData,
     SimCase,
     case_at_point,
@@ -69,6 +77,37 @@ from tests.tier1_offline.test_workflows import (
 
 PROP = ActuatorBlock(frame="HUB", axis="X", tip_radius_m=0.5, hub_radius_m=0.1)
 HUB = FrameSpec(name="HUB", origin=(1.0, 0.0, 0.0))
+
+#: A setup line putting the simulation in millimetres after the open, the one
+#: way a row can state a unit other than the raw-mesh route's metres.
+MILLIMETRES = RawCommand(command="SET_SIMULATION_LENGTH_UNITS MILLIMETER", before="setup")
+
+#: THE COMMITTED TIER-3 GEOMETRY the licensed disc rows open: a saved
+#: simulation prepared in metres (``SET_SIMULATION_LENGTH_UNITS METER`` before
+#: its save), carrying one boundary and no actuator. Its CRLF bytes are the
+#: solver's, and the copies below keep them.
+WING_PHY = (
+    Path(__file__).parents[1] / "tier3_licensed" / "inputs" / "geometries" / "12_WING_PHY.fsm"
+)
+
+
+def _saved_copy(path: Path, section: str, body: Sequence[str]) -> Path:
+    """Copy the committed geometry with the body of one ``$<section>_START$`` block replaced."""
+    text = WING_PHY.read_bytes().decode("utf-8")
+    start, end = f"${section}_START$\r\n", f"${section}_END$"
+    head, rest = text.split(start, 1)
+    _, tail = rest.split(end, 1)
+    lines = "".join(f"{line}\r\n" for line in body)
+    path.write_bytes((head + start + lines + end + tail).encode("utf-8"))
+    return path
+
+
+def _saved_block(section: str) -> list[str]:
+    """The body of one block of the committed geometry, line by line."""
+    text = WING_PHY.read_bytes().decode("utf-8")
+    body = text.split(f"${section}_START$\r\n", 1)[1].split(f"${section}_END$", 1)[0]
+    return body.split("\r\n")[:-1]
+
 
 #: The reference a workspace row names: the three lengths, the frame the disc
 #: sits in, and the disc.
@@ -618,3 +657,213 @@ def test_g06_reconstruct_verifies_the_profile_where_the_run_read_it(tmp_path, va
     assert reconstruct(record, workspace=workspace).verified["inputs/prop_ct.txt"] == "differs"
     profile.unlink()
     assert reconstruct(record, workspace=workspace).verified["inputs/prop_ct.txt"] == "missing"
+
+
+# --- the disc's metres reach the solver in the simulation's unit -------------
+#
+# SET_ACTUATOR_AXIS and SET_ACTUATOR_RADIUS read their lengths in the
+# SIMULATION's length unit, and the block states them in metres. A script that
+# set another unit must convert, and a saved simulation whose unit the package
+# cannot read must be refused rather than written into as though it were metres.
+
+
+def test_g06_a_millimetre_simulation_takes_the_disc_in_millimetres():
+    """The same block in a simulation the setup put in millimetres: every length times 1000."""
+    block = PROP.model_copy(update={"offset_m": 0.25})
+    case = _with_disc(
+        steady_case(ACTUATOR="PROP", ACTUATOR_RPM="2400", ACTUATOR_THRUST="120"),
+        actuators={"PROP": block},
+        raw_commands=[MILLIMETRES],
+    )
+    lines, script = _lines(case)
+    hub = script.entities.labels("frames")["HUB"]
+    assert lines.index("SET_SIMULATION_LENGTH_UNITS MILLIMETER") < lines.index(
+        "CREATE_NEW_ACTUATOR PROPELLER ELLIPTICAL PROP"
+    ), "the fixture does not put the simulation in millimetres before the disc"
+    axis = next(line for line in lines if line.startswith("SET_ACTUATOR_AXIS"))
+    radius = next(line for line in lines if line.startswith("SET_ACTUATOR_RADIUS"))
+    assert (axis, radius) == (
+        f"SET_ACTUATOR_AXIS 1 {hub} X 250.0",
+        "SET_ACTUATOR_RADIUS 1 500.0 100.0",
+    ), (
+        f"a disc of 0.5 m and 0.1 m, 0.25 m along its axis, was written as {axis!r} and "
+        f"{radius!r} into a simulation in millimetres, where those numbers are millimetres"
+    )
+
+
+def test_g06_a_saved_simulation_in_metres_takes_the_disc_as_written():
+    """THE CONTROL: the committed geometry was saved in metres, and the numbers stay."""
+    case = _with_disc(
+        steady_case(
+            geometry=str(WING_PHY), ACTUATOR="PROP", ACTUATOR_RPM="2400", ACTUATOR_THRUST="120"
+        )
+    )
+    lines, _ = _lines(case)
+    assert "OPEN" in lines, "the fixture opens no saved simulation"
+    assert "SET_ACTUATOR_RADIUS 1 0.5 0.1" in lines, [line for line in lines if "ACTUATOR" in line]
+
+
+def test_g06_a_saved_simulation_whose_unit_is_not_read_is_refused_naming_the_keys(tmp_path):
+    """A global block opening otherwise than every metre save read is not taken for metres.
+
+    The second line of the committed geometry's global block is changed. What a
+    save in another unit writes there has never been read, so this is ANY head
+    other than the measured one and not a claim about millimetres.
+    """
+    head = _saved_block("GLOBAL")
+    other = _saved_copy(tmp_path / "wing_other.fsm", "GLOBAL", [head[0], "1", *head[2:]])
+    case = _with_disc(
+        steady_case(
+            geometry=str(other), ACTUATOR="PROP", ACTUATOR_RPM="2400", ACTUATOR_THRUST="120"
+        )
+    )
+    with pytest.raises(
+        CampaignConfigError, match=r"offset_m, tip_radius_m and hub_radius_m.*in metres"
+    ):
+        _lines(case)
+
+
+def test_g06_the_saved_unit_is_read_from_the_measured_head_and_no_other(tmp_path):
+    """The reader: metres for the head every save read carries, None with no block, else refused."""
+    assert saved_length_unit(WING_PHY) == "METER"
+    placeholder = _saved_simulation(tmp_path / "placeholder.fsm", ["Wing"])
+    assert saved_length_unit(placeholder) is None, "a file with no global block was read"
+    head = _saved_block("GLOBAL")
+    for changed in ([head[0], "1", *head[2:]], [" 1.00000000000000002E-03", *head[1:]]):
+        other = _saved_copy(tmp_path / "other.fsm", "GLOBAL", changed)
+        with pytest.raises(MeshReadError, match=r"not one this package has read"):
+            saved_length_unit(other)
+
+
+def test_g06_the_script_records_the_unit_it_sets():
+    """The ledger the disc reads: nothing until the script sets a unit, then that unit."""
+    script = Script("26.124")
+    assert script.simulation_length_unit is None
+    script.emit("SET_SIMULATION_LENGTH_UNITS", "INCH")
+    assert script.simulation_length_unit == "INCH"
+    script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
+    assert script.simulation_length_unit == "METER"
+
+
+def test_g06_a_unit_that_names_no_scale_is_refused_naming_the_keys():
+    """OTHER is a token of the command and names no length, so no metre is written in it."""
+    other = RawCommand(command="SET_SIMULATION_LENGTH_UNITS OTHER", before="setup")
+    case = _with_disc(
+        steady_case(ACTUATOR="PROP", ACTUATOR_RPM="2400", ACTUATOR_THRUST="120"),
+        raw_commands=[other],
+    )
+    with pytest.raises(CampaignConfigError, match=r"hub_radius_m.*'OTHER', which names no scale"):
+        _lines(case)
+
+
+# --- a saved simulation that already carries an actuator ---------------------
+#
+# CREATE_NEW_ACTUATOR appends to the actuators the opened file holds, and the
+# script's ledger starts from none, so on a file saved with a disc every command
+# after the create cited the SAVED actuator as 1.
+
+#: THE PHYSICS BLOCK OF A SAVE CARRYING ONE DISC, the solver's own lines: the
+#: 26.124 save of the licensed tier-3 row that loads a disc PROP by its net
+#: thrust (CREATE_NEW_ACTUATOR PROPELLER ELLIPTICAL PROP, frame 3, 0.5 m and
+#: 0.1 m, 2400 rev/min, 120 N), opened from the committed geometry.
+PHYSICS_WITH_A_DISC = (
+    " 0.14000E+03",
+    " 0.45000E+02",
+    " 0.15000E+02",
+    "0",
+    "1",
+    "Wing",
+    "1,",
+    "0",
+    "1,1,1,0",
+    " 0.00000000000000000E+00",
+    "1",
+    "PROP",
+    "3,",
+    "1,",
+    "1,",
+    " T,",
+    " T,",
+    " F,",
+    " T,",
+    " T,",
+    " 1.20000000000000000E+02,",
+    " 5.00000000000000000E-01,",
+    " 0.00000000000000000E+00,",
+    " 2.40000000000000000E+03,",
+    " 1.00000000000000000E+00,",
+    " 0.00000000000000000E+00,",
+    " 0.00000000000000000E+00,",
+    "0",
+    "0",
+    "Air",
+    " 1.22500000000000009E+00",
+    " 1.78939999999999984E-05",
+    " 3.40293473501785172E+02",
+    " 2.88149999999999977E+02",
+    " 1.01325000000000000E+05",
+    " 1.39999999999999991E+00",
+    "1,5,0,1",
+    " 5.00000000000000000E-01, 1.00000000000000006E-01",
+    " 0.00000000000000000E+00",
+    "0,0",
+    " F, F, T, T",
+    "1,10,10,0",
+    " 0.00000000000000000E+00, 0.00000000000000000E+00, 0.00000000000000000E+00,"
+    " 1.00000000000000000E+00, 1.00000000000000000E+00",
+    "0",
+    "0",
+)
+
+
+def test_g06_a_saved_simulation_carrying_an_actuator_is_refused_naming_it(tmp_path):
+    """The row's disc on a save that holds PROP: refused before a line, naming PROP."""
+    saved = _saved_copy(tmp_path / "wing_with_a_disc.fsm", "PHYSICS", PHYSICS_WITH_A_DISC)
+    case = _with_disc(
+        steady_case(
+            geometry=str(saved), ACTUATOR="PUSH", ACTUATOR_RPM="2400", ACTUATOR_THRUST="120"
+        ),
+        actuators={"PUSH": PROP},
+    )
+    with pytest.raises(CampaignConfigError, match=r"'PUSH'.*already carries the actuator 'PROP'"):
+        _lines(case)
+    # THE CONTROL: the committed geometry, saved with no actuator, takes the disc as 1.
+    control = _with_disc(
+        steady_case(
+            geometry=str(WING_PHY), ACTUATOR="PUSH", ACTUATOR_RPM="2400", ACTUATOR_THRUST="120"
+        ),
+        actuators={"PUSH": PROP},
+    )
+    lines, _ = _lines(control)
+    assert "CREATE_NEW_ACTUATOR PROPELLER ELLIPTICAL PUSH" in lines
+    assert "SET_ACTUATOR_RADIUS 1 0.5 0.1" in lines
+
+
+def test_g06_the_saved_actuators_are_read_from_the_physics_block(tmp_path):
+    """The reader: the save's disc, none on the geometry, None on a placeholder, else refused."""
+    with_a_disc = _saved_copy(tmp_path / "disc.fsm", "PHYSICS", PHYSICS_WITH_A_DISC)
+    assert saved_actuators(with_a_disc) == ("PROP",)
+    assert saved_actuators(WING_PHY) == ()
+    placeholder = _saved_simulation(tmp_path / "placeholder.fsm", ["Wing"])
+    assert saved_actuators(placeholder) is None, "a file with no physics block was read"
+    # A RECORD ONE LINE SHORT, and a settings line of another shape: refused, not guessed.
+    short = [line for line in PHYSICS_WITH_A_DISC if line != " F,"]
+    other = [("1,1,1" if line == "1,1,1,0" else line) for line in PHYSICS_WITH_A_DISC]
+    for name, body in (("short.fsm", short), ("other.fsm", other)):
+        with pytest.raises(MeshReadError, match=r"physics block"):
+            saved_actuators(_saved_copy(tmp_path / name, "PHYSICS", body))
+
+
+def test_g06_a_saved_simulation_whose_actuators_cannot_be_read_is_refused(tmp_path):
+    """A physics block out of shape is not read as carrying no actuator."""
+    body = [("1,1,1" if line == "1,1,1,0" else line) for line in PHYSICS_WITH_A_DISC]
+    unreadable = _saved_copy(tmp_path / "unreadable.fsm", "PHYSICS", body)
+    case = _with_disc(
+        steady_case(
+            geometry=str(unreadable), ACTUATOR="PROP", ACTUATOR_RPM="2400", ACTUATOR_THRUST="120"
+        )
+    )
+    with pytest.raises(
+        CampaignConfigError, match=r"actuators its saved simulation.*cannot be read"
+    ):
+        _lines(case)

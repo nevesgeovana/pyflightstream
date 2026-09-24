@@ -210,7 +210,10 @@ base from a body.
 - A case written in Python that declares an output ending in `_vsec.vtk` or
   `_vsec.dat` used to export it as a surface file. That suffix now names the
   volume-section export, and without a `[volume_section]` table the case is
-  refused. Rename the output.
+  refused. Rename the output. A run already RECORDED with such an output keeps
+  it: a record written before 0.27.0 is read by the kinds its release knew, so
+  its `_vsec.vtk` or `_vsec.dat` stays a surface export in `products.json` and
+  PROV-JSON, and nothing is renamed.
 - A setup whose `[[flags]]` declares a flag named `ACTUATOR`, `ACTUATOR_RPM`,
   `ACTUATOR_THRUST` or `PROFILE` (any case) is now refused, because a run type
   reads those words. Rename the flag.
@@ -343,7 +346,44 @@ own.
   again; `pyfs-matrix post` archives it before writing the new one. The solver's
   own files under `datapoints/DP-<point>/` are not touched.
 
-## 18. A row may name a custom free stream (G15)
+## 18. A run records the empty section layout, and an older record's is read off its script
+
+- A record whose script adds or removes no surface section now carries
+  `sections_layout: []`, where it carried `null`: every steady point, and
+  every steady job, of a pproc declaring no distribution. `null` now means
+  the layout is not known (a record before 0.24.0, a script changing sections
+  no run type built). Code that read `null` as "no distribution" reads `[]`.
+  A 0.24.0 to 0.26.0 reader reads the empty list.
+- The post no longer names `sections/<point>_sloads#distributions` and
+  `sections/<point>_cp#distributions` as skipped for such a point, which
+  advised a new run that recorded nothing more. A record written before
+  this, on 0.24.0 to 0.26.0 or an earlier 0.27.0 build, is given the empty
+  layout when its recorded script hashes as the record says and creates no
+  surface section, so posting it again with 0.27.0 drops the two skips; no
+  new run is needed.
+- A continuation records the layout of the run it continues, so its split
+  and its identity columns are written where they were refused. A
+  continuation recorded before this keeps the refusal.
+
+## 19. The plan calls a recorded job's points recorded, and new angles of its row run one each
+
+- `pyfs-matrix plan` reports every point a recorded steady job ran as
+  already recorded, where it reported them ready although `run --resume`
+  skipped them. A plan's ready count, and `--cost`, drop by those points.
+- `run --resume` over a steady row whose job is recorded runs the angles the
+  job did not run one each, each its own record ending with its point name, as
+  a single new angle already ran. Two or more used to run as a second job
+  under the recorded job's id, which spent the solver and was then refused its
+  record. Such an attempt left its exports in the new points'
+  `datapoints/DP-<point>/` and nothing in the manifest, so resuming it as it
+  is records each of those points `FAILED_INCOMPLETE_OUTPUT` before the solver
+  starts, naming the files: move them out of those folders first. Naming the
+  job to `--force-rerun` still runs the whole row as one job.
+- A row cut back to angles its recorded job already ran runs nothing on
+  resume; it was run again as a point and refused by that point's own
+  outputs, which left a `FAILED_INCOMPLETE_OUTPUT` record.
+
+## 20. A row may name a custom free stream (G15)
 
 - A matrix whose rows state `FREESTREAM` cannot be planned by 0.26.0 or older,
   which refuses it as a key of no run type. A row without the key plans and runs

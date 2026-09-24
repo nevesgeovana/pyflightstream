@@ -299,6 +299,28 @@ ambiguous match is a named skip. Without a recorded layout,
 A layout whose counts disagree with an export is likewise refused for that
 export kind, rather than assigning rows to guessed distributions.
 
+**The empty layout is a layout (since 0.27.0).** A run whose script adds or
+removes no surface section records `sections_layout = []`, which is every
+steady point of a pproc declaring no distribution: its sections exports state
+`Number of Surface Sections: 0`. With no distribution declared and none
+created there is nothing to split and nothing is named as skipped
+(`test_a_steady_row_that_created_no_distribution_is_not_refused_a_split`); a
+declared entry the geometry left out gets its named skip as above
+(`test_an_entry_the_geometry_leaves_out_is_named_as_such_not_as_a_missing_layout`).
+A continuation records the layout of the run it continues, whose saved
+simulation it reopens
+(`test_a_continuation_records_the_layout_of_the_run_it_continues`). A record written before 0.27.0 with no layout at all is given the
+empty one when its recorded script is on disk, its bytes hash as the record's
+`script_sha256` says, and it carries none of `NEW_SURFACE_SECTION_DISTRIBUTION`,
+`CREATE_NEW_SURFACE_SECTION`, `DELETE_SURFACE_SECTION` and
+`DELETE_ALL_SURFACE_SECTIONS`; that is read off the script and needs no new
+run (`test_an_old_record_takes_the_empty_layout_its_script_proves`). A record
+whose script creates a section or no longer hashes as recorded, and a
+continuation recorded before 0.27.0, are not given it, and their split stays
+refused (`test_an_old_record_whose_script_creates_a_distribution_keeps_the_refusal`,
+`test_an_old_record_whose_script_no_longer_hashes_keeps_the_refusal`,
+`test_an_old_continuation_keeps_the_refusal`).
+
 Each manifest entry states `distribution` (1-based), `families` (the original
 alias/selection), and `steps_tabled`. A pproc entry with no recorded blocks
 gets a named skip rather than a guessed share of another entry's rows.
@@ -848,11 +870,18 @@ files above, and the package writes no product from it:
 | field | definition |
 |---|---|
 | file | `{name}_vsec.vtk` (`format = "vtk"`, `EXPORT_VOLUME_SECTION_VTK`) or `{name}_vsec.dat` (`format = "tecplot"`, `EXPORT_VOLUME_SECTION_TECPLOT`), in the point's `datapoints/DP-<point>/`, hashed in its record |
-| plane | a rectangle between two diagonal corners (`corners_m`), or an annulus between two radii (`radii_m`), in the `plane` of the named `frame`, `offset_m` along its normal; every length in metres |
-| instant | the converged state of THAT point: the section is created after the point's `START_SOLVER`, and a later point of a sweep deletes the previous section before creating its own, so each file is its own point's plane |
+| plane | a rectangle between two diagonal corners (`corners_m`), or an annulus between two radii (`radii_m`), in the `plane` of the named `frame`, `offset_m` along its normal; every length in metres, written in the simulation's length unit, and a saved simulation whose unit the package cannot read is refused at plan ([the workflows page](workspace-and-workflows.md#one-row-one-actuator-disc)) |
+| instant | the converged state of THAT point: the section is created after the point's `START_SOLVER`, its flow computed by `UPDATE_ALL_VOLUME_SECTIONS` before the export, and a later point of a sweep deletes the previous section before creating its own, so each file is its own point's plane; a section exported with no update held every cell at 0.0 in the licensed run of 2026-09-24 (RPT-070), and that the update fills it is not yet measured |
+| which section | the pproc's own: the export and the delete cite the index the pproc's section takes in the solver's list, counting every section the script cuts, a raw line's included, so a section a raw line cut before it never fills the pproc's file; a raw line deleting the pproc's section leaves the file nothing to export, and the row is refused when its script is built |
 
 The `_vsec` infix is what tells the file from a surface export of the same
-extension. There is one section per pproc; an unsteady row naming a pproc that
+extension, in a run recorded by 0.27.0 or later. **A run recorded before 0.27.0
+keeps the meaning its release gave the name**: its `P_vsec.vtk` or
+`P_vsec.dat` was a surface VTK or Tecplot export, and the post keeps it one, a
+native-surface entry of `products.json` with its instant or average metadata in
+PROV-JSON, because upgrading the reader does not rewrite what a record says.
+The post reads every recorded output by the kinds the record's
+`package_version` knew. There is one section per pproc; an unsteady row naming a pproc that
 declares one is refused, because its step exports run before a section cut
 after the march exists. The commands are verified on 26.120 to 26.124 one at a
 time; the delete-then-create sequence of a sweep is not measured.

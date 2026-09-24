@@ -48,7 +48,7 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from fractions import Fraction
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -57,6 +57,7 @@ import numpy
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from pyflightstream._decimal import plain_decimal
+from pyflightstream._lengths import METRES_PER_UNIT, scale
 from pyflightstream._mesh import read_mesh
 from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.script import CommandArgumentError
@@ -371,19 +372,10 @@ LENGTH_UNIT_COMMAND = "SET_SIMULATION_LENGTH_UNITS"
 #: Metres in one of each length unit the solver records, exact as decimals.
 #: OTHER is absent on purpose: it names no scale, so nothing can be
 #: converted to or from it. Every other recorded token has an entry, which
-#: ``tests/tier1_offline/test_wake_edges.py`` holds against the record.
-_METRES_PER_UNIT: dict[str, Fraction] = {
-    "METER": Fraction(1),
-    "CENTIMETER": Fraction("0.01"),
-    "MILLIMETER": Fraction("0.001"),
-    "MICRON": Fraction("0.000001"),
-    "KILOMETER": Fraction(1000),
-    "INCH": Fraction("0.0254"),
-    "FEET": Fraction("0.3048"),
-    "MILE": Fraction("1609.344"),
-    "MILS": Fraction("0.0000254"),
-    "MICROINCH": Fraction("0.0000000254"),
-}
+#: ``tests/tier1_offline/test_wake_edges.py`` holds against the record. The
+#: table is the floor's (:mod:`pyflightstream._lengths`, since 0.27.0), which
+#: the cases layer converts the actuator disc and the volume section with.
+_METRES_PER_UNIT: Mapping[str, Fraction] = METRES_PER_UNIT
 
 
 def length_scale(from_unit: str, to_unit: str) -> float:
@@ -428,7 +420,9 @@ def length_scale(from_unit: str, to_unit: str) -> float:
                 f"converted between are: {scaled}",
                 kind="wake_edges",
             )
-    return float(_METRES_PER_UNIT[from_unit] / _METRES_PER_UNIT[to_unit])
+    factor = scale(from_unit, to_unit)
+    assert factor is not None  # both tokens were found in the table above
+    return factor
 
 
 def node_file_units() -> tuple[str, ...]:

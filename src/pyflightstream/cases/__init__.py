@@ -91,6 +91,7 @@ __all__ = [
     "SolverToggle",
     "EXPORT_KINDS",
     "EXPORT_KIND_MEANINGS",
+    "EXPORT_KIND_SINCE",
     "InputKey",
     "SOLVER_SETTING_COMMANDS",
     "OPT_IN_EXPORT_KINDS",
@@ -483,6 +484,21 @@ VOLUME_SECTION_KINDS: dict[str, str] = {
     "tecplot": "volume_section_tecplot",
 }
 
+#: THE RELEASE EACH KIND ENTERED IN, for every kind younger than the first
+#: release that wrote run records' outputs this way (0.27.0). A RECORDED output
+#: is read as the release that wrote the record read it: a record of an earlier
+#: release claims none of these suffixes, so its ``P_vsec.vtk`` is the surface
+#: VTK export it was when written, and upgrading the reader does not rewrite
+#: what the record says (:func:`classify_outputs`, ``package_version``).
+EXPORT_KIND_SINCE: dict[str, tuple[int, int]] = {
+    "force_distributions": (0, 27),
+    "volume_section_vtk": (0, 27),
+    "volume_section_tecplot": (0, 27),
+    "plot_residuals": (0, 27),
+    "plot_loads": (0, 27),
+    "plot_sections_cp": (0, 27),
+}
+
 
 #: The kinds only a STEADY point leaves. An unsteady point samples its probes
 #: through fluid plots and exports its force and fluid histories as
@@ -562,15 +578,41 @@ def default_outputs(
     ]
 
 
-def classify_outputs(names: Sequence[str]) -> dict[str, str]:
+def classify_outputs(names: Sequence[str], *, package_version: str | None = None) -> dict[str, str]:
     """Map each export kind to the declared output name that carries its suffix.
 
     Longest suffix first, so ``_cp.txt`` is claimed by the sections kind
     before the loads kind can see a ``.txt``. A kind no name matches is
     absent from the result; a second name matching an already claimed
     kind is left unclassified rather than overwriting the first.
+
+    Parameters
+    ----------
+    names : sequence of str
+        The output names, declared or recorded.
+    package_version : str, optional
+        The ``package_version`` of the RUN RECORD the names come from. A
+        record written by a release before a kind entered
+        (:data:`EXPORT_KIND_SINCE`) is read without that kind, as its release
+        read it: a 0.26.0 record's ``P_vsec.vtk`` is its surface VTK export,
+        not a volume section. None, or a version that states no release,
+        reads by the kinds of this release, as a name being declared now is.
+
+    Examples
+    --------
+    >>> from pyflightstream.cases import classify_outputs
+    >>> classify_outputs(["P_vsec.vtk"])
+    {'volume_section_vtk': 'P_vsec.vtk'}
+    >>> classify_outputs(["P_vsec.vtk"], package_version="0.26.0")
+    {'vtk': 'P_vsec.vtk'}
     """
-    by_length = sorted(EXPORT_KINDS, key=lambda kind: -len(kind[1]))
+    release = _release_of(package_version)
+    known = [
+        kind
+        for kind in EXPORT_KINDS
+        if release is None or EXPORT_KIND_SINCE.get(kind[0], release) <= release
+    ]
+    by_length = sorted(known, key=lambda kind: -len(kind[1]))
     claimed: dict[str, str] = {}
     for name in names:
         lowered = str(name).lower()
@@ -579,6 +621,14 @@ def classify_outputs(names: Sequence[str]) -> dict[str, str]:
                 claimed[kind] = str(name)
                 break
     return claimed
+
+
+def _release_of(package_version: str | None) -> tuple[int, int] | None:
+    """Return the (major, minor) release a package version string states, or None."""
+    if package_version is None:
+        return None
+    stated = re.match(r"(\d+)\.(\d+)", package_version.strip())
+    return (int(stated.group(1)), int(stated.group(2))) if stated else None
 
 
 #: THE FORCE-PLOT PARAMETERS BY THE SHORT NAME THE REFERENCE PLOT FILES USE, paired

@@ -309,6 +309,32 @@ FlightStream versions.
 
 ### Fixed
 
+- **`pyfs-matrix plan` calls a recorded job's points recorded, and resume
+  runs a recorded job's new angles one each.** A steady row of several points
+  is one job, recorded under the row's id and not under its points', and the
+  plan looked for the points' own ids: it reported every point of a recorded
+  steady sweep ready while `run --resume` skipped them all. It now reports
+  them already recorded, from the same question resume asks, so its ready
+  points are the ones resume runs. Resume ran two or more angles added to such
+  a row as a second job under the recorded job's id, so the solver ran and the
+  manifest then refused the record as a duplicate; they now run one each, as a
+  single added angle did, and naming the job to `--force-rerun` still runs the
+  whole row as one job. A row cut back to angles its job ran runs nothing,
+  where it was run again as a point and refused by that point's own outputs.
+- **A point whose script created no section distribution is no longer refused
+  its split.** Its record carried no `sections_layout`, which reads as a record
+  written before 0.24.0, so the post named `sections/<point>_sloads#distributions`
+  and `..._cp#distributions` as skipped on every steady point of a pproc
+  declaring no distribution, and advised a new run that recorded nothing more
+  (0.25.0 to 0.26.0). A run now records `sections_layout = []` where its
+  rendered script adds or removes no surface section, on the point path and
+  the steady one-job path, and a continuation records the layout of the run it
+  continues. A record written before this is given the empty layout at post
+  when its recorded script hashes as the record says and creates no surface
+  section, so no new run is needed; a script that creates one, one that no
+  longer hashes, and an older continuation keep the refusal.
+  `pyflightstream.cases.workflows.creates_surface_sections` answers the
+  question for a rendered script.
 - **`pyfs-matrix run --local` applies the HPC profile's log decision.** A
   profile stating `[log] export_log = false` says the solver build on that
   cluster aborts at `EXPORT_LOG`; the decision reached a submitted job only,
@@ -528,6 +554,56 @@ FlightStream versions.
   and that the probe still asserts on the log line, a silent region being
   unprobed
   ([RPT-065](reports/RPT-065_what-detection-and-initialisation-mark_2026-09-24.md)).
+- **An actuator disc's and a volume section's metres reach the solver in the
+  simulation's length unit.** `offset_m`, `tip_radius_m`, `hub_radius_m`,
+  `corners_m` and `radii_m` went to commands that carry no unit and are read in
+  the simulation's unit, unconverted, so a simulation in millimetres read a
+  0.5 m radius as 0.5 mm. They are now converted into the unit the script set
+  after the open (the metres of a raw mesh, or a setup line's
+  `SET_SIMULATION_LENGTH_UNITS`), and on a saved simulation it set none on,
+  into the unit the file was saved in, read from the head of its global block.
+  Only the head every save read carries, the saves known to be in metres among
+  them, is read, as metres; a file opening otherwise is refused at plan naming
+  the keys, since whether a save in another unit writes another head is not
+  measured. `Script.simulation_length_unit` follows the unit a script sets, and
+  the length table moved to `pyflightstream._lengths`, which the trailing-edge
+  node file is converted with too (G05, G06).
+- **A row's disc on a saved simulation that already carries an actuator is
+  refused at plan, naming it.** `CREATE_NEW_ACTUATOR` appends to the file's
+  actuators while the script cited its disc as actuator 1, so the axis,
+  radius, speed and loading configured the saved actuator. The saved
+  simulation's actuators are read from its physics block, walked by its own
+  counts, and a block out of the measured shape is refused as unreadable
+  (G06).
+- **A run recorded before 0.27.0 keeps its `_vsec` files as surface exports.**
+  The post read every recorded output by this release's suffixes, so a 0.26.0
+  record's `P_vsec.vtk` or `P_vsec.dat`, a surface VTK or Tecplot export when
+  written, became a volume section: it left the native-surface entries of
+  `products.json` and lost its surface metadata in PROV-JSON. A recorded
+  output is now read by the kinds its record's `package_version` knew:
+  `classify_outputs` takes `package_version`, and
+  `cases.EXPORT_KIND_SINCE` names the release each kind of 0.27.0 entered
+  (the volume-section, force-distribution and solver-plot kinds) (G05).
+- **A volume section's export and delete cite the pproc's own section.** Both
+  cited index 1, so a raw line cutting a section before the analysis made the
+  pproc's file hold the raw section's plane, and a later point of a sweep
+  deleted the raw section instead of its own. They now cite the index the
+  pproc's section takes, counting every section the script cuts: a raw circle
+  cut first makes the pproc's rectangle 2, exported as 2. A raw line deleting
+  the pproc's section before its export is refused when the script is built.
+  `Script.volume_sections` counts the sections a script has cut, and
+  `Script.volume_section_index`, the pproc's own, replaces
+  `volume_section_created` (G05).
+- **A volume section is updated before it is exported.** Each point cut its
+  section after the solve and exported it at once, and the licensed run of
+  2026-09-24 (RPT-070, 26.124) wrote both points of a steady sweep as
+  byte-identical files whose every cell value was 0.0: the manual computes the
+  flow on a section with "Update all", after the solution has converged. Every
+  point, each point of a steady one-job sweep included, now emits
+  `UPDATE_ALL_VOLUME_SECTIONS` after cutting its section and before its
+  export. The command is documented on every build of the range and ran
+  without abort in the probes of 26.120 to 26.124; that it fills the export is
+  not yet measured (G05).
 
 - **A row stating `roll_rate` or `yaw_rate` turns the free stream the way the
   rate says.** From 0.21.0 all three body rates were emitted with one sign of
@@ -693,8 +769,9 @@ FlightStream versions.
   `SET_UNSTEADY_VISCOUS_COUPLING_ITERATION` are `removed` on 26.124, citing
   RPT-068; emittable 26.124 commands go from 371 to 370 (G14).
 - An output name ending `_vsec.vtk` or `_vsec.dat` is now the volume-section
-  export, not a surface VTK or Tecplot export. A case declaring one without a
-  cut section is refused (G05).
+  export, not a surface VTK or Tecplot export, in a case being built and in a
+  run recorded by 0.27.0 or later; a run recorded before keeps the surface
+  meaning. A case declaring one without a cut section is refused (G05).
 - `ACTUATOR`, `ACTUATOR_RPM`, `ACTUATOR_THRUST` and `PROFILE` are row keys of
   every run type, so a setup flag taking one of those words is refused (FR-74)
   (G06).
@@ -729,10 +806,10 @@ FlightStream versions.
 
 ### Changed (the type-checker debt, re-measured)
 
-- mypy recount 2026-09-24: 736 errors in 18 of 99 modules, against 0.26.0's 710 in 18 of 97. The two
-  modules that arrived, `_decimal.py` and `run/_wake_edge_verdict.py`, are
-  clean; the twenty-six errors more sit inside the exempted set, most on the
-  run module's record builders (`reports/RPT-029`).
+- mypy recount 2026-09-24: 761 errors in 18 of 100 modules, against 0.26.0's 710 in 18 of 97. The three
+  modules that arrived, `_decimal.py`, `run/_wake_edge_verdict.py` and
+  `_lengths.py`, are clean; the fifty-one errors more sit inside the exempted
+  set, most on the run module's record builders (`reports/RPT-029`).
 
 ### Documentation
 

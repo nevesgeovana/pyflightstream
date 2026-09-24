@@ -39,6 +39,14 @@ exactly mesh-block order. A fourth measurement was reported by a review
 agent and EXCLUDED from the report, because the session writing it could
 not reproduce the reading. A claim resting only on a docstring is what a
 verification review refused here, correctly.
+
+TWO POSITIONAL READINGS OUTSIDE THE MESH BLOCK (0.27.0) are the line map
+the paragraph above says the mesh reading is not, so each reads only the
+shape it was measured on and refuses every other. :func:`saved_length_unit`
+reads the first two lines of the global block, and reads one head as metres
+and no other. :func:`saved_actuators` walks the physics block by its own
+counts to the actuator records. ``tests/tier1_offline/test_g06_actuator_disc.py``
+holds both.
 """
 
 from __future__ import annotations
@@ -63,6 +71,8 @@ __all__ = [
     "boundary_labels",
     "boundary_names",
     "resolve_family",
+    "saved_actuators",
+    "saved_length_unit",
     "surface_mesh",
     "trailing_edge_midpoints",
 ]
@@ -157,6 +167,221 @@ def element_count(path: str | Path) -> int | None:
     except OSError:
         return None
     return None
+
+
+def _block(path: str | Path, name: str) -> list[str] | None:
+    """Return the lines of one ``$<name>_START$`` block, or None when the file has none.
+
+    Read line by line, for the reason :func:`boundary_names` gives: the mesh
+    block before it can hold a single line of a megabyte. A block that opens
+    and never closes is refused, since its last lines would be read as some
+    other block's.
+    """
+    target = Path(path)
+    start, end = f"${name}_START$", f"${name}_END$"
+    try:
+        handle = target.open(encoding="utf-8", errors="replace")
+    except OSError as error:
+        raise MeshReadError(f"{target.name}: cannot be read: {error}") from error
+    with handle:
+        for line in handle:
+            if line.strip() == start:
+                break
+        else:
+            return None
+        lines: list[str] = []
+        for line in handle:
+            if line.strip() == end:
+                return lines
+            lines.append(line.rstrip("\r\n"))
+    raise MeshReadError(f"{target.name}: the block {start} opens and never closes")
+
+
+#: THE HEAD OF THE GLOBAL BLOCK OF EVERY SAVED SIMULATION READ, and what it is
+#: read as (G05, G06 of 0.27.0): the two values its first two lines carry.
+#: Every save read on 2026-09-24, 1586 files of builds 26.100, 26.120, 26.121,
+#: 26.123 and 26.124 (none of 26.122), opens with these two
+#: and no other, among them the tier-3 geometries, which their preparation put
+#: in metres (``SET_SIMULATION_LENGTH_UNITS METER`` before the save), and the
+#: licensed saves made from them. 1.0 is a metre in metres, and 5 is METER's
+#: position in the unit list the manual prints for that command.
+#: WHETHER A SAVE IN ANOTHER UNIT WRITES ANOTHER HEAD IS NOT MEASURED: no save
+#: in another unit has been read. So the head is not decoded into a unit; a
+#: save carrying this head is read as metres, and one carrying any other head
+#: is refused as a unit this package has not read.
+_METRE_HEAD = (1.0, "5")
+
+
+def saved_length_unit(path: str | Path) -> str | None:
+    """Return the length unit a saved simulation was saved in, as far as it is read.
+
+    Parameters
+    ----------
+    path : str or Path
+        A saved simulation file.
+
+    Returns
+    -------
+    str or None
+        ``"METER"`` when the global block opens with the head every save read
+        carries (:data:`_METRE_HEAD`). None when the file carries no global
+        block at all, which no save of the solver lacks: a placeholder staged
+        by a test reads as None, as it reads as no boundary inventory.
+
+    Raises
+    ------
+    MeshReadError
+        If the file cannot be read, or its global block opens with any other
+        head, naming the two lines: the unit it was saved in is then not one
+        this package has read, and a length converted on a guess is a body of
+        the wrong size that solves without a word.
+    """
+    block = _block(path, "GLOBAL")
+    if block is None:
+        return None
+    scale, index = (block + ["", ""])[:2]
+    try:
+        read = (float(scale), index.strip())
+    except ValueError:
+        read = (float("nan"), index.strip())
+    if read != _METRE_HEAD:
+        raise MeshReadError(
+            f"{Path(path).name}: its global block opens with {scale.strip()!r} and "
+            f"{index.strip()!r}, where every saved simulation this package has read opens "
+            f"with {_METRE_HEAD[0]!r} and {_METRE_HEAD[1]!r}, the saves known to be in metres "
+            "among them; the unit it was saved in is not one this package has read"
+        )
+    return "METER"
+
+
+#: A number of the physics block, in either of the two forms it writes them
+#: (`` 0.14000E+03`` and `` 1.20000000000000000E+02,``).
+_NUMBER = re.compile(r"^[+-]?\d+(\.\d*)?([EeDd][+-]?\d+)?$")
+
+#: The physics block's settings line, four integers and no trailing comma
+#: (``1,1,1,0``, ``2,2,1,0``), the line after the three surface lists.
+_SETTINGS_LINE = re.compile(r"^\d+(,\d+){3}$")
+
+#: The lines of one actuator record after its name, as the two saves carrying
+#: a disc hold them: three one-integer lines, five one-flag lines and seven
+#: one-number lines, each ending in a comma.
+_ACTUATOR_RECORD = (("integer", 3), ("flag", 5), ("number", 7))
+
+
+class _PhysicsReader:
+    """Walks the physics block line by line, refusing by name any line out of shape."""
+
+    def __init__(self, lines: Sequence[str], name: str) -> None:
+        self.lines = lines
+        self.name = name
+        self.at = 0
+
+    def refuse(self, detail: str) -> MeshReadError:
+        return MeshReadError(
+            f"{self.name}: {detail} (physics block line {self.at}). The physics block is not "
+            "the shape this reader was measured on, so no actuator is read from it rather "
+            "than a wrong one being guessed at"
+        )
+
+    def row(self, what: str) -> str:
+        if self.at >= len(self.lines):
+            raise self.refuse(f"the physics block ends before its {what}")
+        line = self.lines[self.at].strip()
+        self.at += 1
+        return line
+
+    def count(self, what: str) -> int:
+        text = self.row(what)
+        if not text.isdigit():
+            raise self.refuse(f"its {what} reads {text!r}, which is not a count")
+        return int(text)
+
+    def values(self, what: str, size: int, kind: str) -> None:
+        tokens = _tokens(self.row(what))
+        valid = {
+            "integer": lambda token: token.lstrip("+-").isdigit(),
+            "flag": lambda token: token in _FLAGS,
+            "number": lambda token: _NUMBER.match(token) is not None,
+        }[kind]
+        if len(tokens) != size or not all(valid(token) for token in tokens):
+            raise self.refuse(f"its {what} reads {tokens!r} where {size} {kind}(s) stand")
+
+
+def saved_actuators(path: str | Path) -> tuple[str, ...] | None:
+    """Return the names of the actuators a saved simulation already carries (G06).
+
+    A row's disc is created by ``CREATE_NEW_ACTUATOR``, which appends to the
+    actuators the opened simulation holds, and every command after it cites
+    the disc by that index; a caller that knows none of them would configure
+    a saved actuator instead.
+
+    THE PHYSICS BLOCK, WALKED BY ITS OWN COUNTS. After three one-number lines
+    come three surface lists, each a count and that many names: the first
+    followed, when not empty, by a line of flags and four lines of numbers,
+    the other two by a line of integers. Then the settings line (four
+    integers), one number, and the ACTUATOR COUNT, each actuator a record of
+    its name and fifteen lines (:data:`_ACTUATOR_RECORD`), and after them a
+    count again. Measured on 2026-09-24 over every save read, 1586 files of
+    builds 26.100, 26.120, 26.121, 26.123 and 26.124, the tier-3 geometries
+    and the licensed saves of their rows among them: every one walks to the
+    end, 1584 carry no actuator, and the two carrying one are the 26.124 saves
+    of the two tier-3 disc rows, whose record names the disc their script
+    created (``PROP``). Only
+    one-actuator records have been read, so a second record is read by the
+    same shape and refused where it differs.
+
+    Parameters
+    ----------
+    path : str or Path
+        A saved simulation file.
+
+    Returns
+    -------
+    tuple of str or None
+        The actuator names in the solver's order, empty when there is none.
+        None when the file carries no physics block, which no save of the
+        solver lacks: a placeholder staged by a test reads as None.
+
+    Raises
+    ------
+    MeshReadError
+        If the file cannot be read, or the physics block departs from the
+        shape above anywhere before the line after the last actuator record,
+        naming the line.
+    """
+    target = Path(path)
+    lines = _block(target, "PHYSICS")
+    if lines is None:
+        return None
+    physics = _PhysicsReader(lines, target.name)
+    for position in range(3):
+        physics.values(f"head line {position + 1}", 1, "number")
+    for number, (flags, numbers, integers) in enumerate(((1, 4, 0), (0, 0, 1), (0, 0, 1)), 1):
+        size = physics.count(f"surface list {number} count")
+        for _ in range(size):
+            physics.row(f"surface list {number} name")
+        if size:
+            for _ in range(flags):
+                physics.values(f"surface list {number} flags", size, "flag")
+            for _ in range(numbers):
+                physics.values(f"surface list {number} numbers", size, "number")
+            for _ in range(integers):
+                physics.values(f"surface list {number} integers", size, "integer")
+    settings = physics.row("settings line")
+    if not _SETTINGS_LINE.match(settings):
+        raise physics.refuse(f"its settings line reads {settings!r}")
+    physics.values("line after the settings", 1, "number")
+    names: list[str] = []
+    for position in range(1, physics.count("actuator count") + 1):
+        name = physics.row(f"actuator {position} name")
+        if not name or _NUMBER.match(name) or set(_tokens(name)) <= _FLAGS:
+            raise physics.refuse(f"actuator {position} is named {name!r}")
+        for kind, lines_of_kind in _ACTUATOR_RECORD:
+            for _ in range(lines_of_kind):
+                physics.values(f"actuator {position} {kind} line", 1, kind)
+        names.append(name)
+    physics.count("count after the actuators")
+    return tuple(names)
 
 
 def boundary_names(path: str | Path) -> tuple[str, ...] | None:
