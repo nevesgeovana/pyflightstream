@@ -15,6 +15,7 @@ induced_wake_velocity = true
 significant_digits = 7
 convergence_iterations = 20
 solver_minimum_cp = -100
+farfield_layers = 5                      # SOLVER_SET_FARFIELD_LAYERS (every licensed run states five, 0.27.0)
 
 # No [flight_condition] table: every row naming this preset states its own
 # pins or takes the standard atmosphere, which is the third form a

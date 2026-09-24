@@ -14,6 +14,7 @@ induced_wake_velocity = true             # SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY
 significant_digits = 7
 convergence_iterations = 20              # SET_SOLVER_CONVERGENCE_ITERATIONS
 solver_minimum_cp = -100
+farfield_layers = 5                      # SOLVER_SET_FARFIELD_LAYERS (every licensed run states five, 0.27.0)
 # No induced-drag selection here: the solver's own default applies, and s003
 # states one so the tour shows both forms.
 

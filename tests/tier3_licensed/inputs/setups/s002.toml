@@ -12,7 +12,7 @@ stabilization = "ENABLE"
 stabilization_strength = 1.0
 # symmetry_loads moved to the SYMMETRY_LOADS matrix column at v0.17.0
 induced_wake_velocity = true
-farfield_layers = 3
+farfield_layers = 5                      # SOLVER_SET_FARFIELD_LAYERS (every licensed run states five, 0.27.0)
 significant_digits = 7
 convergence_iterations = 10
 solver_minimum_cp = -100

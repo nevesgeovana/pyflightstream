@@ -16,6 +16,7 @@ NITER = 500
 set_solver_model = "INCOMPRESSIBLE"
 proximity_avoidance = "DISABLE"            # WALL_COLLISION_AVOIDANCE DISABLE
 vorticity_drag_boundaries = ["Wing"]       # SET_VORTICITY_DRAG_BOUNDARIES, the one boundary
+farfield_layers = 5                      # SOLVER_SET_FARFIELD_LAYERS (every licensed run states five, 0.27.0)
 
 [flight_condition]
 MUPas = 1.7894e-5                          # the qa fluid block, to its last digit

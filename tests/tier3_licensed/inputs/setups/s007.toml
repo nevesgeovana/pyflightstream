@@ -7,6 +7,7 @@ NITER = 500
 set_solver_model = "INCOMPRESSIBLE"
 proximity_avoidance = "DISABLE"
 vorticity_drag_boundaries = ["Wing"]
+farfield_layers = 5                      # SOLVER_SET_FARFIELD_LAYERS (every licensed run states five, 0.27.0)
 # symmetry_loads moved to the SYMMETRY_LOADS matrix column at v0.17.0
 
 [flight_condition]

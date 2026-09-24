@@ -17,6 +17,7 @@ significant_digits = 7
 convergence_iterations = 20
 solver_minimum_cp = -100
 vorticity_drag_boundaries = ["Wing"]     # the induced-drag selection, stated: the setup study runs the wing
+farfield_layers = 5                      # SOLVER_SET_FARFIELD_LAYERS (every licensed run states five, 0.27.0)
 
 [flight_condition]
 MUPas = 1.789e-5
