@@ -412,8 +412,12 @@ _spec(
     requires=Requires.SIM,
     assert_effect=region_printed_lax("trailing edge"),
     effect_note=(
-        "the command runs silently and INITIALIZE_SOLVER detects edges on its own; no "
-        "instrument separates the two yet"
+        "a line of the target region naming trailing edges, which detection prints as "
+        "N trailing edges marked on surface <name>; INITIALIZE_SOLVER alone marks no "
+        "trailing edge and prints no such line, measured on 26.124 (RPT-065). A silent "
+        "region is unprobed: the saved-state reader of RPT-065, the instrument that "
+        "separates what detection and initialisation mark, is not this probe's "
+        "assertion yet"
     ),
 )
 _spec(

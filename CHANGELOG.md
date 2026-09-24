@@ -427,6 +427,14 @@ FlightStream versions.
   with `The instrument read: ...`; the `IMPORT_WAKE_EDGES_FROM_FILE` probe
   records every import line of the target region as the judge parsed it,
   `import lines [{"Wing": 16}]` when verified (G02).
+- **The `AUTO_DETECT_TRAILING_EDGES` probe no longer says initialisation
+  detects trailing edges.** Its evidence line, quoted by every compat report,
+  said `INITIALIZE_SOLVER` marks them on its own and that no instrument
+  separates the two. On 26.124 initialisation alone marks none, and the
+  saved-state reader of RPT-065 is that instrument. The line now states that,
+  and that the probe still asserts on the log line, a silent region being
+  unprobed
+  ([RPT-065](reports/RPT-065_what-detection-and-initialisation-mark_2026-09-24.md)).
 
 - **A row stating `roll_rate` or `yaw_rate` turns the free stream the way the
   rate says.** From 0.21.0 all three body rates were emitted with one sign of
