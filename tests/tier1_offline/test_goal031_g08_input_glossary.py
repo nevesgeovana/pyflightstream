@@ -435,6 +435,35 @@ def test_init_writes_the_page_beside_variables_and_only_when_it_differs(tmp_path
     assert page.read_text(encoding="utf-8") == guides.input_glossary_markdown()
 
 
+def test_the_plan_writes_the_page_beside_variables_too(tmp_path):
+    """``pyfs-matrix plan`` writes the guides (D08: the page sits beside VARIABLES.md
+    where a user plans); a plan asked to write nothing writes no page."""
+    from pyflightstream.cases.workflows import workflow_registry
+    from pyflightstream.run.matrix import plan_matrix
+    from tests.tier1_offline.test_goal024_point_name import RECIPES, _matrix
+
+    workspace, matrix = _matrix(
+        tmp_path,
+        condition="MACH:0.144, REmi:4.38, ALPHA:0.0, BETA:0.0, ADVANCE_RATIO:sweep",
+        values="0.8",
+    )
+    folder = workspace.inputs_dir / "pproc"
+    for name in (guides.INPUT_GLOSSARY_NAME, "VARIABLES.md"):
+        (folder / name).unlink(missing_ok=True)
+    common = {
+        "name": "named",
+        "default_fs_version": "26.120",
+        "recipes": RECIPES,
+        "recipe_registry": workflow_registry(),
+    }
+    plan_matrix(matrix, workspace, write_plan=False, **common)
+    page = folder / guides.INPUT_GLOSSARY_NAME
+    assert not page.exists(), "a plan asked to write nothing wrote the page"
+    plan = plan_matrix(matrix, workspace, **common)
+    assert page in plan.guides and (folder / "VARIABLES.md").is_file(), plan.guides
+    assert page.read_text(encoding="utf-8") == guides.input_glossary_markdown()
+
+
 def test_the_post_stage_refreshes_the_page_too(tmp_path):
     """``pyfs-matrix post`` refreshes the guides; the glossary is one of them."""
     from pyflightstream.post import _the_guides_stage
