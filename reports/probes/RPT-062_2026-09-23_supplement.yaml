@@ -1,0 +1,45 @@
+report: reports/RPT-062_what-a-reopened-simulation-gives-back_2026-09-23.md
+date: '2026-09-23'
+why: 'the opening review round of 0.27.0: a difference summary does not establish a value of zero'
+sectional_loads_exported_at_once_after_reopening:
+  S1:
+    rows: 12
+    rows_with_every_column_after_offset_exactly_zero: 12
+    offsets:
+    - -9.622
+    - -8.866
+    - -8.11
+    - -7.354
+    - -6.598
+    - -5.842
+    - -5.086
+    - -4.33
+    - -3.574
+    - -2.818
+    - -2.062
+    - -1.306
+  U1:
+    rows: 20
+    rows_with_every_column_after_offset_exactly_zero: 20
+    offsets:
+    - -0.07955
+    - -0.07118
+    - -0.0628
+    - -0.05443
+    - -0.04605
+    - -0.03768
+    - -0.02931
+    - -0.02093
+    - -0.01256
+    - -0.004187
+    - 0.004187
+    - 0.01256
+    - 0.02093
+    - 0.02931
+    - 0.03768
+    - 0.04605
+    - 0.05443
+    - 0.0628
+    - 0.07118
+    - 0.07955
+columns: Offset, Chord, X_QC, Z_QC, Fx, Fz, Moment

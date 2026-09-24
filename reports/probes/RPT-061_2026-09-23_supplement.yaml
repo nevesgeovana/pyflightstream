@@ -1,0 +1,48 @@
+report: reports/RPT-061_where-the-wake-edge-import-reads-its-nodes_2026-09-23.md
+date: '2026-09-23'
+why: 'the opening review round of 0.27.0: equal counts cannot establish equal sets'
+compared_against: the saved state after AUTO_DETECT_TRAILING_EDGES on the same clean wing (C0)
+states:
+  s_full16:
+    trailing_edge_rows_byte_identical_to_detection:
+      '30': true
+      '37': true
+      '47': true
+      '48': true
+    lines_of_the_saved_state_that_differ_from_detection:
+    - 91
+    - 104
+    line_count:
+    - 304
+    - 304
+  k_standard:
+    trailing_edge_rows_byte_identical_to_detection:
+      '30': true
+      '37': true
+      '47': true
+      '48': true
+    lines_of_the_saved_state_that_differ_from_detection:
+    - 91
+    line_count:
+    - 304
+    - 304
+  k_relaxed:
+    trailing_edge_rows_byte_identical_to_detection:
+      '30': true
+      '37': true
+      '47': true
+      '48': true
+    lines_of_the_saved_state_that_differ_from_detection:
+    - 104
+    line_count:
+    - 304
+    - 304
+line_91: a header row whose second number is a denormal of order 1e-309 that is not the same in every save
+line_104: 'the edge-type row: 1 for STANDARD and for detection, 2 for RELAXED, 4 for VORTEX_SHEDDING'
+third_token_values_tested_on_a_file_that_marks:
+- METER
+- MILLIMETER
+third_token_values_tested_only_on_a_file_that_marks_nothing:
+- '1'
+- '0'
+- the node file's own path
