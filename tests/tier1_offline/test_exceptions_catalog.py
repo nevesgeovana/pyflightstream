@@ -160,6 +160,8 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         # the same shape as a malformed output.
         "MeshReadError": ValueError,
         "MissingExtraError": ImportError,
+        # 0.27.0: a WorkspaceError, so it keeps that class's RuntimeError.
+        "MissingOutputsError": RuntimeError,
         "NamingTemplateError": ValueError,
         "OpenMeshError": ValueError,
         "OptionError": KeyError,

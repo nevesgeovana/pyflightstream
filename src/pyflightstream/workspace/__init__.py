@@ -174,6 +174,7 @@ __all__ = [
     "GeometryMigration",
     "IdMigration",
     "InputArtifactError",
+    "MissingOutputsError",
     "NamingTemplate",
     "NamingTemplateError",
     "PointXyz",
@@ -409,6 +410,35 @@ class WorkspaceError(PyflightstreamError, RuntimeError):
     for, and collection of a declared output that the solver never
     produced points at an incomplete run.
     """
+
+
+class MissingOutputsError(WorkspaceError):
+    """Declared outputs were not produced, and the ones that were ARE collected.
+
+    Raised by the workspace's ``collect_outputs`` after it has filed every
+    declared output that exists, so a run that failed to write one file
+    never strands the others outside the point's folder (0.27.0). Measured on
+    a cluster on 2026-09-24: one missing log made collection keep nothing, and
+    every other export of the point lay uncollected in the simulation folder
+    under a record naming no output at all.
+
+    A :class:`WorkspaceError`, so a caller that caught that still catches
+    this; a caller that records the point reads what was filed from
+    ``collected``.
+
+    Attributes
+    ----------
+    collected : list of str
+        The outputs filed, relative to the simulation folder, as the
+        workspace's ``collect_outputs`` returns them.
+    missing : list of str
+        The declared outputs that do not exist, as they were declared.
+    """
+
+    def __init__(self, message: str, *, collected: list[str], missing: list[str]) -> None:
+        super().__init__(message)
+        self.collected = list(collected)
+        self.missing = list(missing)
 
 
 class RunStatus(enum.StrEnum):
@@ -1107,7 +1137,12 @@ class RunRecord(BaseModel):
 
     log_file_used: str | None = None
     #: 0.21.0: where a final residual overflowed its printed field and was read
-    #: from an earlier iteration, which column, iteration and value.
+    #: from an earlier iteration, which column, iteration and value. 0.27.0: and
+    #: where the log a residual is read from came from, or why there is none,
+    #: on a run the local switch kept on a cluster whose HPC profile states
+    #: ``export_log = false``: the log is then the solver's captured output,
+    #: written by this package, or absent because the solver printed nothing.
+    #: An existing free-text field, so adding the sentence moved no schema.
     residual_note: str | None = None
     #: 0.21.0: what the solver log prints about the run, beside the Python clock
     #: (wall_time_s): its run time and initialization time in seconds, and the
@@ -2678,11 +2713,18 @@ class CampaignWorkspace:
 
         Raises
         ------
+        MissingOutputsError
+            If a declared output does not exist, AFTER every declared output
+            that does has been filed (0.27.0): its ``collected`` lists them
+            and its message names only the missing ones. The campaign loop
+            records the point FAILED_INCOMPLETE_OUTPUT with those outputs,
+            never a silently shorter output set and never an empty one. Until
+            0.27.0 this refused before anything moved, and one missing log
+            left every other export of the point uncollected in the solver's
+            working directory, under a record naming no output at all. The
+            refusals below are still asked first, over the outputs that
+            exist, and still move nothing.
         WorkspaceError
-            If a declared output does not exist; the campaign loop
-            turns this into FAILED_INCOMPLETE_OUTPUT, never into a
-            silently shorter output set.
-
             If a declared output RESOLVES INSIDE this campaign root but
             outside this simulation's own folder, or inside one of that
             folder's managed subdirectories. Collection MOVES, so
@@ -2734,13 +2776,15 @@ class CampaignWorkspace:
         # guard against.
         name = datapoint_dir_name(datapoint)
         folder = f"{SIM_DATAPOINTS_DIR}/{name}"
+        # A MISSING OUTPUT STRANDS NOTHING (0.27.0). What is missing is named
+        # at the end, after every output that exists has been filed: refusing
+        # here, before anything moved, left every other export of a point
+        # whose log never came lying in the working directory under a record
+        # naming no output, and the post then skipped the point as having none
+        # (measured on a cluster, 2026-09-24). Every refusal below is asked of
+        # the outputs that EXIST and still moves nothing.
         missing = [str(path) for path in produced if not Path(path).is_file()]
-        if missing:
-            raise WorkspaceError(
-                f"declared outputs were not produced: {', '.join(missing)}. A missing "
-                "declared output marks the point FAILED_INCOMPLETE_OUTPUT; outputs are "
-                "never silently dropped."
-            )
+        produced = [path for path in produced if Path(path).is_file()]
         # PFS-2011.01 and PFS-2011.03, which are one piece of work. The
         # rule is on RESOLVED paths and never on the declared string,
         # which is what separates it from `_check_output_containment` in
@@ -2843,12 +2887,22 @@ class CampaignWorkspace:
                 "NOTHING HAS BEEN MOVED: every declared output is still where it was."
             )
         collected: list[str] = []
-        (sim / folder).mkdir(parents=True, exist_ok=True)
+        if produced or not missing:
+            (sim / folder).mkdir(parents=True, exist_ok=True)
         for path in produced:
             origin = Path(path)
             if str(path) not in kept:
                 shutil.move(str(origin), sim / folder / origin.name)
             collected.append(f"{folder}/{origin.name}")
+        if missing:
+            raise MissingOutputsError(
+                f"declared outputs were not produced: {', '.join(missing)}. A missing "
+                "declared output marks the point FAILED_INCOMPLETE_OUTPUT; outputs are "
+                f"never silently dropped, and the {len(collected)} that were produced are "
+                f"filed in {folder}/ and listed on the point.",
+                collected=collected,
+                missing=missing,
+            )
         return collected
 
     def output_digests(self, sim_id: str, collected: Sequence[str]) -> dict[str, str]:

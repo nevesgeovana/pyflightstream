@@ -280,6 +280,31 @@ FlightStream versions.
 
 ### Fixed
 
+- **`pyfs-matrix run --local` applies the HPC profile's log decision.** A
+  profile stating `[log] export_log = false` says the solver build on that
+  cluster aborts at `EXPORT_LOG`; the decision reached a submitted job only,
+  so a run kept local there still exported the log, the solver stopped at
+  `EXPORT_LOG` after every other export, and every point was recorded
+  `FAILED_INCOMPLETE_OUTPUT`.
+  Under `--local` on such a machine the script now leaves `EXPORT_LOG` out, and
+  the run writes the declared log from the solver's captured standard output
+  then standard error; when the solver printed nothing the log is not a
+  missing output, the point is judged from its loads export, and
+  `residual_note` says why. A steady row of several points, one job, writes no
+  point's log from the job's output and says so on the job. A file-route row
+  whose solver printed nothing is recorded `FAILED_INCOMPLETE_OUTPUT` naming
+  the machine. `LocalExecutor` takes `export_log` by keyword only; profiles
+  that disagree about the log are refused under `--local`.
+- **A missing declared output no longer strands the others.** Collection
+  refused before moving anything when one declared output was missing, so a
+  point whose log never came left every other export in the solver's working
+  directory under a record with `outputs = []`, and the post skipped it as
+  naming no output file. Every declared output that exists is now filed in the
+  point's `datapoints/DP-<point>/`, listed in `outputs` and hashed in
+  `outputs_sha256`, and the error names only the missing files; the status is
+  still `FAILED_INCOMPLETE_OUTPUT`. `CampaignWorkspace.collect_outputs` raises
+  the new `MissingOutputsError`, a `WorkspaceError` whose `collected` lists
+  what it filed, and `pyfs-matrix collect` lists them on the record too.
 - **A workflow refusing a mesh file no longer promises a release.** The
   refusal of a non-`.fsm` geometry said 0.12.0 would define boundary
   conditions for a mesh cell; 0.12.0 shipped without them. A raw mesh is now

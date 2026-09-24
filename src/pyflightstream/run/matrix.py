@@ -95,7 +95,11 @@ from pyflightstream.workspace import (
     RunStatus,
     write_input_guides,
 )
-from pyflightstream.workspace.inputs import hpc_profiles, resolve_hpc_profile
+from pyflightstream.workspace.inputs import (
+    hpc_profiles,
+    read_hpc_profile,
+    resolve_hpc_profile,
+)
 from pyflightstream.workspace.matrix import ResolvedMatrix, resolve_matrix
 
 
@@ -656,6 +660,7 @@ def _campaign_executor(
     # would send some rows somewhere the caller never asked for.
     supplied = executor
     forced = False
+    machine: dict[str, bool] = {}
     if executor is None:
         # The matrix has a HIDDEN column and it used to be read into the
         # matrix_hidden variable and never acted on, so a row saying 0
@@ -692,9 +697,23 @@ def _campaign_executor(
         # Linux box with none, the run was local anyway and nothing was forced.
         # The profile is COUNTED rather than resolved, so a local run is never
         # refused over an ambiguity in a profile it does not use.
+        #
+        # EXCEPT ITS LOG, WHICH IS THE MACHINE'S (0.27.0). A profile stating
+        # `export_log = false` says the build on this cluster aborts at
+        # EXPORT_LOG, and it aborts there whether the job is submitted or run
+        # here: a point run with --local on such a cluster stopped at
+        # EXPORT_LOG after every other export (measured 2026-09-24). So a run
+        # the switch keeps here reads the decision and carries it on its
+        # executor. Only the false side is passed, as `_with_the_profile_s_log`
+        # writes only the false side onto a case: every other executor is
+        # built exactly as it was.
         submitting = None if local else _cluster_executor(workspace, resolved)
         forced = local and on_a_cluster() and bool(hpc_profiles(workspace.inputs_dir))
-        executor = submitting or LocalExecutor(resolved.fs_exe, hidden=hidden, forced_local=forced)
+        if forced and not _exports_its_log_here(workspace):
+            machine = {"export_log": False}
+        executor = submitting or LocalExecutor(
+            resolved.fs_exe, hidden=hidden, forced_local=forced, **machine
+        )
     # THE PROTOCOL, NOT THE CLASS: the runner submits through anything that
     # implements `Submitting`, so a caller's own scheduler adapter that does
     # not inherit SubmittingExecutor passed a class check and could submit
@@ -730,9 +749,35 @@ def _campaign_executor(
             return supplied
         if isinstance(executor, SubmittingExecutor):
             return executor
-        return LocalExecutor(exe, hidden=windowless, forced_local=forced)
+        return LocalExecutor(exe, hidden=windowless, forced_local=forced, **machine)
 
     return executor, executor_for
+
+
+def _exports_its_log_here(workspace: CampaignWorkspace) -> bool:
+    """Whether a run the local switch keeps on this cluster exports its solver log (0.27.0).
+
+    The profile's ``export_log``, READ rather than counted: it is the one field
+    of a profile a local run uses, because it states what the build on this
+    machine does at ``EXPORT_LOG``. A profile this package cannot read is
+    refused by name, as it would be for a submitted job; several profiles that
+    disagree about the log are refused, because which of them is this machine
+    is not a guess to make about the file a run is judged by.
+    """
+    stated = {
+        path.name: read_hpc_profile(path).export_log for path in hpc_profiles(workspace.inputs_dir)
+    }
+    if len(set(stated.values())) > 1:
+        said = ", ".join(
+            f"{name}: export_log = {str(value).lower()}" for name, value in sorted(stated.items())
+        )
+        raise InputArtifactError(
+            f"{workspace.inputs_dir / 'hpc'} holds {len(stated)} profiles that disagree about "
+            f"the solver log ({said}), and a run kept on this machine by --local follows its "
+            "machine's: whether the build here aborts at EXPORT_LOG is not a guess this "
+            "package makes. Keep the profile of this cluster alone in inputs/hpc/."
+        )
+    return all(stated.values())
 
 
 def run_matrix(

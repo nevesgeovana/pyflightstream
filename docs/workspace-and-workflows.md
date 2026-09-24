@@ -2852,6 +2852,16 @@ matrix printed above runs as printed, row 7002's two alphas included,
 and that is what the acceptance case in the suite does with the
 committed fixture unmodified.
 
+**A missing output strands nothing** (0.27.0). A point one of whose
+declared outputs was not written is recorded `FAILED_INCOMPLETE_OUTPUT`, and
+every declared output it did write is still filed in its
+`datapoints/DP-<point>/`, listed in the record's `outputs` and hashed in its
+`outputs_sha256`; the error names the missing files and nothing else. Until
+0.27.0 one missing file, typically the solver log, left every other export
+of the point where the solver wrote it and a record naming no output, which
+the post then skipped. The collection method raises `MissingOutputsError`, a
+`WorkspaceError` whose `collected` lists what it filed.
+
 **Every point of a row that names a run type leaves its final saved
 simulation** (a written guarantee since 0.27.0, G11). After the point's
 solve, first among its exports, the script saves the solver's state with
@@ -3260,6 +3270,27 @@ folder as for any local run, and every record's `executor` entry says
 `forced_local`. The flag changes nothing on a machine that would not have
 submitted, and `collect` is not needed afterwards: a local point runs to its
 end before its record is written.
+
+**The profile's log decision still holds under `--local`.** A profile stating
+`[log] export_log = false` says the solver build on that cluster aborts at
+`EXPORT_LOG`, and it aborts there whether the job is submitted or run on the
+machine, so a run `--local` keeps there leaves `EXPORT_LOG` out of the script
+as a submitted job does. No scheduler writes the log of a local run, so the
+run writes the declared `_log.txt` from what it captured of the solver, its
+standard output then its standard error, as a scheduler's job log holds them,
+and the point is judged by it when it reads as a residual history. When the
+solver printed nothing, the log is not counted as a missing output: the point
+is judged from its loads export, as any point that exports no log is, and the
+record's `residual_note` says why it has no log. The same note says so when
+the log is the captured output. A steady row of several points runs as one job
+and one process, so what it printed is no single point's log: no point's log
+is written from it, each point is judged from its loads export, and the job's
+`residual_note` says why. A row that imports its trailing edges from a file is
+held to the count the solver logs, read from the captured output; with nothing
+captured the point is recorded `FAILED_INCOMPLETE_OUTPUT` naming the machine,
+and such a row is run submitted, where the scheduler's log is collected. Every
+profile of the workspace is read for this, and profiles that disagree about
+the log are refused under `--local`.
 
 ### The build is an input
 

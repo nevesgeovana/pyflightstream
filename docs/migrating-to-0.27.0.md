@@ -251,3 +251,19 @@ the opposite sign to 0.26.0: `roll_rate:40` writes
   that: 0.27.0 solves the rate as written.
 - Code that read `cases.workflows.FREESTREAM_ROTATION_SIGN` as a number now gets
   a mapping: read `FREESTREAM_ROTATION_SIGN["roll"]`, `["pitch"]` or `["yaw"]`.
+
+## 16. A local run on a cluster that aborts at `EXPORT_LOG`, and a point missing an output
+
+- On a cluster whose HPC profile states `[log] export_log = false`,
+  `pyfs-matrix run --local` no longer writes `EXPORT_LOG` into the script, as
+  a submitted job never did. The declared log of such a point holds what the
+  solver printed, written by the run, and a point whose solver printed nothing
+  has no log among its `outputs`, a `residual_note` saying why, and the status
+  its loads export gives it. Nothing changes on any other machine.
+- A record `FAILED_INCOMPLETE_OUTPUT` for a missing declared output now lists
+  the outputs that were written, in `datapoints/DP-<point>/`, with their
+  hashes; before, it listed none and they stayed where the solver wrote them.
+  Code that took `outputs == []` to mean such a failure reads `status`.
+- `CampaignWorkspace.collect_outputs` files the declared outputs that exist
+  before it raises for the missing ones, and raises `MissingOutputsError`, a
+  `WorkspaceError`, so an existing `except WorkspaceError` still catches it.

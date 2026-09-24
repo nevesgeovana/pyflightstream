@@ -131,6 +131,7 @@ from pyflightstream.utils.errors import ManualCallError, ManualDraftError
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError
 from pyflightstream.workspace import (
     InputArtifactError,
+    MissingOutputsError,
     NamingTemplateError,
     WorkspaceError,
 )
@@ -164,6 +165,7 @@ __all__ = [
     "MatrixError",
     "MeshReadError",
     "MissingExtraError",
+    "MissingOutputsError",
     "NamingTemplateError",
     "OpenMeshError",
     "OptionError",

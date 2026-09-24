@@ -86,6 +86,7 @@ from pyflightstream._errors import (
 )
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import (
+    EXPORT_KINDS,
     Campaign,
     CampaignConfigError,
     ScriptRecipe,
@@ -155,6 +156,7 @@ from pyflightstream.workspace import (
     SIM_OUTPUTS_DIR,
     CampaignWorkspace,
     ExecutorRecord,
+    MissingOutputsError,
     NamingTemplateError,
     RunRecord,
     RunStatus,
@@ -218,6 +220,10 @@ __all__ = [
 ]
 
 _LOG_NAME = "FlightStreamLog.txt"
+
+#: The suffix of the solver log among a point's declared outputs, the one the
+#: log's export kind carries and the one `collect` copies a scheduler's log to.
+_LOG_OUTPUT_SUFFIX = next(suffix for kind, suffix, _, _ in EXPORT_KINDS if kind == "log")
 
 #: The two values :attr:`~pyflightstream.workspace.RunRecord.fs_version_source`
 #: takes, spelled once here rather than at the branch that chooses between
@@ -1021,14 +1027,31 @@ class LocalExecutor:
         that would otherwise have submitted (``pyfs-matrix run --local``,
         0.27.0): a cluster carrying a profile. Recorded on every point's
         executor entry; it changes nothing about how the solver is called.
+    export_log : bool
+        Keyword only. Whether the scripts this executor runs export the
+        solver log. False on a run the local switch kept on a cluster whose
+        HPC profile states ``export_log = false``: that machine's build aborts
+        at ``EXPORT_LOG`` whether the job is submitted or run where it is, so
+        the profile's decision is the MACHINE's (0.27.0, measured on a cluster
+        2026-09-24). No scheduler writes the log of a local run, so the run
+        writes the declared log from what this executor captured of the
+        solver, its standard output then its standard error; with nothing
+        captured the point is judged from its loads export and its record says
+        why it has no log.
     """
 
     def __init__(
-        self, fs_exe: str | Path, hidden: bool = True, *, forced_local: bool = False
+        self,
+        fs_exe: str | Path,
+        hidden: bool = True,
+        *,
+        forced_local: bool = False,
+        export_log: bool = True,
     ) -> None:
         self.fs_exe = Path(fs_exe)
         self.hidden = hidden
         self.forced_local = forced_local
+        self.export_log = export_log
         if not self.fs_exe.is_file():
             raise ExecutorConfigurationError(
                 f"FlightStream executable not found at {self.fs_exe}. The path is "
@@ -5231,6 +5254,20 @@ def _execute_sweep(
     error_lines: list[str] = []
     collected_by_tag: dict[str, list[str]] = {}
     failed_tags: dict[str, str] = {}
+    # 0.27.0: ON A MACHINE THAT CANNOT EXPORT THE LOG, run locally, no point's
+    # declared log is written and none is missing. What the solver printed is
+    # the whole job's and no single point's, and a job log judged as a point's
+    # would end at the last point's iteration; so each point is judged from its
+    # loads export, the job's record says why, and the printed output is read
+    # for the trailing-edge count the one script imported, as a job's is.
+    cannot_log = isinstance(executor, LocalExecutor) and not executor.export_log
+    printed = _captured_solver_output(result) if cannot_log else ""
+    excused = {
+        name
+        for _, _, point_case in point_cases
+        for name in point_case.outputs
+        if cannot_log and name.endswith(_LOG_OUTPUT_SUFFIX) and not (sim_dir / name).is_file()
+    }
     for point, _stem, point_case in point_cases:
         tag = point_name(case, point)
         try:
@@ -5239,21 +5276,27 @@ def _execute_sweep(
                 # ABSOLUTE, as the point path passes them: the names on the
                 # case are relative to the execution directory and the
                 # collector is handed paths, not names.
-                [sim_dir / name for name in point_case.outputs],
+                [sim_dir / name for name in point_case.outputs if name not in excused],
                 datapoint=PointName(tag),
             )
+        except MissingOutputsError as error:
+            # FILED, LISTED AND HASHED, and the point still fails (0.27.0).
+            collected_by_tag[tag] = error.collected
+            failed_tags[tag] = str(error)
         except (WorkspaceError, CampaignConfigError) as error:
             failed_tags[tag] = str(error)
     for point, _stem, point_case in point_cases:
         tag = point_name(case, point)
         if tag in failed_tags:
-            ran.append(
-                {
-                    "tag": tag,
-                    "point": dict(point),
-                    "status": str(RunStatus.FAILED_INCOMPLETE_OUTPUT),
-                }
-            )
+            entry: dict[str, object] = {
+                "tag": tag,
+                "point": dict(point),
+                "status": str(RunStatus.FAILED_INCOMPLETE_OUTPUT),
+            }
+            if collected_by_tag.get(tag):
+                entry["outputs"] = list(collected_by_tag[tag])
+                collected_all.extend(collected_by_tag[tag])
+            ran.append(entry)
             worst = RunStatus.FAILED_INCOMPLETE_OUTPUT
             error_lines.append(f"{tag}: {failed_tags[tag]}")
             continue
@@ -5262,13 +5305,15 @@ def _execute_sweep(
         # G02. The job's one script imported the trailing edges once, and each
         # point is held to that count through the log it collected, else the
         # job's own.
+        log_text = _run_log_text(sim_dir, collected, assessment.log_file_used, result) or (
+            printed or None
+        )
         status, error = with_wake_edge_verdict(
             assessment.status,
             assessment.error,
-            wake_edge_import_verdict(
-                script.wake_edge_points,
-                _run_log_text(sim_dir, collected, assessment.log_file_used, result),
-            ),
+            _no_local_log_verdict(script.wake_edge_points, log_text, _NO_JOB_LOG_NOTE)
+            if cannot_log
+            else wake_edge_import_verdict(script.wake_edge_points, log_text),
         )
         collected_all.extend(collected)
         ran.append(
@@ -5297,6 +5342,7 @@ def _execute_sweep(
         status=worst,
         outputs=collected_all,
         outputs_sha256=workspace.output_digests(case.sim_id, collected_all),
+        residual_note=_NO_JOB_LOG_NOTE if excused else None,
         error="; ".join(error_lines) or None,
     )
 
@@ -5613,6 +5659,24 @@ def _profile_of(executor: object) -> HpcProfile | None:
     return profile if isinstance(profile, HpcProfile) else None
 
 
+def _machine_exports_log(executor: object) -> bool:
+    """Whether the machine an executor runs on lets a script export the solver log.
+
+    The profile's ``export_log`` for an executor submitting through one, and a
+    local executor's own ``export_log``, which is False on a run the local
+    switch kept on a cluster whose profile turns the export off (0.27.0): the
+    build there aborts at ``EXPORT_LOG`` whether the job is submitted or not,
+    and until 0.27.0 only a submitted job was spared it. True for any other
+    executor.
+    """
+    profile = _profile_of(executor)
+    if profile is not None:
+        return profile.export_log
+    if isinstance(executor, LocalExecutor):
+        return executor.export_log
+    return True
+
+
 def _with_the_profile_s_log(case: SimCase, executor: object) -> SimCase:
     """Return the case as the EXECUTOR's machine writes its log (0.21.0).
 
@@ -5622,11 +5686,114 @@ def _with_the_profile_s_log(case: SimCase, executor: object) -> SimCase:
     way the command line writes IGNORE_MISSING_FAMILIES, and only the FALSE
     side is ever written: a run on any other machine, or through any other
     executor, renders byte for byte what it rendered before.
+
+    THE MACHINE'S DECISION, submitted or not (0.27.0): a run the local switch
+    keeps on such a cluster carries it on its local executor, because the build
+    that aborts at ``EXPORT_LOG`` is the same build either way. Read through
+    the profile alone, a point run there with ``--local`` stopped at
+    ``EXPORT_LOG`` after every other export (measured on a cluster, 2026-09-24).
     """
-    profile = _profile_of(executor)
-    if profile is None or profile.export_log:
+    if _machine_exports_log(executor):
         return case
     return case.model_copy(update={"variables": {**case.variables, EXPORT_LOG_VARIABLE: "false"}})
+
+
+@dataclass(frozen=True)
+class _LocalLog:
+    """What a local run on a machine that cannot export its log did about the log.
+
+    0.27.0. Such a machine's scheduler writes the log of a SUBMITTED job, and
+    `collect` copies it to the declared name; a run kept local has no
+    scheduler, so the declared log is written from what the executor captured
+    of the solver, or, when it captured nothing, excused: the machine cannot
+    write one locally, which is not an output the run failed to produce.
+    """
+
+    #: The declared log written from the captured output, as declared.
+    written: str | None = None
+    #: The declared log excused because nothing was captured, as declared.
+    excused: str | None = None
+    #: The sentence the record carries about it, in ``residual_note``.
+    note: str | None = None
+
+
+#: The sentence a local run's record carries when its log is the captured output.
+_CAPTURED_LOG_NOTE = (
+    "{name} is the solver's captured standard output and error, written by this package: "
+    "this machine's HPC profile states export_log = false and the local switch (--local) "
+    "kept the run here, where no scheduler writes a log"
+)
+#: The sentence a steady job's record carries on such a machine, whatever was printed.
+_NO_JOB_LOG_NOTE = (
+    "no point of this job has a solver log: this machine's HPC profile states export_log = "
+    "false and the local switch (--local) kept the job here, where no scheduler writes one; "
+    "what the solver printed is the whole job's and no single point's, so each point is "
+    "judged from its loads export alone"
+)
+#: The sentence it carries when the solver printed nothing to capture.
+_NO_LOCAL_LOG_NOTE = (
+    "no solver log: this machine's HPC profile states export_log = false, the local switch "
+    "(--local) kept the run here, where no scheduler writes one, and the solver printed "
+    "nothing to capture, so the point is judged from its loads export alone"
+)
+
+
+def _captured_solver_output(result: ExecutionResult) -> str:
+    """Return what the executor captured of the solver, as a scheduler's job log holds it.
+
+    Standard output, then standard error, one after the other; an empty string
+    when the solver printed nothing on either.
+    """
+    stdout, stderr = result.stdout or "", result.stderr or ""
+    if stdout and stderr and not stdout.endswith("\n"):
+        stdout += "\n"
+    captured = stdout + stderr
+    return captured if captured.strip() else ""
+
+
+def _the_local_log(
+    executor: object, outputs: Sequence[str], work_dir: Path, result: ExecutionResult
+) -> _LocalLog:
+    """Write a local point's declared log from the solver's output, or excuse it (0.27.0).
+
+    Only on a local executor whose machine cannot export the log; on any other
+    run nothing is written and nothing is excused. The declared log is the
+    output named like one (``_log.txt``), the name `collect` copies a
+    scheduler's log to, and a log the solver did write is never overwritten.
+    """
+    if not isinstance(executor, LocalExecutor) or executor.export_log:
+        return _LocalLog()
+    declared = [str(name) for name in outputs if str(name).endswith(_LOG_OUTPUT_SUFFIX)]
+    if not declared or (work_dir / declared[0]).is_file():
+        return _LocalLog()
+    captured = _captured_solver_output(result)
+    if captured:
+        (work_dir / declared[0]).write_text(captured, encoding="utf-8", newline="")
+        return _LocalLog(
+            written=declared[0], note=_CAPTURED_LOG_NOTE.format(name=Path(declared[0]).name)
+        )
+    return _LocalLog(excused=declared[0], note=_NO_LOCAL_LOG_NOTE)
+
+
+def _no_local_log_verdict(
+    expected: int | None, log_text: str | None, note: str
+) -> tuple[RunStatus, str] | None:
+    """Judge the trailing-edge count of a local run whose machine could write no log.
+
+    G02 on such a machine: the count is read from the log, and with none the
+    point is recorded FAILED_INCOMPLETE_OUTPUT naming the MACHINE as the reason
+    rather than telling the row to export a log it did declare.
+    """
+    if expected is None or log_text is not None:
+        return wake_edge_import_verdict(expected, log_text)
+    return (
+        RunStatus.FAILED_INCOMPLETE_OUTPUT,
+        f"the script imported {expected} trailing-edge points and no solver log was read "
+        f"({note}), so whether the file marked anything cannot be told: a file whose "
+        "points match no edge marks nothing and says nothing. Run this row where its log "
+        "is written, submitted from this cluster (without --local), where the scheduler's "
+        "log is collected",
+    )
 
 
 def _refuse_an_import_count_nothing_logs(
@@ -5652,6 +5819,11 @@ def _refuse_an_import_count_nothing_logs(
     declared name and the count is read from it there. The plan does not know
     the machine, so it refuses the switch in the row, where it is never needed:
     a machine that writes its own log says so in its profile.
+
+    RUN LOCALLY ON SUCH A MACHINE (``--local``, 0.27.0) the point runs too: the
+    declared log is written from what the solver printed and the count read
+    from it, and a solver that printed nothing leaves the point recorded
+    FAILED_INCOMPLETE_OUTPUT naming the machine, never accepted in silence.
     """
     if script.wake_edge_points is None:
         return
@@ -5663,8 +5835,7 @@ def _refuse_an_import_count_nothing_logs(
         return  # a word the builder reads, and refuses there by name
     if "EXPORT_LOG" in script.render().splitlines():
         return
-    profile = _profile_of(executor)
-    if profile is not None and not profile.export_log:
+    if not _machine_exports_log(executor):
         return
     raise CampaignConfigError(
         f"case {case.sim_id!r} imports {script.wake_edge_points} trailing-edge points from "
@@ -6160,10 +6331,15 @@ def _execute_point(
             },
         )
 
+    # 0.27.0: ON A MACHINE THAT CANNOT EXPORT THE LOG, the declared log is
+    # written from what the solver printed, or, with nothing printed, excused:
+    # the machine cannot write one locally, which is not an output the run
+    # failed to produce. Nothing happens here on any other run.
+    local_log = _the_local_log(executor, point_case.outputs, work_dir, result)
     try:
         collected = workspace.collect_outputs(
             case.sim_id,
-            [sim_dir / name for name in point_case.outputs],
+            [work_dir / name for name in point_case.outputs if name != local_log.excused],
             # FR-92. THE POINT'S OWN FOLDER, always, steady or unsteady.
             # Every point of one case collected into one `outputs/` until
             # 0.16.0, so from the second point of a swept row onward that
@@ -6172,6 +6348,19 @@ def _execute_point(
             # The point's checked NAME is passed and the folder is rendered
             # there, so a caller cannot name a folder the assessor will not read.
             datapoint=PointName(point_name(case, point)),
+        )
+    except MissingOutputsError as error:
+        # WHAT WAS WRITTEN IS FILED, LISTED AND HASHED, and the error names
+        # only what is missing (0.27.0). An empty record here left a point's
+        # exports out of every product (measured on a cluster, 2026-09-24).
+        return RunRecord(
+            **base,
+            status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            wall_time_s=result.wall_time_s,
+            outputs=error.collected,
+            outputs_sha256=workspace.output_digests(case.sim_id, error.collected),
+            residual_note=local_log.note,
+            error=str(error),
         )
     except (WorkspaceError, CampaignConfigError) as error:
         # BOTH, because collection can refuse for two reasons and only one of
@@ -6202,13 +6391,20 @@ def _execute_point(
     )
     # G02. A run that imported trailing edges is held to the count the solver
     # logged, over any status that is not already a failure.
+    # The log is found by the name the assessor read it under, else by the name
+    # a local run on a machine that cannot export one wrote it under (0.27.0):
+    # the solver's printed output need not read as a residual history to carry
+    # the count.
+    named_log = assessment.log_file_used or (
+        Path(local_log.written).name if local_log.written else None
+    )
+    log_text = _run_log_text(sim_dir, collected, named_log, result)
     status, error = with_wake_edge_verdict(
         status,
         assessment.error,
-        wake_edge_import_verdict(
-            script.wake_edge_points,
-            _run_log_text(sim_dir, collected, assessment.log_file_used, result),
-        ),
+        _no_local_log_verdict(script.wake_edge_points, log_text, local_log.note)
+        if local_log.excused and local_log.note
+        else wake_edge_import_verdict(script.wake_edge_points, log_text),
     )
     return RunRecord(
         **base,
@@ -6232,7 +6428,8 @@ def _execute_point(
         # point it claims", and that question is the whole finding.
         conditions=assessment.conditions,
         log_file_used=assessment.log_file_used,
-        residual_note=assessment.residual_note,
+        residual_note="; ".join(note for note in (assessment.residual_note, local_log.note) if note)
+        or None,
         solver_run_time_s=assessment.solver_run_time_s,
         solver_initialization_s=assessment.solver_initialization_s,
         time_steps=assessment.time_steps,

@@ -78,6 +78,7 @@ from ..cases import CampaignConfigError
 from ..workspace import (
     SIM_DATAPOINTS_DIR,
     CampaignWorkspace,
+    MissingOutputsError,
     PointName,
     RunRecord,
     RunStatus,
@@ -614,12 +615,15 @@ def _complete(
         # reason: collection refuses for two kinds of reason and only one of
         # them is a WorkspaceError, and an uncaught one here would abort a
         # sweep over every other submitted point in the workspace.
-        failed = record.model_copy(
-            update={
-                "status": RunStatus.FAILED_INCOMPLETE_OUTPUT,
-                "error": str(error),
-            }
-        )
+        refused: dict[str, object] = {
+            "status": RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            "error": str(error),
+        }
+        # WHAT WAS FILED IS LISTED (0.27.0): a missing output no longer strands
+        # the others, and a record naming none of them would strand them anyway.
+        if isinstance(error, MissingOutputsError):
+            refused["outputs"] = list(error.collected)
+        failed = record.model_copy(update=refused)
         _write(workspace, failed)
         return CollectOutcome(
             run_id=record.run_id,
@@ -755,6 +759,10 @@ def _complete_sweep(
                     ran_in_datapoint=ran_here,
                 )
             )
+        except MissingOutputsError as error:
+            # Filed and listed, and the point still fails (0.27.0).
+            collected_by_tag[tag] = list(error.collected)
+            refused[tag] = str(error)
         except (WorkspaceError, CampaignConfigError) as error:
             refused[tag] = str(error)
 
@@ -765,13 +773,15 @@ def _complete_sweep(
     for tag in by_point:
         point = dict(points.get(tag) or {})
         if tag in refused:
-            ran.append(
-                {
-                    "tag": tag,
-                    "point": point,
-                    "status": str(RunStatus.FAILED_INCOMPLETE_OUTPUT),
-                }
-            )
+            refused_entry: dict[str, object] = {
+                "tag": tag,
+                "point": point,
+                "status": str(RunStatus.FAILED_INCOMPLETE_OUTPUT),
+            }
+            if collected_by_tag.get(tag):
+                refused_entry["outputs"] = list(collected_by_tag[tag])
+                collected_all.extend(collected_by_tag[tag])
+            ran.append(refused_entry)
             worst = worse_of(worst, RunStatus.FAILED_INCOMPLETE_OUTPUT)
             error_lines.append(f"{tag}: {refused[tag]}")
             continue
