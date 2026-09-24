@@ -237,6 +237,9 @@ def script_log_names(script_text: str | None) -> list[str]:
 #: script exports: a log by its name wherever it is collected.
 SOLVER_OWN_LOG = "FlightStreamLog.txt"
 
+#: The suffixes of a collected output read for the four G06 sentences.
+_TEXT_SUFFIXES = (".txt", ".log")
+
 
 def collected_log_texts(
     folder: Path, collected: Sequence[str], declared: Collection[str] = ()
@@ -257,8 +260,17 @@ def collected_log_texts(
     LOG_OUTPUT names ``FlightStreamLog.txt``, or whose script's EXPORT_LOG
     writes ``log_<point>.txt``, carried its refusal line unread, and the point
     was recorded CONVERGED where the same bytes under ``run_log.txt`` were
-    FAILED_SCRIPT. Nothing else is read: an export can be large, and what is a
-    log is what the script and the row declared.
+    FAILED_SCRIPT.
+
+    AND, SINCE THE RELEASE READING OF 0.27.0, EVERY COLLECTED TEXT OUTPUT. The
+    four sentences are the solver's own and appear in nothing but its log, and
+    a log can be written under a name no rule above sees: a SCRIPT action's
+    child script exporting it each step, which the solver files as
+    ``<name>_iteration=<step>.txt``. Naming the logs one route at a time left
+    each next route unread, so every collected output whose suffix is ``.txt``
+    or ``.log`` is read, besides a declared log of another suffix; reading a
+    point's text outputs costs less than a CONVERGED point whose disc did not
+    read its file.
 
     Parameters
     ----------
@@ -274,8 +286,9 @@ def collected_log_texts(
     Returns
     -------
     list of str
-        The text of each collected output whose name ends in ``_log.txt`` or is
-        one of ``declared``, in the order collected; empty when none is collected.
+        The text of each collected output whose suffix is ``.txt`` or ``.log``, or
+        whose name is one of ``declared`` or the solver's own log, in the order
+        collected; empty when none is collected.
     """
     # A name equal to a declared one but for case is the same file on a
     # case-insensitive file system, so the names are compared casefolded. The
@@ -286,7 +299,8 @@ def collected_log_texts(
     return [
         path.read_text(encoding="utf-8", errors="replace")
         for path in (folder / entry for entry in collected)
-        if (path.name.endswith(_LOG_SUFFIX) or path.name.casefold() in named) and path.is_file()
+        if (path.suffix.casefold() in _TEXT_SUFFIXES or path.name.casefold() in named)
+        and path.is_file()
     ]
 
 

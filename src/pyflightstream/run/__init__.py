@@ -5360,7 +5360,13 @@ def _execute_sweep(
     # job's inputs. This path wrote none of them until 0.27.0. One that
     # shares its name with another input is refused here, before the job.
     try:
-        written = _write_pending_files(script, sim_dir, case=case, recorded=inputs_sha256)
+        written = _write_pending_files(
+            script,
+            sim_dir,
+            case=case,
+            recorded=inputs_sha256,
+            run_writes=(Path(script_path), *_descriptor_of(executor, sim_dir)),
+        )
     except CampaignConfigError as error:
         return RunRecord(
             **base,
@@ -5580,7 +5586,12 @@ def _execute_sweep(
 
 
 def _write_pending_files(
-    script: Script, work_dir: Path, *, case: SimCase, recorded: Mapping[str, str]
+    script: Script,
+    work_dir: Path,
+    *,
+    case: SimCase,
+    recorded: Mapping[str, str],
+    run_writes: Sequence[Path] = (),
 ) -> dict[str, str]:
     """Write every file the script parked for the run, before the solver starts.
 
@@ -5655,6 +5666,10 @@ def _write_pending_files(
             WALLTIME_CLOCK_STATE,
         )
     }
+    # And the files the caller already wrote and hashed: the point's main
+    # script and its probe points file. A file parked there would replace
+    # them, and the solver would run other commands than script_sha256 names.
+    reserved.update({one_file(Path(own)): str(own) for own in run_writes})
     targets: dict[str, tuple[Path, bytes]] = {}
     for parked, content in (
         *script.pending_action_scripts.items(),
@@ -5722,6 +5737,17 @@ def _write_pending_files(
         written[name] = target
         held[name.casefold()] = (name, digest)
     return digests
+
+
+def _descriptor_of(executor: object, work_dir: Path) -> list[Path]:
+    """Return the submission descriptor a submitting executor writes into ``work_dir``.
+
+    It is written when the point is submitted, after the parked files, so a
+    file parked under its name would be replaced after its digest was
+    recorded; an executor with no profile writes none.
+    """
+    name = getattr(getattr(executor, "profile", None), "descriptor_name", None)
+    return [Path(work_dir) / str(name)] if name else []
 
 
 def _declared_input(case: SimCase, name: str) -> str:
@@ -6546,7 +6572,17 @@ def _execute_point(
     # whose digests join the inputs the record states; one that shares its
     # name with another input is refused here, before the solver starts.
     try:
-        written = _write_pending_files(script, work_dir, case=case, recorded=inputs_sha256)
+        written = _write_pending_files(
+            script,
+            work_dir,
+            case=case,
+            recorded=inputs_sha256,
+            run_writes=(
+                Path(script_path),
+                *([sim_dir / probe_points_file] if probe_points_file is not None else []),
+                *_descriptor_of(executor, work_dir),
+            ),
+        )
     except CampaignConfigError as error:
         return RunRecord(
             **base,

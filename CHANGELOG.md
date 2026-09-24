@@ -831,6 +831,12 @@ gone (`docs/migrating-to-0.27.0.md`).
   that cannot export the log, what a local point's solver printed is read for
   the imported trailing-edge count and the profile's refusal when the row
   declares no log output, as a local steady job's already was (G02, G06).
+  Every collected text output (`.txt`, `.log`) is now read for the profile's
+  refusal, whatever its name, a log a SCRIPT action exports at each step
+  included, since naming the logs one route at a time left the next route
+  unread; and the point's main script, its probe points file and a submitting
+  executor's descriptor are files the run writes itself, so nothing parked may
+  replace them (G06).
 
 ### Changed
 

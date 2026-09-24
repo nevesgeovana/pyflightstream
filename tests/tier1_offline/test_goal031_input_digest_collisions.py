@@ -364,16 +364,40 @@ def test_a_node_file_named_like_a_parked_one_but_for_case_is_refused_by_the_help
 
 
 def test_a_declared_log_is_read_whatever_the_case_of_its_name(tmp_path):
-    """A log the script names ``RunLog.txt`` and a row collects as ``runlog.txt`` is one
-    file on a case-insensitive file system, so its text is read for the refusal lines; a
-    collected output named nowhere as a log is not."""
+    """A log the script names ``RunLog.OUT`` and a row collects as ``runlog.out`` is one
+    file on a case-insensitive file system, so its text is read for the refusal lines
+    although its suffix is no text suffix; every collected text output is read whatever
+    its name, and an output that is neither declared nor text is not."""
     from pyflightstream.run._wake_edge_verdict import collected_log_texts
 
-    (tmp_path / "runlog.txt").write_text("the log", encoding="utf-8")
+    (tmp_path / "runlog.out").write_text("the log", encoding="utf-8")
+    (tmp_path / "table.csv").write_text("the table", encoding="utf-8")
     (tmp_path / "loads.txt").write_text("the loads", encoding="utf-8")
-    collected = ["runlog.txt", "loads.txt"]
-    assert collected_log_texts(tmp_path, collected, declared=["RunLog.txt"]) == ["the log"]
-    assert collected_log_texts(tmp_path, collected, declared=[]) == []
+    collected = ["runlog.out", "table.csv", "loads.txt"]
+    assert collected_log_texts(tmp_path, collected, declared=["RunLog.OUT"]) == [
+        "the log",
+        "the loads",
+    ]
+    assert collected_log_texts(tmp_path, collected, declared=[]) == ["the loads"]
+
+
+def test_a_log_a_child_action_exported_is_read_for_the_refusal_lines(tmp_path):
+    """A SCRIPT action exports the log each step under a name the main script never
+    states, and the solver appends ``_iteration=<step>``: the collected step files carry
+    the refusal line and are read, because every collected text output is."""
+    from pyflightstream.run._wake_edge_verdict import (
+        ACTUATOR_PROFILE_REFUSALS,
+        actuator_profile_verdict,
+        collected_log_texts,
+    )
+
+    refusal = ACTUATOR_PROFILE_REFUSALS[1] + "\nC:/w/prop.txt\n"
+    for step in (11, 12):
+        (tmp_path / f"step-transcript_iteration={step}.txt").write_text(refusal, encoding="utf-8")
+    collected = ["step-transcript_iteration=11.txt", "step-transcript_iteration=12.txt"]
+    texts = collected_log_texts(tmp_path, collected, declared=[])
+    assert len(texts) == 2, texts
+    assert actuator_profile_verdict(*texts) is not None
 
 
 def test_two_action_scripts_whose_names_differ_only_in_case_are_refused(tmp_path):
@@ -426,7 +450,7 @@ def test_the_solvers_own_log_is_read_on_a_job_that_declared_no_log(tmp_path):
     (tmp_path / "flightstreamlog.txt").write_text("the log", encoding="utf-8")
     (tmp_path / "loads.txt").write_text("the loads", encoding="utf-8")
     collected = ["flightstreamlog.txt", "loads.txt"]
-    assert collected_log_texts(tmp_path, collected, declared=[]) == ["the log"]
+    assert "the log" in collected_log_texts(tmp_path, collected, declared=[])
 
 
 def test_one_file_spelled_through_a_parent_folder_is_one_file(tmp_path):
@@ -484,3 +508,59 @@ def test_a_parked_file_on_a_path_the_run_writes_itself_is_refused(tmp_path):
     with pytest.raises(CampaignConfigError, match=r"the run writes .* itself"):
         _write_pending_files(script, work, case=case, recorded={})
     assert not work.exists() or not any(work.rglob("*")), "a file was written before the refusal"
+
+
+def test_a_parked_file_on_the_main_script_s_path_is_refused(tmp_path):
+    """The main script is written and hashed before the parked files: an action parked on
+    its path would replace it, so the solver would run other commands than the record's
+    ``script_sha256`` names. It is a file the run writes itself, and refused as one."""
+    sim_dir = tmp_path / "sims" / "sim_9006"
+    main = sim_dir / "scripts" / "P9006-AL+000.txt"
+    main.parent.mkdir(parents=True)
+    main.write_text("the main script", encoding="utf-8")
+    script = Script("26.124")
+    script._pending_action_scripts[str(main)] = "EXPORT_SOLVER_ANALYSIS_SPREADSHEET"
+    case = SimCase(
+        sim_id="9006",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="actions",
+        outputs=["loads_{point}.txt"],
+    )
+    with pytest.raises(CampaignConfigError, match=r"the run writes .* itself"):
+        _write_pending_files(
+            script, sim_dir / "DP-point", case=case, recorded={}, run_writes=(main,)
+        )
+    assert main.read_text(encoding="utf-8") == "the main script"
+
+
+def test_the_submission_descriptor_is_a_file_the_run_writes_itself(tmp_path):
+    """A submitting executor writes its descriptor into the point's folder when it
+    submits, after the parked files; the descriptor's path is reserved like the main
+    script's, and an executor with no profile reserves nothing."""
+    from types import SimpleNamespace
+
+    from pyflightstream.run import _descriptor_of
+
+    submitting = SimpleNamespace(profile=SimpleNamespace(descriptor_name="job.sh"))
+    assert _descriptor_of(submitting, tmp_path) == [tmp_path / "job.sh"]
+    assert _descriptor_of(object(), tmp_path) == []
+    script = Script("26.124")
+    script._pending_input_files["JOB.SH"] = b"not the descriptor"
+    case = SimCase(
+        sim_id="9007",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="actions",
+        outputs=["loads_{point}.txt"],
+    )
+    with pytest.raises(CampaignConfigError, match=r"the run writes .* itself"):
+        _write_pending_files(
+            script,
+            tmp_path,
+            case=case,
+            recorded={},
+            run_writes=_descriptor_of(submitting, tmp_path),
+        )
