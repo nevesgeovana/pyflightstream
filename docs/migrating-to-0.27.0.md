@@ -252,7 +252,7 @@ the opposite sign to 0.26.0: `roll_rate:40` writes
 - Code that read `cases.workflows.FREESTREAM_ROTATION_SIGN` as a number now gets
   a mapping: read `FREESTREAM_ROTATION_SIGN["roll"]`, `["pitch"]` or `["yaw"]`.
 
-## 16. A local run on a cluster that aborts at `EXPORT_LOG`, and a point missing an output
+## 16. Where a local point runs, its log on a cluster that aborts at `EXPORT_LOG`, and a missing output
 
 - On a cluster whose HPC profile states `[log] export_log = false`,
   `pyfs-matrix run --local` no longer writes `EXPORT_LOG` into the script, as
@@ -267,3 +267,11 @@ the opposite sign to 0.26.0: `roll_rate:40` writes
 - `CampaignWorkspace.collect_outputs` files the declared outputs that exist
   before it raises for the missing ones, and raises `MissingOutputsError`, a
   `WorkspaceError`, so an existing `except WorkspaceError` still catches it.
+- A point run on this machine runs in its own `datapoints/DP-<point>/`, as a
+  submitted point does: its exports, per-step ones included, its
+  `FlightStreamLog.txt`, its action files and its node file are written there,
+  and its record's `cwd` names the folder. A script of your own that looked for
+  them in `sims/sim_<id>/` looks in the point's folder; a leftover in the
+  simulation folder no longer stops a point, and a leftover in the point's
+  folder does. A steady row of several points still runs in the simulation
+  folder.

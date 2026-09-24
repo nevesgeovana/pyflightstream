@@ -2016,11 +2016,13 @@ record and its collected outputs and runs it again, keeping everything else
 where it is; the section below is for retiring a whole simulation. Archiving
 the simulation to redo one point takes the row's other points with it.
 
-Every point of a row runs in the same simulation folder and collects
-into its OWN folder beneath it. A run refuses to collect onto a name
-already in that point's folder, or to start a point whose declared
-output is already sitting in the simulation folder before the solver has
-written it, rather than attribute somebody else's file to the new point.
+Every point of a row keeps its outputs in its OWN folder beneath the
+simulation folder, and since 0.27.0 a point runs in that folder too (a
+steady row of several points is one job and runs in the simulation folder).
+A run refuses to collect onto a name already in that point's folder, or to
+start a point whose declared output is already sitting in the folder it
+runs in before the solver has written it, rather than attribute somebody
+else's file to the new point.
 Those refusals say to archive the simulation, and this is the command they
 mean:
 
@@ -3243,8 +3245,9 @@ table of the products reads) and the probes series are long, one row per
 step and section or probe, with the export's own columns. A kind with no
 stamped file is NOT written, and `products.json` names it under `skipped`
 with the folders that were searched (a header-only table recorded as written,
-until 0.24.0). The stamped files are looked for where the point RAN: the
-simulation folder for a local run, `datapoints/DP-<point>/` for a submitted one. A
+until 0.24.0). The stamped files are looked for where the point RAN: its
+`datapoints/DP-<point>/`, where every point runs since 0.27.0, and the
+simulation folder, where a local point ran before 0.27.0. A
 step the solver never stamped is absent and the `products.json` entry
 says which steps were tabled; the surface sections export (`_cp`) and
 the Tecplot file (`.dat`) of the window are listed there by path, as
@@ -3265,8 +3268,9 @@ from Linux and runs locally on Windows, and no cell says so. When the Linux
 machine is a workstation, or the point is a smoke test on the machine itself,
 `pyfs-matrix run --local` keeps the run on that machine: the cluster is not
 asked, the executable resolves as on Windows (the `FS_BUILD` column through
-`inputs/executables.toml`, or `--fs-exe`), the outputs land in the simulation
-folder as for any local run, and every record's `executor` entry says
+`inputs/executables.toml`, or `--fs-exe`), each point runs and writes its
+outputs in its own `datapoints/DP-<point>/` as any point does, and every
+record's `executor` entry says
 `forced_local`. The flag changes nothing on a machine that would not have
 submitted, and `collect` is not needed afterwards: a local point runs to its
 end before its record is written.
@@ -3389,9 +3393,15 @@ and the wall clock with its state are written there, so every point of a
 swept row is submitted in one invocation and no queued job shares a file with
 another. The run record names the folder as `working_dir`, and
 `pyfs-matrix collect` waits for the declared outputs there and records them
-where they were written. A steady row, which is ONE job over all its points,
-submits from the simulation folder, and a run on a workstation still runs in
-the simulation folder. FR-99 states the requirement.
+where they were written. A point run on this machine runs in the same
+folder since 0.27.0, so its exports, the per-step ones included, are written
+where they are filed, and a point whose run fails leaves them there rather
+than in the folder every point of the row shares; the script is the same
+either way, since its exports are named relative to the working directory and
+its inputs by absolute path. A steady row, which is ONE job over all its
+points and one script, submits from and runs in the simulation folder, and
+collection files each point's outputs in its own folder. FR-99 states the
+requirement.
 
 ### Naming the build to a cluster's scheduler
 

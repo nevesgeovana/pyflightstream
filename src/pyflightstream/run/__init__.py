@@ -38,7 +38,9 @@ it, and one dash is the spelling every registered build accepts
 (RPT-023). In hidden mode an
 abnormal termination writes ``FlightStreamLog.txt`` into the command
 execution directory, which is why the executor runs the solver inside
-the simulation folder and captures that file (SRC-003 p.280). An HPC
+the point's own datapoint folder and captures that file (SRC-003 p.280);
+a steady row of several points is one job and runs in the simulation
+folder. An HPC
 executor with the same interface is deferred (FR-15).
 
 Judging solver quality (converged, iteration limited, diverged) needs
@@ -6097,8 +6099,8 @@ def _execute_point(
     # PFS-2031.13. The child script of a SCRIPT action is parked on the
     # script by helpers.unsteady_action and written HERE, before the
     # solver starts, where the registration line names it: a relative
-    # path lands in the simulation folder, which is the solver's working
-    # directory, an absolute one where it says. Until this existed the
+    # path lands in the solver's working directory, the point's own
+    # datapoint folder since 0.27.0, an absolute one where it says. Until this existed the
     # helper promised a writer that did not exist, and a SCRIPT action
     # registered through it named a file that was never there.
     #
@@ -6110,16 +6112,19 @@ def _execute_point(
     # the reason a second submitted point of a row was refused, which was
     # that all of them rewrote those files under a job still in a queue.
     #
-    # A LOCAL POINT STILL RUNS IN THE SIMULATION FOLDER. Local points run one
-    # after another and never shared a folder at the same moment, and moving
-    # them would change every local workspace for no defect. Every input the
-    # script reads is named by absolute path since 0.18.1, which is what
-    # makes the working directory free to move at all (GOAL-021 item 2).
-    work_dir = (
-        sim_dir / SIM_DATAPOINTS_DIR / datapoint_dir_name(PointName(point_name(case, point)))
-        if isinstance(executor, Submitting)
-        else sim_dir
-    )
+    # A LOCAL POINT RUNS THERE TOO, since 0.27.0, so every output is WRITTEN
+    # where it is filed rather than moved there by collection. It ran in the
+    # simulation folder until then, and a point whose run or collection failed
+    # left its exports there, the per-step ones included, in the folder every
+    # point of the row shares (measured on a cluster, 2026-09-24). The script
+    # is unchanged: its exports are named relative to the working directory,
+    # the form measured on 26.124, and every input it reads is named by
+    # absolute path since 0.18.1, which is what makes the working directory
+    # free to move at all (GOAL-021 item 2). The files it parks, the action
+    # program, the clock and the trailing-edge node file, are written relative
+    # to this folder below, as they are for a submitted point. The steady job
+    # of several points keeps the simulation folder (`_execute_sweep`).
+    work_dir = sim_dir / SIM_DATAPOINTS_DIR / datapoint_dir_name(PointName(point_name(case, point)))
     # G02: and the data files a command reads, the trailing-edge node file,
     # whose digests join the inputs the record states.
     written = _write_pending_files(script, work_dir)
@@ -6200,8 +6205,8 @@ def _execute_point(
     # probe measured not to work.
     base["waived_commands"] = [use.model_dump(mode="json") for use in script.waived_commands]
 
-    # PYFS-006. Every point of a case runs in the same simulation folder,
-    # and collection asks only whether the declared output EXISTS, never
+    # PYFS-006. Every point of a case ran in the same simulation folder until
+    # 0.27.0, and collection asks only whether the declared output EXISTS, never
     # whether this run produced it. A file left there by anything else, a
     # point that failed after the solver wrote, a hand copy, an aborted
     # sweep, was collected as this point's evidence and the point was
@@ -6214,23 +6219,26 @@ def _execute_point(
     # cannot tell a rewritten identical file from an untouched one, and it
     # spends solver time before saying so. The script is already written,
     # so the refused point still records the script it would have run.
-    # IN THE WORKING DIRECTORY, which for a submitted point is its datapoint
-    # folder: a file an earlier run of the point left there is exactly what
-    # this refuses to collect as the new run's evidence.
+    # IN THE WORKING DIRECTORY, which is the point's datapoint folder, for a
+    # submitted point and, since 0.27.0, for a local one: a file an earlier run
+    # of the point left there is exactly what this refuses to collect as the
+    # new run's evidence.
     stale = [name for name in point_case.outputs if (work_dir / name).exists()]
     if stale:
         return RunRecord(
             **base,
             status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
             error=(
-                f"declared output(s) {', '.join(stale)} already exist in the simulation "
-                "folder before this point ran, so collecting them would attribute "
-                "somebody else's file to this run. Every point of a case shares the "
-                "folder, and collection cannot tell a file this solver wrote from one "
-                "that was already there. Archive the simulation (pyfs-workspace "
-                "archive <root> <sim_id>) or remove the leftover, then re-run."
+                f"declared output(s) {', '.join(stale)} already exist in "
+                f"{work_dir.relative_to(sim_dir).as_posix()}/, the folder this point runs "
+                "in, before it ran, so collecting them would attribute somebody else's "
+                "file to this run: collection cannot tell a file this solver wrote from "
+                "one that was already there. Redo the point with pyfs-matrix run "
+                "--force-rerun <point>, which archives what is there first, or remove "
+                "the leftover, then re-run."
             ),
         )
+    work_dir.mkdir(parents=True, exist_ok=True)
 
     # FR-99, GEO-047-C04. THE REFUSAL OF A SECOND SUBMITTED POINT OF A ROW IS
     # GONE FROM THIS PATH, and deliberately from this path only (the
@@ -6348,6 +6356,9 @@ def _execute_point(
             # The point's checked NAME is passed and the folder is rendered
             # there, so a caller cannot name a folder the assessor will not read.
             datapoint=PointName(point_name(case, point)),
+            # 0.27.0: every point runs in that folder, so its outputs are
+            # filed where the solver wrote them.
+            ran_in_datapoint=True,
         )
     except MissingOutputsError as error:
         # WHAT WAS WRITTEN IS FILED, LISTED AND HASHED, and the error names

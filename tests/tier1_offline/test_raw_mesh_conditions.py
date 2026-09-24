@@ -419,7 +419,8 @@ def test_a_file_route_row_runs_end_to_end_and_is_held_to_the_solver_count(
     assert record.status is status, (record.status, record.error)
     if status is RunStatus.FAILED_SCRIPT:
         assert "16" in record.error and "15" in record.error, record.error
-    sim_dir = workspace.sim_dir("7001")
+    # The stand-in writes where it runs, the point's own folder since 0.27.0.
+    sim_dir = workspace.sim_dir("7001") / "datapoints" / f"DP-{record.point_name}"
     seen = (sim_dir / "node_file_seen.txt").read_text(encoding="utf-8").splitlines()
     assert seen[:3] == ["16", "0,0,0", "1.0,-3.75,0.0"] and len(seen) == 18, seen
     assert "wing.wake_nodes.txt" in record.inputs_sha256

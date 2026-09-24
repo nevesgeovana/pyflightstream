@@ -86,7 +86,8 @@ LOG = (
 #: RELATIVE TO ITS WORKING DIRECTORY as the solver does, with the loads
 #: export printing the incidence the script last set; at EXPORT_LOG it does
 #: what argv[4] says: ``abort`` stops there with nothing written (the build of
-#: such a machine), ``skip`` goes on without writing it, ``write`` writes
+#: such a machine), ``die`` stops there with a failing return code, ``skip``
+#: goes on without writing it, ``write`` writes
 #: argv[3]'s file there. It prints argv[3]'s file on standard output unless that
 #: is ``-`` or the log took it.
 STUB = r"""
@@ -104,6 +105,8 @@ for index, line in enumerate(lines):
     if verb == "EXPORT_LOG":
         if at_log == "abort":
             sys.exit(0)
+        if at_log == "die":
+            sys.exit(3)
         if at_log == "write" and printed != "-":
             pathlib.Path(lines[index + 1]).write_text(
                 pathlib.Path(printed).read_text(encoding="utf-8"), encoding="utf-8"
@@ -501,3 +504,69 @@ def test_a_file_route_point_whose_solver_printed_the_count_is_held_to_it(tmp_pat
     record = _file_route_point(tmp_path, prints=printed)
     assert record.status is RunStatus.CONVERGED, (record.status, record.error)
     assert any(name.endswith("_log.txt") for name in record.outputs), record.outputs
+
+
+# --- 3. a local point runs in its own datapoint folder ------------------------
+
+
+def test_a_local_point_writes_in_its_datapoint_folder_even_when_the_solver_dies(
+    tmp_path, monkeypatch
+):
+    """The solver dies before its log: nothing is collected, and nothing is in the sim root.
+
+    The point runs with its datapoint folder as the working directory, as a
+    submitted point does, so its relative exports are WRITTEN there; a run
+    that fails before collection leaves them where they belong rather than in
+    the folder every point of the row shares.
+    """
+    workspace, records, _ = _run(tmp_path, monkeypatch, cluster=False, profile=None, at_log="die")
+    (record,) = records
+    assert record.status is RunStatus.FAILED_EXECUTION, (record.status, record.error)
+    sim = workspace.sim_dir("5001")
+    folder = sim / "datapoints" / f"DP-{record.point_name}"
+    assert record.cwd is not None and Path(record.cwd) == folder, record.cwd
+    assert _exports_in(sim, record.point_name) == [], "the solver wrote into the simulation folder"
+    written = _exports_in(folder, record.point_name)
+    assert f"{record.point_name}.txt" in written, written
+
+
+def test_a_steady_job_of_several_points_runs_in_the_simulation_folder(tmp_path, monkeypatch):
+    """ONE script writes every point's files, so the job keeps the folder they share.
+
+    Its submitted form does the same: a steady row is one job, submitted from
+    the simulation folder, and collection files each point's outputs.
+    """
+    workspace, records, _ = _run(
+        tmp_path, monkeypatch, cluster=False, profile=None, at_log="skip", sweep="-2.0,0.0,2.0"
+    )
+    (job,) = records
+    assert job.cwd is not None and Path(job.cwd) == workspace.sim_dir("5001"), job.cwd
+
+
+def test_profiles_that_disagree_about_the_log_are_refused_under_local(tmp_path, monkeypatch):
+    """Which of two profiles is this machine is not a guess to make about its log."""
+    from pyflightstream.run import matrix as matrix_module
+    from pyflightstream.workspace import InputArtifactError
+    from tests.tier1_offline.test_matrix_run import HPC_PROFILE
+
+    workspace, matrix = _matrix(tmp_path)
+    directory = workspace.inputs_dir / "hpc"
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "h001.toml").write_text(PROFILE, encoding="utf-8")
+    (directory / "h002.toml").write_text(HPC_PROFILE, encoding="utf-8")
+    monkeypatch.setattr(matrix_module, "on_a_cluster", lambda: True)
+    with pytest.raises(InputArtifactError) as caught:
+        run_matrix(
+            matrix,
+            workspace,
+            name="local",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            recipe_registry=workflow_registry(),
+            assess=LoadsAssessor(),
+            local=True,
+        )
+    message = str(caught.value)
+    assert "h001.toml: export_log = false" in message, message
+    assert "h002.toml: export_log = true" in message, message
+    assert not workspace.manifest_path.exists(), "a refused run recorded a point"

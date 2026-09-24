@@ -422,6 +422,19 @@ FlightStream versions.
 
 ### Changed
 
+- **A local point runs in its own datapoint folder.** A point run on this
+  machine, with `--local` or on Windows, now runs the solver with
+  `sims/sim_<id>/datapoints/DP-<point>/` as its working directory, as a
+  submitted point has since 0.18.1, so every export, the per-step ones and the
+  solver's own `FlightStreamLog.txt` included, is written where it is filed
+  rather than moved there by collection, and a point whose run fails leaves
+  nothing in the folder its row shares. The script is unchanged, and its hash
+  with it: its exports are named relative to the working directory and its
+  inputs by absolute path. The action program, the wall clock and the
+  trailing-edge node file a point writes before its solve are written there
+  too, and the record's `cwd` names the folder. A steady row of several
+  points is one job over one script and still runs in the simulation folder,
+  as its submitted form does.
 - **An induced drag the solver did not compute is `NA` in every sum the
   package makes.** A boundary on the vorticity induced-drag list
   (`SET_VORTICITY_DRAG_BOUNDARIES`) without a defined trailing edge is not
