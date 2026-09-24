@@ -43,6 +43,15 @@ FlightStream versions.
   licensed solver (26.000, 0.20.0). The solver model is still the preset's
   and no row cell chooses it; `BLADES` still changes no emitted line (B02).
 
+### Documentation
+
+- **The tier-3 page states which induced-drag form each case uses.** Every
+  row whose golden script carries `SET_VORTICITY_DRAG_BOUNDARIES` names its
+  selection, the single-boundary wing geometries on which `-1` and `1` are
+  the same set, and the two local-only SMI cases that put a body on the
+  vorticity list; a test keeps the page in step with the goldens. The re-run
+  of those references is 1.0 work (PFS-2006.02).
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

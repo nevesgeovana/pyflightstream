@@ -845,6 +845,8 @@ def _smi_case(case_id: str, title: str, band_kind: str) -> PhysicsCase:
 
 #: The two local cases: ``28_B.fsm`` (SMI-01) and ``31_WBH_IH0.fsm`` (SMI-02),
 #: each opened by :func:`build_smi_script` at the fixed comparison point.
+#: Both put every boundary on the vorticity induced-drag list (build_smi_script);
+#: docs/tiers.md states what that means for their stored coefficients (PFS-2006.02).
 SMI_CASES: dict[str, PhysicsCase] = {
     "SMI-01": _smi_case(
         "SMI-01",
