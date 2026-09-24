@@ -38,6 +38,9 @@ PACKAGE = REPO / "src" / "pyflightstream"
 #: here as well. ``test_each_example_needs_only_the_extras_it_declares``
 #: holds the declaration to the imports.
 EXAMPLE_EXTRAS: dict[str, frozenset[str]] = {
+    # 0.27.0 (D11's third capability): the additional post over a recorded
+    # point's saved simulation, the extraction script it would run, no solver.
+    "additional_post.py": frozenset(),
     "campaign_matrix.py": frozenset(),
     "fsi_campbell_diagram.py": frozenset({"fsi"}),
     # 0.27.0 (D11): one example per new capability, each a dry run that

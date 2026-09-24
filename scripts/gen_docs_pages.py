@@ -28,6 +28,7 @@ EXAMPLES = [
     "fsi_campbell_diagram.py",
     "obj_wing_trailing_edge_file.py",
     "roll_rate_row.py",
+    "additional_post.py",
 ]
 
 for path, content in markdown_reference_pages().items():

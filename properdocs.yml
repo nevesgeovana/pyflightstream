@@ -101,3 +101,4 @@ nav:
       - FSI Campbell diagram: examples/fsi_campbell_diagram.md
       - Wing OBJ, trailing edge by file: examples/obj_wing_trailing_edge_file.md
       - A row with a roll rate: examples/roll_rate_row.md
+      - Extracting more from a finished point: examples/additional_post.md
