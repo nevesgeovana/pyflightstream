@@ -208,14 +208,21 @@ def _matching_distributions(
 
     ``geometry`` is the geometry's boundary names in the solver's order,
     recorded with the run since 0.27.0 or recovered by the geometry's hash
-    (R03 and R04). With it a selection is read by the export builder's own
-    expansion over the names the builder read, so a family stem, a numbered
-    name, ``all`` and the aliases resolve as they did at export, and a word
-    that resolves to nothing (a rotor's name no definition in hand spells)
-    leaves its entry uncertain, a possible owner, and the match refused. A
-    geometry that gives one name to two boundaries is read as no geometry,
-    because the builder leaves that name out and the rest no longer say what
-    a selection held.
+    (R03 and R04). The names are read ONLY for a block recorded in a common
+    frame, or where ``rotors`` holds the live rotor definitions; a block
+    recorded in a frame spelt like a rotor's (``<alias>_RMRP``,
+    ``<alias>_RMRP<n>``, ``<alias>_SMRP`` and its ``_ORIGINAL`` twin) with
+    no rotor definition in hand is matched as if no geometry were given,
+    because the builder resolved an expanding entry against the reference's
+    rotor families there, never over the names alone. Where they are read, a
+    selection is read by the export builder's own expansion over the names
+    the builder read, so a family stem, a numbered name, ``all`` and the
+    aliases resolve as they did at export, and a word that resolves to
+    nothing (a rotor's name no definition in hand spells) leaves its entry
+    uncertain, a possible owner, and the match refused. A geometry that
+    gives one name to two boundaries is read as no geometry, because the
+    builder leaves that name out and the rest no longer say what a selection
+    held.
 
     Without it, ``ownership`` says the match assigns a legacy layout's
     blocks to the recorded pproc's entries, which is a name and a grouping
@@ -239,6 +246,35 @@ def _matching_distributions(
         # was named after Wing. No block is attributed on such names'
         # authority; the match goes as if no geometry were given, over the
         # recorded cuts alone, as before 0.27.0.
+        geometry = None
+    recorded_frame = str(block.get("frame", ""))
+    if (
+        geometry is not None
+        and not rotors
+        and (
+            _rotor_frame(recorded_frame) is not None
+            or recorded_frame.strip().upper() in EXPANDING_WORDS
+        )
+    ):
+        # THE NAMES SETTLE A SELECTION ONLY ON A COMMON FRAME, or where the
+        # rotor definitions are in hand (the reading of GitHub main after
+        # block 3, P1 and P2). A block's recorded frame says which readings
+        # could have emitted it. On a common frame only an entry citing that
+        # frame literally, or the frame whose `_ORIGINAL` twin it is, could
+        # have, and the builder read every such entry by its common expansion
+        # over the names. A frame spelt like a rotor's (`<alias>_RMRP`, `_RMRP<n>`,
+        # `_SMRP`, `_SMRP_ORIGINAL`) may hold an expanding entry's emission,
+        # which the builder resolves against the reference's rotor families
+        # and never over the names alone: `Blade1` on RMRP asks for the rotor
+        # owning Blade1 and `Blade` for every rotor with a Blade family, so
+        # over the names the one integrated another rotor's block and the
+        # other lost it to an entry that emitted nothing. No block records
+        # which entry it came from, so a user's own `X_RMRP` is read the same
+        # way, as in 0.26.0: refused by name. Only the live rotor definitions
+        # give the builder's own reading there (`pproc_emissions`, below).
+        # Decided PER CALL because every entry is matched against this one
+        # block, and one call over two inventories would let the names of the
+        # one make an entry of the other falsely unique.
         geometry = None
     # THE BUILDER'S INVENTORY, REBUILT: the labels the script declared at
     # OPEN in index order (`_inventory(script)` in cases/workflows.py).
@@ -286,10 +322,11 @@ def _matching_distributions(
     # rotor's whether or not that rotor is declared now or its frame is
     # cited literally, and a declared rotor's spelling may be recorded on
     # any frame an alias of the rotor names. A user's own `X_RMRP` with no
-    # rotor X therefore attests nothing either, and without the geometry both
-    # of its entries are refused by name (RPT-059). With the geometry the
-    # attestation is not needed: the possible reading below stops at the
-    # builder's reading, which the geometry's names make exact.
+    # rotor X therefore attests nothing either, and both of its entries are
+    # refused by name (RPT-059): the geometry's names are not read for a
+    # block on such a frame without the rotor definitions (the call's head).
+    # Where the names are read the attestation is not needed: the possible
+    # reading below stops at the builder's reading, which they make exact.
     rotor_spellings = {member for members in rotor_members.values() for member in members}
     attested = {
         str(f)
@@ -638,13 +675,18 @@ def _matching_distributions(
             return False
         if uncertain[k - 1]:
             return True
-        if exact is not None and (kind_re is None or rotors):
-            # OVER THE GEOMETRY'S OWN NAMES the strict reading of a common
-            # frame, and of an expanding one whose rotors are defined, IS the
-            # builder's, so a certain entry it refused did not emit the block.
-            # An expanding frame without a rotor definition is still read by
-            # the recorded-frame grouping, which is not the builder's, and
-            # keeps the possible reading below.
+        if exact is not None and (rotors or (kind_re is None and frame == entry.frame)):
+            # OVER THE GEOMETRY'S OWN NAMES a certain entry the strict reading
+            # refused did not emit the block, WHERE THAT READING MODELS THE
+            # PAIR: with the rotors in hand it is the builder's own
+            # (`pproc_emissions`, `_ORIGINAL` twins included), and without
+            # them it reads a literal entry's selection over the names and
+            # compares frames by equality. The frame an entry's frame turned
+            # from is a second emission the equality never sees (P2 of the
+            # reading of GitHub main after block 3), so a block on the
+            # `_ORIGINAL` twin keeps the builder's reading below. With no
+            # rotor definition the names reach no expanding frame at all
+            # (the call's head), so no other pair arrives here with them.
             return False
         if kind_re is None and any(
             family_of(name).casefold() == family_of(other).casefold()
@@ -730,7 +772,9 @@ def _matching_distributions(
             # (such as a rotor's name nothing in hand resolves) it is that one's.
             # Two possible entries name no owner, and the caller falls back
             # to the cuts. Ownership adds no number, which is why elimination
-            # is allowed here and never for integration.
+            # is allowed here and never for integration. Ownership never has
+            # the rotor definitions, so this reaches a block recorded in a
+            # common frame only: on a rotor's frame the names are not read.
             left = [
                 k for k, entry in enumerate(pproc.sections.distributions, 1) if could_own(k, entry)
             ]
@@ -893,9 +937,12 @@ def write_section_distributions(
         Omitted, the record's own ``inventory`` is read, and None there leaves
         the match to the recorded cuts. With the names, a selection is read
         by the export builder's own expansion over them, for integration and
-        for the ownership of a layout recorded before 0.25.0; names that give
-        one name to two boundaries settle nothing and leave the match to the
-        cuts as well. See
+        for the ownership of a layout recorded before 0.25.0, for a block
+        recorded in a common frame; integration also reads them in a rotor's
+        frame when ``current_rotors`` holds the rotor definitions. A block in
+        a frame spelt like a rotor's with no rotor definition, and names that
+        give one name to two boundaries, leave the match to the cuts as well.
+        See
         `Integrated sectional loads
         <../post-processing-definitions.md#integrated-sectional-loads-since-0260>`_.
 

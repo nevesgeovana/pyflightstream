@@ -2754,7 +2754,8 @@ families/alias and `steps_tabled`, with named skips for missing exports or steps
 No recorded `sections_layout` means no split: post names the missing layout.
 Older layouts require an unambiguous match to their recorded pproc, read over the
 geometry's boundary names where the record carries them or its geometry hash
-recovers them. See the
+recovers them, for a block recorded in a common frame; a block in a frame spelt
+like a rotor's is matched over the recorded cuts, as in 0.26.0. See the
 [sections definitions](post-processing-definitions.md#per-distribution-sectional-loads-and-cp-0250).
 
 **The stamped files as a series** (since 0.14.0, PFS-2031.18.01). Thirty

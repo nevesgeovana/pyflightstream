@@ -73,3 +73,17 @@ script from a finished one.
 the second sentinel was reached and the log exported, the solver's error lines
 with the machine-local path cut, and the script's digest; the four checks as
 booleans. The solver outputs stayed on the measuring machine (invariant 5).
+
+## Erratum, 2026-09-24
+
+The first point under *What it means for the package* describes the plan of
+item G14, not what is built. G14 lands in block 5 of 0.27.0; on the tree this
+report was committed to, neither setup key exists and the command database's
+26.124 rows do not record the build's answer (`SET_VORTICITY_LIFT_MODEL` still
+reads "not run on 26.124"). Until G14 lands, a 26.124 row cannot state either
+key at all, because no key exists, and nothing refuses either command at plan:
+a raw script line stating `SET_VORTICITY_LIFT_MODEL` or
+`SET_UNSTEADY_VISCOUS_COUPLING_ITERATION` renders, and on 26.124 it stops the
+run at that line, as the runs above measured, with a return code of 0. Only
+the solver's own log tells that stopped script from a finished one. Found by
+the reading of GitHub main after block 3 of 0.27.0. No line above was changed.

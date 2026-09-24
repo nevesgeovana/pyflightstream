@@ -99,13 +99,18 @@ Separately, `pyfs-matrix plan` now warns naming each `LEGACY` row whose
   with 0.27.0. A 0.27.0 record with no names writes no key, and 0.26.0 still
   reads it.
 - Integrated columns now appear where 0.26.0 kept the raw ones: a stem, a
-  numbered name, `all`, a frame spelt like a rotor's. This applies to 0.25
-  and 0.26 records too, while their geometry file still matches the recorded
-  hash, and it changes those CSVs' column set. A geometry that gives one name
-  to two boundaries changes nothing: its names settle no selection.
-- A 0.24.x split may be renamed after the entry that emitted it
-  (`..._sloads_Blade1.csv` becomes `..._ACTIVE.csv`, `distribution` 2). A
-  check that lists the sections files will see the new name.
+  numbered name, `all`, for a block recorded in a common frame, or in any
+  frame with the live rotor definitions in hand. This applies to 0.25 and
+  0.26 records too, while their geometry file still matches the recorded
+  hash, and it changes those CSVs' column set. A block in a frame spelt like
+  a rotor's with no rotor definition in hand, a user's own `X_RMRP`
+  included, is matched as in 0.26.0, and so is every block of a geometry
+  that gives one name to two boundaries: those names settle no selection.
+- A 0.24.x split recorded in a common frame may be renamed after the entry
+  that emitted it (a block of rotor ACTIVE's blades in `MRP`:
+  `..._sloads_Blade1.csv` becomes `..._ACTIVE.csv`, `distribution` 2). A
+  check that lists the sections files will see the new name. A split in a
+  frame spelt like a rotor's keeps its 0.26.0 name.
 - A multi-point steady row now writes per-distribution sections files and
   identity columns where 0.26.0 wrote a named `#distributions` skip. A job
   run before 0.27.0 keeps the skip; run it again.

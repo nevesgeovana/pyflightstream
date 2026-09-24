@@ -978,7 +978,9 @@ class RunRecord(BaseModel):
     #: solver's order, the name at position ``i`` being boundary ``i``: what
     #: the builder read at OPEN from the source ``inventory_source`` names.
     #: The post reads a section distribution's selection over them, where
-    #: the cuts alone cannot say what a family stem or ``all`` selected.
+    #: the cuts alone cannot say what a family stem or ``all`` selected, for
+    #: a block recorded in a common frame or with the rotor definitions in
+    #: hand; in a rotor's frame the builder read the rotor families instead.
     #: None on every record written before 0.27.0, which the post recovers
     #: by the geometry's hash (:meth:`CampaignWorkspace.recorded_inventory`),
     #: and on a run that opened no geometry declaring names.
