@@ -2585,9 +2585,10 @@ def test_the_id_is_a_stem_and_the_library_extension_is_whatever_was_staged(tmp_p
 
     Resolution is delegated to ``workspace.resolve_geometry``, which
     registers a staged file under any extension. Which suffixes a
-    WORKFLOW will open is a different question, decided one layer up in
-    ``cases.workflows``: a library holding a raw mesh is legitimate, and
-    a row pointing a workflow at one is what is refused.
+    WORKFLOW will open or import, and on what terms, is a different
+    question, decided one layer up in ``cases.workflows``: a library
+    holding a raw mesh is legitimate, and a row pointing a workflow at one
+    whose sidecar states no unit is what is refused (G01).
     """
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
     staged = stage_geometry(workspace, "raw_blade.stl")
@@ -2900,9 +2901,12 @@ def test_a_raw_mesh_row_is_refused_by_the_pre_flight_before_anything_is_staged(t
 
     ``test_the_id_is_a_stem_and_the_library_extension_is_whatever_was_staged``
     stages a ``.stl``, asserts it lands on ``case.geometry``, and stops
-    there, which reads as "a .stl row works". It does not: the library
-    resolves any extension and the WORKFLOW opens one. With only those
-    two cases the suite points in two directions and nothing joins them.
+    there, which reads as "a .stl row works". It does not, while no sidecar
+    states the unit the mesh is written in: the library resolves any
+    extension, and the WORKFLOW imports a raw mesh only in a unit stated
+    beside it (G01, whose tests below run the row that states one). With
+    only those two cases the suite points in two directions and nothing
+    joins them.
 
     What is asserted here is the composed behaviour and the commit
     message's own claim about it, that this capability's limits "refuse
@@ -2997,6 +3001,115 @@ def test_the_whole_chain_the_row_the_staged_copy_and_the_opened_path(tmp_path):
         "so the digest and the bytes the solver read are not the same file"
     )
     assert "SYMMETRY PERIODIC 4" in lines, "the row's symmetry did not reach the command"
+
+
+# --- G01: a raw mesh runs through the workflow, in the unit its sidecar states --------
+
+#: One triangle named Wing, as an OBJ and as an ASCII STL.
+_OBJ_WING = b"o Wing\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n"
+_STL_WING = (
+    b"solid Wing\n facet normal 0 0 1\n  outer loop\n   vertex 0 0 0\n   vertex 1 0 0\n"
+    b"   vertex 0 1 0\n  endloop\n endfacet\nendsolid Wing\n"
+)
+
+
+def _run_geometry_row(tmp_path, workspace, tail):
+    return run_matrix(
+        geometry_matrix(tmp_path, tail),
+        workspace,
+        name="matrix",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        executor=StubSolver(WRITES_LOADS),
+        recipe_registry=workflow_registry(),
+    )
+
+
+@pytest.mark.parametrize(
+    ("suffix", "body", "units", "token"),
+    [(".obj", _OBJ_WING, "MILLIMETER", "OBJ"), (".stl", _STL_WING, "INCH", "STL")],
+    ids=["obj", "stl"],
+)
+def test_an_obj_row_imports_the_staged_copy_in_the_unit_its_sidecar_declares(
+    tmp_path, suffix, body, units, token
+):
+    """G01: the unit the sidecar states reaches IMPORT, and the simulation stays in metres.
+
+    NEVER METER IN THE SIDECAR, because the one helper that imported before
+    this item fixed the import at METER, and a test stating METER would pass
+    on that helper's shape. The staged copy is what IMPORT reads, which is
+    the pairing ``inputs_sha256`` depends on, and the record carries the
+    unit, because the digest alone cannot tell a run in millimetres from the
+    same file run in metres.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
+    library = stage_geometry(workspace, f"wing{suffix}", body)
+    library.with_name("wing.boundaries.toml").write_text(
+        f'boundaries = ["Wing"]\n\n[import]\nunits = "{units}"\n', encoding="utf-8"
+    )
+    try:
+        tail = f" / VELOCITY: 30.0 / GEOMETRY: wing{suffix}"
+        records = _run_geometry_row(tmp_path, workspace, tail)
+    except MatrixError as refused:
+        pytest.fail(f"the declared unit never reached a script: {refused}")
+    assert [record.status for record in records] == [RunStatus.CONVERGED]
+    sim_dir = workspace.sim_dir("7001")
+    lines = (sim_dir / records[0].script_path).read_text(encoding="utf-8").splitlines()
+    assert lines[:4] == ["NEW_SIMULATION", "IMPORT", f"UNITS {units}", f"FILE_TYPE {token}"]
+    assert Path(lines[4].removeprefix("FILE ")) == sim_dir / "inputs" / f"wing{suffix}", (
+        "IMPORT reads a file other than the staged copy the record hashed"
+    )
+    assert lines[5] == "CLEAR"
+    length_unit = lines.index("SET_SIMULATION_LENGTH_UNITS METER")
+    assert 5 < length_unit < lines.index("SET_FREESTREAM CONSTANT"), (
+        "the simulation's length unit is not set to metres between the import and the setup"
+    )
+    assert "OPEN" not in lines
+    assert records[0].inputs_sha256 == {f"wing{suffix}": file_sha256(library)}
+    assert records[0].mesh_import == {"units": units}
+
+
+@pytest.mark.parametrize(
+    "sidecar",
+    [None, 'boundaries = ["Wing"]\n', 'boundaries = ["Wing"]\n\n[import]\nunits = "MM"\n'],
+    ids=["no-sidecar", "no-import-table", "a-unit-import-does-not-take"],
+)
+def test_an_obj_row_with_no_unit_is_refused_by_the_plan_naming_the_key(tmp_path, sidecar):
+    """G01: a unit is never assumed; the pre-flight refuses naming the key and the file.
+
+    The accepted units are read from the command database for the row's
+    build, so the refusal lists them; nothing is staged, no script is
+    written and nothing reaches the manifest.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
+    library = stage_geometry(workspace, "wing.obj", _OBJ_WING)
+    if sidecar is not None:
+        library.with_name("wing.boundaries.toml").write_text(sidecar, encoding="utf-8")
+    with pytest.raises(MatrixError) as caught:
+        _run_geometry_row(tmp_path, workspace, " / VELOCITY: 30.0 / GEOMETRY: wing.obj")
+    message = str(caught.value)
+    needles = ("[import]", "units", "wing.boundaries.toml", "MILLIMETER", "docs/mesh-inputs.md")
+    for needle in needles:
+        assert needle in message, f"the refusal does not name {needle!r}: {message}"
+    if sidecar is not None and "MM" in sidecar:
+        assert "'MM'" in message, "the refusal does not name the unit the sidecar wrote"
+    sim_dir = workspace.sim_dir("7001")
+    assert not list((sim_dir / "inputs").iterdir()), "a refused row was staged"
+    assert not list((sim_dir / "scripts").iterdir()), "a script was written for a refused row"
+    assert workspace.read_manifest() == [], "a refused row reached the manifest"
+
+
+def test_an_import_table_without_units_is_refused_naming_the_sidecar(tmp_path):
+    """G01: ``[import]`` is read at binding, so a table missing its key is refused there."""
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    library = stage_geometry(workspace, "wing.obj", _OBJ_WING)
+    library.with_name("wing.boundaries.toml").write_text(
+        'boundaries = ["Wing"]\n\n[import]\n', encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match=r"\[import\].*units") as caught:
+        resolve_geometry_row(tmp_path, workspace, " / VELOCITY: 30.0 / GEOMETRY: wing.obj")
+    assert "wing.boundaries.toml" in str(caught.value)
 
 
 def test_a_campaign_runs_under_the_relative_root_the_cli_defaults_to(tmp_path, monkeypatch):

@@ -132,24 +132,25 @@ them close the gap that made the capability unusable:
   naming the files that carry it, and `pyfs-matrix upgrade` completes
   every stem-only cell of an older matrix with `.fsm` (until v0.11.0 the
   cell was the stem; PFS-2029.09). What the name buys is that the cell
-  says what the file is: a `.fsm` carries its boundary conditions, a
-  mesh does not, and a workflow row naming a mesh is refused before any
-  seat is spent, naming 0.12.0 as the release that defines them. The
-  workflow opens the file first, before anything else, and it opens the
-  STAGED copy, so the file the manifest hashed and the file the solver
-  read are the same bytes.
+  says what the file is: a `.fsm` is a saved simulation and is opened,
+  and since 0.27.0 an `.obj` or `.stl` is a raw mesh and is imported.
+  The workflow opens or imports the file first, before anything else,
+  and it reads the STAGED copy, so the file the manifest hashed and the
+  file the solver read are the same bytes.
 
-    A WORKFLOW opens a saved simulation, a `.fsm`, and nothing else. That
-    is a property of the two built-in builders rather than of the key: a
-    recipe of your own receives whatever the library staged and imports
-    it declaring the units itself. The narrowing exists because importing
-    a raw mesh takes the mesh's length units as an argument
-    (SRC-003 p.307) and no matrix cell declares them, so the package
-    would have to default one, and a defaulted unit is a body of the
-    wrong size whose coefficients solve, export and report without a
-    word. The refusal points at
-    [mesh inputs and GUI-only operations](mesh-inputs.md): open the mesh
-    in the window once, save a `.fsm`, script everything after.
+    A WORKFLOW opens a `.fsm` and imports an `.obj` or `.stl`, and
+    refuses any other suffix. A raw mesh takes its length units as an
+    argument (SRC-003 p.307) and the file carries none, so the
+    `<stem>.boundaries.toml` beside it states them in an `[import]`
+    table, `units = "MILLIMETER"`, beside the `boundaries` list written
+    by hand in the file's order. A raw mesh without the table is refused
+    before any seat is spent, naming the key, because a defaulted unit is
+    a body of the wrong size whose coefficients solve, export and report
+    without a word. The file's unit goes to `IMPORT` alone and the
+    simulation is set to metres, the unit of every length the row states.
+    [Mesh inputs and GUI-only operations](mesh-inputs.md) carries the
+    route in full. A recipe of your own receives whatever the library
+    staged and imports it declaring the units itself.
 * `SYMMETRY: <mode>` and, where the mode needs it, `PERIODIC_COPIES: <n>`.
   The accepted modes are read from the command database for the row's own
   build, never from a list written here. **This one is not a
@@ -3002,12 +3003,15 @@ worse than no page at all.
   type this package builds is a type it can also refuse before it runs,
   and that guarantee is exactly what a user-supplied entry would remove.
   Your own physics goes in a recipe, which is what recipes are for.
-- **A workflow opens a saved simulation only.** No matrix cell declares
-  mesh units, so a `.stl` or `.obj` staged in the library resolves
-  perfectly well and is then refused when the script is built, rather
-  than being imported under a unit nobody chose. Convert it once through
-  [mesh inputs](mesh-inputs.md). A recipe of your own is not bound by
-  this: it declares the units itself.
+- **A raw mesh's scale and names are stated, and neither is measured
+  yet.** A workflow imports an `.obj` or `.stl` in the unit its sidecar's
+  `[import]` table states into a simulation in metres, and whether
+  `IMPORT` converts the file's unit into the simulation's has been
+  measured on no build. Its boundary names are the sidecar's, written by
+  hand, and nothing checks them against the file before the run
+  ([mesh inputs](mesh-inputs.md)). The other mesh formats `IMPORT`
+  documents are refused by a workflow; a recipe of your own imports them,
+  declaring the units itself.
 - **A workflow row that names no `GEOMETRY` emits no open, and is told
   nothing.** That is what keeps every pre-v0.8.1 matrix rendering as it
   did. A row moved off `LEGACY` that keeps a `FSM_FILE` key of its own is

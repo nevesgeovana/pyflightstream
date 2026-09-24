@@ -154,6 +154,8 @@ __all__ = [
     "ROTOR_SHEDDING_VARIABLE",
     "RPM_SIGN_VARIABLE",
     "RPM_VARIABLE",
+    "RAW_MESH_FORMATS",
+    "SIMULATION_LENGTH_UNIT",
     "SIMULATION_SUFFIX",
     "SYMMETRY_VARIABLE",
     "TIME_ITERATIONS_VARIABLE",
@@ -551,30 +553,43 @@ RAW_FILE_KEY = "FILE"
 #: before, spelled as the preset's `[[raw]]` table spells it.
 RAW_BEFORE_KEY = "BEFORE"
 
-#: The sentence on ``docs/mesh-inputs.md`` that the suffix refusal sends
+#: The sentence on ``docs/mesh-inputs.md`` that the geometry refusals send
 #: a blocked user to, quoted VERBATIM so the two cannot drift.
 #:
-#: The refusal used to quote "A workflow opens route 1 only" while the
+#: The refusal once quoted "A workflow opens route 1 only" while the
 #: page said "A WORKFLOW TAKES ROUTE 1 ONLY". Both were written in the
 #: same commit and neither was wrong on its own; only together were they
 #: useless, because a user who does what the message says, opens the page
 #: and searches for the phrase, finds nothing. Spelled here rather than
 #: inline so a tier 1 guard can assert the page still contains it.
-_MESH_PAGE_ANCHOR = "A WORKFLOW TAKES ROUTE 1 ONLY"
+_MESH_PAGE_ANCHOR = "A RAW MESH STATES ITS UNITS"
 
-#: The only suffix a workflow opens, and it is a DELIBERATE narrowing
-#: rather than an oversight (PFS-2025.02.02).
-#:
-#: A ``.fsm`` is a saved SIMULATION: its units, its mesh and its
-#: boundary names are already established, so ``OPEN`` needs the path
-#: and nothing else. A raw mesh is not, and importing one takes the
-#: units as an argument the row would have to declare. A mesh import
-#: that silently defaults its units is precisely the class of
-#: silent-wrong-answer this release exists to remove, so the suffix is
-#: REFUSED and the refusal names the route the user already has:
-#: ``docs/mesh-inputs.md`` documents the supported pattern as GUI once,
-#: save as ``.fsm``, script everything after.
+#: The suffix a workflow OPENS: a saved simulation, whose units, mesh and
+#: boundary names are already established, so ``OPEN`` needs the path and
+#: nothing else (PFS-2025.02.02).
 SIMULATION_SUFFIX = ".fsm"
+
+#: The raw-mesh suffixes a workflow IMPORTS, each to its ``IMPORT`` file
+#: type (G01). A raw mesh carries no length unit, so it is imported only
+#: in the unit the ``[import]`` table of its sidecar states, and refused
+#: without one: a mesh imported under a unit nobody chose solves, exports
+#: and reports coefficients against a body of the wrong size without a
+#: word. The other formats ``IMPORT`` documents stay refused, naming these
+#: two and the ``.fsm``; what the solver makes of their surfaces' names and
+#: order is unmeasured.
+RAW_MESH_FORMATS: Mapping[str, str] = MappingProxyType({".obj": "OBJ", ".stl": "STL"})
+
+#: The simulation's length unit on every row that imports a raw mesh
+#: (G01). The file's own unit goes to ``IMPORT`` alone; the simulation
+#: stays in metres because every length the reference and the row state
+#: (areas, chords, spans, the row's ``TRANSLATE`` distances, the frames
+#: the package places) is in metres.
+SIMULATION_LENGTH_UNIT = "METER"
+
+#: The ``IMPORT`` unit a raw mesh may NOT state, although the command lists
+#: it: ``OTHER`` names no length, so its scale would be the solver's to
+#: choose, which is the assumed unit the table exists to rule out.
+_UNIT_THAT_NAMES_NO_LENGTH = "OTHER"
 
 
 class WorkflowCoverageError(PyflightstreamError, RuntimeError):
@@ -4003,70 +4018,154 @@ def _open_geometry(case: SimCase, script: Script) -> None:
     the pairing between the digest a record publishes and the bytes the
     solver actually read, and would break it silently.
 
+    A RAW MESH IS IMPORTED rather than opened, since 0.27.0 (G01): an
+    ``.obj`` or ``.stl`` whose sidecar states its unit becomes a new
+    simulation holding that file, in metres (:func:`_import_mesh`). What
+    follows the open or the import is the same for both.
+
     Parameters
     ----------
     case : SimCase
-        The case; its ``geometry`` is the simulation file to open, or
-        None for a case that names none.
+        The case; its ``geometry`` is the simulation file to open or the
+        raw mesh to import, or None for a case that names none.
     script : Script
         Script under construction, still empty. Nothing is emitted
-        until the suffix has been judged, so a refusal leaves it exactly
-        as it was.
+        until the suffix and the import table have been judged, so a
+        refusal leaves it exactly as it was.
 
     Raises
     ------
     CampaignConfigError
-        If the geometry's suffix is not :data:`SIMULATION_SUFFIX`. The
-        message names the suffix written and the documented route,
-        because there IS one and it is not this function.
+        If the geometry's suffix is neither :data:`SIMULATION_SUFFIX` nor
+        one of :data:`RAW_MESH_FORMATS`, naming the suffix written and the
+        documented routes; if a saved simulation's sidecar states an
+        ``[import]`` table, which nothing would read; or if a raw mesh is
+        refused by :func:`_import_mesh`.
     """
     _configuration_comment(case, script)
     if case.geometry is None:
         return
     suffix = PurePath(case.geometry).suffix
-    if suffix.lower() != SIMULATION_SUFFIX:
-        # REFUSED RATHER THAN IMPORTED, and the narrowing is a scope
-        # decision of the patch release rather than a gap. IMPORT's FIRST
-        # argument is the length units of the mesh file (SRC-003 p.307),
-        # which no matrix cell declares today; a mesh imported under
-        # defaulted units solves, exports and reports coefficients
-        # normalized against a body of the wrong size, which is exactly
-        # the silent-wrong-answer class this release exists to remove.
-        # Widening this to IMPORT is a UNITS key on the row first, and a
-        # units key is a new promise rather than a defect fix.
-        #
-        # The refusal points at a route the user already has:
-        # docs/mesh-inputs.md documents the supported pattern as GUI
-        # once, save as .fsm, script everything after.
+    sidecar = PurePath(str(case.geometry)).stem + ".boundaries.toml"
+    if suffix.lower() in RAW_MESH_FORMATS:
+        _import_mesh(case, script, RAW_MESH_FORMATS[suffix.lower()])
+    elif suffix.lower() != SIMULATION_SUFFIX:
         written = suffix or "no suffix at all"
         raise CampaignConfigError(
             f"case {case.sim_id!r} declares {GEOMETRY_VARIABLE} as a file carrying "
-            f"{written}, and a workflow opens a saved simulation ({SIMULATION_SUFFIX}) "
-            "and nothing else. A .fsm already carries its own length units, its mesh "
-            "and its boundary names, so opening it needs the path alone; importing a "
-            "raw mesh takes the length UNITS of the file as an argument, and no matrix "
-            "cell declares them, so this package would have to default them and a "
-            "defaulted unit is a body of the wrong size reported without a word. Open "
-            "the mesh in the FlightStream window once, save the result as a .fsm, and "
-            "stage that in inputs/geometries/ instead; docs/mesh-inputs.md carries the "
-            f"route in full; search that page for '{_MESH_PAGE_ANCHOR}'. The file this "
-            f"resolved to is {case.geometry!r}. A mesh carries no boundary conditions, "
-            "and no matrix cell declares them for a mesh (PFS-2029.09.03); the .fsm "
-            "carries those too."
+            f"{written}, which a workflow neither opens nor imports: it opens a saved "
+            f"simulation ({SIMULATION_SUFFIX}), which carries its own length units, "
+            f"and imports a raw mesh written as {' or '.join(RAW_MESH_FORMATS)} in the "
+            f"length units the [import] table of {sidecar} beside it states. Convert "
+            "the file to one of those, or open it in the FlightStream window once and "
+            f"save a {SIMULATION_SUFFIX}; docs/mesh-inputs.md carries both routes; "
+            f"search that page for '{_MESH_PAGE_ANCHOR}'. The file this resolved to is "
+            f"{case.geometry!r}."
         )
-    # THE INITIALISATION FLAG IS ALWAYS STATED (PFS-2030.03.01). A saved
-    # simulation may carry an initialised solver, and loading it would start
-    # the run from a state the row never declared; the reference scripts wrote DISABLE
-    # on every open, and a preset that wants the stored state says so.
-    load = case.solver.load_solver_initialization
-    script.emit("OPEN", case.geometry, "ENABLE" if load else "DISABLE")
-    _declare_boundaries(case, script)
+    elif case.mesh_import is not None:
+        # NOT IGNORED. A saved simulation carries its own units, so a table
+        # stating one beside it is read by nothing, and a key that reaches
+        # nothing is the silent no-op this package refuses rather than keeps.
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} opens the saved simulation "
+            f"{PurePath(str(case.geometry)).name}, and {sidecar} beside it states an "
+            f"[import] table with units = {case.mesh_import.units!r}. A {SIMULATION_SUFFIX} "
+            "carries its own length units and is opened, never imported, so nothing "
+            "would read the table; delete it from the sidecar (docs/mesh-inputs.md, "
+            f"search '{_MESH_PAGE_ANCHOR}')."
+        )
+    else:
+        # THE INITIALISATION FLAG IS ALWAYS STATED (PFS-2030.03.01). A saved
+        # simulation may carry an initialised solver, and loading it would start
+        # the run from a state the row never declared; the reference scripts wrote
+        # DISABLE on every open, and a preset that wants the stored state says so.
+        load = case.solver.load_solver_initialization
+        script.emit("OPEN", case.geometry, "ENABLE" if load else "DISABLE")
+        _declare_boundaries(case, script)
     # EVERY BOUNDARY-CITING SURFACE OF THE ROW IS JUDGED HERE, at plan
     # time, against the inventory just declared (PFS-2028.00): the pproc
     # groups below, the base regions next, and the moving boundaries,
     # plots and sections where each builder resolves them.
     _refuse_a_pproc_the_geometry_shares_no_name_with(case, script)
     _detect_base_regions(case, script)
+
+
+def _import_mesh(case: SimCase, script: Script, file_type: str) -> None:
+    """Import the case's raw mesh into a new simulation, in the unit its sidecar states (G01).
+
+    WHAT IS EMITTED, in this order::
+
+        NEW_SIMULATION
+        IMPORT  UNITS <the sidecar's unit>  FILE_TYPE <OBJ|STL>  FILE <staged copy>  CLEAR
+        SET_SIMULATION_LENGTH_UNITS METER
+
+    and then the boundary inventory is declared, from the sidecar's
+    ``boundaries``, since a raw mesh carries no mesh block to read it from.
+
+    THE UNIT IS NEVER ASSUMED. The file's unit is the ``[import]`` table's
+    ``units`` and goes to ``IMPORT`` alone; the simulation is set to metres
+    (:data:`SIMULATION_LENGTH_UNIT`) because every length the reference and
+    the row state is in metres. Whether ``IMPORT`` then converts the body
+    from the file's unit into the simulation's is not claimed here: it is
+    measured by no run yet, and the page says so.
+
+    The path imported is the STAGED copy, for the reason
+    :func:`_open_geometry` gives for the open.
+
+    Raises
+    ------
+    CampaignConfigError
+        Before the first line is emitted: the case states no ``[import]``
+        table, naming the table, the key, the sidecar and the units this
+        build's ``IMPORT`` takes; the table states a unit that ``IMPORT``
+        does not take on this build, or ``OTHER``, which names no length;
+        or the setup asks to load a stored solver state, which a new
+        simulation does not have.
+    """
+    geometry = PurePath(str(case.geometry))
+    sidecar = geometry.stem + ".boundaries.toml"
+    # READ PER BUILD, never a list written here: the units the build's
+    # IMPORT documents, less the one that names no length.
+    documented = next(arg for arg in script.entry("IMPORT").args if arg.name == "units").values
+    accepted = [unit for unit in documented or () if unit != _UNIT_THAT_NAMES_NO_LENGTH]
+    route = f"docs/mesh-inputs.md carries the route; search that page for '{_MESH_PAGE_ANCHOR}'"
+    spec = case.mesh_import
+    if spec is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {GEOMETRY_VARIABLE} as a raw mesh "
+            f"({geometry.suffix}) and states no length unit for it: write the table "
+            f'[import] with the line units = "<unit>" in {sidecar} beside it, the unit '
+            f"the file is written in, one of {', '.join(accepted)}. A mesh file carries "
+            "no unit and this package never assumes one, because a body imported at "
+            "the wrong scale solves and reports coefficients against a body of the "
+            f"wrong size without a word. A saved simulation ({SIMULATION_SUFFIX}) "
+            f"carries its own units and needs no table; {route}. The file this "
+            f"resolved to is {case.geometry!r}."
+        )
+    if spec.units not in accepted:
+        why = (
+            "which names no length, so the scale would be the solver's guess"
+            if spec.units == _UNIT_THAT_NAMES_NO_LENGTH
+            else f"which IMPORT does not take on FlightStream {script.version.canonical}"
+        )
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: {sidecar} states units = {spec.units!r} under "
+            f"[import], {why}; write the unit {geometry.name} is written in, one of "
+            f"{', '.join(accepted)}; {route}."
+        )
+    if case.solver.load_solver_initialization:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} imports the raw mesh {geometry.name} into a new "
+            "simulation, and its setup asks to load the solver initialization, which "
+            "reads a state stored in a saved simulation; a new simulation has none. "
+            f"Drop the setting, or stage a saved simulation ({SIMULATION_SUFFIX}) that "
+            "carries the state."
+        )
+    script.emit("NEW_SIMULATION")
+    script.emit("IMPORT", spec.units, file_type, case.geometry, clear=True)
+    script.emit("SET_SIMULATION_LENGTH_UNITS", SIMULATION_LENGTH_UNIT)
+    # THE SIDECAR'S NAMES, and the file is not read for a block it cannot have.
+    _declare_boundaries(case, script, stated=case.inventory or ())
 
 
 def _base_region_families(case: SimCase) -> list[str]:
@@ -4105,7 +4204,9 @@ def _detect_base_regions(case: SimCase, script: Script) -> None:
         script.emit("DETECT_BASE_REGIONS_BY_SURFACE", boundary_index=index)
 
 
-def _declare_boundaries(case: SimCase, script: Script) -> None:
+def _declare_boundaries(
+    case: SimCase, script: Script, *, stated: Sequence[str] | None = None
+) -> None:
     """Declare the opened geometry's boundary names onto the script.
 
     BOUND TO THE ``OPEN`` AND NOT TO THE SCRIPT'S CONSTRUCTION, which
@@ -4129,6 +4230,11 @@ def _declare_boundaries(case: SimCase, script: Script) -> None:
         bytes the run record hashes and the solver reads.
     script : Script
         Script under construction, with ``OPEN`` already emitted.
+    stated : sequence of str, optional
+        The names to declare when the file carries no mesh block to read
+        them from: a raw mesh, whose names its sidecar states (G01). The
+        file is then not read, since an ``.obj`` or ``.stl`` has no block
+        and reading one whole to learn that costs the file's size.
 
     Notes
     -----
@@ -4143,8 +4249,9 @@ def _declare_boundaries(case: SimCase, script: Script) -> None:
     """
     if case.geometry is None:
         return
+    names: Sequence[str] | None
     try:
-        names = boundary_names(case.geometry)
+        names = tuple(stated) if stated is not None else boundary_names(case.geometry)
     except MeshReadError as unreadable:
         warn(
             f"case {case.sim_id!r}: {unreadable} No boundary names are declared for "
@@ -4154,7 +4261,7 @@ def _declare_boundaries(case: SimCase, script: Script) -> None:
             stacklevel=2,
         )
         return
-    if case.inventory is not None:
+    if stated is None and case.inventory is not None:
         # PFS-2029.06.03: a sidecar states the order; the file's own block
         # is the authority, and the two disagreeing means one of them was
         # edited since the sidecar was written, which no run may guess at.

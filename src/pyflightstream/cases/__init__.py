@@ -78,6 +78,7 @@ __all__ = [
     "CampaignConfigError",
     "DerivedFrom",
     "FluidState",
+    "MeshImport",
     "ReferenceData",
     "ScriptRecipe",
     "SimCase",
@@ -3212,6 +3213,40 @@ def case_at_point(case: SimCase, point: Mapping[str, float], **update: object) -
     return case.model_copy(update=fields)
 
 
+class MeshImport(BaseModel):
+    """How a raw mesh is imported: the ``[import]`` table of its sidecar (G01).
+
+    A raw mesh (``.obj``, ``.stl``) carries no length unit, so the file
+    that names its boundaries, ``<stem>.boundaries.toml`` beside it,
+    states the unit it is written in, and a workflow row naming the mesh
+    is refused without it rather than imported under an assumed one.
+
+    ``units`` goes to ``IMPORT`` and nowhere else. The simulation's own
+    length unit is always metres, because every length the reference and
+    the row state is in metres; the builder sets it after the import
+    (:data:`pyflightstream.cases.workflows.SIMULATION_LENGTH_UNIT`). The
+    value is only normalised here: which spellings a build takes is read
+    from the command database by the builder, per build.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    units: str
+
+    @field_validator("units", mode="before")
+    @classmethod
+    def _one_word_in_capitals(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        spelled = value.strip().upper()
+        if not spelled:
+            raise ValueError(
+                "`units` is empty; write the length unit the mesh file is written in, "
+                'as units = "MILLIMETER"'
+            )
+        return spelled
+
+
 class SimCase(BaseModel):
     """One solver configuration with its sweep (SAD Section 5).
 
@@ -3398,6 +3433,12 @@ class SimCase(BaseModel):
     #: Where the boundary inventory came from: ``sidecar``, ``mesh_block``
     #: or None when the geometry declares none.
     inventory_source: str | None = None
+    #: The ``[import]`` table of the sidecar beside a raw mesh (G01), bound
+    #: by the workspace: the length unit the file is written in. None for a
+    #: geometry whose sidecar states no such table, which is every saved
+    #: simulation; the builder refuses a raw mesh without one, and a saved
+    #: simulation with one.
+    mesh_import: MeshImport | None = None
     point: dict[str, float] = Field(default_factory=dict)
     #: The state each point of a SWEPT FLOW VARIABLE resolved to, keyed by
     #: :func:`point_state_key` (0.21.0). Empty on every row that sweeps an

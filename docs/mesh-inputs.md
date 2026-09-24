@@ -107,17 +107,68 @@ Two input routes are canonical:
 * A direct surface mesh imported by script through the mesh-import
   family, with OBJ as the reference format.
 
-**A WORKFLOW TAKES ROUTE 1 ONLY**, and a reader arriving here from its
-refusal needs that said before anything else on this page. The
-mesh-import family takes the file's length units as an argument
-(SRC-003 p.307). A recipe you write declares them, and a run-matrix row
-has no cell that can: no `UNITS` key exists, so a built-in workflow would
-have to default one, and a mesh imported at the wrong scale solves,
-exports and reports coefficients normalized against a body of the wrong
-size, without a word. So `cases.workflows` refuses any suffix but `.fsm`
-and names route 1. Route 2 stays fully available to a recipe of your own,
-which is the difference the refusal is pointing at rather than a
-capability being withdrawn.
+A workflow row takes both since 0.27.0: it opens a `.fsm` and imports an
+`.obj` or an `.stl`. A recipe of your own reaches every format the
+mesh-import family documents.
+
+**A RAW MESH STATES ITS UNITS**, and a reader arriving here from a refusal
+needs that said before anything else on this page. The mesh-import family
+takes the file's length units as an argument (SRC-003 p.307), and a mesh
+file carries none. So the file that names the mesh's boundaries,
+`<stem>.boundaries.toml` beside it, states the unit the mesh is written in,
+in an `[import]` table:
+
+```toml
+# inputs/geometries/wing.boundaries.toml, beside wing.obj
+boundaries = ["Wing"]
+
+[import]
+units = "MILLIMETER"
+```
+
+`units` is one of the length units `IMPORT` takes on the row's build, read
+from the command database: `INCH`, `MILLIMETER`, `FEET`, `MILE`, `METER`,
+`KILOMETER`, `MILS`, `MICRON`, `CENTIMETER` or `MICROINCH`. `OTHER`, which
+the command also lists, is refused because it names no length. The row names
+the file as it names any geometry, `GEOMETRY: wing.obj`, and its script
+starts:
+
+```text
+NEW_SIMULATION
+IMPORT
+UNITS MILLIMETER
+FILE_TYPE OBJ
+FILE <the point's staged copy of wing.obj>
+CLEAR
+
+SET_SIMULATION_LENGTH_UNITS METER
+```
+
+and then goes on exactly as it does after opening a `.fsm`. The file's unit
+goes to `IMPORT` and nowhere else. The simulation's length unit is always
+metres, because every length the reference and the row state is in metres:
+the reference area, chord and span, a `TRANSLATE` distance, the frames the
+package places. The run record keeps the table as `mesh_import`, because the
+geometry's digest alone cannot tell a run in millimetres from the same file
+run in metres.
+
+**Whether `IMPORT` converts the body from the file's unit into the
+simulation's metres is not measured on any build.** The command database
+records the grammar, and no licensed run has yet compared one body imported
+in millimetres with the same body in metres. Until one has, a mesh written in
+metres (`units = "METER"`) is the one case whose scale does not depend on the
+answer.
+
+A unit is never assumed. A raw mesh whose sidecar states no `[import]` table
+is refused when the script is built, before any seat is spent, naming the
+table, the key, the sidecar and the units the build takes. So is a unit
+`IMPORT` does not take, and so is a setup asking to load the solver
+initialization, since a new simulation has no stored state to load. An
+`[import]` table beside a `.fsm` is refused too, since a saved simulation
+carries its own units and nothing would read it. Any other suffix is refused
+naming the three that work. The other formats `IMPORT` documents stay with a
+recipe of your own, because what the solver makes of their surfaces' names
+and order is unmeasured.
 
 When a mesh exists only inside a `.fsm`, the pre-processing export
 (`run.export_surface_mesh`) produces the OBJ counterpart through a
@@ -142,9 +193,17 @@ the file's order, and refuses to overwrite one that exists without
 `--overwrite`. The sidecar sits beside the file, so a geometry kept in
 its own folder, `inputs/geometries/30_WB/30_WB.fsm` (PFS-2032.04, the
 layout `pyfs-workspace migrate-geometries` produces), has it inside that
-folder, and the run reads it from there. A file without a mesh block (a raw mesh, or a file the
-solver never saved) is refused by name, because its order is only known
-once the solver has opened it. A row whose geometry has a sidecar is
+folder, and the run reads it from there. `pyfs-matrix inventory` refuses a
+file without a mesh block (a raw mesh, or a file the solver never saved) by
+name, because it has no block to read the order from.
+
+**A raw mesh's names are written by hand.** For an `.obj` or `.stl` you write
+the `boundaries` list yourself, beside the `[import]` table, one name per
+surface in the order the file holds them, and a row cites those names as it
+cites a `.fsm`'s. They are a statement the run trusts rather than verifies:
+the file carries nothing this package reads its names from, so a name in the
+wrong position cites the wrong surface, and nothing refuses it before the
+solver runs. A row whose `.fsm` has a sidecar is
 checked when the script opens the file: a sidecar that disagrees with the
 file's own block is refused before any seat is spent, naming both lists,
 and an agreeing one is recorded in the run record as the inventory source

@@ -964,6 +964,12 @@ class RunRecord(BaseModel):
     #: Where the boundary inventory came from, ``sidecar`` or ``mesh_block``
     #: (PFS-2029.06.03); None when the geometry declares none.
     inventory_source: str | None = None
+    #: How a raw mesh was imported (G01): the ``[import]`` table of its
+    #: sidecar as the run read it, ``{"units": "MILLIMETER"}``. None for a
+    #: point that opened a saved simulation or no geometry. Recorded because
+    #: only the geometry's bytes are hashed, so without it two runs of one
+    #: mesh under two units would carry identical records.
+    mesh_import: dict[str, object] | None = None
     #: How the inputs were staged (PFS-2029.17): ``link``, a directory
     #: junction on Windows and a symbolic link elsewhere, at the geometry's
     #: own folder of the library or at the flat library (PFS-2032.04), or
