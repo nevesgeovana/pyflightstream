@@ -773,9 +773,10 @@ def _exports_its_log_here(workspace: CampaignWorkspace) -> bool:
         )
         raise InputArtifactError(
             f"{workspace.inputs_dir / 'hpc'} holds {len(stated)} profiles that disagree about "
-            f"the solver log ({said}), and a run kept on this machine by --local follows its "
-            "machine's: whether the build here aborts at EXPORT_LOG is not a guess this "
-            "package makes. Keep the profile of this cluster alone in inputs/hpc/."
+            f"the solver log ({said}), and a run kept on this machine by passing "
+            "local (CLI: --local) follows its machine's: whether the build here aborts at "
+            "EXPORT_LOG is not a guess this package makes. Keep the profile of this cluster "
+            "alone in inputs/hpc/."
         )
     return all(stated.values())
 
