@@ -5669,7 +5669,7 @@ def _write_pending_files(
     # And the files the caller already wrote and hashed: the point's main
     # script and its probe points file. A file parked there would replace
     # them, and the solver would run other commands than script_sha256 names.
-    reserved.update({one_file(Path(own)): str(own) for own in run_writes})
+    reserved.update({one_file(placed(str(own))): str(own) for own in run_writes})
     targets: dict[str, tuple[Path, bytes]] = {}
     for parked, content in (
         *script.pending_action_scripts.items(),

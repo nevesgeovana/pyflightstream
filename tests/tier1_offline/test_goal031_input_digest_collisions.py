@@ -564,3 +564,24 @@ def test_the_submission_descriptor_is_a_file_the_run_writes_itself(tmp_path):
             recorded={},
             run_writes=_descriptor_of(submitting, tmp_path),
         )
+
+
+@pytest.mark.parametrize("values", ["0.0", "0.0,2.0"], ids=["one-point", "a-steady-job"])
+def test_both_run_paths_reserve_the_script_they_wrote(tmp_path, monkeypatch, values):
+    """The point path and the steady job path hand the writer the main script they
+    wrote and hashed, so a file parked on it is refused on either path; a call site
+    that stops passing it would leave the check above unreached."""
+    import pyflightstream.run as run_module
+    from tests.tier1_offline.test_g06_actuator_disc import _run_a_profile_row
+
+    seen = []
+    real = run_module._write_pending_files
+
+    def spy(*args, **kwargs):
+        seen.append(tuple(Path(p).as_posix() for p in kwargs.get("run_writes", ())))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(run_module, "_write_pending_files", spy)
+    record, _profile, _line = _run_a_profile_row(tmp_path, values=values, refused=False)
+    assert seen, "the writer was not called"
+    assert any(p.endswith(record.script_path) for p in seen[0]), (seen, record.script_path)
