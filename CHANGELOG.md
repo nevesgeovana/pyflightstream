@@ -470,6 +470,13 @@ FlightStream versions.
   measured. `Script.simulation_length_unit` follows the unit a script sets, and
   the length table moved to `pyflightstream._lengths`, which the trailing-edge
   node file is converted with too (G05, G06).
+- **A row's disc on a saved simulation that already carries an actuator is
+  refused at plan, naming it.** `CREATE_NEW_ACTUATOR` appends to the file's
+  actuators while the script cited its disc as actuator 1, so the axis,
+  radius, speed and loading configured the saved actuator. The saved
+  simulation's actuators are read from its physics block, walked by its own
+  counts, and a block out of the measured shape is refused as unreadable
+  (G06).
 - **A volume section's export and delete cite the pproc's own section.** Both
   cited index 1, so a raw line cutting a section before the analysis made the
   pproc's file hold the raw section's plane, and a later point of a sweep

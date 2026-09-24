@@ -20,7 +20,9 @@ rotors and frames, and its LOADING is the row's:
   takes no blade count, before anything is emitted;
 * the block's metres reach the solver in the simulation's length unit: the
   unit the script set, or the unit a saved simulation was saved in as far as
-  its global block is read, and a head that is not read is refused.
+  its global block is read, and a head that is not read is refused;
+* a saved simulation that already carries an actuator is refused naming it,
+  since the created disc would be cited by the saved one's index.
 
 Nothing here runs a solver. `SET_PROP_ACTUATOR_PROFILE` has never run on any
 build; the thrust and the enable ran without abort on 26.120 to 26.124 with
@@ -36,7 +38,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._digest import file_sha256
-from pyflightstream._fsm import MeshReadError, saved_length_unit
+from pyflightstream._fsm import MeshReadError, saved_actuators, saved_length_unit
 from pyflightstream.cases import (
     ActuatorBlock,
     CampaignConfigError,
@@ -495,4 +497,117 @@ def test_g06_a_unit_that_names_no_scale_is_refused_naming_the_keys():
         raw_commands=[other],
     )
     with pytest.raises(CampaignConfigError, match=r"hub_radius_m.*'OTHER', which names no scale"):
+        _lines(case)
+
+
+# --- a saved simulation that already carries an actuator ---------------------
+#
+# CREATE_NEW_ACTUATOR appends to the actuators the opened file holds, and the
+# script's ledger starts from none, so on a file saved with a disc every command
+# after the create cited the SAVED actuator as 1.
+
+#: THE PHYSICS BLOCK OF A SAVE CARRYING ONE DISC, the solver's own lines: the
+#: 26.124 save of the licensed tier-3 row that loads a disc PROP by its net
+#: thrust (CREATE_NEW_ACTUATOR PROPELLER ELLIPTICAL PROP, frame 3, 0.5 m and
+#: 0.1 m, 2400 rev/min, 120 N), opened from the committed geometry.
+PHYSICS_WITH_A_DISC = (
+    " 0.14000E+03",
+    " 0.45000E+02",
+    " 0.15000E+02",
+    "0",
+    "1",
+    "Wing",
+    "1,",
+    "0",
+    "1,1,1,0",
+    " 0.00000000000000000E+00",
+    "1",
+    "PROP",
+    "3,",
+    "1,",
+    "1,",
+    " T,",
+    " T,",
+    " F,",
+    " T,",
+    " T,",
+    " 1.20000000000000000E+02,",
+    " 5.00000000000000000E-01,",
+    " 0.00000000000000000E+00,",
+    " 2.40000000000000000E+03,",
+    " 1.00000000000000000E+00,",
+    " 0.00000000000000000E+00,",
+    " 0.00000000000000000E+00,",
+    "0",
+    "0",
+    "Air",
+    " 1.22500000000000009E+00",
+    " 1.78939999999999984E-05",
+    " 3.40293473501785172E+02",
+    " 2.88149999999999977E+02",
+    " 1.01325000000000000E+05",
+    " 1.39999999999999991E+00",
+    "1,5,0,1",
+    " 5.00000000000000000E-01, 1.00000000000000006E-01",
+    " 0.00000000000000000E+00",
+    "0,0",
+    " F, F, T, T",
+    "1,10,10,0",
+    " 0.00000000000000000E+00, 0.00000000000000000E+00, 0.00000000000000000E+00,"
+    " 1.00000000000000000E+00, 1.00000000000000000E+00",
+    "0",
+    "0",
+)
+
+
+def test_g06_a_saved_simulation_carrying_an_actuator_is_refused_naming_it(tmp_path):
+    """The row's disc on a save that holds PROP: refused before a line, naming PROP."""
+    saved = _saved_copy(tmp_path / "wing_with_a_disc.fsm", "PHYSICS", PHYSICS_WITH_A_DISC)
+    case = _with_disc(
+        steady_case(
+            geometry=str(saved), ACTUATOR="PUSH", ACTUATOR_RPM="2400", ACTUATOR_THRUST="120"
+        ),
+        actuators={"PUSH": PROP},
+    )
+    with pytest.raises(CampaignConfigError, match=r"'PUSH'.*already carries the actuator 'PROP'"):
+        _lines(case)
+    # THE CONTROL: the committed geometry, saved with no actuator, takes the disc as 1.
+    control = _with_disc(
+        steady_case(
+            geometry=str(WING_PHY), ACTUATOR="PUSH", ACTUATOR_RPM="2400", ACTUATOR_THRUST="120"
+        ),
+        actuators={"PUSH": PROP},
+    )
+    lines, _ = _lines(control)
+    assert "CREATE_NEW_ACTUATOR PROPELLER ELLIPTICAL PUSH" in lines
+    assert "SET_ACTUATOR_RADIUS 1 0.5 0.1" in lines
+
+
+def test_g06_the_saved_actuators_are_read_from_the_physics_block(tmp_path):
+    """The reader: the save's disc, none on the geometry, None on a placeholder, else refused."""
+    with_a_disc = _saved_copy(tmp_path / "disc.fsm", "PHYSICS", PHYSICS_WITH_A_DISC)
+    assert saved_actuators(with_a_disc) == ("PROP",)
+    assert saved_actuators(WING_PHY) == ()
+    placeholder = _saved_simulation(tmp_path / "placeholder.fsm", ["Wing"])
+    assert saved_actuators(placeholder) is None, "a file with no physics block was read"
+    # A RECORD ONE LINE SHORT, and a settings line of another shape: refused, not guessed.
+    short = [line for line in PHYSICS_WITH_A_DISC if line != " F,"]
+    other = [("1,1,1" if line == "1,1,1,0" else line) for line in PHYSICS_WITH_A_DISC]
+    for name, body in (("short.fsm", short), ("other.fsm", other)):
+        with pytest.raises(MeshReadError, match=r"physics block"):
+            saved_actuators(_saved_copy(tmp_path / name, "PHYSICS", body))
+
+
+def test_g06_a_saved_simulation_whose_actuators_cannot_be_read_is_refused(tmp_path):
+    """A physics block out of shape is not read as carrying no actuator."""
+    body = [("1,1,1" if line == "1,1,1,0" else line) for line in PHYSICS_WITH_A_DISC]
+    unreadable = _saved_copy(tmp_path / "unreadable.fsm", "PHYSICS", body)
+    case = _with_disc(
+        steady_case(
+            geometry=str(unreadable), ACTUATOR="PROP", ACTUATOR_RPM="2400", ACTUATOR_THRUST="120"
+        )
+    )
+    with pytest.raises(
+        CampaignConfigError, match=r"actuators its saved simulation.*cannot be read"
+    ):
         _lines(case)

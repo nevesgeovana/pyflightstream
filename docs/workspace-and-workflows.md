@@ -2417,6 +2417,21 @@ a frame the run did not create. The block itself is refused when its name is
 not one word, when it shares its name with a rotor, an alias or a frame, and
 when it forgets `kind = "actuator"`.
 
+**A SAVED SIMULATION THAT ALREADY CARRIES AN ACTUATOR IS REFUSED**, naming the
+actuators it carries. `CREATE_NEW_ACTUATOR` appends to the actuators the opened
+file holds, and every command after it cites the disc by that index, so on
+such a file the row's axis, radius, speed and loading would configure the
+saved actuator; numbering the new disc after it would leave two discs where the
+row states one. Open a simulation saved without an actuator, or name no
+`ACTUATOR` on the row and the saved one stays as it was saved. The package
+reads the file's actuators from its physics block, walked by the block's own
+counts on the shape every save read so far holds (the two carrying a disc are
+the 26.124 saves of the tier-3 disc rows, one actuator each), and a block out of
+that shape is refused as unreadable rather than taken to hold none. A point's
+final save carries the disc its row created, so it is not a geometry for
+another disc row. A raw mesh is imported into a new simulation and carries
+none.
+
 **THE METRES ARE WRITTEN IN THE SIMULATION'S LENGTH UNIT.** `SET_ACTUATOR_AXIS`
 and `SET_ACTUATOR_RADIUS` carry no unit, and the solver reads their lengths in
 the simulation's unit, so the script converts `offset_m`, `tip_radius_m` and

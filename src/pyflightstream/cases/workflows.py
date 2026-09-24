@@ -83,6 +83,7 @@ from pyflightstream._fsm import (
     MeshReadError,
     boundary_labels,
     boundary_names,
+    saved_actuators,
     saved_length_unit,
 )
 from pyflightstream._lengths import scale
@@ -6926,7 +6927,9 @@ def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
     CALLED BEFORE THE FIRST EMISSION by every builder that emits a disc, so a
     row that cannot be built is refused with nothing written. A row stating
     none of the four keys returns None, whatever its reference declares: a
-    reference's disc moves nothing a row does not name.
+    reference's disc moves nothing a row does not name. A saved simulation
+    that already carries an actuator is refused here too
+    (:func:`_refuse_a_disc_beside_a_saved_one`).
     """
     stated = [key for key in ACTUATOR_KEYS if _variable(case, key) is not None]
     if not stated:
@@ -6999,7 +7002,48 @@ def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
                 "sets actuator_profile to the file's absolute path."
             )
         profile = case.actuator_profile
+    _refuse_a_disc_beside_a_saved_one(case, name)
     return _RowActuator(name=name, block=block, rpm=rpm, thrust=thrust, profile=profile)
+
+
+def _refuse_a_disc_beside_a_saved_one(case: SimCase, name: str) -> None:
+    """Refuse a row's disc on a saved simulation that already carries an actuator (G06).
+
+    ``CREATE_NEW_ACTUATOR`` APPENDS to the actuators the opened simulation
+    holds, and the script's ledger starts from none, so on a file that saved
+    one the axis, radius, speed and loading the script cites as actuator 1
+    would configure the SAVED actuator and leave the row's own unset. Numbering
+    the new disc after the saved ones would not answer the row either: the
+    saved actuator stays in the simulation, and the row states one disc. So
+    the row is refused, naming what the file carries
+    (:func:`pyflightstream._fsm.saved_actuators`), and a file whose actuators
+    cannot be read is refused rather than written into on a guess. A raw
+    mesh is imported into a new simulation and carries none, and a
+    placeholder with no physics block reads as none, as its inventory does.
+    """
+    geometry = case.geometry
+    if geometry is None or PurePath(str(geometry)).suffix.lower() != SIMULATION_SUFFIX:
+        return
+    file = PurePath(str(geometry)).name
+    try:
+        saved = saved_actuators(geometry)
+    except MeshReadError as error:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names the actuator disc {name!r}, and the actuators its "
+            f"saved simulation {file} already carries cannot be read: {error}. The disc the row "
+            "creates is cited by the index after them, so it is not created on a guess; open "
+            "a simulation saved without an actuator."
+        ) from error
+    if saved:
+        carried = ", ".join(repr(each) for each in saved)
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names the actuator disc {name!r}, and its saved simulation "
+            f"{file} already carries the actuator {carried}. The disc the script creates would "
+            f"be actuator {len(saved) + 1} beside it, the commands after it would configure the "
+            "saved one, and the row states one disc. Open a simulation saved without an "
+            "actuator, or name no ACTUATOR on this row and the saved actuator stays as it was "
+            "saved."
+        )
 
 
 def _from_metres(case: SimCase, script: Script, what: str) -> float:
