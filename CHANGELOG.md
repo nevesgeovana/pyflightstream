@@ -13,9 +13,13 @@ FlightStream versions.
   cluster (FR-99): a workspace carrying a submission profile submits from
   Linux and runs locally on Windows, with no cell to remember. The flag keeps
   a Linux run local, for a workstation or a smoke test on the machine itself;
-  the executable resolves as on Windows and every record's executor entry
-  says `forced_local`. It changes nothing on a machine that would not have
-  submitted, and it is refused beside a submitting executor given in code.
+  the executable resolves as on Windows, and each point the switch kept on a
+  machine that would have submitted (Linux with a profile) records
+  `forced_local` on its executor entry. It changes nothing, and records
+  nothing, on a machine that would not have submitted or beside an executor
+  the caller supplies; it is refused beside any executor that submits, the
+  package's own or a caller's adapter implementing the `Submitting`
+  protocol. `LocalExecutor` takes `forced_local` by keyword only.
   A manifest holding a forced-local record needs 0.27.0 to read it: an
   older reader refuses the key (measured 2026-09-23 against the 0.26.0
   schema), so post such a workspace with the same version that ran it.

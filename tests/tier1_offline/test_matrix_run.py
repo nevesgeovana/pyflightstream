@@ -4548,7 +4548,7 @@ def test_a_local_flag_keeps_a_profiled_cluster_run_on_this_machine(monkeypatch, 
     monkeypatch.setattr(matrix_module, "_cluster_executor", never)
     built = {}
 
-    def local_executor(fs_exe, hidden=True, forced_local=False):
+    def local_executor(fs_exe, hidden=True, *, forced_local=False):
         built["forced_local"] = forced_local
         stub = StubSolver(WRITES_EVERY_EXPORT)
         stub.forced_local = forced_local
@@ -4594,10 +4594,15 @@ def test_a_local_flag_reaches_the_executor_of_every_build(monkeypatch, tmp_path)
         tmp_path / "two_builds.fs",
         [row.format(n=1, build="26.120"), row.format(n=2, build="26.123")],
     )
+    # A cluster WITH a profile, so the switch really kept the run here: without
+    # one the run was local anyway and nothing is forced (the opening round).
+    directory = workspace.inputs_dir / "hpc"
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "h001.toml").write_text(HPC_PROFILE, encoding="utf-8")
     monkeypatch.setattr(matrix_module, "on_a_cluster", lambda: True)
     built = []
 
-    def local_executor(fs_exe, hidden=True, forced_local=False):
+    def local_executor(fs_exe, hidden=True, *, forced_local=False):
         built.append((str(fs_exe), forced_local))
         stub = StubSolver(WRITES_EVERY_EXPORT)
         stub.forced_local = forced_local
@@ -4643,6 +4648,142 @@ def test_a_local_flag_beside_a_submitting_executor_is_refused(tmp_path):
             executor=SubmittingExecutor(profile, values={"fs_build": "26.120"}, submit=False),
             local=True,
         )
+
+
+class _SchedulerAdapter(StubSolver):
+    """A caller's own scheduler executor: the Submitting PROTOCOL, not the class.
+
+    The campaign runner recognises a submitting executor by the protocol, so
+    an adapter that implements it without inheriting SubmittingExecutor is
+    one it would submit through; the local refusal has to see it too.
+    """
+
+    calls = 0
+
+    def run_script(self, *args, **kwargs):
+        self.calls += 1
+        return super().run_script(*args, **kwargs)
+
+    def bind_point(self, values, *, replace=False):
+        self.bound = dict(values)
+
+    def submission_record(self):
+        return None
+
+
+def test_a_local_flag_refuses_any_executor_that_submits_not_only_the_class(tmp_path):
+    """The opening round of 0.27.0: `local=True` was checked against the concrete class.
+
+    A caller's scheduler adapter implementing the Submitting protocol passed
+    the refusal and could submit under `local=True`. The refusal asks the
+    question the runner asks, before any point runs.
+    """
+    from pyflightstream.run import ExecutorConfigurationError, Submitting
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    adapter = _SchedulerAdapter(WRITES_EVERY_EXPORT)
+    assert isinstance(adapter, Submitting)
+    with pytest.raises(ExecutorConfigurationError, match="local=True"):
+        run_matrix(
+            matrix,
+            workspace,
+            name="adapter",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            recipe_registry=workflow_registry(),
+            assess=converged,
+            executor=adapter,
+            local=True,
+        )
+    assert adapter.calls == 0, "a point ran before the refusal"
+
+
+@pytest.mark.parametrize(
+    "cluster,profile", [(False, True), (True, False)], ids=["windows", "no-profile"]
+)
+def test_a_local_flag_that_changed_no_routing_records_nothing(
+    monkeypatch, tmp_path, cluster, profile
+):
+    """`forced_local` is the switch's measured effect, not the request.
+
+    The record's contract is that the key appears only on a point the switch
+    kept on a machine that would otherwise have submitted. On Windows, or on
+    a Linux box with no profile, the run was local anyway, so nothing was
+    forced and the record says nothing.
+    """
+    from pyflightstream.run import matrix as matrix_module
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    if profile:
+        directory = workspace.inputs_dir / "hpc"
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "h001.toml").write_text(HPC_PROFILE, encoding="utf-8")
+    monkeypatch.setattr(matrix_module, "on_a_cluster", lambda: cluster)
+    built = []
+
+    def local_executor(fs_exe, hidden=True, *, forced_local=False):
+        built.append(forced_local)
+        stub = StubSolver(WRITES_EVERY_EXPORT)
+        stub.forced_local = forced_local
+        return stub
+
+    monkeypatch.setattr(matrix_module, "LocalExecutor", local_executor)
+    records = run_matrix(
+        matrix,
+        workspace,
+        name="nothing-forced",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        local=True,
+    )
+    assert built and not any(built), built
+    assert records and all(
+        r.executor is not None and "forced_local" not in r.executor for r in records
+    )
+
+
+def test_a_local_flag_beside_a_supplied_local_executor_records_nothing(monkeypatch, tmp_path):
+    """A caller who supplies the executor chose the route; the switch forced nothing.
+
+    Pinned so the meaning stays one: the supplied executor is used as given,
+    never mutated, and its records carry no `forced_local`.
+    """
+    from pyflightstream.run import matrix as matrix_module
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    directory = workspace.inputs_dir / "hpc"
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "h001.toml").write_text(HPC_PROFILE, encoding="utf-8")
+    monkeypatch.setattr(matrix_module, "on_a_cluster", lambda: True)
+    supplied = StubSolver(WRITES_EVERY_EXPORT)
+    records = run_matrix(
+        matrix,
+        workspace,
+        name="supplied",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=supplied,
+        local=True,
+    )
+    assert not getattr(supplied, "forced_local", False)
+    assert records and all(
+        r.executor is not None and "forced_local" not in r.executor for r in records
+    )
+
+
+def test_the_local_executor_takes_forced_local_by_name_only(tmp_path):
+    """`LocalExecutor(exe, False, True)` would say two unrelated things with no names."""
+    from pyflightstream.run import LocalExecutor
+
+    exe = tmp_path / "FlightStream.exe"
+    exe.write_bytes(b"")
+    assert LocalExecutor(exe, False, forced_local=True).forced_local is True
+    with pytest.raises(TypeError):
+        LocalExecutor(exe, False, True)  # type: ignore[misc]
 
 
 def test_goal019_hpc_the_profile_is_resolved_by_platform_and_not_by_a_cell(tmp_path):
