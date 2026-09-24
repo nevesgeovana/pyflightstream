@@ -5353,8 +5353,16 @@ def _execute_sweep(
     # and a local executor has no such method and is handed nothing.
     # G02, and PFS-2031.13 on this path too: the files the script parked are
     # written before the solver starts, and the data files' digests join the
-    # job's inputs. This path wrote none of them until 0.27.0.
-    written = _write_pending_files(script, sim_dir)
+    # job's inputs. This path wrote none of them until 0.27.0. One that
+    # shares its name with another input is refused here, before the job.
+    try:
+        written = _write_pending_files(script, sim_dir, case=case, recorded=inputs_sha256)
+    except CampaignConfigError as error:
+        return RunRecord(
+            **base,
+            status=RunStatus.FAILED_SCRIPT,
+            error=f"{type(error).__name__}: {error}",
+        )
     if written:
         base["inputs_sha256"] = {**base["inputs_sha256"], **written}
     _bind_submission_values(executor, case, point_cases[0][2])
@@ -5551,7 +5559,9 @@ def _execute_sweep(
     )
 
 
-def _write_pending_files(script: Script, work_dir: Path) -> dict[str, str]:
+def _write_pending_files(
+    script: Script, work_dir: Path, *, case: SimCase, recorded: Mapping[str, str]
+) -> dict[str, str]:
     """Write every file the script parked for the run, before the solver starts.
 
     Two kinds, both named by the script and written where it names them (a
@@ -5567,6 +5577,17 @@ def _write_pending_files(script: Script, work_dir: Path) -> dict[str, str]:
     the profile's copy keeps the one form 26.124 was measured to read: rows
     joined by a newline and no final newline (RPT-070).
 
+    ONE KEY, ONE FILE. The record keys each input the solver reads by its file
+    name, and ``recorded`` holds the ones the case declared, hashed when it was
+    prepared: its staged geometry and its custom free stream (G15), which is
+    read where it lives. A data file written here under a name already held by
+    a DIFFERENT file, one of those or another written here, would replace that
+    file's digest in the record, which would then name bytes the solver did not
+    read under that name and leave the others unverified: a free stream named
+    ``wing.wake_nodes.txt`` beside the node file of ``wing.stl``. So that is
+    refused, naming the key and both files, before the solver starts. The same
+    bytes arriving twice under one name are one file's digest, not two files.
+
     Returns
     -------
     dict of str to str
@@ -5574,6 +5595,12 @@ def _write_pending_files(script: Script, work_dir: Path) -> dict[str, str]:
         record's ``inputs_sha256``: each is an input the solver read, and a
         record that could not say which bytes it read could not be
         reproduced. The action scripts are hashed nowhere, as before.
+
+    Raises
+    ------
+    CampaignConfigError
+        If a data file's name is a key ``recorded`` or another data file
+        holds with a different digest.
     """
 
     def placed(name: str) -> Path:
@@ -5585,6 +5612,7 @@ def _write_pending_files(script: Script, work_dir: Path) -> dict[str, str]:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(action_text, encoding="utf-8")
     digests: dict[str, str] = {}
+    written: dict[str, Path] = {}
     for input_file, content in script.pending_input_files.items():
         target = placed(input_file)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -5592,8 +5620,29 @@ def _write_pending_files(script: Script, work_dir: Path) -> dict[str, str]:
             target.write_bytes(content)
         else:
             target.write_text(content, encoding="utf-8")
-        digests[target.name] = file_sha256(target)
+        name, digest = target.name, file_sha256(target)
+        held = digests.get(name, recorded.get(name))
+        if held is not None and held != digest:
+            other = str(written[name]) if name in written else _declared_input(case, name)
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the run writes {target} for the solver to read, and "
+                f"{other} is a different file of the same name. The record keys each input "
+                f"the solver reads by its file name (inputs_sha256), so {name!r} would hold "
+                "one digest for two files and could not say which bytes the solver read. "
+                "Rename one of them; the solver was not started."
+            )
+        digests[name] = digest
+        written[name] = target
     return digests
+
+
+def _declared_input(case: SimCase, name: str) -> str:
+    """Name the input of ``case`` the record holds under ``name``, for a refusal."""
+    if case.freestream_profile is not None and Path(case.freestream_profile).name == name:
+        return f"the row's custom free stream {case.freestream_profile}"
+    if case.geometry is not None and Path(case.geometry).name == name:
+        return f"the row's geometry {case.geometry}"
+    return f"the row's input {name!r}"
 
 
 def _run_log_text(
@@ -6335,8 +6384,16 @@ def _execute_point(
     # to this folder below, as they are for a submitted point. The steady job
     # of several points keeps the simulation folder (`_execute_sweep`).
     # G02: and the data files a command reads, the trailing-edge node file,
-    # whose digests join the inputs the record states.
-    written = _write_pending_files(script, work_dir)
+    # whose digests join the inputs the record states; one that shares its
+    # name with another input is refused here, before the solver starts.
+    try:
+        written = _write_pending_files(script, work_dir, case=case, recorded=inputs_sha256)
+    except CampaignConfigError as error:
+        return RunRecord(
+            **base,
+            status=RunStatus.FAILED_SCRIPT,
+            error=f"{type(error).__name__}: {error}",
+        )
     if written:
         inputs_sha256 = {**inputs_sha256, **written}
         base["inputs_sha256"] = inputs_sha256

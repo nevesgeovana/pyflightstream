@@ -704,6 +704,21 @@ FlightStream versions.
   `Reconstruction.verified` are unchanged. An action script rewritten during
   the run reads `differs`, since the record hashes the empty file the run
   wrote.
+- **Two different files the solver reads no longer share one key of
+  `inputs_sha256`.** The record keys each input by its file name, and the
+  digests of the files a run writes for the solver, the trailing-edge node
+  file `<geometry stem>.wake_nodes.txt` and the actuator profile's copy
+  `<profile stem>.actuator_profile.txt`, were merged over the inputs the case
+  declared. A custom free stream named like either,
+  `FREESTREAM: wing.wake_nodes` beside the file-route wing `wing.stl`, ran with
+  the generated file's digest in place of the field's, so the record no longer
+  said which field the solver read, and `reconstruct()` verified the node file
+  under that key and never the field. A file the run writes under a name
+  another input of the case already holds with different bytes is now refused
+  before the solver starts, on a point and on a steady row run as one job: the
+  point is `FAILED_SCRIPT`, its error names the key and both files, and its
+  record keeps the declared file's digest. The same bytes under one name are
+  one file and run (G15, G02, G06).
 
 ### Changed
 
