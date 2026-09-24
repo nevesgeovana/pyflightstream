@@ -8687,10 +8687,6 @@ _VOLUME_SECTION_COMMANDS = {
     "rectangle": "CREATE_NEW_RECTANGLE_VOLUME_SECTION",
     "circle": "CREATE_NEW_CIRCLE_VOLUME_SECTION",
 }
-#: The index every volume-section export and delete cites. The section is the
-#: script's only one, and a later point of a sweep deletes it before cutting its
-#: own, so it is always the first.
-_VOLUME_SECTION_INDEX = 1
 
 
 def _pproc_volume_section(case: SimCase, script: Script, frames: Frames) -> None:
@@ -8701,12 +8697,17 @@ def _pproc_volume_section(case: SimCase, script: Script, frames: Frames) -> None
     file). A section is a cut through a solution, and one created before the
     solve cuts a field that does not exist yet.
 
-    A LATER POINT OF A SWEEP DELETES THE PREVIOUS SECTION FIRST. A steady row is
-    one script, so a section created per point would take indices 1, 2, 3 and
-    each point's export of index 1 would write the first point's plane under
-    its own name. `DELETE_VOLUME_SECTION` is verified alone on the same five
-    builds; the delete-then-create sequence inside one script is not measured,
-    and neither is whether a `COLD_START` clear removes a section.
+    A LATER POINT OF A SWEEP DELETES THE PREVIOUS SECTION FIRST, BY ITS OWN
+    INDEX. A steady row is one script, so a section created per point would
+    take indices 1, 2, 3 and each point's export would write another point's
+    plane under its own name. The index is the one the script's ledger gives
+    the section (:attr:`~pyflightstream.script.Script.volume_section_index`),
+    counting every section the script cut: a raw line of the row may cut its
+    own before the pproc's, and the pproc's is then 2, not 1. A section a
+    saved simulation carries is not counted, since none is read from the file.
+    `DELETE_VOLUME_SECTION` is verified alone on the same five builds; the
+    delete-then-create sequence inside one script is not measured, and neither
+    is whether a `COLD_START` clear removes a section.
 
     THE TABLE'S METRES ARE WRITTEN IN THE SIMULATION'S UNIT (:func:`_from_metres`),
     and a unit the package cannot know is refused naming the keys. The prism
@@ -8720,8 +8721,8 @@ def _pproc_volume_section(case: SimCase, script: Script, frames: Frames) -> None
     frame = _pproc_frame(case, frames, section.frame, "the volume section")
     shape_key = "corners_m" if section.shape == "rectangle" else "radii_m"
     factor = _from_metres(case, script, f"the offset_m and {shape_key} of the [volume_section]")
-    if script.volume_section_created:
-        script.emit("DELETE_VOLUME_SECTION", _VOLUME_SECTION_INDEX)
+    if script.volume_section_index is not None:
+        script.emit("DELETE_VOLUME_SECTION", script.volume_section_index)
     prisms_type, thickness, layers, growth_rate = VOLUME_SECTION_PRISMS
     if section.shape == "rectangle":
         assert section.corners_m is not None  # the model refuses a rectangle without
@@ -8757,7 +8758,8 @@ def _pproc_volume_section(case: SimCase, script: Script, frames: Frames) -> None
             layers=layers,
             growth_rate=growth_rate,
         )
-    script.volume_section_created = True
+    # THE SECTION JUST CUT IS THE LAST OF THE LIST, so its index is the count.
+    script.volume_section_index = script.volume_sections
 
 
 def _refuse_a_volume_section_off_a_steady_row(case: SimCase, name: str) -> None:
@@ -8832,15 +8834,18 @@ def _surface_export(script: Script, case: SimCase, kind: str, name: str) -> bool
         script.emit(verb, *args, -1)
     elif kind in VOLUME_SECTION_KINDS.values():
         # G05. An export of a section nobody cut is an export of nothing, which
-        # a declared output then reports as missing on a seat; refused here.
-        if not script.volume_section_created:
+        # a declared output then reports as missing on a seat; refused here. The
+        # index is the pproc's own section's, never a section a raw line cut.
+        own = script.volume_section_index
+        if own is None:
             raise CampaignConfigError(
                 f"case {case.sim_id!r} declares the volume-section output {name!r} and its "
-                "script cuts no volume section: the section is declared by the pproc's "
-                "[volume_section] table on a steady row, which also names the output"
+                "script cuts no volume section of its pproc, or a raw line deleted the one "
+                "it cut: the section is declared by the pproc's [volume_section] table on a "
+                "steady row, which also names the output"
             )
         verb = next(verb for each, _, verb, _ in EXPORT_KINDS if each == kind)
-        script.emit(verb, _VOLUME_SECTION_INDEX, name)
+        script.emit(verb, own, name)
     else:
         return False
     return True

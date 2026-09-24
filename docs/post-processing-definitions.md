@@ -809,6 +809,7 @@ files above, and the package writes no product from it:
 | file | `{name}_vsec.vtk` (`format = "vtk"`, `EXPORT_VOLUME_SECTION_VTK`) or `{name}_vsec.dat` (`format = "tecplot"`, `EXPORT_VOLUME_SECTION_TECPLOT`), in the point's `datapoints/DP-<point>/`, hashed in its record |
 | plane | a rectangle between two diagonal corners (`corners_m`), or an annulus between two radii (`radii_m`), in the `plane` of the named `frame`, `offset_m` along its normal; every length in metres, written in the simulation's length unit, and a saved simulation whose unit the package cannot read is refused at plan ([the workflows page](workspace-and-workflows.md#one-row-one-actuator-disc)) |
 | instant | the converged state of THAT point: the section is created after the point's `START_SOLVER`, and a later point of a sweep deletes the previous section before creating its own, so each file is its own point's plane |
+| which section | the pproc's own: the export and the delete cite the index the pproc's section takes in the solver's list, counting every section the script cuts, a raw line's included, so a section a raw line cut before it never fills the pproc's file; a raw line deleting the pproc's section leaves the file nothing to export, and the row is refused when its script is built |
 
 The `_vsec` infix is what tells the file from a surface export of the same
 extension. There is one section per pproc; an unsteady row naming a pproc that

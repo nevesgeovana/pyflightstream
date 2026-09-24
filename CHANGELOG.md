@@ -470,6 +470,16 @@ FlightStream versions.
   measured. `Script.simulation_length_unit` follows the unit a script sets, and
   the length table moved to `pyflightstream._lengths`, which the trailing-edge
   node file is converted with too (G05, G06).
+- **A volume section's export and delete cite the pproc's own section.** Both
+  cited index 1, so a raw line cutting a section before the analysis made the
+  pproc's file hold the raw section's plane, and a later point of a sweep
+  deleted the raw section instead of its own. They now cite the index the
+  pproc's section takes, counting every section the script cuts: a raw circle
+  cut first makes the pproc's rectangle 2, exported as 2. A raw line deleting
+  the pproc's section before its export is refused when the script is built.
+  `Script.volume_sections` counts the sections a script has cut, and
+  `Script.volume_section_index`, the pproc's own, replaces
+  `volume_section_created` (G05).
 
 - **A row stating `roll_rate` or `yaw_rate` turns the free stream the way the
   rate says.** From 0.21.0 all three body rates were emitted with one sign of

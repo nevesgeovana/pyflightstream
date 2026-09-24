@@ -1751,13 +1751,23 @@ built, naming the ones it did.
 
 What the script does, per point: after `START_SOLVER`, in the analysis phase,
 `CREATE_NEW_RECTANGLE_VOLUME_SECTION` or `CREATE_NEW_CIRCLE_VOLUME_SECTION`,
-then `EXPORT_VOLUME_SECTION_VTK 1` or `EXPORT_VOLUME_SECTION_TECPLOT 1` to
+then `EXPORT_VOLUME_SECTION_VTK <i>` or `EXPORT_VOLUME_SECTION_TECPLOT <i>` to
 `{name}_vsec.vtk` or `{name}_vsec.dat`, collected into the point's
 `datapoints/DP-<point>/` and hashed in its record like every other output. A
 later point of a steady sweep, which runs in the same script, first emits
-`DELETE_VOLUME_SECTION 1`, so its export writes its own plane. The prism-layer
-arguments are not the table's: the package sends `NONE 0.1 1 1.2`, the values
-the verified probes sent.
+`DELETE_VOLUME_SECTION <i>`, so its export writes its own plane. `<i>` is the
+index the pproc's section takes in the solver's list, counting every section
+the script cuts: 1, unless a raw line of the row cuts a section before it
+(a circle cut by `RAW: {COMMAND: CREATE_NEW_CIRCLE_VOLUME_SECTION ... / BEFORE:
+analysis}` makes the pproc's section 2, and its export cites 2). A raw delete
+moves the index down or, deleting the pproc's own section, leaves its file
+nothing to export, which is refused when the script is built. A section a
+saved simulation already carries is NOT counted, since the package reads none
+from the file, and it is not detected either: a point's final save carries the
+section the point cut, so such a save opened as the geometry of a row whose
+pproc declares a section would shift the index. Open a simulation saved
+without one. The prism-layer arguments are not the table's: the package sends
+`NONE 0.1 1 1.2`, the values the verified probes sent.
 
 WHAT HAS RUN WHERE, from the command database. The five commands the table
 emits (the two creates, the two exports and the delete) are verified on

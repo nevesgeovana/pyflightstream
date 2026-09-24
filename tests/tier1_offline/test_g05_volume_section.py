@@ -11,9 +11,10 @@ row creates it after its solve and exports it under the point's own name:
 * the table is validated where the artifact is read, each shape with its own
   keys, and ``[exports]`` cannot name the volume kinds;
 * the section is created in the analysis phase, after ``START_SOLVER``, where
-  the verified probes created it, and exported with the index 1;
-* each later point of a warm sweep deletes the previous section first, so the
-  export always cites index 1 and names that point's file;
+  the verified probes created it, and exported with the index it takes: 1,
+  unless a raw line of the row cut a section before it;
+* each later point of a warm sweep deletes the previous section first, by its
+  own index, so the export names that point's file with that point's plane;
 * the file is never handed to a surface kind (``_vsec`` is claimed first);
 * an unsteady or rotor row naming the table is refused before any emission;
 * the file is collected into the point's folder and hashed in the record;
@@ -34,6 +35,7 @@ from pyflightstream._digest import file_sha256
 from pyflightstream.cases import (
     CampaignConfigError,
     PprocSpec,
+    RawCommand,
     ReferenceData,
     SimCase,
     SweepAxis,
@@ -73,6 +75,13 @@ CIRCLE = {
     "points": [10, 12],
     "format": "tecplot",
 }
+
+#: A circle the row's raw line cuts at the analysis seam, BEFORE the pproc's own
+#: section: the raw entry is accepted there, and it is emitted once per point.
+RAW_CIRCLE = RawCommand(
+    command="CREATE_NEW_CIRCLE_VOLUME_SECTION 1 YZ 0.5 10 12 0.2 1.0 NONE 0.1 1 1.2",
+    before="analysis",
+)
 
 
 def _pproc(**table: object) -> PprocSpec:
@@ -217,6 +226,98 @@ def test_g05_each_point_of_a_warm_sweep_exports_its_own_section():
                 f"point {point + 1} created its section before deleting the previous one, "
                 "so its export at index 1 would write the previous point's plane"
             )
+
+
+def test_g05_the_export_cites_the_pproc_s_own_section_after_a_raw_one():
+    """A raw circle cut first takes index 1, so the pproc's rectangle is 2, and 2 is exported."""
+    case = _steady(_pproc(**RECTANGLE)).model_copy(update={"raw_commands": [RAW_CIRCLE]})
+    lines = _lines(case)
+    raw = lines.index(RAW_CIRCLE.command)
+    own = next(i for i, line in enumerate(lines) if line.startswith("CREATE_NEW_RECTANGLE"))
+    export = next(i for i, line in enumerate(lines) if line.startswith("EXPORT_VOLUME_SECTION"))
+    assert raw < own < export, "the fixture does not cut the raw circle before the pproc's plane"
+    assert (lines[export], lines[export + 1]) == ("EXPORT_VOLUME_SECTION_VTK 2", "P_vsec.vtk"), (
+        f"the pproc's rectangle is the second section the script cut, and the file its pproc "
+        f"declares, P_vsec.vtk, is exported by {lines[export]!r}: the raw circle's plane under "
+        "the rectangle's name"
+    )
+
+
+def test_g05_a_sweep_deletes_and_exports_the_pproc_s_own_section_beside_raw_ones():
+    """Per point the raw circle is cut again; the pproc deletes and exports its own by index.
+
+    Point 1: circle 1, rectangle 2, export 2. Point 2: circle 3, then the
+    rectangle of point 1 (2) is deleted, which moves circle 3 to 2, and point
+    2's rectangle is cut as 3 and exported as 3.
+    """
+    pproc = _pproc(**RECTANGLE)
+    points = [
+        case_at_point(
+            _steady(pproc, stem=f"P-A{int(alpha):+d}", alpha=alpha).model_copy(
+                update={"raw_commands": [RAW_CIRCLE]}
+            ),
+            {"alpha": alpha},
+        )
+        for alpha in (0.0, 2.0)
+    ]
+    script = Script("26.124")
+    build_steady_sweep(points, script)
+    lines = script.render().splitlines()
+    volume = [
+        line
+        for line in lines
+        if line.startswith(("CREATE_NEW_", "DELETE_VOLUME", "EXPORT_VOLUME"))
+        and "ACTUATOR" not in line
+        and "COORDINATE" not in line
+    ]
+    assert volume == [
+        RAW_CIRCLE.command,
+        next(line for line in volume if line.startswith("CREATE_NEW_RECTANGLE")),
+        "EXPORT_VOLUME_SECTION_VTK 2",
+        RAW_CIRCLE.command,
+        "DELETE_VOLUME_SECTION 2",
+        next(line for line in volume if line.startswith("CREATE_NEW_RECTANGLE")),
+        "EXPORT_VOLUME_SECTION_VTK 3",
+    ], volume
+
+
+def test_g05_a_volume_file_with_no_section_of_its_pproc_to_export_is_refused():
+    """No table, or a raw line deleting the pproc's section before its export: refused, named."""
+    declared = _steady(_pproc(**RECTANGLE))
+    bare = declared.model_copy(update={"pproc": PprocSpec(), "pproc_id": "p001"})
+    with pytest.raises(CampaignConfigError, match=r"'P_vsec\.vtk'.*cuts no volume section"):
+        _lines(bare)
+    deleted = declared.model_copy(
+        update={"raw_commands": [RawCommand(command="DELETE_VOLUME_SECTION 1", before="export")]}
+    )
+    with pytest.raises(CampaignConfigError, match=r"'P_vsec\.vtk'.*raw line deleted the one"):
+        _lines(deleted)
+    # THE CONTROL: the same row without the raw delete exports its own section.
+    assert "EXPORT_VOLUME_SECTION_VTK 1" in _lines(declared)
+
+
+def test_g05_a_raw_delete_below_the_pproc_s_section_moves_its_index_down():
+    """Raw circle 1, the pproc's rectangle 2, a raw delete of 1: the rectangle is now 1."""
+    delete_first = RawCommand(command="DELETE_VOLUME_SECTION 1", before="export")
+    case = _steady(_pproc(**RECTANGLE)).model_copy(
+        update={"raw_commands": [RAW_CIRCLE, delete_first]}
+    )
+    lines = _lines(case)
+    export = next(i for i, line in enumerate(lines) if line.startswith("EXPORT_VOLUME_SECTION"))
+    assert lines.index("DELETE_VOLUME_SECTION 1") < export, "the fixture deletes after the export"
+    assert lines[export] == "EXPORT_VOLUME_SECTION_VTK 1", (
+        f"the raw circle below the pproc's rectangle was deleted, so the rectangle is the first "
+        f"section left, and its file is exported by {lines[export]!r}"
+    )
+    # A SECTION ABOVE IT moves nothing: a raw circle cut after the rectangle (2) and
+    # deleted leaves the rectangle 1.
+    above = [
+        RawCommand(command=RAW_CIRCLE.command, before="export"),
+        RawCommand(command="DELETE_VOLUME_SECTION 2", before="export"),
+    ]
+    lines = _lines(_steady(_pproc(**RECTANGLE)).model_copy(update={"raw_commands": above}))
+    export = next(i for i, line in enumerate(lines) if line.startswith("EXPORT_VOLUME_SECTION"))
+    assert lines[export] == "EXPORT_VOLUME_SECTION_VTK 1", lines[export]
 
 
 def test_g05_classify_never_hands_a_volume_file_to_a_surface_kind():
