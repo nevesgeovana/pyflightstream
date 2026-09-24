@@ -325,24 +325,60 @@ the row's translation, where it was measured (RPT-048).
 
 ## Marking a blade's trailing edge from its mesh
 
-Since v0.8.0 the one step of a rotor campaign that still had to be done by
-hand is in the library: `pyflightstream.workspace.extract_trailing_edge` reads
-a blade surface and returns its trailing-edge vertices, and
-`TrailingEdge.write_node_file` writes them as the node list both documented
-marking routes read.
+A raw mesh needs its trailing edges marked before a solve, and the default
+way is a file naming them. The wake-edge import matches a mesh edge by its
+MID-POINT: an edge is marked when a point in the file lies within the
+import's tolerance of the edge's mid-point, and a point farther than that
+from every mid-point marks nothing and reports nothing. So the file names
+edges by their mid-points, never by their end vertices.
 
-The vertices come back in the MESH's own reference frame and length units,
-because they are selected mesh vertices and nothing transforms them. The rotor
-axis and hub you pass in are what the CRITERION is computed in, not what the
-output is expressed in. The unit is declared once, at `write_node_file`, since
-a mesh file does not carry one.
+`pyflightstream.workspace.trailing_edge_midpoints` reads a blade surface and
+returns the mid-point of every mesh edge on its trailing edge, in order along
+the span, and `write_trailing_edge_node_file` writes them as the blade's
+trailing-edge POINTS FILE: the length unit on the first line (a token of
+`SET_SIMULATION_LENGTH_UNITS`, `OTHER` excepted), then one `x,y,z` row per
+mid-point.
+
+```text
+METER
+0.216872113,-0.002159825,0.223199974
+0.250942335,-0.004761036,0.219139256
+```
+
+The points come back in the MESH's own reference frame and length units,
+because they are mid-points of mesh edges and nothing transforms them. The
+rotor axis and hub you pass in are what the CRITERION is computed in, not what
+the output is expressed in. The unit is declared once, when the file is
+written, since a mesh file does not carry one. The points file is the
+package's, not the solver's: the run converts its points to the simulation's
+length unit and writes the file the solver imports.
+
+A points file is checked against its mesh before any solver starts
+(`read_trailing_edge_points` and `check_trailing_edge_points`, in
+`pyflightstream.workspace.wake_edges`). Its first line must name a solver
+length unit, and every point must lie within the import's tolerance of a
+mesh-edge mid-point, compared in the simulation's length unit. The first point
+that does not is refused by its position, its file line, its coordinates and
+its distance, and two points nearest one edge are refused as well, since the
+solver would mark that edge once. A file of the edges' end vertices fails this
+check at its first point. The checked points come back in the simulation's
+unit.
+
+A run that imports the file writes the solver's node file before the solver
+starts and records its digest among the run's inputs. After the run it compares
+the solver's own count of imported edges, which the solver logs, with the
+number of points it wrote, and records the run FAILED_SCRIPT when they differ:
+a point that matches no edge marks nothing and the solver says nothing about
+it. The solver log therefore has to be among the row's outputs; a run that
+imported a file and read no log is recorded FAILED_INCOMPLETE_OUTPUT.
 
 <!-- skip: next -->
 ```python
-from pyflightstream.workspace import extract_trailing_edge
+from pyflightstream.workspace import write_trailing_edge_node_file
 
-edge = extract_trailing_edge("blade.obj", axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0))
-edge.write_node_file("wake_nodes.txt", unit="METER")
+write_trailing_edge_node_file(
+    "blade.obj", "blade.te.txt", axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0), unit="METER"
+)
 ```
 
 That block is skipped by the executable-examples run rather than checked,
@@ -355,8 +391,10 @@ alone, so a rename would leave this block stale and no test would say so. The
 first version of this paragraph claimed a guard that does not read this page,
 which is worse than no guard at all.
 
-Only the vertices are read. The mesh need not be watertight and no proximity
-query is made, so this runs on a base install with no extra.
+The vertices and the faces are read. The mesh need not be watertight and no
+proximity query is made, so this runs on a base install with no extra.
+`extract_trailing_edge` still returns one aftmost vertex per section, and
+`TrailingEdge.write_node_file` refuses: a list of vertices marks nothing.
 
 **THE CRITERION IS NOT A CREASE, and that is the whole point.** The obvious
 implementation is a dihedral-angle threshold over face adjacency, which every
@@ -370,8 +408,15 @@ different threshold rather than a different capability.
 What is computed instead: a vertex's spanwise coordinate is its radial distance
 from the rotor axis, the vertices are binned into chordwise sections by that
 coordinate, and each section contributes its AFTMOST point, with the chordwise
-direction taken from the section's own extent. The reasoning, and the
-alternatives that were rejected, are in the design note `DD-27`.
+direction taken from the section's own extent. The trailing edge between two
+sections is the shortest chain of mesh edges joining their aftmost points,
+along edges that are the aft ridge of both their faces: the far vertex of each
+face lies forward of the edge, forward meaning against the section's aft chord.
+The chain continues past the first and last section while exactly one such edge
+leads outward, and each edge of it gives one mid-point. No angle is compared
+with a threshold. A blunt trailing edge, two aft corners at each station, is
+refused rather than guessed. The reasoning, and the alternatives that were
+rejected, are in the design note `DD-27`.
 
 An OBJ file's named groups would have been the preferred route and were
 measured and dropped: the mesh library this package reads through does not

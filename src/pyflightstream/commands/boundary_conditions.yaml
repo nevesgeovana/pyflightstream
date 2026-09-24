@@ -366,6 +366,17 @@ TRAILING_EDGES_IMPORT:
     "26.101": {status: documented, note: "SRC-725 p.318, same grammar as 26.120"}
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.322, same grammar as 26.120"}
+    "26.124":
+      status: removed
+      successor: IMPORT_WAKE_EDGES_FROM_FILE
+      probe_ref: "reports/RPT-061_where-the-wake-edge-import-reads-its-nodes_2026-09-23.md"
+      note: >-
+        Measured 2026-09-23: the 26.124 solver answers the name as an
+        unrecognized command, with its file present and with it absent,
+        and with end vertices or edge mid-points in the file; its edition
+        stops printing the command, as SRC-751 did. Trailing edges are
+        marked from a file on this build by IMPORT_WAKE_EDGES_FROM_FILE,
+        whose file names edge mid-points rather than vertices (RPT-061)
   notes: >
     Marks trailing edges at vertices listed in a CSV file, the path on
     the next line. This is the exact route rather than the detection
@@ -407,6 +418,13 @@ TRAILING_EDGES_IMPORT:
     vendor dropped, is a fact about a DOCUMENT rather than about the
     solver, which the four statuses are all about. The absence carries
     that distinction correctly and this paragraph carries the reason.
+
+    26.124 WAS ASKED, AND ITS ROW IS REMOVED (RPT-061). Its edition is
+    the SRC-751 file, so the document says what it says for 26.123; the
+    run of 2026-09-23 is what differs, and the solver answered the name
+    as an unrecognized command with a file present and absent. That is
+    a fact about the solver, so the row is removed and cites the run.
+    26.123 stays absent, because no run has asked that build.
 
 DETECT_WAKE_TERMINATION_NODES_BY_SURFACE:
   layout: inline
@@ -614,9 +632,30 @@ IMPORT_WAKE_EDGES_FROM_FILE:
     whether an edge is marked at all: too tight and edges go unmarked,
     too loose and the wrong edge is claimed.
 
+    MEASURED ON 26.124 (RPT-061), where the build answers what the pages
+    leave open, and only there. The two-value line the pages print is a
+    syntax error that stops the script, the same line with the path
+    after it is one too, and a path as the third token is read as the
+    line after the command rather than as a file. The build reads the
+    node list from the path on the NEXT line, and only when the command
+    line carries a third token; the token is required, and METER and
+    MILLIMETER marked the same edges, so it is not the unit of the
+    coordinates. The file is the count, one coordinate triple the solver
+    consumes and does not use, then the edge MID-POINTS in the
+    simulation's length unit, with no unit line and no ids; a word on
+    any line marks nothing, and so do the end vertices of the edges.
+    Given the whole span of a straight wing it marks the edges angle
+    detection marks, and a point farther than the tolerance from every
+    edge mid-point marks nothing and logs nothing. So the 26.124 row
+    states its own grammar, the two values plus the third token and the
+    path on its own line, and 26.122 and 26.123 keep the printed line
+    and are refused by the marking helper as unmeasured.
+
     ITS EVIDENCE IS WEAKER THAN WHAT IT REPLACES, and the trade is
-    deliberate. This command is documented on 26.122 and 26.123 and
-    verified on no build. The two probe runs that reached those builds
+    deliberate. This command is documented on 26.122 to 26.124 and
+    verified on no build: the 26.124 run above is a probe report and not
+    a compat report, so it changes the grammar and not the status. The
+    two probe runs that reached 26.122 and 26.123
     both NAME it and neither promotes it: each records it unprobed for
     want of a probe specification, which is a weaker thing than not
     having been looked at and a weaker thing again than having been
@@ -631,4 +670,18 @@ IMPORT_WAKE_EDGES_FROM_FILE:
       status: documented
       note: "SRC-750 p.324, the first edition to document it"
     "26.123": {status: documented, note: "SRC-751 p.323, unchanged from SRC-750 p.324"}
-    "26.124": {status: documented, note: "SRC-752 p.323, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124":
+      status: documented
+      note: >-
+        SRC-752 p.323 prints the two-value line of SRC-751; this build
+        refuses that line as a syntax error, and reads the node list from
+        the path on the next line only when the command line carries a
+        third token (RPT-061)
+      args:
+        - name: type
+        - name: tolerance
+        - name: units
+          type: str
+        - name: file
+          type: path
+          own_line: true

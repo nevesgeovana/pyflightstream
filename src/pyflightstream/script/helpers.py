@@ -61,6 +61,8 @@ import re
 import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
+from decimal import Decimal
+from os import PathLike, fspath
 from typing import Literal
 
 from pydantic import BaseModel, ValidationError
@@ -2982,15 +2984,145 @@ def unsteady_action(
 WAKE_EDGE_IMPORT_ROUTE = "IMPORT_WAKE_EDGES_FROM_FILE"
 WAKE_EDGE_ANGLE_ROUTE = "AUTO_DETECT_TRAILING_EDGES"
 
+#: The coordinate line the 26.124 import consumes after the count and does
+#: not use (RPT-061): the first line holding three numbers is read and
+#: discarded, so a file without it loses its first point. It is a triple
+#: because a bare number or an empty line is skipped rather than consumed.
+WAKE_EDGE_NODE_PLACEHOLDER = "0,0,0"
 
-def mark_wake_edges(script: Script, *, edge_type: str, tolerance: float) -> str:
-    """Mark wake edges from an imported node list, not by angle.
+
+def _plain_decimal(value: float) -> str:
+    """Spell a finite float as a plain decimal that reads back to the same float.
+
+    The shortest round-trip digits, never an exponent: a number such as
+    1.665e-17, which a trailing-edge vertex of a committed wing mesh
+    carries, would otherwise be written with the letter e, and a letter on
+    any line of the node file makes the import mark nothing (RPT-061).
+    """
+    return format(Decimal(repr(value)), "f")
+
+
+def render_wake_edge_node_file(midpoints: Sequence[Sequence[float]]) -> str:
+    """Return the text of the node file the wake-edge import reads on 26.124.
+
+    The layout is the one measured to mark (RPT-061): the number of points,
+    then :data:`WAKE_EDGE_NODE_PLACEHOLDER`, the coordinate line the solver
+    consumes and does not use, then one ``x,y,z`` row per trailing-edge
+    MID-POINT, in the simulation's length unit. There is no unit line and
+    no id column: the file's unit is not read, and a word or an id on any
+    line makes the import mark nothing, in silence.
+
+    Parameters
+    ----------
+    midpoints : sequence of (x, y, z)
+        The mid-points of the mesh edges to mark, already in the
+        simulation's length unit. Any sequence of three-number rows,
+        including an (n, 3) array.
+
+    Returns
+    -------
+    str
+        The file's text, newline separated and newline terminated.
+
+    Raises
+    ------
+    CommandArgumentError
+        If there is no point, a row is not three coordinates, or a
+        coordinate is not a finite number. Each names the point.
+
+    Examples
+    --------
+    >>> from pyflightstream.script import helpers
+    >>> print(helpers.render_wake_edge_node_file([(1.0, -3.75, 0.0)]), end="")
+    1
+    0,0,0
+    1.0,-3.75,0.0
+    """
+    rows = list(midpoints)
+    if not rows:
+        raise CommandArgumentError(
+            f"{WAKE_EDGE_IMPORT_ROUTE} node file: 0 edge mid-points were given, and the "
+            "points are what name the edges to mark. With none the import marks nothing "
+            "and says nothing, so the run would solve with no wake"
+        )
+    lines = [str(len(rows)), WAKE_EDGE_NODE_PLACEHOLDER]
+    for position, row in enumerate(rows, start=1):
+        where = f"point {position} of {len(rows)}"
+        try:
+            values = [float(value) for value in row]
+        except (TypeError, ValueError) as error:
+            raise CommandArgumentError(
+                f"{WAKE_EDGE_IMPORT_ROUTE} node file: {where} is {row!r}, which is not "
+                f"three coordinates ({error})"
+            ) from error
+        if len(values) != 3:
+            raise CommandArgumentError(
+                f"{WAKE_EDGE_IMPORT_ROUTE} node file: {where} holds {len(values)} values, "
+                "and every point is three coordinates, x, y and z"
+            )
+        if not all(math.isfinite(value) for value in values):
+            raise CommandArgumentError(
+                f"{WAKE_EDGE_IMPORT_ROUTE} node file: {where} is {tuple(values)!r}, and a "
+                "coordinate that is not a finite number would be written as a word, which "
+                "makes the import mark nothing"
+            )
+        lines.append(",".join(_plain_decimal(value) for value in values))
+    return "\n".join(lines) + "\n"
+
+
+#: The command whose enumeration is the simulation's length-unit vocabulary,
+#: which is where the import's third token is drawn from.
+_LENGTH_UNIT_COMMAND = "SET_SIMULATION_LENGTH_UNITS"
+
+#: The one build the file route was run on, and the report that ran it.
+WAKE_EDGE_FILE_ROUTE_MEASURED_ON = "26.124"
+WAKE_EDGE_FILE_ROUTE_REPORT = "RPT-061"
+
+
+def _simulation_length_units(script: Script) -> tuple[str, ...]:
+    """Return the length-unit tokens the script's database records, OTHER excluded.
+
+    OTHER names no scale, so a node file converted to it would carry
+    coordinates in nothing the package can state.
+    """
+    entry = script.registry.commands.get(_LENGTH_UNIT_COMMAND)
+    if entry is None:
+        return ()
+    for arg in entry.args:
+        if arg.name == "units":
+            return tuple(value for value in (arg.values or ()) if value != "OTHER")
+    return ()
+
+
+def mark_wake_edges(
+    script: Script,
+    *,
+    edge_type: str,
+    tolerance: float,
+    units: str,
+    node_file: str | PathLike[str],
+    midpoints: Sequence[Sequence[float]],
+) -> str:
+    """Mark trailing edges from a file of edge mid-points, not by angle.
 
     Emits the import route INSTEAD of the angle criterion, which is what
     the route is for: auto detection marks an edge because the surface
     creases there, and a strongly twisted blade has a trailing edge that
-    is not a crease. Both passes over one geometry would mark twice, so
-    this replaces rather than runs beside.
+    is not a crease. The file marks exactly the edges it names, since
+    initialisation does not add the ones detection would find (RPT-065),
+    so this replaces rather than runs beside.
+
+    THE FORM IS THE ONE 26.124 READS (RPT-061):
+    ``IMPORT_WAKE_EDGES_FROM_FILE <TYPE> <TOLERANCE> <UNITS>`` with the
+    node file's path on the next line. The manual prints a two-value line,
+    which that build refuses as a syntax error, and the path is read only
+    when the line carries a third token. The third token is required and
+    had no measured effect; the simulation's length unit is written there.
+    The node file's text is parked on the script
+    (:attr:`~pyflightstream.script.Script.pending_input_files`) and the
+    run writes it before the solver starts, and the number of points is
+    recorded (:attr:`~pyflightstream.script.Script.wake_edge_points`) so
+    the run can compare it with the count the solver logs as imported.
 
     Parameters
     ----------
@@ -3002,8 +3134,18 @@ def mark_wake_edges(script: Script, *, edge_type: str, tolerance: float) -> str:
         whole imported file what that command sets for one edge.
     tolerance : float
         Maximum distance between a mesh edge mid-point and an imported
-        node coordinate for the two to count as the same edge, in the
-        simulation's own length units.
+        point for the two to count as the same edge, in the simulation's
+        own length units.
+    units : str
+        The simulation's length unit, a token of SET_SIMULATION_LENGTH_UNITS
+        other than OTHER. Written as the third token; the points must
+        already be in it, because the solver reads no unit from the file.
+    node_file : str or path-like
+        Where the node file is written and read, the path the command's
+        next line names.
+    midpoints : sequence of (x, y, z)
+        The mid-points of the mesh edges to mark, in ``units``. See
+        :func:`render_wake_edge_node_file`.
 
     Returns
     -------
@@ -3014,45 +3156,50 @@ def mark_wake_edges(script: Script, *, edge_type: str, tolerance: float) -> str:
     Raises
     ------
     CommandNotInVersionError
-        If the build does not document the import route. The message
-        names the build, the route, and the angle criterion this library
-        will NOT substitute unasked: a campaign that silently fell back
-        would mark a twisted blade by an angle criterion and report
-        nothing about it.
+        If the build does not document the import route, or documents
+        only the two-value line (26.122, 26.123), which has not been run
+        and which 26.124 refuses. The message names the build and the
+        angle criterion this library will NOT substitute unasked: a
+        campaign that silently fell back would mark a twisted blade by an
+        angle criterion and report nothing about it.
+    CommandArgumentError
+        If ``units`` is not a length unit with a scale, if the points
+        cannot make a node file (see :func:`render_wake_edge_node_file`),
+        or if this script already writes different text to ``node_file``.
+        Every refusal leaves the script untouched.
 
     Notes
     -----
-    NEITHER ARGUMENT HAS A DEFAULT HERE, deliberately. The vendor's own
-    defaults live one layer up, on
+    NEITHER THE TYPE NOR THE TOLERANCE HAS A DEFAULT HERE, deliberately.
+    The vendor's own defaults live one layer up, on
     :class:`~pyflightstream.workspace.wake_edges.WakeEdgeImport`,
-    together with the refusals a grammatically perfect call still needs:
-    an empty node list and a tolerance of zero are both well formed and
-    both mark nothing. A second copy of either the defaults or the
-    refusals here is the drift this split exists to prevent.
+    together with the refusals a grammatically perfect call still needs.
 
-    THIS HELPER TAKES NO PATH, because the command takes none. Both
-    editions that document it print a signature and a sample call with
-    two values and neither says where the node list comes from. Adding a
-    path argument would be this library inventing a grammar, so the
-    silence is left visible; settling it is PFS-2025.16.01's reading.
-
-    The route is DOCUMENTED and probed on no build, while the angle
-    criterion it replaces carries verified rows on three. The trade is
-    deliberate and the reason is physical;
-    :func:`~pyflightstream.workspace.wake_edges.evidence_notice` renders
-    the sentence that says so for a given build.
+    Two calls on one script import two files, and
+    :attr:`~pyflightstream.script.Script.wake_edge_points` is their sum,
+    since the solver logs one imported count per import.
 
     Examples
     --------
     >>> from pyflightstream.script import Script, helpers
-    >>> script = Script(version="26.123")
-    >>> helpers.mark_wake_edges(script, edge_type="VORTEX_SHEDDING", tolerance=0.0001)
+    >>> script = Script(version="26.124")
+    >>> helpers.mark_wake_edges(
+    ...     script,
+    ...     edge_type="STANDARD",
+    ...     tolerance=0.0001,
+    ...     units="METER",
+    ...     node_file="wing.wake_nodes.txt",
+    ...     midpoints=[(1.0, -3.75, 0.0), (1.0, -3.25, 0.0)],
+    ... )
     'IMPORT_WAKE_EDGES_FROM_FILE'
     >>> print(script.render().strip())
-    IMPORT_WAKE_EDGES_FROM_FILE VORTEX_SHEDDING 0.0001
+    IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER
+    wing.wake_nodes.txt
+    >>> script.wake_edge_points
+    2
     """
     try:
-        script._view[WAKE_EDGE_IMPORT_ROUTE]
+        grammar = script._view[WAKE_EDGE_IMPORT_ROUTE]
     except CommandNotInVersionError as error:
         raise CommandNotInVersionError(
             f"mark_wake_edges: FlightStream {script.version.canonical} does not carry "
@@ -3065,7 +3212,46 @@ def mark_wake_edges(script: Script, *, edge_type: str, tolerance: float) -> str:
             f"{WAKE_EDGE_IMPORT_ROUTE}, or ask for the angle criterion deliberately. "
             f"The database says: {error}"
         ) from error
-    script.emit(WAKE_EDGE_IMPORT_ROUTE, edge_type, tolerance)
+    if not any(arg.name == "file" for arg in grammar.args):
+        raise CommandNotInVersionError(
+            f"mark_wake_edges: FlightStream {script.version.canonical} documents "
+            f"{WAKE_EDGE_IMPORT_ROUTE} only as the two-value line its manual prints, "
+            "with no node file, and that route was measured on "
+            f"{WAKE_EDGE_FILE_ROUTE_MEASURED_ON} only ({WAKE_EDGE_FILE_ROUTE_REPORT}), "
+            "where the two-value line is a syntax error that stops the script and the "
+            "file is read only from the line after a third token. Nothing has been "
+            f"run on {script.version.canonical}, so no form is emitted for it. Run the "
+            f"case on {WAKE_EDGE_FILE_ROUTE_MEASURED_ON}, or mark the trailing edges by "
+            f"detection ({WAKE_EDGE_ANGLE_ROUTE}) deliberately"
+        )
+    known = _simulation_length_units(script)
+    if units not in known:
+        raise CommandArgumentError(
+            f"mark_wake_edges: units is {units!r}, and the third token is the "
+            f"simulation's length unit, one of the {_LENGTH_UNIT_COMMAND} tokens with a "
+            f"scale: {', '.join(known)}. The solver reads the node file in the "
+            "simulation's unit and reads no unit from the file, so the points must "
+            "already be in it"
+        )
+    text = render_wake_edge_node_file(midpoints)
+    path = fspath(node_file)
+    already = script._pending_input_files.get(path)
+    if already is not None and already != text:
+        raise CommandArgumentError(
+            f"mark_wake_edges: this script already writes a different node file to "
+            f"{path!r}. One path is one file, so the second would silently replace "
+            "the first and both import lines would read whichever text won. Give "
+            "this import a node file of its own"
+        )
+
+    # Emit, then park, then record: a build or an argument the emitter
+    # refuses leaves no file parked and no count recorded.
+    script.emit(WAKE_EDGE_IMPORT_ROUTE, edge_type, tolerance, units, path)
+    script._pending_input_files[path] = text
+    # The count is the file's own first line, so the number recorded is
+    # the number written.
+    points = int(text.split(maxsplit=1)[0])
+    script.wake_edge_points = (script.wake_edge_points or 0) + points
     return WAKE_EDGE_IMPORT_ROUTE
 
 

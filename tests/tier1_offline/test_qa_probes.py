@@ -229,11 +229,18 @@ def test_foreign_probe_directory_is_refused_not_wiped(tmp_path):
 
 
 def test_every_catalog_spec_builds_a_validated_script(tmp_path):
+    """On 26.120, or on 26.124 for a command 26.120 does not carry: the wake-edge
+    import is documented from 26.122 on and its probe is built for the 26.124
+    grammar, the one build it was run on (RPT-061)."""
+    from pyflightstream.commands import CommandRegistry
+
     fsm = tmp_path / "dummy.fsm"
+    flagship = CommandRegistry.load().for_version("26.120")
     for spec in PROBE_SPECS.values():
         workdir = tmp_path / spec.command
         workdir.mkdir()
-        script = generate_probe_script(spec, "26.120", workdir, fsm=fsm)
+        version = "26.120" if spec.command in flagship else "26.124"
+        script = generate_probe_script(spec, version, workdir, fsm=fsm)
         assert not script.raw_flag, spec.command
         text = script.render()
         assert f"PYFS_PROBE_BEGIN_{spec.command}" in text
@@ -1192,8 +1199,10 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
     groups = module.classify()
     renders = len(groups["with_arguments"]) + len(groups["bare"])
     where = f"{script.name}, VERSION = {module.VERSION}"
-    assert len(PROBE_SPECS) == 112, (
-        f"the catalog holds {len(PROBE_SPECS)} specifications, not 112. Adding one is "
+    # 113 since 0.27.0 G02: the wake-edge import probe, which lands in
+    # needs_prelude on 26.122 because its line carries the 26.124 third token.
+    assert len(PROBE_SPECS) == 113, (
+        f"the catalog holds {len(PROBE_SPECS)} specifications, not 113. Adding one is "
         f"fine; update this number and the three sentences that quote it ({where})"
     )
     assert renders == 90, (
@@ -1210,7 +1219,7 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
     # as broken, and one whose target cites an entity nothing created.
     assert len(groups["not_in_this_view"]) == 1, groups["not_in_this_view"]
     assert len(groups["refused_as_broken"]) == 2, groups["refused_as_broken"]
-    assert len(groups["needs_prelude"]) == 19, groups["needs_prelude"]
+    assert len(groups["needs_prelude"]) == 20, groups["needs_prelude"]
     assert not groups["did_not_emit_the_command"], groups["did_not_emit_the_command"]
 
 
@@ -1290,3 +1299,104 @@ def test_a_run_behind_a_stand_in_executor_records_no_digest(tmp_path):
     _, run = run_pilot(tmp_path, FakeFlightStream())
     assert run.fs_exe_name == "fake"
     assert getattr(run, "fs_exe_sha256", "MISSING") is None
+
+
+# --- G02: the wake-edge import probe, the form 26.124 reads (RPT-061) ----------
+
+
+def _wake_edge_region(tmp_path, line: str | None):
+    """Artifacts whose target region holds ``line``, or nothing."""
+    from pyflightstream.qa.probes import ProbeArtifacts
+
+    body = "" if line is None else f"{line}\r\n\x00\r\n"
+    log_after = f"B\r\n\x00\r\n{body}E\r\n"
+    return ProbeArtifacts(
+        workdir=tmp_path,
+        log_before="B\r\n",
+        log_after=log_after,
+        begin_marker="B",
+        end_marker="E",
+        execution=ExecutionResult(
+            return_code=0, wall_time_s=0.05, timed_out=False, log_text=None, stdout="", stderr=""
+        ),
+    )
+
+
+def test_the_wake_edge_import_probe_emits_the_measured_grammar_and_counts_the_edges(tmp_path):
+    """The probe emits the import line the package emits, reads a node file of the
+    wing's trailing-edge mid-points, and verifies only on the solver's own count.
+
+    The 16 points are derived here from the wing's triangles by EDGE, a different
+    route from the specification's own derivation by station, so the file is
+    scored against the mesh and not against itself. The assertion is strict: a
+    silent import is a file that marked nothing, which is broken, not unprobed.
+    """
+    import numpy
+
+    from pyflightstream.qa.geometry import WingSpec, wing_triangles
+    from pyflightstream.qa.probes import generate_probe_script
+    from pyflightstream.qa.specs import PROBE_SPECS
+    from pyflightstream.script import Script, helpers
+
+    spec = PROBE_SPECS["IMPORT_WAKE_EDGES_FROM_FILE"]
+    lines = generate_probe_script(spec, "26.124", tmp_path).render().splitlines()
+    (at,) = [i for i, line in enumerate(lines) if line.startswith("IMPORT_WAKE_EDGES_FROM_FILE")]
+    assert lines[at] == "IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER"
+    node_file = Path(lines[at + 1])
+    assert node_file.parent == tmp_path and node_file.is_file()
+    assert "NEW_SIMULATION" in lines[:at] and "FILE_TYPE STL" in lines[:at], (
+        "the prelude does not import the wing into a new simulation"
+    )
+
+    text = node_file.read_text(encoding="utf-8")
+    assert text.startswith("16\n0,0,0\n")
+    written = numpy.array([[float(v) for v in row.split(",")] for row in text.splitlines()[2:]])
+
+    triangles = wing_triangles(
+        WingSpec(naca="0012", chord_m=1.0, span_m=8.0, n_chord=12, n_span=16)
+    )
+    aft = triangles[..., 0].max()
+    edges = set()
+    for triangle in triangles:
+        for a, b in ((0, 1), (1, 2), (2, 0)):
+            p, q = triangle[a], triangle[b]
+            if p[0] == aft and q[0] == aft and p[1] != q[1]:
+                edges.add((round((p[1] + q[1]) / 2, 12), float(p[0])))
+    expected_y = sorted({y for y, _ in edges})
+    assert len(expected_y) == 16
+    assert numpy.allclose(written[:, 1], expected_y, rtol=0.0, atol=1e-12)
+    assert numpy.allclose(written[:, 0], aft, rtol=0.0, atol=0.0)
+    assert numpy.all(numpy.abs(written[:, 2]) < 1e-12)
+
+    # The same line and the same file the marking helper writes, so the probe
+    # verifies the form the package emits and the two cannot drift apart.
+    marked = Script(version="26.124")
+    helpers.mark_wake_edges(
+        marked,
+        edge_type="STANDARD",
+        tolerance=0.0001,
+        units="METER",
+        node_file=str(node_file),
+        midpoints=written.tolist(),
+    )
+    assert marked.render().splitlines()[:2] == lines[at : at + 2]
+    assert marked.pending_input_files[str(node_file)] == text
+
+    check = spec.assert_effect
+    assert check(_wake_edge_region(tmp_path, "16 trailing edges imported for boundary Wing"))
+    assert (
+        check(_wake_edge_region(tmp_path, "15 trailing edges imported for boundary Wing")) is False
+    )
+    assert check(_wake_edge_region(tmp_path, None)) is False
+
+
+def test_the_wake_edge_import_probe_is_unprobed_where_the_route_was_not_measured(tmp_path):
+    """On 26.123 the grammar has no third token, so the probe script does not
+    build; the harness records that UNPROBED, never broken, because what does not
+    fit is the script around the command."""
+    from pyflightstream.qa.probes import generate_probe_script
+    from pyflightstream.qa.specs import PROBE_SPECS
+    from pyflightstream.script import CommandArgumentError
+
+    with pytest.raises(CommandArgumentError, match="at most 2 arguments"):
+        generate_probe_script(PROBE_SPECS["IMPORT_WAKE_EDGES_FROM_FILE"], "26.123", tmp_path)

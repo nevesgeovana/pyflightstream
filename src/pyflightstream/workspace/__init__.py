@@ -134,6 +134,7 @@ from pyflightstream.workspace.rename_groups import (
 from pyflightstream.workspace.trailing_edges import (
     TrailingEdge,
     extract_trailing_edge,
+    trailing_edge_midpoints,
     write_trailing_edge_node_file,
 )
 
@@ -198,6 +199,7 @@ __all__ = [
     "register_post_stage",
     "resolve_pproc",
     "write_input_guides",
+    "trailing_edge_midpoints",
     "write_trailing_edge_node_file",
 ]
 

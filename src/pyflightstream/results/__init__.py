@@ -1620,6 +1620,50 @@ def parse_log_times(text: str) -> LogTimes:
     )
 
 
+#: The line the wake-edge import writes when it marks something (RPT-061):
+#: ``16 trailing edges imported for boundary Wing``. Detection writes
+#: ``... marked on surface ...`` instead, which is not an import and is not
+#: matched.
+_IMPORTED_TRAILING_EDGES_LINE = re.compile(
+    r"^\s*(\d+) trailing edges? imported for boundary (.+?)\s*$", re.M
+)
+
+
+def imported_trailing_edges(log_text: str) -> dict[str, int]:
+    """Read how many trailing edges the solver says it imported, per boundary.
+
+    The wake-edge import logs ``N trailing edges imported for boundary
+    <name>`` when it marks something and logs nothing when a file marks
+    nothing (RPT-061), so this count is the one statement the solver makes
+    about a file of points. Several import lines for one boundary are
+    summed.
+
+    Parameters
+    ----------
+    log_text : str
+        Complete log text, an EXPORT_LOG output or the log the solver left.
+        The NUL bytes a hidden-mode log carries between lines are removed.
+
+    Returns
+    -------
+    dict of str to int
+        Edges imported per boundary name, in the order first logged. Empty
+        when the log carries no import line, which is what a file that
+        matched no edge leaves.
+
+    Examples
+    --------
+    >>> from pyflightstream.results import imported_trailing_edges
+    >>> imported_trailing_edges("16 trailing edges imported for boundary Wing")
+    {'Wing': 16}
+    """
+    clean = log_text.replace("\x00", "")
+    counts: dict[str, int] = {}
+    for count, boundary in _IMPORTED_TRAILING_EDGES_LINE.findall(clean):
+        counts[boundary] = counts.get(boundary, 0) + int(count)
+    return counts
+
+
 @dataclass(frozen=True)
 class ProbePointsReport:
     """Parsed EXPORT_PROBE_POINTS output (SRC-003 pp.362-363, p.249).
@@ -3376,6 +3420,7 @@ __all__ = [
     "FrozenSolve",
     "UnjudgeableSolve",
     "frozen_time_steps",
+    "imported_trailing_edges",
     "parse_run_loads",
     "parse_solver_analysis_csv",
     "parse_surface_sections",

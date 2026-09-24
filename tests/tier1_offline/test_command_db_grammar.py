@@ -305,6 +305,14 @@ PER_VERSION_GRAMMAR: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
 PER_VERSION_GRAMMAR["SET_SCENE_CONTOUR"]["26.124"] = PER_VERSION_GRAMMAR["SET_SCENE_CONTOUR"][
     "26.123"
 ]
+# 26.124 STATES ITS OWN WAKE-EDGE IMPORT GRAMMAR BECAUSE THE BUILD WAS RUN, not because
+# its page changed: SRC-752 p.323 still prints the two-value line, and the build refuses
+# that line as a syntax error and reads the node list from the path on the next line only
+# when the command line carries a third token (RPT-061). The one override here whose
+# difference comes from a run rather than from a page.
+PER_VERSION_GRAMMAR["IMPORT_WAKE_EDGES_FROM_FILE"] = {
+    "26.124": {"names": ("type", "tolerance", "units", "file")},
+}
 
 #: Which arguments each override leaves OPTIONAL, stated exhaustively
 #: rather than as the exceptions. The `names` tuples above pin the
@@ -546,7 +554,10 @@ def test_every_field_an_override_leaves_unstated_is_filled_from_the_base():
     # still reaches everything, and a number says it. It moves when an
     # override is added, which costs a sentence in a delta table anyway.
     # 0.25.0 F05: three fluid-plot overrides (26.122, 26.123, 26.124).
-    assert checked == 48, (
+    # 0.27.0 G02: the IMPORT_WAKE_EDGES_FROM_FILE 26.124 override (RPT-061) names
+    # type and tolerance by name alone, which inherit type and values, and type and
+    # unit: four fields.
+    assert checked == 52, (
         f"{checked} inherited fields were checked and the shipped database has 33, "
         "distributed cites 12, unit 12, separator 7 and joins_previous 2. A change "
         "here is an override that stopped inheriting or started, both of which are "
@@ -655,7 +666,9 @@ def test_an_override_differs_from_its_base_only_where_a_delta_table_says_so():
     # 25.100 and 26.000, whose pages name that type (SRC-748 p.306, SRC-747
     # p.305), one argument each.
     # 0.25.0 F05: three fluid-plot overrides (26.122, 26.123, 26.124).
-    assert compared == 1072, (
+    # 0.27.0 G02: the IMPORT_WAKE_EDGES_FROM_FILE 26.124 override (RPT-061) carries
+    # two arguments the base also carries, type and tolerance, times the eight fields.
+    assert compared == 1088, (
         f"{compared} field comparisons ran and the shipped database supports 976. "
         "A rise is an override gaining an argument the base also carries, a fall is "
         "one losing it or the walk losing a chapter file"
