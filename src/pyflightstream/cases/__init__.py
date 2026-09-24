@@ -395,7 +395,10 @@ def default_outputs(unsteady: bool, exports: Mapping[str, bool] | None = None) -
     the pproc artifact's
     ``[exports]`` table (PFS-2029.14.02): a kind set to false is left
     out. Unstated kinds are kept except ``vtk`` and ``csv``, which are
-    opt-in, so an empty table preserves the existing export set.
+    opt-in, so an empty table preserves the existing export set. The
+    artifact cannot set ``loads`` or ``simulation`` to false
+    (:class:`PprocSpec` refuses both), so every row naming a run type
+    declares its loads table and its final saved simulation.
     """
     chosen = exports or {}
     return [
@@ -2001,6 +2004,15 @@ class PprocSpec(BaseModel):
             raise ValueError(
                 "the loads table cannot be deselected: it is the export this package "
                 "judges a run by"
+            )
+        # G11 (0.27.0): a point's final state is a guarantee, not a choice.
+        # `false` here was the one route by which a row naming a run type left
+        # no .fsm, and nothing said so.
+        if not value.get("simulation", True):
+            raise ValueError(
+                "the saved simulation cannot be deselected: every point of a row naming a "
+                "run type leaves its final .fsm in datapoints/DP-<point>/, hashed in its run "
+                "record; remove 'simulation = false'"
             )
         return value
 

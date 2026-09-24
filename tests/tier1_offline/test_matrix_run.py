@@ -90,6 +90,16 @@ WRITES_LOADS = (
     "[pathlib.Path(lines[i + 1]).write_text('LOADS') "
     "for i, line in enumerate(lines) if line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET']"
 )
+#: The same, and the saved simulation beside it: a row naming a run type
+#: declares its final .fsm on every point since 0.27.0 (G11), and no pproc
+#: artifact can switch it off, so a stub carrying such a row writes it too.
+WRITES_LOADS_AND_THE_SIMULATION = (
+    "import pathlib, sys; "
+    "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
+    "[pathlib.Path(lines[i + 1]).write_text('LOADS' if line.startswith('EXPORT') else 'FSM') "
+    "for i, line in enumerate(lines) "
+    "if line in ('EXPORT_SOLVER_ANALYSIS_SPREADSHEET', 'SAVEAS')]"
+)
 
 
 def matrix_recipe(case, script):
@@ -4476,10 +4486,11 @@ def test_the_record_and_the_provenance_carry_the_raw_commands_of_the_setup(tmp_p
         tier3 / "inputs", root / "inputs", ignore=shutil.ignore_patterns("*.local.toml")
     )
     shutil.copy(tier3 / "matriz_setup.fs", root / "matriz_setup.fs")
-    # The stand-in solver writes the loads spreadsheet alone, so the study's
-    # pproc keeps its groups and declares no other export.
+    # The stand-in solver writes the loads spreadsheet and the saved simulation
+    # alone, so the study's pproc keeps its groups and switches off every
+    # export that can be (the saved simulation cannot, since 0.27.0).
     (root / "inputs" / "pproc" / "p002.toml").write_text(
-        '[groups]\n"1" = "Wing"\n\n[exports]\nsimulation = false\ntecplot = false\n'
+        '[groups]\n"1" = "Wing"\n\n[exports]\ntecplot = false\n'
         "sections = false\nsectional_loads = false\nprobes = false\nplots = false\nlog = false\n",
         encoding="utf-8",
     )
@@ -4491,7 +4502,7 @@ def test_the_record_and_the_provenance_carry_the_raw_commands_of_the_setup(tmp_p
         default_fs_version="26.120",
         recipes={},
         assess=converged,
-        executor=StubSolver(WRITES_LOADS),
+        executor=StubSolver(WRITES_LOADS_AND_THE_SIMULATION),
         recipe_registry=workflow_registry(),
     )
     by_sim = {}

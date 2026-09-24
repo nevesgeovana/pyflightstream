@@ -5382,9 +5382,10 @@ def resolve_continuation(
     if saved is None:
         raise CampaignConfigError(
             f"run {previous.run_id!r} stopped at {previous.status} and collected no saved "
-            f"simulation ({SIMULATION_SUFFIX}), so there is no state to reopen. A row whose "
-            "post-processing artifact turns the simulation export off cannot be continued; "
-            "turn it on and run the row again."
+            f"simulation ({SIMULATION_SUFFIX}), so there is no state to reopen. A run recorded "
+            "before 0.27.0 under a post-processing artifact that turned the simulation export "
+            "off cannot be continued: since 0.27.0 every point of a row naming a run type saves "
+            "it and no artifact can turn it off, so run the row again."
         )
     if not (workspace.sim_dir(case.sim_id) / str(saved)).is_file():
         raise CampaignConfigError(
