@@ -69,6 +69,12 @@ SIM_DATAPOINTS_DIR = "datapoints"
 #: `datapoints/` sees at once that the entries are points and not files.
 DATAPOINT_PREFIX = "DP-"
 
+#: The datapoint subfolder the additional post extracts into, one folder per
+#: pproc id (G12 of 0.27.0): ``datapoints/DP-<point>/additional/<pid>/``. Inside
+#: the point's own folder, so an archive of the point (a continuation, a forced
+#: rerun) takes its extractions with it.
+ADDITIONAL_DIR = "additional"
+
 #: What every file of a point begins with, before its simulation id: the stem
 #: of a point is ``P<sim>-<point name>`` (0.21.0).
 POINT_FILE_PREFIX = "P"

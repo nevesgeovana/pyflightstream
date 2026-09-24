@@ -4413,3 +4413,55 @@ requirement below is one seam of that division.
     - Not measured: the delete-then-create sequence inside one script, a
       `COLD_START` clear's effect on a section, and any `refinement_layers`
       other than 1.
+
+!!! requirement "FR-111 A row names an additional pproc, and the post extracts it from each point's saved simulation with no solve <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G12 of the 0.27.0 scope: a finished point could not be asked for
+    more without solving it again, although its final saved simulation is kept
+    (FR-51) and RPT-062 measured on 26.124 what a reopened simulation gives
+    back identically. Evidence: `tests/tier1_offline/test_additional_post.py`
+    (the key planned READY and changing no byte of the run script on any run
+    type; each plan refusal; the extraction script against one golden per
+    pproc kind under `tests/tier1_offline/goldens/additional/`, never solving,
+    saving, or creating a frame or a probe; the three skips of a row without
+    the key, an absent saved simulation and one that does not hash as its
+    record says, and the other skips; the run's record, manifest and files
+    unchanged; the command line; the products marked with the pproc and a
+    stale extraction skipped under its own key). The licensed end-to-end run
+    of the extraction is owed.*
+
+    A row states `ADDITIONAL_PPROC: <pproc id>` in its `VAR_NAMES_VALUES` cell;
+    no builder reads it and the run record never carries it.
+    `pyfs-matrix post <matrix> --additional-pproc` (library:
+    `pyflightstream.run.matrix.run_additional_post`) then takes every
+    recorded point of such a row whose final `.fsm` is on disk and hashes as
+    its record says, copies it into `datapoints/DP-<point>/additional/<pid>/`,
+    and runs one script there that opens the copy, creates the pproc's section
+    distributions in the frames the run created, updates the sections, computes
+    their sectional loads, exports the loads, the surface the pproc's
+    `[exports]` selects, the sections, the sectional loads, the log and, on an
+    unsteady point, the plots history, and closes, with no solve and no save.
+    Each extraction is recorded in `additional.json` beside `runs.json`, which
+    is never written; the post writes the products of every current extraction
+    under `post/<matrix>/additional/<pid>/`, each entry marked with the pproc,
+    `"additional": true` and the extractions it holds.
+
+    - Refused at plan, naming the key or the table: an id the library lacks;
+      an additional pproc declaring probes or a volume section (the field off
+      the body does not come back, RPT-062), plots or time averaging, base
+      regions, or an `[exports]` turning the sections or their loads off or a
+      kind the extraction never writes on; the key on a `LEGACY` row; a row on
+      a build other than 26.124.
+    - Skipped by name per point: a row without the key; no saved simulation;
+      one that does not hash as its record says; an extraction already made
+      from the same bytes with the same artifact; a build that changed; a run
+      that averaged its surface in time; a run script whose frames or
+      boundaries the row no longer reproduces; a point queued, continued, or on
+      an inactive row.
+    - An unsteady point gives its last instant, warned at plan per row and per
+      point at extraction, and recorded. The original saved simulation is
+      opened only through a copy and is hashed again after the launch.
+    - A workspace that submits from the machine is refused, naming `local`
+      (CLI: `--local`): the submitting half is not built.
+    - Not measured: any build but 26.124, a surface averaged in time reopened,
+      and whether the reopened distributions the run created can be deleted.

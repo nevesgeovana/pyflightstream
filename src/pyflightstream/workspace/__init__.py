@@ -117,6 +117,7 @@ from pyflightstream.workspace.inputs import (
     strip_rotor_facts,
 )
 from pyflightstream.workspace.naming import (
+    ADDITIONAL_DIR,
     ARCHIVE_DIR,
     ARCHIVE_STAMP,
     SIM_DATAPOINTS_DIR,
@@ -147,6 +148,10 @@ __all__ = [
     # declared. Two of these are plainly meant to be reachable, since
     # `post/products.py` re-exports them under its own spellings, and being
     # undecided in the release that MOVED them is the part that is wrong.
+    "ADDITIONAL_DIR",
+    "ADDITIONAL_MANIFEST",
+    "ADDITIONAL_MANIFEST_SCHEMA",
+    "AdditionalRecord",
     "ARCHIVE_DIR",
     "ARCHIVE_STAMP",
     "RenamedProduct",
@@ -160,6 +165,7 @@ __all__ = [
     "MANIFEST_SCHEMA",
     "SOURCE_VERSION_REQUIRED_SINCE",
     "ExecutorRecord",
+    "ExtractionStatus",
     "REFERENCE_POINTS_FILE",
     "STEM_REGISTERED_KINDS",
     "BrokenCommandRecord",
@@ -1203,6 +1209,150 @@ class RunRecord(BaseModel):
         return out
 
 
+#: THE EXTRACTION MANIFEST of the additional post (G12 of 0.27.0), a file of its
+#: own beside ``runs.json`` at the workspace root. NOT a row of ``runs.json``, for
+#: four reasons: the original run record must stay as it was written, so the
+#: manifest of runs is never opened for writing by an extraction; an extraction
+#: is not a run (no solve, no convergence verdict, no setup); every reader of
+#: ``runs.json`` takes a row there as a run of its point (a sweep-table row, a
+#: continuation's predecessor, a resume identity); and a row carrying keys a
+#: 0.26.0 reader does not know makes it refuse the WHOLE manifest, while this
+#: file is simply unread by it.
+ADDITIONAL_MANIFEST = "additional.json"
+
+#: Layout identifier of an extraction record, with the rule of
+#: :data:`MANIFEST_SCHEMA`: bumped when a field is removed or changes meaning.
+ADDITIONAL_MANIFEST_SCHEMA = "pyfs-additional/1"
+
+
+class ExtractionStatus(enum.StrEnum):
+    """Terminal status of one extraction of the additional post (G12).
+
+    There is no convergence verdict among them: an extraction solves nothing,
+    so it is judged by its process and by the files it declared.
+    """
+
+    #: Every declared file was written and hashed.
+    EXTRACTED = "EXTRACTED"
+    #: The process failed, or the original saved simulation moved during it.
+    FAILED_EXECUTION = "FAILED_EXECUTION"
+    #: The process ended and a declared file is missing.
+    FAILED_INCOMPLETE_OUTPUT = "FAILED_INCOMPLETE_OUTPUT"
+
+
+class AdditionalRecord(BaseModel):
+    """One extraction of the additional post: a saved simulation reopened, with no solve.
+
+    Written to :data:`ADDITIONAL_MANIFEST` and never to ``runs.json``, so the
+    point's own record stays exactly as its run wrote it. Every path is
+    relative to the point's simulation folder, as a run record's are.
+
+    Attributes
+    ----------
+    manifest_schema : str
+        :data:`ADDITIONAL_MANIFEST_SCHEMA`.
+    extraction_id : str
+        ``<point run_id>/additional/<pproc id>``, the identity of this
+        extraction; the LATEST record of an identity is the one that counts.
+    run_id : str
+        The point's run id, as :meth:`RunRecord.as_points` names it.
+    job_id : str or None
+        The run id of the job record the point belongs to, for a steady row
+        run as one job; None for a point recorded on its own.
+    sim_id, point_name, matrix_stem : str or None
+        Copied from the point's record.
+    pproc : str
+        The ADDITIONAL pproc id, which the products are marked with.
+    pproc_sha256 : str or None
+        sha256 of ``inputs/pproc/<pproc>.toml`` when the extraction ran, so an
+        artifact edited since is extracted again.
+    fsm : str
+        The point's saved simulation, as its record names it.
+    fsm_sha256 : str
+        Its sha256 in the point's record, which the file on disk matched and
+        the copy the solver opened matched too.
+    fsm_sha256_after : str or None
+        The ORIGINAL file hashed again after the launch; it equals
+        ``fsm_sha256`` or the extraction is recorded failed.
+    unsteady : bool
+        Whether the point marched in time; its extraction is then one instant,
+        the last.
+    note : str or None
+        What a reader of the extraction must know: the one-instant sentence on
+        an unsteady point.
+    fs_version_requested, fs_exe, fs_exe_sha256 : str or None
+        The build the extraction was emitted under and run on.
+    package_version, package_commit, package_dirty
+        As on a run record.
+    script_path, script_sha256 : str
+        The extraction script, under ``scripts/additional/<pproc>/``.
+    working_dir : str
+        Where the solver ran and wrote: ``datapoints/DP-<point>/additional/<pproc>``.
+    argv, cwd, timeout_s, executor, started_at, finished_at, wall_time_s
+        How the solver was called, as on a run record.
+    status : ExtractionStatus
+        The terminal status.
+    error : str or None
+        Why a failed extraction failed.
+    outputs : list of str
+        The files written, relative to the simulation folder.
+    outputs_sha256 : dict of str to str
+        sha256 of each, keyed by the same name.
+    sections_layout : list of dict
+        Which rows of the sections exports are which distribution: the run's
+        own layout first, then the additional pproc's blocks, numbered on after
+        the run's and marked with the pproc (RPT-062: a reopened export carries
+        the run's distributions first and the new ones after them).
+    leading_sections : int
+        How many rows at the head of those exports are the run's own.
+    frames : dict
+        The frames the extraction cited, by name, as the run created them.
+    inventory : list of str or None
+        The boundary names the saved simulation holds, in the solver's order.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    manifest_schema: str = ADDITIONAL_MANIFEST_SCHEMA
+    extraction_id: str
+    run_id: str
+    job_id: str | None = None
+    sim_id: str
+    point_name: str | None = None
+    matrix_stem: str | None = None
+    pproc: str
+    pproc_sha256: str | None = None
+    fsm: str
+    fsm_sha256: str
+    fsm_sha256_after: str | None = None
+    unsteady: bool = False
+    note: str | None = None
+    fs_version_requested: str
+    fs_exe: str | None = None
+    fs_exe_sha256: str | None = None
+    package_version: str
+    package_commit: str | None = None
+    package_dirty: bool | None = None
+    script_path: str
+    script_sha256: str
+    working_dir: str
+    argv: list[str] = Field(default_factory=list)
+    cwd: str | None = None
+    timeout_s: float | None = None
+    executor: ExecutorRecord | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    wall_time_s: float | None = None
+    status: ExtractionStatus
+    error: str | None = None
+    outputs: list[str] = Field(default_factory=list)
+    outputs_sha256: dict[str, str] = Field(default_factory=dict)
+    sections_layout: list[dict[str, object]] = Field(default_factory=list)
+    leading_sections: int = 0
+    frames: dict[str, int | dict[str, int] | None] = Field(default_factory=dict)
+    inventory: list[str] | None = None
+
+
 def _is_link(path: Path) -> bool:
     """Whether ``path`` is a symbolic link or, on Windows, a directory junction."""
     return path.is_symlink() or (sys.platform == "win32" and _is_junction(path))
@@ -1793,6 +1943,11 @@ class CampaignWorkspace:
     def manifest_path(self) -> Path:
         """Location of the authoritative manifest, ``runs.json``."""
         return self.root / "runs.json"
+
+    @property
+    def additional_path(self) -> Path:
+        """Location of the extraction manifest of the additional post, ``additional.json``."""
+        return self.root / ADDITIONAL_MANIFEST
 
     @property
     def inputs_dir(self) -> Path:
@@ -2996,8 +3151,13 @@ class CampaignWorkspace:
                 )
 
     @contextmanager
-    def _manifest_lock(self) -> Iterator[None]:
+    def _manifest_lock(self, manifest: Path | None = None) -> Iterator[None]:
         """Hold the manifest's read-modify-replace under an owned, renewable lease.
+
+        ``manifest`` is the file the lease guards, ``runs.json`` unless named:
+        the extraction manifest of the additional post (G12) takes a lease of
+        its own under the same rules, ``additional.json.lock``, so an extraction
+        never holds or waits on the lease of the runs.
 
         ``runs.json.lock`` records the PID, host and a unique token. A background
         heartbeat updates its modification timestamp every five seconds. A waiter
@@ -3021,7 +3181,8 @@ class CampaignWorkspace:
             If another writer holds the manifest for the configured wait bound.
         """
         self.root.mkdir(parents=True, exist_ok=True)
-        lock = self.manifest_path.with_suffix(".json.lock")
+        guarded = self.manifest_path if manifest is None else manifest
+        lock = guarded.with_suffix(".json.lock")
         guard = lock.with_name(f".{lock.name}.guard")
         owner = {"pid": os.getpid(), "host": socket.gethostname(), "token": uuid.uuid4().hex}
 
@@ -3126,7 +3287,7 @@ class CampaignWorkspace:
                     break
             if time.monotonic() > deadline:
                 raise WorkspaceError(
-                    f"the manifest {self.manifest_path} has been held by another writer "
+                    f"the manifest {guarded} has been held by another writer "
                     f"for {MANIFEST_LOCK_TIMEOUT_S:.0f} s ({lock} exists), so this record "
                     "was NOT written. The lock is recovered only after its local owner "
                     "exits or its heartbeat expires; retry after the holder finishes."
@@ -3208,6 +3369,47 @@ class CampaignWorkspace:
                 )
             raw.append(record.model_dump(mode="json"))
             self._replace_manifest(raw)
+
+    def read_additional(self) -> list[AdditionalRecord]:
+        """Read every record of the extraction manifest, ``additional.json`` (G12).
+
+        Returns an empty list when no extraction has been recorded. Several
+        records may share an ``extraction_id``: the manifest is append-only and
+        the latest record of an identity is the one that counts.
+
+        Returns
+        -------
+        list of AdditionalRecord
+            One per recorded extraction, in the order they were written.
+        """
+        if not self.additional_path.is_file():
+            return []
+        entries = json.loads(self.additional_path.read_text(encoding="utf-8"))
+        return [AdditionalRecord.model_validate(entry) for entry in entries]
+
+    def append_additional(self, record: AdditionalRecord) -> None:
+        """Append one extraction record to ``additional.json``, atomically (G12).
+
+        Under a lease of its own, never the lease of ``runs.json``, and through a
+        temporary file and an atomic replace, as :meth:`append_record` writes the
+        manifest of runs. Existing records are carried across as they were
+        written, and ``runs.json`` is not opened.
+
+        Parameters
+        ----------
+        record : AdditionalRecord
+            The extraction to record.
+        """
+        with self._manifest_lock(self.additional_path):
+            raw = (
+                list(json.loads(self.additional_path.read_text(encoding="utf-8")))
+                if self.additional_path.is_file()
+                else []
+            )
+            raw.append(record.model_dump(mode="json"))
+            temporary = self.additional_path.with_suffix(f".json.{os.getpid()}.tmp")
+            temporary.write_text(json.dumps(raw, indent=2) + "\n", encoding="utf-8")
+            temporary.replace(self.additional_path)
 
     def supersede_records(
         self, run_ids: Sequence[str], *, stamp: datetime | None = None

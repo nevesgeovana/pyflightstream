@@ -887,6 +887,16 @@ class Script:
         #: sections table could not say which rows belong to which surface, and
         #: nothing at post can recover a name the script never wrote.
         self.section_blocks: list[dict[str, object]] = []
+        #: THE FRAMES THE BUILDER CREATED, by the name a pproc entry cites (G12
+        #: of 0.27.0): ``MRP`` and a rotor's frames to an index or None, and
+        #: ``BLADE_AXIS`` to one index per blade family. Filled where the
+        #: builder hands them to the init phase, for the reason
+        #: ``section_blocks`` is filled by the loop that emits: the additional
+        #: post cuts new distributions in the frames a saved simulation holds,
+        #: and a distribution cites a frame by index. None for a script no run
+        #: type built (a LEGACY recipe's) and for a continuation, which creates
+        #: no frame.
+        self.frames_by_name: dict[str, int | Mapping[str, int] | None] | None = None
         #: WHETHER THIS SCRIPT HAS ALREADY CUT ITS VOLUME SECTION (G05). A steady
         #: sweep is one script, and a section created per point would take index
         #: 1, 2, 3 while each point exports index 1; the builder deletes the one
