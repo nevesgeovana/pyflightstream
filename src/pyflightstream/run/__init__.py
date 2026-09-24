@@ -5670,6 +5670,7 @@ def _write_pending_files(
     # script and its probe points file. A file parked there would replace
     # them, and the solver would run other commands than script_sha256 names.
     reserved.update({one_file(placed(str(own))): str(own) for own in run_writes})
+    hashed = set(recorded.values())
     targets: dict[str, tuple[Path, bytes]] = {}
     for parked, content in (
         *script.pending_action_scripts.items(),
@@ -5684,6 +5685,19 @@ def _write_pending_files(
                 "recorded. Rename it; the solver was not started."
             )
         data = content if isinstance(content, bytes) else content.encode("utf-8")
+        # AN INPUT THE RECORD ALREADY HASHED IS NEVER WRITTEN OVER. The staged
+        # geometry may be the library's own file through the inputs junction,
+        # and a file parked on its path would replace it before the check below
+        # could refuse the run. The same bytes are the same file.
+        if target.is_file() and file_sha256(target) in hashed:
+            existing = target.read_bytes()
+            if existing not in (data, data.replace(b"\n", b"\r\n")):
+                raise CampaignConfigError(
+                    f"case {case.sim_id!r}: {target} is an input the run already hashed "
+                    "(inputs_sha256), and a file the script parks would replace it before "
+                    "the solver starts. Park it under another name; the solver was not "
+                    "started and the input was not written."
+                )
         first = targets.setdefault(one_file(target), (target, data))
         if first[1] != data:
             raise CampaignConfigError(

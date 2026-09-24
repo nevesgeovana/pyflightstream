@@ -948,6 +948,7 @@ def _log_verdicts(
     its log to, whatever its name (:func:`_declared_log_names`).
     """
     from pyflightstream.run._wake_edge_verdict import (
+        SOLVER_OWN_LOG,
         actuator_profile_verdict,
         collected_log_texts,
         collected_solver_log,
@@ -966,11 +967,20 @@ def _log_verdicts(
             status, verdict, wake_edge_import_verdict(expected, log_text)
         )
     declared = _declared_log_names(record, sim_dir)
+    # The solver's own log, where the job ran, whether or not a row declared it:
+    # it carries the four lines on a job that collected nothing else as a log.
+    cwd = getattr(record, "cwd", None)
+    ran_in = [Path(cwd)] if isinstance(cwd, str) and cwd else []
+    own = [
+        (folder / SOLVER_OWN_LOG).read_text(encoding="utf-8", errors="replace")
+        for folder in dict.fromkeys([*ran_in, sim_dir])
+        if (folder / SOLVER_OWN_LOG).is_file()
+    ]
     return with_wake_edge_verdict(
         status,
         verdict,
         actuator_profile_verdict(
-            log_text, job_log, *collected_log_texts(sim_dir, collected, declared)
+            log_text, job_log, *own, *collected_log_texts(sim_dir, collected, declared)
         ),
     )
 

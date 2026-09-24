@@ -836,7 +836,11 @@ gone (`docs/migrating-to-0.27.0.md`).
   included, since naming the logs one route at a time left the next route
   unread; and the point's main script, its probe points file and a submitting
   executor's descriptor are files the run writes itself, so nothing parked may
-  replace them (G06).
+  replace them (G06). A file parked on an input the record already hashed (the
+  staged geometry, which can be the library's own file through the inputs
+  folder) is refused before it is written, so the input keeps its bytes; and
+  collection reads the solver's own `FlightStreamLog.txt` where the job ran,
+  declared or not (G06).
 
 ### Changed
 

@@ -585,3 +585,67 @@ def test_both_run_paths_reserve_the_script_they_wrote(tmp_path, monkeypatch, val
     record, _profile, _line = _run_a_profile_row(tmp_path, values=values, refused=False)
     assert seen, "the writer was not called"
     assert any(p.endswith(record.script_path) for p in seen[0]), (seen, record.script_path)
+
+
+@pytest.mark.parametrize("kind", ["action", "data"])
+def test_a_file_parked_on_a_hashed_input_is_refused_before_it_is_written(tmp_path, kind):
+    """A recipe parks a file on the path of the staged geometry, which the record already
+    hashed and which may be the geometry library itself through the inputs junction: the
+    writer refuses before a byte is written, so the input keeps its bytes; the same bytes
+    parked there are one file and accepted."""
+    geometry = tmp_path / "sims" / "sim_9008" / "inputs" / "wing.obj"
+    geometry.parent.mkdir(parents=True)
+    geometry.write_bytes(b"v 0 0 0\n")
+    script = Script("26.124")
+    if kind == "action":
+        script._pending_action_scripts[str(geometry)] = "EXPORT_SOLVER_ANALYSIS_SPREADSHEET"
+    else:
+        script._pending_input_files[str(geometry)] = b"not the geometry"
+    case = SimCase(
+        sim_id="9008",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="actions",
+        outputs=["loads_{point}.txt"],
+    )
+    recorded = {"wing.obj": file_sha256(geometry)}
+    with pytest.raises(CampaignConfigError, match=r"already hashed"):
+        _write_pending_files(script, tmp_path / "DP-point", case=case, recorded=recorded)
+    assert geometry.read_bytes() == b"v 0 0 0\n", "the input was overwritten before the refusal"
+
+    same = Script("26.124")
+    same._pending_input_files[str(geometry)] = b"v 0 0 0\n"
+    _write_pending_files(same, tmp_path / "DP-point", case=case, recorded=recorded)
+    assert geometry.read_bytes() == b"v 0 0 0\n"
+
+
+@pytest.mark.parametrize("refused", [True, False], ids=["refused", "control"])
+def test_collection_reads_the_solvers_own_log_where_the_job_ran(tmp_path, refused):
+    """A submitted point that declared its loads only: the solver still wrote its own
+    ``FlightStreamLog.txt`` in the folder the job ran in, and a refusal line there
+    overrides a CONVERGED assessment on collection."""
+    from pyflightstream.run._wake_edge_verdict import ACTUATOR_PROFILE_REFUSALS
+    from pyflightstream.run.collect import _log_verdicts
+    from pyflightstream.workspace import RunRecord
+
+    sim_dir = tmp_path / "sims" / "sim_9009"
+    work = sim_dir / "datapoints" / "DP-AL+000"
+    work.mkdir(parents=True)
+    (work / "loads.txt").write_text("the loads", encoding="utf-8")
+    line = ACTUATOR_PROFILE_REFUSALS[1] if refused else "Solver finished"
+    (work / "FlightStreamLog.txt").write_text(line + "\nC:/w/prop.txt\n", encoding="utf-8")
+    record = RunRecord.model_construct(
+        run_id="camp/sim_9009/AL+000",
+        sim_id="9009",
+        submission={},
+        script_path=None,
+        cwd=str(work),
+    )
+    status, verdict = _log_verdicts(
+        record, sim_dir, ["datapoints/DP-AL+000/loads.txt"], None, RunStatus.CONVERGED, None
+    )
+    if refused:
+        assert status is RunStatus.FAILED_SCRIPT, (status, verdict)
+    else:
+        assert status is RunStatus.CONVERGED, (status, verdict)
