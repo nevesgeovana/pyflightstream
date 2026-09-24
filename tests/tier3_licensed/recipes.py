@@ -283,6 +283,7 @@ def steady_with_a_log(case, script) -> None:
         velocity=case.velocity,
         iterations=case.solver.iterations,
         convergence=case.solver.convergence,
+        farfield_layers=case.solver.farfield_layers,
     )
     helpers.start_solver(script)
     script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", case.outputs[0])
@@ -324,6 +325,7 @@ def actions_reread_probe(case, script) -> None:
         velocity=case.velocity,
         iterations=case.solver.iterations,
         convergence=case.solver.convergence,
+        farfield_layers=case.solver.farfield_layers,
     )
     helpers.unsteady_action(
         script,

@@ -1389,3 +1389,18 @@ def test_every_solving_script_of_the_0_27_0_matrices_states_five_farfield_layers
         for stem, text in rendered.items():
             assert "START_SOLVER" in text, stem
             assert text.splitlines().count("SOLVER_SET_FARFIELD_LAYERS 5") == 1, stem
+
+
+def test_every_solving_script_of_every_matrix_states_five_farfield_layers():
+    """The same rule over every matrix of the workspace, a recipe row's script
+    included: a recipe writes its own commands, so the setup's line reaches its
+    script only if the recipe hands the setup's value to the helper."""
+    solving = 0
+    for matrix in MATRICES:
+        for stem, text in offline.render(matrix)[1].items():
+            if "START_SOLVER" not in text.splitlines():
+                continue
+            solving += 1
+            lines = text.splitlines()
+            assert lines.count("SOLVER_SET_FARFIELD_LAYERS 5") == 1, f"{matrix.name}: {stem}"
+    assert solving >= 60, solving
