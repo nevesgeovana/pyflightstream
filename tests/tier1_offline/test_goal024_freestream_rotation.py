@@ -11,10 +11,16 @@ Every rate zero, or no rate at all, writes ``SET_FREESTREAM CONSTANT``, which
 is what every row written before this release does.
 
 WHAT THESE TESTS DO NOT MEASURE: what the SOLVER does with a positive angular
-velocity. No edition of the manual states it; the package emits the rate as
-written and the convention is measured by one licensed probe, recorded as a
-report under ``reports/probes``. The sign is one named constant here so that
-the probe changes one line.
+velocity. No edition of the manual states it; it was measured by two licensed
+probes on 26.124, each recorded as a report with its evidence under
+``reports/probes``: RPT-052 (pitch) and RPT-060 (the probe T11, roll and yaw).
+The solver turns the free stream as a right-hand rotation about the frame axis
+it is given, so the sign of the emitted rotation is the sign of the body axis in
+the geometry's frame: -1 for roll, +1 for pitch, -1 for yaw (G13, 0.27.0).
+Until 0.27.0 one sign of +1 served all three, and the two roll and yaw pins
+below encoded it: they were the defect's fixture and moved with the fix. What
+the solver does with the emitted line is scored against the recorded probes in
+``test_ops2011_rate_sense_against_recorded_probes.py``.
 
 This module is the evidence of FR-105.
 
@@ -125,7 +131,79 @@ def test_goal024_freestream_rotation_each_rate_takes_its_own_axis(tmp_path):
         words = _free_stream(_script(workspace, matrix))
         assert words[1] == "ROTATION", words
         assert words[3] == axis, (key, words)
-        assert float(words[4]) == pytest.approx(6.0 * 60.0 / 360.0), words
+        # NEGATIVE, because forward is -X and down is -Z of the geometry's
+        # frame (G13). This pin read +1.0 until 0.27.0: it encoded the one sign
+        # the package used for all three axes, which the probe T11 measured
+        # asking the solver for the opposite roll and yaw (RPT-060).
+        assert float(words[4]) == pytest.approx(-6.0 * 60.0 / 360.0), words
+
+
+#: THE FRAME ALGEBRA the next test derives its expected arguments from, written
+#: here and read from no module of the package (G13). The geometry's frame, the
+#: one a loads export states its forces in, is x AFT, y RIGHT, z UP; the
+#: flight-mechanics body axes are x FORWARD, y RIGHT, z DOWN. So each body axis a
+#: rate turns about is, in the geometry's components:
+_BODY_AXIS_IN_GEOMETRY_FRAME = {
+    "roll_rate": (-1.0, 0.0, 0.0),  # forward, and x points aft
+    "pitch_rate": (0.0, 1.0, 0.0),  # right, and y points right
+    "yaw_rate": (0.0, 0.0, -1.0),  # down, and z points up
+}
+_GEOMETRY_FRAME_AXIS = {"X": (1.0, 0.0, 0.0), "Y": (0.0, 1.0, 0.0), "Z": (0.0, 0.0, 1.0)}
+
+
+def _flight_mechanics_rpm(key: str, axis: str, rate_deg_s: float) -> float:
+    """The rev/min about frame axis ``axis`` that turns the aircraft at ``rate_deg_s``.
+
+    A body rate w about body axis b is the angular velocity w b. The solver
+    turns the free stream as a RIGHT-HAND rotation about the frame axis it is
+    given (RPT-052 for y, RPT-060 for x and z, both on 26.124), so the speed it
+    must be given about axis e is the component w (b . e), in rev/min.
+    """
+    body = _BODY_AXIS_IN_GEOMETRY_FRAME[key]
+    along = sum(b * e for b, e in zip(body, _GEOMETRY_FRAME_AXIS[axis], strict=True))
+    return rate_deg_s * along * 60.0 / 360.0
+
+
+def test_goal024_freestream_rotation_each_rate_turns_in_the_flight_mechanics_sense(tmp_path):
+    """Positive p is right wing down, q nose up, r nose right, in either sign of the rate.
+
+    G13 of 0.27.0: the expected rotation is DERIVED from the frame algebra
+    above, not copied from the package, so a sign that agrees with itself and
+    not with the frames fails here. Pitch is the control: RPT-052 measured it
+    right, and it is unchanged.
+    """
+    wrong = []
+    for key, axis in (("roll_rate", "X"), ("pitch_rate", "Y"), ("yaw_rate", "Z")):
+        for rate in (6.0, -6.0):
+            workspace, matrix = _rate_matrix(
+                tmp_path / f"{key}{rate:+g}",
+                condition=f"MACH:0.2, REmi:2.3, ALPHA:sweep, {key}:{rate}",
+            )
+            words = _free_stream(_script(workspace, matrix))
+            assert words[:2] == ["SET_FREESTREAM", "ROTATION"], words
+            assert words[3] == axis, (key, words)
+            expected = _flight_mechanics_rpm(key, axis, rate)
+            if float(words[4]) != pytest.approx(expected):
+                wrong.append(
+                    f"{key} {rate:+g} deg/s emits {axis} {float(words[4]):+.4f} rev/min, "
+                    f"and flight mechanics asks {axis} {expected:+.4f}"
+                )
+    assert not wrong, "; ".join(wrong)
+
+
+def test_goal024_freestream_rotation_the_sign_per_rate_is_the_export_to_body_turn():
+    """The emitter's sign per rate and the post's export-to-body turn are one relation.
+
+    The two live in two layers (``cases`` may not import ``post``), so this
+    holds them together: a change to either without the other fails here.
+    """
+    from pyflightstream.cases.workflows import FREESTREAM_ROTATION_SIGN, RATE_VARIABLES
+    from pyflightstream.post.axes import EXPORT_TO_BODY
+
+    assert [name for _, name in RATE_VARIABLES] == ["roll", "pitch", "yaw"]
+    assert set(FREESTREAM_ROTATION_SIGN) == {"roll", "pitch", "yaw"}
+    for index, (_, name) in enumerate(RATE_VARIABLES):
+        assert FREESTREAM_ROTATION_SIGN[name] == float(EXPORT_TO_BODY[index, index]), name
 
 
 def test_goal024_freestream_rotation_every_rate_zero_writes_constant(tmp_path):

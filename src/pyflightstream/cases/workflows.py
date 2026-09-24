@@ -5665,26 +5665,40 @@ RATE_VARIABLES: tuple[tuple[str, str], ...] = (
 #: Degrees per second to revolutions per minute: 60 seconds over 360 degrees.
 _DEG_PER_S_TO_RPM = 60.0 / 360.0
 
-#: WHAT THE SIGN OF THE EMITTED ROTATION IS, relative to the rate the row
-#: states. The row's rates are FLIGHT MECHANICS:
-#: a positive pitch rate is nose-up. What the SOLVER does with a positive
-#: angular velocity about a frame axis is the solver's own convention, and no
-#: edition of the manual states it, so this package emits the rate AS WRITTEN
-#: and the convention is MEASURED rather than asserted: one licensed probe,
-#: three rates of one kind on one build, recorded as RPT-052 with its evidence
-#: under reports/probes.
+#: THE SIGN OF THE EMITTED ROTATION, PER BODY AXIS, relative to the rate the
+#: row states (G13, 0.27.0). The row's rates are FLIGHT MECHANICS: positive p
+#: is right wing down, q nose up, r nose right, about body axes that point
+#: forward, right and down. The solver turns the free stream as a RIGHT-HAND
+#: rotation about the frame axis it is given, and the geometry's frame is x
+#: aft, y right, z up, the frame every loads export states its forces in. The
+#: body axes are that frame turned half a turn about y (``post.axes``,
+#: ``EXPORT_TO_BODY`` = diag(-1, 1, -1)), so p = -omega_x, q = +omega_y and
+#: r = -omega_z, and each sign here is that turn's diagonal entry for its
+#: axis. ``cases`` may not import ``post``, so the value is written out and
+#: tests/tier1_offline/test_goal024_freestream_rotation.py holds the two
+#: homes of the relation together.
 #:
-#: THE MEASUREMENT: reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md,
-#: three pitch rates on one wing-body on 26.124, with its evidence under
-#: reports/probes/. A positive rate came back with the nose-down moment
-#: increment that opposes a nose-up rotation, so this stays +1.
+#: MEASURED, not asserted, since no edition of the manual states the solver's
+#: sense. Pitch by RPT-052: a positive rotation about y came back with the
+#: nose-down moment increment that opposes a nose-up rotation. Roll and yaw by
+#: the licensed probe T11, RPT-060, seven converged solves on 26.124: a
+#: positive rotation about x gave the meshed left wing MORE lift and a positive
+#: rolling increment, the damping of -p, and a positive rotation about z gave
+#: it LESS lift, the response of -r. Both reports and their evidence are under
+#: reports/. Until 0.27.0 one sign of +1 served all three axes, so a row of
+#: 0.21.0 to 0.26.0 stating roll_rate or yaw_rate was solved at the opposite
+#: rate.
 #:
-#: WHAT CHANGES IF A LATER PROBE DISAGREES: this constant AND the two rate
-#: assertions of tests/tier1_offline/test_goal024_freestream_rotation.py, which
-#: pin the emitted rev/min against the stated rate. Saying "one line" was wrong
-#: and is the sentence a maintainer would have acted on (the V&V lens,
-#: 2026-09-16).
-FREESTREAM_ROTATION_SIGN = 1.0
+#: A configuration whose [body_axes] permutes the axes turns about the axis it
+#: declares with its rate's sign here; no probe has measured such a mesh.
+#:
+#: WHAT CHANGES IF A LATER PROBE DISAGREES: this table, the frame algebra and
+#: the pins of tests/tier1_offline/test_goal024_freestream_rotation.py, and the
+#: scoring against the recorded probes in
+#: tests/tier1_offline/test_ops2011_rate_sense_against_recorded_probes.py.
+FREESTREAM_ROTATION_SIGN: Mapping[str, float] = MappingProxyType(
+    {"roll": -1.0, "pitch": 1.0, "yaw": -1.0}
+)
 
 
 def _stated_rate(case: SimCase, key: str) -> float | None:
@@ -5740,6 +5754,11 @@ def _free_stream(case: SimCase, script: Script, frames: Frames) -> None:
 
     Every rate zero, or no rate at all, emits CONSTANT: a row written before
     this release renders exactly what it rendered before.
+
+    The rotation is emitted with the sign of its body axis in the geometry's
+    frame, ``FREESTREAM_ROTATION_SIGN``: roll and yaw are NEGATED and pitch is
+    not, because forward is -x and down is -z of a frame that points aft and
+    up (G13, 0.27.0; RPT-052 and RPT-060 measured the sense on 26.124).
     """
     turning = _turning_rate(case)
     if turning is None:
@@ -5773,7 +5792,7 @@ def _free_stream(case: SimCase, script: Script, frames: Frames) -> None:
         "ROTATION",
         frame=frame,
         axis=axis,
-        rpm=FREESTREAM_ROTATION_SIGN * rate * _DEG_PER_S_TO_RPM,
+        rpm=FREESTREAM_ROTATION_SIGN[axis_name] * rate * _DEG_PER_S_TO_RPM,
     )
 
 

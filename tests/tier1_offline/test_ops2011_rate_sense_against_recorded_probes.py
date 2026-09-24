@@ -16,9 +16,14 @@ flight mechanics gives the rate:
 Only the sign is used, never the magnitude: the yaw response is not symmetric
 (RPT-060 records +0.0089 against -0.0139 and does not explain it).
 
-ROLL AND YAW ARE EXPECTED TO FAIL until the per-axis sign fix of this release
-(G13): RPT-060 measured them emitted reversed. They carry strict xfail marks,
-so the fix, when it lands, must remove them (an unexpected pass is a failure).
+ROLL AND YAW PASS SINCE G13 of 0.27.0, which gives the emitted rotation the sign
+of its body axis in the geometry's frame (-1 for roll and yaw, +1 for pitch).
+Until then they carried strict xfail marks, because RPT-060 measured them
+emitted reversed; the fix removed the marks, so a relapse to one sign for all
+three axes fails here as the flow of the opposite rate.
+
+This module is evidence of FR-105 too: its last clause, that the emitted
+rotation takes the sign of its body axis, is the line scored here.
 """
 
 from __future__ import annotations
@@ -73,7 +78,6 @@ def _recorded_responses() -> dict[tuple[str, float], float]:
 
 
 RESPONSES = _recorded_responses()
-REVERSED = pytest.mark.xfail(strict=True, reason="RPT-060: roll and yaw emitted reversed until G13")
 
 
 def test_the_probe_map_holds_both_senses_of_roll_and_yaw_and_one_of_pitch():
@@ -86,9 +90,9 @@ def test_the_probe_map_holds_both_senses_of_roll_and_yaw_and_one_of_pitch():
 @pytest.mark.parametrize(
     "rate_key,axis,expected_sign",
     [
-        pytest.param("roll_rate", "X", -1.0, id="roll", marks=REVERSED),
+        pytest.param("roll_rate", "X", -1.0, id="roll"),
         pytest.param("pitch_rate", "Y", +1.0, id="pitch"),
-        pytest.param("yaw_rate", "Z", +1.0, id="yaw", marks=REVERSED),
+        pytest.param("yaw_rate", "Z", +1.0, id="yaw"),
     ],
 )
 def test_the_emitted_rotation_is_the_one_the_probe_recorded_producing_that_rate(

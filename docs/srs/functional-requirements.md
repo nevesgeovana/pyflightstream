@@ -1377,7 +1377,8 @@ the base could not offer while it bundled several.
     (`tests/tier1_offline/test_goal028_axes_recorded_exports.py`), and the
     body-rate sense against the recorded rate probes
     (`tests/tier1_offline/test_ops2011_rate_sense_against_recorded_probes.py`,
-    where roll and yaw read reversed until their sign is fixed). Not
+    all three axes since G13 of 0.27.0 gave roll and yaw their own sign;
+    until then they read reversed). Not
     scored, each waiting for a recorded export that could tell a right
     sign from a wrong one: the stability- and wind-axis moments and side
     force, the rotor coefficients, the sectional loads, the unsteady
@@ -4248,13 +4249,20 @@ requirement below is one seam of that division.
     `tests/tier1_offline/test_goal024_freestream_rotation.py` (one rate writing
     ROTATION about the moment point with the axis the reference declares and
     the rate in rev/min, each rate on its own axis, zero and absent writing
-    CONSTANT, and the two refusals). THE SIGN the solver applies is measured on a seat and
-    reported in
+    CONSTANT, and the two refusals). THE SIGN the solver applies is measured on a seat,
+    one axis at a time, on 26.124. Pitch in
     `reports/RPT-052_the-sense-of-a-rotating-free-stream_2026-09-15.md`, with
     its evidence at `reports/probes/RPT-052_2026-09-15_evidence.yaml`: three
-    pitch rates on one wing-body on 26.124, where a positive rate came back
-    with the nose-down moment increment that opposes a nose-up rotation. This
-    package emits the rate as written.*
+    pitch rates on one wing-body, where a positive rate came back
+    with the nose-down moment increment that opposes a nose-up rotation. Roll
+    and yaw in the licensed probe T11,
+    `reports/RPT-060_roll-and-yaw-rates-are-emitted-reversed_2026-09-23.md`,
+    with its evidence at `reports/probes/RPT-060_2026-09-23_evidence.yaml`:
+    seven converged solves showing that the rate emitted as written, the one
+    sign of +1 of 0.21.0 to 0.26.0, solved the OPPOSITE roll and yaw rate.
+    Since 0.27.0 (G13) each rate is emitted with the sign of its body axis in
+    the geometry's frame, and the emitted line is scored against both probes
+    by `tests/tier1_offline/test_ops2011_rate_sense_against_recorded_probes.py`.*
 
     A row states ONE body rate -- `roll_rate`, `pitch_rate` or `yaw_rate` -- in
     deg/s and in flight-mechanics signs, and the script writes
@@ -4268,6 +4276,10 @@ requirement below is one seam of that division.
     - Two non-zero rates in one row are refused by name: the free stream turns
       about one axis at one speed.
     - Every rate zero, or no rate at all, writes `CONSTANT`.
+    - The emitted rotation takes the sign of its body axis in the geometry's
+      frame, x aft, y right, z up: roll and yaw are negated and pitch is not
+      (0.27.0, G13). A row of 0.21.0 to 0.26.0 stating `roll_rate` or
+      `yaw_rate` was solved at the opposite rate (RPT-060).
 
 !!! requirement "FR-106 The wall clock carries its unit, and the cluster's own log is the log <span class='srs-implemented'>implemented</span>"
 
