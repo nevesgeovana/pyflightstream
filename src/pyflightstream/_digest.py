@@ -86,6 +86,7 @@ and the choice is deliberate; where a comparison must survive that,
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path
 
 #: Bytes read per block. Not a tuning parameter: it is the value all
@@ -139,7 +140,13 @@ CANONICAL_FORMS = {
     ),
 }
 
-__all__ = ["file_sha256", "optional_file_sha256", "text_sha256"]
+__all__ = [
+    "aliased_name_fault",
+    "file_sha256",
+    "one_file_key",
+    "optional_file_sha256",
+    "text_sha256",
+]
 
 
 def file_sha256(path: str | Path) -> str:
@@ -231,3 +238,54 @@ def text_sha256(text: str) -> str:
     which is the opposite of what a same-inputs claim needs.
     """
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def one_file_key(path: str | Path) -> str:
+    """Return one key for every spelling of the file ``path`` names.
+
+    For the record's rule that one key of ``inputs_sha256`` is one file (G06 of
+    0.27.0): the real path, so a parent folder, a symbolic link or an existing
+    8.3 short name folds into the file it names; each part without a trailing
+    dot or space, which Windows drops; and case-folded, because a
+    case-insensitive file system reads names equal but for case as one file.
+
+    Parameters
+    ----------
+    path : str or Path
+        The file, relative to the working directory or absolute.
+
+    Returns
+    -------
+    str
+        The key; two paths with the same key are one file where the run writes.
+    """
+    real = str(Path(path).resolve())
+    parts = re.split(r"[\\/]", real)
+    return "/".join(part.rstrip(" .") or part for part in parts).casefold()
+
+
+def aliased_name_fault(name: str) -> str | None:
+    """Say why ``name`` would be read as another file's alias, or None.
+
+    A name ending in a dot or a space is the same file without them on Windows;
+    ``~`` and a digit is the form of an 8.3 short name; a colon names a stream
+    of another file. A file the run writes under such a name could replace a
+    file the record hashed under the plain one.
+
+    Parameters
+    ----------
+    name : str
+        The file's name, the last part of its path.
+
+    Returns
+    -------
+    str or None
+        The reason, or None for a plain name.
+    """
+    if name.endswith((".", " ")):
+        return "ends with a dot or a space, which Windows drops, so it is another file's name"
+    if ":" in name:
+        return "carries a colon, which names a stream of another file on Windows"
+    if re.search(r"~\d", name):
+        return "has the form of an 8.3 short name, which Windows reads as another file's alias"
+    return None

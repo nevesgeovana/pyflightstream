@@ -81,7 +81,13 @@ from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 import pyflightstream
-from pyflightstream._digest import file_sha256, optional_file_sha256, text_sha256
+from pyflightstream._digest import (
+    aliased_name_fault,
+    file_sha256,
+    one_file_key,
+    optional_file_sha256,
+    text_sha256,
+)
 from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
@@ -5655,7 +5661,7 @@ def _write_pending_files(
     # removes, are reserved: a file parked on one would be replaced or deleted
     # after its digest was recorded.
     def one_file(target: Path) -> str:
-        return os.path.normpath(str(target)).casefold()
+        return one_file_key(target)
 
     reserved = {
         one_file(placed(own)): own
@@ -5708,6 +5714,12 @@ def _write_pending_files(
         *script.pending_input_files.items(),
     ):
         target = placed(parked)
+        alias = aliased_name_fault(target.name)
+        if alias is not None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the run would write {target} for the solver, and "
+                f"its name {alias}. Name it plainly; the solver was not started."
+            )
         if one_file(target) in reserved:
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: the run writes {reserved[one_file(target)]} itself, "

@@ -792,3 +792,54 @@ def test_a_collected_output_of_any_text_kind_is_read_for_the_refusal_lines(tmp_p
     texts = collected_log_texts(tmp_path, ["step_iteration=11.out"], declared=[])
     assert actuator_profile_verdict(*texts) is not None, texts
     assert collected_log_texts(tmp_path, ["point.fsm"], declared=[]) == []
+
+
+def test_windows_name_aliases_are_one_file_or_refused(tmp_path):
+    """``prop.txt.`` is ``prop.txt`` on Windows, which drops a trailing dot or space;
+    ``PROP~1.TXT`` has an 8.3 short name's form and ``prop.txt:x`` names a stream. The
+    helpers see the first as the parked file, and the writer refuses every such name
+    before anything is written."""
+    from pyflightstream._digest import aliased_name_fault, one_file_key
+
+    assert one_file_key(tmp_path / "prop.txt") == one_file_key(tmp_path / "PROP.txt.")
+    assert one_file_key(tmp_path / "prop.txt") == one_file_key(tmp_path / "prop.txt ")
+    assert one_file_key(tmp_path / "prop.txt") != one_file_key(tmp_path / "prop.txt.bak")
+    for name in ("prop.txt.", "prop.txt ", "PROP~1.TXT", "prop.txt:x"):
+        assert aliased_name_fault(name), name
+    assert aliased_name_fault("prop.txt") is None
+
+    disc = {"frame": 2, "axis": "X", "offset": 0.0, "r_tip": 0.5, "r_hub": 0.1, "rpm": 2400.0}
+    script = Script("26.124")
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    helpers.actuator_disc(
+        script,
+        "PROP",
+        **disc,
+        profile=str(tmp_path / "prop.txt"),
+        n_blades=3,
+        profile_text=LOADING,
+    )
+    with pytest.raises(CommandArgumentError, match=r"already writes a different file"):
+        helpers.actuator_disc(
+            script,
+            "FAN",
+            **disc,
+            profile=str(tmp_path / "prop.txt."),
+            n_blades=3,
+            profile_text=OTHER_LOADING,
+        )
+
+    case = SimCase(
+        sim_id="9015",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="discs",
+        outputs=["loads_{point}.txt"],
+    )
+    for name in ("prop.txt.", "PROP~1.TXT"):
+        parked = Script("26.124")
+        parked._pending_input_files[name] = b"0.5,1.0\n1.0,0.0"
+        with pytest.raises(CampaignConfigError, match=r"Name it plainly"):
+            _write_pending_files(parked, tmp_path / "DP-point", case=case, recorded={})
+    assert not (tmp_path / "DP-point").exists() or not any((tmp_path / "DP-point").rglob("*"))

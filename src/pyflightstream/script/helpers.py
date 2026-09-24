@@ -57,7 +57,6 @@ fields, so they take no ``script`` and produce text (SRC-751 p.85).
 from __future__ import annotations
 
 import math
-import os
 import re
 import warnings
 from collections.abc import Mapping, Sequence
@@ -69,6 +68,7 @@ from pydantic import BaseModel, ValidationError
 
 from pyflightstream._decimal import plain_decimal
 from pyflightstream._deprecations import ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES
+from pyflightstream._digest import one_file_key
 from pyflightstream._errors import (
     PyflightstreamDeprecationWarning,
     PyflightstreamWarning,
@@ -608,10 +608,11 @@ def _same_file(parked: str, path: str) -> bool:
 
     A path through a parent folder (``sub/../x``) names the file the folded path
     names, and a path equal to another but for case is the same file on a
-    case-insensitive file system, as on Windows; the run's writer holds every
+    case-insensitive file system, as on Windows, as is a name Windows reads as
+    another's alias (a trailing dot or space); the run's writer holds every
     parked file to the same rule (run._write_pending_files).
     """
-    return os.path.normpath(parked).casefold() == os.path.normpath(path).casefold()
+    return one_file_key(parked) == one_file_key(path)
 
 
 def _where_parked(parked: str, path: str) -> str:

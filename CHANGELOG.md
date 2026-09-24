@@ -852,6 +852,10 @@ gone (`docs/migrating-to-0.27.0.md`).
   descriptor name on the main script's or a program's path is refused naming
   the descriptor; and every collected output that is not a binary kind is
   scanned for the profile's refusal, line by line, whatever its suffix (G06).
+  Windows reads some names as another file's: a trailing dot or space
+  (`prop.txt.`), an 8.3 short name (`PROP~1.TXT`), a stream (`prop.txt:x`).
+  Paths are compared by the real path with those folded, and a file the run
+  would write under such a name is refused naming the reason (G06).
 
 ### Changed
 
