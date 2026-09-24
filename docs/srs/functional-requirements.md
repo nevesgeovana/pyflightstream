@@ -1823,6 +1823,12 @@ nodes.
     unverified on every geometry tried; and a saved simulation whose
     sidecar states any of the three tables is refused.
 
+    AMENDED 0.27.0 (RPT-066), pending with it: the families a row or
+    artifact names for base-region detection are the boundaries that
+    become the base regions, never the body that carries them, because
+    `DETECT_BASE_REGIONS_BY_SURFACE` given the body's own boundary marks
+    nothing and says nothing; the key's page states it.
+
     This reverses a rule the 0.10.1 library defends in four arms at
     `workspace/matrix.py:566-637`, which is why it is a minor release and
     why the migration of every shipped matrix travels with it.

@@ -189,7 +189,7 @@ ROTOR = (
 ROTOR_BY_ALIAS = (
     "MACH:0.1, REmi:2.3, ALPHA:sweep | 0.0 | 40_PUSHER.fsm | r004 | s002 | p001 "
     "| NONE | - | - | - | 26.120 | unsteady_rotor | "
-    "BASE_REGIONS: Body / DELTA_THETA: 30 / REVOLUTIONS: 0.5 / "
+    "BASE_REGIONS: Base / DELTA_THETA: 30 / REVOLUTIONS: 0.5 / "
     "LAST_REVS_AVG: 1 / "
     "CLOCK_MOTION: PUSHER / MOTIONS: {MOVING_BC_ALIAS: PUSHER / "
 )
@@ -413,6 +413,48 @@ def test_a_top_level_base_regions_list_is_the_documented_off_switch(tmp_path):
     build_script(resolved.campaign.sims[0].model_copy(update={"point": {"alpha": 0.0}}), script)
     detected = [line for line in script.render().splitlines() if "DETECT_BASE_REGIONS" in line]
     assert detected == ["DETECT_BASE_REGIONS_BY_SURFACE 2"], script.render()
+
+
+def test_every_tier3_row_marking_base_regions_names_the_boundary_that_becomes_the_base():
+    """RPT-066: DETECT_BASE_REGIONS_BY_SURFACE takes the index of the boundary that
+    BECOMES the base region. Given the Base boundary of 20_BODY it marks the base, the
+    same faces automatic detection marks; given the Body boundary it marks nothing and
+    says nothing. So every tier-3 row stating BASE_REGIONS names its geometry's base
+    boundary, and the script it renders detects on that boundary's index."""
+    import tomllib
+    from pathlib import Path
+
+    from pyflightstream.cases.matrix import read_matrix
+
+    rows = [
+        (matrix, row)
+        for matrix in MATRICES
+        for row in read_matrix(matrix, active_only=False)
+        if "BASE_REGIONS" in row.variables
+    ]
+    assert len(rows) == 6, [row.pol for _, row in rows]
+    for matrix, row in rows:
+        geometry = Path(row.variables["GEOMETRY"]).stem
+        sidecar = offline.HERE / "inputs" / "geometries" / f"{geometry}.boundaries.toml"
+        names = tomllib.loads(sidecar.read_text(encoding="utf-8"))["boundaries"]
+        named = [token.strip() for token in row.variables["BASE_REGIONS"].split(",")]
+        assert named == ["Base"], (
+            f"POL {row.pol} of {matrix.name} names {named} as its base regions on "
+            f"{geometry}, whose boundaries are {names}; the key names the boundary that "
+            "becomes the base, and the body's own boundary marks nothing (RPT-066)"
+        )
+        goldens = sorted((offline.GOLDENS / matrix.stem).glob(f"P{row.pol}-*.txt"))
+        assert goldens, f"POL {row.pol} has no golden"
+        for golden in goldens:
+            detected = [
+                line
+                for line in golden.read_text(encoding="utf-8").splitlines()
+                if line.startswith("DETECT_BASE_REGIONS_BY_SURFACE")
+            ]
+            assert detected == [f"DETECT_BASE_REGIONS_BY_SURFACE {names.index('Base') + 1}"], (
+                golden.name,
+                detected,
+            )
 
 
 # --- PFS-2028.00: names, not indices, on every boundary-citing surface ----------

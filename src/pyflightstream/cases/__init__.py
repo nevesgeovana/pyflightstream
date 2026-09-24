@@ -1847,10 +1847,11 @@ class PprocSpec(BaseModel):
     #: How a blade family is told from the airframe: a regular expression
     #: over the family name. The reference ones were Blade1 to Blade6.
     blade_pattern: str = r"^Blade\d+$"
-    #: The mesh families the base-region autodetect is allowed to consider
-    #: (PFS-2029.10): one DETECT_BASE_REGIONS_BY_SURFACE per boundary of
-    #: those families, after OPEN. Empty, the default, emits nothing; a
-    #: row's BASE_REGIONS key overrides the artifact.
+    #: The boundaries that BECOME base regions (PFS-2029.10, RPT-066): one
+    #: DETECT_BASE_REGIONS_BY_SURFACE per boundary of those families, after
+    #: OPEN. A body's flat base, never the body carrying it, which the
+    #: command marks nothing on, silently. Empty, the default, emits
+    #: nothing; a row's BASE_REGIONS key overrides the artifact.
     base_regions: list[str] = Field(default_factory=list)
 
     def group_alias(self, name: str) -> str | None:

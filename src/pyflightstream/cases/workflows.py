@@ -375,8 +375,9 @@ SYMMETRY_LOADS_VARIABLE = "SYMMETRY_LOADS"
 #: the run types' key vocabularies for that reason.
 ALPHA_VARIABLE = "ALPHA"
 BETA_VARIABLE = "BETA"
-#: The mesh families the base-region autodetect is allowed to consider
-#: (PFS-2029.10), comma separated; overrides the pproc artifact's list.
+#: The boundaries that BECOME base regions (PFS-2029.10, RPT-066), comma
+#: separated; overrides the pproc artifact's list. The base, never the body
+#: that carries it: given the body's own boundary the command marks nothing.
 BASE_REGIONS_VARIABLE = "BASE_REGIONS"
 DELTA_TIME_VARIABLE = "DELTA_TIME"
 TIME_ITERATIONS_VARIABLE = "TIME_ITERATIONS"
@@ -4605,7 +4606,7 @@ def _emit_import_operation(script: Script, step: _ImportStep, units: str) -> Non
 
 
 def _base_region_families(case: SimCase) -> list[str]:
-    """Return the families the base-region autodetect may consider: row first, then pproc."""
+    """Return the boundaries that become base regions, as named: row first, then pproc."""
     declared = _variable(case, BASE_REGIONS_VARIABLE)
     if declared is not None:
         return [token.strip() for token in str(declared).split(",") if token.strip()]
@@ -4621,8 +4622,16 @@ def _detect_base_regions(case: SimCase, script: Script) -> None:
     optional input naming mesh families, so the autodetect runs on those
     surfaces only. Naming none emits nothing, which is every golden and
     every recorded script; AUTO_DETECT_BASE_REGIONS, the whole-geometry
-    form, is what a recipe of your own calls, and this package never
-    decides on its own which surfaces have a base.
+    form, is what a raw mesh's sidecar asks for when it writes
+    ``[base_regions] detect = "auto"``, or a recipe of your own calls, and
+    this package never decides on its own which surfaces have a base.
+
+    THE NAMED BOUNDARY IS THE ONE THAT BECOMES THE BASE (RPT-066, 26.124).
+    The command takes the index of the base region's own boundary: given
+    20_BODY's ``Base`` it marks the 24 faces the automatic detection marks,
+    and given its ``Body`` it marks nothing and says nothing. Nothing here
+    can tell a base from a body offline, so the key's page says which to
+    name, and the tier-3 rows name ``Base``.
     """
     families = _base_region_families(case)
     if not families:

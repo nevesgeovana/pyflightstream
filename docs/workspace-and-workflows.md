@@ -301,7 +301,7 @@ read by the package rather than ignored:
 | v0.10.0 | `ADVANCE_RATIO`, `RPM_SIGN`, `DELTA_THETA`, `REVOLUTIONS`, `LOG_OUTPUT` |
 | v0.10.1 | none. What changed is what `MOVING_BOUNDARIES` ACCEPTS: see below |
 | v0.11.0 | `MOTIONS`, a list of records, one rotor each: `MOTIONS: {MOVING_BOUNDARIES: Blade1 / RPM: 1200 / RPM_SIGN: 1 / ROTOR_AXIS: X / ROTOR_ORIGIN: ERP1}, {...}`; a record's `ROTOR_ORIGIN` is three coordinates or the name of a rotor point of `inputs/reference_points.toml`, and no flat motion key may stand beside the list (PFS-2029.11) |
-| v0.11.0 | `BASE_REGIONS`, the mesh families the base-region autodetect may consider, one `DETECT_BASE_REGIONS_BY_SURFACE` per boundary of them after `OPEN`; it overrides the pproc artifact's `base_regions`, and naming none emits nothing (PFS-2029.10) |
+| v0.11.0 | `BASE_REGIONS`, the boundaries that BECOME base regions, one `DETECT_BASE_REGIONS_BY_SURFACE` per boundary of them after `OPEN`: a body's flat base (`BASE_REGIONS: Base`), never the body that carries it, which the command takes and marks nothing on, silently (stated since 0.27.0, RPT-066; see below). It overrides the pproc artifact's `base_regions`, and naming none emits nothing (PFS-2029.10) |
 | v0.13.0 | `EXPORT_UNSTEADY_AFTER_REV` and `EXPORT_UNSTEADY_AFTER_ITER`, the step the per-step exports begin on, one per row at most; the first on `unsteady_rotor` only, both refused on `steady` (PFS-2031.18) |
 | v0.13.0 | none. What changed is that the list above is now CLOSED for a workflow row: a key no run type registers is refused at `pyfs-matrix plan` (PFS-2008.02.01), see below |
 | v0.14.0 | none. What changed again is what `MOVING_BOUNDARIES` ACCEPTS: a name the row's setup defines under `[aliases]`, between the exact label and the family, see What a solver preset may say |
@@ -316,6 +316,17 @@ read by the package rather than ignored:
 | v0.18.0 | `RESTART` now RUNS (FR-96). Two further names are reserved and they are the PACKAGE'S to set, never a row's: `RESTART_FROM`, the saved simulation a continuation opens, and `RESTART_ITERATIONS`, the remaining step count. The run path resolves both from the recorded run being continued and writes them onto the case; a row that states either is refused, because stating them by hand would skip the resolution that checks a recorded run exists, that its status is continuable, and that its outputs are archived before they are replaced |
 | v0.19.0 | `TRANSLATE`, a list of records, one translation of the opened mesh each, in the order written and before every rotation: `TRANSLATE: {DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X / ALIAS: PUSHER}, {...}`; on every run type that reads `ROTATE`, the distance in metres along one axis of the named frame (FR-100), see [One row, one geometry, moved](#one-row-one-geometry-moved) |
 | v0.23.0 | `LAST_REVS_AVG` and `LAST_ITERS_AVG`, the AVERAGING WINDOW of an unsteady point, one per row at most: the first on `unsteady_rotor` only, a count of the last revolutions that accepts a float (`LAST_REVS_AVG: 0.25`); the second a count of the last iterations, the key of an `unsteady` row and read on a rotor row too. Written in UPPER CASE like every key of this cell, which is matched on its exact spelling: `last_revs_avg` is refused as a key of no run type. A row stating both is refused naming both. Since 0.26.0, `WINDOW_DEGREES`, `WINDOW_STEPS` and `WINDOW_REVOLUTIONS` are refused: write `LAST_REVS_AVG` or `LAST_ITERS_AVG`, dividing degrees by 360. See [The window, said once](#the-window-said-once) and [the definition of record](post-processing-definitions.md#the-averaging-window) |
+
+**`BASE_REGIONS` NAMES THE BASE, NOT THE BODY.** The command it emits,
+`DETECT_BASE_REGIONS_BY_SURFACE <index>`, takes the boundary that becomes the
+base region. On a body whose flat base is its own boundary, 20_BODY's
+`[Body, Base]`, `BASE_REGIONS: Base` marks the base, the same faces
+`AUTO_DETECT_BASE_REGIONS` marks, and `BASE_REGIONS: Body` marks nothing and
+says nothing (RPT-066, 26.124). A row naming the body therefore solves with no
+base region and no error; name the base boundary. A pproc's `base_regions`
+list follows the same rule. A raw mesh's sidecar can ask for the whole-mesh
+detection instead, `[base_regions] detect = "auto"`
+([mesh inputs](mesh-inputs.md#the-boundary-conditions-of-a-raw-mesh)).
 
 **A WORKFLOW ROW STATES ONLY WHAT THE SCRIPT WILL CARRY.** Each run type
 registers the keys it reads (`Workflow.keys` in
@@ -1258,7 +1269,7 @@ for the VTK/CSV opt-in rule and [The probes table](post-processing-definitions.m
 for the unsteady plots source, whose defaults omit the probe-points export.
 
 ```toml
-base_regions = ["W", "B"]      # families the base-region autodetect may consider; [] = off
+base_regions = ["Base"]        # the boundaries that become base regions; [] = off
 
 [groups]                       # group NAME -> ONE alias, written as a string (0.24.0)
 TOTAL = "all"                  # every family the geometry carries
@@ -1531,7 +1542,9 @@ header, as the example above places it: TOML puts a key written under
 0.11.0, which is what a bare list at the top level otherwise is
 (PFS-2005.04); `base_regions = []` there is the documented off switch and
 plans READY, and `base_regions = ["Base"]` reaches the script as one
-`DETECT_BASE_REGIONS_BY_SURFACE` per boundary of the family.
+`DETECT_BASE_REGIONS_BY_SURFACE` per boundary of the family. It names the
+boundaries that BECOME the base regions, as the row's `BASE_REGIONS` does:
+the body's own boundary marks nothing (RPT-066).
 
 **SINCE 0.23.0 A GROUP IS NAMED, and the product file carries the name.** An
 artifact
