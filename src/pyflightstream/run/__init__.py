@@ -131,7 +131,6 @@ from pyflightstream.results import (
     VersionMismatchWarning,
     classify_solver_mode,
     frozen_time_steps,
-    imported_trailing_edges,
     parse_loads,
     parse_log_times,
     parse_residual_history,
@@ -139,6 +138,7 @@ from pyflightstream.results import (
 from pyflightstream.results.conditions import ConditionBinding, bind_conditions
 from pyflightstream.results.tables import sweep_table, write_table
 from pyflightstream.run._actions_counter import render_program
+from pyflightstream.run._wake_edge_verdict import wake_edge_import_verdict, with_wake_edge_verdict
 from pyflightstream.script import MarchStrategy, Script
 from pyflightstream.versions import FsVersion, resolve
 from pyflightstream.workspace import (
@@ -5271,10 +5271,10 @@ def _execute_sweep(
         # G02. The job's one script imported the trailing edges once, and each
         # point is held to that count through the log it collected, else the
         # job's own.
-        status, error = _with_wake_edge_verdict(
+        status, error = with_wake_edge_verdict(
             assessment.status,
             assessment.error,
-            _wake_edge_import_verdict(
+            wake_edge_import_verdict(
                 script.wake_edge_points,
                 _run_log_text(sim_dir, collected, assessment.log_file_used, result),
             ),
@@ -5363,64 +5363,6 @@ def _run_log_text(
                 if path.is_file():
                     return path.read_text(encoding="utf-8", errors="replace")
     return result.log_text
-
-
-def _wake_edge_import_verdict(
-    expected: int | None, log_text: str | None
-) -> tuple[RunStatus, str] | None:
-    """Judge a run that imported trailing edges by the count the solver logged.
-
-    G02 (RPT-061, RPT-065). The import marks nothing and says nothing for a
-    point that matches no mesh edge, and initialisation does not add what
-    it missed, so the solver's ``N trailing edges imported`` line is the one
-    statement that tells a file that marked from one that did not.
-
-    Parameters
-    ----------
-    expected : int or None
-        The points the script wrote (``Script.wake_edge_points``); None
-        for a script that imports nothing, which is never judged here, so a
-        continuation that opens a saved state is not held to a count.
-    log_text : str or None
-        The run's solver log.
-
-    Returns
-    -------
-    tuple of (RunStatus, str) or None
-        None when there is nothing to object to; FAILED_INCOMPLETE_OUTPUT
-        when no log was read; FAILED_SCRIPT when the logged count differs
-        from the points written. Each with its reason.
-    """
-    if expected is None:
-        return None
-    if log_text is None:
-        return (
-            RunStatus.FAILED_INCOMPLETE_OUTPUT,
-            f"the script imported {expected} trailing-edge points and no solver log was "
-            "read, so whether the file marked anything cannot be told: a file whose "
-            "points match no edge marks nothing and says nothing. Export the solver log "
-            "among the row's outputs",
-        )
-    counts = imported_trailing_edges(log_text)
-    logged = sum(counts.values())
-    if logged == expected:
-        return None
-    per_boundary = ", ".join(f"{count} for {name}" for name, count in counts.items()) or "none"
-    return (
-        RunStatus.FAILED_SCRIPT,
-        f"the script wrote {expected} trailing-edge points and the solver logged "
-        f"{logged} imported (per boundary: {per_boundary}); a point matching no mesh edge "
-        "is dropped in silence, so this run's wake is not the one declared",
-    )
-
-
-def _with_wake_edge_verdict(
-    status: RunStatus, error: str | None, verdict: tuple[RunStatus, str] | None
-) -> tuple[RunStatus, str | None]:
-    """Apply a wake-edge verdict over a status that is not already a failure."""
-    if verdict is None or str(status).startswith("FAILED"):
-        return status, error
-    return verdict[0], "; ".join(part for part in (error, verdict[1]) if part)
 
 
 def _walltime_stop(state_path: Path) -> dict | None:
@@ -6218,10 +6160,10 @@ def _execute_point(
     )
     # G02. A run that imported trailing edges is held to the count the solver
     # logged, over any status that is not already a failure.
-    status, error = _with_wake_edge_verdict(
+    status, error = with_wake_edge_verdict(
         status,
         assessment.error,
-        _wake_edge_import_verdict(
+        wake_edge_import_verdict(
             script.wake_edge_points,
             _run_log_text(sim_dir, collected, assessment.log_file_used, result),
         ),

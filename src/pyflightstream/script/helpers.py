@@ -61,12 +61,12 @@ import re
 import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from decimal import Decimal
 from os import PathLike, fspath
 from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
+from pyflightstream._decimal import plain_decimal
 from pyflightstream._deprecations import ANALYSIS_SETUP_VORTICITY_DRAG_BOUNDARIES
 from pyflightstream._errors import (
     PyflightstreamDeprecationWarning,
@@ -3010,17 +3010,6 @@ WAKE_EDGE_ANGLE_ROUTE = "AUTO_DETECT_TRAILING_EDGES"
 WAKE_EDGE_NODE_PLACEHOLDER = "0,0,0"
 
 
-def _plain_decimal(value: float) -> str:
-    """Spell a finite float as a plain decimal that reads back to the same float.
-
-    The shortest round-trip digits, never an exponent: a number such as
-    1.665e-17, which a trailing-edge vertex of a committed wing mesh
-    carries, would otherwise be written with the letter e, and a letter on
-    any line of the node file makes the import mark nothing (RPT-061).
-    """
-    return format(Decimal(repr(value)), "f")
-
-
 def render_wake_edge_node_file(midpoints: Sequence[Sequence[float]]) -> str:
     """Return the text of the node file the wake-edge import reads on 26.124.
 
@@ -3085,7 +3074,7 @@ def render_wake_edge_node_file(midpoints: Sequence[Sequence[float]]) -> str:
                 "coordinate that is not a finite number would be written as a word, which "
                 "makes the import mark nothing"
             )
-        lines.append(",".join(_plain_decimal(value) for value in values))
+        lines.append(",".join(plain_decimal(value) for value in values))
     return "\n".join(lines) + "\n"
 
 

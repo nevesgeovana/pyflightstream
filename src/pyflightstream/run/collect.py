@@ -855,7 +855,10 @@ def _wake_edge_verdict(
     returned unchanged; one that did, with no log read, cannot be told to have
     marked anything.
     """
-    from pyflightstream.run import _wake_edge_import_verdict, _with_wake_edge_verdict
+    from pyflightstream.run._wake_edge_verdict import (
+        wake_edge_import_verdict,
+        with_wake_edge_verdict,
+    )
 
     expected = (record.submission or {}).get("wake_edge_points")
     if not isinstance(expected, int):
@@ -866,7 +869,7 @@ def _wake_edge_verdict(
         if Path(entry).name == log_file_used and path.is_file():
             log_text = path.read_text(encoding="utf-8", errors="replace")
             break
-    return _with_wake_edge_verdict(status, verdict, _wake_edge_import_verdict(expected, log_text))
+    return with_wake_edge_verdict(status, verdict, wake_edge_import_verdict(expected, log_text))
 
 
 def _collect_by_point(

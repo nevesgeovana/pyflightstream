@@ -56,10 +56,11 @@ from typing import Any, NamedTuple
 import numpy
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from pyflightstream._decimal import plain_decimal
 from pyflightstream._mesh import read_mesh
 from pyflightstream.commands import CommandRegistry, Status
 from pyflightstream.script import CommandArgumentError
-from pyflightstream.script.helpers import _plain_decimal, render_wake_edge_node_file
+from pyflightstream.script.helpers import render_wake_edge_node_file
 from pyflightstream.workspace.inputs import InputArtifactError, PointXyz
 
 __all__ = [
@@ -566,7 +567,7 @@ def write_trailing_edge_points(
     array = _coordinates(points)
     length_scale(unit, unit)
     _refuse_an_existing_file(destination, overwrite)
-    rows = [",".join(_plain_decimal(float(value)) for value in point) for point in array]
+    rows = [",".join(plain_decimal(float(value)) for value in point) for point in array]
     destination.write_text("\n".join([unit, *rows]) + "\n", encoding="utf-8")
     return destination
 
