@@ -97,7 +97,7 @@ FlightStream versions.
   builds are refused. `detect = "auto"` or `detect = { surfaces = [...],
   sweep_angle = ... }` applies automatic detection only when written.
   `[wake_termination]` (automatic or by surface; on 26.124 it marked the root
-  end of a twisted blade, RPT-T07) and `[base_regions]` (`detect = "auto"`)
+  end of a twisted blade, RPT-069) and `[base_regions]` (`detect = "auto"`)
   apply only when written. Refused at plan: a raw mesh with no trailing
   edge; a table stating both routes or neither; a file-route row whose outputs carry no
   solver log, or that states `EXPORT_LOG: false`, which leaves its script
@@ -477,7 +477,7 @@ FlightStream versions.
   nothing, so a raw mesh that marks its trailing edge by file and writes
   `[wake_termination]` solved with no termination node: a twisted blade lost
   the node at its root and solved 1.8 % low in induced drag against the same
-  blade detected and saved (RPT-T07). The script now initializes the solver,
+  blade detected and saved (RPT-069). The script now initializes the solver,
   detects, and initializes it again with the same settings before the solve,
   on every run type; the detection route, a file route without
   `[wake_termination]` and a continuation are unchanged. New:

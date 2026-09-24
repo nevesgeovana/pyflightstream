@@ -1644,7 +1644,7 @@ class Script:
         emitted right after a file import of the trailing edges marks
         nothing; emitted after an initialisation it marks the node, and
         the solver uses what it marked only once it initialises again,
-        which clears the first initialisation (RPT-T07 (T07)). The log
+        which clears the first initialisation (RPT-069, T07). The log
         reports the trailing-edge groups only during an initialisation,
         which is the inferred reason.
 

@@ -4367,7 +4367,7 @@ def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
       detection route only. On the file route the detection waits for the
       solver to initialise and is emitted by :func:`_script_init` between two
       initialisations (:func:`_wake_termination_after_initialization`), since
-      right after a file import it marks nothing (RPT-T07 (T07)). Its surfaces
+      right after a file import it marks nothing (RPT-069, T07). Its surfaces
       are resolved here on both routes, so a name the sidecar does not carry
       is refused before anything else is emitted.
     * ``[base_regions]``: ``AUTO_DETECT_BASE_REGIONS``, which marked the
@@ -4465,7 +4465,7 @@ def _wake_termination_after_initialization(
 ) -> list[tuple[str, tuple[int, ...]]]:
     """Return the wake-termination detection that waits for an initialisation (G02, T07).
 
-    MEASURED ON 26.124 (RPT-T07 (T07)), on a twisted blade whose root end is
+    MEASURED ON 26.124 (RPT-069, T07), on a twisted blade whose root end is
     its one wake-termination node. Right after ``IMPORT_WAKE_EDGES_FROM_FILE``
     the detection, automatic or by surface, marks nothing. Run after
     ``INITIALIZE_SOLVER`` it marks the node, and the loads do not move,
