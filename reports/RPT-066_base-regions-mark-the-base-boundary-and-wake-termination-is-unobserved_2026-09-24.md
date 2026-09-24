@@ -75,3 +75,30 @@ records how the region was made. The faces are the same.
 lines moved and which flag rows, the solver's lines, and the script's digest; the
 seven checks as booleans. The solver outputs stayed on the measuring machine
 (invariant 5).
+
+## CLOSED in 0.27.0, 2026-09-24
+
+Nothing above is changed. Both consequences the section "What it means for the package"
+drew are now in the package.
+
+- **The `BASE_REGIONS` key names the base.** Its page
+  (`docs/workspace-and-workflows.md`, "BASE_REGIONS NAMES THE BASE, NOT THE BODY") says
+  the key names the boundary that becomes the base region, never the body that carries
+  it, and that a row naming the body gets no base region and no error. The pproc
+  artifact's `base_regions`, the builder's docstring and FR-55 say the same. The six
+  tier-3 rows that named the body, 1005, 1021, 4003 and 9001 to 9003, now name `Base`.
+  Their six goldens were regenerated with `python -m tests.tier3_licensed.offline
+  --write`, and each moved by one line, `DETECT_BASE_REGIONS_BY_SURFACE 1` to `2`, the
+  index of `Base` in 20_BODY's `[Body, Base]` and 40_PUSHER's `[Body, Base, Blade1]`.
+  `tests/tier1_offline/test_tier3_offline.py::test_every_tier3_row_marking_base_regions_names_the_boundary_that_becomes_the_base`
+  holds every such row and its golden to it. Nothing offline can tell a base from a
+  body, so no row is refused for naming the body; the page says which to name.
+- **`AUTO_DETECT_BASE_REGIONS` as a second route** is offered where a raw mesh declares
+  its boundary conditions: `[base_regions] detect = "auto"` in its sidecar (the G02
+  routing, commit 4caface of this branch).
+
+**Wake termination stays unverified, as this report left it.** The same routing offers
+`[wake_termination]` (automatic, or by surface) and emits its command, and the page
+states that what the command marks was not observable on the geometry tried. A geometry
+that visibly needs termination nodes is still owed before the option can be called
+measured.

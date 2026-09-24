@@ -1268,21 +1268,58 @@ def test_a_shell_action_carries_no_child_script_and_says_why():
 # --- PFS-2025.13: marking the trailing edge from the mesh, not by angle ------
 
 
-@pytest.mark.parametrize("canonical", ["26.122", "26.123"])
-def test_marking_from_an_imported_node_list_replaces_the_angle_criterion(canonical):
-    """The imported route is emitted, and the angle route is not.
+#: Two trailing-edge mid-points of the committed wing, and where their file goes.
+_TWO_MIDPOINTS = [(1.0, -3.75, 0.0), (1.0, -3.25, 0.0)]
+_NODE_FILE = "C:/w/wing.wake_nodes.txt"
 
-    Replacing rather than running beside: two marking passes over one
-    geometry would mark by angle first and then again from the file, and
-    a blade whose trailing edge is not a geometric crease is exactly the
-    case the angle pass gets wrong.
-    """
-    script = Script(version=canonical)
-    route = helpers.mark_wake_edges(script, edge_type="VORTEX_SHEDDING", tolerance=0.0001)
+
+def _mark(script, **overrides):
+    """Call the marking helper with the measured arguments, overriding some."""
+    arguments = {
+        "edge_type": "STANDARD",
+        "tolerance": 0.0001,
+        "units": "METER",
+        "node_file": _NODE_FILE,
+        "midpoints": _TWO_MIDPOINTS,
+    }
+    arguments.update(overrides)
+    return helpers.mark_wake_edges(script, **arguments)
+
+
+def test_the_import_on_26124_carries_the_unit_token_and_the_path_on_the_next_line():
+    """G02 (RPT-061). 26.124 refuses the two-value line the manual prints as a
+    syntax error, and reads the node list from the path on the next line only
+    when the command line carries a third token; the simulation's length unit
+    is written there. The node file's text is parked for the run to write, and
+    the number of points is recorded for the run to compare with the count the
+    solver logs. The angle route is not emitted beside it."""
+    script = Script(version="26.124")
+    route = _mark(script)
     assert route == "IMPORT_WAKE_EDGES_FROM_FILE"
-    text = script.render()
-    assert text.strip() == "IMPORT_WAKE_EDGES_FROM_FILE VORTEX_SHEDDING 0.0001"
-    assert "AUTO_DETECT_TRAILING_EDGES" not in text
+    assert script.render() == (
+        "IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER\nC:/w/wing.wake_nodes.txt\n\n"
+    )
+    assert script.pending_input_files == {_NODE_FILE: "2\n0,0,0\n1.0,-3.75,0.0\n1.0,-3.25,0.0\n"}
+    assert script.wake_edge_points == 2
+    assert "AUTO_DETECT_TRAILING_EDGES" not in script.render()
+
+
+@pytest.mark.parametrize("canonical", ["26.122", "26.123"])
+def test_the_file_route_is_refused_on_a_build_it_was_not_measured_on(canonical):
+    """26.122 and 26.123 document only the two-value line, which 26.124 refuses
+    as a syntax error, and no run has asked either build where the node list
+    comes from. The route is claimed on 26.124 alone, so these builds refuse it
+    by name before anything is emitted, parked or recorded."""
+    script = Script(version=canonical)
+    with pytest.raises(CommandNotInVersionError) as raised:
+        _mark(script)
+    message = str(raised.value)
+    assert canonical in message
+    assert "RPT-061" in message and "26.124" in message
+    assert "AUTO_DETECT_TRAILING_EDGES" in message
+    assert script.render() == "\n", "a refused route must leave the script untouched"
+    assert script.pending_input_files == {}
+    assert script.wake_edge_points is None
 
 
 @pytest.mark.parametrize("canonical", ["26.120", "26.121"])
@@ -1295,7 +1332,7 @@ def test_a_build_without_the_import_route_is_told_so_and_not_marked_by_angle(can
     """
     script = Script(version=canonical)
     with pytest.raises(CommandNotInVersionError) as raised:
-        helpers.mark_wake_edges(script, edge_type="VORTEX_SHEDDING", tolerance=0.0001)
+        _mark(script)
     message = str(raised.value)
     assert canonical in message
     assert "IMPORT_WAKE_EDGES_FROM_FILE" in message
@@ -1303,20 +1340,66 @@ def test_a_build_without_the_import_route_is_told_so_and_not_marked_by_angle(can
     assert script.render() == "\n", "a refused route must leave the script untouched"
 
 
-def test_the_marking_helper_takes_no_path_because_the_command_takes_none():
-    """The grammar is two arguments, and this helper invents no third.
-
-    Neither edition that documents the command says where the node list
-    comes from: not on its own line, not as a third argument, and not
-    through a prior command. A path parameter here would be this library
-    inventing a grammar, so the signature carries none and the silence
-    stays visible.
-    """
+def test_the_marking_helper_takes_the_node_file_the_measured_grammar_reads():
+    """The signature carries what the 26.124 line needs: the third token, the
+    node file's path and the points it holds, and nothing the build does not
+    read."""
     import inspect
 
     parameters = inspect.signature(helpers.mark_wake_edges).parameters
-    assert "path" not in parameters and "file" not in parameters
-    assert set(parameters) == {"script", "edge_type", "tolerance"}
+    assert set(parameters) == {
+        "script",
+        "edge_type",
+        "tolerance",
+        "units",
+        "node_file",
+        "midpoints",
+    }
+
+
+@pytest.mark.parametrize("units", ["OTHER", "furlong"])
+def test_a_third_token_that_names_no_length_scale_is_refused(units):
+    """The third token is the simulation's length unit, and the points must
+    already be in it; OTHER names no scale and a word outside the vocabulary
+    names nothing. Refused before anything is emitted."""
+    script = Script(version="26.124")
+    with pytest.raises(CommandArgumentError) as raised:
+        _mark(script, units=units)
+    message = str(raised.value)
+    assert repr(units) in message and "MILLIMETER" in message
+    assert script.render() == "\n" and script.pending_input_files == {}
+
+
+def test_two_imports_are_summed_and_one_path_holds_one_file():
+    """Two files on one script: the solver logs one imported count per import,
+    so the recorded number of points is their sum; a second, different file at
+    the first one's path is refused, since it would replace the first."""
+    script = Script(version="26.124")
+    _mark(script)
+    _mark(script, node_file="C:/w/other.txt", midpoints=[(1.0, 0.25, 0.0)])
+    assert script.wake_edge_points == 3
+    with pytest.raises(CommandArgumentError, match="one path is one file|One path is one file"):
+        _mark(script, midpoints=[(1.0, 0.75, 0.0)])
+    assert script.wake_edge_points == 3
+
+
+def test_the_wake_edge_node_file_is_the_count_a_placeholder_and_bare_midpoints():
+    """G02 (RPT-061). The text the 26.124 import reads: the count, one coordinate
+    triple the solver consumes and does not use, then one ``x,y,z`` row per edge
+    mid-point, each number a plain decimal. A list that can mark nothing is
+    refused before any text exists: none, a row that is not three coordinates,
+    and a coordinate that is not finite, which would be written as a word."""
+    assert helpers.render_wake_edge_node_file([(1.0, -3.75, 0.0), (1.0, -3.25, 0.0)]) == (
+        "2\n0,0,0\n1.0,-3.75,0.0\n1.0,-3.25,0.0\n"
+    )
+    for midpoints, words in (
+        ([], "0 edge mid-points"),
+        ([(1.0, 2.0)], "three coordinates"),
+        ([(1.0, -3.75, 0.0), (1.0, math.nan, 0.0)], "point 2 of 2"),
+        ([(1.0, "x", 0.0)], "point 1 of 1"),
+    ):
+        with pytest.raises(CommandArgumentError, match=words):
+            helpers.render_wake_edge_node_file(midpoints)
 
 
 def test_exactly_one_rotation_command_resolves_on_every_registered_build():

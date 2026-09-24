@@ -91,13 +91,17 @@ from pyflightstream._retired_names import (
     retired_key,
 )
 from pyflightstream.cases import (
+    EVERY_SURFACE,
     BoundaryAliases,
     CampaignConfigError,
     CustomFlag,
     FrameSpec,
+    MeshImport,
     PprocSpec,
     RawCommand,
+    RawMeshConditions,
     RotorBlock,
+    TrailingEdgeMarking,
 )
 
 # DOWNWARD, and the two imports in this module that leave the workspace
@@ -2151,8 +2155,9 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
     if not names:
         raise InputArtifactError(
             f"{path} carries no mesh block, so it states no boundary order to write. "
-            "A saved simulation (.fsm) carries one; a raw mesh does not, and its order "
-            "is only known once the solver has opened it (docs/mesh-inputs.md)."
+            "A saved simulation (.fsm) carries one; a raw mesh (.obj, .stl) does not, so "
+            f"write its surface names by hand in {sidecar.name}, in the file's order, "
+            "beside the [import] table that states its units (docs/mesh-inputs.md)."
         )
     body = [
         f"# Boundary inventory of {path.name}, read from its mesh block by "
@@ -2167,6 +2172,29 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
     return sidecar
 
 
+#: The table of a geometry's sidecar that states how a raw mesh is imported
+#: (G01): ``[import]``, holding ``units``.
+IMPORT_TABLE = "import"
+
+
+def _sidecar_data(sidecar: Path) -> dict[str, Any]:
+    """Parse one geometry sidecar, refusing a file that does not read as TOML, by name.
+
+    ONE PARSE, ONE READER PER TABLE. The sidecar holds the boundary order
+    (``boundaries``) and, beside a raw mesh, the ``[import]`` table; each
+    is read by its own function over this parse, and no reader refuses a
+    table it does not read. A table added to the file later is therefore
+    one more reader beside these, and the readers already here are left as
+    they are.
+    """
+    try:
+        return tomllib.loads(sidecar.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as error:
+        raise InputArtifactError(
+            f"{sidecar} cannot be read as a geometry sidecar: {error}"
+        ) from error
+
+
 def read_inventory(sidecar: str | Path) -> tuple[str, ...]:
     """Return the ordered boundary names a sidecar states.
 
@@ -2176,20 +2204,331 @@ def read_inventory(sidecar: str | Path) -> tuple[str, ...]:
         A sidecar without a ``boundaries`` list of strings, naming it.
     """
     path = Path(sidecar)
-    try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError) as error:
-        raise InputArtifactError(
-            f"{path} cannot be read as a boundary inventory: {error}"
-        ) from error
-    names = data.get("boundaries")
+    names = _sidecar_data(path).get("boundaries")
     if not isinstance(names, list) or not names or not all(isinstance(n, str) for n in names):
         raise InputArtifactError(
             f"{path} does not state `boundaries` as a non-empty list of strings; "
             "rewrite it from the file with `pyfs-matrix inventory <geometry>`, "
-            "overwrite (CLI: --overwrite)."
+            "overwrite (CLI: --overwrite); for a raw mesh (.obj, .stl), which that "
+            "command cannot read, write its surface names in the file's order."
         )
     return tuple(names)
+
+
+def read_mesh_import(sidecar: str | Path) -> MeshImport | None:
+    """Return the ``[import]`` table a geometry's sidecar states, or None (G01, G03).
+
+    The table states the length unit a raw mesh is written in, and the
+    mesh operations applied right after the import, in the order written::
+
+        boundaries = ["naca"]
+
+        [import]
+        units = "MILLIMETER"
+
+        [[import.operations]]
+        op = "rename"
+        surface = "naca"
+        to = "Wing"
+
+    Read at binding, beside :func:`read_inventory`, so a table that does
+    not hold its shape is refused with the row before any seat is spent,
+    an operation named by its position. Whether the unit is one ``IMPORT``
+    takes, whether the geometry is a raw mesh at all, and whether each
+    cited surface exists at its step, is the builder's to judge, per build.
+
+    Parameters
+    ----------
+    sidecar : str or Path
+        The ``<stem>.boundaries.toml`` beside the geometry.
+
+    Returns
+    -------
+    MeshImport or None
+        None when the file holds no ``[import]`` table.
+
+    Raises
+    ------
+    InputArtifactError
+        A file that does not read as TOML, an ``import`` key that is not a
+        table, a table that states no ``units`` or a key it does not read,
+        or an operation that does not hold its shape (its own keys, finite
+        numbers, scale factors above zero, a named surface for a rename or
+        a mirror), each naming the sidecar and the operation's position.
+    """
+    path = Path(sidecar)
+    table = _sidecar_data(path).get(IMPORT_TABLE)
+    if table is None:
+        return None
+    if not isinstance(table, dict):
+        raise InputArtifactError(
+            f"{path} states `{IMPORT_TABLE}` as a {type(table).__name__}; write it as the "
+            f'table [{IMPORT_TABLE}], with units = "MILLIMETER" (the unit the mesh file is '
+            "written in) beneath it."
+        )
+    try:
+        return MeshImport.model_validate(table)
+    except ValidationError as error:
+        missing = any(
+            item["type"] == "missing" and tuple(item["loc"]) == ("units",)
+            for item in error.errors()
+        )
+        if missing:
+            raise InputArtifactError(
+                f"{path}: the [{IMPORT_TABLE}] table does not state `units`, the length "
+                "unit the mesh file is written in; write it beneath the table, as "
+                'units = "MILLIMETER". A unit is never assumed (docs/mesh-inputs.md).'
+            ) from error
+        problems = "; ".join(
+            f"{_where_in_the_import_table(item['loc'])}: "
+            f"{str(item['msg']).removeprefix('Value error, ')}"
+            for item in error.errors()
+        )
+        raise InputArtifactError(
+            f"{path}: the [{IMPORT_TABLE}] table is refused: {problems}. It holds `units`, "
+            "the length unit the mesh file is written in, and the mesh operations of the "
+            f"import as [[{IMPORT_TABLE}.operations]], numbered in the order written "
+            "(docs/mesh-inputs.md)."
+        ) from error
+
+
+#: The tables of a geometry's sidecar that declare a raw mesh's boundary
+#: conditions (G02): the trailing edge, which every raw mesh a workflow
+#: imports declares, and two options that apply only when written.
+TRAILING_EDGES_TABLE = "trailing_edges"
+WAKE_TERMINATION_TABLE = "wake_termination"
+BASE_REGIONS_TABLE = "base_regions"
+RAW_MESH_CONDITION_TABLES = (TRAILING_EDGES_TABLE, WAKE_TERMINATION_TABLE, BASE_REGIONS_TABLE)
+
+#: The word a ``detect`` key takes for detection over every surface.
+DETECT_EVERYWHERE = "auto"
+
+#: The keys ``[trailing_edges]`` reads: ``file`` with ``type`` and
+#: ``tolerance``, the default route, or ``detect`` alone.
+_TRAILING_EDGE_KEYS = ("file", "type", "tolerance", "detect")
+
+#: The keys a ``detect = { ... }`` table of ``[trailing_edges]`` reads.
+_DETECT_KEYS = ("surfaces", "sweep_angle")
+
+_TRAILING_EDGE_ROUTES = (
+    'file = "<points file>", the default route: the mid-point of every trailing-edge '
+    'mesh edge, under a line naming their length unit; or detect = "auto" or '
+    'detect = { surfaces = ["<name>"], sweep_angle = <degrees> }, detection, which '
+    "applies only when written (docs/mesh-inputs.md)"
+)
+
+
+def read_raw_mesh_conditions(sidecar: str | Path) -> RawMeshConditions | None:
+    """Return the boundary conditions a raw mesh's sidecar declares, or None (G02).
+
+    Three tables, each read only when written::
+
+        [trailing_edges]
+        file = "wing.te.txt"      # the default route: a points file
+        type = "STANDARD"         # optional, the edge type of every point
+        tolerance = 0.0001        # optional, in the simulation's length unit
+
+        # or detection, only when written:
+        # detect = "auto"
+        # detect = { surfaces = ["Wing"], sweep_angle = 60 }
+
+        [wake_termination]
+        detect = "auto"           # or { surfaces = ["Wing"] }
+
+        [base_regions]
+        detect = "auto"
+
+    Read at binding, beside :func:`read_mesh_import`, so a table that does
+    not hold its shape is refused with the row before any seat is spent.
+    ``file`` is resolved against the sidecar's folder here; its points are
+    read and checked against the mesh by the binding, which knows the
+    mesh's unit, and whether the geometry is a raw mesh at all is the
+    builder's to judge.
+
+    Parameters
+    ----------
+    sidecar : str or Path
+        The ``<stem>.boundaries.toml`` beside the geometry.
+
+    Returns
+    -------
+    RawMeshConditions or None
+        None when the file holds none of the three tables. A file route's
+        ``points_m`` are empty here and ``points_file`` names the file.
+
+    Raises
+    ------
+    InputArtifactError
+        A table written as anything but a table, a key a table does not
+        read, a ``[trailing_edges]`` stating both ``file`` and ``detect`` or
+        neither, a ``type`` or ``tolerance`` beside ``detect``, a ``detect``
+        of a shape its table does not take, an empty surface list, or a
+        tolerance that is not a positive number; each naming the sidecar
+        and the table.
+    """
+    path = Path(sidecar)
+    data = _sidecar_data(path)
+    tables: dict[str, dict[str, Any] | None] = {}
+    for name in RAW_MESH_CONDITION_TABLES:
+        table = data.get(name)
+        if table is not None and not isinstance(table, dict):
+            raise InputArtifactError(
+                f"{path} states `{name}` as a {type(table).__name__}; write it as the table "
+                f"[{name}] with its keys beneath it (docs/mesh-inputs.md)."
+            )
+        tables[name] = table
+    if all(table is None for table in tables.values()):
+        return None
+    trailing = tables[TRAILING_EDGES_TABLE]
+    wake = tables[WAKE_TERMINATION_TABLE]
+    base = tables[BASE_REGIONS_TABLE]
+    return RawMeshConditions(
+        trailing_edges=None if trailing is None else _read_trailing_edges(path, trailing),
+        wake_termination=(
+            None
+            if wake is None
+            else _read_detection(path, WAKE_TERMINATION_TABLE, wake, by_surface=True)
+        ),
+        base_regions=(
+            None
+            if base is None
+            else _read_detection(path, BASE_REGIONS_TABLE, base, by_surface=False)
+        ),
+    )
+
+
+def _read_trailing_edges(path: Path, table: Mapping[str, Any]) -> TrailingEdgeMarking:
+    """Read ``[trailing_edges]``: one route, file or detect, and the keys of that route."""
+    where = f"{path}: the [{TRAILING_EDGES_TABLE}] table"
+    foreign = sorted(set(table) - set(_TRAILING_EDGE_KEYS))
+    if foreign:
+        raise InputArtifactError(
+            f"{where} does not read {', '.join(foreign)}; it reads {_TRAILING_EDGE_ROUTES}, "
+            "with type and tolerance beside file."
+        )
+    if ("file" in table) == ("detect" in table):
+        stated = "both file and detect" if "file" in table else "neither file nor detect"
+        raise InputArtifactError(
+            f"{where} states {stated}, and a trailing edge is marked by one of them: "
+            f"{_TRAILING_EDGE_ROUTES}."
+        )
+    tolerance = table.get("tolerance", 0.0001)
+    if isinstance(tolerance, bool) or not isinstance(tolerance, (int, float)):
+        raise InputArtifactError(
+            f"{where} states tolerance = {tolerance!r}; write the distance, in the "
+            "simulation's length unit, within which an edge's mid-point counts as a point "
+            "of the file, as a number such as 0.0001."
+        )
+    fields: dict[str, Any] = {}
+    if "file" in table:
+        written = table["file"]
+        if not isinstance(written, str) or not written.strip():
+            raise InputArtifactError(
+                f"{where} states file = {written!r}; write the name of the points file, "
+                'beside the sidecar, as file = "wing.te.txt".'
+            )
+        fields = {
+            "route": "file",
+            "edge_type": table.get("type", "STANDARD"),
+            "tolerance": float(tolerance),
+            "points_file": str(path.parent / written.strip()),
+        }
+    else:
+        stated = sorted(key for key in ("type", "tolerance") if key in table)
+        if stated:
+            raise InputArtifactError(
+                f"{where} states {' and '.join(stated)} beside detect, and detection reads "
+                "neither: it gives every edge it marks the STANDARD type and matches no "
+                "points. Delete them, or mark the edges by a points file (file = ...)."
+            )
+        fields = {"route": "detect", **_read_trailing_edge_detection(where, table["detect"])}
+    try:
+        return TrailingEdgeMarking.model_validate(fields)
+    except ValidationError as error:
+        problems = "; ".join(
+            str(item["msg"]).removeprefix("Value error, ") for item in error.errors()
+        )
+        raise InputArtifactError(f"{where} is refused: {problems}.") from error
+
+
+def _read_trailing_edge_detection(where: str, detect: object) -> dict[str, Any]:
+    """Read ``detect``: ``"auto"``, or a table of surfaces and an optional sweep angle."""
+    if detect == DETECT_EVERYWHERE:
+        return {}
+    if not isinstance(detect, dict):
+        raise InputArtifactError(
+            f'{where} states detect = {detect!r}; write detect = "{DETECT_EVERYWHERE}" for '
+            'detection over every surface, or detect = { surfaces = ["<name>"], '
+            "sweep_angle = <degrees> } for detection on the surfaces named."
+        )
+    foreign = sorted(set(detect) - set(_DETECT_KEYS))
+    if foreign:
+        raise InputArtifactError(
+            f"{where}: detect does not read {', '.join(foreign)}; it reads surfaces and, "
+            "optionally, sweep_angle."
+        )
+    surfaces = detect.get("surfaces")
+    fields: dict[str, Any] = {"detect_surfaces": _surface_names(where, surfaces, every=True)}
+    if "sweep_angle" in detect:
+        angle = detect["sweep_angle"]
+        if isinstance(angle, bool) or not isinstance(angle, (int, float)):
+            raise InputArtifactError(
+                f"{where}: detect states sweep_angle = {angle!r}; write it in degrees, as a number."
+            )
+        fields["sweep_angle_deg"] = float(angle)
+    return fields
+
+
+def _surface_names(where: str, surfaces: object, *, every: bool) -> tuple[str, ...]:
+    """Read a ``surfaces`` list of sidecar names; ``"all"`` is every surface where ``every``."""
+    if every and surfaces == EVERY_SURFACE:
+        return ()
+    if (
+        not isinstance(surfaces, list)
+        or not surfaces
+        or not all(isinstance(name, str) and name.strip() for name in surfaces)
+    ):
+        written = "is not stated" if surfaces is None else f"= {surfaces!r}"
+        also = f', or "{EVERY_SURFACE}" for every surface' if every else ""
+        raise InputArtifactError(
+            f"{where}: detect's surfaces {written}; write the surfaces to detect on as a "
+            f'non-empty list of the sidecar\'s names, surfaces = ["<name>"]{also}.'
+        )
+    return tuple(name.strip() for name in surfaces)
+
+
+def _read_detection(
+    path: Path, name: str, table: Mapping[str, Any], *, by_surface: bool
+) -> str | tuple[str, ...]:
+    """Read ``[wake_termination]`` or ``[base_regions]``: one ``detect`` key."""
+    where = f"{path}: the [{name}] table"
+    shapes = f'detect = "{DETECT_EVERYWHERE}"' + (
+        ' or detect = { surfaces = ["<name>"] }' if by_surface else ""
+    )
+    foreign = sorted(set(table) - {"detect"})
+    if foreign or "detect" not in table:
+        stated = f"reads no {', '.join(foreign)}" if foreign else "states no detect"
+        raise InputArtifactError(f"{where} {stated}; it reads one key, {shapes}.")
+    detect = table["detect"]
+    if detect == DETECT_EVERYWHERE:
+        return DETECT_EVERYWHERE
+    if by_surface and isinstance(detect, dict) and set(detect) == {"surfaces"}:
+        return _surface_names(where, detect["surfaces"], every=False)
+    why = (
+        ""
+        if by_surface
+        else ". A base region is detected on a named boundary by the row's BASE_REGIONS "
+        "key, which names the boundary that becomes the base"
+    )
+    raise InputArtifactError(f"{where} states detect = {detect!r}; it takes {shapes}{why}.")
+
+
+def _where_in_the_import_table(loc: Sequence[int | str]) -> str:
+    """Name a place of the ``[import]`` table as its reader counts it: ``operation 2 (factors)``."""
+    if len(loc) >= 2 and loc[0] == "operations" and isinstance(loc[1], int):
+        rest = ".".join(str(part) for part in loc[2:])
+        return f"operation {loc[1] + 1}" + (f" ({rest})" if rest else "")
+    return ".".join(str(part) for part in loc) or "the table"
 
 
 # --- one subfolder per geometry (PFS-2032.05) ----------------------------------------

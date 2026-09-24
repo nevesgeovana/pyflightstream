@@ -114,3 +114,61 @@ Separately, `pyfs-matrix plan` now warns naming each `LEGACY` row whose
 - A multi-point steady row now writes per-distribution sections files and
   identity columns where 0.26.0 wrote a named `#distributions` skip. A job
   run before 0.27.0 keeps the skip; run it again.
+
+## 8. A raw mesh runs through a workflow, with its unit and its trailing edge (G01, G02, G03, T06)
+
+A row whose `GEOMETRY` names an `.obj` or `.stl` was refused before any seat.
+It now runs once the sidecar beside the file, `<stem>.boundaries.toml`,
+states the unit the file is written in, its surface names and its trailing
+edge:
+
+```toml
+boundaries = ["Wing"]      # the file's surfaces, in its order, written by hand
+
+[import]
+units = "MILLIMETER"       # the unit the mesh file is written in
+
+[trailing_edges]
+file = "wing.te.txt"       # a unit line, then one edge mid-point per line
+# or: detect = "auto"
+```
+
+The simulation's length unit is metres whatever the file's unit; whether
+`IMPORT` converts a body written in another unit is measured on no build
+yet, and a mesh written in metres (`units = "METER"`) does not depend on the
+answer. A raw mesh whose sidecar declares no trailing edge is refused at
+plan. On the file route the row must export its solver log (a run type's
+default outputs do), and a pproc that turns `[exports] log` off is refused
+there, because the run compares the solver's count of imported edges with
+the points it wrote. The file route runs on 26.124 only. A `.fsm` row is
+unchanged, except that a `.fsm` whose sidecar states an `[import]`,
+`[trailing_edges]`, `[wake_termination]` or `[base_regions]` table is now
+refused, because nothing would read it; delete the table. The raw-mesh
+refusal's text changed: it names `[import]` and `units =`, and quotes the
+anchor 'A RAW MESH STATES ITS UNITS'. A record of a point that imported a
+raw mesh carries `mesh_import`, which 0.26.0 refuses; post such a workspace
+with 0.27.0.
+
+## 9. The wake-edge helpers write what 26.124 reads (G02, T05)
+
+- `mark_wake_edges(script, edge_type=, tolerance=)` becomes
+  `mark_wake_edges(script, edge_type=, tolerance=, units="<simulation unit>",
+  node_file="<absolute path>", midpoints=<edge mid-points in that unit>)`. It
+  works on 26.124 only; 26.122 and 26.123 now refuse.
+- `write_node_file(path, nodes, unit=U)` becomes `write_node_file(path,
+  midpoints, unit=U, simulation_unit=<simulation unit>)`. The file has no unit
+  line and no ids, and it takes mid-points, not vertices.
+- `extract_trailing_edge(...).write_node_file(...)` now refuses. Use
+  `write_trailing_edge_node_file(mesh, path, axis=, hub=, unit=)` or
+  `trailing_edge_midpoints(...)`; the output of
+  `write_trailing_edge_node_file` is a unit line, then one mid-point per
+  trailing-edge mesh edge, not one per section.
+
+## 10. `BASE_REGIONS` names the base boundary (RPT-066)
+
+A row writing `BASE_REGIONS: Body` on a body whose base is its own boundary
+got no base region and no error: `DETECT_BASE_REGIONS_BY_SURFACE` marks the
+boundary it is given as the base, and given the body it marks nothing. Write
+the base boundary (`BASE_REGIONS: Base`), and the same in a pproc's
+`base_regions`. Nothing refuses the body's name, since nothing offline tells a
+base from a body.

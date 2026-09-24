@@ -99,6 +99,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases.workflows import (
     COLD_START_VARIABLE,
     EXPORT_LOG_VARIABLE,
+    RAW_MESH_FORMATS,
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
     RESTART_VARIABLE,
@@ -130,6 +131,7 @@ from pyflightstream.results import (
     VersionMismatchWarning,
     classify_solver_mode,
     frozen_time_steps,
+    imported_trailing_edges,
     parse_loads,
     parse_log_times,
     parse_residual_history,
@@ -3619,12 +3621,22 @@ def _marked_trailing_edges(case) -> int | None:
     that from a campaign marking none.
 
     A row marking none answers 0, which is then a measurement.
+
+    A RAW MESH IS READ FROM ITS DECLARED INVENTORY (G01, G03). An ``.obj``
+    or ``.stl`` carries no mesh block, so its names are the sidecar's
+    ``boundaries`` as the import's renames leave them, which is exactly
+    what the builder declares; the file's block read alone answered
+    nothing, and every raw-mesh row printed NA.
     """
     families = getattr(getattr(case, "solver", None), "vorticity_drag_families", None)
     if not families:
         return 0  # a measured none: the row marks no family
-    inventory = None
-    if case.geometry is not None:
+    inventory: Sequence[str] | None = None
+    if case.geometry is not None and Path(str(case.geometry)).suffix.lower() in RAW_MESH_FORMATS:
+        declared = tuple(case.inventory or ())
+        spec = case.mesh_import
+        inventory = declared if spec is None else spec.names_after_renames(declared)
+    elif case.geometry is not None:
         try:
             from pyflightstream._fsm import boundary_names
 
@@ -4973,6 +4985,9 @@ def _execute_sweep(
         "pproc": case.pproc_id,
         "velocity_requested_m_s": case.velocity,
         "inventory_source": case.inventory_source,
+        "mesh_import": None
+        if case.mesh_import is None
+        else case.mesh_import.model_dump(mode="json", exclude_none=True),
         "motions": [dict(record) for record in case.motions],
         "point_name_template": workspace.naming.point_name,
         "description": case.description or None,
@@ -5097,6 +5112,12 @@ def _execute_sweep(
     # the descriptor names the sweep and carries the row's clock and
     # processor count. `_bind_submission_values` reads them off the case
     # and a local executor has no such method and is handed nothing.
+    # G02, and PFS-2031.13 on this path too: the files the script parked are
+    # written before the solver starts, and the data files' digests join the
+    # job's inputs. This path wrote none of them until 0.27.0.
+    written = _write_pending_files(script, sim_dir)
+    if written:
+        base["inputs_sha256"] = {**base["inputs_sha256"], **written}
     _bind_submission_values(executor, case, point_cases[0][2])
     result = executor.run_script(script_path, working_dir=sim_dir, timeout_s=case.solver.timeout_s)
     base["argv"] = list(result.argv)
@@ -5153,6 +5174,14 @@ def _execute_sweep(
                 "points_by_tag": {
                     point_name(case, point): dict(point) for point, _, _ in point_cases
                 },
+                # G02: the points the job's one script imports. The job writes
+                # one log with one import line, so every point is held to this
+                # number and it is never multiplied by the points.
+                **(
+                    {"wake_edge_points": script.wake_edge_points}
+                    if script.wake_edge_points is not None
+                    else {}
+                ),
             },
             points_ran=[
                 {
@@ -5213,19 +5242,30 @@ def _execute_sweep(
             continue
         collected = collected_by_tag[tag]
         assessment = assess(point_case, result, sim_dir)
+        # G02. The job's one script imported the trailing edges once, and each
+        # point is held to that count through the log it collected, else the
+        # job's own.
+        status, error = _with_wake_edge_verdict(
+            assessment.status,
+            assessment.error,
+            _wake_edge_import_verdict(
+                script.wake_edge_points,
+                _run_log_text(sim_dir, collected, assessment.log_file_used, result),
+            ),
+        )
         collected_all.extend(collected)
         ran.append(
             {
                 "tag": tag,
                 "point": dict(point),
-                "status": str(assessment.status),
+                "status": str(status),
                 "outputs": list(collected),
                 "iterations": assessment.iterations,
                 "residual": assessment.residual,
             }
         )
-        if str(assessment.status).startswith("FAILED"):
-            error_lines.append(f"{tag}: {assessment.error or assessment.status}")
+        if str(status).startswith("FAILED"):
+            error_lines.append(f"{tag}: {error or status}")
         # THE WORST, BY A STATED ORDER, and it was the LAST failing point
         # until 2026-09-13: each failure simply overwrote the variable, so
         # a sweep whose first point DIVERGED and whose third left an
@@ -5233,7 +5273,7 @@ def _execute_sweep(
         # status was pointed at the wrong point (the QA lens). `points_ran`
         # carried each point's own status either way, so nothing was lost;
         # what was wrong was the job's headline.
-        worst = worse_of(worst, assessment.status)
+        worst = worse_of(worst, status)
     base["points_ran"] = ran
     return RunRecord(
         **base,
@@ -5242,6 +5282,119 @@ def _execute_sweep(
         outputs_sha256=workspace.output_digests(case.sim_id, collected_all),
         error="; ".join(error_lines) or None,
     )
+
+
+def _write_pending_files(script: Script, work_dir: Path) -> dict[str, str]:
+    """Write every file the script parked for the run, before the solver starts.
+
+    Two kinds, both named by the script and written where it names them (a
+    relative path lands in ``work_dir``, the solver's working directory):
+    the child scripts of SCRIPT actions (PFS-2031.13) and the data files a
+    command reads, the trailing-edge node file today (G02). One writer for
+    both, called by the point path and by the sweep path alike; the sweep
+    path wrote neither until 0.27.0.
+
+    Returns
+    -------
+    dict of str to str
+        The sha256 of each DATA file, keyed by its file name, for the
+        record's ``inputs_sha256``: the node file is an input the solver
+        read, and a record that could not say which bytes it read could not
+        be reproduced. The action scripts are hashed nowhere, as before.
+    """
+
+    def placed(name: str) -> Path:
+        target = Path(name)
+        return target if target.is_absolute() else work_dir / target
+
+    for action_file, action_text in script.pending_action_scripts.items():
+        target = placed(action_file)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(action_text, encoding="utf-8")
+    digests: dict[str, str] = {}
+    for input_file, text in script.pending_input_files.items():
+        target = placed(input_file)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+        digests[target.name] = file_sha256(target)
+    return digests
+
+
+def _run_log_text(
+    sim_dir: Path, collected: Sequence[str], log_file_used: str | None, result: ExecutionResult
+) -> str | None:
+    """Return a point's solver log: the collected one the assessor read, else the run's own.
+
+    The collected log is the one the script exported and the assessor
+    named, found among the point's collected outputs; without one, the log
+    the executor read after the process (``FlightStreamLog.txt``). None
+    when neither exists.
+    """
+    if log_file_used:
+        for entry in collected:
+            if Path(entry).name == log_file_used:
+                path = sim_dir / entry
+                if path.is_file():
+                    return path.read_text(encoding="utf-8", errors="replace")
+    return result.log_text
+
+
+def _wake_edge_import_verdict(
+    expected: int | None, log_text: str | None
+) -> tuple[RunStatus, str] | None:
+    """Judge a run that imported trailing edges by the count the solver logged.
+
+    G02 (RPT-061, RPT-065). The import marks nothing and says nothing for a
+    point that matches no mesh edge, and initialisation does not add what
+    it missed, so the solver's ``N trailing edges imported`` line is the one
+    statement that tells a file that marked from one that did not.
+
+    Parameters
+    ----------
+    expected : int or None
+        The points the script wrote (``Script.wake_edge_points``); None
+        for a script that imports nothing, which is never judged here, so a
+        continuation that opens a saved state is not held to a count.
+    log_text : str or None
+        The run's solver log.
+
+    Returns
+    -------
+    tuple of (RunStatus, str) or None
+        None when there is nothing to object to; FAILED_INCOMPLETE_OUTPUT
+        when no log was read; FAILED_SCRIPT when the logged count differs
+        from the points written. Each with its reason.
+    """
+    if expected is None:
+        return None
+    if log_text is None:
+        return (
+            RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            f"the script imported {expected} trailing-edge points and no solver log was "
+            "read, so whether the file marked anything cannot be told: a file whose "
+            "points match no edge marks nothing and says nothing. Export the solver log "
+            "among the row's outputs",
+        )
+    counts = imported_trailing_edges(log_text)
+    logged = sum(counts.values())
+    if logged == expected:
+        return None
+    per_boundary = ", ".join(f"{count} for {name}" for name, count in counts.items()) or "none"
+    return (
+        RunStatus.FAILED_SCRIPT,
+        f"the script wrote {expected} trailing-edge points and the solver logged "
+        f"{logged} imported (per boundary: {per_boundary}); a point matching no mesh edge "
+        "is dropped in silence, so this run's wake is not the one declared",
+    )
+
+
+def _with_wake_edge_verdict(
+    status: RunStatus, error: str | None, verdict: tuple[RunStatus, str] | None
+) -> tuple[RunStatus, str | None]:
+    """Apply a wake-edge verdict over a status that is not already a failure."""
+    if verdict is None or str(status).startswith("FAILED"):
+        return status, error
+    return verdict[0], "; ".join(part for part in (error, verdict[1]) if part)
 
 
 def _walltime_stop(state_path: Path) -> dict | None:
@@ -5593,6 +5746,9 @@ def _execute_point(
         # the point was run for without opening the matrix.
         "pproc": case.pproc_id,
         "inventory_source": case.inventory_source,
+        "mesh_import": None
+        if case.mesh_import is None
+        else case.mesh_import.model_dump(mode="json", exclude_none=True),
         "motions": [dict(record) for record in case.motions],
         # The windows of every reduction the products stage will write for
         # this point (PFS-2015.04), resolved off the row HERE, where the
@@ -5783,12 +5939,12 @@ def _execute_point(
         if isinstance(executor, Submitting)
         else sim_dir
     )
-    for action_file, action_text in script.pending_action_scripts.items():
-        target = Path(action_file)
-        if not target.is_absolute():
-            target = work_dir / target
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(action_text, encoding="utf-8")
+    # G02: and the data files a command reads, the trailing-edge node file,
+    # whose digests join the inputs the record states.
+    written = _write_pending_files(script, work_dir)
+    if written:
+        inputs_sha256 = {**inputs_sha256, **written}
+        base["inputs_sha256"] = inputs_sha256
     # PFS-2031.18. A script that registered the counter action names a
     # program this layer writes: the threshold is resolved from the case
     # again (the same function the builder called, so the two agree),
@@ -5984,6 +6140,13 @@ def _execute_point(
                 # the simulation folder so a moved workspace still resolves;
                 # the collector waits on the declared outputs here.
                 "working_dir": work_dir.relative_to(sim_dir).as_posix(),
+                # G02: the points the script imports, which the collector
+                # compares with the count the solver logs.
+                **(
+                    {"wake_edge_points": script.wake_edge_points}
+                    if script.wake_edge_points is not None
+                    else {}
+                ),
             },
         )
 
@@ -6017,18 +6180,29 @@ def _execute_point(
         )
 
     assessment = assess(point_case, result, sim_dir)
+    # FR-98. THE CLOCK'S VERDICT WINS, and only over a converged one.
+    # A run the watchdog stopped did not converge and did not fail: it
+    # ran out of clock with its outputs written, which is a state of
+    # its own and the reason the value exists. A run that DIVERGED and
+    # then hit the clock is still diverged, so a failure is left alone.
+    status = (
+        RunStatus.WALLTIME_REACHED
+        if base.get("stopped_at") and not str(assessment.status).startswith("FAILED")
+        else assessment.status
+    )
+    # G02. A run that imported trailing edges is held to the count the solver
+    # logged, over any status that is not already a failure.
+    status, error = _with_wake_edge_verdict(
+        status,
+        assessment.error,
+        _wake_edge_import_verdict(
+            script.wake_edge_points,
+            _run_log_text(sim_dir, collected, assessment.log_file_used, result),
+        ),
+    )
     return RunRecord(
         **base,
-        # FR-98. THE CLOCK'S VERDICT WINS, and only over a converged one.
-        # A run the watchdog stopped did not converge and did not fail: it
-        # ran out of clock with its outputs written, which is a state of
-        # its own and the reason the value exists. A run that DIVERGED and
-        # then hit the clock is still diverged, so a failure is left alone.
-        status=(
-            RunStatus.WALLTIME_REACHED
-            if base.get("stopped_at") and not str(assessment.status).startswith("FAILED")
-            else assessment.status
-        ),
+        status=status,
         iterations=assessment.iterations,
         residual=assessment.residual,
         fs_version_reported=assessment.fs_version_reported,
@@ -6052,7 +6226,7 @@ def _execute_point(
         solver_run_time_s=assessment.solver_run_time_s,
         solver_initialization_s=assessment.solver_initialization_s,
         time_steps=assessment.time_steps,
-        error=assessment.error,
+        error=error,
     )
 
 

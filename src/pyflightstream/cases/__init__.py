@@ -78,7 +78,12 @@ __all__ = [
     "CampaignConfigError",
     "DerivedFrom",
     "FluidState",
+    "EVERY_SURFACE",
+    "MeshImport",
+    "MeshOperation",
+    "RawMeshConditions",
     "ReferenceData",
+    "TrailingEdgeMarking",
     "ScriptRecipe",
     "SimCase",
     "SolverSettings",
@@ -1842,10 +1847,11 @@ class PprocSpec(BaseModel):
     #: How a blade family is told from the airframe: a regular expression
     #: over the family name. The reference ones were Blade1 to Blade6.
     blade_pattern: str = r"^Blade\d+$"
-    #: The mesh families the base-region autodetect is allowed to consider
-    #: (PFS-2029.10): one DETECT_BASE_REGIONS_BY_SURFACE per boundary of
-    #: those families, after OPEN. Empty, the default, emits nothing; a
-    #: row's BASE_REGIONS key overrides the artifact.
+    #: The boundaries that BECOME base regions (PFS-2029.10, RPT-066): one
+    #: DETECT_BASE_REGIONS_BY_SURFACE per boundary of those families, after
+    #: OPEN. A body's flat base, never the body carrying it, which the
+    #: command marks nothing on, silently. Empty, the default, emits
+    #: nothing; a row's BASE_REGIONS key overrides the artifact.
     base_regions: list[str] = Field(default_factory=list)
 
     def group_alias(self, name: str) -> str | None:
@@ -3224,6 +3230,251 @@ def case_at_point(case: SimCase, point: Mapping[str, float], **update: object) -
     return case.model_copy(update=fields)
 
 
+#: The word a mesh operation's ``surface`` takes for every surface of the file.
+EVERY_SURFACE = "all"
+
+#: The keys each mesh operation of an import states besides ``op`` and
+#: ``surface`` (G03), and the only ones it may state.
+_MESH_OPERATION_KEYS: Mapping[str, tuple[str, ...]] = {
+    "scale": ("factors",),
+    "rename": ("to",),
+    "mirror": ("plane",),
+    "translate": ("vector",),
+    "rotate": ("axis", "angle_deg"),
+}
+
+
+class MeshOperation(BaseModel):
+    """One mesh operation applied right after a raw mesh is imported (G03).
+
+    Declared in the geometry's sidecar, beside the unit, as one
+    ``[[import.operations]]`` table each, and applied in the order written,
+    in the reference frame:
+
+    * ``scale``: ``factors = [fx, fy, fz]``, each greater than zero;
+    * ``rename``: ``surface`` and ``to``, the new name;
+    * ``mirror``: ``surface`` and ``plane`` (``YZ``, ``XZ`` or ``XY``); the
+      mirrored copy joins its source, so the surface count is unchanged;
+    * ``translate``: ``vector = [x, y, z]``, in the ``[import]`` unit;
+    * ``rotate``: ``axis`` (``X``, ``Y`` or ``Z``) and ``angle_deg``.
+
+    ``surface`` names the surface acted on by the name the file gives it,
+    or by a name an earlier rename gave; never by position. It is
+    :data:`EVERY_SURFACE` by default, which ``rename`` and ``mirror`` do not
+    take: each acts on one named surface.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    op: Literal["scale", "rename", "mirror", "translate", "rotate"]
+    surface: str = EVERY_SURFACE
+    factors: tuple[float, float, float] | None = None
+    vector: tuple[float, float, float] | None = None
+    axis: Literal["X", "Y", "Z"] | None = None
+    angle_deg: float | None = None
+    plane: Literal["YZ", "XZ", "XY"] | None = None
+    to: str | None = None
+
+    @field_validator("surface", "to", mode="before")
+    @classmethod
+    def _stripped(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def _its_own_keys_and_sound_values(self) -> MeshOperation:
+        own = _MESH_OPERATION_KEYS[self.op]
+        every = {key for keys in _MESH_OPERATION_KEYS.values() for key in keys}
+        missing = [key for key in own if getattr(self, key) is None]
+        if missing:
+            raise ValueError(
+                f"a {self.op} states {' and '.join(own)}; {', '.join(missing)} is not stated"
+            )
+        foreign = sorted(key for key in every - set(own) if getattr(self, key) is not None)
+        if foreign:
+            raise ValueError(
+                f"a {self.op} does not read {', '.join(foreign)}; it states "
+                f"{' and '.join(own)} and, optionally, surface"
+            )
+        if not self.surface:
+            raise ValueError(
+                f'surface is empty; name a surface of the file, or write "{EVERY_SURFACE}"'
+            )
+        if self.op in ("rename", "mirror") and self.surface == EVERY_SURFACE:
+            raise ValueError(
+                f'a {self.op} names the surface it acts on, as surface = "<a name of the '
+                'file>"; it has no every-surface form'
+            )
+        numbers = [*(self.factors or ()), *(self.vector or ())]
+        if self.angle_deg is not None:
+            numbers.append(self.angle_deg)
+        if not all(math.isfinite(number) for number in numbers):
+            raise ValueError(f"a {self.op} states a value that is not a finite number")
+        if self.factors is not None and min(self.factors) <= 0:
+            raise ValueError(
+                f"each scale factor must be greater than zero, the manual's rule; "
+                f"got {list(self.factors)}"
+            )
+        if self.to is not None and (not self.to or any(char.isspace() for char in self.to)):
+            raise ValueError(
+                f"to = {self.to!r} is not a surface name the solver reads as one word; "
+                "write a name with no spaces"
+            )
+        if self.to == EVERY_SURFACE:
+            raise ValueError(
+                f'to = "{EVERY_SURFACE}" would name a surface with the word for every surface'
+            )
+        return self
+
+
+class MeshImport(BaseModel):
+    """How a raw mesh is imported: the ``[import]`` table of its sidecar (G01).
+
+    A raw mesh (``.obj``, ``.stl``) carries no length unit, so the file
+    that names its boundaries, ``<stem>.boundaries.toml`` beside it,
+    states the unit it is written in, and a workflow row naming the mesh
+    is refused without it rather than imported under an assumed one.
+
+    ``units`` goes to ``IMPORT`` and nowhere else. The simulation's own
+    length unit is always metres, because every length the reference and
+    the row state is in metres; the builder sets it after the import
+    (:data:`pyflightstream.cases.workflows.SIMULATION_LENGTH_UNIT`). The
+    value is only normalised here: which spellings a build takes is read
+    from the command database by the builder, per build.
+
+    ``operations`` are the mesh operations applied right after the import,
+    in the order written (G03, :class:`MeshOperation`); empty when the
+    table declares none.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    units: str
+    operations: tuple[MeshOperation, ...] = ()
+
+    @field_validator("units", mode="before")
+    @classmethod
+    def _one_word_in_capitals(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        spelled = value.strip().upper()
+        if not spelled:
+            raise ValueError(
+                "`units` is empty; write the length unit the mesh file is written in, "
+                'as units = "MILLIMETER"'
+            )
+        return spelled
+
+    @property
+    def moving_operations(self) -> tuple[MeshOperation, ...]:
+        """The operations that move, scale or copy the body: every one but ``rename``.
+
+        A trailing-edge points file names edges of the mesh as the FILE
+        holds it, and is checked against that file; one of these would
+        carry the body's edges away from the points (G02).
+        """
+        return tuple(operation for operation in self.operations if operation.op != "rename")
+
+    def names_after_renames(self, names: Sequence[str]) -> tuple[str, ...]:
+        """Return the boundary names as this import's renames leave them, in order.
+
+        The inventory a row cites for a raw mesh is the sidecar's
+        ``boundaries`` as the ``rename`` operations leave them (G03), which
+        is what the builder declares. This applies them and judges nothing:
+        a rename whose surface is absent at its step, or carried twice, is
+        passed over here and refused by the builder.
+        """
+        renamed = list(names)
+        for operation in self.operations:
+            if operation.op != "rename" or operation.to is None:
+                continue
+            found = [index for index, name in enumerate(renamed) if name == operation.surface]
+            if len(found) == 1:
+                renamed[found[0]] = operation.to
+        return tuple(renamed)
+
+
+#: The ``[trailing_edges]`` routes a raw mesh's sidecar may take (G02): a
+#: file of edge mid-points, the default, or detection, applied only when
+#: written.
+TrailingEdgeRoute = Literal["file", "detect"]
+
+
+class TrailingEdgeMarking(BaseModel):
+    """How a raw mesh's trailing edges are marked: its sidecar's ``[trailing_edges]`` (G02).
+
+    A raw mesh carries no trailing edge, and without one the solver makes
+    no wake and runs and answers anyway, so a raw mesh declares one.
+
+    ``route = "file"`` is the default route. ``points_m`` are the mid-points
+    of the trailing-edge mesh edges, in metres, the simulation's length unit, read
+    from the points file the table names and checked against the mesh when
+    the row is bound (:mod:`pyflightstream.workspace.wake_edges`); the
+    builder writes them as the solver's node file and imports it with
+    ``IMPORT_WAKE_EDGES_FROM_FILE``, giving every edge ``edge_type`` and
+    matching within ``tolerance``. ``points_file`` is where they were read
+    from, for a refusal to name; it is kept out of every dump, since it is
+    a path on one machine.
+
+    ``route = "detect"`` marks by the solver's detection:
+    ``detect_surfaces`` names the surfaces to detect on, by the sidecar's
+    names, and is empty for every surface; ``sweep_angle_deg`` is set
+    before the detection when stated. Detection gives every edge the
+    STANDARD type and reads no tolerance.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    route: TrailingEdgeRoute
+    edge_type: str = "STANDARD"
+    tolerance: float = 0.0001
+    points_m: tuple[tuple[float, float, float], ...] = ()
+    points_file: str | None = Field(default=None, exclude=True)
+    detect_surfaces: tuple[str, ...] = ()
+    sweep_angle_deg: float | None = None
+
+    @field_validator("edge_type", mode="before")
+    @classmethod
+    def _one_word_in_capitals(cls, value: object) -> object:
+        return value.strip().upper() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def _one_route_and_sound_values(self) -> TrailingEdgeMarking:
+        if not math.isfinite(self.tolerance) or self.tolerance <= 0.0:
+            raise ValueError(
+                f"tolerance = {self.tolerance!r}; it is the distance, in the simulation's "
+                "length unit, within which an edge's mid-point counts as a point of the "
+                "file, and it must be positive and finite"
+            )
+        if self.route == "file":
+            if self.detect_surfaces or self.sweep_angle_deg is not None:
+                raise ValueError("the file route takes no detection surfaces and no sweep angle")
+            return self
+        if self.points_m or self.points_file is not None:
+            raise ValueError("the detect route reads no points file")
+        if not all(name.strip() for name in self.detect_surfaces):
+            raise ValueError("a detection surface is named by an empty string")
+        if self.sweep_angle_deg is not None and not math.isfinite(self.sweep_angle_deg):
+            raise ValueError(f"sweep_angle = {self.sweep_angle_deg!r} is not a finite number")
+        return self
+
+
+class RawMeshConditions(BaseModel):
+    """The boundary conditions a raw mesh's sidecar declares (G02, Q1 of 0.27.0).
+
+    ``trailing_edges`` is required of every raw mesh a workflow imports,
+    and the builder refuses one without it. ``wake_termination`` detects
+    wake-termination nodes, ``"auto"`` over every surface or by the
+    surfaces named; ``base_regions = "auto"`` detects base regions over
+    the whole mesh. Both are None unless written.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    trailing_edges: TrailingEdgeMarking | None = None
+    wake_termination: Literal["auto"] | tuple[str, ...] | None = None
+    base_regions: Literal["auto"] | None = None
+
+
 class SimCase(BaseModel):
     """One solver configuration with its sweep (SAD Section 5).
 
@@ -3410,6 +3661,18 @@ class SimCase(BaseModel):
     #: Where the boundary inventory came from: ``sidecar``, ``mesh_block``
     #: or None when the geometry declares none.
     inventory_source: str | None = None
+    #: The ``[import]`` table of the sidecar beside a raw mesh (G01), bound
+    #: by the workspace: the length unit the file is written in. None for a
+    #: geometry whose sidecar states no such table, which is every saved
+    #: simulation; the builder refuses a raw mesh without one, and a saved
+    #: simulation with one.
+    mesh_import: MeshImport | None = None
+    #: The ``[trailing_edges]``, ``[wake_termination]`` and ``[base_regions]``
+    #: tables of the same sidecar (G02), bound by the workspace, a file
+    #: route's points read and checked against the mesh. None for a sidecar
+    #: stating none of the three; the builder refuses a raw mesh without a
+    #: trailing edge, and a saved simulation with any of them.
+    raw_mesh_conditions: RawMeshConditions | None = None
     point: dict[str, float] = Field(default_factory=dict)
     #: The state each point of a SWEPT FLOW VARIABLE resolved to, keyed by
     #: :func:`point_state_key` (0.21.0). Empty on every row that sweeps an

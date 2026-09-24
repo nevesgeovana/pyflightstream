@@ -666,6 +666,16 @@ def _complete(
                 stamped[field_name] = value
     else:
         status, verdict = assessor(record, sim_dir)
+    # G02: a job that imported trailing edges is held to the solver's count.
+    log_file_used = stamped.get("log_file_used")
+    status, verdict = _wake_edge_verdict(
+        record,
+        sim_dir,
+        collected,
+        log_file_used if isinstance(log_file_used, str) else None,
+        status,
+        verdict,
+    )
     update: dict[str, object] = {
         **stamped,
         "status": status,
@@ -782,7 +792,14 @@ def _complete_sweep(
 
             shim = _RecordAsCase(as_point, velocity_is_the_point_s=set(point) <= _ATTITUDE_AXES)
             assessment = LoadsAssessor()(shim, None, sim_dir)  # type: ignore[arg-type]
-            status, verdict = assessment.status, assessment.error
+            status, verdict = _wake_edge_verdict(
+                record,
+                sim_dir,
+                collected_by_tag[tag],
+                assessment.log_file_used,
+                assessment.status,
+                assessment.error,
+            )
             entry.update(
                 status=str(status),
                 outputs=list(collected_by_tag[tag]),
@@ -791,6 +808,9 @@ def _complete_sweep(
             )
         else:
             status, verdict = assessor(as_point, sim_dir)
+            status, verdict = _wake_edge_verdict(
+                record, sim_dir, collected_by_tag[tag], None, status, verdict
+            )
             entry.update(status=str(status), outputs=list(collected_by_tag[tag]))
         ran.append(entry)
         collected_all.extend(collected_by_tag[tag])
@@ -816,6 +836,37 @@ def _complete_sweep(
         ),
         record=completed,
     )
+
+
+def _wake_edge_verdict(
+    record: RunRecord,
+    sim_dir: Path,
+    collected: Sequence[str],
+    log_file_used: str | None,
+    status: RunStatus,
+    verdict: str | None,
+) -> tuple[RunStatus, str | None]:
+    """Hold a collected job that imported trailing edges to the count its log states.
+
+    G02. The local path judges a point the same way the moment its solver
+    returns; a submitted job is judged here instead, from the number its
+    submission recorded and the log the assessor read among the collected
+    outputs. A job whose submission records no count imported nothing and is
+    returned unchanged; one that did, with no log read, cannot be told to have
+    marked anything.
+    """
+    from pyflightstream.run import _wake_edge_import_verdict, _with_wake_edge_verdict
+
+    expected = (record.submission or {}).get("wake_edge_points")
+    if not isinstance(expected, int):
+        return status, verdict
+    log_text: str | None = None
+    for entry in collected if log_file_used else ():
+        path = sim_dir / entry
+        if Path(entry).name == log_file_used and path.is_file():
+            log_text = path.read_text(encoding="utf-8", errors="replace")
+            break
+    return _with_wake_edge_verdict(status, verdict, _wake_edge_import_verdict(expected, log_text))
 
 
 def _collect_by_point(

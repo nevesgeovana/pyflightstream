@@ -560,3 +560,11 @@ manual_editions:
     edition word for word, the withdrawals included. What 26.124 changes,
     if anything, is in its executable, which is the one file of the
     package whose bytes differ, and only running it can say what that is.
+
+    ONE WITHDRAWAL IS NOW MEASURED ON THE EXECUTABLE. The block SRC-751
+    deletes, TRAILING_EDGES_IMPORT, was run on 26.124 on 2026-09-23 and
+    the solver answers the name as an unrecognized command (RPT-061), so
+    its 26.124 row is removed and cites that run. The same run found the
+    two-value IMPORT_WAKE_EDGES_FROM_FILE line the edition prints refused
+    as a syntax error; the 26.124 row of that command states the grammar
+    the build reads.

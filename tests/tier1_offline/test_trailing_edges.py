@@ -38,14 +38,18 @@ import math
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 import numpy
 import pytest
 import trimesh
 
+from pyflightstream._fsm import surface_mesh
+from pyflightstream._fsm import trailing_edge_midpoints as saved_trailing_edge_midpoints
 from pyflightstream.workspace import (
     TrailingEdge,
     extract_trailing_edge,
+    trailing_edge_midpoints,
     write_trailing_edge_node_file,
 )
 from pyflightstream.workspace.inputs import InputArtifactError
@@ -457,13 +461,12 @@ def test_the_extraction_runs_with_no_optional_extra_installed(tmp_path):
         f"{completed.stdout}\n{completed.stderr}"
     )
     rows = written.read_text(encoding="utf-8").splitlines()
-    assert rows[0] == "6"
-    assert rows[1] == "METER"
-    nodes = numpy.asarray(
-        [[float(field) for field in row.split(",")[1:]] for row in rows[2:]], dtype=float
-    )
-    assert all(_matches(nodes, trailing, tolerance=1.0e-6)), (
-        "the lean child extracted nodes that are not trailing-edge vertices"
+    assert rows[0] == "METER"
+    points = numpy.asarray([[float(field) for field in row.split(",")] for row in rows[1:]])
+    midpoints = (trailing[:-1] + trailing[1:]) / 2
+    assert points.shape == midpoints.shape
+    assert all(_matches(points, midpoints, tolerance=1.0e-6)), (
+        "the lean child extracted points that are not trailing-edge mid-points"
     )
 
 
@@ -634,30 +637,103 @@ def test_a_loaded_mesh_and_its_file_give_the_same_edge(tmp_path):
     assert numpy.allclose(from_path.nodes, from_mesh.nodes)
 
 
-# --- the named import route, PFS-2025.16 ------------------------------------
+# --- the named import route, PFS-2025.16, and G02 ---------------------------
+
+#: The tier-3 library of saved simulations the solver wrote, each admitted by
+#: its provenance record (tests/tier1_offline/test_house_style.py).
+_LIBRARY = Path(__file__).resolve().parents[1] / "tier3_licensed" / "inputs" / "geometries"
 
 
-def test_the_edge_is_written_as_the_node_list_a_wake_edge_import_reads(tmp_path):
-    """PFS-2025.16: the extraction feeds `wake_edges.write_node_file`."""
+def test_the_extraction_gives_the_midpoints_of_every_trailing_edge_mesh_edge(tmp_path):
+    """G02 (RPT-061). The import matches an edge by its MID-POINT, and a list of
+    end vertices marks nothing, so the extraction returns the mid-point of every
+    mesh edge on the trailing edge: 24 on this 25-station blade, known by
+    construction, at every section count, in order along the span. The section
+    vertices the older extraction returns are none of them."""
+    path, _, trailing = _blade_file(tmp_path)
+    expected = (trailing[:-1] + trailing[1:]) / 2
+    for sections in (2, 4, 8):
+        found = trailing_edge_midpoints(
+            path, axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0), sections=sections
+        )
+        assert found.shape == expected.shape, (sections, found.shape)
+        # 1e-6, as every OBJ comparison in this file: the export rounds the
+        # coordinates, and a mid-point sits half an edge (over 0.01) from anything else.
+        assert all(_matches(found, expected, tolerance=1.0e-6)), sections
+        assert all(_matches(expected, found, tolerance=1.0e-6)), sections
+        span = numpy.linalg.norm(found[:, :2], axis=1)
+        assert numpy.all(numpy.diff(span) > 0.0), f"not ordered by span at {sections}: {span}"
+    nodes = extract_trailing_edge(path, axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0), sections=8).nodes
+    assert not any(_matches(nodes, expected, tolerance=1.0e-6)), (
+        "a section vertex is a trailing-edge mid-point"
+    )
+
+
+@pytest.mark.parametrize("sections", [2, 4, 8, 11])
+def test_the_extraction_agrees_with_the_solver_detection_saved_in_30_blade(sections):
+    """The control scored against the SOLVER, not against a fixture written here:
+    30_BLADE.fsm stores the twelve trailing edges its own detection marked on that
+    blade, read back as mid-points by the saved simulation's reader. The extraction
+    over the same surface, turning about +x, finds exactly those twelve; turning
+    about -x it finds the leading edge instead, none of them."""
+    fsm = _LIBRARY / "30_BLADE.fsm"
+    vertices, faces = surface_mesh(fsm)
+    mesh = trimesh.Trimesh(
+        vertices=numpy.asarray(vertices), faces=numpy.asarray(faces), process=False
+    )
+    stored = numpy.asarray(saved_trailing_edge_midpoints(fsm))
+    assert stored.shape == (12, 3)
+    found = trailing_edge_midpoints(
+        mesh, axis=(1.0, 0.0, 0.0), hub=(0.0, 0.0, 0.0), sections=sections
+    )
+    assert found.shape == stored.shape
+    assert all(_matches(found, stored)) and all(_matches(stored, found))
+    reversed_ = trailing_edge_midpoints(
+        mesh, axis=(-1.0, 0.0, 0.0), hub=(0.0, 0.0, 0.0), sections=sections
+    )
+    assert not any(_matches(reversed_, stored))
+
+
+def test_the_edge_is_written_as_the_points_file_a_geometry_names(tmp_path):
+    """G02. The route writes the PACKAGE-SIDE points file: its unit on the first
+    line, then one x,y,z row per trailing-edge mid-point, in the mesh's own frame
+    and unit. The run converts it into the solver's node file."""
     path, _, trailing = _blade_file(tmp_path)
     written = write_trailing_edge_node_file(
         path,
-        tmp_path / "wake_edges.csv",
+        tmp_path / "blade.te.txt",
         axis=(0.0, 0.0, 1.0),
         hub=(0.0, 0.0, 0.0),
         unit="METER",
         sections=8,
     )
     rows = written.read_text(encoding="utf-8").splitlines()
-    assert rows[0] == "8", "the node count line does not carry the node count"
-    assert rows[1] == "METER", "the file does not declare the unit the solver reads it in"
-    assert len(rows) == 10
-    identifiers = [int(row.split(",")[0]) for row in rows[2:]]
-    assert identifiers == list(range(1, 9))
-    nodes = numpy.asarray(
-        [[float(field) for field in row.split(",")[1:]] for row in rows[2:]], dtype=float
-    )
-    assert all(_matches(nodes, trailing, tolerance=1.0e-6))
+    assert rows[0] == "METER", "the points file does not name its unit on its first line"
+    assert len(rows) == 25
+    points = numpy.asarray([[float(field) for field in row.split(",")] for row in rows[1:]])
+    assert all(_matches(points, (trailing[:-1] + trailing[1:]) / 2, tolerance=1.0e-6))
+
+
+def test_a_list_of_section_vertices_is_no_longer_written_as_a_node_file(tmp_path):
+    """G02 (RPT-061). The end vertices of the trailing-edge edges mark nothing, so
+    the extraction's vertex list is refused as a node file, naming the report and
+    the call that writes the mid-points instead, and no file is left behind."""
+    path, _, _ = _blade_file(tmp_path)
+    edge = extract_trailing_edge(path, axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0), sections=8)
+    destination = tmp_path / "vertices.txt"
+    with pytest.raises(InputArtifactError) as raised:
+        edge.write_node_file(destination, unit="METER")
+    message = str(raised.value)
+    assert "RPT-061" in message and "write_trailing_edge_node_file" in message
+    assert not destination.exists()
+
+
+def test_a_mesh_without_faces_has_no_edges_and_is_refused():
+    """The mid-points are of mesh EDGES, so a vertex cloud names none."""
+    vertices, _, _, _ = _blade()
+    cloud = trimesh.Trimesh(vertices=vertices, faces=numpy.zeros((0, 3), dtype=int), process=False)
+    with pytest.raises(InputArtifactError, match="faces"):
+        trailing_edge_midpoints(cloud, axis=(0.0, 0.0, 1.0), hub=(0.0, 0.0, 0.0), sections=4)
 
 
 def test_the_route_refuses_a_unit_the_command_database_does_not_record(tmp_path):

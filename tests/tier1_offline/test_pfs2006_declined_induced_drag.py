@@ -139,6 +139,60 @@ def test_the_selection_the_record_carries_is_read_one_way():
     assert declined_induced_drag(parse_loads(LOADS), "all") == (), "no printed zero, no decline"
 
 
+def test_a_raw_mesh_row_declines_the_listed_surface_its_sidecar_names(tmp_path):
+    """G02: a raw mesh's list is resolved through the names its sidecar declares.
+
+    An ``.obj`` carries no mesh block, so the induced-drag families of a
+    raw-mesh row resolve against the sidecar's ``boundaries`` (G01), and the
+    selection the script records places the listed surface at its position
+    in the loads table. B, the sidecar's second name, is listed and printed
+    at zero, so the polar's sum is NA; the same row listing W keeps it.
+    """
+    from pyflightstream.cases import (
+        MeshImport,
+        RawMeshConditions,
+        ReferenceData,
+        SimCase,
+        SolverSettings,
+        SweepAxis,
+        TrailingEdgeMarking,
+    )
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    def recorded(families: list[str]) -> object:
+        case = SimCase(
+            sim_id="6101",
+            aircraft="WB",
+            recipe="steady",
+            sweep=SweepAxis(type="alpha", values=[-2.0]),
+            variables={"WORKFLOW": "steady", "VELOCITY": "30.0"},
+            geometry=str(tmp_path / "wb.obj"),
+            inventory=("W", "B"),
+            inventory_source="sidecar",
+            mesh_import=MeshImport(units="METER"),
+            raw_mesh_conditions=RawMeshConditions(
+                trailing_edges=TrailingEdgeMarking(route="detect")
+            ),
+            solver=SolverSettings(vorticity_drag_families=families),
+            reference=ReferenceData(area=50.0, length=2.526, span_m=20.0),
+            point={"alpha": -2.0, "beta": 0.0},
+            outputs=["AL-020.txt"],
+        )
+        script = Script("26.124")
+        build_script(case, script)
+        assert script.solver_setup is not None
+        flags = script.solver_setup.model_dump(mode="json")["flags"]
+        return flags["SET_VORTICITY_DRAG_BOUNDARIES"]["value"]
+
+    listed = recorded(["B"])
+    assert listed == [2], listed
+    declined = _row(_point(tmp_path, listed))
+    assert math.isnan(declined["CDI"]) and math.isnan(declined["CDB"]), declined
+    kept = _row(_point(tmp_path, recorded(["W"])))
+    assert kept["CDI"] == pytest.approx(0.0012085), kept
+
+
 def test_the_fixed_width_polar_writes_a_declined_column_as_nan_and_reads_it_back(tmp_path):
     """The custom polar format carries the same NA as `nan`, in the column's own width.
 

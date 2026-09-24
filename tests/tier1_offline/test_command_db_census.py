@@ -148,7 +148,9 @@ VERIFIED = {
     # that carry a probe specification since, and one FEWER, SET_INVISCID_LOADS,
     # recorded unprobed because its effect was not observable on that wing.
     # The rotor-path sweep 26.123 received is not yet run on this build.
-    "26.124": 86,
+    # +1 on 2026-09-24: IMPORT_WAKE_EDGES_FROM_FILE, verified by the compat probe
+    # CMP-26124_2026-09-24_wake-edge-import (the qa wing's sixteen edges): 87.
+    "26.124": 87,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the

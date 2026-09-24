@@ -136,24 +136,35 @@ them close the gap that made the capability unusable:
   naming the files that carry it, and `pyfs-matrix upgrade` completes
   every stem-only cell of an older matrix with `.fsm` (until v0.11.0 the
   cell was the stem; PFS-2029.09). What the name buys is that the cell
-  says what the file is: a `.fsm` carries its boundary conditions, a
-  mesh does not, and a workflow row naming a mesh is refused before any
-  seat is spent, naming 0.12.0 as the release that defines them. The
-  workflow opens the file first, before anything else, and it opens the
-  STAGED copy, so the file the manifest hashed and the file the solver
-  read are the same bytes.
+  says what the file is: a `.fsm` is a saved simulation and is opened,
+  and since 0.27.0 an `.obj` or `.stl` is a raw mesh and is imported.
+  The workflow opens or imports the file first, before anything else,
+  and it reads the STAGED copy, so the file the manifest hashed and the
+  file the solver read are the same bytes.
 
-    A WORKFLOW opens a saved simulation, a `.fsm`, and nothing else. That
-    is a property of the two built-in builders rather than of the key: a
-    recipe of your own receives whatever the library staged and imports
-    it declaring the units itself. The narrowing exists because importing
-    a raw mesh takes the mesh's length units as an argument
-    (SRC-003 p.307) and no matrix cell declares them, so the package
-    would have to default one, and a defaulted unit is a body of the
-    wrong size whose coefficients solve, export and report without a
-    word. The refusal points at
-    [mesh inputs and GUI-only operations](mesh-inputs.md): open the mesh
-    in the window once, save a `.fsm`, script everything after.
+    A WORKFLOW opens a `.fsm` and imports an `.obj` or `.stl`, and
+    refuses any other suffix. A raw mesh takes its length units as an
+    argument (SRC-003 p.307) and the file carries none, so the
+    `<stem>.boundaries.toml` beside it states them in an `[import]`
+    table, `units = "MILLIMETER"`, beside the `boundaries` list written
+    by hand in the file's order. A raw mesh without the table is refused
+    before any seat is spent, naming the key, because a defaulted unit is
+    a body of the wrong size whose coefficients solve, export and report
+    without a word. The file's unit goes to `IMPORT` alone and the
+    simulation is set to metres, the unit of every length the row states.
+    The same sidecar declares the mesh's trailing edge in a
+    `[trailing_edges]` table (since 0.27.0, G02): `file = "<points
+    file>"`, the default route, whose edge mid-points are checked against
+    the mesh at plan and imported with `IMPORT_WAKE_EDGES_FROM_FILE` on
+    26.124, or `detect = "auto"` (or by surface), detection, which applies
+    only when written; `[wake_termination]` and `[base_regions]` detect
+    when written. A raw mesh that declares no trailing edge is refused
+    before any seat is spent, since without one there is no wake and the
+    solver answers anyway, and a `.fsm` whose sidecar states any of the
+    three tables is refused, since its own marking is in the file.
+    [Mesh inputs and GUI-only operations](mesh-inputs.md) carries the
+    route in full. A recipe of your own receives whatever the library
+    staged and imports it declaring the units itself.
 * `SYMMETRY: <mode>` and, where the mode needs it, `PERIODIC_COPIES: <n>`.
   The accepted modes are read from the command database for the row's own
   build, never from a list written here. **This one is not a
@@ -290,7 +301,7 @@ read by the package rather than ignored:
 | v0.10.0 | `ADVANCE_RATIO`, `RPM_SIGN`, `DELTA_THETA`, `REVOLUTIONS`, `LOG_OUTPUT` |
 | v0.10.1 | none. What changed is what `MOVING_BOUNDARIES` ACCEPTS: see below |
 | v0.11.0 | `MOTIONS`, a list of records, one rotor each: `MOTIONS: {MOVING_BOUNDARIES: Blade1 / RPM: 1200 / RPM_SIGN: 1 / ROTOR_AXIS: X / ROTOR_ORIGIN: ERP1}, {...}`; a record's `ROTOR_ORIGIN` is three coordinates or the name of a rotor point of `inputs/reference_points.toml`, and no flat motion key may stand beside the list (PFS-2029.11) |
-| v0.11.0 | `BASE_REGIONS`, the mesh families the base-region autodetect may consider, one `DETECT_BASE_REGIONS_BY_SURFACE` per boundary of them after `OPEN`; it overrides the pproc artifact's `base_regions`, and naming none emits nothing (PFS-2029.10) |
+| v0.11.0 | `BASE_REGIONS`, the boundaries that BECOME base regions, one `DETECT_BASE_REGIONS_BY_SURFACE` per boundary of them after `OPEN`: a body's flat base (`BASE_REGIONS: Base`), never the body that carries it, which the command takes and marks nothing on, silently (stated since 0.27.0, RPT-066; see below). It overrides the pproc artifact's `base_regions`, and naming none emits nothing (PFS-2029.10) |
 | v0.13.0 | `EXPORT_UNSTEADY_AFTER_REV` and `EXPORT_UNSTEADY_AFTER_ITER`, the step the per-step exports begin on, one per row at most; the first on `unsteady_rotor` only, both refused on `steady` (PFS-2031.18) |
 | v0.13.0 | none. What changed is that the list above is now CLOSED for a workflow row: a key no run type registers is refused at `pyfs-matrix plan` (PFS-2008.02.01), see below |
 | v0.14.0 | none. What changed again is what `MOVING_BOUNDARIES` ACCEPTS: a name the row's setup defines under `[aliases]`, between the exact label and the family, see What a solver preset may say |
@@ -305,6 +316,17 @@ read by the package rather than ignored:
 | v0.18.0 | `RESTART` now RUNS (FR-96). Two further names are reserved and they are the PACKAGE'S to set, never a row's: `RESTART_FROM`, the saved simulation a continuation opens, and `RESTART_ITERATIONS`, the remaining step count. The run path resolves both from the recorded run being continued and writes them onto the case; a row that states either is refused, because stating them by hand would skip the resolution that checks a recorded run exists, that its status is continuable, and that its outputs are archived before they are replaced |
 | v0.19.0 | `TRANSLATE`, a list of records, one translation of the opened mesh each, in the order written and before every rotation: `TRANSLATE: {DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X / ALIAS: PUSHER}, {...}`; on every run type that reads `ROTATE`, the distance in metres along one axis of the named frame (FR-100), see [One row, one geometry, moved](#one-row-one-geometry-moved) |
 | v0.23.0 | `LAST_REVS_AVG` and `LAST_ITERS_AVG`, the AVERAGING WINDOW of an unsteady point, one per row at most: the first on `unsteady_rotor` only, a count of the last revolutions that accepts a float (`LAST_REVS_AVG: 0.25`); the second a count of the last iterations, the key of an `unsteady` row and read on a rotor row too. Written in UPPER CASE like every key of this cell, which is matched on its exact spelling: `last_revs_avg` is refused as a key of no run type. A row stating both is refused naming both. Since 0.26.0, `WINDOW_DEGREES`, `WINDOW_STEPS` and `WINDOW_REVOLUTIONS` are refused: write `LAST_REVS_AVG` or `LAST_ITERS_AVG`, dividing degrees by 360. See [The window, said once](#the-window-said-once) and [the definition of record](post-processing-definitions.md#the-averaging-window) |
+
+**`BASE_REGIONS` NAMES THE BASE, NOT THE BODY.** The command it emits,
+`DETECT_BASE_REGIONS_BY_SURFACE <index>`, takes the boundary that becomes the
+base region. On a body whose flat base is its own boundary, 20_BODY's
+`[Body, Base]`, `BASE_REGIONS: Base` marks the base, the same faces
+`AUTO_DETECT_BASE_REGIONS` marks, and `BASE_REGIONS: Body` marks nothing and
+says nothing (RPT-066, 26.124). A row naming the body therefore solves with no
+base region and no error; name the base boundary. A pproc's `base_regions`
+list follows the same rule. A raw mesh's sidecar can ask for the whole-mesh
+detection instead, `[base_regions] detect = "auto"`
+([mesh inputs](mesh-inputs.md#the-boundary-conditions-of-a-raw-mesh)).
 
 **A WORKFLOW ROW STATES ONLY WHAT THE SCRIPT WILL CARRY.** Each run type
 registers the keys it reads (`Workflow.keys` in
@@ -1247,7 +1269,7 @@ for the VTK/CSV opt-in rule and [The probes table](post-processing-definitions.m
 for the unsteady plots source, whose defaults omit the probe-points export.
 
 ```toml
-base_regions = ["W", "B"]      # families the base-region autodetect may consider; [] = off
+base_regions = ["Base"]        # the boundaries that become base regions; [] = off
 
 [groups]                       # group NAME -> ONE alias, written as a string (0.24.0)
 TOTAL = "all"                  # every family the geometry carries
@@ -1520,7 +1542,9 @@ header, as the example above places it: TOML puts a key written under
 0.11.0, which is what a bare list at the top level otherwise is
 (PFS-2005.04); `base_regions = []` there is the documented off switch and
 plans READY, and `base_regions = ["Base"]` reaches the script as one
-`DETECT_BASE_REGIONS_BY_SURFACE` per boundary of the family.
+`DETECT_BASE_REGIONS_BY_SURFACE` per boundary of the family. It names the
+boundaries that BECOME the base regions, as the row's `BASE_REGIONS` does:
+the body's own boundary marks nothing (RPT-066).
 
 **SINCE 0.23.0 A GROUP IS NAMED, and the product file carries the name.** An
 artifact
@@ -2305,6 +2329,14 @@ token of another shape, an alias the reference does not declare or a list of
 them, a frame nothing defines, an axis of zero length, and the key on a
 `LEGACY` row.
 
+**A row's move is not the geometry's.** A raw mesh's own scale, rename,
+mirror, translation and rotation, the ones that make the file into the body,
+are declared once in its sidecar as `[[import.operations]]` and applied right
+after the import, before any frame exists, for every row that names the file
+([mesh inputs](mesh-inputs.md#the-mesh-operations-of-an-import)). `TRANSLATE`
+and `ROTATE` are the study's moves, per row, after the frames, and they act on
+the body those operations left.
+
 ## Worked rows, and where to get the files
 
 Every row below is a real row of `tests/tier3_licensed/matriz_vocab.fs`,
@@ -2600,6 +2632,17 @@ row whose `OUTPUTS` declare no `.fsm`; the warning blocks nothing. A case
 written in Python that declares its own `outputs` exports exactly those,
 with no saved simulation unless one of them ends in `.fsm`.
 
+**A point that imports its trailing edges from a file is held to the
+solver's own count** (since 0.27.0, G02). A point that matches no mesh edge
+marks nothing, and the solver says nothing about it, so after the run the
+number of trailing edges the solver logs as imported is compared with the
+points the script wrote, and the point is recorded `FAILED_SCRIPT` when they
+differ, whatever its convergence; with no solver log to read it is recorded
+`FAILED_INCOMPLETE_OUTPUT`. The count is read from the exported log, so a
+raw-mesh row on the file route declares one among its outputs (a run type's
+default outputs do), and a row that declares none is refused when its script
+is built ([mesh inputs](mesh-inputs.md#the-boundary-conditions-of-a-raw-mesh)).
+
 **Name your outputs per point.** The folders no longer collide, but the
 PRODUCTS do: a point's polar, plots and probe tables are named after the
 stem of its loads file, so two points sharing a name produce one table
@@ -2642,7 +2685,9 @@ and in nothing else.
 inventory the geometry declares, which is what the builder does with them; a
 geometry this reader cannot open prints `-` there rather than the row's own
 count, because the two are different quantities and a reader could not tell
-them apart in one cell.
+them apart in one cell. A raw mesh's inventory is its sidecar's `boundaries`
+as the import's renames leave them, since the file carries no mesh block
+(since 0.27.0; before it, every raw-mesh row printed no count here).
 `layers`, `visc` and `procs` are the solver preset's `farfield_layers`,
 `viscous_coupling` and `max_parallel_threads`. `steps` is what the row's clock
 works out to: a rotor row stating `DELTA_THETA: 15` and `REVOLUTIONS: 1.5`
@@ -3031,12 +3076,21 @@ worse than no page at all.
   type this package builds is a type it can also refuse before it runs,
   and that guarantee is exactly what a user-supplied entry would remove.
   Your own physics goes in a recipe, which is what recipes are for.
-- **A workflow opens a saved simulation only.** No matrix cell declares
-  mesh units, so a `.stl` or `.obj` staged in the library resolves
-  perfectly well and is then refused when the script is built, rather
-  than being imported under a unit nobody chose. Convert it once through
-  [mesh inputs](mesh-inputs.md). A recipe of your own is not bound by
-  this: it declares the units itself.
+- **A raw mesh's scale and names are stated, and neither is measured
+  yet.** A workflow imports an `.obj` or `.stl` in the unit its sidecar's
+  `[import]` table states into a simulation in metres, and whether
+  `IMPORT` converts the file's unit into the simulation's has been
+  measured on no build. Its boundary names are the sidecar's, written by
+  hand, and nothing checks them against the file before the run
+  ([mesh inputs](mesh-inputs.md)). The other mesh formats `IMPORT`
+  documents are refused by a workflow; a recipe of your own imports them,
+  declaring the units itself.
+- **A raw mesh's trailing edge by file runs on 26.124 only, and its wake
+  termination is unverified.** The file route was run on that build alone,
+  and the other builds are refused; detection runs on every build that
+  carries it. The sidecar's `[wake_termination]` emits its detection, and
+  what that marks was not observable on the one geometry tried
+  ([mesh inputs](mesh-inputs.md#the-boundary-conditions-of-a-raw-mesh)).
 - **A workflow row that names no `GEOMETRY` emits no open, and is told
   nothing.** That is what keeps every pre-v0.8.1 matrix rendering as it
   did. A row moved off `LEGACY` that keeps a `FSM_FILE` key of its own is

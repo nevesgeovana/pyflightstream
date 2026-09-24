@@ -2595,9 +2595,10 @@ def test_the_id_is_a_stem_and_the_library_extension_is_whatever_was_staged(tmp_p
 
     Resolution is delegated to ``workspace.resolve_geometry``, which
     registers a staged file under any extension. Which suffixes a
-    WORKFLOW will open is a different question, decided one layer up in
-    ``cases.workflows``: a library holding a raw mesh is legitimate, and
-    a row pointing a workflow at one is what is refused.
+    WORKFLOW will open or import, and on what terms, is a different
+    question, decided one layer up in ``cases.workflows``: a library
+    holding a raw mesh is legitimate, and a row pointing a workflow at one
+    whose sidecar states no unit is what is refused (G01).
     """
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
     staged = stage_geometry(workspace, "raw_blade.stl")
@@ -2910,9 +2911,12 @@ def test_a_raw_mesh_row_is_refused_by_the_pre_flight_before_anything_is_staged(t
 
     ``test_the_id_is_a_stem_and_the_library_extension_is_whatever_was_staged``
     stages a ``.stl``, asserts it lands on ``case.geometry``, and stops
-    there, which reads as "a .stl row works". It does not: the library
-    resolves any extension and the WORKFLOW opens one. With only those
-    two cases the suite points in two directions and nothing joins them.
+    there, which reads as "a .stl row works". It does not, while no sidecar
+    states the unit the mesh is written in: the library resolves any
+    extension, and the WORKFLOW imports a raw mesh only in a unit stated
+    beside it (G01, whose tests below run the row that states one). With
+    only those two cases the suite points in two directions and nothing
+    joins them.
 
     What is asserted here is the composed behaviour and the commit
     message's own claim about it, that this capability's limits "refuse
@@ -2988,6 +2992,9 @@ def test_the_whole_chain_the_row_the_staged_copy_and_the_opened_path(tmp_path):
     assert staged.is_file(), "the campaign loop did not stage the geometry the row named"
     assert staged != library, "the staged copy IS the library file, so the pairing is untested"
     assert records[0].inputs_sha256 == {"wing_clean.fsm": file_sha256(library)}
+    # A .fsm point imported nothing, so its record writes NO mesh_import key:
+    # a reader older than 0.27.0 refuses a key it does not know (G01).
+    assert "mesh_import" not in records[0].model_dump(mode="json")
 
     # THE SCRIPT THE SOLVER RAN, read off disk rather than spied on in
     # flight: the pre-flight builds a script of its own for validation,
@@ -3007,6 +3014,299 @@ def test_the_whole_chain_the_row_the_staged_copy_and_the_opened_path(tmp_path):
         "so the digest and the bytes the solver read are not the same file"
     )
     assert "SYMMETRY PERIODIC 4" in lines, "the row's symmetry did not reach the command"
+
+
+# --- G01: a raw mesh runs through the workflow, in the unit its sidecar states --------
+
+#: One triangle named Wing, as an OBJ and as an ASCII STL.
+_OBJ_WING = b"o Wing\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n"
+_STL_WING = (
+    b"solid Wing\n facet normal 0 0 1\n  outer loop\n   vertex 0 0 0\n   vertex 1 0 0\n"
+    b"   vertex 0 1 0\n  endloop\n endfacet\nendsolid Wing\n"
+)
+#: The trailing edge every raw mesh declares since G02, by the route every
+#: build carries: these rows run on 26.120, where the file route is refused,
+#: and a triangle has no trailing edge to put in a file.
+_DETECTED = '[trailing_edges]\ndetect = "auto"\n'
+
+
+def _run_geometry_row(tmp_path, workspace, tail):
+    return run_matrix(
+        geometry_matrix(tmp_path, tail),
+        workspace,
+        name="matrix",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        assess=converged,
+        executor=StubSolver(WRITES_LOADS),
+        recipe_registry=workflow_registry(),
+    )
+
+
+@pytest.mark.parametrize(
+    ("suffix", "body", "units", "token"),
+    [(".obj", _OBJ_WING, "MILLIMETER", "OBJ"), (".stl", _STL_WING, "INCH", "STL")],
+    ids=["obj", "stl"],
+)
+def test_an_obj_row_imports_the_staged_copy_in_the_unit_its_sidecar_declares(
+    tmp_path, suffix, body, units, token
+):
+    """G01: the unit the sidecar states reaches IMPORT, and the simulation stays in metres.
+
+    NEVER METER IN THE SIDECAR, because the one helper that imported before
+    this item fixed the import at METER, and a test stating METER would pass
+    on that helper's shape. The staged copy is what IMPORT reads, which is
+    the pairing ``inputs_sha256`` depends on, and the record carries the
+    unit, because the digest alone cannot tell a run in millimetres from the
+    same file run in metres.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
+    library = stage_geometry(workspace, f"wing{suffix}", body)
+    library.with_name("wing.boundaries.toml").write_text(
+        f'boundaries = ["Wing"]\n\n[import]\nunits = "{units}"\n\n' + _DETECTED, encoding="utf-8"
+    )
+    try:
+        tail = f" / VELOCITY: 30.0 / GEOMETRY: wing{suffix}"
+        records = _run_geometry_row(tmp_path, workspace, tail)
+    except MatrixError as refused:
+        pytest.fail(f"the declared unit never reached a script: {refused}")
+    assert [record.status for record in records] == [RunStatus.CONVERGED]
+    sim_dir = workspace.sim_dir("7001")
+    lines = (sim_dir / records[0].script_path).read_text(encoding="utf-8").splitlines()
+    assert lines[:4] == ["NEW_SIMULATION", "IMPORT", f"UNITS {units}", f"FILE_TYPE {token}"]
+    assert Path(lines[4].removeprefix("FILE ")) == sim_dir / "inputs" / f"wing{suffix}", (
+        "IMPORT reads a file other than the staged copy the record hashed"
+    )
+    assert lines[5] == "CLEAR"
+    length_unit = lines.index("SET_SIMULATION_LENGTH_UNITS METER")
+    assert 5 < length_unit < lines.index("SET_FREESTREAM CONSTANT"), (
+        "the simulation's length unit is not set to metres between the import and the setup"
+    )
+    assert "OPEN" not in lines
+    assert records[0].inputs_sha256 == {f"wing{suffix}": file_sha256(library)}
+    assert records[0].mesh_import == {"units": units, "operations": []}
+    assert records[0].model_dump(mode="json")["mesh_import"] == {"units": units, "operations": []}
+
+
+@pytest.mark.parametrize(
+    "sidecar",
+    [None, 'boundaries = ["Wing"]\n', 'boundaries = ["Wing"]\n\n[import]\nunits = "MM"\n'],
+    ids=["no-sidecar", "no-import-table", "a-unit-import-does-not-take"],
+)
+def test_an_obj_row_with_no_unit_is_refused_by_the_plan_naming_the_key(tmp_path, sidecar):
+    """G01: a unit is never assumed; the pre-flight refuses naming the key and the file.
+
+    The accepted units are read from the command database for the row's
+    build, so the refusal lists them; nothing is staged, no script is
+    written and nothing reaches the manifest.
+    """
+    workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
+    library = stage_geometry(workspace, "wing.obj", _OBJ_WING)
+    if sidecar is not None:
+        library.with_name("wing.boundaries.toml").write_text(sidecar, encoding="utf-8")
+    with pytest.raises(MatrixError) as caught:
+        _run_geometry_row(tmp_path, workspace, " / VELOCITY: 30.0 / GEOMETRY: wing.obj")
+    message = str(caught.value)
+    needles = ("[import]", "units", "wing.boundaries.toml", "MILLIMETER", "docs/mesh-inputs.md")
+    for needle in needles:
+        assert needle in message, f"the refusal does not name {needle!r}: {message}"
+    if sidecar is not None and "MM" in sidecar:
+        assert "'MM'" in message, "the refusal does not name the unit the sidecar wrote"
+    sim_dir = workspace.sim_dir("7001")
+    assert not list((sim_dir / "inputs").iterdir()), "a refused row was staged"
+    assert not list((sim_dir / "scripts").iterdir()), "a script was written for a refused row"
+    assert workspace.read_manifest() == [], "a refused row reached the manifest"
+
+
+def test_an_import_table_without_units_is_refused_naming_the_sidecar(tmp_path):
+    """G01: ``[import]`` is read at binding, so a table missing its key is refused there."""
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    library = stage_geometry(workspace, "wing.obj", _OBJ_WING)
+    library.with_name("wing.boundaries.toml").write_text(
+        'boundaries = ["Wing"]\n\n[import]\n', encoding="utf-8"
+    )
+    with pytest.raises(InputArtifactError, match=r"\[import\].*units") as caught:
+        resolve_geometry_row(tmp_path, workspace, " / VELOCITY: 30.0 / GEOMETRY: wing.obj")
+    assert "wing.boundaries.toml" in str(caught.value)
+
+
+# --- G03: the mesh operations of an import, declared with the geometry ----------------
+
+#: Two surfaces, named as a CAD export names them.
+_OBJ_TWO = (
+    b"o naca\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\no tail\nv 0 0 1\nv 1 0 1\nv 0 1 1\nf 4 5 6\n"
+)
+_SCALE = '[[import.operations]]\nop = "scale"\nfactors = [2, 2, 2]\n\n'
+_RENAME = '[[import.operations]]\nop = "rename"\nsurface = "naca"\nto = "Wing"\n\n'
+_MIRROR = '[[import.operations]]\nop = "mirror"\nsurface = "Wing"\nplane = "XZ"\n\n'
+_TRANSLATE_TAIL = (
+    '[[import.operations]]\nop = "translate"\nsurface = "tail"\nvector = [500, 0, 0]\n\n'
+)
+_ROTATE = '[[import.operations]]\nop = "rotate"\naxis = "Y"\nangle_deg = 2.0\n\n'
+
+
+def _stage_with_operations(workspace, operations):
+    """Stage the two-surface OBJ with a sidecar in millimetres carrying ``operations``."""
+    library = stage_geometry(workspace, "wing.obj", _OBJ_TWO)
+    library.with_name("wing.boundaries.toml").write_text(
+        'boundaries = ["naca", "tail"]\n\n'
+        + _DETECTED
+        + '\n[import]\nunits = "MILLIMETER"\n\n'
+        + operations,
+        encoding="utf-8",
+    )
+    return library
+
+
+def _bound_row(tmp_path, workspace, tail=""):
+    try:
+        return resolve_geometry_row(
+            tmp_path, workspace, " / VELOCITY: 30.0 / GEOMETRY: wing.obj" + tail
+        )
+    except InputArtifactError as refused:
+        pytest.fail(f"the sidecar's operations never reached a case: {refused}")
+
+
+def test_the_import_operations_emit_in_the_order_the_sidecar_writes_them(tmp_path):
+    """G03: each operation emits in the order written, geometry ones before the unit line.
+
+    Scale, rename and mirror are geometry-phase commands and come right after
+    the import; the translation and the rotation are setup-phase and come
+    after the simulation's length unit. Every surface is cited by the name
+    the file gives it, or by the name an earlier rename gave, and the
+    inventory the row cites is the renamed one. The translation is in the
+    file's unit, 500 mm; the rotation renders as the build's own command,
+    the keyword block on 26.120.
+    """
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    _stage_with_operations(workspace, _SCALE + _RENAME + _MIRROR + _TRANSLATE_TAIL + _ROTATE)
+    case = _bound_row(tmp_path, workspace)
+    script = Script("26.120")
+    try:
+        build_script(case, script)
+    except CampaignConfigError as refused:
+        pytest.fail(f"the import operations never reached a script: {refused}")
+    lines = script.render().splitlines()
+    start = lines.index("CLEAR") + 2
+    assert lines[start : start + 13] == [
+        "SURFACE_SCALE 1 2.0 2.0 2.0 -1",
+        "SURFACE_RENAME 1 Wing",
+        "SURFACE_MIRROR 1 1 2 TRUE FALSE",
+        "SET_SIMULATION_LENGTH_UNITS METER",
+        "TRANSLATE_SURFACE_IN_FRAME 1 500.0 0.0 0.0 MILLIMETER 2 ENABLE",
+        "SURFACE_ROTATE",
+        "FRAME 1",
+        "AXIS Y",
+        "ANGLE 2.0",
+        "SURFACES -1",
+        "SPLIT_VERTICES DISABLE",
+        "ADAPTIVE_MESH DISABLE",
+        "DETACH_NORMAL_TO_AXIS DISABLE",
+    ]
+    assert script.entities.labels("boundaries") == {"Wing": 1, "tail": 2}
+
+
+@pytest.mark.parametrize(
+    ("cited", "cites"), [("Wing", True), ("naca", False)], ids=["new-name", "old-name"]
+)
+def test_a_renamed_surface_is_cited_by_its_new_name_and_the_old_one_is_refused(
+    tmp_path, cited, cites
+):
+    """G03: the rename feeds the inventory, so a row cites the new name and not the file's."""
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script, ScriptReferenceError
+
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    _stage_with_operations(workspace, _RENAME)
+    case = _bound_row(tmp_path, workspace, f" / BASE_REGIONS: {cited}")
+    script = Script("26.120")
+    if cites:
+        try:
+            build_script(case, script)
+        except (CampaignConfigError, ScriptReferenceError) as refused:
+            pytest.fail(f"the renamed surface cannot be cited by its new name: {refused}")
+        assert "DETECT_BASE_REGIONS_BY_SURFACE 1" in script.render().splitlines()
+        return
+    with pytest.raises((ScriptReferenceError, CampaignConfigError)) as caught:
+        build_script(case, script)
+    message = str(caught.value)
+    assert "'naca'" in message and "declares no boundary" in message, message
+
+
+def test_an_import_operation_the_phase_order_cannot_emit_is_refused_naming_both(tmp_path):
+    """G03: a scale after a translation cannot be emitted in the order written; never reordered."""
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    translate = '[[import.operations]]\nop = "translate"\nvector = [1, 0, 0]\n\n'
+    _stage_with_operations(workspace, translate + _SCALE)
+    case = _bound_row(tmp_path, workspace)
+    script = Script("26.120")
+    with pytest.raises(CampaignConfigError) as caught:
+        build_script(case, script)
+    message = str(caught.value)
+    for needle in ("operation 1", "translate", "operation 2", "scale", "wing.boundaries.toml"):
+        assert needle in message, f"the refusal does not name {needle!r}: {message}"
+    assert script.render().strip() == "", "the refusal left lines in the script"
+
+
+@pytest.mark.parametrize(
+    ("operation", "needle"),
+    [
+        ('op = "scale"\nfactors = [0, 1, 1]\n', "greater than zero"),
+        ('op = "rename"\nto = "Wing"\n', "names the surface"),
+        ('op = "mirror"\nsurface = "naca"\nplane = "XZ"\nangle_deg = 2.0\n', "angle_deg"),
+    ],
+    ids=["a-zero-factor", "a-rename-of-every-surface", "a-key-mirror-does-not-read"],
+)
+def test_an_import_operation_that_does_not_hold_its_shape_is_refused_at_binding(
+    tmp_path, operation, needle
+):
+    """G03: an operation is checked with its table, naming the sidecar and its position."""
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    _stage_with_operations(workspace, _SCALE + "[[import.operations]]\n" + operation)
+    with pytest.raises(InputArtifactError) as caught:
+        resolve_geometry_row(tmp_path, workspace, " / VELOCITY: 30.0 / GEOMETRY: wing.obj")
+    message = str(caught.value)
+    assert "wing.boundaries.toml" in message and "operation 2" in message, message
+    assert needle in message, message
+
+
+@pytest.mark.parametrize(
+    ("operations", "needle"),
+    [
+        ('[[import.operations]]\nop = "scale"\nsurface = "nose"\nfactors = [2, 2, 2]\n', "'nose'"),
+        (
+            _RENAME + '[[import.operations]]\nop = "rename"\nsurface = "tail"\nto = "Wing"\n',
+            "'Wing'",
+        ),
+    ],
+    ids=["a-name-the-file-lacks", "a-rename-onto-a-name-in-use"],
+)
+def test_an_import_operation_citing_a_name_it_cannot_resolve_is_refused_before_emitting(
+    tmp_path, operations, needle
+):
+    """G03: surfaces are cited by name, resolved against the names at that step, never guessed."""
+    from pyflightstream.cases import CampaignConfigError
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    workspace = make_library(tmp_path, register_build=("26.120", "C:/fs/FS.exe"))
+    _stage_with_operations(workspace, operations)
+    case = _bound_row(tmp_path, workspace)
+    script = Script("26.120")
+    with pytest.raises(CampaignConfigError) as caught:
+        build_script(case, script)
+    message = str(caught.value)
+    assert needle in message and "wing.boundaries.toml" in message, message
+    assert script.render().strip() == "", "the refusal left lines in the script"
 
 
 def test_a_campaign_runs_under_the_relative_root_the_cli_defaults_to(tmp_path, monkeypatch):

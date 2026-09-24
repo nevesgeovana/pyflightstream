@@ -88,6 +88,7 @@ from pyflightstream.cases import (
     AXES_PLOT_COMPONENTS,
     AXES_PLOT_GROUP,
     AXIS_UNIT_VECTORS,
+    EVERY_SURFACE,
     EXPANDING_FRAMES,
     EXPORT_KINDS,
     FORCE_PLOT_PARAMETERS,
@@ -96,10 +97,13 @@ from pyflightstream.cases import (
     ROTOR_PLOT_GROUP_PREFIX,
     CampaignConfigError,
     CustomFlag,
+    MeshOperation,
     PhaseLockedSpec,
+    RawMeshConditions,
     RotorBlock,
     ScriptRecipe,
     SimCase,
+    TrailingEdgeMarking,
     alias_members_missing,
     classify_outputs,
     frame_basis_for_shaft,
@@ -110,7 +114,13 @@ from pyflightstream.cases import (
     warn_a_selector_that_guesses,
 )
 from pyflightstream.cases import windows as _windows
-from pyflightstream.commands import CommandRegistry, Phase, Status, VersionView
+from pyflightstream.commands import (
+    CommandNotInVersionError,
+    CommandRegistry,
+    Phase,
+    Status,
+    VersionView,
+)
 from pyflightstream.script import (
     MARCH_ACTIONS,
     MARCH_SINGLE,
@@ -154,6 +164,8 @@ __all__ = [
     "ROTOR_SHEDDING_VARIABLE",
     "RPM_SIGN_VARIABLE",
     "RPM_VARIABLE",
+    "RAW_MESH_FORMATS",
+    "SIMULATION_LENGTH_UNIT",
     "SIMULATION_SUFFIX",
     "SYMMETRY_VARIABLE",
     "TIME_ITERATIONS_VARIABLE",
@@ -363,8 +375,9 @@ SYMMETRY_LOADS_VARIABLE = "SYMMETRY_LOADS"
 #: the run types' key vocabularies for that reason.
 ALPHA_VARIABLE = "ALPHA"
 BETA_VARIABLE = "BETA"
-#: The mesh families the base-region autodetect is allowed to consider
-#: (PFS-2029.10), comma separated; overrides the pproc artifact's list.
+#: The boundaries that BECOME base regions (PFS-2029.10, RPT-066), comma
+#: separated; overrides the pproc artifact's list. The base, never the body
+#: that carries it: given the body's own boundary the command marks nothing.
 BASE_REGIONS_VARIABLE = "BASE_REGIONS"
 DELTA_TIME_VARIABLE = "DELTA_TIME"
 TIME_ITERATIONS_VARIABLE = "TIME_ITERATIONS"
@@ -551,30 +564,66 @@ RAW_FILE_KEY = "FILE"
 #: before, spelled as the preset's `[[raw]]` table spells it.
 RAW_BEFORE_KEY = "BEFORE"
 
-#: The sentence on ``docs/mesh-inputs.md`` that the suffix refusal sends
+#: The sentence on ``docs/mesh-inputs.md`` that the geometry refusals send
 #: a blocked user to, quoted VERBATIM so the two cannot drift.
 #:
-#: The refusal used to quote "A workflow opens route 1 only" while the
+#: The refusal once quoted "A workflow opens route 1 only" while the
 #: page said "A WORKFLOW TAKES ROUTE 1 ONLY". Both were written in the
 #: same commit and neither was wrong on its own; only together were they
 #: useless, because a user who does what the message says, opens the page
 #: and searches for the phrase, finds nothing. Spelled here rather than
 #: inline so a tier 1 guard can assert the page still contains it.
-_MESH_PAGE_ANCHOR = "A WORKFLOW TAKES ROUTE 1 ONLY"
+_MESH_PAGE_ANCHOR = "A RAW MESH STATES ITS UNITS"
+#: The phrase of the same page that opens a raw mesh's boundary conditions
+#: (G02), quoted by every refusal about them, for the same reason.
+_CONDITIONS_PAGE_ANCHOR = "A RAW MESH DECLARES ITS TRAILING EDGE"
 
-#: The only suffix a workflow opens, and it is a DELIBERATE narrowing
-#: rather than an oversight (PFS-2025.02.02).
-#:
-#: A ``.fsm`` is a saved SIMULATION: its units, its mesh and its
-#: boundary names are already established, so ``OPEN`` needs the path
-#: and nothing else. A raw mesh is not, and importing one takes the
-#: units as an argument the row would have to declare. A mesh import
-#: that silently defaults its units is precisely the class of
-#: silent-wrong-answer this release exists to remove, so the suffix is
-#: REFUSED and the refusal names the route the user already has:
-#: ``docs/mesh-inputs.md`` documents the supported pattern as GUI once,
-#: save as ``.fsm``, script everything after.
+#: The suffix a workflow OPENS: a saved simulation, whose units, mesh and
+#: boundary names are already established, so ``OPEN`` needs the path and
+#: nothing else (PFS-2025.02.02).
 SIMULATION_SUFFIX = ".fsm"
+
+#: The raw-mesh suffixes a workflow IMPORTS, each to its ``IMPORT`` file
+#: type (G01). A raw mesh carries no length unit, so it is imported only
+#: in the unit the ``[import]`` table of its sidecar states, and refused
+#: without one: a mesh imported under a unit nobody chose solves, exports
+#: and reports coefficients against a body of the wrong size without a
+#: word. The other formats ``IMPORT`` documents stay refused, naming these
+#: two and the ``.fsm``; what the solver makes of their surfaces' names and
+#: order is unmeasured.
+RAW_MESH_FORMATS: Mapping[str, str] = MappingProxyType({".obj": "OBJ", ".stl": "STL"})
+
+#: The simulation's length unit on every row that imports a raw mesh
+#: (G01). The file's own unit goes to ``IMPORT`` alone; the simulation
+#: stays in metres because every length the reference and the row state
+#: (areas, chords, spans, the row's ``TRANSLATE`` distances, the frames
+#: the package places) is in metres.
+SIMULATION_LENGTH_UNIT = "METER"
+
+#: The ``IMPORT`` unit a raw mesh may NOT state, although the command lists
+#: it: ``OTHER`` names no length, so its scale would be the solver's to
+#: choose, which is the assumed unit the table exists to rule out.
+_UNIT_THAT_NAMES_NO_LENGTH = "OTHER"
+
+#: The command each mesh operation of an import becomes (G03). A rotation is
+#: not here: it goes through :func:`pyflightstream.script.helpers.rotate_surfaces`,
+#: which emits the rotation command the build documents, one name up to
+#: 26.121 and another from 26.122.
+_IMPORT_COMMANDS: Mapping[str, str] = MappingProxyType(
+    {
+        "scale": "SURFACE_SCALE",
+        "rename": "SURFACE_RENAME",
+        "mirror": "SURFACE_MIRROR",
+        "translate": "TRANSLATE_SURFACE_IN_FRAME",
+    }
+)
+
+#: ``SURFACE_MIRROR``'s plane is an INDEX and not letters (SRC-003 p.311).
+_MIRROR_PLANES: Mapping[str, int] = MappingProxyType({"YZ": 1, "XZ": 2, "XY": 3})
+
+#: The frame every import operation acts in: the reference, the one frame
+#: that exists before the setup creates any.
+_IMPORT_FRAME = 1
 
 
 class WorkflowCoverageError(PyflightstreamError, RuntimeError):
@@ -2517,7 +2566,14 @@ def _inventory_source(case: SimCase) -> str:
     """Say where this case's boundary inventory was read from, for a message."""
     file_name = PurePath(str(case.geometry)).name
     if case.inventory is not None:
-        return f"the sidecar {PurePath(str(case.geometry)).stem}.boundaries.toml beside {file_name}"
+        sidecar = f"the sidecar {PurePath(str(case.geometry)).stem}.boundaries.toml"
+        # A RAW MESH'S NAMES ARE THE SIDECAR'S AS ITS RENAMES LEFT THEM (G03), so
+        # a refusal listing them says so, or the list reads as a misquote.
+        renames = case.mesh_import is not None and any(
+            operation.op == "rename" for operation in case.mesh_import.operations
+        )
+        after = " (after the renames of its [[import.operations]])" if renames else ""
+        return f"{sidecar} beside {file_name}{after}"
     return f"the mesh block of {file_name}"
 
 
@@ -4003,64 +4059,89 @@ def _open_geometry(case: SimCase, script: Script) -> None:
     the pairing between the digest a record publishes and the bytes the
     solver actually read, and would break it silently.
 
+    A RAW MESH IS IMPORTED rather than opened, since 0.27.0 (G01): an
+    ``.obj`` or ``.stl`` whose sidecar states its unit becomes a new
+    simulation holding that file, in metres (:func:`_import_mesh`). What
+    follows the open or the import is the same for both.
+
     Parameters
     ----------
     case : SimCase
-        The case; its ``geometry`` is the simulation file to open, or
-        None for a case that names none.
+        The case; its ``geometry`` is the simulation file to open or the
+        raw mesh to import, or None for a case that names none.
     script : Script
         Script under construction, still empty. Nothing is emitted
-        until the suffix has been judged, so a refusal leaves it exactly
-        as it was.
+        until the suffix and the import table have been judged, so a
+        refusal leaves it exactly as it was.
 
     Raises
     ------
     CampaignConfigError
-        If the geometry's suffix is not :data:`SIMULATION_SUFFIX`. The
-        message names the suffix written and the documented route,
-        because there IS one and it is not this function.
+        If the geometry's suffix is neither :data:`SIMULATION_SUFFIX` nor
+        one of :data:`RAW_MESH_FORMATS`, naming the suffix written and the
+        documented routes; if a saved simulation's sidecar states an
+        ``[import]`` table, which nothing would read; or if a raw mesh is
+        refused by :func:`_import_mesh`.
     """
     _configuration_comment(case, script)
     if case.geometry is None:
         return
     suffix = PurePath(case.geometry).suffix
-    if suffix.lower() != SIMULATION_SUFFIX:
-        # REFUSED RATHER THAN IMPORTED, and the narrowing is a scope
-        # decision of the patch release rather than a gap. IMPORT's FIRST
-        # argument is the length units of the mesh file (SRC-003 p.307),
-        # which no matrix cell declares today; a mesh imported under
-        # defaulted units solves, exports and reports coefficients
-        # normalized against a body of the wrong size, which is exactly
-        # the silent-wrong-answer class this release exists to remove.
-        # Widening this to IMPORT is a UNITS key on the row first, and a
-        # units key is a new promise rather than a defect fix.
-        #
-        # The refusal points at a route the user already has:
-        # docs/mesh-inputs.md documents the supported pattern as GUI
-        # once, save as .fsm, script everything after.
+    sidecar = PurePath(str(case.geometry)).stem + ".boundaries.toml"
+    if suffix.lower() in RAW_MESH_FORMATS:
+        _import_mesh(case, script, RAW_MESH_FORMATS[suffix.lower()])
+        # THE TRAILING EDGE RIGHT AFTER THE IMPORT (G02), on the body the
+        # import operations left and against the names its renames left: the
+        # points lie on that body, in the simulation's metres.
+        _raw_mesh_boundary_conditions(case, script)
+    elif suffix.lower() != SIMULATION_SUFFIX:
         written = suffix or "no suffix at all"
         raise CampaignConfigError(
             f"case {case.sim_id!r} declares {GEOMETRY_VARIABLE} as a file carrying "
-            f"{written}, and a workflow opens a saved simulation ({SIMULATION_SUFFIX}) "
-            "and nothing else. A .fsm already carries its own length units, its mesh "
-            "and its boundary names, so opening it needs the path alone; importing a "
-            "raw mesh takes the length UNITS of the file as an argument, and no matrix "
-            "cell declares them, so this package would have to default them and a "
-            "defaulted unit is a body of the wrong size reported without a word. Open "
-            "the mesh in the FlightStream window once, save the result as a .fsm, and "
-            "stage that in inputs/geometries/ instead; docs/mesh-inputs.md carries the "
-            f"route in full; search that page for '{_MESH_PAGE_ANCHOR}'. The file this "
-            f"resolved to is {case.geometry!r}. A mesh carries no boundary conditions, "
-            "and no matrix cell declares them for a mesh (PFS-2029.09.03); the .fsm "
-            "carries those too."
+            f"{written}, which a workflow neither opens nor imports: it opens a saved "
+            f"simulation ({SIMULATION_SUFFIX}), which carries its own length units, "
+            f"and imports a raw mesh written as {' or '.join(RAW_MESH_FORMATS)} in the "
+            f"length units the [import] table of {sidecar} beside it states. Convert "
+            "the file to one of those, or open it in the FlightStream window once and "
+            f"save a {SIMULATION_SUFFIX}; docs/mesh-inputs.md carries both routes; "
+            f"search that page for '{_MESH_PAGE_ANCHOR}'. The file this resolved to is "
+            f"{case.geometry!r}."
         )
-    # THE INITIALISATION FLAG IS ALWAYS STATED (PFS-2030.03.01). A saved
-    # simulation may carry an initialised solver, and loading it would start
-    # the run from a state the row never declared; the reference scripts wrote DISABLE
-    # on every open, and a preset that wants the stored state says so.
-    load = case.solver.load_solver_initialization
-    script.emit("OPEN", case.geometry, "ENABLE" if load else "DISABLE")
-    _declare_boundaries(case, script)
+    elif case.mesh_import is not None:
+        # NOT IGNORED. A saved simulation carries its own units, so a table
+        # stating one beside it is read by nothing, and a key that reaches
+        # nothing is the silent no-op this package refuses rather than keeps.
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} opens the saved simulation "
+            f"{PurePath(str(case.geometry)).name}, and {sidecar} beside it states an "
+            f"[import] table with units = {case.mesh_import.units!r}. A {SIMULATION_SUFFIX} "
+            "carries its own length units and is opened, never imported, so nothing "
+            "would read the table; delete it from the sidecar (docs/mesh-inputs.md, "
+            f"search '{_MESH_PAGE_ANCHOR}')."
+        )
+    elif case.raw_mesh_conditions is not None:
+        # NOT IGNORED EITHER, and worse than ignored if it were read: a saved
+        # simulation's trailing edges, wake-termination nodes and base regions
+        # were marked when it was saved, so a second pass would mark twice.
+        declared = _declared_condition_tables(case.raw_mesh_conditions)
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} opens the saved simulation "
+            f"{PurePath(str(case.geometry)).name}, and {sidecar} beside it declares "
+            f"{' and '.join(declared)}, which mark a raw mesh. A {SIMULATION_SUFFIX} "
+            "carries the trailing edges, wake-termination nodes and base regions it was "
+            "saved with, and a second marking pass over them would mark them twice; "
+            "delete the tables from the sidecar. A row marks the base regions of a saved "
+            "simulation with its BASE_REGIONS key (docs/mesh-inputs.md, search "
+            f"'{_CONDITIONS_PAGE_ANCHOR}')."
+        )
+    else:
+        # THE INITIALISATION FLAG IS ALWAYS STATED (PFS-2030.03.01). A saved
+        # simulation may carry an initialised solver, and loading it would start
+        # the run from a state the row never declared; the reference scripts wrote
+        # DISABLE on every open, and a preset that wants the stored state says so.
+        load = case.solver.load_solver_initialization
+        script.emit("OPEN", case.geometry, "ENABLE" if load else "DISABLE")
+        _declare_boundaries(case, script)
     # EVERY BOUNDARY-CITING SURFACE OF THE ROW IS JUDGED HERE, at plan
     # time, against the inventory just declared (PFS-2028.00): the pproc
     # groups below, the base regions next, and the moving boundaries,
@@ -4069,8 +4150,463 @@ def _open_geometry(case: SimCase, script: Script) -> None:
     _detect_base_regions(case, script)
 
 
+def _import_mesh(case: SimCase, script: Script, file_type: str) -> None:
+    """Import the case's raw mesh into a new simulation, in the unit its sidecar states (G01).
+
+    WHAT IS EMITTED, in this order::
+
+        NEW_SIMULATION
+        IMPORT  UNITS <the sidecar's unit>  FILE_TYPE <OBJ|STL>  FILE <staged copy>  CLEAR
+        <the geometry-phase import operations: scale, rename, mirror>
+        SET_SIMULATION_LENGTH_UNITS METER
+        <the setup-phase import operations: translate, rotate>
+
+    and then the boundary inventory is declared, from the sidecar's
+    ``boundaries`` as the operations' renames left them, since a raw mesh
+    carries no mesh block to read it from and the ledger cannot relabel a
+    name once declared.
+
+    THE OPERATIONS ARE THE SIDECAR'S ``[[import.operations]]`` (G03), in
+    the order written and in the reference frame. Each one's phase is read
+    from the command database, so an order the script's phases cannot emit
+    (a scale after a translation) is refused naming both, never reordered.
+    Every cited surface is resolved by name, against the names at its own
+    step, before anything is emitted (:func:`_plan_import_operations`).
+
+    THE UNIT IS NEVER ASSUMED. The file's unit is the ``[import]`` table's
+    ``units`` and goes to ``IMPORT`` alone; the simulation is set to metres
+    (:data:`SIMULATION_LENGTH_UNIT`) because every length the reference and
+    the row state is in metres. Whether ``IMPORT`` then converts the body
+    from the file's unit into the simulation's is not claimed here: it is
+    measured by no run yet, and the page says so.
+
+    The path imported is the STAGED copy, for the reason
+    :func:`_open_geometry` gives for the open.
+
+    Raises
+    ------
+    CampaignConfigError
+        Before the first line is emitted: the case states no ``[import]``
+        table, naming the table, the key, the sidecar and the units this
+        build's ``IMPORT`` takes; the table states a unit that ``IMPORT``
+        does not take on this build, or ``OTHER``, which names no length;
+        the setup asks to load a stored solver state, which a new
+        simulation does not have; or an import operation is refused by
+        :func:`_plan_import_operations`.
+    """
+    geometry = PurePath(str(case.geometry))
+    sidecar = geometry.stem + ".boundaries.toml"
+    # READ PER BUILD, never a list written here: the units the build's
+    # IMPORT documents, less the one that names no length.
+    documented = next(arg for arg in script.entry("IMPORT").args if arg.name == "units").values
+    accepted = [unit for unit in documented or () if unit != _UNIT_THAT_NAMES_NO_LENGTH]
+    route = f"docs/mesh-inputs.md carries the route; search that page for '{_MESH_PAGE_ANCHOR}'"
+    spec = case.mesh_import
+    if spec is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {GEOMETRY_VARIABLE} as a raw mesh "
+            f"({geometry.suffix}) and states no length unit for it: write the table "
+            f'[import] with the line units = "<unit>" in {sidecar} beside it, the unit '
+            f"the file is written in, one of {', '.join(accepted)}. A mesh file carries "
+            "no unit and this package never assumes one, because a body imported at "
+            "the wrong scale solves and reports coefficients against a body of the "
+            f"wrong size without a word. A saved simulation ({SIMULATION_SUFFIX}) "
+            f"carries its own units and needs no table; {route}. The file this "
+            f"resolved to is {case.geometry!r}."
+        )
+    if spec.units not in accepted:
+        why = (
+            "which names no length, so the scale would be the solver's guess"
+            if spec.units == _UNIT_THAT_NAMES_NO_LENGTH
+            else f"which IMPORT does not take on FlightStream {script.version.canonical}"
+        )
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: {sidecar} states units = {spec.units!r} under "
+            f"[import], {why}; write the unit {geometry.name} is written in, one of "
+            f"{', '.join(accepted)}; {route}."
+        )
+    if case.solver.load_solver_initialization:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} imports the raw mesh {geometry.name} into a new "
+            "simulation, and its setup asks to load the solver initialization, which "
+            "reads a state stored in a saved simulation; a new simulation has none. "
+            f"Drop the setting, or stage a saved simulation ({SIMULATION_SUFFIX}) that "
+            "carries the state."
+        )
+    steps, names = _plan_import_operations(case, script, sidecar)
+    script.emit("NEW_SIMULATION")
+    script.emit("IMPORT", spec.units, file_type, case.geometry, clear=True)
+    for step in steps:
+        if step.geometry_phase:
+            _emit_import_operation(script, step, spec.units)
+    script.emit("SET_SIMULATION_LENGTH_UNITS", SIMULATION_LENGTH_UNIT)
+    for step in steps:
+        if not step.geometry_phase:
+            _emit_import_operation(script, step, spec.units)
+    # THE SIDECAR'S NAMES AS THE RENAMES LEFT THEM, declared once, after the
+    # operations: the ledger cannot relabel, and the file is not read for a
+    # block it cannot have.
+    _declare_boundaries(case, script, stated=names)
+
+
+def _declared_condition_tables(conditions: RawMeshConditions) -> list[str]:
+    """Name the sidecar tables a set of raw-mesh conditions came from, as written."""
+    return [
+        f"[{table}]"
+        for table, value in (
+            ("trailing_edges", conditions.trailing_edges),
+            ("wake_termination", conditions.wake_termination),
+            ("base_regions", conditions.base_regions),
+        )
+        if value is not None
+    ]
+
+
+def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
+    """Mark a raw mesh's trailing edges, and the options its sidecar writes (G02).
+
+    A raw mesh carries no trailing edge, and without one the solver makes
+    no wake and still runs and answers, so its sidecar declares one, in a
+    ``[trailing_edges]`` table, and a raw mesh without the table is refused.
+
+    WHAT IS EMITTED, right after the import, in this order:
+
+    * the file route, the default: ``IMPORT_WAKE_EDGES_FROM_FILE <TYPE>
+      <TOLERANCE> METER`` with the node file beside the staged geometry on
+      the next line (:func:`pyflightstream.script.helpers.mark_wake_edges`).
+      The points were read and checked against the mesh when the row was
+      bound, and are in the simulation's metres. The file marks exactly the
+      edges it names, since initialisation adds none (RPT-065), and the run
+      compares the count the solver logs as imported with the points
+      written. Measured on 26.124 only (RPT-061): 26.122 and 26.123 are
+      refused by the helper, and an earlier build by the absent command.
+    * or detection, only when written: ``SET_TRAILING_EDGE_SWEEP_ANGLE``
+      when an angle is stated, then ``AUTO_DETECT_TRAILING_EDGES`` over
+      every surface or ``DETECT_TRAILING_EDGES_BY_SURFACE`` on the surfaces
+      named.
+    * ``[wake_termination]``: ``AUTO_DETECT_WAKE_TERMINATION_NODES``, or one
+      ``DETECT_WAKE_TERMINATION_NODES_BY_SURFACE`` per surface named. What
+      either marks is unobserved on every geometry tried (RPT-066).
+    * ``[base_regions]``: ``AUTO_DETECT_BASE_REGIONS``, which marked the
+      base of a body with a flat base on 26.124 (RPT-066).
+
+    Surfaces are cited by the sidecar's names as the import's renames left
+    them, exactly as written, never by position.
+
+    Raises
+    ------
+    CampaignConfigError
+        No ``[trailing_edges]`` table; a file route beside an import
+        operation that moves, scales or copies the body, since the points
+        name edges of the file as written; a file route whose points were
+        never read (a case built in Python stating none); a surface the
+        sidecar does not name; or ``[base_regions]`` beside a row or pproc
+        naming base regions of its own.
+    CommandNotInVersionError
+        The file route on a build other than 26.124, from the helper.
+    """
+    geometry = PurePath(str(case.geometry))
+    sidecar = geometry.stem + ".boundaries.toml"
+    page = f"docs/mesh-inputs.md, search that page for '{_CONDITIONS_PAGE_ANCHOR}'"
+    conditions = case.raw_mesh_conditions
+    marking = None if conditions is None else conditions.trailing_edges
+    if conditions is None or marking is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} imports the raw mesh {geometry.name}, and {sidecar} "
+            "beside it declares no [trailing_edges] table. Without a marked trailing edge "
+            "there is no wake, and the solver runs and answers anyway. Write the table "
+            'with file = "<points file>", the default route: the mid-point of every '
+            "trailing-edge mesh edge under a line naming their length unit, checked "
+            'against the mesh before the run; or with detect = "auto", the solver\'s '
+            f"detection, which applies only when written ({page})."
+        )
+    if marking.route == "file":
+        _mark_trailing_edges_from_file(case, script, marking, sidecar, page)
+    else:
+        if marking.sweep_angle_deg is not None:
+            script.emit("SET_TRAILING_EDGE_SWEEP_ANGLE", marking.sweep_angle_deg)
+        if not marking.detect_surfaces:
+            script.emit("AUTO_DETECT_TRAILING_EDGES")
+        else:
+            indices = _sidecar_surfaces(
+                case, script, sidecar, "[trailing_edges]", marking.detect_surfaces
+            )
+            script.emit("DETECT_TRAILING_EDGES_BY_SURFACE", len(indices), indices)
+    wake = conditions.wake_termination
+    if wake == "auto":
+        script.emit("AUTO_DETECT_WAKE_TERMINATION_NODES")
+    elif wake is not None:
+        for index in _sidecar_surfaces(case, script, sidecar, "[wake_termination]", wake):
+            script.emit("DETECT_WAKE_TERMINATION_NODES_BY_SURFACE", index)
+    if conditions.base_regions is not None:
+        named = _base_region_families(case)
+        if named:
+            raise CampaignConfigError(
+                f'case {case.sim_id!r}: {sidecar} declares [base_regions] detect = "auto", '
+                "which detects every base region of the mesh, and the row (or its pproc) "
+                f"also names base regions, {', '.join(named)}. Declare them once: the "
+                "sidecar's detection over the whole mesh, or the row's BASE_REGIONS on the "
+                f"boundaries that become the base ({page})."
+            )
+        script.emit("AUTO_DETECT_BASE_REGIONS")
+
+
+def _mark_trailing_edges_from_file(
+    case: SimCase, script: Script, marking: TrailingEdgeMarking, sidecar: str, page: str
+) -> None:
+    """Emit the file route of ``[trailing_edges]``, its points already checked (G02)."""
+    geometry = PurePath(str(case.geometry))
+    named = PurePath(marking.points_file).name if marking.points_file else "the points file"
+    spec = case.mesh_import
+    moving = (
+        []
+        if spec is None
+        else [
+            f"operation {position} ({operation.op})"
+            for position, operation in enumerate(spec.operations, start=1)
+            if operation in spec.moving_operations
+        ]
+    )
+    if moving:
+        listed = ", ".join(moving)
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: {sidecar} marks the trailing edges of {geometry.name} "
+            f"by the points file {named}, and its [import] table also moves, scales or "
+            f"copies the body: {listed}. The points name edges of the mesh as the file "
+            "holds it and are checked against that file, so those operations would carry "
+            "the edges away from them and the import would mark nothing, in silence. "
+            "Apply the operations to the mesh file itself, or mark the edges by detection, "
+            f'detect = "auto" ({page}).'
+        )
+    if not marking.points_m:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the [trailing_edges] file route of {sidecar} carries "
+            f"no points. A case bound from a matrix row reads them from {named} and checks "
+            "them against the mesh; a case built in Python states them, in metres, as "
+            f"TrailingEdgeMarking.points_m ({page})."
+        )
+    helpers.mark_wake_edges(
+        script,
+        edge_type=marking.edge_type,
+        tolerance=marking.tolerance,
+        units=SIMULATION_LENGTH_UNIT,
+        # BESIDE THE STAGED GEOMETRY, which is where the run writes it and what
+        # the record hashes: the path the case carries at build time is the
+        # point's own staged copy (see _open_geometry).
+        node_file=str(geometry.with_suffix(".wake_nodes.txt")),
+        midpoints=marking.points_m,
+    )
+
+
+def _sidecar_surfaces(
+    case: SimCase, script: Script, sidecar: str, table: str, names: Sequence[str]
+) -> list[int]:
+    """Resolve the surfaces a raw mesh's sidecar table names, exactly, to their indices."""
+    labels = script.entities.labels("boundaries")
+    indices: list[int] = []
+    for name in names:
+        index = labels.get(name)
+        if index is None:
+            known = ", ".join(repr(label) for label in labels) or "none"
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: {table} of {sidecar} names the surface {name!r}, "
+                f"and the mesh's surfaces, as its boundaries and the import's renames left "
+                f"them, are {known}. Name a surface exactly as the sidecar does; never by "
+                "position."
+            )
+        if index not in indices:
+            indices.append(index)
+    return indices
+
+
+@dataclass(frozen=True)
+class _ImportStep:
+    """One mesh operation of an import, resolved before anything is emitted (G03)."""
+
+    position: int
+    operation: MeshOperation
+    command: str
+    geometry_phase: bool
+    #: The 1-based position of the surface it acts on, at its own step; None
+    #: for every surface.
+    surface: int | None
+
+
+def _import_operation_command(script: Script, op: str) -> str:
+    """Return the command one import operation emits on this script's build."""
+    if op != "rotate":
+        return _IMPORT_COMMANDS[op]
+    for name in helpers.ROTATION_COMMANDS:
+        try:
+            script.entry(name)
+        except CommandNotInVersionError:
+            continue
+        return name
+    # No registered build documents neither; the lookup of the phase below
+    # then refuses naming the build, still before anything is emitted.
+    return helpers.ROTATION_COMMANDS[0]
+
+
+def _plan_import_operations(
+    case: SimCase, script: Script, sidecar: str
+) -> tuple[list[_ImportStep], tuple[str, ...]]:
+    """Resolve the import operations the sidecar declares, refusing before any emission (G03).
+
+    Returns the steps in the order written and the boundary names as the
+    renames leave them. Walked once, in order, on a LOCAL copy of the names,
+    because the script's own ledger cannot relabel a name once declared and
+    the solver renames only when the script runs.
+
+    Raises
+    ------
+    CampaignConfigError
+        A geometry-phase operation written after a setup-phase one, naming
+        both by position and kind; a surface name absent at its step,
+        listing the names at that step; a name two surfaces carry at its
+        step; or a rename onto a name another surface carries.
+    """
+    spec = case.mesh_import
+    if spec is None:
+        return [], tuple(case.inventory or ())
+    names = list(case.inventory or ())
+    steps: list[_ImportStep] = []
+    first_setup: _ImportStep | None = None
+    for position, operation in enumerate(spec.operations, start=1):
+        command = _import_operation_command(script, operation.op)
+        # THE PHASE IS THE DATABASE'S, per build, never a list written here.
+        geometry_phase = script.entry(command).phase is Phase.GEOMETRY
+        if geometry_phase and first_setup is not None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: {sidecar} declares operation {position} "
+                f"({operation.op}) after operation {first_setup.position} "
+                f"({first_setup.operation.op}); {operation.op} is a geometry command "
+                f"({command}) and {first_setup.operation.op} a setup command "
+                f"({first_setup.command}), and a script cannot return to the geometry "
+                "phase once it has reached the setup phase, so the two cannot be emitted "
+                "in the order written, and they are never reordered. Write every scale, "
+                "rename and mirror before the first translate or rotate, restating a "
+                "translation in the scaled size if the scale was meant to act on it "
+                "(docs/mesh-inputs.md)."
+            )
+        surface = None
+        if operation.surface != EVERY_SURFACE:
+            surface = _import_surface(case, sidecar, names, position, operation)
+        if operation.op == "rename" and surface is not None and operation.to is not None:
+            taken = [
+                index
+                for index, name in enumerate(names, start=1)
+                if name == operation.to and index != surface
+            ]
+            if taken:
+                raise CampaignConfigError(
+                    f"case {case.sim_id!r}: operation {position} (rename) of {sidecar} "
+                    f"renames {operation.surface!r} to {operation.to!r}, which surface "
+                    f"{taken[0]} already carries at that step, and two surfaces of one "
+                    "name cannot be cited apart. Choose a name no other surface carries."
+                )
+            names[surface - 1] = operation.to
+        step = _ImportStep(position, operation, command, geometry_phase, surface)
+        if not geometry_phase and first_setup is None:
+            first_setup = step
+        steps.append(step)
+    return steps, tuple(names)
+
+
+def _import_surface(
+    case: SimCase, sidecar: str, names: Sequence[str], position: int, operation: MeshOperation
+) -> int:
+    """Return the 1-based position of the surface one import operation names, at its step."""
+    found = [index for index, name in enumerate(names, start=1) if name == operation.surface]
+    where = (
+        f"case {case.sim_id!r}: operation {position} ({operation.op}) of {sidecar} names "
+        f"the surface {operation.surface!r}"
+    )
+    if not found:
+        known = ", ".join(repr(name) for name in names) or (
+            "none, since the sidecar states no boundaries"
+        )
+        raise CampaignConfigError(
+            f"{where}, and the surfaces at that step are {known}. Cite a surface by the "
+            "name the file gives it, or by the name an earlier rename gave it, exactly as "
+            "written; never by position (docs/mesh-inputs.md)."
+        )
+    if len(found) > 1:
+        raise CampaignConfigError(
+            f"{where}, which {len(found)} surfaces carry at that step (positions "
+            f"{', '.join(str(index) for index in found)}), so it selects none of them. "
+            "Give those surfaces distinct names in the mesh file."
+        )
+    return found[0]
+
+
+def _emit_import_operation(script: Script, step: _ImportStep, units: str) -> None:
+    """Emit one resolved import operation, in the reference frame (G03)."""
+    operation = step.operation
+    if operation.op == "rotate":
+        # MeshOperation's own check states both for a rotation; this narrows the type.
+        assert operation.axis is not None and operation.angle_deg is not None
+        helpers.rotate_surfaces(
+            script,
+            frame=_IMPORT_FRAME,
+            axis=operation.axis,
+            angle_deg=operation.angle_deg,
+            boundaries="all" if step.surface is None else [step.surface],
+        )
+        return
+    if operation.op == "rename":
+        script.emit(step.command, index=step.surface, name=operation.to)
+        return
+    if operation.op == "mirror":
+        # JOINED TO ITS SOURCE, which survives: the surface count is unchanged,
+        # and the other three outcomes add or replace a surface whose name and
+        # position are unmeasured.
+        assert operation.plane is not None
+        script.emit(
+            step.command,
+            surface=step.surface,
+            coordinate_system=_IMPORT_FRAME,
+            mirror_plane=_MIRROR_PLANES[operation.plane],
+            combine_flag="TRUE",
+            delete_source_flag="FALSE",
+        )
+        return
+    # EVERY SURFACE IS EACH COMMAND'S OWN SENTINEL, read from the database:
+    # -1 on SURFACE_SCALE and 0 on TRANSLATE_SURFACE_IN_FRAME.
+    surface = step.surface
+    if surface is None:
+        argument = next(arg for arg in script.entry(step.command).args if arg.name == "surface")
+        surface = argument.all_sentinel
+    if operation.op == "scale":
+        assert operation.factors is not None
+        scale_x, scale_y, scale_z = operation.factors
+        script.emit(
+            step.command,
+            frame=_IMPORT_FRAME,
+            scale_x=scale_x,
+            scale_y=scale_y,
+            scale_z=scale_z,
+            surface=surface,
+        )
+        return
+    assert operation.vector is not None
+    x, y, z = operation.vector
+    # IN THE FILE'S UNIT, which the command states on its own line. A named
+    # surface splits its vertices from its neighbours, as the row's own
+    # translation does (RPT-048); every surface together has none to split from.
+    script.emit(
+        step.command,
+        frame=_IMPORT_FRAME,
+        x=x,
+        y=y,
+        z=z,
+        units=units,
+        surface=surface,
+        split_vertices="DISABLE" if step.surface is None else "ENABLE",
+    )
+
+
 def _base_region_families(case: SimCase) -> list[str]:
-    """Return the families the base-region autodetect may consider: row first, then pproc."""
+    """Return the boundaries that become base regions, as named: row first, then pproc."""
     declared = _variable(case, BASE_REGIONS_VARIABLE)
     if declared is not None:
         return [token.strip() for token in str(declared).split(",") if token.strip()]
@@ -4086,8 +4622,16 @@ def _detect_base_regions(case: SimCase, script: Script) -> None:
     optional input naming mesh families, so the autodetect runs on those
     surfaces only. Naming none emits nothing, which is every golden and
     every recorded script; AUTO_DETECT_BASE_REGIONS, the whole-geometry
-    form, is what a recipe of your own calls, and this package never
-    decides on its own which surfaces have a base.
+    form, is what a raw mesh's sidecar asks for when it writes
+    ``[base_regions] detect = "auto"``, or a recipe of your own calls, and
+    this package never decides on its own which surfaces have a base.
+
+    THE NAMED BOUNDARY IS THE ONE THAT BECOMES THE BASE (RPT-066, 26.124).
+    The command takes the index of the base region's own boundary: given
+    20_BODY's ``Base`` it marks the 24 faces the automatic detection marks,
+    and given its ``Body`` it marks nothing and says nothing. Nothing here
+    can tell a base from a body offline, so the key's page says which to
+    name, and the tier-3 rows name ``Base``.
     """
     families = _base_region_families(case)
     if not families:
@@ -4105,7 +4649,9 @@ def _detect_base_regions(case: SimCase, script: Script) -> None:
         script.emit("DETECT_BASE_REGIONS_BY_SURFACE", boundary_index=index)
 
 
-def _declare_boundaries(case: SimCase, script: Script) -> None:
+def _declare_boundaries(
+    case: SimCase, script: Script, *, stated: Sequence[str] | None = None
+) -> None:
     """Declare the opened geometry's boundary names onto the script.
 
     BOUND TO THE ``OPEN`` AND NOT TO THE SCRIPT'S CONSTRUCTION, which
@@ -4129,6 +4675,11 @@ def _declare_boundaries(case: SimCase, script: Script) -> None:
         bytes the run record hashes and the solver reads.
     script : Script
         Script under construction, with ``OPEN`` already emitted.
+    stated : sequence of str, optional
+        The names to declare when the file carries no mesh block to read
+        them from: a raw mesh, whose names its sidecar states (G01). The
+        file is then not read, since an ``.obj`` or ``.stl`` has no block
+        and reading one whole to learn that costs the file's size.
 
     Notes
     -----
@@ -4143,8 +4694,9 @@ def _declare_boundaries(case: SimCase, script: Script) -> None:
     """
     if case.geometry is None:
         return
+    names: Sequence[str] | None
     try:
-        names = boundary_names(case.geometry)
+        names = tuple(stated) if stated is not None else boundary_names(case.geometry)
     except MeshReadError as unreadable:
         warn(
             f"case {case.sim_id!r}: {unreadable} No boundary names are declared for "
@@ -4154,7 +4706,7 @@ def _declare_boundaries(case: SimCase, script: Script) -> None:
             stacklevel=2,
         )
         return
-    if case.inventory is not None:
+    if stated is None and case.inventory is not None:
         # PFS-2029.06.03: a sidecar states the order; the file's own block
         # is the authority, and the two disagreeing means one of them was
         # edited since the sidecar was written, which no run may guess at.
@@ -7784,6 +8336,22 @@ def _export_block(
         if "probes" in kinds:
             script.emit("UPDATE_PROBE_POINTS")
     declared_log = _variable(case, LOG_OUTPUT_VARIABLE) is not None
+    # A FILE-ROUTE ROW DECLARES ITS LOG (G02). The run holds a trailing-edge
+    # import to the count the solver logs as imported, keyed to the SCRIPT as
+    # the run layer keys it, and the solver writes a log of its own only when
+    # it ends abnormally: without the exported one the check has nothing to
+    # read and the point is recorded FAILED_INCOMPLETE_OUTPUT after the solve.
+    if script.wake_edge_points is not None and "log" not in kinds and not declared_log:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} imports its trailing edges from a file, and its outputs "
+            f"({', '.join(names)}) carry no solver log, a name ending in _log.txt. The run "
+            "compares the count of trailing edges the solver logs as imported with the "
+            "points it wrote, because a point that matches no edge marks nothing and the "
+            "solver says nothing about it; the solver writes a log of its own only when it "
+            "ends abnormally, so without the exported one the count cannot be read and the "
+            "point would be recorded FAILED_INCOMPLETE_OUTPUT after the solve. Declare the "
+            "log among the row's outputs, or leave the pproc artifact's [exports] log on."
+        )
     # ASKED ONCE, FOR BOTH ROUTES TO THE LOG (0.24.0). The machine's
     # `export_log = false` was read inside `_export_log` alone, the route of a
     # row that names its log through LOG_OUTPUT. A row whose outputs carry a

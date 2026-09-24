@@ -64,13 +64,77 @@ FlightStream versions.
   2026-09-24 against the 0.26.0 `RunRecord`), so post such a workspace with
   0.27.0 (R03).
 
+- **A workflow row imports an OBJ or STL.** `GEOMETRY: wing.obj` runs when
+  `wing.boundaries.toml` beside it states the unit the file is written in,
+  `[import]` `units` (a length unit `IMPORT` takes on the row's build;
+  `OTHER` is refused), its surface names in the file's order, written by hand
+  as `boundaries`, and its trailing edge (below). The script starts a new
+  simulation, imports the point's staged copy in that unit and sets the
+  simulation's length unit to metres, the unit of every length the reference
+  and the row state; whether `IMPORT` converts the body from the file's unit
+  is not measured on any build. A raw mesh without a unit is refused before
+  any seat, naming the table, the key and the sidecar; so are an `[import]`
+  table beside a `.fsm` and any other suffix. The run record of a point that
+  imported a raw mesh carries the table as `mesh_import`; a point that opened
+  a `.fsm` writes no such key (G01).
+- **The mesh operations of an import are declared with the geometry.**
+  `[[import.operations]]` in the sidecar of a raw mesh scales, renames,
+  mirrors (joined to its source), translates (in the `[import]` unit) and
+  rotates surfaces named by the file's names, in the reference frame. They
+  are emitted in the order written, right after the import, and the renamed
+  names are the boundary inventory a row cites. An order the solver's phases
+  cannot emit is refused naming both operations; a name absent at its step, a
+  name two surfaces carry and a rename onto a name in use are refused before
+  anything is emitted (G03).
+- **A raw mesh declares its trailing edge in its sidecar** (G02, T06).
+  `[trailing_edges]` with `file = "<points file>"` is the default route, with
+  optional `type` (STANDARD unless written) and `tolerance`. The points file
+  (a unit line, then one edge mid-point per line) is checked against the mesh
+  when the row is bound, converted to metres, written as the solver's node
+  file beside the point's staged geometry, and imported with
+  `IMPORT_WAKE_EDGES_FROM_FILE` on 26.124, where that command is verified by
+  a compat probe; 26.122 and 26.123 are refused naming RPT-061, and earlier
+  builds are refused. `detect = "auto"` or `detect = { surfaces = [...],
+  sweep_angle = ... }` applies automatic detection only when written.
+  `[wake_termination]` (automatic or by surface; what it marks is
+  unverified, RPT-066) and `[base_regions]` (`detect = "auto"`) apply only
+  when written. Refused at plan: a raw mesh with no trailing edge; a table
+  stating both routes or neither; a file-route row whose outputs carry no
+  solver log; the file route beside an import operation that scales,
+  mirrors, translates or rotates the body; a `.fsm` whose sidecar states any
+  of the three tables. New names: `cases.TrailingEdgeMarking`,
+  `cases.RawMeshConditions`, `SimCase.raw_mesh_conditions`,
+  `MeshImport.moving_operations`, `MeshImport.names_after_renames`,
+  `workspace.inputs.read_raw_mesh_conditions`.
+- **A run that imports trailing edges is held to the solver's own count.**
+  It writes the node file before the solver starts, hashes it into the
+  record's inputs, and compares the solver's count of imported edges with
+  the points it wrote: FAILED_SCRIPT when they differ, FAILED_INCOMPLETE_OUTPUT
+  when no log was read, on the local path and at collect. A point that
+  matches no mesh edge is dropped by the solver in silence (RPT-061), and
+  initialisation adds nothing to an import (RPT-065), so this count is the
+  only warning of a wrong file. `results.imported_trailing_edges` reads the
+  count; the sweep-job path now writes the files a script parks (G02).
+- **A trailing-edge points file is checked against the mesh before the
+  run** (T05): `read_trailing_edge_points`, `matched_trailing_edge_points`,
+  `TrailingEdgePoints`, `write_trailing_edge_points` and `length_scale` in
+  `pyflightstream.workspace.wake_edges`. Its unit line must name a solver
+  length unit, and every point must lie within the tolerance of a mesh-edge
+  mid-point; the first point that does not is refused by its line and
+  position. `workspace.trailing_edge_midpoints` gives the mid-points of every
+  trailing-edge mesh edge of a blade.
+- **A probe specification for `IMPORT_WAKE_EDGES_FROM_FILE`**, and its 26.124
+  row verified by the compat probe of 2026-09-24 (the qa wing's sixteen
+  trailing edges imported and saved).
+
 ### Fixed
 
 - **A workflow refusing a mesh file no longer promises a release.** The
   refusal of a non-`.fsm` geometry said 0.12.0 would define boundary
-  conditions for a mesh cell; 0.12.0 shipped without them. It now names the
-  `.fsm` route and says no matrix cell declares boundary conditions for a
-  mesh (PFS-2029.09.03).
+  conditions for a mesh cell; 0.12.0 shipped without them. A raw mesh is now
+  imported when its sidecar states its unit and its trailing edge (G01, G02),
+  and the refusal of one that states no unit names the key to write,
+  `[import]` `units`, and promises no release (PFS-2029.09.03).
 - **A steady row emits each probe line once.** A pproc declaring N probe
   lines gave N squared `NEW_PROBE_LINE` commands on a steady row, so the
   solver created and exported every point N times: three lines of eleven
@@ -149,6 +213,20 @@ FlightStream versions.
   and the FAMILY, PLANE and ROTOR columns read `NA`. A job run before 0.27.0
   keeps that; run it again for the split (R03).
 
+- **The wake-edge import emitted since 0.8.0 marked nothing on 26.124.** Its
+  two-value line is a syntax error there, and the node file written since
+  0.8.0 (a unit line, ids, vertices) marks nothing; 26.124 reads the count,
+  one placeholder coordinate line, then the edge mid-points in the
+  simulation's unit, from the path on the line after the command
+  (RPT-061). `TRAILING_EDGES_IMPORT` is recorded removed on 26.124, where the
+  build answers "Unrecognized command" (G02).
+- **Six tier-3 rows (1005, 1021, 4003, 9001 to 9003) named the body in
+  `BASE_REGIONS` and so solved with no base region**; they name `Base`
+  (RPT-066).
+- **The plan's cost table counts a raw-mesh row's marked boundaries** from
+  its sidecar's names as the renames leave them; it printed NA for every
+  raw-mesh row (G02).
+
 ### Changed
 
 - **An induced drag the solver did not compute is `NA` in every sum the
@@ -192,6 +270,23 @@ FlightStream versions.
   simulation (G11). `pyfs-matrix plan` refuses an artifact stating it with
   `matrix not planned: ...` and exit 2, naming the row and the file; remove
   the key.
+
+- **`helpers.mark_wake_edges` takes `units`, `node_file` and `midpoints`.**
+  On 26.124 it emits `IMPORT_WAKE_EDGES_FROM_FILE <TYPE> <TOLERANCE> <UNITS>`
+  with the node file on the next line, the form that build reads, parks the
+  file on the script and records the count. 26.122 and 26.123 refuse the file
+  route as unmeasured, and builds before 26.122 refuse it as before (G02).
+- **`workspace.write_node_file` writes the node list 26.124 reads**: the
+  count, one placeholder coordinate line, then the edge mid-points converted
+  to the simulation's length unit (new `simulation_unit`), in plain decimals.
+  `write_trailing_edge_node_file` writes the mid-points of every trailing-edge
+  mesh edge under a unit line, as the points file a geometry names, and
+  `TrailingEdge.write_node_file` refuses: a list of vertices marks nothing
+  (G02).
+- **`BASE_REGIONS` (and a pproc's `base_regions`) names the boundary that
+  becomes the base** (RPT-066). `DETECT_BASE_REGIONS_BY_SURFACE` given a
+  body's own boundary marks nothing and says nothing; the page and FR-55
+  state it, and the emission is unchanged.
 
 ### Documentation
 

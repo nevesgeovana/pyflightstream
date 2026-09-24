@@ -550,6 +550,12 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
         "campaign_name_from",
         "point_name_template",
         "inventory_source",
+        # 0.27.0 G01. How a raw mesh was imported: a BLOCK (the unit the file is
+        # written in), not a scalar, and a fact of the geometry FILE, stated once
+        # in its sidecar. The manifest records it beside `inputs_sha256`, which is
+        # where two runs of one mesh under two units are told apart; a superfile
+        # row names its geometry through the matrix row's own cell.
+        "mesh_import",
         "fs_version_source",
         "export_window",
         "waived_commands",

@@ -26,6 +26,7 @@ import re
 from collections.abc import Callable
 from pathlib import Path
 
+from pyflightstream.qa.geometry import WingSpec, generate_wing_stl, wing_triangles
 from pyflightstream.qa.probes import (
     ProbeArtifacts,
     ProbeSpec,
@@ -39,7 +40,7 @@ from pyflightstream.qa.probes import (
     region_printed,
 )
 from pyflightstream.script import Script
-from pyflightstream.script.helpers import initialize_solver
+from pyflightstream.script.helpers import initialize_solver, render_wake_edge_node_file
 
 #: The catalog exports its catalog and nothing else. Without this, every
 #: non-underscore definition here is public the moment the wheel ships,
@@ -441,6 +442,80 @@ _spec(
         "the saved simulation does not move on the probe geometry (RPT-020); a "
         "clean synthetic wing may simply have no wake termination nodes to find, "
         "so this needs a geometry that does"
+    ),
+)
+
+#: The wing the wake-edge import probe marks: the qa wing at the tier-3 10_WING
+#: resolution, 16 spanwise panels, so its trailing edge is 16 mesh edges along
+#: x = 1, z = 0, one every half metre of span. Named Wing, which is the boundary
+#: the solver's import line names.
+_WAKE_EDGE_WING = WingSpec(naca="0012", chord_m=1.0, span_m=8.0, n_chord=12, n_span=16)
+_WAKE_EDGE_STL = "wake_wing.stl"
+_WAKE_EDGE_NODES = "wake_wing.wake_nodes.txt"
+
+
+def _wing_trailing_edge_midpoints(spec: WingSpec) -> list[tuple[float, float, float]]:
+    """Return the mid-points of a qa wing's trailing-edge mesh edges, from its triangles.
+
+    The trailing-edge vertices are those at the chord's aft end, one pair per
+    spanwise station (the contour's two ends, a rounding apart in z); each
+    trailing-edge edge joins two consecutive stations, so its mid-point is the
+    mean of theirs.
+    """
+    vertices = wing_triangles(spec).reshape(-1, 3)
+    aft = vertices[vertices[:, 0] == vertices[:, 0].max()]
+    stations = sorted({float(y) for y in aft[:, 1]})
+    points = []
+    for near, far in zip(stations[:-1], stations[1:], strict=True):
+        pair = aft[(aft[:, 1] == near) | (aft[:, 1] == far)]
+        # Rounded to 1e-12 m, far inside the import's tolerance, so the two
+        # contour ends' z of order 1e-17 average to the 0.0 they stand for.
+        points.append(
+            (
+                round(float(pair[:, 0].mean()), 12),
+                round((near + far) / 2.0, 12),
+                round(float(pair[:, 2].mean()), 12),
+            )
+        )
+    return points
+
+
+def _wake_edge_wing_prelude(script: Script, workdir: Path) -> None:
+    """Import the qa wing as boundary Wing into a new simulation, in metres."""
+    stl = generate_wing_stl(_WAKE_EDGE_WING, workdir / _WAKE_EDGE_STL, name="Wing")
+    script.emit("NEW_SIMULATION")
+    script.emit("IMPORT", "METER", "STL", stl, clear=True)
+    script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
+
+
+def _wake_edge_import_target(script: Script, workdir: Path) -> None:
+    """Write the node file of the wing's 16 mid-points and emit the 26.124 import.
+
+    The line is the one ``helpers.mark_wake_edges`` emits: the type, the
+    tolerance, the simulation's unit as the third token, and the node file's
+    path on the next line (RPT-061); the file is the count, the placeholder
+    triple and the mid-points. Emitted through the database grammar, so a
+    build whose grammar has no third token refuses to build the probe and
+    the command lands unprobed there.
+    """
+    nodes = workdir / _WAKE_EDGE_NODES
+    nodes.write_text(
+        render_wake_edge_node_file(_wing_trailing_edge_midpoints(_WAKE_EDGE_WING)),
+        encoding="utf-8",
+    )
+    script.emit("IMPORT_WAKE_EDGES_FROM_FILE", "STANDARD", 0.0001, "METER", nodes)
+
+
+_spec(
+    command="IMPORT_WAKE_EDGES_FROM_FILE",
+    build_target=_wake_edge_import_target,
+    prelude=_wake_edge_wing_prelude,
+    save_state=True,
+    assert_effect=region_printed("16 trailing edges imported for boundary Wing"),
+    effect_note=(
+        "the solver logs 16 trailing edges imported for boundary Wing, one per "
+        "trailing-edge mesh edge of the wing, a line it prints only when the import "
+        "marks something (RPT-061)"
     ),
 )
 _spec(

@@ -134,6 +134,7 @@ from pyflightstream.workspace.rename_groups import (
 from pyflightstream.workspace.trailing_edges import (
     TrailingEdge,
     extract_trailing_edge,
+    trailing_edge_midpoints,
     write_trailing_edge_node_file,
 )
 
@@ -198,6 +199,7 @@ __all__ = [
     "register_post_stage",
     "resolve_pproc",
     "write_input_guides",
+    "trailing_edge_midpoints",
     "write_trailing_edge_node_file",
 ]
 
@@ -991,6 +993,14 @@ class RunRecord(BaseModel):
     #: carries a key it does not know, so only a record that has names to
     #: state writes one.
     inventory: list[str] | None = None
+    #: How a raw mesh was imported (G01): the ``[import]`` table of its
+    #: sidecar as the run read it, ``{"units": "MILLIMETER"}``. None for a
+    #: point that opened a saved simulation or no geometry. Recorded because
+    #: only the geometry's bytes are hashed, so without it two runs of one
+    #: mesh under two units would carry identical records. ABSENT where
+    #: None, as ``inventory`` is, so a manifest of ``.fsm`` rows stays
+    #: readable by a reader older than 0.27.0.
+    mesh_import: dict[str, object] | None = None
     #: How the inputs were staged (PFS-2029.17): ``link``, a directory
     #: junction on Windows and a symbolic link elsewhere, at the geometry's
     #: own folder of the library or at the flat library (PFS-2032.04), or
@@ -1036,20 +1046,24 @@ class RunRecord(BaseModel):
         return data
 
     @model_serializer(mode="wrap")
-    def _leave_an_unrecorded_inventory_out(
+    def _leave_the_unrecorded_0270_keys_out(
         self, handler: SerializerFunctionWrapHandler
     ) -> dict[str, Any]:
-        """Write no ``inventory`` key where the record states no names (R03 of 0.27.0).
+        """Write no ``inventory`` or ``mesh_import`` key where the record states none.
+
+        R03 and G01 of 0.27.0.
 
         The rule ``forced_local`` follows: a key a reader older than 0.27.0
         does not know is written only where something was recorded, so a
-        manifest of LEGACY or geometry-less records stays readable by it.
+        manifest of LEGACY or geometry-less records, which carry neither,
+        stays readable by it.
         A serializer rather than ``Field(exclude_if=...)``, which needs
         pydantic 2.11 where this package's floor is pydantic 2.
         """
         data: dict[str, Any] = handler(self)
-        if data.get("inventory") is None:
-            data.pop("inventory", None)
+        for key in ("inventory", "mesh_import"):
+            if data.get(key) is None:
+                data.pop(key, None)
         return data
 
     #: How the solver was called (PFS-2012.04), None where no solver ran

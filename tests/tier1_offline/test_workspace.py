@@ -2297,7 +2297,9 @@ def test_the_documented_pproc_artifact_resolves_as_the_page_reads(tmp_path):
     workspace = library(tmp_path)
     (workspace.inputs_dir / "pproc" / "p020.toml").write_text(block, encoding="utf-8")
     pproc = workspace.resolve_pproc("p020")
-    assert pproc.base_regions == ["W", "B"], "the documented off switch did not resolve"
+    # THE EXAMPLE NAMES THE BASE since 0.27.0: the list names the boundaries
+    # that become base regions, and a body's own boundary marks nothing (RPT-066).
+    assert pproc.base_regions == ["Base"], "the documented base_regions list did not resolve"
     # THE PAGE TEACHES A GROUP AS ONE NAMED ALIAS since 0.24.0, which is the
     # requirement: it taught four NUMBERED groups holding member lists, the form
     # this release deprecates. What is read off it moved with it.

@@ -161,6 +161,13 @@ _DIMENSIONLESS_OR_DEBT = {
     "last_revolutions_avg",  # PhaseLockedSpec.last_revolutions_avg
     # 0.25.0 F02: the same count of turns, for the surface time average.
     "last_revs",  # SurfaceTimeAveragingSpec.last_revs
+    # 0.27.0 G03, an import operation of a raw mesh. `factors` are scale
+    # factors, a ratio per axis. `vector` is a translation stated in the unit
+    # the sidecar's [import] table names (the file's own unit), so a `_m`
+    # suffix would be a LIE for a mesh written in millimetres: the unit rides
+    # the table, as ProbeLine.end's rides its entry's `scale`.
+    "factors",  # MeshOperation.factors
+    "vector",  # MeshOperation.vector
     # Unit DIRECTIONS in the reference frame, not lengths (FR-100).
     "axes",  # FramePlacement.axes
     "reference",  # RunRecord: the block by column name, SREF m2 and CREF/BREF/XMOM..ZMOM m
