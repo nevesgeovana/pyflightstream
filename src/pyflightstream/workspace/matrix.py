@@ -66,6 +66,7 @@ from pyflightstream.cases import (
     MeshImport,
     PointState,
     RawCommand,
+    RawMeshConditions,
     ReferenceData,
     SimCase,
     SolverSettings,
@@ -91,15 +92,24 @@ from pyflightstream.cases.matrix import (
 from pyflightstream.cases.workflows import (
     GEOMETRY_VARIABLE,
     IGNORE_MISSING_FAMILIES_VARIABLE,
+    RAW_MESH_FORMATS,
     ROTOR_ORIGIN_POINT_KEY,
+    SIMULATION_LENGTH_UNIT,
 )
 from pyflightstream.script.toggles import resolve_toggle
+
+# `wake_edges` is SIDEWAYS, to the module of this layer that owns a
+# trailing-edge points file: its reader and its check against the mesh are
+# the ones a user calls on the file by hand, so the binding asks them rather
+# than restating either (G02, T05). The module and not its names, so this
+# module's namespace does not offer them as its own.
 from pyflightstream.workspace import (
     CampaignWorkspace,
     InputArtifactError,
     PprocArtifact,
     ReferenceArtifact,
     SetupArtifact,
+    wake_edges,
 )
 from pyflightstream.workspace.flight_condition import (
     PINNED_KEYS,
@@ -119,6 +129,7 @@ from pyflightstream.workspace.inputs import (
     is_valid_artifact_id,
     read_inventory,
     read_mesh_import,
+    read_raw_mesh_conditions,
     resolve_build,
     rotor_integration_groups,
 )
@@ -808,6 +819,68 @@ def _mesh_import_of(geometry: Path, pol: str) -> MeshImport | None:
             f"matrix row POL {pol}: the {GEOMETRY_VARIABLE} variable names {geometry.name}, "
             f"and {error}"
         ) from error
+
+
+def _raw_mesh_conditions_of(
+    geometry: Path, pol: str, mesh_import: MeshImport | None
+) -> RawMeshConditions | None:
+    """Return the boundary conditions the geometry's sidecar declares, a points file read (G02).
+
+    Read here, at binding, beside :func:`_mesh_import_of`, so a table that
+    does not hold its shape, a points file that cannot be read, or a point
+    that lies on no edge of the mesh is refused with the row before any
+    seat is spent. The points are checked against the mesh file in the
+    unit its ``[import]`` table states and come back in the simulation's
+    metres, which is what the builder writes for the solver.
+
+    The check is left to the builder's refusals where it cannot be made
+    here: a geometry that is not a raw mesh, a mesh with no stated unit or
+    a unit with no scale, and an import that moves or scales the body,
+    since the points name edges of the file as written. Each is refused by
+    the builder, naming what to change, and a case built in Python meets
+    the same refusals.
+    """
+    sidecar = inventory_sidecar(geometry)
+    if not sidecar.is_file():
+        return None
+    where = f"matrix row POL {pol}: the {GEOMETRY_VARIABLE} variable names {geometry.name}, and"
+    try:
+        declared = read_raw_mesh_conditions(sidecar)
+    except InputArtifactError as error:
+        raise InputArtifactError(f"{where} {error}") from error
+    marking = None if declared is None else declared.trailing_edges
+    if declared is None or marking is None or marking.route != "file":
+        return declared
+    if (
+        geometry.suffix.lower() not in RAW_MESH_FORMATS
+        or mesh_import is None
+        or mesh_import.moving_operations
+    ):
+        return declared
+    try:
+        wake_edges.length_scale(mesh_import.units, SIMULATION_LENGTH_UNIT)
+    except InputArtifactError:
+        return declared
+    assert marking.points_file is not None  # the file route's reader always sets it
+    points_file = Path(marking.points_file)
+    try:
+        read = wake_edges.read_trailing_edge_points(points_file)
+        points = wake_edges.check_trailing_edge_points(
+            read.points,
+            points_unit=read.unit,
+            mesh=geometry,
+            mesh_unit=mesh_import.units,
+            simulation_unit=SIMULATION_LENGTH_UNIT,
+            tolerance=marking.tolerance,
+            source=f"the [trailing_edges] file {points_file.name} of {sidecar.name}",
+            lines=read.lines,
+        )
+    except InputArtifactError as error:
+        raise InputArtifactError(f"{where} {error}") from error
+    checked = tuple((float(x), float(y), float(z)) for x, y, z in points.tolist())
+    return declared.model_copy(
+        update={"trailing_edges": marking.model_copy(update={"points_m": checked})}
+    )
 
 
 def _resolve_geometry(workspace: CampaignWorkspace, name: str, pol: str) -> Path:
@@ -2058,7 +2131,11 @@ def resolve_matrix(
             geometry_path = _resolve_geometry(workspace, stem, row.pol)
             update["geometry"] = str(geometry_path)
             update["inventory"], update["inventory_source"] = _inventory_of(geometry_path)
-            update["mesh_import"] = _mesh_import_of(geometry_path, row.pol)
+            mesh_import = _mesh_import_of(geometry_path, row.pol)
+            update["mesh_import"] = mesh_import
+            update["raw_mesh_conditions"] = _raw_mesh_conditions_of(
+                geometry_path, row.pol, mesh_import
+            )
         if row.motions:
             update["motions"] = [_bind_motion(workspace, record, row.pol) for record in row.motions]
         # THE FLAT ROW'S OWN HUB, bound the same way (PFS-2031.12): one rotor

@@ -99,9 +99,11 @@ from pyflightstream.cases import (
     CustomFlag,
     MeshOperation,
     PhaseLockedSpec,
+    RawMeshConditions,
     RotorBlock,
     ScriptRecipe,
     SimCase,
+    TrailingEdgeMarking,
     alias_members_missing,
     classify_outputs,
     frame_basis_for_shaft,
@@ -571,6 +573,9 @@ RAW_BEFORE_KEY = "BEFORE"
 #: and searches for the phrase, finds nothing. Spelled here rather than
 #: inline so a tier 1 guard can assert the page still contains it.
 _MESH_PAGE_ANCHOR = "A RAW MESH STATES ITS UNITS"
+#: The phrase of the same page that opens a raw mesh's boundary conditions
+#: (G02), quoted by every refusal about them, for the same reason.
+_CONDITIONS_PAGE_ANCHOR = "A RAW MESH DECLARES ITS TRAILING EDGE"
 
 #: The suffix a workflow OPENS: a saved simulation, whose units, mesh and
 #: boundary names are already established, so ``OPEN`` needs the path and
@@ -4084,6 +4089,10 @@ def _open_geometry(case: SimCase, script: Script) -> None:
     sidecar = PurePath(str(case.geometry)).stem + ".boundaries.toml"
     if suffix.lower() in RAW_MESH_FORMATS:
         _import_mesh(case, script, RAW_MESH_FORMATS[suffix.lower()])
+        # THE TRAILING EDGE RIGHT AFTER THE IMPORT (G02), on the body the
+        # import operations left and against the names its renames left: the
+        # points lie on that body, in the simulation's metres.
+        _raw_mesh_boundary_conditions(case, script)
     elif suffix.lower() != SIMULATION_SUFFIX:
         written = suffix or "no suffix at all"
         raise CampaignConfigError(
@@ -4108,6 +4117,21 @@ def _open_geometry(case: SimCase, script: Script) -> None:
             "carries its own length units and is opened, never imported, so nothing "
             "would read the table; delete it from the sidecar (docs/mesh-inputs.md, "
             f"search '{_MESH_PAGE_ANCHOR}')."
+        )
+    elif case.raw_mesh_conditions is not None:
+        # NOT IGNORED EITHER, and worse than ignored if it were read: a saved
+        # simulation's trailing edges, wake-termination nodes and base regions
+        # were marked when it was saved, so a second pass would mark twice.
+        declared = _declared_condition_tables(case.raw_mesh_conditions)
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} opens the saved simulation "
+            f"{PurePath(str(case.geometry)).name}, and {sidecar} beside it declares "
+            f"{' and '.join(declared)}, which mark a raw mesh. A {SIMULATION_SUFFIX} "
+            "carries the trailing edges, wake-termination nodes and base regions it was "
+            "saved with, and a second marking pass over them would mark them twice; "
+            "delete the tables from the sidecar. A row marks the base regions of a saved "
+            "simulation with its BASE_REGIONS key (docs/mesh-inputs.md, search "
+            f"'{_CONDITIONS_PAGE_ANCHOR}')."
         )
     else:
         # THE INITIALISATION FLAG IS ALWAYS STATED (PFS-2030.03.01). A saved
@@ -4222,6 +4246,176 @@ def _import_mesh(case: SimCase, script: Script, file_type: str) -> None:
     # operations: the ledger cannot relabel, and the file is not read for a
     # block it cannot have.
     _declare_boundaries(case, script, stated=names)
+
+
+def _declared_condition_tables(conditions: RawMeshConditions) -> list[str]:
+    """Name the sidecar tables a set of raw-mesh conditions came from, as written."""
+    return [
+        f"[{table}]"
+        for table, value in (
+            ("trailing_edges", conditions.trailing_edges),
+            ("wake_termination", conditions.wake_termination),
+            ("base_regions", conditions.base_regions),
+        )
+        if value is not None
+    ]
+
+
+def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
+    """Mark a raw mesh's trailing edges, and the options its sidecar writes (G02).
+
+    A raw mesh carries no trailing edge, and without one the solver makes
+    no wake and still runs and answers, so its sidecar declares one, in a
+    ``[trailing_edges]`` table, and a raw mesh without the table is refused.
+
+    WHAT IS EMITTED, right after the import, in this order:
+
+    * the file route, the default: ``IMPORT_WAKE_EDGES_FROM_FILE <TYPE>
+      <TOLERANCE> METER`` with the node file beside the staged geometry on
+      the next line (:func:`pyflightstream.script.helpers.mark_wake_edges`).
+      The points were read and checked against the mesh when the row was
+      bound, and are in the simulation's metres. The file marks exactly the
+      edges it names, since initialisation adds none (RPT-065), and the run
+      compares the count the solver logs as imported with the points
+      written. Measured on 26.124 only (RPT-061): 26.122 and 26.123 are
+      refused by the helper, and an earlier build by the absent command.
+    * or detection, only when written: ``SET_TRAILING_EDGE_SWEEP_ANGLE``
+      when an angle is stated, then ``AUTO_DETECT_TRAILING_EDGES`` over
+      every surface or ``DETECT_TRAILING_EDGES_BY_SURFACE`` on the surfaces
+      named.
+    * ``[wake_termination]``: ``AUTO_DETECT_WAKE_TERMINATION_NODES``, or one
+      ``DETECT_WAKE_TERMINATION_NODES_BY_SURFACE`` per surface named. What
+      either marks is unobserved on every geometry tried (RPT-066).
+    * ``[base_regions]``: ``AUTO_DETECT_BASE_REGIONS``, which marked the
+      base of a body with a flat base on 26.124 (RPT-066).
+
+    Surfaces are cited by the sidecar's names as the import's renames left
+    them, exactly as written, never by position.
+
+    Raises
+    ------
+    CampaignConfigError
+        No ``[trailing_edges]`` table; a file route beside an import
+        operation that moves, scales or copies the body, since the points
+        name edges of the file as written; a file route whose points were
+        never read (a case built in Python stating none); a surface the
+        sidecar does not name; or ``[base_regions]`` beside a row or pproc
+        naming base regions of its own.
+    CommandNotInVersionError
+        The file route on a build other than 26.124, from the helper.
+    """
+    geometry = PurePath(str(case.geometry))
+    sidecar = geometry.stem + ".boundaries.toml"
+    page = f"docs/mesh-inputs.md, search that page for '{_CONDITIONS_PAGE_ANCHOR}'"
+    conditions = case.raw_mesh_conditions
+    marking = None if conditions is None else conditions.trailing_edges
+    if conditions is None or marking is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} imports the raw mesh {geometry.name}, and {sidecar} "
+            "beside it declares no [trailing_edges] table. Without a marked trailing edge "
+            "there is no wake, and the solver runs and answers anyway. Write the table "
+            'with file = "<points file>", the default route: the mid-point of every '
+            "trailing-edge mesh edge under a line naming their length unit, checked "
+            'against the mesh before the run; or with detect = "auto", the solver\'s '
+            f"detection, which applies only when written ({page})."
+        )
+    if marking.route == "file":
+        _mark_trailing_edges_from_file(case, script, marking, sidecar, page)
+    else:
+        if marking.sweep_angle_deg is not None:
+            script.emit("SET_TRAILING_EDGE_SWEEP_ANGLE", marking.sweep_angle_deg)
+        if not marking.detect_surfaces:
+            script.emit("AUTO_DETECT_TRAILING_EDGES")
+        else:
+            indices = _sidecar_surfaces(
+                case, script, sidecar, "[trailing_edges]", marking.detect_surfaces
+            )
+            script.emit("DETECT_TRAILING_EDGES_BY_SURFACE", len(indices), indices)
+    wake = conditions.wake_termination
+    if wake == "auto":
+        script.emit("AUTO_DETECT_WAKE_TERMINATION_NODES")
+    elif wake is not None:
+        for index in _sidecar_surfaces(case, script, sidecar, "[wake_termination]", wake):
+            script.emit("DETECT_WAKE_TERMINATION_NODES_BY_SURFACE", index)
+    if conditions.base_regions is not None:
+        named = _base_region_families(case)
+        if named:
+            raise CampaignConfigError(
+                f'case {case.sim_id!r}: {sidecar} declares [base_regions] detect = "auto", '
+                "which detects every base region of the mesh, and the row (or its pproc) "
+                f"also names base regions, {', '.join(named)}. Declare them once: the "
+                "sidecar's detection over the whole mesh, or the row's BASE_REGIONS on the "
+                f"boundaries that become the base ({page})."
+            )
+        script.emit("AUTO_DETECT_BASE_REGIONS")
+
+
+def _mark_trailing_edges_from_file(
+    case: SimCase, script: Script, marking: TrailingEdgeMarking, sidecar: str, page: str
+) -> None:
+    """Emit the file route of ``[trailing_edges]``, its points already checked (G02)."""
+    geometry = PurePath(str(case.geometry))
+    named = PurePath(marking.points_file).name if marking.points_file else "the points file"
+    spec = case.mesh_import
+    moving = (
+        []
+        if spec is None
+        else [
+            f"operation {position} ({operation.op})"
+            for position, operation in enumerate(spec.operations, start=1)
+            if operation in spec.moving_operations
+        ]
+    )
+    if moving:
+        listed = ", ".join(moving)
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: {sidecar} marks the trailing edges of {geometry.name} "
+            f"by the points file {named}, and its [import] table also moves, scales or "
+            f"copies the body: {listed}. The points name edges of the mesh as the file "
+            "holds it and are checked against that file, so those operations would carry "
+            "the edges away from them and the import would mark nothing, in silence. "
+            "Apply the operations to the mesh file itself, or mark the edges by detection, "
+            f'detect = "auto" ({page}).'
+        )
+    if not marking.points_m:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the [trailing_edges] file route of {sidecar} carries "
+            f"no points. A case bound from a matrix row reads them from {named} and checks "
+            "them against the mesh; a case built in Python states them, in metres, as "
+            f"TrailingEdgeMarking.points_m ({page})."
+        )
+    helpers.mark_wake_edges(
+        script,
+        edge_type=marking.edge_type,
+        tolerance=marking.tolerance,
+        units=SIMULATION_LENGTH_UNIT,
+        # BESIDE THE STAGED GEOMETRY, which is where the run writes it and what
+        # the record hashes: the path the case carries at build time is the
+        # point's own staged copy (see _open_geometry).
+        node_file=str(geometry.with_suffix(".wake_nodes.txt")),
+        midpoints=marking.points_m,
+    )
+
+
+def _sidecar_surfaces(
+    case: SimCase, script: Script, sidecar: str, table: str, names: Sequence[str]
+) -> list[int]:
+    """Resolve the surfaces a raw mesh's sidecar table names, exactly, to their indices."""
+    labels = script.entities.labels("boundaries")
+    indices: list[int] = []
+    for name in names:
+        index = labels.get(name)
+        if index is None:
+            known = ", ".join(repr(label) for label in labels) or "none"
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: {table} of {sidecar} names the surface {name!r}, "
+                f"and the mesh's surfaces, as its boundaries and the import's renames left "
+                f"them, are {known}. Name a surface exactly as the sidecar does; never by "
+                "position."
+            )
+        if index not in indices:
+            indices.append(index)
+    return indices
 
 
 @dataclass(frozen=True)
@@ -8133,6 +8327,22 @@ def _export_block(
         if "probes" in kinds:
             script.emit("UPDATE_PROBE_POINTS")
     declared_log = _variable(case, LOG_OUTPUT_VARIABLE) is not None
+    # A FILE-ROUTE ROW DECLARES ITS LOG (G02). The run holds a trailing-edge
+    # import to the count the solver logs as imported, keyed to the SCRIPT as
+    # the run layer keys it, and the solver writes a log of its own only when
+    # it ends abnormally: without the exported one the check has nothing to
+    # read and the point is recorded FAILED_INCOMPLETE_OUTPUT after the solve.
+    if script.wake_edge_points is not None and "log" not in kinds and not declared_log:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} imports its trailing edges from a file, and its outputs "
+            f"({', '.join(names)}) carry no solver log, a name ending in _log.txt. The run "
+            "compares the count of trailing edges the solver logs as imported with the "
+            "points it wrote, because a point that matches no edge marks nothing and the "
+            "solver says nothing about it; the solver writes a log of its own only when it "
+            "ends abnormally, so without the exported one the count cannot be read and the "
+            "point would be recorded FAILED_INCOMPLETE_OUTPUT after the solve. Declare the "
+            "log among the row's outputs, or leave the pproc artifact's [exports] log on."
+        )
     # ASKED ONCE, FOR BOTH ROUTES TO THE LOG (0.24.0). The machine's
     # `export_log = false` was read inside `_export_log` alone, the route of a
     # row that names its log through LOG_OUTPUT. A row whose outputs carry a

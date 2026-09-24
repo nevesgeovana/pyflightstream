@@ -147,7 +147,10 @@ CLEAR
 SET_SIMULATION_LENGTH_UNITS METER
 ```
 
-and then goes on exactly as it does after opening a `.fsm`. The file's unit
+and then marks the trailing edge the same sidecar declares, which every raw
+mesh declares ([the boundary conditions of a raw
+mesh](#the-boundary-conditions-of-a-raw-mesh)), and goes on exactly as it
+does after opening a `.fsm`. The file's unit
 goes to `IMPORT` and nowhere else. The simulation's length unit is always
 metres, because every length the reference and the row state is in metres:
 the reference area, chord and span, a `TRANSLATE` distance, the frames the
@@ -323,6 +326,114 @@ What the solver does with each operation after an import is not measured
 yet: the grammar is the manual's, and the vertex split is carried over from
 the row's translation, where it was measured (RPT-048).
 
+### The boundary conditions of a raw mesh
+
+**A RAW MESH DECLARES ITS TRAILING EDGE.** A raw mesh carries no trailing
+edge, and without one the solver makes no wake and still runs and answers.
+So the sidecar declares how the trailing edge is marked, in a
+`[trailing_edges]` table, and a raw mesh whose sidecar has none is refused
+when the script is built, before any seat is spent. The table takes one of
+two routes, and the first is the default:
+
+```toml
+# inputs/geometries/wing.boundaries.toml, beside wing.stl
+boundaries = ["Wing"]
+
+[import]
+units = "METER"
+
+[trailing_edges]
+file = "wing.te.txt"   # the points file, beside the sidecar
+type = "STANDARD"      # optional: STANDARD (the default), RELAXED, JET_OUTFLOW, VORTEX_SHEDDING
+tolerance = 0.0001     # optional: in the simulation's metres
+```
+
+**The file route.** `file` names a points file beside the sidecar: a first
+line naming the length unit of its points, then one `x,y,z` row per
+trailing-edge mesh edge, at the edge's MID-POINT (the next section writes
+one from a blade's mesh). When the row is bound, before any seat, the file
+is read and every point is checked against the mesh: the first point
+farther than `tolerance` from every mesh-edge mid-point is refused by its
+position, its file line, its coordinates and its distance, and two points
+nearest one edge are refused as well. The checked points are converted to
+metres, the simulation's unit, and the script marks them right after the
+import and its operations:
+
+```text
+IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER
+<the point's staged folder>/wing.wake_nodes.txt
+```
+
+The run writes that node file beside the point's staged geometry before the
+solver starts and records its digest among the run's inputs. The file marks
+exactly the edges it names, since initialisation adds none (RPT-065). A
+point that matches no edge marks nothing and the solver says nothing about
+it, so the run compares the number of edges the solver logs as imported with
+the points it wrote, and records the point `FAILED_SCRIPT` when they differ.
+That number is read from the solver log, so a file-route row declares its
+log among its outputs, a name ending in `_log.txt`, which a run type's
+default outputs carry; a row that declares none is refused when the script
+is built.
+
+The file route runs on FlightStream 26.124, the one build it was run on
+(RPT-061). 26.122 and 26.123 document a form 26.124 refuses, and are refused
+naming the report; a build that does not carry the command is refused too.
+The points name edges of the mesh as the FILE holds it, so the route is
+refused beside an `[[import.operations]]` that scales, mirrors, translates
+or rotates the body; a rename is accepted. Whether `IMPORT` converts a mesh
+written in another unit into metres is not measured (above), so a mesh
+written in metres is the one case that does not depend on the answer; a
+file that then matches nothing is still caught by the count. `type` is
+STANDARD unless written, the type the solver's detection gives the edges it
+marks, so one mesh marked by file and by detection carries one type.
+
+**Detection applies only when written.** It is the second route, never a
+default:
+
+```toml
+[trailing_edges]
+detect = "auto"                                         # every surface
+# detect = { surfaces = ["Wing"], sweep_angle = 60 }    # the surfaces named
+```
+
+`detect = "auto"` emits `AUTO_DETECT_TRAILING_EDGES`. A table of `surfaces`
+emits `DETECT_TRAILING_EDGES_BY_SURFACE` on them, cited by the sidecar's
+names as the renames left them, exactly and never by position
+(`surfaces = "all"` is every surface), and `sweep_angle`, in degrees, emits
+`SET_TRAILING_EDGE_SWEEP_ANGLE` before it. Detection marks an edge where the
+surface creases, so the angle decides what a twisted blade gets: on 26.124 a
+blade detected with the default angle marked 12 edges, and with 10 degrees
+3 of them (RPT-065). It gives every edge the STANDARD type and matches no
+points, so `type` and `tolerance` beside `detect` are refused. A table
+stating both `file` and `detect`, or neither, is refused, and so is a key it
+does not read.
+
+**Two options, each only when written.**
+
+```toml
+[wake_termination]
+detect = "auto"          # or detect = { surfaces = ["Wing"] }
+
+[base_regions]
+detect = "auto"
+```
+
+`[wake_termination]` emits `AUTO_DETECT_WAKE_TERMINATION_NODES`, or one
+`DETECT_WAKE_TERMINATION_NODES_BY_SURFACE` per surface named. **What it
+marks is not verified**: on the one geometry tried on 26.124, neither command
+changed the saved state or printed a line (RPT-066), so a geometry that needs
+termination nodes is still owed before the option can be called measured.
+`[base_regions]` emits `AUTO_DETECT_BASE_REGIONS`, which on 26.124 marked the
+flat base of a body, the same faces the by-surface form marks when given the
+base boundary (RPT-066). It is refused beside a row's `BASE_REGIONS` or a
+pproc's `base_regions`, which would mark the base a second time.
+
+**A saved simulation declares none of the three.** A `.fsm` carries the
+trailing edges, wake-termination nodes and base regions it was saved with,
+so a sidecar beside one stating any of these tables is refused: a second
+marking pass would mark them twice. A row marks base regions on a saved
+simulation with its `BASE_REGIONS` key.
+
 ## Marking a blade's trailing edge from its mesh
 
 A raw mesh needs its trailing edges marked before a solve, and the default
@@ -351,7 +462,9 @@ rotor axis and hub you pass in are what the CRITERION is computed in, not what
 the output is expressed in. The unit is declared once, when the file is
 written, since a mesh file does not carry one. The points file is the
 package's, not the solver's: the run converts its points to the simulation's
-length unit and writes the file the solver imports.
+length unit and writes the file the solver imports. It is the file a
+`[trailing_edges]` table names (above), `file = "blade.te.txt"`, and a row
+naming the blade then marks exactly these edges.
 
 A points file is checked against its mesh before any solver starts
 (`read_trailing_edge_points` and `check_trailing_edge_points`, in
@@ -369,8 +482,10 @@ starts and records its digest among the run's inputs. After the run it compares
 the solver's own count of imported edges, which the solver logs, with the
 number of points it wrote, and records the run FAILED_SCRIPT when they differ:
 a point that matches no edge marks nothing and the solver says nothing about
-it. The solver log therefore has to be among the row's outputs; a run that
-imported a file and read no log is recorded FAILED_INCOMPLETE_OUTPUT.
+it. The solver log therefore has to be among the row's outputs: a workflow row
+that declares none is refused when its script is built, and a recipe of your
+own that imports a file and exports no log is recorded
+FAILED_INCOMPLETE_OUTPUT.
 
 <!-- skip: next -->
 ```python

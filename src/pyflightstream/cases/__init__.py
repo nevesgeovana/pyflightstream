@@ -81,7 +81,9 @@ __all__ = [
     "EVERY_SURFACE",
     "MeshImport",
     "MeshOperation",
+    "RawMeshConditions",
     "ReferenceData",
+    "TrailingEdgeMarking",
     "ScriptRecipe",
     "SimCase",
     "SolverSettings",
@@ -3361,6 +3363,98 @@ class MeshImport(BaseModel):
             )
         return spelled
 
+    @property
+    def moving_operations(self) -> tuple[MeshOperation, ...]:
+        """The operations that move, scale or copy the body: every one but ``rename``.
+
+        A trailing-edge points file names edges of the mesh as the FILE
+        holds it, and is checked against that file; one of these would
+        carry the body's edges away from the points (G02).
+        """
+        return tuple(operation for operation in self.operations if operation.op != "rename")
+
+
+#: The ``[trailing_edges]`` routes a raw mesh's sidecar may take (G02): a
+#: file of edge mid-points, the default, or detection, applied only when
+#: written.
+TrailingEdgeRoute = Literal["file", "detect"]
+
+
+class TrailingEdgeMarking(BaseModel):
+    """How a raw mesh's trailing edges are marked: its sidecar's ``[trailing_edges]`` (G02).
+
+    A raw mesh carries no trailing edge, and without one the solver makes
+    no wake and runs and answers anyway, so a raw mesh declares one.
+
+    ``route = "file"`` is the default route. ``points_m`` are the mid-points
+    of the trailing-edge mesh edges, in metres, the simulation's length unit, read
+    from the points file the table names and checked against the mesh when
+    the row is bound (:mod:`pyflightstream.workspace.wake_edges`); the
+    builder writes them as the solver's node file and imports it with
+    ``IMPORT_WAKE_EDGES_FROM_FILE``, giving every edge ``edge_type`` and
+    matching within ``tolerance``. ``points_file`` is where they were read
+    from, for a refusal to name; it is kept out of every dump, since it is
+    a path on one machine.
+
+    ``route = "detect"`` marks by the solver's detection:
+    ``detect_surfaces`` names the surfaces to detect on, by the sidecar's
+    names, and is empty for every surface; ``sweep_angle_deg`` is set
+    before the detection when stated. Detection gives every edge the
+    STANDARD type and reads no tolerance.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    route: TrailingEdgeRoute
+    edge_type: str = "STANDARD"
+    tolerance: float = 0.0001
+    points_m: tuple[tuple[float, float, float], ...] = ()
+    points_file: str | None = Field(default=None, exclude=True)
+    detect_surfaces: tuple[str, ...] = ()
+    sweep_angle_deg: float | None = None
+
+    @field_validator("edge_type", mode="before")
+    @classmethod
+    def _one_word_in_capitals(cls, value: object) -> object:
+        return value.strip().upper() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def _one_route_and_sound_values(self) -> TrailingEdgeMarking:
+        if not math.isfinite(self.tolerance) or self.tolerance <= 0.0:
+            raise ValueError(
+                f"tolerance = {self.tolerance!r}; it is the distance, in the simulation's "
+                "length unit, within which an edge's mid-point counts as a point of the "
+                "file, and it must be positive and finite"
+            )
+        if self.route == "file":
+            if self.detect_surfaces or self.sweep_angle_deg is not None:
+                raise ValueError("the file route takes no detection surfaces and no sweep angle")
+            return self
+        if self.points_m or self.points_file is not None:
+            raise ValueError("the detect route reads no points file")
+        if not all(name.strip() for name in self.detect_surfaces):
+            raise ValueError("a detection surface is named by an empty string")
+        if self.sweep_angle_deg is not None and not math.isfinite(self.sweep_angle_deg):
+            raise ValueError(f"sweep_angle = {self.sweep_angle_deg!r} is not a finite number")
+        return self
+
+
+class RawMeshConditions(BaseModel):
+    """The boundary conditions a raw mesh's sidecar declares (G02, Q1 of 0.27.0).
+
+    ``trailing_edges`` is required of every raw mesh a workflow imports,
+    and the builder refuses one without it. ``wake_termination`` detects
+    wake-termination nodes, ``"auto"`` over every surface or by the
+    surfaces named; ``base_regions = "auto"`` detects base regions over
+    the whole mesh. Both are None unless written.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    trailing_edges: TrailingEdgeMarking | None = None
+    wake_termination: Literal["auto"] | tuple[str, ...] | None = None
+    base_regions: Literal["auto"] | None = None
+
 
 class SimCase(BaseModel):
     """One solver configuration with its sweep (SAD Section 5).
@@ -3554,6 +3648,12 @@ class SimCase(BaseModel):
     #: simulation; the builder refuses a raw mesh without one, and a saved
     #: simulation with one.
     mesh_import: MeshImport | None = None
+    #: The ``[trailing_edges]``, ``[wake_termination]`` and ``[base_regions]``
+    #: tables of the same sidecar (G02), bound by the workspace, a file
+    #: route's points read and checked against the mesh. None for a sidecar
+    #: stating none of the three; the builder refuses a raw mesh without a
+    #: trailing edge, and a saved simulation with any of them.
+    raw_mesh_conditions: RawMeshConditions | None = None
     point: dict[str, float] = Field(default_factory=dict)
     #: The state each point of a SWEPT FLOW VARIABLE resolved to, keyed by
     #: :func:`point_state_key` (0.21.0). Empty on every row that sweeps an

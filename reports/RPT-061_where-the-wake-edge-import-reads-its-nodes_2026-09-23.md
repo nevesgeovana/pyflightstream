@@ -162,3 +162,36 @@ Nothing above is changed; three statements are made checkable or narrowed here.
   Script Index of the same edition while its page is gone.
 - **Where the fix is tracked:** the command, the helper and the node-file writer change
   together as item G02 of the 0.27.0 scope, and the release's CHANGELOG names it.
+
+## CLOSED in 0.27.0, 2026-09-24
+
+Nothing above is changed. Every consequence the section "What it means for the package"
+drew is now in the package, and a workflow reaches it.
+
+- **The import line** is the one this build reads:
+  `IMPORT_WAKE_EDGES_FROM_FILE <TYPE> <TOLERANCE> <UNITS>`, the node file's path on the
+  next line, the simulation's length unit as the third token (G02 part A). 26.122 and
+  26.123 are refused by name, since only 26.124 was run.
+- **The node file** is the layout measured to mark: the count, one placeholder
+  coordinate line, then the edge mid-points in the simulation's length unit, with no unit
+  line and no ids (G02 part B).
+- **The count check.** A run that imports a file compares the solver's
+  `N trailing edges imported` with the points it wrote, and records FAILED_SCRIPT when
+  they differ and FAILED_INCOMPLETE_OUTPUT when no log was read (G02 part E).
+- **The command's standing.** `IMPORT_WAKE_EDGES_FROM_FILE` is verified on 26.124 in the
+  form the package emits, by `reports/compat/CMP-26124_2026-09-24_wake-edge-import.yaml`,
+  and `TRAILING_EDGES_IMPORT` is recorded removed on 26.124 (G02 part F).
+- **The route a user takes** (G02 routing, T06). A raw mesh declares its trailing edge
+  in its sidecar, `<stem>.boundaries.toml`: `[trailing_edges] file = "<points file>"` is
+  the default route. The points file is checked against the mesh when the row is bound,
+  converted to the simulation's metres, written as the node file beside the point's
+  staged geometry and imported right after the mesh import. A row on that route
+  declares its solver log among its outputs, so the count check has something to read.
+  Detection is the second route and applies only when written. A raw mesh that declares
+  no trailing edge is refused before any seat. Tests:
+  `tests/tier1_offline/test_raw_mesh_conditions.py`, with one golden per route under
+  `tests/tier1_offline/goldens/raw_mesh/`.
+
+What stays open is what the section "What this does NOT establish" lists: one build, the
+third token's role, whether the count is read, and one geometry. The twisted blade is
+T07's licensed run.

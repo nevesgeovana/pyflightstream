@@ -3024,6 +3024,10 @@ _STL_WING = (
     b"solid Wing\n facet normal 0 0 1\n  outer loop\n   vertex 0 0 0\n   vertex 1 0 0\n"
     b"   vertex 0 1 0\n  endloop\n endfacet\nendsolid Wing\n"
 )
+#: The trailing edge every raw mesh declares since G02, by the route every
+#: build carries: these rows run on 26.120, where the file route is refused,
+#: and a triangle has no trailing edge to put in a file.
+_DETECTED = '[trailing_edges]\ndetect = "auto"\n'
 
 
 def _run_geometry_row(tmp_path, workspace, tail):
@@ -3059,7 +3063,7 @@ def test_an_obj_row_imports_the_staged_copy_in_the_unit_its_sidecar_declares(
     workspace = make_library(tmp_path, register_build=("26.120", Path(sys.executable).as_posix()))
     library = stage_geometry(workspace, f"wing{suffix}", body)
     library.with_name("wing.boundaries.toml").write_text(
-        f'boundaries = ["Wing"]\n\n[import]\nunits = "{units}"\n', encoding="utf-8"
+        f'boundaries = ["Wing"]\n\n[import]\nunits = "{units}"\n\n' + _DETECTED, encoding="utf-8"
     )
     try:
         tail = f" / VELOCITY: 30.0 / GEOMETRY: wing{suffix}"
@@ -3145,7 +3149,10 @@ def _stage_with_operations(workspace, operations):
     """Stage the two-surface OBJ with a sidecar in millimetres carrying ``operations``."""
     library = stage_geometry(workspace, "wing.obj", _OBJ_TWO)
     library.with_name("wing.boundaries.toml").write_text(
-        'boundaries = ["naca", "tail"]\n\n[import]\nunits = "MILLIMETER"\n\n' + operations,
+        'boundaries = ["naca", "tail"]\n\n'
+        + _DETECTED
+        + '\n[import]\nunits = "MILLIMETER"\n\n'
+        + operations,
         encoding="utf-8",
     )
     return library

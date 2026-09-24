@@ -152,6 +152,16 @@ them close the gap that made the capability unusable:
     a body of the wrong size whose coefficients solve, export and report
     without a word. The file's unit goes to `IMPORT` alone and the
     simulation is set to metres, the unit of every length the row states.
+    The same sidecar declares the mesh's trailing edge in a
+    `[trailing_edges]` table (since 0.27.0, G02): `file = "<points
+    file>"`, the default route, whose edge mid-points are checked against
+    the mesh at plan and imported with `IMPORT_WAKE_EDGES_FROM_FILE` on
+    26.124, or `detect = "auto"` (or by surface), detection, which applies
+    only when written; `[wake_termination]` and `[base_regions]` detect
+    when written. A raw mesh that declares no trailing edge is refused
+    before any seat is spent, since without one there is no wake and the
+    solver answers anyway, and a `.fsm` whose sidecar states any of the
+    three tables is refused, since its own marking is in the file.
     [Mesh inputs and GUI-only operations](mesh-inputs.md) carries the
     route in full. A recipe of your own receives whatever the library
     staged and imports it declaring the units itself.
@@ -2609,6 +2619,17 @@ row whose `OUTPUTS` declare no `.fsm`; the warning blocks nothing. A case
 written in Python that declares its own `outputs` exports exactly those,
 with no saved simulation unless one of them ends in `.fsm`.
 
+**A point that imports its trailing edges from a file is held to the
+solver's own count** (since 0.27.0, G02). A point that matches no mesh edge
+marks nothing, and the solver says nothing about it, so after the run the
+number of trailing edges the solver logs as imported is compared with the
+points the script wrote, and the point is recorded `FAILED_SCRIPT` when they
+differ, whatever its convergence; with no solver log to read it is recorded
+`FAILED_INCOMPLETE_OUTPUT`. The count is read from the exported log, so a
+raw-mesh row on the file route declares one among its outputs (a run type's
+default outputs do), and a row that declares none is refused when its script
+is built ([mesh inputs](mesh-inputs.md#the-boundary-conditions-of-a-raw-mesh)).
+
 **Name your outputs per point.** The folders no longer collide, but the
 PRODUCTS do: a point's polar, plots and probe tables are named after the
 stem of its loads file, so two points sharing a name produce one table
@@ -3048,6 +3069,12 @@ worse than no page at all.
   ([mesh inputs](mesh-inputs.md)). The other mesh formats `IMPORT`
   documents are refused by a workflow; a recipe of your own imports them,
   declaring the units itself.
+- **A raw mesh's trailing edge by file runs on 26.124 only, and its wake
+  termination is unverified.** The file route was run on that build alone,
+  and the other builds are refused; detection runs on every build that
+  carries it. The sidecar's `[wake_termination]` emits its detection, and
+  what that marks was not observable on the one geometry tried
+  ([mesh inputs](mesh-inputs.md#the-boundary-conditions-of-a-raw-mesh)).
 - **A workflow row that names no `GEOMETRY` emits no open, and is told
   nothing.** That is what keeps every pre-v0.8.1 matrix rendering as it
   did. A row moved off `LEGACY` that keeps a `FSM_FILE` key of its own is

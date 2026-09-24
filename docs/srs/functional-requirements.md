@@ -1806,6 +1806,23 @@ nodes.
     reordered; and the boundary inventory a row cites is the sidecar's as
     the renames leave it.
 
+    AMENDED 0.27.0 (G02), pending with it: the same sidecar declares the
+    raw mesh's trailing edge in a `[trailing_edges]` table, and a raw mesh
+    whose sidecar declares none is refused before any seat is spent. The
+    default route is `file`, a points file of trailing-edge mesh-edge
+    mid-points under a unit line, checked against the mesh at binding,
+    converted to the simulation's metres and imported with
+    `IMPORT_WAKE_EDGES_FROM_FILE` on 26.124, the one build it was measured
+    on, other builds being refused; a row on that route declares its solver
+    log among its outputs, and the run is recorded `FAILED_SCRIPT` when the
+    count the solver logs as imported differs from the points written.
+    Detection (`detect = "auto"`, or by surface with an optional sweep
+    angle) applies only when written, and a table stating both routes or
+    neither is refused. `[wake_termination]` (automatic or by surface) and
+    `[base_regions]` (automatic) apply only when written, the first
+    unverified on every geometry tried; and a saved simulation whose
+    sidecar states any of the three tables is refused.
+
     This reverses a rule the 0.10.1 library defends in four arms at
     `workspace/matrix.py:566-637`, which is why it is a minor release and
     why the migration of every shipped matrix travels with it.
