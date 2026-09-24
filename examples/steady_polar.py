@@ -192,6 +192,7 @@ else:
     from pyflightstream.results import sweep_table
     from pyflightstream.versions import resolve
     from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+    from pyflightstream.workspace.naming import PointName
 
     executor = LocalExecutor(fs_exe)
     workspace = CampaignWorkspace(workdir / "campaign")
@@ -207,7 +208,9 @@ else:
         # FR-92: collection takes the POINT, so each point's outputs land in
         # `sims/sim_polar/datapoints/DP-<point>/` rather than in one shared folder.
         outputs = workspace.collect_outputs(
-            "polar", [sim_dir / f"loads_a{i}.txt"], datapoint={"alpha": alpha}
+            "polar",
+            [sim_dir / f"loads_a{i}.txt"],
+            datapoint=PointName(f"a{alpha:+05.1f}"),
         )
         loads_text = (sim_dir / outputs[0]).read_text(encoding="utf-8", errors="replace")
         report = parse_loads(loads_text, requested_version=FS_VERSION)

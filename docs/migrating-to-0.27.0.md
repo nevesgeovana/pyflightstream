@@ -232,3 +232,21 @@ base from a body.
   with the rest of its files; extract it again after one.
 - `ResolvedMatrix` gains a last field, `additional_pprocs`; positional
   construction keeps working.
+
+## 15. A roll or yaw rate turns the other way (G13)
+
+A row stating `roll_rate` or `yaw_rate` now writes its free-stream rotation with
+the opposite sign to 0.26.0: `roll_rate:40` writes
+`SET_FREESTREAM ROTATION <frame> X -6.667` where 0.26.0 wrote `X 6.667`, and
+`yaw_rate` likewise about `Z`. The old line solved the OPPOSITE rate on 26.124
+(RPT-060, the probe T11): the coefficients of such a point are those of -p or
+-r, and they are not converted. A row stating `pitch_rate` writes what it wrote.
+
+- A point of 0.21.0 to 0.26.0 is affected when its name carries a non-zero `P`
+  (roll) or `R` (yaw). Its name does not change, so `--resume` skips it: redo it
+  by naming it, `--force-rerun <point>`, which archives the old record and its
+  outputs first.
+- If you wrote the opposite sign in the cell to get the rate you meant, remove
+  that: 0.27.0 solves the rate as written.
+- Code that read `cases.workflows.FREESTREAM_ROTATION_SIGN` as a number now gets
+  a mapping: read `FREESTREAM_ROTATION_SIGN["roll"]`, `["pitch"]` or `["yaw"]`.

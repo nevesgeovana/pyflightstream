@@ -220,6 +220,56 @@ FlightStream versions.
   and its helpers in `pyflightstream.cases.workflows`, and
   `Script.frames_by_name`.
 
+- **`inputs/pproc/INPUTS.md`, the glossary of every input key, generated from
+  the code (G08).** Beside `VARIABLES.md`, `pyfs-workspace init`, `pyfs-matrix
+  plan` and `pyfs-matrix post` write one table per table of each input
+  artifact: the matrix (its columns, the `FLIGHT_CONDITION` cell and the row
+  keys by run type), the setup (its settings, the solver's own names read as
+  aliases, the keys recorded and emitted nowhere, the reserved keys and
+  tables), the pproc (every table, and `[exports]` kind by kind), the
+  reference (its keys, frames, and rotor, actuator and point blocks) and the
+  geometry sidecar (`[import]`, `[[import.operations]]`, `[trailing_edges]`,
+  `[wake_termination]`, `[base_regions]`). Each key gets one row: what it
+  sets, its unit or values, the run types or builds that accept it where the
+  code says, and the solver command it reaches. The keys are read from the
+  registries the readers and builders use, and each meaning from the code
+  beside its key, so a key added without one fails
+  `tests/tier1_offline/test_goal031_g08_input_glossary.py`. The page is
+  rewritten only when its content changes, and the documentation site renders
+  the same page as "The input glossary". `pyflightstream.post.guides` gains
+  `input_glossary_tables`, `input_glossary_markdown`, `write_input_glossary`
+  and `write_workspace_input_glossary`; `pyflightstream.post` re-exports
+  `INPUT_GLOSSARY_NAME` and `write_input_glossary`. The meanings live in
+  public registries: `cases.InputKey`, `cases.EXPORT_KIND_MEANINGS`,
+  `cases.SOLVER_SETTING_COMMANDS`, `cases.matrix.COLUMN_MEANINGS`,
+  `cases.workflows.ROW_KEY_MEANINGS`, `workspace.matrix.PRESET_ALIASES`,
+  `PRESET_RECORDED_ONLY` and `PRESET_RESERVED_KEYS`, and
+  `workspace.inputs.GEOMETRY_SIDECAR_KEYS`, `RAW_MESH_CONDITION_KEYS` and
+  `TRAILING_EDGE_DETECT_KEYS`. The workflows page and the user guide cite the
+  page (D08).
+- **An example for each new capability, run by the suite** (D11).
+  `examples/obj_wing_trailing_edge_file.py` writes a wing OBJ in millimetres
+  from the package's own geometry, with its sidecar and trailing-edge points
+  file. It plans one row on 26.124 and prints each point's import, rename and
+  trailing-edge import, with the node file in metres.
+  `examples/roll_rate_row.py` sweeps `roll_rate` over -40, 0 and +40 deg/s on
+  one row and prints the free-stream line each point emits: `ROTATION ... X`
+  with the sign opposite to the rate (p = -omega_x of the geometry's frame),
+  and `CONSTANT` at zero. It fails on any other sign or axis. Both run without
+  FlightStream in tier 1 (`tests/tier1_offline/test_examples.py`) and appear
+  on the documentation site.
+- **An example of the additional post, `examples/additional_post.py`.** It
+  records one steady point on 26.124 the way a run records it: its script, its
+  outputs with the saved simulation among them, and the run record with every
+  hash. It plans `pyfs-matrix post --additional-pproc` over that point with
+  `plan_additional_post` and prints the extraction script: the `OPEN` of a
+  copy of the `.fsm`, the additional pproc's sections cut in the frame the run
+  created, `UPDATE_ALL_SURFACE_SECTIONS`, `COMPUTE_SURFACE_SECTIONAL_LOADS`,
+  the exports, and no `START_SOLVER`. It then shows an additional pproc
+  declaring `[[probes]]` refused, naming RPT-062. It runs with no solver in
+  tier 1, and the documentation site renders it beside the other examples
+  (D11).
+
 ### Fixed
 
 - **A workflow refusing a mesh file no longer promises a release.** The
@@ -320,6 +370,23 @@ FlightStream versions.
   its sidecar's names as the renames leave them; it printed NA for every
   raw-mesh row (G02).
 
+- **A row stating `roll_rate` or `yaw_rate` turns the free stream the way the
+  rate says.** From 0.21.0 all three body rates were emitted with one sign of
+  +1. The licensed probe T11 on 26.124 (build 8172026, seven converged solves,
+  [RPT-060](reports/RPT-060_roll-and-yaw-rates-are-emitted-reversed_2026-09-23.md))
+  measured that sign right for pitch and reversed for roll and yaw: +40 deg/s
+  of roll gave the left wing more lift and a positive rolling increment, the
+  damping of -p, and +40 deg/s of yaw gave it less lift. Each rate now takes the
+  sign of its body axis in the geometry's frame (x aft, y right, z up): roll and
+  yaw are negated and pitch is not, so `roll_rate:40` writes
+  `SET_FREESTREAM ROTATION <frame> X -6.667` where 0.26.0 wrote `X 6.667`. A row
+  of 0.21.0 to 0.26.0 stating `roll_rate` or `yaw_rate` was solved at the
+  opposite rate; a row stating `pitch_rate` is unchanged.
+  `cases.workflows.FREESTREAM_ROTATION_SIGN` is now a read-only mapping of the
+  three body axes to their signs (`roll` -1, `pitch` +1, `yaw` -1) where it was
+  one float. The roll and yaw scorings of OPS-2011.01.03 against the recorded
+  probes pass, and their strict xfails are removed (G13).
+
 ### Changed
 
 - **An induced drag the solver did not compute is `NA` in every sum the
@@ -401,12 +468,71 @@ FlightStream versions.
 
 ### Documentation
 
+- **`docs/mesh-inputs.md` reads in the order a user who starts from an OBJ or
+  an STL needs it** (D05). It starts with what the sidecar says, in order: the
+  surface names, `[import]` units, `[[import.operations]]`, `[trailing_edges]`
+  by a points file (the default) or by detection, then `[wake_termination]`
+  and `[base_regions]`. Next come the points file (its format, how the package
+  checks it, the node file the run writes and the count check) and one table
+  of which build runs what and what is measured, by report (RPT-061, RPT-065,
+  RPT-066, RPT-048). One complete example follows: a wing OBJ in millimetres,
+  its sidecar, its points file, the artifacts its row cites, a row on 26.124,
+  the plan command, and the head of the script and the node file it builds.
+  `tests/tier1_offline/test_mesh_inputs_page.py` runs that example from the
+  page's own blocks, plans it and renders both points without a solver. It
+  fails when the script or the node file differs from the page, or when a key
+  a sidecar block on the page writes is not one the sidecar's readers read, or
+  the other way round. Two statements were stale and are corrected:
+  `SET_OUTLET_TRAILING_EDGES` has been in the command database since 0.8.0,
+  and the detect-by-surface forms were written only in TOML comments.
+- **From the GUI to pyfs** (`docs/gui-to-pyfs.md`): each step of a
+  FlightStream GUI session, in six stages (geometry and mesh, boundary
+  conditions, frames, motion and actuators, flight conditions and solver, the
+  run, basic post), with the key that takes it in a workspace, the solver
+  commands that key emits and the builds the command database records those
+  commands verified on; or `not yet`, with the commands the raw route
+  (`[[raw]]`, a row's `RAW`, a `[[flags]]` word) would state. It is on the
+  site menu, the home page and the README.
+  `tests/tier1_offline/test_gui_to_pyfs_page.py` reads the page beside the
+  registries and the database: a row key, setup key, pproc table or sidecar
+  table added without a line fails, and so does a command the database lacks,
+  a build it does not record verified, a not-yet line with no route, or a link
+  to no heading (D06).
+- **Every guarantee of the definition and workflow pages names the test that
+  holds it** (D07). This covers the final saved simulation of every point
+  (G11), the additional post and what a reopened `.fsm` gives back (G12), and
+  the body rates (G13), each sentence citing its tests by name. The workflows
+  page and the definition of record state the T09 result (RPT-062): a reopened
+  saved simulation gives back the total loads, the surface solution, the
+  sections and, once computed, their sectional loads identical, and does not
+  give back the probe points off the body. The flight-conditions page tables
+  the measured sense of all three rates: the line emitted for +40 deg/s and
+  the solver's answer to it (T11, RPT-060; RPT-052 for pitch). Twelve
+  guarantees that had no test got one.
+  `tests/tier1_offline/test_goal031_d07_pages.py` fails when a sentence loses
+  its citation or a cited test disappears.
+- **The documentation site renders its pages as written.** The site's Markdown
+  did not read a titled code fence (```` ```text title="matrix_registry.fs"
+  ````), so the fence closing it opened a block. 286 lines of the workflows
+  page rendered as one code block: the heading "A rotor row states the
+  decisions, and the arithmetic is derived" had no anchor, and the
+  reserved-names table was plain text. The complete example of the mesh page
+  was cut the same way, and four code blocks inside list items were lost on
+  four pages. The site now reads fences with `pymdownx.superfences` and
+  `pymdownx.highlight`, which ship with the material theme, so a titled block
+  shows its file name; no word of any page changed. Two faults the code block
+  had hidden are fixed: a blank line splitting the reserved-names table, and a
+  link to a heading that no longer exists. A tier-1 test renders every page
+  with the site's extensions and fails on a fence, a heading or a table row
+  the site would lose.
+
 - **The tier-3 page states which induced-drag form each case uses.** Every
   row whose golden script carries `SET_VORTICITY_DRAG_BOUNDARIES` names its
   selection, the single-boundary wing geometries on which `-1` and `1` are
   the same set, and the two local-only SMI cases that put a body on the
   vorticity list; a test keeps the page in step with the goldens. The re-run
   of those references is 1.0 work (PFS-2006.02).
+
 
 ### Owed
 
