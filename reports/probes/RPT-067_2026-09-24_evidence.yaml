@@ -1,0 +1,72 @@
+report: reports/RPT-067_the-plot-commands-write-the-plotted-series-as-text_2026-09-24.md
+date: '2026-09-24'
+question: do SET_PLOT_TYPE (RESIDUALS, LOADS, SECTIONS_CP) and SAVE_PLOT_TO_FILE run on 26.124 after a solve, and
+  what do they leave
+where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
+executable_sha256:
+  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+base: 'RPT-060''s control point: the half wing-body of RPT-052, alpha 2, a steady solve, farfield layers 5, 12 sections'
+variants: the control adds nothing; each variant adds one plot type and its save after the exports
+checks:
+  every_run_returns_0_and_none_times_out: true
+  the_control_writes_no_plot_file: true
+  each_plot_type_writes_its_file: true
+  each_file_is_a_text_series_under_the_plot_header: true
+  residuals_and_loads_hold_one_row_per_solver_iteration: true
+  the_last_plotted_lift_is_the_exported_cl: true
+  sections_cp_holds_one_x_cp_pair_per_section: true
+  the_loads_export_is_unchanged_by_the_plot_commands: true
+observations:
+  file_form: 'text: the run header, then one row per point of the plotted series, then the units footer; no image'
+  iterations: 181
+  residual_columns:
+  - Residual Velocity_X
+  - Residual Velocity_Y
+  - Residual Pressure_X
+  - Residual Pressure_Y
+  loads_columns:
+  - Lift coefficient_X
+  - Lift coefficient_Y
+  - Induced drag coefficient (vorticity)_X
+  - Induced drag coefficient (vorticity)_Y
+  - Pitching moment coefficient_X
+  - Pitching moment coefficient_Y
+  sections_cp_columns: 24
+  sections_in_the_script: 12
+  last_plotted_induced_drag_vorticity: 0.0043877
+  exported_cdi: 0.0043872
+  last_plotted_pitching_moment: -0.8969279
+  exported_cmy: -0.0246709
+  last_residuals:
+  - 1.4096e-06
+  - 2.552e-07
+  solver_log_lines_between_the_sentinels: 0
+steps:
+- variant: T13_C
+  plot_type: null
+  return_code: 0
+  wall_time_s: 6.18
+  plot_bytes: null
+  loads_total_row: Total,+0.0052422,-0.0515552,+0.2397826,+0.2401794,+0.0043872,+0.0092201,-0.4304278,-0.0246709,+0.0233391
+  script_sha256: 47d76052e08654cc6470c21fcdffec8c67fd55d1e3efe35b36211cf621d17b51
+- variant: T13_RES
+  plot_type: RESIDUALS
+  return_code: 0
+  wall_time_s: 5.9
+  plot_bytes: 18791
+  loads_total_row: Total,+0.0052422,-0.0515552,+0.2397826,+0.2401794,+0.0043872,+0.0092201,-0.4304278,-0.0246709,+0.0233391
+  script_sha256: 51b8cbcaf47af44ecceb2bfc153c2f1d7b1808e33cd297ac59e0457e46b8a115
+- variant: T13_LOADS
+  plot_type: LOADS
+  return_code: 0
+  wall_time_s: 6.89
+  plot_bytes: 27395
+  loads_total_row: Total,+0.0052422,-0.0515552,+0.2397826,+0.2401794,+0.0043872,+0.0092201,-0.4304278,-0.0246709,+0.0233391
+  script_sha256: ee9cc983e69cf2b304c8067354e270f5746b547a3e22b96736658940794600a0
+- variant: T13_SCP
+  plot_type: SECTIONS_CP
+  return_code: 0
+  wall_time_s: 5.84
+  plot_bytes: 49727
+  loads_total_row: Total,+0.0052422,-0.0515552,+0.2397826,+0.2401794,+0.0043872,+0.0092201,-0.4304278,-0.0246709,+0.0233391
+  script_sha256: e11f199ddedb7a2b4dda3038fe3eedd6b1bdce7969fb8c24a8fc9a3a4b63bf05
