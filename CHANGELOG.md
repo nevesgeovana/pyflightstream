@@ -133,7 +133,9 @@ FlightStream versions.
   row verified by the compat probe of 2026-09-24 (the qa wing's sixteen
   trailing edges imported and saved). The probe verifies only the import it
   wrote: exactly one import line, 16 edges for boundary `Wing`; another
-  count, another boundary or a second import line is `broken`.
+  count, another boundary or a second import line is `broken`. The report of
+  2026-09-24 was judged before that criterion and records the verdict, not
+  the lines the solver printed; a re-run on 26.124 records them.
 
 - **A steady point saves the solver's own plots, by default.** After its other
   exports and before its log, every point of a steady workflow row chooses a
@@ -416,6 +418,15 @@ FlightStream versions.
   into `inputs/geometries/`. New: `Script.working_dir`, the folder the run
   gives a script before building it; a script built outside a run names its
   node file by its bare name (G02).
+- **The compat report of the trailing-edge import records the lines its
+  verdict was made on.** Its evidence line was the specification's fixed
+  note, which names the import the probe wrote, so it read the same whatever
+  the solver printed and a report could not be judged again from what it
+  recorded. A probe specification may now state `observe`
+  (`ProbeSpec.observe`), and the evidence line of a judged effect then ends
+  with `The instrument read: ...`; the `IMPORT_WAKE_EDGES_FROM_FILE` probe
+  records every import line of the target region as the judge parsed it,
+  `import lines [{"Wing": 16}]` when verified (G02).
 
 - **A row stating `roll_rate` or `yaw_rate` turns the free stream the way the
   rate says.** From 0.21.0 all three body rates were emitted with one sign of
