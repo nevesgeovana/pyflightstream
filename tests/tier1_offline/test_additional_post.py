@@ -546,12 +546,13 @@ def test_g12_the_additional_script_is_refused_off_26124(tmp_path):
 
 
 def additional_post():
-    """The run layer's additional post, imported when a test reaches it.
+    """The run layer's additional post, looked up when a test reaches it.
 
-    Imported HERE and not at the top, so the tests of the key and of the
-    script collect and fail on their own assertions on a tree without it.
+    Looked up HERE and not imported by name at the top, so the tests of the
+    key and of the script collect and fail on their own assertions on a tree
+    without it.
     """
-    return importlib.import_module("pyflightstream.run.additional")
+    return importlib.import_module("pyflightstream.run.matrix")
 
 
 def a_stub(tmp_path: Path, **by_verb: str) -> CountingStub:

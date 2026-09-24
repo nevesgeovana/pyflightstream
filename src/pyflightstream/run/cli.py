@@ -1093,7 +1093,7 @@ def _additional_post(
     already extracted and a run a continuation replaced are skips that ask
     nothing, so ``--strict`` does not count them.
     """
-    from pyflightstream.run.additional import AdditionalSkip, run_additional_post
+    from pyflightstream.run.matrix import AdditionalSkip, run_additional_post
 
     try:
         plans, records = run_additional_post(
