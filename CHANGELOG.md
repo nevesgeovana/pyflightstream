@@ -474,6 +474,18 @@ FlightStream versions.
   one float. The roll and yaw scorings of OPS-2011.01.03 against the recorded
   probes pass, and their strict xfails are removed (G13).
 
+- **A point whose solver could not use its actuator disc's profile file is no
+  longer recorded as a success.** When the solver cannot use the radial thrust
+  profile a row's `PROFILE` names, it logs `Failed to find`, `Failed to read`,
+  `No data found in` or `Failed to load custom radial thrust profile file:
+  <path>` and runs on to the end with the disc acting on a loading that is not
+  the file's; the point was recorded with the assessor's status, `CONVERGED` on
+  loads that are not the row's. A point whose solver log carries one of the
+  four lines is now `FAILED_SCRIPT` over any status that is not already a
+  failure, whichever assessor judged it, on a local point, on each point of a
+  steady row run as one job, and at `pyfs-matrix collect`; its `error` quotes
+  the line, names the file and says the disc did not use it (G06).
+
 ### Changed
 
 - **A local point runs in its own datapoint folder.** A point run on this

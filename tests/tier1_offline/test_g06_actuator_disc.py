@@ -17,7 +17,10 @@ rotors and frames, and its LOADING is the row's:
   initialised, in the frame the block names;
 * a reference declaring a disc moves nothing on a row that names none;
 * the profile route is refused by build on 25.000 and 25.100, whose grammar
-  takes no blade count, before anything is emitted.
+  takes no blade count, before anything is emitted;
+* a point whose solver log says the profile file could not be used is
+  FAILED_SCRIPT whichever assessor judged it: on a local point, on the steady
+  one-job path and at collect.
 
 Nothing here runs a solver. `SET_PROP_ACTUATOR_PROFILE` has never run on any
 build; the thrust and the enable ran without abort on 26.120 to 26.124 with
@@ -41,7 +44,7 @@ from pyflightstream.cases import (
     case_at_point,
 )
 from pyflightstream.cases.workflows import build_script, build_steady_sweep, workflow_registry
-from pyflightstream.run import PlanStatus
+from pyflightstream.run import CampaignErrors, PlanStatus
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.script import CommandArgumentError, Script, helpers
 from pyflightstream.workspace import InputArtifactError, RunStatus
@@ -52,6 +55,7 @@ from tests.tier1_offline.test_matrix_run import (
     RECIPES,
     WRITES_EVERY_EXPORT,
     CountingStub,
+    StubSolver,
     converged,
 )
 from tests.tier1_offline.test_workflows import (
@@ -362,3 +366,218 @@ def test_g06_the_profile_route_is_refused_by_build_before_anything_is_emitted(bu
         thrust=120.0,
     )
     assert re.search(r"^SET_PROP_ACTUATOR_THRUST 1 120\.0 NEWTONS$", script.render(), re.M)
+
+
+# --- the solver could not use the profile file: the point is not a success -----------
+#
+# When the solver cannot use the radial thrust profile a disc names, it logs one
+# of four lines, the file's path after the colon, and the run goes on to the end
+# with a disc loading that is not the file's. Nothing else in the outputs says
+# so: the loads converge and the log reads as a residual history. So the line in
+# the log decides, whichever assessor judged the point, on the point path, on
+# the steady one-job path and at collect.
+
+#: The four sentences the solver carries for a profile it could not use.
+PROFILE_REFUSALS = (
+    "Failed to find custom radial thrust profile file: ",
+    "Failed to read custom radial thrust profile file: ",
+    "No data found in custom radial thrust profile file: ",
+    "Failed to load custom radial thrust profile file: ",
+)
+
+
+def _solver_log(line: str | None) -> str:
+    """A solver log in the form the solver writes it, with ``line`` after the script line.
+
+    The residual table is the committed 26.120 one, so the log reads as a
+    residual history wherever it is looked for; every line ends in CR LF and a
+    NUL sits alone on the line after it, as a hidden-mode export writes them.
+    """
+    text = (Path(__file__).parent / "fixtures" / "log_residuals_26.120.txt").read_text(
+        encoding="utf-8"
+    )
+    anchor = "script.txt\n"
+    assert anchor in text, "the fixture no longer carries the line the profile line follows"
+    if line is not None:
+        text = text.replace(anchor, f"{anchor}\n{line}\n", 1)
+    return text.replace("\n", "\r\n\x00\r\n")
+
+
+def _writes_every_export_and_the_log(log: Path) -> str:
+    """WRITES_EVERY_EXPORT, with every EXPORT_LOG written from ``log``."""
+    return (
+        "import pathlib, sys; "
+        "from pyflightstream.cases import EXPORT_KINDS; "
+        "verbs = {kind[2] for kind in EXPORT_KINDS}; "
+        f"log = pathlib.Path({str(log)!r}).read_bytes(); "
+        "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
+        "[pathlib.Path(lines[i + 1]).write_bytes("
+        "log if line.split(' ')[0] == 'EXPORT_LOG' else b'DATA') "
+        "for i, line in enumerate(lines) "
+        "if line.split(' ')[0] in verbs and i + 1 < len(lines)]"
+    )
+
+
+def _run_a_profile_row(tmp_path, *, values: str, refused: bool):
+    """Run a PROFILE row through run_matrix with a log that does or does not refuse the file."""
+    workspace, matrix = _matrix(
+        tmp_path,
+        condition="MACH:0.2, REmi:2.3, ALPHA:sweep",
+        values=values,
+        cell="ACTUATOR: PROP / ACTUATOR_RPM: 2400 / PROFILE: prop_ct",
+    )
+    (workspace.inputs_dir / "references" / "r003.toml").write_text(
+        REFERENCE_WITH_A_DISC, encoding="utf-8"
+    )
+    profiles = workspace.inputs_dir / "profiles"
+    profiles.mkdir(exist_ok=True)
+    profile = profiles / "prop_ct.txt"
+    profile.write_text("0.10 1.0\n0.50 2.0\n", encoding="utf-8")
+    line = f"{PROFILE_REFUSALS[1]}{profile.resolve()}" if refused else None
+    log = tmp_path / "log_to_write.txt"
+    log.write_bytes(_solver_log(line).encode("utf-8"))
+    try:
+        run_matrix(
+            matrix,
+            workspace,
+            name="disc",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            recipe_registry=workflow_registry(),
+            assess=converged,
+            executor=StubSolver(_writes_every_export_and_the_log(log)),
+        )
+    except CampaignErrors:
+        pass  # a failed point is recorded in the manifest, which is what is read
+    (record,) = workspace.read_manifest()
+    return record, profile.resolve(), line
+
+
+@pytest.mark.parametrize("values", ["0.0", "0.0,2.0"], ids=["one-point", "a-steady-job"])
+def test_g06_a_point_whose_log_says_the_profile_was_not_read_is_failed_script(tmp_path, values):
+    """The solver logged that it could not read the profile and ran on: the point is
+    FAILED_SCRIPT whatever the assessor said, and the error quotes the line, names
+    the file and says the disc did not use it."""
+    record, profile, line = _run_a_profile_row(tmp_path, values=values, refused=True)
+    assert record.status is RunStatus.FAILED_SCRIPT, (record.status, record.error)
+    assert line in record.error, record.error
+    assert f"file {profile}" in record.error, record.error
+    assert "the actuator disc did not use the file" in record.error, record.error
+    statuses = [entry["status"] for entry in record.points_ran or []]
+    assert statuses == ["FAILED_SCRIPT"] * len(statuses), record.points_ran
+
+
+@pytest.mark.parametrize("values", ["0.0", "0.0,2.0"], ids=["one-point", "a-steady-job"])
+def test_g06_a_point_whose_log_reads_the_profile_keeps_the_assessor_s_status(tmp_path, values):
+    """The control: the same row and a log without the line is CONVERGED."""
+    record, _, _ = _run_a_profile_row(tmp_path, values=values, refused=False)
+    assert record.status is RunStatus.CONVERGED, (record.status, record.error)
+    assert record.error is None
+
+
+@pytest.mark.parametrize("assessor", ["the-package-s", "a-caller-s"])
+@pytest.mark.parametrize(
+    "refusal", [*PROFILE_REFUSALS, None], ids=["find", "read", "no-data", "load", "none"]
+)
+def test_g06_a_collected_point_whose_log_refuses_the_profile_is_failed_script(
+    tmp_path, monkeypatch, refusal, assessor
+):
+    """A submitted point is judged at collect: each of the four lines in its collected
+    log makes it FAILED_SCRIPT, whichever assessor judged it, and a log without
+    one keeps the assessor's status."""
+    from pyflightstream.run import Assessment
+    from pyflightstream.run import collect as collect_module
+    from pyflightstream.run.collect import collect_once
+    from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
+
+    workspace, sim = _submitted_workspace(tmp_path)
+    profile = tmp_path / "inputs" / "profiles" / "prop_ct.txt"
+    line = None if refusal is None else f"{refusal}{profile}"
+    (sim / "loads.txt").write_text("numbers", encoding="utf-8")
+    (sim / "run_log.txt").write_bytes(_solver_log(line).encode("utf-8"))
+
+    def passed(record, sim_dir):
+        return RunStatus.CONVERGED, None
+
+    if assessor == "the-package-s":
+        monkeypatch.setattr(
+            collect_module,
+            "assessment_of_collected",
+            lambda record, sim_dir: Assessment(
+                status=RunStatus.CONVERGED, iterations=1575, log_file_used="run_log.txt"
+            ),
+        )
+    report = collect_once(
+        workspace,
+        interval=0.0,
+        sleep=_no_sleep,
+        assessor=passed if assessor == "a-caller-s" else None,
+    )
+    (outcome,) = report.collected + report.failed
+    assert outcome.record is not None, outcome.detail
+    if line is None:
+        assert outcome.record.status is RunStatus.CONVERGED, outcome.record.error
+        assert outcome.record.error is None
+        return
+    assert outcome.record.status is RunStatus.FAILED_SCRIPT, (
+        outcome.record.status,
+        outcome.record.error,
+    )
+    assert line in outcome.record.error, outcome.record.error
+    assert f"file {profile}" in outcome.record.error, outcome.record.error
+    assert "the actuator disc did not use the file" in outcome.record.error
+
+
+def test_g06_a_collected_steady_job_judges_each_point_by_its_own_log(tmp_path):
+    """A submitted steady job is judged point by point at collect: the point whose
+    log refuses the profile is FAILED_SCRIPT, and so is the job; the point whose
+    log does not keeps its status."""
+    import json
+
+    from pyflightstream.run.collect import collect_once
+    from tests.tier1_offline.test_collect_stage import _no_sleep, _submitted_workspace
+
+    declared = {
+        "AL+000": ["AL+000.txt", "AL+000_log.txt"],
+        "AL+020": ["AL+020.txt", "AL+020_log.txt"],
+    }
+    workspace, sim = _submitted_workspace(
+        tmp_path, declared=tuple(name for names in declared.values() for name in names)
+    )
+    record = workspace.read_manifest()[0]
+    points = {"AL+000": {"alpha": 0.0}, "AL+020": {"alpha": 2.0}}
+    job = record.model_copy(
+        update={
+            "submission": {
+                **(record.submission or {}),
+                "declared_by_point": declared,
+                "points_by_tag": points,
+            },
+            "points_ran": [
+                {"tag": tag, "point": point, "status": "SUBMITTED"} for tag, point in points.items()
+            ],
+        }
+    )
+    workspace.manifest_path.write_text(
+        json.dumps([json.loads(job.model_dump_json())], indent=2) + "\n", encoding="utf-8"
+    )
+    profile = tmp_path / "inputs" / "profiles" / "prop_ct.txt"
+    refused = f"{PROFILE_REFUSALS[1]}{profile}"
+    for tag in declared:
+        (sim / f"{tag}.txt").write_text("numbers", encoding="utf-8")
+    (sim / "AL+000_log.txt").write_bytes(_solver_log(refused).encode("utf-8"))
+    (sim / "AL+020_log.txt").write_bytes(_solver_log(None).encode("utf-8"))
+
+    def passed(record, sim_dir):
+        return RunStatus.CONVERGED, None
+
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep, assessor=passed)
+    (outcome,) = report.collected + report.failed
+    assert outcome.record is not None, outcome.detail
+    by_tag = {entry["tag"]: entry["status"] for entry in outcome.record.points_ran or []}
+    assert by_tag == {"AL+000": "FAILED_SCRIPT", "AL+020": "CONVERGED"}, (
+        by_tag,
+        outcome.record.error,
+    )
+    assert outcome.record.status is RunStatus.FAILED_SCRIPT, outcome.record.error
+    assert refused in outcome.record.error, outcome.record.error

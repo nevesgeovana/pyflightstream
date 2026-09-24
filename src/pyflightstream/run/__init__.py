@@ -143,6 +143,7 @@ from pyflightstream.results.conditions import ConditionBinding, bind_conditions
 from pyflightstream.results.tables import sweep_table, write_table
 from pyflightstream.run._actions_counter import render_program
 from pyflightstream.run._wake_edge_verdict import (
+    actuator_profile_verdict,
     collected_solver_log,
     reads_as_residual_history,
     wake_edge_import_verdict,
@@ -5360,6 +5361,11 @@ def _execute_sweep(
             if cannot_log
             else wake_edge_import_verdict(script.wake_edge_points, log_text),
         )
+        # G06. A point whose log says the solver could not use its actuator
+        # disc's profile file ran on with a loading that is not the file's.
+        status, error = with_wake_edge_verdict(
+            status, error, actuator_profile_verdict(log_text, result.log_text)
+        )
         collected_all.extend(collected)
         ran.append(
             {
@@ -6450,6 +6456,13 @@ def _execute_point(
         _no_local_log_verdict(script.wake_edge_points, log_text, local_log.note)
         if local_log.excused and local_log.note
         else wake_edge_import_verdict(script.wake_edge_points, log_text),
+    )
+    # G06. A run whose log says the solver could not use its actuator disc's
+    # profile file went on to the end with a loading that is not the file's, and
+    # its outputs look like any other run's; the line is the one statement of it.
+    # The log the solver left is read too, where the collected log is another.
+    status, error = with_wake_edge_verdict(
+        status, error, actuator_profile_verdict(log_text, result.log_text)
     )
     return RunRecord(
         **base,
