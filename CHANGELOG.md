@@ -473,6 +473,23 @@ FlightStream versions.
   three body axes to their signs (`roll` -1, `pitch` +1, `yaw` -1) where it was
   one float. The roll and yaw scorings of OPS-2011.01.03 against the recorded
   probes pass, and their strict xfails are removed (G13).
+- **`INPUTS.md` no longer lists a key the script never carries as a setting
+  the run applies.** `ROTOR_SHEDDING` read as the direction a rotor's relaxed
+  wake sheds in, and two rotor rows stating `AXIAL` and `AZIMUTH` build the
+  same script: a workflow row checks the value and does not apply it. Its row
+  now says so, and says how the direction is applied: through
+  `rotor_relaxed_trailing_edges`, into the component definition the geometry
+  carries. Every row key and solver setting whose value reaches no line of the
+  script now says "No line of the script carries its value" and what takes it:
+  `WALLTIME` (the scheduler and the wall-clock program),
+  `EXPORT_UNSTEADY_AFTER_ITER` and `EXPORT_UNSTEADY_AFTER_REV` (the per-step
+  program), `LAST_ITERS_AVG`, `LAST_REVS_AVG` and `BLADES` (the post stage),
+  `ADDITIONAL_PPROC` (`pyfs-matrix post --additional-pproc`), `timeout_s` (the
+  executor) and `walltime_margin_s` (the wall-clock program). `COLD_START`
+  says that a row whose every point is its own job starts every point cold.
+  The unit of `WALLTIME` reads a number and its unit, as `240m` or `4h`, where
+  it read `s`, a bare number the reader refuses. `InputKey` takes
+  `unscripted`, the sentence a key registers for this (G08).
 
 ### Changed
 
