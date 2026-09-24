@@ -212,7 +212,7 @@ FlightStream versions.
   `SET_FREESTREAM`), the key beside a non-zero angle of attack or sideslip,
   fixed or swept (below), and a file not in its form, naming the file, the line
   and what the form asks. MEASURED on 26.124 by the licensed probe T14
-  (RPT-T14), the CUSTOM STRUCTURED form's first runs, rows 5012 to 5014 of
+  (RPT-071), the CUSTOM STRUCTURED form's first runs, rows 5012 to 5014 of
   `tests/tier3_licensed/matriz_gui.fs`: a uniform field of the row's own speed
   loads as the CONSTANT free stream to the printed digits, so the file is read
   in m and m/s as written, and a field sheared in z moves the lift. And

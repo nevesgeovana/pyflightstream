@@ -5866,7 +5866,7 @@ _ONE_FREE_STREAM = (
 #: the same reason. The sentence every such refusal ends on.
 _NO_ANGLE_BESIDE_A_FIELD = (
     "The custom field sets the flow's direction: SOLVER_SET_AOA does not turn it, measured "
-    "on FlightStream 26.124 by the licensed probe T14 (RPT-T14), and the sideslip, not "
+    "on FlightStream 26.124 by the licensed probe T14 (RPT-071), and the sideslip, not "
     "measured, is refused for the same reason. The run would solve at the field's own "
     "incidence and report the angle the row states. Write the incidence into the field's "
     "vy and vz components, and state ALPHA and BETA as 0 in the row."

@@ -294,7 +294,7 @@ the opposite sign to 0.26.0: `roll_rate:40` writes
   exactly as before, its script byte for byte what it was.
 - A row stating `FREESTREAM` runs at zero angle of attack and sideslip: on
   26.124 `SOLVER_SET_AOA` does not turn a custom field (the licensed probe T14,
-  RPT-T14), so a non-zero `ALPHA` or `BETA` beside the key, fixed or swept, is
+  RPT-071), so a non-zero `ALPHA` or `BETA` beside the key, fixed or swept, is
   refused at plan, every point of the row. Write the incidence into the field's
   `vy` and `vz` components and state `ALPHA` and `BETA` as 0. The sideslip was
   not measured and is refused for the same reason.

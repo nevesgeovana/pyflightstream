@@ -2459,7 +2459,7 @@ That file is a field of 30 m/s along x at z = 0, sheared by 2.5 m/s per metre
 of z, over 16 m of span and 8 m of height. THE FILE IS IN METRES AND METRES PER
 SECOND, IN THE GLOBAL FRAME, as the simulation is: nothing is converted, and
 the rows are written to the solver as they are, which is how 26.124 reads them
-(the licensed probe T14, RPT-T14, below).
+(the licensed probe T14, RPT-071, below).
 
 THE FIELD IS THE FLOW'S DIRECTION. On 26.124 `SOLVER_SET_AOA` does not turn a
 custom field (T14), so a row stating one states `ALPHA` and `BETA` as 0, or
@@ -2508,7 +2508,7 @@ rate writes `SET_FREESTREAM ROTATION` and a run has one `SET_FREESTREAM`
 straight flight and sits beside it.
 
 WHAT HAS RUN WHERE. `SET_FREESTREAM` is documented on every build, and its
-CUSTOM STRUCTURED form ran on 26.124 under the licensed probe T14 (RPT-T14),
+CUSTOM STRUCTURED form ran on 26.124 under the licensed probe T14 (RPT-071),
 steady rows of `tests/tier3_licensed/matriz_gui.fs` on the 12_WING_PHY wing at
 30 m/s, five far-field layers (the loads table prints four decimals):
 

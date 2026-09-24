@@ -9,7 +9,7 @@ stating a field may run at:
 * 5013 is their control, ``SET_FREESTREAM CONSTANT`` at the same speed;
 * 5014 writes ``fs_shear.txt``, vx = 30 + 2.5 z m/s.
 
-What they hold, measured by T14 (RPT-T14):
+What they hold, measured by T14 (RPT-071):
 
 (a) the uniform field loads as the constant free stream it equals, so the file
     is read in m and m/s as it is written;
