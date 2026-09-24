@@ -30,7 +30,12 @@ class Runs:
 
     def __init__(self, workspace: CampaignWorkspace) -> None:
         self.workspace = workspace
-        self.records = workspace.read_manifest()
+        # A steady row of several points is ONE job record; its points are read
+        # as the package reads them (RunRecord.as_points), so a check per point
+        # sees every point that ran, with the outputs it collected.
+        self.records = [
+            point for record in workspace.read_manifest() for point in record.as_points()
+        ]
 
     def of(self, matrix: str, pol: str) -> list[RunRecord]:
         """Every record of one row, in manifest order; the latest per point wins."""

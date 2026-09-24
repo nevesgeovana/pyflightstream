@@ -165,6 +165,14 @@ def _profile(tmp: Path, stem: str) -> SimCase:
     return _with_disc(case, actuator_profile=str(path))
 
 
+def _freestream(tmp: Path, stem: str, vx: float) -> SimCase:
+    """FREESTREAM as the plan resolves it: the stem, and a STRUCTURED field of that stem."""
+    path = tmp / f"{stem}.txt"
+    rows = [f"0.0 {y} {z} {vx} 0.0 0.0" for y in (-2.0, 2.0) for z in (-1.0, 1.0)]
+    path.write_text("2 2\n" + "\n".join(rows) + "\n", encoding="utf-8")
+    return steady_case(FREESTREAM=stem).model_copy(update={"freestream_profile": str(path)})
+
+
 def _raw(line: str) -> SimCase:
     """RAW reaches the case as its raw commands; the reader takes it out of the cell."""
     return steady_case().model_copy(
@@ -279,6 +287,9 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
     ),
     "PROFILE": Variation(
         lambda tmp: _profile(tmp, "prop_ct"), lambda tmp: _profile(tmp, "prop_cq")
+    ),
+    "FREESTREAM": Variation(
+        lambda tmp: _freestream(tmp, "fs_a", 30.0), lambda tmp: _freestream(tmp, "fs_b", 32.0)
     ),
     "ADDITIONAL_PPROC": _rows(steady_case, "ADDITIONAL_PPROC", "p002", "p003"),
     "COLD_START": Variation(
