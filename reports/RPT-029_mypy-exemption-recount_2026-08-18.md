@@ -44,20 +44,21 @@
 > run of 2026-09-15 EVENING, on the tree that carries the 0.21.0 point name,
 > its renaming command and the sweep of any flight-condition variable, and
 > replaced again by the run of 2026-09-20 on the settled 0.25.0 tree, and
-> by the run of 2026-09-23 on the settled 0.26.0 tree. (An
+> by the run of 2026-09-23 on the settled 0.26.0 tree, and by the run of
+> 2026-09-24 on the 0.27.0 tree once its fourth block had merged. (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
 > modules and the 0.24.0 tree at 661 in 18 of 93; measurements of different
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 710 errors in 18 files (checked 97 source files)
->     Success: no issues found in 97 source files
+>     Found 736 errors in 18 files (checked 99 source files)
+>     Success: no issues found in 99 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-23: 710 errors in 18 of 97 modules.**
+**mypy recount 2026-09-24: 736 errors in 18 of 99 modules.**
 
 The module total rises by the four modules 0.25.0 adds
 (post/section_distributions, post/provenance, post/custom_polar and
@@ -339,11 +340,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 710 errors in 18 files (checked 97 source files)
+    Found 736 errors in 18 files (checked 99 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 97 source files
+    Success: no issues found in 99 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -627,3 +628,16 @@ errors that went were in the post stage's products module, rewritten around
 the post log and the reducer-stated samples. The override count and the dirty
 count both still read 18. The sentence above is this measurement; the earlier
 ones stay below as the history of the figure.
+
+## Re-measured 2026-09-24, the 0.27.0 tree after its fourth block: two modules arrived clean, twenty-six errors more
+
+`python scripts/mypy_recount.py` on 2026-09-24, on a clean tree at the merge of
+the fourth block of 0.27.0: 736 errors in 18 of 99 modules, against the v0.26.0
+tree's 710 in 18 of 97. The two modules that arrived are private helpers
+published beneath the layers that share them, `_decimal.py` and
+`run/_wake_edge_verdict.py`, and both arrive clean: the dirty modules are still
+eighteen and the shipped configuration is green over all 99. The twenty-six
+errors more sit inside the exempted set; the run module carries 554 of the 736,
+on the record builders the 0.27.0 blocks extended. The sentence at the top of
+this report is this measurement; the earlier ones stay above as the history of
+the figure.

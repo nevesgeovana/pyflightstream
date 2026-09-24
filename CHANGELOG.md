@@ -288,6 +288,13 @@ FlightStream versions.
   body's own boundary marks nothing and says nothing; the page and FR-55
   state it, and the emission is unchanged.
 
+### Changed (the type-checker debt, re-measured)
+
+- mypy recount 2026-09-24: 736 errors in 18 of 99 modules, against 0.26.0's 710 in 18 of 97. The two
+  modules that arrived, `_decimal.py` and `run/_wake_edge_verdict.py`, are
+  clean; the twenty-six errors more sit inside the exempted set, most on the
+  run module's record builders (`reports/RPT-029`).
+
 ### Documentation
 
 - **The tier-3 page states which induced-drag form each case uses.** Every
@@ -420,7 +427,7 @@ samples it reads, and no compatibility promise waits past this release.
 
 ### Changed (the type-checker debt, re-measured on the release tree)
 
-- mypy recount 2026-09-23: 710 errors in 18 of 97 modules, against 0.25.1's 713 in 18 of 97. No
+- The type-checker re-count of 2026-09-23 read 710 errors in 18 of 97 modules, against 0.25.1's 713 in 18 of 97. No
   module arrived and none left; the three errors that went were in the post
   stage's products module, rewritten around the post log and the
   reducer-stated samples (`reports/RPT-029`).
