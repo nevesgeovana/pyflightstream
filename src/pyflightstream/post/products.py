@@ -372,11 +372,12 @@ _POLAR_CONDITION_COLUMNS: tuple[str, ...] = tuple(
 #: twenty-four coefficients.
 #:
 #: `POL` FIRST SINCE 0.27.0 (G16), as in every table the post writes, under the
-#: name the run matrix gives its polar column. `POLAR` beside it holds the same
-#: simulation id and keeps its name and place, because a reader takes it by name.
+#: name the run matrix gives its polar column, and the ONLY column that states the
+#: polar. Until 0.26.x this table named it `POLAR`, in the same first place; the
+#: polar stated twice, once under each name, is one value a reader has to choose
+#: between, so `POLAR` is gone from every table the post writes.
 POLAR_COLUMNS: tuple[str, ...] = (
     POLAR_ID_COLUMN,
-    "POLAR",
     "DESCRIPTION",
     "GROUP",
     *_REFERENCE_COLUMNS,
@@ -2549,9 +2550,8 @@ def polar_table_rows(
             "are two sources for the same column; pass the advance ratio inside "
             "conditions as 'J' and drop advance_ratios"
         )
-    # THE POLAR TWICE, AND ON PURPOSE: `POL` is the first column every table
-    # opens with (G16) and `POLAR` the column this table has always carried.
-    lead = (str(polar), str(polar), description, str(group), *reference.as_row())
+    # THE POLAR ONCE, as `POL`, the first column every table opens with (G16).
+    lead = (str(polar), description, str(group), *reference.as_row())
     if conditions is not None:
         states: list[Mapping[str, object]] = list(conditions)
     elif advance_ratios is not None:
