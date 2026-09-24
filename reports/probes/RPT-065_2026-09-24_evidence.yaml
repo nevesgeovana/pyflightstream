@@ -1,0 +1,115 @@
+report: reports/RPT-065_what-detection-and-initialisation-mark_2026-09-24.md
+date: '2026-09-24'
+question: what trailing-edge detection marks, whole and by surface, with the angle, and what INITIALIZE_SOLVER marks
+where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
+executable_sha256:
+  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+states:
+  W: the tier-3 wing STL imported and saved with no detection (816 faces, 16 trailing-edge edges by construction)
+  B: the tier-3 blade STL imported and saved with no detection
+instrument: the saved mesh block's edge-slot T/F rows 2 to 4 turned into edge mid-points (the reader reproduces
+  16 on 10_WING.fsm and 12 on 30_BLADE.fsm offline), and the solver's lines between two sentinels; no run solves
+checks:
+  wing_detection_is_the_analytic_16: true
+  wing_by_surface_equals_whole: true
+  initialisation_alone_marks_nothing: true
+  initialisation_keeps_a_half_span_import: true
+  initialisation_does_not_mask_a_wrong_file: true
+  blade_detection_equals_the_stored_30_BLADE: true
+  blade_angle_80_equals_default: true
+  blade_angle_10_is_a_subset: true
+blade_angle_10_kept:
+- - 0.156877749
+  - 0.062770719
+  - 0.59817
+- - 0.171160865
+  - 0.049061536
+  - 0.46863
+- - 0.184523963
+  - 0.031128688
+  - 0.33909
+steps:
+- variant: W_C0
+  moved: the clean wing, nothing moved (control)
+  state: W
+  edges_before: 0
+  edges_after: 0
+  solver_said: []
+  script_sha256: 49d839c930ce392bb6c560fd4269854acdf0e24d0b0b0d0c9f019eb47991dfa0
+- variant: W_D1
+  moved: AUTO_DETECT_TRAILING_EDGES
+  state: W
+  edges_before: 0
+  edges_after: 16
+  solver_said:
+  - 16 trailing edges marked on surface Wing
+  script_sha256: 4a481eb1174281e190ae923d77042e46223e50c1c84f0890ffccbb3757504038
+- variant: W_D2
+  moved: DETECT_TRAILING_EDGES_BY_SURFACE on surface 1
+  state: W
+  edges_before: 0
+  edges_after: 16
+  solver_said:
+  - 16 trailing edges marked on surface Wing
+  script_sha256: c1eff0aed1732b21eca3200382edb95706c4871b0075d91a0bc8a5f3cc7d710e
+- variant: W_I1
+  moved: INITIALIZE_SOLVER alone (farfield layers 5), no detection
+  state: W
+  edges_before: 0
+  edges_after: 0
+  solver_said: []
+  script_sha256: b7c5166939f0cb86d9c5dbff4e50fa12c05bc90965ecf8aa98d3a2e4fe8d0e7e
+- variant: W_IMP
+  moved: IMPORT_WAKE_EDGES_FROM_FILE of the 8 mid-points of the y < 0 half
+  state: W
+  edges_before: 0
+  edges_after: 8
+  solver_said:
+  - 8 trailing edges imported for boundary Wing
+  script_sha256: 30152a894be1b75789dd7e676933aa365e4e4e7360bb88f8d715cc2668a1d1fb
+- variant: W_I2
+  moved: the same half-span import, then INITIALIZE_SOLVER
+  state: W
+  edges_before: 0
+  edges_after: 8
+  solver_said:
+  - 8 trailing edges imported for boundary Wing
+  script_sha256: e3699a626f76e2266d7a92f6f88f9a21c442f6242dc36d59c0184e03110b80ea
+- variant: W_I3
+  moved: a file of the half moved 0.2 mm aft (marks nothing), then INITIALIZE_SOLVER
+  state: W
+  edges_before: 0
+  edges_after: 0
+  solver_said: []
+  script_sha256: 9f3ffdda92ac512bc209db530c0b0f25d1f264590e7b9c1e7db4cc4213a8cdea
+- variant: B_C0
+  moved: the clean blade, nothing moved (control)
+  state: B
+  edges_before: 0
+  edges_after: 0
+  solver_said: []
+  script_sha256: 1002802804529628ea3a603ca2729c97d7cc3438b90d4f57d466443a7e067855
+- variant: B_D1
+  moved: AUTO_DETECT_TRAILING_EDGES
+  state: B
+  edges_before: 0
+  edges_after: 12
+  solver_said:
+  - 12 trailing edges marked on surface Blade1
+  script_sha256: d57d3138a55c2b01da5d2a93caf64ef3368e396e5965fba49709ff5c4ff0f23a
+- variant: B_D3_10
+  moved: SET_TRAILING_EDGE_SWEEP_ANGLE 10, then AUTO_DETECT_TRAILING_EDGES
+  state: B
+  edges_before: 0
+  edges_after: 3
+  solver_said:
+  - 3 trailing edges marked on surface Blade1
+  script_sha256: 77eb935abb90ebb83b249dbc1a94c7990003f18f99fe0122cd1dfede27315f27
+- variant: B_D3_80
+  moved: SET_TRAILING_EDGE_SWEEP_ANGLE 80, then AUTO_DETECT_TRAILING_EDGES
+  state: B
+  edges_before: 0
+  edges_after: 12
+  solver_said:
+  - 12 trailing edges marked on surface Blade1
+  script_sha256: 66d8ead6730c6500a77c0041c0b955d9d81eee1cf5b1f647531a476a6ae38620
