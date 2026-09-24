@@ -44,6 +44,7 @@ extra_css:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - From the GUI to pyfs: gui-to-pyfs.md
   - Replaying a recorded run: tutorial-replay.md
   - What a run cost: solver-cost.md
   - The workspace and the workflow: workspace-and-workflows.md
