@@ -2726,7 +2726,9 @@ step as the existing sections table does. That table and the combined sections
 series remain available. `products.json` records each distribution, its original
 families/alias and `steps_tabled`, with named skips for missing exports or steps.
 No recorded `sections_layout` means no split: post names the missing layout.
-Older layouts require an unambiguous match to their recorded pproc. See the
+Older layouts require an unambiguous match to their recorded pproc, read over the
+geometry's boundary names where the record carries them or its geometry hash
+recovers them. See the
 [sections definitions](post-processing-definitions.md#per-distribution-sectional-loads-and-cp-0250).
 
 **The stamped files as a series** (since 0.14.0, PFS-2031.18.01). Thirty

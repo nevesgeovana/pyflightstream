@@ -4173,6 +4173,10 @@ def _declare_boundaries(case: SimCase, script: Script) -> None:
         names = tuple(case.inventory)
     if not names:
         return
+    # R03 of 0.27.0: the run record carries these names, so the post reads a
+    # selection over the geometry the script was built over rather than over
+    # the cuts alone. Every name, duplicates included: position i is boundary i.
+    script.boundary_inventory = tuple(names)
     labels, ambiguous = boundary_labels(names)
     if ambiguous:
         warn(

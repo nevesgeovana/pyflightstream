@@ -9,8 +9,13 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import cast
 
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
-from pyflightstream._fsm import family_of
+from pyflightstream._errors import (
+    PyflightstreamError,
+    PyflightstreamWarning,
+    collecting_warnings,
+    warn,
+)
+from pyflightstream._fsm import boundary_labels, family_of
 from pyflightstream._tokens import INTEGRATED_SECTION_COLUMNS
 from pyflightstream.cases import (
     PprocSpec,
@@ -65,9 +70,14 @@ def _integrated_strips(values: list[list[float]]) -> list[tuple[float, ...]]:
 
 
 def _distributions(
-    record: RunRecord, pproc: PprocSpec | None
+    record: RunRecord, pproc: PprocSpec | None, inventory: Sequence[str] | None = None
 ) -> tuple[list[dict[str, object]], dict[int, str | list[str]]]:
-    """Resolve block ownership, refusing ambiguous pre-0.25.0 layouts."""
+    """Resolve block ownership, refusing ambiguous pre-0.25.0 layouts.
+
+    ``inventory`` is the geometry's boundary names where they are known (R04
+    of 0.27.0). They settle a NAME and never cost a split: where they name
+    no single owner, the cuts decide as before and the rows are kept.
+    """
     if not record.sections_layout:
         raise ProductError(
             "distribution split needs the recorded sections_layout; never guessed. "
@@ -86,7 +96,11 @@ def _distributions(
         position = block.get("distribution")
         selection = block.get("distribution_families")
         if position is None and pproc is not None:
-            matches = _matching_distributions(record, pproc, block, ownership=True)
+            matches = _matching_distributions(
+                record, pproc, block, ownership=True, geometry=inventory
+            )
+            if len(matches) != 1 and inventory is not None:
+                matches = _matching_distributions(record, pproc, block, ownership=True)
             if len(matches) == 1:
                 position = matches[0]
                 selection = pproc.sections.distributions[position - 1].families
@@ -188,20 +202,50 @@ def _matching_distributions(
     rotors: Mapping[str, RotorBlock] | None = None,
     literal: frozenset[str] = frozenset(),
     ownership: bool = False,
+    geometry: Sequence[str] | None = None,
 ) -> list[int]:
     """Match current entries to recorded geometry, never to mutable positions.
 
-    ``ownership`` says the match assigns a legacy layout's blocks to the
-    recorded pproc's entries, which is a name and a grouping for raw files:
-    there the cuts are the only evidence and a selector resolves over them.
-    Integration is never matched that way, whoever asks: it adds computed
-    numbers, so a selector is knowable only by exact recorded names, aliases
-    and rotor definitions, and any other word leaves membership uncertain.
+    ``geometry`` is the geometry's boundary names in the solver's order,
+    recorded with the run since 0.27.0 or recovered by the geometry's hash
+    (R03 and R04). With it a selection is read by the export builder's own
+    expansion over the names the builder read, so a family stem, a numbered
+    name, ``all`` and the aliases resolve as they did at export, and a word
+    that resolves to nothing (a rotor's name no definition in hand spells)
+    leaves its entry uncertain, a possible owner, and the match refused.
+
+    Without it, ``ownership`` says the match assigns a legacy layout's
+    blocks to the recorded pproc's entries, which is a name and a grouping
+    for raw files: there the cuts are the only evidence and a selector
+    resolves over them. Integration is never matched that way, whoever
+    asks: it adds computed numbers, so a selector is knowable only by exact
+    recorded names, aliases and rotor definitions, and any other word leaves
+    membership uncertain. With the geometry, a block the builder's reading
+    leaves unowned goes by elimination to the one entry that could still
+    have emitted it (such as a rotor's name nothing in hand resolves), and
+    to no entry where two could.
     """
     literal = literal | _literal_frames(pproc)
-    inventory = list(
-        dict.fromkeys(
-            str(f) for b in record.sections_layout or [] for f in cast(list[str], b["families"])
+    # THE BUILDER'S INVENTORY, REBUILT: the labels the script declared at
+    # OPEN in index order, a name carried by two boundaries left out as the
+    # builder leaves it out (`_inventory(script)` in cases/workflows.py).
+    exact = (
+        None
+        if geometry is None
+        else [
+            name
+            for name, _ in sorted(
+                boundary_labels(list(geometry))[0].items(), key=lambda item: item[1]
+            )
+        ]
+    )
+    inventory = (
+        list(exact)
+        if exact is not None
+        else list(
+            dict.fromkeys(
+                str(f) for b in record.sections_layout or [] for f in cast(list[str], b["families"])
+            )
         )
     )
     # The cuts alone, kept apart: an entry whose selection is uncertain is
@@ -209,9 +253,10 @@ def _matching_distributions(
     # as a possible owner, so that dropping it never makes another entry
     # falsely unique.
     recorded_names = list(inventory)
-    # RunRecord has an inventory source, but no complete boundary inventory.
-    # A layout lists exported cuts only. Keep every explicitly cited family in
-    # the candidate inventory so selection cannot erase an unrecorded member.
+    # WITHOUT THE GEOMETRY a layout lists exported cuts only, so every
+    # explicitly cited family is kept in the candidate inventory and
+    # selection cannot erase an unrecorded member. WITH IT the inventory is
+    # the geometry's, complete, and nothing is ever added to it.
     known_aliases = record.aliases if aliases is None else aliases
     rotor_members = {
         name: [*rotor.families_general, *rotor.families_blades]
@@ -228,8 +273,10 @@ def _matching_distributions(
     # rotor's whether or not that rotor is declared now or its frame is
     # cited literally, and a declared rotor's spelling may be recorded on
     # any frame an alias of the rotor names. A user's own `X_RMRP` with no
-    # rotor X therefore attests nothing either: a false miss, registered in
-    # RPT-059 with the rest of what a recorded inventory would settle.
+    # rotor X therefore attests nothing either, and without the geometry both
+    # of its entries are refused by name (RPT-059). With the geometry the
+    # attestation is not needed: the possible reading below stops at the
+    # builder's reading, which the geometry's names make exact.
     rotor_spellings = {member for members in rotor_members.values() for member in members}
     attested = {
         str(f)
@@ -282,6 +329,26 @@ def _matching_distributions(
     cited_names: list[str] = []
 
     def cited(word: str, visiting: frozenset[str] = frozenset(), *, listed: bool = False) -> bool:
+        if exact is not None and not visiting:
+            # OVER THE GEOMETRY'S OWN NAMES the builder's expansion is the
+            # reading, for ownership and integration alike: a stem, a
+            # numbered name, `all`, `each` and the aliases resolve as they
+            # did at export. A word that resolves to nothing is a name no
+            # definition in hand spells (a rotor's, with no rotor declared
+            # now), and one the builder refuses (a retired selector word, an
+            # alias ring) cannot be read here either: both leave the entry
+            # uncertain. The builder's own warnings are not the post's.
+            try:
+                with collecting_warnings():
+                    read = select_families(
+                        [word] if listed else word, inventory, pproc.is_blade, vocabulary
+                    )
+            except PyflightstreamError:
+                met["uncertain"] = True
+                return False
+            if not read:
+                met["uncertain"] = True
+            return True
         if ownership:
             # OWNERSHIP OF A LEGACY LAYOUT names and groups raw files and adds
             # no number; the recorded pproc's cuts are the only evidence there
@@ -356,11 +423,13 @@ def _matching_distributions(
 
     # A ROTOR'S MEMBERS ARE BOUNDARY NAMES the reference declares: evidence,
     # never words to interpret, so they enter the inventory as names and a
-    # member spelt like an alias stays the boundary it names.
-    for members in rotor_members.values():
-        for member in members:
-            if member not in inventory:
-                inventory.append(member)
+    # member spelt like an alias stays the boundary it names. Over the
+    # geometry's own names they add nothing: the builder read those alone.
+    if exact is None:
+        for members in rotor_members.values():
+            for member in members:
+                if member not in inventory:
+                    inventory.append(member)
     knowable = []
     uncertain: list[bool] = []
     names_of_entry: list[list[str]] = []
@@ -376,7 +445,9 @@ def _matching_distributions(
 
     def entry_matches(k: int, entry: SectionDistribution, inventory: list[str]) -> bool:
         """Whether this entry, read over this inventory, would have emitted the block."""
-        families = cast(list[str], block["families"])
+        # An `all` block is recorded as an empty family list, the command's own
+        # every-boundary form; over the geometry's names it is all of them.
+        families = cast(list[str], block["families"]) or (list(exact) if exact is not None else [])
         if rotors:
             # Use the export builder's grouping and rotor vocabulary, including
             # aliases of rotor names and one emission per blade in LOCAL_AXIS.
@@ -554,6 +625,14 @@ def _matching_distributions(
             return False
         if uncertain[k - 1]:
             return True
+        if exact is not None and (kind_re is None or rotors):
+            # OVER THE GEOMETRY'S OWN NAMES the strict reading of a common
+            # frame, and of an expanding one whose rotors are defined, IS the
+            # builder's, so a certain entry it refused did not emit the block.
+            # An expanding frame without a rotor definition is still read by
+            # the recorded-frame grouping, which is not the builder's, and
+            # keeps the possible reading below.
+            return False
         if kind_re is None and any(
             family_of(name).casefold() == family_of(other).casefold()
             for name in names_of_entry[k - 1]
@@ -630,6 +709,19 @@ def _matching_distributions(
         # builder's and there is nothing uncertain for a possible reading to
         # cover; applying one made a combined entry a possible owner of a
         # smaller block beside it and refused the split, losing both files.
+        if exact is not None and not strict:
+            # BY ELIMINATION, over the geometry's own names (R04 of 0.27.0):
+            # the recorded pproc emitted this block, and every entry the
+            # builder's reading excludes did not, so where exactly one entry
+            # remains possible on the block's frame kind, plane and count
+            # (such as a rotor's name nothing in hand resolves) it is that one's.
+            # Two possible entries name no owner, and the caller falls back
+            # to the cuts. Ownership adds no number, which is why elimination
+            # is allowed here and never for integration.
+            left = [
+                k for k, entry in enumerate(pproc.sections.distributions, 1) if could_own(k, entry)
+            ]
+            return left if len(left) == 1 else []
         return strict
     possible = [
         k
@@ -646,6 +738,7 @@ def _integration_requests(
     aliases: Mapping[str, Sequence[str]] | None = None,
     rotors: Mapping[str, RotorBlock] | None = None,
     literal: frozenset[str] = frozenset(),
+    geometry: Sequence[str] | None = None,
 ) -> tuple[set[int], dict[int, str]]:
     """Bind integration to recorded owners; a doubtful block keeps its file raw."""
     requested: set[int] = set()
@@ -655,7 +748,9 @@ def _integration_requests(
         return requested, errors
     for number, block in enumerate(layout, 1):
         owner = cast(int, block["distribution"])
-        matches = _matching_distributions(record, pproc, block, aliases, rotors, literal)
+        matches = _matching_distributions(
+            record, pproc, block, aliases, rotors, literal, geometry=geometry
+        )
         if len(matches) != 1:
             reason = "ambiguous" if matches else "missing"
             errors[owner] = (
@@ -709,6 +804,7 @@ def write_section_distributions(
     condition: Mapping[str, object] | None = None,
     reference: Mapping[str, object] | None = None,
     rotors: Mapping[str, Mapping[str, object]] | None = None,
+    inventory: Sequence[str] | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write both distribution products from all stamps, or the end-of-run exports.
 
@@ -777,12 +873,23 @@ def write_section_distributions(
         their recorded distribution frame. See `The sections table, and
         which row is which
         <../post-processing-definitions.md#the-sections-table-and-which-row-is-which>`_.
+    inventory : Sequence[str] or None, optional
+        The geometry's boundary names in the solver's order, as the caller
+        recovered them for a record that states none
+        (:meth:`~pyflightstream.workspace.CampaignWorkspace.recorded_inventory`).
+        Omitted, the record's own ``inventory`` is read, and None there leaves
+        the match to the recorded cuts. With the names, a selection is read
+        by the export builder's own expansion over them, for integration and
+        for the ownership of a layout recorded before 0.25.0. See
+        `Integrated sectional loads
+        <../post-processing-definitions.md#integrated-sectional-loads-since-0260>`_.
 
     Returns
     -------
     tuple[list[Path], dict[str, dict[str, object]]]
         Written paths and their product-manifest entries.
     """
+    geometry = list(inventory) if inventory is not None else record.inventory
     folders = [sim_dir / Path(output).parent for output in record.outputs]
     stamped = stamped_exports(sim_dir, stem, *folders)
     if (
@@ -794,7 +901,7 @@ def write_section_distributions(
     ):
         return [], {}  # No requested or recorded sections product applies to this point.
     try:
-        layout, selections = _distributions(record, pproc)
+        layout, selections = _distributions(record, pproc, geometry)
     except ProductError as error:
         for kind in ("sloads", "cp"):
             skipped[f"sections/{stem}_{kind}#distributions"] = str(error)
@@ -813,6 +920,7 @@ def write_section_distributions(
         current_aliases,
         current_rotors,
         _literal_frames(pproc, current_pproc),
+        geometry=geometry,
     )
     if integration_error is not None:
         integrate = set()

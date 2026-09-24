@@ -5033,6 +5033,17 @@ def _execute_sweep(
     setup = script.solver_setup
     if setup is not None:
         base["solver_setup"] = setup.model_dump(mode="json")
+    # R03 of 0.27.0: the names the script was built over, as the point path
+    # records them; the post reads a section selection over them.
+    if script.boundary_inventory is not None:
+        base["inventory"] = list(script.boundary_inventory)
+    # WHICH ROWS OF THE SECTIONS EXPORT ARE WHICH SURFACE, recorded as the
+    # point path records them (0.27.0). The one-job path recorded no layout
+    # since 0.24.0, so the post refused the per-distribution split of every
+    # steady row of several points. The builder creates the distributions
+    # once, for every point of the job, so one layout is every point's.
+    if script.section_blocks:
+        base["sections_layout"] = [dict(block) for block in script.section_blocks]
     # THE HOUSE CONVENTION FOR A SWEEP, not a name of this function's own.
     # A per-polar product table is named by the point name with the swept
     # variable written literally as `sweep`, and a job's script is about
@@ -5741,6 +5752,10 @@ def _execute_point(
         # WHICH ROWS OF THE SECTIONS EXPORT ARE WHICH SURFACE (0.24.0), recorded
         # beside the script that created the distributions.
         base["sections_layout"] = [dict(block) for block in script.section_blocks]
+    # R03 of 0.27.0: the names the script was built over, beside the layout
+    # whose selections the post reads over them.
+    if script.boundary_inventory is not None:
+        base["inventory"] = list(script.boundary_inventory)
     # PFS-2031.13. The child script of a SCRIPT action is parked on the
     # script by helpers.unsteady_action and written HERE, before the
     # solver starts, where the registration line names it: a relative
