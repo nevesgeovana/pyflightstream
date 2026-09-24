@@ -490,6 +490,15 @@ FlightStream versions.
   The unit of `WALLTIME` reads a number and its unit, as `240m` or `4h`, where
   it read `s`, a bare number the reader refuses. `InputKey` takes
   `unscripted`, the sentence a key registers for this (G08).
+- **`examples/additional_post.py` leaves a workspace its licensed
+  continuation runs in.** Its refusal demonstration rewrote `wing.fs` to name
+  the probing `p003` and never restored it, and its stand-in point sat in the
+  same manifest, so `pyfs-matrix run wing.fs` refused the recorded point and
+  `pyfs-matrix post wing.fs --additional-pproc` refused `p003` at binding. The
+  stand-in point is now recorded in a rehearsal copy beside the workspace, the
+  refusal is shown on a matrix of its own, `wing_probes.fs`, and the example
+  ends by checking that the workspace it printed records no point, that
+  `wing.fs` still plans and that its additional post binds `p002` (D11).
 
 ### Changed
 
