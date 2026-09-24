@@ -169,13 +169,12 @@ them close the gap that made the capability unusable:
     describes what you MESHED, so a row declaring it must have staged the
     half model; initializing a mirrored solution with the full model
     loaded diverges immediately, because the model is then its own mirror
-    image (SRC-003 p.217). And a workflow cannot make the post-mirror
-    loads setting explicit, because no cell reaches it: the run takes the
-    solver's own default. That default was calibrated on a licensed
-    26.120 as ENABLE, so the loads are the full model's, which is what a
-    mirrored study wants. It is a default rather than a declaration, and
-    it is measured on ONE build: the user guide emits it explicitly for
-    that reason. A study that needs it stated is a recipe today.
+    image (SRC-003 p.217). Whether the loads are the full model's or the
+    half's is the row's `SYMMETRY_LOADS` column (FR-66), emitted as
+    `SET_ANALYSIS_SYMMETRY_LOADS`; where the row says `-` the setup's
+    `symmetry_loads` answers, and where neither does the run takes the
+    solver's own default, calibrated as ENABLE on a licensed 26.120 and
+    measured on that one build only.
 
 ### A rotor row states the decisions, and the arithmetic is derived
 
@@ -2985,60 +2984,32 @@ build. The guarantee is carried by the lift, not by the block.
 Said plainly, because a page that documents an unbuilt capability is
 worse than no page at all.
 
-- **A row's `REF` code changes no emitted line, and neither does its
-  `BLADES` count.** The reference artifact resolves, and the solver
-  model and the fluid state are still decided in the builders rather
-  than by a cell, so coefficients come out against the solver's own
-  defaults rather than against the areas and lengths the campaign
-  declared, and a case runs `INCOMPRESSIBLE` at sea level whatever the
-  campaign flew. `BLADES` divides the phase-locked averaging window of a
-  row that names NO rotor by alias and nothing else, so it does not
-  configure the rotor and does not interact with the symmetry the row now
-  declares, however reasonably a reader pairs the two cells; since 0.15.0
-  a row that names its rotors takes each blade count from that rotor's own
-  block and needs the cell for nothing (FR-68). Both are scoped, and where they should live is an
-  open design question: a row, like everything else a workflow reads, or
-  a solver-setup preset, since a fluid and a solver model are
-  campaign-wide conditions rather than case identity.
+- **A row's `BLADES` count changes no emitted line, and no cell chooses
+  the solver model.** `BLADES` sizes the phase-locked and per-blade
+  windows of a row that names NO rotor by alias, and nothing else: it
+  does not configure the rotor and does not interact with `SYMMETRY`.
+  Since 0.15.0 a row that names its rotors takes each blade count from
+  that rotor's own block (FR-68). The solver model is the setup preset's
+  `solver_model`, `INCOMPRESSIBLE` when the preset states none; the row's
+  `MACH` does not choose it. The reference (`REF`) and the fluid state of
+  the flight condition reach the script since 0.9.0.
 
 - **You cannot add a workflow of your own.** The table is this
   package's, and there is deliberately no way to register into it: a
   type this package builds is a type it can also refuse before it runs,
   and that guarantee is exactly what a user-supplied entry would remove.
   Your own physics goes in a recipe, which is what recipes are for.
-- **Nothing runs the four reductions for you after a campaign.** The
-  reader, the average, the writing seam and the plan that says which
-  windows all ship, and the composition is executed in the suite. What
-  does not exist is the step that fires it at the end of a run.
-- **No cell reaches the post-mirror loads setting.** A `SYMMETRY: MIRROR`
-  row takes the solver's own default for whether the reported loads are
-  the half model's or the full one's. That default was calibrated on a
-  licensed 26.120 as ENABLE, which is the value a mirrored study wants,
-  so this is a declaration that cannot be made rather than a wrong
-  number being produced, and it rests on one build's measurement. A
-  study that needs it stated explicitly is a recipe today.
 - **A workflow opens a saved simulation only.** No matrix cell declares
   mesh units, so a `.stl` or `.obj` staged in the library resolves
   perfectly well and is then refused when the script is built, rather
   than being imported under a unit nobody chose. Convert it once through
   [mesh inputs](mesh-inputs.md). A recipe of your own is not bound by
   this: it declares the units itself.
-- **A workflow row that names no `GEOMETRY` is accepted in silence.** It
-  emits no open, which is exactly what keeps every pre-v0.8.1 matrix
-  rendering as it did, and it means a row migrated from a recipe by
-  changing `LEGACY` to a workflow name, while keeping a `FSM_FILE` key of
-  its own, opens nothing and is told nothing. Rename the key to
-  `GEOMETRY` when you move a row off `LEGACY`.
-- **No script BUILT BY THE `unsteady_rotor` WORKFLOW has been run on a
-  licensed solver yet.** The workflow is proven to build a script every
-  registered build's command database accepts, which is not the same
-  fact as a solver accepting it. Read `unsteady_rotor` as evidenced
-  against the database and not against a run. The QA physics suite's own
-  unsteady propeller case (PHY-05) HAS run on a licensed machine and
-  sits inside its bands, and it is a different script, hand-built rather
-  than emitted by this workflow.
-- **Naming a second build is no longer a limit.** See the executable
-  registry above, which is this fact's one home.
+- **A workflow row that names no `GEOMETRY` emits no open, and is told
+  nothing.** That is what keeps every pre-v0.8.1 matrix rendering as it
+  did. A row moved off `LEGACY` that keeps a `FSM_FILE` key of its own is
+  refused at plan time naming the key (since 0.13.0), so rename the key
+  to `GEOMETRY` when you move it.
 - **There is no result-array facade.** No interpolation along a named
   axis, no re-parameterisation, no trim extraction. FR-20 carries that
   promise and is `pending`.

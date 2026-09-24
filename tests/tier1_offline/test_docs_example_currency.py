@@ -413,12 +413,44 @@ def test_the_page_says_plainly_what_is_not_built():
     # result is what the author asked for, so the list people read has to
     # carry them by name; when one is closed, its line here goes with the
     # fix rather than being left to pass vacuously.
-    for reaches_nothing in ("REF", "BLADES", "fluid", "solver model"):
+    # REF and the fluid state left this tuple in 0.27.0 (B02): both reach the
+    # script since 0.9.0, so their lines went with the fix, as this rule says.
+    for reaches_nothing in ("BLADES", "solver model"):
         assert reaches_nothing in tail, (
             f"the limits list does not name {reaches_nothing!r}. A row can carry it and "
             "it changes no emitted line, so a reader takes it as shipping and reads "
             "back numbers computed against something else"
         )
+
+
+def test_the_limits_list_does_not_deny_what_ships():
+    """B02: a claim a release closed leaves the limits list with its fix.
+
+    The mirror of the guard above. That one keeps the list naming what is not
+    built; this one keeps it from denying what is. The list said nothing runs
+    the reductions after a campaign (the products stage does, since 0.13.0),
+    that a row's REF changes no emitted line (the reference and the fluid
+    state reach the script since 0.9.0), that no cell reaches the
+    symmetry-loads setting (SYMMETRY_LOADS, FR-66, since 0.15.0) and that no
+    `unsteady_rotor` script had run on a licensed solver (26.000, 0.20.0).
+    The whole page is read, not the section, because the symmetry sentence
+    had a second copy near the top.
+    """
+    text = " ".join(PAGE.read_text(encoding="utf-8").split())
+    retired = {
+        "Nothing runs the four reductions": "the products stage runs them since 0.13.0",
+        "`REF` code changes no emitted line": "the reference reaches the script since 0.9.0",
+        "at sea level whatever the campaign flew": "the fluid state reaches the script since 0.9.0",
+        "No cell reaches the post-mirror loads setting": "SYMMETRY_LOADS reaches it since 0.15.0",
+        "because no cell reaches it": "SYMMETRY_LOADS reaches it since 0.15.0",
+        "has been run on a licensed solver yet": "an unsteady_rotor script ran on 26.000 (0.20.0)",
+        # Only the FSM_FILE case is retired: a row naming NO geometry key still
+        # opens nothing and is told nothing, and the page says so near the example.
+        "its own, opens nothing and is told nothing": "a kept FSM_FILE key is refused since 0.13.0",
+        "Naming a second build is no longer a limit": "a line saying it is no limit is not one",
+    }
+    for claim, why in retired.items():
+        assert claim not in text, f"the page still says {claim!r}, and {why}"
 
 
 def test_the_matrix_example_does_not_deny_the_capability_it_now_has():

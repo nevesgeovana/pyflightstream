@@ -34,6 +34,14 @@ FlightStream versions.
   it. A steady probe export made before this release from a pproc with more
   than one line holds the declared lines N times over, in N repeated blocks
   (B04).
+- **The limits list of `docs/workspace-and-workflows.md` no longer denies
+  what ships.** It said nothing runs the four reductions after a campaign
+  (the products stage has since 0.13.0), that a row's `REF` changes no
+  emitted line (the reference and the fluid state reach the script since
+  0.9.0), that no cell reaches the symmetry-loads setting (`SYMMETRY_LOADS`,
+  FR-66, since 0.15.0) and that no `unsteady_rotor` script had run on a
+  licensed solver (26.000, 0.20.0). The solver model is still the preset's
+  and no row cell chooses it; `BLADES` still changes no emitted line (B02).
 
 ### Owed
 
