@@ -3374,6 +3374,24 @@ class MeshImport(BaseModel):
         """
         return tuple(operation for operation in self.operations if operation.op != "rename")
 
+    def names_after_renames(self, names: Sequence[str]) -> tuple[str, ...]:
+        """Return the boundary names as this import's renames leave them, in order.
+
+        The inventory a row cites for a raw mesh is the sidecar's
+        ``boundaries`` as the ``rename`` operations leave them (G03), which
+        is what the builder declares. This applies them and judges nothing:
+        a rename whose surface is absent at its step, or carried twice, is
+        passed over here and refused by the builder.
+        """
+        renamed = list(names)
+        for operation in self.operations:
+            if operation.op != "rename" or operation.to is None:
+                continue
+            found = [index for index, name in enumerate(renamed) if name == operation.surface]
+            if len(found) == 1:
+                renamed[found[0]] = operation.to
+        return tuple(renamed)
+
 
 #: The ``[trailing_edges]`` routes a raw mesh's sidecar may take (G02): a
 #: file of edge mid-points, the default, or detection, applied only when

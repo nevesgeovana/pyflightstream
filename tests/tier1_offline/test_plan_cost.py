@@ -188,6 +188,37 @@ def test_a_geometry_with_no_mesh_block_leaves_the_column_blank(tmp_path):
     assert row[header.index("mesh")] == NOT_APPLICABLE
 
 
+def test_a_raw_mesh_row_counts_its_marked_boundaries_from_its_declared_inventory(tmp_path):
+    """A raw mesh carries no mesh block, so its names are the sidecar's (G01).
+
+    The column read the names from the file's block alone, and an ``.obj``
+    has none, so every raw-mesh row printed NA while its script marked the
+    boundaries its sidecar declares, under the names the import's renames
+    leave. The fixture renames ``naca`` to ``Wing`` and names a family the
+    mesh does not carry, so a reader of the file's own names answers 0 and
+    one that ignores the geometry answers 2; the builder marks 1.
+    """
+    from pyflightstream.cases import MeshImport, MeshOperation
+
+    mesh = tmp_path / "wing.obj"
+    mesh.write_text("o naca\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", encoding="utf-8")
+    case = steady_case(mesh, vorticity_drag_families=["Wing", "GHOST"]).model_copy(
+        update={
+            "inventory": ("naca", "tail"),
+            "inventory_source": "sidecar",
+            "mesh_import": MeshImport(
+                units="METER",
+                operations=(MeshOperation(op="rename", surface="naca", to="Wing"),),
+            ),
+        }
+    )
+    cost = estimate_point_cost(case, run_id="run/r", recorded=[])
+    assert cost.trailing_edges == 1, cost.trailing_edges
+    table = format_cost_table([cost]).splitlines()
+    header, row = table[0].split(), table[2].split()
+    assert row[header.index("TEs")] == "1", table
+
+
 def test_the_marked_trailing_edges_are_the_families_the_geometry_actually_carries(tmp_path):
     """Two readings of this column printed 0 for every row in the table.
 

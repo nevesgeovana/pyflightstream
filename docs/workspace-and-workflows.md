@@ -2685,7 +2685,9 @@ and in nothing else.
 inventory the geometry declares, which is what the builder does with them; a
 geometry this reader cannot open prints `-` there rather than the row's own
 count, because the two are different quantities and a reader could not tell
-them apart in one cell.
+them apart in one cell. A raw mesh's inventory is its sidecar's `boundaries`
+as the import's renames leave them, since the file carries no mesh block
+(since 0.27.0; before it, every raw-mesh row printed no count here).
 `layers`, `visc` and `procs` are the solver preset's `farfield_layers`,
 `viscous_coupling` and `max_parallel_threads`. `steps` is what the row's clock
 works out to: a rotor row stating `DELTA_THETA: 15` and `REVOLUTIONS: 1.5`
