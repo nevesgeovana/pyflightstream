@@ -14,8 +14,8 @@ judged the point.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
-from pathlib import Path
+from collections.abc import Collection, Sequence
+from pathlib import Path, PureWindowsPath
 
 from pyflightstream.cases import EXPORT_KINDS
 from pyflightstream.results import (
@@ -32,6 +32,7 @@ __all__ = [
     "collected_log_texts",
     "collected_solver_log",
     "reads_as_residual_history",
+    "script_log_names",
     "wake_edge_import_verdict",
     "with_wake_edge_verdict",
 ]
@@ -194,9 +195,47 @@ def collected_solver_log(folder: Path, collected: Sequence[str], named: str | No
 #: scheduler's log to, and the name a local run writes the printed output under.
 _LOG_SUFFIX = next(suffix for kind, suffix, _, _ in EXPORT_KINDS if kind == "log")
 
+#: The commands that write the solver log to a file: the verb of the ``log``
+#: kind of EXPORT_KINDS, which is where the package states which command writes
+#: which export (EXPORT_LOG; the command database marks no other as writing it).
+_LOG_VERBS = frozenset(verb for kind, _, verb, _ in EXPORT_KINDS if kind == "log")
 
-def collected_log_texts(folder: Path, collected: Sequence[str]) -> list[str]:
-    """Return the text of every collected output named as a solver log.
+
+def script_log_names(script_text: str | None) -> list[str]:
+    """Return the name of every file a script tells the solver to write its log to.
+
+    EXPORT_LOG is ``param_lines``: the command alone on its line and the file on
+    the next. The name is the file's own, without its folder, since that is how
+    a collected output is matched to it: the script names the file where the
+    job runs, and the collected entry names it where it was filed. Either
+    separator is read, so a script written for a cluster is read here too.
+
+    Parameters
+    ----------
+    script_text : str or None
+        The script as rendered, or as it stands on disk.
+
+    Returns
+    -------
+    list of str
+        Each name once, in the order the script writes them; empty for no script.
+    """
+    if not script_text:
+        return []
+    lines = script_text.splitlines()
+    names: list[str] = []
+    for line, following in zip(lines, lines[1:], strict=False):
+        if line.strip() in _LOG_VERBS and following.strip():
+            name = PureWindowsPath(following.strip()).name
+            if name not in names:
+                names.append(name)
+    return names
+
+
+def collected_log_texts(
+    folder: Path, collected: Sequence[str], declared: Collection[str] = ()
+) -> list[str]:
+    """Return the text of every collected output that is a solver log.
 
     FOR THE FOUR LINES OF G06, which decide wherever they are logged. The log
     :func:`collected_solver_log` finds is ONE, found by the name an assessor
@@ -207,23 +246,36 @@ def collected_log_texts(folder: Path, collected: Sequence[str]) -> list[str]:
     its file. So the refusal is also read in every output named as a log, which
     is every log this package declares, whatever its content.
 
+    AND EVERY FILE THE POINT WAS TOLD TO WRITE ITS LOG TO, WHATEVER ITS NAME.
+    Read by the suffix alone, a case built in Python or a LEGACY row whose
+    LOG_OUTPUT names ``FlightStreamLog.txt``, or whose script's EXPORT_LOG
+    writes ``log_<point>.txt``, carried its refusal line unread, and the point
+    was recorded CONVERGED where the same bytes under ``run_log.txt`` were
+    FAILED_SCRIPT. Nothing else is read: an export can be large, and what is a
+    log is what the script and the row declared.
+
     Parameters
     ----------
     folder : Path
         The simulation folder the collected entries are relative to.
     collected : sequence of str
         The point's collected outputs.
+    declared : collection of str, optional
+        The names the point's script writes its log to
+        (:func:`script_log_names`) and the output its LOG_OUTPUT names; a
+        folder a name carries is ignored.
 
     Returns
     -------
     list of str
-        The text of each collected output whose name ends in ``_log.txt``, in
-        the order collected; empty when none is collected.
+        The text of each collected output whose name ends in ``_log.txt`` or is
+        one of ``declared``, in the order collected; empty when none is collected.
     """
+    named = {PureWindowsPath(str(name)).name for name in declared}
     return [
         path.read_text(encoding="utf-8", errors="replace")
         for path in (folder / entry for entry in collected)
-        if path.name.endswith(_LOG_SUFFIX) and path.is_file()
+        if (path.name.endswith(_LOG_SUFFIX) or path.name in named) and path.is_file()
     ]
 
 

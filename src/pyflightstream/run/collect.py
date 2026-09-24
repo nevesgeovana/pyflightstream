@@ -943,7 +943,9 @@ def _log_verdicts(
     that reads as a residual history, as the package's own assessor finds it.
     The four G06 lines are read in every collected log besides, found by its
     name: a log carrying no residual table, a scheduler's, is found by neither
-    rule, and its refusal line was left unread under a CONVERGED point.
+    rule, and its refusal line was left unread under a CONVERGED point. A log
+    is every output named ``_log.txt`` and every file the job was told to write
+    its log to, whatever its name (:func:`_declared_log_names`).
     """
     from pyflightstream.run._wake_edge_verdict import (
         actuator_profile_verdict,
@@ -963,11 +965,36 @@ def _log_verdicts(
         status, verdict = with_wake_edge_verdict(
             status, verdict, wake_edge_import_verdict(expected, log_text)
         )
+    declared = _declared_log_names(record, sim_dir)
     return with_wake_edge_verdict(
         status,
         verdict,
-        actuator_profile_verdict(log_text, job_log, *collected_log_texts(sim_dir, collected)),
+        actuator_profile_verdict(
+            log_text, job_log, *collected_log_texts(sim_dir, collected, declared)
+        ),
     )
+
+
+def _declared_log_names(record: RunRecord, sim_dir: Path) -> list[str]:
+    """Name every file a submitted job was told to write its solver log to (G06).
+
+    What the submission recorded (``declared_logs``: the files the job's script
+    exports its log to, and the output a case's LOG_OUTPUT names), and what the
+    job's own script on disk exports its log to, so a job submitted before the
+    names were recorded is read by them too. A log need not end in ``_log.txt``:
+    a case built in Python or a LEGACY row names it as it likes.
+    """
+    from pyflightstream.run._wake_edge_verdict import script_log_names
+
+    recorded = (record.submission or {}).get("declared_logs")
+    names = [str(name) for name in recorded] if isinstance(recorded, list) else []
+    if record.script_path:
+        try:
+            text = (sim_dir / record.script_path).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            text = None
+        names.extend(name for name in script_log_names(text) if name not in names)
+    return names
 
 
 def _collect_by_point(

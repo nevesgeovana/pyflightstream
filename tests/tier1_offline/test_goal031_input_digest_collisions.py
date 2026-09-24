@@ -20,7 +20,12 @@ one job, and through ``run_campaign`` for a case built in Python:
    declared file's digest under the key;
 2. the same bytes arriving twice under one key are one file's digest and not a
    collision: that run is not refused. The refusal compares digests, never
-   names alone.
+   names alone;
+3. two names equal but for case, ``prop.txt`` and ``PROP.txt``, are one file on
+   a case-insensitive file system (Windows), so different bytes under them are
+   refused as under one name: by ``helpers.actuator_disc`` parking the second
+   profile, and in any case by the run's writer before the solver starts. The
+   test asserts the refusal, never an overwrite, so it holds on any file system.
 
 Nothing here runs a solver.
 """
@@ -33,12 +38,12 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._digest import file_sha256
-from pyflightstream.cases import Campaign, SimCase, SweepAxis
+from pyflightstream.cases import Campaign, CampaignConfigError, SimCase, SweepAxis
 from pyflightstream.cases import matrix as matrix_mod
 from pyflightstream.cases.workflows import workflow_registry
-from pyflightstream.run import CampaignErrors, run_campaign
+from pyflightstream.run import CampaignErrors, _write_pending_files, run_campaign
 from pyflightstream.run.matrix import run_matrix
-from pyflightstream.script import helpers
+from pyflightstream.script import CommandArgumentError, Script, helpers
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
 from tests.tier1_offline.test_g06_actuator_disc import AS_SAVED, REFERENCE_WITH_A_DISC
 from tests.tier1_offline.test_g15_custom_freestream import SHEARED
@@ -277,3 +282,65 @@ def test_the_same_bytes_twice_under_one_key_are_one_file_and_run(tmp_path):
     assert started, "the point never reached the solver"
     assert record.status is RunStatus.CONVERGED, (record.status, record.error)
     assert record.inputs_sha256.get("wing.wake_nodes.txt") == file_sha256(field)
+
+
+# --- one name but for case: one file on a case-insensitive file system ---------------
+
+#: Two loadings of a disc, the second another rotor's: as rendered, so what the run
+#: writes is exactly these bytes.
+LOADING = "0.1,1.0\n0.5,2.0"
+OTHER_LOADING = "0.1,5.0\n0.5,6.0"
+
+
+def test_two_files_whose_names_differ_only_in_case_are_one_file_and_refused(tmp_path):
+    """A Python recipe calling ``actuator_disc(profile_text=...)`` twice, on ``prop.txt`` and
+    ``PROP.txt`` with different loadings. On Windows the second write replaces the first, so
+    both discs read the second loading while ``inputs_sha256['prop.txt']`` records the first.
+    Refused where the second profile is parked, and in any case by the run's writer; the
+    same bytes under both names stay accepted, under the keys the script named."""
+    work = tmp_path / "DP-point"
+    lower, upper = str(work / "prop.txt"), str(work / "PROP.txt")
+    disc = {"frame": 2, "axis": "X", "offset": 0.0, "r_tip": 0.5, "r_hub": 0.1, "rpm": 2400.0}
+    script = Script("26.124")
+    script.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    helpers.actuator_disc(script, "PROP", **disc, profile=lower, n_blades=3, profile_text=LOADING)
+    before = script.render()
+
+    # The helper parking the second profile sees the first.
+    with pytest.raises(CommandArgumentError, match=r"already writes a different file.*case"):
+        helpers.actuator_disc(
+            script, "FAN", **disc, profile=upper, n_blades=3, profile_text=OTHER_LOADING
+        )
+    assert script.render() == before, "the refused disc left lines in the script"
+    assert script.pending_input_files == {lower: LOADING.encode()}, script.pending_input_files
+
+    # The run's writer refuses them however they were parked (here past the helper), before
+    # the solver starts: a declared input and a written file, then two written files.
+    field = tmp_path / "freestreams" / "PROP.txt"
+    field.parent.mkdir()
+    field.write_text(SHEARED, encoding="utf-8")
+    case = SimCase(
+        sim_id="9002",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="discs",
+        outputs=["loads_{point}.txt"],
+        freestream_profile=str(field),
+    )
+    with pytest.raises(CampaignConfigError, match=r"'PROP\.txt', the same name but for case"):
+        _write_pending_files(script, work, case=case, recorded={"PROP.txt": file_sha256(field)})
+    script._pending_input_files[upper] = OTHER_LOADING.encode()
+    with pytest.raises(CampaignConfigError) as refused:
+        _write_pending_files(script, work, case=case, recorded={})
+    message = str(refused.value)
+    for needle in (lower, upper, "'9002'", "inputs_sha256", "the solver was not started"):
+        assert needle in message, f"the refusal does not name {needle}: {message}"
+
+    # THE CONTROL: the same bytes under both spellings are one file's content, and run.
+    same = Script("26.124")
+    same.emit("CREATE_NEW_COORDINATE_SYSTEM")
+    for name, path in (("PROP", lower), ("FAN", upper)):
+        helpers.actuator_disc(same, name, **disc, profile=path, n_blades=3, profile_text=LOADING)
+    digest = _write_pending_files(same, work, case=case, recorded={})
+    assert digest == dict.fromkeys(("prop.txt", "PROP.txt"), file_sha256(work / "prop.txt"))
