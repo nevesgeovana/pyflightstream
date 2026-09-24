@@ -30,6 +30,7 @@ them was inferred from an implementation.
 - [Native surface flow exports](#native-surface-flow-exports)
 - [The solver's own plots](#the-solvers-own-plots)
 - [A volume section](#a-volume-section)
+- [The additional post](#the-additional-post)
 - [The unsteady POLAR](#the-unsteady-polar)
 - [Rotor coefficients](#rotor-coefficients)
 - [What the package does NOT judge](#what-the-package-does-not-judge)
@@ -214,6 +215,10 @@ than a row given none.
 `STEP`, not an average over the window, and its `products.json` entry says
 `"kind": "instant"`. The history is `series/<point>_sections_series.csv`,
 which carries the same identity on every row.
+
+The sections table of an additional post holds the run's rows first and the
+additional pproc's after them; [The additional post](#the-additional-post) says
+how each is named.
 
 ### Per-distribution sectional loads and Cp (0.25.0)
 
@@ -802,7 +807,7 @@ files above, and the package writes no product from it:
 | field | definition |
 |---|---|
 | file | `{name}_vsec.vtk` (`format = "vtk"`, `EXPORT_VOLUME_SECTION_VTK`) or `{name}_vsec.dat` (`format = "tecplot"`, `EXPORT_VOLUME_SECTION_TECPLOT`), in the point's `datapoints/DP-<point>/`, hashed in its record |
-| plane | a rectangle between two diagonal corners, or an annulus between two radii, in the `plane` of the named `frame`, `offset` along its normal |
+| plane | a rectangle between two diagonal corners (`corners_m`), or an annulus between two radii (`radii_m`), in the `plane` of the named `frame`, `offset_m` along its normal; every length in metres |
 | instant | the converged state of THAT point: the section is created after the point's `START_SOLVER`, and a later point of a sweep deletes the previous section before creating its own, so each file is its own point's plane |
 
 The `_vsec` infix is what tells the file from a surface export of the same
@@ -810,6 +815,75 @@ extension. There is one section per pproc; an unsteady row naming a pproc that
 declares one is refused, because its step exports run before a section cut
 after the march exists. The commands are verified on 26.120 to 26.124 one at a
 time; the delete-then-create sequence of a sweep is not measured.
+
+## The additional post
+
+A row that names a second pproc, `ADDITIONAL_PPROC: p<id>`, has that pproc
+extracted from each recorded point's final saved simulation by
+`pyfs-matrix post <matrix> --additional-pproc`, with no solve (since 0.27.0).
+This section defines what comes back and what the products of it are.
+
+**What a reopened saved simulation gives back.** Measured on 26.124 against the
+run's own exports ([RPT-062](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-062_what-a-reopened-simulation-gives-back_2026-09-23.md)):
+
+| export | reopened, with no solve |
+|---|---|
+| total loads | identical |
+| surface solution | identical bytes |
+| surface sections, a distribution created after reopening included | identical |
+| sectional loads | identical once computed after reopening, and zero until then: the file stores the sections and not their loads, so the extraction computes them every time |
+| plots history of an unsteady point | identical |
+| probe points, off the body | NOT identical: updated or created after reopening, they differ from the run's |
+
+Only 26.124 was measured, so a row on another build stating the key is refused
+at plan. The field off the body (probe points and a volume section), the plots
+of a march and a surface averaged in time are refused in an additional pproc
+for the same reason: nothing measured says a reopened file gives them back.
+
+**One instant on an unsteady point.** The saved simulation of an unsteady run
+is its LAST instant, so every table of an unsteady extraction is one instant
+and not the run's history: the sections table's `STEP` is the run's last time
+step and its entry says `"kind": "instant"`, and the post log says it once per
+extraction. The plots history the extraction exports is the run's own, so the
+plots tables and the reductions over it are the run's history read under the
+additional pproc.
+
+**The products.** Written by the post under `post/<matrix>/additional/<pid>/`,
+beside the run's own and never over them, by the builders the run's products
+use: the additional pproc's group polars on a steady point, one sections table
+per point, and on an unsteady point the plots tables and their reductions.
+Every entry of `products.json` for them carries:
+
+| key | meaning |
+|---|---|
+| `pproc` | the ADDITIONAL pproc id, not the one the row ran with |
+| `additional` | always `true`, written `"additional": true`; a reader that takes every entry as a product of a run filters on it |
+| `extraction` | the extractions the file holds, each `<point run id>/additional/<pid>` |
+| `derives_from` | the points those extractions were taken from |
+
+and no `runs`, which names run ids everywhere else in the index. The surface
+exports and the plots history of an extraction are indexed as the solver wrote
+them, in the point's `datapoints/DP-<point>/additional/<pid>/`, with the same
+marks.
+
+**Which rows the sections table holds.** A reopened sections export carries the
+distributions the run created FIRST and the additional pproc's after them
+(RPT-062). The table keeps every row: the layout the extraction records is the
+run's own blocks followed by the new ones, numbered on after the run's and
+marked with the pproc, so `FAMILY` and `PLANE` say which row is which, and the
+extraction's `leading_sections` counts the run's rows at the head. A layout
+whose counts do not add up to the export states `NA`, as on the run's own
+table.
+
+**When an extraction stops counting.** Only a CURRENT extraction has products:
+its point is a record the post admits, the point's saved simulation still
+hashes as the one the extraction opened, and every file the extraction wrote is
+on disk and hashes as recorded. A point that ran again, by a forced rerun or a
+continuation, archives its folder with the extraction in it; the old extraction
+is then stale, the post skips it under `additional/<pid>/runs/<extraction id>`
+and never under the run's own key, so no product of the run is retired for it,
+and a previous additional product nothing current supplies is archived like a
+refused table. The next `--additional-pproc` extracts the point again.
 
 ---
 

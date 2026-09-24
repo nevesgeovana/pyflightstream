@@ -316,6 +316,7 @@ read by the package rather than ignored:
 | v0.18.0 | `RESTART` now RUNS (FR-96). Two further names are reserved and they are the PACKAGE'S to set, never a row's: `RESTART_FROM`, the saved simulation a continuation opens, and `RESTART_ITERATIONS`, the remaining step count. The run path resolves both from the recorded run being continued and writes them onto the case; a row that states either is refused, because stating them by hand would skip the resolution that checks a recorded run exists, that its status is continuable, and that its outputs are archived before they are replaced |
 | v0.19.0 | `TRANSLATE`, a list of records, one translation of the opened mesh each, in the order written and before every rotation: `TRANSLATE: {DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X / ALIAS: PUSHER}, {...}`; on every run type that reads `ROTATE`, the distance in metres along one axis of the named frame (FR-100), see [One row, one geometry, moved](#one-row-one-geometry-moved) |
 | v0.23.0 | `LAST_REVS_AVG` and `LAST_ITERS_AVG`, the AVERAGING WINDOW of an unsteady point, one per row at most: the first on `unsteady_rotor` only, a count of the last revolutions that accepts a float (`LAST_REVS_AVG: 0.25`); the second a count of the last iterations, the key of an `unsteady` row and read on a rotor row too. Written in UPPER CASE like every key of this cell, which is matched on its exact spelling: `last_revs_avg` is refused as a key of no run type. A row stating both is refused naming both. Since 0.26.0, `WINDOW_DEGREES`, `WINDOW_STEPS` and `WINDOW_REVOLUTIONS` are refused: write `LAST_REVS_AVG` or `LAST_ITERS_AVG`, dividing degrees by 360. See [The window, said once](#the-window-said-once) and [the definition of record](post-processing-definitions.md#the-averaging-window) |
+| v0.27.0 | `ADDITIONAL_PPROC`, ONE pproc id (`ADDITIONAL_PPROC: p002`), on every run type and read by NO builder: a row stating it runs byte for byte as it would without it, and `pyfs-matrix post --additional-pproc` extracts that pproc from each point's final saved simulation with no solve (G12). Refused on a `LEGACY` row and on a build other than 26.124; a comma list is not one id and is refused like any id of the wrong shape. See [Extracting more from a finished point](#extracting-more-from-a-finished-point-the-additional-post) |
 
 **`BASE_REGIONS` NAMES THE BASE, NOT THE BODY.** The command it emits,
 `DETECT_BASE_REGIONS_BY_SURFACE <index>`, takes the boundary that becomes the
@@ -1733,14 +1734,15 @@ it under the point's own name (FR-110):
 shape = "rectangle"                 # or "circle"
 frame = "MRP"                       # the frame the plane lies in; MRP unless stated
 plane = "XZ"                        # XY, XZ or YZ of that frame
-offset = 0.0                        # along the plane's normal, simulation length units
-corners = [-1.0, -1.0, 1.0, 1.0]    # rectangle: x1, y1, x2, y2, two diagonal corners
+offset_m = 0.0                      # along the plane's normal, in metres
+corners_m = [-1.0, -1.0, 1.0, 1.0]  # rectangle: x1, y1, x2, y2, two diagonal corners
 format = "vtk"                      # or "tecplot"
 ```
 
-A circle states `radii = [r1, r2]` (inner and outer, `0 <= r1 < r2`) and
-`points = [ipts, jpts]` (radial and azimuthal segments) instead of `corners`;
-a rectangle may state `refinement_layers` (1 unless stated). Each shape's keys
+A circle states `radii_m = [r1, r2]` (inner and outer, `0 <= r1 < r2`) and
+`points = [ipts, jpts]` (radial and azimuthal segments) instead of `corners_m`;
+a rectangle may state `refinement_layers` (1 unless stated). Every length is
+in metres, the simulation's length unit, and its key says so. Each shape's keys
 are refused on the other, and a shape missing its own is refused naming them.
 The frame is `MRP` or a frame the reference declares or a rotor carries, and a
 frame the run did not create is refused when the script is built, naming the
@@ -2888,6 +2890,103 @@ claiming both runs. That is refused at plan time, before anything runs,
 as it was before this release; what changed is the reason, not the rule.
 Two outputs of ONE point may not share a name either, and there the old
 reason still holds: they land in one folder under one base name.
+
+### Extracting more from a finished point: the additional post
+
+A row may name a second post-processing artifact, `ADDITIONAL_PPROC: p<id>` in
+its `VAR_NAMES_VALUES` cell (since 0.27.0, G12). The row runs exactly as it
+would without it: no builder reads the key and the run record never carries it
+(`test_g12_a_row_stating_additional_pproc_plans_ready`). Afterwards, over the
+points the run recorded, one command extracts that artifact from each point's
+final saved simulation, with no solve:
+
+    VAR_NAMES_VALUES
+    ADDITIONAL_PPROC: p002
+
+    pyfs-matrix post extracted.fs --workspace . --additional-pproc
+
+**What it does, per point.** It copies the point's `.fsm` into
+`sims/sim_<POL>/datapoints/DP-<point>/additional/<pid>/` and checks that the
+copy hashes as the run record says, writes a script under
+`sims/sim_<POL>/scripts/additional/<pid>/` and runs it in that folder, one
+solver launch per point. The script opens the copy, creates the artifact's
+section distributions in the frames the run created, updates the sections and
+computes their sectional loads, exports the loads table, the surface solution
+the artifact's `[exports]` selects (Tecplot unless it says false, VTK and CSV
+where it says true), the sections, the sectional loads, the log and, on an
+unsteady point, the plots history, and closes. It never solves, never saves and
+never writes a probe (`test_g12_the_additional_script_never_solves_and_never_saves`).
+The copy is removed afterwards and the original `.fsm` is hashed again; an
+extraction that finds the original changed is recorded failed.
+
+**Where the record goes.** Each extraction is recorded in `additional.json` at
+the workspace root, beside `runs.json`: the hash of the saved simulation it
+opened, its script, the files it wrote and their hashes. `runs.json` is never
+written, so every point keeps the record its run wrote
+(`test_g12_the_original_run_record_and_manifest_are_untouched`). The post then
+writes the products of every current extraction under
+`post/<matrix>/additional/<pid>/`, marked with the pproc; the
+[definition of record](post-processing-definitions.md#the-additional-post)
+says which.
+
+**Who is extracted, and every reason a point is not.** A point is skipped by
+name, with the path or the hashes involved, when:
+
+- its row states no `ADDITIONAL_PPROC` (`NO_KEY`);
+- its record names no `.fsm`, or the file it names is not there
+  (`NO_SAVED_SIMULATION`);
+- the file does not hash as its record says (`HASH_MISMATCH`, naming both
+  digests,
+  `test_g12_a_point_whose_saved_simulation_does_not_match_its_record_is_skipped_naming_both_hashes`);
+- the same artifact was already extracted from the same bytes
+  (`ALREADY_EXTRACTED`);
+- the build the row names today is not the one the point ran on
+  (`BUILD_CHANGED`): a saved simulation is reopened on the build that saved it;
+- the run averaged its surface in time (`SURFACE_AVERAGED`): whether a reopened
+  file gives back the average or an instant was not measured;
+- the run's recorded script created other frames than the row creates today,
+  or declared other boundaries (`SCRIPT_DRIFT`): a distribution would be cut in
+  the wrong frame;
+- the point is still in a scheduler's queue (`NOT_FINISHED`), a continuation
+  replaced it (`SUPERSEDED`), or its row is no longer active
+  (`ROW_NOT_ACTIVE`).
+
+**What the plan refuses, before a seat is spent.** An id the input library
+lacks, naming the key and `inputs/pproc/<id>.toml`. An additional artifact
+declaring `[[probes]]` or a `[volume_section]`: probe points updated or created
+after reopening differ from the run's ([RPT-062](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-062_what-a-reopened-simulation-gives-back_2026-09-23.md)),
+and the field off the body does not come back as the run left it. `[plots]` or
+`[time_averaging]`, which fill during a march the extraction does not run.
+`base_regions`, a mark made on a mesh before its solve. An `[exports]` turning
+the sections or the sectional loads off, which the extraction always writes, or
+turning on the probe points, the force distribution or a solver plot, which it
+never writes. The key on a `LEGACY` row, whose recipe creates its frames by
+rules of its own. And a row on a build other than 26.124, the one build RPT-062
+measured.
+
+**An unsteady point gives one instant.** The saved simulation of an unsteady
+run holds its LAST instant (RPT-062), so what the extraction gives there is that
+instant and not the run's per-step history. `pyfs-matrix plan` warns naming such
+rows, the extraction warns per point and says so in its record, and the plots
+history it exports is the run's own.
+
+**The command line.** `--additional-pproc` needs the matrix, since the key is
+read from its rows, and takes `--fs-version`, `--fs-exe`, `--local` and
+`--recipe` as `run` does; each of those four is refused without it. It prints
+one line per point, extracted, failed or skipped with its reason, then posts.
+A failed extraction exits 2, and `--strict` exits 3 when a point was skipped for
+a reason that asks something of you; a row without the key, an extraction
+already done and a continued run ask nothing.
+
+**The executor is the one `run` would build**, so `--local` means the same
+thing. On a machine that would submit, a Linux cluster with a submission
+profile, the additional post is refused before anything is written, naming
+`--local`: completing a submitted extraction is not built in 0.27.0.
+
+**A rerun or a continuation archives the extraction with its run**, since
+`additional/` sits inside the point's own folder. The old extraction is then
+stale, the post skips it under its own key and retires none of the run's
+products for it, and the next `--additional-pproc` extracts the new run.
 
 ### Before you spend the seat: what the study will cost
 

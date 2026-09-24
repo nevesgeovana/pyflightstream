@@ -803,8 +803,8 @@ VOLUME_SECTION_PRISMS: tuple[str, float, int, float] = ("NONE", 0.1, 1, 1.2)
 
 #: The keys each volume-section shape states, and so the keys the other refuses.
 _VOLUME_SECTION_SHAPE_KEYS: dict[str, tuple[str, ...]] = {
-    "rectangle": ("corners", "refinement_layers"),
-    "circle": ("radii", "points"),
+    "rectangle": ("corners_m", "refinement_layers"),
+    "circle": ("radii_m", "points"),
 }
 
 
@@ -831,19 +831,19 @@ class VolumeSectionSpec(BaseModel):
         not create is refused when the script is built.
     plane : {'XY', 'XZ', 'YZ'}
         The frame's plane the section lies in.
-    offset : float
+    offset_m : float
         The plane's distance from the frame origin along its normal, in
-        simulation length units.
-    corners : tuple of four floats
-        Rectangle only: ``x1, y1, x2, y2``, the two diagonal corners the
-        command takes, in the plane. Which in-plane axis each pair runs along
-        is the manual's (SRC-003 p.366); the verified probes cut the square
-        from -1 to 1 and nothing else.
+        metres, the simulation's length unit.
+    corners_m : tuple of four floats
+        Rectangle only: ``x1, y1, x2, y2`` in metres, the two diagonal corners
+        the command takes, in the plane. Which in-plane axis each pair runs
+        along is the manual's (SRC-003 p.366); the verified probes cut the
+        square from -1 to 1 and nothing else.
     refinement_layers : int
         Rectangle only: the command's refinement layer count, 1 unless stated.
         Only 1 has been sent to a solver.
-    radii : tuple of two floats
-        Circle only: the inner and outer radius, ``0 <= r1 < r2``.
+    radii_m : tuple of two floats
+        Circle only: the inner and outer radius in metres, ``0 <= r1 < r2``.
     points : tuple of two ints
         Circle only: ``ipts`` radial and ``jpts`` azimuthal segments.
     format : {'vtk', 'tecplot'}
@@ -856,10 +856,10 @@ class VolumeSectionSpec(BaseModel):
     shape: Literal["rectangle", "circle"]
     frame: str = "MRP"
     plane: Plane
-    offset: float = 0.0
-    corners: tuple[float, float, float, float] | None = None
+    offset_m: float = 0.0
+    corners_m: tuple[float, float, float, float] | None = None
     refinement_layers: int = Field(default=1, ge=1)
-    radii: tuple[float, float] | None = None
+    radii_m: tuple[float, float] | None = None
     points: tuple[Annotated[int, Field(ge=1)], Annotated[int, Field(ge=1)]] | None = None
     format: Literal["vtk", "tecplot"] = "vtk"
 
@@ -890,26 +890,26 @@ class VolumeSectionSpec(BaseModel):
             raise ValueError(
                 f"[volume_section] shape = {self.shape!r} needs {' and '.join(needed)}; "
                 + (
-                    "a rectangle takes corners, the two diagonal corners x1, y1, x2, y2 "
-                    "in the plane"
+                    "a rectangle takes corners_m, the two diagonal corners x1, y1, x2, y2 "
+                    "in the plane, in metres"
                     if self.shape == "rectangle"
-                    else "a circle takes radii, the inner and outer radius r1, r2, and "
-                    "points, the ipts radial and jpts azimuthal segments"
+                    else "a circle takes radii_m, the inner and outer radius r1, r2 in "
+                    "metres, and points, the ipts radial and jpts azimuthal segments"
                 )
             )
-        if self.corners is not None:
-            x1, y1, x2, y2 = self.corners
+        if self.corners_m is not None:
+            x1, y1, x2, y2 = self.corners_m
             if x1 == x2 or y1 == y2:
                 raise ValueError(
-                    f"[volume_section] corners = {list(self.corners)} enclose no area: two "
-                    "diagonal corners differ in both coordinates"
+                    f"[volume_section] corners_m = {list(self.corners_m)} enclose no area: "
+                    "two diagonal corners differ in both coordinates"
                 )
-        if self.radii is not None:
-            inner, outer = self.radii
+        if self.radii_m is not None:
+            inner, outer = self.radii_m
             if not 0.0 <= inner < outer:
                 raise ValueError(
-                    f"[volume_section] radii = {list(self.radii)}: the inner radius r1 is at "
-                    "least 0 and smaller than the outer r2"
+                    f"[volume_section] radii_m = {list(self.radii_m)}: the inner radius r1 "
+                    "is at least 0 and smaller than the outer r2"
                 )
         return self
 

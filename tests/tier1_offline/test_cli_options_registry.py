@@ -117,6 +117,11 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # Linux would submit is a decision about one invocation, recorded on
     # every record as forced_local, never a default a registry could hold.
     ("pyfs-matrix", "local"): SWITCH,
+    # G12 of 0.27.0: whether THIS post first reopens every recorded point's
+    # saved simulation and extracts the pproc its row names is the invocation's
+    # intent, a launch per point; a registry default would spend seats on a
+    # rebuild nobody asked to run anything.
+    ("pyfs-matrix", "additional_pproc"): SWITCH,
     # 0.21.0: `rename` rehearses with --dry-run, which is a mode switch of the
     # one invocation and changes nothing about the workspace it reads.
     ("pyfs-matrix", "dry_run"): SWITCH,
@@ -255,8 +260,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-manual", "source"): frozenset({"coverage", "draft"}),
     ("pyfs-manual", "versions"): frozenset({"draft"}),
     ("pyfs-manual", "write"): frozenset({"draft", "register"}),
-    ("pyfs-matrix", "fs_exe"): frozenset({"convert", "plan", "run"}),
-    ("pyfs-matrix", "fs_version"): frozenset({"convert", "plan", "run"}),
+    ("pyfs-matrix", "additional_pproc"): frozenset({"post"}),
+    ("pyfs-matrix", "fs_exe"): frozenset({"convert", "plan", "post", "run"}),
+    ("pyfs-matrix", "fs_version"): frozenset({"convert", "plan", "post", "run"}),
     ("pyfs-matrix", "geometry"): frozenset({"inventory"}),
     ("pyfs-matrix", "ignore_missing_families"): frozenset({"plan", "run"}),
     ("pyfs-matrix", "in_place"): frozenset({"upgrade"}),
@@ -270,13 +276,13 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "watch"): frozenset({"collect"}),
     ("pyfs-matrix", "post"): frozenset({"collect"}),
     ("pyfs-matrix", "check_frozen"): frozenset({"collect", "post"}),
-    ("pyfs-matrix", "local"): frozenset({"run"}),
+    ("pyfs-matrix", "local"): frozenset({"post", "run"}),
     ("pyfs-matrix", "interval"): frozenset({"collect"}),
     ("pyfs-matrix", "watch_interval"): frozenset({"collect"}),
     ("pyfs-matrix", "rounds"): frozenset({"collect"}),
     ("pyfs-matrix", "point_name"): frozenset({"plan", "run"}),
     ("pyfs-matrix", "dry_run"): frozenset({"rename"}),
-    ("pyfs-matrix", "recipe"): frozenset({"convert", "plan", "run"}),
+    ("pyfs-matrix", "recipe"): frozenset({"convert", "plan", "post", "run"}),
     ("pyfs-matrix", "refuse_missing_families"): frozenset({"plan", "run"}),
     ("pyfs-matrix", "resume"): frozenset({"run"}),
     ("pyfs-matrix", "force_rerun"): frozenset({"run"}),

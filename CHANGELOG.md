@@ -164,10 +164,10 @@ FlightStream versions.
   beside `kutta_joukowski_lift = true` plans with a warning (G14).
 - **A volume section, declared in the pproc and exported by every steady point
   (G05, FR-110).** `[volume_section]` declares ONE flow-field plane: `shape =
-  "rectangle"` (`corners = [x1, y1, x2, y2]`, optional `refinement_layers`) or
-  `"circle"` (`radii = [r1, r2]`, `points = [ipts, jpts]`), in a `plane` (XY,
-  XZ, YZ) of a `frame` (`MRP` unless stated) at an `offset`, with `format`
-  `vtk` or `tecplot`. Each point of a steady row cuts it after its solve and
+  "rectangle"` (`corners_m = [x1, y1, x2, y2]`, optional `refinement_layers`)
+  or `"circle"` (`radii_m = [r1, r2]`, `points = [ipts, jpts]`), in a `plane`
+  (XY, XZ, YZ) of a `frame` (`MRP` unless stated) at an `offset_m`, every
+  length in metres, with `format` `vtk` or `tecplot`. Each point of a steady row cuts it after its solve and
   exports it to `<point>_vsec.vtk` or `<point>_vsec.dat`, collected into its
   `datapoints/DP-<point>/` and hashed in its record; a later point of a sweep
   deletes the previous section first. The five commands are verified one at a
@@ -186,6 +186,39 @@ FlightStream versions.
   enable commands ran with their effect unobserved; a disc on unsteady and
   rotor rows is not measured. `helpers.actuator_disc` refuses the profile
   route on 25.000 and 25.100 before writing anything.
+
+- **`pyfs-matrix post --additional-pproc` extracts more from a finished point
+  without solving it again** (G12, FR-111). A row may state `ADDITIONAL_PPROC:
+  p<id>` in its `VAR_NAMES_VALUES` cell; no builder reads it, the row's script
+  is byte for byte the one without it, and the run record never carries it.
+  The command takes every recorded point of such a row whose final `.fsm` is
+  on disk and hashes as its record says, copies it into
+  `datapoints/DP-<point>/additional/<pid>/`, and runs one script there that
+  opens the copy, creates the pproc's section distributions in the frames the
+  run created, updates the sections, computes their sectional loads, exports
+  the loads, the surface solution `[exports]` selects, the sections, the
+  sectional loads, the log and, on an unsteady point, the plots history, and
+  closes: no solve, no save, no probe. Each extraction is recorded in a new
+  `additional.json` beside `runs.json`, which is never written, and the
+  original `.fsm` is hashed again after the launch. The post then writes the
+  products of every current extraction under
+  `post/<matrix>/additional/<pid>/`, each `products.json` entry marked
+  `"pproc"`, `"additional": true`, `"extraction"` and `"derives_from"`. A
+  point is skipped by name when its row states no key, its `.fsm` is absent or
+  does not hash as recorded, it was already extracted from the same bytes, its
+  build changed, its run averaged its surface in time, or its row no longer
+  creates the frames its run created. The plan refuses an additional pproc
+  declaring probes or a volume section (RPT-062: the field off the body does
+  not come back), plots, time averaging or base regions, or an `[exports]`
+  turning the sections or their loads off; the key on a `LEGACY` row; and a
+  row on a build other than 26.124, the one build RPT-062 measured. It warns
+  that an unsteady row's extraction is its last instant. The executor is the
+  one `run` would build and `--local` means the same; a machine that would
+  submit is refused naming `--local`. Library: `plan_additional_post` and
+  `run_additional_post` in `pyflightstream.run.matrix`, `AdditionalRecord` and
+  `ExtractionStatus` in `pyflightstream.workspace`, `build_additional_script`
+  and its helpers in `pyflightstream.cases.workflows`, and
+  `Script.frames_by_name`.
 
 ### Fixed
 
@@ -376,6 +409,11 @@ FlightStream versions.
   of those references is 1.0 work (PFS-2006.02).
 
 ### Owed
+
+- **The licensed end-to-end run of the additional post** (T10): until it runs,
+  the extraction script is pinned by its goldens and the stub solver alone.
+- **The submitting half of the additional post** (0.28.0): completing an
+  extraction handed to a scheduler.
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
   Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the

@@ -72,7 +72,11 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: requirement is new and its test was written with it: the setup's
 #: custom flags are measured on both sides, the line that reaches the
 #: script and each of the three ways to get it wrong.
-MARKED_FLOOR = 21
+#: Raised from 21 to 22 on 2026-09-24 (G12 of 0.27.0), for FR-111. The
+#: requirement is new and its tests were written with it: a row stating the
+#: additional pproc plans READY, and each point is extracted into its own
+#: folder, hashed, with the run's own record untouched.
+MARKED_FLOOR = 22
 
 
 def _marked() -> dict[str, list[str]]:

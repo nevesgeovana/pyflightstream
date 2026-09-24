@@ -249,23 +249,24 @@ from pyflightstream.results import (
     superseded_by_a_continuation,
 )
 from pyflightstream.script.solver_setup import VORTICITY_COMMAND
-from pyflightstream.workspace import RunStatus
+from pyflightstream.workspace import ExtractionStatus, RunStatus
 from pyflightstream.workspace.flight_condition import resolve_flight_condition
 from pyflightstream.workspace.inputs import resolve_reference, rotor_integration_groups
+from pyflightstream.workspace.naming import (
+    ADDITIONAL_DIR,
+    group_token,
+    sweep_file_stem,
+)
 from pyflightstream.workspace.naming import (
     ARCHIVE_DIR as ARCHIVE_DIR,
 )
 from pyflightstream.workspace.naming import (
     ARCHIVE_STAMP as ARCHIVE_STAMP,
 )
-from pyflightstream.workspace.naming import (
-    group_token,
-    sweep_file_stem,
-)
 
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow
-    from pyflightstream.workspace import CampaignWorkspace, RunRecord
+    from pyflightstream.workspace import AdditionalRecord, CampaignWorkspace, RunRecord
 
 __all__ = [
     "ADVANCE_RATIO_COLUMN",
@@ -6436,6 +6437,9 @@ def write_campaign_products(
     A warning raised by code outside the package is not logged. A rebuild
     archives both files with the same stamp as the products. See
     docs/post-processing-definitions.md for the sample and refusal rules.
+    Since 0.27.0 (G12) the products of the additional post's current
+    extractions are written too, under ``additional/<pid>/``, from
+    ``additional.json``; the stage still launches nothing.
     """
     import pyflightstream
 
@@ -6567,6 +6571,11 @@ def _campaign_products(
     after the plots tables of every point are on disk, because a superfile
     carries the unsteady post-process's own parameters and one row per
     converged point.
+
+    Since 0.27.0 (G12) it reads ``additional.json`` too and writes the
+    products of every current extraction of the additional post under
+    ``additional/<pid>/``, each marked with the pproc, as additional, and with
+    its extractions (:func:`_additional_products`).
 
     Since 0.26.0 native logs are read tolerantly in both modes. Doubts warn
     in post.log by default; check_frozen=True refuses affected averages.
@@ -6757,6 +6766,14 @@ def _campaign_products(
                     name,
                     f"retired previous table of simulation {entry['sim_id']}: no current "
                     "product uses this name; polar names follow contributing records",
+                )
+        # G12: an additional product no current extraction supplies is retired,
+        # archived like a refused table, rather than left in its folder unnamed.
+        for name in previous_products:
+            if name.startswith(f"{ADDITIONAL_DIR}/") and name not in products_index:
+                skipped.setdefault(
+                    name,
+                    "retired previous additional product: no current extraction supplies this file",
                 )
         refused = products_to_retire(skipped, previous_products)
         for name in refused - products_index.keys():
@@ -6958,6 +6975,22 @@ def _write_the_products(
         # A reduction the row could not window is a skip under the file it
         # would have been (PFS-2015.04), beside the simulations refused whole.
         skipped.update(reductions_skipped)
+    # G12: THE PRODUCTS OF THE ADDITIONAL POST, from the current extractions of
+    # the points this post admitted, under additional/<pid>/ and marked as such.
+    _additional_products(
+        workspace,
+        {record.run_id: record for sim_records in by_sim.values() for record in sim_records},
+        out,
+        written,
+        products_index,
+        skipped,
+        rows_of_the_matrix=rows_of_the_matrix,
+        matrix_stem=matrix_stem,
+        overwrite=overwrite,
+        archive=archive,
+        archive_stamp=archive_stamp,
+        check_frozen=check_frozen,
+    )
     # FR-89: the superfiles LAST, and all of them together. Their header is
     # the union over every draft of this campaign, so a steady polar's file
     # and a rotor's carry the same columns and a reader cannot tell from the
@@ -7032,3 +7065,185 @@ def _write_the_products(
     manifest["complete"] = True
     out.mkdir(parents=True, exist_ok=True)
     (out / PRODUCTS_MANIFEST).write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
+
+
+#: The export kinds of an extraction that are indexed as the solver wrote them,
+#: beside the tables built from it: the surface solution in each format, and on
+#: an unsteady point the plots history, which is the run's own (RPT-062).
+_ADDITIONAL_NATIVE_KINDS = ("tecplot", "vtk", "csv", "plots")
+
+
+def _current_extraction(
+    workspace: CampaignWorkspace, extraction: AdditionalRecord, point: RunRecord | None
+) -> str | None:
+    """Say why an extraction no longer describes its point, or None when it does.
+
+    CURRENT means three things: the point is an admitted record of this post, its
+    saved simulation is still the one the extraction opened (a forced rerun or a
+    continuation archives the point's folder, extraction included, and saves
+    another), and every file the extraction wrote is on disk and hashes as it
+    recorded.
+    """
+    if point is None:
+        return (
+            f"the point {extraction.run_id} is not a record this post admits (continued, "
+            "withheld by check_frozen, or no longer in the manifest), so its extraction "
+            "describes nothing the products hold"
+        )
+    now = point.outputs_sha256.get(extraction.fsm)
+    if now != extraction.fsm_sha256:
+        return (
+            f"stale: the point's saved simulation {extraction.fsm} is "
+            f"{(now or 'unrecorded')[:12]} in its record and the extraction opened "
+            f"{extraction.fsm_sha256[:12]}; the point ran again, so extract it again "
+            "(pyfs-matrix post --additional-pproc)"
+        )
+    folder = workspace.sim_dir(extraction.sim_id)
+    for name in extraction.outputs:
+        path = folder / name
+        if not path.is_file():
+            return f"stale: {path} is gone; extract the point again"
+        if extraction.outputs_sha256.get(name) != file_sha256(path):
+            return f"stale: {path} no longer hashes as its extraction recorded"
+    return None
+
+
+def _additional_products(
+    workspace: CampaignWorkspace,
+    admitted: Mapping[str, RunRecord],
+    out: Path,
+    written: list[Path],
+    products_index: dict[str, dict[str, object]],
+    skipped: dict[str, str],
+    *,
+    rows_of_the_matrix: Mapping[str, MatrixRow],
+    matrix_stem: str | None,
+    overwrite: bool,
+    archive: bool,
+    archive_stamp: datetime | None,
+    check_frozen: bool,
+) -> None:
+    """Write the products of every current extraction of the additional post (G12).
+
+    READS ``additional.json`` AND NOTHING ELSE NEW, so the stage stays one that
+    needs no executable. Each extraction is taken at its latest EXTRACTED record,
+    and only while CURRENT (:func:`_current_extraction`); one that is not is a
+    skip keyed ``additional/<pid>/runs/<extraction id>`` and NEVER ``runs/<run
+    id>``, which would retire the main products of the run it came from.
+
+    THE ONE-RULE ROUTE. The current extractions of one simulation and one pproc
+    are handed to :func:`_sim_products` as point records carrying the
+    extraction's files and the additional pproc, under
+    ``post/<matrix>/additional/<pid>/``: the group polars, the sections tables
+    and, on an unsteady point, the plots tables and their reductions come from
+    the builders the run's own products use. The loads and the surface are the
+    ones the run left (RPT-062), so what is new is what the pproc asks of them.
+    Each record keeps the RUN's log, not the extraction's, because a frozen solve
+    is a fact of the run. Every entry carries three marks: ``pproc`` (the
+    additional id), ``additional`` (true) and ``extraction`` (the extraction
+    ids), with ``derives_from`` naming the points; the surface exports and the
+    plots history are indexed as the solver wrote them, with the same marks.
+    """
+    extractions: dict[str, AdditionalRecord] = {}
+    for extraction in workspace.read_additional():
+        if extraction.matrix_stem != matrix_stem:
+            continue
+        if extraction.status is ExtractionStatus.EXTRACTED:
+            extractions[extraction.extraction_id] = extraction
+    groups: dict[tuple[str, str], list[tuple[AdditionalRecord, RunRecord]]] = {}
+    for extraction in extractions.values():
+        prefix = f"{ADDITIONAL_DIR}/{extraction.pproc}"
+        point = admitted.get(extraction.run_id)
+        reason = _current_extraction(workspace, extraction, point)
+        if reason is not None or point is None:
+            skipped[f"{prefix}/runs/{extraction.extraction_id}"] = str(reason)
+            continue
+        groups.setdefault((extraction.sim_id, extraction.pproc), []).append((extraction, point))
+    for (sim_id, pid), pairs in groups.items():
+        prefix = f"{ADDITIONAL_DIR}/{pid}"
+        point_of = {extraction.extraction_id: point.run_id for extraction, point in pairs}
+        synthetic = []
+        for extraction, point in pairs:
+            own_log = classify_outputs(point.outputs).get("log")
+            files = [
+                name for name in extraction.outputs if classify_outputs([name]).get("log") is None
+            ]
+            synthetic.append(
+                point.model_copy(
+                    update={
+                        "run_id": extraction.extraction_id,
+                        "outputs": files + ([own_log] if own_log else []),
+                        "outputs_sha256": dict(extraction.outputs_sha256),
+                        "pproc": pid,
+                        "sections_layout": [dict(block) for block in extraction.sections_layout],
+                        "points_ran": [],
+                        "probe_points_file": None,
+                    }
+                )
+            )
+            if extraction.unsteady:
+                # SAID PER EXTRACTION, in the form the post log files under its point
+                # and product, because the table below is one instant of the run.
+                warn(
+                    f"point={extraction.run_id} product={prefix}: the extraction is the "
+                    "LAST instant of the run, one instant and not its history (RPT-062); "
+                    "its sections table states that step.",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
+            for kind, name in classify_outputs(extraction.outputs).items():
+                if kind not in _ADDITIONAL_NATIVE_KINDS:
+                    continue
+                path = workspace.sim_dir(sim_id) / name
+                products_index[Path(os.path.relpath(path, out)).as_posix()] = {
+                    "sim_id": sim_id,
+                    "pproc": pid,
+                    "additional": True,
+                    "extraction": [extraction.extraction_id],
+                    "derives_from": [extraction.run_id],
+                    "format": kind,
+                    **({"kind": "instant"} if extraction.unsteady and kind != "plots" else {}),
+                }
+        try:
+            files_written, names, reductions_skipped = _sim_products(
+                workspace,
+                sim_id,
+                synthetic,
+                out / ADDITIONAL_DIR / pid,
+                overwrite=overwrite,
+                archive=archive,
+                archive_stamp=archive_stamp,
+                matrix_row=rows_of_the_matrix.get(sim_id),
+                sweep_rows=None,
+                drafts=None,
+                check_frozen=check_frozen,
+                effective_pproc=_resolve_post_pproc(workspace, pid),
+            )
+        except ProductExistsError:
+            raise
+        except ProductError as error:
+            skipped[f"{prefix}/{sim_id}"] = str(error)
+            warn(
+                f"additional products of simulation {sim_id} ({pid}) not written: {error}",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
+            continue
+        written.extend(files_written)
+        for name, entry in names.items():
+            # THE EXTRACTIONS A PRODUCT HOLDS, under their own key: `runs` names
+            # run ids everywhere else in the index, and the retirement of a
+            # refused run reads it, so it is not written for an extraction.
+            runs = entry.get("runs")
+            held = [str(run) for run in runs] if isinstance(runs, list) else list(point_of)
+            marked = {key: value for key, value in entry.items() if key != "runs"}
+            products_index[f"{prefix}/{name}"] = {
+                "sim_id": sim_id,
+                "pproc": pid,
+                "additional": True,
+                "extraction": held,
+                "derives_from": [point_of[held_id] for held_id in held if held_id in point_of],
+                **marked,
+            }
+        for name, reason in reductions_skipped.items():
+            skipped[f"{prefix}/{name}"] = reason
