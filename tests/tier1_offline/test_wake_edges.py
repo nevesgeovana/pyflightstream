@@ -148,12 +148,11 @@ def test_the_evidence_behind_the_default_route_is_stated_with_both_commands():
 
     Marking wake edges from a file replaces an angle criterion that
     cannot mark the edges this capability exists for. The replacement is
-    verified on no build: it was run once outside the compatibility
-    harness, on 26.124 (RPT-061), which settled its grammar there and
-    promoted nothing, while what it replaces carries committed probe
-    reports on three builds. A later reader who meets only the default
-    reads it as settled practice, which is what this sentence exists to
-    prevent.
+    verified on 26.124 alone, by the compat probe of 2026-09-24 (its
+    grammar settled first by RPT-061), while what it replaces carries
+    committed probe reports on three builds. A later reader who meets only
+    the default reads it as settled practice everywhere, which is what this
+    sentence exists to prevent.
 
     Derived from the registry rather than written out, so the day a
     probe promotes the command the sentence moves with it.
@@ -175,16 +174,18 @@ def test_the_evidence_behind_the_default_route_is_stated_with_both_commands():
             "probe report covers for the command being replaced"
         )
 
-    later = evidence_notice("26.124")
-    assert "RPT-061" in later and "verified on none" in later, (
-        "the notice does not say that the 26.124 grammar rests on a run that promoted no status"
-    )
-
+    # THE COMPAT PROBE OF 2026-09-24 promoted 26.124 and only 26.124: the
+    # notice names the report and the build, says 26.123 is not one, and
+    # stops calling 26.124 a move to weaker evidence.
+    report = "reports/compat/CMP-26124_2026-09-24_wake-edge-import.yaml"
     imported = registry.commands[WAKE_EDGE_IMPORT_COMMAND]
-    assert not [row for row in imported.versions.values() if row.report], (
-        "the wake-edge import now cites a probe report, so the notice's claim that "
-        "no run has exercised it is false and this test is the thing that says so"
+    assert [c for c, row in imported.versions.items() if row.report] == ["26.124"], (
+        "the wake-edge import cites a compat report on a build other than 26.124 alone"
     )
+    later = evidence_notice("26.124")
+    assert report in later and "verified on 26.124" in later, later
+    assert "weaker evidence" not in later, "26.124 is verified and still called weaker evidence"
+    assert "verified on 26.124 and not on 26.123" in notice and "weaker evidence" in notice, notice
     assert WakeEdgeImport(nodes=ONE_NODE).evidence_notice("26.123") == notice
 
 

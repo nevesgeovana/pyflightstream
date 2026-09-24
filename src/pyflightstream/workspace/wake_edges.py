@@ -224,8 +224,15 @@ def evidence_notice(canonical: str) -> str:
     detection_verified = _verified_builds(TRAILING_EDGE_DETECTION_COMMAND)
 
     runs = _runs_in_notes(WAKE_EDGE_IMPORT_COMMAND)
+    import_verified = _verified_builds(WAKE_EDGE_IMPORT_COMMAND)
     if import_reports:
+        # A REPORT PROMOTES A BUILD, NOT THE COMMAND: the sentence names the
+        # builds it is verified on and says so when this build is not one.
         standing = "cites a probe report on this database: " + ", ".join(import_reports)
+        if import_verified:
+            standing += ", verified on " + ", ".join(import_verified)
+            if canonical not in import_verified:
+                standing += f" and not on {canonical}"
     elif runs:
         # A GRAMMAR SETTLED BY A RUN IS NOT A STATUS PROMOTED BY ONE. The
         # 26.124 row states the form that build reads because RPT-061 ran it,
@@ -252,14 +259,18 @@ def evidence_notice(canonical: str) -> str:
     else:
         replaced = f"{TRAILING_EDGE_DETECTION_COMMAND} carries no verified row either"
 
+    weaker = (
+        "It is stated so the default is read with its evidence"
+        if canonical in import_verified
+        else "It is stated because it is a move to weaker evidence"
+    )
     return (
         f"Trailing edges are marked on FlightStream {canonical} through "
         f"{WAKE_EDGE_IMPORT_COMMAND}, which {standing}, in place of "
         f"{TRAILING_EDGE_DETECTION_COMMAND}. The trade is deliberate and the "
         f"reason is physical: auto detection is an angle criterion and cannot "
         f"find an edge that is not a geometric crease, which is exactly the "
-        f"edge an imported node list exists to mark. It is stated because it "
-        f"is a move to weaker evidence: {replaced}."
+        f"edge an imported node list exists to mark. {weaker}: {replaced}."
     )
 
 

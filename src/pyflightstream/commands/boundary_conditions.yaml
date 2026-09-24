@@ -651,27 +651,29 @@ IMPORT_WAKE_EDGES_FROM_FILE:
     path on its own line, and 26.122 and 26.123 keep the printed line
     and are refused by the marking helper as unmeasured.
 
-    ITS EVIDENCE IS WEAKER THAN WHAT IT REPLACES, and the trade is
-    deliberate. This command is documented on 26.122 to 26.124 and
-    verified on no build: the 26.124 run above is a probe report and not
-    a compat report, so it changes the grammar and not the status. The
-    two probe runs that reached 26.122 and 26.123
-    both NAME it and neither promotes it: each records it unprobed for
-    want of a probe specification, which is a weaker thing than not
-    having been looked at and a weaker thing again than having been
-    run. AUTO_DETECT_TRAILING_EDGES, the angle criterion it replaces
-    for a geometry whose edges are not creases, carries verified rows
-    on 26.101, 26.120 and 26.121, each with its own committed compat
-    report. The reason for the trade is physical rather than
-    evidential and it is a good one; it is written down so a later
-    reader does not take the newer default for settled practice.
+    VERIFIED ON 26.124 ONLY. The compat probe of 2026-09-24
+    (CMP-26124_2026-09-24_wake-edge-import) imported the sixteen
+    trailing-edge mid-points of the qa wing through the 26.124 grammar and
+    the solver logged sixteen imported edges; the saved state after it
+    carries the sixteen and the state before it none. On 26.122 and 26.123
+    it stays documented: the two probe runs that reached those builds
+    both NAME it and neither promotes it, each recording it unprobed for
+    want of a probe specification, and the marking helper refuses the
+    file route there as unmeasured. AUTO_DETECT_TRAILING_EDGES, the angle
+    criterion it replaces for a geometry whose edges are not creases,
+    carries verified rows on 26.101, 26.120 and 26.121, each with its own
+    committed compat report. The reason for the trade is physical: on the
+    one build where the route is offered it is now verified, and it is
+    written down so a later reader does not take it for verified on the
+    builds before.
   versions:
     "26.122":
       status: documented
       note: "SRC-750 p.324, the first edition to document it"
     "26.123": {status: documented, note: "SRC-751 p.323, unchanged from SRC-750 p.324"}
     "26.124":
-      status: documented
+      status: verified
+      report: "reports/compat/CMP-26124_2026-09-24_wake-edge-import.yaml"
       note: >-
         SRC-752 p.323 prints the two-value line of SRC-751; this build
         refuses that line as a syntax error, and reads the node list from
