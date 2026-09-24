@@ -1,0 +1,183 @@
+report: reports/RPT-062_what-a-reopened-simulation-gives-back_2026-09-23.md
+date: '2026-09-23'
+question: what a saved simulation file gives back when reopened with no solve, steady and unsteady
+where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
+executable_sha256:
+  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+package:
+  version: 0.27.0.dev0
+  commit: 709bbd1
+steady_point:
+  geometry: 30_WB
+  source: RPT-060's control point (row 4201), CONVERGED
+  fsm_sha256: 57e4e1d69ddbffe8151bff092a109fc79299ac212d72e201cb29c60daaf757dd
+unsteady_point:
+  geometry: 40_PUSHER
+  source: tier-3 row 9001 on 26.124, farfield layers 5, 30 degrees per step, one revolution, exports from half a
+    revolution
+  status: COMPLETED_MAX_ITER
+  iterations: 857
+  script_sha256: 01696d1d135a580aa75d2df0f58364f2806f14f3dbbf67465bd70fa2d4e34964
+  fsm_sha256: b2fb3e3eea5207f0dbc90629e7875528bb7da3f09e67930e331a72fed9a52412
+comparison: each export of a variant against the run's own export of the same kind; the file-name and date lines
+  set aside; 'new block' compares the rows a variant ADDED with the run's rows
+variants:
+- variant: S1
+  moved: 'steady: open the saved file and export at once'
+  script_sha256: f7b8bd1a54d7333d279497c3fb1cfce4939dd8ad3b7b33fd2a708d8fcf7bd93a
+  against_the_run:
+    .txt: identical but the file-name and date lines
+    .dat: identical bytes
+    _cp.txt: identical but the file-name and date lines
+    _sloads.txt: 12 lines differ, largest number difference 4223.0
+    _probes.txt: identical but the file-name and date lines
+- variant: S2
+  moved: 'steady: open, update the sections, compute the sectional loads, update the probes, export'
+  script_sha256: 9f201cc784f8fb45814e6e54b1419a2c17bea2040eacc9e590bd44085d91862a
+  against_the_run:
+    .txt: identical but the file-name and date lines
+    .dat: identical bytes
+    _cp.txt: identical but the file-name and date lines
+    _sloads.txt: identical but the file-name and date lines
+    _probes.txt: 99 lines differ, largest number difference 5.6965784
+- variant: S3
+  moved: 'steady: open, create a NEW distribution and NEW probe lines identical to the run''s, compute, export'
+  script_sha256: 5733cfc964b7368fac3d8a2b776524e5954992842f61012631c5c69265b313ec
+  against_the_run:
+    .txt: identical but the file-name and date lines
+    .dat: identical bytes
+    _cp.txt: 6 lines differ, largest number difference 12.0
+    _sloads.txt: 6 lines differ, largest number difference 12.0
+    _probes.txt: 105 lines differ, largest number difference 99.0
+  new_block_against_the_run:
+    _cp.txt:
+      rows:
+      - 1008
+      - 2016
+      new_block_largest_difference: 0.0
+    _sloads.txt:
+      rows:
+      - 12
+      - 24
+      new_block_largest_difference: 0.0
+    _probes.txt:
+      rows:
+      - 99
+      - 198
+      new_block_largest_difference: 5.6965784
+- variant: S4
+  moved: 'steady: S2 with LOAD_SOLVER_INITIALIZATION ENABLE on the open'
+  script_sha256: 52bb0f2bfae08f6e992eb7515f809ba61c8f437125b6dae661173ae6c2c80aaf
+  against_the_run:
+    .txt: identical but the file-name and date lines
+    .dat: identical bytes
+    _cp.txt: identical but the file-name and date lines
+    _sloads.txt: identical but the file-name and date lines
+    _probes.txt: 99 lines differ, largest number difference 5.6965784
+- variant: S5
+  moved: 'steady: S3 with LOAD_SOLVER_INITIALIZATION ENABLE on the open'
+  script_sha256: b06098d90b3885ec0045e96a2d303866213303f4819b2cc5a06f79d0ff6469f2
+  against_the_run:
+    .txt: identical but the file-name and date lines
+    .dat: identical bytes
+    _cp.txt: 6 lines differ, largest number difference 12.0
+    _sloads.txt: 6 lines differ, largest number difference 12.0
+    _probes.txt: 105 lines differ, largest number difference 99.0
+  new_block_against_the_run:
+    _cp.txt:
+      rows:
+      - 1008
+      - 2016
+      new_block_largest_difference: 0.0
+    _sloads.txt:
+      rows:
+      - 12
+      - 24
+      new_block_largest_difference: 0.0
+    _probes.txt:
+      rows:
+      - 99
+      - 198
+      new_block_largest_difference: 5.6965784
+- variant: U1
+  moved: 'unsteady: open the saved file and export at once, the plots history included'
+  script_sha256: ba62e5b5e8993d8cf3c51390bf425b866d57d60494931e159fbc41af6bb1360e
+  against_the_run:
+    .txt: identical but the file-name and date lines
+    .dat: identical bytes
+    _cp.txt: identical but the file-name and date lines
+    _sloads.txt: 20 lines differ, largest number difference 16750.0
+    _plots.txt: identical but the file-name and date lines
+- variant: U2
+  moved: 'unsteady: open, update the sections, compute the sectional loads, export'
+  script_sha256: c10565a83c966810686fd19d65d54e14510d2f4044be15d0aa82a88ac7a3677b
+  against_the_run:
+    .txt: identical but the file-name and date lines
+    .dat: identical bytes
+    _cp.txt: identical but the file-name and date lines
+    _sloads.txt: identical but the file-name and date lines
+    _plots.txt: identical but the file-name and date lines
+- variant: U3
+  moved: 'unsteady: open, create a NEW distribution identical to the run''s, compute, export'
+  script_sha256: 8ac84839aa6c229fcad9ad129b9762ca41b6cb8a808b596f75a2e26636f2e542
+  against_the_run:
+    .txt: identical but the file-name and date lines
+    .dat: identical bytes
+    _cp.txt: 6 lines differ, largest number difference 20.0
+    _sloads.txt: 6 lines differ, largest number difference 20.0
+    _plots.txt: identical but the file-name and date lines
+  new_block_against_the_run:
+    _cp.txt:
+      rows:
+      - 892
+      - 1784
+      new_block_largest_difference: 0.0
+    _sloads.txt:
+      rows:
+      - 20
+      - 40
+      new_block_largest_difference: 0.0
+derangement_S1_against_row_4202:
+  .txt: 4 lines differ, largest number difference 1.0
+  .dat: 3624 lines differ, largest number difference 6.3374568608780795
+  _cp.txt: 1009 lines differ, largest number difference 5.792950000000001
+  _sloads.txt: 13 lines differ, largest number difference 4347.0
+  _probes.txt: 100 lines differ, largest number difference 1.0
+probes_run_against_reopened_S2:
+  X:
+    largest_difference: 0.0
+    largest_value: 16.0
+  Y:
+    largest_difference: 0.0
+    largest_value: 0.0
+  Z:
+    largest_difference: 0.0
+    largest_value: 3.0
+  Mach:
+    largest_difference: 0.0089592
+    largest_value: 0.209211
+  Cp_ref:
+    largest_difference: 0.0936043
+    largest_value: 0.0961967
+  vx:
+    largest_difference: 2.95369
+    largest_value: 71.09171
+  vy:
+    largest_difference: 5.6965784
+    largest_value: 13.50778
+  vz:
+    largest_difference: 4.0882049
+    largest_value: 5.692849
+  vtot:
+    largest_difference: 3.04875
+    largest_value: 71.19313
+  Cp:
+    largest_difference: 0.0936043
+    largest_value: 0.0961967
+unsteady_last_step_against_reopened_U2:
+  .txt: 5 lines differ, largest number difference 0.001965
+  .dat: identical bytes
+  _cp.txt: 1 lines differ, largest number difference 0.0
+  _sloads.txt: 1 lines differ, largest number difference 0.0
+frame_of_the_per_step_exports: 'the step exports print ''Coordinate frame for analysis: Reference'' and the final
+  export ''MRP''; forces agree and CMy, CMz differ'
