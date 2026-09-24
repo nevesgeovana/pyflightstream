@@ -326,6 +326,13 @@ FlightStream versions.
   three axes, and any later turn, move, copy or deletion), and the skip names
   the first line that differs. `cases.workflows.frame_definitions` replaces
   `frame_pairs`, which no release carried.
+- **An additional product stops being current when its saved simulation
+  leaves the disk** (G12). The post compared the hash the point's record
+  holds with the one the extraction opened, and never the file, so a `.fsm`
+  deleted or replaced under an unchanged `runs.json` kept its additional
+  products published. The saved simulation on disk must now hash as the state
+  extracted, as the definition of record says; otherwise each extraction of it
+  is skipped under `additional/<pid>/runs/<extraction id>`, naming the path.
 - **`pyfs-matrix collect` finishes a submitted steady job on a machine that
   exports no log.** A steady row of several points is one job, and where the
   profile states `export_log = false` its scheduler writes ONE log of the job.

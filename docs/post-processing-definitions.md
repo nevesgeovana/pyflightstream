@@ -911,11 +911,14 @@ the saved one, under the name the pproc asked for.
 
 **When an extraction stops counting.** Only a CURRENT extraction has products:
 its point is a record the post admits, the point's saved simulation still
-hashes as the one the extraction opened, and every file the extraction wrote is
-on disk and hashes as recorded
-(`test_g12_an_extraction_of_another_state_of_the_point_is_stale`). A point that
-ran again, by a forced rerun or a continuation, archives its folder with the
-extraction in it; the old extraction is then stale, the post skips it under
+hashes as the one the extraction opened, in the point's record and as the file
+on disk, and every file the extraction wrote is on disk and hashes as recorded
+(`test_g12_an_extraction_of_another_state_of_the_point_is_stale`). A saved
+simulation deleted or replaced under a record nobody rewrote leaves every
+extraction of it stale, named by the path
+(`test_g12_an_extraction_whose_saved_simulation_left_the_disk_is_stale`). A
+point that ran again, by a forced rerun or a continuation, archives its folder
+with the extraction in it; the old extraction is then stale, the post skips it under
 `additional/<pid>/runs/<extraction id>` and never under the run's own key, so
 no product of the run is retired for it, and a previous additional product
 nothing current supplies is archived like a refused table. The next

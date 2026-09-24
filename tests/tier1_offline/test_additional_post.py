@@ -35,8 +35,9 @@ by a test on its link:
 * the post writes the products of every current extraction under
   ``additional/<pid>/``, marked ``pproc``, ``additional`` and ``extraction``,
   leaves every main product as it was, keeps the run's section rows ahead of
-  the additional ones, skips a stale extraction by its own key and files the
-  one-instant warning of an unsteady point in the post log;
+  the additional ones, skips a stale extraction by its own key, a saved
+  simulation deleted or replaced on disk under an unchanged record included,
+  and files the one-instant warning of an unsteady point in the post log;
 * the workflows page and the definition of record state it, and every test
   the page cites is in this module.
 
@@ -1348,6 +1349,38 @@ def test_g12_an_extraction_of_another_state_of_the_point_is_stale(tmp_path):
     for record in records:
         reason = document["skipped"][f"additional/p002/runs/{record.extraction_id}"]
         assert "stale" in reason and record.fsm_sha256[:12] in reason, reason
+    assert not any(entry.get("additional") for entry in document["products"].values())
+
+
+@pytest.mark.parametrize("change", ["deleted", "replaced"])
+def test_g12_an_extraction_whose_saved_simulation_left_the_disk_is_stale(change, tmp_path):
+    """The point's record is untouched and its .fsm is gone, or other bytes: no product of it.
+
+    CURRENT means the saved simulation ON DISK still hashes as the state the
+    extraction opened, not only that the two records agree (the definition of
+    record, "When an extraction stops counting"). Each extraction is skipped
+    under its own key naming the file, and no additional product is written.
+    """
+    workspace, matrix = a_recorded_campaign(tmp_path, additional=POST_ADDITIONAL_TOML)
+    _, records = extract(workspace, matrix, a_stub(tmp_path))
+    assert records and all(record.status == "EXTRACTED" for record in records)
+    before = products_of(workspace, matrix)
+    assert any(entry.get("additional") for entry in before["products"].values()), "no control"
+    saved = saved_simulations(workspace)
+    for path in saved.values():
+        if change == "deleted":
+            path.unlink()
+        else:
+            path.write_bytes(b"another state of the point")
+    document = products_of(workspace, matrix)
+    for record in records:
+        key = f"additional/p002/runs/{record.extraction_id}"
+        assert key in document["skipped"], (
+            f"{record.extraction_id} is still current with its saved simulation {change}"
+        )
+        reason = document["skipped"][key]
+        assert "stale" in reason and str(saved[record.run_id]) in reason, reason
+        assert record.fsm_sha256[:12] in reason, reason
     assert not any(entry.get("additional") for entry in document["products"].values())
 
 
