@@ -37,3 +37,16 @@ changes for you is listed below, one section per change.
   and `--sims 2031 2032` narrows it to those simulations. A script that built a
   list of `--force-rerun` flags from `runs.json` can use this instead. Nothing
   that existed changes.
+
+## 5. A run that submits does not post, and a local run's log (G43)
+
+- `pyfs-matrix run` that submits any point to a cluster no longer writes
+  products or the sweep table; it ends with a line naming what was submitted
+  and the next command, `pyfs-matrix collect --workspace <root>`, which
+  collects and then posts. A script that read `post/` right after a submitting
+  run reads it after `collect` instead.
+- A local run prints a banner, numbers its points and ends with a table; an
+  unsteady point with a step counter prints its progress every 10 steps.
+  `--progress-every N` changes the cadence and `--progress-every 0` turns it
+  off. The lines go to stderr, as every progress line always has; stdout and
+  the records are unchanged.

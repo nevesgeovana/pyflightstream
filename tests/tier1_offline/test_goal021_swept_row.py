@@ -79,6 +79,24 @@ def test_goal021_swept_row_every_point_is_submitted(tmp_path):
     ]
 
 
+def test_g43_a_run_that_submits_does_not_post(tmp_path, capsys):
+    """G43 of 0.28.0, her words: "se for submissao para linux, o run nao deveria rodar post".
+    Points in a queue have no outputs yet, so the post could only print a skip per point:
+    the run writes no product and no table, and one line says what was submitted and the
+    command that collects and then posts."""
+    capsys.readouterr()
+    workspace, records = _submitted_row(tmp_path)
+    assert [record.status for record in records] == [RunStatus.SUBMITTED] * 3
+    said = capsys.readouterr().err
+    assert "submitted 3 point(s) to the scheduler and ran 0 here" in said, said
+    assert f"pyfs-matrix collect --workspace {workspace.root}" in said, said
+    post = workspace.root / "post"
+    written = (
+        sorted(p.relative_to(post).as_posix() for p in post.rglob("*.csv")) if post.exists() else []
+    )
+    assert written == [], f"the run posted: {written}"
+
+
 def test_goal021_swept_row_each_point_runs_in_its_own_datapoint_folder(tmp_path):
     workspace, records = _submitted_row(tmp_path)
     sim = workspace.sim_dir("7001")

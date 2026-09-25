@@ -35,6 +35,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from itertools import zip_longest
 from pathlib import Path, PurePath
+from typing import Any
 
 import pyflightstream
 from pyflightstream._deprecations import MATRIX_FS_VERSION
@@ -73,6 +74,7 @@ from pyflightstream.cases.workflows import (
 from pyflightstream.results.tables import superseded_by_a_continuation
 from pyflightstream.run import (
     JOB_TAG,
+    PROGRESS_EVERY_DEFAULT,
     CampaignPlan,
     Executor,
     ExecutorConfigurationError,
@@ -621,6 +623,7 @@ def _campaign_executor(
     executor: Executor | None = None,
     local: bool = False,
     hidden: bool | None = None,
+    progress_every: int = PROGRESS_EVERY_DEFAULT,
 ) -> tuple[Executor, Callable[[Path], Executor]]:
     """Choose the executor a bound matrix runs on, and the one for each other build.
 
@@ -666,7 +669,12 @@ def _campaign_executor(
     # would send some rows somewhere the caller never asked for.
     supplied = executor
     forced = False
-    machine: dict[str, bool] = {}
+    # G43 of 0.28.0: how often a local unsteady run says its progress, passed only
+    # when it is not the default, as the false side of export_log is, so every
+    # executor built without it is built exactly as before.
+    machine: dict[str, Any] = (
+        {} if progress_every == PROGRESS_EVERY_DEFAULT else {"progress_every": progress_every}
+    )
     if executor is None:
         # The matrix has a HIDDEN column and it used to be read into the
         # matrix_hidden variable and never acted on, so a row saying 0
@@ -883,6 +891,7 @@ def run_matrix(
     force_rerun: Sequence[str] | None = None,
     force_rerun_all: bool = False,
     sims: Sequence[str] | None = None,
+    progress_every: int = PROGRESS_EVERY_DEFAULT,
     hidden: bool | None = None,
     fs_version: str | None = None,
     name_from: str | None = None,
@@ -948,6 +957,10 @@ def run_matrix(
         and runs again, with the count of points and jobs said before
         anything runs. Refused together with ``resume`` and with
         ``force_rerun``, and when nothing of the selection is recorded.
+    progress_every : int
+        How often a local unsteady point says its progress, in completed
+        time steps, read from the run's own step counter (G43 of 0.28.0);
+        10 by default, 0 to say nothing.
     sims : sequence of str, optional
         With ``force_rerun_all``, the simulations to redo, by their ids as
         the matrix spells them (leading zeros kept); the run then touches
@@ -1085,7 +1098,13 @@ def run_matrix(
             f"executed:\n{plan.summary()}"
         )
     executor, executor_for = _campaign_executor(
-        workspace, resolved, path, executor=executor, local=local, hidden=hidden
+        workspace,
+        resolved,
+        path,
+        executor=executor,
+        local=local,
+        hidden=hidden,
+        progress_every=progress_every,
     )
     # AFTER the executor exists, because a `SolverBuild` names one, and
     # after the pre-flight above, which is planned from the resolved

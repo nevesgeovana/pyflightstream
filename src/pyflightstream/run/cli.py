@@ -74,7 +74,12 @@ from pyflightstream.run import (
     plan_receipt_error,
 )
 from pyflightstream.run.matrix import plan_matrix, run_matrix
-from pyflightstream.workspace import CampaignWorkspace, InputArtifactError, WorkspaceError
+from pyflightstream.workspace import (
+    CampaignWorkspace,
+    InputArtifactError,
+    RunStatus,
+    WorkspaceError,
+)
 from pyflightstream.workspace.matrix import renumber_repeated_pols
 from pyflightstream.workspace.naming import (
     MATRIX_POINT_NAME,
@@ -484,6 +489,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "each is archived as --force-rerun archives it and runs again, a recorded steady "
         "job as one job. The count of points and jobs, which is the licences it spends, is "
         "printed before anything runs. Refused with --resume and with --force-rerun",
+    )
+    run.add_argument(
+        "--progress-every",
+        dest="progress_every",
+        type=int,
+        default=10,
+        metavar="N",
+        help="on a local unsteady point, say how far the run is every N completed time "
+        "steps, read from the run's own step counter (default 10; 0 says nothing)",
     )
     run.add_argument(
         "--sims",
@@ -1427,8 +1441,9 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     if stale is not None:
         print(stale, file=sys.stderr)
         return 2
+    records: list = []
     try:
-        run_matrix(
+        records = run_matrix(
             args.matrix,
             workspace,
             name=name,
@@ -1445,6 +1460,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             force_rerun=args.force_rerun,
             force_rerun_all=args.force_rerun_all,
             sims=args.sims,
+            progress_every=args.progress_every,
             ignore_missing_families=_the_missing_family_choice(args),
             accept_unregistered_build=args.accept_unregistered_build,
             local=args.local,
@@ -1484,6 +1500,11 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         return 2
     else:
         status = 0
+
+    # G43 of 0.28.0: a run that submitted anything posts nothing and writes no
+    # table; the library has said what was submitted and what to run next.
+    if any(record.status is RunStatus.SUBMITTED for record in records):
+        return status
 
     # The matrix's own folder, so several matrices of one workspace keep
     # their own table (PFS-2031.04); the table holds this matrix's records.

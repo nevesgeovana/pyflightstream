@@ -139,6 +139,9 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # what the command works on, a SUBJECT.
     ("pyfs-matrix", "force_rerun_all"): SWITCH,
     ("pyfs-matrix", "sims"): SUBJECT,
+    # 0.28.0, G43: how often THIS local run says its progress. A SWITCH of the
+    # invocation: how much a person wants to read, not a machine setting.
+    ("pyfs-matrix", "progress_every"): SWITCH,
     ("pyfs-matrix", "strict"): SWITCH,
     # FR-82, her design of 2026-09-11. A SWITCH: whether THIS plan also
     # prints what the campaign is expected to cost is a property of the
@@ -293,6 +296,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "force_rerun"): frozenset({"run"}),
     ("pyfs-matrix", "force_rerun_all"): frozenset({"run"}),
     ("pyfs-matrix", "sims"): frozenset({"run"}),
+    ("pyfs-matrix", "progress_every"): frozenset({"run"}),
     ("pyfs-matrix", "cost"): frozenset({"plan"}),
     ("pyfs-matrix", "accept_unregistered_build"): frozenset({"plan", "run"}),
     ("pyfs-matrix", "update_ids"): frozenset({"plan"}),

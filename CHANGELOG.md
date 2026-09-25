@@ -9,6 +9,15 @@ FlightStream versions.
 
 ### Added
 
+- **A local run's log reads at a glance, and an unsteady point says how far it
+  is (G43).** A run opens with a banner naming the campaign and how many points
+  it runs, numbers each point (`(3 of 17)`), and closes with a table of how the
+  points ended and the time it took. An unsteady point that carries its step
+  counter prints a progress bar with its step, its share and the time so far
+  every N completed time steps, read from the run's own counter while the
+  solver runs, never from what the solver prints: `pyfs-matrix run
+  --progress-every N` (10 by default, 0 for none); library
+  `run_matrix(progress_every=...)` and `LocalExecutor(progress_every=...)`.
 - **`pyfs-matrix run --force-rerun-all [--sims SIM ...]` (G44).** Every recorded
   point of the matrix, or of the simulations `--sims` names, is archived and runs
   again, a steady row recorded as one job as one job; one line gives the count of
@@ -36,6 +45,12 @@ FlightStream versions.
 
 ### Changed
 
+- **A run that submits to a cluster does not post (G43).** Its points are in a
+  queue with no outputs yet, so the post could only print a skip per point: the
+  run now writes no product and no sweep table and ends with one line saying how
+  many points it submitted and ran here, and the command that collects and then
+  posts (`pyfs-matrix collect --workspace <root>`, `--watch` to wait). A run whose
+  every point ran here posts as before.
 - **An unsteady or rotor row refuses `COLD_START` at plan (G36).** The key clears
   the solution between the points of a steady sweep over the attitude; every
   point of an unsteady row is its own job and starts cold, so the key, true or

@@ -1039,6 +1039,84 @@ class SubmittingExecutor:
         )
 
 
+#: G43 of 0.28.0: how often an unsteady run's progress is said, in completed time
+#: steps, by default. `pyfs-matrix run --progress-every N` sets it; 0 says nothing.
+PROGRESS_EVERY_DEFAULT = 10
+
+
+def _clock(seconds: float) -> str:
+    """Seconds as H:MM:SS, for a line a person reads."""
+    whole = max(0, int(round(seconds)))
+    return f"{whole // 3600}:{whole % 3600 // 60:02d}:{whole % 60:02d}"
+
+
+def _counter_total_steps(program: Path) -> int | None:
+    """Return the time steps a point's counter program was written for, or None without one."""
+    if not program.is_file():
+        return None
+    found = re.search(r"^TIME_ITERATIONS = (\d+)$", program.read_text(encoding="utf-8"), re.M)
+    return int(found.group(1)) if found else None
+
+
+def _progress_line(step: int, total: int, elapsed_s: float) -> str:
+    """One progress line: a bar of twenty cells, the step, the share and the time so far."""
+    share = min(1.0, step / total) if total else 0.0
+    done = int(round(20 * share))
+    return (
+        f"        [{'#' * done}{'.' * (20 - done)}] step {step}/{total} "
+        f"({100 * share:.0f}%)  {_clock(elapsed_s)}"
+    )
+
+
+def _run_with_progress(
+    argv: list[str],
+    working_dir: Path,
+    timeout_s: float | None,
+    counter: Path,
+    total: int,
+    every: int,
+) -> tuple[int | None, str, str, bool]:
+    """Run the solver and say its progress every ``every`` steps while it runs.
+
+    THE SIGNAL IS THE RUN'S OWN STEP COUNTER, never what the solver prints: the
+    counter program the run wrote counts the solver's invocations of it, one per
+    completed time step (RPT-041), and rewrites its state file each time. The
+    process is waited on in two-second slices; between them the file is read, and a
+    file caught mid-write is read again at the next slice. The output is captured
+    exactly as ``subprocess.run`` captured it, and a timeout kills the process as it
+    did.
+    """
+    start = time.perf_counter()
+    process = subprocess.Popen(
+        argv,
+        cwd=working_dir,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=os.environ.copy(),
+    )
+    said = 0
+    while True:
+        remaining = None if timeout_s is None else timeout_s - (time.perf_counter() - start)
+        if remaining is not None and remaining <= 0:
+            process.kill()
+            out, err = process.communicate()
+            return None, out or "", err or "", True
+        try:
+            out, err = process.communicate(
+                timeout=2.0 if remaining is None else min(2.0, remaining)
+            )
+            return process.returncode, out or "", err or "", False
+        except subprocess.TimeoutExpired:
+            try:
+                step = _action_count(counter)
+            except (OSError, ValueError, KeyError, TypeError):
+                step = None
+            if step is not None and step >= said + every:
+                said = step - step % every
+                _say(_progress_line(step, total, time.perf_counter() - start))
+
+
 class LocalExecutor:
     """Runs FlightStream as a local subprocess (SRC-003 pp.279-280).
 
@@ -1077,11 +1155,18 @@ class LocalExecutor:
         *,
         forced_local: bool = False,
         export_log: bool = True,
+        progress_every: int = PROGRESS_EVERY_DEFAULT,
     ) -> None:
         self.fs_exe = Path(fs_exe)
         self.hidden = hidden
         self.forced_local = forced_local
         self.export_log = export_log
+        if int(progress_every) < 0:
+            raise ExecutorConfigurationError(
+                f"progress_every is {progress_every}; it counts time steps between two "
+                "progress lines, so it is a whole number, 0 to say nothing."
+            )
+        self.progress_every = int(progress_every)
         if not self.fs_exe.is_file():
             raise ExecutorConfigurationError(
                 f"FlightStream executable not found at {self.fs_exe}. The path is "
@@ -1149,31 +1234,49 @@ class LocalExecutor:
         return_code: int | None = None
         stdout = ""
         stderr = ""
-        try:
-            completed = subprocess.run(
+        # G43 of 0.28.0: an unsteady point that carries its step counter says how
+        # far it is every `progress_every` steps while it runs; every other run is
+        # waited on exactly as before.
+        total = (
+            _counter_total_steps(Path(working_dir) / UNSTEADY_ACTION_PROGRAM)
+            if getattr(self, "progress_every", 0) > 0
+            else None
+        )
+        if total is not None:
+            return_code, stdout, stderr, timed_out = _run_with_progress(
                 argv,
-                cwd=working_dir,
-                capture_output=True,
-                text=True,
-                timeout=timeout_s,
-                check=False,
-                # EXPLICIT and IDENTICAL to what an omitted env= would give.
-                # This is not a behaviour change and is not meant to be one:
-                # the solver needs the ambient environment (its licence server
-                # address and its own installation variables live there), so
-                # the inheritance is correct and the point is that it is now a
-                # DECISION at this call rather than a default nobody chose.
-                # A future change that narrows it belongs here, where the
-                # solver's requirements are known, and not in a caller.
-                env=os.environ.copy(),
+                Path(working_dir),
+                timeout_s,
+                Path(working_dir) / UNSTEADY_ACTION_COUNT,
+                total,
+                self.progress_every,
             )
-            return_code = completed.returncode
-            stdout = completed.stdout or ""
-            stderr = completed.stderr or ""
-        except subprocess.TimeoutExpired as expired:
-            timed_out = True
-            stdout = _decode(expired.stdout)
-            stderr = _decode(expired.stderr)
+        else:
+            try:
+                completed = subprocess.run(
+                    argv,
+                    cwd=working_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout_s,
+                    check=False,
+                    # EXPLICIT and IDENTICAL to what an omitted env= would give.
+                    # This is not a behaviour change and is not meant to be one:
+                    # the solver needs the ambient environment (its licence server
+                    # address and its own installation variables live there), so
+                    # the inheritance is correct and the point is that it is now a
+                    # DECISION at this call rather than a default nobody chose.
+                    # A future change that narrows it belongs here, where the
+                    # solver's requirements are known, and not in a caller.
+                    env=os.environ.copy(),
+                )
+                return_code = completed.returncode
+                stdout = completed.stdout or ""
+                stderr = completed.stderr or ""
+            except subprocess.TimeoutExpired as expired:
+                timed_out = True
+                stdout = _decode(expired.stdout)
+                stderr = _decode(expired.stderr)
         wall_time_s = time.perf_counter() - start
         finished_at = _utc_now()
         log_path = Path(working_dir) / _LOG_NAME
@@ -3295,6 +3398,18 @@ def run_campaign(
         _supersede_recorded_points(workspace, to_supersede)
 
     # PASS THREE is the only one that stages, executes or records.
+    # G43 of 0.28.0: A BANNER, EACH POINT NUMBERED, A TABLE AT THE END, so a long
+    # local run reads at a glance: what runs, how far it is, how it ended.
+    to_run = sum(len(pending) for _case, _build, pending in scheduled)
+    started = time.perf_counter()
+    if to_run:
+        _say("            __|__", quiet=quiet)
+        _say(
+            f"     --o--o--(_)--o--o--   pyflightstream {pyflightstream.__version__}: "
+            f"campaign {campaign.name}, {to_run} point(s) to run",
+            quiet=quiet,
+        )
+    number = 0
     for case, build, pending in scheduled:
         case_executor = build.executor if build is not None else executor
         case_version = build.fs_version if build is not None else campaign.fs_version
@@ -3446,8 +3561,9 @@ def run_campaign(
             # FR-78: the point is named as it STARTS, not when it ends. A
             # forty-point campaign that printed only on completion told a
             # reader nothing about the point currently burning the licence.
+            number += 1
             _say(
-                f"  -> {run_id}  [{case.recipe}]  building and running",
+                f"  -> {run_id}  [{case.recipe}]  building and running  ({number} of {to_run})",
                 quiet=quiet,
             )
             record = _execute_point(
@@ -3498,7 +3614,23 @@ def run_campaign(
     # anywhere has ever been recorded here: there is no table to leave and
     # no problem to report, and complaining would put a warning on every
     # resume that found its work already done.
-    if recorded:
+    #
+    # G43 of 0.28.0: A RUN THAT SUBMITS DOES NOT POST (her words: "se for
+    # submissao para linux, o run nao deveria rodar post"; "ta muito poluido o
+    # log do run com submissao para o hpc"). A point in a queue has no outputs
+    # yet, so the post could only print a skip per point; one line says what
+    # was submitted and the command that collects and then posts.
+    if records:
+        _say_the_summary(records, time.perf_counter() - started, quiet=quiet)
+    submitted = [record for record in records if record.status is RunStatus.SUBMITTED]
+    if submitted:
+        _say(
+            f"submitted {len(submitted)} point(s) to the scheduler and ran "
+            f"{len(records) - len(submitted)} here; nothing is posted until they are "
+            f"collected: pyfs-matrix collect --workspace {workspace.root} (add --watch "
+            "to wait), which posts once their outputs land."
+        )
+    elif recorded:
         problem = _leave_products(workspace, campaign.matrix_stem)
         if problem is not None:
             warnings.warn(problem, PyflightstreamWarning, stacklevel=2)
@@ -3513,6 +3645,22 @@ def run_campaign(
     if failures:
         raise CampaignErrors(failures)
     return records
+
+
+def _say_the_summary(records: Sequence[RunRecord], elapsed_s: float, *, quiet: bool) -> None:
+    """Say how the points of this call ended, as a small table, and how long it took (G43)."""
+    counts: dict[str, int] = {}
+    for record in records:
+        counts[str(record.status)] = counts.get(str(record.status), 0) + 1
+    width = max(len("status"), *(len(status) for status in counts))
+    rule = f"  +-{'-' * width}-+--------+"
+    _say(rule, quiet=quiet)
+    _say(f"  | {'status':<{width}} | points |", quiet=quiet)
+    _say(rule, quiet=quiet)
+    for status, count in sorted(counts.items()):
+        _say(f"  | {status:<{width}} | {count:>6} |", quiet=quiet)
+    _say(rule, quiet=quiet)
+    _say(f"  {len(records)} point(s) in {_clock(elapsed_s)}", quiet=quiet)
 
 
 @dataclass(frozen=True)
