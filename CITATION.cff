@@ -54,8 +54,8 @@ license: MIT
 # makes TWENTY-EIGHT as of 2026-09-22; the enumeration stopped at the
 # nineteenth because it had stopped being read, and the fourth independent
 # reading of v0.25.1 found the stale tally, so the count is now stated
-# with its date rather than as a list. THIS COMMIT MOVES THE TREE TO 0.28.0.dev2
-# DEVELOPMENT, the THIRTY-FIFTH move, and the paragraph is re-stated with it
+# with its date rather than as a list. THIS COMMIT MOVES THE TREE TO 0.28.0.dev3
+# DEVELOPMENT, the THIRTY-SIXTH move, and the paragraph is re-stated with it
 # because a tally naming a bump three releases old as "this" one is the
 # same staleness from the other side (the independent review of GitHub
 # main, 2026-09-22). A FOURTH
@@ -95,7 +95,7 @@ license: MIT
 # v0.17.0 for a day. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
-version: 0.28.0.dev2
+version: 0.28.0.dev3
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi
