@@ -657,13 +657,27 @@ def _a_continuation_of_a_stopped_point(tmp_path, *, alpha: str, stopped: str):
             status=RunStatus.WALLTIME_REACHED,
             matrix_stem="rotor",
             fs_version_requested="26.123",
-            package_version="0.27.0",
+            package_version="0.28.0",
             script_sha256="c" * 64,
             inputs_sha256={} if stopped == "under-constant" else {"shear.txt": read},
             raw_flag=False,
             outputs=[f"datapoints/DP-{name}/{name}.fsm"],
             export_window={"time_iterations": 720},
             stopped_at={"step": 250},
+            # G45: where the stopped run's loads frame was, as a 0.28.0 run records
+            # it; a continuation of one that recorded none is refused at plan
+            # before this test's own refusals are reached (test_ghmain0280_c32).
+            surface_translations=[
+                {
+                    "vtk": f"{name}.vtk",
+                    "dat": f"{name}.dat",
+                    "frame": {
+                        "frame": 1,
+                        "origin": [0.0, 0.0, 0.0],
+                        "axes": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                    },
+                }
+            ],
         )
     )
     return _plan_on(workspace, matrix).points[0]
