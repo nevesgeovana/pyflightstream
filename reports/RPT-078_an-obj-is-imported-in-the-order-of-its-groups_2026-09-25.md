@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-25
 **Found by:** the licensed probe T27 of the 0.28.0 work
-**Status:** OPEN until G30 (0.28.0: an OBJ brought in without its surface names written by hand)
+**Status:** CLOSED in 0.28.0 (G30: an OBJ with no sidecar gets its `boundaries` written from its groups by the plan, `run` and `pyfs-matrix inventory`, one per group holding a face in the order of the file; the shapes this report does not settle are refused naming the line and keep the list by hand, and an existing sidecar that disagrees with the groups draws a warning)
 **Affects:** `IMPORT` with `FILE_TYPE OBJ` on 26.124
 
 ## What this settles

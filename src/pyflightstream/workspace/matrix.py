@@ -138,6 +138,7 @@ from pyflightstream.workspace.inputs import (
     FLAGS_TABLE,
     RAW_TABLE,
     RegisteredBuild,
+    ensure_inventory,
     inventory_sidecar,
     is_valid_artifact_id,
     read_inventory,
@@ -814,15 +815,28 @@ def _is_three_numbers(text: str) -> bool:
     return True
 
 
-def _inventory_of(geometry: Path) -> tuple[tuple[str, ...] | None, str | None]:
+def _inventory_of(geometry: Path, pol: str) -> tuple[tuple[str, ...] | None, str | None]:
     """Return the sidecar's boundary order, if one sits beside the geometry, and the source.
 
     PFS-2029.06.03. The sidecar is read here, at binding, so a malformed
     one is refused with the row before any seat is spent; whether it
     AGREES with the file is the builder's check at ``OPEN``, because that
     is where the file's own mesh block is read for the staged copy.
+
+    G30: THE SIDECAR IS REACHED THROUGH :func:`ensure_inventory`, the one
+    function ``pyfs-matrix inventory`` reaches it through too. An OBJ with
+    none gets one written from its groups, here, before the tables beside
+    it are read; one whose sidecar disagrees with its groups draws a
+    warning. A refusal of the OBJ is given the row, as the sidecar's other
+    tables' refusals are.
     """
-    sidecar = inventory_sidecar(geometry)
+    try:
+        sidecar = ensure_inventory(geometry)
+    except InputArtifactError as error:
+        raise InputArtifactError(
+            f"matrix row POL {pol}: the {GEOMETRY_VARIABLE} variable names {geometry.name}, "
+            f"and {error}"
+        ) from error
     if sidecar.is_file():
         return read_inventory(sidecar), "sidecar"
     try:
@@ -2041,6 +2055,11 @@ def resolve_matrix(
     leaves the field absent and resolves exactly as it did before this
     release.
 
+    AN OBJ WITH NO SIDECAR GETS ONE HERE (G30): its ``boundaries`` are
+    written beside it from its groups, in the order of the file, by
+    :func:`pyflightstream.workspace.inputs.ensure_inventory`, and a line
+    on stderr says so. An existing sidecar is never rewritten.
+
     Parameters
     ----------
     path : str or Path
@@ -2117,11 +2136,20 @@ def resolve_matrix(
         library cannot resolve or that two staged files share, or a
         preset that does not fit the case solver settings. An
         ``ADDITIONAL_PPROC`` id the library cannot resolve names that key.
+        An OBJ with no sidecar whose groups are not read, naming the row
+        and the line (G30), and an OBJ whose sidecar states no
+        ``boundaries``, naming the list its groups make.
     pyflightstream.cases.CampaignConfigError
         A row stating ``ADDITIONAL_PPROC`` on a build other than 26.124, or
         naming an artifact that asks what a reopened saved simulation does not
         give back (G12, RPT-062). The key on a ``LEGACY`` row is a
         :class:`~pyflightstream.cases.matrix.MatrixError`.
+
+    Warns
+    -----
+    pyflightstream.exceptions.PyflightstreamWarning
+        An OBJ whose sidecar's ``boundaries`` differ from its groups, in a
+        name or in the order, naming both lists; the sidecar's are used (G30).
 
     Examples
     --------
@@ -2331,7 +2359,7 @@ def resolve_matrix(
         if stem:
             geometry_path = _resolve_geometry(workspace, stem, row.pol)
             update["geometry"] = str(geometry_path)
-            update["inventory"], update["inventory_source"] = _inventory_of(geometry_path)
+            update["inventory"], update["inventory_source"] = _inventory_of(geometry_path, row.pol)
             mesh_import = _mesh_import_of(geometry_path, row.pol)
             update["mesh_import"] = mesh_import
             update["raw_mesh_conditions"] = _raw_mesh_conditions_of(

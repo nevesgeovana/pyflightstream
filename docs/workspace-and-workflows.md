@@ -147,11 +147,13 @@ them close the gap that made the capability unusable:
     refuses any other suffix. A raw mesh takes its length units as an
     argument (SRC-003 p.307) and the file carries none, so the
     `<stem>.boundaries.toml` beside it states them in an `[import]`
-    table, `units = "MILLIMETER"`, beside the `boundaries` list written
-    by hand in the file's order. A raw mesh without the table is refused
-    before any seat is spent, naming the key, because a defaulted unit is
-    a body of the wrong size whose coefficients solve, export and report
-    without a word. The file's unit goes to `IMPORT` alone and the
+    table, `units = "MILLIMETER"`, beside the `boundaries` list: for an
+    `.obj` with no sidecar the plan writes that list from the file's
+    groups, in the order the solver numbers them (since 0.28.0, G30), and
+    for an `.stl` it is written by hand. A raw mesh without the table is
+    refused before any seat is spent, naming the key, because a defaulted
+    unit is a body of the wrong size whose coefficients solve, export and
+    report without a word. The file's unit goes to `IMPORT` alone and the
     simulation is set to metres, the unit of every length the row states.
     The same sidecar declares the mesh's trailing edge in a
     `[trailing_edges]` table (since 0.27.0, G02): `file = "<points
@@ -2375,6 +2377,9 @@ which puts it inside the geometry's folder when the geometry has one:
 ```text
 pyfs-matrix inventory inputs/geometries/30_WB.fsm    # writes 30_WB.boundaries.toml
 ```
+
+An `.obj` gets its sidecar from its groups the same way, and from the plan
+itself when it has none (since 0.28.0, G30, `docs/mesh-inputs.md`).
 
 A workspace written before v0.11.0 moves in one command:
 

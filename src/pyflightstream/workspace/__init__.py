@@ -353,7 +353,8 @@ when a library is laid out this way.
 A mesh brings a sidecar with it: `pyfs-matrix inventory` reads the boundary
 order out of the saved simulation and writes `<stem>.boundaries.toml` beside
 it, and a run whose sidecar disagrees with its mesh is refused before the
-solver starts. One folder keeps the pair together.
+solver starts. An `.obj` with no sidecar gets one from the first plan, its
+boundaries read from the file's groups. One folder keeps the pair together.
 
 **And it is how a restricted mesh enters a workspace without being copied.**
 A hard link or a junction into `inputs/geometries/<stem>/` puts the file

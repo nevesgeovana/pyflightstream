@@ -63,7 +63,9 @@ The library tree, created by ``CampaignWorkspace.init``:
 
 from __future__ import annotations
 
+import json
 import re
+import sys
 import tomllib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -87,8 +89,8 @@ from pydantic import (
 # alone is what the five call-time imports of `cases/matrix.py` were.
 # Nothing about the class changed: same two bases, same three attributes,
 # same public spelling.
-from pyflightstream._digest import aliased_name_fault
-from pyflightstream._errors import InputArtifactError
+from pyflightstream._digest import aliased_name_fault, file_sha256
+from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
 from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream._retired_names import (
     BLOCK_KIND_ENGINE,
@@ -2225,14 +2227,22 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
     the file is refused before the solver starts (:func:`read_inventory`
     and the workflow builder), so the two cannot drift apart silently.
 
+    AN OBJ IS READ FROM ITS GROUPS (G30). It carries no mesh block, and
+    its sidecar is written through :func:`ensure_inventory`, the function
+    the matrix binding reaches it through as well, so ``pyfs-matrix
+    inventory`` and a plan write the same file. An OBJ's existing sidecar
+    is refused with ``overwrite`` too: beside a raw mesh it also carries
+    the ``[import]`` table and the trailing edges, which a rewrite of the
+    list would lose. An STL, which names no group, is refused as before.
+
     Parameters
     ----------
     geometry : str or Path
-        A saved simulation file carrying a mesh block.
+        A saved simulation file carrying a mesh block, or an OBJ.
     overwrite : bool
-        Rewrite a sidecar that already exists. Without it an existing
-        sidecar is refused, because the file may have been edited by the
-        user after it was written.
+        Rewrite a saved simulation's sidecar that already exists. Without
+        it an existing sidecar is refused, because the file may have been
+        edited by the user after it was written.
 
     Returns
     -------
@@ -2244,7 +2254,9 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
     InputArtifactError
         A geometry that cannot be read, that carries no mesh block, or
         whose block does not hold its shape, each naming the file; a
-        sidecar that already exists, naming it and ``--overwrite``.
+        sidecar that already exists, naming it and ``--overwrite``; an
+        OBJ's sidecar that already exists, with ``overwrite`` or without;
+        an OBJ whose groups cannot be read (:func:`obj_boundary_names`).
     """
     path = Path(geometry)
     sidecar = inventory_sidecar(path)
@@ -2252,6 +2264,18 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
         raise InputArtifactError(
             f"{path} is not a file, so no boundary inventory can be read from it."
         )
+    if path.suffix.lower() == OBJ_SUFFIX:
+        if sidecar.exists():
+            raise InputArtifactError(
+                f"{sidecar} already exists, and the sidecar of an OBJ is never rewritten, "
+                "overwrite (CLI: --overwrite) or not: beside a raw mesh it also carries the "
+                "[import] table and the trailing edges, which a rewrite of the list would "
+                f"lose. A plan compares its boundaries with the groups of {path.name} and "
+                "warns naming both lists when they differ; correct the list by hand, or "
+                "move the file aside, run this again and copy its tables beneath the new "
+                "list (docs/mesh-inputs.md)."
+            )
+        return ensure_inventory(path)
     if sidecar.exists() and not overwrite:
         raise InputArtifactError(
             f"{sidecar} already exists; pass overwrite (CLI: --overwrite) to rewrite it "
@@ -2280,6 +2304,245 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
     ]
     sidecar.write_text("\n".join(body) + "\n", encoding="utf-8")
     return sidecar
+
+
+# --- an OBJ's surface names, read from its groups (G30, RPT-078) ---------------------
+
+#: The raw-mesh suffix whose surface names are read from the file itself. An
+#: OBJ names its groups, and the solver makes one boundary of each group that
+#: holds a face, named by the group, in the order of the file (RPT-078). An
+#: STL names no group, so its names stay written by hand.
+OBJ_SUFFIX = ".obj"
+
+#: The two statements that open a group of an OBJ. RPT-078 measured both,
+#: each alone in its file; a file mixing them is refused.
+_OBJ_GROUP_STATEMENTS = ("o", "g")
+
+
+def obj_boundary_names(path: str | Path) -> tuple[str, ...]:
+    """Return the boundary names an OBJ is imported with: its groups holding a face, in order.
+
+    THE ORDER IS THE SOLVER'S, MEASURED (RPT-078). A licensed probe on
+    26.124 imported one OBJ cut into groups and read the saved simulation
+    back: one boundary per ``o`` or ``g`` group that holds at least one
+    face, named by the group, numbered in the order the groups appear in
+    the file, for ``o`` and ``g`` alike. A group holding no face makes no
+    boundary and takes no position, so it is left out here: a reader that
+    counted it would shift every later surface by one.
+
+    WHAT THE PROBE DID NOT SETTLE IS REFUSED, NEVER GUESSED: a file mixing
+    ``o`` and ``g`` statements, a group name opened in two places of the
+    file, and a face written before the first group, each naming its line.
+    A group statement that names no group, or a name of several words, is
+    refused the same way, since how the solver names either is unmeasured.
+    Such a file keeps the route every raw mesh had before: its names
+    written by hand in ``<stem>.boundaries.toml``. Text after ``#`` on a
+    line is a comment.
+
+    Parameters
+    ----------
+    path : str or Path
+        The OBJ file.
+
+    Returns
+    -------
+    tuple of str
+        The boundary names, the name at position i being boundary i
+        (1-based).
+
+    Raises
+    ------
+    InputArtifactError
+        A file that cannot be read as UTF-8 text, one holding no face
+        under any group, or one of the shapes above, each naming the
+        file, the line where there is one, and the sidecar to write by
+        hand instead.
+    """
+    mesh = Path(path)
+    by_hand = (
+        "The surface names of such a file are not read from it: write them by hand in "
+        f"{inventory_sidecar(mesh).name} beside it, as boundaries = [...] in the order the "
+        "solver numbers the surfaces (docs/mesh-inputs.md)."
+    )
+    unsettled = "which the import measured in RPT-078 does not settle"
+    names: list[str] = []
+    opened: dict[str, int] = {}
+    first: tuple[str, int] | None = None
+    current: str | None = None
+    holds_face = False
+    try:
+        with mesh.open(encoding="utf-8") as lines:
+            for number, line in enumerate(lines, start=1):
+                if line.startswith("v"):
+                    continue
+                words = line.split("#", 1)[0].split()
+                if not words:
+                    continue
+                if words[0] == "f":
+                    if current is None:
+                        raise InputArtifactError(
+                            f"{mesh}: line {number} writes a face before the first `o` or "
+                            f"`g` group, {unsettled}. {by_hand}"
+                        )
+                    holds_face = True
+                    continue
+                if words[0] not in _OBJ_GROUP_STATEMENTS:
+                    continue
+                statement = words[0]
+                if len(words) != 2:
+                    stated = "no group" if len(words) == 1 else "a group of several words"
+                    raise InputArtifactError(
+                        f"{mesh}: line {number}, `{line.strip()}`, names {stated}, and how "
+                        f"the solver names such a group is not measured. {by_hand}"
+                    )
+                if first is None:
+                    first = (statement, number)
+                elif statement != first[0]:
+                    raise InputArtifactError(
+                        f"{mesh}: line {number} opens a group with `{statement}` and line "
+                        f"{first[1]} with `{first[0]}`: a file mixing the two, {unsettled}. "
+                        f"{by_hand}"
+                    )
+                name = words[1]
+                if name in opened:
+                    raise InputArtifactError(
+                        f"{mesh}: line {number} opens the group {name!r} again, first opened "
+                        f"at line {opened[name]}: a group in two places of the file, "
+                        f"{unsettled}. {by_hand}"
+                    )
+                opened[name] = number
+                if current is not None and holds_face:
+                    names.append(current)
+                current, holds_face = name, False
+    except (OSError, UnicodeDecodeError) as error:
+        raise InputArtifactError(
+            f"{mesh} cannot be read as the text of an OBJ: {error}. {by_hand}"
+        ) from error
+    if current is not None and holds_face:
+        names.append(current)
+    if not names:
+        raise InputArtifactError(
+            f"{mesh} holds no face under any `o` or `g` group, so the import would make no "
+            f"boundary of it; check that it is the mesh the row means. {by_hand}"
+        )
+    return tuple(names)
+
+
+def ensure_inventory(geometry: str | Path) -> Path:
+    """Return the boundary sidecar beside a geometry, writing an OBJ's from its groups (G30).
+
+    THE ONE PLACE A SIDECAR IS ASKED FOR. The matrix binding, which
+    ``pyfs-matrix plan`` and ``pyfs-matrix run`` both pass through, and
+    ``pyfs-matrix inventory`` (:func:`write_inventory`) reach the sidecar
+    through this function, so an OBJ is treated alike wherever a user
+    meets it:
+
+    * an OBJ with no sidecar gets one, its ``boundaries`` read by
+      :func:`obj_boundary_names` under a comment header naming the file's
+      sha256 and RPT-078, and a line on stderr says so. It carries the
+      list and nothing else: the ``[import]`` units and the trailing
+      edges, which only the user can state, go beneath it.
+    * an OBJ with a sidecar keeps it, never rewritten, because the file
+      may carry tables and names the user wrote. When its ``boundaries``
+      differ from the groups, in names or in order, the run cites the
+      sidecar's, as before, and a warning names both lists; when the
+      groups cannot be read, the sidecar written by hand is that file's
+      route and nothing is said.
+    * any other geometry is left as it was: a saved simulation's sidecar
+      is written by ``pyfs-matrix inventory`` from its mesh block, and an
+      STL's by hand.
+
+    Parameters
+    ----------
+    geometry : str or Path
+        The geometry the sidecar sits beside.
+
+    Returns
+    -------
+    Path
+        The sidecar beside ``geometry``, which exists for every OBJ this
+        returns for; for another geometry it exists only if written.
+
+    Raises
+    ------
+    InputArtifactError
+        An OBJ with no sidecar whose groups cannot be read
+        (:func:`obj_boundary_names`), naming the line and the sidecar to
+        write by hand; an OBJ whose sidecar states no ``boundaries`` list,
+        naming the list its groups make.
+
+    Warns
+    -----
+    PyflightstreamWarning
+        An OBJ whose sidecar's ``boundaries`` differ from its groups,
+        naming both lists.
+    """
+    path = Path(geometry)
+    sidecar = inventory_sidecar(path)
+    if path.suffix.lower() != OBJ_SUFFIX or not path.is_file():
+        return sidecar
+    if sidecar.exists():
+        _compare_with_the_groups(path, sidecar)
+        return sidecar
+    names = obj_boundary_names(path)
+    body = [
+        f"# Written by pyflightstream from the groups of {path.name}, which had no sidecar;",
+        f"# the OBJ's sha256 was {file_sha256(path)}.",
+        "# One boundary per `o` or `g` group holding a face, named by the group, in the",
+        "# order of the file: how the solver numbers an OBJ's surfaces on import",
+        "# (RPT-078). The package never rewrites this file. Add the [import] table with",
+        "# the file's units, and the [trailing_edges] table, beneath the list",
+        "# (docs/mesh-inputs.md).",
+        "boundaries = [",
+        *[f"    {_toml_string(name)}," for name in names],
+        "]",
+    ]
+    sidecar.write_text("\n".join(body) + "\n", encoding="utf-8")
+    print(
+        f"wrote {sidecar}: the boundaries of {path.name}, read from its groups in the "
+        f"order of the file (RPT-078): {', '.join(names)}. Add its [import] units and its "
+        "[trailing_edges] beneath them.",
+        file=sys.stderr,
+        flush=True,
+    )
+    return sidecar
+
+
+def _compare_with_the_groups(mesh: Path, sidecar: Path) -> None:
+    """Warn when an OBJ's own sidecar lists other boundaries than its groups make (G30)."""
+    stated = _sidecar_data(sidecar).get("boundaries")
+    try:
+        groups = obj_boundary_names(mesh)
+    except InputArtifactError:
+        # The file is one whose names are not read from it, so the list
+        # written by hand is its route, and there is nothing to compare.
+        return
+    listed = ", ".join(groups)
+    if not isinstance(stated, list) or not stated or not all(isinstance(n, str) for n in stated):
+        written = ", ".join(_toml_string(name) for name in groups)
+        raise InputArtifactError(
+            f"{sidecar} does not state `boundaries` as a non-empty list of strings. The "
+            f"groups of {mesh.name} that hold a face, in the order the solver numbers "
+            f"them on import (RPT-078), are {listed}: write boundaries = [{written}] at "
+            "the top of the file. It is never rewritten by the package, because it may "
+            "carry tables you wrote (docs/mesh-inputs.md)."
+        )
+    if tuple(stated) != groups:
+        warn(
+            f"{sidecar.name} lists the boundaries of {mesh.name} as {', '.join(stated)}, and "
+            "its groups that hold a face, in the order the solver numbers them on import "
+            f"(RPT-078), are {listed}. The run cites the sidecar's list as written, so a "
+            "surface it names at a position where the file holds another is cited at the "
+            "wrong one. Correct the list, or move the sidecar aside, plan again to have it "
+            "written from the groups, and copy its tables beneath the new list.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
+def _toml_string(name: str) -> str:
+    """Quote one name as a TOML basic string; JSON's escapes are TOML's."""
+    return json.dumps(name, ensure_ascii=False)
 
 
 #: The table of a geometry's sidecar that states how a raw mesh is imported
@@ -2318,9 +2581,10 @@ def read_inventory(sidecar: str | Path) -> tuple[str, ...]:
     if not isinstance(names, list) or not names or not all(isinstance(n, str) for n in names):
         raise InputArtifactError(
             f"{path} does not state `boundaries` as a non-empty list of strings; "
-            "rewrite it from the file with `pyfs-matrix inventory <geometry>`, "
-            "overwrite (CLI: --overwrite); for a raw mesh (.obj, .stl), which that "
-            "command cannot read, write its surface names in the file's order."
+            "for a saved simulation, rewrite it from the file with `pyfs-matrix "
+            "inventory <geometry>`, overwrite (CLI: --overwrite); for a raw mesh (.obj, "
+            ".stl), write its surface names in the order the solver numbers them "
+            "(docs/mesh-inputs.md)."
         )
     return tuple(names)
 
@@ -2420,8 +2684,8 @@ DETECT_EVERYWHERE = "auto"
 GEOMETRY_SIDECAR_KEYS: Mapping[str, InputKey] = {
     "boundaries": InputKey(
         "The mesh's boundary names in the solver's order, the name at position i being "
-        "boundary i; read from a saved simulation by pyfs-matrix inventory, written by "
-        "hand for a raw mesh.",
+        "boundary i; read from a saved simulation by pyfs-matrix inventory, read from an "
+        "OBJ's groups by the plan when it has no sidecar, written by hand for an STL.",
         "a list of names",
     ),
     "file": InputKey(

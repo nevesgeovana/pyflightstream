@@ -527,7 +527,10 @@ def plan_matrix(
         A REF, SET or ENTRY code, or a ``GEOMETRY`` stem, that the input
         library cannot resolve. The geometry half arrived with 0.8.1 and
         raises through the same call; this list said REF, SET and ENTRY
-        only until the review that noticed.
+        only until the review that noticed. An OBJ with no sidecar whose
+        groups are not read, naming the line (G30): an OBJ with none is
+        otherwise given one, written from its groups, when the matrix is
+        bound (:func:`pyflightstream.workspace.matrix.resolve_matrix`).
 
     Warns
     -----
@@ -536,7 +539,9 @@ def plan_matrix(
         final saved simulation of it is collected or hashed (0.27.0). And
         naming every unsteady row stating ``ADDITIONAL_PPROC``, whose
         additional post extracts one instant, the last, and not the run's
-        history (G12, RPT-062). Neither blocks anything.
+        history (G12, RPT-062). And naming both lists when an OBJ's sidecar
+        lists other boundaries than its groups make (G30). None blocks
+        anything.
 
     Examples
     --------

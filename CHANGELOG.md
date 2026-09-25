@@ -21,6 +21,23 @@ FlightStream versions.
   (read Cx, Cy, Cz, or turn them), and a saved simulation carries its field until
   a script sets the free stream again, which every row the package builds does.
 
+- **An OBJ's surface names are read from its groups (G30).** When an `.obj` a
+  row names has no `<stem>.boundaries.toml`, `pyfs-matrix plan` and `run` write
+  one beside it, and say so on stderr: its `boundaries`, one per `o` or `g`
+  group that holds a face, named by the group, in the order of the file, which
+  is how 26.124 numbers an OBJ's surfaces on import (RPT-078); a group with no
+  face makes none. The file carries the list under a comment naming the OBJ's
+  sha256, and the user adds the `[import]` units and `[trailing_edges]` beneath
+  it. `pyfs-matrix inventory <file>.obj` writes the same file through the same
+  function. A sidecar that exists is never rewritten, by the plan or by
+  `inventory`, `--overwrite` or not; when its `boundaries` differ from the
+  groups, the run cites the sidecar's list as before and a warning names both
+  lists, and one stating no `boundaries` is refused naming the list the groups
+  make. What the measurement did not settle is refused naming the line, and
+  keeps the list by hand: `o` and `g` mixed in one file, a group name opened
+  twice, a face before the first group, a group statement naming no group or
+  several words. An `.stl` is unchanged. Library:
+  `pyflightstream.workspace.inputs.obj_boundary_names` and `ensure_inventory`.
 - **`inputs/input_template.md`, a template of every input file (G47).**
   `pyfs-workspace init`, `pyfs-matrix plan` and `pyfs-matrix post` write it at
   the root of `inputs/`, rewriting it only when its content changes: one section

@@ -92,3 +92,22 @@ changes for you is listed below, one section per change.
   A run is not refused; widen the grid if the whole body should see the field.
 - A row whose field carries an incidence reads its body forces Cx, Cy and Cz:
   its CL and CDi are printed in the axes of the zero angle the row states.
+
+## 9. An OBJ's surface names are read from its groups (G30)
+
+- An `.obj` a row names no longer needs its `boundaries` written by hand. When
+  it has no `<stem>.boundaries.toml`, `pyfs-matrix plan` (and `run`) writes one
+  beside it holding the list, one name per `o` or `g` group that holds a face,
+  in the order of the file, and says so on stderr. Add the `[import]` units and
+  `[trailing_edges]` beneath the list, as before; the plan that wrote it blocks
+  the row on the missing unit until you do. `pyfs-matrix inventory <file>.obj`
+  writes the same file.
+- A sidecar you already have is kept as it is and never rewritten, and
+  `pyfs-matrix inventory` refuses an `.obj`'s existing sidecar, `--overwrite` or
+  not. If its `boundaries` differ from the file's groups, in a name or in the
+  order, the run still cites your list, and the plan now warns naming both
+  lists: check which one is right before the next run.
+- An `.obj` that mixes `o` and `g`, opens one group name twice, writes a face
+  before its first group, or has a group statement naming no group or several
+  words, and has no sidecar, is refused at plan naming the line; write its
+  `boundaries` by hand, as before. An `.stl` is unchanged.

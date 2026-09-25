@@ -316,18 +316,27 @@ def _build_parser() -> argparse.ArgumentParser:
 
     inventory = subparsers.add_parser(
         "inventory",
-        help="write <stem>.boundaries.toml beside a saved simulation, from its mesh block",
+        help=(
+            "write <stem>.boundaries.toml beside a saved simulation, from its mesh block, "
+            "or beside an OBJ, from its groups"
+        ),
         description=(
             "Reads the mesh block of a saved simulation and writes its boundary order as "
             "a sidecar beside it; a run whose sidecar disagrees with the file is refused "
-            "before the solver starts. Needs no executable (PFS-2029.06.02)."
+            "before the solver starts. Needs no executable (PFS-2029.06.02). For an OBJ "
+            "the order is its groups that hold a face, in the order of the file, which is "
+            "what a plan writes when the OBJ has no sidecar (G30, RPT-078); an OBJ's "
+            "existing sidecar is never rewritten."
         ),
     )
-    inventory.add_argument("geometry", help="a saved simulation under inputs/geometries/")
+    inventory.add_argument("geometry", help="a saved simulation or an OBJ under inputs/geometries/")
     inventory.add_argument(
         "--overwrite",
         action="store_true",
-        help="rewrite a sidecar that already exists; without it an existing one is refused",
+        help=(
+            "rewrite a saved simulation's sidecar that already exists; without it an "
+            "existing one is refused"
+        ),
     )
 
     convert = subparsers.add_parser(

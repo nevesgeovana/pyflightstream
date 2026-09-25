@@ -1368,8 +1368,9 @@ def _geometry_tables() -> list[GlossaryTable]:
         GlossaryTable(
             "geometry",
             "Top-level keys and tables",
-            "Beside a saved simulation, `pyfs-matrix inventory` writes it; beside a raw "
-            "mesh, it is written by hand.",
+            "Beside a saved simulation, `pyfs-matrix inventory` writes it; beside an OBJ "
+            "with none, the plan writes its `boundaries` from the OBJ's groups; beside an "
+            "STL, it is written by hand.",
             _key_rows(GEOMETRY_SIDECAR_KEYS),
         ),
         *_model_tables(
@@ -2080,8 +2081,11 @@ boundaries = [
 """
 
 _RAW_MESH_SIDECAR_EXAMPLE = """\
-# The sidecar of a raw mesh, wing_raw.obj. A raw mesh carries neither boundary
-# names nor a length unit, so both are written here by hand.
+# The sidecar of a raw mesh, wing_raw.obj. An OBJ's boundaries are its groups
+# that hold a face, in the order of the file: when no sidecar stands beside it,
+# the plan writes this list from them, and the tables below go beneath it. An
+# STL names no group, so its list is written by hand. A mesh file carries no
+# length unit, so the [import] table is always written by hand.
 file = "wing_raw.obj"
 boundaries = ["naca"]             # the file's surfaces, in the file's order
 
@@ -2493,9 +2497,10 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                 "directly, or in a folder named by its stem with everything that "
                 "belongs to it, which is the layout the examples use; a row's "
                 "`GEOMETRY` names the file the same way in both. A saved simulation "
-                "(`.fsm`) gets its sidecar from `pyfs-matrix inventory`; a raw mesh "
-                "(`.obj`, `.stl`) gets one written by hand, which also says how it is "
-                "imported and where its trailing edges are."
+                "(`.fsm`) gets its sidecar from `pyfs-matrix inventory`. An OBJ with no "
+                "sidecar gets one from the plan, its `boundaries` read from the OBJ's "
+                "groups, and an STL's is written by hand; beside a raw mesh, you add how "
+                "it is imported and where its trailing edges are."
             ),
             examples=(
                 TemplateExample(

@@ -30,8 +30,9 @@ the mesh as it names any geometry, `wing.obj` in its `GEOMETRY` column.
 
 The sidecar says, in this order:
 
-1. `boundaries`: the names of the mesh's surfaces, in the order the file
-   holds them;
+1. `boundaries`: the names of the mesh's surfaces, in the order the solver
+   numbers them, which the plan writes for an `.obj` from its groups when it
+   has no sidecar;
 2. `[import]`: `units`, the length unit the file is written in;
 3. `[[import.operations]]`: the operations that make the file into the body,
    when it is not the body yet;
@@ -45,15 +46,61 @@ build runs what and what is measured.
 
 ### The surface names
 
-**A raw mesh's names are written by hand.** For an `.obj` or `.stl` you write
-the `boundaries` list yourself, one name per surface in the order the file
-holds them, and a row cites those names as it cites a `.fsm`'s. They are a
-statement the run trusts rather than verifies: the file carries nothing this
-package reads its names from, so a name in the wrong position cites the wrong
-surface, and nothing refuses it before the solver runs. `pyfs-matrix
-inventory`, which writes a saved simulation's names for you
-([below](#the-boundary-inventory-sidecar)), refuses a raw mesh by name, since
-it has no mesh block to read the order from.
+A row cites a raw mesh's names as it cites a `.fsm`'s. Where they come from
+depends on the format.
+
+**An OBJ's names are read from its groups.** The solver imports an `.obj` as
+one surface per `o` or `g` group that holds a face, named by the group and
+numbered in the order the groups appear in the file; a group holding no face
+makes no surface and takes no position (measured on 26.124, RPT-078). So when
+an `.obj` has no sidecar, the plan writes one beside it and says so on stderr:
+`pyfs-matrix plan`, `pyfs-matrix run` and `pyfs-matrix inventory wing.obj`
+reach it the same way. It holds the list and nothing else:
+
+```toml
+# inputs/geometries/wing.boundaries.toml, as the plan writes it beside wing.obj
+# Written by pyflightstream from the groups of wing.obj, which had no sidecar;
+# the OBJ's sha256 was <the sha256 of wing.obj>.
+# One boundary per `o` or `g` group holding a face, named by the group, in the
+# order of the file: how the solver numbers an OBJ's surfaces on import
+# (RPT-078). The package never rewrites this file. Add the [import] table with
+# the file's units, and the [trailing_edges] table, beneath the list
+# (docs/mesh-inputs.md).
+boundaries = [
+    "Wing",
+    "Tail",
+]
+```
+
+Add the `[import]` table and the `[trailing_edges]` table beneath the list
+(the sections below): only you can state the unit the file is written in and
+how its trailing edge is marked, so the plan that wrote the list then blocks
+the row on the missing unit, naming the table.
+
+**The sidecar is never rewritten.** Once one stands beside the `.obj`, written
+by the plan or by you, the package leaves it as it is, and `pyfs-matrix
+inventory` refuses it, `--overwrite` or not, since it carries your tables. At
+each plan its list is compared with the file's groups: when they differ, in a
+name or in the order, the run cites the sidecar's list as written and a
+warning names both lists. Correct the list, or move the file aside, plan
+again, and copy your tables beneath the list the plan writes.
+
+**What the measurement did not settle is refused, by line, and keeps the list
+by hand.** A file that opens groups with both `o` and `g`, a group name opened
+in two places of the file, a face written before the first group, and a group
+statement naming no group or a name of several words are refused when the
+plan would write the sidecar, naming the line. Write the `boundaries` of such
+a file by hand, in the order the solver numbers its surfaces; a sidecar beside
+it is read as it stands.
+
+**An STL's names are written by hand.** An `.stl` names no group this package
+reads, so you write the `boundaries` list yourself, one name per surface in
+the order the file holds them. They are a statement the run trusts rather
+than verifies: a name in the wrong position cites the wrong surface, and
+nothing refuses it before the solver runs. `pyfs-matrix inventory`, which
+writes a saved simulation's names for you
+([below](#the-boundary-inventory-sidecar)), refuses an `.stl` by name, since it
+has no mesh block to read the order from.
 
 ### The unit
 
@@ -723,9 +770,10 @@ file's order, and refuses to overwrite one that exists without `--overwrite`.
 The sidecar sits beside the file, so a geometry kept in its own folder,
 `inputs/geometries/30_WB/30_WB.fsm` (PFS-2032.04, the layout `pyfs-workspace
 migrate-geometries` produces), has it inside that folder, and the run reads it
-from there. `pyfs-matrix inventory` refuses a file without a mesh block (a raw
-mesh, or a file the solver never saved) by name, because it has no block to
-read the order from.
+from there. `pyfs-matrix inventory` reads an `.obj`'s order from its groups
+instead ([above](#the-surface-names)), and refuses any other file without a
+mesh block (an `.stl`, or a file the solver never saved) by name, because it
+has no block to read the order from.
 
 A row whose `.fsm` has a sidecar is checked when the script opens the file: a
 sidecar that disagrees with the file's own block is refused before any seat is
