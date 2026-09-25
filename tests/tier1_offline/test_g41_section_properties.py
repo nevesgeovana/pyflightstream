@@ -478,17 +478,42 @@ def test_a_missing_geometry_file_is_refused(tmp_path):
     [
         # A bow tie whose two lobes differ, so its signed area is not zero
         # and only the crossing test can refuse it.
-        ([(0.0, 0.0), (3.0, 1.0), (3.0, 0.0), (0.0, 2.0)], "crosses itself"),
+        ([(0.0, 0.0), (3.0, 1.0), (3.0, 0.0), (0.0, 2.0)], "crosses or touches itself"),
         # The symmetric bow tie: its lobes cancel, and the area test refuses it.
         ([(0.0, 0.0), (1.0, 1.0), (1.0, 0.0), (0.0, 1.0)], "encloses no area"),
         ([(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)], "encloses no area"),
         ([(0.0, 0.0), (1.0, 0.0)], "at least 3"),
         ([(0.0, 0.0), (1.0, float("nan")), (0.0, 1.0)], "NaN"),
+        # Reading D33 of 0.28.0: contours that cross nothing properly and are
+        # still no simple section. The same rectangle listed three times gave
+        # three times its mass and stiffness.
+        ([(0.0, 0.0), (0.04, 0.0), (0.04, 0.004), (0.0, 0.004)] * 3, "passes through one point"),
+        # A vertex lying on another edge: the outline touches itself.
+        ([(0.0, 0.0), (2.0, 0.0), (2.0, 1.0), (1.0, 0.0), (0.0, 1.0)], "crosses or touches itself"),
+        # An edge running back along the one before it, no vertex repeated.
+        ([(0.0, 0.0), (3.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)], "folds back"),
     ],
 )
 def test_a_contour_that_is_no_section_is_refused(contour, message):
     with pytest.raises(FsiInputError, match=message):
         polygon_area_moments(contour)
+
+
+@pytest.mark.parametrize("shift_m", [0.0, 1000.0, 10000.0])
+def test_a_section_far_from_the_origin_keeps_its_moments(shift_m):
+    """Reading D33 of 0.28.0: 10 km out the flap moment came back 12,646 times too large.
+
+    The rectangle's moments are exact in closed form; moving it changes its
+    centroid by the shift and nothing else.
+    """
+    width, thickness = 0.04, 0.004
+    moved = [(x + shift_m, z + shift_m) for x, z in _rectangle(width, thickness, 0.0, 0.0)]
+    moments = polygon_area_moments(moved)
+    assert moments.area_m2 == pytest.approx(width * thickness, rel=1e-8)
+    assert moments.second_moment_flap_m4 == pytest.approx(width * thickness**3 / 12.0, rel=1e-8)
+    assert moments.second_moment_chord_m4 == pytest.approx(thickness * width**3 / 12.0, rel=1e-8)
+    assert moments.centroid_chordwise_m == pytest.approx(shift_m + width / 2.0, abs=1e-9)
+    assert moments.centroid_normal_m == pytest.approx(shift_m + thickness / 2.0, abs=1e-9)
 
 
 def test_a_station_without_its_section_is_refused():

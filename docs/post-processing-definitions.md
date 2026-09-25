@@ -873,7 +873,8 @@ all-variables form, `SET_VTK_EXPORT_VARIABLES -1 DISABLE`, which writes no
   frame as the run's own script placed it. **A continuation's** loads frame is
   the saved simulation's, and the run takes its placement from the run it
   continues; one recorded before 0.28.0 states none, and such a continuation is
-  refused before the solver starts unless its pproc sets `tecplot = false`.
+  refused at plan, before anything is archived, unless its pproc sets
+  `tecplot = false`.
 - **What keeps its own route.** The volume section's Tecplot
   (`[volume_section] format = "tecplot"`, `EXPORT_VOLUME_SECTION_TECPLOT`), the
   probe files of `pyflightstream.post.writers` and a hand-written script's

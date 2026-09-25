@@ -101,6 +101,7 @@ from pyflightstream.cases import (
     SimCase,
     case_at_point,
     check_recipe,
+    classify_outputs,
     point_name,
     resolve_recipe,
     sweep_name,
@@ -6434,12 +6435,41 @@ def resolve_continuation(
             f"remove the {RESTART_VARIABLE} key to march the point from the start."
         )
     _refuse_a_field_the_stopped_run_did_not_read(case, tag, previous)
+    _refuse_a_tecplot_the_stopped_run_did_not_place(case, tag, previous)
     return {
         "continues": previous.run_id,
         "iterations": iterations,
         "saved": str(saved),
         "form": request.form,
     }
+
+
+def _refuse_a_tecplot_the_stopped_run_did_not_place(
+    case: SimCase, tag: str, previous: RunRecord
+) -> None:
+    """Refuse a continuation whose Tecplot needs a loads frame the stopped run never recorded (G45).
+
+    A CONTINUATION SETS NO LOADS FRAME OF ITS OWN: it reopens the saved
+    simulation, and the solver writes the VTK in the frame that run placed, so
+    the package's Tecplot is undone by the placement the stopped run recorded.
+    A run recorded before 0.28.0 recorded none. Refused HERE, where a
+    continuation is resolved, and not once it is built: by then the stopped
+    run's datapoint was archived, and the recorded refusal of a point that had
+    started would have kept the remedy the message names, ``tecplot = false``,
+    from ever finding the stopped run again (reading D33 of 0.28.0).
+    """
+    if "tecplot" not in classify_outputs([str(name) for name in case.outputs]):
+        return
+    if _recorded_loads_frame(previous) is not None:
+        return
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} point {tag} states {RESTART_VARIABLE}, and the Tecplot surface "
+        "of a continuation is written by the package from the VTK the solver exports in the "
+        f"analysis loads frame (RPT-074); the run it continues, {previous.run_id!r}, recorded "
+        "no placement of that frame: it was recorded before 0.28.0 or exported no Tecplot. "
+        "Set tecplot = false under the pproc's [exports] to continue it without one. Nothing "
+        "was archived, so the stopped run stays the one to continue."
+    )
 
 
 def _refuse_a_field_the_stopped_run_did_not_read(

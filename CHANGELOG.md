@@ -112,7 +112,11 @@ names, no `Singularity_strength`, and the symmetry images on a symmetric row
   inertia per length rho times the principal second moments, EI = E times the
   second moment about the chordwise centroidal axis, GJ = G J, and the
   elastic-axis offsets, for a SOLID homogeneous section. The area, centroid,
-  second moments, product and principal values of the polygon are exact; the
+  second moments, product and principal values of the polygon are exact,
+  summed about the vertices' mean so a section far from the origin keeps its
+  digits; a contour that is no simple polygon (one that crosses or touches
+  itself, repeats a vertex or folds back on an edge) is refused, naming the
+  vertices or edges. The
   torsion constant J is computed numerically from the Prandtl stress function
   (second-order finite differences cut exactly at the polygon, solved
   directly), converging under refinement to the ellipse's and the rectangle's
@@ -219,7 +223,8 @@ names, no `Singularity_strength`, and the symmetry images on a symmetric row
   refused at plan. A continuation, which reopens the saved simulation and sets
   no loads frame of its own, writes its Tecplot in the frame the run it
   continues recorded; one of a run recorded before 0.28.0, which recorded none,
-  is refused before the solver starts unless its pproc sets `tecplot = false`.
+  is refused at plan, before anything is archived, unless its pproc sets
+  `tecplot = false`.
   The volume section's Tecplot, the probe writers and
   `helpers.export_results(tecplot=...)` keep their own routes. Library:
   `pyflightstream.results.surface` (`read_vtk_surface`, `translate_vtk_surface`,

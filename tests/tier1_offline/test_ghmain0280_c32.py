@@ -16,8 +16,8 @@ from __future__ import annotations
 import pytest
 
 import pyflightstream.post.products as products_module
+from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.results import FrozenSolve
-from pyflightstream.run import CampaignErrors
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from tests.tier1_offline.test_g25_surface_time_average import _averaged_record, _exports
 from tests.tier1_offline.test_g45_tecplot_from_vtk import MRP, _write_solver_vtk
@@ -76,16 +76,42 @@ def test_c32_a_continuation_writes_its_tecplot_in_the_frame_the_stopped_run_plac
 def test_c32_a_continuation_of_a_run_that_placed_no_frame_is_refused_before_the_solver(
     tmp_path,
 ):
-    """The refusal the migration page documents: a stopped run recorded before 0.28.0."""
+    """The refusal the migration page documents: a stopped run recorded before 0.28.0.
+
+    Since reading D33 it is the pre-flight's, where every continuation is
+    resolved before anything runs: nothing is executed, recorded or archived.
+    """
     workspace = _workspace(tmp_path)
     _stopped(workspace, None)
-    with pytest.raises(CampaignErrors):
+    with pytest.raises(MatrixError, match="recorded no placement") as raised:
         _run(workspace, _restart_row(tmp_path), _submitting(workspace))
-    failed = workspace.read_manifest()[-1]
-    assert failed.run_id != STOPPED_RUN
-    assert failed.status is RunStatus.FAILED_SCRIPT
-    assert "recorded no placement" in (failed.error or ""), failed.error
-    assert "tecplot = false" in (failed.error or "")
+    assert "tecplot = false" in str(raised.value)
+    assert [record.run_id for record in workspace.read_manifest()] == [STOPPED_RUN]
+    saved = workspace.sim_dir("7001") / "datapoints" / f"DP-{TAG}" / f"{TAG}.fsm"
+    assert saved.is_file(), "the refusal archived the stopped run it could not continue"
+
+
+def test_d33_the_remedy_the_refusal_names_continues_the_stopped_run(tmp_path):
+    """Reading D33 of 0.28.0: after the refusal, `tecplot = false` must be enough.
+
+    The refusal used to come after the stopped run's datapoint was archived, and
+    its record, carrying a recipe, then read as the point's latest run: the retry
+    was told a failed continuation is not retried.
+    """
+    workspace = _workspace(tmp_path)
+    _stopped(workspace, None)
+    with pytest.raises(MatrixError, match="recorded no placement"):
+        _run(workspace, _restart_row(tmp_path), _submitting(workspace))
+    pproc = workspace.inputs_dir / "pproc" / "p001.toml"
+    pproc.write_text(
+        pproc.read_text(encoding="utf-8") + "\n[exports]\ntecplot = false\n", encoding="utf-8"
+    )
+    records = _run(workspace, _restart_row(tmp_path), _submitting(workspace))
+    assert [record.status for record in records] == [RunStatus.SUBMITTED], [
+        (record.run_id, record.status, record.error) for record in records
+    ]
+    assert records[0].model_dump(mode="json").get("continues") == STOPPED_RUN
+    assert not records[0].surface_translations
 
 
 def _frozen_post(tmp_path, monkeypatch, *, check_frozen):

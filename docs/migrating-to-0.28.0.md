@@ -171,9 +171,10 @@ changes for you is listed below, one section per change.
 - A row whose loads frame the script does not place, or whose pproc's
   `vtk_variables` names one or two of `VX`, `VY`, `VZ` while its loads frame
   moves, is refused at plan, naming the frame; name all three components or
-  none. A continuation of a run recorded before 0.28.0 is refused before the
-  solver starts unless its pproc sets `tecplot = false`, since that run recorded
-  no placement of its loads frame.
+  none. A continuation of a run recorded before 0.28.0 is refused at plan,
+  before anything is archived, unless its pproc sets `tecplot = false`, since
+  that run recorded no placement of its loads frame; set it and run again, and
+  the same stopped run is continued.
 - A `.dat` a run wrote before 0.28.0 is the solver's own and stays so.
 
 ## 14. `[time_averaging]` now works (G25)

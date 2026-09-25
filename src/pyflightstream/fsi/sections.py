@@ -324,14 +324,22 @@ def polygon_area_moments(contour_m: ArrayLike) -> PolygonMoments:
         Area, centroid and second moments about the centroid.
     """
     polygon = _as_polygon(contour_m)
-    x, z = polygon[:, 0], polygon[:, 1]
+    # SUMMED ABOUT THE VERTICES' MEAN, not the origin: the area and centroid
+    # sums are differences of products of the coordinates, so a section far
+    # from the origin loses its digits to cancellation before the recentring
+    # below can help (a 40 x 4 mm rectangle 10 km out came back with a flap
+    # moment 12,646 times too large; reading D33 of 0.28.0).
+    anchor_x, anchor_z = (float(value) for value in polygon.mean(axis=0))
+    x, z = polygon[:, 0] - anchor_x, polygon[:, 1] - anchor_z
     cross = x * np.roll(z, -1) - np.roll(x, -1) * z
     area = 0.5 * float(np.sum(cross))
-    centroid_x = float(np.sum((x + np.roll(x, -1)) * cross)) / (6.0 * area)
-    centroid_z = float(np.sum((z + np.roll(z, -1)) * cross)) / (6.0 * area)
+    local_x = float(np.sum((x + np.roll(x, -1)) * cross)) / (6.0 * area)
+    local_z = float(np.sum((z + np.roll(z, -1)) * cross)) / (6.0 * area)
+    centroid_x = anchor_x + local_x
+    centroid_z = anchor_z + local_z
 
-    xc = x - centroid_x
-    zc = z - centroid_z
+    xc = x - local_x
+    zc = z - local_z
     xn, zn = np.roll(xc, -1), np.roll(zc, -1)
     cross_c = xc * zn - xn * zc
     integral_x2 = float(np.sum((xc * xc + xc * xn + xn * xn) * cross_c)) / 12.0
@@ -763,7 +771,11 @@ def _as_polygon(contour_m: ArrayLike) -> _Floats:
         raise FsiInputError(
             f"a section contour needs at least 3 distinct vertices, got {len(points)}"
         )
-    x, z = points[:, 0], points[:, 1]
+    # Every test below reads the vertices about their mean, for the reason
+    # polygon_area_moments sums them so: far from the origin a difference of
+    # products loses its digits.
+    local = points - points.mean(axis=0)
+    x, z = local[:, 0], local[:, 1]
     twice_area = float(np.sum(x * np.roll(z, -1) - np.roll(x, -1) * z))
     span = float(np.max(np.ptp(points, axis=0)))
     if not abs(twice_area) > 1.0e-12 * span * span:
@@ -773,19 +785,75 @@ def _as_polygon(contour_m: ArrayLike) -> _Floats:
         )
     if twice_area < 0.0:
         points = points[::-1].copy()
-    crossing = _first_self_intersection(points)
+        local = local[::-1].copy()
+    # A SIMPLE POLYGON VISITS EACH POINT ONCE. A contour that repeats a vertex,
+    # runs an edge back over the one before it, or touches another edge is not
+    # one, and the vertex formulas still return a number for it: the same
+    # rectangle listed three times came back with three times its mass and
+    # stiffness (reading D33 of 0.28.0), which a test for proper crossings alone
+    # let through.
+    repeated = _first_repeated_vertex(local, merge)
+    if repeated is not None:
+        first, second = repeated
+        raise FsiInputError(
+            f"the section contour passes through one point twice: vertices {first} and "
+            f"{second} coincide. A simple contour visits each point once, so its area "
+            "and moments would count part of the section more than once"
+        )
+    folded = _first_fold_back(local, span)
+    if folded is not None:
+        raise FsiInputError(
+            f"the section contour folds back on itself at vertex {folded}: the edge after "
+            "it runs back along the edge before it, so part of the outline is traced twice"
+        )
+    crossing = _first_self_intersection(local, span)
     if crossing is not None:
         first, second = crossing
         raise FsiInputError(
-            f"the section contour crosses itself: edge {first} intersects edge "
-            f"{second}. A self-intersecting contour has no inside, so its area and "
+            f"the section contour crosses or touches itself: edge {first} meets edge "
+            f"{second}. A contour that meets itself has no single inside, so its area and "
             "moments would be numbers describing no section"
         )
     return points
 
 
-def _first_self_intersection(points: _Floats) -> tuple[int, int] | None:
-    """Return the first pair of non-adjacent edges that properly cross, if any."""
+def _first_repeated_vertex(points: _Floats, merge: float) -> tuple[int, int] | None:
+    """Return the first pair of distinct vertices closer than ``merge``, if any."""
+    count = len(points)
+    for offset in range(0, count, _PAIR_CHUNK):
+        rows = slice(offset, min(count, offset + _PAIR_CHUNK))
+        gap = np.hypot(
+            points[rows, None, 0] - points[None, :, 0], points[rows, None, 1] - points[None, :, 1]
+        )
+        index_i = np.arange(rows.start, rows.stop)[:, None]
+        index_j = np.arange(count)[None, :]
+        hits = np.argwhere((gap <= merge) & (index_j > index_i))
+        if hits.size:
+            i, j = hits[0]
+            return int(i + offset), int(j)
+    return None
+
+
+def _first_fold_back(points: _Floats, span: float) -> int | None:
+    """Return the first vertex whose two edges are collinear and opposed, if any."""
+    before = points - np.roll(points, 1, axis=0)
+    after = np.roll(points, -1, axis=0) - points
+    turn = before[:, 0] * after[:, 1] - before[:, 1] * after[:, 0]
+    heading = before[:, 0] * after[:, 0] + before[:, 1] * after[:, 1]
+    collinear = np.abs(turn) <= _COINCIDENT_FRACTION * span * span
+    folds = np.flatnonzero(collinear & (heading < 0.0))
+    return int(folds[0]) if folds.size else None
+
+
+def _first_self_intersection(points: _Floats, span: float) -> tuple[int, int] | None:
+    """Return the first pair of non-adjacent edges that cross or touch, if any.
+
+    The edges are closed segments: a vertex lying on another edge, or two edges
+    running along one line over a shared stretch, meet as surely as two that
+    cross. An orientation within rounding of zero reads as collinear.
+    """
+    tolerance = _COINCIDENT_FRACTION * span * span
+    margin = _COINCIDENT_FRACTION * span
     start = points
     end = np.roll(points, -1, axis=0)
     count = len(points)
@@ -793,21 +861,44 @@ def _first_self_intersection(points: _Floats) -> tuple[int, int] | None:
         rows = slice(offset, min(count, offset + _PAIR_CHUNK))
         a, b = start[rows, None, :], end[rows, None, :]
         c, d = start[None, :, :], end[None, :, :]
-        o1 = _orientation(a, b, c)
-        o2 = _orientation(a, b, d)
-        o3 = _orientation(c, d, a)
-        o4 = _orientation(c, d, b)
-        proper = (o1 * o2 < 0.0) & (o3 * o4 < 0.0)
+        s1 = _side(_orientation(a, b, c), tolerance)
+        s2 = _side(_orientation(a, b, d), tolerance)
+        s3 = _side(_orientation(c, d, a), tolerance)
+        s4 = _side(_orientation(c, d, b), tolerance)
+        meet = (s1 * s2 < 0) & (s3 * s4 < 0)
+        meet |= (s1 == 0) & _within(a, b, c, margin)
+        meet |= (s2 == 0) & _within(a, b, d, margin)
+        meet |= (s3 == 0) & _within(c, d, a, margin)
+        meet |= (s4 == 0) & _within(c, d, b, margin)
         index_i = np.arange(rows.start, rows.stop)[:, None]
         index_j = np.arange(count)[None, :]
         separation = np.abs(index_i - index_j)
         adjacent = (separation <= 1) | (separation == count - 1)
-        proper &= ~adjacent
-        hits = np.argwhere(proper)
+        meet &= ~adjacent
+        hits = np.argwhere(meet)
         if hits.size:
             i, j = hits[0]
             return int(i + offset), int(j)
     return None
+
+
+def _side(orientation: _Floats, tolerance: float) -> NDArray[np.int_]:
+    """Return the sign of an orientation, zero within ``tolerance``."""
+    result: NDArray[np.int_] = np.where(
+        orientation > tolerance, 1, np.where(orientation < -tolerance, -1, 0)
+    )
+    return result
+
+
+def _within(p: _Floats, q: _Floats, r: _Floats, margin: float) -> NDArray[np.bool_]:
+    """Whether ``r`` lies in the bounding box of the segment ``p q``, give or take ``margin``."""
+    result: NDArray[np.bool_] = (
+        (np.minimum(p[..., 0], q[..., 0]) - margin <= r[..., 0])
+        & (r[..., 0] <= np.maximum(p[..., 0], q[..., 0]) + margin)
+        & (np.minimum(p[..., 1], q[..., 1]) - margin <= r[..., 1])
+        & (r[..., 1] <= np.maximum(p[..., 1], q[..., 1]) + margin)
+    )
+    return result
 
 
 def _orientation(p: _Floats, q: _Floats, r: _Floats) -> _Floats:
