@@ -312,7 +312,8 @@ the opposite sign to 0.26.0: `roll_rate:40` writes
   work first (`pyfs-matrix collect`), or give the row another simulation id.
   `--force-rerun` of a point whose record is still SUBMITTED is refused the
   same way, and so is a new point of a simulation whose geometry changed
-  since one of its points was submitted, while that job is still queued.
+  since one of its points was submitted, or whose geometry sits in another
+  folder of the library, while that job is still queued.
 - An HPC profile's `[descriptor] name` is a plain file name, because the
   descriptor is written in the folder each point runs in. A name with a folder
   (`actions/job.sh`), a parent folder (`..`) or a form Windows reads as another

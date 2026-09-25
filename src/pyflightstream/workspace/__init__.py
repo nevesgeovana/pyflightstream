@@ -2415,6 +2415,43 @@ class CampaignWorkspace:
         self._staging[sim_id] = (mode, reason)
         return hashes
 
+    def staging_would_change(self, sim_id: str, sources: Sequence[str | Path]) -> str | None:
+        """Say what staging ``sources`` would change in a simulation's inputs, or None.
+
+        A dry run of :meth:`stage_inputs` that writes nothing, for a simulation
+        with a point still in a scheduler's queue: that job opens what the
+        inputs folder presents when it starts, so staging may leave it exactly
+        as it is and nothing else. A folder that links to the library keeps
+        its target only when the sources sit in that same folder; a folder of
+        copies is left alone only when every source already has its bytes
+        there. Anything else (a link retargeted, removed or made, a copy with
+        other bytes) is named.
+        """
+        inputs = self.sim_dir(sim_id) / "inputs"
+        origins = [Path(source) for source in sources]
+        if not origins:
+            return None
+        library = (self.inputs_dir / "geometries").resolve()
+        parents = {origin.resolve().parent for origin in origins}
+        target = parents.pop() if len(parents) == 1 else None
+        linkable = target is not None and (target == library or target.parent == library)
+        if _is_link(inputs):
+            current = Path(os.path.realpath(inputs))
+            if linkable and current == target:
+                return None
+            return f"the inputs folder links to {current}, and staging would " + (
+                f"point it at {target}" if linkable else "replace the link with copies"
+            )
+        if not inputs.is_dir() or not any(inputs.iterdir()):
+            return "the inputs folder is empty, and staging would fill it"
+        for origin in origins:
+            staged = inputs / origin.name
+            if not origin.is_file():
+                continue
+            if not staged.is_file() or _sha256(staged) != _sha256(origin):
+                return f"staging would copy {origin} over {staged}"
+        return None
+
     def _link_inputs(self, inputs: Path, origins: Sequence[Path]) -> tuple[str, str | None]:
         """Make ``inputs`` a link to the geometry library, or say why not.
 

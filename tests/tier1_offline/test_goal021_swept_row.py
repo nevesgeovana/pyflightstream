@@ -383,6 +383,36 @@ def test_goal021_swept_row_a_new_point_does_not_restage_under_a_queued_job(tmp_p
     assert [record.run_id for record in workspace.read_manifest()] == manifest_before
 
 
+def test_goal021_swept_row_staging_does_not_retarget_the_inputs_of_a_queued_job(tmp_path):
+    """The independent reading 9r: the queued points were staged from the library's own
+    folder, and a new row of the same campaign and simulation names a geometry kept in its
+    own folder (geometries/wing_other/). Staging would re-point the inputs junction there,
+    swapping every file the queued jobs open, whatever its name. Refused before anything
+    is prepared; the inputs folder presents what it did."""
+    from pyflightstream.exceptions import WorkspaceError
+
+    workspace, records = _submitted_row(tmp_path)
+    inputs = workspace.sim_dir("7001") / "inputs"
+    (geometry,) = (workspace.inputs_dir / "geometries").rglob("wing_clean.fsm")
+    other = workspace.inputs_dir / "geometries" / "wing_other" / "wing_other.fsm"
+    other.parent.mkdir()
+    other.write_bytes(geometry.read_bytes())
+    presented = (inputs.resolve(), _files_of(inputs))
+    manifest_before = [record.run_id for record in workspace.read_manifest()]
+    row = _rotor_row(tmp_path, sweep="6.0", extra=" / EXPORT_UNSTEADY_AFTER_REV: 1")
+    row.write_text(
+        row.read_text(encoding="utf-8").replace("wing_clean.fsm", "wing_other.fsm"),
+        encoding="utf-8",
+    )
+    with pytest.raises(WorkspaceError, match=r"opens this simulation's inputs"):
+        _run(workspace, row, StubSolver(WRITES_EVERY_EXPORT))
+    assert [record.run_id for record in workspace.read_manifest()] == manifest_before
+    assert (inputs.resolve(), _files_of(inputs)) == presented, "the queued jobs' inputs changed"
+    # The dry run itself: the geometry the queued points staged changes nothing.
+    assert workspace.staging_would_change("7001", [geometry]) is None
+    assert workspace.staging_would_change("7001", [other]) is not None
+
+
 @pytest.mark.parametrize("spelling", ["wing.fsm", "WING.FSM", "Wing.Fsm"])
 def test_goal021_swept_row_the_staged_input_check_reads_the_name_the_file_system_sees(
     tmp_path, spelling

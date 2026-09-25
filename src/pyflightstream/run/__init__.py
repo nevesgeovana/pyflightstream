@@ -3224,6 +3224,24 @@ def run_campaign(
             and record.status is RunStatus.SUBMITTED
             and record.run_id not in already
         ]
+        # AND STAGING CHANGES NOTHING THE QUEUED JOB OPENS: the junction to the
+        # library is retargeted when this row's geometry sits in another folder,
+        # which swaps every file of inputs/ at once, whatever its name (9r).
+        queued_in_sim = [
+            record.run_id
+            for record in manifest.values()
+            if record.sim_id == case.sim_id and record.status is RunStatus.SUBMITTED
+        ]
+        if queued_in_sim and case.geometry is not None:
+            change = workspace.staging_would_change(case.sim_id, [case.geometry])
+            if change is not None:
+                raise WorkspaceError(
+                    f"cannot run {campaign.name}/sim_{case.sim_id}: "
+                    f"{queued_in_sim[0]!r} is still in a scheduler's queue and opens "
+                    f"this simulation's inputs when it starts, and {change}. Collect it "
+                    "first (pyfs-matrix collect), or run this row with the geometry the "
+                    "queued point staged; nothing was run."
+                )
         if already or queued_here:
             # Partially recorded: some points ran against the inputs staged
             # last time. Re-staging different content would silently retire
