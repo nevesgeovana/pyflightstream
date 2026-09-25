@@ -1,0 +1,42 @@
+schema: pyflightstream-compat-report/1
+fs_version: '26.123'
+date: '2026-09-25'
+fs_exe: FlightStream_26123.exe
+fs_exe_sha256: 213c854a3f6569d74c760fda93b51dadef3a85a4cb724efa18f79b60fce84348
+measured_at: '2026-09-25T03:23:09-0300'
+source: >
+  Transcription of the licensed probe T21 of the 0.28.0 work, reported as RPT-079
+  (reports/RPT-079_the-solver-averages-the-surface-over-time-steps-on-26122_2026-09-25.md).
+  One 12-step unsteady point run on 26.123 (build 8112026) unchanged and with one line
+  added, in one detached batch with no solver alive before it; no solver was invoked
+  while writing this transcription, and it does not claim a probe-harness execution.
+summary:
+  verified: 0
+  broken: 0
+  removed: 1
+  unprobed: 0
+commands:
+  SOLVER_TIME_AVERAGING:
+    outcome: removed
+    detail: >-
+      Measured 2026-09-25 on FlightStream 26.123 (build 8112026): the line
+      SOLVER_TIME_AVERAGING ENABLE 7 12 just before INITIALIZE_SOLVER was refused as
+      "Unrecognized command in script ... at line 379", and the script stopped there
+      (return code 0 after 0.97 s, no export written), while the unchanged control ran to
+      the end in 12.2 s. The 26.123 edition of the manual documents the command
+      (SRC-751 p.353); this build does not accept it.
+    signals:
+      sentinel_before: true
+      sentinel_after: false
+      effect: false
+      log_errors:
+        - "ERROR | Syntax | 'SOLVER_TIME_AVERAGING ENABLE 7 12' | Unrecognized command in script"
+    return_code: 0
+    measurement:
+      - variant: A_C_26123
+        script_sha256: 01696d1d135a580aa75d2df0f58364f2806f14f3dbbf67465bd70fa2d4e34964
+        wall_time_s: 12.17
+      - variant: A_AVG_26123
+        added: SOLVER_TIME_AVERAGING ENABLE 7 12
+        script_sha256: aa6a6b1da334b31ecd4ac65b3a53fb047f993a2440bd17363c1d117d6c5b1068
+        wall_time_s: 0.97

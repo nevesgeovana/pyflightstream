@@ -370,12 +370,17 @@ SOLVER_TIME_AVERAGING:
     all three.
   versions:
     "26.122":
-      status: documented
+      status: verified
+      report: "reports/compat/CMP-26122_2026-09-25_time-averaging.yaml"
       note: >
-        SRC-750 p.353 documents the command; execution on 26.122 is unverified.
-        C01 on 2026-09-19 measured that it hangs 26.124, so [time_averaging]
-        is refused until successful execution is verified on this build.
-    "26.123": {status: documented, note: "SRC-751 p.353 documents the command; execution on 26.123 is unverified. C01 on 2026-09-19 measured that it hangs 26.124, so [time_averaging] is refused until successful execution is verified on this build."}
+        SRC-750 p.353 documents the command. Measured 2026-09-25 on FlightStream
+        26.122 (build 8092026) by the licensed probe T21 (RPT-079): ENABLE 7 12,
+        just before INITIALIZE_SOLVER on a 12-step unsteady point, ran and made
+        the final surface the uniform mean of the run's per-step surfaces over
+        TIME STEPS 7 to 12 inclusive, to 1e-13 in Cp, Vx and speed; the skin
+        friction is not averaged (the last step's). Folded in by hand: the
+        promotion cannot rewrite a block that carries a note.
+    "26.123": {status: removed, report: "reports/compat/CMP-26123_2026-09-25_time-averaging.yaml", note: "SRC-751 p.353 documents the command; MEASURED REMOVED 2026-09-25 on FlightStream 26.123 (build 8112026) by the licensed probe T21 (RPT-079): the line SOLVER_TIME_AVERAGING ENABLE 7 12 was refused as an unrecognized command and the script stopped there, while the same line, byte for byte, ran on 26.122. The edition documents a command the build does not carry."}
     "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-19_time-averaging.yaml", note: "Measured 2026-09-19 on FlightStream 26.124: SOLVER_TIME_AVERAGING ENABLE hangs the solver both in INIT before INITIALIZE_SOLVER and [...]"}
 
 SET_NEW_UNSTEADY_SOLVER_ACTION:

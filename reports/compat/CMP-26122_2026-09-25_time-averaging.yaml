@@ -1,0 +1,45 @@
+schema: pyflightstream-compat-report/1
+fs_version: '26.122'
+date: '2026-09-25'
+fs_exe: FlightStream_26122.exe
+fs_exe_sha256: 75668a514d1887db2f94a97e3d57662888029e3e9e0b5e8f5611ac7082b15690
+measured_at: '2026-09-25T03:23:09-0300'
+source: >
+  Transcription of the licensed probe T21 of the 0.28.0 work, reported as RPT-079
+  (reports/RPT-079_the-solver-averages-the-surface-over-time-steps-on-26122_2026-09-25.md).
+  One 12-step unsteady point run on 26.122 (build 8092026) unchanged and with one line
+  added, in one detached batch with no solver alive before it; no solver was invoked
+  while writing this transcription, and it does not claim a probe-harness execution.
+summary:
+  verified: 1
+  broken: 0
+  removed: 0
+  unprobed: 0
+commands:
+  SOLVER_TIME_AVERAGING:
+    outcome: verified
+    detail: >-
+      Measured 2026-09-25 on FlightStream 26.122 (build 8092026): SOLVER_TIME_AVERAGING
+      ENABLE 7 12, just before INITIALIZE_SOLVER on a 12-step unsteady point, ran (return
+      code 0 in 10.5 s against the control's 10.2 s) and made the final Tecplot surface the
+      uniform mean of the run's own per-step surface exports over TIME STEPS 7 to 12
+      inclusive, to 1e-13 for Cp, Vx and the speed; a window one step wider or narrower
+      differs by about 0.6 in Cp. The skin friction CF is not averaged: the final CF is
+      the last step's. The per-step exports stay instants.
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    return_code: 0
+    measurement:
+      - variant: A_C_26122
+        script_sha256: 01696d1d135a580aa75d2df0f58364f2806f14f3dbbf67465bd70fa2d4e34964
+        wall_time_s: 10.21
+      - variant: A_AVG_26122
+        added: SOLVER_TIME_AVERAGING ENABLE 7 12
+        script_sha256: aa6a6b1da334b31ecd4ac65b3a53fb047f993a2440bd17363c1d117d6c5b1068
+        wall_time_s: 10.46
+        final_vs_mean_of_steps_7_to_12_max_abs: {Cp: 4.3e-14, Vx: 1.1e-13, Velocity: 1.7e-13}
+        final_vs_mean_of_steps_6_to_12_max_abs: {Cp: 0.605}
+        final_vs_last_step_max_abs: {Cp: 2.43, CF: 0.0}

@@ -92,7 +92,11 @@ EMITTABLE = {
     # counted here. What its row changes is the REFUSAL, which now names
     # the successor, and the absent-command enumeration, which stops
     # listing a command the database has an answer for.
-    "26.123": 371,
+    # FELL by one on 2026-09-25, a measured removal and not a lost row: the
+    # build answers SOLVER_TIME_AVERAGING as an unrecognized command, the same
+    # line that runs on 26.122 (RPT-079, CMP-26123_2026-09-25_time-averaging).
+    # The row stays, as removed.
+    "26.123": 370,
     # 2026-09-14, registered with the 26.123 manual itself (SRC-752 is the
     # SRC-751 file), so every row 26.123 documents was carried and the count
     # is the same 371, the removed spelling again not counted.
@@ -136,7 +140,10 @@ VERIFIED = {
     # a command that works. The one broken row confirmed its
     # inheritance instead: NEW_OFF_BODY_STREAMLINE was already broken on
     # both older builds and crashes this one too (0xC0000005).
-    "26.122": 83,
+    # ROSE by one on 2026-09-25: SOLVER_TIME_AVERAGING ran here and averaged the
+    # surface over the time steps it names (RPT-079,
+    # CMP-26122_2026-09-25_time-averaging): 84.
+    "26.122": 84,
     # Measured 2026-08-17, the first probe run on this build, and the
     # figure to read it against is 26.122's 83: one MORE, and the one is
     # SET_INVISCID_LOADS, which was unprobed there. Nothing 26.122
