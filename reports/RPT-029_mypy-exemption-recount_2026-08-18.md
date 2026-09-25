@@ -47,20 +47,21 @@
 > by the run of 2026-09-23 on the settled 0.26.0 tree, and by the run of
 > 2026-09-24 on the 0.27.0 tree once its fourth block had merged, and by the
 > run of 2026-09-24 on the 0.27.0 tree that adds the length floor
-> `_lengths.py`. (An
+> `_lengths.py`, and by the run of 2026-09-25 on the 0.28.0 tree whose block C
+> adds the surface translator (G45) and the surface average (G25). (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
 > modules and the 0.24.0 tree at 661 in 18 of 93; measurements of different
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 812 errors in 18 files (checked 100 source files)
->     Success: no issues found in 100 source files
+>     Found 863 errors in 18 files (checked 102 source files)
+>     Success: no issues found in 102 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-24: 812 errors in 18 of 100 modules.**
+**mypy recount 2026-09-25: 863 errors in 18 of 102 modules.**
 
 The module total rises by the four modules 0.25.0 adds
 (post/section_distributions, post/provenance, post/custom_polar and
@@ -342,11 +343,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 812 errors in 18 files (checked 100 source files)
+    Found 863 errors in 18 files (checked 102 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 100 source files
+    Success: no issues found in 102 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -668,3 +669,15 @@ exempted set, most on the run module's record builders, which carry 628 of the
 green over all 100 modules. The quoted mypy lines above are this run's.
 The sentence at the top of this report is this measurement; the earlier ones
 stay above as the history of the figure.
+
+## Re-measured 2026-09-25, the 0.28.0 tree with the surface translator: two modules arrived clean
+
+`python scripts/mypy_recount.py` on 2026-09-25, on the 0.28.0 block C tree
+(`results/surface.py`, the VTK-to-Tecplot translation of G45, and
+`post/surfaces.py`, the package's surface average of G25): 863 errors in 18 of
+102 modules, against the v0.27.0 release tree's 812 in 18 of 100. Both new
+modules arrive clean; the fifty-one errors more sit inside the exempted set, on
+the run module's record builders the 0.28.0 blocks extended. The dirty count
+still reads 18 and the shipped configuration is green over all 102 modules. The
+quoted mypy lines above are this run's. The sentence at the top of this report
+is this measurement; the earlier ones stay above as the history of the figure.

@@ -1210,7 +1210,8 @@ rename_group_products(root, {1: "PUSHER"})
     SET\_MOTION\_START\_TIME aborts the script & 26.101, 26.120, 26.121, 26.122* & READ THE THIRD NOTE BELOW BEFORE ACTING ON THIS ROW \\
     NEW\_OFF\_BODY\_STREAMLINE aborts the script & 26.120, 26.121, 26.122, 26.123, 26.124 & use probe lattices for off-body data \\
     SWEEPER\_REF\_VELOCITY\_SAME aborts the script & 26.121 & prefer one script per sweep point \\
-    SOLVER\_TIME\_AVERAGING hangs the solver before it marches & 26.124 & leave the pproc's \code{[time\_averaging]} key out and read the surface exports as instants; the package refuses the key on that build rather than hanging \\
+    SOLVER\_TIME\_AVERAGING hangs the solver before it marches & 26.124 & never emitted since 0.28.0: the pproc's \code{[time\_averaging]} makes the package average the per-step surface exports itself, the average the solver computes on 26.122 (RPT-079) \\
+    EXPORT\_BL\_VELOCITY\_PROFILE holds an unattended script & 26.124 & the boundary-layer thicknesses come from the VTK surface; the profile needs a person at the machine (RPT-075) \\
     \bottomrule
   \end{tabular}
   \vspace{2mm}
