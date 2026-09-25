@@ -592,8 +592,10 @@ def test_both_run_paths_reserve_the_script_they_wrote(tmp_path, monkeypatch, val
 
 @pytest.mark.parametrize("kind", ["action", "data"])
 def test_a_file_parked_on_a_hashed_input_is_refused_before_it_is_written(tmp_path, kind):
-    """A recipe parks a file on the path of the staged geometry, which the record already
-    hashed and which may be the geometry library itself through the inputs junction: the
+    """A steady job, which runs in the simulation folder, parks a file on the path of the
+    staged geometry, which the record already hashed and which may be the geometry library
+    itself through the inputs junction (a point cannot reach it: it parks only in its own
+    folder): the
     writer refuses before a byte is written, so the input keeps its bytes; the same bytes
     parked there are one file and accepted."""
     geometry = tmp_path / "sims" / "sim_9008" / "inputs" / "wing.obj"
@@ -614,16 +616,12 @@ def test_a_file_parked_on_a_hashed_input_is_refused_before_it_is_written(tmp_pat
     )
     recorded = {"wing.obj": file_sha256(geometry)}
     with pytest.raises(CampaignConfigError, match=r"already hashed|folder the point runs in"):
-        _write_pending_files(
-            script, geometry.parent.parent / "datapoints" / "DP-point", case=case, recorded=recorded
-        )
+        _write_pending_files(script, geometry.parent.parent, case=case, recorded=recorded)
     assert geometry.read_bytes() == b"v 0 0 0\n", "the input was overwritten before the refusal"
 
     same = Script("26.124")
     same._pending_action_scripts[str(geometry)] = "v 0 0 0\n"
-    _write_pending_files(
-        same, geometry.parent.parent / "datapoints" / "DP-point", case=case, recorded=recorded
-    )
+    _write_pending_files(same, geometry.parent.parent, case=case, recorded=recorded)
     assert geometry.read_bytes() == b"v 0 0 0\n"
 
 
@@ -659,7 +657,8 @@ def test_collection_reads_the_solvers_own_log_where_the_job_ran(tmp_path, refuse
 
 
 def test_a_parked_file_equal_to_a_hashed_input_leaves_it_untouched(tmp_path):
-    """The same bytes parked on a hashed input are the same file, and the writer leaves
+    """The same bytes parked on a hashed input, by a steady job running in the simulation
+    folder, are the same file, and the writer leaves
     the input as it is: an action script is written in text mode, and on Windows a
     rewrite would turn the input's LF into CRLF under the digest the record keeps."""
     geometry = tmp_path / "sims" / "sim_9010" / "inputs" / "wing.obj"
@@ -676,9 +675,7 @@ def test_a_parked_file_equal_to_a_hashed_input_leaves_it_untouched(tmp_path):
         outputs=["loads_{point}.txt"],
     )
     recorded = {"wing.obj": file_sha256(geometry)}
-    _write_pending_files(
-        script, geometry.parent.parent / "datapoints" / "DP-point", case=case, recorded=recorded
-    )
+    _write_pending_files(script, geometry.parent.parent, case=case, recorded=recorded)
     assert geometry.read_bytes() == b"v 0 0 0\nv 1 0 0\n"
     assert file_sha256(geometry) == recorded["wing.obj"]
 
@@ -919,8 +916,8 @@ def test_a_data_file_parked_through_a_link_leading_outside_the_point_is_refused(
 def test_nothing_parked_lands_where_other_points_records_point(tmp_path, where):
     """Point B's recipe parks an action on point A's hashed main script, or in A's
     datapoint folder, in the same campaign invocation: A is queued and has not read
-    them yet. Refused before anything is written; a path under the simulation's own
-    folder that is neither, where the tier-3 re-read probe parks its action, is not."""
+    them yet. Refused before anything is written; B's own folder, where the tier-3
+    re-read probe parks its action since 0.27.0, is not."""
     sim = tmp_path / "camp" / "sims" / "sim_9018"
     main_a = sim / "scripts" / "P9018-AL+000.txt"
     main_a.parent.mkdir(parents=True)
@@ -943,9 +940,48 @@ def test_nothing_parked_lands_where_other_points_records_point(tmp_path, where):
     assert main_a.read_text(encoding="utf-8") == "A's script"
 
     probe = Script("26.124")
-    probe._pending_action_scripts[str(sim / "actions" / "reread.txt")] = "EXPORT_LOG"
+    probe._pending_action_scripts[str(work_b / "actions" / "reread.txt")] = "EXPORT_LOG"
     _write_pending_files(probe, work_b, case=case, recorded={})
-    assert (sim / "actions" / "reread.txt").is_file()
+    assert (work_b / "actions" / "reread.txt").is_file()
+
+
+def test_a_point_parks_no_action_in_the_simulation_folder(tmp_path):
+    """A steady job of the simulation is queued with its hashed disc-profile copy in
+    the simulation folder, where it runs; a point of the same simulation, in the same
+    process, parks an action on that copy. Refused before anything is written, and
+    the copy keeps its bytes. The job itself may park in its own folder, and not in
+    the points' datapoint folders or the scripts folder."""
+    sim = tmp_path / "camp" / "sims" / "sim_9018"
+    sim.mkdir(parents=True)
+    copy = sim / "prop.actuator_profile.txt"
+    copy.write_text("0.5,1.0\n1.0,0.0", encoding="utf-8")
+    work_b = sim / "datapoints" / "DP-AL+020"
+    work_b.mkdir(parents=True)
+    case = SimCase(
+        sim_id="9018",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[2.0]),
+        recipe="actions",
+        outputs=["loads_{point}.txt"],
+    )
+    for target in (copy, sim / "actions" / "step.txt"):
+        script = Script("26.124")
+        script._pending_action_scripts[str(target)] = "EXPORT_SOLVER_ANALYSIS_SPREADSHEET"
+        with pytest.raises(CampaignConfigError, match=r"outside the folder the point runs in"):
+            _write_pending_files(script, work_b, case=case, recorded={})
+    assert copy.read_text(encoding="utf-8") == "0.5,1.0\n1.0,0.0"
+    assert not (sim / "actions" / "step.txt").exists()
+
+    job = Script("26.124")
+    job._pending_action_scripts["actions/job_step.txt"] = "EXPORT_LOG"
+    _write_pending_files(job, sim, case=case, recorded={})
+    assert (sim / "actions" / "job_step.txt").is_file()
+    for target in (work_b / "step.txt", sim / "scripts" / "P9018-AL+020.txt"):
+        job = Script("26.124")
+        job._pending_action_scripts[str(target)] = "EXPORT_LOG"
+        with pytest.raises(CampaignConfigError, match=r"scripts or datapoint folders"):
+            _write_pending_files(job, sim, case=case, recorded={})
 
 
 @pytest.mark.parametrize(
@@ -1000,7 +1036,7 @@ def test_an_action_script_stays_in_its_own_simulation(tmp_path):
         recipe="actions",
         outputs=["loads_{point}.txt"],
     )
-    with pytest.raises(CampaignConfigError, match=r"outside the point's own simulation"):
+    with pytest.raises(CampaignConfigError, match=r"outside the folder the point runs in"):
         _write_pending_files(script, work_b, case=case, recorded={})
     assert copy.read_text(encoding="utf-8") == "0.5,1.0\n1.0,0.0"
 

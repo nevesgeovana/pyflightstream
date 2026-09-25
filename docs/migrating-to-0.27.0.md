@@ -164,9 +164,9 @@ with 0.27.0.
   anywhere else, beside the geometry for instance, is refused before the solver
   starts, because another point's run would rewrite it before a queued point
   read it. The same holds for a disc's profile copy (`actuator_disc`). An
-  action script parked with `helpers.unsteady_action` stays in the point's own
-  simulation, outside its `scripts/` folder and every other point's datapoint
-  folder; one parked elsewhere is refused before the solver starts.
+  action script parked with `helpers.unsteady_action` is written in the point's
+  folder too (a name relative to `script.working_dir`); one parked elsewhere,
+  the simulation folder included, is refused before the solver starts.
 - `write_node_file(path, nodes, unit=U)` becomes `write_node_file(path,
   midpoints, unit=U, simulation_unit=<simulation unit>)`. The file has no unit
   line and no ids, and it takes mid-points, not vertices.

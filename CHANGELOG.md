@@ -858,10 +858,12 @@ gone (`docs/migrating-to-0.27.0.md`).
   would write under such a name is refused naming the reason, the scheduler's
   descriptor included; a data file's place in the point's folder is judged
   through its resolved path, a link or a junction followed (G06). An action
-  script a recipe parks stays in the point's own simulation, and out of its
-  `scripts/` folder and every other point's datapoint folder, where other
-  points' records name the files their queued solvers will read; one parked in
-  another simulation or another workspace is refused the same way. A machine
+  script a recipe parks is written in the folder the point runs in, as a data
+  file is; one parked anywhere else (the simulation folder, where a queued
+  steady job's hashed copies live, another point's folder, another simulation
+  or workspace) is refused before the solver starts, and a steady job, which
+  runs in the simulation folder, stays out of its `scripts/` and `datapoints/`
+  folders, where other points' records name the files their solvers read. A machine
   profile names its descriptor with a plain file name, with no folder, no
   parent folder and no name Windows reads as another file's, since the
   descriptor is written in the folder each point runs in; `HpcProfile`

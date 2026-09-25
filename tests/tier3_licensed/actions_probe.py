@@ -43,8 +43,20 @@ HERE = Path(__file__).resolve().parent
 PROBE_POL = "6001"
 SIM = HERE / "sims" / f"sim_{PROBE_POL}"
 LOG = SIM / "actions_probe.log"
-#: The file the SCRIPT action points at, rewritten on every invocation.
-ACTION_SCRIPT = SIM / "actions" / "reread.txt"
+#: The file the SCRIPT action points at, rewritten on every invocation, named
+#: relative to the folder the point runs in: since 0.27.0 the run writes every
+#: file it parks for a point there, sims/sim_6001/datapoints/DP-<point>/.
+ACTION_SCRIPT_NAME = Path("actions") / "reread.txt"
+#: Where it was before 0.27.0, and where a build with no point folder puts it.
+ACTION_SCRIPT = SIM / ACTION_SCRIPT_NAME
+
+
+def action_script() -> Path:
+    """The SCRIPT action's file: the one in the point's folder the run wrote."""
+    found = sorted(SIM.glob(f"datapoints/*/{ACTION_SCRIPT_NAME.as_posix()}"))
+    return found[0] if found else ACTION_SCRIPT
+
+
 EXPORT_STEM = "probe_export"
 
 
@@ -86,8 +98,9 @@ def invoke() -> int:
     }
     with LOG.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(record) + "\n")
-    ACTION_SCRIPT.parent.mkdir(parents=True, exist_ok=True)
-    ACTION_SCRIPT.write_text(export_script(f"{count:03d}"), encoding="utf-8")
+    target = action_script()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(export_script(f"{count:03d}"), encoding="utf-8")
     return 0
 
 

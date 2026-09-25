@@ -5703,32 +5703,32 @@ def _write_pending_files(
     # share, is rewritten by the next point's run while an earlier point that
     # was submitted and has not read it yet keeps the digest of the first bytes.
     # Action scripts are hashed nowhere and keep their paths (RPT-030).
-    # AN ACTION SCRIPT STAYS IN ITS OWN SIMULATION, and out of the files other
-    # points' records name: the simulation's scripts/ folder, which holds every
-    # point's hashed script, and another point's datapoint folder, where a queued
-    # job may not have read its files yet. Another simulation's folder, another
-    # workspace or anywhere else is refused the same way. A point runs in
-    # sims/sim_<id>/datapoints/DP-<tag>/, a steady job in sims/sim_<id>/.
+    # AN ACTION SCRIPT IS WRITTEN IN THE FOLDER THE POINT RUNS IN, as a data file
+    # is: a point runs in sims/sim_<id>/datapoints/DP-<tag>/, and anywhere else
+    # (the simulation folder, where a queued steady job's hashed copies live;
+    # another point's folder; another simulation or workspace) holds files other
+    # records name. A steady job runs in sims/sim_<id>/ and stays out of its
+    # scripts/ folder, which holds every point's hashed script, and its
+    # datapoints/ folder, where the points' own files are.
     own_key = one_file_key(work_dir)
     in_datapoints = Path(work_dir).parent.name.casefold() == SIM_DATAPOINTS_DIR.casefold()
-    sim_key = one_file_key(Path(work_dir).parent.parent if in_datapoints else work_dir)
     for parked in script.pending_action_scripts:
         key = one_file_key(placed(parked))
-        inside_sim = key.startswith(sim_key + "/")
-        parts = key[len(sim_key) + 1 :].split("/") if inside_sim else []
-        in_own_point = key == own_key or key.startswith(own_key + "/")
-        elsewhere = not inside_sim or (
-            not in_own_point
+        inside = key.startswith(own_key + "/")
+        parts = key[len(own_key) + 1 :].split("/") if inside else []
+        elsewhere = not inside or (
+            not in_datapoints
             and len(parts) > 1
             and parts[0] in ("scripts", SIM_DATAPOINTS_DIR.casefold())
         )
         if elsewhere:
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: the run would write the action script "
-                f"{placed(parked)} outside the point's own simulation, or inside its "
-                "scripts folder or another point's datapoint folder, where the records of "
+                f"{placed(parked)} outside the folder the point runs in, or in the "
+                "scripts or datapoint folders of its simulation, where the records of "
                 "other points name the files their solvers read. Park it in the point's "
-                "own folder; the solver was not started."
+                "own folder (a name relative to script.working_dir); the solver was not "
+                "started."
             )
     # Through the resolved path, so a link or a junction inside the point's
     # folder that leads elsewhere is outside it.

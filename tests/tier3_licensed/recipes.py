@@ -333,11 +333,17 @@ def actions_reread_probe(case, script) -> None:
         kind="COMMAND_LINE",
         filename=str(HERE / "actions_probe.cmd"),
     )
+    # IN THE POINT'S OWN FOLDER, where the run writes every file it parks for a
+    # point (0.27.0); the probe program finds it there (actions_probe.action_script).
     helpers.unsteady_action(
         script,
         name="probe_reread",
         kind="SCRIPT",
-        filename=str(actions_probe.ACTION_SCRIPT),
+        filename=str(
+            Path(script.working_dir) / actions_probe.ACTION_SCRIPT_NAME
+            if script.working_dir
+            else actions_probe.ACTION_SCRIPT
+        ),
         action_script=actions_probe.initial_script(),
     )
     helpers.initialize_solver(script)
