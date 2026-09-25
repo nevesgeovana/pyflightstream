@@ -32,6 +32,7 @@ Nothing here runs a solver.
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -613,12 +614,16 @@ def test_a_file_parked_on_a_hashed_input_is_refused_before_it_is_written(tmp_pat
     )
     recorded = {"wing.obj": file_sha256(geometry)}
     with pytest.raises(CampaignConfigError, match=r"already hashed|folder the point runs in"):
-        _write_pending_files(script, tmp_path / "DP-point", case=case, recorded=recorded)
+        _write_pending_files(
+            script, geometry.parent.parent / "datapoints" / "DP-point", case=case, recorded=recorded
+        )
     assert geometry.read_bytes() == b"v 0 0 0\n", "the input was overwritten before the refusal"
 
     same = Script("26.124")
     same._pending_action_scripts[str(geometry)] = "v 0 0 0\n"
-    _write_pending_files(same, tmp_path / "DP-point", case=case, recorded=recorded)
+    _write_pending_files(
+        same, geometry.parent.parent / "datapoints" / "DP-point", case=case, recorded=recorded
+    )
     assert geometry.read_bytes() == b"v 0 0 0\n"
 
 
@@ -671,7 +676,9 @@ def test_a_parked_file_equal_to_a_hashed_input_leaves_it_untouched(tmp_path):
         outputs=["loads_{point}.txt"],
     )
     recorded = {"wing.obj": file_sha256(geometry)}
-    _write_pending_files(script, tmp_path / "DP-point", case=case, recorded=recorded)
+    _write_pending_files(
+        script, geometry.parent.parent / "datapoints" / "DP-point", case=case, recorded=recorded
+    )
     assert geometry.read_bytes() == b"v 0 0 0\nv 1 0 0\n"
     assert file_sha256(geometry) == recorded["wing.obj"]
 
@@ -939,3 +946,75 @@ def test_nothing_parked_lands_where_other_points_records_point(tmp_path, where):
     probe._pending_action_scripts[str(sim / "actions" / "reread.txt")] = "EXPORT_LOG"
     _write_pending_files(probe, work_b, case=case, recorded={})
     assert (sim / "actions" / "reread.txt").is_file()
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["../DP-A/actions/pfs_walltime_clock.py", "actions/job.sh", "job.sh.", "..", "PROP~1.SH"],
+)
+def test_a_machine_profile_names_its_descriptor_plainly(tmp_path, name):
+    """The descriptor is written in the folder each point runs in, so the profile's name
+    for it is a plain file name: a folder in it, a parent folder or a form Windows reads
+    as another file's would put it on a file another point's record names."""
+    from pyflightstream.exceptions import InputArtifactError
+    from pyflightstream.workspace.inputs import read_hpc_profile
+    from tests.tier1_offline.test_goal021_build_alias import documented_profile
+
+    head, _, tail = documented_profile().partition("[descriptor]")
+    stated = re.search(r"(?m)^name\s*=.*$", tail)
+    assert stated, "the documented profile's descriptor table states no name to replace"
+
+    def named(value: str) -> str:
+        return (
+            head
+            + "[descriptor]"
+            + tail[: stated.start()]
+            + f"name = {value!r}"
+            + tail[stated.end() :]
+        )
+
+    path = tmp_path / "h001.toml"
+    path.write_text(named(name), encoding="utf-8")
+    with pytest.raises(InputArtifactError, match=r"plain file name"):
+        read_hpc_profile(path)
+    path.write_text(named("job.sh"), encoding="utf-8")
+    assert read_hpc_profile(path).descriptor_name == "job.sh"
+
+
+def test_an_action_script_stays_in_its_own_simulation(tmp_path):
+    """Point B's recipe parks an action on a queued steady job's profile copy in another
+    simulation's root: outside B's own simulation, refused before anything is written."""
+    other = tmp_path / "camp" / "sims" / "sim_9019"
+    other.mkdir(parents=True)
+    copy = other / "prop.actuator_profile.txt"
+    copy.write_text("0.5,1.0\n1.0,0.0", encoding="utf-8")
+    work_b = tmp_path / "camp" / "sims" / "sim_9020" / "datapoints" / "DP-AL+000"
+    work_b.mkdir(parents=True)
+    script = Script("26.124")
+    script._pending_action_scripts[str(copy)] = "EXPORT_SOLVER_ANALYSIS_SPREADSHEET"
+    case = SimCase(
+        sim_id="9020",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="actions",
+        outputs=["loads_{point}.txt"],
+    )
+    with pytest.raises(CampaignConfigError, match=r"outside the point's own simulation"):
+        _write_pending_files(script, work_b, case=case, recorded={})
+    assert copy.read_text(encoding="utf-8") == "0.5,1.0\n1.0,0.0"
+
+
+def test_a_utf16_log_of_another_suffix_is_read_for_the_refusal(tmp_path):
+    """A child action's log written as UTF-16LE under ``step_iteration=11.out``: the scan
+    matches the sentence without the NULs, as the whole-file reader does."""
+    from pyflightstream.run._wake_edge_verdict import (
+        ACTUATOR_PROFILE_REFUSALS,
+        actuator_profile_verdict,
+        collected_log_texts,
+    )
+
+    text = "line\n" + ACTUATOR_PROFILE_REFUSALS[1] + "\nC:/w/prop.txt\n"
+    (tmp_path / "step_iteration=11.out").write_bytes(text.encode("utf-16-le"))
+    texts = collected_log_texts(tmp_path, ["step_iteration=11.out"], declared=[])
+    assert actuator_profile_verdict(*texts) is not None, texts

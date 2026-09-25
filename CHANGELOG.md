@@ -857,10 +857,16 @@ gone (`docs/migrating-to-0.27.0.md`).
   Paths are compared by the real path with those folded, and a file the run
   would write under such a name is refused naming the reason, the scheduler's
   descriptor included; a data file's place in the point's folder is judged
-  through its resolved path, a link or a junction followed (G06). Nothing a
-  recipe parks may land in a simulation's `scripts/` folder or in another
-  point's datapoint folder, where other points' records name the files their
-  queued solvers will read (G06). What these
+  through its resolved path, a link or a junction followed (G06). An action
+  script a recipe parks stays in the point's own simulation, and out of its
+  `scripts/` folder and every other point's datapoint folder, where other
+  points' records name the files their queued solvers will read; one parked in
+  another simulation or another workspace is refused the same way. A machine
+  profile names its descriptor with a plain file name, with no folder, no
+  parent folder and no name Windows reads as another file's, since the
+  descriptor is written in the folder each point runs in. The line-by-line
+  scan for the profile's refusal reads a log written as UTF-16 as the
+  whole-file reader does (G06). What these
   guards cover, and the file-system arrangements they do not defend against,
   is stated in `docs/workspace-and-workflows.md`, "What the record's digests
   guard, and where that stops".

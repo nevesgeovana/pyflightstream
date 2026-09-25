@@ -5703,34 +5703,33 @@ def _write_pending_files(
     # share, is rewritten by the next point's run while an earlier point that
     # was submitted and has not read it yet keeps the digest of the first bytes.
     # Action scripts are hashed nowhere and keep their paths (RPT-030).
-    # NOTHING PARKED LANDS WHERE OTHER POINTS' RECORDS POINT: a simulation's
-    # scripts/ folder, which holds every point's hashed script, or another
-    # point's datapoint folder, where a queued job may not have read its files
-    # yet. The workspace's sims/ folder is found above the working folder.
-    sims = next((p for p in Path(work_dir).parents if p.name == "sims"), None)
-    if sims is not None:
-        sims_key, own_key = one_file_key(sims), one_file_key(work_dir)
-        for parked in (*script.pending_action_scripts, *script.pending_input_files):
-            key = one_file_key(placed(parked))
-            if not key.startswith(sims_key + "/"):
-                continue
-            parts = key[len(sims_key) + 1 :].split("/")
-            elsewhere = len(parts) > 2 and (
-                parts[1] == "scripts"
-                or (
-                    parts[1] == SIM_DATAPOINTS_DIR.casefold()
-                    and key != own_key
-                    and not key.startswith(own_key + "/")
-                )
+    # AN ACTION SCRIPT STAYS IN ITS OWN SIMULATION, and out of the files other
+    # points' records name: the simulation's scripts/ folder, which holds every
+    # point's hashed script, and another point's datapoint folder, where a queued
+    # job may not have read its files yet. Another simulation's folder, another
+    # workspace or anywhere else is refused the same way. A point runs in
+    # sims/sim_<id>/datapoints/DP-<tag>/, a steady job in sims/sim_<id>/.
+    own_key = one_file_key(work_dir)
+    in_datapoints = Path(work_dir).parent.name.casefold() == SIM_DATAPOINTS_DIR.casefold()
+    sim_key = one_file_key(Path(work_dir).parent.parent if in_datapoints else work_dir)
+    for parked in script.pending_action_scripts:
+        key = one_file_key(placed(parked))
+        inside_sim = key.startswith(sim_key + "/")
+        parts = key[len(sim_key) + 1 :].split("/") if inside_sim else []
+        in_own_point = key == own_key or key.startswith(own_key + "/")
+        elsewhere = not inside_sim or (
+            not in_own_point
+            and len(parts) > 1
+            and parts[0] in ("scripts", SIM_DATAPOINTS_DIR.casefold())
+        )
+        if elsewhere:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r}: the run would write the action script "
+                f"{placed(parked)} outside the point's own simulation, or inside its "
+                "scripts folder or another point's datapoint folder, where the records of "
+                "other points name the files their solvers read. Park it in the point's "
+                "own folder; the solver was not started."
             )
-            if elsewhere:
-                raise CampaignConfigError(
-                    f"case {case.sim_id!r}: the run would write {placed(parked)} for the "
-                    "solver, inside a simulation's scripts folder or another point's "
-                    "datapoint folder, where the records of other points name the files "
-                    "their solvers read. Park it in the point's own folder; the solver was "
-                    "not started."
-                )
     # Through the resolved path, so a link or a junction inside the point's
     # folder that leads elsewhere is outside it.
     root = one_file_key(work_dir)

@@ -269,7 +269,10 @@ def _refusal_excerpt(path: Path) -> str:
     kept: list[str] = []
     take_next = False
     with path.open(encoding="utf-8", errors="replace") as stream:
-        for line in stream:
+        for raw_line in stream:
+            # A log written as UTF-16 reads here with a NUL between characters, as
+            # the whole-file reader strips them; the sentence is matched without.
+            line = raw_line.replace("\x00", "")
             if take_next:
                 kept.append(line)
                 take_next = False

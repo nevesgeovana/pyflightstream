@@ -163,7 +163,10 @@ with 0.27.0.
   a data file the run writes and hashes is the point's own, and one parked
   anywhere else, beside the geometry for instance, is refused before the solver
   starts, because another point's run would rewrite it before a queued point
-  read it. The same holds for a disc's profile copy (`actuator_disc`).
+  read it. The same holds for a disc's profile copy (`actuator_disc`). An
+  action script parked with `helpers.unsteady_action` stays in the point's own
+  simulation, outside its `scripts/` folder and every other point's datapoint
+  folder; one parked elsewhere is refused before the solver starts.
 - `write_node_file(path, nodes, unit=U)` becomes `write_node_file(path,
   midpoints, unit=U, simulation_unit=<simulation unit>)`. The file has no unit
   line and no ids, and it takes mid-points, not vertices.
@@ -302,6 +305,11 @@ the opposite sign to 0.26.0: `roll_rate:40` writes
   simulation folder no longer stops a point, and a leftover in the point's
   folder does. A steady row of several points still runs in the simulation
   folder.
+- An HPC profile's `[descriptor] name` is a plain file name, because the
+  descriptor is written in the folder each point runs in. A name with a folder
+  (`actions/job.sh`), a parent folder (`..`) or a form Windows reads as another
+  file's (`job.sh.`, `JOB~1.SH`) is refused when the profile is read. Rename it,
+  `submit.yaml` for instance.
 
 ## 17. Every table opens with the polar, no cell holds a comma, and a rotor table's first line is its header (G16)
 

@@ -87,6 +87,7 @@ from pydantic import (
 # alone is what the five call-time imports of `cases/matrix.py` were.
 # Nothing about the class changed: same two bases, same three attributes,
 # same public spelling.
+from pyflightstream._digest import aliased_name_fault
 from pyflightstream._errors import InputArtifactError
 from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream._retired_names import (
@@ -3032,6 +3033,24 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
             f"the HPC profile {target} asks for a {fmt!r} descriptor; this package "
             f"writes {', '.join(HPC_FORMATS)}."
         )
+    # THE DESCRIPTOR IS A FILE OF THE POINT'S FOLDER, named plainly: a name with a
+    # folder in it, a parent folder, or a form Windows reads as another file's
+    # would write it over a file another point's record names.
+    stated_name = descriptor.get("name")
+    if stated_name is not None:
+        name_text = str(stated_name)
+        alias = aliased_name_fault(name_text)
+        if (
+            not name_text.strip()
+            or any(sep in name_text for sep in "/\\")
+            or (name_text in (".", "..") or alias is not None)
+        ):
+            raise InputArtifactError(
+                f"the HPC profile {target} names its descriptor {name_text!r}; the "
+                "descriptor is written in the folder each point runs in, so its name "
+                "is a plain file name, with no folder, no parent folder and no form "
+                "Windows reads as another file's" + (f" (it {alias})" if alias else "") + "."
+            )
     fields = descriptor.get("fields") or {}
     if not isinstance(fields, dict) or not fields:
         raise InputArtifactError(
