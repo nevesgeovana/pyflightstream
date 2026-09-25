@@ -32,6 +32,7 @@ from tests.tier1_offline.test_matrix_run import (
     RECIPES,
     WRITES_EVERY_EXPORT,
     CountingStub,
+    StubSolver,
     _steady_sweep_matrix,
     converged,
 )
@@ -333,25 +334,56 @@ def test_goal021_swept_row_a_working_dir_outside_the_datapoints_is_refused(tmp_p
     assert failed[0].detail.count("does not resolve to a datapoint folder") == 1, failed[0].detail
 
 
-def test_goal021_swept_row_a_queued_point_is_not_submitted_again_under_another_campaign(tmp_path):
-    """The independent review: the folder carries no campaign name, so the job was clobbered."""
+def _files_of(folder):
+    return {
+        p.relative_to(folder).as_posix(): p.read_bytes() for p in folder.rglob("*") if p.is_file()
+    }
+
+
+@pytest.mark.parametrize("executor", ["submitting", "local"])
+def test_goal021_swept_row_a_queued_point_is_not_submitted_again_under_another_campaign(
+    tmp_path, executor
+):
+    """The independent reviews: the folder carries no campaign name, so the job was clobbered,
+    through the point's folder (a submission, then 9o: a local run) and through the
+    simulation's staged inputs, which are prepared before any point. A simulation holds one
+    campaign's queued work: refused before anything is prepared, whatever the executor."""
+    from pyflightstream.exceptions import WorkspaceError
+
     workspace, records = _submitted_row(tmp_path)
-    folder = workspace.sim_dir("7001") / "datapoints" / "DP-V0300RE120AL+000"
-    before = {p.name: p.read_bytes() for p in folder.rglob("*") if p.is_file()}
+    sim = workspace.sim_dir("7001")
+    before = _files_of(sim)
+    manifest_before = [record.run_id for record in workspace.read_manifest()]
     row = _rotor_row(tmp_path, sweep="0.0", extra=" / EXPORT_UNSTEADY_AFTER_REV: 1")
-    with pytest.raises(CampaignErrors):
-        _run(workspace, row, _submitting(workspace), name="another")
-    refused = workspace.read_manifest()[-1]
-    assert refused.run_id.startswith("another/"), refused.run_id
-    assert refused.status is RunStatus.FAILED_SCRIPT, refused.status
-    assert (
-        refused.error.count(
-            "is already in a scheduler's queue as 'rotor/sim_7001/V0300RE120AL+000'"
+    runner = _submitting(workspace) if executor == "submitting" else StubSolver(WRITES_EVERY_EXPORT)
+    with pytest.raises(
+        WorkspaceError, match=r"holds another campaign's work in a scheduler's queue"
+    ):
+        _run(workspace, row, runner, name="another")
+    assert [record.run_id for record in workspace.read_manifest()] == manifest_before
+    assert _files_of(sim) == before, "the queued job's folder was written by the refused campaign"
+
+
+def test_goal021_swept_row_a_queued_point_is_not_force_rerun(tmp_path):
+    """A point of the same campaign still in a queue: redoing it would archive the record its
+    job will be collected into and write where the job writes. Refused, nothing archived."""
+    from pyflightstream.exceptions import WorkspaceError
+
+    workspace, records = _submitted_row(tmp_path)
+    sim = workspace.sim_dir("7001")
+    before = _files_of(sim)
+    manifest_before = [record.run_id for record in workspace.read_manifest()]
+    row = _rotor_row(tmp_path, extra=" / EXPORT_UNSTEADY_AFTER_REV: 1")
+    with pytest.raises(WorkspaceError, match=r"still in a scheduler's queue"):
+        _run(
+            workspace,
+            row,
+            StubSolver(WRITES_EVERY_EXPORT),
+            force_rerun=[records[0].run_id],
         )
-        == 1
-    )
-    after = {p.name: p.read_bytes() for p in folder.rglob("*") if p.is_file()}
-    assert after == before, "the queued job's files were rewritten by the refused point"
+    assert [record.run_id for record in workspace.read_manifest()] == manifest_before
+    assert not list((workspace.root / "archive").glob("runs-*.json")), "the manifest was archived"
+    assert _files_of(sim) == before
 
 
 def test_goal021_swept_row_an_output_in_a_subfolder_of_the_point_is_collected(tmp_path):

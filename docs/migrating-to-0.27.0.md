@@ -305,6 +305,13 @@ the opposite sign to 0.26.0: `roll_rate:40` writes
   simulation folder no longer stops a point, and a leftover in the point's
   folder does. A steady row of several points still runs in the simulation
   folder.
+- A campaign is refused, before anything is prepared, when a simulation its
+  rows name holds another campaign's work still in a scheduler's queue: the
+  folder carries no campaign name, so the second would stage and write where
+  the queued jobs read, and this holds for `--local` too. Collect the queued
+  work first (`pyfs-matrix collect`), or give the row another simulation id.
+  `--force-rerun` of a point whose record is still SUBMITTED is refused the
+  same way.
 - An HPC profile's `[descriptor] name` is a plain file name, because the
   descriptor is written in the folder each point runs in. A name with a folder
   (`actions/job.sh`), a parent folder (`..`) or a form Windows reads as another

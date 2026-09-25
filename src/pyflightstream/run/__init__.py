@@ -3121,6 +3121,22 @@ def run_campaign(
                     superseding = [job]
                 else:
                     superseding = [run_id for run_id in run_ids if run_id in recorded_here]
+                # A POINT STILL IN A QUEUE IS NOT REDONE: its job has not finished
+                # writing its folder, and archiving the record it will be collected
+                # into would leave the job writing where the new run writes.
+                queued = [
+                    run_id
+                    for run_id in superseding
+                    if manifest[run_id].status is RunStatus.SUBMITTED
+                ]
+                if queued:
+                    raise WorkspaceError(
+                        f"force_rerun names {', '.join(queued)}, which is still in a "
+                        "scheduler's queue (SUBMITTED): its job has not finished writing its "
+                        "folder, and redoing it now would archive the record the job will be "
+                        "collected into and write where the job writes. Collect it "
+                        "(pyfs-matrix collect) first; nothing was archived or run."
+                    )
                 to_supersede.append((case, list(case_points), superseding))
                 redoing = True
                 already = [run_id for run_id in already if run_id not in set(superseding)]
@@ -3175,6 +3191,28 @@ def run_campaign(
             # review reproduced, and the fix is the whole of it: return without
             # creating the sim directory or staging anything.
             continue
+        # A SIMULATION FOLDER HOLDS ONE CAMPAIGN'S QUEUED WORK. The folder carries
+        # no campaign name, so another campaign's row with this simulation id
+        # stages its inputs, writes its scripts and runs its points in the very
+        # folder a queued job of the first will read: staging re-links or
+        # re-copies inputs/, whatever the executor. Refused before anything is
+        # prepared, while that work is in a queue.
+        foreign = sorted(
+            record.run_id
+            for record in manifest.values()
+            if record.sim_id == case.sim_id
+            and record.status is RunStatus.SUBMITTED
+            and not record.run_id.startswith(f"{campaign.name}/")
+        )
+        if foreign:
+            raise WorkspaceError(
+                f"simulation {case.sim_id} holds another campaign's work in a scheduler's "
+                f"queue ({', '.join(foreign[:3])}{', ...' if len(foreign) > 3 else ''}), and "
+                "a simulation's folder holds one campaign's queued work: its staged inputs, "
+                "its scripts and its datapoint folders are what those jobs will read. "
+                f"Collect it (pyfs-matrix collect) before campaign {campaign.name!r} runs "
+                "there, or give this row another simulation id. Nothing was run or written."
+            )
         if already:
             # Partially recorded: some points ran against the inputs staged
             # last time. Re-staging different content would silently retire
@@ -6110,15 +6148,14 @@ _FAILED_STATUSES = tuple(status for status in RunStatus if status.name.startswit
 
 
 def _queued_record_of_point(
-    executor, workspace: CampaignWorkspace, sim_id: str, name: str
+    workspace: CampaignWorkspace, sim_id: str, name: str
 ) -> RunRecord | None:
     """Return a SUBMITTED record of this simulation and point, or None.
 
-    Only a submitting executor is asked: a local point runs to its end before
-    the next one starts, so it never meets a job of its own still in a queue.
+    Asked for EVERY executor: since 0.27.0 a local point runs in the same
+    datapoint folder a submitted one does, so a local run meets a queued job
+    of another campaign that names the same simulation and point.
     """
-    if not isinstance(executor, Submitting):
-        return None
     for record in workspace.read_manifest():
         if (
             record.sim_id == sim_id
@@ -6540,7 +6577,7 @@ def _execute_point(
     # passed, because the queued job had written nothing yet. The guard is
     # per simulation AND point: different points of one row still submit
     # together, which is the refusal that was lifted and stays lifted.
-    queued = _queued_record_of_point(executor, workspace, case.sim_id, point_name(case, point))
+    queued = _queued_record_of_point(workspace, case.sim_id, point_name(case, point))
     if queued is not None:
         return RunRecord(
             **base,

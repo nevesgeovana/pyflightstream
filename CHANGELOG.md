@@ -869,7 +869,12 @@ gone (`docs/migrating-to-0.27.0.md`).
   descriptor is written in the folder each point runs in; `HpcProfile`
   refuses such a name however it is built, a profile made in Python included. The line-by-line
   scan for the profile's refusal reads a log written as UTF-16 as the
-  whole-file reader does (G06). What these
+  whole-file reader does (G06). A simulation folder holds one campaign's
+  queued work: a campaign whose row names a simulation in which another
+  campaign's work is still in a scheduler's queue is refused before anything
+  is prepared, whatever the executor, since the folder carries no campaign
+  name and staging re-links or re-copies its inputs; and `--force-rerun`
+  refuses a point still in a queue, which is collected first (G06). What these
   guards cover, and the file-system arrangements they do not defend against,
   is stated in `docs/workspace-and-workflows.md`, "What the record's digests
   guard, and where that stops".
