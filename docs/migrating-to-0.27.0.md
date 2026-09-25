@@ -429,3 +429,17 @@ own.
 - A field whose file name is the name of a file the run writes for the solver
   (the trailing-edge node file of a raw mesh, the disc's profile copy) is
   refused before the solver starts. Rename the field's file.
+
+## 21. A glossary of the input keys, and the force distribution as an export (G08, G10)
+
+- A workspace gains `inputs/pproc/INPUTS.md` beside `VARIABLES.md`, written by
+  `pyfs-workspace init`, `pyfs-matrix plan` and `pyfs-matrix post`: one row
+  per key of the matrix, the setup, the pproc, the reference and the geometry
+  sidecar, with what it sets, its unit or values, the run types or builds that
+  accept it, and the solver command it reaches. It is generated from the code,
+  so edit the input artifacts, not the glossary. A key whose value reaches no
+  line of the script says so and names what takes it (G08).
+- `[exports] force_distributions = true` is a new export kind: the per-panel
+  pressure and viscous force coefficients of every surface, saved as
+  `<point>_force_distributions.txt` once at the end of the run. It is off by
+  default, so a pproc that does not state it exports what it did (G10).
