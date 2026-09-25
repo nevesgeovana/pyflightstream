@@ -64,10 +64,6 @@ FlightStream versions.
 
 ### Owed
 
-- **The Zenodo archive row of v0.27.0 is owed.** A version DOI is minted from
-  the GitHub release object and recorded one commit after the tag, so between
-  the tag and that commit this release has no archive row; cite the concept DOI
-  until it lands.
 - **The submitting half of the additional post** (0.29.0; the approved 0.28.0
   scope leaves it out): completing an extraction handed to a scheduler.
 
