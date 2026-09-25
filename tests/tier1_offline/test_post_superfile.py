@@ -512,6 +512,9 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
         # of blocks (the two names, the frame, the files written), which
         # products.json and the provenance state beside each translated file.
         "surface_translations",
+        # 0.28.0 G25: the window the package averages the surface over, a block
+        # like the solver's window above, stated beside the averaged surface.
+        "surface_average_window",
     }
     carried_under_the_matrix_or_polar_name = {
         "description",

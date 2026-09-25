@@ -870,42 +870,82 @@ all-variables form, `SET_VTK_EXPORT_VARIABLES -1 DISABLE`, which writes no
 - **A record written before 0.28.0** keeps the solver's Tecplot and the meaning
   its release gave it: nothing reads it again.
 
-**Time-averaged surfaces cannot be produced on the builds measured so far.**
-On 2026-09-19, licensed C01 measured that `SOLVER_TIME_AVERAGING` hangs
-FlightStream 26.124 in the position the package emits it: no outputs were
-written before the termination at 240.5 seconds. Without that command, the
-script wrote all seven outputs and its final log export, exiting successfully
-in 133.0 seconds. Both runs left a receipt under `reports/pfs0250/`.
+### The time-averaged surface is the package's (since 0.28.0)
 
-The package refuses a pproc carrying `[time_averaging]` at plan time, naming
-the build and the measurement, rather than sending the hanging command to the
-solver. Remove the table to obtain Tecplot, VTK and CSV surfaces as **instants**,
-including the requested per-step exports. This does not change the matrix
-window used to average the plots history.
+**`[time_averaging]` makes the run export the surface at every step of its
+window, and the post averages those exports.** `SOLVER_TIME_AVERAGING` is never
+emitted: on 2026-09-19 licensed C01 measured it hanging FlightStream 26.124 in
+the position the package emitted it (no output was written before the
+termination at 240.5 seconds; receipts under `reports/pfs0250/`), and 26.123
+stops at it (RPT-079). The table is `last_iters` or `last_revs`, exactly one,
+positive, as before.
 
-The key remains available only on a build whose command-database status is
-`verified`; manual documentation alone (from 26.122) is insufficient. On such
-a build it emits `SOLVER_TIME_AVERAGING ENABLE first last` in INIT for these
-three native surface formats on an unsteady run. Without the table no
-averaging command is emitted. Changing the surface window requires a new run.
-
-The bounds are inclusive, 1-based, ending at the run's last time step.
-`last_iters` is a count of steps; `last_revs` uses the same rotor clock and
-rounding as `LAST_REVS_AVG` (with `DELTA_THETA`, steps per revolution is
-`360 / DELTA_THETA`). A window longer than the run is clipped at step 1.
-SRC-750 p.353 says "unsteady time iteration"; interpreting that as time steps
-rather than inner iterations remains **UNVERIFIED**: the C01 hang prevented
-measurement of the bounds. The export header's inner-iteration counter is
-never used for this conversion.
-
-The run records the emitted window. Surface entries in `products.json` and
-PROV-JSON carry `kind: average` and `window`, including iteration bounds,
-the declared count and, for revolutions, the clock. Re-posting reads that
-recorded request, even if the pproc has changed. Per-step entries end their
-window at the export's step until the requested end is reached; a stopped run
-also ends its native export window at the recorded stop step. Exports before
-the averaging start are named skips. Without the table, surface entries carry
-`kind: instant`. The native files retain the solver's own format.
+- **The window.** Inclusive, 1-based time steps ending at the run's last time
+  step: `last_iters` is a count of steps; `last_revs` uses the rotor clock and
+  the rounding of `LAST_REVS_AVG` (with `DELTA_THETA`, steps per revolution is
+  `360 / DELTA_THETA`). A window longer than the run is clipped at step 1. The
+  steps are the time steps the per-step counter counts and the solver stamps on
+  each export as `_iteration=<step>` (RPT-041); the export header's
+  inner-iteration counter is never read for them.
+- **How the steps are exported.** Through the per-step export machinery of
+  [the sections](#per-distribution-sectional-loads-and-cp-0250): a row stating no
+  `EXPORT_UNSTEADY_AFTER_ITER` or `EXPORT_UNSTEADY_AFTER_REV` exports as one
+  stating `EXPORT_UNSTEADY_AFTER_ITER: <the window's first step>` would, every
+  per-step kind of its outputs from that step to the end, the surface's VTK among
+  them. A row stating a threshold at or before the window's first step keeps it;
+  one after it is refused at plan, naming both steps, since the steps before it
+  would never be exported. The build must carry the unsteady solver action
+  (`SET_NEW_UNSTEADY_SOLVER_ACTION`, 26.122 on); the point must export its
+  Tecplot, which the average is written as. A steady row, and an additional
+  pproc, refuse the table.
+- **What is averaged.** The same PANEL, the VTK's cell index, across the steps of
+  the window, each step's values first written back in the reference frame as
+  its Tecplot is (the velocity components undone as a point is, above). Every
+  step weighs the same, and nothing is interpolated. The average is
+  `blade_passage_average`, the package's one averaging routine, with the panels
+  as its samples and the steps as its frames. Every variable the VTK carries is
+  averaged, `skin_friction_coeff.` (CF) included.
+- **What the solver's own average says about it.** On 26.122, where the solver
+  runs `SOLVER_TIME_AVERAGING`, its final surface equals, to 1e-13, the uniform
+  mean of the same run's per-step instants over the same inclusive time steps,
+  for `Cp`, `Vx` and `Velocity`: the package's average matches the solver's to
+  machine precision for the flow variables (RPT-079). The solver keeps CF at its
+  last instant; the package averages CF as it averages every other variable.
+- **Refused, or skipped, by name; never partial.** Steps that do not share one
+  topology (the node count, the polygon count and the nodes around every
+  polygon) refuse the average, naming the step: a panel cannot be followed
+  across them. A step of the window that was not exported (a run stopped by its
+  wall clock before the window ended, a continuation, whose step counter starts
+  again) skips the average, naming the missing steps: an average of the steps
+  that were would not be the window's. Both are named skips in `products.json`
+  and `post.log`.
+- **Where its nodes are.** The averaged file's nodes are those of the window's
+  LAST step: on a turning rotor the nodes move from step to step, and their mean
+  would be a surface nobody flew.
+- **The product.** `surfaces/<point>_time_average.dat` under the matrix's
+  products, written by the writer of every Tecplot (one FEPolygon zone, every
+  value per panel, cell-centred, the reference frame), and
+  `surfaces/<point>_time_average.vtk` beside it where the pproc asks
+  `[exports] vtk`. Its `DATASETAUXDATA` records say what it is an average of
+  (`AVERAGE_OF`, `WINDOW`, `COORDINATES`, `TRANSLATION`, `SOURCE_FRAME`,
+  `NOT_CARRIED`). Its `products.json` entry carries `kind: average`, the
+  recorded `window`, the `steps` averaged, `inputs` (each per-step VTK read and
+  its sha256), `averaged_by: pyflightstream`, `weighting: uniform`,
+  `coordinates_step`, and `location`, `frame` and `not_carried` as every
+  translated Tecplot does. The frozen-solve rule of every average applies: a
+  freeze inside the window warns, and `check_frozen` refuses.
+- **The instants stay.** Every per-step VTK and the Tecplot written from it stay
+  on disk and in `products.json` as `kind: instant`, and so do the end of the
+  run's surface exports.
+- **The run records the window**, as `surface_average_window`, and the post reads
+  that record, never a pproc edited since; a continuation keeps the window of
+  the run it continues. Changing the window of a recorded run needs a new run,
+  since the steps before the window's first were not exported.
+- **A record written before 0.28.0** that carries the solver's window
+  (`surface_time_averaging`, `verification: UNVERIFIED`) keeps the meaning its
+  release gave it: its native surface exports are `kind: average` over that
+  window, per-step entries end their window at the export's step, and exports
+  before the window's start are named skips.
 
 ---
 

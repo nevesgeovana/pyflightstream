@@ -6982,7 +6982,10 @@ def _execute_point(
         # Preserve the original recorded request when reopening the saved state,
         # including its UNVERIFIED qualification; today's pproc cannot replace it.
         script.surface_time_averaging = predecessor.surface_time_averaging
+        # G25: the window the stopped run was averaged over, not today's pproc's.
+        script.surface_average_window = predecessor.surface_average_window
     base["surface_time_averaging"] = script.surface_time_averaging
+    base["surface_average_window"] = script.surface_average_window
     # G45. WHAT THE RUN WRITES FROM THE VTK, and the loads frame the solver
     # writes it in. A continuation's is the saved simulation's, which the run it
     # continues placed and recorded; one that recorded none cannot be undone,

@@ -349,11 +349,12 @@ def test_time_averaging_is_accepted_by_the_builds_that_build_it(page):
     """G08: `Accepted by` is the feature's acceptance, measured by building it.
 
     The column read a command's DOCUMENTED status as the key's acceptance, and
-    `[time_averaging]` asks more of its command than that: the definition of
-    record says the key is available only where `SOLVER_TIME_AVERAGING` is
-    verified, because documentation alone sent a command that hangs the
-    solver. So the page listed 26.122 and 26.123, and an unsteady row with
-    `[time_averaging]` is refused on both.
+    until 0.28.0 `[time_averaging]` asked more of its command than that: it was
+    available only where `SOLVER_TIME_AVERAGING` was verified, because
+    documentation alone sent a command that hangs the solver. Since 0.28.0 (G25)
+    the package averages the per-step exports and the key reaches the unsteady
+    solver action instead; the measurement below is the same either way. The
+    case exports a Tecplot, which the average is written as.
 
     Measured here and never read off the generator: an unsteady case is built
     with and without the table on every registered build; a build where the
@@ -376,7 +377,10 @@ def test_time_averaging_is_accepted_by_the_builds_that_build_it(page):
         answering.append(version.canonical)
         try:
             build_script(
-                unsteady_case().model_copy(update={"pproc": averaged}), Script(version.canonical)
+                unsteady_case().model_copy(
+                    update={"pproc": averaged, "outputs": ["p.txt", "p.dat"]}
+                ),
+                Script(version.canonical),
             )
         except PyflightstreamError as error:
             # The table's own refusal, or its command missing from the build.

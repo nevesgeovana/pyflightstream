@@ -148,7 +148,7 @@ from pyflightstream.script import (
     helpers,
     rotor_vocabulary,
 )
-from pyflightstream.script._surface_averaging import SurfaceAveragingWindow
+from pyflightstream.script._surface_averaging import SurfaceAverageWindow
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
 __all__ = [
@@ -1185,8 +1185,9 @@ def march_strategy(
     -------
     MarchStrategy or None
         None for a case that is not unsteady; ``MARCH_ACTIONS`` when the row
-        states a per-step threshold or a wall clock and the build has the
-        actions they need; ``MARCH_SINGLE`` otherwise. A continuation marks no
+        states a per-step threshold or a wall clock, or its pproc a
+        ``[time_averaging]`` window (G25), and the build has the actions they
+        need; ``MARCH_SINGLE`` otherwise. A continuation marks no
         action of its own: it is ``MARCH_SINGLE`` unless it also states one
         of those.
 
@@ -1238,8 +1239,16 @@ def march_strategy(
                 f"{{{RESTART_ADDITIONAL_ITERS}=n}}",
             )
         )
-    uses_actions = bool(wanted)
     restart = parse_restart(case)
+    if case.pproc is not None and case.pproc.time_averaging is not None and restart is None:
+        # G25: the window's steps are exported through the per-step actions.
+        wanted.append(
+            (
+                "the per-step surface exports of the pproc's [time_averaging]",
+                "remove [time_averaging], and the surface exports are the run's last instant",
+            )
+        )
+    uses_actions = bool(wanted)
     if restart is not None and restart.form in (RESTART_FINISH_PENDING, RESTART_ADDITIONAL_REVS):
         needs = (
             "the stop the wall clock records"
@@ -7128,12 +7137,11 @@ def _script_init(
         # creating them again. Nothing is emitted here.
         script.frames_by_name = dict(frames)
     _raw_commands(case, script, "init")
-    surface_window = surface_time_averaging(case)
-    if surface_window is not None:
-        bounds = surface_window["iterations"]
-        assert isinstance(bounds, list)
-        script.emit("SOLVER_TIME_AVERAGING", "ENABLE", *bounds)
-        script.surface_time_averaging = surface_window
+    # G25 of 0.28.0: THE PACKAGE AVERAGES THE SURFACE, and nothing is emitted for
+    # it here. SOLVER_TIME_AVERAGING hangs 26.124 (C01) and is never emitted; the
+    # window's steps are exported one by one (unsteady_export_threshold) and the
+    # post averages them.
+    script.surface_average_window = surface_time_averaging(case)
     # THE FILE ROUTE'S WAKE TERMINATION, BETWEEN TWO INITIALISATIONS (G02, T07).
     # After a file import the detection marks nothing until the solver has
     # initialised, and the solver uses what it marked only once it initialises
@@ -9584,8 +9592,14 @@ def _refuse_a_volume_section_off_a_steady_row(case: SimCase, name: str) -> None:
     )
 
 
-def surface_time_averaging(case: SimCase) -> SurfaceAveragingWindow | None:
-    """Resolve the pproc's surface window on the same clock as LAST_REVS_AVG."""
+def surface_time_averaging(case: SimCase) -> SurfaceAverageWindow | None:
+    """Resolve the pproc's surface window on the same clock as LAST_REVS_AVG.
+
+    Since 0.28.0 (G25) it is the window the PACKAGE averages the per-step surface
+    exports over: its first step is where the per-step exports begin, and the
+    post averages every step of it. None where the pproc states no
+    ``[time_averaging]``.
+    """
     stated = case.pproc.time_averaging if case.pproc is not None else None
     if stated is None:
         return None
@@ -9601,7 +9615,7 @@ def surface_time_averaging(case: SimCase) -> SurfaceAveragingWindow | None:
             f"case {case.sim_id!r}: surface time averaging has no valid run clock"
         )
     try:
-        return _windows.surface_averaging_window(
+        return _windows.surface_average_window(
             last_step=last,
             per_revolution=float(clock) if isinstance(clock, int | float) else None,
             last_revs=stated.last_revs,
@@ -10646,8 +10660,40 @@ def unsteady_export_threshold(
         for key in (EXPORT_UNSTEADY_AFTER_REV_VARIABLE, EXPORT_UNSTEADY_AFTER_ITER_VARIABLE)
         if (text := _variable(case, key)) is not None
     }
-    if not stated:
+    averaged = (
+        case.pproc.time_averaging is not None
+        and case.recipe in _UNSTEADY_RECIPES
+        and continuation_of(case) is None
+        if case.pproc is not None
+        else False
+    )
+    if not stated and not averaged:
         return None
+    if not stated:
+        # G25: [time_averaging] EXPORTS THE SURFACE AT EVERY STEP OF ITS WINDOW,
+        # through this machinery, as a row stating EXPORT_UNSTEADY_AFTER_ITER at
+        # the window's first step would: the post averages those exports.
+        window = surface_time_averaging(case)
+        assert window is not None
+        first = int(window["iterations"][0])
+        stepping = (
+            _rotor_clock(case)
+            if select_workflow(case) == "unsteady_rotor"
+            else unsteady_time_stepping(case)
+        )
+        per_revolution = stepping.steps_per_revolution
+        return UnsteadyExportThreshold(
+            stated_form="iterations",
+            stated_value=float(first),
+            first_step=first,
+            time_iterations=stepping.time_iterations,
+            delta_time_s=stepping.delta_time_s,
+            step_deg=None if per_revolution is None else round(360.0 / per_revolution, 9),
+            rpm=stepping.rpm,
+            exports=_per_step_exports(
+                conventions or WorkflowConventions.for_case(case), case, version=version
+            ),
+        )
     if len(stated) == 2:
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {EXPORT_UNSTEADY_AFTER_REV_VARIABLE} and "
@@ -10703,6 +10749,21 @@ def unsteady_export_threshold(
             "reach the threshold and nothing would be exported. Lower it, or lengthen "
             "the run."
         )
+    if averaged:
+        # G25: the average needs every step of its window exported, so a threshold
+        # after the window's first step would leave the average nothing but a skip.
+        window = surface_time_averaging(case)
+        assert window is not None
+        start = int(window["iterations"][0])
+        if first_step > start:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} states {key} as {number}, which is step {first_step}, "
+                f"and the pproc's [time_averaging] averages the surface from step {start}: "
+                "the per-step exports begin at the threshold, so the steps of the window "
+                f"before it would never be exported and the average would be skipped. State "
+                f"'{EXPORT_UNSTEADY_AFTER_ITER_VARIABLE}: {start}' or earlier, or shorten "
+                "the window."
+            )
     return UnsteadyExportThreshold(
         stated_form=form,
         stated_value=float(number),
@@ -12770,13 +12831,17 @@ WORKFLOWS: Mapping[str, Workflow] = {
 }
 
 
+#: The command the per-step exports of a ``[time_averaging]`` window run through
+#: (G25): the counter action that rewrites the exports script every step.
+_AVERAGE_ACTION = "SET_NEW_UNSTEADY_SOLVER_ACTION"
+
 #: THE COMMANDS A ROW REACHES ONLY WHERE A RUN VERIFIED THEM on the build,
 #: which asks more than the documented status any other emission needs.
 #: ``SOLVER_TIME_AVERAGING`` is documented from 26.122 and was measured hanging
-#: 26.124 (C01, 2026-09-19), so ``[time_averaging]`` is refused on every build
-#: whose record is not verified. :func:`build_script` refuses by
-#: :func:`command_accepted_on`, and the input glossary states the builds a key
-#: is accepted on by the same function, so the two cannot disagree.
+#: 26.124 (C01, 2026-09-19). Since 0.28.0 no row reaches it at all:
+#: ``[time_averaging]`` is averaged by the package from the per-step exports
+#: (G25) and the command is never emitted. The input glossary states the builds
+#: a key is accepted on by :func:`command_accepted_on`.
 VERIFIED_ONLY_COMMANDS: frozenset[str] = frozenset({"SOLVER_TIME_AVERAGING"})
 
 
@@ -12872,15 +12937,27 @@ def build_script(
     workflow = resolve_workflow(select_workflow(case))
     require_coverage(workflow, script.version, registry=registry)
     if case.pproc is not None and case.pproc.time_averaging is not None:
-        entry = script.entry("SOLVER_TIME_AVERAGING")
-        if not command_accepted_on(entry, script.version):
-            record = entry.status_in(script.version)
-            reason = (record.note if record is not None else None) or "No execution is verified."
+        # G25: THE PACKAGE AVERAGES THE SURFACE THE RUN WRITES AS TECPLOT, from
+        # its per-step VTK exports; a point exporting no Tecplot has nothing to
+        # average into one.
+        names = list((conventions.outputs if conventions else None) or case.outputs)
+        if case.recipe in _UNSTEADY_RECIPES:
+            try:
+                script.entry(_AVERAGE_ACTION)
+            except CommandNotInVersionError as error:
+                raise CampaignConfigError(
+                    f"case {case.sim_id!r}: the pproc's [time_averaging] exports the surface "
+                    f"at every step of its window through an unsteady solver action, and "
+                    f"FlightStream {script.version.canonical} does not carry it: {error} Run "
+                    "the row on a build that does, or remove [time_averaging]."
+                ) from error
+        if "tecplot" not in classify_outputs(names):
             raise CampaignConfigError(
-                f"[time_averaging] requires SOLVER_TIME_AVERAGING verified on "
-                f"FlightStream {script.version.canonical}. {reason} "
-                "Remove [time_averaging] to write Tecplot, VTK and CSV surface exports "
-                "as instants; the key works on a build where the command is verified to run."
+                f"case {case.sim_id!r}: the pproc's [time_averaging] asks for the surface "
+                "averaged over its window, which the package writes as a Tecplot from the "
+                "per-step VTK exports, and the point exports no Tecplot (its outputs "
+                f"{', '.join(names) or 'name none'}). Leave tecplot on under [exports], "
+                "the default, or remove [time_averaging]."
             )
         surface_time_averaging(case)
     # THE SEAM (ARCH-0200): how this case is marched on this build, decided
@@ -12996,7 +13073,10 @@ def refuse_what_a_saved_point_cannot_give(pproc: PprocSpec, *, pproc_id: str, wh
     if pproc.plots != PlotsSpec():
         reasons.append("[plots]: a force or fluid plot fills during a march, and none runs")
     if pproc.time_averaging is not None:
-        reasons.append("[time_averaging]: a surface average accumulates during a march")
+        reasons.append(
+            "[time_averaging]: a surface average is taken over the per-step exports of a "
+            "march, and none runs"
+        )
     if pproc.base_regions:
         reasons.append(
             "base_regions: a base region is marked on a mesh before its solve, and the "

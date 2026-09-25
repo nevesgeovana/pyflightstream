@@ -12,7 +12,7 @@ import sys
 import pytest
 from pydantic import ValidationError
 
-from pyflightstream.cases import Campaign, PprocSpec, default_outputs, windows
+from pyflightstream.cases import Campaign, CampaignConfigError, PprocSpec, default_outputs, windows
 from pyflightstream.cases.workflows import (
     WorkflowCoverageError,
     build_script,
@@ -97,25 +97,25 @@ def test_window_conversion_shares_the_last_revolutions_clock():
 
 
 @pytest.mark.parametrize("window", [{"last_revs": 1.5}, {"last_iters": 54}])
-def test_pproc_window_emits_in_init_and_absence_emits_nothing(window):
+def test_pproc_window_emits_nothing_and_resolves_the_packages_window(window):
+    """G25: even where the command is verified, the window is the package's to average."""
     case = _case(rotor=True, time_averaging=window, formats=False)
-    # The emission is refused where the command is not verified (C01), so a
-    # test ABOUT the emission states the build it is about.
-    text = _script(case, registry=_verified_registry()).render()
-    assert "SOLVER_TIME_AVERAGING ENABLE 91 144" in text
-    assert text.index("SOLVER_TIME_AVERAGING") < text.index("START_SOLVER")
-    verified = _verified_registry()
-    assert _script(case, registry=verified).entry("SOLVER_TIME_AVERAGING").phase.value == "init"
+    script = _script(case, registry=_verified_registry())
+    assert "SOLVER_TIME_AVERAGING" not in script.render()
+    assert script.surface_average_window is not None
+    assert script.surface_average_window["iterations"] == [91, 144]
     case.pproc = PprocSpec(exports={"vtk": True, "csv": True})
-    assert "SOLVER_TIME_AVERAGING" not in _script(case, registry=verified).render()
+    assert _script(case, registry=_verified_registry()).surface_average_window is None
 
 
 def test_old_build_refusal_names_the_build():
+    """G25: a build carrying no unsteady solver action cannot export the window's steps."""
     case = _case(time_averaging={"last_iters": 54}, formats=False)
-    with pytest.raises(CommandNotInVersionError) as caught:
+    with pytest.raises(CampaignConfigError) as caught:
         _script(case, "26.121")
     assert "26.121" in str(caught.value)
-    assert "SOLVER_TIME_AVERAGING" in str(caught.value)
+    assert "[time_averaging]" in str(caught.value)
+    assert "SET_NEW_UNSTEADY_SOLVER_ACTION" in str(caught.value)
 
 
 @pytest.mark.parametrize(
@@ -217,14 +217,10 @@ WINDOW = {
 }
 
 
-def test_run_records_emitted_window_and_products_use_record_not_edited_pproc(tmp_path, monkeypatch):
-    # THE EMISSION IS REFUSED where SOLVER_TIME_AVERAGING is not verified (C01
-    # measured it hanging 26.124), and this test is about what the RUN RECORDS
-    # when it does emit, so it states the database it is about.
-    from pyflightstream.commands import CommandRegistry
-
-    verified = _verified_registry()
-    monkeypatch.setattr(CommandRegistry, "load", classmethod(lambda cls, *a, **k: verified))
+def test_run_records_emitted_window_and_products_use_record_not_edited_pproc(tmp_path):
+    # G25: the run records the window the PACKAGE averages over and emits nothing
+    # for it; every native surface export is an instant, and the average is a
+    # product of its own (tests/tier1_offline/test_g25_surface_time_average.py).
     case = _case(rotor=True, time_averaging={"last_revs": 1.5})
     case.pproc_id = "p001"
     campaign = Campaign(name="camp", fs_version="26.124", fs_exe=sys.executable, sims=[case])
@@ -249,18 +245,24 @@ def test_run_records_emitted_window_and_products_use_record_not_edited_pproc(tmp
         recipes={"unsteady_rotor": build_script},
         preflight=False,
     )[0]
-    assert record.surface_time_averaging == WINDOW
-    assert workspace.read_manifest()[0].surface_time_averaging == WINDOW
+    package_window = {key: value for key, value in WINDOW.items() if key != "verification"}
+    assert record.surface_time_averaging is None, "the solver averaged nothing"
+    assert record.surface_average_window == package_window
+    assert workspace.read_manifest()[0].surface_average_window == package_window
     artifact.write_text(artifact.read_text().replace("last_revs = 1.5", "last_revs = 3.0"))
     write_campaign_products(workspace, overwrite=True)
     manifest = json.loads((workspace.products_dir(None) / "products.json").read_text())
     surfaces = [
         entry
-        for entry in manifest["products"].values()
-        if entry.get("format") in ("tecplot", "vtk", "csv")
+        for name, entry in manifest["products"].items()
+        if entry.get("format") in ("tecplot", "vtk", "csv") and "time_average" not in name
     ]
     assert len(surfaces) == 3
-    assert all(entry["kind"] == "average" and entry["window"] == WINDOW for entry in surfaces)
+    assert all(entry["kind"] == "instant" and "window" not in entry for entry in surfaces)
+    # The stub exported no step of the window, so the average is skipped by name,
+    # over the RECORD's window and not the edited pproc's.
+    reason = manifest["skipped"]["surfaces/p_time_average.dat"]
+    assert "window 91 to 144" in reason
     document = _prov_document(record, workspace.sim_dir(record.sim_id))
     surfaces = [
         node
@@ -268,9 +270,7 @@ def test_run_records_emitted_window_and_products_use_record_not_edited_pproc(tmp
         if node.get("pyfs:name", "").endswith((".dat", ".vtk", ".csv"))
     ]
     assert len(surfaces) == 3
-    assert all(
-        node["pyfs:kind"] == "average" and node["pyfs:window"] == WINDOW for node in surfaces
-    )
+    assert all(node["pyfs:kind"] == "instant" for node in surfaces)
 
 
 def test_per_step_surface_manifest_marks_actual_partial_window_without_loads(tmp_path):

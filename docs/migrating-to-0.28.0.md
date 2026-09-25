@@ -170,3 +170,22 @@ changes for you is listed below, one section per change.
   solver starts unless its pproc sets `tecplot = false`, since that run recorded
   no placement of its loads frame.
 - A `.dat` a run wrote before 0.28.0 is the solver's own and stays so.
+
+## 9. `[time_averaging]` now works (G25)
+
+- A pproc carrying `[time_averaging]` was refused at plan on every build, because
+  the solver's own averaging command hangs 26.124. It now plans and runs: the
+  row exports its surface at every time step of the window, and `pyfs-matrix
+  post` writes `post/<matrix>/surfaces/<point>_time_average.dat` (and a `.vtk`
+  beside it with `[exports] vtk = true`), the average of those steps, cell by
+  cell, in the reference frame. Remove nothing to use it; keep `tecplot` on
+  under `[exports]`, the default.
+- The per-step exports are the ones `EXPORT_UNSTEADY_AFTER_ITER: <first step of
+  the window>` would give, so a row stating no threshold now leaves one VTK, one
+  Tecplot, one loads table and the sections of every step of its window in its
+  datapoint folder, and their series tables under `series/`. A row whose own
+  threshold starts after the window is refused, naming both steps; lower the
+  threshold to the window's first step.
+- The build must carry the unsteady solver action (26.122 on). A steady row and
+  an additional pproc still refuse the table.
+- A run recorded before 0.28.0 is read as it was.

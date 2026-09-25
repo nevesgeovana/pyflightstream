@@ -74,6 +74,10 @@ PUBLIC_MODULES = [
     "pyflightstream.post.series",
     "pyflightstream.post.settings_table",
     "pyflightstream.post.superfile",
+    # G25 of 0.28.0: the surface averaged by the package over a window of per-step
+    # exports. PUBLIC deliberately: the average a campaign writes is one a user can
+    # take of per-step exports of her own, with the writer every Tecplot uses.
+    "pyflightstream.post.surfaces",
     "pyflightstream.post.unsteady",
     "pyflightstream.post.writers",
     "pyflightstream.probes",

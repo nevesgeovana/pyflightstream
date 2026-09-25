@@ -70,7 +70,10 @@ from pyflightstream.commands import (
     Phase,
     Status,
 )
-from pyflightstream.script._surface_averaging import SurfaceAveragingWindow
+from pyflightstream.script._surface_averaging import (
+    SurfaceAverageWindow,
+    SurfaceAveragingWindow,
+)
 from pyflightstream.script.entities import (
     EntityRegistry,
     ScriptLabelError,
@@ -907,7 +910,14 @@ class Script:
         #: parse a survey the user wrote.
         self.probe_points: list[tuple[int, float, float, float, str]] = []
         #: Surface averaging window emitted by the workflow, for run provenance.
+        #: Never set by a build since 0.28.0, which emits no SOLVER_TIME_AVERAGING;
+        #: a continuation carries the one its stopped run recorded.
         self.surface_time_averaging: SurfaceAveragingWindow | None = None
+        #: THE WINDOW THE PACKAGE AVERAGES THE SURFACE OVER (G25 of 0.28.0), set
+        #: where the workflow resolves the pproc's ``[time_averaging]``. No
+        #: command carries it: the run exports the surface at every step of it
+        #: and the post averages those exports.
+        self.surface_average_window: SurfaceAverageWindow | None = None
         #: THE TECPLOT SURFACES THE PACKAGE WRITES FROM A VTK (G45 of 0.28.0), one
         #: per Tecplot output the script exports, filled by the workflow that
         #: emits the VTK in its place, for the reason ``section_blocks`` is

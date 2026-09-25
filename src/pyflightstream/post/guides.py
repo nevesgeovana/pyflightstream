@@ -679,7 +679,10 @@ _FIELD_COMMANDS: Mapping[tuple[str, str], str] = MappingProxyType(
         ),
         ("PprocSpec", "plots"): "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
         ("PprocSpec", "probes"): "UNSTEADY_SOLVER_NEW_FLUID_PLOT, NEW_PROBE_POINT",
-        ("PprocSpec", "time_averaging"): "SOLVER_TIME_AVERAGING",
+        # G25 of 0.28.0: the window's steps are exported through the unsteady
+        # solver actions and averaged by the package; SOLVER_TIME_AVERAGING is
+        # never emitted.
+        ("PprocSpec", "time_averaging"): "SET_NEW_UNSTEADY_SOLVER_ACTION",
         ("PprocSpec", "vtk_variables"): "SET_VTK_EXPORT_VARIABLES",
         ("PprocSpec", "base_regions"): "DETECT_BASE_REGIONS_BY_SURFACE",
         ("VolumeSectionSpec", "format"): (
@@ -2431,9 +2434,8 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                 {
                     "The tables and top-level keys": MappingProxyType(
                         {
-                            "refused on a build that cannot run it; INPUTS.md names the builds": (
-                                "time_averaging",
-                            ),
+                            "an unsteady row's surface average, which a steady row refuses; "
+                            "INPUTS.md names the builds": ("time_averaging",),
                         }
                     ),
                     "`[time_averaging]`": MappingProxyType(

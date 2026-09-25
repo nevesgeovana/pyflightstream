@@ -86,9 +86,12 @@ from pyflightstream._errors import PyflightstreamError
 from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream._retired_names import WORKSPACE_ENGINE_POINT, RetiredAttributeError
 from pyflightstream.cases import BoundaryAliases, RawCommand
-from pyflightstream.cases.windows import surface_averaging_window
+from pyflightstream.cases.windows import surface_average_window, surface_averaging_window
 from pyflightstream.script import MarchStrategy
-from pyflightstream.script._surface_averaging import SurfaceAveragingWindow
+from pyflightstream.script._surface_averaging import (
+    SurfaceAverageWindow,
+    SurfaceAveragingWindow,
+)
 from pyflightstream.script.solver_setup import explicit_empty_selections
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
@@ -1120,7 +1123,16 @@ class RunRecord(BaseModel):
     #: carries neither, and the series tables leave the time blank for it.
     export_window: dict[str, float | int | str] | None = None
     #: Solver surface averaging as emitted, never re-derived from an edited pproc.
+    #: Only a record written before 0.28.0 carries one; none has since.
     surface_time_averaging: SurfaceAveragingWindow | None = None
+    #: THE WINDOW THE PACKAGE AVERAGES THE SURFACE OVER (G25 of 0.28.0), as the
+    #: run resolved it from the pproc's ``[time_averaging]``: inclusive time
+    #: steps, and the revolutions or iterations asked for. The run exports the
+    #: surface at every step of it and the post averages those exports; the post
+    #: reads this and never an edited pproc. None where the pproc states none and
+    #: on every record written before 0.28.0. Adding it did not move
+    #: MANIFEST_SCHEMA.
+    surface_average_window: SurfaceAverageWindow | None = None
     #: THE TECPLOT SURFACES THE PACKAGE WROTE FROM A VTK (G45 of 0.28.0), one per
     #: Tecplot output of the point: ``vtk`` and ``dat``, the two names; ``frame``,
     #: the analysis loads frame the solver wrote the VTK in, as the script placed
@@ -1216,6 +1228,26 @@ class RunRecord(BaseModel):
             )
             raise ValueError(
                 f"iterations {window['iterations']} contradict recorded {fields}; "
+                f"expected {resolved['iterations']}"
+            )
+        return window
+
+    @field_validator("surface_average_window")
+    @classmethod
+    def _package_window_matches_request(
+        cls, window: SurfaceAverageWindow | None
+    ) -> SurfaceAverageWindow | None:
+        if window is None:
+            return None
+        resolved = surface_average_window(
+            last_step=window["iterations"][1],
+            last_iters=window.get("last_iters"),
+            last_revs=window.get("last_revs"),
+            per_revolution=window.get("steps_per_revolution"),
+        )
+        if window["iterations"] != resolved["iterations"]:
+            raise ValueError(
+                f"iterations {window['iterations']} contradict the recorded request; "
                 f"expected {resolved['iterations']}"
             )
         return window
@@ -3057,7 +3089,8 @@ class CampaignWorkspace:
                 window_errors = [
                     item
                     for item in error.errors()
-                    if item["loc"] and item["loc"][0] == "surface_time_averaging"
+                    if item["loc"]
+                    and item["loc"][0] in ("surface_time_averaging", "surface_average_window")
                 ]
                 if not window_errors:
                     raise

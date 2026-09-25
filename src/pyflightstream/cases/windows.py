@@ -31,7 +31,10 @@ import math
 from collections.abc import Mapping
 
 from pyflightstream.cases import CampaignConfigError
-from pyflightstream.script._surface_averaging import SurfaceAveragingWindow
+from pyflightstream.script._surface_averaging import (
+    SurfaceAverageWindow,
+    SurfaceAveragingWindow,
+)
 
 __all__ = [
     "LAST_ITERS_AVG",
@@ -44,6 +47,7 @@ __all__ = [
     "regate",
     "replan",
     "stated_key",
+    "surface_average_window",
     "surface_averaging_window",
 ]
 
@@ -167,6 +171,45 @@ def surface_averaging_window(
         assert last_iters is not None
         result["last_iters"] = last_iters
     return result
+
+
+def surface_average_window(
+    *,
+    last_step: int,
+    per_revolution: float | None = None,
+    last_revs: float | None = None,
+    last_iters: int | None = None,
+) -> SurfaceAverageWindow:
+    """Resolve the window the package averages the per-step surface exports over (G25).
+
+    The bounds of :func:`surface_averaging_window`, on the clock of
+    ``LAST_REVS_AVG``: inclusive, 1-based time steps ending at the run's last
+    step, clipped at step 1. The package counts these steps itself and averages
+    the exports stamped with them, so the window carries no verification.
+
+    Examples
+    --------
+    >>> surface_average_window(last_step=144, last_revs=1.5, per_revolution=36)["iterations"]
+    [91, 144]
+    >>> "verification" in surface_average_window(last_step=144, last_iters=54)
+    False
+    """
+    resolved = surface_averaging_window(
+        last_step=last_step,
+        per_revolution=per_revolution,
+        last_revs=last_revs,
+        last_iters=last_iters,
+    )
+    window: SurfaceAverageWindow = {
+        "iterations": list(resolved["iterations"]),
+        "iteration_unit": "time_steps",
+    }
+    if "last_revs" in resolved:
+        window["last_revs"] = resolved["last_revs"]
+        window["steps_per_revolution"] = resolved["steps_per_revolution"]
+    else:
+        window["last_iters"] = resolved["last_iters"]
+    return window
 
 
 def passages(window: tuple[int, int], period: int) -> list[tuple[int, int]]:

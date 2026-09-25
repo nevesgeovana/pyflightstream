@@ -232,6 +232,7 @@ from pyflightstream.post.superfile import (
     write_superfile_report,
     write_superfiles,
 )
+from pyflightstream.post.surfaces import write_point_surface_average
 from pyflightstream.post.unsteady import (
     TimestepSeries,
     blade_passage_average,
@@ -5885,7 +5886,24 @@ def _point_series(
             stacklevel=2,
         )
         written, names = [], {}
-    return [*split_files, *written], {**split_names, **names, **surface_exports}
+    # G25: THE SURFACE AVERAGED OVER THE RECORD'S WINDOW, by the package, from the
+    # per-step VTK exports; a VTK beside the Tecplot where the pproc asks for one.
+    asked = recorded_pproc if recorded_pproc is not None else pproc
+    averaged, averaged_names = write_point_surface_average(
+        workspace.root,
+        sim_dir=workspace.sim_dir(sim_id),
+        record=record,
+        out=out,
+        target=lambda path: _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp),
+        vtk=bool(asked is not None and asked.exports.get("vtk", False)),
+        skipped=split_skips,
+    )
+    return [*split_files, *written, *averaged], {
+        **split_names,
+        **names,
+        **surface_exports,
+        **averaged_names,
+    }
 
 
 #: The characters an alias may carry into a file name. Everything else is
@@ -6968,7 +6986,8 @@ def _write_the_products(
             # `_vsec.vtk` is the surface export it was when written.
             output_kinds = classify_outputs(record.outputs, package_version=record.package_version)
             surface_freeze: FrozenSolve | None = None
-            if record.surface_time_averaging is not None and "log" in output_kinds:
+            averages = (record.surface_time_averaging, record.surface_average_window)
+            if any(window is not None for window in averages) and "log" in output_kinds:
                 log_path = workspace.sim_dir(sim_id) / output_kinds["log"]
                 if log_path is not None:
                     surface_freeze = freeze_of_log(log_path)

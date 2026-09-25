@@ -38,6 +38,29 @@ FlightStream versions.
   twice, a face before the first group, a group statement naming no group or
   several words. An `.stl` is unchanged. Library:
   `pyflightstream.workspace.inputs.obj_boundary_names` and `ensure_inventory`.
+
+- **The time-averaged surface, averaged by the package from the per-step exports
+  (G25).** A pproc's `[time_averaging]` (`last_iters` or `last_revs`, as before)
+  is no longer refused: the run exports the surface at every step of the window,
+  through the per-step machinery of `EXPORT_UNSTEADY_AFTER_ITER` (which the table
+  sets at the window's first step where the row states no threshold; a row
+  threshold after that step is refused at plan), and the post averages those
+  exports into `surfaces/<point>_time_average.dat`, and `.vtk` beside it where
+  `[exports] vtk` asks: the same panel across the window's steps, each written
+  back in the reference frame first, every step weighing the same, through the
+  package's one averaging routine. Steps that do not share one topology refuse
+  the average by name; a step of the window that was not exported skips it by
+  name, never a partial one. The nodes are the window's last step's. The entry in
+  `products.json` carries `kind: average`, the window, the steps and each input's
+  sha256; the per-step exports stay as `kind: instant`. `SOLVER_TIME_AVERAGING`
+  is never emitted (it hangs 26.124). On 26.122, where the solver's own average
+  runs, it equals this mean to machine precision for the flow variables, and
+  keeps CF at its last instant where this averages it (RPT-079). The run records
+  the window as `RunRecord.surface_average_window`, and the post reads it rather
+  than the pproc. Library: `pyflightstream.post.surfaces`
+  (`average_surface_exports`, `write_surface_average`,
+  `write_point_surface_average`), `pyflightstream.cases.windows.surface_average_window`.
+
 - **`inputs/input_template.md`, a template of every input file (G47).**
   `pyfs-workspace init`, `pyfs-matrix plan` and `pyfs-matrix post` write it at
   the root of `inputs/`, rewriting it only when its content changes: one section

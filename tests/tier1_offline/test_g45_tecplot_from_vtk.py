@@ -154,6 +154,14 @@ def _body() -> tuple[np.ndarray, list[list[int]], dict[str, np.ndarray]]:
 def _solver_vtk(path: Path, stated: dict) -> tuple[np.ndarray, list[list[int]], dict]:
     """Write :func:`_body` as the solver exports it in the frame ``stated``; return the body."""
     points, polygons, values = _body()
+    _write_solver_vtk(path, points, polygons, values, stated)
+    return points, polygons, values
+
+
+def _write_solver_vtk(
+    path: Path, points: np.ndarray, polygons: list[list[int]], values: dict, stated: dict
+) -> None:
+    """Write a surface given in the reference frame as the solver exports it in ``stated``."""
     rotation = np.asarray(stated["axes"], dtype=float)
     origin = np.asarray(stated["origin"], dtype=float)
     written = (points - origin) @ rotation.T
@@ -180,7 +188,6 @@ def _solver_vtk(path: Path, stated: dict) -> tuple[np.ndarray, list[list[int]], 
         lines += [f"SCALARS {name} FLOAT", "LOOKUP_TABLE default"]
         lines += [_fortran(value) for value in cells[name]]
     path.write_bytes(("\r\n".join(lines) + "\r\n").encode("ascii"))
-    return points, polygons, values
 
 
 def _frame(stated):

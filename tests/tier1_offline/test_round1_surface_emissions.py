@@ -21,11 +21,12 @@ def _emissions():
         vtk_variables=["X", "CP_FREESTREAM"],
         threshold={"EXPORT_UNSTEADY_AFTER_ITER": "91"},
     )
-    # The emission is refused where the command is not verified (C01 measured it
-    # hanging 26.124); this file is about WHAT THE EMISSION LOOKS LIKE.
+    # G25 of 0.28.0: nothing of the window is emitted (SOLVER_TIME_AVERAGING
+    # hangs 26.124 and is never sent), even where the command is verified; the
+    # main script is pinned from its initialisation on.
     main = _script(case, registry=_verified_registry()).render()
     return {
-        "main": main[main.index("SOLVER_TIME_AVERAGING") :],
+        "main": main[main.index("INITIALIZE_SOLVER") :],
         "action": unsteady_export_threshold(case, version="26.124").exports,
     }
 
