@@ -22,3 +22,11 @@ changes for you is listed below, one section per change.
   keeps your group and the table reads the automatic one in the global frame.
   Nothing else changes. To keep both, rename the group, `SHAFT_{family}` for
   instance.
+
+## 3. `--force-rerun` of one point of a steady job redoes the whole job (G37)
+
+- A steady row runs as one warm job. Naming one of its points to
+  `--force-rerun` (by point name or run_id) now runs every point of the job
+  again as one job, and a warning lists them; before, it ran the named point
+  alone, cold, and the other points lost their record. Naming the job itself
+  (`<campaign>/sim_<id>/sweep`) is unchanged.

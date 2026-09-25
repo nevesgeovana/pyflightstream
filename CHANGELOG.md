@@ -17,6 +17,16 @@ FlightStream versions.
   now say so before a seat is spent, naming the pproc, the name and the rotor,
   and suggesting a rename (`SHAFT_{family}`). Nothing is refused or renamed.
 
+### Fixed
+
+- **Naming one point of a recorded steady job redoes the whole job (G37).** A
+  steady row runs as one warm job recorded under the row's id. `--force-rerun`
+  naming the job redid every angle, but naming one of its points, by its point
+  name or its run_id, archived the job's record and ran that point alone and
+  cold, leaving the other angles in no record. Now any point of a recorded job
+  resolves to the whole job before anything is archived, and a warning lists the
+  points that run again.
+
 ### Changed
 
 - **An unsteady or rotor row refuses `COLD_START` at plan (G36).** The key clears

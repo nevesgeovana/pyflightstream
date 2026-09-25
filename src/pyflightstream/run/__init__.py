@@ -3116,6 +3116,22 @@ def run_campaign(
                 recorded_here = set(already)
                 job = _job_run_id(campaign, case)
                 case_points = asked.points
+                # G37 of 0.28.0: A POINT OF A RECORDED JOB REDOES THE WHOLE JOB, which
+                # the paragraph above promised and the code did not do for a point
+                # name or a point's run_id: the job's record was archived and the
+                # named point ran alone, cold, leaving its siblings in no record. The
+                # selection is resolved here, before anything is archived, and said.
+                if job in recorded_here and job not in asked.named:
+                    case_points = list(case.sweep.points())
+                    warnings.warn(
+                        f"force_rerun names {', '.join(sorted(asked.named))}, a point of the "
+                        f"recorded job {job!r}; a job is indivisible, so every point of it "
+                        "runs again as one job: "
+                        + ", ".join(point_name(case, point) for point in case_points)
+                        + ".",
+                        PyflightstreamWarning,
+                        stacklevel=2,
+                    )
                 run_ids = [_run_id(campaign, case, point) for point in case_points]
                 if job in recorded_here:
                     superseding = [job]
