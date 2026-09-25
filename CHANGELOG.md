@@ -176,10 +176,10 @@ FlightStream versions.
   `workflows.tecplot_source`, `workflows.with_tecplot_source`,
   `RunRecord.surface_translations`.
 
-- **The type-checker debt, re-measured on the block C tree.** mypy recount 2026-09-25: 863 errors in 18 of 102 modules, against
-  0.27.0's 812 in 18 of 100. The two modules that arrived, `results/surface.py` and
-  `post/surfaces.py` (G45, G25), are clean; the errors more sit inside the exempted
-  set (`reports/RPT-029`).
+- **The type-checker debt, re-measured on the block D tree.** mypy recount 2026-09-25: 863 errors in 18 of 104 modules, against
+  0.27.0's 812 in 18 of 100. The four modules that arrived, `results/surface.py`,
+  `post/surfaces.py` (G45, G25), `fsi/materials.py` and `fsi/sections.py` (G41), are
+  clean; the errors more sit inside the exempted set (`reports/RPT-029`).
 - **An unsteady row saves the solver's residual and load plots (G26).** On by
   default as on a steady point, `<point>_plot_residuals.txt` and
   `<point>_plot_loads.txt`, saved once after the march and before the log (and in

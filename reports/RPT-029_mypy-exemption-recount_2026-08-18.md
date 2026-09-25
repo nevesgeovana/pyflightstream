@@ -48,20 +48,22 @@
 > 2026-09-24 on the 0.27.0 tree once its fourth block had merged, and by the
 > run of 2026-09-24 on the 0.27.0 tree that adds the length floor
 > `_lengths.py`, and by the run of 2026-09-25 on the 0.28.0 tree whose block C
-> adds the surface translator (G45) and the surface average (G25). (An
+> adds the surface translator (G45) and the surface average (G25), and by the
+> run of 2026-09-25 on the 0.28.0 tree whose block D adds the FSI's blade
+> properties (G41). (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
 > modules and the 0.24.0 tree at 661 in 18 of 93; measurements of different
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 863 errors in 18 files (checked 102 source files)
->     Success: no issues found in 102 source files
+>     Found 863 errors in 18 files (checked 104 source files)
+>     Success: no issues found in 104 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-25: 863 errors in 18 of 102 modules.**
+**mypy recount 2026-09-25: 863 errors in 18 of 104 modules.**
 
 The module total rises by the four modules 0.25.0 adds
 (post/section_distributions, post/provenance, post/custom_polar and
@@ -343,11 +345,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 863 errors in 18 files (checked 102 source files)
+    Found 863 errors in 18 files (checked 104 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 102 source files
+    Success: no issues found in 104 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -681,3 +683,14 @@ the run module's record builders the 0.28.0 blocks extended. The dirty count
 still reads 18 and the shipped configuration is green over all 102 modules. The
 quoted mypy lines above are this run's. The sentence at the top of this report
 is this measurement; the earlier ones stay above as the history of the figure.
+
+## Re-measured 2026-09-25, the 0.28.0 tree with the FSI's blade properties: two modules arrived clean
+
+`python scripts/mypy_recount.py` on 2026-09-25, on the 0.28.0 block D tree
+(`fsi/materials.py`, the material database, and `fsi/sections.py`, the
+solid-section calculator, of G41): 863 errors in 18 of 104 modules, against the
+block C tree's 863 in 18 of 102. Both new modules arrive clean and the error
+count does not move. The dirty count still reads 18 and the shipped
+configuration is green over all 104 modules. The quoted mypy lines above are
+this run's. The sentence at the top of this report is this measurement; the
+earlier ones stay above as the history of the figure.
