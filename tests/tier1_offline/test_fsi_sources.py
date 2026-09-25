@@ -26,7 +26,16 @@ citation. The citations each physics function names are pinned here.
 import inspect
 from pathlib import Path
 
-from pyflightstream.fsi import beam, centrifugal, driver, kinematics, loads, nodes, state
+from pyflightstream.fsi import (
+    beam,
+    centrifugal,
+    driver,
+    kinematics,
+    loads,
+    nodes,
+    sections,
+    state,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = REPO_ROOT / "src" / "pyflightstream"
@@ -64,6 +73,19 @@ REQUIRED_CITATIONS = {
     (kinematics, "twist_from_node_translations"): ("DLV-007 Section 4.4",),
     (driver, "relax_displacements"): ("DLV-007 Section 4.5",),
     (driver, "revolutions_per_step"): ("DLV-007 Section 4.5",),
+    # 0.28.0 (G41): the section properties of a blade from its geometry.
+    (sections, "polygon_area_moments"): ("C. Steger", "FGBV-96-05"),
+    (sections, "torsion_constant"): (
+        "Timoshenko and J. N. Goodier",
+        "Chapter 10",
+        "G. H. Shortley and R. Weller",
+        "Journal of Applied Physics 9",
+    ),
+    (sections, "thin_section_torsion_estimate"): ("Timoshenko and J. N. Goodier", "Chapter 10"),
+    (sections, "blade_properties_from_sections"): (
+        "Timoshenko and J. N. Goodier",
+        "Chapter 10",
+    ),
 }
 
 PHYSICS_FUNCTIONS = [
@@ -81,6 +103,10 @@ PHYSICS_FUNCTIONS = [
     (kinematics, "twist_from_node_translations"),
     (driver, "relax_displacements"),
     (driver, "revolutions_per_step"),
+    (sections, "polygon_area_moments"),
+    (sections, "torsion_constant"),
+    (sections, "thin_section_torsion_estimate"),
+    (sections, "blade_properties_from_sections"),
 ]
 
 # Public functions that orchestrate solves or bookkeeping but contain no
@@ -121,6 +147,8 @@ NON_PHYSICS_PUBLIC = {
         "load_state",
         "write_state_atomic",
     },
+    # A frame change and an aggregation of the physics functions above.
+    "sections": {"airfoil_section_contour", "solid_section_properties"},
 }
 
 
@@ -232,6 +260,7 @@ def test_every_public_function_is_classified():
         (nodes, "nodes"),
         (driver, "driver"),
         (state, "state"),
+        (sections, "sections"),
     )
     for module, key in modules:
         listed = {name for mod, name in PHYSICS_FUNCTIONS if mod is module}

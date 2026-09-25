@@ -26,6 +26,7 @@ EXAMPLES = [
     "campaign_matrix.py",
     "wing_static_deflection.py",
     "fsi_campbell_diagram.py",
+    "fsi_solid_blade_properties.py",
     "obj_wing_trailing_edge_file.py",
     "roll_rate_row.py",
     "additional_post.py",

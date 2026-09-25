@@ -171,7 +171,7 @@ changes for you is listed below, one section per change.
   no placement of its loads frame.
 - A `.dat` a run wrote before 0.28.0 is the solver's own and stays so.
 
-## 9. `[time_averaging]` now works (G25)
+## 14. `[time_averaging]` now works (G25)
 
 - A pproc carrying `[time_averaging]` was refused at plan on every build, because
   the solver's own averaging command hangs 26.124. It now plans and runs: the
@@ -189,3 +189,17 @@ changes for you is listed below, one section per change.
 - The build must carry the unsteady solver action (26.122 on). A steady row and
   an additional pproc still refuse the table.
 - A run recorded before 0.28.0 is read as it was.
+
+## 15. The FSI's blade properties from its sections and a material (G41)
+
+- Additive; nothing you do changes. New:
+  `pyflightstream.fsi.sections.blade_properties_from_sections` generates the
+  blade's distributions (mass, mass moments, EI, GJ, elastic-axis offsets) from
+  one solid section contour per station and a material of
+  `pyflightstream.fsi.materials`, and records where they came from in the new
+  optional `BladeProperties.provenance`. A `config.json` you typed has no
+  provenance and is written, read and hashed exactly as before: its
+  `config_sha256` does not move, so a `state.json` of an existing run still
+  matches it. A generated configuration carries the provenance, and a release
+  before 0.28.0 refuses to read that field. The worked example is
+  `examples/fsi_solid_blade_properties.py`.

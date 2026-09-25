@@ -43,6 +43,9 @@ EXAMPLE_EXTRAS: dict[str, frozenset[str]] = {
     "additional_post.py": frozenset(),
     "campaign_matrix.py": frozenset(),
     "fsi_campbell_diagram.py": frozenset({"fsi"}),
+    # 0.28.0 (G41): a synthetic blade's properties from its sections and a
+    # material; the beam at its end is what needs the extra.
+    "fsi_solid_blade_properties.py": frozenset({"fsi"}),
     # 0.27.0 (D11): one example per new capability, each a dry run that
     # plans a workflow row and prints what its script carries.
     "obj_wing_trailing_edge_file.py": frozenset(),

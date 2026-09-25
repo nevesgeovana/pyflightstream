@@ -74,13 +74,109 @@ centrifugal bend-twist coupling).
 Only synthetic blades appear in tests and examples; real blade
 property sets are research data and never enter the repository.
 
+## sections and materials: the distributions from the geometry (`sections.py`, `materials.py`)
+
+The distributions of `BladeProperties` can be typed, or generated from
+the blade's sections and a material, scripted and reproducible.
+`blade_properties_from_sections` takes one closed contour per station
+in the section frame (chordwise toward the leading edge, normal toward
+the suction side, origin on the pitch axis), the chord and geometric
+pitch per station, and a material, and returns a validated
+`BladeProperties`:
+
+```python
+from pyflightstream.fsi.materials import material
+from pyflightstream.fsi.sections import airfoil_section_contour, blade_properties_from_sections
+from pyflightstream.qa.geometry import naca4_contour
+
+sections = [airfoil_section_contour(naca4_contour("2412", 120), c) for c in chords]
+blade = blade_properties_from_sections(
+    radii, sections, chords, pitches, material("ti-6al-4v-grade5-annealed"),
+    geometry_source="what the contours were built from", geometry_file=None,
+)
+```
+
+`airfoil_section_contour` is the one conversion from airfoil
+coordinates (x/c from the leading edge, upper surface at positive z/c)
+into the section frame, with the pitch axis at a chord fraction (0.25
+by default). Per station:
+
+| Field | Generated as |
+|---|---|
+| `mass_per_length_kg_per_m` | rho A |
+| `inertia_major_kg_m`, `inertia_minor_kg_m` | rho times the larger and the smaller principal second moment of area |
+| `bending_stiffness_n_m2` | E times the second moment about the chordwise axis through the centroid (flap bending) |
+| `torsion_stiffness_n_m2` | G J, J computed numerically |
+| `elastic_axis_offset_*` | the centroid's position from the pitch axis |
+| `cg_offset_*` | zero |
+
+The area, the centroid and the second moments are closed forms of the
+polygon (Green's theorem), exact to rounding. The torsion constant J
+has no closed form for an airfoil: it is solved from the Prandtl stress
+function (laplacian(phi) = -2 inside, phi = 0 on the contour,
+J = 2 integral(phi dA)) with second-order finite differences on a grid
+over the section's bounding box, the grid cut exactly at the polygon
+(the Shortley-Weller stencil), and solved directly, one block per grid
+column. `torsion_grid_cells` sets the cells across the section's
+thickness (64 by default, the chord getting cells of the same size);
+doubling it divides the error by about four. Tier 1
+(`tests/tier1_offline/test_g41_section_properties.py`) holds it against
+the closed forms of the ellipse and the rectangle: measured on a
+circle, ellipses, a square, a 3:1 rectangle and a 10:1 plate, 16 cells
+across are within about 1 percent, 32 within 0.3 percent and the
+default 64 within 0.08 percent. The thin-section formula (1/3) integral t^3 ds is
+computed beside J and recorded as a ratio, a cross-check only: it is
+exact for a strip, about 2 percent high on a 12 percent airfoil, and
+twice the true J on a circle.
+
+Stated hypotheses, recorded with every generated blade:
+
+* SOLID, HOMOGENEOUS sections. A hollow shell or a spar-and-skin
+  section is a different distribution, declared here as a future
+  option and not built.
+* The elastic axis at the CENTROID. The shear centre is not computed;
+  the centroid is its exact place for a doubly symmetric section and an
+  approximation otherwise. A homogeneous section's center of gravity is
+  its centroid, so the generated elastic-axis-to-CG offset is zero, and
+  the bend-twist coupling that offset drives is absent from a generated
+  blade.
+* Flap bending about the chordwise axis. A cambered section's principal
+  axes turn by a fraction of a degree from the chord; the angle is
+  available as `PolygonMoments.principal_angle_rad`.
+
+Stiffness is applied once. The generated EI and GJ go where typed values
+go, and the beam keeps its unit-moduli material (see below), so no
+modulus is multiplied in twice; tier 1 checks a generated strip's tip
+deflection and twist through the PyNite beam against the closed forms.
+
+The materials are a versioned database (`MATERIALS`,
+`MATERIALS_DATABASE_VERSION`, `material(key)`). Each entry takes its
+density, E, G and Poisson's ratio from ONE cited data set, recorded with
+the table, the condition, the address and the date it was read; when a
+source tabulates no G, the entry derives it as E / (2 (1 + nu)) and says
+so. Today: Ti-6Al-4V grade 5, annealed (`ti-6al-4v-grade5-annealed`),
+and aluminium 7075-T6 (`al-7075-t6`), both from the ASM Aerospace
+Specification Metals data sheets.
+
+The provenance travels in the configuration as
+`BladeProperties.provenance`: the material entry and its source, the
+geometry's description, the geometry file's NAME and sha256 (never its
+path, which would tie the digest to one machine), the hypotheses, the
+torsion method and its grid per station, and the thin-section ratio per
+station. It enters `config_sha256` when present and is not serialised
+at all when absent, so every configuration typed by hand keeps the
+digest it had, and every `state.json` keeps matching its run. Run
+`examples/fsi_solid_blade_properties.py` for a worked blade.
+
 ## beam: the blade as a PyNite beam (`beam.py`)
 
 One node per radial station on the elastic axis, one member per bay
 with bay-averaged EI and GJ, root clamped. The trick to keep the model
 didactic: unit elastic moduli (E = G = 1), so the section constants
 fed to PyNite are numerically the stiffnesses of the config, with no
-invented cross sections. The structural model is (w, theta), flap plus
+invented cross sections. That holds whether the stiffnesses were typed
+or generated from the sections: the modulus is in the config's EI and
+GJ already, and this material never adds it again. The structural model is (w, theta), flap plus
 torsion; only those degrees of freedom carry mass (lumped tributary
 masses, mu l for flap and (I1 + I2) l for twist), and every other DOF
 is condensed out of the eigenproblem exactly (Guyan condensation is

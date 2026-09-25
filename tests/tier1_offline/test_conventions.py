@@ -182,6 +182,9 @@ _DIMENSIONLESS_OR_DEBT = {
     "averaging_window_revolutions",  # revolutions are counts
     "recording_revolutions",  # revolutions are counts
     "ratio",  # geometric spacing ratio (AxisSpec)
+    # 0.28.0 G41, the provenance of a blade generated from its sections.
+    "poisson_ratio",  # MaterialProvenance: Poisson's ratio, dimensionless by definition
+    "thin_section_torsion_ratio",  # thin-section estimate over computed J, m^4 / m^4
     "reynolds",  # dimensionless by definition
     "mach",  # dimensionless by definition
     "heat_capacity_ratio",  # a ratio of two specific heats, dimensionless

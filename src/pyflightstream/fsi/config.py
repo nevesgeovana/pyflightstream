@@ -19,7 +19,15 @@ import logging
 import math
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +44,105 @@ _STATION_ARRAY_FIELDS = (
     "cg_offset_normal_m",
     "geometric_pitch_deg",
 )
+
+
+class MaterialProvenance(BaseModel):
+    """The material a generated blade was computed with, and its source.
+
+    A copy of the :class:`pyflightstream.fsi.materials.Material` entry
+    rather than a reference to it, so the configuration stays readable
+    and hashable on its own after the database moves to a new version.
+
+    Attributes
+    ----------
+    key : str
+        Database key of the entry.
+    name : str
+        Material name with its condition.
+    density_kg_per_m3, youngs_modulus_pa, shear_modulus_pa : float
+        rho [kg/m^3], E [Pa] and G [Pa] as used.
+    poisson_ratio : float
+        nu [-] as tabulated.
+    shear_modulus_basis : str
+        Whether G was tabulated by the source or derived from E and nu.
+    source : str
+        One-line citation of the data set all four numbers come from.
+    database_version : str
+        :data:`pyflightstream.fsi.materials.MATERIALS_DATABASE_VERSION`
+        at generation time.
+    """
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    key: str
+    name: str
+    density_kg_per_m3: float = Field(gt=0.0)
+    youngs_modulus_pa: float = Field(gt=0.0)
+    shear_modulus_pa: float = Field(gt=0.0)
+    poisson_ratio: float
+    shear_modulus_basis: str
+    source: str = Field(min_length=1)
+    database_version: str
+
+
+class BladePropertiesProvenance(BaseModel):
+    """Where the numbers of a generated :class:`BladeProperties` came from.
+
+    Written by
+    :func:`pyflightstream.fsi.sections.blade_properties_from_sections`
+    beside the distributions it computes, and absent from every
+    configuration typed by hand. It is part of the configuration, so it
+    enters :func:`config_sha256` when present and is not serialised at
+    all when absent, which keeps the digest of every configuration
+    written before it existed unchanged.
+
+    Attributes
+    ----------
+    generator : str
+        Dotted name of the function that produced the distributions.
+    material : MaterialProvenance
+        The material entry and its source.
+    geometry_source : str
+        What the section contours were read or built from, in words.
+    geometry_file_name : str or None
+        Name (never the path, which would tie the digest to one
+        machine) of the file the contours were read from, None when
+        they were built in code.
+    geometry_sha256 : str or None
+        sha256 of the geometry file's bytes when the contours came from
+        a file, None otherwise.
+    section_model : str
+        The structural hypothesis on the section: solid and homogeneous.
+    elastic_axis : str
+        How the elastic axis was located, stated as the hypothesis it is.
+    bending_stiffness : str
+        Which second moment of area the bending stiffness multiplies.
+    torsion_method : str
+        How the torsion constant J was computed.
+    torsion_grid_cells : list of list of int
+        Per station, the grid ``[cells along the longer side, cells
+        across the shorter side]`` of the section's bounding box the
+        torsion constant was solved on.
+    thin_section_torsion_ratio : list of float
+        Per station, the thin-section estimate (1/3) integral t^3 ds
+        divided by the computed J. A cross-check only, never the value:
+        near 1 for a thin section, and it drifts from 1 as the section
+        thickens or its thickness varies along the chord.
+    """
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    generator: str
+    material: MaterialProvenance
+    geometry_source: str = Field(min_length=1)
+    geometry_file_name: str | None = None
+    geometry_sha256: str | None = None
+    section_model: str
+    elastic_axis: str
+    bending_stiffness: str
+    torsion_method: str
+    torsion_grid_cells: list[list[int]]
+    thin_section_torsion_ratio: list[float]
 
 
 class BladeProperties(BaseModel):
@@ -81,6 +188,14 @@ class BladeProperties(BaseModel):
     geometric_pitch_deg : list of float
         Built-in geometric pitch distribution [deg] about the pitch
         axis; the total pitch is geometric plus elastic twist.
+    provenance : BladePropertiesProvenance or None
+        Where the distributions came from, when they were generated
+        from the blade's sections and a material
+        (:func:`pyflightstream.fsi.sections.blade_properties_from_sections`).
+        None for distributions typed by hand, and then it is not
+        serialised at all, so the dump and the :func:`config_sha256` of
+        such a configuration are exactly what they were before the
+        field existed.
     """
 
     # allow_inf_nan=False closes the SCALAR half of PYFS-012. The list guard
@@ -105,6 +220,25 @@ class BladeProperties(BaseModel):
     cg_offset_chordwise_m: list[float]
     cg_offset_normal_m: list[float]
     geometric_pitch_deg: list[float]
+    provenance: BladePropertiesProvenance | None = None
+
+    @model_serializer(mode="wrap")
+    def _provenance_only_when_present(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> dict[str, object]:
+        """Serialise the provenance only when there is one.
+
+        A configuration typed by hand has none, and writing
+        ``"provenance": null`` into its dump would change the canonical
+        JSON :func:`config_sha256` hashes, so every configuration that
+        existed before the field would get a new digest and every
+        persisted ``state.json`` would stop matching its run's
+        configuration. Dropping the key keeps both byte-identical.
+        """
+        data: dict[str, object] = handler(self)
+        if data.get("provenance") is None:
+            data.pop("provenance", None)
+        return data
 
     @model_validator(mode="before")
     @classmethod
@@ -219,6 +353,16 @@ class BladeProperties(BaseModel):
                     f"{n} radial stations; every per-station list must be "
                     "sampled at exactly the stations of station_radii_m"
                 )
+        if self.provenance is not None:
+            for name in ("torsion_grid_cells", "thin_section_torsion_ratio"):
+                m = len(getattr(self.provenance, name))
+                if m != n:
+                    raise ValueError(
+                        f"provenance '{name}' has {m} entries but there are {n} "
+                        "radial stations; a generated blade records one entry per "
+                        "station, so a mismatch means the provenance belongs to "
+                        "another blade"
+                    )
         return self
 
 

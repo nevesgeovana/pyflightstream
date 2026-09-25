@@ -45,7 +45,14 @@ PUBLIC_MODULES = [
     "pyflightstream.fsi.errors",
     "pyflightstream.fsi.kinematics",
     "pyflightstream.fsi.loads",
+    # 0.28.0 (G41): the versioned materials database and the solid-section
+    # calculator that turns a blade's geometry into its structural
+    # distributions. PUBLIC deliberately, and NOT extra-gated: both need
+    # numpy only, so a blade's properties can be generated on a base
+    # install; the beam that consumes them is what needs `[fsi]`.
+    "pyflightstream.fsi.materials",
     "pyflightstream.fsi.nodes",
+    "pyflightstream.fsi.sections",
     "pyflightstream.fsi.state",
     "pyflightstream.options",
     "pyflightstream.overview",

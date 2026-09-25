@@ -61,6 +61,31 @@ FlightStream versions.
   (`average_surface_exports`, `write_surface_average`,
   `write_point_surface_average`), `pyflightstream.cases.windows.surface_average_window`.
 
+- **The FSI's blade properties from its sections and a material (G41).**
+  `pyflightstream.fsi.sections.blade_properties_from_sections` generates a
+  `BladeProperties` from one closed section contour per station and a
+  material, instead of typed numbers: running mass rho A, the mass moments of
+  inertia per length rho times the principal second moments, EI = E times the
+  second moment about the chordwise centroidal axis, GJ = G J, and the
+  elastic-axis offsets, for a SOLID homogeneous section. The area, centroid,
+  second moments, product and principal values of the polygon are exact; the
+  torsion constant J is computed numerically from the Prandtl stress function
+  (second-order finite differences cut exactly at the polygon, solved
+  directly), converging under refinement to the ellipse's and the rectangle's
+  closed forms, with the thin-section formula kept as a recorded cross-check
+  only. The elastic axis is taken at the centroid, a stated hypothesis; the
+  shear centre is not computed. The generated blade carries its provenance
+  (`BladeProperties.provenance`: the material and its source, the geometry
+  and its file's sha256, the hypotheses, the torsion method and grid per
+  station), serialised only when present, so every configuration without it
+  keeps its `config_sha256`. The stiffness goes where typed values go and the
+  beam keeps its unit-moduli material, so no modulus is applied twice.
+  `pyflightstream.fsi.materials` is a versioned materials database, every
+  entry's density, E, G and Poisson's ratio from one cited data set:
+  Ti-6Al-4V grade 5 annealed and aluminium 7075-T6. `airfoil_section_contour`
+  places a unit airfoil in the section frame. Both modules need numpy only.
+  Example: `examples/fsi_solid_blade_properties.py`. Hollow and spar sections
+  are a future option, not built.
 - **`inputs/input_template.md`, a template of every input file (G47).**
   `pyfs-workspace init`, `pyfs-matrix plan` and `pyfs-matrix post` write it at
   the root of `inputs/`, rewriting it only when its content changes: one section
