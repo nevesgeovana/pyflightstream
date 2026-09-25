@@ -269,7 +269,7 @@ EXPORT_BL_VELOCITY_PROFILE:
       status: documented
       note: "SRC-750 p.377, the first edition to document it"
     "26.123": {status: documented, note: "SRC-751 p.377, unchanged from SRC-750 p.377"}
-    "26.124": {status: documented, note: "SRC-752 p.377, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: broken, report: "reports/compat/CMP-26124_2026-09-25_bl-profile.yaml", note: "Measured 2026-09-25 on FlightStream 26.124: EXPORT_BL_VELOCITY_PROFILE 1 at a node of the solved surface, its file on the next line [...]"}
 
 DELETE_BL_VELOCITY_PROFILE:
   layout: bare

@@ -1,0 +1,41 @@
+schema: pyflightstream-compat-report/1
+fs_version: '26.124'
+date: '2026-09-25'
+fs_exe: Flightstream_26124.exe
+fs_exe_sha256: 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+measured_at: '2026-09-25T02:35:22-0300'
+source: >
+  Transcription of the licensed probe T20 of the 0.28.0 work, reported as
+  RPT-075 (reports/RPT-075_the-boundary-layer-profile-still-holds-the-script-on-26124_2026-09-25.md).
+  One steady solve of RPT-060's control point with the command added before the
+  log export, in the same detached batch as its unchanged control, with no solver
+  alive before the batch; no solver was invoked while writing this transcription,
+  and it does not claim a probe-harness execution.
+summary:
+  verified: 0
+  broken: 1
+  removed: 0
+  unprobed: 0
+commands:
+  EXPORT_BL_VELOCITY_PROFILE:
+    outcome: broken
+    detail: >-
+      Measured 2026-09-25 on FlightStream 26.124: EXPORT_BL_VELOCITY_PROFILE 1 at a
+      node of the solved surface, its file on the next line, just before EXPORT_LOG,
+      held the script until the run was killed at its 120 s timeout (the control
+      finished in 9.4 s): every export before it was written with the control's
+      loads, and the profile file and the log after it were not. On 26.122 the
+      command opened a modal window with a Done button and held the script the same
+      way (RPT-027), so an unattended run cannot pass it.
+    signals:
+      sentinel_before: true
+      sentinel_after: false
+      effect: false
+      log_errors: []
+    return_code: null
+    measurement:
+      - variant: S_BL
+        timeout_s: 120
+        wall_time_s: 120.06
+        timed_out: true
+        script_sha256: dd6219877353d679f5960487a72b3314f944e4c1b53464f0a3f29db883638ff5

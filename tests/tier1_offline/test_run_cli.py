@@ -492,11 +492,15 @@ def test_a_workflow_row_declaring_no_outputs_gets_the_study_export_set(tmp_path,
         # what the refusal names. Reading EXPORT_KINDS instead counted kinds
         # that exist and are NOT default: an unsteady row exports no probe
         # points (F01) and neither VTK nor CSV unless the pproc asks (F03).
-        # The stub also writes each file a SAVE_PLOT_TO_FILE names, and only a
-        # steady point saves the solver's plots (G04 of 0.27.0).
-        written: tuple[str, ...] = ("{name}.txt", "{name}.fsm")
-        if not unsteady:
-            written += ("{name}_plot_residuals.txt", "{name}_plot_loads.txt")
+        # The stub also writes each file a SAVE_PLOT_TO_FILE names, and every point
+        # saves the residual and load plots: a steady one since 0.27.0 (G04), an
+        # unsteady one, once after its march, since 0.28.0 (G26).
+        written: tuple[str, ...] = (
+            "{name}.txt",
+            "{name}.fsm",
+            "{name}_plot_residuals.txt",
+            "{name}_plot_loads.txt",
+        )
         missing = [
             name.removeprefix("{name}") for name in default_outputs(unsteady) if name not in written
         ]

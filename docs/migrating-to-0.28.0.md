@@ -111,3 +111,18 @@ changes for you is listed below, one section per change.
   before its first group, or has a group statement naming no group or several
   words, and has no sidecar, is refused at plan naming the line; write its
   `boundaries` by hand, as before. An `.stl` is unchanged.
+
+## 10. The solver's plots on an unsteady row (G26)
+
+- An unsteady row now saves `<point>_plot_residuals.txt` and
+  `<point>_plot_loads.txt` by default, once, at the end of the march. A script
+  that counted the files of an unsteady point finds two more; `plot_residuals =
+  false` and `plot_loads = false` under `[exports]` turn them off.
+  `plot_residuals = true` on an unsteady row, refused before, is accepted.
+  `plot_sections_cp = true` on an unsteady row is still refused.
+
+## 11. The boundary-layer profile is refused on 26.124 (G24)
+
+- A row writing `EXPORT_BL_VELOCITY_PROFILE` raw on 26.124 is refused at plan: the
+  command holds an unattended script (RPT-075). Nothing else changes; the VTK
+  surface export carries the boundary-layer thicknesses.

@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-25
 **Found by:** the licensed probe T22 of the 0.28.0 work
-**Status:** OPEN until G26 (0.28.0: the plots of an unsteady row)
+**Status:** CLOSED in 0.28.0 (G26: an unsteady row saves the residual and load plots once, after the march)
 **Affects:** `SET_PLOT_TYPE` and `SAVE_PLOT_TO_FILE`, verified on 26.124 after a steady solve (RPT-067) and never run after an unsteady one
 
 ## What this settles

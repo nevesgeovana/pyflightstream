@@ -9663,22 +9663,25 @@ _UPDATED_KINDS: tuple[str, ...] = ("sections", "sectional_loads", "probes", "plo
 
 
 def _refuse_a_solver_plot_on_a_march(case: SimCase) -> None:
-    """Refuse a solver plot a pproc states true on an unsteady row (G04, RPT-067).
+    """Refuse the section Cp plot a pproc states true on an unsteady row (G04, G26).
 
-    An unsteady row declares none by default; a key stated true would reach no
-    line, which is the silence this package refuses rather than keeps.
+    The residual and the load plots are saved after an unsteady march too (G26 of
+    0.28.0, RPT-076); the section Cp plot was never run after one, so an unsteady
+    row declares none by default, and a key stated true would reach no line,
+    which is the silence this package refuses rather than keeps.
     """
     exports = case.pproc.exports if case.pproc is not None else {}
-    stated = sorted(kind for kind in PLOT_TYPES if exports.get(kind))
+    stated = sorted(
+        kind for kind in PLOT_TYPES if kind in STEADY_ONLY_EXPORT_KINDS and exports.get(kind)
+    )
     if not stated:
         return
     keys = " and ".join(f"{kind} = true" for kind in stated)
     raise CampaignConfigError(
         f"case {case.sim_id!r}: its pproc artifact states [exports] {keys} and the row "
-        f"names the run type {case.recipe!r}. The solver's plot saves were measured on a "
-        "steady point (RPT-067), and an unsteady point already writes its force and "
-        "fluid histories as <point>_plots.txt through [plots] and [[probes]]; remove "
-        "the key or state it false."
+        f"names the run type {case.recipe!r}. The section Cp plot was measured after a "
+        "steady solve only (RPT-067); after an unsteady march the residual and the load "
+        "plots were (RPT-076), and are saved by default. Remove the key or state it false."
     )
 
 
@@ -10245,7 +10248,10 @@ WHOLE_RUN_EXPORT_KINDS: tuple[str, ...] = ("simulation", "plots", "log")
 #: stamped per-step copy is a file nothing lists (``post.series`` reads the
 #: stamped sections, sectional loads and probes). The wall clock's rescue is
 #: the end of the run, so it keeps them, as it keeps the whole-run kinds.
-END_OF_RUN_EXPORT_KINDS: tuple[str, ...] = ("force_distributions",)
+#: The solver's residual and load plots join them (G26 of 0.28.0): each is the
+#: series of the whole march, one row per inner iteration (RPT-076), so a
+#: per-step save would write the same growing file at every step.
+END_OF_RUN_EXPORT_KINDS: tuple[str, ...] = ("force_distributions", "plot_residuals", "plot_loads")
 
 
 @dataclass(frozen=True)

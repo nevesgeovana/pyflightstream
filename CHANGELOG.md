@@ -120,6 +120,17 @@ FlightStream versions.
 
 ### Changed
 
+- **An unsteady row saves the solver's residual and load plots (G26).** On by
+  default as on a steady point, `<point>_plot_residuals.txt` and
+  `<point>_plot_loads.txt`, saved once after the march and before the log (and in
+  the wall clock's rescue), never per step: each holds the whole march, one row per
+  inner iteration, measured on 26.124 (RPT-076). `plot_residuals = false` or
+  `plot_loads = false` under `[exports]` turns one off. The section Cp plot stays
+  steady-only and is refused stated true on an unsteady row.
+- **`EXPORT_BL_VELOCITY_PROFILE` is recorded broken on 26.124 (G24).** It holds an
+  unattended script there, as on 26.122 (RPT-075, RPT-027), so a row writing it raw
+  is refused at plan naming the report, and no pproc route is built for the
+  boundary-layer profile; the VTK surface carries the boundary-layer thicknesses.
 - **A run that submits to a cluster does not post (G43).** Its points are in a
   queue with no outputs yet, so the post could only print a skip per point: the
   run now writes no product and no sweep table and ends with one line saying how

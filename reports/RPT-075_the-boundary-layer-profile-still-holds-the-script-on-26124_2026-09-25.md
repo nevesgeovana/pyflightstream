@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-25
 **Found by:** the licensed probe T20 of the 0.28.0 work
-**Status:** OPEN until G24 (0.28.0: the command refused at plan on every build that documents it, naming this report)
+**Status:** CLOSED in 0.28.0 (G24: the command recorded broken on 26.124 from this probe, a row writing it raw refused at plan naming the report)
 **Affects:** `EXPORT_BL_VELOCITY_PROFILE`, documented from 26.122 and measured interactive on 26.122 (RPT-027)
 
 ## What this settles
@@ -38,9 +38,11 @@ about twelve times the control's wall time (9.4 s).
 - **The command cannot be part of an unattended run on 26.124**, as on 26.122:
   a campaign that reached it would hold a seat until a person dismissed a window
   nobody sees under `-hidden`.
-- **0.28.0 does not build `[[boundary_layer]]`**, and a raw
-  `EXPORT_BL_VELOCITY_PROFILE` line is refused at plan on every build that
-  documents the command, naming this report and RPT-027; the viscous drag and the
+- **0.28.0 does not build `[[boundary_layer]]`**, and the command is recorded
+  `broken` on 26.124 from this probe's compat transcription
+  (`reports/compat/CMP-26124_2026-09-25_bl-profile.yaml`), so a raw
+  `EXPORT_BL_VELOCITY_PROFILE` line is refused at plan on 26.124, naming it. The
+  earlier builds stay documented, with RPT-027 in the 26.122 note. The viscous drag and the
   boundary-layer variables of the VTK surface (RPT-074: thickness, momentum and
   displacement thickness, shape factor) are the unattended instruments.
 

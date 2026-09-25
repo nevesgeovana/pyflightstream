@@ -8,9 +8,9 @@ The decision, held by a test on each of its links:
 * the script saves each plot after the exports and before the log, choosing
   the plot and then naming the file on the line after the save, which is where
   and how RPT-067 ran them on 26.124;
-* an unsteady row saves none, and a pproc stating one true on such a row is
-  refused, because an unsteady point already exports its histories through
-  ``UNSTEADY_SOLVER_EXPORT_PLOTS``;
+* an unsteady row saves the residual and the load plots once, after the march
+  (G26 of 0.28.0, RPT-076), never per step; the section Cp plot stays
+  steady-only, and a pproc stating it true on such a row is refused;
 * the files are collected and hashed as products of the point and are never
   read as a loads table or as the solver log (a plot is a display of the solve,
   never a coefficient source);
@@ -205,43 +205,60 @@ def test_g04_no_export_suffix_ends_with_another_but_a_bare_extension():
 # -------------------------------------------------------------- the unsteady --
 
 
-def test_g04_an_unsteady_row_saves_no_solver_plot():
-    """Not declared, not rendered, and never in a per-step or rescue action."""
+def test_g26_an_unsteady_row_saves_its_residual_and_load_plots_once_after_the_march():
+    """G26 of 0.28.0 (RPT-076): the residual and the load plots are declared by default on
+    an unsteady row and saved ONCE, after the march and before the log; never inside a
+    per-step action, which would save the growing file at every step, and again in the
+    wall clock's rescue, which is the end of the run. The section Cp plot stays steady-only."""
     for outputs in (default_outputs(True), PprocSpec().outputs(unsteady=True)):
-        assert not [name for name in outputs if "_plot_" in name], outputs
+        assert "{name}_plot_residuals.txt" in outputs and "{name}_plot_loads.txt" in outputs
+        assert "{name}_plot_cp_sections.txt" not in outputs, outputs
     stem = "P7003-M100AL+000"
-    declared = [
-        name.replace("{name}", stem)
-        for name in PprocSpec.model_validate({"sections": SECTIONS}).outputs(unsteady=False)
-    ]
+    declared = [name.replace("{name}", stem) for name in PprocSpec().outputs(unsteady=True)]
     for make in (unsteady_case, rotor_case):
         case = make().model_copy(update={"outputs": declared})
         script = Script("26.124")
         build_script(case, script)
-        assert "SET_PLOT_TYPE" not in script.render(), make.__name__
-        for whole_run in (False, True):
-            lines = action_export_lines(
-                WorkflowConventions(), case, whole_run=whole_run, version="26.124"
-            )
-            assert not [line for line in lines if "PLOT_TYPE" in line or "_plot_" in line], (
-                make.__name__,
-                whole_run,
-                lines,
-            )
+        lines = script.render().splitlines()
+        for kind in ("plot_residuals", "plot_loads"):
+            token, suffix = PLOTS[kind]
+            at = [i for i, line in enumerate(lines) if line == f"SET_PLOT_TYPE {token}"]
+            assert len(at) == 1, (make.__name__, kind, at)
+            assert lines[at[0] + 1 : at[0] + 3] == ["SAVE_PLOT_TO_FILE", f"{stem}{suffix}"]
+            assert lines.index("START_SOLVER") < at[0] < lines.index("EXPORT_LOG"), make.__name__
+        assert "SET_PLOT_TYPE SECTIONS_CP" not in lines, make.__name__
+        per_step = action_export_lines(
+            WorkflowConventions(), case, whole_run=False, version="26.124"
+        )
+        assert not [line for line in per_step if "PLOT_TYPE" in line or "_plot_" in line], (
+            make.__name__,
+            per_step,
+        )
+        rescue = action_export_lines(WorkflowConventions(), case, whole_run=True, version="26.124")
+        assert "SET_PLOT_TYPE RESIDUALS" in rescue and "SET_PLOT_TYPE LOADS" in rescue, rescue
 
 
-def test_g04_a_plot_stated_true_on_an_unsteady_row_is_refused():
-    """An explicit true a march cannot honour is refused at plan, naming why."""
+def test_g26_the_sections_plot_stated_true_on_an_unsteady_row_is_refused():
+    """The section Cp plot was run after a steady solve only: stated true on an unsteady
+    row it is refused at plan, naming why; the residual plot stated true is accepted."""
     from pyflightstream.cases import CampaignConfigError
 
-    pproc = PprocSpec.model_validate({"exports": {"plot_residuals": True}})
-    case = unsteady_case().model_copy(
-        update={"pproc": pproc, "outputs": ["P.txt", "P.fsm", "P_log.txt"]}
+    outputs = ["P.txt", "P.fsm", "P_log.txt"]
+    accepted = PprocSpec.model_validate({"exports": {"plot_residuals": True}})
+    build_script(
+        unsteady_case().model_copy(update={"pproc": accepted, "outputs": outputs}),
+        Script("26.124"),
     )
+    # Built past the pproc's own validator, which refuses the key without sections, so
+    # that the march's refusal is the only one that can speak: a pproc WITH sections
+    # would first be refused for the frame its sections cite on this reference-less case.
+    base = PprocSpec()
+    refused = base.model_copy(update={"exports": {**base.exports, "plot_sections_cp": True}})
+    case = unsteady_case().model_copy(update={"pproc": refused, "outputs": outputs})
     with pytest.raises(CampaignConfigError) as raised:
         build_script(case, Script("26.124"))
     text = str(raised.value)
-    assert "plot_residuals" in text and "'unsteady'" in text and "RPT-067" in text, text
+    assert "plot_sections_cp" in text and "'unsteady'" in text and "RPT-067" in text, text
 
 
 # ----------------------------------------------------------------- the files --

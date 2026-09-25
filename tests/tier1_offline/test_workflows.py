@@ -4372,15 +4372,16 @@ def test_pproc_exports_select_the_export_verbs(tmp_path):
 def test_pproc_exports_deselect_a_kind():
     """PFS-2029.14.02: tecplot = false drops one output of an unsteady row.
 
-    F01 (0.25.0): an unsteady row has no probe-points export, so its full set is
-    seven and not eight; a steady row keeps its probe-points file.
+    F01 (0.25.0): an unsteady row has no probe-points export; a steady row keeps
+    its probe-points file. G26 (0.28.0): an unsteady row saves the residual and
+    the load plots, so its full set is nine.
     """
     from pyflightstream.cases import PprocSpec
 
     pproc = PprocSpec.model_validate({"exports": {"tecplot": False}})
-    assert len(pproc.outputs(unsteady=True)) == 6
+    assert len(pproc.outputs(unsteady=True)) == 8
     assert "{name}.dat" not in pproc.outputs(unsteady=True)
-    assert len(PprocSpec().outputs(unsteady=True)) == 7
+    assert len(PprocSpec().outputs(unsteady=True)) == 9
     assert "{name}_probes.txt" not in PprocSpec().outputs(unsteady=True)
     assert "{name}_probes.txt" in PprocSpec().outputs(unsteady=False)
 

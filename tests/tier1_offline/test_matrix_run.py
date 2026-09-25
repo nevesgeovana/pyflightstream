@@ -4699,7 +4699,10 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
         "'UNSTEADY_SOLVER_EXPORT_PLOTS': PLOTS}; "
         "[pathlib.Path(lines[i + 1]).write_text(exports.get(line, 'x')) "
         "for i, line in enumerate(lines[:-1]) "
-        "if line.startswith(('EXPORT_', 'SAVEAS', 'UNSTEADY_SOLVER_EXPORT_PLOTS'))]"
+        # SAVE_PLOT_TO_FILE too: an unsteady point saves the residual and load plots
+        # after its march since 0.28.0 (G26, RPT-076), as the real solver writes them.
+        "if line.startswith(('EXPORT_', 'SAVEAS', 'UNSTEADY_SOLVER_EXPORT_PLOTS', "
+        "'SAVE_PLOT_TO_FILE'))]"
     )
     workspace = make_library(tmp_path, register_build=("26.120", "C:/fs26120/FlightStream.exe"))
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(

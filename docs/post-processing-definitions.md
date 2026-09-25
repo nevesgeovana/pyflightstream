@@ -29,6 +29,7 @@ them was inferred from an implementation.
 - [The averaging window](#the-averaging-window)
 - [Native surface flow exports](#native-surface-flow-exports)
 - [The solver's own plots](#the-solvers-own-plots)
+- [The boundary-layer profile is not produced](#the-boundary-layer-profile-is-not-produced)
 - [A volume section](#a-volume-section)
 - [The additional post](#the-additional-post)
 - [The unsteady POLAR](#the-unsteady-polar)
@@ -824,8 +825,9 @@ the averaging start are named skips. Without the table, surface entries carry
 
 ## The solver's own plots
 
-Since 0.27.0 a **steady** point saves the plots the solver draws of its own
-solve, next to its exports, one text file each:
+Since 0.27.0 a steady point, and since 0.28.0 an unsteady one (the first two),
+saves the plots the solver draws of its own solve, next to its exports, one
+text file each:
 
 | `[exports]` key | The plot | File | Default |
 |---|---|---|---|
@@ -858,11 +860,27 @@ induced drag is close to the exported CDi without equalling it, and the
 plotted pitching moment is not the exported CMy at all (-0.897 against
 -0.0247). Every coefficient on this page comes from the loads export.
 
-**Steady only.** An unsteady point saves none of the three, and an artifact
-stating one `true` on an unsteady row is refused at plan: an unsteady point
-already exports its force and fluid histories as `<point>_plots.txt` through
-`[plots]` and `[[probes]]`, and its per-step exports would otherwise save a
-plot at every step.
+**An unsteady point saves the residual and the load plots too** (since 0.28.0,
+G26), on by default as on a steady point, ONCE, after the march and before its
+log, and again in the wall clock's rescue, which is the end of the run; never
+inside the per-step exports, which would save the same growing file at every
+step. After an unsteady solve on 26.124 each file holds the series of the
+whole march, one row per INNER iteration (857 rows over 12 time steps), and the
+last plotted lift is the exported CL (RPT-076). A history per time step is the
+unsteady force plot, `<point>_plots.txt` through `[plots]`, as before. **The
+section Cp plot is steady only**: it was never run after an unsteady solve, and
+`plot_sections_cp = true` on an unsteady row is refused at plan.
+
+## The boundary-layer profile is not produced
+
+The solver can export the boundary-layer velocity profile through the wall at
+one surface point (`EXPORT_BL_VELOCITY_PROFILE`). It holds an unattended script:
+on 26.122 it opens a modal window that waits for a person (RPT-027), and on
+26.124 the script stopped at it and the run was lost at its timeout (RPT-075).
+So the package builds no pproc route for it, and the command is recorded
+`broken` on 26.124: a row writing it raw is refused at plan, naming the report.
+The boundary-layer quantities of the surface come from the VTK export instead
+(thickness, momentum and displacement thickness, shape factor; RPT-074).
 
 **Run as a campaign writes it.** A point saves each plot to its own name,
 relative to its working directory, as every export of the point does; a run

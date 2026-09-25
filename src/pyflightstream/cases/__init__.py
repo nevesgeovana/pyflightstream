@@ -501,11 +501,12 @@ EXPORT_KIND_SINCE: dict[str, tuple[int, int]] = {
 
 
 #: The kinds only a STEADY point leaves. An unsteady point samples its probes
-#: through fluid plots and exports its force and fluid histories as
-#: ``<point>_plots.txt``, and its per-step action would save a solver plot at
-#: every step; so an unsteady row declares none of these, and a pproc stating
-#: a plot kind true on one is refused by the builder.
-STEADY_ONLY_EXPORT_KINDS: frozenset[str] = frozenset({"probes", *PLOT_TYPES})
+#: through fluid plots, so it exports no probe points. Of the solver's plots,
+#: the residual and the load histories are saved after an unsteady march too,
+#: once, at the end of the run (G26 of 0.28.0, RPT-076); the section Cp plot was
+#: never run after one, so it stays steady-only, and a pproc stating it true on
+#: an unsteady row is refused by the builder.
+STEADY_ONLY_EXPORT_KINDS: frozenset[str] = frozenset({"probes", "plot_sections_cp"})
 
 #: The kinds a pproc must switch ON: every other kind is on unless its
 #: ``[exports]`` entry says false. The surface fields and the per-panel force
