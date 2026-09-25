@@ -62,3 +62,23 @@ changes for you is listed below, one section per change.
   unchanged. The refusal of a disc row stating neither now names both keys.
 - A steady row that sweeps `ADVANCE_RATIO` for its disc runs one job per point,
   not one warm job, because each point sets its own disc speed.
+
+## 7. A template of every input file (G47)
+
+- New: `inputs/input_template.md`, written by `pyfs-workspace init`, `pyfs-matrix
+  plan` and `pyfs-matrix post` at the root of `inputs/`, beside the folders whose
+  files it shows. One section per kind of input file you write (the matrix, the
+  setup, the pproc, the reference, the named points, the geometry sidecars, the
+  trailing-edge points file, the provenance record, the actuator profile and the
+  probe survey of `profiles/`, the free stream, the HPC profile and the build
+  registry), each with a complete example to copy to the path its title names.
+  `inputs/pproc/INPUTS.md` stays where it is, and the template links it. A
+  workspace made before this release gains the page at its next `plan` or
+  `post`; nothing else in it changes, and a file of your own under that name
+  would be rewritten, as `INPUTS.md` is.
+- Three files the page's examples showed were not read as documented now are:
+  a reference whose `[rotor]` states `hub_radius_m` was refused as an actuator
+  disc with no kind; a pproc stating the top-level `vtk_variables` was refused
+  as an old-shape groups file; and a steady row whose pproc draws a probe
+  rectangle or circle failed to plan, its `NEW_PROBE_POINT` lines missing the
+  `VOLUME` type. All three are read, and plan, as written.

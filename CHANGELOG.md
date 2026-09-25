@@ -9,6 +9,27 @@ FlightStream versions.
 
 ### Added
 
+- **`inputs/input_template.md`, a template of every input file (G47).**
+  `pyfs-workspace init`, `pyfs-matrix plan` and `pyfs-matrix post` write it at
+  the root of `inputs/`, rewriting it only when its content changes: one section
+  per kind of input file a user writes (the run matrix, the setup, the pproc,
+  the reference with its rotor, actuator and point blocks, the named reference
+  points, the geometry sidecar of a saved simulation and of a raw mesh, the
+  trailing-edge points file, the provenance record, the actuator radial thrust
+  profile and the probe survey of `profiles/`, the STRUCTURED custom free
+  stream, the HPC profile, and the build registry with its local overlay), each
+  saying what the file is for and where it lives, with a commented, complete
+  example to copy to the path its block's title names, and links to
+  `pproc/INPUTS.md` and to the page of the documentation that covers it. The
+  examples cite each other, so the matrix plans against the rest as written.
+  Generated from the code where the format is the code's: the matrix header is
+  the layout's registry, the values a comment lists are read from the
+  registries that check them, and each section names, with the reason, every
+  key of the glossary's tables its example leaves out. The suite writes every
+  example where its title says and reads it with the reader the run uses, holds
+  every registered key to an example or to that list, and refuses a misspelled
+  copy of each. Library: `pyflightstream.post.write_input_template` and
+  `INPUT_TEMPLATE_NAME`; `pyflightstream.post.guides.input_template_markdown`.
 - **An actuator disc takes its speed from the advance ratio (G20).** A row naming
   a disc and stating `ADVANCE_RATIO` (in its flight condition, swept or held) and
   no `ACTUATOR_RPM` turns the disc at n = V / (J D) by the rotors' rule, with the
@@ -46,6 +67,17 @@ FlightStream versions.
 
 ### Fixed
 
+- **Three input files are read as documented (found by the input template's
+  test, G47).** A reference whose recorded `[rotor]` states `hub_radius_m`, a key
+  of that table, was refused as "an actuator disc with no kind", because the
+  guard for a disc that forgot its `kind` read the key as a disc's; a table of
+  the model's own is no longer judged by that guard. A pproc stating the
+  top-level `vtk_variables` (documented since 0.25.0) was refused as a groups
+  file of the shape before 0.11.0, because the reader's list of the model's own
+  top-level lists was kept by hand and lacked it; it is now read from the model.
+  And a steady row whose pproc draws a probe rectangle or circle (FR-79) failed
+  to plan on every build, its `NEW_PROBE_POINT` lines missing the required
+  `type`; they now state `VOLUME`, as the package's other probe points do.
 - **Naming one point of a recorded steady job redoes the whole job (G37).** A
   steady row runs as one warm job recorded under the row's id. `--force-rerun`
   naming the job redid every angle, but naming one of its points, by its point

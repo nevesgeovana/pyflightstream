@@ -562,6 +562,9 @@ inputs/
                           state (the matrix row by run type, the setup, the pproc,
                           the reference, the geometry sidecar), what it sets, its
                           unit or values, and the command it reaches
+  input_template.md       GENERATED at the root of inputs/ by the same three: a
+                          complete example of every input file, each one a file
+                          the package reads as it stands
   executables.toml        which executable, and optionally which version,
                           each build identifier means
   executables.local.toml  this machine's paths for the same identifiers,
@@ -588,6 +591,25 @@ is read from the code beside its key, so the page cannot list a key the
 package does not read, and a key added without a meaning fails the suite
 (`test_goal031_g08_input_glossary.py`). The documentation site renders the
 same page as [the input glossary](inputs.md).
+
+**`inputs/input_template.md` is a template of every input file** (since
+0.28.0). Where the glossary says what each key means, the template shows
+each FILE: one section per kind of input file you write, with what it is for,
+where it lives and a complete example to copy to the path its block's title
+names. The run matrix, the setup, the pproc, the reference, the named
+reference points, the geometry sidecar of a saved simulation and of a raw
+mesh, the trailing-edge points file, the provenance record, the two files of
+`inputs/profiles/` (an actuator's radial thrust profile and a probe survey),
+the custom free stream, the HPC profile, and the build registry with its
+local overlay. The examples cite each other, so the matrix plans against the
+rest as written. Each section names the keys its example leaves out, with the
+reason, and links `pproc/INPUTS.md` and the page of this site that covers the
+file. `pyfs-workspace init`, `pyfs-matrix plan` and `pyfs-matrix post` write
+it at the root of `inputs/`, rewriting it only when its content changes. The
+suite writes every example where its title says and reads it with the reader
+the run uses, plans the matrix, holds every key of the glossary's tables to an
+example or to the list of what is left out, and refuses a misspelled copy of
+each (`test_g47_input_template.py`).
 
 ### The geometry library: flat, or one folder per geometry
 

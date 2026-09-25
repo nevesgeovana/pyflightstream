@@ -120,6 +120,7 @@ def _cmd_init(args: argparse.Namespace) -> int:
         print(f"  inputs/{kind}/")
     print("  inputs/executables.toml (build registry)")
     print("  inputs/pproc/VARIABLES.md, WRITING-EQUATIONS.md, INPUTS.md (generated guides)")
+    print("  inputs/input_template.md (generated: an example of every input file)")
     for name in ("sims", "post", "archive"):
         print(f"  {name}/")
     print("init is idempotent: existing folders and files were kept untouched")

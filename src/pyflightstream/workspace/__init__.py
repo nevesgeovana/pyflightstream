@@ -1930,7 +1930,9 @@ class CampaignWorkspace:
             readme.write_text(_GEOMETRIES_README, encoding="utf-8")
         # THE GENERATED PPROC GUIDES, where whoever writes a pproc artifact is
         # already standing: every variable with its definition, and how to write
-        # an equation. Rewritten only when their content differs.
+        # an equation; and the input template at the root of `inputs/`, an
+        # example of every input file (G47). Rewritten only when their content
+        # differs.
         write_input_guides(workspace.inputs_dir)
         check_unique_stems(workspace.inputs_dir)
         return workspace

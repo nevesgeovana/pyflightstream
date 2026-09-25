@@ -53,7 +53,9 @@ module, which is stated rather than left to be discovered:
 * :mod:`pyflightstream.post.guides` writes the generated input guides beside
   a workspace's pproc artifacts: ``VARIABLES.md`` and ``WRITING-EQUATIONS.md``,
   and since 0.27.0 the input glossary ``INPUTS.md``, every key an input
-  artifact may state (G08). Re-exported here;
+  artifact may state (G08); since 0.28.0 also the input template
+  ``input_template.md`` at the root of ``inputs/``, a complete example of
+  every kind of input file (G47). Re-exported here;
 * :mod:`pyflightstream.post._tables` is PRIVATE: the table primitives
   (the condition block, the CSV writer, the column renaming) the product
   modules share, so that no two of them import each other.
@@ -75,10 +77,13 @@ from pathlib import Path
 
 from pyflightstream.post.guides import (
     INPUT_GLOSSARY_NAME,
+    INPUT_TEMPLATE_NAME,
     PPROC_GUIDE_NAMES,
     write_input_glossary,
+    write_input_template,
     write_pproc_guides,
     write_workspace_input_glossary,
+    write_workspace_input_template,
     write_workspace_pproc_guides,
 )
 from pyflightstream.post.products import (
@@ -155,8 +160,10 @@ __all__ = [
     "write_polar_table",
     "write_recorded_polar",
     "INPUT_GLOSSARY_NAME",
+    "INPUT_TEMPLATE_NAME",
     "PPROC_GUIDE_NAMES",
     "write_input_glossary",
+    "write_input_template",
     "write_pproc_guides",
     "write_reduction",
     "write_sections_table",
@@ -175,12 +182,15 @@ register_post_stage(write_campaign_products)
 register_input_guide(write_workspace_pproc_guides)
 # THE INPUT GLOSSARY (G08 of 0.27.0), beside them and by the same registry.
 register_input_guide(write_workspace_input_glossary)
+# THE INPUT TEMPLATE (G47 of 0.28.0), at the root of `inputs/`, by the same registry.
+register_input_guide(write_workspace_input_template)
 
 
 def _the_guides_stage(workspace: object, **_options: object) -> list[Path]:
     """Refresh the generated input guides at post; a guide is not a product, so return none."""
     write_workspace_pproc_guides(workspace.inputs_dir)  # type: ignore[attr-defined]
     write_workspace_input_glossary(workspace.inputs_dir)  # type: ignore[attr-defined]
+    write_workspace_input_template(workspace.inputs_dir)  # type: ignore[attr-defined]
     return []
 
 

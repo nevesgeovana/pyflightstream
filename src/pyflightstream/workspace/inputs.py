@@ -1122,9 +1122,13 @@ def _split_reference_tables(data: dict[str, Any], path: Path) -> dict[str, Any]:
                     "quantity.",
                     kind="reference",
                 )
-            # The same for an actuator disc that forgot its kind (G06).
+            # The same for an actuator disc that forgot its kind (G06). A TABLE
+            # OF THE MODEL'S OWN is no such disc: `hub_radius_m` is a key of
+            # `[rotor]` as well as of a disc, and this guard refused the
+            # documented `[rotor]` as a disc with no kind until 0.28.0 (found
+            # by the input template's test, G47). The model judges its tables.
             disc = sorted(key for key in _ACTUATOR_ONLY_KEYS if key in value)
-            if disc:
+            if disc and name not in ReferenceArtifact.model_fields:
                 raise InputArtifactError(
                     f"the reference artifact {path} declares [{name}] with "
                     f"{', '.join(disc)} and no kind. A block that states an actuator "
@@ -1464,9 +1468,15 @@ def resolve_pproc(inputs_dir: Path, artifact_id: str) -> PprocArtifact:
     # one artifact can sample several frames on one row: an array of tables IS
     # a top-level list, so without this line every migrated artifact is refused
     # as an old-shape groups file, naming a migration that would not help.
-    _OWN_LISTS = ("base_regions", "probes")
+    #
+    # READ FROM THE MODEL SINCE 0.28.0, and not kept as a tuple: `vtk_variables`,
+    # a top-level list of the model since 0.25.0, was missing from the tuple, so
+    # every file stating it was refused as an old-shape groups file (found by
+    # the input template's test, G47). A field of the model is never a group,
+    # whatever its type, and the model judges it.
+    own_keys = PprocArtifact.model_fields
     bare = sorted(
-        key for key, value in data.items() if isinstance(value, list) and key not in _OWN_LISTS
+        key for key, value in data.items() if isinstance(value, list) and key not in own_keys
     )
     if bare:
         raise InputArtifactError(

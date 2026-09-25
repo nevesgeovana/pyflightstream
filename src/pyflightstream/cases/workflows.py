@@ -9031,7 +9031,13 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
                     vertex=" ".join(str(value) for value in point),
                 )
         else:
-            script.emit("NEW_PROBE_POINT", x=point[0], y=point[1], z=point[2])
+            # A VOLUME PROBE, the point in the flow a fluid probe is. The
+            # command's `type` is required on every build, and this line was
+            # emitted without it from FR-79 until 0.28.0, so a steady row
+            # drawing a rectangle or a circle never planned (found by the
+            # input template's test, G47); `helpers.new_probe_points` and the
+            # survey file (`TYPE` 1) say VOLUME for the same point.
+            script.emit("NEW_PROBE_POINT", type="VOLUME", x=point[0], y=point[1], z=point[2])
     return vertex
 
 
