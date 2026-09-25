@@ -3548,6 +3548,16 @@ def run_campaign(
                 recorded.add(refused.run_id)
                 records.append(refused)
                 failures.append(refused)
+                # IT IS ONE OF THE POINTS THE BANNER COUNTED (reading A31): it takes
+                # its number and its line, and the closing table counts it.
+                number += 1
+                _say(
+                    f"  -> {run_id}  [{case.recipe}]  refused before it was built  "
+                    f"({number} of {to_run})",
+                    quiet=quiet,
+                )
+                _say(f"     {refused.run_id}  {refused.status}  ({refused.error})", quiet=quiet)
+                outcomes.append(str(refused.status))
                 continue
             if continuation is not None:
                 stamp = datetime.now()

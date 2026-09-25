@@ -10,6 +10,7 @@ and manifest is exercised for real.
 import hashlib
 import inspect
 import json
+import re
 import sys
 import warnings
 from pathlib import Path
@@ -3966,3 +3967,41 @@ def test_g43_a_local_point_refused_before_it_ran_is_not_counted_as_run_here(tmp_
     said = capsys.readouterr().err
     assert "submitted 1 point(s) to the scheduler and ran 0 here" in said, said
     assert "1 failed before they ran" in said, said
+
+
+def test_g43_a_continuation_refused_before_it_was_built_is_numbered_and_counted(
+    tmp_path, capsys, monkeypatch
+):
+    """Reading A31: a point whose continuation cannot be resolved (its saved simulation
+    gone after the preflight) is recorded FAILED_SCRIPT, and the closing table left it
+    out: one point said where the banner announced two. It now takes its number and its
+    line, and the table counts both points."""
+    from pyflightstream.cases import CampaignConfigError
+
+    campaign = _two_build_campaign(tmp_path)
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    _, second = _second_build(tmp_path)
+    real = run_module.resolve_continuation
+
+    def gone_for_the_first(workspace, case, point, *, run_id):
+        if case.sim_id == "9001":
+            raise CampaignConfigError("the saved simulation to continue is gone (stand-in)")
+        return real(workspace, case, point, run_id=run_id)
+
+    monkeypatch.setattr(run_module, "resolve_continuation", gone_for_the_first)
+    capsys.readouterr()
+    with pytest.raises(CampaignErrors):
+        run_campaign(
+            campaign,
+            StubSolver(WRITES_LOADS),
+            workspace,
+            assess=converged,
+            recipes={"steady": steady_recipe},
+            builds={"second": second},
+        )
+    said = capsys.readouterr().err
+    assert "refused before it was built  (1 of 2)" in said, said
+    assert "(2 of 2)" in said, said
+    assert re.search(r"\| FAILED_SCRIPT +\| +1 \|", said), said
+    assert re.search(r"\| CONVERGED +\| +1 \|", said), said
+    assert re.search(r"\n  2 point\(s\) in \d+:\d\d:\d\d", said), said
