@@ -364,6 +364,25 @@ def test_goal021_swept_row_a_queued_point_is_not_submitted_again_under_another_c
     assert _files_of(sim) == before, "the queued job's folder was written by the refused campaign"
 
 
+def test_goal021_swept_row_a_new_point_does_not_restage_under_a_queued_job(tmp_path):
+    """The independent reading 9p: the same campaign adds a point to a simulation whose
+    other points are still queued, after the geometry changed. Staging would replace the
+    copy the queued jobs open when they start, under the digests their records keep; the
+    staged-input check read only the recorded points of the new request, which named none.
+    Refused before anything is prepared, naming the queued job."""
+    from pyflightstream.exceptions import WorkspaceError
+
+    workspace, records = _submitted_row(tmp_path)
+    (geometry,) = (workspace.inputs_dir / "geometries").rglob("wing_clean.fsm")
+    geometry.write_bytes(geometry.read_bytes() + b"\n")
+    manifest_before = [record.run_id for record in workspace.read_manifest()]
+    row = _rotor_row(tmp_path, sweep="6.0", extra=" / EXPORT_UNSTEADY_AFTER_REV: 1")
+    with pytest.raises(WorkspaceError, match=r"still in a scheduler's queue") as refused:
+        _run(workspace, row, StubSolver(WRITES_EVERY_EXPORT))
+    assert any(record.run_id in str(refused.value) for record in records), refused.value
+    assert [record.run_id for record in workspace.read_manifest()] == manifest_before
+
+
 def test_goal021_swept_row_a_queued_point_is_not_force_rerun(tmp_path):
     """A point of the same campaign still in a queue: redoing it would archive the record its
     job will be collected into and write where the job writes. Refused, nothing archived."""

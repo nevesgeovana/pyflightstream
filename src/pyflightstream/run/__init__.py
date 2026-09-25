@@ -3213,12 +3213,25 @@ def run_campaign(
                 f"Collect it (pyfs-matrix collect) before campaign {campaign.name!r} runs "
                 "there, or give this row another simulation id. Nothing was run or written."
             )
-        if already:
+        # A QUEUED POINT OF THIS SIMULATION READS THE STAGED INPUTS TOO, whether or
+        # not this request names it: a job still in a queue opens the copy in
+        # inputs/ when it starts, so staging other bytes over it now would give
+        # it a file its record does not hash.
+        queued_here = [
+            record.run_id
+            for record in manifest.values()
+            if record.sim_id == case.sim_id
+            and record.status is RunStatus.SUBMITTED
+            and record.run_id not in already
+        ]
+        if already or queued_here:
             # Partially recorded: some points ran against the inputs staged
             # last time. Re-staging different content would silently retire
             # the evidence behind those records, so the inputs are verified
             # rather than overwritten.
-            conflict = _staged_inputs_conflict(campaign, case, workspace, manifest, already)
+            conflict = _staged_inputs_conflict(
+                campaign, case, workspace, manifest, [*already, *queued_here], set(queued_here)
+            )
             if conflict is not None:
                 raise WorkspaceError(conflict)
         scheduled.append((case, build, pending))
@@ -4865,6 +4878,7 @@ def _staged_inputs_conflict(
     workspace: CampaignWorkspace,
     manifest: dict[str, RunRecord],
     already: list[str],
+    queued: set[str] = frozenset(),
 ) -> str | None:
     """Refuse a partial resume whose inputs changed since the recorded points.
 
@@ -4902,6 +4916,15 @@ def _staged_inputs_conflict(
         was = recorded_hashes.get(name)
         if was is None or was == current:
             continue
+        if run_id in queued:
+            return (
+                f"cannot run {campaign.name}/sim_{case.sim_id}: its input {name!r} has "
+                f"changed since {run_id!r} was submitted, and that job is still in a "
+                f"scheduler's queue. The record hashes {was[:12]}... and {origin} now "
+                f"hashes to {current[:12]}...: staging the new content would replace "
+                "the copy the queued job opens when it starts. Collect it first "
+                "(pyfs-matrix collect), or restore the original input; nothing was run."
+            )
         return (
             f"cannot resume {campaign.name}/sim_{case.sim_id}: its input {name!r} "
             f"has changed since {run_id!r} ran. The manifest records "
