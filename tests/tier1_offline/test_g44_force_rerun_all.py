@@ -106,7 +106,7 @@ def test_g44_refusals_come_before_anything_runs(tmp_path, extra, said):
 def test_g44_sims_alone_and_an_empty_manifest_are_refused(tmp_path):
     workspace, matrix = _steady_sweep_matrix(tmp_path)
     stub = CountingStub(WRITES_EVERY_EXPORT)
-    with pytest.raises(MatrixError, match=r"sims chooses the simulations of force_rerun_all"):
+    with pytest.raises(MatrixError, match=r"chooses the simulations of force_rerun_all"):
         _run(workspace, matrix, stub, sims=["5001"])
     with pytest.raises(MatrixError, match=r"found no recorded point"):
         _run(workspace, matrix, stub, force_rerun_all=True)

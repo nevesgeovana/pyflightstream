@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import enum
 import shutil
+import sys
 import warnings
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -89,7 +90,6 @@ from pyflightstream.run import (
     plan_campaign,
     run_campaign,
 )
-from pyflightstream.run import _say as _say
 from pyflightstream.script import Script
 from pyflightstream.versions import resolve
 from pyflightstream.workspace import (
@@ -805,7 +805,7 @@ def _everything_recorded(
 ) -> tuple[list[str], ResolvedMatrix]:
     """Resolve ``force_rerun_all`` into the recorded ids to redo, and the run's simulations.
 
-    G44 of 0.28.0, her words: "para 28, eu quero um --force-rerun-all". Every
+    G44 of 0.28.0: redo the whole matrix with one switch. Every
     recorded point of the matrix, or of the simulations ``sims`` names, is named
     to the forced re-run it already is point by point: a steady row recorded as
     one job is named by its job id, so it runs again as one job; every other
@@ -856,9 +856,12 @@ def _everything_recorded(
             + (f"simulation(s) {', '.join(sorted(wanted))}" if sims else "this matrix")
             + f" in {workspace.root}; there is nothing to redo. Run without it."
         )
-    _say(
+    # Said on stderr before anything runs, as every progress line of a run is.
+    print(
         f"force-rerun-all: selected {points} point(s) in {jobs} job(s); {len(names)} "
-        "recorded record(s) will be archived and run again."
+        "recorded record(s) will be archived and run again.",
+        file=sys.stderr,
+        flush=True,
     )
     if sims:
         keep = [case.sim_id in wanted for case in campaign.sims]
@@ -1075,7 +1078,7 @@ def run_matrix(
         )
     elif sims:
         raise MatrixError(
-            "sims chooses the simulations of force_rerun_all (CLI: --sims with "
+            "sims (CLI: --sims) chooses the simulations of force_rerun_all (CLI: "
             "--force-rerun-all); give it with force_rerun_all, or leave it out."
         )
     # FR-97. THE GATE IS ON THE COMMAND, not here. The CLI

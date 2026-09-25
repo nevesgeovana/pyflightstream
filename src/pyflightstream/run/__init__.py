@@ -3615,9 +3615,8 @@ def run_campaign(
     # no problem to report, and complaining would put a warning on every
     # resume that found its work already done.
     #
-    # G43 of 0.28.0: A RUN THAT SUBMITS DOES NOT POST (her words: "se for
-    # submissao para linux, o run nao deveria rodar post"; "ta muito poluido o
-    # log do run com submissao para o hpc"). A point in a queue has no outputs
+    # G43 of 0.28.0: A RUN THAT SUBMITS DOES NOT POST, and its log stays short.
+    # A point in a queue has no outputs
     # yet, so the post could only print a skip per point; one line says what
     # was submitted and the command that collects and then posts.
     if records:

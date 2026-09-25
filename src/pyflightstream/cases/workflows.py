@@ -8613,7 +8613,7 @@ def _plot_each_rotors_own_history(
             if f"{short}_{ROTOR_PLOT_GROUP_PREFIX}{alias}" in emitted
         ]
         if taken:
-            warnings.warn(
+            warn(
                 f"case {case.sim_id!r}: a plot group of the pproc "
                 f"{case.pproc_id or '(unnamed)'} takes the name "
                 f"{ROTOR_PLOT_GROUP_PREFIX}{alias} ({', '.join(taken)}), which the rotor "
