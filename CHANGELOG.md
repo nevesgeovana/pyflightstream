@@ -7,6 +7,16 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- **The plan warns when a pproc plot group takes the rotor table's plot name
+  (G42).** A group named like the automatic `ROTOR_<ALIAS>` group, such as
+  `ROTOR_{family}` in a rotor's own frame, emits the names the rotor table reads,
+  so the run keeps that group and writes no global-frame history for the rotor,
+  and the post cannot write its table. `pyfs-matrix plan` and `pyfs-matrix run`
+  now say so before a seat is spent, naming the pproc, the name and the rotor,
+  and suggesting a rename (`SHAFT_{family}`). Nothing is refused or renamed.
+
 ### Changed
 
 - **An unsteady or rotor row refuses `COLD_START` at plan (G36).** The key clears

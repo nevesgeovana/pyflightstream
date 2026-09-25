@@ -8564,6 +8564,28 @@ def _plot_each_rotors_own_history(
                 declared = True
         if declared:
             continue
+        # G42 of 0.28.0: THE NAME IS TAKEN, SAID BEFORE THE SEAT IS SPENT. A pproc
+        # group named like the automatic one (`ROTOR_{family}` in a rotor's own
+        # frame, the package's own sample once) emits these names first; the run
+        # keeps that group and writes no global-frame history for the rotor, so
+        # the post cannot write its table. A warning, never a refusal or a rename.
+        taken = [
+            f"{short}_{ROTOR_PLOT_GROUP_PREFIX}{alias}"
+            for short in AXES_PLOT_COMPONENTS
+            if f"{short}_{ROTOR_PLOT_GROUP_PREFIX}{alias}" in emitted
+        ]
+        if taken:
+            warnings.warn(
+                f"case {case.sim_id!r}: a plot group of the pproc "
+                f"{case.pproc_id or '(unnamed)'} takes the name "
+                f"{ROTOR_PLOT_GROUP_PREFIX}{alias} ({', '.join(taken)}), which the rotor "
+                f"table of rotor {alias!r} reads from the automatic group over its "
+                "families in the global frame. The run keeps the pproc's group and "
+                "writes no automatic one, so the post will not write that rotor table. "
+                "Rename the pproc's group (for example SHAFT_{family}) to keep both.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         indices = [script.resolve_boundary(family, context="rotor plot group") for family in own]
         parameters = [
             short

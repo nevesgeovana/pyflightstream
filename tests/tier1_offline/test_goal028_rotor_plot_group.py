@@ -14,6 +14,8 @@ in the rotor's own turning axes. Neither is the rotor's global-frame history.
 
 from __future__ import annotations
 
+import pytest
+
 from pyflightstream.cases import PprocSpec, ReferenceData
 from pyflightstream.post.products import rotor_plot_source
 from tests.tier1_offline.test_rotor_by_alias import LIFTER, PUSHER, rendered, two_rotor_case
@@ -80,6 +82,36 @@ def test_a_group_over_the_rotors_families_in_its_own_frame_does_not_count(tmp_pa
     assert "FX_OWN_PUSHER" in plots, "the artifact's own plot is still emitted"
     assert "FX_ROTOR_PUSHER" in plots, "and the run still adds the global-frame one"
     assert plots["FX_ROTOR_PUSHER"]["FRAME"] != plots["FX_OWN_PUSHER"]["FRAME"]
+
+
+def test_g42_the_plan_warns_when_a_group_takes_the_rotor_plot_name(tmp_path):
+    """G42 of 0.28.0: a pproc group named like the automatic ROTOR_<ALIAS> group, in the
+    rotor's own frame, takes the names the rotor table reads; the build (which the plan
+    and the run both do before a seat is spent) warns, naming the pproc, the name, the
+    rotor and a rename, and changes nothing else: the pproc's group is still emitted.
+    A group under another name is not warned about."""
+    import warnings as _warnings
+
+    from pyflightstream.exceptions import PyflightstreamWarning
+
+    taking = {
+        "parameters": list(SIX),
+        "groups": [{"name": "ROTOR_PUSHER", "frame": "PUSHER_SMRP", "families": PUSHER_FAMILIES}],
+    }
+    with pytest.warns(PyflightstreamWarning, match=r"takes the name ROTOR_PUSHER") as caught:
+        plots = _plots(rendered(_case(tmp_path, taking)))
+    said = " ".join(str(w.message) for w in caught)
+    assert "p001" in said and "SHAFT_{family}" in said and "'PUSHER'" in said, said
+    assert "FX_ROTOR_PUSHER" in plots, "the pproc's own group is still emitted"
+
+    free = {
+        "parameters": list(SIX),
+        "groups": [{"name": "OWN_PUSHER", "frame": "PUSHER_SMRP", "families": PUSHER_FAMILIES}],
+    }
+    with _warnings.catch_warnings(record=True) as recorded:
+        _warnings.simplefilter("always")
+        rendered(_case(tmp_path, free))
+    assert not [w for w in recorded if "takes the name ROTOR_" in str(w.message)]
 
 
 def test_a_group_that_only_shares_the_aliass_name_is_not_the_rotors_history():

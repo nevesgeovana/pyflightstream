@@ -13,3 +13,12 @@ changes for you is listed below, one section per change.
   starts from no solution, so the key changed nothing there, and the plan now
   refuses an unsteady row that states it, `true` or `false`, naming the key.
   Remove `COLD_START` from such a row. A steady row is unchanged.
+
+## 2. A warning when a plot group takes the rotor table's name (G42)
+
+- A pproc plot group named like the automatic `ROTOR_<ALIAS>` group (for
+  example `ROTOR_{family}` in the rotor's own frame) now draws a warning at plan
+  and before a run: that rotor's table will not be written, because the run
+  keeps your group and the table reads the automatic one in the global frame.
+  Nothing else changes. To keep both, rename the group, `SHAFT_{family}` for
+  instance.
