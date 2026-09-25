@@ -9,6 +9,18 @@ FlightStream versions.
 
 ### Added
 
+- **The custom free stream by an input file, the rest of it measured (G18).**
+  The UNSTRUCTURED form (`FREESTREAM: <stem>` naming a `.dat`) ran on 26.124 and
+  reads as the STRUCTURED one (RPT-077). The plan now WARNS when the field's grid
+  does not cover the body's y and z extent, naming both, because beyond its grid
+  the solver does not extend a field and applies something close to the constant
+  free stream there; it warns rather than refuses, since a local gust may cover
+  part of the body on purpose. The documentation says what else RPT-077
+  measured: incidence written into the field loads the body as that incidence
+  while the loads export prints CL and CDi in the axes of the stated zero angle
+  (read Cx, Cy, Cz, or turn them), and a saved simulation carries its field until
+  a script sets the free stream again, which every row the package builds does.
+
 - **`inputs/input_template.md`, a template of every input file (G47).**
   `pyfs-workspace init`, `pyfs-matrix plan` and `pyfs-matrix post` write it at
   the root of `inputs/`, rewriting it only when its content changes: one section

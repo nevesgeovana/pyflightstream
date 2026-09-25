@@ -837,3 +837,31 @@ def test_g15_each_tier3_custom_row_differs_from_its_control_in_one_thing():
         assert (
             "SOLVER_SET_AOA 0.0" in rendered[pol] and "SOLVER_SET_SIDESLIP 0.0" in (rendered[pol])
         ), pol
+
+
+# ------------------------------------------------ G18: a field that misses the body --
+
+#: The committed tier-3 wing the licensed free-stream rows open: 8 m of span, y from
+#: -4 to 4 m, in metres.
+WING_PHY = (
+    Path(__file__).parents[1] / "tier3_licensed" / "inputs" / "geometries" / "12_WING_PHY.fsm"
+)
+
+
+@pytest.mark.parametrize(
+    ("ys", "warned"),
+    [((-2.0, 0.0, 2.0), True), ((-6.0, 0.0, 6.0), False)],
+    ids=["narrower-than-the-wing", "past-the-wing"],
+)
+def test_g18_a_field_that_does_not_cover_the_body_is_warned_at_plan(tmp_path, recwarn, ys, warned):
+    """G18 of 0.28.0 (RPT-077): beyond its grid the solver does not extend a field, so a
+    field narrower than the body loads part of it by something near the free stream; the
+    plan says so, naming both extents, and a field that covers the body says nothing."""
+    path = field(tmp_path / FOLDER, "cut.txt", structured(ys=ys))
+    case = with_field(steady_case().model_copy(update={"geometry": str(WING_PHY)}), path)
+    lines_of(case)
+    said = [str(w.message) for w in recwarn if "is not loaded by the field" in str(w.message)]
+    if warned:
+        assert said and "covers y from -2 to 2 m" in said[0] and "RPT-077" in said[0], said
+    else:
+        assert not said, said

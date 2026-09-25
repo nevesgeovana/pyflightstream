@@ -2649,8 +2649,15 @@ def _template_sections() -> tuple[TemplateSection, ...]:
             ),
             after=(
                 "The field sets the flow's direction, so a row flying through one "
-                "states zero angles of attack and sideslip, and no body rate. The "
-                f"row key is in {_GLOSSARY_LINK}, under the row keys."
+                "states zero angles of attack and sideslip, and no body rate: write an "
+                "incidence into vy and vz. The body is then loaded as at that incidence, "
+                "and the loads export prints CL and CDi in the axes of the zero angle the "
+                "row states, so read the body forces Cx, Cy and Cz, or turn CL and CDi by "
+                "the field's incidence. Make the grid reach past the body: beyond it the "
+                "solver does not extend the field, and the plan warns when the body "
+                "reaches outside it. Both forms were run on FlightStream 26.124 "
+                f"(RPT-071, RPT-077). The row key is in {_GLOSSARY_LINK}, under the row "
+                "keys."
             ),
             pages=(_page("gui-to-pyfs", "From the GUI to pyfs"),),
         ),

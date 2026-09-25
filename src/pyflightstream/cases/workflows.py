@@ -86,6 +86,7 @@ from pyflightstream._fsm import (
     boundary_names,
     saved_actuators,
     saved_length_unit,
+    surface_mesh,
 )
 from pyflightstream._lengths import scale
 from pyflightstream._retired_names import retired_frame
@@ -5987,8 +5988,11 @@ class _RowFreestream:
     form: str
 
 
-def _read_custom_freestream(path: str, form: str) -> None:
+def _read_custom_freestream(path: str, form: str) -> tuple[float, float, float, float]:
     """Read a custom free-stream file against the manual's form, or refuse naming the line (G15).
+
+    Returns the grid's extent in the YZ plane, ``(y_min, y_max, z_min, z_max)`` in
+    metres, which the plan compares with the body's (G18).
 
     THE 26.124 MANUAL IS THE ONLY SOURCE of the form, and every check here is
     one of its sentences: the field varies within the YZ plane of the global
@@ -6072,6 +6076,79 @@ def _read_custom_freestream(path: str, form: str) -> None:
                 "within the YZ plane of the global frame, so its rows state at least two "
                 f"distinct y and two distinct z. {what}"
             )
+    ys = [values[1] for _, values in rows]
+    zs = [values[2] for _, values in rows]
+    return min(ys), max(ys), min(zs), max(zs)
+
+
+def _body_yz_extent_m(case: SimCase) -> tuple[float, float, float, float] | None:
+    """Return the body's extent in the YZ plane, in metres, or None where it is not read (G18).
+
+    A saved simulation's mesh block, in its saved length unit, or an OBJ's vertex
+    lines when its ``[import]`` unit is METER. An OBJ in another unit is not
+    measured, because whether ``IMPORT`` converts it is not claimed
+    (:func:`_import_mesh`); nor is an STL or a file that does not read. The
+    coverage warning is then not given rather than guessed.
+    """
+    geometry = case.geometry
+    if geometry is None or not Path(str(geometry)).is_file():
+        return None
+    suffix = Path(str(geometry)).suffix.lower()
+    try:
+        if suffix == ".fsm":
+            vertices, _ = surface_mesh(geometry)
+            factor = scale(saved_length_unit(geometry) or "METER", "METER")
+        elif suffix == ".obj" and getattr(case.mesh_import, "units", None) == "METER":
+            vertices = tuple(
+                (float(parts[1]), float(parts[2]), float(parts[3]))
+                for parts in (
+                    line.split()
+                    for line in Path(str(geometry)).read_text(encoding="utf-8").splitlines()
+                )
+                if len(parts) >= 4 and parts[0] == "v"
+            )
+            factor = 1.0
+        else:
+            return None
+    except (MeshReadError, OSError, UnicodeError, ValueError):
+        return None
+    if factor is None or not vertices:
+        return None
+    ys = [vertex[1] * factor for vertex in vertices]
+    zs = [vertex[2] * factor for vertex in vertices]
+    return min(ys), max(ys), min(zs), max(zs)
+
+
+def _warn_when_the_field_misses_the_body(
+    case: SimCase, stated: str, grid: tuple[float, float, float, float]
+) -> None:
+    """Warn when the field's grid does not cover the body's y and z extent (G18, RPT-077).
+
+    Measured on 26.124 (RPT-077): beyond its grid the solver neither extends a field
+    linearly nor holds its edge station, and what it applies there is close to the
+    constant free stream the script states. A body that reaches past the grid is
+    therefore loaded, silently, partly by the field and partly by something near the
+    free stream. A field meant as a local gust may do exactly that, so this warns and
+    does not refuse.
+    """
+    body = _body_yz_extent_m(case)
+    if body is None:
+        return
+    y_min, y_max, z_min, z_max = grid
+    b_y_min, b_y_max, b_z_min, b_z_max = body
+    if b_y_min >= y_min and b_y_max <= y_max and b_z_min >= z_min and b_z_max <= z_max:
+        return
+    warn(
+        f"case {case.sim_id!r}: {stated} covers y from {y_min:g} to {y_max:g} m and z from "
+        f"{z_min:g} to {z_max:g} m, and the body reaches y from {b_y_min:.4g} to {b_y_max:.4g} m "
+        f"and z from {b_z_min:.4g} to {b_z_max:.4g} m. Beyond its grid the solver does not "
+        "extend a field, and what it applies there is close to the constant free stream "
+        "(measured on FlightStream 26.124, RPT-077), so the part of the body outside the "
+        "grid is not loaded by the field. Extend the grid past the body if the whole body "
+        "should see it.",
+        PyflightstreamWarning,
+        stacklevel=2,
+    )
 
 
 def _the_custom_freestream(case: SimCase) -> _RowFreestream | None:
@@ -6142,7 +6219,8 @@ def _the_custom_freestream(case: SimCase) -> _RowFreestream | None:
             f"{FREESTREAM_VARIABLE} resolves to a file of inputs/{FREESTREAM_DIR}/ when the "
             "row binds, and the file is read where it lives."
         )
-    _read_custom_freestream(path, form)
+    grid = _read_custom_freestream(path, form)
+    _warn_when_the_field_misses_the_body(case, stated, grid)
     return _RowFreestream(path=path, form=form)
 
 

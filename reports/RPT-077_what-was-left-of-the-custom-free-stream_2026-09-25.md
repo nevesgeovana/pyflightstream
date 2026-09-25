@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-25
 **Found by:** the licensed probe T16 of the 0.28.0 work
-**Status:** OPEN until G18 (0.28.0: the custom free stream by an input file)
+**Status:** CLOSED in 0.28.0 (G18: the UNSTRUCTURED form recorded as run, the plan warns when a field does not cover the body, the rest documented)
 **Affects:** `SET_FREESTREAM CUSTOM`, its UNSTRUCTURED form never run, its STRUCTURED form verified on 26.124 (RPT-071)
 
 ## What this settles

@@ -2670,19 +2670,49 @@ the report's evidence. `tests/tier3_licensed/test_freestream.py` holds 5012 to
 5014 to what they measured. Every other build is documented only, and the
 ROTATION form ran on 26.124 under RPT-052.
 
-NOT MEASURED: the UNSTRUCTURED form; the unit of the grid's coordinates; angles
-other than 4 deg; the sideslip beside a field; a custom
-field on an unsteady or a rotor row; what the solver takes at a point outside
-the file's grid, so a field should cover the body's YZ extent and its wake
-with margin; and whether a saved simulation carries the field. A continuation
-(`RESTART`) reopens the saved simulation and writes no free stream, so it
-continues only a run whose record hashes the same field under the file's name:
-a stopped run that read no field, or the file with other bytes, is refused at
-plan and at run, and the angle is judged beside the field as on a run from the
-mesh. That the saved file carries the field is taken on trust, as it is for a
-body rate. A field whose file name is the name of a file the run writes for the
-solver, the trailing-edge node file or the disc's profile copy, is refused
-before the solver starts, because the record keys each input by its name.
+SINCE 0.28.0 (G18), the rest of the field was run on 26.124 under the
+licensed probe T16 (RPT-077), each variant against a control of the same
+batch:
+
+- **The UNSTRUCTURED form runs**: the uniform rows as a `.dat` load as the
+  STRUCTURED file and the constant free stream do.
+- **The grid should cover the body.** Beyond its grid the solver neither
+  extends a field linearly nor holds its edge station; what it applies there is
+  closest to the constant free stream the script states. So the part of a body
+  outside the grid is not loaded by the field, and THE PLAN WARNS, naming the
+  field's y and z extent and the body's
+  (`test_g18_a_field_that_does_not_cover_the_body_is_warned_at_plan`). It warns
+  rather than refuses, because a field meant as a local gust may cover only part
+  of the body on purpose. The body is read from a saved simulation's mesh or an
+  OBJ imported in metres; an STL or an OBJ in another unit is not measured, and
+  then nothing is said.
+- **Incidence written into the field loads the body as that incidence**: a
+  field of 30 m/s tilted 4 deg in z, at `ALPHA: 0`, gives the body forces of the
+  constant free stream at 4 deg (Cz 0.3381 against 0.3378, Cx -0.0124 against
+  -0.0116, CMy -0.0858 in both). **The loads export prints CL and CDi in the axes
+  of the angle the row states**, zero, not of the flow: that row prints CL 0.3382
+  and CDi -0.0195, the 4 deg lift and drag turned onto the 0 deg axes. Read the
+  body forces Cx, Cy and Cz of such a row, or turn CL and CDi by the field's
+  incidence.
+- **A saved simulation carries its custom field**: reopened with no
+  `SET_FREESTREAM` line, the sheared field's saved file solves the sheared
+  field. The package writes `SET_FREESTREAM` on every row it builds from a mesh
+  or a saved file, and that line overrides the field the file carries, so a
+  CONSTANT row opening such a file solves the constant free stream. A
+  continuation (`RESTART`) reopens the saved simulation and writes no free
+  stream, so it continues the field the stopped run read, as measured; it
+  continues only a run whose record hashes the same field under the file's name:
+  a stopped run that read no field, or the file with other bytes, is refused at
+  plan and at run, and the angle is judged beside the field as on a run from the
+  mesh.
+
+NOT MEASURED: the unit of the grid's coordinates; angles other than 4 deg over
+a uniform field (and the small residue that angle leaves); the sideslip beside
+a field; a custom field on an unsteady or a rotor row; the solver's rule beyond
+the grid to the digit. A field whose file name is the name of a file the run
+writes for the solver, the trailing-edge node file or the disc's profile copy,
+is refused before the solver starts, because the record keys each input by its
+name.
 
 ### One row, one geometry, turned
 

@@ -82,3 +82,13 @@ changes for you is listed below, one section per change.
   as an old-shape groups file; and a steady row whose pproc draws a probe
   rectangle or circle failed to plan, its `NEW_PROBE_POINT` lines missing the
   `VOLUME` type. All three are read, and plan, as written.
+
+## 8. The custom free stream: the UNSTRUCTURED form, and a warning (G18)
+
+- A `FREESTREAM` naming a `.dat` (the UNSTRUCTURED form) now has a measured
+  run behind it (RPT-077); nothing a row writes changes.
+- New: the plan warns when the field's grid does not reach the whole body,
+  naming both extents. Beyond its grid the solver does not extend the field.
+  A run is not refused; widen the grid if the whole body should see the field.
+- A row whose field carries an incidence reads its body forces Cx, Cy and Cz:
+  its CL and CDi are printed in the axes of the zero angle the row states.
