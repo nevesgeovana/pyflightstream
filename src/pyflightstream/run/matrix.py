@@ -89,6 +89,7 @@ from pyflightstream.run import (
     package_vcs_state,
     plan_campaign,
     run_campaign,
+    runs_as_one_job,
 )
 from pyflightstream.script import Script
 from pyflightstream.versions import resolve
@@ -850,12 +851,13 @@ def _everything_recorded(
             jobs += 1
             archived += 1 + sum(run_id in recorded for run_id in point_ids)
             continue
-        for run_id in point_ids:
-            if run_id in recorded:
-                names.append(run_id)
-                points += 1
-                jobs += 1
-                archived += 1
+        chosen = [run_id for run_id in point_ids if run_id in recorded]
+        names.extend(chosen)
+        points += len(chosen)
+        archived += len(chosen)
+        # Points recorded one by one still run again as ONE warm job when the row is
+        # a steady sweep over the attitude (reading A29): the count says what runs.
+        jobs += 1 if len(chosen) > 1 and runs_as_one_job(campaign, case) else len(chosen)
     if not names:
         raise MatrixError(
             "force_rerun_all found no recorded point of campaign "

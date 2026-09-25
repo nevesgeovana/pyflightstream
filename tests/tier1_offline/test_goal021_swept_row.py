@@ -97,6 +97,35 @@ def test_g43_a_run_that_submits_does_not_post(tmp_path, capsys):
     assert written == [], f"the run posted: {written}"
 
 
+def test_g43_a_point_the_scheduler_refuses_did_not_run_here(tmp_path, capsys):
+    """A submission the scheduler refuses is neither queued nor run on this machine: the
+    closing line says submitted 2, ran 0 here and 1 failed before the scheduler took it,
+    never "ran 1 here" (reading A29)."""
+    import dataclasses
+
+    workspace = _workspace(tmp_path)
+    row = _rotor_row(tmp_path, extra=" / EXPORT_UNSTEADY_AFTER_REV: 1")
+    real = _submitting(workspace)
+
+    class RefusesTheSecond(SubmittingExecutor):
+        calls = 0
+
+        def run_script(self, script_path, working_dir, timeout_s=None):
+            result = super().run_script(script_path, working_dir, timeout_s)
+            RefusesTheSecond.calls += 1
+            if RefusesTheSecond.calls == 2:
+                return dataclasses.replace(result, return_code=1, stderr="refused by the stand-in")
+            return result
+
+    executor = RefusesTheSecond(real.profile, values=dict(real.values), submit=False)
+    capsys.readouterr()
+    with pytest.raises(CampaignErrors):
+        _run(workspace, row, executor)
+    said = capsys.readouterr().err
+    assert "submitted 2 point(s) to the scheduler and ran 0 here" in said, said
+    assert "1 failed before the scheduler took them" in said, said
+
+
 def test_goal021_swept_row_each_point_runs_in_its_own_datapoint_folder(tmp_path):
     workspace, records = _submitted_row(tmp_path)
     sim = workspace.sim_dir("7001")

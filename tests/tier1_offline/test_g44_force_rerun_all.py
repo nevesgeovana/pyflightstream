@@ -1,6 +1,6 @@
 """G44 of 0.28.0: `pyfs-matrix run --force-rerun-all [--sims SIM ...]`.
 
-Her words: "para 28, eu quero um --force-rerun-all". Every recorded point of the
+Every recorded point of the
 matrix, or of the simulations --sims names, is archived and runs again (a steady row
 recorded as one job runs again as one job); the count is said before anything runs;
 --sims narrows the run to those simulations; the mode is refused beside --resume and
@@ -101,6 +101,29 @@ def test_g44_refusals_come_before_anything_runs(tmp_path, extra, said):
     assert stub.invocations == []
     assert [r.model_dump() for r in workspace.read_manifest()] == before
     assert not list((workspace.root / "archive").glob("runs-*.json"))
+
+
+def test_g44_points_recorded_one_by_one_are_counted_as_the_one_job_that_reruns_them(
+    tmp_path, capsys
+):
+    """A steady row whose angles were recorded one at a time (one run, then a --resume)
+    runs again as ONE warm job, and the count said first says one job (reading A29)."""
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    text = matrix.read_text(encoding="utf-8")
+    swept = "-2.0,0.0,2.0"
+    assert swept in text, text
+    matrix.write_text(text.replace(swept, "0.0"), encoding="utf-8")
+    _run(workspace, matrix, CountingStub(WRITES_EVERY_EXPORT))
+    matrix.write_text(text.replace(swept, "0.0,2.0"), encoding="utf-8")
+    _run(workspace, matrix, CountingStub(WRITES_EVERY_EXPORT), resume=True)
+    assert len(workspace.read_manifest()) == 2, [r.run_id for r in workspace.read_manifest()]
+    assert all(not r.run_id.endswith("/sweep") for r in workspace.read_manifest())
+    capsys.readouterr()
+    stub = CountingStub(WRITES_EVERY_EXPORT)
+    _run(workspace, matrix, stub, force_rerun_all=True)
+    said = capsys.readouterr().err
+    assert "selected 2 point(s) in 1 job(s); 2 recorded record(s)" in said, said
+    assert len(stub.invocations) == 1, stub.invocations
 
 
 def test_g44_sims_alone_and_an_empty_manifest_are_refused(tmp_path):

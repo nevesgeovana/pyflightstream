@@ -3424,8 +3424,13 @@ def run_campaign(
             quiet=quiet,
         )
     number = 0
+    # The points this call ran on THIS machine, for the submitted line (G43): a
+    # point handed to a scheduler did not run here, whether it was queued or the
+    # scheduler refused it (reading A29).
+    ran_here = 0
     for case, build, pending in scheduled:
         case_executor = build.executor if build is not None else executor
+        runs_here = not isinstance(case_executor, Submitting)
         case_version = build.fs_version if build is not None else campaign.fs_version
         case_exe = build.fs_exe if build is not None else campaign.fs_exe
         # Read off the SAME condition the three lines above read, so the
@@ -3493,6 +3498,7 @@ def run_campaign(
             recorded.add(record.run_id)
             records.append(record)
             outcomes.extend(_job_point_statuses(record, len(pending)))
+            ran_here += len(pending) if runs_here else 0
             if record.status.startswith("FAILED"):
                 failures.append(record)
             continue
@@ -3618,6 +3624,7 @@ def run_campaign(
             recorded.add(record.run_id)
             records.append(record)
             outcomes.append(str(record.status))
+            ran_here += 1 if runs_here else 0
             if record.status.startswith("FAILED"):
                 failures.append(record)
     # BEFORE THE RAISE, and that is the whole placement (PFS-2014.03).
@@ -3642,11 +3649,13 @@ def run_campaign(
     submitted = [record for record in records if record.status is RunStatus.SUBMITTED]
     if submitted:
         queued = outcomes.count(str(RunStatus.SUBMITTED))
+        refused = len(outcomes) - queued - ran_here
         _say(
-            f"submitted {queued} point(s) to the scheduler and ran "
-            f"{len(outcomes) - queued} here; nothing is posted until they are "
-            f"collected: pyfs-matrix collect --workspace {workspace.root} (add --watch "
-            "to wait), which posts once their outputs land."
+            f"submitted {queued} point(s) to the scheduler and ran {ran_here} here"
+            + (f"; {refused} failed before the scheduler took them" if refused else "")
+            + f"; nothing is posted until they are collected: pyfs-matrix collect "
+            f"--workspace {workspace.root} (add --watch to wait), which posts once "
+            "their outputs land."
         )
     elif recorded:
         problem = _leave_products(workspace, campaign.matrix_stem)
@@ -5368,6 +5377,29 @@ def _points_the_recorded_job_ran(
 
 #: The run type whose points are ONE job since 0.17.0.
 ONE_JOB_RECIPE = "steady"
+
+
+def runs_as_one_job(campaign: Campaign, case: SimCase) -> bool:
+    """Return whether the pending points of this case run together as one warm job.
+
+    The public face of the rule :func:`_is_one_job` states, for a caller that must
+    say how many jobs a run spends before it runs them (``force_rerun_all``, G44):
+    a steady matrix row whose points differ in attitude alone is one job however
+    its points were recorded.
+
+    Parameters
+    ----------
+    campaign : Campaign
+        The campaign the case belongs to.
+    case : SimCase
+        The row.
+
+    Returns
+    -------
+    bool
+        True when two or more pending points of the row run as one job.
+    """
+    return _is_one_job(campaign, case)
 
 
 def _is_one_job(campaign: Campaign, case: SimCase) -> bool:
