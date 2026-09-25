@@ -10905,6 +10905,26 @@ def _unsteady_actions(
         )
 
 
+def _refuse_cold_start_on_a_march(case: SimCase, run_type: str) -> None:
+    """Refuse ``COLD_START`` on an unsteady row, at plan, naming the key (G36 of 0.28.0).
+
+    The clear is a line of the steady sweep's one script, where each point would
+    otherwise start from the previous point's converged solution. Every point of
+    an unsteady row is its own job and starts from no solution, so the key, true
+    or false, could only ever be read as doing what it does not. A continuation is
+    refused the same way: it reopens a saved state and clears nothing either.
+    """
+    stated = case.variables.get(COLD_START_VARIABLE)
+    if stated is None or str(stated).strip() == "":
+        return
+    raise CampaignConfigError(
+        f"case {case.sim_id!r}: {COLD_START_VARIABLE} is a key of a steady sweep over the "
+        f"attitude, and this row runs {run_type}: every point of it is its own job and "
+        "starts from no solution, so the key would change nothing. Remove "
+        f"{COLD_START_VARIABLE} from the row."
+    )
+
+
 def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventions) -> None:
     """Build an unsteady point of a body that does not move.
 
@@ -10914,6 +10934,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     """
     _refuse_the_loads_selections_on_a_march(case)
     _refuse_a_volume_section_off_a_steady_row(case, "unsteady")
+    _refuse_cold_start_on_a_march(case, "unsteady")
     # A CONTINUATION IS A DIFFERENT SCRIPT, not this one with a shorter
     # march, so the branch is HERE and not further down: every line below
     # describes a run that starts from a mesh, and a continuation starts
@@ -10982,6 +11003,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     """
     _refuse_the_loads_selections_on_a_march(case)
     _refuse_a_volume_section_off_a_steady_row(case, "unsteady_rotor")
+    _refuse_cold_start_on_a_march(case, "unsteady_rotor")
     # A CONTINUATION IS A DIFFERENT SCRIPT, not this one with a shorter
     # march: the branch is here because every line below starts from a
     # mesh, and a continuation starts from the state a stopped run saved.
@@ -11986,8 +12008,9 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
         # point to clear.
         COLD_START_VARIABLE: InputKey(
             "Starts each point of a steady sweep over the attitude from a cleared "
-            "solution instead of the previous point's converged one; a row whose every "
-            "point is its own job, an unsteady row or a steady row sweeping the flow, "
+            "solution instead of the previous point's converged one. An unsteady row "
+            "refuses it, since every point of it is its own job and starts cold; a "
+            "steady row sweeping the flow, where every point is also its own job, "
             "starts every point cold whatever it states.",
             "true or false; absent is a warm start",
             "CLEAR_SOLUTION",

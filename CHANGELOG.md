@@ -7,6 +7,14 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- **An unsteady or rotor row refuses `COLD_START` at plan (G36).** The key clears
+  the solution between the points of a steady sweep over the attitude; every
+  point of an unsteady row is its own job and starts cold, so the key, true or
+  false, changed nothing there and is now refused naming it. The glossary
+  says so. See `docs/migrating-to-0.28.0.md`.
+
 ### Owed
 
 - **The Zenodo archive row of v0.27.0 is owed.** A version DOI is minted from

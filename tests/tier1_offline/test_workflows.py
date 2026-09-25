@@ -1733,6 +1733,18 @@ def unsteady_case(**overrides) -> SimCase:
     )
 
 
+@pytest.mark.parametrize("value", ["true", "false"])
+@pytest.mark.parametrize("run_type", ["unsteady", "unsteady_rotor"])
+def test_g36_an_unsteady_row_refuses_cold_start(run_type, value):
+    """G36 of 0.28.0: every point of an unsteady row is its own job and starts cold, so
+    COLD_START, true or false, would change nothing; the plan refuses it naming the key,
+    and the same row without it builds."""
+    make = unsteady_case if run_type == "unsteady" else rotor_case
+    with pytest.raises(CampaignConfigError, match=r"COLD_START is a key of a steady sweep"):
+        workflow_registry()[run_type](make(COLD_START=value), Script("26.124"))
+    workflow_registry()[run_type](make(), Script("26.124"))
+
+
 def unsteady_case_full() -> SimCase:
     """A third clock again, and the optional cells a rotorless row may set.
 
