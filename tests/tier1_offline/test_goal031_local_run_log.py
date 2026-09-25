@@ -43,6 +43,7 @@ from pyflightstream.run.matrix import run_matrix
 from pyflightstream.workspace import CampaignWorkspace, RunStatus, WorkspaceError
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
+    STUB_VTK,
     make_library,
     matrix_mod,
     stage_geometry,
@@ -95,6 +96,7 @@ import pathlib, re, sys
 from pyflightstream.cases import EXPORT_KINDS
 script, loads, printed, at_log = sys.argv[1:5]
 verbs = {kind[2] for kind in EXPORT_KINDS}
+VTK = <STUB_VTK>
 text = pathlib.Path(loads).read_text(encoding="utf-8")
 lines = pathlib.Path(script).read_text(encoding="utf-8").splitlines()
 alpha = 2.0
@@ -114,7 +116,7 @@ for index, line in enumerate(lines):
             printed = "-"
         continue
     if verb in verbs and index + 1 < len(lines):
-        body = "DATA"
+        body = VTK if verb == "EXPORT_SOLVER_ANALYSIS_VTK" else "DATA"
         if verb == "EXPORT_SOLVER_ANALYSIS_SPREADSHEET":
             body = re.sub(
                 r"(Angle of attack \(Deg\)\s+)\S+", lambda m: m.group(1) + f"{alpha:.3f}", text
@@ -138,7 +140,7 @@ class Solver(LocalExecutor):
         super().__init__(fs_exe=sys.executable, hidden=True, forced_local=forced_local)
         self.export_log = export_log
         self.stub = tmp_path / "stub_solver.py"
-        self.stub.write_text(STUB, encoding="utf-8")
+        self.stub.write_text(STUB.replace("<STUB_VTK>", repr(STUB_VTK)), encoding="utf-8")
         self.printed = "-"
         if prints is not None:
             self.printed = str(tmp_path / "printed.txt")

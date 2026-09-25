@@ -1121,6 +1121,15 @@ class RunRecord(BaseModel):
     export_window: dict[str, float | int | str] | None = None
     #: Solver surface averaging as emitted, never re-derived from an edited pproc.
     surface_time_averaging: SurfaceAveragingWindow | None = None
+    #: THE TECPLOT SURFACES THE PACKAGE WROTE FROM A VTK (G45 of 0.28.0), one per
+    #: Tecplot output of the point: ``vtk`` and ``dat``, the two names; ``frame``,
+    #: the analysis loads frame the solver wrote the VTK in, as the script placed
+    #: it (index, origin, axes); ``written``, the Tecplot files written, the end
+    #: of the run's first and each step's after it; and ``problems``, one
+    #: sentence per file that could not be written. None on every record written
+    #: before 0.28.0, whose Tecplot is the solver's own, per node, and on a point
+    #: that exports none. Adding it did not move MANIFEST_SCHEMA.
+    surface_translations: list[dict[str, object]] | None = None
     #: The solver commands the row's setup stated verbatim and the script
     #: carried (PFS-2033.02): ``command``, ``before`` and ``setup`` each;
     #: empty for a setup stating none and for every record written before
@@ -1350,6 +1359,9 @@ class AdditionalRecord(BaseModel):
         The frames the extraction cited, by name, as the run created them.
     inventory : list of str or None
         The boundary names the saved simulation holds, in the solver's order.
+    surface_translations : list of dict or None
+        The Tecplot surfaces the package wrote from the extraction's VTK
+        (G45 of 0.28.0), as a run record states them.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1392,6 +1404,9 @@ class AdditionalRecord(BaseModel):
     leading_sections: int = 0
     frames: dict[str, int | dict[str, int] | None] = Field(default_factory=dict)
     inventory: list[str] | None = None
+    #: The Tecplot surfaces the extraction wrote from its VTK (G45 of 0.28.0), as
+    #: :attr:`RunRecord.surface_translations` states them.
+    surface_translations: list[dict[str, object]] | None = None
 
 
 def _is_link(path: Path) -> bool:

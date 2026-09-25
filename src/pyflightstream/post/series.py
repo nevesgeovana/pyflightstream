@@ -26,7 +26,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream._tokens import POLAR_ID_COLUMN
+from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.fsi.loads import parse_sectional_loads
 from pyflightstream.post._tables import (
     CONTEXT_COLUMNS,
@@ -38,12 +38,13 @@ from pyflightstream.post._tables import (
     write_csv_table,
 )
 from pyflightstream.results import (
+    NOT_CARRIED_BY_THE_VTK,
     MalformedOutputError,
     labeled_value,
     parse_loads,
     parse_probe_points,
 )
-from pyflightstream.workspace import RunRecord
+from pyflightstream.workspace import AdditionalRecord, RunRecord
 
 __all__ = [
     "PROBE_COLUMN",
@@ -54,6 +55,7 @@ __all__ = [
     "run_clock",
     "stamped_exports",
     "surface_export_metadata",
+    "translated_surface",
     "write_point_series",
 ]
 
@@ -147,6 +149,56 @@ def surface_export_metadata(record: RunRecord, *, step: int | None = None) -> di
         last = min(last, step)
     window["iterations"] = [first, last]
     return {"kind": "average", "window": window}
+
+
+#: The stamp an unsteady action's export carries before its extension (RPT-041).
+_STAMPED = re.compile(r"^(?P<stem>.+)_iteration=(?P<step>\d+)$")
+#: A ``DATASETAUXDATA`` record of a Tecplot file: its name and its quoted value.
+_AUXDATA = re.compile(r'^DATASETAUXDATA\s+(?P<name>\w+)\s*=\s*"(?P<value>[^"]*)"\s*$')
+
+
+def translated_surface(record: RunRecord | AdditionalRecord, path: Path) -> dict[str, object]:
+    """Say what a Tecplot surface the package wrote from a VTK is (G45 of 0.28.0).
+
+    Empty for a ``.dat`` the solver wrote, which is every Tecplot of a record
+    written before 0.28.0: nothing about it changed. For one the run wrote from
+    its VTK, at the end of the run or stamped at a step: ``translated_from``,
+    the VTK beside it; ``source_sha256``, that VTK's sha256 as the ``.dat``
+    itself states it (``NA`` where the file cannot be read); ``location``
+    ``cell-centred``; ``frame`` ``reference``; and ``not_carried``, the solver
+    Tecplot's variables the VTK does not hold.
+    """
+    translations = record.surface_translations or []
+    stamped = _STAMPED.match(path.stem)
+    for translation in translations:
+        if not isinstance(translation, Mapping):
+            continue
+        dat, vtk = Path(str(translation.get("dat"))), Path(str(translation.get("vtk")))
+        if path.suffix.lower() != dat.suffix.lower():
+            continue
+        if path.stem == dat.stem:
+            source = vtk.name
+        elif stamped is not None and stamped.group("stem") == dat.stem:
+            source = f"{vtk.stem}_iteration={stamped.group('step')}{vtk.suffix}"
+        else:
+            continue
+        stated: dict[str, str] = {}
+        try:
+            with path.open(encoding="utf-8", errors="replace") as handle:
+                for _, line in zip(range(16), handle, strict=False):
+                    found = _AUXDATA.match(line.strip())
+                    if found is not None:
+                        stated[found.group("name")] = found.group("value")
+        except OSError:
+            stated = {}
+        return {
+            "translated_from": source,
+            "source_sha256": stated.get("SOURCE_VTK_SHA256", NOT_APPLICABLE),
+            "location": "cell-centred",
+            "frame": "reference",
+            "not_carried": list(NOT_CARRIED_BY_THE_VTK),
+        }
+    return {}
 
 
 def run_clock(record: RunRecord) -> tuple[float | None, float | None]:
@@ -425,6 +477,7 @@ def write_point_series(
                     "format": kind,
                     "step": step,
                     **metadata,
+                    **(translated_surface(record, path) if kind == "tecplot" else {}),
                 }
     for kind, suffix in SERIES_KINDS:
         files = stamped.get((suffix or "", "txt"), {})

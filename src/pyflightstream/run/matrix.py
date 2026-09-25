@@ -72,6 +72,7 @@ from pyflightstream.cases.workflows import (
     frame_definitions,
     frames_of_the_run,
 )
+from pyflightstream.results import translate_surface_exports
 from pyflightstream.results.tables import superseded_by_a_continuation
 from pyflightstream.run import (
     JOB_TAG,
@@ -1695,6 +1696,9 @@ def _plan_point(
             "inventory": list(shadow.boundary_inventory)
             if shadow.boundary_inventory is not None
             else None,
+            # G45: the Tecplot the extraction writes from its VTK, in the run's
+            # loads frame as the run's own script placed it.
+            "translations": [dict(entry) for entry in script.surface_translations],
         },
     )
 
@@ -1947,6 +1951,10 @@ def _extract(
             error=result.diagnosis(),
             original=original,
         )
+    translations = context.get("translations")
+    if isinstance(translations, list) and translations:
+        # G45: the Tecplot written from the VTK before the outputs are checked.
+        base["surface_translations"] = translate_surface_exports(folder, translations)
     relative = folder.relative_to(sim_dir).as_posix()
     names = [f"{relative}/{name}" for name in case.outputs]
     if not context.get("exports_log", True):

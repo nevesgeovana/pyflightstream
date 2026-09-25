@@ -119,11 +119,13 @@ def test_the_rewritten_script_carries_the_exports_after_the_threshold(runs, work
     assert text.startswith("UPDATE_ALL_SURFACE_SECTIONS")
     for command in (
         "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
-        "EXPORT_SOLVER_ANALYSIS_TECPLOT",
+        # G45 of 0.28.0: the step's VTK, from which the run writes its Tecplot.
+        "EXPORT_SOLVER_ANALYSIS_VTK",
         "EXPORT_ALL_SURFACE_SECTIONS",
         "EXPORT_SURFACE_SECTIONAL_LOADS",
     ):
         assert line(text, command) == command
+    assert "EXPORT_SOLVER_ANALYSIS_TECPLOT" not in text, "the Tecplot is the package's (G45)"
     # F01 of 0.25.0: an unsteady row neither updates nor exports probe points.
     for command in ("UPDATE_PROBE_POINTS", "EXPORT_PROBE_POINTS"):
         assert command not in text, command

@@ -44,7 +44,12 @@ from tests.tier1_offline.test_goal031_local_run_log import (
     STUB,
     _matrix,
 )
-from tests.tier1_offline.test_matrix_run import RECIPES, CountingStub, workflow_registry
+from tests.tier1_offline.test_matrix_run import (
+    RECIPES,
+    STUB_VTK,
+    CountingStub,
+    workflow_registry,
+)
 
 # --- A. the build-identity pre-flight ----------------------------------------
 
@@ -123,7 +128,12 @@ def _aborting_extractor(tmp_path, printed):
     table = tmp_path / "aborting_exports.json"
     table.write_text(
         json.dumps(
-            {"EXPORT_SOLVER_ANALYSIS_SPREADSHEET": LOADS, "EXPORT_SURFACE_SECTIONAL_LOADS": SLOADS}
+            {
+                "EXPORT_SOLVER_ANALYSIS_SPREADSHEET": LOADS,
+                "EXPORT_SURFACE_SECTIONAL_LOADS": SLOADS,
+                # G45: the Tecplot is written from this VTK.
+                "EXPORT_SOLVER_ANALYSIS_VTK": STUB_VTK,
+            }
         ),
         encoding="utf-8",
     )
@@ -256,7 +266,7 @@ def _submitted_steady_job(tmp_path, *, native=LOG):
     assert job.status is RunStatus.SUBMITTED, (job.status, job.error)
     sim = workspace.sim_dir("5001")
     stub = tmp_path / "stub_solver.py"
-    stub.write_text(STUB, encoding="utf-8")
+    stub.write_text(STUB.replace("<STUB_VTK>", repr(STUB_VTK)), encoding="utf-8")
     subprocess.run(
         [
             sys.executable,

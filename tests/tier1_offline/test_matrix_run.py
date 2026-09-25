@@ -847,12 +847,25 @@ def test_plan_matrix_preflights_every_point_without_executing(tmp_path):
 #: just the spreadsheet one. A registered run type exports several kinds and
 #: the point is only collected when every declared one exists, so the narrower
 #: stub above cannot carry a `steady` row.
+#: A surface VTK in the layout the solver writes one (RPT-074), which a stub
+#: hands back where a script exports the VTK: since 0.28.0 the package writes
+#: the Tecplot from it (G45), so a placeholder there is a point whose Tecplot
+#: cannot be written.
+STUB_VTK = (
+    "# vtk DataFile Version 3.0\nFlightStream vtk output\nASCII\nDATASET POLYDATA\n"
+    "POINTS 3 float\n0 0 0\n1 0 0\n0 1 0\nPOLYGONS 1 4\n3 0 1 2\n"
+    "CELL_DATA 1\nSCALARS Cp_reference FLOAT\nLOOKUP_TABLE default\n-0.5\n"
+)
+#: What a stub writes for the export on ``line``: the VTK above for the VTK
+#: export, a placeholder for every other.
+STUB_BODY = f"({STUB_VTK!r} if line.split(' ')[0] == 'EXPORT_SOLVER_ANALYSIS_VTK' else 'DATA')"
+
 WRITES_EVERY_EXPORT = (
     "import pathlib, sys; "
     "from pyflightstream.cases import EXPORT_KINDS; "
     "verbs = {kind[2] for kind in EXPORT_KINDS}; "
     "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
-    "[pathlib.Path(lines[i + 1]).write_text('DATA') "
+    f"[pathlib.Path(lines[i + 1]).write_text({STUB_BODY}) "
     "for i, line in enumerate(lines) "
     "if line.split(' ')[0] in verbs and i + 1 < len(lines)]"
 )
@@ -4696,6 +4709,7 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
         f"PLOTS = pathlib.Path({plots_source.as_posix()!r}).read_text(); "
         "exports = {'EXPORT_SOLVER_ANALYSIS_SPREADSHEET': LOADS, "
         "'EXPORT_SURFACE_SECTIONAL_LOADS': SLOADS, "
+        f"'EXPORT_SOLVER_ANALYSIS_VTK': {STUB_VTK!r}, "
         "'UNSTEADY_SOLVER_EXPORT_PLOTS': PLOTS}; "
         "[pathlib.Path(lines[i + 1]).write_text(exports.get(line, 'x')) "
         "for i, line in enumerate(lines[:-1]) "

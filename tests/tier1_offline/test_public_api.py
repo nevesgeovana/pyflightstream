@@ -97,6 +97,11 @@ PUBLIC_MODULES = [
     "pyflightstream.reference",
     "pyflightstream.results",
     "pyflightstream.results.conditions",
+    # G45 of 0.28.0: the surface solution read from the solver's VTK and written
+    # as Tecplot. PUBLIC deliberately: the translation a campaign runs on every
+    # point is one a user can run on a VTK of her own, and the time-averaged
+    # surface is written by the same writer.
+    "pyflightstream.results.surface",
     "pyflightstream.results.tables",
     "pyflightstream.run",
     "pyflightstream.run.cli",

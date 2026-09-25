@@ -94,6 +94,40 @@ FlightStream versions.
   now say so before a seat is spent, naming the pproc, the name and the rotor,
   and suggesting a rename (`SHAFT_{family}`). Nothing is refused or renamed.
 
+### Changed
+
+- **The Tecplot surface of a campaign point is written by the package from the
+  VTK, the only route (G45).** The script no longer emits
+  `EXPORT_SOLVER_ANALYSIS_TECPLOT` for `[exports] tecplot`: it exports the
+  surface as VTK (`SET_VTK_EXPORT_VARIABLES -1 DISABLE`, or the pproc's
+  `vtk_variables`, then `EXPORT_SOLVER_ANALYSIS_VTK` over every surface) and the
+  run writes the `.dat` from it, at the name the solver's Tecplot had, before the
+  point's outputs are collected and hashed; per-step exports and the wall
+  clock's rescue alike, and the additional post's extraction too. **A user's
+  `.dat` is now cell-centred and lacks `Singularity_strength`**: one FEPolygon
+  zone whose `X`, `Y`, `Z` are the nodes in the reference frame and whose every
+  other variable is the value the solver computed per panel (`VARLOCATION`
+  cell-centred), under the VTK's names (`Cp_reference` and `Cp_freestream` where
+  the solver's file had one `Cp`, `skin_friction_coeff.` for `CF`, and so on),
+  nineteen in the all-variables form where the solver's file carried sixteen,
+  per node. The solver writes the VTK in the analysis loads frame, points and
+  velocity components alike, the velocity with the frame's origin in it as a
+  point has (measured on RPT-074's files); the package undoes both with the loads
+  frame the script set. The VTK is kept beside the `.dat` and listed among the
+  point's outputs; `[exports] vtk = true` names that same file. The file states
+  its source VTK and that file's sha256; `products.json` and the PROV document
+  say it is a translation (`translated_from`, `source_sha256`, `location`,
+  `frame`, `not_carried`), and the run record's `surface_translations` says what
+  was written and why not. A loads frame the script did not place, and a
+  `vtk_variables` naming some of `VX`, `VY`, `VZ` where the frame moves, are
+  refused at plan. The volume section's Tecplot, the probe writers and
+  `helpers.export_results(tecplot=...)` keep their own routes. Library:
+  `pyflightstream.results.surface` (`read_vtk_surface`, `translate_vtk_surface`,
+  `translate_surface_exports`, `write_tecplot_surface`, `write_vtk_surface`,
+  `SurfaceFrame`), `Script.loads_frame`, `Script.surface_translations`,
+  `workflows.tecplot_source`, `workflows.with_tecplot_source`,
+  `RunRecord.surface_translations`.
+
 ### Fixed
 
 - **A steady row places probes declared in a frame where that frame stands.**

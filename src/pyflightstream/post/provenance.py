@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 from pyflightstream._digest import optional_file_sha256
 from pyflightstream.cases import classify_outputs
 from pyflightstream.post._tables import NOT_APPLICABLE, ProductExistsError
-from pyflightstream.post.series import surface_export_metadata
+from pyflightstream.post.series import surface_export_metadata, translated_surface
 from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP
 
 if TYPE_CHECKING:
@@ -338,6 +338,14 @@ def prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
         else:
             output_sha256 = recorded
             sha256_from = "record" if recorded is not None else None
+        surface = set(classify_outputs([name], package_version=record.package_version)) & {
+            "tecplot",
+            "vtk",
+            "csv",
+        }
+        # G45: A TECPLOT THE PACKAGE WROTE FROM THE VTK is the package's, derived
+        # from that VTK, and never attributed to the solver that wrote neither.
+        translated = translated_surface(record, path) if "tecplot" in surface else {}
         entities[entity_id] = attributes(
             **{
                 "prov:type": "pyfs:Output",
@@ -346,10 +354,10 @@ def prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
                 "pyfs:sha256_from": sha256_from,
                 **(
                     {f"pyfs:{key}": value for key, value in surface_export_metadata(record).items()}
-                    if set(classify_outputs([name], package_version=record.package_version))
-                    & {"tecplot", "vtk", "csv"}
+                    if surface
                     else {}
                 ),
+                **{f"pyfs:{key}": value for key, value in translated.items()},
             }
         )
         generated[f"_:generated{len(generated) + 1}"] = {
@@ -358,8 +366,14 @@ def prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
         }
         attributed[f"_:attributed{len(attributed) + 1}"] = {
             "prov:entity": entity_id,
-            "prov:agent": solver_id,
+            "prov:agent": package_id if translated else solver_id,
         }
+        if translated:
+            source = (Path(name).parent / str(translated["translated_from"])).as_posix()
+            derived[f"_:derived{len(derived) + 1}"] = {
+                "prov:generatedEntity": entity_id,
+                "prov:usedEntity": f"pyfs:output/{source}",
+            }
         if changed:
             derived_id = f"pyfs:file/{name}"
             entities[derived_id] = attributes(

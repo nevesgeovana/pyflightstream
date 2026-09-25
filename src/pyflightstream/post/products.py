@@ -215,7 +215,11 @@ from pyflightstream.post.provenance import (
     run_provenance as _run_provenance,
 )
 from pyflightstream.post.section_distributions import write_section_distributions
-from pyflightstream.post.series import surface_export_metadata, write_point_series
+from pyflightstream.post.series import (
+    surface_export_metadata,
+    translated_surface,
+    write_point_series,
+)
 from pyflightstream.post.superfile import (
     SuperfileDraft,
     matrix_rows,
@@ -6989,7 +6993,18 @@ def _write_the_products(
                     "runs": [record.run_id],
                     "format": kind,
                     **metadata,
+                    **(translated_surface(record, path) if kind == "tecplot" else {}),
                 }
+            # G45: A TECPLOT THE RUN COULD NOT WRITE FROM ITS VTK is said, by the
+            # sentence the run recorded, never left for a reader to notice.
+            problems = [
+                str(problem)
+                for translation in record.surface_translations or []
+                if isinstance(translation, Mapping)
+                for problem in translation.get("problems") or []  # type: ignore[attr-defined]
+            ]
+            if problems:
+                skipped[f"tecplot/{record.run_id}"] = "; ".join(problems)
             said = set(skipped)
             if record.pproc not in recorded_pprocs:
                 recorded_pprocs[record.pproc] = _resolve_post_pproc(workspace, record.pproc)[1]
@@ -7306,6 +7321,7 @@ def _additional_products(
                     "derives_from": [extraction.run_id],
                     "format": kind,
                     **({"kind": "instant"} if extraction.unsteady and kind != "plots" else {}),
+                    **(translated_surface(extraction, path) if kind == "tecplot" else {}),
                 }
         try:
             files_written, names, reductions_skipped = _sim_products(

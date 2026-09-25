@@ -137,6 +137,7 @@ from pyflightstream.cases.workflows import (
     unsteady_export_threshold,
     walltime_clock_program,
     walltime_margin_s,
+    with_tecplot_source,
 )
 from pyflightstream.results import (
     SOLVER_MODES,
@@ -148,6 +149,7 @@ from pyflightstream.results import (
     parse_loads,
     parse_log_times,
     parse_residual_history,
+    translate_surface_exports,
 )
 from pyflightstream.results.conditions import ConditionBinding, bind_conditions
 from pyflightstream.results.tables import sweep_table, write_table
@@ -3846,7 +3848,38 @@ def _point_names(
         )
         for declared in case.outputs
     ]
-    return stem, outputs
+    # G45: the VTK a Tecplot surface is written from is an output of the point.
+    return stem, with_tecplot_source(outputs)
+
+
+def _unplaced(translation: Mapping[str, object]) -> bool:
+    """Whether a recorded translation states no placement for its loads frame (G45)."""
+    frame = translation.get("frame")
+    return (
+        not isinstance(frame, Mapping) or frame.get("origin") is None or frame.get("axes") is None
+    )
+
+
+def _recorded_loads_frame(record: RunRecord | None) -> dict[str, object] | None:
+    """Return the placed loads frame a run recorded for its Tecplot surfaces, or None (G45)."""
+    for translation in (record.surface_translations if record is not None else None) or []:
+        frame = translation.get("frame")
+        if isinstance(frame, Mapping) and not _unplaced(translation):
+            return dict(frame)
+    return None
+
+
+def _translation_problems(translations: object) -> str:
+    """Return the sentences a translation pass recorded, for a record's error (G45)."""
+    if not isinstance(translations, list):
+        return ""
+    said = [
+        str(problem)
+        for translation in translations
+        if isinstance(translation, Mapping)
+        for problem in (translation.get("problems") or [])  # type: ignore[attr-defined]
+    ]
+    return "" if not said else " " + "; ".join(said)
 
 
 def _reference_block(case: SimCase) -> dict[str, float] | None:
@@ -5644,6 +5677,10 @@ def _execute_sweep(
     layout = _sections_layout(script)
     if layout is not None:
         base["sections_layout"] = layout
+    # G45: every point's Tecplot surface, written from its VTK after the job.
+    base["surface_translations"] = [
+        dict(translation) for translation in script.surface_translations
+    ] or None
     # THE HOUSE CONVENTION FOR A SWEEP, not a name of this function's own.
     # A per-polar product table is named by the point name with the swept
     # variable written literally as `sweep`, and a job's script is about
@@ -5827,6 +5864,13 @@ def _execute_sweep(
     # for the trailing-edge count the one script imported, as a job's is.
     cannot_log = isinstance(executor, LocalExecutor) and not executor.export_log
     printed = result.captured_output() if cannot_log else ""
+    # G45: EVERY POINT'S TECPLOT FROM ITS VTK, where the job wrote them, before
+    # collection files each point's outputs in its own folder.
+    if base.get("surface_translations"):
+        base["surface_translations"] = translate_surface_exports(
+            sim_dir,
+            base["surface_translations"],  # type: ignore[arg-type]
+        )
     excused = {
         name
         for _, _, point_case in point_cases
@@ -5847,7 +5891,13 @@ def _execute_sweep(
         except MissingOutputsError as error:
             # FILED, LISTED AND HASHED, and the point still fails (0.27.0).
             collected_by_tag[tag] = error.collected
-            failed_tags[tag] = str(error)
+            failed_tags[tag] = str(error) + _translation_problems(
+                [
+                    entry
+                    for entry in base.get("surface_translations") or []  # type: ignore[attr-defined]
+                    if isinstance(entry, Mapping) and entry.get("dat") in point_case.outputs
+                ]
+            )
         except (WorkspaceError, CampaignConfigError) as error:
             failed_tags[tag] = str(error)
     for point, _stem, point_case in point_cases:
@@ -6933,6 +6983,30 @@ def _execute_point(
         # including its UNVERIFIED qualification; today's pproc cannot replace it.
         script.surface_time_averaging = predecessor.surface_time_averaging
     base["surface_time_averaging"] = script.surface_time_averaging
+    # G45. WHAT THE RUN WRITES FROM THE VTK, and the loads frame the solver
+    # writes it in. A continuation's is the saved simulation's, which the run it
+    # continues placed and recorded; one that recorded none cannot be undone,
+    # and the point is refused before the solver starts rather than after.
+    translations = [dict(translation) for translation in script.surface_translations]
+    if continues is not None and any(_unplaced(entry) for entry in translations):
+        carried = _recorded_loads_frame(predecessor)
+        if carried is None:
+            return RunRecord(
+                **base,
+                status=RunStatus.FAILED_SCRIPT,
+                error=(
+                    f"the Tecplot surface of this continuation is written by the package from "
+                    f"the VTK the solver exports in the analysis loads frame (RPT-074), and "
+                    f"the run it continues, {continues!r}, recorded no placement of that "
+                    "frame: it was recorded before 0.28.0 or exported no Tecplot. Set "
+                    "tecplot = false under the pproc's [exports] to continue it without one."
+                ),
+            )
+        translations = [
+            {**entry, "frame": dict(carried)} if _unplaced(entry) else entry
+            for entry in translations
+        ]
+    base["surface_translations"] = translations or None
     rendered = script.render()
     script_path, script_sha = workspace.write_script(case.sim_id, f"{stem}.txt", rendered)
     # FR-91. WHERE THIS SCRIPT PUT ITS PROBE POINTS, written next to the
@@ -7238,6 +7312,13 @@ def _execute_point(
             },
         )
 
+    # G45: THE TECPLOT IS WRITTEN FROM THE VTK before anything is collected, at
+    # the name the solver's own had, and each per-step VTK into its own step's.
+    if base.get("surface_translations"):
+        base["surface_translations"] = translate_surface_exports(
+            work_dir,
+            base["surface_translations"],  # type: ignore[arg-type]
+        )
     # 0.27.0: ON A MACHINE THAT CANNOT EXPORT THE LOG, the declared log is
     # written from what the solver printed, or, with nothing printed, excused:
     # the machine cannot write one locally, which is not an output the run
@@ -7270,7 +7351,7 @@ def _execute_point(
             outputs=error.collected,
             outputs_sha256=workspace.output_digests(case.sim_id, error.collected),
             residual_note=local_log.note,
-            error=str(error),
+            error=str(error) + _translation_problems(base.get("surface_translations")),
         )
     except (WorkspaceError, CampaignConfigError) as error:
         # BOTH, because collection can refuse for two reasons and only one of

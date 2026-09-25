@@ -40,6 +40,7 @@ from tests.tier1_offline.test_goal021_inputs_absolute import _workspace as _roto
 from tests.tier1_offline.test_goal021_swept_row import _restart_row, _stopped, _submitting
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
+    STUB_BODY,
     CountingStub,
     _saved_simulation_with,
     _steady_sweep_matrix,
@@ -106,7 +107,7 @@ def _stub(tmp_path: Path, *, sections: bool) -> CountingStub:
         "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
         "[pathlib.Path(lines[i + 1]).write_text("
         "pathlib.Path(texts[line.split(' ')[0]]).read_text() "
-        "if line.split(' ')[0] in texts else 'DATA') "
+        f"if line.split(' ')[0] in texts else {STUB_BODY}) "
         "for i, line in enumerate(lines) "
         "if line.split(' ')[0] in verbs and i + 1 < len(lines)]"
     )

@@ -3356,6 +3356,24 @@ from pyflightstream.results.conditions import (  # noqa: E402
     bind_conditions,
 )
 
+# The surface solution (G45 of 0.28.0): the VTK the solver exports, read, and
+# the Tecplot the package writes from it. After the definitions above, whose
+# error classes it raises.
+from pyflightstream.results.surface import (  # noqa: E402
+    NOT_CARRIED_BY_THE_VTK,
+    REFERENCE_FRAME,
+    VELOCITY_COMPONENTS,
+    SurfaceFrame,
+    VtkSurface,
+    read_vtk_surface,
+    stamped_translation,
+    surface_in_reference,
+    translate_surface_exports,
+    translate_vtk_surface,
+    write_tecplot_surface,
+    write_vtk_surface,
+)
+
 # Tabular views (pandas) build on the parsers above, so their import
 # must follow the definitions; __all__ re-exports them as part of the
 # public face of the results layer.
@@ -3452,4 +3470,16 @@ __all__ = [
     "to_csv",
     "to_table",
     "write_table",
+    "NOT_CARRIED_BY_THE_VTK",
+    "REFERENCE_FRAME",
+    "SurfaceFrame",
+    "VELOCITY_COMPONENTS",
+    "VtkSurface",
+    "read_vtk_surface",
+    "stamped_translation",
+    "surface_in_reference",
+    "translate_surface_exports",
+    "translate_vtk_surface",
+    "write_tecplot_surface",
+    "write_vtk_surface",
 ]

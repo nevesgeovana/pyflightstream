@@ -784,6 +784,92 @@ VTK variables and commands unavailable on the selected build are refused at
 plan. Both formats also join the per-step `EXPORT_UNSTEADY_AFTER_REV` or
 `EXPORT_UNSTEADY_AFTER_ITER` exports.
 
+### The Tecplot surface is written from the VTK (since 0.28.0)
+
+**A campaign point never asks the solver for its Tecplot.** Where `[exports]`
+keeps `tecplot` (the default), the script exports the surface as VTK
+(`EXPORT_SOLVER_ANALYSIS_VTK`, every surface) and the package writes the `.dat`
+from it, at the name the solver's own Tecplot had, in the point's
+`datapoints/DP-<point>/`, before the point's outputs are collected. The run
+hashes it with them, so every reader downstream finds it where it was. **One VTK
+export per point feeds both**: where the pproc also asks `[exports] vtk`, the
+user's VTK is that very file. Where it does not, the VTK is exported under the
+Tecplot's own name with `.vtk`, kept beside it and listed among the point's
+outputs, because the `.dat` names it. Without `vtk_variables` it is the
+all-variables form, `SET_VTK_EXPORT_VARIABLES -1 DISABLE`, which writes no
+`<name>_wakes.vtk` (RPT-074).
+
+| | the solver's own Tecplot, to 0.27.x | the package's, since 0.28.0 |
+|---|---|---|
+| zone | one FEPolygon zone, BLOCK packing | the same |
+| nodes | `X`, `Y`, `Z`, in the reference frame | the same nodes, in the reference frame |
+| values | per NODE, by a cell-to-node rule of the solver's | per CELL, `VARLOCATION` cell-centred: exactly the value the solver computed on each panel, nothing interpolated |
+| variables | sixteen, `Singularity_strength` among them | every variable the VTK carries, under the VTK's names: nineteen in the all-variables form |
+| faces | each polygon's edges, the polygon on the left, none on the right | the same |
+
+- **The frame.** The solver writes the VTK in the ANALYSIS LOADS FRAME, the frame
+  `SET_SOLVER_ANALYSIS_LOADS_FRAME` names: a point `p` is written
+  `p' = R (p - o)`, `R`'s rows the frame's axes in the reference frame and `o`
+  its origin (RPT-074). The package undoes it with the loads frame the script
+  itself set, as the script placed it: it emitted the frames and the
+  loads-frame command, so it knows `R` and `o`. A loads frame the script did not
+  place (one an opened project carries, or one a command moved in a way the
+  package does not follow) is refused at plan, naming the frame.
+- **The velocity components are written back the way the solver wrote them, as
+  a point is, origin included.** On RPT-074's recorded files the norm of `Vx`,
+  `Vy`, `Vz` equals the panel's own `Velocity` to 7e-15 at the median only once
+  the frame's origin is put back, `v = R^T v' + o`, on 6867 of 7167 panels of
+  both the plain and the turned frame; turned back as a vector alone it misses
+  by 9.0 m/s at the median, the origin's 9.152 m read as a speed. So the
+  components are undone exactly as the nodes are. Every other value is a scalar
+  and is written as the VTK holds it. A `vtk_variables` naming some of `VX`,
+  `VY`, `VZ` and not all three is refused at plan where the loads frame is not
+  the reference frame, since each component was written from all three.
+- **`Singularity_strength` is not carried.** It is the panel strength the
+  solver's Tecplot prints, and the VTK does not hold it. The VTK adds seven the
+  solver's Tecplot did not carry: `Normalized_Vorticity`, `Cp_freestream`, the
+  momentum and displacement thicknesses and the shape factor of the boundary
+  layer, `Static_pressure_ratio` and `Boundary_Index`.
+- **The names are the VTK's.** Where the solver's Tecplot printed `CF`, `Cp`,
+  `Mach Number`, `BL Thickness`, the `.dat` carries `skin_friction_coeff.`,
+  `Cp_reference` (and `Cp_freestream` beside it), `Mach_Number`, `BL_Thickness`,
+  and so on; nothing is renamed, because which of the two pressure coefficients
+  the solver's `Cp` was is not identified (RPT-074). With `vtk_variables` a
+  subset, the `.dat` carries that subset.
+- **Cell values against nodal ones.** A translated file is not the solver's
+  Tecplot to the digit: that one holds nodal values, this one the cell values
+  they were averaged from. On RPT-074's solve, each cell value against the mean
+  of the solver's nodal values at that polygon's nodes differs by a median of
+  0.0025 in `Cp` (1.66 at most) and 3.3e-6 in `CF`.
+- **What the file states about itself.** Its `DATASETAUXDATA` records name its
+  VTK (`SOURCE_VTK`) and that file's sha256 (`SOURCE_VTK_SHA256`), say it is a
+  translation, cell-centred, in the reference frame (`TRANSLATION`), name the
+  frame undone (`SOURCE_FRAME`) and say `Singularity_strength` is not carried
+  (`NOT_CARRIED`). Its `products.json` entry states the same as
+  `translated_from`, `source_sha256`, `location` (`cell-centred`), `frame`
+  (`reference`) and `not_carried`; the PROV document attributes it to the
+  package and derives it from the VTK. The run record's `surface_translations`
+  states each translation, its frame and the files written, and why one could
+  not be; a Tecplot the run could not write is a named skip,
+  `tecplot/<run id>`.
+- **Per step, the same route.** `EXPORT_UNSTEADY_AFTER_ITER` and
+  `EXPORT_UNSTEADY_AFTER_REV` export the step's VTK, and the run writes each
+  `<name>_iteration=<step>.dat` from the `<name>_iteration=<step>.vtk` beside it.
+  The wall clock's rescue exports the VTK too, and its `.dat` is written the same
+  way.
+- **The additional post** writes its Tecplot the same way, in the run's loads
+  frame as the run's own script placed it. **A continuation's** loads frame is
+  the saved simulation's, and the run takes its placement from the run it
+  continues; one recorded before 0.28.0 states none, and such a continuation is
+  refused before the solver starts unless its pproc sets `tecplot = false`.
+- **What keeps its own route.** The volume section's Tecplot
+  (`[volume_section] format = "tecplot"`, `EXPORT_VOLUME_SECTION_TECPLOT`), the
+  probe files of `pyflightstream.post.writers` and a hand-written script's
+  `helpers.export_results(tecplot=...)` are what they were. Only the campaign's
+  surface export, `[exports] tecplot`, is written from the VTK.
+- **A record written before 0.28.0** keeps the solver's Tecplot and the meaning
+  its release gave it: nothing reads it again.
+
 **Time-averaged surfaces cannot be produced on the builds measured so far.**
 On 2026-09-19, licensed C01 measured that `SOLVER_TIME_AVERAGING` hangs
 FlightStream 26.124 in the position the package emits it: no outputs were

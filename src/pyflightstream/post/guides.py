@@ -1297,6 +1297,15 @@ def _setup_tables() -> list[GlossaryTable]:
     ]
 
 
+#: The commands a kind reaches where they are not its own verb of
+#: :data:`~pyflightstream.cases.EXPORT_KINDS` (G45 of 0.28.0): a campaign's
+#: Tecplot is written by the package from the VTK export, so the script reaches
+#: the VTK's two commands and never the solver's Tecplot.
+_KIND_COMMANDS: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {"tecplot": ("SET_VTK_EXPORT_VARIABLES", "EXPORT_SOLVER_ANALYSIS_VTK")}
+)
+
+
 def _exports_table() -> GlossaryTable:
     """Build the table of the kinds ``[exports]`` may name, what each takes and where."""
     rows = []
@@ -1332,13 +1341,14 @@ def _exports_table() -> GlossaryTable:
             if kind in STEADY_ONLY_EXPORT_KINDS
             else ""
         )
+        commands = _KIND_COMMANDS.get(kind, (verb,))
         rows.append(
             GlossaryRow(
                 key=kind,
                 meaning=EXPORT_KIND_MEANINGS.get(kind, ""),
                 values=values,
-                accepted=_joined(accepted, _builds((verb,))),
-                commands=(verb,),
+                accepted=_joined(accepted, _builds(commands)),
+                commands=commands,
             )
         )
     return GlossaryTable(

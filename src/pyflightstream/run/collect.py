@@ -75,6 +75,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..cases import CampaignConfigError
+from ..results import translate_surface_exports
 from ..workspace import (
     SIM_DATAPOINTS_DIR,
     CampaignWorkspace,
@@ -551,6 +552,15 @@ def collect_once(
                 CollectOutcome(run_id=record.run_id, state="FAILED", detail=native.refusal)
             )
             continue
+        # G45: A TECPLOT THE PACKAGE WRITES IS NOT WAITED FOR. The solver writes
+        # its VTK and never the .dat, which is written from it once the job is
+        # settled, below; waiting for it was waiting forever.
+        written_here = {
+            str(translation.get("dat"))
+            for translation in record.surface_translations or []
+            if isinstance(translation, Mapping)
+        }
+        waited = [name for name in names if name not in written_here]
         # THE SCHEDULER'S FILE STANDS IN FOR THE DECLARED LOG while the two
         # observations are taken, because it is the one the job is writing.
         # Where the scheduler has written nothing yet the declared name is
@@ -559,7 +569,7 @@ def collect_once(
             native.source
             if native.source is not None and work_dir / name == native.target
             else work_dir / name
-            for name in names
+            for name in waited
         ]
         first = observer(paths)
         sleep(interval)
@@ -575,7 +585,7 @@ def collect_once(
                 # yet" sent a user looking through eight names to find the one
                 # that never comes, which on a cluster was the solver log.
                 detail = (
-                    f"{len(missing)} of {len(names)} declared output(s) not there yet: "
+                    f"{len(missing)} of {len(waited)} declared output(s) not there yet: "
                     + ", ".join(Path(n).name for n in missing)
                 )
             else:
@@ -586,6 +596,16 @@ def collect_once(
             continue
         # SETTLED, so this is the log of a job that has stopped writing it.
         _copy_native_log(native)
+        # G45: each Tecplot from its VTK, where the job wrote them, before the
+        # outputs are collected; the record keeps what was written and why not.
+        if record.surface_translations:
+            record = record.model_copy(
+                update={
+                    "surface_translations": translate_surface_exports(
+                        work_dir, record.surface_translations
+                    )
+                }
+            )
         outcome = _complete(
             workspace,
             record,

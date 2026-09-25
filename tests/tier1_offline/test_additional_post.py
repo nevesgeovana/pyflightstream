@@ -76,6 +76,7 @@ from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
     REGISTRY_FIXTURE,
+    STUB_VTK,
     CountingStub,
     converged,
     make_library,
@@ -593,6 +594,8 @@ def a_stub(tmp_path: Path, **by_verb: str) -> CountingStub:
             {
                 "EXPORT_SOLVER_ANALYSIS_SPREADSHEET": LOADS,
                 "EXPORT_SURFACE_SECTIONAL_LOADS": SLOADS,
+                # G45: the Tecplot is written from this VTK.
+                "EXPORT_SOLVER_ANALYSIS_VTK": STUB_VTK,
                 **by_verb,
             }
         ),

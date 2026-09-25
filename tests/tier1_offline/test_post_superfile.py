@@ -508,6 +508,10 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
         # products manifest and the provenance state it beside each averaged
         # surface export, which is where a reader of that export looks.
         "surface_time_averaging",
+        # 0.28.0 G45: which Tecplot surfaces the run wrote from its VTK, a list
+        # of blocks (the two names, the frame, the files written), which
+        # products.json and the provenance state beside each translated file.
+        "surface_translations",
     }
     carried_under_the_matrix_or_polar_name = {
         "description",

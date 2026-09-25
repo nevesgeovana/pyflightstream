@@ -196,6 +196,9 @@ _INITIALIZATION_COMMAND = "INITIALIZE_SOLVER"
 
 #: The command that states the simulation's length unit (G05, G06 of 0.27.0).
 _LENGTH_UNIT_COMMAND = "SET_SIMULATION_LENGTH_UNITS"
+#: The command that names the analysis loads frame, in which the solver writes
+#: its VTK surface export (RPT-074).
+_LOADS_FRAME_COMMAND = "SET_SOLVER_ANALYSIS_LOADS_FRAME"
 
 #: The commands that add a volume section to the solver's list, remove one by
 #: its index, and remove them all (G05 of 0.27.0).
@@ -905,6 +908,19 @@ class Script:
         self.probe_points: list[tuple[int, float, float, float, str]] = []
         #: Surface averaging window emitted by the workflow, for run provenance.
         self.surface_time_averaging: SurfaceAveragingWindow | None = None
+        #: THE TECPLOT SURFACES THE PACKAGE WRITES FROM A VTK (G45 of 0.28.0), one
+        #: per Tecplot output the script exports, filled by the workflow that
+        #: emits the VTK in its place, for the reason ``section_blocks`` is
+        #: filled by the loop that emits: ``vtk`` and ``dat``, the two names,
+        #: and ``frame``, the loads frame the VTK is written in as this script
+        #: placed it (:meth:`loads_frame_record`).
+        self.surface_translations: list[dict[str, object]] = []
+        # THE ANALYSIS LOADS FRAME, as far as THIS SCRIPT set it (G45), read
+        # through :attr:`loads_frame`; the reference frame until a
+        # SET_SOLVER_ANALYSIS_LOADS_FRAME says otherwise, which is the solver's
+        # own default (RPT-064: step exports written before the command print
+        # the reference frame).
+        self._loads_frame: int = _REFERENCE_PLACEMENT_INDEX
         #: EACH SECTION DISTRIBUTION THIS SCRIPT CREATED, in emission order
         #: (0.24.0): its families BY NAME, its plane, its frame and its count.
         #: Filled by the loop that emits the distribution, for the reason
@@ -1299,6 +1315,8 @@ class Script:
             self._lines.append("")
         self._follow_frame_placement(entry.name, bound)
         self._follow_length_unit(entry.name, bound)
+        if entry.name == _LOADS_FRAME_COMMAND:
+            self._loads_frame = int(bound["load_frame"])  # type: ignore[call-overload]
         self._follow_volume_sections(entry.name, bound)
         if entry.name in _CREATION_COMMANDS:
             self.entities.create(_CREATION_COMMANDS[entry.name], label=label)
@@ -1336,6 +1354,43 @@ class Script:
             follower(self._frame_placements, frame, bound)
         elif name in _UNFOLLOWED_FRAME_COMMANDS:
             self._frame_placements[frame] = FramePlacement(origin=None, axes=None)
+
+    @property
+    def loads_frame(self) -> int:
+        """The analysis loads frame, as far as THIS SCRIPT set it (G45 of 0.28.0).
+
+        The frame of the last ``SET_SOLVER_ANALYSIS_LOADS_FRAME`` emitted, or 1,
+        the reference frame, while none has been. The solver writes the VTK
+        surface export in this frame (RPT-074), so the Tecplot the package
+        writes from it is undone by it.
+
+        Examples
+        --------
+        >>> from pyflightstream.script import Script
+        >>> script = Script("26.124")
+        >>> script.loads_frame
+        1
+        """
+        return self._loads_frame
+
+    def loads_frame_record(self) -> dict[str, object]:
+        """Return the loads frame and where this script placed it, as a run records it.
+
+        ``frame`` is :attr:`loads_frame`; ``origin`` and ``axes`` are its
+        placement in the reference frame (:attr:`frame_placements`), or None
+        where this script did not place it: a frame a reopened simulation
+        carries, or one a command moved in a way the ledger does not follow.
+        """
+        placed = self._frame_placements.get(self._loads_frame)
+        return {
+            "frame": self._loads_frame,
+            "origin": None
+            if placed is None or placed.origin is None
+            else [float(value) for value in placed.origin],
+            "axes": None
+            if placed is None or placed.axes is None
+            else [[float(value) for value in axis] for axis in placed.axes],
+        }
 
     @property
     def simulation_length_unit(self) -> str | None:

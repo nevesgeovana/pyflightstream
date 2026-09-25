@@ -3513,7 +3513,8 @@ of the point: the run record names them as `action_program` and
 steps the solver completed.
 
 What is exported per step is read from the row's outputs and nowhere
-else: the loads table, the Tecplot file, the sections, the sectional
+else: the loads table, the surface (the VTK, from which the run writes each
+step's Tecplot file since 0.28.0), the sections, the sectional
 loads and the probes, whichever the pproc artifact's export set kept.
 The saved simulation, the plots file and the log describe the whole run
 and stay at the end. A row stating both keys is refused naming both; a
@@ -3594,7 +3595,9 @@ step the solver never stamped is absent and the `products.json` entry
 says which steps were tabled; the surface sections export (`_cp`) and
 the Tecplot file (`.dat`) of the window are listed there by path, as
 `sections_files` and `tecplot_files`. Cp is also tabled in the per-distribution
-files above; Tecplot keeps its native format. A stamped file the parsers cannot read costs that
+files above; each step's Tecplot is the one the run wrote from that step's VTK
+([the definitions](post-processing-definitions.md#native-surface-flow-exports)),
+and is not rewritten by the post. A stamped file the parsers cannot read costs that
 point its series, recorded under `skipped` as `series/<run id>`, and
 never the stage. These tables are not the "raw series" the reductions
 write beside the plots table: that one is the plots export's history of

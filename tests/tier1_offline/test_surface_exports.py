@@ -14,6 +14,7 @@ from pydantic import ValidationError
 
 from pyflightstream.cases import Campaign, PprocSpec, default_outputs, windows
 from pyflightstream.cases.workflows import (
+    WorkflowCoverageError,
     build_script,
     unsteady_export_threshold,
 )
@@ -23,6 +24,7 @@ from pyflightstream.post.series import write_point_series
 from pyflightstream.run import run_campaign
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+from tests.tier1_offline.test_matrix_run import STUB_VTK
 from tests.tier1_offline.test_run_campaign import StubSolver, converged
 from tests.tier1_offline.test_workflows import rotor_case, unsteady_case
 
@@ -161,7 +163,9 @@ def test_both_formats_join_per_step_exports(threshold, first):
     _script(case)  # planning must accept the same payload as the action
     window = unsteady_export_threshold(case, version="26.124")
     assert window.first_step == first
-    assert "EXPORT_SOLVER_ANALYSIS_TECPLOT\np.dat" in window.exports
+    # G45: the Tecplot is written from the VTK, which is exported once per step.
+    assert "EXPORT_SOLVER_ANALYSIS_TECPLOT" not in window.exports
+    assert window.exports.count("EXPORT_SOLVER_ANALYSIS_VTK") == 1
     assert "SET_VTK_EXPORT_VARIABLES 2 DISABLE\nVX\nVY" in window.exports
     assert "EXPORT_SOLVER_ANALYSIS_VTK\np.vtk\nSURFACES -1" in window.exports
     assert "EXPORT_SOLVER_ANALYSIS_CSV\np.csv\nFORMAT CP-FREESTREAM" in window.exports
@@ -181,7 +185,10 @@ def test_exports_obey_selected_build_database_status(verb):
     removed = removed.model_copy(update={"status": Status.REMOVED})
     entry = entry.model_copy(update={"versions": {**entry.versions, "26.124": removed}})
     registry = CommandRegistry(commands={**registry.commands, verb: entry})
-    with pytest.raises(CommandNotInVersionError) as caught:
+    # G45: the unsteady workflow always exports the VTK its Tecplot is written
+    # from, so a build without either command is refused before anything is
+    # emitted, by coverage, naming the command and the build as the emitter does.
+    with pytest.raises((CommandNotInVersionError, WorkflowCoverageError)) as caught:
         _script(_case(), registry=registry)
     assert verb in str(caught.value) and "26.124" in str(caught.value)
 
@@ -225,10 +232,13 @@ def test_run_records_emitted_window_and_products_use_record_not_edited_pproc(tmp
     artifact = workspace.inputs_dir / "pproc" / "p001.toml"
     artifact.parent.mkdir(parents=True)
     artifact.write_text("[exports]\nvtk = true\ncsv = true\n[time_averaging]\nlast_revs = 1.5\n")
-    # Stub writes all requested files, never invoking a licensed executable.
+    # Stub writes all requested files, never invoking a licensed executable; the
+    # VTK is one in the solver's layout, since the package writes the Tecplot from it (G45).
     code = (
         "import pathlib,sys; lines=pathlib.Path(sys.argv[1]).read_text().splitlines(); "
-        "[pathlib.Path(lines[i+1]).write_text('native surface') for i,line in enumerate(lines) "
+        f"vtk={STUB_VTK!r}; "
+        "[pathlib.Path(lines[i+1]).write_text(vtk if line == 'EXPORT_SOLVER_ANALYSIS_VTK' else "
+        "'native surface') for i,line in enumerate(lines) "
         "if line.startswith('EXPORT_SOLVER_ANALYSIS_')]"
     )
     record = run_campaign(

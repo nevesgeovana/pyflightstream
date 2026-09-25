@@ -39,6 +39,7 @@ from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
 from tests.tier1_offline.test_goal024_point_name import _matrix
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
+    STUB_BODY,
     WRITES_EVERY_EXPORT,
     CountingStub,
     converged,
@@ -67,7 +68,7 @@ def _writes_loads_and_every_export(tmp_path):
         f"loads = pathlib.Path({source.as_posix()!r}).read_text(); "
         "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
         "[pathlib.Path(lines[i + 1]).write_text("
-        "loads if line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET' else 'DATA') "
+        f"loads if line == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET' else {STUB_BODY}) "
         "for i, line in enumerate(lines) "
         "if line.split(' ')[0] in verbs and i + 1 < len(lines)]"
     )

@@ -137,6 +137,7 @@ from pyflightstream.commands import (
     Status,
     VersionView,
 )
+from pyflightstream.results import MalformedOutputError, SurfaceFrame
 from pyflightstream.script import (
     MARCH_ACTIONS,
     MARCH_SINGLE,
@@ -244,8 +245,11 @@ __all__ = [
     "reduction_windows",
     "read_actuator_profile",
     "refuse_an_additional_post_build",
+    "refuse_an_untranslatable_surface",
     "refuse_what_a_saved_point_cannot_give",
     "surface_time_averaging",
+    "tecplot_source",
+    "with_tecplot_source",
     "require_coverage",
     "resolve_workflow",
     "rotor_relaxed_trailing_edges",
@@ -9607,7 +9611,69 @@ def surface_time_averaging(case: SimCase) -> SurfaceAveragingWindow | None:
         raise CampaignConfigError(f"case {case.sim_id!r}: {error}") from error
 
 
-def _surface_export(script: Script, case: SimCase, kind: str, name: str) -> bool:
+def tecplot_source(tecplot: str, kinds: Mapping[str, str]) -> str:
+    """Return the VTK a point's Tecplot surface is written from (G45 of 0.28.0).
+
+    ONE VTK EXPORT PER POINT FEEDS BOTH: where the outputs name a VTK, the
+    Tecplot is written from that very file; otherwise the script exports one
+    under the Tecplot's own name with the ``.vtk`` extension.
+
+    Examples
+    --------
+    >>> tecplot_source("P1-AL+000.dat", {"tecplot": "P1-AL+000.dat"})
+    'P1-AL+000.vtk'
+    >>> tecplot_source("P1-AL+000.dat", {"tecplot": "P1-AL+000.dat", "vtk": "field.vtk"})
+    'field.vtk'
+    """
+    declared = kinds.get("vtk")
+    if declared is not None:
+        return declared
+    return PurePath(tecplot).with_suffix(".vtk").as_posix()
+
+
+def with_tecplot_source(outputs: Sequence[str]) -> list[str]:
+    """Return a point's outputs with the VTK its Tecplot surface is written from (G45).
+
+    Where the outputs name a Tecplot and no VTK, the VTK the script exports in
+    its place (:func:`tecplot_source`) joins them right after the Tecplot, so the
+    run holds it to the rules of every declared output: refused if it is there
+    before the run, waited for on a cluster, filed, listed and hashed. The
+    Tecplot's record names that VTK and its sha256, and the file it names is
+    kept.
+
+    Examples
+    --------
+    >>> with_tecplot_source(["P1.txt", "P1.dat", "P1_log.txt"])
+    ['P1.txt', 'P1.dat', 'P1.vtk', 'P1_log.txt']
+    >>> with_tecplot_source(["P1.txt", "P1.dat", "P1.vtk"])
+    ['P1.txt', 'P1.dat', 'P1.vtk']
+    """
+    names = [str(name) for name in outputs]
+    kinds = classify_outputs(names)
+    if "tecplot" not in kinds or "vtk" in kinds:
+        return names
+    at = names.index(kinds["tecplot"]) + 1
+    return [*names[:at], tecplot_source(kinds["tecplot"], kinds), *names[at:]]
+
+
+def _export_surface_vtk(script: Script, case: SimCase, name: str) -> None:
+    """Export the surface VTK, the variables the pproc selects, never the wake.
+
+    Without ``vtk_variables`` the all-variables form, ``-1 DISABLE``: with no
+    selection at all the solver also writes a ``<name>_wakes.vtk`` (RPT-074).
+    """
+    variables = case.pproc.vtk_variables if case.pproc is not None else None
+    helpers.export_results(script, vtk=name, vtk_variables=variables or "all")
+
+
+def _surface_export(
+    script: Script,
+    case: SimCase,
+    kind: str,
+    name: str,
+    *,
+    kinds: Mapping[str, str] | None = None,
+) -> bool:
     """Emit the kinds whose export is more than ``<verb>`` and a name, validated on the build.
 
     The surface formats and the force distribution carry a payload. A solver
@@ -9615,6 +9681,11 @@ def _surface_export(script: Script, case: SimCase, kind: str, name: str) -> bool
     ``SET_PLOT_TYPE`` first, because ``SAVE_PLOT_TO_FILE`` saves whichever plot
     is showing, then the save with the path on the line after it (RPT-067).
     False for every other kind, which the caller emits as ``<verb>`` and a name.
+
+    THE TECPLOT IS NEVER THE SOLVER'S (G45 of 0.28.0): the script exports the
+    VTK it is written from (:func:`tecplot_source`), and nothing where the
+    outputs name that VTK themselves, whose own export is the one. ``kinds``
+    is every kind the caller exports, name by kind.
     """
     if kind in PLOT_TYPES:
         script.emit("SET_PLOT_TYPE", PLOT_TYPES[kind])
@@ -9622,9 +9693,12 @@ def _surface_export(script: Script, case: SimCase, kind: str, name: str) -> bool
     elif kind == "force_distributions":
         # Every surface: the command takes a count, and -1 is all of them.
         helpers.export_results(script, force_distributions=name)
+    elif kind == "tecplot":
+        stated = dict(kinds or {kind: name})
+        if "vtk" not in stated:
+            _export_surface_vtk(script, case, tecplot_source(name, stated))
     elif kind == "vtk":
-        variables = case.pproc.vtk_variables if case.pproc is not None else None
-        helpers.export_results(script, vtk=name, vtk_variables=variables or "all")
+        _export_surface_vtk(script, case, name)
     elif kind == "csv":
         verb = "EXPORT_SOLVER_ANALYSIS_CSV"
         args: list[object] = [name, "CP-FREESTREAM", "PASCALS"]
@@ -9723,8 +9797,18 @@ def _export_block(
             continue
         if kind == "log" and (declared_log or not exports_its_log):
             continue
-        if not _surface_export(script, case, kind, kinds[kind]):
+        if not _surface_export(script, case, kind, kinds[kind], kinds=kinds):
             script.emit(verb, kinds[kind])
+    if "tecplot" in kinds:
+        # G45: WHAT THE RUN WRITES FROM THE VTK, and the frame the VTK is in, as
+        # this script placed it at the moment of the export.
+        script.surface_translations.append(
+            {
+                "vtk": tecplot_source(kinds["tecplot"], kinds),
+                "dat": kinds["tecplot"],
+                "frame": script.loads_frame_record(),
+            }
+        )
     if declared_log:
         _export_log(conventions, case, script, claimed=(names.index(kinds["loads"]) + 1,))
 
@@ -10059,6 +10143,54 @@ def build_steady_sweep(
             frames=frames,
         )
     script.emit("CLOSE_FLIGHTSTREAM")
+    refuse_an_untranslatable_surface(first, script)
+
+
+def refuse_an_untranslatable_surface(case: SimCase, script: Script) -> None:
+    """Refuse a script whose Tecplot surface cannot be written from its VTK (G45 of 0.28.0).
+
+    The solver writes the VTK in the analysis loads frame (RPT-074), so the
+    Tecplot is written from it by undoing that frame, which the package can do
+    only where this script placed it: a frame an opened project carries, or one
+    a command moved in a way the frame ledger does not follow, has no placement.
+    A frame whose axes are not orthonormal is refused too, and so is a
+    ``vtk_variables`` naming some of ``VX``, ``VY``, ``VZ`` and not all three
+    where the loads frame is not the reference frame, since the solver writes
+    each component from all three. Called at the end of every build, so a
+    refusal costs no seat; a continuation is not asked, because its loads frame
+    is the saved simulation's and the run takes it from the run it continues.
+
+    Raises
+    ------
+    CampaignConfigError
+        Naming the case, the Tecplot output and the frame.
+    """
+    variables = case.pproc.vtk_variables if case.pproc is not None else None
+    velocity = [name for name in ("VX", "VY", "VZ") if variables and name in variables]
+    for translation in script.surface_translations:
+        stated = translation.get("frame")
+        dat = translation.get("dat")
+        assert isinstance(stated, Mapping)
+        where = (
+            f"case {case.sim_id!r}: its Tecplot surface {dat} is written by the package from "
+            f"the VTK the solver exports in the analysis loads frame (RPT-074)"
+        )
+        try:
+            frame = SurfaceFrame.from_record(stated)
+        except MalformedOutputError as error:
+            raise CampaignConfigError(
+                f"{where}, and frame {stated.get('frame')} cannot be undone: {error}. Place "
+                "the loads frame with the reference's frames, or set tecplot = false under "
+                "the pproc's [exports]."
+            ) from error
+        moved = frame.turns or any(float(value) != 0.0 for value in frame.origin)
+        if moved and velocity and len(velocity) != 3:
+            raise CampaignConfigError(
+                f"{where}, frame {frame.index} is not the reference frame, and the pproc's "
+                f"vtk_variables names {', '.join(velocity)} of the three velocity components: "
+                "the solver writes each from all three, so one alone cannot be written back "
+                "in the reference frame. Name VX, VY and VZ together, or none of them."
+            )
 
 
 # --- PFS-2028.01: the third run type, unsteady with nothing turning ----------
@@ -10441,8 +10573,11 @@ def action_export_lines(
     for kind, _, verb, _ in EXPORT_KINDS:
         if kind in kinds:
             payload = Script(version)
-            if _surface_export(payload, case, kind, kinds[kind]):
-                lines += payload.render().splitlines()
+            if _surface_export(payload, case, kind, kinds[kind], kinds=kinds):
+                # A Tecplot whose VTK the outputs name emits nothing of its own
+                # (G45), and an empty payload renders one blank line.
+                rendered = payload.render()
+                lines += rendered.splitlines() if rendered.strip() else []
             else:
                 lines += [verb, kinds[kind]]
     return lines
@@ -12545,7 +12680,8 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "UPDATE_PROBE_POINTS",
             "SAVEAS",
             "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
-            "EXPORT_SOLVER_ANALYSIS_TECPLOT",
+            "SET_VTK_EXPORT_VARIABLES",
+            "EXPORT_SOLVER_ANALYSIS_VTK",
             "EXPORT_ALL_SURFACE_SECTIONS",
             "EXPORT_SURFACE_SECTIONAL_LOADS",
             "EXPORT_PROBE_POINTS",
@@ -12579,7 +12715,8 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "COMPUTE_SURFACE_SECTIONAL_LOADS",
             "SAVEAS",
             "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
-            "EXPORT_SOLVER_ANALYSIS_TECPLOT",
+            "SET_VTK_EXPORT_VARIABLES",
+            "EXPORT_SOLVER_ANALYSIS_VTK",
             "EXPORT_ALL_SURFACE_SECTIONS",
             "EXPORT_SURFACE_SECTIONAL_LOADS",
             "UNSTEADY_SOLVER_EXPORT_PLOTS",
@@ -12619,7 +12756,8 @@ WORKFLOWS: Mapping[str, Workflow] = {
             "COMPUTE_SURFACE_SECTIONAL_LOADS",
             "SAVEAS",
             "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
-            "EXPORT_SOLVER_ANALYSIS_TECPLOT",
+            "SET_VTK_EXPORT_VARIABLES",
+            "EXPORT_SOLVER_ANALYSIS_VTK",
             "EXPORT_ALL_SURFACE_SECTIONS",
             "EXPORT_SURFACE_SECTIONAL_LOADS",
             "UNSTEADY_SOLVER_EXPORT_PLOTS",
@@ -12751,6 +12889,10 @@ def build_script(
         case, capabilities=BuildCapabilities.of(script._view), registry=registry
     )
     workflow.builder(case, script, conventions or WorkflowConventions.for_case(case))
+    # A continuation's loads frame is its saved simulation's, which the run takes
+    # from the run it continues; only an unsteady row continues one.
+    if case.recipe not in _UNSTEADY_RECIPES or continuation_of(case) is None:
+        refuse_an_untranslatable_surface(case, script)
     # THE LABEL IS THE SCRIPT: a point recorded as marched by actions registers
     # at least one, and one recorded as a single march registers none. The
     # builders emit the actions from the row, so this is where the two are
@@ -12921,7 +13063,8 @@ def additional_outputs(pproc: PprocSpec, *, stem: str, unsteady: bool) -> tuple[
 
     The loads table always; the surface exports the additional pproc's
     ``[exports]`` selects, by the rule :func:`~pyflightstream.cases.default_outputs`
-    applies (Tecplot unless it says false, VTK and CSV where it says true); the
+    applies (Tecplot unless it says false, VTK and CSV where it says true), and
+    the VTK a Tecplot is written from wherever the Tecplot is (G45); the
     surface sections and the sectional loads ALWAYS, because the reopened file
     stores the sections and not their loads, so the extraction computes them
     every time (RPT-062); the plots history on an unsteady point, which the file
@@ -12960,7 +13103,8 @@ def additional_outputs(pproc: PprocSpec, *, stem: str, unsteady: bool) -> tuple[
         kinds.append("plots")
     if chosen.get("log", True):
         kinds.append("log")
-    return tuple(f"{stem}{suffix[kind]}" for kind in kinds)
+    # G45: the Tecplot is written from a VTK, which the extraction exports and keeps.
+    return tuple(with_tecplot_source([f"{stem}{suffix[kind]}" for kind in kinds]))
 
 
 def frame_definitions(
@@ -13165,6 +13309,17 @@ def build_additional_script(case: SimCase, script: Script, *, saved: str, shadow
         _loads_selections(case, script)
     _export_block(WorkflowConventions(outputs=tuple(case.outputs)), case, script, unsteady=unsteady)
     script.emit("CLOSE_FLIGHTSTREAM")
+    # G45: THE LOADS FRAME IS THE RUN'S, placed by the run's own script: the
+    # extraction declares the saved simulation's frames and places none, and the
+    # shadow is that script built again, whose frames the drift check held equal.
+    for translation in script.surface_translations:
+        stated = translation["frame"]
+        assert isinstance(stated, dict)
+        placed = shadow.frame_placements.get(int(stated["frame"]))  # type: ignore[call-overload]
+        if placed is not None and placed.origin is not None and placed.axes is not None:
+            stated["origin"] = [float(value) for value in placed.origin]
+            stated["axes"] = [[float(value) for value in axis] for axis in placed.axes]
+    refuse_an_untranslatable_surface(case, script)
     carried = sorted(
         {line.split(" ", 1)[0] for line in script.render().splitlines()} & _NEVER_IN_AN_EXTRACTION
     )

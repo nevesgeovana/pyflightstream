@@ -139,3 +139,34 @@ changes for you is listed below, one section per change.
 - The custom free stream's coverage warning (G18) now says, for a row that moves
   the body (ROTATE, TRANSLATE, rotor MOTIONS or an import operation), that the
   coverage was not checked, instead of comparing the body where its file holds it.
+
+## 13. The Tecplot surface is written from the VTK (G45)
+
+- The script no longer asks the solver for the Tecplot: it exports the surface
+  as VTK and the package writes `<point>.dat` from it, at the same name and in
+  the same folder, per step too. A script or a Tecplot layout that reads the
+  `.dat` finds it where it was, and reads a different file:
+  - **The values are per cell, not per node.** The zone is still one FEPolygon
+    zone of the same nodes and polygons, and every variable but `X`, `Y`, `Z` is
+    now cell-centred, the value the solver computed on each panel. A layout that
+    contoured nodal values contours cell values; a script that indexed a
+    variable by node must index it by polygon.
+  - **The names are the VTK's.** `Cp` is now `Cp_reference`, beside a new
+    `Cp_freestream`; `CF` is `skin_friction_coeff.`; `Mach Number` is
+    `Mach_Number`; `BL Thickness`, `BL streamline length`, `Transition marker`
+    and `Separation marker` take underscores. Seven variables are new, among
+    them `Normalized_Vorticity` and `Boundary_Index`.
+  - **`Singularity_strength` is gone**: the VTK does not carry it, so no
+    translation can.
+  - The nodes and the velocity components are in the reference frame, as the
+    solver's Tecplot was.
+- `<point>.vtk` now sits beside every `<point>.dat` and is listed among the
+  point's outputs, since the `.dat` is written from it and names it.
+  `[exports] vtk = true` gives that same file, not a second export.
+- A row whose loads frame the script does not place, or whose pproc's
+  `vtk_variables` names one or two of `VX`, `VY`, `VZ` while its loads frame
+  moves, is refused at plan, naming the frame; name all three components or
+  none. A continuation of a run recorded before 0.28.0 is refused before the
+  solver starts unless its pproc sets `tecplot = false`, since that run recorded
+  no placement of its loads frame.
+- A `.dat` a run wrote before 0.28.0 is the solver's own and stays so.

@@ -431,6 +431,11 @@ class SweepAxis(BaseModel):
 #: would end with the sections kind's ``_cp.txt``, and no plot suffix ends with
 #: the unsteady kind's ``_plots.txt``.
 #:
+#: THE TECPLOT KIND'S VERB IS THE SOLVER'S, AND NO CAMPAIGN EMITS IT (G45 of
+#: 0.28.0): the script exports the VTK in its place and the package writes the
+#: ``.dat`` from it (:func:`~pyflightstream.cases.workflows.tecplot_source`). The
+#: suffix is what the kind is, and it is unchanged.
+#:
 #: THE SOLVER'S OWN PLOTS (G04 of 0.27.0, RPT-067) are three kinds sharing one
 #: verb, ``SAVE_PLOT_TO_FILE``, which saves whichever plot ``SET_PLOT_TYPE``
 #: chose; :data:`PLOT_TYPES` names the plot each kind chooses. They sit after
@@ -522,8 +527,14 @@ OPT_IN_EXPORT_KINDS: tuple[str, ...] = ("vtk", "csv", "force_distributions")
 EXPORT_KIND_MEANINGS: dict[str, str] = {
     "simulation": "The point's final saved simulation, its solver state after the solve.",
     "loads": "The loads table, the export every run is judged by.",
-    "tecplot": "The surface solution in Tecplot format.",
-    "vtk": "The surface solution in VTK format.",
+    "tecplot": (
+        "The surface solution in Tecplot format, written by the package from the VTK "
+        "export: one value per panel, in the reference frame."
+    ),
+    "vtk": (
+        "The surface solution in VTK format, as the solver writes it; the Tecplot is "
+        "written from this same file."
+    ),
     "csv": "The surface solution as a CSV table.",
     "force_distributions": ("The per-panel force distribution, saved once at the end of the run."),
     "sections": "The pressure distribution of every surface section the pproc declares.",

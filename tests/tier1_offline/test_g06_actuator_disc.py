@@ -70,6 +70,7 @@ from pyflightstream.workspace.matrix import resolve_matrix
 from tests.tier1_offline.test_goal024_point_name import _matrix, _plan
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
+    STUB_BODY,
     WRITES_EVERY_EXPORT,
     CountingStub,
     StubSolver,
@@ -684,7 +685,7 @@ def _writes_every_export_and_the_log(log: Path) -> str:
         f"log = pathlib.Path({str(log)!r}).read_bytes(); "
         "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
         "[pathlib.Path(lines[i + 1]).write_bytes("
-        "log if line.split(' ')[0] == 'EXPORT_LOG' else b'DATA') "
+        f"log if line.split(' ')[0] == 'EXPORT_LOG' else {STUB_BODY}.encode()) "
         "for i, line in enumerate(lines) "
         "if line.split(' ')[0] in verbs and i + 1 < len(lines)]"
     )

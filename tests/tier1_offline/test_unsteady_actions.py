@@ -179,7 +179,10 @@ def test_the_per_step_exports_are_read_from_the_export_set_and_update_before_exp
         "UPDATE_ALL_SURFACE_SECTIONS",
         "COMPUTE_SURFACE_SECTIONAL_LOADS NEWTONS",
         "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
-        "EXPORT_SOLVER_ANALYSIS_TECPLOT",
+        # G45: the VTK the Tecplot is written from, every variable, no wake.
+        "SET_VTK_EXPORT_VARIABLES -1 DISABLE",
+        "EXPORT_SOLVER_ANALYSIS_VTK",
+        "SURFACES -1",
         "EXPORT_ALL_SURFACE_SECTIONS",
         "EXPORT_SURFACE_SECTIONAL_LOADS",
     ], lines

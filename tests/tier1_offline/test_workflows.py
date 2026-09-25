@@ -4125,7 +4125,9 @@ HER_EXPORT_ORDER = (
     "UPDATE_PROBE_POINTS",
     "SAVEAS",
     "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
-    "EXPORT_SOLVER_ANALYSIS_TECPLOT",
+    # G45 of 0.28.0: the Tecplot is written by the package from this VTK.
+    "SET_VTK_EXPORT_VARIABLES -1 DISABLE",
+    "EXPORT_SOLVER_ANALYSIS_VTK",
     "EXPORT_ALL_SURFACE_SECTIONS",
     "EXPORT_SURFACE_SECTIONAL_LOADS",
     "EXPORT_PROBE_POINTS",
@@ -4358,6 +4360,7 @@ def test_pproc_exports_select_the_export_verbs(tmp_path):
     )
     lines = rendered(case).splitlines()
     assert "EXPORT_SOLVER_ANALYSIS_TECPLOT" not in lines and "EXPORT_PROBE_POINTS" not in lines
+    assert "EXPORT_SOLVER_ANALYSIS_VTK" not in lines, "no Tecplot, so no VTK to write one from"
     for verb in (
         "SAVEAS",
         "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",

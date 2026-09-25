@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-25
 **Found by:** the licensed probe T45 of the 0.28.0 work
-**Status:** OPEN until G45 (0.28.0: the Tecplot surface written by the package from the VTK)
+**Status:** CLOSED in 0.28.0 (G45: the Tecplot surface of a campaign point is written by the package from the VTK, cell-centred, in the reference frame, the only route)
 **Affects:** `EXPORT_SOLVER_ANALYSIS_VTK` and `EXPORT_SOLVER_ANALYSIS_TECPLOT` on 26.124
 
 ## What this settles
@@ -97,6 +97,23 @@ after it was missing. That run is not evidence of anything but that.
 - A loads frame with an axis tilted out of the xy plane (only a turn about z was
   run), and the per-step exports of an unsteady run, which are written by the same
   command at each step.
+
+## Addendum, 2026-09-25: the velocity components carry the frame's origin
+
+Read from the same recorded files while G45 was built, with no new run. The
+velocity components are written the way a point is, ORIGIN INCLUDED:
+`v' = R (v - o)`, not `R v`. With the origin put back, `v = R^T v' + o`, the
+norm of `Vx`, `Vy`, `Vz` equals the panel's own `Velocity` scalar to 7e-15 at
+the median, on 6867 of the 7167 panels of S_VTK and of S_VTKROT alike; turned
+back as a vector alone it misses by 9.0 m/s at the median, the origin's 9.152 m
+read as a speed. The comparison with the solver's Tecplot agrees: each panel's
+`Vx` against the mean of the solver's nodal `Vx` at its nodes differs by 0.087
+m/s at the median once the origin is put back, and by 9.17 m/s before. The
+exchange of `Vx` and `Vy` between the plain and the turned frame reported above
+holds either way, because the two runs share their origin; it could not tell
+the two readings apart. On the remaining 300 panels the `Velocity` scalar is
+not the norm of the three components under either reading. G45 undoes the
+components exactly as it undoes the points.
 
 ## Evidence
 
