@@ -40,6 +40,8 @@ from pyflightstream.fsi.errors import FsiInputError
 __all__ = [
     "MATERIALS",
     "MATERIALS_DATABASE_VERSION",
+    "SHEAR_MODULUS_DERIVED",
+    "SHEAR_MODULUS_TABULATED",
     "Material",
     "MaterialSource",
     "material",

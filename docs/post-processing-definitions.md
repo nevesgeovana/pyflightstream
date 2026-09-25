@@ -752,9 +752,11 @@ a warning naming the steps when no current averaging key was recorded.
 
 ## Native surface flow exports
 
-Tecplot (`.dat`), VTK (`.vtk`) and FEM CSV (`.csv`) are native solver surface
-exports. VTK and CSV are **off by default**. The pproc can request them and
-select VTK variables by their command-database names:
+VTK (`.vtk`) and FEM CSV (`.csv`) are native solver surface exports; the
+Tecplot (`.dat`) is written by the package from the VTK since 0.28.0
+([below](#the-tecplot-surface-is-written-from-the-vtk-since-0280)). VTK and CSV
+are **off by default**. The pproc can request them and select VTK variables by
+their command-database names:
 
 ```toml
 vtk_variables = ["X", "Y", "Z", "CP_FREESTREAM"] # top-level; optional
@@ -802,7 +804,7 @@ all-variables form, `SET_VTK_EXPORT_VARIABLES -1 DISABLE`, which writes no
 | | the solver's own Tecplot, to 0.27.x | the package's, since 0.28.0 |
 |---|---|---|
 | zone | one FEPolygon zone, BLOCK packing | the same |
-| nodes | `X`, `Y`, `Z`, in the reference frame | the same nodes, in the reference frame |
+| nodes | `X`, `Y`, `Z`, in the reference frame | the same nodes, in the reference frame; under mirror or periodic symmetry, followed by the images of the surface (below) |
 | values | per NODE, by a cell-to-node rule of the solver's | per CELL, `VARLOCATION` cell-centred: exactly the value the solver computed on each panel, nothing interpolated |
 | variables | sixteen, `Singularity_strength` among them | every variable the VTK carries, under the VTK's names: nineteen in the all-variables form |
 | faces | each polygon's edges, the polygon on the left, none on the right | the same |
@@ -825,6 +827,16 @@ all-variables form, `SET_VTK_EXPORT_VARIABLES -1 DISABLE`, which writes no
   and is written as the VTK holds it. A `vtk_variables` naming some of `VX`,
   `VY`, `VZ` and not all three is refused at plan where the loads frame is not
   the reference frame, since each component was written from all three.
+- **A row under symmetry carries its images.** Under mirror symmetry the VTK,
+  and so the `.dat`, holds the modelled surface followed by its mirror image in
+  `y`; under periodic symmetry, the modelled blade followed by its copies turned
+  about the rotor's axis, one per other blade. The solver's own Tecplot held the
+  modelled surface alone. The first block of nodes and polygons is that surface,
+  node for node: the 99 Tecplot files of the tier-3 points on 26.124 against the
+  solver's own of the same solves are equal on 86, and on the 13 mirrored or
+  periodic ones the first block is equal to 3e-17 m and the rest are the images
+  (RPT-080). A reader that sums over every panel of such a `.dat` sums the whole
+  body, not the half or the one blade the solver's file held.
 - **`Singularity_strength` is not carried.** It is the panel strength the
   solver's Tecplot prints, and the VTK does not hold it. The VTK adds seven the
   solver's Tecplot did not carry: `Normalized_Vorticity`, `Cp_freestream`, the

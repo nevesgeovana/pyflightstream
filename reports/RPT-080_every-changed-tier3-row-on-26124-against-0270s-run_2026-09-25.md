@@ -96,6 +96,29 @@ case, as their row descriptions state:
 - 5012 and 5013: a uniform custom free-stream field at 0 deg and its control,
   the constant free stream at 0 deg.
 
+### The package's Tecplot against the solver's own
+
+The 0.27.0 regression asked the solver for the Tecplot of every point, in the
+reference frame. T34 wrote the package's Tecplot from the VTK, carried back from
+the analysis loads frame (G45). Same executable, same solves, so the nodes must
+be the same. The two were read with one Tecplot reader, for all 99 surface files
+of the tier-3 points (the final surface of every point):
+
+- **86 are equal node for node**, to 1e-6 m. They include the unsteady rotor
+  rows (1021, 1022, 8001 to 8006) and the rows whose loads frame sits at a
+  moment reference point away from the origin.
+- **The other 13 hold two or six times as many nodes.** They are the rows under
+  mirror symmetry (1002, 4002, 5003) and under six-blade periodic symmetry
+  (1020, 3001 to 3006, 5005, 7001, 7002). On each, the first block of nodes
+  equals the solver's surface to 3e-17 m. On the mirrored rows, the second block
+  is its mirror image in y. On the periodic rows, the five other blocks are the
+  blade turned about the rotor's axis, at the same x and radius. The VTK carries
+  the symmetry images, and the solver's own Tecplot left them out.
+
+So the translation puts every real surface of the tier-3 library where the
+solver's own file put it, and a Tecplot of a symmetric row now also carries the
+images. The documentation says so since this report.
+
 ## What it means for the package
 
 - The exports 0.28.0 moved do not reach the solve. The script now asks for the
@@ -107,9 +130,13 @@ case, as their row descriptions state:
 
 ## What this does NOT establish
 
-- **The package's Tecplot against the solver's own.** That is RPT-074 and its
-  addendum. T34 shows that every point writes the file; it does not compare the
-  values again.
+- **The package's Tecplot values against the solver's own.** The nodes are
+  compared above. The values are not: the package's are per cell and the
+  solver's were per node. RPT-074 compares them on one solve.
+- **A loads frame carried by a motion.** No tier-3 row puts its loads frame on a
+  frame a rotor motion carries: every motion lists its own blade frames. Whether
+  such a frame moves during the solve, and so whether one fixed placement undoes
+  every step, is not measured.
 - **Other builds.** Every build id ran on 26.124. How the rows behave on 26.120 or
   26.123 executables is the earlier regressions' record.
 - **Points whose golden did not change.** Every tier-3 matrix had at least one
@@ -122,5 +149,6 @@ case, as their row descriptions state:
   `prepare_t34.py` (the fresh copy and the overlay), `run_t34.py` and
   `rerun_t34.py` (plan, run, checks), `compare_t12_t34.py` (the table
   comparison, with its per-table verdicts), `compare_control.py` (the
-  derangement), `t34_facts.py` (the counts above).
+  derangement), `t34_facts.py` (the counts above), `compare_nodes_t12_t34.py`
+  and `symmetry_images.py` (the Tecplot nodes and the images).
 - The 0.27.0 regression: `reports/RPT-073_every-changed-tier3-row-on-26124-against-its-recorded-run_2026-09-24.md`.

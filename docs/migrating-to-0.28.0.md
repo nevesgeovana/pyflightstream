@@ -158,6 +158,11 @@ changes for you is listed below, one section per change.
     them `Normalized_Vorticity` and `Boundary_Index`.
   - **`Singularity_strength` is gone**: the VTK does not carry it, so no
     translation can.
+  - **A row under mirror or periodic symmetry now carries the images.** The
+    file holds the modelled surface first, node for node as the solver's
+    Tecplot held it, followed by its mirror image or by the copies of the blade
+    for the other blades. A script that summed over every panel of a half model
+    and doubled the result must stop doubling, or keep only the first block.
   - The nodes and the velocity components are in the reference frame, as the
     solver's Tecplot was.
 - `<point>.vtk` now sits beside every `<point>.dat` and is listed among the

@@ -15,7 +15,9 @@ FlightStream versions.
   does not cover the body's y and z extent, naming both, because beyond its grid
   the solver does not extend a field and applies something close to the constant
   free stream there; it warns rather than refuses, since a local gust may cover
-  part of the body on purpose. The documentation says what else RPT-077
+  part of the body on purpose. On a row that moves the body (`ROTATE`,
+  `TRANSLATE`, a rotor's `MOTIONS`, an import operation) the warning says the
+  coverage was not checked instead. The documentation says what else RPT-077
   measured: incidence written into the field loads the body as that incidence
   while the loads export prints CL and CDi in the axes of the stated zero angle
   (read Cx, Cy, Cz, or turn them), and a saved simulation carries its field until
@@ -158,9 +160,13 @@ FlightStream versions.
   cell-centred), under the VTK's names (`Cp_reference` and `Cp_freestream` where
   the solver's file had one `Cp`, `skin_friction_coeff.` for `CF`, and so on),
   nineteen in the all-variables form where the solver's file carried sixteen,
-  per node. The solver writes the VTK in the analysis loads frame, points and
-  velocity components alike, the velocity with the frame's origin in it as a
-  point has (measured on RPT-074's files); the package undoes both with the loads
+  per node. **A row under mirror or periodic symmetry now carries the images**:
+  the modelled surface first, node for node as the solver's file held it, then
+  its mirror image or the copies of the blade for the other blades, which the
+  solver's file left out (RPT-080). The solver writes the VTK in the analysis
+  loads frame, points and velocity components alike, the velocity with the
+  frame's origin in it as a point has (measured on RPT-074's files); the package
+  undoes both with the loads
   frame the script set. The VTK is kept beside the `.dat` and listed among the
   point's outputs; `[exports] vtk = true` names that same file. The file states
   its source VTK and that file's sha256; `products.json` and the PROV document
@@ -190,8 +196,9 @@ FlightStream versions.
   `<point>_plot_loads.txt`, saved once after the march and before the log (and in
   the wall clock's rescue), never per step: each holds the whole march, one row per
   inner iteration, measured on 26.124 (RPT-076). `plot_residuals = false` or
-  `plot_loads = false` under `[exports]` turns one off. The section Cp plot stays
-  steady-only and is refused stated true on an unsteady row.
+  `plot_loads = false` under `[exports]` turns one off; stated true on an
+  unsteady row, which 0.27.0 refused, either is now accepted. The section Cp plot
+  stays steady-only and is refused stated true on an unsteady row.
 - **`EXPORT_BL_VELOCITY_PROFILE` is recorded broken on 26.124 (G24).** It holds an
   unattended script there, as on 26.122 (RPT-075, RPT-027), so a row writing it raw
   is refused at plan naming the report, and no pproc route is built for the

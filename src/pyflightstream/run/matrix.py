@@ -823,8 +823,13 @@ def _everything_recorded(
     """
     if resume or force_rerun:
         raise MatrixError(
-            "force_rerun_all redoes every recorded point, so it is refused together with "
-            + ("resume, which skips them" if resume else "force_rerun, which names some of them")
+            "force_rerun_all (CLI: --force-rerun-all) redoes every recorded point, so it is "
+            "refused together with "
+            + (
+                "resume (CLI: --resume), which skips them"
+                if resume
+                else "force_rerun (CLI: --force-rerun), which names some of them"
+            )
             + ". Give one or the other."
         )
     campaign = resolved.campaign
