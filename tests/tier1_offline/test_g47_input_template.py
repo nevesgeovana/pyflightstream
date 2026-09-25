@@ -693,10 +693,13 @@ def test_g47_the_docs_and_the_changelog_name_the_page():
     workflows = (REPO / "docs" / "workspace-and-workflows.md").read_text(encoding="utf-8")
     migrating = (REPO / "docs" / "migrating-to-0.28.0.md").read_text(encoding="utf-8")
     changelog = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
-    unreleased = changelog.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
+    # The section that describes 0.28.0: [Unreleased] until the release commit
+    # dates it, [0.28.0] after.
+    heading = "\n## [0.28.0]" if "\n## [0.28.0]" in changelog else "\n## [Unreleased]"
+    release = changelog.split(heading, 1)[1].split("\n## [", 1)[0]
     assert "inputs/input_template.md" in workflows
     assert re.search(r"^## \d+\. A template of every input file \(G47\)$", migrating, re.M)
-    assert "input_template.md" in unreleased.split("### Added", 1)[1].split("\n### ", 1)[0]
+    assert "input_template.md" in release.split("### Added", 1)[1].split("\n### ", 1)[0]
 
 
 def test_g47_the_columns_of_the_matrix_example_are_the_layout():

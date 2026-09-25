@@ -7,6 +7,48 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Owed
+
+- **The Zenodo archive row of v0.28.0 is owed.** A version DOI is minted from
+  the GitHub release object and recorded one commit after the tag, so between
+  the tag and that commit this release has no archive row; cite the concept DOI
+  until it lands.
+- **The submitting half of the additional post** (0.29.0; the approved 0.28.0
+  scope leaves it out): completing an extraction handed to a scheduler.
+
+- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
+  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
+  concept record lists NINETEEN archived versions and v0.14.0 is not among
+  them. The earlier reading of 2026-09-10 said the same and could not be
+  confirmed for four days because the service was answering 504; it is
+  confirmed now, so this is a fact about the archive rather than about its
+  availability.
+  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
+  had what it needs and the archive still has no version for it. Whatever
+  failed, it failed silently, and re-triggering it is the repair.
+  Until that row lands this section says so, because a shipped release that
+  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
+  release by the concept DOI, which resolves to the newest archived version.
+
+## [0.28.0] - 2026-09-25
+
+USER CAPABILITIES: THE RUN, THE INPUTS, THE SURFACE AND THE FSI BLADE. A
+submitting run ends on one summary line and a local run keeps a log that says
+its progress; one point of a recorded steady job reruns the whole job, and
+`--force-rerun-all` reruns a matrix or the simulations named with `--sims`; an
+unsteady row can start cold. Every input file has a worked example in
+`inputs/input_template.md`; the custom free stream is read from an input file
+in either form and warned when its grid misses the body; an OBJ's surface
+names come from its groups; an actuator disc takes its speed from the advance
+ratio. The Tecplot surface is written by the package from the solver's VTK,
+per cell and in the reference frame, and `[time_averaging]` works, averaged by
+the package; an unsteady row saves the solver's residual and load plots. The
+FSI's blade properties come from its sections and a cited material. Each route
+is proved by a licensed run on 26.124 or 26.122 (RPT-074 to RPT-080). A reader
+of the Tecplot surface changes what it reads: values per cell under the VTK's
+names, no `Singularity_strength`, and the symmetry images on a symmetric row
+(`docs/migrating-to-0.28.0.md`).
+
 ### Added
 
 - **The custom free stream by an input file, the rest of it measured (G18).**
@@ -187,10 +229,6 @@ FlightStream versions.
   `workflows.tecplot_source`, `workflows.with_tecplot_source`,
   `RunRecord.surface_translations`.
 
-- **The type-checker debt, re-measured on the block D tree.** mypy recount 2026-09-25: 863 errors in 18 of 104 modules, against
-  0.27.0's 812 in 18 of 100. The four modules that arrived, `results/surface.py`,
-  `post/surfaces.py` (G45, G25), `fsi/materials.py` and `fsi/sections.py` (G41), are
-  clean; the errors more sit inside the exempted set (`reports/RPT-029`).
 - **An unsteady row saves the solver's residual and load plots (G26).** On by
   default as on a steady point, `<point>_plot_residuals.txt` and
   `<point>_plot_loads.txt`, saved once after the march and before the log (and in
@@ -247,24 +285,13 @@ FlightStream versions.
   `--force-rerun` and `--force-rerun-all` alike, so the new job's record is the
   only active one.
 
-### Owed
+### Changed (the type-checker debt, re-measured on the release tree)
 
-- **The submitting half of the additional post** (0.29.0; the approved 0.28.0
-  scope leaves it out): completing an extraction handed to a scheduler.
-
-- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
-  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
-  concept record lists NINETEEN archived versions and v0.14.0 is not among
-  them. The earlier reading of 2026-09-10 said the same and could not be
-  confirmed for four days because the service was answering 504; it is
-  confirmed now, so this is a fact about the archive rather than about its
-  availability.
-  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
-  had what it needs and the archive still has no version for it. Whatever
-  failed, it failed silently, and re-triggering it is the repair.
-  Until that row lands this section says so, because a shipped release that
-  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
-  release by the concept DOI, which resolves to the newest archived version.
+- mypy recount 2026-09-25: 863 errors in 18 of 104 modules, against 0.27.0's 812 in 18 of 100. The
+  four modules that arrived, `results/surface.py`, `post/surfaces.py` (G45, G25),
+  `fsi/materials.py` and `fsi/sections.py` (G41), are clean; the fifty-one
+  errors more sit inside the exempted set, on the run module's record builders
+  the 0.28.0 blocks extended (`reports/RPT-029`).
 
 ## [0.27.0] - 2026-09-24
 
@@ -12755,7 +12782,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.27.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.28.0...HEAD
+[0.28.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.28.0
 [0.27.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.27.0
 [0.26.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.26.0
 [0.25.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.25.1

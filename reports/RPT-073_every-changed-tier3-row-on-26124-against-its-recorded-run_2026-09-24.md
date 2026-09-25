@@ -197,7 +197,8 @@ ran cold. Warm against cold: CL 0.3298506 against 0.3293351 (+0.16 percent), CDi
 0.0287527 against 0.0288962 (-0.5 percent), CMy equal to 3e-7, CMx 0.0025827
 against 0.0021894 (+18 percent). The warm point took 48 iterations after the
 previous one; the cold point took 63. The warm sweep's own difference is
-registered for 0.28.0 (R13), where the default is still an open decision. This
+registered (R13), carried by 0.28.0 into the rigor track of 0.29.0, where the
+default is still an open decision. This
 report does not decide it.
 
 ## What it means for the package

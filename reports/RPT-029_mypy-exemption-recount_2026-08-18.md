@@ -694,3 +694,13 @@ count does not move. The dirty count still reads 18 and the shipped
 configuration is green over all 104 modules. The quoted mypy lines above are
 this run's. The sentence at the top of this report is this measurement; the
 earlier ones stay above as the history of the figure.
+
+## Re-measured 2026-09-25, the v0.28.0 release tree: unchanged
+
+`python scripts/mypy_recount.py` on 2026-09-25, on the release tree of v0.28.0
+(the block D tree with the fixes of the independent reading C32 and of the
+closing review round): 863 errors in 18 of 104 modules, the block D tree's
+figure exactly, against the v0.27.0 release tree's 812 in 18 of 100. The
+shipped configuration is green over all 104 modules. The quoted mypy lines
+above are this run's as well, and the sentence at the top of this report is
+this measurement.

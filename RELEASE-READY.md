@@ -1,18 +1,21 @@
-# v0.27.0 is released by this sequence, followed as written
+# v0.28.0 is released by this sequence, followed as written
 
-0.27.0 is the release in which THE BASIC GUI STEPS THROUGH pyfs, the owner's theme
-of 2026-09-23: a raw OBJ or STL runs from a matrix row with its unit declared and
-its mesh operations in order; its trailing edges come from a node file by default,
-initialised, detected and initialised again, or from the solver's detection; the
-solver saves its residual, load and section plots; a volume section, an actuator
-disc (by net thrust or by a radial profile) and a custom free stream are keys of a
-row; the loads' surfaces, units and inviscid part are setup keys; every point keeps
-its final saved simulation as a written guarantee, and `pyfs-matrix post
---additional-pproc` extracts a new pproc from it without solving again. Every table
-the post writes opens with POL and holds no comma in a cell, and a point run
-locally runs in its own folder. IT CHANGES WHAT A READER OF THE POST TABLES READS
-in one way: the POLAR column is gone. The change log's `[0.27.0]` section is the
-record; `docs/migrating-to-0.27.0.md` says what a reader's files must change.
+0.28.0 is the release of USER CAPABILITIES, the owner's approval of 2026-09-24:
+a submitting run ends on one summary line and a local run keeps a log that says
+its progress; one point of a recorded steady job reruns the whole job, and
+`--force-rerun-all` reruns a matrix or the simulations named with `--sims`; an
+unsteady row can start cold; every input file has a worked example in
+`inputs/input_template.md`; the custom free stream is read from an input file in
+either form and warned when its grid misses the body; an OBJ's surface names come
+from its groups; an actuator disc takes its speed from the advance ratio; the
+Tecplot surface is written by the package from the solver's VTK, per cell and in
+the reference frame; `[time_averaging]` works, averaged by the package; an
+unsteady row saves the solver's residual and load plots; and the FSI's blade
+properties come from its sections and a cited material. IT CHANGES WHAT A READER
+OF THE TECPLOT SURFACE READS: values per cell under the VTK's names, no
+`Singularity_strength`, and the symmetry images on a symmetric row. The change
+log's `[0.28.0]` section is the record; `docs/migrating-to-0.28.0.md` says what a
+reader's files must change.
 
 **THIS FILE IS RE-TITLED AND RE-MEASURED PER TAG.** It carried the v0.22.0 title,
 commands and readings through the whole 0.23.0 release, and it carried the v0.24.0
@@ -27,10 +30,10 @@ it is re-titled, and the lapse is recorded here rather than repeated silently.
 
 ```
 # 1. the release commit: set the version and CONFIRM the change log's date.
-#    pyproject.toml says 0.27.0.dev7 (the development tree) until this step, deliberately: a tree that
-#    already said 0.27.0 would have every run made from it reporting the released
+#    pyproject.toml says 0.28.0.dev4 (the development tree) until this step, deliberately: a tree that
+#    already said 0.28.0 would have every run made from it reporting the released
 #    version while being a different tree.
-#    (pyproject.toml: version = "0.27.0")
+#    (pyproject.toml: version = "0.28.0")
 #
 #    AND BOTH FRONT PAGES NAME THE NEW VERSION: the status line of README.md,
 #    which is the PyPI project page, and of docs/index.md.
@@ -57,7 +60,7 @@ it is re-titled, and the lapse is recorded here rather than repeated silently.
 #    the rule inside the bullet: a footnote mentioning `owed` satisfies the guard
 #    on its own. IT GOES UNDER [Unreleased] -> Owed, not under the dated section:
 #    under the dated section the tag fails its own archive gate.
-git commit -m "chore: v0.27.0"
+git commit -m "chore: v0.28.0"
 
 # 2. THE INTERNAL REVIEW ROUND over the release range, every finding fixed or
 #    registered, recorded in the lane's rounds ledger.
@@ -80,29 +83,29 @@ git push origin main
 #    itself, and a directory that is not a repository is refused outright; make
 #    the clone first and point the pass at it (2026-09-20).
 #
-#    WHY IT IS A STEP. The gate was created on 2026-09-12 and only 0.17.0, 0.23.0,
-#    0.24.0 and this release carry its record. Every time it has run it found
+#    WHY IT IS A STEP. The gate was created on 2026-09-12; 0.17.0, 0.23.0 and
+#    every release from 0.24.0 carry its record. Every time it has run it found
 #    defects no internal round had: at 0.23.0, seven of the first severity after
 #    four internal rounds and ninety-two internal findings; at 0.25.0, six after
 #    two rounds and thirty-one findings, three of them behaviour.
 
 # 5. the tag, annotated, on the reviewed commit, once CI is green on it
-git tag -a v0.27.0 -m "v0.27.0"
+git tag -a v0.28.0 -m "v0.28.0"
 
 # 6. push the tag. THIS PUBLISHES TO PyPI and nothing else.
-git push origin v0.27.0
+git push origin v0.28.0
 
 # 7. THE RELEASE OBJECT. This is the step that was missed at v0.17.0.
-gh release create v0.27.0 --title "v0.27.0" --notes-file <the section body and its limits>
+gh release create v0.28.0 --title "v0.28.0" --notes-file <the section body and its limits>
 
 # 8. the archive DOI. Zenodo's webhook fires on the RELEASE OBJECT of step 7,
 #    not on the tag of step 6. Read the new version DOI off the Zenodo record.
 
 # 9. the citation row, one commit after the tag
 #    CITATION.cff gains the version DOI from step 8, and the Owed line for
-#    v0.27.0 leaves the change log in the same commit. THE TREE MOVES TO THE NEXT
+#    v0.28.0 leaves the change log in the same commit. THE TREE MOVES TO THE NEXT
 #    .dev0 IN THAT COMMIT: the post-tag dev bump was missed after v0.21.1.
-git commit -m "chore: the v0.27.0 archive row"
+git commit -m "chore: the v0.28.0 archive row"
 
 # 10. confirm, rather than assume
 python scripts/check_release_published.py    # online is the default; --offline skips the network
@@ -129,64 +132,66 @@ minted a version DOI that `CITATION.cff` records; anything less is a tag.
 Every number comes from a command run at the moment this file was written, with
 the command beside it.
 
-Readings of 2026-09-24, each status read from the process:
+Readings of 2026-09-25, each status read from the process:
 
-- `ruff check .` exit 0; `ruff format --check .` exit 0; `mypy` exit 0, "Success: no issues
-  found in 100 source files".
+- `ruff check .` exit 0; `ruff format --check .` exit 0, "483 files already
+  formatted"; `mypy` exit 0, "Success: no issues found in 104 source files".
 - The full tier-1 suite, detached, one process per file, through
-  `check_goal_031.py --suite`, over the release tree on 2026-09-24: ruff and mypy exit 0,
-  and 1 red file of 299, `test_requirements_index.py`, because block 9 moved FR-109
-  without regenerating the index (fixed at eec5312b). The fourteen test files the
-  commits after that run touch were run again over this commit: 434 passed, 1 skipped,
-  exit 0.
-- `python scripts/mypy_recount.py`: 812 errors in 18 of 100 modules, against 0.26.0's 710 in 18 of 97
-  (reports/RPT-029).
-- Review OF THIS RELEASE: an OPENING round of five lenses before the first block, a
-  CLOSING round of five lenses over v0.26.0..e305d21e and the POLAR branch (nine
-  findings: six fixed, three registered for 0.28.0), SEVEN INDEPENDENT READINGS OF
-  GitHub main, one after each pushed block, each finding fixed before the next block,
-  and a QA and a V&V lens over e305d21e..this commit before it was pushed. THE READING
-  OF THIS COMMIT ON GitHub main is step 4 of the sequence and is owed until it runs;
-  the tag waits on it.
+  `check_goal_032.py --suite`: every gate green on 1917362e (block D) and again on
+  35917503 (block D with the fix of the independent reading C32). The commits
+  after it touch the documentation, one refusal's text and one `__all__`; the 33
+  test files that read those pages and that code were run again over them: 621
+  passed, 2 skipped, exit 0. The suite over this commit is the push gate.
+- `python scripts/mypy_recount.py`: 863 errors in 18 of 104 modules, against
+  0.27.0's 812 in 18 of 100 (reports/RPT-029).
+- Review OF THIS RELEASE: an OPENING round of five lenses on the approved scope,
+  whose questions were decided before the blocks that needed them; a CLOSING round
+  of five lenses over v0.27.0..35917503, all GO (sixteen findings: five fixed, ten
+  registered for the rigor track of 0.29.0, one checked and left as it is); an
+  INDEPENDENT READING OF GitHub main
+  exactly on the commit of every development wheel and after every pushed block,
+  each finding fixed before the next block. THE READING OF THIS COMMIT ON GitHub
+  main is step 4 of the sequence and is owed until it runs; the tag waits on it.
 
 ## What this release carries
 
 In one line each:
 
-- **A raw mesh runs.** OBJ or STL, unit declared, operations in order (G01, G03).
-- **Trailing edges by file or by detection** (G02), the file route checked by the
-  solver's own import count.
-- **The solver's plots, sections, discs and a custom free stream on a row** (G04, G05,
-  G06, G15).
-- **The loads' surfaces, units and inviscid part, and the force distribution** as keys
-  (G09, G10); two more setup keys, refused on the build that does not know them (G14).
-- **The final saved simulation of every point, and the additional post** from it (G11,
-  G12).
-- **The roll and yaw rates emitted with the sign the solver reads** (G13).
-- **INPUTS.md**, the glossary of every input key, beside VARIABLES.md (G08).
-- **POL first in every table, no comma in a cell, no title line before a header** (G16).
+- **Run and log.** One summary line for a submitting run, a local log with
+  `--progress-every` (G43); a warning for a pproc plot group named like the
+  automatic rotor group (G42); `COLD_START` on unsteady rows (G36); one point of a
+  steady job reruns the job (G37); `--force-rerun-all` and `--sims` (G44).
+- **Inputs.** `inputs/input_template.md`, an example of every input file (G47); the
+  custom free stream by an input file, warned when it misses the body (G18); an
+  OBJ's surface names from its groups (G30); a disc's speed from the advance ratio
+  (G20).
+- **The surface.** The Tecplot written from the VTK (G45); the time average by the
+  package (G25); the solver's plots after an unsteady march (G26); the boundary
+  layer profile export recorded broken on 26.124 (G24).
+- **The FSI blade.** A cited material database and a solid-section calculator for
+  the beam's properties, with their provenance (G41).
 
 ## What the licensed campaign measured, and what it did not
 
-Every route this release adds ran on 26.124, one run at a time, each with five
-far-field layers: the three routes to one body and the file route's root node
-(RPT-069), the volume section and the actuator disc (RPT-070), the custom free
-stream (RPT-071), the additional post end to end (RPT-072), and the licensed
-regression of every tier-3 row whose script changed (RPT-073). It found two
-things. A defect of the tier-3 inputs: from 0.15.0 the reference of row 1022 and of
-the vocabulary rows put the twin rotors' hubs 1.5856 m from their blades, so their
-licensed loads from 0.15.0 to 0.26.0 were computed about the wrong axes; fixed and
-run again (af13e23c). And a warm steady sweep moving the later points'
-coefficients against a cold one, registered for 0.28.0 rather than absorbed into a
-band.
+Every route this release adds that the solver answers ran on 26.124, or on 26.122
+where 26.124 cannot, one run at a time, each with five far-field layers: the VTK
+export's frame and variables (RPT-074), the boundary layer profile (RPT-075), the
+solver's plots after an unsteady solve (RPT-076), the custom free stream's forms
+and its reach (RPT-077), an OBJ's group order (RPT-078), the solver's own time
+average (RPT-079), and the licensed regression of every tier-3 point (RPT-080):
+every point ran, the 83 licensed checks pass, all 76 loads tables equal the 0.27.0
+run's, and the package's Tecplot puts every real surface where the solver's own
+file put it, carrying the symmetry images on a symmetric row. It found no defect
+of the solve.
 
 ## What is NOT done, and is not being hidden
 
-- The warm sweep (the default since 0.16.0) against a cold one: on one wing in
-  sideslip the later points differ by 1.8 and 3.0 percent in CL and in the sign of
-  CMz. The
-  default is the owner's call, with a probe on a cruise polar first (0.28.0).
-- Inlets and outlets on a row (G07), which waits for a geometry to prove it on.
-- The submitting half of the additional post; the grid unit of a custom field.
-- The fixed-width super file overflows a text longer than its field (registered).
-- The Zenodo version DOI of v0.27.0 is owed one commit after the tag.
+- A loads frame a rotor motion carries: no tier-3 row has one, and whether the
+  frame moves during the solve is not measured (R24 of the rigor track).
+- The section calculator does not cross-check a section against its chord, so a
+  section in millimetres passed as metres is not refused (R20).
+- A continuation of a run recorded before 0.28.0 is refused unless its pproc
+  exports no Tecplot; recovering that run's loads frame is proposed for 0.29.0.
+- The warm sweep against a cold one (R13), inlets and outlets on a row (G07), the
+  submitting half of the additional post: carried to 0.29.0.
+- The Zenodo version DOI of v0.28.0 is owed one commit after the tag.
