@@ -246,6 +246,20 @@ def test_goal021_swept_row_the_steady_job_still_runs_in_the_simulation_folder(tm
     assert Path(records[0].submission["descriptor"]).parent == workspace.sim_dir("5001")
 
 
+#: Where a stopped run of 0.28.0 records its loads frame, here the reference
+#: frame at the origin. A continuation writes its Tecplot in that frame, and
+#: one of a run that recorded none is refused (G45; test_ghmain0280_c32).
+REFERENCE_TRANSLATION = {
+    "vtk": "V0300RE120AL+000.vtk",
+    "dat": "V0300RE120AL+000.dat",
+    "frame": {
+        "frame": 1,
+        "origin": [0.0, 0.0, 0.0],
+        "axes": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+    },
+}
+
+
 def _stopped(workspace, tag="V0300RE120AL+000"):
     folder = workspace.sim_dir("7001") / "datapoints" / f"DP-{tag}"
     folder.mkdir(parents=True, exist_ok=True)
@@ -258,12 +272,13 @@ def _stopped(workspace, tag="V0300RE120AL+000"):
             status=RunStatus.WALLTIME_REACHED,
             matrix_stem="rotor",
             fs_version_requested=BUILD,
-            package_version="0.18.0",
+            package_version="0.28.0",
             script_sha256="c" * 64,
             raw_flag=False,
             outputs=[f"datapoints/DP-{tag}/{tag}.fsm"],
             export_window={"time_iterations": 720},
             stopped_at={"step": 250},
+            surface_translations=[REFERENCE_TRANSLATION],
         )
     )
 

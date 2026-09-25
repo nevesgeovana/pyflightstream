@@ -931,6 +931,7 @@ class Script:
         # own default (RPT-064: step exports written before the command print
         # the reference frame).
         self._loads_frame: int = _REFERENCE_PLACEMENT_INDEX
+        self._sets_loads_frame: bool = False
         #: EACH SECTION DISTRIBUTION THIS SCRIPT CREATED, in emission order
         #: (0.24.0): its families BY NAME, its plane, its frame and its count.
         #: Filled by the loop that emits the distribution, for the reason
@@ -1327,6 +1328,7 @@ class Script:
         self._follow_length_unit(entry.name, bound)
         if entry.name == _LOADS_FRAME_COMMAND:
             self._loads_frame = int(bound["load_frame"])  # type: ignore[call-overload]
+            self._sets_loads_frame = True
         self._follow_volume_sections(entry.name, bound)
         if entry.name in _CREATION_COMMANDS:
             self.entities.create(_CREATION_COMMANDS[entry.name], label=label)
@@ -1382,6 +1384,24 @@ class Script:
         1
         """
         return self._loads_frame
+
+    @property
+    def sets_loads_frame(self) -> bool:
+        """Whether THIS SCRIPT emitted ``SET_SOLVER_ANALYSIS_LOADS_FRAME`` (G45 of 0.28.0).
+
+        While it has not, :attr:`loads_frame` is the solver's default, the
+        reference frame, for a simulation the script builds. A simulation it
+        reopens keeps the loads frame it was saved with, which the script layer
+        cannot read, so a continuation takes that frame from the run it
+        continues.
+
+        Examples
+        --------
+        >>> from pyflightstream.script import Script
+        >>> Script("26.124").sets_loads_frame
+        False
+        """
+        return self._sets_loads_frame
 
     def loads_frame_record(self) -> dict[str, object]:
         """Return the loads frame and where this script placed it, as a run records it.

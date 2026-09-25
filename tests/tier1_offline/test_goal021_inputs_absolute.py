@@ -196,12 +196,25 @@ def test_goal021_inputs_absolute_the_saved_simulation_a_continuation_reopens(tmp
             status=RunStatus.WALLTIME_REACHED,
             matrix_stem="rotor",
             fs_version_requested=BUILD,
-            package_version="0.18.0",
+            package_version="0.28.0",
             script_sha256="c" * 64,
             raw_flag=False,
             outputs=["datapoints/DP-V0300RE120AL+000/V0300RE120AL+000.fsm"],
             export_window={"time_iterations": 720},
             stopped_at={"step": 250},
+            # G45: where the stopped run's loads frame was; one that recorded
+            # none is refused (test_ghmain0280_c32).
+            surface_translations=[
+                {
+                    "vtk": "V0300RE120AL+000.vtk",
+                    "dat": "V0300RE120AL+000.dat",
+                    "frame": {
+                        "frame": 1,
+                        "origin": [0.0, 0.0, 0.0],
+                        "axes": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                    },
+                }
+            ],
         )
     )
     # UNDER THE CAMPAIGN THAT RECORDED THE STOPPED POINT, which is the case

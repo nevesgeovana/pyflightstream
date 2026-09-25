@@ -918,7 +918,9 @@ positive, as before.
   wall clock before the window ended, a continuation, whose step counter starts
   again) skips the average, naming the missing steps: an average of the steps
   that were would not be the window's. Both are named skips in `products.json`
-  and `post.log`.
+  and `post.log`. A window that reaches a frozen part of the solve is warned
+  about, as every other average is, and under `--check-frozen` it is refused
+  before anything is written: no file, no entry, the reason under its name.
 - **Where its nodes are.** The averaged file's nodes are those of the window's
   LAST step: on a turning rotor the nodes move from step to step, and their mean
   would be a surface nobody flew.

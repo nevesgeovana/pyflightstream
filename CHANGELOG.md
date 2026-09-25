@@ -168,11 +168,16 @@ FlightStream versions.
   `frame`, `not_carried`), and the run record's `surface_translations` says what
   was written and why not. A loads frame the script did not place, and a
   `vtk_variables` naming some of `VX`, `VY`, `VZ` where the frame moves, are
-  refused at plan. The volume section's Tecplot, the probe writers and
+  refused at plan. A continuation, which reopens the saved simulation and sets
+  no loads frame of its own, writes its Tecplot in the frame the run it
+  continues recorded; one of a run recorded before 0.28.0, which recorded none,
+  is refused before the solver starts unless its pproc sets `tecplot = false`.
+  The volume section's Tecplot, the probe writers and
   `helpers.export_results(tecplot=...)` keep their own routes. Library:
   `pyflightstream.results.surface` (`read_vtk_surface`, `translate_vtk_surface`,
   `translate_surface_exports`, `write_tecplot_surface`, `write_vtk_surface`,
-  `SurfaceFrame`), `Script.loads_frame`, `Script.surface_translations`,
+  `SurfaceFrame`), `Script.loads_frame`, `Script.sets_loads_frame`,
+  `Script.surface_translations`,
   `workflows.tecplot_source`, `workflows.with_tecplot_source`,
   `RunRecord.surface_translations`.
 

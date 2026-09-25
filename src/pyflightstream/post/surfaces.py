@@ -236,6 +236,7 @@ def write_point_surface_average(
     target: Callable[[Path], Path],
     vtk: bool = False,
     skipped: dict[str, str] | None = None,
+    judge: Callable[[str, tuple[int, int]], str | None] | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write the time-averaged surface of one point from its per-step exports (G25).
 
@@ -262,6 +263,11 @@ def write_point_surface_average(
     skipped : dict, optional
         Receives the reason under the product's name where the average is
         skipped or refused.
+    judge : callable, optional
+        Called with the product's name and the window's first and last time
+        step BEFORE anything is written; a reason it returns refuses the
+        average, which is then neither written nor listed. The products stage
+        passes the frozen-solve rule every other average answers to.
 
     Returns
     -------
@@ -292,6 +298,14 @@ def write_point_surface_average(
     ran_in = [sim_dir / Path(output).parent for output in record.outputs]
     files = stamped_exports(sim_dir, source.stem, *ran_in).get(("", source.suffix.lstrip(".")), {})
     bounds = stated["iterations"]
+    # JUDGED BEFORE IT EXISTS: a refusal after the write left the file on disk
+    # and in the list of files written, with only its manifest entry gone
+    # (reading C32 of 0.28.0).
+    refused = judge(name, (int(bounds[0]), int(bounds[1]))) if judge is not None else None
+    if refused is not None:
+        if skipped is not None:
+            skipped[name] = refused
+        return [], {}
     try:
         if not isinstance(frame_record, Mapping):
             raise ProductError("the record states no loads frame for the VTK")

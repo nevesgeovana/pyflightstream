@@ -6990,8 +6990,14 @@ def _execute_point(
     # writes it in. A continuation's is the saved simulation's, which the run it
     # continues placed and recorded; one that recorded none cannot be undone,
     # and the point is refused before the solver starts rather than after.
+    # A CONTINUATION THAT SETS NO LOADS FRAME OF ITS OWN INHERITS IT WHOLE: its
+    # script reopens the saved simulation and passes no moment point, so its
+    # ledger still reports the reference frame at the origin it starts from,
+    # which is placed and is not the frame the solver writes the VTK in
+    # (reading C32 of 0.28.0).
     translations = [dict(translation) for translation in script.surface_translations]
-    if continues is not None and any(_unplaced(entry) for entry in translations):
+    inherits = continues is not None and not script.sets_loads_frame
+    if continues is not None and any(inherits or _unplaced(entry) for entry in translations):
         carried = _recorded_loads_frame(predecessor)
         if carried is None:
             return RunRecord(
@@ -7006,7 +7012,7 @@ def _execute_point(
                 ),
             )
         translations = [
-            {**entry, "frame": dict(carried)} if _unplaced(entry) else entry
+            {**entry, "frame": dict(carried)} if inherits or _unplaced(entry) else entry
             for entry in translations
         ]
     base["surface_translations"] = translations or None

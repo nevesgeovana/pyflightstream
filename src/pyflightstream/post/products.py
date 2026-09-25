@@ -5772,12 +5772,14 @@ def _point_series(
     pproc: PprocSpec | None = None,
     recorded_pproc: PprocSpec | None = None,
     pproc_error: str | None = None,
+    surface_freeze: FrozenSolve | None = None,
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write distribution tables and any per-step series of one record.
 
     Each existing table is archived under the rebuild's stamp before it is
     rewritten, by the same archiver as every other product; ``archive``
-    false keeps no copy.
+    false keeps no copy. ``surface_freeze`` is the point's frozen solve, which
+    the surface average (G25) is judged against before it is written.
     """
     from pyflightstream.cases import classify_outputs
 
@@ -5897,6 +5899,9 @@ def _point_series(
         target=lambda path: _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp),
         vtk=bool(asked is not None and asked.exports.get("vtk", False)),
         skipped=split_skips,
+        judge=lambda product, bounds: _judge_average(
+            surface_freeze, list(bounds), point=record.run_id, product=product
+        ),
     )
     return [*split_files, *written, *averaged], {
         **split_names,
@@ -7041,6 +7046,7 @@ def _write_the_products(
                     pproc=effective_pproc[1],
                     recorded_pproc=recorded_pprocs[record.pproc],
                     pproc_error=effective_pproc[2],
+                    surface_freeze=surface_freeze,
                 )
             except ProductExistsError:
                 raise
@@ -7057,8 +7063,13 @@ def _write_the_products(
                 warn(f"{name} not written: {skipped[name]}", PyflightstreamWarning, stacklevel=2)
             written.extend(series_files)
             for name, entry in series_names.items():
-                reason = _surface_export_skip(
-                    entry, surface_freeze, point=record.run_id, product=name
+                # The package's own average was judged before it was written.
+                reason = (
+                    None
+                    if entry.get("averaged_by") == "pyflightstream"
+                    else _surface_export_skip(
+                        entry, surface_freeze, point=record.run_id, product=name
+                    )
                 )
                 if reason is not None:
                     skipped[name] = reason
