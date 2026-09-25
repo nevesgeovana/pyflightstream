@@ -123,7 +123,7 @@ def test_g43_a_point_the_scheduler_refuses_did_not_run_here(tmp_path, capsys):
         _run(workspace, row, executor)
     said = capsys.readouterr().err
     assert "submitted 2 point(s) to the scheduler and ran 0 here" in said, said
-    assert "1 failed before the scheduler took them" in said, said
+    assert "1 failed before they ran" in said, said
 
 
 def test_goal021_swept_row_each_point_runs_in_its_own_datapoint_folder(tmp_path):

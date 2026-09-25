@@ -96,6 +96,14 @@ FlightStream versions.
 
 ### Fixed
 
+- **A steady row places probes declared in a frame where that frame stands.**
+  `NEW_PROBE_LINE` and `NEW_PROBE_POINT` take reference-frame coordinates, and a
+  steady row emitted a probe line, rectangle or circle declared in another frame
+  (MRP, a reference frame) at that frame's own coordinates, as though the frame were
+  the reference, so the probes sampled the wrong place while the record named the
+  right one. They are now carried into the reference frame by where the script placed
+  the frame, and a frame whose placement the script does not follow is refused by
+  name. The unsteady route, whose fluid plots name their frame, is unchanged.
 - **Three input files are read as documented (found by the input template's
   test, G47).** A reference whose recorded `[rotor]` states `hub_radius_m`, a key
   of that table, was refused as "an actuator disc with no kind", because the

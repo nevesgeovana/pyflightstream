@@ -6119,6 +6119,18 @@ def _body_yz_extent_m(case: SimCase) -> tuple[float, float, float, float] | None
     return min(ys), max(ys), min(zs), max(zs)
 
 
+def _how_the_row_moves_the_body(case: SimCase) -> list[str]:
+    """Name what, in this row, moves the body away from where its file holds it (G18)."""
+    moved = [
+        key
+        for key in (ROTATE_VARIABLE, TRANSLATE_VARIABLE, MOTIONS_VARIABLE)
+        if _variable(case, key)
+    ]
+    operations = getattr(case.mesh_import, "operations", None) or ()
+    moved += sorted({f"the import's {op.op}" for op in operations if op.op != "rename"})
+    return moved
+
+
 def _warn_when_the_field_misses_the_body(
     case: SimCase, stated: str, grid: tuple[float, float, float, float]
 ) -> None:
@@ -6130,11 +6142,29 @@ def _warn_when_the_field_misses_the_body(
     therefore loaded, silently, partly by the field and partly by something near the
     free stream. A field meant as a local gust may do exactly that, so this warns and
     does not refuse.
+
+    A ROW THAT MOVES THE BODY IS NOT COMPARED (reading B30): the extent read here is
+    the body as its file holds it, and a row's ROTATE or TRANSLATE, its rotor MOTIONS
+    or its import operations place it elsewhere before the solve. Comparing the
+    unmoved body said nothing about a wing translated 20 m out of the field, so such
+    a row is told the coverage was not checked, and why.
     """
+    y_min, y_max, z_min, z_max = grid
+    moved = _how_the_row_moves_the_body(case)
+    if moved:
+        warn(
+            f"case {case.sim_id!r}: {stated} covers y from {y_min:g} to {y_max:g} m and z from "
+            f"{z_min:g} to {z_max:g} m, and the row moves the body ({', '.join(moved)}), so "
+            "whether the field covers it where it is solved is not checked. Beyond its grid "
+            "the solver does not extend a field (measured on FlightStream 26.124, RPT-077): "
+            "make the grid reach past the body where the row places it.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        return
     body = _body_yz_extent_m(case)
     if body is None:
         return
-    y_min, y_max, z_min, z_max = grid
     b_y_min, b_y_max, b_z_min, b_z_max = body
     if b_y_min >= y_min and b_y_max <= y_max and b_z_min >= z_min and b_z_max <= z_max:
         return
@@ -9053,9 +9083,18 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
         # builds. The coordinates are scaled the same way the vertices
         # above are, so a `rotor_radius` entry lands on the same disk in
         # both run types.
+        #
+        # IN THE REFERENCE FRAME (reading B30): `NEW_PROBE_LINE` takes no frame,
+        # so a line declared in another frame is carried into the reference by
+        # where this script placed that frame; the unsteady route passes the
+        # frame to its command instead.
         ends = [
-            [round(value * scale, 5) for value in line.start]
-            + [round(value * scale, 5) for value in line.end]
+            _in_the_reference_frame(
+                case, script, frame, probes.frame, [v * scale for v in line.start]
+            )
+            + _in_the_reference_frame(
+                case, script, frame, probes.frame, [v * scale for v in line.end]
+            )
             for line in probes.lines
         ]
         for first_x, first_y, first_z, last_x, last_y, last_z in ends:
@@ -9114,9 +9153,43 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             # emitted without it from FR-79 until 0.28.0, so a steady row
             # drawing a rectangle or a circle never planned (found by the
             # input template's test, G47); `helpers.new_probe_points` and the
-            # survey file (`TYPE` 1) say VOLUME for the same point.
-            script.emit("NEW_PROBE_POINT", type="VOLUME", x=point[0], y=point[1], z=point[2])
+            # survey file (`TYPE` 1) say VOLUME for the same point. The command
+            # takes no frame either, so the point goes into the reference frame
+            # the way a steady line's ends do (reading B30).
+            x, y, z = _in_the_reference_frame(case, script, frame, probes.frame, list(point))
+            script.emit("NEW_PROBE_POINT", type="VOLUME", x=x, y=y, z=z)
     return vertex
+
+
+def _in_the_reference_frame(
+    case: SimCase, script: Script, frame: int, name: str, point: list[float]
+) -> list[float]:
+    """Carry a point stated in a pproc's frame into the reference frame, rounded as emitted.
+
+    A steady row's probe commands, ``NEW_PROBE_LINE`` and ``NEW_PROBE_POINT``, take
+    no frame: their coordinates are the reference frame's. A point declared in
+    another frame is placed by where THIS SCRIPT put that frame (the ledger of
+    :attr:`~pyflightstream.script.Script.frame_placements`), p = o + x ex + y ey + z ez;
+    a frame whose placement the script does not follow is refused by name rather
+    than guessed, because a probe placed from a stale origin samples the wrong
+    point and is recorded at the right one.
+    """
+    if frame == 1:
+        return [round(value, 5) for value in point]
+    placement = script.frame_placements.get(frame)
+    if placement is None or placement.origin is None or placement.axes is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} places probes in the "
+            f"frame {name!r}, and this script does not follow where that frame stands, so a "
+            "steady row, whose probe commands take reference-frame coordinates, cannot place "
+            "them. State the probes in a frame the reference declares, or in the reference frame."
+        )
+    origin = placement.origin
+    ex, ey, ez = placement.axes
+    return [
+        round(origin[i] + point[0] * ex[i] + point[1] * ey[i] + point[2] * ez[i], 5)
+        for i in range(3)
+    ]
 
 
 #: THE SHAPE OF A ROTOR'S FRAME NAME, used only to tell a rotor frame this

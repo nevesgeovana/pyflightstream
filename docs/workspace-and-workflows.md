@@ -2559,9 +2559,11 @@ mirror symmetry; the loads of a disc whose profile the solver read; and the
 profile file on any build but 26.124. A continuation reopens the saved
 simulation, which carries the disc, and emits it again nowhere; a disc added
 to a row after its run stopped does not reach the continuation and is not yet
-refused there. Deriving the
-disc's speed from an advance ratio and its diameter is not offered; the row
-states `ACTUATOR_RPM`.
+refused there. Since 0.28.0 (G20) a row may state `ADVANCE_RATIO` instead of
+`ACTUATOR_RPM`, and the disc turns at n = V / (J D) with its own diameter (twice
+its `tip_radius_m`); a steady row that sweeps the advance ratio runs one job per
+point, so each point sets its own speed. A row stating neither is refused
+naming both.
 
 ### One row, one custom free stream
 
@@ -2690,7 +2692,10 @@ batch:
   rather than refuses, because a field meant as a local gust may cover only part
   of the body on purpose. The body is read from a saved simulation's mesh or an
   OBJ imported in metres; an STL or an OBJ in another unit is not measured, and
-  then nothing is said.
+  then nothing is said. A row that MOVES the body (ROTATE, TRANSLATE, rotor MOTIONS
+  or an import operation) is told the coverage was not checked, and why, because
+  the body's file does not say where the row places it
+  (`test_g18_a_row_that_moves_the_body_is_told_its_coverage_was_not_checked`).
 - **Incidence written into the field loads the body as that incidence**: a
   field of 30 m/s tilted 4 deg in z, at `ALPHA: 0`, gives the body forces of the
   constant free stream at 4 deg (Cz 0.3381 against 0.3378, Cx -0.0124 against

@@ -865,3 +865,27 @@ def test_g18_a_field_that_does_not_cover_the_body_is_warned_at_plan(tmp_path, re
         assert said and "covers y from -2 to 2 m" in said[0] and "RPT-077" in said[0], said
     else:
         assert not said, said
+
+
+def test_g18_a_row_that_moves_the_body_is_told_its_coverage_was_not_checked(recwarn):
+    """Reading B30: the extent compared is the body as its file holds it, so a row that
+    translates the wing 20 m out of a field that covers the file's wing was told nothing.
+    A row that moves the body is now told the coverage was not checked, naming what
+    moves it; the same field over the unmoved wing still says nothing."""
+    from pyflightstream.cases.workflows import _warn_when_the_field_misses_the_body
+
+    grid = (-8.0, 8.0, -5.0, 5.0)
+    still = steady_case().model_copy(update={"geometry": str(WING_PHY)})
+    _warn_when_the_field_misses_the_body(still, "FREESTREAM: shear", grid)
+    assert not [w for w in recwarn if "not checked" in str(w.message)]
+    moved = still.model_copy(
+        update={
+            "variables": {
+                **still.variables,
+                "TRANSLATE": "{DISTANCE: 20 / AXIS: MRP-Y / ALIAS: airframe}",
+            }
+        }
+    )
+    _warn_when_the_field_misses_the_body(moved, "FREESTREAM: shear", grid)
+    said = [str(w.message) for w in recwarn if "not checked" in str(w.message)]
+    assert said and "TRANSLATE" in said[0] and "RPT-077" in said[0], said

@@ -695,6 +695,62 @@ def test_a_steady_row_emits_each_declared_probe_line_once(tmp_path):
     assert len(script.probe_points) == 33
 
 
+def test_a_steady_row_places_probes_declared_in_a_frame_in_the_reference_frame(tmp_path):
+    """Reading B30: `NEW_PROBE_LINE` and `NEW_PROBE_POINT` take no frame, so a steady row
+    emitted a line or a rectangle declared in MRP at MRP's own coordinates, as though MRP
+    were the reference, and two identical shapes in two frames sampled one place. With the
+    moment point 10 m along x, the emitted points are 10 m along x, and the record keeps
+    the declared frame and coordinates."""
+    from pyflightstream.cases import PprocSpec, ProbeRectangle, ReferenceData, SimCase, SweepAxis
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+
+    geometry = tmp_path / "g.fsm"
+    geometry.write_text("nothing\n", encoding="utf-8")
+    case = SimCase(
+        sim_id="7005",
+        aircraft="WB",
+        recipe="steady",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        variables={"WORKFLOW": "steady", "VELOCITY": "30.0"},
+        geometry=str(geometry),
+        outputs=["loads_a+00.0.txt"],
+        reference=ReferenceData(area=8.0, length=1.0, span_m=4.0, moment_point_m=(10.0, 0.0, 0.0)),
+        pproc=PprocSpec(
+            probes=[
+                ProbesSpec(
+                    frame="MRP",
+                    parameters=["MACH"],
+                    points=2,
+                    lines=[ProbeLine(start=[0.0, 0.0, 0.0], end=[1.0, 0.0, 0.0])],
+                    rectangles=[
+                        ProbeRectangle(
+                            origin=[0.0, 0.0, 0.0],
+                            along_u=[1.0, 0.0, 0.0],
+                            along_v=[0.0, 1.0, 0.0],
+                            points_u=2,
+                            points_v=2,
+                        )
+                    ],
+                )
+            ]
+        ),
+        point={"alpha": 0.0},
+    )
+    script = Script("26.123")
+    build_script(case, script)
+    lines = script.render().splitlines()
+    assert "NEW_PROBE_LINE 2 10.0 0.0 0.0 11.0 0.0 0.0" in lines, [
+        line for line in lines if line.startswith("NEW_PROBE_LINE")
+    ]
+    points = [line for line in lines if line.startswith("NEW_PROBE_POINT")]
+    assert sorted(points) == sorted(
+        f"NEW_PROBE_POINT VOLUME {x} {y} 0.0" for x in (10.0, 11.0) for y in (0.0, 1.0)
+    ), points
+    recorded = [(x, y, z, frame) for _, x, y, z, frame in script.probe_points]
+    assert (1.0, 1.0, 0.0, "MRP") in recorded, recorded
+
+
 def test_an_empty_file_in_the_way_is_refused_like_any_other(tmp_path):
     """The absolute the guard states is true of the EMPTY file too.
 

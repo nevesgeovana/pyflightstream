@@ -3933,3 +3933,36 @@ def test_goal019_record_a_job_reports_the_worst_of_its_points_not_the_last(tmp_p
     )
     assert _worse_of(RunStatus.CONVERGED, RunStatus.CONVERGED) is RunStatus.CONVERGED
     assert _worse_of(RunStatus.FAILED_DIVERGED, RunStatus.CONVERGED) is (RunStatus.FAILED_DIVERGED)
+
+
+def test_g43_a_local_point_refused_before_it_ran_is_not_counted_as_run_here(tmp_path, capsys):
+    """Reading B30: one point handed to a scheduler and one on a local build whose recipe
+    does not resolve, refused before any executor is called. The closing line said "ran 1
+    here"; nothing ran here, and the refused point is said as failing before it ran."""
+    from pyflightstream.run import SubmittingExecutor
+    from pyflightstream.workspace.inputs import read_hpc_profile
+    from tests.tier1_offline.test_matrix_run import HPC_PROFILE
+
+    campaign = _two_build_campaign(tmp_path, second_recipe="no_such_recipe")
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    profile = tmp_path / "h001.toml"
+    profile.write_text(HPC_PROFILE, encoding="utf-8")
+    submitting = SubmittingExecutor(
+        read_hpc_profile(profile),
+        values={"fs_build": "26.120", "walltime": "01:00:00", "ncpus": "8"},
+        submit=False,
+    )
+    _, second = _second_build(tmp_path)
+    capsys.readouterr()
+    with pytest.raises(CampaignErrors):
+        run_campaign(
+            campaign,
+            submitting,
+            workspace,
+            assess=converged,
+            recipes={"steady": steady_recipe},
+            builds={"second": second},
+        )
+    said = capsys.readouterr().err
+    assert "submitted 1 point(s) to the scheduler and ran 0 here" in said, said
+    assert "1 failed before they ran" in said, said

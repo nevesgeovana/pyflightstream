@@ -126,3 +126,16 @@ changes for you is listed below, one section per change.
 - A row writing `EXPORT_BL_VELOCITY_PROFILE` raw on 26.124 is refused at plan: the
   command holds an unattended script (RPT-075). Nothing else changes; the VTK
   surface export carries the boundary-layer thicknesses.
+
+## 12. Steady probes in a frame are placed where the frame stands
+
+- A steady row whose pproc declares probe lines, rectangles or circles in a frame
+  other than the reference (MRP, or a frame the reference declares) now samples
+  them where that frame stands: the points are carried into the reference frame
+  by the frame's origin and axes. Before, they were emitted at the frame's own
+  coordinates, which is right only for a frame at the reference origin. A steady
+  run of such a row samples different points than before; the probe table names
+  the same declared positions. Unsteady rows are unchanged.
+- The custom free stream's coverage warning (G18) now says, for a row that moves
+  the body (ROTATE, TRANSLATE, rotor MOTIONS or an import operation), that the
+  coverage was not checked, instead of comparing the body where its file holds it.

@@ -3498,7 +3498,7 @@ def run_campaign(
             recorded.add(record.run_id)
             records.append(record)
             outcomes.extend(_job_point_statuses(record, len(pending)))
-            ran_here += len(pending) if runs_here else 0
+            ran_here += len(pending) if runs_here and record.executor is not None else 0
             if record.status.startswith("FAILED"):
                 failures.append(record)
             continue
@@ -3624,7 +3624,10 @@ def run_campaign(
             recorded.add(record.run_id)
             records.append(record)
             outcomes.append(str(record.status))
-            ran_here += 1 if runs_here else 0
+            # Run here means the local executor was CALLED: a point refused before
+            # it (a recipe that did not resolve, a name that did not render) carries
+            # no executor record and ran nowhere (reading B30).
+            ran_here += 1 if runs_here and record.executor is not None else 0
             if record.status.startswith("FAILED"):
                 failures.append(record)
     # BEFORE THE RAISE, and that is the whole placement (PFS-2014.03).
@@ -3652,7 +3655,7 @@ def run_campaign(
         refused = len(outcomes) - queued - ran_here
         _say(
             f"submitted {queued} point(s) to the scheduler and ran {ran_here} here"
-            + (f"; {refused} failed before the scheduler took them" if refused else "")
+            + (f"; {refused} failed before they ran" if refused else "")
             + f"; nothing is posted until they are collected: pyfs-matrix collect "
             f"--workspace {workspace.root} (add --watch to wait), which posts once "
             "their outputs land."

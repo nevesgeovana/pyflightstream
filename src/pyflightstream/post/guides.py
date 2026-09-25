@@ -2408,11 +2408,14 @@ def _template_sections() -> tuple[TemplateSection, ...]:
             ),
             examples=(TemplateExample("inputs/pproc/p001.toml", "toml", _PPROC_EXAMPLE),),
             after=(
-                "A table a row's run type does not use is left out of that row: the "
-                "unsteady force plots, the phase-locked table and the equations "
-                "belong to the unsteady run types, and the volume section and the "
-                "solver's own plots to a steady row. Each is still read and checked "
-                "when the file is, so a mistake in one is refused on any row."
+                "Some tables belong to one kind of run. The unsteady force plots, the "
+                "phase-locked table and the equations serve the unsteady run types, "
+                "and a steady row passes them over. The other way is a REFUSAL, not an "
+                "omission: an unsteady row naming a pproc with a `[volume_section]`, or "
+                "with `plot_sections_cp = true`, is refused at plan, so this example "
+                "plans on a steady row; the residual and load plots are saved on both. "
+                "Every table is read and checked when the file is, so a mistake in one "
+                "is refused on any row."
             ),
             left_out=MappingProxyType(
                 {
