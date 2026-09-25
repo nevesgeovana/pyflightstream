@@ -559,7 +559,12 @@ def test_g06_thrust_and_profile_together_are_refused_naming_both_keys(tmp_path):
             {},
             r"ACTUATOR_RPM: -2400.*magnitude.*rpm_sign",
         ),
-        ({"ACTUATOR": "PROP", "ACTUATOR_THRUST": "120"}, {}, r"no ACTUATOR_RPM"),
+        # G20 of 0.28.0: the refusal names both forms a disc takes its speed in.
+        (
+            {"ACTUATOR": "PROP", "ACTUATOR_THRUST": "120"},
+            {},
+            r"neither ACTUATOR_RPM nor ADVANCE_RATIO",
+        ),
         ({"ACTUATOR": "PROP", "ACTUATOR_RPM": "2400"}, {}, r"neither ACTUATOR_THRUST nor PROFILE"),
         ({"ACTUATOR_RPM": "2400", "ACTUATOR_THRUST": "120"}, {}, r"and no ACTUATOR"),
         (
@@ -1400,3 +1405,27 @@ def test_g06_a_saved_simulation_whose_actuators_cannot_be_read_is_refused(tmp_pa
         CampaignConfigError, match=r"actuators its saved simulation.*cannot be read"
     ):
         _lines(case)
+
+
+@pytest.mark.parametrize(
+    "make",
+    [steady_case, unsteady_case],
+    ids=["steady", "unsteady"],
+)
+def test_g20_a_disc_takes_its_speed_from_the_advance_ratio(make):
+    """G20 of 0.28.0: a row stating ADVANCE_RATIO and no ACTUATOR_RPM turns the disc at
+    n = V / (J D), with the DISC's own diameter (twice its tip radius, 0.5 m here) and the
+    row's velocity (30 m/s): J = 0.8 gives 2250 rev/min, the line the same row stating
+    ACTUATOR_RPM 2250 writes. A row stating neither is refused naming both."""
+    derived = _with_disc(make(ACTUATOR="PROP", ADVANCE_RATIO="0.8", ACTUATOR_THRUST="120"))
+    stated = _with_disc(make(ACTUATOR="PROP", ACTUATOR_RPM="2250", ACTUATOR_THRUST="120"))
+    derived_lines, _ = _lines(derived)
+    stated_lines, _ = _lines(stated)
+    assert "SET_PROP_ACTUATOR_RPM 1 2250.0" in derived_lines, [
+        line for line in derived_lines if "ACTUATOR_RPM" in line
+    ]
+    assert [line for line in derived_lines if line.startswith("SET_PROP_ACTUATOR")] == [
+        line for line in stated_lines if line.startswith("SET_PROP_ACTUATOR")
+    ]
+    with pytest.raises(CampaignConfigError, match=r"states neither ACTUATOR_RPM nor ADVANCE_RATIO"):
+        _lines(_with_disc(make(ACTUATOR="PROP", ACTUATOR_THRUST="120")))

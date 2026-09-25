@@ -9,6 +9,11 @@ FlightStream versions.
 
 ### Added
 
+- **An actuator disc takes its speed from the advance ratio (G20).** A row naming
+  a disc and stating `ADVANCE_RATIO` (in its flight condition, swept or held) and
+  no `ACTUATOR_RPM` turns the disc at n = V / (J D) by the rotors' rule, with the
+  DISC's own diameter (twice its `tip_radius_m`) and the row's velocity; the hand
+  stays the block's `rpm_sign`. A row stating neither is refused naming both.
 - **A local run's log reads at a glance, and an unsteady point says how far it
   is (G43).** A run opens with a banner naming the campaign and how many points
   it runs, numbers each point (`(3 of 17)`), and closes with a table of how the

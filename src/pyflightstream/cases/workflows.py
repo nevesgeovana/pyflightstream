@@ -7335,6 +7335,47 @@ def read_actuator_profile(path: str | PathLike[str]) -> str:
         raise CampaignConfigError(str(error)) from None
 
 
+def _disc_rpm_from_the_advance_ratio(case: SimCase, name: str, block: ActuatorBlock) -> float:
+    """Return a disc's speed from the row's advance ratio, in rev/min (G20 of 0.28.0).
+
+    The rotors' rule, n = V / (J D), with the DISC's own diameter, twice its
+    ``tip_radius_m``, never the reference's rotor diameter, which belongs to
+    another rotor or to none; the hand stays the block's ``rpm_sign``. The ratio
+    is read where a rotor reads it (the row, or the point of a swept row), and
+    rounded as a rotor's derived speed is. A row stating neither form is refused
+    naming both.
+    """
+    ratio_text = _stated_advance_ratio(case)
+    if ratio_text is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names {ACTUATOR_VARIABLE}: {name} and states neither "
+            f"{ACTUATOR_RPM_VARIABLE} nor {ADVANCE_RATIO_VARIABLE}. The disc turns at the "
+            f"speed the row states, in rev/min ('{ACTUATOR_RPM_VARIABLE}: <speed>'), or at "
+            f"the speed its advance ratio works out to ('{ADVANCE_RATIO_VARIABLE}: <J>', "
+            "n = V / (J D) with the disc's own diameter)."
+        )
+    ratio = _required_float(
+        case,
+        ADVANCE_RATIO_VARIABLE,
+        quantity="advance ratio",
+        unit="dimensionless",
+        text=ratio_text,
+    )
+    if ratio <= 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares {ADVANCE_RATIO_VARIABLE} as {ratio} for the disc "
+            f"{name!r}; an advance ratio is positive, and the hand is the block's rpm_sign."
+        )
+    velocity = _velocity(case)
+    if velocity <= 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} resolves a free-stream velocity of {velocity} m/s, and "
+            f"the disc {name!r} takes its speed from {ADVANCE_RATIO_VARIABLE}: n = V / (J D) "
+            f"is a stopped disc at V = 0. State {ACTUATOR_RPM_VARIABLE} directly."
+        )
+    return round(60.0 * velocity / (ratio * 2.0 * block.tip_radius_m), _DERIVED_RPM_DECIMALS)
+
+
 def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
     """Resolve the row's disc and its loading, or refuse naming the key (G06).
 
@@ -7368,12 +7409,9 @@ def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
             'reference declares with kind = "actuator".'
         )
     if _variable(case, ACTUATOR_RPM_VARIABLE) is None:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} names {ACTUATOR_VARIABLE}: {name} and states no "
-            f"{ACTUATOR_RPM_VARIABLE}. The disc turns at the speed the row states, in "
-            f"rev/min: '{ACTUATOR_RPM_VARIABLE}: <speed>'."
-        )
-    rpm = _required_float(case, ACTUATOR_RPM_VARIABLE, quantity="disc speed", unit="rev/min")
+        rpm = _disc_rpm_from_the_advance_ratio(case, name, block)
+    else:
+        rpm = _required_float(case, ACTUATOR_RPM_VARIABLE, quantity="disc speed", unit="rev/min")
     if rpm <= 0.0:
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {ACTUATOR_RPM_VARIABLE}: "
@@ -11985,7 +12023,9 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "CREATE_NEW_ACTUATOR",
         ),
         ACTUATOR_RPM_VARIABLE: InputKey(
-            "The disc's speed, a magnitude: its hand is the block's rpm_sign.",
+            "The disc's speed, a magnitude: its hand is the block's rpm_sign. A row "
+            "stating ADVANCE_RATIO and not this key turns the disc at n = V / (J D) "
+            "with the disc's own diameter.",
             "rev/min",
             "SET_PROP_ACTUATOR_RPM",
         ),

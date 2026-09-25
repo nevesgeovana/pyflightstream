@@ -50,3 +50,9 @@ changes for you is listed below, one section per change.
   `--progress-every N` changes the cadence and `--progress-every 0` turns it
   off. The lines go to stderr, as every progress line always has; stdout and
   the records are unchanged.
+
+## 6. An actuator disc from the advance ratio (G20)
+
+- A disc row may state `ADVANCE_RATIO` instead of `ACTUATOR_RPM`; the speed is
+  derived with the disc's own diameter. A row that states `ACTUATOR_RPM` is
+  unchanged. The refusal of a disc row stating neither now names both keys.
