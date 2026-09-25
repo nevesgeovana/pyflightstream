@@ -864,7 +864,8 @@ gone (`docs/migrating-to-0.27.0.md`).
   another simulation or another workspace is refused the same way. A machine
   profile names its descriptor with a plain file name, with no folder, no
   parent folder and no name Windows reads as another file's, since the
-  descriptor is written in the folder each point runs in. The line-by-line
+  descriptor is written in the folder each point runs in; `HpcProfile`
+  refuses such a name however it is built, a profile made in Python included. The line-by-line
   scan for the profile's refusal reads a log written as UTF-16 as the
   whole-file reader does (G06). What these
   guards cover, and the file-system arrangements they do not defend against,

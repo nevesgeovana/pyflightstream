@@ -2915,6 +2915,42 @@ class HpcProfile:
     #: scheduler writes none.
     native_log: str | None = None
 
+    def __post_init__(self) -> None:
+        """Refuse a descriptor name that is not a plain file name.
+
+        A PROFILE BUILT IN PYTHON IS HELD TO THE RULE A FILE IS: the executor
+        writes the descriptor at ``working_dir / descriptor_name``, so the name
+        is checked where every route to the executor passes, not only where a
+        TOML file is read.
+        """
+        refusal = descriptor_name_refusal(str(self.descriptor_name), self.path)
+        if refusal is not None:
+            raise InputArtifactError(refusal)
+
+
+def descriptor_name_refusal(name: str, source: object) -> str | None:
+    """Why ``name`` cannot name a submission descriptor, or None when it can.
+
+    The descriptor is written in the folder each point runs in, so its name
+    is a plain file name: no folder, no parent folder, and no form Windows
+    reads as another file's, any of which would put it on a file another
+    point's record names. ``source`` names the profile in the sentence.
+    """
+    alias = aliased_name_fault(name)
+    if (
+        name.strip()
+        and not any(sep in name for sep in "/\\")
+        and name not in (".", "..")
+        and alias is None
+    ):
+        return None
+    return (
+        f"the HPC profile {source} names its descriptor {name!r}; the "
+        "descriptor is written in the folder each point runs in, so its name "
+        "is a plain file name, with no folder, no parent folder and no form "
+        "Windows reads as another file's" + (f" (it {alias})" if alias else "") + "."
+    )
+
 
 def hpc_profiles(inputs_dir: str | Path) -> list[Path]:
     """Every HPC profile a workspace carries, sorted."""
@@ -3035,22 +3071,13 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         )
     # THE DESCRIPTOR IS A FILE OF THE POINT'S FOLDER, named plainly: a name with a
     # folder in it, a parent folder, or a form Windows reads as another file's
-    # would write it over a file another point's record names.
+    # would write it over a file another point's record names. HpcProfile
+    # refuses the same name however it is built; this names the file it came from.
     stated_name = descriptor.get("name")
     if stated_name is not None:
-        name_text = str(stated_name)
-        alias = aliased_name_fault(name_text)
-        if (
-            not name_text.strip()
-            or any(sep in name_text for sep in "/\\")
-            or (name_text in (".", "..") or alias is not None)
-        ):
-            raise InputArtifactError(
-                f"the HPC profile {target} names its descriptor {name_text!r}; the "
-                "descriptor is written in the folder each point runs in, so its name "
-                "is a plain file name, with no folder, no parent folder and no form "
-                "Windows reads as another file's" + (f" (it {alias})" if alias else "") + "."
-            )
+        refusal = descriptor_name_refusal(str(stated_name), target)
+        if refusal is not None:
+            raise InputArtifactError(refusal)
     fields = descriptor.get("fields") or {}
     if not isinstance(fields, dict) or not fields:
         raise InputArtifactError(

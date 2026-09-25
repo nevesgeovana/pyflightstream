@@ -4414,7 +4414,8 @@ requirement below is one seam of that division.
     warm sweep, the file never classified as a surface export, the refusal on
     both unsteady run types, and the file collected and hashed). The five
     commands it emits are verified one at a time on 26.120 to 26.124 by the
-    compat probes; no licensed row has run the whole path yet.*
+    compat probes, and a licensed row ran the whole path on 26.124, the
+    rectangle exported to VTK (RPT-070, VERIFIED).*
 
     A pproc artifact declares at most ONE `[volume_section]`: a rectangle
     (`corners_m`) or a circle (`radii_m`, `points`) in a `plane` of a named
@@ -4451,7 +4452,7 @@ requirement below is one seam of that division.
     record says, and the other skips; the run's record, manifest and files
     unchanged; the command line; the products marked with the pproc and a
     stale extraction skipped under its own key). The licensed end-to-end run
-    of the extraction is owed.*
+    of the extraction is RPT-072 (VERIFIED on 26.124).*
 
     A row states `ADDITIONAL_PPROC: <pproc id>` in its `VAR_NAMES_VALUES` cell;
     no builder reads it and the run record never carries it.

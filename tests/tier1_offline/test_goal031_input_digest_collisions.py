@@ -1018,3 +1018,36 @@ def test_a_utf16_log_of_another_suffix_is_read_for_the_refusal(tmp_path):
     (tmp_path / "step_iteration=11.out").write_bytes(text.encode("utf-16-le"))
     texts = collected_log_texts(tmp_path, ["step_iteration=11.out"], declared=[])
     assert actuator_profile_verdict(*texts) is not None, texts
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["../DP-A/actions/pfs_walltime_clock.py", "actions/job.sh", "job.sh.", "..", "PROP~1.SH"],
+)
+def test_a_profile_built_in_python_names_its_descriptor_plainly(tmp_path, name):
+    """A profile made in Python rather than read from a file reaches the submitting
+    executor, which writes the descriptor at ``working_dir / descriptor_name``; the name
+    is held to the plain-file rule however the profile is built, so it cannot put the
+    descriptor on another point's hashed program."""
+    import dataclasses
+
+    from pyflightstream.exceptions import InputArtifactError
+    from pyflightstream.workspace.inputs import HpcProfile, read_hpc_profile
+    from tests.tier1_offline.test_goal021_build_alias import documented_profile
+
+    path = tmp_path / "h001.toml"
+    path.write_text(documented_profile(), encoding="utf-8")
+    profile = read_hpc_profile(path)
+    with pytest.raises(InputArtifactError, match=r"plain file name"):
+        dataclasses.replace(profile, descriptor_name=name)
+    with pytest.raises(InputArtifactError, match=r"plain file name"):
+        HpcProfile(
+            application_id="flightstream",
+            descriptor_format="yaml",
+            descriptor_name=name,
+            fields={"ApplicationId": "{application_id}"},
+            submit=("esub", "{descriptor_path}"),
+            defaults={},
+            path=tmp_path / "made-in-python",
+        )
+    assert dataclasses.replace(profile, descriptor_name="job.sh").descriptor_name == "job.sh"
