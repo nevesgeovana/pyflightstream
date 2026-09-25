@@ -63,8 +63,8 @@ FlightStream versions.
   the GitHub release object and recorded one commit after the tag, so between
   the tag and that commit this release has no archive row; cite the concept DOI
   until it lands.
-- **The submitting half of the additional post** (0.28.0): completing an
-  extraction handed to a scheduler.
+- **The submitting half of the additional post** (0.29.0; the approved 0.28.0
+  scope leaves it out): completing an extraction handed to a scheduler.
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
   Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
