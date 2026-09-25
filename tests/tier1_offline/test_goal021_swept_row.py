@@ -383,6 +383,55 @@ def test_goal021_swept_row_a_new_point_does_not_restage_under_a_queued_job(tmp_p
     assert [record.run_id for record in workspace.read_manifest()] == manifest_before
 
 
+@pytest.mark.parametrize("spelling", ["wing.fsm", "WING.FSM", "Wing.Fsm"])
+def test_goal021_swept_row_the_staged_input_check_reads_the_name_the_file_system_sees(
+    tmp_path, spelling
+):
+    """The independent reading 9q: the record keys the queued point's geometry as
+    `wing.fsm`, and a new point names a revised source `WING.FSM`, which staging writes
+    onto the same file on Windows. The digest is found by the folded name, so the new
+    spelling is refused as the old one is; the same bytes under any spelling are not."""
+    from types import SimpleNamespace
+
+    from pyflightstream.cases import SimCase, SweepAxis
+    from pyflightstream.run import _staged_inputs_conflict
+
+    source = tmp_path / "models" / spelling
+    source.parent.mkdir()
+    source.write_bytes(b"the revised geometry")
+    queued = RunRecord.model_construct(
+        run_id="camp/sim_9001/AL+000",
+        sim_id="9001",
+        status=RunStatus.SUBMITTED,
+        inputs_sha256={"wing.fsm": "0" * 64},
+    )
+    case = SimCase(
+        sim_id="9001",
+        aircraft="TestWing",
+        velocity=30.0,
+        sweep=SweepAxis(type="alpha", values=[2.0]),
+        recipe="actions",
+        outputs=["loads_{point}.txt"],
+        geometry=str(source),
+    )
+    manifest = {queued.run_id: queued}
+    campaign = SimpleNamespace(name="camp")
+    refusal = _staged_inputs_conflict(
+        campaign, case, None, manifest, [queued.run_id], {queued.run_id}
+    )
+    assert refusal is not None and "still in a scheduler's queue" in refusal, refusal
+
+    from pyflightstream._digest import file_sha256
+
+    same = queued.model_copy(update={"inputs_sha256": {"wing.fsm": file_sha256(source)}})
+    assert (
+        _staged_inputs_conflict(
+            campaign, case, None, {same.run_id: same}, [same.run_id], {same.run_id}
+        )
+        is None
+    )
+
+
 def test_goal021_swept_row_a_queued_point_is_not_force_rerun(tmp_path):
     """A point of the same campaign still in a queue: redoing it would archive the record its
     job will be collected into and write where the job writes. Refused, nothing archived."""

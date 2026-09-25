@@ -876,7 +876,8 @@ gone (`docs/migrating-to-0.27.0.md`).
   name and staging re-links or re-copies its inputs; within one campaign, a
   new point is refused when the geometry changed since a point of the same
   simulation was submitted and that job is still queued, since staging would
-  replace the copy it opens; and `--force-rerun` refuses a point still in a
+  replace the copy it opens, whatever the case of the new file name; and
+  `--force-rerun` refuses a point still in a
   queue, which is collected first (G06). What these
   guards cover, and the file-system arrangements they do not defend against,
   is stated in `docs/workspace-and-workflows.md`, "What the record's digests

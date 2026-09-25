@@ -4913,7 +4913,18 @@ def _staged_inputs_conflict(
             # so the two stop being equal and indexing would raise.
             continue
         recorded_hashes = record.inputs_sha256 or {}
-        was = recorded_hashes.get(name)
+        # BY THE NAME THE FILE SYSTEM SEES: staging writes inputs/<name>, and on
+        # Windows `WING.FSM` and `wing.fsm.` are the file the record keys as
+        # `wing.fsm`, so an exact-spelling lookup let a new spelling restage it.
+        folded = name.rstrip(" .").casefold()
+        was = next(
+            (
+                digest
+                for key, digest in recorded_hashes.items()
+                if key.rstrip(" .").casefold() == folded
+            ),
+            None,
+        )
         if was is None or was == current:
             continue
         if run_id in queued:
