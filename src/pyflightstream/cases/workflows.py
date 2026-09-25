@@ -4290,8 +4290,9 @@ def _import_mesh(case: SimCase, script: Script, file_type: str) -> None:
     ``units`` and goes to ``IMPORT`` alone; the simulation is set to metres
     (:data:`SIMULATION_LENGTH_UNIT`) because every length the reference and
     the row state is in metres. Whether ``IMPORT`` then converts the body
-    from the file's unit into the simulation's is not claimed here: it is
-    measured by no run yet, and the page says so.
+    from the file's unit into the simulation's was measured on 26.124 (RPT-069:
+    a millimetre OBJ solved as the metre one); the page states it and what is
+    not measured.
 
     The path imported is the STAGED copy, for the reason
     :func:`_open_geometry` gives for the open.
@@ -6085,20 +6086,20 @@ def _body_yz_extent_m(case: SimCase) -> tuple[float, float, float, float] | None
     """Return the body's extent in the YZ plane, in metres, or None where it is not read (G18).
 
     A saved simulation's mesh block, in its saved length unit, or an OBJ's vertex
-    lines when its ``[import]`` unit is METER. An OBJ in another unit is not
-    measured, because whether ``IMPORT`` converts it is not claimed
-    (:func:`_import_mesh`); nor is an STL or a file that does not read. The
+    lines in its ``[import]`` unit, converted to metres as ``IMPORT`` converts them
+    (RPT-069). An STL or a file that does not read is not measured, and the
     coverage warning is then not given rather than guessed.
     """
     geometry = case.geometry
     if geometry is None or not Path(str(geometry)).is_file():
         return None
     suffix = Path(str(geometry)).suffix.lower()
+    unit = getattr(case.mesh_import, "units", None)
     try:
         if suffix == ".fsm":
             vertices, _ = surface_mesh(geometry)
             factor = scale(saved_length_unit(geometry) or "METER", "METER")
-        elif suffix == ".obj" and getattr(case.mesh_import, "units", None) == "METER":
+        elif suffix == ".obj" and unit:
             vertices = tuple(
                 (float(parts[1]), float(parts[2]), float(parts[3]))
                 for parts in (
@@ -6107,7 +6108,7 @@ def _body_yz_extent_m(case: SimCase) -> tuple[float, float, float, float] | None
                 )
                 if len(parts) >= 4 and parts[0] == "v"
             )
-            factor = 1.0
+            factor = scale(str(unit), "METER")
         else:
             return None
     except (MeshReadError, OSError, UnicodeError, ValueError):

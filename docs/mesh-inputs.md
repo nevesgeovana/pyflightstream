@@ -142,12 +142,12 @@ package places. The run record keeps the table as `mesh_import`, because the
 geometry's digest alone cannot tell a run in millimetres from the same file
 run in metres.
 
-**Whether `IMPORT` converts the body from the file's unit into the
-simulation's metres is not measured on any build.** The command database
-records the grammar, and no licensed run has yet compared one body imported in
-millimetres with the same body in metres. Until one has, a mesh written in
-metres (`units = "METER"`) is the one case whose scale does not depend on the
-answer.
+**`IMPORT` converts the body from the file's unit into the simulation's
+metres, measured on 26.124**: a wing OBJ written in millimetres, its trailing
+edge detected, solved as the same wing written in metres to the print (RPT-069,
+the licensed probe T07 of 0.27.0). The file route in millimetres and every
+other build are not measured, so a mesh written in metres (`units = "METER"`)
+is still the one case whose scale depends on nothing.
 
 A unit is never assumed. A raw mesh whose sidecar states no `[import]` table
 is refused when the script is built, before any seat is spent, naming the
@@ -484,10 +484,13 @@ with a threshold. A blunt trailing edge, two aft corners at each station, is
 refused rather than guessed. The reasoning, and the alternatives that were
 rejected, are in the design note `DD-27`.
 
-An OBJ file's named groups would have been the preferred route and were
-measured and dropped: the mesh library this package reads through does not
-surface OBJ group names, so a blade exported with its trailing edge already
-named as a group offers nothing the reader can see.
+An OBJ file's named group for the trailing edge would have been the preferred
+route and was measured and dropped: the mesh library this package reads the
+mesh through does not surface OBJ group names, so a blade exported with its
+trailing edge already named as a group offers nothing that library can see.
+The groups ARE read for the SURFACE NAMES since 0.28.0, from the file's own text
+(G30, RPT-078: `IMPORT` makes one boundary per group holding a face, in file
+order).
 
 ### Which build runs what, and what is measured
 
@@ -499,8 +502,8 @@ named as a group offers nothing the reader can see.
 | `[base_regions]` | On 26.124 it marked the flat base of a body, the same faces the by-surface form marks when given the base boundary. | RPT-066 |
 | `[wake_termination]` | On 26.124 the automatic form marked the root end of a twisted blade, on the detection route and on the file route between two initializations; right after a file import neither form marked anything. On the steady point measured, that order made the file route equal the other routes; an unsteady run takes the same order and is not measured. On the geometry tried before, neither command changed the saved state. | RPT-069, RPT-066 |
 | The mesh operations | Not measured after an import: the grammar is the manual's, and the vertex split is carried over from the row's translation, where it was measured. | RPT-048 |
-| `IMPORT`'s unit | Whether it converts the body from the file's unit into metres is not measured on any build (above). On the file route, a body that does not come out in metres leaves the node file's points off its edges, and the count check records the point `FAILED_SCRIPT`. | none yet |
-| The surface names | Trusted, not verified: the file carries nothing this package reads them from. | none |
+| `IMPORT`'s unit | Converts on 26.124: a wing OBJ in millimetres, trailing edge detected, equalled the one in metres to the print (above). The file route in millimetres and other builds are not measured; on the file route, a body that does not come out in metres leaves the node file's points off its edges, and the count check records the point `FAILED_SCRIPT`. | RPT-069 |
+| The surface names | An OBJ's are read from its groups in file order, the order `IMPORT` numbers them in (G30); an STL's, which names no group, are trusted, not verified. | RPT-078 |
 
 ## A complete example: a wing OBJ with its trailing edge by file
 

@@ -2691,8 +2691,8 @@ batch:
   (`test_g18_a_field_that_does_not_cover_the_body_is_warned_at_plan`). It warns
   rather than refuses, because a field meant as a local gust may cover only part
   of the body on purpose. The body is read from a saved simulation's mesh or an
-  OBJ imported in metres; an STL or an OBJ in another unit is not measured, and
-  then nothing is said. A row that MOVES the body (ROTATE, TRANSLATE, rotor MOTIONS
+  OBJ, in its `[import]` unit converted to metres as `IMPORT` converts it
+  (RPT-069); an STL is not read, and then nothing is said. A row that MOVES the body (ROTATE, TRANSLATE, rotor MOTIONS
   or an import operation) is told the coverage was not checked, and why, because
   the body's file does not say where the row places it
   (`test_g18_a_row_that_moves_the_body_is_told_its_coverage_was_not_checked`).

@@ -867,6 +867,30 @@ def test_g18_a_field_that_does_not_cover_the_body_is_warned_at_plan(tmp_path, re
         assert not said, said
 
 
+@pytest.mark.parametrize(("ys", "warned"), [((-2.0, 0.0, 2.0), True), ((-6.0, 0.0, 6.0), False)])
+def test_g18_an_obj_in_millimetres_is_measured_in_metres(tmp_path, recwarn, ys, warned):
+    """IMPORT converts the body from the file's unit (RPT-069), so an OBJ written in
+    millimetres, its wing reaching y from -4000 to 4000 mm, is 8 m of span against the
+    field's metres: a field of y from -2 to 2 m misses it, one of -6 to 6 m does not."""
+    from pyflightstream.cases import MeshImport
+
+    obj = tmp_path / "wing_mm.obj"
+    obj.write_text(
+        "v 0 -4000 0\nv 1000 -4000 0\nv 0 4000 100\nv 1000 4000 -100\no Wing\nf 1 2 3\nf 2 4 3\n",
+        encoding="utf-8",
+    )
+    case = steady_case().model_copy(
+        update={"geometry": str(obj), "mesh_import": MeshImport(units="MILLIMETER")}
+    )
+    from pyflightstream.cases.workflows import _warn_when_the_field_misses_the_body
+
+    _warn_when_the_field_misses_the_body(case, "FREESTREAM: cut", (ys[0], ys[-1], -1.0, 1.0))
+    said = [str(w.message) for w in recwarn if "is not loaded by the field" in str(w.message)]
+    assert bool(said) is warned, said
+    if warned:
+        assert "reaches y from -4 to 4 m" in said[0], said
+
+
 def test_g18_a_row_that_moves_the_body_is_told_its_coverage_was_not_checked(recwarn):
     """Reading B30: the extent compared is the body as its file holds it, so a row that
     translates the wing 20 m out of a field that covers the file's wing was told nothing.
