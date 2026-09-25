@@ -477,6 +477,25 @@ def _build_parser() -> argparse.ArgumentParser:
         "such a point instead of redoing it, and the two together are refused",
     )
     run.add_argument(
+        "--force-rerun-all",
+        dest="force_rerun_all",
+        action="store_true",
+        help="REDO every recorded point of the matrix, or of the simulations --sims names: "
+        "each is archived as --force-rerun archives it and runs again, a recorded steady "
+        "job as one job. The count of points and jobs, which is the licences it spends, is "
+        "printed before anything runs. Refused with --resume and with --force-rerun",
+    )
+    run.add_argument(
+        "--sims",
+        dest="sims",
+        nargs="+",
+        metavar="SIM",
+        default=None,
+        help="with --force-rerun-all, the simulations to redo, by their ids as the matrix "
+        "spells them (for example --sims 2031 2032 2033); the run then touches those "
+        "simulations only. An id the matrix does not carry is refused before anything runs",
+    )
+    run.add_argument(
         "--sweep-csv",
         help="write the campaign sweep table here (default: "
         "post/<matrix stem>/campaign_sweep.csv in the workspace, so each matrix of a "
@@ -1424,6 +1443,8 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             recipe_registry=workflow_registry(),
             resume=args.resume,
             force_rerun=args.force_rerun,
+            force_rerun_all=args.force_rerun_all,
+            sims=args.sims,
             ignore_missing_families=_the_missing_family_choice(args),
             accept_unregistered_build=args.accept_unregistered_build,
             local=args.local,

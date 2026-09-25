@@ -31,7 +31,7 @@ import enum
 import shutil
 import warnings
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from itertools import zip_longest
 from pathlib import Path, PurePath
@@ -54,6 +54,7 @@ from pyflightstream.cases import (
     case_at_point,
     classify_outputs,
 )
+from pyflightstream.cases import point_name as point_name
 from pyflightstream.cases.matrix import (
     LEGACY_WORKFLOW,
     MatrixError,
@@ -71,6 +72,7 @@ from pyflightstream.cases.workflows import (
 )
 from pyflightstream.results.tables import superseded_by_a_continuation
 from pyflightstream.run import (
+    JOB_TAG,
     CampaignPlan,
     Executor,
     ExecutorConfigurationError,
@@ -85,6 +87,7 @@ from pyflightstream.run import (
     plan_campaign,
     run_campaign,
 )
+from pyflightstream.run import _say as _say
 from pyflightstream.script import Script
 from pyflightstream.versions import resolve
 from pyflightstream.workspace import (
@@ -784,6 +787,87 @@ def _exports_its_log_here(workspace: CampaignWorkspace) -> bool:
     return all(stated.values())
 
 
+def _everything_recorded(
+    resolved: ResolvedMatrix,
+    workspace: CampaignWorkspace,
+    *,
+    sims: Sequence[str] | None,
+    force_rerun: Sequence[str] | None,
+    resume: bool,
+) -> tuple[list[str], ResolvedMatrix]:
+    """Resolve ``force_rerun_all`` into the recorded ids to redo, and the run's simulations.
+
+    G44 of 0.28.0, her words: "para 28, eu quero um --force-rerun-all". Every
+    recorded point of the matrix, or of the simulations ``sims`` names, is named
+    to the forced re-run it already is point by point: a steady row recorded as
+    one job is named by its job id, so it runs again as one job; every other
+    recorded point by its own run_id. With ``sims`` the campaign is narrowed to
+    those simulations, so the run touches nothing else. The count is said before
+    anything runs, because the count is the licences it spends.
+    """
+    if resume or force_rerun:
+        raise MatrixError(
+            "force_rerun_all redoes every recorded point, so it is refused together with "
+            + ("resume, which skips them" if resume else "force_rerun, which names some of them")
+            + ". Give one or the other."
+        )
+    campaign = resolved.campaign
+    carried = [case.sim_id for case in campaign.sims]
+    if sims:
+        unknown = [sim for sim in sims if sim not in carried]
+        if unknown:
+            raise MatrixError(
+                f"sims names {', '.join(unknown)}, which this matrix does not carry; it "
+                f"carries {', '.join(carried)}. Nothing was run."
+            )
+        wanted = set(sims)
+    else:
+        wanted = set(carried)
+    recorded = {record.run_id for record in workspace.read_manifest()}
+    names: list[str] = []
+    points = jobs = 0
+    for case in campaign.sims:
+        if case.sim_id not in wanted:
+            continue
+        job = f"{campaign.name}/sim_{case.sim_id}/{JOB_TAG}"
+        if job in recorded:
+            names.append(job)
+            points += len(list(case.sweep.points()))
+            jobs += 1
+            continue
+        for point in case.sweep.points():
+            run_id = f"{campaign.name}/sim_{case.sim_id}/{point_name(case, point)}"
+            if run_id in recorded:
+                names.append(run_id)
+                points += 1
+                jobs += 1
+    if not names:
+        raise MatrixError(
+            "force_rerun_all found no recorded point of campaign "
+            f"{campaign.name!r} in "
+            + (f"simulation(s) {', '.join(sorted(wanted))}" if sims else "this matrix")
+            + f" in {workspace.root}; there is nothing to redo. Run without it."
+        )
+    _say(
+        f"force-rerun-all: selected {points} point(s) in {jobs} job(s); {len(names)} "
+        "recorded record(s) will be archived and run again."
+    )
+    if sims:
+        keep = [case.sim_id in wanted for case in campaign.sims]
+        resolved = replace(
+            resolved,
+            campaign=campaign.model_copy(
+                update={
+                    "sims": [case for case, kept in zip(campaign.sims, keep, strict=True) if kept]
+                }
+            ),
+            row_builds=tuple(
+                build for build, kept in zip(resolved.row_builds, keep, strict=True) if kept
+            ),
+        )
+    return names, resolved
+
+
 def run_matrix(
     path: str | Path,
     workspace: CampaignWorkspace,
@@ -797,6 +881,8 @@ def run_matrix(
     recipe_registry: dict[str, ScriptRecipe] | None = None,
     resume: bool = False,
     force_rerun: Sequence[str] | None = None,
+    force_rerun_all: bool = False,
+    sims: Sequence[str] | None = None,
     hidden: bool | None = None,
     fs_version: str | None = None,
     name_from: str | None = None,
@@ -856,6 +942,17 @@ def run_matrix(
         first, and nothing is deleted. It names points rather than being a
         switch because redoing a whole matrix over one wrong row spends a
         licensed seat per point. Refused together with ``resume``.
+    force_rerun_all : bool
+        REDO every recorded point of the matrix (G44 of 0.28.0): each
+        recorded point, and each recorded steady job as a whole, is archived
+        and runs again, with the count of points and jobs said before
+        anything runs. Refused together with ``resume`` and with
+        ``force_rerun``, and when nothing of the selection is recorded.
+    sims : sequence of str, optional
+        With ``force_rerun_all``, the simulations to redo, by their ids as
+        the matrix spells them (leading zeros kept); the run then touches
+        those simulations only. An id the matrix does not carry is refused
+        before anything runs.
     resume : bool
         With True, points already in the manifest are skipped, so a
         grown matrix re-runs only its new points; with False (the
@@ -959,6 +1056,15 @@ def run_matrix(
         fs_exe=fs_exe,
         ignore_missing_families=ignore_missing_families,
     )
+    if force_rerun_all:
+        force_rerun, resolved = _everything_recorded(
+            resolved, workspace, sims=sims, force_rerun=force_rerun, resume=resume
+        )
+    elif sims:
+        raise MatrixError(
+            "sims chooses the simulations of force_rerun_all (CLI: --sims with "
+            "--force-rerun-all); give it with force_rerun_all, or leave it out."
+        )
     # FR-97. THE GATE IS ON THE COMMAND, not here. The CLI
     # requires a plan receipt; the library API does not: this
     # function is the library entry a caller composes, and a caller that

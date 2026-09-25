@@ -9,6 +9,13 @@ FlightStream versions.
 
 ### Added
 
+- **`pyfs-matrix run --force-rerun-all [--sims SIM ...]` (G44).** Every recorded
+  point of the matrix, or of the simulations `--sims` names, is archived and runs
+  again, a steady row recorded as one job as one job; one line gives the count of
+  points and jobs before anything runs. `--sims` narrows the run to those
+  simulations. Refused beside `--resume` or `--force-rerun`, for an id the matrix
+  does not carry, and when nothing is recorded. Library: `run_matrix(...,
+  force_rerun_all=True, sims=[...])`.
 - **The plan warns when a pproc plot group takes the rotor table's plot name
   (G42).** A group named like the automatic `ROTOR_<ALIAS>` group, such as
   `ROTOR_{family}` in a rotor's own frame, emits the names the rotor table reads,

@@ -30,3 +30,10 @@ changes for you is listed below, one section per change.
   again as one job, and a warning lists them; before, it ran the named point
   alone, cold, and the other points lost their record. Naming the job itself
   (`<campaign>/sim_<id>/sweep`) is unchanged.
+
+## 4. `--force-rerun-all` and `--sims` (G44)
+
+- New: `pyfs-matrix run <matrix> --force-rerun-all` redoes every recorded point,
+  and `--sims 2031 2032` narrows it to those simulations. A script that built a
+  list of `--force-rerun` flags from `runs.json` can use this instead. Nothing
+  that existed changes.

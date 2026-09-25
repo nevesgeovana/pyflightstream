@@ -2077,6 +2077,24 @@ row, and the flag repeats. Nothing is deleted: the manifest is copied to
 point's own `archive/<stamp>/`. A name no recorded point carries is refused, and
 recorded points it does not name are skipped rather than refused. It cannot be
 combined with `--resume`, which SKIPS a recorded point instead of redoing it.
+Naming one point of a steady row recorded as one job redoes the whole job, and
+the run says which points run again (since 0.28.0).
+
+**To redo EVERY recorded point**, of the matrix or of some of its simulations,
+name none of them (since 0.28.0):
+
+```text
+pyfs-matrix run <matrix> --workspace . --force-rerun-all
+pyfs-matrix run <matrix> --workspace . --force-rerun-all --sims 2031 2032 2033
+```
+
+Each recorded point is archived as `--force-rerun` archives it and runs again, a
+steady row recorded as one job as one job. Before anything runs, one line says
+how many points and jobs will run again, which is the licences the command
+spends. `--sims` takes the simulation ids as the matrix spells them and narrows
+the whole run to them, so the other simulations are not touched, their new
+points included. Refused beside `--resume` or `--force-rerun`, for an id the
+matrix does not carry, and when nothing of the selection is recorded.
 
 **A correction that DOES change the point's name needs none of this.** The name
 is written by the row's `FLIGHT_CONDITION`, so correcting a value in that cell
