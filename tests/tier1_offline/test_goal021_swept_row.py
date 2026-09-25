@@ -80,7 +80,7 @@ def test_goal021_swept_row_every_point_is_submitted(tmp_path):
 
 
 def test_g43_a_run_that_submits_does_not_post(tmp_path, capsys):
-    """G43 of 0.28.0, her words: "se for submissao para linux, o run nao deveria rodar post".
+    """G43 of 0.28.0: a run that submits to a scheduler does not post.
     Points in a queue have no outputs yet, so the post could only print a skip per point:
     the run writes no product and no table, and one line says what was submitted and the
     command that collects and then posts."""

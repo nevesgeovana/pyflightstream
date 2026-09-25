@@ -1479,6 +1479,9 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
         # anything, so a sweep with one failed point left no table at
         # all, which is the acceptance of PFS-2014.03 exactly inverted.
         print(f"matrix run with failures: {error}", file=sys.stderr)
+        # The call's records ride on the error, so a run that also SUBMITTED a
+        # point is still seen as one below (G43).
+        records = error.records
         status = 2
     except (
         MatrixError,

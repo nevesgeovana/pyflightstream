@@ -1,6 +1,6 @@
-"""G43 of 0.28.0, the local run log: her words, "vamos deixar o log de execução local mais
-bonitinho, podemos usar tabelas e imagens engraçadas com caracteres, podemos informar o
-progresso da corrida a cada 10 steps para o unsteady - essa usuario pode mudar via CLI".
+"""G43 of 0.28.0, the local run log: a banner, every point numbered as it starts, a closing
+table counting points by status, and the progress of an unsteady run every N completed time
+steps (default 10, ``progress_every``; CLI: ``--progress-every``).
 
 The progress is read from the run's OWN step counter (the counter program the run writes
 for a point with per-step actions rewrites `actions/pfs_unsteady_actions.count` at every
@@ -93,9 +93,12 @@ def test_g43_a_local_run_has_a_banner_numbered_points_and_a_summary_table(tmp_pa
         _run(workspace, matrix, CountingStub(WRITES_EVERY_EXPORT))
     said = capsys.readouterr().err
     assert "--o--o--(_)--o--o--" in said and "campaign warm, 3 point(s) to run" in said, said
+    # ONE JOB, THREE POINTS: the job's line numbers the points it runs, and the table
+    # counts points, as the banner does, never the one record (reading A28).
+    assert "3 point(s) in one job  (1-3 of 3)" in said, said
     assert re.search(r"\| status +\| points \|", said), said
-    assert re.search(r"\| CONVERGED +\| +1 \|", said), said
-    assert re.search(r"1 point\(s\) in \d+:\d\d:\d\d", said), said
+    assert re.search(r"\| CONVERGED +\| +3 \|", said), said
+    assert re.search(r"\n  3 point\(s\) in \d+:\d\d:\d\d", said), said
 
 
 def test_g43_the_cadence_reaches_the_executor_of_every_build(monkeypatch, tmp_path):
@@ -150,3 +153,65 @@ def test_g43_the_cadence_reaches_the_executor_of_every_build(monkeypatch, tmp_pa
                 progress_every=cadence,
             )
         assert built == expected, (cadence, built)
+
+    # ON A CLUSTER WHOSE PROFILE SAYS export_log = false, a run kept here carries both:
+    # the machine's log decision is added beside the cadence, never in its place.
+    monkeypatch.setattr(matrix_module, "on_a_cluster", lambda: True)
+    monkeypatch.setattr(matrix_module, "hpc_profiles", lambda inputs: [inputs / "hpc" / "h.toml"])
+    monkeypatch.setattr(matrix_module, "_exports_its_log_here", lambda workspace: False)
+    for cadence, expected in (
+        (0, {"progress_every": 0, "export_log": False}),
+        (10, {"export_log": False}),
+    ):
+        extras = []
+
+        def cluster_local(fs_exe, hidden=True, *, forced_local=False, _extras=extras, **extra):
+            _extras.append(dict(extra))
+            return StubSolver(WRITES_EVERY_EXPORT)
+
+        monkeypatch.setattr(matrix_module, "LocalExecutor", cluster_local)
+        workspace, matrix = two_builds(tmp_path / f"cluster{cadence}")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PyflightstreamWarning)
+            run_matrix(
+                matrix,
+                workspace,
+                name="two",
+                default_fs_version="26.120",
+                recipes=RECIPES,
+                recipe_registry=workflow_registry(),
+                assess=converged,
+                local=True,
+                progress_every=cadence,
+            )
+        assert extras == [expected, expected], (cadence, extras)
+
+
+def test_g43_a_submitting_run_with_a_failed_point_writes_no_table(tmp_path, monkeypatch):
+    """The command writes no table for a run that submitted a point, and that holds when
+    another point of the same call failed: the failure's error carries every record of
+    the call, so the command still sees the submission (reading A28)."""
+    from pyflightstream.run import CampaignErrors
+    from pyflightstream.run import cli as cli_mod
+    from pyflightstream.workspace import RunRecord, RunStatus
+
+    queued = RunRecord.model_construct(run_id="m/sim_1/a", status=RunStatus.SUBMITTED, error=None)
+    failed = RunRecord.model_construct(
+        run_id="m/sim_1/b", status=RunStatus.FAILED_SCRIPT, error="stand-in"
+    )
+
+    def fails_after_submitting(matrix, workspace, **keywords):
+        raise CampaignErrors([failed], [queued, failed])
+
+    tables = []
+    monkeypatch.setattr(cli_mod, "run_matrix", fails_after_submitting)
+    monkeypatch.setattr(cli_mod, "plan_receipt_error", lambda *args, **kwargs: None)
+    # The table the command would derive, stood in, so the only thing between the
+    # error and the writer is the submission check this test is about.
+    monkeypatch.setattr(cli_mod, "sweep_table", lambda *args, **kwargs: "a table")
+    monkeypatch.setattr(cli_mod, "write_table", lambda *args, **kwargs: tables.append(args))
+    matrix = tmp_path / "m.fs"
+    matrix.write_text("", encoding="utf-8")
+    status = cli_mod.main(["run", str(matrix), "--workspace", str(tmp_path / "ws"), "--name", "m"])
+    assert status == 2
+    assert tables == [], "the command wrote a table for a run that submitted a point"

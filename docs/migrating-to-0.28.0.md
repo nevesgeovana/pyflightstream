@@ -29,7 +29,9 @@ changes for you is listed below, one section per change.
   `--force-rerun` (by point name or run_id) now runs every point of the job
   again as one job, and a warning lists them; before, it ran the named point
   alone, cold, and the other points lost their record. Naming the job itself
-  (`<campaign>/sim_<id>/sweep`) is unchanged.
+  (`<campaign>/sim_<id>/sweep`) is unchanged. A point added to the row after
+  the job ran and recorded on its own (`--resume`) runs again inside the job,
+  and its old record is archived with the job's.
 
 ## 4. `--force-rerun-all` and `--sims` (G44)
 
@@ -41,11 +43,13 @@ changes for you is listed below, one section per change.
 ## 5. A run that submits does not post, and a local run's log (G43)
 
 - `pyfs-matrix run` that submits any point to a cluster no longer writes
-  products or the sweep table; it ends with a line naming what was submitted
+  products or the sweep table, also when another point of the same run failed;
+  it ends with a line naming what was submitted
   and the next command, `pyfs-matrix collect --workspace <root>`, which
   collects and then posts. A script that read `post/` right after a submitting
   run reads it after `collect` instead.
-- A local run prints a banner, numbers its points and ends with a table; an
+- A local run prints a banner, numbers its points (a steady job its range of
+  points) and ends with a table that counts points, not jobs; an
   unsteady point with a step counter prints its progress every 10 steps.
   `--progress-every N` changes the cadence and `--progress-every 0` turns it
   off. The lines go to stderr, as every progress line always has; stdout and
@@ -56,3 +60,5 @@ changes for you is listed below, one section per change.
 - A disc row may state `ADVANCE_RATIO` instead of `ACTUATOR_RPM`; the speed is
   derived with the disc's own diameter. A row that states `ACTUATOR_RPM` is
   unchanged. The refusal of a disc row stating neither now names both keys.
+- A steady row that sweeps `ADVANCE_RATIO` for its disc runs one job per point,
+  not one warm job, because each point sets its own disc speed.

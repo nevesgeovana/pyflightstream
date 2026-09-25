@@ -14,15 +14,21 @@ FlightStream versions.
   no `ACTUATOR_RPM` turns the disc at n = V / (J D) by the rotors' rule, with the
   DISC's own diameter (twice its `tip_radius_m`) and the row's velocity; the hand
   stays the block's `rpm_sign`. A row stating neither is refused naming both.
+  A steady row whose disc speed moves with a swept advance ratio runs one job
+  per point, as a flow sweep does, so each point sets its own speed.
 - **A local run's log reads at a glance, and an unsteady point says how far it
   is (G43).** A run opens with a banner naming the campaign and how many points
-  it runs, numbers each point (`(3 of 17)`), and closes with a table of how the
-  points ended and the time it took. An unsteady point that carries its step
+  it runs, numbers each point (`(3 of 17)`, a steady job its range, `(1-3 of
+  17)`), and closes with a table of how the points ended, a job's points counted
+  one by one, and the time it took. An unsteady point that carries its step
   counter prints a progress bar with its step, its share and the time so far
   every N completed time steps, read from the run's own counter while the
   solver runs, never from what the solver prints: `pyfs-matrix run
   --progress-every N` (10 by default, 0 for none); library
   `run_matrix(progress_every=...)` and `LocalExecutor(progress_every=...)`.
+- **`CampaignErrors.records`.** Every record the failing call wrote, failed or
+  not, beside `failures`; `pyfs-matrix run` reads it to tell a run that also
+  submitted a point, which writes no table.
 - **`pyfs-matrix run --force-rerun-all [--sims SIM ...]` (G44).** Every recorded
   point of the matrix, or of the simulations `--sims` names, is archived and runs
   again, a steady row recorded as one job as one job; one line gives the count of
@@ -46,7 +52,10 @@ FlightStream versions.
   name or its run_id, archived the job's record and ran that point alone and
   cold, leaving the other angles in no record. Now any point of a recorded job
   resolves to the whole job before anything is archived, and a warning lists the
-  points that run again.
+  points that run again. A point of the row recorded on its own after the job
+  ran (a new angle run with `--resume`) is archived with the job's record, by
+  `--force-rerun` and `--force-rerun-all` alike, so the new job's record is the
+  only active one.
 
 ### Changed
 

@@ -64,3 +64,31 @@ def test_g37_naming_the_job_is_unchanged_and_not_warned_as_a_point(tmp_path):
     records = _run(workspace, matrix, stub, force_rerun=["warm/sim_5001/sweep"])
     assert [record.run_id for record in records] == ["warm/sim_5001/sweep"]
     assert len(records[0].points_ran) == 3
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [{"force_rerun": ["M100RE230AL+000BE+000"]}, {"force_rerun_all": True}],
+    ids=["a-point-of-the-job", "force-rerun-all"],
+)
+def test_g37_the_job_s_rerun_retires_a_point_recorded_on_its_own(tmp_path, capsys, extra):
+    """A row extended after its job ran records the new angle by itself (--resume). Redoing
+    the job runs that angle too, so its own record is archived with the job's: one active
+    record remains, the new job's, and not the old point beside it (reading A28)."""
+    workspace, matrix = _recorded_sweep(tmp_path, SWEPT + ",4.0")
+    _run(workspace, matrix, CountingStub(WRITES_EVERY_EXPORT), resume=True)
+    assert sorted(record.run_id for record in workspace.read_manifest()) == [
+        "warm/sim_5001/M100RE230AL+040BE+000",
+        "warm/sim_5001/sweep",
+    ]
+    capsys.readouterr()
+    records = _run(workspace, matrix, CountingStub(WRITES_EVERY_EXPORT), **extra)
+    assert [record.run_id for record in records] == ["warm/sim_5001/sweep"]
+    assert len(records[0].points_ran) == 4, records[0].points_ran
+    active = workspace.read_manifest()
+    assert [record.run_id for record in active] == ["warm/sim_5001/sweep"], [
+        record.run_id for record in active
+    ]
+    if "force_rerun_all" in extra:
+        said = capsys.readouterr().err
+        assert "selected 4 point(s) in 1 job(s); 2 recorded record(s)" in said, said

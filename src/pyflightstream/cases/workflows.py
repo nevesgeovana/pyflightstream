@@ -234,6 +234,7 @@ __all__ = [
     "command_accepted_on",
     "covered_builds",
     "creates_surface_sections",
+    "disc_speed_moves_with_the_point",
     "emit_rotor_motion",
     "export_window",
     "frame_definitions",
@@ -7374,6 +7375,35 @@ def _disc_rpm_from_the_advance_ratio(case: SimCase, name: str, block: ActuatorBl
             f"is a stopped disc at V = 0. State {ACTUATOR_RPM_VARIABLE} directly."
         )
     return round(60.0 * velocity / (ratio * 2.0 * block.tip_radius_m), _DERIVED_RPM_DECIMALS)
+
+
+def disc_speed_moves_with_the_point(case: SimCase) -> bool:
+    """Return whether the row's disc turns at a different speed at each point.
+
+    True when the row names a disc, states no ``ACTUATOR_RPM`` and no row-level
+    ``ADVANCE_RATIO``, and its points carry more than one advance ratio: each
+    point's speed is then its own n = V / (J D). The steady run type reads this
+    to run such a row one job per point, because a warm job sets the disc once
+    and every point after the first would turn at the first point's speed.
+
+    Parameters
+    ----------
+    case : SimCase
+        The row, before it is split into points.
+
+    Returns
+    -------
+    bool
+        True when the disc speed differs between the points of the sweep.
+    """
+    if _variable(case, ACTUATOR_VARIABLE) is None:
+        return False
+    if _variable(case, ACTUATOR_RPM_VARIABLE) is not None:
+        return False
+    if _variable(case, ADVANCE_RATIO_VARIABLE) is not None:
+        return False
+    ratios = {point.get(_POINT_ADVANCE_RATIO) for point in case.sweep.points()}
+    return len(ratios) > 1
 
 
 def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:

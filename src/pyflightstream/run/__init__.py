@@ -126,6 +126,7 @@ from pyflightstream.cases.workflows import (
     WorkflowConventions,
     build_steady_sweep,
     creates_surface_sections,
+    disc_speed_moves_with_the_point,
     parse_restart,
     read_a_choice,
     reduction_windows,
@@ -2099,10 +2100,14 @@ class CampaignErrors(PyflightstreamError, RuntimeError):  # noqa: N818 (the SAD 
     ----------
     failures : list of RunRecord
         The manifest records of the failed points.
+    records : list of RunRecord
+        Every record the call wrote, failed or not, in the order it wrote
+        them; the failures alone when the raiser did not pass them.
     """
 
-    def __init__(self, failures: list[RunRecord]):
+    def __init__(self, failures: list[RunRecord], records: list[RunRecord] | None = None):
         self.failures = failures
+        self.records = list(failures) if records is None else list(records)
         lines = "\n".join(
             f"  {record.run_id}: {record.status} ({record.error or 'no error text'})"
             for record in failures
@@ -3101,6 +3106,9 @@ def run_campaign(
     recorded = set(manifest)
     records: list[RunRecord] = []
     failures: list[RunRecord] = []
+    # One status per POINT this call ran, for the closing table (G43): a job is
+    # one record and several points, and the table counts points.
+    outcomes: list[str] = []
     # PASS ONE decides what is left to run, for every case, and touches
     # nothing. The whole schedule is knowable from the campaign and the
     # manifest, so every refusal that rests on it belongs here rather than
@@ -3236,10 +3244,16 @@ def run_campaign(
                         stacklevel=2,
                     )
                 run_ids = [_run_id(campaign, case, point) for point in case_points]
-                if job in recorded_here:
-                    superseding = [job]
-                else:
-                    superseding = [run_id for run_id in run_ids if run_id in recorded_here]
+                # THE JOB AND EVERY POINT OF IT RECORDED ON ITS OWN. A row extended
+                # after its job ran records the new point by itself (--resume); the
+                # job's re-run runs that point too, so its record goes with the job's
+                # rather than staying active beside the replacement (reading A28).
+                # Read off the manifest, not `already`: a recorded job's `already`
+                # is the job's id alone.
+                superseding = [job] if job in recorded_here else []
+                superseding += [
+                    run_id for run_id in run_ids if run_id in recorded and run_id != job
+                ]
                 # A POINT STILL IN A QUEUE IS NOT REDONE: its job has not finished
                 # writing its folder, and archiving the record it will be collected
                 # into would leave the job writing where the new run writes.
@@ -3445,9 +3459,11 @@ def run_campaign(
         if _is_one_job(campaign, case) and len(pending) > 1 and not job_recorded:
             _say(
                 f"  -> {_job_run_id(campaign, case)}  [{case.recipe}]  "
-                f"{len(pending)} point(s) in one job",
+                f"{len(pending)} point(s) in one job  "
+                f"({number + 1}-{number + len(pending)} of {to_run})",
                 quiet=quiet,
             )
+            number += len(pending)
             record = _execute_sweep(
                 campaign=campaign,
                 canonical=canonical,
@@ -3476,6 +3492,7 @@ def run_campaign(
             workspace.append_record(record)
             recorded.add(record.run_id)
             records.append(record)
+            outcomes.extend(_job_point_statuses(record, len(pending)))
             if record.status.startswith("FAILED"):
                 failures.append(record)
             continue
@@ -3600,6 +3617,7 @@ def run_campaign(
             workspace.append_record(record)
             recorded.add(record.run_id)
             records.append(record)
+            outcomes.append(str(record.status))
             if record.status.startswith("FAILED"):
                 failures.append(record)
     # BEFORE THE RAISE, and that is the whole placement (PFS-2014.03).
@@ -3619,13 +3637,14 @@ def run_campaign(
     # A point in a queue has no outputs
     # yet, so the post could only print a skip per point; one line says what
     # was submitted and the command that collects and then posts.
-    if records:
-        _say_the_summary(records, time.perf_counter() - started, quiet=quiet)
+    if outcomes:
+        _say_the_summary(outcomes, time.perf_counter() - started, quiet=quiet)
     submitted = [record for record in records if record.status is RunStatus.SUBMITTED]
     if submitted:
+        queued = outcomes.count(str(RunStatus.SUBMITTED))
         _say(
-            f"submitted {len(submitted)} point(s) to the scheduler and ran "
-            f"{len(records) - len(submitted)} here; nothing is posted until they are "
+            f"submitted {queued} point(s) to the scheduler and ran "
+            f"{len(outcomes) - queued} here; nothing is posted until they are "
             f"collected: pyfs-matrix collect --workspace {workspace.root} (add --watch "
             "to wait), which posts once their outputs land."
         )
@@ -3642,15 +3661,28 @@ def run_campaign(
             # either way; silence would not be.
             warnings.warn(problem, PyflightstreamWarning, stacklevel=2)
     if failures:
-        raise CampaignErrors(failures)
+        raise CampaignErrors(failures, records)
     return records
 
 
-def _say_the_summary(records: Sequence[RunRecord], elapsed_s: float, *, quiet: bool) -> None:
+def _job_point_statuses(record: RunRecord, points: int) -> list[str]:
+    """Return one status per point of a job record, each point's own where it has one.
+
+    A job whose record carries an entry for every point it ran counts each by its
+    entry; one that stopped before it could (a preparation refusal, a solver that
+    never started) counts every point at the job's status.
+    """
+    entries = record.points_ran or []
+    if len(entries) == points:
+        return [str(entry.get("status") or record.status) for entry in entries]
+    return [str(record.status)] * points
+
+
+def _say_the_summary(outcomes: Sequence[str], elapsed_s: float, *, quiet: bool) -> None:
     """Say how the points of this call ended, as a small table, and how long it took (G43)."""
     counts: dict[str, int] = {}
-    for record in records:
-        counts[str(record.status)] = counts.get(str(record.status), 0) + 1
+    for status in outcomes:
+        counts[status] = counts.get(status, 0) + 1
     width = max(len("status"), *(len(status) for status in counts))
     rule = f"  +-{'-' * width}-+--------+"
     _say(rule, quiet=quiet)
@@ -3659,7 +3691,7 @@ def _say_the_summary(records: Sequence[RunRecord], elapsed_s: float, *, quiet: b
     for status, count in sorted(counts.items()):
         _say(f"  | {status:<{width}} | {count:>6} |", quiet=quiet)
     _say(rule, quiet=quiet)
-    _say(f"  {len(records)} point(s) in {_clock(elapsed_s)}", quiet=quiet)
+    _say(f"  {len(outcomes)} point(s) in {_clock(elapsed_s)}", quiet=quiet)
 
 
 @dataclass(frozen=True)
@@ -5371,10 +5403,15 @@ def _is_one_job(campaign: Campaign, case: SimCase) -> bool:
     REmi, an altitude or any other flow variable is one job per point, each
     with its own fluid block, and the warm sweep stays what the predecessor's
     recipe was: one setup, one initialisation, many angles.
+
+    A FIFTH SINCE 0.28.0: the row's disc takes a different speed at each
+    point. A disc that derives its speed from a swept advance ratio (G20) is
+    set once in a warm job, so every point after the first would turn at the
+    first point's speed; such a row is one job per point, as a flow sweep is.
     """
     if not (case.recipe == ONE_JOB_RECIPE and bool(getattr(campaign, "matrix_stem", None))):
         return False
-    return not _sweeps_the_flow(case)
+    return not (_sweeps_the_flow(case) or disc_speed_moves_with_the_point(case))
 
 
 def _sweeps_the_flow(case: SimCase) -> bool:

@@ -1429,3 +1429,44 @@ def test_g20_a_disc_takes_its_speed_from_the_advance_ratio(make):
     ]
     with pytest.raises(CampaignConfigError, match=r"states neither ACTUATOR_RPM nor ADVANCE_RATIO"):
         _lines(_with_disc(make(ACTUATOR="PROP", ACTUATOR_THRUST="120")))
+
+
+def test_g20_a_steady_row_sweeping_the_advance_ratio_turns_its_disc_at_each_point_s_speed(
+    tmp_path,
+):
+    """G20 of 0.28.0: a steady row whose disc takes its speed from a SWEPT advance ratio
+    runs one job per point, each script setting its own speed. One warm job sets the disc
+    once, so J = 1.6 would turn at J = 0.8's speed, twice what it asks (reading A28)."""
+    workspace, matrix = _matrix(
+        tmp_path,
+        condition="MACH:0.144, REmi:4.38, ALPHA:0.0, ADVANCE_RATIO:sweep",
+        values="0.8,1.6",
+        cell="ACTUATOR: PROP / ACTUATOR_THRUST: 120",
+    )
+    (workspace.inputs_dir / "references" / "r003.toml").write_text(
+        REFERENCE_WITH_A_DISC, encoding="utf-8"
+    )
+    records = run_matrix(
+        matrix,
+        workspace,
+        name="disc",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=CountingStub(WRITES_EVERY_EXPORT),
+    )
+    assert [record.status for record in records] == [RunStatus.CONVERGED] * 2, [
+        (record.run_id, record.error) for record in records
+    ]
+    speeds = []
+    for record in records:
+        script = (workspace.sim_dir(record.sim_id) / record.script_path).read_text(encoding="utf-8")
+        set_speed = [
+            line for line in script.splitlines() if line.startswith("SET_PROP_ACTUATOR_RPM")
+        ]
+        assert len(set_speed) == 1, (record.run_id, set_speed)
+        speeds.append(float(set_speed[0].split()[-1]))
+    assert speeds[0] == pytest.approx(2.0 * speeds[1], rel=1e-6), (
+        f"J = 0.8 and J = 1.6 at one velocity turn at {speeds}; n = V / (J D) halves"
+    )

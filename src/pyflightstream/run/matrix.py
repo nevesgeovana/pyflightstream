@@ -724,7 +724,8 @@ def _campaign_executor(
         submitting = None if local else _cluster_executor(workspace, resolved)
         forced = local and on_a_cluster() and bool(hpc_profiles(workspace.inputs_dir))
         if forced and not _exports_its_log_here(workspace):
-            machine = {"export_log": False}
+            # Added beside the cadence, never in its place (reading A28).
+            machine["export_log"] = False
         executor = submitting or LocalExecutor(
             resolved.fs_exe, hidden=hidden, forced_local=forced, **machine
         )
@@ -833,22 +834,28 @@ def _everything_recorded(
         wanted = set(carried)
     recorded = {record.run_id for record in workspace.read_manifest()}
     names: list[str] = []
-    points = jobs = 0
+    points = jobs = archived = 0
     for case in campaign.sims:
         if case.sim_id not in wanted:
             continue
         job = f"{campaign.name}/sim_{case.sim_id}/{JOB_TAG}"
+        point_ids = [
+            f"{campaign.name}/sim_{case.sim_id}/{point_name(case, point)}"
+            for point in case.sweep.points()
+        ]
         if job in recorded:
+            # The job's re-run also retires a point of it recorded on its own.
             names.append(job)
-            points += len(list(case.sweep.points()))
+            points += len(point_ids)
             jobs += 1
+            archived += 1 + sum(run_id in recorded for run_id in point_ids)
             continue
-        for point in case.sweep.points():
-            run_id = f"{campaign.name}/sim_{case.sim_id}/{point_name(case, point)}"
+        for run_id in point_ids:
             if run_id in recorded:
                 names.append(run_id)
                 points += 1
                 jobs += 1
+                archived += 1
     if not names:
         raise MatrixError(
             "force_rerun_all found no recorded point of campaign "
@@ -858,7 +865,7 @@ def _everything_recorded(
         )
     # Said on stderr before anything runs, as every progress line of a run is.
     print(
-        f"force-rerun-all: selected {points} point(s) in {jobs} job(s); {len(names)} "
+        f"force-rerun-all: selected {points} point(s) in {jobs} job(s); {archived} "
         "recorded record(s) will be archived and run again.",
         file=sys.stderr,
         flush=True,
