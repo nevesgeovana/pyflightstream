@@ -139,6 +139,14 @@ _ON_CONTOUR_FRACTION = 1.0e-6
 #: largest extent are one vertex.
 _COINCIDENT_FRACTION = 1.0e-12
 
+#: Two directions whose angle has a sine below this are one line. A SINE AND
+#: NOT A LENGTH: the collinearity tests compared a cross product with the
+#: contour's extent squared, so the short panels a refined sharp trailing edge
+#: ends in, turning 16 degrees, read as an edge folding back (a NACA 0012 of
+#: 1500 points per side was refused; reading E34 of 0.28.0). A sine is the same
+#: at every scale.
+_COLLINEAR_SINE = 1.0e-9
+
 #: Rows of the pair test in the simple-polygon check, per chunk; bounds its
 #: memory at chunk x edges booleans rather than edges squared.
 _PAIR_CHUNK = 256
@@ -800,7 +808,7 @@ def _as_polygon(contour_m: ArrayLike) -> _Floats:
             f"{second} coincide. A simple contour visits each point once, so its area "
             "and moments would count part of the section more than once"
         )
-    folded = _first_fold_back(local, span)
+    folded = _first_fold_back(local)
     if folded is not None:
         raise FsiInputError(
             f"the section contour folds back on itself at vertex {folded}: the edge after "
@@ -834,13 +842,14 @@ def _first_repeated_vertex(points: _Floats, merge: float) -> tuple[int, int] | N
     return None
 
 
-def _first_fold_back(points: _Floats, span: float) -> int | None:
+def _first_fold_back(points: _Floats) -> int | None:
     """Return the first vertex whose two edges are collinear and opposed, if any."""
     before = points - np.roll(points, 1, axis=0)
     after = np.roll(points, -1, axis=0) - points
     turn = before[:, 0] * after[:, 1] - before[:, 1] * after[:, 0]
     heading = before[:, 0] * after[:, 0] + before[:, 1] * after[:, 1]
-    collinear = np.abs(turn) <= _COINCIDENT_FRACTION * span * span
+    lengths = np.hypot(before[:, 0], before[:, 1]) * np.hypot(after[:, 0], after[:, 1])
+    collinear = np.abs(turn) <= _COLLINEAR_SINE * lengths
     folds = np.flatnonzero(collinear & (heading < 0.0))
     return int(folds[0]) if folds.size else None
 
@@ -850,9 +859,9 @@ def _first_self_intersection(points: _Floats, span: float) -> tuple[int, int] | 
 
     The edges are closed segments: a vertex lying on another edge, or two edges
     running along one line over a shared stretch, meet as surely as two that
-    cross. An orientation within rounding of zero reads as collinear.
+    cross. A point reads as on a segment's line when the sine of its angle to
+    the segment, seen from the segment's start, is below ``_COLLINEAR_SINE``.
     """
-    tolerance = _COINCIDENT_FRACTION * span * span
     margin = _COINCIDENT_FRACTION * span
     start = points
     end = np.roll(points, -1, axis=0)
@@ -861,10 +870,10 @@ def _first_self_intersection(points: _Floats, span: float) -> tuple[int, int] | 
         rows = slice(offset, min(count, offset + _PAIR_CHUNK))
         a, b = start[rows, None, :], end[rows, None, :]
         c, d = start[None, :, :], end[None, :, :]
-        s1 = _side(_orientation(a, b, c), tolerance)
-        s2 = _side(_orientation(a, b, d), tolerance)
-        s3 = _side(_orientation(c, d, a), tolerance)
-        s4 = _side(_orientation(c, d, b), tolerance)
+        s1 = _side(_orientation(a, b, c), _COLLINEAR_SINE * _length(a, b) * _length(a, c))
+        s2 = _side(_orientation(a, b, d), _COLLINEAR_SINE * _length(a, b) * _length(a, d))
+        s3 = _side(_orientation(c, d, a), _COLLINEAR_SINE * _length(c, d) * _length(c, a))
+        s4 = _side(_orientation(c, d, b), _COLLINEAR_SINE * _length(c, d) * _length(c, b))
         meet = (s1 * s2 < 0) & (s3 * s4 < 0)
         meet |= (s1 == 0) & _within(a, b, c, margin)
         meet |= (s2 == 0) & _within(a, b, d, margin)
@@ -882,7 +891,13 @@ def _first_self_intersection(points: _Floats, span: float) -> tuple[int, int] | 
     return None
 
 
-def _side(orientation: _Floats, tolerance: float) -> NDArray[np.int_]:
+def _length(p: _Floats, q: _Floats) -> _Floats:
+    """Return the distance from ``p`` to ``q``, broadcast."""
+    result: _Floats = np.hypot(q[..., 0] - p[..., 0], q[..., 1] - p[..., 1])
+    return result
+
+
+def _side(orientation: _Floats, tolerance: _Floats) -> NDArray[np.int_]:
     """Return the sign of an orientation, zero within ``tolerance``."""
     result: NDArray[np.int_] = np.where(
         orientation > tolerance, 1, np.where(orientation < -tolerance, -1, 0)

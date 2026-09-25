@@ -137,11 +137,13 @@ Readings of 2026-09-25, each status read from the process:
 - `ruff check .` exit 0; `ruff format --check .` exit 0, "483 files already
   formatted"; `mypy` exit 0, "Success: no issues found in 104 source files".
 - The full tier-1 suite, detached, one process per file, through
-  `check_goal_032.py --suite`: every gate green on 1917362e (block D) and again on
-  35917503 (block D with the fix of the independent reading C32). The commits
-  after it touch the documentation, one refusal's text and one `__all__`; the 33
-  test files that read those pages and that code were run again over them: 621
-  passed, 2 skipped, exit 0. The suite over this commit is the push gate.
+  `check_goal_032.py --suite`, each run over the commit named: every gate green
+  on 1917362e (block D), on 35917503 (the fix of the independent reading C32) and
+  on a3ef9f1e (the closing round's fixes 42e9ee65, the release commit ad237d2b,
+  the fix of reading D33 b6664116 and a test fixture after it; the run over
+  b6664116 was red in that one fixture, fixed at a3ef9f1e). The commit after
+  a3ef9f1e fixes reading E34 in the section calculator; the suite over the tagged
+  commit is the push gate and its record is the goal's suite arm.
 - `python scripts/mypy_recount.py`: 863 errors in 18 of 104 modules, against
   0.27.0's 812 in 18 of 100 (reports/RPT-029).
 - Review OF THIS RELEASE: an OPENING round of five lenses on the approved scope,

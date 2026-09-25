@@ -499,6 +499,38 @@ def test_a_contour_that_is_no_section_is_refused(contour, message):
         polygon_area_moments(contour)
 
 
+@pytest.mark.parametrize("points_per_side", [60, 400, 1500, 4000])
+@pytest.mark.parametrize("code", ["0012", "2412", "0006"])
+def test_a_refined_sharp_trailing_edge_is_a_section(code, points_per_side):
+    """Reading E34 of 0.28.0: refining a valid airfoil must not make it fold back.
+
+    The collinearity tests compared a cross product with the whole contour's
+    extent squared, so the short panels at a sharp trailing edge, turning some
+    sixteen degrees, read as collinear and opposed: a NACA 0012 of 1500 points
+    per side was refused. Refinement changes the area only by the polygon's own
+    convergence.
+    """
+    refined = polygon_area_moments(
+        airfoil_section_contour(naca4_contour(code, points_per_side), 0.1)
+    )
+    coarse = polygon_area_moments(airfoil_section_contour(naca4_contour(code, 400), 0.1))
+    assert refined.area_m2 == pytest.approx(coarse.area_m2, rel=2e-3)
+
+
+def test_a_thin_triangle_subdivided_at_its_tip_is_a_section():
+    """The same regression on a plain outline: both edges at a sharp vertex short.
+
+    A triangle with a 0.57-degree tip, each edge meeting it split 1e-7 m before
+    it; the outline, and so the area, is the triangle's.
+    """
+    a, tip, c = np.array([0.0, 0.0]), np.array([1.0, 0.005]), np.array([0.0, 0.01])
+    step = 1e-7
+    before = tip - step * (tip - a) / np.linalg.norm(tip - a)
+    after = tip + step * (c - tip) / np.linalg.norm(c - tip)
+    contour = [tuple(a), tuple(before), tuple(tip), tuple(after), tuple(c)]
+    assert polygon_area_moments(contour).area_m2 == pytest.approx(0.005, rel=1e-6)
+
+
 @pytest.mark.parametrize("shift_m", [0.0, 1000.0, 10000.0])
 def test_a_section_far_from_the_origin_keeps_its_moments(shift_m):
     """Reading D33 of 0.28.0: 10 km out the flap moment came back 12,646 times too large.
