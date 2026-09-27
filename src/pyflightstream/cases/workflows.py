@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: "1.4.14"
+# file_version: "1.4.15"
 # artifact_id: src/pyflightstream/cases/workflows.py
-# last_modified_at: 2026-09-27T22:15:37.794Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-agent
+# last_modified_at: 2026-09-27T23:29:39.293Z
+# last_modified_by: OpenAI / Codex / unknown / primary-agent
 # dependencies: [pyflightstream]
 # authority: pyflightstream
 # status: draft
 # confidentiality: public
-# change_summary: Wire selected FSI through existing unsteady driver, mappings and pending inputs.
+# change_summary: Separate geometry port identities, setup choices and MATRIX conditions.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Workflows: a run TYPE that builds the whole script by itself.
@@ -4273,11 +4273,13 @@ def _open_geometry(case: SimCase, script: Script) -> None:
             "would read the table; delete it from the sidecar (docs/mesh-inputs.md, "
             f"search '{_MESH_PAGE_ANCHOR}')."
         )
-    elif case.raw_mesh_conditions is not None:
+    elif case.raw_mesh_conditions is not None and _declared_condition_tables(
+        _applied_boundary_conditions(case)
+    ):
         # NOT IGNORED EITHER, and worse than ignored if it were read: a saved
         # simulation's trailing edges, wake-termination nodes and base regions
         # were marked when it was saved, so a second pass would mark twice.
-        declared = _declared_condition_tables(case.raw_mesh_conditions)
+        declared = _declared_condition_tables(_applied_boundary_conditions(case))
         raise CampaignConfigError(
             f"case {case.sim_id!r} opens the saved simulation "
             f"{PurePath(str(case.geometry)).name}, and {sidecar} beside it declares "
@@ -4495,6 +4497,25 @@ def _import_mesh(case: SimCase, script: Script, file_type: str) -> None:
     _declare_boundaries(case, script, stated=names)
 
 
+def _applied_boundary_conditions(case: SimCase) -> RawMeshConditions:
+    """Adapt published sidecar declarations, with explicit setup false meaning no redefinition."""
+    conditions = case.raw_mesh_conditions or RawMeshConditions()
+    updates: dict[str, None] = {}
+    for field, choice in (
+        ("trailing_edges", case.solver.apply_trailing_edges),
+        ("wake_termination", case.solver.apply_wake_termination),
+        ("base_regions", case.solver.apply_base_regions),
+    ):
+        if choice is False:
+            updates[field] = None
+        elif choice is True and getattr(conditions, field) is None:
+            if field != "base_regions" or not _base_region_families(case):
+                raise CampaignConfigError(
+                    f"setup apply_{field}=true requires its geometry declaration"
+                )
+    return conditions.model_copy(update=updates)
+
+
 def _declared_condition_tables(conditions: RawMeshConditions) -> list[str]:
     """Name the sidecar tables a set of raw-mesh conditions came from, as written."""
     return [
@@ -4563,9 +4584,9 @@ def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
     geometry = PurePath(str(case.geometry))
     sidecar = geometry.stem + ".boundaries.toml"
     page = f"docs/mesh-inputs.md, search that page for '{_CONDITIONS_PAGE_ANCHOR}'"
-    conditions = case.raw_mesh_conditions
+    conditions = _applied_boundary_conditions(case)
     marking = None if conditions is None else conditions.trailing_edges
-    if conditions is None or marking is None:
+    if marking is None and case.solver.apply_trailing_edges is not False:
         raise CampaignConfigError(
             f"case {case.sim_id!r} imports the raw mesh {geometry.name}, and {sidecar} "
             "beside it declares no [trailing_edges] table. Without a marked trailing edge "
@@ -4575,7 +4596,9 @@ def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
             'against the mesh before the run; or with detect = "auto", the solver\'s '
             f"detection, which applies only when written ({page})."
         )
-    if marking.route == "none":
+    if marking is None:
+        pass
+    elif marking.route == "none":
         if conditions.wake_termination is not None:
             raise CampaignConfigError(
                 "a no-trailing-edge body cannot request wake termination nodes"
@@ -4601,7 +4624,7 @@ def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
     # here; EMITTED here on the detection route only (the file route's waits for
     # an initialisation, :func:`_script_init`).
     detection = _wake_termination_detection(case, script, sidecar)
-    if marking.route != "file":
+    if marking is None or marking.route != "file":
         for command, arguments in detection:
             script.emit(command, *arguments)
     if conditions.base_regions is not None:
@@ -4616,49 +4639,74 @@ def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
             )
         _base_region_detection_angle(case, script)
         script.emit("AUTO_DETECT_BASE_REGIONS")
+
+
+def _setup_ports(case: SimCase, script: Script) -> None:
+    """Apply resolved port conditions during setup, preserving measured creation/staging order."""
+    if case.raw_mesh_conditions and (
+        case.raw_mesh_conditions.inlets or case.raw_mesh_conditions.outlets
+    ):
+        raise CampaignConfigError("inlet/outlet conditions belong to setup ports and MATRIX")
+    if not case.solver.ports:
+        return
+    if case.geometry is None or PurePath(case.geometry).suffix.lower() == SIMULATION_SUFFIX:
+        raise CampaignConfigError(
+            "saved or unknown geometry port indices are not proven empty; setup ports require "
+            "a fresh imported mesh until the saved port inventory is established"
+        )
+    if case.solver.delete_inlets or case.solver.delete_outlets:
+        raise CampaignConfigError("new setup ports cannot share a run with explicit port deletions")
+    seen: set[str] = set()
+    for port in case.solver.ports:
+        if port.kind is None:
+            raise CampaignConfigError("setup ports require an explicit inlet or outlet kind")
+        if port.boundary in seen:
+            raise CampaignConfigError("a boundary is assigned more than once to setup ports")
+        if port.boundary is not None:
+            seen.add(port.boundary)
     # Native 26.124 uses one created-port sequence for both families.
     # An outlet on mesh boundary 2 is port 1 alone, or port 2 after an inlet.
     # RPT-081 preserves the negative controls and target-only remesh evidence.
     port_index = 0
-    for name, command, ports in (
-        ("inlets", "CREATE_NEW_INLET", conditions.inlets),
-        ("outlets", "CREATE_NEW_OUTLET", conditions.outlets),
-    ):
-        for port in ports:
-            port_index += 1
-            profile_name = None
-            if port.profile is not None:
-                if name != "inlets":
-                    raise CampaignConfigError("an outlet profile has no documented native command")
-                from hashlib import sha256
+    for port in case.solver.ports:
+        name = "inlets" if port.kind == "inlet" else "outlets"
+        command = "CREATE_NEW_INLET" if port.kind == "inlet" else "CREATE_NEW_OUTLET"
+        if port.boundary is None or port.velocity is None:
+            raise CampaignConfigError("setup ports must bind geometry identities and MATRIX values")
+        port_index += 1
+        profile_name = None
+        if port.profile is not None:
+            if name != "inlets":
+                raise CampaignConfigError("an outlet profile has no documented native command")
+            from hashlib import sha256
 
-                profile = Path(port.profile)
-                payload = profile.read_bytes()
-                digest = sha256(payload).hexdigest()
-                if port.profile_sha256 and digest != port.profile_sha256:
-                    raise CampaignConfigError(f"inlet profile changed after binding: {profile}")
-                if not payload:
-                    raise CampaignConfigError(f"inlet profile is empty: {profile}")
-                profile_name = f"pfs_inlet_{port_index}_{digest[:16]}.txt"
-                parked = script.pending_input_files.get(profile_name)
-                if parked is not None and parked != payload:
-                    raise CampaignConfigError(f"inlet profile staging collision: {profile_name}")
-                script._pending_input_files[profile_name] = payload
-            indices = _sidecar_surfaces(case, script, sidecar, f"[[{name}]]", (port.boundary,))
-            script.emit(command, indices[0], port.velocity)
-            if port.remesh is not None:
-                mesh = port.remesh
-                unit_scale = _from_metres(case, script, f"{name} remesh radius")
-                script.emit(
-                    "REMESH_INLET" if name == "inlets" else "REMESH_OUTLET",
-                    port_index,
-                    inner_radius=mesh.inner_radius_m * unit_scale,
-                    elements=mesh.radial_faces,
-                    growth_scheme="1" if mesh.growth_scheme == "successive" else "2",
-                    growth_rate=mesh.growth_rate,
-                )
-            if profile_name is not None:
-                script.emit("SET_INLET_CUSTOM_PROFILE", port_index, profile_name)
+            profile = Path(port.profile)
+            payload = profile.read_bytes()
+            digest = sha256(payload).hexdigest()
+            if port.profile_sha256 and digest != port.profile_sha256:
+                raise CampaignConfigError(f"inlet profile changed after binding: {profile}")
+            if not payload:
+                raise CampaignConfigError(f"inlet profile is empty: {profile}")
+            profile_name = f"pfs_inlet_{port_index}_{digest[:16]}.txt"
+            parked = script.pending_input_files.get(profile_name)
+            if parked is not None and parked != payload:
+                raise CampaignConfigError(f"inlet profile staging collision: {profile_name}")
+            script._pending_input_files[profile_name] = payload
+        indices = _sidecar_surfaces(case, script, "setup", "[[ports]]", (port.boundary,))
+        script.emit(command, indices[0], port.velocity)
+        if port.remesh is not None:
+            mesh = port.remesh
+            unit_scale = _from_metres(case, script, f"{name} remesh radius")
+            script.emit(
+                "REMESH_INLET" if name == "inlets" else "REMESH_OUTLET",
+                port_index,
+                inner_radius=mesh.inner_radius_m * unit_scale,
+                elements=mesh.radial_faces,
+                growth_scheme="1" if mesh.growth_scheme == "successive" else "2",
+                growth_rate=mesh.growth_rate,
+            )
+        if profile_name is not None:
+            script.emit("SET_INLET_CUSTOM_PROFILE", port_index, profile_name)
 
 
 def _wake_termination_detection(
@@ -4674,7 +4722,7 @@ def _wake_termination_detection(
     (:func:`_raw_mesh_boundary_conditions`), between two initialisations
     on the file route (:func:`_wake_termination_after_initialization`).
     """
-    conditions = case.raw_mesh_conditions
+    conditions = _applied_boundary_conditions(case)
     wake = None if conditions is None else conditions.wake_termination
     if wake is None:
         return []
@@ -4709,7 +4757,7 @@ def _wake_termination_after_initialization(
     settings. A continuation reopens a saved simulation that carries the
     node and imports nothing, so it gets nothing here.
     """
-    conditions = case.raw_mesh_conditions
+    conditions = _applied_boundary_conditions(case)
     if script.wake_edge_points is None or conditions is None:
         return []
     marking = conditions.trailing_edges
@@ -5073,6 +5121,12 @@ def _detect_base_regions(case: SimCase, script: Script) -> None:
     can tell a base from a body offline, so the key's page says which to
     name, and the tier-3 rows name ``Base``.
     """
+    if case.solver.apply_base_regions is False:
+        if case.solver.base_region_operations:
+            raise CampaignConfigError(
+                "apply_base_regions=false conflicts with base_region_operations"
+            )
+        return
     families = _base_region_families(case)
     if not (case.raw_mesh_conditions and case.raw_mesh_conditions.base_regions):
         _base_region_detection_angle(case, script)
@@ -5934,6 +5988,7 @@ def _settings(
     would put a second opinion about units in the one place that cannot
     see the artifact's documentation.
     """
+    _setup_ports(case, script)
     reference = case.reference
     native_length = _from_metres(case, script, "runtime velocity and SI reference dimensions")
     reference_scale = (
@@ -13543,6 +13598,10 @@ def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
     # the run type's table, and refusing it here would refuse the one key
     # the preset just said the row could write.
     declared = {flag.name.strip().casefold() for flag in case.flags}
+    for port in case.solver.ports:
+        for variable in (port.velocity_variable, port.profile_variable):
+            if variable is not None:
+                declared.add(variable.casefold())
     stated = sorted(
         key
         for key in case.variables

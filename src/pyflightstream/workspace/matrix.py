@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER
 # file_role: workspace-matrix-binding
 # authority: pyflightstream
-# file_version: "1.0.1"
-# last_modified_at: "2026-09-27T21:33:11.276Z"
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
+# file_version: "1.0.2"
+# last_modified_at: 2026-09-27T23:29:39.293Z
+# last_modified_by: OpenAI / Codex / unknown / primary-agent
 # dependencies: [pyflightstream.workspace.fsi_setup, pyflightstream.cases]
 # status: active
 # confidentiality: public
-# change_summary: "Declare workspace reference area_m2 and chord_m as SI at the binding boundary."
+# change_summary: Separate geometry port identities, setup choices and MATRIX conditions.
 # revision_source: git
 """Binding a run matrix to the workspace input library.
 
@@ -60,6 +60,7 @@ matters here more than it would in an ordinary comment.
 
 from __future__ import annotations
 
+import math
 import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -69,6 +70,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._fsm import MeshReadError, boundary_names
 from pyflightstream.cases import (
@@ -882,7 +884,10 @@ def _mesh_import_of(geometry: Path, pol: str) -> MeshImport | None:
 
 
 def _raw_mesh_conditions_of(
-    geometry: Path, pol: str, mesh_import: MeshImport | None
+    geometry: Path,
+    pol: str,
+    mesh_import: MeshImport | None,
+    solver: SolverSettings | None = None,
 ) -> RawMeshConditions | None:
     """Return the boundary conditions the geometry's sidecar declares, a points file read (G02).
 
@@ -909,7 +914,12 @@ def _raw_mesh_conditions_of(
     except InputArtifactError as error:
         raise InputArtifactError(f"{where} {error}") from error
     marking = None if declared is None else declared.trailing_edges
-    if declared is None or marking is None or marking.route != "file":
+    if (
+        declared is None
+        or marking is None
+        or marking.route != "file"
+        or (solver is not None and solver.apply_trailing_edges is False)
+    ):
         return declared
     if (
         geometry.suffix.lower() not in RAW_MESH_FORMATS
@@ -941,6 +951,60 @@ def _raw_mesh_conditions_of(
     return declared.model_copy(
         update={"trailing_edges": marking.model_copy(update={"points_m": checked})}
     )
+
+
+def _bind_setup_ports(case: SimCase, inputs_dir: Path) -> SimCase:
+    """Bind setup port selections to geometry identities and this row's MATRIX values."""
+    if not case.solver.ports:
+        return case
+    conditions = case.raw_mesh_conditions
+    identities = {} if conditions is None else conditions.ports
+    bound = []
+    seen: set[str] = set()
+    for entry in case.solver.ports:
+        if entry.port is None or entry.kind is None or entry.port not in identities:
+            raise InputArtifactError(
+                f"case {case.sim_id}: setup port {entry.port!r} is absent from geometry [ports]"
+            )
+        boundary = identities[entry.port]
+        if boundary in seen:
+            raise InputArtifactError(f"boundary {boundary!r} assigned more than once to ports")
+        seen.add(boundary)
+        variable = entry.velocity_variable or f"{entry.port.upper()}_VELOCITY"
+        value = case.variables.get(variable)
+        if value is None or isinstance(value, bool):
+            raise InputArtifactError(
+                f"case {case.sim_id}: MATRIX must state {variable} as a number"
+            )
+        try:
+            velocity = float(value)
+        except (ValueError, TypeError) as exc:
+            raise InputArtifactError(f"MATRIX {variable} must be a finite number") from exc
+        if not math.isfinite(velocity):
+            raise InputArtifactError(f"MATRIX {variable} must be a finite number")
+        updates: dict[str, Any] = {
+            "boundary": boundary,
+            "velocity": velocity,
+            "velocity_variable": variable,
+        }
+        if entry.profile_variable is not None:
+            profile_value = case.variables.get(entry.profile_variable)
+            if not profile_value or not isinstance(profile_value, str):
+                raise InputArtifactError(f"MATRIX must state profile {entry.profile_variable}")
+            folder = (inputs_dir / "profiles").resolve()
+            profile = (folder / profile_value).resolve()
+            if (
+                not profile.is_relative_to(folder)
+                or not profile.is_file()
+                or not profile.stat().st_size
+            ):
+                raise InputArtifactError(
+                    f"MATRIX profile is missing, empty or outside inputs/profiles: {profile_value}"
+                )
+            updates.update(profile=str(profile), profile_sha256=file_sha256(profile))
+        bound.append(entry.model_copy(update=updates))
+    solver = case.solver.model_copy(update={"ports": tuple(bound)})
+    return case.model_copy(update={"solver": solver})
 
 
 def _resolve_geometry(workspace: CampaignWorkspace, name: str, pol: str) -> Path:
@@ -1232,6 +1296,20 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
     instance read like a measured one.
     """
     settings = dict(setup.settings)
+    ports = settings.get("ports", ())
+    if not isinstance(ports, (list, tuple)):
+        raise InputArtifactError(f"setup {set_code!r}: write ports as [[ports]] array tables")
+    for entry in ports:
+        if not isinstance(entry, dict) or not entry.get("port") or not entry.get("kind"):
+            raise InputArtifactError(
+                f"setup {set_code!r}: [[ports]] requires port and kind; map the identity "
+                "to its surface in boundaries.toml and put condition values in MATRIX."
+            )
+        if any(key in entry for key in ("boundary", "velocity", "profile", "profile_sha256")):
+            raise InputArtifactError(
+                f"setup {set_code!r}: [[ports]] selects velocity_variable/profile_variable; "
+                "surface identity belongs to boundaries.toml and condition values to MATRIX."
+            )
     declared = settings.pop(_PRESET_RECORDED_ONLY_KEY, None)
     if declared is None:
         declared_names: set[str] = set()
@@ -2389,7 +2467,7 @@ def resolve_matrix(
             mesh_import = _mesh_import_of(geometry_path, row.pol)
             update["mesh_import"] = mesh_import
             update["raw_mesh_conditions"] = _raw_mesh_conditions_of(
-                geometry_path, row.pol, mesh_import
+                geometry_path, row.pol, mesh_import, solvers[row.set_code]
             )
         # G06: A ROW'S PROFILE IS A FILE OF inputs/profiles/, resolved HERE, when
         # the row is planned, to the absolute path the script imports. A LEGACY
@@ -2514,7 +2592,7 @@ def resolve_matrix(
             update["outputs"] = pprocs[row.pproc_code].outputs(
                 unsteady=row.workflow.startswith("unsteady")
             )
-        sims.append(case.model_copy(update=update))
+        sims.append(_bind_setup_ports(case.model_copy(update=update), workspace.inputs_dir))
     return ResolvedMatrix(
         campaign=campaign.model_copy(update={"sims": sims}),
         conditions=conditions,

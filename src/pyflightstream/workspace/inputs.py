@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: 1.1.0
+# file_version: 1.2.0
 # file_role: workspace-input-artifact-reader
-# last_modified_at: 2026-09-27T18:49:29.212Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementer
+# last_modified_at: 2026-09-27T23:17:41.267Z
+# last_modified_by: OpenAI / Codex / unknown / implementer
 # dependencies: [pyflightstream.cases]
 # authority: pyflightstream
 # status: draft
 # confidentiality: public
-# change_summary: Preserve measured OBJ rules and bind exact inlet-profile files and hashes.
+# change_summary: Separate geometry port identities, setup choices and MATRIX conditions.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Input-artifact library of the managed campaign workspace.
@@ -118,7 +118,6 @@ from pyflightstream.cases import (
     FrameSpec,
     InputKey,
     MeshImport,
-    PortBoundary,
     PprocSpec,
     RawCommand,
     RawMeshConditions,
@@ -2685,15 +2684,9 @@ DETECT_EVERYWHERE = "auto"
 #: tables' own keys are in the registries below, which are the ones their
 #: readers read, so a key a reader gains is a key the glossary states.
 GEOMETRY_SIDECAR_KEYS: Mapping[str, InputKey] = {
-    "inlets": InputKey(
-        "Uniform inlet velocities along the named surfaces' face normals, in declaration order.",
-        "array of tables: boundary (exact name), velocity (signed simulation velocity units)",
-        "CREATE_NEW_INLET",
-    ),
-    "outlets": InputKey(
-        "Uniform outlet velocities along the named surfaces' face normals, in declaration order.",
-        "array of tables: boundary (exact name), velocity (signed simulation velocity units)",
-        "CREATE_NEW_OUTLET",
+    "ports": InputKey(
+        "Stable port identity to exact surface name; conditions belong to setup and MATRIX.",
+        'a table such as [ports] with feed = "Inlet"',
     ),
     "boundaries": InputKey(
         "The mesh's boundary names in the solver's order, the name at position i being "
@@ -2862,6 +2855,20 @@ def read_raw_mesh_conditions(sidecar: str | Path) -> RawMeshConditions | None:
     """
     path = Path(sidecar)
     data = _sidecar_data(path)
+    if any(name in data for name in ("inlets", "outlets")):
+        raise InputArtifactError(
+            f"{path}: inlet/outlet conditions belong to setup [[ports]] and MATRIX values; "
+            "keep only [ports] identity-to-surface mappings in this geometry sidecar."
+        )
+    ports = data.get("ports", {})
+    if not isinstance(ports, dict) or any(
+        not isinstance(key, str)
+        or not key.strip()
+        or not isinstance(value, str)
+        or not value.strip()
+        for key, value in ports.items()
+    ):
+        raise InputArtifactError(f"{path}: [ports] maps each nonempty identity to a surface name")
     tables: dict[str, dict[str, Any] | None] = {}
     for name in RAW_MESH_CONDITION_TABLES:
         table = data.get(name)
@@ -2871,9 +2878,7 @@ def read_raw_mesh_conditions(sidecar: str | Path) -> RawMeshConditions | None:
                 f"[{name}] with its keys beneath it (docs/mesh-inputs.md)."
             )
         tables[name] = table
-    if all(table is None for table in tables.values()) and not any(
-        name in data for name in ("inlets", "outlets")
-    ):
+    if all(table is None for table in tables.values()) and not ports:
         return None
     trailing = tables[TRAILING_EDGES_TABLE]
     wake = tables[WAKE_TERMINATION_TABLE]
@@ -2891,37 +2896,10 @@ def read_raw_mesh_conditions(sidecar: str | Path) -> RawMeshConditions | None:
                 if base is None
                 else _read_detection(path, BASE_REGIONS_TABLE, base, by_surface=False)
             ),
-            inlets=_read_ports(path, data, "inlets"),
-            outlets=_read_ports(path, data, "outlets"),
+            ports=ports,
         )
     except ValueError as exc:
         raise InputArtifactError(f"{path}: invalid mesh boundary conditions: {exc}") from exc
-
-
-def _read_ports(path: Path, data: Mapping[str, Any], name: str) -> tuple[PortBoundary, ...]:
-    records = data.get(name, [])
-    if not isinstance(records, list) or any(not isinstance(item, dict) for item in records):
-        raise InputArtifactError(f"{path}: write {name} as [[{name}]] array tables")
-    try:
-        ports = []
-        for item in records:
-            port = PortBoundary.model_validate(item)
-            if port.profile is not None:
-                if name == "outlets":
-                    raise ValueError("an outlet profile has no documented native command")
-                profile = (path.parent / port.profile).resolve()
-                if not profile.is_file() or profile.stat().st_size == 0:
-                    raise ValueError(f"inlet profile is missing or empty: {profile}")
-                port = port.model_copy(
-                    update={
-                        "profile": str(profile),
-                        "profile_sha256": file_sha256(profile),
-                    }
-                )
-            ports.append(port)
-        return tuple(ports)
-    except ValueError as exc:
-        raise InputArtifactError(f"{path}: invalid [[{name}]] boundary or velocity: {exc}") from exc
 
 
 def _read_trailing_edges(path: Path, table: Mapping[str, Any]) -> TrailingEdgeMarking:

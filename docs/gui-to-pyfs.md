@@ -1,14 +1,14 @@
 <!--
 GEOVERSE_HEADER
-file_version: 1.0.0
+file_version: 1.1.0
 artifact_id: gui-workspace-map
-last_modified_at: 2026-09-27T19:06:07.787Z
-last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementer}
+last_modified_at: 2026-09-27T23:22:30.158Z
+last_modified_by: OpenAI / Codex / unknown / implementer
 dependencies: [pyflightstream]
 authority: pyflightstream
 status: draft
 confidentiality: public
-change_summary: Connect setup, Excel, sampled-field, native-strength and distinct boundary-layer routes.
+change_summary: Describe geometry/setup/MATRIX separation for inlet and outlet conditions.
 revision_source: git
 -->
 
@@ -90,7 +90,7 @@ them; a row marks base regions on either.
 | Mark wake-termination nodes by hand, or stop a trailing edge's wake | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `MARK_WAKE_TERMINATION_NODES`, `DISABLE_WAKE_NODES_ON_TRAILING_EDGE` | 26.121 to 26.124 (except `MARK_WAKE_TERMINATION_NODES`) |
 | Shed wakes from the leading edges of a surface | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `DETECT_LEADING_EDGES_WAKES_BY_SURFACE` | none |
 | Create, remesh or bend a base region, or set its pressure | not yet: setup table `[[flags]]` for the bending angle, or setup table `[[raw]]` ([the raw route](#the-raw-route)) | `CREATE_NEW_BASE_REGION`, `REMESH_BASE_REGION`, `SET_BASE_REGION_BENDING_ANGLE`, `SET_BASE_REGION_CP` | none |
-| Add an inlet or an outlet | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `CREATE_NEW_INLET`, `CREATE_NEW_OUTLET`, `SET_INLET_CUSTOM_PROFILE` | none |
+| Add an inlet or an outlet | Geometry `[ports]` identifies surfaces; setup `[[ports]]` selects role; MATRIX supplies velocity/profile variables ([port inputs](setup-standards.md#uniform-inlet-and-outlet-boundaries)) | `CREATE_NEW_INLET`, `CREATE_NEW_OUTLET`, `SET_INLET_CUSTOM_PROFILE` | 26.124 state controls; saved-FSM port indices remain refused when unknown |
 | Set the edge bluntness angles and the vertex merge tolerance | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE`, `SET_TRAILING_EDGE_BLUNTNESS_ANGLE`, `SET_VERTEX_MERGE_TOLERANCE` | none |
 
 ## Frames, motion and actuators

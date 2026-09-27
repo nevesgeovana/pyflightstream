@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: 1.3.8
+# file_version: 1.4.0
 # artifact_id: src/pyflightstream/cases/__init__.py
-# last_modified_at: 2026-09-27T21:58:19.804Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# last_modified_at: 2026-09-27T23:17:41.265Z
+# last_modified_by: OpenAI / Codex / unknown / implementer
 # dependencies: [pyflightstream]
 # authority: pyflightstream
 # status: draft
 # confidentiality: public
-# change_summary: Document the implemented 0.29 architecture and evidence boundaries.
+# change_summary: Separate geometry port identities, setup choices and MATRIX conditions.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Simulation and campaign definitions.
@@ -3960,6 +3960,14 @@ class SolverSettings(BaseModel):
     leading_edge_wake_boundaries: list[int | str] | None = Field(default=None, min_length=1)
     #: Explicitly mark wake termination nodes; no implicit detection is requested.
     mark_wake_termination_nodes: Literal[True] | None = None
+    #: Ports selected by setup; surface identity is bound from the geometry and values from MATRIX.
+    ports: tuple[PortBoundary, ...] = ()
+    #: Apply the sidecar trailing-edge definition; None adapts the published legacy declaration.
+    apply_trailing_edges: bool | None = None
+    #: Apply the sidecar wake-termination definition; false never clears saved wake nodes.
+    apply_wake_termination: bool | None = None
+    #: Apply base-region detection/actions; false never clears saved base regions.
+    apply_base_regions: bool | None = None
     #: Existing inlet indices to unmark, in the exact declared order.
     delete_inlets: list[Annotated[int, Field(ge=1)]] | None = Field(default=None, min_length=1)
     #: Existing outlet indices to unmark, in the exact declared order.
@@ -4783,16 +4791,38 @@ class PortBoundary(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
 
-    #: Exact surface name after the mesh import's renames.
-    boundary: str = Field(min_length=1)
-    #: Native velocity value in simulation units; manual sign rules conflict across UI/command text.
-    velocity: float
+    #: Geometry-sidecar port identity selected by the setup.
+    port: str | None = Field(default=None, min_length=1)
+    #: Physical role of the selected port, independent of its geometric identity.
+    kind: Literal["inlet", "outlet"] | None = None
+    #: MATRIX key carrying signed native velocity; defaults to <PORT>_VELOCITY when omitted.
+    velocity_variable: str | None = Field(default=None, pattern=r"^[A-Z][A-Z0-9_]*$")
+    #: Optional MATRIX key naming a profile under inputs/profiles; no profile when omitted.
+    profile_variable: str | None = Field(default=None, pattern=r"^[A-Z][A-Z0-9_]*$")
+    #: Resolved exact surface name; workspace setups use port instead of declaring this value.
+    boundary: str | None = Field(default=None, min_length=1)
+    #: Resolved signed velocity in simulation units; the workspace reads its MATRIX variable.
+    velocity: float | None = None
     #: Optional inlet-profile file; exact bytes are staged, with native format unchanged.
     profile: str | None = None
     #: Optional radial remesh, performed before assigning the inlet profile.
     remesh: RadialBoundaryMesh | None = None
-    #: Source digest captured by sidecar binding and checked before staging.
+    #: Source digest captured by workspace binding and checked before staging.
     profile_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def _port_source_is_unambiguous(self) -> PortBoundary:
+        if self.kind == "outlet" and (
+            self.profile is not None or self.profile_variable is not None
+        ):
+            raise ValueError("an outlet profile has no documented native command")
+        if self.port is not None and self.kind is None:
+            raise ValueError("a setup port requires kind = inlet or outlet")
+        if self.port is None and (self.boundary is None or self.velocity is None):
+            raise ValueError(
+                "a port requires a geometry identity or a resolved boundary and velocity"
+            )
+        return self
 
 
 class RawMeshConditions(BaseModel):
@@ -4807,6 +4837,8 @@ class RawMeshConditions(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    #: Stable geometric port identities mapped to exact surface names after import renames.
+    ports: dict[str, str] = Field(default_factory=dict)
     trailing_edges: TrailingEdgeMarking | None = None
     wake_termination: Literal["auto"] | tuple[str, ...] | None = None
     base_regions: Literal["auto"] | None = None

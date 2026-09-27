@@ -1,12 +1,12 @@
 # GEOVERSE_HEADER
-# file_version: 1.0.7
-# last_modified_at: 2026-09-27T21:46:38.222Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-agent
+# file_version: 1.1.0
+# last_modified_at: 2026-09-27T23:21:07.792Z
+# last_modified_by: OpenAI / Codex / unknown / implementer
 # dependencies: [pyflightstream.post.guides]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Retain action-based animation; remove the unneeded parallel route.
+# change_summary: Reflect setup-owned ports and geometry identity glossary contract.
 # revision_source: git
 """Tier 1, 0.27.0 items G08 and D08: the input glossary, ``INPUTS.md``, is GENERATED.
 
@@ -55,6 +55,7 @@ from pyflightstream.cases import (
     MeshOperation,
     PhaseLockedSpec,
     PlotsSpec,
+    PortBoundary,
     PprocSpec,
     ProbeCircle,
     ProbeLine,
@@ -122,6 +123,8 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("matrix", "The row keys, by run type"): row_keys | {RAW_VARIABLE},
         # --- the setup artifact ---------------------------------------------
         ("setup", "Solver settings"): _fields(SolverSettings),
+        ("setup", "`[[ports]]`"): _fields(PortBoundary),
+        ("setup", "`[ports.remesh]`"): _fields(RadialBoundaryMesh),
         ("setup", "`[[actuator_operations]]`"): {"op", "actuator", "name"},
         ("setup", "`[[base_region_operations]]`"): _fields(BaseRegionOperation),
         ("setup", "`[base_region_operations.mesh]`"): _fields(RadialBoundaryMesh),
@@ -182,8 +185,7 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("reference", blocks["points"]): _fields(PointXyz),
         # --- the geometry sidecar -------------------------------------------
         ("geometry", "Top-level keys and tables"): {
-            "inlets",
-            "outlets",
+            "ports",
             "boundaries",
             "file",
             IMPORT_TABLE,
@@ -196,10 +198,6 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("geometry", "`detect = { ... }` of `[trailing_edges]`"): set(_DETECT_KEYS),
         ("geometry", "`[wake_termination]`"): {"detect"},
         ("geometry", "`[base_regions]`"): {"detect"},
-        ("geometry", "`[[inlets]]`"): {"boundary", "velocity", "profile", "remesh"},
-        ("geometry", "`[[outlets]]`"): {"boundary", "velocity", "profile", "remesh"},
-        ("geometry", "`[inlets.remesh]`"): _fields(RadialBoundaryMesh),
-        ("geometry", "`[outlets.remesh]`"): _fields(RadialBoundaryMesh),
     }
 
 
@@ -298,6 +296,9 @@ def test_no_meaning_is_kept_for_a_key_no_registry_holds():
     assert set(guides.PACKAGE_SET_FIELDS) == {
         ("ProbesSpec", "resolved_points_file"),
         ("PortBoundary", "profile_sha256"),
+        ("PortBoundary", "boundary"),
+        ("PortBoundary", "velocity"),
+        ("PortBoundary", "profile"),
         ("RawCommand", "setup"),
         ("RawCommand", "source"),
         ("CustomFlag", "setup"),

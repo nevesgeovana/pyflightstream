@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.6
+# file_version: 1.0.7
 # artifact_id: setup-standards-tests
-# last_modified_at: 2026-09-27T23:05:48.635Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# last_modified_at: 2026-09-27T23:29:39.293Z
+# last_modified_by: OpenAI / Codex / unknown / primary-agent
 # dependencies: [pytest, pyflightstream]
 # authority: pyflightstream
 # status: draft
 # confidentiality: public
-# change_summary: Sort the focused synthetic-duct test imports for checkpoint validation.
+# change_summary: Preserve the duct import-order assertion using geometry/setup/MATRIX ownership.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Workspace setup controls reach the curated emitter without losing evidence."""
@@ -392,6 +392,7 @@ def test_synthetic_duct_import_emits_ports_after_geometry(tmp_path):
     from pyflightstream._errors import PyflightstreamWarning
     from pyflightstream.cases.workflows import _open_geometry
     from pyflightstream.workspace.inputs import read_raw_mesh_conditions
+    from pyflightstream.workspace.matrix import _bind_setup_ports
     from tests.tier3_licensed.duct import write_duct_obj
 
     fixture = write_duct_obj(tmp_path / "duct.obj")
@@ -408,11 +409,17 @@ def test_synthetic_duct_import_emits_ports_after_geometry(tmp_path):
         geometry=str(fixture),
         inventory=["Inlet", "Outlet", "Wall"],
         mesh_import={"units": "METER"},
+        solver=SolverSettings(
+            ports=[{"port": "feed", "kind": "inlet"}, {"port": "exit", "kind": "outlet"}]
+        ),
+        variables={"VELOCITY": "30", "FEED_VELOCITY": "-10", "EXIT_VELOCITY": "10"},
         raw_mesh_conditions=read_raw_mesh_conditions(fixture.with_suffix(".boundaries.toml")),
     )
+    case = _bind_setup_ports(case, tmp_path)
     script = Script("26.124")
     with pytest.warns(PyflightstreamWarning, match="no wake"):
         _open_geometry(case, script)
+    _settings(case, script)
     emitted = script.render()
     assert (
         emitted.index("IMPORT")

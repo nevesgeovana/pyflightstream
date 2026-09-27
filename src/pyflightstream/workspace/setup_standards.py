@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: "1.1.7"
+# file_version: "1.1.8"
 # artifact_id: workspace-setup-standards
-# last_modified_at: 2026-09-27T21:31:50.435Z
-# last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: implementation-author}
+# last_modified_at: 2026-09-27T23:29:39.293Z
+# last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: primary-agent}
 # dependencies: [pyflightstream.cases, pyflightstream.commands]
 # authority: pyflightstream
 # status: draft
 # confidentiality: public
-# change_summary: Include all thirteen setup and boundary command domains in the guide.
+# change_summary: Align generated setup guidance with geometry/setup/MATRIX boundary ownership.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Build-aware setup examples and guidance from the same definitions.
@@ -109,6 +109,26 @@ _EXPERIMENTS: tuple[tuple[str, str, Any], ...] = (
 )
 
 _MEANINGS: dict[str, str] = {
+    "ports": (
+        "Selects geometric port identities and their inlet or outlet role. The mesh "
+        "sidecar maps identities to surfaces; MATRIX supplies velocity and optional "
+        "profile filenames. An empty selection creates no ports and clears none."
+    ),
+    "apply_trailing_edges": (
+        "Applies the geometry trailing-edge declaration during setup. True requires "
+        "a declaration; false skips redefinition without clearing saved trailing edges. "
+        "Unset preserves published sidecar behavior."
+    ),
+    "apply_wake_termination": (
+        "Applies the geometry wake-termination declaration during setup. False skips "
+        "redefinition and preserves saved nodes; unset preserves published sidecar "
+        "behavior. This differs from the number of wake steps or revolutions."
+    ),
+    "apply_base_regions": (
+        "Applies declared base-region detection or explicit setup operations. False "
+        "skips redefinition and conflicts with explicit base editing; it does not "
+        "delete saved regions. Unset preserves published sidecar behavior."
+    ),
     "simulation_length_unit": (
         "Selects metre or millimetre solver coordinates. Physical workspace lengths "
         "remain in metres and are converted when emitted; this is a representation "
@@ -819,7 +839,11 @@ def render_guidelines(fs_version: str) -> str:
     routes = {spec.command: spec.param for spec in FLAG_SPECS}
     routes.update({command: key for key, command in SOLVER_SETTING_COMMANDS.items()})
     routes.update(
-        {"CREATE_NEW_INLET": "sidecar [[inlets]]", "CREATE_NEW_OUTLET": "sidecar [[outlets]]"}
+        {
+            "CREATE_NEW_INLET": "setup [[ports]] + geometry [ports] + MATRIX velocity",
+            "CREATE_NEW_OUTLET": "setup [[ports]] + geometry [ports] + MATRIX velocity",
+            "SET_INLET_CUSTOM_PROFILE": "setup profile_variable + MATRIX profile filename",
+        }
     )
     view = registry.for_version(version)
     for name, entry in sorted(registry.commands.items()):

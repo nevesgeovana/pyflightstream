@@ -1,18 +1,14 @@
 <!--
 GEOVERSE_HEADER
-file_version: 1.0.6
+file_version: 1.1.1
 artifact_id: setup-standards-guide
-last_modified_at: 2026-09-27T23:04:38.184Z
-last_modified_by:
-  provider: OpenAI
-  product: Codex
-  model: unknown
-  role: implementation-agent
+last_modified_at: 2026-09-27T23:29:39.293Z
+last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: primary-agent}
 dependencies: [pyflightstream.workspace.setup_standards]
 authority: pyflightstream
 status: draft
 confidentiality: public
-change_summary: Point to the approved synthetic duct generator and retained boundary fixture.
+change_summary: Separate boundary geometry, setup selection and MATRIX condition values.
 revision_source: git
 -->
 
@@ -162,22 +158,46 @@ actuator inventory retains its existing explicit refusal.
 
 ## Uniform inlet and outlet boundaries
 
-A raw-mesh sidecar can explicitly declare a body without a trailing edge and
-uniform normal-velocity ports:
+Geometry, setup and conditions have separate owners. The geometry sidecar
+identifies the physical surfaces:
 
 ```toml
+# inputs/geometries/duct/duct.boundaries.toml
 boundaries = ["Inlet", "Outlet", "Wall"]
 [import]
 units = "METER"
 [trailing_edges]
 none = true
-[[inlets]]
-boundary = "Inlet"
-velocity = -10.0
-[[outlets]]
-boundary = "Outlet"
-velocity = 10.0
+[ports]
+feed = "Inlet"
+exit = "Outlet"
 ```
+
+The setup selects which geometric ports act as inlet or outlet:
+
+```toml
+# inputs/setups/s020.toml
+apply_trailing_edges = true
+apply_wake_termination = false
+apply_base_regions = false
+[[ports]]
+port = "feed"
+kind = "inlet"
+velocity_variable = "FEED_VELOCITY"
+# profile_variable = "FEED_PROFILE" # optional file selected by MATRIX
+[[ports]]
+port = "exit"
+kind = "outlet"
+velocity_variable = "EXIT_VELOCITY"
+```
+
+The row's MATRIX free cell supplies `FEED_VELOCITY: -10 / EXIT_VELOCITY: 10`.
+An omitted `velocity_variable` selects `<PORT>_VELOCITY` with the identity
+uppercased. An omitted `profile_variable` requests no profile. Selecting one
+requires that MATRIX variable to name a file under `inputs/profiles/`.
+No numeric condition or profile filename is copied into the geometry or setup.
+The workspace example and emitted commands are tested in
+`test_boundary_artifact_separation.py`.
 
 The surface names are exact after import renames. Velocity values are passed
 unchanged in simulation velocity units. The current manual is inconsistent:
@@ -185,13 +205,14 @@ the command text describes signed normal velocity, but the GUI note on p.189
 says direction follows the boundary type and signs are unnecessary. The negative
 inlet above is an explicit test input; the native control compares it with a
 positive inlet. Neither direction is claimed verified from parser acceptance.
-Array order is preserved within each port kind. `none = true` excludes marking
+Setup array order is preserved across both port kinds. `none = true` excludes marking
 or detection and produces a no-wake warning; it cannot request wake termination
 nodes. The generator `tests/tier3_licensed/duct.py` reproduces the synthetic duct
 locally; its boundary controls remain in `tests/tier3_licensed/inputs/duct`.
 These are controlled test inputs, not a validated duct-flow result.
 
-An inlet may state `profile = "inlet-profile.txt"` relative to its sidecar.
+An inlet may select `profile_variable = "FEED_PROFILE"` in its setup and
+`FEED_PROFILE: inlet-profile.txt` in MATRIX.
 The reader hashes the file, building refuses later changes, and the run stages
 and hashes its exact bytes. FlightStream User Guide supplied with 26.123/26.124,
 printed/PDF p.190, defines comma-separated `x,y,z,Vmag` rows mapped to the inlet.
@@ -200,8 +221,8 @@ index, independently of the mesh boundary index. Native profile mapping and the
 velocity-sign discrepancy remain explicit acceptance checks.
 
 The GUI discusses outlet profiles, but the scripting reference supplies no
-outlet-profile setter; a sidecar requesting one is refused by name. Port
-remeshing is explicit through `[inlets.remesh]` or `[outlets.remesh]`; it runs
+outlet-profile setter; a setup requesting one is refused by name. Port
+remeshing is explicit through `[ports.remesh]`; it runs
 after port creation and before profile assignment. On the measured 26.124 build, remeshing an outlet after an inlet requires
 its position in the combined created-port sequence. The paired native control
 increased the target cap from two to 28 triangles while retaining its area and
@@ -214,3 +235,17 @@ for the available actions, ordering and current evidence limits.
 `ROTOR_SHEDDING` is refused in matrix workflows because it has no effective
 native route there. CCS Relaxed_TE direction control remains deferred; the
 standalone Python component helper remains available.
+
+### Applying existing boundary declarations
+
+The setup choices `apply_trailing_edges`, `apply_wake_termination` and
+`apply_base_regions` select application of the corresponding geometric declarations.
+`false` means do not redefine them; it never emits a delete or clears saved FSM state.
+`true` requires the corresponding declaration. Omitting a choice adapts the
+published TE/wake/base sidecar behavior, preserving existing workspaces. Explicit
+base-region editing actions conflict with `apply_base_regions = false`.
+
+The unreleased sidecar `[[inlets]]` and `[[outlets]]` forms are rejected with a
+setup/MATRIX migration message. Use `[ports]` for identity only. Creating ports on
+a saved FSM remains refused while its existing port indices are unknown; use a
+fresh mesh for the measured creation sequence. No saved state is implicitly cleared.

@@ -1,12 +1,12 @@
 # GEOVERSE_HEADER
-# file_version: "1.0.11"
-# last_modified_at: 2026-09-27T21:46:38.202Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-agent
+# file_version: "1.0.12"
+# last_modified_at: 2026-09-27T23:29:39.293Z
+# last_modified_by: OpenAI / Codex / unknown / primary-agent
 # dependencies: [pyflightstream.workspace]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Retain action-based animation; remove the unneeded parallel route.
+# change_summary: Document geometric port identities and setup/MATRIX condition ownership.
 # revision_source: git
 """The generated input guides: the pproc guides, ``INPUTS.md`` and ``input_template.md``.
 
@@ -675,6 +675,9 @@ PACKAGE_SET_FIELDS: frozenset[tuple[str, str]] = frozenset(
     {
         ("ProbesSpec", "resolved_points_file"),
         ("PortBoundary", "profile_sha256"),
+        ("PortBoundary", "boundary"),
+        ("PortBoundary", "velocity"),
+        ("PortBoundary", "profile"),
         ("RawCommand", "setup"),
         ("RawCommand", "source"),
         ("CustomFlag", "setup"),
@@ -691,7 +694,7 @@ _FIELD_COMMANDS: Mapping[tuple[str, str], str] = MappingProxyType(
         ("BaseRegionOperation", "model"): "CREATE_NEW_BASE_REGION, SET_BASE_REGION_CP",
         ("BaseRegionOperation", "cp"): "CREATE_NEW_BASE_REGION, SET_BASE_REGION_CP",
         ("BaseRegionOperation", "mesh"): "REMESH_BASE_REGION",
-        ("PortBoundary", "profile"): "SET_INLET_CUSTOM_PROFILE",
+        ("PortBoundary", "profile_variable"): "SET_INLET_CUSTOM_PROFILE",
         ("PortBoundary", "remesh"): "REMESH_INLET, REMESH_OUTLET",
         ("PprocSpec", "sections"): "NEW_SURFACE_SECTION_DISTRIBUTION",
         ("PprocSpec", "volume_section"): (
@@ -1441,10 +1444,6 @@ def _geometry_tables() -> list[GlossaryTable]:
             commands=_split_commands(GEOMETRY_SIDECAR_KEYS[IMPORT_TABLE].command),
         ),
     ]
-    for name, command in (("inlets", "CREATE_NEW_INLET"), ("outlets", "CREATE_NEW_OUTLET")):
-        tables.extend(
-            _model_tables("geometry", PortBoundary, f"`[[{name}]]`", name, commands=(command,))
-        )
     for table, keys in RAW_MESH_CONDITION_KEYS.items():
         tables.append(
             GlossaryTable(
@@ -2248,12 +2247,9 @@ boundaries = ["Inlet", "Outlet", "Wall"]
 units = "METER"
 [trailing_edges]
 none = true
-[[inlets]]
-boundary = "Inlet"
-velocity = -10.0 # signed-input control; confirm native direction on the target build
-[[outlets]]
-boundary = "Outlet"
-velocity = 10.0 # compare with the inlet/outlet convention of the target build
+[ports]
+feed = "Inlet"
+exit = "Outlet"
 """
 
 _TRAILING_EDGE_POINTS_EXAMPLE = """\
@@ -2407,6 +2403,9 @@ _IN_THE_COMMENT = "the other form, shown in the comment above its table"
 
 #: The setup's solver settings the example leaves at their defaults.
 _SETTINGS_LEFT_OUT: tuple[str, ...] = (
+    "apply_trailing_edges",
+    "apply_wake_termination",
+    "apply_base_regions",
     "simulation_length_unit",
     "vertex_merge_tolerance_m",
     "geometric_edge_bluntness_angle_deg",
@@ -2574,7 +2573,21 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                 "The solver settings of a condition, shared by every row whose `SET` "
                 "names it. One file per setup in `inputs/setups/`, named by its id."
             ),
-            examples=(TemplateExample("inputs/setups/s001.toml", "toml", _filled(_SETUP_EXAMPLE)),),
+            examples=(
+                TemplateExample("inputs/setups/s001.toml", "toml", _filled(_SETUP_EXAMPLE)),
+                TemplateExample(
+                    "inputs/setups/s020.toml",
+                    "toml",
+                    'farfield_layers = 5\n[[ports]]\nport = "feed"\nkind = "inlet"\n'
+                    'velocity_variable = "FEED_VELOCITY"\n'
+                    '# profile_variable = "FEED_PROFILE" # optional MATRIX filename\n'
+                    '[[ports]]\nport = "exit"\nkind = "outlet"\n'
+                    'velocity_variable = "EXIT_VELOCITY"\n',
+                    note=(
+                        "Pair with the duct sidecar; MATRIX states FEED_VELOCITY and EXIT_VELOCITY."
+                    ),
+                ),
+            ),
             after=(
                 "A key the package keeps in the file and sends nowhere is warned "
                 "about, naming the key and why, every time the setup is read; "
@@ -2589,6 +2602,24 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                             ),
                             "the direct form of the stabilization pair the example states": (
                                 "solver_stabilization",
+                            ),
+                        }
+                    ),
+                    "`[[ports]]`": MappingProxyType(
+                        {
+                            "optional MATRIX profile and explicit remesh": (
+                                "profile_variable",
+                                "remesh",
+                            ),
+                        }
+                    ),
+                    "`[ports.remesh]`": MappingProxyType(
+                        {
+                            "optional radial remeshing before profile assignment": (
+                                "inner_radius_m",
+                                "radial_faces",
+                                "growth_scheme",
+                                "growth_rate",
                             ),
                         }
                     ),
@@ -2845,38 +2876,6 @@ def _template_sections() -> tuple[TemplateSection, ...]:
             ),
             left_out=MappingProxyType(
                 {
-                    "`[[inlets]]`": MappingProxyType(
-                        {
-                            "optional native profile file, kept byte-for-byte": ("profile",),
-                            "optional radial mesh; build acceptance needs proof": ("remesh",),
-                        }
-                    ),
-                    "`[[outlets]]`": MappingProxyType(
-                        {
-                            "profile refused: no documented outlet setter": ("profile",),
-                            "optional radial mesh; build acceptance needs proof": ("remesh",),
-                        }
-                    ),
-                    "`[inlets.remesh]`": MappingProxyType(
-                        {
-                            "radial mesh parameters apply only when explicitly requested": (
-                                "inner_radius_m",
-                                "radial_faces",
-                                "growth_scheme",
-                                "growth_rate",
-                            )
-                        }
-                    ),
-                    "`[outlets.remesh]`": MappingProxyType(
-                        {
-                            "radial mesh parameters apply only when explicitly requested": (
-                                "inner_radius_m",
-                                "radial_faces",
-                                "growth_scheme",
-                                "growth_rate",
-                            )
-                        }
-                    ),
                     "`[[import.operations]]`": MappingProxyType(
                         {
                             "the keys of the other operations, shown in the comment": (

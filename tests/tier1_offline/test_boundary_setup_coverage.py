@@ -1,21 +1,23 @@
 # GEOVERSE_HEADER
-# file_version: 1.0.2
-# last_modified_at: 2026-09-27T20:00:52.531Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementer
+# file_version: 1.1.0
+# last_modified_at: 2026-09-27T23:20:02.008Z
+# last_modified_by: OpenAI / Codex / unknown / implementer
 # authority: pyflightstream
 # status: draft
 # confidentiality: public
 # dependencies: [pyflightstream.cases, pyflightstream.workspace.inputs]
-# change_summary: Reproduce native-backed shared inlet/outlet remesh indexing.
+# change_summary: Move unreleased inlet/outlet fixtures to setup and MATRIX after owner correction.
 # revision_source: git
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
 
 from pyflightstream.cases import SimCase, SolverSettings, SweepAxis
-from pyflightstream.cases.workflows import _raw_mesh_boundary_conditions, _settings, build_script
+from pyflightstream.cases.workflows import _settings, _setup_ports, build_script
 from pyflightstream.script import Script
-from pyflightstream.workspace.inputs import InputArtifactError, read_raw_mesh_conditions
+from pyflightstream.workspace.inputs import read_raw_mesh_conditions
+from pyflightstream.workspace.matrix import _bind_setup_ports
 
 
 def _case(**kwargs):
@@ -31,57 +33,119 @@ def _case(**kwargs):
     )
 
 
-def _sidecar(tmp_path, name="inlets"):
-    profile = tmp_path / "inlet-profile.txt"
-    profile.write_bytes(b"0,1\r\n1,2\r\n")
+def _port_case(tmp_path, *, inlet=True, outlet=False, profile=True, remesh=False):
     sidecar = tmp_path / "duct.boundaries.toml"
-    sidecar.write_text(
-        "[trailing_edges]\nnone=true\n[["
-        + name
-        + ']]\nboundary="Port"\nvelocity=-10.0\nprofile="inlet-profile.txt"\n'
+    sidecar.write_text('[ports]\nfeed="Inlet"\nexit="Outlet"\n')
+    folder = tmp_path / "profiles"
+    folder.mkdir(exist_ok=True)
+    path = folder / "inlet-profile.txt"
+    path.write_bytes(b"0,1\r\n1,2\r\n")
+    entries = []
+    if inlet:
+        entries.append({"port": "feed", "kind": "inlet", "velocity_variable": "INLET_SPEED"})
+        if profile:
+            entries[-1]["profile_variable"] = "INLET_PROFILE"
+    if outlet:
+        entries.append({"port": "exit", "kind": "outlet", "velocity_variable": "OUTLET_SPEED"})
+    if remesh:
+        entries[-1]["remesh"] = {
+            "inner_radius_m": 0,
+            "radial_faces": 4,
+            "growth_scheme": "successive",
+            "growth_rate": 1.2,
+        }
+    case = _case(
+        geometry=str(tmp_path / "duct.obj"),
+        inventory=["Inlet", "Outlet", "Wall"],
+        raw_mesh_conditions=read_raw_mesh_conditions(sidecar),
+        solver=SolverSettings(ports=entries),
     )
-    return sidecar, profile
+    case = case.model_copy(
+        update={
+            "variables": {
+                "VELOCITY": "30",
+                "INLET_SPEED": "-10",
+                "OUTLET_SPEED": "10",
+                "INLET_PROFILE": "inlet-profile.txt",
+            }
+        }
+    )
+    return _bind_setup_ports(case, tmp_path), path
+
+
+def _port_script():
+    script = Script("26.124")
+    script.declare_existing(boundaries={"Inlet": 1, "Outlet": 2, "Wall": 3})
+    script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
+    return script
 
 
 def test_inlet_profile_is_bound_and_staged_without_reinterpreting_file_format(tmp_path):
-    sidecar, profile = _sidecar(tmp_path)
-    conditions = read_raw_mesh_conditions(sidecar)
-    case = _case(
-        geometry=str(tmp_path / "duct.obj"),
-        inventory=["Wall", "Other", "Port"],
-        raw_mesh_conditions=conditions,
-    )
-    script = Script("26.124")
-    script.working_dir = tmp_path
-    script.declare_existing(boundaries={"Wall": 1, "Other": 2, "Port": 3})
-    with pytest.warns(UserWarning, match="no wake"):
-        _raw_mesh_boundary_conditions(case, script)
+    case, profile = _port_case(tmp_path)
+    script = _port_script()
+    _setup_ports(case, script)
     text = script.render()
-    assert "CREATE_NEW_INLET 3 -10.0" in text
+    assert "CREATE_NEW_INLET 1 -10.0" in text
     assert "SET_INLET_CUSTOM_PROFILE 1" in text
     assert text.index("CREATE_NEW_INLET") < text.index("SET_INLET_CUSTOM_PROFILE")
     assert list(script.pending_input_files.values()) == [profile.read_bytes()]
-    assert conditions.inlets[0].profile_sha256
+    assert case.solver.ports[0].profile_sha256
 
 
-def test_outlet_profile_is_refused_because_no_official_command_exists(tmp_path):
-    sidecar, _ = _sidecar(tmp_path, "outlets")
-    with pytest.raises(InputArtifactError, match="outlet profile has no documented native command"):
-        read_raw_mesh_conditions(sidecar)
+def test_outlet_profile_is_refused_because_no_official_command_exists():
+    with pytest.raises(ValueError, match="outlet profile has no documented native command"):
+        SolverSettings(ports=[{"port": "exit", "kind": "outlet", "profile_variable": "P"}])
 
 
 def test_profile_changed_after_binding_is_refused(tmp_path):
-    sidecar, profile = _sidecar(tmp_path)
-    conditions = read_raw_mesh_conditions(sidecar)
+    case, profile = _port_case(tmp_path)
     profile.write_bytes(b"changed")
-    case = _case(
-        geometry=str(tmp_path / "duct.obj"), inventory=["Port"], raw_mesh_conditions=conditions
-    )
-    script = Script("26.124")
-    script.working_dir = tmp_path
-    script.declare_existing(boundaries={"Port": 1})
     with pytest.raises(ValueError, match="profile.*changed"):
-        _raw_mesh_boundary_conditions(case, script)
+        _setup_ports(case, _port_script())
+
+
+def test_inlet_profile_pending_writer_preserves_and_hashes_exact_bytes(tmp_path):
+    from pyflightstream.run import _write_pending_files
+
+    case, profile = _port_case(tmp_path)
+    script = _port_script()
+    _setup_ports(case, script)
+    work = tmp_path / "point"
+    work.mkdir()
+    hashes = _write_pending_files(script, work, case=case, recorded={})
+    (name,) = script.pending_input_files
+    assert (work / name).read_bytes() == profile.read_bytes()
+    assert hashes[name] == sha256(profile.read_bytes()).hexdigest()
+
+
+def test_a_boundary_cannot_be_assigned_twice_and_silently_renumber_ports(tmp_path):
+    case, _ = _port_case(tmp_path)
+    case = case.model_copy(
+        update={"solver": case.solver.model_copy(update={"ports": case.solver.ports * 2})}
+    )
+    with pytest.raises(ValueError, match="assigned more than once"):
+        _setup_ports(case, _port_script())
+
+
+def test_port_remesh_follows_creation_and_precedes_custom_profile(tmp_path):
+    case, _ = _port_case(tmp_path, remesh=True)
+    script = _port_script()
+    _setup_ports(case, script)
+    text = script.render()
+    assert text.index("CREATE_NEW_INLET") < text.index("REMESH_INLET")
+    assert text.index("REMESH_INLET") < text.index("SET_INLET_CUSTOM_PROFILE")
+    assert "INLET 1" in text and "ELEMENTS 4" in text
+
+
+@pytest.mark.parametrize("with_inlet, expected_index", [(True, 2), (False, 1)])
+def test_outlet_remesh_uses_combined_created_port_sequence(tmp_path, with_inlet, expected_index):
+    case, _ = _port_case(tmp_path, inlet=with_inlet, outlet=True, profile=False, remesh=True)
+    script = _port_script()
+    _setup_ports(case, script)
+    lines = script.render().splitlines()
+    at = lines.index("REMESH_OUTLET")
+    assert lines[at + 1] == f"OUTLET {expected_index}"
+    assert "CREATE_NEW_OUTLET 2 10.0" in lines
 
 
 def test_proximity_and_remove_initialization_are_emitted_before_initialize():
@@ -121,29 +185,6 @@ def test_clear_vorticity_drag_cannot_compete_with_an_explicit_selection():
         SolverSettings(clear_vorticity_drag_boundaries=True, vorticity_drag_families=["Wing"])
 
 
-def test_inlet_profile_pending_writer_preserves_and_hashes_exact_bytes(tmp_path):
-    from hashlib import sha256
-
-    from pyflightstream.run import _write_pending_files
-
-    sidecar, profile = _sidecar(tmp_path)
-    case = _case(
-        geometry=str(tmp_path / "duct.obj"),
-        inventory=["Port"],
-        raw_mesh_conditions=read_raw_mesh_conditions(sidecar),
-    )
-    script = Script("26.124")
-    script.declare_existing(boundaries={"Port": 1})
-    with pytest.warns(UserWarning, match="no wake"):
-        _raw_mesh_boundary_conditions(case, script)
-    work = tmp_path / "point"
-    work.mkdir()
-    hashes = _write_pending_files(script, work, case=case, recorded={})
-    (name,) = script.pending_input_files
-    assert (work / name).read_bytes() == profile.read_bytes()
-    assert hashes[name] == sha256(profile.read_bytes()).hexdigest()
-
-
 def test_all_proximity_boundaries_expand_the_declared_inventory():
     script = Script("26.124")
     script.declare_existing(boundaries={"Wing": 1, "Tail": 2})
@@ -161,39 +202,6 @@ def test_explicit_port_deletions_preserve_declared_indices_and_order():
     deletes = [line for line in lines if line.startswith(("DELETE_INLET", "DELETE_OUTLET"))]
     assert deletes == ["DELETE_INLET 2", "DELETE_INLET 1", "DELETE_OUTLET 1"]
     assert lines.index(deletes[-1]) < lines.index("SOLVER_SET_AOA 0.0")
-
-
-def test_a_boundary_cannot_be_assigned_twice_and_silently_renumber_ports(tmp_path):
-    sidecar = tmp_path / "duct.boundaries.toml"
-    sidecar.write_text(
-        '[trailing_edges]\nnone=true\n[[inlets]]\nboundary="Port"\nvelocity=10\n'
-        '[[outlets]]\nboundary="Port"\nvelocity=10\n',
-        encoding="utf-8",
-    )
-    with pytest.raises(InputArtifactError, match="assigned more than once"):
-        read_raw_mesh_conditions(sidecar)
-
-
-def test_port_remesh_follows_creation_and_precedes_custom_profile(tmp_path):
-    sidecar, _ = _sidecar(tmp_path)
-    with sidecar.open("a", encoding="utf-8") as stream:
-        stream.write(
-            "[inlets.remesh]\ninner_radius_m=0\nradial_faces=4\n"
-            'growth_scheme="successive"\ngrowth_rate=1.2\n'
-        )
-    conditions = read_raw_mesh_conditions(sidecar)
-    case = _case(
-        geometry=str(tmp_path / "duct.obj"), inventory=["Port"], raw_mesh_conditions=conditions
-    )
-    script = Script("26.124")
-    script.declare_existing(boundaries={"Port": 1})
-    script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
-    with pytest.warns(UserWarning, match="no wake"):
-        _raw_mesh_boundary_conditions(case, script)
-    text = script.render()
-    assert text.index("CREATE_NEW_INLET") < text.index("REMESH_INLET")
-    assert text.index("REMESH_INLET") < text.index("SET_INLET_CUSTOM_PROFILE")
-    assert "INLET 1" in text and "ELEMENTS 4" in text
 
 
 def test_remesh_port_command_can_follow_the_command_that_creates_its_port():
@@ -219,32 +227,3 @@ def test_port_remesh_stays_forbidden_after_initialization_settings():
             growth_scheme="1",
             growth_rate=1.2,
         )
-
-
-@pytest.mark.parametrize("with_inlet, expected_index", [(True, 2), (False, 1)])
-def test_outlet_remesh_uses_combined_created_port_sequence(tmp_path, with_inlet, expected_index):
-    """26.124: an outlet alone on mesh boundary 2 is port 1; after an inlet it is port 2."""
-    sidecar = tmp_path / "duct.boundaries.toml"
-    inlet = '[[inlets]]\nboundary="Inlet"\nvelocity=-10\n' if with_inlet else ""
-    sidecar.write_text(
-        "[trailing_edges]\nnone=true\n"
-        + inlet
-        + '[[outlets]]\nboundary="Outlet"\nvelocity=10\n'
-        + "[outlets.remesh]\ninner_radius_m=0\nradial_faces=4\n"
-        + 'growth_scheme="successive"\ngrowth_rate=1.2\n',
-        encoding="utf-8",
-    )
-    case = _case(
-        geometry=str(tmp_path / "duct.obj"),
-        inventory=["Inlet", "Outlet", "Wall"],
-        raw_mesh_conditions=read_raw_mesh_conditions(sidecar),
-    )
-    script = Script("26.124")
-    script.declare_existing(boundaries={"Inlet": 1, "Outlet": 2, "Wall": 3})
-    script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
-    with pytest.warns(UserWarning, match="no wake"):
-        _raw_mesh_boundary_conditions(case, script)
-    lines = script.render().splitlines()
-    at = lines.index("REMESH_OUTLET")
-    assert lines[at + 1] == f"OUTLET {expected_index}"
-    assert "CREATE_NEW_OUTLET 2 10.0" in lines

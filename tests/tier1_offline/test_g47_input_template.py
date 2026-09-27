@@ -1,12 +1,12 @@
 # GEOVERSE_HEADER
-# file_version: 1.0.5
-# last_modified_at: 2026-09-27T21:46:38.241Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-agent
+# file_version: 1.1.0
+# last_modified_at: 2026-09-27T23:21:07.793Z
+# last_modified_by: OpenAI / Codex / unknown / implementer
 # dependencies: [pyflightstream.post.guides]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Retain action-based animation; remove the unneeded parallel route.
+# change_summary: Read the setup port examples after the owner-approved artifact split.
 # revision_source: git
 """Tier 1, 0.28.0 item G47: ``inputs/input_template.md``, a template of every input file.
 
@@ -214,7 +214,11 @@ def _read_every_example(workspace: CampaignWorkspace, blocks) -> dict[str, str]:
         ("reference", "references", resolve_reference),
     ):
         for path in sorted((inputs / folder).glob("*.toml")):
-            resolve(inputs, path.stem)
+            artifact = resolve(inputs, path.stem)
+            if kind == "setup":
+                from pyflightstream.workspace.matrix import _solver_from_setup
+
+                _solver_from_setup(artifact, path.stem)
             claim(path, f"resolve_{kind}")
     # The named points, the build registry and its overlay, the HPC profile.
     from pyflightstream.workspace.fsi_setup import resolve_fsi_setup
@@ -462,6 +466,10 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
         return top
     rotor_blocks = blocks_of(lambda kind: kind == "rotor")
     tables = {
+        "`[[ports]]`": [e for f in data for e in f.get("ports", [])],
+        "`[ports.remesh]`": [
+            e.get("remesh", {}) for f in data for e in f.get("ports", []) if isinstance(e, dict)
+        ],
         "`[[actuator_operations]]`": [e for f in data for e in f.get("actuator_operations", [])],
         "`[[base_region_operations]]`": [
             e for f in data for e in f.get("base_region_operations", [])
@@ -469,10 +477,6 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
         "`[base_region_operations.mesh]`": [
             e.get("mesh", {}) for f in data for e in f.get("base_region_operations", [])
         ],
-        "`[[inlets]]`": [e for f in data for e in f.get("inlets", [])],
-        "`[[outlets]]`": [e for f in data for e in f.get("outlets", [])],
-        "`[inlets.remesh]`": [e.get("remesh", {}) for f in data for e in f.get("inlets", [])],
-        "`[outlets.remesh]`": [e.get("remesh", {}) for f in data for e in f.get("outlets", [])],
         "`[flight_condition]`": [f.get("flight_condition", {}) for f in data],
         "`[[raw]]`": [e for f in data for e in f.get("raw", [])],
         "`[[flags]]`": [e for f in data for e in f.get("flags", [])],
@@ -610,6 +614,7 @@ def test_g47_the_setup_example_states_the_far_field_layers():
 #: it. Each is a misspelled key, or a line out of the file's form, that the
 #: reader of that kind must refuse.
 BREAKS: dict[str, tuple[str, str]] = {
+    "inputs/setups/s020.toml": ('kind = "inlet"', 'kind = "invalid"'),
     "inputs/fsi/f001.toml": ('mode = "calculated"', 'mode = "unsupported"'),
     "inputs/matrices/excel_campaign.fs": ("| FLIGHT_CONDITION ", "| FLIGHT_CONDITIONS "),
     "campaign.fs": ("| FLIGHT_CONDITION ", "| FLIGHT_CONDITIONS "),
@@ -620,7 +625,7 @@ BREAKS: dict[str, tuple[str, str]] = {
     f"inputs/{REFERENCE_POINTS_FILE}": ("\nx_m =", "\nx_mm ="),
     "inputs/geometries/aircraft/aircraft.boundaries.toml": ("\nboundaries =", "\nboundary ="),
     "inputs/geometries/wing_raw/wing_raw.boundaries.toml": ("\ntolerance =", "\ntolerence ="),
-    "inputs/geometries/duct/duct.boundaries.toml": ("\nvelocity =", "\nvelocty ="),
+    "inputs/geometries/duct/duct.boundaries.toml": ('feed = "Inlet"', "feed = 42"),
     "inputs/geometries/wing_cad/wing_cad.boundaries.toml": (
         "\nnum_curvature =",
         "\nnum_curvatre =",
