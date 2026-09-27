@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.1
+# file_version: 1.0.3
 # artifact_id: native-nodal-surface-reader
-# last_modified_at: 2026-09-27T18:46:51.960Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementer
+# last_modified_at: 2026-09-27T23:26:54.880Z
+# last_modified_by: OpenAI / Codex / unknown / vv-review-proposal
 # dependencies: [numpy; pyflightstream.results.surface; RPT-074 native exports]
 # authority: pyflightstream
 # status: draft
 # confidentiality: public
-# change_summary: Read native nodal strength and require a bijective geometric/topological match.
+# change_summary: Reject fractional counts and report incomplete native exports.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Read the native FEPolygon export without inventing nodal values from panel data.
@@ -53,10 +53,13 @@ def _values(tokens: Iterator[str], count: int, *, integer: bool, label: str) -> 
 
 
 def _count(zone: str, name: str, *, allow_zero: bool = False) -> int:
-    match = re.search(r"\b" + name + r"\s*=\s*(\d+)\b", zone, re.I)
+    match = re.search(r"\b" + name + r"\s*=\s*([^,\s]+)", zone, re.I)
     if not match:
         raise MalformedOutputError(f"Native Tecplot declares no {name}")
-    count = int(match.group(1))
+    token = match.group(1)
+    if re.fullmatch(r"[0-9]+", token) is None:
+        raise MalformedOutputError(f"Native Tecplot {name} has invalid count {token!r}")
+    count = int(token)
     if count < (0 if allow_zero else 1):
         raise MalformedOutputError(f"Native Tecplot {name} has invalid count {count}")
     return count
@@ -120,7 +123,7 @@ def read_native_tecplot_surface(source: str | Path) -> VtkSurface:
                 break
             header.append(line)
         if not zone:
-            raise MalformedOutputError("Native Tecplot has no ZONE")
+            raise IncompleteOutputError("Native Tecplot ends before its ZONE")
         if not re.search(r"\bDATAPACKING\s*=\s*BLOCK\b", zone, re.I) or not re.search(
             r"\bZONETYPE\s*=\s*FEPOLYGON\b", zone, re.I
         ):
@@ -140,8 +143,8 @@ def read_native_tecplot_surface(source: str | Path) -> VtkSurface:
             raise MalformedOutputError("Native Tecplot needs unique XYZ and Singularity_strength")
         nodes, elements, faces = (_count(zone, key) for key in ("NODES", "ELEMENTS", "FACES"))
         if nodes * len(names) + 4 * faces > path.stat().st_size:
-            raise MalformedOutputError(
-                "Native Tecplot declared counts exceed possible file contents"
+            raise IncompleteOutputError(
+                "Native Tecplot ends before the payload required by its declared counts"
             )
         cell_variables: set[int] = set()
         var_location = re.search(r"VARLOCATION\s*=\s*\(([^)]*)\)", zone, re.I)

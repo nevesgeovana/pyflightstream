@@ -1,12 +1,12 @@
 # GEOVERSE_HEADER
-# file_version: 1.0.4
-# last_modified_at: 2026-09-27T21:24:50.769Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# file_version: 1.0.5
+# last_modified_at: 2026-09-27T23:31:46.175Z
+# last_modified_by: OpenAI / Codex / unknown / qa-proposal
 # dependencies: []
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Preserve duration on failed and cancelled workspace stages.
+# change_summary: Preserve collection failure reports without assuming a solver diagnosis method.
 # revision_source: git
 """Durable workspace activity records."""
 
@@ -82,10 +82,15 @@ def workspace_activity(stage: str, argument: str = "workspace"):
                 failed = bool(getattr(result, "failed", False)) or any(
                     status.startswith("FAILED") for status in outcomes
                 )
+                diagnosis = getattr(result, "diagnosis", None)
+                message = diagnosis() if failed and callable(diagnosis) else ""
+                report_lines = getattr(result, "lines", None)
+                if failed and not message and callable(report_lines):
+                    message = "\n".join(report_lines())
                 activity_event(
                     stage,
                     "failed" if failed else "finished",
-                    result.diagnosis() if getattr(result, "failed", False) else "",
+                    message,
                     duration_s=time.monotonic() - started,
                     outcomes=outcomes,
                     **context,

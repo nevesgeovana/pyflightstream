@@ -1,12 +1,12 @@
 # GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T15:35:00+00:00
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# file_version: 1.0.1
+# last_modified_at: 2026-09-27T23:24:23.671Z
+# last_modified_by: OpenAI / Codex / unknown / architect-correction-proposal
 # dependencies: [pyflightstream.post.diagnostics]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Expose read-only recorded postprocessing diagnostics.
+# change_summary: Register the existing read-only diagnostic renderer for lower-layer consumers.
 # revision_source: git
 """Results into engineering data.
 
@@ -135,7 +135,11 @@ from pyflightstream.post.writers import (
     write_tecplot_points,
     write_vtk_points,
 )
-from pyflightstream.workspace import register_input_guide, register_post_stage
+from pyflightstream.workspace import (
+    register_input_guide,
+    register_post_diagnostics,
+    register_post_stage,
+)
 
 
 def __getattr__(name: str) -> object:
@@ -197,6 +201,7 @@ __all__ = [
 # (PFS-2029.15.03); registered here, below the run layer's reach, so the
 # run calls it without importing this layer.
 register_post_stage(write_campaign_products)
+register_post_diagnostics(render_post_diagnostics)
 # THE GENERATED PPROC GUIDES reach the workspace init and the plan, which live
 # below this layer, through the same kind of registry the post stage uses.
 register_input_guide(write_workspace_pproc_guides)

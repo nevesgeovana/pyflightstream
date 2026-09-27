@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# file_role: optional-dependency-contract-tests
+# last_modified_at: 2026-09-27T23:24:23.671Z
+# last_modified_by: OpenAI / Codex / unknown / architect-correction-proposal
+# dependencies: [pyproject.toml, pyflightstream._errors]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Exercise workbook creation with the optional dependency absent.
+# revision_source: git
 """Tier 1: every optional extra refuses the same way, with a remedy that works.
 
 REV-002 finding PYFS-025, the typed half. Three code paths gated on an
@@ -489,3 +500,18 @@ def test_the_requirement_that_calls_itself_the_home_of_record_names_the_shipped_
         "Amend the requirement in the same commit as the packaging change, with the "
         "reason and the measurement, which is what home of record costs."
     )
+
+
+@pytest.mark.requirement("NFR-25")
+def test_workbook_creation_uses_the_shared_missing_extra(tmp_path, monkeypatch):
+    from pyflightstream.workspace.excel import create_workbook
+
+    monkeypatch.setitem(sys.modules, "xlsxwriter", None)
+    target = tmp_path / "not-created" / "matrix.xlsx"
+    with pytest.raises(MissingExtraError) as caught:
+        create_workbook(target, workspace=tmp_path)
+    assert caught.value.extra == "excel"
+    assert caught.value.package == "XlsxWriter"
+    assert caught.value.remedy == "pip install pyflightstream[excel]"
+    assert isinstance(caught.value.__cause__, ImportError)
+    assert not target.parent.exists()

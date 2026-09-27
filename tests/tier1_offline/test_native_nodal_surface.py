@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.5
+# file_version: 1.0.7
 # artifact_id: native-nodal-surface-tests
-# last_modified_at: 2026-09-27T20:51:23.503Z
-# last_modified_by: OpenAI / Codex / unknown / primary-agent
+# last_modified_at: 2026-09-27T23:26:54.880Z
+# last_modified_by: OpenAI / Codex / unknown / vv-review-proposal
 # dependencies: [pytest; numpy; pyflightstream]
 # authority: pyflightstream
 # status: draft
 # confidentiality: public
-# change_summary: Bind native nodal source and translated provenance to release obligations.
+# change_summary: Cover measured native output, incomplete captures and fractional counts.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Native nodal strength is matched by coordinates AND polygon topology."""
@@ -263,3 +263,70 @@ def test_cached_frame_identity_preserves_full_precision(tmp_path):
     assert second[0]["written"] == []
     assert any("frame" in issue for issue in second[0]["problems"])
     assert (tmp_path / "p.dat").read_bytes() == before
+
+
+@pytest.mark.parametrize(
+    "original,replacement",
+    [
+        ("NODES=4", "NODES=4.5"),
+        ("ELEMENTS=1", "ELEMENTS=1.5"),
+        ("FACES=4", "FACES=4.5"),
+        ("NumConnectedBoundaryFaces=0", "NumConnectedBoundaryFaces=0.5"),
+        ("TotalNumBoundaryConnections=0", "TotalNumBoundaryConnections=0.5"),
+    ],
+)
+def test_fractional_native_counts_are_not_truncated(tmp_path, original, replacement):
+    from pyflightstream.results.native_surface import read_native_tecplot_surface
+
+    source = _native(tmp_path / "fractional.dat")
+    source.write_text(source.read_text().replace(original, replacement), encoding="utf-8")
+    with pytest.raises(MalformedOutputError, match="invalid count"):
+        read_native_tecplot_surface(source)
+
+
+def test_measured_native_export_preserves_node_values():
+    import hashlib
+    import json
+    from pathlib import Path
+
+    from pyflightstream.results.native_surface import read_native_tecplot_surface
+
+    fixtures = Path(__file__).parent / "fixtures"
+    source = fixtures / "native_surface_synthetic.dat"
+    metadata = json.loads((fixtures / "native_surface_synthetic.json").read_text())
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == metadata["fixture_sha256"]
+    surface = read_native_tecplot_surface(source)
+    assert (surface.n_points, surface.n_cells) == (1054, 1138)
+    assert surface.point_data["Singularity_strength"][[0, 527, 1053]].tolist() == [
+        50.29516345644496,
+        46.41945086248663,
+        -22.56217052422124,
+    ]
+    assert surface.points[[0, 527, 1053]].tolist() == [
+        [0.0, 0.0, 0.0],
+        [4.0, 0.4330127019, -0.25],
+        [4.563620977, 0.007028180246488963, 0.274320000000013],
+    ]
+    assert not surface.cell_data
+
+
+@pytest.mark.parametrize("cut", ["empty", "header", "zone", "payload", "connectivity"])
+def test_measured_native_export_truncation_is_incomplete(tmp_path, cut):
+    from pathlib import Path
+
+    from pyflightstream.results.native_surface import read_native_tecplot_surface
+
+    source = Path(__file__).parent / "fixtures" / "native_surface_synthetic.dat"
+    data = source.read_bytes()
+    zone_start = data.index(b"ZONE ")
+    limits = {
+        "empty": 0,
+        "header": zone_start,
+        "zone": data.index(b"\n", zone_start) + 1,
+        "payload": len(data) // 2,
+        "connectivity": data.rfind(b"\n", 0, len(data) - 1),
+    }
+    incomplete = tmp_path / "incomplete.dat"
+    incomplete.write_bytes(data[: limits[cut]])
+    with pytest.raises(IncompleteOutputError, match="Native Tecplot ends"):
+        read_native_tecplot_surface(incomplete)

@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: 1.1.0
+# file_version: 1.1.1
 # artifact_id: src/pyflightstream/run/cli.py
-# last_modified_at: 2026-09-27T15:30:58.657219+00:00
-# last_modified_by: OpenAI / Codex / GPT-6 / implementer
+# last_modified_at: 2026-09-27T23:24:23.671Z
+# last_modified_by: OpenAI / Codex / unknown / architect-correction-proposal
 # dependencies: [pyflightstream]
 # authority: pyflightstream
 # status: draft
 # confidentiality: public
-# change_summary: Add typed setup coverage and coordinated workspace integration.
+# change_summary: Use the registered post diagnostic renderer across the downward layer boundary.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """The ``pyfs-matrix`` command line.
@@ -92,6 +92,7 @@ from pyflightstream.workspace import (
     InputArtifactError,
     RunStatus,
     WorkspaceError,
+    post_diagnostics,
 )
 from pyflightstream.workspace.matrix import renumber_repeated_pols
 from pyflightstream.workspace.naming import (
@@ -1091,10 +1092,8 @@ def _cmd_post(args: argparse.Namespace) -> int:
                     file=sys.stderr,
                 )
                 return 2
-            from pyflightstream.post.diagnostics import render_post_diagnostics
-
             print(
-                render_post_diagnostics(
+                post_diagnostics(
                     [workspace.products_dir(matrix) / "post.log.json" for matrix in matrices]
                 )
             )

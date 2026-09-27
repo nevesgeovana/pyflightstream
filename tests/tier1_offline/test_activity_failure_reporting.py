@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER
-# file_version: 1.0.1
+# file_version: 1.1.0
 # file_role: activity-failure-reporting-regressions
-# last_modified_at: 2026-09-27T20:59:34.947Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# last_modified_at: 2026-09-27T23:30:53.667Z
+# last_modified_by: OpenAI / Codex / unknown / qa-proposal
 # dependencies: [pytest, pyflightstream._progress]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Bind existing behavioral checks to explicit release obligations.
+# change_summary: Preserve failed CollectReport results and their actionable diagnostic.
 # revision_source: git
 """Diagnostic storage failures must not replace the operational failure."""
 
@@ -55,3 +55,45 @@ def test_failed_records_have_failed_final_stage(tmp_path, capsys):
     ]
     assert events[-1]["event"] == "failed"
     assert "[collect] failed" in capsys.readouterr().err
+
+
+def test_failed_collect_report_is_returned_and_logged_without_diagnosis(tmp_path, capsys):
+    import json
+
+    from pyflightstream.run.collect import CollectOutcome, CollectReport
+
+    report = CollectReport(
+        failed=[CollectOutcome("9001/AL+000", "FAILED", "native log is missing: solver.log")]
+    )
+
+    @progress.workspace_activity("collection")
+    def collect(workspace):
+        return report
+
+    assert collect(tmp_path) is report
+    events = [
+        json.loads(line) for line in (tmp_path / "logs/activity.log.jsonl").read_text().splitlines()
+    ]
+    assert events[-1]["event"] == "failed"
+    assert "9001/AL+000" in events[-1]["message"]
+    assert "native log is missing: solver.log" in events[-1]["message"]
+    assert "[collection] failed" in capsys.readouterr().err
+
+
+def test_failed_execution_keeps_its_existing_diagnosis(tmp_path):
+    import json
+
+    from pyflightstream.run import ExecutionResult
+
+    result = ExecutionResult(1, 0.1, False, "native parser rejected input", "stdout detail", "")
+
+    @progress.workspace_activity("solver")
+    def execute(workspace):
+        return result
+
+    assert execute(tmp_path) is result
+    events = [
+        json.loads(line) for line in (tmp_path / "logs/activity.log.jsonl").read_text().splitlines()
+    ]
+    assert events[-1]["event"] == "failed"
+    assert events[-1]["message"] == result.diagnosis()

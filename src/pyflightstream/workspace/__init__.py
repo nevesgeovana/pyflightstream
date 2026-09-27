@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER
 # file_role: managed-workspace-model-and-layout
-# file_version: 1.1.2
-# last_modified_at: 2026-09-27T21:58:19.804Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# file_version: 1.1.3
+# last_modified_at: 2026-09-27T23:24:23.671Z
+# last_modified_by: OpenAI / Codex / unknown / architect-correction-proposal
 # dependencies: [pyflightstream.run._step_exports]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Document the implemented 0.29 architecture and evidence boundaries.
+# change_summary: Register recorded post diagnostics without an upward import.
 # revision_source: git
 """Managed campaign workspace: inputs, run files, and the manifest.
 
@@ -229,8 +229,10 @@ __all__ = [
     "strip_rotor_facts",
     "migrate_input_ids",
     "resolve_build",
+    "post_diagnostics",
     "post_stages",
     "register_input_guide",
+    "register_post_diagnostics",
     "register_post_stage",
     "resolve_pproc",
     "write_input_guides",
@@ -579,6 +581,27 @@ def register_post_stage(stage: Callable[..., list[Path]]) -> Callable[..., list[
 def post_stages() -> tuple[Callable[..., list[Path]], ...]:
     """Return the registered post stages, in registration order."""
     return tuple(_POST_STAGES)
+
+
+# The post layer supplies its read-only diagnostic renderer at import time,
+# following the stage registry direction without invoking product stages.
+_POST_DIAGNOSTICS: Callable[[Sequence[Path]], str] | None = None
+
+
+def register_post_diagnostics(
+    renderer: Callable[[Sequence[Path]], str],
+) -> Callable[[Sequence[Path]], str]:
+    """Register the renderer of recorded post logs; return the renderer."""
+    global _POST_DIAGNOSTICS
+    _POST_DIAGNOSTICS = renderer
+    return renderer
+
+
+def post_diagnostics(log_paths: Sequence[Path]) -> str:
+    """Render saved diagnostics through the post layer without running stages."""
+    if _POST_DIAGNOSTICS is None:
+        raise WorkspaceError("No recorded post-diagnostics renderer is registered.")
+    return _POST_DIAGNOSTICS(log_paths)
 
 
 #: The writers of the guides GENERATED into the input library, by the same

@@ -1,14 +1,14 @@
 <!--
 GEOVERSE_HEADER
-file_version: 1.0.0
+file_version: 1.0.1
 artifact_id: pyflightstream-report-series
-last_modified_at: 2026-09-27T19:51:15.690Z
-last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
+last_modified_at: 2026-09-27T23:25:26.007Z
+last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: architect-correction-proposal}
 dependencies: []
 authority: pyflightstream
 status: active
 confidentiality: public
-change_summary: Reserve three narrative identities for measured workspace integration findings.
+change_summary: Register the optional Excel dependency license evidence.
 revision_source: git
 -->
 
@@ -60,3 +60,7 @@ acceptance or publication of their findings.
 | RPT-081 | Typed boundary and base-region operations: measured state and effects | In preparation |
 | RPT-082 | CAD units, geometry transforms and custom inflow coverage | In preparation |
 | RPT-083 | Probe frames, temporal surfaces and walltime export limits | In preparation |
+
+## Dependency evidence
+
+- [RPT-084: optional Excel extra license evidence](RPT-084_excel-extra-license_2026-09-27.md): XlsxWriter 3.2.9 installed metadata and exact license hashes.

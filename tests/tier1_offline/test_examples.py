@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# file_role: executable-example-inventory
+# last_modified_at: 2026-09-27T23:24:23.671Z
+# last_modified_by: OpenAI / Codex / unknown / architect-correction-proposal
+# dependencies: [pyproject.toml, pyflightstream._errors]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Register new examples and invoke their real CLIs with existing synthetic fixtures.
+# revision_source: git
 """Tier 1: the worked examples run, and each declares the extras it needs.
 
 REV-002 finding PYFS-026, the examples half. The four ``examples/*.py``
@@ -38,6 +49,15 @@ PACKAGE = REPO / "src" / "pyflightstream"
 #: here as well. ``test_each_example_needs_only_the_extras_it_declares``
 #: holds the declaration to the imports.
 EXAMPLE_EXTRAS: dict[str, frozenset[str]] = {
+    "base_region_setup.py": frozenset(),
+    "boundary_layer_sections.py": frozenset(),
+    "cad_import.py": frozenset(),
+    "continuation_frame_recovery.py": frozenset(),
+    "excel_matrix_sync.py": frozenset({"excel"}),
+    "prepare_custom_field.py": frozenset(),
+    "sampled_field_export.py": frozenset(),
+    "surface_with_native_strength.py": frozenset(),
+    "workspace_fsi_calibration.py": frozenset(),
     # 0.27.0 (D11's third capability): the additional post over a recorded
     # point's saved simulation, the extraction script it would run, no solver.
     "additional_post.py": frozenset(),
@@ -56,7 +76,11 @@ EXAMPLE_EXTRAS: dict[str, frozenset[str]] = {
 
 #: Subpackages an extra gates. Used to check an example's imports
 #: against its declaration; a subpackage absent here is core.
-GATED_SUBPACKAGES = {"pyflightstream.fsi": "fsi", "pyflightstream.probes.geometry": "geom"}
+GATED_SUBPACKAGES = {
+    "pyflightstream.fsi": "fsi",
+    "pyflightstream.probes.geometry": "geom",
+    "pyflightstream.workspace.excel": "excel",
+}
 
 
 #: Scratch trees a run creates at whatever its working directory is.
@@ -137,6 +161,44 @@ def test_the_declaration_covers_every_example():
     assert on_disk, "no examples found at all; the glob is wrong"
 
 
+def _example_arguments(name: str, temporary: Path) -> list[str]:
+    """Provide synthetic inputs to argument-taking examples without a solver."""
+    if name == "boundary_layer_sections.py":
+        return [str(temporary / "boundary-layer.csv")]
+    if name == "cad_import.py":
+        return [str(temporary / "wing.igs"), "--boundary", "Wing"]
+    if name == "sampled_field_export.py":
+        return ["--output", str(temporary / "sampled-field")]
+    if name == "workspace_fsi_calibration.py":
+        return [str(temporary / "fsi-workspace")]
+    if name == "continuation_frame_recovery.py":
+        from tests.tier1_offline.test_g58_frame_recovery import _old_run
+
+        workspace, case, _, _ = _old_run(temporary)
+        case_file = temporary / "resolved-case.json"
+        case_file.write_text(case.model_dump_json(), encoding="utf-8")
+        return [
+            str(workspace.root),
+            str(case_file),
+            "--point",
+            '{"alpha": 0.0}',
+            "--fs-version",
+            "26.123",
+        ]
+    if name == "surface_with_native_strength.py":
+        import json
+
+        from pyflightstream.results.surface import REFERENCE_FRAME, write_vtk_surface
+        from tests.tier1_offline.test_native_nodal_surface import _native, _vtk
+
+        vtk = write_vtk_surface(temporary / "surface.vtk", _vtk(), title="example")
+        native = _native(temporary / "native.dat")
+        frame = temporary / "frame.json"
+        frame.write_text(json.dumps(REFERENCE_FRAME.record()), encoding="utf-8")
+        return [str(vtk), str(native), str(temporary / "translated.dat"), str(frame)]
+    return []
+
+
 @pytest.mark.requirement("NFR-01d")
 @pytest.mark.parametrize("name", sorted(EXAMPLE_EXTRAS))
 def test_each_example_runs(name, tmp_path):
@@ -192,12 +254,13 @@ def test_each_example_runs(name, tmp_path):
     environment = os.environ.copy()
     environment["PYTHONWARNINGS"] = "default::DeprecationWarning"
     result = subprocess.run(
-        [sys.executable, str(EXAMPLES / name)],
+        [sys.executable, str(EXAMPLES / name), *_example_arguments(name, tmp_path)],
         capture_output=True,
         text=True,
         cwd=tmp_path,
         timeout=300,
         env=environment,
+        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
     )
     assert result.returncode == 0, (
         f"examples/{name} exited {result.returncode}. It is the first code a new "

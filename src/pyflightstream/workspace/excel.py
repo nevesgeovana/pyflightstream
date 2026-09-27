@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER
-# file_version: "2.0.0"
-# last_modified_at: "2026-09-27T21:37:21.741Z"
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
+# file_version: 2.0.1
+# last_modified_at: 2026-09-27T23:24:23.671Z
+# last_modified_by: OpenAI / Codex / unknown / architect-correction-proposal
 # dependencies: [workspace.excel_sync, workspace.excel_file, XlsxWriter]
 # authority: geoverse-goddess-control-plane
 # file_role: macro-free-matrix-workbook-factory
 # status: active
 # confidentiality: public
-# change_summary: "Create macro-free workbooks and expose explicit file synchronization."
+# change_summary: Use the shared optional dependency refusal for workbook creation.
 # revision_source: git
 """Create the optional workbook without launching Excel or changing trust settings."""
 
@@ -19,6 +19,7 @@ from pathlib import Path
 
 from pyflightstream._cli import cli_entrypoint
 from pyflightstream.cases.matrix import _COLUMNS
+from pyflightstream.extras import missing_extra
 from pyflightstream.workspace.excel_sync import ExcelSyncError
 
 
@@ -34,9 +35,7 @@ def create_workbook(
     try:
         import xlsxwriter
     except ImportError as exc:
-        raise ExcelSyncError(
-            "Workbook creation needs the optional Excel extra: pip install pyflightstream[excel]."
-        ) from exc
+        raise missing_extra("excel", package="XlsxWriter", purpose="Workbook creation") from exc
     output.parent.mkdir(parents=True, exist_ok=True)
     workbook = xlsxwriter.Workbook(output, {"strings_to_formulas": False, "strings_to_urls": False})
     try:

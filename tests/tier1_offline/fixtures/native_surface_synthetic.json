@@ -1,0 +1,45 @@
+{
+  "_geoverse_header": {
+    "file_version": "1.0.0",
+    "file_role": "native-surface-parser-fixture-provenance",
+    "last_modified_at": "2026-09-27T23:26:54.880Z",
+    "last_modified_by": {
+      "provider": "OpenAI",
+      "product": "Codex",
+      "model": "unknown",
+      "role": "vv-review-proposal"
+    },
+    "dependencies": [
+      "RPT-083",
+      "tests/tier3_licensed/inputs/geometries/40_PUSHER.provenance.toml"
+    ],
+    "authority": "pyflightstream",
+    "status": "measured-fixture-proposal",
+    "confidentiality": "public",
+    "change_summary": "Bind a line-ending-normalized real native export from the public synthetic pusher.",
+    "revision_source": "git"
+  },
+  "fixture": "native_surface_synthetic.dat",
+  "fixture_sha256": "f309450065ddc0c889d1fa160252b5cb6bdde0c20e4048188ff9ec516134ad5f",
+  "hash_domain": "git-index-blob-bytes",
+  "raw_capture_sha256": "3ca9c0cc3274475816016f53e38eb49109a4c638495140ef924ae414c3185ebe",
+  "raw_capture_hash_domain": "exact-file-bytes",
+  "normalization": "CRLF-to-LF only; all native numeric tokens, spacing, variables and connectivity are retained.",
+  "source_geometry": {
+    "provenance": "tests/tier3_licensed/inputs/geometries/40_PUSHER.provenance.toml",
+    "sha256": "c6e719b921fe4396c89870b513c0e84f714a089699ee5562775d465d376ad599",
+    "origin": "Public shape-law-generated synthetic pusher; no owner geometry."
+  },
+  "native_solver": {
+    "version": "26.124",
+    "build": "8172026",
+    "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65"
+  },
+  "evidence_report": "RPT-083: Probe frames, temporal surfaces and walltime export limits; T39 reference reopen",
+  "nodes": 1054,
+  "cells": 1138,
+  "limits": [
+    "A parser fixture, not an aerodynamic validation reference.",
+    "No private paths or licensed executables are distributed."
+  ]
+}
