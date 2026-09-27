@@ -1,3 +1,13 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.6
+# last_modified_at: 2026-09-27T20:39:01.370Z
+# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# dependencies: [pyflightstream.run._continuation_frame, pyflightstream.run._solver_windows]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Retain surface-probe declarations in new runs and validated continuations.
+# revision_source: git
 """Execution of FlightStream and the campaign loop.
 
 Pipeline role: runs the solver headless on rendered scripts and lands
@@ -42,6 +52,13 @@ the point's own datapoint folder and captures that file (SRC-003 p.280);
 a steady row of several points is one job and runs in the simulation
 folder. An HPC
 executor with the same interface is deferred (FR-15).
+
+On Windows, :mod:`pyflightstream.run._solver_windows` inspects only the
+launched solver PID. A visible standard dialog, a modal window whose owned
+parent is disabled, or a titled error window fails that point. Its text goes
+to ``pyfs-modal-error.log`` and the execution record; the executor terminates
+only its own process and never clicks a dialog. Custom GUI messages outside
+these recognizable forms remain subject to the configured execution timeout.
 
 Judging solver quality (converged, iteration limited, diverged) needs
 the solver outputs, so :func:`run_campaign` takes an
@@ -92,6 +109,7 @@ from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
 )
+from pyflightstream._progress import activity_event, workspace_activity
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import (
     EXPORT_KINDS,
@@ -155,6 +173,9 @@ from pyflightstream.results import (
 from pyflightstream.results.conditions import ConditionBinding, bind_conditions
 from pyflightstream.results.tables import sweep_table, write_table
 from pyflightstream.run._actions_counter import render_program
+from pyflightstream.run._continuation_frame import recover_frame as _recover_continuation_frame
+from pyflightstream.run._solver_windows import owned_solver_dialogs as _owned_solver_dialogs
+from pyflightstream.run._step_exports import missing_step_warning
 from pyflightstream.run._wake_edge_verdict import (
     SOLVER_OWN_LOG,
     actuator_profile_verdict,
@@ -940,6 +961,7 @@ class SubmittingExecutor:
             "submitted": bool(self.submit),
         }
 
+    @workspace_activity("submission", "working_dir")
     def run_script(
         self, script_path: Path, working_dir: Path, timeout_s: float | None = None
     ) -> ExecutionResult:
@@ -1077,7 +1099,7 @@ def _run_with_progress(
     working_dir: Path,
     timeout_s: float | None,
     counter: Path,
-    total: int,
+    total: int | None,
     every: int,
 ) -> tuple[int | None, str, str, bool]:
     """Run the solver and say its progress every ``every`` steps while it runs.
@@ -1098,6 +1120,7 @@ def _run_with_progress(
         stderr=subprocess.PIPE,
         text=True,
         env=os.environ.copy(),
+        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
     )
     said = 0
     while True:
@@ -1112,6 +1135,26 @@ def _run_with_progress(
             )
             return process.returncode, out or "", err or "", False
         except subprocess.TimeoutExpired:
+            pid = getattr(process, "pid", 0)
+            try:
+                dialogs = _owned_solver_dialogs(pid)
+            except OSError as error:
+                dialogs = (f"Solver window monitoring failed: {error}",)
+            if dialogs:
+                diagnostic = (
+                    f"{_utc_now()} solver modal/error detected pid={pid}; "
+                    "terminating this owned solver process without clicking its dialog.\n"
+                    + "\n\n".join(dialogs)
+                    + "\n"
+                )
+                process.kill()
+                out, err = process.communicate()
+                with (working_dir / "pyfs-modal-error.log").open("a", encoding="utf-8") as log:
+                    log.write(diagnostic)
+                print(diagnostic.rstrip(), file=sys.stderr)
+                return process.returncode or 1, out or "", (err or "") + "\n" + diagnostic, False
+            if total is None or every <= 0:
+                continue
             try:
                 step = _action_count(counter)
             except (OSError, ValueError, KeyError, TypeError):
@@ -1201,6 +1244,7 @@ class LocalExecutor:
         argv.extend([SCRIPT_ARGUMENT, str(script_path)])
         return argv
 
+    @workspace_activity("solver", "working_dir")
     def run_script(
         self, script_path: Path, working_dir: Path, timeout_s: float | None = None
     ) -> ExecutionResult:
@@ -1246,7 +1290,7 @@ class LocalExecutor:
             if getattr(self, "progress_every", 0) > 0
             else None
         )
-        if total is not None:
+        if total is not None or os.name == "nt":
             return_code, stdout, stderr, timed_out = _run_with_progress(
                 argv,
                 Path(working_dir),
@@ -1287,6 +1331,9 @@ class LocalExecutor:
         log_text = None
         if log_path.is_file():
             log_text = log_path.read_text(encoding="utf-8", errors="replace")
+        modal_log = Path(working_dir) / "pyfs-modal-error.log"
+        if modal_log.is_file() and "solver modal/error detected" in stderr:
+            log_text = (log_text or "") + "\n" + stderr
         return ExecutionResult(
             return_code=return_code,
             wall_time_s=wall_time_s,
@@ -2944,6 +2991,7 @@ def _leave_sweep_table(
     return None
 
 
+@workspace_activity("run")
 def run_campaign(
     campaign: Campaign,
     executor: Executor,
@@ -3492,7 +3540,8 @@ def run_campaign(
             )
             _say(
                 f"     {record.run_id}  {record.status}"
-                + (f"  ({record.error})" if record.error else ""),
+                + (f"  ({record.error})" if record.error else "")
+                + ("  WARNING: " + "; ".join(record.warnings) if record.warnings else ""),
                 quiet=quiet,
             )
             if accept_unregistered_build:
@@ -3515,7 +3564,9 @@ def run_campaign(
             point_extra: dict[str, object] = {}
             continues: str | None = None
             try:
-                continuation = resolve_continuation(workspace, case, point, run_id=run_id)
+                continuation = resolve_continuation(
+                    workspace, case, point, run_id=run_id, recipe=recipe, fs_version=case_version
+                )
             except (CampaignConfigError, WorkspaceError) as error:
                 # RECORDED AND REPORTED, LIKE EVERY OTHER FAILED POINT. This
                 # branch put the record in the returned list alone: nothing in
@@ -3623,12 +3674,15 @@ def run_campaign(
                 sim_dir=sim_dir,
                 assess=assess,
                 continues=continues,
+                recovered_continuation=continuation,
             )
             # And as it ENDS, with the status, so the two lines bracket the
             # wait and a reader can see which point a warning between them
             # belonged to.
             _say(
-                f"     {run_id}  {record.status}" + (f"  ({record.error})" if record.error else ""),
+                f"     {run_id}  {record.status}"
+                + (f"  ({record.error})" if record.error else "")
+                + ("  WARNING: " + "; ".join(record.warnings) if record.warnings else ""),
                 quiet=quiet,
             )
             if accept_unregistered_build:
@@ -4546,6 +4600,8 @@ class CampaignPlan:
     #: The generated input guides this plan wrote or rewrote (0.24.0), under
     #: ``inputs/pproc``; empty when they already said what they would say.
     guides: list[Path] = field(default_factory=list)
+    #: Resolved row setup details, shared by plan's summary and inspect-setups.
+    setup_inspections: list[dict[str, object]] = field(default_factory=list)
 
     @property
     def blocked(self) -> list[PointPlan]:
@@ -4662,6 +4718,7 @@ def plan_campaign(
     versions: Mapping[str, str] | None = None,
     matrix_path: str | Path | None = None,
     accept_unregistered_build: bool = False,
+    setup_inspections: Sequence[dict[str, object]] | None = None,
 ) -> CampaignPlan:
     """Pre-flight a campaign: validate every point without executing any.
 
@@ -4793,6 +4850,7 @@ def plan_campaign(
             "fs_version": canonical,
             "package_version": pyflightstream.__version__,
             "build_groups": groups,
+            "setup_inspections": list(setup_inspections or ()),
             "points": [{**asdict(entry), "status": str(entry.status)} for entry in points],
             # FR-97: WHICH MATRIX THIS PLAN MEASURED. A
             # mandatory plan that does not say is satisfied by a stale one,
@@ -4814,6 +4872,7 @@ def plan_campaign(
         points=points,
         plan_file=plan_file,
         build_groups=groups,
+        setup_inspections=list(setup_inspections or ()),
     )
 
 
@@ -4906,7 +4965,9 @@ def _plan_point(
         if not _restart_point_is_pending(latest):
             return PointPlan(**base, script_name=script_name, status=PlanStatus.ALREADY_RECORDED)
     try:
-        rehearsed = resolve_continuation(workspace, case, point, run_id=run_id)
+        rehearsed = resolve_continuation(
+            workspace, case, point, run_id=run_id, recipe=recipe, fs_version=fs_version
+        )
     except (WorkspaceError, CampaignConfigError) as error:
         return PointPlan(
             **base, script_name=script_name, status=PlanStatus.BLOCKED, error=str(error)
@@ -5217,6 +5278,7 @@ def _staged_inputs_conflict(
     return None
 
 
+@workspace_activity("preparation")
 def _prepare_case(
     campaign: Campaign,
     case: SimCase,
@@ -5258,20 +5320,18 @@ def _prepare_case(
         # every path derived from it safe to hand to the solver; the
         # reasoning is there rather than repeated at each boundary.
         staged_geometry = str(staged)
+    # Every disc's native-format copy is parked by the builder and hashed by
+    # _write_pending_files. Check each original still exists before building.
+    profiles = set(case.actuator_profiles.values())
     if case.actuator_profile is not None:
-        # G06. THE SOLVER NEVER READS THE USER'S PROFILE: the builder parks the
-        # run's own copy of its rows, in the form 26.124 reads, and
-        # `_write_pending_files` writes it where the point runs and hashes it
-        # into the record, as it does the trailing-edge node file. So the
-        # user's file is neither staged nor hashed here, only looked for, so a
-        # file gone since the plan fails the case by name before the build.
-        profile = Path(case.actuator_profile)
+        profiles.add(case.actuator_profile)
+    for original in sorted(profiles):
+        profile = Path(original)
         if not profile.is_file():
             return (
                 recipe,
-                f"the actuator profile {profile} the row's PROFILE resolved to is no longer "
-                "there; the run copies it from where it lives, under the workspace's "
-                "inputs/profiles/",
+                f"the actuator profile {profile} is no longer present; "
+                "restore the resolved inputs/profiles file before running",
                 {},
                 None,
             )
@@ -5297,6 +5357,25 @@ def _prepare_case(
                 None,
             )
         inputs_sha256 = {**inputs_sha256, field.name: file_sha256(field)}
+    if case.fsi is not None and case.fsi_provenance.get("source"):
+        source = Path(str(case.fsi_provenance["source"]))
+        expected = case.fsi_provenance.get("source_sha256")
+        if not source.is_file() or file_sha256(source) != expected:
+            return (
+                recipe,
+                f"FSI input {source} changed after resolution; "
+                "plan the matrix again before running.",
+                {},
+                None,
+            )
+        if source.name in inputs_sha256:
+            return (
+                recipe,
+                f"FSI input name {source.name!r} collides with another staged input; rename it.",
+                {},
+                None,
+            )
+        inputs_sha256[source.name] = str(expected)
     return recipe, None, inputs_sha256, staged_geometry
 
 
@@ -5318,6 +5397,7 @@ def _say(message: str, *, quiet: bool = False) -> None:
     print its first line when the last point was done, which is the silence
     this requirement exists to end.
     """
+    activity_event("progress", "message", message)
     if quiet:
         return
     print(message, file=sys.stderr, flush=True)
@@ -5509,17 +5589,19 @@ def _sweeps_the_flow(case: SimCase) -> bool:
 
 
 def _is_cold_start(case: SimCase) -> bool:
-    """Whether the row asked for a cold start (FR-95).
-
-    WARM IS THE DEFAULT and this is the opt-out, which follows the
-    evidence rather than the safer-looking choice: the predecessor's
-    steady recipe never cleared the solver between points and had no
-    switch to.
-    """
+    """Select the R13 cold default; an explicit false value opts into warm starts."""
     stated = case.variables.get(COLD_START_VARIABLE)
-    if stated is None:
+    if stated is None or str(stated).strip() == "":
+        return True
+    value = str(stated).strip().upper()
+    if value in {"TRUE", "ENABLE", "YES", "1"}:
+        return True
+    if value in {"FALSE", "DISABLE", "NO", "0"}:
         return False
-    return str(stated).strip().upper() in {"TRUE", "ENABLE", "YES", "1"}
+    raise CampaignConfigError(
+        f"case {case.sim_id!r}: COLD_START must be true or false; got {stated!r}. "
+        "Cold is the default; false explicitly opts into warm steady starts."
+    )
 
 
 def _execute_sweep(
@@ -5662,6 +5744,11 @@ def _execute_sweep(
             status=RunStatus.FAILED_SCRIPT,
             error=f"{type(error).__name__}: {error}",
         )
+    base["probe_field_layout"] = list(script.probe_field_layout) or None
+    base["surface_probe_layout"] = list(script.surface_probe_layout) or None
+    base["frame_motions"] = script.frame_motions or None
+    base["custom_field_coverage"] = script.custom_field_coverage
+    base["freestream_units"] = case.variables.get("FREESTREAM_UNITS") or case.freestream_units
     setup = script.solver_setup
     if setup is not None:
         base["solver_setup"] = setup.model_dump(mode="json")
@@ -6030,6 +6117,47 @@ def _write_pending_files(
         If a data file's name, ignoring case, is a key ``recorded`` or
         another data file holds with a different digest.
     """
+    pending_inputs = script.pending_input_files
+    for name, content in pending_inputs.items():
+        if not (name.startswith("pfs-field-") and name.endswith(".provenance.json")):
+            continue
+        provenance = json.loads(content)
+        source = Path(provenance["source_path"])
+        expected = provenance["source_sha256"]
+        if recorded.get(source.name) != expected or file_sha256(source) != expected:
+            raise CampaignConfigError(
+                f"Custom field {source} changed between preparation and staging; rebuild the run."
+            )
+    if case.fsi is not None:
+        # FSI files are point-owned inputs and use the existing guarded writer,
+        # never the simulation inputs folder which may link to geometry data.
+        payloads = {
+            "config.json": case.fsi.model_dump_json(indent=2) + "\n",
+            "fsi-provenance.json": json.dumps(case.fsi_provenance, indent=2) + "\n",
+        }
+        source_name = case.fsi_provenance.get("source")
+        if source_name:
+            source = Path(str(source_name))
+            if not source.is_file() or file_sha256(source) != case.fsi_provenance.get(
+                "source_sha256"
+            ):
+                raise CampaignConfigError(
+                    f"case {case.sim_id}: FSI source {source} changed; resolve the matrix again."
+                )
+            original = source.read_bytes()
+            previous_source = pending_inputs.get(source.name)
+            if previous_source is not None and previous_source != original:
+                raise CampaignConfigError(
+                    f"case {case.sim_id}: {source.name} conflicts with the FSI source artifact."
+                )
+            pending_inputs[source.name] = original
+        for name, content in payloads.items():
+            previous = pending_inputs.get(name)
+            if previous is not None and previous != content:
+                raise CampaignConfigError(
+                    f"case {case.sim_id}: {name} conflicts with the resolved FSI configuration."
+                )
+            pending_inputs[name] = content
 
     def placed(name: str) -> Path:
         target = Path(name)
@@ -6119,7 +6247,7 @@ def _write_pending_files(
     # Through the resolved path, so a link or a junction inside the point's
     # folder that leads elsewhere is outside it.
     root = one_file_key(work_dir)
-    for parked in script.pending_input_files:
+    for parked in pending_inputs:
         here = one_file_key(placed(parked))
         if here != root and not here.startswith(root + "/"):
             raise CampaignConfigError(
@@ -6133,7 +6261,7 @@ def _write_pending_files(
     targets: dict[str, tuple[Path, bytes]] = {}
     for parked, content in (
         *script.pending_action_scripts.items(),
-        *script.pending_input_files.items(),
+        *pending_inputs.items(),
     ):
         target = placed(parked)
         alias = aliased_name_fault(target.name)
@@ -6188,7 +6316,7 @@ def _write_pending_files(
     held: dict[str, tuple[str, str]] = {
         key.casefold(): (key, digest) for key, digest in recorded.items()
     }
-    for input_file, content in script.pending_input_files.items():
+    for input_file, content in pending_inputs.items():
         target = placed(input_file)
         target.parent.mkdir(parents=True, exist_ok=True)
         if one_file(target) in untouched:
@@ -6301,7 +6429,22 @@ def _walltime_stop(state_path: Path) -> dict | None:
     if not state.get("fired"):
         return None
     stopped = state.get("stopped_at")
-    return dict(stopped) if isinstance(stopped, dict) else None
+    if not isinstance(stopped, dict):
+        return None
+    observed = state.get("steps")
+    claimed = stopped.get("step")
+    # A callback may abort its own script while the solver keeps marching.
+    # Only a matching final callback count can support the stop marker.
+    if (
+        not isinstance(observed, int)
+        or isinstance(observed, bool)
+        or not isinstance(claimed, int)
+        or isinstance(claimed, bool)
+        or claimed < 1
+        or observed != claimed
+    ):
+        return None
+    return dict(stopped)
 
 
 def workflow_conventions_for(case: SimCase) -> WorkflowConventions:
@@ -6365,12 +6508,15 @@ def _unused_continuation_run_id(run_id: str, stamp: datetime, recorded: Collecti
     return f"{head}.{index}/{tag}"
 
 
+@workspace_activity("continuation")
 def resolve_continuation(
     workspace: CampaignWorkspace,
     case: SimCase,
     point: Mapping[str, float],
     *,
     run_id: str,
+    recipe: ScriptRecipe | None = None,
+    fs_version: str | None = None,
 ) -> dict[str, object] | None:
     """Resolve the two facts a continuation needs, from the record it continues.
 
@@ -6435,41 +6581,31 @@ def resolve_continuation(
             f"remove the {RESTART_VARIABLE} key to march the point from the start."
         )
     _refuse_a_field_the_stopped_run_did_not_read(case, tag, previous)
-    _refuse_a_tecplot_the_stopped_run_did_not_place(case, tag, previous)
+    recovery: dict[str, object] = {}
+    if (
+        "tecplot" in classify_outputs([str(name) for name in case.outputs])
+        and _recorded_loads_frame(previous) is None
+    ):
+        try:
+            original_recipe = recipe or resolve_recipe(case.recipe)
+        except ValueError as error:
+            raise CampaignConfigError(f"cannot rebuild the original row: {error}") from error
+        recovery = _recover_continuation_frame(
+            workspace,
+            case,
+            point,
+            previous,
+            str(saved),
+            original_recipe,
+            fs_version or case.fs_version or previous.fs_version_requested,
+        )
     return {
         "continues": previous.run_id,
         "iterations": iterations,
         "saved": str(saved),
         "form": request.form,
+        **recovery,
     }
-
-
-def _refuse_a_tecplot_the_stopped_run_did_not_place(
-    case: SimCase, tag: str, previous: RunRecord
-) -> None:
-    """Refuse a continuation whose Tecplot needs a loads frame the stopped run never recorded (G45).
-
-    A CONTINUATION SETS NO LOADS FRAME OF ITS OWN: it reopens the saved
-    simulation, and the solver writes the VTK in the frame that run placed, so
-    the package's Tecplot is undone by the placement the stopped run recorded.
-    A run recorded before 0.28.0 recorded none. Refused HERE, where a
-    continuation is resolved, and not once it is built: by then the stopped
-    run's datapoint was archived, and the recorded refusal of a point that had
-    started would have kept the remedy the message names, ``tecplot = false``,
-    from ever finding the stopped run again (reading D33 of 0.28.0).
-    """
-    if "tecplot" not in classify_outputs([str(name) for name in case.outputs]):
-        return
-    if _recorded_loads_frame(previous) is not None:
-        return
-    raise CampaignConfigError(
-        f"case {case.sim_id!r} point {tag} states {RESTART_VARIABLE}, and the Tecplot surface "
-        "of a continuation is written by the package from the VTK the solver exports in the "
-        f"analysis loads frame (RPT-074); the run it continues, {previous.run_id!r}, recorded "
-        "no placement of that frame: it was recorded before 0.28.0 or exported no Tecplot. "
-        "Set tecplot = false under the pproc's [exports] to continue it without one. Nothing "
-        "was archived, so the stopped run stays the one to continue."
-    )
 
 
 def _refuse_a_field_the_stopped_run_did_not_read(
@@ -6492,6 +6628,12 @@ def _refuse_a_field_the_stopped_run_did_not_read(
         return
     recorded = previous.inputs_sha256.get(field.name)
     current = file_sha256(field)
+    declaration = case.variables.get("FREESTREAM_UNITS") or case.freestream_units
+    if declaration != previous.freestream_units:
+        raise CampaignConfigError(
+            "The continued custom field changed its FREESTREAM_UNITS declaration; "
+            "start a new run rather than reinterpret the saved field."
+        )
     if recorded == current:
         return
     stated = case.variables.get(FREESTREAM_VARIABLE)
@@ -6818,6 +6960,7 @@ def _execute_point(
     sim_dir: Path,
     assess: OutcomeAssessor,
     continues: str | None = None,
+    recovered_continuation: Mapping[str, object] | None = None,
 ) -> RunRecord:
     """Take one point from sweep coordinates to its manifest record."""
     package_commit, package_dirty = package_vcs_state()
@@ -6996,6 +7139,11 @@ def _execute_point(
     # Provenance (decision 4 of 2026-07-22): a script built through the
     # curated solver_settings helper carries the snapshot of every
     # solver flag's effective value; record it with the run.
+    base["probe_field_layout"] = list(script.probe_field_layout) or None
+    base["surface_probe_layout"] = list(script.surface_probe_layout) or None
+    base["frame_motions"] = script.frame_motions or None
+    base["custom_field_coverage"] = script.custom_field_coverage
+    base["freestream_units"] = case.variables.get("FREESTREAM_UNITS") or case.freestream_units
     setup = script.solver_setup
     if setup is not None:
         base["solver_setup"] = setup.model_dump(mode="json")
@@ -7009,6 +7157,43 @@ def _execute_point(
                 status=RunStatus.FAILED_SCRIPT,
                 error=f"cannot recover surface averaging provenance of predecessor {continues!r}",
             )
+        from pyflightstream.run._field_motion import continued_field_inputs, continued_frame_motions
+
+        base["frame_motions"] = continued_frame_motions(predecessor.frame_motions, script)
+        if (
+            not script.raw_flag
+            and not script.surface_operations
+            and base["frame_motions"] == predecessor.frame_motions
+        ):
+            base["custom_field_coverage"] = predecessor.custom_field_coverage
+        else:
+            base["custom_field_coverage"] = {
+                "state": "unknown",
+                "reason": "Continuation changed geometry or frame provenance.",
+            }
+        if not script.surface_probe_layout and predecessor.surface_probe_layout:
+            base["surface_probe_layout"] = [
+                dict(entry) for entry in predecessor.surface_probe_layout
+            ]
+        if not script.probe_field_layout:
+            try:
+                inherited_fields = continued_field_inputs(predecessor, sim_dir)
+            except (OSError, ValueError, KeyError) as error:
+                return RunRecord(
+                    **base,
+                    status=RunStatus.FAILED_SCRIPT,
+                    error=f"cannot retain continued field evidence: {error}",
+                )
+            for key, value in inherited_fields.items():
+                if base.get(key) is None:
+                    base[key] = value
+            if inherited_fields:
+                inherited_path = str(inherited_fields["probe_points_file"])
+                inputs_sha256 = {
+                    **inputs_sha256,
+                    inherited_path: file_sha256(sim_dir / inherited_path),
+                }
+                base["inputs_sha256"] = inputs_sha256
         # Preserve the original recorded request when reopening the saved state,
         # including its UNVERIFIED qualification; today's pproc cannot replace it.
         script.surface_time_averaging = predecessor.surface_time_averaging
@@ -7029,6 +7214,14 @@ def _execute_point(
     inherits = continues is not None and not script.sets_loads_frame
     if continues is not None and any(inherits or _unplaced(entry) for entry in translations):
         carried = _recorded_loads_frame(predecessor)
+        frame_proof: dict[str, object] = {}
+        if carried is None and recovered_continuation is not None:
+            recovered = recovered_continuation.get("recovered_frame")
+            proof = recovered_continuation.get("frame_recovery")
+            if isinstance(recovered, Mapping) and not _unplaced({"frame": recovered}):
+                carried = dict(recovered)
+                if isinstance(proof, Mapping):
+                    frame_proof = {"frame_recovery": dict(proof)}
         if carried is None:
             return RunRecord(
                 **base,
@@ -7042,7 +7235,9 @@ def _execute_point(
                 ),
             )
         translations = [
-            {**entry, "frame": dict(carried)} if inherits or _unplaced(entry) else entry
+            {**entry, "frame": dict(carried), **frame_proof}
+            if inherits or _unplaced(entry)
+            else entry
             for entry in translations
         ]
     base["surface_translations"] = translations or None
@@ -7460,9 +7655,16 @@ def _execute_point(
             *collected_log_texts(sim_dir, collected, _declared_logs(point_case, rendered)),
         ),
     )
+    step_warning = missing_step_warning(
+        base.get("action_program"),
+        base.get("action_count"),
+        base.get("export_window"),
+        assessment.time_steps,
+    )
     return RunRecord(
         **base,
         status=status,
+        warnings=[step_warning] if step_warning else [],
         iterations=assessment.iterations,
         residual=assessment.residual,
         fs_version_reported=assessment.fs_version_reported,

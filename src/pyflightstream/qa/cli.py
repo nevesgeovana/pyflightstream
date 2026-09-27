@@ -1,3 +1,13 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# last_modified_at: 2026-09-27T14:20:00+00:00
+# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# dependencies: [pyflightstream._cli]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Add truthful CLI outcome reporting on stderr.
+# revision_source: git
 """The ``pyfs-qa`` command line, first console entry point of the package.
 
 Pipeline role: drives the qa evidence workflow from a terminal on the
@@ -31,6 +41,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from pyflightstream._cli import cli_entrypoint
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError
@@ -302,6 +313,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+@cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
     """Run ``pyfs-qa``; returns the process exit code."""
     args = _build_parser().parse_args(argv)

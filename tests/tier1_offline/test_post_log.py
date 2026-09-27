@@ -1,3 +1,13 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# last_modified_at: 2026-09-27T14:07:00+00:00
+# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# dependencies: [pyflightstream.post.products]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Assert additive severity and category in complete post logs.
+# revision_source: git
 """Post a campaign normally to warn, or pass check_frozen=True to refuse doubts."""
 
 import json
@@ -339,11 +349,14 @@ def test_interrupted_post_keeps_its_log_and_warning(tmp_path, monkeypatch):
         "product": "probe",
         "message": "restore the missing data",
         "remedy": None,
+        "category": "missing-data",
+        "severity": "warning",
     } in records, records
     assert any(
         (record["point"], record["product"], record["remedy"])
         == ("campaign", "stage", "correct the stated input and post again.")
         and "interrupted by the test" in record["message"]
+        and record["severity"] == "error"
         for record in records
     ), records
 
@@ -352,7 +365,7 @@ def _rendered(record):
     """The WARNING line of one record, spelled as the page states it (R02)."""
     remedy = f" Remedy: {record['remedy']}" if record["remedy"] else ""
     named = f"point={record['point']} product={record['product']}"
-    return f"WARNING {named}: {record['message']}{remedy}"
+    return f"{record['severity'].upper()} {named}: {record['message']}{remedy}"
 
 
 def test_post_log_json_is_the_same_records_as_post_log(tmp_path):
@@ -389,7 +402,10 @@ def test_post_log_json_is_the_same_records_as_post_log(tmp_path):
         f"check_frozen={document['check_frozen']} (refuse instead of warn)",
     ], lines[:5]
     records = document["records"]
-    assert all(set(record) == {"point", "product", "message", "remedy"} for record in records)
+    assert all(
+        set(record) == {"point", "product", "message", "remedy", "category", "severity"}
+        for record in records
+    )
     # SAME RECORDS, SAME COUNT, SAME ORDER: every WARNING line is one record.
     assert [_rendered(record) for record in records] == [
         line for line in lines if line.startswith("WARNING ")

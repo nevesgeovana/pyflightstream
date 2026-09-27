@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# file_role: local log and collection regression tests
+# last_modified_at: 2026-09-27T21:24:50.787Z
+# last_modified_by: OpenAI / Codex / unknown / implementation-agent
+# dependencies: [test_matrix_run.py, pyflightstream.run]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Supply matching native surface evidence in the local log fixture.
+# revision_source: git
 """Tier 1: a local run writes where a submitted one does, and its log is the machine's.
 
 A workspace on a cluster can carry an HPC profile stating ``[log] export_log =
@@ -43,6 +54,7 @@ from pyflightstream.run.matrix import run_matrix
 from pyflightstream.workspace import CampaignWorkspace, RunStatus, WorkspaceError
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
+    STUB_NATIVE_TECPLOT,
     STUB_VTK,
     make_library,
     matrix_mod,
@@ -97,6 +109,7 @@ from pyflightstream.cases import EXPORT_KINDS
 script, loads, printed, at_log = sys.argv[1:5]
 verbs = {kind[2] for kind in EXPORT_KINDS}
 VTK = <STUB_VTK>
+NATIVE = <STUB_NATIVE_TECPLOT>
 text = pathlib.Path(loads).read_text(encoding="utf-8")
 lines = pathlib.Path(script).read_text(encoding="utf-8").splitlines()
 alpha = 2.0
@@ -116,7 +129,8 @@ for index, line in enumerate(lines):
             printed = "-"
         continue
     if verb in verbs and index + 1 < len(lines):
-        body = VTK if verb == "EXPORT_SOLVER_ANALYSIS_VTK" else "DATA"
+        body = (VTK if verb == "EXPORT_SOLVER_ANALYSIS_VTK" else
+                NATIVE if verb == "EXPORT_SOLVER_ANALYSIS_TECPLOT" else "DATA")
         if verb == "EXPORT_SOLVER_ANALYSIS_SPREADSHEET":
             body = re.sub(
                 r"(Angle of attack \(Deg\)\s+)\S+", lambda m: m.group(1) + f"{alpha:.3f}", text
@@ -140,7 +154,12 @@ class Solver(LocalExecutor):
         super().__init__(fs_exe=sys.executable, hidden=True, forced_local=forced_local)
         self.export_log = export_log
         self.stub = tmp_path / "stub_solver.py"
-        self.stub.write_text(STUB.replace("<STUB_VTK>", repr(STUB_VTK)), encoding="utf-8")
+        self.stub.write_text(
+            STUB.replace("<STUB_VTK>", repr(STUB_VTK)).replace(
+                "<STUB_NATIVE_TECPLOT>", repr(STUB_NATIVE_TECPLOT)
+            ),
+            encoding="utf-8",
+        )
         self.printed = "-"
         if prints is not None:
             self.printed = str(tmp_path / "printed.txt")
@@ -252,6 +271,7 @@ def _exports_in(folder: Path, point: str) -> list[str]:
 def test_a_local_run_on_a_machine_that_aborts_at_export_log_emits_no_export_log(
     tmp_path, monkeypatch
 ):
+    # GOAL033:logging:checks:cluster_native_log_exception
     """The profile's `export_log = false` is the MACHINE's, whether a job is submitted or not."""
     workspace, records, built = _run(
         tmp_path, monkeypatch, cluster=True, profile=PROFILE, prints=LOG

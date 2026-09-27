@@ -1,3 +1,13 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# last_modified_at: 2026-09-27T15:07:41.411413+00:00
+# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# dependencies: [pyflightstream.run.matrix]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Validate submitted extraction and collection.
+# revision_source: git
 """Planning and running a bound run matrix.
 
 Pipeline role: the run-layer half of the run matrix, and the one-call
@@ -48,6 +58,7 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
     warn,
 )
+from pyflightstream._progress import workspace_activity
 from pyflightstream.cases import (
     EXPORT_KINDS,
     Campaign,
@@ -570,13 +581,21 @@ def plan_matrix(
     )
     _warn_the_legacy_rows_saving_no_simulation(resolved)
     _warn_the_rows_whose_additional_post_is_one_instant(resolved)
+    from pyflightstream.workspace.setup_inspection import inspect_case_setup
+
+    row_versions = _row_versions(resolved)
+    inspections = [
+        inspect_case_setup(case, row_versions.get(case.sim_id, resolved.campaign.fs_version))
+        for case in resolved.campaign.sims
+    ]
     plan = plan_campaign(
         resolved.campaign,
         workspace,
         recipes=recipe_registry,
         write_plan=write_plan,
         name_from=name_from,
-        versions=_row_versions(resolved),
+        versions=row_versions,
+        setup_inspections=inspections,
         matrix_path=path,
         accept_unregistered_build=accept_unregistered_build,
     )
@@ -1785,6 +1804,7 @@ def _script_drift(
     return shadow
 
 
+@workspace_activity("additional-post")
 def run_additional_post(
     matrix: str | Path,
     workspace: CampaignWorkspace,
@@ -1848,13 +1868,6 @@ def run_additional_post(
     campaign, executor_for = _campaign_executor(
         workspace, resolved, matrix, executor=executor, local=local, hidden=hidden
     )
-    if isinstance(campaign, Submitting):
-        raise ExecutorConfigurationError(
-            "the additional post runs on this machine in 0.27.0, and this workspace submits "
-            "from here (a submission profile on a cluster): completing a submitted "
-            "extraction is not built. Nothing was written. Pass local (CLI: --local) to "
-            "reopen the saved simulations on this machine."
-        )
     executors: dict[Path, Executor] = {Path(resolved.fs_exe): campaign}
     stamp = datetime.now().strftime(ARCHIVE_STAMP)
     written: list[AdditionalRecord] = []
@@ -1871,6 +1884,9 @@ def _extract(
 ) -> AdditionalRecord:
     """Launch one READY point's extraction and record it."""
     context = plan.context
+    pending = _latest_extractions(workspace.read_additional()).get(str(context["extraction_id"]))
+    if pending is not None and pending.status is ExtractionStatus.SUBMITTED:
+        return pending
     point = context["point"]
     record = context["record"]
     case = context["case"]
@@ -1935,8 +1951,12 @@ def _extract(
             error=f"the copy of {original} hashed {copied[:12]}, not {recorded[:12]}; nothing ran",
             original=original,
         )
+    from pyflightstream.run import _bind_submission_values
+
+    _bind_submission_values(executor, case, case)
     result = executor.run_script(script_path, working_dir=folder, timeout_s=case.solver.timeout_s)
-    copy.unlink(missing_ok=True)
+    if not isinstance(executor, Submitting) or result.failed:
+        copy.unlink(missing_ok=True)
     base.update(
         {
             "argv": list(result.argv),
@@ -1955,6 +1975,30 @@ def _extract(
             status=ExtractionStatus.FAILED_EXECUTION,
             error=result.diagnosis(),
             original=original,
+        )
+    if isinstance(executor, Submitting):
+        exports_log = bool(context.get("exports_log", True))
+        base.update(
+            declared_outputs=[
+                name for name in case.outputs if exports_log or not name.endswith(_LOG_SUFFIX)
+            ],
+            surface_translations=context.get("translations"),
+            submission=executor.submission_record(),
+            reopened_copy=copy.name,
+            exports_log=exports_log,
+            finished_at=None,
+        )
+        if not exports_log:
+            base["note"] = "; ".join(
+                str(part)
+                for part in (
+                    base.get("note"),
+                    "EXPORT_LOG is disabled; the scheduler's native log stays in the job directory",
+                )
+                if part
+            )
+        return _recorded(
+            workspace, base, status=ExtractionStatus.SUBMITTED, error=None, original=original
         )
     translations = context.get("translations")
     if isinstance(translations, list) and translations:

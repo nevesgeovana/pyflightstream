@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: test_fsi_config
+# last_modified_at: 2026-09-27T20:14:42.082Z
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [pyflightstream.fsi]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Bind existing physical tests to release acceptance obligations.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1: FsiConfig schema, validation, and round-trip IO (WP0)."""
 
 import pytest
@@ -47,6 +59,7 @@ def test_config_sha256_changes_with_a_value(uniform_blade_config):
 
 
 def test_station_count_mismatch_names_the_field():
+    # GOAL033:fsi:checks:dimensions
     """The error must name the offending distribution, not just fail."""
     cfg = make_uniform_blade_config()
     data = cfg.model_dump()

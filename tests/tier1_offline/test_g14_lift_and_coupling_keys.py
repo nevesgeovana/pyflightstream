@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# file_role: native-lift-and-coupling-build-regressions
+# last_modified_at: 2026-09-27T21:44:30.494Z
+# last_modified_by: OpenAI / Codex / unknown / implementation-agent
+# dependencies: [RPT-068, pyflightstream.commands, pyflightstream.cases.workflows]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Bind G22 to the existing exact-build named native refusal regression.
+# revision_source: git
 """Tier 1: two setup keys for two documented commands, validated by build (0.27.0, G14).
 
 * ``vorticity_lift_model`` -> ``SET_VORTICITY_LIFT_MODEL ENABLE|DISABLE``, every
@@ -83,6 +94,7 @@ def test_g14_the_coupling_iteration_is_refused_by_name_on_every_build_that_does_
 @pytest.mark.parametrize("workflow", sorted(MAKERS))
 def test_g14_the_vorticity_lift_model_is_refused_on_26124_naming_rpt068(tmp_path, workflow):
     """26.124 answers the name as it answers a name no edition documents (RPT-068)."""
+    # GOAL033:capability_ids:items:G22
     case = _case(tmp_path, workflow, "vorticity_lift_model = true\n")
     with pytest.raises(PyflightstreamError) as raised:
         _render(case, "26.124")

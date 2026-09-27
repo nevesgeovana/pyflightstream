@@ -1,3 +1,13 @@
+# GEOVERSE_HEADER
+# file_version: "1.0.11"
+# last_modified_at: 2026-09-27T21:46:38.202Z
+# last_modified_by: OpenAI / Codex / unknown / implementation-agent
+# dependencies: [pyflightstream.workspace]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Retain action-based animation; remove the unneeded parallel route.
+# revision_source: git
 """The generated input guides: the pproc guides, ``INPUTS.md`` and ``input_template.md``.
 
 The pproc guides are ``VARIABLES.md`` and ``WRITING-EQUATIONS.md``. Three pages
@@ -87,11 +97,13 @@ from pyflightstream.cases import (
     STEADY_ONLY_EXPORT_KINDS,
     VOLUME_SECTION_KINDS,
     ActuatorBlock,
+    BaseRegionOperation,
     CustomFlag,
     EquationSpec,
     InputKey,
     MeshImport,
     PhaseLockedSpec,
+    PortBoundary,
     PprocSpec,
     RawCommand,
     SolverSettings,
@@ -119,6 +131,7 @@ from pyflightstream.script.helpers import ROTATION_COMMANDS
 from pyflightstream.versions import known_versions
 from pyflightstream.workspace import REFERENCE_POINTS_FILE
 from pyflightstream.workspace.flight_condition import PINNED_KEYS
+from pyflightstream.workspace.fsi_setup import FSI_TEMPLATE
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
     GEOMETRY_SIDECAR_KEYS,
@@ -661,6 +674,7 @@ REFERENCE_BLOCK_HEADINGS: Mapping[str, str] = MappingProxyType(
 PACKAGE_SET_FIELDS: frozenset[tuple[str, str]] = frozenset(
     {
         ("ProbesSpec", "resolved_points_file"),
+        ("PortBoundary", "profile_sha256"),
         ("RawCommand", "setup"),
         ("RawCommand", "source"),
         ("CustomFlag", "setup"),
@@ -673,12 +687,23 @@ PACKAGE_SET_FIELDS: frozenset[tuple[str, str]] = frozenset(
 #: (:data:`pyflightstream.cases.SOLVER_SETTING_COMMANDS`).
 _FIELD_COMMANDS: Mapping[tuple[str, str], str] = MappingProxyType(
     {
+        ("BaseRegionOperation", "boundary"): "CREATE_NEW_BASE_REGION",
+        ("BaseRegionOperation", "model"): "CREATE_NEW_BASE_REGION, SET_BASE_REGION_CP",
+        ("BaseRegionOperation", "cp"): "CREATE_NEW_BASE_REGION, SET_BASE_REGION_CP",
+        ("BaseRegionOperation", "mesh"): "REMESH_BASE_REGION",
+        ("PortBoundary", "profile"): "SET_INLET_CUSTOM_PROFILE",
+        ("PortBoundary", "remesh"): "REMESH_INLET, REMESH_OUTLET",
         ("PprocSpec", "sections"): "NEW_SURFACE_SECTION_DISTRIBUTION",
         ("PprocSpec", "volume_section"): (
             "CREATE_NEW_RECTANGLE_VOLUME_SECTION, CREATE_NEW_CIRCLE_VOLUME_SECTION"
         ),
         ("PprocSpec", "plots"): "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
         ("PprocSpec", "probes"): "UNSTEADY_SOLVER_NEW_FLUID_PLOT, NEW_PROBE_POINT",
+        ("PprocSpec", "surface_probes"): "NEW_UNSTEADY_SOLVER_SURFACE_PROBE",
+        ("SurfaceProbeSpec", "name"): "NEW_UNSTEADY_SOLVER_SURFACE_PROBE",
+        ("SurfaceProbeSpec", "parameter"): "NEW_UNSTEADY_SOLVER_SURFACE_PROBE",
+        ("SurfaceProbeSpec", "frame"): "NEW_UNSTEADY_SOLVER_SURFACE_PROBE",
+        ("SurfaceProbeSpec", "point_m"): "NEW_UNSTEADY_SOLVER_SURFACE_PROBE",
         # G25 of 0.28.0: the window's steps are exported through the unsteady
         # solver actions and averaged by the package; SOLVER_TIME_AVERAGING is
         # never emitted.
@@ -695,8 +720,18 @@ _FIELD_COMMANDS: Mapping[tuple[str, str], str] = MappingProxyType(
         ("ActuatorBlock", "tip_radius_m"): "SET_ACTUATOR_RADIUS",
         ("ActuatorBlock", "hub_radius_m"): "SET_ACTUATOR_RADIUS",
         ("ActuatorBlock", "swirl"): "SET_PROP_ACTUATOR_SWIRL",
+        ("ActuatorBlock", "wake_type"): "SET_ACTUATOR_WAKE_TYPE",
+        ("ActuatorBlock", "thrust_units"): "SET_PROP_ACTUATOR_THRUST",
+        ("ActuatorOperation", "op"): (
+            "SET_ACTUATOR_NAME, DELETE_ACTUATOR, ENABLE_ACTUATOR, DISABLE_ACTUATOR"
+        ),
         ("ActuatorBlock", "profile_units"): "SET_PROP_ACTUATOR_PROFILE",
         ("MeshImport", "units"): "IMPORT",
+        ("MeshImport", "cad"): "IMPORT_CAD, CONVERT_CAD_TO_MESH",
+        ("CadImportOptions", "tessellation_density"): "IMPORT_CAD",
+        ("CadImportOptions", "unreferenced_patches"): "IMPORT_CAD",
+        ("CadImportOptions", "num_curvature"): "IMPORT_CAD",
+        ("CadImportOptions", "body_index"): "CONVERT_CAD_TO_MESH",
         ("MeshOperation", "op"): (
             "SURFACE_SCALE, SURFACE_RENAME, SURFACE_MIRROR, TRANSLATE_SURFACE_IN_FRAME, "
             + ", ".join(ROTATION_COMMANDS)
@@ -1119,6 +1154,18 @@ def _field_row(model: type, name: str, field: Any, path: str) -> GlossaryRow:
     else:
         commands = _split_commands(_FIELD_COMMANDS.get((model.__name__, name), ""))
         restriction = ""
+    if model is PortBoundary and name == "remesh":
+        commands = ("REMESH_OUTLET" if path.startswith("outlets.") else "REMESH_INLET",)
+    if model is PortBoundary and name == "profile":
+        if path.startswith("outlets."):
+            commands = ()
+            restriction = "refused: no documented outlet-profile command"
+        else:
+            restriction = "inlets only; native profile format and build acceptance remain explicit"
+    if model is SolverSettings and name == "base_region_operations":
+        restriction = "ordered actions; command availability is checked for each selected operation"
+    if model is BaseRegionOperation:
+        restriction = "selected action arguments only; see boundary-conditions guide"
     nested = _nested_model(field.annotation)
     return GlossaryRow(
         key=name,
@@ -1394,6 +1441,10 @@ def _geometry_tables() -> list[GlossaryTable]:
             commands=_split_commands(GEOMETRY_SIDECAR_KEYS[IMPORT_TABLE].command),
         ),
     ]
+    for name, command in (("inlets", "CREATE_NEW_INLET"), ("outlets", "CREATE_NEW_OUTLET")):
+        tables.extend(
+            _model_tables("geometry", PortBoundary, f"`[[{name}]]`", name, commands=(command,))
+        )
     for table, keys in RAW_MESH_CONDITION_KEYS.items():
         tables.append(
             GlossaryTable(
@@ -1498,14 +1549,14 @@ def input_glossary_markdown() -> str:
 def write_input_glossary(folder: str | Path, *, changed: list[Path] | None = None) -> Path:
     """Write the input glossary, ``INPUTS.md``, into ``folder``; return its path.
 
-    Rewritten only when its content would change, so the call is idempotent
-    and leaves a versioned workspace clean.
+    Only the marked generated block is refreshed. Existing unmarked content
+    and notes outside that block remain byte-for-byte intact. A legacy glossary
+    under ``pproc`` is left in place and linked as preserved compatibility content.
 
     Parameters
     ----------
     folder : str or pathlib.Path
-        Where to write it: ``inputs/pproc`` of a workspace, beside
-        ``VARIABLES.md``. Created if it is not there.
+        Where to write it: the workspace's ``inputs`` root. Created if absent.
     changed : list, optional
         Receives the page when this call actually wrote it.
 
@@ -1529,13 +1580,39 @@ def write_input_glossary(folder: str | Path, *, changed: list[Path] | None = Non
     target = Path(folder)
     target.mkdir(parents=True, exist_ok=True)
     page = target / INPUT_GLOSSARY_NAME
-    if _write_if_different(page, input_glossary_markdown()) and changed is not None:
-        changed.append(page)
+    begin = b"<!-- pyflightstream:input-glossary:begin -->"
+    end = b"<!-- pyflightstream:input-glossary:end -->"
+    generated = input_glossary_markdown()
+    generated += "\nSetup reference: [Setup standards](https://github.com/nevesgeovana/pyflightstream/blob/main/docs/setup-standards.md).\n"
+    if (target / "pproc" / INPUT_GLOSSARY_NAME).is_file():
+        generated += (
+            "\nCompatibility note: [pproc/INPUTS.md](pproc/INPUTS.md) is preserved "
+            "unchanged as legacy content. This file is the generated input glossary.\n"
+        )
+    block = begin + b"\n" + generated.encode("utf-8") + end + b"\n"
+    before = page.read_bytes() if page.is_file() else b""
+    if begin in before or end in before:
+        if before.count(begin) != 1 or before.count(end) != 1:
+            raise InputArtifactError(
+                f"{page}: ambiguous generated glossary markers; preserve and repair them"
+            )
+        first, last = before.index(begin), before.index(end)
+        if last < first:
+            raise InputArtifactError(
+                f"{page}: reversed generated glossary markers; preserve and repair them"
+            )
+        after = before[:first] + block.rstrip(b"\n") + before[last + len(end) :]
+    else:
+        after = before + (b"\n\n" if before else b"") + block
+    if before != after:
+        page.write_bytes(after)
+        if changed is not None:
+            changed.append(page)
     return page
 
 
 def write_workspace_input_glossary(inputs_dir: str | Path) -> list[Path]:
-    """Write ``INPUTS.md`` into ``<inputs_dir>/pproc``; return it if it CHANGED.
+    """Write ``INPUTS.md`` into ``inputs_dir``; return it if it CHANGED.
 
     The input-guide writer this package registers with
     :func:`pyflightstream.workspace.register_input_guide` beside the pproc
@@ -1543,7 +1620,7 @@ def write_workspace_input_glossary(inputs_dir: str | Path) -> list[Path]:
     ``pyfs-matrix post`` reach it.
     """
     changed: list[Path] = []
-    write_input_glossary(Path(inputs_dir) / "pproc", changed=changed)
+    write_input_glossary(Path(inputs_dir), changed=changed)
     return changed
 
 
@@ -1551,7 +1628,7 @@ def write_workspace_input_glossary(inputs_dir: str | Path) -> list[Path]:
 
 #: The input template's file name. It is written at the ROOT of a workspace's
 #: ``inputs/`` folder, where the files whose format it shows live, and it links
-#: the input glossary, which stays beside the pproc artifacts.
+#: the input glossary, which shares this inputs root.
 INPUT_TEMPLATE_NAME = "input_template.md"
 
 #: The label of the installed distribution's ``Project-URL`` entry that names
@@ -1559,8 +1636,8 @@ INPUT_TEMPLATE_NAME = "input_template.md"
 #: ``[project.urls]``.
 DOCS_URL_LABEL = "Documentation"
 
-#: The glossary as the template links it, one folder below the template.
-_GLOSSARY_LINK = f"[`pproc/{INPUT_GLOSSARY_NAME}`](pproc/{INPUT_GLOSSARY_NAME})"
+#: The glossary shares the template's inputs root.
+_GLOSSARY_LINK = f"[`{INPUT_GLOSSARY_NAME}`]({INPUT_GLOSSARY_NAME})"
 
 
 @cache
@@ -1909,6 +1986,8 @@ frame = "MRP"
 parameters = ["VX", "VY", "VZ", "CP_FREE"]
 points = 11                       # points per line, both ends included
 scale = "m"                       # m, or rotor_radius
+field_formats = []               # opt in with ["vtk", "tecplot"]
+reusable_inflow = false           # requires a global YZ plane and proved SI vectors
 
 [[probes.lines]]
 start = [2.0, -1.0, 0.0]
@@ -1961,8 +2040,32 @@ polars = true
 sections = true
 plots = true
 custom_polar_format = false
+# Raw native integral quantities at declared cuts, with source-cell provenance.
+boundary_layer_integrals = false
+# Distinct velocity profile; unavailable builds are refused explicitly.
+boundary_layer_velocity_profile = false
 superfile_format = "csv"
 """
+
+_SURFACE_PROBE_EXAMPLE = """\
+# Select this artifact only for an unsteady row. Coordinates are local metres.
+# This native surface history is separate from off-body fluid probes.
+[[surface_probes]]
+name = "upper_cp"
+parameter = "CP_FREE"
+frame = "REFERENCE"
+point_m = [0.25, 0.1, 0.02]
+
+[[surface_probes]]
+name = "upper_speed"
+parameter = "VELOCITY"
+frame = "REFERENCE"
+point_m = [0.25, 0.1, 0.02]
+
+[products]
+plots = true
+"""
+
 
 _REFERENCE_EXAMPLE = """\
 # A reference artifact: what a row's REF column names by id; the id begins
@@ -2046,6 +2149,8 @@ rpm_sign = 1
 blades = 3                        # required by a row stating PROFILE
 swirl = 0.5                       # the fraction of the swirl kept, 0 to 1
 profile_units = "NEWTONS"         # @PROFILE_UNITS@
+thrust_units = "NEWTONS"          # ACTUATOR_THRUST: NEWTONS, POUNDS or COEFFICIENT
+wake_type = "RIGID"               # explicit wake model; RELAXED is the other choice
 
 # A named point: a top-level table with any other kind (rotor or airframe).
 # It is read and kept; a row that names a point finds it in
@@ -2133,6 +2238,22 @@ detect = "auto"                   # or { surfaces = ["Wing"] }
 
 [base_regions]                    # only when written
 detect = "auto"
+"""
+
+_DUCT_SIDECAR_EXAMPLE = """\
+# Synthetic duct with outward-facing inlet and outlet faces.
+file = "duct.obj"
+boundaries = ["Inlet", "Outlet", "Wall"]
+[import]
+units = "METER"
+[trailing_edges]
+none = true
+[[inlets]]
+boundary = "Inlet"
+velocity = -10.0 # signed-input control; confirm native direction on the target build
+[[outlets]]
+boundary = "Outlet"
+velocity = 10.0 # compare with the inlet/outlet convention of the target build
 """
 
 _TRAILING_EDGE_POINTS_EXAMPLE = """\
@@ -2286,6 +2407,41 @@ _IN_THE_COMMENT = "the other form, shown in the comment above its table"
 
 #: The setup's solver settings the example leaves at their defaults.
 _SETTINGS_LEFT_OUT: tuple[str, ...] = (
+    "simulation_length_unit",
+    "vertex_merge_tolerance_m",
+    "geometric_edge_bluntness_angle_deg",
+    "actuator_operations",
+    "base_region_operations",
+    "base_region_bending_angle_deg",
+    "delete_inlets",
+    "delete_outlets",
+    "proximal_boundaries",
+    "remove_initialization",
+    "delete_transition_trips",
+    "clear_vorticity_drag_boundaries",
+    "viscous_excluded",
+    "surface_roughness",
+    "legacy_solver_model",
+    "trailing_edge_types",
+    "thin_boundaries",
+    "bulk_separation",
+    "airfoil_separation",
+    "axial_vortex_separation",
+    "cylindrical_bulk_separation",
+    "stratford_bulk_separation",
+    "delete_separations",
+    "valarezo_criterion",
+    "valarezo_separation_boundaries",
+    "crossflow_separation_boundaries",
+    "crossflow_separation_diameter",
+    "crossflow_separation_mean_diameter",
+    "crossflow_separation_axisymmetric",
+    "disabled_wake_trailing_edges",
+    "leading_edge_wake_boundaries",
+    "mark_wake_termination_nodes",
+    "sonic_velocity_m_per_s",
+    "physics_auto_trailing_edges",
+    "physics_auto_wake_nodes",
     "forced_iterations",
     "max_threads",
     "timeout_s",
@@ -2317,6 +2473,9 @@ _SETTINGS_LEFT_OUT: tuple[str, ...] = (
     "symmetry_loads",
     "significant_digits",
     "reference_velocity_m_per_s",
+    "freestream_input",
+    "reference_mach",
+    "disable_reference_velocity",
     "vorticity_drag_families",
     "axial_separation_families",
     "load_solver_initialization",
@@ -2341,6 +2500,48 @@ def _template_sections() -> tuple[TemplateSection, ...]:
     the two pages meets one name for each.
     """
     return (
+        TemplateSection(
+            heading="The existing beam configuration, `inputs/fsi/f001.toml`",
+            intro=(
+                "A row selects this structural input with `FSI: f001` in VAR_NAMES_VALUES. "
+                "Calculated mode integrates homogeneous solid contours using the established "
+                "material dataset; supplied mode accepts the complete config.blade distributions. "
+                "Dimensionless calibration defaults to unity; an explicit matrix factor replaces "
+                "the file factor once."
+            ),
+            examples=(TemplateExample("inputs/fsi/f001.toml", "toml", FSI_TEMPLATE),),
+            after=(
+                "The run stages and hashes effective config.json, fsi-provenance.json and the "
+                "original input per point. The existing coupling executable, node map and "
+                "section-load setup remain explicit. No new section or coupled-physics "
+                "validation is implied. See docs/fsi-workspace.md."
+            ),
+            pages=(_page("fsi-workspace", "FSI workspace inputs"),),
+        ),
+        TemplateSection(
+            heading="Optional matrix folder, `inputs/matrices/<name>.fs`",
+            intro=(
+                "The Excel workbook supports matrices at the workspace root or in this folder. "
+                "Every MATRIX filename is unique across those locations; new Excel-authored "
+                "files use this folder."
+            ),
+            examples=(
+                TemplateExample(
+                    "inputs/matrices/excel_campaign.fs",
+                    "text",
+                    _matrix_example()
+                    .replace("1001", "8001")
+                    .replace("1002", "8002")
+                    .replace("1003", "8003"),
+                ),
+            ),
+            after=(
+                "The optional embedded-VBA workbook uses Runs and an editable Dictionary. "
+                "Read and Write each require Preview followed by Apply or Cancel; neither "
+                "runs a solver. See docs/excel-matrices.md."
+            ),
+            pages=(_page("excel-matrices", "Optional Excel matrix workbook"),),
+        ),
         TemplateSection(
             heading=ARTIFACT_HEADINGS["matrix"],
             intro=(
@@ -2391,6 +2592,85 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                             ),
                         }
                     ),
+                    "`[bulk_separation]`": MappingProxyType(
+                        {
+                            "scenario-specific assignment; select surfaces explicitly": (
+                                "name",
+                                "separation_type",
+                                "diameter",
+                                "boundaries",
+                            )
+                        }
+                    ),
+                    "`[[airfoil_separation]]`": MappingProxyType(
+                        {
+                            "scenario-specific assignment; select surfaces explicitly": (
+                                "name",
+                                "valarezo_criterion",
+                                "boundaries",
+                            )
+                        }
+                    ),
+                    "`[[axial_vortex_separation]]`": MappingProxyType(
+                        {
+                            "scenario-specific assignment; select surfaces explicitly": (
+                                "name",
+                                "diameter",
+                                "frame",
+                                "body_axis",
+                                "sharp_nose_vortices",
+                                "boundaries",
+                            )
+                        }
+                    ),
+                    "`[[cylindrical_bulk_separation]]`": MappingProxyType(
+                        {
+                            "scenario-specific assignment; select surfaces explicitly": (
+                                "name",
+                                "diameter",
+                                "boundaries",
+                            )
+                        }
+                    ),
+                    "`[[stratford_bulk_separation]]`": MappingProxyType(
+                        {
+                            "scenario-specific assignment; select surfaces explicitly": (
+                                "name",
+                                "boundaries",
+                            )
+                        }
+                    ),
+                    "`[[actuator_operations]]`": MappingProxyType(
+                        {
+                            "explicit actions require actual saved or created actuator names": (
+                                "op",
+                                "actuator",
+                                "name",
+                            )
+                        }
+                    ),
+                    "`[[base_region_operations]]`": MappingProxyType(
+                        {
+                            "explicit ordered actions depend on existing base-region state": (
+                                "operation",
+                                "boundary",
+                                "index",
+                                "model",
+                                "cp",
+                                "mesh",
+                            )
+                        }
+                    ),
+                    "`[base_region_operations.mesh]`": MappingProxyType(
+                        {
+                            "radial mesh parameters apply to a remesh action only": (
+                                "inner_radius_m",
+                                "radial_faces",
+                                "growth_scheme",
+                                "growth_rate",
+                            )
+                        }
+                    ),
                     "The solver's own names, read as aliases": MappingProxyType(
                         {"the solver's own spellings of the settings; either is read": ()}
                     ),
@@ -2419,7 +2699,10 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                 "`PPROC` names it. One file per artifact in `inputs/pproc/`, beside "
                 "the three generated guides."
             ),
-            examples=(TemplateExample("inputs/pproc/p001.toml", "toml", _PPROC_EXAMPLE),),
+            examples=(
+                TemplateExample("inputs/pproc/p001.toml", "toml", _PPROC_EXAMPLE),
+                TemplateExample("inputs/pproc/p002.toml", "toml", _SURFACE_PROBE_EXAMPLE),
+            ),
             after=(
                 "Some tables belong to one kind of run. The unsteady force plots, the "
                 "phase-locked table and the equations serve the unsteady run types, "
@@ -2427,6 +2710,8 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                 "omission: an unsteady row naming a pproc with a `[volume_section]`, or "
                 "with `plot_sections_cp = true`, is refused at plan, so this example "
                 "plans on a steady row; the residual and load plots are saved on both. "
+                "The separate p002 example records native surface properties during an "
+                "unsteady march, using SURFACE_<name> plot columns. A steady row refuses it. "
                 "Every table is read and checked when the file is, so a mistake in one "
                 "is refused on any row."
             ),
@@ -2530,9 +2815,68 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                     _filled(_RAW_MESH_SIDECAR_EXAMPLE),
                     note="Beside a raw mesh, `wing_raw.obj`:",
                 ),
+                TemplateExample(
+                    "inputs/geometries/wing_cad/wing_cad.boundaries.toml",
+                    "toml",
+                    (
+                        'file = "wing_cad.igs"\n'
+                        'boundaries = ["Wing"]\n'
+                        "\n"
+                        "[import]\n"
+                        'units = "FILE"\n'
+                        "\n"
+                        "[import.cad]\n"
+                        'tessellation_density = "MEDIUM"\n'
+                        "unreferenced_patches = true\n"
+                        "num_curvature = 80\n"
+                        "body_index = -1\n"
+                        "\n"
+                        "[trailing_edges]\n"
+                        'detect = "auto"\n'
+                    ),
+                    note="CAD conversion: inspect source dimensions and converted boundaries:",
+                ),
+                TemplateExample(
+                    "inputs/geometries/duct/duct.boundaries.toml",
+                    "toml",
+                    _DUCT_SIDECAR_EXAMPLE,
+                    note="Uniform normal-velocity ports on a synthetic closed duct:",
+                ),
             ),
             left_out=MappingProxyType(
                 {
+                    "`[[inlets]]`": MappingProxyType(
+                        {
+                            "optional native profile file, kept byte-for-byte": ("profile",),
+                            "optional radial mesh; build acceptance needs proof": ("remesh",),
+                        }
+                    ),
+                    "`[[outlets]]`": MappingProxyType(
+                        {
+                            "profile refused: no documented outlet setter": ("profile",),
+                            "optional radial mesh; build acceptance needs proof": ("remesh",),
+                        }
+                    ),
+                    "`[inlets.remesh]`": MappingProxyType(
+                        {
+                            "radial mesh parameters apply only when explicitly requested": (
+                                "inner_radius_m",
+                                "radial_faces",
+                                "growth_scheme",
+                                "growth_rate",
+                            )
+                        }
+                    ),
+                    "`[outlets.remesh]`": MappingProxyType(
+                        {
+                            "radial mesh parameters apply only when explicitly requested": (
+                                "inner_radius_m",
+                                "radial_faces",
+                                "growth_scheme",
+                                "growth_rate",
+                            )
+                        }
+                    ),
                     "`[[import.operations]]`": MappingProxyType(
                         {
                             "the keys of the other operations, shown in the comment": (
@@ -2544,7 +2888,6 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                             ),
                         }
                     ),
-                    "`[trailing_edges]`": MappingProxyType({_IN_THE_COMMENT: ("detect",)}),
                     "`detect = { ... }` of `[trailing_edges]`": MappingProxyType(
                         {_IN_THE_COMMENT: ("surfaces", "sweep_angle")}
                     ),
@@ -2659,7 +3002,9 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                 )
                 + ". The STRUCTURED form is shown: a first line `Npts Mpts`, two "
                 "positive integers, then Npts x Mpts rows `x y z vx vy vz`, the first "
-                "index outer and the second inner, in metres and metres per second. "
+                "index outer and the second inner. This example is in metres and metres "
+                "per second: state `FREESTREAM_UNITS: SI` to prepare a native-unit copy. "
+                "`NATIVE` preserves already-native bytes; omission preserves legacy bytes. "
                 "Every row states the same x, and the rows state at least two "
                 "distinct y and two distinct z. The UNSTRUCTURED form is the rows "
                 "alone, one per vertex, with no first line. No comment in either."
@@ -2675,8 +3020,11 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                 "row states, so read the body forces Cx, Cy and Cz, or turn CL and CDi by "
                 "the field's incidence. Make the grid reach past the body: beyond it the "
                 "solver does not extend the field, and the plan warns when the body "
-                "reaches outside it. Both forms were run on FlightStream 26.124 "
-                f"(RPT-071, RPT-077). The row key is in {_GLOSSARY_LINK}, under the row "
+                "reaches outside a conservative transformed-body and rotary-sweep envelope. "
+                "Grid-bounds containment alone does not certify interior interpolation. "
+                "Source/effective hashes bind an explicitly converted copy. "
+                "Both forms were run on FlightStream 26.124 "
+                f"(RPT-071, RPT-077, RPT-082). The row key is in {_GLOSSARY_LINK}, under the row "
                 "keys."
             ),
             pages=(_page("gui-to-pyfs", "From the GUI to pyfs"),),

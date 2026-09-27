@@ -1,3 +1,16 @@
+<!--
+GEOVERSE_HEADER
+file_version: "1.0.0"
+last_modified_at: 2026-09-27T15:42:00+00:00
+last_modified_by: "OpenAI / Codex / GPT-6 / implementation-agent"
+dependencies: ["pyflightstream.post.diagnostics", "pyflightstream.post.products"]
+authority: "pyflightstream"
+status: "active"
+confidentiality: "public"
+change_summary: "Define quiet terminal warnings and complete read-only diagnostics."
+revision_source: "git"
+-->
+
 # Post-processing definitions
 
 **This page is the definition of record for every post-processing product this
@@ -18,6 +31,7 @@ them was inferred from an implementation.
 
 ## Contents
 
+- [Warnings and recorded diagnostics](#warnings-and-recorded-diagnostics)
 - [The vocabulary](#the-vocabulary)
 - [What every product states](#what-every-product-states)
 - [The axes of a steady polar](#the-axes-of-a-steady-polar)
@@ -38,6 +52,25 @@ them was inferred from an implementation.
 - [The token for a value that does not exist](#the-token-for-a-value-that-does-not-exist)
 
 ---
+
+## Warnings and recorded diagnostics
+
+Postprocessing warnings are quiet in command-line runs by default. This applies
+to every warning category; errors, progress and the final command status remain
+visible. Pass `--pproc-warnings` to `pyfs-matrix run`, `post` or `collect` to
+show concise category counts and the detailed log location on stderr.
+
+Every postprocessing stage records all its warnings and skipped products in
+`post.log` and `post.log.json`, including category, severity, point, product,
+message and any stated remedy. Python callers retain ordinary warning-filter
+behavior. Terminal presentation does not change product values or CSV bytes.
+
+`pyfs-matrix post <matrix> --workspace <root> --diagnostics` prints a complete
+Markdown report of the saved logs. It reports their timestamps and package
+versions and states explicitly when no saved log exists. It does not rerun
+postprocessing or write products, guides, manifests or archives. A malformed log
+is an error, not a clean diagnostic result. Capture stdout to save the report;
+the CLI outcome signature stays on stderr.
 
 ## The vocabulary
 
@@ -304,8 +337,13 @@ named after it. In a frame spelt like a rotor's, where the names settle
 nothing because this match holds no rotor definition, where the names leave
 no single owner, where two boundaries carry one name, or where no file carries
 the recorded hash, the recorded cuts decide as before and the rows are kept. An
-ambiguous match is a named skip. Without a recorded layout,
-**no split file is written**: `products.json` names the layout requirement.
+ambiguous match is a named skip. Since 0.29.0, a missing recorded layout can
+be recovered in memory from the exact hash-verified saved script, the recorded
+geometry's boundary order, and a uniquely matching recorded pproc. Only explicit
+append-only distribution commands with known frame identities qualify. The
+manifest and original exports remain unchanged. A changed or missing script,
+ambiguous selection, section deletion, unknown frame, or continuation without its
+predecessor layout retains the named refusal in `products.json`.
 A layout whose counts disagree with an export is likewise refused for that
 export kind, rather than assigning rows to guessed distributions.
 
@@ -1054,7 +1092,22 @@ declares one is refused, because its step exports run before a section cut
 after the march exists. The commands are verified on 26.120 to 26.124 one at a
 time; the delete-then-create sequence of a sweep is not measured.
 
+## Durable execution activity
+
+Run, solver/submission, translation, post, collection and continuation stages append
+timestamped records to logs/activity.log and logs/activity.log.jsonl beside the
+workspace. The text log retains progress; JSONL records include final outcome
+counts and exception details. Native scheduler stdout remains native when
+EXPORT_LOG is disabled. Recorded diagnostics do not enter these stages or mutate
+the logs. A standalone local executor keeps its activity log under its working
+directory. Progress goes to stderr; JSON and CSV stdout remain data only.
+
 ## The additional post
+
+A scheduler submission is recorded as SUBMITTED, with no completed outputs.
+Collection requires stable exports and unchanged source/script hashes before
+recording EXTRACTED. Native scheduler logs remain native when EXPORT_LOG is
+disabled; scheduler acceptance text is never presented as a solver log.
 
 A row that names a second pproc, `ADDITIONAL_PPROC: p<id>`, has that pproc
 extracted from each recorded point's final saved simulation by
@@ -1471,3 +1524,11 @@ Every product writes **`NA`**. Not a zero, and not a blank.
 The token lives in one place, `pyflightstream._tokens.NOT_APPLICABLE`, below
 every layer. **Readers still accept `-`**, which is what files written before
 0.23.0 carry.
+
+## Sampled velocity fields and reusable inflow
+
+The public `post.write_probe_field` writes finite REFERENCE-frame samples in meters and m/s. VTK uses one vertex per sample; Tecplot uses one single-point ordered zone per sample, so neither format invents edges or surface cells. Each sidecar records the solver setup, source hash, coordinate and velocity units, sample count and variable meanings. The optional six-column `x y z vx vy vz` inflow file is an UNSTRUCTURED global YZ-plane profile; it must have distinct, non-collinear sample positions at one x. The writer refuses unsupported frames and incomplete or non-finite arrays before writing. It never interpolates samples or installs the profile automatically.
+
+Example: `write_probe_field(stem, points_m, velocity_m_s, source=csv_path, provenance=record, formats=("vtk", "tecplot"), reusable_inflow=True)`. Tecplot zone dimensions and nodal POINT packing follow the [official data format guide](https://tecplot.azureedge.net/products/360/2024r1m1/360-data-format.html).
+
+A workspace opts in per `[[probes]]` entry with `frame = "REFERENCE"`, `field_formats = ["vtk", "tecplot"]` and optionally `reusable_inflow = true`. These requests automatically sample VX, VY and VZ. The emitted sample IDs and native-to-meter factor are recorded with the run. Post writes `fields/<point>_field_<entry>[_step_<step>]` from complete probe tables; every actual transient step remains separate. Missing components or recorded sample IDs produce a named post warning and no interpolated replacement.

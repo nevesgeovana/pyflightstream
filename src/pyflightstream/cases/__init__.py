@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.3.8
+# artifact_id: src/pyflightstream/cases/__init__.py
+# last_modified_at: 2026-09-27T21:58:19.804Z
+# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# dependencies: [pyflightstream]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Document the implemented 0.29 architecture and evidence boundaries.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Simulation and campaign definitions.
 
 Pipeline role: describes what to run. A :class:`SimCase` (identified
@@ -16,6 +28,20 @@ campaign loop specializes the case per sweep point (filling
 emissions, usually through the curated helpers. Recipe references are
 ``"package.module:function"`` strings, replacing the historical
 import-by-number system (PP-7, FR-12).
+
+The 0.29 workflow keeps unit conversion at the command boundary. Physical
+metre-labelled inputs and explicitly SI reference normalizations use the
+shared :mod:`pyflightstream._lengths` floor; the direct Python reference
+API retains its native-unit default. Saved FSM units are decoded only for
+measured METER/MILLIMETER heads. CAD conversion extends the existing mesh
+import route, and unproved formats remain named refusals.
+
+Custom inflow preserves the user's physical orientation. An explicit SI
+declaration prepares a separate solver-unit file with source and effective
+hashes; an undeclared file keeps its bytes. The final emitted transforms
+and rotor sweep feed conservative spatial bounds, not a guarantee of
+interpolation support inside an unstructured field. These controls do not
+automatically rotate a field or accept a nonzero incidence beside it.
 """
 
 from __future__ import annotations
@@ -30,7 +56,7 @@ from datetime import UTC, datetime
 from importlib import import_module
 from inspect import Parameter, signature
 from pathlib import Path
-from typing import Annotated, Literal, NamedTuple, Protocol, runtime_checkable
+from typing import Annotated, Any, Literal, NamedTuple, Protocol, runtime_checkable
 
 from pydantic import (
     AfterValidator,
@@ -62,7 +88,15 @@ from pyflightstream._fsm import names_of
 from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS, retired_frame
 from pyflightstream._tokens import REDUCTION_COLUMNS
 from pyflightstream.commands import CommandRegistry, Phase
+from pyflightstream.fsi.config import FsiConfig
 from pyflightstream.script import Script
+from pyflightstream.script.solver_setup import (
+    AirfoilSeparation,
+    AxialVortexSeparation,
+    BulkSeparation,
+    CylindricalBulkSeparation,
+    StratfordBulkSeparation,
+)
 from pyflightstream.script.toggles import resolve_toggle
 from pyflightstream.versions import resolve
 
@@ -80,6 +114,7 @@ __all__ = [
     "DerivedFrom",
     "FluidState",
     "EVERY_SURFACE",
+    "CadImportOptions",
     "MeshImport",
     "MeshOperation",
     "RawMeshConditions",
@@ -87,6 +122,7 @@ __all__ = [
     "TrailingEdgeMarking",
     "ScriptRecipe",
     "SimCase",
+    "BaseRegionOperation",
     "SolverSettings",
     "SolverToggle",
     "EXPORT_KINDS",
@@ -118,6 +154,7 @@ __all__ = [
     "VolumeSectionSpec",
     "PlotsSpec",
     "ProbesSpec",
+    "SurfaceProbeSpec",
     "ProductsSpec",
     "ForcePlotGroup",
     "SectionDistribution",
@@ -505,13 +542,9 @@ EXPORT_KIND_SINCE: dict[str, tuple[int, int]] = {
 }
 
 
-#: The kinds only a STEADY point leaves. An unsteady point samples its probes
-#: through fluid plots, so it exports no probe points. Of the solver's plots,
-#: the residual and the load histories are saved after an unsteady march too,
-#: once, at the end of the run (G26 of 0.28.0, RPT-076); the section Cp plot was
-#: never run after one, so it stays steady-only, and a pproc stating it true on
-#: an unsteady row is refused by the builder.
-STEADY_ONLY_EXPORT_KINDS: frozenset[str] = frozenset({"probes", "plot_sections_cp"})
+#: An unsteady point samples probes through fluid plots. Section Cp plots
+#: are saved once after the march (GOAL-033 T40, 26.124 build 8172026).
+STEADY_ONLY_EXPORT_KINDS: frozenset[str] = frozenset({"probes"})
 
 #: The kinds a pproc must switch ON: every other kind is on unless its
 #: ``[exports]`` entry says false. The surface fields and the per-panel force
@@ -529,7 +562,8 @@ EXPORT_KIND_MEANINGS: dict[str, str] = {
     "loads": "The loads table, the export every run is judged by.",
     "tecplot": (
         "The surface solution in Tecplot format, written by the package from the VTK "
-        "export: one value per panel, in the reference frame."
+        "export, preserving panel values and native nodal singularity strength "
+        "in the reference frame."
     ),
     "vtk": (
         "The surface solution in VTK format, as the solver writes it; the Tecplot is "
@@ -628,6 +662,10 @@ def classify_outputs(names: Sequence[str], *, package_version: str | None = None
     claimed: dict[str, str] = {}
     for name in names:
         lowered = str(name).lower()
+        # G53: retain this nodal source without presenting it as a public product.
+        # Older records keep their historical suffix interpretation.
+        if (release is None or release >= (0, 29)) and lowered.endswith("_native_tecplot.dat"):
+            continue
         for kind, suffix, _, _ in by_length:
             if lowered.endswith(suffix) and kind not in claimed:
                 claimed[kind] = str(name)
@@ -878,46 +916,33 @@ _VOLUME_SECTION_SHAPE_KEYS: dict[str, tuple[str, ...]] = {
 
 
 class VolumeSectionSpec(BaseModel):
-    """The ``[volume_section]`` table: one flow-field plane a steady point exports (G05).
+    """A sampled flow plane, generated from explicit reference-frame probes.
 
-    The GUI's volume section, declared once in the pproc and cut by every
-    point of a steady row after its solve: ``CREATE_NEW_RECTANGLE_VOLUME_SECTION``
-    or ``CREATE_NEW_CIRCLE_VOLUME_SECTION`` in the named frame's plane, then
-    ``EXPORT_VOLUME_SECTION_VTK`` or ``EXPORT_VOLUME_SECTION_TECPLOT`` to
-    ``{name}_vsec.vtk`` or ``{name}_vsec.dat``.
-
-    ONE SECTION PER PPROC. The point's outputs hold one name per export kind,
-    so a second plane would need a kind that carries several names; that is a
-    later release's.
+    New runs export samples and post converts them to VTK or Tecplot. Existing
+    native section files retain their recorded meaning. Coordinates are meters
+    in the declared frame; a frame with unknown placement is refused.
 
     Attributes
     ----------
     shape : {'rectangle', 'circle'}
-        Which create command cuts the plane.
+        Rectangular or annular sampling domain.
     frame : str
-        The frame the plane lies in: ``MRP``, or a frame the reference's
-        ``[[frames]]`` table declares or a rotor carries. A frame the run did
-        not create is refused when the script is built.
+        Frame containing the plane; MRP by default, or explicit REFERENCE.
     plane : {'XY', 'XZ', 'YZ'}
-        The frame's plane the section lies in.
+        In-plane coordinate axes, in the written order.
     offset_m : float
-        The plane's distance from the frame origin along its normal, in
-        metres, the simulation's length unit.
+        Distance along the remaining positive frame axis, in meters.
     corners_m : tuple of four floats
-        Rectangle only: ``x1, y1, x2, y2`` in metres, the two diagonal corners
-        the command takes, in the plane. Which in-plane axis each pair runs
-        along is the manual's (SRC-003 p.366); the verified probes cut the
-        square from -1 to 1 and nothing else.
+        Rectangle lower and upper diagonal coordinates u0, v0, u1, v1.
     refinement_layers : int
-        Rectangle only: the command's refinement layer count, 1 unless stated.
-        Only 1 has been sent to a solver.
+        Rectangle subdivisions: each extra layer bisects every grid interval.
     radii_m : tuple of two floats
-        Circle only: the inner and outer radius in metres, ``0 <= r1 < r2``.
+        Circle inner and outer radii in meters.
     points : tuple of two ints
-        Circle only: ``ipts`` radial and ``jpts`` azimuthal segments.
+        Rectangle u/v counts (default 25 by 25); circle radial/azimuth counts.
+        Rectangle endpoints are included; a circular center is sampled once.
     format : {'vtk', 'tecplot'}
-        The export: ``EXPORT_VOLUME_SECTION_VTK`` or
-        ``EXPORT_VOLUME_SECTION_TECPLOT``.
+        Post field format, with explicit point topology and SI provenance.
     """
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
@@ -941,12 +966,16 @@ class VolumeSectionSpec(BaseModel):
         ``refinement_layers`` has a default, so it is judged by whether the
         table STATED it: a circle table writing it names a rectangle's key.
         """
+        if self.points is not None and (
+            min(self.points) < 2 or (self.shape == "circle" and self.points[1] < 3)
+        ):
+            raise ValueError("volume grid needs at least 2 samples per axis and 3 around a circle")
         own = _VOLUME_SECTION_SHAPE_KEYS[self.shape]
         other = next(shape for shape in _VOLUME_SECTION_SHAPE_KEYS if shape != self.shape)
         stray = [
             key
             for key in _VOLUME_SECTION_SHAPE_KEYS[other]
-            if key in self.model_fields_set and getattr(self, key) is not None
+            if key != "points" and key in self.model_fields_set and getattr(self, key) is not None
         ]
         if stray:
             raise ValueError(
@@ -1396,6 +1425,10 @@ class ProbesSpec(BaseModel):
     #: reference (the interface lens of the 0.15.0 release review).
     frame: str = ""
     parameters: list[str] = Field(default_factory=list)
+    #: Optional sampled velocity products; each retains source units and topology.
+    field_formats: list[Literal["vtk", "tecplot"]] = Field(default_factory=list)
+    #: Write a six-column global YZ-plane profile suitable for custom inflow.
+    reusable_inflow: bool = False
     points: int = Field(default=25, ge=2)
     scale: Annotated[Literal["m", "rotor_radius"], BeforeValidator(_the_radius_is_a_rotors)] = "m"
     lines: list[ProbeLine] = Field(default_factory=list)
@@ -1428,6 +1461,10 @@ class ProbesSpec(BaseModel):
         two in agreement. Which one would win is the kind of question a reader
         should never have to ask of a file they wrote.
         """
+        if len(set(self.field_formats)) != len(self.field_formats):
+            raise ValueError("field_formats must not repeat a format")
+        if self.field_formats or self.reusable_inflow:
+            self.parameters = list(dict.fromkeys([*self.parameters, "VX", "VY", "VZ"]))
         drawn = len(self.lines) + len(self.rectangles) + len(self.circles)
         if self.points_file and drawn:
             raise ValueError(
@@ -1522,6 +1559,25 @@ class ProductsSpec(BaseModel):
     sections: bool = True
     plots: bool = True
     custom_polar_format: bool = False
+    #: Raw VTK boundary-layer integral quantities and markers at recorded section cuts.
+    #: Retains original cell association; this does not request a velocity profile.
+    boundary_layer_integrals: bool = False
+    #: A separate wall-normal velocity profile request. Unavailable until a build
+    #: proves unattended EXPORT_BL_VELOCITY_PROFILE execution (RPT-027/RPT-075).
+    boundary_layer_velocity_profile: bool = False
+
+    @field_validator("boundary_layer_velocity_profile")
+    @classmethod
+    def _profile_requires_an_unattended_native_route(cls, value: bool) -> bool:
+        if value:
+            raise ValueError(
+                "boundary_layer_velocity_profile is unavailable: EXPORT_BL_VELOCITY_PROFILE "
+                "is interactive on 26.122 (RPT-027) and stalls on 26.124 (RPT-075); "
+                "no supported build has a proved unattended route. Integrals are a "
+                "separate request and never substitute for the velocity profile."
+            )
+        return value
+
     #: Item 7. Which FORMAT the super file is written in: `csv` as before, or
     #: `legacy_polar`, the fixed-width form the existing tooling opens. The
     #: writer took this argument from the first commit of 0.23.0 and the ONE
@@ -1735,7 +1791,7 @@ class FrameSpec(BaseModel):
     axis as ``<frame>-<X|Y|Z>``, and the frame is one the setup defined
     here or one the package creates (``MRP``; ``ROTOR_MRP`` on the rotor
     run types). The origin is in the geometry's own frame, the solver's
-    reference frame, in the simulation's length unit, and the two axes
+    reference frame, in metres, and the two axes
     are direction vectors in that frame; the third axis is the right-handed cross product,
     as :func:`pyflightstream.script.helpers.coordinate_frame` computes it.
 
@@ -2081,6 +2137,28 @@ class RotorBlock(BaseModel):
         return self
 
 
+class ActuatorOperation(BaseModel):
+    """An explicit action on one saved or newly created actuator, by its current name."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: Lifecycle action; disable remains subject to the selected build's command availability.
+    op: Literal["rename", "delete", "enable", "disable"]
+    #: Exact native actuator name at this step; no positional index is guessed.
+    actuator: str = Field(min_length=1)
+    #: New single-token native name, required only for rename.
+    name: str | None = None
+
+    @model_validator(mode="after")
+    def _rename_has_its_own_name(self) -> ActuatorOperation:
+        if (self.op == "rename") != (self.name is not None):
+            raise ValueError("actuator rename requires name; other actions do not accept name")
+        for value in (self.actuator, self.name):
+            if value is not None and (not value.strip() or any(c.isspace() for c in value)):
+                raise ValueError("actuator and rename name must be nonempty single-token names")
+        return self
+
+
 class ActuatorBlock(BaseModel):
     """One actuator disc, declared as one block of the reference artifact (G06).
 
@@ -2136,6 +2214,10 @@ class ActuatorBlock(BaseModel):
     blades: int | None = Field(default=None, ge=1)
     swirl: float | None = Field(default=None, ge=0.0, le=1.0)
     profile_units: Literal["NEWTONS", "KILO-NEWTONS", "POUND-FORCE", "KILOGRAM-FORCE"] = "NEWTONS"
+    #: Native net-thrust convention for ACTUATOR_THRUST; independent of profile file units.
+    thrust_units: Literal["NEWTONS", "POUNDS", "COEFFICIENT"] = "NEWTONS"
+    #: Prescribed RIGID or flow-relaxed wake; omitted preserves the saved/native default.
+    wake_type: Literal["RIGID", "RELAXED"] | None = None
 
     @field_validator("frame")
     @classmethod
@@ -2364,6 +2446,50 @@ class SurfaceTimeAveragingSpec(BaseModel):
         return self
 
 
+class SurfaceProbeSpec(BaseModel):
+    """One surface property recorded at a named-frame point during an unsteady march."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: Stable user identity; the native plot is named SURFACE_<name>.
+    name: str
+    #: Exact native surface property, including Cp and boundary-layer integrals.
+    parameter: str
+    #: Named coordinate system containing the point, resolved before initialization.
+    frame: str = "REFERENCE"
+    #: Local physical coordinates in metres, converted to the command's length unit.
+    point_m: tuple[float, float, float]
+
+    @field_validator("name")
+    @classmethod
+    def _identifier(cls, value: str) -> str:
+        if re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", value) is None:
+            raise ValueError(
+                "surface probe name must start with a letter and use letters, digits or _"
+            )
+        return value
+
+    @field_validator("parameter")
+    @classmethod
+    def _parameter(cls, value: str) -> str:
+        entry = CommandRegistry.load().commands["NEW_UNSTEADY_SOLVER_SURFACE_PROBE"]
+        allowed = next(arg.values for arg in entry.args if arg.name == "parameter")
+        if value not in allowed:
+            raise ValueError(
+                f"surface probe parameter {value!r} must be one of {', '.join(allowed)}"
+            )
+        return value
+
+    @field_validator("point_m")
+    @classmethod
+    def _finite_point(cls, value: tuple[float, float, float]) -> tuple[float, float, float]:
+        if not all(math.isfinite(component) for component in value):
+            raise ValueError("surface probe point_m must contain three finite coordinates")
+        return value
+
+    _frame_is_named = field_validator("frame")(_a_named_frame)
+
+
 class PprocSpec(BaseModel):
     """The post-processing specification a matrix row's PPROC cell names.
 
@@ -2494,6 +2620,17 @@ class PprocSpec(BaseModel):
     probes: Annotated[list[ProbesSpec], BeforeValidator(_probes_are_a_list)] = Field(
         default_factory=list
     )
+    #: Native surface-property histories, separate from fluid samples and field products.
+    surface_probes: list[SurfaceProbeSpec] = Field(default_factory=list)
+
+    @field_validator("surface_probes")
+    @classmethod
+    def _unique_surface_probe_names(cls, value: list[SurfaceProbeSpec]) -> list[SurfaceProbeSpec]:
+        names = [probe.name for probe in value]
+        if len(set(names)) != len(names):
+            raise ValueError("surface probe names must be unique within one pproc artifact")
+        return value
+
     products: ProductsSpec = Field(default_factory=ProductsSpec)
     #: How a blade family is told from the airframe: a regular expression
     #: over the family name. The reference ones were Blade1 to Blade6.
@@ -2711,6 +2848,12 @@ class PprocSpec(BaseModel):
         """Whether one family name is a blade by this artifact's pattern."""
         return re.match(self.blade_pattern, family) is not None
 
+    @model_validator(mode="after")
+    def _boundary_layer_sections_are_declared(self) -> PprocSpec:
+        if self.products.boundary_layer_integrals and not self.sections.distributions:
+            raise ValueError("boundary_layer_integrals requires declared sections.distributions")
+        return self
+
     def outputs(self, unsteady: bool) -> list[str]:
         """Return the output names a row naming this artifact declares.
 
@@ -2721,10 +2864,19 @@ class PprocSpec(BaseModel):
         names = default_outputs(
             unsteady, self.exports, has_sections=bool(self.sections.distributions)
         )
-        if self.volume_section is not None and not unsteady:
-            kind = VOLUME_SECTION_KINDS[self.volume_section.format]
-            suffix = next(suffix for name, suffix, _, _ in EXPORT_KINDS if name == kind)
-            names.append(f"{{name}}{suffix}")
+        if self.products.boundary_layer_integrals:
+            # Requested products require their native source exports, as fields do.
+            for source in ("{name}.vtk", "{name}_cp.txt"):
+                if source not in names:
+                    names.append(source)
+        if (
+            (unsteady and self.surface_probes)
+            or self.volume_section is not None
+            or any(entry.field_formats or entry.reusable_inflow for entry in self.probes)
+        ):
+            source = "{name}_plots.txt" if unsteady else "{name}_probes.txt"
+            if source not in names:
+                names.append(source)
         return names
 
 
@@ -3480,9 +3632,11 @@ class ReferenceData(BaseModel):
     Attributes
     ----------
     area : float
-        Reference area S_ref in simulation length units squared.
+        Reference area S_ref in simulation length units squared by default;
+        square metres when normalization_units is SI.
     length : float
-        Reference length L_ref in simulation length units.
+        Reference length L_ref in simulation length units by default;
+        metres when normalization_units is SI.
     velocity : float, optional
         Reference velocity in m/s; None lets the recipe default it to
         the free-stream velocity (steady runs) or a characteristic
@@ -3504,6 +3658,8 @@ class ReferenceData(BaseModel):
     # which is why the bound is a refusal rather than a warning.
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
+    #: Area/length basis only: native preserves the Python API; workspace REF files use SI.
+    normalization_units: Literal["NATIVE", "SI"] = "NATIVE"
     area: float = Field(gt=0.0)
     length: float = Field(gt=0.0)
     velocity: float | None = Field(default=None, gt=0.0)
@@ -3511,14 +3667,14 @@ class ReferenceData(BaseModel):
     #: The reference span, which the polar products scale the rolling and
     #: yawing moments to (PFS-2029.15); None keeps a case built without it.
     span_m: float | None = Field(default=None, gt=0.0)
-    #: The moment reference point (x, y, z) in simulation length units,
+    #: The moment reference point (x, y, z) in metres,
     #: carried from the reference artifact's ``[moment_point]``. A builder
     #: creates a coordinate system named MRP there and makes it the
     #: analysis loads frame, so moments are reported about it
     #: (PFS-2030.03.02). None for an authored case that states none, which
     #: leaves the solver's reference frame as the loads frame, as before.
     moment_point_m: tuple[float, float, float] | None = None
-    #: The rotor position (x, y, z) in simulation length units, from
+    #: The rotor position (x, y, z) in metres, from
     #: the reference artifact's ``[rotor.position]``. The two unsteady
     #: run types create a coordinate system named ROTOR_MRP there, which is
     #: the frame the reference probe lines and rotor plots are defined in,
@@ -3585,9 +3741,10 @@ SolverToggle = Annotated[bool, BeforeValidator(_resolve_settings_toggle)]
 class SolverSettings(BaseModel):
     """Solver runtime settings of one case.
 
-    Field names match the keyword arguments of
-    :func:`pyflightstream.script.helpers.solver_settings`, so recipes
-    can forward them directly.
+    Runtime fields generally match the keywords of
+    :func:`pyflightstream.script.helpers.solver_settings`. Geometry controls
+    are applied by the workflow after import/open and before dimensional
+    frames or edge detection; they must not be forwarded to a late runtime call.
 
     Attributes
     ----------
@@ -3749,11 +3906,95 @@ class SolverSettings(BaseModel):
     # own: every comparison against NaN is false, so ge and gt pass it.
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
+    #: Explicit measured simulation unit, applied after geometry and before frames.
+    simulation_length_unit: Literal["METER", "MILLIMETER"] | None = None
+    #: Vertex merge distance in metres; converted to the selected simulation unit.
+    vertex_merge_tolerance_m: float | None = Field(default=None, ge=0)
+    #: Geometric-edge bluntness threshold before detection; current command since 26.122.
+    geometric_edge_bluntness_angle_deg: float | None = Field(default=None, ge=45, le=179)
     iterations: int = Field(default=500, ge=1)
     convergence: float = Field(default=1e-5, gt=0.0)
     forced_iterations: SolverToggle | None = None
     boundary_layer: str | None = None
     viscous_coupling: SolverToggle | None = None
+    #: Boundary labels or 1-based indices; empty explicitly clears the selection.
+    viscous_excluded: list[int | str] | None = None
+    #: Equivalent sand-grain roughness in simulation length units.
+    surface_roughness: float | None = Field(default=None, ge=0)
+    #: Boundary labels or indices treated as thin surfaces; all selects every boundary.
+    thin_boundaries: list[int | str] | Literal["all"] | None = None
+    #: Legacy bulk-separation assignment, with model type and characteristic diameter.
+    bulk_separation: BulkSeparation | None = None
+    #: Trailing-edge airfoil separation, with optional per-assignment Valarezo criterion.
+    airfoil_separation: list[AirfoilSeparation] | None = None
+    #: Axial vortex separation assignments, with body axis, frame and diameter.
+    axial_vortex_separation: list[AxialVortexSeparation] | None = None
+    #: Cylindrical bulk separation assignments and characteristic diameters.
+    cylindrical_bulk_separation: list[CylindricalBulkSeparation] | None = None
+    #: Stratford bulk separation assignments on selected boundaries.
+    stratford_bulk_separation: list[StratfordBulkSeparation] | None = None
+    #: Separation assignment index to delete, or all for every assignment.
+    delete_separations: int | Literal["all"] | None = None
+    #: Legacy global Valarezo maximum-lift criterion; newer builds use airfoil assignments.
+    valarezo_criterion: SolverToggle | None = None
+    #: Legacy boundary selection for the Valarezo separation criterion.
+    valarezo_separation_boundaries: list[int | str] | Literal["all"] | None = None
+    #: Boundary labels or indices carrying crossflow separation.
+    crossflow_separation_boundaries: list[int | str] | Literal["all"] | None = None
+    #: Crossflow characteristic diameter in simulation length units.
+    crossflow_separation_diameter: float | None = Field(default=None, gt=0)
+    #: Legacy mean diameter for the crossflow pressure criterion, in simulation units.
+    crossflow_separation_mean_diameter: float | None = Field(default=None, gt=0)
+    #: Whether the selected crossflow model assumes an axisymmetric body.
+    crossflow_separation_axisymmetric: SolverToggle | None = None
+    #: Legacy SET_SOLVER_MODEL is distinct from INITIALIZE_SOLVER's solver_model.
+    legacy_solver_model: str | None = None
+    #: Explicit BC overrides, emitted before runtime/init settings. RELAXED remains deferred.
+    trailing_edge_types: (
+        dict[Annotated[int, Field(ge=1)], Literal["STANDARD", "JET_OUTFLOW", "VORTEX_SHEDDING"]]
+        | None
+    ) = None
+    #: One-based trailing-edge indices whose wake nodes are disabled.
+    disabled_wake_trailing_edges: list[Annotated[int, Field(ge=1)]] | None = None
+    #: Boundary labels or indices on which leading-edge wakes are detected.
+    leading_edge_wake_boundaries: list[int | str] | None = Field(default=None, min_length=1)
+    #: Explicitly mark wake termination nodes; no implicit detection is requested.
+    mark_wake_termination_nodes: Literal[True] | None = None
+    #: Existing inlet indices to unmark, in the exact declared order.
+    delete_inlets: list[Annotated[int, Field(ge=1)]] | None = Field(default=None, min_length=1)
+    #: Existing outlet indices to unmark, in the exact declared order.
+    delete_outlets: list[Annotated[int, Field(ge=1)]] | None = Field(default=None, min_length=1)
+    #: Boundary labels/indices for proximity checking before solver initialization.
+    proximal_boundaries: list[int | str] | Literal["all"] | None = Field(default=None, min_length=1)
+    #: Explicitly discard saved initialization before creating the new one; no solution-clear alias.
+    remove_initialization: Literal[True] | None = None
+    #: Explicit named actuator actions after disc creation; omitted never clears saved discs.
+    actuator_operations: list[ActuatorOperation] | None = Field(default=None, min_length=1)
+    #: Ordered base-region actions after detection and before solver initialization.
+    base_region_operations: list[BaseRegionOperation] | None = Field(default=None, min_length=1)
+    #: Detection angle in degrees; emitted before automatic or named-boundary base detection.
+    base_region_bending_angle_deg: float | None = Field(default=None, ge=0, le=90)
+    #: Existing transition-trip indices to delete, in the exact declared order.
+    delete_transition_trips: list[Annotated[int, Field(ge=1)]] | None = Field(
+        default=None, min_length=1
+    )
+    #: Clear the induced-drag selection in steady analysis; conflicts with an explicit family list.
+    clear_vorticity_drag_boundaries: Literal[True] | None = None
+
+    @model_validator(mode="after")
+    def _clear_drag_selection_is_unambiguous(self) -> SolverSettings:
+        if self.clear_vorticity_drag_boundaries and self.vorticity_drag_families is not None:
+            raise ValueError(
+                "clear_vorticity_drag_boundaries cannot be combined with vorticity_drag_families"
+            )
+        return self
+
+    #: Legacy explicit speed of sound, metres per second, on evidenced builds only.
+    sonic_velocity_m_per_s: float | None = Field(default=None, gt=0)
+    #: Legacy PHYSICS automatic trailing-edge detection; state with physics_auto_wake_nodes.
+    physics_auto_trailing_edges: bool | None = None
+    #: Legacy PHYSICS wake-node detection; state with physics_auto_trailing_edges.
+    physics_auto_wake_nodes: bool | None = None
     max_threads: int | None = Field(default=None, ge=1)
     timeout_s: float | None = Field(default=None, gt=0.0)
     #: FR-98: how much of a row's WALLTIME to leave for the exports, in
@@ -3842,6 +4083,28 @@ class SolverSettings(BaseModel):
     #: freestream velocity, which is what the coefficients are normalised
     #: on unless a preset says otherwise (PFS-2030.03.01).
     reference_velocity_m_per_s: float | None = Field(default=None, gt=0.0)
+    #: Choose SOLVER_SET_VELOCITY (default) or SOLVER_SET_MACH_NUMBER from the same
+    #: resolved flight condition; Mach requires consistent fluid and gas properties.
+    freestream_input: Literal["velocity", "mach"] = "velocity"
+    #: Dimensionless reference Mach for coefficient normalization; replaces the velocity choice.
+    reference_mach: float | None = Field(default=None, gt=0.0, allow_inf_nan=False)
+    #: Explicitly reset reference velocity to follow freestream; no implicit reset when absent.
+    disable_reference_velocity: Literal[True] | None = None
+
+    @model_validator(mode="after")
+    def _one_reference_normalization(self) -> SolverSettings:
+        choices = (
+            self.reference_velocity_m_per_s,
+            self.reference_mach,
+            self.disable_reference_velocity,
+        )
+        if sum(value is not None for value in choices) > 1:
+            raise ValueError(
+                "choose one reference normalization: reference_velocity_m_per_s, "
+                "reference_mach, or disable_reference_velocity"
+            )
+        return self
+
     #: SET_VORTICITY_DRAG_BOUNDARIES written as FAMILY NAMES; the builder
     #: resolves them through the opened geometry's inventory and leaves out
     #: the families the geometry does not carry, as the reference driver did
@@ -3926,11 +4189,44 @@ class SolverSettings(BaseModel):
 #: helper keyword's name and reach another command: ``solver_model`` and
 #: ``wall_collision_avoidance`` are arguments of ``INITIALIZE_SOLVER``.
 SOLVER_SETTING_COMMANDS: dict[str, str] = {
+    "simulation_length_unit": "SET_SIMULATION_LENGTH_UNITS",
+    "vertex_merge_tolerance_m": "SET_VERTEX_MERGE_TOLERANCE",
+    "geometric_edge_bluntness_angle_deg": "SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE",
     "iterations": "SOLVER_SET_ITERATIONS",
     "convergence": "SOLVER_SET_CONVERGENCE",
     "forced_iterations": "SOLVER_SET_FORCED_ITERATIONS",
     "boundary_layer": "SET_BOUNDARY_LAYER_TYPE",
     "viscous_coupling": "SET_SOLVER_VISCOUS_COUPLING",
+    "viscous_excluded": "SET_VISCOUS_EXCLUDED_BOUNDARIES",
+    "surface_roughness": "SET_SURFACE_ROUGHNESS",
+    "thin_boundaries": "SET_THIN_BOUNDARIES",
+    "bulk_separation": "CREATE_BULK_SEPARATION",
+    "airfoil_separation": "CREATE_AIRFOIL_SEPARATION",
+    "axial_vortex_separation": "CREATE_AXIAL_VORTEX_SEPARATION",
+    "cylindrical_bulk_separation": "CREATE_CYLINDRICAL_BULK_SEPARATION",
+    "stratford_bulk_separation": "CREATE_STRATFORD_BULK_SEPARATION",
+    "delete_separations": "DELETE_SEPARATION",
+    "valarezo_criterion": "VALAREZO_CRITERION",
+    "valarezo_separation_boundaries": "SET_VALAREZO_SEPARATION_BOUNDARIES",
+    "crossflow_separation_boundaries": "SET_CROSSFLOW_SEPARATION_BOUNDARIES",
+    "crossflow_separation_diameter": "SET_CROSSFLOW_SEPARATION_DIAMETER",
+    "crossflow_separation_mean_diameter": "SET_CROSSFLOW_SEPARATION_CP",
+    "crossflow_separation_axisymmetric": "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC",
+    "legacy_solver_model": "SET_SOLVER_MODEL",
+    "trailing_edge_types": "SET_TRAILING_EDGE_TYPE",
+    "disabled_wake_trailing_edges": "DISABLE_WAKE_NODES_ON_TRAILING_EDGE",
+    "leading_edge_wake_boundaries": "DETECT_LEADING_EDGES_WAKES_BY_SURFACE",
+    "mark_wake_termination_nodes": "MARK_WAKE_TERMINATION_NODES",
+    "delete_inlets": "DELETE_INLET",
+    "delete_outlets": "DELETE_OUTLET",
+    "proximal_boundaries": "SOLVER_PROXIMAL_BOUNDARIES",
+    "remove_initialization": "REMOVE_INITIALIZATION",
+    "base_region_bending_angle_deg": "SET_BASE_REGION_BENDING_ANGLE",
+    "delete_transition_trips": "DELETE_TRANSITION_TRIP",
+    "clear_vorticity_drag_boundaries": "DELETE_VORTICITY_DRAG_BOUNDARIES",
+    "sonic_velocity_m_per_s": "SONIC_VELOCITY",
+    "physics_auto_trailing_edges": "PHYSICS",
+    "physics_auto_wake_nodes": "PHYSICS",
     "max_threads": "SET_MAX_PARALLEL_THREADS",
     "solver_model": "INITIALIZE_SOLVER",
     "wall_collision_avoidance": "INITIALIZE_SOLVER",
@@ -3962,6 +4258,9 @@ SOLVER_SETTING_COMMANDS: dict[str, str] = {
     "symmetry_loads": "SET_ANALYSIS_SYMMETRY_LOADS",
     "significant_digits": "SET_SIGNIFICANT_DIGITS",
     "reference_velocity_m_per_s": "SOLVER_SET_REF_VELOCITY",
+    "freestream_input": "SOLVER_SET_MACH_NUMBER",
+    "reference_mach": "SOLVER_SET_REF_MACH_NUMBER",
+    "disable_reference_velocity": "DISABLE_SOLVER_REF_VELOCITY",
     "vorticity_drag_families": "SET_VORTICITY_DRAG_BOUNDARIES",
     "axial_separation_families": "SET_AXIAL_SEPARATION_BOUNDARIES",
     "load_solver_initialization": "OPEN",
@@ -4007,6 +4306,7 @@ class FluidState(BaseModel):
     pressure_pa: float
     temperature_k: float
     viscosity_pa_s: float
+    #: Legacy explicit speed of sound, metres per second, on evidenced builds only.
     sonic_velocity_m_per_s: float
     #: The ratio of specific heats, dimensionless. Carried BESIDE the
     #: sonic velocity rather than instead of it, because the solver
@@ -4219,6 +4519,32 @@ class MeshOperation(BaseModel):
         return self
 
 
+class CadImportOptions(BaseModel):
+    """Native CAD tessellation and conversion declared under [import.cad].
+
+    The source file supplies its own units. These controls select how its
+    bodies become a mesh; successful conversion does not establish mesh quality.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: Native tessellation preset, as documented by IMPORT_CAD.
+    tessellation_density: Literal["LOW", "MEDIUM", "HIGH"] = "MEDIUM"
+    #: Include patches that the source CAD assembly does not reference.
+    unreferenced_patches: bool = True
+    #: Tessellation subdivisions around a complete circle, not a length.
+    num_curvature: int = Field(default=80, gt=0, strict=True)
+    #: Native CAD body index; -1 converts every body.
+    body_index: int = Field(default=-1, strict=True)
+
+    @field_validator("body_index")
+    @classmethod
+    def _positive_or_all(cls, value: int) -> int:
+        if value != -1 and value < 1:
+            raise ValueError("CAD body_index must be -1 (all bodies) or a positive index")
+        return value
+
+
 class MeshImport(BaseModel):
     """How a raw mesh is imported: the ``[import]`` table of its sidecar (G01).
 
@@ -4234,6 +4560,10 @@ class MeshImport(BaseModel):
     value is only normalised here: which spellings a build takes is read
     from the command database by the builder, per build.
 
+    CAD files additionally declare ``cad`` and ``units="FILE"`` because
+    IMPORT_CAD has no units argument. CAD translations after conversion are
+    in metres; tessellation is followed by explicit conversion to a mesh.
+
     ``operations`` are the mesh operations applied right after the import,
     in the order written (G03, :class:`MeshOperation`); empty when the
     table declares none.
@@ -4241,7 +4571,7 @@ class MeshImport(BaseModel):
     Attributes
     ----------
     units : str
-        The length unit the mesh file is written in; never assumed.
+        The raw mesh length unit, or FILE for CAD metadata; never assumed.
     operations : tuple of MeshOperation
         The mesh operations applied right after the import, in the order
         written.
@@ -4250,6 +4580,8 @@ class MeshImport(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     units: str
+    #: Explicit CAD conversion; units must be FILE because IMPORT_CAD reads file metadata.
+    cad: CadImportOptions | None = None
     operations: tuple[MeshOperation, ...] = ()
 
     @field_validator("units", mode="before")
@@ -4297,7 +4629,7 @@ class MeshImport(BaseModel):
 #: The ``[trailing_edges]`` routes a raw mesh's sidecar may take (G02): a
 #: file of edge mid-points, the default, or detection, applied only when
 #: written.
-TrailingEdgeRoute = Literal["file", "detect"]
+TrailingEdgeRoute = Literal["file", "detect", "none"]
 
 
 class TrailingEdgeMarking(BaseModel):
@@ -4340,6 +4672,15 @@ class TrailingEdgeMarking(BaseModel):
 
     @model_validator(mode="after")
     def _one_route_and_sound_values(self) -> TrailingEdgeMarking:
+        if self.route == "none":
+            if (
+                self.points_m
+                or self.points_file
+                or self.detect_surfaces
+                or self.sweep_angle_deg is not None
+            ):
+                raise ValueError("no trailing edge cannot also supply points or detection")
+            return self
         if not math.isfinite(self.tolerance) or self.tolerance <= 0.0:
             raise ValueError(
                 f"tolerance = {self.tolerance!r}; it is the distance, in the simulation's "
@@ -4359,6 +4700,101 @@ class TrailingEdgeMarking(BaseModel):
         return self
 
 
+class RadialBoundaryMesh(BaseModel):
+    """A radial inlet/outlet mesh, applied after port creation and before initialization."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
+
+    #: Inner hole radius in metres; zero requests a disk instead of an annulus.
+    inner_radius_m: float = Field(default=0.0, ge=0)
+    #: Number of radial faces created from each wall boundary edge.
+    radial_faces: int = Field(ge=1)
+    #: Successive radial growth or growth from both sides, native scheme 1 or 2.
+    growth_scheme: Literal["successive", "dual_sided"] = "successive"
+    #: Radial growth factor; one is uniform, greater than one refines the outer wall.
+    growth_rate: float = Field(default=1.0, gt=0)
+
+
+class BaseRegionOperation(BaseModel):
+    """One explicit base-region action, executed in its declared order before initialization."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
+
+    #: Action on a base region; select_faces changes application selection, not the flow model.
+    operation: Literal[
+        "create",
+        "set_pressure",
+        "delete",
+        "mark_trailing_edges",
+        "mark_outflow_edges",
+        "remesh",
+        "select_faces",
+    ]
+    #: Mesh boundary for creation or outflow marking; all is only allowed for outflow marking.
+    boundary: str | Annotated[int, Field(ge=1)] | None = None
+    #: Current base-region index; all is only allowed for trailing-edge marking or face selection.
+    index: Annotated[int, Field(ge=1)] | Literal["all"] | None = None
+    #: Explicit pressure model; USER is a creator token, while the setter requires CUSTOM.
+    model: Literal["EMPIRICAL", "AXISYMMETRIC", "USER", "CUSTOM"] | None = None
+    #: Pressure coefficient; required by creation and a CUSTOM pressure update.
+    cp: float | None = None
+    #: Radial remesh parameters; applied to the selected region, with radius stated in metres.
+    mesh: RadialBoundaryMesh | None = None
+
+    @model_validator(mode="after")
+    def _arguments_match_operation(self) -> BaseRegionOperation:
+        allowed = {
+            "create": {"boundary", "model", "cp"},
+            "mark_outflow_edges": {"boundary"},
+            "set_pressure": {"index", "model", "cp"},
+            "remesh": {"index", "mesh"},
+        }.get(self.operation, {"index"})
+        for name in ("boundary", "index", "model", "cp", "mesh"):
+            if name not in allowed and getattr(self, name) is not None:
+                raise ValueError(f"{name} does not apply to base-region {self.operation}")
+        if self.operation == "create":
+            if self.boundary is None or self.model is None or self.cp is None:
+                raise ValueError("base-region create requires boundary, model and cp")
+            if isinstance(self.boundary, str) and not self.boundary.strip():
+                raise ValueError("base-region boundary cannot be empty")
+        elif self.operation == "mark_outflow_edges":
+            if self.boundary is None or self.boundary == "":
+                raise ValueError("base-region mark_outflow_edges requires boundary")
+        elif self.index is None:
+            raise ValueError(f"base-region {self.operation} requires index")
+        if self.boundary == "all" and self.operation != "mark_outflow_edges":
+            raise ValueError("base-region create has no documented all form")
+        if self.index == "all" and self.operation not in {"mark_trailing_edges", "select_faces"}:
+            raise ValueError(f"base-region {self.operation} has no documented all form")
+        if self.operation == "set_pressure":
+            if self.model is None or self.model == "USER":
+                raise ValueError(
+                    "base-region set_pressure requires EMPIRICAL, AXISYMMETRIC or CUSTOM"
+                )
+            if self.model == "CUSTOM" and self.cp is None:
+                raise ValueError("CUSTOM base pressure requires cp")
+        if self.operation == "remesh" and self.mesh is None:
+            raise ValueError("base-region remesh requires mesh parameters")
+        return self
+
+
+class PortBoundary(BaseModel):
+    """A normal-velocity inlet or outlet; an inlet may also bind a native profile."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
+
+    #: Exact surface name after the mesh import's renames.
+    boundary: str = Field(min_length=1)
+    #: Native velocity value in simulation units; manual sign rules conflict across UI/command text.
+    velocity: float
+    #: Optional inlet-profile file; exact bytes are staged, with native format unchanged.
+    profile: str | None = None
+    #: Optional radial remesh, performed before assigning the inlet profile.
+    remesh: RadialBoundaryMesh | None = None
+    #: Source digest captured by sidecar binding and checked before staging.
+    profile_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
 class RawMeshConditions(BaseModel):
     """The boundary conditions a raw mesh's sidecar declares (G02, Q1 of 0.27.0).
 
@@ -4374,6 +4810,20 @@ class RawMeshConditions(BaseModel):
     trailing_edges: TrailingEdgeMarking | None = None
     wake_termination: Literal["auto"] | tuple[str, ...] | None = None
     base_regions: Literal["auto"] | None = None
+    inlets: tuple[PortBoundary, ...] = ()
+    outlets: tuple[PortBoundary, ...] = ()
+
+    @model_validator(mode="after")
+    def _one_port_per_boundary(self) -> RawMeshConditions:
+        seen: set[str] = set()
+        for port in (*self.inlets, *self.outlets):
+            if port.boundary in seen:
+                raise ValueError(
+                    f"boundary {port.boundary!r} assigned more than once to inlet/outlet ports; "
+                    "the native solver can replace the prior assignment and renumber the ports"
+                )
+            seen.add(port.boundary)
+        return self
 
 
 class SimCase(BaseModel):
@@ -4491,9 +4941,13 @@ class SimCase(BaseModel):
     velocity: float | None = None
     #: THE FREE STREAM'S OWN FILE (G15), beside the free-stream state whose
     #: uniformity it replaces: read where it lives, hashed into the run
-    #: record's ``inputs_sha256``, never copied beside the mesh. None for every
+    #: record's ``inputs_sha256``. An explicit SI declaration additionally
+    #: prepares and hashes a separate solver copy. None for every
     #: case written before 0.27.0, which renders exactly what it rendered.
     freestream_profile: str | None = None
+    #: Explicit custom-file units: SI means m and m/s; NATIVE means current
+    #: simulation length units per second. Omitted preserves legacy bytes.
+    freestream_units: Literal["SI", "NATIVE"] | None = None
     geometry: str | None = None
     sweep: SweepAxis
     flight_condition: dict[str, float] = Field(default_factory=dict)
@@ -4516,6 +4970,8 @@ class SimCase(BaseModel):
     fluid: FluidState | None = None
     reference: ReferenceData | None = None
     solver: SolverSettings = Field(default_factory=SolverSettings)
+    fsi: FsiConfig | None = None
+    fsi_provenance: dict[str, Any] = Field(default_factory=dict)
     recipe: str
     #: The row's own keys, and TWO THINGS THE RESOLVER WRITES beside them:
     #: a flat `ROTOR_ORIGIN` bound to a named reference point, and the
@@ -4584,6 +5040,8 @@ class SimCase(BaseModel):
     #: where the point runs and hashes into the record's ``inputs_sha256``.
     #: None for a row stating no profile.
     actuator_profile: str | None = None
+    #: Profiles named by individual ACTUATOR records, resolved by library stem.
+    actuator_profiles: dict[str, str] = Field(default_factory=dict)
     #: The boundary order a sidecar beside the geometry states
     #: (PFS-2029.06.03), bound by the workspace; the builder refuses the
     #: run when the file's own mesh block disagrees with it.

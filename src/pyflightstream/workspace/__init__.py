@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_role: managed-workspace-model-and-layout
+# file_version: 1.1.2
+# last_modified_at: 2026-09-27T21:58:19.804Z
+# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# dependencies: [pyflightstream.run._step_exports]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Document the implemented 0.29 architecture and evidence boundaries.
+# revision_source: git
 """Managed campaign workspace: inputs, run files, and the manifest.
 
 Pipeline role: owns where campaign files live, inputs and outputs
@@ -42,6 +53,19 @@ This package was renamed from ``pyflightstream.files`` in v0.3.0. The
 old module name re-exported everything with a DeprecationWarning for
 one minor release and was REMOVED at v0.4.0, on the horizon its own
 deprecation entry recorded; importing it now raises ImportError.
+
+The 0.29 workspace adds declarative FSI inputs under ``inputs/fsi/``
+and matrix storage under ``inputs/matrices/``. Resolved inputs and explicit
+calibration overrides feed the existing coupling implementation; provenance
+distinguishes base properties from effective properties.
+
+Optional Excel editing remains a file adapter to the ASCII matrix model.
+:mod:`pyflightstream.workspace.excel` creates a macro-free workbook; its
+module CLI previews and explicitly applies synchronization in either
+direction through the existing sync engine. Dictionary column names and
+MATRIX/POL identities govern mapping. Saved-file hashes reject stale
+previews; recoverable originals and untouched workbook parts are retained.
+There is no background synchronization or macro execution.
 """
 
 from __future__ import annotations
@@ -84,6 +108,7 @@ from pydantic import (
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream._fsm import MeshReadError, boundary_names
+from pyflightstream._progress import workspace_activity
 from pyflightstream._retired_names import WORKSPACE_ENGINE_POINT, RetiredAttributeError
 from pyflightstream.cases import BoundaryAliases, RawCommand
 from pyflightstream.cases.windows import surface_average_window, surface_averaging_window
@@ -1190,6 +1215,16 @@ class RunRecord(BaseModel):
     #: and a post stage meeting one writes the probe table without the
     #: position columns rather than refusing a run that already happened.
     probe_points_file: str | None = None
+    #: Emitted sample IDs and field output contract; absent on older runs.
+    probe_field_layout: list[dict] | None = None
+    #: Native surface-property declarations and plot names; absent on historical records.
+    surface_probe_layout: list[dict] | None = None
+    #: Final frame trajectories and explicit unknowns; absent on legacy records.
+    frame_motions: dict[int, dict] | None = None
+    #: Conservative final custom-field coverage; absent when uncomputed or legacy.
+    custom_field_coverage: dict | None = None
+    #: Explicit source-unit declaration, retained to refuse changed continuation semantics.
+    freestream_units: str | None = None
     #: The section distributions this point's script created, in order, each
     #: with its families by name, its plane, its frame and its count (0.24.0).
     #: The EMPTY list where the script added or removed no surface section
@@ -1208,6 +1243,10 @@ class RunRecord(BaseModel):
     action_program: str | None = None
     action_script: str | None = None
     action_count: int | None = None
+    #: Nonfatal run diagnostics, separate from the assessed solver status and
+    #: error. In particular, missing per-step action evidence does not invalidate
+    #: converged final loads. Recorded by local execution and collection alike.
+    warnings: list[str] = Field(default_factory=list)
 
     @field_validator("surface_time_averaging")
     @classmethod
@@ -1315,6 +1354,7 @@ class ExtractionStatus(enum.StrEnum):
     """
 
     #: Every declared file was written and hashed.
+    SUBMITTED = "SUBMITTED"
     EXTRACTED = "EXTRACTED"
     #: The process failed, or the original saved simulation moved during it.
     FAILED_EXECUTION = "FAILED_EXECUTION"
@@ -1429,6 +1469,14 @@ class AdditionalRecord(BaseModel):
     finished_at: str | None = None
     wall_time_s: float | None = None
     status: ExtractionStatus
+    #: Output names relative to working_dir that a submitted extraction must produce.
+    declared_outputs: list[str] = Field(default_factory=list)
+    #: Verified private copy retained until collection.
+    reopened_copy: str | None = None
+    #: Scheduler receipt; submission is not evidence that extraction completed.
+    submission: dict[str, object] | None = None
+    #: Whether the script exports a solver log; native cluster logs stay native when false.
+    exports_log: bool = True
     error: str | None = None
     outputs: list[str] = Field(default_factory=list)
     outputs_sha256: dict[str, str] = Field(default_factory=dict)
@@ -2746,6 +2794,7 @@ class CampaignWorkspace:
             )
         return None
 
+    @workspace_activity("export", "self")
     def collect_outputs(
         self,
         sim_id: str,
@@ -3841,3 +3890,5 @@ class CampaignWorkspace:
                 f"cannot {operation} sim_{sim_id}: the folder {sim} does not exist."
             )
         return sim
+
+    SUBMITTED = "SUBMITTED"

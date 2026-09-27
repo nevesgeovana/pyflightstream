@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: "1.4.14"
+# artifact_id: src/pyflightstream/cases/workflows.py
+# last_modified_at: 2026-09-27T22:15:37.794Z
+# last_modified_by: OpenAI / Codex / unknown / implementation-agent
+# dependencies: [pyflightstream]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Wire selected FSI through existing unsteady driver, mappings and pending inputs.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Workflows: a run TYPE that builds the whole script by itself.
 
 Pipeline role: the builder half of the file-managed modality. A recipe
@@ -59,6 +71,7 @@ exported (PFS-2025.02.02, PFS-2025.02.03).
 from __future__ import annotations
 
 import csv
+import json
 import math
 import re
 import sys
@@ -70,6 +83,7 @@ from pathlib import Path, PurePath
 from types import MappingProxyType
 from typing import NoReturn
 
+from pyflightstream._atmosphere import ISA
 from pyflightstream._deprecations import (
     ROW_MOVING_BOUNDARIES,
     ROW_ROTATE_FAMILIES,
@@ -80,12 +94,14 @@ from pyflightstream._errors import (
     PyflightstreamWarning,
     warn,
 )
+from pyflightstream._fsi_calibration import MATRIX_FACTORS
 from pyflightstream._fsm import (
     MeshReadError,
     boundary_labels,
     boundary_names,
     saved_actuators,
     saved_length_unit,
+    saved_mesh_coordinate_unit,
     surface_mesh,
 )
 from pyflightstream._lengths import scale
@@ -105,7 +121,6 @@ from pyflightstream.cases import (
     ROTOR_PLOT_GROUP_PREFIX,
     STEADY_ONLY_EXPORT_KINDS,
     VOLUME_SECTION_KINDS,
-    VOLUME_SECTION_PRISMS,
     ActuatorBlock,
     CampaignConfigError,
     CustomFlag,
@@ -590,7 +605,7 @@ RESTART_VARIABLE = "RESTART"
 #: reference (``kind = "actuator"``) and the row states its loading: which
 #: block, at what speed, and ONE of a net thrust or a profile file. Registered
 #: on every run type; a row stating none emits no disc whatever its reference
-#: declares. ONE DISC PER ROW.
+#: declares. A flat selection names one disc; brace records name several discs in order.
 ACTUATOR_VARIABLE = "ACTUATOR"
 #: The disc's speed in rev/min, a MAGNITUDE: the hand is the block's ``rpm_sign``.
 ACTUATOR_RPM_VARIABLE = "ACTUATOR_RPM"
@@ -624,6 +639,7 @@ ACTUATOR_PROFILE_COPY_SUFFIX = ".actuator_profile.txt"
 #: its own, and beside a body rate, which writes ``ROTATION``: a run has ONE
 #: ``SET_FREESTREAM``.
 FREESTREAM_VARIABLE = "FREESTREAM"
+FREESTREAM_UNITS_VARIABLE = "FREESTREAM_UNITS"
 #: The folder of the workspace's ``inputs/`` a ``FREESTREAM`` names a file of.
 FREESTREAM_DIR = "freestreams"
 #: The two forms of a custom free-stream file, by the extension the 26.124
@@ -709,6 +725,8 @@ SIMULATION_SUFFIX = ".fsm"
 #: two and the ``.fsm``; what the solver makes of their surfaces' names and
 #: order is unmeasured.
 RAW_MESH_FORMATS: Mapping[str, str] = MappingProxyType({".obj": "OBJ", ".stl": "STL"})
+#: CAD suffixes routed through explicit native tessellation and mesh conversion.
+CAD_FORMATS = frozenset({".igs", ".iges"})
 
 #: The simulation's length unit on every row that imports a raw mesh
 #: (G01). The file's own unit goes to ``IMPORT`` alone; the simulation
@@ -4211,10 +4229,20 @@ def _open_geometry(case: SimCase, script: Script) -> None:
     """
     _configuration_comment(case, script)
     if case.geometry is None:
+        _geometry_simulation_controls(case, script)
         return
     suffix = PurePath(case.geometry).suffix
     sidecar = PurePath(str(case.geometry)).stem + ".boundaries.toml"
-    if suffix.lower() in RAW_MESH_FORMATS:
+    if suffix.lower() in {".step", ".stp"}:
+        raise CampaignConfigError(
+            "STEP CAD import is not supported by this workflow; use the documented "
+            "IGES route (.igs/.iges), or convert and inspect a supported surface mesh. "
+            "Native STEP controls produced empty geometry, so no script is emitted."
+        )
+    if suffix.lower() in CAD_FORMATS:
+        _import_cad(case, script)
+        _raw_mesh_boundary_conditions(case, script)
+    elif suffix.lower() in RAW_MESH_FORMATS:
         _import_mesh(case, script, RAW_MESH_FORMATS[suffix.lower()])
         # THE TRAILING EDGE RIGHT AFTER THE IMPORT (G02), on the body the
         # import operations left and against the names its renames left: the
@@ -4267,6 +4295,7 @@ def _open_geometry(case: SimCase, script: Script) -> None:
         # DISABLE on every open, and a preset that wants the stored state says so.
         load = case.solver.load_solver_initialization
         script.emit("OPEN", case.geometry, "ENABLE" if load else "DISABLE")
+        _geometry_simulation_controls(case, script)
         _declare_boundaries(case, script)
     # EVERY BOUNDARY-CITING SURFACE OF THE ROW IS JUDGED HERE, at plan
     # time, against the inventory just declared (PFS-2028.00): the pproc
@@ -4274,6 +4303,90 @@ def _open_geometry(case: SimCase, script: Script) -> None:
     # plots and sections where each builder resolves them.
     _refuse_a_pproc_the_geometry_shares_no_name_with(case, script)
     _detect_base_regions(case, script)
+
+
+def _import_cad(case: SimCase, script: Script) -> None:
+    """Convert an explicitly configured CAD file, then apply mesh operations.
+
+    IMPORT_CAD has no units argument. FILE records that the CAD file's native
+    metadata is authoritative; it never pretends to forward a raw-mesh unit.
+    Subsequent translation operations are explicitly in metres.
+    """
+    spec = case.mesh_import
+    if spec is None or spec.cad is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: CAD geometry requires [import.cad] in its "
+            'boundary sidecar, with [import] units = "FILE".'
+        )
+    if spec.units != "FILE":
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: CAD IMPORT_CAD has no units argument; "
+            'write units = "FILE" to use the source CAD metadata. A raw-mesh '
+            "unit cannot be silently ignored or used to rescale CAD."
+        )
+    if not case.inventory:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: CAD conversion requires an explicit boundary "
+            "inventory for the converted mesh in the sidecar."
+        )
+    if case.solver.load_solver_initialization:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: CAD conversion creates a new mesh and cannot "
+            "load a saved solver initialization."
+        )
+    marking = None if case.raw_mesh_conditions is None else case.raw_mesh_conditions.trailing_edges
+    if marking is not None and marking.route == "file":
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: CAD tessellation cannot validate source "
+            "trailing-edge points offline. Declare detection, or export a mesh "
+            "and validate its points before using the file route."
+        )
+    script.entry("IMPORT_CAD")
+    script.entry("CONVERT_CAD_TO_MESH")
+    steps, names = _plan_import_operations(
+        case, script, PurePath(str(case.geometry)).stem + ".boundaries.toml"
+    )
+    cad = spec.cad
+    script.emit("NEW_SIMULATION")
+    script.emit(
+        "IMPORT_CAD",
+        cad.tessellation_density,
+        "TRUE" if cad.unreferenced_patches else "FALSE",
+        cad.num_curvature,
+        case.geometry,
+    )
+    script.emit("CONVERT_CAD_TO_MESH", cad.body_index)
+    for step in steps:
+        if step.geometry_phase:
+            _emit_import_operation(script, step, "METER")
+    _geometry_simulation_controls(case, script, default_unit=SIMULATION_LENGTH_UNIT)
+    for step in steps:
+        if not step.geometry_phase:
+            _emit_import_operation(script, step, "METER")
+    _declare_boundaries(case, script, stated=names)
+
+
+def _geometry_simulation_controls(
+    case: SimCase,
+    script: Script,
+    *,
+    default_unit: str | None = None,
+) -> None:
+    """Apply setup thresholds after geometry and before frames or edge detection.
+
+    The merge setting is emitted in native length units. This is not a claim
+    that the setter repairs an already imported mesh; that native effect needs
+    separate evidence. No geometry-phase guard is bypassed.
+    """
+    solver = case.solver
+    unit = solver.simulation_length_unit or default_unit
+    if unit is not None:
+        script.emit("SET_SIMULATION_LENGTH_UNITS", unit)
+    if solver.vertex_merge_tolerance_m is not None:
+        factor = _from_metres(case, script, "vertex_merge_tolerance_m")
+        script.emit("SET_VERTEX_MERGE_TOLERANCE", solver.vertex_merge_tolerance_m * factor)
+    if solver.geometric_edge_bluntness_angle_deg is not None:
+        script.emit("SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE", solver.geometric_edge_bluntness_angle_deg)
 
 
 def _import_mesh(case: SimCase, script: Script, file_type: str) -> None:
@@ -4300,9 +4413,10 @@ def _import_mesh(case: SimCase, script: Script, file_type: str) -> None:
     step, before anything is emitted (:func:`_plan_import_operations`).
 
     THE UNIT IS NEVER ASSUMED. The file's unit is the ``[import]`` table's
-    ``units`` and goes to ``IMPORT`` alone; the simulation is set to metres
-    (:data:`SIMULATION_LENGTH_UNIT`) because every length the reference and
-    the row state is in metres. Whether ``IMPORT`` then converts the body
+    ``units`` and goes to ``IMPORT`` alone; the simulation defaults to metres
+    (:data:`SIMULATION_LENGTH_UNIT`). An explicit simulation_length_unit
+    overrides that after import, before dimensional frames and detection.
+    Whether ``IMPORT`` then converts the body
     from the file's unit into the simulation's was measured on 26.124 (RPT-069:
     a millimetre OBJ solved as the metre one); the page states it and what is
     not measured.
@@ -4329,6 +4443,11 @@ def _import_mesh(case: SimCase, script: Script, file_type: str) -> None:
     accepted = [unit for unit in documented or () if unit != _UNIT_THAT_NAMES_NO_LENGTH]
     route = f"docs/mesh-inputs.md carries the route; search that page for '{_MESH_PAGE_ANCHOR}'"
     spec = case.mesh_import
+    if spec is not None and spec.cad is not None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: CAD options apply only to a CAD file; "
+            "the raw mesh route would not read them."
+        )
     if spec is None:
         raise CampaignConfigError(
             f"case {case.sim_id!r} declares {GEOMETRY_VARIABLE} as a raw mesh "
@@ -4366,7 +4485,7 @@ def _import_mesh(case: SimCase, script: Script, file_type: str) -> None:
     for step in steps:
         if step.geometry_phase:
             _emit_import_operation(script, step, spec.units)
-    script.emit("SET_SIMULATION_LENGTH_UNITS", SIMULATION_LENGTH_UNIT)
+    _geometry_simulation_controls(case, script, default_unit=SIMULATION_LENGTH_UNIT)
     for step in steps:
         if not step.geometry_phase:
             _emit_import_operation(script, step, spec.units)
@@ -4386,7 +4505,7 @@ def _declared_condition_tables(conditions: RawMeshConditions) -> list[str]:
             ("base_regions", conditions.base_regions),
         )
         if value is not None
-    ]
+    ] + [f"[[{name}]]" for name in ("inlets", "outlets") if getattr(conditions, name)]
 
 
 def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
@@ -4456,7 +4575,17 @@ def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
             'against the mesh before the run; or with detect = "auto", the solver\'s '
             f"detection, which applies only when written ({page})."
         )
-    if marking.route == "file":
+    if marking.route == "none":
+        if conditions.wake_termination is not None:
+            raise CampaignConfigError(
+                "a no-trailing-edge body cannot request wake termination nodes"
+            )
+        warn(
+            f"case {case.sim_id!r}: explicit no trailing edge; this body generates no wake",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+    elif marking.route == "file":
         _mark_trailing_edges_from_file(case, script, marking, sidecar, page)
     else:
         if marking.sweep_angle_deg is not None:
@@ -4485,7 +4614,51 @@ def _raw_mesh_boundary_conditions(case: SimCase, script: Script) -> None:
                 "sidecar's detection over the whole mesh, or the row's BASE_REGIONS on the "
                 f"boundaries that become the base ({page})."
             )
+        _base_region_detection_angle(case, script)
         script.emit("AUTO_DETECT_BASE_REGIONS")
+    # Native 26.124 uses one created-port sequence for both families.
+    # An outlet on mesh boundary 2 is port 1 alone, or port 2 after an inlet.
+    # RPT-081 preserves the negative controls and target-only remesh evidence.
+    port_index = 0
+    for name, command, ports in (
+        ("inlets", "CREATE_NEW_INLET", conditions.inlets),
+        ("outlets", "CREATE_NEW_OUTLET", conditions.outlets),
+    ):
+        for port in ports:
+            port_index += 1
+            profile_name = None
+            if port.profile is not None:
+                if name != "inlets":
+                    raise CampaignConfigError("an outlet profile has no documented native command")
+                from hashlib import sha256
+
+                profile = Path(port.profile)
+                payload = profile.read_bytes()
+                digest = sha256(payload).hexdigest()
+                if port.profile_sha256 and digest != port.profile_sha256:
+                    raise CampaignConfigError(f"inlet profile changed after binding: {profile}")
+                if not payload:
+                    raise CampaignConfigError(f"inlet profile is empty: {profile}")
+                profile_name = f"pfs_inlet_{port_index}_{digest[:16]}.txt"
+                parked = script.pending_input_files.get(profile_name)
+                if parked is not None and parked != payload:
+                    raise CampaignConfigError(f"inlet profile staging collision: {profile_name}")
+                script._pending_input_files[profile_name] = payload
+            indices = _sidecar_surfaces(case, script, sidecar, f"[[{name}]]", (port.boundary,))
+            script.emit(command, indices[0], port.velocity)
+            if port.remesh is not None:
+                mesh = port.remesh
+                unit_scale = _from_metres(case, script, f"{name} remesh radius")
+                script.emit(
+                    "REMESH_INLET" if name == "inlets" else "REMESH_OUTLET",
+                    port_index,
+                    inner_radius=mesh.inner_radius_m * unit_scale,
+                    elements=mesh.radial_faces,
+                    growth_scheme="1" if mesh.growth_scheme == "successive" else "2",
+                    growth_rate=mesh.growth_rate,
+                )
+            if profile_name is not None:
+                script.emit("SET_INLET_CUSTOM_PROFILE", port_index, profile_name)
 
 
 def _wake_termination_detection(
@@ -4818,6 +4991,70 @@ def _base_region_families(case: SimCase) -> list[str]:
     return []
 
 
+def _base_region_operations(case: SimCase, script: Script) -> None:
+    """Apply explicit base indices in order; deletion may renumber later selections."""
+    settings = case.solver
+    for action in settings.base_region_operations or ():
+        if action.operation == "create":
+            assert action.boundary is not None and action.model is not None
+            boundary = script.resolve_boundary(action.boundary, context="base-region create")
+            script.emit("CREATE_NEW_BASE_REGION", boundary, action.model, action.cp)
+            continue
+        if action.operation == "mark_outflow_edges":
+            commands = ("SET_OUTLET_TRAILING_EDGES", "SET_OUTFLOW_TRAILING_EDGES")
+            command = next(
+                (
+                    name
+                    for name in commands
+                    if command_accepted_on(script.registry.commands[name], script.version)
+                ),
+                None,
+            )
+            if command is None:
+                raise CampaignConfigError(
+                    f"base-region outflow-edge marking has no documented route on {script.version}"
+                )
+            assert action.boundary is not None
+            boundary = (
+                -1
+                if action.boundary == "all"
+                else script.resolve_boundary(action.boundary, context="base-region outflow edges")
+            )
+            script.emit(command, boundary)
+            continue
+        index = -1 if action.index == "all" else action.index
+        assert index is not None
+        if action.operation == "set_pressure":
+            args = (index, action.model) if action.cp is None else (index, action.model, action.cp)
+            script.emit("SET_BASE_REGION_CP", *args)
+        elif action.operation == "remesh":
+            mesh = action.mesh
+            assert mesh is not None
+            unit_scale = _from_metres(case, script, "base-region remesh radius")
+            script.emit(
+                "REMESH_BASE_REGION",
+                index,
+                inner_radius=mesh.inner_radius_m * unit_scale,
+                elements=mesh.radial_faces,
+                growth_scheme="1" if mesh.growth_scheme == "successive" else "2",
+                growth_rate=mesh.growth_rate,
+            )
+
+        else:
+            command = {
+                "delete": "DELETE_BASE_REGION",
+                "mark_trailing_edges": "SET_BASE_REGION_TRAILING_EDGES",
+                "select_faces": "SELECT_BASE_REGION_FACES",
+            }[action.operation]
+            script.emit(command, index)
+
+
+def _base_region_detection_angle(case: SimCase, script: Script) -> None:
+    angle = case.solver.base_region_bending_angle_deg
+    if angle is not None:
+        script.emit("SET_BASE_REGION_BENDING_ANGLE", angle)
+
+
 def _detect_base_regions(case: SimCase, script: Script) -> None:
     """Emit one DETECT_BASE_REGIONS_BY_SURFACE per boundary of the named families.
 
@@ -4837,8 +5074,8 @@ def _detect_base_regions(case: SimCase, script: Script) -> None:
     name, and the tier-3 rows name ``Base``.
     """
     families = _base_region_families(case)
-    if not families:
-        return
+    if not (case.raw_mesh_conditions and case.raw_mesh_conditions.base_regions):
+        _base_region_detection_angle(case, script)
     labels = script.entities.labels("boundaries")
     indices: list[int] = []
     for family in families:
@@ -4850,6 +5087,7 @@ def _detect_base_regions(case: SimCase, script: Script) -> None:
         indices.extend(index for index in found if index not in indices)
     for index in sorted(indices):
         script.emit("DETECT_BASE_REGIONS_BY_SURFACE", boundary_index=index)
+    _base_region_operations(case, script)
 
 
 def _declare_boundaries(
@@ -5230,7 +5468,7 @@ def _moment_frame(case: SimCase, script: Script) -> int | None:
     return helpers.coordinate_frame(
         script,
         name="MRP",
-        origin=reference.moment_point_m,
+        origin=_point_from_metres(case, script, reference.moment_point_m, "moment_point_m"),
         x_axis=(1.0, 0.0, 0.0),
         y_axis=(0.0, 1.0, 0.0),
         label="MRP",
@@ -5353,9 +5591,11 @@ def _rotor_frame(case: SimCase, script: Script) -> int | None:
     if stated is not None:
         origin = _origin(case)
     elif block is not None:
-        origin = block.origin
+        origin = _point_from_metres(case, script, block.origin, "rotor x_m/y_m/z_m")
     elif case.reference is not None and case.reference.rotor_position_m is not None:
-        origin = case.reference.rotor_position_m
+        origin = _point_from_metres(
+            case, script, case.reference.rotor_position_m, "rotor_position_m"
+        )
     else:
         return None
     # ON THE SHAFT, not on the geometry's axes (v0.23.0 item 19). This built
@@ -5545,7 +5785,11 @@ def _refuse_the_loads_selections_on_a_march(case: SimCase) -> None:
     shape RPT-064 measured for the loads frame; moving it before the solve is not
     measured. In 0.27.0 they are a steady row's.
     """
-    stated = [key for key in LOADS_SELECTION_KEYS if getattr(case.solver, key) is not None]
+    stated = [
+        key
+        for key in (*LOADS_SELECTION_KEYS, "clear_vorticity_drag_boundaries")
+        if getattr(case.solver, key) is not None
+    ]
     if not stated:
         return
     raise CampaignConfigError(
@@ -5614,6 +5858,58 @@ def _refuse_sideslip_under_mirror(case: SimCase) -> None:
         )
 
 
+def _resolved_native_mach(case: SimCase, script: Script) -> float | None:
+    """Select Mach only when it represents the same resolved physical state."""
+    if case.solver.freestream_input == "velocity":
+        return None
+    prefix = "freestream_input='mach'"
+    fluid = case.fluid
+    mach = case.mach
+    if fluid is None or mach is None:
+        raise CampaignConfigError(
+            f"{prefix} requires the resolved flight condition's Mach and fluid properties; "
+            "use freestream_input='velocity' when they are unavailable"
+        )
+    sound = fluid.sonic_velocity_m_per_s
+    if not math.isfinite(sound) or sound <= 0:
+        raise CampaignConfigError(f"{prefix} requires a positive finite sound speed")
+    if helpers.fluid_fifth_property(script) == "specific_heat_ratio":
+        state = (fluid.heat_capacity_ratio, fluid.pressure_pa, fluid.density_kg_m3)
+        if any(not math.isfinite(value) or value <= 0 for value in state):
+            raise CampaignConfigError(f"{prefix} requires positive finite gas properties")
+        temperature = fluid.temperature_k
+        if not math.isfinite(temperature) or temperature <= 0:
+            raise CampaignConfigError(f"{prefix} requires a positive finite temperature")
+        native_sound = math.sqrt(state[0] * ISA.gas_constant_j_per_kg_k * temperature)
+        pressure_sound = math.sqrt(state[0] * state[1] / state[2])
+        if not math.isclose(sound, native_sound, rel_tol=1e-7, abs_tol=1e-9):
+            raise CampaignConfigError(
+                f"{prefix}: resolved sound speed disagrees with emitted temperature and gamma; "
+                "use freestream_input='velocity' for independently pinned fluid properties"
+            )
+        if not math.isclose(sound, pressure_sound, rel_tol=1e-7, abs_tol=1e-9):
+            raise CampaignConfigError(
+                f"{prefix}: resolved sound speed disagrees with gamma * pressure / density; "
+                "use freestream_input='velocity' to preserve an independently pinned state"
+            )
+    override = case.solver.sonic_velocity_m_per_s
+    if override is not None and not math.isclose(override, sound, rel_tol=1e-7, abs_tol=1e-9):
+        raise CampaignConfigError(f"{prefix}: sonic_velocity_m_per_s changes the sound speed")
+    velocity = _velocity(case)
+    values = (mach, velocity, fluid.velocity_m_per_s)
+    if any(not math.isfinite(value) or value < 0 for value in values):
+        raise CampaignConfigError(f"{prefix} requires finite nonnegative Mach and velocity")
+    if not (
+        math.isclose(velocity, fluid.velocity_m_per_s, rel_tol=1e-7, abs_tol=1e-9)
+        and math.isclose(velocity, mach * sound, rel_tol=1e-7, abs_tol=1e-9)
+    ):
+        raise CampaignConfigError(
+            f"{prefix}: resolved velocity, Mach and fluid state are inconsistent; "
+            "the native route cannot change the requested physical condition"
+        )
+    return mach
+
+
 def _settings(
     case: SimCase, script: Script, *, wake_termination_time_steps: int | None = None
 ) -> None:
@@ -5639,7 +5935,12 @@ def _settings(
     see the artifact's documentation.
     """
     reference = case.reference
+    native_length = _from_metres(case, script, "runtime velocity and SI reference dimensions")
+    reference_scale = (
+        native_length if reference is not None and reference.normalization_units == "SI" else 1.0
+    )
     solver = case.solver
+    native_mach = _resolved_native_mach(case, script)
     # THE PRESET'S OWN SETTINGS REACH THE SCRIPT HERE, and until this
     # release ten of them did not: a preset asking for
     # SUBSONIC_PRANDTL_GLAUERT and a turbulent boundary layer resolved
@@ -5659,16 +5960,50 @@ def _settings(
     # equal to the free stream, and a setting nobody states is a setting
     # the solver defaults, which is the silence this release removes.
     _refuse_sideslip_under_mirror(case)
+    # BC commands retain their setup phase; late emission after solver_settings
+    # would cross backwards from init and be refused by Script.
+    for index, edge_type in (solver.trailing_edge_types or {}).items():
+        script.emit("SET_TRAILING_EDGE_TYPE", index, edge_type)
+    for index in solver.disabled_wake_trailing_edges or ():
+        script.emit("DISABLE_WAKE_NODES_ON_TRAILING_EDGE", index)
+    if solver.leading_edge_wake_boundaries is not None:
+        boundaries = solver.leading_edge_wake_boundaries
+        script.emit("DETECT_LEADING_EDGES_WAKES_BY_SURFACE", len(boundaries), boundaries)
+    if solver.mark_wake_termination_nodes:
+        script.emit("MARK_WAKE_TERMINATION_NODES")
+    if solver.sonic_velocity_m_per_s is not None:
+        script.emit("SONIC_VELOCITY", solver.sonic_velocity_m_per_s)
+    for inlet in solver.delete_inlets or ():
+        script.emit("DELETE_INLET", inlet)
+    for outlet in solver.delete_outlets or ():
+        script.emit("DELETE_OUTLET", outlet)
+    for trip in solver.delete_transition_trips or ():
+        script.emit("DELETE_TRANSITION_TRIP", trip)
+    physics = (solver.physics_auto_trailing_edges, solver.physics_auto_wake_nodes)
+    if any(value is not None for value in physics):
+        if any(value is None for value in physics):
+            raise CampaignConfigError(
+                "physics_auto_trailing_edges and physics_auto_wake_nodes must be stated together"
+            )
+        script.emit("PHYSICS", *physics)
     helpers.solver_settings(
         script,
         aoa=_angle(case, "alpha"),
         sideslip=_angle(case, "beta"),
-        velocity=_velocity(case),
+        velocity=_velocity(case) * native_length if native_mach is None else None,
+        mach=native_mach,
         ref_velocity=(
-            solver.reference_velocity_m_per_s
-            if solver.reference_velocity_m_per_s is not None
-            else _velocity(case)
+            None
+            if solver.reference_mach is not None or solver.disable_reference_velocity
+            else (
+                solver.reference_velocity_m_per_s
+                if solver.reference_velocity_m_per_s is not None
+                else _velocity(case)
+            )
+            * native_length
         ),
+        ref_mach=solver.reference_mach,
+        disable_ref_velocity=bool(solver.disable_reference_velocity),
         vorticity_drag_boundaries=_vorticity_indices(case, script),
         # THE CALL SITE IS WHAT DELIVERS THIS, not the field and not the helper
         # keyword. Both of those existed already and a preset still could not ask
@@ -5678,11 +6013,27 @@ def _settings(
         iterations=solver.iterations,
         convergence=solver.convergence,
         max_threads=row_ncpus(case, solver.max_threads),
-        ref_area=None if reference is None else reference.area,
-        ref_length=None if reference is None else reference.length,
+        ref_area=None if reference is None else reference.area * reference_scale**2,
+        ref_length=None if reference is None else reference.length * reference_scale,
         forced_iterations=solver.forced_iterations,
         boundary_layer=solver.boundary_layer,
         viscous_coupling=solver.viscous_coupling,
+        viscous_excluded=solver.viscous_excluded,
+        surface_roughness=solver.surface_roughness,
+        thin_boundaries=solver.thin_boundaries,
+        bulk_separation=solver.bulk_separation,
+        airfoil_separation=solver.airfoil_separation,
+        axial_vortex_separation=solver.axial_vortex_separation,
+        cylindrical_bulk_separation=solver.cylindrical_bulk_separation,
+        stratford_bulk_separation=solver.stratford_bulk_separation,
+        delete_separations=solver.delete_separations,
+        valarezo_criterion=solver.valarezo_criterion,
+        valarezo_separation_boundaries=solver.valarezo_separation_boundaries,
+        crossflow_separation_boundaries=solver.crossflow_separation_boundaries,
+        crossflow_separation_diameter=solver.crossflow_separation_diameter,
+        crossflow_separation_mean_diameter=solver.crossflow_separation_mean_diameter,
+        crossflow_separation_axisymmetric=solver.crossflow_separation_axisymmetric,
+        solver_model=solver.legacy_solver_model,
         convergence_iterations=solver.convergence_iterations,
         minimum_cp=solver.minimum_cp,
         farfield_layers=solver.farfield_layers,
@@ -5708,6 +6059,20 @@ def _settings(
         vortex_ring_normalization=solver.vortex_ring_normalization,
         wake_termination_time_steps=wake_termination_time_steps,
     )
+    if solver.remove_initialization:
+        script.emit("REMOVE_INITIALIZATION")
+    if solver.proximal_boundaries is not None:
+        selected = solver.proximal_boundaries
+        if selected == "all":
+            count = script.entities.count("boundaries")
+            if not count:
+                raise CampaignConfigError("proximal_boundaries='all' requires a known inventory")
+            indices = list(range(1, count + 1))
+        else:
+            indices = [
+                script.resolve_boundary(value, context="proximal_boundaries") for value in selected
+            ]
+        script.emit("SOLVER_PROXIMAL_BOUNDARIES", len(indices), indices)
     _lift_and_coupling(case, script)
     # SYMMETRY LOADS AS STATED, the design decision of 2026-09-02 (PFS-2028.05): an
     # init-phase setting, emitted alone here as the helper asks; an absent
@@ -6000,13 +6365,16 @@ class _RowFreestream:
 
     path: str
     form: str
+    source_units: str | None = None
+    extent: tuple[float, float, float, float] | None = None
 
 
 def _read_custom_freestream(path: str, form: str) -> tuple[float, float, float, float]:
     """Read a custom free-stream file against the manual's form, or refuse naming the line (G15).
 
     Returns the grid's extent in the YZ plane, ``(y_min, y_max, z_min, z_max)`` in
-    metres, which the plan compares with the body's (G18).
+    the file's declared units. The caller converts explicit native units before
+    comparing with physical body bounds (G18).
 
     THE 26.124 MANUAL IS THE ONLY SOURCE of the form, and every check here is
     one of its sentences: the field varies within the YZ plane of the global
@@ -6014,9 +6382,9 @@ def _read_custom_freestream(path: str, form: str) -> tuple[float, float, float, 
     distinct z; a STRUCTURED file opens with ``Npts Mpts``, two positive
     integers, and holds exactly Npts x Mpts rows; every row is six numbers
     ``x y z vx vy vz``. A blank line carries nothing and is read past. Nothing
-    is converted: the file is in metres and metres per second in the global
-    frame, as the simulation is, and the licensed probe T14 measures what the
-    solver makes of it.
+    is converted by this parser. Explicit source-unit declarations are handled
+    separately; legacy files keep their bytes. RPT-082 measures the native
+    METER/MILLIMETER custom-file boundary on the pinned build.
 
     Each refusal names the file, the line (1-based, blank lines counted) and
     what the form asks, since the file is the user's and the line is where
@@ -6095,10 +6463,10 @@ def _read_custom_freestream(path: str, form: str) -> tuple[float, float, float, 
     return min(ys), max(ys), min(zs), max(zs)
 
 
-def _body_yz_extent_m(case: SimCase) -> tuple[float, float, float, float] | None:
-    """Return the body's extent in the YZ plane, in metres, or None where it is not read (G18).
+def _body_vertices_m(case: SimCase) -> tuple[tuple[float, float, float], ...] | None:
+    """Return physical mesh vertices in metres when their native unit contract is known.
 
-    A saved simulation's mesh block, in its saved length unit, or an OBJ's vertex
+    A saved simulation's measured internal mesh coordinates, or an OBJ's vertex
     lines in its ``[import]`` unit, converted to metres as ``IMPORT`` converts them
     (RPT-069). An STL or a file that does not read is not measured, and the
     coverage warning is then not given rather than guessed.
@@ -6111,7 +6479,8 @@ def _body_yz_extent_m(case: SimCase) -> tuple[float, float, float, float] | None
     try:
         if suffix == ".fsm":
             vertices, _ = surface_mesh(geometry)
-            factor = scale(saved_length_unit(geometry) or "METER", "METER")
+            stored_unit = saved_mesh_coordinate_unit(geometry)
+            factor = scale(stored_unit, "METER") if stored_unit else None
         elif suffix == ".obj" and unit:
             vertices = tuple(
                 (float(parts[1]), float(parts[2]), float(parts[3]))
@@ -6128,9 +6497,22 @@ def _body_yz_extent_m(case: SimCase) -> tuple[float, float, float, float] | None
         return None
     if factor is None or not vertices:
         return None
-    ys = [vertex[1] * factor for vertex in vertices]
-    zs = [vertex[2] * factor for vertex in vertices]
-    return min(ys), max(ys), min(zs), max(zs)
+    return tuple(
+        (vertex[0] * factor, vertex[1] * factor, vertex[2] * factor) for vertex in vertices
+    )
+
+
+def _body_yz_extent_m(case: SimCase) -> tuple[float, float, float, float] | None:
+    """Return the unmoved mesh's physical YZ bounds when its unit contract is known."""
+    vertices = _body_vertices_m(case)
+    if not vertices:
+        return None
+    return (
+        min(v[1] for v in vertices),
+        max(v[1] for v in vertices),
+        min(v[2] for v in vertices),
+        max(v[2] for v in vertices),
+    )
 
 
 def _how_the_row_moves_the_body(case: SimCase) -> list[str]:
@@ -6140,6 +6522,15 @@ def _how_the_row_moves_the_body(case: SimCase) -> list[str]:
         for key in (ROTATE_VARIABLE, TRANSLATE_VARIABLE, MOTIONS_VARIABLE)
         if _variable(case, key)
     ]
+    for key, records in (
+        (ROTATE_VARIABLE, case.rotations),
+        (TRANSLATE_VARIABLE, case.translations),
+        (MOTIONS_VARIABLE, case.motions),
+    ):
+        if records and key not in moved:
+            moved.append(key)
+    if case.recipe == "unsteady_rotor" and MOTIONS_VARIABLE not in moved:
+        moved.append(MOTIONS_VARIABLE)
     operations = getattr(case.mesh_import, "operations", None) or ()
     moved += sorted({f"the import's {op.op}" for op in operations if op.op != "rename"})
     return moved
@@ -6217,6 +6608,8 @@ def _the_custom_freestream(case: SimCase) -> _RowFreestream | None:
     stem = _variable(case, FREESTREAM_VARIABLE)
     path = case.freestream_profile
     if stem is None and path is None:
+        if case.freestream_units or _variable(case, FREESTREAM_UNITS_VARIABLE):
+            raise CampaignConfigError("FREESTREAM_UNITS requires a custom field file.")
         return None
     if path is None:
         raise CampaignConfigError(
@@ -6264,8 +6657,14 @@ def _the_custom_freestream(case: SimCase) -> _RowFreestream | None:
             "row binds, and the file is read where it lives."
         )
     grid = _read_custom_freestream(path, form)
-    _warn_when_the_field_misses_the_body(case, stated, grid)
-    return _RowFreestream(path=path, form=form)
+    declaration = _variable(case, FREESTREAM_UNITS_VARIABLE)
+    if declaration is not None and declaration not in {"SI", "NATIVE"}:
+        raise CampaignConfigError("FREESTREAM_UNITS must be SI or NATIVE.")
+    if declaration and case.freestream_units and declaration != case.freestream_units:
+        raise CampaignConfigError("FREESTREAM_UNITS conflicts with freestream_units.")
+    return _RowFreestream(
+        path=path, form=form, source_units=declaration or case.freestream_units, extent=grid
+    )
 
 
 def _free_stream(
@@ -6297,7 +6696,59 @@ def _free_stream(
     up (G13, 0.27.0; RPT-052 and RPT-060 measured the sense on 26.124).
     """
     if custom is not None:
-        helpers.free_stream(script, "CUSTOM", filetype=custom.form, profile=custom.path)
+        from .freestream import prepare_field
+
+        field = prepare_field(
+            Path(custom.path),
+            form=custom.form,
+            source_units=custom.source_units,
+            native_unit=script.simulation_length_unit,
+        )
+        if custom.extent is not None:
+            grid = custom.extent
+            if custom.source_units == "NATIVE":
+                factor = _from_metres(case, script, "custom field extent")
+                grid = (grid[0] / factor, grid[1] / factor, grid[2] / factor, grid[3] / factor)
+            if custom.source_units is None and script.simulation_length_unit == "MILLIMETER":
+                warnings.warn(
+                    "Custom-field coverage is not checked: declare FREESTREAM_UNITS as SI "
+                    "or NATIVE for a MILLIMETER simulation.",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
+            else:
+                script.custom_field_extent_m = grid
+                if not _how_the_row_moves_the_body(case):
+                    _warn_when_the_field_misses_the_body(case, "custom free stream", grid)
+        if field.payload is not None:
+            existing = script.pending_input_files.get(field.path)
+            if existing is not None and existing != field.payload:
+                raise CampaignConfigError("The prepared custom field conflicts with another input.")
+            script._pending_input_files[field.path] = field.payload
+            metadata = {
+                "_geoverse_header": {
+                    "file_version": "1.0.0",
+                    "file_role": "prepared-custom-field-provenance",
+                    "authority": "pyflightstream",
+                    "status": "generated-input",
+                    "confidentiality": "private",
+                    "last_modified_at": "2026-09-27T00:00:00+00:00",
+                    "last_modified_by": {
+                        "provider": "OpenAI",
+                        "product": "Codex",
+                        "model": "GPT-6",
+                        "role": "input-generator",
+                    },
+                    "dependencies": [field.provenance["source_sha256"]],
+                    "revision_source": "exact-file-bytes",
+                    "change_summary": "Explicit dimensional conversion; no rotation.",
+                },
+                **field.provenance,
+            }
+            script._pending_input_files[field.path + ".provenance.json"] = (
+                json.dumps(metadata, indent=2) + "\n"
+            )
+        helpers.free_stream(script, "CUSTOM", filetype=custom.form, profile=field.path)
         return
     turning = _turning_rate(case)
     if turning is None:
@@ -7087,6 +7538,72 @@ def _pproc_frame(
     return found
 
 
+def _finish_custom_field_coverage(case: SimCase, script: Script) -> None:
+    """Check the final emitted placement, conservatively including full rotor sweeps."""
+    grid = script.custom_field_extent_m
+    if grid is None:
+        return
+    moved = _how_the_row_moves_the_body(case)
+    if (
+        not moved
+        and not script.surface_operations
+        and not any(
+            value.get("motion_index") is not None for value in script.frame_motions.values()
+        )
+    ):
+        return
+    from .field_coverage import spatial_envelope
+
+    try:
+        if script.raw_flag:
+            raise ValueError("raw commands can change geometry or its frames")
+        vertices = _body_vertices_m(case)
+        if vertices is None:
+            raise ValueError("mesh coordinates or their physical units are unavailable")
+        bounds, notes = spatial_envelope(
+            vertices, script.surface_operations, list(script.frame_motions.values())
+        )
+        if (
+            moved
+            and not script.surface_operations
+            and not any(
+                value.get("motion_index") is not None for value in script.frame_motions.values()
+            )
+        ):
+            raise ValueError("the requested geometry change has no emitted placement record")
+    except (ValueError, TypeError, KeyError) as error:
+        script.custom_field_coverage = {"state": "unknown", "reason": str(error)}
+        warn(
+            f"case {case.sim_id!r}: custom-field coverage is not checked: {error}.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        return
+    covered = (
+        bounds[0] >= grid[0]
+        and bounds[1] <= grid[1]
+        and bounds[2] >= grid[2]
+        and bounds[3] <= grid[3]
+    )
+    script.custom_field_coverage = {
+        "state": "within-grid-bounds" if covered else "envelope-exceeds-grid",
+        "grid_yz_m": list(grid),
+        "body_envelope_yz_m": list(bounds),
+        "method": "conservative emitted-transform and full-rotary-sweep envelope",
+        "limitations": notes
+        + ["Grid bounds do not certify interior interpolation support or field coverage."],
+    }
+    if not covered:
+        warn(
+            f"case {case.sim_id!r}: custom field grid {grid} m does not cover the "
+            f"conservative transformed-body and swept-rotor envelope {bounds} m. "
+            "This may overestimate the occupied region; enlarge the grid or inspect "
+            "the resolved geometry before interpreting any outside region as loaded by the field.",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+
+
 def _script_tail(
     conventions: WorkflowConventions,
     case: SimCase,
@@ -7107,6 +7624,7 @@ def _script_tail(
     _script_init(case, script, frame, frames=frames, reopens_a_saved_state=reopens_a_saved_state)
     _script_solve_and_export(conventions, case, script, unsteady=unsteady, frames=frames)
     script.emit("CLOSE_FLIGHTSTREAM")
+    _finish_custom_field_coverage(case, script)
 
 
 def _script_init(
@@ -7131,6 +7649,15 @@ def _script_init(
     or cold, states them here for its first point and again before each
     later point's `START_SOLVER` (:func:`build_steady_sweep`).
     """
+    if case.fsi is not None:
+        from .fsi_workspace import validate_workspace_fsi
+
+        validate_workspace_fsi(
+            case,
+            script,
+            unsteady_rotor=select_workflow(case) == "unsteady_rotor",
+            continuation=reopens_a_saved_state,
+        )
     if frames is not None:
         # G12: THE FRAMES THIS RUN CREATED, kept on the script by name, so the
         # additional post can cite them in the saved simulation without
@@ -7183,6 +7710,32 @@ def _script_init(
             "of them would be emitted. That is a defect in the builder rather than "
             "in the artifact."
         )
+    if case.fsi is not None:
+        from .fsi_workspace import wire_workspace_fsi
+
+        turning, lost = _the_rotors_the_row_turns(case)
+        if lost or len(turning) > 1:
+            raise CampaignConfigError("FSI requires one uniquely resolved moving rotor.")
+        if turning:
+            alias, _view, speed = turning[0]
+            rotor = case.rotors[alias]
+        else:
+            flat_rotor = _the_rotor_a_flat_row_turns(case)
+            if flat_rotor is None:
+                raise CampaignConfigError("FSI requires one uniquely resolved rotor.")
+            rotor = flat_rotor
+            speed = rotor_speed(case)
+        if frames is None:
+            raise CampaignConfigError("FSI requires the initial blade/frame mapping.")
+        wire_workspace_fsi(
+            case,
+            script,
+            rotor=rotor,
+            rpm=speed.rpm,
+            delta_time_s=_rotor_clock(case).delta_time_s,
+            frames=frames,
+            interpreter=_action_interpreter(sys.executable),
+        )
     # THE LOADS FRAME AND THE MOMENTS MODEL, LAST IN THE INIT GROUP (B05). After
     # the initialisation and the sections, which is run A of RPT-064, and before
     # the raw exec commands, which open the exec phase and would leave no init
@@ -7209,6 +7762,8 @@ def _script_solve_and_export(
     helpers.start_solver(script)
     if not unsteady:
         _loads_selections(case, script)
+        if case.solver.clear_vorticity_drag_boundaries:
+            script.emit("DELETE_VORTICITY_DRAG_BOUNDARIES")
     _raw_commands(case, script, "analysis")
     # FR-81: a STEADY row creates the probe points it exports. `NEW_PROBE_LINE`
     # is an ANALYSIS command, so this is the only position the phase order
@@ -7217,10 +7772,6 @@ def _script_solve_and_export(
     # fluid plots long before this point and needs nothing here.
     if frames is not None:
         _pproc_probes(case, script, frames, unsteady=unsteady, analysis=True)
-        # G05: the volume section is cut HERE, after the solve and in the
-        # analysis phase, where the verified probes cut it. Only a steady row
-        # reaches this with a section declared: the unsteady builders refuse it.
-        _pproc_volume_section(case, script, frames)
     _raw_commands(case, script, "export")
     _export_block(conventions, case, script, unsteady=unsteady)
 
@@ -7385,7 +7936,7 @@ def _setup_frames(case: SimCase, script: Script) -> dict[str, int]:
         created[spec.name] = helpers.coordinate_frame(
             script,
             name=spec.name,
-            origin=spec.origin,
+            origin=_point_from_metres(case, script, spec.origin, "reference frame origin"),
             x_axis=spec.x_axis,
             y_axis=spec.y_axis,
             label=spec.name,
@@ -7498,6 +8049,48 @@ def _disc_rpm_from_the_advance_ratio(case: SimCase, name: str, block: ActuatorBl
     return round(60.0 * velocity / (ratio * 2.0 * block.tip_radius_m), _DERIVED_RPM_DECIMALS)
 
 
+def actuator_records(case: SimCase) -> list[dict[str, str]]:
+    """Read ACTUATOR brace records using the same pair grammar as MOTIONS.
+
+    Flat single-disc rows remain unchanged. Each record names ACTUATOR and its
+    own speed and loading; a row-level advance ratio can supply a shared ratio.
+    """
+    text = _variable(case, ACTUATOR_VARIABLE)
+    if text is None or not text.strip().startswith("{"):
+        return []
+    forbidden = [
+        key
+        for key in ACTUATOR_KEYS
+        if key != ACTUATOR_VARIABLE and _variable(case, key) is not None
+    ]
+    if forbidden:
+        raise CampaignConfigError(
+            "ACTUATOR records cannot be combined with flat " + ", ".join(forbidden)
+        )
+    bodies = re.findall(r"\{([^{}]*)\}", text)
+    if not bodies or re.sub(r"\{[^{}]*\}", "", text).strip(" ,"):
+        raise CampaignConfigError("ACTUATOR requires {ACTUATOR: name / KEY: value}, {...}")
+    allowed = {*ACTUATOR_KEYS, ADVANCE_RATIO_VARIABLE}
+    records: list[dict[str, str]] = []
+    names: set[str] = set()
+    for body in bodies:
+        record: dict[str, str] = {}
+        for pair in body.split("/"):
+            key, separator, value = pair.strip().partition(":")
+            key, value = key.strip(), value.strip()
+            if not separator or key not in allowed or not value or key in record:
+                raise CampaignConfigError(
+                    f"ACTUATOR record has an invalid or repeated pair: {pair!r}"
+                )
+            record[key] = value
+        name = record.get(ACTUATOR_VARIABLE)
+        if not name or name in names:
+            raise CampaignConfigError("each ACTUATOR record must name a different reference block")
+        names.add(name)
+        records.append(record)
+    return records
+
+
 def disc_speed_moves_with_the_point(case: SimCase) -> bool:
     """Return whether the row's disc turns at a different speed at each point.
 
@@ -7519,6 +8112,11 @@ def disc_speed_moves_with_the_point(case: SimCase) -> bool:
     """
     if _variable(case, ACTUATOR_VARIABLE) is None:
         return False
+    records = actuator_records(case)
+    if records and all(
+        ACTUATOR_RPM_VARIABLE in record or ADVANCE_RATIO_VARIABLE in record for record in records
+    ):
+        return False
     if _variable(case, ACTUATOR_RPM_VARIABLE) is not None:
         return False
     if _variable(case, ADVANCE_RATIO_VARIABLE) is not None:
@@ -7527,7 +8125,9 @@ def disc_speed_moves_with_the_point(case: SimCase) -> bool:
     return len(ratios) > 1
 
 
-def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
+def _the_actuator_the_row_names(
+    case: SimCase,
+) -> _RowActuator | tuple[_RowActuator, ...] | None:
     """Resolve the row's disc and its loading, or refuse naming the key (G06).
 
     CALLED BEFORE THE FIRST EMISSION by every builder that emits a disc, so a
@@ -7538,6 +8138,26 @@ def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
     (:func:`_refuse_a_disc_beside_a_saved_one`), and a profile file the
     solver would misread, naming its line (:func:`read_actuator_profile`).
     """
+    records = actuator_records(case)
+    if records:
+        discs: list[_RowActuator] = []
+        for record in records:
+            variables = {
+                key: value for key, value in case.variables.items() if key not in ACTUATOR_KEYS
+            }
+            variables.update(record)
+            view = case.model_copy(
+                update={
+                    "variables": variables,
+                    "actuator_profile": case.actuator_profiles.get(
+                        record.get(PROFILE_VARIABLE, "")
+                    ),
+                }
+            )
+            disc = _the_actuator_the_row_names(view)
+            assert isinstance(disc, _RowActuator)
+            discs.append(disc)
+        return tuple(discs)
     stated = [key for key in ACTUATOR_KEYS if _variable(case, key) is not None]
     if not stated:
         return None
@@ -7582,7 +8202,8 @@ def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
         raise CampaignConfigError(
             f"case {case.sim_id!r} names {ACTUATOR_VARIABLE}: {name} and states neither "
             f"{ACTUATOR_THRUST_VARIABLE} nor {PROFILE_VARIABLE}. A disc is loaded by its net "
-            f"thrust in N ('{ACTUATOR_THRUST_VARIABLE}: <N>') or by a profile file of "
+            f"thrust in {block.thrust_units} ('{ACTUATOR_THRUST_VARIABLE}: <value>') "
+            "or by a profile file of "
             f"inputs/profiles/ ('{PROFILE_VARIABLE}: <stem>')."
         )
     thrust: float | None = None
@@ -7590,7 +8211,7 @@ def _the_actuator_the_row_names(case: SimCase) -> _RowActuator | None:
     profile_text: str | None = None
     if thrust_text is not None:
         thrust = _required_float(
-            case, ACTUATOR_THRUST_VARIABLE, quantity="disc's net thrust", unit="N"
+            case, ACTUATOR_THRUST_VARIABLE, quantity="disc's net thrust", unit=block.thrust_units
         )
     else:
         if block.blades is None:
@@ -7664,6 +8285,14 @@ def _refuse_a_disc_beside_a_saved_one(case: SimCase, name: str) -> None:
         )
 
 
+def _point_from_metres(
+    case: SimCase, script: Script, point: tuple[float, float, float], what: str
+) -> tuple[float, float, float]:
+    """Convert a declared physical point once before native frame placement."""
+    factor = _from_metres(case, script, what)
+    return point[0] * factor, point[1] * factor, point[2] * factor
+
+
 def _from_metres(case: SimCase, script: Script, what: str) -> float:
     """Return the factor that writes a length in metres in the simulation's unit (G05, G06).
 
@@ -7710,6 +8339,8 @@ def _from_metres(case: SimCase, script: Script, what: str) -> float:
                 "row's RAW: {COMMAND: SET_SIMULATION_LENGTH_UNITS <unit> / BEFORE: setup} or "
                 "the same line in its setup's [[raw]], and the lengths are converted into it."
             ) from error
+    if unit is not None and script.simulation_length_unit is None:
+        script.record_opened_length_unit(unit)
     if unit is None:
         return 1.0
     factor = scale("METER", unit)
@@ -7723,7 +8354,74 @@ def _from_metres(case: SimCase, script: Script, what: str) -> float:
 
 
 def _actuator_disc(
-    case: SimCase, script: Script, frames: Frames, disc: _RowActuator | None
+    case: SimCase,
+    script: Script,
+    frames: Frames,
+    disc: _RowActuator | tuple[_RowActuator, ...] | None,
+) -> None:
+    """Create requested discs and apply explicit actions in their declared order."""
+    records = disc if isinstance(disc, tuple) else (() if disc is None else (disc,))
+    actions = case.solver.actuator_operations or ()
+    planned: list[tuple[str, int, str | None]] = []
+    existing: list[str] = []
+    if actions:
+        if not records and case.geometry is not None:
+            if PurePath(case.geometry).suffix.lower() == SIMULATION_SUFFIX:
+                try:
+                    saved = saved_actuators(case.geometry)
+                    if saved is None:
+                        raise CampaignConfigError(
+                            "actuator operations require a readable saved physics inventory"
+                        )
+                    existing = list(saved)
+                except MeshReadError as error:
+                    raise CampaignConfigError(
+                        f"actuator operations cannot read the saved actuator inventory: {error}"
+                    ) from error
+        names = existing + [item.name for item in records]
+        commands = {
+            "rename": "SET_ACTUATOR_NAME",
+            "delete": "DELETE_ACTUATOR",
+            "enable": "ENABLE_ACTUATOR",
+            "disable": "DISABLE_ACTUATOR",
+        }
+        for action in actions:
+            command = commands[action.op]
+            script.entry(command)
+            matches = [index for index, name in enumerate(names) if name == action.actuator]
+            if len(matches) != 1:
+                raise CampaignConfigError(
+                    f"actuator {action.actuator!r} resolves to {len(matches)} objects; "
+                    f"actuator_operations require one exact current name (available: {names})"
+                )
+            index = matches[0]
+            if action.op == "rename":
+                assert action.name is not None
+                if action.name != action.actuator and action.name in names:
+                    raise CampaignConfigError(f"actuator rename would duplicate {action.name!r}")
+                names[index] = action.name
+            elif action.op == "delete":
+                names.pop(index)
+            planned.append((command, index + 1, action.name))
+    if existing:
+        if script.num_actuators not in (0, len(existing)):
+            raise CampaignConfigError("saved actuator inventory disagrees with script entity count")
+        if script.num_actuators == 0:
+            script.declare_existing(actuators=len(existing))
+    for item in records:
+        _emit_actuator_disc(case, script, frames, item)
+    for command, index, name in planned:
+        if name is None:
+            script.emit(command, index)
+        else:
+            script.emit(command, index, name)
+
+
+def _emit_actuator_disc(
+    case: SimCase,
+    script: Script,
+    frames: Frames,
+    disc: _RowActuator | tuple[_RowActuator, ...] | None,
 ) -> None:
     """Emit the row's actuator disc in the frame its block names (G06).
 
@@ -7748,6 +8446,8 @@ def _actuator_disc(
     script with no working folder (a plan's rehearsal, a case built in
     Python) names the copy by its bare name.
     """
+    if isinstance(disc, tuple):
+        raise CampaignConfigError("internal actuator emission expects one resolved disc")
     if disc is None:
         return
     frame = frames.get(disc.block.frame)
@@ -7779,12 +8479,13 @@ def _actuator_disc(
         r_hub=block.hub_radius_m * factor,
         rpm=block.rpm_sign * disc.rpm,
         thrust=disc.thrust,
-        thrust_type="NEWTONS",
+        thrust_type=block.thrust_units,
         profile=copy,
         profile_force_unit=block.profile_units,
         n_blades=block.blades,
         profile_text=disc.profile_text,
         swirl=block.swirl,
+        wake_type=block.wake_type,
         label=f"actuator:{disc.name}",
     )
 
@@ -8094,12 +8795,14 @@ def _translations(
                     f"place about a pivot elsewhere. {remedy}"
                 )
             origin = placement.origin
+            # This command declares METER; the ledger origin is native-unit.
+            factor = _from_metres(case, script, "translated frame origin")
             script.emit(
                 "SET_COORDINATE_SYSTEM_ORIGIN",
                 frame=index,
-                x=origin[0] + distance * direction[0],
-                y=origin[1] + distance * direction[1],
-                z=origin[2] + distance * direction[2],
+                x=origin[0] / factor + distance * direction[0],
+                y=origin[1] / factor + distance * direction[1],
+                z=origin[2] / factor + distance * direction[2],
                 units="METER",
             )
     return _the_copies_kept(frames)
@@ -8363,7 +9066,7 @@ def _keep_the_frame_this_alias_turns_from(
     frames[f"{hub}{ORIGINAL_FRAME_SUFFIX}"] = helpers.coordinate_frame(
         script,
         name=f"{hub}{ORIGINAL_FRAME_SUFFIX}",
-        origin=block.origin,
+        origin=_point_from_metres(case, script, block.origin, "rotor x_m/y_m/z_m"),
         x_axis=(1.0, 0.0, 0.0),
         y_axis=(0.0, 1.0, 0.0),
         label=label,
@@ -8493,7 +9196,9 @@ def _blade_frames(case: SimCase, script: Script, rotor_frame: int) -> dict[str, 
     axis = str(_variable(case, ROTOR_AXIS_VARIABLE) or "X").upper()
     origin = (0.0, 0.0, 0.0)
     if case.reference is not None and case.reference.rotor_position_m is not None:
-        origin = case.reference.rotor_position_m
+        origin = _point_from_metres(
+            case, script, case.reference.rotor_position_m, "rotor_position_m"
+        )
     created: dict[str, int] = {}
     for number, family in enumerate(blades, start=1):
         index = helpers.coordinate_frame(
@@ -8547,7 +9252,7 @@ def _rotor_blade_frames(
         index = helpers.coordinate_frame(
             script,
             name=f"{radical}_RMRP{number}",
-            origin=rotor.origin,
+            origin=_point_from_metres(view, script, rotor.origin, "rotor x_m/y_m/z_m"),
             # ON THE SHAFT SINCE 0.23.0 ITEM 19, and the identity before it.
             # A rotor installed at pitch and toe got blade frames built on the
             # GEOMETRY's axes, so turning about that frame's third axis turned
@@ -8612,6 +9317,12 @@ def _pproc_plots(case: SimCase, script: Script, frames: Frames) -> None:
     pproc = case.pproc
     if pproc is None:
         return
+    if (
+        pproc.surface_probes
+        or pproc.volume_section is not None
+        or any(entry.field_formats or entry.reusable_inflow for entry in pproc.probes)
+    ):
+        script.emit("UNSTEADY_SOLVER_DELETE_ALL_PLOTS")
     inventory = _inventory(script)
     emitted: set[str] = set()
     for group in pproc.plots.groups:
@@ -8807,6 +9518,56 @@ def _plot_each_rotors_own_history(
             )
 
 
+def _pproc_surface_probes(case: SimCase, script: Script, frames: Frames) -> None:
+    """Emit surface-property histories with their own identity and coordinate contract."""
+    pproc = case.pproc
+    if pproc is None or not pproc.surface_probes:
+        return
+    invalid = [
+        probe.parameter for probe in pproc.surface_probes if probe.parameter.startswith("BL_")
+    ]
+    if invalid:
+        raise CampaignConfigError(
+            f"surface_probes {', '.join(invalid)} refused: native 26.124 build 8172026 "
+            "returned CP_FREE for these BL requests; see RPT-083. "
+            "No verified surface-history route exists for these parameters."
+        )
+    scale = _from_metres(case, script, "surface probe coordinates")
+    script.surface_probe_layout.clear()
+    for probe in pproc.surface_probes:
+        frame = (
+            1
+            if probe.frame == "REFERENCE"
+            else _pproc_frame(case, frames, probe.frame, f"surface probe {probe.name!r}")
+        )
+        coordinates = [float(value) * scale for value in probe.point_m]
+        plot_name = f"SURFACE_{probe.name}"
+        script.emit(
+            "NEW_UNSTEADY_SOLVER_SURFACE_PROBE",
+            name=plot_name,
+            parameter=probe.parameter,
+            csys=frame,
+            x=coordinates[0],
+            y=coordinates[1],
+            z=coordinates[2],
+        )
+        script.surface_probe_layout.append(
+            {
+                "name": probe.name,
+                "plot_name": plot_name,
+                "parameter": probe.parameter,
+                "frame": probe.frame,
+                "frame_index": frame,
+                "point_m": list(probe.point_m),
+                "command_point": coordinates,
+                "simulation_length_unit": script.simulation_length_unit,
+                "coordinate_contract": "named-frame-native-length",
+                "sampling_kind": "native-surface-property",
+                "command": "NEW_UNSTEADY_SOLVER_SURFACE_PROBE",
+            }
+        )
+
+
 def _pproc_probes(
     case: SimCase, script: Script, frames: Frames, *, unsteady: bool, analysis: bool
 ) -> None:
@@ -8827,11 +9588,26 @@ def _pproc_probes(
     pproc = case.pproc
     if pproc is None:
         return
+    if pproc.surface_probes and not unsteady:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: [[surface_probes]] requires an unsteady march"
+        )
     vertex = 0
     # F01: every declaration follows the run type, including cited profiles.
     # Unsteady fluid plots are placed in INIT; steady probes in ANALYSIS.
     if analysis == unsteady:
         return
+    if unsteady:
+        _pproc_surface_probes(case, script, frames)
+    sampled = pproc.volume_section is not None or any(
+        entry.field_formats or entry.reusable_inflow for entry in pproc.probes
+    )
+    previous_layout = list(script.probe_field_layout)
+    if sampled:
+        if not unsteady:
+            script.emit("DELETE_PROBE_POINTS")
+        script.probe_points.clear()
+        script.probe_field_layout.clear()
     for entry_number, probes in enumerate(pproc.probes, start=1):
         if not unsteady and probes.parameters:
             # B10: on a steady run the list enables the entry and filters nothing.
@@ -8858,7 +9634,43 @@ def _pproc_probes(
                     f"{script.version.canonical} ({entry.citation}). "
                     f"The parameters for this build are: {', '.join(allowed)}."
                 )
+        first_vertex = vertex + 1
         vertex = _emit_one_probe_table(case, script, frames, probes, vertex, unsteady=unsteady)
+        if (probes.field_formats or probes.reusable_inflow) and vertex >= first_vertex:
+            resolved_frame = _the_probe_frame(case, probes.frame)
+            frame_index = (
+                1
+                if resolved_frame == "REFERENCE"
+                else _pproc_frame(case, frames, resolved_frame, "the sampled probe field")
+            )
+            script.probe_field_layout.append(
+                {
+                    "entry": entry_number,
+                    "kind": "probe-field",
+                    "probe_ids": list(range(first_vertex, vertex + 1)),
+                    "frame": resolved_frame,
+                    "frame_index": frame_index,
+                    "coordinate_frame_index": frame_index if unsteady else 1,
+                    "command_coordinate_units": "m" if unsteady else script.simulation_length_unit,
+                    "coordinate_source": "emitted-local" if unsteady else "native-export-reference",
+                    "export_kind": "unsteady-fluid-plot" if unsteady else "steady-probe",
+                    "points_native": [
+                        list(point[1:4])
+                        for point in script.probe_points
+                        if first_vertex <= point[0] <= vertex
+                    ],
+                    "native_to_m": 1.0 / _from_metres(case, script, "probe field coordinates"),
+                    "formats": list(probes.field_formats),
+                    "reusable_inflow": probes.reusable_inflow,
+                }
+            )
+
+    _pproc_sampled_volume(case, script, frames, vertex, unsteady=unsteady)
+    if sampled and previous_layout and previous_layout != script.probe_field_layout:
+        raise CampaignConfigError(
+            "a steady job changed its sampled field layout between points; "
+            "run these points separately to retain each field's placement"
+        )
 
 
 #: FR-91. The simulation subfolder the package writes a simulation's probe
@@ -9011,7 +9823,11 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
                 "is resolved against the workspace's inputs/profiles/ when the row binds, so "
                 "build this case through the workspace (plan_matrix or run_matrix)."
             )
-        if not unsteady:
+        if (
+            not unsteady
+            and case.pproc.volume_section is None
+            and not any(entry.field_formats or entry.reusable_inflow for entry in case.pproc.probes)
+        ):
             emit_probe_import(script, probes.resolved_points_file)
             return vertex
     if not (probes.points_file or probes.lines or probes.rectangles or probes.circles):
@@ -9040,10 +9856,21 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
             stacklevel=2,
         )
         return vertex
-    frame = _pproc_frame(case, frames, probes.frame, "the probe lines")
+    frame = (
+        1
+        if probes.frame == "REFERENCE"
+        else _pproc_frame(case, frames, probes.frame, "the probe lines")
+    )
     scale = 1.0
     if probes.scale == "rotor_radius":
         scale = _the_radius_the_probe_lines_are_in(case, probes.frame) / 2.0
+    # Both forms above are physical metres; the frame ledger and solver are
+    # in native simulation units. Convert before placement and recording.
+    native_per_m = _from_metres(case, script, "probe coordinates")
+    scale *= native_per_m
+    # RPT-083: fluid-plot VERTEX consumes metres even in a MILLIMETER
+    # simulation. Keep the recorded local points in native units, then
+    # convert only this command boundary back to SI. Steady probes differ.
     for line in probes.lines:
         for step in range(probes.points):
             fraction = step / (probes.points - 1)
@@ -9068,7 +9895,7 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
                         frame=frame,
                         parameter=parameter,
                         name=f"{parameter}{vertex}",
-                        vertex=" ".join(str(value) for value in point),
+                        vertex=" ".join(str(value / native_per_m) for value in point),
                     )
 
     if not unsteady:
@@ -9158,7 +9985,7 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
                     frame=frame,
                     parameter=parameter,
                     name=f"{parameter}{vertex}",
-                    vertex=" ".join(str(value) for value in point),
+                    vertex=" ".join(str(value / native_per_m) for value in point),
                 )
         else:
             # A VOLUME PROBE, the point in the flow a fluid probe is. The
@@ -9404,6 +10231,11 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
                     {
                         "distribution": position,
                         "distribution_families": entry.families,
+                        **(
+                            {"frame_index": frame}
+                            if pproc.products.boundary_layer_integrals or case.fsi is not None
+                            else {}
+                        ),
                         "families": [str(family) for family in families],
                         "plane": str(plane),
                         "frame": "" if frame_name is None else str(frame_name),
@@ -9487,108 +10319,88 @@ _VOLUME_SECTION_COMMANDS = {
 }
 
 
-def _pproc_volume_section(case: SimCase, script: Script, frames: Frames) -> None:
-    """Cut the pproc's volume section for this point, after its solve (G05).
-
-    THE ANALYSIS PHASE, AFTER ``START_SOLVER``, which is where the verified
-    create probes cut it (26.120 to 26.124: a section created there exports a
-    file). A section is a cut through a solution, and one created before the
-    solve cuts a field that does not exist yet.
-
-    THEN ``UPDATE_ALL_VOLUME_SECTIONS``, which computes the flow on it. A
-    section cut and exported straight away holds nothing: the licensed run of
-    2026-09-24 (RPT-070, 26.124) exported both points of a steady sweep that way
-    as byte-identical files whose every cell value was 0.0. The manual computes
-    the flow on a volume section with "Update all", after the solution has
-    converged (SRC-752 p.256; the command is p.372), so every point
-    updates after cutting its own section and before any export. The command is
-    documented on every build of the range and ran without abort in the probes
-    of 26.120 to 26.124; that it fills the export is not yet measured.
-
-    A LATER POINT OF A SWEEP DELETES THE PREVIOUS SECTION FIRST, BY ITS OWN
-    INDEX. A steady row is one script, so a section created per point would
-    take indices 1, 2, 3 and each point's export would write another point's
-    plane under its own name. The index is the one the script's ledger gives
-    the section (:attr:`~pyflightstream.script.Script.volume_section_index`),
-    counting every section the script cut: a raw line of the row may cut its
-    own before the pproc's, and the pproc's is then 2, not 1. A section a
-    saved simulation carries is not counted, since none is read from the file.
-    `DELETE_VOLUME_SECTION` is verified alone on the same five builds; the
-    delete-then-create sequence inside one script is not measured, and neither
-    is whether a `COLD_START` clear removes a section.
-
-    THE TABLE'S METRES ARE WRITTEN IN THE SIMULATION'S UNIT (:func:`_from_metres`),
-    and a unit the package cannot know is refused naming the keys. The prism
-    filler (:data:`~pyflightstream.cases.VOLUME_SECTION_PRISMS`) is not a
-    length the table states and is sent as the verified probes sent it.
-    """
-    pproc = case.pproc
-    if pproc is None or pproc.volume_section is None:
+def _pproc_sampled_volume(case, script, frames, vertex: int, *, unsteady: bool) -> None:
+    """Sample a declared volume plane without using the FSM's section indices."""
+    section = case.pproc.volume_section
+    if section is None:
         return
-    section = pproc.volume_section
-    frame = _pproc_frame(case, frames, section.frame, "the volume section")
-    shape_key = "corners_m" if section.shape == "rectangle" else "radii_m"
-    factor = _from_metres(case, script, f"the offset_m and {shape_key} of the [volume_section]")
-    if script.volume_section_index is not None:
-        script.emit("DELETE_VOLUME_SECTION", script.volume_section_index)
-    prisms_type, thickness, layers, growth_rate = VOLUME_SECTION_PRISMS
+    factor = _from_metres(case, script, "sampled volume section coordinates")
+    frame = (
+        1
+        if section.frame == "REFERENCE"
+        else _pproc_frame(case, frames, section.frame, "the sampled volume section")
+    )
     if section.shape == "rectangle":
-        assert section.corners_m is not None  # the model refuses a rectangle without
-        x1, y1, x2, y2 = (corner * factor for corner in section.corners_m)
-        script.emit(
-            _VOLUME_SECTION_COMMANDS["rectangle"],
-            frame=frame,
-            plane=section.plane,
-            offset=section.offset_m * factor,
-            refinement_layers=section.refinement_layers,
-            x1=x1,
-            y1=y1,
-            x2=x2,
-            y2=y2,
-            prisms_type=prisms_type,
-            thickness=thickness,
-            layers=layers,
-            growth_rate=growth_rate,
-        )
+        count_u, count_v = section.points or (25, 25)
+        count_u = (count_u - 1) * 2 ** (section.refinement_layers - 1) + 1
+        count_v = (count_v - 1) * 2 ** (section.refinement_layers - 1) + 1
+        u0, v0, u1, v1 = section.corners_m
+        pairs = [
+            (u0 + (u1 - u0) * i / (count_u - 1), v0 + (v1 - v0) * j / (count_v - 1))
+            for i in range(count_u)
+            for j in range(count_v)
+        ]
     else:
-        assert section.radii_m is not None and section.points is not None
-        script.emit(
-            _VOLUME_SECTION_COMMANDS["circle"],
-            frame=frame,
-            plane=section.plane,
-            offset=section.offset_m * factor,
-            ipts=section.points[0],
-            jpts=section.points[1],
-            r1=section.radii_m[0] * factor,
-            r2=section.radii_m[1] * factor,
-            prisms_type=prisms_type,
-            thickness=thickness,
-            layers=layers,
-            growth_rate=growth_rate,
+        radial, azimuth = section.points
+        inner, outer = section.radii_m
+        pairs = []
+        for i in range(radial):
+            radius = inner + (outer - inner) * i / (radial - 1)
+            if radius == 0:
+                pairs.append((0.0, 0.0))
+            else:
+                pairs.extend(
+                    (
+                        radius * math.cos(2 * math.pi * j / azimuth),
+                        radius * math.sin(2 * math.pi * j / azimuth),
+                    )
+                    for j in range(azimuth)
+                )
+    first = vertex + 1
+    label = section.frame if unsteady else "REFERENCE"
+    for u, v in pairs:
+        offset = section.offset_m
+        local = {"XY": [u, v, offset], "XZ": [u, offset, v], "YZ": [offset, u, v]}[section.plane]
+        native = [value * factor for value in local]
+        point = (
+            native
+            if unsteady
+            else _in_the_reference_frame(case, script, frame, section.frame, native)
         )
-    # THE SECTION JUST CUT IS THE LAST OF THE LIST, so its index is the count.
-    script.volume_section_index = script.volume_sections
-    # COMPUTED BEFORE IT IS EXPORTED (RPT-070): the solve has run, and the cut
-    # holds no flow until the sections are updated.
-    script.emit("UPDATE_ALL_VOLUME_SECTIONS")
-
-
-def _refuse_a_volume_section_off_a_steady_row(case: SimCase, name: str) -> None:
-    """Refuse an unsteady row whose pproc declares a volume section (G05).
-
-    The section is cut after the solve, and an unsteady row's step exports and
-    wall-clock rescue run DURING the march, before it exists; the end of the run
-    alone would be a third meaning of "the section of this point". Called before
-    a continuation is built too, since that reopens the same row.
-    """
-    if case.pproc is None or case.pproc.volume_section is None:
-        return
-    raise CampaignConfigError(
-        f"case {case.sim_id!r}: the pproc artifact {case.pproc_id!r} declares "
-        f"[volume_section] and the row names the run type {name!r}. The section is cut "
-        "after the solve, and an unsteady row's step and wall-clock exports run during "
-        "the march, before it exists; a volume section is a steady row's in 0.27.0. "
-        "Name a pproc without the table on this row."
+        vertex += 1
+        script.probe_points.append((vertex, *map(float, point), label))
+        if unsteady:
+            for parameter in ("VX", "VY", "VZ"):
+                script.emit(
+                    "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
+                    frame=frame,
+                    parameter=parameter,
+                    name=f"{parameter}{vertex}",
+                    vertex=" ".join(str(value / factor) for value in point),
+                )
+        else:
+            script.emit("NEW_PROBE_POINT", x=point[0], y=point[1], z=point[2], type="VOLUME")
+    script.probe_field_layout.append(
+        {
+            "entry": len(case.pproc.probes) + 1,
+            "kind": "volume-section",
+            "probe_ids": list(range(first, vertex + 1)),
+            "frame": label,
+            "frame_index": frame if unsteady else 1,
+            "coordinate_frame_index": frame if unsteady else 1,
+            "command_coordinate_units": "m" if unsteady else script.simulation_length_unit,
+            "coordinate_source": "emitted-local" if unsteady else "native-export-reference",
+            "export_kind": "unsteady-fluid-plot" if unsteady else "steady-probe",
+            "points_native": [
+                list(point[1:4]) for point in script.probe_points if first <= point[0] <= vertex
+            ],
+            "native_to_m": 1.0 / factor,
+            "formats": [section.format],
+            "reusable_inflow": False,
+            "declared_frame": section.frame,
+            "declared_plane": section.plane,
+            "shape": section.shape,
+        }
     )
 
 
@@ -9645,29 +10457,28 @@ def tecplot_source(tecplot: str, kinds: Mapping[str, str]) -> str:
     return PurePath(tecplot).with_suffix(".vtk").as_posix()
 
 
+def native_tecplot_source(tecplot: str) -> str:
+    """Name the retained native nodal source for a package-written surface (G53)."""
+    path = PurePath(tecplot)
+    return path.with_name(path.stem + "_native_tecplot.dat").as_posix()
+
+
 def with_tecplot_source(outputs: Sequence[str]) -> list[str]:
-    """Return a point's outputs with the VTK its Tecplot surface is written from (G45).
+    """Include both sources of the translated surface in run output accounting.
 
-    Where the outputs name a Tecplot and no VTK, the VTK the script exports in
-    its place (:func:`tecplot_source`) joins them right after the Tecplot, so the
-    run holds it to the rules of every declared output: refused if it is there
-    before the run, waited for on a cluster, filed, listed and hashed. The
-    Tecplot's record names that VTK and its sha256, and the file it names is
-    kept.
-
-    Examples
-    --------
-    >>> with_tecplot_source(["P1.txt", "P1.dat", "P1_log.txt"])
-    ['P1.txt', 'P1.dat', 'P1.vtk', 'P1_log.txt']
-    >>> with_tecplot_source(["P1.txt", "P1.dat", "P1.vtk"])
-    ['P1.txt', 'P1.dat', 'P1.vtk']
+    The VTK supplies panel values; the native Tecplot supplies nodal strength.
+    Both are waited for, filed and hashed, including at each exported step.
+    Calling this on an already expanded output list is idempotent.
     """
     names = [str(name) for name in outputs]
     kinds = classify_outputs(names)
-    if "tecplot" not in kinds or "vtk" in kinds:
+    tecplot = kinds.get("tecplot")
+    if tecplot is None:
         return names
-    at = names.index(kinds["tecplot"]) + 1
-    return [*names[:at], tecplot_source(kinds["tecplot"], kinds), *names[at:]]
+    at = names.index(tecplot) + 1
+    dependencies = [tecplot_source(tecplot, kinds), native_tecplot_source(tecplot)]
+    missing = [name for name in dependencies if name not in names]
+    return [*names[:at], *missing, *names[at:]]
 
 
 def _export_surface_vtk(script: Script, case: SimCase, name: str) -> None:
@@ -9696,10 +10507,9 @@ def _surface_export(
     is showing, then the save with the path on the line after it (RPT-067).
     False for every other kind, which the caller emits as ``<verb>`` and a name.
 
-    THE TECPLOT IS NEVER THE SOLVER'S (G45 of 0.28.0): the script exports the
-    VTK it is written from (:func:`tecplot_source`), and nothing where the
-    outputs name that VTK themselves, whose own export is the one. ``kinds``
-    is every kind the caller exports, name by kind.
+    The package writes the requested Tecplot from VTK panel values and native
+    nodal strength (G53). The separate native export is retained as provenance.
+    ``kinds`` contains every public export, by kind.
     """
     if kind in PLOT_TYPES:
         script.emit("SET_PLOT_TYPE", PLOT_TYPES[kind])
@@ -9711,6 +10521,7 @@ def _surface_export(
         stated = dict(kinds or {kind: name})
         if "vtk" not in stated:
             _export_surface_vtk(script, case, tecplot_source(name, stated))
+        helpers.export_results(script, tecplot=native_tecplot_source(name))
     elif kind == "vtk":
         _export_surface_vtk(script, case, name)
     elif kind == "csv":
@@ -9764,7 +10575,6 @@ def _export_block(
     names = list(conventions.outputs or case.outputs)
     kinds = classify_outputs(names)
     if unsteady:
-        _refuse_a_solver_plot_on_a_march(case)
         for kind in STEADY_ONLY_EXPORT_KINDS:
             kinds.pop(kind, None)
     if "loads" not in kinds:
@@ -9820,6 +10630,7 @@ def _export_block(
             {
                 "vtk": tecplot_source(kinds["tecplot"], kinds),
                 "dat": kinds["tecplot"],
+                "native_tecplot": native_tecplot_source(kinds["tecplot"]),
                 "frame": script.loads_frame_record(),
             }
         )
@@ -9832,29 +10643,6 @@ def _export_block(
 #: declared. The section Cp plot is one: it plots the sections, and a point
 #: whose pproc switched every other section export off still updates them.
 _UPDATED_KINDS: tuple[str, ...] = ("sections", "sectional_loads", "probes", "plot_sections_cp")
-
-
-def _refuse_a_solver_plot_on_a_march(case: SimCase) -> None:
-    """Refuse the section Cp plot a pproc states true on an unsteady row (G04, G26).
-
-    The residual and the load plots are saved after an unsteady march too (G26 of
-    0.28.0, RPT-076); the section Cp plot was never run after one, so an unsteady
-    row declares none by default, and a key stated true would reach no line,
-    which is the silence this package refuses rather than keeps.
-    """
-    exports = case.pproc.exports if case.pproc is not None else {}
-    stated = sorted(
-        kind for kind in PLOT_TYPES if kind in STEADY_ONLY_EXPORT_KINDS and exports.get(kind)
-    )
-    if not stated:
-        return
-    keys = " and ".join(f"{kind} = true" for kind in stated)
-    raise CampaignConfigError(
-        f"case {case.sim_id!r}: its pproc artifact states [exports] {keys} and the row "
-        f"names the run type {case.recipe!r}. The section Cp plot was measured after a "
-        "steady solve only (RPT-067); after an unsteady march the residual and the load "
-        "plots were (RPT-076), and are saved by default. Remove the key or state it false."
-    )
 
 
 def _exports_its_log(case: SimCase) -> bool:
@@ -10019,7 +10807,7 @@ def build_steady_sweep(
     point_cases: Sequence[SimCase],
     script: Script,
     *,
-    cold: bool = False,
+    cold: bool = True,
 ) -> None:
     """Build ONE script for every point of a steady sweep.
 
@@ -10029,11 +10817,9 @@ def build_steady_sweep(
     the solver is initialised once, and then for each point the two
     angles are set, the solver is started and the outputs are exported.
 
-    WARM IS WHAT HAPPENS WHEN NOTHING CLEARS THE SOLVER, and that is why
-    it is the default rather than a feature: point two begins from point
-    one's converged solution because nothing threw it away. ``cold``
-    emits a solver clear between points, which is the only difference
-    between the two and the whole of ``COLD_START``.
+    Cold starts are the default from 0.29.0 (R13): every point, including
+    the first point of a reopened simulation, clears the solution before
+    solving. Explicit ``cold=False`` retains the previous warm behavior.
 
     THE ORDER MATTERS AND IT IS RECORDED: a warm sweep's result depends
     on the order its points ran in, which nothing recorded before this
@@ -10052,10 +10838,9 @@ def build_steady_sweep(
     script : Script
         The script every point is emitted into.
     cold : bool
-        Emit a solver clear between points. False is warm, which is the
-        default: a steady sweep begins each point from the previous one's
-        converged solution, so the panelling and the wake survive and the
-        sweep costs one setup rather than one per point.
+        Clear the solution before every point; True by default. Explicit
+        False retains a previous point's converged solution. Geometry and
+        setup are emitted once in either mode.
     """
     if not point_cases:
         raise CampaignConfigError(
@@ -10135,7 +10920,7 @@ def build_steady_sweep(
         # conventions. One set for the whole sweep would have every point
         # writing the first point's file names, which is the collision the
         # per-point naming exists to prevent.
-        if index and cold:
+        if cold:
             # The clear the predecessor left commented out, and it is the
             # only line by which a cold sweep differs from a warm one.
             #
@@ -10157,6 +10942,7 @@ def build_steady_sweep(
             frames=frames,
         )
     script.emit("CLOSE_FLIGHTSTREAM")
+    _finish_custom_field_coverage(first, script)
     refuse_an_untranslatable_surface(first, script)
 
 
@@ -10443,12 +11229,11 @@ WALLTIME_CLOCK_PROGRAM = "actions/pfs_walltime_clock.py"
 WALLTIME_STOP_SCRIPT = "actions/pfs_walltime_stop.txt"
 WALLTIME_CLOCK_STATE = "actions/pfs_walltime_clock.json"
 
-#: What the clock writes into (4) when it fires: the exports this row
-#: declares, then the stop. THE STOP VERB IS ONE SUBSTITUTABLE LINE, on
-#: purpose: whether ``STOP`` inside an action's script ends the RUN or only
-#: that script is NOT MEASURED, and it needs a licensed probe that moves
-#: one thing. Keeping it to one line is what makes that probe cheap.
-WALLTIME_STOP_VERB = "STOP"
+#: Rescue declared outputs before closing the native process. T41 on 26.122
+#: measured STOP continuing the march; CLOSE_FLIGHTSTREAM ended it. A rescued
+#: aggregate history may lack the current STEP, and WALLTIME averages are
+#: refused because the native averaging buffers were not finalized.
+WALLTIME_STOP_VERB = "CLOSE_FLIGHTSTREAM"
 
 #: How long before the wall clock the watchdog fires, when the setup states
 #: nothing. Twenty minutes, the release's number. It is a property of
@@ -10471,7 +11256,12 @@ WHOLE_RUN_EXPORT_KINDS: tuple[str, ...] = ("simulation", "plots", "log")
 #: The solver's residual and load plots join them (G26 of 0.28.0): each is the
 #: series of the whole march, one row per inner iteration (RPT-076), so a
 #: per-step save would write the same growing file at every step.
-END_OF_RUN_EXPORT_KINDS: tuple[str, ...] = ("force_distributions", "plot_residuals", "plot_loads")
+END_OF_RUN_EXPORT_KINDS: tuple[str, ...] = (
+    "force_distributions",
+    "plot_residuals",
+    "plot_loads",
+    "plot_sections_cp",
+)
 
 
 @dataclass(frozen=True)
@@ -10781,15 +11571,29 @@ def unsteady_export_threshold(
     )
 
 
+def _action_interpreter(interpreter: str) -> str:
+    """Choose the sibling Windows GUI interpreter before any native action runs."""
+    if sys.platform != "win32":
+        return interpreter
+    windowless = Path(interpreter).with_name("pythonw.exe")
+    if not windowless.is_file():
+        raise ValueError(
+            f"Windows solver actions require the sibling pythonw.exe: {windowless}; "
+            "use a Python installation that provides it before preparing the run"
+        )
+    return str(windowless)
+
+
 def unsteady_action_command_line(interpreter: str = sys.executable) -> str:
     """Return the shell line the COMMAND_LINE action runs: the interpreter, then the program.
 
     Both quoted, because an interpreter path with a space in it is one
     argument. The interpreter is the one building the script, which is
     the one the run layer names when it writes the program, so the line
-    the solver runs and the program it runs agree on which Python.
+    the solver runs and the program it runs agree on which Python. On Windows,
+    its existing pythonw.exe sibling prevents a console per callback.
     """
-    return f'"{interpreter}" "{UNSTEADY_ACTION_PROGRAM}"'
+    return f'"{_action_interpreter(interpreter)}" "{UNSTEADY_ACTION_PROGRAM}"'
 
 
 #: FR-96. The three things a RESTART may ask for.
@@ -11295,7 +12099,7 @@ def walltime_stop_text(
 
 def walltime_clock_command_line() -> str:
     """Return the COMMAND_LINE the clock action registers: interpreter, then program."""
-    interpreter = PurePath(sys.executable).as_posix()
+    interpreter = _action_interpreter(sys.executable)
     return f'"{interpreter}" "{WALLTIME_CLOCK_PROGRAM}"'
 
 
@@ -11383,7 +12187,6 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     speed. Both refusals run before the first emission.
     """
     _refuse_the_loads_selections_on_a_march(case)
-    _refuse_a_volume_section_off_a_steady_row(case, "unsteady")
     _refuse_cold_start_on_a_march(case, "unsteady")
     # A CONTINUATION IS A DIFFERENT SCRIPT, not this one with a shorter
     # march, so the branch is HERE and not further down: every line below
@@ -11452,7 +12255,6 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     frame that no longer exists.
     """
     _refuse_the_loads_selections_on_a_march(case)
-    _refuse_a_volume_section_off_a_steady_row(case, "unsteady_rotor")
     _refuse_cold_start_on_a_march(case, "unsteady_rotor")
     # A CONTINUATION IS A DIFFERENT SCRIPT, not this one with a shorter
     # march: the branch is here because every line below starts from a
@@ -11632,7 +12434,7 @@ def _rotor_motions(
     threshold: UnsteadyExportThreshold | None,
     setup_frames: Mapping[str, int],
     *,
-    disc: _RowActuator | None = None,
+    disc: _RowActuator | tuple[_RowActuator, ...] | None = None,
     custom: _RowFreestream | None,
 ) -> None:
     """Finish a rotor script whose row states N motions (PFS-2029.11.03).
@@ -11672,7 +12474,11 @@ def _rotor_motions(
     for number, (view, rotor, radical) in enumerate(
         zip(views, rotors, radicals, strict=True), start=1
     ):
-        origin = _origin(view)
+        origin = (
+            _point_from_metres(view, script, rotor.origin, "rotor x_m/y_m/z_m")
+            if rotor is not None
+            else _origin(view)
+        )
         # EVERY FRAME CARRIES ITS ROTOR'S ALIAS. A record naming no rotor
         # used to fall back to ROTOR_MRP<k> and RotorAxis<k>, positional
         # names that only mean anything beside the row that made them; the
@@ -12174,6 +12980,8 @@ def _origin(case: SimCase) -> tuple[float, float, float]:
 #: export block and refused on a matrix row by the reader since 0.11.0,
 #: so it is reachable from Python alone, like ``VELOCITY``.
 _STEADY_KEYS: tuple[str, ...] = (
+    "FSI",
+    *MATRIX_FACTORS,
     GEOMETRY_VARIABLE,
     SYMMETRY_VARIABLE,
     # FR-66: registered on every run type, because whether the solver
@@ -12223,6 +13031,7 @@ _STEADY_KEYS: tuple[str, ...] = (
     # writes its free stream through `_free_stream`. What a custom field does
     # on an unsteady or rotor row is not measured; the docs say so.
     FREESTREAM_VARIABLE,
+    FREESTREAM_UNITS_VARIABLE,
     # G12: the additional post's pproc, on every run type because every run
     # type saves its final .fsm (G11). No builder reads it: it is registered
     # so the row can state it, and `pyfs-matrix post --additional-pproc` is
@@ -12283,6 +13092,28 @@ _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
 #: halves: a row without it changes the script, a row with it does not.
 ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
     {
+        "FSI": InputKey(
+            "Existing solid Euler-beam configuration resolved from inputs/fsi/.",
+            "an f-prefixed code, such as f001",
+            "",
+            unscripted=(
+                "Effective config.json and fsi-provenance.json are staged and hashed "
+                "for the existing FSI driver."
+            ),
+        ),
+        **{
+            key: InputKey(
+                f"Dimensionless calibration of {property_name}; "
+                "replaces the input-file factor once.",
+                "finite positive number; omitted means use file factor or unity",
+                "",
+                unscripted=(
+                    "The effective FSI driver config and base/effective provenance "
+                    "carry the factor."
+                ),
+            )
+            for key, property_name in MATRIX_FACTORS.items()
+        },
         GEOMETRY_VARIABLE: InputKey(
             "The geometry the row opens, a file of inputs/geometries/; written in the "
             "GEOMETRY column since 0.17.0.",
@@ -12420,8 +13251,9 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "SET_PROP_ACTUATOR_RPM",
         ),
         ACTUATOR_THRUST_VARIABLE: InputKey(
-            "The disc's net thrust, which selects the elliptical model.",
-            "N",
+            "The disc's net thrust, which selects the elliptical model; its reference "
+            "block declares thrust_units (NEWTONS by default).",
+            "NEWTONS, POUNDS or COEFFICIENT as declared in the actuator block",
             "SET_PROP_ACTUATOR_THRUST",
         ),
         PROFILE_VARIABLE: InputKey(
@@ -12429,9 +13261,16 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "the stem of a file of inputs/profiles/",
             "SET_PROP_ACTUATOR_PROFILE",
         ),
+        FREESTREAM_UNITS_VARIABLE: InputKey(
+            "Declare the custom file's dimensions explicitly. SI means global coordinates in "
+            "m and velocities in m/s; a separate solver copy is converted once to measured "
+            "native units. NATIVE preserves file bytes. Neither rotates the field.",
+            "SI or NATIVE; omission preserves legacy bytes without inferring units",
+            "SET_FREESTREAM",
+        ),
         FREESTREAM_VARIABLE: InputKey(
             "A custom free stream in place of the uniform one: a velocity field over the YZ "
-            "plane of the global frame, in m and m/s, read from its file when the point is "
+            "plane of the global frame, with units declared by FREESTREAM_UNITS, read when "
             "built. The field is the flow's direction (SOLVER_SET_AOA does not turn it, T14 "
             "on 26.124), so it is refused beside a non-zero ALPHA or BETA, as beside a "
             "non-zero or swept body rate and on a LEGACY row.",
@@ -12464,7 +13303,7 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "refuses it, since every point of it is its own job and starts cold; a "
             "steady row sweeping the flow, where every point is also its own job, "
             "starts every point cold whatever it states.",
-            "true or false; absent is a warm start",
+            "true or false; absent is cold, false explicitly opts into warm starts",
             "CLEAR_SOLUTION",
         ),
         DELTA_TIME_VARIABLE: InputKey(
@@ -12661,6 +13500,15 @@ def _require_the_averaging_window(case: SimCase, name: str) -> None:
     )
 
 
+def _refuse_rotor_shedding(case: SimCase) -> None:
+    if _variable(case, ROTOR_SHEDDING_VARIABLE) is not None:
+        raise CampaignConfigError(
+            "ROTOR_SHEDDING is ineffective in matrix workflows and is refused. "
+            "CCS Relaxed_TE direction control is deferred; "
+            "the Python component helper remains available."
+        )
+
+
 def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
     """Refuse a row stating a key the run type does not register.
 
@@ -12686,6 +13534,7 @@ def _refuse_unregistered_keys(case: SimCase, name: str) -> None:
     converter's own ``matrix_`` keys and the workspace's
     ``ROTOR_ORIGIN_POINT`` are not the row's and are left alone.
     """
+    _refuse_rotor_shedding(case)
     if _workflow_cell(case) is None:
         return
     workflow = WORKFLOWS[name]
@@ -12934,6 +13783,15 @@ def build_script(
     'SET_FREESTREAM CONSTANT'
     """
     _refuse_retired_window_keys(case)
+    _refuse_rotor_shedding(case)
+    if case.pproc is not None and case.pproc.products.boundary_layer_integrals:
+        names = list((conventions.outputs if conventions else None) or case.outputs)
+        kinds = classify_outputs(names)
+        if "sections" not in kinds or not ({"vtk", "tecplot"} & kinds.keys()):
+            raise CampaignConfigError(
+                "boundary_layer_integrals requires the section-coordinate export and VTK "
+                "surface of the same point; retain the pproc's generated output dependencies"
+            )
     workflow = resolve_workflow(select_workflow(case))
     require_coverage(workflow, script.version, registry=registry)
     if case.pproc is not None and case.pproc.time_averaging is not None:
@@ -12966,6 +13824,9 @@ def build_script(
         case, capabilities=BuildCapabilities.of(script._view), registry=registry
     )
     workflow.builder(case, script, conventions or WorkflowConventions.for_case(case))
+    if case.pproc is not None and case.pproc.products.boundary_layer_integrals:
+        for block in script.section_blocks:
+            block["loads_frame_index"] = script.loads_frame
     # A continuation's loads frame is its saved simulation's, which the run takes
     # from the run it continues; only an unsteady row continues one.
     if case.recipe not in _UNSTEADY_RECIPES or continuation_of(case) is None:
@@ -13060,6 +13921,8 @@ def refuse_what_a_saved_point_cannot_give(pproc: PprocSpec, *, pproc_id: str, wh
         Naming every refused table of the artifact in one message.
     """
     reasons: list[str] = []
+    if pproc.surface_probes:
+        reasons.append("[[surface_probes]]: surface histories require an unsteady march")
     if pproc.probes:
         reasons.append(
             "[[probes]]: probe points updated or created after reopening differ from the "
@@ -13175,6 +14038,7 @@ def additional_outputs(pproc: PprocSpec, *, stem: str, unsteady: bool) -> tuple[
             kind
             for kind in ("tecplot", "vtk", "csv")
             if chosen.get(kind, kind not in OPT_IN_EXPORT_KINDS)
+            or (kind == "vtk" and pproc.products.boundary_layer_integrals)
         ),
         "sections",
         "sectional_loads",
@@ -13388,6 +14252,9 @@ def build_additional_script(case: SimCase, script: Script, *, saved: str, shadow
     if not unsteady:
         _loads_selections(case, script)
     _export_block(WorkflowConventions(outputs=tuple(case.outputs)), case, script, unsteady=unsteady)
+    if case.pproc.products.boundary_layer_integrals:
+        for block in script.section_blocks:
+            block["loads_frame_index"] = script.loads_frame
     script.emit("CLOSE_FLIGHTSTREAM")
     # G45: THE LOADS FRAME IS THE RUN'S, placed by the run's own script: the
     # extraction declares the saved simulation's frames and places none, and the

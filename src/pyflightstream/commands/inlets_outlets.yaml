@@ -1,3 +1,13 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# last_modified_at: 2026-09-27T19:10:38.281Z
+# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# dependencies: [SRC-752 pp.190-192, pyflightstream.script]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Permit port remeshing after its required port creation, before initialization.
+# revision_source: git
 # Chapter: Scripting reference, Inlets and Outlets (SRC-003 pp.325-326).
 #
 # COMPLETE as of 2026-08-08, entered from all four registered editions in
@@ -120,7 +130,7 @@ SET_INLET_CUSTOM_PROFILE:
 
 REMESH_INLET:
   layout: keyword_block
-  phase: geometry
+  phase: setup
   args:
     - name: inlet
       type: int
@@ -150,8 +160,10 @@ REMESH_INLET:
     no reason for wanting one and none is asserted here; what the page
     does state is that the inlet velocity is applied along the surface
     normal of its FACES, so the face layout is what a prescribed profile
-    is resolved on. Phase is geometry, this being a mesh operation
-    rather than a labelling one.
+    is resolved on. The curated phase is setup: the command requires an
+    inlet which CREATE_NEW_INLET has already marked. Classifying it as
+    geometry prevented that prerequisite sequence. It remains forbidden
+    after initialization settings; native state acceptance is separate.
 
     Line for line the same block as REMESH_BASE_REGION and
     REMESH_OUTLET, including the numeric GROWTH_SCHEME, 1 for successive
@@ -233,7 +245,7 @@ CREATE_NEW_OUTLET:
 
 REMESH_OUTLET:
   layout: keyword_block
-  phase: geometry
+  phase: setup
   args:
     - name: outlet
       type: int

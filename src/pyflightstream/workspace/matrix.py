@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_role: workspace-matrix-binding
+# authority: pyflightstream
+# file_version: "1.0.1"
+# last_modified_at: "2026-09-27T21:33:11.276Z"
+# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
+# dependencies: [pyflightstream.workspace.fsi_setup, pyflightstream.cases]
+# status: active
+# confidentiality: public
+# change_summary: "Declare workspace reference area_m2 and chord_m as SI at the binding boundary."
+# revision_source: git
 """Binding a run matrix to the workspace input library.
 
 Pipeline role: the workspace-layer half of the run matrix. The reader
@@ -103,6 +114,7 @@ from pyflightstream.cases.workflows import (
     RAW_MESH_FORMATS,
     ROTOR_ORIGIN_POINT_KEY,
     SIMULATION_LENGTH_UNIT,
+    actuator_records,
     read_actuator_profile,
     refuse_an_additional_post_build,
     refuse_what_a_saved_point_cannot_give,
@@ -128,6 +140,7 @@ from pyflightstream.workspace.flight_condition import (
     canonical_condition_defaults,
     resolve_flight_condition,
 )
+from pyflightstream.workspace.fsi_setup import ResolvedFsiSetup, resolve_row_fsi
 
 # SIDEWAYS, to the module of this layer that owns the build registry.
 # `CampaignWorkspace.resolve_executable` is the path half alone and a
@@ -289,6 +302,7 @@ class ResolvedMatrix:
     builds: dict[str, RegisteredBuild] = field(default_factory=dict)
     row_builds: tuple[str | None, ...] = ()
     additional_pprocs: dict[str, PprocArtifact] = field(default_factory=dict)
+    fsis: dict[str, ResolvedFsiSetup] = field(default_factory=dict)
 
 
 def _name_rows(rows: list[MatrixRow], wanted: tuple[str | None, ...], build: str | None) -> str:
@@ -1550,7 +1564,12 @@ def _resolve_cited_profiles(workspace: CampaignWorkspace, pproc, code: str, pol:
     return pproc.model_copy(update={"probes": probes})
 
 
-def _resolve_actuator_profile(workspace: CampaignWorkspace, row: MatrixRow) -> str | None:
+def _resolve_actuator_profile(
+    workspace: CampaignWorkspace,
+    row: MatrixRow,
+    *,
+    stem: str | None = None,
+) -> str | None:
     """Give a row's ``PROFILE`` the absolute path of its file under ``inputs/profiles/`` (G06).
 
     THE PROBE SURVEY IS THE PRECEDENT (:func:`_resolve_cited_profiles`): the
@@ -1568,7 +1587,7 @@ def _resolve_actuator_profile(workspace: CampaignWorkspace, row: MatrixRow) -> s
     script names the copy. So the user's file is never staged beside the
     geometry, and never written; the record hashes the copy.
     """
-    stem = row.variables.get(PROFILE_VARIABLE, "")
+    stem = row.variables.get(PROFILE_VARIABLE, "") if stem is None else stem
     if not stem:
         return None
     folder = Path(workspace.inputs_dir) / "profiles"
@@ -2242,6 +2261,7 @@ def resolve_matrix(
     )
     sims: list[SimCase] = []
     conditions: dict[str, ResolvedCondition] = {}
+    fsis: dict[str, ResolvedFsiSetup] = {}
     for case, row in zip(campaign.sims, rows, strict=True):
         reference = references[row.ref_code]
         update: dict[str, object] = {
@@ -2253,6 +2273,7 @@ def resolve_matrix(
             # rotor speed. None stays None, which is what keeps a
             # configuration with no rotor resolving exactly as it did.
             "reference": ReferenceData(
+                normalization_units="SI",
                 area=reference.area_m2,
                 length=reference.chord_m,
                 rotor_diameter=reference.rotor_diameter_m,
@@ -2355,6 +2376,11 @@ def resolve_matrix(
         # unreachable guard does. The composed behaviour is asserted in
         # `tests/tier1_offline/test_matrix_run.py`, at the reader AND here, rather than
         # defended twice in code and proven in neither place.
+        fsi = resolve_row_fsi(workspace.inputs_dir, row.variables)
+        if fsi is not None:
+            fsis[row.pol] = fsi
+            update["fsi"] = fsi.effective
+            update["fsi_provenance"] = fsi.provenance()
         stem = row.variables.get(GEOMETRY_VARIABLE, "")
         if stem:
             geometry_path = _resolve_geometry(workspace, stem, row.pol)
@@ -2372,6 +2398,15 @@ def resolve_matrix(
             profile = _resolve_actuator_profile(workspace, row)
             if profile is not None:
                 update["actuator_profile"] = profile
+            profiles: dict[str, str] = {}
+            for record in actuator_records(case):
+                if PROFILE_VARIABLE in record:
+                    stem = record[PROFILE_VARIABLE]
+                    resolved_profile = _resolve_actuator_profile(workspace, row, stem=stem)
+                    if resolved_profile is not None:
+                        profiles[stem] = resolved_profile
+            if profiles:
+                update["actuator_profiles"] = profiles
         # G15: AND ITS CUSTOM FREE STREAM, a file of inputs/freestreams/, the
         # same way; a LEGACY row stating one is refused there, by name.
         freestream = _resolve_freestream(workspace, row)
@@ -2490,6 +2525,7 @@ def resolve_matrix(
         builds=builds,
         row_builds=row_builds,
         additional_pprocs=additional,
+        fsis=fsis,
     )
 
 

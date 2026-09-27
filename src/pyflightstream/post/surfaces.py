@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.5
+# file_role: paired-surface-temporal-averaging
+# last_modified_at: 2026-09-27T19:31:54.109Z
+# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# dependencies: [pyflightstream.results.native_surface, pyflightstream.post.unsteady]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Refuse unresolved walltime means and retain explicit statistics.
+# revision_source: git
 """The surface averaged over a window by the package, from the per-step exports (G25, 0.28.0).
 
 Pipeline role: the product a pproc's ``[time_averaging]`` asks for. The run
@@ -49,6 +60,10 @@ from pyflightstream.results import (
     write_tecplot_surface,
     write_vtk_surface,
 )
+from pyflightstream.results.native_surface import (
+    attach_native_strength,
+    read_native_tecplot_surface,
+)
 from pyflightstream.workspace import RunRecord
 
 __all__ = [
@@ -77,9 +92,11 @@ class SurfaceAverage:
     steps : tuple of int
         The steps averaged, every one of the window.
     inputs : dict of str to str
-        Each per-step VTK read, by its path as given, to its sha256.
+        Each per-step VTK and paired native source, by path to its SHA-256.
     frame : SurfaceFrame
         The loads frame the exports were written in and were undone by.
+    native_matching : dict, optional
+        Coordinate and topology matching evidence for each native STEP.
     """
 
     surface: VtkSurface
@@ -87,10 +104,15 @@ class SurfaceAverage:
     steps: tuple[int, ...]
     inputs: dict[str, str]
     frame: SurfaceFrame
+    native_matching: dict[int, dict[str, object]] | None = None
 
 
 def average_surface_exports(
-    exports: Mapping[int, str | Path], *, window: tuple[int, int], frame: SurfaceFrame
+    exports: Mapping[int, str | Path],
+    *,
+    window: tuple[int, int],
+    frame: SurfaceFrame,
+    native_exports: Mapping[int, str | Path] | None = None,
 ) -> SurfaceAverage:
     """Average the per-step VTK surface exports of a window, panel by panel.
 
@@ -102,6 +124,9 @@ def average_surface_exports(
         Inclusive ``(first_step, last_step)``; every step of it must be there.
     frame : SurfaceFrame
         The analysis loads frame the solver wrote the exports in.
+    native_exports : mapping of int to path, optional
+        A native nodal source for each selected STEP, matched geometrically
+        and topologically before its separate temporal average.
 
     Returns
     -------
@@ -125,6 +150,13 @@ def average_surface_exports(
             f"(steps {shown}), so the average is skipped: an average of the steps that "
             "were would not be the window's"
         )
+    if native_exports is not None:
+        missing_native = [step for step in steps if step not in native_exports]
+        if missing_native:
+            raise ProductError(
+                f"native nodal source is missing for selected step(s) {missing_native}"
+            )
+    native_matching: dict[int, dict[str, object]] = {}
     surfaces: list[VtkSurface] = []
     inputs: dict[str, str] = {}
     first_surface: VtkSurface | None = None
@@ -152,7 +184,23 @@ def average_surface_exports(
                     f"{list(surface.cell_data)} and step {first}'s carries "
                     f"{list(first_surface.cell_data)}, so the average is refused"
                 )
-        surfaces.append(surface_in_reference(surface, frame))
+        surface = surface_in_reference(surface, frame)
+        if native_exports is not None:
+            native_path = Path(native_exports[step])
+            if native_path.parent.resolve() != path.parent.resolve():
+                raise ProductError(f"step {step} native/VTK exports are from different run folders")
+            try:
+                native = read_native_tecplot_surface(native_path)
+                surface, matching = attach_native_strength(surface, native)
+            except (OSError, MalformedOutputError, IncompleteOutputError) as error:
+                raise ProductError(
+                    f"step {step} native nodal source is invalid: {error}"
+                ) from error
+            native_matching[step] = matching
+            inputs[native_path.as_posix()] = file_sha256(native_path)
+        if surfaces and list(surface.point_data) != list(surfaces[0].point_data):
+            raise ProductError(f"step {step} carries different nodal variables; average refused")
+        surfaces.append(surface)
         inputs[path.as_posix()] = file_sha256(path)
     names = list(surfaces[0].cell_data)
     series = TimestepSeries(
@@ -165,12 +213,30 @@ def average_surface_exports(
     )
     average = blade_passage_average(series, window=(first, last))
     newest = surfaces[-1]
+    nodal = {
+        axis: newest.points[:, index].copy()
+        for index, axis in enumerate(("X", "Y", "Z"))
+        if axis in newest.point_data
+    }
+    nodal_names = [name for name in newest.point_data if name not in ("X", "Y", "Z")]
+    if nodal_names:
+        nodal_series = TimestepSeries(
+            steps=np.asarray(steps, dtype=int),
+            times_s=None,
+            points=newest.points,
+            fields={
+                name: np.stack([each.point_data[name] for each in surfaces]) for name in nodal_names
+            },
+            sources=tuple(Path(exports[step]) for step in steps),
+            order_evidence="given",
+        )
+        nodal.update(blade_passage_average(nodal_series, window=(first, last)).fields)
     return SurfaceAverage(
         surface=VtkSurface(
             points=newest.points,
             offsets=newest.offsets,
             connectivity=newest.connectivity,
-            point_data=dict(newest.point_data),
+            point_data=dict(nodal),
             cell_data={name: average.fields[name] for name in names},
             title=newest.title,
         ),
@@ -178,6 +244,7 @@ def average_surface_exports(
         steps=tuple(steps),
         inputs=inputs,
         frame=frame,
+        native_matching=native_matching or None,
     )
 
 
@@ -207,13 +274,19 @@ def write_surface_average(
             "pyflightstream"
         ),
         "WINDOW": f"{first} {last}",
+        "STATISTIC": (
+            "Uniform per-STEP mean of physical values; native final-state fields may differ"
+        ),
         "COORDINATES": f"the nodes of time step {last}, the window's last",
         "TRANSLATION": (
-            "every value per panel, cell-centred; the nodes and the velocity "
-            "components in the reference frame"
+            "VTK values remain cell-centred; matched native strength remains nodal; "
+            "positions and velocity components are in the reference frame"
         ),
         "SOURCE_FRAME": f"the analysis loads frame, {average.frame.describe()}",
-        "NOT_CARRIED": ", ".join(NOT_CARRIED_BY_THE_VTK)
+        "NODAL_VARIABLES": ", ".join(average.surface.point_data),
+        "NOT_CARRIED": ", ".join(
+            name for name in NOT_CARRIED_BY_THE_VTK if name not in average.surface.point_data
+        )
         + " (the solver's Tecplot carries it and its VTK does not)",
     }
     title = f"FlightStream surface, averaged over time steps {first} to {last} by pyflightstream"
@@ -285,6 +358,14 @@ def write_point_surface_average(
     name = (
         f"{SURFACES_DIR}/{record.point_name or record.run_id.rsplit('/', 1)[-1]}_time_average.dat"
     )
+    if getattr(record, "stopped_at", None):
+        if skipped is not None:
+            skipped[name] = (
+                "WALLTIME surface average refused: native average finalization is unresolved; "
+                "the measured callback rescue retained instantaneous fields and incomplete plots. "
+                "Per-STEP source files remain available for audit."
+            )
+        return [], {}
     if translation is None:
         if skipped is not None:
             skipped[name] = (
@@ -297,6 +378,13 @@ def write_point_surface_average(
     frame_record = translation.get("frame")
     ran_in = [sim_dir / Path(output).parent for output in record.outputs]
     files = stamped_exports(sim_dir, source.stem, *ran_in).get(("", source.suffix.lstrip(".")), {})
+    native_name = translation.get("native_tecplot")
+    native_files = None
+    if native_name is not None:
+        native_source = Path(str(native_name))
+        native_files = stamped_exports(sim_dir, native_source.stem, *ran_in).get(
+            ("", native_source.suffix.lstrip(".")), {}
+        )
     bounds = stated["iterations"]
     # JUDGED BEFORE IT EXISTS: a refusal after the write left the file on disk
     # and in the list of files written, with only its manifest entry gone
@@ -311,7 +399,10 @@ def write_point_surface_average(
             raise ProductError("the record states no loads frame for the VTK")
         frame = SurfaceFrame.from_record(frame_record)
         average = average_surface_exports(
-            files, window=(int(bounds[0]), int(bounds[1])), frame=frame
+            files,
+            window=(int(bounds[0]), int(bounds[1])),
+            frame=frame,
+            native_exports=native_files,
         )
     except (ProductError, MalformedOutputError) as error:
         if skipped is not None:
@@ -334,10 +425,18 @@ def write_point_surface_average(
         "inputs": inputs,
         "averaged_by": "pyflightstream",
         "weighting": "uniform",
+        "statistic": "arithmetic mean of each physical variable across the selected STEPs",
+        "coordinate_statistic": "last selected STEP; X/Y/Z are not averaged",
+        "native_equivalence": "field- and build-specific; final native fields may be instantaneous",
         "coordinates_step": average.window[1],
-        "location": "cell-centred",
+        "location": "mixed cell/nodal" if average.surface.point_data else "cell-centred",
+        "cell_variables": list(average.surface.cell_data),
+        "nodal_variables": list(average.surface.point_data),
+        "native_matching": average.native_matching,
         "frame": "reference",
-        "not_carried": list(NOT_CARRIED_BY_THE_VTK),
+        "not_carried": [
+            name for name in NOT_CARRIED_BY_THE_VTK if name not in average.surface.point_data
+        ],
     }
     names: dict[str, dict[str, object]] = {}
     for path, format_name in zip(written, ("tecplot", "vtk"), strict=False):

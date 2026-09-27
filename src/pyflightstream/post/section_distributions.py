@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: "1.0.0"
+# last_modified_at: 2026-09-27T20:10:17.348Z
+# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# dependencies: ["docs/post-processing-definitions.md"]
+# authority: "geoverse-goddess-control-plane"
+# status: "active"
+# confidentiality: "public"
+# change_summary: Clarify provenance and keep validation formatting concise.
+# revision_source: "git"
+# GEOVERSE_HEADER_END
 """Sectional loads and chordwise Cp, one table per recorded pproc distribution."""
 
 from __future__ import annotations
@@ -134,15 +145,91 @@ def _distributions(
     return layout, selections
 
 
-def _with_the_layout_its_script_proves(sim_dir: Path, record: RunRecord) -> RunRecord:
-    """Return the record with the EMPTY layout its recorded script proves, or unchanged.
+def _legacy_script_layout(text: str, inventory: Sequence[str]) -> list[dict[str, object]]:
+    """Read only explicit, append-only distribution commands from a saved script.
+
+    Unknown frame identities, repeated names, changed sections and incomplete
+    command blocks are refused. Surface indices are resolved in the recorded
+    geometry's order, never against current input files.
+    """
+    lines = [line.strip() for line in text.splitlines()]
+    if not inventory or len(set(inventory)) != len(inventory):
+        raise ValueError("missing or repeated recorded geometry names")
+    frames: dict[int, str] = {}
+    blocks: list[dict[str, object]] = []
+    for index, line in enumerate(lines):
+        if line in {
+            "CREATE_NEW_SURFACE_SECTION",
+            "DELETE_SURFACE_SECTION",
+            "DELETE_ALL_SURFACE_SECTIONS",
+        }:
+            raise ValueError("script changes sections outside explicit distributions")
+        if line == "EDIT_COORDINATE_SYSTEM":
+            if blocks:
+                raise ValueError("script changes coordinate systems after section creation")
+            frame = lines[index + 1].split()
+            name = lines[index + 2].split(maxsplit=1)
+            if len(frame) != 2 or frame[0] != "FRAME" or len(name) != 2 or name[0] != "NAME":
+                raise ValueError("incomplete coordinate-system identity")
+            number = int(frame[1])
+            if number in frames or name[1] in frames.values():
+                raise ValueError("repeated coordinate-system identity")
+            frames[number] = name[1]
+        if line != "NEW_SURFACE_SECTION_DISTRIBUTION":
+            continue
+        cursor = index + 1
+        values: dict[str, str] = {}
+        for key in ("FRAME", "PLANE", "NUM_SECTIONS", "PLOT_DIRECTION"):
+            parts = lines[cursor].split(maxsplit=1)
+            if len(parts) != 2 or parts[0] != key:
+                raise ValueError(f"distribution lacks explicit {key}")
+            values[key] = parts[1]
+            cursor += 1
+        if lines[cursor].startswith("INCLUDE_SYMMETRY "):
+            if lines[cursor].split()[1:] not in (["ENABLE"], ["DISABLE"]):
+                raise ValueError("invalid symmetry setting")
+            cursor += 1
+        parts = lines[cursor].split()
+        if len(parts) != 2 or parts[0] != "SURFACES":
+            raise ValueError("distribution lacks explicit surface selection")
+        selected = int(parts[1])
+        if selected == -1:
+            indices = list(range(1, len(inventory) + 1))
+        else:
+            indices = [int(value) for value in lines[cursor + 1].split()]
+            if selected < 1 or len(indices) != selected:
+                raise ValueError("surface count disagrees with explicit indices")
+        if len(set(indices)) != len(indices) or any(i < 1 or i > len(inventory) for i in indices):
+            raise ValueError("surface indices do not uniquely resolve")
+        count = int(values["NUM_SECTIONS"])
+        if count < 1 or values["PLANE"] not in {"XY", "XZ", "YZ"}:
+            raise ValueError("invalid distribution plane or count")
+        blocks.append(
+            {
+                "families": [inventory[i - 1] for i in indices],
+                "frame": frames[int(values["FRAME"])],
+                "plane": values["PLANE"],
+                "count": count,
+            }
+        )
+    return blocks
+
+
+def _with_the_layout_its_script_proves(
+    sim_dir: Path,
+    record: RunRecord,
+    pproc: PprocSpec | None = None,
+    inventory: Sequence[str] | None = None,
+) -> RunRecord:
+    """Return an in-memory layout proven by the hashed script and recorded inputs.
 
     A run before 0.27.0 wrote no layout where its script created no
     distribution, so the record reads as one written before 0.24.0. Its script
     is on disk and its digest is in the record, so the question is answered
     by the script's own text and never guessed: a script whose bytes hash as
     recorded and that adds or removes no surface section created none, and the
-    empty list is its whole layout. Nothing else is recovered here. A
+    empty list is its whole layout. Explicit distribution blocks can also be
+    recovered when recorded geometry and pproc identify every block uniquely. A
     continuation creates none and reopens the distributions of the run it
     continues, and a script that is missing, no longer hashes as recorded, or
     changes a section, leaves the record as it was, and the split is refused.
@@ -158,9 +245,29 @@ def _with_the_layout_its_script_proves(sim_dir: Path, record: RunRecord) -> RunR
     # The bytes read ONCE and hashed as read, so the text judged is the text
     # the record's digest names: `text_sha256` hashes the UTF-8 encoding, and
     # a strict decode with no newline translation gives those bytes back.
-    if text_sha256(text) != record.script_sha256 or creates_surface_sections(text):
+    if text_sha256(text) != record.script_sha256:
         return record
-    return record.model_copy(update={"sections_layout": []})
+    if not creates_surface_sections(text):
+        return record.model_copy(update={"sections_layout": []})
+    if pproc is None or inventory is None:
+        return record
+    try:
+        layout = _legacy_script_layout(text, inventory)
+        if not layout:
+            return record
+        candidate = record.model_copy(update={"sections_layout": layout})
+        for block in layout:
+            matches = _matching_distributions(
+                candidate, pproc, block, ownership=True, geometry=inventory
+            )
+            if len(matches) != 1:
+                return record
+            position = matches[0]
+            block["distribution"] = position
+            block["distribution_families"] = pproc.sections.distributions[position - 1].families
+        return record.model_copy(update={"sections_layout": layout})
+    except (IndexError, KeyError, ValueError):
+        return record
 
 
 EXPANDING_WORDS = frozenset({"LOCAL_AXIS", "RMRP", "SMRP"})
@@ -997,8 +1104,8 @@ def write_section_distributions(
     tuple[list[Path], dict[str, dict[str, object]]]
         Written paths and their product-manifest entries.
     """
-    record = _with_the_layout_its_script_proves(sim_dir, record)
     geometry = list(inventory) if inventory is not None else record.inventory
+    record = _with_the_layout_its_script_proves(sim_dir, record, pproc, geometry)
     folders = [sim_dir / Path(output).parent for output in record.outputs]
     stamped = stamped_exports(sim_dir, stem, *folders)
     if (

@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: release-workflow
+# last_modified_at: 2026-09-27T20:38:29.386Z
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [pyproject.toml]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Exercise optional workbook generation in source and built-wheel gates.
+# revision_source: git
+# GEOVERSE_HEADER_END
 # Release workflow: publishes pyflightstream to PyPI through trusted
 # publishing (OIDC), so no API token is stored in the repository. It
 # mirrors the ITACA release workflow. Requires the matching publisher
@@ -129,7 +141,7 @@ jobs:
           # the working tree on the path and this whole job would be
           # testing the same thing ci.yml already tests.
           python -m pip install --upgrade "pip==26.1.2"
-          python -m pip install "dist/${{ needs.build.outputs.wheel-name }}[dev,fsi,geom]"
+          python -m pip install "dist/${{ needs.build.outputs.wheel-name }}[dev,fsi,geom,excel]"
       - name: Confirm the installed distribution is the built one
         shell: bash
         run: |
@@ -157,7 +169,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install package with dev extras
-        run: pip install -e .[dev,fsi,geom]
+        run: pip install -e .[dev,fsi,geom,excel]
       - name: Lint
         run: ruff check .
       - name: Format check

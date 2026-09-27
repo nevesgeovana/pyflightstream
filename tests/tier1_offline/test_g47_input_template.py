@@ -1,9 +1,19 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.5
+# last_modified_at: 2026-09-27T21:46:38.241Z
+# last_modified_by: OpenAI / Codex / unknown / implementation-agent
+# dependencies: [pyflightstream.post.guides]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Retain action-based animation; remove the unneeded parallel route.
+# revision_source: git
 """Tier 1, 0.28.0 item G47: ``inputs/input_template.md``, a template of every input file.
 
 THE ITEM: a Markdown page at the root of a workspace's ``inputs/`` folder that
 explains the format of every input file a user writes, the ones in
 ``profiles/`` included, so a user can write their own. The input glossary,
-``inputs/pproc/INPUTS.md``, stays where it is and the template links to it.
+``inputs/INPUTS.md``, stays where it is and the template links to it.
 
 WHAT THESE TESTS HOLD, and each holds it against the package rather than
 against the generator:
@@ -84,7 +94,7 @@ TEMPLATE = "input_template.md"
 
 #: The generated pages init writes into the library, which are not input
 #: files a user writes and so need no template.
-GENERATED = {TEMPLATE, "pproc/VARIABLES.md", "pproc/WRITING-EQUATIONS.md", "pproc/INPUTS.md"}
+GENERATED = {TEMPLATE, "pproc/VARIABLES.md", "pproc/WRITING-EQUATIONS.md", "INPUTS.md"}
 
 #: The five artifacts the input glossary covers, by the section heading the
 #: template gives each; the headings are the glossary's own.
@@ -207,6 +217,12 @@ def _read_every_example(workspace: CampaignWorkspace, blocks) -> dict[str, str]:
             resolve(inputs, path.stem)
             claim(path, f"resolve_{kind}")
     # The named points, the build registry and its overlay, the HPC profile.
+    from pyflightstream.workspace.fsi_setup import resolve_fsi_setup
+
+    for path in sorted((inputs / "fsi").glob("*.toml")):
+        resolved_fsi = resolve_fsi_setup(path)
+        assert resolved_fsi.effective.blade.station_radii_m
+        claim(path, "resolve_fsi_setup")
     points = inputs / REFERENCE_POINTS_FILE
     if points.is_file():
         assert workspace.reference_points(), f"{points.name} declares no point"
@@ -394,6 +410,16 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
             if isinstance(value, dict) and kind(value.get("kind"))
         ]
 
+    if artifact == "setup" and heading in {
+        "`[[stratford_bulk_separation]]`",
+        "`[[axial_vortex_separation]]`",
+        "`[bulk_separation]`",
+        "`[[airfoil_separation]]`",
+        "`[[cylindrical_bulk_separation]]`",
+    }:
+        key = heading.strip("`[]")
+        values = [file.get(key, [] if "[[" in heading else {}) for file in data]
+        return union([row for value in values for row in value] if "[[" in heading else values)
     top = union(data)
     if artifact == "matrix":
         header_and_rows = [
@@ -436,9 +462,21 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
         return top
     rotor_blocks = blocks_of(lambda kind: kind == "rotor")
     tables = {
+        "`[[actuator_operations]]`": [e for f in data for e in f.get("actuator_operations", [])],
+        "`[[base_region_operations]]`": [
+            e for f in data for e in f.get("base_region_operations", [])
+        ],
+        "`[base_region_operations.mesh]`": [
+            e.get("mesh", {}) for f in data for e in f.get("base_region_operations", [])
+        ],
+        "`[[inlets]]`": [e for f in data for e in f.get("inlets", [])],
+        "`[[outlets]]`": [e for f in data for e in f.get("outlets", [])],
+        "`[inlets.remesh]`": [e.get("remesh", {}) for f in data for e in f.get("inlets", [])],
+        "`[outlets.remesh]`": [e.get("remesh", {}) for f in data for e in f.get("outlets", [])],
         "`[flight_condition]`": [f.get("flight_condition", {}) for f in data],
         "`[[raw]]`": [e for f in data for e in f.get("raw", [])],
         "`[[flags]]`": [e for f in data for e in f.get("flags", [])],
+        "`[[surface_probes]]`": [e for f in data for e in f.get("surface_probes", [])],
         "`[phase_locked]`": [f.get("phase_locked", {}) for f in data],
         "`[equations.<NAME>]`": [e for f in data for e in f.get("equations", {}).values()],
         "`[exports]`": [f.get("exports", {}) for f in data],
@@ -473,6 +511,7 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
             lambda kind: kind not in (None, "rotor", "actuator")
         ),
         "`[import]`": [f.get("import", {}) for f in data],
+        "`[import.cad]`": [f.get("import", {}).get("cad", {}) for f in data],
         "`[[import.operations]]`": [
             e for f in data for e in f.get("import", {}).get("operations", [])
         ],
@@ -571,13 +610,21 @@ def test_g47_the_setup_example_states_the_far_field_layers():
 #: it. Each is a misspelled key, or a line out of the file's form, that the
 #: reader of that kind must refuse.
 BREAKS: dict[str, tuple[str, str]] = {
+    "inputs/fsi/f001.toml": ('mode = "calculated"', 'mode = "unsupported"'),
+    "inputs/matrices/excel_campaign.fs": ("| FLIGHT_CONDITION ", "| FLIGHT_CONDITIONS "),
     "campaign.fs": ("| FLIGHT_CONDITION ", "| FLIGHT_CONDITIONS "),
     "inputs/setups/s001.toml": ("\niterations =", "\niteratoins ="),
     "inputs/pproc/p001.toml": ("\nblade_pattern =", "\nblade_patern ="),
+    "inputs/pproc/p002.toml": ('parameter = "CP_FREE"', 'parameter = "CP_UNKNOWN"'),
     "inputs/references/r001.toml": ("\narea_m2 =", "\narea_m3 ="),
     f"inputs/{REFERENCE_POINTS_FILE}": ("\nx_m =", "\nx_mm ="),
     "inputs/geometries/aircraft/aircraft.boundaries.toml": ("\nboundaries =", "\nboundary ="),
     "inputs/geometries/wing_raw/wing_raw.boundaries.toml": ("\ntolerance =", "\ntolerence ="),
+    "inputs/geometries/duct/duct.boundaries.toml": ("\nvelocity =", "\nvelocty ="),
+    "inputs/geometries/wing_cad/wing_cad.boundaries.toml": (
+        "\nnum_curvature =",
+        "\nnum_curvatre =",
+    ),
     "inputs/geometries/wing_raw/wing_raw.te.txt": ("METER\n", ""),
     "inputs/profiles/prop_thrust.txt": ("", "r_R,F\n"),
     "inputs/profiles/wake_survey.csv": ("", "9\n"),
@@ -659,7 +706,7 @@ def test_g47_the_page_links_the_glossary_and_real_pages_and_names_no_machine_pat
     assert "GENERATED FROM THE CODE" in text
     site = _declared_site()
     for heading, body in sections(text).items():
-        assert "pproc/INPUTS.md" in body, f"the section {heading!r} does not link INPUTS.md"
+        assert "INPUTS.md" in body, f"the section {heading!r} does not link INPUTS.md"
         assert site in body, f"the section {heading!r} links no page of the documentation site"
     linked = set(re.findall(re.escape(site) + r"([a-z0-9-]+)/", text))
     assert linked, "the page links no documentation page"

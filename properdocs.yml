@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: "1.0.8"
+# artifact_id: documentation-navigation
+# last_modified_at: 2026-09-27T21:04:15.524Z
+# last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: implementer}
+# dependencies: [pyflightstream]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Expose simulation units and geometry threshold guidance.
+# revision_source: git
 # Docs configuration for ProperDocs (the maintained MkDocs fork; the
 # repository migrated after a green drop-in test, 2026-07-23, license
 # evidence reports/RPT-009). Kept at the repository root (the builder
@@ -56,16 +67,31 @@ nav:
   - Home: index.md
   - Getting started: getting-started.md
   - From the GUI to pyfs: gui-to-pyfs.md
+  - Geometry units and starts: geometry-units-and-starts.md
+  - Simulation geometry controls: simulation-geometry-controls.md
+  - CAD inputs: cad-inputs.md
+  - Custom field units and coverage: custom-field-units.md
   - Replaying a recorded run: tutorial-replay.md
   - What a run cost: solver-cost.md
   - The workspace and the workflow: workspace-and-workflows.md
   - Post-processing definitions: post-processing-definitions.md
+  - Setup standards and guidance: setup-standards.md
+  - Boundary conditions: boundary-conditions.md
+  - Sampled velocity fields: sampled-fields.md
+  - Boundary-layer products: boundary-layer-products.md
+  - Surface translation: surface-translation.md
+  - Unsteady plots and averages: unsteady-postprocessing.md
+  - Continuation and recovery: continuation-recovery.md
+  - FSI in a workspace: fsi-workspace.md
+  - FSI driver tutorial: fsi-tutorial.md
+  - Excel matrix synchronization: excel-matrices.md
   - The input glossary: inputs.md
   - The test tiers and the licensed workspace: tiers.md
   - Flight conditions: flight-conditions.md
   # One section, newest first, so a release adds a line here and not an
   # entry at the top level of the menu (the pattern the SRS section uses).
   - Migrating to newer versions:
+      - Migrating to 0.29.0: migrating-to-0.29.0.md
       - Migrating to 0.28.0: migrating-to-0.28.0.md
       - Migrating to 0.27.0: migrating-to-0.27.0.md
       - Migrating to 0.26.0: migrating-to-0.26.0.md
@@ -96,11 +122,18 @@ nav:
   - Mesh inputs and GUI-only operations: mesh-inputs.md
   - Sister library (ITACA): sister-itaca.md
   - Examples:
+      - CAD script with explicit units: examples/cad_import.md
+      - Base-region setup: examples/base_region_setup.md
       - Steady polar: examples/steady_polar.md
       - Campaign from a run matrix: examples/campaign_matrix.md
       - Wing static deflection: examples/wing_static_deflection.md
       - FSI Campbell diagram: examples/fsi_campbell_diagram.md
       - FSI blade properties from its sections: examples/fsi_solid_blade_properties.md
+      - Workspace FSI calibration: examples/workspace_fsi_calibration.md
       - Wing OBJ, trailing edge by file: examples/obj_wing_trailing_edge_file.md
       - A row with a roll rate: examples/roll_rate_row.md
       - Extracting more from a finished point: examples/additional_post.md
+      - Native nodal surface strength: examples/surface_with_native_strength.md
+      - Sampled-field products: examples/sampled_field_export.md
+      - Boundary-layer sections: examples/boundary_layer_sections.md
+      - Inspect continuation recovery: examples/continuation_frame_recovery.md

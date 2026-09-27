@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: run-provenance
+# last_modified_at: 2026-09-27T18:36:20.861Z
+# last_modified_by: OpenAI / Codex / GPT-6 / implementer
+# dependencies: [pyflightstream; pytest]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Attribute translated surface data to both VTK and native nodal solver sources.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Write each recorded run's provenance as PROV-JSON.
 
 Documents relate staged inputs, scripts and collected outputs to the run and
@@ -369,11 +381,15 @@ def prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
             "prov:agent": package_id if translated else solver_id,
         }
         if translated:
-            source = (Path(name).parent / str(translated["translated_from"])).as_posix()
-            derived[f"_:derived{len(derived) + 1}"] = {
-                "prov:generatedEntity": entity_id,
-                "prov:usedEntity": f"pyfs:output/{source}",
-            }
+            sources = [str(translated["translated_from"])]
+            if translated.get("native_source"):
+                sources.append(str(translated["native_source"]))
+            for item in sources:
+                source = (Path(name).parent / item).as_posix()
+                derived[f"_:derived{len(derived) + 1}"] = {
+                    "prov:generatedEntity": entity_id,
+                    "prov:usedEntity": f"pyfs:output/{source}",
+                }
         if changed:
             derived_id = f"pyfs:file/{name}"
             entities[derived_id] = attributes(

@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: "1.0.1"
+# file_role: curated-script-helpers
+# last_modified_at: "2026-09-27T21:34:00.335Z"
+# last_modified_by: OpenAI / Codex / unknown / implementation-agent
+# dependencies: [pyflightstream.script, pyflightstream.commands]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: "Clarify measured native speed units at the low-level helper boundary."
+# revision_source: git
 """Curated helpers for the common FlightStream workflows (SAD Section 4.3).
 
 Pipeline role: a small, curated set of thin typed functions sitting on
@@ -644,6 +655,7 @@ def actuator_disc(
     n_blades: int | None = None,
     profile_text: str | None = None,
     swirl: float | None = None,
+    wake_type: str | None = None,
     enable: Toggle = True,
     label: str | None = None,
 ) -> int:
@@ -704,6 +716,8 @@ def actuator_disc(
         Fraction between 0 and 1 of the swirl velocity kept
         downstream; below 1 mimics a de-swirling stator
         (SRC-003 p.186).
+    wake_type : str, optional
+        RIGID or RELAXED, as documented from 26.122; omitted emits no wake setter.
     enable : bool or 'ENABLE' or 'DISABLE'
         Emit ENABLE_ACTUATOR at the end.
     label : str, optional
@@ -774,6 +788,13 @@ def actuator_disc(
             f"actuator_disc swirl must lie between 0 and 1, got {swirl}: it is the "
             "fraction of the swirl velocity kept downstream (SRC-003 p.186)"
         )
+    if wake_type is not None:
+        entry = script.entry("SET_ACTUATOR_WAKE_TYPE")
+        allowed = next(arg.values for arg in entry.args if arg.name == "type") or ()
+        if wake_type not in allowed:
+            raise CommandArgumentError(
+                f"actuator_disc wake_type {wake_type!r} is not one of {tuple(allowed)}"
+            )
     subtype = "ELLIPTICAL" if thrust is not None else "CUSTOM"
     # THE SOLVER'S OWN WORD, not this package's. The rotor-word sweep of
     # 0.15.0 renamed this to ROTOR and the command database refused it:
@@ -792,6 +813,8 @@ def actuator_disc(
             script._pending_input_files[fspath(profile)] = copy
     if swirl is not None:
         script.emit("SET_PROP_ACTUATOR_SWIRL", index, swirl)
+    if wake_type is not None:
+        script.emit("SET_ACTUATOR_WAKE_TYPE", index, wake_type)
     if enable:
         script.emit("ENABLE_ACTUATOR", index)
     return index
@@ -1145,11 +1168,12 @@ def solver_settings(
     sideslip : float, optional
         Side-slip angle in deg, magnitude below 90.
     velocity : float, optional
-        Free-stream velocity magnitude in m/s.
+        Free-stream magnitude in native simulation length units per second.
+        The case workflow converts its physical m/s value before this call.
     mach : float, optional
         Free-stream Mach number.
     ref_velocity : float, optional
-        Reference velocity in m/s for coefficient normalization; for
+        Reference velocity in native length units per second for normalization; for
         rotary or hover cases use the largest characteristic velocity,
         such as the rotor tip speed (SRC-003 p.201).
     ref_mach : float, optional

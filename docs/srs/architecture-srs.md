@@ -1,3 +1,17 @@
+<!--
+GEOVERSE_HEADER
+file_version: "1.0.0"
+file_role: "public-architecture-requirements"
+last_modified_at: "2026-09-27T21:58:19.804Z"
+last_modified_by: "OpenAI / Codex / GPT-6 / implementation-agent"
+dependencies: ["src/pyflightstream/overview.py", "scripts/gen_docs_pages.py"]
+authority: "pyflightstream"
+status: "active"
+confidentiality: "public"
+change_summary: "Record the implemented 0.29 boundaries while retaining historical decisions."
+revision_source: "git"
+-->
+
 # Architecture
 
 The architectural requirements. The live, generated
@@ -42,14 +56,19 @@ structural side of the aeroelastic loop), `probes` and `farfield`
 (survey lattices and conservation ledgers), and the presentation layer
 (`reference`, `overview`).
 
+The shared conversion floor also includes `pyflightstream._lengths`: a
+unit factor has one home, while each caller separately restricts support
+to the units measured for its command or file format. Knowing a scale
+does not prove that a solver boundary uses that scale.
+
 ## Architectural rules
 
 !!! decision "AD-01 Downward dependencies only"
     A module may import only from layers below its own. Upward
-    imports are forbidden; where an upper-layer entry point is
-    exposed from a lower-layer module for user convenience, the
-    import is deferred and documented, and introducing a cycle is a
-    defect.
+    imports are forbidden, including deferred imports. Historical
+    convenience entry points must not be treated as permission to add
+    another upward dependency; their boundary must remain explicit,
+    and introducing a cycle is a defect.
 
 !!! decision "AD-02 Single rendering sources"
     Anything presented in two places is rendered from one source: the
@@ -167,3 +186,86 @@ explicit executable. The registration transaction is
 `pyflightstream.utils.database`, not the argument parser, for that
 reason: it is the second writer into the evidence authority and it owes
 the guards the first one has.
+
+
+## Implemented 0.29 architecture and its limits
+
+This section records the implemented 0.29 paths. It does not declare an
+unreleased working tree accepted or widen a native measurement to other
+builds. Historical decisions above retain their dates and stated transition
+status. The generated [architecture overview](../architecture.md) reads the
+module docstrings through `pyflightstream.overview.markdown_overview()`;
+`scripts/gen_docs_pages.py`, configured in `properdocs.yml`, publishes it
+at build time. Edit those source docstrings, not a generated page.
+
+### Inputs, geometry and dimensional boundaries
+
+The workspace resolves declarative inputs into the existing case and script
+layers. CAD conversion extends the raw-mesh import sequence: import CAD,
+convert to a mesh, then apply the same boundary and setup operations. The
+[CAD route](../cad-inputs.md) is supported within its measured format and
+unit limits; an empty or unproved import is not an accepted mesh. OBJ
+automatic boundary naming likewise follows measured numbering forms,
+including positional duplicate labels, with named refusal for unresolved
+forms. It does not replace the explicit sidecar.
+
+Saved FSM length metadata is decoded for measured METER/MILLIMETER heads.
+Metre-labelled lengths convert once through the shared `_lengths` floor.
+Direct Python reference normalization retains its native-unit default; the
+workspace's SI reference inputs declare their units explicitly. A command
+may have a different boundary convention from the geometry it samples:
+measured unsteady fluid-plot coordinates are SI, while native steady probe
+coordinates use the simulation length unit. Export-kind and build evidence
+must remain distinct. See [units and starts](../geometry-units-and-starts.md)
+and [simulation controls](../simulation-geometry-controls.md).
+
+[Custom inflow](../custom-field-units.md) keeps the supplied physical
+orientation. Explicit SI input may produce a separate solver-unit copy,
+with both source and effective hashes; undeclared files keep their bytes.
+No automatic incidence/vector rotation is implied. Coverage uses the final
+emitted placement and a conservative swept envelope for a rotor. Bounds
+containment does not certify interior interpolation support; unknown
+placement stays unknown, and overcoverage is reported as conservative.
+
+### Execution evidence and derived products
+
+A script carries emitted geometry and motion provenance separately from
+resolved scientific proof. A consumer may interpret motion timing and
+velocity components only when the recorded executable/build and export
+kind match measured evidence. Continuation reuses validated predecessor
+metadata; it cannot recover an unknown frame by guessing a GUI name.
+
+The existing run/manifest and post layers remain the owners of execution
+status and collected products. Per-step surface sequences use the existing
+action/export route; adding a parallel native-animation subsystem is not
+part of this architecture. Surface translation, sampled fields and
+boundary-layer products keep their own association, unit and completeness
+requirements rather than converting parser success into physical proof.
+See [surface translation](../surface-translation.md),
+[sampled fields](../sampled-fields.md), and
+[continuation](../continuation-recovery.md).
+
+Workspace FSI inputs resolve calculated or supplied structural properties
+and explicit calibration overrides into the existing coupling loop. Base
+and effective properties have separate provenance; derived quantities
+must not be scaled twice. This input route does not itself establish a new
+solver-side coupling capability. See [workspace FSI](../fsi-workspace.md).
+
+### Optional workbook adapter
+
+The [Excel route](../excel-matrices.md) creates a macro-free `.xlsx` and
+synchronizes saved files through
+`python -m pyflightstream.workspace.excel`. It is an optional adapter to
+the existing ASCII matrix parser and synchronization engine, not another
+case model or a solver dependency. The five installed console scripts
+listed above remain unchanged.
+
+All runs share one sheet. Dictionary names, not positions, map fields;
+MATRIX/POL identifies a row. Explicit preview/apply/cancel operations retain
+custom columns, formulas and untouched workbook parts, reject stale or
+ambiguous mappings, and preserve recoverable originals. There is no
+automatic synchronization or implicit deletion. Per-file atomic replacement
+does not promise an all-files transaction; a partial failure reports what
+completed and where originals remain. The earlier embedded-VBA direction
+was superseded by the approved macro-free CLI route; macro execution and
+Excel trust changes are not requirements of this delivery.

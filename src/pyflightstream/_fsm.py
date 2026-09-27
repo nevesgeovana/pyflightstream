@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.1.1
+# last_modified_at: 2026-09-27T20:45:57.198Z
+# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
+# dependencies: [../../reports/RPT-070_the-gui-rows-volume-section-and-actuator-disc_2026-09-24.md]
+# file_role: saved-simulation-structural-reader
+# authority: geoverse-goddess-control-plane
+# status: active
+# confidentiality: public
+# change_summary: Clarify the measured global-unit reader without changing parsing.
+# revision_source: git
 """The saved-simulation reader this package reads boundary names through.
 
 Pipeline role: a floor, like :mod:`pyflightstream._digest` and
@@ -43,8 +54,8 @@ verification review refused here, correctly.
 TWO POSITIONAL READINGS OUTSIDE THE MESH BLOCK (0.27.0) are the line map
 the paragraph above says the mesh reading is not, so each reads only the
 shape it was measured on and refuses every other. :func:`saved_length_unit`
-reads the first two lines of the global block, and reads one head as metres
-and no other. :func:`saved_actuators` walks the physics block by its own
+reads the first two lines of the global block, recognizing measured metre
+and millimetre heads. :func:`saved_actuators` walks the physics block by its own
 counts to the actuator records. ``tests/tier1_offline/test_g06_actuator_disc.py``
 holds both.
 """
@@ -73,6 +84,7 @@ __all__ = [
     "resolve_family",
     "saved_actuators",
     "saved_length_unit",
+    "saved_mesh_coordinate_unit",
     "surface_mesh",
     "trailing_edge_midpoints",
 ]
@@ -205,11 +217,13 @@ def _block(path: str | Path, name: str) -> list[str] | None:
 #: in metres (``SET_SIMULATION_LENGTH_UNITS METER`` before the save), and the
 #: licensed saves made from them. 1.0 is a metre in metres, and 5 is METER's
 #: position in the unit list the manual prints for that command.
-#: WHETHER A SAVE IN ANOTHER UNIT WRITES ANOTHER HEAD IS NOT MEASURED: no save
-#: in another unit has been read. So the head is not decoded into a unit; a
-#: save carrying this head is read as metres, and one carrying any other head
-#: is refused as a unit this package has not read.
+#: RPT-070 subsequently measured the millimetre head on 26.124. Only these
+#: two paired encodings are decoded; the unit-list order alone is not evidence.
 _METRE_HEAD = (1.0, "5")
+
+#: Reused RPT-070 evidence, not a new measurement. Report SHA-256:
+#: 15397a2cc44faa2422c44cbce0b1fb572b29148f21ec13d72043c3a77f528bfd.
+_MEASURED_LENGTH_HEADS = {_METRE_HEAD: "METER", (0.001, "2"): "MILLIMETER"}
 
 
 def saved_length_unit(path: str | Path) -> str | None:
@@ -223,8 +237,8 @@ def saved_length_unit(path: str | Path) -> str | None:
     Returns
     -------
     str or None
-        ``"METER"`` when the global block opens with the head every save read
-        carries (:data:`_METRE_HEAD`). None when the file carries no global
+        ``"METER"`` or ``"MILLIMETER"`` for a measured paired scale/index
+        encoding. None when the file carries no global
         block at all, which no save of the solver lacks: a placeholder staged
         by a test reads as None, as it reads as no boundary inventory.
 
@@ -244,14 +258,40 @@ def saved_length_unit(path: str | Path) -> str | None:
         read = (float(scale), index.strip())
     except ValueError:
         read = (float("nan"), index.strip())
-    if read != _METRE_HEAD:
+    unit = _MEASURED_LENGTH_HEADS.get(read)
+    if unit is None:
         raise MeshReadError(
             f"{Path(path).name}: its global block opens with {scale.strip()!r} and "
-            f"{index.strip()!r}, where every saved simulation this package has read opens "
-            f"with {_METRE_HEAD[0]!r} and {_METRE_HEAD[1]!r}, the saves known to be in metres "
-            "among them; the unit it was saved in is not one this package has read"
+            f"{index.strip()!r}; this paired scale/index is not a measured unit head. "
+            "Measured heads are (1.0, '5') for METER and (0.001, '2') for MILLIMETER "
+            "(RPT-070); the unit it was saved in is not one this package has read"
         )
-    return "METER"
+    return unit
+
+
+def saved_mesh_coordinate_unit(path: str | Path) -> str | None:
+    """Return the proved unit of stored mesh coordinates, independently of display units.
+
+    The paired no-solve controls on build 8172026 imported a unit square in
+    meters and selected METER/MILLIMETER. Origins of (.25, .1, .2) and
+    (250, 100, 200), respectively, produced identical stored rotated vertices
+    and frames within 1e-10. The selected .001 display scale must not be
+    applied to these stored coordinates a second time. This result does not
+    transfer the millimeter storage contract to an unmeasured build.
+    """
+    unit = saved_length_unit(path)
+    if unit is None or unit == "METER":
+        return unit
+    with Path(path).open(encoding="utf-8", errors="replace") as stream:
+        version = stream.readline().strip()
+        build = stream.readline().strip()
+    if version == "26,1" and build == "8172026" and unit == "MILLIMETER":
+        return "METER"
+    raise MeshReadError(
+        f"{Path(path).name}: stored mesh coordinate units are not measured for "
+        f"version {version!r}, build {build!r}, display unit {unit!r}. "
+        "The display scale alone does not establish the stored coordinate unit"
+    )
 
 
 #: A number of the physics block, in either of the two forms it writes them
@@ -755,7 +795,9 @@ def surface_mesh(
     Returns
     -------
     tuple of (x, y, z)
-        The vertices, in the block's order, in the simulation's length unit.
+        The vertices in stored internal coordinates, in the block's order.
+        These are not necessarily the selected simulation/display unit.
+        Use :func:`saved_mesh_coordinate_unit` before a physical conversion.
     tuple of (int, int, int)
         The triangles, as 0-based indices into the vertices.
 
@@ -789,7 +831,8 @@ def trailing_edge_midpoints(path: str | Path) -> tuple[tuple[float, float, float
     Returns
     -------
     tuple of (x, y, z)
-        The unique mid-points in the simulation's length unit, sorted.
+        The unique mid-points in stored internal coordinates, sorted.
+        Use :func:`saved_mesh_coordinate_unit` before a physical conversion.
         Empty when nothing is marked.
 
     Raises

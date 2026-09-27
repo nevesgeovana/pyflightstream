@@ -1,3 +1,13 @@
+% GEOVERSE_HEADER
+% file_version: 1.0.0
+% last_modified_at: 2026-09-27T14:19:27.056665+00:00
+% last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+% dependencies: [pyflightstream.post.guides]
+% authority: pyflightstream
+% status: active
+% confidentiality: public
+% change_summary: Update the canonical glossary path and preservation policy.
+% revision_source: git
 \documentclass[aspectratio=169,10pt]{beamer}
 % =====================================================================
 % pyflightstream User Guide
@@ -960,9 +970,9 @@ FLIGHT_CONDITION: TASmps:68.08, ALTFT:10000, dISA:5
 
 \begin{frame}{Every input key, in one generated page}
   \begin{itemize}
-    \item \code{inputs/pproc/INPUTS.md} lists every key an input artifact may state: the matrix row by run type, the setup, the pproc, the reference and the geometry sidecar. Each row says what the key sets, its unit or values, the run types or builds that accept it where the code says, and the solver command it reaches.
-    \item It is \textbf{generated from the code}, beside \code{VARIABLES.md}, by \code{pyfs-workspace init}, \code{pyfs-matrix plan} and \code{post}, and rewritten only when its content changes; the documentation site carries the same page. A key the package gains arrives there with its meaning, and a test fails for a key that arrives without one.
-    \item Beside it, one folder up, \code{inputs/input\_template.md} (v0.28.0) shows every input FILE: one section per kind, the matrix, the setup, the pproc, the reference, the geometry sidecars, the files of \code{profiles/}, the free stream, the HPC profile and the build registry, each with a complete example to copy to the path its title names. Every example is a file the package reads as it stands, which the suite checks by reading each one back.
+    \item \code{inputs/INPUTS.md} lists every key an input artifact may state: the matrix row by run type, the setup, the pproc, the reference and the geometry sidecar. Each row says what the key sets, its unit or values, the run types or builds that accept it where the code says, and the solver command it reaches.
+    \item It is \textbf{generated from the code}, at the root of \code{inputs/}, by \code{pyfs-workspace init}, \code{pyfs-matrix plan} and \code{post}, and rewritten only when its content changes; the documentation site carries the same page. A key the package gains arrives there with its meaning, and a test fails for a key that arrives without one.
+    \item Beside it, \code{inputs/input\_template.md} (v0.28.0) shows every input FILE: one section per kind, the matrix, the setup, the pproc, the reference, the geometry sidecars, the files of \code{profiles/}, the free stream, the HPC profile and the build registry, each with a complete example to copy to the path its title names. Every example is a file the package reads as it stands, which the suite checks by reading each one back.
   \end{itemize}
 \end{frame}
 

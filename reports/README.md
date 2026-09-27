@@ -1,3 +1,17 @@
+<!--
+GEOVERSE_HEADER
+file_version: 1.0.0
+artifact_id: pyflightstream-report-series
+last_modified_at: 2026-09-27T19:51:15.690Z
+last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
+dependencies: []
+authority: pyflightstream
+status: active
+confidentiality: public
+change_summary: Reserve three narrative identities for measured workspace integration findings.
+revision_source: git
+-->
+
 # Reports
 
 Five series, and they are corrected in different ways.
@@ -35,3 +49,14 @@ The difference is not ceremony. A narrative report is an argument and
 an argument may be corrected in place as long as it says so; a
 machine-written report is a measurement, and editing one would change
 what a citation elsewhere in the tree resolves to.
+
+## Reports in preparation
+
+These identities extend the existing product series; they do not indicate
+acceptance or publication of their findings.
+
+| Identity | Subject | State |
+| --- | --- | --- |
+| RPT-081 | Typed boundary and base-region operations: measured state and effects | In preparation |
+| RPT-082 | CAD units, geometry transforms and custom inflow coverage | In preparation |
+| RPT-083 | Probe frames, temporal surfaces and walltime export limits | In preparation |

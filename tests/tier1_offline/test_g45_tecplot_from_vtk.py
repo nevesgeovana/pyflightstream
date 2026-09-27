@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: surface-translation-regressions
+# last_modified_at: 2026-09-27T18:35:54.529Z
+# last_modified_by: OpenAI / Codex / GPT-6 / implementer
+# dependencies: [pyflightstream; pytest]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Extend VTK translation regressions to the retained native nodal source.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """G45 of 0.28.0: the Tecplot surface is written by the package from the VTK, the only route.
 
 Oracle: what RPT-074 measured on FlightStream 26.124. The solver writes its VTK
@@ -215,7 +227,7 @@ def _read_dat(path: Path) -> dict[str, object]:
     blocks: dict[str, np.ndarray] = {}
     cursor = 0
     for index, name in enumerate(names):
-        count = nodes if index < 3 else cells
+        count = nodes if index < 3 or name == "Singularity_strength" else cells
         blocks[name] = np.asarray(tokens[cursor : cursor + count], dtype=float)
         cursor += count
     face_nodes = np.asarray(tokens[cursor : cursor + 2 * faces], dtype=int).reshape(faces, 2)
@@ -234,6 +246,29 @@ def _read_dat(path: Path) -> dict[str, object]:
         "left": left,
         "right": right,
     }
+
+
+def _native_export(path, points, polygons):
+    """Independent native FEPolygon fixture; node strength is a known linear sequence."""
+    faces = [
+        (ring[i] + 1, ring[(i + 1) % len(ring)] + 1) for ring in polygons for i in range(len(ring))
+    ]
+    left = [cell + 1 for cell, ring in enumerate(polygons) for _ in ring]
+    blocks = [" ".join(format(value, ".17g") for value in points[:, axis]) for axis in range(3)]
+    blocks += [" ".join(str(0.125 + node) for node in range(len(points)))]
+    blocks += [
+        " ".join(str(value) for pair in faces for value in pair),
+        " ".join(map(str, left)),
+        " ".join("0" for _ in faces),
+    ]
+    path.write_text(
+        'TITLE="Native fixture"\nVARIABLES="X","Y","Z","Singularity_strength"\n'
+        f"ZONE T=Solver, NODES={len(points)}, ELEMENTS={len(polygons)}, FACES={len(faces)}, "
+        "DATAPACKING=BLOCK, ZONETYPE=FEPolygon, NumConnectedBoundaryFaces=0, "
+        "TotalNumBoundaryConnections=0\n" + "\n".join(blocks) + "\n",
+        encoding="utf-8",
+    )
+    return path
 
 
 def _nodes_of(blocks) -> np.ndarray:
@@ -348,14 +383,14 @@ def test_g45_a_turned_loads_frame_is_undone(tmp_path):
     assert np.abs(_nodes_of(wrong) - points).max() > 0.1
 
 
-def test_g45_a_campaign_surface_exports_the_vtk_and_never_the_solvers_tecplot():
+def test_g45_a_campaign_surface_retains_both_sources_for_translation():
     case = steady_case().model_copy(
         update={"reference": REFERENCE, "outputs": ["p.txt", "p.dat", "p_log.txt"]}
     )
     script = Script("26.124")
     build_script(case, script)
     lines = script.render().splitlines()
-    assert "EXPORT_SOLVER_ANALYSIS_TECPLOT" not in lines
+    assert "EXPORT_SOLVER_ANALYSIS_TECPLOT\np_native_tecplot.dat" in script.render()
     at = lines.index("EXPORT_SOLVER_ANALYSIS_VTK")
     assert lines[at + 1 : at + 3] == ["p.vtk", "SURFACES -1"]
     assert "SET_VTK_EXPORT_VARIABLES -1 DISABLE" in lines, "every variable and no wake file"
@@ -364,6 +399,7 @@ def test_g45_a_campaign_surface_exports_the_vtk_and_never_the_solvers_tecplot():
         {
             "vtk": "p.vtk",
             "dat": "p.dat",
+            "native_tecplot": "p_native_tecplot.dat",
             "frame": {
                 "frame": 2,
                 "origin": [9.152, 0.0, 0.0],
@@ -397,7 +433,7 @@ def test_g45_the_per_step_exports_carry_the_vtk_and_each_is_translated(tmp_path)
     )
     threshold = unsteady_export_threshold(case, version="26.124")
     assert threshold is not None
-    assert "EXPORT_SOLVER_ANALYSIS_TECPLOT" not in threshold.exports
+    assert "EXPORT_SOLVER_ANALYSIS_TECPLOT\np_native_tecplot.dat" in threshold.exports
     assert "EXPORT_SOLVER_ANALYSIS_VTK\np.vtk\nSURFACES -1" in threshold.exports
     from pyflightstream.results import translate_surface_exports
 
@@ -421,7 +457,8 @@ def test_g45_the_per_step_exports_carry_the_vtk_and_each_is_translated(tmp_path)
 def test_g45_a_run_writes_the_tecplot_from_its_vtk_and_the_products_say_so(tmp_path):
     """End to end: a stub solver hands back a VTK in the loads frame; the run writes the .dat."""
     source = tmp_path / "exported.vtk"
-    points, _, _ = _solver_vtk(source, MRP)
+    points, polygons, _ = _solver_vtk(source, MRP)
+    native = _native_export(tmp_path / "native.dat", points, polygons)
     case = steady_case().model_copy(
         update={"reference": REFERENCE, "outputs": ["p.txt", "p.dat"], "pproc": PprocSpec()}
     )
@@ -429,8 +466,9 @@ def test_g45_a_run_writes_the_tecplot_from_its_vtk_and_the_products_say_so(tmp_p
     workspace = CampaignWorkspace(tmp_path / "camp")
     code = (
         "import pathlib,shutil,sys; lines=pathlib.Path(sys.argv[1]).read_text().splitlines(); "
-        f"vtk={str(source)!r}; "
+        f"vtk={str(source)!r}; native={str(tmp_path / 'native.dat')!r}; "
         "[shutil.copyfile(vtk, lines[i+1]) if line == 'EXPORT_SOLVER_ANALYSIS_VTK' else "
+        "shutil.copyfile(native, lines[i+1]) if line == 'EXPORT_SOLVER_ANALYSIS_TECPLOT' else "
         "pathlib.Path(lines[i+1]).write_text('LOADS') for i, line in enumerate(lines) "
         "if line.startswith('EXPORT_SOLVER_ANALYSIS_')]"
     )
@@ -443,7 +481,7 @@ def test_g45_a_run_writes_the_tecplot_from_its_vtk_and_the_products_say_so(tmp_p
         preflight=False,
     )[0]
     names = [Path(name).name for name in record.outputs]
-    assert names == ["p.txt", "p.dat", "p.vtk"], "the VTK the .dat is written from is kept"
+    assert names == ["p.txt", "p.dat", "p.vtk", "p_native_tecplot.dat"]
     dat = workspace.sim_dir(record.sim_id) / next(o for o in record.outputs if o.endswith(".dat"))
     assert np.abs(_nodes_of(_read_dat(dat)["blocks"]) - points).max() < 1e-12
     assert record.surface_translations is not None
@@ -458,8 +496,9 @@ def test_g45_a_run_writes_the_tecplot_from_its_vtk_and_the_products_say_so(tmp_p
     entry = next(e for e in manifest["products"].values() if e.get("format") == "tecplot")
     assert entry["translated_from"] == "p.vtk"
     assert entry["source_sha256"] == file_sha256(source)
-    assert entry["location"] == "cell-centred" and entry["frame"] == "reference"
-    assert entry["not_carried"] == ["Singularity_strength"]
+    assert entry["location"] == "mixed nodal and cell-centred" and entry["frame"] == "reference"
+    assert entry["not_carried"] == []
+    assert entry["native_source_sha256"] == file_sha256(native)
     assert entry["kind"] == "instant"
     document = _prov_document(record, workspace.sim_dir(record.sim_id))
     dat_id = next(key for key in document["entity"] if key.endswith(".dat"))
@@ -470,7 +509,11 @@ def test_g45_a_run_writes_the_tecplot_from_its_vtk_and_the_products_say_so(tmp_p
     derived = [
         d for d in document["wasDerivedFrom"].values() if d["prov:generatedEntity"] == dat_id
     ]
-    assert [d["prov:usedEntity"] for d in derived] == [f"pyfs:output/{vtk_key}"]
+    native_key = next(o for o in record.outputs if o.endswith("_native_tecplot.dat"))
+    assert [d["prov:usedEntity"] for d in derived] == [
+        f"pyfs:output/{vtk_key}",
+        f"pyfs:output/{native_key}",
+    ]
 
 
 def test_g45_a_loads_frame_the_script_did_not_place_is_refused_before_the_run():

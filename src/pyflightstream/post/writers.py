@@ -1,3 +1,13 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# last_modified_at: 2026-09-27T15:42:00+00:00
+# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# dependencies: [pyflightstream.script.solver_setup]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Preserve optional sampling metadata in output provenance.
+# revision_source: git
 """Flow-visualization writers: probe data to VTK and Tecplot files.
 
 Pipeline role: turns probe positions plus sampled fields into files
@@ -148,6 +158,8 @@ class OutputProvenance(BaseModel):
     run_id: str
     campaign: str | None = None
     setup: SolverSetup
+    #: Optional field topology, units and source identity; absent for legacy writers.
+    sampling: dict[str, object] | None = None
 
     @property
     def fs_version(self) -> str:
@@ -224,6 +236,8 @@ def _provenance_payload(provenance: OutputProvenance, destination: Path) -> str:
         "fs_version": provenance.fs_version,
         "flags": [record.model_dump(mode="json") for record in settings_records(provenance.setup)],
     }
+    if provenance.sampling is not None:
+        payload["sampling"] = provenance.sampling
     return json.dumps(payload, indent=2, sort_keys=False) + "\n"
 
 

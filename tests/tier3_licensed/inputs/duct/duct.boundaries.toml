@@ -1,0 +1,23 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: "1.0.0"
+# last_modified_at: "2026-09-27T14:59:01.788097+00:00"
+# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementer}
+# dependencies: []
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: "Add synthetic uniform-normal-velocity duct fixture for G07."
+# revision_source: git
+# GEOVERSE_HEADER_END
+file = "duct.obj"
+boundaries = ["Inlet", "Outlet", "Wall"]
+[import]
+units = "METER"
+[trailing_edges]
+none = true
+[[inlets]]
+boundary = "Inlet"
+velocity = -10.0
+[[outlets]]
+boundary = "Outlet"
+velocity = 10.0

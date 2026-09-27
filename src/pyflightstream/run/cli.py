@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.1.0
+# artifact_id: src/pyflightstream/run/cli.py
+# last_modified_at: 2026-09-27T15:30:58.657219+00:00
+# last_modified_by: OpenAI / Codex / GPT-6 / implementer
+# dependencies: [pyflightstream]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Add typed setup coverage and coordinated workspace integration.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """The ``pyfs-matrix`` command line.
 
 Pipeline role: drives the run matrix as a first-class interface
@@ -55,6 +67,7 @@ import warnings
 from pathlib import Path
 from typing import NoReturn
 
+from pyflightstream._cli import cli_entrypoint, post_warning_policy
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_matrix
@@ -357,12 +370,23 @@ def _build_parser() -> argparse.ArgumentParser:
 
     plan = subparsers.add_parser(
         "plan",
+        aliases=["inspect-setups"],
         help="bind the matrix to the workspace input library and pre-flight every "
         "point, executing nothing. REQUIRED BEFORE `run` since v0.17.0: it writes "
         "the receipt that command asks for, pinned to the digest of the matrix it "
         "read",
     )
     _add_common_arguments(plan)
+    plan.add_argument(
+        "--setup-guidelines",
+        action="store_true",
+        help="write inputs/setups/SETUP_GUIDELINES.md, preserving existing edits",
+    )
+    plan.add_argument(
+        "--setup-standards",
+        action="store_true",
+        help="write commented s9XX setup standards, preserving existing edits",
+    )
     _add_the_missing_family_choice(plan)
     plan.add_argument(
         "--workflow",
@@ -709,6 +733,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "recorded skip is printed and the exit is 0, since everything producible was "
         "produced. 2 stays the code of a refusal that wrote nothing",
     )
+    for command_parser in (run, post, collect):
+        command_parser.add_argument(
+            "--pproc-warnings", action="store_true", help="print grouped post-processing warnings"
+        )
+    post.add_argument(
+        "--diagnostics",
+        action="store_true",
+        help="print recorded post diagnostics as Markdown without changing products",
+    )
     return parser
 
 
@@ -734,6 +767,7 @@ def _confirmed_destruction(yes: bool) -> bool:
     return answer.strip().lower() == "destroy"
 
 
+@cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
     """Run ``pyfs-matrix``; returns the process exit code."""
     args = _build_parser().parse_args(argv)
@@ -752,7 +786,7 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_rename(args)
     try:
         recipes = _parse_recipes(args.recipe)
-        if args.subcommand in ("run", "plan"):
+        if args.subcommand in ("run", "plan", "inspect-setups"):
             # BOTH, since 2026-08-19. `plan` is the zero-cost rehearsal of
             # `run`, and a rehearsal that refuses what the run accepts is
             # not a rehearsal: a workflow matrix could be run and not
@@ -1050,6 +1084,21 @@ def _cmd_post(args: argparse.Namespace) -> int:
             # Every matrix the manifest names, in first-seen order, and the
             # records naming none as their own group (PFS-2031.04).
             matrices = named
+        if getattr(args, "diagnostics", False):
+            if args.additional_pproc or args.force_overwrite or args.yes or args.check_frozen:
+                print(
+                    "--diagnostics cannot be combined with post mutation or frozen checks",
+                    file=sys.stderr,
+                )
+                return 2
+            from pyflightstream.post.diagnostics import render_post_diagnostics
+
+            print(
+                render_post_diagnostics(
+                    [workspace.products_dir(matrix) / "post.log.json" for matrix in matrices]
+                )
+            )
+            return 0
         # THE REFUSAL THE HELP TEXT PROMISES, and it was prose alone until
         # 2026-09-13 (the interface lens). `--yes` answers one question and
         # nothing else asks one, so alone it parses, runs, archives and
@@ -1167,7 +1216,9 @@ def _additional_post(
     for plan in plans:
         record = by_run.get(plan.run_id)
         if record is not None:
-            if record.status == "EXTRACTED":
+            if record.status == "SUBMITTED":
+                print(f"{plan.run_id} [{plan.pproc}]: submitted; extraction pending collect")
+            elif record.status == "EXTRACTED":
                 print(f"{plan.run_id} [{plan.pproc}]: extracted into {record.working_dir}/")
             else:
                 failed += 1
@@ -1199,10 +1250,11 @@ def _report_skips(workspace: CampaignWorkspace, matrices: list[str | None]) -> i
             json.loads(manifest.read_text(encoding="utf-8")).get("skipped", {}).items()
         ):
             what = key if "/" in key else f"simulation {key}"
-            print(
-                f"skipped {what} of {matrix or 'the matrix-less records'}: {reason}",
-                file=sys.stderr,
-            )
+            if post_warning_policy() is None:
+                print(
+                    f"skipped {what} of {matrix or 'the matrix-less records'}: {reason}",
+                    file=sys.stderr,
+                )
             skipped += 1
     return skipped
 
@@ -1354,6 +1406,27 @@ def _the_missing_family_choice(args: argparse.Namespace) -> bool:
 
 def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
     workspace = CampaignWorkspace(args.workspace, naming=_naming(args))
+    if getattr(args, "setup_guidelines", False) or getattr(args, "setup_standards", False):
+        from pyflightstream.workspace.setup_standards import write_setup_library
+
+        if args.fs_version is None:
+            print(
+                "setup generation requires --fs-version to identify the target build",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            generated = write_setup_library(
+                workspace.root,
+                fs_version=args.fs_version,
+                guidelines=args.setup_guidelines,
+                standards=args.setup_standards,
+            )
+        except (OSError, ValueError) as error:
+            print(f"setup library not generated: {error}", file=sys.stderr)
+            return 2
+        for filename, status in generated.items():
+            print(f"setup {status}: inputs/setups/{filename}")
     name, name_from = _campaign_name(args)
     renumbered = 0
     if getattr(args, "update_ids", False):
@@ -1391,6 +1464,7 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             recipe_registry=workflow_registry(),
             ignore_missing_families=_the_missing_family_choice(args),
             cost=getattr(args, "cost", False),  # FR-82
+            write_plan=args.subcommand != "inspect-setups",
             accept_unregistered_build=args.accept_unregistered_build,
         )
     except (MatrixError, InputArtifactError, OSError, ValueError) as error:
@@ -1405,7 +1479,15 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
                 file=sys.stderr,
             )
         return 2
+    if args.subcommand == "inspect-setups":
+        import json
+
+        print(json.dumps(plan.setup_inspections, indent=2, ensure_ascii=False))
+        return 1 if plan.blocked else 0
     print(plan.summary())
+    from pyflightstream.workspace.setup_inspection import setup_inspection_summary
+
+    print(setup_inspection_summary(plan.setup_inspections))
     if getattr(args, "cost", False) and not plan.costs:
         # A FLAG THE USER PASSED MUST ANSWER. `point_costs` returns nothing
         # when no planned point resolves to a case, and printing nothing is

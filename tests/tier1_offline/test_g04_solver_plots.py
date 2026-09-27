@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# file_role: solver-plot-export-regressions
+# last_modified_at: 2026-09-27T18:59:03.736Z
+# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# dependencies: [pytest, pyflightstream]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Replace obsolete unsteady section Cp refusal with measured final-export behavior.
+# revision_source: git
 """Tier 1: a steady point saves the solver's own plots (0.27.0, G04).
 
 The decision, held by a test on each of its links:
@@ -209,7 +220,7 @@ def test_g26_an_unsteady_row_saves_its_residual_and_load_plots_once_after_the_ma
     """G26 of 0.28.0 (RPT-076): the residual and the load plots are declared by default on
     an unsteady row and saved ONCE, after the march and before the log; never inside a
     per-step action, which would save the growing file at every step, and again in the
-    wall clock's rescue, which is the end of the run. The section Cp plot stays steady-only."""
+    wall clock's rescue, which is the end of the run. Without sections no Cp plot is declared."""
     for outputs in (default_outputs(True), PprocSpec().outputs(unsteady=True)):
         assert "{name}_plot_residuals.txt" in outputs and "{name}_plot_loads.txt" in outputs
         assert "{name}_plot_cp_sections.txt" not in outputs, outputs
@@ -238,27 +249,16 @@ def test_g26_an_unsteady_row_saves_its_residual_and_load_plots_once_after_the_ma
         assert "SET_PLOT_TYPE RESIDUALS" in rescue and "SET_PLOT_TYPE LOADS" in rescue, rescue
 
 
-def test_g26_the_sections_plot_stated_true_on_an_unsteady_row_is_refused():
-    """The section Cp plot was run after a steady solve only: stated true on an unsteady
-    row it is refused at plan, naming why; the residual plot stated true is accepted."""
-    from pyflightstream.cases import CampaignConfigError
-
-    outputs = ["P.txt", "P.fsm", "P_log.txt"]
-    accepted = PprocSpec.model_validate({"exports": {"plot_residuals": True}})
-    build_script(
-        unsteady_case().model_copy(update={"pproc": accepted, "outputs": outputs}),
-        Script("26.124"),
-    )
-    # Built past the pproc's own validator, which refuses the key without sections, so
-    # that the march's refusal is the only one that can speak: a pproc WITH sections
-    # would first be refused for the frame its sections cite on this reference-less case.
+def test_t40_explicit_section_plot_is_not_refused_as_steady_only():
+    """The pproc validator still requires sections; native T40 removes the run-type refusal."""
     base = PprocSpec()
-    refused = base.model_copy(update={"exports": {**base.exports, "plot_sections_cp": True}})
-    case = unsteady_case().model_copy(update={"pproc": refused, "outputs": outputs})
-    with pytest.raises(CampaignConfigError) as raised:
-        build_script(case, Script("26.124"))
-    text = str(raised.value)
-    assert "plot_sections_cp" in text and "'unsteady'" in text and "RPT-067" in text, text
+    stated = base.model_copy(update={"exports": {"plot_sections_cp": True}})
+    case = unsteady_case().model_copy(
+        update={"pproc": stated, "outputs": ["P.txt", "P_plot_cp_sections.txt", "P_log.txt"]}
+    )
+    script = Script("26.124")
+    build_script(case, script)
+    assert script.render().count("SET_PLOT_TYPE SECTIONS_CP") == 1
 
 
 # ----------------------------------------------------------------- the files --

@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.1
+# last_modified_at: 2026-09-27T21:01:38.971Z
+# last_modified_by: OpenAI / Codex / unknown / implementation-agent
+# dependencies: [pyflightstream.cases]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Bind existing setup and boundary behavior tests to GOAL-033 obligations.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1: the workspace workflow, from a run type to a complete script.
 
 Pipeline role: quality gate on PFS-2025.02, .05, .06, .08, .10 and .18.
@@ -1417,22 +1428,12 @@ def test_the_rotor_emitter_refuses_that_row_before_it_emits_anything():
     assert script.render().strip() == "", "the step emitted before it refused"
 
 
-def test_a_rotor_row_asking_for_the_azimuth_direction_still_builds_its_script():
-    """And the script gains NOTHING, because no command carries the field.
-
-    The complement of the refusal above: a well-formed direction changes
-    the specifications a component definition carries and changes no
-    line of the script, so a build that reads four fields runs this case
-    exactly as it always did.
-    """
-    plain = Script("26.120")
-    build_script(rotor_case(), plain)
-    shedding = Script("26.120")
-    build_script(rotor_case(ROTOR_SHEDDING="AZIMUTH"), shedding)
-    assert shedding.render() == plain.render(), (
-        "the shedding direction reached the script; it is a component-file field and "
-        "no registered build takes it as a scripting argument"
-    )
+def test_a_rotor_row_asking_for_ineffective_azimuth_direction_is_refused():
+    """G35: a matrix control with no native effect is an explicit refusal."""
+    script = Script("26.120")
+    with pytest.raises(CampaignConfigError, match="ROTOR_SHEDDING.*ineffective"):
+        build_script(rotor_case(ROTOR_SHEDDING="AZIMUTH"), script)
+    assert script.render().strip() == ""
 
 
 def test_a_specification_the_package_cannot_read_names_which_one_of_how_many():
@@ -2010,7 +2011,7 @@ def test_the_defect_itself_a_geometry_now_changes_the_script():
         ("unsteady_rotor", rotor_case()),
     ],
 )
-def test_both_builders_open_the_geometry_before_anything_else(workflow, case):
+def test_both_builders_open_the_geometry_before_anything_else(workflow, case, tmp_path):
     """OPEN is the FIRST line, on both run types.
 
     Not merely present: OPEN replaces the whole simulation state, so a
@@ -2018,13 +2019,18 @@ def test_both_builders_open_the_geometry_before_anything_else(workflow, case):
     would be discarded by it with nothing said, and the rotor's rotary
     motion would then cite a frame that no longer exists.
     """
-    opened = case.model_copy(update={"geometry": STAGED})
+    # G34 requires a readable unit for physical rotor origins. Keep this an
+    # ordering test with explicit metre metadata, rather than a missing file.
+    geometry = tmp_path / "rotor_sector.fsm"
+    geometry.write_text("$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n", encoding="utf-8")
+    staged = geometry.as_posix()
+    opened = case.model_copy(update={"geometry": staged})
     lines = rendered(opened, "26.123").splitlines()
     assert lines[0] == "OPEN", (
         f"the {workflow} workflow emits {lines[0]!r} first; OPEN discards whatever "
         "preceded it, so anything before it is silently thrown away"
     )
-    assert lines[1] == STAGED, "OPEN does not name the staged geometry on its value line"
+    assert lines[1] == staged, "OPEN does not name the staged geometry on its value line"
 
 
 def test_the_path_opened_is_the_one_the_case_carries_at_build_time():
@@ -4025,6 +4031,7 @@ def test_the_loads_frame_is_set_before_the_solve_so_every_step_export_carries_it
 
 
 def test_vorticity_drag_families_resolve_through_the_inventory(tmp_path):
+    # GOAL033:setup_bc:checks:boundary_selection
     """PFS-2030.03.03: names in the preset, indices in the script, absent families left out."""
     from pyflightstream.cases import SolverSettings
 

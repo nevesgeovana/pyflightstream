@@ -1,3 +1,13 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# last_modified_at: 2026-09-27T14:20:00+00:00
+# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# dependencies: [pyflightstream._cli]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Add truthful CLI outcome reporting on stderr.
+# revision_source: git
 """``pyfs-manual``: compare a FlightStream manual against the command database.
 
 Pipeline role: maintainer entry point, outside the run pipeline. It reads
@@ -56,6 +66,7 @@ from collections.abc import Sequence
 from importlib import resources
 from pathlib import Path
 
+from pyflightstream._cli import cli_entrypoint
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.utils.database import register_edition
 from pyflightstream.utils.errors import ManualDraftError
@@ -745,6 +756,7 @@ def _register(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     return 0
 
 
+@cli_entrypoint
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the command line and return a process exit code.
 

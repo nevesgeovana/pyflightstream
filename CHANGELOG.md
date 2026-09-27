@@ -1,3 +1,17 @@
+<!--
+GEOVERSE_HEADER
+file_version: 1.0.0
+artifact_id: pyflightstream-changelog
+last_modified_at: 2026-09-27T19:36:55.583Z
+last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
+dependencies: [pyproject.toml, docs/migrating-to-0.29.0.md]
+authority: pyflightstream
+status: active
+confidentiality: public
+change_summary: Draft the unreleased workspace completion changes with remaining acceptance gates explicit.
+revision_source: git
+-->
+
 # Changelog
 
 All notable changes to pyflightstream. The format follows
@@ -6,6 +20,86 @@ follow [SemVer](https://semver.org/) and are decoupled from
 FlightStream versions.
 
 ## [Unreleased]
+
+### Workspace completion — 0.29 development
+
+This section describes the implementation under integration. Native Excel
+execution, remaining geometry/setup controls and complete wall-time termination
+are still being verified. It is not a publication or acceptance announcement.
+
+### Added
+
+- **Complete setup presets and physical guidance.** `pyfs-matrix plan
+  --setup-guidelines` writes `inputs/setups/SETUP_GUIDELINES.md`;
+  `--setup-standards` writes the `s9XX` library. The options are independent.
+  Scenario recommendations identify low-cost and additional-fidelity starting
+  points, their assumptions and supporting literature. Single-setting studies
+  name their applicable baseline. Unavailable commands remain labeled comments;
+  differing existing files are preserved. No matrix is silently reassigned.
+- **Resolved setup inspection.** `pyfs-matrix inspect-setups` reports values,
+  origins, boundary selections and raw commands, using the same records stored
+  by planning. The input glossary and templates cover the new structured fields.
+- **Typed boundary editing.** Raw-mesh sidecars declare inlet/outlet profiles,
+  remeshing and explicit absence of trailing edges. Setup operations expose
+  selection, initialization removal, transition-trip deletion and ordered
+  base-region edits. These are opt-in state changes, not automatic additions
+  to every physical preset. Native coverage remains build-specific.
+- **Sampled velocity products.** Probes and volume sections support
+  package-written VTK/Tecplot point fields with source, position, frame and
+  velocity-component provenance. Reusable inflow requires an appropriate
+  global YZ survey; point samples do not invent a volume-cell topology.
+- **Separate boundary-layer products.** Section-integral tables read the actual
+  VTK cell quantities at configured section cuts, retaining multiple incidences
+  on shared intersections. The velocity-profile request is separate and remains
+  a named refusal where unattended native profile export has no positive proof.
+- **Named FSI inputs and independent calibration.** `inputs/fsi/f<>.toml`
+  supplies complete structural distributions or calculates solid homogeneous
+  sections using one sourced material. Matrix factors override file factors
+  once; base/effective values and factor origins are staged with their hashes.
+  Source and derived factors along the same dependency cannot silently compound.
+  The existing Euler beam and coupling model are unchanged.
+- **Optional Excel synchronization.** The workbook includes VBA controls and a
+  Dictionary mapping. Read/Write propose changes; Apply/Cancel is explicit.
+  Three-way conflicts, leading-zero IDs, custom cells, formulas, legacy matrix
+  schemas and recovery copies are retained. Creation is offline and leaves
+  Excel's normal macro policy in place. Native execution acceptance is pending.
+
+### Changed
+
+- **Nodal strength accompanies the VTK surface fields.** New Tecplot surface
+  requests keep an auxiliary native Tecplot source. Coordinate and polygon
+  topology matching carries its nodal `Singularity_strength` alongside the
+  VTK's cell quantities, without converting their associations or guessing a
+  normalization. Per-STEP products use that STEP's own source. Historical records
+  without the new declaration keep the earlier VTK-only behavior.
+- **Unsteady post-processing retains explicit time meaning.** Final Cp curves
+  are exported once after the march. Surface means use the complete recorded
+  window and retain final-step coordinates. Native fields that contain their
+  final instant are distinguished from actual time means. A wall-time rescue
+  with unresolved native averaging/history semantics cannot imply acceptance.
+- **Execution and post logs report their stage and outcome.** Post warnings
+  remain in the structured log and can be shown with `--pproc-warnings`.
+  `post --diagnostics` writes a Markdown report without regenerating products.
+  CLI signatures use result-aware messages on stderr, preserving structured
+  stdout. Windows callbacks use a hidden runtime when that route is supported.
+- **Continuation checks its recorded inputs.** Recovery follows the saved
+  script and exact frame/source provenance. Unsupported or ambiguous historical
+  commands are refused by name before a new extraction can invent state.
+
+### Fixed
+
+- A cached translated surface must match its actual output bytes and the full
+  frame record. Rounded frame descriptions no longer conflate nearby origins,
+  and a missing output is reconstructed from its bound sources.
+- Workspace FSI calibration retains a source's tabulated shear modulus. Unity
+  calibration or a density/E/Poisson change no longer substitutes an isotropic
+  formula for a tabulated G. Derived-G materials retain their explicit dependency
+  and double-scaling checks. The executable workspace example compares both
+  property modes with one matrix override.
+
+See [the migration guide](docs/migrating-to-0.29.0.md) for file preservation,
+variable associations and input conventions. Remaining integration gates above
+must be resolved before this development entry becomes a release entry.
 
 ### Owed
 

@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: surface-series
+# last_modified_at: 2026-09-27T18:36:20.824Z
+# last_modified_by: OpenAI / Codex / GPT-6 / implementer
+# dependencies: [pyflightstream; pytest]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Carry the actual native nodal source and dual provenance in surface metadata.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """The per-step exports of an unsteady point as a series (PFS-2031.18.01).
 
 A row stating ``EXPORT_UNSTEADY_AFTER_REV`` or ``EXPORT_UNSTEADY_AFTER_ITER``
@@ -191,13 +203,24 @@ def translated_surface(record: RunRecord | AdditionalRecord, path: Path) -> dict
                         stated[found.group("name")] = found.group("value")
         except OSError:
             stated = {}
-        return {
+        metadata: dict[str, object] = {
             "translated_from": source,
             "source_sha256": stated.get("SOURCE_VTK_SHA256", NOT_APPLICABLE),
             "location": "cell-centred",
             "frame": "reference",
             "not_carried": list(NOT_CARRIED_BY_THE_VTK),
         }
+        native = stated.get("SOURCE_NATIVE_TECPLOT")
+        native_hash = stated.get("SOURCE_NATIVE_TECPLOT_SHA256")
+        if native and native_hash:
+            metadata.update(
+                native_source=native,
+                native_source_sha256=native_hash,
+                nodal_variables=["Singularity_strength"],
+                not_carried=[],
+                location="mixed nodal and cell-centred",
+            )
+        return metadata
     return {}
 
 

@@ -1,3 +1,17 @@
+<!--
+GEOVERSE_HEADER
+file_version: 1.0.0
+artifact_id: gui-workspace-map
+last_modified_at: 2026-09-27T19:06:07.787Z
+last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementer}
+dependencies: [pyflightstream]
+authority: pyflightstream
+status: draft
+confidentiality: public
+change_summary: Connect setup, Excel, sampled-field, native-strength and distinct boundary-layer routes.
+revision_source: git
+-->
+
 # From the GUI to pyfs
 
 A FlightStream session in the GUI is a sequence of steps: load the geometry,
@@ -28,6 +42,13 @@ How to read a line:
   documented by its build's manual, and a key is refused, naming the build,
   where a command it needs does not exist.
   [Which build do I have](builds.md) maps your solver to these numbers.
+
+## Workspace preparation
+
+Generate [complete setup standards and their guide](setup-standards.md) with
+`plan --setup-standards --setup-guidelines`. Inspect resolved values with
+`inspect-setups` before execution. An [optional Excel workbook](excel-matrices.md)
+uses Dictionary-based Preview, Apply and Cancel; no synchronization runs on open.
 
 ## Geometry and mesh
 
@@ -142,15 +163,17 @@ them; a row marks base regions on either.
 | Take the induced drag from the vorticity of the surfaces you name | setup key `vorticity_drag_families` | `SET_VORTICITY_DRAG_BOUNDARIES` | 26.121 to 26.124 |
 | Loads in newtons rather than coefficients, inviscid loads, or boundaries left out of the loads (steady rows) | setup keys `load_units`, `inviscid_loads` and `analysis_families` | `SET_LOADS_AND_MOMENTS_UNITS`, `SET_INVISCID_LOADS`, `SET_SOLVER_ANALYSIS_BOUNDARIES` | 26.120, 26.122, 26.123 (except `SET_SOLVER_ANALYSIS_BOUNDARIES`) |
 | Print more significant digits | setup key `significant_digits` | `SET_SIGNIFICANT_DIGITS` | none |
-| Export the surface solution as Tecplot, VTK or CSV, with the VTK variables you choose | pproc table `[exports]`: `tecplot` (on unless switched off), `vtk` and `csv` (off unless switched on); pproc key `vtk_variables` ([native surface flow exports](post-processing-definitions.md#native-surface-flow-exports)). The package writes the Tecplot from the solver's VTK, per cell and in the reference frame ([the Tecplot surface is written from the VTK](post-processing-definitions.md#the-tecplot-surface-is-written-from-the-vtk-since-0280)) | `EXPORT_SOLVER_ANALYSIS_VTK`, `EXPORT_SOLVER_ANALYSIS_CSV`, `SET_VTK_EXPORT_VARIABLES` | 26.120 to 26.124 (except `SET_VTK_EXPORT_VARIABLES`) |
+| Export the surface solution as Tecplot, VTK or CSV, with the VTK variables you choose | pproc table `[exports]`: `tecplot` (on unless switched off), `vtk` and `csv` (off unless switched on); pproc key `vtk_variables` ([native surface flow exports](post-processing-definitions.md#native-surface-flow-exports)). The package preserves VTK cell values and adds same-step native nodal `Singularity_strength` after a unique geometry/topology match ([surface translation](surface-translation.md)) | `EXPORT_SOLVER_ANALYSIS_VTK`, `EXPORT_SOLVER_ANALYSIS_TECPLOT`, `EXPORT_SOLVER_ANALYSIS_CSV`, `SET_VTK_EXPORT_VARIABLES` | 26.120 to 26.124 (except `SET_VTK_EXPORT_VARIABLES`) |
 | Export the force distribution, panel by panel | pproc table `[exports]`: `force_distributions`, off unless switched on | `EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS` | 26.120 to 26.124 |
 | Average the surface solution over the last steps of an unsteady run | pproc table `[time_averaging]`: the row exports its surface at every step of the window and `pyfs-matrix post` averages them, cell by cell ([the time-averaged surface is the package's](post-processing-definitions.md#the-time-averaged-surface-is-the-packages-since-0280)) | `SET_NEW_UNSTEADY_SOLVER_ACTION`, `EXPORT_SOLVER_ANALYSIS_VTK` | none |
+| Read boundary-layer integrals along configured cuts | pproc `[products]`: `boundary_layer_integrals = true`; original VTK cell values at recorded section cuts ([boundary-layer products](boundary-layer-products.md)) | Required VTK and section exports | Fixed-frame native comparison on 26.124; other conventions need evidence |
+| Write sampled velocity fields as VTK, Tecplot or reusable inflow | pproc `[[probes]]`: `field_formats` and `reusable_inflow` ([sampled fields](sampled-fields.md)); volume sections use the same probe sampling route | Probe point exports or unsteady fluid plots | Export/build/unit-specific evidence; see guide |
 | Cut surface sections and export their Cp and sectional loads | pproc table `[sections]` ([the sections table](post-processing-definitions.md#the-sections-table-and-which-row-is-which)) | `NEW_SURFACE_SECTION_DISTRIBUTION`, `UPDATE_ALL_SURFACE_SECTIONS`, `COMPUTE_SURFACE_SECTIONAL_LOADS`, `EXPORT_ALL_SURFACE_SECTIONS`, `EXPORT_SURFACE_SECTIONAL_LOADS` | 26.120 to 26.124 (except `UPDATE_ALL_SURFACE_SECTIONS`) |
 | Cut a plane of the flow field and export it (steady rows) | pproc table `[volume_section]` ([a volume section](workspace-and-workflows.md#a-volume-section-steady-rows)) | `CREATE_NEW_RECTANGLE_VOLUME_SECTION`, `CREATE_NEW_CIRCLE_VOLUME_SECTION`, `DELETE_VOLUME_SECTION`, `EXPORT_VOLUME_SECTION_VTK`, `EXPORT_VOLUME_SECTION_TECPLOT` | 26.120 to 26.124 |
 | Probe the flow at points and along lines (steady rows) | pproc table `[[probes]]` ([the probes table](post-processing-definitions.md#the-probes-table)) | `NEW_PROBE_POINT`, `NEW_PROBE_LINE`, `UPDATE_PROBE_POINTS`, `EXPORT_PROBE_POINTS` | 26.101 to 26.124 (except `UPDATE_PROBE_POINTS`) |
 | Probe the flow through an unsteady run | pproc table `[[probes]]`, sampled as fluid plots | `UNSTEADY_SOLVER_NEW_FLUID_PLOT`, `UNSTEADY_SOLVER_EXPORT_PLOTS` | 26.124 |
 | Plot the forces through an unsteady run | pproc table `[plots]` | `UNSTEADY_SOLVER_NEW_FORCE_PLOT`, `UNSTEADY_SOLVER_EXPORT_PLOTS` | 26.124 |
-| Save the residual, load and section Cp plots of a steady point | pproc table `[exports]`: `plot_residuals`, `plot_loads` and `plot_sections_cp` ([the solver's own plots](post-processing-definitions.md#the-solvers-own-plots)) | `SET_PLOT_TYPE`, `SAVE_PLOT_TO_FILE` | 26.124 |
+| Save residual, load and final section Cp plots | pproc table `[exports]`: `plot_residuals`, `plot_loads` and `plot_sections_cp` ([unsteady plots and averages](unsteady-postprocessing.md)); section Cp is exported once after the march, never at every STEP | `SET_PLOT_TYPE`, `SAVE_PLOT_TO_FILE` | 26.124 |
 | Export the solver log | pproc table `[exports]`: `log`; row key `EXPORT_LOG`, which the HPC profile's `[log]` table writes, and row key `LOG_OUTPUT` from Python alone | `EXPORT_LOG` | 26.100 to 26.124 |
 | Export at every step of an unsteady run, from a step on | row keys `EXPORT_UNSTEADY_AFTER_ITER` and `EXPORT_UNSTEADY_AFTER_REV` ([exports that begin after a threshold](workspace-and-workflows.md#exports-that-begin-after-a-threshold)) | `SET_NEW_UNSTEADY_SOLVER_ACTION` | none |
 | Sum the loads of groups of surfaces into polars | pproc tables `[groups]` and `[products]` ([what the products are](workspace-and-workflows.md#what-the-products-are)) | none | none |
@@ -158,7 +181,7 @@ them; a row marks base regions on either.
 | Post-process a saved simulation again, without solving it again | since 0.27.0: row key `ADDITIONAL_PPROC`, naming a second pproc of sections, sectional loads and surface exports, which `pyfs-matrix post --additional-pproc` extracts from each recorded point's final `.fsm` with no solve ([extracting more from a finished point](workspace-and-workflows.md#extracting-more-from-a-finished-point-the-additional-post)) | `OPEN`, `NEW_SURFACE_SECTION_DISTRIBUTION`, `UPDATE_ALL_SURFACE_SECTIONS`, `COMPUTE_SURFACE_SECTIONAL_LOADS`, `EXPORT_SOLVER_ANALYSIS_SPREADSHEET`, `EXPORT_ALL_SURFACE_SECTIONS`, `EXPORT_SURFACE_SECTIONAL_LOADS` | 26.124 (except `UPDATE_ALL_SURFACE_SECTIONS`) |
 | Trace streamlines, on the surface or through the field | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `GENERATE_ALL_SURFACE_STREAMLINES`, `NEW_OFF_BODY_STREAMLINE`, `EXPORT_ALL_SURFACE_STREAMLINES`, `EXPORT_ALL_OFF_BODY_STREAMLINES` | none |
 | Save a picture of the scene, coloured by a variable | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `SET_SCENE_CONTOUR`, `SAVE_SCENE_AS_IMAGE` | none |
-| Export a boundary-layer velocity profile | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `EXPORT_BL_VELOCITY_PROFILE` | none |
+| Export a boundary-layer velocity profile | Separate pproc `[products]` flag `boundary_layer_velocity_profile`; currently refused by name before execution ([profile limits](boundary-layer-products.md#the-separate-velocity-profile-request)). Integral products are not a substitute | `EXPORT_BL_VELOCITY_PROFILE` has no positive unattended-build evidence | Refused: modal on 26.122; broken on 26.124 |
 | Export the surface pressures as structural loads | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `EXPORT_SOLVER_ANALYSIS_PLOAD_BDF` | 26.120 to 26.124 |
 | Import probe points from a file | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `PROBE_POINTS_IMPORT` | 26.101 to 26.124 |
 | Probe a surface through an unsteady run, or animate it | not yet: setup table `[[raw]]` ([the raw route](#the-raw-route)) | `NEW_UNSTEADY_SOLVER_SURFACE_PROBE`, `UNSTEADY_SOLVER_ANIMATION` | none |

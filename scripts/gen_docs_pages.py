@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.4
+# artifact_id: documentation-generator
+# last_modified_at: 2026-09-27T20:29:11.784Z
+# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
+# dependencies: [pyflightstream]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Publish the existing FSI tutorial from its single source.
+# revision_source: git
 """Generate the docs reference and compatibility pages at build time.
 
 Executed by the mkdocs-gen-files plugin (configured in properdocs.yml).
@@ -22,14 +33,21 @@ from pyflightstream.reference import (
 )
 
 EXAMPLES = [
+    "cad_import.py",
+    "base_region_setup.py",
     "steady_polar.py",
     "campaign_matrix.py",
     "wing_static_deflection.py",
     "fsi_campbell_diagram.py",
     "fsi_solid_blade_properties.py",
+    "workspace_fsi_calibration.py",
     "obj_wing_trailing_edge_file.py",
     "roll_rate_row.py",
     "additional_post.py",
+    "surface_with_native_strength.py",
+    "sampled_field_export.py",
+    "boundary_layer_sections.py",
+    "continuation_frame_recovery.py",
 ]
 
 for path, content in markdown_reference_pages().items():
@@ -58,7 +76,7 @@ with mkdocs_gen_files.open("conventions.md", "w") as page:
     page.write("# House conventions\n\n" + conventions_markdown())
 
 # The input glossary (G08 of 0.27.0): the page `pyfs-workspace init` writes into
-# a workspace's `inputs/pproc/INPUTS.md`, from the same function.
+# a workspace's `inputs/INPUTS.md`, from the same function.
 with mkdocs_gen_files.open("inputs.md", "w") as page:
     page.write(input_glossary_markdown())
 
@@ -67,3 +85,8 @@ for script_name in EXAMPLES:
     stem = script_name.removesuffix(".py")
     with mkdocs_gen_files.open(f"examples/{stem}.md", "w") as page:
         page.write(percent_script_markdown(source))
+
+# Keep the structural tutorial in its source package and render one site mirror.
+with mkdocs_gen_files.open("fsi-tutorial.md", "w") as page:
+    tutorial = Path(__file__).resolve().parents[1] / "src/pyflightstream/fsi/README.md"
+    page.write(tutorial.read_text(encoding="utf-8"))

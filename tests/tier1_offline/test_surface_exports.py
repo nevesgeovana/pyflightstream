@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: surface-exports-tests
+# last_modified_at: 2026-09-27T18:36:38.586Z
+# last_modified_by: OpenAI / Codex / GPT-6 / implementer
+# dependencies: [pyflightstream; pytest]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Keep surface product assertions distinct from retained native provenance files.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """F02/F03: native surface averages and opt-in VTK/CSV, without a solver.
 
 Oracle: inclusive last-n windows; 360 / DELTA_THETA steps per revolution.
@@ -24,7 +36,7 @@ from pyflightstream.post.series import write_point_series
 from pyflightstream.run import run_campaign
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
-from tests.tier1_offline.test_matrix_run import STUB_VTK
+from tests.tier1_offline.test_matrix_run import STUB_NATIVE_TECPLOT, STUB_VTK
 from tests.tier1_offline.test_run_campaign import StubSolver, converged
 from tests.tier1_offline.test_workflows import rotor_case, unsteady_case
 
@@ -164,7 +176,7 @@ def test_both_formats_join_per_step_exports(threshold, first):
     window = unsteady_export_threshold(case, version="26.124")
     assert window.first_step == first
     # G45: the Tecplot is written from the VTK, which is exported once per step.
-    assert "EXPORT_SOLVER_ANALYSIS_TECPLOT" not in window.exports
+    assert "EXPORT_SOLVER_ANALYSIS_TECPLOT\np_native_tecplot.dat" in window.exports
     assert window.exports.count("EXPORT_SOLVER_ANALYSIS_VTK") == 1
     assert "SET_VTK_EXPORT_VARIABLES 2 DISABLE\nVX\nVY" in window.exports
     assert "EXPORT_SOLVER_ANALYSIS_VTK\np.vtk\nSURFACES -1" in window.exports
@@ -232,9 +244,10 @@ def test_run_records_emitted_window_and_products_use_record_not_edited_pproc(tmp
     # VTK is one in the solver's layout, since the package writes the Tecplot from it (G45).
     code = (
         "import pathlib,sys; lines=pathlib.Path(sys.argv[1]).read_text().splitlines(); "
-        f"vtk={STUB_VTK!r}; "
+        f"vtk={STUB_VTK!r}; native={STUB_NATIVE_TECPLOT!r}; "
         "[pathlib.Path(lines[i+1]).write_text(vtk if line == 'EXPORT_SOLVER_ANALYSIS_VTK' else "
-        "'native surface') for i,line in enumerate(lines) "
+        "native if line == 'EXPORT_SOLVER_ANALYSIS_TECPLOT' else 'native surface') "
+        "for i,line in enumerate(lines) "
         "if line.startswith('EXPORT_SOLVER_ANALYSIS_')]"
     )
     record = run_campaign(
@@ -268,6 +281,7 @@ def test_run_records_emitted_window_and_products_use_record_not_edited_pproc(tmp
         node
         for node in document["entity"].values()
         if node.get("pyfs:name", "").endswith((".dat", ".vtk", ".csv"))
+        and not node.get("pyfs:name", "").endswith("_native_tecplot.dat")
     ]
     assert len(surfaces) == 3
     assert all(node["pyfs:kind"] == "instant" for node in surfaces)

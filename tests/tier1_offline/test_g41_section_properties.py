@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: test_g41_section_properties
+# last_modified_at: 2026-09-27T20:14:42.113Z
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [pyflightstream.fsi]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Bind existing physical tests to release acceptance obligations.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1: the FSI's blade properties from its sections and a material (G41).
 
 What is held here, and against what:
@@ -350,6 +362,7 @@ def test_every_material_carries_its_source():
 
 
 def test_the_titanium_entry_is_the_one_data_sheet_it_cites():
+    # GOAL033:fsi:checks:material_source
     """All four numbers from one data set, and the set says which."""
     titanium = material("ti-6al-4v-grade5-annealed")
     assert titanium.density_kg_per_m3 == 4430.0
@@ -413,6 +426,7 @@ def test_a_generated_blade_passes_the_configuration_and_round_trips(tmp_path):
 
 
 def test_the_generated_distributions_are_the_material_times_the_sections():
+    # GOAL033:fsi:checks:solid_homogeneous
     blade = _synthetic_blade()
     titanium = material("ti-6al-4v-grade5-annealed")
     contour = airfoil_section_contour(naca4_contour("2412", 60), 0.05)

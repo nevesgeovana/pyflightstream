@@ -1,3 +1,13 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# last_modified_at: 2026-09-27T14:20:00+00:00
+# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# dependencies: [pyflightstream._cli]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Add truthful CLI outcome reporting on stderr.
+# revision_source: git
 """The ``pyfs-workspace`` command line.
 
 Pipeline role: drives the managed campaign workspace from a terminal.
@@ -32,6 +42,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+from pyflightstream._cli import cli_entrypoint
 from pyflightstream.workspace import (
     INPUT_KINDS,
     CampaignWorkspace,
@@ -101,6 +112,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+@cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
     """Run ``pyfs-workspace``; returns the process exit code."""
     args = _build_parser().parse_args(argv)
@@ -119,7 +131,8 @@ def _cmd_init(args: argparse.Namespace) -> int:
     for kind in INPUT_KINDS:
         print(f"  inputs/{kind}/")
     print("  inputs/executables.toml (build registry)")
-    print("  inputs/pproc/VARIABLES.md, WRITING-EQUATIONS.md, INPUTS.md (generated guides)")
+    print("  inputs/pproc/VARIABLES.md, WRITING-EQUATIONS.md (generated pproc guides)")
+    print("  inputs/INPUTS.md (generated input glossary; custom notes preserved)")
     print("  inputs/input_template.md (generated: an example of every input file)")
     for name in ("sims", "post", "archive"):
         print(f"  {name}/")

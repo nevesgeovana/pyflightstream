@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.4.6
+# last_modified_at: 2026-09-27T21:58:19.804Z
+# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
+# dependencies: [../_lengths.py, motion.py]
+# file_role: script-command-emitter
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Document the implemented 0.29 architecture and evidence boundaries.
+# revision_source: git
 """The validating FlightStream script builder.
 
 Pipeline role: turns typed Python calls into the ASCII script text the
@@ -47,6 +58,18 @@ the PERIODIC symmetry copy count (``symmetry_copies``) are regular
 database arguments now, emitted comfortably through the curated
 helper layer in :mod:`pyflightstream.script.helpers` (SAD Section
 4.3).
+
+In the 0.29 workflow, emitted surface operations and frame motions also
+form a provenance ledger. Geometry facts and unknown trajectory details
+remain distinct; consumers may resolve timing only against exact measured
+executable/build evidence. A raw emission cannot silently acquire that
+proof. Command validation alone does not establish a native physical effect.
+
+Length conventions are command-specific: frame coordinates use the native
+simulation unit, while the measured unsteady fluid-plot VERTEX boundary
+uses metres. The workflow converts at that boundary and retains declared
+local sample coordinates for later interpretation. Existing action-based
+exports remain the route for per-step surface sequences.
 """
 
 from __future__ import annotations
@@ -55,7 +78,7 @@ import math
 import os
 from collections.abc import Mapping, Sequence
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -79,6 +102,7 @@ from pyflightstream.script.entities import (
     ScriptLabelError,
     ScriptReferenceError,
 )
+from pyflightstream.script.motion import MotionLedger
 from pyflightstream.versions import FsVersion
 
 if TYPE_CHECKING:  # annotation only: the builder core does not depend
@@ -422,22 +446,13 @@ _REFERENCE_PLACEMENT_INDEX = 1
 
 
 class FramePlacement(BaseModel):
-    """Where one coordinate system stands, as far as THIS SCRIPT placed it (FR-100).
+    """Placement retained from explicit coordinate-system commands (FR-100).
 
-    ``origin`` is in METRES in the reference frame; ``axes`` are the X, Y and Z
-    unit directions in the reference frame. Either is ``None`` when a command
-    moved the frame in a way this ledger does not follow, so a reader that
-    needs it refuses rather than placing something from a stale value.
-
-    METRES IS AN ASSUMPTION THE LEDGER CANNOT CHECK, and it is stated here
-    rather than left to be inferred. ``EDIT_COORDINATE_SYSTEM`` carries no unit:
-    it places a frame in the simulation's length unit, which is also the unit a
-    reference ``[[frames]]`` origin is written in. The ledger reads that origin
-    as metres and a translation writes the moved origin back as ``METER``, so a
-    translation is right only on a simulation whose length unit is metres, which
-    nothing in the command can say.
-    ``SET_COORDINATE_SYSTEM_ORIGIN`` states its unit, and one set in any unit
-    but ``METER`` is forgotten rather than converted.
+    Origin values retain the numeric convention of emitted frame commands.
+    Axes are the named X, Y and Z directions in REFERENCE. Explicit-unit
+    origins are converted through the recorded simulation unit. Physical
+    interpretation requires a measured native unit contract; this ledger does
+    not establish it. Unfollowed placement commands clear affected values.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -493,15 +508,25 @@ def _placed_by_edit(
 
 
 def _placed_by_origin(
-    placements: dict[int, FramePlacement], frame: int, bound: Mapping[str, object]
+    placements: dict[int, FramePlacement],
+    frame: int,
+    bound: Mapping[str, object],
+    *,
+    simulation_unit: str = "METER",
 ) -> None:
     """``SET_COORDINATE_SYSTEM_ORIGIN`` states the origin in the reference (SRC-751 p.334).
 
-    IN METRES OR FORGOTTEN: an origin set in any other unit is not comparable
-    with the frames the package places, and is forgotten rather than converted.
+    Convert explicit command units to the native units used by the placement
+    ledger. Unknown scales forget the origin instead of keeping a wrong value.
     """
+    from pyflightstream._lengths import scale
+
     held = placements.get(frame)
-    origin = _vector(bound, "x", "y", "z") if str(bound.get("units")) == "METER" else None
+    factor = scale(str(bound.get("units")), simulation_unit)
+    values = _vector(bound, "x", "y", "z")
+    origin = (
+        None if factor is None else (values[0] * factor, values[1] * factor, values[2] * factor)
+    )
     placements[frame] = FramePlacement(origin=origin, axes=held.axes if held is not None else None)
 
 
@@ -514,6 +539,9 @@ def _placed_by_turn(
     origin of the frame it turns about, which a turn about that point cannot
     move whatever its sign.
     """
+    # A zero turn preserves placement independently of rotation-sign evidence.
+    if float(bound.get("angle", 0.0)) == 0.0:
+        return
     held = placements.get(frame)
     pivot = placements.get(bound.get("rotation_frame"))  # type: ignore[arg-type]
     stays = (
@@ -882,6 +910,13 @@ class Script:
         self._reinitialization_owed: tuple[str, int] | None = None
         self._through_the_door = False
         self.entities = EntityRegistry()
+        self._motion_ledger = MotionLedger()
+        #: Emitted surface transforms with the frame placement at that command.
+        self.surface_operations: list[dict[str, Any]] = []
+        self.custom_field_extent_m: tuple[float, float, float, float] | None = None
+        self.custom_field_coverage: dict[str, Any] | None = None
+        self._native_solver_sha256: str | None = None
+        self._native_solver_build: str | None = None
         self.solver_setup: SolverSetup | None = None
         # Induced-drag boundary selection, owned by the helpers: the
         # command is analysis phase, so the settings call records it
@@ -909,6 +944,10 @@ class Script:
         #: entry cites a user's points file, since the package does not
         #: parse a survey the user wrote.
         self.probe_points: list[tuple[int, float, float, float, str]] = []
+        #: Exact sample IDs, field requests and native-to-SI conversion per entry.
+        self.probe_field_layout: list[dict[str, object]] = []
+        #: Native surface-property plot identities, separate from off-body velocity samples.
+        self.surface_probe_layout: list[dict[str, object]] = []
         #: Surface averaging window emitted by the workflow, for run provenance.
         #: Never set by a build since 0.28.0, which emits no SOLVER_TIME_AVERAGING;
         #: a continuation carries the one its stopped run recorded.
@@ -966,6 +1005,8 @@ class Script:
         # :meth:`emit` for the reason ``_frame_placements`` is: the unit
         # recorded cannot drift from the unit emitted.
         self._simulation_length_unit: str | None = None
+        # Saved-geometry metadata until a command sets the unit explicitly.
+        self._opened_length_unit: str | None = None
         #: THE OPENED GEOMETRY'S BOUNDARY NAMES, in the solver's order, the
         #: name at position ``i`` being boundary ``i`` (R03 of 0.27.0). Filled
         #: where the workflow declares the inventory at OPEN, for the reason
@@ -1324,8 +1365,35 @@ class Script:
         self._lines.extend(block)
         if multiline:
             self._lines.append("")
+        if entry.name in {"OPEN", "NEW_SIMULATION"}:
+            self.surface_operations.clear()
+            self.custom_field_extent_m = None
+            self.custom_field_coverage = None
+        if "SURFACE" in entry.name and entry.name.startswith(
+            ("ROTATE", "TRANSLATE", "SCALE", "MIRROR")
+        ):
+            frame_index = bound.get("frame")
+            placement = (
+                self.frame_placements.get(frame_index) if isinstance(frame_index, int) else None
+            )
+            self.surface_operations.append(
+                {
+                    "command": entry.name,
+                    "arguments": dict(bound),
+                    "length_unit": self.simulation_length_unit,
+                    "frame": placement.model_dump() if placement is not None else None,
+                    "boundary_count": self.num_boundaries,
+                    "line": len(self._lines) - len(block) + (0 if multiline else 1),
+                }
+            )
         self._follow_frame_placement(entry.name, bound)
         self._follow_length_unit(entry.name, bound)
+        self._motion_ledger.follow(
+            entry.name,
+            bound,
+            line=len(self._lines) - len(block) + (0 if multiline else 1),
+            next_motion=self.num_motions + 1,
+        )
         if entry.name == _LOADS_FRAME_COMMAND:
             self._loads_frame = int(bound["load_frame"])  # type: ignore[call-overload]
             self._sets_loads_frame = True
@@ -1334,6 +1402,38 @@ class Script:
             self.entities.create(_CREATION_COMMANDS[entry.name], label=label)
         elif entry.name in _DELETION_COMMANDS:
             self.entities.delete(_DELETION_COMMANDS[entry.name])
+
+    def bind_native_solver_identity(self, *, executable_sha256: str, build: str) -> None:
+        """Bind an identity verified by the caller for exact motion-proof lookup.
+
+        This method records evidence supplied by the executor; it does not inspect
+        an executable or establish that a nominal version denotes a particular build.
+        Saved runs can instead resolve timing using their actual recorded identity.
+        """
+        digest = executable_sha256.strip().lower()
+        if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+            raise ValueError("executable_sha256 must be an exact SHA-256 digest")
+        if not build.strip():
+            raise ValueError("build must identify the measured native executable")
+        self._native_solver_sha256 = digest
+        self._native_solver_build = build.strip()
+
+    @property
+    def frame_motions(self) -> dict[int, dict[str, object]]:
+        """Final emitted frame geometry/motion evidence, indexed by frame.
+
+        Read after setup emission: probe creation may precede motion attachments.
+        Unknown trajectories retain their reason and partial geometric evidence.
+        """
+        return self._motion_ledger.snapshot(
+            self._frame_placements,
+            frame_count=self.num_local_frames + 1,
+            boundary_count=self.entities.count("boundaries") or None,
+            version=self.version.canonical,
+            length_unit=self.simulation_length_unit,
+            executable_sha256=self._native_solver_sha256,
+            build=self._native_solver_build,
+        )
 
     @property
     def frame_placements(self) -> Mapping[int, FramePlacement]:
@@ -1362,7 +1462,14 @@ class Script:
         frame = bound.get("frame")
         if not isinstance(frame, int) or frame == _REFERENCE_PLACEMENT_INDEX:
             return
-        if follower is not None:
+        if follower is _placed_by_origin:
+            _placed_by_origin(
+                self._frame_placements,
+                frame,
+                bound,
+                simulation_unit=self.simulation_length_unit or "METER",
+            )
+        elif follower is not None:
             follower(self._frame_placements, frame, bound)
         elif name in _UNFOLLOWED_FRAME_COMMANDS:
             self._frame_placements[frame] = FramePlacement(origin=None, axes=None)
@@ -1424,16 +1531,13 @@ class Script:
 
     @property
     def simulation_length_unit(self) -> str | None:
-        """The simulation's length unit, as far as THIS SCRIPT set it (G05, G06).
+        """The known simulation length unit (G05, G06, G32, G34).
 
-        The token of the last ``SET_SIMULATION_LENGTH_UNITS`` emitted, or None
-        while the script has set none: a simulation ``OPEN`` loads keeps the
-        unit it was saved in, which the script layer cannot read. The phase
-        order puts every ``OPEN`` and ``NEW_SIMULATION`` (geometry commands)
-        before the first setup command, so a unit recorded here was always set
-        after the simulation was opened or started. Filled by :meth:`emit` and
-        nowhere else, so a reader converting a length into the simulation's
-        unit reads the unit the script actually wrote.
+        Prefer the last ``SET_SIMULATION_LENGTH_UNITS`` emitted. When none
+        was emitted, use the saved unit explicitly recorded by the workflow
+        after reading the opened file's measured header. Return None when
+        neither source establishes a unit. Reading a saved unit records
+        provenance without emitting a command that changes the simulation.
 
         Examples
         --------
@@ -1443,11 +1547,26 @@ class Script:
         >>> script.simulation_length_unit
         'MILLIMETER'
         """
-        return self._simulation_length_unit
+        return self._simulation_length_unit or self._opened_length_unit
+
+    def record_opened_length_unit(self, unit: str) -> None:
+        """Record a decoded saved-geometry unit; an explicit command wins.
+
+        This records measured metadata for coordinate conversion without
+        emitting a command that changes the geometry.
+        """
+        from pyflightstream._lengths import scale
+
+        if scale(unit, "METER") is None:
+            raise ValueError(f"opened geometry unit {unit!r} names no known scale")
+        self._opened_length_unit = unit
 
     def _follow_length_unit(self, name: str, bound: Mapping[str, object]) -> None:
         """Keep :attr:`simulation_length_unit` in step with a command just emitted."""
-        if name == _LENGTH_UNIT_COMMAND:
+        if name in {"OPEN", "NEW_SIMULATION"}:
+            self._simulation_length_unit = None
+            self._opened_length_unit = None
+        elif name == _LENGTH_UNIT_COMMAND:
             self._simulation_length_unit = str(bound["units"])
 
     @property
@@ -1558,6 +1677,9 @@ class Script:
     def raw(self, text: str) -> None:
         """Append unvalidated script text and flag the script (FR-07)."""
         self.raw_flag = True
+        self._motion_ledger.invalidate(
+            "Unvalidated raw script may change motion or frame placement."
+        )
         self._lines.extend(text.splitlines())
 
     def allow_broken(self, name: str, /, *, reason: str) -> None:

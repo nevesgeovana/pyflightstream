@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.1
+# artifact_id: matrix-run-tests
+# last_modified_at: 2026-09-27T18:48:13.264Z
+# last_modified_by: OpenAI / Codex / GPT-6 / implementer
+# dependencies: [pyflightstream; pytest]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Preserve G53 stub coverage and verify R13 cold default with explicit warm opt-in.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1: the matrix as a first-class run interface (v0.3 decision 3).
 
 resolve_matrix binds the REF/SET/ENTRY/FS_BUILD columns to a synthetic
@@ -856,9 +868,20 @@ STUB_VTK = (
     "POINTS 3 float\n0 0 0\n1 0 0\n0 1 0\nPOLYGONS 1 4\n3 0 1 2\n"
     "CELL_DATA 1\nSCALARS Cp_reference FLOAT\nLOOKUP_TABLE default\n-0.5\n"
 )
-#: What a stub writes for the export on ``line``: the VTK above for the VTK
-#: export, a placeholder for every other.
-STUB_BODY = f"({STUB_VTK!r} if line.split(' ')[0] == 'EXPORT_SOLVER_ANALYSIS_VTK' else 'DATA')"
+#: Native nodal export of the same reference-frame triangle, with explicit values.
+STUB_NATIVE_TECPLOT = (
+    'TITLE="Native fixture"\nVARIABLES="X","Y","Z","Singularity_strength"\n'
+    "ZONE T=Solver, NODES=3, ELEMENTS=1, FACES=3, DATAPACKING=BLOCK, "
+    "ZONETYPE=FEPolygon, NumConnectedBoundaryFaces=0, TotalNumBoundaryConnections=0\n"
+    "0 1 0\n0 0 1\n0 0 0\n0.125 1.125 2.125\n1 2 2 3 3 1\n1 1 1\n0 0 0\n"
+)
+#: Both surface sources are real-format fixtures; other outputs are placeholders.
+STUB_BODY = (
+    f"({STUB_VTK!r} if line.split(' ')[0] == 'EXPORT_SOLVER_ANALYSIS_VTK' else "
+    f"{STUB_NATIVE_TECPLOT!r} if line.split(' ')[0] == 'EXPORT_SOLVER_ANALYSIS_TECPLOT' "
+    "else 'DATA')"
+)
+
 
 WRITES_EVERY_EXPORT = (
     "import pathlib, sys; "
@@ -1024,14 +1047,7 @@ def test_goal019_record_a_job_run_id_cannot_end_with_a_point_tag(tmp_path):
 
 
 def test_goal019_warm_cold_start_clears_the_solution_between_points(tmp_path):
-    """COLD_START is the opt-out, and it is ONE emitted command.
-
-    Warm is the default because the predecessor never cleared and had no
-    switch to; a default of cold would be a change of behaviour wearing a
-    safe default's clothes. The clear is CLEAR_SOLUTION, which is verified
-    on every build from 26.120 on; SOLVER_CLEAR is documented by the 25.000
-    edition alone and does not exist on the build this study runs.
-    """
+    """R13 clears startup and every cold point; explicit warm reuses later solutions."""
     workspace, matrix = _steady_sweep_matrix(tmp_path, cell=" / COLD_START: True")
     run_matrix(
         matrix,
@@ -1046,12 +1062,13 @@ def test_goal019_warm_cold_start_clears_the_solution_between_points(tmp_path):
     scripts = sorted((workspace.root / "sims" / "sim_5001" / "scripts").glob("*.txt"))
     assert len(scripts) == 1, "cold is still ONE job; only the clear differs"
     text = scripts[0].read_text(encoding="utf-8")
-    assert text.count("CLEAR_SOLUTION") == 2, (
-        "three points cold means two clears, one before each point after the "
-        f"first; the script carries {text.count('CLEAR_SOLUTION')}"
-    )
+    cold_segments = text.split("START_SOLVER")
+    assert len(cold_segments) == 4
+    assert all(segment.count("CLEAR_SOLUTION") == 1 for segment in cold_segments[:3])
 
-    warm_workspace, warm_matrix = _steady_sweep_matrix(tmp_path / "warm")
+    warm_workspace, warm_matrix = _steady_sweep_matrix(
+        tmp_path / "warm", cell=" / COLD_START: False"
+    )
     run_matrix(
         warm_matrix,
         warm_workspace,
@@ -1064,9 +1081,9 @@ def test_goal019_warm_cold_start_clears_the_solution_between_points(tmp_path):
     )
     warm_scripts = sorted((warm_workspace.root / "sims" / "sim_5001" / "scripts").glob("*.txt"))
     warm_text = warm_scripts[0].read_text(encoding="utf-8")
-    assert "CLEAR_SOLUTION" not in warm_text, (
-        "the default cleared the solution between points, which is not warm"
-    )
+    warm_segments = warm_text.split("START_SOLVER")
+    assert len(warm_segments) == 4
+    assert all("CLEAR_SOLUTION" not in segment for segment in warm_segments)
 
 
 def test_every_point_of_a_sweep_states_its_loads_frame_before_its_own_solve(tmp_path):
@@ -4710,6 +4727,7 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
         "exports = {'EXPORT_SOLVER_ANALYSIS_SPREADSHEET': LOADS, "
         "'EXPORT_SURFACE_SECTIONAL_LOADS': SLOADS, "
         f"'EXPORT_SOLVER_ANALYSIS_VTK': {STUB_VTK!r}, "
+        f"'EXPORT_SOLVER_ANALYSIS_TECPLOT': {STUB_NATIVE_TECPLOT!r}, "
         "'UNSTEADY_SOLVER_EXPORT_PLOTS': PLOTS}; "
         "[pathlib.Path(lines[i + 1]).write_text(exports.get(line, 'x')) "
         "for i, line in enumerate(lines[:-1]) "
@@ -5276,16 +5294,8 @@ def test_goal019_hpc_a_field_the_run_cannot_supply_is_refused_naming_it(tmp_path
         )
 
 
-def test_goal019_warm_the_builder_itself_defaults_to_warm(tmp_path):
-    """The DEFAULT of the public builder, which the matrix path never reads.
-
-    FOUND BY A MUTANT. Every caller inside this package passes `cold=`
-    explicitly, from the row's own COLD_START cell, so flipping the
-    signature's default to True changed nothing any test could see and the
-    warm arm survived it. `build_steady_sweep` is public: a caller
-    authoring a sweep in Python takes that default, and her decision is
-    that warm is what a steady sweep IS.
-    """
+def test_goal019_the_builder_defaults_cold_and_warm_is_explicit(tmp_path):
+    """The public builder defaults cold; explicit cold=False warms only later points."""
     from pyflightstream.cases import SimCase, SweepAxis
     from pyflightstream.cases.workflows import build_steady_sweep
     from pyflightstream.script import Script
@@ -5305,14 +5315,13 @@ def test_goal019_warm_the_builder_itself_defaults_to_warm(tmp_path):
     script = Script(version="26.123")
     build_steady_sweep(points, script)
     text = script.render()
-    assert "CLEAR_SOLUTION" not in text, (
-        "the builder's own default cleared the solution between points, so a caller who "
-        "writes no COLD_START gets a cold sweep"
-    )
-    # And the control beside it, so this is not a test that only ever says no.
-    cold = Script(version="26.123")
-    build_steady_sweep(points, cold, cold=True)
-    assert cold.render().count("CLEAR_SOLUTION") == 2
+    segments = text.split("START_SOLVER")
+    assert len(segments) == 4
+    assert all(segment.count("CLEAR_SOLUTION") == 1 for segment in segments[:3])
+    warm = Script(version="26.123")
+    build_steady_sweep(points, warm, cold=False)
+    warm_segments = warm.render().split("START_SOLVER")
+    assert all("CLEAR_SOLUTION" not in segment for segment in warm_segments)
 
 
 def test_goal019_hpc_the_run_path_reaches_the_cluster_branch(monkeypatch, tmp_path):

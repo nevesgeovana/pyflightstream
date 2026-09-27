@@ -1,3 +1,16 @@
+<!--
+GEOVERSE_HEADER
+file_version: 1.0.0
+last_modified_at: 2026-09-27T15:07:41.411413+00:00
+last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+dependencies: [pyflightstream.post.guides]
+authority: pyflightstream
+status: active
+confidentiality: public
+change_summary: Update the canonical glossary path and preservation policy.
+revision_source: git
+-->
+
 # The workspace and the workflow
 
 A **workspace** is the folder this package owns. You point it at a
@@ -560,7 +573,7 @@ inputs/
                           [glossary] of each pproc artifact
   pproc/WRITING-EQUATIONS.md  GENERATED beside it: how to write [equations],
                           [glossary] and [phase_locked], and how to rename a group
-  pproc/INPUTS.md         GENERATED beside them: every key an input artifact may
+  INPUTS.md               GENERATED at the inputs root: every key an input artifact may
                           state (the matrix row by run type, the setup, the pproc,
                           the reference, the geometry sidecar), what it sets, its
                           unit or values, and the command it reaches
@@ -580,7 +593,13 @@ file name simply have to agree. An identifier that is not staged is
 refused before anything runs, and the refusal names the identifier, the
 kind and what is available.
 
-**`inputs/pproc/INPUTS.md` is the glossary of every input key** (since
+The generated block of `inputs/INPUTS.md` is refreshed in place. Custom notes
+outside its markers are preserved. An existing `inputs/pproc/INPUTS.md` is
+left untouched as legacy content and linked from the canonical page. The setup
+standards are documented in [Setup standards](setup-standards.md); generated
+setup guidance lives at `inputs/setups/SETUP_GUIDELINES.md`.
+
+**`inputs/INPUTS.md` is the glossary of every input key** (since
 0.27.0). It holds one table per table of each artifact, the matrix row by
 run type, the setup, the pproc, the reference and the geometry sidecar,
 and one row per key: what the key sets, its unit or the values it takes,
@@ -605,7 +624,7 @@ mesh, the trailing-edge points file, the provenance record, the two files of
 the custom free stream, the HPC profile, and the build registry with its
 local overlay. The examples cite each other, so the matrix plans against the
 rest as written. Each section names the keys its example leaves out, with the
-reason, and links `pproc/INPUTS.md` and the page of this site that covers the
+reason, and links `INPUTS.md` and the page of this site that covers the
 file. `pyfs-workspace init`, `pyfs-matrix plan` and `pyfs-matrix post` write
 it at the root of `inputs/`, rewriting it only when its content changes. The
 suite writes every example where its title says and reads it with the reader
@@ -714,7 +733,7 @@ knowing.
     That list is maintained by hand and this page is not generated, so
     **read the warning your own preset prints** rather than this
     paragraph: it names every key of YOUR file that was recorded, each
-    with its reason. The generated `inputs/pproc/INPUTS.md` lists the
+    with its reason. The generated `inputs/INPUTS.md` lists the
     package's set with its reasons, beside every setting and every alias
     of the solver's own names. What the paragraph is for is that the set
     is closed and short enough to see at once.
@@ -3018,7 +3037,9 @@ matrix/sim_8002/sweep
 
 Two rows of a matrix, four points, TWO records, because since v0.17.0 a
 steady row is one job: its points run in one process, one after another,
-each starting from the one before unless the row says `COLD_START: True`.
+Since 0.29.0 every point starts cold, including the first. Set
+`COLD_START: false` to retain the previous warm behavior explicitly; see
+[geometry units and steady starts](geometry-units-and-starts.md).
 A run id that ends `sweep` names a job, and a run id that ends with a
 point NAME names a point; the token is the one the per-polar product
 tables already use for a swept variable, with the swept field written
@@ -3378,10 +3399,14 @@ already done and a continued run ask nothing
 (`test_g12_the_cli_exits_2_on_a_failed_extraction_and_counts_under_strict_a_skip_that_asks`).
 
 **The executor is the one `run` would build**, so `--local` means the same
-thing. On a machine that would submit, a Linux cluster with a submission
-profile, the additional post is refused before anything is written, naming
-`--local`: completing a submitted extraction is not built in 0.27.0
-(`test_g12_a_workspace_that_submits_is_refused_naming_local`).
+thing. Since 0.29.0 a submitting workspace records each extraction as
+`SUBMITTED`. The scheduler receives a separate working directory and a verified
+copy of the saved simulation. `pyfs-matrix collect <workspace>` waits for stable
+declared exports, checks the original simulation, script and private-copy hashes,
+translates the surface outputs, then records `EXTRACTED` and removes the copy.
+Submission alone never means extracted. Repeating the request while it is pending
+does not submit another job. The original run manifest stays unchanged
+(`test_submitted_extraction_waits_then_collects_without_mutating_original`).
 
 **On a cluster whose profile states `[log] export_log = false`** the extraction
 scripts carry no `EXPORT_LOG`, whether the plan is built for `--local` or for a

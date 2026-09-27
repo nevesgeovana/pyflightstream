@@ -1,11 +1,27 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# last_modified_at: 2026-09-27T15:35:00+00:00
+# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# dependencies: [pyflightstream.post.diagnostics]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Expose read-only recorded postprocessing diagnostics.
+# revision_source: git
 """Results into engineering data.
 
 Pipeline role: the top of the pipeline, where parsed solver output
-becomes something a report can carry. TEN public inhabitants and one
+becomes something a report can carry. Public modules and one
 private one, and the list is what EXISTS rather than what is planned.
 Each says whether it is reached through this package or through its own
 module, which is stated rather than left to be discovered:
 
+* :mod:`pyflightstream.post.diagnostics` renders complete saved post logs as
+  Markdown without executing stages or changing products. Its report renderer
+  is re-exported here; category presentation helpers remain in that module;
+
+* :mod:`pyflightstream.post.probe_fields` exports sampled velocity
+  and reusable inflow with explicit units and source provenance. Re-exported here;
 * :mod:`pyflightstream.post.writers` writes flow-visualization exports
   (VTK legacy ASCII and Tecplot ASCII), each beside a settings record
   that lets the file be read alone. Re-exported here;
@@ -75,6 +91,7 @@ Sweep assembly is not here either, it is
 # unless `_UNREACHABLE_FROM_ITS_PACKAGE_ROOT` records why.
 from pathlib import Path
 
+from pyflightstream.post.diagnostics import render_post_diagnostics
 from pyflightstream.post.guides import (
     INPUT_GLOSSARY_NAME,
     INPUT_TEMPLATE_NAME,
@@ -86,6 +103,7 @@ from pyflightstream.post.guides import (
     write_workspace_input_template,
     write_workspace_pproc_guides,
 )
+from pyflightstream.post.probe_fields import write_probe_field
 from pyflightstream.post.products import (
     CustomPolarTable,
     ProductError,
@@ -150,6 +168,7 @@ __all__ = [
     "dataset_to_points",
     "passage_windows",
     "read_timestep_series",
+    "render_post_diagnostics",
     "settings_records",
     "read_csv_table",
     "read_custom_polar_format",
@@ -168,6 +187,7 @@ __all__ = [
     "write_reduction",
     "write_sections_table",
     "write_point_series",
+    "write_probe_field",
     "write_series",
     "write_tecplot_points",
     "write_vtk_points",

@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.1
+# last_modified_at: 2026-09-27T20:27:52.623Z
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [pyflightstream._cli]
+# artifact_id: fsi-cli
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Correct CLI help to describe the existing configured coupled driver.
+# revision_source: git
 """``pyfs-fsi`` console entry point: the FSI coupling executable.
 
 Pipeline role: FlightStream's Aeroelastic Coupling Toolbox calls an
@@ -28,6 +39,8 @@ import shutil
 import sys
 import traceback
 from pathlib import Path
+
+from pyflightstream._cli import cli_entrypoint
 
 COUPLED_CONFIG = "config.json"
 
@@ -180,7 +193,7 @@ def _build_parser() -> argparse.ArgumentParser:
         description=(
             "FSI coupling executable for the FlightStream Aeroelastic Toolbox. "
             "Called with no arguments it executes one coupling step in the "
-            "current directory (dummy mode until the coupled driver lands)."
+            "current directory (coupled with config.json, dummy only when configured)."
         ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
@@ -192,6 +205,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+@cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
     """Entry point of the ``pyfs-fsi`` console script."""
     argv = sys.argv[1:] if argv is None else argv

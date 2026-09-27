@@ -1,3 +1,12 @@
+# GEOVERSE_HEADER
+# file_version: "1.0.0"
+# last_modified_at: "2026-09-27T15:35:36.983207+00:00"
+# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
+# dependencies: []
+# status: active
+# confidentiality: public
+# change_summary: "Align physical-unit and steady-start regression coverage with approved behavior."
+# revision_source: git
 """Tier 1: an actuator disc on a matrix row (G06, board row PFS-2008.02.02).
 
 Pipeline role: quality gate on FR-109 of 0.27.0.
@@ -1256,9 +1265,7 @@ def test_g06_a_saved_simulation_whose_unit_is_not_read_is_refused_naming_the_key
             geometry=str(other), ACTUATOR="PROP", ACTUATOR_RPM="2400", ACTUATOR_THRUST="120"
         )
     )
-    with pytest.raises(
-        CampaignConfigError, match=r"offset_m, tip_radius_m and hub_radius_m.*in metres"
-    ):
+    with pytest.raises(CampaignConfigError, match=r"reference frame origin.*in metres"):
         _lines(case)
 
 
@@ -1291,7 +1298,10 @@ def test_g06_a_unit_that_names_no_scale_is_refused_naming_the_keys():
         steady_case(ACTUATOR="PROP", ACTUATOR_RPM="2400", ACTUATOR_THRUST="120"),
         raw_commands=[other],
     )
-    with pytest.raises(CampaignConfigError, match=r"hub_radius_m.*'OTHER', which names no scale"):
+    # G34 validates the disc's physical reference-frame origin first.
+    with pytest.raises(
+        CampaignConfigError, match=r"reference frame origin.*'OTHER', which names no scale"
+    ):
         _lines(case)
 
 

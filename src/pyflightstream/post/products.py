@@ -1,3 +1,13 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.1
+# last_modified_at: 2026-09-27T19:09:10.288Z
+# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# dependencies: [pyflightstream.post.diagnostics, pyflightstream._cli]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Bind generated unsteady field products to the actual native STEP history.
+# revision_source: git
 """The campaign's post-processed products: polar, section and plot tables as CSV.
 
 PFS-2029.15. A campaign's raw exports are the solver's own text files, one
@@ -99,6 +109,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from pyflightstream._cli import post_warning_policy
 from pyflightstream._digest import file_sha256 as file_sha256
 from pyflightstream._errors import (
     ProductArgumentError,
@@ -107,6 +118,7 @@ from pyflightstream._errors import (
     collecting_warnings,
     warn,
 )
+from pyflightstream._progress import workspace_activity
 from pyflightstream._tokens import POLAR_ID_COLUMN, ROTOR_ID_COLUMN
 from pyflightstream._tokens import REDUCTION_COLUMNS as REDUCTION_COLUMNS
 from pyflightstream.cases import (
@@ -2879,6 +2891,8 @@ def _probe_parameters(pproc, *, drawn_only: bool = False) -> tuple[str, ...]:
         for parameter in getattr(entry, "parameters", None) or []:
             if parameter not in out:
                 out.append(parameter)
+    if getattr(pproc, "volume_section", None) is not None:
+        out.extend(name for name in ("VX", "VY", "VZ") if name not in out)
     return tuple(out)
 
 
@@ -5026,6 +5040,26 @@ def _sim_products(
     def _target(path: Path) -> Path:
         return _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp)
 
+    def _write_fields(table: Path, point_name: str, *, step_source: Path | None = None) -> None:
+        from pyflightstream.post.probe_fields import write_recorded_probe_fields
+
+        record = record_of.get(point_name)
+        if record is None or not record.probe_field_layout:
+            return
+        try:
+            fields = write_recorded_probe_fields(
+                table, record, out / "fields", point_name, prepare=_target, step_source=step_source
+            )
+        except (ValueError, OSError) as error:
+            skipped[f"fields/{point_name}"] = str(error)
+            return
+        for path in fields:
+            written.append(path)
+            written_names[path.relative_to(out).as_posix()] = {
+                "runs": sources[point_name],
+                "kind": "probe-field",
+            }
+
     # PFS-2038.03, GEO-039-F03. HERE, before the first product of this
     # simulation is written, and not in the reduction loop where the first
     # colliding file has already been written over the second. Two aliases
@@ -5347,13 +5381,19 @@ def _sim_products(
             if done is not None:
                 written.append(done)
                 written_names[done.relative_to(out).as_posix()] = {"runs": sources[point.name]}
-        probe_requested = unsteady and products.plots and bool(_probe_parameters(pproc))
+                _write_fields(done, point.name)
+        field_requested = bool(
+            record_of.get(point.name) and record_of[point.name].probe_field_layout
+        )
+        probe_requested = (
+            unsteady and (products.plots or field_requested) and bool(_probe_parameters(pproc))
+        )
         if probe_requested:
             skipped[probe_relative] = (
                 "no probes table: missing plots history export. Restore or collect the "
                 "recorded plots export; run again with fluid plots if no history was recorded."
             )
-        if products.plots and plots_path is not None and plots_path.is_file():
+        if (products.plots or field_requested) and plots_path is not None and plots_path.is_file():
             relative = f"{PROBES_DIR}/{point.name}_plots.csv"
             target = _target(out / relative)
             try:
@@ -5420,6 +5460,7 @@ def _sim_products(
                                 PyflightstreamWarning,
                                 stacklevel=2,
                             )
+                        _write_fields(field, point.name, step_source=done)
                         written.append(field)
                         written_names[field.relative_to(out).as_posix()] = {
                             "runs": sources[point.name]
@@ -5838,6 +5879,18 @@ def _point_series(
     aliases = live_aliases if live_aliases is not None else record.aliases
     surface_exports: dict[str, dict[str, object]] = {}
     split_skips = skipped if skipped is not None else {}
+    from pyflightstream.post.boundary_layer import write_boundary_layer_products
+
+    boundary_files, boundary_names = write_boundary_layer_products(
+        sim_dir=workspace.sim_dir(sim_id),
+        record=record,
+        stem=stem,
+        out=out,
+        target=lambda path: _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp),
+        skipped=split_skips,
+        step=_last_time_step(record),
+        pproc=pproc or recorded_pproc,
+    )
     split_files, split_names = write_section_distributions(
         sim_dir=workspace.sim_dir(sim_id),
         record=record,
@@ -5857,7 +5910,7 @@ def _point_series(
         # R03 and R04 of 0.27.0: the geometry's names, recorded since 0.27.0 or
         # recovered by the hash an older record carries; hashed only for a
         # point that recorded a layout to match.
-        inventory=workspace.recorded_inventory(record) if record.sections_layout else None,
+        inventory=workspace.recorded_inventory(record) if record.sections_layout != [] else None,
     )
     try:
         written, names = write_point_series(
@@ -5903,7 +5956,8 @@ def _point_series(
             surface_freeze, list(bounds), point=record.run_id, product=product
         ),
     )
-    return [*split_files, *written, *averaged], {
+    return [*split_files, *written, *averaged, *boundary_files], {
+        **boundary_names,
         **split_names,
         **names,
         **surface_exports,
@@ -6500,9 +6554,20 @@ _LogRecord = dict[str, str | None]
 _NAMED_WARNING = re.compile(r"^point=(.+?) product=(\S+): (.*)$", re.S)
 
 
-def _log_record(point: str, product: str, message: str, remedy: str | None) -> _LogRecord:
+def _log_record(
+    point: str, product: str, message: str, remedy: str | None, *, severity: str = "warning"
+) -> _LogRecord:
     """Return one post-log record, the single source of a WARNING line and its JSON (R02)."""
-    return {"point": point, "product": product, "message": message, "remedy": remedy}
+    from pyflightstream.post.diagnostics import warning_category
+
+    return {
+        "point": point,
+        "product": product,
+        "message": message,
+        "remedy": remedy,
+        "category": warning_category(product, message),
+        "severity": severity,
+    }
 
 
 def _warning_record(text: str) -> _LogRecord:
@@ -6526,11 +6591,12 @@ def _log_line(record: _LogRecord) -> str:
     """Render one record as its ``post.log`` line."""
     remedy = f" Remedy: {record['remedy']}" if record["remedy"] else ""
     return (
-        f"WARNING point={record['point']} product={record['product']}: "
+        f"{str(record['severity']).upper()} point={record['point']} product={record['product']}: "
         f"{record['message']}{remedy}\n"
     )
 
 
+@workspace_activity("post")
 def write_campaign_products(
     workspace: CampaignWorkspace,
     *,
@@ -6548,7 +6614,9 @@ def write_campaign_products(
     threads each log only their own (RPT-058). ``post.log.json`` beside it
     carries the same header and the same records for a program, rendered
     from ONE list so the two cannot disagree (R02). After the log is written
-    the warnings are re-emitted to the caller's filters, outside every sink.
+    Python callers receive warnings through their filters, outside every sink.
+    CLI callers suppress terminal warnings by default; ``--pproc-warnings``
+    shows category totals. Both modes retain every record in the durable log.
     A warning raised by code outside the package is not logged. A rebuild
     archives both files with the same stamp as the products. See
     docs/post-processing-definitions.md for the sample and refusal rules.
@@ -6607,11 +6675,22 @@ def write_campaign_products(
                         "stage",
                         " ".join(f"{type(error).__name__}: {error}".splitlines()),
                         "correct the stated input and post again.",
+                        severity="error",
                     )
                 )
                 raise
             finally:
                 records.extend(_warning_record(str(warning.message)) for warning in caught)
+                try:
+                    status_records = workspace.read_manifest()
+                except (OSError, ValueError):
+                    status_records = []
+                for run_record in status_records:
+                    if run_record.matrix_stem == matrix_stem:
+                        records.extend(
+                            _log_record(run_record.run_id, "run-status", message, None)
+                            for message in run_record.warnings
+                        )
                 manifest_path = out / PRODUCTS_MANIFEST
                 try:
                     if manifest_path.is_file():
@@ -6642,10 +6721,15 @@ def write_campaign_products(
         # THE REPLAY IS OUTSIDE THE SINK, which the `with` above has already
         # reset, and never through `warn`: it reaches the caller's filters and
         # no campaign's log.
-        for warning in caught:
-            warnings.warn_explicit(
-                warning.message, warning.category, warning.filename, warning.lineno
-            )
+        if post_warning_policy() is None:
+            for warning in caught:
+                warnings.warn_explicit(
+                    warning.message, warning.category, warning.filename, warning.lineno
+                )
+        else:
+            from pyflightstream.post.diagnostics import report_post_warnings
+
+            report_post_warnings(records, out / _POST_LOG_JSON)
 
 
 def _campaign_products(

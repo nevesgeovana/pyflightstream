@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.1
+# last_modified_at: 2026-09-27T20:34:20.538Z
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [pyflightstream.run.matrix]
+# artifact_id: additional-post-tests
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Supply matching native Tecplot and VTK in the shared additional-post stub.
+# revision_source: git
 """Tier 1: the additional post over a point's saved simulation (0.27.0, G12, FR-111).
 
 A row may name a second pproc, ``ADDITIONAL_PPROC: p<id>``, and
@@ -76,6 +87,7 @@ from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
     REGISTRY_FIXTURE,
+    STUB_NATIVE_TECPLOT,
     STUB_VTK,
     CountingStub,
     converged,
@@ -596,6 +608,7 @@ def a_stub(tmp_path: Path, **by_verb: str) -> CountingStub:
                 "EXPORT_SURFACE_SECTIONAL_LOADS": SLOADS,
                 # G45: the Tecplot is written from this VTK.
                 "EXPORT_SOLVER_ANALYSIS_VTK": STUB_VTK,
+                "EXPORT_SOLVER_ANALYSIS_TECPLOT": STUB_NATIVE_TECPLOT,
                 **by_verb,
             }
         ),
@@ -1082,9 +1095,8 @@ def test_g12_an_unsteady_point_is_one_instant_and_says_so(tmp_path):
     assert any(name.endswith("_plots.txt") for name in record.outputs), record.outputs
 
 
-def test_g12_a_workspace_that_submits_is_refused_naming_local(tmp_path):
-    """The submitting half is not built: refused before anything is written, naming --local."""
-    from pyflightstream.run import ExecutorConfigurationError
+def test_g23_a_workspace_that_submits_records_pending_extractions(tmp_path):
+    """Scheduler acceptance records a pending extraction, not completed exports."""
 
     class Scheduler(CountingStub):
         def bind_point(self, values, *, replace=False):
@@ -1094,9 +1106,9 @@ def test_g12_a_workspace_that_submits_is_refused_naming_local(tmp_path):
             return None
 
     workspace, matrix = a_recorded_campaign(tmp_path)
-    with pytest.raises(ExecutorConfigurationError, match="--local"):
-        extract(workspace, matrix, Scheduler("pass"))
-    assert not workspace.additional_path.exists()
+    _, records = extract(workspace, matrix, Scheduler("pass"))
+    assert len(records) == 2 and all(r.status == "SUBMITTED" for r in records)
+    assert all(r.declared_outputs and not r.outputs for r in records)
 
 
 # ------------------------------------------------------------ the command --

@@ -1,3 +1,13 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.7
+# last_modified_at: 2026-09-27T21:46:38.222Z
+# last_modified_by: OpenAI / Codex / unknown / implementation-agent
+# dependencies: [pyflightstream.post.guides]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Retain action-based animation; remove the unneeded parallel route.
+# revision_source: git
 """Tier 1, 0.27.0 items G08 and D08: the input glossary, ``INPUTS.md``, is GENERATED.
 
 THE OWNER'S SCOPE OF 2026-09-23, item G08:
@@ -34,7 +44,9 @@ from pyflightstream.cases import (
     EXPORT_KINDS,
     VOLUME_SECTION_KINDS,
     ActuatorBlock,
+    BaseRegionOperation,
     BladeDatum,
+    CadImportOptions,
     CustomFlag,
     EquationSpec,
     ForcePlotGroup,
@@ -49,11 +61,13 @@ from pyflightstream.cases import (
     ProbeRectangle,
     ProbesSpec,
     ProductsSpec,
+    RadialBoundaryMesh,
     RawCommand,
     RotorBlock,
     SectionDistribution,
     SectionsSpec,
     SolverSettings,
+    SurfaceProbeSpec,
     SurfaceTimeAveragingSpec,
     VolumeSectionSpec,
 )
@@ -108,6 +122,21 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("matrix", "The row keys, by run type"): row_keys | {RAW_VARIABLE},
         # --- the setup artifact ---------------------------------------------
         ("setup", "Solver settings"): _fields(SolverSettings),
+        ("setup", "`[[actuator_operations]]`"): {"op", "actuator", "name"},
+        ("setup", "`[[base_region_operations]]`"): _fields(BaseRegionOperation),
+        ("setup", "`[base_region_operations.mesh]`"): _fields(RadialBoundaryMesh),
+        ("setup", "`[bulk_separation]`"): {"name", "separation_type", "diameter", "boundaries"},
+        ("setup", "`[[airfoil_separation]]`"): {"name", "valarezo_criterion", "boundaries"},
+        ("setup", "`[[axial_vortex_separation]]`"): {
+            "name",
+            "diameter",
+            "frame",
+            "body_axis",
+            "sharp_nose_vortices",
+            "boundaries",
+        },
+        ("setup", "`[[cylindrical_bulk_separation]]`"): {"name", "diameter", "boundaries"},
+        ("setup", "`[[stratford_bulk_separation]]`"): {"name", "boundaries"},
         ("setup", "The solver's own names, read as aliases"): set(_PRESET_ALIASES),
         ("setup", "Recorded, and emitting nothing"): set(_PRESET_RECORDED_ONLY),
         ("setup", "Tables and reserved keys"): {
@@ -133,6 +162,7 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("pproc", "`[plots]`"): _fields(PlotsSpec),
         ("pproc", "`[[plots.groups]]`"): _fields(ForcePlotGroup),
         ("pproc", "`[[probes]]`"): _fields(ProbesSpec),
+        ("pproc", "`[[surface_probes]]`"): _fields(SurfaceProbeSpec),
         ("pproc", "`[[probes.lines]]`"): _fields(ProbeLine),
         ("pproc", "`[[probes.rectangles]]`"): _fields(ProbeRectangle),
         ("pproc", "`[[probes.circles]]`"): _fields(ProbeCircle),
@@ -152,17 +182,24 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("reference", blocks["points"]): _fields(PointXyz),
         # --- the geometry sidecar -------------------------------------------
         ("geometry", "Top-level keys and tables"): {
+            "inlets",
+            "outlets",
             "boundaries",
             "file",
             IMPORT_TABLE,
             *RAW_MESH_CONDITION_TABLES,
         },
         ("geometry", "`[import]`"): _fields(MeshImport),
+        ("geometry", "`[import.cad]`"): _fields(CadImportOptions),
         ("geometry", "`[[import.operations]]`"): _fields(MeshOperation),
         ("geometry", "`[trailing_edges]`"): set(_TRAILING_EDGE_KEYS),
         ("geometry", "`detect = { ... }` of `[trailing_edges]`"): set(_DETECT_KEYS),
         ("geometry", "`[wake_termination]`"): {"detect"},
         ("geometry", "`[base_regions]`"): {"detect"},
+        ("geometry", "`[[inlets]]`"): {"boundary", "velocity", "profile", "remesh"},
+        ("geometry", "`[[outlets]]`"): {"boundary", "velocity", "profile", "remesh"},
+        ("geometry", "`[inlets.remesh]`"): _fields(RadialBoundaryMesh),
+        ("geometry", "`[outlets.remesh]`"): _fields(RadialBoundaryMesh),
     }
 
 
@@ -260,6 +297,7 @@ def test_no_meaning_is_kept_for_a_key_no_registry_holds():
     assert set(SOLVER_SETTING_COMMANDS) <= set(SolverSettings.model_fields)
     assert set(guides.PACKAGE_SET_FIELDS) == {
         ("ProbesSpec", "resolved_points_file"),
+        ("PortBoundary", "profile_sha256"),
         ("RawCommand", "setup"),
         ("RawCommand", "source"),
         ("CustomFlag", "setup"),
@@ -420,28 +458,28 @@ def test_a_key_the_registry_marks_for_a_run_type_or_a_build_says_so(page):
     assert "steady" in settings["analysis_families"][accepted]
 
 
-def test_init_writes_the_page_beside_variables_and_only_when_it_differs(tmp_path):
-    """Where a user meets it: beside VARIABLES.md, written by init, plan and post."""
+def test_init_writes_the_page_at_inputs_root_and_only_when_it_differs(tmp_path):
+    """Init, plan and post share the root glossary; pproc-specific guides stay below."""
     from pyflightstream.workspace import CampaignWorkspace, write_input_guides
 
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     folder = workspace.inputs_dir / "pproc"
-    page = folder / guides.INPUT_GLOSSARY_NAME
+    page = workspace.inputs_dir / guides.INPUT_GLOSSARY_NAME
     assert guides.INPUT_GLOSSARY_NAME == "INPUTS.md"
     assert page.is_file() and (folder / "VARIABLES.md").is_file()
-    assert page.read_text(encoding="utf-8") == guides.input_glossary_markdown()
+    assert guides.input_glossary_markdown() in page.read_text(encoding="utf-8")
     before = (page.stat().st_mtime_ns, page.read_bytes())
     assert write_input_guides(workspace.inputs_dir) == []
     assert (page.stat().st_mtime_ns, page.read_bytes()) == before
 
     page.write_text("stale\n", encoding="utf-8")
     assert write_input_guides(workspace.inputs_dir) == [page]
-    assert page.read_text(encoding="utf-8") == guides.input_glossary_markdown()
+    assert page.read_text(encoding="utf-8").startswith("stale\n")
+    assert guides.input_glossary_markdown() in page.read_text(encoding="utf-8")
 
 
-def test_the_plan_writes_the_page_beside_variables_too(tmp_path):
-    """``pyfs-matrix plan`` writes the guides (D08: the page sits beside VARIABLES.md
-    where a user plans); a plan asked to write nothing writes no page."""
+def test_the_plan_writes_the_page_at_inputs_root_too(tmp_path):
+    """Plan writes the shared root glossary; a plan asked to write nothing writes no page."""
     from pyflightstream.cases.workflows import workflow_registry
     from pyflightstream.run.matrix import plan_matrix
     from tests.tier1_offline.test_goal024_point_name import RECIPES, _matrix
@@ -452,8 +490,9 @@ def test_the_plan_writes_the_page_beside_variables_too(tmp_path):
         values="0.8",
     )
     folder = workspace.inputs_dir / "pproc"
-    for name in (guides.INPUT_GLOSSARY_NAME, "VARIABLES.md"):
-        (folder / name).unlink(missing_ok=True)
+    page = workspace.inputs_dir / guides.INPUT_GLOSSARY_NAME
+    page.unlink(missing_ok=True)
+    (folder / "VARIABLES.md").unlink(missing_ok=True)
     common = {
         "name": "named",
         "default_fs_version": "26.120",
@@ -461,11 +500,10 @@ def test_the_plan_writes_the_page_beside_variables_too(tmp_path):
         "recipe_registry": workflow_registry(),
     }
     plan_matrix(matrix, workspace, write_plan=False, **common)
-    page = folder / guides.INPUT_GLOSSARY_NAME
     assert not page.exists(), "a plan asked to write nothing wrote the page"
     plan = plan_matrix(matrix, workspace, **common)
     assert page in plan.guides and (folder / "VARIABLES.md").is_file(), plan.guides
-    assert page.read_text(encoding="utf-8") == guides.input_glossary_markdown()
+    assert guides.input_glossary_markdown() in page.read_text(encoding="utf-8")
 
 
 def test_the_post_stage_refreshes_the_page_too(tmp_path):
@@ -476,7 +514,7 @@ def test_the_post_stage_refreshes_the_page_too(tmp_path):
         inputs_dir = tmp_path / "inputs"
 
     assert _the_guides_stage(Workspace()) == []
-    assert (tmp_path / "inputs" / "pproc" / guides.INPUT_GLOSSARY_NAME).is_file()
+    assert (tmp_path / "inputs" / guides.INPUT_GLOSSARY_NAME).is_file()
 
 
 def test_the_guides_cite_the_page_and_the_site_renders_it():
@@ -485,7 +523,7 @@ def test_the_guides_cite_the_page_and_the_site_renders_it():
     workflows = (REPO / "docs" / "workspace-and-workflows.md").read_text(encoding="utf-8")
     assert "INPUTS.md" in guide, "the user guide does not cite the input glossary"
     assert "INPUTS.md" in workflows, "the workflows page does not cite the input glossary"
-    assert "pproc/INPUTS.md" in workflows, "the input library listing does not show where it is"
+    assert "inputs/INPUTS.md" in workflows, "the input library listing does not show where it is"
     generator = (REPO / "scripts" / "gen_docs_pages.py").read_text(encoding="utf-8")
     assert "input_glossary_markdown" in generator
     nav = (REPO / "properdocs.yml").read_text(encoding="utf-8")

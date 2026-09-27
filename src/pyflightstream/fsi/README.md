@@ -1,9 +1,22 @@
+<!--
+GEOVERSE_HEADER
+file_version: 1.0.0
+artifact_id: fsi-tutorial
+last_modified_at: 2026-09-27T20:29:11.764Z
+last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
+dependencies: [cli.py, driver.py, nodes.py]
+authority: pyflightstream
+status: active
+confidentiality: public
+change_summary: Correct stale dummy-only status while preserving historical native findings.
+revision_source: git
+-->
+
 # pyflightstream.fsi: structural coupling for rotating blades
 
-Tutorial companion of the FSI subpackage (milestone M6). Each module
-gets its section here, written together with the module (FSI-R16).
-The coupled tool closes with a user guide; until then this README and
-the percent-format examples under `examples/` are the entry points.
+Tutorial companion of the FSI subpackage. Each module has a section below
+(FSI-R16). For named structural inputs and matrix calibration, see the
+workspace FSI guide; this tutorial explains the existing coupling driver.
 
 ## The loop in one paragraph
 
@@ -378,12 +391,13 @@ archived WP1 fixtures, no FlightStream in the loop.
 `pyfs-fsi` is the console entry point; pip installs it as an `.exe`
 shim under the environment's `Scripts/` folder, and that path is what
 the FlightStream script sets as the FSI executable
-(`SET_MOTION_FSI_EXECUTABLE` family, SRC-003 pp.335-336). Today it
-implements the WP1 dummy: called bare, it executes one coupling step
-that writes zero displacements (the blade stays rigid) and archives
-every interface file it sees under `fsi_archive/call_NNNN/`, plus a
-directory listing and a call log. The dry run therefore collects the
-real fixtures the loads parser (WP2) will be written against.
+through the Aeroelastic Coupling Toolbox described below. A `config.json`
+in the working directory selects the coupled driver. Without it, the
+separately configured dummy writes zero displacements for interface
+diagnostics. Real coupling archives each call's loads and displacement files,
+records state and convergence, and writes any traceback to
+`pyfs_fsi_error.log`. The native findings below describe the original WP1
+dry run; they are not a new coupled-accuracy validation.
 
 ### WP1 dry run: findings and the working recipe
 
@@ -434,5 +448,5 @@ solver. Seed the dummy first with
 
 The loads parser (WP2) and the twist-encoding node machinery (WP5)
 are built against these fixtures; see their sections above. The
-coupled driver (WP6) will replace the dummy step behind this same
-entry point.
+coupled driver (WP6) now uses this same entry point when `config.json`
+is present. The dummy remains a separately configured diagnostic mode.

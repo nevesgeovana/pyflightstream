@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: ci-workflow
+# last_modified_at: 2026-09-27T20:38:29.364Z
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [pyproject.toml]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Exercise optional workbook generation in source and built-wheel gates.
+# revision_source: git
+# GEOVERSE_HEADER_END
 # Tier 1 CI: everything here runs without FlightStream (no license in the
 # cloud). Tier 2 (command validity probes) and Tier 3 (physics regression)
 # run on a licensed local machine and commit their evidence under reports/.
@@ -47,7 +59,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install package with dev extras
-        run: pip install -e .[dev,fsi,geom]
+        run: pip install -e .[dev,fsi,geom,excel]
       - name: Lint
         run: ruff check .
       - name: Format check
@@ -82,7 +94,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install package with dev extras
-        run: pip install -e .[dev,fsi,geom]
+        run: pip install -e .[dev,fsi,geom,excel]
       - name: Tier 1 with the coverage floor
         run: pytest --cov --cov-branch --cov-report=term-missing
 
@@ -101,7 +113,7 @@ jobs:
     # assertion again. A guard nothing executes is not weaker evidence
     # than a red test, it is no evidence.
     #
-    # The four test legs above deliberately stay at [dev,fsi,geom], which
+    # The four test legs above deliberately stay at [dev,fsi,geom,excel], which
     # is NARROWER than this one and is the point of keeping them
     # separate: widening them would delete that measurement to buy this
     # one.
@@ -128,7 +140,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install package with every declared extra
-        run: pip install -e .[dev,fsi,geom,manual,plot]
+        run: pip install -e .[dev,fsi,geom,excel,manual,plot]
       - name: Tier 1 with nothing skipped for a missing extra
         # Zero skips is NOT asserted here: some tests skip for reasons
         # that have nothing to do with extras (a licensed solver, an
@@ -186,7 +198,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install package with dev extras
-        run: pip install -e .[dev,fsi,geom]
+        run: pip install -e .[dev,fsi,geom,excel]
       - name: Type check the package
         run: mypy
 
@@ -198,7 +210,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install package with dev extras
-        run: pip install -e .[dev,fsi,geom]
+        run: pip install -e .[dev,fsi,geom,excel]
       - name: Docs build
         run: properdocs build --strict
       - name: Docs hook effect check

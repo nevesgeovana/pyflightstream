@@ -1,0 +1,221 @@
+<!--
+GEOVERSE_HEADER
+file_version: "1.2.0"
+last_modified_at: 2026-09-27T22:11:44.225Z
+last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: implementation-author}
+dependencies: [src/pyflightstream/workspace/fsi_setup.py, src/pyflightstream/fsi/calibration.py]
+authority: pyflightstream
+artifact_id: workspace-fsi-guide
+status: active
+confidentiality: public
+change_summary: Explain automatic existing-driver wiring and its explicit initial support limits.
+revision_source: git
+-->
+
+# FSI workspace inputs
+
+The [workspace calibration example](examples/workspace_fsi_calibration.md) creates
+complete calculated and supplied inputs for the same synthetic solid blade, then
+checks their equivalence with one explicit matrix factor.
+
+Place one structural configuration in `inputs/fsi/f001.toml`. A matrix row selects
+it in `VAR_NAMES_VALUES`:
+
+```text
+FSI: f001 / FSI_BENDING_STIFFNESS_N_M2_FACTOR: 1.15
+```
+
+The resolver attaches the effective `FsiConfig` and provenance to the case. The
+existing run writer places `config.json` and `fsi-provenance.json` in the point's
+working directory and records both hashes. The source artifact is also hashed;
+changing it after resolution requires planning again. The geometry library is
+never used as a destination for these generated files.
+
+This configuration uses the existing solid homogeneous Euler beam. It adds no
+shell, spar, hollow-section, shear-center or second structural model.
+
+## Automatic workspace coupling
+
+Selecting `FSI: f001` on a supported `unsteady_rotor` row now prepares the
+existing driver's complete input interface. Planning derives the node CSV and
+ordering map from the effective configuration, resolves blade boundaries and
+rotating frames, and records the emitted section-load order in
+`fsi_family_map.json`. The run writer stages and hashes these files, the native
+loads-export callback and the Python callback beside `config.json`.
+
+The native script imports one identical blade-local node file per blade, in
+blade order, assigns those boundaries/frames, keeps
+`SET_AEROELASTIC_ITERATIONS 1` and enables coupling before ordinary
+`START_SOLVER`. Each synchronous callback refreshes the sectional loads in
+Newtons and invokes the existing `pyfs-fsi` step. The interpreter is the one
+preparing the run, with its existing `pythonw.exe` sibling on Windows. The
+package must remain available to that interpreter on the execution host.
+
+The initial automatic route is deliberately bounded:
+
+- A fresh OBJ/STL mesh import creates `NEW_SIMULATION`; the selected native
+  length unit must be `METER`. Saved-FSM section inheritance and other node-file
+  units are not yet established for this adapter.
+- Exactly one moving rotor resolves to all of its explicit blades. Periodic or
+  mirror symmetry, missing blades and ambiguous rotor selection are refused.
+- The existing structural `rotor_frame` convention requires shaft X and blade
+  datum Z. The declared geometry and structural pitch must describe that same
+  physical blade; this adapter does not infer a new basis or re-pitch the mesh.
+- Exactly one XY section distribution per blade must be emitted in blade order,
+  each in that blade's own rotating frame. Duplicate cuts, aggregated families,
+  other planes or additional distributions are refused instead of attributed
+  to the first matching blade.
+- Positive structural angular velocity must match the resolved row's speed;
+  a declared structural time increment must match the solver clock. Raw
+  commands/custom flags that could alter the mapping are not accepted on this
+  initial automatic route.
+- Steady/zero-speed coupling and continuation are named refusals. Continuation
+  needs compatible structural state and inherited section-order evidence;
+  creating fresh maps beside a stopped run would not establish that evidence.
+
+For example, the corresponding pproc entry for a one-blade rotor whose family
+is `Blade1` is:
+
+```toml
+[sections]
+count = 50
+include_symmetry = false
+
+[[sections.distributions]]
+families = ["Blade1"]
+frame = "LOCAL_AXIS"
+planes = ["XY"]
+```
+
+For multiple blades, select the rotor's blades so LOCAL_AXIS expands them in
+the declared blade order. The structural `blade_count` must include every
+explicit blade. A separate `[settings.aeroelastic]` table is not required.
+
+The existing [FSI tutorial](fsi-tutorial.md) remains the manual interface for
+other carefully configured native cases. `pyfs-fsi step --dir /absolute/path`
+executes one driver call when current loads and maps already exist. Outputs
+`FSIDisp.txt`, structural state, convergence logs and per-call archives remain
+in that point directory. Stale solver iterations are refused. Changing a
+calibration requires a new resolved point and regenerated nodes.
+
+These wiring checks do not establish native two-way rotor deformation,
+convergence or aerodynamic validity. The native interface evidence includes
+callbacks with unsteady coupling enabled, but an undeformed final saved node
+state; the older rotary-boundary morphing limitation is also retained in the
+[FSI tutorial](fsi-tutorial.md). Saved-FSM/continuation usability and native
+coupled validation remain open release acceptance work, not an implied success
+from staging or command acceptance. The supplied zero-omega examples below are
+valid structural inputs for offline checks, not runnable coupled rotor rows.
+
+## Supplied distributions
+
+Use `mode = "supplied"`, put existing `FsiConfig` scalars under `[config]`, and
+put the complete existing `BladeProperties` arrays under `[config.blade]`.
+Station radii are metres, strictly increasing, and all arrays have the same
+length. Mass per length is kg/m; EI and GJ are N m²; principal mass inertias per
+length are kg m. The existing config validators check finite values, station
+counts, positive mass/stiffness/chord and nonnegative principal inertia.
+
+```toml
+mode = "supplied"
+
+[calibration]
+bending_stiffness_n_m2 = 1.05
+
+[config]
+blade_count = 2
+omega_rad_per_s = 0.0
+
+[config.blade]
+station_radii_m = [0.1, 0.5]
+chord_m = [0.04, 0.04]
+mass_per_length_kg_per_m = [1.0, 2.0]
+inertia_major_kg_m = [0.001, 0.002]
+inertia_minor_kg_m = [0.0001, 0.0002]
+bending_stiffness_n_m2 = [10.0, 20.0]
+torsion_stiffness_n_m2 = [5.0, 10.0]
+elastic_axis_offset_chordwise_m = [0.0, 0.0]
+elastic_axis_offset_normal_m = [0.0, 0.0]
+cg_offset_chordwise_m = [0.0, 0.0]
+cg_offset_normal_m = [0.0, 0.0]
+geometric_pitch_deg = [0.0, 0.0]
+```
+
+The example distributions are synthetic, not a material or airframe dataset.
+With the row factor `1.15` above, effective EI is `[11.5, 23.0]`; it is not the
+product of the file's `1.05` and the row's `1.15`.
+
+## Calculated solid sections
+
+`mode = "calculated"` reads section contours and the established material
+dataset. The section coordinates are chordwise/normal metres about the pitch
+axis; `sections_m` contains one closed polygon per station. The existing section
+integrator computes area, centroid, principal inertias and the Prandtl torsion
+constant. Do not also provide `[config.blade]` in this mode.
+
+```toml
+mode = "calculated"
+material = "ti-6al-4v-grade5-annealed"
+
+[config]
+blade_count = 2
+omega_rad_per_s = 0.0
+
+[sections]
+station_radii_m = [0.1, 0.5]
+chord_m = [0.04, 0.04]
+geometric_pitch_deg = [0.0, 0.0]
+geometry_source = "Synthetic rectangular sections in SI units"
+torsion_grid_cells = 16
+sections_m = [
+  [[-0.02, -0.002], [0.02, -0.002], [0.02, 0.002], [-0.02, 0.002]],
+  [[-0.02, -0.002], [0.02, -0.002], [0.02, 0.002], [-0.02, 0.002]]
+]
+```
+
+The existing Grade 5 dataset retains its source, annealed condition and tabulated
+shear modulus. Calibration never rewrites the source material database. A custom
+`[material]` table instead states every `Material` field and a `[material.source]`
+table with `document`, `table`, `condition`, `url` and `consulted`. The material
+checks require finite positive density/E/G and `-1 < poisson_ratio < 0.5`.
+
+## Calibration and provenance
+
+Every factor is dimensionless, finite and positive. Omission selects the file
+factor or unity. An explicit matrix value, including `1.0`, replaces the file
+factor exactly once. The accepted property names are:
+
+| Level | Names |
+| --- | --- |
+| Supplied or calculated distributions | `mass_per_length_kg_per_m`, `inertia_major_kg_m`, `inertia_minor_kg_m`, `bending_stiffness_n_m2`, `torsion_stiffness_n_m2` |
+| Structural orientation | `geometric_pitch_deg` |
+| Existing offsets | `elastic_axis_offset_chordwise_m`, `elastic_axis_offset_normal_m`, `cg_offset_chordwise_m`, `cg_offset_normal_m` |
+| Calculated material only | `density_kg_per_m3`, `youngs_modulus_pa`, `shear_modulus_pa`, `poisson_ratio` |
+
+The pitch factor scales each signed structural angle in degrees once; zero stays
+zero. For example, file factor `2.0` replaced by
+`FSI_GEOMETRIC_PITCH_DEG_FACTOR: 1.5` maps `[-60, 20]` to `[-90, 30]`,
+not `[-180, 60]`. It changes the spinning beam section orientation used to
+generate structural nodes and project loads, while retaining the section
+properties, radii and node order. It is not an angular offset and does not
+rotate the section contours again or re-pitch the aerodynamic mesh. Keep the
+aerodynamic geometry consistent with the intended structural orientation and
+regenerate the node file and ordering map from the effective configuration.
+This parameter alone does not establish coupled aerodynamic validation.
+
+A matrix key is `FSI_` + the uppercase property name + `_FACTOR`. Source and
+derived calibration on the same dependency is refused: density plus mass or
+mass inertia, E plus EI, or G plus GJ. For isotropically derived G, E/Poisson
+calibration also cannot be combined with a separate G or GJ calibration. The
+legacy `config.stiffness_scale_factor` must be unity in workspace artifacts.
+
+When the source tabulates G, changing E or Poisson ratio preserves that tabulated
+G. Only a material declaring isotropically derived G follows E / (2 (1 + nu)).
+The two contracts remain distinct even with unity calibration.
+
+`fsi-provenance.json` contains the source path/hash, unscaled config, effective
+config, every factor and whether it came from unity, file or matrix. Calculated
+inputs also retain base/effective material properties and the section algorithm
+provenance. Effective properties are validated again, including the ordering of
+major and minor principal inertia. No solver executes while loading or planning
+these inputs.

@@ -1,3 +1,17 @@
+<!--
+GEOVERSE_HEADER
+file_version: 1.0.0
+artifact_id: documentation-home
+last_modified_at: 2026-09-27T19:06:07.787Z
+last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementer}
+dependencies: [pyflightstream]
+authority: pyflightstream
+status: draft
+confidentiality: public
+change_summary: Link workspace additions and their explicit evidence limits.
+revision_source: git
+-->
+
 # pyflightstream
 
 Version-aware, didactic Python driver for the FlightStream panel-method
@@ -65,6 +79,20 @@ describes exactly as the edition before it did, and reports the rest for
 a person. Both write only with an explicit `--write`.
 
 ## The documentation
+
+* [Setup standards and guidance](setup-standards.md): build-specific complete
+  presets, one-setting studies, physical explanations and preservation of edits.
+* [Boundary conditions](boundary-conditions.md): typed setup and mesh-sidecar inputs.
+* [Sampled fields](sampled-fields.md), [surface translation](surface-translation.md),
+  [boundary-layer products](boundary-layer-products.md) and
+  [unsteady plots and averages](unsteady-postprocessing.md): source association,
+  units, provenance and measured limits of each output.
+* [Continuation and recovery](continuation-recovery.md): validation of recorded
+  scripts and recovery of reusable state.
+* [FSI in a workspace](fsi-workspace.md): calculated or supplied blade properties
+  and explicit material/property calibration.
+* [Excel matrix synchronization](excel-matrices.md): optional embedded VBA,
+  Dictionary and explicit Preview, Apply and Cancel.
 
 * [Software Requirements Specification](srs/index.md): the living SRS,
   from the founding requirements to the usage-feedback line, each with

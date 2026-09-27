@@ -1,3 +1,13 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.3
+# last_modified_at: 2026-09-27T20:25:20.674Z
+# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# dependencies: [pyflightstream.run._step_exports]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Group collection model imports without changing execution.
+# revision_source: git
 """Collect a submitted job's outputs when they land, then post (FR-99).
 
 THIS IS COLLECT-AND-POST, not submit-and-collect. A watcher stands by, sees
@@ -74,10 +84,14 @@ from pathlib import Path
 # the architect lens of the 0.18.0 release round, 2026-09-14.
 from typing import TYPE_CHECKING
 
+from pyflightstream._progress import workspace_activity
+from pyflightstream.run._step_exports import missing_step_warning
+
 from ..cases import CampaignConfigError
 from ..results import translate_surface_exports
 from ..workspace import (
     SIM_DATAPOINTS_DIR,
+    AdditionalRecord,
     CampaignWorkspace,
     MissingOutputsError,
     PointName,
@@ -171,7 +185,7 @@ class CollectOutcome:
     run_id: str
     state: str
     detail: str
-    record: RunRecord | None = None
+    record: RunRecord | AdditionalRecord | None = None
 
 
 @dataclass
@@ -476,6 +490,124 @@ def _copy_native_log(native: _NativeLog) -> None:
         shutil.copy2(native.source, native.target)
 
 
+def _additional_context(workspace, record):
+    """Resolve contained extraction paths and verify immutable source evidence."""
+    from pyflightstream._digest import optional_file_sha256
+
+    sim_dir = workspace.sim_dir(record.sim_id)
+    root = sim_dir.resolve()
+    folder = (sim_dir / record.working_dir).resolve()
+    original = (sim_dir / record.fsm).resolve()
+    script = (sim_dir / record.script_path).resolve()
+    copy = folder / (record.reopened_copy or "")
+    names = record.declared_outputs
+    paths = [folder, original, script, copy, *(folder / name for name in names)]
+    if (
+        not names
+        or not record.reopened_copy
+        or any(not path.resolve().is_relative_to(root) for path in paths)
+    ):
+        raise WorkspaceError("submitted extraction has no safe declared outputs or private copy")
+    changed = [
+        label
+        for label, path, digest in (
+            ("original saved simulation", original, record.fsm_sha256),
+            ("saved extraction script", script, record.script_sha256),
+            ("private reopened simulation", copy, record.fsm_sha256),
+        )
+        if optional_file_sha256(path) != digest
+    ]
+    if changed:
+        raise WorkspaceError("changed or missing " + ", ".join(changed))
+    return sim_dir, folder, original, copy
+
+
+def _finish_additional(workspace, record, context):
+    """Translate settled exports and record their hashes before removing the copy."""
+    from pyflightstream.run.matrix import _recorded
+    from pyflightstream.workspace import ExtractionStatus
+
+    sim_dir, folder, original, copy = context
+    base = record.model_dump()
+    if record.surface_translations:
+        base["surface_translations"] = translate_surface_exports(
+            folder,
+            record.surface_translations,
+        )
+    missing = [name for name in record.declared_outputs if not (folder / name).is_file()]
+    outputs = [
+        (folder / name).relative_to(sim_dir).as_posix()
+        for name in record.declared_outputs
+        if name not in missing
+    ]
+    completed = _recorded(
+        workspace,
+        base,
+        status=ExtractionStatus.FAILED_INCOMPLETE_OUTPUT if missing else ExtractionStatus.EXTRACTED,
+        error="missing extraction outputs: " + ", ".join(missing) if missing else None,
+        original=original,
+        outputs=outputs,
+    )
+    if completed.status is ExtractionStatus.EXTRACTED:
+        copy.unlink()
+    return completed
+
+
+def _collect_additional(workspace, report, *, interval, sleep, observer) -> None:
+    """Complete stable submitted extractions; retain pending jobs and native logs."""
+    from pyflightstream.workspace import ExtractionStatus
+
+    latest = {record.extraction_id: record for record in workspace.read_additional()}
+    for record in latest.values():
+        if record.status is not ExtractionStatus.SUBMITTED:
+            continue
+        try:
+            context = _additional_context(workspace, record)
+            folder = context[1]
+            generated = {str(item.get("dat")) for item in record.surface_translations or []}
+            waited = [folder / name for name in record.declared_outputs if name not in generated]
+            first = observer(waited)
+            sleep(interval)
+            second = observer(waited)
+            if not settled(first, second):
+                missing = [Path(name).name for name, stamp in second.items() if stamp is None]
+                report.waiting.append(
+                    CollectOutcome(
+                        run_id=record.extraction_id,
+                        state="WAITING",
+                        record=record,
+                        detail=(
+                            "extraction outputs not present: " + ", ".join(missing)
+                            if missing
+                            else "extraction outputs are still changing"
+                        ),
+                    )
+                )
+                continue
+            completed = _finish_additional(workspace, record, context)
+        except (OSError, ValueError, WorkspaceError, CampaignConfigError) as error:
+            completed = record.model_copy(
+                update={
+                    "status": ExtractionStatus.FAILED_EXECUTION,
+                    "error": f"extraction collection refused: {error}",
+                }
+            )
+            workspace.append_additional(completed)
+        success = completed.status is ExtractionStatus.EXTRACTED
+        outcome = CollectOutcome(
+            run_id=record.extraction_id,
+            state="COLLECTED" if success else "FAILED",
+            detail=(
+                f"{len(completed.outputs)} extraction outputs collected"
+                if success
+                else completed.error or "extraction failed"
+            ),
+            record=completed,
+        )
+        (report.collected if success else report.failed).append(outcome)
+
+
+@workspace_activity("collection")
 def collect_once(
     workspace: CampaignWorkspace,
     *,
@@ -509,8 +641,7 @@ def collect_once(
         raise WorkspaceError(f"the manifest could not be read: {error}") from error
 
     submitted = [r for r in records if r.status is RunStatus.SUBMITTED]
-    if not submitted:
-        return report
+    _collect_additional(workspace, report, interval=interval, sleep=sleep, observer=observer)
 
     for record in submitted:
         names = _declared_outputs(record)
@@ -747,6 +878,28 @@ def _complete(
         "outputs": list(collected),
         "error": verdict,
     }
+    from pyflightstream.cases.workflows import UNSTEADY_ACTION_COUNT
+    from pyflightstream.run import _action_count
+
+    try:
+        counter = _action_count(_working_dir(workspace, record) / UNSTEADY_ACTION_COUNT)
+    except (OSError, ValueError, KeyError, TypeError):
+        counter = None
+    if counter is None:
+        counter = record.action_count
+    update["action_count"] = counter
+    raw_steps = stamped.get("time_steps", record.time_steps)
+    steps = raw_steps if isinstance(raw_steps, int) and not isinstance(raw_steps, bool) else None
+    warning = missing_step_warning(
+        record.action_program,
+        counter,
+        record.export_window,
+        steps,
+    )
+    status_warnings = list(record.warnings)
+    if warning and warning not in status_warnings:
+        status_warnings.append(warning)
+    update["warnings"] = status_warnings
     after = _points_ran_after(record, status)
     if after is not None:
         update["points_ran"] = after
@@ -755,7 +908,8 @@ def _complete(
     return CollectOutcome(
         run_id=record.run_id,
         state="COLLECTED",
-        detail=f"{len(collected)} output(s) collected, recorded {status}",
+        detail=f"{len(collected)} output(s) collected, recorded {status}"
+        + ("; WARNING: " + "; ".join(status_warnings) if status_warnings else ""),
         record=completed,
     )
 

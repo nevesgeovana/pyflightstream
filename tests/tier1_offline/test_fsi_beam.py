@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# artifact_id: test_fsi_beam
+# last_modified_at: 2026-09-27T20:14:42.091Z
+# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
+# dependencies: [pyflightstream.fsi]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Bind existing physical tests to release acceptance obligations.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1: WP3 beam builder against clamped uniform beam analytics.
 
 Verification per DLV-007 Section 7: tip deflection, tip rotation, and
@@ -48,6 +60,7 @@ def cfg():
 
 
 def test_static_flap_matches_cantilever_analytics(cfg):
+    # GOAL033:fsi:checks:euler_beam
     load = 3.0  # uniform distributed flap load [N/m]
     model = beam.build_beam_model(cfg)
     n = len(cfg.blade.station_radii_m)

@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.1.0
+# file_role: workspace-input-artifact-reader
+# last_modified_at: 2026-09-27T18:49:29.212Z
+# last_modified_by: OpenAI / Codex / GPT-6 / implementer
+# dependencies: [pyflightstream.cases]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Preserve measured OBJ rules and bind exact inlet-profile files and hashes.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Input-artifact library of the managed campaign workspace.
 
 Pipeline role: organizes the reusable inputs of a campaign the same
@@ -106,6 +118,7 @@ from pyflightstream.cases import (
     FrameSpec,
     InputKey,
     MeshImport,
+    PortBoundary,
     PprocSpec,
     RawCommand,
     RawMeshConditions,
@@ -135,7 +148,17 @@ from pyflightstream.versions import (
     resolve,
 )
 
-INPUT_KINDS = ("geometries", "references", "setups", "pproc", "profiles", "freestreams", "hpc")
+INPUT_KINDS = (
+    "geometries",
+    "references",
+    "setups",
+    "pproc",
+    "profiles",
+    "freestreams",
+    "hpc",
+    "fsi",
+    "matrices",
+)
 EXECUTABLES_FILE = "executables.toml"
 #: This machine's overlay of the build registry (PFS-2031.15). A workspace
 #: kept in version control carries placeholder paths in the registry,
@@ -2320,43 +2343,16 @@ _OBJ_GROUP_STATEMENTS = ("o", "g")
 
 
 def obj_boundary_names(path: str | Path) -> tuple[str, ...]:
-    """Return the boundary names an OBJ is imported with: its groups holding a face, in order.
+    """Return measured OBJ boundary names in native order, preserving duplicates.
 
-    THE ORDER IS THE SOLVER'S, MEASURED (RPT-078). A licensed probe on
-    26.124 imported one OBJ cut into groups and read the saved simulation
-    back: one boundary per ``o`` or ``g`` group that holds at least one
-    face, named by the group, numbered in the order the groups appear in
-    the file, for ``o`` and ``g`` alike. A group holding no face makes no
-    boundary and takes no position, so it is left out here: a reader that
-    counted it would shift every later surface by one.
+    RPT-078 established face-bearing groups. GOAL-033 controls on 26.124,
+    build 8172026 additionally measured an o-to-g transition, repeated g
+    groups, a face prefix before the first g, and multiple names in a g
+    statement. The latter uses only its first name, with a warning.
 
-    WHAT THE PROBE DID NOT SETTLE IS REFUSED, NEVER GUESSED: a file mixing
-    ``o`` and ``g`` statements, a group name opened in two places of the
-    file, and a face written before the first group, each naming its line.
-    A group statement that names no group, or a name of several words, is
-    refused the same way, since how the solver names either is unmeasured.
-    Such a file keeps the route every raw mesh had before: its names
-    written by hand in ``<stem>.boundaries.toml``. Text after ``#`` on a
-    line is a comment.
-
-    Parameters
-    ----------
-    path : str or Path
-        The OBJ file.
-
-    Returns
-    -------
-    tuple of str
-        The boundary names, the name at position i being boundary i
-        (1-based).
-
-    Raises
-    ------
-    InputArtifactError
-        A file that cannot be read as UTF-8 text, one holding no face
-        under any group, or one of the shapes above, each naming the
-        file, the line where there is one, and the sidecar to write by
-        hand instead.
+    Repeated g groups remain separate boundaries; ambiguous labels must be
+    selected by position downstream. Reverse g-to-o transitions, repeated
+    o names, unnamed groups and multiword o names remain unmeasured here.
     """
     mesh = Path(path)
     by_hand = (
@@ -2364,12 +2360,12 @@ def obj_boundary_names(path: str | Path) -> tuple[str, ...]:
         f"{inventory_sidecar(mesh).name} beside it, as boundaries = [...] in the order the "
         "solver numbers the surfaces (docs/mesh-inputs.md)."
     )
-    unsettled = "which the import measured in RPT-078 does not settle"
     names: list[str] = []
-    opened: dict[str, int] = {}
-    first: tuple[str, int] | None = None
+    opened: dict[str, tuple[str, int]] = {}
+    previous: tuple[str, int] | None = None
     current: str | None = None
     holds_face = False
+    prefix_face_line: int | None = None
     try:
         with mesh.open(encoding="utf-8") as lines:
             for number, line in enumerate(lines, start=1):
@@ -2379,41 +2375,48 @@ def obj_boundary_names(path: str | Path) -> tuple[str, ...]:
                 if not words:
                     continue
                 if words[0] == "f":
-                    if current is None:
-                        raise InputArtifactError(
-                            f"{mesh}: line {number} writes a face before the first `o` or "
-                            f"`g` group, {unsettled}. {by_hand}"
-                        )
+                    if current is None and prefix_face_line is None:
+                        prefix_face_line = number
                     holds_face = True
                     continue
                 if words[0] not in _OBJ_GROUP_STATEMENTS:
                     continue
                 statement = words[0]
-                if len(words) != 2:
+                if len(words) < 2 or (statement == "o" and len(words) != 2):
                     stated = "no group" if len(words) == 1 else "a group of several words"
                     raise InputArtifactError(
-                        f"{mesh}: line {number}, `{line.strip()}`, names {stated}, and how "
+                        f"{mesh}: line {number}, {line.strip()!r}, names {stated}, and how "
                         f"the solver names such a group is not measured. {by_hand}"
                     )
-                if first is None:
-                    first = (statement, number)
-                elif statement != first[0]:
+                if prefix_face_line is not None and previous is None and statement != "g":
                     raise InputArtifactError(
-                        f"{mesh}: line {number} opens a group with `{statement}` and line "
-                        f"{first[1]} with `{first[0]}`: a file mixing the two, {unsettled}. "
-                        f"{by_hand}"
+                        f"{mesh}: line {prefix_face_line} writes a face before the first "
+                        f"{statement!r} group; that variant is not measured. {by_hand}"
+                    )
+                if previous is not None and previous[0] == "g" and statement == "o":
+                    raise InputArtifactError(
+                        f"{mesh}: line {number} opens a group with `o` after `g` at "
+                        f"line {previous[1]}; this transition is not measured. {by_hand}"
                     )
                 name = words[1]
-                if name in opened:
+                if name in opened and (statement != "g" or opened[name][0] != "g"):
                     raise InputArtifactError(
                         f"{mesh}: line {number} opens the group {name!r} again, first opened "
-                        f"at line {opened[name]}: a group in two places of the file, "
-                        f"{unsettled}. {by_hand}"
+                        f"at line {opened[name][1]}: a group in two places involving an "
+                        f"`o` statement is not measured. {by_hand}"
                     )
-                opened[name] = number
-                if current is not None and holds_face:
-                    names.append(current)
+                if len(words) > 2:
+                    warn(
+                        f"{mesh}: line {number} names multiple OBJ groups; the measured "
+                        f"native importer uses only the first, {name!r}.",
+                        PyflightstreamWarning,
+                        stacklevel=2,
+                    )
+                opened.setdefault(name, (statement, number))
+                if holds_face:
+                    names.append(current if current is not None else "Boundary-1")
                 current, holds_face = name, False
+                previous = (statement, number)
     except (OSError, UnicodeDecodeError) as error:
         raise InputArtifactError(
             f"{mesh} cannot be read as the text of an OBJ: {error}. {by_hand}"
@@ -2422,8 +2425,8 @@ def obj_boundary_names(path: str | Path) -> tuple[str, ...]:
         names.append(current)
     if not names:
         raise InputArtifactError(
-            f"{mesh} holds no face under any `o` or `g` group, so the import would make no "
-            f"boundary of it; check that it is the mesh the row means. {by_hand}"
+            f"{mesh} holds no face under any measured `o` or `g` group, so no "
+            f"boundary inventory is established; check the mesh. {by_hand}"
         )
     return tuple(names)
 
@@ -2682,6 +2685,16 @@ DETECT_EVERYWHERE = "auto"
 #: tables' own keys are in the registries below, which are the ones their
 #: readers read, so a key a reader gains is a key the glossary states.
 GEOMETRY_SIDECAR_KEYS: Mapping[str, InputKey] = {
+    "inlets": InputKey(
+        "Uniform inlet velocities along the named surfaces' face normals, in declaration order.",
+        "array of tables: boundary (exact name), velocity (signed simulation velocity units)",
+        "CREATE_NEW_INLET",
+    ),
+    "outlets": InputKey(
+        "Uniform outlet velocities along the named surfaces' face normals, in declaration order.",
+        "array of tables: boundary (exact name), velocity (signed simulation velocity units)",
+        "CREATE_NEW_OUTLET",
+    ),
     "boundaries": InputKey(
         "The mesh's boundary names in the solver's order, the name at position i being "
         "boundary i; read from a saved simulation by pyfs-matrix inventory, read from an "
@@ -2723,6 +2736,11 @@ GEOMETRY_SIDECAR_KEYS: Mapping[str, InputKey] = {
 #: one read without a meaning cannot exist.
 RAW_MESH_CONDITION_KEYS: Mapping[str, Mapping[str, InputKey]] = {
     TRAILING_EDGES_TABLE: {
+        "none": InputKey(
+            "Explicitly declares a body without a trailing edge; no wake is generated by it.",
+            "true, alone in the table",
+            "",
+        ),
         "file": InputKey(
             "The points file beside the sidecar holding the mid-point of every "
             "trailing-edge mesh edge, under a line naming their length unit; the "
@@ -2853,29 +2871,66 @@ def read_raw_mesh_conditions(sidecar: str | Path) -> RawMeshConditions | None:
                 f"[{name}] with its keys beneath it (docs/mesh-inputs.md)."
             )
         tables[name] = table
-    if all(table is None for table in tables.values()):
+    if all(table is None for table in tables.values()) and not any(
+        name in data for name in ("inlets", "outlets")
+    ):
         return None
     trailing = tables[TRAILING_EDGES_TABLE]
     wake = tables[WAKE_TERMINATION_TABLE]
     base = tables[BASE_REGIONS_TABLE]
-    return RawMeshConditions(
-        trailing_edges=None if trailing is None else _read_trailing_edges(path, trailing),
-        wake_termination=(
-            None
-            if wake is None
-            else _read_detection(path, WAKE_TERMINATION_TABLE, wake, by_surface=True)
-        ),
-        base_regions=(
-            None
-            if base is None
-            else _read_detection(path, BASE_REGIONS_TABLE, base, by_surface=False)
-        ),
-    )
+    try:
+        return RawMeshConditions(
+            trailing_edges=None if trailing is None else _read_trailing_edges(path, trailing),
+            wake_termination=(
+                None
+                if wake is None
+                else _read_detection(path, WAKE_TERMINATION_TABLE, wake, by_surface=True)
+            ),
+            base_regions=(
+                None
+                if base is None
+                else _read_detection(path, BASE_REGIONS_TABLE, base, by_surface=False)
+            ),
+            inlets=_read_ports(path, data, "inlets"),
+            outlets=_read_ports(path, data, "outlets"),
+        )
+    except ValueError as exc:
+        raise InputArtifactError(f"{path}: invalid mesh boundary conditions: {exc}") from exc
+
+
+def _read_ports(path: Path, data: Mapping[str, Any], name: str) -> tuple[PortBoundary, ...]:
+    records = data.get(name, [])
+    if not isinstance(records, list) or any(not isinstance(item, dict) for item in records):
+        raise InputArtifactError(f"{path}: write {name} as [[{name}]] array tables")
+    try:
+        ports = []
+        for item in records:
+            port = PortBoundary.model_validate(item)
+            if port.profile is not None:
+                if name == "outlets":
+                    raise ValueError("an outlet profile has no documented native command")
+                profile = (path.parent / port.profile).resolve()
+                if not profile.is_file() or profile.stat().st_size == 0:
+                    raise ValueError(f"inlet profile is missing or empty: {profile}")
+                port = port.model_copy(
+                    update={
+                        "profile": str(profile),
+                        "profile_sha256": file_sha256(profile),
+                    }
+                )
+            ports.append(port)
+        return tuple(ports)
+    except ValueError as exc:
+        raise InputArtifactError(f"{path}: invalid [[{name}]] boundary or velocity: {exc}") from exc
 
 
 def _read_trailing_edges(path: Path, table: Mapping[str, Any]) -> TrailingEdgeMarking:
     """Read ``[trailing_edges]``: one route, file or detect, and the keys of that route."""
     where = f"{path}: the [{TRAILING_EDGES_TABLE}] table"
+    if "none" in table:
+        if table != {"none": True} or table["none"] is not True:
+            raise InputArtifactError(f"{where}: none = true must be the only trailing-edge choice")
+        return TrailingEdgeMarking(route="none")
     foreign = sorted(set(table) - set(_TRAILING_EDGE_KEYS))
     if foreign:
         raise InputArtifactError(

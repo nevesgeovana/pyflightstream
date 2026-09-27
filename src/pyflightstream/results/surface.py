@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.9
+# artifact_id: surface-translation
+# last_modified_at: 2026-09-27T20:25:20.672Z
+# last_modified_by: OpenAI / Codex / GPT-6 / implementer
+# dependencies: [numpy; native_surface.py; RPT-074]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Order the batch activity dependency with lower-layer imports.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """The surface solution: read from the solver's VTK, written as Tecplot (G45, 0.28.0).
 
 Pipeline role: the ONE route to a Tecplot surface of a campaign point. The
@@ -32,7 +44,9 @@ per panel, the velocity components written back in the reference frame and
 nothing interpolated to a node. Each polygon's edges are its faces, with the
 polygon on the left and no neighbour on the right, which is how the solver
 writes its own zone. ``Singularity_strength``, the panel strength the
-solver's Tecplot carries, is not in the VTK and is not carried. The file
+solver's Tecplot carries, is not in the VTK. A same-step native auxiliary export
+provides nodal values after a unique coordinate and topology match. Legacy
+exports without it remain explicitly incomplete for this variable. The file
 names its source VTK and that file's sha256 in its ``DATASETAUXDATA``
 records.
 
@@ -44,6 +58,7 @@ frames and the loads-frame command and so knows ``R`` and ``o``.
 from __future__ import annotations
 
 import re
+import tempfile
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -52,6 +67,7 @@ import numpy as np
 
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import ProductError, ProductExistsError
+from pyflightstream._progress import activity_stage
 from pyflightstream.results import IncompleteOutputError, MalformedOutputError
 
 __all__ = [
@@ -704,59 +720,61 @@ def translate_vtk_surface(
     *,
     frame: SurfaceFrame,
     overwrite: bool = False,
+    native_tecplot: str | Path | None = None,
 ) -> dict[str, object]:
-    r"""Write the Tecplot surface of a point from the VTK the solver exported (G45).
+    """Write exact VTK cell values plus optional matched native nodal strength.
 
-    Parameters
-    ----------
-    vtk : str or pathlib.Path
-        The VTK the solver wrote, in the analysis loads frame.
-    dat : str or pathlib.Path
-        The Tecplot to write: the name the solver's own Tecplot had.
-    frame : SurfaceFrame
-        The loads frame the script set, as the script placed it.
-    overwrite : bool
-        Whether an existing ``.dat`` may be replaced. False by default.
-
-    Returns
-    -------
-    dict
-        What the file states about itself: ``source`` (the VTK's name),
-        ``source_sha256``, ``frame`` (:meth:`SurfaceFrame.record`),
-        ``location`` (``cell-centred``), ``variables`` (the cell variables
-        carried) and ``not_carried``.
-
-    Raises
-    ------
-    MalformedOutputError, IncompleteOutputError
-        If the VTK is not a surface export the solver wrote.
-    ProductExistsError
-        If the ``.dat`` exists and ``overwrite`` is False.
-
-    Examples
-    --------
-    >>> import pathlib, tempfile
-    >>> folder = pathlib.Path(tempfile.mkdtemp())
-    >>> _ = (folder / "p.vtk").write_text(
-    ...     "# vtk DataFile Version 3.0\nFlightStream vtk output\nASCII\nDATASET POLYDATA\n"
-    ...     "POINTS 3 float\n0 0 0\n1 0 0\n0 1 0\nPOLYGONS 1 4\n3 0 1 2\n"
-    ...     "CELL_DATA 1\nSCALARS Cp_reference FLOAT\nLOOKUP_TABLE default\n-0.5\n"
-    ... )
-    >>> stated = translate_vtk_surface(folder / "p.vtk", folder / "p.dat", frame=REFERENCE_FRAME)
-    >>> stated["location"], stated["variables"]
-    ('cell-centred', ['Cp_reference'])
+    Native strength is read from the same point/step's auxiliary Tecplot export,
+    never interpolated from Cp or substituted from the final step. Legacy runs
+    without that auxiliary source keep an explicit not-carried declaration.
     """
     source = Path(vtk)
-    surface = read_vtk_surface(source)
     digest = file_sha256(source)
+    surface = read_vtk_surface(source)
     translated = surface_in_reference(surface, frame)
+    native_record: dict[str, object] = {}
+    auxiliary: dict[str, str] = {}
+    missing = list(NOT_CARRIED_BY_THE_VTK)
+    if native_tecplot is not None:
+        from pyflightstream.results.native_surface import (
+            attach_native_strength,
+            read_native_tecplot_surface,
+        )
+
+        native_path = Path(native_tecplot)
+        if native_path.resolve() == Path(dat).resolve():
+            raise ProductError("Native source and translated destination must be different files")
+        if not native_path.is_file():
+            raise IncompleteOutputError(f"Missing native nodal source {native_path.name}")
+        native_hash = file_sha256(native_path)
+        native = read_native_tecplot_surface(native_path)
+        translated, mapping = attach_native_strength(translated, native)
+        if file_sha256(native_path) != native_hash:
+            raise MalformedOutputError("Native nodal source changed during translation")
+        native_record = {
+            "native_source": native_path.name,
+            "native_source_sha256": native_hash,
+            "nodal_variables": ["Singularity_strength"],
+            "node_mapping": mapping,
+        }
+        auxiliary = {
+            "SOURCE_NATIVE_TECPLOT": native_path.name,
+            "SOURCE_NATIVE_TECPLOT_SHA256": native_hash,
+            "NODAL_STRENGTH": (
+                "native values; unique coordinates and polygon topology; no interpolation"
+            ),
+        }
+        missing = []
+    if file_sha256(source) != digest:
+        raise MalformedOutputError("VTK source changed during translation")
     stated: dict[str, object] = {
         "source": source.name,
         "source_sha256": digest,
         "frame": frame.record(),
-        "location": "cell-centred",
+        "location": "cell-centred" if missing else "mixed nodal and cell-centred",
         "variables": list(translated.cell_data),
-        "not_carried": list(NOT_CARRIED_BY_THE_VTK),
+        "not_carried": missing,
+        **native_record,
     }
     write_tecplot_surface(
         dat,
@@ -766,16 +784,16 @@ def translate_vtk_surface(
             "SOURCE_VTK": source.name,
             "SOURCE_VTK_SHA256": digest,
             "TRANSLATION": (
-                "written by pyflightstream from the VTK the solver exported: every value "
-                "per panel, cell-centred, exactly as the solver computed it; the nodes and "
-                "the velocity components in the reference frame"
+                "exact VTK cell-centred values with coordinates and velocities "
+                "in the reference frame"
             ),
             "SOURCE_FRAME": f"the analysis loads frame, {frame.describe()}",
-            "NOT_CARRIED": ", ".join(NOT_CARRIED_BY_THE_VTK)
-            + " (the solver's Tecplot carries it and its VTK does not)",
+            "NOT_CARRIED": ", ".join(missing) or "none",
+            **auxiliary,
         },
         overwrite=overwrite,
     )
+    stated["output_sha256"] = file_sha256(Path(dat))
     return stated
 
 
@@ -794,7 +812,20 @@ def stamped_translation(vtk: str, dat: str, step: int) -> tuple[str, str]:
     )
 
 
-def translate_surface_exports(
+def _translation_auxdata(path: Path) -> dict[str, str]:
+    """Read only the provenance header before a Tecplot zone."""
+    found = {}
+    with path.open(encoding="utf-8") as stream:
+        for line in stream:
+            if line.lstrip().startswith("ZONE"):
+                break
+            match = re.match(r'DATASETAUXDATA (\w+) = "([^"]*)"', line.strip())
+            if match:
+                found[match.group(1)] = match.group(2)
+    return found
+
+
+def _translate_surface_exports(
     folder: str | Path,
     translations: Sequence[Mapping[str, object]],
     *,
@@ -861,19 +892,106 @@ def translate_surface_exports(
                 step = int(matched.group("step"))
                 stamped.append((step, *stamped_translation(vtk, dat, step)))
         pairs += [(one, other) for _, one, other in sorted(stamped)]
+        artifacts: dict[str, object] = {}
+        previous_artifacts = translation.get("artifacts", {})
+        previous_artifacts = previous_artifacts if isinstance(previous_artifacts, Mapping) else {}
+        native_base = translation.get("native_tecplot")
         for one, other in pairs:
-            if (where / other).is_file():
-                written.append(other)
-                continue
+            native_name = str(native_base) if native_base is not None else None
+            stamp = _STAMP.match(Path(one).stem)
+            if native_name is not None and stamp is not None:
+                native_name = stamped_translation(
+                    native_name, native_name, int(stamp.group("step"))
+                )[0]
             if not (where / one).is_file():
                 problems.append(f"{other} was not written: the solver wrote no {one} in {where}")
                 continue
+            if native_name is not None and not (where / native_name).is_file():
+                problems.append(
+                    f"{other} was not written: missing native nodal source {native_name}"
+                )
+                continue
+            if (where / other).is_file():
+                if native_name is not None:
+                    aux = _translation_auxdata(where / other)
+                    valid = (
+                        aux.get("SOURCE_VTK_SHA256") == file_sha256(where / one)
+                        and aux.get("SOURCE_NATIVE_TECPLOT_SHA256")
+                        == file_sha256(where / native_name)
+                        and aux.get("SOURCE_FRAME")
+                        == f"the analysis loads frame, {placed.describe()}"
+                    )
+                    previous = previous_artifacts.get(other)
+                    if valid and not isinstance(previous, Mapping):
+                        # A header alone proves no data. Reconstruct expected bytes in
+                        # isolation, without replacing the existing user-visible file.
+                        try:
+                            with tempfile.TemporaryDirectory(
+                                prefix="pyfs-surface-proof-"
+                            ) as scratch:
+                                previous = translate_vtk_surface(
+                                    where / one,
+                                    Path(scratch) / Path(other).name,
+                                    frame=placed,
+                                    native_tecplot=where / native_name,
+                                )
+                        except (MalformedOutputError, IncompleteOutputError, ProductError) as error:
+                            problems.append(f"{other} is preserved: content proof failed: {error}")
+                            continue
+                    if isinstance(previous, Mapping):
+                        valid = (
+                            valid
+                            and previous.get("frame") == placed.record()
+                            and previous.get("output_sha256") == file_sha256(where / other)
+                        )
+                    if not valid:
+                        problems.append(
+                            f"{other} is preserved: source, frame or output provenance changed"
+                        )
+                        continue
+                    if isinstance(previous, Mapping):
+                        artifacts[other] = dict(previous)
+                written.append(other)
+                continue
             try:
-                translate_vtk_surface(where / one, where / other, frame=placed)
+                result = translate_vtk_surface(
+                    where / one,
+                    where / other,
+                    frame=placed,
+                    native_tecplot=None if native_name is None else where / native_name,
+                )
             except (MalformedOutputError, IncompleteOutputError, ProductError) as error:
                 problems.append(f"{other} was not written from {one}: {error}")
                 continue
+            artifacts[other] = result
             written.append(other)
+        if native_base is not None:
+            entry["artifacts"] = artifacts
         entry.update(written=written, problems=problems)
         recorded.append(entry)
     return recorded
+
+
+def translate_surface_exports(
+    folder: str | Path,
+    translations: Sequence[Mapping[str, object]],
+    *,
+    frame: Mapping[str, object] | None = None,
+) -> list[dict[str, object]]:
+    """Translate one point's surface batch and record elapsed time and problems."""
+    with activity_stage(
+        "translation",
+        point_folder=str(folder),
+        requested=len(translations),
+    ) as event:
+        records = _translate_surface_exports(folder, translations, frame=frame)
+        problems: list[str] = []
+        count = 0
+        for record in records:
+            errors, written = record.get("problems"), record.get("written")
+            if isinstance(errors, list):
+                problems.extend(str(error) for error in errors)
+            if isinstance(written, list):
+                count += len(written)
+        event.update(problems=problems, translated=count)
+        return records

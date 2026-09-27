@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: "1.0.1"
+# last_modified_at: "2026-09-27T22:55:31.021Z"
+# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
+# dependencies: [src/pyflightstream/workspace/excel.py]
+# file_role: python-package-build-and-runtime-configuration
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: "Keep optional macro-free workbook authoring and remove abandoned VBA-only packaging."
+# revision_source: git
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
@@ -99,6 +110,8 @@ geom = ["rtree", "scipy"]
 # FSI structural coupling (M6, DLV-007). PyNiteFEA is MIT; license
 # evidence: reports/RPT-002_pynitefea-license_2026-07-21.md (NFR-02).
 fsi = ["PyNiteFEA>=3.0"]
+# Optional workbook authoring; XlsxWriter is BSD-2-Clause.
+excel = ["XlsxWriter>=3.2.9,<4"]
 # Reading a vendor manual pdf, for pyflightstream.utils.manual. A
 # MAINTAINER extra: no run path imports it, and the manual it reads is
 # licensed material that never enters Git. pypdf is BSD-3-Clause,

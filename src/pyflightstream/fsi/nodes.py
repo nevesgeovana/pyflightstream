@@ -1,3 +1,13 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# last_modified_at: 2026-09-27T22:10:51.516Z
+# last_modified_by: OpenAI / Codex / unknown / implementation-author
+# dependencies: [pyflightstream.fsi.config, pyflightstream.fsi.kinematics]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Expose the existing node CSV renderer for pending-input staging.
+# revision_source: git
 """Structural node file and FSIDisp ordering map, from one generator (WP5).
 
 Pipeline role: FlightStream imports a structural node list per blade
@@ -279,6 +289,12 @@ def node_positions(node_map: NodeOrderingMap) -> np.ndarray:
     return np.asarray(rows, dtype=float)
 
 
+def render_node_file(node_map: NodeOrderingMap) -> str:
+    """Render the existing import CSV without writing a planning-time file."""
+    lines = [",".join(_NODE_FORMAT.format(v) for v in row) for row in node_positions(node_map)]
+    return "\n".join(lines) + "\n"
+
+
 def write_node_file(node_map: NodeOrderingMap, path: str | Path) -> None:
     """Write the structural node CSV FlightStream imports per blade.
 
@@ -293,8 +309,7 @@ def write_node_file(node_map: NodeOrderingMap, path: str | Path) -> None:
     path : str or Path
         Destination CSV; overwritten if present.
     """
-    lines = [",".join(_NODE_FORMAT.format(v) for v in row) for row in node_positions(node_map)]
-    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    Path(path).write_text(render_node_file(node_map), encoding="utf-8")
 
 
 def write_node_map(node_map: NodeOrderingMap, path: str | Path) -> None:
