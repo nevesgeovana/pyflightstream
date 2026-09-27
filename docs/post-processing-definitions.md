@@ -1,13 +1,13 @@
 <!--
 GEOVERSE_HEADER
-file_version: "1.0.0"
-last_modified_at: 2026-09-27T15:42:00+00:00
-last_modified_by: "OpenAI / Codex / GPT-6 / implementation-agent"
-dependencies: ["pyflightstream.post.diagnostics", "pyflightstream.post.products"]
+file_version: 1.1.0
+last_modified_at: 2026-09-27T23:44:31.051Z
+last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
+dependencies: ["pyflightstream.post.diagnostics", "pyflightstream.post.products", "pyflightstream.post.probe_fields", "surface-translation.md", "sampled-fields.md", "unsteady-postprocessing.md"]
 authority: "pyflightstream"
 status: "active"
 confidentiality: "public"
-change_summary: "Define quiet terminal warnings and complete read-only diagnostics."
+change_summary: Record approved 0.29 sampled-volume, native-strength and final unsteady plot contracts.
 revision_source: "git"
 -->
 
@@ -792,7 +792,9 @@ a warning naming the steps when no current averaging key was recorded.
 
 VTK (`.vtk`) and FEM CSV (`.csv`) are native solver surface exports; the
 Tecplot (`.dat`) is written by the package from the VTK since 0.28.0
-([below](#the-tecplot-surface-is-written-from-the-vtk-since-0280)). VTK and CSV
+([below](#the-tecplot-surface-is-written-from-the-vtk-since-0280)). Since 0.29.0,
+new Tecplot requests also retain the native nodal-strength source described in
+[the 0.29 amendment](#native-nodal-strength-in-0290). VTK and CSV
 are **off by default**. The pproc can request them and select VTK variables by
 their command-database names:
 
@@ -826,7 +828,12 @@ plan. Both formats also join the per-step `EXPORT_UNSTEADY_AFTER_REV` or
 
 ### The Tecplot surface is written from the VTK (since 0.28.0)
 
-**A campaign point never asks the solver for its Tecplot.** Where `[exports]`
+**Historical 0.28.x contract.** The following description applies to records
+without the native-source declaration. New 0.29.0 records follow
+[the amendment below](#native-nodal-strength-in-0290); historical outputs keep
+the meaning their recorded release gave them.
+
+**A 0.28.x campaign point does not request native Tecplot.** Where `[exports]`
 keeps `tecplot` (the default), the script exports the surface as VTK
 (`EXPORT_SOLVER_ANALYSIS_VTK`, every surface) and the package writes the `.dat`
 from it, at the name the solver's own Tecplot had, in the point's
@@ -839,7 +846,7 @@ outputs, because the `.dat` names it. Without `vtk_variables` it is the
 all-variables form, `SET_VTK_EXPORT_VARIABLES -1 DISABLE`, which writes no
 `<name>_wakes.vtk` (RPT-074).
 
-| | the solver's own Tecplot, to 0.27.x | the package's, since 0.28.0 |
+| | the solver's own Tecplot, to 0.27.x | the package's 0.28.x contract |
 |---|---|---|
 | zone | one FEPolygon zone, BLOCK packing | the same |
 | nodes | `X`, `Y`, `Z`, in the reference frame | the same nodes, in the reference frame; under mirror or periodic symmetry, followed by the images of the surface (below) |
@@ -921,6 +928,23 @@ all-variables form, `SET_VTK_EXPORT_VARIABLES -1 DISABLE`, which writes no
 - **A record written before 0.28.0** keeps the solver's Tecplot and the meaning
   its release gave it: nothing reads it again.
 
+### Native nodal strength in 0.29.0
+
+A new workspace Tecplot surface request retains both its VTK source and a
+native auxiliary `*_native_tecplot.dat`, including each requested STEP. The
+package-written product keeps the VTK's physical cell fields and adds the
+native source's actual nodal `Singularity_strength` after a unique coordinate
+bijection and complete polygon-topology match. It does not derive strength
+from Cp, interpolate cell Cp to nodes, or treat equal counts as equal geometry.
+
+Both source hashes, the complete recorded loads frame, output hash and matching
+evidence accompany the mixed nodal/cell association. Each STEP uses its own
+source; missing or ambiguous evidence is named rather than filled from the
+final export. Historical records without that declaration keep the 0.28.x
+VTK-only contract and its explicit missing-strength statement. See
+[surface translation](surface-translation.md) for the exact source/association
+and recovery contract.
+
 ### The time-averaged surface is the package's (since 0.28.0)
 
 **`[time_averaging]` makes the run export the surface at every step of its
@@ -954,8 +978,11 @@ positive, as before.
   its Tecplot is (the velocity components undone as a point is, above). Every
   step weighs the same, and nothing is interpolated. The average is
   `blade_passage_average`, the package's one averaging routine, with the panels
-  as its samples and the steps as its frames. Every variable the VTK carries is
-  averaged, `skin_friction_coeff.` (CF) included.
+  as its samples and the steps as its frames. Every physical cell field the VTK
+  carries is averaged, `skin_friction_coeff.` (CF) included. In 0.29.0, available native
+  nodal strength is averaged separately from the cell fields using every
+  selected STEP's matched source. Coordinate fields retain the last selected
+  STEP; they are never averaged into a different geometry.
 - **What the solver's own average says about it.** On 26.122, where the solver
   runs `SOLVER_TIME_AVERAGING`, its final surface equals, to 1e-13, the uniform
   mean of the same run's per-step instants over the same inclusive time steps,
@@ -977,16 +1004,22 @@ positive, as before.
   would be a surface nobody flew.
 - **The product.** `surfaces/<point>_time_average.dat` under the matrix's
   products, written by the writer of every Tecplot (one FEPolygon zone, every
-  value per panel, cell-centred, the reference frame), and
+  VTK value per panel, cell-centred, in the reference frame, plus real nodal
+  strength for 0.29.0 records declaring that source), and
   `surfaces/<point>_time_average.vtk` beside it where the pproc asks
   `[exports] vtk`. Its `DATASETAUXDATA` records say what it is an average of
-  (`AVERAGE_OF`, `WINDOW`, `COORDINATES`, `TRANSLATION`, `SOURCE_FRAME`,
-  `NOT_CARRIED`). Its `products.json` entry carries `kind: average`, the
+  (`AVERAGE_OF`, `WINDOW`, `COORDINATES`, `TRANSLATION`, `SOURCE_FRAME` and
+  either the actual native-source evidence or the historical `NOT_CARRIED`). Its `products.json` entry carries `kind: average`, the
   recorded `window`, the `steps` averaged, `inputs` (each per-step VTK read and
   its sha256), `averaged_by: pyflightstream`, `weighting: uniform`,
   `coordinates_step`, and `location`, `frame` and `not_carried` as every
   translated Tecplot does. The frozen-solve rule of every average applies: a
   freeze inside the window warns, and `check_frozen` refuses.
+- **Native comparison limits in 0.29.0.** Native fields can retain a final
+  instant even where the package computes their temporal mean. Those statistics
+  are not equivalent. The measured WALLTIME discrepancy retains a named
+  surface-average refusal; see [unsteady products](unsteady-postprocessing.md)
+  for the observed build, STEP coverage and accepted limits.
 - **The instants stay.** Every per-step VTK and the Tecplot written from it stay
   on disk and in `products.json` as `kind: instant`, and so do the end of the
   run's surface exports.
@@ -1047,8 +1080,11 @@ step. After an unsteady solve on 26.124 each file holds the series of the
 whole march, one row per INNER iteration (857 rows over 12 time steps), and the
 last plotted lift is the exported CL (RPT-076). A history per time step is the
 unsteady force plot, `<point>_plots.txt` through `[plots]`, as before. **The
-section Cp plot is steady only**: it was never run after an unsteady solve, and
-`plot_sections_cp = true` on an unsteady row is refused at plan.
+section Cp plot joins supported unsteady rows in 0.29.0**: it is saved once
+after the march when the pproc declares section distributions, never by each
+per-STEP action. The earlier steady-only refusal applies to prior releases.
+A plot is not a sectional-load table; see [unsteady plots and averages](unsteady-postprocessing.md)
+for the measured final-export control and history-coverage limits.
 
 ## The boundary-layer profile is not produced
 
@@ -1056,10 +1092,15 @@ The solver can export the boundary-layer velocity profile through the wall at
 one surface point (`EXPORT_BL_VELOCITY_PROFILE`). It holds an unattended script:
 on 26.122 it opens a modal window that waits for a person (RPT-027), and on
 26.124 the script stopped at it and the run was lost at its timeout (RPT-075).
-So the package builds no pproc route for it, and the command is recorded
-`broken` on 26.124: a row writing it raw is refused at plan, naming the report.
+The command remains `broken` on 26.124: a row writing it raw is refused at
+plan, naming the report. Since 0.29.0, the separate typed request
+`products.boundary_layer_velocity_profile = true` is also refused before
+execution while positive unattended-profile evidence is absent.
 The boundary-layer quantities of the surface come from the VTK export instead
 (thickness, momentum and displacement thickness, shape factor; RPT-074).
+The independent `products.boundary_layer_integrals` request writes these actual
+cell quantities at configured section cuts; it never substitutes them for a
+velocity profile. See [boundary-layer products](boundary-layer-products.md).
 
 **Run as a campaign writes it.** A point saves each plot to its own name,
 relative to its working directory, as every export of the point does; a run
@@ -1067,6 +1108,35 @@ of that exact block on 26.124, two saves in a row, left both files in the
 working directory (RPT-067, its addendum).
 
 ## A volume section
+
+Since 0.29.0, `[volume_section]` declares one sampled flow plane through
+probes on steady rows and fluid-plot histories on unsteady/rotor rows. The
+package writes a velocity **vertex cloud**, without interpolated surface
+panels or invented volume cells. This is the approved workspace route; it
+uses no native volume-section index.
+
+| Field | Definition |
+|---|---|
+| Files | `post/<matrix>/fields/<point>_vsec.vtk` or `.dat`; unsteady products add `_step_<STEP>` before the extension. Each has a provenance JSON companion. |
+| Plane | Rectangle `corners_m` or annular `radii_m`, in the declared `frame` and `plane`, with `offset_m` on the remaining positive axis. Authored lengths are meters. |
+| Samples | Rectangle `points` gives the two axis counts (25 by 25 when omitted); each extra `refinement_layers` bisects intervals. A circle states radial/azimuthal counts and samples its zero-radius center once. |
+| Source | The written probe CSV, derived from the native steady probe export or the actual unsteady fluid-plot STEPs. No missing STEP is synthesized. |
+| Physical meaning | Positions in REFERENCE coordinates and meters; absolute REFERENCE velocity components in m/s. Export-kind, unit, executable and motion evidence must support the conversion. |
+| Time | One instantaneous steady sample set, or a separate field for each actual unsteady STEP; never an implied time average. |
+| Provenance | Source hash, recorded sample identities/positions, declared and resolved frames, units, actual STEP where present, native convention evidence and recorded solver setup. Unknown setup values remain unknown. |
+
+A saved FSM may already contain native sections: the new sampling grid does
+not use those sections as its addressing basis. The direct native/custom API
+still does not discover their indices. Its caller must establish the actual
+native section inventory, as explained in [sampled fields](sampled-fields.md).
+A new grid or a missing history cannot be reconstructed merely by posting old
+results. See [the workspace example](workspace-and-workflows.md#a-volume-section)
+for input syntax and the measured-domain restrictions.
+
+### Historical native volume exports, 0.27.x and 0.28.x
+
+The following contract is retained for old run records only. It is not the
+implementation of a new 0.29.0 workspace `[volume_section]` request.
 
 A volume section is ONE flow-field plane through the solution, declared by the
 pproc's `[volume_section]` table (since 0.27.0) and cut by every point of a

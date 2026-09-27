@@ -1,14 +1,14 @@
 <!--
 GEOVERSE_HEADER
-file_version: 1.1.1
+file_version: 1.1.2
 artifact_id: setup-standards-guide
-last_modified_at: 2026-09-27T23:29:39.293Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: primary-agent}
+last_modified_at: 2026-09-27T23:41:12.330Z
+last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
 dependencies: [pyflightstream.workspace.setup_standards]
 authority: pyflightstream
 status: draft
 confidentiality: public
-change_summary: Separate boundary geometry, setup selection and MATRIX condition values.
+change_summary: Name the actual SET matrix column for selecting generated setups.
 revision_source: git
 -->
 
@@ -26,7 +26,7 @@ each availability statement names its target build. The files go to the plural
 are scenario starting points and explicit study baselines. `s910` through `s956`
 vary one setting relative to the baseline named in that file: `s900` for steady
 attached flow, `s904` for unsteady controls, `s905` for transonic refinement, or
-`s906` for laminar-separation sensitivity. The matrix's SETUP column selects the
+`s906` for laminar-separation sensitivity. The matrix's `SET` column selects the
 setup identifier as usual.
 
 The low-cost baseline assumes low-Mach attached flow and a fully turbulent boundary

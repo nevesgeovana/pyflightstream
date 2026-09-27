@@ -1,14 +1,14 @@
 <!--
 GEOVERSE_HEADER
-file_version: 1.0.0
+file_version: 1.0.1
 artifact_id: migration-0290
-last_modified_at: 2026-09-27T19:06:07.787Z
-last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementer}
+last_modified_at: 2026-09-27T23:41:12.324Z
+last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
 dependencies: [pyflightstream]
 authority: pyflightstream
 status: draft
 confidentiality: public
-change_summary: Explain input preservation, explicit standards, post associations and optional integrations.
+change_summary: Describe the delivered macro-free Excel flow and boundary artifact ownership.
 revision_source: git
 -->
 
@@ -38,6 +38,22 @@ their source, including boundary selections and raw commands. Preserve custom
 setup files and compare the inspection before starting a campaign. Steady
 workflows default to a cold start; request warm continuation explicitly when
 that is the intended study.
+
+## Geometry, boundary setup and operating conditions
+
+Geometry sidecars retain port identities and TE/wake/base geometric declarations.
+The setup's `[[ports]]` entries choose inlet/outlet roles and MATRIX variable
+names; the row supplies the velocity values and profile filenames under
+`inputs/profiles/`. The unreleased sidecar `[[inlets]]` / `[[outlets]]`
+forms are refused. Move those selections and conditions to their respective
+owners using the [boundary example](setup-standards.md#uniform-inlet-and-outlet-boundaries).
+
+The setup's `apply_trailing_edges`, `apply_wake_termination` and
+`apply_base_regions` choices control redefinition. False never clears saved
+FSM state; omission preserves the published TE/wake/base sidecar behavior.
+Creating new ports on a saved FSM with unknown existing port indices remains
+refused. See [boundary conditions](boundary-conditions.md) for the explicit
+actions and measured limitations.
 
 ## Surface and sampled-field products
 
@@ -78,8 +94,9 @@ that retain their final instant.
 
 Normal output reports the active stage and final outcome. Post warnings are
 recorded while terminal warnings remain off by default; use
-`--pproc-warnings` to show them. `post --diagnostics` writes the complete
-Markdown diagnostic report without changing existing product or CSV bytes.
+`--pproc-warnings` to show them. `post --diagnostics` prints the recorded
+Markdown diagnostic report to stdout without changing existing product or CSV
+bytes; redirect stdout when you want to save that report.
 Keep `post.log.json` with the other execution records. Errors stay visible.
 
 Continuation and collection verify the recorded scripts and input/output
@@ -95,9 +112,11 @@ from geometry and one cited material. Calibration factors default to unity;
 matrix values override file factors once. The unscaled and effective values
 and factor origins remain in provenance. See [FSI in a workspace](fsi-workspace.md).
 
-The optional Excel workbook embeds the reviewed VBA and a Dictionary of column
-names. Read and Write create a preview; Apply or Cancel is explicit. Existing
-ASCII schemas, custom cells and formulas, leading-zero IDs and recovery copies
-are preserved. Desktop Excel applies its normal macro policy. Workbook creation
-does not launch Excel or change trust settings. See
-[Excel matrix synchronization](excel-matrices.md).
+The optional Excel workbook is a macro-free `.xlsx` with a Dictionary of column
+names. Save and close it, then use
+`python -m pyflightstream.workspace.excel` to create a read or write preview
+and explicitly apply or cancel it. Existing ASCII schemas, custom cells and
+formulas, leading-zero IDs and recovery copies are preserved within the
+[supported workbook contract](excel-matrices.md). Workbook creation and sync
+do not launch Excel or change trust settings. Existing `.xlsm` files are not
+silently converted; create a new `.xlsx` and review any transfer explicitly.

@@ -1,14 +1,14 @@
 <!--
 GEOVERSE_HEADER
-file_version: 1.0.0
+file_version: 1.0.1
 artifact_id: pyflightstream-changelog
-last_modified_at: 2026-09-27T19:36:55.583Z
-last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
+last_modified_at: 2026-09-27T23:41:12.329Z
+last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
 dependencies: [pyproject.toml, docs/migrating-to-0.29.0.md]
 authority: pyflightstream
 status: active
 confidentiality: public
-change_summary: Draft the unreleased workspace completion changes with remaining acceptance gates explicit.
+change_summary: Align the unreleased narrative with macro-free Excel, BC ownership and existing-driver FSI wiring.
 revision_source: git
 -->
 
@@ -21,11 +21,11 @@ FlightStream versions.
 
 ## [Unreleased]
 
-### Workspace completion — 0.29 development
+### Workspace completion: 0.29 development
 
-This section describes the implementation under integration. Native Excel
-execution, remaining geometry/setup controls and complete wall-time termination
-are still being verified. It is not a publication or acceptance announcement.
+This section describes the implementation under integration. Remaining native
+controls and integration gates still require their recorded acceptance. It is
+not a publication or acceptance announcement.
 
 ### Added
 
@@ -39,11 +39,14 @@ are still being verified. It is not a publication or acceptance announcement.
 - **Resolved setup inspection.** `pyfs-matrix inspect-setups` reports values,
   origins, boundary selections and raw commands, using the same records stored
   by planning. The input glossary and templates cover the new structured fields.
-- **Typed boundary editing.** Raw-mesh sidecars declare inlet/outlet profiles,
-  remeshing and explicit absence of trailing edges. Setup operations expose
-  selection, initialization removal, transition-trip deletion and ordered
-  base-region edits. These are opt-in state changes, not automatic additions
-  to every physical preset. Native coverage remains build-specific.
+- **Typed boundary editing with separate input ownership.** Geometry sidecars
+  map port identities to surfaces. Setup `[[ports]]` entries choose inlet/outlet
+  roles, optional remeshing and MATRIX variable names; MATRIX supplies velocities
+  and profile filenames. Setup selectors apply geometric TE/wake/base declarations
+  without implicitly clearing saved state. The unreleased physical sidecar forms
+  are refused with migration guidance. Setup operations also expose initialization
+  removal, transition-trip deletion and ordered base-region edits. Native coverage
+  remains build-specific; port creation with unknown saved indices is refused.
 - **Sampled velocity products.** Probes and volume sections support
   package-written VTK/Tecplot point fields with source, position, frame and
   velocity-component provenance. Reusable inflow requires an appropriate
@@ -57,12 +60,16 @@ are still being verified. It is not a publication or acceptance announcement.
   sections using one sourced material. Matrix factors override file factors
   once; base/effective values and factor origins are staged with their hashes.
   Source and derived factors along the same dependency cannot silently compound.
-  The existing Euler beam and coupling model are unchanged.
-- **Optional Excel synchronization.** The workbook includes VBA controls and a
-  Dictionary mapping. Read/Write propose changes; Apply/Cancel is explicit.
-  Three-way conflicts, leading-zero IDs, custom cells, formulas, legacy matrix
-  schemas and recovery copies are retained. Creation is offline and leaves
-  Excel's normal macro policy in place. Native execution acceptance is pending.
+  Supported fresh-mesh unsteady rotor rows stage the existing driver's nodes,
+  section-order maps and synchronous callbacks. Unsupported inherited state,
+  units or ambiguous blade/frame mappings are refused; wiring does not establish
+  native coupled accuracy. The existing Euler beam and coupling model are unchanged.
+- **Optional Excel synchronization.** A macro-free `.xlsx` carries Runs and a
+  Dictionary mapping. Python synchronizes saved files in both directions through
+  explicit preview/apply/cancel commands. Three-way conflicts, leading-zero IDs,
+  custom cells, formulas, legacy matrix schemas and recovery copies are retained
+  within the supported workbook contract. No Excel process or trust-setting
+  change is required. Existing `.xlsm` workbooks are not silently converted.
 
 ### Changed
 
@@ -79,7 +86,8 @@ are still being verified. It is not a publication or acceptance announcement.
   with unresolved native averaging/history semantics cannot imply acceptance.
 - **Execution and post logs report their stage and outcome.** Post warnings
   remain in the structured log and can be shown with `--pproc-warnings`.
-  `post --diagnostics` writes a Markdown report without regenerating products.
+  `post --diagnostics` prints recorded Markdown diagnostics to stdout without
+  regenerating products.
   CLI signatures use result-aware messages on stderr, preserving structured
   stdout. Windows callbacks use a hidden runtime when that route is supported.
 - **Continuation checks its recorded inputs.** Recovery follows the saved

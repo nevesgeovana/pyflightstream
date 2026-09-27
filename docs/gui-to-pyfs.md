@@ -1,14 +1,14 @@
 <!--
 GEOVERSE_HEADER
-file_version: 1.1.0
+file_version: 1.1.1
 artifact_id: gui-workspace-map
-last_modified_at: 2026-09-27T23:22:30.158Z
-last_modified_by: OpenAI / Codex / unknown / implementer
+last_modified_at: 2026-09-27T23:45:05.733Z
+last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
 dependencies: [pyflightstream]
 authority: pyflightstream
 status: draft
 confidentiality: public
-change_summary: Describe geometry/setup/MATRIX separation for inlet and outlet conditions.
+change_summary: Route the volume-section GUI row through current probe sampling and derived fields.
 revision_source: git
 -->
 
@@ -169,7 +169,7 @@ them; a row marks base regions on either.
 | Read boundary-layer integrals along configured cuts | pproc `[products]`: `boundary_layer_integrals = true`; original VTK cell values at recorded section cuts ([boundary-layer products](boundary-layer-products.md)) | Required VTK and section exports | Fixed-frame native comparison on 26.124; other conventions need evidence |
 | Write sampled velocity fields as VTK, Tecplot or reusable inflow | pproc `[[probes]]`: `field_formats` and `reusable_inflow` ([sampled fields](sampled-fields.md)); volume sections use the same probe sampling route | Probe point exports or unsteady fluid plots | Export/build/unit-specific evidence; see guide |
 | Cut surface sections and export their Cp and sectional loads | pproc table `[sections]` ([the sections table](post-processing-definitions.md#the-sections-table-and-which-row-is-which)) | `NEW_SURFACE_SECTION_DISTRIBUTION`, `UPDATE_ALL_SURFACE_SECTIONS`, `COMPUTE_SURFACE_SECTIONAL_LOADS`, `EXPORT_ALL_SURFACE_SECTIONS`, `EXPORT_SURFACE_SECTIONAL_LOADS` | 26.120 to 26.124 (except `UPDATE_ALL_SURFACE_SECTIONS`) |
-| Cut a plane of the flow field and export it (steady rows) | pproc table `[volume_section]` ([a volume section](workspace-and-workflows.md#a-volume-section-steady-rows)) | `CREATE_NEW_RECTANGLE_VOLUME_SECTION`, `CREATE_NEW_CIRCLE_VOLUME_SECTION`, `DELETE_VOLUME_SECTION`, `EXPORT_VOLUME_SECTION_VTK`, `EXPORT_VOLUME_SECTION_TECPLOT` | 26.120 to 26.124 |
+| Sample a flow-field plane and export velocity | pproc table `[volume_section]` ([a volume section](workspace-and-workflows.md#a-volume-section)); steady probes or unsteady/rotor fluid plots become package-written point fields | `NEW_PROBE_POINT`, `UPDATE_PROBE_POINTS`, `EXPORT_PROBE_POINTS`, or `UNSTEADY_SOLVER_NEW_FLUID_PLOT` / `UNSTEADY_SOLVER_EXPORT_PLOTS` | Export/build/unit-specific evidence; see [sampled fields](sampled-fields.md) |
 | Probe the flow at points and along lines (steady rows) | pproc table `[[probes]]` ([the probes table](post-processing-definitions.md#the-probes-table)) | `NEW_PROBE_POINT`, `NEW_PROBE_LINE`, `UPDATE_PROBE_POINTS`, `EXPORT_PROBE_POINTS` | 26.101 to 26.124 (except `UPDATE_PROBE_POINTS`) |
 | Probe the flow through an unsteady run | pproc table `[[probes]]`, sampled as fluid plots | `UNSTEADY_SOLVER_NEW_FLUID_PLOT`, `UNSTEADY_SOLVER_EXPORT_PLOTS` | 26.124 |
 | Plot the forces through an unsteady run | pproc table `[plots]` | `UNSTEADY_SOLVER_NEW_FORCE_PLOT`, `UNSTEADY_SOLVER_EXPORT_PLOTS` | 26.124 |

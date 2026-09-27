@@ -1,13 +1,13 @@
 <!--
 GEOVERSE_HEADER
-file_version: 1.0.0
-last_modified_at: 2026-09-27T15:07:41.411413+00:00
-last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+file_version: 1.0.1
+last_modified_at: 2026-09-27T23:45:05.732Z
+last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
 dependencies: [pyflightstream.post.guides]
 authority: pyflightstream
 status: active
 confidentiality: public
-change_summary: Update the canonical glossary path and preservation policy.
+change_summary: Describe sampled volume fields and final unsteady plots through the current workspace route.
 revision_source: git
 -->
 
@@ -1400,7 +1400,7 @@ table of group name to members that nothing on the run path read; the
 owning seat decided on 2026-09-02 that it is the home of post-processing and it
 was renamed (PFS-2029.07). It carries twelve tables, every one optional, and a
 file holding `[groups]` alone is what the old file was. `[volume_section]` is
-new in 0.27.0 and has [its own paragraph below](#a-volume-section-steady-rows).
+new in 0.27.0 and has [its own paragraph below](#a-volume-section).
 Four are new in 0.24.0. `[names]` renames the unsteady polar's plot columns to the names a
 downstream tool reads, the whole dictionary or none of it, and is defined on
 [the definition of record](post-processing-definitions.md); the other three,
@@ -1753,9 +1753,10 @@ that still carries `OUTPUTS` is refused naming this table. Since 0.27.0 a
 steady point also saves the solver's residual and load plots
 (`_plot_residuals.txt`, `_plot_loads.txt`) and, where the artifact declares
 sections, its section Cp plot (`_plot_cp_sections.txt`); each is switched off
-with `false` (`plot_residuals`, `plot_loads`, `plot_sections_cp`), an unsteady
-row saves none, and a missing one fails the point `FAILED_INCOMPLETE_OUTPUT`
-like any declared export. `force_distributions = true` opts a row of any run
+with `false` (`plot_residuals`, `plot_loads`, `plot_sections_cp`). Unsteady
+rows save residual/load plots once after the march, and 0.29.0 also supports
+the final section Cp plot when section distributions exist. A missing declared
+plot fails the point `FAILED_INCOMPLETE_OUTPUT` like any declared export. `force_distributions = true` opts a row of any run
 type into `_force_distributions.txt`, the per-panel force distribution of every
 surface, saved once at the end of the run. The loads table
 and the saved simulation cannot be switched off: `loads = false` and, since
@@ -1766,74 +1767,48 @@ point was run for. The volume section's file (`_vsec.vtk` or `_vsec.dat`) is
 not an `[exports]` kind: `[volume_section]` declares it, and `[exports]`
 naming `volume_section_vtk` or `volume_section_tecplot` is refused.
 
-#### A volume section (steady rows)
+<a id="a-volume-section-steady-rows"></a>
 
-Since 0.27.0 the pproc may declare ONE flow-field plane, the GUI's volume
-section, and every point of a STEADY row cuts it after its solve and exports
-it under the point's own name (FR-110):
+#### A volume section
+
+The pproc declares one flow-field plane. Since 0.29.0, the workspace samples
+it through probes or unsteady fluid plots, then post writes VTK or Tecplot
+velocity point fields. It does not create native volume sections. For example:
 
 ```toml
 [volume_section]
 shape = "rectangle"                 # or "circle"
-frame = "MRP"                       # the frame the plane lies in; MRP unless stated
-plane = "XZ"                        # XY, XZ or YZ of that frame
-offset_m = 0.0                      # along the plane's normal, in metres
-corners_m = [-1.0, -1.0, 1.0, 1.0]  # rectangle: x1, y1, x2, y2, two diagonal corners
-format = "vtk"                      # or "tecplot"
+frame = "REFERENCE"                 # frame containing the plane
+plane = "YZ"                        # XY, XZ or YZ of that frame
+offset_m = 0.5                      # remaining positive frame axis, in meters
+corners_m = [-1.0, -1.0, 1.0, 1.0]  # u0, v0, u1, v1 in the selected plane
+points = [25, 25]                   # samples along each rectangular axis
+refinement_layers = 1               # each extra layer bisects grid intervals
+format = "vtk"                     # or "tecplot"
 ```
 
-A circle states `radii_m = [r1, r2]` (inner and outer, `0 <= r1 < r2`) and
-`points = [ipts, jpts]` (radial and azimuthal segments) instead of `corners_m`;
-a rectangle may state `refinement_layers` (1 unless stated). Every length is
-in metres, and its key says so; the script writes it in the simulation's length
-unit, as [the disc's](#one-row-one-actuator-disc) lengths are written. Each
-shape's keys are refused on the other, and a shape missing its own is refused
-naming them. The frame is `MRP` or a frame the reference declares or a rotor
-carries, and a frame the run did not create is refused when the script is
-built, naming the ones it did.
+A circle states `radii_m = [r1, r2]` with `0 <= r1 < r2` and
+`points = [radial, azimuthal]` instead of `corners_m`. Rectangle counts
+must be at least two; a circle needs at least two radial and three azimuthal
+samples. A zero-radius center occurs once. Shape-specific keys are refused on
+the other shape. All authored lengths are meters in the declared frame; its
+placement and any motion must be known before a derived REFERENCE field can
+be written. Use a frame created by the reference or workflow, not a GUI name
+whose placement the run did not record.
 
-What the script does, per point: after `START_SOLVER`, in the analysis phase,
-`CREATE_NEW_RECTANGLE_VOLUME_SECTION` or `CREATE_NEW_CIRCLE_VOLUME_SECTION`,
-then `UPDATE_ALL_VOLUME_SECTIONS`, which computes the flow on the section,
-then `EXPORT_VOLUME_SECTION_VTK <i>` or `EXPORT_VOLUME_SECTION_TECPLOT <i>` to
-`{name}_vsec.vtk` or `{name}_vsec.dat`, collected into the point's
-`datapoints/DP-<point>/` and hashed in its record like every other output. A
-later point of a steady sweep, which runs in the same script, first emits
-`DELETE_VOLUME_SECTION <i>`, so its export writes its own plane. `<i>` is the
-index the pproc's section takes in the solver's list, counting every section
-the script cuts: 1, unless a raw line of the row cuts a section before it
-(a circle cut by `RAW: {COMMAND: CREATE_NEW_CIRCLE_VOLUME_SECTION ... / BEFORE:
-analysis}` makes the pproc's section 2, and its export cites 2). A raw delete
-moves the index down or, deleting the pproc's own section, leaves its file
-nothing to export, which is refused when the script is built. A section a
-saved simulation already carries is NOT counted, since the package reads none
-from the file, and it is not detected either: a point's final save carries the
-section the point cut, so such a save opened as the geometry of a row whose
-pproc declares a section would shift the index. Open a simulation saved
-without one. The prism-layer arguments are not the table's: the package sends
-`NONE 0.1 1 1.2`, the values the verified probes sent.
+Steady rows retain the native probe sample; unsteady and rotor rows retain the
+actual fluid-plot STEPs and write each as a separate field. The result is a
+vertex cloud, not a volume mesh or a reconstruction of unsampled flow. Native
+export conventions are build- and unit-specific; see [sampled fields](sampled-fields.md)
+for the evidence and named refusals. Changing the plane after a run does not
+invent samples at the new positions.
 
-WHAT HAS RUN WHERE, from the command database. The five commands the table
-emits (the two creates, the two exports and the delete) are verified on
-26.120 to 26.124, each by a probe that ran it alone, and documented only on
-25.000 to 26.101. The delete-then-create sequence of a sweep is not measured,
-nor is whether `COLD_START`'s clear removes a section, nor any
-`refinement_layers` other than 1. `UPDATE_ALL_VOLUME_SECTIONS` is documented
-on every build of the range and ran without abort in the probes of 26.120 to
-26.124, with its effect not observed there. It is emitted because the licensed
-run of 2026-09-24 (RPT-070, 26.124) exported the two points of a steady sweep
-that cut a section and exported it with no update as byte-identical files whose
-every cell value was 0.0, and the manual computes a section's flow with
-"Update all" after the solution has converged. With the update the row was run
-again: every cell value of each point's file is non-zero and the two points
-differ (RPT-070). `DELETE_ALL_VOLUME_SECTIONS`, `VOLUME_SECTION_WIREFRAME` and
-`EXPORT_VOLUME_SECTION_2D_VTK` have never run on any build, and
-`VOLUME_SECTION_BOUNDARY_LAYER` is documented on builds before 26.120 only;
-none of the four is reachable from the table.
-
-An unsteady or rotor row whose pproc declares the table is refused before any
-line is written: its step and wall-clock exports run during the march, before a
-section cut after it exists.
+Product filenames, units, source and provenance are defined once in
+[the volume-section definition](post-processing-definitions.md#a-volume-section).
+That page also retains the native 0.27.x/0.28.x contract for historical records.
+A saved FSM's existing native sections do not index the new probe grid. Direct
+native/custom section commands remain available under their command evidence,
+but callers must establish any indices inherited from the FSM themselves.
 
 ### How a point is named
 

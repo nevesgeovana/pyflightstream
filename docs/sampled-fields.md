@@ -1,14 +1,14 @@
 <!--
 GEOVERSE_HEADER
-file_version: 1.0.4
+file_version: 1.0.5
 file_role: sampled-field-user-guide
-last_modified_at: 2026-09-27T20:42:05.231Z
-last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+last_modified_at: 2026-09-27T23:41:54.525Z
+last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
 dependencies: [pyflightstream.post.probe_fields, pyflightstream.post.field_frames]
 authority: pyflightstream
 status: draft
 confidentiality: public
-change_summary: Explain separate typed native surface-property histories.
+change_summary: Distinguish sampled volume fields from manually indexed native saved sections.
 revision_source: git
 -->
 # Sampled velocity fields
@@ -29,6 +29,15 @@ turned off while the requested field histories remain enabled. A volume section
 uses the same sampling route; its grid is specified by its own plane, dimensions
 and point counts. The exported topology is a **vertex cloud**. It contains no
 invented surface panels or interpolated volume cells.
+
+The workspace `[volume_section]` route samples through probes and does not
+address native volume-section indices. It can therefore sample a saved FSM that
+already contains native sections without using those sections as its new grid.
+The direct native/custom API remains different: it does not discover existing
+section indices from a saved FSM. A caller using that low-level route must
+establish the actual native indices; this limitation is not repaired by the
+probe adapter. New locations or histories require recorded samples or a supported
+extraction; post-processing cannot reconstruct an unrecorded flow field.
 
 Each unsteady STEP produces a separate file. Positions in the resulting field
 are in REFERENCE coordinates and metres; velocity is absolute, in REFERENCE
