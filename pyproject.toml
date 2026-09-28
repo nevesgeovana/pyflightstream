@@ -175,6 +175,11 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The suite imports THIS checkout's source, never whatever pyflightstream is
+# installed (GOAL-034 Q8 QA-2); tests/tier1_offline/test_imports_the_tree_under_test.py
+# fails if it does not. The release job that tests the built wheel clears it
+# with `-o pythonpath=`.
+pythonpath = ["src"]
 markers = [
     "needs_flightstream: requires a local FlightStream installation and license",
     "validity: tier 2 per-command probe tests",

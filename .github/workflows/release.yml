@@ -141,10 +141,18 @@ jobs:
           assert "site-packages" in location.parts, f"not the installed wheel: {location}"
           print("testing", md.version("pyflightstream"), "from", location)
           PY
+      # `-o pythonpath=` clears the ini's `pythonpath = ["src"]`, which would
+      # otherwise put the checkout ahead of the wheel; the variable turns
+      # test_imports_the_tree_under_test.py into a check that the wheel,
+      # not the checkout, is what these tests import.
       - name: Tier 1 tests against the wheel
-        run: pytest
+        env:
+          PYFLIGHTSTREAM_TEST_INSTALLED: "1"
+        run: pytest -o pythonpath=
       - name: Executable examples against the wheel
-        run: pytest README.md docs -W error::pyflightstream._errors.PyflightstreamWarning
+        env:
+          PYFLIGHTSTREAM_TEST_INSTALLED: "1"
+        run: pytest -o pythonpath= README.md docs -W error::pyflightstream._errors.PyflightstreamWarning
 
   gates:
     needs: build
