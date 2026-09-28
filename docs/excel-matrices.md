@@ -28,6 +28,8 @@ reverse direction, save Excel edits, use **--direction write** and a new batch
 path. Add repeated **--matrix batch.fs** options to select a subset explicitly.
 Cancel uses **python -m pyflightstream.workspace.excel cancel C:/Work/read-preview.json**.
 Preview and Cancel change neither workbook nor matrices. Each batch is single-use.
+The [workbook synchronization example](examples/excel_matrix_sync.md) runs both
+directions on an isolated synthetic workbook.
 
 ## Runs and Dictionary
 
@@ -72,6 +74,5 @@ completed files and recovery paths. If Excel holds a write lock, close it and
 use the reported original/recovery state to create a new preview. Never reuse a
 partially applied batch. Reopen the workbook after Apply to view its saved state.
 
-The earlier embedded VBA experiment is not part of this release's workbook
-workflow. Existing .xlsm files are not silently converted; create a new .xlsx and
+The workbook contract carries no macros. Existing .xlsm files are not silently converted; create a new .xlsx and
 review any data transfer explicitly.

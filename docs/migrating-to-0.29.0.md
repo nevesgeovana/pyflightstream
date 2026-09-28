@@ -66,6 +66,16 @@ Reusable inflow additionally requires a suitable global YZ survey. Old records
 without sufficient placement or motion evidence remain explicitly unsupported
 for that derived product. See [sampled fields](sampled-fields.md).
 
+`[volume_section]` no longer cuts or exports a native volume section. New runs
+sample the declared plane through probes (steady rows) or fluid plots (unsteady
+and rotor rows, which are now accepted) and write
+`post/<matrix>/fields/<point>_vsec.vtk` or `.dat`, with `_step_<STEP>` per
+unsteady STEP, as a vertex cloud in REFERENCE metres and m/s. Nothing is written
+to `datapoints/DP-<point>/` for the section any more; tooling that read the
+native section export from there must read the new product instead. Historical
+0.27.x and 0.28.x records keep their native export; see
+[a volume section](post-processing-definitions.md#a-volume-section).
+
 Select `products.boundary_layer_integrals` and
 `products.boundary_layer_velocity_profile` independently in pproc. The first
 reads VTK cell quantities at actual configured section cuts. The second stays

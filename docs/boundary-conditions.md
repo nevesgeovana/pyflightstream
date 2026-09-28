@@ -84,7 +84,7 @@ uses `kind = "outlet"` with the same `[ports.remesh]` table. The radius is in me
 The command registry places remeshing in the setup phase because it needs an already-created port. It remains forbidden after initialization settings. Offline tests exercise that prerequisite order. The measured 26.124 build
 8172026 used the combined created-port sequence when remeshing an outlet after
 an inlet. It changed the target cap from two to 28 triangles while preserving
-its area and the other boundaries ([RPT-081](../reports/RPT-081_typed-boundary-and-base-region-operations_2026-09-27.md)).
+its area and the other boundaries ([RPT-081](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-081_typed-boundary-and-base-region-operations_2026-09-27.md)).
 This establishes that mesh edit, not solved
 flow direction, profile interpolation or every radial-growth option. Repeating
 the same surface in setup port selections is refused: the manual says reassignment removes the old association and may delete its port, making later port indices ambiguous.
@@ -125,7 +125,7 @@ The operations `delete`, `mark_trailing_edges` and `select_faces` require `index
 RPT-066 already measured automatic detection and detection by the actual base
 boundary on the supplied body in 26.124. Later no-solve controls on build 8172026
 measured USER creation, CUSTOM pressure editing, deletion, target-only radial
-remeshing and base trailing-edge marking ([RPT-081](../reports/RPT-081_typed-boundary-and-base-region-operations_2026-09-27.md)).
+remeshing and base trailing-edge marking ([RPT-081](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-081_typed-boundary-and-base-region-operations_2026-09-27.md)).
 Those state checks do not establish
 aerodynamic loads. The outflow-edge control did not establish an effect, and
 the saved graphics change after face selection does not by itself prove the

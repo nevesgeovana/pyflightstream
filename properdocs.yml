@@ -126,3 +126,5 @@ nav:
       - Sampled-field products: examples/sampled_field_export.md
       - Boundary-layer sections: examples/boundary_layer_sections.md
       - Inspect continuation recovery: examples/continuation_frame_recovery.md
+      - Prepare an SI custom field: examples/prepare_custom_field.md
+      - Excel workbook synchronization: examples/excel_matrix_sync.md

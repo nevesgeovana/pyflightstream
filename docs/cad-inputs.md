@@ -34,8 +34,9 @@ circle, not an edge length. Density accepts LOW, MEDIUM or HIGH.
 `units = "FILE"` explicitly uses the source CAD metadata. The native
 IMPORT_CAD command has no units argument. A raw-mesh value such as
 MILLIMETER would otherwise be silently discarded, so this combination is
-refused. The workflow sets the simulation display/command length unit to
-METER after conversion; that command alone does not prove the converted
+refused. After conversion the workflow sets the simulation display/command
+length unit to the setup's `simulation_length_unit`, METER when unstated; that
+command alone does not prove the converted
 body's physical scale. Check a known source dimension in the converted
 mesh before running a physical case.
 

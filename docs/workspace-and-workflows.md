@@ -2998,7 +2998,7 @@ matrix/sim_8002/sweep
 ```
 
 Two rows of a matrix, four points, TWO records, because since v0.17.0 a
-steady row is one job: its points run in one process, one after another,
+steady row is one job: its points run in one process, one after another.
 Since 0.29.0 every point starts cold, including the first. Set
 `COLD_START: false` to retain the previous warm behavior explicitly; see
 [geometry units and steady starts](geometry-units-and-starts.md).

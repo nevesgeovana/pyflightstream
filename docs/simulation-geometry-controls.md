@@ -31,8 +31,8 @@ Detection quality and resulting topology must be checked for the particular mesh
 Unstated settings preserve existing behavior: raw mesh/CAD imports default to
 METER, and a saved simulation retains its unit. Metre-valued reference origins,
 rotor positions and other dimensional inputs are converted once to the selected
-simulation unit. [The CAD example](../examples/cad_import.py) exercises the typed
-route without launching a solver. [RPT-082](../reports/RPT-082_cad-units-and-custom-inflow-coverage_2026-09-27.md)
+simulation unit. [The CAD example](examples/cad_import.md) exercises the typed
+route without launching a solver. [RPT-082](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-082_cad-units-and-custom-inflow-coverage_2026-09-27.md)
 records the measured unit domain and negative controls.
 
 ## Reference compatibility

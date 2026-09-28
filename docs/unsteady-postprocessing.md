@@ -21,7 +21,7 @@ can share a section label. It is a plot product, not a substitute for the loads
 table. Setting an export to false suppresses that plot. Asking for the Cp plot
 without any section distribution remains invalid.
 
-The GOAL-033 T40 native control measured this final export on FlightStream
+A native control ([RPT-083](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-083_probe-frames-and-temporal-export-limits_2026-09-27.md)) measured this final export on FlightStream
 26.124, build 8172026. Thirty nonempty curves were exported after twelve time
 steps; the nine printed final load coefficients matched the baseline exactly.
 This evidence does not establish the same behavior on other builds.
@@ -56,8 +56,8 @@ The original files remain unchanged, and missing samples are never fabricated.
 
 A named WALLTIME diagnostic refuses the surface-average product. Native Cp,
 Vx and speed retained the STEP 16 instantaneous state instead of the requested
-mean of STEPs 2 to 3. The approved G55 discrepancy branch requires this refusal
-until corrected. Independent arithmetic checks verify the package reducer on
+mean of STEPs 2 to 3. The product stays refused until that discrepancy is
+resolved. Independent arithmetic checks verify the package reducer on
 the recorded per-STEP fields, but do not establish native equivalence for this
 run type. STOP-in-action and runtime iteration-count controls failed to stop
 normally; neither behavior is used as a successful walltime implementation.

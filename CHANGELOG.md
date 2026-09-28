@@ -56,9 +56,28 @@ not a publication or acceptance announcement.
   custom cells, formulas, legacy matrix schemas and recovery copies are retained
   within the supported workbook contract. No Excel process or trust-setting
   change is required. Existing `.xlsm` workbooks are not silently converted.
+- **Submitted additional-post extractions complete.** On a submitting
+  workspace each extraction is recorded `SUBMITTED` against a private copy of
+  the saved simulation; `pyfs-matrix collect` waits for stable exports, checks
+  the original simulation, script and copy hashes, translates the surface
+  outputs and records `EXTRACTED`. Submission alone never means extracted, and
+  a pending request is not resubmitted.
 
 ### Changed
 
+- **Steady sweeps start every point cold by default.** A steady row's script
+  clears the solution before each point, including the first point of a
+  reopened simulation; an absent `COLD_START` now means cold. Set
+  `COLD_START: false` in the row (or `build_steady_sweep(..., cold=False)`) to
+  keep the previous warm behavior; warm results depend on point order, which the
+  run still records. See [geometry units and steady starts](docs/geometry-units-and-starts.md).
+- **A volume section is sampled, not natively exported.** `[volume_section]`
+  no longer cuts or exports a native volume section into
+  `datapoints/DP-<point>/`. It samples the declared plane through probes
+  (steady rows) or fluid plots (unsteady and rotor rows, now accepted) and
+  writes a vertex cloud to `post/<matrix>/fields/<point>_vsec.vtk` or `.dat`,
+  with `_step_<STEP>` per unsteady STEP. Historical 0.27.x and 0.28.x records
+  keep their native export. See [the migration guide](docs/migrating-to-0.29.0.md).
 - **Nodal strength accompanies the VTK surface fields.** New Tecplot surface
   requests keep an auxiliary native Tecplot source. Coordinate and polygon
   topology matching carries its nodal `Singularity_strength` alongside the
@@ -100,9 +119,6 @@ variable associations and input conventions. Remaining integration gates above
 must be resolved before this development entry becomes a release entry.
 
 ### Owed
-
-- **The submitting half of the additional post** (0.29.0; the approved 0.28.0
-  scope leaves it out): completing an extraction handed to a scheduler.
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
   Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
