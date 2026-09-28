@@ -41,6 +41,24 @@ def test_average_uses_each_matching_native_step_and_both_hashes(tmp_path):
     assert result.steps == (7, 8)
 
 
+def test_average_carrying_native_strength_states_nothing_not_carried(tmp_path):
+    """Q0-src-post-4: no provenance sentence about a variable that IS carried."""
+    from pyflightstream.post.surfaces import write_surface_average
+
+    vtk, native = _pair(tmp_path)
+    result = average_surface_exports(
+        vtk, window=(7, 8), frame=REFERENCE_FRAME, native_exports=native
+    )
+    dat = write_surface_average(tmp_path / "avg.dat", result)[0]
+    lines = [line for line in dat.read_text().splitlines() if "NOT_CARRIED" in line]
+    assert len(lines) == 1
+    assert '"none"' in lines[0], lines[0]
+    assert "carries it" not in lines[0]
+    plain = average_surface_exports(vtk, window=(7, 8), frame=REFERENCE_FRAME)
+    dat = write_surface_average(tmp_path / "plain.dat", plain)[0]
+    assert "Singularity_strength (the solver's Tecplot carries it" in dat.read_text()
+
+
 def test_missing_native_step_does_not_borrow_final_strength(tmp_path):
     vtk, native = _pair(tmp_path)
     del native[7]

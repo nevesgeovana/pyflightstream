@@ -256,6 +256,7 @@ def write_surface_average(
         The files written, the Tecplot first.
     """
     first, last = average.window
+    missing = [name for name in NOT_CARRIED_BY_THE_VTK if name not in average.surface.point_data]
     auxdata = {
         "AVERAGE_OF": (
             f"{len(average.steps)} per-step VTK surface exports, time steps {first} to "
@@ -273,10 +274,12 @@ def write_surface_average(
         ),
         "SOURCE_FRAME": f"the analysis loads frame, {average.frame.describe()}",
         "NODAL_VARIABLES": ", ".join(average.surface.point_data),
-        "NOT_CARRIED": ", ".join(
-            name for name in NOT_CARRIED_BY_THE_VTK if name not in average.surface.point_data
-        )
-        + " (the solver's Tecplot carries it and its VTK does not)",
+        # As translate_vtk_surface says it: "none" once native strength is attached.
+        "NOT_CARRIED": (
+            ", ".join(missing) + " (the solver's Tecplot carries it and its VTK does not)"
+            if missing
+            else "none"
+        ),
     }
     title = f"FlightStream surface, averaged over time steps {first} to {last} by pyflightstream"
     written = [
