@@ -374,6 +374,10 @@ def test_g16_the_rotor_table_opens_with_its_header_polar_and_rotor(tmp_path):
 
     Until 0.27.0 the first line was the alias alone and the header the second, so no CSV
     reader took the file as written. The alias is the `ROTOR` column of every row now.
+
+    Since 0.30.0 (M1) the owner's requirement of 2026-09-28 adds the tip and helical
+    Mach numbers, `MTIP_<alias>` and `MHEL_<alias>`, AFTER every column 0.26.0 wrote,
+    so each of those keeps its position.
     """
     from tests.tier1_offline.test_clock_columns_at_the_product import (
         ROTOR_TABLE,
@@ -382,7 +386,7 @@ def test_g16_the_rotor_table_opens_with_its_header_polar_and_rotor(tmp_path):
 
     table = _posted_rotor_campaign(tmp_path) / ROTOR_TABLE
     first, second = table.read_text(encoding="utf-8").splitlines()[:2]
-    assert first == f"POL,ROTOR,{ROTOR_COLUMNS_BEFORE}", first
+    assert first == f"POL,ROTOR,{ROTOR_COLUMNS_BEFORE},MTIP_PUSHER,MHEL_PUSHER", first
     assert second.startswith("7001,PUSHER,"), second
     assert ROTOR_COLUMNS_BEFORE.split(",")[: len(CONTEXT_COLUMNS)] == list(CONTEXT_COLUMNS)
     with table.open(encoding="utf-8", newline="") as handle:

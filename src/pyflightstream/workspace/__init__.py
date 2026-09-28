@@ -1106,6 +1106,14 @@ class RunRecord(BaseModel):
     #: the class docstring. A mapping rather than a model so the record
     #: carries exactly what the resolver wrote and a reader never guesses.
     reductions: dict[str, object] | None = None
+    #: 0.30.0 (M1): on an ``unsteady_rotor`` point, each rotor's tip and
+    #: helical Mach numbers keyed by its alias, with the speed, the diameter,
+    #: the free-stream speed and the speed of sound they were taken at, or a
+    #: ``note`` saying why they are not known
+    #: (:meth:`pyflightstream.cases.workflows.RotorMach.record`). ABSENT where
+    #: None, as ``inventory`` is, so a manifest without a rotor point stays
+    #: readable by a reader older than 0.30.0.
+    rotor_mach: dict[str, dict[str, object]] | None = None
     recipe_sha256: str | None = None
     script_path: str | None = None
     script_sha256: str
@@ -1140,9 +1148,9 @@ class RunRecord(BaseModel):
     def _leave_the_unrecorded_0270_keys_out(
         self, handler: SerializerFunctionWrapHandler
     ) -> dict[str, Any]:
-        """Write no ``inventory`` or ``mesh_import`` key where the record states none.
+        """Write no ``inventory``, ``mesh_import`` or ``rotor_mach`` key where none is stated.
 
-        R03 and G01 of 0.27.0.
+        R03 and G01 of 0.27.0, and M1 of 0.30.0.
 
         The rule ``forced_local`` follows: a key a reader older than 0.27.0
         does not know is written only where something was recorded, so a
@@ -1152,7 +1160,7 @@ class RunRecord(BaseModel):
         pydantic 2.11 where this package's floor is pydantic 2.
         """
         data: dict[str, Any] = handler(self)
-        for key in ("inventory", "mesh_import"):
+        for key in ("inventory", "mesh_import", "rotor_mach"):
             if data.get(key) is None:
                 data.pop(key, None)
         return data

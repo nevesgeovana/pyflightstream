@@ -52,6 +52,7 @@ from pyflightstream._progress import workspace_activity
 from pyflightstream.cases import (
     EXPORT_KINDS,
     Campaign,
+    CampaignConfigError,
     ScriptRecipe,
     SimCase,
     case_at_point,
@@ -67,6 +68,7 @@ from pyflightstream.cases.matrix import (
 from pyflightstream.cases.workflows import (
     ADDITIONAL_PPROC_VARIABLE,
     EXPORT_LOG_VARIABLE,
+    SONIC_HELICAL_MACH,
     WORKFLOW_KEY,
     additional_outputs,
     build_additional_script,
@@ -300,6 +302,52 @@ def _warn_when_the_points_may_not_fit(workspace: CampaignWorkspace, ready: int) 
             f"disk: {line}. The run may not fit: make room first, for example with "
             "`pyfs-matrix free-space m<id>` (a recipe in inputs/management/) after "
             "`pyfs-matrix space-in-use` shows where the space is.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
+def _warn_when_a_helical_mach_may_reach_one(resolved: ResolvedMatrix, plan: CampaignPlan) -> None:
+    """Name each polar point whose rotor's helical Mach number is 1 or more (0.30.0, M1).
+
+    ``M_hel = sqrt(V^2 + (Omega R)^2) / a``, the speed the blade tip meets the
+    flow at, over the speed of sound; at 1 or more the tip is sonic or
+    supersonic. A warning, never a refusal: the plan says it once per matrix,
+    naming every such point by its name, its rotor and its ``M_hel``. A row
+    whose rotor's numbers are not known (no radius, no resolved speed) is
+    named too, with the reason, because the plan cannot say for it. Called
+    from :func:`plan_matrix` alone.
+    """
+    cases = {case.sim_id: case for case in resolved.campaign.sims}
+    sonic: list[str] = []
+    unknown: dict[str, None] = {}
+    for entry in plan.points:
+        for alias, mach in entry.rotor_mach.items():
+            helical = mach.get("mach_helical")
+            if not isinstance(helical, int | float):
+                unknown[str(mach.get("note"))] = None
+                continue
+            if helical < SONIC_HELICAL_MACH:
+                continue
+            case = cases.get(entry.sim_id)
+            try:
+                name = point_name(case, entry.point) if case is not None else entry.run_id
+            except CampaignConfigError:
+                name = entry.run_id
+            sonic.append(f"POL {entry.sim_id} point {name}, rotor {alias}, M_hel {helical:.3f}")
+    if sonic:
+        warn(
+            f"helical Mach >= 1 on {len(sonic)} polar point(s): {'; '.join(sonic)}. "
+            "M_hel = sqrt(V^2 + (Omega R)^2) / a is the speed the blade tip meets the "
+            "flow at over the speed of sound, so at 1 or more the tip is sonic or "
+            "supersonic. Nothing is refused; check these points before running them.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    if unknown:
+        warn(
+            f"helical Mach not known, so the plan cannot say whether it reaches 1: "
+            f"{'; '.join(unknown)}.",
             PyflightstreamWarning,
             stacklevel=3,
         )
@@ -617,6 +665,7 @@ def plan_matrix(
         accept_unregistered_build=accept_unregistered_build,
     )
     _warn_when_the_points_may_not_fit(workspace, len(plan.ready))
+    _warn_when_a_helical_mach_may_reach_one(resolved, plan)
     if write_plan:
         # THE GENERATED PPROC GUIDES (0.24.0), written by the step every campaign
         # passes through, so a workspace made before they existed gets them and a

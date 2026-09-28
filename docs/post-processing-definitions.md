@@ -35,6 +35,7 @@ them was inferred from an implementation.
 - [The additional post](#the-additional-post)
 - [The unsteady POLAR](#the-unsteady-polar)
 - [Rotor coefficients](#rotor-coefficients)
+- [Tip and helical Mach numbers](#tip-and-helical-mach-numbers)
 - [What the package does NOT judge](#what-the-package-does-not-judge)
 - [The token for a value that does not exist](#the-token-for-a-value-that-does-not-exist)
 
@@ -1381,7 +1382,9 @@ numbers.
 
 The table is `polars/P<sim>-<alias>_rotor.csv`. It opens with `POL` and
 `ROTOR`, the rotor's alias, on every row, then the condition block,
-`RPM_<alias>`, `DIAMETER_<alias>` and the six, `J_<alias>` to `ETAW_<alias>`.
+`RPM_<alias>`, `DIAMETER_<alias>` and the six, `J_<alias>` to `ETAW_<alias>`,
+then, last since 0.30.0, `MTIP_<alias>` and `MHEL_<alias>`
+([Tip and helical Mach numbers](#tip-and-helical-mach-numbers)).
 Its first line is its header: from 0.23.0 to 0.26.x the alias stood alone on
 the first line, before the header, so a loaded table knew its rotor, and no CSV
 reader took the file as written. The column keeps that promise.
@@ -1440,6 +1443,50 @@ pressure; at `V = 0` that pressure is zero and the rotor's real thrust has been
 divided away before the package sees it. **No rotor coefficient is recoverable
 from a static point whatever the package does**, which is also why a hover figure
 of merit cannot be offered: it needs a force the run does not state.
+
+## Tip and helical Mach numbers
+
+Since 0.30.0, every point of an `unsteady_rotor` row states, for each rotor it
+turns, how fast the blade tip moves against the speed of sound:
+
+```text
+Omega = 2 pi RPM / 60                  rad/s
+M_tip = Omega R / a
+M_hel = sqrt(V^2 + (Omega R)^2) / a
+```
+
+- `RPM` is the rotor speed the run turns, in rev/min, the unit of every rotor
+  speed the package resolves (`RPM` stated, or derived from `ADVANCE_RATIO`).
+  Its sign is the rotor's hand and is not read: both numbers are of a speed.
+  On a build whose rotor motion is written without a unit mark (26.100, report
+  RPT-051) the package writes the rev/min it resolved, and the unit that build
+  reads there is not measured; the numbers are of the speed the row states.
+- `R` is half the rotor's diameter: the `diameter_m` of its rotor block in the
+  reference, else the reference's `rotor_diameter_m`. A rotor with neither has
+  no known radius, and its two numbers are not computed: the plan and the run
+  record say so naming the row, and nothing is guessed.
+- `V` is the free-stream speed and `a` the speed of sound of the point's own
+  resolved flight condition, the same resolution that sets the Mach number the
+  run flies (a pinned `ASMPS` included).
+- `M_tip` is the tangential speed of the tip alone; `M_hel` composes it with
+  the free stream, the speed at which the tip meets the air in a helix. Both
+  are dimensionless.
+
+Where they appear:
+
+- `pyfs-matrix plan` prints both per rotor per point, and `plan.json` carries
+  them per point under `rotor_mach`, keyed by the rotor's alias, with the
+  speed, the diameter, `V` and `a` they were taken at. **The plan warns when
+  `M_hel >= 1`** on any point, naming each point, its rotor and its `M_hel`:
+  at 1 or more the tip is sonic or supersonic. It is a warning and never a
+  refusal.
+- The run record (`runs.json`) carries the same block under `rotor_mach`;
+  the key is absent on every other run type.
+- The rotor table ends with `MTIP_<alias>` and `MHEL_<alias>`, taken at that
+  row's speed and `DIAMETER_<alias>` and at the point's resolved condition. A
+  point whose condition does not resolve reads `NA` in both and keeps its row.
+
+Other run types (a steady rotor, an actuator disc) carry neither number.
 
 ---
 

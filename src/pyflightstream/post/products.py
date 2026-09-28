@@ -131,6 +131,7 @@ from pyflightstream.cases.workflows import (
     PROBE_POSITION_COLUMNS,
     REDUCTION_NAMES,
     ROTORS_KEY,
+    rotor_mach_numbers,
 )
 from pyflightstream.fsi.loads import SectionalLoadsReport, parse_sectional_loads
 from pyflightstream.post._tables import (
@@ -729,6 +730,34 @@ def point_state(record: RunRecord) -> PointState:
         density_source=resolved.density_source,
         differs=differs,
     )
+
+
+def free_stream_and_sound(record: RunRecord) -> tuple[float, float] | None:
+    """Return a point's free-stream speed and speed of sound, in m/s (0.30.0, M1).
+
+    Resolved from the record's own condition, the swept value in place, by the
+    function the plan resolved it with, so the rotor table's Mach numbers are
+    taken at the state the point ran at. A record does not carry the speed of
+    sound itself before 0.30.0, which is why it is resolved rather than read.
+    None where the record states no condition, or one this release cannot
+    resolve.
+    """
+    stated = dict(record.flight_condition or {})
+    swept = {key: value for key, value in (record.point or {}).items() if key in _FLOW_KEYS}
+    cell = {**stated, **swept}
+    if not cell:
+        return None
+    try:
+        resolved = resolve_flight_condition(
+            cell,
+            pol=str(record.sim_id),
+            reference_length_m=record.reference_length_m,
+            defaults=record.flight_condition_defaults or None,
+            defaults_origin=record.flight_condition_defaults_from,
+        )
+    except PyflightstreamError:
+        return None
+    return resolved.velocity_m_per_s, resolved.sonic_velocity_m_per_s
 
 
 @dataclass(frozen=True)
@@ -2254,6 +2283,9 @@ def _rotor_tables(
                     "free_stream": (
                         point.loads.freestream_velocity_m_s if point.loads is not None else None
                     ),
+                    # 0.30.0 (M1): the free-stream speed and the speed of sound
+                    # the point resolved to, for its tip and helical Mach numbers.
+                    "air": free_stream_and_sound(record),
                     # THE EXPORT'S OWN STATEMENT OF WHICH FRAME ITS FORCES ARE
                     # IN. Carried from the point to the coefficient rather than
                     # assumed, because `ETAW` rotates that force into wind axes
@@ -2346,6 +2378,8 @@ def write_rotor_table(
     # block, and the rotor's own `n` and `D` were stated nowhere in the file.
     # 0.27.0 (G16): the polar and the rotor lead, and every column after them
     # keeps its name and its order.
+    # 0.30.0 (M1): the tip and helical Mach numbers LAST, so every column
+    # before them keeps its position.
     columns = (
         POLAR_ID_COLUMN,
         ROTOR_ID_COLUMN,
@@ -2353,6 +2387,8 @@ def write_rotor_table(
         f"RPM_{alias}",
         f"DIAMETER_{alias}",
         *rotor_coefficient_columns(alias),
+        f"MTIP_{alias}",
+        f"MHEL_{alias}",
     )
     diameter = float(getattr(rotor, "diameter_m", 0.0) or 0.0)
 
@@ -2481,6 +2517,25 @@ def write_rotor_table(
         )
         stated_condition = row.get("condition")
         condition = dict(stated_condition) if isinstance(stated_condition, Mapping) else {}
+        # 0.30.0 (M1): `NA` where the point's air did not resolve, never a guess.
+        machs: tuple[float | None, float | None] = (None, None)
+        air = row.get("air")
+        if (
+            isinstance(air, tuple)
+            and len(air) == 2
+            and all(isinstance(value, int | float) for value in air)
+        ):
+            try:
+                machs = rotor_mach_numbers(
+                    rpm=rpm,
+                    diameter_m=diameter,
+                    velocity_m_per_s=float(air[0]),
+                    sonic_velocity_m_per_s=float(air[1]),
+                )
+            except ValueError:
+                # A speed of sound or a velocity that is not a positive
+                # finite number costs these two cells and never the row.
+                machs = (None, None)
         written.append(
             (
                 pol,
@@ -2489,6 +2544,7 @@ def write_rotor_table(
                 rpm,
                 diameter,
                 *(coefficients[name] for name in ROTOR_COEFFICIENT_COLUMNS),
+                *machs,
             )
         )
         emitted.append(run_id)
