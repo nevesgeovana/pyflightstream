@@ -127,5 +127,5 @@ exactly between units; using metre-valued arguments in the MILLIMETER case did
 not match. REFERENCE and a translated fixed frame rotated 90 degrees about Z
 returned matching values. The measured velocity components were REFERENCE
 components in m/s. This control does not establish behavior for a moving
-surface-probe frame. See [RPT-083](../reports/RPT-083_probe-frames-and-temporal-export-limits_2026-09-27.md)
+surface-probe frame. See [RPT-083](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-083_probe-frames-and-temporal-export-limits_2026-09-27.md)
 for the measured domain and the retained BL failure.
