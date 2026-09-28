@@ -167,10 +167,10 @@ variable associations and input conventions.
 
 ### Changed (the type-checker debt, re-measured on the release tree)
 
-- mypy recount 2026-09-28: 922 errors in 18 of 128 modules, against 0.28.0's
-  863 in 18 of 104. The twenty-four modules the 0.29 work adds are clean; the
-  fifty-nine errors more sit inside the exempted set, and the shipped
-  configuration is green over all 128 (`reports/RPT-029`).
+- mypy recount 2026-09-28: 922 errors in 18 of 128 modules, on the v0.29.0
+  release tree, against 0.28.0's 863 in 18 of 104. The twenty-four modules the
+  0.29 work adds are clean; the fifty-nine errors more sit inside the exempted
+  set, and the shipped configuration is green over all 128 (`reports/RPT-029`).
 
 ## [0.28.0] - 2026-09-25
 
