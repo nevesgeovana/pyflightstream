@@ -47,6 +47,15 @@ ITER = "EXPORT_UNSTEADY_AFTER_ITER"
 PROGRAM = "actions/pfs_unsteady_actions.py"
 SCRIPT_FILE = "actions/pfs_unsteady_exports.txt"
 COUNT_FILE = "actions/pfs_unsteady_actions.count"
+#: The interpreter the COMMAND_LINE action names. Since G59 of 0.29.0 (e9fa00ec;
+#: CHANGELOG [Unreleased]: "Windows callbacks use a hidden runtime when that route
+#: is supported") it is, on Windows, the building interpreter's pythonw.exe
+#: sibling, so no console window opens after every time step.
+ACTION_INTERPRETER = (
+    str(Path(sys.executable).with_name("pythonw.exe"))
+    if sys.platform == "win32"
+    else sys.executable
+)
 
 
 def steady_case(**variables) -> SimCase:
@@ -120,7 +129,7 @@ def test_a_rotor_row_stating_revolutions_registers_the_two_actions_in_order():
     actions = _action_lines(rendered)
     assert [head.split()[1] for head, _ in actions] == ["COMMAND_LINE", "SCRIPT"], rendered
     command_line, script_path = actions[0][1], actions[1][1]
-    assert command_line == f'"{sys.executable}" "{PROGRAM}"', command_line
+    assert command_line == f'"{ACTION_INTERPRETER}" "{PROGRAM}"', command_line
     assert script_path == SCRIPT_FILE
     # Registered before the solver is initialized, as the probe row registered them.
     assert rendered.index("SET_NEW_UNSTEADY_SOLVER_ACTION") < rendered.index("INITIALIZE_SOLVER")
@@ -183,6 +192,10 @@ def test_the_per_step_exports_are_read_from_the_export_set_and_update_before_exp
         "SET_VTK_EXPORT_VARIABLES -1 DISABLE",
         "EXPORT_SOLVER_ANALYSIS_VTK",
         "SURFACES -1",
+        # G53 of 0.29.0 (e9fa00ec; CHANGELOG [Unreleased]: "Per-STEP products use
+        # that STEP's own source"): the auxiliary native Tecplot that carries the
+        # nodal Singularity_strength the VTK lacks, exported per step as well.
+        "EXPORT_SOLVER_ANALYSIS_TECPLOT",
         "EXPORT_ALL_SURFACE_SECTIONS",
         "EXPORT_SURFACE_SECTIONAL_LOADS",
     ], lines
@@ -420,7 +433,7 @@ def test_the_worked_example_on_the_page_builds_to_the_lines_it_shows():
     case = rotor_case(**overrides)
     script = Script("26.123")
     build_script(case, script)
-    rendered = script.render().replace(sys.executable, "<python>")
+    rendered = script.render().replace(ACTION_INTERPRETER, "<python>")
     shown = re.search(r"```text\n(SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE[^`]*)```", text)
     assert shown, "the page shows no registration lines"
     assert shown.group(1).strip() in rendered, rendered
