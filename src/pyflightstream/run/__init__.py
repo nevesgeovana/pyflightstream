@@ -3482,7 +3482,7 @@ def run_campaign(
     to_run = sum(len(pending) for _case, _build, pending in scheduled)
     started = time.perf_counter()
     if to_run:
-        # 0.30.0: one of the owner's two aircraft, drawn at random; the text
+        # 0.30.0: one of the two approved aircraft, drawn at random; the text
         # stays on the wing line, as before.
         top, mast, wing = random.choice(_RUN_BANNERS)
         _say(top, quiet=quiet)
@@ -3781,7 +3781,7 @@ def _job_point_statuses(record: RunRecord, points: int) -> list[str]:
     return [str(record.status)] * points
 
 
-#: The run banner's two aircraft, the owner's drawings of 2026-09-28: the rows
+#: The run banner's two aircraft, approved on 2026-09-28: the rows
 #: above the wing, then the wing, which the banner text follows.
 _RUN_BANNERS: tuple[tuple[str, str, str], ...] = (
     (
@@ -3886,7 +3886,7 @@ def _supersede_recorded_points(
             stacklevel=2,
         )
     # ONE LINE PER SIMULATION ON A CONSOLE WITHOUT --verbose (0.30.0, the
-    # owner's clean-log rule L3): ten points of one simulation printed ten
+    # clean-log rule L3): ten points of one simulation printed ten
     # near-identical warnings. Every point's move is still written to the
     # activity log in full, whatever the console shows (L4).
     terse = terse_terminal()

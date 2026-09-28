@@ -16,6 +16,7 @@ and ``--verbose`` prints the per-point lines again.
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -71,6 +72,7 @@ def _stderr_of(tmp_path, *argv):
         text=True,
         timeout=120,
         check=False,
+        env=os.environ.copy(),
     )
     assert done.returncode == 0, done.stderr
     return done.stderr

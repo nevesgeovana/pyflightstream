@@ -1,7 +1,7 @@
 """The CLI signature: an ASCII drawing in a box, once per command, on stderr.
 
-The owner's drawings and phrases of 2026-09-28 (the approved signature file of
-the 0.30.0 scope). Each drawing is kept here exactly as she drew it: the text
+The approved drawings and phrases of 2026-09-28 (the signature file of the
+0.30.0 scope). Each drawing is kept here exactly as approved: the text
 of a triple-quoted literal below is the part of every box row to the right of
 the text column, one line per row, trailing spaces removed (``box`` pads them
 back). ``box`` puts the first phrase on the drawing's second row and
@@ -304,7 +304,7 @@ OUTCOME_DRAWINGS: dict[str, tuple[str, ...]] = {
 
 
 def rows(name: str) -> list[str]:
-    """Return the drawing's rows, right of the text column, as she drew them."""
+    """Return the drawing's rows, right of the text column, exactly as approved."""
     return DRAWINGS[name].split("\n")[1:-1]
 
 
