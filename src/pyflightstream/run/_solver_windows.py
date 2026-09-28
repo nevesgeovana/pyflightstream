@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -52,6 +53,10 @@ def owned_solver_dialogs(pid: int) -> tuple[str, ...]:
 
 def _native_windows(pid: int) -> list[WindowDiagnostic]:
     """Enumerate exact-owned windows with bounded cross-process text reads."""
+    # The platform check is written the way the type checker narrows it: on a
+    # non-Windows host the Windows-only ctypes names below do not exist.
+    if sys.platform != "win32":
+        return []
     import ctypes
     from ctypes import wintypes
 
