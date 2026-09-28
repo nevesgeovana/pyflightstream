@@ -173,11 +173,16 @@ def test_the_per_step_exports_are_read_from_the_export_set_and_update_before_exp
     simulation, the plots file and the log are the whole run and stay at the
     end; sections, sectional loads and probes are updated before they are
     exported, which is the rule the end-of-run block already follows."""
-    from pyflightstream.cases import default_outputs
+    from pyflightstream.cases import PprocSpec, default_outputs
     from pyflightstream.cases.workflows import unsteady_export_threshold
 
     names = [name.format(name="p") for name in default_outputs(unsteady=True)]
-    case = unsteady_case(**{ITER: "2"}).model_copy(update={"outputs": names})
+    # SS1 of 0.30.0: the native Tecplot is off by default; this row states the
+    # pproc key on so the per-step set still carries the native export this
+    # test pins (G53).
+    case = unsteady_case(**{ITER: "2"}).model_copy(
+        update={"outputs": names, "pproc": PprocSpec(singularity_strength=True)}
+    )
     threshold = unsteady_export_threshold(case)
     assert threshold is not None
     lines = threshold.exports.splitlines()

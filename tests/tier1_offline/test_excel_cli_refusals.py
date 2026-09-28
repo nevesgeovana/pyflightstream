@@ -1,16 +1,25 @@
 """Expected input refusals are CLI results, while library calls keep typed errors."""
 
 import json
+import random
 
 import pytest
 
-from pyflightstream import _signature
+from pyflightstream import _cli, _signature
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.workspace import excel
 from pyflightstream.workspace.excel_sync import ExcelSyncError
 
 
-def test_existing_workbook_is_a_cli_refusal_not_a_traceback(tmp_path, capsys):
+def test_existing_workbook_is_a_cli_refusal_not_a_traceback(tmp_path, capsys, monkeypatch):
+    # Seeded (0.30.0): the failed pool's "segfault" drawing legitimately draws a
+    # literal "Traceback (...)" line as its ASCII art (RPT-cli-signature), so the
+    # unseeded module RNG picks a drawing this test's own assertion rejects about
+    # one run in six, depending on every earlier test's draws in the same process.
+    # A seed that lands on a different failed drawing keeps the check deterministic
+    # without touching the drawing itself, which test_cli_signature.py already
+    # proves every one of is reachable and approved.
+    monkeypatch.setattr(_cli, "_RNG", random.Random(20260928))
     output = tmp_path / "existing.xlsx"
     original = b"original workbook bytes"
     output.write_bytes(original)
