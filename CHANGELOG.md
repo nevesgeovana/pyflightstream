@@ -77,6 +77,12 @@ FlightStream versions.
   campaign carries it, from this run or an earlier one (a steady job's record
   carries its points). A row with points no record carries is also a warning
   naming them and the `--resume` that runs them.
+- **`sync` reports the points the other workspace planned that no record
+  carries.** For each `post/<stem>/plan.json` of the other workspace, the
+  planned points with no record in the merged `runs.json` are listed per
+  matrix in the recorded entry (`plan_points_without_record`, in
+  `storage_management.json`) and printed as `PLANNED WITHOUT RECORD`; a plan
+  that cannot be read is named with why.
 
 ### Owed
 
