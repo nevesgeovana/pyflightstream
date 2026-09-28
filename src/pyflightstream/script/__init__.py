@@ -512,21 +512,26 @@ def _placed_by_origin(
     frame: int,
     bound: Mapping[str, object],
     *,
-    simulation_unit: str = "METER",
+    simulation_unit: str | None = None,
 ) -> None:
     """``SET_COORDINATE_SYSTEM_ORIGIN`` states the origin in the reference (SRC-751 p.334).
 
-    IN METRES OR FORGOTTEN (GOAL-034 Q4, GEO-060 A1a): an origin stated in
-    ``METER`` is converted into the native unit of the placement ledger (G34),
-    and one stated in the simulation's own unit is taken as written; one
-    stated in any other unit is forgotten rather than converted, because no
-    owner decision or native export establishes how the solver reads it.
+    UNKNOWN UNIT, FORGOTTEN (GOAL-034 Q4, GEO-060 A1a, CX-1): the command's
+    explicit unit is converted through the one length table into the native
+    unit of the placement ledger only when the script knows the simulation's
+    length unit (set by the script or read from the opened save). While that
+    unit is unknown an origin in ``METER`` is kept as written, as before
+    0.29.0, and one in any other unit is forgotten rather than converted, so
+    a translation of that frame is refused.
     """
     from pyflightstream._lengths import scale
 
     held = placements.get(frame)
     units = str(bound.get("units"))
-    factor = scale(units, simulation_unit) if units in ("METER", simulation_unit) else None
+    if simulation_unit is None:
+        factor = 1.0 if units == "METER" else None
+    else:
+        factor = scale(units, simulation_unit)
     values = _vector(bound, "x", "y", "z")
     origin = (
         None if factor is None else (values[0] * factor, values[1] * factor, values[2] * factor)
@@ -1471,7 +1476,7 @@ class Script:
                 self._frame_placements,
                 frame,
                 bound,
-                simulation_unit=self.simulation_length_unit or "METER",
+                simulation_unit=self.simulation_length_unit,
             )
         elif follower is not None:
             follower(self._frame_placements, frame, bound)

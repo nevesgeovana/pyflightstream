@@ -604,6 +604,11 @@ def test_goal022_frames_move_the_ledger_forgets_what_it_does_not_follow():
     script, index = placed()
     script.emit("SET_COORDINATE_SYSTEM_ORIGIN", index, 5.0, 0.0, 0.0, "INCH")
     assert script.frame_placements[index].origin is None, "an origin in inches is not metres"
+    # GOAL-034 Q4 (GEO-060 A1a, CX-1): with the simulation's unit known, the one length
+    # table converts an explicit unit; without it, nothing is assumed (above).
+    script.record_opened_length_unit("METER")
+    script.emit("SET_COORDINATE_SYSTEM_ORIGIN", index, 5.0, 0.0, 0.0, "INCH")
+    assert script.frame_placements[index].origin == pytest.approx((0.127, 0.0, 0.0))
     script.emit("SET_COORDINATE_SYSTEM_ORIGIN", index, 5.0, 0.0, 0.0, "METER")
     assert script.frame_placements[index].origin == (5.0, 0.0, 0.0)
 
