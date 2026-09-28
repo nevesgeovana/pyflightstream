@@ -719,8 +719,8 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="exit 3 when any simulation's product was skipped by design (a polar under "
         "sideslip, for one), after every product is written in full; without it a "
-        "recorded skip is reported on stderr (a count, or each reason with "
-        "--pproc-warnings) and the exit is 0, since everything producible was "
+        "recorded skip is named on stderr with a count, its reasons printed by "
+        "--diagnostics, and the exit is 0, since everything producible was "
         "produced. 2 stays the code of a refusal that wrote nothing",
     )
     for command_parser in (run, post, collect):
@@ -1223,15 +1223,17 @@ def _report_skips(workspace: CampaignWorkspace, matrices: list[str | None]) -> i
 
     Shared by ``post`` and ``run`` (PFS-2031.16, PFS-2031.19): the surface
     that spent the seat says what it skipped too, rather than leaving it
-    for a later rebuild to discover. Since 0.29 the CLI keeps post detail
-    quiet by default, so each matrix with a skip prints ONE count line
-    naming its manifest; ``--pproc-warnings`` prints every skip with its
-    reason, and ``--diagnostics`` renders the complete record.
+    for a later rebuild to discover. Since 0.29 every CLI surface, with or
+    without ``--pproc-warnings``, names each skip with ``details:
+    --diagnostics`` and prints ONE count line per matrix naming its
+    manifest; the reasons stay in the manifest and the saved log, and
+    ``--diagnostics`` renders the complete record (G59). Only an ordinary
+    Python caller, outside the CLI, gets each skip with its reason.
     """
     import json
 
     skipped = 0
-    detail = post_warning_policy() is not False
+    detail = post_warning_policy() is None
     for matrix in matrices:
         manifest = workspace.products_dir(matrix) / "products.json"
         if not manifest.is_file():
@@ -1254,7 +1256,7 @@ def _report_skips(workspace: CampaignWorkspace, matrices: list[str | None]) -> i
             # where its reasons are recorded are said even when quiet.
             print(
                 f"{len(entries)} recorded skip(s) of {label}; reasons in {manifest} "
-                "(--pproc-warnings or --diagnostics prints them)",
+                "(--diagnostics prints them)",
                 file=sys.stderr,
             )
         skipped += len(entries)

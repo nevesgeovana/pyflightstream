@@ -31,8 +31,11 @@ def test_a_recorded_skip_is_counted_on_stderr_by_default(tmp_path, capsys):
     assert "no polar under sideslip" not in err, "detail stays quiet by default (0.29)"
 
 
-def test_a_recorded_skip_is_printed_with_its_reason_under_pproc_warnings(tmp_path, capsys):
-    count, _ = _cli_report(tmp_path, ["post", "m", "--pproc-warnings"])
+def test_a_recorded_skip_is_named_without_its_reason_under_pproc_warnings(tmp_path, capsys):
+    # G59: details belong in the saved log; --pproc-warnings does not print them.
+    count, manifest = _cli_report(tmp_path, ["post", "m", "--pproc-warnings"])
     assert count == 1
     err = capsys.readouterr().err
-    assert "skipped simulation 1001 of m: no polar under sideslip" in err
+    assert "skipped simulation 1001 of m; details: --diagnostics" in err
+    assert f"1 recorded skip(s) of m; reasons in {manifest}" in err
+    assert "no polar under sideslip" not in err
