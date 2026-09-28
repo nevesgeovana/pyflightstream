@@ -43,9 +43,9 @@ acceptance or publication of their findings.
 
 | Identity | Subject | State |
 | --- | --- | --- |
-| RPT-081 | Typed boundary and base-region operations: measured state and effects | In preparation |
-| RPT-082 | CAD units, geometry transforms and custom inflow coverage | In preparation |
-| RPT-083 | Probe frames, temporal surfaces and walltime export limits | In preparation |
+| [RPT-081](RPT-081_typed-boundary-and-base-region-operations_2026-09-27.md) | Typed boundary and base-region operations: measured state and effects | Bounded evidence; final release review pending |
+| [RPT-082](RPT-082_cad-units-and-custom-inflow-coverage_2026-09-27.md) | CAD units, geometry transforms and custom inflow coverage | Bounded evidence; final release review pending |
+| [RPT-083](RPT-083_probe-frames-and-temporal-export-limits_2026-09-27.md) | Probe frames, temporal surfaces and walltime export limits | Bounded evidence; final release review pending |
 | [RPT-085](RPT-085_native-workspace-evidence_2026-09-27.md) | Native mesh routes, sampled-volume conversion, inlet and actuator controls | Bounded evidence; final release review pending |
 
 ## Dependency evidence
