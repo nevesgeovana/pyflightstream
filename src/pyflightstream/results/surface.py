@@ -750,9 +750,6 @@ def translate_vtk_surface(
         extent = float(np.linalg.norm(np.ptp(native.points, axis=0)))
         loads_magnitude = np.abs(surface.points).max(axis=0, initial=0.0)
         rotation = np.abs(frame.rotation)
-        native_rounding = (
-            4.0 * float(np.finfo(np.float32).eps) * np.abs(native.points).max(axis=0, initial=0.0)
-        )
         loads_rounding = (
             0.5 * np.abs(np.spacing(surface.points.astype(np.float32))).astype(float)
         ).max(axis=0, initial=0.0) @ rotation
@@ -763,7 +760,7 @@ def translate_vtk_surface(
         )
         tolerance = np.maximum(
             max(1e-10, extent * 1e-6),
-            np.maximum(native_rounding, loads_rounding) + arithmetic_rounding,
+            loads_rounding + arithmetic_rounding,
         )
         translated, mapping = attach_native_strength(
             translated, native, coordinate_tolerance=tolerance

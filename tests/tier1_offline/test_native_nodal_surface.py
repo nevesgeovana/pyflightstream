@@ -279,6 +279,34 @@ def test_a_loads_frame_far_along_x_does_not_accept_a_shift_along_x(tmp_path):
         translate_vtk_surface(path, tmp_path / "p.dat", frame=frame, native_tecplot=native)
 
 
+def test_a_surface_far_from_the_reference_origin_refuses_a_shifted_native(tmp_path):
+    """GOAL-034 Q8 CXQ8R6-1: a native-side allowance of four float32 epsilons of
+    the native coordinates (about 0.48 at X = 1e6) let a native surface moved
+    0.25 along X match an identity-frame VTK whose coordinates float32 steps by
+    0.0625. Only the written VTK's own spacing is allowed now."""
+    reference = _vtk().points + np.array([1_000_000.0, 0.1, 0.0])
+    surface = VtkSurface(
+        points=reference.astype(np.float32).astype(float),
+        offsets=_vtk().offsets,
+        connectivity=_vtk().connectivity,
+        cell_data=dict(_vtk().cell_data),
+    )
+    path = write_vtk_surface(tmp_path / "p.vtk", surface, title="test")
+    native = tmp_path / "native.dat"
+    native.write_text(
+        'TITLE="Native"\nVARIABLES="X","Y","Z","Singularity_strength"\n'
+        "ZONE T=Solver, NODES=4, ELEMENTS=1, FACES=4, DATAPACKING=BLOCK, "
+        "ZONETYPE=FEPolygon, NumConnectedBoundaryFaces=0, TotalNumBoundaryConnections=0\n"
+        "1000001.25 1000000.25 1000000.25 1000001.25\n1.1 0.1 1.1 0.1\n0 0 0 0\n"
+        "30 10 40 20\n2 4 4 1 1 3 3 2\n1 1 1 1\n0 0 0 0\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(MalformedOutputError, match="missing or ambiguous"):
+        translate_vtk_surface(
+            path, tmp_path / "p.dat", frame=REFERENCE_FRAME, native_tecplot=native
+        )
+
+
 def test_stamped_step_never_borrows_final_native_strength(tmp_path):
     write_vtk_surface(tmp_path / "p_iteration=3.vtk", _vtk(), title="step")
     _native(tmp_path / "native.dat")
