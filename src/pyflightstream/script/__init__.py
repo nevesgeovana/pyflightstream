@@ -439,7 +439,11 @@ class FramePlacement(BaseModel):
 
     Origin values retain the numeric convention of emitted frame commands.
     Axes are the named X, Y and Z directions in REFERENCE. Explicit-unit
-    origins are converted through the recorded simulation unit. Physical
+    origins are converted through the recorded simulation unit; while no
+    unit is recorded (no SET_SIMULATION_LENGTH_UNITS and no decoded saved
+    head) an origin stated in METER is kept as written and one stated in any
+    other unit is forgotten rather than converted, because nothing in the
+    command says what the native unit is (GEO-060 A1a). Physical
     interpretation requires a measured native unit contract; this ledger does
     not establish it. Unfollowed placement commands clear affected values.
     """

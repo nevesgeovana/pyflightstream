@@ -108,3 +108,17 @@ def test_a_translation_problem_refuses_the_extraction_and_keeps_the_copy(tmp_pat
         collect._finish_additional(None, record, (sim_dir, folder, tmp_path / "o.fsm", copy))
     assert not recorded, "a failed translation was recorded as an extraction"
     assert copy.is_file(), "the private simulation copy was deleted after a failed translation"
+
+
+def test_submitted_is_documented_as_pending_and_not_a_workspace_attribute():
+    """Q0-src-workspace-2 (a)(b): a stray class attribute and a wrong doc comment."""
+    import inspect
+
+    from pyflightstream.workspace import CampaignWorkspace, ExtractionStatus
+
+    assert "SUBMITTED" not in vars(CampaignWorkspace)
+    source = inspect.getsource(ExtractionStatus)
+    before_submitted = source.split('SUBMITTED = "SUBMITTED"', 1)[0].rstrip().splitlines()[-1]
+    assert "written and hashed" not in before_submitted
+    assert "written and hashed" in source.split('EXTRACTED = "EXTRACTED"', 1)[0].splitlines()[-2]
+    assert "Terminal status" not in (ExtractionStatus.__doc__ or "")

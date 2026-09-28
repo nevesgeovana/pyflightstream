@@ -3512,6 +3512,12 @@ def run_campaign(
                 quiet=quiet,
             )
             number += len(pending)
+            # A refused COLD_START is this row's recorded failure, like every
+            # other preparation failure, and never an escape from the loop.
+            try:
+                cold = _is_cold_start(case)
+            except CampaignConfigError as error:
+                cold, preparation_error = True, preparation_error or str(error)
             record = _execute_sweep(
                 campaign=campaign,
                 canonical=canonical,
@@ -3528,7 +3534,7 @@ def run_campaign(
                 workspace=workspace,
                 sim_dir=sim_dir,
                 assess=assess,
-                cold=_is_cold_start(case),
+                cold=cold,
             )
             _say(
                 f"     {record.run_id}  {record.status}"
@@ -4957,6 +4963,10 @@ def _plan_point(
         if not _restart_point_is_pending(latest):
             return PointPlan(**base, script_name=script_name, status=PlanStatus.ALREADY_RECORDED)
     try:
+        # An unreadable COLD_START is refused here, where the plan reports it
+        # BLOCKED, and not first inside run_campaign's loop after earlier
+        # rows have spent the seat.
+        _is_cold_start(case)
         rehearsed = resolve_continuation(
             workspace, case, point, run_id=run_id, recipe=recipe, fs_version=fs_version
         )

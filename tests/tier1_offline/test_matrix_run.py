@@ -1074,6 +1074,56 @@ def test_goal019_warm_cold_start_clears_the_solution_between_points(tmp_path):
     assert all("CLEAR_SOLUTION" not in segment for segment in warm_segments)
 
 
+def test_an_unreadable_cold_start_blocks_the_plan(tmp_path):
+    """Q0-src-run-2: refused where the plan says BLOCKED, not first mid-run."""
+    workspace, matrix = _steady_sweep_matrix(tmp_path, cell=" / COLD_START: maybe")
+    plan = plan_matrix(
+        matrix,
+        workspace,
+        name="cold",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+    )
+    assert {point.status for point in plan.points} == {PlanStatus.BLOCKED}
+    assert all("COLD_START" in (point.error or "") for point in plan.points)
+
+
+def test_an_unreadable_cold_start_is_a_recorded_failure_of_its_row_at_run(tmp_path, monkeypatch):
+    """Q0-src-run-2: the run loop records the refusal instead of escaping it."""
+    import pyflightstream.run as run_mod
+    from pyflightstream.cases import CampaignConfigError
+
+    workspace, matrix = _steady_sweep_matrix(tmp_path)
+    real = run_mod._is_cold_start
+
+    def refuses_at_run(case):
+        # The plan's check passes; the run loop's own check refuses, which is
+        # the path an invalid value reaches when the plan did not refuse it.
+        if sys._getframe(1).f_code.co_name == "run_campaign":
+            raise CampaignConfigError("COLD_START must be true or false; got 'maybe'")
+        return real(case)
+
+    monkeypatch.setattr(run_mod, "_is_cold_start", refuses_at_run)
+    stub = CountingStub(WRITES_EVERY_EXPORT)
+    # Raised AFTER the loop, with the failure already in the manifest.
+    with pytest.raises(run_mod.CampaignErrors) as raised:
+        run_matrix(
+            matrix,
+            workspace,
+            name="cold",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            recipe_registry=workflow_registry(),
+            assess=converged,
+            executor=stub,
+        )
+    records = raised.value.records
+    assert [record.status for record in records] == [RunStatus.FAILED_SCRIPT]
+    assert "COLD_START" in (records[0].error or "")
+    assert [record.status for record in workspace.read_manifest()] == [RunStatus.FAILED_SCRIPT]
+
+
 def test_every_point_of_a_sweep_states_its_loads_frame_before_its_own_solve(tmp_path):
     """B05: the loads frame precedes EVERY START_SOLVER of a sweep, not only the first.
 

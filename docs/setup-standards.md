@@ -12,8 +12,10 @@ each availability statement names its target build. The files go to the plural
 are scenario starting points and explicit study baselines. `s910` through `s956`
 vary one setting relative to the baseline named in that file: `s900` for steady
 attached flow, `s904` for unsteady controls, `s905` for transonic refinement, or
-`s906` for laminar-separation sensitivity. The matrix's `SET` column selects the
-setup identifier as usual.
+`s906` for laminar-separation sensitivity. `s929` is retired and not reused: every
+standard states `farfield_layers = 5`, and the setup model refuses a value outside
+the documented range 1 to 5. The matrix's `SET` column selects the setup
+identifier as usual.
 
 The low-cost baseline assumes low-Mach attached flow and a fully turbulent boundary
 layer. The coupled, rotor and transonic examples require the corresponding physics

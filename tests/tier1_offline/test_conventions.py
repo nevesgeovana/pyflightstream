@@ -215,10 +215,6 @@ _DIMENSIONLESS_OR_DEBT = {
     # (PFS-2012.04; PFS-2031.18 fills it).
     "export_window",
     # (b) naming debt pinned by released formats or frames
-    # Native command argument units; these setup keys retain the solver vocabulary.
-    "surface_roughness",  # SET_SURFACE_ROUGHNESS: nanometres (registry unit nm)
-    "crossflow_separation_diameter",  # SET_CROSSFLOW_SEPARATION_DIAMETER: simulation length
-    "crossflow_separation_mean_diameter",  # SET_CROSSFLOW_SEPARATION_CP: simulation length
     "area",  # campaign.toml key (ReferenceData), m2 in docs
     "length",  # campaign.toml key (ReferenceData), m in docs
     "velocity",  # campaign.toml key, m/s in docs
@@ -256,6 +252,42 @@ _DIMENSIONLESS_OR_DEBT = {
     "tolerance",
 }
 
+#: Class (c): REGISTERED unit debt, closed, each entry naming its unit. These
+#: are NOT pinned by a released format: they became SolverSettings keys in
+#: 0.29 (GOAL-034 Q0-tests-1-3 found them filed under class (b)). They are
+#: kept rather than renamed because each mirrors, one to one, a keyword of
+#: the released 0.28 ``script.helpers.solver_settings`` and its FlagSpec, so
+#: a rename on the eve of the tag would split one command's vocabulary across
+#: two public surfaces. The unit is stated on each field's docstring. The set
+#: is closed by test_registered_unit_debt_is_closed_and_names_its_unit, so a
+#: NEW unsuffixed float field is still refused; renaming is 0.30 scope.
+_REGISTERED_UNIT_DEBT = {
+    "surface_roughness": "nm (SET_SURFACE_ROUGHNESS)",
+    "crossflow_separation_diameter": "simulation length unit (SET_CROSSFLOW_SEPARATION_DIAMETER)",
+    "crossflow_separation_mean_diameter": "simulation length unit (SET_CROSSFLOW_SEPARATION_CP)",
+}
+
+
+def test_registered_unit_debt_is_closed_and_names_its_unit():
+    import inspect
+
+    from pyflightstream.cases import SolverSettings
+    from pyflightstream.script.helpers import solver_settings
+
+    assert set(_REGISTERED_UNIT_DEBT) == {
+        "surface_roughness",
+        "crossflow_separation_diameter",
+        "crossflow_separation_mean_diameter",
+    }, "the registered unit debt is closed; suffix a new field instead"
+    assert not set(_REGISTERED_UNIT_DEBT) & _DIMENSIONLESS_OR_DEBT, (
+        "a unit-carrying field is not dimensionless and not released-format debt"
+    )
+    released = inspect.signature(solver_settings).parameters
+    for name, unit in _REGISTERED_UNIT_DEBT.items():
+        assert unit.strip(), name
+        assert name in released, f"{name} no longer mirrors a released helper keyword"
+        assert name in SolverSettings.model_fields, f"{name} is no longer a setup field"
+
 
 def _model_float_fields() -> list[tuple[str, str]]:
     """Every (model, field) pair with float content in public modules."""
@@ -286,7 +318,9 @@ def test_float_model_fields_carry_units_or_a_stated_reason():
     violations = [
         f"{model}.{field}"
         for model, field in _model_float_fields()
-        if not _UNIT_SUFFIX.search(field) and field not in _DIMENSIONLESS_OR_DEBT
+        if not _UNIT_SUFFIX.search(field)
+        and field not in _DIMENSIONLESS_OR_DEBT
+        and field not in _REGISTERED_UNIT_DEBT
     ]
     assert not violations, (
         f"float fields {violations} have neither an SI unit suffix nor an "

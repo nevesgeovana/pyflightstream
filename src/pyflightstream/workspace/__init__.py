@@ -1366,14 +1366,15 @@ ADDITIONAL_MANIFEST_SCHEMA = "pyfs-additional/1"
 
 
 class ExtractionStatus(enum.StrEnum):
-    """Terminal status of one extraction of the additional post (G12).
+    """Status of one extraction of the additional post (G12).
 
     There is no convergence verdict among them: an extraction solves nothing,
     so it is judged by its process and by the files it declared.
     """
 
-    #: Every declared file was written and hashed.
+    #: Submitted to a scheduler; not yet evidence that extraction completed.
     SUBMITTED = "SUBMITTED"
+    #: Every declared file was written and hashed.
     EXTRACTED = "EXTRACTED"
     #: The process failed, or the original saved simulation moved during it.
     FAILED_EXECUTION = "FAILED_EXECUTION"
@@ -3909,5 +3910,3 @@ class CampaignWorkspace:
                 f"cannot {operation} sim_{sim_id}: the folder {sim} does not exist."
             )
         return sim
-
-    SUBMITTED = "SUBMITTED"

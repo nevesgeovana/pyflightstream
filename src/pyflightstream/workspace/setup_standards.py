@@ -50,7 +50,9 @@ _EXPERIMENTS: tuple[tuple[str, str, Any], ...] = (
     ("s926", "additional_wake_relaxation", True),
     ("s927", "unsteady_pressure_and_kutta", False),
     ("s928", "wake_termination_steps", 360),
-    ("s929", "farfield_layers", 8),
+    # s929 retired: farfield_layers is fixed at 5 in every run by owner rule
+    # (2026-09-19); the documented range is 1..5 (SRC-003 p.344). The ID stays
+    # reserved and is not reused.
     ("s930", "reynolds_averaged_drag", True),
     ("s931", "minimum_cp", -20.0),
     ("s932", "surface_roughness", 23.5),
@@ -680,7 +682,7 @@ def render_guidelines(fs_version: str) -> str:
         "",
         (
             "Schlichting, Boundary-Layer Theory, 7th edition (1979), Chs. XVI-XVII "
-            "(printed pp.449-505 and536-544) and Sec. XVIII.g (pp.572-575), "
+            "(printed pp.449-505 and 536-544) and Sec. XVIII.g (pp.572-575), "
             "explains why pressure gradient, surface roughness and free-stream turbulence "
             "affect transition. A transition prediction and a separation criterion describe "
             "different mechanisms. Compare boundary-layer type and trip assumptions against "
@@ -756,7 +758,7 @@ def render_guidelines(fs_version: str) -> str:
         "",
         (
             "Pate and German, A Surface Vorticity Panel Method (2018), DOI "
-            "10.2514/1.J057120, PDF pp.1-2 and9, describes an incompressible formulation "
+            "10.2514/1.J057120, PDF pp.1-2 and 9, describes an incompressible formulation "
             "and explicitly refers elsewhere for the wake model. It therefore cannot "
             "establish a transonic or wake-setting recommendation by itself."
         ),
@@ -764,21 +766,21 @@ def render_guidelines(fs_version: str) -> str:
         (
             "Sathe, Ahuja and Hartfield, Experimental Validation of Integral Boundary Layer "
             "Coupled with a Surface Vorticity Solver (2023), DOI 10.2514/6.2023-4314, PDF "
-            "pp.1-2 and15-17, reports airfoil comparisons motivating a coupled/uncoupled "
+            "pp.1-2 and 15-17, reports airfoil comparisons motivating a coupled/uncoupled "
             "study. The scoped source review does not establish three-dimensional rotor "
             "accuracy or that laminar and airfoil separation should always be combined."
         ),
         "",
         (
             "Fortin and Ahuja, Comparison of Aerodynamic Loads for a Rotor in Hover using "
-            "two Surface-Vorticity Approaches, PDF pp.1-2 and16, motivates examining wake "
+            "two Surface-Vorticity Approaches, PDF pp.1-2 and 16, motivates examining wake "
             "convection, interaction and truncation alongside computational cost. The "
             "initial source scan does not establish the effect of a current wake-decay "
             "command."
         ),
         "",
         (
-            "Altair FlightStream26.0 release notes, supplied document pp.3-4, lists "
+            "Altair FlightStream 26.0 release notes, supplied document pp.3-4, lists "
             "discontinued wake relaxation, streamwise agglomeration and adverse-gradient "
             "commands and introduces newer separation/wake controls. Its "
             "SOLVER_SET_VALAREZO_CRITERION spelling is distinct from legacy "

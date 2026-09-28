@@ -3772,7 +3772,8 @@ class SolverSettings(BaseModel):
     minimum_cp : float, optional
         Floor applied to the pressure coefficient.
     farfield_layers : int, optional
-        Farfield layer count.
+        Farfield layer count, 1 to 5 as the command database documents;
+        every run is expected to state 5.
     mesh_induced_wake_velocity : bool, optional
         Switches the solver's mesh-induced wake velocity. This toggle
         and the four below it are advanced settings, and the solver's
@@ -4030,7 +4031,7 @@ class SolverSettings(BaseModel):
     wall_collision_avoidance: SolverToggle | None = None
     convergence_iterations: int | None = Field(default=None, ge=1)
     minimum_cp: float | None = None
-    farfield_layers: int | None = Field(default=None, ge=1)
+    farfield_layers: int | None = Field(default=None, ge=1, le=5)
     mesh_induced_wake_velocity: SolverToggle | None = None
     unsteady_pressure_and_kutta: SolverToggle | None = None
     wake_on_wake_induction: SolverToggle | None = None
