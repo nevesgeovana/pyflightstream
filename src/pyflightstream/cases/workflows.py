@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: "1.4.15"
+# file_version: "1.4.16"
 # artifact_id: src/pyflightstream/cases/workflows.py
-# last_modified_at: 2026-09-27T23:29:39.293Z
-# last_modified_by: OpenAI / Codex / unknown / primary-agent
+# last_modified_at: 2026-09-27T23:51:00.032Z
+# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
 # dependencies: [pyflightstream]
 # authority: pyflightstream
 # status: draft
 # confidentiality: public
-# change_summary: Separate geometry port identities, setup choices and MATRIX conditions.
+# change_summary: Catalog manifest-bound release refusal sites while retaining builtin catches.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Workflows: a run TYPE that builds the whole script by itself.
@@ -11632,7 +11632,7 @@ def _action_interpreter(interpreter: str) -> str:
         return interpreter
     windowless = Path(interpreter).with_name("pythonw.exe")
     if not windowless.is_file():
-        raise ValueError(
+        raise CampaignConfigError(
             f"Windows solver actions require the sibling pythonw.exe: {windowless}; "
             "use a Python installation that provides it before preparing the run"
         )

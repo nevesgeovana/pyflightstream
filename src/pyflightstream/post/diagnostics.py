@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER
-# file_version: 1.0.0
+# file_version: 1.0.1
 # artifact_id: post-diagnostics
-# last_modified_at: 2026-09-27T14:00:00+00:00
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# last_modified_at: 2026-09-27T23:51:00.038Z
+# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
 # dependencies: [pyflightstream._cli, pyflightstream._errors]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Separate categorized terminal warnings from complete recorded diagnostics.
+# change_summary: Catalog manifest-bound release refusal sites while retaining builtin catches.
 # revision_source: git
 """Read-only Markdown diagnostics and concise warning presentation.
 
@@ -25,7 +25,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from pyflightstream._cli import post_warning_policy
-from pyflightstream._errors import ProductArgumentError
+from pyflightstream._errors import ProductArgumentError, ProductError
 
 
 def warning_category(product: str, message: str) -> str:
@@ -80,10 +80,10 @@ def render_post_diagnostics(log_paths: Sequence[Path]) -> str:
         try:
             document = json.loads(path.read_text(encoding="utf-8"))
             if not isinstance(document, dict) or not isinstance(document.get("records"), list):
-                raise ValueError("expected an object with a records list")
+                raise ProductError("expected an object with a records list")
             records = document["records"]
             if any(not isinstance(record, dict) for record in records):
-                raise ValueError("each diagnostic record must be an object")
+                raise ProductError("each diagnostic record must be an object")
         except (OSError, ValueError) as error:
             raise ProductArgumentError(
                 f"cannot read recorded diagnostics {path}: {error}"

@@ -1,12 +1,12 @@
 # GEOVERSE_HEADER
-# file_version: 1.0.1
-# last_modified_at: 2026-09-27T23:24:23.671Z
-# last_modified_by: OpenAI / Codex / unknown / architect-correction-proposal
+# file_version: 1.0.3
+# last_modified_at: 2026-09-28T00:00:53.049Z
+# last_modified_by: OpenAI / Codex / unknown / primary-agent
 # dependencies: [pyflightstream.post.diagnostics]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Register the existing read-only diagnostic renderer for lower-layer consumers.
+# change_summary: Explain diagnostic registration and sampled fields in the generated overview.
 # revision_source: git
 """Results into engineering data.
 
@@ -18,10 +18,13 @@ module, which is stated rather than left to be discovered:
 
 * :mod:`pyflightstream.post.diagnostics` renders complete saved post logs as
   Markdown without executing stages or changing products. Its report renderer
-  is re-exported here; category presentation helpers remain in that module;
+  is re-exported here and registered through workspace for lower-layer
+  callers; category presentation helpers remain in that module;
 
 * :mod:`pyflightstream.post.probe_fields` exports sampled velocity
-  and reusable inflow with explicit units and source provenance. Re-exported here;
+  and reusable inflow with explicit units and source provenance. Sampled volume
+  uses the same probes/fluid-plots route and writes vertex clouds; native saved
+  section indices remain a separate manual API concern. Re-exported here;
 * :mod:`pyflightstream.post.writers` writes flow-visualization exports
   (VTK legacy ASCII and Tecplot ASCII), each beside a settings record
   that lets the file be read alone. Re-exported here;

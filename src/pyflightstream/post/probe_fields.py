@@ -1,12 +1,12 @@
 # GEOVERSE_HEADER
-# file_version: 1.2.4
-# last_modified_at: 2026-09-27T19:34:52.340Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# file_version: 1.2.6
+# last_modified_at: 2026-09-27T23:51:00.036Z
+# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
 # dependencies: [pyflightstream.post.writers]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Apply measured field units and coordinate provenance.
+# change_summary: Catalog manifest-bound release refusal sites while retaining builtin catches.
 # revision_source: git
 """Serialize sampled velocity fields without interpolation or frame inference."""
 
@@ -18,6 +18,7 @@ from pathlib import Path
 import numpy as np
 
 from pyflightstream._digest import file_sha256
+from pyflightstream._errors import ProductError
 from pyflightstream.post.field_frames import field_in_reference, native_velocity_proof
 from pyflightstream.post.writers import (
     OutputProvenance,
@@ -32,22 +33,22 @@ def _validate_field(points_m, velocity_m_s, frame, formats, reusable_inflow):
     points = np.asarray(points_m, dtype=float)
     velocity = np.asarray(velocity_m_s, dtype=float)
     if frame != "REFERENCE":
-        raise ValueError("probe field export requires the explicit REFERENCE frame")
+        raise ProductError("probe field export requires the explicit REFERENCE frame")
     if points.ndim != 2 or points.shape[1:] != (3,) or velocity.shape != points.shape:
-        raise ValueError("probe positions and velocities must both be (N, 3)")
+        raise ProductError("probe positions and velocities must both be (N, 3)")
     if not len(points) or not np.isfinite(points).all() or not np.isfinite(velocity).all():
-        raise ValueError("probe positions and velocities must be nonempty and finite")
+        raise ProductError("probe positions and velocities must be nonempty and finite")
     if len(set(formats)) != len(formats) or any(f not in ("vtk", "tecplot") for f in formats):
-        raise ValueError("field formats are distinct vtk and/or tecplot names")
+        raise ProductError("field formats are distinct vtk and/or tecplot names")
     if not formats and not reusable_inflow:
-        raise ValueError("select a field format or reusable inflow")
+        raise ProductError("select a field format or reusable inflow")
     if reusable_inflow:
         if not np.all(points[:, 0] == points[0, 0]):
-            raise ValueError("reusable inflow requires one global YZ plane (constant x)")
+            raise ProductError("reusable inflow requires one global YZ plane (constant x)")
         if len(np.unique(points, axis=0)) != len(points):
-            raise ValueError("reusable inflow cannot contain duplicate sample positions")
+            raise ProductError("reusable inflow cannot contain duplicate sample positions")
         if np.linalg.matrix_rank(points[:, 1:] - points[0, 1:]) < 2:
-            raise ValueError("reusable inflow requires a two-dimensional YZ survey")
+            raise ProductError("reusable inflow requires a two-dimensional YZ survey")
     return points, velocity
 
 
@@ -124,7 +125,7 @@ def write_probe_field(
         )
         written.extend(
             _write_pair(
-                Path(str(stem) + ".inflow.txt"),
+                Path(str(stem) + ".inflow.dat"),
                 text,
                 record,
                 overwrite=overwrite,
@@ -150,13 +151,13 @@ def write_recorded_probe_fields(
     if not record.probe_field_layout:
         return []
     if record.solver_setup is None:
-        raise ValueError("probe fields need the run's recorded solver setup")
+        raise ProductError("probe fields need the run's recorded solver setup")
     source = Path(table)
     with source.open(encoding="utf-8-sig", newline="") as stream:
         rows = [{str(k).upper(): v for k, v in row.items()} for row in csv.DictReader(stream)]
     required = {"PROBE", "X", "Y", "Z", "VX", "VY", "VZ"}
     if not rows or not required <= rows[0].keys():
-        raise ValueError("probe field table lacks sample identity, XYZ or VX/VY/VZ")
+        raise ProductError("probe field table lacks sample identity, XYZ or VX/VY/VZ")
     groups = {}
     for row in rows:
         raw_step = row.get("STEP", "NA")
@@ -164,24 +165,26 @@ def write_recorded_probe_fields(
         if raw_step not in ("NA", "", None):
             value = float(raw_step)
             if not np.isfinite(value):
-                raise ValueError("probe field STEP must be finite")
+                raise ProductError("probe field STEP must be finite")
             step = format(value, ".17g")
         group = groups.setdefault(step, {})
         number = float(row["PROBE"])
         if not number.is_integer() or int(number) in group:
-            raise ValueError("probe field table has invalid or duplicate sample IDs")
+            raise ProductError("probe field table has invalid or duplicate sample IDs")
         group[int(number)] = row
     step_evidence = None
     if step_source is not None:
         with Path(step_source).open(encoding="utf-8-sig", newline="") as stream:
             native_rows = list(csv.DictReader(stream))
         if not native_rows or "Time-step" not in native_rows[0]:
-            raise ValueError("field products require the native Time-step column; no ordinal STEP")
+            raise ProductError(
+                "field products require the native Time-step column; no ordinal STEP"
+            )
         native_steps = [float(row["Time-step"]) for row in native_rows]
         if not np.isfinite(native_steps).all() or len(set(native_steps)) != len(native_steps):
-            raise ValueError("native STEP values must be finite and unique")
+            raise ProductError("native STEP values must be finite and unique")
         if set(groups) != {format(value, ".17g") for value in native_steps}:
-            raise ValueError("field STEP values differ from the recorded native history")
+            raise ProductError("field STEP values differ from the recorded native history")
         step_evidence = {"path": str(step_source), "sha256": file_sha256(Path(step_source))}
     provenance = OutputProvenance(
         run_id=record.run_id,
@@ -193,20 +196,20 @@ def write_recorded_probe_fields(
         ids = layout["probe_ids"]
         factor = float(layout["native_to_m"])
         if not np.isfinite(factor) or factor <= 0 or len(set(ids)) != len(ids):
-            raise ValueError("invalid recorded probe unit conversion or sample IDs")
+            raise ProductError("invalid recorded probe unit conversion or sample IDs")
         for step, group in groups.items():
             if not set(ids) <= group.keys():
-                raise ValueError(f"probe field at step {step} is missing recorded samples")
+                raise ProductError(f"probe field at step {step} is missing recorded samples")
             selected = [group[i] for i in ids]
             if any(row.get("FRAME", layout["frame"]) != layout["frame"] for row in selected):
-                raise ValueError("probe table FRAME differs from its recorded sampling frame")
+                raise ProductError("probe table FRAME differs from its recorded sampling frame")
             points = np.array([[float(row[a]) for a in ("X", "Y", "Z")] for row in selected])
             velocity = np.array([[float(row[a]) for a in ("VX", "VY", "VZ")] for row in selected])
             suffix = ""
             if step not in ("NA", "", None):
                 value = float(step)
                 if not np.isfinite(value):
-                    raise ValueError("probe field STEP must be finite")
+                    raise ProductError("probe field STEP must be finite")
                 suffix = f"_step_{value:.17g}"
             family = (
                 "vsec"
@@ -225,18 +228,18 @@ def write_recorded_probe_fields(
                         layout["export_kind"] != "steady-probe"
                         or layout.get("coordinate_frame_index") != 1
                     ):
-                        raise ValueError(
+                        raise ProductError(
                             "native reference coordinates require a steady-probe contract"
                         )
                     frame_index = 1
                 elif coordinate_source == "emitted-local":
                     frame_index = layout.get("frame_index")
                 else:
-                    raise ValueError("sampled field coordinates lack a proved source contract")
+                    raise ProductError("sampled field coordinates lack a proved source contract")
                 motions = getattr(record, "frame_motions", None) or {}
                 motion = motions.get(frame_index)
                 if motion is None:
-                    raise ValueError("sampled field has no recorded final frame trajectory")
+                    raise ProductError("sampled field has no recorded final frame trajectory")
                 identity = {
                     key: getattr(record, key, None) for key in ("fs_exe_sha256", "fs_build")
                 }
@@ -250,7 +253,7 @@ def write_recorded_probe_fields(
                     and original is not None
                     and not np.array_equal(points, np.asarray(original))
                 ):
-                    raise ValueError(
+                    raise ProductError(
                         "probe table coordinates differ from the emitted local samples"
                     )
                 points_m, velocity = field_in_reference(
@@ -281,7 +284,7 @@ def write_recorded_probe_fields(
         )
         key = str(stem).casefold()
         if key in destinations:
-            raise ValueError("recorded probe fields produce colliding output names")
+            raise ProductError("recorded probe fields produce colliding output names")
         destinations.add(key)
     written = []
     Path(directory).mkdir(parents=True, exist_ok=True)
@@ -289,7 +292,7 @@ def write_recorded_probe_fields(
         if prepare is not None:
             suffixes = [".vtk" if f == "vtk" else ".dat" for f in layout["formats"]]
             if layout.get("reusable_inflow"):
-                suffixes.append(".inflow.txt")
+                suffixes.append(".inflow.dat")
             for suffix in suffixes:
                 prepare(Path(str(stem) + suffix))
                 prepare(Path(str(stem) + suffix + ".provenance.json"))

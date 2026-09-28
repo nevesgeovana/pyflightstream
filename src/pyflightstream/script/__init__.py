@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER
-# file_version: 1.4.6
-# last_modified_at: 2026-09-27T21:58:19.804Z
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
+# file_version: 1.4.7
+# last_modified_at: 2026-09-27T23:51:00.035Z
+# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
 # dependencies: [../_lengths.py, motion.py]
 # file_role: script-command-emitter
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Document the implemented 0.29 architecture and evidence boundaries.
+# change_summary: Catalog manifest-bound release refusal sites while retaining builtin catches.
 # revision_source: git
 """The validating FlightStream script builder.
 
@@ -1412,9 +1412,9 @@ class Script:
         """
         digest = executable_sha256.strip().lower()
         if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
-            raise ValueError("executable_sha256 must be an exact SHA-256 digest")
+            raise CommandArgumentError("executable_sha256 must be an exact SHA-256 digest")
         if not build.strip():
-            raise ValueError("build must identify the measured native executable")
+            raise CommandArgumentError("build must identify the measured native executable")
         self._native_solver_sha256 = digest
         self._native_solver_build = build.strip()
 
@@ -1558,7 +1558,7 @@ class Script:
         from pyflightstream._lengths import scale
 
         if scale(unit, "METER") is None:
-            raise ValueError(f"opened geometry unit {unit!r} names no known scale")
+            raise CommandArgumentError(f"opened geometry unit {unit!r} names no known scale")
         self._opened_length_unit = unit
 
     def _follow_length_unit(self, name: str, bound: Mapping[str, object]) -> None:

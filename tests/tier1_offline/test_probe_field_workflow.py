@@ -1,12 +1,12 @@
 # GEOVERSE_HEADER
-# file_version: 1.1.5
-# last_modified_at: 2026-09-27T20:59:34.961Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# file_version: 1.1.6
+# last_modified_at: 2026-09-27T23:40:40.349Z
+# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
 # dependencies: [pyflightstream.cases.workflows]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Bind existing behavioral checks to explicit release obligations.
+# change_summary: Keep reusable inflow filenames consistent with UNSTRUCTURED workspace input.
 # revision_source: git
 """Probe field declarations retain the emitted sample identities."""
 
@@ -161,8 +161,8 @@ def test_fields_with_general_plots_disabled(tmp_path, monkeypatch):
     write_campaign_products(w)
     fields = w.root / "post/products/fields"
     assert len(list(fields.glob("*.vtk"))) == 2, "field outputs were suppressed"
-    assert len(list(fields.glob("*.dat"))) == 2
-    assert len(list(fields.glob("*.inflow.txt"))) == 2
+    assert len([path for path in fields.glob("*.dat") if ".inflow." not in path.name]) == 2
+    assert len(list(fields.glob("*.inflow.dat"))) == 2
     meta = json.loads(next(fields.glob("*.vtk.provenance.json")).read_text())
     assert meta["sampling"]["frame"] == "REFERENCE"
     assert source.read_bytes() == original

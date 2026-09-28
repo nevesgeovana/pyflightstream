@@ -1,12 +1,12 @@
 # GEOVERSE_HEADER
-# file_version: 1.2.7
-# last_modified_at: 2026-09-27T21:00:48.863Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# file_version: 1.2.8
+# last_modified_at: 2026-09-27T23:40:40.346Z
+# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
 # dependencies: [pyflightstream.post]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Bind formats independently and compare exported numeric vectors.
+# change_summary: Keep reusable inflow filenames consistent with UNSTRUCTURED workspace input.
 # revision_source: git
 """Probe samples retain coordinates, components and explicit point topology."""
 
@@ -44,7 +44,7 @@ def test_probe_field_round_trip_and_provenance(tmp_path, format_name):
         formats=(format_name,),
         reusable_inflow=True,
     )
-    inflow = tmp_path / "field.inflow.txt"
+    inflow = tmp_path / "field.inflow.dat"
     np.testing.assert_array_equal(np.loadtxt(inflow), np.column_stack((points, velocity)))
     assert _read_custom_freestream(str(inflow), "UNSTRUCTURED") == (-1, 1, -2, 2)
     extension = "vtk" if format_name == "vtk" else "dat"
@@ -136,7 +136,7 @@ def test_recorded_field_converts_units_and_keeps_steps_separate(tmp_path):
         ],
     )
     paths = writer(source, record, tmp_path / "fields", "point")
-    inflows = sorted(p for p in paths if p.name.endswith(".inflow.txt"))
+    inflows = sorted(p for p in paths if p.name.endswith(".inflow.dat"))
     assert len(inflows) == 2
     first, second = [np.loadtxt(p) for p in inflows]
     np.testing.assert_array_equal(first[:, 1:3], [[-1, -2], [-1, 2], [1, -2], [1, 2]])
@@ -271,7 +271,7 @@ def test_documented_synthetic_field_example_executes(tmp_path):
     assert main(["--output", str(tmp_path / "example")]) == 0
     output = tmp_path / "example"
     source = np.loadtxt(output / "synthetic-source.csv", delimiter=",", skiprows=1)
-    inflow = np.loadtxt(output / "synthetic-field.inflow.txt")
+    inflow = np.loadtxt(output / "synthetic-field.inflow.dat")
     np.testing.assert_array_equal(source, inflow)
     meta = json.loads((output / "synthetic-field.vtk.provenance.json").read_text())
     assert meta["sampling"]["data_origin"] == "synthetic example; no native solver execution"

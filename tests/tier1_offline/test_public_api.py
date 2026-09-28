@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-09-27T23:43:03.876Z
+# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
+# dependencies: [pyflightstream.workspace.excel_sync, pyflightstream.workspace.fsi_setup]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Inventory the public modules introduced by the current release.
+# revision_source: git
+# GEOVERSE_HEADER_END
+
 """Tier 1: the public module list, affirmed (D3, scipy _public_api model).
 
 Pipeline role: quality gate on the package's import surface. The list
@@ -26,6 +38,9 @@ from pyflightstream._deprecations import DEPRECATED_MODULES
 #: to their dotted names.
 PUBLIC_MODULES = [
     "pyflightstream.cases",
+    "pyflightstream.cases.field_coverage",
+    "pyflightstream.cases.freestream",
+    "pyflightstream.cases.fsi_workspace",
     "pyflightstream.cases.matrix",
     # 0.24.0: the one resolver of an unsteady row's averaging window. PUBLIC
     # deliberately: a post-processing choice needs no new run, so a user who
@@ -38,6 +53,7 @@ PUBLIC_MODULES = [
     "pyflightstream.farfield",
     "pyflightstream.fsi",
     "pyflightstream.fsi.beam",
+    "pyflightstream.fsi.calibration",
     "pyflightstream.fsi.centrifugal",
     "pyflightstream.fsi.cli",
     "pyflightstream.fsi.config",
@@ -61,11 +77,13 @@ PUBLIC_MODULES = [
     # user checking which frame a published axis column is in, or turning a
     # vector of their own the way the polar does, calls `polar_axis_coefficients`.
     "pyflightstream.post.axes",
+    "pyflightstream.post.boundary_layer",
     "pyflightstream.post.custom_polar",
     # 0.24.0: the evaluator of a pproc `[equations]` table. PUBLIC deliberately:
     # `resolve_symbol` IS the rule by which a symbol finds its column, the
     # generated guide and the workspace page both state it, and a user asking
     # why `CL` read `CL_WING` is who calls it.
+    "pyflightstream.post.diagnostics",
     "pyflightstream.post.equations",
     # v0.23.0 item 11: the generated pproc guides. PUBLIC deliberately: a
     # user who wants the variable reference and the equation guide beside
@@ -73,7 +91,9 @@ PUBLIC_MODULES = [
     # because it documents the pproc spec AND the products, and the layer
     # test refused the other placement -- deferring an import to call time
     # does not change its direction.
+    "pyflightstream.post.field_frames",
     "pyflightstream.post.guides",
+    "pyflightstream.post.probe_fields",
     "pyflightstream.post.products",
     "pyflightstream.post.provenance",
     "pyflightstream.post.reductions",
@@ -112,6 +132,7 @@ PUBLIC_MODULES = [
     # as Tecplot. PUBLIC deliberately: the translation a campaign runs on every
     # point is one a user can run on a VTK of her own, and the time-averaged
     # surface is written by the same writer.
+    "pyflightstream.results.native_surface",
     "pyflightstream.results.surface",
     "pyflightstream.results.tables",
     "pyflightstream.run",
@@ -129,6 +150,7 @@ PUBLIC_MODULES = [
     "pyflightstream.script",
     "pyflightstream.script.entities",
     "pyflightstream.script.helpers",
+    "pyflightstream.script.motion",
     "pyflightstream.script.rotor_vocabulary",
     "pyflightstream.script.solver_setup",
     "pyflightstream.script.toggles",
@@ -142,7 +164,12 @@ PUBLIC_MODULES = [
     "pyflightstream.versions",
     "pyflightstream.workspace",
     "pyflightstream.workspace.cli",
+    "pyflightstream.workspace.excel",
+    "pyflightstream.workspace.excel_bridge",
+    "pyflightstream.workspace.excel_file",
+    "pyflightstream.workspace.excel_sync",
     "pyflightstream.workspace.flight_condition",
+    "pyflightstream.workspace.fsi_setup",
     "pyflightstream.workspace.inputs",
     "pyflightstream.workspace.matrix",
     "pyflightstream.workspace.naming",
@@ -156,6 +183,8 @@ PUBLIC_MODULES = [
     # NOT in EXTRA_GATED_MODULES: after the trimesh promotion it must
     # import on a base install with no extras, which is the whole point
     # of the promotion and what PFS-2025.20.03 measures.
+    "pyflightstream.workspace.setup_inspection",
+    "pyflightstream.workspace.setup_standards",
     "pyflightstream.workspace.trailing_edges",
     "pyflightstream.workspace.wake_edges",
 ]

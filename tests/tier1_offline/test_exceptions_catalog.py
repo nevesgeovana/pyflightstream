@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-09-27T23:43:03.876Z
+# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
+# dependencies: [pyflightstream.workspace.excel_sync, pyflightstream.workspace.fsi_setup]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Catalog the existing Excel and workspace FSI refusal classes.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1: the exception catalog is complete and structured (PLN-045).
 
 Pipeline role: quality gate on the pandas-errors-model catalog of
@@ -138,10 +149,12 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "CommandArgumentError": ValueError,
         "CommandDatabaseError": ValueError,
         "CommandNotInVersionError": LookupError,
+        "ExcelSyncError": ValueError,
         "ExecutorConfigurationError": ValueError,
         "FarfieldInputError": ValueError,
         "FieldNotInExportError": KeyError,
         "FsiInputError": ValueError,
+        "FsiSetupError": ValueError,
         "GeometryEngineMissingError": ImportError,
         "IncompleteOutputError": ValueError,
         "InputArtifactError": RuntimeError,

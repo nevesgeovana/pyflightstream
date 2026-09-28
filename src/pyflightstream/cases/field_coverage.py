@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER
-# file_version: 1.0.2
+# file_version: 1.0.3
 # file_role: conservative-custom-field-spatial-coverage
-# last_modified_at: 2026-09-27T21:58:19.804Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# last_modified_at: 2026-09-27T23:51:00.020Z
+# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
 # dependencies: [pyflightstream.script, RPT-048, RPT-082]
 # authority: geoverse-goddess-control-plane
 # status: active
 # confidentiality: public
-# change_summary: Reuse the shared length scale without widening measured units.
+# change_summary: Catalog manifest-bound release refusal sites while retaining builtin catches.
 # revision_source: git
 """Conservative spatial bounds; containment does not prove interpolation support."""
 
@@ -19,22 +19,23 @@ from itertools import product
 from typing import Any
 
 from pyflightstream._lengths import scale
+from pyflightstream.cases import CampaignConfigError
 
 Point = tuple[float, float, float]
 
 
 def _point(value: Any) -> Point:
     if not isinstance(value, (list, tuple)) or len(value) != 3:
-        raise ValueError("unknown three-dimensional placement")
+        raise CampaignConfigError("unknown three-dimensional placement")
     p = tuple(float(v) for v in value)
     if not all(math.isfinite(v) for v in p):
-        raise ValueError("nonfinite placement")
+        raise CampaignConfigError("nonfinite placement")
     return p  # type: ignore[return-value]
 
 
 def _scale(unit: Any) -> float:
     if unit not in {"METER", "MILLIMETER"}:
-        raise ValueError(f"unmeasured length unit {unit!r}")
+        raise CampaignConfigError(f"unmeasured length unit {unit!r}")
     factor = scale(unit, "METER")
     assert factor is not None  # The measured-unit whitelist above guarantees this.
     return factor
@@ -43,7 +44,7 @@ def _scale(unit: Any) -> float:
 def _corners(points: Iterable[Sequence[float]]) -> list[Point]:
     points = [_point(p) for p in points]
     if not points:
-        raise ValueError("no mesh vertices")
+        raise CampaignConfigError("no mesh vertices")
     return [
         _point(p)
         for p in product(
@@ -68,7 +69,7 @@ def _axis(value: Any) -> Point:
     axis = _point(value)
     norm = math.sqrt(sum(v * v for v in axis))
     if not math.isclose(norm, 1.0, abs_tol=1e-9):
-        raise ValueError("rotation axis is not a proved unit vector")
+        raise CampaignConfigError("rotation axis is not a proved unit vector")
     return axis
 
 
@@ -91,9 +92,9 @@ def spatial_envelope(
         args = event["arguments"]
         frame = event.get("frame")
         if name not in {"TRANSLATE_SURFACE_IN_FRAME", "ROTATE_SURFACE"}:
-            raise ValueError(f"unsupported emitted transform {name}")
+            raise CampaignConfigError(f"unsupported emitted transform {name}")
         if not frame:
-            raise ValueError("unknown transform frame")
+            raise CampaignConfigError("unknown transform frame")
         center = _point(frame["origin"])
         scale = _scale(event.get("length_unit"))
         center = _point([v * scale for v in center])
@@ -111,7 +112,7 @@ def spatial_envelope(
             axis = axes["XYZ".index(str(args["axis"]))]
             angle = math.radians(float(args["angle"]))
             if not math.isfinite(angle):
-                raise ValueError("nonfinite rotation")
+                raise CampaignConfigError("nonfinite rotation")
             moved = [_rotation(p, center, axis, sign * angle) for p in points for sign in (-1, 1)]
             notes.append("both rotation signs included; no new native sense claim")
         if not all_surfaces:
@@ -126,9 +127,9 @@ def spatial_envelope(
             continue
         seen.add(motion)
         if trajectory.get("kind") != "constant_rotation":
-            raise ValueError("unsupported moving-frame trajectory")
+            raise CampaignConfigError("unsupported moving-frame trajectory")
         if "center moves" in str(record.get("reason", "")).lower():
-            raise ValueError("moving rotation center is not a fixed swept disk")
+            raise CampaignConfigError("moving rotation center is not a fixed swept disk")
         scale = _scale(record.get("length_unit"))
         center = _point([v * scale for v in _point(trajectory.get("center_native"))])
         axis = _axis(trajectory.get("axis_reference"))

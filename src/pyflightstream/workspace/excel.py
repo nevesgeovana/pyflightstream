@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER
-# file_version: 2.0.1
-# last_modified_at: 2026-09-27T23:24:23.671Z
-# last_modified_by: OpenAI / Codex / unknown / architect-correction-proposal
+# file_version: 2.0.2
+# last_modified_at: 2026-09-27T23:58:35.036Z
+# last_modified_by: OpenAI / Codex / unknown / primary-agent
 # dependencies: [workspace.excel_sync, workspace.excel_file, XlsxWriter]
 # authority: geoverse-goddess-control-plane
 # file_role: macro-free-matrix-workbook-factory
 # status: active
 # confidentiality: public
-# change_summary: Use the shared optional dependency refusal for workbook creation.
+# change_summary: Combine readable CLI refusals with the shared optional dependency contract.
 # revision_source: git
 """Create the optional workbook without launching Excel or changing trust settings."""
 
@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 from pyflightstream._cli import cli_entrypoint
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases.matrix import _COLUMNS
 from pyflightstream.extras import missing_extra
 from pyflightstream.workspace.excel_sync import ExcelSyncError
@@ -145,28 +146,32 @@ def main(argv: list[str] | None = None) -> int:
     check = commands.add_parser("check", help="Validate Runs and Dictionary")
     check.add_argument("workbook", type=Path)
     args = parser.parse_args(argv)
-    if args.action == "create":
-        print(create_workbook(args.output, workspace=args.workspace))
-    elif args.action == "preview":
-        print(
-            preview_file(
-                args.workbook,
-                workspace=args.workspace,
-                direction=args.direction,
-                batch=args.batch,
-                matrices=args.matrices,
+    try:
+        if args.action == "create":
+            print(create_workbook(args.output, workspace=args.workspace))
+        elif args.action == "preview":
+            print(
+                preview_file(
+                    args.workbook,
+                    workspace=args.workspace,
+                    direction=args.direction,
+                    batch=args.batch,
+                    matrices=args.matrices,
+                )
             )
-        )
-    elif args.action == "apply":
-        result = apply_batch(args.batch)
-        print(result)
-        return 1 if result.get("error") else 0
-    elif args.action == "cancel":
-        cancel_batch(args.batch)
-        print("Preview cancelled; workbook and matrices unchanged.")
-    else:
-        check_file(args.workbook)
-        print("Runs and Dictionary are valid.")
+        elif args.action == "apply":
+            result = apply_batch(args.batch)
+            print(result)
+            return 1 if result.get("error") else 0
+        elif args.action == "cancel":
+            cancel_batch(args.batch)
+            print("Preview cancelled; workbook and matrices unchanged.")
+        else:
+            check_file(args.workbook)
+            print("Runs and Dictionary are valid.")
+    except (PyflightstreamError, OSError, ValueError) as error:
+        print(f"Excel command not completed: {error}", file=sys.stderr)
+        return 2
     return 0
 
 

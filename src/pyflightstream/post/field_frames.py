@@ -1,12 +1,12 @@
 # GEOVERSE_HEADER
-# file_version: 1.1.4
-# last_modified_at: 2026-09-27T19:58:35.738Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# file_version: 1.1.5
+# last_modified_at: 2026-09-27T23:51:00.036Z
+# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
 # dependencies: [numpy]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Bind independent moving-MM proof with SI velocities and native-coordinate records.
+# change_summary: Catalog manifest-bound release refusal sites while retaining builtin catches.
 # revision_source: git
 """Coordinate and velocity transforms whose native conventions are explicit."""
 
@@ -18,6 +18,7 @@ from typing import Any
 
 import numpy as np
 
+from pyflightstream._errors import ProductError
 from pyflightstream.script.motion import resolve_frame_motion
 
 
@@ -36,33 +37,33 @@ def _number(value: Any, name: str) -> float:
     try:
         result = float(value)
     except (TypeError, ValueError) as error:
-        raise ValueError(f"field transform requires finite {name}") from error
+        raise ProductError(f"field transform requires finite {name}") from error
     if not np.isfinite(result):
-        raise ValueError(f"field transform requires finite {name}")
+        raise ProductError(f"field transform requires finite {name}")
     return result
 
 
 def _vector(value: Any, name: str) -> np.ndarray:
     result = np.asarray(value, dtype=float)
     if result.shape != (3,) or not np.isfinite(result).all():
-        raise ValueError(f"field transform requires a finite three-component {name}")
+        raise ProductError(f"field transform requires a finite three-component {name}")
     return result
 
 
 def _native_proof(proof: Any, identity: Mapping[str, Any], name: str) -> None:
     if not isinstance(proof, Mapping) or not proof.get("evidence"):
-        raise ValueError(f"{name} has no recorded native evidence")
+        raise ProductError(f"{name} has no recorded native evidence")
     for key in ("fs_exe_sha256", "fs_build"):
         actual = identity.get(key)
         if not actual or proof.get(key) != actual:
-            raise ValueError(f"{name} does not match the run's {key}")
+            raise ProductError(f"{name} does not match the run's {key}")
     digest = identity["fs_exe_sha256"]
     if (
         not isinstance(digest, str)
         or len(digest) != 64
         or any(c not in "0123456789abcdef" for c in digest.lower())
     ):
-        raise ValueError(f"{name} requires an executable SHA-256 identity")
+        raise ProductError(f"{name} requires an executable SHA-256 identity")
 
 
 def frame_pose(
@@ -89,44 +90,44 @@ def frame_pose(
     """
     motion_record = resolve_frame_motion(motion_record, solver_identity=solver_identity)
     if motion_record.get("state") != "known":
-        raise ValueError(f"unknown sampling frame: {motion_record.get('reason')}")
+        raise ProductError(f"unknown sampling frame: {motion_record.get('reason')}")
     proof = motion_record.get("proof")
     if not isinstance(proof, Mapping) or not proof.get("geometry"):
-        raise ValueError("sampling frame has no geometry evidence")
+        raise ProductError("sampling frame has no geometry evidence")
     origin = _vector(motion_record.get("origin_native"), "frame origin")
     basis = np.column_stack(
         [_vector(motion_record.get(key), "basis axis") for key in ("x_axis", "y_axis", "z_axis")]
     )
     if not np.allclose(basis.T @ basis, np.eye(3), rtol=0, atol=1e-10):
-        raise ValueError("sampling frame basis is not orthonormal")
+        raise ProductError("sampling frame basis is not orthonormal")
     if not np.isclose(np.linalg.det(basis), 1.0, rtol=0, atol=1e-10):
-        raise ValueError("sampling frame basis is not right-handed")
+        raise ProductError("sampling frame basis is not right-handed")
     trajectory = motion_record.get("trajectory")
     if not isinstance(trajectory, Mapping):
-        raise ValueError("sampling frame has no trajectory")
+        raise ProductError("sampling frame has no trajectory")
     if trajectory.get("kind") == "fixed":
         return FramePose(origin.copy(), basis.copy(), basis.copy(), np.zeros(3), origin.copy())
     if trajectory.get("kind") != "constant_rotation":
-        raise ValueError("sampling frame trajectory is not a proved constant rotation")
+        raise ProductError("sampling frame trajectory is not a proved constant rotation")
     timing = proof.get("timing")
     if not isinstance(timing, Mapping):
-        raise ValueError("sampling frame has no timing proof")
+        raise ProductError("sampling frame has no timing proof")
     _native_proof(timing, solver_identity, "frame timing")
     center = _vector(trajectory.get("center_native"), "rotation center")
     axis = _vector(trajectory.get("axis_reference"), "rotation axis")
     if not np.isclose(np.linalg.norm(axis), 1.0, rtol=0, atol=1e-10):
-        raise ValueError("rotation axis must be a proved unit vector")
+        raise ProductError("rotation axis must be a proved unit vector")
     omega = _number(trajectory.get("omega_rad_s"), "angular velocity")
     dt = _number(trajectory.get("dt_s"), "time-step duration")
     zero = _number(trajectory.get("step_time_origin"), "STEP time origin")
     start = _number(trajectory.get("start_time_s", 0.0), "motion start time")
     if dt <= 0 or start < 0:
-        raise ValueError("time-step duration must be positive and start time nonnegative")
+        raise ProductError("time-step duration must be positive and start time nonnegative")
     if start and timing.get("start_time_rule") != "stationary-until-start":
-        raise ValueError("delayed motion has no proved start-time convention")
+        raise ProductError("delayed motion has no proved start-time convention")
     elapsed = (_number(step, "exported STEP") - zero) * dt
     if elapsed < -1e-12:
-        raise ValueError("exported STEP precedes the proved time origin")
+        raise ProductError("exported STEP precedes the proved time origin")
     active = max(0.0, elapsed - start)
     angle = omega * active
     x, y, z = axis
@@ -181,7 +182,7 @@ def field_in_reference(
     """
     scale = _number(native_to_m, "coordinate conversion")
     if scale <= 0:
-        raise ValueError("coordinate conversion must be positive")
+        raise ProductError("coordinate conversion must be positive")
     points = np.asarray(points_native, dtype=float)
     values = np.asarray(velocity, dtype=float)
     if (
@@ -192,21 +193,21 @@ def field_in_reference(
         or not np.isfinite(points).all()
         or not np.isfinite(values).all()
     ):
-        raise ValueError("field positions and velocity must be finite matching N by 3 arrays")
+        raise ProductError("field positions and velocity must be finite matching N by 3 arrays")
     if velocity_proof.get("state") != "known":
-        raise ValueError("native velocity meaning has not been established")
+        raise ProductError("native velocity meaning has not been established")
     _native_proof(velocity_proof, solver_identity, "velocity convention")
     unit = motion_record.get("length_unit")
     if not unit or velocity_proof.get("length_unit") != unit:
-        raise ValueError("velocity evidence describes different or unknown length units")
+        raise ProductError("velocity evidence describes different or unknown length units")
     if velocity_proof.get("export_kind") != export_kind:
-        raise ValueError("velocity evidence describes a different native export kind")
+        raise ProductError("velocity evidence describes a different native export kind")
     proved_scale = velocity_proof.get("coordinate_to_m")
     if proved_scale is not None and not np.isclose(scale, float(proved_scale), rtol=0, atol=0):
-        raise ValueError("coordinate conversion differs from measured export units")
+        raise ProductError("coordinate conversion differs from measured export units")
     velocity_scale = _number(velocity_proof.get("velocity_to_m_s", 1.0), "velocity conversion")
     if velocity_scale <= 0:
-        raise ValueError("velocity conversion must be positive")
+        raise ProductError("velocity conversion must be positive")
     values = values * velocity_scale
     pose = frame_pose(motion_record, step=step, solver_identity=solver_identity)
     reference_native = points @ pose.basis.T + pose.origin_native
@@ -218,7 +219,7 @@ def field_in_reference(
     elif components == "initial-local":
         component_basis = pose.initial_basis
     else:
-        raise ValueError("unknown native velocity component basis")
+        raise ProductError("unknown native velocity component basis")
     origin_rule = velocity_proof.get("origin_rule")
     corrected = values.copy()
     if origin_rule in ("reference-before-basis", "component-after-basis"):
@@ -233,13 +234,13 @@ def field_in_reference(
     elif origin_rule == "none":
         reference_velocity = corrected @ component_basis.T
     else:
-        raise ValueError("unknown native velocity origin convention")
+        raise ProductError("unknown native velocity origin convention")
     meaning = velocity_proof.get("velocity_kind")
     if meaning == "relative":
         radius_m = (reference_native - pose.center_native) * scale
         reference_velocity += np.cross(pose.angular_velocity_reference, radius_m)
     elif meaning != "absolute":
-        raise ValueError("unknown absolute/relative native velocity meaning")
+        raise ProductError("unknown absolute/relative native velocity meaning")
     return reference_native * scale, reference_velocity
 
 
@@ -261,7 +262,7 @@ def native_velocity_proof(
         or solver_identity.get("fs_exe_sha256") != expected_hash
         or solver_identity.get("fs_build") != "8172026"
     ):
-        raise ValueError("native velocity convention has no evidence for this export/build/unit")
+        raise ProductError("native velocity convention has no evidence for this export/build/unit")
     if export_kind == "unsteady-fluid-plot" and unit == "METER":
         scale = 1.0
         evidence = {
@@ -290,7 +291,7 @@ def native_velocity_proof(
             "comparison": "same four samples under reference, fixed and rotating analysis frames",
         }
     else:
-        raise ValueError("native velocity convention has no evidence for this export/build/unit")
+        raise ProductError("native velocity convention has no evidence for this export/build/unit")
     return {
         "state": "known",
         "fs_exe_sha256": expected_hash,

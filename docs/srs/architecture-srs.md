@@ -1,14 +1,14 @@
 <!--
 GEOVERSE_HEADER
-file_version: "1.0.0"
+file_version: "1.0.1"
 file_role: "public-architecture-requirements"
-last_modified_at: "2026-09-27T21:58:19.804Z"
-last_modified_by: "OpenAI / Codex / GPT-6 / implementation-agent"
+last_modified_at: "2026-09-27T23:53:53.610Z"
+last_modified_by: "OpenAI / Codex / unknown / primary-agent"
 dependencies: ["src/pyflightstream/overview.py", "scripts/gen_docs_pages.py"]
 authority: "pyflightstream"
 status: "active"
 confidentiality: "public"
-change_summary: "Record the implemented 0.29 boundaries while retaining historical decisions."
+change_summary: "Reconcile BC ownership, diagnostics registration, Excel extra and bounded FSI/probe adapters."
 revision_source: "git"
 -->
 
@@ -103,7 +103,8 @@ does not prove that a solver boundary uses that scale.
     Structural analysis (`[fsi]`), geometry gating (`[geom]`), manual
     reading for the maintainer tool (`[manual]`, licence card
     `reports/RPT-017_manual-extra-license_2026-08-04.md`), and
-    plotting (`[plot]`) are optional extras with license evidence
+    plotting (`[plot]`) and workbook creation (`[excel]`, license card
+    `reports/RPT-084_excel-extra-license_2026-09-27.md`) are optional extras with license evidence
     recorded before adoption; a missing extra fails with the didactic
     install hint, never an ImportError traceback.
 
@@ -201,7 +202,20 @@ at build time. Edit those source docstrings, not a generated page.
 ### Inputs, geometry and dimensional boundaries
 
 The workspace resolves declarative inputs into the existing case and script
-layers. CAD conversion extends the raw-mesh import sequence: import CAD,
+layers. `plan --setup-standards` and `plan --setup-guidelines` write ordinary
+complete setup files and `inputs/setups/SETUP_GUIDELINES.md`; they use the
+existing setup model and emitter, preserve user files and distinguish physical
+recommendations from measured accuracy.
+
+Boundary inputs have three owners: mesh-sidecar `[ports]` and geometric
+TE/wake/base declarations identify the mesh; setup `[[ports]]` and application
+selectors choose simulation behavior; MATRIX supplies operating velocities and
+profile filenames. Profiles resolve under `inputs/profiles`. False application
+selectors skip redefinition without clearing a saved FSM. New port creation
+with unknown inherited native indices is refused. See
+[boundary conditions](../boundary-conditions.md).
+
+CAD and mesh adapters retain this resolution sequence. CAD conversion extends the raw-mesh import sequence: import CAD,
 convert to a mesh, then apply the same boundary and setup operations. The
 [CAD route](../cad-inputs.md) is supported within its measured format and
 unit limits; an empty or unproved import is not an accepted mesh. OBJ
@@ -241,12 +255,29 @@ action/export route; adding a parallel native-animation subsystem is not
 part of this architecture. Surface translation, sampled fields and
 boundary-layer products keep their own association, unit and completeness
 requirements rather than converting parser success into physical proof.
+Sampled volume uses steady probes or unsteady fluid plots and writes a
+vertex cloud with actual source, frame and unit evidence. Existing native
+sections in a saved FSM do not index that grid; manual native/custom APIs
+still require the caller to establish those indices. Native nodal strength
+joins VTK cell fields only through the recorded auxiliary source and exact
+geometry association. Missing data are not reconstructed.
+
+Read-only diagnostics are registered by post through workspace, just like
+the existing post stages and input guides. The run CLI calls that lower-layer
+entry, preserving downward dependencies. Stage duration, failure context and
+post warnings remain in recorded logs even when concise terminal presentation
+hides optional warnings.
+
 See [surface translation](../surface-translation.md),
 [sampled fields](../sampled-fields.md), and
 [continuation](../continuation-recovery.md).
 
 Workspace FSI inputs resolve calculated or supplied structural properties
-and explicit calibration overrides into the existing coupling loop. Base
+and explicit calibration overrides into the existing coupling loop. Fresh
+unsteady-rotor mesh cases use the existing nodes, section-family map and
+synchronous driver callbacks through `cases.fsi_workspace`. The adapter
+refuses unproved saved-state/continuation, units, symmetry or rotor/frame
+ordering; staging and callback wiring do not prove coupled physical accuracy. Base
 and effective properties have separate provenance; derived quantities
 must not be scaled twice. This input route does not itself establish a new
 solver-side coupling capability. See [workspace FSI](../fsi-workspace.md).

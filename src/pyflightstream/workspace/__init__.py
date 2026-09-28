@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER
 # file_role: managed-workspace-model-and-layout
-# file_version: 1.1.3
-# last_modified_at: 2026-09-27T23:24:23.671Z
-# last_modified_by: OpenAI / Codex / unknown / architect-correction-proposal
+# file_version: 1.1.4
+# last_modified_at: 2026-09-27T23:53:53.610Z
+# last_modified_by: OpenAI / Codex / unknown / primary-agent
 # dependencies: [pyflightstream.run._step_exports]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Register recorded post diagnostics without an upward import.
+# change_summary: Keep generated architecture sources aligned with setup and boundary ownership.
 # revision_source: git
 """Managed campaign workspace: inputs, run files, and the manifest.
 
@@ -58,6 +58,13 @@ The 0.29 workspace adds declarative FSI inputs under ``inputs/fsi/``
 and matrix storage under ``inputs/matrices/``. Resolved inputs and explicit
 calibration overrides feed the existing coupling implementation; provenance
 distinguishes base properties from effective properties.
+
+Generated complete s9XX setups and SETUP_GUIDELINES.md live under
+``inputs/setups/`` and use the same model and emitter as authored setups.
+Mesh-sidecar port identities and geometric TE/wake/base declarations remain
+with the mesh; setup choices select their application, while MATRIX supplies
+operating values and profile filenames. False setup application selectors
+never clear inherited native state.
 
 Optional Excel editing remains a file adapter to the ASCII matrix model.
 :mod:`pyflightstream.workspace.excel` creates a macro-free workbook; its
