@@ -248,6 +248,37 @@ def test_a_loads_frame_far_along_x_does_not_widen_the_match_along_z(tmp_path):
         translate_vtk_surface(path, tmp_path / "p.dat", frame=frame, native_tecplot=native)
 
 
+def test_a_loads_frame_far_along_x_does_not_accept_a_shift_along_x(tmp_path):
+    """GOAL-034 Q8 CXQ8R5-1: the per-axis allowance was four float32 epsilons of
+    the largest loads coordinate (about 0.48 at 1e6), so a native surface moved
+    0.25 along X still matched. Float32 steps by 0.0625 there; the allowance is
+    now the spacing of the written coordinates, and the shift is refused."""
+    from pyflightstream.results.surface import SurfaceFrame
+
+    origin = (1_000_000.0, 0.0, 0.0)
+    reference = _vtk().points + np.array([0.1, 0.1, 0.0])
+    loads = (reference - np.array(origin)).astype(np.float32).astype(float)
+    surface = VtkSurface(
+        points=loads,
+        offsets=_vtk().offsets,
+        connectivity=_vtk().connectivity,
+        cell_data=dict(_vtk().cell_data),
+    )
+    path = write_vtk_surface(tmp_path / "p.vtk", surface, title="test")
+    native = tmp_path / "native.dat"
+    native.write_text(
+        'TITLE="Native"\nVARIABLES="X","Y","Z","Singularity_strength"\n'
+        "ZONE T=Solver, NODES=4, ELEMENTS=1, FACES=4, DATAPACKING=BLOCK, "
+        "ZONETYPE=FEPolygon, NumConnectedBoundaryFaces=0, TotalNumBoundaryConnections=0\n"
+        "1.35 0.35 0.35 1.35\n1.1 0.1 1.1 0.1\n0 0 0 0\n30 10 40 20\n"
+        "2 4 4 1 1 3 3 2\n1 1 1 1\n0 0 0 0\n",
+        encoding="utf-8",
+    )
+    frame = SurfaceFrame(origin, REFERENCE_FRAME.axes, 2)
+    with pytest.raises(MalformedOutputError, match="missing or ambiguous"):
+        translate_vtk_surface(path, tmp_path / "p.dat", frame=frame, native_tecplot=native)
+
+
 def test_stamped_step_never_borrows_final_native_strength(tmp_path):
     write_vtk_surface(tmp_path / "p_iteration=3.vtk", _vtk(), title="step")
     _native(tmp_path / "native.dat")

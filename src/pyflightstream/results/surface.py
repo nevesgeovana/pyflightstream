@@ -742,14 +742,28 @@ def translate_vtk_surface(
         # does not show (GOAL-034 Q8 CXQ8R2-1). The tolerance takes the larger.
         # PER AXIS (CXQ8R4-1): a loads-frame rounding is carried to each reference
         # axis through |R|, so a frame far away along X widens X, not Z.
+        # The loads-frame allowance is the float32 SPACING of each written
+        # coordinate (half a unit in the last place), not a multiple of the
+        # largest magnitude: 1e6 away, float32 steps by 0.0625, so a surface
+        # moved by 0.25 is refused (GOAL-034 Q8 CXQ8R5-1). The carry back to the
+        # reference adds its own double-precision rounding.
         extent = float(np.linalg.norm(np.ptp(native.points, axis=0)))
         loads_magnitude = np.abs(surface.points).max(axis=0, initial=0.0)
-        magnitude = np.maximum(
-            np.abs(native.points).max(axis=0, initial=0.0),
-            loads_magnitude @ np.abs(frame.rotation),
+        rotation = np.abs(frame.rotation)
+        native_rounding = (
+            4.0 * float(np.finfo(np.float32).eps) * np.abs(native.points).max(axis=0, initial=0.0)
+        )
+        loads_rounding = (
+            0.5 * np.abs(np.spacing(surface.points.astype(np.float32))).astype(float)
+        ).max(axis=0, initial=0.0) @ rotation
+        arithmetic_rounding = (
+            8.0
+            * float(np.finfo(float).eps)
+            * (loads_magnitude @ rotation + np.abs(np.asarray(frame.origin, dtype=float)))
         )
         tolerance = np.maximum(
-            max(1e-10, extent * 1e-6), 4.0 * float(np.finfo(np.float32).eps) * magnitude
+            max(1e-10, extent * 1e-6),
+            np.maximum(native_rounding, loads_rounding) + arithmetic_rounding,
         )
         translated, mapping = attach_native_strength(
             translated, native, coordinate_tolerance=tolerance
