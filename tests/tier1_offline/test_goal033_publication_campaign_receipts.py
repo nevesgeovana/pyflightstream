@@ -56,7 +56,8 @@ PUBLICATION (variable -> obligation ``publication:checks:<id>``):
   Facts ``record_id`` (int), ``api_url``, ``doi`` (``10.5281/zenodo.
   <record_id>``), ``concept_doi`` and ``repository``. The answer's ``id``,
   ``doi`` and ``conceptdoi`` equal the facts, the concept DOI differs from the
-  version DOI, ``submitted`` is true, ``metadata.version`` == version, and a
+  version DOI, ``submitted`` is true, ``metadata.version`` is the version or
+  ``v<version>`` (the tag name Zenodo's GitHub integration records), and a
   ``metadata.related_identifiers`` entry is exactly
   ``https://github.com/<repo>/tree/v<version>`` or
   ``https://github.com/<repo>/releases/tag/v<version>``.
