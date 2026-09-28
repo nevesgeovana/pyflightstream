@@ -238,6 +238,9 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         "PyflightstreamDeprecationWarning": DeprecationWarning,
         "VersionMismatchWarning": UserWarning,
         "WorkspaceError": RuntimeError,
+        # 0.30.0: a storage command's refusal is a WorkspaceError, so a
+        # caller catching RuntimeError keeps catching it.
+        "StorageError": RuntimeError,
     }
     catalogued = set(exceptions.__all__) - {"PyflightstreamError"}
     assert catalogued == set(expected_builtin), (

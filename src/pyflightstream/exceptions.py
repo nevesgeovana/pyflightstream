@@ -138,6 +138,7 @@ from pyflightstream.workspace import (
 from pyflightstream.workspace.excel_sync import ExcelSyncError
 from pyflightstream.workspace.flight_condition import FlightConditionError
 from pyflightstream.workspace.fsi_setup import FsiSetupError
+from pyflightstream.workspace.storage import StorageError
 
 __all__ = [
     "AliasCycleError",
@@ -191,6 +192,7 @@ __all__ = [
     "ScriptOrderError",
     "ScriptReferenceError",
     "StaleLoadsError",
+    "StorageError",
     "SurfaceMeshExportError",
     "TwistIterationError",
     "UnitsError",
