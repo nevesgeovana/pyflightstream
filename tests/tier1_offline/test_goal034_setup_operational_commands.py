@@ -572,3 +572,46 @@ def test_every_route_names_a_marker_of_its_own():
     named = [line.strip()[len(prefix) :] for line in doc.splitlines() if prefix in line]
     assert sorted(named) == sorted(ROUTES)
     assert len(named) == len(set(named))
+
+
+#: Typed settings whose command has no recorded 26.124 evidence, by that command.
+UNSUPPORTED_ON_26124 = {
+    "jet_wake_filaments_grid_induction": "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION",
+    "vortex_ring_normalization": "SOLVER_VORTEX_RING_NORMALIZATION",
+    "axial_separation_families": "SET_AXIAL_SEPARATION_BOUNDARIES",
+    "valarezo_separation_boundaries": "SET_VALAREZO_SEPARATION_BOUNDARIES",
+    "crossflow_separation_boundaries": "SET_CROSSFLOW_SEPARATION_BOUNDARIES",
+    "bulk_separation": "CREATE_BULK_SEPARATION",
+    "valarezo_criterion": "VALAREZO_CRITERION",
+    "crossflow_separation_diameter": "SET_CROSSFLOW_SEPARATION_DIAMETER",
+    "crossflow_separation_mean_diameter": "SET_CROSSFLOW_SEPARATION_CP",
+    "crossflow_separation_axisymmetric": "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC",
+    "legacy_solver_model": "SET_SOLVER_MODEL",
+    "sonic_velocity_m_per_s": "SONIC_VELOCITY",
+    "physics_auto_trailing_edges": "PHYSICS",
+}
+
+
+def test_a_setting_whose_command_26124_lacks_is_refused_by_name_not_dropped(tmp_path):
+    """No setup capability the build lacks is dropped silently from the script.
+
+    GOAL033:setup_bc:checks:no_silent_unsupported
+
+    Each typed setting above states a value whose command the registry holds
+    no 26.124 evidence for. Stated on 26.124 through ``build_script``, every
+    one must refuse, in an error naming that command; the same case without
+    the setting must build, so the refusal is the setting's and not the
+    case's. A builder that skipped the line and wrote the rest of the script
+    would pass a presence test and fail this one.
+    """
+    silent = []
+    for setting, command in UNSUPPORTED_ON_26124.items():
+        variation = SETTING_VARIATIONS[setting]
+        stated = variation.second(tmp_path)
+        assert getattr(stated.solver, setting) is not None, setting
+        lines, why = _render(stated)
+        if lines is not None or command not in why:
+            silent.append(f"{setting} -> {command}: {why[:160] or 'built a script'}")
+        keyless = stated.model_copy(update={"solver": SolverSettings()})
+        assert _render(keyless)[0] is not None, f"{setting}: the case without it does not build"
+    assert not silent, "stated on 26.124 and not refused by name:\n  " + "\n  ".join(silent)
