@@ -173,6 +173,7 @@ from pyflightstream.results.tables import sweep_table, write_table
 from pyflightstream.run._actions_counter import render_program
 from pyflightstream.run._continuation_frame import recover_frame as _recover_continuation_frame
 from pyflightstream.run._solver_windows import owned_solver_dialogs as _owned_solver_dialogs
+from pyflightstream.run._solver_windows import spared_solver_windows as _spared_solver_windows
 from pyflightstream.run._step_exports import missing_step_warning
 from pyflightstream.run._wake_edge_verdict import (
     SOLVER_OWN_LOG,
@@ -1124,6 +1125,7 @@ def _run_with_progress(
         creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
     )
     said = 0
+    spared_said: set[str] = set()
     while True:
         remaining = None if timeout_s is None else timeout_s - (time.perf_counter() - start)
         if remaining is not None and remaining <= 0:
@@ -1159,6 +1161,25 @@ def _run_with_progress(
                     say_line(f"[solver] could not persist modal diagnostic: {log_error}")
                 say_line(diagnostic.rstrip())
                 return process.returncode or 1, out or "", (err or "") + "\n" + diagnostic, False
+            # A WINDOW THAT ASKS NOTHING IS SPARED AND SAID (0.30.0): the GUI's
+            # startup splash of a HIDDEN 0 row. Written once per description
+            # into the point's own folder; a failure to write it changes nothing.
+            try:
+                spared = [s for s in _spared_solver_windows(pid) if s not in spared_said]
+            except OSError:
+                spared = []
+            for description in spared:
+                spared_said.add(description)
+                try:
+                    with (working_dir / "pyfs-solver-windows.log").open(
+                        "a", encoding="utf-8"
+                    ) as log:
+                        log.write(
+                            f"{_utc_now()} pid={pid} spared a window that asks nothing: "
+                            f"{description}\n"
+                        )
+                except (OSError, ValueError):
+                    pass
             if total is None or every <= 0:
                 continue
             try:

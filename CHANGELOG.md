@@ -37,6 +37,16 @@ FlightStream versions.
   run records; `read_manifest` skips it, and the row's full mention lives in
   `storage_management.json`.
 
+### Fixed
+
+- A matrix row stating `HIDDEN 0` runs with the solver's GUI again. The
+  window watcher of 0.29.0 took the GUI's startup splash (class `#32770`, no
+  title, no text, no button, measured on 26.124) for a dialog and killed the
+  solver within 2 s as "solver dialog contains no readable text". A window
+  that asks nothing is now spared and written to the point's
+  `pyfs-solver-windows.log`; a window with a title, any readable text or any
+  button is still a dialog and still ends the point.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

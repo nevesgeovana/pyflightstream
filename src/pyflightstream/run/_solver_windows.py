@@ -25,23 +25,70 @@ class WindowDiagnostic:
     class_name: str
     visible: bool = True
     modal: bool = False
+    #: Window classes of the controls inside (``Button``, ``Static``, ...),
+    #: read with the text; empty when they were not read.
+    controls: tuple[str, ...] = ()
 
 
-def select_owned_dialogs(pid: int, windows: Iterable[WindowDiagnostic]) -> tuple[str, ...]:
-    """Select visible modal/error snapshots belonging to exactly ``pid``."""
-    return tuple(
-        "\n".join(part for part in (window.title, window.text) if part)
-        or "solver dialog contains no readable text"
-        for window in windows
-        if pid > 0
+#: What a window that ASKS NOTHING is, measured: FlightStream 26.124 launched
+#: with its GUI (a matrix row with HIDDEN 0) shows for about two seconds a
+#: startup splash of class #32770, modal over its main window, with no title,
+#: no readable text and one image control, and no button (the no-solve probe of
+#: 2026-09-28, 700x525). Nobody can answer it and it closes by itself, so the
+#: watcher spares it; before 0.30.0 it killed every GUI run within 2 s as
+#: "solver dialog contains no readable text". A window with a title, any
+#: readable text, or any button is still a dialog (the owner's decision of
+#: 2026-09-28, option (b) adjusted to the measurement).
+def asks_nothing(window: WindowDiagnostic) -> bool:
+    """Say whether a window has no title, no readable text and no button."""
+    return (
+        not window.title.strip()
+        and not window.text.strip()
+        and not any(name.lower() == "button" for name in window.controls)
+    )
+
+
+def _could_be_a_dialog(pid: int, window: WindowDiagnostic) -> bool:
+    return (
+        pid > 0
         and window.pid == pid
         and window.visible
-        and (
+        and bool(
             window.modal
             or window.class_name == "#32770"
             or re.search(r"\b(error|fatal|exception)\b", window.title, re.I)
         )
     )
+
+
+def select_owned_dialogs(pid: int, windows: Iterable[WindowDiagnostic]) -> tuple[str, ...]:
+    """Select visible modal/error snapshots belonging to exactly ``pid``.
+
+    A window that asks nothing (:func:`asks_nothing`) is not selected.
+    """
+    return tuple(
+        "\n".join(part for part in (window.title, window.text) if part)
+        or "solver dialog contains no readable text"
+        for window in windows
+        if _could_be_a_dialog(pid, window) and not asks_nothing(window)
+    )
+
+
+def select_spared_windows(pid: int, windows: Iterable[WindowDiagnostic]) -> tuple[str, ...]:
+    """Describe the windows the watcher spared because they ask nothing."""
+    return tuple(
+        f"class {window.class_name}, no title, no text, no button; controls "
+        f"{', '.join(window.controls) or 'none'}"
+        for window in windows
+        if _could_be_a_dialog(pid, window) and asks_nothing(window)
+    )
+
+
+def spared_solver_windows(pid: int) -> tuple[str, ...]:
+    """Describe this PID's windows the watcher spares because they ask nothing."""
+    if os.name != "nt" or pid <= 0:
+        return ()
+    return select_spared_windows(pid, _native_windows(pid))
 
 
 def owned_solver_dialogs(pid: int) -> tuple[str, ...]:
@@ -106,9 +153,10 @@ def _native_windows(pid: int) -> list[WindowDiagnostic]:
         owner = user32.GetWindow(handle, 4)  # GW_OWNER
         modal = bool(owner and belongs(owner) and not user32.IsWindowEnabled(owner))
         snapshot = WindowDiagnostic(pid, title.value, "", class_name.value, modal=modal)
-        if not select_owned_dialogs(pid, [snapshot]):
+        if not _could_be_a_dialog(pid, snapshot):
             return True
         texts: list[str] = []
+        controls: list[str] = []
         visited = 0
 
         @callback_type
@@ -120,6 +168,9 @@ def _native_windows(pid: int) -> list[WindowDiagnostic]:
             if visited > 32:
                 texts.append("[remaining controls omitted after 32 bounded reads]")
                 return False
+            kind = ctypes.create_unicode_buffer(256)
+            user32.GetClassNameW(control, kind, len(kind))
+            controls.append(kind.value)
             buffer = ctypes.create_unicode_buffer(4096)
             result = ctypes.c_size_t()
             # GetWindowText does not read another process's control text.
@@ -141,7 +192,14 @@ def _native_windows(pid: int) -> list[WindowDiagnostic]:
 
         user32.EnumChildWindows(handle, child, 0)
         windows.append(
-            WindowDiagnostic(pid, title.value, "\n".join(texts), class_name.value, modal=modal)
+            WindowDiagnostic(
+                pid,
+                title.value,
+                "\n".join(texts),
+                class_name.value,
+                modal=modal,
+                controls=tuple(controls),
+            )
         )
         return True
 

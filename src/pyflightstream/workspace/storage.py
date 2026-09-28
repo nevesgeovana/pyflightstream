@@ -40,7 +40,7 @@ import zipfile
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -891,7 +891,11 @@ def delete_sims(
     entry["runs_archived_as"] = f"{ARCHIVE_DIR}/runs-{stamp}.json"
     if matrix_products == "regenerate" and shared:
         regenerated: list[str | None] = []
-        stems = {None if name == "None" else name for item in sims_entry for name in item["matrix"]}
+        stems = {
+            None if name == "None" else name
+            for item in sims_entry
+            for name in cast(list[str], item["matrix"])
+        }
         for folder_rel in shared:
             folder = (workspace.root / folder_rel).resolve()
             matching = [s for s in stems if workspace.products_dir(s).resolve() == folder]
