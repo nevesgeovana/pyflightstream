@@ -719,7 +719,8 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="exit 3 when any simulation's product was skipped by design (a polar under "
         "sideslip, for one), after every product is written in full; without it a "
-        "recorded skip is printed and the exit is 0, since everything producible was "
+        "recorded skip is reported on stderr (a count, or each reason with "
+        "--pproc-warnings) and the exit is 0, since everything producible was "
         "produced. 2 stays the code of a refusal that wrote nothing",
     )
     for command_parser in (run, post, collect):
@@ -1218,31 +1219,40 @@ def _additional_post(
 
 
 def _report_skips(workspace: CampaignWorkspace, matrices: list[str | None]) -> int:
-    """Print every recorded skip of the given matrices to stderr; return the count.
+    """Say the recorded skips of the given matrices on stderr; return the count.
 
     Shared by ``post`` and ``run`` (PFS-2031.16, PFS-2031.19): the surface
     that spent the seat says what it skipped too, rather than leaving it
-    for a later rebuild to discover.
+    for a later rebuild to discover. Since 0.29 the CLI keeps post detail
+    quiet by default, so each matrix with a skip prints ONE count line
+    naming its manifest; ``--pproc-warnings`` prints every skip with its
+    reason, and ``--diagnostics`` renders the complete record.
     """
     import json
 
     skipped = 0
+    detail = post_warning_policy() is not False
     for matrix in matrices:
         manifest = workspace.products_dir(matrix) / "products.json"
         if not manifest.is_file():
             continue
+        label = matrix or "the matrix-less records"
         # Keyed by the simulation refused whole, or by the reduction file the
         # row could not window (PFS-2015.04); the key says which.
-        for key, reason in (
-            json.loads(manifest.read_text(encoding="utf-8")).get("skipped", {}).items()
-        ):
+        entries = json.loads(manifest.read_text(encoding="utf-8")).get("skipped", {})
+        for key, reason in entries.items():
             what = key if "/" in key else f"simulation {key}"
-            if post_warning_policy() is None:
-                print(
-                    f"skipped {what} of {matrix or 'the matrix-less records'}: {reason}",
-                    file=sys.stderr,
-                )
-            skipped += 1
+            if detail:
+                print(f"skipped {what} of {label}: {reason}", file=sys.stderr)
+        if entries and not detail:
+            # A skip is not a warning and is never silent: the count and
+            # where its reasons are recorded are said even when quiet.
+            print(
+                f"{len(entries)} recorded skip(s) of {label}; reasons in {manifest} "
+                "(--pproc-warnings or --diagnostics prints them)",
+                file=sys.stderr,
+            )
+        skipped += len(entries)
     return skipped
 
 
