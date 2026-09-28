@@ -230,6 +230,8 @@ def test_every_registered_key_has_exactly_one_row(page):
     A table the registries imply and the page lacks, a table the page carries
     and nothing implies, a key missing from its table, a key written twice and
     a key no registry holds are each a failure, named.
+
+    GOAL033:delivery:checks:input_glossary
     """
     expected = expected_tables()
     assert set(page) == set(expected), (
