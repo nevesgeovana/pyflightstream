@@ -30,6 +30,12 @@ FlightStream versions.
 - `pyfs-matrix plan` warns when the points still to run may not fit on the
   workspace's disk, estimated from the mean size of a recorded datapoint,
   naming `free-space` as the way to make room.
+- `sync` also brings matrices: each is declared in `sync-workspaces.toml` by
+  the one workspace that owns it (`matrices = [...]`), every difference is
+  reported as a merge conflict, and the owner's copy wins. A synced
+  simulation's `inputs` is linked into the main workspace's own geometry
+  library, never copied; `delete-sims` and `free-space` undo every link in a
+  simulation folder before removing it, so the mesh it points at survives.
 
 ### Changed
 

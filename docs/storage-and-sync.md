@@ -219,6 +219,13 @@ retired rather than simply missing.
 Because the id is retired rather than reserved, it can be reused: nothing
 stops a later run from being recorded under simulation id `4001` again.
 
+THE MESH IS NEVER DELETED WITH A SIMULATION. A simulation's `inputs` folder
+is usually a link (a junction on Windows) into `inputs/geometries/`. Before
+anything is removed, `delete-sims` undoes every link inside the simulation
+folder, and it refuses to remove the folder while one is still there; the
+links undone are recorded. The same holds when `free-space` compacts a
+simulation.
+
 ## Sync
 
 `sync` reads `inputs/sync-workspaces.toml`, which names the main workspace
@@ -229,15 +236,23 @@ main = "central"
 
 [workspaces.central]
 path = "."
+matrices = ["matriz", "matriz_rotor"]
 
 [workspaces.station-b]
 path = "//shared/station-b/campaign"
+matrices = ["matriz_hpc"]
 ```
 
 `main` names which entry is the workspace you are standing in; `sync` is
 run there. Every other named workspace is a source `sync` can pull from,
 by name, with `--from station-b`, or all of them at once when `--from` is
 left out.
+
+`matrices` names the matrices each workspace OWNS, by stem (the file is
+`<stem>.fs` at the workspace root or in `inputs/matrices/`). A matrix
+belongs to one workspace and one only; a workspace may own several. A stem
+declared by two workspaces refuses the sync, and so does a matrix file, in
+the main workspace or in a source, that no workspace declares.
 
 ### Levels
 
@@ -253,6 +268,15 @@ before it brings, plus more:
 - `all`: the above, plus everything else under `sims/`, except an `inputs`
   folder that is a junction into the input library, which is never
   followed or copied.
+
+At every level, each simulation folder the sync brings gets its `inputs`
+LINKED into the main workspace's own `inputs/geometries/`, to the same
+geometry folder the source's simulation was linked to, so no copy of a
+mesh is ever made. A geometry the main library does not have is not linked,
+and the sync says so for that simulation. A source that staged a copy of
+its inputs instead of a link is not copied either.
+
+At every level, the matrices are compared too (next section).
 
 ### How a conflict is settled
 
@@ -273,10 +297,20 @@ main's copy is kept unless you pass `--overwrite`, which archives main's
 copy to `archive/sync-<stamp>/` first and then takes the other workspace's
 copy. Nothing is ever silently discarded.
 
+A MATRIX is different: any difference between main's copy and the source's
+is reported as a MERGE CONFLICT, every time, and the workspace that owns the
+matrix wins. When the source owns it, main's copy is archived to
+`archive/sync-<stamp>/` and replaced by the owner's; when main (or a third
+workspace) owns it, main's copy stays. A matrix that only the source has is
+copied when the source owns it and left out, with the reason, when it does
+not. `--prefer-other` and `--overwrite` do not apply to matrices: ownership
+decides.
+
 Before rewriting `runs.json`, the previous copy is archived to
-`archive/runs-<stamp>.json`. A `runs.json.lock` present in either workspace
-(a run in progress there) refuses the whole sync rather than reading a
-manifest mid write.
+`archive/runs-<stamp>.json`. A `runs.json.lock` in the main workspace (a
+run in progress here) refuses the sync; one in a source workspace skips
+that source, recorded with the reason, rather than reading a manifest mid
+write.
 
 A run id that a note row says `delete-sims` deleted in the main workspace
 is never brought back by a sync: the note row records exactly which ids
