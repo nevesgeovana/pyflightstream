@@ -83,7 +83,7 @@ def test_read_and_write_preserve_text_identity_sweeps_comments_and_custom_cells(
 
 def test_column_reordering_and_exact_renaming(tmp_path: Path) -> None:
     # GOAL033:excel:checks:dictionary_by_name
-    matrix(tmp_path)
+    path = matrix(tmp_path)
     snap = imported(tmp_path)
     index = snap.headers.index("DESCRIPTION")
     snap.headers[index] = "Owner title"
@@ -100,6 +100,9 @@ def test_column_reordering_and_exact_renaming(tmp_path: Path) -> None:
     snap.rows[0][snap.headers.index("Owner title")] = Cell("renamed column edit")
     result = apply_preview(preview_sync(tmp_path, snap, direction="write"), snap)
     assert result.written == ["batch.fs"]
+    # The edit landed in DESCRIPTION by name, not by position (Q0-tests-1-5).
+    row = [cell.strip() for cell in path.read_text().splitlines()[-1].split("|")]
+    assert row[_COLUMNS.index("DESCRIPTION")] == "renamed column edit"
 
 
 def test_conflict_and_mapped_formula_block_apply(tmp_path: Path) -> None:
