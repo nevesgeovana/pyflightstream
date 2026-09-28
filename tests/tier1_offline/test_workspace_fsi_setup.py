@@ -273,7 +273,6 @@ def test_derived_shear_still_tracks_modulus_and_refuses_double_scaling(tmp_path,
 @pytest.mark.parametrize("template", [SUPPLIED, CALCULATED], ids=["supplied", "calculated"])
 @pytest.mark.parametrize("angles", [[-60.0, 20.0], [0.0, 60.0]])
 def test_geometric_pitch_calibration_reaches_structural_nodes_once(tmp_path, template, angles):
-    # GOAL033:fsi:checks:base_preserved
     import math
 
     from pyflightstream.fsi.nodes import generate_node_layout, node_positions
