@@ -40,9 +40,12 @@ sampled through probes; an optional macro-free Excel workbook is synchronized
 with the matrix by the CLI; and the execution and post logs say their stage and
 outcome. Before the tag, every refusal the development work had turned into an
 acceptance was restored, or kept only on a recorded owner decision. A reader
-changes three things: a steady sweep starts every point cold by default,
-`[volume_section]` is sampled rather than natively exported, and
-`ROTOR_SHEDDING` is refused (`docs/migrating-to-0.29.0.md`).
+changes what follows: a steady sweep starts every point cold by default,
+`[volume_section]` is sampled rather than natively exported, and every build
+refuses four inputs: `ROTOR_SHEDDING` in a matrix row, the setup keys
+`legacy_solver_model` and `sonic_velocity_m_per_s`, and a `farfield_layers`
+above 5 (the standard `s929` that varied it is retired and not reused)
+(`docs/migrating-to-0.29.0.md`).
 
 ### Added
 
@@ -137,11 +140,16 @@ changes three things: a steady sweep starts every point cold by default,
   wake is planned for 0.30.0. `rotor_relaxed_trailing_edges` still sets the
   direction in a component definition's specifications from Python.
 - **`legacy_solver_model` and `sonic_velocity_m_per_s` are refused in 0.29.0.**
-  A setup stating either is refused on every build: `SET_SOLVER_MODEL` is documented by 25.000 alone, whose `INITIALIZE_SOLVER`
-  no workflow writes, and no build records `SONIC_VELOCITY`, which 26.101
-  onward removed. The input glossary now says so rather than presenting them
-  as settings a run applies; use `solver_model`, and let the sound speed
-  follow from the resolved temperature and specific-heat ratio.
+  A setup stating either is refused on every build: `SET_SOLVER_MODEL` is
+  documented by 25.000 alone, whose `INITIALIZE_SOLVER` no workflow writes,
+  and no build records `SONIC_VELOCITY`, which 26.101 onward removed. The
+  input glossary now says so rather than presenting them as settings a run
+  applies; use `solver_model`, and let the sound speed follow from the
+  resolved temperature and specific-heat ratio.
+- **`farfield_layers` above 5 is refused.** The setup model accepts 1 to 5,
+  the documented range; every standard setup states `farfield_layers = 5`,
+  and the standard `s929` that varied it is retired and not reused
+  (`docs/setup-standards.md`).
 
 ### Fixed
 
@@ -426,7 +434,7 @@ names, no `Singularity_strength`, and the symmetry images on a symmetric row
 
 ### Changed (the type-checker debt, re-measured on the release tree)
 
-- The type-checker re-count of 2026-09-25 read 863 errors in 18 of 104 modules, against 0.27.0's 812 in 18 of 100. The
+- mypy recount 2026-09-25: 863 errors in 18 of 104 modules, against 0.27.0's 812 in 18 of 100. The
   four modules that arrived, `results/surface.py`, `post/surfaces.py` (G45, G25),
   `fsi/materials.py` and `fsi/sections.py` (G41), are clean; the fifty-one
   errors more sit inside the exempted set, on the run module's record builders
