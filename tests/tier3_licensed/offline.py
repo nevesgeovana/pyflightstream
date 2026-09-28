@@ -67,9 +67,17 @@ def portable(text: str) -> str:
     ``FILE <path>`` on one line (G01), so the separators of the path after
     the keyword are rewritten too, and the text before the placeholder is
     left as the builder wrote it.
+
+    THE WINDOWLESS SIBLING IS THE SAME INTERPRETER. Since 0.29 a Windows
+    action line names ``pythonw.exe`` beside the building interpreter so no
+    console opens per callback (``workflows._action_interpreter``), where
+    every other platform names the building interpreter itself; both are
+    replaced, so one golden holds on either. Which one Windows picks is
+    pinned by ``tests/tier1_offline/test_hidden_action_python.py``.
     """
     for spelling in (HERE.as_posix(), str(HERE), str(HERE).replace("\\", "\\\\")):
         text = text.replace(spelling, PLACEHOLDER)
+    text = text.replace(str(Path(sys.executable).with_name("pythonw.exe")), INTERPRETER)
     text = text.replace(sys.executable, INTERPRETER)
     lines = []
     for line in text.replace("\r\n", "\n").split("\n"):
