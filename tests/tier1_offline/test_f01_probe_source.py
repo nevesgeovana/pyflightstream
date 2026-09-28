@@ -237,3 +237,33 @@ def test_legacy_cited_parameters_do_not_hide_drawn_history(tmp_path, monkeypatch
     columns, rows = read_csv_table(workspace.root / "post/products/probes/AL-020_probes.csv")
     assert "VELOCITY" in columns, "the surviving drawn history must keep its declared parameters"
     assert len(rows) == 4
+
+
+def _steady_field_case(tmp_path, profile):
+    survey = tmp_path / "survey.txt"
+    survey.write_text(profile, encoding="utf-8", newline="\n")
+    spec = PprocSpec.model_validate(
+        {
+            "groups": {"1": "all"},
+            "probes": [
+                {"frame": "REFERENCE", "field_formats": ["vtk"], "points_file": "survey.txt"},
+            ],
+        }
+    )
+    spec.probes[0] = spec.probes[0].model_copy(update={"resolved_points_file": str(survey)})
+    return _with_pproc(steady_case(), _wb_geometry(tmp_path), pproc=spec)
+
+
+def test_steady_field_expansion_refuses_a_surface_profile_row(tmp_path):
+    # Q0 CX-2: a steady field request expands the cited profile into
+    # NEW_PROBE_POINT VOLUME commands, so a TYPE 0 (surface) row would be
+    # silently sampled in the flow instead of on the body.
+    with pytest.raises(CampaignConfigError, match=r"surface TYPE 0"):
+        build_script(_steady_field_case(tmp_path, "1\n1,2,3,0\n"), Script("26.124"))
+
+
+def test_steady_field_expansion_keeps_a_volume_profile_row(tmp_path):
+    script = Script("26.124")
+    build_script(_steady_field_case(tmp_path, "1\n1,2,3,1\n"), script)
+    assert "NEW_PROBE_POINT" in script.render()
+    assert script.probe_points == [(1, 1.0, 2.0, 3.0, "REFERENCE")]

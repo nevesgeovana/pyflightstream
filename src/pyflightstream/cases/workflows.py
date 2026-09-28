@@ -9828,11 +9828,17 @@ def _circle_points(circle, scale: float) -> list[list[float]]:
     return out
 
 
-def _read_probe_profile(path: str) -> list[list[float]]:
+def _read_probe_profile(path: str, *, volume_only: bool = False) -> list[list[float]]:
     """Read the counted X,Y,Z,TYPE profile defined by PROBE_POINTS_IMPORT.
 
     Both surface (0) and volume (1) rows supply fixed vertices to unsteady
     fluid plots. The type does not change the fluid-plot sampling command.
+
+    With ``volume_only`` (a steady row whose profile is expanded point by
+    point into ``NEW_PROBE_POINT VOLUME``), a surface row is refused by
+    number: a surface probe and a point in the flow are different
+    observations, and expanding one as the other would sample the wrong
+    quantity under the right coordinates.
     """
     try:
         with Path(path).open(encoding="utf-8-sig", newline="") as handle:
@@ -9846,6 +9852,13 @@ def _read_probe_profile(path: str) -> list[list[float]]:
         for number, row in enumerate(rows[1:], start=1):
             if len(row) != 4 or row[3].strip() not in ("0", "1"):
                 raise ValueError(f"point {number} must be X,Y,Z,TYPE with TYPE 0 or 1")
+            if volume_only and row[3].strip() == "0":
+                raise ValueError(
+                    f"point {number}: a surface TYPE 0 row cannot be expanded as a "
+                    "volume probe; a steady row that requests a field (or a volume "
+                    "section, or a reusable inflow) samples every cited point in the "
+                    "flow, so cite a profile of TYPE 1 rows or drop the field request"
+                )
             point = [float(value) for value in row[:3]]
             if not all(math.isfinite(value) for value in point):
                 raise ValueError(f"point {number} has a non-finite coordinate")
@@ -10016,7 +10029,7 @@ def _emit_one_probe_table(case, script, frames, probes, vertex: int, *, unsteady
     if probes.points_file:
         lattice += [
             [value * scale for value in point]
-            for point in _read_probe_profile(probes.resolved_points_file)
+            for point in _read_probe_profile(probes.resolved_points_file, volume_only=not unsteady)
         ]
     for rectangle in probes.rectangles:
         lattice += _rectangle_points(rectangle, scale)
