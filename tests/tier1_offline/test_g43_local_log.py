@@ -92,7 +92,16 @@ def test_g43_a_local_run_has_a_banner_numbered_points_and_a_summary_table(tmp_pa
         warnings.simplefilter("ignore", PyflightstreamWarning)
         _run(workspace, matrix, CountingStub(WRITES_EVERY_EXPORT))
     said = capsys.readouterr().err
-    assert "--o--o--(_)--o--o--" in said and "campaign warm, 3 point(s) to run" in said, said
+    # ONE OF THE OWNER'S TWO AIRCRAFT (0.30.0), its three rows in order, the text on
+    # the wing row.
+    wings = (
+        "     --(+)-----(_)-----(+)--",
+        "   --(+)--(+)--(_)--(+)--(+)--",
+    )
+    lines = said.splitlines()
+    at = next(i for i, line in enumerate(lines) if "campaign warm, 3 point(s) to run" in line)
+    assert lines[at - 2 : at] == ["             _______", "                |"], said
+    assert any(lines[at].startswith(f"{wing}   pyflightstream ") for wing in wings), said
     # ONE JOB, THREE POINTS: the job's line numbers the points it runs, and the table
     # counts points, as the banner does, never the one record (reading A28).
     assert "3 point(s) in one job  (1-3 of 3)" in said, said

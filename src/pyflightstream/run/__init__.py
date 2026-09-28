@@ -81,6 +81,7 @@ import json
 import math
 import os
 import platform
+import random
 import re
 import shutil
 import subprocess
@@ -3474,9 +3475,13 @@ def run_campaign(
     to_run = sum(len(pending) for _case, _build, pending in scheduled)
     started = time.perf_counter()
     if to_run:
-        _say("            __|__", quiet=quiet)
+        # 0.30.0: one of the owner's two aircraft, drawn at random; the text
+        # stays on the wing line, as before.
+        top, mast, wing = random.choice(_RUN_BANNERS)
+        _say(top, quiet=quiet)
+        _say(mast, quiet=quiet)
         _say(
-            f"     --o--o--(_)--o--o--   pyflightstream {pyflightstream.__version__}: "
+            f"{wing}   pyflightstream {pyflightstream.__version__}: "
             f"campaign {campaign.name}, {to_run} point(s) to run",
             quiet=quiet,
         )
@@ -3767,6 +3772,22 @@ def _job_point_statuses(record: RunRecord, points: int) -> list[str]:
     if len(entries) == points:
         return [str(entry.get("status") or record.status) for entry in entries]
     return [str(record.status)] * points
+
+
+#: The run banner's two aircraft, the owner's drawings of 2026-09-28: the rows
+#: above the wing, then the wing, which the banner text follows.
+_RUN_BANNERS: tuple[tuple[str, str, str], ...] = (
+    (
+        "             _______",
+        "                |",
+        "     --(+)-----(_)-----(+)--",
+    ),
+    (
+        "             _______",
+        "                |",
+        "   --(+)--(+)--(_)--(+)--(+)--",
+    ),
+)
 
 
 def _say_the_summary(outcomes: Sequence[str], elapsed_s: float, *, quiet: bool) -> None:
