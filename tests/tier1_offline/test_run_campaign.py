@@ -3983,10 +3983,13 @@ def test_g43_a_continuation_refused_before_it_was_built_is_numbered_and_counted(
     _, second = _second_build(tmp_path)
     real = run_module.resolve_continuation
 
-    def gone_for_the_first(workspace, case, point, *, run_id):
+    # The stand-in takes the resolver's whole signature: since G58 of 0.29.0
+    # (e9fa00ec) run_campaign also passes the row's recipe and build version, so
+    # the resolver can rebuild the original script and recover its loads frame.
+    def gone_for_the_first(workspace, case, point, *, run_id, recipe=None, fs_version=None):
         if case.sim_id == "9001":
             raise CampaignConfigError("the saved simulation to continue is gone (stand-in)")
-        return real(workspace, case, point, run_id=run_id)
+        return real(workspace, case, point, run_id=run_id, recipe=recipe, fs_version=fs_version)
 
     monkeypatch.setattr(run_module, "resolve_continuation", gone_for_the_first)
     capsys.readouterr()
