@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: "1.4.16"
+# file_version: "1.4.17"
 # artifact_id: src/pyflightstream/cases/workflows.py
-# last_modified_at: 2026-09-27T23:51:00.032Z
-# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
+# last_modified_at: 2026-09-28T00:24:36.721Z
+# last_modified_by: OpenAI / Codex / unknown / primary-agent
 # dependencies: [pyflightstream]
 # authority: pyflightstream
 # status: draft
 # confidentiality: public
-# change_summary: Catalog manifest-bound release refusal sites while retaining builtin catches.
+# change_summary: Preserve unreadable geometry diagnostics before saved-unit conversion.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Workflows: a run TYPE that builds the whole script by itself.
@@ -8373,6 +8373,8 @@ def _from_metres(case: SimCase, script: Script, what: str) -> float:
 
     Raises
     ------
+    ScriptReferenceError
+        The saved geometry cannot be read; the filesystem cause is retained.
     CampaignConfigError
         Naming ``what``: the saved simulation's unit is not one this package
         has read, or the script set a unit that names no scale (OTHER).
@@ -8387,6 +8389,11 @@ def _from_metres(case: SimCase, script: Script, what: str) -> float:
         try:
             unit = saved_length_unit(geometry)
         except MeshReadError as error:
+            if isinstance(error.__cause__, OSError):
+                raise ScriptReferenceError(
+                    f"case {case.sim_id!r}: the saved geometry {str(geometry)!r} "
+                    f"could not be read: {error}. Restore the file or correct its path."
+                ) from error
             raise CampaignConfigError(
                 f"case {case.sim_id!r}: {what} are in metres, and the solver reads them in "
                 f"the simulation's length unit, which this saved simulation does not let the "

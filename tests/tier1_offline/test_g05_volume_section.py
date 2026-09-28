@@ -1,11 +1,12 @@
 # GEOVERSE_HEADER
-# file_version: "1.0.0"
-# last_modified_at: 2026-09-27T20:10:17.351Z
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
-# dependencies: []
+# file_version: "1.0.1"
+# last_modified_at: 2026-09-28T00:24:35.366Z
+# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
+# dependencies: [pyflightstream.cases.workflows, test_workflows.py]
+# authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Clarify provenance and keep validation formatting concise.
+# change_summary: Preserve missing-frame refusal and prove unsteady REFERENCE volume sampling.
 # revision_source: git
 """Tier 1: a volume section declared in the pproc, created and exported per steady point (G05).
 
@@ -405,11 +406,37 @@ def test_g05_a_record_from_before_0_27_0_keeps_its_vsec_files_surface_exports(tm
 @pytest.mark.parametrize(
     ("make", "run_type"), [(unsteady_case, "unsteady"), (rotor_case, "unsteady_rotor")]
 )
-def test_g05_an_unsteady_row_naming_a_volume_section_is_refused(make, run_type):
-    """Unknown time-dependent placement remains an explicit open support gate."""
+def test_g05_unsteady_volume_requires_an_existing_named_frame(make, run_type):
+    """Missing MRP is refused; an explicit REFERENCE survey works in either workflow."""
     case = make().model_copy(update={"pproc": _pproc(**RECTANGLE), "pproc_id": "p005"})
-    with pytest.raises(CampaignConfigError, match=r"\[volume_section\].*REFERENCE"):
+    assert case.recipe == run_type and case.reference is None
+    with pytest.raises(
+        CampaignConfigError,
+        match=r"'p005'.*frame 'MRP'.*sampled volume section.*created no such frame",
+    ):
         build_script(case, Script("26.124"))
+
+    reference_case = case.model_copy(
+        update={"pproc": _pproc(**{**RECTANGLE, "frame": "REFERENCE"})}
+    )
+    script = Script("26.124")
+    build_script(reference_case, script)
+    assert len(script.probe_points) == 4
+    assert {point[1:4] for point in script.probe_points} == {
+        (-1.0, 0.0, -1.0),
+        (-1.0, 0.0, 1.0),
+        (1.0, 0.0, -1.0),
+        (1.0, 0.0, 1.0),
+    }
+    layout = script.probe_field_layout[0]
+    assert layout["kind"] == "volume-section"
+    assert layout["frame"] == "REFERENCE"
+    assert layout["probe_ids"] == [1, 2, 3, 4]
+    assert layout["export_kind"] == "unsteady-fluid-plot"
+    text = script.render()
+    for component in ("VX", "VY", "VZ"):
+        assert f"NAME {component}4\n" in text
+    assert "VOLUME_SECTION" not in text
 
 
 def test_g05_the_volume_file_is_collected_and_hashed(tmp_path):

@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# file_role: cli-option-decision-tests
+# last_modified_at: 2026-09-28T00:17:17.147Z
+# last_modified_by: OpenAI / Codex / unknown / qa-engineer-pyflightstream
+# dependencies: [pyflightstream.run.cli, pyflightstream.options]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Classify explicit release CLI switches and pin their exact subcommand coverage.
+# revision_source: git
 """Tier 1: every command-line option of every console script has chosen.
 
 PFS-2022.06.01, on the decision of design/68 section PFS-2022.06. FR-40
@@ -122,6 +133,14 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # intent, a launch per point; a registry default would spend seats on a
     # rebuild nobody asked to run anything.
     ("pyfs-matrix", "additional_pproc"): SWITCH,
+    # 0.29: generate requested workspace artifacts only for this invocation;
+    # a machine-wide default must not create guides or standards implicitly.
+    ("pyfs-matrix", "setup_guidelines"): SWITCH,
+    ("pyfs-matrix", "setup_standards"): SWITCH,
+    # Presentation of this invocation: show grouped warnings, or inspect saved
+    # diagnostics without rebuilding products. Neither changes solver settings.
+    ("pyfs-matrix", "pproc_warnings"): SWITCH,
+    ("pyfs-matrix", "diagnostics"): SWITCH,
     # 0.21.0: `rename` rehearses with --dry-run, which is a mode switch of the
     # one invocation and changes nothing about the workspace it reads.
     ("pyfs-matrix", "dry_run"): SWITCH,
@@ -269,14 +288,20 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-manual", "versions"): frozenset({"draft"}),
     ("pyfs-manual", "write"): frozenset({"draft", "register"}),
     ("pyfs-matrix", "additional_pproc"): frozenset({"post"}),
-    ("pyfs-matrix", "fs_exe"): frozenset({"convert", "plan", "post", "run"}),
-    ("pyfs-matrix", "fs_version"): frozenset({"convert", "plan", "post", "run"}),
+    ("pyfs-matrix", "setup_guidelines"): frozenset({"inspect-setups", "plan"}),
+    ("pyfs-matrix", "setup_standards"): frozenset({"inspect-setups", "plan"}),
+    ("pyfs-matrix", "pproc_warnings"): frozenset({"collect", "post", "run"}),
+    ("pyfs-matrix", "diagnostics"): frozenset({"post"}),
+    ("pyfs-matrix", "fs_exe"): frozenset({"convert", "inspect-setups", "plan", "post", "run"}),
+    ("pyfs-matrix", "fs_version"): frozenset({"convert", "inspect-setups", "plan", "post", "run"}),
     ("pyfs-matrix", "geometry"): frozenset({"inventory"}),
-    ("pyfs-matrix", "ignore_missing_families"): frozenset({"plan", "run"}),
+    ("pyfs-matrix", "ignore_missing_families"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "in_place"): frozenset({"upgrade"}),
     ("pyfs-matrix", "inputs"): frozenset({"upgrade"}),
-    ("pyfs-matrix", "matrix"): frozenset({"convert", "plan", "post", "run", "upgrade"}),
-    ("pyfs-matrix", "name"): frozenset({"convert", "plan", "run"}),
+    ("pyfs-matrix", "matrix"): frozenset(
+        {"convert", "inspect-setups", "plan", "post", "run", "upgrade"}
+    ),
+    ("pyfs-matrix", "name"): frozenset({"convert", "inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "output"): frozenset({"convert"}),
     ("pyfs-matrix", "overwrite"): frozenset({"inventory"}),
     ("pyfs-matrix", "force_overwrite"): frozenset({"post"}),
@@ -288,22 +313,24 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "interval"): frozenset({"collect"}),
     ("pyfs-matrix", "watch_interval"): frozenset({"collect"}),
     ("pyfs-matrix", "rounds"): frozenset({"collect"}),
-    ("pyfs-matrix", "point_name"): frozenset({"plan", "run"}),
+    ("pyfs-matrix", "point_name"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "dry_run"): frozenset({"rename"}),
-    ("pyfs-matrix", "recipe"): frozenset({"convert", "plan", "post", "run"}),
-    ("pyfs-matrix", "refuse_missing_families"): frozenset({"plan", "run"}),
+    ("pyfs-matrix", "recipe"): frozenset({"convert", "inspect-setups", "plan", "post", "run"}),
+    ("pyfs-matrix", "refuse_missing_families"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "resume"): frozenset({"run"}),
     ("pyfs-matrix", "force_rerun"): frozenset({"run"}),
     ("pyfs-matrix", "force_rerun_all"): frozenset({"run"}),
     ("pyfs-matrix", "sims"): frozenset({"run"}),
     ("pyfs-matrix", "progress_every"): frozenset({"run"}),
-    ("pyfs-matrix", "cost"): frozenset({"plan"}),
-    ("pyfs-matrix", "accept_unregistered_build"): frozenset({"plan", "run"}),
-    ("pyfs-matrix", "update_ids"): frozenset({"plan"}),
+    ("pyfs-matrix", "cost"): frozenset({"inspect-setups", "plan"}),
+    ("pyfs-matrix", "accept_unregistered_build"): frozenset({"inspect-setups", "plan", "run"}),
+    ("pyfs-matrix", "update_ids"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "strict"): frozenset({"post"}),
     ("pyfs-matrix", "sweep_csv"): frozenset({"run"}),
-    ("pyfs-matrix", "workflow"): frozenset({"plan", "run"}),
-    ("pyfs-matrix", "workspace"): frozenset({"collect", "plan", "post", "rename", "run"}),
+    ("pyfs-matrix", "workflow"): frozenset({"inspect-setups", "plan", "run"}),
+    ("pyfs-matrix", "workspace"): frozenset(
+        {"collect", "inspect-setups", "plan", "post", "rename", "run"}
+    ),
     ("pyfs-qa", "campaign"): frozenset({"cost"}),
     ("pyfs-qa", "case"): frozenset({"update-reference"}),
     ("pyfs-qa", "commands"): frozenset({"probe"}),
