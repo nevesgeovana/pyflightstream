@@ -40,6 +40,8 @@ Cross-cutting support modules, importable from any layer:
 - ``exceptions``: the single catalog of every exception and warning.
 - ``testing``: public assertions with quantified violation reports.
 - ``_cli``: private invocation outcome reporting and scoped terminal policy.
+- ``_progress``: private durable stage events and failure context in the
+  workspace logs.
 
 Where to start:
 
@@ -49,7 +51,6 @@ Where to start:
   overview, rendered from the live module docstrings.
 - The published docs site carries the same reference and overview plus
   the compatibility matrix and worked examples.
-* ``_progress`` records durable stage events and failure context.
 """
 
 from importlib import metadata

@@ -322,3 +322,20 @@ def test_the_user_guide_diagram_is_derived_from_the_module_data():
         "in pyflightstream/overview.py, which is the single home of it; the "
         "guide is not built by CI, so nothing else would have said so"
     )
+
+
+def test_package_docstring_lists_are_well_formed():
+    """Q0-src-other-3: a stray `*` bullet glued to a `-` list broke the list."""
+    import io
+
+    import pytest
+
+    core = pytest.importorskip("docutils.core")
+    stream = io.StringIO()
+    core.publish_doctree(
+        pyflightstream.__doc__,
+        settings_overrides={"warning_stream": stream, "report_level": 2, "halt_level": 5},
+    )
+    assert "Bullet list ends without a blank line" not in stream.getvalue()
+    where_to_start = pyflightstream.__doc__.split("Where to start:", 1)[1]
+    assert "_progress" not in where_to_start, "a private module is not an entry point"
