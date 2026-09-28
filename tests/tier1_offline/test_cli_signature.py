@@ -7,7 +7,7 @@ import pytest
 
 @pytest.mark.parametrize("name", ["run", "workspace", "qa", "utils", "fsi"])
 def test_help_has_one_signature_and_keeps_help_stdout(name, capsys):
-    """GOAL033:logging:checks:literal_signature_geoversegoddes."""
+    """Help of every CLI module keeps usage on stdout and one signature on stderr."""
     main = importlib.import_module(f"pyflightstream.{name}.cli").main
     with pytest.raises(SystemExit) as exited:
         main(["--help"])
@@ -17,6 +17,54 @@ def test_help_has_one_signature_and_keeps_help_stdout(name, capsys):
     assert "Ass: geoversegoddes" not in streams.out
     assert streams.err.count("Ass: geoversegoddes") == 1
     assert "help" in streams.err.lower()
+
+
+def test_every_outcome_signs_with_the_exact_literal_attribution(capsys):
+    """GOAL033:logging:checks:literal_signature_geoversegoddes.
+
+    The attribution is the owner's latest explicit spelling, verbatim, on every
+    outcome path: success, failure, help, version and cancellation.
+    """
+    import re
+
+    from pyflightstream._cli import cli_entrypoint
+
+    def returns(code):
+        return lambda argv: code
+
+    def exits(code):
+        def command(argv):
+            raise SystemExit(code)
+
+        return command
+
+    def interrupted(argv):
+        raise KeyboardInterrupt
+
+    paths = {
+        "success": (returns(0), [], None),
+        "failed": (returns(1), [], None),
+        "help": (exits(0), ["--help"], SystemExit),
+        "version": (exits(0), ["--version"], SystemExit),
+        "cancelled": (interrupted, [], KeyboardInterrupt),
+    }
+    signatures = []
+    for outcome, (body, argv, raised) in paths.items():
+        command = cli_entrypoint(body)
+        if raised is None:
+            command(argv)
+        else:
+            with pytest.raises(raised):
+                command(argv)
+        streams = capsys.readouterr()
+        assert streams.out == "", outcome
+        lines = streams.err.splitlines()
+        assert len(lines) == 1, outcome
+        found = re.fullmatch(r".+ Ass: (\S+)", lines[0])
+        assert found is not None, outcome
+        signatures.append(found.group(1))
+        assert "geoversegoddess" not in streams.err, outcome
+    assert signatures == ["geoversegoddes"] * len(paths)
 
 
 def test_invalid_arguments_are_not_congratulated(capsys):
