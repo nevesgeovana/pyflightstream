@@ -23,7 +23,18 @@ from tests.tier1_offline.test_workspace_fsi_setup import CALCULATED, SUPPLIED
         ("cg_offset_chordwise", "cg_offset_chordwise_m"),
         ("cg_offset_normal", "cg_offset_normal_m"),
     ],
-    ids=lambda item: item,
+    ids=(
+        "geometric_pitch",
+        "mass_per_length",
+        "inertia_major",
+        "inertia_minor",
+        "bending_stiffness",
+        "torsional_stiffness",
+        "elastic_axis_offset_chordwise",
+        "elastic_axis_offset_normal",
+        "cg_offset_chordwise",
+        "cg_offset_normal",
+    ),
 )
 def test_supplied_property_factor_preserves_base_and_other_properties(
     tmp_path, property_name, field
@@ -143,16 +154,138 @@ def test_supplied_stiffness_and_mass_need_no_material_inference(tmp_path):
     assert result.effective.blade.torsion_stiffness_n_m2 == [5.0, 10.0]
 
 
-@pytest.mark.parametrize("template", [SUPPLIED, CALCULATED], ids=["supplied", "calculated"])
-def test_absent_calibration_keeps_every_property_and_factor_at_unity(tmp_path, template):
-    """GOAL033:fsi:checks:unity_default."""
-    path = tmp_path / "f001.toml"
-    path.write_text(template.replace("bending_stiffness_n_m2 = 2.0", ""), encoding="utf-8")
-    result = resolve_fsi_setup(path)
-    assert result.effective.model_dump() == result.base.model_dump()
-    assert len(result.factors) == 14
-    assert set(result.factors.values()) == {1.0}
-    assert set(result.origins.values()) == {"unity"}
+CALIBRATABLE_FIELDS = {
+    "geometric_pitch_deg",
+    "mass_per_length_kg_per_m",
+    "inertia_major_kg_m",
+    "inertia_minor_kg_m",
+    "bending_stiffness_n_m2",
+    "torsion_stiffness_n_m2",
+    "elastic_axis_offset_chordwise_m",
+    "elastic_axis_offset_normal_m",
+    "cg_offset_chordwise_m",
+    "cg_offset_normal_m",
+    "density_kg_per_m3",
+    "youngs_modulus_pa",
+    "shear_modulus_pa",
+    "poisson_ratio",
+}
+
+
+def test_absent_calibration_keeps_every_property_and_factor_at_unity(tmp_path):
+    """Both property modes, with no factor named, resolve every factor to unity.
+
+    Coordinates (station radii, chord) and provenance metadata carry no
+    factor at all: the factor set is exactly the fourteen physical fields.
+
+    GOAL033:fsi:checks:unity_default
+    """
+    for name, template in (("supplied", SUPPLIED), ("calculated", CALCULATED)):
+        path = tmp_path / name / "f001.toml"
+        path.parent.mkdir()
+        path.write_text(template.replace("bending_stiffness_n_m2 = 2.0", ""), encoding="utf-8")
+        result = resolve_fsi_setup(path)
+        assert result.effective.model_dump() == result.base.model_dump(), name
+        assert len(result.factors) == 14, name
+        assert set(result.factors) == CALIBRATABLE_FIELDS, name
+        assert set(result.factors.values()) == {1.0}, name
+        assert set(result.origins.values()) == {"unity"}, name
+        if result.material_base is not None:
+            assert result.material_effective == result.material_base, name
+
+
+def test_calibration_preserves_the_base_inputs_it_scales(tmp_path):
+    """Every factor a mode admits, from file and matrix at once, leaves the base intact.
+
+    The source file bytes, the resolved base and the staged base record stay
+    those of the uncalibrated input, while every scaled effective value moves.
+
+    GOAL033:fsi:checks:base_preserved
+    """
+    supplied = SUPPLIED.replace("bending_stiffness_n_m2 = 2.0\n", "")
+    supplied = supplied.replace("= [0.0, 0.0]", "= [-0.001, 0.002]")
+    supplied = supplied.replace(
+        "geometric_pitch_deg = [-0.001, 0.002]", "geometric_pitch_deg = [-10.0, 20.0]"
+    )
+    calculated = CALCULATED.replace(
+        "geometric_pitch_deg = [0.0, 0.0]", "geometric_pitch_deg = [-10.0, 20.0]"
+    )
+    cases = (
+        (
+            "supplied",
+            supplied,
+            {
+                "bending_stiffness_n_m2": 2.0,
+                "mass_per_length_kg_per_m": 1.2,
+                "geometric_pitch_deg": 1.5,
+                "elastic_axis_offset_chordwise_m": 1.1,
+                "cg_offset_chordwise_m": 1.3,
+            },
+            {
+                "torsion_stiffness_n_m2": 1.5,
+                "inertia_major_kg_m": 1.25,
+                "inertia_minor_kg_m": 1.25,
+                "elastic_axis_offset_normal_m": 0.9,
+                "cg_offset_normal_m": 0.8,
+            },
+        ),
+        (
+            "calculated",
+            calculated,
+            {"density_kg_per_m3": 1.05, "youngs_modulus_pa": 1.1},
+            {"shear_modulus_pa": 1.2, "poisson_ratio": 1.02, "geometric_pitch_deg": 1.5},
+        ),
+    )
+    for name, template, from_file, from_matrix in cases:
+        reference_path = tmp_path / name / "reference.toml"
+        reference_path.parent.mkdir()
+        reference_path.write_text(template, encoding="utf-8")
+        reference = resolve_fsi_setup(reference_path)
+        assert set(reference.origins.values()) == {"unity"}, name
+        block = "".join(f"{key} = {value}\n" for key, value in from_file.items())
+        if "[calibration]\n" in template:
+            source = template.replace("[calibration]\n", "[calibration]\n" + block)
+        else:
+            source = template.replace("[config]\n", "[calibration]\n" + block + "[config]\n")
+        folder = tmp_path / name / "fsi"
+        folder.mkdir()
+        path = folder / "f001.toml"
+        path.write_text(source, encoding="utf-8")
+        source_bytes = path.read_bytes()
+        row = {"FSI": "f001"}
+        row.update({f"FSI_{key.upper()}_FACTOR": str(value) for key, value in from_matrix.items()})
+        result = resolve_row_fsi(tmp_path / name, row)
+        assert result is not None, name
+        assert path.read_bytes() == source_bytes, name
+        assert result.base.model_dump() == reference.base.model_dump(), name
+        assert result.base.blade.geometric_pitch_deg == [-10.0, 20.0], name
+        assert result.material_base == reference.material_base, name
+        for key, factor in {**from_file, **from_matrix}.items():
+            assert result.factors[key] == factor, (name, key)
+            assert result.origins[key] == ("file" if key in from_file else "matrix"), (name, key)
+            if key in CALIBRATABLE_FIELDS - set(result.material_base or {}):
+                base_values = getattr(result.base.blade, key)
+                assert getattr(result.effective.blade, key) == pytest.approx(
+                    [factor * value for value in base_values]
+                ), (name, key)
+                assert getattr(result.effective.blade, key) != base_values, (name, key)
+            else:
+                assert result.material_effective[key] == pytest.approx(
+                    factor * result.material_base[key]
+                ), (name, key)
+        if name == "supplied":
+            assert result.base.blade.bending_stiffness_n_m2 == [10.0, 20.0]
+            assert result.effective.blade.bending_stiffness_n_m2 == [20.0, 40.0]
+        else:
+            assert result.effective.blade.mass_per_length_kg_per_m != pytest.approx(
+                result.base.blade.mass_per_length_kg_per_m
+            )
+        config, provenance = stage_fsi_setup(result, tmp_path / name / "run")
+        recorded = json.loads(provenance.read_text())
+        assert recorded["base"] == reference.base.model_dump(mode="json"), name
+        assert recorded["source_sha256"] == hashlib.sha256(source_bytes).hexdigest(), name
+        assert json.loads(config.read_text()) == result.effective.model_dump(mode="json"), name
+        assert path.read_bytes() == source_bytes, name
 
 
 def test_explicit_matrix_unity_overrides_file_calibration(tmp_path):
