@@ -368,10 +368,39 @@ def validate_zenodo_record(receipt: object, tree: Tree, repo: str) -> dict:
     return record
 
 
-def validate_zenodo_files(receipt: object, tree: Tree) -> dict:
+def validate_zenodo_files(receipt: object, tree: Tree, repo: str) -> dict:
     roles, facts = _publication(receipt, "zenodo_files", tree)
     record = _json(roles, "record_response")
     _need(isinstance(facts.get("doi"), str) and record.get("doi") == facts["doi"], "doi")
+    _need(facts.get("repository") == repo, f"repository is not origin's {repo}")
+    # CXQ8R7-3: matching file hashes alone do not establish that this record IS the
+    # published v<version> release; require the same publication facts
+    # validate_zenodo_record checks (submitted, version, a related identifier naming
+    # this repository at this tag), so an unrelated or unpublished record is refused.
+    _need(record.get("submitted") is True, "the record is not published")
+    metadata = record.get("metadata")
+    _need(isinstance(metadata, dict), "the answer has no metadata")
+    _need(
+        metadata.get("version") in {tree.version, f"v{tree.version}"},
+        f"metadata.version is not {tree.version}",
+    )
+    tag = f"v{tree.version}"
+    links = [
+        str(x.get("identifier", ""))
+        for x in metadata.get("related_identifiers", [])
+        if isinstance(x, dict)
+    ]
+    _need(
+        any(
+            x
+            in {
+                f"https://github.com/{repo}/tree/{tag}",
+                f"https://github.com/{repo}/releases/tag/{tag}",
+            }
+            for x in links
+        ),
+        f"no related identifier names {repo} at {tag}",
+    )
     files = record.get("files")
     _need(isinstance(files, list) and files, "the record publishes no file")
     keys = [f.get("key") for f in files if isinstance(f, dict)]
@@ -404,6 +433,12 @@ def _validate_runs(receipt: object, ident: str, family: str, tree: Tree, repo: s
     runs = _json(roles, "runs_response").get("workflow_runs")
     _need(isinstance(runs, list), "the answer has no workflow_runs")
     _need(all(isinstance(r, dict) and r.get("head_sha") == tree.head for r in runs), "head_sha")
+    # CXQ8R7-4: the api_url already names repo, but the answer's own claim must agree:
+    # a fork can share HEAD's commit sha and still not be this repository's CI.
+    _need(
+        all(isinstance(r, dict) and r.get("repository", {}).get("full_name") == repo for r in runs),
+        f"a run does not name {repo} as its own repository",
+    )
     names = sorted({str(r.get("name", "")) for r in runs if family in str(r.get("name")).lower()})
     _need(names, f"no {family} workflow ran for HEAD")
     _need(family in names, f"required {family} workflow did not run")
@@ -507,7 +542,15 @@ def _validate_fsi(roles: dict[str, Path], facts: dict) -> None:
     calibrations = fsi.get("calibrations")
     _need(isinstance(calibrations, dict), "calibrations missing")
     assert isinstance(calibrations, dict)
+    from pyflightstream._fsi_calibration import CALIBRATION_FACTORS, MATRIX_FACTORS
+
     from_file = _calibration(calibrations.get("file"), "file")
+    # CXQ8R7-2: a file calibration naming a property the product does not
+    # recognize (bending_stiffness, missing its _n_m2 unit suffix, is not
+    # one) is unusable even though it is internally consistent, so it must
+    # be refused rather than certify the study.
+    unsupported = sorted(set(from_file) - set(CALIBRATION_FACTORS))
+    _need(not unsupported, f"file calibration names unsupported properties: {unsupported}")
     try:
         parsed = tomllib.loads(_role(roles, "calibration_file").read_text(encoding="utf-8"))
     except tomllib.TOMLDecodeError as error:
@@ -519,7 +562,6 @@ def _validate_fsi(roles: dict[str, Path], facts: dict) -> None:
     from_matrix = _calibration(calibrations.get("matrix"), "matrix")
     columns = calibrations["matrix"].get("columns")
     _need(isinstance(columns, dict) and set(columns) == set(from_matrix), "matrix columns")
-    from pyflightstream._fsi_calibration import MATRIX_FACTORS
     from pyflightstream.cases.matrix import MatrixError, read_matrix
 
     selected = calibrations["matrix"].get("pol")
@@ -664,7 +706,8 @@ def test_publication_zenodo_files_receipt():
 
     GOAL033:publication:checks:zenodo_files
     """
-    record = validate_zenodo_files(_receipt("GOAL033_ZENODO_FILES_RECEIPT"), _real_tree())
+    receipt, tree = _receipt("GOAL033_ZENODO_FILES_RECEIPT"), _real_tree()
+    record = validate_zenodo_files(receipt, tree, _origin_repository())
     assert record["files"]
 
 
@@ -910,6 +953,22 @@ def _drop_role(role: str) -> Callable[[dict], None]:
     return mutate
 
 
+def _fsi_file_unsupported_key(receipt: dict) -> None:
+    """CXQ8R7-2: self-consistent with its own TOML, naming a property the
+    product does not recognize (the unit-less spelling, not the real
+    ``bending_stiffness_n_m2``). Internal consistency alone must not certify
+    an unusable calibration file."""
+    item = next(a for a in receipt["artifacts"] if a["role"] == "calibration_file")
+    path = Path(item["path"])
+    path.write_text("[calibration]\nbending_stiffness = 1.2\n", encoding="utf-8")
+    item["sha256"] = _sha256(path)
+    receipt["facts"]["fsi"]["calibrations"]["file"].update(
+        factors={"bending_stiffness": 1.2},
+        base={"bending_stiffness": 100.0},
+        effective={"bending_stiffness": 120.0},
+    )
+
+
 def _set(*keys: str | int, value: object) -> Callable[[dict], None]:
     def mutate(receipt: dict) -> None:
         target = receipt
@@ -930,6 +989,12 @@ def _no_ci_ran(receipt: dict) -> None:
 
     _replace_json("runs_response", rename)(receipt)
     receipt["facts"]["workflows"] = ["special"]
+
+
+def _to_foreign_fork(data: dict) -> None:
+    """CXQ8R7-4: every captured run now claims a fork as its own repository."""
+    for run in data["workflow_runs"]:
+        run["repository"] = {"full_name": "someone/foreign-fork"}
 
 
 def _bad_hash(receipt: dict) -> None:
@@ -1031,23 +1096,46 @@ def _build_zenodo_files(tmp: Path) -> dict:
             _art("record_response", _dump(tmp / "record.json", _zenodo_answer([entry]))),
             _art(f"file:{ZENODO_KEY}", archive),
         ],
-        {"doi": "10.5281/zenodo.7001"},
+        {"doi": "10.5281/zenodo.7001", "repository": REPO},
         code=False,
     )
 
 
 def _build_runs(tmp: Path, ident: str, names: list[str]) -> dict:
+    owned = {"full_name": REPO}
     runs = [
-        {"id": 10, "name": "ci", "head_sha": HEAD, "status": "completed", "conclusion": "failure"},
-        {"id": 11, "name": "ci", "head_sha": HEAD, "status": "completed", "conclusion": "success"},
+        {
+            "id": 10,
+            "name": "ci",
+            "head_sha": HEAD,
+            "status": "completed",
+            "conclusion": "failure",
+            "repository": owned,
+        },
+        {
+            "id": 11,
+            "name": "ci",
+            "head_sha": HEAD,
+            "status": "completed",
+            "conclusion": "success",
+            "repository": owned,
+        },
         {
             "id": 12,
             "name": "docs",
             "head_sha": HEAD,
             "status": "completed",
             "conclusion": "success",
+            "repository": owned,
         },
-        {"id": 13, "name": "Release", "head_sha": HEAD, "status": "completed", "conclusion": "x"},
+        {
+            "id": 13,
+            "name": "Release",
+            "head_sha": HEAD,
+            "status": "completed",
+            "conclusion": "x",
+            "repository": owned,
+        },
     ]
     url = f"https://api.github.com/repos/{REPO}/actions/runs?head_sha={HEAD}&per_page=100"
     return _base(
@@ -1152,14 +1240,14 @@ def _build_study(tmp: Path, study: str) -> dict:
             result = _dump(tmp / f"{case['id']}.json", {"case": case["id"], "complete": True})
             artifacts.append(_art(f"result:{case['id']}", result))
     if study in FSI_STUDIES:
-        calibration = _write(tmp / "F.toml", "[calibration]\nbending_stiffness = 1.2\n")
+        calibration = _write(tmp / "F.toml", "[calibration]\nbending_stiffness_n_m2 = 1.2\n")
         facts["fsi"] = {
             "material": MATERIAL,
             "calibrations": {
                 "file": {
-                    "factors": {"bending_stiffness": 1.2},
-                    "base": {"bending_stiffness": 100.0},
-                    "effective": {"bending_stiffness": 120.0},
+                    "factors": {"bending_stiffness_n_m2": 1.2},
+                    "base": {"bending_stiffness_n_m2": 100.0},
+                    "effective": {"bending_stiffness_n_m2": 120.0},
                 },
                 "matrix": {
                     "pol": "001",
@@ -1279,7 +1367,7 @@ PUBLICATION: dict[str, tuple[Callable, Callable, dict[str, Callable[[dict], None
     ),
     "zenodo_files": (
         _build_zenodo_files,
-        validate_zenodo_files,
+        _with_repo(validate_zenodo_files),
         {
             "md5": _replace_json(
                 "record_response", lambda d: d["files"][0].update(checksum="md5:" + "0" * 32)
@@ -1290,6 +1378,16 @@ PUBLICATION: dict[str, tuple[Callable, Callable, dict[str, Callable[[dict], None
             ),
             "local_missing": _drop_role(f"file:{ZENODO_KEY}"),
             "size": _replace_json("record_response", lambda d: d["files"][0].update(size=1)),
+            # CXQ8R7-3: correct file hashes must not certify publication of a record that
+            # is another one, unpublished, or of another version or repository.
+            "repository": _set("facts", "repository", value="someone/else"),
+            "not_submitted": _replace_json("record_response", lambda d: d.update(submitted=False)),
+            "metadata_version": _replace_json(
+                "record_response", lambda d: d["metadata"].update(version="v0.28.0")
+            ),
+            "no_release_link": _replace_json(
+                "record_response", lambda d: d["metadata"].update(related_identifiers=[])
+            ),
         },
     ),
     "ci": (
@@ -1312,6 +1410,9 @@ PUBLICATION: dict[str, tuple[Callable, Callable, dict[str, Callable[[dict], None
             "api_url": _set("facts", "api_url", value="https://api.github.com/"),
             # CXQ8R6-5: an unrelated workflow whose name contains "ci", and no ci run.
             "no_ci_ran": _no_ci_ran,
+            # CXQ8R7-4: a fork can share HEAD's sha; its green runs must not certify
+            # this repository's CI.
+            "foreign_repo": _replace_json("runs_response", _to_foreign_fork),
         },
     ),
     "docs_ci": (
@@ -1391,10 +1492,11 @@ def _study_corruptions(study: str) -> dict[str, Callable[[dict], None]]:
         fsi = ("facts", "fsi", "calibrations")
         own |= {
             "material": _set("facts", "fsi", "material", value="Al-7075"),
-            "effective": _set(*fsi, "file", "effective", "bending_stiffness", value=100.0),
+            "effective": _set(*fsi, "file", "effective", "bending_stiffness_n_m2", value=100.0),
             "factor_not_in_file": lambda r: r["facts"]["fsi"]["calibrations"]["file"].update(
-                factors={"bending_stiffness": 1.3}, effective={"bending_stiffness": 130.0}
+                factors={"bending_stiffness_n_m2": 1.3}, effective={"bending_stiffness_n_m2": 130.0}
             ),
+            "file_unsupported_key": _fsi_file_unsupported_key,
             "matrix_column": _set(
                 *fsi, "matrix", "columns", "bending_stiffness_n_m2", value="NOPE"
             ),
@@ -1464,7 +1566,8 @@ def test_zenodo_files_refuses_the_right_name_in_another_folder(tmp_path):
     """The key is matched segment by segment, so the archive's own name in a folder that
     is not the key's owner is refused although its bytes and md5 are the record's."""
     receipt = _build_zenodo_files(tmp_path)
-    validate_zenodo_files(copy.deepcopy(receipt), _tree())  # the control: as built, accepted
+    # the control: as built, accepted
+    validate_zenodo_files(copy.deepcopy(receipt), _tree(), REPO)
     moved = tmp_path / "files" / "someone-else" / f"pyflightstream-v{VERSION}.zip"
     moved.parent.mkdir(parents=True)
     (tmp_path / "files" / ZENODO_KEY).rename(moved)
@@ -1472,7 +1575,7 @@ def test_zenodo_files_refuses_the_right_name_in_another_folder(tmp_path):
         if artifact["role"] == f"file:{ZENODO_KEY}":
             artifact["path"] = str(moved)
     with pytest.raises(ReceiptRefusedError, match="another name"):
-        validate_zenodo_files(receipt, _tree())
+        validate_zenodo_files(receipt, _tree(), REPO)
 
 
 def test_a_marker_test_skips_naming_its_variable_when_the_receipt_is_absent(monkeypatch):
