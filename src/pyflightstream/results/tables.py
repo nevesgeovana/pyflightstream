@@ -49,9 +49,13 @@ The manifest is read only through the public API of
 :mod:`pyflightstream.workspace`, and this module imports that layer
 NOWHERE at runtime: :func:`parse_run_loads` and :func:`sweep_table` take
 a :class:`~pyflightstream.workspace.CampaignWorkspace` the caller has
-already constructed. The only mention of the workspace layer here is an
-annotation, under ``if TYPE_CHECKING``, which the interpreter never
-executes.
+already constructed. Since 0.29.0 (GEO-060 B1) the module does not name
+the workspace layer even for the type checker: the annotations read two
+structural protocols defined HERE, :class:`_ManifestRecord` and
+:class:`_ManifestWorkspace`, which state the handful of attributes this
+module reads. A ``TYPE_CHECKING`` import never executes, but it still
+records an upward dependency in the type checker's graph, and the
+matrix reader was held to the same rule (OPS-2007.02.02).
 
 That is a CHANGE, and the reason it is worth a paragraph. Both
 functions used to accept a bare root path as well, coerced by a helper
@@ -69,9 +73,9 @@ which is one line and is what every shipped example already did.
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Protocol
 
 import pandas as pd
 
@@ -109,8 +113,60 @@ from pyflightstream.results import (
 )
 from pyflightstream.results.conditions import bind_conditions
 
-if TYPE_CHECKING:  # typing only: no runtime import of the execution layers
-    from pyflightstream.workspace import CampaignWorkspace, RunRecord
+
+class _ManifestRecord(Protocol):
+    """What this module reads off one manifest record.
+
+    :class:`pyflightstream.workspace.RunRecord` satisfies it structurally;
+    naming that class here would record the results layer depending on the
+    workspace layer above it (GEO-060 B1). Read-only properties, so a
+    record whose fields are narrower (``dict`` for ``Mapping``, the status
+    enum for ``object``) still matches.
+    """
+
+    @property
+    def run_id(self) -> str: ...
+    @property
+    def sim_id(self) -> str: ...
+    @property
+    def point(self) -> Mapping[str, float]: ...
+    @property
+    def status(self) -> object: ...
+    @property
+    def outputs(self) -> Sequence[str]: ...
+    @property
+    def matrix_stem(self) -> str | None: ...
+    @property
+    def velocity_requested_m_s(self) -> float | None: ...
+    @property
+    def fs_version_requested(self) -> str: ...
+    @property
+    def fs_version_reported(self) -> str | None: ...
+    @property
+    def fs_build(self) -> str | None: ...
+    @property
+    def package_version(self) -> str: ...
+    @property
+    def iterations(self) -> int | None: ...
+    @property
+    def residual(self) -> float | None: ...
+    @property
+    def wall_time_s(self) -> float | None: ...
+    def as_points(self) -> Sequence[_ManifestRecord]: ...
+
+
+class _ManifestWorkspace(Protocol):
+    """What this module reads off a constructed campaign workspace.
+
+    :class:`pyflightstream.workspace.CampaignWorkspace` satisfies it
+    structurally, for the reason :class:`_ManifestRecord` gives.
+    """
+
+    @property
+    def root(self) -> Path: ...
+    def sim_dir(self, sim_id: str) -> Path: ...
+    def read_manifest(self) -> Sequence[_ManifestRecord]: ...
+
 
 #: The statuses of a run that FINISHED WITHOUT FAILING, and so owed a
 #: coefficient table. Named by value, because this layer imports the
@@ -502,7 +558,7 @@ def _refuse_a_frame_that_cannot_say_what_it_is(frame: pd.DataFrame) -> None:
             )
 
 
-def run_table(record: RunRecord, *, loads: LoadsReport | None = None) -> pd.DataFrame:
+def run_table(record: _ManifestRecord, *, loads: LoadsReport | None = None) -> pd.DataFrame:
     """Join one manifest record with its parsed loads into one wide row.
 
     The row carries the run identity and conditions from the manifest
@@ -537,8 +593,8 @@ def run_table(record: RunRecord, *, loads: LoadsReport | None = None) -> pd.Data
 
 
 def parse_run_loads(
-    workspace: CampaignWorkspace,
-    record: RunRecord | str,
+    workspace: _ManifestWorkspace,
+    record: _ManifestRecord | str,
     *,
     loads_file: str | None = None,
 ) -> LoadsReport:
@@ -642,7 +698,7 @@ def parse_run_loads(
     return report
 
 
-def superseded_by_a_continuation(records: Iterable[RunRecord]) -> dict[str, str]:
+def superseded_by_a_continuation(records: Iterable[_ManifestRecord]) -> dict[str, str]:
     """Return the runs a later run CONTINUED, each mapped to the run that continued it.
 
     A continuation archives the contents of the point's folder and writes into
@@ -663,7 +719,7 @@ def superseded_by_a_continuation(records: Iterable[RunRecord]) -> dict[str, str]
 
 
 def sweep_table(
-    workspace: CampaignWorkspace,
+    workspace: _ManifestWorkspace,
     *,
     loads_file: str | None = None,
     require_loads: bool = True,
@@ -1130,7 +1186,7 @@ def _looks_like_sectional(result: object) -> bool:
     )
 
 
-def _run_row(record: RunRecord, loads: LoadsReport | None) -> dict[str, object]:
+def _run_row(record: _ManifestRecord, loads: LoadsReport | None) -> dict[str, object]:
     """Build the wide row of one run: manifest identity plus coefficients."""
     row: dict[str, object] = {
         POLAR_ID_COLUMN: record.sim_id,
@@ -1234,7 +1290,7 @@ def _refuse_a_bare_root(workspace: object, caller: str) -> None:
     )
 
 
-def _as_record(workspace: CampaignWorkspace, record: RunRecord | str) -> RunRecord:
+def _as_record(workspace: _ManifestWorkspace, record: _ManifestRecord | str) -> _ManifestRecord:
     """Look a run_id up in the manifest, or pass a record through."""
     if not isinstance(record, str):
         return record
@@ -1249,7 +1305,7 @@ def _as_record(workspace: CampaignWorkspace, record: RunRecord | str) -> RunReco
     )
 
 
-def _read_output(sim_dir: Path, name: str, record: RunRecord) -> str:
+def _read_output(sim_dir: Path, name: str, record: _ManifestRecord) -> str:
     """Read one collected output of a run, refusing evidence gaps."""
     path = Path(sim_dir) / name
     if not path.is_file():
@@ -1261,7 +1317,7 @@ def _read_output(sim_dir: Path, name: str, record: RunRecord) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
-def _check_point_printback(record: RunRecord, report: LoadsReport, name: str) -> None:
+def _check_point_printback(record: _ManifestRecord, report: LoadsReport, name: str) -> None:
     """Refuse a loads export whose printed conditions contradict the record.
 
     Within one simulation folder a later sweep point overwrites a same
