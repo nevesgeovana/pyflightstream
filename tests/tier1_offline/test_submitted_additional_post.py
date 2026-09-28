@@ -62,3 +62,17 @@ def test_submitted_extraction_waits_then_collects_without_mutating_original(tmp_
     observed = [event for event in events if event["stage"] == "collection"]
     assert {event["event"] for event in observed} >= {"started", "finished"}
     assert all(event["duration_s"] >= 0 for event in observed if event["event"] == "finished")
+
+
+def test_submitted_is_documented_as_pending_and_not_a_workspace_attribute():
+    """Q0-src-workspace-2 (a)(b): a stray class attribute and a wrong doc comment."""
+    import inspect
+
+    from pyflightstream.workspace import CampaignWorkspace, ExtractionStatus
+
+    assert "SUBMITTED" not in vars(CampaignWorkspace)
+    source = inspect.getsource(ExtractionStatus)
+    before_submitted = source.split('SUBMITTED = "SUBMITTED"', 1)[0].rstrip().splitlines()[-1]
+    assert "written and hashed" not in before_submitted
+    assert "written and hashed" in source.split('EXTRACTED = "EXTRACTED"', 1)[0].splitlines()[-2]
+    assert "Terminal status" not in (ExtractionStatus.__doc__ or "")
