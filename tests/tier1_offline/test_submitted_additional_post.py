@@ -1,5 +1,9 @@
 """An extraction stays pending until its own output files are collected."""
 
+from types import SimpleNamespace
+
+import pytest
+
 from pyflightstream.run import ExecutorConfigurationError
 from pyflightstream.run.collect import collect_once
 from tests.tier1_offline.test_additional_post import a_recorded_campaign, a_stub, extract
@@ -62,3 +66,45 @@ def test_submitted_extraction_waits_then_collects_without_mutating_original(tmp_
     observed = [event for event in events if event["stage"] == "collection"]
     assert {event["event"] for event in observed} >= {"started", "finished"}
     assert all(event["duration_s"] >= 0 for event in observed if event["event"] == "finished")
+
+
+def test_a_translation_problem_refuses_the_extraction_and_keeps_the_copy(tmp_path, monkeypatch):
+    """Q0 CX-4: an existing .dat whose provenance changed is not an extraction.
+
+    The translation reports the problem; collection checked only that the
+    declared files existed, recorded EXTRACTED and deleted the private copy.
+    """
+    import pyflightstream.run.collect as collect
+    import pyflightstream.run.matrix as run_matrix
+    from pyflightstream.workspace import ExtractionStatus, WorkspaceError
+
+    sim_dir = tmp_path / "sim"
+    folder = sim_dir / "work"
+    folder.mkdir(parents=True)
+    (folder / "surface.dat").write_text("stale", encoding="utf-8")
+    copy = folder / "point.reopened.fsm"
+    copy.write_text("private copy", encoding="utf-8")
+    record = SimpleNamespace(
+        surface_translations=[{"vtk": "surface.vtk", "dat": "surface.dat"}],
+        declared_outputs=["surface.dat"],
+        model_dump=lambda: {},
+    )
+    problem = "surface.dat is preserved: source, frame or output provenance changed"
+    monkeypatch.setattr(
+        collect,
+        "translate_surface_exports",
+        lambda where, translations: [{**translations[0], "written": [], "problems": [problem]}],
+    )
+    recorded = []
+    monkeypatch.setattr(
+        run_matrix,
+        "record_additional_extraction",
+        lambda workspace, base, **kw: (
+            recorded.append(kw)
+            or SimpleNamespace(status=ExtractionStatus.EXTRACTED, outputs=kw["outputs"])
+        ),
+    )
+    with pytest.raises(WorkspaceError, match="provenance changed"):
+        collect._finish_additional(None, record, (sim_dir, folder, tmp_path / "o.fsm", copy))
+    assert not recorded, "a failed translation was recorded as an extraction"
+    assert copy.is_file(), "the private simulation copy was deleted after a failed translation"

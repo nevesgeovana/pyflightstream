@@ -186,6 +186,30 @@ def test_a_script_changes_sections_only_by_a_command_line(text, creates):
     assert creates_surface_sections(text) is creates
 
 
+_TWO_DISTRIBUTIONS = (
+    "EDIT_COORDINATE_SYSTEM\nFRAME 1\nNAME REFERENCE\n"
+    + "NEW_SURFACE_SECTION_DISTRIBUTION\nFRAME 1\nPLANE XZ\nNUM_SECTIONS 4\n"
+    "PLOT_DIRECTION Y\nSURFACES -1\n" * 2
+)
+
+
+@pytest.mark.parametrize(
+    "change",
+    ["DELETE_SURFACE_SECTION 1\n", "DELETE_ALL_SURFACE_SECTIONS\n", "CREATE_NEW_SURFACE_SECTION\n"],
+    ids=["delete-inline", "delete-all", "create"],
+)
+def test_a_legacy_script_that_changes_a_section_is_not_read_as_append_only(change):
+    """Q0 CX-6: `DELETE_SURFACE_SECTION` is INLINE, so a whole-line match missed it.
+
+    Two distributions and a deletion were reconstructed as two distributions.
+    """
+    from pyflightstream.post.section_distributions import _legacy_script_layout
+
+    assert len(_legacy_script_layout(_TWO_DISTRIBUTIONS, ["Wing"])) == 2
+    with pytest.raises(ValueError, match="changes sections outside explicit distributions"):
+        _legacy_script_layout(_TWO_DISTRIBUTIONS + change, ["Wing"])
+
+
 @pytest.mark.parametrize("shape", ["point", "job"])
 def test_a_steady_row_that_created_no_distribution_is_not_refused_a_split(tmp_path, shape):
     """Its exports hold no section; the split was refused twice per point."""

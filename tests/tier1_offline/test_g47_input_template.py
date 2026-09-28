@@ -853,3 +853,23 @@ def test_g47_a_steady_rectangle_or_circle_emits_volume_probe_points(tmp_path):
         # ring of four.
         assert len(lines) == 6 + 1 + 4, (build, lines)
         assert all(line.startswith("NEW_PROBE_POINT VOLUME ") for line in lines), lines
+
+
+def test_the_template_states_the_workbook_and_unsteady_outputs_the_package_supports():
+    """Q0 CX-9: the template described what 0.29.0 no longer does.
+
+    The workbook is macro-free (docs/excel-matrices.md), a volume section is
+    sampled by probes on both run types, and an unsteady row saves its section
+    Cp once after the march; the template called the workbook embedded-VBA and
+    said both unsteady outputs were refused at plan.
+    """
+    import pyflightstream.post.guides as guides
+    from pyflightstream.cases import STEADY_ONLY_EXPORT_KINDS
+
+    text = " ".join(guides.input_template_markdown().split())
+    assert "plot_sections_cp" not in STEADY_ONLY_EXPORT_KINDS
+    assert "embedded-VBA" not in text
+    assert "macro-free workbook" in text
+    assert "is refused at plan, so this example plans on a steady row" not in text
+    assert "Volume sampling supports both run types." in text
+    assert "Unsteady section Cp describes the final instant, not a time average." in text
