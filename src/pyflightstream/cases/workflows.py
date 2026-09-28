@@ -10391,7 +10391,7 @@ def _pproc_sampled_volume(case, script, frames, vertex: int, *, unsteady: bool) 
     frame = (
         1
         if section.frame == "REFERENCE"
-        else _pproc_frame(case, frames, section.frame, "the sampled volume section")
+        else _pproc_frame(case, frames, section.frame, "the volume section sampled through probes")
     )
     if section.shape == "rectangle":
         count_u, count_v = section.points or (25, 25)

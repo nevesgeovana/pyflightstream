@@ -190,10 +190,7 @@ def test_g05_the_section_is_created_after_the_solve_and_exported_to_its_point():
 
 def test_g05_a_frame_the_run_did_not_create_is_refused():
     """The pproc names the frame; a row whose run made no such frame is told which it made."""
-    with pytest.raises(
-        CampaignConfigError,
-        match=r"'HUB' for the sampled volume section.*created: MRP",
-    ):
+    with pytest.raises(CampaignConfigError, match=r"'HUB' for the volume section.*created: MRP"):
         _lines(_steady(_pproc(**{**RECTANGLE, "frame": "HUB"})))
 
 
@@ -430,7 +427,7 @@ def test_g05_unsteady_volume_requires_an_existing_named_frame(make, run_type):
     assert case.recipe == run_type and case.reference is None
     with pytest.raises(
         CampaignConfigError,
-        match=r"'p005'.*frame 'MRP'.*sampled volume section.*created no such frame",
+        match=r"'p005'.*frame 'MRP'.*volume section sampled through probes.*created no such frame",
     ):
         build_script(case, Script("26.124"))
 
