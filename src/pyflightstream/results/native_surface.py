@@ -4,9 +4,9 @@ Only the single-zone BLOCK layout measured in RPT-074 is accepted. Native
 coordinates are in REFERENCE. :func:`attach_native_strength` matches two
 surfaces already in one frame; the translation of a VTK written in a loads
 frame carries the native INTO that frame instead and matches there
-(:mod:`pyflightstream.results._native_frame`), so the rounding of the written
-VTK is allowed along the axes it was written in. Matching includes connectivity, not
-just equal node counts.
+(``_strength_in_loads_frame`` in :mod:`pyflightstream.results.surface`), so the
+rounding of the written VTK is allowed along the axes it was written in.
+Matching includes connectivity, not just equal node counts.
 """
 
 from __future__ import annotations
