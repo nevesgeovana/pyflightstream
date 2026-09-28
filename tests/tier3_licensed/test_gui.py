@@ -16,6 +16,7 @@ the qa physics preset with five far-field layers, on 26.124:
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 
 import pytest
@@ -37,6 +38,31 @@ def _collected(runs, record, suffix: str):
     return runs.workspace.sim_dir(record.sim_id) / found[0]
 
 
+def _vsec_for(runs, record):
+    """The one ``fields/*_vsec.vtk`` post product this point's run recorded.
+
+    0.29.0 moved the volume section's export from the solver's native
+    per-point output to a post product (docs/migrating-to-0.29.0.md:88-91);
+    this test predates that move and used to read it off ``record.outputs``
+    through ``_collected``, which a sweep job never populates for it. Read
+    the post index by THIS POINT's run_id instead of a bare glob over
+    ``fields/*_vsec.vtk``, which would also match the other point's file.
+    """
+    index_path = runs.products(MATRIX) / "products.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    matches = [
+        key
+        for key, meta in index["products"].items()
+        if key.startswith("fields/")
+        and key.endswith("_vsec.vtk")
+        and record.run_id in meta.get("runs", ())
+    ]
+    assert len(matches) == 1, (
+        f"{record.run_id}: {len(matches)} fields/*_vsec.vtk product(s), {matches}"
+    )
+    return runs.products(MATRIX) / matches[0]
+
+
 @pytest.mark.parametrize(
     ("pol", "alpha"), [("5007", 0.0), ("5007", 4.0), ("5008", 4.0), ("5009", 4.0), ("5010", 4.0)]
 )
@@ -50,7 +76,7 @@ def test_every_row_ran_terminal_on_26_124_with_five_farfield_layers(runs, pol, a
 def test_5007_each_point_exported_its_own_volume_section(runs):
     digests = []
     for alpha in (0.0, 4.0):
-        path = _collected(runs, runs.one(MATRIX, "5007", alpha=alpha), "_vsec.vtk")
+        path = _vsec_for(runs, runs.one(MATRIX, "5007", alpha=alpha))
         assert path.stat().st_size > 100, f"{path.name} holds {path.stat().st_size} bytes"
         digests.append(hashlib.sha256(path.read_bytes()).hexdigest())
     assert digests[0] != digests[1], "the two points exported the same section"
