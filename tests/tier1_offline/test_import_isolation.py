@@ -108,14 +108,23 @@ def _module_names() -> list[str]:
     return names
 
 
-def _import_alone(name: str) -> tuple[str, int, str]:
+def _import_root() -> Path:
+    """Where THIS process imports pyflightstream from: the checkout's ``src``
+    under ``pythonpath = ["src"]``, site-packages in the installed-wheel job."""
+    import pyflightstream
+
+    return Path(pyflightstream.__file__).resolve().parent.parent
+
+
+def _run_child(*arguments: str) -> subprocess.CompletedProcess[str]:
+    root = _import_root()
     env = dict(os.environ)
-    env["PYTHONPATH"] = str(_SRC)
+    env["PYTHONPATH"] = str(root)
     env.pop("PYTHONSTARTUP", None)
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
-    completed = subprocess.run(
-        [sys.executable, "-c", _CHILD, name, *_allowed_roots()],
-        cwd=_SRC,
+    return subprocess.run(
+        [sys.executable, *arguments],
+        cwd=root,
         env=env,
         capture_output=True,
         text=True,
@@ -123,7 +132,29 @@ def _import_alone(name: str) -> tuple[str, int, str]:
         creationflags=creationflags,
         check=False,
     )
+
+
+def _import_alone(name: str) -> tuple[str, int, str]:
+    completed = _run_child("-c", _CHILD, name, *_allowed_roots())
     return name, completed.returncode, (completed.stdout + completed.stderr).strip()
+
+
+def test_each_child_imports_the_distribution_the_parent_selected():
+    """GOAL-034 Q8 CXQ8-3: the children import what this process imports.
+
+    Forcing the checkout's ``src`` made the release job that tests the
+    installed wheel check the checkout instead, so a module the wheel left
+    out passed because its source copy existed. The module INVENTORY stays
+    the repository's; the IMPORT is from the distribution selected here.
+    """
+    import pyflightstream
+
+    completed = _run_child("-c", "import pyflightstream; print(pyflightstream.__file__)")
+    assert completed.returncode == 0, completed.stderr
+    child = Path(completed.stdout.strip()).resolve()
+    assert child == Path(pyflightstream.__file__).resolve(), (
+        f"the parent imports {pyflightstream.__file__} and each child {child}"
+    )
 
 
 def test_a_missing_dependency_no_extra_declares_is_a_failure_not_a_skip(tmp_path):
