@@ -393,8 +393,17 @@ def test_synthetic_duct_import_emits_ports_after_geometry(tmp_path):
     from tests.tier3_licensed.duct import write_duct_obj
 
     fixture = write_duct_obj(tmp_path / "duct.obj")
+    # The whole file, and separately its geometry lines. Only the leading comment
+    # changed when the private provenance header left the generator (GOAL-034):
+    # the geometry lines hash as they did for the measured fixture, 5d9f45af...
     assert hashlib.sha256(fixture.read_bytes()).hexdigest() == (
-        "5d9f45af09d5ea1dbfb42563e56868911dc72db38b843e1c54fc660437d7240c"
+        "3a5b243a5b04de61c107ba69a0b3c39c7998a1337c0f83c4414245f79248f6ee"
+    )
+    geometry = b"".join(
+        line for line in fixture.read_bytes().splitlines(keepends=True) if not line.startswith(b"#")
+    )
+    assert hashlib.sha256(geometry).hexdigest() == (
+        "4bfdbd210f29b7795e875612e85371440e95e904f93cc352457ccc4fc547fb70"
     )
     # The sidecar is a tier-1 fixture (GEO-060 B2, CX-7), so this offline test
     # reads no file of the licensed tier; the generator is only imported.
