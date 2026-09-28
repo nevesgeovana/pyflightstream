@@ -60,6 +60,16 @@ FlightStream versions.
   and warned. This holds on a local point, a local steady job, and a
   collected submitted point or job. A missing solver output, the VTK among
   them, still fails the point exactly as before.
+- **A point whose files cannot be written is recorded, and the run goes on.**
+  An `OSError` while a point's script, its input files or its state were
+  written (a workspace on a network share refusing a write is one cause), or
+  while a row's simulation folder was prepared or a continuation archived
+  what it replaces, escaped the run loop, ended the run and left every later
+  planned point with no record (measured on an HPC share: a row of ten
+  planned points recorded six). Such a point is now recorded FAILED_SCRIPT,
+  or FAILED_INCOMPLETE_OUTPUT when the solver had already run, with the
+  failed write and its remedy in the record's `error`, and the run continues
+  with the next point.
 
 ### Owed
 
