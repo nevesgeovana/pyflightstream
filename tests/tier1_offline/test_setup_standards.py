@@ -487,6 +487,16 @@ def test_every_generated_standard_states_five_farfield_layers():
         assert data.get("farfield_layers") == 5, standard.code
 
 
+def test_generated_guidelines_keep_spaces_in_page_references():
+    # Q0-src-workspace-9: 'and536-544', 'and9', 'FlightStream26.0' were printed.
+    import re
+
+    from pyflightstream.workspace.setup_standards import render_guidelines
+
+    text = render_guidelines("26.124")
+    assert not re.findall(r"\band\d|FlightStream\d", text)
+
+
 def test_solver_settings_refuse_farfield_layers_outside_the_documented_range():
     with pytest.raises(ValidationError):
         SolverSettings(farfield_layers=8)
