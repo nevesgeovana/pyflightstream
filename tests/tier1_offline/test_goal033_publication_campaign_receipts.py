@@ -62,9 +62,12 @@ PUBLICATION (variable -> obligation ``publication:checks:<id>``):
   ``https://github.com/<repo>/releases/tag/v<version>``.
 * ``GOAL033_ZENODO_FILES_RECEIPT`` -> ``zenodo_files``. JSON role
   ``record_response`` as above; role ``file:<key>`` for EVERY file key of the
-  record, and no other ``file:`` role. Facts ``doi``. Each local file is named
-  as its key and its md5 equals the record's ``md5:`` checksum (and its size
-  the record's size where given); one key carries ``v<version>``.
+  record, and no other ``file:`` role. Facts ``doi``. Each local file's path
+  ends with its key, segment by segment (a key such as ``owner/name.zip`` is
+  the file ``name.zip`` in a folder ``owner``), and its md5 equals the record's
+  ``md5:`` checksum (and its size the record's size where given); one key
+  carries ``v<version>``. The record's ``metadata.version`` is the version or
+  ``v<version>``, the tag name Zenodo's GitHub integration records.
 * ``GOAL033_CI_RECEIPT`` -> ``ci`` and ``GOAL033_DOCS_CI_RECEIPT`` ->
   ``docs_ci`` [code]. JSON role ``runs_response`` = GET
   ``https://api.github.com/repos/<repo>/actions/runs?head_sha=<HEAD>&per_page=100``.
@@ -338,7 +341,12 @@ def validate_zenodo_record(receipt: object, tree: Tree, repo: str) -> dict:
     _need(record.get("submitted") is True, "the deposit is not published")
     metadata = record.get("metadata")
     _need(isinstance(metadata, dict), "the answer has no metadata")
-    _need(metadata.get("version") == tree.version, f"metadata.version is not {tree.version}")
+    # Zenodo's GitHub integration records the tag name, so the version reads "v<version>"
+    # (every archive of this package since 0.27.0 does); exactly these two spellings pass.
+    _need(
+        metadata.get("version") in {tree.version, f"v{tree.version}"},
+        f"metadata.version is not {tree.version}",
+    )
     links = [
         str(x.get("identifier", ""))
         for x in metadata.get("related_identifiers", [])
@@ -371,7 +379,13 @@ def validate_zenodo_files(receipt: object, tree: Tree) -> dict:
     _need(local == set(keys), f"local files {sorted(local)} are not the record's {sorted(keys)}")
     for entry in files:
         path = roles[f"file:{entry['key']}"]
-        _need(path.name == entry["key"], f"{entry['key']}: the local file has another name")
+        # A key may carry path segments ("owner/name-v<version>.zip", as Zenodo's GitHub
+        # integration writes it); the local file must sit at that same relative path.
+        segments = entry["key"].split("/")
+        _need(
+            list(path.parts[-len(segments) :]) == segments,
+            f"{entry['key']}: the local file has another name",
+        )
         checksum = str(entry.get("checksum", ""))
         _need(checksum.startswith("md5:"), f"{entry['key']}: checksum domain")
         md5 = hashlib.md5(path.read_bytes(), usedforsecurity=False).hexdigest()
@@ -976,7 +990,8 @@ def _zenodo_answer(files: list[dict]) -> dict:
         "conceptdoi": "10.5281/zenodo.7000",
         "submitted": True,
         "metadata": {
-            "version": VERSION,
+            # As the real records write it: the tag name, with its "v".
+            "version": f"v{VERSION}",
             "related_identifiers": [
                 {"identifier": f"https://github.com/{REPO}/tree/v{VERSION}", "relation": "x"}
             ],
@@ -1000,15 +1015,19 @@ def _build_zenodo_record(tmp: Path) -> dict:
     )
 
 
+#: The key as Zenodo's GitHub integration writes it: owner folder, then the archive.
+ZENODO_KEY = f"{REPO.split('/')[0]}/pyflightstream-v{VERSION}.zip"
+
+
 def _build_zenodo_files(tmp: Path) -> dict:
-    archive = _write(tmp / "files" / f"pyflightstream-v{VERSION}.zip", b"PK archive bytes")
+    archive = _write(tmp / "files" / ZENODO_KEY, b"PK archive bytes")
     md5 = hashlib.md5(archive.read_bytes(), usedforsecurity=False).hexdigest()
-    entry = {"key": archive.name, "checksum": f"md5:{md5}", "size": archive.stat().st_size}
+    entry = {"key": ZENODO_KEY, "checksum": f"md5:{md5}", "size": archive.stat().st_size}
     return _base(
         "publication:checks:zenodo_files",
         [
             _art("record_response", _dump(tmp / "record.json", _zenodo_answer([entry]))),
-            _art(f"file:{archive.name}", archive),
+            _art(f"file:{ZENODO_KEY}", archive),
         ],
         {"doi": "10.5281/zenodo.7001"},
         code=False,
@@ -1229,6 +1248,12 @@ PUBLICATION: dict[str, tuple[Callable, Callable, dict[str, Callable[[dict], None
             "metadata_version": _replace_json(
                 "record_response", lambda d: d["metadata"].update(version="v0.28.0")
             ),
+            "metadata_version_truncated": _replace_json(
+                "record_response", lambda d: d["metadata"].update(version=VERSION.rsplit(".", 1)[0])
+            ),
+            "metadata_version_capital_v": _replace_json(
+                "record_response", lambda d: d["metadata"].update(version=f"V{VERSION}")
+            ),
             "not_submitted": _replace_json("record_response", lambda d: d.update(submitted=False)),
             "no_release_link": _replace_json(
                 "record_response", lambda d: d["metadata"].update(related_identifiers=[])
@@ -1261,7 +1286,7 @@ PUBLICATION: dict[str, tuple[Callable, Callable, dict[str, Callable[[dict], None
                 "record_response",
                 lambda d: d["files"].append({"key": "extra.zip", "checksum": "md5:" + "0" * 32}),
             ),
-            "local_missing": _drop_role(f"file:pyflightstream-v{VERSION}.zip"),
+            "local_missing": _drop_role(f"file:{ZENODO_KEY}"),
             "size": _replace_json("record_response", lambda d: d["files"][0].update(size=1)),
         },
     ),
@@ -1431,6 +1456,21 @@ def test_publication_campaign_validator_refuses_a_corrupted_copy(name, field, tm
     (COMMON | own)[field](receipt)
     with pytest.raises(ReceiptRefusedError):
         validate(receipt, _tree())
+
+
+def test_zenodo_files_refuses_the_right_name_in_another_folder(tmp_path):
+    """The key is matched segment by segment, so the archive's own name in a folder that
+    is not the key's owner is refused although its bytes and md5 are the record's."""
+    receipt = _build_zenodo_files(tmp_path)
+    validate_zenodo_files(copy.deepcopy(receipt), _tree())  # the control: as built, accepted
+    moved = tmp_path / "files" / "someone-else" / f"pyflightstream-v{VERSION}.zip"
+    moved.parent.mkdir(parents=True)
+    (tmp_path / "files" / ZENODO_KEY).rename(moved)
+    for artifact in receipt["artifacts"]:
+        if artifact["role"] == f"file:{ZENODO_KEY}":
+            artifact["path"] = str(moved)
+    with pytest.raises(ReceiptRefusedError, match="another name"):
+        validate_zenodo_files(receipt, _tree())
 
 
 def test_a_marker_test_skips_naming_its_variable_when_the_receipt_is_absent(monkeypatch):
