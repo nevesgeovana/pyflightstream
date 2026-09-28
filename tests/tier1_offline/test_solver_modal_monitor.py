@@ -3,6 +3,7 @@
 import subprocess
 
 from pyflightstream import run
+from pyflightstream.run._solver_windows import _native_windows, owned_solver_dialogs
 
 
 def test_owned_modal_terminates_solver_and_preserves_diagnostic(tmp_path, monkeypatch):
@@ -93,3 +94,46 @@ def test_modal_selection_never_accepts_another_process_or_normal_window():
         "Solver\ncustom modal",
     )
     assert select_owned_dialogs(0, windows) == ()
+
+
+def test_owned_solver_dialogs_reads_no_windows_off_windows(monkeypatch):
+    """GOAL-034 Q8 QA8-1: the os.name guard at owned_solver_dialogs' own entry.
+
+    Both tests above replace run._owned_solver_dialogs itself, so no tier-1
+    test previously called owned_solver_dialogs or _native_windows and their
+    non-Windows guards could be deleted with no tier-1 test failing. This
+    machine may itself be Windows, so the proof is not "no windows came
+    back" (true either way here); it is that ``_native_windows`` -- which
+    would report a window if reached -- is never reached at all.
+    """
+    import pyflightstream.run._solver_windows as solver_windows
+
+    def would_be_native(pid):
+        return [solver_windows.WindowDiagnostic(pid, "Error", "would be read on Windows", "#32770")]
+
+    monkeypatch.setattr(solver_windows, "_native_windows", would_be_native)
+    monkeypatch.setattr(solver_windows.os, "name", "posix")
+    assert owned_solver_dialogs(123) == ()
+
+
+def test_native_windows_reads_no_windows_off_win32(monkeypatch):
+    """GOAL-034 Q8 QA8-1: the sys.platform guard at _native_windows' own entry.
+
+    This machine may itself be Windows, so the proof is not "the returned
+    list is empty" (a real, harmless pid 123 would give that either way);
+    it is that ``ctypes.WinDLL``, which the guarded code would call, is
+    never reached.
+    """
+    import ctypes
+
+    import pyflightstream.run._solver_windows as solver_windows
+
+    def must_not_be_reached(*_args, **_kwargs):
+        raise AssertionError("ctypes.WinDLL must not be reached off win32")
+
+    monkeypatch.setattr(ctypes, "WinDLL", must_not_be_reached, raising=False)
+    monkeypatch.setattr(solver_windows.sys, "platform", "linux")
+    assert _native_windows(123) == []
+
+    monkeypatch.setattr(solver_windows.sys, "platform", "linux")
+    assert _native_windows(123) == []
