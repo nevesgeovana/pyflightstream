@@ -10,6 +10,8 @@ Explicit SI conversion currently accepts only METER and MILLIMETER. Unknown and 
 
 STRUCTURED `.txt` inputs retain their two-count header; UNSTRUCTURED `.dat` inputs contain only six-column rows. Formatting of a prepared SI copy may change, but no interpolation, coordinate rotation, or automatic installation of an exported field occurs. Select a reusable SI field explicitly.
 
+The [SI custom-field example](examples/prepare_custom_field.md) prepares a MILLIMETER input from an SI source without launching a solver.
+
 Migration: existing undeclared files are not rewritten or upgraded. Add the SI declaration only after checking the source's actual unit contract. A field changed after preparation is refused before the solver starts.
 
 After geometry transforms are emitted, the run records a conservative body and full-rotor-sweep envelope. A grid-bounds exceedance warns; partial selections may overestimate the occupied region. The `within-grid-bounds` result only compares external YZ bounds and does not certify interior interpolation support. Raw commands, unknown placements or unavailable units leave the diagnostic explicitly unknown. Continuation preserves the diagnostic only when geometry/motion evidence and the unit declaration remain unchanged.

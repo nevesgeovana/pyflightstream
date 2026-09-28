@@ -37,6 +37,8 @@ EXAMPLES = [
     "sampled_field_export.py",
     "boundary_layer_sections.py",
     "continuation_frame_recovery.py",
+    "prepare_custom_field.py",
+    "excel_matrix_sync.py",
 ]
 
 for path, content in markdown_reference_pages().items():
