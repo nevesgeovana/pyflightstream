@@ -1,13 +1,13 @@
 <!--
 GEOVERSE_HEADER
-file_version: 1.0.1
-last_modified_at: 2026-09-27T23:45:05.732Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
+file_version: 1.0.2
+last_modified_at: 2026-09-28T00:42:22.059Z
+last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: primary-agent}
 dependencies: [pyflightstream.post.guides]
 authority: pyflightstream
 status: active
 confidentiality: public
-change_summary: Describe sampled volume fields and final unsteady plots through the current workspace route.
+change_summary: Cite the lifecycle test on the submitted-extraction guarantee.
 revision_source: git
 -->
 
@@ -3379,7 +3379,8 @@ thing. Since 0.29.0 a submitting workspace records each extraction as
 copy of the saved simulation. `pyfs-matrix collect <workspace>` waits for stable
 declared exports, checks the original simulation, script and private-copy hashes,
 translates the surface outputs, then records `EXTRACTED` and removes the copy.
-Submission alone never means extracted. Repeating the request while it is pending
+Submission alone never means extracted
+(`test_submitted_extraction_waits_then_collects_without_mutating_original`). Repeating the request while it is pending
 does not submit another job. The original run manifest stays unchanged
 (`test_submitted_extraction_waits_then_collects_without_mutating_original`).
 

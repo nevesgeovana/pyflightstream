@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-09-28T00:33:44.988Z
+# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
+# dependencies: [pyflightstream.cases.workflows; pyflightstream.script]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Check zero-turn placement, unit conversion and unknown-frame refusals.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """A row translates an alias the way it rotates one (FR-100).
 
 The row's grammar and its consequences, each case below one of them:
@@ -265,9 +276,32 @@ def test_goal022_refusals_what_the_case_does_not_have_is_refused_by_name(tmp_pat
         assert message.count(clause) == 1, (clause, message)
 
 
-def test_goal022_refusals_a_frame_turned_into_place_is_not_an_axis_to_move_along(tmp_path):
-    """A blade frame is placed by a turn whose sign the manual does not state."""
+@pytest.mark.parametrize("azimuth", [0.0, 30.0])
+def test_goal022_refusals_a_nonzero_turn_is_not_a_known_axis_but_zero_is(tmp_path, azimuth):
+    """A zero turn is identity; a nonzero turn still lacks measured sign here."""
     case = moving_rotor(tmp_path, "{DISTANCE: 0.1 / AXIS: PUSHER_RMRP1-X / ALIAS: PUSHER}")
+    rotor = case.rotors["PUSHER"]
+    case.rotors["PUSHER"] = rotor.model_copy(
+        update={"blade1": rotor.blade1.model_copy(update={"azimuth_deg": azimuth})}
+    )
+    if azimuth == 0.0:
+        script = Script("26.123")
+        build_script(case, script)
+        lines = script.render().splitlines()
+        axis = index_of_frame(lines, "PUSHER_RMRP1")
+        assert surface_moves(lines) == [
+            f"TRANSLATE_SURFACE_IN_FRAME {axis} 0.1 0.0 0.0 METER {boundary} ENABLE"
+            for boundary in (6, 7, 8, 9)
+        ]
+        for name in ("PUSHER_SMRP", "PUSHER_RMRP1", "PUSHER_RMRP2", "PUSHER_RMRP3"):
+            placement = script.frame_placements[index_of_frame(lines, name)]
+            assert placement.origin == pytest.approx((7.3, 0.0, 0.0))
+        assert script.frame_placements[axis].axes == (
+            (1.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0),
+            (0.0, 0.0, 1.0),
+        )
+        return
     with pytest.raises(PyflightstreamError) as refused:
         lines_of(case)
     message = str(refused.value)
@@ -483,27 +517,28 @@ def test_goal022_order_a_flat_rotor_row_translates_before_it_rotates(tmp_path):
     assert _last(lines, "ROTATE_SURFACE") < lines.index("CREATE_NEW_MOTION ROTARY")
 
 
-def test_goal022_frames_move_a_frame_turned_away_from_its_pivot_is_refused_not_guessed(tmp_path):
-    """The flat row's blade axis frame is placed at the reference rotor position and turned
-    about a hub that sits elsewhere, so where it stands depends on a sign the manual does
-    not state; moving its hub is refused naming it rather than moving it to a guess."""
+def test_goal022_frames_move_a_zero_turn_away_from_its_pivot_preserves_its_origin(tmp_path):
+    """A zero-angle blade follower remains at its stated origin before translation."""
     case = _pitched_rotor(
         tmp_path,
         translations=translations(
             "{DISTANCE: 0.1 / AXIS: NAC-X / ALIAS: pitched / AUX_FRAMES: ROTOR_SMRP}"
         ),
     )
-    with pytest.raises(PyflightstreamError) as refused:
-        lines_of(case)
-    message = str(refused.value)
-    for clause in (
-        "moving a frame, which comes in through AUX_FRAMES, placed from ROTOR_SMRP, and",
-        "cannot state where that frame stands",
-        "Drop ROTOR_SMRP from AUX_FRAMES",
-        "placed from",
-    ):
-        assert message.count(clause) == 1, (clause, message)
-    assert "(frame " not in message, "a row never names a frame by its index"
+    lines = lines_of(case)
+    nac = index_of_frame(lines, "NAC")
+    hub = index_of_frame(lines, "ROTOR_SMRP")
+    blade = index_of_frame(lines, "BladeAxis1")
+    assert surface_moves(lines) == [
+        f"TRANSLATE_SURFACE_IN_FRAME {nac} 0.1 0.0 0.0 METER {boundary} ENABLE"
+        for boundary in (1, 2)
+    ]
+    moved = {int(line.split()[1]): line.split()[2:] for line in origin_moves(lines)}
+    assert set(moved) == {hub, blade}
+    assert moved[hub][-1] == moved[blade][-1] == "METER"
+    assert [float(value) for value in moved[hub][:-1]] == pytest.approx((0.2, 0.2, 0.3))
+    assert [float(value) for value in moved[blade][:-1]] == pytest.approx((0.1, 0.0, 0.0))
+    assert _last(lines, "SET_COORDINATE_SYSTEM_ORIGIN") < _first(lines, "ROTATE_SURFACE")
 
 
 @pytest.mark.parametrize("factory", [steady_case, unsteady_case])
@@ -556,14 +591,16 @@ def test_goal022_refusals_a_case_authored_in_python_meets_the_finite_distance_re
 
 
 def test_goal022_refusals_an_axis_it_cannot_orient_lists_only_frames_it_can(tmp_path):
-    """A blade frame is turned into place; the remedy names the frames whose axes are stated."""
-    case = moving_rotor(tmp_path, "{DISTANCE: 0.1 / AXIS: PUSHER_RMRP1-X / ALIAS: PUSHER}")
+    """A nonzero blade turn is unknown; the zero-angle sibling remains a valid remedy."""
+    case = moving_rotor(tmp_path, "{DISTANCE: 0.1 / AXIS: PUSHER_RMRP2-X / ALIAS: PUSHER}")
     with pytest.raises(PyflightstreamError) as refused:
         lines_of(case)
     message = str(refused.value)
     listing = message.split("on this case those are ", 1)[1]
     assert "'PUSHER_SMRP'" in listing and "'LIFT_L1_SMRP'" in listing, listing
-    assert "RMRP1" not in listing and "<ALIAS>" not in message, listing
+    assert "'PUSHER_RMRP1'" in listing, listing
+    assert "'PUSHER_RMRP2'" not in listing and "'PUSHER_RMRP3'" not in listing, listing
+    assert "<ALIAS>" not in message, message
 
 
 def test_goal022_frames_move_the_ledger_forgets_what_it_does_not_follow():
@@ -592,7 +629,12 @@ def test_goal022_frames_move_the_ledger_forgets_what_it_does_not_follow():
 
     script, index = placed()
     script.emit("SET_COORDINATE_SYSTEM_ORIGIN", index, 5.0, 0.0, 0.0, "INCH")
-    assert script.frame_placements[index].origin is None, "an origin in inches is not metres"
+    assert script.frame_placements[index].origin == pytest.approx((0.127, 0.0, 0.0))
+    assert script.frame_placements[index].axes == (
+        (1.0, 0.0, 0.0),
+        (0.0, 1.0, 0.0),
+        (0.0, 0.0, 1.0),
+    )
     script.emit("SET_COORDINATE_SYSTEM_ORIGIN", index, 5.0, 0.0, 0.0, "METER")
     assert script.frame_placements[index].origin == (5.0, 0.0, 0.0)
 

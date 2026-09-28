@@ -1,12 +1,12 @@
 # GEOVERSE_HEADER
-# file_version: 1.0.1
-# last_modified_at: 2026-09-27T20:50:55.325Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-agent
-# dependencies: [pyflightstream.run]
+# file_version: 1.0.2
+# last_modified_at: 2026-09-28T00:33:44.988Z
+# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
+# dependencies: [pyflightstream.run; tests.tier1_offline.test_g45_tecplot_from_vtk]
 # authority: pyflightstream
 # status: draft
 # confidentiality: public
-# change_summary: Bind existing behavioral acceptance tests to exact GOAL-033 obligations.
+# change_summary: Pair recovered-frame VTK with valid native nodal evidence.
 # revision_source: git
 """G58: unchanged stopped rows recover their frame without a solver."""
 
@@ -162,9 +162,18 @@ def test_g58_new_run_records_the_recovered_frame_and_its_evidence(tmp_path):
     # GOAL033:capability_ids:items:G58
     import sys
 
+    import numpy as np
+
     from pyflightstream.cases import Campaign
     from pyflightstream.run import ExecutionResult, LocalExecutor, run_campaign
-    from tests.tier1_offline.test_g45_tecplot_from_vtk import MRP, _solver_vtk
+    from tests.tier1_offline.test_g45_tecplot_from_vtk import (
+        MRP,
+        _body,
+        _native_export,
+        _nodes_of,
+        _read_dat,
+        _solver_vtk,
+    )
     from tests.tier1_offline.test_run_campaign import converged
 
     workspace, case, previous, shadow = _old_run(tmp_path)
@@ -176,6 +185,9 @@ def test_g58_new_run_records_the_recovered_frame_and_its_evidence(tmp_path):
             for index, line in enumerate(lines[:-1]):
                 if line == "EXPORT_SOLVER_ANALYSIS_VTK":
                     _solver_vtk(work / lines[index + 1], MRP)
+                elif line == "EXPORT_SOLVER_ANALYSIS_TECPLOT":
+                    points, polygons, _ = _body()
+                    _native_export(work / lines[index + 1], points, polygons)
                 elif line.startswith("EXPORT_") or line == "SAVE_SIMULATION":
                     target = work / lines[index + 1]
                     target.parent.mkdir(parents=True, exist_ok=True)
@@ -193,6 +205,17 @@ def test_g58_new_run_records_the_recovered_frame_and_its_evidence(tmp_path):
     )
     result = records[0]
     assert result.continues == previous.run_id
+    sim = workspace.sim_dir(result.sim_id)
+    native_key = next(name for name in result.outputs if name.endswith("_native_tecplot.dat"))
+    assert result.outputs_sha256[native_key] == file_sha256(sim / native_key)
+    translated = sim / next(name for name in result.outputs if Path(name).name == "surface.dat")
+    written = _read_dat(translated)
+    points, _, values = _body()
+    np.testing.assert_allclose(_nodes_of(written["blocks"]), points, rtol=0, atol=1e-12)
+    np.testing.assert_array_equal(
+        written["blocks"]["Singularity_strength"], 0.125 + np.arange(len(points))
+    )
+    np.testing.assert_allclose(written["blocks"]["Cp_reference"], values["Cp_reference"])
     assert result.surface_translations[0]["frame"] == shadow.loads_frame_record()
     proof = result.surface_translations[0]["frame_recovery"]
     assert proof["source_run_id"] == previous.run_id

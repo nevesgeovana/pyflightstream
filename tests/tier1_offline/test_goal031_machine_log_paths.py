@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-09-28T00:39:18.437Z
+# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
+# dependencies: [test_goal031_local_run_log; test_matrix_run; pyflightstream.run]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Supply paired native fixtures while preserving machine log and collection checks.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1: the machine's log decision reaches every script and every collection.
 
 A cluster's HPC profile stating ``[log] export_log = false`` says the solver
@@ -23,6 +34,7 @@ from pathlib import Path
 
 import pytest
 
+from pyflightstream._digest import file_sha256
 from pyflightstream.results import VersionMismatchWarning
 from pyflightstream.run import (
     ExecutionResult,
@@ -46,6 +58,7 @@ from tests.tier1_offline.test_goal031_local_run_log import (
 )
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
+    STUB_NATIVE_TECPLOT,
     STUB_VTK,
     CountingStub,
     workflow_registry,
@@ -133,6 +146,7 @@ def _aborting_extractor(tmp_path, printed):
                 "EXPORT_SURFACE_SECTIONAL_LOADS": SLOADS,
                 # G45: the Tecplot is written from this VTK.
                 "EXPORT_SOLVER_ANALYSIS_VTK": STUB_VTK,
+                "EXPORT_SOLVER_ANALYSIS_TECPLOT": STUB_NATIVE_TECPLOT,
             }
         ),
         encoding="utf-8",
@@ -201,7 +215,11 @@ def test_an_additional_post_writes_the_printed_output_as_its_log(tmp_path, monke
         (log,) = [name for name in record.outputs if name.endswith("_log.txt")]
         written = workspace.sim_dir(record.sim_id) / log
         assert written.read_text(encoding="utf-8") == LOG
-        assert log in record.outputs_sha256
+        assert record.outputs_sha256[log] == file_sha256(written)
+        (native,) = [name for name in record.outputs if name.endswith("_native_tecplot.dat")]
+        assert record.outputs_sha256[native] == file_sha256(
+            workspace.sim_dir(record.sim_id) / native
+        )
         assert record.note and "captured" in record.note, record.note
 
 
@@ -266,7 +284,12 @@ def _submitted_steady_job(tmp_path, *, native=LOG):
     assert job.status is RunStatus.SUBMITTED, (job.status, job.error)
     sim = workspace.sim_dir("5001")
     stub = tmp_path / "stub_solver.py"
-    stub.write_text(STUB.replace("<STUB_VTK>", repr(STUB_VTK)), encoding="utf-8")
+    stub.write_text(
+        STUB.replace("<STUB_VTK>", repr(STUB_VTK)).replace(
+            "<STUB_NATIVE_TECPLOT>", repr(STUB_NATIVE_TECPLOT)
+        ),
+        encoding="utf-8",
+    )
     subprocess.run(
         [
             sys.executable,
@@ -278,6 +301,7 @@ def _submitted_steady_job(tmp_path, *, native=LOG):
         ],
         cwd=sim,
         check=True,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         env=os.environ.copy(),
     )
     (sim / "FTS5001.l4242").write_text(native, encoding="utf-8")

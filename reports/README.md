@@ -1,14 +1,14 @@
 <!--
 GEOVERSE_HEADER
-file_version: 1.0.1
+file_version: 1.0.2
 artifact_id: pyflightstream-report-series
-last_modified_at: 2026-09-27T23:25:26.007Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: architect-correction-proposal}
-dependencies: []
+last_modified_at: 2026-09-28T00:43:41.747Z
+last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: primary-agent}
+dependencies: [RPT-085_native-workspace-evidence_2026-09-27.md]
 authority: pyflightstream
 status: active
 confidentiality: public
-change_summary: Register the optional Excel dependency license evidence.
+change_summary: Register the bounded native workspace evidence report.
 revision_source: git
 -->
 
@@ -60,6 +60,7 @@ acceptance or publication of their findings.
 | RPT-081 | Typed boundary and base-region operations: measured state and effects | In preparation |
 | RPT-082 | CAD units, geometry transforms and custom inflow coverage | In preparation |
 | RPT-083 | Probe frames, temporal surfaces and walltime export limits | In preparation |
+| [RPT-085](RPT-085_native-workspace-evidence_2026-09-27.md) | Native mesh routes, sampled-volume conversion, inlet and actuator controls | Bounded evidence; final release review pending |
 
 ## Dependency evidence
 

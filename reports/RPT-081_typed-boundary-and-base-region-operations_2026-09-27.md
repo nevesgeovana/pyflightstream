@@ -1,18 +1,18 @@
 <!--
 GEOVERSE_HEADER
-file_version: 1.1.1
+file_version: 1.1.2
 artifact_id: RPT-081
-last_modified_at: 2026-09-27T21:41:59.732Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: implementation-agent}
+last_modified_at: 2026-09-28T00:44:33.406Z
+last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
 dependencies: [RPT-018, RPT-020, RPT-021, RPT-066, src/pyflightstream/cases/workflows.py]
 authority: pyflightstream
 status: draft
 confidentiality: public
-change_summary: Add measured reference reset, Mach precision and seven saved wake-state contrasts.
+change_summary: Editorial punctuation only; preserve all observations, numbers, claims and evidence hashes.
 revision_source: git
 -->
 
-# RPT-081 — Typed boundary and base-region operations
+# RPT-081 - Typed boundary and base-region operations (2026-09-27, editorial amendment 2026-09-28)
 
 These controls distinguish emitted commands, saved configuration, mesh changes and solver execution. They used FlightStream 26.124 build 8172026, executable SHA-256 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65. No control in this report initialized or started a solve. A stored boundary value establishes configuration, not its effect on a velocity field or aerodynamic loads. Other builds and untested argument combinations remain outside these observations.
 

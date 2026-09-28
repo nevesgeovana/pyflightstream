@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-09-28T00:33:44.988Z
+# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
+# dependencies: [pyflightstream.cases.workflows; pyflightstream.script]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Supply typed SI context while checking tilted and letter blade-frame emission.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1, v0.23.0 item 19: a rotor carries its INSTALLATION VECTOR.
 
 THE OWNER'S WORDS, 2026-09-17:
@@ -288,7 +299,7 @@ def test_the_blade_frames_of_a_vector_rotor_are_built_on_the_shaft():
         assert computed == pytest.approx(shaft, abs=1e-9), (third, tilted.axis_vector)
 
 
-def _emitted_blade_frames(rotor):
+def _emitted_blade_frames(rotor, units="METER"):
     """Emit one rotor's blade frames and return the script's own lines.
 
     ON THE EMITTED TEXT, because the two tests above assert on a CONSTANT and on
@@ -298,27 +309,52 @@ def _emitted_blade_frames(rotor):
     that measures a name rather than the thing that writes the file is the shape
     this estate calls measuring the mention instead of the carrier.
     """
+    from pyflightstream.cases import SimCase, SweepAxis
     from pyflightstream.cases.workflows import _hub_basis, _rotor_blade_frames
     from pyflightstream.script import Script, helpers
 
+    view = SimCase(
+        sim_id="installation",
+        aircraft="SyntheticRotor",
+        recipe="unsteady_rotor",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        rotors={rotor.alias: rotor},
+    )
     script = Script("26.120")
+    script.emit("SET_SIMULATION_LENGTH_UNITS", units)
+    factor = {"METER": 1.0, "MILLIMETER": 1000.0}[units]
     script.entities.declare_boundaries({"Blade1": 1, "Blade2": 2})
     # The HUB frame first, because the blade frames are turned about it
     # and the script guard refuses a frame index nothing created -- which
     # it did on the first run of this test, correctly.
     x_axis, y_axis = _hub_basis(rotor)
     hub = helpers.coordinate_frame(
-        script, name="PUSHER_SMRP", origin=rotor.origin, x_axis=x_axis, y_axis=y_axis
+        script,
+        name="PUSHER_SMRP",
+        origin=tuple(value * factor for value in rotor.origin),
+        x_axis=x_axis,
+        y_axis=y_axis,
     )
     before = script.render()
-    _rotor_blade_frames(script, rotor, hub=hub, radical="PUSHER", view=None)
+    _rotor_blade_frames(script, rotor, hub=hub, radical="PUSHER", view=view)
     return script.render()[len(before) :]
 
 
-def test_the_emitted_blade_frame_of_a_tilted_rotor_is_built_on_its_shaft():
+@pytest.mark.parametrize("units,factor", [("METER", 1.0), ("MILLIMETER", 1000.0)])
+def test_the_emitted_blade_frame_of_a_tilted_rotor_is_built_on_its_shaft(units, factor):
     """THE FIX, asserted where it is written rather than where it is named."""
-    tilted = _rotor([0.0, 0.2, 0.9798], zero="X")
-    text = _emitted_blade_frames(tilted)
+    tilted = _rotor([0.0, 0.2, 0.9798], zero="X").model_copy(
+        update={"x_m": 0.1, "y_m": -0.2, "z_m": 0.3}
+    )
+    text = _emitted_blade_frames(tilted, units=units)
+    origin = {}
+    for line in text.splitlines():
+        name, _, value = line.partition(" ")
+        if name.startswith("ORIGIN_"):
+            origin.setdefault(name, float(value))
+    assert origin == pytest.approx(
+        {"ORIGIN_X": 0.1 * factor, "ORIGIN_Y": -0.2 * factor, "ORIGIN_Z": 0.3 * factor}
+    )
 
     # THE FRAME'S THIRD AXIS IS THE SHAFT, read off the emitted numbers rather
     # than asserted about a helper. My first assertion here was a loose

@@ -1,3 +1,17 @@
+<!--
+GEOVERSE_HEADER
+file_version: 1.0.0
+artifact_id: pyflightstream-mesh-inputs-guide
+last_modified_at: 2026-09-28T00:44:33.406Z
+last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
+dependencies: [pyflightstream.cases.MeshImport, pyflightstream.workspace.inputs, docs/cad-inputs.md, tests/tier1_offline/test_mesh_inputs_page.py]
+authority: pyflightstream
+status: active
+confidentiality: public
+change_summary: Add reader-supported explicit IGES and no-trailing-edge examples without broadening CAD support.
+revision_source: git
+-->
+
 # Mesh inputs and GUI-only operations
 
 This page is for a user who brings a mesh to a run. Two inputs are canonical,
@@ -14,11 +28,11 @@ measured, and [one complete example](#a-complete-example-a-wing-obj-with-its-tra
 to copy. The second half is the saved simulation and the policies that bound
 both routes.
 
-A workflow row imports `.obj` and `.stl` and opens `.fsm`, and any other
-suffix is refused naming the three that work. A recipe of your own reaches
-every format the mesh-import family documents; the other formats `IMPORT`
-documents stay there, because what the solver makes of their surfaces' names
-and order is unmeasured.
+A workflow row imports `.obj` and `.stl` and opens `.fsm`. Explicit IGES
+conversion is a separate route described below; STEP remains refused. A
+recipe of your own reaches every format the mesh-import family documents;
+the other formats `IMPORT` documents stay there, because what the solver
+makes of their surfaces' names and order is unmeasured.
 
 ## Starting from an OBJ or STL
 
@@ -37,7 +51,7 @@ The sidecar says, in this order:
 3. `[[import.operations]]`: the operations that make the file into the body,
    when it is not the body yet;
 4. `[trailing_edges]`: how the trailing edge is marked, by a points file (the
-   default) or by detection;
+   default), by detection, or explicitly absent with `none = true`;
 5. `[wake_termination]` and `[base_regions]`: two detections, each applied
    only when written.
 
@@ -157,6 +171,30 @@ initialization, since a new simulation has no stored state to load. An
 `[import]` table beside a `.fsm` is refused too, since a saved simulation
 carries its own units and nothing would read it.
 
+### Explicit CAD conversion is a separate route
+
+For an IGES file (`.igs` or `.iges`), the sidecar explicitly selects CAD
+conversion. This compact form uses the existing CAD defaults:
+
+```toml
+boundaries = ["Wing"]
+
+[import]
+units = "FILE"
+cad = {}
+
+[trailing_edges]
+detect = "auto"
+```
+
+`cad = {}` selects MEDIUM tessellation, unreferenced patches, 80 curvature
+subdivisions and all CAD bodies. The inventory must match the inspected
+converted mesh. `units = "FILE"` uses the source CAD metadata; it is not a
+raw-mesh unit or a scale correction. STEP remains refused. See
+[CAD geometry inputs](cad-inputs.md) for the supported IGES route, explicit
+options, unit observations and mesh-quality limitations. OBJ/STL inputs do not
+accept CAD options.
+
 ### The mesh operations of an import
 
 A raw mesh is often not yet the body: a CAD export at another scale, half a
@@ -263,8 +301,8 @@ body the operations left. The run record keeps the operations in
 edge, and without one the solver makes no wake and still runs and answers. So
 the sidecar declares how the trailing edge is marked, in a `[trailing_edges]`
 table, and a raw mesh whose sidecar has none is refused when the script is
-built, before any seat is spent. The table takes one of two routes, and the
-first is the default.
+built, before any seat is spent. The table takes one of two marking routes,
+or an explicit declaration that this geometry has no trailing edges.
 
 **The file route, the default.** `file` names a points file beside the
 sidecar ([its format below](#the-points-file)):
@@ -312,8 +350,21 @@ is every surface), and `sweep_angle`, in degrees, emits
 `SET_TRAILING_EDGE_SWEEP_ANGLE` before it. Detection marks an edge where the
 surface creases, so the angle decides what a twisted blade gets (measured
 below). It gives every edge the STANDARD type and matches no points, so `type`
-and `tolerance` beside `detect` are refused. A table stating both `file` and
-`detect`, or neither, is refused, and so is a key it does not read.
+and `tolerance` beside `detect` are refused. Without `none = true`, a table
+stating both `file` and `detect`, or neither, is refused, and so is a key it
+does not read.
+
+**A geometry without trailing edges states that explicitly.** For a body
+that should not shed a trailing-edge wake, the declaration is:
+
+```toml
+[trailing_edges]
+none = true
+```
+
+`none = true` must be the only key in this table. It records an intentional
+absence of trailing edges; it is not automatic detection and does not make
+omission of the table equivalent to this declaration.
 
 **Two options, each only when written.**
 

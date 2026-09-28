@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-09-28T00:39:18.437Z
+# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
+# dependencies: [pyflightstream.post.products; pyflightstream.run.cli]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Test API warning replay, CLI opt-in and durable equation refusal details.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1, 0.24.0: the three pproc tables are CONSUMED, each through the step a campaign runs.
 
 `[phase_locked]`, `[equations]` and `[glossary]` were fields of the pproc spec
@@ -23,6 +34,7 @@ give another number than the mean across revolutions.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -424,14 +436,32 @@ def test_the_derived_columns_are_in_the_unsteady_polar_evaluated_from_that_row(t
     assert not [k for k in _products_manifest(workspace)["skipped"] if k.endswith("#equations")]
 
 
-def test_a_symbol_that_is_no_column_refuses_the_block_and_is_never_a_column_of_na(tmp_path):
+@pytest.mark.parametrize("surface", ["python", "cli", "cli-warnings"])
+def test_a_symbol_that_is_no_column_refuses_the_block_and_is_never_a_column_of_na(
+    tmp_path, capsys, surface
+):
     workspace = _workspace(
         tmp_path,
         '\n[equations.GOOD]\nexpression = "FX_MRP_TOTAL * 2"\nmeshes_alias = "TOTAL"\n'
         '\n[equations.CTX]\nexpression = "CT * 2"\nmeshes_alias = "PUSHER"\nframe = "SMRP"\n',
     )
-    with pytest.warns(PyflightstreamWarning, match="CTX"):
-        assert _post(workspace) == 0
+    if surface == "python":
+        from pyflightstream.post.products import write_campaign_products
+
+        with pytest.warns(PyflightstreamWarning, match="CTX"):
+            write_campaign_products(workspace)
+    else:
+        from pyflightstream.run.cli import main
+
+        argv = ["post", "--workspace", str(workspace.root)]
+        if surface == "cli-warnings":
+            argv.append("--pproc-warnings")
+        assert main(argv) == 0
+        captured = capsys.readouterr()
+        assert ("pproc warning [" in captured.err) == (surface == "cli-warnings")
+        assert "[equations.CTX]" not in captured.err, "details belong in the saved log"
+        if surface == "cli-warnings":
+            assert "post.log.json" in captured.err
     columns, _row = _polar(workspace)
     # WHOLE OR ABSENT: not the good one without the bad one, and no NA column.
     assert "CTX_PUSHER" not in columns and "GOOD_TOTAL" not in columns, columns
@@ -442,6 +472,9 @@ def test_a_symbol_that_is_no_column_refuses_the_block_and_is_never_a_column_of_n
     for tried in ("CT_PUSHER_SMRP", "CT_SMRP_PUSHER", "CT_PUSHER"):
         assert tried in reason, reason
     assert "FX_MRP_TOTAL" in reason, "the refusal lists the columns there are"
+    log = workspace.products_dir(None) / "post.log.json"
+    records = json.loads(log.read_text(encoding="utf-8"))["records"]
+    assert any(record["message"] == reason for record in records), records
 
 
 def test_a_symbol_is_about_the_alias_before_it_is_an_exact_name():

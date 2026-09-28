@@ -1,18 +1,18 @@
 <!--
 GEOVERSE_HEADER
-file_version: 1.0.2
+file_version: 1.0.3
 artifact_id: RPT-083
-last_modified_at: 2026-09-27T20:04:29.451Z
-last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
+last_modified_at: 2026-09-28T00:44:33.406Z
+last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
 dependencies: [RPT-074, RPT-076, RPT-079, src/pyflightstream/post/field_frames.py, src/pyflightstream/post/surfaces.py]
 authority: pyflightstream
 status: active
 confidentiality: public
-change_summary: Finalize measured domains after continuation and MM regression checks.
+change_summary: Editorial punctuation only; preserve all observations, numbers, claims and evidence hashes.
 revision_source: git
 -->
 
-# RPT-083 — Probe frames and temporal export limits (2026-09-27)
+# RPT-083 - Probe frames and temporal export limits (2026-09-27, editorial amendment 2026-09-28)
 
 This report records GOAL-033 controls for sampled velocity fields, final
 unsteady plots and surface averages. The conclusions apply to the exact native
@@ -79,7 +79,7 @@ requires a nondegenerate global YZ-plane survey with no duplicate positions.
 ## Final section Cp, residual and load plots
 
 T40 measured final SECTIONS_CP after the established unsteady control on
-26.124: thirty nonempty curves with 15–18 sample pairs were written once
+26.124: thirty nonempty curves with 15-18 sample pairs were written once
 after the march. Nine final load coefficients matched the baseline exactly.
 This supports the final section-Cp export; it is not a claim of per-STEP Cp
 section histories. The callback control used the reviewed Windows pythonw
@@ -89,8 +89,8 @@ interpreter variant.
 Walltime rescue was measured separately on 26.122. CLOSE_FLIGHTSTREAM after
 the declared exports ended the native process at STEP 16 without an external
 kill. The residual and load plots each contain 1,128 finite samples with
-inner-iteration abscissae 1–1,128. The separate aggregate unsteady history
-contains only STEPs 1–15. A rescue filename carrying 16 therefore identifies
+inner-iteration abscissae 1-1,128. The separate aggregate unsteady history
+contains only STEPs 1-15. A rescue filename carrying 16 therefore identifies
 the export event; it does not imply every history contains sample 16.
 No missing sample is reconstructed or appended.
 
@@ -121,8 +121,8 @@ still applies.
 ## Temporal averages and the permitted discrepancy branch
 
 The rotor T41 control on 26.122 exported twelve STEPs, with its first retained
-instantaneous surface at 6 and averaging window 7–12. The original RPT-079
-observables—native nodal Cp, Vx and speed—were compared node by node after
+instantaneous surface at 6 and averaging window 7-12. The original RPT-079
+observables (native nodal Cp, Vx and speed) were compared node by node after
 applying the same uniform reducer to the native instantaneous arrays.
 Maximum scaled errors were 8.128e-16, 1.222e-15 and 7.240e-16 respectively,
 within the 1e-13 band. This diagnostic does not convert the product's cell Cp
@@ -132,13 +132,13 @@ Native Singularity_strength, CF and boundary-layer fields retained their last
 instantaneous values in this control. The package instead computes their
 actual means from matching per-STEP native/VTK pairs. These are different
 statistics, so native equivalence is not claimed for them. An independent
-sum/count calculation checked every selected scalar in the rotor 7–12 and
-walltime 2–3 windows to 1e-13, with changing nodal strength proving that final
+sum/count calculation checked every selected scalar in the rotor 7-12 and
+walltime 2-3 windows to 1e-13, with changing nodal strength proving that final
 values were not borrowed. X, Y and Z remain coordinates of the last selected
 STEP; coordinates are not treated as averaged physical scalar fields.
 
 The walltime CLOSE control's native Cp, Vx and speed were exactly the STEP 16
-instantaneous values rather than the requested mean 2–3. Their scaled
+instantaneous values rather than the requested mean 2-3. Their scaled
 comparison errors were 10.219, 7.147 and 14.599. The package therefore refuses
 WALLTIME surface-average products by name. This follows the approved G55
 criterion: if solver and package disagree for a run type, the package average

@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# last_modified_at: 2026-09-28T00:42:22.059Z
+# last_modified_by: OpenAI / Codex / unknown / primary-agent
+# dependencies: [pyflightstream.run.cli; docs/post-processing-definitions.md]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Preserve quiet CLI warnings and verify recorded refusal diagnostics.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1: the pyfs-matrix command line (convert and plan, no run).
 
 The module it lives in moved on 2026-08-19: `pyflightstream.cases.cli`
@@ -450,7 +461,7 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
     ):
         _record_a_converged_polar(workspace, sim_id, point, text)
     # SINCE 0.26.0 NOTHING BLOCKS BY DEFAULT: the mismatch is a warning line in
-    # post.log and on stderr, and the polar is written; `--check-frozen` asks
+    # post.log, and the polar is written; `--check-frozen` asks
     # for the refusal this test was written about, and then the skip is
     # recorded with its reason and every other simulation's products land.
     assert main(["post", "--workspace", str(workspace.root)]) == 0
@@ -464,9 +475,8 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
     manifest = json.loads((products / "products.json").read_text(encoding="utf-8"))
     assert "3208" not in manifest["skipped"]
     assert "SREF" in (products / "post.log").read_text(encoding="utf-8"), "the doubt is in the log"
-    # THE LOG IS WHERE A DOUBT IS SAID by default; the command prints the skips
-    # it records, and by default there is none. Whether the command should also
-    # count the log's warnings on stderr is a question for the closing round.
+    # Since 0.29, post warnings and skip details remain in the durable log.
+    # The CLI is quiet by default; --diagnostics reads the complete detail.
     assert main(["post", "--workspace", str(workspace.root), "--check-frozen"]) == 0
     out = capsys.readouterr()
     assert (polars / "P3207-M200AL-020_g01.csv").is_file(), "the simulation that agrees"
@@ -477,7 +487,12 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
     ]
     assert "3208" in manifest["skipped"]
     assert "SREF" in manifest["skipped"]["3208"]
-    assert "3208" in out.err and "SREF" in out.err, "the skip is said where the user looks"
+    assert "SREF" not in out.err, "post warning details are quiet by default"
+    detail = (products / "post.log.json").read_text(encoding="utf-8")
+    assert "3208" in detail and "SREF" in detail
+    assert main(["post", "--workspace", str(workspace.root), "--diagnostics"]) == 0
+    diagnostics = capsys.readouterr()
+    assert "3208" in diagnostics.out and "SREF" in diagnostics.out
     # The author's decision of 2026-09-08 on the exit code: 0 by default, and --strict
     # makes a recorded skip exit 2 for a wrapper that must tell them apart.
     # No --overwrite since 0.17.0: a rebuild archives what is there, so
