@@ -37,6 +37,20 @@ FlightStream versions.
   run records; `read_manifest` skips it, and the row's full mention lives in
   `storage_management.json`.
 
+### Fixed
+
+- **A row under `SYMMETRY PERIODIC` is translated to Tecplot again.** Its
+  native Tecplot holds one zone per periodic copy, each a complete file of its
+  own (measured on 26.124: a six-copy sector, six zones of one blade each), and
+  the reader refused it as "trailing data or multiple zones". The native file is
+  now read by the copy count the row declares (`PERIODIC_COPIES`, or the count
+  the reference derives), recorded on the translation as `periodic_copies`, and
+  read the way the VTK route already carries a symmetric row: the modelled
+  surface first, then its images (RPT-080), so zone k joins the k-th copy of
+  the VTK, each copy matched on its own because the copies share the nodes of
+  their seams. A file holding another number of zones is still refused, and the
+  refusal names both counts. The time-averaged surface reads the same way.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

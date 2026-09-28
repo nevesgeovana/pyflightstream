@@ -973,6 +973,10 @@ class Script:
         # the reference frame).
         self._loads_frame: int = _REFERENCE_PLACEMENT_INDEX
         self._sets_loads_frame: bool = False
+        # THE COPIES A PERIODIC INITIALIZATION STANDS FOR (0.30.0), read through
+        # :attr:`periodic_copies`; the solver's surface exports hold one zone
+        # per copy, so the run needs the count to read them.
+        self._periodic_copies: int | None = None
         #: EACH SECTION DISTRIBUTION THIS SCRIPT CREATED, in emission order
         #: (0.24.0): its families BY NAME, its plane, its frame and its count.
         #: Filled by the loop that emits the distribution, for the reason
@@ -1364,6 +1368,12 @@ class Script:
         if entry.name == _INITIALIZATION_COMMAND:
             self._initialized_at = len(self._lines) + 1
             self._reinitialization_owed = None
+            copies = bound.get("symmetry_copies")
+            self._periodic_copies = (
+                int(copies)  # type: ignore[call-overload]
+                if str(bound.get("symmetry", "")).upper() == "PERIODIC" and copies is not None
+                else None
+            )
         self._lines.extend(block)
         if multiline:
             self._lines.append("")
@@ -1511,6 +1521,23 @@ class Script:
         False
         """
         return self._sets_loads_frame
+
+    @property
+    def periodic_copies(self) -> int | None:
+        """The copy count of the last ``INITIALIZE_SOLVER`` under PERIODIC symmetry (0.30.0).
+
+        None until the script initializes, and for any other symmetry. The
+        solver writes a periodic row's native Tecplot surface as one zone per
+        copy, the modelled sector first (measured on 26.124), so the run reads
+        that file by this count.
+
+        Examples
+        --------
+        >>> from pyflightstream.script import Script
+        >>> Script("26.124").periodic_copies is None
+        True
+        """
+        return self._periodic_copies
 
     def loads_frame_record(self) -> dict[str, object]:
         """Return the loads frame and where this script placed it, as a run records it.
