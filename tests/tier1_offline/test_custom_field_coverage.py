@@ -66,6 +66,44 @@ def test_unknown_transform_refuses_a_coverage_claim():
         envelope([(0, -1, -1), (1, 1, 1)], [operation("MIRROR_SURFACE")])
 
 
+#: Q0 CX-5: what the motion ledger records for a frame an all-frame rotary
+#: attachment moves: no motion index, and a trajectory of unknown kind.
+UNKNOWN_MOTION = {
+    "length_unit": "METER",
+    "motion_index": None,
+    "state": "unknown",
+    "reason": "A motion has implicit or all-frame attachments.",
+    "trajectory": {"kind": "unknown", "center_native": None, "axis_reference": None},
+}
+
+
+def test_unknown_motion_refuses_a_coverage_claim():
+    # Q0 CX-5: `motion_index=None` read as "no motion", so an unknown X-axis
+    # rotation of a body spanning y=+-2, z=0 kept a zero Z extent.
+    with pytest.raises(ValueError, match="unknown moving-frame trajectory"):
+        envelope([(0, -2, 0), (1, 2, 0)], motions=[UNKNOWN_MOTION])
+
+
+def test_unknown_motion_reaches_the_workflow_coverage_check(monkeypatch):
+    # Q0 CX-5: the workflow returned before the envelope whenever no frame
+    # carried a motion index, so the unknown motion was never looked at.
+    from pyflightstream.cases import workflows
+    from pyflightstream.script import Script
+    from tests.tier1_offline.test_workflows import steady_case
+
+    fixed = {"motion_index": None, "trajectory": {"kind": "fixed"}}
+    monkeypatch.setattr(
+        Script, "frame_motions", property(lambda self: {1: fixed, 2: UNKNOWN_MOTION})
+    )
+    monkeypatch.setattr(workflows, "_body_vertices_m", lambda case: ((0, -2, 0), (1, 2, 0)))
+    script = Script("26.124")
+    script.custom_field_extent_m = (-3, 3, -1, 1)
+    with pytest.warns(UserWarning, match="coverage is not checked"):
+        workflows._finish_custom_field_coverage(steady_case(), script)
+    assert script.custom_field_coverage is not None
+    assert script.custom_field_coverage["state"] == "unknown"
+
+
 def test_actual_emitted_translation_reaches_final_workflow_coverage(monkeypatch):
     # GOAL033:capability_ids:items:G50
     from pyflightstream.cases import workflows

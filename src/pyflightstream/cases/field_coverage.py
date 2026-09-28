@@ -112,13 +112,20 @@ def spatial_envelope(
     for record in motions:
         motion = record.get("motion_index")
         trajectory = record.get("trajectory", {})
+        # AN UNKNOWN MOTION IS NOT NO MOTION (Q0 CX-5). The ledger records a
+        # frame an all-frame or ambiguous attachment moves with no motion
+        # index and a trajectory of kind "unknown"; skipping it on the missing
+        # index reported the unmoved body's envelope as covered.
+        if trajectory.get("kind") not in {"fixed", "constant_rotation"}:
+            raise CampaignConfigError("unsupported or unknown moving-frame trajectory")
         if motion is None or motion in seen or trajectory.get("kind") == "fixed":
             continue
         seen.add(motion)
-        if trajectory.get("kind") != "constant_rotation":
-            raise CampaignConfigError("unsupported moving-frame trajectory")
-        if "center moves" in str(record.get("reason", "")).lower():
+        reason = str(record.get("reason", "")).lower()
+        if "center moves" in reason:
             raise CampaignConfigError("moving rotation center is not a fixed swept disk")
+        if "no proved trajectory rule" in reason:
+            raise CampaignConfigError("the motion type has no proved trajectory rule")
         scale = _scale(record.get("length_unit"))
         center = _point([v * scale for v in _point(trajectory.get("center_native"))])
         axis = _axis(trajectory.get("axis_reference"))

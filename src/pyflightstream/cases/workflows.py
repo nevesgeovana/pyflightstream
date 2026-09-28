@@ -7582,19 +7582,27 @@ def _pproc_frame(
     return found
 
 
+def _a_frame_may_move(script: Script) -> bool:
+    """Say whether the motion ledger records a motion, or cannot say there is none.
+
+    A frame an all-frame or ambiguous attachment moves carries no motion index
+    and a trajectory of kind ``unknown`` (Q0 CX-5); that is not a fixed frame.
+    """
+    for value in script.frame_motions.values():
+        trajectory = value.get("trajectory")
+        kind = trajectory.get("kind") if isinstance(trajectory, Mapping) else None
+        if value.get("motion_index") is not None or kind != "fixed":
+            return True
+    return False
+
+
 def _finish_custom_field_coverage(case: SimCase, script: Script) -> None:
     """Check the final emitted placement, conservatively including full rotor sweeps."""
     grid = script.custom_field_extent_m
     if grid is None:
         return
     moved = _how_the_row_moves_the_body(case)
-    if (
-        not moved
-        and not script.surface_operations
-        and not any(
-            value.get("motion_index") is not None for value in script.frame_motions.values()
-        )
-    ):
+    if not moved and not script.surface_operations and not _a_frame_may_move(script):
         return
     from .field_coverage import spatial_envelope
 
@@ -7607,13 +7615,7 @@ def _finish_custom_field_coverage(case: SimCase, script: Script) -> None:
         bounds, notes = spatial_envelope(
             vertices, script.surface_operations, list(script.frame_motions.values())
         )
-        if (
-            moved
-            and not script.surface_operations
-            and not any(
-                value.get("motion_index") is not None for value in script.frame_motions.values()
-            )
-        ):
+        if moved and not script.surface_operations and not _a_frame_may_move(script):
             raise ValueError("the requested geometry change has no emitted placement record")
     except (ValueError, TypeError, KeyError) as error:
         script.custom_field_coverage = {"state": "unknown", "reason": str(error)}
