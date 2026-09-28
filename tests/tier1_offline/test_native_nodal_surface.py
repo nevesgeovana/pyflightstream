@@ -129,8 +129,43 @@ def test_default_tolerance_covers_float32_rounding_of_the_coordinates(tmp_path, 
     assert np.max(np.abs(vtk.points - reference)) > 1e-6, "the rounding is real"
     surface, proof = attach_native_strength(vtk, native)
     assert surface.point_data["Singularity_strength"].tolist() == [10.0, 20.0, 30.0, 40.0]
+    # attach_native_strength's reference-frame default only; translate_vtk_surface
+    # matches in the loads frame by the written VTK's float32 spacing and has no
+    # native-side term (GOAL-034 Q8 QA7-2, CXQ8R6-1, CXQ8R7-1).
     rounding = 4 * np.finfo(np.float32).eps * float(np.abs(native.points).max())
     assert proof["coordinate_tolerance"] == pytest.approx(max(1e-10, 1e-6 * extent, rounding))
+
+
+def test_a_tolerance_that_is_neither_scalar_nor_xyz_is_refused_by_name(tmp_path):
+    """GOAL-034 Q8 QA5-1: a two-element tolerance is the didactic refusal, not a
+    bare numpy broadcasting error."""
+    from pyflightstream.results.native_surface import (
+        attach_native_strength,
+        read_native_tecplot_surface,
+    )
+
+    native = read_native_tecplot_surface(_native(tmp_path / "native.dat"))
+    with pytest.raises(MalformedOutputError, match="scalar or an XYZ array"):
+        attach_native_strength(_vtk(), native, coordinate_tolerance=np.array([1e-6, 1e-6]))
+
+
+@pytest.mark.parametrize(
+    ("given", "by_axis"),
+    [(1e-6, [1e-6, 1e-6, 1e-6]), (np.array([1e-6, 2e-6, 3e-6]), [1e-6, 2e-6, 3e-6])],
+    ids=["scalar", "per-axis"],
+)
+def test_the_mapping_record_states_the_tolerance_per_axis(tmp_path, given, by_axis):
+    """GOAL-034 Q8 QA5-1: the record names the limit applied along each axis and
+    their maximum."""
+    from pyflightstream.results.native_surface import (
+        attach_native_strength,
+        read_native_tecplot_surface,
+    )
+
+    native = read_native_tecplot_surface(_native(tmp_path / "native.dat"))
+    _, proof = attach_native_strength(_vtk(), native, coordinate_tolerance=given)
+    assert proof["coordinate_tolerance_by_axis"] == pytest.approx(by_axis)
+    assert proof["coordinate_tolerance"] == pytest.approx(max(by_axis))
 
 
 def test_same_coordinates_with_different_polygon_edges_are_refused(tmp_path):
@@ -305,6 +340,144 @@ def test_a_surface_far_from_the_reference_origin_refuses_a_shifted_native(tmp_pa
         translate_vtk_surface(
             path, tmp_path / "p.dat", frame=REFERENCE_FRAME, native_tecplot=native
         )
+
+
+def _native_at(path, reference, *, spelling=".16E"):
+    """Write _native's four nodes at the given REFERENCE coordinates.
+
+    ``reference`` holds the unit square's nodes in _vtk's order; _native lists
+    them as nodes 2, 0, 3, 1, so the strengths 30 10 40 20 land on _vtk's nodes
+    as 10, 20, 30, 40. The measured 26.124 export prints sixteen significant
+    digits, which is the default spelling here.
+    """
+    rows = [
+        " ".join(format(float(value), spelling) for value in reference[[2, 0, 3, 1], axis])
+        for axis in range(3)
+    ]
+    path.write_text(
+        'TITLE="Native"\nVARIABLES="X","Y","Z","Singularity_strength"\n'
+        "ZONE T=Solver, NODES=4, ELEMENTS=1, FACES=4, DATAPACKING=BLOCK, "
+        "ZONETYPE=FEPolygon, NumConnectedBoundaryFaces=0, TotalNumBoundaryConnections=0\n"
+        + "\n".join(rows)
+        + "\n30 10 40 20\n2 4 4 1 1 3 3 2\n1 1 1 1\n0 0 0 0\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def _translated_strength(dat):
+    from pyflightstream.results.native_surface import read_native_tecplot_surface
+
+    return read_native_tecplot_surface(dat).point_data["Singularity_strength"].tolist()
+
+
+def _turned_far_frame():
+    from pyflightstream.results.surface import SurfaceFrame
+
+    c = np.sqrt(0.5)
+    return SurfaceFrame(
+        origin=(1_000_000.0 * c, 1_000_000.0 * c, 0.0),
+        axes=((c, c, 0.0), (-c, c, 0.0), (0.0, 0.0, 1.0)),
+        index=2,
+    )
+
+
+def _turned_far_case(tmp_path, shift, *, loads_x):
+    """A unit panel starting at loads X = ``loads_x``, near -1e6, in a frame turned
+    45 degrees whose origin is 1e6 from the reference origin, so the panel sits
+    near the reference origin. Loads X rounds at float32 spacing 0.0625 there;
+    loads Y and Z round at about 1e-7. The native is the true geometry, moved by
+    ``shift`` in LOADS axes."""
+    frame = _turned_far_frame()
+    loads = _vtk().points + np.array([loads_x, 0.1, 0.0])
+    written = loads.astype(np.float32).astype(float)
+    surface = VtkSurface(
+        points=written,
+        offsets=_vtk().offsets,
+        connectivity=_vtk().connectivity,
+        cell_data=dict(_vtk().cell_data),
+    )
+    path = write_vtk_surface(tmp_path / "p.vtk", surface, title="test")
+    native = _native_at(
+        tmp_path / "native.dat", frame.to_reference(loads + np.asarray(shift, dtype=float))
+    )
+    return frame, path, native
+
+
+def test_a_turned_loads_frame_far_away_refuses_a_shift_along_its_own_y(tmp_path):
+    """GOAL-034 Q8 CXQ8R7-1: carrying the loads-X rounding (about 0.031) to the
+    reference axes through |R| gave a box of about 0.022 on reference X and Y, so
+    a native moved 0.02 along loads Y, where the written VTK rounds by 1e-7,
+    still matched and lent its strength. Matching in the loads frame refuses it."""
+    frame, path, native = _turned_far_case(tmp_path, (0.0, 0.02, 0.0), loads_x=-1_000_000.0)
+    with pytest.raises(MalformedOutputError, match="missing or ambiguous"):
+        translate_vtk_surface(path, tmp_path / "p.dat", frame=frame, native_tecplot=native)
+
+
+def test_a_turned_loads_frame_far_away_still_matches_its_native_nodes(tmp_path):
+    """The accept twin of the refusal above: the same frame and the true geometry
+    match, and the tolerance is stated per LOADS axis, tight along loads Y. The
+    panel starts at -999999.9, which float32 writes as -999999.875, so the
+    loads-X rounding the tolerance must allow is real."""
+    frame, path, native = _turned_far_case(tmp_path, (0.0, 0.0, 0.0), loads_x=-999_999.9)
+    record = translate_vtk_surface(path, tmp_path / "p.dat", frame=frame, native_tecplot=native)
+    assert _translated_strength(tmp_path / "p.dat") == [10.0, 20.0, 30.0, 40.0]
+    mapping = record["node_mapping"]
+    assert mapping["coordinate_tolerance_frame"] == frame.record()
+    along_x, along_y, _ = mapping["coordinate_tolerance_by_axis"]
+    assert 0.03 < along_x < 0.04
+    assert along_y < 1e-5
+
+
+def _identity_far_case(tmp_path, *, origin, reference_offset, spelling=".16E"):
+    """A unit panel at ``reference_offset`` in the reference frame, written by a
+    loads frame with the reference axes at ``origin``: the VTK holds the loads
+    coordinates at float32, the native the true reference ones as ``spelling``
+    prints them."""
+    from pyflightstream.results.surface import SurfaceFrame
+
+    frame = SurfaceFrame(origin, REFERENCE_FRAME.axes, 2)
+    reference = _vtk().points + np.asarray(reference_offset, dtype=float)
+    written = (reference - np.asarray(origin)).astype(np.float32).astype(float)
+    surface = VtkSurface(
+        points=written,
+        offsets=_vtk().offsets,
+        connectivity=_vtk().connectivity,
+        cell_data=dict(_vtk().cell_data),
+    )
+    path = write_vtk_surface(tmp_path / "p.vtk", surface, title="test")
+    native = _native_at(tmp_path / "native.dat", reference, spelling=spelling)
+    return frame, path, native, written - (reference - np.asarray(origin))
+
+
+def test_a_loads_frame_far_along_x_accepts_its_unshifted_native(tmp_path):
+    """GOAL-034 Q8 VV6-1: the accept companion of the 0.25-shift refusal at 1e6.
+    The loads coordinates near -1e6 round by 0.025 at float32 (spacing 0.0625);
+    the native, printed at sixteen digits as the solver prints it, is the true
+    geometry and matches. The allowance along loads X is half that spacing and
+    nothing for the native side (CXQ8R6-1)."""
+    frame, path, native, rounded = _identity_far_case(
+        tmp_path, origin=(1_000_000.0, 0.0, 0.0), reference_offset=(0.1, 0.1, 0.0)
+    )
+    assert np.abs(rounded).max() > 0.02, "the float32 rounding is real"
+    record = translate_vtk_surface(path, tmp_path / "p.dat", frame=frame, native_tecplot=native)
+    assert _translated_strength(tmp_path / "p.dat") == [10.0, 20.0, 30.0, 40.0]
+    along_x = record["node_mapping"]["coordinate_tolerance_by_axis"][0]
+    assert 0.03 < along_x < 0.032, "half the float32 spacing and no native-side term"
+
+
+def test_a_native_far_from_the_reference_origin_still_matches(tmp_path):
+    """GOAL-034 Q8 QA7-1: the positive twin of the shifted-native refusal above.
+    The panel sits at reference X = 1e6 + 0.1 in the reference frame; the VTK
+    writes 1000000.125, and the native, printed at sixteen digits, says
+    1000000.1. The 0.025 between them is the VTK's own float32 rounding, which
+    the match allows, so the true geometry is not refused as missing."""
+    frame, path, native, rounded = _identity_far_case(
+        tmp_path, origin=(0.0, 0.0, 0.0), reference_offset=(1_000_000.1, 0.1, 0.0)
+    )
+    assert np.abs(rounded).max() > 0.02, "the float32 rounding is real"
+    translate_vtk_surface(path, tmp_path / "p.dat", frame=frame, native_tecplot=native)
+    assert _translated_strength(tmp_path / "p.dat") == [10.0, 20.0, 30.0, 40.0]
 
 
 def test_stamped_step_never_borrows_final_native_strength(tmp_path):

@@ -48,7 +48,7 @@ from __future__ import annotations
 import re
 import tempfile
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
@@ -702,6 +702,73 @@ def write_vtk_surface(
     return destination
 
 
+def _strength_in_loads_frame(
+    surface: VtkSurface, native: VtkSurface, frame: SurfaceFrame
+) -> tuple[np.ndarray, dict[str, object]]:
+    """Match a native export to a VTK in the LOADS frame the VTK was written in.
+
+    This is the one home of the translation's tolerance rule, which differs
+    deliberately from the default of :func:`attach_native_strength` (GOAL-034
+    Q8 QA3-2, QA7-2). That default serves a caller holding two surfaces in the
+    reference frame and knowing nothing of how either was written, so it allows
+    four single-precision epsilons of the coordinates' magnitude. The
+    translation knows the VTK was written at single precision in ``frame``, so
+    it carries the native into that frame, ``R (p - o)``, and allows each loads
+    axis exactly the rounding written along it: half the float32 spacing of the
+    written coordinates, plus the double-precision rounding of the carry,
+    floored at 1e-6 of the native's diagonal extent. Matching in the reference
+    frame instead had to carry the loads rounding through ``|R|``, which for a
+    turned frame far from the origin gave every reference axis most of the far
+    axis's rounding: 45 degrees and 1e6 away, a native moved 0.02 along loads
+    Y, where the VTK rounds by 1e-7, still matched (GOAL-034 Q8 CXQ8R7-1).
+
+    Parameters
+    ----------
+    surface : VtkSurface
+        The VTK as the solver wrote it, in the loads frame.
+    native : VtkSurface
+        The native export, in the reference frame.
+    frame : SurfaceFrame
+        The loads frame, as the script placed it.
+
+    Returns
+    -------
+    numpy.ndarray
+        The native strength, one value per node of ``surface`` in its order.
+    dict
+        The mapping record of :func:`attach_native_strength`, its tolerances
+        along the LOADS axes, which ``coordinate_tolerance_frame`` names.
+    """
+    from pyflightstream.results.native_surface import attach_native_strength
+
+    origin = np.asarray(frame.origin, dtype=float)
+    rotation = frame.rotation
+    carry = np.abs(rotation)
+    in_loads = VtkSurface(
+        points=(native.points - origin) @ rotation.T,
+        offsets=native.offsets,
+        connectivity=native.connectivity,
+        point_data=dict(native.point_data),
+        title=native.title,
+    )
+    extent = float(np.linalg.norm(np.ptp(native.points, axis=0)))
+    loads_rounding = (
+        0.5 * np.abs(np.spacing(surface.points.astype(np.float32))).astype(float)
+    ).max(axis=0, initial=0.0)
+    arithmetic_rounding = (
+        8.0
+        * float(np.finfo(float).eps)
+        * (
+            (np.abs(native.points).max(axis=0, initial=0.0) + np.abs(origin)) @ carry.T
+            + np.abs(surface.points).max(axis=0, initial=0.0)
+        )
+    )
+    tolerance = np.maximum(max(1e-10, extent * 1e-6), loads_rounding + arithmetic_rounding)
+    matched, mapping = attach_native_strength(surface, in_loads, coordinate_tolerance=tolerance)
+    mapping["coordinate_tolerance_frame"] = frame.record()
+    return matched.point_data["Singularity_strength"], mapping
+
+
 def translate_vtk_surface(
     vtk: str | Path,
     dat: str | Path,
@@ -724,10 +791,7 @@ def translate_vtk_surface(
     auxiliary: dict[str, str] = {}
     missing = list(NOT_CARRIED_BY_THE_VTK)
     if native_tecplot is not None:
-        from pyflightstream.results.native_surface import (
-            attach_native_strength,
-            read_native_tecplot_surface,
-        )
+        from pyflightstream.results.native_surface import read_native_tecplot_surface
 
         native_path = Path(native_tecplot)
         if native_path.resolve() == Path(dat).resolve():
@@ -736,34 +800,14 @@ def translate_vtk_surface(
             raise IncompleteOutputError(f"Missing native nodal source {native_path.name}")
         native_hash = file_sha256(native_path)
         native = read_native_tecplot_surface(native_path)
-        # The VTK is rounded to single precision in the LOADS frame, before it is
-        # carried back: a loads frame far from the reference origin rounds its
-        # coordinates at its own magnitude, which the reference-frame geometry
-        # does not show (GOAL-034 Q8 CXQ8R2-1). The tolerance takes the larger.
-        # PER AXIS (CXQ8R4-1): a loads-frame rounding is carried to each reference
-        # axis through |R|, so a frame far away along X widens X, not Z.
-        # The loads-frame allowance is the float32 SPACING of each written
-        # coordinate (half a unit in the last place), not a multiple of the
-        # largest magnitude: 1e6 away, float32 steps by 0.0625, so a surface
-        # moved by 0.25 is refused (GOAL-034 Q8 CXQ8R5-1). The carry back to the
-        # reference adds its own double-precision rounding.
-        extent = float(np.linalg.norm(np.ptp(native.points, axis=0)))
-        loads_magnitude = np.abs(surface.points).max(axis=0, initial=0.0)
-        rotation = np.abs(frame.rotation)
-        loads_rounding = (
-            0.5 * np.abs(np.spacing(surface.points.astype(np.float32))).astype(float)
-        ).max(axis=0, initial=0.0) @ rotation
-        arithmetic_rounding = (
-            8.0
-            * float(np.finfo(float).eps)
-            * (loads_magnitude @ rotation + np.abs(np.asarray(frame.origin, dtype=float)))
-        )
-        tolerance = np.maximum(
-            max(1e-10, extent * 1e-6),
-            loads_rounding + arithmetic_rounding,
-        )
-        translated, mapping = attach_native_strength(
-            translated, native, coordinate_tolerance=tolerance
+        # The VTK is rounded to single precision in the LOADS frame, so the
+        # native is matched in that frame, where each axis is allowed the
+        # rounding written along it; the rule and its history (GOAL-034 Q8
+        # CXQ8R2-1, CXQ8R4-1, CXQ8R5-1, CXQ8R6-1, CXQ8R7-1) live beside
+        # attach_native_strength's default, in one home.
+        strength, mapping = _strength_in_loads_frame(surface, native, frame)
+        translated = replace(
+            translated, point_data={**translated.point_data, "Singularity_strength": strength}
         )
         if file_sha256(native_path) != native_hash:
             raise MalformedOutputError("Native nodal source changed during translation")

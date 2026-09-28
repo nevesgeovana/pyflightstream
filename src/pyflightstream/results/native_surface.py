@@ -1,8 +1,12 @@
 """Read the native FEPolygon export without inventing nodal values from panel data.
 
 Only the single-zone BLOCK layout measured in RPT-074 is accepted. Native
-coordinates are in REFERENCE; callers must first transform their VTK surface
-to that frame. Matching includes connectivity, not just equal node counts.
+coordinates are in REFERENCE. :func:`attach_native_strength` matches two
+surfaces already in one frame; the translation of a VTK written in a loads
+frame carries the native INTO that frame instead and matches there
+(``_strength_in_loads_frame`` in :mod:`pyflightstream.results.surface`), so the
+rounding of the written VTK is allowed along the axes it was written in.
+Matching includes connectivity, not just equal node counts.
 """
 
 from __future__ import annotations
@@ -196,19 +200,21 @@ def attach_native_strength(
 ) -> tuple[VtkSurface, dict[str, object]]:
     """Attach exact native strength after a unique coordinate/topology match.
 
-    Both surfaces must already be in the same REFERENCE frame and length unit.
-    An explicit tolerance is absolute, in that unit: a scalar, or a
-    three-element array giving the tolerance along reference X, Y and Z, so a
-    rounding that is large along one axis is not granted along the others
-    (GOAL-034 Q8 CXQ8R4-1). By default it is the
-    largest of 1e-10, 1e-6 of the native geometry's diagonal extent, and four
-    single-precision epsilons of the largest coordinate magnitude: the VTK is
-    written at single precision in the loads frame and transformed back, so
-    its rounding grows with the coordinates' magnitude, which for a small
-    part far from the origin exceeds any fraction of its extent. Ambiguous
-    coincident vertices are refused; this function never averages, guesses
-    orientation, or derives a strength from Cp. The resolved tolerance is
-    returned in the mapping record.
+    Both surfaces must already be in one frame and one length unit; the axes
+    below are that frame's, the reference frame's for a caller holding
+    reference geometry. An explicit tolerance is absolute, in that unit: a
+    scalar, or a three-element array giving the tolerance along X, Y and Z, so
+    a rounding that is large along one axis is not granted along the others
+    (GOAL-034 Q8 CXQ8R4-1); any other shape is refused. By default it is, per
+    axis, the larger of max(1e-10, 1e-6 of the native geometry's diagonal
+    extent) and four single-precision epsilons of the largest native
+    coordinate magnitude along that axis: a VTK written at single precision
+    rounds with the coordinates' magnitude, which for a small part far from
+    the origin exceeds any fraction of its extent. Ambiguous coincident
+    vertices are refused; this function never averages, guesses orientation,
+    or derives a strength from Cp. The resolved limits are returned in the
+    mapping record as ``coordinate_tolerance_by_axis`` ([X, Y, Z], in the
+    input length unit); ``coordinate_tolerance`` is their maximum.
     """
     if coordinate_tolerance is None:
         measurable = bool(native.n_points) and bool(np.isfinite(native.points).all())
