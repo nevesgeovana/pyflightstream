@@ -2,7 +2,8 @@
 
 Pipeline role: the top of the pipeline, where parsed solver output
 becomes something a report can carry. Public modules and one
-private one, and the list is what EXISTS rather than what is planned.
+private one, and the list is what EXISTS rather than what is planned
+(a tier-1 test holds it to the modules on disk).
 Each says whether it is reached through this package or through its own
 module, which is stated rather than left to be discovered:
 
@@ -10,11 +11,28 @@ module, which is stated rather than left to be discovered:
   Markdown without executing stages or changing products. Its report renderer
   is re-exported here and registered through workspace for lower-layer
   callers; category presentation helpers remain in that module;
-
 * :mod:`pyflightstream.post.probe_fields` exports sampled velocity
   and reusable inflow with explicit units and source provenance. Sampled volume
   uses the same probes/fluid-plots route and writes vertex clouds; native saved
   section indices remain a separate manual API concern. Re-exported here;
+* :mod:`pyflightstream.post.field_frames` holds the coordinate and velocity
+  transforms the sampled-field and boundary-layer products share, each with
+  its native convention stated. Reached through its own module;
+* :mod:`pyflightstream.post.boundary_layer` writes the raw VTK boundary-layer
+  scalars at recorded surface-section cut points, with the source cell of
+  each value. It never averages, interpolates to nodes, guesses a thickness
+  unit or builds a wall-normal velocity profile. Reached through its own
+  module;
+* :mod:`pyflightstream.post.surfaces` averages the per-step surface exports
+  of an unsteady window into one surface, the product a pproc's
+  ``[time_averaging]`` asks for. Reached through its own module;
+* :mod:`pyflightstream.post.section_distributions` tables the sectional
+  loads and chordwise Cp, one table per recorded pproc distribution.
+  Reached through its own module;
+* :mod:`pyflightstream.post.custom_polar` and
+  :mod:`pyflightstream.post.provenance` hold the custom polar format and the
+  PROV-JSON writer that the products entry below names; their existing
+  import spellings remain available through :mod:`pyflightstream.post.products`;
 * :mod:`pyflightstream.post.writers` writes flow-visualization exports
   (VTK legacy ASCII and Tecplot ASCII), each beside a settings record
   that lets the file be read alone. Re-exported here;

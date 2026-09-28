@@ -34,6 +34,13 @@ The managed layout under a user-chosen campaign root, created by
   by reading the manifest).
 - ``archive/``: zipped completed simulations, manifest-driven.
 
+The preparation, solver, submission, collection, continuation and post
+stages also append their activity, with duration, outcome and failure
+context, to ``logs/activity.log`` and ``logs/activity.log.jsonl``, a
+``logs/`` folder created on the first event
+(:mod:`pyflightstream._progress`). The log observes a stage and never
+changes its result: a log that cannot be written is said on stderr.
+
 Archiving and cleaning refuse to act when the manifest is missing or
 does not record the target simulation, so file management can never
 destroy an unrecorded run.

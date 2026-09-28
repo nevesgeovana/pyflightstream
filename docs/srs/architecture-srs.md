@@ -47,6 +47,13 @@ unit factor has one home, while each caller separately restricts support
 to the units measured for its command or file format. Knowing a scale
 does not prove that a solver boundary uses that scale.
 
+Three private support modules are floors of the same kind: they import
+nothing from this package, so any layer may import them. `_cli` reports
+a console command's outcome on stderr, `_progress` appends each stage's
+activity to the workspace logs, and `_fsi_calibration` holds the
+dimensionless structural factor names the matrix workflows read without
+importing the structural side branch.
+
 ## Architectural rules
 
 !!! decision "AD-01 Downward dependencies only"
@@ -55,6 +62,14 @@ does not prove that a solver boundary uses that scale.
     convenience entry points must not be treated as permission to add
     another upward dependency; their boundary must remain explicit,
     and introducing a cycle is a defect.
+
+    An import made only for the type checker counts as an import: it
+    never executes, but it records the same upward dependency. Where a
+    lower layer reads an object of a higher one, it states the attributes
+    it reads as a structural protocol of its own. Every module must also
+    import cleanly as the first import of a fresh interpreter, because a
+    cycle can be hidden by the order in which a test suite happens to
+    import modules.
 
 !!! decision "AD-02 Single rendering sources"
     Anything presented in two places is rendered from one source: the
@@ -175,11 +190,11 @@ reason: it is the second writer into the evidence authority and it owes
 the guards the first one has.
 
 
-## Implemented 0.29 architecture and its limits
+## The 0.29.0 architecture and its limits
 
-This section records the implemented 0.29 paths. It does not declare an
-unreleased working tree accepted or widen a native measurement to other
-builds. Historical decisions above retain their dates and stated transition
+This section records the 0.29.0 paths and the limit each one keeps. It
+does not widen a native measurement to builds it was not taken on.
+Historical decisions above retain their dates and stated transition
 status. The generated [architecture overview](../architecture.md) reads the
 module docstrings through `pyflightstream.overview.markdown_overview()`;
 `scripts/gen_docs_pages.py`, configured in `properdocs.yml`, publishes it
@@ -191,7 +206,17 @@ The workspace resolves declarative inputs into the existing case and script
 layers. `plan --setup-standards` and `plan --setup-guidelines` write ordinary
 complete setup files and `inputs/setups/SETUP_GUIDELINES.md`; they use the
 existing setup model and emitter, preserve user files and distinguish physical
-recommendations from measured accuracy.
+recommendations from measured accuracy. Every generated standard states
+`farfield_layers = 5`, and the setup model refuses more than five far-field
+layers, the documented range of the command; a retired standard keeps its
+identifier reserved rather than renumbering the others.
+
+A key that no workflow command applies is refused rather than accepted and
+ignored. In 0.29.0 the matrix key `ROTOR_SHEDDING` is refused on every
+build, because the relaxed-wake direction it names reaches no line of a
+matrix script; the Python component helper still sets it. An unreadable
+`COLD_START` value blocks its row at plan and, at run, is recorded as a
+failed script for that row.
 
 Boundary inputs have three owners: mesh-sidecar `[ports]` and geometric
 TE/wake/base declarations identify the mesh; setup `[[ports]]` and application
@@ -225,7 +250,9 @@ with both source and effective hashes; undeclared files keep their bytes.
 No automatic incidence/vector rotation is implied. Coverage uses the final
 emitted placement and a conservative swept envelope for a rotor. Bounds
 containment does not certify interior interpolation support; unknown
-placement stays unknown, and overcoverage is reported as conservative.
+placement stays unknown, and overcoverage is reported as conservative. A
+frame whose motion is unknown refuses the coverage claim rather than being
+read as fixed.
 
 ### Execution evidence and derived products
 
@@ -235,6 +262,17 @@ velocity components only when the recorded executable/build and export
 kind match measured evidence. Continuation reuses validated predecessor
 metadata; it cannot recover an unknown frame by guessing a GUI name.
 
+The placement ledger refuses what it cannot prove. A post-processing
+section placed in a frame the run did not create is refused. A turn of zero degrees is
+recorded as a turn, so it does not exempt a frame from the refusals that
+apply to a rotated frame. An origin given in a unit other than metres,
+while the simulation's own unit is unknown, is not converted: the origin
+is forgotten and a later translation of that frame is refused. A declared
+native volume section that a raw line deleted is refused rather than
+exported under another index, and a legacy script that changes its
+sections outside an append-only history, including an inline section
+delete, is refused rather than reconstructed.
+
 The existing run/manifest and post layers remain the owners of execution
 status and collected products. Per-step surface sequences use the existing
 action/export route; adding a parallel native-animation subsystem is not
@@ -242,7 +280,14 @@ part of this architecture. Surface translation, sampled fields and
 boundary-layer products keep their own association, unit and completeness
 requirements rather than converting parser success into physical proof.
 Sampled volume uses steady probes or unsteady fluid plots and writes a
-vertex cloud with actual source, frame and unit evidence. Existing native
+vertex cloud with actual source, frame and unit evidence. A steady field
+that expands a probe profile into volume points refuses a surface row of
+that profile rather than sampling it in the flow, and recorded probe
+positions are written at round-trip precision so the provenance check
+compares the exact coordinates the script emitted. An additional
+extraction whose surface translation reports any problem is refused
+before it is recorded, and the reopened copy it could be remade from is
+kept. Existing native
 sections in a saved FSM do not index that grid; manual native/custom APIs
 still require the caller to establish those indices. Native nodal strength
 joins VTK cell fields only through the recorded auxiliary source and exact
@@ -252,7 +297,9 @@ Read-only diagnostics are registered by post through workspace, just like
 the existing post stages and input guides. The run CLI calls that lower-layer
 entry, preserving downward dependencies. Stage duration, failure context and
 post warnings remain in recorded logs even when concise terminal presentation
-hides optional warnings.
+hides optional warnings. The activity log observes a stage and never
+changes its result: a log that cannot be written is reported on stderr,
+and the stage's own outcome stands.
 
 See [surface translation](../surface-translation.md),
 [sampled fields](../sampled-fields.md), and
@@ -285,4 +332,8 @@ automatic synchronization or implicit deletion. Per-file atomic replacement
 does not promise an all-files transaction; a partial failure reports what
 completed and where originals remain. The earlier embedded-VBA direction
 was superseded by the approved macro-free CLI route; macro execution and
-Excel trust changes are not requirements of this delivery.
+Excel trust changes are not requirements of this delivery. The built
+distribution excludes macro modules, binary workbook residue and log
+files, so a working copy's leftovers cannot ship. An Excel edit to a
+column the target matrix's legacy layout lacks is refused with the
+migration remedy rather than dropped.

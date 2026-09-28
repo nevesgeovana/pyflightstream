@@ -1,7 +1,8 @@
 """Dimensionless FSI factor names shared by cases and workspace.
 
-Pipeline role: a dependency-free floor. Neither the cases layer nor the
-workspace resolver imports the higher FSI application layer for these tokens.
+Pipeline role: a dependency-free floor. The matrix workflows of the cases
+layer read these tokens here; :mod:`pyflightstream.fsi.calibration`
+re-exports them for the workspace FSI resolver and the fsi package.
 """
 
 PROPERTY_FACTORS = (

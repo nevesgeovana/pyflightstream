@@ -339,3 +339,22 @@ def test_package_docstring_lists_are_well_formed():
     assert "Bullet list ends without a blank line" not in stream.getvalue()
     where_to_start = pyflightstream.__doc__.split("Where to start:", 1)[1]
     assert "_progress" not in where_to_start, "a private module is not an entry point"
+
+
+def test_the_post_docstring_names_every_post_module():
+    """The post page says its list is what EXISTS; hold it to the disk.
+
+    Six modules were missing from that list while it claimed completeness
+    (boundary_layer, custom_polar, field_frames, provenance,
+    section_distributions, surfaces), and the generated overview renders it
+    verbatim.
+    """
+    import pyflightstream.post as post
+
+    folder = Path(post.__file__).parent
+    on_disk = {path.stem for path in folder.glob("*.py") if path.stem != "__init__"}
+    named = set(re.findall(r":mod:`pyflightstream\.post\.(\w+)`", post.__doc__ or ""))
+    assert on_disk <= named, (
+        f"pyflightstream.post's docstring omits {sorted(on_disk - named)}; the "
+        "architecture overview renders that list as what exists"
+    )
