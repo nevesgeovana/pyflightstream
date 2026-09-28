@@ -173,7 +173,7 @@ from pyflightstream.results.tables import sweep_table, write_table
 from pyflightstream.run._actions_counter import render_program
 from pyflightstream.run._continuation_frame import recover_frame as _recover_continuation_frame
 from pyflightstream.run._solver_windows import owned_solver_dialogs as _owned_solver_dialogs
-from pyflightstream.run._step_exports import missing_step_warning
+from pyflightstream.run._step_exports import missing_step_warning, untranslated_surfaces
 from pyflightstream.run._wake_edge_verdict import (
     SOLVER_OWN_LOG,
     actuator_profile_verdict,
@@ -5964,6 +5964,9 @@ def _execute_sweep(
     error_lines: list[str] = []
     collected_by_tag: dict[str, list[str]] = {}
     failed_tags: dict[str, str] = {}
+    # 0.30.0: a point whose only missing outputs are surfaces the package failed
+    # to translate keeps its assessment; the job's record says so, per point.
+    job_warnings: list[str] = []
     # 0.27.0: ON A MACHINE THAT CANNOT EXPORT THE LOG, run locally, no point's
     # declared log is written and none is missing. What the solver printed is
     # the whole job's and no single point's, and a job log judged as a point's
@@ -5997,15 +6000,21 @@ def _execute_sweep(
                 datapoint=PointName(tag),
             )
         except MissingOutputsError as error:
-            # FILED, LISTED AND HASHED, and the point still fails (0.27.0).
+            # FILED, LISTED AND HASHED, and the point still fails (0.27.0),
+            # unless all it misses is the package's own translation (0.30.0).
             collected_by_tag[tag] = error.collected
-            failed_tags[tag] = str(error) + _translation_problems(
-                [
-                    entry
-                    for entry in base.get("surface_translations") or []  # type: ignore[attr-defined]
-                    if isinstance(entry, Mapping) and entry.get("dat") in point_case.outputs
-                ]
-            )
+            owned = [
+                entry
+                for entry in base.get("surface_translations") or []  # type: ignore[attr-defined]
+                if isinstance(entry, Mapping) and entry.get("dat") in point_case.outputs
+            ]
+            untranslated = untranslated_surfaces(owned, error.missing, error.collected)
+            if untranslated is None:
+                failed_tags[tag] = str(error) + _translation_problems(owned)
+            else:
+                for line in untranslated:
+                    job_warnings.append(f"{tag}: {line}")
+                    warnings.warn(f"{tag}: {line}", PyflightstreamWarning, stacklevel=2)
         except (WorkspaceError, CampaignConfigError) as error:
             failed_tags[tag] = str(error)
     for point, _stem, point_case in point_cases:
@@ -6077,6 +6086,7 @@ def _execute_sweep(
     return RunRecord(
         **base,
         status=worst,
+        warnings=job_warnings,
         outputs=collected_all,
         outputs_sha256=workspace.output_digests(case.sim_id, collected_all),
         residual_note=_NO_JOB_LOG_NOTE if excused else None,
@@ -7579,6 +7589,9 @@ def _execute_point(
     # the machine cannot write one locally, which is not an output the run
     # failed to produce. Nothing happens here on any other run.
     local_log = _the_local_log(executor, point_case.outputs, work_dir, result)
+    # 0.30.0: what the package's own post-processing of an output could not
+    # write, where the solver wrote its sources (`untranslated_surfaces`).
+    post_warnings: list[str] = []
     try:
         collected = workspace.collect_outputs(
             case.sim_id,
@@ -7596,18 +7609,30 @@ def _execute_point(
             ran_in_datapoint=True,
         )
     except MissingOutputsError as error:
-        # WHAT WAS WRITTEN IS FILED, LISTED AND HASHED, and the error names
-        # only what is missing (0.27.0). An empty record here left a point's
-        # exports out of every product (measured on a cluster, 2026-09-24).
-        return RunRecord(
-            **base,
-            status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-            wall_time_s=result.wall_time_s,
-            outputs=error.collected,
-            outputs_sha256=workspace.output_digests(case.sim_id, error.collected),
-            residual_note=local_log.note,
-            error=str(error) + _translation_problems(base.get("surface_translations")),
+        # A COMPLETED SOLVE IS NOT DEMOTED BY THE PACKAGE'S OWN POST-PROCESSING
+        # (0.30.0). A Tecplot the package failed to write from the VTK the
+        # solver did write is not a missing solver output: the point is
+        # assessed as any other and the failure is a warning on the record.
+        untranslated = untranslated_surfaces(
+            base.get("surface_translations"), error.missing, error.collected
         )
+        if untranslated is None:
+            # WHAT WAS WRITTEN IS FILED, LISTED AND HASHED, and the error names
+            # only what is missing (0.27.0). An empty record here left a point's
+            # exports out of every product (measured on a cluster, 2026-09-24).
+            return RunRecord(
+                **base,
+                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                wall_time_s=result.wall_time_s,
+                outputs=error.collected,
+                outputs_sha256=workspace.output_digests(case.sim_id, error.collected),
+                residual_note=local_log.note,
+                error=str(error) + _translation_problems(base.get("surface_translations")),
+            )
+        collected = error.collected
+        post_warnings = untranslated
+        for line in untranslated:
+            warnings.warn(f"{point_name(case, point)}: {line}", PyflightstreamWarning, stacklevel=2)
     except (WorkspaceError, CampaignConfigError) as error:
         # BOTH, because collection can refuse for two reasons and only one of
         # them used to be caught. `collect_outputs` renders the point's folder
@@ -7685,7 +7710,7 @@ def _execute_point(
     return RunRecord(
         **base,
         status=status,
-        warnings=[step_warning] if step_warning else [],
+        warnings=[*post_warnings, *([step_warning] if step_warning else [])],
         iterations=assessment.iterations,
         residual=assessment.residual,
         fs_version_reported=assessment.fs_version_reported,

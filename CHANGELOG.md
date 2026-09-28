@@ -50,6 +50,16 @@ FlightStream versions.
   the VTK, each copy matched on its own because the copies share the nodes of
   their seams. A file holding another number of zones is still refused, and the
   refusal names both counts. The time-averaged surface reads the same way.
+- **A completed solve is no longer recorded FAILED_INCOMPLETE_OUTPUT because
+  the package could not translate one of its surfaces.** The Tecplot `.dat` is
+  written by the package from the VTK the solver exported, so when every
+  missing output is such a surface and its sources (the VTK and the native
+  Tecplot) were written and filed, the point keeps the status the solver's
+  outputs earn, and the failure is recorded in the record's existing
+  `warnings` list, one sentence per surface with the translation's own reason,
+  and warned. This holds on a local point, a local steady job, and a
+  collected submitted point or job. A missing solver output, the VTK among
+  them, still fails the point exactly as before.
 
 ### Owed
 
