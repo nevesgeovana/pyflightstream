@@ -3763,7 +3763,7 @@ def run_campaign(
         _say_the_summary(outcomes, time.perf_counter() - started, quiet=quiet)
     # 0.30.0: EVERY ROW SAYS HOW MANY OF ITS PLANNED POINTS HAVE A RECORD, and
     # names the ones none carries: a row of ten planned points once recorded
-    # six, and nothing said so until the owner counted the scripts.
+    # six, and nothing said so until the scripts were counted by hand.
     if to_run:
         _say_the_rows(campaign, workspace, [*manifest.values(), *records], quiet=quiet)
     submitted = [record for record in records if record.status is RunStatus.SUBMITTED]

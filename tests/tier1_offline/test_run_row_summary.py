@@ -1,7 +1,7 @@
 """At the end of a run, every row says how many of its planned points ran (0.30.0).
 
 A row of ten planned points once recorded six on an HPC workspace, the run went
-on to the next row, and nothing said so until the owner counted the scripts.
+on to the next row, and nothing said so until the scripts were counted by hand.
 Now each row closes with one line, on the terminal and in
 ``logs/activity.log``, and a row whose planned points have no record is a
 warning naming them.

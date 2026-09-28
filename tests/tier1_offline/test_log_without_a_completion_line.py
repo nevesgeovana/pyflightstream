@@ -1,6 +1,6 @@
 """A 26.124 log that ends without a converged or completed line is judged, not refused.
 
-Measured on 26.124 (the owner's research campaign, 2026-09-28): an unsteady
+Measured on 26.124 (a research campaign, 2026-09-28): an unsteady
 native log ends with ``Unsteady solver run time: N minutes.``, the saved
 simulation and exported files, and ``Script run complete.`` lines, and carries
 no ``converged``, ``completed`` or ``simulation complete`` line anywhere. A
