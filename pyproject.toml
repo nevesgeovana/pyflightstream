@@ -177,6 +177,13 @@ where = ["src"]
 "pyflightstream.commands" = ["*.yaml"]
 "pyflightstream.qa" = ["references/*.yaml"]
 
+# NEVER SHIPPED, whatever a package-data pattern or a stray file says
+# (GEO-060 M6). The retired workbook macro left MatrixSync.bas/.bin and
+# their sidecars in a working copy's workspace package, and a run leaves
+# activity logs; an exclusion here wins over every inclusion above.
+[tool.setuptools.exclude-package-data]
+"*" = ["*.bas", "*.bin", "MatrixSync*", "*.log", "*.log.jsonl", "logs/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
