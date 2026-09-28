@@ -79,7 +79,6 @@ import os
 import re
 import shutil
 import socket
-import stat
 import sys
 import threading
 import time
@@ -121,6 +120,7 @@ from pyflightstream.script._surface_averaging import (
     SurfaceAveragingWindow,
 )
 from pyflightstream.script.solver_setup import explicit_empty_selections
+from pyflightstream.workspace._links import _is_link, _make_dir_link, _remove_link
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
     GEOMETRIES_README,
@@ -1516,9 +1516,19 @@ class AdditionalRecord(BaseModel):
     surface_translations: list[dict[str, object]] | None = None
 
 
-def _is_link(path: Path) -> bool:
-    """Whether ``path`` is a symbolic link or, on Windows, a directory junction."""
-    return path.is_symlink() or (sys.platform == "win32" and _is_junction(path))
+#: `_is_link`, `_is_junction`, `_make_dir_link` and `_remove_link` moved to
+#: :mod:`pyflightstream.workspace._links` on 2026-09-28 (push review, 0.30.0).
+#: The three this module still calls directly, `_is_link`, `_make_dir_link`
+#: and `_remove_link`, are imported back above under these same names, so
+#: every call site below is unchanged; `_is_junction` is used only inside
+#: `_links` itself and stays there unimported here. The move also removed
+#: the three PUBLIC wrapper
+#: functions (`is_link`, `make_dir_link`, `remove_link`) that used to live
+#: here only so `workspace/storage.py` could reach them without importing an
+#: underscore-private name out of a PUBLIC sibling module
+#: (`tests/tier1_offline/test_digest.py`'s layer-boundary guard); storage.py
+#: now imports the private names directly from the private `_links` module,
+#: which that guard exempts.
 
 
 def _same_file(one: Path, other: Path) -> bool:
@@ -1527,78 +1537,6 @@ def _same_file(one: Path, other: Path) -> bool:
         return os.path.samefile(one, other)
     except OSError:
         return False
-
-
-def _is_junction(path: Path) -> bool:
-    """Whether ``path`` is a Windows directory junction, on every supported Python.
-
-    ``os.path.isjunction`` arrived in Python 3.12 and this package supports
-    3.11, where the same fact is read off ``lstat``: a reparse point whose
-    tag is the mount-point tag. False on any other platform.
-    """
-    if sys.platform != "win32":
-        return False
-    reader = getattr(os.path, "isjunction", None)
-    if reader is not None:
-        return bool(reader(path))
-    try:
-        found = os.lstat(path)
-    except OSError:
-        return False
-    attributes = getattr(found, "st_file_attributes", 0)
-    tag = getattr(found, "st_reparse_tag", 0)
-    return (
-        bool(attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT)
-        and tag == stat.IO_REPARSE_TAG_MOUNT_POINT
-    )
-
-
-def _make_dir_link(target: Path, link: Path) -> None:
-    """Create ``link`` pointing at directory ``target``: a junction on Windows, a symlink elsewhere.
-
-    A JUNCTION AND NOT A SYMLINK ON WINDOWS, because a symbolic link there
-    needs a privilege an ordinary account does not hold and a junction
-    needs none; both resolve for every reader and both are removed without
-    touching what they point at.
-    """
-    if sys.platform == "win32":
-        import _winapi
-
-        _winapi.CreateJunction(str(target), str(link))
-    else:
-        os.symlink(target, link, target_is_directory=True)
-
-
-def _remove_link(link: Path) -> None:
-    """Remove a link and never what it points at."""
-    if _is_junction(link):
-        os.rmdir(link)
-    else:
-        os.unlink(link)
-
-
-#: Public forms of the three link helpers above, for a sibling module of
-#: this layer (``workspace/storage.py``) to reach: the underscored ones stay
-#: exactly as they are, used throughout this module, and these are the
-#: names a PUBLIC sibling imports instead of reaching across the layer
-#: boundary for a private one (`tests/tier1_offline/test_digest.py`'s
-#: layer-boundary guard).
-def is_link(path: Path) -> bool:
-    """Whether ``path`` is a symbolic link or, on Windows, a directory junction."""
-    return _is_link(path)
-
-
-def make_dir_link(target: Path, link: Path) -> None:
-    """Create ``link``, pointing at directory ``target``.
-
-    A junction on Windows, a symlink elsewhere.
-    """
-    _make_dir_link(target, link)
-
-
-def remove_link(link: Path) -> None:
-    """Remove a link and never what it points at."""
-    _remove_link(link)
 
 
 def _sim_files(sim: Path) -> list[Path]:

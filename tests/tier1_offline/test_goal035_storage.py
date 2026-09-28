@@ -7,23 +7,25 @@ flag form). Every workspace is a real ``tmp_path`` tree built with real
 ``CampaignWorkspace.init`` and real ``RunRecord`` rows; nothing here reads or
 writes through the live repository tree.
 
-SIX MUTANTS are proved here, each a single-line change to the SOURCE TEXT of
+SEVEN MUTANTS are proved here, each a single-line change to the SOURCE TEXT of
 ``storage.py`` loaded into a standalone module (never written back to
 ``src/``, per the session's instruction that this worktree's ``src/`` is
 edited elsewhere): the protection a named output gets from a recipe, the
 preview-changes-nothing guarantee, the refusal to compact a ``SUBMITTED``
 simulation, the hash check a restore refuses on, the refusal to re-add a run
-id a ``delete-sims`` note already retired, and the refusal to apply
-``delete-sims`` against a shared product with no ``--matrix-products`` choice.
-Each ``test_mutant_*`` function shows the same check passes against the real
-module and fails (returns the opposite of what the real behaviour proves)
-against the mutant.
+id a ``delete-sims`` note already retired, the refusal to apply
+``delete-sims`` against a shared product with no ``--matrix-products``
+choice, and the relink of a compacted sim's ``inputs/`` back into the
+geometry library on restore. Each ``test_mutant_*`` function shows the same
+check passes against the real module and fails (returns the opposite of what
+the real behaviour proves) against the mutant.
 """
 
 from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 import zipfile
 from pathlib import Path
@@ -553,6 +555,32 @@ def test_a_sim_folder_is_never_removed_while_a_link_survives_inside(tmp_path, mo
     assert mesh.is_file()
 
 
+def test_removing_a_sim_folder_unlinks_a_file_symlink_and_keeps_its_target(tmp_path):
+    """The reparse-point branch of ``_remove_sim_folder`` when it is a FILE, not a directory.
+
+    ``inputs/`` is always a directory link; this covers the other shape the
+    walk in ``_remove_sim_folder`` treats the same way, a symlink to a FILE
+    outside the sim folder. Skipped where this OS account cannot create a
+    file symlink (Windows without Developer Mode or the privilege), which is
+    an environment limit, not a defect to report.
+    """
+    workspace = _ws(tmp_path, "filelinkguard")
+    sim = workspace.sim_dir("8007")
+    sim.mkdir(parents=True, exist_ok=True)
+    target = tmp_path / "outside_target.txt"
+    target.write_text("keep me", encoding="utf-8")
+    link = sim / "external_link.txt"
+    try:
+        os.symlink(target, link)
+    except (OSError, NotImplementedError):
+        pytest.skip("this OS account cannot create a file symlink")
+    workspace.append_record(_record("8007", "camp/sim_8007/AL+000"))
+    storage_module.delete_sims(workspace.root, ["8007"], apply=True)
+    assert not sim.exists()
+    assert target.is_file()
+    assert target.read_text(encoding="utf-8") == "keep me"
+
+
 def test_sync_relinks_inputs_into_mains_own_library_and_copies_no_mesh(tmp_path):
     main, other = _sync_pair(tmp_path, "relink")
     _linked_sim(other, "8003")
@@ -577,6 +605,46 @@ def test_sync_does_not_link_a_geometry_main_does_not_have(tmp_path):
     (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=True)
     assert not (main.sim_dir("8004") / "inputs").exists()
     assert "not in main's inputs/geometries" in entry["inputs_links"]["sim_8004"]
+
+
+def test_free_space_compacting_a_linked_sim_keeps_the_mesh_and_restore_relinks_it(tmp_path):
+    """compact_sims on a linked sim never touches the library, and restore relinks it.
+
+    The owner's rule that opens this section: compacting a simulation whose
+    ``inputs/`` is a link into the geometry library must not walk into the
+    link (the mesh is not this sim's to zip), and restoring the compacted
+    sim must leave ``inputs/`` a link again, not a copy.
+    """
+    workspace = _ws(tmp_path, "linkedcompact")
+    mesh = _linked_sim(workspace, "8005")
+    mesh_bytes = mesh.read_bytes()
+    workspace.append_record(_record("8005", "camp/sim_8005/AL+000"))
+    _write_recipe(workspace, "m001", '[[compact_sims]]\nsims = "all"\n')
+    entry = storage_module.free_space(workspace.root, "m001", apply=True)
+    assert entry["applied"] is True
+
+    sim = workspace.sim_dir("8005")
+    archive = sim.with_name(sim.name + storage_module.COMPACTED_SUFFIX)
+    assert archive.is_file()
+    assert not sim.exists()
+
+    # the mesh in the geometry library is untouched: same bytes, still there
+    assert mesh.is_file()
+    assert mesh.read_bytes() == mesh_bytes
+
+    # the archive holds no member under inputs/: the link was never walked into
+    with zipfile.ZipFile(archive) as zf:
+        assert not any(name.startswith("inputs/") for name in zf.namelist())
+
+    restored = storage_module.ensure_sim_expanded(workspace, "8005", reason="test")
+    assert restored is True
+    inputs = sim / "inputs"
+    assert storage_module._is_link(inputs)
+    assert (
+        Path(storage_module.os.path.realpath(inputs))
+        == (workspace.inputs_dir / "geometries" / "wing").resolve()
+    )
+    assert mesh.read_bytes() == mesh_bytes
 
 
 # --------------------------------------------------------------------------- sync of matrices
@@ -1005,3 +1073,38 @@ def test_delete_sims_apply_is_refused_without_matrix_products(tmp_path):
 def test_mutant_removing_the_apply_refusal_is_caught(tmp_path):
     mutant = _mutant_module(tmp_path, _REFUSE_OLD, _REFUSE_NEW, "refuse")
     assert not _apply_refused_without_choice(mutant, tmp_path / "mut")
+
+
+# ---- 7: restoring a compacted, linked sim relinks inputs/ rather than leaving it copied or missing
+
+
+def _restore_relinks_inputs(module, tmp_path: Path) -> bool:
+    workspace = _ws(tmp_path, "relinkcheck")
+    mesh = _linked_sim(workspace, "8006")
+    mesh_bytes = mesh.read_bytes()
+    workspace.append_record(_record("8006", "camp/sim_8006/AL+000"))
+    recipe = workspace.root / storage_module.MANAGEMENT_DIR / "m001.toml"
+    recipe.parent.mkdir(parents=True, exist_ok=True)
+    recipe.write_text('[[compact_sims]]\nsims = "all"\n', encoding="utf-8")
+    module.free_space(workspace.root, "m001", apply=True)
+    module.ensure_sim_expanded(workspace, "8006", reason="test")
+    inputs = workspace.sim_dir("8006") / "inputs"
+    return module._is_link(inputs) and mesh.read_bytes() == mesh_bytes
+
+
+_RELINK_OLD = (
+    '    link = meta.get("inputs_link")\n    if link and not (folder / "inputs").exists():\n'
+)
+_RELINK_NEW = (
+    '    link = meta.get("inputs_link")\n'
+    "    if False:  # MUTANT: restore never relinks inputs into the library\n"
+)
+
+
+def test_restore_of_a_compacted_linked_sim_relinks_inputs(tmp_path):
+    assert _restore_relinks_inputs(storage_module, tmp_path)
+
+
+def test_mutant_dropping_the_restore_relink_is_caught(tmp_path):
+    mutant = _mutant_module(tmp_path, _RELINK_OLD, _RELINK_NEW, "relink")
+    assert not _restore_relinks_inputs(mutant, tmp_path / "mut")

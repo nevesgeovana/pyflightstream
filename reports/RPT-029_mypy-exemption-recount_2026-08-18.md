@@ -65,21 +65,22 @@
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 921 errors in 18 files (checked 130 source files)
->     Success: no issues found in 130 source files
+>     Found 921 errors in 18 files (checked 131 source files)
+>     Success: no issues found in 131 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-28: 921 errors in 18 of 130 modules.**
+**mypy recount 2026-09-28: 921 errors in 18 of 131 modules.**
 
-The module total rises by the one module (`workspace/storage.py`) the 0.30.0
-storage-and-sync work adds, and the error total falls by one, inside the
-exempted set; the number of modules holding an exemption is unchanged at
-eighteen, and the shipped configuration is green over all 129. The run was
-taken by `python scripts/mypy_recount.py` on the `feat/0-30-storage-sync`
-tree fixing the nine tier-1 house-style guards. The previous reading of this
+The module total rises by the three modules the 0.30.0 work adds
+(`workspace/storage.py`, `_signature.py`, `workspace/_links.py`), and the
+error total falls by one, inside the exempted set; the number of modules
+holding an exemption is unchanged at eighteen, and the shipped configuration
+is green over all 131. The run was taken by `python scripts/mypy_recount.py`
+on the `feat/0-30-storage-sync` tree fixing the nine tier-1 house-style
+guards and the push-review findings after them. The previous reading of this
 report, the v0.29.0 release tree at 922 errors in 18 of 128 modules, is in
 its own history.
 
@@ -357,11 +358,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 921 errors in 18 files (checked 130 source files)
+    Found 921 errors in 18 files (checked 131 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 130 source files
+    Success: no issues found in 131 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been

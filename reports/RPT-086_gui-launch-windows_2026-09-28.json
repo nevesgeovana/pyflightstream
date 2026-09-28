@@ -1,0 +1,964 @@
+{
+ "report": "RPT-086",
+ "build": "26.124 build 8172026",
+ "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+ "argv": [
+  "FlightStream_26124.exe"
+ ],
+ "duration_s": 40.0,
+ "step_s": 0.5,
+ "alive_after_kill": false,
+ "timeline": [
+  {
+   "t_s": 0.5,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": true,
+   "owner_enabled": true,
+   "modal_as_package": false,
+   "style": "0x84000003",
+   "exstyle": "0x80088",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x84000102",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x84000102",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x84000102",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x84000102",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x84000102",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x84000102",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x84000102",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x84000102",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x84000102",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x84000102",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": true,
+   "owner_enabled": true,
+   "modal_as_package": false,
+   "style": "0x84000002",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "ChimeraMain",
+   "title": "FlightStream",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x6cf0000",
+   "exstyle": "0x100",
+   "size": [
+    960,
+    475
+   ],
+   "children": [
+    [
+     "MDIClient",
+     ""
+    ],
+    [
+     "Chimera",
+     ""
+    ],
+    [
+     "RICHEDIT",
+     ""
+    ],
+    [
+     "ToolbarWindow32",
+     ""
+    ],
+    [
+     "SysTabControl32",
+     " "
+    ],
+    [
+     "msctls_updown32",
+     ""
+    ],
+    [
+     "SysTreeView32",
+     ""
+    ],
+    [
+     "Chimera",
+     ""
+    ],
+    [
+     "ComboBoxEx32",
+     ""
+    ],
+    [
+     "ComboBox",
+     ""
+    ],
+    [
+     "Static",
+     "Selected edges: 0"
+    ],
+    [
+     "Static",
+     "Selected vertices: 0"
+    ]
+   ]
+  },
+  {
+   "t_s": 0.5,
+   "class": "ComboLBox",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x44808111",
+   "exstyle": "0x80",
+   "size": [
+    100,
+    78
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "ComboLBox",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x44808111",
+   "exstyle": "0x80",
+   "size": [
+    100,
+    78
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "ComboLBox",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x44808111",
+   "exstyle": "0x80",
+   "size": [
+    100,
+    78
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "ComboLBox",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x44808111",
+   "exstyle": "0x80",
+   "size": [
+    100,
+    78
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "ComboLBox",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x44808111",
+   "exstyle": "0x80",
+   "size": [
+    100,
+    78
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "ComboLBox",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x44a08111",
+   "exstyle": "0x80",
+   "size": [
+    100,
+    78
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "ComboLBox",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x44808111",
+   "exstyle": "0x80",
+   "size": [
+    100,
+    78
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "ComboLBox",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x44808111",
+   "exstyle": "0x80",
+   "size": [
+    100,
+    78
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "ComboLBox",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x44a08111",
+   "exstyle": "0x80",
+   "size": [
+    100,
+    78
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "ComboLBox",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x44808111",
+   "exstyle": "0x80",
+   "size": [
+    100,
+    78
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "ComboLBox",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x44808111",
+   "exstyle": "0x80",
+   "size": [
+    100,
+    78
+   ],
+   "children": []
+  },
+  {
+   "t_s": 0.5,
+   "class": "IME",
+   "title": "Default IME",
+   "visible": false,
+   "enabled": false,
+   "owner_same_pid": true,
+   "owner_enabled": true,
+   "modal_as_package": false,
+   "style": "0x8c000000",
+   "exstyle": "0x0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 1.0,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": true,
+   "owner_enabled": false,
+   "modal_as_package": true,
+   "style": "0x84000003",
+   "exstyle": "0x80088",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 1.0,
+   "class": "#32770",
+   "title": "",
+   "visible": true,
+   "enabled": true,
+   "owner_same_pid": true,
+   "owner_enabled": false,
+   "modal_as_package": true,
+   "style": "0x9408004c",
+   "exstyle": "0x10000",
+   "size": [
+    700,
+    525
+   ],
+   "children": [
+    [
+     "Static",
+     ""
+    ]
+   ]
+  },
+  {
+   "t_s": 1.0,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": true,
+   "owner_enabled": false,
+   "modal_as_package": true,
+   "style": "0x84000002",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 1.0,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": true,
+   "owner_enabled": false,
+   "modal_as_package": true,
+   "style": "0x84000002",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 1.0,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": true,
+   "owner_enabled": false,
+   "modal_as_package": true,
+   "style": "0x84000002",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 1.0,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": true,
+   "owner_enabled": false,
+   "modal_as_package": true,
+   "style": "0x84000002",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 1.0,
+   "class": "ChimeraMain",
+   "title": "FlightStream (simulation: ~/Default.fsm)",
+   "visible": false,
+   "enabled": false,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0xecf0000",
+   "exstyle": "0x100",
+   "size": [
+    960,
+    475
+   ],
+   "children": [
+    [
+     "MDIClient",
+     ""
+    ],
+    [
+     "Chimera",
+     ""
+    ],
+    [
+     "RICHEDIT",
+     ""
+    ],
+    [
+     "ToolbarWindow32",
+     ""
+    ],
+    [
+     "SysTabControl32",
+     " "
+    ],
+    [
+     "msctls_updown32",
+     ""
+    ],
+    [
+     "SysTreeView32",
+     ""
+    ],
+    [
+     "Chimera",
+     ""
+    ],
+    [
+     "ComboBoxEx32",
+     ""
+    ],
+    [
+     "ComboBox",
+     ""
+    ],
+    [
+     "Static",
+     "Selected edges: 0"
+    ],
+    [
+     "Static",
+     "Selected vertices: 0"
+    ]
+   ]
+  },
+  {
+   "t_s": 1.0,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x84000102",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 1.0,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x84000102",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 1.0,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x84000102",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 1.0,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x84000102",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 1.0,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x84000102",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 1.0,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x84000102",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 1.0,
+   "class": "ComboLBox",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x44808111",
+   "exstyle": "0x80",
+   "size": [
+    100,
+    78
+   ],
+   "children": []
+  },
+  {
+   "t_s": 1.0,
+   "class": "ComboLBox",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x44a08111",
+   "exstyle": "0x80",
+   "size": [
+    100,
+    78
+   ],
+   "children": []
+  },
+  {
+   "t_s": 1.0,
+   "class": "ComboLBox",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x44a08111",
+   "exstyle": "0x80",
+   "size": [
+    300,
+    78
+   ],
+   "children": []
+  },
+  {
+   "t_s": 1.0,
+   "class": "ComboLBox",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x44a08111",
+   "exstyle": "0x80",
+   "size": [
+    300,
+    78
+   ],
+   "children": []
+  },
+  {
+   "t_s": 1.0,
+   "class": "MSCTFIME UI",
+   "title": "MSCTFIME UI",
+   "visible": false,
+   "enabled": false,
+   "owner_same_pid": true,
+   "owner_enabled": false,
+   "modal_as_package": true,
+   "style": "0x8c000000",
+   "exstyle": "0x0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 3.0,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": true,
+   "owner_enabled": true,
+   "modal_as_package": false,
+   "style": "0x84000002",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 3.0,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": true,
+   "owner_enabled": true,
+   "modal_as_package": false,
+   "style": "0x84000002",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 3.0,
+   "class": "tooltips_class32",
+   "title": "",
+   "visible": false,
+   "enabled": true,
+   "owner_same_pid": true,
+   "owner_enabled": true,
+   "modal_as_package": false,
+   "style": "0x84000002",
+   "exstyle": "0x800a0",
+   "size": [
+    0,
+    0
+   ],
+   "children": []
+  },
+  {
+   "t_s": 3.0,
+   "class": "ChimeraMain",
+   "title": "FlightStream (simulation: ~/Default.fsm)",
+   "visible": true,
+   "enabled": true,
+   "owner_same_pid": false,
+   "owner_enabled": false,
+   "modal_as_package": false,
+   "style": "0x17cf0000",
+   "exstyle": "0x100",
+   "size": [
+    1296,
+    688
+   ],
+   "children": [
+    [
+     "MDIClient",
+     ""
+    ],
+    [
+     "Chimera",
+     ""
+    ],
+    [
+     "RICHEDIT",
+     ""
+    ],
+    [
+     "ToolbarWindow32",
+     ""
+    ],
+    [
+     "SysTabControl32",
+     " "
+    ],
+    [
+     "msctls_updown32",
+     ""
+    ],
+    [
+     "SysTreeView32",
+     ""
+    ],
+    [
+     "Chimera",
+     ""
+    ],
+    [
+     "ComboBoxEx32",
+     ""
+    ],
+    [
+     "ComboBox",
+     ""
+    ],
+    [
+     "Static",
+     "Selected edges: 0"
+    ],
+    [
+     "Static",
+     "Selected vertices: 0"
+    ]
+   ]
+  }
+ ]
+}

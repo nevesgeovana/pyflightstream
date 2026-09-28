@@ -65,11 +65,11 @@ FlightStream versions.
 
 - A matrix row stating `HIDDEN 0` runs with the solver's GUI again. The
   window watcher of 0.29.0 took the GUI's startup splash (class `#32770`, no
-  title, no text, no button, measured on 26.124) for a dialog and killed the
-  solver within 2 s as "solver dialog contains no readable text". A window
-  that asks nothing is now spared and written to the point's
-  `pyfs-solver-windows.log`; a window with a title, any readable text or any
-  button is still a dialog and still ends the point.
+  title, no text, no button, measured on 26.124 (reports/RPT-086)) for a
+  dialog and killed the solver within 2 s as "solver dialog contains no
+  readable text". A window that asks nothing is now spared and written to
+  the point's `pyfs-solver-windows.log`; a window with a title, any readable
+  text or any button is still a dialog and still ends the point.
 - **Native nodal strength is matched in the loads frame the VTK was written
   in.** `translate_vtk_surface(..., native_tecplot=...)` carried the loads-frame
   rounding of the written VTK to the reference axes, which for a loads frame
@@ -98,11 +98,12 @@ FlightStream versions.
 
 ### Changed (the type-checker debt, re-measured on the gate-fixing tree)
 
-- mypy recount 2026-09-28: 921 errors in 18 of 130 modules, on the
+- mypy recount 2026-09-28: 921 errors in 18 of 131 modules, on the
   `feat/0-30-storage-sync` tree fixing nine tier-1 house-style/registry
-  guards, against 0.29.0's 922 in 18 of 128. The one module the tracked
-  package gained, `workspace/storage.py`, is clean; the shipped
-  configuration is green over all 129 (`reports/RPT-029`).
+  guards and the push-review findings after them, against 0.29.0's 922 in 18
+  of 128. The three modules the tracked package gained, `workspace/storage.py`,
+  `_signature.py` and `workspace/_links.py`, are clean; the shipped
+  configuration is green over all 131 (`reports/RPT-029`).
 
 ## [0.29.0] - 2026-09-28
 

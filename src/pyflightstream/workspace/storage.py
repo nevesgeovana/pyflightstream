@@ -48,15 +48,7 @@ from pyflightstream.workspace import (
     WorkspaceError,
     post_stages,
 )
-from pyflightstream.workspace import (
-    is_link as _is_link,
-)
-from pyflightstream.workspace import (
-    make_dir_link as _make_dir_link,
-)
-from pyflightstream.workspace import (
-    remove_link as _remove_link,
-)
+from pyflightstream.workspace._links import _is_link, _make_dir_link, _remove_link
 from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP
 
 __all__ = [
