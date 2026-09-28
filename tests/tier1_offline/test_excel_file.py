@@ -4,8 +4,7 @@ from zipfile import ZipFile
 import pytest
 
 from pyflightstream.workspace.excel import main
-
-from .test_excel_sync import matrix
+from tests.tier1_offline.test_excel_sync import matrix
 
 
 def test_macro_free_factory_and_bidirectional_cli(tmp_path: Path) -> None:
