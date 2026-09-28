@@ -501,17 +501,26 @@ def _placed_by_origin(
     frame: int,
     bound: Mapping[str, object],
     *,
-    simulation_unit: str = "METER",
+    simulation_unit: str | None = None,
 ) -> None:
     """``SET_COORDINATE_SYSTEM_ORIGIN`` states the origin in the reference (SRC-751 p.334).
 
-    Convert explicit command units to the native units used by the placement
-    ledger. Unknown scales forget the origin instead of keeping a wrong value.
+    UNKNOWN UNIT, FORGOTTEN (GOAL-034 Q4, GEO-060 A1a, CX-1): the command's
+    explicit unit is converted through the one length table into the native
+    unit of the placement ledger only when the script knows the simulation's
+    length unit (set by the script or read from the opened save). While that
+    unit is unknown an origin in ``METER`` is kept as written, as before
+    0.29.0, and one in any other unit is forgotten rather than converted, so
+    a translation of that frame is refused.
     """
     from pyflightstream._lengths import scale
 
     held = placements.get(frame)
-    factor = scale(str(bound.get("units")), simulation_unit)
+    units = str(bound.get("units"))
+    if simulation_unit is None:
+        factor = 1.0 if units == "METER" else None
+    else:
+        factor = scale(units, simulation_unit)
     values = _vector(bound, "x", "y", "z")
     origin = (
         None if factor is None else (values[0] * factor, values[1] * factor, values[2] * factor)
@@ -528,9 +537,9 @@ def _placed_by_turn(
     origin of the frame it turns about, which a turn about that point cannot
     move whatever its sign.
     """
-    # A zero turn preserves placement independently of rotation-sign evidence.
-    if float(bound.get("angle", 0.0)) == 0.0:
-        return
+    # NO ZERO-TURN SHORTCUT (GOAL-034 Q4, GEO-060 A1b/A1c): that a turn by 0
+    # leaves a frame in place is a claim about the solver with no owner decision
+    # and no recorded native export behind it, so the turn is treated as any other.
     held = placements.get(frame)
     pivot = placements.get(bound.get("rotation_frame"))  # type: ignore[arg-type]
     stays = (
@@ -1456,7 +1465,7 @@ class Script:
                 self._frame_placements,
                 frame,
                 bound,
-                simulation_unit=self.simulation_length_unit or "METER",
+                simulation_unit=self.simulation_length_unit,
             )
         elif follower is not None:
             follower(self._frame_placements, frame, bound)

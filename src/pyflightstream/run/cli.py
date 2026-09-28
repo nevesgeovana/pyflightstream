@@ -1242,6 +1242,15 @@ def _report_skips(workspace: CampaignWorkspace, matrices: list[str | None]) -> i
                     f"skipped {what} of {matrix or 'the matrix-less records'}: {reason}",
                     file=sys.stderr,
                 )
+            else:
+                # QUIET IS NOT SILENT (GOAL-034 Q4, Q0-tests-2-8): the reason stays in
+                # the log and --diagnostics, but a skip is still said where the user
+                # looks, as the accepted G59 proposal counts every hidden item.
+                print(
+                    f"skipped {what} of {matrix or 'the matrix-less records'}; "
+                    "details: --diagnostics",
+                    file=sys.stderr,
+                )
             skipped += 1
     return skipped
 

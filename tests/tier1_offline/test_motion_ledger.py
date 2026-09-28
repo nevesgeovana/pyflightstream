@@ -162,22 +162,26 @@ def test_saved_timing_resolution_keeps_original_and_refuses_other_executable(mon
     )
 
 
-def test_zero_angle_turn_preserves_complete_placement():
+@pytest.mark.parametrize("angle", [0.0, 30.0])
+def test_a_turn_about_a_pivot_elsewhere_forgets_placement_even_at_zero(angle):
+    """GOAL-034 Q4 (GEO-060 A1b/A1c): no zero-turn shortcut without a native export.
+
+    A turn whose sign the manual does not state leaves the frame's placement
+    unknown; a zero angle is not exempted, because that exemption is a claim
+    about the solver no owner decision or recorded native export supports.
+    """
     script, hub, moving = placed_script()
-    before = script.frame_motions[moving]
+    assert script.frame_motions[moving]["state"] == "known"
     script.emit(
         "ROTATE_COORDINATE_SYSTEM",
         frame=moving,
         rotation_frame=hub,
         rotation_axis="X",
-        angle=0.0,
+        angle=angle,
     )
     after = script.frame_motions[moving]
-    assert after["origin_native"] == before["origin_native"]
-    assert after["x_axis"] == before["x_axis"]
-    assert after["y_axis"] == before["y_axis"]
-    assert after["z_axis"] == before["z_axis"]
-    assert after["state"] == "known"
+    assert after["state"] == "unknown"
+    assert after["origin_native"] is None and after["x_axis"] is None
 
 
 def test_measured_timing_is_bound_to_executable_build_and_unit():
