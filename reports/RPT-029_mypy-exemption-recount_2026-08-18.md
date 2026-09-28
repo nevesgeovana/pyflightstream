@@ -742,3 +742,10 @@ lines, and the shipped configuration is green over all 128 modules; the run
 measured the tree as it is and assigns the one error to no change. The quoted
 mypy lines above are this run's, and the sentence at the top of this report is
 this measurement.
+
+**Erratum 2026-09-28** (GOAL-034 Q8 VV2-2/VV6-2): the section above names no
+commit for the v0.29.0 release tree it measured. That tree is HEAD
+`2626467cf979ee261f5e1f27baaa4507adfd4900`; the receipt is
+`GOAL-034-receipts/q8-evidence/vv3-mypy-recount-2626467c.txt` (922 errors in
+18 of 128 modules, mypy 1.20.2, 0 changed paths). This line is added after the
+fact and the measurement above is unedited.
