@@ -1,9 +1,10 @@
 """A 26.124 log that ends without a converged or completed line is judged, not refused.
 
-Measured on 26.124 (a research campaign, 2026-09-28): an unsteady
-native log ends with ``Unsteady solver run time: N minutes.``, the saved
-simulation and exported files, and ``Script run complete.`` lines, and carries
-no ``converged``, ``completed`` or ``simulation complete`` line anywhere. A
+Measured on 26.124 (reports/RPT-088, 2026-09-28): an unsteady native log
+ends with ``Script run complete.``, then ``Unsteady solver run time: N
+minutes.``, the saved simulation file and one ``Data written to external text
+file:`` block per export, and carries no ``converged``, ``completed`` or
+``simulation complete`` line anywhere. A
 checker outside the package required such a line and could never pass on a
 real log. Every reader in the package that judges a run from its log text was
 read for the same assumption (0.30.0): the residual history
@@ -21,12 +22,18 @@ import re
 from pyflightstream.workspace import RunStatus
 from tests.tier1_offline.test_run_campaign import FIXTURES, _assess_log
 
-#: The tail of a 26.124 unsteady log as the solver prints it (measured).
+#: The tail of a 26.124 unsteady log as the solver prints it (RPT-088): the
+#: order and the lines are the measured log's, its separator lines a NUL byte
+#: as there, its CRLF read as LF like the fixture it is joined to, and the
+#: file names made generic.
+_SEP = "\x00\n"
 TAIL_26124 = (
-    "\n \nUnsteady solver run time: 5.78 minutes.\n \n"
-    "Simulation file saved to following location:\n \nP9901.fsm\n \n\n \n"
-    "Data written to external text file:\n \nP9901.txt\n \n\n \n"
-    "Script run complete.\n \n"
+    f"Script run complete.\n{_SEP}"
+    f"Unsteady solver run time: 5.78 minutes.\n{_SEP}"
+    f"Simulation file saved to following location:\n{_SEP}P.fsm\n{_SEP}\n{_SEP}"
+    f"Data written to external text file:\n{_SEP}P.txt\n{_SEP}\n{_SEP}"
+    f"Data written to external text file:\n{_SEP}P_native_tecplot.dat\n{_SEP}\n{_SEP}"
+    f"Data written to external text file:\n{_SEP}P.vtk\n{_SEP}\n{_SEP}\n{_SEP}"
 )
 
 

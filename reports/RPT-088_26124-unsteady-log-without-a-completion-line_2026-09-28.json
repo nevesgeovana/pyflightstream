@@ -1,0 +1,124 @@
+{
+ "report": "RPT-088",
+ "build": "26.124 build 8172026",
+ "build_evidence": "read from each log's own banner line: \"FlightStream version 26.1, build #8172026\"",
+ "fix_commit": "d1db61fa48fb987624295b3fa2b8ab521f2a4e2c",
+ "fix_commit_message_title": "test: a 26.124 log ending in \"Script run complete.\" is judged, not refused (P3)",
+ "branch": "fix/0-30-robust",
+ "checked_out_at": "e481753e5453dc09dd565ccb9638da8e976bcaf1",
+ "claimed_in_commit": {
+  "residual_rows": 2333,
+  "run_time_s": 346.8,
+  "run_time_minutes": 5.78,
+  "completion_line_present": false
+ },
+ "source": {
+  "probe_row": {
+   "description": "a six-copy periodic probe row, run locally on this machine, 2026-09-28 (the same row whose native Tecplot/VTK pair RPT-087 measures)",
+   "log_sha256": "30d299ab8e5778df685f8abb932258faa90517607f7662f1508da9cbd646d125",
+   "log_size_bytes": 434824,
+   "identified_as": "the exact source of both figures the commit cites (2333 residual rows, 346.8 s), matched exactly"
+  },
+  "further_campaign_logs": "a periodic row (SYMMETRY PERIODIC 6) of a separate research campaign on this machine, plus its six non-periodic reference-set points; 28 real *_log.txt files in total, every one an unsteady 26.124 run, read for shape-generalisation only (see measured_28_further_logs)"
+ },
+ "commands": [
+  "python -c \"from pyflightstream.results import parse_residual_history, parse_log_times, frozen_time_steps; ...\"  # run from PYTHONPATH=src, fix/0-30-robust branch, against each real log file",
+  "python -m pytest tests/tier1_offline/test_log_without_a_completion_line.py -v"
+ ],
+ "measured_probe_row_log": {
+  "sha256": "30d299ab8e5778df685f8abb932258faa90517607f7662f1508da9cbd646d125",
+  "size_bytes": 434824,
+  "residual_rows": 2333,
+  "residual_rows_matches_commit_exactly": true,
+  "solver_run_time_s": 346.8,
+  "solver_run_time_s_matches_commit_exactly": true,
+  "solver_mode": "unsteady",
+  "time_steps": 108,
+  "frozen_time_steps": null,
+  "has_completion_line": false,
+  "true_final_non_empty_lines_in_order": [
+   "Script run complete.",
+   "Unsteady solver run time: 5.78 minutes.",
+   "Simulation file saved to following location:",
+   "<point>.fsm",
+   "Data written to external text file:",
+   "<point>.txt",
+   "Data written to external text file:",
+   "<point>_native_tecplot.dat",
+   "Data written to external text file:",
+   "<point>.vtk"
+  ]
+ },
+ "tail_order_check": {
+  "commit_and_test_fixture_TAIL_26124_order": [
+   "Unsteady solver run time: 5.78 minutes.",
+   "Simulation file saved to following location:",
+   "<point>.fsm",
+   "Data written to external text file:",
+   "<point>.txt",
+   "Script run complete."
+  ],
+  "probe_row_real_log_order": [
+   "Script run complete.",
+   "Unsteady solver run time: 5.78 minutes.",
+   "Simulation file saved to following location:",
+   "<point>.fsm",
+   "Data written to external text file:",
+   "<point>.txt",
+   "Data written to external text file:",
+   "<point>_native_tecplot.dat",
+   "Data written to external text file:",
+   "<point>.vtk"
+  ],
+  "matches": false,
+  "differences": [
+   "TAIL_26124 places 'Script run complete.' last; the real log places it first",
+   "TAIL_26124 has one 'Data written to external text file:' block (.txt); the real log has three (.txt, native Tecplot, .vtk), because this row exports all three"
+  ],
+  "note": "the substantive claim under test (no completion/converged line, the readers do not require one) holds in the real log regardless of this order and content difference"
+ },
+ "measured_28_further_logs": [
+  {"id":"log_01","sha256":"88789d15446c312e3f0dfb08b2a11b8766c78e417af5cc83ad19891c12be35ae","size_bytes":434647,"residual_rows":2333,"solver_run_time_s":356.40000000000003,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_02","sha256":"72b99f1f336f11e710f3a0af8d561542e1dad65b90d503b3084be84ca11f150e","size_bytes":437361,"residual_rows":2356,"solver_run_time_s":347.4,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_03","sha256":"e505cfb43c121b53f230623c376d6011aa51144ef87ec1cbd7fb64e5dd2bf202","size_bytes":430871,"residual_rows":2301,"solver_run_time_s":310.2,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_04","sha256":"5291be1665ff749fdb33450079d509e66a759dc3f137ea6b4d2ae9ca91bbc226","size_bytes":747425,"residual_rows":4008,"solver_run_time_s":468.0,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_05","sha256":"2fd4ea9e3d1f06f5e64fb5cbad6e51743f30c3affc98ad269dd08c55ca18b7c9","size_bytes":434647,"residual_rows":2333,"solver_run_time_s":331.2,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_06","sha256":"874d3e16a4616f59c325b75df8cf7642b8478ffd088445f7d508af99b1648ef4","size_bytes":439013,"residual_rows":2370,"solver_run_time_s":320.4,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_07","sha256":"7d670801a010a939017b1a5fba9de02f225863fb991ff4fdd3ee8d3774c1c43b","size_bytes":434647,"residual_rows":2333,"solver_run_time_s":462.0,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_08","sha256":"9f086b8ce4096c0e0b17ef6603620eee2882ec00e19030ad87209ae996c47d1e","size_bytes":434647,"residual_rows":2333,"solver_run_time_s":277.2,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_09","sha256":"c267f84c65b437697cef913d4808c2b11f811653bc854b8aafb6af095157c738","size_bytes":434647,"residual_rows":2333,"solver_run_time_s":334.20000000000005,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_10","sha256":"b4aab0dc5b0afb71b208d2b022b0aa6de0f4d4118c529fe079c5ab8de4337bee","size_bytes":434647,"residual_rows":2333,"solver_run_time_s":325.2,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_11","sha256":"09705173de2b5572af5914b03d1352c6ab33e57351eb9dc7eca09f5e13d8dfb1","size_bytes":433821,"residual_rows":2326,"solver_run_time_s":316.2,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_12","sha256":"bc0f8f0f7c20bbe0a4afa613f4cc55c1906fe1f4d1619542110584e4a62d7fbb","size_bytes":416121,"residual_rows":2176,"solver_run_time_s":340.79999999999995,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_13","sha256":"21cbd46c6510336eeea23b4eb3ea789bf781d8d463ce60757e17656236af3792","size_bytes":437609,"residual_rows":2358,"solver_run_time_s":328.8,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_14","sha256":"d0920569fa9c0fef429c8a7bbe0c8174116af4bc9fc0b0bd111f6e40f51ed0d6","size_bytes":470987,"residual_rows":2646,"solver_run_time_s":2936.3999999999996,"solver_mode":"unsteady","time_steps":54,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_15","sha256":"058df452987bfe0584bc032cf327b574af31fbc14e64aba706f7ea378c303ed7","size_bytes":434647,"residual_rows":2333,"solver_run_time_s":389.40000000000003,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_16","sha256":"05b460fe71609d680b5ea736f5ef3d7fda55a724ce85a353683f10cf799293ef","size_bytes":434647,"residual_rows":2333,"solver_run_time_s":386.40000000000003,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_17","sha256":"2e49c61488b09bf554795fc3810d381b75b07ce0a43b5f8047dcca61447d169c","size_bytes":434647,"residual_rows":2333,"solver_run_time_s":418.2,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_18","sha256":"df6ac1951f78e111199b4f6f6c5a0a0f02aba68adcbab58b32a531db8dc24363","size_bytes":754387,"residual_rows":4067,"solver_run_time_s":393.59999999999997,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_19","sha256":"4efe2b28943b251b9aea4e2df861088043741e6d5d8422e902cc45ab69f418bc","size_bytes":754387,"residual_rows":4067,"solver_run_time_s":378.59999999999997,"solver_mode":"unsteady","time_steps":108,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_20","sha256":"06be7ed2c0a6148fe0cfbc008234dbeae18a4082f97f8b122117039d7b8764bb","size_bytes":248766,"residual_rows":1420,"solver_run_time_s":127.8,"solver_mode":"unsteady","time_steps":54,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_21","sha256":"c6130ccd96440bbb9a2d0fa6b8d4e17f444de6f12fe4faf511722c63f21d3874","size_bytes":796008,"residual_rows":4071,"solver_run_time_s":1504.8,"solver_mode":"unsteady","time_steps":216,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_22","sha256":"b0767fdde7caf10f6f1aad8852accb01752191c54d4cccd5b72fae9fe9d17097","size_bytes":820316,"residual_rows":4277,"solver_run_time_s":832.1999999999999,"solver_mode":"unsteady","time_steps":216,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_23","sha256":"86bfca2ff2dcddaebd27daea4f5e1eb49aca1a65a7a501ec70af3e7b857674da","size_bytes":304447,"residual_rows":1560,"solver_run_time_s":16.8,"solver_mode":"unsteady","time_steps":81,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_24","sha256":"7e514eea1661fc4805d3707328857610cace844eb15e9f883a9c8cf815c4615f","size_bytes":521369,"residual_rows":2581,"solver_run_time_s":144.60000000000002,"solver_mode":"unsteady","time_steps":81,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_25","sha256":"a0a04e3552566e386e28fa633b64d4ec14f3e7fd1a2587884fdd89fc8a7fdfbe","size_bytes":521432,"residual_rows":2581,"solver_run_time_s":140.39999999999998,"solver_mode":"unsteady","time_steps":81,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_26","sha256":"73c9a8bc14f1ed7fc342875b7b8eb74ab3d6e146da4402c02e8503db8223548e","size_bytes":521579,"residual_rows":2581,"solver_run_time_s":130.8,"solver_mode":"unsteady","time_steps":81,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_27","sha256":"50468d3780d0f4823ecdbb6be356581e63088839115f189c8fdac638efa9f169","size_bytes":521453,"residual_rows":2581,"solver_run_time_s":130.2,"solver_mode":"unsteady","time_steps":81,"frozen_time_steps":null,"has_completion_line":false},
+  {"id":"log_28","sha256":"cb0be00fe92a55a1228d7d8ca9932838c8e22b735635b2156ceb10cd55194975","size_bytes":521474,"residual_rows":2581,"solver_run_time_s":133.20000000000002,"solver_mode":"unsteady","time_steps":81,"frozen_time_steps":null,"has_completion_line":false}
+ ],
+ "shipped_tier1_test_module": {
+  "file": "tests/tier1_offline/test_log_without_a_completion_line.py",
+  "sha256": "154f3d43ba4b09bd57fb842c68e8499dd42a22a432d7e29d433ccef95286d37a",
+  "note": "run against its own TAIL_26124 fixture, not the real probe-row log above",
+  "collected": 2,
+  "passed": 2,
+  "failed": 0
+ },
+ "code_files": {
+  "src/pyflightstream/results/__init__.py": {
+   "sha256_post_fix": "a8fb6864e8da6afd0378772b0422a5bd1e1b256aaf1ee3a5669e02ea1bb73ad3"
+  }
+ },
+ "verdict": "The commit's two cited figures (2333 residual rows, 346.8 s) are both matched exactly by the six-copy periodic probe row's own real log, which is its source. That log and 28 further real campaign logs all carry no converged/completed/simulation-complete line, and the three named readers parse every one without error or a false frozen-solve verdict. The commit's and the shipped test fixture's stated tail order (run time before Script run complete, which they place last, with one Data-written line) does NOT match the probe row's real log, whose true final lines are Script run complete first, then run time, then three Data-written lines (.txt, native Tecplot, .vtk). The substantive no-completion-line claim holds regardless of that order difference."
+}

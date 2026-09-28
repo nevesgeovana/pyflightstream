@@ -47,6 +47,9 @@ acceptance or publication of their findings.
 | [RPT-082](RPT-082_cad-units-and-custom-inflow-coverage_2026-09-27.md) | CAD units, geometry transforms and custom inflow coverage | Bounded evidence; final release review pending |
 | [RPT-083](RPT-083_probe-frames-and-temporal-export-limits_2026-09-27.md) | Probe frames, temporal surfaces and walltime export limits | Bounded evidence; final release review pending |
 | [RPT-085](RPT-085_native-workspace-evidence_2026-09-27.md) | Native mesh routes, sampled-volume conversion, inlet and actuator controls | Bounded evidence; final release review pending |
+| [RPT-086](RPT-086_gui-launch-windows_2026-09-28.md) | The windows 26.124 shows when launched with its GUI: the startup splash asks nothing | Bounded evidence; final release review pending |
+| [RPT-087](RPT-087_periodic-native-tecplot-one-zone-per-copy_2026-09-28.md) | A periodic row's native Tecplot holds one zone per copy, each equal to its VTK block | Bounded evidence; final release review pending |
+| [RPT-088](RPT-088_26124-unsteady-log-without-a-completion-line_2026-09-28.md) | A 26.124 unsteady log ends without a completion line; every log reader judges it | Bounded evidence; final release review pending |
 
 ## Dependency evidence
 

@@ -12,8 +12,8 @@ just equal node counts.
 ONE ZONE PER PERIODIC COPY (0.30.0). A row under ``SYMMETRY PERIODIC`` writes
 its native Tecplot as one zone per copy, each zone a complete file of its own
 (``TITLE``, ``VARIABLES``, ``ZONE``, payload), the modelled sector first and
-then its images turned about the axis, measured on 26.124 (a six-copy sector,
-2026-09-28: six zones of 5961 nodes, zone k equal to the k-th block of the VTK
+then its images turned about the axis, measured on 26.124 (reports/RPT-087,
+a six-copy sector, 2026-09-28: six zones of 5961 nodes, zone k equal to the k-th block of the VTK
 to 1e-13 m). The VTK route already carries the images after the real surface
 (RPT-080), so the reading chosen is the VTK's: zone k joins the k-th copy of
 the VTK, the real surface first, then the images. Each copy is matched on its
@@ -347,10 +347,14 @@ def attach_native_strength_by_copy(
 ) -> tuple[VtkSurface, dict[str, object]]:
     """Attach the strength of one native zone per periodic copy, copy by copy.
 
-    ``surface`` is the whole VTK in the REFERENCE frame, the modelled sector
-    first and its images after it (RPT-080); ``zones`` are the native zones in
-    file order. Zone k is joined to the k-th copy of the VTK, of the zone's own
-    node and polygon counts, by :func:`attach_native_strength`, so each copy
+    ``surface`` is the whole VTK, the modelled sector first and its images
+    after it (RPT-080); ``zones`` are the native zones in file order, in the
+    SAME frame as ``surface``: the reference frame for a caller holding two
+    reference surfaces, the loads frame when the translation carries the
+    native into the frame the VTK was written in
+    (``_strength_in_loads_frame`` in :mod:`pyflightstream.results.surface`).
+    Zone k is joined to the k-th copy of the VTK, of the zone's own node and
+    polygon counts, by :func:`attach_native_strength`, so each copy
     keeps the unique coordinate and topology match. With one zone this is
     :func:`attach_native_strength` itself, record and all. The tolerance is
     resolved once, from every zone's nodes together, when none is given.

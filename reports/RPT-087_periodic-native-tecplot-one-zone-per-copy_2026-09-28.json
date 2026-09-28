@@ -1,0 +1,107 @@
+{
+ "report": "RPT-087",
+ "build": "26.124 build 8172026",
+ "build_evidence": "read from a six-copy periodic probe row's own log banner: \"FlightStream version 26.1, build #8172026\"",
+ "fix_commit": "105bc274afa8bd7ac2f5d91f4ca14ee058c8eae4",
+ "fix_commit_message_title": "fix: a periodic row's native Tecplot is read one zone per copy (P1)",
+ "branch": "fix/0-30-robust",
+ "checked_out_at": "e481753e5453dc09dd565ccb9638da8e976bcaf1",
+ "pre_fix_commit": "105bc274afa8bd7ac2f5d91f4ca14ee058c8eae4~1",
+ "claimed_in_commit": {
+  "zones": 6,
+  "nodes_per_zone": 5961,
+  "seam_positions_shared": 378,
+  "coordinate_match_tolerance_m": 1e-13,
+  "pre_fix_refusal_text": "trailing data or multiple zones"
+ },
+ "source": {
+  "description": "a six-copy periodic probe row, run locally on this machine, 2026-09-28",
+  "native_tecplot_sha256": "5ef860d67bfba4b64f4d5936db58e887f5bcd9b08341f49526e8c1b4c2719a02",
+  "native_tecplot_size_bytes": 17408124,
+  "vtk_sha256": "a7379c907acb1775474b8b6f7155bb4fd1cce25ff6efff2f9308b5e488ad0324",
+  "vtk_size_bytes": 24599731,
+  "loads_frame": {"index": 2, "origin": [0.0, 0.0, 0.0], "axes": [[1.0,0.0,0.0],[0.0,1.0,0.0],[0.0,0.0,1.0]], "note": "identity placement, read from the row's own script"}
+ },
+ "commands": [
+  "python -c \"from pyflightstream.results.native_surface import read_native_tecplot_surface; read_native_tecplot_surface(native)\"  # run against the 105bc274~1 worktree, real native Tecplot file",
+  "python -c \"from pyflightstream.results.native_surface import read_native_tecplot_zones, attach_native_strength_by_copy; ...\"  # run against 105bc274 (post-fix), real native Tecplot + VTK files",
+  "python -c \"from pyflightstream.results.surface import translate_vtk_surface; translate_vtk_surface(vtk, out, frame=loads_frame, native_tecplot=native, periodic_copies=6|5|None)\"",
+  "python -m pytest tests/tier1_offline/test_periodic_native_zones.py -v"
+ ],
+ "measured": {
+  "pre_fix_read_native_tecplot_surface_on_real_file": {
+   "outcome": "refused",
+   "exception_type": "MalformedOutputError",
+   "message": "Native Tecplot has trailing data or multiple zones"
+  },
+  "post_fix_read_native_tecplot_zones_zones_6": {
+   "outcome": "accepted",
+   "zones_read": 6,
+   "nodes_per_zone": [5961, 5961, 5961, 5961, 5961, 5961],
+   "elements_per_zone": [5840, 5840, 5840, 5840, 5840, 5840]
+  },
+  "vtk_totals": {"n_points": 35766, "n_cells": 35040},
+  "attach_native_strength_by_copy": {
+   "matched_nodes": 35766,
+   "coordinate_tolerance_m_auto_picked_by_function": 7.339241100522583e-06,
+   "coordinate_tolerance_by_axis_m": [7.339241100522583e-06, 7.339241100522583e-06, 7.339241100522583e-06],
+   "method": "one native zone per periodic copy, zone k joined to the k-th copy of the VTK (the modelled surface first, then its images); unique coordinates plus polygon-edge incidence within each copy; no interpolation"
+  },
+  "direct_coordinate_match_per_copy_m": {
+   "description": "max |zone k points - VTK block k points| computed directly, independent of attach_native_strength_by_copy's own tolerance",
+   "per_copy_max_m": [4.629456340004466e-15, 8.294753772730701e-14, 9.418160695773281e-14, 4.575227469061235e-15, 4.078511804025709e-15, 3.84601462857491e-15],
+   "overall_max_m": 9.418160695773281e-14,
+   "claim_m": 1e-13,
+   "within_claim": true
+  },
+  "seam_positions": {
+   "method": "rounded all 6 zones' points to 1e-9 m; counted XYZ positions shared by more than one node instance",
+   "distinct_coincident_positions": 378,
+   "total_node_instances_at_those_positions": 764,
+   "claim": 378,
+   "matches_claim_exactly": true
+  },
+  "post_fix_read_native_tecplot_zones_zones_5": {
+   "outcome": "refused",
+   "exception_type": "MalformedOutputError",
+   "message": "Native Tecplot holds 6 zones and 5 were expected, one per periodic copy the row declares"
+  },
+  "post_fix_read_native_tecplot_zones_zones_none_default_1": {
+   "outcome": "refused",
+   "exception_type": "MalformedOutputError",
+   "message": "Native Tecplot holds 6 zones and 1 was expected: a row under SYMMETRY PERIODIC writes one zone per copy and states its copy count, and a row under any other symmetry one zone"
+  },
+  "translate_vtk_surface_end_to_end": {
+   "periodic_copies_6": {
+    "outcome": "accepted",
+    "matched_nodes": 35766,
+    "periodic_copies_stated": 6,
+    "auxdata_marker": "native values of 6 zones, zone k joined to the k-th periodic copy of the VTK; unique coordinates and polygon topology within each copy; no interpolation"
+   },
+   "periodic_copies_5": {
+    "outcome": "refused",
+    "exception_type": "MalformedOutputError",
+    "message": "Native Tecplot holds 6 zones and 5 were expected, one per periodic copy the row declares"
+   },
+   "periodic_copies_none": {
+    "outcome": "refused",
+    "exception_type": "MalformedOutputError",
+    "message": "Native Tecplot holds 6 zones and 1 was expected: a row under SYMMETRY PERIODIC writes one zone per copy and states its copy count, and a row under any other symmetry one zone"
+   }
+  },
+  "shipped_tier1_test_module": {
+   "file": "tests/tier1_offline/test_periodic_native_zones.py",
+   "sha256": "5a56e27394d28c36677491851ed319f046ae7919f9b31e56167a5c4073ec6872",
+   "note": "run against its own reconstructed fixture, not the real file above",
+   "collected": 8,
+   "passed": 8,
+   "failed": 0
+  }
+ },
+ "code_files": {
+  "src/pyflightstream/results/native_surface.py": {
+   "sha256_post_fix": "f14b3aa1b85edf72716af44d6d72fd458c3d5a971326469ce99b66cb5ba16525"
+  }
+ },
+ "verdict": "Every figure in commit 105bc274 is reproduced against the real native Tecplot / VTK pair: 6 zones of exactly 5961 nodes each, an overall coordinate match of 9.42e-14 m (under the claimed 1e-13 m ceiling), exactly 378 shared seam positions, the exact pre-fix refusal message on the real file, and a correct end-to-end translate_vtk_surface pass at periodic_copies=6 with correctly-named refusals at 5 and at the default of 1."
+}

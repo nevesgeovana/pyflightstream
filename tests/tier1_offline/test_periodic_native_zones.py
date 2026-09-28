@@ -1,7 +1,7 @@
 """A periodic row's native Tecplot holds one zone per copy, and is translated (0.30.0).
 
-Measured on 26.124 (2026-09-28, a six-copy sector of a research
-campaign): the native export of a row under ``SYMMETRY PERIODIC`` is six
+Measured on 26.124 (reports/RPT-087, 2026-09-28, a six-copy periodic
+probe row): the native export of a row under ``SYMMETRY PERIODIC`` is six
 complete files one after another, ``TITLE``, ``VARIABLES`` and ``ZONE`` each,
 the modelled sector first, and zone k equals the k-th block of the VTK. The
 0.29.0 reader refused it as "trailing data or multiple zones", and the point
