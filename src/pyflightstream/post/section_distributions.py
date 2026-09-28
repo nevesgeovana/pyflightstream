@@ -147,7 +147,10 @@ def _legacy_script_layout(text: str, inventory: Sequence[str]) -> list[dict[str,
     frames: dict[int, str] = {}
     blocks: list[dict[str, object]] = []
     for index, line in enumerate(lines):
-        if line in {
+        # THE COMMAND WORD, not the whole line (Q0 CX-6): `DELETE_SURFACE_SECTION`
+        # is INLINE (`DELETE_SURFACE_SECTION 1`), so a whole-line match let a
+        # deletion through and a changed history was read as append-only.
+        if line and line.split(maxsplit=1)[0] in {
             "CREATE_NEW_SURFACE_SECTION",
             "DELETE_SURFACE_SECTION",
             "DELETE_ALL_SURFACE_SECTIONS",
