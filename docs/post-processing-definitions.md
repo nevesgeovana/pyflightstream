@@ -1478,7 +1478,9 @@ M_hel = sqrt(V^2 + (Omega R)^2) / a
   `J (RPM / 60) D` of the clock rotor. At `V = 0`, `M_hel = M_tip`.
 - `M_tip` is the tangential speed of the tip alone; `M_hel` composes it with
   the free stream, the speed at which the tip meets the air in a helix. Both
-  are dimensionless.
+  are dimensionless and geometric: `V` is the free-stream speed alone, not
+  corrected for the rotor's own induced velocity, which near hover and at low
+  advance ratio adds to the speed the tip actually sees.
 
 Where they appear:
 

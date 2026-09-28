@@ -7400,7 +7400,8 @@ def _execute_point(
         "reductions": reduction_windows(case_at_point(case, point)),
         # 0.30.0 (M1): each rotor's tip and helical Mach numbers at THIS point,
         # from the point's own resolved state; None (and absent from the file)
-        # on every run type other than unsteady_rotor.
+        # where rotor_machs covers nothing: a row turning no rotor at a stated
+        # speed and naming no actuator disc.
         "rotor_mach": {mach.alias: mach.record() for mach in rotor_machs(at_point)} or None,
         # How the geometry was staged (PFS-2029.17), read off the workspace
         # that staged it, so the record says link or copy and why.

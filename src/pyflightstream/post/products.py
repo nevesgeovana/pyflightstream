@@ -732,7 +732,7 @@ def point_state(record: RunRecord) -> PointState:
     )
 
 
-def free_stream_and_sound(record: RunRecord) -> tuple[float, float] | None:
+def _free_stream_and_sound(record: RunRecord) -> tuple[float, float] | None:
     """Return a point's free-stream speed and speed of sound, in m/s (0.30.0, M1).
 
     Resolved from the record's own condition, the swept value in place, by the
@@ -2285,7 +2285,7 @@ def _rotor_tables(
                     ),
                     # 0.30.0 (M1): the free-stream speed and the speed of sound
                     # the point resolved to, for its tip and helical Mach numbers.
-                    "air": free_stream_and_sound(record),
+                    "air": _free_stream_and_sound(record),
                     # THE EXPORT'S OWN STATEMENT OF WHICH FRAME ITS FORCES ARE
                     # IN. Carried from the point to the coefficient rather than
                     # assumed, because `ETAW` rotates that force into wind axes

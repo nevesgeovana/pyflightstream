@@ -26,7 +26,7 @@ from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import SimCase, SweepAxis
 from pyflightstream.cases.workflows import rotor_mach_numbers, rotor_machs, workflow_registry
 from pyflightstream.post.products import (
-    free_stream_and_sound,
+    _free_stream_and_sound,
     read_csv_table,
     write_rotor_table,
 )
@@ -365,11 +365,11 @@ def test_the_table_takes_the_air_the_point_resolved_to():
         flight_condition={"MACH": 0.3, "ALTFT": 10000.0},
     )
     sound = math.sqrt(1.4 * 287.05287 * (288.15 - 0.0065 * 3048.0))
-    air = free_stream_and_sound(record)
+    air = _free_stream_and_sound(record)
     assert air is not None
     assert air[1] == pytest.approx(sound, rel=1e-5)
     assert air[0] == pytest.approx(0.3 * sound, rel=1e-5)
-    assert free_stream_and_sound(record.model_copy(update={"flight_condition": {}})) is None
+    assert _free_stream_and_sound(record.model_copy(update={"flight_condition": {}})) is None
 
 
 def test_the_stage_hands_each_row_its_own_points_air(tmp_path):
@@ -716,3 +716,24 @@ def test_a_disc_the_reference_does_not_declare_is_named_and_never_guessed(tmp_pa
     assert "POL 9001" in mach["note"] and "PROPX" in mach["note"]
     (unknown,) = [line for line in said if line.startswith("helical Mach not known")]
     assert "POL 9001: actuator PROPX" in unknown
+
+
+def test_a_point_exactly_at_a_helical_mach_of_one_is_named_and_one_just_below_is_not():
+    """The boundary is inclusive, as the warning says: ``M_hel >= 1`` (QA lens,
+    0.30.0; every other sonic point in this file overshoots, so a ``<=`` in the
+    comparison went unseen)."""
+    from types import SimpleNamespace
+
+    from pyflightstream.run.matrix import _warn_when_a_helical_mach_may_reach_one
+
+    def entry(run_id, helical):
+        mach = {"mach_helical": helical, "kind": "rotor"}
+        return SimpleNamespace(sim_id="9001", run_id=run_id, point={}, rotor_mach={"P": mach})
+
+    resolved = SimpleNamespace(campaign=SimpleNamespace(sims=[]))
+    plan = SimpleNamespace(points=[entry("AT", 1.0), entry("BELOW", 1.0 - 1e-12)])
+    with pytest.warns(PyflightstreamWarning, match="helical Mach >= 1") as caught:
+        _warn_when_a_helical_mach_may_reach_one(resolved, plan)  # type: ignore[arg-type]
+    text = " ".join(str(w.message) for w in caught)
+    assert "point AT," in text
+    assert "BELOW" not in text

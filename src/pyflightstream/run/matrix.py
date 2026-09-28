@@ -310,8 +310,9 @@ def _warn_when_the_points_may_not_fit(workspace: CampaignWorkspace, ready: int) 
 def _warn_when_a_helical_mach_may_reach_one(resolved: ResolvedMatrix, plan: CampaignPlan) -> None:
     """Name each polar point whose rotor or disc has a helical Mach of 1 or more (0.30.0, M1).
 
-    ``M_hel = sqrt(V^2 + (Omega R)^2) / a``, the speed the blade tip meets the
-    flow at, over the speed of sound; at 1 or more the tip is sonic or
+    ``M_hel = sqrt(V^2 + (Omega R)^2) / a``, the geometric speed the blade tip
+    meets the flow at (free stream plus rotation, no induced velocity), over the
+    speed of sound; at 1 or more the tip is sonic or
     supersonic. A warning, never a refusal: the plan says it once per matrix,
     naming every such point by its name, its rotor and its ``M_hel``. A row
     whose rotor's numbers are not known (no radius, no resolved speed) is
@@ -339,9 +340,10 @@ def _warn_when_a_helical_mach_may_reach_one(resolved: ResolvedMatrix, plan: Camp
     if sonic:
         warn(
             f"helical Mach >= 1 on {len(sonic)} polar point(s): {'; '.join(sonic)}. "
-            "M_hel = sqrt(V^2 + (Omega R)^2) / a is the speed the blade tip meets the "
-            "flow at over the speed of sound, so at 1 or more the tip is sonic or "
-            "supersonic. Nothing is refused; check these points before running them.",
+            "M_hel = sqrt(V^2 + (Omega R)^2) / a is the geometric speed the blade tip "
+            "meets the flow at (free stream plus rotation, no induced velocity) over the "
+            "speed of sound, so at 1 or more the tip is sonic or supersonic. Nothing is "
+            "refused; check these points before running them.",
             PyflightstreamWarning,
             stacklevel=3,
         )
