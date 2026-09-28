@@ -7,11 +7,42 @@ FlightStream versions.
 
 ## [Unreleased]
 
-### Workspace completion: 0.29 development
+### Owed
 
-This section describes the implementation under integration. Remaining native
-controls and integration gates still require their recorded acceptance. It is
-not a publication or acceptance announcement.
+- **The Zenodo archive row of v0.29.0 is owed.** A version DOI is minted from
+  the GitHub release object and recorded one commit after the tag, so between
+  the tag and that commit this release has no archive row; cite the concept DOI
+  until it lands.
+
+- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
+  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
+  concept record lists NINETEEN archived versions and v0.14.0 is not among
+  them. The earlier reading of 2026-09-10 said the same and could not be
+  confirmed for four days because the service was answering 504; it is
+  confirmed now, so this is a fact about the archive rather than about its
+  availability.
+  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
+  had what it needs and the archive still has no version for it. Whatever
+  failed, it failed silently, and re-triggering it is the repair.
+  Until that row lands this section says so, because a shipped release that
+  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
+  release by the concept DOI, which resolves to the newest archived version.
+
+## [0.29.0] - 2026-09-28
+
+COMPLETE SETUP AND BOUNDARY-CONDITION ACCESS, AND A QUALITY GATE. `pyfs-matrix
+plan` writes a library of didactic standard setups and their physical
+guidelines, and `pyfs-matrix inspect-setups` shows what a setup resolves to and
+where each value came from; inlets, outlets, trailing edges, wakes and base
+regions are typed entries of a setup; a workspace stages its FSI inputs from
+named files with their calibration; velocity fields and volume sections are
+sampled through probes; an optional macro-free Excel workbook is synchronized
+with the matrix by the CLI; and the execution and post logs say their stage and
+outcome. Before the tag, every refusal the development work had turned into an
+acceptance was restored, or kept only on a recorded owner decision. A reader
+changes three things: a steady sweep starts every point cold by default,
+`[volume_section]` is sampled rather than natively exported, and
+`ROTOR_SHEDDING` is refused (`docs/migrating-to-0.29.0.md`).
 
 ### Added
 
@@ -111,10 +142,6 @@ not a publication or acceptance announcement.
   onward removed. The input glossary now says so rather than presenting them
   as settings a run applies; use `solver_model`, and let the sound speed
   follow from the resolved temperature and specific-heat ratio.
-- mypy recount 2026-09-28: 923 errors in 18 of 128 modules, against 0.28.0's
-  863 in 18 of 104. The twenty-four modules the 0.29 work adds are clean; the
-  sixty errors more sit inside the exempted set, and the shipped configuration
-  is green over all 128 (`reports/RPT-029`).
 
 ### Fixed
 
@@ -128,24 +155,14 @@ not a publication or acceptance announcement.
   property modes with one matrix override.
 
 See [the migration guide](docs/migrating-to-0.29.0.md) for file preservation,
-variable associations and input conventions. Remaining integration gates above
-must be resolved before this development entry becomes a release entry.
+variable associations and input conventions.
 
-### Owed
+### Changed (the type-checker debt, re-measured on the release tree)
 
-- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
-  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
-  concept record lists NINETEEN archived versions and v0.14.0 is not among
-  them. The earlier reading of 2026-09-10 said the same and could not be
-  confirmed for four days because the service was answering 504; it is
-  confirmed now, so this is a fact about the archive rather than about its
-  availability.
-  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
-  had what it needs and the archive still has no version for it. Whatever
-  failed, it failed silently, and re-triggering it is the repair.
-  Until that row lands this section says so, because a shipped release that
-  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
-  release by the concept DOI, which resolves to the newest archived version.
+- mypy recount 2026-09-28: 922 errors in 18 of 128 modules, against 0.28.0's
+  863 in 18 of 104. The twenty-four modules the 0.29 work adds are clean; the
+  fifty-nine errors more sit inside the exempted set, and the shipped
+  configuration is green over all 128 (`reports/RPT-029`).
 
 ## [0.28.0] - 2026-09-25
 
@@ -12904,7 +12921,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.29.0
 [0.28.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.28.0
 [0.27.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.27.0
 [0.26.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.26.0

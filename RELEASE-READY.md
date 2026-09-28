@@ -1,177 +1,43 @@
-# 0.29.0 release sequence and pending evidence
+# v0.29.0 is released by this sequence, followed as written
 
-**Target: 0.29.0. This record does not declare the release ready or published.**
-The documentation worktree inspected for this update is
-`1f5b7686fd70b26b1b06543f118d506cff704f82`; its package and citation versions are
-`0.29.0.dev0`. Version changes, final metrics, CI, review of the pushed release
-commit, the tag, PyPI and the Zenodo version DOI remain pending in this record.
-Attach evidence for the final target commit before changing a gate to complete.
-A successful intermediate check is evidence only for the commit it checked.
-
-The approved release centers on complete setup and boundary-condition access,
-didactic standard setups and guidelines, workspace FSI, post-processing through
-probes, optional Excel files synchronized by the Python CLI, and usable runtime
-and post-processing logs. The [0.29 migration guide](docs/migrating-to-0.29.0.md),
-[setup guide](docs/setup-standards.md), [boundary guide](docs/boundary-conditions.md),
-[Excel guide](docs/excel-matrices.md), [FSI guide](docs/fsi-workspace.md) and
-[sampled-field guide](docs/sampled-fields.md) describe their public contracts.
-
-The ownership of inputs must remain consistent: mesh-invariant geometry belongs
-beside the mesh, simulation settings in the setup, and variable physical
-conditions in MATRIX. Excel uses a macro-free workbook and CLI synchronization;
-VBA refinement is outside this release. The normal volume-section workspace
-path uses probes; automatic inventory of manual native section indices is
-outside the accepted G39 scope. Preserve these boundaries when reconciling the
-release notes, public architecture and evidence.
-
-## Evidence available now
-
-[RPT-085](reports/RPT-085_native-workspace-evidence_2026-09-27.md) records completed,
-bounded native observations on FlightStream 26.124 build 8172026:
-
-- T29: the synthetic wing and rotor routes agree over six printed time steps.
-  This is not convergence, full-revolution or complete saved-state equivalence.
-- T33 / G39: an existing native section and surface mesh survive probe sampling;
-  the actual CSV-to-VTK product is checked, with its five-decimal CSV limit.
-  Manual native indices remain manual.
-- T15: uniform inlet/outlet changes produce local response. Profile persistence
-  and a nonuniform field are measured; interpolation and the sign convention
-  remain unproved.
-- T26: two steady actuators and a supplemental actuator with rotating geometry
-  produce local field effects. This is not rotor-performance validation.
-- Rotor-induced velocity blending: the 0.25/0.75 pair has identical exported
-  results and 837 printed iteration lines. Its operational effect remains
-  inconclusive.
-
-These observations do not turn documented-only commands into verified commands.
-The remaining setup, FSI and research obligations must be reconciled with their
-own evidence. [RPT-081](reports/RPT-081_typed-boundary-and-base-region-operations_2026-09-27.md)
-retains the earlier no-solve observations.
-
-## Final gate ledger
-
-PENDING means that final-target evidence has not been attached to this document.
-It does not erase successful intermediate work. No count from 0.28.0 below may
-be reused as a 0.29.0 measurement.
-
-| Gate | Current record | Evidence required before completion |
-| --- | --- | --- |
-| Approved scope and known limitations | PENDING final reconciliation | Each approved item maps to implementation and evidence, or an explicit accepted limitation; additional ideas remain backlog |
-| Implementer checks and independent internal review | PENDING final range | QA, V&V, architecture, API and technical-writing dispositions on their declared ranges; corrections checked by a different author |
-| Source checks and offline tests | PENDING final commit | Actual Ruff, formatting, mypy and required test results with target SHA; counts and exits taken from receipts |
-| Current module/error recount and documentation currency | PENDING settled tree | Recount at the release commit; synchronized tallies, guides, examples and public architecture |
-| Package identity and metadata | PENDING release commit | Version 0.29.0, dated changelog, front pages, guide cover and CITATION.cff agree |
-| Build and installed-wheel gates | PENDING final artifacts | One sdist/wheel build, recorded digests, clean installed-wheel checks and optional-feature checks |
-| Pushed-main independent review and CI | PENDING reviewed remote SHA | External reading of the pushed commit, findings disposed, CI green on that exact commit |
-| Annotated tag and PyPI publication | PENDING | Tag v0.29.0 on the reviewed commit; release workflow succeeds and published wheel identity is verified |
-| GitHub release and Zenodo archive | PENDING | Release object, minted version DOI, citation row and publication checker result |
-| Post-release development identity and research | PENDING | Next development version after the archive row; released-wheel research using generated standards, including the approved FSI workspace cases |
-
-## Execute in this order
-
-1. **Settle scope, implementation and evidence.** Complete the required local
-   checks and independent review dispositions. Keep inconclusive scientific
-   claims visibly inconclusive. Preserve the input ownership and macro-free
-   Excel decisions above. Update public architecture and guides to the actual
-   integrated behavior.
-
-2. **Prepare the release commit.** Set the package version to 0.29.0 only in the
-   release commit. Date its changelog section and move the behavior that ships
-   out of Unreleased. Update README.md, docs/index.md, the guide cover and
-   CITATION.cff together. Its version, date-released, release/development text
-   and both tally sentences must agree. Measure the settled-tree module/error
-   recount and update its current record, traceability expectations and the
-   current release section; do not overwrite a previous release's measurement.
-   Keep the v0.29.0 archive DOI explicitly **owed** under Unreleased -> Owed until
-   it exists. A dated release section is the wrong place for that debt.
-
-3. **Check the final tree and build artifacts.** Attach the actual source,
-   documentation, offline and package-check receipts to their exact SHA.
-   The [release workflow](.github/workflows/release.yml) builds once, tests the
-   installed wheel in clean jobs and checks its digest before publication.
-   Local checks do not substitute for those artifact gates. This step records
-   measured outcomes; it does not prefill them from earlier releases.
-
-4. **Complete internal review and push the reviewed main commit.** Each lens
-   records its range and finding dispositions. Review scope identifiers must
-   contain resolved commit SHAs. Keep the pushing worktree's attestation aligned
-   with that range. No tag yet.
-
-5. **Obtain the independent reading of GitHub main before the tag.** Provide a
-   clone of what GitHub serves, and record the exact remote commit. Fix or
-   explicitly register each finding; any fix must be pushed and the affected
-   review/checks completed on the changed target. CI must be green on the commit
-   to be tagged. An earlier development-wheel review does not replace this step.
-
-6. **Create the annotated v0.29.0 tag on that reviewed commit and push it.**
-   Tag push triggers the trusted-publishing workflow for PyPI. Record the
-   successful workflow, artifact digest and published package identity; a tag
-   alone does not establish successful publication.
-
-7. **Create the GitHub release object for v0.29.0 with its actual notes and
-   limitations.** The Zenodo webhook uses the release object, not just the tag.
-   Read the newly minted version DOI from the archive record. Neither the
-   release object nor that DOI is asserted complete here.
-
-8. **Record the archive and verify publication.** Add the version DOI to
-   CITATION.cff and remove the v0.29.0 Owed entry in the same post-tag commit.
-   Move the development tree to the next development version in that commit.
-   Run the online [publication checker](scripts/check_release_published.py) and
-   retain its result. An offline check cannot confirm PyPI or Zenodo.
-
-9. **Run the approved research against the released wheel.** Use the generated
-   standard setups and include the FSI workspace cases. Record the exact package,
-   solver build, input identities, observed results and limits. This post-release
-   work is separate from the release-cut gates and is not closed by this
-   documentary update.
-
-## Historical 0.28.0 record
-
-The following is the earlier checklist and its dated measurements, preserved
-verbatim. Its commands, open items and counts describe that historical snapshot;
-they are not the active release instructions or evidence for 0.29.0. In
-particular, an item marked owed there is not a new claim about its current
-publication status. The active sequence is the one above.
-
-<details>
-<summary>Read the preserved 0.28.0 checklist and measurements</summary>
-
-# v0.28.0 is released by this sequence, followed as written
-
-0.28.0 is the release of USER CAPABILITIES, the owner's approval of 2026-09-24:
-a submitting run ends on one summary line and a local run keeps a log that says
-its progress; one point of a recorded steady job reruns the whole job, and
-`--force-rerun-all` reruns a matrix or the simulations named with `--sims`; an
-unsteady row can start cold; every input file has a worked example in
-`inputs/input_template.md`; the custom free stream is read from an input file in
-either form and warned when its grid misses the body; an OBJ's surface names come
-from its groups; an actuator disc takes its speed from the advance ratio; the
-Tecplot surface is written by the package from the solver's VTK, per cell and in
-the reference frame; `[time_averaging]` works, averaged by the package; an
-unsteady row saves the solver's residual and load plots; and the FSI's blade
-properties come from its sections and a cited material. IT CHANGES WHAT A READER
-OF THE TECPLOT SURFACE READS: values per cell under the VTK's names, no
-`Singularity_strength`, and the symmetry images on a symmetric row. The change
-log's `[0.28.0]` section is the record; `docs/migrating-to-0.28.0.md` says what a
+0.29.0 is the release of COMPLETE SETUP AND BOUNDARY-CONDITION ACCESS: didactic
+standard setups and their physical guidelines written by `pyfs-matrix plan`, and
+`pyfs-matrix inspect-setups` showing what a setup resolves to; inlets, outlets,
+trailing edges, wakes and base regions as typed setup entries; workspace FSI
+inputs staged from named files with their calibration; velocity fields and
+volume sections sampled through probes; an optional macro-free Excel workbook
+synchronized with the matrix by the Python CLI; and execution and post logs that
+say their stage and outcome. It carries a QUALITY GATE: before the tag, every
+refusal the development work had turned into an acceptance was restored, or kept
+only on a recorded owner decision. IT CHANGES WHAT A READER DOES in three ways: a
+steady sweep starts every point cold by default, `[volume_section]` is sampled
+rather than natively exported, and `ROTOR_SHEDDING` is refused. The change log's
+`[0.29.0]` section is the record; `docs/migrating-to-0.29.0.md` says what a
 reader's files must change.
+
+The ownership of inputs is part of the contract: mesh-invariant geometry beside
+the mesh, simulation settings in the setup, variable physical conditions in
+MATRIX. Excel uses a macro-free workbook and CLI synchronization; VBA is outside
+this release. The normal volume-section path uses probes; an automatic inventory
+of manual native section indices is outside it.
 
 **THIS FILE IS RE-TITLED AND RE-MEASURED PER TAG.** It carried the v0.22.0 title,
 commands and readings through the whole 0.23.0 release, and it carried the v0.24.0
-title and readings up to the eve of this tag, where the INDEPENDENT REVIEW OF GitHub
+title and readings up to the eve of v0.25.0, where the INDEPENDENT REVIEW OF GitHub
 main caught it (finding 6, 2026-09-20): a reader following it would have tagged the
-previous release. That is the third instance of the same lapse, TW-F7 of FIX-0211
-being the first. Whether it is re-titled each time or split into a version-free
-sequence plus a per-release readings file is still the owner's call; until she rules,
-it is re-titled, and the lapse is recorded here rather than repeated silently.
+previous release. Whether it is re-titled each time or split into a version-free
+sequence plus a per-release readings file is still the owner's call; until she
+rules, it is re-titled. The v0.28.0 edition is in the history of this file
+(`git show ad237d2b:RELEASE-READY.md`).
 
 ## The sequence, in order, and the steps that were missed before
 
 ```
 # 1. the release commit: set the version and CONFIRM the change log's date.
-#    pyproject.toml says 0.28.0.dev4 (the development tree) until this step, deliberately: a tree that
-#    already said 0.28.0 would have every run made from it reporting the released
+#    pyproject.toml says 0.29.0.dev0 (the development tree) until this step, deliberately: a tree that
+#    already said 0.29.0 would have every run made from it reporting the released
 #    version while being a different tree.
-#    (pyproject.toml: version = "0.28.0")
+#    (pyproject.toml: version = "0.29.0")
 #
 #    AND BOTH FRONT PAGES NAME THE NEW VERSION: the status line of README.md,
 #    which is the PyPI project page, and of docs/index.md.
@@ -198,7 +64,7 @@ it is re-titled, and the lapse is recorded here rather than repeated silently.
 #    the rule inside the bullet: a footnote mentioning `owed` satisfies the guard
 #    on its own. IT GOES UNDER [Unreleased] -> Owed, not under the dated section:
 #    under the dated section the tag fails its own archive gate.
-git commit -m "chore: v0.28.0"
+git commit -m "chore: v0.29.0"
 
 # 2. THE INTERNAL REVIEW ROUND over the release range, every finding fixed or
 #    registered, recorded in the lane's rounds ledger.
@@ -228,22 +94,22 @@ git push origin main
 #    two rounds and thirty-one findings, three of them behaviour.
 
 # 5. the tag, annotated, on the reviewed commit, once CI is green on it
-git tag -a v0.28.0 -m "v0.28.0"
+git tag -a v0.29.0 -m "v0.29.0"
 
 # 6. push the tag. THIS PUBLISHES TO PyPI and nothing else.
-git push origin v0.28.0
+git push origin v0.29.0
 
 # 7. THE RELEASE OBJECT. This is the step that was missed at v0.17.0.
-gh release create v0.28.0 --title "v0.28.0" --notes-file <the section body and its limits>
+gh release create v0.29.0 --title "v0.29.0" --notes-file <the section body and its limits>
 
 # 8. the archive DOI. Zenodo's webhook fires on the RELEASE OBJECT of step 7,
 #    not on the tag of step 6. Read the new version DOI off the Zenodo record.
 
 # 9. the citation row, one commit after the tag
 #    CITATION.cff gains the version DOI from step 8, and the Owed line for
-#    v0.28.0 leaves the change log in the same commit. THE TREE MOVES TO THE NEXT
+#    v0.29.0 leaves the change log in the same commit. THE TREE MOVES TO THE NEXT
 #    .dev0 IN THAT COMMIT: the post-tag dev bump was missed after v0.21.1.
-git commit -m "chore: the v0.28.0 archive row"
+git commit -m "chore: the v0.29.0 archive row"
 
 # 10. confirm, rather than assume
 python scripts/check_release_published.py    # online is the default; --offline skips the network
@@ -255,11 +121,12 @@ python scripts/check_release_published.py    # online is the default; --offline 
 **IT WAS IN THE WRONG SECTION AT v0.25.0** and the release-tail review caught it
 before the tag; **AN UNRELEASED SECTION DESCRIBED BEHAVIOUR THE TAG WOULD SHIP AT
 v0.25.1**, caught by the version-identity guard, because a patch cut from the
-development tree carries what that tree already changed; **THE FRONT PAGES WERE MISSED AT v0.18.1** and CI caught them
-before the tag; **THE POST-TAG DEV BUMP WAS MISSED AFTER v0.21.1**; **THE
-INDEPENDENT REVIEW WAS SKIPPED FROM v0.18.0 TO v0.22.0**; **THIS FILE ITSELF WAS
-STILL RELEASING v0.24.0 ON THE EVE OF v0.25.0**. Each is written into the sequence
-rather than remembered, because a fast release is exactly when a step gets skipped.
+development tree carries what that tree already changed; **THE FRONT PAGES WERE
+MISSED AT v0.18.1** and CI caught them before the tag; **THE POST-TAG DEV BUMP WAS
+MISSED AFTER v0.21.1**; **THE INDEPENDENT REVIEW WAS SKIPPED FROM v0.18.0 TO
+v0.22.0**; **THIS FILE ITSELF WAS STILL RELEASING v0.24.0 ON THE EVE OF v0.25.0**.
+Each is written into the sequence rather than remembered, because a fast release
+is exactly when a step gets skipped.
 
 A tag is RELEASED when the release object exists at that tag AND the archive has
 minted a version DOI that `CITATION.cff` records; anything less is a tag.
@@ -268,73 +135,86 @@ minted a version DOI that `CITATION.cff` records; anything less is a tag.
 ## What is true of the tree at the release commit
 
 Every number comes from a command run at the moment this file was written, with
-the command beside it.
+the command beside it. A reading of an earlier commit is evidence only for that
+commit, and no count of 0.28.0 is reused here.
 
-Readings of 2026-09-25, each status read from the process:
+Readings of 2026-09-28, on the tree of the release commit, each status read from
+the process:
 
-- `ruff check .` exit 0; `ruff format --check .` exit 0, "483 files already
-  formatted"; `mypy` exit 0, "Success: no issues found in 104 source files".
-- The full tier-1 suite, detached, one process per file, through
-  `check_goal_032.py --suite`, each run over the commit named: every gate green
-  on 1917362e (block D), on 35917503 (the fix of the independent reading C32) and
-  on a3ef9f1e (the closing round's fixes 42e9ee65, the release commit ad237d2b,
-  the fix of reading D33 b6664116 and a test fixture after it; the run over
-  b6664116 was red in that one fixture, fixed at a3ef9f1e). The commit after
-  a3ef9f1e fixes reading E34 in the section calculator; the suite over the tagged
-  commit is the push gate and its record is the goal's suite arm.
-- `python scripts/mypy_recount.py`: 863 errors in 18 of 104 modules, against
-  0.27.0's 812 in 18 of 100 (reports/RPT-029).
-- Review OF THIS RELEASE: an OPENING round of five lenses on the approved scope,
-  whose questions were decided before the blocks that needed them; a CLOSING round
-  of five lenses over v0.27.0..35917503, all GO (sixteen findings: five fixed, ten
-  registered for the rigor track of 0.29.0, one checked and left as it is); an
-  INDEPENDENT READING OF GitHub main
-  exactly on the commit of every development wheel and after every pushed block,
-  each finding fixed before the next block. THE READING OF THIS COMMIT ON GitHub
-  main is step 4 of the sequence and is owed until it runs; the tag waits on it.
+- `ruff check .` exit 0, "All checks passed!"; `ruff format --check .` exit 0,
+  "572 files already formatted".
+- `python scripts/mypy_recount.py`, on a tree the script reported clean: 922 errors
+  in 18 of 128 modules, against 0.28.0's 863 in 18 of 104 (reports/RPT-029); the
+  shipped configuration's invocation in the same run, "Success: no issues found in
+  128 source files".
+- The test files that read the change log, the citation, the front pages and the
+  house rules were run over the release commit (`test_g47_input_template.py`,
+  `test_version_identity.py`, `test_metadata_currency.py`,
+  `test_citation_claim_currency.py`, `test_claim_currency.py`,
+  `test_traceability.py`, `test_house_style.py`, `test_repository_guards.py`,
+  `test_goal031_d07_pages.py`); their results are recorded with that commit.
+
+PENDING, and not claimed by this file until its evidence is attached to the
+commit it names:
+
+- **The full tier-1 suite over the release commit.** Runs over earlier commits of
+  this release do not stand in for it.
+- **The review attestation over the release range** (step 2) and **the
+  independent reading of GitHub main** on the pushed commit (step 4).
+- **CI green on the commit to be tagged**, including the release workflow's single
+  build and its clean installed-wheel jobs.
+- **The tag, its PyPI publication, the release object and the Zenodo version
+  DOI** (steps 5 to 10). The v0.29.0 archive row is owed in the change log.
+- **The approved research against the released wheel**, using the generated
+  standard setups and including the FSI workspace cases. It follows the release
+  and is not closed by it.
 
 ## What this release carries
 
 In one line each:
 
-- **Run and log.** One summary line for a submitting run, a local log with
-  `--progress-every` (G43); a warning for a pproc plot group named like the
-  automatic rotor group (G42); `COLD_START` on unsteady rows (G36); one point of a
-  steady job reruns the job (G37); `--force-rerun-all` and `--sims` (G44).
-- **Inputs.** `inputs/input_template.md`, an example of every input file (G47); the
-  custom free stream by an input file, warned when it misses the body (G18); an
-  OBJ's surface names from its groups (G30); a disc's speed from the advance ratio
-  (G20).
-- **The surface.** The Tecplot written from the VTK (G45); the time average by the
-  package (G25); the solver's plots after an unsteady march (G26); the boundary
-  layer profile export recorded broken on 26.124 (G24).
-- **The FSI blade.** A cited material database and a solid-section calculator for
-  the beam's properties, with their provenance (G41).
+- **Setups.** A library of standard setups and their physical guidelines
+  (`--setup-standards`, `--setup-guidelines`), and `inspect-setups` reporting each
+  resolved value, its origin, its boundary selections and its raw commands.
+- **Boundaries.** Typed inlet and outlet ports, trailing-edge, wake and base
+  selectors, initialization removal and transition-trip deletion as setup entries;
+  port creation with unknown saved indices is refused.
+- **Workspace FSI.** Named FSI input files with complete distributions or solid
+  homogeneous sections from one sourced material, matrix calibration factors
+  applied once, staged with their hashes.
+- **Probe-based post-processing.** Sampled velocity fields and volume sections
+  written by the package with their provenance; section-integral boundary-layer
+  tables from the VTK cells; nodal strength beside the VTK surface fields.
+- **Excel.** A macro-free `.xlsx` synchronized with the matrix by explicit
+  preview, apply and cancel commands; no Excel process is required.
+- **Logs and runs.** Execution and post logs that say their stage and outcome;
+  submitted additional-post extractions completed by `collect`; continuation
+  checked against its recorded inputs.
 
 ## What the licensed campaign measured, and what it did not
 
-Every route this release adds that the solver answers ran on 26.124, or on 26.122
-where 26.124 cannot, one run at a time, each with five far-field layers: the VTK
-export's frame and variables (RPT-074), the boundary layer profile (RPT-075), the
-solver's plots after an unsteady solve (RPT-076), the custom free stream's forms
-and its reach (RPT-077), an OBJ's group order (RPT-078), the solver's own time
-average (RPT-079), and the licensed regression of every tier-3 point (RPT-080):
-every point ran, the 83 licensed checks pass, all 76 loads tables equal the 0.27.0
-run's, and the package's Tecplot puts every real surface where the solver's own
-file put it, carrying the symmetry images on a symmetric row. It found no defect
-of the solve.
+[RPT-085](reports/RPT-085_native-workspace-evidence_2026-09-27.md) records bounded
+native observations on FlightStream 26.124: the synthetic wing and rotor routes
+agree over six printed time steps, which is not convergence, a full revolution or
+complete saved-state equivalence; an existing native section and surface mesh
+survive probe sampling, with the CSV's five-decimal limit; uniform inlet and
+outlet changes produce a local response; two steady actuators and a supplemental
+actuator with rotating geometry produce local field effects, which is not
+rotor-performance validation. [RPT-081](reports/RPT-081_typed-boundary-and-base-region-operations_2026-09-27.md)
+keeps the earlier no-solve observations, and RPT-082 to RPT-084 the unit, inflow,
+probe-frame and Excel readings. These observations do not turn a
+documented-only command into a verified one.
 
 ## What is NOT done, and is not being hidden
 
-- A loads frame a rotor motion carries: no tier-3 row has one, and whether the
-  frame moves during the solve is not measured (R24 of the rigor track).
-- The section calculator does not cross-check a section against its chord, so a
-  section in millimetres passed as metres is not refused (R20).
-- A continuation of a run recorded before 0.28.0 is refused unless its pproc
-  exports no Tecplot; recovering that run's loads frame is proposed for 0.29.0.
-- The warm sweep against a cold one (R13), inlets and outlets on a row (G07), the
-  submitting half of the additional post: carried to 0.29.0.
-- The Zenodo version DOI of v0.28.0 is owed one commit after the tag.
-
-
-</details>
+- Profile interpolation at an inlet and its sign convention are not proved (T15);
+  the rotor-induced velocity blending pair is inconclusive.
+- Manual native section indices stay manual; the velocity-profile export is a
+  named refusal on a build without positive unattended-profile evidence.
+- `ROTOR_SHEDDING` is refused; direction control for the relaxed wake is planned
+  for 0.30.0.
+- The workspace FSI wiring stages the existing driver; it does not establish
+  native coupled accuracy.
+- VBA in the workbook is outside this release; an existing `.xlsm` is not
+  converted silently.
+- The Zenodo version DOI of v0.29.0 is owed one commit after the tag.
