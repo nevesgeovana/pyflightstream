@@ -3159,6 +3159,11 @@ class CampaignWorkspace:
         """
         records = []
         for entry in self.read_raw_manifest():
+            # A NOTE, NOT A RECORD (0.30.0): `delete-sims` leaves one row per
+            # deleted simulation saying its id belonged to one; the full
+            # mention is in storage_management.json (workspace.storage).
+            if entry.get("deleted_sim") is not None:
+                continue
             try:
                 records.append(RunRecord.model_validate(entry))
             except ValidationError as error:

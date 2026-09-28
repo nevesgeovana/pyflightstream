@@ -709,6 +709,8 @@ def _rename_workspace_locked(workspace: CampaignWorkspace, *, apply: bool) -> Re
     claimed: dict[tuple[str, str], tuple[str, str]] = {}
 
     for record in raw:
+        if record.get("deleted_sim") is not None:
+            continue  # a delete-sims note names no run to rename (0.30.0)
         stem = record.get("matrix_stem")
         if stem not in rows_by_stem:
             rows_by_stem[stem] = _rows_of(workspace.root, stem)

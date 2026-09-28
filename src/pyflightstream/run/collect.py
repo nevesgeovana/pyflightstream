@@ -76,6 +76,7 @@ from typing import TYPE_CHECKING
 
 from pyflightstream._progress import workspace_activity
 from pyflightstream.run._step_exports import missing_step_warning
+from pyflightstream.workspace.storage import ensure_sim_expanded
 
 from ..cases import CampaignConfigError
 from ..results import translate_surface_exports
@@ -660,6 +661,7 @@ def collect_once(
                 )
             )
             continue
+        ensure_sim_expanded(workspace, record.sim_id, reason="collect")
         sim_dir = _sim_dir(workspace, record)
         try:
             work_dir = _working_dir(workspace, record)

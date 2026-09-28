@@ -271,6 +271,7 @@ from pyflightstream.workspace.naming import (
 from pyflightstream.workspace.naming import (
     ARCHIVE_STAMP as ARCHIVE_STAMP,
 )
+from pyflightstream.workspace.storage import ensure_sim_expanded
 
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow
@@ -6814,6 +6815,10 @@ def _campaign_products(
     archive_stamp = archive_stamp or datetime.now()
     everything = workspace.read_manifest()
     records = [record for record in everything if record.matrix_stem == matrix_stem]
+    # A COMPACTED SIMULATION IS READ AS IF IT WERE NOT (0.30.0, S4): the
+    # post restores `sims/sim_<id>.zip` in place before it reads anything.
+    for sim_id in sorted({record.sim_id for record in records}):
+        ensure_sim_expanded(workspace, sim_id, reason="post")
     if matrix_stem is not None and not records:
         # The same refusal sweep_table gives the same keyword (PFS-2031.04):
         # a stem the manifest never recorded is a typo or a matrix not yet

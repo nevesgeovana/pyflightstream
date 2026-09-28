@@ -279,6 +279,32 @@ def _warn_the_legacy_rows_saving_no_simulation(resolved: ResolvedMatrix) -> None
         )
 
 
+def _warn_when_the_points_may_not_fit(workspace: CampaignWorkspace, ready: int) -> None:
+    """Warn at plan when the READY points may not fit on the workspace's disk (0.30.0, S6).
+
+    The estimate is the mean recorded datapoint of this workspace times the
+    points the run will write; the warning names ``free-space``, the command
+    that makes room. A plan with nothing to run, or a disk that cannot be
+    measured, says nothing.
+    """
+    if ready <= 0:
+        return
+    from pyflightstream.workspace.storage import disk_estimate
+
+    try:
+        line, fits = disk_estimate(workspace, ready)
+    except OSError:
+        return
+    if not fits:
+        warn(
+            f"disk: {line}. The run may not fit: make room first, for example with "
+            "`pyfs-matrix free-space m<id>` (a recipe in inputs/management/) after "
+            "`pyfs-matrix space-in-use` shows where the space is.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
 def _warn_the_rows_whose_additional_post_is_one_instant(resolved: ResolvedMatrix) -> None:
     """Name each unsteady row stating ADDITIONAL_PPROC, whose extraction is one instant (G12).
 
@@ -590,6 +616,7 @@ def plan_matrix(
         matrix_path=path,
         accept_unregistered_build=accept_unregistered_build,
     )
+    _warn_when_the_points_may_not_fit(workspace, len(plan.ready))
     if write_plan:
         # THE GENERATED PPROC GUIDES (0.24.0), written by the step every campaign
         # passes through, so a workspace made before they existed gets them and a

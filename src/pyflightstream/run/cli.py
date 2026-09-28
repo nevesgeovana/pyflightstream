@@ -53,7 +53,7 @@ import argparse
 import sys
 import warnings
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
 from pyflightstream._cli import cli_entrypoint, post_warning_policy
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
@@ -340,6 +340,8 @@ def _build_parser() -> argparse.ArgumentParser:
             "existing one is refused"
         ),
     )
+
+    _add_storage_parsers(subparsers)
 
     convert = subparsers.add_parser(
         "convert",
@@ -760,7 +762,9 @@ def _confirmed_destruction(yes: bool) -> bool:
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
     """Run ``pyfs-matrix``; returns the process exit code."""
-    args = _build_parser().parse_args(argv)
+    args = _build_parser().parse_args(_storage_flag_form(argv))
+    if args.subcommand in _STORAGE_COMMANDS:
+        return _cmd_storage(args)
     # Before the recipe parsing below, deliberately: upgrading a file
     # needs no recipes, no version and no executable, and requiring them
     # would refuse the one user this subcommand exists for.
@@ -869,6 +873,266 @@ def _refuse(message: str) -> NoReturn:
     """Refuse the way every other refusal of this command line does: stderr and exit 2."""
     print(message, file=sys.stderr)
     raise SystemExit(2)
+
+
+#: The storage commands of 0.30.0 (`pyflightstream.workspace.storage`).
+_STORAGE_COMMANDS = ("space-in-use", "free-space", "delete-sims", "sync")
+
+
+def _storage_flag_form(argv: list[str] | None) -> list[str] | None:
+    """Accept the owner's spelling, ``pyfs-matrix --workspace W --free-space m001``.
+
+    Each storage command is also a subcommand; written as a leading flag, it
+    is moved to the front and its value (the recipe, the ids or the level)
+    becomes the positional argument. Anything else passes through unchanged.
+    """
+    tokens = list(sys.argv[1:] if argv is None else argv)
+    if not tokens or not tokens[0].startswith("-") or tokens[0] in ("-h", "--help", "--version"):
+        return argv
+    for index, token in enumerate(tokens):
+        name, _, inline = token.partition("=")
+        if name[2:] not in _STORAGE_COMMANDS or not name.startswith("--"):
+            continue
+        rest = tokens[:index] + tokens[index + 1 :]
+        if name == "--space-in-use":
+            return [name[2:], *rest]
+        if inline:
+            return [name[2:], inline, *rest]
+        if index + 1 < len(tokens):
+            value = tokens[index + 1]
+            return [name[2:], value, *tokens[:index], *tokens[index + 2 :]]
+        return [name[2:], *rest]
+    return argv
+
+
+def _add_storage_parsers(subparsers: Any) -> None:
+    """Register the four storage subcommands; each also reads as a flag."""
+    workspace_help = "the workspace root carrying runs.json (default: the current directory)"
+    apply_help = "change files; without it the command previews and changes nothing"
+    space = subparsers.add_parser(
+        "space-in-use",
+        help="report the sizes on disk: by top-level folder, by sims/sim_*, by extension",
+        description=(
+            "Prints the workspace's sizes in three groupings, in this order: by top-level "
+            "folder, by simulation (sims/sim_*, compacted ones included) and by extension. "
+            "Changes no file; the call is recorded in storage_management.json."
+        ),
+    )
+    space.add_argument("--workspace", default=".", help=workspace_help)
+    space.add_argument("--top", type=int, default=15, help="rows shown per grouping (default: 15)")
+    free = subparsers.add_parser(
+        "free-space",
+        help="run a storage recipe inputs/management/m<id>.toml (preview unless --apply)",
+        description=(
+            "Runs the recipe's steps in order: [[compact_sims]] zips a simulation folder "
+            "into sims/sim_<id>.zip (post, collect and a continuation restore it "
+            "automatically), [[delete_extensions]] deletes files of the named extensions "
+            "under sims/ except what a later post needs (saved simulations, scripts, logs, "
+            "and every file a run record names or hashes), [[post_archives]] compacts or "
+            "deletes the archive/<stamp>/ folders the post wrote. Nothing outside sims/ "
+            "and the post archives is touched. Every call is recorded in "
+            "storage_management.json."
+        ),
+    )
+    free.add_argument("recipe", help="the recipe id, m<id> (inputs/management/m<id>.toml)")
+    free.add_argument("--workspace", default=".", help=workspace_help)
+    free.add_argument("--apply", action="store_true", help=apply_help)
+    delete = subparsers.add_parser(
+        "delete-sims",
+        help="delete simulations, their post products and their records (preview unless --apply)",
+        description=(
+            "Deletes each named simulation: its sims/sim_<id> folder (or zip), its own post "
+            "products and its records in runs.json, which keeps one note row per "
+            "simulation saying its id belonged to a deleted one. The full mention (id, "
+            "matrix, run ids, statuses, dates, sizes and hashes, caller) is recorded in "
+            "storage_management.json. The id may be reused afterwards. A product that "
+            "mixes the deleted points with others needs --matrix-products: points-only "
+            "leaves it, recorded stale; regenerate reruns that matrix's post without them."
+        ),
+    )
+    delete.add_argument("sims", help="simulation ids, comma separated: 4001,2009")
+    delete.add_argument("--workspace", default=".", help=workspace_help)
+    delete.add_argument(
+        "--matrix-products",
+        dest="matrix_products",
+        choices=("points-only", "regenerate"),
+        default=None,
+        help="what happens to a matrix product that also holds the deleted points",
+    )
+    delete.add_argument("--apply", action="store_true", help=apply_help)
+    sync = subparsers.add_parser(
+        "sync",
+        help="bring runs and results from the workspaces in inputs/sync-workspaces.toml",
+        description=(
+            "Levels are cumulative: runs (runs.json and run provenance: scripts/ and the "
+            "datapoint logs), post (+ post/), fsm (+ the datapoints' saved simulations), all "
+            "(+ everything else under sims/). Run on the main workspace. A record only in "
+            "the other workspace is added; a main record still SUBMITTED takes the other's; "
+            "any other difference is a conflict where main wins unless --prefer-other. A "
+            "simulation still SUBMITTED there syncs its record only. A file conflict keeps "
+            "main's copy unless --overwrite, which archives it first. Nothing in main is "
+            "deleted and inputs/ is never touched, except a declared matrix. MATRICES: "
+            "each is declared in sync-workspaces.toml by the one workspace that owns it "
+            '(matrices = ["<stem>", ...]); a difference is always reported as a MERGE '
+            "CONFLICT and the owner's copy wins. A synced simulation's inputs/ is linked "
+            "into main's own geometry library, never copied. Every call is recorded in "
+            "storage_management.json."
+        ),
+    )
+    sync.add_argument("level", choices=("runs", "post", "fsm", "all"), help="what to bring")
+    sync.add_argument("--workspace", default=".", help=workspace_help)
+    sync.add_argument(
+        "--from",
+        dest="source",
+        default=None,
+        help="one workspace name from sync-workspaces.toml (default: every non-main one)",
+    )
+    sync.add_argument("--apply", action="store_true", help=apply_help)
+    sync.add_argument(
+        "--prefer-other",
+        dest="prefer_other",
+        action="store_true",
+        help="on a runs.json conflict, take the other workspace's record",
+    )
+    sync.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="on a file conflict, archive main's copy and take the other's",
+    )
+
+
+def _cmd_storage(args: argparse.Namespace) -> int:
+    """Run one storage command and print what it did or would do."""
+    from pyflightstream.workspace import storage
+
+    try:
+        if args.subcommand == "space-in-use":
+            report = storage.space_in_use(args.workspace)
+            print("\n".join(report.lines(top=args.top)))
+            return 0
+        if args.subcommand == "free-space":
+            entry = storage.free_space(args.workspace, args.recipe, apply=args.apply)
+            _print_free_space(entry)
+            return 0
+        if args.subcommand == "delete-sims":
+            # "4001,2009" or the owner's "[4001,2009]" both read as two ids.
+            listed = args.sims.replace(" ", "").strip("[]")
+            ids = [item for item in listed.split(",") if item]
+            entry = storage.delete_sims(
+                args.workspace, ids, matrix_products=args.matrix_products, apply=args.apply
+            )
+            _print_delete_sims(entry)
+            return 0
+        entries = storage.sync_workspaces(
+            args.workspace,
+            args.level,
+            source=args.source,
+            apply=args.apply,
+            prefer_other=args.prefer_other,
+            overwrite=args.overwrite,
+        )
+        for entry in entries:
+            _print_sync(entry)
+        if not args.apply:
+            print("preview only: run again with --apply to sync")
+        return 0
+    except (WorkspaceError, OSError, ValueError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+
+
+def _print_free_space(entry: dict[str, Any]) -> None:
+    from pyflightstream.workspace.storage import human_bytes
+
+    mode = "APPLIED" if entry["applied"] else "preview"
+    print(f"free-space {entry['recipe']} ({mode})")
+    for step in entry["steps"]:
+        if step["mode"] == "compact_sims":
+            sims = [str(item["sim_id"]) for item in step["sims"]]
+            print(f"  compact_sims: {len(sims)} sim(s) {', '.join(sims)}")
+            for sim, why in step["refused"].items():
+                print(f"    refused sim {sim}: {why}")
+        elif step["mode"] == "delete_extensions":
+            size = sum(item["bytes"] for item in step["files"])
+            print(
+                f"  delete_extensions {', '.join(step['extensions'])}: {len(step['files'])} "
+                f"file(s), {human_bytes(size)}; {len(step['kept'])} kept (a later post needs them)"
+            )
+        else:
+            size = sum(item["bytes"] for item in step["archives"])
+            print(
+                f"  post_archives ({step['action']}): {len(step['archives'])} folder(s), "
+                f"{human_bytes(size)}"
+            )
+    if entry["applied"]:
+        print(f"  freed {human_bytes(entry['bytes_freed'])}")
+    else:
+        print("preview only: run again with --apply to change files")
+
+
+def _print_delete_sims(entry: dict[str, Any]) -> None:
+    from pyflightstream.workspace.storage import human_bytes
+
+    mode = "APPLIED" if entry["applied"] else "preview"
+    print(f"delete-sims ({mode})")
+    for item in entry["sims"]:
+        print(
+            f"  sim {item['sim_id']}: {len(item['run_ids'])} record(s), "
+            f"{human_bytes(item['bytes'])}, matrix {', '.join(item['matrix'])}"
+        )
+    for folder, found in entry["post"].items():
+        print(f"  {folder}: {len(found['own'])} own product(s)")
+        for name in found["shared"]:
+            print(f"    shared with other points (stale after delete): {name}")
+    if not entry["applied"]:
+        if entry["stale"]:
+            print("  choose --matrix-products points-only or regenerate before --apply")
+        print("preview only: run again with --apply to delete")
+
+
+def _print_sync(entry: dict[str, Any]) -> None:
+    from pyflightstream.workspace.storage import human_bytes
+
+    mode = "APPLY" if entry["applied"] else "preview"
+    print(f"[{entry['source_name']}] {entry['source']}   level {entry['level']}   {mode}")
+    if "skipped" in entry:
+        print(f"  skipped: {entry['skipped']}")
+        return
+    runs, files = entry["runs"], entry["files"]
+    print(
+        f"  runs.json: {len(runs['added'])} added, {len(runs['replaced'])} replaced, "
+        f"{len(runs['conflicts'])} conflicts, {runs['records_before']} -> "
+        f"{runs['records_after']} records"
+    )
+    for conflict in runs["conflicts"]:
+        print(f"    CONFLICT run {conflict.get('run_id')}: {conflict} (main kept)")
+    if runs["submitted_sims_record_only"]:
+        print(
+            "    still SUBMITTED there (record only, no files yet): sims "
+            + ", ".join(runs["submitted_sims_record_only"])
+        )
+    print(
+        f"  files: {files['to_copy']} to copy, {files['to_overwrite']} to overwrite, "
+        f"{files['identical']} identical, {len(files['conflicts'])} conflicts (main kept)"
+    )
+    for conflict in files["conflicts"][:20]:
+        print(f"    CONFLICT file {conflict}")
+    for sim, what in entry.get("inputs_links", {}).items():
+        print(f"  {sim}/inputs: {what}")
+    matrices = entry.get("matrices", {})
+    for conflict in matrices.get("conflicts", []):
+        winner = "its copy" if conflict["kept"] != "main" else "main's copy"
+        print(
+            f"  MERGE CONFLICT matrix {conflict['matrix']}: main and {entry['source_name']} "
+            f"differ; {conflict['owner']} owns it, so {winner} is kept"
+        )
+    for item in matrices.get("copied", []):
+        verb = "replaces main's" if item["replaced_main"] else "copied"
+        print(f"  matrix {item['matrix']}: {verb} ({item['path']})")
+    for item in matrices.get("not_copied", []):
+        print(f"  matrix {item['matrix']}: not copied, {item['reason']}")
+    if entry["applied"]:
+        print(f"  applied: {human_bytes(entry['bytes_copied'])} copied")
 
 
 def _naming(args: argparse.Namespace) -> NamingTemplate:

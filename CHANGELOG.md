@@ -7,6 +7,36 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added
+
+- `pyfs-matrix space-in-use`, `free-space`, `delete-sims` and `sync`: the four
+  storage commands of 0.30.0 (`pyflightstream.workspace.storage`).
+  `space-in-use` reports the workspace's sizes on disk, by top level folder,
+  by `sims/sim_*` and by extension. `free-space m<id>` runs a recipe from
+  `inputs/management/m<id>.toml` that compacts simulation folders into
+  `sims/sim_<id>.zip`, deletes files of named extensions under `sims/`, or
+  compacts or deletes the post's `archive/<stamp>/` folders, previewing by
+  default and changing files only with `--apply`. `delete-sims` deletes named
+  simulations, their own post products and their `runs.json` records, and
+  refuses to apply against a matrix product shared with other points until
+  `--matrix-products` says what happens to it. Every call is recorded in
+  `storage_management.json`, the schema the standalone `fts_sync.py` script
+  started; see docs/storage-and-sync.md.
+- `pyfs-matrix sync`: brings runs and results from the other workspaces named
+  in `inputs/sync-workspaces.toml` into the main one, at a cumulative level
+  (`runs`, `post`, `fsm`, `all`), previewing by default. Main wins a conflict
+  unless `--prefer-other`, and `--overwrite` archives main's copy of a
+  conflicting file before taking the other's.
+- `pyfs-matrix plan` warns when the points still to run may not fit on the
+  workspace's disk, estimated from the mean size of a recorded datapoint,
+  naming `free-space` as the way to make room.
+
+### Changed
+
+- `runs.json` may hold a `delete-sims` note row (`deleted_sim`) alongside its
+  run records; `read_manifest` skips it, and the row's full mention lives in
+  `storage_management.json`.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

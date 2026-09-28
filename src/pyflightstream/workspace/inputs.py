@@ -145,6 +145,7 @@ INPUT_KINDS = (
     "hpc",
     "fsi",
     "matrices",
+    "management",
 )
 EXECUTABLES_FILE = "executables.toml"
 #: This machine's overlay of the build registry (PFS-2031.15). A workspace

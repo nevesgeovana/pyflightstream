@@ -190,6 +190,31 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-manual", "fail_if_absent"): SWITCH,
     ("pyfs-manual", "names"): SWITCH,
     ("pyfs-manual", "markdown"): SWITCH,
+    # 0.30.0, the four storage commands (pyflightstream.workspace.storage).
+    # `--apply` is the same preview/change switch as `dry_run`, `overwrite`
+    # and `force_overwrite` above: a property of THIS invocation, never a
+    # machine default a registry could hold, because previewing is always
+    # safe and applying is always a decision made at the call site.
+    ("pyfs-matrix", "apply"): SWITCH,
+    # How many rows `space-in-use` prints per grouping is presentation of
+    # this invocation, like `progress_every`; a machine-wide default would
+    # not know whether the reader wants a terminal-width table or a log.
+    ("pyfs-matrix", "top"): SWITCH,
+    # `sync`'s positional: which level to bring over (runs/post/fsm/all) is
+    # what the command works on, a SUBJECT, not a knob a workspace defaults.
+    ("pyfs-matrix", "level"): SUBJECT,
+    # `sync --from`: one workspace name out of sync-workspaces.toml, a
+    # SUBJECT naming which source this call reads.
+    ("pyfs-matrix", "source"): SUBJECT,
+    # `sync --prefer-other`: on a runs.json conflict, take the other
+    # workspace's record instead of main's. A SWITCH of THIS call: which
+    # side is trusted is a decision made at the call site, not a default.
+    ("pyfs-matrix", "prefer_other"): SWITCH,
+    # `delete-sims --matrix-products`: what happens to a matrix product that
+    # also holds the deleted points (points-only or regenerate) is the
+    # invocation's own choice, forced explicit by the function when a shared
+    # product exists; never a default a registry could hold.
+    ("pyfs-matrix", "matrix_products"): SWITCH,
 }
 
 #: (console script, subcommand, destination) -> the registry key its
@@ -292,7 +317,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-matrix", "name"): frozenset({"convert", "inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "output"): frozenset({"convert"}),
-    ("pyfs-matrix", "overwrite"): frozenset({"inventory"}),
+    ("pyfs-matrix", "overwrite"): frozenset({"inventory", "sync"}),
     ("pyfs-matrix", "force_overwrite"): frozenset({"post"}),
     ("pyfs-matrix", "yes"): frozenset({"post"}),
     ("pyfs-matrix", "watch"): frozenset({"collect"}),
@@ -304,12 +329,14 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "rounds"): frozenset({"collect"}),
     ("pyfs-matrix", "point_name"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "dry_run"): frozenset({"rename"}),
-    ("pyfs-matrix", "recipe"): frozenset({"convert", "inspect-setups", "plan", "post", "run"}),
+    ("pyfs-matrix", "recipe"): frozenset(
+        {"convert", "free-space", "inspect-setups", "plan", "post", "run"}
+    ),
     ("pyfs-matrix", "refuse_missing_families"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "resume"): frozenset({"run"}),
     ("pyfs-matrix", "force_rerun"): frozenset({"run"}),
     ("pyfs-matrix", "force_rerun_all"): frozenset({"run"}),
-    ("pyfs-matrix", "sims"): frozenset({"run"}),
+    ("pyfs-matrix", "sims"): frozenset({"delete-sims", "run"}),
     ("pyfs-matrix", "progress_every"): frozenset({"run"}),
     ("pyfs-matrix", "cost"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "accept_unregistered_build"): frozenset({"inspect-setups", "plan", "run"}),
@@ -318,8 +345,25 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "sweep_csv"): frozenset({"run"}),
     ("pyfs-matrix", "workflow"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "workspace"): frozenset(
-        {"collect", "inspect-setups", "plan", "post", "rename", "run"}
+        {
+            "collect",
+            "delete-sims",
+            "free-space",
+            "inspect-setups",
+            "plan",
+            "post",
+            "rename",
+            "run",
+            "space-in-use",
+            "sync",
+        }
     ),
+    ("pyfs-matrix", "apply"): frozenset({"delete-sims", "free-space", "sync"}),
+    ("pyfs-matrix", "top"): frozenset({"space-in-use"}),
+    ("pyfs-matrix", "level"): frozenset({"sync"}),
+    ("pyfs-matrix", "source"): frozenset({"sync"}),
+    ("pyfs-matrix", "prefer_other"): frozenset({"sync"}),
+    ("pyfs-matrix", "matrix_products"): frozenset({"delete-sims"}),
     ("pyfs-qa", "campaign"): frozenset({"cost"}),
     ("pyfs-qa", "case"): frozenset({"update-reference"}),
     ("pyfs-qa", "commands"): frozenset({"probe"}),

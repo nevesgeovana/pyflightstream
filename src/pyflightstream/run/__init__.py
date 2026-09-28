@@ -205,6 +205,7 @@ from pyflightstream.workspace import (
 )
 from pyflightstream.workspace.inputs import HPC_BUILD_ALIAS, HpcProfile
 from pyflightstream.workspace.naming import ARCHIVE_STAMP, PointName, submitted_by, sweep_file_stem
+from pyflightstream.workspace.storage import ensure_sim_expanded
 
 
 def __getattr__(name: str) -> object:
@@ -6592,6 +6593,7 @@ def resolve_continuation(
             "off cannot be continued: since 0.27.0 every point of a row naming a run type saves "
             "it and no artifact can turn it off, so run the row again."
         )
+    ensure_sim_expanded(workspace, case.sim_id, reason="continuation")
     if not (workspace.sim_dir(case.sim_id) / str(saved)).is_file():
         raise CampaignConfigError(
             f"run {previous.run_id!r} stopped at {previous.status} and recorded its saved "
