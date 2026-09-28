@@ -50,25 +50,32 @@
 > `_lengths.py`, and by the run of 2026-09-25 on the 0.28.0 tree whose block C
 > adds the surface translator (G45) and the surface average (G25), and by the
 > run of 2026-09-25 on the 0.28.0 tree whose block D adds the FSI's blade
-> properties (G41). (An
+> properties (G41), and by the run of 2026-09-28 on the 0.29.0 quality-gate
+> candidate (GOAL-034 Q1), whose 0.29 work brought the tracked package from
+> 104 to 128 modules. (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
-> modules and the 0.24.0 tree at 661 in 18 of 93; measurements of different
+> modules and the 0.24.0 tree at 661 in 18 of 93; the 0.28.0 release tree read
+> 863 errors in 18 of 104 on 2026-09-25; measurements of different
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 863 errors in 18 files (checked 104 source files)
->     Success: no issues found in 104 source files
+>     Found 923 errors in 18 files (checked 128 source files)
+>     Success: no issues found in 128 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-25: 863 errors in 18 of 104 modules.**
+**mypy recount 2026-09-28: 923 errors in 18 of 128 modules.**
 
-The module total rises by the four modules 0.25.0 adds
-(post/section_distributions, post/provenance, post/custom_polar and
-script/_surface_averaging) and the error total with the sites they carry; the
-number of modules holding an exemption is unchanged at eighteen. The previous
+The module total rises by the twenty-four modules the 0.29 work adds, and the
+error total by sixty, all inside the exempted set; the number of modules
+holding an exemption is unchanged at eighteen, and the shipped configuration
+is green over all 128. The run was taken by `python scripts/mypy_recount.py`
+on the candidate with three uncommitted paths that carry no typed code (a
+documentation page, one string built through an existing helper in
+`post/guides.py`, and a test import), which the script lists; its full
+output is the GOAL-034 receipt `q1-evidence/b-mypy-recount.txt`. The previous
 reading of this report is in its own history.
 
 THE NINETIETH TO THE NINETY-THIRD ARRIVED AT 0.24.0 and all four arrive
@@ -345,11 +352,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 863 errors in 18 files (checked 104 source files)
+    Found 923 errors in 18 files (checked 128 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 104 source files
+    Success: no issues found in 128 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -704,3 +711,18 @@ figure exactly, against the v0.27.0 release tree's 812 in 18 of 100. The
 shipped configuration is green over all 104 modules. The quoted mypy lines
 above are this run's as well, and the sentence at the top of this report is
 this measurement.
+
+## Re-measured 2026-09-28, the 0.29.0 quality-gate candidate: twenty-four modules arrived
+
+`python scripts/mypy_recount.py` on 2026-09-28, on the 0.29.0 candidate under
+the GOAL-034 quality gate (`fix/q1b` on the header-free tree `b2f270c1`): 923
+errors in 18 of 128 modules, against the v0.28.0 release tree's 863 in 18 of
+104. The module guard in `tests/tier1_offline/test_traceability.py` had gone
+red at 128 against the recorded 104, which is what asked for this run. The
+dirty count still reads 18, every dirty module is exempted by name, and the
+shipped configuration is green over all 128 modules. The sixty errors more sit
+inside the exempted set, whose largest holder is `pyflightstream.run` at 734
+errors on 83 lines. The
+script reported three uncommitted paths, none of which carries typed code. The
+quoted mypy lines above are this run's, and the sentence at the top of this
+report is this measurement.

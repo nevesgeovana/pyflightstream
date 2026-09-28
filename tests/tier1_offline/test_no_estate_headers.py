@@ -8,6 +8,7 @@ removed before the release; this walks the tracked tree so it cannot return.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -17,7 +18,12 @@ FORBIDDEN = ("GEOVERSE_HEADER", "geoverse-goddess-control-plane", "_geoverse_hea
 
 def _tracked_files() -> list[Path]:
     out = subprocess.run(
-        ["git", "-C", str(ROOT), "ls-files", "-z"], capture_output=True, check=True
+        ["git", "-C", str(ROOT), "ls-files", "-z"],
+        capture_output=True,
+        check=True,
+        # Explicit, and identical to the inherited default: git needs the
+        # ambient environment to find its own configuration.
+        env=os.environ.copy(),
     ).stdout
     return [ROOT / p.decode("utf-8") for p in out.split(b"\0") if p]
 

@@ -34,7 +34,7 @@ source hashes and the per-STEP geometry/topology matching are retained.
 Missing native samples do not borrow values from the final export. Cell Cp is
 never relabeled as nodal Cp or singularity strength.
 
-The 26.122 rotor control compared native nodal Cp, Vx and speed over STEPs 7–12,
+The 26.122 rotor control compared native nodal Cp, Vx and speed over STEPs 7 to 12,
 a window starting after the first export. Applying the package reducer directly
 to those native nodal histories matched the native averaged nodal quantities
 within 1.3e-15 scaled error. This diagnostic does not interpolate the product
@@ -49,14 +49,14 @@ without averaging X, Y or Z coordinate fields.
 Walltime rescue writes the declared instantaneous outputs and then calls
 CLOSE_FLIGHTSTREAM. The measured 26.122 control ended at STEP 16 without an
 external kill. Both residual and load plots contain 1,128 finite inner-iteration
-samples, numbered 1–1,128. The separate aggregate unsteady plot contains STEPs
-1–15: its last completed sample precedes the stop. Export filenames identify
+samples, numbered 1 to 1,128. The separate aggregate unsteady plot contains STEPs
+1 to 15: its last completed sample precedes the stop. Export filenames identify
 the rescue step; they do not promise that every history includes that step.
 The original files remain unchanged, and missing samples are never fabricated.
 
 A named WALLTIME diagnostic refuses the surface-average product. Native Cp,
 Vx and speed retained the STEP 16 instantaneous state instead of the requested
-mean of STEPs 2–3. The approved G55 discrepancy branch requires this refusal
+mean of STEPs 2 to 3. The approved G55 discrepancy branch requires this refusal
 until corrected. Independent arithmetic checks verify the package reducer on
 the recorded per-STEP fields, but do not establish native equivalence for this
 run type. STOP-in-action and runtime iteration-count controls failed to stop

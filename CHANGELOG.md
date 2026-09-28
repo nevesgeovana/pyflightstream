@@ -79,6 +79,10 @@ not a publication or acceptance announcement.
 - **Continuation checks its recorded inputs.** Recovery follows the saved
   script and exact frame/source provenance. Unsupported or ambiguous historical
   commands are refused by name before a new extraction can invent state.
+- mypy recount 2026-09-28: 923 errors in 18 of 128 modules, against 0.28.0's
+  863 in 18 of 104. The twenty-four modules the 0.29 work adds are clean; the
+  sixty errors more sit inside the exempted set, and the shipped configuration
+  is green over all 128 (`reports/RPT-029`).
 
 ### Fixed
 
@@ -376,7 +380,7 @@ names, no `Singularity_strength`, and the symmetry images on a symmetric row
 
 ### Changed (the type-checker debt, re-measured on the release tree)
 
-- mypy recount 2026-09-25: 863 errors in 18 of 104 modules, against 0.27.0's 812 in 18 of 100. The
+- The type-checker re-count of 2026-09-25 read 863 errors in 18 of 104 modules, against 0.27.0's 812 in 18 of 100. The
   four modules that arrived, `results/surface.py`, `post/surfaces.py` (G45, G25),
   `fsi/materials.py` and `fsi/sections.py` (G41), are clean; the fifty-one
   errors more sit inside the exempted set, on the run module's record builders

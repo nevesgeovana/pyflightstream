@@ -1572,7 +1572,7 @@ def write_input_glossary(folder: str | Path, *, changed: list[Path] | None = Non
     begin = b"<!-- pyflightstream:input-glossary:begin -->"
     end = b"<!-- pyflightstream:input-glossary:end -->"
     generated = input_glossary_markdown()
-    generated += "\nSetup reference: [Setup standards](https://github.com/nevesgeovana/pyflightstream/blob/main/docs/setup-standards.md).\n"
+    generated += "\nSetup reference: " + _page_link("setup-standards", "Setup standards") + ".\n"
     if (target / "pproc" / INPUT_GLOSSARY_NAME).is_file():
         generated += (
             "\nCompatibility note: [pproc/INPUTS.md](pproc/INPUTS.md) is preserved "

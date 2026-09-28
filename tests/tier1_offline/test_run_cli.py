@@ -635,9 +635,13 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
     # manifest and moves a workspace written under the earlier point tag to
     # the point name, so it takes no recipe, no version and no executable
     # either.
+    # `inspect-setups` joined at 0.29.0 as an ALIAS of `plan` (the parser is
+    # the same object), so it carries every option `plan` carries, `--recipe`
+    # included; the loop below asserts that on the alias too.
     assert set(choices) == {
         "collect",
         "convert",
+        "inspect-setups",
         "inventory",
         "plan",
         "post",
@@ -645,7 +649,11 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
         "run",
         "upgrade",
     }
-    for name in ("convert", "plan"):
+    assert choices["inspect-setups"] is choices["plan"], (
+        "inspect-setups is registered as plan's alias; a separate parser could "
+        "drift from plan's options"
+    )
+    for name in ("convert", "plan", "inspect-setups"):
         flags = {option for action in choices[name]._actions for option in action.option_strings}
         assert "--recipe" in flags, f"{name} lost its --recipe option"
 
