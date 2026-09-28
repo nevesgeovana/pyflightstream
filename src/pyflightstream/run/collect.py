@@ -524,6 +524,18 @@ def _finish_additional(workspace, record, context):
             folder,
             record.surface_translations,
         )
+    # A TRANSLATION PROBLEM IS A FAILED EXTRACTION (Q0 CX-4), even where the
+    # declared `.dat` exists: a file whose source, frame or content proof no
+    # longer holds is preserved, not re-derived, and existence alone would
+    # record it EXTRACTED and delete the private copy it could be re-made from.
+    # The caller records this refusal as FAILED_EXECUTION and keeps the copy.
+    problems = [
+        str(problem)
+        for translation in base.get("surface_translations") or []
+        for problem in translation.get("problems") or []
+    ]
+    if problems:
+        raise WorkspaceError("surface translation failed: " + "; ".join(problems))
     missing = [name for name in record.declared_outputs if not (folder / name).is_file()]
     outputs = [
         (folder / name).relative_to(sim_dir).as_posix()
