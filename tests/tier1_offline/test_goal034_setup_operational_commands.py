@@ -27,14 +27,18 @@ import pytest
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import (
     MeshImport,
+    PprocSpec,
     ReferenceData,
     SimCase,
     SolverSettings,
     TrailingEdgeMarking,
 )
-from pyflightstream.cases.workflows import build_script
-from pyflightstream.script import Script
+from pyflightstream.cases.workflows import build_script, build_steady_sweep
+from pyflightstream.commands import CommandNotInVersionError, CommandRegistry
+from pyflightstream.script import BrokenCommandError, Script, helpers
+from pyflightstream.versions import resolve
 from tests.tier1_offline.test_boundary_setup_coverage import _port_case
+from tests.tier1_offline.test_g25_surface_time_average import _rotor
 from tests.tier1_offline.test_goal031_g08_glossary_claims import (
     HUB,
     PROP,
@@ -47,7 +51,16 @@ from tests.tier1_offline.test_goal031_g08_glossary_claims import (
     _ported,
     _raw_mesh,
 )
-from tests.tier1_offline.test_workflows import steady_case, steady_case_resolved
+from tests.tier1_offline.test_raw_mesh_conditions import DETECT_AUTO, FILE_ROUTE, _library
+from tests.tier1_offline.test_raw_mesh_conditions import _case as _raw_mesh_row
+from tests.tier1_offline.test_steady_start import _points
+from tests.tier1_offline.test_workflows import (
+    _wb_geometry,
+    _with_pproc,
+    steady_case,
+    steady_case_resolved,
+    unsteady_case,
+)
 
 BUILD = "26.124"
 
@@ -615,3 +628,418 @@ def test_a_setting_whose_command_26124_lacks_is_refused_by_name_not_dropped(tmp_
         keyless = stated.model_copy(update={"solver": SolverSettings()})
         assert _render(keyless)[0] is not None, f"{setting}: the case without it does not build"
     assert not silent, "stated on 26.124 and not refused by name:\n  " + "\n  ".join(silent)
+
+
+# --- the commands a script-level route reaches other than one case's build ----------
+#
+# Ten in-scope commands are reached by a route that is not the one-case
+# ``build_script`` of a setting: the sweep builder's cold start, the public
+# script helpers, the raw mesh's file route and the pproc declarations of an
+# unsteady row. Each is held exactly as ``ROUTES`` holds its commands: the
+# stated input puts the command's block in the 26.124 script, a control on the
+# same route without that input does not carry it.
+
+Lines = Callable[[Path], list[str]]
+
+
+@dataclass(frozen=True)
+class ScriptRoute:
+    """A stated input and its control, each rendered to 26.124 script lines."""
+
+    stated: Lines
+    control: Lines
+    block: tuple[str, ...]
+
+
+def _built(make: Make) -> Lines:
+    """One case through ``build_script`` on 26.124; a refusal fails the case, naming why."""
+
+    def lines(tmp: Path) -> list[str]:
+        rendered, why = _render(make(tmp))
+        assert rendered is not None, f"does not build on {BUILD}: {why}"
+        return rendered
+
+    return lines
+
+
+def _sweep(*, cold: bool) -> Lines:
+    """The three-point steady sweep, started cold at every point or warm from the last."""
+
+    def lines(_: Path) -> list[str]:
+        script = Script(BUILD)
+        build_steady_sweep(_points(), script, cold=cold)
+        return script.render().splitlines()
+
+    return lines
+
+
+def _helper(call: Callable[[Script], None]) -> Lines:
+    """A public script helper called on a fresh 26.124 script."""
+
+    def lines(_: Path) -> list[str]:
+        script = Script(BUILD)
+        call(script)
+        return script.render().splitlines()
+
+    return lines
+
+
+def _raw_mesh_route(tables: str) -> Lines:
+    """The raw mesh row whose sidecar marks its trailing edges by ``tables``."""
+    return _built(lambda tmp: _raw_mesh_row(tmp, _library(tmp, tables)))
+
+
+def _unsteady_pproc(pproc: dict[str, object]) -> Make:
+    """The bare unsteady row post-processed by ``pproc``, exporting what it declares."""
+    spec = PprocSpec.model_validate(pproc)
+    outputs = [name.replace("{name}", "P") for name in spec.outputs(unsteady=True)]
+    return lambda _: unsteady_case().model_copy(update={"pproc": spec, "outputs": outputs})
+
+
+def _wing_body_pproc(pproc: PprocSpec | None) -> Make:
+    """The unsteady row on the wing-body with the author's pproc (``None``) or ``pproc``."""
+    return lambda tmp: _with_pproc(unsteady_case(), _wb_geometry(tmp), pproc)
+
+
+SURFACE_PROBE = {
+    "name": "upper_cp",
+    "parameter": "CP_FREE",
+    "frame": "REFERENCE",
+    "point_m": [0.25, 0.1, 0.02],
+}
+
+#: THE TEN IN-SCOPE COMMANDS ``ROUTES`` DOES NOT REACH, by the route that does.
+SCRIPT_ROUTES: dict[str, ScriptRoute] = {
+    # A cold point clears the solution before it starts; a warm one does not.
+    "CLEAR_SOLUTION": ScriptRoute(
+        _sweep(cold=True), _sweep(cold=False), ("CLEAR_SOLUTION", "START_SOLVER")
+    ),
+    "SET_SOLVER_STEADY": ScriptRoute(
+        _helper(lambda s: helpers.solver_settings(s, mode="STEADY")),
+        _helper(
+            lambda s: helpers.solver_settings(
+                s, mode="UNSTEADY", time_iterations=10, delta_time=0.01
+            )
+        ),
+        ("SET_SOLVER_STEADY",),
+    ),
+    "AIR_ALTITUDE": ScriptRoute(
+        _helper(lambda s: helpers.atmosphere(s, altitude=1500.0)),
+        _helper(lambda s: helpers.atmosphere(s, altitude=900.0)),
+        ("AIR_ALTITUDE 1500.0 METERS",),
+    ),
+    # The sidecar's file route imports the edges; its detect route does not.
+    "IMPORT_WAKE_EDGES_FROM_FILE": ScriptRoute(
+        _raw_mesh_route(FILE_ROUTE),
+        _raw_mesh_route(DETECT_AUTO),
+        ("IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER", "wing.wake_nodes.txt"),
+    ),
+    # A time-averaging window registers the per-step counter action.
+    "SET_NEW_UNSTEADY_SOLVER_ACTION": ScriptRoute(
+        _built(lambda _: _rotor(time_averaging={"last_revs": 1.5})),
+        _built(lambda _: _rotor()),
+        ("SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE pfs_unsteady_counter",),
+    ),
+    "NEW_UNSTEADY_SOLVER_SURFACE_PROBE": ScriptRoute(
+        _built(_unsteady_pproc({"surface_probes": [SURFACE_PROBE]})),
+        _built(_unsteady_pproc({})),
+        ("NEW_UNSTEADY_SOLVER_SURFACE_PROBE SURFACE_upper_cp CP_FREE 1 0.25 0.1 0.02",),
+    ),
+    # A declared surface probe needs a clean plot list, so the list is cleared first.
+    "UNSTEADY_SOLVER_DELETE_ALL_PLOTS": ScriptRoute(
+        _built(_unsteady_pproc({"surface_probes": [SURFACE_PROBE]})),
+        _built(_unsteady_pproc({})),
+        ("UNSTEADY_SOLVER_DELETE_ALL_PLOTS",),
+    ),
+    "UNSTEADY_SOLVER_EXPORT_PLOTS": ScriptRoute(
+        _built(_unsteady_pproc({})),
+        _built(_unsteady_pproc({"exports": {"plots": False}})),
+        ("UNSTEADY_SOLVER_EXPORT_PLOTS", "P_plots.txt"),
+    ),
+    # The author's pproc: probe-line fluid plots and coefficient force plots.
+    "UNSTEADY_SOLVER_NEW_FLUID_PLOT": ScriptRoute(
+        _built(_wing_body_pproc(None)),
+        _built(_wing_body_pproc(PprocSpec())),
+        (
+            "UNSTEADY_SOLVER_NEW_FLUID_PLOT",
+            "FRAME 3",
+            "PARAMETER MACH",
+            "NAME MACH1",
+            "VERTEX -3.6576 -1.8288 0.0",
+        ),
+    ),
+    "UNSTEADY_SOLVER_NEW_FORCE_PLOT": ScriptRoute(
+        _built(_wing_body_pproc(None)),
+        _built(_wing_body_pproc(PprocSpec())),
+        (
+            "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
+            "FRAME 2",
+            "UNITS COEFFICIENTS",
+            "PARAMETER CL",
+            "NAME CL_MRP_TOTAL",
+        ),
+    ),
+}
+
+
+@pytest.mark.parametrize("command", [pytest.param(c, id=c) for c in SCRIPT_ROUTES])
+def test_setup_command_is_emitted_through_its_script_route_on_26124(command, tmp_path):
+    """The stated input reaches the 26.124 script as the command, the control does not.
+
+    GOAL033:setup_bc:operational_commands:CLEAR_SOLUTION
+    GOAL033:setup_bc:operational_commands:SET_SOLVER_STEADY
+    GOAL033:setup_bc:operational_commands:AIR_ALTITUDE
+    GOAL033:setup_bc:operational_commands:IMPORT_WAKE_EDGES_FROM_FILE
+    GOAL033:setup_bc:operational_commands:SET_NEW_UNSTEADY_SOLVER_ACTION
+    GOAL033:setup_bc:operational_commands:NEW_UNSTEADY_SOLVER_SURFACE_PROBE
+    GOAL033:setup_bc:operational_commands:UNSTEADY_SOLVER_DELETE_ALL_PLOTS
+    GOAL033:setup_bc:operational_commands:UNSTEADY_SOLVER_EXPORT_PLOTS
+    GOAL033:setup_bc:operational_commands:UNSTEADY_SOLVER_NEW_FLUID_PLOT
+    GOAL033:setup_bc:operational_commands:UNSTEADY_SOLVER_NEW_FORCE_PLOT
+    """
+    route = SCRIPT_ROUTES[command]
+    stated_dir, control_dir = tmp_path / "stated", tmp_path / "control"
+    stated_dir.mkdir()
+    control_dir.mkdir()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        lines = route.stated(stated_dir)
+        control = route.control(control_dir)
+    near = [line for line in lines if line.startswith(command)]
+    assert _carries(lines, route.block), (
+        f"{command}: {route.block} not in the {BUILD} script; lines naming it: {near}"
+    )
+    assert not _carries(control, route.block), (
+        f"{command}: the control carries {route.block} too, so the input did not put it there"
+    )
+
+
+def test_every_script_route_names_a_marker_of_its_own():
+    """The docstring above names each script-routed command exactly once, and nothing else."""
+    doc = test_setup_command_is_emitted_through_its_script_route_on_26124.__doc__ or ""
+    prefix = "GOAL033:setup_bc:operational_commands:"
+    named = [line.strip()[len(prefix) :] for line in doc.splitlines() if prefix in line]
+    assert sorted(named) == sorted(SCRIPT_ROUTES)
+    assert len(named) == len(set(named))
+    assert not set(SCRIPT_ROUTES) & set(ROUTES), "a command is routed twice"
+
+
+# --- what 26.124 does not have, and the build support of the rest --------------------
+
+#: The setup/BC chapters of the command database, as the GOAL-033 checker reads them.
+SETUP_CHAPTERS = (
+    "solver_settings",
+    "solver_initialization",
+    "solver_analysis",
+    "advanced_settings",
+    "boundary_conditions",
+    "inlets_outlets",
+    "actuators",
+    "base_regions",
+    "transition_trips",
+    "unsteady_solver",
+    "simulation_controls",
+    "runtime_settings",
+    "aeroelastic_coupling",
+)
+
+#: In-scope commands whose operation is held by the recorded native replays elsewhere.
+PROVED_ELSEWHERE = {
+    "tests/tier1_offline/test_fsi_native_interface_evidence.py": (
+        "ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS",
+        "ASSIGN_AEROELASTIC_SURFACES",
+        "DELETE_AEROELASTIC_STRUCTURAL_NODES",
+        "EXECUTE_AEROELASTIC_ANALYSIS",
+        "IMPORT_AEROELASTIC_STRUCTURAL_NODES",
+        "SET_AEROELASTIC_COUPLING_IN_UNSTEADY",
+        "SET_AEROELASTIC_ITERATIONS",
+        "SET_AEROELASTIC_POST_PROCESSING_SCRIPT",
+        "SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND",
+        "SET_AEROELASTIC_WORKING_DIRECTORY",
+    ),
+    "tests/tier1_offline/test_setup_native_state_evidence.py": (
+        "DISABLE_SOLVER_REF_VELOCITY",
+        "SOLVER_SET_MACH_NUMBER",
+    ),
+}
+
+#: Every setup/BC command the emitter refuses on 26.124, by the error it refuses with:
+#: no recorded 26.124 evidence, recorded removed there, or recorded broken there.
+REFUSED_ON_26124: dict[str, type[Exception]] = {
+    **dict.fromkeys(
+        (
+            "CREATE_BULK_SEPARATION",
+            "DELETE_AXIAL_SEPARATION_BOUNDARIES",
+            "DELETE_CROSSFLOW_SEPARATION_BOUNDARIES",
+            "DELETE_VALAREZO_CRITERION_BOUNDARIES",
+            "DELETE_VALAREZO_SEPARATION_BOUNDARIES",
+            "DISABLE_ACTUATOR",
+            "PHYSICS",
+            "SET_AXIAL_SEPARATION_BOUNDARIES",
+            "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC",
+            "SET_CROSSFLOW_SEPARATION_BOUNDARIES",
+            "SET_CROSSFLOW_SEPARATION_CP",
+            "SET_CROSSFLOW_SEPARATION_DIAMETER",
+            "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION",
+            "SET_OUTFLOW_TRAILING_EDGES",
+            "SET_SOLVER_MODEL",
+            "SET_TRAILING_EDGE_BLUNTNESS_ANGLE",
+            "SET_VALAREZO_SEPARATION_BOUNDARIES",
+            "SOLVER_CLEAR",
+            "SOLVER_UNINITIALIZE",
+            "SOLVER_VORTEX_RING_NORMALIZATION",
+            "SONIC_VELOCITY",
+            "VALAREZO_CRITERION",
+            # Excluded before this release, each on its own report.
+            "SET_UNSTEADY_VISCOUS_COUPLING_ITERATION",
+            "SET_VORTICITY_LIFT_MODEL",
+            "SET_WAKE_RELAXATION",
+            "SET_WAKE_STREAMWISE_AGGLOMERATION",
+            "SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER",
+            "TRAILING_EDGES_IMPORT",
+        ),
+        CommandNotInVersionError,
+    ),
+    # Measured hanging 26.124 on 2026-09-19 and recorded broken there.
+    "SOLVER_TIME_AVERAGING": BrokenCommandError,
+}
+
+#: Present on 26.124 and excluded from 0.29.0 by the owner (2026-09-27): the
+#: unsteady actions already deliver per-step exports.
+OWNER_EXCLUDED = frozenset({"UNSTEADY_SOLVER_ANIMATION"})
+
+
+@pytest.mark.parametrize("command", [pytest.param(c, id=c) for c in REFUSED_ON_26124])
+def test_a_command_26124_lacks_is_refused_by_the_emitter_naming_it(command):
+    """Emitting the command on 26.124 raises, naming it, and writes no line.
+
+    The script-level half of the refusal ``no_silent_unsupported`` holds for
+    the typed settings: whatever route asks for one of these commands on
+    26.124, the emitter itself refuses it by name, so no route can drop it
+    silently or write a line the build does not have.
+    """
+    script = Script(BUILD)
+    with pytest.raises(REFUSED_ON_26124[command], match=command):
+        script.emit(command)
+    assert command not in script.render()
+
+
+def test_every_in_scope_setup_command_is_in_the_26124_database_and_the_rest_refused():
+    """Build support on 26.124, the one build this release supports.
+
+    GOAL033:setup_bc:checks:build_support
+
+    The setup/BC chapters of the command database divide exactly into three:
+    the commands this release routes (``ROUTES``, ``SCRIPT_ROUTES`` and the
+    native replays named in ``PROVED_ELSEWHERE``), the commands 26.124 lacks,
+    and the one the owner excluded. Every routed command carries a documented
+    or verified 26.124 status in the database; every command 26.124 lacks is
+    refused by the emitter, naming it. A command added to a setup chapter
+    without a route or a refusal fails the partition.
+    """
+    registry = CommandRegistry.load()
+    build = resolve(BUILD)
+    chapters = {
+        name for name, entry in registry.commands.items() if entry.chapter in SETUP_CHAPTERS
+    }
+    elsewhere = {command for commands in PROVED_ELSEWHERE.values() for command in commands}
+    routed = set(ROUTES) | set(SCRIPT_ROUTES) | elsewhere
+    groups = (routed, set(REFUSED_ON_26124), set(OWNER_EXCLUDED))
+    assert sum(len(group) for group in groups) == len(set().union(*groups)), "overlapping groups"
+    assert set().union(*groups) == chapters, (
+        f"unrouted: {sorted(chapters - set().union(*groups))}; "
+        f"not in the chapters: {sorted(set().union(*groups) - chapters)}"
+    )
+    unsupported = {}
+    for command in sorted(routed | OWNER_EXCLUDED):
+        status = registry.commands[command].status_in(build)
+        if status is None or str(status.status) not in ("documented", "verified"):
+            unsupported[command] = None if status is None else str(status.status)
+    assert not unsupported, f"routed but not supported on {BUILD}: {unsupported}"
+    root = Path(__file__).resolve().parents[2]
+    for path, commands in PROVED_ELSEWHERE.items():
+        text = (root / path).read_text(encoding="utf-8")
+        for command in commands:
+            assert f"GOAL033:setup_bc:operational_commands:{command}" in text, (path, command)
+    admitted = []
+    for command, error in REFUSED_ON_26124.items():
+        script = Script(BUILD)
+        try:
+            script.emit(command)
+        except error as refusal:
+            assert command in str(refusal), (command, str(refusal)[:160])
+            continue
+        admitted.append(command)
+    assert not admitted, f"{BUILD} admits a command recorded absent: {admitted}"
+
+
+# --- settings that act on one another ------------------------------------------------
+
+
+def _steady_lines(reference: ReferenceData, **solver: object) -> list[str]:
+    case = steady_case().model_copy(
+        update={"reference": reference, "solver": SolverSettings(**solver)}
+    )
+    lines, why = _render(case)
+    assert lines is not None, why
+    return lines
+
+
+def _at(lines: list[str], line: str) -> int:
+    assert line in lines, f"{line!r} not in the script"
+    return lines.index(line)
+
+
+def test_interacting_setup_settings_are_emitted_in_the_order_and_units_they_need():
+    """Settings whose meaning depends on another setting, held while the other varies.
+
+    GOAL033:setup_bc:checks:model_interactions
+
+    Three interactions the solver resolves by what came before or instead:
+
+    * THE LENGTH UNIT RESCALES WHAT FOLLOWS IT. The solver reads velocities
+      and SI-declared reference dimensions in the simulation length unit, so
+      the unit line precedes them and the values follow it: 30 m/s is
+      30000.0 in millimetres, an SI area of 12.5 m2 is 12500000.0 mm2, and a
+      reference declared in native units is left as stated.
+    * THE REFERENCE MACH DISPLACES THE REFERENCE VELOCITY. Stating it
+      removes the reference velocity line, while the free-stream velocity
+      is held.
+    * THE FLOW MODEL VARIES ALONE. Changing the model changes its line in
+      ``INITIALIZE_SOLVER`` and nothing else in the script.
+    """
+    si = ReferenceData(area=12.5, length=1.7, normalization_units="SI")
+    native = ReferenceData(area=12.5, length=1.7)
+    metres = _steady_lines(si)
+    millimetres = _steady_lines(si, simulation_length_unit="MILLIMETER")
+    for line in (
+        "SOLVER_SET_VELOCITY 30.0",
+        "SOLVER_SET_REF_VELOCITY 30.0",
+        "SOLVER_SET_REF_AREA 12.5",
+        "SOLVER_SET_REF_LENGTH 1.7",
+    ):
+        _at(metres, line)
+    unit = _at(millimetres, "SET_SIMULATION_LENGTH_UNITS MILLIMETER")
+    for line in (
+        "SOLVER_SET_VELOCITY 30000.0",
+        "SOLVER_SET_REF_VELOCITY 30000.0",
+        "SOLVER_SET_REF_AREA 12500000.0",
+        "SOLVER_SET_REF_LENGTH 1700.0",
+    ):
+        assert unit < _at(millimetres, line), f"{line} precedes the unit it is read in"
+    stated_native = _steady_lines(native, simulation_length_unit="MILLIMETER")
+    _at(stated_native, "SOLVER_SET_VELOCITY 30000.0")
+    _at(stated_native, "SOLVER_SET_REF_AREA 12.5")
+    _at(stated_native, "SOLVER_SET_REF_LENGTH 1.7")
+
+    by_mach = _steady_lines(native, reference_mach=0.2)
+    _at(by_mach, "SOLVER_SET_REF_MACH_NUMBER 0.2")
+    _at(by_mach, "SOLVER_SET_VELOCITY 30.0")
+    assert not [line for line in by_mach if line.startswith("SOLVER_SET_REF_VELOCITY")]
+    _at(_steady_lines(native), "SOLVER_SET_REF_VELOCITY 30.0")
+
+    incompressible = _steady_lines(native, solver_model="INCOMPRESSIBLE")
+    subsonic = _steady_lines(native, solver_model="SUBSONIC_PRANDTL_GLAUERT")
+    assert len(incompressible) == len(subsonic)
+    moved = [(a, b) for a, b in zip(incompressible, subsonic, strict=True) if a != b]
+    assert moved == [("SOLVER_MODEL INCOMPRESSIBLE", "SOLVER_MODEL SUBSONIC_PRANDTL_GLAUERT")]

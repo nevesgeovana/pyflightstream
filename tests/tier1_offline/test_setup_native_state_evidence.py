@@ -32,18 +32,50 @@ def _block(text, section):
     )
 
 
-@pytest.mark.parametrize(
-    "setting,section,index,before,after",
-    [
-        ("laminar_separation", "SOLVER", 41, "F", "T"),
-        ("additional_wake_relaxation", "WAKE", 7, "F", "T"),
-        ("wake_on_wake_induction", "WAKE", 9, "F", "T"),
-        ("mesh_induced_wake_velocity", "SOLVER", 40, "F", "T"),
-        ("unsteady_pressure_and_kutta", "SOLVER", 15, "F", "T"),
-        ("wake_numerical_relaxation", "WAKE", 11, ".250", ".750"),
-        ("wake_decay_constant_per_m", "WAKE", 12, ".150", ".450"),
-    ],
-)
+#: Each recorded setter pair: the saved section, the one field it moves, and its two states.
+NATIVE_SETTERS = [
+    ("laminar_separation", "SOLVER", 41, "F", "T"),
+    ("additional_wake_relaxation", "WAKE", 7, "F", "T"),
+    ("wake_on_wake_induction", "WAKE", 9, "F", "T"),
+    ("mesh_induced_wake_velocity", "SOLVER", 40, "F", "T"),
+    ("unsteady_pressure_and_kutta", "SOLVER", 15, "F", "T"),
+    ("wake_numerical_relaxation", "WAKE", 11, ".250", ".750"),
+    ("wake_decay_constant_per_m", "WAKE", 12, ".150", ".450"),
+]
+
+
+def _moved_fields(setting, section):
+    first = _block(_artifact(f"wake-state-{setting}-0", ".fsm"), section)
+    second = _block(_artifact(f"wake-state-{setting}-1", ".fsm"), section)
+    assert len(first) == len(second)
+    pairs = enumerate(zip(first, second, strict=True))
+    return [(i, a.strip(), b.strip()) for i, (a, b) in pairs if a != b]
+
+
+def test_recorded_native_setup_commands_move_the_solver_state_they_name():
+    """The setup commands act on the solver: the recorded 26.124 saves, replayed.
+
+    GOAL033:setup_bc:checks:native_effects
+
+    Each pair of simulations the solver saved on 26.124 differs by one setup
+    command's value, and the saved state differs in exactly the one field
+    that command names, from its first state to its second. The reference
+    reset is replayed beside them: after DISABLE_SOLVER_REF_VELOCITY the saved
+    reference velocity follows each later free stream instead of the held
+    value. Every artifact is hash-checked against the recorded receipt, so
+    this is the solver's own output and not a render of the script.
+    """
+    moved = {setting: _moved_fields(setting, section) for setting, section, *_ in NATIVE_SETTERS}
+    expected = {setting: [(index, a, b)] for setting, _, index, a, b in NATIVE_SETTERS}
+    assert moved == expected
+    held = _block(_artifact("ref-held", ".fsm"), "SOLVER")
+    follow = _block(_artifact("ref-reset-follow", ".fsm"), "SOLVER")
+    assert held[33].strip() == "T" and follow[33].strip() == "F"
+    assert float(held[29]) == pytest.approx(47.513)
+    assert float(follow[29]) == float(follow[21]) == 40
+
+
+@pytest.mark.parametrize("setting,section,index,before,after", NATIVE_SETTERS)
 def test_native_setter_changes_its_saved_field_only(setting, section, index, before, after):
     # GOAL033:setup_bc:operational_commands:LAMINAR_SEPARATION
     # GOAL033:setup_bc:operational_commands:ADDITIONAL_WAKE_RELAXATION_ITERATION
