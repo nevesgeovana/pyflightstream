@@ -188,6 +188,10 @@ def test_rotor_table_keeps_the_reference_aliases_when_summing_loads(tmp_path, mo
         reductions={"rotors": {"PROP": {"rpm": 600.0}}},
         density_kg_m3=2.0,
         mach=0.2,
+        # A RunRecord always carries these; since 0.30.0 (M1) the rotor table
+        # reads them for its Mach columns, which stay NA without a condition.
+        flight_condition=None,
+        point=None,
     )
     reference = ReferenceValues(1.0, 1.0, 1.0)
     ((destination, _, plan),) = _rotor_tables(
