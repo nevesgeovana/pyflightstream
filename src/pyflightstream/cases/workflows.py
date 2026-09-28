@@ -2818,10 +2818,12 @@ def rotor_shedding_direction(case: SimCase) -> str | None:
 
     The direction is a field of the relaxed trailing-edge COMPONENT
     specification and not a scripting argument (SRC-751 p.85), so no
-    workflow emits it. What a row CAN do is state it, and this is where
-    that statement is read and checked; :func:`rotor_relaxed_trailing_edges`
-    is where it is applied to the specifications a component definition
-    carries.
+    workflow emits it. This function parses the value for the Python
+    helper :func:`rotor_relaxed_trailing_edges`, which applies it to the
+    specifications a component definition carries. A matrix row stating
+    ``ROTOR_SHEDDING`` is refused in 0.29.0 by every matrix workflow,
+    since none applies it (see ``docs/migrating-to-0.29.0.md``);
+    direction control from the matrix is planned for 0.30.0.
 
     Parameters
     ----------
@@ -2883,11 +2885,15 @@ def rotor_shedding_direction(case: SimCase) -> str | None:
 def rotor_relaxed_trailing_edges(case: SimCase, specifications: Sequence[str]) -> list[str]:
     """Restate a rotor case's relaxed trailing edges in the row's direction.
 
-    THIS IS THE ROUTE TO THE AZIMUTHAL OPTION from a rotor case: a row
-    writes ``ROTOR_SHEDDING: AZIMUTH`` and the specifications its
-    component definition carries come back with the fifth field set. The
-    library writes no component file, so the rendered text is returned
-    for the caller to write where their geometry keeps it.
+    THIS IS THE ROUTE TO THE AZIMUTHAL OPTION in 0.29.0, from Python: a
+    case whose variables carry ``ROTOR_SHEDDING: AZIMUTH`` is passed here
+    with the specifications its component definition carries, and they
+    come back with the fifth field set. A MATRIX ROW stating
+    ``ROTOR_SHEDDING`` is refused in 0.29.0, because no workflow command
+    applies it (see ``docs/migrating-to-0.29.0.md``); direction control
+    from the matrix is planned for 0.30.0. The library writes no
+    component file, so the rendered text is returned for the caller to
+    write where their geometry keeps it.
 
     Parameters
     ----------
@@ -13558,11 +13564,18 @@ def _require_the_averaging_window(case: SimCase, name: str) -> None:
 
 
 def _refuse_rotor_shedding(case: SimCase) -> None:
-    if _variable(case, ROTOR_SHEDDING_VARIABLE) is not None:
+    stated = _variable(case, ROTOR_SHEDDING_VARIABLE)
+    if stated is not None:
+        # Names the case (its sim_id IS the matrix POL) and the key, and says
+        # the fix, like every sibling refusal of a row.
         raise CampaignConfigError(
-            "ROTOR_SHEDDING is ineffective in matrix workflows and is refused. "
-            "CCS Relaxed_TE direction control is deferred; "
-            "the Python component helper remains available."
+            f"case {case.sim_id!r} states {ROTOR_SHEDDING_VARIABLE} as {stated!r}, and "
+            "0.29.0 refuses it in every matrix workflow: no workflow command applies the "
+            "wake direction of a relaxed trailing edge, so the run would shed a wake the "
+            f"row did not ask for. Remove {ROTOR_SHEDDING_VARIABLE} from the row. "
+            "Direction control from the matrix is planned for 0.30.0; from Python, "
+            "rotor_relaxed_trailing_edges sets the direction in the specifications of "
+            "the component definition."
         )
 
 

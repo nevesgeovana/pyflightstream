@@ -1420,9 +1420,16 @@ def test_the_rotor_emitter_refuses_that_row_before_it_emits_anything():
 def test_a_rotor_row_asking_for_ineffective_azimuth_direction_is_refused():
     """G35: a matrix control with no native effect is an explicit refusal."""
     script = Script("26.120")
-    with pytest.raises(CampaignConfigError, match="ROTOR_SHEDDING.*ineffective"):
-        build_script(rotor_case(ROTOR_SHEDDING="AZIMUTH"), script)
+    case = rotor_case(ROTOR_SHEDDING="AZIMUTH")
+    refusal = "ROTOR_SHEDDING.*every matrix workflow"
+    with pytest.raises(CampaignConfigError, match=refusal) as raised:
+        build_script(case, script)
     assert script.render().strip() == ""
+    # Like its siblings, it names the row (sim_id IS the matrix POL) and the fix.
+    message = str(raised.value)
+    assert repr(case.sim_id) in message, message
+    assert "Remove ROTOR_SHEDDING from the row" in message, message
+    assert "Relaxed_TE" not in message, "implementation jargon in a user refusal"
 
 
 def test_a_specification_the_package_cannot_read_names_which_one_of_how_many():

@@ -453,7 +453,7 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
     "ROTOR_SHEDDING": Variation(
         lambda _: rotor_case(),
         lambda _: rotor_case(ROTOR_SHEDDING="AZIMUTH"),
-        refusal="ROTOR_SHEDDING is ineffective in matrix workflows and is refused.",
+        refusal="0.29.0 refuses it in every matrix workflow",
     ),
     "MOVING_BOUNDARIES": _rows(rotor_case, "MOVING_BOUNDARIES", "1", "1,2"),
     "MOTIONS": Variation(
