@@ -54,7 +54,7 @@ LOG_TABLE = '\n[log]\nexport_log = false\nnative_log = "FTS{sim}.l*"\n'
 # ------------------------------------------------------ EXPORT-LOG-FLAG-BYPASS
 
 
-def _case(export_log: str | None, *, names_its_log: bool) -> SimCase:
+def _case(export_log: str | None, *, names_its_log: bool, meter_geometry: Path) -> SimCase:
     variables = {"VELOCITY": "68.058"}
     if names_its_log:
         variables["LOG_OUTPUT"] = "2"
@@ -66,13 +66,7 @@ def _case(export_log: str | None, *, names_its_log: bool) -> SimCase:
         recipe="steady",
         sweep=SweepAxis(type="alpha", values=[0.0]),
         point={"alpha": 0.0},
-        geometry=str(
-            Path(__file__).resolve().parents[1]
-            / "tier3_licensed"
-            / "inputs"
-            / "geometries"
-            / "10_WING.fsm"
-        ),
+        geometry=str(meter_geometry),
         outputs=["P9001-AL+000.txt", "P9001-AL+000_log.txt"],
         variables=variables,
     )
@@ -85,16 +79,18 @@ def _verbs(case: SimCase) -> list[str]:
 
 
 @pytest.mark.parametrize("names_its_log", [False, True])
-def test_export_log_false_removes_the_command_on_either_route(names_its_log):
-    lines = _verbs(_case("false", names_its_log=names_its_log))
+def test_export_log_false_removes_the_command_on_either_route(names_its_log, meter_geometry):
+    lines = _verbs(_case("false", names_its_log=names_its_log, meter_geometry=meter_geometry))
     assert "EXPORT_LOG" not in lines, "the machine that aborts at EXPORT_LOG was handed one"
     # Nothing else moved: the loads export is still there.
     assert "EXPORT_SOLVER_ANALYSIS_SPREADSHEET" in lines
 
 
 @pytest.mark.parametrize("names_its_log", [False, True])
-def test_a_case_that_states_nothing_still_exports_its_log(names_its_log):
-    assert "EXPORT_LOG" in _verbs(_case(None, names_its_log=names_its_log))
+def test_a_case_that_states_nothing_still_exports_its_log(names_its_log, meter_geometry):
+    assert "EXPORT_LOG" in _verbs(
+        _case(None, names_its_log=names_its_log, meter_geometry=meter_geometry)
+    )
 
 
 def test_a_matrix_row_submitted_through_such_a_profile_carries_no_export_log(tmp_path):

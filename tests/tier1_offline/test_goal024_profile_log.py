@@ -107,7 +107,7 @@ def _work_dir(workspace, sim, *, alpha=None):
     return work
 
 
-def _case(export_log: str | None = None) -> SimCase:
+def _case(export_log: str | None = None, *, meter_geometry: Path) -> SimCase:
     """A steady case that declares a log among its outputs."""
     variables = {"VELOCITY": "68.058", "LOG_OUTPUT": "2"}
     if export_log is not None:
@@ -118,13 +118,7 @@ def _case(export_log: str | None = None) -> SimCase:
         recipe="steady",
         sweep=SweepAxis(type="alpha", values=[0.0]),
         point={"alpha": 0.0},
-        geometry=str(
-            Path(__file__).resolve().parents[1]
-            / "tier3_licensed"
-            / "inputs"
-            / "geometries"
-            / "10_WING.fsm"
-        ),
+        geometry=str(meter_geometry),
         outputs=["P9001-AL+000.txt", "P9001-AL+000_log.txt"],
         variables=variables,
     )
@@ -136,24 +130,24 @@ def _rendered(case: SimCase) -> str:
     return script.render()
 
 
-def test_goal024_profile_log_export_log_false_removes_the_command(tmp_path):
+def test_goal024_profile_log_export_log_false_removes_the_command(tmp_path, meter_geometry):
     """The script writes every other export and not the log."""
-    with_log = _rendered(_case())
+    with_log = _rendered(_case(meter_geometry=meter_geometry))
     assert "EXPORT_LOG" in with_log
-    without = _rendered(_case("false"))
+    without = _rendered(_case("false", meter_geometry=meter_geometry))
     assert "EXPORT_LOG" not in without, without
     # And nothing else moved: the loads export is still there.
     assert "EXPORT_SOLVER_ANALYSIS_SPREADSHEET" in without
 
 
-def test_goal024_profile_log_the_row_still_declares_its_log(tmp_path):
+def test_goal024_profile_log_the_row_still_declares_its_log(tmp_path, meter_geometry):
     """What changes is who WRITES it, not whether the point has one.
 
     The row declares the log among its outputs either way, because that is how
     it is collected and how the run is judged; on such a machine the scheduler
     writes it and `collect` puts it there.
     """
-    case = _case("false")
+    case = _case("false", meter_geometry=meter_geometry)
     assert case.outputs[-1].endswith("_log.txt")
     assert "EXPORT_LOG" not in _rendered(case)
 

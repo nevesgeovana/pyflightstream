@@ -408,7 +408,9 @@ def test_synthetic_duct_import_emits_ports_after_geometry(tmp_path):
     assert hashlib.sha256(fixture.read_bytes()).hexdigest() == (
         "5d9f45af09d5ea1dbfb42563e56868911dc72db38b843e1c54fc660437d7240c"
     )
-    source = Path(__file__).parents[1] / "tier3_licensed/inputs/duct/duct.boundaries.toml"
+    # The sidecar is a tier-1 fixture (GEO-060 B2, CX-7), so this offline test
+    # reads no file of the licensed tier; the generator is only imported.
+    source = Path(__file__).parent / "fixtures" / "duct.boundaries.toml"
     fixture.with_suffix(".boundaries.toml").write_bytes(source.read_bytes())
     case = SimCase(
         sim_id="9001",
