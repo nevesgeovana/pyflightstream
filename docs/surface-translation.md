@@ -1,14 +1,14 @@
 <!--
 GEOVERSE_HEADER
-file_version: 1.0.1
+file_version: 1.0.2
 artifact_id: surface-translation-guide
-last_modified_at: 2026-09-27T19:06:07.787Z
-last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementer}
+last_modified_at: 2026-09-28T00:24:53.540Z
+last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 dependencies: [pyflightstream.results.surface, pyflightstream.results.native_surface, RPT-074]
 authority: pyflightstream
-status: draft
+status: active
 confidentiality: public
-change_summary: Link the rendered example and exact-frame reuse behavior.
+change_summary: Restore shared interfaces and factual contract declarations for the release.
 revision_source: git
 -->
 
@@ -60,6 +60,10 @@ uses the complete recorded values, not the rounded human-readable description. I
 record lacks an output hash, expected bytes are reconstructed in a temporary
 location and compared; matching headers alone do not prove valid data. A
 conflicting or truncated product is reported without overwriting it.
+
+Source and output byte identities use sha256, with canonical forms owned by
+`pyflightstream._digest`. They hash exact file bytes, without adding filesystem
+paths or timestamps; changing line endings therefore changes the digest.
 
 A historical run without a native-source declaration keeps the earlier VTK-only
 route and explicitly reports `Singularity_strength` as not carried. The

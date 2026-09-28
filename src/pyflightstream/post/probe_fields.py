@@ -1,13 +1,14 @@
-# GEOVERSE_HEADER
-# file_version: 1.2.6
-# last_modified_at: 2026-09-27T23:51:00.036Z
-# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.2.7
+# last_modified_at: 2026-09-28T00:24:52.833Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 # dependencies: [pyflightstream.post.writers]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Catalog manifest-bound release refusal sites while retaining builtin catches.
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
 # revision_source: git
+# GEOVERSE_HEADER_END
 """Serialize sampled velocity fields without interpolation or frame inference."""
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from pyflightstream._errors import ProductError
 from pyflightstream.post.field_frames import field_in_reference, native_velocity_proof
 from pyflightstream.post.writers import (
     OutputProvenance,
-    _write_pair,
+    write_output_pair,
     write_vtk_points,
 )
 from pyflightstream.script.motion import resolve_frame_motion
@@ -108,7 +109,7 @@ def write_probe_field(
             )
             lines.append(" ".join(f"{float(value):.17g}" for value in row))
         written.extend(
-            _write_pair(
+            write_output_pair(
                 Path(str(stem) + ".dat"),
                 "\n".join(lines) + "\n",
                 record,
@@ -124,7 +125,7 @@ def write_probe_field(
             + "\n"
         )
         written.extend(
-            _write_pair(
+            write_output_pair(
                 Path(str(stem) + ".inflow.dat"),
                 text,
                 record,

@@ -1,12 +1,14 @@
-# GEOVERSE_HEADER
-# file_version: "1.0.0"
-# last_modified_at: "2026-09-27T14:33:24.033381+00:00"
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.1
+# last_modified_at: 2026-09-28T00:24:53.025Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 # dependencies: [pyflightstream.workspace.excel_sync]
+# authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: "Bridge live unsaved Excel cells to explicit preview and apply batches."
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
 # revision_source: git
+# GEOVERSE_HEADER_END
 """A text bridge for the embedded workbook controls; Excel remains the cell writer."""
 
 from __future__ import annotations
@@ -26,7 +28,7 @@ from pyflightstream.workspace.excel_sync import (
     SyncPreview,
     WorkbookSnapshot,
     apply_preview,
-    check_dictionary,
+    dictionary_mapping,
     preview_sync,
 )
 
@@ -91,7 +93,8 @@ def _write_response(path: Path, records: list[list[str]]) -> None:
     )
 
 
-def _preview_from_json(data: dict[str, Any]) -> SyncPreview:
+def preview_from_json(data: dict[str, Any]) -> SyncPreview:
+    """Reconstruct the captured synchronization decision without recomputing it."""
     return SyncPreview(
         **{
             **data,
@@ -107,7 +110,7 @@ def bridge(action: str, request: Path, response: Path, batch: Path) -> int:
         metadata, snapshot = read_request(request)
         records = []
         if action == "check":
-            check_dictionary(snapshot)
+            dictionary_mapping(snapshot)
             records.append(["OK", "Dictionary is valid; no cells or matrices were changed."])
         elif action == "preview":
             batch.unlink(missing_ok=True)
@@ -152,7 +155,7 @@ def bridge(action: str, request: Path, response: Path, batch: Path) -> int:
                 for change in preview.changes
             )
         elif action == "apply":
-            preview = _preview_from_json(json.loads(batch.read_text(encoding="utf-8")))
+            preview = preview_from_json(json.loads(batch.read_text(encoding="utf-8")))
             if (
                 str(Path(metadata["workspace"]).resolve()) != preview.workspace
                 or metadata["direction"] != preview.direction

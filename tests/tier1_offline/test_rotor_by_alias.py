@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.1
+# last_modified_at: 2026-09-28T00:24:53.293Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
+# dependencies: []
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """A row names its rotor by alias and states nothing else about it (FR-61, FR-63).
 
 The author's design of 2026-09-10. A motion record carries `MOVING_BC_ALIAS` and
@@ -940,26 +951,26 @@ def test_a_row_stating_symmetry_loads_overrides_the_preset_and_warns(tmp_path):
     so the override is not silent. The author's first answer that hour was to
     refuse both stating it; the author changed it the same hour.
     """
-    from pyflightstream.cases.workflows import _row_symmetry_loads
+    from pyflightstream.cases.workflows import row_symmetry_loads
 
     case = two_rotor_case(tmp_path)
     quiet = case.model_copy(update={"variables": {**case.variables}})
-    assert _row_symmetry_loads(quiet, True) is True, "a row stating nothing inherits"
+    assert row_symmetry_loads(quiet, True) is True, "a row stating nothing inherits"
     stated = case.model_copy(update={"variables": {**case.variables, "SYMMETRY_LOADS": "false"}})
     with pytest.warns(match="SYMMETRY_LOADS"):
-        assert _row_symmetry_loads(stated, True) is False
+        assert row_symmetry_loads(stated, True) is False
     # Agreeing is not an override and warns nothing.
     agreeing = case.model_copy(update={"variables": {**case.variables, "SYMMETRY_LOADS": "true"}})
-    assert _row_symmetry_loads(agreeing, True) is True
+    assert row_symmetry_loads(agreeing, True) is True
 
 
 def test_a_symmetry_loads_that_is_not_a_yes_or_a_no_is_refused(tmp_path):
-    from pyflightstream.cases.workflows import _row_symmetry_loads
+    from pyflightstream.cases.workflows import row_symmetry_loads
 
     case = two_rotor_case(tmp_path)
     case = case.model_copy(update={"variables": {**case.variables, "SYMMETRY_LOADS": "sector"}})
     with pytest.raises(PyflightstreamError) as refused:
-        _row_symmetry_loads(case, None)
+        row_symmetry_loads(case, None)
     assert "sector" in str(refused.value)
 
 

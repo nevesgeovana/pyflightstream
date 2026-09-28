@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.1
+# last_modified_at: 2026-09-28T00:24:53.503Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
+# dependencies: []
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """The sha256 this package uses to say two runs used the same inputs.
 
 Pipeline role: below every layer, imported by all of them. It imports
@@ -130,6 +141,34 @@ CANONICAL_FORMS = {
         "the size, not any timestamp. This is the manifest checksum, the one "
         "every input, output, staged script and solver executable is recorded "
         "under."
+    ),
+    "cases/freestream.py": (
+        "the exact source-file bytes, and separately the effective solver payload. "
+        "An SI field converted to native units is UTF-8 text: optional structured "
+        "grid counts, then space-separated .17g finite values, LF between rows "
+        "and one final LF. Source/effective paths are provenance, not hash input."
+    ),
+    "run/_continuation_frame.py": (
+        "pending input bytes unchanged, or UTF-8 encoded pending text. For text, "
+        "both the unmodified encoding and its LF-to-CRLF replacement are compared "
+        "with the recorded hash to recognize historical Windows writes. The "
+        "reconstructed script digest uses its UTF-8 text without newline conversion."
+    ),
+    "workspace/excel_file.py": (
+        "the complete saved workbook ZIP bytes before preview and after apply, "
+        "without unpacking, XML normalization or metadata exclusion. This detects "
+        "any workbook-file change; its location is recorded outside the digest."
+    ),
+    "workspace/excel_sync.py": (
+        "the exact matrix-file bytes, or UTF-8 JSON of asdict(WorkbookSnapshot) "
+        "with sorted mapping keys, ensure_ascii=False and json.dumps default "
+        "separators. Snapshot row/header/dictionary order, cell strings, formula "
+        "flags and baseline values are preserved; no filesystem metadata is added."
+    ),
+    "workspace/fsi_setup.py": (
+        "the exact source FSI TOML bytes before decoding or model validation, "
+        "including any BOM and line endings. File path, matrix calibration and "
+        "the resolved effective properties are recorded separately, not hashed here."
     ),
     "fsi/config.py": (
         "the JSON rendering of a validated FsiConfig with sorted keys and no "

@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.1
+# last_modified_at: 2026-09-28T00:24:53.354Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
+# dependencies: []
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1: the house conventions render everywhere and hold in the code.
 
 Pipeline role: quality gate on PLN-032. The conventions have one home
@@ -132,6 +143,10 @@ _UNIT_SUFFIX = re.compile(
 #: with a stated reason.
 _DIMENSIONLESS_OR_DEBT = {
     # (a) dimensionless by physics or by construction
+    "cp",  # BaseRegionOperation: pressure coefficient, (p - p_ref) / dynamic pressure
+    "growth_rate",  # RadialBoundaryMesh: ratio between successive cell sizes
+    "reference_mach",  # SolverSettings: reference speed / speed of sound
+    "calibration",  # FsiSetupSpec: property multipliers, each dimensionless
     # 0.25.0 F04: advanced solver factors the command database states with no unit
     # (a blending factor, a relaxation factor) or in jet wake diameters.
     "rotor_induced_velocity_blending",  # SolverSettings, ROTOR_INDUCED_VELOCITY_BLENDING
@@ -211,6 +226,10 @@ _DIMENSIONLESS_OR_DEBT = {
     # (PFS-2012.04; PFS-2031.18 fills it).
     "export_window",
     # (b) naming debt pinned by released formats or frames
+    # Native command argument units; these setup keys retain the solver vocabulary.
+    "surface_roughness",  # SET_SURFACE_ROUGHNESS: nanometres (registry unit nm)
+    "crossflow_separation_diameter",  # SET_CROSSFLOW_SEPARATION_DIAMETER: simulation length
+    "crossflow_separation_mean_diameter",  # SET_CROSSFLOW_SEPARATION_CP: simulation length
     "area",  # campaign.toml key (ReferenceData), m2 in docs
     "length",  # campaign.toml key (ReferenceData), m in docs
     "velocity",  # campaign.toml key, m/s in docs

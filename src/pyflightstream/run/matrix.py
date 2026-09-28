@@ -1,13 +1,14 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T15:07:41.411413+00:00
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.1
+# last_modified_at: 2026-09-28T00:24:52.918Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 # dependencies: [pyflightstream.run.matrix]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Validate submitted extraction and collection.
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
 # revision_source: git
+# GEOVERSE_HEADER_END
 """Planning and running a bound run matrix.
 
 Pipeline role: the run-layer half of the run matrix, and the one-call
@@ -184,6 +185,7 @@ def _refuse_an_unmapped_build(executor: Executor, resolved: ResolvedMatrix) -> N
 
 
 __all__ = [
+    "record_additional_extraction",
     "ONE_INSTANT",
     "REOPENED_SUFFIX",
     "AdditionalPointPlan",
@@ -784,7 +786,7 @@ def _campaign_executor(
         ONE PROFILE SERVES EVERY BUILD, which is why the campaign's own
         submitting executor is reused rather than one built per build: the
         descriptor names the SCRIPT and the build is a field inside it,
-        which `_bind_submission_values` sets from the row.
+        which `bind_submission_values` sets from the row.
         """
         if supplied is not None:
             return supplied
@@ -1944,16 +1946,16 @@ def _extract(
     copied = file_sha256(copy)
     if copied != recorded:
         copy.unlink(missing_ok=True)
-        return _recorded(
+        return record_additional_extraction(
             workspace,
             base,
             status=ExtractionStatus.FAILED_EXECUTION,
             error=f"the copy of {original} hashed {copied[:12]}, not {recorded[:12]}; nothing ran",
             original=original,
         )
-    from pyflightstream.run import _bind_submission_values
+    from pyflightstream.run import bind_submission_values
 
-    _bind_submission_values(executor, case, case)
+    bind_submission_values(executor, case, case)
     result = executor.run_script(script_path, working_dir=folder, timeout_s=case.solver.timeout_s)
     if not isinstance(executor, Submitting) or result.failed:
         copy.unlink(missing_ok=True)
@@ -1969,7 +1971,7 @@ def _extract(
         }
     )
     if result.failed:
-        return _recorded(
+        return record_additional_extraction(
             workspace,
             base,
             status=ExtractionStatus.FAILED_EXECUTION,
@@ -1997,7 +1999,7 @@ def _extract(
                 )
                 if part
             )
-        return _recorded(
+        return record_additional_extraction(
             workspace, base, status=ExtractionStatus.SUBMITTED, error=None, original=original
         )
     translations = context.get("translations")
@@ -2010,7 +2012,7 @@ def _extract(
         names = _the_extraction_s_log(base, names, sim_dir, result.captured_output())
     missing = [name for name in names if not (sim_dir / name).is_file()]
     if missing:
-        return _recorded(
+        return record_additional_extraction(
             workspace,
             base,
             status=ExtractionStatus.FAILED_INCOMPLETE_OUTPUT,
@@ -2018,7 +2020,7 @@ def _extract(
             original=original,
             outputs=[name for name in names if name not in missing],
         )
-    return _recorded(
+    return record_additional_extraction(
         workspace,
         base,
         status=ExtractionStatus.EXTRACTED,
@@ -2067,7 +2069,7 @@ def _script_name(pproc: str, stem: str) -> str:
     return f"{ADDITIONAL_DIR}/{pproc}/{stem}.txt"
 
 
-def _recorded(
+def record_additional_extraction(
     workspace: CampaignWorkspace,
     base: Mapping[str, object],
     *,

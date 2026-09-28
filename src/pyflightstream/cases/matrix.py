@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.1
+# last_modified_at: 2026-09-28T00:24:53.302Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
+# dependencies: []
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Pipe-delimited run matrix: the reader and the converter.
 
 Pipeline role: keeps the established run-matrix workflow working
@@ -121,6 +132,8 @@ from pyflightstream.cases.workflows import (
 )
 
 __all__ = [
+    "MATRIX_COLUMNS",
+    "RECOGNIZED_MATRIX_LAYOUTS",
     "COLUMN_MEANINGS",
     "COLUMNS_NEW_AT_0_17_0",
     "COLUMNS_THAT_MAY_BE_UNSTATED",
@@ -472,6 +485,21 @@ _LEGACY_COLUMNS_16 = (
     "RUN",
     "WORKFLOW",
     "VAR_NAMES_VALUES",
+)
+
+#: Current file-order columns, shared by matrix and workbook writers.
+MATRIX_COLUMNS = _COLUMNS
+
+#: Current and historical headers that tools can recognize without reinterpreting
+#: a legacy row as current. The matrix reader still requires the current layout;
+#: migration and byte-preserving workbook synchronization use the frozen tuples.
+RECOGNIZED_MATRIX_LAYOUTS = (
+    _COLUMNS,
+    _LAYOUT_0_9_0,
+    _LAYOUT_0_11_0,
+    _LAYOUT_0_15_0,
+    _LEGACY_COLUMNS_15,
+    _LEGACY_COLUMNS_16,
 )
 
 #: The workflow every row written before the column existed asks for:

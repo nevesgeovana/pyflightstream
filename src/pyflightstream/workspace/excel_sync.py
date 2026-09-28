@@ -1,12 +1,14 @@
-# GEOVERSE_HEADER
-# file_version: "1.0.0"
-# last_modified_at: "2026-09-27T14:33:24.032382+00:00"
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.1
+# last_modified_at: 2026-09-28T00:24:53.088Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 # dependencies: [pyflightstream.cases.matrix]
+# authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: "Explicit matrix and workbook synchronization with preview and recovery."
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
 # revision_source: git
+# GEOVERSE_HEADER_END
 """Name-based optional Excel synchronization; no solver or live Excel dependency."""
 
 from __future__ import annotations
@@ -24,22 +26,12 @@ from typing import Literal
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases.matrix import (
-    _COLUMNS,
-    _LAYOUT_0_9_0,
-    _LAYOUT_0_11_0,
-    _LAYOUT_0_15_0,
-    _LEGACY_COLUMNS_15,
-    _LEGACY_COLUMNS_16,
+    MATRIX_COLUMNS,
+)
+from pyflightstream.cases.matrix import (
+    RECOGNIZED_MATRIX_LAYOUTS as SUPPORTED_LAYOUTS,
 )
 
-SUPPORTED_LAYOUTS = (
-    _COLUMNS,
-    _LAYOUT_0_9_0,
-    _LAYOUT_0_11_0,
-    _LAYOUT_0_15_0,
-    _LEGACY_COLUMNS_15,
-    _LEGACY_COLUMNS_16,
-)
 SUPPORTED_COLUMNS = tuple(dict.fromkeys(name for layout in SUPPORTED_LAYOUTS for name in layout))
 
 
@@ -164,8 +156,8 @@ def _matrix_path(workspace: Path, name: str) -> Path:
     return existing[0] if existing else candidates[1]
 
 
-def check_dictionary(snapshot: WorkbookSnapshot) -> dict[str, str]:
-    """Validate exact names. No spelling or position guessing is permitted."""
+def dictionary_mapping(snapshot: WorkbookSnapshot) -> dict[str, str]:
+    """Return the validated ASCII-to-Excel mapping, without guessing names or positions."""
     if any(not header.strip() for header in snapshot.headers):
         raise ExcelSyncError("Runs contains a blank header; name every column before Preview.")
     if len(set(snapshot.headers)) != len(snapshot.headers):
@@ -243,7 +235,7 @@ class _Matrix:
     locations: dict[str, int]
     newline: str
     bom: str = ""
-    columns: tuple[str, ...] = _COLUMNS
+    columns: tuple[str, ...] = MATRIX_COLUMNS
 
     def render(self, updates: dict[str, dict[str, str]]) -> str:
         lines = list(self.lines)
@@ -276,7 +268,7 @@ def _parse_matrix(raw: bytes, name: str) -> _Matrix:
     header_seen = False
     records: dict[str, dict[str, str]] = {}
     locations = {}
-    columns: tuple[str, ...] = _COLUMNS
+    columns: tuple[str, ...] = MATRIX_COLUMNS
     for index, line in enumerate(lines):
         stripped = line.strip()
         if not stripped or stripped.startswith("#") or "|" not in line:
@@ -318,7 +310,7 @@ def _parse_matrix(raw: bytes, name: str) -> _Matrix:
 
 
 def _empty_matrix() -> _Matrix:
-    return _Matrix([" | ".join(_COLUMNS) + "\n"], {}, {}, "\n")
+    return _Matrix([" | ".join(MATRIX_COLUMNS) + "\n"], {}, {}, "\n")
 
 
 def three_way_action(base: str | None, source: str, target: str) -> str:
@@ -341,7 +333,7 @@ def preview_sync(
     if direction not in ("read", "write"):
         raise ExcelSyncError(f"direction {direction!r}; accepted: read or write.")
     root = Path(workspace).resolve()
-    mappings = check_dictionary(snapshot)
+    mappings = dictionary_mapping(snapshot)
     sheet_rows = _rows(snapshot, mappings)
     selected = (
         matrices

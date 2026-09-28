@@ -1,13 +1,14 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T15:42:00+00:00
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.1
+# last_modified_at: 2026-09-28T00:24:52.864Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 # dependencies: [pyflightstream.script.solver_setup]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Preserve optional sampling metadata in output provenance.
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
 # revision_source: git
+# GEOVERSE_HEADER_END
 """Flow-visualization writers: probe data to VTK and Tecplot files.
 
 Pipeline role: turns probe positions plus sampled fields into files
@@ -60,6 +61,7 @@ from pyflightstream._errors import PyflightstreamError
 from pyflightstream.script.solver_setup import FLAG_SPECS, FlagRecord, SolverSetup
 
 __all__ = [
+    "write_output_pair",
     "PROVENANCE_SCHEMA",
     "PROVENANCE_SUFFIX",
     "OutputExistsError",
@@ -253,7 +255,7 @@ def _refuse_existing(destination: Path, overwrite: bool) -> None:
         )
 
 
-def _write_pair(
+def write_output_pair(
     destination: Path,
     text: str,
     provenance: OutputProvenance,
@@ -389,7 +391,7 @@ def write_vtk_points(
             else:
                 lines.append(f"VECTORS {name} float")
                 lines += [" ".join(_fmt(c) for c in row) for row in array]
-    return _write_pair(Path(path), "\n".join(lines) + "\n", provenance, overwrite=overwrite)
+    return write_output_pair(Path(path), "\n".join(lines) + "\n", provenance, overwrite=overwrite)
 
 
 def write_tecplot_points(
@@ -467,7 +469,7 @@ def write_tecplot_points(
     ]
     table = np.column_stack([values for _, values in columns])
     lines += [" ".join(_fmt(value) for value in row) for row in table]
-    return _write_pair(Path(path), "\n".join(lines) + "\n", provenance, overwrite=overwrite)
+    return write_output_pair(Path(path), "\n".join(lines) + "\n", provenance, overwrite=overwrite)
 
 
 def dataset_to_points(ds: xr.Dataset) -> tuple[np.ndarray, dict[str, np.ndarray]]:

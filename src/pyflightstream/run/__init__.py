@@ -1,13 +1,14 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.6
-# last_modified_at: 2026-09-27T20:39:01.370Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.7
+# last_modified_at: 2026-09-28T00:24:52.952Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 # dependencies: [pyflightstream.run._continuation_frame, pyflightstream.run._solver_windows]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Retain surface-probe declarations in new runs and validated continuations.
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
 # revision_source: git
+# GEOVERSE_HEADER_END
 """Execution of FlightStream and the campaign loop.
 
 Pipeline role: runs the solver headless on rendered scripts and lands
@@ -220,6 +221,8 @@ def __getattr__(name: str) -> object:
 
 
 __all__ = [
+    "action_count",
+    "bind_submission_values",
     "ACCEPT_UNREGISTERED_BUILD_FLAG",
     "PLAN_REQUIRED_MESSAGE",
     "plan_receipt_error",
@@ -781,7 +784,7 @@ class Submitting(Protocol):
         """Return what was handed to the scheduler, or None before anything was."""
 
 
-def _bind_submission_values(executor, case, point_case) -> None:
+def bind_submission_values(executor, case, point_case) -> None:
     """Give a submitting executor the values THIS point's descriptor needs.
 
     A descriptor names the simulation, the build, the wall clock and the
@@ -1156,7 +1159,7 @@ def _run_with_progress(
             if total is None or every <= 0:
                 continue
             try:
-                step = _action_count(counter)
+                step = action_count(counter)
             except (OSError, ValueError, KeyError, TypeError):
                 step = None
             if step is not None and step >= said + every:
@@ -2181,7 +2184,7 @@ def _file_digest(path: str | Path) -> str | None:
     return optional_file_sha256(path)
 
 
-def _action_count(path: Path) -> int | None:
+def action_count(path: Path) -> int | None:
     """Read the count the point's counter program reached, or None when it never wrote.
 
     The program writes its state as one JSON object per invocation,
@@ -5819,7 +5822,7 @@ def _execute_sweep(
 
     # FR-99. THE JOB'S values, not a point's: a steady row is ONE job, so
     # the descriptor names the sweep and carries the row's clock and
-    # processor count. `_bind_submission_values` reads them off the case
+    # processor count. `bind_submission_values` reads them off the case
     # and a local executor has no such method and is handed nothing.
     # G02, and PFS-2031.13 on this path too: the files the script parked are
     # written before the solver starts, and the data files' digests join the
@@ -5841,7 +5844,7 @@ def _execute_sweep(
         )
     if written:
         base["inputs_sha256"] = {**base["inputs_sha256"], **written}
-    _bind_submission_values(executor, case, point_cases[0][2])
+    bind_submission_values(executor, case, point_cases[0][2])
     result = executor.run_script(script_path, working_dir=sim_dir, timeout_s=case.solver.timeout_s)
     base["argv"] = list(result.argv)
     base["cwd"] = result.cwd
@@ -7454,7 +7457,7 @@ def _execute_point(
     # bound per point because a descriptor names the simulation, its wall
     # clock and its processor count, and those are the row's. A local
     # executor has no such method and is handed nothing.
-    _bind_submission_values(executor, case, point_case)
+    bind_submission_values(executor, case, point_case)
     result = executor.run_script(script_path, working_dir=work_dir, timeout_s=case.solver.timeout_s)
     # PYFS-015. The invocation is the half of a run that lived only in the
     # executor's code: which flags, which directory, which effective
@@ -7474,7 +7477,7 @@ def _execute_point(
     # which is a run with no threshold or a solver that never reached a
     # time step.
     if threshold is not None:
-        base["action_count"] = _action_count(work_dir / UNSTEADY_ACTION_COUNT)
+        base["action_count"] = action_count(work_dir / UNSTEADY_ACTION_COUNT)
     # FR-98. WHETHER THE CLOCK FIRED, read from the state the program left.
     # This is the only thing that knows: the solver reports a run that
     # ended, and the difference between ending because it finished and

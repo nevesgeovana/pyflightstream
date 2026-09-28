@@ -1,14 +1,14 @@
-# GEOVERSE_HEADER
-# file_version: 2.0.2
-# last_modified_at: 2026-09-27T23:58:35.036Z
-# last_modified_by: OpenAI / Codex / unknown / primary-agent
+# GEOVERSE_HEADER_BEGIN
+# file_version: 2.0.3
+# last_modified_at: 2026-09-28T00:24:53.347Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 # dependencies: [workspace.excel_sync, workspace.excel_file, XlsxWriter]
-# authority: geoverse-goddess-control-plane
-# file_role: macro-free-matrix-workbook-factory
+# authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Combine readable CLI refusals with the shared optional dependency contract.
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
 # revision_source: git
+# GEOVERSE_HEADER_END
 """Create the optional workbook without launching Excel or changing trust settings."""
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from pathlib import Path
 
 from pyflightstream._cli import cli_entrypoint
 from pyflightstream._errors import PyflightstreamError
-from pyflightstream.cases.matrix import _COLUMNS
+from pyflightstream.cases.matrix import MATRIX_COLUMNS
 from pyflightstream.extras import missing_extra
 from pyflightstream.workspace.excel_sync import ExcelSyncError
 
@@ -85,7 +85,7 @@ def create_workbook(
         for row in range(6, 9):
             controls.set_row(row, None, None, {"hidden": True})
         runs = sheets["Runs"]
-        names = ("MATRIX", *_COLUMNS)
+        names = ("MATRIX", *MATRIX_COLUMNS)
         for column, name in enumerate(names, start=1):
             runs.write_string(0, column - 1, name, header)
             if name in ("FLIGHT_CONDITION", "VAR_NAMES_VALUES", "SWEEP_VALUES"):

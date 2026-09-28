@@ -1,14 +1,14 @@
-# GEOVERSE_HEADER
-# file_version: "1.0.1"
-# file_role: macro-free-workbook-file-transactions
-# last_modified_at: "2026-09-27T21:48:37.409Z"
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.2
+# last_modified_at: 2026-09-28T00:24:53.061Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 # dependencies: [pyflightstream.workspace.excel_sync, Python-stdlib]
-# authority: geoverse-goddess-control-plane
+# authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: "Synchronize saved XLSX cells while preserving unrelated ZIP parts."
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
 # revision_source: git
+# GEOVERSE_HEADER_END
 """Explicit file transactions over the existing name-based synchronization engine."""
 
 from __future__ import annotations
@@ -27,14 +27,14 @@ from pathlib import Path
 from typing import Literal
 from zipfile import ZipFile
 
-from pyflightstream.workspace.excel_bridge import _preview_from_json
+from pyflightstream.workspace.excel_bridge import preview_from_json
 from pyflightstream.workspace.excel_sync import (
     Cell,
     DictionaryEntry,
     ExcelSyncError,
     WorkbookSnapshot,
     apply_preview,
-    check_dictionary,
+    dictionary_mapping,
     preview_sync,
 )
 
@@ -163,7 +163,7 @@ def read_snapshot(path: str | Path) -> WorkbookSnapshot:
 
 def check_file(path: Path) -> None:
     """Validate saved workbook identity and Dictionary mappings."""
-    check_dictionary(read_snapshot(path))
+    dictionary_mapping(read_snapshot(path))
 
 
 def _patch_sheet(raw: bytes, changes: dict[tuple[int, int], str]) -> bytes:
@@ -348,7 +348,7 @@ def apply_batch(path: Path) -> dict:
     if _digest(original) != payload["workbook_sha256"]:
         raise ExcelSyncError("Workbook changed after Preview; save and preview again.")
     snapshot = read_snapshot(workbook)
-    preview = _preview_from_json(payload["preview"])
+    preview = preview_from_json(payload["preview"])
     fresh = preview_sync(
         preview.workspace, snapshot, direction=preview.direction, matrices=preview.selection
     )

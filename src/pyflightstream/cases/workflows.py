@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: "1.4.17"
+# file_version: "1.4.18"
 # artifact_id: src/pyflightstream/cases/workflows.py
-# last_modified_at: 2026-09-28T00:24:36.721Z
+# last_modified_at: 2026-09-28T00:32:40.998Z
 # last_modified_by: OpenAI / Codex / unknown / primary-agent
 # dependencies: [pyflightstream]
 # authority: pyflightstream
 # status: draft
 # confidentiality: public
-# change_summary: Preserve unreadable geometry diagnostics before saved-unit conversion.
+# change_summary: Expose shared symmetry resolution and preserve saved-geometry refusal diagnostics.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Workflows: a run TYPE that builds the whole script by itself.
@@ -167,6 +167,7 @@ from pyflightstream.script._surface_averaging import SurfaceAverageWindow
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
 __all__ = [
+    "row_symmetry_loads",
     "ACTUATOR_KEYS",
     "ACTUATOR_PROFILE_COPY_SUFFIX",
     "ADDITIONAL_POST_BUILDS",
@@ -6133,7 +6134,7 @@ def _settings(
     # init-phase setting, emitted alone here as the helper asks; an absent
     # key emits nothing, so a preset written before this release is silent
     # exactly as it was.
-    symmetry_loads = _row_symmetry_loads(case, solver.symmetry_loads)
+    symmetry_loads = row_symmetry_loads(case, solver.symmetry_loads)
     if symmetry_loads is not None:
         helpers.analysis_setup(script, symmetry_loads=symmetry_loads)
 
@@ -6216,7 +6217,7 @@ def row_ncpus(case: SimCase, from_setup: int | None) -> int | None:
     return value
 
 
-def _row_symmetry_loads(case: SimCase, from_setup: bool | None) -> bool | None:
+def row_symmetry_loads(case: SimCase, from_setup: bool | None) -> bool | None:
     """Resolve the symmetry-loads flag: the ROW's when it states one (FR-66).
 
     The design decision of 2026-09-10. Whether the solver reports the loads of the

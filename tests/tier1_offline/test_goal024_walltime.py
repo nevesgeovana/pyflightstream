@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.1
+# last_modified_at: 2026-09-28T00:24:53.195Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
+# dependencies: []
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """Tier 1: the wall clock carries its unit (0.21.0, GOAL-024 arm 7).
 
 The author's decision of 2026-09-15. The `WALLTIME` cell writes `240m`
@@ -28,7 +39,7 @@ from pyflightstream.cases.workflows import (
     row_walltime_text,
     walltime_margin_s,
 )
-from pyflightstream.run import SubmittingExecutor, _bind_submission_values
+from pyflightstream.run import SubmittingExecutor, bind_submission_values
 from pyflightstream.workspace.inputs import InputArtifactError, read_hpc_profile
 
 #: A profile whose descriptor field takes the walltime, and nothing else of note.
@@ -116,7 +127,7 @@ def test_goal024_walltime_the_descriptor_carries_the_value_as_written(tmp_path):
     """The default arithmetic: the scheduler's field gets `4h` where the row wrote `4h`."""
     executor = SubmittingExecutor(_profile(tmp_path), values={})
     case = _case("4h")
-    _bind_submission_values(executor, case, case)
+    bind_submission_values(executor, case, case)
     assert executor.values["walltime"] == "4h"
     # Both spellings are offered, so a profile can ask for either by name.
     assert executor.values["walltime_s"] == 4 * 3600
@@ -129,7 +140,7 @@ def test_goal024_walltime_the_profile_can_ask_for_seconds_instead(tmp_path):
     assert profile.walltime_arithmetic == "seconds"
     executor = SubmittingExecutor(profile, values={})
     case = _case("240m")
-    _bind_submission_values(executor, case, case)
+    bind_submission_values(executor, case, case)
     assert executor.values["walltime"] == 14400
 
 
@@ -144,7 +155,7 @@ def test_goal024_walltime_the_arithmetic_never_moves_the_clock_s_deadline(tmp_pa
     seconds = row_walltime_s(case)
     for arithmetic in ("wall", "seconds"):
         executor = SubmittingExecutor(_profile(tmp_path, arithmetic), values={})
-        _bind_submission_values(executor, case, case)
+        bind_submission_values(executor, case, case)
         assert row_walltime_s(case) == seconds == 14400.0
         assert executor.values["walltime_s"] == 14400
     # The margin the clock leaves for the exports is the setup's and is
@@ -164,6 +175,6 @@ def test_goal024_walltime_a_row_that_states_none_leaves_the_field_unfilled(tmp_p
     """A row with no wall clock fills no field, which is the refusal the profile makes."""
     executor = SubmittingExecutor(_profile(tmp_path), values={})
     case = _case(None)
-    _bind_submission_values(executor, case, case)
+    bind_submission_values(executor, case, case)
     assert "walltime" not in executor.values
     assert row_walltime_s(case) is None

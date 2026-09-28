@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: 1.4.0
+# file_version: 1.4.1
 # artifact_id: src/pyflightstream/cases/__init__.py
-# last_modified_at: 2026-09-27T23:17:41.265Z
-# last_modified_by: OpenAI / Codex / unknown / implementer
+# last_modified_at: 2026-09-28T00:24:53.439Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 # dependencies: [pyflightstream]
 # authority: pyflightstream
-# status: draft
+# status: active
 # confidentiality: public
-# change_summary: Separate geometry port identities, setup choices and MATRIX conditions.
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Simulation and campaign definitions.
@@ -3919,7 +3919,7 @@ class SolverSettings(BaseModel):
     viscous_coupling: SolverToggle | None = None
     #: Boundary labels or 1-based indices; empty explicitly clears the selection.
     viscous_excluded: list[int | str] | None = None
-    #: Equivalent sand-grain roughness in simulation length units.
+    #: Equivalent sand-grain roughness in nanometres (SET_SURFACE_ROUGHNESS).
     surface_roughness: float | None = Field(default=None, ge=0)
     #: Boundary labels or indices treated as thin surfaces; all selects every boundary.
     thin_boundaries: list[int | str] | Literal["all"] | None = None

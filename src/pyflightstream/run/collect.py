@@ -1,13 +1,14 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.3
-# last_modified_at: 2026-09-27T20:25:20.674Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.4
+# last_modified_at: 2026-09-28T00:24:52.886Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 # dependencies: [pyflightstream.run._step_exports]
 # authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: Group collection model imports without changing execution.
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
 # revision_source: git
+# GEOVERSE_HEADER_END
 """Collect a submitted job's outputs when they land, then post (FR-99).
 
 THIS IS COLLECT-AND-POST, not submit-and-collect. A watcher stands by, sees
@@ -524,7 +525,7 @@ def _additional_context(workspace, record):
 
 def _finish_additional(workspace, record, context):
     """Translate settled exports and record their hashes before removing the copy."""
-    from pyflightstream.run.matrix import _recorded
+    from pyflightstream.run.matrix import record_additional_extraction
     from pyflightstream.workspace import ExtractionStatus
 
     sim_dir, folder, original, copy = context
@@ -540,7 +541,7 @@ def _finish_additional(workspace, record, context):
         for name in record.declared_outputs
         if name not in missing
     ]
-    completed = _recorded(
+    completed = record_additional_extraction(
         workspace,
         base,
         status=ExtractionStatus.FAILED_INCOMPLETE_OUTPUT if missing else ExtractionStatus.EXTRACTED,
@@ -879,10 +880,10 @@ def _complete(
         "error": verdict,
     }
     from pyflightstream.cases.workflows import UNSTEADY_ACTION_COUNT
-    from pyflightstream.run import _action_count
+    from pyflightstream.run import action_count
 
     try:
-        counter = _action_count(_working_dir(workspace, record) / UNSTEADY_ACTION_COUNT)
+        counter = action_count(_working_dir(workspace, record) / UNSTEADY_ACTION_COUNT)
     except (OSError, ValueError, KeyError, TypeError):
         counter = None
     if counter is None:

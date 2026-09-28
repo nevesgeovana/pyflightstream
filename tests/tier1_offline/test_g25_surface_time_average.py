@@ -1,3 +1,15 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.0
+# file_role: surface-time-average-regressions
+# last_modified_at: 2026-09-28T00:28:31.322Z
+# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
+# dependencies: [pyflightstream.post.surfaces, test_matrix_run.py]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Supply valid paired native sources and assert per-STEP nodal averaging.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """G25 of 0.28.0: the time-averaged surface is averaged by the package from the per-step exports.
 
 Oracle: the definition of record (``docs/post-processing-definitions.md``, the
@@ -38,7 +50,7 @@ from tests.tier1_offline.test_g45_tecplot_from_vtk import (
     _read_dat,
     _write_solver_vtk,
 )
-from tests.tier1_offline.test_matrix_run import STUB_VTK
+from tests.tier1_offline.test_matrix_run import STUB_NATIVE_TECPLOT, STUB_VTK
 from tests.tier1_offline.test_run_campaign import StubSolver, converged
 from tests.tier1_offline.test_workflows import rotor_case
 
@@ -282,13 +294,25 @@ def test_g25_a_run_records_its_window_and_the_post_averages_what_it_exported(tmp
     artifact = workspace.inputs_dir / "pproc" / "p001.toml"
     artifact.parent.mkdir(parents=True)
     artifact.write_text("[time_averaging]\nlast_iters = 4\n", encoding="utf-8")
+    strength = np.array([0.125, 1.125, 2.125])
+    strength_line = "0.125 1.125 2.125"
+    assert f"\n{strength_line}\n" in STUB_NATIVE_TECPLOT
+    native_steps = {
+        step: STUB_NATIVE_TECPLOT.replace(
+            strength_line, " ".join(str(value) for value in strength + step)
+        )
+        for step in range(141, 145)
+    }
     code = (
         "import pathlib,sys; lines=pathlib.Path(sys.argv[1]).read_text().splitlines(); "
-        f"vtk={STUB_VTK!r}; "
+        f"vtk={STUB_VTK!r}; native={STUB_NATIVE_TECPLOT!r}; steps={native_steps!r}; "
         "[pathlib.Path(lines[i+1]).write_text(vtk if line == 'EXPORT_SOLVER_ANALYSIS_VTK' "
-        "else 'native') for i, line in enumerate(lines) "
+        "else native if line == 'EXPORT_SOLVER_ANALYSIS_TECPLOT' else 'native') "
+        "for i, line in enumerate(lines) "
         "if line.startswith(('EXPORT_', 'UNSTEADY_SOLVER_EXPORT_PLOTS'))]; "
-        "[pathlib.Path(f'p_iteration={step}.vtk').write_text(vtk) for step in range(141, 145)]"
+        "[pathlib.Path(f'p_iteration={step}.vtk').write_text(vtk) for step in steps]; "
+        "[pathlib.Path(f'p_native_tecplot_iteration={step}.dat').write_text(native_step) "
+        "for step, native_step in steps.items()]"
     )
     record = run_campaign(
         campaign,
@@ -310,6 +334,24 @@ def test_g25_a_run_records_its_window_and_the_post_averages_what_it_exported(tmp
     manifest = json.loads((workspace.products_dir(None) / "products.json").read_text())
     averaged = [e for e in manifest["products"].values() if e.get("kind") == "average"]
     assert len(averaged) == 1 and averaged[0]["steps"] == [141, 142, 143, 144]
+    assert "Singularity_strength" in averaged[0]["nodal_variables"]
+    native_inputs = {
+        name: digest
+        for name, digest in averaged[0]["inputs"].items()
+        if "_native_tecplot_iteration=" in name
+    }
+    assert {name.rsplit("/", 1)[-1] for name in native_inputs} == {
+        f"p_native_tecplot_iteration={step}.dat" for step in range(141, 145)
+    }
+    assert all(
+        digest == file_sha256(workspace.root / name) for name, digest in native_inputs.items()
+    )
+    written = _read_dat(workspace.products_dir(None) / "surfaces" / "p_time_average.dat")
+    np.testing.assert_array_equal(
+        written["blocks"]["Singularity_strength"],
+        np.mean([strength + step for step in range(141, 145)], axis=0),
+    )
+    np.testing.assert_array_equal(written["blocks"]["Cp_reference"], [-0.5])
     natives = [
         e
         for name, e in manifest["products"].items()

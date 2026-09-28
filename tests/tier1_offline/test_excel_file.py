@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER
-# file_version: "1.0.1"
+# file_version: "1.0.2"
 # file_role: macro-free-workbook-roundtrip-tests
-# last_modified_at: 2026-09-28T00:24:36.721Z
+# last_modified_at: 2026-09-28T00:32:41.115Z
 # last_modified_by: OpenAI / Codex / unknown / primary-agent
 # dependencies: [pyflightstream.workspace.excel, pyflightstream.workspace.excel_file]
 # authority: geoverse-goddess-control-plane
 # status: active
 # confidentiality: public
-# change_summary: Check CLI refusal status and stderr while retaining unchanged-file guarantees.
+# change_summary: Guard optional imports while retaining CLI refusal and unchanged-file assertions.
 # revision_source: git
 from pathlib import Path
 from zipfile import ZipFile
@@ -132,7 +132,7 @@ def test_cancel_and_stale_whole_workbook(
 
 def test_reordered_columns_formula_and_drawings_survive(tmp_path: Path) -> None:
     # GOAL033:excel:checks:preserve_custom_order_formulas
-    import xlsxwriter
+    xlsxwriter = pytest.importorskip("xlsxwriter")
 
     from pyflightstream.workspace.excel_file import read_snapshot
 
@@ -297,7 +297,7 @@ def test_public_saved_workbook_example(tmp_path: Path) -> None:
 def test_dictionary_header_ambiguity_is_refused_before_preview(
     tmp_path: Path, kind: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    import xlsxwriter
+    xlsxwriter = pytest.importorskip("xlsxwriter")
 
     source = matrix(tmp_path)
     original_matrix = source.read_bytes()

@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: "1.1.8"
+# file_version: 1.1.9
 # artifact_id: workspace-setup-standards
-# last_modified_at: 2026-09-27T23:29:39.293Z
-# last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: primary-agent}
+# last_modified_at: 2026-09-28T00:24:53.134Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 # dependencies: [pyflightstream.cases, pyflightstream.commands]
 # authority: pyflightstream
-# status: draft
+# status: active
 # confidentiality: public
-# change_summary: Align generated setup guidance with geometry/setup/MATRIX boundary ownership.
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Build-aware setup examples and guidance from the same definitions.
@@ -65,7 +65,7 @@ _EXPERIMENTS: tuple[tuple[str, str, Any], ...] = (
     ("s929", "farfield_layers", 8),
     ("s930", "reynolds_averaged_drag", True),
     ("s931", "minimum_cp", -20.0),
-    ("s932", "surface_roughness", 0.00001),
+    ("s932", "surface_roughness", 23.5),
     ("s933", "valarezo_criterion", True),
     ("s934", "solver_model", "SUBSONIC_PRANDTL_GLAUERT"),
     ("s935", "solver_model", "TRANSONIC_FIELD_PANEL"),
@@ -371,7 +371,9 @@ _MEANINGS: dict[str, str] = {
     "valarezo_criterion": "Legacy global maximum-lift criterion. Newer builds use the "
     "airfoil assignment's valarezo_criterion member; availability is build-specific.",
     "surface_roughness": "Equivalent roughness changes boundary-layer growth and separation; "
-    "it is not interchangeable with a transition trip. Use the geometry's length units.",
+    "it is not interchangeable with a transition trip. The native argument is in nanometres. "
+    "The s932 value of 23.5 nm is a demonstrated syntax example, not a universal "
+    "roughness recommendation; use measured surface data for a physical study.",
     "rotor_induced_velocity_blending": "Blends the rotor-induced velocity contribution. "
     "This is a numerical study parameter, not a physical rotor efficiency.",
     "wake_numerical_relaxation": "Controls numerical relaxation of the wake. A converged "
@@ -541,7 +543,8 @@ def _literal(value: Any) -> str:
 
 
 @lru_cache(maxsize=1024)
-def _entry_text(key: str, version: str) -> tuple[bool, str]:
+def setup_entry_evidence(key: str, version: str) -> tuple[bool, str]:
+    """Return build availability and cited evidence for one setup field."""
     registry = CommandRegistry.load()
     command = SOLVER_SETTING_COMMANDS.get(key)
     if command is None:
@@ -586,7 +589,7 @@ def render_standard(standard: SetupStandard, fs_version: str) -> str:
         "",
     ]
     for key, field in SolverSettings.model_fields.items():
-        available, evidence = _entry_text(key, version)
+        available, evidence = setup_entry_evidence(key, version)
         meaning = _MEANINGS.get(key, key.replace("_", " ").capitalize() + ".")
         lines.extend("# " + part for part in (meaning + " " + evidence).splitlines())
         if standard.workflow == "unsteady" and key in {
@@ -610,7 +613,7 @@ def render_standard(standard: SetupStandard, fs_version: str) -> str:
                 "stratford_bulk_separation",
             }
             and standard.settings.get("delete_separations") == "all"
-            and _entry_text("delete_separations", version)[0]
+            and setup_entry_evidence("delete_separations", version)[0]
         ):
             lines.append(f"# {key}: OFF; cleared by delete_separations; no new assignment")
         else:
@@ -815,7 +818,7 @@ def render_guidelines(fs_version: str) -> str:
         lines.append(f"- [{standard.code}]({standard.code}.toml): {standard.purpose}.")
     lines.extend(["", "## Typed settings", ""])
     for key in SolverSettings.model_fields:
-        _, evidence = _entry_text(key, version)
+        _, evidence = setup_entry_evidence(key, version)
         lines.extend(
             [
                 f"### `{key}`",

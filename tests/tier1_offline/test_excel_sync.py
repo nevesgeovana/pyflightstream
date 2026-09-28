@@ -1,12 +1,14 @@
-# GEOVERSE_HEADER
-# file_version: "1.1.0"
-# last_modified_at: "2026-09-27T21:40:27.582Z"
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.1.1
+# last_modified_at: 2026-09-28T00:24:53.170Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 # dependencies: [pyflightstream.workspace.excel_sync]
+# authority: pyflightstream
 # status: active
 # confidentiality: public
-# change_summary: "Exercise bidirectional synchronization conflicts and preservation."
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
 # revision_source: git
+# GEOVERSE_HEADER_END
 from pathlib import Path
 
 import pytest
@@ -18,7 +20,7 @@ from pyflightstream.workspace.excel_sync import (
     ExcelSyncError,
     WorkbookSnapshot,
     apply_preview,
-    check_dictionary,
+    dictionary_mapping,
     preview_sync,
     three_way_action,
 )
@@ -105,7 +107,7 @@ def test_column_reordering_and_exact_renaming(tmp_path: Path) -> None:
     ]
     snap.headers.reverse()
     snap.rows[0].reverse()
-    assert check_dictionary(snap)["DESCRIPTION"] == "Owner title"
+    assert dictionary_mapping(snap)["DESCRIPTION"] == "Owner title"
     snap.rows[0][snap.headers.index("Owner title")] = Cell("renamed column edit")
     result = apply_preview(preview_sync(tmp_path, snap, direction="write"), snap)
     assert result.written == ["batch.fs"]
@@ -166,7 +168,7 @@ def test_bad_headers_rejected(headers: list[str]) -> None:
     snap = blank()
     snap.headers = headers
     with pytest.raises(ExcelSyncError):
-        check_dictionary(snap)
+        dictionary_mapping(snap)
 
 
 def test_dictionary_collision_and_path_escape_rejected(tmp_path: Path) -> None:

@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.1
+# file_version: 1.0.2
 # artifact_id: matrix-run-tests
-# last_modified_at: 2026-09-27T18:48:13.264Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementer
+# last_modified_at: 2026-09-28T00:24:53.226Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 # dependencies: [pyflightstream; pytest]
 # authority: pyflightstream
-# status: draft
+# status: active
 # confidentiality: public
-# change_summary: Preserve G53 stub coverage and verify R13 cold default with explicit warm opt-in.
+# change_summary: Restore shared interfaces and factual contract declarations for the release.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Tier 1: the matrix as a first-class run interface (v0.3 decision 3).
@@ -5504,7 +5504,7 @@ def test_goal019_hpc_the_descriptor_asks_for_the_processors_the_solver_uses(tmp_
     true in the other direction.
     """
     from pyflightstream.cases import SimCase, SweepAxis
-    from pyflightstream.run import SubmittingExecutor, _bind_submission_values
+    from pyflightstream.run import SubmittingExecutor, bind_submission_values
     from pyflightstream.workspace.inputs import read_hpc_profile
 
     profile_path = tmp_path / "h001.toml"
@@ -5530,7 +5530,7 @@ def test_goal019_hpc_the_descriptor_asks_for_the_processors_the_solver_uses(tmp_
         variables={"VELOCITY": "68.058"},
         solver={"max_threads": 8},
     )
-    _bind_submission_values(executor, case, case)
+    bind_submission_values(executor, case, case)
     assert executor.values["ncpus"] == 8, (
         f"the descriptor would ask for {executor.values.get('ncpus')!r} while the script "
         "sets the solver to 8"
@@ -5539,7 +5539,7 @@ def test_goal019_hpc_the_descriptor_asks_for_the_processors_the_solver_uses(tmp_
     # And the row's own column still wins over the setup, which is the
     # direction the column exists for.
     stated = case.model_copy(update={"variables": {"VELOCITY": "68.058", "NCPUS": "48"}})
-    _bind_submission_values(executor, stated, stated)
+    bind_submission_values(executor, stated, stated)
     assert executor.values["ncpus"] == 48
 
 
@@ -5550,7 +5550,7 @@ def test_goal019_hpc_a_value_nothing_can_resolve_is_omitted_not_emptied(tmp_path
     written empty string passes that refusal and reaches the scheduler.
     """
     from pyflightstream.cases import SimCase, SweepAxis
-    from pyflightstream.run import SubmittingExecutor, _bind_submission_values
+    from pyflightstream.run import SubmittingExecutor, bind_submission_values
     from pyflightstream.workspace.inputs import read_hpc_profile
 
     profile_path = tmp_path / "h001.toml"
@@ -5574,7 +5574,7 @@ def test_goal019_hpc_a_value_nothing_can_resolve_is_omitted_not_emptied(tmp_path
         outputs=["loads_AL+000.txt"],
         variables={"VELOCITY": "68.058"},
     )
-    _bind_submission_values(executor, case, case)
+    bind_submission_values(executor, case, case)
     assert "walltime" not in executor.values, (
         "a row that states no wall clock put an empty string in the descriptor's "
         "walltime field instead of leaving the field unfillable and audible"

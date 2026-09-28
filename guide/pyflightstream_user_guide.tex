@@ -1,12 +1,12 @@
 % GEOVERSE_HEADER
-% file_version: 1.0.0
-% last_modified_at: 2026-09-27T14:19:27.056665+00:00
-% last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+% file_version: 1.0.1
+% last_modified_at: 2026-09-28T00:30:23.905Z
+% last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 % dependencies: [pyflightstream.post.guides]
 % authority: pyflightstream
 % status: active
 % confidentiality: public
-% change_summary: Update the canonical glossary path and preservation policy.
+% change_summary: Include resolved setup inspection in the exhaustive CLI reference.
 % revision_source: git
 \documentclass[aspectratio=169,10pt]{beamer}
 % =====================================================================
@@ -1332,6 +1332,7 @@ pyfs-workspace archive   DIR SIM_ID                   # zip one recorded simulat
 pyfs-workspace migrate-geometries DIR                 # flat library to one folder per geometry
 pyfs-matrix upgrade      matrix.fs --in-place         # older layout to current
 pyfs-matrix convert      matrix.fs -o campaign.toml   # run matrix to campaign
+pyfs-matrix inspect-setups matrix.fs --workspace DIR # resolved setup and provenance
 pyfs-matrix plan         matrix.fs                    # pre-flight, no solver
 pyfs-matrix run          matrix.fs --fs-exe ...       # RUNS the solver
 pyfs-matrix inventory    30_WB.fsm                    # boundary order, read from the mesh

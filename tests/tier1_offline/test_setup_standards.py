@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.7
+# file_version: 1.0.8
 # artifact_id: setup-standards-tests
-# last_modified_at: 2026-09-27T23:29:39.293Z
-# last_modified_by: OpenAI / Codex / unknown / primary-agent
+# last_modified_at: 2026-09-28T00:27:45.362Z
+# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 # dependencies: [pytest, pyflightstream]
 # authority: pyflightstream
 # status: draft
 # confidentiality: public
-# change_summary: Preserve the duct import-order assertion using geometry/setup/MATRIX ownership.
+# change_summary: Align the existing port emission fixture with geometry/setup/matrix ownership.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Workspace setup controls reach the curated emitter without losing evidence."""
@@ -243,23 +243,22 @@ def test_multiple_actuator_records_have_independent_speed_and_loading():
     assert script.render().count("CREATE_NEW_ACTUATOR") == 2
 
 
-def test_inlet_outlet_sidecar_preserves_order_and_normal_velocity(tmp_path):
+def test_inlet_outlet_ownership_preserves_order_and_normal_velocity(tmp_path):
     from pyflightstream._errors import PyflightstreamWarning
     from pyflightstream.cases import RawMeshConditions
-    from pyflightstream.cases.workflows import _raw_mesh_boundary_conditions
+    from pyflightstream.cases.workflows import _raw_mesh_boundary_conditions, _settings
     from pyflightstream.workspace.inputs import read_raw_mesh_conditions
+    from pyflightstream.workspace.matrix import _bind_setup_ports
 
-    assert "inlets" in RawMeshConditions.model_fields
+    assert "ports" in RawMeshConditions.model_fields
     sidecar = tmp_path / "duct.boundaries.toml"
     sidecar.write_text(
         'boundaries = ["Inlet", "Outlet"]\n[trailing_edges]\nnone = true\n'
-        '[[inlets]]\nboundary = "Inlet"\nvelocity = -10.0\n'
-        '[[outlets]]\nboundary = "Outlet"\nvelocity = 10.0\n',
+        '[ports]\nfeed = "Inlet"\nexit = "Outlet"\n',
         encoding="utf-8",
     )
     conditions = read_raw_mesh_conditions(sidecar)
-    assert conditions.inlets[0].velocity == -10.0
-    assert conditions.outlets[0].velocity == 10.0
+    assert conditions.ports == {"feed": "Inlet", "exit": "Outlet"}
     case = SimCase(
         sim_id="9001",
         aircraft="Duct",
@@ -269,13 +268,23 @@ def test_inlet_outlet_sidecar_preserves_order_and_normal_velocity(tmp_path):
         raw_mesh_conditions=conditions,
         sweep=SweepAxis(type="alpha", values=[0.0]),
         point={"alpha": 0.0},
-        variables={"VELOCITY": "10"},
+        variables={"VELOCITY": "10", "FEED_VELOCITY": "-10", "EXIT_VELOCITY": "10"},
+        solver={
+            "ports": [
+                {"port": "feed", "kind": "inlet"},
+                {"port": "exit", "kind": "outlet"},
+            ]
+        },
         outputs=["loads.txt"],
     )
+    case = _bind_setup_ports(case, tmp_path)
+    assert case.solver.ports[0].velocity == -10.0
+    assert case.solver.ports[1].velocity == 10.0
     script = Script("26.124")
     script.declare_existing(boundaries={"Inlet": 1, "Outlet": 2})
     with pytest.warns(PyflightstreamWarning, match="no wake"):
         _raw_mesh_boundary_conditions(case, script)
+    _settings(case, script)
     text = script.render()
     assert text.index("CREATE_NEW_INLET") < text.index("CREATE_NEW_OUTLET")
     assert "-10.0" in text and "10.0" in text

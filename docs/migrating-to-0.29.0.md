@@ -1,14 +1,14 @@
 <!--
 GEOVERSE_HEADER
-file_version: 1.0.1
+file_version: 1.0.2
 artifact_id: migration-0290
-last_modified_at: 2026-09-27T23:41:12.324Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
+last_modified_at: 2026-09-28T00:24:53.519Z
+last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
 dependencies: [pyflightstream]
 authority: pyflightstream
-status: draft
+status: active
 confidentiality: public
-change_summary: Describe the delivered macro-free Excel flow and boundary artifact ownership.
+change_summary: Restore shared interfaces and factual contract declarations for the release.
 revision_source: git
 -->
 
@@ -69,7 +69,9 @@ per-STEP copies. A missing step never borrows the final source. Historical
 records without an auxiliary declaration retain their earlier VTK-only route
 and explicit missing-strength statement. Existing translated outputs are
 preserved and checked against their sources, full frame record and content
-hash. See [surface translation](surface-translation.md).
+hash. These byte identities use sha256 under the canonical forms owned by
+`pyflightstream._digest`; file locations and filesystem timestamps are not added
+to the hashed bytes. See [surface translation](surface-translation.md).
 
 Probe surveys and volume sections can produce package-written VTK and Tecplot
 velocity fields, with positions, components, units and source evidence stated

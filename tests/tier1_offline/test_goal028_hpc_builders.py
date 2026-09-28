@@ -1,3 +1,13 @@
+# GEOVERSE_HEADER
+# file_version: 1.0.0
+# last_modified_at: 2026-09-28T00:30:46.914Z
+# last_modified_by: OpenAI / Codex / unknown / primary-agent
+# dependencies: [../tier3_licensed/inputs/geometries/10_WING.fsm]
+# authority: pyflightstream
+# status: active
+# confidentiality: public
+# change_summary: Use a readable saved geometry for log-export contract tests.
+# revision_source: git
 """Two builder findings on the cluster's run path.
 
 EXPORT-LOG-FLAG-BYPASS
@@ -14,6 +24,8 @@ CONTINUATION-SECTIONS-BLOCKED
 """
 
 from __future__ import annotations
+
+from pathlib import Path
 
 import pytest
 
@@ -54,7 +66,13 @@ def _case(export_log: str | None, *, names_its_log: bool) -> SimCase:
         recipe="steady",
         sweep=SweepAxis(type="alpha", values=[0.0]),
         point={"alpha": 0.0},
-        geometry="10_WING.fsm",
+        geometry=str(
+            Path(__file__).resolve().parents[1]
+            / "tier3_licensed"
+            / "inputs"
+            / "geometries"
+            / "10_WING.fsm"
+        ),
         outputs=["P9001-AL+000.txt", "P9001-AL+000_log.txt"],
         variables=variables,
     )
