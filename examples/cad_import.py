@@ -1,16 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: "1.0.3"
-# file_role: cad-script-emission-example
-# last_modified_at: "2026-09-27T20:56:51.052Z"
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.cases.workflows]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: "Exercise explicit simulation units and edge threshold in the CAD example."
-# revision_source: git
-# GEOVERSE_HEADER_END
-
 # %% [markdown]
 # # Emit a CAD script with explicit units
 #

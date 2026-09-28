@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: "1.0.1"
-# artifact_id: setup-library-contract-tests
-# last_modified_at: 2026-09-27T19:56:11.999Z
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
-# dependencies: [pytest, pyflightstream.workspace.setup_standards]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Reject label-only comments and verify setup library outputs.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Acceptance of the files users request while planning a workspace."""
 
 import re

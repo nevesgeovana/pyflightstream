@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.1.5
-# last_modified_at: 2026-09-27T23:51:00.036Z
-# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
-# dependencies: [numpy]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Catalog manifest-bound release refusal sites while retaining builtin catches.
-# revision_source: git
 """Coordinate and velocity transforms whose native conventions are explicit."""
 
 from __future__ import annotations

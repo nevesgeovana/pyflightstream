@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 2.0.3
-# last_modified_at: 2026-09-28T00:24:53.347Z
-# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
-# dependencies: [workspace.excel_sync, workspace.excel_file, XlsxWriter]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Restore shared interfaces and factual contract declarations for the release.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Create the optional workbook without launching Excel or changing trust settings."""
 
 from __future__ import annotations

@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.2
-# file_role: actuator-typed-controls-regression
-# last_modified_at: 2026-09-27T21:34:02.346Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-agent
-# dependencies: [pyflightstream.cases, pyflightstream.cases.workflows]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Exercise actuator actions through actual workspace TOML resolution.
-# revision_source: git
 import pytest
 
 from pyflightstream.cases import ActuatorBlock, SolverSettings

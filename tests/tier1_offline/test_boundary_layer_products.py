@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.1
-# last_modified_at: 2026-09-27T20:50:55.323Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-agent
-# dependencies: [pyflightstream.post.boundary_layer, pyflightstream.cases.ProductsSpec]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Bind existing behavioral acceptance tests to exact GOAL-033 obligations.
-# revision_source: git
 """Boundary-layer section data retain original cell association."""
 
 import numpy as np

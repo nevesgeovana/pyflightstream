@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# last_modified_at: 2026-09-28T00:39:18.437Z
-# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
-# dependencies: [test_goal031_local_run_log; test_matrix_run; pyflightstream.run]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Supply paired native fixtures while preserving machine log and collection checks.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Tier 1: the machine's log decision reaches every script and every collection.
 
 A cluster's HPC profile stating ``[log] export_log = false`` says the solver

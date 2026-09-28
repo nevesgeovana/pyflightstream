@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.3
-# file_role: conservative-custom-field-spatial-coverage
-# last_modified_at: 2026-09-27T23:51:00.020Z
-# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
-# dependencies: [pyflightstream.script, RPT-048, RPT-082]
-# authority: geoverse-goddess-control-plane
-# status: active
-# confidentiality: public
-# change_summary: Catalog manifest-bound release refusal sites while retaining builtin catches.
-# revision_source: git
 """Conservative spatial bounds; containment does not prove interpolation support."""
 
 from __future__ import annotations

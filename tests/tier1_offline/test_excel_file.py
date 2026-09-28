@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.0.2"
-# file_role: macro-free-workbook-roundtrip-tests
-# last_modified_at: 2026-09-28T00:32:41.115Z
-# last_modified_by: OpenAI / Codex / unknown / primary-agent
-# dependencies: [pyflightstream.workspace.excel, pyflightstream.workspace.excel_file]
-# authority: geoverse-goddess-control-plane
-# status: active
-# confidentiality: public
-# change_summary: Guard optional imports while retaining CLI refusal and unchanged-file assertions.
-# revision_source: git
 from pathlib import Path
 from zipfile import ZipFile
 

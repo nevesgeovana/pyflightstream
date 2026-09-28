@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.0.0"
-# file_role: measured-fsm-coordinate-unit-tests
-# last_modified_at: "2026-09-27T18:20:44.465Z"
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
-# dependencies: [pyflightstream._fsm]
-# authority: geoverse-goddess-control-plane
-# status: active
-# confidentiality: public
-# change_summary: "Distinguish stored coordinates from display units using measured native heads."
-# revision_source: git
-
 from pathlib import Path
 
 import pytest

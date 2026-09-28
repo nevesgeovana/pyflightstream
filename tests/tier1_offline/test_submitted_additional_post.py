@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.2
-# last_modified_at: 2026-09-27T20:59:34.951Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.run.matrix, pyflightstream.run.collect]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Bind existing behavioral checks to explicit release obligations.
-# revision_source: git
 """An extraction stays pending until its own output files are collected."""
 
 from pyflightstream.run import ExecutorConfigurationError

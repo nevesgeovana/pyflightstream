@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.2
-# last_modified_at: 2026-09-28T00:24:53.061Z
-# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
-# dependencies: [pyflightstream.workspace.excel_sync, Python-stdlib]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Restore shared interfaces and factual contract declarations for the release.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Explicit file transactions over the existing name-based synchronization engine."""
 
 from __future__ import annotations

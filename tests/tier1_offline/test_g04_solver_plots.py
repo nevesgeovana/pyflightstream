@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# file_role: solver-plot-export-regressions
-# last_modified_at: 2026-09-27T18:59:03.736Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pytest, pyflightstream]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Replace obsolete unsteady section Cp refusal with measured final-export behavior.
-# revision_source: git
 """Tier 1: a steady point saves the solver's own plots (0.27.0, G04).
 
 The decision, held by a test on each of its links:

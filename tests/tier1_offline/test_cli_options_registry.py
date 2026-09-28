@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# file_role: cli-option-decision-tests
-# last_modified_at: 2026-09-28T00:17:17.147Z
-# last_modified_by: OpenAI / Codex / unknown / qa-engineer-pyflightstream
-# dependencies: [pyflightstream.run.cli, pyflightstream.options]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Classify explicit release CLI switches and pin their exact subcommand coverage.
-# revision_source: git
 """Tier 1: every command-line option of every console script has chosen.
 
 PFS-2022.06.01, on the decision of design/68 section PFS-2022.06. FR-40

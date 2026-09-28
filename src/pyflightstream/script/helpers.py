@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.0.1"
-# file_role: curated-script-helpers
-# last_modified_at: "2026-09-27T21:34:00.335Z"
-# last_modified_by: OpenAI / Codex / unknown / implementation-agent
-# dependencies: [pyflightstream.script, pyflightstream.commands]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: "Clarify measured native speed units at the low-level helper boundary."
-# revision_source: git
 """Curated helpers for the common FlightStream workflows (SAD Section 4.3).
 
 Pipeline role: a small, curated set of thin typed functions sitting on

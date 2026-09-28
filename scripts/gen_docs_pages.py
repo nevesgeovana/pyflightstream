@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.4
-# artifact_id: documentation-generator
-# last_modified_at: 2026-09-27T20:29:11.784Z
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
-# dependencies: [pyflightstream]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Publish the existing FSI tutorial from its single source.
-# revision_source: git
 """Generate the docs reference and compatibility pages at build time.
 
 Executed by the mkdocs-gen-files plugin (configured in properdocs.yml).

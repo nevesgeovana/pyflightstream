@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_role: workspace-matrix-binding
-# authority: pyflightstream
-# file_version: "1.0.2"
-# last_modified_at: 2026-09-27T23:29:39.293Z
-# last_modified_by: OpenAI / Codex / unknown / primary-agent
-# dependencies: [pyflightstream.workspace.fsi_setup, pyflightstream.cases]
-# status: active
-# confidentiality: public
-# change_summary: Separate geometry port identities, setup choices and MATRIX conditions.
-# revision_source: git
 """Binding a run matrix to the workspace input library.
 
 Pipeline role: the workspace-layer half of the run matrix. The reader

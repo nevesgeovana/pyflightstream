@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.0.0"
-# file_role: macro-free-excel-roundtrip-example
-# last_modified_at: "2026-09-27T22:00:00+00:00"
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.workspace.excel, pyflightstream.workspace.excel_file]
-# authority: geoverse-goddess-control-plane
-# status: active
-# confidentiality: public
-# change_summary: "Exercise a real saved workbook roundtrip without Excel or a solver."
-# revision_source: git
-
 # %% [markdown]
 # # Create and synchronize an optional Excel workbook
 #

@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.3
-# artifact_id: post-diagnostics-tests
-# last_modified_at: 2026-09-27T21:01:51.781Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.post.products]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Bind temporal export and diagnostic behavior to release scope.
-# revision_source: git
 """Post warnings stay in durable records even when terminal reporting is disabled."""
 
 import json

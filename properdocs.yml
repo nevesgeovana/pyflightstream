@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.0.8"
-# artifact_id: documentation-navigation
-# last_modified_at: 2026-09-27T21:04:15.524Z
-# last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: implementer}
-# dependencies: [pyflightstream]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Expose simulation units and geometry threshold guidance.
-# revision_source: git
 # Docs configuration for ProperDocs (the maintained MkDocs fork; the
 # repository migrated after a green drop-in test, 2026-07-23, license
 # evidence reports/RPT-009). Kept at the repository root (the builder

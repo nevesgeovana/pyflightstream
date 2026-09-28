@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.1
-# last_modified_at: 2026-09-27T20:59:34.973Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.post.guides]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Bind existing behavioral checks to explicit release obligations.
-# revision_source: git
 """All guide registration callers share inputs/INPUTS.md and preserve notes."""
 
 from pyflightstream.post.guides import write_workspace_input_glossary

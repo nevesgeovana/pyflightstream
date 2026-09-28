@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.1.17
-# last_modified_at: 2026-09-27T20:59:34.953Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.workspace]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Bind existing behavioral checks to explicit release obligations.
-# revision_source: git
 """A saved run retains named frame facts and explicit unknown timing."""
 
 from pyflightstream.workspace import RunRecord

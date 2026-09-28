@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.5
-# file_role: paired-native-surface-average-tests
-# last_modified_at: 2026-09-27T20:59:34.971Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.post.surfaces, test_native_nodal_surface]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Bind existing behavioral checks to explicit release obligations.
-# revision_source: git
 """Nodal strength follows its own time history, never the final export."""
 
 import numpy as np

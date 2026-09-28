@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.1
-# last_modified_at: 2026-09-27T20:27:52.623Z
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [pyflightstream._cli]
-# artifact_id: fsi-cli
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Correct CLI help to describe the existing configured coupled driver.
-# revision_source: git
 """``pyfs-fsi`` console entry point: the FSI coupling executable.
 
 Pipeline role: FlightStream's Aeroelastic Coupling Toolbox calls an

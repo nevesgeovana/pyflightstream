@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# artifact_id: surface-exports-tests
-# last_modified_at: 2026-09-27T18:36:38.586Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementer
-# dependencies: [pyflightstream; pytest]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Keep surface product assertions distinct from retained native provenance files.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """F02/F03: native surface averages and opt-in VTK/CSV, without a solver.
 
 Oracle: inclusive last-n windows; 360 / DELTA_THETA steps per revolution.

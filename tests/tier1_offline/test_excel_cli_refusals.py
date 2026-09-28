@@ -1,19 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# artifact_id: excel-cli-refusal-regressions
-# last_modified_at: 2026-09-27T23:38:01.930Z
-# last_modified_by:
-#   provider: OpenAI
-#   product: Codex
-#   model: unknown
-#   role: api-designer-pyflightstream
-# dependencies: [pyflightstream.workspace.excel]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Verify actionable Excel CLI refusals preserve inputs and library errors.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Expected input refusals are CLI results, while library calls keep typed errors."""
 
 import json

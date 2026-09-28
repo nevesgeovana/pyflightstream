@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.1
-artifact_id: RPT-085
-last_modified_at: 2026-09-28T00:44:33.406Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
-dependencies: [RPT-069, RPT-081, docs/sampled-fields.md, docs/boundary-conditions.md]
-authority: pyflightstream
-status: draft
-confidentiality: public
-change_summary: Clarify that earlier observations are unchanged by the report punctuation amendment.
-revision_source: git
--->
-
 # RPT-085 - Native workspace evidence (2026-09-27)
 
 These controls used synthetic wing, rotor, duct and body fixtures on

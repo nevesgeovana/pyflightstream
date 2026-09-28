@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.7
-# artifact_id: native-nodal-surface-tests
-# last_modified_at: 2026-09-27T23:26:54.880Z
-# last_modified_by: OpenAI / Codex / unknown / vv-review-proposal
-# dependencies: [pytest; numpy; pyflightstream]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Cover measured native output, incomplete captures and fractional counts.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Native nodal strength is matched by coordinates AND polygon topology."""
 
 import numpy as np

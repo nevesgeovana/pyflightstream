@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T18:37:42.350Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementer
-# dependencies: [pyflightstream.results.surface, pyflightstream.results.SurfaceSection]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Use measured native XYZ convention and original polygon cut-plane chords.
-# revision_source: git
 """Raw VTK boundary-layer scalars at recorded surface-section cut points.
 
 A shared edge belongs to every incident source cell. Values are never averaged,

@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.1.0
-# last_modified_at: 2026-09-27T23:21:07.792Z
-# last_modified_by: OpenAI / Codex / unknown / implementer
-# dependencies: [pyflightstream.post.guides]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Reflect setup-owned ports and geometry identity glossary contract.
-# revision_source: git
 """Tier 1, 0.27.0 items G08 and D08: the input glossary, ``INPUTS.md``, is GENERATED.
 
 THE OWNER'S SCOPE OF 2026-09-23, item G08:

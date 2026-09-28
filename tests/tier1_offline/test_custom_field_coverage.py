@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.1.3"
-# file_role: custom-field-spatial-envelope-tests
-# last_modified_at: "2026-09-27T20:54:56.329Z"
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.cases.field_coverage]
-# authority: geoverse-goddess-control-plane
-# status: active
-# confidentiality: public
-# change_summary: "Bind existing real assertions to exact GOAL-033 capability markers."
-# revision_source: git
 import pytest
 
 

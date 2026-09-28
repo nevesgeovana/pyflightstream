@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.3
-# last_modified_at: 2026-09-28T00:00:53.049Z
-# last_modified_by: OpenAI / Codex / unknown / primary-agent
-# dependencies: [pyflightstream.post.diagnostics]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Explain diagnostic registration and sampled fields in the generated overview.
-# revision_source: git
 """Results into engineering data.
 
 Pipeline role: the top of the pipeline, where parsed solver output

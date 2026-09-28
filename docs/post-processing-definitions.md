@@ -1,16 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.1.0
-last_modified_at: 2026-09-27T23:44:31.051Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
-dependencies: ["pyflightstream.post.diagnostics", "pyflightstream.post.products", "pyflightstream.post.probe_fields", "surface-translation.md", "sampled-fields.md", "unsteady-postprocessing.md"]
-authority: "pyflightstream"
-status: "active"
-confidentiality: "public"
-change_summary: Record approved 0.29 sampled-volume, native-strength and final unsteady plot contracts.
-revision_source: "git"
--->
-
 # Post-processing definitions
 
 **This page is the definition of record for every post-processing product this

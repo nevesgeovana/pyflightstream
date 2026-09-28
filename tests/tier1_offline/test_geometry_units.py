@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.0.3"
-# file_role: geometry-unit-regressions
-# authority: pyflightstream
-# last_modified_at: "2026-09-27T20:54:56.327Z"
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
-# dependencies: [../../src/pyflightstream/cases/workflows.py, ../../src/pyflightstream/_fsm.py]
-# status: active
-# confidentiality: public
-# change_summary: "Bind existing real assertions to exact GOAL-033 capability markers."
-# revision_source: git
 """Offline dimensional behavior; these tests do not claim native solver operation."""
 
 from types import SimpleNamespace

@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.2.1
-# file_role: prescribed-frame-motion-ledger-tests
-# last_modified_at: 2026-09-27T20:45:57.201Z
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
-# dependencies: [pyflightstream.script]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Keep measured MM timing and unknown-unit or delayed-start refusals.
-# revision_source: git
 """Offline contract tests; synthetic timing is not native motion evidence."""
 
 import math

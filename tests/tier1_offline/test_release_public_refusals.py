@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T23:43:03.876Z
-# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
-# dependencies: [pyflightstream.workspace.excel_sync, pyflightstream.workspace.fsi_setup]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Verify release refusals retain builtin catches and join the catalog.
-# revision_source: git
-# GEOVERSE_HEADER_END
-
 """Public input refusals retain built-in catches and the package error boundary."""
 
 import numpy as np

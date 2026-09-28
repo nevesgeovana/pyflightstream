@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.1
-# last_modified_at: 2026-09-28T00:24:53.388Z
-# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
-# dependencies: []
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Restore shared interfaces and factual contract declarations for the release.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Tier 1: every FSI physics function cites its formula source.
 
 DLV-007 Section 2: the primary sources of the structural model have not

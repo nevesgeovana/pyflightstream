@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.1
-# artifact_id: fsi-native-interface-replay
-# last_modified_at: 2026-09-27T23:09:30.764Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-author
-# dependencies: [recorded-native-fsi-output, pytest]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Keep exact receipt hashes within the configured line-length limit.
-# revision_source: git
 """Opt-in replay of hash-bound synthetic native FSI evidence, without a solver."""
 
 import hashlib

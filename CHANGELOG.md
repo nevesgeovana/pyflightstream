@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.1
-artifact_id: pyflightstream-changelog
-last_modified_at: 2026-09-27T23:41:12.329Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
-dependencies: [pyproject.toml, docs/migrating-to-0.29.0.md]
-authority: pyflightstream
-status: active
-confidentiality: public
-change_summary: Align the unreleased narrative with macro-free Excel, BC ownership and existing-driver FSI wiring.
-revision_source: git
--->
-
 # Changelog
 
 All notable changes to pyflightstream. The format follows

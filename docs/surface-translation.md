@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.2
-artifact_id: surface-translation-guide
-last_modified_at: 2026-09-28T00:24:53.540Z
-last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
-dependencies: [pyflightstream.results.surface, pyflightstream.results.native_surface, RPT-074]
-authority: pyflightstream
-status: active
-confidentiality: public
-change_summary: Restore shared interfaces and factual contract declarations for the release.
-revision_source: git
--->
-
 # Surface exports and native singularity strength
 
 A workspace row requesting the Tecplot surface receives a package-written file.

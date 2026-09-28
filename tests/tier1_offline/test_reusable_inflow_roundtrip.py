@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# artifact_id: reusable-inflow-workspace-roundtrip
-# last_modified_at: 2026-09-27T23:40:19.200Z
-# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
-# dependencies: [pyflightstream.post, pyflightstream.workspace.matrix]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Exercise generated inflow through actual filename-based workspace binding.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """The emitted inflow filename must agree with the consumer's format selection."""
 
 import json

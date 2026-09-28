@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.3
-# file_role: walltime-observed-stop-regressions
-# last_modified_at: 2026-09-27T19:34:52.345Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pytest, pyflightstream.run]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Test actual stop evidence and complete rescue termination.
-# revision_source: git
 """A firing marker cannot claim a stop when subsequent callbacks exist."""
 
 import json

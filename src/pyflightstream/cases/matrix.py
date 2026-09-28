@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.1
-# last_modified_at: 2026-09-28T00:24:53.302Z
-# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
-# dependencies: []
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Restore shared interfaces and factual contract declarations for the release.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Pipe-delimited run matrix: the reader and the converter.
 
 Pipeline role: keeps the established run-matrix workflow working

@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.1.0
-# last_modified_at: 2026-09-27T23:20:02.008Z
-# last_modified_by: OpenAI / Codex / unknown / implementer
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# dependencies: [pyflightstream.cases, pyflightstream.workspace.inputs]
-# change_summary: Move unreleased inlet/outlet fixtures to setup and MATRIX after owner correction.
-# revision_source: git
 from hashlib import sha256
 from pathlib import Path
 

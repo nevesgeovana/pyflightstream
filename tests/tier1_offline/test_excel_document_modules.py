@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "2.0.0"
-# file_role: macro-free-workbook-document-identity
-# last_modified_at: "2026-09-27T21:40:49.642Z"
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
-# dependencies: [pyflightstream.workspace.excel]
-# authority: geoverse-goddess-control-plane
-# status: active
-# confidentiality: public
-# change_summary: "Verify the approved macro-free package and worksheet identity."
-# revision_source: git
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 

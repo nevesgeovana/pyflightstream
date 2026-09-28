@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.1.3
-# last_modified_at: 2026-09-27T22:15:55.835Z
-# last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: implementation-author}
-# dependencies: [pyflightstream.workspace.fsi_setup]
-# authority: pyflightstream
-# artifact_id: test-workspace-fsi-setup
-# status: active
-# confidentiality: public
-# change_summary: Keep matrix calibration checks and require named refusal of steady coupling.
-# revision_source: git
 import json
 from pathlib import Path
 

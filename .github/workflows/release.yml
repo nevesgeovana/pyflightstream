@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# artifact_id: release-workflow
-# last_modified_at: 2026-09-27T20:38:29.386Z
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [pyproject.toml]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Exercise optional workbook generation in source and built-wheel gates.
-# revision_source: git
-# GEOVERSE_HEADER_END
 # Release workflow: publishes pyflightstream to PyPI through trusted
 # publishing (OIDC), so no API token is stored in the repository. It
 # mirrors the ITACA release workflow. Requires the matching publisher

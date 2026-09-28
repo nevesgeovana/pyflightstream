@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.3
-# file_role: typed-surface-probe-regressions
-# authority: pyflightstream
-# last_modified_at: 2026-09-27T20:57:53.268Z
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
-# dependencies: [../../src/pyflightstream/cases/workflows.py]
-# status: active
-# confidentiality: public
-# change_summary: Test refusal of measured BL surface-probe Cp fallback.
-# revision_source: git
 """Surface-probe declarations; native sampling semantics require separate evidence."""
 
 import pytest

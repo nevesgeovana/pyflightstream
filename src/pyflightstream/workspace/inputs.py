@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.2.0
-# file_role: workspace-input-artifact-reader
-# last_modified_at: 2026-09-27T23:17:41.267Z
-# last_modified_by: OpenAI / Codex / unknown / implementer
-# dependencies: [pyflightstream.cases]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Separate geometry port identities, setup choices and MATRIX conditions.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Input-artifact library of the managed campaign workspace.
 
 Pipeline role: organizes the reusable inputs of a campaign the same

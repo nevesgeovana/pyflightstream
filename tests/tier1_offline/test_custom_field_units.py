@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.2.2"
-# file_role: explicit-custom-field-unit-tests
-# last_modified_at: 2026-09-28T00:44:20.753Z
-# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
-# dependencies: [pyflightstream.cases.freestream, RPT-083]
-# authority: geoverse-goddess-control-plane
-# status: active
-# confidentiality: public
-# change_summary: Check undeclared-unit warnings reach the sink despite ignored warnings.
-# revision_source: git
 from hashlib import sha256
 
 import pytest

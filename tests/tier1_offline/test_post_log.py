@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T14:07:00+00:00
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.post.products]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Assert additive severity and category in complete post logs.
-# revision_source: git
 """Post a campaign normally to warn, or pass check_frozen=True to refuse doubts."""
 
 import json

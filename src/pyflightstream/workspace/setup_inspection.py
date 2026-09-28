@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.1
-# artifact_id: resolved-setup-inspection
-# last_modified_at: 2026-09-28T00:24:53.112Z
-# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
-# dependencies: [pyflightstream.cases, pyflightstream.workspace.setup_standards]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Restore shared interfaces and factual contract declarations for the release.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Present already-resolved cases without reparsing the input library."""
 
 from __future__ import annotations

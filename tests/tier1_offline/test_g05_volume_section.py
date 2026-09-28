@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.0.1"
-# last_modified_at: 2026-09-28T00:24:35.366Z
-# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
-# dependencies: [pyflightstream.cases.workflows, test_workflows.py]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Preserve missing-frame refusal and prove unsteady REFERENCE volume sampling.
-# revision_source: git
 """Tier 1: a volume section declared in the pproc, created and exported per steady point (G05).
 
 Pipeline role: quality gate on FR-110 of 0.27.0.

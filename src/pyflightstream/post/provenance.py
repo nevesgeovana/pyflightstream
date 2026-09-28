@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# artifact_id: run-provenance
-# last_modified_at: 2026-09-27T18:36:20.861Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementer
-# dependencies: [pyflightstream; pytest]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Attribute translated surface data to both VTK and native nodal solver sources.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Write each recorded run's provenance as PROV-JSON.
 
 Documents relate staged inputs, scripts and collected outputs to the run and

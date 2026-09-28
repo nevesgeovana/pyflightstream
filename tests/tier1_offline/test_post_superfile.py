@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.1
-# last_modified_at: 2026-09-28T01:00:38.005Z
-# last_modified_by: OpenAI / Codex / unknown / primary-agent
-# dependencies: [pyflightstream.post.superfile; pyflightstream.workspace.RunRecord]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Classify new record metadata and verify the SUPER carries source units.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """FR-89: one derived file per polar and group carries everything the workspace knows.
 
 THE UNION IS BUILT FROM THE WORKSPACE HERE AND NEVER LISTED, which is the

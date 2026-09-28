@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.1.1"
-# last_modified_at: 2026-09-27T19:48:45.279Z
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
-# dependencies: []
-# artifact_id: fsi-calibration-vocabulary
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Add structural pitch to the shared file and matrix factor vocabulary.
-# revision_source: git
 """Dimensionless FSI factor names shared by cases and workspace.
 
 Pipeline role: a dependency-free floor. Neither the cases layer nor the

@@ -1,16 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.2
-last_modified_at: 2026-09-28T00:20:10.745Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: vv-engineer-pyflightstream}
-dependencies: [../src/pyflightstream/cases/__init__.py, ../src/pyflightstream/workspace/inputs.py, ../src/pyflightstream/workspace/matrix.py, setup-standards.md, ../reports/RPT-081_typed-boundary-and-base-region-operations_2026-09-27.md]
-authority: pyflightstream
-status: draft
-confidentiality: public
-change_summary: Link measured remesh and base-region effects to their existing dated evidence.
-revision_source: git
--->
-
 # Boundary conditions and initialization actions
 
 A geometry sidecar identifies physical surfaces; a setup chooses their simulation

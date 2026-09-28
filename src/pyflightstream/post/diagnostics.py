@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.1
-# artifact_id: post-diagnostics
-# last_modified_at: 2026-09-27T23:51:00.038Z
-# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
-# dependencies: [pyflightstream._cli, pyflightstream._errors]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Catalog manifest-bound release refusal sites while retaining builtin catches.
-# revision_source: git
 """Read-only Markdown diagnostics and concise warning presentation.
 
 ``render_post_diagnostics`` reads existing post logs only. It neither executes

@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.5
-# file_role: paired-surface-temporal-averaging
-# last_modified_at: 2026-09-27T19:31:54.109Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.results.native_surface, pyflightstream.post.unsteady]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Refuse unresolved walltime means and retain explicit statistics.
-# revision_source: git
 """The surface averaged over a window by the package, from the per-step exports (G25, 0.28.0).
 
 Pipeline role: the product a pproc's ``[time_averaging]`` asks for. The run

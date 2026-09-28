@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.2
-# artifact_id: workspace-fsi-calibration-example
-# last_modified_at: 2026-09-27T19:33:16.874Z
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [pyflightstream.workspace.fsi_setup]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Compare complete FSI input modes and apply one matrix override.
-# revision_source: git
-# GEOVERSE_HEADER_END
 # %% [markdown]
 # # Workspace FSI calibration
 #

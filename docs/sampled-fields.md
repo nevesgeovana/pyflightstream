@@ -1,16 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.5
-file_role: sampled-field-user-guide
-last_modified_at: 2026-09-27T23:41:54.525Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
-dependencies: [pyflightstream.post.probe_fields, pyflightstream.post.field_frames]
-authority: pyflightstream
-status: draft
-confidentiality: public
-change_summary: Distinguish sampled volume fields from manually indexed native saved sections.
-revision_source: git
--->
 # Sampled velocity fields
 
 A probe survey can produce VTK or Tecplot files containing its sampled positions

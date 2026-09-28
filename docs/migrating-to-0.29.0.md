@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.2
-artifact_id: migration-0290
-last_modified_at: 2026-09-28T00:24:53.519Z
-last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
-dependencies: [pyflightstream]
-authority: pyflightstream
-status: active
-confidentiality: public
-change_summary: Restore shared interfaces and factual contract declarations for the release.
-revision_source: git
--->
-
 # Migrating to 0.29.0
 
 Keep a copy of the workspace and install the release in a separate Python

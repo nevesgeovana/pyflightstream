@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-artifact_id: fsi-tutorial
-last_modified_at: 2026-09-27T20:29:11.764Z
-last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
-dependencies: [cli.py, driver.py, nodes.py]
-authority: pyflightstream
-status: active
-confidentiality: public
-change_summary: Correct stale dummy-only status while preserving historical native findings.
-revision_source: git
--->
-
 # pyflightstream.fsi: structural coupling for rotating blades
 
 Tutorial companion of the FSI subpackage. Each module has a section below

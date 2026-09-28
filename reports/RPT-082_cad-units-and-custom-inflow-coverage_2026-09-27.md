@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.1.1
-file_role: measured-CAD-units-and-custom-field-report
-last_modified_at: 2026-09-27T20:46:59.533Z
-last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-dependencies: [RPT-070, RPT-077, docs/cad-inputs.md]
-authority: pyflightstream
-status: measured-limited-scope
-confidentiality: public
-change_summary: Include the executable example and continuation declaration tests.
-revision_source: git
--->
-
 # RPT-082: CAD units and custom-inflow coverage
 
 The CAD route now accepts IGES and refuses STEP before script emission.

@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# file_role: citation-claim-currency-tests
-# last_modified_at: 2026-09-28T00:15:20.494Z
-# last_modified_by: OpenAI / Codex / unknown / qa-engineer-pyflightstream
-# dependencies: [pyflightstream.workspace.setup_standards]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Include generated setup guidelines in the existing citation-claim coverage.
-# revision_source: git
 """Tier 1: no shipped page promises a manual page on every database entry.
 
 Since 2026-08-06 an entry rests on ONE of two citations: the manual page

@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.1
-# last_modified_at: 2026-09-27T19:08:09.397Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementer
-# dependencies: [pyflightstream.post.boundary_layer]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Render the executable synthetic BL example as documented notebook cells.
-# revision_source: git
 # %% [markdown]
 # # Boundary-layer cell association
 #

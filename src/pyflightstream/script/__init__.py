@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.4.7
-# last_modified_at: 2026-09-27T23:51:00.035Z
-# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
-# dependencies: [../_lengths.py, motion.py]
-# file_role: script-command-emitter
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Catalog manifest-bound release refusal sites while retaining builtin catches.
-# revision_source: git
 """The validating FlightStream script builder.
 
 Pipeline role: turns typed Python calls into the ASCII script text the

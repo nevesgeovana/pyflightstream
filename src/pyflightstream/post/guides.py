@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.0.12"
-# last_modified_at: 2026-09-27T23:29:39.293Z
-# last_modified_by: OpenAI / Codex / unknown / primary-agent
-# dependencies: [pyflightstream.workspace]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Document geometric port identities and setup/MATRIX condition ownership.
-# revision_source: git
 """The generated input guides: the pproc guides, ``INPUTS.md`` and ``input_template.md``.
 
 The pproc guides are ``VARIABLES.md`` and ``WRITING-EQUATIONS.md``. Three pages

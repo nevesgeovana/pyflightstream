@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.1
-# file_role: explicit-custom-field-preparation-example
-# last_modified_at: 2026-09-27T20:46:29.475Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-author
-# dependencies: [pyflightstream.cases.freestream]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Document the executable field-preparation example and its public entry.
-# revision_source: git
-
 # %% [markdown]
 # # Prepare an explicitly SI custom field
 #

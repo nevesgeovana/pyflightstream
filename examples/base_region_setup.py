@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T19:34:29.024Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.cases, pyflightstream.cases.workflows]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Generate an explicit base-region setup script without launching the solver.
-# revision_source: git
 # %% [markdown]
 # # Ordered base-region setup
 # This repository example generates commands from the public body fixture.

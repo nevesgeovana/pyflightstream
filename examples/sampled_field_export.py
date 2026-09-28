@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.2
-# file_role: synthetic-sampled-field-export-example
-# last_modified_at: 2026-09-27T20:10:17.345Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [numpy, pyflightstream.post]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Clarify provenance and keep validation formatting concise.
-# revision_source: git
 # %% [markdown]
 # # Export a sampled field
 # This example writes a four-point synthetic field as VTK, Tecplot and

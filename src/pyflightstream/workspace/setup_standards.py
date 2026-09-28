@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.1.9
-# artifact_id: workspace-setup-standards
-# last_modified_at: 2026-09-28T00:24:53.134Z
-# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
-# dependencies: [pyflightstream.cases, pyflightstream.commands]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Restore shared interfaces and factual contract declarations for the release.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Build-aware setup examples and guidance from the same definitions.
 
 Generation performs no solver execution. Database status is reproduced as evidence,

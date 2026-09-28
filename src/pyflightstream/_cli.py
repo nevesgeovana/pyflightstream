@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.2
-# artifact_id: cli-outcome-signature
-# last_modified_at: 2026-09-27T20:09:05.841Z
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [Python standard library]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Narrow explicit CLI argument sequences before inspecting help and warning flags.
-# revision_source: git
 """Shared CLI outcome reporting, below the package's domain layers.
 
 Decorating a console ``main`` preserves its return value and exceptions.

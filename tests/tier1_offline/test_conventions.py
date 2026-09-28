@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.1
-# last_modified_at: 2026-09-28T00:24:53.354Z
-# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
-# dependencies: []
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Restore shared interfaces and factual contract declarations for the release.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Tier 1: the house conventions render everywhere and hold in the code.
 
 Pipeline role: quality gate on PLN-032. The conventions have one home

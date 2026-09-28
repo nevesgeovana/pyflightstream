@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-artifact_id: RPT-084
-last_modified_at: 2026-09-27T23:25:25.983Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: architect-correction-proposal}
-dependencies: [pyproject.toml, src/pyflightstream/extras.py]
-authority: pyflightstream
-status: draft
-confidentiality: public
-change_summary: Record exact installed XlsxWriter license evidence for optional workbook authoring.
-revision_source: git
--->
-
 # RPT-084: license evidence for the optional Excel extra
 
 Date: 2026-09-27. Architecture review found that the implementation checkpoint

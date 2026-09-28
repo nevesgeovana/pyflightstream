@@ -1,18 +1,3 @@
-<!--
-GEOVERSE_HEADER_BEGIN
-file_version: 1.0.2
-file_role: cad-input-route-documentation
-last_modified_at: 2026-09-27T19:57:09.644Z
-last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-dependencies: [pyflightstream.cases.CadImportOptions]
-authority: pyflightstream
-status: draft
-confidentiality: public
-change_summary: Document explicit CAD conversion and its native validation limits.
-revision_source: git
-GEOVERSE_HEADER_END
--->
-
 # CAD geometry inputs
 
 A workflow can import IGES (`.igs` or `.iges`) through the native CAD importer,

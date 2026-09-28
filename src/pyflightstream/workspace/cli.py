@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T14:20:00+00:00
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream._cli]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Add truthful CLI outcome reporting on stderr.
-# revision_source: git
 """The ``pyfs-workspace`` command line.
 
 Pipeline role: drives the managed campaign workspace from a terminal.

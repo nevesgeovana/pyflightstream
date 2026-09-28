@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# file_role: local log and collection regression tests
-# last_modified_at: 2026-09-27T21:24:50.787Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-agent
-# dependencies: [test_matrix_run.py, pyflightstream.run]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Supply matching native surface evidence in the local log fixture.
-# revision_source: git
 """Tier 1: a local run writes where a submitted one does, and its log is the machine's.
 
 A workspace on a cluster can carry an HPC profile stating ``[log] export_log =

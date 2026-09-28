@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.1
-# last_modified_at: 2026-09-27T20:59:34.949Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream._progress, pyflightstream.results, pyflightstream.workspace]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Bind existing behavioral checks to explicit release obligations.
-# revision_source: git
 """Batch activity observes real operations without changing their products."""
 
 import json

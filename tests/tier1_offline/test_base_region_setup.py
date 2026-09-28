@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T19:37:24.103Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.cases, pyflightstream.cases.workflows]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Verify base-region arguments, ordering and build-specific names.
-# revision_source: git
 from pathlib import Path
 
 import pytest

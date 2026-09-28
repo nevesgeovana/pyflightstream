@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.3
-artifact_id: RPT-083
-last_modified_at: 2026-09-28T00:44:33.406Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
-dependencies: [RPT-074, RPT-076, RPT-079, src/pyflightstream/post/field_frames.py, src/pyflightstream/post/surfaces.py]
-authority: pyflightstream
-status: active
-confidentiality: public
-change_summary: Editorial punctuation only; preserve all observations, numbers, claims and evidence hashes.
-revision_source: git
--->
-
 # RPT-083 - Probe frames and temporal export limits (2026-09-27, editorial amendment 2026-09-28)
 
 This report records GOAL-033 controls for sampled velocity fields, final

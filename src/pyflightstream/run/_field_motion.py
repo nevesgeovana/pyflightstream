@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.2
-# file_role: continued-field-motion-evidence
-# last_modified_at: 2026-09-27T20:01:58.425Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.script.motion]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Validate and preserve inherited sampling positions and solver setup.
-# revision_source: git
 """Carry a saved state's frame facts without treating OPEN as new geometry."""
 
 import csv

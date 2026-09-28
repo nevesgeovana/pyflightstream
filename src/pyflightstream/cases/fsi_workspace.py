@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.1
-# last_modified_at: 2026-09-27T22:13:30.005Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-author
-# dependencies: [pyflightstream.cases, pyflightstream.fsi.nodes, pyflightstream.fsi.loads]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Wire the existing unsteady FSI driver through point-owned pending inputs.
-# revision_source: git
 """Bounded workspace adapter for the existing structural driver.
 
 No new structural model lives here. Native deformation validity remains a

@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.1.1
-# last_modified_at: 2026-09-27T20:45:57.198Z
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
-# dependencies: [../../reports/RPT-070_the-gui-rows-volume-section-and-actuator-disc_2026-09-24.md]
-# file_role: saved-simulation-structural-reader
-# authority: geoverse-goddess-control-plane
-# status: active
-# confidentiality: public
-# change_summary: Clarify the measured global-unit reader without changing parsing.
-# revision_source: git
 """The saved-simulation reader this package reads boundary names through.
 
 Pipeline role: a floor, like :mod:`pyflightstream._digest` and

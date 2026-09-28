@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# last_modified_at: 2026-09-28T00:33:44.988Z
-# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
-# dependencies: [pyflightstream.cases.workflows; pyflightstream.script]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Supply typed SI context while checking tilted and letter blade-frame emission.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Tier 1, v0.23.0 item 19: a rotor carries its INSTALLATION VECTOR.
 
 THE OWNER'S WORDS, 2026-09-17:

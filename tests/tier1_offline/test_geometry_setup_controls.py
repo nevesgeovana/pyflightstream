@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: "1.0.6"
-# file_role: geometry-setup-control-regressions
-# last_modified_at: "2026-09-27T21:32:22.011Z"
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.cases, pyflightstream.script]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: "Use the canonical campaign sims collection in the workspace reference test."
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Typed geometry controls; emitted settings alone do not prove native mesh repair."""
 
 import pytest

@@ -1,21 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-artifact_id: setup-native-parser-evidence
-last_modified_at: 2026-09-27T15:30:58.657219+00:00
-last_modified_by:
-  provider: OpenAI
-  product: Codex
-  model: GPT-6
-  role: implementer
-dependencies: [GEO-059-PYFLIGHTSTREAM-SETUP-REGISTER]
-authority: pyflightstream
-status: draft
-confidentiality: public
-change_summary: Preserve command-only native parser observations without private payloads.
-revision_source: git
--->
-
 # Setup command parser observations
 
 This is a command-only extract of existing evidence, not a new solver run.

@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.2
-# last_modified_at: 2026-09-27T20:59:51.162Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.run]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Check each durable activity stage and persistent details independently.
-# revision_source: git
 """A real campaign call leaves durable stage context beside its workspace."""
 
 import json

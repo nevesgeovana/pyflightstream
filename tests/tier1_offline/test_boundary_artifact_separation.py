@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T23:15:01.041Z
-# last_modified_by: OpenAI / Codex / unknown / implementer
-# dependencies: [pyflightstream.cases, pyflightstream.workspace]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Exercise owner-approved geometry/setup/matrix boundary separation.
-# revision_source: git
 import pytest
 
 from pyflightstream.cases import SimCase, SolverSettings, SweepAxis

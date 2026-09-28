@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.2
-# file_role: setup-native-state-acceptance
-# last_modified_at: 2026-09-27T21:37:45.722Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-agent
-# dependencies: [GOAL-033 setup-state-queue-execution.json]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Replay hash-bound native state pairs with strict record alignment.
-# revision_source: git
 """Opt-in replay of recorded native observations; no solver or private payload is bundled."""
 
 import hashlib

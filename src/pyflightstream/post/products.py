@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.1
-# last_modified_at: 2026-09-27T19:09:10.288Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.post.diagnostics, pyflightstream._cli]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Bind generated unsteady field products to the actual native STEP history.
-# revision_source: git
 """The campaign's post-processed products: polar, section and plot tables as CSV.
 
 PFS-2029.15. A campaign's raw exports are the solver's own text files, one

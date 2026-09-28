@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: "1.0.0"
-# last_modified_at: 2026-09-27T20:10:17.348Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: ["docs/post-processing-definitions.md"]
-# authority: "geoverse-goddess-control-plane"
-# status: "active"
-# confidentiality: "public"
-# change_summary: Clarify provenance and keep validation formatting concise.
-# revision_source: "git"
-# GEOVERSE_HEADER_END
 """Sectional loads and chordwise Cp, one table per recorded pproc distribution."""
 
 from __future__ import annotations

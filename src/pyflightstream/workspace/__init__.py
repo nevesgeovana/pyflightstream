@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_role: managed-workspace-model-and-layout
-# file_version: 1.1.4
-# last_modified_at: 2026-09-27T23:53:53.610Z
-# last_modified_by: OpenAI / Codex / unknown / primary-agent
-# dependencies: [pyflightstream.run._step_exports]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Keep generated architecture sources aligned with setup and boundary ownership.
-# revision_source: git
 """Managed campaign workspace: inputs, run files, and the manifest.
 
 Pipeline role: owns where campaign files live, inputs and outputs

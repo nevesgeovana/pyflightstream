@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.1
-artifact_id: pyflightstream-release-readiness
-last_modified_at: 2026-09-28T00:44:33.406Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
-dependencies: [pyproject.toml, CITATION.cff, CHANGELOG.md, .github/workflows/release.yml, reports/RPT-085_native-workspace-evidence_2026-09-27.md]
-authority: pyflightstream
-status: gated
-confidentiality: public
-change_summary: Preserve the distinction between earlier observations and an editorial punctuation amendment.
-revision_source: git
--->
-
 # 0.29.0 release sequence and pending evidence
 
 **Target: 0.29.0. This record does not declare the release ready or published.**

@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.2
-# last_modified_at: 2026-09-28T00:33:44.988Z
-# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
-# dependencies: [pyflightstream.run; tests.tier1_offline.test_g45_tecplot_from_vtk]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Pair recovered-frame VTK with valid native nodal evidence.
-# revision_source: git
 """G58: unchanged stopped rows recover their frame without a solver."""
 
 from pathlib import Path

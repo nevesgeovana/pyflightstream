@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.1
-# file_role: unsteady-section-cp-export-tests
-# last_modified_at: 2026-09-27T21:01:51.778Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pytest, pyflightstream]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Bind temporal export and diagnostic behavior to release scope.
-# revision_source: git
 """Unsteady Cp plots are final products and never repeated per STEP."""
 
 from pyflightstream.cases import PprocSpec

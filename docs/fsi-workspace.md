@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: "1.2.0"
-last_modified_at: 2026-09-27T22:11:44.225Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: implementation-author}
-dependencies: [src/pyflightstream/workspace/fsi_setup.py, src/pyflightstream/fsi/calibration.py]
-authority: pyflightstream
-artifact_id: workspace-fsi-guide
-status: active
-confidentiality: public
-change_summary: Explain automatic existing-driver wiring and its explicit initial support limits.
-revision_source: git
--->
-
 # FSI workspace inputs
 
 The [workspace calibration example](examples/workspace_fsi_calibration.md) creates

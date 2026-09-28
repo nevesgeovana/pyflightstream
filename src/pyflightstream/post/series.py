@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# artifact_id: surface-series
-# last_modified_at: 2026-09-27T18:36:20.824Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementer
-# dependencies: [pyflightstream; pytest]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Carry the actual native nodal source and dual provenance in surface metadata.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """The per-step exports of an unsteady point as a series (PFS-2031.18.01).
 
 A row stating ``EXPORT_UNSTEADY_AFTER_REV`` or ``EXPORT_UNSTEADY_AFTER_ITER``

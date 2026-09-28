@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-28T00:30:46.914Z
-# last_modified_by: OpenAI / Codex / unknown / primary-agent
-# dependencies: [../tier3_licensed/inputs/geometries/10_WING.fsm]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Use a readable saved geometry for log-export contract tests.
-# revision_source: git
 """Two builder findings on the cluster's run path.
 
 EXPORT-LOG-FLAG-BYPASS

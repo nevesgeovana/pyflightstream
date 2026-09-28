@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.1
-# last_modified_at: 2026-09-27T19:11:47.868Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementer
-# dependencies: [pyflightstream.run.resolve_continuation]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Add the didactic introduction used by the generated example page.
-# revision_source: git
 # %% [markdown]
 # # Inspect a continuation without a solver
 #

@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.1
-# file_role: complete-setup-argument-inventory-regression
-# last_modified_at: 2026-09-27T21:31:45.931Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-agent
-# dependencies: [pyflightstream.commands, pyflightstream.workspace.setup_standards]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Cover all 13 setup domains and exact documented arguments.
-# revision_source: git
 import re
 
 from pyflightstream.commands import CommandRegistry

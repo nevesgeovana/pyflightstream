@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.4
-# last_modified_at: 2026-09-27T21:01:38.973Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-agent
-# dependencies: [pyflightstream.cases, pyflightstream.cases.workflows]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Bind existing setup and boundary behavior tests to GOAL-033 obligations.
-# revision_source: git
 """Reference normalization choices must reach exactly the requested native route."""
 
 import pytest

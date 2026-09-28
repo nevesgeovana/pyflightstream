@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# artifact_id: test_fsi_config
-# last_modified_at: 2026-09-27T20:14:42.082Z
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [pyflightstream.fsi]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Bind existing physical tests to release acceptance obligations.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Tier 1: FsiConfig schema, validation, and round-trip IO (WP0)."""
 
 import pytest

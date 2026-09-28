@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.3
-# file_role: hidden-action-interpreter-regressions
-# last_modified_at: 2026-09-27T20:59:34.969Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pytest, pyflightstream.cases.workflows]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Bind existing behavioral checks to explicit release obligations.
-# revision_source: git
 """Native COMMAND_LINE actions must not create Python console windows."""
 
 import json

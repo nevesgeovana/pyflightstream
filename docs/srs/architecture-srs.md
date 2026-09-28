@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: "1.0.1"
-file_role: "public-architecture-requirements"
-last_modified_at: "2026-09-27T23:53:53.610Z"
-last_modified_by: "OpenAI / Codex / unknown / primary-agent"
-dependencies: ["src/pyflightstream/overview.py", "scripts/gen_docs_pages.py"]
-authority: "pyflightstream"
-status: "active"
-confidentiality: "public"
-change_summary: "Reconcile BC ownership, diagnostics registration, Excel extra and bounded FSI/probe adapters."
-revision_source: "git"
--->
-
 # Architecture
 
 The architectural requirements. The live, generated

@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T17:35:22.870996+00:00
-# last_modified_by: OpenAI / Codex / GPT-6 / implementer
-# dependencies: [pyflightstream.cases, pyflightstream.script, pyflightstream.workspace]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Recover historical loads frames from matching offline evidence.
-# revision_source: git
 """Evidence checks for stopped runs whose manifests predate frame placement."""
 
 from __future__ import annotations

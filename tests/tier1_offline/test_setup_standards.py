@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.8
-# artifact_id: setup-standards-tests
-# last_modified_at: 2026-09-28T00:27:45.362Z
-# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
-# dependencies: [pytest, pyflightstream]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Align the existing port emission fixture with geometry/setup/matrix ownership.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Workspace setup controls reach the curated emitter without losing evidence."""
 
 import tomllib

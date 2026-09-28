@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# file_role: surface-time-average-regressions
-# last_modified_at: 2026-09-28T00:28:31.322Z
-# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
-# dependencies: [pyflightstream.post.surfaces, test_matrix_run.py]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Supply valid paired native sources and assert per-STEP nodal averaging.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """G25 of 0.28.0: the time-averaged surface is averaged by the package from the per-step exports.
 
 Oracle: the definition of record (``docs/post-processing-definitions.md``, the

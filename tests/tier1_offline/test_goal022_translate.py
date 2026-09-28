@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# last_modified_at: 2026-09-28T00:33:44.988Z
-# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
-# dependencies: [pyflightstream.cases.workflows; pyflightstream.script]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Check zero-turn placement, unit conversion and unknown-frame refusals.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """A row translates an alias the way it rotates one (FR-100).
 
 The row's grammar and its consequences, each case below one of them:

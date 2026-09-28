@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.4
-# last_modified_at: 2026-09-28T00:24:52.886Z
-# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
-# dependencies: [pyflightstream.run._step_exports]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Restore shared interfaces and factual contract declarations for the release.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Collect a submitted job's outputs when they land, then post (FR-99).
 
 THIS IS COLLECT-AND-POST, not submit-and-collect. A watcher stands by, sees

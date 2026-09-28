@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T22:10:51.516Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-author
-# dependencies: [pyflightstream.fsi.config, pyflightstream.fsi.kinematics]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Expose the existing node CSV renderer for pending-input staging.
-# revision_source: git
 """Structural node file and FSIDisp ordering map, from one generator (WP5).
 
 Pipeline role: FlightStream imports a structural node list per blade

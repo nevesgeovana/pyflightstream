@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.2
-# artifact_id: matrix-run-tests
-# last_modified_at: 2026-09-28T00:24:53.226Z
-# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
-# dependencies: [pyflightstream; pytest]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Restore shared interfaces and factual contract declarations for the release.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Tier 1: the matrix as a first-class run interface (v0.3 decision 3).
 
 resolve_matrix binds the REF/SET/ENTRY/FS_BUILD columns to a synthetic

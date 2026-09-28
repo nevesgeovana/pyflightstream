@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.3
-file_role: unsteady-postprocessing-guide
-last_modified_at: 2026-09-27T19:44:46.195Z
-last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-dependencies: [pyflightstream.cases, pyflightstream.post.surfaces]
-authority: pyflightstream
-status: draft
-confidentiality: public
-change_summary: Separate measured walltime rescue, plot coverage and named averaging refusal.
-revision_source: git
--->
-
 # Unsteady plots and surface averages
 
 A pproc section distribution enables its final Cp plot on an unsteady run. The

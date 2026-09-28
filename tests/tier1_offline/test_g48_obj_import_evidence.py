@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.0.1"
-# file_role: measured-obj-import-regression-tests
-# last_modified_at: "2026-09-27T20:54:56.328Z"
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
-# dependencies: [pyflightstream.workspace.inputs]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: "Bind existing real assertions to exact GOAL-033 capability markers."
-# revision_source: git
 """Synthetic controls measured on executable 68e64e...30c65, build 8172026."""
 
 import pytest

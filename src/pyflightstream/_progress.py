@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.5
-# last_modified_at: 2026-09-27T23:31:46.175Z
-# last_modified_by: OpenAI / Codex / unknown / qa-proposal
-# dependencies: []
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Preserve collection failure reports without assuming a solver diagnosis method.
-# revision_source: git
 """Durable workspace activity records."""
 
 from __future__ import annotations

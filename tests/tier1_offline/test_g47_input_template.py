@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.1.0
-# last_modified_at: 2026-09-27T23:21:07.793Z
-# last_modified_by: OpenAI / Codex / unknown / implementer
-# dependencies: [pyflightstream.post.guides]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Read the setup port examples after the owner-approved artifact split.
-# revision_source: git
 """Tier 1, 0.28.0 item G47: ``inputs/input_template.md``, a template of every input file.
 
 THE ITEM: a Markdown page at the root of a workspace's ``inputs/`` folder that

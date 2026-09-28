@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.1.0"
-# last_modified_at: 2026-09-27T19:48:12.038Z
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
-# dependencies: [pyflightstream.fsi.config, pyflightstream.fsi.sections]
-# artifact_id: workspace-fsi-setup
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Expose unity structural pitch calibration in the workspace input template.
-# revision_source: git
 """Resolve the existing solid Euler beam from a workspace input artifact."""
 
 from __future__ import annotations

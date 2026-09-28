@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: "1.0.4"
-# file_role: cad-sidecar-route-acceptance-tests
-# last_modified_at: "2026-09-27T20:54:56.326Z"
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.cases, pyflightstream.workspace.inputs]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: "Bind existing real assertions to exact GOAL-033 capability markers."
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Offline CAD routing; these assertions do not establish native mesh quality or scale."""
 
 from pathlib import Path

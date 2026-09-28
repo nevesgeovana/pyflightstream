@@ -1,16 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.1.0
-file_role: custom-field-unit-contract
-last_modified_at: 2026-09-27T20:38:03.192Z
-last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
-dependencies: [../src/pyflightstream/cases/freestream.py, RPT-083]
-authority: geoverse-goddess-control-plane
-status: active
-confidentiality: public
-change_summary: Explain conservative spatial bounds and link measured unit controls.
-revision_source: git
--->
 # Custom-field units
 
 A custom field defines global-frame coordinates and velocity components. It does not rotate with ALPHA, BETA, or a body transform. Nonzero ALPHA/BETA beside a custom field remains refused.

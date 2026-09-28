@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.1.1
-# artifact_id: src/pyflightstream/run/cli.py
-# last_modified_at: 2026-09-27T23:24:23.671Z
-# last_modified_by: OpenAI / Codex / unknown / architect-correction-proposal
-# dependencies: [pyflightstream]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Use the registered post diagnostic renderer across the downward layer boundary.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """The ``pyfs-matrix`` command line.
 
 Pipeline role: drives the run matrix as a first-class interface

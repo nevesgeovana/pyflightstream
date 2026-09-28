@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.2
-# artifact_id: cli-signature-tests
-# last_modified_at: 2026-09-27T20:58:31.820Z
-# last_modified_by: OpenAI / Codex / unknown / primary-agent
-# dependencies: [pyflightstream CLI entrypoints]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Bind all CLI signatures and varied truthful outcomes.
-# revision_source: git
 """Usage: ``pyfs-matrix --help`` leaves help on stdout and one signature on stderr."""
 
 import importlib

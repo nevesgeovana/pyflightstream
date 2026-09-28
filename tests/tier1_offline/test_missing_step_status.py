@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.1
-# last_modified_at: 2026-09-27T21:01:51.779Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream.run.collect]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Bind temporal export and diagnostic behavior to release scope.
-# revision_source: git
 """Missing per-step actions add a status warning, never an invented solver failure."""
 
 import json

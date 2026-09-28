@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T23:43:03.876Z
-# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
-# dependencies: [pyflightstream.workspace.excel_sync, pyflightstream.workspace.fsi_setup]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Inventory the public modules introduced by the current release.
-# revision_source: git
-# GEOVERSE_HEADER_END
-
 """Tier 1: the public module list, affirmed (D3, scipy _public_api model).
 
 Pipeline role: quality gate on the package's import surface. The list

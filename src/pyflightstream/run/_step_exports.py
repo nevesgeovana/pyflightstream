@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T14:27:00+00:00
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [Python standard library]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Diagnose missing per-step action evidence without changing solver status.
-# revision_source: git
 """The missing-action diagnostic shared by local runs and submitted collection."""
 
 from collections.abc import Mapping

@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.3
-# artifact_id: native-surface-example
-# last_modified_at: 2026-09-27T19:06:07.787Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementer
-# dependencies: [pyflightstream]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Render a didactic example and preserve standard CLI outcome messages.
-# revision_source: git
-# GEOVERSE_HEADER_END
 # %% [markdown]
 # # A surface with native nodal singularity strength
 #

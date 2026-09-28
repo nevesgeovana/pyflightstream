@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-artifact_id: documentation-home
-last_modified_at: 2026-09-27T19:06:07.787Z
-last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementer}
-dependencies: [pyflightstream]
-authority: pyflightstream
-status: draft
-confidentiality: public
-change_summary: Link workspace additions and their explicit evidence limits.
-revision_source: git
--->
-
 # pyflightstream
 
 Version-aware, didactic Python driver for the FlightStream panel-method

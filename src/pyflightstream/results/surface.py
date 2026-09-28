@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.9
-# artifact_id: surface-translation
-# last_modified_at: 2026-09-27T20:25:20.672Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementer
-# dependencies: [numpy; native_surface.py; RPT-074]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Order the batch activity dependency with lower-layer imports.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """The surface solution: read from the solver's VTK, written as Tecplot (G45, 0.28.0).
 
 Pipeline role: the ONE route to a Tecplot surface of a campaign point. The

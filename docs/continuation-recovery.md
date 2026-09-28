@@ -1,16 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.3
-last_modified_at: 2026-09-27T20:43:02.680Z
-last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementer}
-dependencies: [examples/continuation_frame_recovery.py]
-authority: pyflightstream
-status: draft
-confidentiality: public
-change_summary: Mark only the populated-workspace recipe as requiring user data.
-revision_source: git
--->
-
 # Recovering a historical continuation frame
 
 A stopped run recorded before 0.28.0 can lack the analysis loads-frame

@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: "1.4.19"
-# artifact_id: src/pyflightstream/cases/workflows.py
-# last_modified_at: 2026-09-28T00:48:33.964Z
-# last_modified_by: OpenAI / Codex / unknown / primary-agent
-# dependencies: [pyflightstream]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Route custom-field unit warnings through the durable diagnostic sink.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Workflows: a run TYPE that builds the whole script by itself.
 
 Pipeline role: the builder half of the file-managed modality. A recipe

@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# last_modified_at: 2026-09-28T00:39:18.437Z
-# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
-# dependencies: [pyflightstream.post.products; pyflightstream.run.cli]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Test API warning replay, CLI opt-in and durable equation refusal details.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Tier 1, 0.24.0: the three pproc tables are CONSUMED, each through the step a campaign runs.
 
 `[phase_locked]`, `[equations]` and `[glossary]` were fields of the pproc spec

@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.2.8
-# last_modified_at: 2026-09-27T23:40:40.346Z
-# last_modified_by: OpenAI / Codex / unknown / api-designer-pyflightstream
-# dependencies: [pyflightstream.post]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Keep reusable inflow filenames consistent with UNSTRUCTURED workspace input.
-# revision_source: git
 """Probe samples retain coordinates, components and explicit point topology."""
 
 import json

@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.1.1
-# last_modified_at: 2026-09-27T22:14:41.161Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-author
-# dependencies: [pyflightstream.cases.workflows, pyflightstream.fsi.nodes]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Test workspace coupling through the existing FsiConfig and driver.
-# revision_source: git
 """Existing FSI selection reaches native setup, staged inputs and ordinary START.
 
 The previous duplicate SolverSettings.aeroelastic API design and its RED receipt

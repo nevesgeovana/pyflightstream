@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: "1.0.1"
-# artifact_id: setup-standard-completeness-tests
-# last_modified_at: 2026-09-27T19:56:12.025Z
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: primary-agent}
-# dependencies: [pytest; pyflightstream]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Identify measured completeness and one-setting obligations for release evidence.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Behavioral acceptance for owner-requested complete and comparable setup files."""
 
 import tomllib

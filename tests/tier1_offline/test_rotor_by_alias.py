@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.1
-# last_modified_at: 2026-09-28T00:24:53.293Z
-# last_modified_by: OpenAI / Codex / unknown / architect-reviewer-correction
-# dependencies: []
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Restore shared interfaces and factual contract declarations for the release.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """A row names its rotor by alias and states nothing else about it (FR-61, FR-63).
 
 The author's design of 2026-09-10. A motion record carries `MOVING_BC_ALIAS` and

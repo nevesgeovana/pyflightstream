@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T14:05:00+00:00
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [pyflightstream._cli]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Document the shared CLI invocation reporting module.
-# revision_source: git
 """pyflightstream: version-aware, didactic Python driver for FlightStream.
 
 The package automates the FlightStream panel-method solver through its

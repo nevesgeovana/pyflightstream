@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.1.0
-# file_role: activity-failure-reporting-regressions
-# last_modified_at: 2026-09-27T23:30:53.667Z
-# last_modified_by: OpenAI / Codex / unknown / qa-proposal
-# dependencies: [pytest, pyflightstream._progress]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Preserve failed CollectReport results and their actionable diagnostic.
-# revision_source: git
 """Diagnostic storage failures must not replace the operational failure."""
 
 from types import SimpleNamespace

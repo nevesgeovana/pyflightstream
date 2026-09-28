@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.0.0"
-# file_role: obj-surface-inventory-regression-tests
-# last_modified_at: "2026-09-27T18:12:06.452Z"
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
-# dependencies: [pyflightstream.workspace.inputs]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Preserve refusal for the unmeasured reverse group transition.
-# revision_source: git
 """Tier 1, 0.28.0 item G30: an OBJ's surface names read from its groups (RPT-078).
 
 THE ITEM: a raw mesh's surfaces are named in ``<stem>.boundaries.toml``, and

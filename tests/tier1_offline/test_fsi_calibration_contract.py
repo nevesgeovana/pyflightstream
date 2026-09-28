@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.2
-# artifact_id: fsi-calibration-contract-tests
-# last_modified_at: 2026-09-27T20:13:54.844Z
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [pyflightstream.workspace.fsi_setup, test_workspace_fsi_setup]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Wrap long assertions after successful property and CLI acceptance.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Physical input invariants; these tests do not substitute for a coupled solve."""
 
 import hashlib

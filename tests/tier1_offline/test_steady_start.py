@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.0.1"
-# last_modified_at: "2026-09-27T22:09:28.693Z"
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: independent-reviewer}
-# dependencies:
-#   - ../../src/pyflightstream/run/__init__.py
-#   - ../../src/pyflightstream/cases/workflows.py
-# status: active
-# confidentiality: public
-# change_summary: "Bind the existing first/later point start regression to approved R13."
-# revision_source: git
 """R13: exercise emitted sweep behavior as well as the run-layer selection."""
 
 import pytest

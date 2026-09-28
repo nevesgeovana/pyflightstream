@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.1
-# artifact_id: test-workspace-fsi-driver
-# last_modified_at: 2026-09-27T20:26:41.337Z
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [pyflightstream.workspace.fsi_setup, pyflightstream.fsi.cli]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Preserve literal newline escapes in the actual driver replay fixture.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Offline usability of the existing FSI driver with a workspace f-prefixed input."""
 
 import json

@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# artifact_id: surface-translation-regressions
-# last_modified_at: 2026-09-27T18:35:54.529Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementer
-# dependencies: [pyflightstream; pytest]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Extend VTK translation regressions to the retained native nodal source.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """G45 of 0.28.0: the Tecplot surface is written by the package from the VTK, the only route.
 
 Oracle: what RPT-074 measured on FlightStream 26.124. The solver writes its VTK

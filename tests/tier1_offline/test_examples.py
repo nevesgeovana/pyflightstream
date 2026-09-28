@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# file_role: executable-example-inventory
-# last_modified_at: 2026-09-27T23:24:23.671Z
-# last_modified_by: OpenAI / Codex / unknown / architect-correction-proposal
-# dependencies: [pyproject.toml, pyflightstream._errors]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Register new examples and invoke their real CLIs with existing synthetic fixtures.
-# revision_source: git
 """Tier 1: the worked examples run, and each declares the extras it needs.
 
 REV-002 finding PYFS-026, the examples half. The four ``examples/*.py``

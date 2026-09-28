@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: "1.2.0"
-file_role: geometry-unit-and-start-guidance
-authority: pyflightstream
-last_modified_at: "2026-09-27T18:31:35.196Z"
-last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
-dependencies: [../src/pyflightstream/_lengths.py, ../src/pyflightstream/cases/workflows.py]
-status: active
-confidentiality: public
-change_summary: "Document exact-identity rotary timing and its measured limits."
-revision_source: git
--->
-
 # Geometry units and steady starts
 
 From 0.29.0 a steady attitude sweep starts every point cold, including the

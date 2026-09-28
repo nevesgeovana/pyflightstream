@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: "2.0.0"
-file_role: macro-free-excel-matrix-guide
-last_modified_at: "2026-09-27T22:00:00+00:00"
-last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
-dependencies: [src/pyflightstream/workspace/excel.py, src/pyflightstream/workspace/excel_file.py]
-authority: geoverse-goddess-control-plane
-status: active
-confidentiality: public
-change_summary: "Document the approved macro-free workbook and explicit CLI roundtrip."
-revision_source: git
--->
-
 # Optional Excel matrix workbook
 
 The optional workbook is an ordinary **.xlsx without macros or buttons**. Python

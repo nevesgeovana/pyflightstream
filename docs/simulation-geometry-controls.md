@@ -1,16 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: "1.0.1"
-file_role: simulation-geometry-control-guide
-last_modified_at: "2026-09-27T21:34:00.356Z"
-last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
-dependencies: [../src/pyflightstream/cases/workflows.py]
-authority: pyflightstream
-status: draft
-confidentiality: public
-change_summary: "Document preserved native Python references and explicit workspace SI conversion."
-revision_source: git
--->
 # Simulation units and geometry thresholds
 
 A setup preset can declare these optional solver settings:

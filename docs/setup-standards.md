@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.1.2
-artifact_id: setup-standards-guide
-last_modified_at: 2026-09-27T23:41:12.330Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
-dependencies: [pyflightstream.workspace.setup_standards]
-authority: pyflightstream
-status: draft
-confidentiality: public
-change_summary: Name the actual SET matrix column for selecting generated setups.
-revision_source: git
--->
-
 # Setup standards and guidance
 
 Generate the guide and standard setup library while planning:

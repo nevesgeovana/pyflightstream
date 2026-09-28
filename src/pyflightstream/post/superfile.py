@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# last_modified_at: 2026-09-28T00:44:20.753Z
-# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
-# dependencies: [pyflightstream.post; pyflightstream.workspace.RunRecord]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Carry the recorded custom-field unit declaration in the SUPER row.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """FR-89: one derived file per polar and group that carries everything the workspace knows.
 
 Knowing what one simulation WAS and what it PRODUCED took six files until

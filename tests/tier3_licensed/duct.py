@@ -1,33 +1,12 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.1
-# artifact_id: synthetic-duct-fixture-generator
-# last_modified_at: 2026-09-27T23:06:27.528Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-author
-# dependencies: [inputs/duct/duct.boundaries.toml]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Format the approved generator while preserving its exact payload bytes.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Reproduce the measured eight-vertex, six-quad synthetic duct locally."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-_CAPTURE_HEADER = """# GEOVERSE_HEADER_BEGIN
-# file_version: "1.0.0"
-# last_modified_at: "2026-09-27T14:59:01.788097+00:00"
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementer}
-# dependencies: []
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: "Add synthetic uniform-normal-velocity duct fixture for G07."
-# revision_source: git
-# GEOVERSE_HEADER_END
-"""
+_CAPTURE_HEADER = (
+    "# synthetic duct fixture: eight vertices, six quads (inlet, outlet, four walls)\n"
+)
 
 
 def write_duct_obj(path: Path) -> Path:

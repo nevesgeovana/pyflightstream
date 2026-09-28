@@ -1,23 +1,12 @@
 {
-  "_geoverse_header": {
-    "file_version": "1.0.0",
+  "provenance": {
     "file_role": "Public synthetic native surface-probe measurements",
-    "last_modified_at": "2026-09-27T20:58:53.386Z",
-    "last_modified_by": {
-      "provider": "OpenAI",
-      "product": "Codex",
-      "model": "unknown",
-      "role": "implementation-agent"
-    },
     "dependencies": [
       "40_PUSHER.provenance.toml",
       "RPT-083"
     ],
-    "authority": "pyflightstream",
     "status": "measured",
-    "confidentiality": "public",
-    "change_summary": "Retain measured surface coordinate equivalence and BL-to-Cp fallback.",
-    "revision_source": "git"
+    "change_summary": "Retain measured surface coordinate equivalence and BL-to-Cp fallback."
   },
   "source_geometry": {
     "origin": "Public synthetic 40_PUSHER geometry generated from public shape laws",

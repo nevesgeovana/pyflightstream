@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.1
-# last_modified_at: 2026-09-27T21:01:38.971Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-agent
-# dependencies: [pyflightstream.cases]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Bind existing setup and boundary behavior tests to GOAL-033 obligations.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Tier 1: the workspace workflow, from a run type to a complete script.
 
 Pipeline role: quality gate on PFS-2025.02, .05, .06, .08, .10 and .18.

@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T14:10:00+00:00
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [Windows User32, Python standard library]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Read only modal/error windows belonging to the launched solver PID.
-# revision_source: git
 """Bounded, read-only capture of a local solver's modal diagnostics.
 
 Only windows belonging to the exact launched PID are inspected. No button is

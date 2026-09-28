@@ -1,12 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.0.0"
-# last_modified_at: "2026-09-27T15:35:36.983207+00:00"
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
-# dependencies: []
-# status: active
-# confidentiality: public
-# change_summary: "Align physical-unit and steady-start regression coverage with approved behavior."
-# revision_source: git
 """Tier 1: an actuator disc on a matrix row (G06, board row PFS-2008.02.02).
 
 Pipeline role: quality gate on FR-109 of 0.27.0.

@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.2
-# file_role: explicit-custom-field-unit-preparation
-# last_modified_at: 2026-09-27T21:58:19.804Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [RPT-083, pyflightstream.cases]
-# authority: geoverse-goddess-control-plane
-# status: active
-# confidentiality: public
-# change_summary: Reuse the shared length scale without widening measured units.
-# revision_source: git
 """Prepare explicitly declared custom fields for the solver's measured file units."""
 
 from __future__ import annotations

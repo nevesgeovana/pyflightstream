@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# file_role: native-lift-and-coupling-build-regressions
-# last_modified_at: 2026-09-27T21:44:30.494Z
-# last_modified_by: OpenAI / Codex / unknown / implementation-agent
-# dependencies: [RPT-068, pyflightstream.commands, pyflightstream.cases.workflows]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Bind G22 to the existing exact-build named native refusal regression.
-# revision_source: git
 """Tier 1: two setup keys for two documented commands, validated by build (0.27.0, G14).
 
 * ``vorticity_lift_model`` -> ``SET_VORTICITY_LIFT_MODEL ENABLE|DISABLE``, every

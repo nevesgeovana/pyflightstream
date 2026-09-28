@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.0
-# last_modified_at: 2026-09-28T00:42:22.059Z
-# last_modified_by: OpenAI / Codex / unknown / primary-agent
-# dependencies: [pyflightstream.run.cli; docs/post-processing-definitions.md]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Bind the current submitted-extraction guarantee to its lifecycle test.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Tier 1, 0.27.0 item D07: the definition and workflow pages, each guarantee held by a test.
 
 THE OWNER'S SCOPE OF 2026-09-23, item D07: "the definition and workflow pages:

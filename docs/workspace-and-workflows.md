@@ -1,16 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.2
-last_modified_at: 2026-09-28T00:42:22.059Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: primary-agent}
-dependencies: [pyflightstream.post.guides]
-authority: pyflightstream
-status: active
-confidentiality: public
-change_summary: Cite the lifecycle test on the submitted-extraction guarantee.
-revision_source: git
--->
-
 # The workspace and the workflow
 
 A **workspace** is the folder this package owns. You point it at a

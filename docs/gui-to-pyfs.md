@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.1.1
-artifact_id: gui-workspace-map
-last_modified_at: 2026-09-27T23:45:05.733Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
-dependencies: [pyflightstream]
-authority: pyflightstream
-status: draft
-confidentiality: public
-change_summary: Route the volume-section GUI row through current probe sampling and derived fields.
-revision_source: git
--->
-
 # From the GUI to pyfs
 
 A FlightStream session in the GUI is a sequence of steps: load the geometry,

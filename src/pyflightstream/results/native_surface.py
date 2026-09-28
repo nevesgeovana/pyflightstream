@@ -1,15 +1,3 @@
-# GEOVERSE_HEADER_BEGIN
-# file_version: 1.0.3
-# artifact_id: native-nodal-surface-reader
-# last_modified_at: 2026-09-27T23:26:54.880Z
-# last_modified_by: OpenAI / Codex / unknown / vv-review-proposal
-# dependencies: [numpy; pyflightstream.results.surface; RPT-074 native exports]
-# authority: pyflightstream
-# status: draft
-# confidentiality: public
-# change_summary: Reject fractional counts and report incomplete native exports.
-# revision_source: git
-# GEOVERSE_HEADER_END
 """Read the native FEPolygon export without inventing nodal values from panel data.
 
 Only the single-zone BLOCK layout measured in RPT-074 is accepted. Native

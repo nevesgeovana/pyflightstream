@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.1
-# last_modified_at: 2026-09-27T20:34:20.538Z
-# last_modified_by: OpenAI / Codex / GPT-6 / primary-agent
-# dependencies: [pyflightstream.run.matrix]
-# artifact_id: additional-post-tests
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Supply matching native Tecplot and VTK in the shared additional-post stub.
-# revision_source: git
 """Tier 1: the additional post over a point's saved simulation (0.27.0, G12, FR-111).
 
 A row may name a second pproc, ``ADDITIONAL_PPROC: p<id>``, and

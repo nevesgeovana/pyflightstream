@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: "1.3.0"
-# file_role: prescribed-frame-motion-ledger
-# last_modified_at: "2026-09-27T19:59:10.058Z"
-# last_modified_by: {provider: OpenAI, product: Codex, model: GPT-6, role: implementation-agent}
-# dependencies: [pyflightstream.script]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: "Bind independently measured MM rotary timing to the exact native identity."
-# revision_source: git
 """Geometry/time provenance from emitted commands, never velocity-basis evidence."""
 
 from __future__ import annotations

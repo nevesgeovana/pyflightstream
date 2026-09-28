@@ -1,17 +1,3 @@
-<!--
-GEOVERSE_HEADER
-file_version: 1.0.0
-artifact_id: pyflightstream-mesh-inputs-guide
-last_modified_at: 2026-09-28T00:44:33.406Z
-last_modified_by: {provider: OpenAI, product: Codex, model: unknown, role: tech-writer-pyflightstream}
-dependencies: [pyflightstream.cases.MeshImport, pyflightstream.workspace.inputs, docs/cad-inputs.md, tests/tier1_offline/test_mesh_inputs_page.py]
-authority: pyflightstream
-status: active
-confidentiality: public
-change_summary: Add reader-supported explicit IGES and no-trailing-edge examples without broadening CAD support.
-revision_source: git
--->
-
 # Mesh inputs and GUI-only operations
 
 This page is for a user who brings a mesh to a run. Two inputs are canonical,

@@ -1,14 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# file_role: optional-dependency-contract
-# last_modified_at: 2026-09-27T23:24:23.671Z
-# last_modified_by: OpenAI / Codex / unknown / architect-correction-proposal
-# dependencies: [pyproject.toml, pyflightstream._errors]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Include optional workbook authoring in the shared missing-extra contract.
-# revision_source: git
 """Optional extras: what each one installs, and one refusal for all of them.
 
 Pipeline role: cross-cutting support module, deliberately import-light.

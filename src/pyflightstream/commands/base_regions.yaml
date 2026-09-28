@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T19:27:43.004Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [reports/RPT-021_chapter-questions-measured_2026-08-08.md]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Permit base-region remesh after its prerequisite creation or detection.
-# revision_source: git
 # Chapter: Scripting reference, Base Regions (SRC-003 pp.317-318, plus
 # p.284 for the bending angle).
 #

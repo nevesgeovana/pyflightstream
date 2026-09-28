@@ -1,13 +1,3 @@
-# GEOVERSE_HEADER
-# file_version: 1.0.0
-# last_modified_at: 2026-09-27T19:10:38.281Z
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
-# dependencies: [SRC-752 pp.190-192, pyflightstream.script]
-# authority: pyflightstream
-# status: active
-# confidentiality: public
-# change_summary: Permit port remeshing after its required port creation, before initialization.
-# revision_source: git
 # Chapter: Scripting reference, Inlets and Outlets (SRC-003 pp.325-326).
 #
 # COMPLETE as of 2026-08-08, entered from all four registered editions in
