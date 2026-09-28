@@ -475,3 +475,19 @@ def test_inspection_resolves_symmetry_override_and_keeps_invalid_rows_inspectabl
     assert result["settings"]["symmetry_loads"]["provenance"] == "matrix row"
     assert result["settings"]["max_threads"]["value"] is None
     assert "NCPUS" in result["settings"]["max_threads"]["error"]
+
+
+def test_every_generated_standard_states_five_farfield_layers():
+    # Owner rule of 2026-09-19: farfield_layers = 5 in the setup of every run.
+    # The command database documents 1..5 (SRC-003 p.344); no study may vary it.
+    from pyflightstream.workspace.setup_standards import render_standard, setup_standards
+
+    for standard in setup_standards():
+        data = tomllib.loads(render_standard(standard, "26.124"))
+        assert data.get("farfield_layers") == 5, standard.code
+
+
+def test_solver_settings_refuse_farfield_layers_outside_the_documented_range():
+    with pytest.raises(ValidationError):
+        SolverSettings(farfield_layers=8)
+    assert SolverSettings(farfield_layers=5).farfield_layers == 5

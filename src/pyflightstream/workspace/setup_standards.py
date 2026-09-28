@@ -50,7 +50,9 @@ _EXPERIMENTS: tuple[tuple[str, str, Any], ...] = (
     ("s926", "additional_wake_relaxation", True),
     ("s927", "unsteady_pressure_and_kutta", False),
     ("s928", "wake_termination_steps", 360),
-    ("s929", "farfield_layers", 8),
+    # s929 retired: farfield_layers is fixed at 5 in every run by owner rule
+    # (2026-09-19); the documented range is 1..5 (SRC-003 p.344). The ID stays
+    # reserved and is not reused.
     ("s930", "reynolds_averaged_drag", True),
     ("s931", "minimum_cp", -20.0),
     ("s932", "surface_roughness", 23.5),
