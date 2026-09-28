@@ -3936,7 +3936,14 @@ class SolverSettings(BaseModel):
     crossflow_separation_mean_diameter: float | None = Field(default=None, gt=0)
     #: Whether the selected crossflow model assumes an axisymmetric body.
     crossflow_separation_axisymmetric: SolverToggle | None = None
-    #: Legacy SET_SOLVER_MODEL is distinct from INITIALIZE_SOLVER's solver_model.
+    #: Refused in 0.29.0 on every build: SET_SOLVER_MODEL, the flow-model command
+    #: only the 25.000 edition documents, is removed from 25.100 onward, and no
+    #: workflow can write its INITIALIZE_SOLVER for 25.000.
+    #:
+    #: Distinct from :attr:`solver_model`, the INITIALIZE_SOLVER argument that
+    #: replaced it. Kept so a setup stating it is refused rather than read as a
+    #: setting a run applied: by the build guard naming the command on 25.100
+    #: onward, and on 25.000 by the INITIALIZE_SOLVER helper, as every case is.
     legacy_solver_model: str | None = None
     #: Explicit BC overrides, emitted before runtime/init settings. RELAXED remains deferred.
     trailing_edge_types: (
@@ -3986,7 +3993,14 @@ class SolverSettings(BaseModel):
             )
         return self
 
-    #: Legacy explicit speed of sound, metres per second, on evidenced builds only.
+    #: Refused in 0.29.0 on every build: SONIC_VELOCITY, a legacy explicit speed
+    #: of sound in metres per second, has no recorded evidence on any registered
+    #: build, and 26.101 onward removed it (the solver warns and ignores it).
+    #:
+    #: The sound speed follows from the resolved temperature and specific-heat
+    #: ratio. Kept so a setup stating it is refused by the build guard, naming the
+    #: command, rather than read as a setting a run applied; with
+    #: ``freestream_input = "mach"`` a differing value is refused before that.
     sonic_velocity_m_per_s: float | None = Field(default=None, gt=0)
     #: Legacy PHYSICS automatic trailing-edge detection; state with physics_auto_wake_nodes.
     physics_auto_trailing_edges: bool | None = None
