@@ -158,6 +158,27 @@ def test_an_unwritable_log_does_not_stop_a_progress_line(tmp_path, capsys):
     assert "could not persist diagnostic" in capsys.readouterr().err
 
 
+def test_an_unwritable_log_and_a_closed_stderr_still_keep_the_stage_result(tmp_path, monkeypatch):
+    """GOAL-034 Q8 CXQ8R2-2: the fallback that says a log could not be written
+    wrote to stderr unguarded, so a closed stderr made the observer raise."""
+    import io
+    import sys
+
+    from pyflightstream.run import _say
+
+    (tmp_path / "logs" / "activity.log.jsonl").mkdir(parents=True)
+    closed = io.StringIO()
+    closed.close()
+    monkeypatch.setattr(sys, "stderr", closed)
+
+    @progress.workspace_activity("run")
+    def stage(workspace):
+        _say("point 1 of 1 done", quiet=True)
+        return "STAGE-RESULT"
+
+    assert stage(tmp_path) == "STAGE-RESULT"
+
+
 def test_a_raising_diagnosis_does_not_replace_a_stage_result(tmp_path):
     import json
 

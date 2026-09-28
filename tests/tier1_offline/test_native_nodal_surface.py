@@ -187,6 +187,37 @@ def test_translation_carries_real_strength_and_both_source_hashes(tmp_path):
     assert record["not_carried"] == []
 
 
+def test_a_loads_frame_far_from_the_origin_still_matches_its_native_nodes(tmp_path):
+    """GOAL-034 Q8 CXQ8R2-1: the VTK is rounded to single precision in the LOADS
+    frame; a loads frame 1e4 away rounds each coordinate by up to ~5e-4, which the
+    reference-frame extent of a unit panel did not allow for."""
+    from pyflightstream.results.surface import SurfaceFrame
+
+    origin = (10000.0, 0.0, 0.0)
+    reference = _vtk().points + np.array([0.1, 0.1, 0.0])
+    loads = (reference - np.array(origin)).astype(np.float32).astype(float)
+    assert np.abs(loads + np.array(origin) - reference).max() > 1e-5  # the rounding is real
+    surface = VtkSurface(
+        points=loads,
+        offsets=_vtk().offsets,
+        connectivity=_vtk().connectivity,
+        cell_data=dict(_vtk().cell_data),
+    )
+    path = write_vtk_surface(tmp_path / "p.vtk", surface, title="test")
+    native = tmp_path / "native.dat"
+    native.write_text(
+        'TITLE="Native"\nVARIABLES="X","Y","Z","Singularity_strength"\n'
+        "ZONE T=Solver, NODES=4, ELEMENTS=1, FACES=4, DATAPACKING=BLOCK, "
+        "ZONETYPE=FEPolygon, NumConnectedBoundaryFaces=0, TotalNumBoundaryConnections=0\n"
+        "1.1 0.1 0.1 1.1\n1.1 0.1 1.1 0.1\n0 0 0 0\n30 10 40 20\n2 4 4 1 1 3 3 2\n"
+        "1 1 1 1\n0 0 0 0\n",
+        encoding="utf-8",
+    )
+    frame = SurfaceFrame(origin, REFERENCE_FRAME.axes, 2)
+    record = translate_vtk_surface(path, tmp_path / "p.dat", frame=frame, native_tecplot=native)
+    assert record["nodal_variables"] == ["Singularity_strength"]
+
+
 def test_stamped_step_never_borrows_final_native_strength(tmp_path):
     write_vtk_surface(tmp_path / "p_iteration=3.vtk", _vtk(), title="step")
     _native(tmp_path / "native.dat")

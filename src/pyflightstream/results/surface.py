@@ -736,7 +736,19 @@ def translate_vtk_surface(
             raise IncompleteOutputError(f"Missing native nodal source {native_path.name}")
         native_hash = file_sha256(native_path)
         native = read_native_tecplot_surface(native_path)
-        translated, mapping = attach_native_strength(translated, native)
+        # The VTK is rounded to single precision in the LOADS frame, before it is
+        # carried back: a loads frame far from the reference origin rounds its
+        # coordinates at its own magnitude, which the reference-frame geometry
+        # does not show (GOAL-034 Q8 CXQ8R2-1). The tolerance takes the larger.
+        extent = float(np.linalg.norm(np.ptp(native.points, axis=0)))
+        magnitude = max(
+            float(np.abs(native.points).max(initial=0.0)),
+            float(np.abs(surface.points).max(initial=0.0)),
+        )
+        tolerance = max(1e-10, extent * 1e-6, 4.0 * float(np.finfo(np.float32).eps) * magnitude)
+        translated, mapping = attach_native_strength(
+            translated, native, coordinate_tolerance=tolerance
+        )
         if file_sha256(native_path) != native_hash:
             raise MalformedOutputError("Native nodal source changed during translation")
         native_record = {
