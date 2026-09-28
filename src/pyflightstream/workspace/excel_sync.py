@@ -442,6 +442,26 @@ def preview_sync(
                 if name not in ascii_record and direction == "read":
                     continue
                 if name not in matrix.columns:
+                    # A legacy-layout file has no such column. An Excel value
+                    # for it is refused visibly rather than skipped: the
+                    # preview shows every decision.
+                    cell = sheet.get(name, Cell())
+                    if direction == "write" and (cell.value or cell.formula):
+                        result.changes.append(
+                            Change(
+                                "INVALID",
+                                filename,
+                                pol,
+                                name,
+                                header,
+                                "",
+                                cell.value,
+                                sheet_index,
+                                headers.index(header),
+                                "Column is absent from this file's legacy layout; "
+                                "migrate the matrix before writing it.",
+                            )
+                        )
                     continue
                 cell = sheet.get(name, Cell())
                 file_value = ascii_record.get(name, "")

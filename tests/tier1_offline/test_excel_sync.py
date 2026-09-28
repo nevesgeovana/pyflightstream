@@ -192,6 +192,41 @@ def test_legacy_union_and_schema_preserved_without_upgrade(tmp_path: Path) -> No
     assert "new" in legacy.read_text()
 
 
+def test_an_edit_to_a_column_the_legacy_layout_lacks_is_refused_not_skipped(
+    tmp_path: Path,
+) -> None:
+    # Q0-src-workspace-3: the preview shows every decision; a silent skip is a defect.
+    from pyflightstream.cases.matrix import _LEGACY_COLUMNS_15
+
+    assert "FLIGHT_CONDITION" not in _LEGACY_COLUMNS_15
+    legacy = tmp_path / "legacy.fs"
+    values = dict.fromkeys(_LEGACY_COLUMNS_15, "-")
+    values.update(POL="007", RE="2.0", MACH="0.1", DESCRIPTION="old")
+    legacy.write_text(
+        " | ".join(_LEGACY_COLUMNS_15)
+        + "\n"
+        + " | ".join(values[name] for name in _LEGACY_COLUMNS_15)
+        + "\n"
+    )
+    matrix(tmp_path)
+    snap = imported(tmp_path)
+    row = next(row for row in snap.rows if row[snap.headers.index("MATRIX")].value == "legacy.fs")
+    assert row[snap.headers.index("FLIGHT_CONDITION")].value == ""
+    row[snap.headers.index("FLIGHT_CONDITION")] = Cell("MACH:0.2")
+    preview = preview_sync(tmp_path, snap, direction="write")
+    refused = [
+        change
+        for change in preview.changes
+        if change.matrix == "legacy.fs" and change.ascii_name == "FLIGHT_CONDITION"
+    ]
+    assert [change.action for change in refused] == ["INVALID"]
+    assert "legacy layout" in refused[0].detail
+    assert not preview.applicable
+    # An untouched current-only cell of a legacy row is not a decision to show.
+    row[snap.headers.index("FLIGHT_CONDITION")] = Cell("")
+    assert preview_sync(tmp_path, snap, direction="write").applicable
+
+
 def test_duplicate_filename_across_locations_is_ambiguous(tmp_path: Path) -> None:
     nested = matrix(tmp_path)
     (tmp_path / "batch.fs").write_bytes(nested.read_bytes())
