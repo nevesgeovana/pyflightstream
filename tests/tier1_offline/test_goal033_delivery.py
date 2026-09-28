@@ -40,7 +40,13 @@ DOCS = ROOT / "docs"
 PYPROJECT = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 VERSION = PYPROJECT["project"]["version"]
 CHANGELOG = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-MIGRATION = DOCS / f"migrating-to-{VERSION}.md"
+#: The release these checks read the notes of. On a release tree it is the
+#: version itself; on a development tree (X.Y.Z.devN, which has no section
+#: and no migration page yet) it is the newest released section, so the
+#: notes of the last release stay checked while the next is being built.
+_NEWEST = re.search(r"^## \[(\d+\.\d+\.\d+)\]", CHANGELOG, flags=re.MULTILINE)
+RELEASED = _NEWEST.group(1) if (_NEWEST and re.search(r"\.dev\d+$", VERSION)) else VERSION
+MIGRATION = DOCS / f"migrating-to-{RELEASED}.md"
 
 #: Suffixes that are never package payload: geometry, saved simulations,
 #: spreadsheets, documents, archives, logs and the retired workbook macro.
@@ -154,7 +160,7 @@ def test_the_release_wheel_is_built_from_the_tree_with_the_release_identity(buil
     # The version the wheel carries is the version the CHANGELOG releases, and
     # the release workflow refuses a tag that differs from it.
     newest = re.search(r"^## \[(\d+\.\d+\.\d+)\]", CHANGELOG, flags=re.MULTILINE)
-    assert newest and newest.group(1) == VERSION, (newest and newest.group(1), VERSION)
+    assert newest and newest.group(1) == RELEASED, (newest and newest.group(1), RELEASED)
     release = yaml.safe_load(
         (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
     )
@@ -292,13 +298,13 @@ def test_every_documented_page_is_built_and_reachable():
     assert not orphans, f"committed pages the menu does not reach: {orphans}"
     # Every page the release's own CHANGELOG section and migration page cite
     # is a page of the site.
-    cited = set(re.findall(r"\]\(docs/([\w./-]+\.md)", _changelog_section(VERSION)))
+    cited = set(re.findall(r"\]\(docs/([\w./-]+\.md)", _changelog_section(RELEASED)))
     cited |= set(
         re.findall(r"\]\(([\w./-]+\.md)(?:#[\w-]+)?\)", MIGRATION.read_text(encoding="utf-8"))
     )
-    assert f"migrating-to-{VERSION}.md" in cited
+    assert f"migrating-to-{RELEASED}.md" in cited
     absent = sorted(page for page in cited if page not in targets)
-    assert not absent, f"pages the {VERSION} notes cite that the menu lacks: {absent}"
+    assert not absent, f"pages the {RELEASED} notes cite that the menu lacks: {absent}"
 
 
 #: Each reader-facing change of the CHANGELOG's ``### Changed`` list, by its
@@ -347,8 +353,8 @@ def test_the_migration_page_names_every_reader_facing_change():
     """
     assert MIGRATION.is_file(), f"{MIGRATION.name} is absent"
     page = MIGRATION.read_text(encoding="utf-8")
-    section = _changelog_section(VERSION)
-    assert f"docs/migrating-to-{VERSION}.md" in section, (
+    section = _changelog_section(RELEASED)
+    assert f"docs/migrating-to-{RELEASED}.md" in section, (
         "the CHANGELOG section does not cite the page"
     )
     changed = re.search(
