@@ -543,9 +543,9 @@ def _placed_by_turn(
     origin of the frame it turns about, which a turn about that point cannot
     move whatever its sign.
     """
-    # A zero turn preserves placement independently of rotation-sign evidence.
-    if float(bound.get("angle", 0.0)) == 0.0:
-        return
+    # NO ZERO-TURN SHORTCUT (GOAL-034 Q4, GEO-060 A1b/A1c): that a turn by 0
+    # leaves a frame in place is a claim about the solver with no owner decision
+    # and no recorded native export behind it, so the turn is treated as any other.
     held = placements.get(frame)
     pivot = placements.get(bound.get("rotation_frame"))  # type: ignore[arg-type]
     stays = (
