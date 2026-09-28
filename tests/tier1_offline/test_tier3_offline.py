@@ -41,6 +41,31 @@ def test_every_tier3_matrix_plans_ready(matrix):
     assert len(rendered) == count, "a ready point rendered no script"
 
 
+def test_an_offline_render_writes_no_activity_log_into_the_tier3_tree():
+    """GEO-060 M5: the planner's activity log went to ``tests/tier3_licensed/logs``.
+
+    The workspace root of an offline render is the committed tier-3 folder,
+    and every planning stage appended ``logs/activity.log(.jsonl)`` there, so
+    the offline suite left untracked files in the source tree. Compared as a
+    before/after snapshot, so a folder a licensed run left behind on a seat
+    does not fail it; and non-vacuous, since the render must have planned.
+    """
+    logs = offline.HERE / "logs"
+
+    def snapshot() -> dict[str, int]:
+        if not logs.is_dir():
+            return {}
+        return {path.name: path.stat().st_size for path in logs.iterdir()}
+
+    before = snapshot()
+    count, rendered = offline.render(offline.HERE / "matriz_setup.fs")
+    assert count >= 1 and rendered
+    assert snapshot() == before, (
+        f"an offline render wrote into {logs}: {before} became {snapshot()}; the "
+        "planner's activity log must go to a throwaway folder, never the source tree"
+    )
+
+
 # --- what the suite's own workspace exercises (OPS-2006.01, PFS-2018.01) -----------
 
 
