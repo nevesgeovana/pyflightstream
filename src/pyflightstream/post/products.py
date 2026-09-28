@@ -5898,8 +5898,12 @@ def _point_series(
         reference=reference,
         rotors=_section_rotors(live, aliases, record),
         # R03 and R04 of 0.27.0: the geometry's names, recorded since 0.27.0 or
-        # recovered by the hash an older record carries; hashed only for a
-        # point that recorded a layout to match.
+        # recovered by the hash an older record carries; hashed for every point
+        # except one whose record proves an EMPTY layout ([]). A legacy record
+        # (layout None) is hashed too, deliberately: its layout is recovered
+        # from its hashed script against these names
+        # (section_distributions._legacy_script_layout),
+        # so a truthiness test here would silently disable that recovery.
         inventory=workspace.recorded_inventory(record) if record.sections_layout != [] else None,
     )
     try:
