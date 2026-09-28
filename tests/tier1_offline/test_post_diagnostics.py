@@ -45,7 +45,9 @@ def test_post_log_classifies_each_record_without_losing_detail(tmp_path, monkeyp
             assert message in record["message"]
 
 
-@pytest.mark.parametrize("enabled", [False, True], ids=["default-off", "opt-in"])
+@pytest.mark.parametrize(
+    "enabled", [False, True], ids=["warnings_default_off", "pproc_warnings_opt_in"]
+)
 def test_cli_quiet_default_retains_all_warnings_and_opt_in_groups(
     tmp_path, monkeypatch, capsys, enabled
 ):

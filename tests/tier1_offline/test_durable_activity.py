@@ -15,7 +15,16 @@ from tests.tier1_offline.test_run_campaign import (
 )
 
 
-@pytest.mark.parametrize("stage", ["preparation", "solver", "post", "persistent-detail"])
+@pytest.mark.parametrize(
+    "stage",
+    [
+        # Each case id names the obligation its stage's assertions prove.
+        pytest.param("preparation", id="prepare"),
+        pytest.param("solver", id="solver"),
+        pytest.param("post", id="pproc"),
+        pytest.param("persistent-detail", id="persistent_detail"),
+    ],
+)
 def test_campaign_records_stages_and_final_outcomes(tmp_path, stage):
     # GOAL033:logging:checks:prepare
     # GOAL033:logging:checks:solver

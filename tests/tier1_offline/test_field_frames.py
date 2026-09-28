@@ -81,7 +81,9 @@ def test_fixed_local_basis_preserves_physical_vectors_and_input():
 
 @pytest.mark.parametrize("scale", [1.0, 0.001])
 def test_rotary_relative_velocity_uses_physical_radius_once(scale):
-    # GOAL033:post:checks:units_frames_topology
+    # The post units/frames/topology obligation is carried end to end, through
+    # the recorded writer, by test_probe_fields.py::
+    # test_recorded_millimetre_rotor_field_keeps_units_frames_and_vertex_topology.
     points, velocity = _convert(
         [[5 / scale, 1 / scale, 0]],
         [[11, 5, -(3 + np.pi / 2)]],

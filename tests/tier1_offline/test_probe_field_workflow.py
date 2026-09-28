@@ -54,40 +54,44 @@ def test_field_request_resolves_the_existing_default_frame():
     assert {"VX", "VY", "VZ"} <= set(spec.parameters)
 
 
-@pytest.mark.parametrize("steady", [False, True])
-def test_volume_section_uses_sampled_field_without_native_index(tmp_path, steady):
+def test_volume_section_uses_sampled_field_without_native_index(tmp_path):
     # GOAL033:post:checks:probe_volume_sections
     # GOAL033:capability_ids:items:G39
-    spec = PprocSpec.model_validate(
-        {
-            "groups": {"1": "all"},
-            "volume_section": {
-                "shape": "rectangle",
-                "frame": "REFERENCE",
-                "plane": "YZ",
-                "offset_m": 2,
-                "corners_m": [-1, -2, 1, 2],
-                "points": [2, 3],
-                "format": "vtk",
-            },
-        }
-    )
-    case = _with_pproc(
-        steady_case() if steady else unsteady_case(), _wb_geometry(tmp_path), pproc=spec
-    )
-    script = Script("26.124")
-    build_script(case, script)
-    assert len(script.probe_points) == 6, "volume section must sample its declared grid"
-    assert script.probe_field_layout[0]["kind"] == "volume-section"
-    assert not any(
-        word in script.render()
-        for word in (
-            "CREATE_NEW_RECTANGLE_VOLUME_SECTION",
-            "EXPORT_VOLUME_SECTION",
-            "DELETE_VOLUME_SECTION",
+    # One case covers the unsteady and the steady recipe, so the obligation is
+    # proved by a case that is not named after one recipe.
+    for steady in (False, True):
+        root = tmp_path / ("steady" if steady else "unsteady")
+        root.mkdir()
+        spec = PprocSpec.model_validate(
+            {
+                "groups": {"1": "all"},
+                "volume_section": {
+                    "shape": "rectangle",
+                    "frame": "REFERENCE",
+                    "plane": "YZ",
+                    "offset_m": 2,
+                    "corners_m": [-1, -2, 1, 2],
+                    "points": [2, 3],
+                    "format": "vtk",
+                },
+            }
         )
-    )
-    assert {point[1] for point in script.probe_points} == {2.0}
+        case = _with_pproc(
+            steady_case() if steady else unsteady_case(), _wb_geometry(root), pproc=spec
+        )
+        script = Script("26.124")
+        build_script(case, script)
+        assert len(script.probe_points) == 6, "volume section must sample its declared grid"
+        assert script.probe_field_layout[0]["kind"] == "volume-section"
+        assert not any(
+            word in script.render()
+            for word in (
+                "CREATE_NEW_RECTANGLE_VOLUME_SECTION",
+                "EXPORT_VOLUME_SECTION",
+                "DELETE_VOLUME_SECTION",
+            )
+        ), steady
+        assert {point[1] for point in script.probe_points} == {2.0}, steady
 
 
 def test_fields_with_general_plots_disabled(tmp_path, monkeypatch):
