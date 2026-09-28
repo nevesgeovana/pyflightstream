@@ -192,12 +192,15 @@ def attach_native_strength(
     surface: VtkSurface,
     native: VtkSurface,
     *,
-    coordinate_tolerance: float | None = None,
+    coordinate_tolerance: float | np.ndarray | None = None,
 ) -> tuple[VtkSurface, dict[str, object]]:
     """Attach exact native strength after a unique coordinate/topology match.
 
     Both surfaces must already be in the same REFERENCE frame and length unit.
-    An explicit tolerance is absolute, in that unit. By default it is the
+    An explicit tolerance is absolute, in that unit: a scalar, or a
+    three-element array giving the tolerance along reference X, Y and Z, so a
+    rounding that is large along one axis is not granted along the others
+    (GOAL-034 Q8 CXQ8R4-1). By default it is the
     largest of 1e-10, 1e-6 of the native geometry's diagonal extent, and four
     single-precision epsilons of the largest coordinate magnitude: the VTK is
     written at single precision in the loads frame and transformed back, so
@@ -210,10 +213,16 @@ def attach_native_strength(
     if coordinate_tolerance is None:
         measurable = bool(native.n_points) and bool(np.isfinite(native.points).all())
         extent = float(np.linalg.norm(np.ptp(native.points, axis=0))) if measurable else 0.0
-        magnitude = float(np.abs(native.points).max()) if measurable else 0.0
+        magnitude = np.abs(native.points).max(axis=0) if measurable else np.zeros(3)
         rounding = 4.0 * float(np.finfo(np.float32).eps) * magnitude
-        coordinate_tolerance = max(1e-10, extent * 1e-6, rounding)
-    if not math.isfinite(coordinate_tolerance) or coordinate_tolerance <= 0:
+        coordinate_tolerance = np.maximum(max(1e-10, extent * 1e-6), rounding)
+    try:
+        limits = np.broadcast_to(np.asarray(coordinate_tolerance, dtype=float), (3,)).copy()
+    except ValueError as error:
+        raise MalformedOutputError(
+            "Native coordinate matching tolerance must be a scalar or an XYZ array"
+        ) from error
+    if not np.isfinite(limits).all() or np.any(limits <= 0):
         raise MalformedOutputError(
             "Native coordinate matching tolerance must be positive and finite"
         )
@@ -227,7 +236,9 @@ def attach_native_strength(
 
     def key(point: np.ndarray) -> tuple[int, ...]:
         try:
-            return tuple(math.floor(float(x) / coordinate_tolerance) for x in point)
+            return tuple(
+                math.floor(float(x) / float(limit)) for x, limit in zip(point, limits, strict=True)
+            )
         except (OverflowError, ValueError) as error:
             raise MalformedOutputError(
                 "Coordinates cannot be resolved at the requested tolerance"
@@ -244,7 +255,7 @@ def attach_native_strength(
             candidates.extend(
                 i
                 for i in bins.get(nearby, ())
-                if np.max(np.abs(native.points[i] - point)) <= coordinate_tolerance
+                if np.all(np.abs(native.points[i] - point) <= limits)
             )
         if len(candidates) != 1:
             raise MalformedOutputError("Native/VTK coordinate match is missing or ambiguous")
@@ -269,6 +280,7 @@ def attach_native_strength(
     return result, {
         "matched_nodes": surface.n_points,
         "topology_verified": True,
-        "coordinate_tolerance": coordinate_tolerance,
+        "coordinate_tolerance": float(limits.max()),
+        "coordinate_tolerance_by_axis": limits.tolist(),
         "method": "unique coordinates plus polygon-edge incidence; no interpolation",
     }

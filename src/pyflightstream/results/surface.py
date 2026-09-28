@@ -740,12 +740,17 @@ def translate_vtk_surface(
         # carried back: a loads frame far from the reference origin rounds its
         # coordinates at its own magnitude, which the reference-frame geometry
         # does not show (GOAL-034 Q8 CXQ8R2-1). The tolerance takes the larger.
+        # PER AXIS (CXQ8R4-1): a loads-frame rounding is carried to each reference
+        # axis through |R|, so a frame far away along X widens X, not Z.
         extent = float(np.linalg.norm(np.ptp(native.points, axis=0)))
-        magnitude = max(
-            float(np.abs(native.points).max(initial=0.0)),
-            float(np.abs(surface.points).max(initial=0.0)),
+        loads_magnitude = np.abs(surface.points).max(axis=0, initial=0.0)
+        magnitude = np.maximum(
+            np.abs(native.points).max(axis=0, initial=0.0),
+            loads_magnitude @ np.abs(frame.rotation),
         )
-        tolerance = max(1e-10, extent * 1e-6, 4.0 * float(np.finfo(np.float32).eps) * magnitude)
+        tolerance = np.maximum(
+            max(1e-10, extent * 1e-6), 4.0 * float(np.finfo(np.float32).eps) * magnitude
+        )
         translated, mapping = attach_native_strength(
             translated, native, coordinate_tolerance=tolerance
         )

@@ -43,6 +43,39 @@ def test_owned_modal_terminates_solver_and_preserves_diagnostic(tmp_path, monkey
     assert "The requested command cannot run" in log.read_text()
 
 
+def test_an_unwritable_modal_log_and_a_closed_stderr_keep_the_failed_result(tmp_path, monkeypatch):
+    """GOAL-034 Q8 CXQ8R4-2: the modal report wrote its log and stderr unguarded,
+    so a log that could not be written replaced the failed-execution result."""
+    import io
+    import sys
+
+    class Process:
+        pid = 4321
+        returncode = 0
+        calls = 0
+
+        def communicate(self, timeout=None):
+            self.calls += 1
+            if self.calls == 1:
+                raise subprocess.TimeoutExpired("fake-solver", timeout)
+            return "solver output", "solver stderr"
+
+        def kill(self):
+            self.returncode = -9
+
+    monkeypatch.setattr(run.subprocess, "Popen", lambda *_args, **_kwargs: Process())
+    monkeypatch.setattr(
+        run, "_owned_solver_dialogs", lambda pid: ("FlightStream Error\nblocked",), raising=False
+    )
+    (tmp_path / "pyfs-modal-error.log").mkdir()  # the log cannot be opened for append
+    closed = io.StringIO()
+    closed.close()
+    monkeypatch.setattr(sys, "stderr", closed)
+    result = run._run_with_progress(["fake"], tmp_path, 5, tmp_path / "count", 2, 1)
+    assert result[0] == -9 and result[3] is False
+    assert "blocked" in result[2]
+
+
 def test_modal_selection_never_accepts_another_process_or_normal_window():
     from pyflightstream.run._solver_windows import WindowDiagnostic, select_owned_dialogs
 

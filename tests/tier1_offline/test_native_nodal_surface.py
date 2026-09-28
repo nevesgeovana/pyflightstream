@@ -218,6 +218,36 @@ def test_a_loads_frame_far_from_the_origin_still_matches_its_native_nodes(tmp_pa
     assert record["nodal_variables"] == ["Singularity_strength"]
 
 
+def test_a_loads_frame_far_along_x_does_not_widen_the_match_along_z(tmp_path):
+    """GOAL-034 Q8 CXQ8R4-1: one scalar tolerance carried the X rounding of a
+    loads frame 1e6 away to every axis (about 0.48), so a native surface moved
+    0.25 along Z still matched and lent its strength. The tolerance is per axis."""
+    from pyflightstream.results.surface import SurfaceFrame
+
+    origin = (1_000_000.0, 0.0, 0.0)
+    reference = _vtk().points + np.array([0.1, 0.1, 0.0])
+    loads = (reference - np.array(origin)).astype(np.float32).astype(float)
+    surface = VtkSurface(
+        points=loads,
+        offsets=_vtk().offsets,
+        connectivity=_vtk().connectivity,
+        cell_data=dict(_vtk().cell_data),
+    )
+    path = write_vtk_surface(tmp_path / "p.vtk", surface, title="test")
+    native = tmp_path / "native.dat"
+    native.write_text(
+        'TITLE="Native"\nVARIABLES="X","Y","Z","Singularity_strength"\n'
+        "ZONE T=Solver, NODES=4, ELEMENTS=1, FACES=4, DATAPACKING=BLOCK, "
+        "ZONETYPE=FEPolygon, NumConnectedBoundaryFaces=0, TotalNumBoundaryConnections=0\n"
+        "1.1 0.1 0.1 1.1\n1.1 0.1 1.1 0.1\n0.25 0.25 0.25 0.25\n30 10 40 20\n"
+        "2 4 4 1 1 3 3 2\n1 1 1 1\n0 0 0 0\n",
+        encoding="utf-8",
+    )
+    frame = SurfaceFrame(origin, REFERENCE_FRAME.axes, 2)
+    with pytest.raises(MalformedOutputError, match="missing or ambiguous"):
+        translate_vtk_surface(path, tmp_path / "p.dat", frame=frame, native_tecplot=native)
+
+
 def test_stamped_step_never_borrows_final_native_strength(tmp_path):
     write_vtk_surface(tmp_path / "p_iteration=3.vtk", _vtk(), title="step")
     _native(tmp_path / "native.dat")
