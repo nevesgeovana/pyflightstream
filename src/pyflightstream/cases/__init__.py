@@ -4828,6 +4828,12 @@ class PortBoundary(BaseModel):
         return self
 
 
+# SolverSettings names PortBoundary and BaseRegionOperation, both defined below
+# it; resolve those annotations now so a reader of model_fields (the input
+# glossary) sees the models and not unresolved forward references.
+SolverSettings.model_rebuild()
+
+
 class RawMeshConditions(BaseModel):
     """The boundary conditions a raw mesh's sidecar declares (G02, Q1 of 0.27.0).
 
