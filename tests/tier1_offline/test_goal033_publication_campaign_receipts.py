@@ -57,8 +57,9 @@ PUBLICATION (variable -> obligation ``publication:checks:<id>``):
   <record_id>``), ``concept_doi`` and ``repository``. The answer's ``id``,
   ``doi`` and ``conceptdoi`` equal the facts, the concept DOI differs from the
   version DOI, ``submitted`` is true, ``metadata.version`` == version, and a
-  ``metadata.related_identifiers`` entry names ``github.com/<repo>`` and
-  ``v<version>``.
+  ``metadata.related_identifiers`` entry is exactly
+  ``https://github.com/<repo>/tree/v<version>`` or
+  ``https://github.com/<repo>/releases/tag/v<version>``.
 * ``GOAL033_ZENODO_FILES_RECEIPT`` -> ``zenodo_files``. JSON role
   ``record_response`` as above; role ``file:<key>`` for EVERY file key of the
   record, and no other ``file:`` role. Facts ``doi``. Each local file is named
@@ -69,7 +70,8 @@ PUBLICATION (variable -> obligation ``publication:checks:<id>``):
   ``https://api.github.com/repos/<repo>/actions/runs?head_sha=<HEAD>&per_page=100``.
   Facts ``repository``, ``api_url`` and ``workflows``: the sorted names of
   every run in the answer whose lower-cased name contains ``ci`` (for
-  ``docs_ci``: ``docs``), non-empty. For each such name the latest run (by
+  ``docs_ci``: ``docs``), non-empty and containing the required workflow
+  named exactly ``ci`` (``docs``). For each such name the latest run (by
   ``id``) has ``head_sha`` == HEAD, ``status`` ``completed`` and
   ``conclusion`` ``success``; every run in the answer is for HEAD.
 * ``GOAL033_PUBLICATION_CLEAN_INSTALL_RECEIPT`` -> ``clean_install``. The
@@ -107,15 +109,19 @@ Every study receipt carries:
 
 An EXPERIMENT study (flag and FSI) also carries facts ``cases``: non-empty
 ``[{"id", "status": "completed"}]`` with unique ids, a role ``result:<id>``
-for each case (its result file, non-empty), and a report that names every
+for each case (a JSON object ``{"case": <id>, "complete": true}``), and a
+report that names every
 case id. An FSI study also carries roles ``material_source``,
 ``supplied_properties`` and ``calibration_file`` (TOML) and facts ``fsi``:
 ``{"material": "Ti-6Al-4V", "calibrations": {"file": C, "matrix": C}}``, each
 C ``{"factors", "base", "effective"}`` over the same non-empty property
 names with positive finite factors and effective == base x factor; every
 file factor is a key of the TOML with that value; the matrix calibration also
-carries ``columns`` {property: column} and each column name occurs in the
-matrix file. ``synthesis`` carries facts ``report_file`` (the report's file
+carries ``pol`` (the one active row of the matrix, read by
+``pyflightstream.cases.matrix.read_matrix``, it calibrates) and ``columns``
+{property: column}, each column the product's factor key for that property
+(``pyflightstream._fsi_calibration.MATRIX_FACTORS``) whose value in that
+row equals the stated factor. ``synthesis`` carries facts ``report_file`` (the report's file
 name) and ``covered_studies`` == the fifteen experiment studies, each named
 in the report. ``comparison_history`` carries ``report_file`` and
 ``versions``: the release version and at least one earlier one, each named in
@@ -340,7 +346,14 @@ def validate_zenodo_record(receipt: object, tree: Tree, repo: str) -> dict:
     ]
     tag = f"v{tree.version}"
     _need(
-        any(f"github.com/{repo}" in x and tag in x for x in links),
+        any(
+            x
+            in {
+                f"https://github.com/{repo}/tree/{tag}",
+                f"https://github.com/{repo}/releases/tag/{tag}",
+            }
+            for x in links
+        ),
         f"no related identifier names {repo} at {tag}",
     )
     return record
@@ -378,6 +391,7 @@ def _validate_runs(receipt: object, ident: str, family: str, tree: Tree, repo: s
     _need(all(isinstance(r, dict) and r.get("head_sha") == tree.head for r in runs), "head_sha")
     names = sorted({str(r.get("name", "")) for r in runs if family in str(r.get("name")).lower()})
     _need(names, f"no {family} workflow ran for HEAD")
+    _need(family in names, f"required {family} workflow did not run")
     _need(facts.get("workflows") == names, f"workflows is not {names}")
     for name in names:
         latest = max((r for r in runs if r.get("name") == name), key=lambda r: r.get("id", 0))
@@ -490,9 +504,23 @@ def _validate_fsi(roles: dict[str, Path], facts: dict) -> None:
     from_matrix = _calibration(calibrations.get("matrix"), "matrix")
     columns = calibrations["matrix"].get("columns")
     _need(isinstance(columns, dict) and set(columns) == set(from_matrix), "matrix columns")
-    matrix_text = _role(roles, "matrix").read_text(encoding="utf-8", errors="replace")
+    from pyflightstream._fsi_calibration import MATRIX_FACTORS
+    from pyflightstream.cases.matrix import MatrixError, read_matrix
+
+    selected = calibrations["matrix"].get("pol")
+    _need(isinstance(selected, str) and selected, "matrix calibration POL missing")
+    try:
+        rows = [r for r in read_matrix(_role(roles, "matrix")) if r.pol == selected]
+    except MatrixError as error:
+        raise ReceiptRefusedError(f"the matrix is not a run matrix ({error})") from error
+    _need(len(rows) == 1, "matrix calibration must select one active POL")
     for name, column in columns.items():
-        _need(isinstance(column, str) and column in matrix_text, f"matrix column for {name}")
+        _need(MATRIX_FACTORS.get(column) == name, f"unsupported factor key {column}")
+        try:
+            actual = float(rows[0].variables[column])
+        except (KeyError, TypeError, ValueError):
+            raise ReceiptRefusedError(f"missing or invalid matrix factor {column}") from None
+        _need(actual == from_matrix[name], f"matrix factor {column} differs")
 
 
 def validate_study(receipt: object, study: str, tree: Tree) -> dict:
@@ -533,7 +561,9 @@ def validate_study(receipt: object, study: str, tree: Tree) -> dict:
         _need(len(ids) == len(cases) == len(set(ids)) and all(ids), "case ids")
         for case in cases:
             _need(case.get("status") == "completed", f"case {case['id']} did not complete")
-            _need(_role(roles, f"result:{case['id']}").stat().st_size > 0, "result empty")
+            result = _json(roles, f"result:{case['id']}")
+            _need(result.get("case") == case["id"], "result case differs")
+            _need(result.get("complete") is True, "result does not state completion")
             _need(case["id"] in report, f"the report does not interpret case {case['id']}")
     if study in FSI_STUDIES:
         _validate_fsi(roles, facts)
@@ -874,6 +904,18 @@ def _set(*keys: str | int, value: object) -> Callable[[dict], None]:
     return mutate
 
 
+def _no_ci_ran(receipt: dict) -> None:
+    """Rename every ``ci`` run to ``special`` and claim ``special`` as the workflow."""
+
+    def rename(data: dict) -> None:
+        for run in data["workflow_runs"]:
+            if run["name"] == "ci":
+                run["name"] = "special"
+
+    _replace_json("runs_response", rename)(receipt)
+    receipt["facts"]["workflows"] = ["special"]
+
+
 def _bad_hash(receipt: dict) -> None:
     receipt["artifacts"][0]["sha256"] = "0" * 64
 
@@ -1030,6 +1072,29 @@ def _build_privacy_scan(tmp: Path) -> dict:
     )
 
 
+def _campaign_matrix(factor: str) -> str:
+    """A run matrix the product reader accepts, POL 001 stating one FSI factor."""
+    from pyflightstream.cases.matrix import MATRIX_COLUMNS
+
+    values = dict.fromkeys(MATRIX_COLUMNS, "-")
+    values.update(
+        POL="001",
+        RUN="1",
+        HIDDEN="0",
+        AIRCRAFT="Synthetic",
+        DESCRIPTION="FSI",
+        FLIGHT_CONDITION="MACH: 0.1, ALPHA: sweep",
+        SWEEP_VALUES="0",
+        REF="r001",
+        SET="s001",
+        PPROC="p001",
+        WORKFLOW="steady",
+        VAR_NAMES_VALUES=f"FSI: f001 / FSI_BENDING_STIFFNESS_N_M2_FACTOR: {factor}",
+    )
+    header = " | ".join(MATRIX_COLUMNS)
+    return header + "\n" + " | ".join(values[name] for name in MATRIX_COLUMNS) + "\n"
+
+
 def _build_study(tmp: Path, study: str) -> dict:
     wheel = _wheel(tmp)
     standard = _write(tmp / "standards" / "setup.toml", "[standards]\n")
@@ -1039,7 +1104,7 @@ def _build_study(tmp: Path, study: str) -> dict:
         "wheel_sha256": _sha256(wheel),
         "outputs": {"setup.toml": _sha256(standard)},
     }
-    matrix = _write(tmp / "matrix-qa.fs", "POL | RUN | FSI_EI_SCALE\nP1 | 1 | 1.1\n")
+    matrix = _write(tmp / "matrix-qa.fs", _campaign_matrix("1.1"))
     cases = [
         {"id": f"{study}-c1", "status": "completed"},
         {"id": f"{study}-c2", "status": "completed"},
@@ -1063,7 +1128,8 @@ def _build_study(tmp: Path, study: str) -> dict:
     if study in EXPERIMENT_STUDIES:
         facts["cases"] = cases
         for case in cases:
-            artifacts.append(_art(f"result:{case['id']}", _write(tmp / f"{case['id']}.csv", "1\n")))
+            result = _dump(tmp / f"{case['id']}.json", {"case": case["id"], "complete": True})
+            artifacts.append(_art(f"result:{case['id']}", result))
     if study in FSI_STUDIES:
         calibration = _write(tmp / "F.toml", "[calibration]\nbending_stiffness = 1.2\n")
         facts["fsi"] = {
@@ -1075,10 +1141,11 @@ def _build_study(tmp: Path, study: str) -> dict:
                     "effective": {"bending_stiffness": 120.0},
                 },
                 "matrix": {
-                    "factors": {"bending_stiffness": 1.1},
-                    "base": {"bending_stiffness": 100.0},
-                    "effective": {"bending_stiffness": 110.00000000000001},
-                    "columns": {"bending_stiffness": "FSI_EI_SCALE"},
+                    "pol": "001",
+                    "factors": {"bending_stiffness_n_m2": 1.1},
+                    "base": {"bending_stiffness_n_m2": 100.0},
+                    "effective": {"bending_stiffness_n_m2": 110.00000000000001},
+                    "columns": {"bending_stiffness_n_m2": "FSI_BENDING_STIFFNESS_N_M2_FACTOR"},
                 },
             },
         }
@@ -1166,6 +1233,18 @@ PUBLICATION: dict[str, tuple[Callable, Callable, dict[str, Callable[[dict], None
             "no_release_link": _replace_json(
                 "record_response", lambda d: d["metadata"].update(related_identifiers=[])
             ),
+            # CXQ8R6-6: another repository and another tag that contain both names.
+            "other_repo_link": _replace_json(
+                "record_response",
+                lambda d: d["metadata"].update(
+                    related_identifiers=[
+                        {
+                            "identifier": f"https://github.com/{REPO}-other/tree/v{VERSION}0",
+                            "relation": "x",
+                        }
+                    ]
+                ),
+            ),
             "other_record": _replace_json(
                 "record_response", lambda d: d.update(doi="10.5281/zenodo.1")
             ),
@@ -1204,6 +1283,8 @@ PUBLICATION: dict[str, tuple[Callable, Callable, dict[str, Callable[[dict], None
                 ),
             ),
             "api_url": _set("facts", "api_url", value="https://api.github.com/"),
+            # CXQ8R6-5: an unrelated workflow whose name contains "ci", and no ci run.
+            "no_ci_ran": _no_ci_ran,
         },
     ),
     "docs_ci": (
@@ -1268,6 +1349,15 @@ def _study_corruptions(study: str) -> dict[str, Callable[[dict], None]]:
             "case_failed": _set("facts", "cases", 1, "status", value="failed"),
             "case_duplicate": _set("facts", "cases", 1, "id", value=f"{study}-c1"),
             "result_missing": _drop_role(f"result:{study}-c2"),
+            # CXQ8R6-2: the result itself says the case failed, or is another case's.
+            "result_incomplete": _replace_json(
+                f"result:{study}-c1",
+                lambda d: d.update(complete=False, status="FAILED_EXECUTION"),
+            ),
+            "result_other_case": _replace_json(
+                f"result:{study}-c1", lambda d: d.update(case=f"{study}-c2")
+            ),
+            "result_not_json": _replace_text(f"result:{study}-c1", "1\n"),
             "report_silent": _replace_text("report", f"Interpretation of {study}-c1 only.\n"),
         }
     if study in FSI_STUDIES:
@@ -1278,7 +1368,17 @@ def _study_corruptions(study: str) -> dict[str, Callable[[dict], None]]:
             "factor_not_in_file": lambda r: r["facts"]["fsi"]["calibrations"]["file"].update(
                 factors={"bending_stiffness": 1.3}, effective={"bending_stiffness": 130.0}
             ),
-            "matrix_column": _set(*fsi, "matrix", "columns", "bending_stiffness", value="NOPE"),
+            "matrix_column": _set(
+                *fsi, "matrix", "columns", "bending_stiffness_n_m2", value="NOPE"
+            ),
+            # CXQ8R6-4: a column that is not a product factor key, and a matrix
+            # whose factor is 999 while the claim still says 1.1.
+            "matrix_unsupported_key": _set(
+                *fsi, "matrix", "columns", "bending_stiffness_n_m2", value="FSI_EI_SCALE"
+            ),
+            "matrix_factor_differs": _replace_text("matrix", _campaign_matrix("999")),
+            "matrix_other_pol": _set(*fsi, "matrix", "pol", value="002"),
+            "matrix_no_pol": lambda r: r["facts"]["fsi"]["calibrations"]["matrix"].pop("pol"),
             "no_material_source": _drop_role("material_source"),
             "no_supplied": _drop_role("supplied_properties"),
         }
