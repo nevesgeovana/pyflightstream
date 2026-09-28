@@ -719,6 +719,20 @@ def test_no_golden_carries_a_machine_path(matrix):
     assert not bad, f"{len(bad)} golden line(s) carry a machine path: {bad[:4]}"
 
 
+def test_the_windowless_action_interpreter_is_written_as_the_placeholder():
+    """GOAL-034 Q1: since 0.29 a Windows action line names the ``pythonw.exe``
+    sibling of the building interpreter. ``offline.portable`` replaced only
+    ``sys.executable``, so on Windows the action golden differed by the
+    machine's own path. Both spellings are the placeholder, and nothing else of
+    the line moves."""
+    from pathlib import Path
+
+    windowless = str(Path(sys.executable).with_name("pythonw.exe"))
+    for interpreter in (windowless, sys.executable):
+        line = f'"{interpreter}" "actions/pfs_unsteady_actions.py"'
+        assert offline.portable(line) == '"<python>" "actions/pfs_unsteady_actions.py"', line
+
+
 # --- the probe's verdict discriminates its two worlds (review of 2026-09-08) --------
 
 
