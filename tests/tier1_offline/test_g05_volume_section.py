@@ -250,6 +250,24 @@ def test_g05_a_volume_file_with_no_section_of_its_pproc_to_export_is_refused():
         _lines(bare)
 
 
+def test_g05_a_raw_delete_before_an_explicit_native_volume_export_is_refused():
+    """GEO-060 M1 / Q4 RAISE-04: the refusal workflows.py still makes keeps its test.
+
+    A row that explicitly names the native volume file while a raw line deletes a
+    section before the export is refused naming the raw delete, never exported
+    from whatever section index happens to remain. The pproc's own plane is
+    sampled through probes (G61), so no native section of the pproc survives.
+    """
+    declared = _steady(_pproc(**RECTANGLE)).model_copy(update={"outputs": ["P.txt", "P_vsec.vtk"]})
+    deleted = declared.model_copy(
+        update={"raw_commands": [RawCommand(command="DELETE_VOLUME_SECTION 1", before="export")]}
+    )
+    with pytest.raises(CampaignConfigError, match=r"'P_vsec\.vtk'.*raw line deleted the one"):
+        _lines(deleted)
+    # THE CONTROL: the same pproc without the explicit native file samples its plane.
+    assert "EXPORT_PROBE_POINTS" in _lines(_steady(_pproc(**RECTANGLE)))
+
+
 def test_g05_a_raw_delete_below_the_pproc_s_section_moves_its_index_down():
     """Deleting a native section cannot move the sampled survey's IDs."""
     case = _steady(_pproc(**RECTANGLE)).model_copy(
