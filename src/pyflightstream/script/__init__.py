@@ -439,7 +439,11 @@ class FramePlacement(BaseModel):
 
     Origin values retain the numeric convention of emitted frame commands.
     Axes are the named X, Y and Z directions in REFERENCE. Explicit-unit
-    origins are converted through the recorded simulation unit. Physical
+    origins are converted through the recorded simulation unit; while no
+    unit is recorded (no SET_SIMULATION_LENGTH_UNITS and no decoded saved
+    head) the native unit is ASSUMED to be METER, the same assumption
+    ``workflows._from_metres`` makes, and nothing in the command can check
+    it. Physical
     interpretation requires a measured native unit contract; this ledger does
     not establish it. Unfollowed placement commands clear affected values.
     """
@@ -1456,6 +1460,7 @@ class Script:
                 self._frame_placements,
                 frame,
                 bound,
+                # Unrecorded unit: METER assumed, as _from_metres assumes.
                 simulation_unit=self.simulation_length_unit or "METER",
             )
         elif follower is not None:
