@@ -55,6 +55,11 @@ writes; state `solver_model` instead. No build records `SONIC_VELOCITY`, and
 26.101 onward removed it; the sound speed follows from the resolved
 temperature and specific-heat ratio.
 
+A setup stating `farfield_layers` above 5 is refused, the range the solver
+command accepts. Every generated setup standard states 5, and the far-field
+layer study `s929` is retired while its identifier stays reserved; a setup
+that copied it must state 5 or fewer.
+
 ## Surface and sampled-field products
 
 New Tecplot surface requests retain a native auxiliary export named
