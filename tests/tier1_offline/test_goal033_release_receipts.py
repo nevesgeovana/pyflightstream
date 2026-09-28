@@ -164,7 +164,9 @@ class Tree:
 
 
 def _git(*args: str) -> subprocess.CompletedProcess[bytes]:
-    return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, check=False)
+    return subprocess.run(
+        ["git", *args], cwd=ROOT, capture_output=True, check=False, env=os.environ.copy()
+    )
 
 
 def _real_tree() -> Tree:
@@ -488,7 +490,9 @@ def test_release_clean_install_from_pypi_receipt():
 
     GOAL033:delivery:checks:clean_install
     """
-    validate_clean_install(_receipt("GOAL033_CLEAN_INSTALL_RECEIPT"), _real_tree())
+    receipt = _receipt("GOAL033_CLEAN_INSTALL_RECEIPT")
+    validate_clean_install(receipt, _real_tree())
+    assert receipt["obligation"] == "delivery:checks:clean_install"
 
 
 def test_release_dev_wheel_per_block_receipt():
@@ -496,7 +500,9 @@ def test_release_dev_wheel_per_block_receipt():
 
     GOAL033:delivery:checks:dev_wheels_per_block
     """
-    validate_dev_wheels(_receipt("GOAL033_DEV_WHEELS_RECEIPT"), _real_tree())
+    receipt = _receipt("GOAL033_DEV_WHEELS_RECEIPT")
+    validate_dev_wheels(receipt, _real_tree())
+    assert receipt["obligation"] == "delivery:checks:dev_wheels_per_block"
 
 
 def test_release_guides_kit_receipt():
@@ -504,7 +510,9 @@ def test_release_guides_kit_receipt():
 
     GOAL033:delivery:checks:guides_kit
     """
-    validate_guides_kit(_receipt("GOAL033_GUIDES_KIT_RECEIPT"), _real_tree())
+    receipt = _receipt("GOAL033_GUIDES_KIT_RECEIPT")
+    validate_guides_kit(receipt, _real_tree())
+    assert receipt["obligation"] == "delivery:checks:guides_kit"
 
 
 def test_release_linux_guide_receipt():
@@ -512,7 +520,9 @@ def test_release_linux_guide_receipt():
 
     GOAL033:delivery:checks:linux_guide
     """
-    validate_linux_guide(_receipt("GOAL033_LINUX_GUIDE_RECEIPT"), _real_tree())
+    receipt = _receipt("GOAL033_LINUX_GUIDE_RECEIPT")
+    validate_linux_guide(receipt, _real_tree())
+    assert receipt["obligation"] == "delivery:checks:linux_guide"
 
 
 def test_release_d10_local_run_changes_only_executables_toml_receipt():
@@ -520,7 +530,9 @@ def test_release_d10_local_run_changes_only_executables_toml_receipt():
 
     GOAL033:capability_ids:items:D10
     """
-    validate_d10(_receipt("GOAL033_D10_RECEIPT"), _real_tree())
+    receipt = _receipt("GOAL033_D10_RECEIPT")
+    validate_d10(receipt, _real_tree())
+    assert receipt["obligation"] == "capability_ids:items:D10"
 
 
 def test_release_d15_kit_manifest_receipt():
@@ -528,7 +540,9 @@ def test_release_d15_kit_manifest_receipt():
 
     GOAL033:capability_ids:items:D15
     """
-    validate_d15(_receipt("GOAL033_D15_RECEIPT"), _real_tree())
+    receipt = _receipt("GOAL033_D15_RECEIPT")
+    validate_d15(receipt, _real_tree())
+    assert receipt["obligation"] == "capability_ids:items:D15"
 
 
 def test_release_licensed_regressions_receipt():
@@ -536,7 +550,9 @@ def test_release_licensed_regressions_receipt():
 
     GOAL033:delivery:checks:licensed_regressions
     """
-    validate_licensed_regressions(_receipt("GOAL033_LICENSED_REGRESSIONS_RECEIPT"), _real_tree())
+    receipt = _receipt("GOAL033_LICENSED_REGRESSIONS_RECEIPT")
+    validate_licensed_regressions(receipt, _real_tree())
+    assert receipt["obligation"] == "delivery:checks:licensed_regressions"
 
 
 def test_release_tier1_tier2_regressions_receipt():
@@ -544,7 +560,9 @@ def test_release_tier1_tier2_regressions_receipt():
 
     GOAL033:delivery:checks:tier1_tier2_regressions
     """
-    validate_tier1_tier2(_receipt("GOAL033_TIER1_TIER2_RECEIPT"), _real_tree())
+    receipt = _receipt("GOAL033_TIER1_TIER2_RECEIPT")
+    validate_tier1_tier2(receipt, _real_tree())
+    assert receipt["obligation"] == "delivery:checks:tier1_tier2_regressions"
 
 
 def test_release_g39_native_volume_acceptance_receipt():
@@ -552,7 +570,9 @@ def test_release_g39_native_volume_acceptance_receipt():
 
     GOAL033:capability_ids:items:G39
     """
-    validate_g39(_receipt("GOAL033_G39_RECEIPT"), _real_tree())
+    receipt = _receipt("GOAL033_G39_RECEIPT")
+    validate_g39(receipt, _real_tree())
+    assert receipt["obligation"] == "capability_ids:items:G39"
 
 
 def test_release_g63_research_campaign_receipt():
@@ -560,7 +580,9 @@ def test_release_g63_research_campaign_receipt():
 
     GOAL033:capability_ids:items:G63
     """
-    validate_g63(_receipt("GOAL033_G63_RECEIPT"), _real_tree())
+    receipt = _receipt("GOAL033_G63_RECEIPT")
+    validate_g63(receipt, _real_tree())
+    assert receipt["obligation"] == "capability_ids:items:G63"
 
 
 def test_release_g66_reference_intake_receipt():
@@ -568,7 +590,9 @@ def test_release_g66_reference_intake_receipt():
 
     GOAL033:capability_ids:items:G66
     """
-    validate_g66(_receipt("GOAL033_G66_RECEIPT"), _real_tree())
+    receipt = _receipt("GOAL033_G66_RECEIPT")
+    validate_g66(receipt, _real_tree())
+    assert receipt["obligation"] == "capability_ids:items:G66"
 
 
 # --- G67: setup/BC completeness, measured now -------------------------------------------

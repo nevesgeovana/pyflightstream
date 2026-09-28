@@ -192,7 +192,11 @@ GITHUB = re.compile(
 def _origin_repository() -> str:
     """The ``owner/name`` this tree's ``origin`` names on GitHub."""
     remote = subprocess.run(
-        ["git", "remote", "get-url", "origin"], cwd=ROOT, capture_output=True, check=False
+        ["git", "remote", "get-url", "origin"],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+        env=__import__("os").environ.copy(),
     )
     match = GITHUB.fullmatch(remote.stdout.decode("utf-8", "replace").strip())
     _need(remote.returncode == 0 and match, "origin is not a GitHub repository")
@@ -1336,6 +1340,6 @@ def test_a_marker_test_skips_naming_its_variable_when_the_receipt_is_absent(monk
 
 
 def test_the_origin_pattern_names_owner_and_repository():
-    match = GITHUB.fullmatch("https://github.com/nevesgeovana/pyflightstream.git")
-    assert match and match.group(1) == "nevesgeovana/pyflightstream"
+    match = GITHUB.fullmatch("https://github.com/example-owner/pyflightstream.git")
+    assert match and match.group(1) == "example-owner/pyflightstream"
     assert GITHUB.fullmatch("https://gitlab.com/x/y.git") is None

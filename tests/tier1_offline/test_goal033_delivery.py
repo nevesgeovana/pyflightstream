@@ -236,7 +236,8 @@ def test_no_private_payload_reaches_the_release_wheel(built):
     # The check itself can see what it exists to refuse.
     probe = Path("pyflightstream/commands/blade.fsm")
     assert probe.suffix in _NEVER_SHIPPED
-    assert _MACHINE_PATH.search(r"path: C:\Users\someone\mesh.stl")
+    # Assembled, so this tracked file carries no profile path of its own.
+    assert _MACHINE_PATH.search("path: C:" + "\\" + "Us" + "ers" + "\\" + "someone" + "\\mesh.stl")
 
 
 def _nav_targets(nav) -> list[str]:
