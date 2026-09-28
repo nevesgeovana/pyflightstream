@@ -16,6 +16,7 @@ from tests.tier1_offline.test_matrix_cli import _workflow_plan_args, make_planne
 
 def test_plan_writes_guidelines_to_the_existing_setup_directory(tmp_path, capsys):
     """GOAL033:standards:checks:cli_guidelines"""
+    # GOAL033:capability_ids:items:G64
     workspace = make_planned_workspace(tmp_path)
     argv = _workflow_plan_args(workspace, "--fs-version", "26.124", "--setup-guidelines")
     assert main(argv) == 0
@@ -28,6 +29,7 @@ def test_plan_writes_guidelines_to_the_existing_setup_directory(tmp_path, capsys
 
 def test_plan_writes_complete_standards_without_requiring_the_guide(tmp_path, capsys):
     """GOAL033:standards:checks:cli_standards"""
+    # GOAL033:capability_ids:items:G65
     workspace = make_planned_workspace(tmp_path)
     argv = _workflow_plan_args(workspace, "--fs-version", "26.124", "--setup-standards")
     assert main(argv) == 0

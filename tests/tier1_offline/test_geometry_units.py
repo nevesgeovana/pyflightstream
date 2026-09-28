@@ -68,7 +68,11 @@ def test_probe_metres_become_native_coordinates_once(unsteady):
     assert placed == pytest.approx((350.0, -100.0, 20.0))
 
 
-@pytest.mark.parametrize("head,expected", [("1.0\n5", "METER"), ("1.0E-03\n2", "MILLIMETER")])
+@pytest.mark.parametrize(
+    "head,expected",
+    [("1.0\n5", "METER"), ("1.0E-03\n2", "MILLIMETER")],
+    ids=["METER", "G32"],
+)
 def test_measured_saved_unit_heads(tmp_path, head, expected):
     # GOAL033:capability_ids:items:G32
     path = tmp_path / "measured.fsm"

@@ -80,7 +80,10 @@ def test_g14_the_coupling_iteration_is_refused_by_name_on_every_build_that_does_
         assert RPT068 in text, text
 
 
-@pytest.mark.parametrize("workflow", sorted(MAKERS))
+@pytest.mark.parametrize(
+    "workflow",
+    [pytest.param(w, id="G22" if w == "steady" else w) for w in sorted(MAKERS)],
+)
 def test_g14_the_vorticity_lift_model_is_refused_on_26124_naming_rpt068(tmp_path, workflow):
     """26.124 answers the name as it answers a name no edition documents (RPT-068)."""
     # GOAL033:capability_ids:items:G22

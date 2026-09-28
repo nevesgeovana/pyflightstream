@@ -9,6 +9,7 @@ from tests.tier1_offline.test_excel_sync import matrix
 
 def test_macro_free_factory_and_bidirectional_cli(tmp_path: Path) -> None:
     # GOAL033:excel:checks:cli_sync_roundtrip
+    # GOAL033:capability_ids:items:G60
     from pyflightstream.workspace.excel_file import read_snapshot
 
     source = matrix(tmp_path)
