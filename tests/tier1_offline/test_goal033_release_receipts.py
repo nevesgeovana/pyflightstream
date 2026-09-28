@@ -90,8 +90,9 @@ PER OBLIGATION (variable -> obligation: required artifacts roles; facts):
   ``native_volume_byte_identical`` true, ``probe_velocity`` and
   ``native_velocity`` (the velocity array of each VTK's POINT_DATA: a
   ``VECTORS`` name as a string -- the product writes ``Velocity`` -- or a list
-  of three ``SCALARS`` names), ``csv_quantization`` (> 0) and
-  ``max_velocity_error``. The comparison is RECOMPUTED: the largest absolute
+  of three ``SCALARS`` names), ``csv_quantization`` (a finite number > 0) and
+  ``max_velocity_error``. Every velocity value must be finite. The comparison
+  is RECOMPUTED: the largest absolute
   component difference between the two velocity arrays must be <=
   ``csv_quantization`` and equal the stated ``max_velocity_error`` within
   1e-12. ``sources``: ``[{"path", "sha256"}]`` for at least the five post/fsm
@@ -120,6 +121,7 @@ import copy
 import hashlib
 import io
 import json
+import math
 import os
 import re
 import subprocess
@@ -441,9 +443,11 @@ def _floats(tokens: list[str], at: int, count: int, what: str) -> list[float]:
     values = tokens[at : at + count]
     _need(len(values) == count, f"{what}: truncated")
     try:
-        return [float(t) for t in values]
+        parsed = [float(t) for t in values]
     except ValueError:
         raise ReceiptRefusedError(f"{what}: a value is not a number") from None
+    _need(all(math.isfinite(v) for v in parsed), f"{what}: nonfinite value")
+    return parsed
 
 
 def _vtk(path: Path) -> tuple[list[float], dict[str, list[float]]]:
@@ -527,7 +531,10 @@ def validate_g39(receipt: object, tree: Tree) -> None:
     _need(len(probe) == len(native) == len(probe_points), "velocity count differs from points")
     measured = max(abs(a - b) for a, b in zip(probe, native, strict=True))
     error, quantum = facts.get("max_velocity_error"), facts.get("csv_quantization")
-    _need(isinstance(quantum, int | float) and quantum > 0, "csv_quantization")
+    _need(
+        type(quantum) in (int, float) and math.isfinite(quantum) and quantum > 0,
+        "csv_quantization",
+    )
     _need(measured <= quantum, f"velocities differ by {measured}, beyond the CSV quantization")
     _need(
         isinstance(error, int | float) and abs(error - measured) <= 1e-12,
@@ -893,6 +900,17 @@ def _replace(receipt: dict, role: str, data: bytes | str) -> Path:
     return path
 
 
+def _rewrite_vtk(role: str, data: str) -> Callable[[dict], None]:
+    """Replace one G39 VTK's POINT_DATA with ``data`` and re-hash it."""
+
+    def mutate(receipt: dict) -> None:
+        item = next(a for a in receipt["artifacts"] if a["role"] == role)
+        _vtk_file(Path(item["path"]), f"{G39_POINTS}\n{data}")
+        item["sha256"] = _sha256(Path(item["path"]))
+
+    return mutate
+
+
 def _build_clean_install(tmp: Path) -> dict:
     wheel = _wheel(tmp / f"pyflightstream-{VERSION}-py3-none-any.whl", VERSION)
     _write(tmp / "venv" / "pyvenv.cfg", "home = x\n")
@@ -1162,6 +1180,18 @@ CASES: dict[str, tuple[Callable, Callable, dict[str, Callable[[dict], None]]]] =
             "error": _set("facts", "max_velocity_error", value=0.0006),
             "error_understated": _set("facts", "max_velocity_error", value=0.0),
             "quantization": _set("facts", "csv_quantization", value=0.0001),
+            # CXQ8R6-3: a later NaN is ignored by max(), and a NaN or infinite
+            # quantization compares False/True the wrong way.
+            "native_nan": _rewrite_vtk(
+                "native_export_vtk", NATIVE_DATA.replace("0.0002 0", "0.0002 nan")
+            ),
+            "probe_inf": _rewrite_vtk(
+                "probe_vtk", PROBE_DATA.replace("29.5 0.1 0", "29.5 0.1 inf")
+            ),
+            "quantization_nan": _set("facts", "csv_quantization", value=float("nan")),
+            "quantization_inf": _set("facts", "csv_quantization", value=float("inf")),
+            "quantization_zero": _set("facts", "csv_quantization", value=0.0),
+            "quantization_bool": _set("facts", "csv_quantization", value=True),
             "velocity_array": _set("facts", "probe_velocity", value="Pressure"),
             "velocity_scalars": _set("facts", "native_velocity", value=["Vx", "Vy"]),
             "source": _set("facts", "sources", 0, "sha256", value="0" * 64),
