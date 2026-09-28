@@ -202,18 +202,19 @@ def attach_native_strength(
 
     Both surfaces must already be in one frame and one length unit; the axes
     below are that frame's, the reference frame's for a caller holding
-    reference geometry. An explicit tolerance is absolute, in that unit: a scalar, or a
-    three-element array giving the tolerance along reference X, Y and Z, so a
-    rounding that is large along one axis is not granted along the others
-    (GOAL-034 Q8 CXQ8R4-1). By default it is the
-    largest of 1e-10, 1e-6 of the native geometry's diagonal extent, and four
-    single-precision epsilons of the largest coordinate magnitude: the VTK is
-    written at single precision in the loads frame and transformed back, so
-    its rounding grows with the coordinates' magnitude, which for a small
-    part far from the origin exceeds any fraction of its extent. Ambiguous
-    coincident vertices are refused; this function never averages, guesses
-    orientation, or derives a strength from Cp. The resolved tolerance is
-    returned in the mapping record.
+    reference geometry. An explicit tolerance is absolute, in that unit: a
+    scalar, or a three-element array giving the tolerance along X, Y and Z, so
+    a rounding that is large along one axis is not granted along the others
+    (GOAL-034 Q8 CXQ8R4-1); any other shape is refused. By default it is, per
+    axis, the larger of max(1e-10, 1e-6 of the native geometry's diagonal
+    extent) and four single-precision epsilons of the largest native
+    coordinate magnitude along that axis: a VTK written at single precision
+    rounds with the coordinates' magnitude, which for a small part far from
+    the origin exceeds any fraction of its extent. Ambiguous coincident
+    vertices are refused; this function never averages, guesses orientation,
+    or derives a strength from Cp. The resolved limits are returned in the
+    mapping record as ``coordinate_tolerance_by_axis`` ([X, Y, Z], in the
+    input length unit); ``coordinate_tolerance`` is their maximum.
     """
     if coordinate_tolerance is None:
         measurable = bool(native.n_points) and bool(np.isfinite(native.points).all())

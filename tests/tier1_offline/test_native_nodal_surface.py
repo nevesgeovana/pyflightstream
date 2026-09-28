@@ -136,6 +136,38 @@ def test_default_tolerance_covers_float32_rounding_of_the_coordinates(tmp_path, 
     assert proof["coordinate_tolerance"] == pytest.approx(max(1e-10, 1e-6 * extent, rounding))
 
 
+def test_a_tolerance_that_is_neither_scalar_nor_xyz_is_refused_by_name(tmp_path):
+    """GOAL-034 Q8 QA5-1: a two-element tolerance is the didactic refusal, not a
+    bare numpy broadcasting error."""
+    from pyflightstream.results.native_surface import (
+        attach_native_strength,
+        read_native_tecplot_surface,
+    )
+
+    native = read_native_tecplot_surface(_native(tmp_path / "native.dat"))
+    with pytest.raises(MalformedOutputError, match="scalar or an XYZ array"):
+        attach_native_strength(_vtk(), native, coordinate_tolerance=np.array([1e-6, 1e-6]))
+
+
+@pytest.mark.parametrize(
+    ("given", "by_axis"),
+    [(1e-6, [1e-6, 1e-6, 1e-6]), (np.array([1e-6, 2e-6, 3e-6]), [1e-6, 2e-6, 3e-6])],
+    ids=["scalar", "per-axis"],
+)
+def test_the_mapping_record_states_the_tolerance_per_axis(tmp_path, given, by_axis):
+    """GOAL-034 Q8 QA5-1: the record names the limit applied along each axis and
+    their maximum."""
+    from pyflightstream.results.native_surface import (
+        attach_native_strength,
+        read_native_tecplot_surface,
+    )
+
+    native = read_native_tecplot_surface(_native(tmp_path / "native.dat"))
+    _, proof = attach_native_strength(_vtk(), native, coordinate_tolerance=given)
+    assert proof["coordinate_tolerance_by_axis"] == pytest.approx(by_axis)
+    assert proof["coordinate_tolerance"] == pytest.approx(max(by_axis))
+
+
 def test_same_coordinates_with_different_polygon_edges_are_refused(tmp_path):
     from pyflightstream.results.native_surface import (
         attach_native_strength,
