@@ -6742,6 +6742,14 @@ def _free_stream(
     if custom is not None:
         from .freestream import prepare_field
 
+        # THE OPENED SIMULATION'S UNIT IS READ BEFORE THE FIELD IS PREPARED. The
+        # unit of a saved simulation is recorded on the script only when a length
+        # is first converted (:func:`_from_metres`), and on a row carrying no
+        # reference, frame or disc that first conversion was in `_settings`, AFTER
+        # this branch: an SI field on an opened metre or millimetre `.fsm` was
+        # refused as having no measured unit (GOAL-034 Q0-src-cases-3).
+        if custom.source_units == "SI" or custom.extent is not None:
+            _from_metres(case, script, "the custom field's coordinates and velocities")
         field = prepare_field(
             Path(custom.path),
             form=custom.form,
@@ -6769,28 +6777,12 @@ def _free_stream(
             if existing is not None and existing != field.payload:
                 raise CampaignConfigError("The prepared custom field conflicts with another input.")
             script._pending_input_files[field.path] = field.payload
-            metadata = {
-                "_geoverse_header": {
-                    "file_version": "1.0.0",
-                    "file_role": "prepared-custom-field-provenance",
-                    "authority": "pyflightstream",
-                    "status": "generated-input",
-                    "confidentiality": "private",
-                    "last_modified_at": "2026-09-27T00:00:00+00:00",
-                    "last_modified_by": {
-                        "provider": "OpenAI",
-                        "product": "Codex",
-                        "model": "GPT-6",
-                        "role": "input-generator",
-                    },
-                    "dependencies": [field.provenance["source_sha256"]],
-                    "revision_source": "exact-file-bytes",
-                    "change_summary": "Explicit dimensional conversion; no rotation.",
-                },
-                **field.provenance,
-            }
+            # The provenance a user's run folder receives is the field's own:
+            # what was read, how it was converted and the two digests. No
+            # authoring metadata of this repository belongs in a generated
+            # input (GOAL-034 Q0-src-cases-1).
             script._pending_input_files[field.path + ".provenance.json"] = (
-                json.dumps(metadata, indent=2) + "\n"
+                json.dumps(dict(field.provenance), indent=2) + "\n"
             )
         helpers.free_stream(script, "CUSTOM", filetype=custom.form, profile=field.path)
         return

@@ -124,6 +124,69 @@ def test_workflow_emits_declared_file_and_writer_hashes_both_inputs(tmp_path, de
         _write_pending_files(script, work, case=case, recorded=recorded)
 
 
+def test_generated_field_provenance_carries_no_authoring_metadata(tmp_path):
+    """GOAL-034 Q0-src-cases-1: the provenance file a run folder receives beside
+    an SI-converted field is the field's own record. It carried a hard-coded
+    authoring header naming a provider, a product and a fixed date into every
+    user's run; nothing of that kind may reach a generated input."""
+    import json
+
+    from pyflightstream.cases.workflows import _free_stream, _the_custom_freestream
+    from pyflightstream.script import Script
+    from tests.tier1_offline.test_g15_custom_freestream import field, with_field
+    from tests.tier1_offline.test_workflows import steady_case
+
+    source = field(tmp_path / "sources")
+    case = with_field(steady_case(), source).model_copy(update={"freestream_units": "SI"})
+    script = Script("26.124")
+    script.emit("SET_SIMULATION_LENGTH_UNITS", "MILLIMETER")
+    _free_stream(case, script, {}, _the_custom_freestream(case))
+    [text] = [
+        body
+        for name, body in script.pending_input_files.items()
+        if name.endswith(".provenance.json")
+    ]
+    # The header words come from the tracked-tree guard, so this file does not
+    # itself spell the key that guard forbids.
+    from tests.tier1_offline.test_no_estate_headers import FORBIDDEN
+
+    for forbidden in (*FORBIDDEN, "OpenAI", "Codex"):
+        assert forbidden not in text, (forbidden, text)
+    record = json.loads(text)
+    assert record["source_units"] == "SI"
+    assert record["native_length_unit"] == "MILLIMETER"
+    assert record["source_sha256"] == sha256(source.read_bytes()).hexdigest()
+
+
+@pytest.mark.parametrize(("head", "factor"), [("1.0\n5", 1), ("0.001\n2", 1000)])
+def test_si_field_on_an_opened_saved_simulation_reads_its_unit(tmp_path, head, factor):
+    """GOAL-034 Q0-src-cases-3: a row opening a saved simulation and stating no
+    unit, no reference, no frame and no disc reached the custom field before
+    anything had read the `.fsm`'s unit, so an SI field was refused as having
+    none. The saved unit is read first and the field converted into it."""
+    from pyflightstream.cases.workflows import build_script
+    from pyflightstream.script import Script
+    from tests.tier1_offline.test_g15_custom_freestream import field, with_field
+    from tests.tier1_offline.test_workflows import steady_case
+
+    saved = tmp_path / "saved.fsm"
+    saved.write_text(f"$GLOBAL_START$\n{head}\n$GLOBAL_END$\n", encoding="utf-8")
+    source = field(tmp_path / "sources")
+    case = with_field(steady_case(geometry=saved.as_posix()), source).model_copy(
+        update={"freestream_units": "SI"}
+    )
+    script = Script("26.124")
+    build_script(case, script)
+    [payload] = [
+        body
+        for name, body in script.pending_input_files.items()
+        if not name.endswith(".provenance.json")
+    ]
+    source_row = [float(x) for x in source.read_text().splitlines()[1].split()]
+    written_row = [float(x) for x in payload.splitlines()[1].split()]
+    assert written_row == pytest.approx([value * factor for value in source_row])
+
+
 def test_matrix_unit_key_and_python_declaration_must_agree(tmp_path):
     from pyflightstream.cases import CampaignConfigError
     from pyflightstream.cases.workflows import _the_custom_freestream

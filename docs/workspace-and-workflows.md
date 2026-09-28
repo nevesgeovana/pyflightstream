@@ -3485,7 +3485,10 @@ SET_NEW_UNSTEADY_SOLVER_ACTION SCRIPT pfs_unsteady_exports
 actions/pfs_unsteady_exports.txt
 ```
 
-`<python>` is the interpreter that built the script. The solver hands an
+`<python>` is the interpreter that built the script; on Windows it is that
+interpreter's `pythonw.exe` sibling, so no console window opens after each
+time step, and a Python installation without one is refused before the run
+is prepared. The solver hands an
 action nothing about where it is in the run, no step, no azimuth, no
 environment (RPT-041), so the first action is a small Python program the
 run layer writes into the point's `actions/` folder. It counts its own

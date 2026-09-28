@@ -1972,7 +1972,22 @@ def test_the_render_population_is_not_empty_and_covers_both_workflows():
 STAGED = "runs/7002/inputs/rotor_sector.fsm"
 
 
-def test_the_defect_itself_a_geometry_now_changes_the_script():
+def _metre_saved(root: Path, relative: str) -> str:
+    """Write a saved simulation carrying the metre head at ``root/relative``.
+
+    G34 of 0.29.0 (e9fa00ec): every length stated in metres, the runtime velocity
+    included, reaches the script in the simulation's own unit, or is refused where
+    that unit is not read. A builder handed a path to no file is therefore refused
+    by name (ScriptReferenceError) rather than opening it blind, so the geometry
+    tests below stage a readable file instead of naming a missing one.
+    """
+    target = root / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n", encoding="utf-8")
+    return target.as_posix()
+
+
+def test_the_defect_itself_a_geometry_now_changes_the_script(tmp_path):
     """THE REPRODUCTION. Two cases that differed only in their geometry
     rendered BYTE-IDENTICAL scripts, on both builders: no OPEN, no
     NEW_SIMULATION, no import of any kind. The run layer had already
@@ -1984,13 +1999,24 @@ def test_the_defect_itself_a_geometry_now_changes_the_script():
     is written as a comparison rather than as an `"OPEN" in text` so it
     keeps failing for the original reason if the emission ever moves.
     """
+    staged = _metre_saved(tmp_path, STAGED)
     without = rendered(steady_case())
-    with_geometry = rendered(steady_case(geometry=STAGED))
+    with_geometry = rendered(steady_case(geometry=staged))
     assert with_geometry != without, (
         "a case carrying a geometry renders the same script as the same case without "
         "one, so nothing opens the mesh and the solver runs on whatever it has"
     )
-    assert STAGED in with_geometry, "the script never names the staged geometry"
+    assert staged in with_geometry, "the script never names the staged geometry"
+
+
+def test_a_saved_geometry_that_is_not_there_is_refused_by_name():
+    """The other half of the G34 rule the tests above stage a file for: a saved
+    simulation whose unit cannot be read because the file is absent is refused,
+    naming the path, rather than having its metres written as if it were in metres."""
+    with pytest.raises(ScriptReferenceError) as refused:
+        rendered(steady_case(geometry=STAGED))
+    assert STAGED in str(refused.value)
+    assert "Restore the file or correct its path" in str(refused.value)
 
 
 @pytest.mark.parametrize(
@@ -2022,7 +2048,7 @@ def test_both_builders_open_the_geometry_before_anything_else(workflow, case, tm
     assert lines[1] == staged, "OPEN does not name the staged geometry on its value line"
 
 
-def test_the_path_opened_is_the_one_the_case_carries_at_build_time():
+def test_the_path_opened_is_the_one_the_case_carries_at_build_time(tmp_path):
     """The STAGED copy, never the library original.
 
     ``inputs_sha256`` in the run record is the hash of the staged bytes,
@@ -2032,9 +2058,10 @@ def test_the_path_opened_is_the_one_the_case_carries_at_build_time():
     path before the builder runs; the builder's job is to open what it
     is given and nothing else.
     """
-    library = "campaign/inputs/geometries/rotor_sector.fsm"
-    text = rendered(steady_case(geometry=STAGED))
-    assert STAGED in text
+    library = _metre_saved(tmp_path, "campaign/inputs/geometries/rotor_sector.fsm")
+    staged = _metre_saved(tmp_path, STAGED)
+    text = rendered(steady_case(geometry=staged))
+    assert staged in text
     assert library not in text
     assert rendered(steady_case(geometry=library)) != text, (
         "the builder renders the same script for two different geometry paths, so it "
@@ -2127,13 +2154,14 @@ def test_the_documented_route_the_refusal_names_really_exists():
     )
 
 
-def test_the_suffix_is_read_case_insensitively():
+def test_the_suffix_is_read_case_insensitively(tmp_path):
     """``.FSM`` off a file system that upper-cased it still opens.
 
     A user staging a file from a case-preserving share meets this and
     nothing about their simulation is different.
     """
-    assert rendered(steady_case(geometry="runs/7002/inputs/rotor_sector.FSM"))
+    upper = _metre_saved(tmp_path, "runs/7002/inputs/rotor_sector.FSM")
+    assert rendered(steady_case(geometry=upper))
 
 
 def test_open_is_not_declared_in_any_workflow_command_tuple():
