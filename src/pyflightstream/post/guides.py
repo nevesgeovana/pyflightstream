@@ -2525,7 +2525,7 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                 ),
             ),
             after=(
-                "The optional embedded-VBA workbook uses Runs and an editable Dictionary. "
+                "The optional macro-free workbook uses Runs and an editable Dictionary. "
                 "Read and Write each require Preview followed by Apply or Cancel; neither "
                 "runs a solver. See docs/excel-matrices.md."
             ),
@@ -2727,10 +2727,9 @@ def _template_sections() -> tuple[TemplateSection, ...]:
             after=(
                 "Some tables belong to one kind of run. The unsteady force plots, the "
                 "phase-locked table and the equations serve the unsteady run types, "
-                "and a steady row passes them over. The other way is a REFUSAL, not an "
-                "omission: an unsteady row naming a pproc with a `[volume_section]`, or "
-                "with `plot_sections_cp = true`, is refused at plan, so this example "
-                "plans on a steady row; the residual and load plots are saved on both. "
+                "and a steady row passes them over. Volume sampling supports both run "
+                "types. Unsteady section Cp describes the final instant, not a time "
+                "average. The residual and load plots are saved on both. "
                 "The separate p002 example records native surface properties during an "
                 "unsteady march, using SURFACE_<name> plot columns. A steady row refuses it. "
                 "Every table is read and checked when the file is, so a mistake in one "
