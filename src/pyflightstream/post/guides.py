@@ -2525,7 +2525,7 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                 ),
             ),
             after=(
-                "The optional embedded-VBA workbook uses Runs and an editable Dictionary. "
+                "The optional macro-free .xlsx workbook uses Runs and an editable Dictionary. "
                 "Read and Write each require Preview followed by Apply or Cancel; neither "
                 "runs a solver. See docs/excel-matrices.md."
             ),

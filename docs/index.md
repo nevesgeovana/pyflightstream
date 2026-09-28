@@ -77,8 +77,8 @@ a person. Both write only with an explicit `--write`.
   scripts and recovery of reusable state.
 * [FSI in a workspace](fsi-workspace.md): calculated or supplied blade properties
   and explicit material/property calibration.
-* [Excel matrix synchronization](excel-matrices.md): optional embedded VBA,
-  Dictionary and explicit Preview, Apply and Cancel.
+* [Excel matrix synchronization](excel-matrices.md): an optional macro-free .xlsx,
+  Dictionary and explicit CLI Preview, Apply and Cancel.
 
 * [Software Requirements Specification](srs/index.md): the living SRS,
   from the founding requirements to the usage-feedback line, each with

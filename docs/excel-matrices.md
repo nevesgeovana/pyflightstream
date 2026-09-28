@@ -72,6 +72,5 @@ completed files and recovery paths. If Excel holds a write lock, close it and
 use the reported original/recovery state to create a new preview. Never reuse a
 partially applied batch. Reopen the workbook after Apply to view its saved state.
 
-The earlier embedded VBA experiment is not part of this release's workbook
-workflow. Existing .xlsm files are not silently converted; create a new .xlsx and
+The workbook contract carries no macros. Existing .xlsm files are not silently converted; create a new .xlsx and
 review any data transfer explicitly.
