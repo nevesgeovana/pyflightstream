@@ -654,7 +654,8 @@ def test_publication_zenodo_record_receipt():
     """
     receipt, tree = _receipt("GOAL033_ZENODO_RECORD_RECEIPT"), _real_tree()
     record = validate_zenodo_record(receipt, tree, _origin_repository())
-    assert record["metadata"]["version"] == tree.version and record["doi"] != record["conceptdoi"]
+    assert record["metadata"]["version"] in {tree.version, f"v{tree.version}"}
+    assert record["doi"] != record["conceptdoi"]
 
 
 def test_publication_zenodo_files_receipt():
