@@ -3,6 +3,10 @@
 Decorating a console ``main`` preserves its return value and exceptions.
 Only the outermost entry point reports, including argparse's early exits.
 Machine-readable stdout is never used for human outcome reporting.
+
+Every invocation ends with the owner's signature on stderr (0.30.0): a box
+drawn from :mod:`pyflightstream._signature` for an outcome, or one short line
+for ``--help`` and ``--version`` so their output stays compact.
 """
 
 from __future__ import annotations
@@ -13,31 +17,41 @@ from collections.abc import Callable
 from contextvars import ContextVar
 from functools import wraps
 
+from pyflightstream import _signature
+
 _ACTIVE: ContextVar[bool] = ContextVar("pyflightstream_cli_active", default=False)
 _POST_WARNINGS: ContextVar[bool | None] = ContextVar(
     "pyflightstream_cli_post_warnings", default=None
 )
+#: Whether this invocation ran a post (the ``post`` subcommand or the post a
+#: ``collect`` runs); a success that did is signed with the koala.
+_POSTED: ContextVar[list[bool] | None] = ContextVar("pyflightstream_cli_posted", default=None)
 _MESSAGES = {
     "help": ("Help delivered; the map is yours.", "Help ready; pick your next turn."),
     "version": ("Version reported; coordinates checked.", "Version ready; now you know the build."),
-    "success": (
-        "Great work! Another step in orbit.",
-        "Great work! Mission step complete; onward at your pace.",
-    ),
-    "failed": (
-        "Command failed; the details above mark the snag.",
-        "Command failed; time to inspect the trail.",
-    ),
-    "cancelled": (
-        "Command cancelled; taking a pause.",
-        "Command cancelled; the controls are yours.",
-    ),
 }
+#: The chooser of drawings and phrases; a test replaces it with a seeded one.
+_RNG = random.Random()
 
 
 def post_warning_policy() -> bool | None:
     """Return CLI warning preference, or None for ordinary Python callers."""
     return _POST_WARNINGS.get()
+
+
+def note_post_ran() -> None:
+    """Record that this invocation ran a post, so its success is signed as one."""
+    posted = _POSTED.get()
+    if posted is not None:
+        posted[0] = True
+
+
+def _signature_text(outcome: str) -> str:
+    """Return what the invocation prints on stderr for ``outcome``."""
+    if outcome in _MESSAGES:
+        return f"{_RNG.choice(_MESSAGES[outcome])} {_signature.SEES_YOU}"
+    name, phrase = _signature.pick(outcome, _RNG)
+    return f"\n{_signature.box(name, phrase)}\n"
 
 
 def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
@@ -51,6 +65,8 @@ def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
         supplied = args[0] if args else kwargs.get("argv")
         argv = supplied if isinstance(supplied, (list, tuple)) else sys.argv[1:]
         warning_token = _POST_WARNINGS.set("--pproc-warnings" in argv)
+        posted = [False]
+        posted_token = _POSTED.set(posted)
         outcome = "failed"
         try:
             result = function(*args, **kwargs)
@@ -70,12 +86,16 @@ def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
             outcome = "cancelled"
             raise
         finally:
+            _POSTED.reset(posted_token)
             _POST_WARNINGS.reset(warning_token)
             _ACTIVE.reset(token)
+            if outcome == "success" and posted[0]:
+                outcome = "post"
             try:
-                print(f"{random.choice(_MESSAGES[outcome])} Ass: geoversegoddes", file=sys.stderr)
+                print(_signature_text(outcome), file=sys.stderr)
             except (OSError, ValueError):
-                # A closed diagnostic stream must not replace the real result.
+                # A closed or unencodable diagnostic stream must not replace
+                # the real result.
                 pass
 
     return wrapped
