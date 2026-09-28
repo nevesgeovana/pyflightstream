@@ -487,6 +487,7 @@ def test_a_refused_polar_is_recorded_as_skipped_and_the_other_products_are_writt
     ]
     assert "3208" in manifest["skipped"]
     assert "SREF" in manifest["skipped"]["3208"]
+    assert "3208" in out.err, "the skip is said where the user looks"
     assert "SREF" not in out.err, "post warning details are quiet by default"
     detail = (products / "post.log.json").read_text(encoding="utf-8")
     assert "3208" in detail and "SREF" in detail
