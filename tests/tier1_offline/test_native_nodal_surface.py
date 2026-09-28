@@ -49,6 +49,45 @@ def test_native_node_order_is_mapped_without_averaging_cell_values(tmp_path):
     assert proof["topology_verified"] is True
 
 
+def test_millimetre_rotated_float32_vtk_still_matches_native_nodes(tmp_path):
+    """Q0-src-post-2: the VTK is written at single precision in a rotated loads
+    frame and transformed back; the native file is double in REFERENCE. At
+    hundreds of millimetres their rounding differs by ~1e-5, far above a fixed
+    1e-6, so the default tolerance must scale with the geometry."""
+    from pyflightstream.results.native_surface import (
+        attach_native_strength,
+        read_native_tecplot_surface,
+    )
+
+    scale, offset = 250.0, np.array([400.0, -300.0, 120.0])
+    native = read_native_tecplot_surface(_native(tmp_path / "native.dat"))
+    native.points[:] = native.points * scale + offset
+    angle = np.radians(37.0)
+    rotation = np.array(
+        [
+            [np.cos(angle), -np.sin(angle), 0.0],
+            [np.sin(angle), np.cos(angle), 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+    reference = _vtk().points * scale + offset
+    loads32 = (reference @ rotation.T).astype(np.float32).astype(np.float64)
+    vtk = _vtk()
+    vtk = VtkSurface(
+        points=loads32 @ rotation,
+        offsets=vtk.offsets,
+        connectivity=vtk.connectivity,
+        cell_data=vtk.cell_data,
+    )
+    assert np.max(np.abs(vtk.points - reference)) > 1e-6, "the rounding is real"
+    surface, proof = attach_native_strength(vtk, native)
+    assert surface.point_data["Singularity_strength"].tolist() == [10.0, 20.0, 30.0, 40.0]
+    assert 1e-6 < proof["coordinate_tolerance"] < 1e-2
+    # An explicit tolerance is still honoured and still refuses what it cannot resolve.
+    with pytest.raises(MalformedOutputError, match="match"):
+        attach_native_strength(vtk, native, coordinate_tolerance=1e-9)
+
+
 def test_same_coordinates_with_different_polygon_edges_are_refused(tmp_path):
     from pyflightstream.results.native_surface import (
         attach_native_strength,

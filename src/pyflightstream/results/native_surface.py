@@ -192,15 +192,26 @@ def attach_native_strength(
     surface: VtkSurface,
     native: VtkSurface,
     *,
-    coordinate_tolerance: float = 1e-6,
+    coordinate_tolerance: float | None = None,
 ) -> tuple[VtkSurface, dict[str, object]]:
     """Attach exact native strength after a unique coordinate/topology match.
 
     Both surfaces must already be in the same REFERENCE frame and length unit.
-    The absolute tolerance is in that unit. Ambiguous coincident vertices are
-    refused; this function never averages, guesses orientation, or derives a
-    strength from Cp.
+    An explicit tolerance is absolute, in that unit. By default it is relative
+    to the native geometry's diagonal extent (1e-6 of it, at least 1e-10):
+    the VTK is written at single precision in the loads frame and transformed
+    back, so its rounding grows with the coordinates' magnitude. Ambiguous
+    coincident vertices are refused; this function never averages, guesses
+    orientation, or derives a strength from Cp. The resolved tolerance is
+    returned in the mapping record.
     """
+    if coordinate_tolerance is None:
+        extent = (
+            float(np.linalg.norm(np.ptp(native.points, axis=0)))
+            if native.n_points and np.isfinite(native.points).all()
+            else 0.0
+        )
+        coordinate_tolerance = max(1e-10, extent * 1e-6)
     if not math.isfinite(coordinate_tolerance) or coordinate_tolerance <= 0:
         raise MalformedOutputError(
             "Native coordinate matching tolerance must be positive and finite"
