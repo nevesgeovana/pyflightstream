@@ -6027,6 +6027,25 @@ def _execute_sweep(
     base["script_sha256"] = script_sha
     base["raw_flag"] = script.raw_flag
     base["march_strategy"] = script.march_strategy
+    # FR-91 ON THE SWEEP PATH, which lost it. The point path writes where the
+    # script put its probe points and names the file on the record; the one-job
+    # path did neither, so a steady row of several points with a volume section
+    # recorded no positions, its probe table read FRAME NA, and the post refused
+    # every point's sampled field as differing from its recorded frame (row 5007
+    # of the licensed matrix, 0.29.0). The layout is the row's and the builder
+    # records it once for the whole job, so one file serves every point, as it
+    # does for the points of a row run one by one. A collision with a user's
+    # file is this job's failure, recorded as the point path records it.
+    try:
+        probe_points_file = _write_probe_points(sim_dir, case.sim_id, script.probe_points)
+    except PyflightstreamError as error:
+        return RunRecord(
+            **base,
+            status=RunStatus.FAILED_SCRIPT,
+            error=f"{type(error).__name__}: {error}",
+        )
+    if probe_points_file is not None:
+        base["probe_points_file"] = probe_points_file
 
     # PYFS-006 ON THE SWEEP PATH, which lost it. `_execute_point` refuses
     # declared outputs that already exist in the simulation folder before
@@ -6077,7 +6096,11 @@ def _execute_sweep(
             sim_dir,
             case=case,
             recorded=inputs_sha256,
-            run_writes=(Path(script_path), *_descriptor_of(executor, sim_dir)),
+            run_writes=(
+                Path(script_path),
+                *([sim_dir / probe_points_file] if probe_points_file is not None else []),
+                *_descriptor_of(executor, sim_dir),
+            ),
         )
     except CampaignConfigError as error:
         return RunRecord(
@@ -6195,6 +6218,8 @@ def _execute_sweep(
     # 0.30.0: a point whose only missing outputs are surfaces the package failed
     # to translate keeps its assessment; the job's record says so, per point.
     job_warnings: list[str] = []
+    #: What each assessed point read as the solver's build and version.
+    reported: list[tuple[str, str | None, str | None]] = []
     # 0.27.0: ON A MACHINE THAT CANNOT EXPORT THE LOG, run locally, no point's
     # declared log is written and none is missing. What the solver printed is
     # the whole job's and no single point's, and a job log judged as a point's
@@ -6262,6 +6287,7 @@ def _execute_sweep(
             continue
         collected = collected_by_tag[tag]
         assessment = assess(point_case, result, sim_dir)
+        reported.append((tag, assessment.fs_build, assessment.fs_version_reported))
         # G02. The job's one script imported the trailing edges once, and each
         # point is held to that count through the log it collected, else the
         # job's own.
@@ -6311,6 +6337,30 @@ def _execute_sweep(
         # what was wrong was the job's headline.
         worst = worse_of(worst, status)
     base["points_ran"] = ran
+    # THE BUILD THAT RAN, stamped on the job as the point path stamps it on a
+    # point. The one-job record left both fields empty, so the post refused the
+    # velocity convention of every sampled field of a steady job for want of a
+    # build (post/field_frames.py), while the same row run point by point
+    # passed. One process ran every point, so every point read the same build;
+    # points that read different ones mean the record cannot say which
+    # executable produced its evidence, and that is recorded as the job's
+    # failure with the readings named rather than settled by picking one.
+    # A point whose log stated no build is not a different build, and is left
+    # out of the comparison rather than counted as a disagreement.
+    for key, index in (("fs_build", 1), ("fs_version_reported", 2)):
+        readings = {entry[0]: entry[index] for entry in reported if entry[index] is not None}
+        if len(set(readings.values())) == 1:
+            base[key] = next(iter(readings.values()))
+        elif readings:
+            worst = worse_of(worst, RunStatus.FAILED_EXECUTION)
+            error_lines.append(
+                f"one process ran every point of this job, and its points read different "
+                f"{key} values ("
+                + ", ".join(f"{name}: {value!r}" for name, value in readings.items())
+                + "), so the record cannot say which solver build produced its evidence; "
+                "check that every point's log is this job's and not a leftover of another "
+                "run, then re-run the row"
+            )
     return RunRecord(
         **base,
         status=worst,

@@ -70,6 +70,11 @@ FlightStream versions.
   readable text". A window that asks nothing is now spared and written to
   the point's `pyfs-solver-windows.log`; a window with a title, any readable
   text or any button is still a dialog and still ends the point.
+- A steady sweep run as one job now writes its probe points and records the
+  solver build that ran, as a single point does. Before, the job record held
+  no probe points file and no `fs_build`, so `post` refused every volume
+  section of the sweep (no `_vsec.vtk`). Points of one job that report
+  different builds fail the job and name each point's build.
 - **Native nodal strength is matched in the loads frame the VTK was written
   in.** `translate_vtk_surface(..., native_tecplot=...)` carried the loads-frame
   rounding of the written VTK to the reference axes, which for a loads frame
