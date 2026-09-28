@@ -86,3 +86,26 @@ def test_failed_execution_keeps_its_existing_diagnosis(tmp_path):
     ]
     assert events[-1]["event"] == "failed"
     assert events[-1]["message"] == result.diagnosis()
+
+
+def test_additional_post_plans_and_records_report_the_failed_extraction(tmp_path):
+    """Q0 CX-8: additional-post returns ``(plans, records)``.
+
+    The decorator counted the top-level members of the tuple, two lists with no
+    status, so a failed extraction logged ``finished`` with ``outcomes={}``.
+    """
+    import json
+
+    plans = [SimpleNamespace(status="PLANNED")]
+    records = [SimpleNamespace(status="FAILED_EXECUTION")]
+
+    @progress.workspace_activity("additional-post")
+    def extract(workspace):
+        return plans, records
+
+    assert extract(tmp_path) == (plans, records)
+    events = [
+        json.loads(line) for line in (tmp_path / "logs/activity.log.jsonl").read_text().splitlines()
+    ]
+    assert events[-1]["event"] == "failed"
+    assert events[-1]["outcomes"] == {"FAILED_EXECUTION": 1}

@@ -66,6 +66,11 @@ def workspace_activity(stage: str, argument: str = "workspace"):
                     print(f"[{stage}] started: {root}", file=sys.stderr, flush=True)
                 result = function(*args, **kwargs)
                 records = result if isinstance(result, list | tuple) else []
+                # ADDITIONAL-POST RETURNS `(plans, records)` (Q0 CX-8): the
+                # outcomes are the second list's, not the tuple's two members,
+                # which carry no status and hid a failed extraction.
+                if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], list):
+                    records = result[1]
                 outcomes = dict(
                     Counter(str(record.status) for record in records if hasattr(record, "status"))
                 )
