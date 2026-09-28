@@ -9,7 +9,7 @@ from pyflightstream.workspace import RunStatus
 from tests.tier1_offline.test_collect_stage import _submitted_workspace
 
 
-@pytest.mark.parametrize("count", [None, 0])
+@pytest.mark.parametrize("count", [None, 0], ids=["R17", "0"])
 def test_collect_keeps_converged_with_explicit_missing_step_warning(tmp_path, count):
     # GOAL033:capability_ids:items:R17
     workspace, sim = _submitted_workspace(tmp_path)

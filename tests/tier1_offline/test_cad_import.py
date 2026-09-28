@@ -28,7 +28,7 @@ def _case(tmp_path, suffix=".igs", **options):
     )
 
 
-@pytest.mark.parametrize("suffix", [".igs", ".iges"])
+@pytest.mark.parametrize("suffix", [".igs", ".iges"], ids=["G31", ".iges"])
 def test_cad_converts_staged_input_before_mesh_conditions(tmp_path, suffix):
     # GOAL033:capability_ids:items:G31
     case = _case(tmp_path, suffix)

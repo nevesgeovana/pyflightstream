@@ -18,6 +18,7 @@ VERTICES = "v 0 0 0\nv 1 0 0\nv 0 1 0\nv 1 1 0\nv 0 2 0\nv 1 2 0\n"
         ),
         ("f 1 2 3\ng Named\nf 2 4 3\n", ("Boundary-1", "Named")),
     ],
+    ids=["G48", "g-reopened", "faces-before-first-group"],
 )
 def test_native_measured_sequences_keep_order_and_duplicate_names(tmp_path, groups, expected):
     # GOAL033:capability_ids:items:G48

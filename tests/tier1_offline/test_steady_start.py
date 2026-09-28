@@ -34,7 +34,9 @@ def test_explicit_legacy_flag_is_preserved(value, expected):
     assert _is_cold_start(case) is expected
 
 
-@pytest.mark.parametrize("option,clears", [(None, 3), (True, 3), (False, 0)])
+@pytest.mark.parametrize(
+    "option,clears", [(None, 3), (True, 3), (False, 0)], ids=["R13", "True-3", "False-0"]
+)
 def test_first_and_later_points_have_the_selected_start(option, clears):
     # GOAL033:capability_ids:items:R13
     script = Script("26.124")

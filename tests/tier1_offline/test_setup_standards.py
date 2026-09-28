@@ -278,7 +278,7 @@ def test_inlet_outlet_ownership_preserves_order_and_normal_velocity(tmp_path):
     assert "-10.0" in text and "10.0" in text
 
 
-@pytest.mark.parametrize("workflow", ["steady", "unsteady_rotor"])
+@pytest.mark.parametrize("workflow", ["steady", "unsteady_rotor"], ids=["steady", "G35"])
 def test_rotor_shedding_refused_by_registered_builder_guard(workflow):
     # GOAL033:capability_ids:items:G35
     from pyflightstream.cases import CampaignConfigError
@@ -321,6 +321,7 @@ def test_inspection_uses_resolved_setup_id_row_threads_and_shared_summary():
 
 
 def test_full_inspection_and_saved_plan_share_the_same_resolved_records(tmp_path, capsys):
+    # GOAL033:capability_ids:items:PFS-2029.24
     import json
     from pathlib import Path
 

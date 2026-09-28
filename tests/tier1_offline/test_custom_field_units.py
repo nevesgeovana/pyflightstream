@@ -9,7 +9,9 @@ def prepared(path, declaration, unit):
     return prepare_field(path, form="STRUCTURED", source_units=declaration, native_unit=unit)
 
 
-@pytest.mark.parametrize("unit,factor", [("METER", 1), ("MILLIMETER", 1000)])
+@pytest.mark.parametrize(
+    "unit,factor", [("METER", 1), ("MILLIMETER", 1000)], ids=["METER-1", "G49"]
+)
 def test_si_field_preserves_physical_vectors_and_original_bytes(tmp_path, unit, factor):
     # GOAL033:capability_ids:items:G49
     # GOAL033:scope:G49 GOAL033:scope:G50
