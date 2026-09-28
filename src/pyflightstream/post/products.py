@@ -3182,11 +3182,37 @@ def write_unsteady_probes_table(
         for vertex, names in groups:
             out.append(
                 (
-                    *_probe_spine(vertex, positions, step, context=context, pol=pol),
+                    *_exact_position(
+                        _probe_spine(vertex, positions, step, context=context, pol=pol)
+                    ),
                     *(float(row[name]) if name in present else None for name in names),
                 )
             )
     return write_csv_table(path, (*PROBE_SPINE, *tuple(parameters)), out)
+
+
+#: WHERE X, Y AND Z SIT IN A PROBE SPINE, read off the spine itself.
+_SPINE_XYZ = slice(PROBE_SPINE.index("X"), PROBE_SPINE.index("Z") + 1)
+
+
+def _exact_position(spine: tuple[object, ...]) -> tuple[object, ...]:
+    """Write a spine's RECORDED position at round-trip precision (Q0 CX-3).
+
+    The position of an unsteady sample is not a measurement: it is the vertex
+    this package emitted, read back from the positions file. The probe-field
+    product compares it for EXACT equality with the emitted samples
+    (``points_native``) and refuses a difference, so the five-decimal rule of
+    the CSV funnel, which is right for the measured cells, turned every
+    fractional grid (1/3 written ``0.33333``) into a refusal of the package's
+    own table. Only these three cells are exempt; the measured cells keep five
+    decimals.
+    """
+    cells = list(spine)
+    cells[_SPINE_XYZ] = [
+        format(float(value), ".17g") if isinstance(value, float | np.floating) else value
+        for value in cells[_SPINE_XYZ]
+    ]
+    return tuple(cells)
 
 
 # --- PFS-2015.04: the reductions of a plots table, beside it -----------------------

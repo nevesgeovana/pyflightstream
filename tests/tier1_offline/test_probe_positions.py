@@ -263,6 +263,32 @@ def test_the_unsteady_table_places_every_sample_it_carries(tmp_path):
     assert {row["FRAME"] for row in rows} == {"PUSHER_SMRP"}
 
 
+def test_the_unsteady_table_keeps_the_emitted_coordinates_exactly(tmp_path):
+    """Q0 CX-3: the field product compares these cells for EXACT equality.
+
+    `write_recorded_probe_fields` refuses a table whose X, Y, Z differ from the
+    emitted local samples (`points_native`), so a coordinate rounded to five
+    decimals on the way out fails the package's own provenance check on any
+    fractional grid: 1/3 was written `0.33333`.
+    """
+    third, two_thirds = 1.0 / 3.0, 2.0 / 3.0
+    recorded = read_probe_positions(
+        positions_file(tmp_path, [(1, third, 0.1, two_thirds, "MRP"), (2, 0.5, 1.0, 2.0, "MRP")])
+    )
+    written = write_unsteady_probes_table(
+        tmp_path / "p_probes.csv",
+        plots_table(tmp_path / "p_plots.csv"),
+        positions=recorded,
+        parameters=["MACH", "VX"],
+    )
+    assert written is not None
+    _, rows = read_csv_table(written)
+    first = next(row for row in rows if int(float(row["PROBE"])) == 1)
+    assert (float(first["X"]), float(first["Y"]), float(first["Z"])) == (third, 0.1, two_thirds)
+    # The measured cells keep the five-decimal rule of the CSV funnel.
+    assert first["MACH"] == "1.10000"
+
+
 def test_a_force_column_of_a_family_whose_name_ends_in_a_digit_is_not_a_probe(tmp_path):
     """The column set is composed FORWARD and never read backward off the header.
 
