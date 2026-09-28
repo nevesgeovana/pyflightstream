@@ -27,6 +27,8 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import pytest
+
 _REPO = Path(__file__).resolve().parents[2]
 _SRC = _REPO / "src"
 _PACKAGE = _SRC / "pyflightstream"
@@ -188,7 +190,14 @@ def test_a_missing_submodule_of_a_declared_extra_is_a_failure_not_a_skip(tmp_pat
     Reading the first component of the missing name took a misspelled submodule
     of an installed extra (``scipy.no_such_module``) for the extra being absent.
     """
-    root = next(iter(sorted(_allowed_roots())))
+    import importlib.util
+
+    # An INSTALLED declared root: the defect is a missing submodule of an extra
+    # that is present, so a root absent here would test something else.
+    installed = [r for r in sorted(_allowed_roots()) if importlib.util.find_spec(r) is not None]
+    if not installed:
+        pytest.skip("no declared optional extra is installed in this environment")
+    root = installed[0]
     (tmp_path / "planted_module.py").write_text(f"import {root}.__no_such_review_submodule__\n")
     env = dict(os.environ)
     env["PYTHONPATH"] = str(tmp_path)

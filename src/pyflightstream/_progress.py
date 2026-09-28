@@ -39,7 +39,7 @@ def activity_event(stage: str, event: str, message: str = "", **details: object)
             stream.write(json.dumps(details, ensure_ascii=False, default=str) + "\n")
 
 
-def _to_stderr(text: str) -> None:
+def say_line(text: str) -> None:
     """Say one progress or diagnostic line; a closed or broken stderr is not an error.
 
     Everything this module prints observes a stage and must not change its
@@ -64,7 +64,7 @@ def record_activity(stage: str, event: str, message: str = "", **details: object
     try:
         activity_event(stage, event, message, **details)
     except (OSError, ValueError) as log_error:
-        _to_stderr(f"[{stage}] could not persist diagnostic: {log_error}")
+        say_line(f"[{stage}] could not persist diagnostic: {log_error}")
 
 
 def _failure_message(result: object) -> str:
@@ -104,7 +104,7 @@ def workspace_activity(stage: str, argument: str = "workspace"):
             try:
                 record_activity(stage, "started", str(root), **context)
                 if not quiet:
-                    _to_stderr(f"[{stage}] started: {root}")
+                    say_line(f"[{stage}] started: {root}")
                 result = function(*args, **kwargs)
                 records = result if isinstance(result, list | tuple) else []
                 # ADDITIONAL-POST RETURNS `(plans, records)` (Q0 CX-8): the
@@ -130,7 +130,7 @@ def workspace_activity(stage: str, argument: str = "workspace"):
                 if not quiet:
                     status = "failed" if failed else "finished"
                     detail = f"; outcomes={outcomes}" if outcomes else ""
-                    _to_stderr(f"[{stage}] {status}{detail}")
+                    say_line(f"[{stage}] {status}{detail}")
                 return result
             except BaseException as error:
                 try:
@@ -144,8 +144,8 @@ def workspace_activity(stage: str, argument: str = "workspace"):
                         **context,
                     )
                 except (OSError, ValueError) as log_error:
-                    _to_stderr(f"[{stage}] could not persist diagnostic: {log_error}")
-                _to_stderr(f"[{stage}] {type(error).__name__}: {error}")
+                    say_line(f"[{stage}] could not persist diagnostic: {log_error}")
+                say_line(f"[{stage}] {type(error).__name__}: {error}")
                 raise
             finally:
                 _ACTIVE.reset(token)
@@ -174,7 +174,7 @@ def activity_stage(stage: str, **details: object) -> Iterator[dict[str, object]]
                 exception_type=type(error).__name__,
             )
         except (OSError, ValueError) as log_error:
-            _to_stderr(f"[{stage}] could not persist diagnostic: {log_error}")
+            say_line(f"[{stage}] could not persist diagnostic: {log_error}")
         raise
     else:
         record_activity(

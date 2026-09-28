@@ -107,7 +107,7 @@ from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
 )
-from pyflightstream._progress import record_activity, workspace_activity
+from pyflightstream._progress import record_activity, say_line, workspace_activity
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import (
     EXPORT_KINDS,
@@ -5412,7 +5412,9 @@ def _say(message: str, *, quiet: bool = False) -> None:
     record_activity("progress", "message", message)
     if quiet:
         return
-    print(message, file=sys.stderr, flush=True)
+    # Guarded too: a closed or broken stderr drops the line, never the stage
+    # (GOAL-034 Q8 QA3-1).
+    say_line(message)
 
 
 #: The tag a JOB's run id ends with, where a point's run id ends with its
