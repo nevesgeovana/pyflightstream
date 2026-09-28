@@ -186,6 +186,7 @@ from pyflightstream.run._wake_edge_verdict import (
 )
 from pyflightstream.script import MarchStrategy, Script
 from pyflightstream.versions import FsVersion, resolve
+from pyflightstream.workspace import JOB_TAG as _WORKSPACE_JOB_TAG
 from pyflightstream.workspace import (
     KNOWN_MANIFEST_SCHEMAS,
     LEGACY_SIM_OUTPUTS_DIR,
@@ -201,6 +202,7 @@ from pyflightstream.workspace import (
     WorkspaceError,
     collection_name,
     datapoint_dir_name,
+    planned_points_without_record,
     post_stages,
 )
 from pyflightstream.workspace.inputs import HPC_BUILD_ALIAS, HpcProfile
@@ -3759,6 +3761,11 @@ def run_campaign(
     # was submitted and the command that collects and then posts.
     if outcomes:
         _say_the_summary(outcomes, time.perf_counter() - started, quiet=quiet)
+    # 0.30.0: EVERY ROW SAYS HOW MANY OF ITS PLANNED POINTS HAVE A RECORD, and
+    # names the ones none carries: a row of ten planned points once recorded
+    # six, and nothing said so until the owner counted the scripts.
+    if to_run:
+        _say_the_rows(campaign, workspace, [*manifest.values(), *records], quiet=quiet)
     submitted = [record for record in records if record.status is RunStatus.SUBMITTED]
     if submitted:
         queued = outcomes.count(str(RunStatus.SUBMITTED))
@@ -3785,6 +3792,50 @@ def run_campaign(
     if failures:
         raise CampaignErrors(failures, records)
     return records
+
+
+def _say_the_rows(
+    campaign: Campaign,
+    workspace: CampaignWorkspace,
+    known: Sequence[RunRecord],
+    *,
+    quiet: bool,
+) -> None:
+    """Say, per row, how many planned points have a record, and warn of the rest (0.30.0).
+
+    One line per row of the campaign, on the terminal and in
+    ``logs/activity.log``: ``row 4016: all 10 executed``, or ``row 4016: 6 of
+    10 point(s) executed, 4 not attempted``. A point is executed when a record
+    of this campaign carries it, from this call or an earlier one
+    (:func:`~pyflightstream.workspace.planned_points_without_record`); a row
+    with points no record carries is also a warning naming them. The manifest
+    is read again, because a forced re-run archived records this call started
+    from; where it cannot be read, the records this call knows stand in.
+    """
+    try:
+        rows: list[Mapping[str, object]] = workspace.read_raw_manifest()
+    except (OSError, ValueError, WorkspaceError):
+        rows = [record.model_dump(mode="json") for record in known]
+    for case in campaign.sims:
+        planned = [_run_id(campaign, case, point) for point in case.sweep.points()]
+        missing = planned_points_without_record(planned, rows)
+        total = len(planned)
+        if not missing:
+            _say(f"row {case.sim_id}: all {total} executed", quiet=quiet)
+            continue
+        _say(
+            f"row {case.sim_id}: {total - len(missing)} of {total} point(s) executed, "
+            f"{len(missing)} not attempted",
+            quiet=quiet,
+        )
+        warnings.warn(
+            f"row {case.sim_id}: {len(missing)} of its {total} planned point(s) were not "
+            "attempted and no record carries them: "
+            + ", ".join(run_id.rsplit("/", 1)[-1] for run_id in missing)
+            + ". Run the row again with --resume, which runs the points no record carries.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 def _job_point_statuses(record: RunRecord, points: int) -> list[str]:
@@ -5455,11 +5506,9 @@ def _say(message: str, *, quiet: bool = False) -> None:
 
 
 #: The tag a JOB's run id ends with, where a point's run id ends with its
-#: point tag. Reused rather than invented: 0.16.0 already names the
-#: per-polar product tables by the point convention with the swept
-#: variable written literally as ``sweep``, so a reader has met this token
-#: and it reads correctly, naming a sweep rather than a point.
-JOB_TAG = "sweep"
+#: point tag; its home is the workspace layer since 0.30.0, beside the record
+#: it names, and it is stated here under the name this module has always had.
+JOB_TAG = _WORKSPACE_JOB_TAG
 
 #: FR-95. How bad a point's outcome is, worst LAST, for folding the points
 #: of one job into the job's own status.

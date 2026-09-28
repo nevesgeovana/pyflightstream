@@ -70,6 +70,13 @@ FlightStream versions.
   or FAILED_INCOMPLETE_OUTPUT when the solver had already run, with the
   failed write and its remedy in the record's `error`, and the run continues
   with the next point.
+- **A run closes with one line per row saying how many of its planned points
+  ran.** `row 4016: all 10 executed`, or `row 4016: 6 of 10 point(s)
+  executed, 4 not attempted`, on the terminal and in `logs/activity.log`,
+  local and submitting alike; a point counts as executed when a record of the
+  campaign carries it, from this run or an earlier one (a steady job's record
+  carries its points). A row with points no record carries is also a warning
+  naming them and the `--resume` that runs them.
 
 ### Owed
 
