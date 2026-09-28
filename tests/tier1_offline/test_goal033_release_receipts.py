@@ -61,9 +61,11 @@ PER OBLIGATION (variable -> obligation: required artifacts roles; facts):
   ``kit``; fact ``linux_guide_member``: its text states the version,
   ``pyflightstream`` and ``pip install``.
 * ``GOAL033_D10_RECEIPT`` -> ``capability_ids:items:D10``. Role ``kit``;
-  facts ``linux_guide_member`` and ``executables_statement``: a sentence that
-  names ``executables.toml`` and occurs in the member's extracted text
-  (compared with whitespace removed, case folded).
+  facts ``linux_guide_member`` and ``executables_statement``: exactly the
+  module constant ``STATEMENT`` ("To run a matrix locally on Linux, change
+  only the executable path in executables.toml."), which must occur in the
+  member's extracted text (compared with whitespace removed, case folded).
+  A caller-chosen substring is not accepted: the sentence is the claim.
 * ``GOAL033_D15_RECEIPT`` -> ``capability_ids:items:D15``. Role ``kit``;
   facts ``user_guide_member``, ``linux_guide_member`` and ``members``: the
   complete list ``[{"name", "sha256"}]`` of the zip's file members, equal to
@@ -77,22 +79,34 @@ PER OBLIGATION (variable -> obligation: required artifacts roles; facts):
 * ``GOAL033_TIER1_TIER2_RECEIPT`` -> ``delivery:checks:tier1_tier2_regressions``
   [code]. Roles ``tier1_junit`` and ``tier2_junit``. Facts ``tier1`` and
   ``tier2``, each ``{"tests", "failures", "errors", "skipped"}`` equal to the
-  recomputed counts; failures == errors == 0 in both; tier 1 > 7000 tests;
+  recomputed counts; failures == errors == 0 in both; tier 1 has more than
+  7000 PASSING tests (tests - skipped; a skip is not a pass);
   ``tier2_build`` (the licensed build) and ``tier2_licensed`` true.
 * ``GOAL033_G39_RECEIPT`` -> ``capability_ids:items:G39`` [code]. Roles
   ``native_section_saved`` and ``native_section_reopened`` (the native volume
   section as saved and as read back from the reopened .fsm: byte-identical,
   recomputed), ``probe_vtk`` and ``native_export_vtk`` (legacy ASCII VTK;
   their POINTS must be equal, recomputed). Facts
-  ``native_volume_byte_identical`` true, ``max_velocity_error`` <=
-  ``csv_quantization`` (> 0), ``sources``: ``[{"path", "sha256"}]`` for at
-  least the five post/fsm modules below, each equal to the blob at HEAD.
+  ``native_volume_byte_identical`` true, ``probe_velocity`` and
+  ``native_velocity`` (the velocity array of each VTK's POINT_DATA: a
+  ``VECTORS`` name as a string -- the product writes ``Velocity`` -- or a list
+  of three ``SCALARS`` names), ``csv_quantization`` (> 0) and
+  ``max_velocity_error``. The comparison is RECOMPUTED: the largest absolute
+  component difference between the two velocity arrays must be <=
+  ``csv_quantization`` and equal the stated ``max_velocity_error`` within
+  1e-12. ``sources``: ``[{"path", "sha256"}]`` for at least the five post/fsm
+  modules below, each equal to the blob at HEAD.
 * ``GOAL033_G63_RECEIPT`` -> ``capability_ids:items:G63``. Roles ``wheel``
-  (hash == ``pypi_wheel_sha256``), ``matrix`` (file named ``matrix-qa.fs``)
-  and ``synthesis_report``. Facts ``workspace`` == ``fts-research``,
-  ``matrix`` == ``matrix-qa.fs``, ``pypi_wheel_sha256``, ``cases``: non-empty
-  ``[{"id", "status"}]`` all ``completed`` with unique ids, and
-  ``completed_cases`` == their count.
+  (a zip wheel whose METADATA is pyflightstream at the release version, hash
+  == ``pypi_wheel_sha256``), ``matrix`` (file named ``matrix-qa.fs``),
+  ``synthesis_report`` (non-empty text naming every case id) and
+  ``result:<id>`` for every case: a JSON object ``{"case": <id>, "complete":
+  true, ...}`` written by the run, re-hashed. Facts ``workspace`` ==
+  ``fts-research``, ``matrix`` == ``matrix-qa.fs``, ``pypi_wheel_sha256``,
+  ``cases``: non-empty ``[{"id", "status"}]`` all ``completed`` with unique
+  ids, and ``completed_cases`` == their count. Completion is derived from the
+  per-case artifacts: a receipt saying ``completed`` over a result that says
+  otherwise is refused.
 * ``GOAL033_G66_RECEIPT`` -> ``capability_ids:items:G66``. Roles
   ``input:<name>`` for the three owner inputs (names below) and
   ``summary:<name>`` for each input's review summary. Facts ``inputs``: the
@@ -133,6 +147,9 @@ G39_SOURCES = (
     "src/pyflightstream/post/products.py",
     "src/pyflightstream/post/writers.py",
 )
+
+#: D10: the sentence the kit's Linux guide must carry, verbatim up to whitespace and case.
+STATEMENT = "To run a matrix locally on Linux, change only the executable path in executables.toml."
 
 #: The three owner inputs the reference intake reviews, by their exact names.
 G66_INPUTS = (
@@ -238,6 +255,7 @@ def _role(roles: dict[str, Path], role: str) -> Path:
 
 
 def _wheel_metadata(path: Path) -> tuple[str, str]:
+    _need(zipfile.is_zipfile(path), f"{path.name}: not a zip, so not a wheel")
     with zipfile.ZipFile(path) as wheel:
         names = [n for n in wheel.namelist() if n.endswith(".dist-info/METADATA")]
         _need(len(names) == 1, f"{path.name}: not one METADATA")
@@ -278,8 +296,7 @@ def _member_text(kit: zipfile.ZipFile, name: object) -> str:
     data = kit.read(name)
     if name.lower().endswith(".pdf"):
         _need(data.startswith(b"%PDF-"), f"{name} is not a PDF")
-        import pypdf
-
+        pypdf = pytest.importorskip("pypdf")  # the kit validators alone read PDFs
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             pages = pypdf.PdfReader(io.BytesIO(data)).pages
@@ -367,12 +384,13 @@ def validate_linux_guide(receipt: object, tree: Tree) -> None:
 
 def validate_d10(receipt: object, tree: Tree) -> None:
     roles, facts = _envelope(receipt, "capability_ids:items:D10", tree, code=False)
-    statement = facts.get("executables_statement")
-    _need(isinstance(statement, str) and "executables.toml" in statement, "statement")
-    assert isinstance(statement, str)
+    _need(
+        facts.get("executables_statement") == STATEMENT,
+        "statement must assert the executables-only change",
+    )
     with _kit(roles, tree) as kit:
         text = _member_text(kit, facts.get("linux_guide_member"))
-    _need(_squash(statement) in _squash(text), "the statement is not in the Linux guide")
+    _need(_squash(STATEMENT) in _squash(text), "the statement is not in the Linux guide")
 
 
 def validate_d15(receipt: object, tree: Tree) -> None:
@@ -410,20 +428,89 @@ def validate_tier1_tier2(receipt: object, tree: Tree) -> None:
     obligation = "delivery:checks:tier1_tier2_regressions"
     roles, facts = _envelope(receipt, obligation, tree, code=True)
     tier1 = _counts_match(facts.get("tier1"), _role(roles, "tier1_junit"), "tier 1")
-    _need(tier1["tests"] > 7000, "tier 1 has not more than 7000 tests")
+    _need(
+        tier1["tests"] - tier1["skipped"] > 7000,
+        "tier 1 has not more than 7000 passing tests",
+    )
     _counts_match(facts.get("tier2"), _role(roles, "tier2_junit"), "tier 2")
     _need(isinstance(facts.get("tier2_build"), str) and facts["tier2_build"], "tier2_build")
     _need(facts.get("tier2_licensed") is True, "tier2_licensed")
 
 
-def _vtk_points(path: Path) -> list[float]:
-    tokens = path.read_text(encoding="ascii").split()
+def _floats(tokens: list[str], at: int, count: int, what: str) -> list[float]:
+    values = tokens[at : at + count]
+    _need(len(values) == count, f"{what}: truncated")
+    try:
+        return [float(t) for t in values]
+    except ValueError:
+        raise ReceiptRefusedError(f"{what}: a value is not a number") from None
+
+
+def _vtk(path: Path) -> tuple[list[float], dict[str, list[float]]]:
+    """Read a legacy ASCII VTK: its POINTS and its POINT_DATA arrays, by name.
+
+    The layout is the one ``pyflightstream.post.writers.write_vtk_points``
+    writes (``POINTS n float``, then ``POINT_DATA n`` with ``SCALARS name
+    type [components]`` + ``LOOKUP_TABLE`` or ``VECTORS name type``). The
+    product has no reader for point clouds (``read_vtk_surface`` reads
+    surfaces and refuses VECTORS), so the receipt test parses it here.
+    """
+    lines = path.read_text(encoding="ascii").splitlines()
+    _need(len(lines) > 4 and lines[2].strip().upper() == "ASCII", f"{path.name}: not ASCII VTK")
+    tokens = " ".join(lines[3:]).split()  # the title line is free text
     _need("POINTS" in tokens, f"{path.name}: no POINTS")
     at = tokens.index("POINTS")
     count = int(tokens[at + 1])
-    values = [float(t) for t in tokens[at + 3 : at + 3 + 3 * count]]
-    _need(count > 0 and len(values) == 3 * count, f"{path.name}: POINTS truncated")
-    return values
+    _need(count > 0, f"{path.name}: no points")
+    points = _floats(tokens, at + 3, 3 * count, f"{path.name} POINTS")
+    arrays: dict[str, list[float]] = {}
+    if "POINT_DATA" not in tokens:
+        return points, arrays
+    at = tokens.index("POINT_DATA")
+    _need(int(tokens[at + 1]) == count, f"{path.name}: POINT_DATA count differs from POINTS")
+    at += 2
+    while at < len(tokens) and tokens[at] != "CELL_DATA":
+        keyword, name = tokens[at].upper(), tokens[at + 1]
+        _need(name not in arrays, f"{path.name}: array {name} twice")
+        if keyword == "VECTORS":
+            at += 3
+            width = 3
+        elif keyword == "SCALARS":
+            at += 3
+            width = 1
+            if at < len(tokens) and tokens[at].upper() != "LOOKUP_TABLE":
+                _need(tokens[at] in {"1", "2", "3", "4"}, f"{path.name}: {name} components")
+                width = int(tokens[at])
+                at += 1
+            _need(
+                at < len(tokens) and tokens[at].upper() == "LOOKUP_TABLE",
+                f"{path.name}: SCALARS {name} without its LOOKUP_TABLE",
+            )
+            at += 2
+        else:
+            raise ReceiptRefusedError(f"{path.name}: POINT_DATA holds {keyword}, not read here")
+        arrays[name] = _floats(tokens, at, width * count, f"{path.name} {name}")
+        at += width * count
+    return points, arrays
+
+
+def _velocity(arrays: dict[str, list[float]], named: object, what: str) -> list[float]:
+    """The velocity array as ``[vx0, vy0, vz0, vx1, ...]``: one VECTORS or three SCALARS."""
+    if isinstance(named, str):
+        _need(named in arrays, f"{what}: no array {named}")
+        values = arrays[named]
+        _need(len(values) % 3 == 0, f"{what}: {named} is not a vector array")
+        return values
+    _need(
+        isinstance(named, list) and len(named) == 3 and all(isinstance(n, str) for n in named),
+        f"{what}: velocity must name one VECTORS or three SCALARS arrays",
+    )
+    assert isinstance(named, list)
+    for name in named:
+        _need(name in arrays, f"{what}: no array {name}")
+    columns = [arrays[name] for name in named]
+    _need(len({len(c) for c in columns}) == 1, f"{what}: velocity components differ in length")
+    return [value for row in zip(*columns, strict=True) for value in row]
 
 
 def validate_g39(receipt: object, tree: Tree) -> None:
@@ -432,12 +519,20 @@ def validate_g39(receipt: object, tree: Tree) -> None:
     reopened = _role(roles, "native_section_reopened").read_bytes()
     _need(saved and saved == reopened, "native volume section is not byte-identical")
     _need(facts.get("native_volume_byte_identical") is True, "native_volume_byte_identical")
-    probe = _vtk_points(_role(roles, "probe_vtk"))
-    native = _vtk_points(_role(roles, "native_export_vtk"))
-    _need(probe == native, "probe points differ from the native export")
+    probe_points, probe_arrays = _vtk(_role(roles, "probe_vtk"))
+    native_points, native_arrays = _vtk(_role(roles, "native_export_vtk"))
+    _need(probe_points == native_points, "probe points differ from the native export")
+    probe = _velocity(probe_arrays, facts.get("probe_velocity"), "probe_vtk")
+    native = _velocity(native_arrays, facts.get("native_velocity"), "native_export_vtk")
+    _need(len(probe) == len(native) == len(probe_points), "velocity count differs from points")
+    measured = max(abs(a - b) for a, b in zip(probe, native, strict=True))
     error, quantum = facts.get("max_velocity_error"), facts.get("csv_quantization")
     _need(isinstance(quantum, int | float) and quantum > 0, "csv_quantization")
-    _need(isinstance(error, int | float) and 0 <= error <= quantum, "velocity error exceeds CSV")
+    _need(measured <= quantum, f"velocities differ by {measured}, beyond the CSV quantization")
+    _need(
+        isinstance(error, int | float) and abs(error - measured) <= 1e-12,
+        f"max_velocity_error {error} is not the recomputed {measured}",
+    )
     sources = facts.get("sources")
     _need(isinstance(sources, list), "sources missing")
     assert isinstance(sources, list)
@@ -456,14 +551,26 @@ def validate_g63(receipt: object, tree: Tree) -> None:
     wheel = _role(roles, "wheel")
     _need(wheel.name == f"pyflightstream-{tree.version}-py3-none-any.whl", "wheel name")
     _need(_sha256(wheel) == facts.get("pypi_wheel_sha256"), "wheel is not PyPI's")
+    _need(_wheel_metadata(wheel) == ("pyflightstream", tree.version), "wheel METADATA")
     cases = facts.get("cases")
     _need(isinstance(cases, list) and cases, "cases missing")
     assert isinstance(cases, list)
     ids = [c.get("id") for c in cases if isinstance(c, dict)]
     _need(len(ids) == len(cases) == len(set(ids)) and all(ids), "case ids")
+    _need(all(isinstance(i, str) for i in ids), "case ids must be strings")
     _need(all(c.get("status") == "completed" for c in cases), "a case did not complete")
     _need(facts.get("completed_cases") == len(cases), "completed_cases")
-    _need(_role(roles, "synthesis_report").stat().st_size > 0, "synthesis report empty")
+    for case in ids:
+        try:
+            result = json.loads(_role(roles, f"result:{case}").read_text(encoding="utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            raise ReceiptRefusedError(f"result of {case} is not JSON") from None
+        _need(isinstance(result, dict) and result.get("case") == case, f"result of {case}: case")
+        _need(result.get("complete") is True, f"result of {case} does not state completion")
+    report = _role(roles, "synthesis_report").read_text(encoding="utf-8", errors="replace")
+    _need(report.strip(), "synthesis report empty")
+    unnamed = [case for case in ids if case not in report]
+    _need(not unnamed, f"the synthesis report does not name {unnamed}")
 
 
 def validate_g66(receipt: object, tree: Tree) -> None:
@@ -742,10 +849,9 @@ def _base(obligation: str, artifacts: list[dict], facts: dict, code: bool) -> di
 
 
 LINUX_TEXT = (
-    f"pyflightstream {VERSION} on Linux: pip install pyflightstream=={VERSION}. "
-    "To run locally, change only the executable path in executables.toml."
+    f"pyflightstream {VERSION} on Linux: pip install pyflightstream=={VERSION}.\n"
+    "To run a matrix locally on Linux, change only\nthe executable path in executables.toml."
 )
-STATEMENT = "change only the executable path in executables.toml."
 
 
 def _kit_zip(tmp: Path) -> Path:
@@ -756,16 +862,35 @@ def _kit_zip(tmp: Path) -> Path:
     return path
 
 
-def _junit_file(path: Path, tests: int, failures: int = 0) -> Path:
-    cases = "".join(
-        f'<testcase name="t{i}">{"<failure/>" if i < failures else ""}</testcase>'
-        for i in range(tests)
-    )
+def _junit_file(path: Path, tests: int, failures: int = 0, skipped: int = 0) -> Path:
+    def body(i: int) -> str:
+        return "<failure/>" if i < failures else "<skipped/>" if i >= tests - skipped else ""
+
+    cases = "".join(f'<testcase name="t{i}">{body(i)}</testcase>' for i in range(tests))
     return _write(path, f"<testsuites><testsuite>{cases}</testsuite></testsuites>")
 
 
-def _vtk(path: Path, points: str) -> Path:
-    return _write(path, f"# vtk DataFile Version 3.0\nx\nASCII\nDATASET POLYDATA\n{points}\n")
+G39_POINTS = "POINTS 2 float\n0 0 0 1 0.5 0.25\nVERTICES 2 4\n1 0\n1 1"
+PROBE_DATA = "POINT_DATA 2\nVECTORS Velocity float\n30 0 0\n29.5 0.1 0"
+NATIVE_DATA = (
+    "POINT_DATA 2\nSCALARS Vx float 1\nLOOKUP_TABLE default\n30.0004 29.5\n"
+    "SCALARS Vy float\nLOOKUP_TABLE default\n0 0.1\n"
+    "SCALARS Vz float 1\nLOOKUP_TABLE default\n0.0002 0"
+)
+
+
+def _vtk_file(path: Path, body: str) -> Path:
+    return _write(
+        path, f"# vtk DataFile Version 3.0\nPOINTS title\nASCII\nDATASET POLYDATA\n{body}\n"
+    )
+
+
+def _replace(receipt: dict, role: str, data: bytes | str) -> Path:
+    """Rewrite one artifact's file and re-hash it, so only its content differs."""
+    item = next(a for a in receipt["artifacts"] if a["role"] == role)
+    path = _write(Path(item["path"]), data)
+    item["sha256"] = _sha256(path)
+    return path
 
 
 def _build_clean_install(tmp: Path) -> dict:
@@ -864,19 +989,22 @@ def _build_tier1_tier2(tmp: Path) -> dict:
 
 def _build_g39(tmp: Path) -> dict:
     section = b"$VOLUME_SECTION_START$\n1 2 3\n$VOLUME_SECTION_END$\n"
-    points = "POINTS 2 float\n0 0 0 1 0.5 0.25"
     digest = hashlib.sha256(SOURCE_BYTES).hexdigest()
+    probe = _vtk_file(tmp / "probe.vtk", f"{G39_POINTS}\n{PROBE_DATA}")
+    native = _vtk_file(tmp / "native.vtk", f"{G39_POINTS}\n{NATIVE_DATA}")
     return _base(
         "capability_ids:items:G39",
         [
             _art("native_section_saved", _write(tmp / "saved.txt", section)),
             _art("native_section_reopened", _write(tmp / "reopened.txt", section)),
-            _art("probe_vtk", _vtk(tmp / "probe.vtk", points)),
-            _art("native_export_vtk", _vtk(tmp / "native.vtk", points)),
+            _art("probe_vtk", probe),
+            _art("native_export_vtk", native),
         ],
         {
             "native_volume_byte_identical": True,
-            "max_velocity_error": 0.0004,
+            "probe_velocity": "Velocity",
+            "native_velocity": ["Vx", "Vy", "Vz"],
+            "max_velocity_error": 30.0004 - 30.0,
             "csv_quantization": 0.0005,
             "sources": [{"path": p, "sha256": digest} for p in G39_SOURCES],
         },
@@ -886,12 +1014,20 @@ def _build_g39(tmp: Path) -> dict:
 
 def _build_g63(tmp: Path) -> dict:
     wheel = _wheel(tmp / f"pyflightstream-{VERSION}-py3-none-any.whl", VERSION)
+    results = [
+        _art(f"result:{case}", _write(tmp / f"{case}.json", json.dumps(result)))
+        for case, result in (
+            ("c1", {"case": "c1", "complete": True}),
+            ("c2", {"case": "c2", "complete": True}),
+        )
+    ]
     return _base(
         "capability_ids:items:G63",
         [
             _art("wheel", wheel),
             _art("matrix", _write(tmp / "matrix-qa.fs", "matrix\n")),
-            _art("synthesis_report", _write(tmp / "synthesis.md", "# synthesis\n")),
+            _art("synthesis_report", _write(tmp / "synthesis.md", "# synthesis\nc1 and c2\n")),
+            *results,
         ],
         {
             "workspace": "fts-research",
@@ -987,6 +1123,8 @@ CASES: dict[str, tuple[Callable, Callable, dict[str, Callable[[dict], None]]]] =
         {
             "not_in_guide": _set("facts", "executables_statement", value="edit executables.toml"),
             "no_toml": _set("facts", "executables_statement", value="change only the path"),
+            "bare_filename": _set("facts", "executables_statement", value="executables.toml"),
+            "member_lacks_it": _set("facts", "linux_guide_member", value="guide.pdf"),
         },
     ),
     "d15": (
@@ -1022,6 +1160,10 @@ CASES: dict[str, tuple[Callable, Callable, dict[str, Callable[[dict], None]]]] =
         CODE
         | {
             "error": _set("facts", "max_velocity_error", value=0.0006),
+            "error_understated": _set("facts", "max_velocity_error", value=0.0),
+            "quantization": _set("facts", "csv_quantization", value=0.0001),
+            "velocity_array": _set("facts", "probe_velocity", value="Pressure"),
+            "velocity_scalars": _set("facts", "native_velocity", value=["Vx", "Vy"]),
             "source": _set("facts", "sources", 0, "sha256", value="0" * 64),
             "sources_short": lambda r: r["facts"]["sources"].pop(),
             "bool_only": _set("facts", "native_volume_byte_identical", value=False),
@@ -1035,6 +1177,8 @@ CASES: dict[str, tuple[Callable, Callable, dict[str, Callable[[dict], None]]]] =
             "wheel_digest": _set("facts", "pypi_wheel_sha256", value="e" * 64),
             "incomplete": _set("facts", "cases", 1, "status", value="failed"),
             "count": _set("facts", "completed_cases", value=3),
+            "result_missing": lambda r: r["artifacts"].pop(),
+            "case_unreported": _set("facts", "cases", 1, "id", value="c3"),
         },
     ),
     "g66": (
@@ -1049,9 +1193,14 @@ CASES: dict[str, tuple[Callable, Callable, dict[str, Callable[[dict], None]]]] =
 }
 
 
+#: The validators that read a PDF member of the kit; only they need the optional pypdf.
+READS_PDF = {"guides_kit", "linux_guide", "d10", "d15"}
+
+
 @pytest.mark.parametrize("name", sorted(CASES))
 def test_receipt_validator_accepts_the_valid_receipt(name, tmp_path):
-    pytest.importorskip("pypdf")
+    if name in READS_PDF:
+        pytest.importorskip("pypdf")
     build, validate, _ = CASES[name]
     validate(build(tmp_path), _tree())
 
@@ -1065,13 +1214,106 @@ def test_receipt_validator_accepts_the_valid_receipt(name, tmp_path):
     ],
 )
 def test_receipt_validator_refuses_one_wrong_field(name, field, tmp_path):
-    pytest.importorskip("pypdf")
+    if name in READS_PDF:
+        pytest.importorskip("pypdf")
     build, validate, own = CASES[name]
     receipt = copy.deepcopy(build(tmp_path))
     validate(copy.deepcopy(receipt), _tree())  # the control: unchanged, it is accepted
     (COMMON | own)[field](receipt)
     with pytest.raises(ReceiptRefusedError):
         validate(receipt, _tree())
+
+
+# --- artifact content, not receipt fields: each edit rewrites a hashed file and re-hashes ---
+
+
+def _refused_after(build, validate, edit, tmp_path, match: str) -> None:
+    receipt = build(tmp_path)
+    validate(copy.deepcopy(receipt), _tree())  # the control
+    edit(receipt)
+    with pytest.raises(ReceiptRefusedError, match=match):
+        validate(receipt, _tree())
+
+
+def test_g39_recomputes_the_velocity_difference_rather_than_trusting_the_receipt(tmp_path):
+    """Velocities 100 apart with ``max_velocity_error`` 0 are refused (CXQ8R5-2)."""
+
+    def edit(receipt: dict) -> None:
+        shifted = NATIVE_DATA.replace("30.0004 29.5", "130 29.5")
+        _replace(
+            receipt,
+            "native_export_vtk",
+            f"# vtk DataFile Version 3.0\nx\nASCII\nDATASET POLYDATA\n{G39_POINTS}\n{shifted}\n",
+        )
+        receipt["facts"]["max_velocity_error"] = 0
+
+    _refused_after(_build_g39, validate_g39, edit, tmp_path, "beyond the CSV quantization")
+
+
+def test_g39_refuses_a_velocity_array_the_export_does_not_carry(tmp_path):
+    def edit(receipt: dict) -> None:
+        _replace(receipt, "native_export_vtk", f"# vtk\nx\nASCII\nDATASET POLYDATA\n{G39_POINTS}\n")
+
+    _refused_after(_build_g39, validate_g39, edit, tmp_path, "no array Vx")
+
+
+def test_g63_refuses_a_wheel_that_is_not_a_zip(tmp_path):
+    """A file saying ``not a zip or wheel`` with PyPI's digest set to its hash (CXQ8R5-2)."""
+
+    def edit(receipt: dict) -> None:
+        wheel = _replace(receipt, "wheel", b"not a zip or wheel")
+        receipt["facts"]["pypi_wheel_sha256"] = _sha256(wheel)
+
+    _refused_after(_build_g63, validate_g63, edit, tmp_path, "not a zip")
+
+
+def test_g63_refuses_a_wheel_of_another_version(tmp_path):
+    def edit(receipt: dict) -> None:
+        wheel = _replace(receipt, "wheel", b"")
+        _wheel(wheel, "0.28.0")
+        receipt["artifacts"][0]["sha256"] = receipt["facts"]["pypi_wheel_sha256"] = _sha256(wheel)
+
+    _refused_after(_build_g63, validate_g63, edit, tmp_path, "METADATA")
+
+
+def test_g63_refuses_completed_over_a_case_result_that_says_incomplete(tmp_path):
+    def edit(receipt: dict) -> None:
+        _replace(receipt, "result:c2", json.dumps({"case": "c2", "complete": False}))
+
+    _refused_after(_build_g63, validate_g63, edit, tmp_path, "does not state completion")
+
+
+def test_g63_refuses_a_case_result_of_another_case(tmp_path):
+    def edit(receipt: dict) -> None:
+        _replace(receipt, "result:c2", json.dumps({"case": "c1", "complete": True}))
+
+    _refused_after(_build_g63, validate_g63, edit, tmp_path, "case")
+
+
+def test_g63_refuses_a_synthesis_that_names_no_case(tmp_path):
+    def edit(receipt: dict) -> None:
+        _replace(receipt, "synthesis_report", "ALL CASES FAILED\n")
+
+    _refused_after(_build_g63, validate_g63, edit, tmp_path, "does not name")
+
+
+def test_g63_refuses_an_empty_synthesis(tmp_path):
+    def edit(receipt: dict) -> None:
+        _replace(receipt, "synthesis_report", "  \n")
+
+    _refused_after(_build_g63, validate_g63, edit, tmp_path, "empty")
+
+
+def test_tier1_counts_passing_tests_not_skipped_ones(tmp_path):
+    """7001 cases of which one skipped is 7000 passing: refused (CXQ8R5-3)."""
+
+    def edit(receipt: dict) -> None:
+        junit = _junit_file(tmp_path / "tier1.xml", 7001, skipped=1)
+        item = next(a for a in receipt["artifacts"] if a["role"] == "tier1_junit")
+        item["sha256"] = _sha256(junit)
+        receipt["facts"]["tier1"]["skipped"] = 1
+
+    _refused_after(_build_tier1_tier2, validate_tier1_tier2, edit, tmp_path, "passing tests")
 
 
 def test_a_code_receipt_is_refused_without_its_product_revision(tmp_path):
