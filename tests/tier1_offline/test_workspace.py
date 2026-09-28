@@ -2747,7 +2747,7 @@ def test_a_junction_is_recognised_without_isjunction(tmp_path, monkeypatch):
     """Python 3.11 has no os.path.isjunction; the fact is read off lstat there."""
     import sys
 
-    from pyflightstream.workspace import _is_junction
+    from pyflightstream.workspace._links import _is_junction
 
     if sys.platform != "win32":
         pytest.skip("a junction is a Windows object")
