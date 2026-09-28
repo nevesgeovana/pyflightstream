@@ -1139,6 +1139,21 @@ def _print_sync(entry: dict[str, Any]) -> None:
         print(f"  matrix {item['matrix']}: {verb} ({item['path']})")
     for item in matrices.get("not_copied", []):
         print(f"  matrix {item['matrix']}: not copied, {item['reason']}")
+    # 0.30.0: the points the other workspace planned that no merged record carries.
+    for stem, plan in entry.get("plan_points_without_record", {}).items():
+        if "error" in plan:
+            print(f"  plan {stem}: {plan['error']}")
+            continue
+        missing = plan["without_record"]
+        if not missing:
+            print(f"  plan {stem}: all {plan['planned']} planned point(s) have a record")
+            continue
+        print(
+            f"  PLANNED WITHOUT RECORD {stem}: {len(missing)} of {plan['planned']} planned "
+            "point(s) have no record in the merged runs.json:"
+        )
+        for run_id in missing:
+            print(f"    {run_id}")
     if entry["applied"]:
         print(f"  applied: {human_bytes(entry['bytes_copied'])} copied")
 

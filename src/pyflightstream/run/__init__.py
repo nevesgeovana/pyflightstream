@@ -182,7 +182,7 @@ from pyflightstream.run._actions_counter import render_program
 from pyflightstream.run._continuation_frame import recover_frame as _recover_continuation_frame
 from pyflightstream.run._solver_windows import owned_solver_dialogs as _owned_solver_dialogs
 from pyflightstream.run._solver_windows import spared_solver_windows as _spared_solver_windows
-from pyflightstream.run._step_exports import missing_step_warning
+from pyflightstream.run._step_exports import missing_step_warning, untranslated_surfaces
 from pyflightstream.run._wake_edge_verdict import (
     SOLVER_OWN_LOG,
     actuator_profile_verdict,
@@ -195,6 +195,7 @@ from pyflightstream.run._wake_edge_verdict import (
 )
 from pyflightstream.script import MarchStrategy, Script
 from pyflightstream.versions import FsVersion, resolve
+from pyflightstream.workspace import JOB_TAG as _WORKSPACE_JOB_TAG
 from pyflightstream.workspace import (
     KNOWN_MANIFEST_SCHEMAS,
     LEGACY_SIM_OUTPUTS_DIR,
@@ -210,6 +211,7 @@ from pyflightstream.workspace import (
     WorkspaceError,
     collection_name,
     datapoint_dir_name,
+    planned_points_without_record,
     post_stages,
 )
 from pyflightstream.workspace.inputs import HPC_BUILD_ALIAS, HpcProfile
@@ -3528,10 +3530,18 @@ def run_campaign(
         # (PFS-2009.08.02).
         case_version_source = FS_VERSION_FROM_ROW if build is not None else FS_VERSION_FROM_DEFAULT
         canonical = resolve(case_version).canonical
-        sim_dir = workspace.create_sim(case.sim_id)
-        recipe, preparation_error, inputs_sha256, staged_geometry = _prepare_case(
-            campaign, case, workspace, recipes
-        )
+        # 0.30.0: A FOLDER THAT CANNOT BE WRITTEN IS THIS ROW'S RECORDED FAILURE,
+        # never the end of the run: a workspace on a network share that refuses
+        # one write left a row's planned points with no record at all.
+        try:
+            sim_dir = workspace.create_sim(case.sim_id)
+            recipe, preparation_error, inputs_sha256, staged_geometry = _prepare_case(
+                campaign, case, workspace, recipes
+            )
+        except OSError as error:
+            sim_dir = workspace.sim_dir(case.sim_id)
+            recipe, inputs_sha256, staged_geometry = None, {}, None
+            preparation_error = _unwritable(error, "while its simulation folder was prepared")
         # FR-95: A STEADY ROW IS ONE JOB. Every point of it
         # goes through one script and one process, because that is what warm
         # start IS: point two begins from point one's converged solution
@@ -3552,6 +3562,7 @@ def run_campaign(
                 quiet=quiet,
             )
         if _is_one_job(campaign, case) and len(pending) > 1 and not job_recorded:
+            job_run = _job_run_id(campaign, case)
             _say(
                 f"  -> {_job_run_id(campaign, case)}  [{case.recipe}]  "
                 f"{len(pending)} point(s) in one job  "
@@ -3565,24 +3576,31 @@ def run_campaign(
                 cold = _is_cold_start(case)
             except CampaignConfigError as error:
                 cold, preparation_error = True, preparation_error or str(error)
-            record = _execute_sweep(
-                campaign=campaign,
-                canonical=canonical,
-                fs_exe=case_exe,
-                fs_version=case_version,
-                fs_version_source=case_version_source,
-                case=case,
-                pending=pending,
-                preparation_error=preparation_error,
-                inputs_sha256=inputs_sha256,
-                staged_geometry=staged_geometry,
-                name_from=name_from,
-                executor=case_executor,
-                workspace=workspace,
-                sim_dir=sim_dir,
-                assess=assess,
-                cold=cold,
-            )
+            progress = _PointProgress()
+            try:
+                record = _execute_sweep(
+                    campaign=campaign,
+                    canonical=canonical,
+                    fs_exe=case_exe,
+                    fs_version=case_version,
+                    fs_version_source=case_version_source,
+                    case=case,
+                    pending=pending,
+                    preparation_error=preparation_error,
+                    inputs_sha256=inputs_sha256,
+                    staged_geometry=staged_geometry,
+                    name_from=name_from,
+                    executor=case_executor,
+                    workspace=workspace,
+                    sim_dir=sim_dir,
+                    assess=assess,
+                    cold=cold,
+                    progress=progress,
+                )
+            except OSError as error:
+                record = _record_of_an_unwritable_point(
+                    progress, error, fallback=_bare_record(campaign, case, {}, job_run, canonical)
+                )
             _say(
                 f"     {record.run_id}  {record.status}"
                 + (f"  ({record.error})" if record.error else "")
@@ -3612,7 +3630,22 @@ def run_campaign(
                 continuation = resolve_continuation(
                     workspace, case, point, run_id=run_id, recipe=recipe, fs_version=case_version
                 )
-            except (CampaignConfigError, WorkspaceError) as error:
+                # Archive what the continuation replaces, per
+                # datapoint, under a day-and-hour stamp, BECAUSE THERE CAN BE
+                # MORE THAN ONE RESTART. It happens before the solver starts,
+                # so a continuation never writes into the folder holding the
+                # evidence of the run it continues. INSIDE the refusal since
+                # 0.30.0: an archive the folder refuses is this point's
+                # recorded failure, not the end of the run.
+                stamp = datetime.now()
+                archived = (
+                    workspace.archive_datapoint(
+                        case.sim_id, PointName(point_name(case, point)), stamp=stamp
+                    )
+                    if continuation is not None
+                    else None
+                )
+            except (CampaignConfigError, WorkspaceError, OSError) as error:
                 # RECORDED AND REPORTED, LIKE EVERY OTHER FAILED POINT. This
                 # branch put the record in the returned list alone: nothing in
                 # the manifest, nothing in `failures`, so a campaign whose
@@ -3659,15 +3692,6 @@ def run_campaign(
                 outcomes.append(str(refused.status))
                 continue
             if continuation is not None:
-                stamp = datetime.now()
-                # Archive what the continuation replaces, per
-                # datapoint, under a day-and-hour stamp, BECAUSE THERE CAN BE
-                # MORE THAN ONE RESTART. It happens before the solver starts,
-                # so a continuation never writes into the folder holding the
-                # evidence of the run it continues.
-                archived = workspace.archive_datapoint(
-                    case.sim_id, PointName(point_name(case, point)), stamp=stamp
-                )
                 # THE ARCHIVED COPY, BY ABSOLUTE PATH. The archive above has just
                 # MOVED the saved simulation out of the datapoint folder, and
                 # this used to hand the solver the path it had been moved from,
@@ -3698,29 +3722,38 @@ def run_campaign(
                 f"  -> {run_id}  [{case.recipe}]  building and running  ({number} of {to_run})",
                 quiet=quiet,
             )
-            record = _execute_point(
-                campaign=campaign,
-                canonical=canonical,
-                fs_exe=case_exe,
-                fs_version=case_version,
-                fs_version_source=case_version_source,
-                case=case.model_copy(update={"variables": {**case.variables, **point_extra}})
-                if point_extra
-                else case,
-                point=point,
-                run_id=run_id,
-                recipe=recipe,
-                preparation_error=preparation_error,
-                inputs_sha256=inputs_sha256,
-                staged_geometry=staged_geometry,
-                name_from=name_from,
-                executor=case_executor,
-                workspace=workspace,
-                sim_dir=sim_dir,
-                assess=assess,
-                continues=continues,
-                recovered_continuation=continuation,
-            )
+            progress = _PointProgress()
+            try:
+                record = _execute_point(
+                    campaign=campaign,
+                    canonical=canonical,
+                    fs_exe=case_exe,
+                    fs_version=case_version,
+                    fs_version_source=case_version_source,
+                    case=case.model_copy(update={"variables": {**case.variables, **point_extra}})
+                    if point_extra
+                    else case,
+                    point=point,
+                    run_id=run_id,
+                    recipe=recipe,
+                    preparation_error=preparation_error,
+                    inputs_sha256=inputs_sha256,
+                    staged_geometry=staged_geometry,
+                    name_from=name_from,
+                    executor=case_executor,
+                    workspace=workspace,
+                    sim_dir=sim_dir,
+                    assess=assess,
+                    continues=continues,
+                    recovered_continuation=continuation,
+                    progress=progress,
+                )
+            except OSError as error:
+                # 0.30.0: A FILE THIS POINT COULD NOT WRITE IS THIS POINT'S
+                # FAILURE, recorded, and the run goes on with the next point.
+                record = _record_of_an_unwritable_point(
+                    progress, error, fallback=_bare_record(campaign, case, point, run_id, canonical)
+                )
             # And as it ENDS, with the status, so the two lines bracket the
             # wait and a reader can see which point a warning between them
             # belonged to.
@@ -3761,6 +3794,11 @@ def run_campaign(
     # was submitted and the command that collects and then posts.
     if outcomes:
         _say_the_summary(outcomes, time.perf_counter() - started, quiet=quiet)
+    # 0.30.0: EVERY ROW SAYS HOW MANY OF ITS PLANNED POINTS HAVE A RECORD, and
+    # names the ones none carries: a row of ten planned points once recorded
+    # six, and nothing said so until the scripts were counted by hand.
+    if to_run:
+        _say_the_rows(campaign, workspace, [*manifest.values(), *records], quiet=quiet)
     submitted = [record for record in records if record.status is RunStatus.SUBMITTED]
     if submitted:
         queued = outcomes.count(str(RunStatus.SUBMITTED))
@@ -3787,6 +3825,50 @@ def run_campaign(
     if failures:
         raise CampaignErrors(failures, records)
     return records
+
+
+def _say_the_rows(
+    campaign: Campaign,
+    workspace: CampaignWorkspace,
+    known: Sequence[RunRecord],
+    *,
+    quiet: bool,
+) -> None:
+    """Say, per row, how many planned points have a record, and warn of the rest (0.30.0).
+
+    One line per row of the campaign, on the terminal and in
+    ``logs/activity.log``: ``row 4016: all 10 executed``, or ``row 4016: 6 of
+    10 point(s) executed, 4 not attempted``. A point is executed when a record
+    of this campaign carries it, from this call or an earlier one
+    (:func:`~pyflightstream.workspace.planned_points_without_record`); a row
+    with points no record carries is also a warning naming them. The manifest
+    is read again, because a forced re-run archived records this call started
+    from; where it cannot be read, the records this call knows stand in.
+    """
+    try:
+        rows: list[Mapping[str, object]] = workspace.read_raw_manifest()
+    except (OSError, ValueError, WorkspaceError):
+        rows = [record.model_dump(mode="json") for record in known]
+    for case in campaign.sims:
+        planned = [_run_id(campaign, case, point) for point in case.sweep.points()]
+        missing = planned_points_without_record(planned, rows)
+        total = len(planned)
+        if not missing:
+            _say(f"row {case.sim_id}: all {total} executed", quiet=quiet)
+            continue
+        _say(
+            f"row {case.sim_id}: {total - len(missing)} of {total} point(s) executed, "
+            f"{len(missing)} not attempted",
+            quiet=quiet,
+        )
+        warnings.warn(
+            f"row {case.sim_id}: {len(missing)} of its {total} planned point(s) were not "
+            "attempted and no record carries them: "
+            + ", ".join(run_id.rsplit("/", 1)[-1] for run_id in missing)
+            + ". Run the row again with --resume, which runs the points no record carries.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
 
 
 def _job_point_statuses(record: RunRecord, points: int) -> list[str]:
@@ -5499,11 +5581,9 @@ def _say(message: str, *, quiet: bool = False) -> None:
 
 
 #: The tag a JOB's run id ends with, where a point's run id ends with its
-#: point tag. Reused rather than invented: 0.16.0 already names the
-#: per-polar product tables by the point convention with the swept
-#: variable written literally as ``sweep``, so a reader has met this token
-#: and it reads correctly, naming a sweep rather than a point.
-JOB_TAG = "sweep"
+#: point tag; its home is the workspace layer since 0.30.0, beside the record
+#: it names, and it is stated here under the name this module has always had.
+JOB_TAG = _WORKSPACE_JOB_TAG
 
 #: FR-95. How bad a point's outcome is, worst LAST, for folding the points
 #: of one job into the job's own status.
@@ -5699,6 +5779,74 @@ def _is_cold_start(case: SimCase) -> bool:
     )
 
 
+@dataclass
+class _PointProgress:
+    """How far one point's (or one job's) path got, for a failure it could not record.
+
+    0.30.0. The run path writes a script, its input files and its state before
+    the solver starts, and a workspace on a network share can refuse any one of
+    those writes with an ``OSError``. That escaped the loop, ended the run and
+    left every later planned point with no record. The caller now catches it
+    and records the point from what this holds.
+    """
+
+    #: The record fields as the path had built them, None before they exist.
+    base: dict[str, object] | None = None
+    #: Whether the solver had been launched when the error came.
+    solver_started: bool = False
+
+
+def _unwritable(error: OSError, where: str) -> str:
+    """Say which write failed and what the run did about it (0.30.0)."""
+    return (
+        f"{type(error).__name__}: {error}, {where}. A file of this point could not be "
+        "written (a workspace on a network share that refuses a write is one cause), so "
+        "the point is recorded failed and the run went on with the next point. Make the "
+        "folder writable and run the point again: pyfs-matrix run --force-rerun <point>"
+    )
+
+
+def _bare_record(
+    campaign: Campaign, case: SimCase, point: Mapping[str, float], run_id: str, canonical: str
+) -> dict[str, object]:
+    """Return the fields a record of a point that never built its own can state (0.30.0)."""
+    return {
+        "run_id": run_id,
+        "sim_id": case.sim_id,
+        "point": dict(point),
+        "matrix_stem": campaign.matrix_stem,
+        "fs_version_requested": canonical,
+        "package_version": pyflightstream.__version__,
+        "manifest_schema": MANIFEST_SCHEMA,
+        "script_sha256": "",
+        "raw_flag": False,
+    }
+
+
+def _record_of_an_unwritable_point(
+    progress: _PointProgress, error: OSError, *, fallback: dict[str, object]
+) -> RunRecord:
+    """Record one point whose run raised an ``OSError`` (0.30.0).
+
+    FAILED_SCRIPT when the solver was not started, the status of a point whose
+    script could not be built, and here it could not be written;
+    FAILED_INCOMPLETE_OUTPUT when it was, since what could not be written then
+    is the filing or the recording of its outputs. The cause is the record's
+    ``error``.
+    """
+    started = progress.solver_started
+    return RunRecord(
+        **(progress.base if progress.base is not None else fallback),  # type: ignore[arg-type]
+        status=RunStatus.FAILED_INCOMPLETE_OUTPUT if started else RunStatus.FAILED_SCRIPT,
+        error=_unwritable(
+            error,
+            "after the solver ran, while its outputs were filed or recorded"
+            if started
+            else "before the solver started, while its script, input files or state were written",
+        ),
+    )
+
+
 def _execute_sweep(
     *,
     campaign: Campaign,
@@ -5717,6 +5865,7 @@ def _execute_sweep(
     sim_dir: Path,
     assess: OutcomeAssessor,
     cold: bool,
+    progress: _PointProgress | None = None,
 ) -> RunRecord:
     """Take every point of a steady row through ONE process to ONE record.
 
@@ -5806,6 +5955,8 @@ def _execute_sweep(
         "script_sha256": "",
         "raw_flag": False,
     }
+    if progress is not None:
+        progress.base = base
     if preparation_error is not None:
         return RunRecord(**base, status=RunStatus.FAILED_SCRIPT, error=preparation_error)
 
@@ -5937,6 +6088,8 @@ def _execute_sweep(
     if written:
         base["inputs_sha256"] = {**base["inputs_sha256"], **written}
     bind_submission_values(executor, case, point_cases[0][2])
+    if progress is not None:
+        progress.solver_started = True
     result = executor.run_script(script_path, working_dir=sim_dir, timeout_s=case.solver.timeout_s)
     base["argv"] = list(result.argv)
     base["cwd"] = result.cwd
@@ -6039,6 +6192,9 @@ def _execute_sweep(
     error_lines: list[str] = []
     collected_by_tag: dict[str, list[str]] = {}
     failed_tags: dict[str, str] = {}
+    # 0.30.0: a point whose only missing outputs are surfaces the package failed
+    # to translate keeps its assessment; the job's record says so, per point.
+    job_warnings: list[str] = []
     # 0.27.0: ON A MACHINE THAT CANNOT EXPORT THE LOG, run locally, no point's
     # declared log is written and none is missing. What the solver printed is
     # the whole job's and no single point's, and a job log judged as a point's
@@ -6072,15 +6228,21 @@ def _execute_sweep(
                 datapoint=PointName(tag),
             )
         except MissingOutputsError as error:
-            # FILED, LISTED AND HASHED, and the point still fails (0.27.0).
+            # FILED, LISTED AND HASHED, and the point still fails (0.27.0),
+            # unless all it misses is the package's own translation (0.30.0).
             collected_by_tag[tag] = error.collected
-            failed_tags[tag] = str(error) + _translation_problems(
-                [
-                    entry
-                    for entry in base.get("surface_translations") or []  # type: ignore[attr-defined]
-                    if isinstance(entry, Mapping) and entry.get("dat") in point_case.outputs
-                ]
-            )
+            owned = [
+                entry
+                for entry in base.get("surface_translations") or []  # type: ignore[attr-defined]
+                if isinstance(entry, Mapping) and entry.get("dat") in point_case.outputs
+            ]
+            untranslated = untranslated_surfaces(owned, error.missing, error.collected)
+            if untranslated is None:
+                failed_tags[tag] = str(error) + _translation_problems(owned)
+            else:
+                for line in untranslated:
+                    job_warnings.append(f"{tag}: {line}")
+                    warnings.warn(f"{tag}: {line}", PyflightstreamWarning, stacklevel=2)
         except (WorkspaceError, CampaignConfigError) as error:
             failed_tags[tag] = str(error)
     for point, _stem, point_case in point_cases:
@@ -6152,6 +6314,7 @@ def _execute_sweep(
     return RunRecord(
         **base,
         status=worst,
+        warnings=job_warnings,
         outputs=collected_all,
         outputs_sha256=workspace.output_digests(case.sim_id, collected_all),
         residual_note=_NO_JOB_LOG_NOTE if excused else None,
@@ -7057,8 +7220,15 @@ def _execute_point(
     assess: OutcomeAssessor,
     continues: str | None = None,
     recovered_continuation: Mapping[str, object] | None = None,
+    progress: _PointProgress | None = None,
 ) -> RunRecord:
-    """Take one point from sweep coordinates to its manifest record."""
+    """Take one point from sweep coordinates to its manifest record.
+
+    ``progress`` is filled as the point goes (0.30.0): the record fields as
+    they stand, and whether the solver was started, so a caller that catches
+    an ``OSError`` this raises records the point from them rather than
+    leaving it with no record.
+    """
     package_commit, package_dirty = package_vcs_state()
     # THE STATE OF THIS POINT, NOT OF THE ROW (0.24.0). Every state field below
     # read `case.*`, the simulation-level case, while the point's own case went
@@ -7180,6 +7350,8 @@ def _execute_point(
         # this version writes DOES carry it, and says so here.
         "manifest_schema": MANIFEST_SCHEMA,
     }
+    if progress is not None:
+        progress.base = base
     if preparation_error is not None or recipe is None:
         error = preparation_error or "recipe resolution failed"
         return RunRecord(**base, status=RunStatus.FAILED_SCRIPT, error=error)
@@ -7551,6 +7723,8 @@ def _execute_point(
     # clock and its processor count, and those are the row's. A local
     # executor has no such method and is handed nothing.
     bind_submission_values(executor, case, point_case)
+    if progress is not None:
+        progress.solver_started = True
     result = executor.run_script(script_path, working_dir=work_dir, timeout_s=case.solver.timeout_s)
     # PYFS-015. The invocation is the half of a run that lived only in the
     # executor's code: which flags, which directory, which effective
@@ -7654,6 +7828,9 @@ def _execute_point(
     # the machine cannot write one locally, which is not an output the run
     # failed to produce. Nothing happens here on any other run.
     local_log = _the_local_log(executor, point_case.outputs, work_dir, result)
+    # 0.30.0: what the package's own post-processing of an output could not
+    # write, where the solver wrote its sources (`untranslated_surfaces`).
+    post_warnings: list[str] = []
     try:
         collected = workspace.collect_outputs(
             case.sim_id,
@@ -7671,18 +7848,30 @@ def _execute_point(
             ran_in_datapoint=True,
         )
     except MissingOutputsError as error:
-        # WHAT WAS WRITTEN IS FILED, LISTED AND HASHED, and the error names
-        # only what is missing (0.27.0). An empty record here left a point's
-        # exports out of every product (measured on a cluster, 2026-09-24).
-        return RunRecord(
-            **base,
-            status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
-            wall_time_s=result.wall_time_s,
-            outputs=error.collected,
-            outputs_sha256=workspace.output_digests(case.sim_id, error.collected),
-            residual_note=local_log.note,
-            error=str(error) + _translation_problems(base.get("surface_translations")),
+        # A COMPLETED SOLVE IS NOT DEMOTED BY THE PACKAGE'S OWN POST-PROCESSING
+        # (0.30.0). A Tecplot the package failed to write from the VTK the
+        # solver did write is not a missing solver output: the point is
+        # assessed as any other and the failure is a warning on the record.
+        untranslated = untranslated_surfaces(
+            base.get("surface_translations"), error.missing, error.collected
         )
+        if untranslated is None:
+            # WHAT WAS WRITTEN IS FILED, LISTED AND HASHED, and the error names
+            # only what is missing (0.27.0). An empty record here left a point's
+            # exports out of every product (measured on a cluster, 2026-09-24).
+            return RunRecord(
+                **base,
+                status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+                wall_time_s=result.wall_time_s,
+                outputs=error.collected,
+                outputs_sha256=workspace.output_digests(case.sim_id, error.collected),
+                residual_note=local_log.note,
+                error=str(error) + _translation_problems(base.get("surface_translations")),
+            )
+        collected = error.collected
+        post_warnings = untranslated
+        for line in untranslated:
+            warnings.warn(f"{point_name(case, point)}: {line}", PyflightstreamWarning, stacklevel=2)
     except (WorkspaceError, CampaignConfigError) as error:
         # BOTH, because collection can refuse for two reasons and only one of
         # them used to be caught. `collect_outputs` renders the point's folder
@@ -7760,7 +7949,7 @@ def _execute_point(
     return RunRecord(
         **base,
         status=status,
-        warnings=[step_warning] if step_warning else [],
+        warnings=[*post_warnings, *([step_warning] if step_warning else [])],
         iterations=assessment.iterations,
         residual=assessment.residual,
         fs_version_reported=assessment.fs_version_reported,

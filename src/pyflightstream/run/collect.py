@@ -58,6 +58,7 @@ from __future__ import annotations
 
 import shutil
 import time
+import warnings
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -74,8 +75,9 @@ from pathlib import Path
 # the architect lens of the 0.18.0 release round, 2026-09-14.
 from typing import TYPE_CHECKING
 
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._progress import workspace_activity
-from pyflightstream.run._step_exports import missing_step_warning
+from pyflightstream.run._step_exports import missing_step_warning, untranslated_surfaces
 from pyflightstream.workspace.storage import ensure_sim_expanded
 
 from ..cases import CampaignConfigError
@@ -756,6 +758,32 @@ def collect_once(
     return report
 
 
+def _refused(workspace: CampaignWorkspace, record: RunRecord, error: Exception) -> CollectOutcome:
+    """Record one point whose collection was refused, FAILED_INCOMPLETE_OUTPUT.
+
+    THE SAME TWO EXCEPTIONS THE LOCAL PATH CATCHES, for the same reason:
+    collection refuses for two kinds of reason and only one of them is a
+    WorkspaceError, and an uncaught one here would abort a sweep over every
+    other submitted point in the workspace.
+    """
+    refused: dict[str, object] = {
+        "status": RunStatus.FAILED_INCOMPLETE_OUTPUT,
+        "error": str(error),
+    }
+    # WHAT WAS FILED IS LISTED (0.27.0): a missing output no longer strands
+    # the others, and a record naming none of them would strand them anyway.
+    if isinstance(error, MissingOutputsError):
+        refused["outputs"] = list(error.collected)
+    failed = record.model_copy(update=refused)
+    _write(workspace, failed)
+    return CollectOutcome(
+        run_id=record.run_id,
+        state="FAILED",
+        detail=f"collection refused: {error}",
+        record=failed,
+    )
+
+
 def _job_log_name(
     workspace: CampaignWorkspace, record: RunRecord, names: Sequence[str]
 ) -> str | None:
@@ -803,29 +831,22 @@ def _complete(
     """
     if _is_a_sweep_job(record):
         return _complete_sweep(workspace, record, sim_dir, assessor, job_log=job_log)
+    # 0.30.0: a surface the package failed to translate from the sources the
+    # job wrote is the package's failure, not the solver's (`untranslated_surfaces`).
+    untranslated: list[str] | None = None
     try:
         collected = _collect_by_point(workspace, record, names, _working_dir(workspace, record))
-    except (WorkspaceError, CampaignConfigError) as error:
-        # THE SAME TWO EXCEPTIONS THE LOCAL PATH CATCHES, for the same
-        # reason: collection refuses for two kinds of reason and only one of
-        # them is a WorkspaceError, and an uncaught one here would abort a
-        # sweep over every other submitted point in the workspace.
-        refused: dict[str, object] = {
-            "status": RunStatus.FAILED_INCOMPLETE_OUTPUT,
-            "error": str(error),
-        }
-        # WHAT WAS FILED IS LISTED (0.27.0): a missing output no longer strands
-        # the others, and a record naming none of them would strand them anyway.
-        if isinstance(error, MissingOutputsError):
-            refused["outputs"] = list(error.collected)
-        failed = record.model_copy(update=refused)
-        _write(workspace, failed)
-        return CollectOutcome(
-            run_id=record.run_id,
-            state="FAILED",
-            detail=f"collection refused: {error}",
-            record=failed,
+    except MissingOutputsError as error:
+        untranslated = untranslated_surfaces(
+            record.surface_translations, error.missing, error.collected
         )
+        if untranslated is None:
+            return _refused(workspace, record, error)
+        collected = list(error.collected)
+        for line in untranslated:
+            warnings.warn(f"{record.run_id}: {line}", PyflightstreamWarning, stacklevel=2)
+    except (WorkspaceError, CampaignConfigError) as error:
+        return _refused(workspace, record, error)
 
     # NAMED APART FROM THE EXCEPTION ABOVE. `error` is bound by the `except`
     # clause a few lines up, and rebinding it here is a name that means two
@@ -901,8 +922,9 @@ def _complete(
         steps,
     )
     status_warnings = list(record.warnings)
-    if warning and warning not in status_warnings:
-        status_warnings.append(warning)
+    for line in [*(untranslated or []), *([warning] if warning else [])]:
+        if line not in status_warnings:
+            status_warnings.append(line)
     update["warnings"] = status_warnings
     after = _points_ran_after(record, status)
     if after is not None:
@@ -964,6 +986,9 @@ def _complete_sweep(
     ran_here = bool(submission.get("working_dir"))
     collected_by_tag: dict[str, list[str]] = {}
     refused: dict[str, str] = {}
+    # 0.30.0: a point whose only missing outputs are surfaces the package failed
+    # to translate keeps its assessment; the job's record says so, per point.
+    job_warnings = list(record.warnings)
     # 0.27.0: THE JOB'S ONE LOG, where the machine exports none per point
     # (`_job_log_name`). No point is held to a log of its own, each is judged
     # from its loads export, and the job's log is read for the one import count
@@ -1000,9 +1025,26 @@ def _complete_sweep(
                 )
             )
         except MissingOutputsError as error:
-            # Filed and listed, and the point still fails (0.27.0).
+            # Filed and listed, and the point still fails (0.27.0), unless all
+            # it misses is the package's own translation (0.30.0).
             collected_by_tag[tag] = list(error.collected)
-            refused[tag] = str(error)
+            owned_names = {str(name) for name in owned}
+            untranslated = untranslated_surfaces(
+                [
+                    entry
+                    for entry in record.surface_translations or []
+                    if isinstance(entry, Mapping) and str(entry.get("dat")) in owned_names
+                ],
+                error.missing,
+                error.collected,
+            )
+            if untranslated is None:
+                refused[tag] = str(error)
+            else:
+                for line in untranslated:
+                    if f"{tag}: {line}" not in job_warnings:
+                        job_warnings.append(f"{tag}: {line}")
+                    warnings.warn(f"{tag}: {line}", PyflightstreamWarning, stacklevel=2)
         except (WorkspaceError, CampaignConfigError) as error:
             refused[tag] = str(error)
 
@@ -1076,6 +1118,7 @@ def _complete_sweep(
             "status": worst,
             "outputs": collected_all,
             "error": "; ".join(error_lines) or None,
+            "warnings": job_warnings,
             "points_ran": ran,
             **({"residual_note": job_note} if job_note is not None else {}),
         }

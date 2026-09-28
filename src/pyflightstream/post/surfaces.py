@@ -50,8 +50,8 @@ from pyflightstream.results import (
     write_vtk_surface,
 )
 from pyflightstream.results.native_surface import (
-    attach_native_strength,
-    read_native_tecplot_surface,
+    attach_native_strength_by_copy,
+    read_native_tecplot_zones,
 )
 from pyflightstream.workspace import RunRecord
 
@@ -102,6 +102,7 @@ def average_surface_exports(
     window: tuple[int, int],
     frame: SurfaceFrame,
     native_exports: Mapping[int, str | Path] | None = None,
+    periodic_copies: int | None = None,
 ) -> SurfaceAverage:
     """Average the per-step VTK surface exports of a window, panel by panel.
 
@@ -116,6 +117,10 @@ def average_surface_exports(
     native_exports : mapping of int to path, optional
         A native nodal source for each selected STEP, matched geometrically
         and topologically before its separate temporal average.
+    periodic_copies : int, optional
+        The copy count of a row under ``SYMMETRY PERIODIC`` (0.30.0), whose
+        native export holds one zone per copy, joined copy by copy; None for
+        the one-zone export of every other row.
 
     Returns
     -------
@@ -179,8 +184,8 @@ def average_surface_exports(
             if native_path.parent.resolve() != path.parent.resolve():
                 raise ProductError(f"step {step} native/VTK exports are from different run folders")
             try:
-                native = read_native_tecplot_surface(native_path)
-                surface, matching = attach_native_strength(surface, native)
+                zones = read_native_tecplot_zones(native_path, zones=periodic_copies or 1)
+                surface, matching = attach_native_strength_by_copy(surface, zones)
             except (OSError, MalformedOutputError, IncompleteOutputError) as error:
                 raise ProductError(
                     f"step {step} native nodal source is invalid: {error}"
@@ -371,6 +376,7 @@ def write_point_surface_average(
     ran_in = [sim_dir / Path(output).parent for output in record.outputs]
     files = stamped_exports(sim_dir, source.stem, *ran_in).get(("", source.suffix.lstrip(".")), {})
     native_name = translation.get("native_tecplot")
+    copies = translation.get("periodic_copies")
     native_files = None
     if native_name is not None:
         native_source = Path(str(native_name))
@@ -395,6 +401,9 @@ def write_point_surface_average(
             window=(int(bounds[0]), int(bounds[1])),
             frame=frame,
             native_exports=native_files,
+            periodic_copies=copies
+            if isinstance(copies, int) and not isinstance(copies, bool)
+            else None,
         )
     except (ProductError, MalformedOutputError) as error:
         if skipped is not None:

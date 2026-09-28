@@ -703,7 +703,7 @@ def write_vtk_surface(
 
 
 def _strength_in_loads_frame(
-    surface: VtkSurface, native: VtkSurface, frame: SurfaceFrame
+    surface: VtkSurface, zones: Sequence[VtkSurface], frame: SurfaceFrame
 ) -> tuple[np.ndarray, dict[str, object]]:
     """Match a native export to a VTK in the LOADS frame the VTK was written in.
 
@@ -726,8 +726,11 @@ def _strength_in_loads_frame(
     ----------
     surface : VtkSurface
         The VTK as the solver wrote it, in the loads frame.
-    native : VtkSurface
-        The native export, in the reference frame.
+    zones : sequence of VtkSurface
+        The native export in the reference frame, one zone per periodic copy
+        (one zone for a row without periodic symmetry), in file order. Zone k
+        is matched to the k-th copy of ``surface`` by
+        :func:`~pyflightstream.results.native_surface.attach_native_strength_by_copy`.
     frame : SurfaceFrame
         The loads frame, as the script placed it.
 
@@ -736,22 +739,26 @@ def _strength_in_loads_frame(
     numpy.ndarray
         The native strength, one value per node of ``surface`` in its order.
     dict
-        The mapping record of :func:`attach_native_strength`, its tolerances
+        The mapping record of the per-copy match, its tolerances
         along the LOADS axes, which ``coordinate_tolerance_frame`` names.
     """
-    from pyflightstream.results.native_surface import attach_native_strength
+    from pyflightstream.results.native_surface import attach_native_strength_by_copy
 
     origin = np.asarray(frame.origin, dtype=float)
     rotation = frame.rotation
     carry = np.abs(rotation)
-    in_loads = VtkSurface(
-        points=(native.points - origin) @ rotation.T,
-        offsets=native.offsets,
-        connectivity=native.connectivity,
-        point_data=dict(native.point_data),
-        title=native.title,
-    )
-    extent = float(np.linalg.norm(np.ptp(native.points, axis=0)))
+    in_loads = [
+        VtkSurface(
+            points=(zone.points - origin) @ rotation.T,
+            offsets=zone.offsets,
+            connectivity=zone.connectivity,
+            point_data=dict(zone.point_data),
+            title=zone.title,
+        )
+        for zone in zones
+    ]
+    native_points = np.vstack([zone.points for zone in zones])
+    extent = float(np.linalg.norm(np.ptp(native_points, axis=0)))
     loads_rounding = (
         0.5 * np.abs(np.spacing(surface.points.astype(np.float32))).astype(float)
     ).max(axis=0, initial=0.0)
@@ -759,12 +766,14 @@ def _strength_in_loads_frame(
         8.0
         * float(np.finfo(float).eps)
         * (
-            (np.abs(native.points).max(axis=0, initial=0.0) + np.abs(origin)) @ carry.T
+            (np.abs(native_points).max(axis=0, initial=0.0) + np.abs(origin)) @ carry.T
             + np.abs(surface.points).max(axis=0, initial=0.0)
         )
     )
     tolerance = np.maximum(max(1e-10, extent * 1e-6), loads_rounding + arithmetic_rounding)
-    matched, mapping = attach_native_strength(surface, in_loads, coordinate_tolerance=tolerance)
+    matched, mapping = attach_native_strength_by_copy(
+        surface, in_loads, coordinate_tolerance=tolerance
+    )
     mapping["coordinate_tolerance_frame"] = frame.record()
     return matched.point_data["Singularity_strength"], mapping
 
@@ -776,12 +785,21 @@ def translate_vtk_surface(
     frame: SurfaceFrame,
     overwrite: bool = False,
     native_tecplot: str | Path | None = None,
+    periodic_copies: int | None = None,
 ) -> dict[str, object]:
     """Write exact VTK cell values plus optional matched native nodal strength.
 
     Native strength is read from the same point/step's auxiliary Tecplot export,
     never interpolated from Cp or substituted from the final step. Legacy runs
     without that auxiliary source keep an explicit not-carried declaration.
+
+    ``periodic_copies`` is the copy count of a row under ``SYMMETRY PERIODIC``
+    (0.30.0). Its native export holds one zone per copy, and the VTK holds the
+    modelled surface first and then its images (RPT-080), so zone k is joined
+    to the k-th copy of the VTK (``native_surface.attach_native_strength_by_copy``);
+    a native file holding another number of
+    zones is refused naming both counts. None, or 1, is the one-zone export of
+    every other row.
     """
     source = Path(vtk)
     digest = file_sha256(source)
@@ -791,7 +809,7 @@ def translate_vtk_surface(
     auxiliary: dict[str, str] = {}
     missing = list(NOT_CARRIED_BY_THE_VTK)
     if native_tecplot is not None:
-        from pyflightstream.results.native_surface import read_native_tecplot_surface
+        from pyflightstream.results.native_surface import read_native_tecplot_zones
 
         native_path = Path(native_tecplot)
         if native_path.resolve() == Path(dat).resolve():
@@ -799,13 +817,13 @@ def translate_vtk_surface(
         if not native_path.is_file():
             raise IncompleteOutputError(f"Missing native nodal source {native_path.name}")
         native_hash = file_sha256(native_path)
-        native = read_native_tecplot_surface(native_path)
+        zones = read_native_tecplot_zones(native_path, zones=periodic_copies or 1)
         # The VTK is rounded to single precision in the LOADS frame, so the
-        # native is matched in that frame, where each axis is allowed the
+        # native is matched in that frame, zone by periodic copy, where each axis is allowed the
         # rounding written along it; the rule and its history (GOAL-034 Q8
         # CXQ8R2-1, CXQ8R4-1, CXQ8R5-1, CXQ8R6-1, CXQ8R7-1) live beside
         # attach_native_strength's default, in one home.
-        strength, mapping = _strength_in_loads_frame(surface, native, frame)
+        strength, mapping = _strength_in_loads_frame(surface, zones, frame)
         translated = replace(
             translated, point_data={**translated.point_data, "Singularity_strength": strength}
         )
@@ -822,6 +840,10 @@ def translate_vtk_surface(
             "SOURCE_NATIVE_TECPLOT_SHA256": native_hash,
             "NODAL_STRENGTH": (
                 "native values; unique coordinates and polygon topology; no interpolation"
+                if len(zones) == 1
+                else f"native values of {len(zones)} zones, zone k joined to the k-th "
+                "periodic copy of the VTK; unique coordinates and polygon topology within "
+                "each copy; no interpolation"
             ),
         }
         missing = []
@@ -956,6 +978,11 @@ def _translate_surface_exports(
         previous_artifacts = translation.get("artifacts", {})
         previous_artifacts = previous_artifacts if isinstance(previous_artifacts, Mapping) else {}
         native_base = translation.get("native_tecplot")
+        # 0.30.0: the copy count of a periodic row, which its native export
+        # holds one zone each of; absent on every other row and every record
+        # written before 0.30.0.
+        copies = translation.get("periodic_copies")
+        copies = copies if isinstance(copies, int) and not isinstance(copies, bool) else None
         for one, other in pairs:
             native_name = str(native_base) if native_base is not None else None
             stamp = _STAMP.match(Path(one).stem)
@@ -994,6 +1021,7 @@ def _translate_surface_exports(
                                     Path(scratch) / Path(other).name,
                                     frame=placed,
                                     native_tecplot=where / native_name,
+                                    periodic_copies=copies,
                                 )
                         except (MalformedOutputError, IncompleteOutputError, ProductError) as error:
                             problems.append(f"{other} is preserved: content proof failed: {error}")
@@ -1019,6 +1047,7 @@ def _translate_surface_exports(
                     where / other,
                     frame=placed,
                     native_tecplot=None if native_name is None else where / native_name,
+                    periodic_copies=copies,
                 )
             except (MalformedOutputError, IncompleteOutputError, ProductError) as error:
                 problems.append(f"{other} was not written from {one}: {error}")

@@ -80,6 +80,53 @@ FlightStream versions.
   `node_mapping` record states its tolerances along the loads axes and names
   that frame in a new `coordinate_tolerance_frame` key.
 
+### Fixed
+
+- **A row under `SYMMETRY PERIODIC` is translated to Tecplot again.** Its
+  native Tecplot holds one zone per periodic copy, each a complete file of its
+  own (measured on 26.124: a six-copy sector, six zones of one blade each), and
+  the reader refused it as "trailing data or multiple zones". The native file is
+  now read by the copy count the row declares (`PERIODIC_COPIES`, or the count
+  the reference derives), recorded on the translation as `periodic_copies`, and
+  read the way the VTK route already carries a symmetric row: the modelled
+  surface first, then its images (RPT-080), so zone k joins the k-th copy of
+  the VTK, each copy matched on its own because the copies share the nodes of
+  their seams. A file holding another number of zones is still refused, and the
+  refusal names both counts. The time-averaged surface reads the same way.
+- **A completed solve is no longer recorded FAILED_INCOMPLETE_OUTPUT because
+  the package could not translate one of its surfaces.** The Tecplot `.dat` is
+  written by the package from the VTK the solver exported, so when every
+  missing output is such a surface and its sources (the VTK and the native
+  Tecplot) were written and filed, the point keeps the status the solver's
+  outputs earn, and the failure is recorded in the record's existing
+  `warnings` list, one sentence per surface with the translation's own reason,
+  and warned. This holds on a local point, a local steady job, and a
+  collected submitted point or job. A missing solver output, the VTK among
+  them, still fails the point exactly as before.
+- **A point whose files cannot be written is recorded, and the run goes on.**
+  An `OSError` while a point's script, its input files or its state were
+  written (a workspace on a network share refusing a write is one cause), or
+  while a row's simulation folder was prepared or a continuation archived
+  what it replaces, escaped the run loop, ended the run and left every later
+  planned point with no record (measured on an HPC share: a row of ten
+  planned points recorded six). Such a point is now recorded FAILED_SCRIPT,
+  or FAILED_INCOMPLETE_OUTPUT when the solver had already run, with the
+  failed write and its remedy in the record's `error`, and the run continues
+  with the next point.
+- **A run closes with one line per row saying how many of its planned points
+  ran.** `row 4016: all 10 executed`, or `row 4016: 6 of 10 point(s)
+  executed, 4 not attempted`, on the terminal and in `logs/activity.log`,
+  local and submitting alike; a point counts as executed when a record of the
+  campaign carries it, from this run or an earlier one (a steady job's record
+  carries its points). A row with points no record carries is also a warning
+  naming them and the `--resume` that runs them.
+- **`sync` reports the points the other workspace planned that no record
+  carries.** For each `post/<stem>/plan.json` of the other workspace, the
+  planned points with no record in the merged `runs.json` are listed per
+  matrix in the recorded entry (`plan_points_without_record`, in
+  `storage_management.json`) and printed as `PLANNED WITHOUT RECORD`; a plan
+  that cannot be read is named with why.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

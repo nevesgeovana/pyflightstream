@@ -46,6 +46,7 @@ from pyflightstream.workspace import (
     CampaignWorkspace,
     RunStatus,
     WorkspaceError,
+    planned_points_without_record,
     post_stages,
 )
 from pyflightstream.workspace._links import _is_link, _make_dir_link, _remove_link
@@ -1151,6 +1152,37 @@ def _merge_runs(
     return merged, added, replaced, conflicts
 
 
+def _plan_points_without_record(
+    other: Path, rows: list[dict[str, Any]]
+) -> dict[str, dict[str, Any]]:
+    """Per matrix, the points the OTHER workspace planned that no merged record carries.
+
+    0.30.0. Each ``post/<stem>/plan.json`` of the other workspace lists the
+    points its plan called for; a point that no record of the merged
+    ``runs.json`` carries (:func:`planned_points_without_record`) was never
+    attempted there, or its record never reached main. A row of ten planned
+    points once recorded six on an HPC workspace and nothing said so; a sync
+    is where the two workspaces meet, so it says it here. A plan that cannot
+    be read is named with why.
+    """
+    found: dict[str, dict[str, Any]] = {}
+    post = other / "post"
+    for plan in sorted(post.glob("*/plan.json")) if post.is_dir() else []:
+        stem = plan.parent.name
+        try:
+            payload = json.loads(plan.read_text(encoding="utf-8"))
+            points = payload["points"]
+            planned = [str(point["run_id"]) for point in points]
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            found[stem] = {"error": f"{plan} could not be read: {error}"}
+            continue
+        found[stem] = {
+            "planned": len(planned),
+            "without_record": planned_points_without_record(planned, rows),
+        }
+    return found
+
+
 def _sync_one(
     main: CampaignWorkspace,
     name: str,
@@ -1249,6 +1281,8 @@ def _sync_one(
     # MATRICES (fixed rule, 2026-09-28): every difference is reported as
     # a merge conflict, and the workspace that owns the matrix wins.
     entry["matrices"] = _sync_matrices(main, name, other, owners, apply=apply, stamp=stamp)
+    # 0.30.0: what the other workspace planned and no merged record carries.
+    entry["plan_points_without_record"] = _plan_points_without_record(other, merged)
     entry.update(
         {
             "runs": {

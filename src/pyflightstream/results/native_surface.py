@@ -1,12 +1,26 @@
 """Read the native FEPolygon export without inventing nodal values from panel data.
 
-Only the single-zone BLOCK layout measured in RPT-074 is accepted. Native
-coordinates are in REFERENCE. :func:`attach_native_strength` matches two
-surfaces already in one frame; the translation of a VTK written in a loads
-frame carries the native INTO that frame instead and matches there
-(``_strength_in_loads_frame`` in :mod:`pyflightstream.results.surface`), so the
-rounding of the written VTK is allowed along the axes it was written in.
-Matching includes connectivity, not just equal node counts.
+Only the BLOCK layout measured in RPT-074 is accepted, one zone per file or
+one zone per periodic copy (below). Native coordinates are in REFERENCE.
+:func:`attach_native_strength` matches two surfaces already in one frame; the
+translation of a VTK written in a loads frame carries the native INTO that
+frame instead and matches there (``_strength_in_loads_frame`` in
+:mod:`pyflightstream.results.surface`), so the rounding of the written VTK is
+allowed along the axes it was written in. Matching includes connectivity, not
+just equal node counts.
+
+ONE ZONE PER PERIODIC COPY (0.30.0). A row under ``SYMMETRY PERIODIC`` writes
+its native Tecplot as one zone per copy, each zone a complete file of its own
+(``TITLE``, ``VARIABLES``, ``ZONE``, payload), the modelled sector first and
+then its images turned about the axis, measured on 26.124 (a six-copy sector,
+2026-09-28: six zones of 5961 nodes, zone k equal to the k-th block of the VTK
+to 1e-13 m). The VTK route already carries the images after the real surface
+(RPT-080), so the reading chosen is the VTK's: zone k joins the k-th copy of
+the VTK, the real surface first, then the images. Each copy is matched on its
+own, because the copies of a sector share the nodes of their seams (378
+coincident positions on that sector) and one match over the whole disc would
+be ambiguous there. The zone count is the copy count the row declared, and a
+file holding any other count is refused naming both.
 """
 
 from __future__ import annotations
@@ -14,8 +28,8 @@ from __future__ import annotations
 import itertools
 import math
 import re
-from collections import Counter, defaultdict
-from collections.abc import Iterator
+from collections import Counter, defaultdict, deque
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -97,78 +111,81 @@ def _rings(
     return np.asarray(offsets, dtype=np.int64), np.asarray(connectivity, dtype=np.int64)
 
 
-def read_native_tecplot_surface(source: str | Path) -> VtkSurface:
-    """Read measured native nodal strength and its geometry; validate all blocks.
+class _Tokens:
+    """The whitespace-separated words of a stream of lines, one line at a time.
 
-    Non-strength result variables are validated and discarded: the caller keeps
-    the VTK's original cell values rather than replacing them with native nodal
-    interpolation. Extra zones, connected boundaries and cell-centred strength
-    are explicitly unsupported.
+    A zone's payload is read by count, and the next zone's header is read by
+    line, so what is left of the line a payload ended on is kept here and asked
+    for (:meth:`leftover`) rather than lost inside a generator.
     """
-    path = Path(source)
-    with path.open(encoding="utf-8-sig") as stream:
-        header = []
-        zone = ""
-        for line in stream:
-            if line.lstrip().upper().startswith("ZONE "):
-                zone = line.strip()
-                break
-            header.append(line)
-        if not zone:
-            raise IncompleteOutputError("Native Tecplot ends before its ZONE")
-        if not re.search(r"\bDATAPACKING\s*=\s*BLOCK\b", zone, re.I) or not re.search(
-            r"\bZONETYPE\s*=\s*FEPOLYGON\b", zone, re.I
-        ):
-            raise MalformedOutputError("Native Tecplot requires FEPolygon BLOCK layout")
-        if _count(zone, "NumConnectedBoundaryFaces", allow_zero=True) or _count(
-            zone, "TotalNumBoundaryConnections", allow_zero=True
-        ):
-            raise MalformedOutputError("Native Tecplot connected boundary faces are unsupported")
-        before = "".join(header)
-        if "VARIABLES" not in before.upper():
-            raise MalformedOutputError("Native Tecplot declares no VARIABLES")
-        var_text = re.split(r"\bVARIABLES\s*=", before, maxsplit=1, flags=re.I)[1]
-        # Auxdata after VARIABLES is not a native variable declaration.
-        var_text = re.split(r"\bDATASETAUXDATA\b", var_text, maxsplit=1, flags=re.I)[0]
-        names = re.findall(r'"([^"]+)"', var_text)
-        if len(names) != len(set(names)) or not {"X", "Y", "Z", _STRENGTH}.issubset(names):
-            raise MalformedOutputError("Native Tecplot needs unique XYZ and Singularity_strength")
-        nodes, elements, faces = (_count(zone, key) for key in ("NODES", "ELEMENTS", "FACES"))
-        if nodes * len(names) + 4 * faces > path.stat().st_size:
-            raise IncompleteOutputError(
-                "Native Tecplot ends before the payload required by its declared counts"
-            )
-        cell_variables: set[int] = set()
-        var_location = re.search(r"VARLOCATION\s*=\s*\(([^)]*)\)", zone, re.I)
-        if var_location:
-            parts = re.findall(r"\[([\d,\-]+)\]\s*=\s*CELLCENTERED", var_location.group(1), re.I)
-            if not parts:
-                raise MalformedOutputError("Native Tecplot variable location is unsupported")
-            for part in parts:
-                for token in part.split(","):
-                    bounds = token.split("-")
-                    lo, hi = int(bounds[0]), int(bounds[-1])
-                    if not 1 <= lo <= hi <= len(names):
-                        raise MalformedOutputError(
-                            "Native Tecplot variable location index is invalid"
-                        )
-                    cell_variables.update(range(lo, hi + 1))
-        for key in ("X", "Y", "Z", _STRENGTH):
-            if names.index(key) + 1 in cell_variables:
-                raise MalformedOutputError(f"Native Tecplot {key} must be nodal")
-        tokens = (word for line in stream for word in line.split())
-        values = {}
-        for index, name in enumerate(names, 1):
-            array = _values(
-                tokens, elements if index in cell_variables else nodes, integer=False, label=name
-            )
-            if name in {"X", "Y", "Z", _STRENGTH}:
-                values[name] = array
-        edges = _values(tokens, 2 * faces, integer=True, label="face nodes").reshape(faces, 2)
-        left = _values(tokens, faces, integer=True, label="left elements")
-        right = _values(tokens, faces, integer=True, label="right elements")
-        if next(tokens, None) is not None:
-            raise MalformedOutputError("Native Tecplot has trailing data or multiple zones")
+
+    def __init__(self, lines: Iterator[str]) -> None:
+        self._lines = lines
+        self._pending: deque[str] = deque()
+
+    def __iter__(self) -> _Tokens:
+        return self
+
+    def __next__(self) -> str:
+        while not self._pending:
+            self._pending.extend(next(self._lines).split())
+        return self._pending.popleft()
+
+    def leftover(self) -> bool:
+        """Whether the line the last word came from holds more words."""
+        return bool(self._pending)
+
+
+def _variable_names(header: str) -> list[str]:
+    var_text = re.split(r"\bVARIABLES\s*=", header, maxsplit=1, flags=re.I)[1]
+    # Auxdata after VARIABLES is not a native variable declaration.
+    var_text = re.split(r"\bDATASETAUXDATA\b", var_text, maxsplit=1, flags=re.I)[0]
+    return re.findall(r'"([^"]+)"', var_text)
+
+
+def _read_zone(zone: str, names: list[str], tokens: _Tokens, size: int) -> VtkSurface:
+    """Read and validate one zone's payload, whose header line is ``zone``."""
+    if not re.search(r"\bDATAPACKING\s*=\s*BLOCK\b", zone, re.I) or not re.search(
+        r"\bZONETYPE\s*=\s*FEPOLYGON\b", zone, re.I
+    ):
+        raise MalformedOutputError("Native Tecplot requires FEPolygon BLOCK layout")
+    if _count(zone, "NumConnectedBoundaryFaces", allow_zero=True) or _count(
+        zone, "TotalNumBoundaryConnections", allow_zero=True
+    ):
+        raise MalformedOutputError("Native Tecplot connected boundary faces are unsupported")
+    nodes, elements, faces = (_count(zone, key) for key in ("NODES", "ELEMENTS", "FACES"))
+    if nodes * len(names) + 4 * faces > size:
+        raise IncompleteOutputError(
+            "Native Tecplot ends before the payload required by its declared counts"
+        )
+    cell_variables: set[int] = set()
+    var_location = re.search(r"VARLOCATION\s*=\s*\(([^)]*)\)", zone, re.I)
+    if var_location:
+        parts = re.findall(r"\[([\d,\-]+)\]\s*=\s*CELLCENTERED", var_location.group(1), re.I)
+        if not parts:
+            raise MalformedOutputError("Native Tecplot variable location is unsupported")
+        for part in parts:
+            for token in part.split(","):
+                bounds = token.split("-")
+                lo, hi = int(bounds[0]), int(bounds[-1])
+                if not 1 <= lo <= hi <= len(names):
+                    raise MalformedOutputError("Native Tecplot variable location index is invalid")
+                cell_variables.update(range(lo, hi + 1))
+    for key in ("X", "Y", "Z", _STRENGTH):
+        if names.index(key) + 1 in cell_variables:
+            raise MalformedOutputError(f"Native Tecplot {key} must be nodal")
+    values = {}
+    for index, name in enumerate(names, 1):
+        array = _values(
+            tokens, elements if index in cell_variables else nodes, integer=False, label=name
+        )
+        if name in {"X", "Y", "Z", _STRENGTH}:
+            values[name] = array
+    edges = _values(tokens, 2 * faces, integer=True, label="face nodes").reshape(faces, 2)
+    left = _values(tokens, faces, integer=True, label="left elements")
+    right = _values(tokens, faces, integer=True, label="right elements")
+    if tokens.leftover():
+        raise MalformedOutputError("Native Tecplot has trailing data after a zone's payload")
     offsets, connectivity = _rings(edges, left, right, elements, nodes)
     return VtkSurface(
         points=np.column_stack([values[k] for k in ("X", "Y", "Z")]),
@@ -177,6 +194,218 @@ def read_native_tecplot_surface(source: str | Path) -> VtkSurface:
         point_data={_STRENGTH: values[_STRENGTH]},
         title="Native FlightStream",
     )
+
+
+def _zones_left(lines: Iterator[str]) -> int:
+    """Count the zone headers among the lines not read, to name them in a refusal."""
+    return sum(1 for line in lines if line.lstrip().upper().startswith("ZONE "))
+
+
+def read_native_tecplot_zones(source: str | Path, *, zones: int = 1) -> list[VtkSurface]:
+    """Read the ``zones`` zones of a native export, in file order; validate all blocks.
+
+    Parameters
+    ----------
+    source : str or pathlib.Path
+        The native Tecplot export (``<stem>_native_tecplot.dat``).
+    zones : int, optional
+        The zones the file must hold: 1, or the copy count of a row under
+        ``SYMMETRY PERIODIC``, whose native export writes one zone per copy,
+        the modelled sector first. A zone may restate ``TITLE`` and
+        ``VARIABLES`` before its ``ZONE`` line, as the solver writes it; a
+        restated variable list must be the first zone's.
+
+    Returns
+    -------
+    list of VtkSurface
+        One surface per zone, in file order, each carrying its nodal
+        ``Singularity_strength``.
+
+    Raises
+    ------
+    MalformedOutputError
+        If the file holds another number of zones than ``zones`` (both counts
+        are named), or if any zone is not the measured BLOCK FEPolygon layout.
+    IncompleteOutputError
+        If the file ends inside a zone.
+    """
+    if isinstance(zones, bool) or not isinstance(zones, int) or zones < 1:
+        raise MalformedOutputError(
+            f"Native Tecplot zone count must be a whole positive number, got {zones!r}"
+        )
+    path = Path(source)
+    size = path.stat().st_size
+    surfaces: list[VtkSurface] = []
+    names: list[str] = []
+    with path.open(encoding="utf-8-sig") as stream:
+        lines = iter(stream)
+        tokens = _Tokens(lines)
+        while len(surfaces) < zones:
+            header: list[str] = []
+            zone = ""
+            for line in lines:
+                if line.lstrip().upper().startswith("ZONE "):
+                    zone = line.strip()
+                    break
+                header.append(line)
+            if not zone:
+                if not surfaces:
+                    raise IncompleteOutputError("Native Tecplot ends before its ZONE")
+                raise MalformedOutputError(
+                    f"Native Tecplot holds {len(surfaces)} zone(s) and {zones} were expected, "
+                    f"one per periodic copy the row declares: {path.name}"
+                )
+            before = "".join(header)
+            if "VARIABLES" in before.upper():
+                stated = _variable_names(before)
+                if names and stated != names:
+                    raise MalformedOutputError(
+                        f"Native Tecplot zone {len(surfaces) + 1} declares other VARIABLES "
+                        "than zone 1"
+                    )
+                names = stated
+            elif not names:
+                raise MalformedOutputError("Native Tecplot declares no VARIABLES")
+            if len(names) != len(set(names)) or not {"X", "Y", "Z", _STRENGTH}.issubset(names):
+                raise MalformedOutputError(
+                    "Native Tecplot needs unique XYZ and Singularity_strength"
+                )
+            surfaces.append(_read_zone(zone, names, tokens, size))
+        trailing, extra = False, 0
+        for line in lines:
+            if line.strip():
+                trailing = True
+                extra = int(line.lstrip().upper().startswith("ZONE ")) + _zones_left(lines)
+                break
+        if trailing:
+            if extra:
+                raise MalformedOutputError(
+                    f"Native Tecplot holds {zones + extra} zones and {zones} "
+                    f"{'was' if zones == 1 else 'were'} expected"
+                    + (
+                        ": a row under SYMMETRY PERIODIC writes one zone per copy and "
+                        "states its copy count, and a row under any other symmetry one zone"
+                        if zones == 1
+                        else ", one per periodic copy the row declares"
+                    )
+                )
+            raise MalformedOutputError("Native Tecplot has trailing data after its last zone")
+    return surfaces
+
+
+def read_native_tecplot_surface(source: str | Path) -> VtkSurface:
+    """Read measured native nodal strength and its geometry; validate all blocks.
+
+    Non-strength result variables are validated and discarded: the caller keeps
+    the VTK's original cell values rather than replacing them with native nodal
+    interpolation. A second zone, connected boundaries and cell-centred
+    strength are refused; the zones of a periodic row are read by
+    :func:`read_native_tecplot_zones`.
+    """
+    return read_native_tecplot_zones(source, zones=1)[0]
+
+
+def _default_coordinate_tolerance(points: np.ndarray) -> np.ndarray:
+    """Return the per-axis match tolerance :func:`attach_native_strength` takes by default.
+
+    The largest of 1e-10, 1e-6 of the geometry's diagonal extent, and four
+    single-precision epsilons of the largest coordinate magnitude, per axis.
+    """
+    measurable = bool(len(points)) and bool(np.isfinite(points).all())
+    extent = float(np.linalg.norm(np.ptp(points, axis=0))) if measurable else 0.0
+    magnitude = np.abs(points).max(axis=0) if measurable else np.zeros(3)
+    rounding = 4.0 * float(np.finfo(np.float32).eps) * magnitude
+    return np.maximum(max(1e-10, extent * 1e-6), rounding)
+
+
+def _copy_of(surface: VtkSurface, nodes: tuple[int, int], cells: tuple[int, int]) -> VtkSurface:
+    """Return the nodes ``[nodes)`` and polygons ``[cells)`` of ``surface``, renumbered."""
+    first, stop = cells
+    offsets = surface.offsets[first : stop + 1]
+    connectivity = surface.connectivity[offsets[0] : offsets[-1]]
+    if connectivity.size and (connectivity.min() < nodes[0] or connectivity.max() >= nodes[1]):
+        raise MalformedOutputError(
+            "the VTK's periodic copies are not separable: a polygon of one copy joins "
+            "nodes of another, so no copy can be matched to its native zone"
+        )
+    return VtkSurface(
+        points=surface.points[nodes[0] : nodes[1]],
+        offsets=offsets - offsets[0],
+        connectivity=connectivity - nodes[0],
+        point_data={
+            name: values[nodes[0] : nodes[1]] for name, values in surface.point_data.items()
+        },
+        title=surface.title,
+    )
+
+
+def attach_native_strength_by_copy(
+    surface: VtkSurface,
+    zones: Sequence[VtkSurface],
+    *,
+    coordinate_tolerance: float | np.ndarray | None = None,
+) -> tuple[VtkSurface, dict[str, object]]:
+    """Attach the strength of one native zone per periodic copy, copy by copy.
+
+    ``surface`` is the whole VTK in the REFERENCE frame, the modelled sector
+    first and its images after it (RPT-080); ``zones`` are the native zones in
+    file order. Zone k is joined to the k-th copy of the VTK, of the zone's own
+    node and polygon counts, by :func:`attach_native_strength`, so each copy
+    keeps the unique coordinate and topology match. With one zone this is
+    :func:`attach_native_strength` itself, record and all. The tolerance is
+    resolved once, from every zone's nodes together, when none is given.
+    """
+    if len(zones) == 1:
+        return attach_native_strength(surface, zones[0], coordinate_tolerance=coordinate_tolerance)
+    if not zones:
+        raise MalformedOutputError("No native zone to join")
+    points = sum(zone.n_points for zone in zones)
+    cells = sum(zone.n_cells for zone in zones)
+    if surface.n_points != points or surface.n_cells != cells:
+        raise MalformedOutputError(
+            f"Native/VTK counts cannot form a bijection: {len(zones)} native zones hold "
+            f"{points} nodes and {cells} polygons, the VTK {surface.n_points} and "
+            f"{surface.n_cells}"
+        )
+    if coordinate_tolerance is None:
+        coordinate_tolerance = _default_coordinate_tolerance(
+            np.vstack([zone.points for zone in zones])
+        )
+    strengths: list[np.ndarray] = []
+    copies: list[dict[str, object]] = []
+    node, cell = 0, 0
+    for zone in zones:
+        piece = _copy_of(surface, (node, node + zone.n_points), (cell, cell + zone.n_cells))
+        joined, mapping = attach_native_strength(
+            piece, zone, coordinate_tolerance=coordinate_tolerance
+        )
+        strengths.append(joined.point_data[_STRENGTH])
+        copies.append(mapping)
+        node += zone.n_points
+        cell += zone.n_cells
+    data = dict(surface.point_data)
+    data[_STRENGTH] = np.concatenate(strengths)
+    result = VtkSurface(
+        points=surface.points,
+        offsets=surface.offsets,
+        connectivity=surface.connectivity,
+        point_data=data,
+        cell_data=dict(surface.cell_data),
+        title=surface.title,
+    )
+    return result, {
+        "matched_nodes": surface.n_points,
+        "topology_verified": True,
+        # One tolerance for every copy, as each copy's own record states it.
+        "coordinate_tolerance": copies[0]["coordinate_tolerance"],
+        "coordinate_tolerance_by_axis": copies[0]["coordinate_tolerance_by_axis"],
+        "method": (
+            "one native zone per periodic copy, zone k joined to the k-th copy of the VTK "
+            "(the modelled surface first, then its images); unique coordinates plus "
+            "polygon-edge incidence within each copy; no interpolation"
+        ),
+        "periodic_copies": len(zones),
+    }
 
 
 def _topology(surface: VtkSurface, mapping: np.ndarray | None = None) -> Counter:
@@ -217,11 +446,7 @@ def attach_native_strength(
     input length unit); ``coordinate_tolerance`` is their maximum.
     """
     if coordinate_tolerance is None:
-        measurable = bool(native.n_points) and bool(np.isfinite(native.points).all())
-        extent = float(np.linalg.norm(np.ptp(native.points, axis=0))) if measurable else 0.0
-        magnitude = np.abs(native.points).max(axis=0) if measurable else np.zeros(3)
-        rounding = 4.0 * float(np.finfo(np.float32).eps) * magnitude
-        coordinate_tolerance = np.maximum(max(1e-10, extent * 1e-6), rounding)
+        coordinate_tolerance = _default_coordinate_tolerance(native.points)
     try:
         limits = np.broadcast_to(np.asarray(coordinate_tolerance, dtype=float), (3,)).copy()
     except ValueError as error:

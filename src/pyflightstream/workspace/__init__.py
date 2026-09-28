@@ -85,7 +85,7 @@ import time
 import tomllib
 import uuid
 import zipfile
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -1354,6 +1354,80 @@ class RunRecord(BaseModel):
                 )
             )
         return out
+
+
+#: The tag a JOB's run id ends with, where a point's run id ends with its
+#: point tag. Reused rather than invented: 0.16.0 already names the
+#: per-polar product tables by the point convention with the swept
+#: variable written literally as ``sweep``, so a reader has met this token
+#: and it reads correctly, naming a sweep rather than a point. Its home is
+#: here, beside the record it names, since 0.30.0: the run layer composes
+#: the id and the workspace layer reads it (:func:`planned_points_without_record`).
+JOB_TAG = "sweep"
+
+
+def planned_points_without_record(
+    planned: Iterable[str], rows: Iterable[Mapping[str, object]]
+) -> list[str]:
+    """Return the planned run ids no record carries, in the order planned (0.30.0).
+
+    A planned point (``<campaign>/sim_<id>/<point>``, as ``plan.json`` lists it)
+    is recorded by a record of its own id; by a record of the same campaign and
+    simulation whose id ends with its point, which is a continuation of it; by
+    a JOB record of its row (``<campaign>/sim_<id>/sweep``) whose ``points_ran``
+    names it; or by a job record that ran no point, which stands for every
+    point of its row (a job refused before it ran records them all at once).
+    Rows without a ``run_id``, such as a delete-sims note, carry nothing.
+
+    Parameters
+    ----------
+    planned : iterable of str
+        The planned run ids.
+    rows : iterable of mapping
+        The manifest's rows as written (``runs.json``), or records dumped to
+        mappings.
+
+    Returns
+    -------
+    list of str
+        The planned run ids with no record, the points a run never attempted.
+
+    Examples
+    --------
+    >>> planned_points_without_record(
+    ...     ["c/sim_1/J1", "c/sim_1/J2", "c/sim_2/AL+000"],
+    ...     [{"run_id": "c/sim_1/J1", "sim_id": "1"},
+    ...      {"run_id": "c/sim_2/sweep", "sim_id": "2", "points_ran": []}],
+    ... )
+    ['c/sim_1/J2']
+    """
+    points: set[tuple[str, str, str]] = set()
+    whole_rows: set[tuple[str, str]] = set()
+    for row in rows:
+        run_id = row.get("run_id")
+        if not isinstance(run_id, str) or "/" not in run_id:
+            continue
+        campaign, sim = run_id.split("/", 1)[0], str(row.get("sim_id"))
+        tag = run_id.rsplit("/", 1)[-1]
+        if tag != JOB_TAG:
+            points.add((campaign, sim, tag))
+            continue
+        ran = row.get("points_ran")
+        entries = ran if isinstance(ran, list) else []
+        if not entries:
+            whole_rows.add((campaign, sim))
+        for entry in entries:
+            if isinstance(entry, Mapping):
+                points.add((campaign, sim, str(entry.get("tag") or "")))
+    missing: list[str] = []
+    for run_id in planned:
+        parts = run_id.split("/")
+        campaign, tag = parts[0], parts[-1]
+        sim = parts[1].removeprefix("sim_") if len(parts) > 2 else ""
+        if (campaign, sim, tag) in points or (campaign, sim) in whole_rows:
+            continue
+        missing.append(run_id)
+    return missing
 
 
 #: THE EXTRACTION MANIFEST of the additional post (G12 of 0.27.0), a file of its

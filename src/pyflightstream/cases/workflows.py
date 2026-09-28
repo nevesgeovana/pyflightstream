@@ -10698,6 +10698,14 @@ def _export_block(
                 "dat": kinds["tecplot"],
                 "native_tecplot": native_tecplot_source(kinds["tecplot"]),
                 "frame": script.loads_frame_record(),
+                # 0.30.0: a periodic row's native Tecplot holds one zone per
+                # copy, and the translation reads it by this count. Stated only
+                # for such a row, so every other record is unchanged.
+                **(
+                    {"periodic_copies": script.periodic_copies}
+                    if script.periodic_copies is not None
+                    else {}
+                ),
             }
         )
     if declared_log:
