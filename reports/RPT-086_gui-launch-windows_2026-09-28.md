@@ -43,6 +43,18 @@ record is [RPT-086_gui-launch-windows_2026-09-28.json](RPT-086_gui-launch-window
 - That splash matches every condition of the 0.29.0 selection and yields
   exactly "solver dialog contains no readable text": it is the window killed.
 
+## An independent reading on the tier-3 GUI matrix
+
+The same day, the licensed tier-3 workspace at the v0.29.0 tag ran
+`tests/tier3_licensed/matriz_gui.fs` through `pyfs-matrix run`: its seven rows
+(5007, 5008, 5009, 5010, 5012, 5013, 5014) all state `HIDDEN 0`, and all nine
+points failed. Every one of the 64 failure lines in that workspace's
+`logs/activity.log` carries the same text, "solver modal/error detected ...
+solver dialog contains no readable text", about 2 s after each launch. There is
+no other failure text. The same machine launched the solver directly (hidden,
+with a script) 88 times in the same session without a failure. That is the
+defect this report measures, on the path it predicts.
+
 ## What 0.30.0 does with it
 
 A window of the solver with no title, no readable text and no button control
@@ -56,5 +68,6 @@ report measured.
 ## What is not established
 
 - A complete `HIDDEN 0` run on 26.124 with the 0.30.0 watcher (the solve that
-  survives the splash) has not been run; it is owed.
+  survives the splash) has not been run; it is owed, and `matriz_gui.fs` is
+  the natural run for it.
 - Other builds are not measured; their splash may differ.
