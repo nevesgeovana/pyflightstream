@@ -989,23 +989,25 @@ def test_the_results_tables_module_imports_the_workspace_layer_nowhere_at_runtim
 
     Whole-file absence, not module-level absence: the blessing rested on
     the import staying deferred, and there is no blessing left to rest
-    on. The annotation-only import in the module's `TYPE_CHECKING` block
-    stays and is outside both readings, which is exactly what the scan
-    above is proved on.
+    on. Since 0.29.0 (GEO-060 B1) the annotation-only import under
+    `TYPE_CHECKING` is gone too, replaced by two structural protocols
+    defined in the module, so the scan reads EVERY import at any level,
+    as the matrix reader's guard above does: an annotation-only import
+    records the same upward dependency in the type checker's view.
     """
     module = _SRC / "results" / "tables.py"
-    runtime = _runtime_imported_module_names(
-        module.read_text(encoding="utf-8"), "pyflightstream.results", module_level_only=False
-    )
+    imported = _imported_module_names(module.read_text(encoding="utf-8"), "pyflightstream.results")
     reaching = sorted(
         name
-        for name in runtime
+        for name in imported
         if name == "pyflightstream.workspace" or name.startswith("pyflightstream.workspace.")
     )
     assert not reaching, (
-        f"pyflightstream.results.tables imports {reaching} at runtime; the "
-        "results layer sits BELOW run/workspace, and deferring the import to "
-        "call time does not change that. Both public entry points take a "
+        f"pyflightstream.results.tables imports {reaching}; the results layer "
+        "sits BELOW run/workspace, and deferring the import to call time or "
+        "hiding it under TYPE_CHECKING does not change that. Annotate with "
+        "the module's own _ManifestRecord / _ManifestWorkspace protocols. "
+        "Both public entry points take a "
         "constructed CampaignWorkspace, so the coercion helper has no reason "
         "to exist."
     )

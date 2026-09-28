@@ -36,6 +36,7 @@ which is a different artifact under a similar name.
 from __future__ import annotations
 
 import sys
+import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -119,18 +120,28 @@ def render(matrix: Path) -> tuple[int, dict[str, str]]:
             rendered[stem] = portable(script.render())
         return plan
 
+    # THE ACTIVITY LOG GOES TO A THROWAWAY FOLDER (GEO-060 M5). The planner's
+    # stages log under ``<root>/logs`` unless an activity folder is already
+    # active, and the root here is this committed folder, so every offline
+    # render appended ``logs/activity.log(.jsonl)`` into the source tree. A
+    # render is a plan and never a campaign, so nothing reads that log.
+    from pyflightstream._progress import _ACTIVE
+
     prun._plan_point = hooked
-    try:
-        plan = plan_matrix(
-            matrix,
-            CampaignWorkspace(HERE, naming=NamingTemplate(point_name=MATRIX_POINT_NAME)),
-            name=matrix.stem,
-            recipes={},
-            recipe_registry=workflows.workflow_registry(),
-            write_plan=False,
-        )
-    finally:
-        prun._plan_point = original
+    with tempfile.TemporaryDirectory(prefix="pyfs-offline-activity-") as activity:
+        token = _ACTIVE.set(Path(activity))
+        try:
+            plan = plan_matrix(
+                matrix,
+                CampaignWorkspace(HERE, naming=NamingTemplate(point_name=MATRIX_POINT_NAME)),
+                name=matrix.stem,
+                recipes={},
+                recipe_registry=workflows.workflow_registry(),
+                write_plan=False,
+            )
+        finally:
+            _ACTIVE.reset(token)
+            prun._plan_point = original
     blocked = [p for p in plan.points if p.status.name not in ("READY", "ALREADY_RECORDED")]
     if blocked:
         first = blocked[0]

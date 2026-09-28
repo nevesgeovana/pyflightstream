@@ -300,6 +300,24 @@ def make_wing_config(n_stations: int = 21) -> FsiConfig:
     return FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
 
 
+#: The head of a saved simulation's global block written in metres: the two
+#: lines ``pyflightstream._fsm.saved_length_unit`` reads as METER (RPT-070).
+METER_FSM_TEXT = "$GLOBAL_START$\n1.0\n5\n$GLOBAL_END$\n"
+
+
+@pytest.fixture
+def meter_geometry(tmp_path) -> Path:
+    """A minimal saved simulation in metres, so tier 1 reads no tier-3 file.
+
+    The tests that take it need a geometry whose saved length unit reads as
+    METER, which is the head the tier-3 saves they used to open carry; this
+    file carries that head and nothing else (GEO-060 B2, CX-7).
+    """
+    path = tmp_path / "meter.fsm"
+    path.write_text(METER_FSM_TEXT, encoding="utf-8")
+    return path
+
+
 def elliptical_lift_distribution(
     radii: list[float], half_wing_lift_n: float, half_span_m: float
 ) -> list[float]:

@@ -1,0 +1,9 @@
+file = "duct.obj"
+boundaries = ["Inlet", "Outlet", "Wall"]
+[import]
+units = "METER"
+[trailing_edges]
+none = true
+[ports]
+feed = "Inlet"
+exit = "Outlet"

@@ -1,5 +1,4 @@
 from hashlib import sha256
-from pathlib import Path
 
 import pytest
 
@@ -154,10 +153,9 @@ def test_proximity_and_remove_initialization_are_emitted_before_initialize():
     assert "INITIALIZE_SOLVER" not in text
 
 
-def test_clear_vorticity_drag_is_explicit_and_reaches_after_solve():
-    geometry = Path(__file__).parents[1] / "tier3_licensed/inputs/geometries/12_WING_PHY.fsm"
+def test_clear_vorticity_drag_is_explicit_and_reaches_after_solve(meter_geometry):
     case = _case(
-        geometry=str(geometry),
+        geometry=str(meter_geometry),
         inventory=["Wing"],
         solver=SolverSettings(clear_vorticity_drag_boundaries=True),
     )
