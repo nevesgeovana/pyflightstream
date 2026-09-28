@@ -156,6 +156,7 @@ from pyflightstream.cases.workflows import (
     read_a_choice,
     reduction_windows,
     restart_iterations,
+    rotor_machs,
     row_ncpus,
     row_walltime_s,
     row_walltime_text,
@@ -4196,6 +4197,13 @@ class PointPlan:
         How the point's unsteady run is marched on its build, ``"actions"``
         or ``"single_march"`` (GOAL-023); None for a steady point or one
         that is BLOCKED.
+    rotor_mach : dict of str to dict
+        On a point of an ``unsteady_rotor`` row, a ``steady`` row stating
+        ``RPM`` or a row naming an actuator disc, each rotor's and disc's tip
+        and helical Mach numbers keyed by its alias or disc name, as
+        :meth:`pyflightstream.cases.workflows.RotorMach.record` states them,
+        with a ``note`` naming the row where they are not known (0.30.0,
+        M1). Empty on every other point.
     """
 
     run_id: str
@@ -4207,6 +4215,7 @@ class PointPlan:
     waived_commands: tuple[str, ...] = ()
     raw: bool = False
     march_strategy: MarchStrategy | None = None
+    rotor_mach: dict[str, dict[str, object]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -4816,7 +4825,24 @@ class CampaignPlan:
         unvalidated = [entry for entry in self.points if entry.raw]
         if unvalidated:
             lines.append(f"  {len(unvalidated)} point(s) use the raw() escape hatch")
+        # 0.30.0 (M1): every unsteady rotor point states its rotors' tip and
+        # helical Mach numbers, or why they are not known.
+        for entry in self.points:
+            for alias, mach in entry.rotor_mach.items():
+                lines.append(f"  {entry.run_id}: {rotor_mach_line(alias, mach)}")
         return "\n".join(lines)
+
+
+def rotor_mach_line(alias: str, mach: Mapping[str, object]) -> str:
+    """Return the words the plan prints for one rotor of one point (0.30.0, M1).
+
+    ``mach`` is one entry of :attr:`PointPlan.rotor_mach`.
+    """
+    tip, helical = mach.get("mach_tip"), mach.get("mach_helical")
+    kind = mach.get("kind") or "rotor"
+    if isinstance(tip, int | float) and isinstance(helical, int | float):
+        return f"{kind} {alias} M_tip {tip:.3f}, M_hel {helical:.3f}"
+    return f"{kind} {alias} M_tip and M_hel not computed: {mach.get('note')}"
 
 
 #: FR-97: `plan` is mandatory and `run` does
@@ -5105,6 +5131,10 @@ def _plan_point(
         return PointPlan(**base, script_name=None, status=PlanStatus.BLOCKED, error=str(error))
     script_name = f"{stem}.txt"
     point_case = case_at_point(case, point, outputs=outputs)
+    # 0.30.0 (M1): the rotors' tip and helical Mach numbers ride on every
+    # entry from here on, READY or not, since a point blocked for another
+    # reason is still a point whose rotor may reach the speed of sound.
+    base["rotor_mach"] = {mach.alias: mach.record() for mach in rotor_machs(point_case)}
     # THE PRE-FLIGHT RESOLVES A CONTINUATION, exactly as the run does, and the
     # reason is that a rehearsal which refuses what the run accepts is not a
     # rehearsal. A row stating RESTART carries no saved file and no step count
@@ -5847,6 +5877,18 @@ def _record_of_an_unwritable_point(
     )
 
 
+def _job_rotor_mach(
+    case: SimCase, points: Sequence[Mapping[str, float]]
+) -> dict[str, dict[str, object]] | None:
+    """Return a steady job's rotor and disc Mach numbers, keyed by point name (0.30.0, M1)."""
+    by_point: dict[str, dict[str, object]] = {}
+    for point in points:
+        machs = rotor_machs(case_at_point(case, point))
+        if machs:
+            by_point[point_name(case, point)] = {mach.alias: mach.record() for mach in machs}
+    return by_point or None
+
+
 def _execute_sweep(
     *,
     campaign: Campaign,
@@ -5954,6 +5996,11 @@ def _execute_sweep(
         # the same as leaving the field out.
         "script_sha256": "",
         "raw_flag": False,
+        # 0.30.0 (M1): each point's rotors and discs, keyed by the POINT'S NAME
+        # on a job record, because the numbers move with the point;
+        # `RunRecord.as_points` hands each point its own. None where no point
+        # carries any.
+        "rotor_mach": _job_rotor_mach(case, points),
     }
     if progress is not None:
         progress.base = base
@@ -7351,6 +7398,10 @@ def _execute_point(
         # The unit case for that fix passed while this path still failed,
         # because the case it builds carries its point and this one did not.
         "reductions": reduction_windows(case_at_point(case, point)),
+        # 0.30.0 (M1): each rotor's tip and helical Mach numbers at THIS point,
+        # from the point's own resolved state; None (and absent from the file)
+        # on every run type other than unsteady_rotor.
+        "rotor_mach": {mach.alias: mach.record() for mach in rotor_machs(at_point)} or None,
         # How the geometry was staged (PFS-2029.17), read off the workspace
         # that staged it, so the record says link or copy and why.
         **dict(

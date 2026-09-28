@@ -292,6 +292,33 @@ the decisions and the package derives the rest.
   run in. See [exports that begin after a threshold](#exports-that-begin-after-a-threshold)
   for the worked example and what the run leaves.
 
+**The plan states how fast each rotor's tip moves (0.30.0).** For every
+point of an `unsteady_rotor` row, a `steady` row that states `RPM` and a
+row that names an actuator disc, `pyfs-matrix plan` prints the tip and
+helical Mach numbers of each rotor and disc, from the speed the run turns,
+the rotor's diameter (a disc's `tip_radius_m`) and the point's own free
+stream and speed of sound:
+
+```text
+  mach/sim_9001/M144RE438AL+000RPM03000: rotor PORT M_tip 0.554, M_hel 0.572
+  mach/sim_9001/M144RE438AL+000RPM06000: rotor PORT M_tip 1.108, M_hel 1.117
+```
+
+and warns, naming each point, when a helical Mach number is 1 or more
+(`M_hel >= 1`, the tip sonic or supersonic):
+
+```text
+helical Mach >= 1 on 1 polar point(s): POL 9001 point M144RE438AL+000RPM06000,
+rotor PORT, M_hel 1.117. ...
+```
+
+A disc's line reads `actuator PROP M_tip ...`. The plan refuses nothing for
+the warning. A rotor whose reference states no diameter for it has no known
+radius: the plan says so naming the row instead of a number. The
+definitions, and where else the two numbers appear (the run record, the
+rotor table), are in
+[the definition of record](post-processing-definitions.md#tip-and-helical-mach-numbers).
+
 **THE RESERVED NAMES ARE THESE, AND THE LIST HAS GROWN TWICE.**
 `VAR_NAMES_VALUES` is your namespace except for the keys the package
 itself reads, and a cell of yours that already spells one of them is

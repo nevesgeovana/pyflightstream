@@ -30,6 +30,25 @@ FlightStream versions.
 - `pyfs-matrix plan` warns when the points still to run may not fit on the
   workspace's disk, estimated from the mean size of a recorded datapoint,
   naming `free-space` as the way to make room.
+- Tip and helical Mach numbers on every point of an `unsteady_rotor` row, a
+  `steady` row that states `RPM` and a row naming an actuator disc (M1):
+  `M_tip = Omega R / a` and `M_hel = sqrt(V^2 + (Omega R)^2) / a`, with
+  `Omega = 2 pi RPM / 60`, `R` half the rotor's diameter (a disc's
+  `tip_radius_m`) and `V`, `a` the point's resolved free stream and speed of
+  sound (on a static rig the velocity the package derives; at `V = 0`,
+  `M_hel = M_tip`), computed in one place
+  (`pyflightstream.cases.workflows.rotor_mach_numbers`, per rotor by
+  `rotor_machs`). `pyfs-matrix plan` prints both per rotor per point and
+  `plan.json` carries them under `rotor_mach`; the plan WARNS, naming each
+  point, its rotor and its value, when `M_hel >= 1`, and never refuses for it.
+  A rotor with no known radius (no rotor block diameter, no
+  `rotor_diameter_m`) is named with the row instead of a number. The run
+  record carries the same block under `rotor_mach` (absent where no point
+  carries one; a steady job keys it by point name), and the rotor table
+  `polars/P<sim>-<alias>_rotor.csv` gains two
+  LAST columns, `MTIP_<alias>` and `MHEL_<alias>`, so every existing column
+  keeps its position. See docs/post-processing-definitions.md, "Tip and
+  helical Mach numbers".
 - `sync` also brings matrices: each is declared in `sync-workspaces.toml` by
   the one workspace that owns it (`matrices = [...]`), every difference is
   reported as a merge conflict, and the owner's copy wins. A synced

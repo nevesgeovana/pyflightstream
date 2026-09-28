@@ -600,6 +600,11 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
         # a list, not a scalar a row could hold. It reaches a reader through the
         # per-distribution split and integration it lets the post match.
         "inventory",
+        # 0.30.0, M1. EACH ROTOR'S TIP AND HELICAL MACH NUMBERS: a block per
+        # rotor, not a scalar a row could hold. They reach a reader as the
+        # MTIP_<alias> and MHEL_<alias> columns of the rotor table, beside the
+        # speed and the diameter they were taken at.
+        "rotor_mach",
     }
     carried_by_the_campaign_sweep_table = {
         # FR-95, 0.17.0, and both for the same reason: a job's identity is
