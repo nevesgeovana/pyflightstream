@@ -173,6 +173,11 @@ PUBLIC_MODULES = [
     # of the promotion and what PFS-2025.20.03 measures.
     "pyflightstream.workspace.setup_inspection",
     "pyflightstream.workspace.setup_standards",
+    # 0.30.0: the five `pyfs-matrix` storage commands (space-in-use,
+    # free-space, delete-sims, sync). PUBLIC deliberately: it is the home of
+    # the storage/sync functions a script calls directly, the same reason
+    # `matrix` and `excel_sync` are public.
+    "pyflightstream.workspace.storage",
     "pyflightstream.workspace.trailing_edges",
     "pyflightstream.workspace.wake_edges",
 ]

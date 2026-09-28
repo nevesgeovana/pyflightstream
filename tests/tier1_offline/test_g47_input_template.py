@@ -255,6 +255,14 @@ def _read_every_example(workspace: CampaignWorkspace, blocks) -> dict[str, str]:
         claim(path, "read_hpc_profile and render_descriptor")
     if any((inputs / "hpc").glob("*.toml")):
         assert resolve_hpc_profile(inputs) is not None
+    # The storage recipe: previewed the way `pyfs-matrix free-space` reads it,
+    # which checks every table's entries, not merely their shape.
+    from pyflightstream.workspace.storage import free_space
+
+    for path in sorted((inputs / "management").glob("m*.toml")):
+        entry = free_space(workspace.root, path.stem, apply=False)
+        assert entry["applied"] is False
+        claim(path, "free_space (preview)")
     # The geometry library: each sidecar, the points file it cites, the record.
     for sidecar in sorted(inputs.glob(f"geometries/**/*{INVENTORY_SUFFIX}")):
         assert read_inventory(sidecar)
@@ -625,6 +633,7 @@ BREAKS: dict[str, tuple[str, str]] = {
     "inputs/profiles/wake_survey.csv": ("", "9\n"),
     "inputs/freestreams/gust.txt": ("", "3 3\n"),
     "inputs/hpc/h001.toml": ("\napplication_id =", "\naplication_id ="),
+    "inputs/management/m001.toml": ('action = "delete"', 'action = "invalid"'),
     f"inputs/{EXECUTABLES_FILE}": ("version =", "verison ="),
     f"inputs/{LOCAL_EXECUTABLES_FILE}": ('"26.124" =', '"26.999" ='),
 }

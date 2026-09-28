@@ -880,7 +880,7 @@ _STORAGE_COMMANDS = ("space-in-use", "free-space", "delete-sims", "sync")
 
 
 def _storage_flag_form(argv: list[str] | None) -> list[str] | None:
-    """Accept the owner's spelling, ``pyfs-matrix --workspace W --free-space m001``.
+    """Accept the flag-form spelling, ``pyfs-matrix --workspace W --free-space m001``.
 
     Each storage command is also a subcommand; written as a leading flag, it
     is moved to the front and its value (the recipe, the ids or the level)
@@ -974,9 +974,9 @@ def _add_storage_parsers(subparsers: Any) -> None:
             "deleted and inputs/ is never touched, except a declared matrix. MATRICES: "
             "each is declared in sync-workspaces.toml by the one workspace that owns it "
             '(matrices = ["<stem>", ...]); a difference is always reported as a MERGE '
-            "CONFLICT and the owner's copy wins. A synced simulation's inputs/ is linked "
-            "into main's own geometry library, never copied. Every call is recorded in "
-            "storage_management.json."
+            "CONFLICT and the owning workspace's copy wins. A synced simulation's "
+            "inputs/ is linked into main's own geometry library, never copied. "
+            "Every call is recorded in storage_management.json."
         ),
     )
     sync.add_argument("level", choices=("runs", "post", "fsm", "all"), help="what to bring")
@@ -1015,7 +1015,7 @@ def _cmd_storage(args: argparse.Namespace) -> int:
             _print_free_space(entry)
             return 0
         if args.subcommand == "delete-sims":
-            # "4001,2009" or the owner's "[4001,2009]" both read as two ids.
+            # "4001,2009" or the bracketed "[4001,2009]" both read as two ids.
             listed = args.sims.replace(" ", "").strip("[]")
             ids = [item for item in listed.split(",") if item]
             entry = storage.delete_sims(

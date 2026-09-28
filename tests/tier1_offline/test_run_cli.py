@@ -638,15 +638,24 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
     # `inspect-setups` joined at 0.29.0 as an ALIAS of `plan` (the parser is
     # the same object), so it carries every option `plan` carries, `--recipe`
     # included; the loop below asserts that on the alias too.
+    # `space-in-use`, `free-space`, `delete-sims` and `sync` joined at 0.30.0
+    # as the storage commands (`pyflightstream.workspace.storage`): like
+    # `upgrade`, `post`, `inventory`, `collect` and `rename`, they take no
+    # recipe, no version and no executable, because they manage a
+    # workspace's files rather than running the solver.
     assert set(choices) == {
         "collect",
         "convert",
+        "delete-sims",
+        "free-space",
         "inspect-setups",
         "inventory",
         "plan",
         "post",
         "rename",
         "run",
+        "space-in-use",
+        "sync",
         "upgrade",
     }
     assert choices["inspect-setups"] is choices["plan"], (

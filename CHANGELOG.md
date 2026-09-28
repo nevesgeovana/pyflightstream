@@ -78,6 +78,14 @@ FlightStream versions.
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
 
+### Changed (the type-checker debt, re-measured on the gate-fixing tree)
+
+- mypy recount 2026-09-28: 921 errors in 18 of 129 modules, on the
+  `feat/0-30-storage-sync` tree fixing nine tier-1 house-style/registry
+  guards, against 0.29.0's 922 in 18 of 128. The one module the tracked
+  package gained, `workspace/storage.py`, is clean; the shipped
+  configuration is green over all 129 (`reports/RPT-029`).
+
 ## [0.29.0] - 2026-09-28
 
 COMPLETE SETUP AND BOUNDARY-CONDITION ACCESS, AND A QUALITY GATE. `pyfs-matrix

@@ -1577,6 +1577,30 @@ def _remove_link(link: Path) -> None:
         os.unlink(link)
 
 
+#: Public forms of the three link helpers above, for a sibling module of
+#: this layer (``workspace/storage.py``) to reach: the underscored ones stay
+#: exactly as they are, used throughout this module, and these are the
+#: names a PUBLIC sibling imports instead of reaching across the layer
+#: boundary for a private one (`tests/tier1_offline/test_digest.py`'s
+#: layer-boundary guard).
+def is_link(path: Path) -> bool:
+    """Whether ``path`` is a symbolic link or, on Windows, a directory junction."""
+    return _is_link(path)
+
+
+def make_dir_link(target: Path, link: Path) -> None:
+    """Create ``link``, pointing at directory ``target``.
+
+    A junction on Windows, a symlink elsewhere.
+    """
+    _make_dir_link(target, link)
+
+
+def remove_link(link: Path) -> None:
+    """Remove a link and never what it points at."""
+    _remove_link(link)
+
+
 def _sim_files(sim: Path) -> list[Path]:
     """Every file under a simulation folder, never crossing a link."""
     found: list[Path] = []

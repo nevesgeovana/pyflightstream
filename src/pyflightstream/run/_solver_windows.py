@@ -37,7 +37,7 @@ class WindowDiagnostic:
 #: 2026-09-28, 700x525). Nobody can answer it and it closes by itself, so the
 #: watcher spares it; before 0.30.0 it killed every GUI run within 2 s as
 #: "solver dialog contains no readable text". A window with a title, any
-#: readable text, or any button is still a dialog (the owner's decision of
+#: readable text, or any button is still a dialog (the design decision of
 #: 2026-09-28, option (b) adjusted to the measurement).
 def asks_nothing(window: WindowDiagnostic) -> bool:
     """Say whether a window has no title, no readable text and no button."""

@@ -46,10 +46,16 @@ from pyflightstream.workspace import (
     CampaignWorkspace,
     RunStatus,
     WorkspaceError,
-    _is_link,
-    _make_dir_link,
-    _remove_link,
     post_stages,
+)
+from pyflightstream.workspace import (
+    is_link as _is_link,
+)
+from pyflightstream.workspace import (
+    make_dir_link as _make_dir_link,
+)
+from pyflightstream.workspace import (
+    remove_link as _remove_link,
 )
 from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP
 
@@ -106,9 +112,15 @@ def _stamp() -> str:
 
 
 def _version() -> str:
-    from pyflightstream import __version__
+    from importlib import metadata
 
-    return __version__
+    try:
+        return metadata.version("pyflightstream")
+    except metadata.PackageNotFoundError:
+        # Same fallback as pyflightstream/__init__.py's own __version__: a
+        # source tree imported without an installation has no distribution
+        # metadata, so the version is honestly unknown rather than stale.
+        return "0.0.0+uninstalled"
 
 
 def _sha256(path: Path) -> str:
@@ -175,7 +187,7 @@ def _workspace(root: str | Path) -> CampaignWorkspace:
     if not ((root / "runs.json").is_file() or (root / "inputs").is_dir()):
         raise StorageError(
             f"{root} is not a pyfs-matrix workspace (no runs.json, no inputs/); name the "
-            "workspace root with --workspace"
+            "root that holds runs.json as workspace (CLI: --workspace)"
         )
     return CampaignWorkspace(root)
 
@@ -319,7 +331,7 @@ def _remove_sim_folder(folder: Path) -> list[str]:
     Every link or junction below the folder (its ``inputs`` into the geometry
     library first of all) is undone before the folder is removed, and the
     removal is refused if one is still there: deleting a simulation must
-    never delete the mesh it was linked to (the owner's rule, 2026-09-28).
+    never delete the mesh it was linked to (fixed rule, 2026-09-28).
     Returns the links undone, relative to the folder.
     """
     undone: list[str] = []
@@ -780,7 +792,10 @@ def delete_sims(
     """
     workspace = _workspace(root)
     if matrix_products is not None and matrix_products not in MATRIX_PRODUCT_CHOICES:
-        raise StorageError(f"--matrix-products is one of {', '.join(MATRIX_PRODUCT_CHOICES)}")
+        raise StorageError(
+            "matrix_products (CLI: --matrix-products) is one of "
+            f"{', '.join(MATRIX_PRODUCT_CHOICES)}"
+        )
     if workspace.manifest_path.with_name("runs.json.lock").exists():
         raise StorageError(f"{workspace.root}: runs.json.lock present, a run is in progress")
     ids = [str(sim).strip() for sim in sim_ids if str(sim).strip()]
@@ -839,8 +854,8 @@ def delete_sims(
         raise StorageError(
             "these matrix products also hold the deleted points: "
             + "; ".join(f"{folder}: {', '.join(names)}" for folder, names in shared.items())
-            + ". Say --matrix-products points-only (leave them, marked stale) or "
-            "--matrix-products regenerate (rerun their post without the deleted points)."
+            + ". Say matrix_products (CLI: --matrix-products) 'points-only' (leave them, "
+            "marked stale) or 'regenerate' (rerun their post without the deleted points)."
         )
     if not apply:
         record_storage_call(workspace.root, entry)
@@ -945,7 +960,7 @@ def read_matrix_owners(root: Path) -> dict[str, str]:
 
     A workspace declares ``matrices = ["matriz", ...]`` in its table. A
     matrix belongs to one workspace and one only; a workspace may own several
-    (the owner's rule, 2026-09-28). A stem declared twice is refused, naming
+    (fixed rule, 2026-09-28). A stem declared twice is refused, naming
     both workspaces.
     """
     path = root / SYNC_CONFIG
@@ -1224,7 +1239,7 @@ def _sync_one(
                 raise StorageError(f"the copy of {relative} does not match its source; stopped")
             item = {"path": relative.as_posix(), "bytes": _size(target), "sha256": digest}
             (overwritten if kind == "overwrite" else copied).append(item)
-    # THE MESH IS LINKED, NEVER COPIED (the owner's rule, 2026-09-28): each
+    # THE MESH IS LINKED, NEVER COPIED (fixed rule, 2026-09-28): each
     # simulation folder sync brought gets its `inputs` link into main's own
     # geometry library, the way the other workspace's simulation had it.
     inputs_links: dict[str, str] = {}
@@ -1239,7 +1254,7 @@ def _sync_one(
         elif not (main.root / "sims" / sim.name / "inputs").exists():
             inputs_links[sim.name] = "to link when applied"
     entry["inputs_links"] = inputs_links
-    # MATRICES (the owner's rule, 2026-09-28): every difference is reported as
+    # MATRICES (fixed rule, 2026-09-28): every difference is reported as
     # a merge conflict, and the workspace that owns the matrix wins.
     entry["matrices"] = _sync_matrices(main, name, other, owners, apply=apply, stamp=stamp)
     entry.update(
@@ -1288,8 +1303,8 @@ def sync_workspaces(
     matrix under ``inputs/matrices/``. MATRICES, at every level: each one is
     declared in ``sync-workspaces.toml`` by the ONE workspace that owns it
     (an undeclared matrix refuses the sync); a difference is always reported
-    as a merge conflict and the owner's copy is the one main keeps. Returns
-    one recorded entry per source workspace.
+    as a merge conflict and the owning workspace's copy is the one main
+    keeps. Returns one recorded entry per source workspace.
     """
     if level not in SYNC_LEVELS:
         raise StorageError(f"sync level is one of {', '.join(SYNC_LEVELS)}")
@@ -1300,9 +1315,11 @@ def sync_workspaces(
     names = [source] if source else [name for name in spaces if name != main_name]
     for name in names:
         if name not in spaces:
-            raise StorageError(f"--from {name!r} is not in {SYNC_CONFIG} ({sorted(spaces)})")
+            raise StorageError(
+                f"from (CLI: --from) {name!r} is not in {SYNC_CONFIG} ({sorted(spaces)})"
+            )
         if name == main_name:
-            raise StorageError(f"--from {name!r} is the main workspace itself")
+            raise StorageError(f"from (CLI: --from) {name!r} is the main workspace itself")
     owners = read_matrix_owners(main.root)
     unknown = sorted(set(owners.values()).difference(spaces))
     if unknown:

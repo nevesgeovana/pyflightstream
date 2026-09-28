@@ -53,7 +53,10 @@
 > properties (G41), and by the run of 2026-09-28 on the 0.29.0 quality-gate
 > candidate (GOAL-034 Q1), whose 0.29 work brought the tracked package from
 > 104 to 128 modules, and by the run of 2026-09-28 on the v0.29.0 release
-> tree. (An
+> tree, and by the run of 2026-09-28 on the 0.30.0 storage-and-sync
+> gate-fixing tree (`feat/0-30-storage-sync`, the nine tier-1 house-style
+> guards), whose one new module, `workspace/storage.py`, brought the tracked
+> package from 128 to 129. (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
 > modules and the 0.24.0 tree at 661 in 18 of 93; the 0.28.0 release tree read
 > 863 errors in 18 of 104 on 2026-09-25; the 0.29.0 quality-gate candidate
@@ -62,22 +65,23 @@
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 922 errors in 18 files (checked 128 source files)
->     Success: no issues found in 128 source files
+>     Found 921 errors in 18 files (checked 129 source files)
+>     Success: no issues found in 129 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-28: 922 errors in 18 of 128 modules.**
+**mypy recount 2026-09-28: 921 errors in 18 of 129 modules.**
 
-The module total rises by the twenty-four modules the 0.29 work adds, and the
-error total by fifty-nine, all inside the exempted set; the number of modules
-holding an exemption is unchanged at eighteen, and the shipped configuration
-is green over all 128. The run was taken by `python scripts/mypy_recount.py`
-on the release tree of v0.29.0, which the script reported clean; the
-candidate's run of the same date, 923 errors, is recorded in its own section
-below. The previous reading of this report is in its own history.
+The module total rises by the one module (`workspace/storage.py`) the 0.30.0
+storage-and-sync work adds, and the error total falls by one, inside the
+exempted set; the number of modules holding an exemption is unchanged at
+eighteen, and the shipped configuration is green over all 129. The run was
+taken by `python scripts/mypy_recount.py` on the `feat/0-30-storage-sync`
+tree fixing the nine tier-1 house-style guards. The previous reading of this
+report, the v0.29.0 release tree at 922 errors in 18 of 128 modules, is in
+its own history.
 
 THE NINETIETH TO THE NINETY-THIRD ARRIVED AT 0.24.0 and all four arrive
 CLEAN: `post/axes.py`, the one home of the frame conventions; `cases/windows.py`,
@@ -353,11 +357,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 922 errors in 18 files (checked 128 source files)
+    Found 921 errors in 18 files (checked 129 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 128 source files
+    Success: no issues found in 129 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -740,8 +744,8 @@ candidate's 923, against the v0.28.0 release tree's 863 in 18 of 104. The
 dirty count still reads 18, `pyflightstream.run` still holds 734 errors on 83
 lines, and the shipped configuration is green over all 128 modules; the run
 measured the tree as it is and assigns the one error to no change. The quoted
-mypy lines above are this run's, and the sentence at the top of this report is
-this measurement.
+mypy lines above were this run's until the 0.30.0 storage-and-sync tree was
+measured, next.
 
 **Erratum 2026-09-28** (GOAL-034 Q8 VV2-2/VV6-2): the section above names no
 commit for the v0.29.0 release tree it measured. That tree is HEAD
@@ -749,3 +753,19 @@ commit for the v0.29.0 release tree it measured. That tree is HEAD
 `GOAL-034-receipts/q8-evidence/vv3-mypy-recount-2626467c.txt` (922 errors in
 18 of 128 modules, mypy 1.20.2, 0 changed paths). This line is added after the
 fact and the measurement above is unedited.
+
+## Re-measured 2026-09-28, the 0.30.0 storage-and-sync gate-fixing tree: one module arrived
+
+`python scripts/mypy_recount.py` on 2026-09-28, on `feat/0-30-storage-sync`
+fixing the nine tier-1 house-style/registry guards this branch's own tests
+named: 921 errors in 18 of 129 modules, against the v0.29.0 release tag's 922
+in 18 of 128 (the two trees differ by the whole 0.30.0 storage-and-sync
+branch, not by one file, so the one-error difference is not attributed to a
+single change). The module guard in `tests/tier1_offline/test_traceability.py`
+had gone red at 129 against the recorded 128, which is what asked for this
+run. The one module the tracked-module count gained since the release tag is
+`workspace/storage.py`, the home of the five `pyfs-matrix` storage commands;
+it is not itself exempted and the tool reports it CLEAN, so the dirty count
+still reads 18. The shipped configuration is green over all 129 modules. The
+quoted mypy lines above are this run's, and the sentence at the top of this
+report is this measurement.

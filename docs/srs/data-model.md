@@ -241,6 +241,7 @@ The managed folder tree of a campaign:
     fsi/             structural configurations a row's FSI names: f<id>.toml (0.29.0)
     matrices/        run matrices kept inside the library; new files go here, and a
                      matrix at the workspace root keeps its location (0.29.0)
+    management/      storage recipes a `pyfs-matrix free-space` call runs: m<id>.toml (0.30.0)
     executables.toml the build-id to executable registry, with an
                      optional declared version per build
   sims/sim_<id>/     per-simulation staged inputs, scripts and raw outputs

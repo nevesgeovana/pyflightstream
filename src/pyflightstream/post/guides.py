@@ -2532,6 +2532,42 @@ def _template_sections() -> tuple[TemplateSection, ...]:
             pages=(_page("excel-matrices", "Optional Excel matrix workbook"),),
         ),
         TemplateSection(
+            heading="Storage recipe, `inputs/management/m<id>.toml`",
+            intro=(
+                "Optional: what `pyfs-matrix free-space m001 --workspace . --apply` runs. "
+                "Up to three tables, each a list of steps run in this order."
+            ),
+            examples=(
+                TemplateExample(
+                    "inputs/management/m001.toml",
+                    "toml",
+                    (
+                        "[[compact_sims]]\n"
+                        'sims = "all"\n'
+                        'status = ["CONVERGED"]\n'
+                        "\n"
+                        "[[delete_extensions]]\n"
+                        'extensions = [".vtk"]\n'
+                        "\n"
+                        "[[post_archives]]\n"
+                        'action = "delete"\n'
+                        "keep_latest = 1\n"
+                    ),
+                ),
+            ),
+            after=(
+                "`[[compact_sims]]` zips a converged simulation folder to "
+                "`sims/sim_<id>.zip`, restored automatically the next time `post`, "
+                "`collect` or a continuation reads it. `[[delete_extensions]]` deletes "
+                "files of the named extension under `sims/`; `.fsm`, scripts and logs "
+                "are never deleted regardless. `[[post_archives]]` compacts or deletes "
+                "the `post/<matrix>/archive/<stamp>/` folders a superseded product "
+                "left, keeping the newest `keep_latest` of each matrix regardless of "
+                "age. See docs/storage-and-sync.md."
+            ),
+            pages=(_page("storage-and-sync", "Storage and sync"),),
+        ),
+        TemplateSection(
             heading=ARTIFACT_HEADINGS["matrix"],
             intro=(
                 "What to run: one row per simulation, each naming its flight condition, "

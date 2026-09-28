@@ -166,6 +166,14 @@ CANONICAL_FORMS = {
         "independent of field order and formatting, which a byte digest of "
         "config.json would not be."
     ),
+    "workspace/storage.py": (
+        "the raw bytes of a file, read in blocks and never decoded, the same "
+        "canonical form as the manifest checksum above: whole-file bytes for a "
+        "sync-copied file, for a compacted simulation's zip member (both when "
+        "writing the archive and when verifying or restoring it) and for a "
+        "storage recipe (inputs/management/m<id>.toml), always the source file's "
+        "bytes and never a JSON rendering of its parsed content."
+    ),
 }
 
 __all__ = [
