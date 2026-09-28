@@ -2,14 +2,32 @@
 
 A workspace row requesting the Tecplot surface receives a package-written file.
 The VTK export supplies panel values such as Cp and boundary-layer quantities.
-A separate native Tecplot export supplies the nodal `Singularity_strength`.
-No pressure-to-strength formula or cell-to-node interpolation is used.
+A separate native Tecplot export supplies the nodal `Singularity_strength`
+where the row's pproc asks for it. No pressure-to-strength formula or
+cell-to-node interpolation is used.
 
-The workflow acquires both files automatically, including each requested time
-step. The retained native source ends in `_native_tecplot.dat`; it is a source
-artifact, while the originally requested `.dat` is the translated product.
-Both inputs are collected and hashed. No additional setup or export toggle is
-needed beyond requesting the Tecplot surface.
+## Asking for the strength
+
+The pproc key `singularity_strength` decides whether the surface carries the
+strength (since 0.30.0). It is off by default:
+
+```toml
+singularity_strength = true   # a top-level key of the pproc artifact
+```
+
+Off, the point exports the VTK alone. Its `.dat` carries every VTK variable,
+cell-centred, and states `Singularity_strength` as not carried, in its header
+(`NOT_CARRIED`) and in its `products.json` entry (`not_carried`). The point is
+complete without a native file, because it never asked for one. The
+time-averaged surface averages the VTK variables and states the strength not
+carried the same way. Nothing fills the absent column.
+
+On, the workflow acquires both files, including each requested time step. The
+retained native source ends in `_native_tecplot.dat`; it is a source artifact,
+while the originally requested `.dat` is the translated product. Both inputs
+are collected and hashed, and a missing native file is named as the reason the
+`.dat` was not written. `pyfs-matrix plan` states on each row that declares a
+Tecplot surface whether its strength is carried.
 
 ## What the product contains
 
@@ -55,9 +73,10 @@ Source and output byte identities use sha256, with canonical forms owned by
 `pyflightstream._digest`. They hash exact file bytes, without adding filesystem
 paths or timestamps; changing line endings therefore changes the digest.
 
-A historical run without a native-source declaration keeps the earlier VTK-only
-route and explicitly reports `Singularity_strength` as not carried. The
-package does not invent the absent field or rewrite historical solver outputs.
+A historical run without a native-source declaration, and a run whose pproc
+leaves `singularity_strength` off, keep the VTK-only route and explicitly report
+`Singularity_strength` as not carried. The package does not invent the absent
+field or rewrite historical solver outputs.
 
 ## Direct API example
 

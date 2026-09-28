@@ -10819,12 +10819,25 @@ def native_tecplot_source(tecplot: str) -> str:
     return path.with_name(path.stem + "_native_tecplot.dat").as_posix()
 
 
-def with_tecplot_source(outputs: Sequence[str]) -> list[str]:
-    """Include both sources of the translated surface in run output accounting.
+def carries_singularity_strength(case: SimCase) -> bool:
+    """Say whether the row's pproc asks its Tecplot surface to carry the strength (SS1).
 
-    The VTK supplies panel values; the native Tecplot supplies nodal strength.
-    Both are waited for, filed and hashed, including at each exported step.
-    Calling this on an already expanded output list is idempotent.
+    ``singularity_strength = true`` in the pproc artifact the row names; absent,
+    false, or no pproc at all, the script exports no native Tecplot and the
+    translated surface declares ``Singularity_strength`` not carried.
+    """
+    return case.pproc is not None and case.pproc.singularity_strength
+
+
+def with_tecplot_source(outputs: Sequence[str], *, singularity_strength: bool = False) -> list[str]:
+    """Include the sources of the translated surface in run output accounting.
+
+    The VTK supplies panel values and is always a source. The native Tecplot
+    supplies nodal strength and is one only where ``singularity_strength``
+    says the row's pproc asks for it (SS1 of 0.30.0): a point is never
+    incomplete for a native file it was never asked to write. The sources are
+    waited for, filed and hashed, including at each exported step. Calling
+    this on an already expanded output list is idempotent.
     """
     names = [str(name) for name in outputs]
     kinds = classify_outputs(names)
@@ -10832,7 +10845,9 @@ def with_tecplot_source(outputs: Sequence[str]) -> list[str]:
     if tecplot is None:
         return names
     at = names.index(tecplot) + 1
-    dependencies = [tecplot_source(tecplot, kinds), native_tecplot_source(tecplot)]
+    dependencies = [tecplot_source(tecplot, kinds)]
+    if singularity_strength:
+        dependencies.append(native_tecplot_source(tecplot))
     missing = [name for name in dependencies if name not in names]
     return [*names[:at], *missing, *names[at:]]
 
@@ -10863,9 +10878,11 @@ def _surface_export(
     is showing, then the save with the path on the line after it (RPT-067).
     False for every other kind, which the caller emits as ``<verb>`` and a name.
 
-    The package writes the requested Tecplot from VTK panel values and native
-    nodal strength (G53). The separate native export is retained as provenance.
-    ``kinds`` contains every public export, by kind.
+    The package writes the requested Tecplot from VTK panel values and, where
+    the row's pproc sets ``singularity_strength = true``, native nodal strength
+    (G53, SS1 of 0.30.0). Only then is the separate native export emitted, and
+    it is retained as provenance. ``kinds`` contains every public export, by
+    kind.
     """
     if kind in PLOT_TYPES:
         script.emit("SET_PLOT_TYPE", PLOT_TYPES[kind])
@@ -10877,7 +10894,8 @@ def _surface_export(
         stated = dict(kinds or {kind: name})
         if "vtk" not in stated:
             _export_surface_vtk(script, case, tecplot_source(name, stated))
-        helpers.export_results(script, tecplot=native_tecplot_source(name))
+        if carries_singularity_strength(case):
+            helpers.export_results(script, tecplot=native_tecplot_source(name))
     elif kind == "vtk":
         _export_surface_vtk(script, case, name)
     elif kind == "csv":
@@ -10986,7 +11004,15 @@ def _export_block(
             {
                 "vtk": tecplot_source(kinds["tecplot"], kinds),
                 "dat": kinds["tecplot"],
-                "native_tecplot": native_tecplot_source(kinds["tecplot"]),
+                # SS1 of 0.30.0: named only where the pproc asks for the
+                # strength, so a row without it translates as a record with no
+                # native source always has: every VTK variable, the strength
+                # declared not carried.
+                **(
+                    {"native_tecplot": native_tecplot_source(kinds["tecplot"])}
+                    if carries_singularity_strength(case)
+                    else {}
+                ),
                 "frame": script.loads_frame_record(),
                 # 0.30.0: a periodic row's native Tecplot holds one zone per
                 # copy, and the translation reads it by this count. Stated only

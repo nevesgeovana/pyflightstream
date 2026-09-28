@@ -550,8 +550,9 @@ EXPORT_KIND_MEANINGS: dict[str, str] = {
     "loads": "The loads table, the export every run is judged by.",
     "tecplot": (
         "The surface solution in Tecplot format, written by the package from the VTK "
-        "export, preserving panel values and native nodal singularity strength "
-        "in the reference frame."
+        "export, preserving panel values in the reference frame; the native nodal "
+        "singularity strength is carried only where the pproc sets "
+        "singularity_strength = true."
     ),
     "vtk": (
         "The surface solution in VTK format, as the solver writes it; the Tecplot is "
@@ -2528,6 +2529,10 @@ class PprocSpec(BaseModel):
         or revolutions of the run.
     vtk_variables : list of str, optional
         The variables the VTK surface export writes.
+    singularity_strength : bool
+        Whether the Tecplot surface carries the nodal ``Singularity_strength``
+        from a native Tecplot export beside the VTK; False, the default, exports
+        no native Tecplot and the surface declares the strength not carried.
     sections : SectionsSpec
         The surface-section distributions the script declares before the
         solve.
@@ -2594,6 +2599,16 @@ class PprocSpec(BaseModel):
                 "vtk_variables must be a nonempty list of distinct command variable names"
             )
         return value
+
+    #: 0.30.0 (SS1): whether a point's Tecplot surface carries the nodal
+    #: ``Singularity_strength``. The VTK does not hold it, so carrying it costs
+    #: a second, native Tecplot export per point and per exported step
+    #: (``<name>_native_tecplot.dat``). OFF by default: the script exports the
+    #: VTK alone, and the ``.dat`` carries every VTK variable and declares
+    #: ``Singularity_strength`` not carried. True exports the native file and
+    #: carries it, exactly as 0.29.0 did. A bool, and nothing a bool is read
+    #: from: ``"true"`` or ``1`` is refused.
+    singularity_strength: bool = Field(default=False, strict=True)
 
     sections: SectionsSpec = Field(default_factory=SectionsSpec)
     #: G05 (0.27.0): ONE flow-field plane each point of a STEADY row cuts after

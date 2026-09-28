@@ -205,10 +205,11 @@ def test_an_additional_post_writes_the_printed_output_as_its_log(tmp_path, monke
         written = workspace.sim_dir(record.sim_id) / log
         assert written.read_text(encoding="utf-8") == LOG
         assert record.outputs_sha256[log] == file_sha256(written)
-        (native,) = [name for name in record.outputs if name.endswith("_native_tecplot.dat")]
-        assert record.outputs_sha256[native] == file_sha256(
-            workspace.sim_dir(record.sim_id) / native
-        )
+        # SS1 of 0.30.0: the pproc leaves the strength off, so the VTK is the
+        # surface's one source, listed and hashed, and no native file is.
+        (vtk,) = [name for name in record.outputs if name.endswith(".vtk")]
+        assert record.outputs_sha256[vtk] == file_sha256(workspace.sim_dir(record.sim_id) / vtk)
+        assert not [name for name in record.outputs if name.endswith("_native_tecplot.dat")]
         assert record.note and "captured" in record.note, record.note
 
 

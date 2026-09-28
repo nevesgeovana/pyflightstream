@@ -933,6 +933,20 @@ VTK-only contract and its explicit missing-strength statement. See
 [surface translation](surface-translation.md) for the exact source/association
 and recovery contract.
 
+### The strength is asked for (since 0.30.0)
+
+**The native export is made only where the row's pproc sets
+`singularity_strength = true`.** The key is off by default. Off, the point
+exports no `*_native_tecplot.dat`, at the end of the run or at any step; its
+translation record names no native source; the `.dat` follows the 0.28.x
+contract above, every VTK variable cell-centred with `Singularity_strength` in
+`NOT_CARRIED` and `not_carried`; and the point is not
+`FAILED_INCOMPLETE_OUTPUT` for a native file it was never asked to write. The
+time-averaged surface below averages the VTK variables and states the strength
+not carried. On, every point and step is exported, matched and recorded exactly
+as in 0.29.0. `pyfs-matrix plan` states per row declaring a Tecplot surface
+whether the strength is carried.
+
 ### The time-averaged surface is the package's (since 0.28.0)
 
 **`[time_averaging]` makes the run export the surface at every step of its

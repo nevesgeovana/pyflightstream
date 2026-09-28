@@ -275,13 +275,16 @@ def test_g25_a_vtk_is_written_beside_the_average_where_asked(tmp_path):
 
 def test_g25_a_run_records_its_window_and_the_post_averages_what_it_exported(tmp_path):
     """End to end through a stub that exports the window's steps as the solver stamps them."""
-    case = _rotor(time_averaging={"last_iters": 4})
+    # SS1 of 0.30.0: the strength is averaged where the pproc asks for it.
+    case = _rotor(time_averaging={"last_iters": 4}, singularity_strength=True)
     case.pproc_id = "p001"
     campaign = Campaign(name="camp", fs_version="26.124", fs_exe=sys.executable, sims=[case])
     workspace = CampaignWorkspace(tmp_path / "camp")
     artifact = workspace.inputs_dir / "pproc" / "p001.toml"
     artifact.parent.mkdir(parents=True)
-    artifact.write_text("[time_averaging]\nlast_iters = 4\n", encoding="utf-8")
+    artifact.write_text(
+        "singularity_strength = true\n[time_averaging]\nlast_iters = 4\n", encoding="utf-8"
+    )
     strength = np.array([0.125, 1.125, 2.125])
     strength_line = "0.125 1.125 2.125"
     assert f"\n{strength_line}\n" in STUB_NATIVE_TECPLOT

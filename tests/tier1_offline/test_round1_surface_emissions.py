@@ -20,6 +20,9 @@ def _emissions():
         time_averaging={"last_revs": 1.5},
         vtk_variables=["X", "CP_FREESTREAM"],
         threshold={"EXPORT_UNSTEADY_AFTER_ITER": "91"},
+        # SS1 of 0.30.0: the goldens pin every surface command, the native
+        # Tecplot export among them, so they are taken with the key on.
+        singularity_strength=True,
     )
     # G25 of 0.28.0: nothing of the window is emitted (SOLVER_TIME_AVERAGING
     # hangs 26.124 and is never sent), even where the command is verified; the

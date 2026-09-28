@@ -702,6 +702,8 @@ _FIELD_COMMANDS: Mapping[tuple[str, str], str] = MappingProxyType(
         # never emitted.
         ("PprocSpec", "time_averaging"): "SET_NEW_UNSTEADY_SOLVER_ACTION",
         ("PprocSpec", "vtk_variables"): "SET_VTK_EXPORT_VARIABLES",
+        # SS1 of 0.30.0: true adds the native Tecplot export the strength is read from.
+        ("PprocSpec", "singularity_strength"): "EXPORT_SOLVER_ANALYSIS_TECPLOT",
         ("PprocSpec", "base_regions"): "DETECT_BASE_REGIONS_BY_SURFACE",
         ("VolumeSectionSpec", "format"): (
             "EXPORT_VOLUME_SECTION_VTK, EXPORT_VOLUME_SECTION_TECPLOT"
@@ -1907,6 +1909,9 @@ blade_pattern = '^Blade\\d+$'      # a regular expression telling a blade family
 base_regions = ["Base"]           # boundaries made base regions after the mesh opens;
                                   # a row's BASE_REGIONS wins over it
 vtk_variables = ["CP_FREESTREAM", "MACH", "VTOT"]   # what the VTK surface export writes
+singularity_strength = false      # true: the Tecplot surface carries the nodal
+                                  # Singularity_strength, from a second, native
+                                  # Tecplot export per point
 
 # The groups the polar tables are written per: each group's name to ONE alias
 # of the reference, or to "all" where no boundary or alias has that name.

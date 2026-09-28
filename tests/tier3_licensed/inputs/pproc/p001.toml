@@ -2,6 +2,12 @@
 # written once and filtered by the builders to the families each geometry
 # carries: a family the opened file does not have is left out, an entry
 # resolving to no family is skipped, and BLADE_AXIS entries need a rotor.
+
+# The full set carries the nodal Singularity_strength on its Tecplot surface,
+# which adds the native Tecplot export per point (0.30.0); every other pproc
+# here leaves it at its default, off, so the licensed tier runs both routes.
+singularity_strength = true
+
 [groups]
 # The group tables the products are written per, one table per entry; the
 # families are the synthetic geometries' boundary names.

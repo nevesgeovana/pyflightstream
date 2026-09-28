@@ -372,8 +372,13 @@ def test_g45_a_turned_loads_frame_is_undone(tmp_path):
 
 
 def test_g45_a_campaign_surface_retains_both_sources_for_translation():
+    # SS1 of 0.30.0: the native source is retained where the pproc asks for the strength.
     case = steady_case().model_copy(
-        update={"reference": REFERENCE, "outputs": ["p.txt", "p.dat", "p_log.txt"]}
+        update={
+            "reference": REFERENCE,
+            "outputs": ["p.txt", "p.dat", "p_log.txt"],
+            "pproc": PprocSpec(singularity_strength=True),
+        }
     )
     script = Script("26.124")
     build_script(case, script)
@@ -417,7 +422,7 @@ def test_g45_a_campaign_surface_retains_both_sources_for_translation():
 
 def test_g45_the_per_step_exports_carry_the_vtk_and_each_is_translated(tmp_path):
     case = unsteady_case(EXPORT_UNSTEADY_AFTER_ITER="37").model_copy(
-        update={"outputs": ["p.txt", "p.dat"]}
+        update={"outputs": ["p.txt", "p.dat"], "pproc": PprocSpec(singularity_strength=True)}
     )
     threshold = unsteady_export_threshold(case, version="26.124")
     assert threshold is not None
@@ -448,7 +453,11 @@ def test_g45_a_run_writes_the_tecplot_from_its_vtk_and_the_products_say_so(tmp_p
     points, polygons, _ = _solver_vtk(source, MRP)
     native = _native_export(tmp_path / "native.dat", points, polygons)
     case = steady_case().model_copy(
-        update={"reference": REFERENCE, "outputs": ["p.txt", "p.dat"], "pproc": PprocSpec()}
+        update={
+            "reference": REFERENCE,
+            "outputs": ["p.txt", "p.dat"],
+            "pproc": PprocSpec(singularity_strength=True),
+        }
     )
     campaign = Campaign(name="camp", fs_version="26.124", fs_exe=sys.executable, sims=[case])
     workspace = CampaignWorkspace(tmp_path / "camp")
