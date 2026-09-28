@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER_BEGIN
-# file_version: "1.4.18"
+# file_version: "1.4.19"
 # artifact_id: src/pyflightstream/cases/workflows.py
-# last_modified_at: 2026-09-28T00:32:40.998Z
+# last_modified_at: 2026-09-28T00:48:33.964Z
 # last_modified_by: OpenAI / Codex / unknown / primary-agent
 # dependencies: [pyflightstream]
 # authority: pyflightstream
 # status: draft
 # confidentiality: public
-# change_summary: Expose shared symmetry resolution and preserve saved-geometry refusal diagnostics.
+# change_summary: Route custom-field unit warnings through the durable diagnostic sink.
 # revision_source: git
 # GEOVERSE_HEADER_END
 """Workflows: a run TYPE that builds the whole script by itself.
@@ -6766,7 +6766,7 @@ def _free_stream(
                 factor = _from_metres(case, script, "custom field extent")
                 grid = (grid[0] / factor, grid[1] / factor, grid[2] / factor, grid[3] / factor)
             if custom.source_units is None and script.simulation_length_unit == "MILLIMETER":
-                warnings.warn(
+                warn(
                     "Custom-field coverage is not checked: declare FREESTREAM_UNITS as SI "
                     "or NATIVE for a MILLIMETER simulation.",
                     PyflightstreamWarning,

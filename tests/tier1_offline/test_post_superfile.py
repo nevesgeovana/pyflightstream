@@ -1,3 +1,14 @@
+# GEOVERSE_HEADER_BEGIN
+# file_version: 1.0.1
+# last_modified_at: 2026-09-28T01:00:38.005Z
+# last_modified_by: OpenAI / Codex / unknown / primary-agent
+# dependencies: [pyflightstream.post.superfile; pyflightstream.workspace.RunRecord]
+# authority: pyflightstream
+# status: draft
+# confidentiality: public
+# change_summary: Classify new record metadata and verify the SUPER carries source units.
+# revision_source: git
+# GEOVERSE_HEADER_END
 """FR-89: one derived file per polar and group carries everything the workspace knows.
 
 THE UNION IS BUILT FROM THE WORKSPACE HERE AND NEVER LISTED, which is the
@@ -243,6 +254,9 @@ def _workspace(tmp_path: Path):
             flight_condition_defaults={"TK": 288.15, "PPA": 101325.0},
             flight_condition_defaults_from="setup 's002' (inputs/setups/s002.toml)",
             matrix_stem="matriz",
+            # Explicit source units make this recorded scalar visible to the
+            # union guard, just like the nonempty clock/operator fields below.
+            freestream_units="SI",
             density_kg_m3=0.6326,
             temperature_k=288.15,
             viscosity_pa_s=1.789e-05,
@@ -437,6 +451,7 @@ def test_a_point_whose_record_is_missing_borrows_no_other_points_values(tmp_path
         viscosity_pa_s = 1.81e-5
         density_source = "the resolver"
         reference_length_m = 1.322
+        freestream_units = "SI"
         reductions = {"rpm": -837.3278}
 
     theirs = superfile_row(
@@ -459,6 +474,8 @@ def test_a_point_whose_record_is_missing_borrows_no_other_points_values(tmp_path
     # HAS NO RECORD. Asserted over the keys the OTHER row gained rather than
     # over a list typed here, so a field added to block 3 is covered the day
     # it lands and nothing is left out by judgement.
+    assert theirs["freestream_units"] == "SI"
+    assert mine["freestream_units"] == "", "missing records borrow no declaration"
     from_record = set(theirs) - set(mine)
     assert from_record, "the fixture record supplied nothing, so this proves nothing"
     borrowed = {
@@ -621,11 +638,34 @@ def test_every_record_scalar_is_carried_or_excluded_on_purpose(tmp_path):
         "fs_version_requested",
         "package_version",
     }
+    structured_run_and_product_provenance = {
+        # Per-sample IDs, coordinates and output formats, retained in the run
+        # manifest and sampled-field provenance beside the derived arrays.
+        "probe_field_layout",
+        # Native surface-property/plot declarations form one list per layout,
+        # retained in the manifest, not one scalar per simulation row.
+        "surface_probe_layout",
+        # Frame transforms, trajectories and explicit unknowns remain in the
+        # manifest and constrain the sampled-field writers and their provenance.
+        "frame_motions",
+        # Keep state, grid/body bounds, method and limitations together in the
+        # manifest; a scalar coverage label would hide that bounds do not prove
+        # interpolation support or full physical coverage.
+        "custom_field_coverage",
+    }
+    diagnostics_retained_in_post_logs = {
+        # Nonfatal messages are a list, distinct from solver status. The run
+        # retains each message and post.log/post.log.json carry run-status
+        # entries; flattening them into one scalar would lose that structure.
+        "warnings",
+    }
     excluded = (
         carried_by_their_contents
         | carried_under_the_matrix_or_polar_name
         | about_the_INVOCATION_and_not_the_simulation
         | carried_by_the_campaign_sweep_table
+        | structured_run_and_product_provenance
+        | diagnostics_retained_in_post_logs
     )
 
     workspace = _workspace(tmp_path)

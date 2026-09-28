@@ -1,13 +1,13 @@
 # GEOVERSE_HEADER
-# file_version: "1.2.1"
+# file_version: "1.2.2"
 # file_role: explicit-custom-field-unit-tests
-# last_modified_at: "2026-09-27T20:54:56.328Z"
-# last_modified_by: OpenAI / Codex / GPT-6 / implementation-agent
+# last_modified_at: 2026-09-28T00:44:20.753Z
+# last_modified_by: OpenAI / Codex / GPT-6 / vv-engineer-pyflightstream
 # dependencies: [pyflightstream.cases.freestream, RPT-083]
 # authority: geoverse-goddess-control-plane
 # status: active
 # confidentiality: public
-# change_summary: "Bind existing real assertions to exact GOAL-033 capability markers."
+# change_summary: Check undeclared-unit warnings reach the sink despite ignored warnings.
 # revision_source: git
 from hashlib import sha256
 
@@ -187,3 +187,31 @@ def test_continuation_refuses_changed_unit_declaration_even_with_identical_bytes
     previous.freestream_units = None
     with pytest.raises(CampaignConfigError, match="FREESTREAM_UNITS"):
         _refuse_a_field_the_stopped_run_did_not_read(case, "point", previous)
+
+
+def test_undeclared_mm_field_warning_reaches_the_sink_despite_caller_filter(tmp_path):
+    import warnings
+
+    from pyflightstream._errors import PyflightstreamWarning, collecting_warnings
+    from pyflightstream.cases.workflows import _free_stream, _the_custom_freestream
+    from pyflightstream.script import Script
+    from tests.tier1_offline.test_g15_custom_freestream import field, with_field
+    from tests.tier1_offline.test_workflows import steady_case
+
+    source = field(tmp_path)
+    original = source.read_bytes()
+    case = with_field(steady_case(), source)
+    custom = _the_custom_freestream(case)
+    assert custom.source_units is None and custom.extent is not None
+    script = Script("26.124")
+    script.emit("SET_SIMULATION_LENGTH_UNITS", "MILLIMETER")
+    with warnings.catch_warnings(), collecting_warnings() as caught:
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        _free_stream(case, script, {}, custom)
+    relevant = [warning for warning in caught if "FREESTREAM_UNITS" in str(warning.message)]
+    assert len(relevant) == 1
+    assert relevant[0].category is PyflightstreamWarning
+    assert "coverage is not checked" in str(relevant[0].message)
+    assert source.read_bytes() == original
+    assert not script.pending_input_files
+    assert script.custom_field_extent_m is None
