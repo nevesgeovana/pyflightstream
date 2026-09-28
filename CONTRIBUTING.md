@@ -82,6 +82,39 @@ fifteen seconds after its branch, with CI still running and then red.
 The battery above was named `prove_extras_and_ci_guards.py` and carried
 a mechanical half of that rule until 2026-08-11.
 
+## What is each folder?
+
+| Folder | Purpose in plain language |
+|---|---|
+| `src/pyflightstream/` | The package, one subpackage per pipeline stage (versions, commands, script, results, cases, run, workspace, post, qa, plus fsi, probes, farfield) |
+| `src/pyflightstream/commands/` | The command database: what exists in which FlightStream version, with a manual page or probe-report citation per entry |
+| `tests/` | Three tiers in three folders: `tier1_offline` runs anywhere with no FlightStream, `tier2_validity` and `tier3_licensed` need the licensed machine, and `tier3_licensed` IS a campaign workspace (`docs/tiers.md`) |
+| `reports/` | Committed evidence from licensed machines: command validity (compat), physics regression, drift, and research cards |
+| `docs/` | Documentation source (ProperDocs); reference pages are generated from the database, never committed |
+| `examples/` | Runnable example scripts in percent format |
+| `guide/` | LaTeX source of the user guide (the built pdf never enters Git) |
+| `deprecated/` | Discontinued public items, grouped here instead of scattered at the top level |
+| `_private/` | Local only, never committed: FlightStream manuals, executables, research geometry, the design documents and the plan ledger |
+
+## Environment variables
+
+Maintainers: **no tracked file here reads a named environment variable to
+configure this package**, and a fresh clone is owed no list of them. The
+wording is careful and the earlier draft was not: the run layer does hand
+the AMBIENT environment to the solver subprocess, because the solver's own
+licence server address and installation variables live there, and a
+sentence saying this repository reads nothing at all would send a
+maintainer hunting a licence failure that is not a bug. What no tracked
+file does is read a NAMED variable to decide how this package behaves.
+The licensed solver is located by a required argument that is never
+guessed, `--fs-exe` on the quality-assurance command line; a run matrix
+locates it instead through its workspace's own executables table. An earlier version of
+this paragraph said a few machine-specific variables located the solver
+and its manuals for the licensed tiers, and pointed at a file that
+stopped being published. Both halves were wrong, and the paragraph
+shipped inside the package metadata, so it reached every reader of the
+published page.
+
 ## Hard invariants
 
 These are the non-negotiable rules, and this file is where a fresh clone

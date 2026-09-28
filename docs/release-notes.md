@@ -295,3 +295,56 @@ three names inside the matrix's free cell, `GEOMETRY`, `SYMMETRY` and
 `PERIODIC_COPIES`, which was its own upgrade action. Earlier releases,
 and what each of them registered or broke, are in the changelog rather
 than re-threaded here.
+
+## How each supported build reached its level (as recorded at v0.29.0)
+
+These notes stood in the README until 0.30.0. The live levels are on
+[Which build do I have](builds.md) and in `pyflightstream.support_table()`;
+the sentences below are what each level rested on when they were written.
+
+"Supported" covered four different states, so it is now four named
+values (`pyflightstream.SupportLevel`), every one of them derived from
+the evidence rather than declared:
+
+| Version | Vendor name | Support level | What that means here |
+|---|---|---|---|
+| 25.000 | 25.0 | `documented` | Vendor build 12162024, December 2024. Registered on 2026-08-09 so that published work run on it has an identifier that resolves, and its own manual read command by command on 2026-08-10. Not yet `operational`, and the blocker is solver evidence rather than database rows: no command has been measured on this build, and the level stops at `documented` for that reason before the workflow is even considered. 26.000 shows it, having every workflow command and the same level. Its manual documents 272 commands and 268 are emittable, the difference being four readings withheld where a version row cannot express a layout. Behind the evidence gap there is also a workflow one: this edition runs the trailing-edge autodetection from inside a `PHYSICS` block and the standalone command arrives at 26.000 |
+| 25.100 | 25.1 | `documented` | Vendor build 5062025, May 2025. Registered for the same reason. Its manual documents 274 commands and 270 are emittable, with the same four layout withholdings, and it uses the same `PHYSICS` block as 25.000. The 25 series checks out an EDU licence rather than the full feature set, so what either of these builds refuses may be the licence rather than the build; that is not yet measured |
+| 26.000 | 26.0 | `documented` | Vendor build 10202025, October 2025. Its manual documents 276 commands and 274 are emittable, the two withheld for the same layout reason. Nothing has been probed on it either, which is what holds it at this level. The CAD BODY operations, the four CAD primitives and the three CCS mesh chapters do not exist in this edition; they arrive with 26.100. What it does document, and what its sixteen CAD rows are, is CAD import and conversion plus the curve and cross-section commands |
+| 26.100 | 26.1 | `operational` | The February 2026 build, and the last of the pre-26.12 builds to reach this level, on 2026-08-08. It was held at `verified` less by the solver than by the database: the per-edition sweep that day found 40 commands its own manual documents and this database had no row for, so the emitter refused them and the minimal end-to-end workflow could not be built. With those rows written the workflow builds. Probe coverage is still thinner here than on the newer builds, the harness reaching only commands that carry a probe spec; the compatibility matrix carries the live counts |
+| 26.101 | 26.1 | `operational` | The May 2026 build. Commands drafted from the manual with page citations, with the first harness promotions on 2026-08-08, which also carried it to the level where the minimal end-to-end workflow builds. It sits at a hotfix index and does NOT inherit from 26.100: the two are separate vendor releases under one name |
+| 26.120 | 26.12 | `operational` | Probe evidence from a licensed machine, and the minimal end-to-end workflow builds |
+| 26.121 | 26.12 | `operational` | Hotfix build 1. It inherits the 26.120 records except where a probe on this build overrode them; the compatibility matrix marks every inherited cell and counts them |
+| 26.122 | 26.12 | `operational` | Hotfix build 2, vendor build 8092026, registered 2026-08-10 the day after it was issued. Its manual documents the largest command surface of the nine editions, 372 against 364 for the one before it and 371 for the one after, which deletes a command from its chapter body. Measured on 2026-08-11: 84 commands probed on this build (83 verified, 1 broken) and the Tier 3 matrix passing 30 of 30 metrics (`reports/physics/PHY-26122_2026-08-11_rotor.yaml`). The rest of its record is still inherited from 26.120 and the matrix marks every inherited cell. The run refuted the inheritance once, on `AIR_ALTITUDE`, which is broken on the base releases and works here |
+| 26.123 | 26.12 | `operational` | Hotfix build 3, delivered 2026-08-16 and registered 2026-08-17, the day after. It is the first build in this project that INHERITS NOTHING, by the design decision, so it claims support only for what has been measured or read on IT rather than on 26.120. Read the level as a statement about evidence and not about the build: it reached `operational` the same day, in two steps. First 369 of the 371 commands its own edition documents were compared word for word against the edition before it and given a row. Then a probe run measured 85 of them on this build, 84 accepted and one refused (`reports/compat/CMP-26123_2026-08-17_full-sim.yaml`), which is one more verified than 26.122 has and the same single broken command, `NEW_OFF_BODY_STREAMLINE`, that three builds now carry on their own evidence. The emitter still refuses the commands that carry no row at all, and the enumeration of exactly which, with their count in its own header, is committed as `tests/tier1_offline/goldens/absent_on_26123.txt`. The number is NOT repeated here: this sentence said 45 against a golden that says 43, in the paragraph whose whole purpose is that the gap is a number a reader can check. Its manual is 417 pages like 26.122's and every page outside seventeen is text-identical, so a page citation transfers where the seventeen do not touch it |
+| 26.124 | 26.12 | `operational` | Hotfix build 4, vendor build 8172026, delivered and registered 2026-09-14. Its package carries the 26.123 manual itself, byte for byte, so every command 26.123 documents was carried forward on that identity (every file's digest, RPT-050) and nothing was inherited from 26.120; only the executable differs. A probe run then measured it on this build: 86 verified and the same single broken command, `NEW_OFF_BODY_STREAMLINE` (`reports/compat/CMP-26124_2026-09-14_full-sim.yaml`) |
+
+`operational` is the level that claims a user can get from geometry to
+a loads file, and it is checkable rather than asserted: it holds only
+when `pyflightstream.support.minimal_workflow(version)` builds, which a
+tier 1 test builds for every version reported at that level.
+
+Not sure which one you have? Every install prints its release name and
+its build number when it starts, and the generated
+[Which build do I have](https://nevesgeovana.github.io/pyflightstream/builds/)
+page maps that pair onto the identifier to pass. The release name alone
+does not identify a build.
+
+Canonical identifiers use the YY.XXX scheme, the last digit indexing
+vendor hotfix builds, so 26.121 is hotfix build 1 of the 26.12 release.
+The vendor reuses a release name across builds, so a release name may
+name more than one, and the families it has produced are not all alike: one is a release with its hotfixes, the other is
+two separate releases that happen to share a name. Which builds sit in
+either is a fact about the registry rather than about this page, so it
+is not written here; the refusal enumerates them from the registry and
+the generated build page carries the tally. Pass the canonical
+identifier. A vendor name is unique only until the vendor
+ships the next build under it, which is why a script should not rely on
+one. The ordered list
+in `src/pyflightstream/commands/_meta.yaml` is the only ordering
+authority, and it orders releases, not support: 26.100 is newer than
+26.000 and both sit below 26.120. Supported versions are only ever
+added, never dropped, which is why the February 2026 build entered as
+26.100 and the May build it displaced was appended as 26.101 rather
+than either being renamed away. The compatibility matrix in the docs is generated
+from the database at build time.
