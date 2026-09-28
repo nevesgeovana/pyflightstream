@@ -2376,10 +2376,12 @@ def emit_rotor_motion(
         file's boundary order and name different surfaces in a file
         that orders them differently. Names resolve only where the
         geometry was opened by this package, which is what declares
-        the inventory. It may also declare the
-        direction its relaxed trailing edges shed their wake in
-        (``ROTOR_SHEDDING``); see :func:`rotor_shedding_direction` for
-        why this function READS that key and emits nothing for it.
+        the inventory. A matrix row stating ``ROTOR_SHEDDING`` is
+        refused in 0.29.0 before this function runs
+        (:func:`_refuse_rotor_shedding`, called by every builder and by
+        :func:`build_script`). Called directly on a case that bypassed
+        that refusal, this function still reads the key and emits
+        nothing for it; see :func:`rotor_shedding_direction` for why.
     script : Script
         Script under construction. Nothing is emitted into it until
         every value has been read and converted, so a refusal leaves it
