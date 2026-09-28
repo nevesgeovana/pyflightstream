@@ -52,31 +52,32 @@
 > run of 2026-09-25 on the 0.28.0 tree whose block D adds the FSI's blade
 > properties (G41), and by the run of 2026-09-28 on the 0.29.0 quality-gate
 > candidate (GOAL-034 Q1), whose 0.29 work brought the tracked package from
-> 104 to 128 modules. (An
+> 104 to 128 modules, and by the run of 2026-09-28 on the v0.29.0 release
+> tree. (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
 > modules and the 0.24.0 tree at 661 in 18 of 93; the 0.28.0 release tree read
-> 863 errors in 18 of 104 on 2026-09-25; measurements of different
+> 863 errors in 18 of 104 on 2026-09-25; the 0.29.0 quality-gate candidate
+> read 923 in 18 of 128 on 2026-09-28, the same date as the release tree;
+> measurements of different
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 923 errors in 18 files (checked 128 source files)
+>     Found 922 errors in 18 files (checked 128 source files)
 >     Success: no issues found in 128 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-28: 923 errors in 18 of 128 modules.**
+**mypy recount 2026-09-28: 922 errors in 18 of 128 modules.**
 
 The module total rises by the twenty-four modules the 0.29 work adds, and the
-error total by sixty, all inside the exempted set; the number of modules
+error total by fifty-nine, all inside the exempted set; the number of modules
 holding an exemption is unchanged at eighteen, and the shipped configuration
 is green over all 128. The run was taken by `python scripts/mypy_recount.py`
-on the candidate with three uncommitted paths that carry no typed code (a
-documentation page, one string built through an existing helper in
-`post/guides.py`, and a test import), which the script lists; its full
-output is the GOAL-034 receipt `q1-evidence/b-mypy-recount.txt`. The previous
-reading of this report is in its own history.
+on the release tree of v0.29.0, which the script reported clean; the
+candidate's run of the same date, 923 errors, is recorded in its own section
+below. The previous reading of this report is in its own history.
 
 THE NINETIETH TO THE NINETY-THIRD ARRIVED AT 0.24.0 and all four arrive
 CLEAN: `post/axes.py`, the one home of the frame conventions; `cases/windows.py`,
@@ -352,7 +353,7 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 923 errors in 18 files (checked 128 source files)
+    Found 922 errors in 18 files (checked 128 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
@@ -723,6 +724,20 @@ dirty count still reads 18, every dirty module is exempted by name, and the
 shipped configuration is green over all 128 modules. The sixty errors more sit
 inside the exempted set, whose largest holder is `pyflightstream.run` at 734
 errors on 83 lines. The
-script reported three uncommitted paths, none of which carries typed code. The
-quoted mypy lines above are this run's, and the sentence at the top of this
-report is this measurement.
+script reported three uncommitted paths, none of which carries typed code (a
+documentation page, one string built through an existing helper in
+`post/guides.py`, and a test import); its full output is the GOAL-034 receipt
+`q1-evidence/b-mypy-recount.txt`. The quoted mypy lines above were this run's
+until the release tree was measured, next.
+
+## Re-measured 2026-09-28, the v0.29.0 release tree: one error fewer
+
+`python scripts/mypy_recount.py` on 2026-09-28, on the release tree of v0.29.0
+(the source of `9a0dedf7`, on which the release commit is made and which the
+script reported clean): 922 errors in 18 of 128 modules, one fewer than the
+candidate's 923, against the v0.28.0 release tree's 863 in 18 of 104. The
+dirty count still reads 18, `pyflightstream.run` still holds 734 errors on 83
+lines, and the shipped configuration is green over all 128 modules; the run
+measured the tree as it is and assigns the one error to no change. The quoted
+mypy lines above are this run's, and the sentence at the top of this report is
+this measurement.
