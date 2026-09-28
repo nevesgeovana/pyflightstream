@@ -6,6 +6,9 @@ capability also has a licensed acceptance, that half is named and not claimed.
 The fixtures are the ones the capability's own module already tests with.
 """
 
+import re
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -14,8 +17,10 @@ from pyflightstream.cases.freestream import prepare_field
 from pyflightstream.cases.workflows import _read_custom_freestream, build_script
 from pyflightstream.fsi.config import load_config
 from pyflightstream.post import OutputProvenance, write_probe_field
+from pyflightstream.post.guides import input_template_markdown
 from pyflightstream.script import Script, helpers
 from pyflightstream.workspace.fsi_setup import resolve_row_fsi, stage_fsi_setup
+from tests.tier1_offline.test_examples import EXAMPLE_EXTRAS
 from tests.tier1_offline.test_geometry_units import _case as _units_case
 from tests.tier1_offline.test_goal031_sections_layout_recorded import (
     PPROC_TWO_SURFACES,
@@ -187,3 +192,61 @@ def test_g61_a_probe_sampled_field_becomes_the_custom_inflow_of_another_run(tmp_
     rows = np.loadtxt(prepared.payload.decode().splitlines())
     np.testing.assert_array_equal(rows, np.column_stack((points, velocity)))
     assert inflow.read_bytes() == original
+
+
+REPO = Path(__file__).resolve().parents[2]
+#: The pages 0.29.0 added (``git diff --name-status v0.28.0`` on docs/), each
+#: with the worked example it teaches from, where it has one.
+PAGES_029 = {
+    "boundary-conditions.md": "base_region_setup",
+    "boundary-layer-products.md": "boundary_layer_sections",
+    "cad-inputs.md": "cad_import",
+    "continuation-recovery.md": "continuation_frame_recovery",
+    "custom-field-units.md": "prepare_custom_field",
+    "excel-matrices.md": "excel_matrix_sync",
+    "fsi-workspace.md": "workspace_fsi_calibration",
+    "geometry-units-and-starts.md": None,
+    "migrating-to-0.29.0.md": None,
+    "sampled-fields.md": "sampled_field_export",
+    "setup-standards.md": None,
+    "simulation-geometry-controls.md": None,
+    "surface-translation.md": "surface_with_native_strength",
+    "unsteady-postprocessing.md": None,
+}
+
+
+def test_d14_the_0_29_0_documentation_reaches_its_reader():
+    """D14: every page 0.29.0 added is in the site menu; each one's worked
+    example exists, is linked from the page and is one the suite executes
+    (test_examples runs every EXAMPLE_EXTRAS entry); the input template carries
+    the new user-written FSI file; the CHANGELOG's 0.29.0 section points to the
+    migration guide, and the guide names every change the CHANGELOG says a
+    reader must act on."""
+    # GOAL033:capability_ids:items:D14
+    menu = set(
+        re.findall(r"^\s*- [^:\n]+: (\S+\.md)\s*$", (REPO / "properdocs.yml").read_text(), re.M)
+    )
+    for page, example in PAGES_029.items():
+        text = (REPO / "docs" / page).read_text(encoding="utf-8")
+        assert page in menu, f"docs/{page} is not in the properdocs.yml nav"
+        if example is None:
+            continue
+        assert (REPO / "examples" / f"{example}.py").is_file(), example
+        assert f"{example}.py" in EXAMPLE_EXTRAS, f"the suite does not execute {example}.py"
+        assert re.search(rf"examples/{example}\.(?:md|py)", text), (page, example)
+
+    assert "inputs/fsi/f001.toml" in input_template_markdown()
+
+    changelog = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
+    section = changelog.split("## [0.29.0]", 1)[1].split("\n## [", 1)[0]
+    assert "docs/migrating-to-0.29.0.md" in section
+    guide = (REPO / "docs" / "migrating-to-0.29.0.md").read_text(encoding="utf-8")
+    for change in (
+        "ROTOR_SHEDDING",
+        "legacy_solver_model",
+        "sonic_velocity_m_per_s",
+        "farfield_layers",
+        "volume_section",
+    ):
+        assert change in section and change in guide, change
+    assert re.search(r"\bcold\b", section, re.I) and re.search(r"\bcold\b", guide, re.I)
