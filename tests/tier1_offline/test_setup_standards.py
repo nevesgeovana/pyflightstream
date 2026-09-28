@@ -188,7 +188,7 @@ def test_rotor_shedding_matrix_key_is_refused_without_changing_helper():
         variables={"VELOCITY": "30", "ROTOR_SHEDDING": "AZIMUTH"},
         outputs=["loads.txt"],
     )
-    with pytest.raises(CampaignConfigError, match="ROTOR_SHEDDING.*ineffective"):
+    with pytest.raises(CampaignConfigError, match="ROTOR_SHEDDING.*every matrix workflow"):
         build_script(case, Script("26.124"))
     assert rotor_relaxed_trailing_edges(case, ["0.5;0.1;0.9;1"]) == ["0.5;0.1;0.9;1;1"]
 
@@ -291,7 +291,7 @@ def test_rotor_shedding_refused_by_registered_builder_guard(workflow):
         sweep=SweepAxis(type="alpha", values=[0.0]),
         variables={"matrix_workflow": workflow, "ROTOR_SHEDDING": "AZIMUTH"},
     )
-    with pytest.raises(CampaignConfigError, match="ROTOR_SHEDDING.*ineffective"):
+    with pytest.raises(CampaignConfigError, match="ROTOR_SHEDDING.*every matrix workflow"):
         _refuse_unregistered_keys(case, workflow)
 
 

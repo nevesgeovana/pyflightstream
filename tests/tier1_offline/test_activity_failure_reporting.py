@@ -138,6 +138,26 @@ def test_an_unwritable_log_does_not_replace_a_stage_result(tmp_path, monkeypatch
     assert "could not persist diagnostic" in capsys.readouterr().err
 
 
+def test_an_unwritable_log_does_not_stop_a_progress_line(tmp_path, capsys):
+    """GOAL-034 Q8 CXQ8-1: the run's own progress line went to the unguarded
+    writer, so an unwritable log still aborted a campaign, even when quiet.
+
+    The log is made unwritable for real (a directory where the file goes), so
+    the test does not depend on which name a module imported.
+    """
+    from pyflightstream.run import _say
+
+    (tmp_path / "logs" / "activity.log.jsonl").mkdir(parents=True)
+
+    @progress.workspace_activity("run")
+    def stage(workspace):
+        _say("point 1 of 1 done", quiet=True)
+        return "STAGE-RESULT"
+
+    assert stage(tmp_path) == "STAGE-RESULT"
+    assert "could not persist diagnostic" in capsys.readouterr().err
+
+
 def test_a_raising_diagnosis_does_not_replace_a_stage_result(tmp_path):
     import json
 

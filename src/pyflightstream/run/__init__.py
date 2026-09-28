@@ -107,7 +107,7 @@ from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
 )
-from pyflightstream._progress import activity_event, workspace_activity
+from pyflightstream._progress import record_activity, workspace_activity
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import (
     EXPORT_KINDS,
@@ -5407,7 +5407,9 @@ def _say(message: str, *, quiet: bool = False) -> None:
     print its first line when the last point was done, which is the silence
     this requirement exists to end.
     """
-    activity_event("progress", "message", message)
+    # Guarded: a log that cannot be written is said, never raised, so it
+    # cannot abort a campaign (GOAL-034 Q8 CXQ8-1).
+    record_activity("progress", "message", message)
     if quiet:
         return
     print(message, file=sys.stderr, flush=True)

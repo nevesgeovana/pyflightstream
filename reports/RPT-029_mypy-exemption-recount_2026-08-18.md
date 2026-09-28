@@ -732,9 +732,10 @@ until the release tree was measured, next.
 
 ## Re-measured 2026-09-28, the v0.29.0 release tree: one error fewer
 
-`python scripts/mypy_recount.py` on 2026-09-28, on the release tree of v0.29.0
-(the source of `9a0dedf7`, on which the release commit is made and which the
-script reported clean): 922 errors in 18 of 128 modules, one fewer than the
+`python scripts/mypy_recount.py` on 2026-09-28, on the v0.29.0 release tree
+(the source the tag is cut from, after the quality gate's last repairs, which
+the script reported clean; re-run after those repairs, GOAL-034 Q8 VV-3, it
+read the same figure): 922 errors in 18 of 128 modules, one fewer than the
 candidate's 923, against the v0.28.0 release tree's 863 in 18 of 104. The
 dirty count still reads 18, `pyflightstream.run` still holds 734 errors on 83
 lines, and the shipped configuration is green over all 128 modules; the run

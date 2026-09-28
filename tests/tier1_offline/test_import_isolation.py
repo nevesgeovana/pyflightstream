@@ -12,9 +12,11 @@ nothing else first. It walks the files under ``src/pyflightstream`` rather
 than a list, so a new module is covered the day it lands.
 
 The one tolerated failure is a module that needs an optional extra this
-environment lacks: its import must fail with ``ModuleNotFoundError`` naming a
-THIRD-PARTY top-level package (never ``pyflightstream`` itself), and every
-module skipped that way is named in the report rather than dropped silently.
+environment lacks: its import must fail with ``ModuleNotFoundError`` naming
+the import root of a distribution a user-facing extra DECLARES (never
+``pyflightstream`` itself, and never a core or misspelled dependency), and
+every module skipped that way is named in the report rather than dropped
+silently.
 """
 
 from __future__ import annotations
@@ -36,15 +38,55 @@ _MISSING = "IMPORT-ISOLATION-MISSING:"
 _CHILD = (
     "import importlib, sys\n"
     "name = sys.argv[1]\n"
+    "allowed = set(sys.argv[2:])\n"
     "try:\n"
     "    importlib.import_module(name)\n"
     "except ModuleNotFoundError as error:\n"
     "    missing = (error.name or '').split('.')[0]\n"
-    "    if missing and missing != 'pyflightstream':\n"
+    "    if missing in allowed:\n"
     f"        print({_MISSING!r} + missing)\n"
     "        sys.exit(3)\n"
     "    raise\n"
 )
+
+
+#: The import root of every distribution a user-facing extra of pyproject.toml
+#: declares (every extra but ``dev``). ONLY these may be absent: a missing
+#: core dependency, or a misspelled one, is a failure (GOAL-034 Q8 CXQ8-2).
+#: Pinned against pyproject by the test below, so a new extra cannot be
+#: skipped silently and a withdrawn one cannot stay tolerated.
+_EXTRA_IMPORT_ROOTS = {
+    "PyNiteFEA": "Pynite",  # fsi
+    "XlsxWriter": "xlsxwriter",  # excel
+    "matplotlib": "matplotlib",  # plot
+    "pypdf": "pypdf",  # manual
+    "rtree": "rtree",  # geom
+    "scipy": "scipy",  # geom
+}
+
+
+def _allowed_roots() -> list[str]:
+    return sorted(_EXTRA_IMPORT_ROOTS.values())
+
+
+def test_the_tolerated_roots_are_exactly_the_declared_extras():
+    import re
+    import tomllib
+
+    extras = tomllib.loads((_REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"][
+        "optional-dependencies"
+    ]
+    declared = {
+        re.split(r"[\s<>=!~;\[]", requirement, maxsplit=1)[0]
+        for name, requirements in extras.items()
+        if name != "dev"
+        for requirement in requirements
+    }
+    assert declared == set(_EXTRA_IMPORT_ROOTS), (
+        f"the user-facing extras declare {sorted(declared)}, and this test tolerates "
+        f"the absence of {sorted(_EXTRA_IMPORT_ROOTS)}; map each declared distribution "
+        "to its import root"
+    )
 
 
 def _module_names() -> list[str]:
@@ -66,14 +108,23 @@ def _module_names() -> list[str]:
     return names
 
 
-def _import_alone(name: str) -> tuple[str, int, str]:
+def _import_root() -> Path:
+    """Where THIS process imports pyflightstream from: the checkout's ``src``
+    under ``pythonpath = ["src"]``, site-packages in the installed-wheel job."""
+    import pyflightstream
+
+    return Path(pyflightstream.__file__).resolve().parent.parent
+
+
+def _run_child(*arguments: str) -> subprocess.CompletedProcess[str]:
+    root = _import_root()
     env = dict(os.environ)
-    env["PYTHONPATH"] = str(_SRC)
+    env["PYTHONPATH"] = str(root)
     env.pop("PYTHONSTARTUP", None)
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
-    completed = subprocess.run(
-        [sys.executable, "-c", _CHILD, name],
-        cwd=_SRC,
+    return subprocess.run(
+        [sys.executable, *arguments],
+        cwd=root,
         env=env,
         capture_output=True,
         text=True,
@@ -81,7 +132,54 @@ def _import_alone(name: str) -> tuple[str, int, str]:
         creationflags=creationflags,
         check=False,
     )
+
+
+def _import_alone(name: str) -> tuple[str, int, str]:
+    completed = _run_child("-c", _CHILD, name, *_allowed_roots())
     return name, completed.returncode, (completed.stdout + completed.stderr).strip()
+
+
+def test_each_child_imports_the_distribution_the_parent_selected():
+    """GOAL-034 Q8 CXQ8-3: the children import what this process imports.
+
+    Forcing the checkout's ``src`` made the release job that tests the
+    installed wheel check the checkout instead, so a module the wheel left
+    out passed because its source copy existed. The module INVENTORY stays
+    the repository's; the IMPORT is from the distribution selected here.
+    """
+    import pyflightstream
+
+    completed = _run_child("-c", "import pyflightstream; print(pyflightstream.__file__)")
+    assert completed.returncode == 0, completed.stderr
+    child = Path(completed.stdout.strip()).resolve()
+    assert child == Path(pyflightstream.__file__).resolve(), (
+        f"the parent imports {pyflightstream.__file__} and each child {child}"
+    )
+
+
+def test_a_missing_dependency_no_extra_declares_is_a_failure_not_a_skip(tmp_path):
+    """GOAL-034 Q8 CXQ8-2: only a DECLARED optional extra may be absent.
+
+    A misspelled or undeclared core dependency raises ModuleNotFoundError as
+    well; classified as an absent extra, it would pass as a skip.
+    """
+    (tmp_path / "planted_module.py").write_text("import misspelled_dependency\n")
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(tmp_path)
+    completed = subprocess.run(
+        [sys.executable, "-c", _CHILD, "planted_module", *_allowed_roots()],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0,
+        check=False,
+    )
+    output = completed.stdout + completed.stderr
+    assert completed.returncode not in (0, 3), output
+    assert _MISSING not in output, output
+    assert "misspelled_dependency" in output, output
 
 
 def test_every_module_imports_alone():

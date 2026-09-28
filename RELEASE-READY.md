@@ -9,9 +9,11 @@ volume sections sampled through probes; an optional macro-free Excel workbook
 synchronized with the matrix by the Python CLI; and execution and post logs that
 say their stage and outcome. It carries a QUALITY GATE: before the tag, every
 refusal the development work had turned into an acceptance was restored, or kept
-only on a recorded owner decision. IT CHANGES WHAT A READER DOES in three ways: a
-steady sweep starts every point cold by default, `[volume_section]` is sampled
-rather than natively exported, and `ROTOR_SHEDDING` is refused. The change log's
+only on a recorded owner decision. IT CHANGES WHAT A READER DOES: a steady sweep
+starts every point cold by default, `[volume_section]` is sampled rather than
+natively exported, and every build refuses four inputs: `ROTOR_SHEDDING` in a
+matrix row, the setup keys `legacy_solver_model` and `sonic_velocity_m_per_s`,
+and a `farfield_layers` above 5 (the standard `s929` is retired). The change log's
 `[0.29.0]` section is the record; `docs/migrating-to-0.29.0.md` says what a
 reader's files must change.
 

@@ -449,6 +449,9 @@ def test_a_symbol_that_is_no_column_refuses_the_block_and_is_never_a_column_of_n
         captured = capsys.readouterr()
         assert ("pproc warning [" in captured.err) == (surface == "cli-warnings")
         assert "[equations.CTX]" not in captured.err, "details belong in the saved log"
+        # QUIET IS NOT SILENT: every CLI surface names the skip and where its
+        # reason is, with or without --pproc-warnings.
+        assert "#equations of the matrix-less records; details: --diagnostics" in captured.err
         if surface == "cli-warnings":
             assert "post.log.json" in captured.err
     columns, _row = _polar(workspace)

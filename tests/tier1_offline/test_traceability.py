@@ -210,7 +210,8 @@ def test_the_marker_is_registered_so_a_typo_is_not_silent():
 #: Re-counted at 0.8.0.dev0, and the SET DID move: one name left it, which
 #: the comment inside this frozenset records and this line denied until
 #: 2026-08-20. What did not move is the count of DIRTY modules:
-#: mypy recount 2026-09-28: 922 errors in 18 of 128 modules (reports/RPT-029).
+#: mypy recount 2026-09-28: 922 errors in 18 of 128 modules, the v0.29.0
+#: release tree (reports/RPT-029).
 #: Removing one means deleting its override AND its line here, in the same
 #: commit.
 MYPY_EXEMPTIONS = frozenset(
@@ -344,6 +345,23 @@ def _declared_exemptions() -> set[str]:
     }
 
 
+def _newest_changelog_recount_section(text: str) -> str:
+    """The newest `## [...]` section of the change log that states a re-count.
+
+    A released section is a published record and keeps the re-count it
+    shipped with (GOAL-034 Q8 TW-2): 0.28.0's section was once reworded so
+    that this guard, reading the whole file, would not see two dates. The
+    guard is scoped instead: the current measurement is the one in the
+    newest section that states one, and every statement in THAT section
+    must agree; older sections are history and are not rewritten.
+    """
+    sections = re.split(r"(?m)^(?=## \[)", text)
+    for section in sections:
+        if RECOUNT_SENTENCE.search(section):
+            return section
+    return ""
+
+
 def _recount_claims() -> dict[str, tuple[str, ...] | None]:
     """Return {record path: the four numbers it states, or None}.
 
@@ -363,9 +381,12 @@ def _recount_claims() -> dict[str, tuple[str, ...] | None]:
         if not path.is_file():
             claims[name] = None
             continue
+        text = path.read_text(encoding="utf-8")
+        if name == "CHANGELOG.md":
+            text = _newest_changelog_recount_section(text)
         found = {
             match.group("date", "errors", "dirty", "modules")
-            for match in RECOUNT_SENTENCE.finditer(path.read_text(encoding="utf-8"))
+            for match in RECOUNT_SENTENCE.finditer(text)
         }
         claims[name] = found.pop() if len(found) == 1 else None
     return claims

@@ -88,6 +88,51 @@ def test_millimetre_rotated_float32_vtk_still_matches_native_nodes(tmp_path):
         attach_native_strength(vtk, native, coordinate_tolerance=1e-9)
 
 
+@pytest.mark.parametrize(
+    ("extent", "offset"),
+    [
+        (250.0 * np.sqrt(2.0), (400.0, -300.0, 120.0)),
+        # GOAL-034 Q8 QA-3: a small part FAR from the origin. Float32 rounding
+        # grows with |x| (~|x| * 6e-8), not with the extent, so 1e-6 of a
+        # 100 mm extent (1e-4) is below the rounding at 1e4 mm (~6e-4).
+        (100.0, (1.0e4, -1.0e4, 1.0e4)),
+    ],
+    ids=["extent-dominated", "offset-dominated"],
+)
+def test_default_tolerance_covers_float32_rounding_of_the_coordinates(tmp_path, extent, offset):
+    from pyflightstream.results.native_surface import (
+        attach_native_strength,
+        read_native_tecplot_surface,
+    )
+
+    scale = extent / np.sqrt(2.0)  # the unit square's diagonal is sqrt(2)
+    shift = np.array(offset)
+    native = read_native_tecplot_surface(_native(tmp_path / "native.dat"))
+    native.points[:] = native.points * scale + shift
+    angle = np.radians(37.0)
+    rotation = np.array(
+        [
+            [np.cos(angle), -np.sin(angle), 0.0],
+            [np.sin(angle), np.cos(angle), 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+    reference = _vtk().points * scale + shift
+    loads32 = (reference @ rotation.T).astype(np.float32).astype(np.float64)
+    vtk = _vtk()
+    vtk = VtkSurface(
+        points=loads32 @ rotation,
+        offsets=vtk.offsets,
+        connectivity=vtk.connectivity,
+        cell_data=vtk.cell_data,
+    )
+    assert np.max(np.abs(vtk.points - reference)) > 1e-6, "the rounding is real"
+    surface, proof = attach_native_strength(vtk, native)
+    assert surface.point_data["Singularity_strength"].tolist() == [10.0, 20.0, 30.0, 40.0]
+    rounding = 4 * np.finfo(np.float32).eps * float(np.abs(native.points).max())
+    assert proof["coordinate_tolerance"] == pytest.approx(max(1e-10, 1e-6 * extent, rounding))
+
+
 def test_same_coordinates_with_different_polygon_edges_are_refused(tmp_path):
     from pyflightstream.results.native_surface import (
         attach_native_strength,

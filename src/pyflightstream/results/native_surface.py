@@ -197,21 +197,22 @@ def attach_native_strength(
     """Attach exact native strength after a unique coordinate/topology match.
 
     Both surfaces must already be in the same REFERENCE frame and length unit.
-    An explicit tolerance is absolute, in that unit. By default it is relative
-    to the native geometry's diagonal extent (1e-6 of it, at least 1e-10):
-    the VTK is written at single precision in the loads frame and transformed
-    back, so its rounding grows with the coordinates' magnitude. Ambiguous
+    An explicit tolerance is absolute, in that unit. By default it is the
+    largest of 1e-10, 1e-6 of the native geometry's diagonal extent, and four
+    single-precision epsilons of the largest coordinate magnitude: the VTK is
+    written at single precision in the loads frame and transformed back, so
+    its rounding grows with the coordinates' magnitude, which for a small
+    part far from the origin exceeds any fraction of its extent. Ambiguous
     coincident vertices are refused; this function never averages, guesses
     orientation, or derives a strength from Cp. The resolved tolerance is
     returned in the mapping record.
     """
     if coordinate_tolerance is None:
-        extent = (
-            float(np.linalg.norm(np.ptp(native.points, axis=0)))
-            if native.n_points and np.isfinite(native.points).all()
-            else 0.0
-        )
-        coordinate_tolerance = max(1e-10, extent * 1e-6)
+        measurable = bool(native.n_points) and bool(np.isfinite(native.points).all())
+        extent = float(np.linalg.norm(np.ptp(native.points, axis=0))) if measurable else 0.0
+        magnitude = float(np.abs(native.points).max()) if measurable else 0.0
+        rounding = 4.0 * float(np.finfo(np.float32).eps) * magnitude
+        coordinate_tolerance = max(1e-10, extent * 1e-6, rounding)
     if not math.isfinite(coordinate_tolerance) or coordinate_tolerance <= 0:
         raise MalformedOutputError(
             "Native coordinate matching tolerance must be positive and finite"
