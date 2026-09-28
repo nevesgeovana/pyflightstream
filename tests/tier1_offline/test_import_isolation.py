@@ -42,7 +42,7 @@ _CHILD = (
     "try:\n"
     "    importlib.import_module(name)\n"
     "except ModuleNotFoundError as error:\n"
-    "    missing = (error.name or '').split('.')[0]\n"
+    "    missing = error.name or ''\n"
     "    if missing in allowed:\n"
     f"        print({_MISSING!r} + missing)\n"
     "        sys.exit(3)\n"
@@ -180,6 +180,31 @@ def test_a_missing_dependency_no_extra_declares_is_a_failure_not_a_skip(tmp_path
     assert completed.returncode not in (0, 3), output
     assert _MISSING not in output, output
     assert "misspelled_dependency" in output, output
+
+
+def test_a_missing_submodule_of_a_declared_extra_is_a_failure_not_a_skip(tmp_path):
+    """GOAL-034 Q8 CXQ8R2-3: only an absent declared import ROOT may be skipped.
+
+    Reading the first component of the missing name took a misspelled submodule
+    of an installed extra (``scipy.no_such_module``) for the extra being absent.
+    """
+    root = next(iter(sorted(_allowed_roots())))
+    (tmp_path / "planted_module.py").write_text(f"import {root}.__no_such_review_submodule__\n")
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(tmp_path)
+    completed = subprocess.run(
+        [sys.executable, "-c", _CHILD, "planted_module", *_allowed_roots()],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0,
+        check=False,
+    )
+    output = completed.stdout + completed.stderr
+    assert completed.returncode not in (0, 3), output
+    assert _MISSING not in output, output
 
 
 def test_every_module_imports_alone():
