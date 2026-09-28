@@ -1919,18 +1919,20 @@ def rotor_mach_numbers(
 
 @dataclass(frozen=True)
 class RotorMach:
-    """The tip and helical Mach numbers of one rotor at one point, or why not.
+    """The tip and helical Mach numbers of one rotor or disc at one point, or why not.
 
     Attributes
     ----------
     alias : str
-        The rotor, by the reference's alias; ``ROTOR`` for a row that turns
-        a rotor its reference does not declare.
+        The rotor, by the reference's alias (``ROTOR`` for a row that turns a
+        rotor its reference does not declare), or the actuator disc, by the
+        name of its reference block.
     rpm : float or None
-        The rotor speed in rev/min, signed, as the run turns it.
+        The speed in rev/min, signed by the hand, as the run turns it.
     diameter_m : float or None
-        The diameter the numbers were taken at: the rotor block's, else the
-        reference's ``rotor_diameter_m``.
+        The diameter the numbers were taken at: a rotor block's
+        ``diameter_m``, else the reference's ``rotor_diameter_m``; a disc's
+        twice its ``tip_radius_m``.
     velocity_m_per_s, sonic_velocity_m_per_s : float or None
         The free-stream speed and the speed of sound of the point's
         resolved flight condition.
@@ -1939,6 +1941,8 @@ class RotorMach:
         ``note`` says why they are not known.
     note : str or None
         Why the two numbers are not known, naming the row; None where they are.
+    kind : str
+        ``"rotor"`` or ``"actuator"``: which of the two the numbers are of.
     """
 
     alias: str
@@ -1949,10 +1953,12 @@ class RotorMach:
     tip: float | None
     helical: float | None
     note: str | None = None
+    kind: str = "rotor"
 
     def record(self) -> dict[str, object]:
         """Return the JSON-ready entry the plan and the run record carry."""
         return {
+            "kind": self.kind,
             "rpm": self.rpm,
             "diameter_m": self.diameter_m,
             "velocity_m_per_s": self.velocity_m_per_s,
@@ -1963,29 +1969,41 @@ class RotorMach:
         }
 
 
+def _states_a_rotor_speed(case: SimCase) -> bool:
+    """Say whether a row states a rotor speed: ``RPM`` on the row, its point or a motion."""
+    return _stated_rpm(case) is not None or any(RPM_VARIABLE in record for record in case.motions)
+
+
 def rotor_machs(case: SimCase) -> list[RotorMach]:
-    """Return the tip and helical Mach numbers of every rotor an unsteady rotor row turns.
+    """Return the tip and helical Mach numbers of every rotor and disc a row turns.
+
+    Three row types carry them (0.30.0, M1): every ``unsteady_rotor`` row,
+    every ``steady`` row that states ``RPM``, and every row, of any run type,
+    that names an actuator disc (``ACTUATOR``). Each rotor and each disc is
+    one :class:`RotorMach`.
 
     The case is the point's (:func:`pyflightstream.cases.case_at_point`), so
     the free-stream speed and the speed of sound are that point's resolved
-    flight condition. The rotor speed is the one the run turns
-    (:func:`rotor_speed`, per motion record where the row states
-    ``MOTIONS``); the diameter is the rotor block's, else the reference's
-    ``rotor_diameter_m``.
+    flight condition, the velocity a static rig derives from its advance
+    ratio and speed included; at ``V = 0`` the helical number is the tip's.
+    A rotor's speed is the one the run turns (:func:`rotor_speed`, per motion
+    record where the row states ``MOTIONS``) and its diameter the rotor
+    block's, else the reference's ``rotor_diameter_m``. A disc's speed is the
+    one its builder resolves, ``ACTUATOR_RPM`` or the speed its advance ratio
+    works out to against the disc's own diameter, and its diameter is twice
+    its ``tip_radius_m``.
 
     NEVER RAISES for a row the builder would refuse: a quantity that cannot
     be resolved is a :class:`RotorMach` whose ``note`` names the row and what
     is missing, because an addition by the package may not refuse a run. A
-    row whose rotor has no known diameter is said so, never guessed.
+    rotor with no known diameter is said so, never guessed.
 
     Returns
     -------
     list of RotorMach
-        One per rotor the row turns; empty for any run type other than
-        ``unsteady_rotor``.
+        One per rotor, then one per disc; empty for a row of none of the
+        three types.
     """
-    if case.recipe != "unsteady_rotor":
-        return []
     where = f"POL {case.sim_id}"
     try:
         velocity: float | None = _velocity(case)
@@ -1994,9 +2012,12 @@ def rotor_machs(case: SimCase) -> list[RotorMach]:
     sound = None if case.fluid is None else case.fluid.sonic_velocity_m_per_s
 
     def one(
-        alias: str, speed: RotorSpeed | None, diameter: float | None, why: str | None
+        alias: str,
+        rpm: float | None,
+        diameter: float | None,
+        why: str | None,
+        kind: str = "rotor",
     ) -> RotorMach:
-        rpm = None if speed is None else float(speed.rpm)
         note = why
         if note is None and diameter is None:
             note = (
@@ -2005,23 +2026,38 @@ def rotor_machs(case: SimCase) -> list[RotorMach]:
                 "helical Mach numbers are not computed"
             )
         if note is None and velocity is None:
-            note = f"{where}: rotor {alias}: the row resolves no free-stream speed"
+            note = f"{where}: {kind} {alias}: the row resolves no free-stream speed"
         if note is None and not sound:
-            note = f"{where}: rotor {alias}: the row resolves no speed of sound"
+            note = f"{where}: {kind} {alias}: the row resolves no speed of sound"
         if note is not None or rpm is None or diameter is None or velocity is None or not sound:
-            return RotorMach(alias, rpm, diameter, velocity, sound, None, None, note)
+            return RotorMach(alias, rpm, diameter, velocity, sound, None, None, note, kind)
         tip, helical = rotor_mach_numbers(
             rpm=rpm,
             diameter_m=diameter,
             velocity_m_per_s=velocity,
             sonic_velocity_m_per_s=sound,
         )
-        return RotorMach(alias, rpm, diameter, velocity, sound, tip, helical)
+        return RotorMach(alias, rpm, diameter, velocity, sound, tip, helical, None, kind)
 
+    machs: list[RotorMach] = []
+    if case.recipe == "unsteady_rotor" or (case.recipe == "steady" and _states_a_rotor_speed(case)):
+        machs.extend(_rotor_machs(case, where, one))
+    if _variable(case, ACTUATOR_VARIABLE) is not None:
+        machs.extend(_disc_machs(case, where, one))
+    return machs
+
+
+def _rotor_machs(case: SimCase, where: str, one: Callable[..., RotorMach]) -> list[RotorMach]:
+    """Return the rotors' half of :func:`rotor_machs`."""
     if case.motions:
         turning, lost = _the_rotors_the_row_turns(case)
         machs = [
-            one(alias, speed, case.rotors[alias].diameter_m if alias in case.rotors else None, None)
+            one(
+                alias,
+                float(speed.rpm),
+                case.rotors[alias].diameter_m if alias in case.rotors else None,
+                None,
+            )
             for alias, _view, speed in turning
         ]
         machs.extend(
@@ -2036,11 +2072,47 @@ def rotor_machs(case: SimCase) -> list[RotorMach]:
     else:
         diameter = None if case.reference is None else case.reference.rotor_diameter
     try:
-        speed: RotorSpeed | None = rotor_speed(case)
+        rpm: float | None = float(rotor_speed(case).rpm)
         why = None
     except CampaignConfigError as error:
-        speed, why = None, f"{where}: rotor {alias}: its speed is not resolved: {error}"
-    return [one(alias, speed, diameter, why)]
+        rpm, why = None, f"{where}: rotor {alias}: its speed is not resolved: {error}"
+    return [one(alias, rpm, diameter, why)]
+
+
+def _disc_machs(case: SimCase, where: str, one: Callable[..., RotorMach]) -> list[RotorMach]:
+    """Return the actuator discs' half of :func:`rotor_machs`.
+
+    The discs are resolved by the builder's own resolution
+    (:func:`_the_actuator_the_row_names`), so the speed is the one the script
+    emits, stated or derived from the advance ratio against the disc's own
+    diameter, and a row the builder would refuse is a note carrying its
+    refusal.
+    """
+    try:
+        named = _the_actuator_the_row_names(case)
+    except CampaignConfigError as error:
+        stated = str(_variable(case, ACTUATOR_VARIABLE) or "").strip()
+        alias = stated if stated and not stated.startswith("{") else ACTUATOR_VARIABLE
+        return [
+            one(
+                alias,
+                None,
+                None,
+                f"{where}: actuator {alias}: its disc is not resolved: {error}",
+                "actuator",
+            )
+        ]
+    discs = named if isinstance(named, tuple) else (() if named is None else (named,))
+    return [
+        one(
+            disc.name,
+            disc.block.rpm_sign * float(disc.rpm),
+            2.0 * disc.block.tip_radius_m,
+            None,
+            "actuator",
+        )
+        for disc in discs
+    ]
 
 
 def _optional_rotor_speed(case: SimCase) -> RotorSpeed | None:

@@ -190,16 +190,24 @@ def test_a_row_whose_rotor_has_no_radius_is_named_and_never_guessed(tmp_path):
     assert "M_tip and M_hel not computed: POL 3207" in plan.summary()
 
 
-def test_the_numbers_are_those_of_unsteady_rotor_rows_only(tmp_path):
-    """A steady row carries none: whether other run types do is not decided here."""
-    case = SimCase(
-        sim_id="7001",
-        aircraft="RotorRig",
-        recipe="steady",
-        sweep=SweepAxis(type="alpha", values=[0.0]),
-        variables={"VELOCITY": "30", "RPM": "1200"},
-    )
-    assert rotor_machs(case) == []
+def test_a_row_turning_nothing_carries_no_numbers():
+    """A steady row stating no RPM and naming no disc, and an unsteady row that turns nothing.
+
+    REPLACES the 0.30.0 test that pinned "only unsteady_rotor rows get numbers":
+    its expectation changed because the owner changed the requirement on
+    2026-09-28 ("sim quero incluir"), extending M1 to actuator-disc rows and to
+    steady rows that state RPM. What stays pinned is the other half: a row with
+    no rotor speed and no disc gets none.
+    """
+    for recipe in ("steady", "unsteady"):
+        case = SimCase(
+            sim_id="7001",
+            aircraft="Wing",
+            recipe=recipe,
+            sweep=SweepAxis(type="alpha", values=[0.0]),
+            variables={"VELOCITY": "30"},
+        )
+        assert rotor_machs(case) == [], recipe
 
 
 def test_a_hand_built_rotor_case_without_a_radius_says_so():
@@ -443,3 +451,268 @@ def test_the_stage_hands_each_row_its_own_points_air(tmp_path):
     high_sound = math.sqrt(1.4 * 287.05287 * (288.15 - 0.0065 * 3048.0))
     assert low == pytest.approx((0.12 * SEA_LEVEL_SOUND, SEA_LEVEL_SOUND), rel=1e-5)
     assert high == pytest.approx((0.12 * high_sound, high_sound), rel=1e-5)
+
+
+# --- steady rows that state RPM (the owner's extension of 2026-09-28) --------
+
+#: The rotor block of the fixture reference (PORT, diameter 1.2 m), for a row
+#: that is not the rotor fixture's own run type.
+from tests.tier1_offline.test_goal024_rpm import ROTOR_BLOCK  # noqa: E402
+
+
+def _with_rotor_block(workspace):
+    reference = workspace.inputs_dir / "references" / "r003.toml"
+    reference.write_text(reference.read_text(encoding="utf-8") + ROTOR_BLOCK, encoding="utf-8")
+
+
+def test_a_steady_row_stating_rpm_gets_the_numbers_and_only_the_sonic_point_is_named(tmp_path):
+    """3000 and 6000 rev/min on the 1.2 m block at Mach 0.144, sea level: by hand as above."""
+    workspace, matrix = _matrix(
+        tmp_path,
+        condition="MACH:0.144, REmi:4.38, ALPHA:0.0, RPM:sweep",
+        values="3000,6000",
+        pol="9001",
+        workflow="steady",
+    )
+    _with_rotor_block(workspace)
+    plan, said = _plan(workspace, matrix)
+    assert [entry.status.value for entry in plan.points] == ["READY", "READY"], plan.summary()
+    slow, fast = (entry.rotor_mach["PORT"] for entry in plan.points)
+    velocity = 0.144 * SEA_LEVEL_SOUND
+    for mach, tip_speed in ((slow, 60.0 * math.pi), (fast, 120.0 * math.pi)):
+        assert mach["kind"] == "rotor" and mach["diameter_m"] == 1.2
+        assert mach["mach_tip"] == pytest.approx(tip_speed / SEA_LEVEL_SOUND, rel=1e-6)
+        assert mach["mach_helical"] == pytest.approx(
+            math.hypot(velocity, tip_speed) / SEA_LEVEL_SOUND, rel=1e-6
+        )
+    (sonic,) = [line for line in said if line.startswith("helical Mach >= 1")]
+    assert "on 1 polar point(s)" in sonic
+    assert "M144RE438AL+000RPM06000, rotor PORT" in sonic
+    assert "RPM03000" not in sonic
+
+
+def test_a_steady_row_whose_rotor_has_no_radius_is_named(tmp_path):
+    workspace, matrix = _matrix(
+        tmp_path,
+        condition="MACH:0.144, REmi:4.38, ALPHA:0.0, RPM:sweep",
+        values="3000,6000",
+        pol="9001",
+        workflow="steady",
+    )
+    plan, said = _plan(workspace, matrix)
+    for entry in plan.points:
+        (mach,) = entry.rotor_mach.values()
+        assert mach["mach_helical"] is None
+        assert "POL 9001" in mach["note"] and "no known radius" in mach["note"]
+    (unknown,) = [line for line in said if line.startswith("helical Mach not known")]
+    assert "POL 9001" in unknown and "no known radius" in unknown
+
+
+def test_at_zero_free_stream_the_helical_number_is_the_tips(tmp_path):
+    """TASmps 0: M_hel = sqrt(0 + (Omega R)^2) / a = M_tip, and 6000 rev/min is still named."""
+    workspace, matrix = _matrix(
+        tmp_path,
+        condition="TASmps:0.0, ALPHA:0.0, RPM:sweep",
+        values="3000,6000",
+        pol="9001",
+        workflow="steady",
+    )
+    _with_rotor_block(workspace)
+    plan, said = _plan(workspace, matrix)
+    slow, fast = (entry.rotor_mach["PORT"] for entry in plan.points)
+    for mach, tip_speed in ((slow, 60.0 * math.pi), (fast, 120.0 * math.pi)):
+        assert mach["velocity_m_per_s"] == 0.0
+        assert mach["mach_tip"] == pytest.approx(tip_speed / SEA_LEVEL_SOUND, rel=1e-6)
+        assert mach["mach_helical"] == mach["mach_tip"]
+    (sonic,) = [line for line in said if line.startswith("helical Mach >= 1")]
+    assert "V0000AL+000RPM06000" in sonic and "RPM03000" not in sonic
+
+
+def test_a_steady_job_records_each_points_numbers_under_its_name(tmp_path):
+    """One steady job runs both points, so its record keys the numbers by point name.
+
+    The stub solver writes nothing, so the job fails for its outputs; the
+    numbers are in the part of the record every job carries, failed or not.
+    """
+    from pyflightstream.run.matrix import run_matrix
+    from tests.tier1_offline.test_matrix_run import StubSolver, converged
+
+    workspace, matrix = _matrix(
+        tmp_path,
+        condition="MACH:0.144, REmi:4.38, ALPHA:0.0, RPM:sweep",
+        values="3000,6000",
+        pol="9001",
+        workflow="steady",
+    )
+    _with_rotor_block(workspace)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PyflightstreamWarning)
+        plan_matrix(
+            matrix,
+            workspace,
+            name="mach",
+            default_fs_version="26.120",
+            recipes=RECIPES,
+            recipe_registry=workflow_registry(),
+        )
+        with pytest.raises(CampaignErrors):
+            run_matrix(
+                matrix,
+                workspace,
+                name="mach",
+                recipes=RECIPES,
+                recipe_registry=workflow_registry(),
+                assess=converged,
+                executor=StubSolver("pass"),
+            )
+    (job,) = workspace.read_manifest()
+    assert job.rotor_mach is not None
+    assert sorted(job.rotor_mach) == ["M144RE438AL+000RPM03000", "M144RE438AL+000RPM06000"]
+    fast = job.rotor_mach["M144RE438AL+000RPM06000"]["PORT"]
+    assert fast["mach_tip"] == pytest.approx(120.0 * math.pi / SEA_LEVEL_SOUND, rel=1e-6)
+    by_point = {record.point_name: record.rotor_mach for record in job.as_points()}
+    assert by_point["M144RE438AL+000RPM06000"] == {"PORT": fast}
+    slow = by_point["M144RE438AL+000RPM03000"]["PORT"]
+    assert slow["mach_tip"] == pytest.approx(60.0 * math.pi / SEA_LEVEL_SOUND, rel=1e-6)
+
+
+# --- the static-rig form ------------------------------------------------------
+
+
+def test_the_static_rig_takes_the_velocity_the_package_derives(tmp_path):
+    """RPM 800 and ADVANCE_RATIO 0.8 / 1.0 with no velocity: V = J (RPM / 60) D.
+
+    The velocity is the one the matrix resolves for the clock rotor (PORT,
+    1.2 m): 12.8 m/s and 16.0 m/s, in sea-level air. Omega R = 800 * 2 pi / 60
+    * 0.6 = 16 pi at both points, so only the helical number moves.
+    """
+    workspace, matrix = _matrix(
+        tmp_path,
+        condition="REmi:4.38, ALPHA:0.0, RPM:800, ADVANCE_RATIO:sweep",
+        values="0.8,1.0",
+        pol="9001",
+        workflow="unsteady_rotor",
+        cell="CLOCK_MOTION: PORT / DELTA_TIME: 0.01 / TIME_ITERATIONS: 8 / LAST_REVS_AVG: 0.5",
+    )
+    _with_rotor_block(workspace)
+    plan, _said = _plan(workspace, matrix)
+    tip_speed = 16.0 * math.pi
+    for entry, velocity in zip(plan.points, (12.8, 16.0), strict=True):
+        mach = entry.rotor_mach["PORT"]
+        assert mach["velocity_m_per_s"] == pytest.approx(velocity, rel=1e-9)
+        assert mach["mach_tip"] == pytest.approx(tip_speed / SEA_LEVEL_SOUND, rel=1e-6)
+        assert mach["mach_helical"] == pytest.approx(
+            math.hypot(velocity, tip_speed) / SEA_LEVEL_SOUND, rel=1e-6
+        )
+
+
+# --- actuator-disc rows (the owner's extension of 2026-09-28) ----------------
+
+from tests.tier1_offline.test_g06_actuator_disc import REFERENCE_WITH_A_DISC  # noqa: E402
+
+
+def _disc_matrix(tmp_path, *, condition, values, cell):
+    workspace, matrix = _matrix(
+        tmp_path, condition=condition, values=values, pol="9001", workflow="steady", cell=cell
+    )
+    (workspace.inputs_dir / "references" / "r003.toml").write_text(
+        REFERENCE_WITH_A_DISC, encoding="utf-8"
+    )
+    return workspace, matrix
+
+
+def test_a_disc_at_its_stated_speed_and_only_the_sonic_point_is_named(tmp_path):
+    """ACTUATOR_RPM 6000 on the fixture disc (tip_radius_m 0.5) at Mach 0.2 and 0.9.
+
+    By hand: Omega R = 6000 * 2 pi / 60 * 0.5 = 100 pi = 314.159 m/s, so
+    M_tip = 0.923200 at both points; M_hel = sqrt(M^2 + M_tip^2) is 0.944615
+    at Mach 0.2 and 1.289301 at Mach 0.9.
+    """
+    workspace, matrix = _disc_matrix(
+        tmp_path,
+        condition="MACH:sweep, REmi:2.3, ALPHA:0.0",
+        values="0.2,0.9",
+        cell="ACTUATOR: PROP / ACTUATOR_RPM: 6000 / ACTUATOR_THRUST: 120",
+    )
+    plan, said = _plan(workspace, matrix)
+    assert [entry.status.value for entry in plan.points] == ["READY", "READY"], plan.summary()
+    tip = 100.0 * math.pi / SEA_LEVEL_SOUND
+    for entry, flight in zip(plan.points, (0.2, 0.9), strict=True):
+        mach = entry.rotor_mach["PROP"]
+        assert mach["kind"] == "actuator" and mach["diameter_m"] == 1.0
+        assert mach["mach_tip"] == pytest.approx(tip, rel=1e-6)
+        assert mach["mach_helical"] == pytest.approx(math.hypot(flight, tip), rel=1e-6)
+    assert tip == pytest.approx(0.923200, abs=1e-6)
+    (sonic,) = [line for line in said if line.startswith("helical Mach >= 1")]
+    assert "on 1 polar point(s)" in sonic
+    assert "M900RE230AL+000, actuator PROP, M_hel 1.289" in sonic
+    assert "M200RE230AL+000" not in sonic
+    assert "actuator PROP M_tip 0.923, M_hel 0.945" in plan.summary()
+
+
+def test_a_disc_turning_at_the_speed_its_advance_ratio_works_out_to(tmp_path):
+    """No ACTUATOR_RPM: n = V / (J D) with the disc's own D = 1.0 m.
+
+    Then Omega R = 2 pi n (D / 2) = pi V / J, and M_tip = pi M / J: at Mach 0.2
+    that is 0.4 pi (1.256637) at J 0.5 and 0.2 pi (0.628319) at J 1.0; only
+    the first is named.
+    """
+    workspace, matrix = _disc_matrix(
+        tmp_path,
+        condition="MACH:0.2, REmi:2.3, ALPHA:0.0, ADVANCE_RATIO:sweep",
+        values="0.5,1.0",
+        cell="ACTUATOR: PROP / ACTUATOR_THRUST: 120",
+    )
+    plan, said = _plan(workspace, matrix)
+    for entry, ratio in zip(plan.points, (0.5, 1.0), strict=True):
+        mach = entry.rotor_mach["PROP"]
+        tip = math.pi * 0.2 / ratio
+        # The derived speed is rounded to four decimals of a rev/min, as emitted.
+        assert mach["mach_tip"] == pytest.approx(tip, rel=1e-6)
+        assert mach["mach_helical"] == pytest.approx(math.hypot(0.2, tip), rel=1e-6)
+    (sonic,) = [line for line in said if line.startswith("helical Mach >= 1")]
+    assert "J+050, actuator PROP" in sonic and "J+100" not in sonic
+
+
+def test_a_disc_at_zero_free_stream_has_a_helical_number_equal_to_its_tips(tmp_path):
+    workspace, matrix = _disc_matrix(
+        tmp_path,
+        condition="TASmps:0.0, ALPHA:sweep",
+        values="0.0",
+        cell="ACTUATOR: PROP / ACTUATOR_RPM: 6000 / ACTUATOR_THRUST: 120",
+    )
+    plan, _said = _plan(workspace, matrix)
+    (entry,) = plan.points
+    mach = entry.rotor_mach["PROP"]
+    assert mach["mach_tip"] == pytest.approx(100.0 * math.pi / SEA_LEVEL_SOUND, rel=1e-6)
+    assert mach["mach_helical"] == mach["mach_tip"]
+
+
+def test_a_disc_the_reference_does_not_declare_is_named_and_never_guessed(tmp_path):
+    """A disc's radius is its block's tip_radius_m, which the block cannot omit.
+
+    So the note a rotor gets for a missing diameter has no disc counterpart:
+    a block without tip_radius_m is refused where the reference is read. What a
+    row CAN do is name a disc the reference does not declare, and that is a
+    note naming the row and carrying the builder's own refusal.
+    """
+    from pydantic import ValidationError
+
+    from pyflightstream.cases import ActuatorBlock
+
+    with pytest.raises(ValidationError, match="tip_radius_m"):
+        ActuatorBlock(frame="HUB", axis="X", hub_radius_m=0.1)
+
+    workspace, matrix = _disc_matrix(
+        tmp_path,
+        condition="MACH:0.2, REmi:2.3, ALPHA:sweep",
+        values="0.0",
+        cell="ACTUATOR: PROPX / ACTUATOR_RPM: 6000 / ACTUATOR_THRUST: 120",
+    )
+    plan, said = _plan(workspace, matrix)
+    (entry,) = plan.points
+    mach = entry.rotor_mach["PROPX"]
+    assert mach["mach_tip"] is None and mach["kind"] == "actuator"
+    assert "POL 9001" in mach["note"] and "PROPX" in mach["note"]
+    (unknown,) = [line for line in said if line.startswith("helical Mach not known")]
+    assert "POL 9001: actuator PROPX" in unknown

@@ -308,7 +308,7 @@ def _warn_when_the_points_may_not_fit(workspace: CampaignWorkspace, ready: int) 
 
 
 def _warn_when_a_helical_mach_may_reach_one(resolved: ResolvedMatrix, plan: CampaignPlan) -> None:
-    """Name each polar point whose rotor's helical Mach number is 1 or more (0.30.0, M1).
+    """Name each polar point whose rotor or disc has a helical Mach of 1 or more (0.30.0, M1).
 
     ``M_hel = sqrt(V^2 + (Omega R)^2) / a``, the speed the blade tip meets the
     flow at, over the speed of sound; at 1 or more the tip is sonic or
@@ -334,7 +334,8 @@ def _warn_when_a_helical_mach_may_reach_one(resolved: ResolvedMatrix, plan: Camp
                 name = point_name(case, entry.point) if case is not None else entry.run_id
             except CampaignConfigError:
                 name = entry.run_id
-            sonic.append(f"POL {entry.sim_id} point {name}, rotor {alias}, M_hel {helical:.3f}")
+            kind = mach.get("kind") or "rotor"
+            sonic.append(f"POL {entry.sim_id} point {name}, {kind} {alias}, M_hel {helical:.3f}")
     if sonic:
         warn(
             f"helical Mach >= 1 on {len(sonic)} polar point(s): {'; '.join(sonic)}. "
