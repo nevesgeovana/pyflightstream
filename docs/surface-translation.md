@@ -28,8 +28,9 @@ loads frame the VTK was written in: the native nodes are carried into that
 frame, and each loads axis allows half the single-precision spacing of the
 written VTK coordinates along it plus the rounding of the carry, and never less
 than 1e-6 of the native geometry's diagonal extent. The run record states those
-per-axis tolerances and the frame they are measured in. Callers of the low-level API must provide the actual VTK loads
-frame and sources in matching physical units.
+per-axis tolerances and the frame they are measured in. Callers of the
+low-level API must provide the actual VTK loads frame and sources in matching
+physical units.
 
 For measured FlightStream exports, the VTK velocity convention includes the
 loads-frame origin as well as its axes. The package retains that observed

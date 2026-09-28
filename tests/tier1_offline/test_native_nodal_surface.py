@@ -129,6 +129,9 @@ def test_default_tolerance_covers_float32_rounding_of_the_coordinates(tmp_path, 
     assert np.max(np.abs(vtk.points - reference)) > 1e-6, "the rounding is real"
     surface, proof = attach_native_strength(vtk, native)
     assert surface.point_data["Singularity_strength"].tolist() == [10.0, 20.0, 30.0, 40.0]
+    # attach_native_strength's reference-frame default only; translate_vtk_surface
+    # matches in the loads frame by the written VTK's float32 spacing and has no
+    # native-side term (GOAL-034 Q8 QA7-2, CXQ8R6-1, CXQ8R7-1).
     rounding = 4 * np.finfo(np.float32).eps * float(np.abs(native.points).max())
     assert proof["coordinate_tolerance"] == pytest.approx(max(1e-10, 1e-6 * extent, rounding))
 
@@ -392,6 +395,57 @@ def test_a_turned_loads_frame_far_away_still_matches_its_native_nodes(tmp_path):
     along_x, along_y, _ = mapping["coordinate_tolerance_by_axis"]
     assert 0.03 < along_x < 0.04
     assert along_y < 1e-5
+
+
+def _identity_far_case(tmp_path, *, origin, reference_offset, spelling=".16E"):
+    """A unit panel at ``reference_offset`` in the reference frame, written by a
+    loads frame with the reference axes at ``origin``: the VTK holds the loads
+    coordinates at float32, the native the true reference ones as ``spelling``
+    prints them."""
+    from pyflightstream.results.surface import SurfaceFrame
+
+    frame = SurfaceFrame(origin, REFERENCE_FRAME.axes, 2)
+    reference = _vtk().points + np.asarray(reference_offset, dtype=float)
+    written = (reference - np.asarray(origin)).astype(np.float32).astype(float)
+    surface = VtkSurface(
+        points=written,
+        offsets=_vtk().offsets,
+        connectivity=_vtk().connectivity,
+        cell_data=dict(_vtk().cell_data),
+    )
+    path = write_vtk_surface(tmp_path / "p.vtk", surface, title="test")
+    native = _native_at(tmp_path / "native.dat", reference, spelling=spelling)
+    return frame, path, native, written - (reference - np.asarray(origin))
+
+
+def test_a_loads_frame_far_along_x_accepts_its_unshifted_native(tmp_path):
+    """GOAL-034 Q8 VV6-1: the accept companion of the 0.25-shift refusal at 1e6.
+    The loads coordinates near -1e6 round by 0.025 at float32 (spacing 0.0625);
+    the native, printed at sixteen digits as the solver prints it, is the true
+    geometry and matches. The allowance along loads X is half that spacing and
+    nothing for the native side (CXQ8R6-1)."""
+    frame, path, native, rounded = _identity_far_case(
+        tmp_path, origin=(1_000_000.0, 0.0, 0.0), reference_offset=(0.1, 0.1, 0.0)
+    )
+    assert np.abs(rounded).max() > 0.02, "the float32 rounding is real"
+    record = translate_vtk_surface(path, tmp_path / "p.dat", frame=frame, native_tecplot=native)
+    assert _translated_strength(tmp_path / "p.dat") == [10.0, 20.0, 30.0, 40.0]
+    along_x = record["node_mapping"]["coordinate_tolerance_by_axis"][0]
+    assert 0.03 < along_x < 0.032, "half the float32 spacing and no native-side term"
+
+
+def test_a_native_far_from_the_reference_origin_still_matches(tmp_path):
+    """GOAL-034 Q8 QA7-1: the positive twin of the shifted-native refusal above.
+    The panel sits at reference X = 1e6 + 0.1 in the reference frame; the VTK
+    writes 1000000.125, and the native, printed at sixteen digits, says
+    1000000.1. The 0.025 between them is the VTK's own float32 rounding, which
+    the match allows, so the true geometry is not refused as missing."""
+    frame, path, native, rounded = _identity_far_case(
+        tmp_path, origin=(0.0, 0.0, 0.0), reference_offset=(1_000_000.1, 0.1, 0.0)
+    )
+    assert np.abs(rounded).max() > 0.02, "the float32 rounding is real"
+    translate_vtk_surface(path, tmp_path / "p.dat", frame=frame, native_tecplot=native)
+    assert _translated_strength(tmp_path / "p.dat") == [10.0, 20.0, 30.0, 40.0]
 
 
 def test_stamped_step_never_borrows_final_native_strength(tmp_path):
