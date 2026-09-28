@@ -3,8 +3,8 @@
 #
 # This offline example creates two complete f-prefixed inputs for a synthetic,
 # solid rectangular blade. One derives properties from the existing Grade5
-# material; the other supplies those same distributions. A matrix factor1.15
-# overrides the file factor1.05 exactly once. No aerodynamic or coupled solve
+# material; the other supplies those same distributions. A matrix factor 1.15
+# overrides the file factor 1.05 exactly once. No aerodynamic or coupled solve
 # is performed. Use a new destination: existing files are preserved.
 #
 # Run: python workspace_fsi_calibration.py /absolute/path/to/new-workspace
