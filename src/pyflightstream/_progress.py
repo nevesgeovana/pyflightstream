@@ -39,6 +39,32 @@ def activity_event(stage: str, event: str, message: str = "", **details: object)
             stream.write(json.dumps(details, ensure_ascii=False, default=str) + "\n")
 
 
+def _record(stage: str, event: str, message: str = "", **details: object) -> None:
+    """Append an activity event; a log that cannot be written is said, never raised.
+
+    The activity log observes a stage and must not change its result
+    (Q0-src-other-1): a read-only, full or locked workspace would otherwise
+    stop a stage before it ran, or turn a finished solver run into an OSError.
+    """
+    try:
+        activity_event(stage, event, message, **details)
+    except (OSError, ValueError) as log_error:
+        print(f"[{stage}] could not persist diagnostic: {log_error}", file=sys.stderr, flush=True)
+
+
+def _failure_message(result: object) -> str:
+    """Return a failed result's own report; a report that raises is named, not raised."""
+    try:
+        diagnosis = getattr(result, "diagnosis", None)
+        message = diagnosis() if callable(diagnosis) else ""
+        report_lines = getattr(result, "lines", None)
+        if not message and callable(report_lines):
+            message = "\n".join(report_lines())
+    except Exception as report_error:
+        return f"diagnosis unavailable: {report_error}"
+    return str(message)
+
+
 def workspace_activity(stage: str, argument: str = "workspace"):
     """Log one stage without changing its result."""
 
@@ -61,7 +87,7 @@ def workspace_activity(stage: str, argument: str = "workspace"):
             started = time.monotonic()
             quiet = bool(bound.arguments.get("quiet", False))
             try:
-                activity_event(stage, "started", str(root), **context)
+                _record(stage, "started", str(root), **context)
                 if not quiet:
                     print(f"[{stage}] started: {root}", file=sys.stderr, flush=True)
                 result = function(*args, **kwargs)
@@ -77,12 +103,8 @@ def workspace_activity(stage: str, argument: str = "workspace"):
                 failed = bool(getattr(result, "failed", False)) or any(
                     status.startswith("FAILED") for status in outcomes
                 )
-                diagnosis = getattr(result, "diagnosis", None)
-                message = diagnosis() if failed and callable(diagnosis) else ""
-                report_lines = getattr(result, "lines", None)
-                if failed and not message and callable(report_lines):
-                    message = "\n".join(report_lines())
-                activity_event(
+                message = _failure_message(result) if failed else ""
+                _record(
                     stage,
                     "failed" if failed else "finished",
                     message,
@@ -127,7 +149,7 @@ def activity_stage(stage: str, **details: object) -> Iterator[dict[str, object]]
     """Record one batch within the active workspace; leave product bytes alone."""
     started = time.monotonic()
     outcome: dict[str, object] = {}
-    activity_event(stage, "started", "", **details)
+    _record(stage, "started", "", **details)
     try:
         yield outcome
     except BaseException as error:
@@ -144,7 +166,7 @@ def activity_stage(stage: str, **details: object) -> Iterator[dict[str, object]]
             print(f"[{stage}] could not persist diagnostic: {log_error}", file=sys.stderr)
         raise
     else:
-        activity_event(
+        _record(
             stage,
             "failed" if outcome.get("problems") else "finished",
             "",

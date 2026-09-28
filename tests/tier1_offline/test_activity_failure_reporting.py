@@ -109,3 +109,60 @@ def test_additional_post_plans_and_records_report_the_failed_extraction(tmp_path
     ]
     assert events[-1]["event"] == "failed"
     assert events[-1]["outcomes"] == {"FAILED_EXECUTION": 1}
+
+
+def _unwritable_log(monkeypatch):
+    def event(*args, **kwargs):
+        raise PermissionError("activity.log.jsonl is read-only")
+
+    monkeypatch.setattr(progress, "activity_event", event)
+
+
+def test_an_unwritable_log_does_not_replace_a_stage_result(tmp_path, monkeypatch, capsys):
+    """Q0-src-other-1: "Log one stage without changing its result".
+
+    The started and finished writes sat inside the stage's own try, so a log
+    that could not be written stopped the stage before it ran, or turned a
+    finished solver run into a PermissionError.
+    """
+    _unwritable_log(monkeypatch)
+    ran = []
+
+    @progress.workspace_activity("solver", "working_dir")
+    def run_script(working_dir):
+        ran.append(True)
+        return "SOLVER-RESULT"
+
+    assert run_script(tmp_path) == "SOLVER-RESULT"
+    assert ran == [True]
+    assert "could not persist diagnostic" in capsys.readouterr().err
+
+
+def test_a_raising_diagnosis_does_not_replace_a_stage_result(tmp_path):
+    import json
+
+    class Report:
+        failed = True
+
+        def diagnosis(self):
+            raise RuntimeError("report is malformed")
+
+    report = Report()
+
+    @progress.workspace_activity("collection")
+    def collect(workspace):
+        return report
+
+    assert collect(tmp_path) is report
+    events = [
+        json.loads(line) for line in (tmp_path / "logs/activity.log.jsonl").read_text().splitlines()
+    ]
+    assert events[-1]["event"] == "failed"
+    assert "diagnosis unavailable: report is malformed" in events[-1]["message"]
+
+
+def test_an_unwritable_log_does_not_fail_a_batch(tmp_path, monkeypatch):
+    _unwritable_log(monkeypatch)
+    with progress.activity_stage("translation", requested=1) as outcome:
+        outcome.update(translated=1)
+    assert outcome == {"translated": 1}
