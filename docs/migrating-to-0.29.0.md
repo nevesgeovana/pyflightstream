@@ -48,6 +48,13 @@ definition; direction control for the relaxed wake is planned for 0.30.0.
 Remove the key from the row to run it. To set the direction in a component
 definition's specifications from Python, use `rotor_relaxed_trailing_edges`.
 
+The setup keys `legacy_solver_model` and `sonic_velocity_m_per_s` are refused
+in 0.29.0 on every build. `SET_SOLVER_MODEL` is
+documented by the 25.000 edition alone, whose `INITIALIZE_SOLVER` no workflow
+writes; state `solver_model` instead. No build records `SONIC_VELOCITY`, and
+26.101 onward removed it; the sound speed follows from the resolved
+temperature and specific-heat ratio.
+
 ## Surface and sampled-field products
 
 New Tecplot surface requests retain a native auxiliary export named

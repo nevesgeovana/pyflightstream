@@ -47,11 +47,14 @@ from pyflightstream._fsi_calibration import MATERIAL_FACTORS, MATRIX_FACTORS
 from pyflightstream.cases import (
     ActuatorBlock,
     FrameSpec,
+    MeshImport,
     PprocSpec,
     RawCommand,
+    RawMeshConditions,
     ReferenceData,
     SimCase,
     SolverSettings,
+    TrailingEdgeMarking,
     case_at_point,
 )
 from pyflightstream.cases.workflows import (
@@ -68,12 +71,15 @@ from pyflightstream.post.guides import input_glossary_markdown
 from pyflightstream.run import _is_cold_start
 from pyflightstream.script import Script
 from pyflightstream.workspace.fsi_setup import resolve_row_fsi
+from pyflightstream.workspace.inputs import read_raw_mesh_conditions
+from pyflightstream.workspace.matrix import _bind_setup_ports
 from tests.tier1_offline.test_aeroelastic_typed_setup import coupled_case
 from tests.tier1_offline.test_goal031_g08_input_glossary import parsed_page
 from tests.tier1_offline.test_rotor_by_alias import saved_simulation, two_rotor_case
 from tests.tier1_offline.test_workflows import (
     rotor_case,
     steady_case,
+    steady_case_resolved,
     unsteady_case,
     unsteady_case_full,
 )
@@ -97,7 +103,7 @@ class Variation:
 
     ``refusal`` is for a key REFUSED IN THIS RELEASE whatever its value: then
     ``first`` does not state the key and builds, ``second`` states it, and
-    every build refuses ``second`` with these words
+    every build refuses ``second``, in these words wherever ``first`` builds
     (:func:`test_a_key_refused_in_this_release_is_refused_on_every_build`).
     Two values of such a key would both be refused and measure nothing.
     """
@@ -486,6 +492,75 @@ def _setting(
     return Variation(lambda tmp: build(tmp, first), lambda tmp: build(tmp, second))
 
 
+def _setting_on(base: Make, name: str, first: object, second: object, **fixed: object) -> Variation:
+    """A solver setting at two values on the case ``base`` builds, beside ``fixed`` settings.
+
+    For the 0.29 setup fields whose value matters only on a shaped case: a raw
+    mesh whose sidecar declares what an ``apply_*`` choice applies, a disc an
+    actuator action names, or the wing whose boundaries a selection names.
+    """
+
+    def build(tmp: Path, value: object) -> SimCase:
+        return base(tmp).model_copy(update={"solver": SolverSettings(**{**fixed, name: value})})
+
+    return Variation(lambda tmp: build(tmp, first), lambda tmp: build(tmp, second))
+
+
+def _plain(_: Path) -> SimCase:
+    return steady_case()
+
+
+def _over_wing(tmp: Path) -> SimCase:
+    """The saved wing, whose boundaries Wing, Body and Base a selection names."""
+    return _on_wing(tmp, steady_case())
+
+
+def _raw_mesh(tmp: Path) -> SimCase:
+    """A raw mesh whose sidecar detects its trailing edges, wake termination and base.
+
+    The three declarations an ``apply_*`` choice applies or leaves, and the
+    detection a base-region bending angle precedes.
+    """
+    return steady_case().model_copy(
+        update={
+            "geometry": str(tmp / "wing.obj"),
+            "mesh_import": MeshImport(units="METER"),
+            "inventory": ("Wing", "Base"),
+            "inventory_source": "sidecar",
+            "raw_mesh_conditions": RawMeshConditions(
+                trailing_edges=TrailingEdgeMarking(route="detect"),
+                wake_termination="auto",
+                base_regions="auto",
+            ),
+        }
+    )
+
+
+def _disc(_: Path) -> SimCase:
+    """The disc an actuator action names, created before the action."""
+    return _with_disc(steady_case(ACTUATOR="PROP", ACTUATOR_RPM="2400", ACTUATOR_THRUST="120"))
+
+
+def _ported(tmp: Path, port: str, kind: str, speed: str) -> SimCase:
+    """One setup port as the matrix reader binds it: the sidecar's surface, the row's speed."""
+    sidecar = tmp / "duct.boundaries.toml"
+    sidecar.write_text(
+        '[ports]\nfeed="Inlet"\nexit="Outlet"\n[trailing_edges]\nnone=true\n', encoding="utf-8"
+    )
+    ports = [{"port": port, "kind": kind, "velocity_variable": "PORT_SPEED"}]
+    case = steady_case(PORT_SPEED=speed).model_copy(
+        update={
+            "geometry": str(tmp / "duct.obj"),
+            "mesh_import": MeshImport(units="METER"),
+            "inventory": ("Inlet", "Outlet"),
+            "inventory_source": "sidecar",
+            "raw_mesh_conditions": read_raw_mesh_conditions(sidecar),
+            "solver": SolverSettings(ports=ports),
+        }
+    )
+    return _bind_setup_ports(case, tmp)
+
+
 _TOGGLES = (
     "forced_iterations",
     "viscous_coupling",
@@ -549,6 +624,140 @@ SETTING_VARIATIONS: dict[str, Variation] = {
     "load_units": _setting("load_units", "NEWTONS", "POUND-FORCE"),
     "unsteady_viscous_coupling_iteration": _setting(
         "unsteady_viscous_coupling_iteration", 5, 10, unsteady_case
+    ),
+    # --- the setup fields 0.29.0 adds ------------------------------------
+    # Geometry controls, applied after the saved wing opens and before frames.
+    "simulation_length_unit": _setting_on(
+        _over_wing, "simulation_length_unit", "METER", "MILLIMETER"
+    ),
+    "vertex_merge_tolerance_m": _setting_on(_over_wing, "vertex_merge_tolerance_m", 1e-4, 2e-4),
+    "geometric_edge_bluntness_angle_deg": _setting_on(
+        _over_wing, "geometric_edge_bluntness_angle_deg", 100.0, 120.0
+    ),
+    # The sidecar's declarations applied or left, on the raw mesh declaring them.
+    **{
+        name: _setting_on(_raw_mesh, name, True, False)
+        for name in ("apply_trailing_edges", "apply_wake_termination", "apply_base_regions")
+    },
+    "base_region_bending_angle_deg": _setting_on(
+        _raw_mesh, "base_region_bending_angle_deg", 20.0, 30.0
+    ),
+    "base_region_operations": _setting_on(
+        _over_wing,
+        "base_region_operations",
+        [{"operation": "create", "boundary": "Base", "model": "USER", "cp": -0.2}],
+        [{"operation": "create", "boundary": "Base", "model": "USER", "cp": -0.3}],
+    ),
+    # Boundary selections, by the wing's own boundary names.
+    **{
+        name: _setting_on(_over_wing, name, ["Wing"], ["Body"])
+        for name in (
+            "viscous_excluded",
+            "thin_boundaries",
+            "valarezo_separation_boundaries",
+            "crossflow_separation_boundaries",
+            "leading_edge_wake_boundaries",
+            "proximal_boundaries",
+        )
+    },
+    "stratford_bulk_separation": _setting_on(
+        _over_wing,
+        "stratford_bulk_separation",
+        [{"name": "STRUT", "boundaries": ["Wing"]}],
+        [{"name": "STRUT", "boundaries": ["Body"]}],
+    ),
+    "clear_vorticity_drag_boundaries": _setting_on(
+        _over_wing, "clear_vorticity_drag_boundaries", None, True
+    ),
+    # Separation models and their legacy criteria, stated before initialisation.
+    "bulk_separation": _setting_on(
+        _plain,
+        "bulk_separation",
+        {"name": "GEAR", "separation_type": "CYLINDRICAL", "diameter": 0.2},
+        {"name": "GEAR", "separation_type": "FLAT_PLATE", "diameter": 0.2},
+    ),
+    "airfoil_separation": _setting_on(
+        _plain,
+        "airfoil_separation",
+        [{"name": "WING", "valarezo_criterion": False}],
+        [{"name": "WING", "valarezo_criterion": True}],
+    ),
+    "axial_vortex_separation": _setting_on(
+        _plain,
+        "axial_vortex_separation",
+        [{"name": "FUSELAGE", "diameter": 0.5}],
+        [{"name": "FUSELAGE", "diameter": 0.6}],
+    ),
+    "cylindrical_bulk_separation": _setting_on(
+        _plain,
+        "cylindrical_bulk_separation",
+        [{"name": "GEAR", "diameter": 0.2}],
+        [{"name": "GEAR", "diameter": 0.3}],
+    ),
+    "delete_separations": _setting_on(_plain, "delete_separations", 1, "all"),
+    "valarezo_criterion": _setting_on(_plain, "valarezo_criterion", True, False),
+    "crossflow_separation_diameter": _setting_on(_plain, "crossflow_separation_diameter", 3.5, 4.5),
+    "crossflow_separation_mean_diameter": _setting_on(
+        _plain, "crossflow_separation_mean_diameter", 3.5, 4.5
+    ),
+    "crossflow_separation_axisymmetric": _setting_on(
+        _plain, "crossflow_separation_axisymmetric", True, False
+    ),
+    # Refused in 0.29.0 whatever the value, by the build guard naming the
+    # command: absent against stated, as for ROTOR_SHEDDING.
+    "legacy_solver_model": Variation(
+        _plain,
+        lambda _: steady_case().model_copy(
+            update={"solver": SolverSettings(legacy_solver_model="INCOMPRESSIBLE")}
+        ),
+        refusal="SET_SOLVER_MODEL",
+    ),
+    "surface_roughness": _setting_on(_plain, "surface_roughness", 10.0, 20.0),
+    "sonic_velocity_m_per_s": Variation(
+        _plain,
+        lambda _: steady_case().model_copy(
+            update={"solver": SolverSettings(sonic_velocity_m_per_s=340.0)}
+        ),
+        refusal="SONIC_VELOCITY",
+    ),
+    # PHYSICS takes both arguments, so each is varied with the other held.
+    "physics_auto_trailing_edges": _setting_on(
+        _plain, "physics_auto_trailing_edges", True, False, physics_auto_wake_nodes=True
+    ),
+    "physics_auto_wake_nodes": _setting_on(
+        _plain, "physics_auto_wake_nodes", True, False, physics_auto_trailing_edges=True
+    ),
+    # Normalisation and the free-stream input, on a case whose fluid is resolved.
+    "freestream_input": _setting_on(
+        lambda _: steady_case_resolved(), "freestream_input", "velocity", "mach"
+    ),
+    "reference_mach": _setting_on(_plain, "reference_mach", 0.1, 0.2),
+    "disable_reference_velocity": _setting_on(_plain, "disable_reference_velocity", None, True),
+    "remove_initialization": _setting_on(_plain, "remove_initialization", None, True),
+    "mark_wake_termination_nodes": _setting_on(_plain, "mark_wake_termination_nodes", None, True),
+    # Existing entities by their one-based index, in the declared order.
+    **{
+        name: _setting_on(_plain, name, [1], [2])
+        for name in (
+            "delete_inlets",
+            "delete_outlets",
+            "delete_transition_trips",
+            "disabled_wake_trailing_edges",
+        )
+    },
+    "trailing_edge_types": _setting_on(
+        _plain, "trailing_edge_types", {1: "STANDARD"}, {1: "JET_OUTFLOW"}
+    ),
+    "actuator_operations": _setting_on(
+        _disc,
+        "actuator_operations",
+        [{"op": "rename", "actuator": "PROP", "name": "Front"}],
+        [{"op": "rename", "actuator": "PROP", "name": "Rear"}],
+    ),
+    # The case field stands for the setup's port once the reader has bound it.
+    "ports": Variation(
+        lambda tmp: _ported(tmp, "feed", "inlet", "-10"),
+        lambda tmp: _ported(tmp, "exit", "outlet", "10"),
     ),
 }
 
@@ -667,28 +876,54 @@ def test_a_row_saying_no_line_carries_the_value_is_not_contradicted_by_the_scrip
     )
 
 
+def _states(case: SimCase, table: tuple[str, str], key: str) -> bool:
+    """Whether a case states a row key in its variables, or a setting in its solver."""
+    if table == ROW_KEYS:
+        return key in case.variables
+    return getattr(case.solver, key) is not None
+
+
+#: The keys refused in 0.29.0 whatever their value, by table.
+REFUSED_IN_THIS_RELEASE = {
+    (ROW_KEYS, "ROTOR_SHEDDING"),
+    (SETTINGS, "legacy_solver_model"),
+    (SETTINGS, "sonic_velocity_m_per_s"),
+}
+
+
 def test_a_key_refused_in_this_release_is_refused_on_every_build(tmp_path, meanings):
     """A key refused whatever its value: its row says so, and every build refuses it.
 
-    ``ROTOR_SHEDDING`` in 0.29.0: its variation is absent against stated, which
-    the claims above count as a difference; this holds what that difference
-    is, the refusal in its own words on every build the run type covers, and
-    the case without the key building on at least one of them.
+    ``ROTOR_SHEDDING``, ``legacy_solver_model`` and ``sonic_velocity_m_per_s``
+    in 0.29.0: each variation is absent against stated, which the claims above
+    count as a difference; this holds what that difference is. Every build the
+    run type covers refuses the stated case, in the key's own words wherever
+    the case without the key builds, and where that case does not build (no
+    workflow writes 25.000's INITIALIZE_SOLVER) with the very refusal the
+    keyless case gets, so the build's refusal cannot stand in for the key's.
+    The case without the key must build on at least one build.
     """
-    refused = {key: variation for key, variation in ROW_KEY_VARIATIONS.items() if variation.refusal}
-    assert set(refused) == {"ROTOR_SHEDDING"}, sorted(refused)
-    for key, variation in refused.items():
-        assert "Refused in 0.29.0" in meanings[(ROW_KEYS, key)], meanings[(ROW_KEYS, key)]
+    refused = {
+        (table, key): variation
+        for table, variations in ((ROW_KEYS, ROW_KEY_VARIATIONS), (SETTINGS, SETTING_VARIATIONS))
+        for key, variation in variations.items()
+        if variation.refusal
+    }
+    assert set(refused) == REFUSED_IN_THIS_RELEASE, sorted(refused)
+    for (table, key), variation in refused.items():
+        assert "Refused in 0.29.0" in meanings[(table, key)], meanings[(table, key)]
         first, second = variation.first(tmp_path), variation.second(tmp_path)
-        assert key not in first.variables and key in second.variables
+        assert not _states(first, table, key) and _states(second, table, key)
         builds = covered_builds(WORKFLOWS[select_workflow(first)])
         assert builds
-        reasons = {build: _render(second, build, variation.sweep) for build in builds}
-        not_refused = [
-            build
-            for build, (script, why) in reasons.items()
-            if script is not None or variation.refusal not in why
-        ]
+        not_refused = []
+        for build in builds:
+            script, why = _render(second, build, variation.sweep)
+            keyless, keyless_why = _render(first, build, variation.sweep)
+            in_its_words = variation.refusal in why
+            as_the_build_refuses = keyless is None and why == keyless_why
+            if script is not None or not (in_its_words or as_the_build_refuses):
+                not_refused.append(build)
         assert not not_refused, f"{key} is not refused in its words on {not_refused}"
         assert any(_render(first, build, variation.sweep)[0] for build in builds), (
             f"the case without {key} builds on no build, so its refusal measures nothing"

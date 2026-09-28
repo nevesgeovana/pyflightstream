@@ -105,6 +105,12 @@ not a publication or acceptance announcement.
   stays registered so the refusal names it; direction control for the relaxed
   wake is planned for 0.30.0. `rotor_relaxed_trailing_edges` still sets the
   direction in a component definition's specifications from Python.
+- **`legacy_solver_model` and `sonic_velocity_m_per_s` are refused in 0.29.0.**
+  A setup stating either is refused on every build: `SET_SOLVER_MODEL` is documented by 25.000 alone, whose `INITIALIZE_SOLVER`
+  no workflow writes, and no build records `SONIC_VELOCITY`, which 26.101
+  onward removed. The input glossary now says so rather than presenting them
+  as settings a run applies; use `solver_model`, and let the sound speed
+  follow from the resolved temperature and specific-heat ratio.
 - mypy recount 2026-09-28: 923 errors in 18 of 128 modules, against 0.28.0's
   863 in 18 of 104. The twenty-four modules the 0.29 work adds are clean; the
   sixty errors more sit inside the exempted set, and the shipped configuration
