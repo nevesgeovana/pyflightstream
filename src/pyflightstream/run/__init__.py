@@ -1149,9 +1149,14 @@ def _run_with_progress(
                 )
                 process.kill()
                 out, err = process.communicate()
-                with (working_dir / "pyfs-modal-error.log").open("a", encoding="utf-8") as log:
-                    log.write(diagnostic)
-                print(diagnostic.rstrip(), file=sys.stderr)
+                # Guarded (GOAL-034 Q8 CXQ8R4-2): a log or stderr that cannot be
+                # written must not replace the failed-execution result it reports.
+                try:
+                    with (working_dir / "pyfs-modal-error.log").open("a", encoding="utf-8") as log:
+                        log.write(diagnostic)
+                except (OSError, ValueError) as log_error:
+                    say_line(f"[solver] could not persist modal diagnostic: {log_error}")
+                say_line(diagnostic.rstrip())
                 return process.returncode or 1, out or "", (err or "") + "\n" + diagnostic, False
             if total is None or every <= 0:
                 continue
