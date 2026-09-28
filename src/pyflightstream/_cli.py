@@ -6,18 +6,25 @@ Machine-readable stdout is never used for human outcome reporting.
 
 Every invocation ends with the owner's signature on stderr (0.30.0): a box
 drawn from :mod:`pyflightstream._signature` for an outcome, or one short line
-for ``--help`` and ``--version`` so their output stays compact.
+for ``--help`` and ``--version`` so their output stays compact. For the length
+of the call, a warning of the package's own categories prints as
+``[warning] <message>`` with no file, line or echoed source; ``--verbose``
+keeps Python's full format. A Python caller outside a console script is never
+touched.
 """
 
 from __future__ import annotations
 
 import random
 import sys
+import warnings
 from collections.abc import Callable
 from contextvars import ContextVar
 from functools import wraps
 
 from pyflightstream import _signature
+from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._progress import command_terminal
 
 _ACTIVE: ContextVar[bool] = ContextVar("pyflightstream_cli_active", default=False)
 _POST_WARNINGS: ContextVar[bool | None] = ContextVar(
@@ -54,6 +61,23 @@ def _signature_text(outcome: str) -> str:
     return f"\n{_signature.box(name, phrase)}\n"
 
 
+def _short_warnings(standard: Callable[..., str]) -> Callable[..., str]:
+    """Return a ``warnings.formatwarning`` that prints the package's own warnings short."""
+
+    def formatwarning(
+        message: Warning | str,
+        category: type[Warning],
+        filename: str,
+        lineno: int,
+        line: str | None = None,
+    ) -> str:
+        if issubclass(category, PyflightstreamWarning):
+            return f"[warning] {message}\n"
+        return standard(message, category, filename, lineno, line)
+
+    return formatwarning
+
+
 def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
     """Report the actual CLI outcome once, without changing CLI semantics."""
 
@@ -67,9 +91,16 @@ def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
         warning_token = _POST_WARNINGS.set("--pproc-warnings" in argv)
         posted = [False]
         posted_token = _POSTED.set(posted)
+        # THE FORMAT IS SCOPED TO THIS CALL and restored in `finally`, so a
+        # Python caller's warnings, before and after, are Python's own (L1).
+        verbose = "--verbose" in argv
+        standard = warnings.formatwarning
+        if not verbose:
+            warnings.formatwarning = _short_warnings(standard)
         outcome = "failed"
         try:
-            result = function(*args, **kwargs)
+            with command_terminal(verbose=verbose):
+                result = function(*args, **kwargs)
             outcome = "success" if result is None or result == 0 else "failed"
             return result
         except SystemExit as error:
@@ -86,6 +117,7 @@ def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
             outcome = "cancelled"
             raise
         finally:
+            warnings.formatwarning = standard
             _POSTED.reset(posted_token)
             _POST_WARNINGS.reset(warning_token)
             _ACTIVE.reset(token)

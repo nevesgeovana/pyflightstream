@@ -108,7 +108,14 @@ from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
 )
-from pyflightstream._progress import record_activity, say_line, workspace_activity
+from pyflightstream._progress import (
+    record_activity,
+    say_line,
+    terminal_glob,
+    terminal_path,
+    terse_terminal,
+    workspace_activity,
+)
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import (
     EXPORT_KINDS,
@@ -3873,21 +3880,47 @@ def _supersede_recorded_points(
     copied = workspace.supersede_records(run_ids)
     if copied is not None:
         warnings.warn(
-            f"force_rerun: the manifest was copied to {copied} before "
+            f"force_rerun: the manifest was copied to {terminal_path(copied)} before "
             f"{len(run_ids)} record(s) were superseded.",
             PyflightstreamWarning,
             stacklevel=2,
         )
+    # ONE LINE PER SIMULATION ON A CONSOLE WITHOUT --verbose (0.30.0, the
+    # owner's clean-log rule L3): ten points of one simulation printed ten
+    # near-identical warnings. Every point's move is still written to the
+    # activity log in full, whatever the console shows (L4).
+    terse = terse_terminal()
     for case, points, _ in superseding:
+        archived: list[Path] = []
         for point in points:
-            moved = workspace.archive_datapoint(case.sim_id, PointName(point_name(case, point)))
-            if moved is not None:
+            name = point_name(case, point)
+            moved = workspace.archive_datapoint(case.sim_id, PointName(name))
+            if moved is None:
+                continue
+            archived.append(moved)
+            record_activity(
+                "force_rerun",
+                "archived",
+                f"the collected outputs of {name} moved to {moved}",
+                sim_id=case.sim_id,
+                datapoint=name,
+                archive=str(moved),
+            )
+            if not terse:
                 warnings.warn(
-                    f"force_rerun: the collected outputs of {point_name(case, point)} "
-                    f"moved to {moved}.",
+                    f"force_rerun: the collected outputs of {name} "
+                    f"moved to {terminal_path(moved)}.",
                     PyflightstreamWarning,
                     stacklevel=2,
                 )
+        if terse and archived:
+            warnings.warn(
+                f"force_rerun: the collected outputs of {len(archived)} point(s) of "
+                f"{workspace.sim_dir(case.sim_id).name} were archived "
+                f"({terminal_glob(archived)})",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
 
 
 def _run_id(campaign: Campaign, case: SimCase, point: dict[str, float]) -> str:

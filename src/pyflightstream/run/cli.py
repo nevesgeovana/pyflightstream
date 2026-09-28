@@ -729,6 +729,13 @@ def _build_parser() -> argparse.ArgumentParser:
         command_parser.add_argument(
             "--pproc-warnings", action="store_true", help="print grouped post-processing warnings"
         )
+        command_parser.add_argument(
+            "--verbose",
+            action="store_true",
+            help="print every warning in Python's full format (file, line and source) and "
+            "one line per item where a repeated warning is otherwise counted in one line; "
+            "logs/activity.log holds the full detail either way",
+        )
     post.add_argument(
         "--diagnostics",
         action="store_true",
