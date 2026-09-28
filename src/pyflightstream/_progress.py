@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import os
 import sys
 import time
 import traceback
@@ -16,6 +17,95 @@ from functools import wraps
 from pathlib import Path
 
 _ACTIVE: ContextVar[Path | None] = ContextVar("pyfs_activity", default=None)
+
+
+class _Terminal:
+    """The console of one command-line invocation: its verbosity and its root."""
+
+    __slots__ = ("root", "verbose")
+
+    def __init__(self, verbose: bool) -> None:
+        self.verbose = verbose
+        self.root: Path | None = None
+
+
+#: Set by a console script for the length of one invocation, and by nothing
+#: else: a Python caller sees every line exactly as before (0.30.0 clean log).
+_TERMINAL: ContextVar[_Terminal | None] = ContextVar("pyfs_terminal", default=None)
+
+
+@contextmanager
+def command_terminal(*, verbose: bool) -> Iterator[None]:
+    """Mark the console output of one command-line invocation.
+
+    Inside it, a path under the workspace root is printed relative to that
+    root after the root itself was printed once, absolute, on the first
+    ``[<stage>] started:`` line, and without ``verbose`` a site that repeats one
+    warning per item may say it once with a count (:func:`terse_terminal`).
+    The records and the activity log keep absolute paths and every item.
+    """
+    token = _TERMINAL.set(_Terminal(verbose))
+    try:
+        yield
+    finally:
+        _TERMINAL.reset(token)
+
+
+def terse_terminal() -> bool:
+    """Return whether a console command without ``--verbose`` is printing."""
+    terminal = _TERMINAL.get()
+    return terminal is not None and not terminal.verbose
+
+
+def terminal_path(path: str | Path) -> str:
+    """Return ``path`` as the console of a command shows it.
+
+    Relative to the root the command announced when it lies under that root,
+    and exactly ``str(path)`` otherwise, which is also everything a Python
+    caller outside a console command ever sees.
+    """
+    terminal = _TERMINAL.get()
+    if terminal is None or terminal.root is None:
+        return str(path)
+    try:
+        relative = Path(path).relative_to(terminal.root)
+    except ValueError:
+        return str(path)
+    return relative.as_posix()
+
+
+def terminal_glob(paths: list[Path]) -> str:
+    """Return one pattern for several paths as the console shows them.
+
+    Each component the paths share is kept, and each one they do not becomes
+    ``*`` after the text up to its first ``-`` when they all share that, so
+    ten archived datapoints read as ``sims/sim_1/datapoints/DP-*/archive/<stamp>``.
+    """
+    shown = [Path(terminal_path(path)) for path in paths]
+    if len({len(path.parts) for path in shown}) != 1:
+        return f"{Path(os.path.commonpath(shown)).as_posix()}/*"
+    merged = [
+        parts[0] if len(set(parts)) == 1 else _wildcard(parts)
+        for parts in zip(*(path.parts for path in shown), strict=True)
+    ]
+    return Path(*merged).as_posix()
+
+
+def _wildcard(names: tuple[str, ...]) -> str:
+    """Return ``<prefix>-*`` when every name shares the text before its first ``-``, else ``*``."""
+    prefixes = {name.split("-", 1)[0] for name in names if "-" in name}
+    if len(prefixes) == 1 and all("-" in name for name in names):
+        return f"{prefixes.pop()}-*"
+    return "*"
+
+
+def _announced(root: Path) -> str:
+    """Print a console command's first root absolute and later paths under it relative."""
+    terminal = _TERMINAL.get()
+    if terminal is not None and terminal.root is None:
+        terminal.root = root
+        return str(root)
+    return terminal_path(root)
 
 
 def activity_event(stage: str, event: str, message: str = "", **details: object) -> None:
@@ -104,7 +194,7 @@ def workspace_activity(stage: str, argument: str = "workspace"):
             try:
                 record_activity(stage, "started", str(root), **context)
                 if not quiet:
-                    say_line(f"[{stage}] started: {root}")
+                    say_line(f"[{stage}] started: {_announced(root)}")
                 result = function(*args, **kwargs)
                 records = result if isinstance(result, list | tuple) else []
                 # ADDITIONAL-POST RETURNS `(plans, records)` (Q0 CX-8): the

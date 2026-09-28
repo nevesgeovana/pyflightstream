@@ -1159,6 +1159,18 @@ EXPORT_LOG is disabled. Recorded diagnostics do not enter these stages or mutate
 the logs. A standalone local executor keeps its activity log under its working
 directory. Progress goes to stderr; JSON and CSV stdout remain data only.
 
+On the console of a command, a warning of the package's own categories prints
+as `[warning] <message>`, without the path of the installed file, its line
+number or the echoed source line. The first `[<stage>] started:` line prints the
+workspace root absolute and later lines print paths under it relative to it.
+A forced re-run says one line per simulation, for example
+`[warning] force_rerun: the collected outputs of 10 point(s) of sim_4016 were archived (sims/sim_4016/datapoints/DP-*/archive/<stamp>)`,
+and writes each point's move, with its absolute path, to `logs/activity.log`.
+Pass `--verbose` to `pyfs-matrix run`, `post` or `collect` to print Python's
+full warning format and one line per point again. A Python caller keeps
+Python's standard warnings and absolute paths. Every command ends with the
+signature box on stderr; `--help` and `--version` end with one short line.
+
 ## The additional post
 
 A scheduler submission is recorded as SUBMITTED, with no completed outputs.

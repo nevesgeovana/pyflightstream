@@ -130,6 +130,10 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # diagnostics without rebuilding products. Neither changes solver settings.
     ("pyfs-matrix", "pproc_warnings"): SWITCH,
     ("pyfs-matrix", "diagnostics"): SWITCH,
+    # 0.30.0, the owner's clean-log rule L4: this invocation prints warnings in
+    # Python's full format and every per-point line; presentation only, and the
+    # activity log holds the full detail either way.
+    ("pyfs-matrix", "verbose"): SWITCH,
     # 0.21.0: `rename` rehearses with --dry-run, which is a mode switch of the
     # one invocation and changes nothing about the workspace it reads.
     ("pyfs-matrix", "dry_run"): SWITCH,
@@ -305,6 +309,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "setup_guidelines"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "setup_standards"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "pproc_warnings"): frozenset({"collect", "post", "run"}),
+    ("pyfs-matrix", "verbose"): frozenset({"collect", "post", "run"}),
     ("pyfs-matrix", "diagnostics"): frozenset({"post"}),
     ("pyfs-matrix", "fs_exe"): frozenset({"convert", "inspect-setups", "plan", "post", "run"}),
     ("pyfs-matrix", "fs_version"): frozenset({"convert", "inspect-setups", "plan", "post", "run"}),

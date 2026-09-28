@@ -42,6 +42,24 @@ FlightStream versions.
 - `runs.json` may hold a `delete-sims` note row (`deleted_sim`) alongside its
   run records; `read_manifest` skips it, and the row's full mention lives in
   `storage_management.json`.
+- Every console command now ends with a box on stderr instead of the one-line
+  signature: an ASCII drawing, 81 columns wide, with a phrase and "geoversegoddess
+  sees you", a blank line before and after. A successful post (`pyfs-matrix post`,
+  or the post a `collect` runs) is always the koala; another success, a failure
+  and a cancellation each draw from their own drawings and phrases. `--help` and
+  `--version` keep one short line. It stays on stderr, once per command, and
+  never changes stdout or the exit code.
+- The run banner draws one of two aircraft at random instead of the small
+  airplane; the text after it is unchanged.
+- A cleaner console log under `pyfs-matrix`, `pyfs-workspace` and every other
+  console script. A warning of the package's own categories prints as
+  `[warning] <message>`, without the installed file's path, line number or
+  echoed source line; Python callers keep Python's standard warnings. The
+  stage lines print the workspace root once, absolute, and paths under it
+  relative. `run --force-rerun` says one line per simulation with a count
+  instead of one per point. Nothing is lost: `logs/activity.log` keeps every
+  point and absolute paths, and the new `--verbose` switch of `run`, `collect`
+  and `post` prints Python's full warning format and the per-point lines again.
 
 ### Fixed
 
@@ -80,7 +98,7 @@ FlightStream versions.
 
 ### Changed (the type-checker debt, re-measured on the gate-fixing tree)
 
-- mypy recount 2026-09-28: 921 errors in 18 of 129 modules, on the
+- mypy recount 2026-09-28: 921 errors in 18 of 130 modules, on the
   `feat/0-30-storage-sync` tree fixing nine tier-1 house-style/registry
   guards, against 0.29.0's 922 in 18 of 128. The one module the tracked
   package gained, `workspace/storage.py`, is clean; the shipped

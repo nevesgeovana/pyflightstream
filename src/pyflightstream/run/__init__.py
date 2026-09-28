@@ -81,6 +81,7 @@ import json
 import math
 import os
 import platform
+import random
 import re
 import shutil
 import subprocess
@@ -107,7 +108,14 @@ from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
 )
-from pyflightstream._progress import record_activity, say_line, workspace_activity
+from pyflightstream._progress import (
+    record_activity,
+    say_line,
+    terminal_glob,
+    terminal_path,
+    terse_terminal,
+    workspace_activity,
+)
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import (
     EXPORT_KINDS,
@@ -3495,9 +3503,13 @@ def run_campaign(
     to_run = sum(len(pending) for _case, _build, pending in scheduled)
     started = time.perf_counter()
     if to_run:
-        _say("            __|__", quiet=quiet)
+        # 0.30.0: one of the two approved aircraft, drawn at random; the text
+        # stays on the wing line, as before.
+        top, mast, wing = random.choice(_RUN_BANNERS)
+        _say(top, quiet=quiet)
+        _say(mast, quiet=quiet)
         _say(
-            f"     --o--o--(_)--o--o--   pyflightstream {pyflightstream.__version__}: "
+            f"{wing}   pyflightstream {pyflightstream.__version__}: "
             f"campaign {campaign.name}, {to_run} point(s) to run",
             quiet=quiet,
         )
@@ -3790,6 +3802,22 @@ def _job_point_statuses(record: RunRecord, points: int) -> list[str]:
     return [str(record.status)] * points
 
 
+#: The run banner's two aircraft, approved on 2026-09-28: the rows
+#: above the wing, then the wing, which the banner text follows.
+_RUN_BANNERS: tuple[tuple[str, str, str], ...] = (
+    (
+        "             _______",
+        "                |",
+        "     --(+)-----(_)-----(+)--",
+    ),
+    (
+        "             _______",
+        "                |",
+        "   --(+)--(+)--(_)--(+)--(+)--",
+    ),
+)
+
+
 def _say_the_summary(outcomes: Sequence[str], elapsed_s: float, *, quiet: bool) -> None:
     """Say how the points of this call ended, as a small table, and how long it took (G43)."""
     counts: dict[str, int] = {}
@@ -3873,21 +3901,47 @@ def _supersede_recorded_points(
     copied = workspace.supersede_records(run_ids)
     if copied is not None:
         warnings.warn(
-            f"force_rerun: the manifest was copied to {copied} before "
+            f"force_rerun: the manifest was copied to {terminal_path(copied)} before "
             f"{len(run_ids)} record(s) were superseded.",
             PyflightstreamWarning,
             stacklevel=2,
         )
+    # ONE LINE PER SIMULATION ON A CONSOLE WITHOUT --verbose (0.30.0, the
+    # clean-log rule L3): ten points of one simulation printed ten
+    # near-identical warnings. Every point's move is still written to the
+    # activity log in full, whatever the console shows (L4).
+    terse = terse_terminal()
     for case, points, _ in superseding:
+        archived: list[Path] = []
         for point in points:
-            moved = workspace.archive_datapoint(case.sim_id, PointName(point_name(case, point)))
-            if moved is not None:
+            name = point_name(case, point)
+            moved = workspace.archive_datapoint(case.sim_id, PointName(name))
+            if moved is None:
+                continue
+            archived.append(moved)
+            record_activity(
+                "force_rerun",
+                "archived",
+                f"the collected outputs of {name} moved to {moved}",
+                sim_id=case.sim_id,
+                datapoint=name,
+                archive=str(moved),
+            )
+            if not terse:
                 warnings.warn(
-                    f"force_rerun: the collected outputs of {point_name(case, point)} "
-                    f"moved to {moved}.",
+                    f"force_rerun: the collected outputs of {name} "
+                    f"moved to {terminal_path(moved)}.",
                     PyflightstreamWarning,
                     stacklevel=2,
                 )
+        if terse and archived:
+            warnings.warn(
+                f"force_rerun: the collected outputs of {len(archived)} point(s) of "
+                f"{workspace.sim_dir(case.sim_id).name} were archived "
+                f"({terminal_glob(archived)})",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
 
 
 def _run_id(campaign: Campaign, case: SimCase, point: dict[str, float]) -> str:

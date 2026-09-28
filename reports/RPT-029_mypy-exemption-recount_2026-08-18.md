@@ -65,14 +65,14 @@
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 921 errors in 18 files (checked 129 source files)
->     Success: no issues found in 129 source files
+>     Found 921 errors in 18 files (checked 130 source files)
+>     Success: no issues found in 130 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-28: 921 errors in 18 of 129 modules.**
+**mypy recount 2026-09-28: 921 errors in 18 of 130 modules.**
 
 The module total rises by the one module (`workspace/storage.py`) the 0.30.0
 storage-and-sync work adds, and the error total falls by one, inside the
@@ -357,11 +357,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 921 errors in 18 files (checked 129 source files)
+    Found 921 errors in 18 files (checked 130 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 129 source files
+    Success: no issues found in 130 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -758,7 +758,7 @@ fact and the measurement above is unedited.
 
 `python scripts/mypy_recount.py` on 2026-09-28, on `feat/0-30-storage-sync`
 fixing the nine tier-1 house-style/registry guards this branch's own tests
-named: 921 errors in 18 of 129 modules, against the v0.29.0 release tag's 922
+named: 921 errors in 18 of 130 modules, against the v0.29.0 release tag's 922
 in 18 of 128 (the two trees differ by the whole 0.30.0 storage-and-sync
 branch, not by one file, so the one-error difference is not attributed to a
 single change). The module guard in `tests/tier1_offline/test_traceability.py`
@@ -766,6 +766,6 @@ had gone red at 129 against the recorded 128, which is what asked for this
 run. The one module the tracked-module count gained since the release tag is
 `workspace/storage.py`, the home of the five `pyfs-matrix` storage commands;
 it is not itself exempted and the tool reports it CLEAN, so the dirty count
-still reads 18. The shipped configuration is green over all 129 modules. The
+still reads 18. The shipped configuration is green over all 130 modules. The
 quoted mypy lines above are this run's, and the sentence at the top of this
 report is this measurement.

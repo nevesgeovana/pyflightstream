@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from pyflightstream import _signature
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.workspace import excel
 from pyflightstream.workspace.excel_sync import ExcelSyncError
@@ -17,7 +18,13 @@ def test_existing_workbook_is_a_cli_refusal_not_a_traceback(tmp_path, capsys):
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "existing files are never overwritten" in captured.err
-    assert "Command failed" in captured.err
+    # Signed as a failure: a box of the failed pool (0.30.0), never a success.
+    failed_boxes = [
+        _signature.box(name, phrase)
+        for name in _signature.OUTCOME_DRAWINGS["failed"]
+        for phrase in _signature.PHRASES[name]
+    ]
+    assert any(box in captured.err for box in failed_boxes), captured.err
     assert "Traceback" not in captured.err
     assert output.read_bytes() == original
     with pytest.raises(ExcelSyncError, match="never overwritten"):

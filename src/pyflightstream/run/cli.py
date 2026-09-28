@@ -55,7 +55,7 @@ import warnings
 from pathlib import Path
 from typing import Any, NoReturn
 
-from pyflightstream._cli import cli_entrypoint, post_warning_policy
+from pyflightstream._cli import cli_entrypoint, note_post_ran, post_warning_policy
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_matrix
@@ -729,6 +729,13 @@ def _build_parser() -> argparse.ArgumentParser:
         command_parser.add_argument(
             "--pproc-warnings", action="store_true", help="print grouped post-processing warnings"
         )
+        command_parser.add_argument(
+            "--verbose",
+            action="store_true",
+            help="print every warning in Python's full format (file, line and source) and "
+            "one line per item where a repeated warning is otherwise counted in one line; "
+            "logs/activity.log holds the full detail either way",
+        )
     post.add_argument(
         "--diagnostics",
         action="store_true",
@@ -769,6 +776,7 @@ def main(argv: list[str] | None = None) -> int:
     # needs no recipes, no version and no executable, and requiring them
     # would refuse the one user this subcommand exists for.
     if args.subcommand == "post":
+        note_post_ran()
         return _cmd_post(args)
     if args.subcommand == "collect":
         return _cmd_collect(args)
@@ -1233,6 +1241,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         # `overwrite`, so where products of that matrix already stood, the
         # second sweep of a watch among them, the stage refused them instead
         # of archiving them as the paragraph above says it does.
+        note_post_ran()
         for stage in post_stages():
             # THE FLAG TRAVELS ONLY WHEN SET: a stage registered before
             # 0.25.1 takes no `check_frozen`, and the bare command must keep

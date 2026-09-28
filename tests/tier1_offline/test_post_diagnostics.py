@@ -155,7 +155,7 @@ def test_cli_diagnostics_does_not_invoke_stages(tmp_path, monkeypatch, capsys):
     output = capsys.readouterr()
     assert "recorded-test-time" in output.out
     assert "missing data" in output.out
-    assert "Ass: geoversegoddes" not in output.out
+    assert "geoversegoddess sees you" not in output.out
     after = {
         p: (p.read_bytes(), p.stat().st_mtime_ns) for p in workspace.root.rglob("*") if p.is_file()
     }
