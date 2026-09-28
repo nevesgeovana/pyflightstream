@@ -7,6 +7,18 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Native nodal strength is matched in the loads frame the VTK was written
+  in.** `translate_vtk_surface(..., native_tecplot=...)` carried the loads-frame
+  rounding of the written VTK to the reference axes, which for a loads frame
+  turned 45 degrees and 1e6 from the origin let a native surface moved 0.02
+  along loads Y match and lend its strength. The native is now carried into the
+  loads frame and each loads axis is allowed only the rounding written along
+  it, so that surface is refused and the true one still matches. The
+  `node_mapping` record states its tolerances along the loads axes and names
+  that frame in a new `coordinate_tolerance_frame` key.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

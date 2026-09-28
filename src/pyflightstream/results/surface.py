@@ -48,7 +48,7 @@ from __future__ import annotations
 import re
 import tempfile
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
@@ -725,7 +725,7 @@ def translate_vtk_surface(
     missing = list(NOT_CARRIED_BY_THE_VTK)
     if native_tecplot is not None:
         from pyflightstream.results.native_surface import (
-            attach_native_strength,
+            _strength_in_loads_frame,
             read_native_tecplot_surface,
         )
 
@@ -736,34 +736,14 @@ def translate_vtk_surface(
             raise IncompleteOutputError(f"Missing native nodal source {native_path.name}")
         native_hash = file_sha256(native_path)
         native = read_native_tecplot_surface(native_path)
-        # The VTK is rounded to single precision in the LOADS frame, before it is
-        # carried back: a loads frame far from the reference origin rounds its
-        # coordinates at its own magnitude, which the reference-frame geometry
-        # does not show (GOAL-034 Q8 CXQ8R2-1). The tolerance takes the larger.
-        # PER AXIS (CXQ8R4-1): a loads-frame rounding is carried to each reference
-        # axis through |R|, so a frame far away along X widens X, not Z.
-        # The loads-frame allowance is the float32 SPACING of each written
-        # coordinate (half a unit in the last place), not a multiple of the
-        # largest magnitude: 1e6 away, float32 steps by 0.0625, so a surface
-        # moved by 0.25 is refused (GOAL-034 Q8 CXQ8R5-1). The carry back to the
-        # reference adds its own double-precision rounding.
-        extent = float(np.linalg.norm(np.ptp(native.points, axis=0)))
-        loads_magnitude = np.abs(surface.points).max(axis=0, initial=0.0)
-        rotation = np.abs(frame.rotation)
-        loads_rounding = (
-            0.5 * np.abs(np.spacing(surface.points.astype(np.float32))).astype(float)
-        ).max(axis=0, initial=0.0) @ rotation
-        arithmetic_rounding = (
-            8.0
-            * float(np.finfo(float).eps)
-            * (loads_magnitude @ rotation + np.abs(np.asarray(frame.origin, dtype=float)))
-        )
-        tolerance = np.maximum(
-            max(1e-10, extent * 1e-6),
-            loads_rounding + arithmetic_rounding,
-        )
-        translated, mapping = attach_native_strength(
-            translated, native, coordinate_tolerance=tolerance
+        # The VTK is rounded to single precision in the LOADS frame, so the
+        # native is matched in that frame, where each axis is allowed the
+        # rounding written along it; the rule and its history (GOAL-034 Q8
+        # CXQ8R2-1, CXQ8R4-1, CXQ8R5-1, CXQ8R6-1, CXQ8R7-1) live beside
+        # attach_native_strength's default, in one home.
+        strength, mapping = _strength_in_loads_frame(surface, native, frame)
+        translated = replace(
+            translated, point_data={**translated.point_data, "Singularity_strength": strength}
         )
         if file_sha256(native_path) != native_hash:
             raise MalformedOutputError("Native nodal source changed during translation")

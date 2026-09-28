@@ -20,12 +20,15 @@ needed beyond requesting the Tecplot surface.
 | Cp, pressure, BL and other selected fields | Cell/panel | Original VTK cell arrays |
 | Velocity components | Cell/panel | VTK values with the measured loads-frame export transform undone |
 
-The native export must match the reference-frame VTK through a unique node
-bijection and the complete polygon edge topology. Equal counts alone are
-insufficient. Ambiguous nodes, changed topology, missing step sources, truncated
-files and nonfinite native values are refused with an explicit reason. The
-coordinate match currently uses an absolute tolerance of 1e-6 in the common
-coordinate unit. Callers of the low-level API must provide the actual VTK loads
+The native export must match the VTK through a unique node bijection and the
+complete polygon edge topology. Equal counts alone are insufficient. Ambiguous
+nodes, changed topology, missing step sources, truncated files and nonfinite
+native values are refused with an explicit reason. The match is made in the
+loads frame the VTK was written in: the native nodes are carried into that
+frame, and each loads axis allows half the single-precision spacing of the
+written VTK coordinates along it plus the rounding of the carry, and never less
+than 1e-6 of the native geometry's diagonal extent. The run record states those
+per-axis tolerances and the frame they are measured in. Callers of the low-level API must provide the actual VTK loads
 frame and sources in matching physical units.
 
 For measured FlightStream exports, the VTK velocity convention includes the
