@@ -140,7 +140,7 @@ def test_goal024_closing_round_the_documented_profile_is_accepted(tmp_path):
 # ------------------------------------------------ the yes-or-no word, and a number
 
 
-def test_goal024_closing_round_export_log_refuses_a_word_it_does_not_know():
+def test_goal024_closing_round_export_log_refuses_a_word_it_does_not_know(meter_geometry):
     """`EXPORT_LOG: flase` is refused by name rather than read as the permissive side.
 
     The permissive side is the one that hurts: a typo read as "yes, export it"
@@ -148,7 +148,7 @@ def test_goal024_closing_round_export_log_refuses_a_word_it_does_not_know():
     """
     from pyflightstream.cases.workflows import _exports_its_log
 
-    case = _case("flase")
+    case = _case("flase", meter_geometry=meter_geometry)
 
     with pytest.raises(CampaignConfigError) as raised:
         _exports_its_log(case)
@@ -156,20 +156,22 @@ def test_goal024_closing_round_export_log_refuses_a_word_it_does_not_know():
     assert "flase" in str(raised.value), str(raised.value)
 
 
-def test_goal024_closing_round_export_log_reads_the_words_it_does_know():
+def test_goal024_closing_round_export_log_reads_the_words_it_does_know(meter_geometry):
     """THE CONTROL for the refusal above: `false` and `true` are read, and are opposite."""
     from pyflightstream.cases.workflows import _exports_its_log
 
-    assert _exports_its_log(_case("false")) is False
-    assert _exports_its_log(_case("true")) is True
+    assert _exports_its_log(_case("false", meter_geometry=meter_geometry)) is False
+    assert _exports_its_log(_case("true", meter_geometry=meter_geometry)) is True
     # A cell that says nothing keeps the behaviour of the release before this one.
-    assert _exports_its_log(_case()) is True
+    assert _exports_its_log(_case(meter_geometry=meter_geometry)) is True
 
 
 # --------------------------------------------- a value that is not a number
 
 
-def test_goal024_closing_round_a_non_numeric_flight_condition_value_raises_its_promised_error():
+def test_goal024_closing_round_a_non_numeric_flight_condition_value_raises_its_promised_error(
+    meter_geometry,
+):
     """The naming path raises what its caller's Raises section promises.
 
     `point_name` reads each declared variable as a NUMBER to write its
@@ -179,7 +181,7 @@ def test_goal024_closing_round_a_non_numeric_flight_condition_value_raises_its_p
     """
     from pyflightstream.cases import point_name
 
-    bad = _case().model_copy(
+    bad = _case(meter_geometry=meter_geometry).model_copy(
         update={
             "condition_order": ["MACH", "ALPHA"],
             "flight_condition": {"MACH": "fast", "ALPHA": 0.0},
@@ -193,11 +195,11 @@ def test_goal024_closing_round_a_non_numeric_flight_condition_value_raises_its_p
     assert "MACH" in message and "fast" in message, message
 
 
-def test_goal024_closing_round_the_name_is_written_when_every_value_is_a_number():
+def test_goal024_closing_round_the_name_is_written_when_every_value_is_a_number(meter_geometry):
     """THE CONTROL for the refusal above: the same shape with numbers names the point."""
     from pyflightstream.cases import point_name
 
-    good = _case().model_copy(
+    good = _case(meter_geometry=meter_geometry).model_copy(
         update={
             "condition_order": ["MACH", "ALPHA"],
             "flight_condition": {"MACH": 0.2, "ALPHA": 0.0},
