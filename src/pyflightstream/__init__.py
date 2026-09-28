@@ -42,6 +42,8 @@ Cross-cutting support modules, importable from any layer:
 - ``_cli``: private invocation outcome reporting and scoped terminal policy.
 - ``_progress``: private durable stage events and failure context in the
   workspace logs.
+- ``_fsi_calibration``: private dimensionless FSI factor names, read by
+  the cases layer's matrix workflows and re-exported by ``fsi.calibration``.
 
 Where to start:
 

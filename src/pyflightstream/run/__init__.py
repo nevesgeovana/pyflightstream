@@ -26,7 +26,10 @@ writes the sweep csv into the workspace's ``post/`` folder under
 forces and with each line stating whether it is a raw integration or a
 reduction and over what window (PFS-2014.03). Nobody has to ask for
 it, and a campaign whose points all failed still leaves the file,
-because the identity rows are the record of what was attempted.
+because the identity rows are the record of what was attempted. The
+exception is a call that submitted points to a scheduler: a queued point
+has no outputs yet, so that call writes no product and no table and
+names the ``pyfs-matrix collect`` command that posts once they land.
 
 The local mechanism is the documented command-line script execution:
 ``FlightStream.exe -script <file>``, with the
@@ -40,8 +43,13 @@ abnormal termination writes ``FlightStreamLog.txt`` into the command
 execution directory, which is why the executor runs the solver inside
 the point's own datapoint folder and captures that file (SRC-003 p.280);
 a steady row of several points is one job and runs in the simulation
-folder. An HPC
-executor with the same interface is deferred (FR-15).
+folder. A cluster route shares the executor interface:
+:class:`SubmittingExecutor` hands the script to a scheduler and returns
+once the record is written SUBMITTED, and the collect stage of
+:mod:`pyflightstream.run.collect` completes that record when the
+declared outputs have landed (FR-99). FR-15, the HPC executor
+requirement, stays pending until the submitting half is measured on a
+cluster.
 
 On Windows, :mod:`pyflightstream.run._solver_windows` inspects only the
 launched solver PID. A visible standard dialog, a modal window whose owned

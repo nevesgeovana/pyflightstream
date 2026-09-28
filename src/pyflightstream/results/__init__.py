@@ -24,8 +24,11 @@ On top of the parsers, a pandas tabular layer turns the parsed
 results into DataFrames: :func:`to_table`/:func:`to_csv` for each
 parser, :func:`parse_run_loads` for one run's coefficients, and
 :func:`run_table`/:func:`sweep_table` for one run or a whole sweep
-read from the manifest (the manifest, an execution-layer artifact, is
-imported lazily so the layer rule is not violated at module load).
+read from the manifest. The manifest is an artifact of the workspace
+layer above this one, so the caller passes a workspace it has already
+constructed; the tables read it through structural protocols defined in
+:mod:`pyflightstream.results.tables` and import the workspace layer
+nowhere, not at run time and not for the type checker.
 
 Two vocabularies live here beside the parsers, both because every layer
 above needs them and none of them may own them.
