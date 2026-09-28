@@ -56,9 +56,12 @@ def test_field_request_resolves_the_existing_default_frame():
 
 def test_volume_section_uses_sampled_field_without_native_index(tmp_path):
     # GOAL033:post:checks:probe_volume_sections
-    # GOAL033:capability_ids:items:G39
     # One case covers the unsteady and the steady recipe, so the obligation is
     # proved by a case that is not named after one recipe.
+    # G39 is NOT claimed here: the owner's acceptance of 2026-09-27 opens a saved
+    # simulation that already carries a native section and checks the sampled
+    # product against the solver, and states that offline tests alone are not
+    # sufficient. This case only shows the emitted script samples through probes.
     for steady in (False, True):
         root = tmp_path / ("steady" if steady else "unsteady")
         root.mkdir()
