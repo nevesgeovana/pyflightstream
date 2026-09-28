@@ -724,10 +724,8 @@ def translate_vtk_surface(
     auxiliary: dict[str, str] = {}
     missing = list(NOT_CARRIED_BY_THE_VTK)
     if native_tecplot is not None:
-        from pyflightstream.results.native_surface import (
-            _strength_in_loads_frame,
-            read_native_tecplot_surface,
-        )
+        from pyflightstream.results._native_frame import _strength_in_loads_frame
+        from pyflightstream.results.native_surface import read_native_tecplot_surface
 
         native_path = Path(native_tecplot)
         if native_path.resolve() == Path(dat).resolve():
