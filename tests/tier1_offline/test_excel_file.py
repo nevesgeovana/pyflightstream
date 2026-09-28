@@ -252,22 +252,28 @@ def test_create_and_preview_do_not_automatically_synchronize(tmp_path: Path) -> 
     source = matrix(tmp_path)
     original_matrix = source.read_bytes()
     book = tmp_path / "unsynchronized.xlsx"
-    main(["create", str(book), "--workspace", str(tmp_path)])
+    assert main(["create", str(book), "--workspace", str(tmp_path)]) == 0
     assert read_snapshot(book).rows == []
     original_workbook = book.read_bytes()
     batch = tmp_path / "inspect.json"
-    main(
-        [
-            "preview",
-            str(book),
-            "--workspace",
-            str(tmp_path),
-            "--direction",
-            "read",
-            "--batch",
-            str(batch),
-        ]
+    # A preview that did nothing would leave both files unchanged too, so the
+    # preview must succeed and produce its batch (Q0-tests-1-4).
+    assert (
+        main(
+            [
+                "preview",
+                str(book),
+                "--workspace",
+                str(tmp_path),
+                "--direction",
+                "read",
+                "--batch",
+                str(batch),
+            ]
+        )
+        == 0
     )
+    assert batch.is_file() and batch.with_suffix(".html").is_file()
     assert book.read_bytes() == original_workbook
     assert source.read_bytes() == original_matrix
 
