@@ -1429,6 +1429,7 @@ for the unsteady plots source, whose defaults omit the probe-points export.
 
 ```toml
 base_regions = ["Base"]        # the boundaries that become base regions; [] = off
+singularity_strength = true    # the Tecplot surface carries the nodal strength (off by default)
 
 [groups]                       # group NAME -> ONE alias, written as a string (0.24.0)
 TOTAL = "all"                  # every family the geometry carries
@@ -1780,6 +1781,19 @@ solver settings only (PFS-2029.16). The run record names the pproc id each
 point was run for. The volume section's file (`_vsec.vtk` or `_vsec.dat`) is
 not an `[exports]` kind: `[volume_section]` declares it, and `[exports]`
 naming `volume_section_vtk` or `volume_section_tecplot` is refused.
+
+The top-level key `singularity_strength` (since 0.30.0) decides whether the
+Tecplot surface carries the nodal `Singularity_strength`. The VTK the surface
+is written from does not hold it, so carrying it costs a second, native Tecplot
+export per point and per exported step (`<point>_native_tecplot.dat`). It is off
+by default: the point exports the VTK alone, its `.dat` carries every VTK
+variable and states `Singularity_strength` as not carried, and the point is
+complete without the native file it was never asked to write.
+`singularity_strength = true` exports the native file and carries the strength,
+as 0.29.0 did for every surface. The value is a TOML boolean; `"true"` or `1` is
+refused. `pyfs-matrix plan` says on each row that declares a Tecplot surface
+whether its strength is carried. See
+[surface translation](surface-translation.md).
 
 <a id="a-volume-section-steady-rows"></a>
 

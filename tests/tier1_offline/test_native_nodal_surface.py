@@ -520,15 +520,18 @@ def test_existing_translation_with_changed_native_bytes_is_not_claimed_current(t
 
 
 def test_native_source_is_internal_tracked_and_emitted_once():
-    from pyflightstream.cases import classify_outputs
+    from pyflightstream.cases import PprocSpec, classify_outputs
     from pyflightstream.cases.workflows import build_script, with_tecplot_source
     from tests.tier1_offline.test_workflows import steady_case
 
-    outputs = with_tecplot_source(["p.txt", "p.dat", "p.vtk"])
+    # SS1 of 0.30.0: with the pproc's singularity_strength on, as 0.29.0 always did.
+    outputs = with_tecplot_source(["p.txt", "p.dat", "p.vtk"], singularity_strength=True)
     assert outputs.count("p_native_tecplot.dat") == 1
-    assert with_tecplot_source(outputs) == outputs
+    assert with_tecplot_source(outputs, singularity_strength=True) == outputs
     assert classify_outputs(list(reversed(outputs)))["tecplot"] == "p.dat"
-    case = steady_case().model_copy(update={"outputs": outputs})
+    case = steady_case().model_copy(
+        update={"outputs": outputs, "pproc": PprocSpec(singularity_strength=True)}
+    )
     from pyflightstream.script import Script
 
     script = Script("26.124")

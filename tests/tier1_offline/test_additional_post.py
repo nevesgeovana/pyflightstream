@@ -403,6 +403,9 @@ ADDITIONAL_KINDS: dict[str, tuple[str, dict]] = {
     "steady_sections_surface": (
         "steady",
         {
+            # SS1 of 0.30.0: the surface kind pins the native Tecplot export too,
+            # and the rotor kind below the default, which exports none.
+            "singularity_strength": True,
             "exports": {"vtk": True, "csv": True},
             "sections": {
                 "distributions": [

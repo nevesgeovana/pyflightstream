@@ -33,8 +33,10 @@ nothing interpolated to a node. Each polygon's edges are its faces, with the
 polygon on the left and no neighbour on the right, which is how the solver
 writes its own zone. ``Singularity_strength``, the panel strength the
 solver's Tecplot carries, is not in the VTK. A same-step native auxiliary export
-provides nodal values after a unique coordinate and topology match. Legacy
-exports without it remain explicitly incomplete for this variable. The file
+provides nodal values after a unique coordinate and topology match; the run
+exports it only where the row's pproc sets ``singularity_strength = true``
+(0.30.0). A run without it, by that key or by its release, declares this
+variable not carried. The file
 names its source VTK and that file's sha256 in its ``DATASETAUXDATA``
 records.
 
@@ -790,8 +792,10 @@ def translate_vtk_surface(
     """Write exact VTK cell values plus optional matched native nodal strength.
 
     Native strength is read from the same point/step's auxiliary Tecplot export,
-    never interpolated from Cp or substituted from the final step. Legacy runs
-    without that auxiliary source keep an explicit not-carried declaration.
+    never interpolated from Cp or substituted from the final step. A run without
+    that auxiliary source, a legacy one or one whose pproc leaves
+    ``singularity_strength`` false (the default since 0.30.0), keeps an explicit
+    not-carried declaration.
 
     ``periodic_copies`` is the copy count of a row under ``SYMMETRY PERIODIC``
     (0.30.0). Its native export holds one zone per copy, and the VTK holds the

@@ -150,6 +150,7 @@ from pyflightstream.cases.workflows import (
     WALLTIME_STOP_SCRIPT,
     WorkflowConventions,
     build_steady_sweep,
+    carries_singularity_strength,
     creates_surface_sections,
     disc_speed_moves_with_the_point,
     parse_restart,
@@ -4073,8 +4074,11 @@ def _point_names(
         )
         for declared in case.outputs
     ]
-    # G45: the VTK a Tecplot surface is written from is an output of the point.
-    return stem, with_tecplot_source(outputs)
+    # G45: the VTK a Tecplot surface is written from is an output of the point,
+    # and the native Tecplot only where the pproc asks for the strength (SS1).
+    return stem, with_tecplot_source(
+        outputs, singularity_strength=carries_singularity_strength(case)
+    )
 
 
 def _unplaced(translation: Mapping[str, object]) -> bool:

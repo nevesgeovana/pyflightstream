@@ -5,8 +5,17 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from pyflightstream.cases import SOLVER_SETTING_COMMANDS, CampaignConfigError, SimCase
-from pyflightstream.cases.workflows import row_ncpus, row_symmetry_loads
+from pyflightstream.cases import (
+    SOLVER_SETTING_COMMANDS,
+    CampaignConfigError,
+    SimCase,
+    classify_outputs,
+)
+from pyflightstream.cases.workflows import (
+    carries_singularity_strength,
+    row_ncpus,
+    row_symmetry_loads,
+)
 from pyflightstream.workspace.setup_standards import setup_entry_evidence
 
 
@@ -63,12 +72,24 @@ def inspect_case_setup(case: SimCase, version: str) -> dict[str, Any]:
         "boundary_conditions": (
             case.raw_mesh_conditions.model_dump(mode="json") if case.raw_mesh_conditions else None
         ),
+        # SS1 of 0.30.0: whether the row's Tecplot surface carries the nodal
+        # Singularity_strength, which its pproc decides; None where the row
+        # declares no Tecplot surface, so there is nothing to carry it.
+        "singularity_strength": (
+            carries_singularity_strength(case)
+            if "tecplot" in classify_outputs(case.outputs)
+            else None
+        ),
         "scope": "resolved row; point-dependent values and native operation require point evidence",
     }
 
 
 def setup_inspection_summary(records: Sequence[Mapping[str, Any]]) -> str:
-    """Return a concise per-row view of the same records used by full inspection."""
+    """Return a concise per-row view of the same records used by full inspection.
+
+    A row declaring a Tecplot surface also says whether that surface carries
+    the nodal ``Singularity_strength`` (SS1 of 0.30.0).
+    """
     lines = []
     for record in records:
         settings = record["settings"]
@@ -77,9 +98,18 @@ def setup_inspection_summary(records: Sequence[Mapping[str, Any]]) -> str:
             for key in ("solver_model", "boundary_layer", "viscous_coupling")
         ]
         aliases = ", ".join(sorted(record["aliases"])) or "none"
+        strength = record.get("singularity_strength")
+        surface = (
+            ""
+            if strength is None
+            else "; Singularity_strength: carried (pproc singularity_strength = true)"
+            if strength
+            else "; Singularity_strength: not carried (pproc singularity_strength = false)"
+        )
         lines.append(
             f"  setup {record['sim_id']} ({record['build']}): "
             + ", ".join(selected)
             + f"; aliases: {aliases}"
+            + surface
         )
     return "\n".join(lines)

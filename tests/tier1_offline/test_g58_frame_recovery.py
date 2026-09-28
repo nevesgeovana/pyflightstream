@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._digest import file_sha256
-from pyflightstream.cases import CampaignConfigError
+from pyflightstream.cases import CampaignConfigError, PprocSpec
 from pyflightstream.cases.workflows import RESTART_VARIABLE, build_script
 from pyflightstream.run import resolve_continuation
 from pyflightstream.script import Script
@@ -29,6 +29,8 @@ def _old_run(tmp_path, *, record_changes=None):
             "geometry": str(geometry),
             "reference": REFERENCE,
             "outputs": ["loads.txt", "surface.dat", "run_log.txt"],
+            # SS1 of 0.30.0: the recovered frame is proved on the strength too.
+            "pproc": PprocSpec(singularity_strength=True),
         }
     )
     original = case.model_copy(

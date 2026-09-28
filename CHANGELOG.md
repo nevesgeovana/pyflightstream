@@ -55,8 +55,25 @@ FlightStream versions.
   simulation's `inputs` is linked into the main workspace's own geometry
   library, never copied; `delete-sims` and `free-space` undo every link in a
   simulation folder before removing it, so the mesh it points at survives.
+- The pproc key `singularity_strength` (SS1): `singularity_strength = true`
+  makes a row's Tecplot surface carry the nodal `Singularity_strength`, read
+  from a native Tecplot export beside the VTK, at the end of the run and at
+  every exported step, exactly as 0.29.0 did. The value is a TOML boolean;
+  `"true"` or `1` is refused. `pyfs-matrix plan` states on each row that
+  declares a Tecplot surface whether its strength is carried, and `plan.json`
+  carries it as `singularity_strength` in the row's setup inspection. See
+  docs/surface-translation.md.
 
 ### Changed
+
+- **A Tecplot surface no longer exports the native Tecplot by default.** A row
+  whose pproc does not set `singularity_strength = true` exports the VTK alone:
+  its `.dat` carries every VTK variable and states `Singularity_strength` as
+  not carried (`NOT_CARRIED`, and `not_carried` in `products.json`), no
+  `<point>_native_tecplot.dat` is written, listed or hashed, and the point is
+  not `FAILED_INCOMPLETE_OUTPUT` for lacking it. The time-averaged surface
+  states the strength not carried the same way. Set the key in the pproc to
+  keep the 0.29.0 behaviour.
 
 - `runs.json` may hold a `delete-sims` note row (`deleted_sim`) alongside its
   run records; `read_manifest` skips it, and the row's full mention lives in

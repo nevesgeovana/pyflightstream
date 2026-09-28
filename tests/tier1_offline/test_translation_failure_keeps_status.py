@@ -60,7 +60,12 @@ def _stub(source: Path, native: Path, *, write_vtk: bool = True) -> StubSolver:
 
 def _run(tmp_path: Path, stub: StubSolver):
     case = steady_case().model_copy(
-        update={"reference": REFERENCE, "outputs": ["p.txt", "p.dat"], "pproc": PprocSpec()}
+        update={
+            "reference": REFERENCE,
+            "outputs": ["p.txt", "p.dat"],
+            # SS1 of 0.30.0: the refused native source is exported where the pproc asks.
+            "pproc": PprocSpec(singularity_strength=True),
+        }
     )
     campaign = Campaign(name="camp", fs_version="26.124", fs_exe=sys.executable, sims=[case])
     return run_campaign(

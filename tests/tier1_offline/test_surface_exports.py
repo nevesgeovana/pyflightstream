@@ -29,11 +29,20 @@ from tests.tier1_offline.test_run_campaign import StubSolver, converged
 from tests.tier1_offline.test_workflows import rotor_case, unsteady_case
 
 
-def _case(*, rotor=False, time_averaging=None, vtk_variables=None, threshold=None, formats=True):
+def _case(
+    *,
+    rotor=False,
+    time_averaging=None,
+    vtk_variables=None,
+    threshold=None,
+    formats=True,
+    singularity_strength=False,
+):
     spec = PprocSpec(
         exports={"vtk": formats, "csv": formats},
         time_averaging=time_averaging,
         vtk_variables=vtk_variables,
+        singularity_strength=singularity_strength,
     )
     if rotor:
         case = rotor_case(
@@ -163,8 +172,9 @@ def test_both_formats_join_per_step_exports(threshold, first):
     _script(case)  # planning must accept the same payload as the action
     window = unsteady_export_threshold(case, version="26.124")
     assert window.first_step == first
-    # G45: the Tecplot is written from the VTK, which is exported once per step.
-    assert "EXPORT_SOLVER_ANALYSIS_TECPLOT\np_native_tecplot.dat" in window.exports
+    # G45: the Tecplot is written from the VTK, which is exported once per step;
+    # SS1 of 0.30.0: and nothing else, where the pproc leaves the strength off.
+    assert "EXPORT_SOLVER_ANALYSIS_TECPLOT" not in window.exports
     assert window.exports.count("EXPORT_SOLVER_ANALYSIS_VTK") == 1
     assert "SET_VTK_EXPORT_VARIABLES 2 DISABLE\nVX\nVY" in window.exports
     assert "EXPORT_SOLVER_ANALYSIS_VTK\np.vtk\nSURFACES -1" in window.exports
