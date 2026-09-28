@@ -41,6 +41,13 @@ Creating new ports on a saved FSM with unknown existing port indices remains
 refused. See [boundary conditions](boundary-conditions.md) for the explicit
 actions and measured limitations.
 
+A row stating `ROTOR_SHEDDING` is refused in 0.29.0, whatever its value and on
+every build. No workflow command applies the direction a rotor's relaxed wake
+sheds in, since it is a field of the relaxed trailing-edge component
+definition; direction control for the relaxed wake is planned for 0.30.0.
+Remove the key from the row to run it. To set the direction in a component
+definition's specifications from Python, use `rotor_relaxed_trailing_edges`.
+
 ## Surface and sampled-field products
 
 New Tecplot surface requests retain a native auxiliary export named

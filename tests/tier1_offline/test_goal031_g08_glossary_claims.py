@@ -34,6 +34,7 @@ which field stands for the key.
 
 from __future__ import annotations
 
+import json
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -42,6 +43,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream._fsi_calibration import MATERIAL_FACTORS, MATRIX_FACTORS
 from pyflightstream.cases import (
     ActuatorBlock,
     FrameSpec,
@@ -65,6 +67,8 @@ from pyflightstream.cases.workflows import (
 from pyflightstream.post.guides import input_glossary_markdown
 from pyflightstream.run import _is_cold_start
 from pyflightstream.script import Script
+from pyflightstream.workspace.fsi_setup import resolve_row_fsi
+from tests.tier1_offline.test_aeroelastic_typed_setup import coupled_case
 from tests.tier1_offline.test_goal031_g08_input_glossary import parsed_page
 from tests.tier1_offline.test_rotor_by_alias import saved_simulation, two_rotor_case
 from tests.tier1_offline.test_workflows import (
@@ -90,11 +94,18 @@ class Variation:
     ``sweep`` builds the steady sweep's one script from three points, with the
     cold flag the run layer reads off the row: the route of ``COLD_START``,
     which a single point never takes.
+
+    ``refusal`` is for a key REFUSED IN THIS RELEASE whatever its value: then
+    ``first`` does not state the key and builds, ``second`` states it, and
+    every build refuses ``second`` with these words
+    (:func:`test_a_key_refused_in_this_release_is_refused_on_every_build`).
+    Two values of such a key would both be refused and measure nothing.
     """
 
     first: Make
     second: Make
     sweep: bool = False
+    refusal: str = ""
 
 
 # --- the shapes the variations stand on --------------------------------------
@@ -177,6 +188,100 @@ def _raw(line: str) -> SimCase:
     """RAW reaches the case as its raw commands; the reader takes it out of the cell."""
     return steady_case().model_copy(
         update={"raw_commands": [RawCommand(command=line, before="exec")]}
+    )
+
+
+def _custom_units(tmp: Path, units: str) -> SimCase:
+    """FREESTREAM_UNITS beside a resolved field, on a simulation whose unit is known."""
+    case = _freestream(tmp, "fs_units", 30.0)
+    return _stated(case, FREESTREAM_UNITS=units).model_copy(
+        update={"solver": SolverSettings(simulation_length_unit="METER")}
+    )
+
+
+#: Two FSI inputs of the supplied mode, a beam with every property non-zero so
+#: a factor on any of them changes it, and one of the calculated mode, the only
+#: mode a MATERIAL factor applies in. Codes as the matrix names them.
+_SUPPLIED, _SUPPLIED_STIFFER, _CALCULATED = "f001", "f002", "f101"
+
+
+def _toml(table: str, values: dict[str, object]) -> list[str]:
+    return [f"[{table}]", *(f"{key} = {json.dumps(value)}" for key, value in values.items())]
+
+
+def _fsi_sources(tmp: Path) -> Path:
+    """Write the three FSI inputs of ``inputs/fsi/``, for the coupled rotor's clock and speed."""
+    config = coupled_case(tmp).fsi
+    assert config is not None
+    scalars = config.model_dump(mode="json", exclude={"blade", "phases"})
+    phases = config.phases.model_dump(mode="json")
+    stations = len(config.blade.station_radii_m)
+    blade = {
+        **config.blade.model_dump(mode="json", exclude={"provenance"}),
+        "elastic_axis_offset_chordwise_m": [0.01] * stations,
+        "elastic_axis_offset_normal_m": [0.002] * stations,
+        "cg_offset_chordwise_m": [0.015] * stations,
+        "cg_offset_normal_m": [0.001] * stations,
+        "geometric_pitch_deg": [3.0] * stations,
+    }
+    stiffer = {**blade, "bending_stiffness_n_m2": [2 * v for v in blade["bending_stiffness_n_m2"]]}
+    folder = tmp / "inputs" / "fsi"
+    folder.mkdir(parents=True, exist_ok=True)
+    for code, beam in ((_SUPPLIED, blade), (_SUPPLIED_STIFFER, stiffer)):
+        lines = [
+            'mode = "supplied"',
+            *_toml("config", scalars),
+            *_toml("config.phases", phases),
+            *_toml("config.blade", beam),
+        ]
+        (folder / f"{code}.toml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    contour = [[-0.01, -0.001], [0.03, -0.001], [0.03, 0.003], [-0.01, 0.003]]
+    calculated = [
+        'mode = "calculated"',
+        'material = "ti-6al-4v-grade5-annealed"',
+        *_toml("config", {k: scalars[k] for k in ("blade_count", "omega_rad_per_s")}),
+        f"time_increment_s = {json.dumps(scalars['time_increment_s'])}",
+        *_toml(
+            "sections",
+            {
+                "station_radii_m": [0.2, 1.2],
+                "chord_m": [0.04, 0.04],
+                "geometric_pitch_deg": [3.0, 1.0],
+                "geometry_source": "Synthetic closed contours in metres",
+                "torsion_grid_cells": 16,
+                "sections_m": [contour, contour],
+            },
+        ),
+    ]
+    (folder / f"{_CALCULATED}.toml").write_text("\n".join(calculated) + "\n", encoding="utf-8")
+    return tmp / "inputs"
+
+
+def _fsi_row(tmp: Path, code: str, **cells: str) -> SimCase:
+    """FSI as the plan resolves it: the code and its factor cells, read into the beam staged.
+
+    The matrix reader calls ``resolve_row_fsi`` on the row's cells and puts the
+    effective beam and its provenance on the case; the builder reads that
+    beam, and the row's cells stay on the case beside it.
+    """
+    resolved = resolve_row_fsi(_fsi_sources(tmp), {"FSI": code, **cells})
+    assert resolved is not None
+    case = coupled_case(tmp)
+    return case.model_copy(
+        update={
+            "fsi": resolved.effective,
+            "fsi_provenance": resolved.provenance(),
+            "variables": {**case.variables, "FSI": code, **cells},
+        }
+    )
+
+
+def _fsi_factor(key: str) -> Variation:
+    """One calibration factor at two values, on the input whose mode applies it."""
+    code = _CALCULATED if MATRIX_FACTORS[key] in MATERIAL_FACTORS else _SUPPLIED
+    return Variation(
+        lambda tmp: _fsi_row(tmp, code, **{key: "0.9"}),
+        lambda tmp: _fsi_row(tmp, code, **{key: "1.1"}),
     )
 
 
@@ -291,6 +396,16 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
     "FREESTREAM": Variation(
         lambda tmp: _freestream(tmp, "fs_a", 30.0), lambda tmp: _freestream(tmp, "fs_b", 32.0)
     ),
+    # NATIVE hands the solver the file as written, SI a converted copy.
+    "FREESTREAM_UNITS": Variation(
+        lambda tmp: _custom_units(tmp, "NATIVE"), lambda tmp: _custom_units(tmp, "SI")
+    ),
+    # The case field stands for the key: the beam resolve_row_fsi reads off the
+    # code, staged beside the script, on the coupled rotor.
+    "FSI": Variation(
+        lambda tmp: _fsi_row(tmp, _SUPPLIED), lambda tmp: _fsi_row(tmp, _SUPPLIED_STIFFER)
+    ),
+    **{key: _fsi_factor(key) for key in MATRIX_FACTORS},
     "ADDITIONAL_PPROC": _rows(steady_case, "ADDITIONAL_PPROC", "p002", "p003"),
     "COLD_START": Variation(
         lambda _: steady_case(COLD_START="false"),
@@ -328,7 +443,12 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
     ),
     "ROTOR_AXIS": _rows(rotor_case, "ROTOR_AXIS", "X", "Z"),
     "ROTOR_ORIGIN": _rows(rotor_case, "ROTOR_ORIGIN", "0.1,0.2,0.3", "0.4,0.5,0.6"),
-    "ROTOR_SHEDDING": _rows(rotor_case, "ROTOR_SHEDDING", "AXIAL", "AZIMUTH"),
+    # Refused in 0.29.0 whatever its value: absent against stated.
+    "ROTOR_SHEDDING": Variation(
+        lambda _: rotor_case(),
+        lambda _: rotor_case(ROTOR_SHEDDING="AZIMUTH"),
+        refusal="ROTOR_SHEDDING is ineffective in matrix workflows and is refused.",
+    ),
     "MOVING_BOUNDARIES": _rows(rotor_case, "MOVING_BOUNDARIES", "1", "1,2"),
     "MOTIONS": Variation(
         lambda tmp: two_rotor_case(tmp),
@@ -545,3 +665,48 @@ def test_a_row_saying_no_line_carries_the_value_is_not_contradicted_by_the_scrip
     assert not wrong, (
         f"these rows say '{NO_SCRIPT_LINE}' and the script carries it:\n  " + "\n  ".join(wrong)
     )
+
+
+def test_a_key_refused_in_this_release_is_refused_on_every_build(tmp_path, meanings):
+    """A key refused whatever its value: its row says so, and every build refuses it.
+
+    ``ROTOR_SHEDDING`` in 0.29.0: its variation is absent against stated, which
+    the claims above count as a difference; this holds what that difference
+    is, the refusal in its own words on every build the run type covers, and
+    the case without the key building on at least one of them.
+    """
+    refused = {key: variation for key, variation in ROW_KEY_VARIATIONS.items() if variation.refusal}
+    assert set(refused) == {"ROTOR_SHEDDING"}, sorted(refused)
+    for key, variation in refused.items():
+        assert "Refused in 0.29.0" in meanings[(ROW_KEYS, key)], meanings[(ROW_KEYS, key)]
+        first, second = variation.first(tmp_path), variation.second(tmp_path)
+        assert key not in first.variables and key in second.variables
+        builds = covered_builds(WORKFLOWS[select_workflow(first)])
+        assert builds
+        reasons = {build: _render(second, build, variation.sweep) for build in builds}
+        not_refused = [
+            build
+            for build, (script, why) in reasons.items()
+            if script is not None or variation.refusal not in why
+        ]
+        assert not not_refused, f"{key} is not refused in its words on {not_refused}"
+        assert any(_render(first, build, variation.sweep)[0] for build in builds), (
+            f"the case without {key} builds on no build, so its refusal measures nothing"
+        )
+
+
+FSI_KEYS = ("FSI", *MATRIX_FACTORS)
+
+
+@pytest.mark.parametrize("key", FSI_KEYS)
+def test_an_fsi_key_changes_the_beam_the_run_stages(tmp_path, key):
+    """The other half of an FSI row's byte-identical script: its value reaches the staged beam.
+
+    No line of the script carries an FSI key's value; the effective driver
+    configuration the run stages beside it does. Two values that staged the
+    same beam would pass the claims above while varying nothing.
+    """
+    variation = ROW_KEY_VARIATIONS[key]
+    first, second = variation.first(tmp_path), variation.second(tmp_path)
+    assert first.fsi is not None and second.fsi is not None
+    assert first.fsi != second.fsi, f"{key} at its two values stages the same beam"

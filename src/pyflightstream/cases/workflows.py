@@ -13430,21 +13430,20 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "three coordinates, comma separated, or a rotor point of inputs/reference_points.toml",
             "CREATE_NEW_COORDINATE_SYSTEM",
         ),
-        # READ, CHECKED AND NOT APPLIED: the direction is a field of the relaxed
-        # trailing-edge component definition and no command carries it (see
-        # `rotor_shedding_direction`). Two rotor rows stating AXIAL and AZIMUTH
-        # build byte-identical scripts, so the row says so rather than read as
-        # a wake setting the run applies.
+        # REGISTERED AND REFUSED IN 0.29.0 (G35, interim refusal): the direction
+        # is a field of the relaxed trailing-edge component definition and no
+        # command of a workflow applies it, so `_refuse_rotor_shedding` refuses
+        # a row stating it on every build rather than build a wake the row did
+        # not ask for. The key stays registered so the refusal names it; the
+        # functional route is 0.30.0 scope. The claims test varies it as absent
+        # against stated and asserts the refusal on every build.
         ROTOR_SHEDDING_VARIABLE: InputKey(
-            "The direction the relaxed trailing edges of a rotor case shed their wake.",
-            "AXIAL or AZIMUTH; absent asks nothing",
-            unscripted=(
-                "a workflow row checks it, refusing anything but AXIAL or AZIMUTH, and does "
-                "not apply it, because the direction is a field of the relaxed trailing-edge "
-                "component definition and no command sets it. To shed in it, pass the "
-                "definition's specifications through rotor_relaxed_trailing_edges and "
-                "write the ones it returns back into the definition the geometry carries."
-            ),
+            "The direction the relaxed trailing edges of a rotor case shed their wake. "
+            "Refused in 0.29.0 on every build, since no workflow command applies it; "
+            "direction control for the relaxed wake is planned for 0.30.0. The Python "
+            "helper rotor_relaxed_trailing_edges still sets it in the component "
+            "definition's specifications.",
+            "AXIAL or AZIMUTH; any value is refused in 0.29.0",
         ),
         MOVING_BOUNDARIES_VARIABLE: InputKey(
             "The boundaries a flat rotor row turns; a MOTIONS record names its rotor by "

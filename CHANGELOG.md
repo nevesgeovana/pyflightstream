@@ -79,6 +79,13 @@ not a publication or acceptance announcement.
 - **Continuation checks its recorded inputs.** Recovery follows the saved
   script and exact frame/source provenance. Unsupported or ambiguous historical
   commands are refused by name before a new extraction can invent state.
+- **`ROTOR_SHEDDING` is refused in 0.29.0.** A matrix row stating it, whatever
+  its value, is refused on every build: the direction is a field of the relaxed
+  trailing-edge component definition and no workflow command applies it, so a
+  row stating it would otherwise run with a wake it did not ask for. The key
+  stays registered so the refusal names it; direction control for the relaxed
+  wake is planned for 0.30.0. `rotor_relaxed_trailing_edges` still sets the
+  direction in a component definition's specifications from Python.
 - mypy recount 2026-09-28: 923 errors in 18 of 128 modules, against 0.28.0's
   863 in 18 of 104. The twenty-four modules the 0.29 work adds are clean; the
   sixty errors more sit inside the exempted set, and the shipped configuration
