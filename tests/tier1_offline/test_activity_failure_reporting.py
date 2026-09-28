@@ -174,6 +174,8 @@ def test_an_unwritable_log_and_a_closed_stderr_still_keep_the_stage_result(tmp_p
     @progress.workspace_activity("run")
     def stage(workspace):
         _say("point 1 of 1 done", quiet=True)
+        # The line a non-quiet run prints goes to the same closed stream (QA3-1).
+        _say("point 1 of 1 done", quiet=False)
         return "STAGE-RESULT"
 
     assert stage(tmp_path) == "STAGE-RESULT"
