@@ -516,13 +516,17 @@ def _placed_by_origin(
 ) -> None:
     """``SET_COORDINATE_SYSTEM_ORIGIN`` states the origin in the reference (SRC-751 p.334).
 
-    Convert explicit command units to the native units used by the placement
-    ledger. Unknown scales forget the origin instead of keeping a wrong value.
+    IN METRES OR FORGOTTEN (GOAL-034 Q4, GEO-060 A1a): an origin stated in
+    ``METER`` is converted into the native unit of the placement ledger (G34),
+    and one stated in the simulation's own unit is taken as written; one
+    stated in any other unit is forgotten rather than converted, because no
+    owner decision or native export establishes how the solver reads it.
     """
     from pyflightstream._lengths import scale
 
     held = placements.get(frame)
-    factor = scale(str(bound.get("units")), simulation_unit)
+    units = str(bound.get("units"))
+    factor = scale(units, simulation_unit) if units in ("METER", simulation_unit) else None
     values = _vector(bound, "x", "y", "z")
     origin = (
         None if factor is None else (values[0] * factor, values[1] * factor, values[2] * factor)

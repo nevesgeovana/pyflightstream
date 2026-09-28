@@ -629,12 +629,7 @@ def test_goal022_frames_move_the_ledger_forgets_what_it_does_not_follow():
 
     script, index = placed()
     script.emit("SET_COORDINATE_SYSTEM_ORIGIN", index, 5.0, 0.0, 0.0, "INCH")
-    assert script.frame_placements[index].origin == pytest.approx((0.127, 0.0, 0.0))
-    assert script.frame_placements[index].axes == (
-        (1.0, 0.0, 0.0),
-        (0.0, 1.0, 0.0),
-        (0.0, 0.0, 1.0),
-    )
+    assert script.frame_placements[index].origin is None, "an origin in inches is not metres"
     script.emit("SET_COORDINATE_SYSTEM_ORIGIN", index, 5.0, 0.0, 0.0, "METER")
     assert script.frame_placements[index].origin == (5.0, 0.0, 0.0)
 
