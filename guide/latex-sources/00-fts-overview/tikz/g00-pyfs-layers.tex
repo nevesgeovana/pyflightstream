@@ -1,0 +1,22 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 00-fts-overview/tikz/g00-pyfs-layers.tex
+% What pyflightstream does between the workspace and the solver: the row and
+% the input files go in, a script checked against the build's command
+% database goes to FlightStream, and the exports come back as products.
+% Shared fragment: no sectioning, no frame, no size command, no float. Wrapped by the caller.
+\begin{tikzpicture}[font=\scriptsize, node distance=4mm,
+  blk/.style={draw=CourseBlue, thick, rounded corners, fill=CourseBlue!8,
+              align=center, minimum height=7mm, text width=27mm},
+  fs/.style={draw=CourseGold, very thick, rounded corners, fill=CourseGold!15,
+             align=center, minimum height=7mm, text width=27mm},
+  e/.style={-{Stealth}, thick, CourseBlue}]
+\node[blk] (ws) {\texttt{matriz.fs} and \texttt{inputs/}};
+\node[blk, below=of ws] (plan) {plan: the script, per build\\
+  {\tiny checked against the command database}};
+\node[fs, below=of plan] (fs) {FlightStream\\{\tiny build named on the row}};
+\node[blk, below=of fs] (post) {post: \texttt{post/}\\{\tiny tables and their provenance}};
+\draw[e] (ws) -- (plan);
+\draw[e] (plan) -- node[right, font=\tiny] {run} (fs);
+\draw[e] (fs) -- node[right, font=\tiny] {exports} (post);
+\end{tikzpicture}

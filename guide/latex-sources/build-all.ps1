@@ -2,11 +2,13 @@
 #
 # build-all.ps1
 #
-# Builds the seven guide decks from this folder and copies each final PDF one
-# level up (guide/ in the repository, docs/ in a kit), overwriting. Auxiliary
-# files stay in build/ here, which is never versioned.
+# Builds the eight guide decks, 00 to 07, from this folder and copies each
+# final PDF, named pyfts-guide-<folder>.pdf, one level up (guide/ in the
+# repository, docs/ in a kit), overwriting. Auxiliary files stay in build/
+# here, which is never versioned.
 #
-#   .\build-all.ps1            all seven decks
+#   .\build-all.ps1            all eight decks
+#   .\build-all.ps1 -Only 00   only guide 00, the overview (00-fts-overview)
 #   .\build-all.ps1 -Only 03   only the deck whose folder starts with 03
 #
 # Needs pdflatex on the PATH (MiKTeX installs it; TeX Live works too) with the
@@ -33,7 +35,7 @@ if ($dash) { $dash | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }; 
 $failed = 0
 foreach ($deck in Get-ChildItem $here -Directory | Where-Object { $_.Name -match '^0\d-' } | Sort-Object Name) {
     if ($Only -and -not $deck.Name.StartsWith($Only)) { continue }
-    $job = "fts-guide-$($deck.Name)"
+    $job = "pyfts-guide-$($deck.Name)"
     $out = Join-Path $here "build\$($deck.Name)"
     New-Item -ItemType Directory -Force -Path $out | Out-Null
     $flags = @("-include-directory=$($deck.FullName)", "-include-directory=$shared")

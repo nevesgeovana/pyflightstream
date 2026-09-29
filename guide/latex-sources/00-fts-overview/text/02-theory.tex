@@ -1,0 +1,223 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 00-fts-overview/text/02-theory.tex
+%
+% Part 2: the theory a user needs to justify the boundary-condition and setup
+% choices, steady, unsteady and rotating, and nothing more. Manual pages are
+% those of build 26121 [6]; the physics is in [7-12, 15-17].
+
+\section{How a panel solver works}
+
+\begin{frame}{Potential flow and its boundary conditions}
+\begin{columns}[T]
+\begin{column}{0.56\textwidth}
+\begin{itemize}\small
+  \item Assumptions: \textbf{incompressible, irrotational, inviscid}. The
+        velocity derives from a potential, \(\mathbf{V} = \nabla\phi\), and
+        mass conservation becomes the Laplace equation,
+        \(\nabla^2\phi = 0\) [9, 10].
+  \item The equation is \textbf{linear}: elementary solutions superpose, and
+        the flow about a body is assembled from them.
+  \item Two conditions close it: \textbf{flow tangency} on the surface, and
+        \textbf{decay} of the disturbance far away.
+\end{itemize}
+\end{column}
+\begin{column}{0.40\textwidth}
+\begin{block}{What is absent}
+\small No volume grid, so \textbf{no farfield to size} and no blockage to
+correct: the disturbance decays because the elementary solutions decay
+[6, p.~164].
+\end{block}
+\begin{block}{What it can predict}
+\small Pressure effects: lift, induced drag, moments, interference. Never
+friction drag, which lives in a boundary layer it does not model.
+\end{block}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{From source and doublet panels to surface vorticity}
+\begin{columns}[T]
+\begin{column}{0.58\textwidth}
+\begin{itemize}\small
+  \item A classic panel method gives each surface panel a source or doublet
+        strength, enforces tangency at one point per panel, and solves a
+        dense linear system [9, 10].
+  \item FlightStream carries \textbf{vorticity} on the surface mesh instead
+        [7, 8]. Degenerate faces are removed in preprocessing, and
+        flow-aligned quadrilaterals are preferred on lifting surfaces
+        [6, pp.~75, 156].
+  \item Whatever the singularity: \textbf{surface resolution drives the
+        induced velocities}, and cost grows steeply with the panel count.
+\end{itemize}
+\end{column}
+\begin{column}{0.38\textwidth}
+\slidefig[0.46]{g00-panels-and-wake}
+\end{column}
+\end{columns}
+\begin{takeaway}Different singularity, same physics: enforce tangency, resolve
+the circulation, integrate the pressures.\end{takeaway}
+\end{frame}
+
+\begin{frame}{The Kutta condition and the wake}
+\begin{itemize}\small
+  \item Potential flow alone \textbf{does not fix lift}: any circulation
+        satisfies the equations. The physical statement that selects the real
+        solution is smooth flow leaving a sharp trailing edge [10, 11].
+  \item In the solver, \textbf{marking a trailing edge} is that statement:
+        wake filaments are shed from marked edges, and an unmarked edge sheds
+        nothing at all [6, p.~165].
+  \item The wake carries the trailed vorticity downstream. Its strength
+        mirrors the spanwise load gradient, and \textbf{induced drag} is the
+        price of that vorticity.
+\end{itemize}
+\begin{alertblock}{The most critical input}
+\small An unmarked trailing edge raises no error. It returns a converged
+solution with the wrong lift; the manual calls the trailing edges by far the
+most critical input [6, p.~164].
+\end{alertblock}
+\end{frame}
+
+\begin{frame}{How much circulation is shed: the factor \(K\)}
+\begin{itemize}\small
+  \item The strength of the wake filament leaving a marked edge is
+        \[ \Gamma_{s_t} = \tfrac{K}{2}\left(q_u^{2} - q_l^{2}\right)\Delta t, \]
+        with \(q_u\) and \(q_l\) the velocities above and below the filament
+        [6, p.~165].
+  \item \textbf{Standard Kutta}, \(K = 1\): the full net circulation is shed.
+        The default, and the right choice at any real lifting trailing edge.
+  \item \textbf{Relaxed Kutta}, \(K = 0.5\): half is shed. For an edge that is
+        not sharp, typically the aft end of a rounded fuselage, so that the
+        body carries an equivalent lifting load rather than none.
+  \item Two more types exist: exhaust outflow, and vortex shedding, which has
+        no vortex-bursting model and is not recommended beyond 25 to 30 degrees
+        of incidence [6, p.~165].
+\end{itemize}
+\begin{takeaway}Standard against relaxed is not a numerical knob: it states
+whether an edge is a real trailing edge.\end{takeaway}
+\end{frame}
+
+\begin{frame}{When a trailing edge is not a Kutta edge}
+\begin{columns}[T]
+\begin{column}{0.54\textwidth}
+\begin{itemize}\small
+  \item A \textbf{blunt} trailing edge is a separated base: the solver applies
+        a constant pressure over a \textbf{base region} [6, p.~164].
+  \item Rule of thumb: thicker than \textbf{2 percent of the chord}, keep it
+        blunt with a base region, and mark the base perimeter as trailing
+        edges [6, pp.~164, 167]. Thinner, collapse it to a sharp edge: no loss
+        of accuracy, faster and cleaner convergence.
+  \item A body protruding through a wing trailing edge by a length \(L\), on a
+        chord \(c\): the carry-over decision turns on \(L > c/2\)
+        [6, p.~166].
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\begin{block}{Taken in CAD}
+\small Collapsed or blunt is decided \textbf{before the mesh is made}, and it
+governs every stage after it. Part 3 places it in the geometry stage.
+\end{block}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{What the method captures, and what it does not}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}\small
+  \item \textbf{Inviscid core}: lift slope, induced drag, spanwise loading,
+        thickness effects, interference between components.
+  \item \textbf{Correction models}: friction drag by the boundary layer,
+        decoupled by default, coupled through transpiration for nonlinear
+        decambering [6, pp.~204-211]; subcritical Mach effects by
+        Prandtl-Glauert [6, pp.~218-221], [12].
+  \item \textbf{Not captured} under any setting: deep stall, buffet, shock
+        stall.
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\slidefig[0.40]{g00-trust-region}
+\end{column}
+\end{columns}
+\begin{takeaway}A polar is trustworthy where the flow is attached, and nothing
+in the output says where that ends.\end{takeaway}
+\end{frame}
+
+\begin{frame}{Unsteady: the wake remembers}
+\begin{itemize}\small
+  \item \textbf{Kelvin}: in inviscid flow the circulation of a material
+        contour is conserved. When the bound circulation changes, an equal and
+        opposite vortex is shed into the wake [10].
+  \item The \textbf{starting vortex} is the canonical picture: a wing set
+        impulsively in motion leaves behind a vortex that mirrors the
+        circulation it gains.
+  \item The wake stops being a fixed sheet and becomes part of the solution:
+        it carries the history of every change of lift, and induces velocity
+        back on the wing.
+\end{itemize}
+\slidefig[0.34]{g00-starting-vortex}
+\end{frame}
+
+\begin{frame}{The time step is a mesh dimension}
+\begin{itemize}\small
+  \item The solver marches in \textbf{physical time}: each step runs a block of
+        iterations under the steady settings, and the wake grows one shed
+        segment per step [6, pp.~212-213].
+  \item The streamwise length of a shed segment is the convection velocity
+        times the step: \textbf{the step sets the wake resolution} as the panel
+        size sets the surface resolution. Choose it from a physical time the
+        geometry has, for example the chord's convective time \(t_c = c/V\).
+  \item The judge is the \textbf{reduced frequency} [15, 10]:
+        \[ k = \frac{\omega c}{2 V_\infty}. \]
+        At low \(k\) the flow adjusts quasi-statically; as \(k\) grows, wake
+        memory and phase lag become the answer.
+\end{itemize}
+\begin{takeaway}Run unsteady only when the question demands it: gusts,
+oscillation, dynamic derivatives, rotors. A slow angle sweep is a sequence of
+steady points.\end{takeaway}
+\end{frame}
+
+\begin{frame}{Rotation added to the unsteady problem}
+\begin{itemize}\small
+  \item Each blade section sees the sum of \(\Omega r\) and the free stream;
+        the inflow angle \(\varphi = \arctan\big(V_\infty / (\Omega r)\big)\)
+        varies along the radius, which is why blades are twisted [16, 17].
+  \item Blade geometry and section loads live in the \textbf{rotating} frame;
+        the wake, the airframe and the performance numbers in the
+        \textbf{inertial} one. Name the frame when you report a number.
+  \item Everything unsteady still holds. Rotation adds geometry to the wake,
+        not new principles.
+\end{itemize}
+\slidefig[0.36]{g00-velocity-triangles}
+\end{frame}
+
+\begin{frame}{Propeller performance, and the helical wake}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{align*}
+J &= \frac{V_\infty}{nD}, & C_T &= \frac{T}{\rho n^2 D^4}, \\
+C_P &= \frac{P}{\rho n^3 D^5}, & \eta &= \frac{J C_T}{C_P}
+\end{align*}
+{\small \(n\) in revolutions per second, \(D\) the diameter [16, 17]. At
+fixed \(J\) the non-dimensional picture is fixed; the rotation rate alone only
+rescales the Reynolds and tip Mach numbers.\par}
+\vspace{1mm}
+\begin{alertblock}{The solver reports forces}
+\small It reports forces and moments normalised on the reference values you
+set; \(J\), \(C_T\), \(C_P\) and \(\eta\) are built by you, or by the
+post-processing (Guide 5).
+\end{alertblock}
+\end{column}
+\begin{column}{0.48\textwidth}
+\slidefig[0.28]{g00-helix-pitch}
+\begin{itemize}\small
+  \item The wake is a \textbf{helix} whose pitch is set by \(J\): a low \(J\)
+        packs the turns behind the disc, and each blade meets the wake of the
+        others.
+  \item The clock is the shaft: resolution in degrees per step, about 10 to 12
+        degrees, run length in revolutions, reference velocity the tip speed
+        [6, p.~413].
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
