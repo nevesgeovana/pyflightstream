@@ -32,8 +32,9 @@ guide/*.pdf
 # The seven guide decks are the one exception to the pdf rule, by the
 # owner's decision: their compiled PDFs and the figures they include are
 # tracked beside their sources. The repository guards (pre-commit, the CI
-# guard job and tests/tier1_offline/test_house_style.py) admit a pdf under
-# guide/ and nowhere else; the decks' build/ folder stays ignored.
+# guard job and tests/tier1_offline/test_house_style.py) admit these two
+# patterns and no other pdf, guide/ included; the decks' build/ folder stays
+# ignored.
 !guide/fts-guide-0[1-7]-*.pdf
 !guide/latex-sources/0[1-7]-*/figures/*.pdf
 guide/*.aux

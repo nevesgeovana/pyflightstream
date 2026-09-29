@@ -217,12 +217,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
-      # guide/ is the one place a pdf may be tracked (the compiled guide
-      # decks and their figures), as the forbid-pdf hook and
-      # tests/tier1_offline/test_house_style.py state.
-      - name: No pdf outside guide/, notebook, or _private content tracked
+      # The seven guide decks are the one exemption from the pdf rule: their
+      # compiled PDFs and the figure PDFs their sources include, as the
+      # forbid-pdf hook and tests/tier1_offline/test_house_style.py state. The
+      # suffix grep is case-insensitive, the exemption grep case-sensitive.
+      - name: No pdf but the guide decks', notebook, or _private content tracked
         run: |
-          bad=$(git ls-files | grep -Ei '\.pdf$|\.ipynb$|^_private/' | grep -Eiv '^guide/.*\.pdf$' || true)
+          bad=$(git ls-files | grep -Ei '\.pdf$|\.ipynb$|^_private/' | grep -Ev '^guide/(fts-guide-0[1-7]-[a-z0-9-]+|latex-sources/0[1-7]-[a-z0-9-]+/figures/[A-Za-z0-9_.-]+)\.pdf$' || true)
           if [ -n "$bad" ]; then
             echo "Forbidden tracked files found:"
             echo "$bad"
