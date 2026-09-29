@@ -33,7 +33,7 @@ from pyflightstream._tokens import NOT_APPLICABLE as NOT_APPLICABLE
 # rule every cell is written by. The products take them from the floor themselves.
 from pyflightstream._tokens import POLAR_ID_COLUMN, plain_cell
 from pyflightstream._tokens import REFERENCE_LENGTH_COLUMNS as REFERENCE_LENGTH_COLUMNS
-from pyflightstream.post.axes import blade_azimuth_deg
+from pyflightstream.post.axes import blade_azimuth_deg, placed_blade_azimuth_deg
 
 #: The spellings a RUN recorded, mapped to the product column they mean.
 #:
@@ -410,18 +410,42 @@ def _rotor_of_the_block(
     rotors: Mapping[str, Mapping[str, object]] | None,
     step: int | None,
 ) -> tuple[str | None, float | None]:
-    """Return the rotor that owns every family of a block, and blade one's azimuth."""
+    """Return the rotor that owns every family of a block, and the azimuth it states.
+
+    A block that cuts the families of ONE blade of the rotor (the rotor's
+    ``blade_families``, blade n from 1, each the geometry families that blade
+    may state) states THAT blade's azimuth: blade one's, placed by
+    :func:`~pyflightstream.post.axes.placed_blade_azimuth_deg`, the one home of
+    where blade n sits. Any other block of the rotor (several blades, the
+    general families, or a rotor that states no blade grouping) states blade
+    one's azimuth, as before.
+    """
     for alias, rotor in (rotors or {}).items():
         owned = set(_names_of(rotor.get("families")))
         if not families or not set(families) <= owned:
             continue
-        return str(alias), blade_azimuth_deg(
+        blade_one = blade_azimuth_deg(
             rotor.get("blade1_azimuth_deg"),
             step=step,
             steps_per_revolution=rotor.get("steps_per_revolution"),
             rpm=rotor.get("rpm"),
         )
+        return str(alias), _own_blade_azimuth(families, rotor, blade_one)
     return None, None
+
+
+def _own_blade_azimuth(
+    families: Sequence[str], rotor: Mapping[str, object], blade_one_deg: float | None
+) -> float | None:
+    """Return the azimuth of the ONE blade a block cuts, else blade one's (``blade_one_deg``)."""
+    grouped = rotor.get("blade_families")
+    if isinstance(grouped, str) or not isinstance(grouped, Sequence):
+        return blade_one_deg
+    blades = [set(_names_of(members)) for members in grouped]
+    cut = [number for number, members in enumerate(blades, start=1) if set(families) <= members]
+    if len(cut) != 1:
+        return blade_one_deg
+    return placed_blade_azimuth_deg(blade_one_deg, blade=cut[0], blades=len(blades))
 
 
 #: The twenty-four coefficient columns of a polar row, in the order: the
