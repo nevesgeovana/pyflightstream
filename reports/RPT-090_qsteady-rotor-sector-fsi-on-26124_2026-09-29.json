@@ -5,9 +5,18 @@
  "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
  "package": {
   "version": "0.30.0.dev2",
-  "commit": "0331fe9135be61b391103a3fcec90113a8a7bb75",
+  "tree": "feat/0-30-storage-sync at 4f12aede",
+  "recorded_commit": "c89c603d (report branch on 4f12aede, identical src/)",
   "dirty": false
  },
+ "pproc_exports": "defaults (no export kind turned off)",
+ "found_and_fixed_before_release": {
+  "69cffa41": "coupled row with default exports updates the sections once",
+  "c46bee0e": "clocked wheel log read solve by solve, one verdict per clocking",
+  "24edb353": "wheel cut at clocking 0 over the blade radial span",
+  "4113de02": "qsteady point gets its rotor table at the row speed"
+ },
+ "first_confirmation": "on 0331fe91, runs sim_9001/9002, 9101/9102, 9201/9202",
  "route": "pyfs-matrix plan, pyfs-matrix run (LocalExecutor, -hidden -script), the post run performs",
  "campaign": "pfs0300-l1-ws",
  "solver_rules": {
@@ -32,20 +41,20 @@
  },
  "runs": {
   "rigid": {
-   "run_id": "pfs0300-l1-ws/sim_9001/M144RE438AL+000BE+000RPM00473",
+   "run_id": "pfs0300-l1-ws/sim_9011/M144RE438AL+000BE+000RPM00473",
    "status": "CONVERGED",
-   "wall_time_s": 4.34,
+   "wall_time_s": 2.3,
    "iterations": 60,
    "residual": 8.2770324e-07
   },
   "fsi": {
-   "run_id": "pfs0300-l1-ws/sim_9002/M144RE438AL+000BE+000RPM00473",
+   "run_id": "pfs0300-l1-ws/sim_9012/M144RE438AL+000BE+000RPM00473",
    "status": "CONVERGED",
-   "wall_time_s": 81.79,
+   "wall_time_s": 67.0,
    "iterations": 427,
    "residual": 3.1803694e-07
   },
-  "matrix_run_wall_time_s": 88
+  "matrix_run_wall_time_s": 71
  },
  "measured": {
   "vertices_mapped": 936,
@@ -99,48 +108,39 @@
   "cx_fsi": -0.0099088,
   "cdi_fsi": -0.0099088,
   "cdo_fsi": 0.0,
-  "induced_axial_change_pct": -0.45
+  "induced_axial_change_pct": -0.45,
+  "rotor_table_rigid": {
+   "J": 1.70001,
+   "CT": -0.05309,
+   "CQ": -0.01615,
+   "CP": -0.10146,
+   "ETA": 0.88956
+  },
+  "rotor_table_fsi": {
+   "J": 1.70001,
+   "CT": -0.05351,
+   "CQ": -0.01585,
+   "CP": -0.09959,
+   "ETA": 0.91345
+  },
+  "post_skipped": {}
  },
  "sources": {
-  "rigid_loads": "P9001-M144RE438AL+000BE+000RPM00473.txt",
-  "fsi_loads": "P9002-M144RE438AL+000BE+000RPM00473.txt",
-  "fsi_log": "P9002-M144RE438AL+000BE+000RPM00473_log.txt",
-  "fsi_state": "P9002-M144RE438AL+000BE+000RPM00473.fsm",
+  "rigid_loads": "P9011-M144RE438AL+000BE+000RPM00473.txt",
+  "fsi_loads": "P9012-M144RE438AL+000BE+000RPM00473.txt",
+  "fsi_log": "P9012-M144RE438AL+000BE+000RPM00473_log.txt",
+  "fsi_state": "P9012-M144RE438AL+000BE+000RPM00473.fsm",
   "fsi_convergence_log": "fsi_convergence_log.csv",
   "fsi_displacement": "FSIDisp.txt",
   "staged_config": "config.json",
   "stop_log": "pyfs-aeroelastic-stop.log",
   "averages": [
-   "post/l1_sector/polars/P9001-ROTOR_qs_avg.csv",
-   "post/l1_sector/polars/P9002-ROTOR_qs_avg.csv"
+   "post/l2_sector/polars/P9011-ROTOR_qs_avg.csv",
+   "post/l2_sector/polars/P9012-ROTOR_qs_avg.csv"
   ]
  },
- "findings": [
-  {
-   "id": "F1",
-   "kind": "defect",
-   "topic": "a coupled row with the default pproc exports does not build (ScriptOrderError)",
-   "where": [
-    "src/pyflightstream/cases/fsi_workspace.py:343-345",
-    "src/pyflightstream/cases/workflows.py:11165-11166"
-   ],
-   "workaround_used": "pproc [exports] sections, sectional_loads, probes, plot_sections_cp = false on the coupled row"
-  },
-  {
-   "id": "F2",
-   "kind": "observation",
-   "topic": "the coupled export carries CDo = 0"
-  },
-  {
-   "id": "F3",
-   "kind": "observation",
-   "topic": "no rotor table for a qsteady_rotor point: its record states no speed for the rotor"
-  },
-  {
-   "id": "F4",
-   "kind": "observation",
-   "topic": "the console line 'Aeroelastic solver run time' is not kept among the outputs; pyfs-aeroelastic-stop.log attests it"
-  }
+ "observations": [
+  "the coupled export carries CDo = 0 (rigid +0.0001225)"
  ],
  "cites": [
   "RPT-089",

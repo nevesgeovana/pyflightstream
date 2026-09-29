@@ -5,9 +5,18 @@
  "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
  "package": {
   "version": "0.30.0.dev2",
-  "commit": "0331fe9135be61b391103a3fcec90113a8a7bb75",
+  "tree": "feat/0-30-storage-sync at 4f12aede",
+  "recorded_commit": "c89c603d (report branch on 4f12aede, identical src/)",
   "dirty": false
  },
+ "pproc_exports": "defaults (no export kind turned off)",
+ "found_and_fixed_before_release": {
+  "69cffa41": "coupled row with default exports updates the sections once",
+  "c46bee0e": "clocked wheel log read solve by solve, one verdict per clocking",
+  "24edb353": "wheel cut at clocking 0 over the blade radial span",
+  "4113de02": "qsteady point gets its rotor table at the row speed"
+ },
+ "first_confirmation": "on 0331fe91, runs sim_9001/9002, 9101/9102, 9201/9202",
  "route": "pyfs-matrix plan, pyfs-matrix run (LocalExecutor, -hidden -script), the post run performs",
  "campaign": "pfs0300-l1-ws",
  "solver_rules": {
@@ -57,18 +66,18 @@
  },
  "runs": {
   "rigid": {
-   "run_id": "pfs0300-l1-ws/sim_9201/M147RE342AL+050",
+   "run_id": "pfs0300-l1-ws/sim_9211/M147RE342AL+050",
    "status": "CONVERGED",
-   "wall_time_s": 2.8,
+   "wall_time_s": 2.6,
    "iterations": 62
   },
   "fsi": {
-   "run_id": "pfs0300-l1-ws/sim_9202/M147RE342AL+050",
+   "run_id": "pfs0300-l1-ws/sim_9212/M147RE342AL+050",
    "status": "CONVERGED",
-   "wall_time_s": 49.0,
+   "wall_time_s": 47.0,
    "iterations": 461
   },
-  "matrix_run_wall_time_s": 52
+  "matrix_run_wall_time_s": 50
  },
  "measured": {
   "vertices_mapped": 1052,
@@ -104,12 +113,13 @@
    "solver_My_rigid_Nm": 17.133,
    "integrated_section_moment_fsi_Nm": 4.906,
    "solver_My_fsi_Nm": 14.49,
+   "fsi_source": "P9212-M147RE342AL+050_sloads.txt (equal to FS_SurfaceSection_Loads.txt)",
    "integrated_Fz_rigid_N": 2038.44,
    "Cz_qS_rigid_N": 2070.679,
    "verdict": "same sign (positive) at the level of the integral; magnitude not reconciled (44 %); not corroborated in magnitude"
   },
   "coupling_block_after_initialize_solver": {
-   "script": "sims/sim_9202/scripts/P9202-M147RE342AL+050.txt",
+   "script": "sims/sim_9212/scripts/P9212-M147RE342AL+050.txt",
    "initialize_solver_lines": [
     54,
     62
@@ -122,26 +132,10 @@
    "mapping_formed": 1052
   }
  },
- "findings": [
-  {
-   "id": "F1",
-   "kind": "defect",
-   "topic": "same as RPT-090 F1: default pproc exports make the coupled row fail to build",
-   "where": [
-    "src/pyflightstream/cases/fsi_workspace.py:343-345",
-    "src/pyflightstream/cases/workflows.py:11165-11166"
-   ]
-  },
-  {
-   "id": "F2",
-   "kind": "observation",
-   "topic": "the coupled export carries CDo = 0"
-  },
-  {
-   "id": "F3",
-   "kind": "observation",
-   "topic": "fsi_convergence_log.csv tip_flap_m is unsigned (src/pyflightstream/fsi/driver.py:653)"
-  }
+ "post_skipped": {},
+ "observations": [
+  "the coupled export carries CDo = 0 (rigid 0.0093534)",
+  "fsi_convergence_log.csv tip_flap_m is unsigned (src/pyflightstream/fsi/driver.py:653)"
  ],
  "cites": [
   "RPT-025",
