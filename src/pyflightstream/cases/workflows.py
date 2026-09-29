@@ -112,6 +112,7 @@ from pyflightstream.cases import (
     ActuatorBlock,
     CampaignConfigError,
     CustomFlag,
+    FsiConfig,
     InputKey,
     MeshOperation,
     PhaseLockedSpec,
@@ -141,7 +142,6 @@ from pyflightstream.commands import (
     Status,
     VersionView,
 )
-from pyflightstream.fsi.config import FsiConfig
 from pyflightstream.results import MalformedOutputError, SurfaceFrame
 from pyflightstream.script import (
     MARCH_ACTIONS,
