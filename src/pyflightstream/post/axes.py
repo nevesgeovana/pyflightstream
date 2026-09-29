@@ -47,12 +47,16 @@ from pyflightstream._errors import ProductError
 
 __all__ = [
     "EXPORT_TO_BODY",
+    "REFERENCE_UP",
+    "ROTOR_NORMAL_FLOOR",
     "blade_azimuth_deg",
     "body_to_stability",
     "body_to_wind",
     "dcm",
     "free_stream_in_export_frame",
     "polar_axis_coefficients",
+    "rotor_in_plane_axes",
+    "rotor_in_plane_loads",
     "stability_force_coefficients",
     "velocity_in_body_frame",
     "wind_angles",
@@ -291,3 +295,80 @@ def polar_axis_coefficients(
         row.extend((float(turned[0]) * span, float(turned[1]), float(turned[2]) * span))
     # `+ 0.0` turns a negative zero into zero: a table prints `-0.00000` otherwise.
     return tuple(value + 0.0 for value in row)
+
+
+#: The reference frame's UP, in the export frame (x aft, y right, z up): the
+#: direction a rotor's normal axis N is taken from (0.31.0, G8).
+REFERENCE_UP: tuple[float, float, float] = (0.0, 0.0, 1.0)
+
+#: The length below which the part of UP square to a rotor's axis names no
+#: direction: an axis along UP has no normal and no side axis, and the four
+#: in-plane components are not defined rather than zero.
+ROTOR_NORMAL_FLOOR = 1e-9
+
+
+def rotor_in_plane_axes(axis: Sequence[float]) -> tuple[Vector, Vector, Vector] | None:
+    """Return a rotor's ``(T, S, N)`` unit vectors in the export frame, or None.
+
+    ``T`` is the rotor's axis as declared, the sense in which its thrust is
+    counted positive. ``N``, the normal, is the part of :data:`REFERENCE_UP`
+    square to ``T``, normalised. ``S``, the side axis, completes the
+    right-handed set ``(T, S, N)``: ``S = N x T``, so ``T x S = N``. On a
+    level rotor whose axis points forward (``-x``, the export's x being aft)
+    ``N`` is up (``+z``) and ``S`` is ``-y``: the right of a viewer standing
+    upstream of the rotor and looking downstream at it.
+
+    None where the direction is undefined: an axis of no length, or one along
+    UP, whose square part is shorter than :data:`ROTOR_NORMAL_FLOOR`.
+
+    Examples
+    --------
+    >>> t, s, n = rotor_in_plane_axes((-1.0, 0.0, 0.0))
+    >>> [float(c) + 0.0 for c in s], [float(c) + 0.0 for c in n]
+    ([0.0, -1.0, 0.0], [0.0, 0.0, 1.0])
+    >>> rotor_in_plane_axes((0.0, 0.0, 2.0)) is None
+    True
+    """
+    thrust = np.asarray(axis, dtype=float)
+    length = float(np.linalg.norm(thrust))
+    if not math.isfinite(length) or length == 0.0:
+        return None
+    thrust = thrust / length
+    up = np.asarray(REFERENCE_UP, dtype=float)
+    square = up - float(up @ thrust) * thrust
+    reach = float(np.linalg.norm(square))
+    if reach <= ROTOR_NORMAL_FLOOR:
+        return None
+    normal = square / reach
+    side = np.cross(normal, thrust)
+    return thrust, side, normal
+
+
+def rotor_in_plane_loads(
+    force: Sequence[float], moment: Sequence[float], axis: Sequence[float]
+) -> tuple[float, float, float, float] | None:
+    """Return ``(N, S, MN, MS)``: a rotor's in-plane force and moment components.
+
+    ``force`` is the rotor's force and ``moment`` its moment about the HUB,
+    both in the export frame; ``N`` and ``S`` are the force along the normal
+    and the side axes of :func:`rotor_in_plane_axes`, ``MN`` and ``MS`` the
+    moment about them. None where those axes are undefined.
+
+    Examples
+    --------
+    >>> rotor_in_plane_loads((0.0, -3.0, 2.0), (0.0, 5.0, 7.0), (-1.0, 0.0, 0.0))
+    (2.0, 3.0, 7.0, -5.0)
+    """
+    axes = rotor_in_plane_axes(axis)
+    if axes is None:
+        return None
+    _thrust, side, normal = axes
+    f = np.asarray(force, dtype=float)
+    m = np.asarray(moment, dtype=float)
+    # `+ 0.0` turns a negative zero into zero: a table prints `-0.00000` otherwise.
+    return (
+        float(f @ normal) + 0.0,
+        float(f @ side) + 0.0,
+        float(m @ normal) + 0.0,
+        float(m @ side) + 0.0,
+    )

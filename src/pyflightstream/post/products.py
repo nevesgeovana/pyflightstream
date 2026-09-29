@@ -169,6 +169,8 @@ from pyflightstream.post.axes import (
     blade_azimuth_deg,
     free_stream_in_export_frame,
     polar_axis_coefficients,
+    rotor_in_plane_axes,
+    rotor_in_plane_loads,
 )
 from pyflightstream.post.custom_polar import (
     CUSTOM_DATE_FORMAT as _CUSTOM_DATE_FORMAT,  # noqa: F401
@@ -1038,6 +1040,12 @@ def swept_polar_file_name(
 #: J, CT, CQ, CP, ETA and ETAW (the efficiency in wind axes).
 ROTOR_COEFFICIENT_COLUMNS: tuple[str, ...] = ("J", "CT", "CQ", "CP", "ETA", "ETAW")
 
+#: The rotor's in-plane coefficients (0.31.0, G8), the LAST four columns of its
+#: table, after `MTIP_<alias>` and `MHEL_<alias>`: the force along the normal
+#: and side axes and the moment about them, in the rotor's `(T, S, N)` axes
+#: (:func:`pyflightstream.post.axes.rotor_in_plane_axes`).
+ROTOR_IN_PLANE_COLUMNS: tuple[str, ...] = ("CN", "CS", "CMN", "CMS")
+
 
 # `rotor_table_alias_line` WAS HERE, and 0.27.0 (G16) retired it with the line it
 # wrote. From 0.23.0 (item 18) a rotor table opened with its alias alone on the
@@ -1359,8 +1367,9 @@ def rotor_coefficients(
     speed_m_s: float,
     shaft_angle_deg: float = 0.0,
     wind_force_n: float | None = None,
+    in_plane_loads: Sequence[float] | None = None,
 ) -> dict[str, float | str]:
-    """Return the six standard coefficients of one rotor.
+    """Return the six standard coefficients of one rotor, and its four in-plane ones.
 
     THE DEFINITIONS, written here because a coefficient whose formula lives
     only in code is a number nobody can check. ``n`` is signed revolutions per
@@ -1375,6 +1384,15 @@ def rotor_coefficients(
         ETA  = J CT / CP
         CTW  = Fx_W / (rho n^2 D^4)
         ETAW = J CTW / CP
+        CN   = N / (rho n^2 D^4)
+        CS   = S / (rho n^2 D^4)
+        CMN  = MN / (rho n^2 D^5)
+        CMS  = MS / (rho n^2 D^5)
+
+    ``N``, ``S``, ``MN`` and ``MS`` are ``in_plane_loads``, the rotor's force
+    along its normal and side axes and its moment about them at the hub
+    (:func:`pyflightstream.post.axes.rotor_in_plane_loads`); the four read
+    ``NA`` where the caller states none, or states one that is not a number.
 
     ``Fx_W`` is ``wind_force_n``: the rotor's whole force vector carried from the
     rotor frame to the airframe body frame and then to wind axes by the AIAA
@@ -1468,6 +1486,23 @@ def rotor_coefficients(
         "CQ": torque_coefficient,
         "CP": power_coefficient,
     }
+    # 0.31.0 (G8): THE IN-PLANE SET, by the same `rho n^2 D^4` and `D^5` as
+    # `CT` and `CQ`, with the magnitude of the rate: a side force is not a
+    # power, so the sense of rotation does not enter it.
+    stated_in_plane = (
+        tuple(float(value) for value in in_plane_loads) if in_plane_loads is not None else ()
+    )
+    if len(stated_in_plane) == 4 and all(math.isfinite(value) for value in stated_in_plane):
+        force_scale = density_kg_m3 * rate**2 * diameter_m**4
+        moment_scale = force_scale * diameter_m
+        normal, side, about_normal, about_side = stated_in_plane
+        values["CN"] = normal / force_scale
+        values["CS"] = side / force_scale
+        values["CMN"] = about_normal / moment_scale
+        values["CMS"] = about_side / moment_scale
+    else:
+        for name in ROTOR_IN_PLANE_COLUMNS:
+            values[name] = NOT_APPLICABLE
     if speed_m_s == 0 or power_coefficient == 0:
         values["ETA"] = NOT_APPLICABLE
         values["ETAW"] = NOT_APPLICABLE
@@ -2418,6 +2453,7 @@ def write_rotor_table(
     # keeps its name and its order.
     # 0.30.0 (M1): the tip and helical Mach numbers LAST, so every column
     # before them keeps its position.
+    # 0.31.0 (G8): the four in-plane coefficients after them, last again.
     columns = (
         POLAR_ID_COLUMN,
         ROTOR_ID_COLUMN,
@@ -2427,8 +2463,15 @@ def write_rotor_table(
         *rotor_coefficient_columns(alias),
         f"MTIP_{alias}",
         f"MHEL_{alias}",
+        *(f"{name}_{alias}" for name in ROTOR_IN_PLANE_COLUMNS),
     )
     diameter = float(getattr(rotor, "diameter_m", 0.0) or 0.0)
+    # 0.31.0 (G8): the rotor's (T, S, N) axes are the same for every row, so
+    # an axis along the reference frame's up, which has no normal and no side
+    # axis, is said once for the table and its four in-plane columns read NA.
+    shaft = _unit(getattr(rotor, "axis_vector", (0.0, 0.0, 1.0)))
+    in_plane_defined = rotor_in_plane_axes(shaft) is not None
+    in_plane_said = False
 
     written: list[tuple[object, ...]] = []
     # THE TWO OUT-PARAMETERS, normalised once so every `continue` below can
@@ -2552,7 +2595,27 @@ def write_rotor_table(
             # wind-axis force both existed for a few minutes without this line,
             # and `ETAW` would have gone on being the cosine it was.
             wind_force_n=loads.wind_force_n,
+            # 0.31.0 (G8): the same force and hub moment the thrust and the
+            # torque are turned from, resolved on the rotor's normal and side
+            # axes; None (NA) where they are not a number or the axes are
+            # undefined.
+            in_plane_loads=(
+                rotor_in_plane_loads(loads.force_n, loads.moment_hub_nm, shaft)
+                if loads.force_n is not None and loads.moment_hub_nm is not None
+                else None
+            ),
         )
+        if not in_plane_defined and not in_plane_said:
+            in_plane_said = True
+            warn(
+                f"point={run_id or 'NA'} product={Path(path).name}: rotor {alias}'s axis "
+                f"{tuple(round(component, 6) for component in shaft)} lies along the "
+                "reference frame's up direction (+z), so it has no normal and no side "
+                f"axis, and CN_{alias}, CS_{alias}, CMN_{alias} and CMS_{alias} read NA "
+                "on every row of this table.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         stated_condition = row.get("condition")
         condition = dict(stated_condition) if isinstance(stated_condition, Mapping) else {}
         # 0.30.0 (M1): `NA` where the point's air did not resolve, never a guess.
@@ -2583,6 +2646,7 @@ def write_rotor_table(
                 diameter,
                 *(coefficients[name] for name in ROTOR_COEFFICIENT_COLUMNS),
                 *machs,
+                *(coefficients[name] for name in ROTOR_IN_PLANE_COLUMNS),
             )
         )
         emitted.append(run_id)

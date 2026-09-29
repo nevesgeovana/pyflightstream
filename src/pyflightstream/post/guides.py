@@ -115,6 +115,7 @@ from pyflightstream.post._tables import CONTEXT_COLUMNS
 from pyflightstream.post.products import (
     PHASE_LOCKED_COLUMNS,
     ROTOR_COEFFICIENT_COLUMNS,
+    ROTOR_IN_PLANE_COLUMNS,
     UNSTEADY_AXIS_COLUMNS,
 )
 from pyflightstream.script.helpers import ROTATION_COMMANDS
@@ -228,6 +229,17 @@ VARIABLE_DEFINITIONS: dict[str, str] = {
     "CP": "-. Power coefficient, 2 pi CQ",
     "ETA": "-. Propulsive efficiency, J CT / CP",
     "ETAW": "-. The efficiency with the wind-axis force in place of the thrust, J CTW / CP",
+    "CN": (
+        "-. In-plane normal-force coefficient, N / (rho n^2 D^4): the rotor's force along "
+        "N, the part of the reference frame's up (+z) square to the rotor's axis; NA "
+        "where the axis lies along up"
+    ),
+    "CS": (
+        "-. In-plane side-force coefficient, S / (rho n^2 D^4): the rotor's force along "
+        "S = N x T, which completes the right-handed axes (T, S, N), T the rotor's axis"
+    ),
+    "CMN": "-. Moment coefficient about N at the hub, MN / (rho n^2 D^5)",
+    "CMS": "-. Moment coefficient about S at the hub, MS / (rho n^2 D^5)",
     **{
         f"C{part}{axes}{at}": f"-. {what} coefficient in {system} axes{about}"
         for axes, system in (("W", "wind"), ("S", "stability"), ("B", "body"))
@@ -332,6 +344,7 @@ def _variables_page(glossary: Sequence[tuple[str, str]]) -> str:
         "",
     ]
     lines += [_defined(name, f"{name}_<alias>") for name in ROTOR_COEFFICIENT_COLUMNS]
+    lines += [_defined(name, f"{name}_<alias>") for name in ROTOR_IN_PLANE_COLUMNS]
     lines += [
         "",
         "## The unsteady polar adds these",

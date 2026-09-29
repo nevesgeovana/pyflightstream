@@ -327,7 +327,16 @@ def test_the_rotor_table_states_both_numbers_last(tmp_path):
         tmp_path / "P1-PUSHER_rotor.csv", rotor=rotor, rows=[_row()], reference=_reference()
     )
     columns, rows = read_csv_table(written)
-    assert tuple(columns[-2:]) == ("MTIP_PUSHER", "MHEL_PUSHER"), columns
+    # 0.31.0 (G8): the owner's requirement puts the four in-plane coefficients
+    # after the two Mach numbers, which stay last of every column 0.30.0 wrote.
+    assert tuple(columns[-6:]) == (
+        "MTIP_PUSHER",
+        "MHEL_PUSHER",
+        "CN_PUSHER",
+        "CS_PUSHER",
+        "CMN_PUSHER",
+        "CMS_PUSHER",
+    ), columns
     assert float(rows[0]["MTIP_PUSHER"]) == pytest.approx(100.0 * math.pi / 340.0, abs=1e-5)
     assert float(rows[0]["MHEL_PUSHER"]) == pytest.approx(
         math.hypot(50.0, 100.0 * math.pi) / 340.0, abs=1e-5
