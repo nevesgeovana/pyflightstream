@@ -37,7 +37,6 @@ import json
 import os
 import re
 import shutil
-import stat
 import tomllib
 import zipfile
 from collections.abc import Iterable, Iterator, Mapping, Sequence
@@ -49,10 +48,16 @@ from pyflightstream.workspace import (
     CampaignWorkspace,
     RunStatus,
     WorkspaceError,
+    matrix_files,
     planned_points_without_record,
     post_stages,
 )
-from pyflightstream.workspace._links import _is_link, _make_dir_link, _remove_link
+from pyflightstream.workspace._links import (
+    _is_link,
+    _is_reparse,
+    _make_dir_link,
+    _remove_link,
+)
 from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP
 
 __all__ = [
@@ -139,15 +144,6 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1 << 20), b""):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def _is_reparse(path: Path) -> bool:
-    """Say whether ``path`` is a symbolic link or a Windows junction (never followed)."""
-    try:
-        info = path.lstat()
-    except OSError:
-        return False
-    return stat.S_ISLNK(info.st_mode) or bool(getattr(info, "st_file_attributes", 0) & 0x400)
 
 
 def _walk_files(root: Path) -> Iterator[Path]:
@@ -1227,18 +1223,13 @@ def read_matrix_owners(root: Path) -> dict[str, str]:
 def _matrix_files(ws: Path) -> dict[str, Path]:
     """Find a workspace's matrices: ``<root>/<stem>.fs`` or ``inputs/matrices/<stem>.fs``."""
     found: dict[str, Path] = {}
-    for folder in (ws, ws / "inputs" / "matrices"):
-        if not folder.is_dir():
-            continue
-        for path in sorted(folder.glob("*.fs")):
-            if not path.is_file() or _is_reparse(path):
-                continue
-            if path.stem in found:
-                raise StorageError(
-                    f"{ws}: matrix {path.stem!r} is in two places ({found[path.stem]} and "
-                    f"{path.relative_to(ws)}); keep one"
-                )
-            found[path.stem] = path.relative_to(ws)
+    for path in matrix_files(ws):
+        if path.stem in found:
+            raise StorageError(
+                f"{ws}: matrix {path.stem!r} is in two places ({found[path.stem]} and "
+                f"{path.relative_to(ws)}); keep one"
+            )
+        found[path.stem] = path.relative_to(ws)
     return found
 
 

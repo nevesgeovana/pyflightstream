@@ -9,6 +9,13 @@ FlightStream versions.
 
 ### Changed
 
+- **The repeated-POL census reads the matrices `sync` reads.** `pyfs-matrix plan`
+  compared POLs across `<root>/*.fs` only, while `sync` and storage also read
+  `<root>/inputs/matrices/*.fs`, so a POL repeated between the two folders shared
+  one simulation folder unseen. One function, `pyflightstream.workspace.matrix_files`,
+  now lists them for the census, storage and sync, and a matrix planned from any
+  other folder plans with a warning naming it and saying sync and the census do
+  not see it (P0310-POL-CENSUS).
 - **The quasi-steady record has one type, one reader and one refusal.**
   `<point>_qsteady.json` is read as a `QsteadyRecord` by
   `pyflightstream.cases.qsteady.read_qsteady_record`, which raises

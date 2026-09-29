@@ -27,6 +27,15 @@ import sys
 from pathlib import Path
 
 
+def _is_reparse(path: Path) -> bool:
+    """Say whether ``path`` is a symbolic link or a Windows junction (never followed)."""
+    try:
+        info = path.lstat()
+    except OSError:
+        return False
+    return stat.S_ISLNK(info.st_mode) or bool(getattr(info, "st_file_attributes", 0) & 0x400)
+
+
 def _is_link(path: Path) -> bool:
     """Whether ``path`` is a symbolic link or, on Windows, a directory junction."""
     return path.is_symlink() or (sys.platform == "win32" and _is_junction(path))

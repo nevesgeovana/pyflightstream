@@ -48,7 +48,10 @@ remain in one cell. Python does not calculate formulas.
 
 Matrices may live at the workspace root or in inputs/matrices. Existing files
 keep their location; new files use inputs/matrices. A duplicate filename across
-both locations is ambiguous. Recognized historical schemas retain their own
+both locations is ambiguous. These two folders, and only these, are the workspace's
+matrices: `sync`, storage and the repeated-POL check of `pyfs-matrix plan` all read
+the same list. A matrix planned from any other folder plans with a warning that
+sync and that check do not see it. Recognized historical schemas retain their own
 columns and order. New supported fields append proposed mappings and columns;
 collisions with custom headers are refused. Identity changes add rows and never
 silently delete old rows. Unrelated comments and line endings remain intact.

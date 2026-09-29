@@ -303,7 +303,8 @@ by name, with `--from station-b`, or all of them at once when `--from` is
 left out.
 
 `matrices` names the matrices each workspace OWNS, by stem (the file is
-`<stem>.fs` at the workspace root or in `inputs/matrices/`). A matrix
+`<stem>.fs` at the workspace root or in `inputs/matrices/`, the two folders and
+no other; the repeated-POL check of `pyfs-matrix plan` reads the same two). A matrix
 belongs to one workspace and one only; a workspace may own several. A stem
 declared by two workspaces refuses the sync, and so does a matrix file, in
 the main workspace or in a source, that no workspace declares.
