@@ -548,6 +548,32 @@ def position_loads_name(loads: str, index: int) -> str:
     return str(path.with_name(f"{path.stem}{POSITION_SUFFIX}{index:02d}{path.suffix}"))
 
 
+def position_export_name(name: str, suffix: str, index: int) -> str:
+    """Return export ``name`` of clocking ``index``: the position before its kind's suffix (0.31.0).
+
+    A wheel exports its section distributions at every clocking, and each
+    clocking's file keeps the suffix that says which kind of export it is, so
+    ``_qs<i>`` goes in front of that suffix and never after it: a sectional
+    loads export of clocking 2 still ends ``_sloads.txt``. For the loads table
+    (suffix ``.txt``) this is :func:`position_loads_name`.
+
+    Raises
+    ------
+    ValueError
+        If ``name`` does not end with ``suffix``.
+
+    Examples
+    --------
+    >>> position_export_name("DP_AL+050_sloads.txt", "_sloads.txt", 2)
+    'DP_AL+050_qs02_sloads.txt'
+    >>> position_export_name("DP_AL+050.txt", ".txt", 3) == position_loads_name("DP_AL+050.txt", 3)
+    True
+    """
+    if not name.endswith(suffix):
+        raise ValueError(f"the export {name!r} does not end with its kind's suffix {suffix!r}")
+    return f"{name[: len(name) - len(suffix)]}{POSITION_SUFFIX}{index:02d}{suffix}"
+
+
 def validity_file_name(loads: str) -> str:
     """Return the post's per-point validity file's name, beside the point's own loads export.
 

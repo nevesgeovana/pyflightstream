@@ -264,7 +264,9 @@ frame, one after another with no marker between them. Each row leads with:
 `AZIMUTH = (blade1.azimuth_deg + sense * STEP * 360 / steps_per_revolution) mod 360`,
 with the datum, the sense of rotation (the sign of the rotor's speed) and the
 steps per revolution all taken from THAT rotor. Two rotors at two speeds have
-two azimuths at one step, and a wing has none.
+two azimuths at one step, and a wing has none. The sections of a quasi-steady
+WHEEL point hold every clocking, and there a block of one blade states where
+THAT blade is at its clocking ([The quasi-steady rotor](#the-quasi-steady-rotor)).
 
 The run records which distribution is which, because the script states
 surfaces by index and nothing at post can name them. A run recorded before
@@ -296,6 +298,10 @@ removed. Names that collide after sanitization, including differences only in
 case, receive `_<k>`, the entry's 1-based pproc position. If that creates another
 collision, the same position suffix is applied again until names are unique.
 All planes and expanded blade/rotor blocks of one entry share its one file.
+On a quasi-steady WHEEL point each file holds every clocking, with a
+`CLOCKING` column after the export's own columns and the azimuth of each
+block's blade at that clocking, as the sections table does
+([The quasi-steady rotor](#the-quasi-steady-rotor)).
 
 With `EXPORT_UNSTEADY_AFTER_REV` or `EXPORT_UNSTEADY_AFTER_ITER`, each file holds
 **every available stamped step**, in ascending order. Without per-step exports,
@@ -1684,13 +1690,14 @@ A workspace opts in per `[[probes]]` entry with `frame = "REFERENCE"`, `field_fo
 A `qsteady_rotor` point is steady, and every product a steady point writes
 (the polar, the rotor table, the sections, the probes) is written for it as
 for any steady point: the instant of its own solve, which on a wheel is
-clocking 0. The rotor table's speed, `RPM_<alias>`, is the row's, the speed
+clocking 0, except that a wheel's sections hold every clocking (since 0.31.0,
+below). The rotor table's speed, `RPM_<alias>`, is the row's, the speed
 the free stream turns at, read from the point's quasi-steady record
 (`<point>_qsteady.json`), as an unsteady rotor's is read from its plan; a
 sector's table is its one solve's export as it stands, with no factor for
 the periodic copies (the export carries the whole rotor where the row enables
 symmetry loads and the sector alone where it does not). Two products are the run type's own, and a wheel point's sections
-gain two things.
+gain its clockings and its validity.
 
 - **The clockings table**, `polars/P<sim>-<ALIAS>_qs_positions.csv`: one row
   per point and clocking, the shape of the unsteady rotor's phase-locked table
@@ -1735,9 +1742,46 @@ on a licensed run. Where the point has no such export the values are the
 plan's, the chord read off the mesh (`K_1P_SOURCE` `mesh`), and the two
 shares are `NA`.
 
-**The sections of a wheel point** gain `K_1P`, the reduced frequency of each
-row of the rotor (`NA` on a row no rotor owns), and the validity columns,
-after the export's own columns.
+**The sections of a wheel point** (0.31.0) hold EVERY clocking: the wheel
+exports its section distributions at each clocking, created again in that
+clocking's pose in frames turned with the wheel (see the workspace page), and
+`sections/<point>_sections.csv` holds clocking 0's rows, then clocking 1's,
+up to clocking `k - 1`'s, each block in the order the run recorded it. After
+the export's own columns come:
+
+| column | what it is |
+|---|---|
+| `CLOCKING` | `i`, the clocking the row was cut at; 0 is the point's own solve |
+| `K_1P` | the reduced frequency of the row's station (`NA` on a row no rotor owns) |
+| the validity columns | the point's, one value down the table |
+
+and on every row `ROTOR` is the wheel's rotor for a block of its families,
+and `AZIMUTH` states where the block's blade is at that clocking,
+
+`AZIMUTH = (blade1.azimuth_deg + (n - 1) * 360 / N + sense * i * (360 / N) / k) mod 360`
+
+for a block of ONE blade, blade `n` of the rotor's `N` (its place in
+`families_blades`), with `sense` the sign of the rotor's speed: blade `n`
+sits `(n - 1) / N` of a turn from blade one, as the blade frames are placed,
+and clocking `i` turns the wheel by `theta_i` in the sense of rotation, as the
+surfaces are turned. A block of several families of the rotor states blade
+one's, which is what `AZIMUTH` means in every other sections table; a block
+no rotor owns reads `NA`. The rule has one home,
+`pyflightstream.post.axes.clocked_blade_azimuth_deg`.
+
+Every clocking is cut at the same stations (each distribution is created in
+its frame turned with the blades, so the blade spans one interval along every
+clocking's normal): the post compares each clocking's blocks, planes and
+`Offset` with clocking 0's, to a thousandth of the largest offset, and a
+clocking that differs is tabled as exported and warned in `post.log`. A
+clocking whose export the point's record does not name (a wheel run before
+0.31.0 exported its sections at clocking 0 only), or which is not on disk, is
+not in the table, and `products.json` names it under the table's key with
+`#clocking=<i>`; the other clockings are written.
+
+The validity summary is taken over clocking 0's rows, the point's own solve,
+so a clocking's stations are not counted `k` times; `K_1P` is stated on every
+row.
 
 **The super file** row of a wheel point carries the validity columns after
 every other key of the row, the sections' values where the point has them,

@@ -7,6 +7,33 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- **A clocked quasi-steady wheel exports its sections at every clocking.** A
+  `qsteady_rotor` wheel of `PASSAGE_POSITIONS` 2 or more exported its
+  sections, sectional loads and section Cp at clocking 0 alone. Each clocking
+  now deletes the previous clocking's distributions, turns the wheel,
+  initialises, creates them again in frames turned with the wheel to that
+  clocking and held there, updates them and exports them as
+  `<point>_qs<i>_cp.txt`, `<point>_qs<i>_sloads.txt` and
+  `<point>_qs<i>_plot_cp_sections.txt`, the ones the row declares. Every
+  clocking is cut at the same stations over the blade's span, and the point's
+  quasi-steady record names each clocking's files (`section_exports`).
+- **A wheel's `LOCAL_AXIS` distributions are cut.** A wheel whose pproc cuts
+  its sections in `LOCAL_AXIS` places one frame per blade, `<ALIAS>_RMRP<k>`,
+  at the blade's azimuth; such a distribution was left out with a warning
+  before, because a steady run placed no blade frame.
+- **A wheel point's sections table holds every clocking.**
+  `sections/<point>_sections.csv` and each distribution's sectional loads and
+  Cp file gain a `CLOCKING` column and one block of rows per clocking, and
+  `AZIMUTH` states where each block's blade is at that clocking,
+  `(blade1.azimuth_deg + (n - 1) * 360 / N + sense * theta_i) mod 360`. A
+  clocking not cut at clocking 0's stations is warned in `post.log`, and one
+  whose export is missing is named in `products.json`. The validity summary
+  stays clocking 0's.
+- **`post.axes.clocked_blade_azimuth_deg`**, where blade `n` of a wheel of `N`
+  blades solved at `k` clockings is at clocking `i`, is public.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

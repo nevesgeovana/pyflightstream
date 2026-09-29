@@ -12,6 +12,10 @@ one loads export per further clocking. This module reads them and writes:
   the shape of the unsteady rotor's phase-locked table (one row per azimuth);
 * the AVERAGE table, ``polars/P<sim>-<ALIAS>_qs_avg.csv``: one row per point,
   the mean over its clockings, the shape of the unsteady time average;
+* for a WHEEL point, every clocking's rows in the point's sections table, each
+  with its ``CLOCKING`` and each blade's own ``AZIMUTH`` at that clocking
+  (0.31.0, :func:`add_clockings_to_sections`), the wheel exporting its section
+  distributions at every clocking;
 * the 1P reduced frequency of each station (``K_1P``) in the point's sections
   table, and the point's validity columns (:data:`VALIDITY_COLUMNS`) in all
   three, and in the point's row of the super file;
@@ -50,6 +54,7 @@ from typing import Any
 from pyflightstream._errors import ProductError
 from pyflightstream._tokens import CONTEXT_COLUMNS, NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.cases.qsteady import (
+    POSITION_SUFFIX,
     REDUCED_FREQUENCY_LIMIT,
     REDUCED_FREQUENCY_WATCH,
     record_file_name,
@@ -59,6 +64,7 @@ from pyflightstream.cases.qsteady import (
     validity_file_name,
 )
 from pyflightstream.post._tables import _cell, context_row, write_csv_table
+from pyflightstream.post.axes import clocked_blade_azimuth_deg
 from pyflightstream.results import parse_loads
 from pyflightstream.workspace.inputs import qsteady_record_rotor_alias
 
@@ -75,6 +81,13 @@ VALIDITY_COLUMNS: tuple[str, ...] = (
 )
 #: The column the sections table of a quasi-steady wheel point gains per station.
 STATION_COLUMN = "K_1P"
+#: The column a wheel point's sections table gains (0.31.0): the clocking each
+#: row was cut at, ``i`` of ``theta_i``, 0 the point's own solve.
+CLOCKING_COLUMN = "CLOCKING"
+#: How far a station of a later clocking may sit from clocking 0's before the
+#: post says the stations are not aligned: a thousandth of the block's largest
+#: offset, the resolution the sectional loads export prints its offsets to.
+STATION_TOLERANCE = 1e-3
 #: The six loads and the two shaft components, per rotor and per blade.
 LOAD_NAMES: tuple[str, ...] = ("FX", "FY", "FZ", "MX", "MY", "MZ", "THRUST", "TORQUE")
 #: The spine of the clockings table, before the validity and the loads.
@@ -240,6 +253,171 @@ def write_point_validity_file(
     return path
 
 
+def clocking_section_export(position: Mapping[str, Any], kind: str) -> str | None:
+    """Return a clocking's section export of ``kind`` as the point's record names it, or None.
+
+    The record of a wheel that cuts sections names, per clocking, the file of
+    each section export the script wrote (``section_exports``, 0.31.0), keyed
+    by the export kind (``sectional_loads``, ``sections``,
+    ``plot_sections_cp``). None for a kind the clocking did not export and for
+    every record written before 0.31.0, whose wheel exported its sections at
+    clocking 0 only.
+    """
+    exports = position.get("section_exports")
+    if not isinstance(exports, Mapping):
+        return None
+    name = exports.get(kind)
+    return name if isinstance(name, str) and name else None
+
+
+def wheel_block_identity(
+    record: Mapping[str, Any], families: Sequence[str], clocking: int
+) -> tuple[str | None, float | None]:
+    """Return the ``ROTOR`` and ``AZIMUTH`` a wheel point's block of sections states (0.31.0).
+
+    The rotor is the record's where it owns every family of the block, else
+    None. A block of ONE blade states where THAT blade is at ``clocking``
+    (:func:`~pyflightstream.post.axes.clocked_blade_azimuth_deg`); any other
+    block of the rotor states where blade one is, which is what ``AZIMUTH``
+    means in every other sections table; a block no rotor owns states none.
+    """
+    blades = [str(name) for name in record.get("families_blades") or []]
+    owned = {*blades, *(str(name) for name in record.get("families_general") or [])}
+    if not families or not set(families) <= owned:
+        return None, None
+    blade = blades.index(families[0]) + 1 if len(families) == 1 and families[0] in blades else 1
+    positions = record.get("positions")
+    return str(record.get("rotor")), clocked_blade_azimuth_deg(
+        record.get("blade1_azimuth_deg"),
+        blade=blade,
+        blades=record.get("blades"),
+        clocking=clocking,
+        positions=len(positions) if isinstance(positions, list) else None,
+        rpm=record.get("rpm"),
+    )
+
+
+@dataclass(frozen=True)
+class ClockedSections:
+    """What :func:`add_clockings_to_sections` could not do, for the post to say.
+
+    ``missing`` maps a clocking to why its rows are not in the table (the post
+    names each under the table); ``misaligned`` names each clocking whose
+    stations are not clocking 0's (the post warns, and the rows are kept).
+    """
+
+    missing: dict[int, str]
+    misaligned: list[str]
+
+
+def _stations(
+    rows: Sequence[Sequence[str]], index: Mapping[str, int]
+) -> list[tuple[str, str, float | None]]:
+    return [
+        (row[index["FAMILY"]], row[index["PLANE"]], _number(row[index["Offset"]])) for row in rows
+    ]
+
+
+def _aligned(
+    first: Sequence[tuple[str, str, float | None]], other: Sequence[tuple[str, str, float | None]]
+) -> bool:
+    if [station[:2] for station in first] != [station[:2] for station in other]:
+        return False
+    largest = max((abs(station[2] or 0.0) for station in first), default=0.0)
+    return all(
+        a[2] is not None and b[2] is not None and abs(a[2] - b[2]) <= STATION_TOLERANCE * largest
+        for a, b in zip(first, other, strict=True)
+    )
+
+
+def add_clockings_to_sections(
+    path: Path,
+    record: Mapping[str, Any],
+    folder: Path,
+    *,
+    tabled: Callable[[Path, str], Path | None],
+) -> ClockedSections:
+    """Give a wheel point's sections table every clocking's rows (0.31.0).
+
+    ``path`` is the table written from the point's own sectional loads export,
+    clocking 0. Each further clocking's export, named by the point's record
+    (:func:`clocking_section_export`) and read beside the point's exports in
+    ``folder``, is tabled by ``tabled`` (the product stage's own writer of a
+    sections table, with the point's layout and condition) and its rows are
+    appended after clocking 0's, in the order of the clockings. The table gains
+    :data:`CLOCKING_COLUMN` after its own columns, and ``AZIMUTH`` states each
+    block's blade at that clocking, with the rotor in ``ROTOR``
+    (:func:`wheel_block_identity`), on every row, clocking 0 included.
+
+    Every clocking is cut at the same stations by construction; a clocking
+    whose blocks, planes or offsets differ from clocking 0's (to
+    :data:`STATION_TOLERANCE` of the largest offset) is named in the result
+    and its rows are kept. A clocking whose export is not named, not on disk
+    or not readable is named and left out, and the table keeps the others.
+    """
+    columns, rows = _read_table(path)
+    index = {name: at for at, name in enumerate(columns)}
+    by_clocking: dict[int, list[list[str]]] = {0: rows}
+    result = ClockedSections(missing={}, misaligned=[])
+    positions = sorted(
+        (entry for entry in record.get("positions") or [] if isinstance(entry, Mapping)),
+        key=lambda entry: int(entry.get("index", 0)),
+    )
+    for position in positions:
+        clocking = int(position.get("index", 0))
+        if clocking == 0:
+            continue
+        name = clocking_section_export(position, "sectional_loads")
+        if name is None:
+            result.missing[clocking] = (
+                "the point's record names no sectional loads export for this clocking; a "
+                "wheel run before 0.31.0 exported its sections at clocking 0 only"
+            )
+            continue
+        export = folder / Path(name).name
+        if not export.is_file():
+            result.missing[clocking] = f"the sectional loads export {export.name} is not on disk"
+            continue
+        scratch = path.with_name(f"{path.stem}{POSITION_SUFFIX}{clocking:02d}.partial.csv")
+        try:
+            done = tabled(scratch, export.read_text(encoding="utf-8", errors="replace"))
+            if done is None:
+                result.missing[clocking] = f"{export.name} declares no section"
+                continue
+            more_columns, more = _read_table(done)
+        except (ProductError, OSError) as error:
+            result.missing[clocking] = f"{export.name}: {error}"
+            continue
+        finally:
+            scratch.unlink(missing_ok=True)
+        if more_columns != columns:
+            result.missing[clocking] = (
+                f"{export.name} tables to other columns than clocking 0's export"
+            )
+            continue
+        by_clocking[clocking] = more
+    stations = {"FAMILY", "PLANE", "Offset"} <= set(index)
+    for clocking, more in sorted(by_clocking.items()):
+        if clocking and stations and not _aligned(_stations(rows, index), _stations(more, index)):
+            result.misaligned.append(
+                f"clocking {clocking} is not cut at clocking 0's stations (its blocks, planes "
+                "or offsets differ); its rows are tabled as exported"
+            )
+    written: list[list[str]] = []
+    for clocking, more in sorted(by_clocking.items()):
+        for row in more:
+            cells = list(row)
+            if {"FAMILY", "ROTOR", "AZIMUTH"} <= set(index):
+                family = cells[index["FAMILY"]]
+                families = [] if family in ("", NOT_APPLICABLE) else family.split("+")
+                rotor, azimuth = wheel_block_identity(record, families, clocking)
+                cells[index["ROTOR"]] = _cell(rotor)
+                cells[index["AZIMUTH"]] = _cell(azimuth)
+            written.append([*cells, str(clocking)])
+    _rewrite(path, [*columns, CLOCKING_COLUMN], written)
+    return result
+
+
 def add_reduced_frequency_to_sections(
     path: Path, record: Mapping[str, Any], *, velocity_m_per_s: float
 ) -> PointValidity | None:
@@ -249,7 +427,9 @@ def add_reduced_frequency_to_sections(
     (``ROTOR``); their radius is ``|Offset|`` and their chord ``Chord``. The
     point's summary is taken over the rows of the rotor's FIRST blade family
     present (``FAMILY``), or over every rotor row where the layout names no
-    family, so a wheel's six blades do not count one station six times. The
+    family, so a wheel's six blades do not count one station six times, and
+    over clocking 0's rows where the table holds every clocking
+    (:data:`CLOCKING_COLUMN`, 0.31.0), the point's own solve. The
     table is rewritten in place with ``K_1P`` and :data:`VALIDITY_COLUMNS`
     after its own columns; a row of no rotor reads ``NA`` in ``K_1P``.
 
@@ -280,6 +460,8 @@ def add_reduced_frequency_to_sections(
             )
         )
     candidates = [at for at, k in enumerate(k_of_row) if k is not None]
+    if CLOCKING_COLUMN in index:
+        candidates = [at for at in candidates if rows[at][index[CLOCKING_COLUMN]] == "0"]
     if not candidates:
         return None
     families = [str(name) for name in record.get("families_blades") or []]

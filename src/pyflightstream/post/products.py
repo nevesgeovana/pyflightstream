@@ -95,7 +95,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -4845,18 +4845,44 @@ def _qsteady_sections(
     point: PolarPoint,
     record: RunRecord | None,
     skipped: dict[str, str],
+    tabled: Callable[[Path, str], Path | None],
 ) -> dict[str, _qsteady.PointValidity]:
-    """Add the 1P reduced frequency to a quasi-steady wheel point's sections table (0.30.0).
+    """Complete a quasi-steady wheel point's sections table: its clockings and its 1P frequency.
+
+    Every clocking's rows, each with its ``CLOCKING`` and each blade's own
+    ``AZIMUTH`` (0.31.0, :func:`pyflightstream.post.qsteady.add_clockings_to_sections`,
+    ``tabled`` writing one clocking's export as this stage writes the point's),
+    then the 1P reduced frequency of each station (0.30.0). A clocking whose
+    export cannot be tabled is named under the table and the others are
+    written; a clocking not cut at clocking 0's stations is warned.
 
     Returns ``{point name: validity}`` for a wheel point whose sections are the
     rotor's, and nothing for any other point, whose table is left as written.
     """
     if record is None or record.recipe != QSTEADY_ROTOR:
         return {}
+    relative = f"{SECTIONS_DIR}/{point.name}_sections.csv"
     try:
         quasi = _qsteady.read_qsteady_record(point.loads_path)
-        if quasi is None or quasi.get("case") != "wheel":
-            return {}
+    except ProductError as error:
+        skipped[f"{relative}#k_1p"] = str(error)
+        return {}
+    if quasi is None or quasi.get("case") != "wheel":
+        return {}
+    try:
+        clocked = _qsteady.add_clockings_to_sections(
+            table, quasi, point.loads_path.parent, tabled=tabled
+        )
+    except (ProductError, OSError, KeyError, ValueError) as error:
+        skipped[f"{relative}#clockings"] = str(error)
+    else:
+        for clocking, reason in sorted(clocked.missing.items()):
+            skipped[f"{relative}#clocking={clocking}"] = reason
+        for note in clocked.misaligned:
+            warn(
+                f"point={point.name} product=sections: {note}", PyflightstreamWarning, stacklevel=2
+            )
+    try:
         validity = _qsteady.add_reduced_frequency_to_sections(
             table, quasi, velocity_m_per_s=float(point.loads.freestream_velocity_m_s)
         )
@@ -4864,6 +4890,20 @@ def _qsteady_sections(
         skipped[f"{SECTIONS_DIR}/{point.name}_sections.csv#k_1p"] = str(error)
         return {}
     return {} if validity is None else {point.name: validity}
+
+
+def _the_sections_writer(**arguments: Any) -> Callable[[Path, str], Path | None]:
+    """Return :func:`write_sections_table` bound to one steady point's arguments (0.31.0).
+
+    The writer of a quasi-steady wheel's further clockings, so each clocking's
+    export is tabled with the point's own condition, layout and rotors, by the
+    one writer of a sections table.
+    """
+
+    def tabled(path: Path, text: str) -> Path | None:
+        return write_sections_table(path, text, **arguments)
+
+    return tabled
 
 
 def _qsteady_super_cells(
@@ -5598,9 +5638,32 @@ def _sim_products(
             if done is not None:
                 # 0.30.0: A QUASI-STEADY WHEEL POINT'S SECTIONS carry the 1P reduced
                 # frequency of each station and the point's validity, and the point
-                # keeps that validity for its clockings tables below.
+                # keeps that validity for its clockings tables below. 0.31.0: and
+                # every clocking's rows, each tabled by this same writer with this
+                # point's layout and condition.
                 qsteady_validity_of.update(
-                    _qsteady_sections(done, point, record_of.get(point.name), skipped)
+                    _qsteady_sections(
+                        done,
+                        point,
+                        record_of.get(point.name),
+                        skipped,
+                        _the_sections_writer(
+                            mach=_mach_of(point, mach),
+                            reference=reference,
+                            advance_ratio=_advance_ratio_of(point),
+                            condition=point_condition(
+                                point,
+                                mach=mach,
+                                cell=cell,
+                                clock=clock_rotor_facts(
+                                    record_of.get(point.name), matrix_row, live
+                                ),
+                            ),
+                            layout=record_of[point.name].sections_layout,
+                            rotors=_section_rotors(live, aliases, record_of[point.name]),
+                            pol=sim_id,
+                        ),
+                    )
                 )
                 written.append(done)
                 written_names[done.relative_to(out).as_posix()] = {
