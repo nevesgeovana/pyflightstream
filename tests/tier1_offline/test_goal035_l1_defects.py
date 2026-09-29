@@ -7,6 +7,12 @@
    quasi-steady sector and on the fixed wing alike. The earlier tests built
    their coupled rows with a loads table and a log only, so they never
    declared a section export.
+2. A quasi-steady wheel solved at k clockings exports ONE solver log holding
+   its k solves in sequence, each residual table counting from 1 again, and
+   the residual reader refused it as two logs concatenated: no log was read,
+   the point carried no residual, and on the points-file route the
+   trailing-edge verdict failed the point for want of the log that said the
+   edges were imported (RPT-091 F1).
 
 Every expected value is worked from the definitions and the fixture, never
 read off the implementation.
@@ -14,11 +20,24 @@ read off the implementation.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
+import pytest
+
 from pyflightstream.cases import SimCase
 from pyflightstream.cases import fsi_workspace as ws
+from pyflightstream.results import (
+    MalformedOutputError,
+    parse_residual_history,
+    parse_residual_solves,
+)
+from pyflightstream.run import LoadsAssessor
+from pyflightstream.run._wake_edge_verdict import collected_solver_log, wake_edge_import_verdict
+from pyflightstream.workspace import RunRecord, RunStatus
 from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case
 from tests.tier1_offline.test_goal035_qsteady_completion import _sector_fsi_case
-from tests.tier1_offline.test_goal035_qsteady_rotor import _lines
+from tests.tier1_offline.test_goal035_qsteady_rotor import LOADS, _case, _lines
 
 #: The analysis commands the row's exports read (the phase order places every
 #: one of them before the first export).
@@ -81,3 +100,205 @@ def test_a_coupled_fixed_wing_with_the_default_exports_plans_in_one_valid_order(
     _assert_one_valid_order(commands)
     assert commands.count("EXPORT_ALL_SURFACE_SECTIONS") == 1
     assert commands.count("EXPORT_PROBE_POINTS") == 1
+
+
+# ------------------------------------ 2: a clocked wheel's log of k solves --
+
+#: The line shapes of a real 26.124 log of a wheel solved at two clockings
+#: (the L1 run of RPT-091): every line followed by a line holding one NUL,
+#: CRLF endings, the residual table's header and its dashed rules, each row
+#: an iteration padded to 19 columns and five tab-separated cells. The values
+#: are synthetic; the structure is the log's.
+_RULE = "-" * 300
+_HEADER = (
+    "Iteration                      Res. Vel.                 Res. Pres.                "
+    "CL                             CDi (vorticity)               CM"
+)
+
+
+def _cell(value: float) -> str:
+    """A cell as the log prints it: sign, seven decimals, an unpadded exponent."""
+    mantissa, exponent = f"{value:+.7E}".split("E")
+    return f"{mantissa}E{int(exponent):+d}      "
+
+
+def _solve(rows: int, final: float) -> list[str]:
+    """One solve's residual table: from 1.0 at iteration 1 down to ``final`` at ``rows``."""
+    lines = ["", "Angle of attack (Deg): 5.000", "", _RULE, _HEADER, _RULE]
+    for iteration in range(1, rows + 1):
+        residual = final ** ((iteration - 1) / (rows - 1))
+        cells = [residual, residual * 0.8, 1.2e-2, -6.5e-2, 4.2e-4]
+        lines.append(f"{iteration:<19}\t" + "\t".join(_cell(value) for value in cells).rstrip())
+    return [*lines, _RULE, "Solver run time: .0614167 minutes."]
+
+
+def _initialisation() -> list[str]:
+    return [
+        "Symmetry is disabled.",
+        "Following geometry is being initialized:",
+        "Poly\tBoundary",
+        *(f"Yes\tBlade{blade}" for blade in (1, 2, 3)),
+        "150 trailing edges found.",
+        "Solver initialized in .63 seconds",
+        "Solver mode: Steady",
+    ]
+
+
+def _wheel_log(finals: tuple[float, ...], rows: tuple[int, ...]) -> str:
+    """The log of a wheel solved at len(finals) clockings, in the order the run solves them.
+
+    As the run writes it: the trailing edges imported once, a first
+    initialisation cleared, then each clocking initialised and solved, the
+    clockings 1 to k - 1 each writing its loads export, clocking 0 last.
+    """
+    lines = [
+        "FlightStream version 26.1, build #8172026",
+        "Running script file: P.txt",
+        "3 bodies, 54 vertices and 48 faces imported.",
+        "150 trailing edges imported for boundary Blade3",
+        *_initialisation(),
+    ]
+    count = len(finals)
+    for solve, (final, rows_of) in enumerate(zip(finals, rows, strict=True)):
+        lines += ["Solution cleared. Initialization removed.", *_initialisation()]
+        lines += _solve(rows_of, final)
+        written = f"DP_qs{solve + 1:02d}.txt" if solve < count - 1 else "DP.txt"
+        lines += ["Data written to external text file:", written, ""]
+    return "".join(f"{line}\r\n\x00\r\n" for line in lines)
+
+
+def _loads(iteration: int) -> str:
+    return LOADS.replace(
+        "Current solver iteration number:            60",
+        f"Current solver iteration number:            {iteration}",
+    ).format(c1="+0.1", c2="+0.2", c3="+0.3")
+
+
+def _clocked_wheel(
+    tmp_path: Path, finals: tuple[float, ...], rows: tuple[int, ...] | None = None
+) -> tuple[SimCase, Path]:
+    """A wheel point of len(finals) clockings as its run leaves it, and its simulation folder.
+
+    Its record is the one the builder parks (clockings 0, 40 and 80 deg on
+    three blades at k = 3; 0 and 60 deg at k = 2); each loads export is
+    written at its solve's last iteration.
+    """
+    rows = rows or tuple(61 for _ in finals)
+    case = _case(PASSAGE_POSITIONS=str(len(finals)), ALPHA_POINT=5.0)
+    _, script = _lines(case)
+    sim = tmp_path / "sim"
+    outputs = sim / "outputs"
+    outputs.mkdir(parents=True)
+    (outputs / "DP_qsteady.json").write_text(
+        str(script.pending_input_files["DP_qsteady.json"]), encoding="utf-8"
+    )
+    # Log order: clockings 1 to k - 1, then 0.
+    for solve, rows_of in enumerate(rows):
+        name = f"DP_qs{solve + 1:02d}.txt" if solve < len(rows) - 1 else "DP.txt"
+        (outputs / name).write_text(_loads(rows_of), encoding="utf-8")
+    (outputs / "DP_log.txt").write_bytes(_wheel_log(finals, rows).encode("utf-8"))
+    return case, sim
+
+
+def test_a_log_of_two_clockings_reads_as_two_solves_and_never_as_one():
+    # P0300-QS-WHEEL
+    text = _wheel_log((1.2e-6, 1.1e-6), (61, 61))
+    solves = parse_residual_solves(text)
+    assert [[sample.iteration for sample in solve][::60] for solve in solves] == [[1, 61], [1, 61]]
+    assert [solve[-1].velocity_residual for solve in solves] == pytest.approx([1.2e-6, 1.1e-6])
+    # The guard of a log of one solve stands: 61 back to 1 is two logs to it.
+    with pytest.raises(MalformedOutputError, match="from 61 to 1"):
+        parse_residual_history(text)
+
+
+def test_a_restart_that_is_not_a_new_table_from_one_is_refused():
+    text = _wheel_log((1.2e-6, 1.1e-6), (61, 61))
+    # A restart at 5 opening the second table is no solve the solver started.
+    at = text.index("1                  \t", text.index("Data written"))
+    with pytest.raises(MalformedOutputError, match="from 61 to 5"):
+        parse_residual_solves(text[:at] + "5" + text[at + 1 :])
+    # A counter falling inside one table is refused as before.
+    fallen = text.replace("30                 \t", "3                  \t", 1)
+    with pytest.raises(MalformedOutputError, match="from 29 to 3"):
+        parse_residual_solves(fallen)
+
+
+def test_a_wheel_is_judged_clocking_by_clocking_from_its_one_log(tmp_path):
+    """Two converged clockings: CONVERGED, the log named, one verdict each, the largest residual.
+
+    The residual of a solve is the larger of its final velocity and pressure
+    residuals, the velocity one here (the pressure one is 0.8 of it); the
+    limit is 1e-5.
+    """
+    # P0300-QS-WHEEL
+    case, sim = _clocked_wheel(tmp_path, (2.0e-6, 3.0e-6))
+    assessment = LoadsAssessor()(case, None, sim)
+    assert assessment.status is RunStatus.CONVERGED, assessment.error
+    assert assessment.log_file_used == "DP_log.txt"
+    assert assessment.iterations == 61
+    assert assessment.residual == pytest.approx(3.0e-6)
+    # In the order the run solved them: clocking 1 (60 deg), then clocking 0.
+    verdicts = assessment.clocking_verdicts
+    assert verdicts is not None
+    assert [(v["index"], v["clocking_deg"], v["status"]) for v in verdicts] == [
+        (1, 60.0, "CONVERGED"),
+        (0, 0.0, "CONVERGED"),
+    ]
+    assert [v["residual"] for v in verdicts] == pytest.approx([2.0e-6, 3.0e-6])
+    assert [v["iterations"] for v in verdicts] == [61, 61]
+    # The record carries them, and a record of any other point carries no key.
+    stated = {
+        "run_id": "r",
+        "sim_id": "9001",
+        "fs_version_requested": "26.124",
+        "package_version": "0.30.0",
+        "script_sha256": "0" * 64,
+        "raw_flag": False,
+    }
+    record = RunRecord(**stated, status=assessment.status, clocking_verdicts=verdicts)
+    assert json.loads(record.model_dump_json())["clocking_verdicts"][0]["index"] == 1
+    plain = RunRecord(**stated, status=RunStatus.CONVERGED)
+    assert "clocking_verdicts" not in json.loads(plain.model_dump_json())
+
+
+def test_the_worst_clocking_is_the_point_s_verdict(tmp_path):
+    """Clocking 1 of three stops above the limit: the point is COMPLETED_MAX_ITER, naming it."""
+    case, sim = _clocked_wheel(tmp_path, (4.0e-5, 2.0e-6, 3.0e-6), (500, 61, 70))
+    assessment = LoadsAssessor()(case, None, sim)
+    assert assessment.status is RunStatus.COMPLETED_MAX_ITER, assessment.error
+    assert assessment.residual == pytest.approx(4.0e-5)
+    assert assessment.iterations == 70
+    verdicts = assessment.clocking_verdicts
+    assert verdicts is not None
+    assert [(v["index"], v["status"], v["iterations"]) for v in verdicts] == [
+        (1, "COMPLETED_MAX_ITER", 500),
+        (2, "CONVERGED", 61),
+        (0, "CONVERGED", 70),
+    ]
+
+
+def test_a_clocking_whose_export_is_not_of_its_solve_fails_the_point(tmp_path):
+    case, sim = _clocked_wheel(tmp_path, (2.0e-6, 3.0e-6))
+    (sim / "outputs" / "DP_qs01.txt").write_text(_loads(40), encoding="utf-8")
+    assessment = LoadsAssessor()(case, None, sim)
+    assert assessment.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+    assert "clocking 1" in (assessment.error or "") and "iteration 40" in (assessment.error or "")
+
+
+def test_a_log_short_of_a_clocking_is_refused(tmp_path):
+    """The record says two clockings and the log holds one solve: nothing is judged from it."""
+    case, sim = _clocked_wheel(tmp_path, (2.0e-6, 3.0e-6))
+    (sim / "outputs" / "DP_log.txt").write_bytes(_wheel_log((3.0e-6,), (61,)).encode("utf-8"))
+    assessment = LoadsAssessor(log_file="DP_log.txt")(case, None, sim)
+    assert assessment.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+    assert "1 solve(s)" in (assessment.error or "") and "2 clockings" in (assessment.error or "")
+
+
+def test_the_trailing_edge_verdict_reads_the_wheel_s_log(tmp_path):
+    """The points-file route: the log read says 150 edges imported, the count the script wrote."""
+    case, sim = _clocked_wheel(tmp_path, (2.0e-6, 3.0e-6))
+    assessment = LoadsAssessor()(case, None, sim)
+    collected = ["outputs/DP.txt", "outputs/DP_log.txt"]
+    log_text = collected_solver_log(sim, collected, assessment.log_file_used)
+    assert log_text is not None
+    assert wake_edge_import_verdict(150, log_text) is None

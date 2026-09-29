@@ -377,6 +377,22 @@ FlightStream versions.
   them, before its first export, and the row's exports follow with no update
   of their own.
 
+- **A quasi-steady wheel's solver log is read, clocking by clocking.** A
+  wheel solved at `PASSAGE_POSITIONS: k` clockings exports one log holding
+  its k solves in sequence, each residual table counting from 1 again, and
+  the residual reader refused it as two logs concatenated: the point was
+  judged with no log (`log_file_used` and `residual` empty), and on the
+  trailing-edge points-file route it was recorded FAILED_INCOMPLETE_OUTPUT
+  although the log says the edges were imported (L1, reports/RPT-091). The
+  new `pyflightstream.results.parse_residual_solves` reads such a log, a new
+  solve being a table of its own starting at iteration 1; the assessor reads
+  the point's quasi-steady record, judges each clocking from its own solve,
+  holds each solve's last iteration to that clocking's loads export, and
+  records one verdict per clocking in the run record's new
+  `clocking_verdicts`, with the worst of them as the point's status and
+  residual. A log of one solve is read as before, and a restart in it is
+  still refused.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
