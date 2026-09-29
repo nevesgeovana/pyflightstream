@@ -69,7 +69,7 @@ from dataclasses import dataclass
 from os import PathLike, fspath
 from pathlib import Path, PurePath
 from types import MappingProxyType
-from typing import NoReturn
+from typing import Literal, NoReturn
 
 from pyflightstream._atmosphere import ISA
 from pyflightstream._deprecations import (
@@ -131,6 +131,7 @@ from pyflightstream.cases import (
     select_group_members,
     warn_a_selector_that_guesses,
 )
+from pyflightstream.cases import qsteady as _qsteady
 from pyflightstream.cases import windows as _windows
 from pyflightstream.commands import (
     CommandEntry,
@@ -273,6 +274,11 @@ __all__ = [
     "select_workflow",
     "workflow_names",
     "workflow_registry",
+    "PASSAGE_POSITIONS_VARIABLE",
+    "QSTEADY_ROTOR",
+    "STEADY_RUN_TYPES",
+    "qsteady_case_kind",
+    "qsteady_validity",
 ]
 
 #: Case-variable key carrying the matrix ``WORKFLOW`` column.
@@ -555,6 +561,21 @@ EXPORT_UNSTEADY_AFTER_ITER_VARIABLE = "EXPORT_UNSTEADY_AFTER_ITER"
 #: rows of the study this was measured on are periodic sectors, and
 #: until this key existed no matrix cell could say so (PFS-2025.02.03).
 SYMMETRY_VARIABLE = "SYMMETRY"
+
+#: THE QUASI-STEADY ROTOR (0.30.0): the run type that solves an isolated,
+#: axisymmetric rotor with its blades held still and the rotation carried by
+#: the free stream, and the key that says in how many clockings its wheel is
+#: solved. A row states the count ``k``, one or more; the run solves the wheel
+#: at ``theta_i = i * (360 / N) / k`` for ``i`` from 0 to ``k - 1`` and the
+#: post stage averages the solves. Required on a wheel whose inflow varies
+#: around the disc (a custom inflow, an angle of attack or of sideslip);
+#: refused on a periodic sector, which has one position.
+QSTEADY_ROTOR = "qsteady_rotor"
+PASSAGE_POSITIONS_VARIABLE = "PASSAGE_POSITIONS"
+#: The run types a point of which is ONE steady solve (or several, each one
+#: steady), which the run and post layers read to tell a steady record from
+#: an unsteady one by its recipe.
+STEADY_RUN_TYPES: tuple[str, ...] = ("steady", QSTEADY_ROTOR)
 
 #: FR-93, one of the six columns of 0.17.0: the processor count, ONE
 #: number for every platform since
@@ -1978,7 +1999,8 @@ def _states_a_rotor_speed(case: SimCase) -> bool:
 def rotor_machs(case: SimCase) -> list[RotorMach]:
     """Return the tip and helical Mach numbers of every rotor and disc a row turns.
 
-    Three row types carry them (0.30.0, M1): every ``unsteady_rotor`` row,
+    Three row types carry them (0.30.0, M1): every ``unsteady_rotor`` and
+    ``qsteady_rotor`` row,
     every ``steady`` row that states ``RPM``, and every row, of any run type,
     that names an actuator disc (``ACTUATOR``). Each rotor and each disc is
     one :class:`RotorMach`.
@@ -2041,7 +2063,9 @@ def rotor_machs(case: SimCase) -> list[RotorMach]:
         return RotorMach(alias, rpm, diameter, velocity, sound, tip, helical, None, kind)
 
     machs: list[RotorMach] = []
-    if case.recipe == "unsteady_rotor" or (case.recipe == "steady" and _states_a_rotor_speed(case)):
+    if case.recipe in ("unsteady_rotor", QSTEADY_ROTOR) or (
+        case.recipe == "steady" and _states_a_rotor_speed(case)
+    ):
         machs.extend(_rotor_machs(case, where, one))
     if _variable(case, ACTUATOR_VARIABLE) is not None:
         machs.extend(_disc_machs(case, where, one))
@@ -13457,6 +13481,634 @@ def _origin(case: SimCase) -> tuple[float, float, float]:
     return (x, y, z)
 
 
+# --- the quasi-steady rotor (0.30.0) -----------------------------------------
+
+
+def qsteady_case_kind(case: SimCase) -> str:
+    """Return which quasi-steady case a ``qsteady_rotor`` row is: ``"sector"`` or ``"wheel"``.
+
+    THE ROW'S SYMMETRY DECIDES, because it states what was meshed. ``PERIODIC``
+    is a sector, one blade standing for the wheel, solved once, steady, in a
+    free stream turning at the rotor's speed. No symmetry (``NONE``, or none
+    stated) is the wheel, every blade meshed.
+
+    Raises
+    ------
+    CampaignConfigError
+        A ``MIRROR`` symmetry, or any other: a rotor turning about its shaft is
+        not its own mirror image, so a mirrored rotor is neither case.
+    """
+    stated = _variable(case, SYMMETRY_VARIABLE)
+    mode = "NONE" if stated is None else str(stated).strip().upper()
+    if mode == "PERIODIC":
+        return "sector"
+    if mode == "NONE":
+        return "wheel"
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} names the run type {QSTEADY_ROTOR} and states "
+        f"{SYMMETRY_VARIABLE} {mode}. The quasi-steady rotor solves either a periodic "
+        f"sector ({SYMMETRY_VARIABLE} PERIODIC, one blade standing for the wheel) or the "
+        f"whole wheel (no {SYMMETRY_VARIABLE}); a turning rotor is not its own mirror image, "
+        "so a mirrored one is neither."
+    )
+
+
+#: The sentence every refusal of a row that is not an isolated rotor ends on.
+_ONLY_AN_ISOLATED_ROTOR = (
+    "The quasi-steady rotor is valid ONLY for an isolated, axisymmetric rotor: the blades "
+    "are held still and the rotation is carried by the free stream, which is the same "
+    "flow only where nothing else is in it and every blade is alike. A rotor installed "
+    "on an airframe, or beside another body, runs as unsteady_rotor."
+)
+
+
+def _the_isolated_rotor(case: SimCase) -> RotorBlock:
+    """Return the one rotor a quasi-steady row solves, refusing a row that is not one.
+
+    THE CRITERION, DETECTABLE BEFORE ANY LINE IS WRITTEN: the reference
+    declares exactly one rotor block; the row turns no second rotor
+    (``MOTIONS``), loads no actuator disc and turns the free stream by no body
+    rate, since the free stream's one rotation is the rotor's. That no surface
+    of the opened geometry lies outside the rotor is checked once the geometry
+    is open (:func:`_refuse_what_is_not_the_rotor`). Whether the blades are
+    alike is the user's to know: the mesh is not compared blade by blade.
+    """
+    if len(case.rotors) != 1:
+        declared = ", ".join(sorted(case.rotors)) or "none"
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names the run type {QSTEADY_ROTOR} and its reference "
+            f"declares {len(case.rotors)} rotor block(s) ({declared}); it must declare "
+            f"exactly one. {_ONLY_AN_ISOLATED_ROTOR}"
+        )
+    if case.motions:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names the run type {QSTEADY_ROTOR} and states "
+            f"{MOTIONS_VARIABLE}; the quasi-steady rotor moves nothing, it turns the free "
+            f"stream. State the speed as RPM in the row. {_ONLY_AN_ISOLATED_ROTOR}"
+        )
+    if _variable(case, ACTUATOR_VARIABLE) is not None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names the run type {QSTEADY_ROTOR} and loads the actuator "
+            f"disc {_variable(case, ACTUATOR_VARIABLE)!r}, a second body in the flow. "
+            f"{_ONLY_AN_ISOLATED_ROTOR}"
+        )
+    if case.sweep.type in {key for key, _ in RATE_VARIABLES} or _turning_rate(case) is not None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names the run type {QSTEADY_ROTOR} and turns the free stream "
+            "by a body rate. A run has one SET_FREESTREAM, and on this run type it turns at the "
+            "rotor's speed about the rotor's shaft; write the body rates as 0."
+        )
+    return next(iter(case.rotors.values()))
+
+
+def _qsteady_speed(case: SimCase, rotor: RotorBlock) -> RotorSpeed:
+    """Resolve the row's speed signed by the HAND of the one rotor it solves.
+
+    A quasi-steady row names its rotor nowhere, because the reference declares
+    one; the speed resolver reads the hand of the block a row names, so it is
+    asked through a view naming that block by its alias, the spelling a flat
+    rotor row uses (:func:`_rotor_the_row_names`). Without it the row's number
+    turned right-handed whatever the block declared.
+    """
+    view = case.model_copy(
+        update={"variables": {**case.variables, MOVING_BC_ALIAS_VARIABLE: rotor.alias}}
+    )
+    return rotor_speed(view)
+
+
+def _refuse_fsi_on_a_quasi_steady_rotor(case: SimCase, kind: str) -> None:
+    """Refuse an FSI row: the sector's wiring is later in this release, the wheel's never.
+
+    THE HOOK FOR THE FSI WIRING (0.30.0). A sector is one steady solve of one
+    blade in a free stream turning at the rotor's speed, which is the route the
+    licensed test 2 of the FSI study coupled (the blade static, the rotation in
+    the free stream, the structure's centrifugal load at that speed); it is
+    refused by name until that wiring lands. A wheel is several clockings
+    averaged, and one deformed blade per clocking is not a structure's state.
+    """
+    if case.fsi is None and _variable(case, "FSI") is None:
+        return
+    if kind == "sector":
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names the run type {QSTEADY_ROTOR} on a periodic sector and "
+            "states FSI. FSI on a quasi-steady sector arrives in this release with the FSI "
+            "wiring; until then run the sector without FSI, or the rotor as unsteady_rotor."
+        )
+    raise CampaignConfigError(
+        f"case {case.sim_id!r} names the run type {QSTEADY_ROTOR} on a whole wheel and states "
+        "FSI: a quasi-steady wheel with FSI is not supported. The wheel is several steady "
+        "clockings averaged, and a blade deformed once per clocking is not the state of one "
+        f"structure. Solve a periodic sector ({SYMMETRY_VARIABLE} PERIODIC) for FSI."
+    )
+
+
+def _the_inflow_varies_around_the_disc(case: SimCase) -> str | None:
+    """Name what makes a quasi-steady row's inflow vary with azimuth, or None.
+
+    A custom inflow file (the sector reads whether it varies with the radius
+    alone) and a non-zero angle of attack or of sideslip, fixed or swept.
+    """
+    if case.freestream_profile is not None or _variable(case, FREESTREAM_VARIABLE) is not None:
+        return "a custom inflow"
+    return _an_angle_beside_a_field(case)
+
+
+def _passage_positions(case: SimCase, kind: str) -> int:
+    """Return how many clockings the row's wheel is solved in, refusing a missing count.
+
+    A wheel whose inflow varies around the disc MUST state
+    ``PASSAGE_POSITIONS``: one clocking is one instant of a load that turns with
+    the blades, and the count is the row's statement of how finely the passage
+    is sampled. A wheel in an axial, uniform inflow is steady in the rotating
+    frame and solves once unless it states more. A sector has one position.
+    """
+    stated = _variable(case, PASSAGE_POSITIONS_VARIABLE)
+    varies = _the_inflow_varies_around_the_disc(case)
+    if kind == "sector":
+        if stated is not None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} names the run type {QSTEADY_ROTOR} on a periodic sector "
+                f"and states {PASSAGE_POSITIONS_VARIABLE}: {stated}. A sector's inflow is the "
+                "same at every azimuth, so it has one position; the key is the wheel's."
+            )
+        return 1
+    if stated is None:
+        if varies is not None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} names the run type {QSTEADY_ROTOR} on a whole wheel with "
+                f"{varies}, and states no {PASSAGE_POSITIONS_VARIABLE}. With an inflow that "
+                "varies around the disc each blade meets a different flow at each clocking, "
+                f"so the wheel is solved at k clockings inside one blade passage and averaged: "
+                f"write '{PASSAGE_POSITIONS_VARIABLE}: 2' for thrust and torque, 6 or more for "
+                "the in-plane loads (docs/workspace-and-workflows.md, RPT-089)."
+            )
+        return 1
+    text = str(stated).strip()
+    if not text.isdigit() or int(text) < 1:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states {PASSAGE_POSITIONS_VARIABLE}: {stated}, and the count "
+            "of clockings inside one blade passage is a whole number, one or more."
+        )
+    return int(text)
+
+
+def _refuse_an_azimuthal_inflow_on_a_sector(case: SimCase) -> None:
+    """Refuse an angle on a periodic sector: its inflow varies with azimuth.
+
+    A sector stands for the wheel only where every blade meets the same flow,
+    so an inflow varying with the radius alone is accepted (a custom inflow is
+    read for it when the field is written) and any angle of attack or of
+    sideslip is refused.
+    """
+    angled = _an_angle_beside_a_field(case)
+    if angled is not None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names the run type {QSTEADY_ROTOR} on a periodic sector and "
+            f"{angled}. An angle makes the inflow vary with azimuth, so the blade the sector "
+            "meshes no longer stands for the others; solve the whole wheel (no SYMMETRY) with "
+            f"{PASSAGE_POSITIONS_VARIABLE}, or the rotor as unsteady_rotor."
+        )
+
+
+def _refuse_what_is_not_the_rotor(
+    case: SimCase, script: Script, rotor: RotorBlock, kind: str
+) -> list[int]:
+    """Refuse an opened geometry holding a surface the rotor does not own; return the rotor's.
+
+    Every boundary the geometry declares must be one of the rotor's families,
+    general or blade, resolved as a row's names are (exact label, alias,
+    family). A wheel carries every blade the rotor block lists; a sector at
+    least one. A geometry whose boundary names are not known is not checked,
+    and the build says so.
+
+    Returns
+    -------
+    list of int
+        The rotor's boundaries, by index; empty where the names are not known,
+        which the clocking reads as every surface.
+    """
+    labels = script.entities.labels("boundaries")
+    if not labels:
+        warn(
+            f"case {case.sim_id!r}: the boundary names of the opened geometry are not known, "
+            f"so whether it holds a surface outside rotor {rotor.alias} is not checked. "
+            f"{_ONLY_AN_ISOLATED_ROTOR}",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+        return []
+    owned: set[int] = set()
+    blades_found = []
+    exact = {name.casefold() for name in labels}
+    for member in rotor.members:
+        found = _resolve_token(case, member, labels)
+        owned.update(found)
+        # A BLADE IS PRESENT BY ITS OWN NAME. The resolver reads a token ending
+        # in a digit as its family too, so `Blade3` would find `Blade1` on a mesh
+        # of two blades; a blade named with its number must be a label of its own,
+        # and only a family token (no number) is answered by the resolver.
+        numbered = member[-1:].isdigit()
+        if member in rotor.families_blades and (
+            member.casefold() in exact if numbered else bool(found)
+        ):
+            blades_found.append(member)
+    others = sorted(name for name, index in labels.items() if index not in owned)
+    if others:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} names the run type {QSTEADY_ROTOR} and its geometry holds "
+            f"{', '.join(others)}, which rotor {rotor.alias} does not own (its families are "
+            f"{', '.join(rotor.members)}). {_ONLY_AN_ISOLATED_ROTOR}"
+        )
+    missing = [blade for blade in rotor.families_blades if blade not in blades_found]
+    if kind == "wheel" and missing:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} solves the whole wheel of rotor {rotor.alias} (no "
+            f"{SYMMETRY_VARIABLE}) and its geometry carries no {', '.join(missing)}. A wheel "
+            "meshes every blade; a mesh of one blade is a sector: state "
+            f"{SYMMETRY_VARIABLE} PERIODIC and PERIODIC_COPIES."
+        )
+    if kind == "sector" and not blades_found:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} solves a periodic sector of rotor {rotor.alias} and its "
+            f"geometry carries none of its blades ({', '.join(rotor.families_blades)})."
+        )
+    return sorted(owned)
+
+
+def _the_shaft_letter(rotor: RotorBlock) -> str:
+    """Return the axis of the hub frame the rotor turns about: its letter, or Z of a shaft.
+
+    :func:`_hub_basis` builds a vector shaft's hub frame with the shaft as its
+    third axis, as :func:`_motion_view` reads it.
+    """
+    return rotor.axis if isinstance(rotor.axis, str) else "Z"
+
+
+def _qsteady_free_stream(
+    case: SimCase,
+    script: Script,
+    *,
+    rotor_frame: int,
+    rotor: RotorBlock,
+    speed: RotorSpeed,
+    custom: _RowFreestream | None,
+    kind: str,
+) -> None:
+    """Write the free stream a blade held still meets: turning at the rotor's speed.
+
+    WITHOUT A CUSTOM INFLOW, ``SET_FREESTREAM ROTATION`` in the rotor's hub
+    frame, about its shaft, at its speed signed by its hand: the frame, the axis
+    and the rate a rotary motion of the same rotor states (the FSI study's
+    test 2 measured this form on 26.124 against the turning blade, to 0.35 per
+    cent in axial force). An angle of attack is the solver setting it always
+    is (measured beside the rotating free stream in the same study).
+
+    WITH ONE, the file is the TOTAL velocity of the air at the disc and the
+    package adds the rotation (:func:`pyflightstream.cases.freestream.prepare_rotating_field`),
+    writing ``SET_FREESTREAM CUSTOM`` of the result, since a run has one
+    ``SET_FREESTREAM``. The field lies in the YZ plane of the global frame, so
+    the shaft must be the global X axis; a sector's field must vary with the
+    radius alone (:func:`pyflightstream.cases.qsteady.azimuthal_variation`).
+    """
+    axis = _the_shaft_letter(rotor)
+    if custom is None:
+        helpers.free_stream(script, "ROTATION", frame=rotor_frame, axis=axis, rpm=speed.rpm)
+        return
+    from .freestream import field_rows_in_metres, prepare_rotating_field
+
+    shaft = rotor.axis_vector
+    if abs(abs(shaft[0]) - 1.0) > 1e-9:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} states a custom inflow on the run type {QSTEADY_ROTOR} and "
+            f"rotor {rotor.alias} turns about {rotor.axis!r}. A custom field lies in the YZ "
+            "plane of the global frame, so the disc it describes must lie in that plane: the "
+            "shaft must be the global X axis."
+        )
+    _from_metres(case, script, "the custom field's coordinates and velocities")
+    native = script.simulation_length_unit
+    if kind == "sector":
+        _, rows = field_rows_in_metres(
+            Path(custom.path),
+            form=custom.form,
+            source_units=custom.source_units,
+            native_unit=native,
+        )
+        why = _qsteady.azimuthal_variation(rows, hub=rotor.origin, axis=shaft)
+        if why is not None:
+            raise CampaignConfigError(
+                f"case {case.sim_id!r} solves a periodic sector of rotor {rotor.alias} in the "
+                f"custom inflow {custom.path}, and it varies with azimuth: {why}. A sector "
+                "stands for the wheel only in an inflow that varies with the radius alone; "
+                f"solve the whole wheel with {PASSAGE_POSITIONS_VARIABLE}."
+            )
+    field = prepare_rotating_field(
+        Path(custom.path),
+        form=custom.form,
+        source_units=custom.source_units,
+        native_unit=native,
+        hub_m=rotor.origin,
+        axis=shaft,
+        omega_rad_s=speed.rpm * RAD_PER_S_PER_REV_PER_MIN,
+    )
+    assert field.payload is not None  # The rotating field always writes a file of its own.
+    existing = script.pending_input_files.get(field.path)
+    if existing is not None and existing != field.payload:
+        raise CampaignConfigError("The prepared custom field conflicts with another input.")
+    script._pending_input_files[field.path] = field.payload
+    script._pending_input_files[field.path + ".provenance.json"] = (
+        json.dumps(dict(field.provenance), indent=2) + "\n"
+    )
+    helpers.free_stream(script, "CUSTOM", filetype=custom.form, profile=field.path)
+
+
+def _blade_stations_from_the_mesh(
+    case: SimCase, rotor: RotorBlock
+) -> tuple[tuple[float, ...], tuple[float, ...]] | str:
+    """Return blade one's stations and chords read off the mesh, or why they cannot be.
+
+    Read from an OBJ, whose groups name its boundaries and whose ``[import]``
+    unit converts it to metres, and only where the row leaves the mesh where
+    the file holds it. A saved simulation's mesh is not read per boundary, and
+    an STL names no boundary; for those the chords come from the sectional
+    loads export after the run.
+    """
+    geometry = case.geometry
+    if geometry is None:
+        return "the row opens no geometry"
+    path = Path(str(geometry))
+    if path.suffix.lower() != ".obj":
+        return (
+            f"the chord is read at plan time from an OBJ mesh only, and {path.name} is "
+            f"a {path.suffix or 'file with no extension'}"
+        )
+    unit = getattr(case.mesh_import, "units", None)
+    factor = scale(str(unit), "METER") if unit else None
+    if factor is None:
+        return f"{path.name} states no length unit a metre can be read from"
+    moved = [key for key in (ROTATE_VARIABLE, TRANSLATE_VARIABLE) if _variable(case, key)]
+    operations = getattr(case.mesh_import, "operations", None) or ()
+    moved += sorted({f"the import's {op.op}" for op in operations if op.op != "rename"})
+    if moved:
+        return f"the row moves the mesh ({', '.join(moved)}) before the solve"
+    try:
+        groups = _qsteady.obj_group_vertices(path, metres_per_unit=factor)
+    except (OSError, UnicodeError, ValueError) as error:
+        return f"{path.name} could not be read: {error}"
+    blade = rotor.families_blades[0] if rotor.families_blades else None
+    if blade is None:
+        return f"rotor {rotor.alias} lists no blade"
+    chosen = select_group_members([blade], list(groups), case.aliases)
+    vertices = [vertex for name in chosen for vertex in groups[name]]
+    if not vertices:
+        return f"{path.name} holds no face of blade {blade}"
+    try:
+        radii, chords = _qsteady.blade_stations(vertices, hub=rotor.origin, axis=rotor.axis_vector)
+    except CampaignConfigError as error:
+        return str(error)
+    if not radii:
+        return f"blade {blade} of {path.name} is too coarse to cut into stations"
+    return radii, chords
+
+
+def qsteady_validity(case: SimCase) -> dict[str, object] | None:
+    """Return the 1P reduced frequency of a quasi-steady wheel point, as the plan shows it.
+
+    ``k = Omega c / (2 V_rel)`` at every station of blade one
+    (:mod:`pyflightstream.cases.qsteady`), with the chord read off the mesh
+    (:func:`_blade_stations_from_the_mesh`), ``Omega`` the rotor's speed and
+    ``V`` the point's free-stream speed. The four values the plan shows are
+    ``span_pct_k_gt_0_1`` (the per cent of the span with k above 0.1),
+    ``k_min``, ``k_max`` and ``k_mean`` (weighted by span); the record adds
+    the span above 0.05 and the stations.
+
+    WHEN THE CHORD IS NOT KNOWN AT PLAN TIME, the record carries what is: the
+    reduced frequency per metre of chord at the root and at the tip,
+    ``Omega / (2 V_rel)``, and a ``note`` saying why the chord is not known.
+
+    NEVER RAISES for a row the builder would refuse: the builder says why.
+
+    Returns
+    -------
+    dict or None
+        None for a point that is not a quasi-steady WHEEL: a sector's inflow is
+        the same at every azimuth, so it has no once-per-revolution load.
+    """
+    if case.recipe != QSTEADY_ROTOR:
+        return None
+    try:
+        if qsteady_case_kind(case) != "wheel":
+            return None
+        rotor = _the_isolated_rotor(case)
+        rpm = float(_qsteady_speed(case, rotor).rpm)
+        velocity = _velocity(case)
+    except CampaignConfigError:
+        return None
+    omega = rpm * RAD_PER_S_PER_REV_PER_MIN
+    base: dict[str, object] = {"rotor": rotor.alias, "rpm": rpm, "velocity_m_per_s": velocity}
+    stations = _blade_stations_from_the_mesh(case, rotor)
+    if isinstance(stations, str):
+        tip = rotor.diameter_m / 2.0
+        root = math.hypot(velocity, 0.0)
+        return {
+            **base,
+            "note": (
+                f"POL {case.sim_id}: the chord is not known at plan time ({stations}); "
+                "the post computes k per station from the sectional loads export"
+            ),
+            "k_per_chord_m_root": abs(omega) / (2.0 * root) if root > 0.0 else None,
+            "k_per_chord_m_tip": abs(omega) / (2.0 * math.hypot(velocity, omega * tip)),
+        }
+    radii, chords = stations
+    try:
+        frequencies = _qsteady.reduced_frequencies(
+            radii, chords, omega_rad_s=omega, velocity_m_per_s=velocity, source="mesh"
+        )
+    except CampaignConfigError as error:
+        return {**base, "note": f"POL {case.sim_id}: {error}"}
+    return {
+        **base,
+        **frequencies.record(),
+        "note": None,
+        "radius_m": list(frequencies.radii_m),
+        "chord_m": list(frequencies.chords_m),
+        "k": list(frequencies.k),
+    }
+
+
+def _park_the_qsteady_record(
+    case: SimCase,
+    script: Script,
+    conventions: WorkflowConventions,
+    *,
+    kind: str,
+    rotor: RotorBlock,
+    speed: RotorSpeed,
+    angles: Sequence[float],
+) -> str:
+    """Park the point's quasi-steady record for the run to write beside its exports.
+
+    One JSON file per point, ``<loads stem>_qsteady.json``, in the folder the
+    point runs in: the case (sector or wheel), the rotor, its speed, each
+    clocking with the loads export it wrote, and the validity record of a wheel
+    (:func:`qsteady_validity`). The post stage reads it; the solver never does.
+
+    Returns
+    -------
+    str
+        The point's own loads export, from which every clocking's is named.
+    """
+    names = list(conventions.outputs or case.outputs)
+    kinds = classify_outputs(names)
+    loads = kinds.get("loads")
+    if loads is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} declares outputs {names or 'nothing'} and none of them is a "
+            "loads table; every row leaves one, and each clocking of a quasi-steady wheel is "
+            "named after it."
+        )
+    sign = 1.0 if speed.rpm >= 0.0 else -1.0
+    record = {
+        "schema_version": 1,
+        "run_type": QSTEADY_ROTOR,
+        "case": kind,
+        "rotor": rotor.alias,
+        "blades": rotor.blade_count,
+        "rpm": speed.rpm,
+        "shaft_frame_axis": _the_shaft_letter(rotor),
+        "hub_m": list(rotor.origin),
+        "axis_vector": list(rotor.axis_vector),
+        "diameter_m": rotor.diameter_m,
+        "families_general": list(rotor.families_general),
+        "families_blades": list(rotor.families_blades),
+        "blade1_azimuth_deg": rotor.blade1.azimuth_deg,
+        "positions": [
+            {
+                "index": index,
+                "clocking_deg": angle,
+                "rotated_deg": sign * angle,
+                "loads": loads if index == 0 else _qsteady.position_loads_name(loads, index),
+            }
+            for index, angle in enumerate(angles)
+        ],
+        "validity": qsteady_validity(case),
+    }
+    script._pending_input_files[_qsteady.record_file_name(loads)] = (
+        json.dumps(record, indent=2) + "\n"
+    )
+    return loads
+
+
+def _solve_one_clocking(case: SimCase, script: Script, loads: str) -> None:
+    """Solve the wheel at one clocking and export its loads alone.
+
+    The point's full export set is written once, at clocking 0, which is solved
+    LAST so that the solver log and the loads export the run judges the point
+    by are of one solve.
+    """
+    helpers.start_solver(script)
+    _loads_selections(case, script)
+    if case.solver.clear_vorticity_drag_boundaries:
+        script.emit("DELETE_VORTICITY_DRAG_BOUNDARIES")
+    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", loads)
+
+
+def _build_qsteady_rotor(case: SimCase, script: Script, conventions: WorkflowConventions) -> None:
+    """Build a quasi-steady rotor point: blades held still, the free stream turning.
+
+    THE SECTOR (``SYMMETRY PERIODIC``): the steady build of one blade in the
+    rotating free stream (:func:`_qsteady_free_stream`), solved once.
+
+    THE WHEEL (no symmetry): every blade, the same free stream, solved at each
+    clocking ``theta_i = i * (360 / N) / k`` of ``PASSAGE_POSITIONS`` (k),
+    which the post stage averages. The rotor's surfaces are clocked about its
+    shaft in its hub frame, in the sense of its rotation, so blade one's
+    azimuth advances by ``theta_i``. Clocking 1 is emitted before the solver is
+    initialised; each later one after a solve, through the one door past the
+    phase guard (:meth:`~pyflightstream.script.Script.emit_after_initialization`),
+    and the solver is initialised again with the first initialisation's
+    settings. The wheel returns to clocking 0 last and is solved there with the
+    point's full export set, so a single clocking (k = 1) is the plain steady
+    build. Clockings 1 to k - 1 export their loads alone, each named
+    ``<loads stem>_qs<i>`` (:func:`pyflightstream.cases.qsteady.position_loads_name`).
+
+    Every point parks its quasi-steady record (:func:`_park_the_qsteady_record`).
+    """
+    _refuse_wake_termination_without_a_clock(case)
+    _refuse_a_coupling_step_without_a_clock(case)
+    unsteady_export_threshold(case, conventions, version=script.version)
+    kind = qsteady_case_kind(case)
+    rotor = _the_isolated_rotor(case)
+    _refuse_fsi_on_a_quasi_steady_rotor(case, kind)
+    if kind == "sector":
+        _refuse_an_azimuthal_inflow_on_a_sector(case)
+    positions = _passage_positions(case, kind)
+    speed = _qsteady_speed(case, rotor)
+    _refuse_unregistered_keys(case, QSTEADY_ROTOR)
+    custom = _the_custom_freestream(case)
+    angles = _qsteady.clocking_angles(rotor.blade_count, positions)
+    _raw_commands(case, script, "control")
+    _custom_flags(case, script, "control")
+    _raw_commands(case, script, "geometry")
+    _custom_flags(case, script, "geometry")
+    _open_geometry(case, script)
+    _raw_commands(case, script, "setup")
+    _custom_flags(case, script, "setup")
+    surfaces = _refuse_what_is_not_the_rotor(case, script, rotor, kind)
+    frame = _moment_frame(case, script)
+    rotor_frame = _rotor_frame(case, script)
+    assert rotor_frame is not None  # One rotor block is declared, so its hub frame is created.
+    rotor_frames = _flat_rotor_frames(case, rotor_frame)
+    frames: dict[str, int | None | Mapping[str, int]] = {"MRP": frame, **rotor_frames}
+    setup_frames = _setup_frames(case, script)
+    frames.update(setup_frames)
+    moved = {"MRP": frame, **rotor_frames, **setup_frames}
+    frames.update(_translations(case, script, moved))
+    frames.update(_rotations(case, script, moved))
+    loads = _park_the_qsteady_record(
+        case, script, conventions, kind=kind, rotor=rotor, speed=speed, angles=angles
+    )
+    axis = _the_shaft_letter(rotor)
+    sense = 1.0 if speed.rpm >= 0.0 else -1.0
+    selection: Sequence[int] | Literal["all"] = surfaces or "all"
+
+    def clock(angle: float, *, after_initialization: bool) -> None:
+        helpers.rotate_surfaces(
+            script,
+            frame=rotor_frame,
+            axis=axis,
+            angle_deg=sense * angle,
+            boundaries=selection,
+            after_initialization=after_initialization,
+        )
+
+    if len(angles) > 1:
+        clock(angles[1], after_initialization=False)
+    _significant_digits(case, script)
+    _qsteady_free_stream(
+        case, script, rotor_frame=rotor_frame, rotor=rotor, speed=speed, custom=custom, kind=kind
+    )
+    _fluid(case, script)
+    _settings(case, script)
+    if len(angles) == 1:
+        _script_tail(conventions, case, script, frame, unsteady=False, frames=frames)
+        return
+    _script_init(case, script, frame, frames=frames)
+    _solve_one_clocking(case, script, _qsteady.position_loads_name(loads, 1))
+    for index in range(2, len(angles)):
+        script.begin_point()
+        clock(angles[index] - angles[index - 1], after_initialization=True)
+        _initialize(case, script)
+        _analysis(case, script, frame)
+        _solve_one_clocking(case, script, _qsteady.position_loads_name(loads, index))
+    script.begin_point()
+    clock(-angles[-1], after_initialization=True)
+    _initialize(case, script)
+    _analysis(case, script, frame)
+    _script_solve_and_export(conventions, case, script, unsteady=False, frames=frames)
+    script.emit("CLOSE_FLIGHTSTREAM")
+    _finish_custom_field_coverage(case, script)
+
+
 #: The registered run types. A TABLE, deliberately: a workflow is looked
 #: up here and never imported, which is what a user cannot supply.
 #:
@@ -13584,6 +14236,17 @@ _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
     MOVING_BOUNDARIES_VARIABLE,
     MOTIONS_VARIABLE,
     EXPORT_UNSTEADY_AFTER_REV_VARIABLE,
+)
+#: THE QUASI-STEADY ROTOR'S VOCABULARY (0.30.0): what a steady row reads, the
+#: rotor's speed, and the count of clockings. Not ``COLD_START``, which only a
+#: steady sweep run as one job reads, and every quasi-steady point is its own
+#: job; not ``MOTIONS`` or the flat rotor keys, since the one rotor the
+#: reference declares is the one it solves, at the hub, shaft and hand its
+#: block states.
+_QSTEADY_ROTOR_KEYS: tuple[str, ...] = (
+    *(key for key in _STEADY_KEYS if key != COLD_START_VARIABLE),
+    RPM_VARIABLE,
+    PASSAGE_POSITIONS_VARIABLE,
 )
 
 #: WHAT EACH ROW KEY SETS, one entry per key the three tables above register
@@ -13929,6 +14592,17 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
                 "falls on into the program they run."
             ),
         ),
+        # NO COMMAND BY ITSELF: it sets how many steady solves the wheel is clocked
+        # through, each a ROTATE_SURFACE, a second INITIALIZE_SOLVER and a solve.
+        PASSAGE_POSITIONS_VARIABLE: InputKey(
+            "How many clockings of a quasi-steady wheel are solved inside one blade passage, "
+            "at theta_i = i * (360 / N) / k, and averaged by the post; required where the "
+            "inflow varies around the disc (a custom inflow, an angle of attack or of "
+            "sideslip), refused on a periodic sector. 2 converges thrust and torque to about "
+            "0.2 per cent, 6 or more the in-plane loads (RPT-089).",
+            "a whole number, one or more",
+            "ROTATE_SURFACE",
+        ),
         RAW_VARIABLE: InputKey(
             "Solver command lines the row states verbatim, one record each or a file of "
             "them, each emitted before the phase it names.",
@@ -14193,6 +14867,30 @@ WORKFLOWS: Mapping[str, Workflow] = {
         ),
         builder=_build_unsteady_rotor,
         keys=_UNSTEADY_ROTOR_KEYS,
+    ),
+    QSTEADY_ROTOR: Workflow(
+        name=QSTEADY_ROTOR,
+        summary=(
+            "An isolated, axisymmetric rotor solved steady with its blades held still and "
+            "the free stream turning at the rotor's speed: one periodic sector, or the whole "
+            "wheel at PASSAGE_POSITIONS clockings averaged by the post."
+        ),
+        commands=(
+            "CREATE_NEW_COORDINATE_SYSTEM",
+            "SET_FREESTREAM",
+            "SOLVER_SET_AOA",
+            "SOLVER_SET_VELOCITY",
+            "SOLVER_SET_ITERATIONS",
+            "SOLVER_SET_CONVERGENCE",
+            "INITIALIZE_SOLVER",
+            "START_SOLVER",
+            "SAVEAS",
+            "EXPORT_SOLVER_ANALYSIS_SPREADSHEET",
+            "EXPORT_LOG",
+            "CLOSE_FLIGHTSTREAM",
+        ),
+        builder=_build_qsteady_rotor,
+        keys=_QSTEADY_ROTOR_KEYS,
     ),
 }
 

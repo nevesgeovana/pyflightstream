@@ -130,6 +130,7 @@ from pyflightstream.cases import (
     resolve_recipe,
     sweep_name,
 )
+from pyflightstream.cases.qsteady import summarise as summarise_validity
 from pyflightstream.cases.workflows import (
     COLD_START_VARIABLE,
     EXPORT_LOG_VARIABLE,
@@ -140,6 +141,7 @@ from pyflightstream.cases.workflows import (
     RESTART_ITERATIONS_VARIABLE,
     RESTART_VARIABLE,
     SIMULATION_SUFFIX,
+    STEADY_RUN_TYPES,
     UNSTEADY_ACTION_COUNT,
     UNSTEADY_ACTION_PROGRAM,
     UNSTEADY_ACTION_SCRIPT,
@@ -154,6 +156,7 @@ from pyflightstream.cases.workflows import (
     creates_surface_sections,
     disc_speed_moves_with_the_point,
     parse_restart,
+    qsteady_validity,
     read_a_choice,
     reduction_windows,
     restart_iterations,
@@ -4349,6 +4352,13 @@ class PointPlan:
         :meth:`pyflightstream.cases.workflows.RotorMach.record` states them,
         with a ``note`` naming the row where they are not known (0.30.0,
         M1). Empty on every other point.
+    qsteady_validity : dict of str to object
+        On a point of a ``qsteady_rotor`` WHEEL, the 1P reduced frequency of
+        its blade (0.30.0): the per cent of the span with k above 0.1,
+        ``k_min``, ``k_max`` and ``k_mean``, as
+        :func:`pyflightstream.cases.workflows.qsteady_validity` states them,
+        or a ``note`` saying why the chord is not known at plan time. Empty on
+        every other point.
     """
 
     run_id: str
@@ -4361,6 +4371,7 @@ class PointPlan:
     raw: bool = False
     march_strategy: MarchStrategy | None = None
     rotor_mach: dict[str, dict[str, object]] = field(default_factory=dict)
+    qsteady_validity: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -4505,7 +4516,9 @@ def _recorded_is_unsteady(record: dict) -> bool:
     """
     recipe = record.get("recipe")
     if isinstance(recipe, str) and recipe:
-        return recipe != "steady"
+        # 0.30.0: THE QUASI-STEADY ROTOR IS STEADY, every solve of it; a
+        # recipe other than "steady" stopped meaning unsteady that day.
+        return recipe not in STEADY_RUN_TYPES
     return bool(record.get("reductions"))
 
 
@@ -4643,7 +4656,7 @@ def estimate_point_cost(
     its sample size attached, or no number at all.
     """
     solver = getattr(case, "solver", None)
-    unsteady = case.recipe != "steady"
+    unsteady = case.recipe not in STEADY_RUN_TYPES
     from pyflightstream.cases.workflows import time_steps_of
 
     iterations = time_steps_of(case)
@@ -4975,7 +4988,29 @@ class CampaignPlan:
         for entry in self.points:
             for alias, mach in entry.rotor_mach.items():
                 lines.append(f"  {entry.run_id}: {rotor_mach_line(alias, mach)}")
+        # 0.30.0: every quasi-steady wheel point states the four values of its
+        # blade's 1P reduced frequency, or why the chord is not known.
+        for entry in self.points:
+            if entry.qsteady_validity:
+                lines.append(f"  {entry.run_id}: {qsteady_validity_line(entry.qsteady_validity)}")
         return "\n".join(lines)
+
+
+def qsteady_validity_line(validity: Mapping[str, object]) -> str:
+    """Return the words the plan prints for one quasi-steady wheel point (0.30.0).
+
+    ``validity`` is one :attr:`PointPlan.qsteady_validity`.
+    """
+    note = validity.get("note")
+    if note:
+        root, tip = validity.get("k_per_chord_m_root"), validity.get("k_per_chord_m_tip")
+        known = (
+            f"; k per metre of chord {root:.4f} at the root, {tip:.4f} at the tip"
+            if isinstance(root, int | float) and isinstance(tip, int | float)
+            else ""
+        )
+        return f"quasi-steady validity not computed: {note}{known}"
+    return f"quasi-steady validity (1P reduced frequency): {summarise_validity(validity)}"
 
 
 def rotor_mach_line(alias: str, mach: Mapping[str, object]) -> str:
@@ -5280,6 +5315,9 @@ def _plan_point(
     # entry from here on, READY or not, since a point blocked for another
     # reason is still a point whose rotor may reach the speed of sound.
     base["rotor_mach"] = {mach.alias: mach.record() for mach in rotor_machs(point_case)}
+    # 0.30.0: a quasi-steady wheel point states its blade's 1P reduced frequency,
+    # READY or not, as the Mach numbers do.
+    base["qsteady_validity"] = qsteady_validity(point_case) or {}
     # THE PRE-FLIGHT RESOLVES A CONTINUATION, exactly as the run does, and the
     # reason is that a rehearsal which refuses what the run accepts is not a
     # rehearsal. A row stating RESTART carries no saved file and no step count

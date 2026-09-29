@@ -361,6 +361,8 @@ NOT_YET_RENDERED = {
     ("steady", "25.000"): "OWNER",
     ("unsteady", "25.000"): "OWNER",
     ("unsteady_rotor", "25.000"): "OWNER",
+    # 0.30.0: the quasi-steady rotor initialises as the steady type does.
+    ("qsteady_rotor", "25.000"): "OWNER",
 }
 
 #: How each declared cell refuses, and the words that say why (qa lens 5): a
@@ -369,6 +371,7 @@ REFUSED_BY = {
     ("steady", "25.000"): (CommandArgumentError, "INITIALIZE_SOLVER grammar"),
     ("unsteady", "25.000"): (CommandArgumentError, "INITIALIZE_SOLVER grammar"),
     ("unsteady_rotor", "25.000"): (WorkflowCoverageError, "no CREATE_NEW_MOTION"),
+    ("qsteady_rotor", "25.000"): (CommandArgumentError, "INITIALIZE_SOLVER grammar"),
 }
 
 

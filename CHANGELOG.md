@@ -9,6 +9,40 @@ FlightStream versions.
 
 ### Added
 
+- The `qsteady_rotor` run type: an isolated, axisymmetric rotor solved steady,
+  its blades held still and the free stream turning about its shaft at its
+  speed (`SET_FREESTREAM ROTATION` in the rotor's hub frame, signed by the
+  rotor block's `rpm_sign`). The reference declares exactly one rotor block;
+  a second rotor, an actuator disc, a body rate or a boundary of the geometry
+  that is none of the rotor's families is refused. `SYMMETRY PERIODIC` is a
+  SECTOR, one blade solved once, in an inflow that varies with the radius
+  alone (an angle is refused, a custom inflow is checked for it). No symmetry
+  is the WHEEL: every blade, and with an inflow that varies around the disc
+  (an angle of attack or of sideslip, or a custom inflow) the new row key
+  `PASSAGE_POSITIONS: k` is required, the wheel being solved at
+  `theta_i = i * (360 / N) / k` inside one blade passage and averaged by the
+  post (2 converges thrust and torque to about 0.2 %, 6 or more the in-plane
+  loads, RPT-089). A custom inflow on the wheel is the total velocity at the
+  disc, and the package writes a field with the rotation taken out
+  (`pyflightstream.cases.freestream.prepare_rotating_field`). FSI is refused:
+  on a sector until its wiring lands in this release, on a wheel for good.
+- The 1P reduced frequency `k = Omega c / (2 V_rel)` of a quasi-steady wheel
+  (`pyflightstream.cases.qsteady`): `pyfs-matrix plan` shows the per cent of
+  the span with `k > 0.1`, `k` min, max and mean for every wheel point and
+  warns, naming the point, when that per cent is above zero; each wheel point
+  leaves `<point>_qsteady.json` in its datapoint folder.
+- Two products of the quasi-steady rotor (`pyflightstream.post.qsteady`):
+  `polars/P<sim>-<ALIAS>_qs_positions.csv`, the rotor's and each blade's
+  loads at every clocking, and `_qs_avg.csv`, their mean per point; both and
+  a wheel point's sections table carry the validity columns (`K_1P_MIN` to
+  `TORQUE_PCT_K_GT_0_1`), and the sections table `K_1P` per station.
+- `RotorShaftLoads` states the rotor's force and its moment about the hub
+  (`force_n`, `moment_hub_nm`), and `helpers.rotate_surfaces` takes
+  `after_initialization=True` to clock surfaces between two solves.
+- The unsteady rotor's documentation states that a mean thrust from few
+  revolutions sits below the developed wake (about 0.5 % per revolution
+  still at revolution 6 on a measured six-blade propeller, RPT-089).
+
 - `pyfs-matrix space-in-use`, `free-space`, `delete-sims` and `sync`: the four
   storage commands of 0.30.0 (`pyflightstream.workspace.storage`).
   `space-in-use` reports the workspace's sizes on disk, by top level folder,

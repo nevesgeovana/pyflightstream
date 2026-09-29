@@ -30,6 +30,10 @@ PUBLIC_MODULES = [
     "pyflightstream.cases.freestream",
     "pyflightstream.cases.fsi_workspace",
     "pyflightstream.cases.matrix",
+    # 0.30.0: the quasi-steady rotor's arithmetic, clocking and 1P reduced
+    # frequency. PUBLIC deliberately: a user checking a blade's k by hand, or the
+    # clockings of a wheel, calls it.
+    "pyflightstream.cases.qsteady",
     # 0.24.0: the one resolver of an unsteady row's averaging window. PUBLIC
     # deliberately: a post-processing choice needs no new run, so a user who
     # recomputes a window off a recorded plan calls `averaging_steps` here.
@@ -86,6 +90,10 @@ PUBLIC_MODULES = [
     "pyflightstream.post.probe_fields",
     "pyflightstream.post.products",
     "pyflightstream.post.provenance",
+    # 0.30.0: the quasi-steady rotor's clockings and average tables. PUBLIC
+    # deliberately: its readers of a point's record are what a user re-posting a
+    # wheel by hand calls.
+    "pyflightstream.post.qsteady",
     "pyflightstream.post.reductions",
     "pyflightstream.post.section_distributions",
     "pyflightstream.post.series",

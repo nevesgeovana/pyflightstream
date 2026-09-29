@@ -73,10 +73,12 @@ from pyflightstream.cases.workflows import (
     DELTA_THETA_VARIABLE,
     GEOMETRY_VARIABLE,
     PERIODIC_COPIES_VARIABLE,
+    QSTEADY_ROTOR,
     REVOLUTIONS_VARIABLE,
     ROTOR_SHEDDING_VARIABLE,
     RPM_SIGN_VARIABLE,
     SIMULATION_SUFFIX,
+    STEADY_RUN_TYPES,
     SYMMETRY_VARIABLE,
     WORKFLOW_KEY,
     WORKFLOWS,
@@ -736,7 +738,9 @@ def test_every_command_a_workflow_declares_is_one_it_really_emits():
         }
     )
     for name in WORKFLOWS:
-        unsteady = name != "steady"
+        # 0.30.0: the quasi-steady rotor is a STEADY run type, so its outputs are
+        # a steady row's (the owner added it on 2026-09-28).
+        unsteady = name not in STEADY_RUN_TYPES
         names = [n.replace("{name}", "a+00.0_b+00.0") for n in default_outputs(unsteady)]
         base = _case_for(name)
         reference = base.reference or ReferenceData(area=1.0, length=1.0)
@@ -1309,12 +1313,18 @@ def test_the_workflow_table_is_documented_where_a_user_would_look():
 def test_the_fixture_is_a_three_row_matrix_that_declares_its_outputs():
     """A degenerate fixture passes every test above for the wrong reason."""
     campaign = fixture_campaign()
-    assert len(campaign.sims) == len(WORKFLOWS)
+    # THE QUASI-STEADY ROTOR (0.30.0) IS NOT A ROW OF THIS FIXTURE, and that is a
+    # narrowing stated rather than hidden: it solves the one rotor block its
+    # reference declares, and this fixture is converted with no workspace, so no
+    # reference block reaches it. Its matrix route is exercised through a bound
+    # workspace in test_goal035_qsteady_rotor.py, and its shapes are goldens here.
+    converted = set(WORKFLOWS) - {QSTEADY_ROTOR}
+    assert len(campaign.sims) == len(converted)
     for sim in campaign.sims:
         assert sim.outputs, f"row {sim.sim_id} declares no outputs"
         assert sim.variables.get(WORKFLOW_KEY), f"row {sim.sim_id} names no workflow"
     assert np.isclose(campaign.sims[0].reynolds, 1.2e6)
-    assert {sim.variables[WORKFLOW_KEY] for sim in campaign.sims} == set(WORKFLOWS), (
+    assert {sim.variables[WORKFLOW_KEY] for sim in campaign.sims} == converted, (
         "the fixture does not exercise every registered workflow, so a broken builder "
         "could ship green"
     )
@@ -1684,6 +1694,77 @@ def rotor_case_resolved() -> SimCase:
     )
 
 
+# --- 0.30.0: the case shapes of the quasi-steady rotor -----------------------
+#
+# THE OWNER ADDED THIS RUN TYPE ON 2026-09-28 (GOAL-035): an isolated rotor
+# solved steady with its blades held still and the free stream turning. Its
+# three shapes follow the others: bare (one clocking, the wheel in an axial
+# inflow), full (a wheel at an angle of attack, three clockings, a rotor of the
+# left hand, so the clocking and the rotating free stream carry the sign), and
+# resolved (the reference and the air). None names a geometry, a symmetry or a
+# copy count, which is the population the byte-identity guard is about.
+
+#: The rotor the quasi-steady shapes solve: three blades, so a clocking is a
+#: third of a turn over the count, and off axis like FIXTURE_ROTOR.
+QSTEADY_ROTOR_BLOCK = RotorBlock(
+    alias="PROP",
+    x_m=0.1,
+    y_m=0.2,
+    z_m=0.3,
+    axis="X",
+    rpm_sign=1,
+    diameter_m=2.4,
+    families_general=[],
+    families_blades=["Blade1", "Blade2", "Blade3"],
+    blade1=BladeDatum(azimuth_deg=0.0, zero="Y"),
+)
+
+
+def qsteady_case(**overrides) -> SimCase:
+    """The bare shape: one rotor block, a speed, and nothing else."""
+    variables: dict[str, str | float | int | bool] = {
+        WORKFLOW_KEY: "qsteady_rotor",
+        "VELOCITY": "30.0",
+        "RPM": "1500",
+    }
+    rotor = overrides.pop("rotor", QSTEADY_ROTOR_BLOCK)
+    for key, value in overrides.items():
+        if value is None:
+            variables.pop(key, None)
+        else:
+            variables[key] = value
+    return SimCase(
+        sim_id="7004",
+        aircraft="RotorRig",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="qsteady_rotor",
+        outputs=["loads_a+00.0.txt"],
+        variables=variables,
+        point={"alpha": 0.0},
+        rotors={rotor.alias: rotor},
+    )
+
+
+def qsteady_case_full() -> SimCase:
+    """A wheel at 5 deg, clocked three times, turning left-handed."""
+    left = QSTEADY_ROTOR_BLOCK.model_copy(update={"rpm_sign": -1})
+    return qsteady_case(rotor=left, PASSAGE_POSITIONS="3").model_copy(
+        update={"point": {"alpha": 5.0}, "sweep": SweepAxis(type="alpha", values=[5.0])}
+    )
+
+
+def qsteady_case_resolved() -> SimCase:
+    """The bare shape with the reference and the air."""
+    from pyflightstream.cases import ReferenceData
+
+    return qsteady_case().model_copy(
+        update={
+            "reference": ReferenceData(area=10.0, length=1.2),
+            "fluid": _golden_fluid(),
+        }
+    )
+
+
 # --- PFS-2028.01: the case shapes of a run that turns nothing ---------------
 #
 # THREE DIFFERENT, NON-DEGENERATE CLOCKS, and the arbitrariness is the
@@ -1793,6 +1874,11 @@ GOLDEN_CASES = {
         "full": rotor_case_full,
         "resolved": rotor_case_resolved,
     },
+    "qsteady_rotor": {
+        "bare": qsteady_case,
+        "full": qsteady_case_full,
+        "resolved": qsteady_case_resolved,
+    },
 }
 
 #: The (workflow, build) pairs that are expected to REFUSE rather than
@@ -1809,7 +1895,9 @@ GOLDEN_CASES = {
 #: carries every command the workflow always emits, while
 #: ``initialize_solver`` refuses that edition's grammar outright. When
 #: that is decided either way, this set goes empty in the same commit.
-EXPECTED_REFUSALS = {("steady", "25.000"), ("unsteady", "25.000")}
+#: The quasi-steady rotor (0.30.0) initialises as the steady type does, so it
+#: meets the same refusal on that edition.
+EXPECTED_REFUSALS = {("steady", "25.000"), ("unsteady", "25.000"), ("qsteady_rotor", "25.000")}
 
 #: Every workflow crossed with every case shape and every build it
 #: covers: the population the byte-identity claim was always about.
@@ -3806,7 +3894,9 @@ def test_the_third_run_type_is_registered_and_covers_every_build():
     off: folding them would refuse a rotorless run on three builds for
     commands it never emits.
     """
-    assert workflow_names() == ("steady", "unsteady", "unsteady_rotor")
+    # The fourth run type is the owner's of 2026-09-28 (0.30.0): the expectation
+    # moved because she added the requirement, not because a test was bent.
+    assert workflow_names() == ("qsteady_rotor", "steady", "unsteady", "unsteady_rotor")
     assert len(covered_builds(WORKFLOWS["unsteady"])) == len(known_versions())
     assert len(covered_builds(WORKFLOWS["unsteady_rotor"])) < len(known_versions())
 
@@ -5723,7 +5813,9 @@ def test_no_workflow_exports_probe_points_it_never_created(tmp_path):
 
     unpaired = []
     for name in WORKFLOWS:
-        unsteady = name != "steady"
+        # 0.30.0: the quasi-steady rotor is a STEADY run type, so its outputs are
+        # a steady row's (the owner added it on 2026-09-28).
+        unsteady = name not in STEADY_RUN_TYPES
         names = [n.replace("{name}", "a+00.0_b+00.0") for n in default_outputs(unsteady)]
         base = _case_for(name)
         reference = base.reference or ReferenceData(area=1.0, length=1.0)

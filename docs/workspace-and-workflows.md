@@ -3080,10 +3080,10 @@ is the way out of that. Name a run type in the `WORKFLOW` column and the
 package builds the whole script itself, from the row and from what the
 row's identifiers resolved to.
 
-Three types ship today.
+Four types ship today.
 
-Both open the row's `GEOMETRY` first when the row names one, and both
-initialize the solver under the row's `SYMMETRY`.
+Each opens the row's `GEOMETRY` first when the row names one, and each
+initializes the solver under the row's `SYMMETRY`.
 
 `steady` is one point of a polar: a uniform free stream, the solver
 settings the row's `SET` identifier resolved to, one solve, one loads
@@ -3166,6 +3166,124 @@ has run on a licensed solver. What is not established here is whether a
 `BLADES` count may divide the phase-locked averaging window on the
 strength of it, which is why the limits list still says `BLADES`
 configures no rotor.
+
+**A mean taken from few revolutions sits below the developed wake.** An
+`unsteady_rotor` point's thrust and torque are still moving after the
+start-up revolution: on a six-blade research propeller measured on 26.124
+the thrust gained about 0.5 % per revolution and had not levelled at
+revolution 6 (RPT-089). A `LAST_REVS_AVG` window over the third revolution
+of a three-revolution run is therefore a mean of a wake still developing;
+run more revolutions before the window when the absolute level matters, and
+compare points at the same revolution count when the difference between
+them is what matters.
+
+### The quasi-steady rotor: `qsteady_rotor`
+
+`qsteady_rotor` solves an ISOLATED, AXISYMMETRIC rotor steady: the blades are
+held still and the free stream turns about the rotor's shaft at the rotor's
+speed (`SET_FREESTREAM ROTATION`, in the rotor's hub frame, about its shaft,
+at its `RPM` signed by the rotor block's `rpm_sign`). The reference declares
+exactly one rotor block, and the rotor is that block: its hub, its shaft, its
+hand and its blades. The row states the speed as `RPM` (or `ADVANCE_RATIO`)
+in its `FLIGHT_CONDITION` cell. It runs WITHOUT FSI.
+
+It is valid only where nothing but the rotor is in the flow and every blade
+is alike, and the builder refuses what it can detect is not: a reference
+declaring no rotor or several, a row turning a second rotor (`MOTIONS`),
+loading an actuator disc, or turning the free stream by a body rate, and an
+opened geometry holding a boundary that is none of the rotor's families.
+Whether the blades are alike is the user's to know: the mesh is not compared
+blade by blade. A rotor on an airframe runs as `unsteady_rotor`.
+
+The row's `SYMMETRY` decides which of two cases it is:
+
+| case | the row states | what is solved |
+|---|---|---|
+| SECTOR | `SYMMETRY PERIODIC` and `PERIODIC_COPIES` | the meshed blade, once, steady |
+| WHEEL | no symmetry | every blade, once per clocking, each clocking steady |
+
+A `MIRROR` symmetry is refused: a turning rotor is not its own mirror image.
+
+**The sector** stands for the wheel only in an inflow that is the same at
+every azimuth. An angle of attack or of sideslip is refused on it, and a
+custom inflow (`FREESTREAM`) is accepted only where it varies with the
+radius alone: rows at the same distance from the shaft must state the same
+axial, radial and swirl velocity, and a file with no two rows at one radius
+is refused, since nothing in it shows that it is axisymmetric.
+
+**The wheel** meshes every blade the rotor block lists (a mesh of one blade is
+a sector). In an axial, uniform inflow it is steady in the rotating frame and
+solved once. In an inflow that varies around the disc (an angle of attack or
+of sideslip, or a custom inflow) each blade meets a different flow, and the
+row MUST state `PASSAGE_POSITIONS: k`, one or more: the wheel is solved at
+`k` clockings uniform inside ONE blade passage,
+`theta_i = i * (360 / N) / k` for `i` from 0 to `k - 1` with `N` the blade
+count, and the post averages them. The clockings are rotations of the
+rotor's surfaces about its shaft in the sense of its rotation, each followed
+by a new initialisation of the solver; clocking 0 is solved last, with the
+point's full set of exports, so its loads export and its log are of one
+solve. Each further clocking exports its loads alone, as
+`<point>_qs<i>.txt` beside the point's own.
+
+How many clockings, measured on a six-blade research propeller at 5 deg on
+26.124 (RPT-089): **`PASSAGE_POSITIONS: 2` converges thrust and torque to
+about 0.2 %; state 6 or more for the in-plane loads** (the side forces and
+the pitching and yawing moments, small resultants of large blade loads,
+within 1.6 % of 24 clockings at 6). The cost is one steady solve per
+clocking, about ten times less than three unsteady revolutions at 6.
+
+**A custom inflow on the wheel is the TOTAL velocity of the air at the disc**,
+in the global frame, and the package adds the rotation: it writes a new field
+file, `v - Omega x (p - hub)` at every row, the air as the blade held still
+meets it, and states `SET_FREESTREAM CUSTOM` of that file (a run has one
+`SET_FREESTREAM`). The field lies in the YZ plane, so the rotor's shaft must
+be the global X axis; the file's units are declared by `FREESTREAM_UNITS`
+(an undeclared file is read in metres and metres per second, and refused on
+a simulation in another unit). The source file is never written; the new
+one carries a provenance file naming what was added.
+
+**FSI.** A sector with FSI is refused in this release until its wiring
+lands; a wheel with FSI is refused: a quasi-steady wheel is several steady
+clockings averaged, and a blade deformed once per clocking is not the state
+of one structure.
+
+**The validity parameter.** The quasi-steady solution holds where the blade's
+load changes slowly against the time the flow takes to cross it. Its measure
+is the 1P reduced frequency of each blade station,
+
+```text
+Omega = 2 pi RPM / 60
+V_rel = sqrt(V^2 + (Omega r)^2)
+k     = Omega c / (2 V_rel)
+```
+
+with `r` the station's radius, `c` its chord and `V` the point's free-stream
+speed. Below about 0.05 the flow follows a once-per-revolution load as it
+changes; above about 0.1 the lag of the unsteady wake is no longer small and
+the load there is an estimate. `pyfs-matrix plan` shows, for every wheel
+point, the per cent of the span with `k > 0.1`, the minimum, the maximum and
+the span-weighted mean of `k`, and WARNS, naming the point, when that per
+cent is above zero; nothing is refused. The plan reads the chord off the
+blade's mesh where the geometry is an OBJ the row does not move (the largest
+width of each radial band of the first blade's surface); where it cannot, it
+says why and states what it knows, `k` per metre of chord at the root and at
+the tip. Each wheel point leaves `<point>_qsteady.json` in its datapoint
+folder: the case, the rotor, each clocking and its loads export, and the
+plan's `k` (minimum, maximum, mean and the span above 0.05 and above 0.1).
+After the run the post reads the chord from the sectional loads export and
+adds the share of thrust and of torque from the stations above 0.1; every
+quasi-steady product of the point carries these values
+([the definitions](post-processing-definitions.md#the-quasi-steady-rotor)).
+
+**The limits.** Axisymmetric, isolated rotors only. At an angle, the
+in-plane loads are quasi-steady ESTIMATES: on the measured propeller the
+side force and the yawing moment came out with the opposite sign to the
+unsteady rotor's and the normal force 20 % lower, whatever the clocking
+count, and thrust and torque 7 to 9 % above an unsteady rotor averaged after
+three to six revolutions (RPT-089). No script this run type builds has run
+on a licensed solver at this writing: the measurement is of hand-built
+scripts of the same commands, which clocked the wheel from a new simulation
+per clocking rather than by rotating its surfaces between solves.
 
 From the terminal, that whole study is one command:
 

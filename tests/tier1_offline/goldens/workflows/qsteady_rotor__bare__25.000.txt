@@ -1,0 +1,2 @@
+REFUSED CommandArgumentError
+initialize_solver cannot express the INITIALIZE_SOLVER grammar of FlightStream 25.000: that edition takes ten arguments, spells symmetry SYMMETRY_TYPE with its own token set, and has no SOLVER_MODEL, so this helper's parameters do not map onto it (SRC-749 p.298). Emit the command directly with script.emit('INITIALIZE_SOLVER', ...), which validates against that build's own grammar
