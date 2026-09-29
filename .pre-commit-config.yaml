@@ -56,11 +56,11 @@ repos:
       - id: end-of-file-fixer
         exclude: '^tests/(tier1_offline/(goldens|fixtures)|tier3_licensed/(goldens|inputs/geometries))/'
       - id: check-yaml
-      # The seven compiled guide decks (under 1 MB each) are tracked by the
+      # The eight compiled guide decks, 00 to 07 (under 1 MB each) are tracked by the
       # owner's decision and exceed the hook's 500 kB default; every other
       # file keeps the default.
       - id: check-added-large-files
-        exclude: '^guide/fts-guide-0[1-7]-[a-z-]+\.pdf$'
+        exclude: '^guide/pyfts-guide-0[0-7]-[a-z-]+\.pdf$'
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.22
@@ -77,8 +77,8 @@ repos:
       # maintainer script.
 
   # Guard: licensed or binary documents never enter Git (invariant 1).
-  # The seven guide decks are the one exemption, by the owner's decision:
-  # their compiled PDFs, guide/fts-guide-0N-*.pdf, and the figure PDFs their
+  # The eight guide decks, 00 to 07, are the one exemption, by the owner's decision:
+  # their compiled PDFs, guide/pyfts-guide-0N-*.pdf, and the figure PDFs their
   # sources include, guide/latex-sources/0N-*/figures/*.pdf; no other pdf,
   # guide/ included. The suffix is matched case-insensitively and the
   # exemption case-sensitively. The tier-1 twin with the mutation proof is
@@ -91,7 +91,7 @@ repos:
         entry: pdf files never enter Git but the guide decks' own (invariant 1)
         language: fail
         files: '(?i)\.pdf$'
-        exclude: '^guide/(fts-guide-0[1-7]-[a-z0-9-]+|latex-sources/0[1-7]-[a-z0-9-]+/figures/[A-Za-z0-9_.-]+)\.pdf$'
+        exclude: '^guide/(pyfts-guide-0[0-7]-[a-z0-9-]+|latex-sources/0[0-7]-[a-z0-9-]+/figures/[A-Za-z0-9_.-]+)\.pdf$'
       - id: forbid-notebooks
         name: forbid notebooks
         entry: examples are percent-format .py, notebooks never enter Git (invariant 7)

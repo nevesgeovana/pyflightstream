@@ -92,7 +92,7 @@ a mechanical half of that rule until 2026-08-11.
 | `reports/` | Committed evidence from licensed machines: command validity (compat), physics regression, drift, and research cards |
 | `docs/` | Documentation source (ProperDocs); reference pages are generated from the database, never committed |
 | `examples/` | Runnable example scripts in percent format |
-| `guide/` | The seven guide decks, their LaTeX sources under `latex-sources/` and their compiled PDFs and figure PDFs (the only pdfs tracked, `guide/fts-guide-0N-*.pdf` and `guide/latex-sources/0N-*/figures/*.pdf`), and the LaTeX source of the Python library guide, whose built pdf never enters Git |
+| `guide/` | The eight guide decks, 00 to 07, their LaTeX sources under `latex-sources/` and their compiled PDFs and figure PDFs (the only pdfs tracked, `guide/pyfts-guide-0N-*.pdf` and `guide/latex-sources/0N-*/figures/*.pdf`), and the LaTeX source of the Python library guide, whose built pdf never enters Git |
 | `deprecated/` | Discontinued public items, grouped here instead of scattered at the top level |
 | `_private/` | Local only, never committed: FlightStream manuals, executables, research geometry, the design documents and the plan ledger |
 

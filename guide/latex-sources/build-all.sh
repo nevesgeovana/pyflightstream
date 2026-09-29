@@ -3,11 +3,13 @@
 #
 # build-all.sh
 #
-# Builds the seven guide decks from this folder and copies each final PDF one
-# level up (guide/ in the repository, docs/ in a kit), overwriting. Auxiliary
-# files stay in build/ here, which is never versioned.
+# Builds the eight guide decks, 00 to 07, from this folder and copies each
+# final PDF, named pyfts-guide-<folder>.pdf, one level up (guide/ in the
+# repository, docs/ in a kit), overwriting. Auxiliary files stay in build/
+# here, which is never versioned.
 #
-#   sh build-all.sh            all seven decks
+#   sh build-all.sh            all eight decks
+#   sh build-all.sh 00         only guide 00, the overview (00-fts-overview)
 #   sh build-all.sh 03         only the deck whose folder starts with 03
 #
 # Needs pdflatex (TeX Live or MiKTeX) with the beamer, tcolorbox, listings,
@@ -30,7 +32,7 @@ fi
 for deck in "$here"/0*/; do
     name=$(basename "$deck")
     case "$name" in "$only"*) ;; *) continue ;; esac
-    job="fts-guide-$name"
+    job="pyfts-guide-$name"
     out="$here/build/$name"
     mkdir -p "$out"
     ok=1
