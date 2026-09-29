@@ -5217,18 +5217,17 @@ def _unsteady_harmonics(
     table = next((path for path in series if path.name == name), None)
     window = record.export_window
     relative = f"{SECTIONS_DIR}/{stem}{_harmonics.HARMONICS_SUFFIX}"
-    missing = None
-    if not rotors:
-        missing = "the point's record states no rotor whose blades and clock the fit can read"
-    elif table is None:
-        missing = (
-            f"the point wrote no sections series ({name}), which the harmonics of an "
-            "unsteady rotor are fitted from: the row exported no per-step sectional "
-            "loads, or the series was not written (see its own entry)"
-        )
-    elif not window:
-        missing = "the point's record states no export window to find its last revolution in"
-    if missing is not None:
+    if table is None or not window or not rotors:
+        if not rotors:
+            missing = "the point's record states no rotor whose blades and clock the fit can read"
+        elif table is None:
+            missing = (
+                f"the point wrote no sections series ({name}), which the harmonics of an "
+                "unsteady rotor are fitted from: the row exported no per-step sectional "
+                "loads, or the series was not written (see its own entry)"
+            )
+        else:
+            missing = "the point's record states no export window to find its last revolution in"
         skipped[relative] = missing
         warn(f"point={stem} product={relative}: {missing}", PyflightstreamWarning, stacklevel=2)
         return None
