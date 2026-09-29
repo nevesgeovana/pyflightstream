@@ -1,0 +1,69 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{Writing raw entries}
+
+\begin{frame}{The raw table and its checks}
+\begin{itemize}\small
+  \item Each \code{[[raw]]} table contains \code{command}, the complete
+        one-line command with arguments, and \code{before}, its insertion phase.
+  \item Phases: \code{geometry}, \code{setup}, \code{init}, \code{exec},
+        \code{analysis}, \code{export}, \code{control}.
+        The line goes before the first command of the named phase;
+        \code{control} places it at the script's head.
+  \item At plan, the emitter checks that the command is available on the
+        row's build, that its grammar and argument count and types match,
+        and that the script stays in phase order. A command from a later
+        phase cannot be placed before an earlier one.
+  \item One-line commands only. Keyword blocks, payloads and parameter
+        blocks are refused by this route. A helper keyword alone does not
+        make a top-level setup key valid.
+  \item Lines retain their written order. The run record's
+        \code{raw\_commands} keeps \code{command}, \code{before},
+        \code{setup} and \code{source}; the provenance document carries them too.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{RawCommand};
+  \code{cases/workflows.py}, \code{\_raw\_commands}; \code{workspace/inputs.py};
+  also repository \code{docs/workspace-and-workflows.md}, raw commands section}
+\end{frame}
+
+\begin{frame}[fragile]{Setup settings and the pproc surface window}
+\small In the setup, a dedicated key replaces the raw separation command:
+\begin{lstlisting}[basicstyle=\ttfamily\small,numbers=none]
+laminar_separation = true
+\end{lstlisting}
+\small In the separate pproc artifact, request the surface average:
+\begin{lstlisting}[basicstyle=\ttfamily\small,numbers=none]
+[time_averaging]
+last_iters = 36
+\end{lstlisting}
+\begin{itemize}\small
+  \item With 144 time steps, the package resolves the window to 109 to 144.
+        Exactly one of \code{last\_iters} or \code{last\_revs} is required.
+  \item Surface averaging requires build 26.122 or later. Verified on 26.122
+        [2]: the bounds are time steps, inclusive, 1-based.
+  \item Existing \code{[[raw]]} entries still work. Use one route per
+        setting; the pproc window also records the surface's provenance.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{What belongs beside the settings}
+\begin{itemize}\small
+  \item A raw line is fixed for every row citing this setup. Row-specific
+        \code{RAW} entries extend the preset: at a given phase, preset
+        lines come first and row lines follow.
+  \item \code{[[flags]]} declares a command whose value the row supplies.
+        It reaches only \code{control}, \code{geometry} and \code{setup}.
+        The advanced \code{init} commands in this deck therefore need
+        \code{[[raw]]} when they have no top-level setup key.
+  \item \code{[flight\_condition]} can supply fluid pins; it is consumed
+        separately from \code{SolverSettings}. It does not create new solver keys.
+  \item Geometry \code{[aliases]} and \code{[[frames]]} moved to the
+        reference artifact. Post-processing tables belong to the
+        \code{PPROC} artifact. Their old setup location is refused.
+  \item Do not state a field and its alias together. The resolver refuses
+        two spellings of the same setting, even when the values agree.
+\end{itemize}
+\setupsources{\code{workspace/inputs.py}, \code{SetupArtifact};
+  \code{workspace/matrix.py}, \code{\_solver\_from\_setup};
+  \code{cases/\_\_init\_\_.py}, \code{CustomFlag}; \code{cases/workflows.py}}
+\end{frame}

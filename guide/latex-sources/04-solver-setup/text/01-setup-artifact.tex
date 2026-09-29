@@ -1,0 +1,70 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{The setup artifact}
+
+\begin{frame}{Where the solver setup lives}
+\begin{itemize}\small
+  \item The matrix row's \code{SET} cell names the setup artifact:
+        \code{s001} selects \code{inputs/setups/s001.toml}.
+        The general filename is \code{sNNN.toml}.
+  \item Top-level TOML keys become \code{SolverSettings} fields, directly
+        or through the preset alias table. A key that reaches nothing and
+        is not declared recorded-only is refused at plan.
+  \item An unstated optional setting normally emits nothing, leaving the
+        solver's own default. The package also has explicit defaults and
+        derived values, listed on the next frame.
+  \item The run record keeps the \code{solver\_setup} snapshot: effective
+        flag values and provenance, including defaults and unknown values.
+        Unknown does not mean disabled.
+\end{itemize}
+\setupsources{\code{workspace/inputs.py}, \code{SetupArtifact};
+  \code{workspace/matrix.py}, \code{\_solver\_from\_setup};
+  \code{script/solver\_setup.py}, \code{SolverSetup}; \code{script/helpers.py}}
+\end{frame}
+
+\begin{frame}{Package defaults and solver defaults}
+\begin{itemize}\small
+  \item \code{iterations = 500} and \code{convergence = 1e-5} are model
+        defaults and reach solver commands even when omitted from the file.
+  \item Every other \code{SolverSettings} field defaults to Python
+        \code{None}. In TOML, omit the key; there is no \code{None} value.
+  \item An omitted \code{minimum\_cp} still emits
+        \code{SOLVER\_MINIMUM\_CP -100} on a build carrying that command.
+        The solver's documented default is \code{-20}.
+  \item The workflow supplies \code{INCOMPRESSIBLE} for an unstated model,
+        the freestream velocity for an unstated reference velocity, and
+        \code{DISABLE} for loading saved solver initialization.
+  \item The snapshot distinguishes explicit, default and unknown values.
+        Its flag inventory is \code{FLAG\_SPECS}; that inventory is larger
+        than the set of keys accepted in a setup file.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings};
+  \code{cases/workflows.py}; \code{script/helpers.py}, \code{solver\_settings};
+  \code{script/solver\_setup.py}, \code{FLAG\_SPECS}}
+\end{frame}
+
+\begin{frame}{Recorded-only keys}
+\relax
+{\ftstablesize
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.43\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Key} & \textbf{Why it emits nothing} \\
+\midrule
+\code{solver}, \code{motion} & Run type and motion come from the row and workflow. \\
+\code{symmetry\_type} & Geometry symmetry belongs to the row's \code{SYMMETRY}. \\
+\code{unsteady\_delta\_theta\_deg} & Superseded by the row's \code{DELTA\_THETA}. \\
+\code{unsteady\_N\_revolutions} & Superseded by the row's \code{REVOLUTIONS}. \\
+\code{set\_base\_region\_trailing\_edges} & Boundary-selecting separation model: a recipe's job. \\
+\code{slipstream\_wake\_stabilization}, \code{wake\_layers} & No emitter in this package. \\
+\bottomrule
+\end{tabularx}}
+\begin{itemize}\small
+  \item Each warns by name and reason. A file may declare additional names
+        with \code{recorded\_only = ["my\_setting"]}; these still warn.
+  \item Do not use recorded-only to make a misspelled setting appear to work.
+        \code{mesh\_order\_list} is refused outright: boundary order belongs
+        to the geometry inventory.
+\end{itemize}
+\setupsources{\code{workspace/matrix.py}, \code{\_PRESET\_RECORDED\_ONLY},
+  \code{\_PRESET\_RECORDED\_ONLY\_KEY}, \code{\_solver\_from\_setup}}
+\end{frame}

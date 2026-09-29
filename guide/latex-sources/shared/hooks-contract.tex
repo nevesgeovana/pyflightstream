@@ -1,0 +1,25 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% shared/hooks-contract.tex
+%
+% Refuses to build when hooks-slides.tex has not defined every hook.
+
+\makeatletter
+\def\fts@hookcmds{ftsbodysize,ftscodesize,ftstablesize,ftsfigscale,%
+  ftsstep,ftsref,deckonly,bookonly,ftscodeopts,ftsboxopts}
+\def\fts@hookenvs{ftsfigure,ftsprocedure,ftspitfall,ftslist}
+
+\@for\fts@h:=\fts@hookcmds\do{%
+  \@ifundefined{\fts@h}{%
+    \PackageError{ftscourse}%
+      {Class hook \fts@h\space is not defined}%
+      {Input hooks-slides.tex before
+       shared/hooks-contract.tex.}}{}}
+
+\@for\fts@h:=\fts@hookenvs\do{%
+  \@ifundefined{\fts@h}{%
+    \PackageError{ftscourse}%
+      {Class hook environment \fts@h\space is not defined}%
+      {Input hooks-slides.tex before
+       shared/hooks-contract.tex.}}{}}
+\makeatother

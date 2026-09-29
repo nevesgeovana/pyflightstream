@@ -1,0 +1,69 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{A complete reference file}
+
+\begin{frame}[fragile]{Complete reference example: lengths and vocabulary}
+\small \code{inputs/references/r101.toml}, selected by \code{REF = r101}.
+A two-rotor configuration, continued next frame.
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,numbers=none]
+area_m2 = 10.507   # SREF, m^2
+chord_m = 4.0       # CREF, m
+span_m = 3.6576      # BREF, m
+
+[moment_point]
+x_m = 2.0
+y_m = 0.0
+z_m = 0.0
+
+[aliases]
+airframe = ["Body", "Base"]
+rotors = ["PORT", "STARBOARD"]
+
+[[frames]]
+name = "NACELLE"
+origin = [4.5, 0.0, 0.0]
+\end{lstlisting}
+\setupsources{\code{cases/\_\_init\_\_.py}; \code{workspace/inputs.py};
+  also repository \code{docs/workspace-and-workflows.md}}
+\end{frame}
+
+\begin{frame}[fragile]{Complete reference example: the port rotor}
+\small Continue the same file. Two rotors follow, one block each.
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,numbers=none]
+[PORT]
+kind = "rotor"
+x_m = 4.5
+y_m = 2.5
+z_m = 0.0
+axis = "X"
+rpm_sign = 1
+diameter_m = 3.6576
+families_general = []
+families_blades = ["Blade1"]
+blade1 = { azimuth_deg = 0.0, zero = "Y" }
+\end{lstlisting}
+\setupsources{\code{cases/\_\_init\_\_.py}; \code{cases/workflows.py};
+  also repository \code{docs/workspace-and-workflows.md}}
+\end{frame}
+
+\begin{frame}[fragile]{Complete reference example: the starboard rotor}
+\small Continue the same file. The two diameters differ on purpose: one
+advance ratio written once in a row's flight condition resolves against
+each rotor's own diameter, so unlike rotors turn at unlike speeds from
+one written number.
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,numbers=none]
+[STARBOARD]
+kind = "rotor"
+x_m = 4.5
+y_m = -2.5
+z_m = 0.0
+axis = "X"
+rpm_sign = -1        # counter-rotating
+diameter_m = 1.8288
+families_general = []
+families_blades = ["Blade2"]
+blade1 = { azimuth_deg = 0.0, zero = "Y" }
+\end{lstlisting}
+\setupsources{\code{cases/\_\_init\_\_.py}; \code{cases/workflows.py};
+  also repository \code{docs/workspace-and-workflows.md}}
+\end{frame}

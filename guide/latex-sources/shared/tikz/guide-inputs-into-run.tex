@@ -1,0 +1,39 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% shared/tikz/guide-inputs-into-run.tex
+% Which input file supplies which part of a run. The reader should be able to
+% look at this and know which file to open.
+% Shared fragment: no sectioning, no frame, no size command, no float. Wrapped by the caller.
+\begin{tikzpicture}[font=\scriptsize, node distance=3mm,
+  f/.style={draw=CourseBlue, thick, rounded corners, fill=CourseBlue!8,
+            align=left, text width=34mm, minimum height=7mm, inner sep=3pt},
+  ctr/.style={draw=CourseGold, very thick, rounded corners, fill=CourseGold!15,
+              align=center, text width=26mm, minimum height=14mm, inner sep=3pt},
+  ans/.style={font=\tiny\itshape, text=CourseGray, align=left, text width=32mm}]
+
+\node[ctr] (row) {\textbf{one row of}\\ \texttt{matriz.fs}\\ \tiny cites by name};
+
+\node[f, above left=14mm and 16mm of row] (geo) {\texttt{geometries/<mesh>/}};
+\node[f, below=2mm of geo] (ref) {\texttt{references/r001.toml}};
+\node[f, below=2mm of ref] (set) {\texttt{setups/s001.toml}};
+\node[f, below=2mm of set] (pp)  {\texttt{pproc/p001.toml}};
+\node[f, below=2mm of pp]  (exe) {\texttt{executables.toml}};
+
+\node[ans, left=2mm of geo] {what shape};
+\node[ans, left=2mm of ref] {what it is divided by};
+\node[ans, left=2mm of set] {how hard to solve};
+\node[ans, left=2mm of pp]  {what to export};
+\node[ans, left=2mm of exe] {which build};
+
+\foreach \n in {geo, ref, set, pp, exe}
+  \draw[-{Stealth}, thick, CourseBlue] (\n.east) -- (row.west);
+
+\node[f, right=16mm of row, text width=30mm, draw=CourseGray, fill=CourseGray!8]
+  (emit) {the emitted script\\ \tiny one per point};
+\draw[-{Stealth}, thick, CourseGold] (row) -- (emit);
+
+\node[font=\tiny\itshape, text=CourseGray, below=6mm of row, text width=80mm, align=center]
+  {The row carries \emph{names}, never paths. That is what lets the same matrix
+   drive two machines without a cell changing.};
+
+\end{tikzpicture}

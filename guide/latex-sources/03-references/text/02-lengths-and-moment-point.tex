@@ -1,0 +1,69 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{Reference lengths and the moment point}
+
+\begin{frame}{SREF, CREF, BREF: what the coefficients divide by}
+\relax
+{\ftstablesize
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.22\linewidth}>{\RaggedRight\arraybackslash}p{0.2\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Key} & \textbf{Command} & \textbf{Type and meaning} \\
+\midrule
+\code{area\_m2} & \code{SOLVER\_SET\_REF\_AREA} & Float $>0$, m$^2$; SREF, the reference area. \\
+\code{chord\_m} & \code{SOLVER\_SET\_REF\_LENGTH} & Float $>0$, m; CREF, the reference chord. \\
+\code{span\_m} & (recorded) & Float $>0$, m; BREF, the reference span. \\
+\bottomrule
+\end{tabularx}}
+\begin{itemize}\small
+  \item All three are required and must be positive. They live in the
+        reference file rather than the row because they answer for a whole
+        configuration, not for one flight condition.
+  \item Change one of these and every coefficient in your results changes:
+        \code{CL}, \code{CD}, \code{CM} and the rest are all divided by
+        them. That is why a study writes them once, cited by every row.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}, the reference model;
+  \code{workspace/inputs.py}}
+\end{frame}
+
+\begin{frame}{The fourth length: \code{rotor\_diameter\_m}}
+\begin{itemize}\small
+  \item Optional top-level field, in metres. A divisor of published numbers
+        exactly like the area and the chord: it is what an advance ratio
+        (\code{ADVANCE\_RATIO}) is a ratio against, and what the rotor
+        coefficients normalise on.
+  \item A row stating \code{ADVANCE\_RATIO} against a reference without
+        this field is refused, naming the field to add.
+  \item It answers for a row that names no rotor alias: one number for the
+        whole configuration. A rotor block (\code{kind = "rotor"}) carries
+        its own \code{diameter\_m} instead, which wins for a motion citing
+        that block, so rotors of different sizes take different speeds
+        from one written ratio.
+  \item It is optional because a configuration with no rotor has no
+        diameter, and a placeholder value would be worse than nothing.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}, the reference model;
+  \code{cases/workflows.py}}
+\end{frame}
+
+\begin{frame}{The moment point and the \code{MRP} frame}
+\begin{itemize}\small
+  \item \code{[moment\_point]} states \code{x\_m}, \code{y\_m}, \code{z\_m}:
+        where moments are taken about, in the simulation geometry frame,
+        in metres.
+  \item The package creates a frame named \code{MRP} at the moment point on
+        every run type, before any custom frame and before any motion.
+  \item A pproc entry cites it by name: \code{frame = "MRP"} is the default
+        for a surface-section distribution, a probe plane and an unsteady
+        force-plot group, so leaving \code{frame} unstated already means
+        the moment point.
+  \item A rotor run type also creates \code{<ALIAS>\_SMRP} at each rotor's
+        own hub, beside \code{MRP} rather than instead of it.
+\end{itemize}
+\begin{ftsevidence}
+A name the package creates itself, such as \code{MRP}, cannot also be the
+name of a custom frame the reference declares: the file is refused at plan
+time, naming the collision.
+\end{ftsevidence}
+\setupsources{\code{workspace/inputs.py}; \code{cases/workflows.py}}
+\end{frame}

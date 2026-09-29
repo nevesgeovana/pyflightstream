@@ -1,0 +1,112 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% fsi/text/08-outputs-and-limits.tex
+%
+% The two limits frames state what the sources say is NOT established. They
+% are the frames never to soften: a later release moves a sentence here only
+% when its own documentation moves it.
+
+\section{Outputs, checklist and limits}
+
+\begin{frame}{Outputs, all in the point's working directory}
+\relax % a body opening with a brace group would be read as the frame subtitle
+{\ftstablesize\renewcommand{\arraystretch}{1.1}
+\begin{tabularx}{\linewidth}{@{}P{0.36\linewidth}R@{}}
+\toprule
+\textbf{File, written at every call} & \textbf{What it holds} \\
+\midrule
+\code{FS\_SurfaceSection\_Loads.txt} & by the solver: the section loads, computed in Newtons, line densities along the span; the reader asserts units and completeness \\
+\code{FSIDisp.txt} & one translation per node, in metres, blade frame, import order \\
+\code{state.json} & the structural state, written atomically, so a killed call resumes \\
+\code{fsi\_convergence\_log.csv} & the validity boundary in its header, \code{config\_sha256} on every row \\
+\code{fsi\_archive/call\_NNNN/} & that call's loads and displacements, for offline replay \\
+\code{pyfs\_fsi\_calls.log}, \code{\_error.log} & a line per call; on failure the traceback, and a non-zero exit that stops the coupling rather than let it continue rigid \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{1mm}
+\begin{itemize}\scriptsize
+  \item \code{pyfs-fsi step --dir /absolute/path} runs one driver call when
+        current loads and maps already exist; stale solver iterations are refused.
+  \item Changing a calibration requires a new resolved point and regenerated
+        nodes.
+\end{itemize}
+\fsisource{\code{docs/fsi-workspace.md}, ``Automatic workspace coupling'';
+  \code{fsi/cli.py}; \code{fsi/driver.py}; FSI tutorial, ``loads'', ``driver
+  and state'', ``cli''}
+\end{frame}
+
+\begin{frame}{Before planning an FSI row}
+\begin{enumerate}\small
+  \item \textbf{The input}: \code{inputs/fsi/f<id>.toml} in ONE mode, SI units;
+        calculated mode names a database material or a fully sourced one, and
+        closed simple contours in metres about the pitch axis.
+  \item \textbf{The row}: \code{WORKFLOW} \code{steady}, \code{unsteady}, or
+        \code{qsteady\_rotor} with periodic symmetry (the sector);
+        \code{FSI: f<id>} and any \code{FSI\_*\_FACTOR} in
+        \code{VAR\_NAMES\_VALUES}; no \code{RAW}, no custom flags.
+  \item \textbf{The geometry}: a fresh OBJ or STL import with its boundary
+        sidecar, in \code{METER}; never a saved \code{.fsm}.
+  \item \textbf{The rotor}: one isolated, axisymmetric rotor; shaft X, blade
+        datum Z; \code{blade\_count} equal to its blades;
+        \code{omega\_rad\_per\_s} equal to the row's free-stream rotation. A
+        wing: its span, and \(\Omega = 0\).
+  \item \textbf{The pproc}: one XY distribution per blade, \code{LOCAL\_AXIS},
+        in blade order, \code{include\_symmetry = false}.
+  \item \textbf{Then} \code{pyfs-matrix plan}, where the refusals of this deck
+        fire; after the run, \code{fsi-provenance.json} in the point's directory
+        gives each factor's value and origin.
+\end{enumerate}
+\fsisource{\code{docs/fsi-workspace.md}; \code{cases/fsi\_workspace.py};
+  \code{workspace/fsi\_setup.py}}
+\end{frame}
+
+\begin{frame}{Limits: what the coupling does not establish}
+\begin{itemize}\small
+  \item \textbf{Wiring is not validation}: the staging and callback checks do
+        not establish native two-way rotor deformation, convergence or
+        aerodynamic validity.
+  \item \textbf{The native evidence so far} [4]: on 26.124 a blade held
+        still in a turning free stream, its nodes inside the blade and the
+        multiquadric kernel, mapped every node and deformed; its thrust stayed
+        within 0.35\,\% of the rigid turning blade. A turning blade is
+        deformed in its un-turned position, which is why
+        \code{unsteady\_rotor} with FSI is refused.
+  \item \textbf{Open}: saved-simulation and continuation use, and native
+        coupled validation; staging or command acceptance implies neither.
+  \item \textbf{The zero-speed example inputs} are for offline checks, not
+        runnable coupled rotor rows.
+\end{itemize}
+\begin{ftslimit}[The package's own capability table]
+\scriptsize FSI beam and modal analysis: experimental. The coupled driver:
+experimental, replayed offline on archived fixtures, never run against a live
+solver in CI. Rotary two-way coupling: not validated.
+\end{ftslimit}
+\vspace{-1.5mm}
+\fsisource{\code{docs/fsi-workspace.md}, ``Automatic workspace coupling'';
+  \code{README.md}, the capability status table;
+  \code{docs/srs/architecture-srs.md}}
+\end{frame}
+
+\begin{frame}{Limits: the structural model}
+\begin{itemize}\small
+  \item \textbf{An Euler beam}, one per blade, in flap and torsion
+        \((w, \theta)\): only those two carry mass. This input adds no shell,
+        spar, hollow-section, shear-centre or second structural model; hollow
+        and spar sections are a future option, not built.
+  \item \textbf{Solid, homogeneous sections} from ONE material, when
+        calculated.
+  \item \textbf{The elastic axis at the centroid}; the shear centre is not
+        computed. A generated blade has a zero CG offset, so the bend-twist
+        coupling that offset drives is absent.
+  \item \textbf{No trapeze effect}: the elastic twist is overpredicted, which
+        is conservative.
+  \item \textbf{Quasi-static}: the once-per-revolution content is trustworthy
+        only well below resonance, \(n\,\Omega / \omega_n \lesssim 0.3\).
+  \item \textbf{Sources}: the formulas are transcribed from the coupling plan,
+        not re-checked against the primary papers; the materials are typical
+        values, not design allowables.
+\end{itemize}
+\fsisource{\code{docs/fsi-workspace.md}; FSI tutorial, ``The loop in one
+  paragraph'', ``sections and materials'', ``beam'', ``centrifugal'';
+  \code{fsi/materials.py}}
+\end{frame}

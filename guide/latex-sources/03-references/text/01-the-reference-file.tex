@@ -1,0 +1,49 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{The reference file}
+
+\begin{frame}{Where the reference file lives}
+\begin{itemize}\small
+  \item A matrix row's \code{REF} cell names it: \code{REF r006} selects
+        \code{inputs/references/r006.toml}. The general filename is
+        \code{r<id>.toml}.
+  \item It changes \emph{per configuration}, not per flight condition or
+        per study: one aircraft shape, one reference file, cited by every
+        row that flies that shape at whatever condition.
+  \item It does two jobs. It says what the coefficients are divided by
+        (\code{SREF}, \code{CREF}, \code{BREF}, the moment point), and it
+        says what the parts of that configuration are CALLED (the aliases,
+        the rotor blocks, the actuator discs, the custom frames).
+  \item Write it once per configuration, before the rows: everything that
+        follows cites these names and these lengths, and nothing else.
+\end{itemize}
+\begin{takeaway}
+A reference file is the study's vocabulary and its measuring stick, kept
+apart from the setup (how the solver runs) and the pproc (what gets
+written down), which change with the study instead.
+\end{takeaway}
+\setupsources{\code{workspace/inputs.py}; \code{cases/\_\_init\_\_.py},
+  the reference model classes}
+\end{frame}
+
+\begin{frame}{How a row names its reference}
+\begin{itemize}\small
+  \item \code{resolve\_matrix} narrows the workspace to a resolved matrix:
+        each case in it carries the codes of the row it came from, and the
+        full reference artifact survives there, keyed by \code{REF}.
+  \item A recipe (a function you write, called with the case and the
+        script) does \emph{not} receive the reference directly:
+        \code{case.reference.rotor} does not exist.
+  \item A recipe that wants a rotor's block, or its \code{rpm\_sign}, reads
+        it from the resolved matrix the recipe closes over, keyed by the
+        case's own reference code.
+\end{itemize}
+\begin{block}{Why the split}
+A recipe is written once and run against whatever reference a row cites.
+Handing it the artifact directly would let the same recipe silently answer
+differently for two configurations; reading it back by the row's own code
+keeps the recipe explicit about which configuration it is asking about.
+\end{block}
+\setupsources{\code{workspace/matrix.py}, \code{resolve\_matrix};
+  \code{cases/workflows.py}}
+\end{frame}

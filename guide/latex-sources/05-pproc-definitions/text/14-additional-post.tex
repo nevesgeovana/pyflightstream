@@ -1,0 +1,90 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{The additional post}
+
+\begin{frame}[fragile]{A second pproc, extracted from the saved simulation}
+\begin{lstlisting}[style=ftsbase]
+ADDITIONAL_PPROC: p002        # VAR_NAMES_VALUES of the row
+pyfs-matrix post matriz.fs --workspace . --additional-pproc
+\end{lstlisting}
+\begin{itemize}\small
+  \item The row runs byte for byte as without the key; the run record never
+        carries it.
+  \item Afterwards, each recorded point whose final \code{.fsm} is on disk and
+        hashes as its record says is copied into
+        \code{datapoints/DP-<point>/additional/<pid>/} and reopened there,
+        \textbf{with no solve}: sections cut in the frames the run created,
+        sectional loads computed, exports written, file closed. Nothing is
+        saved and no probe is written.
+  \item Each extraction is recorded in \code{additional.json} beside
+        \code{runs.json}, which is never written. The original \code{.fsm} is
+        hashed again after the launch.
+\end{itemize}
+{\tiny\color{SoftGray} Source:
+\code{docs/post-processing-definitions.md} [1], The additional post.\par}
+\end{frame}
+
+\begin{frame}{What a reopened saved simulation gives back}
+\relax
+{\ftstablesize
+\begin{tabular}{@{}p{0.44\linewidth}p{0.49\linewidth}@{}}
+\toprule
+\textbf{Export} & \textbf{Reopened, with no solve (26.124) [3]} \\
+\midrule
+total loads & identical \\
+surface solution & identical bytes \\
+surface sections, a distribution created after reopening included & identical \\
+sectional loads & zero until computed, identical once computed: the file
+stores the sections, not their loads, so the extraction computes them every time \\
+plots history of an unsteady point & identical \\
+probe points off the body & \textbf{not identical}: up to 4 per cent in speed,
+0.094 in Cp \\
+\bottomrule
+\end{tabular}}
+\begin{itemize}\small
+  \item Only 26.124 was measured: a row on another build is refused at plan.
+  \item Probes, a volume section, \code{[plots]}, \code{[time\_averaging]} and
+        \code{base\_regions} in an additional pproc are refused: nothing measured
+        says a reopened file gives them back.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The products of an extraction}
+\begin{itemize}\small
+  \item Under \code{post/<matrix>/additional/<pid>/}, beside the run's own and
+        never over them: the group polars of a steady point, one sections table
+        per point, and on an unsteady point the plots tables and reductions.
+  \item Every \code{products.json} entry for them carries:
+\end{itemize}
+{\ftstablesize
+\begin{tabular}{@{}p{0.20\linewidth}p{0.72\linewidth}@{}}
+\toprule
+\textbf{Key} & \textbf{Meaning} \\
+\midrule
+\code{pproc} & the ADDITIONAL pproc id, not the one the row ran with \\
+\code{additional} & always \code{true}; a reader of run products filters on it \\
+\code{extraction} & the extractions the file holds, \code{<point run id>/additional/<pid>} \\
+\code{derives\_from} & the points those extractions were taken from \\
+\bottomrule
+\end{tabular}}
+\par\vspace{1mm}
+\small and no \code{runs}, which names run ids everywhere else in the index.
+\end{frame}
+
+\begin{frame}{Which rows, which instant, and when it stops counting}
+\begin{itemize}\small
+  \item \textbf{Rows.} A reopened sections export carries the run's
+        distributions first and the additional pproc's after them. The table
+        keeps every row, the new blocks numbered on after the run's and marked
+        with the pproc; \code{leading\_sections} counts the run's rows.
+  \item \textbf{One instant on an unsteady point.} The saved simulation is the
+        LAST instant: the sections table's \code{STEP} is the run's last time
+        step, its entry says \code{kind: instant}, and \code{post.log} says so.
+        The plots history is the run's own.
+  \item \textbf{Only a current extraction has products}: its point is admitted,
+        the \code{.fsm} still hashes as the one it opened, and every file it
+        wrote is on disk and hashes as recorded. A point run again archives the
+        extraction; the stale one is skipped under
+        \code{additional/<pid>/runs/<extraction id>}, never under the run's key.
+\end{itemize}
+\end{frame}

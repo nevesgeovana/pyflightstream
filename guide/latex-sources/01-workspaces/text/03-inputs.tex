@@ -1,0 +1,460 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 01-workspaces/text/03-inputs.tex
+
+\section{The input files}
+
+\begin{frame}{The row names things, the files define them}
+\slidefig[0.62]{guide-inputs-into-run}
+\begin{takeaway}By name, never by path: \code{REF}, \code{SET} and \code{PPROC}
+carry a file stem, \code{GEOMETRY} names the mesh. That is what lets one matrix
+drive two workspaces.\end{takeaway}
+\end{frame}
+
+\begin{frame}{\code{matriz.fs}: nineteen columns}
+% \relax first: a brace group right after the title is read as a subtitle.
+\relax
+{\ftstablesize
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Group} & \textbf{Columns} \\
+\midrule
+identity: does it run at all & \code{POL}, \code{HIDDEN}, \code{RUN} \\
+what it is     & \code{AIRCRAFT}, \code{CONFIGURATION}, \code{DESCRIPTION} \\
+what it flies  & \code{FLIGHT\_CONDITION}, \code{SWEEP\_VALUES} \\
+what it cites  & \code{GEOMETRY}, \code{REF}, \code{SET}, \code{PPROC} \\
+how it solves  & \code{SYMMETRY}, \code{SYMMETRY\_LOADS}, \code{NCPUS}, \code{WALLTIME}, \code{FS\_BUILD} \\
+what builds it & \code{WORKFLOW}, \code{VAR\_NAMES\_VALUES} \\
+\bottomrule
+\end{tabular}}
+\vspace{3mm}
+\begin{itemize}
+  \item A key \textbf{every row} must answer is a column; a key only some rows
+        need goes in the free cell, \code{VAR\_NAMES\_VALUES}.
+  \item \code{-} means \emph{stated nothing}, so it cannot be confused with a
+        truncated line.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{One POL, once, in the whole workspace}
+\begin{itemize}
+  \item \code{POL} names \code{sims/sim\_<POL>} and the run ids, so it appears
+        \textbf{once across every matrix} of the workspace, \code{RUN = 0}
+        rows included.
+  \item \pyfs{plan} refuses a repeated POL and lists where it appears.
+\end{itemize}
+\begin{lstlisting}[style=ftsbase]
+pyfs-matrix plan matriz.fs --workspace . --fs-version 26.123 --update-ids
+\end{lstlisting}
+\begin{itemize}
+  \item \code{--update-ids} gives each repeated row of \emph{this} matrix the
+        next free POL above every POL, run record and \code{sims/} folder
+        \textbf{it can see}.
+\end{itemize}
+\begin{alertblock}{It writes the matrix before planning}
+The renumbering stays written even if the plan then refuses. Commit first, so
+the change is one diff you can read.
+\end{alertblock}
+\end{frame}
+
+\begin{frame}[fragile]{The free cell: move, turn, raw}
+\begin{lstlisting}[style=ftsbase]
+TRANSLATE: {DISTANCE: 0.05 / AXIS: PUSHER_SMRP-X / ALIAS: PUSHER}
+ROTATE:    {ANGLE: 3 / AXIS: PUSHER_SMRP-Y / ALIAS: PUSHER}
+RAW:       {COMMAND: SOLVER_SET_ITERATIONS 350 / BEFORE: init}
+\end{lstlisting}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{itemize}\small
+  \item \code{TRANSLATE}: metres, along \textbf{one} axis; a diagonal
+        is two records.
+  \item \code{ROTATE}: degrees, about one axis.
+  \item \textbf{Every translation comes before every rotation}, whatever the
+        order written.
+  \item One row is one position: neither is swept.
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{alertblock}{What to know before using it}
+\begin{itemize}\small
+  \item The alias's frames move with it; \code{<ALIAS>\_SMRP\_ORIGINAL} keeps
+        the hub where it was.
+  \item A moved part \textbf{comes away} from what it touches: the junction
+        is open.
+  \item The distance is read in metres; keep the meshes in metres.
+\end{itemize}
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{The flight condition: constraints on one flow state}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{lstlisting}[style=ftsbase]
+FLIGHT_CONDITION: MACH:0.20, REmi:5.5
+FLIGHT_CONDITION: TASmps:68.08, ALTFT:10000, dISA:5
+\end{lstlisting}
+{\ftstablesize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.16\linewidth}>{\raggedright\arraybackslash}p{0.24\linewidth}>{\raggedright\arraybackslash}p{0.46\linewidth}@{}}
+\toprule
+\textbf{Key} & \textbf{Unit} & \textbf{Constrains} \\
+\midrule
+\code{MACH}   & none & velocity, by the state's speed of sound \\
+\code{TASmps} & m/s & velocity, directly \\
+\code{REmi}   & \textbf{millions} & density \\
+\code{ALTFT}  & \textbf{feet} & pressure and temperature \\
+\code{dISA}   & \textbf{Celsius, a delta} & temperature \\
+\bottomrule
+\end{tabular}}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{itemize}\small
+  \item The keys decide what is solved for: the first line solves the
+        \textbf{density}, the second is an atmosphere point whose Reynolds
+        number follows [5, 7, 8].
+  \item Exactly one of \code{MACH} or \code{TASmps}. \code{REmi} needs the
+        row's \code{REF}: a Reynolds number has no meaning without a length.
+  \item Five keys \textbf{pin} the fluid (\code{RHOkgm3}, \code{MUPas},
+        \code{ASMPS}, \code{TK}, \code{PPA}), on the row or in the setup's
+        \code{[flight\_condition]}.
+  \item A rotor: \(V = J\,(\mathrm{RPM}/60)\,D\); state two of the three.
+  \item The set is closed: an unknown key is refused, never ignored.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{A matrix from an older layout}
+\begin{lstlisting}[style=ftsbase]
+pyfs-matrix upgrade matriz.fs              # to standard output: read the diff
+pyfs-matrix upgrade matriz.fs --in-place   # then write it
+\end{lstlisting}
+\begin{itemize}\small
+  \item A matrix written under an earlier layout is recognised by its header
+        and \textbf{refused rather than misread}; \code{upgrade} converts it.
+        It needs no recipe, no build and no executable.
+  \item A sweep code becomes the word \code{sweep} where the value would be:
+        \code{AL} becomes \code{ALPHA:sweep}. A row that varies both angles is
+        refused by name: it is one row per sideslip, each with its own POL.
+  \item \textbf{The values move across verbatim; the result may not.} A
+        Reynolds number that was only recorded becomes a constraint that
+        solves for density, so the upgraded row emits a fluid state it never
+        emitted before. To keep the old behaviour, drop \code{REmi} and let the
+        Reynolds number follow.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{\code{r001.toml}: what things are called (Guide 3)}
+\begin{columns}[T]
+\begin{column}{0.46\textwidth}
+\begin{lstlisting}[style=ftsbase]
+area_m2 = 19.502
+chord_m =  1.322
+span_m  = 15.059
+[moment_point]
+x_m = 0.0
+
+[aliases]
+airframe = ["Spinner","Nacelle"]
+
+[PUSHER]
+kind = "rotor"
+axis = "X"
+diameter_m = 1.80
+blade1 = { azimuth_deg = 0, zero = "Y" }
+families_blades = ["Blade1", "Blade2"]
+\end{lstlisting}
+{\tiny\color{SoftGray} The template's synthetic numbers; a study replaces every one.}
+\end{column}
+\begin{column}{0.50\textwidth}
+\begin{itemize}\small
+  \item Reference lengths and the moment point divide every coefficient.
+  \item An \textbf{alias} is a word rows, groups and plots cite.
+  \item A rotor block creates \code{<NAME>\_SMRP}, \code{<NAME>\_RMRP} and
+        \code{<NAME>\_RMRP<k>}.
+  \item The blade count is the length of \code{families\_blades}.
+\end{itemize}
+\begin{alertblock}{The failure nothing refuses}
+A wrong moment point gives plausible, wrong coefficients. Get it right by
+reading.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{Setup, post-processing and profiles}
+\begin{columns}[T]
+\begin{column}{0.32\textwidth}
+\begin{block}{\code{s001.toml}}
+\small How hard to solve and when to stop. Multiplatform. A command every row
+needs goes in its \code{[[raw]]} table.
+\end{block}
+\end{column}
+\begin{column}{0.32\textwidth}
+\begin{block}{\code{p001.toml}}
+\small What the run exports. The log is declared \textbf{last}: its presence
+says the run finished. The \code{.fsm} of every point is always saved;
+\code{simulation = false} is refused.
+\end{block}
+\end{column}
+\begin{column}{0.32\textwidth}
+\begin{block}{\code{inputs/profiles/}}
+\small Probe surveys a \code{[[probes]]} entry cites by \code{points\_file}.
+Resolved to an absolute path; a missing file is refused at plan.
+\end{block}
+\end{column}
+\end{columns}
+\begin{lstlisting}[style=ftsbase]
+[[probes]]
+frame = "MRP"
+parameters = ["VELOCITY"]
+points_file = "disk_survey.txt"     # inputs/profiles/disk_survey.txt
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{The solver path and the cluster profile}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{Two files, one sentence}
+\small \code{executables.toml} is about the \textbf{study} and is versioned.
+\code{executables.local.toml} is about the \textbf{machine} and is not.
+\end{block}
+\begin{alertblock}{Exactly one HPC profile}
+\small More than one in \code{inputs/hpc/} is refused: there is no selector.
+\end{alertblock}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}[style=ftsbase]
+# inputs/hpc/h001.toml
+[descriptor.fields]
+version = "{fs_build_alias}"
+
+[builds]
+"26.123" = "26.1"
+\end{lstlisting}
+\begin{itemize}\small
+  \item The row keeps the build, the profile gives the scheduler's word.
+  \item A declaration, not a check: the build number in the collected log is
+        the proof.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{The row states its window}
+\begin{itemize}
+\item \code{unsteady\_rotor}: \code{LAST\_REVS\_AVG}, in revolutions;
+fractions are accepted.
+\item \code{unsteady}: \code{LAST\_ITERS\_AVG}, in solver steps.
+\item With no window key, \pyfs{plan} refuses the row. \code{WINDOW\_*}
+keys are refused, naming the key to write.
+\end{itemize}
+\small Temporal fragments for the free cell, beside the other required keys:
+\begin{lstlisting}[style=ftsbase]
+DELTA_THETA: 5 / REVOLUTIONS: 4 / LAST_REVS_AVG: 1
+DELTA_TIME: 0.01 / TIME_ITERATIONS: 100 / LAST_ITERS_AVG: 20
+\end{lstlisting}
+\begin{alertblock}{One declaration of each attitude}
+\small \code{ALPHA} or \code{BETA} in both \code{FLIGHT\_CONDITION} and
+\code{VAR\_NAMES\_VALUES} is refused, even if the values agree.
+\end{alertblock}
+\end{frame}
+
+\begin{frame}[fragile]{Groups and optional pproc tables}
+\begin{columns}[T]
+\begin{column}{0.47\textwidth}
+\begin{lstlisting}[style=ftsbase]
+[groups]
+PUSHER = "PUSHER"
+AIRFRAME = "airframe"
+TOTAL = "all"
+
+[phase_locked]
+min_revolutions = 4.0
+last_revolutions_avg = 2.0
+
+[products]
+superfile_format = "legacy_polar"
+\end{lstlisting}
+\end{column}
+\begin{column}{0.49\textwidth}
+\begin{itemize}\small
+\item One alias as a string. A list is refused with the
+one-alias line to write; several members go in the reference's \code{[aliases]}.
+\item \code{[phase\_locked]}: one row per azimuth across revolutions;
+no declaration keeps the passage series.
+\item \code{[equations]} and \code{[glossary]} bind too: derived
+columns at post, named \code{<NAME>\_<alias>}; equations may chain.
+\item Fixed-width super file: sixteen characters per field; \code{csv}
+remains the default.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{Names and plot-group declarations}
+\begin{lstlisting}[style=ftsbase]
+[names]
+CL_MRP_TOTAL = "CL_TOTAL"
+\end{lstlisting}
+\begin{itemize}\small
+\item Requires that plotted source column. The whole dictionary applies or
+none does; missing sources and occupied destinations produce a \code{\#names}
+skip. \code{CL} is already the native last-step health check.
+\item Applied after axes and equations to the unsteady polar, time average
+and passage series. Plots, per-blade and azimuthal headings retain their names.
+\item Plot-group names: letters, digits, underscores and bare
+\code{\{family\}} only. No spaces, format spec or conversion.
+\item Ambiguous names cannot supply rotor histories or global axis blocks.
+\item \code{VARIABLES.md} and \code{WRITING-EQUATIONS.md} are generated in
+\code{inputs/pproc/} by init, plan and post; commit or ignore them.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{A mesh file, OBJ or STL}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{lstlisting}[style=ftsbase]
+# wing/wing.boundaries.toml, beside wing.obj
+boundaries = ["Wing"]      # OBJ: from its groups
+
+[import]
+units = "METER"            # the FILE's unit
+
+[trailing_edges]
+file = "wing.te.txt"       # points file
+\end{lstlisting}
+\begin{alertblock}{Export the mesh in metres}
+\small On 26.124 a wing OBJ in millimetres, its trailing edge detected,
+solved as the same wing in metres to the print [3]: \code{IMPORT}
+converts. The file route in millimetres, and every other build, are not
+measured.
+\end{alertblock}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{itemize}\small
+  \item \code{GEOMETRY: wing.obj}, like a \code{.fsm}. The script starts a
+        new simulation, imports in the stated unit, then works in metres.
+  \item No \code{[import]}: refused at plan. An OBJ with no sidecar gets
+        one from the plan, its \code{boundaries} read from the file's groups.
+        \textbf{Still by hand}: the \code{[import]} unit, the
+        trailing edge, and an STL's names, where a name in the wrong place
+        cites the wrong surface.
+  \item \code{[[import.operations]]}: scale, rename, mirror, translate,
+        rotate, in the order written.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{The trailing edge, by file}
+\begin{lstlisting}[style=ftsbase]
+METER                                   # the unit of the points
+0.216872113,-0.002159825,0.223199974    # one MID-POINT of an edge per line
+\end{lstlisting}
+\begin{itemize}\small
+  \item \textbf{The default route.} Every point is checked against the mesh at
+        plan; the first one off an edge is refused by line and position.
+  \item The run writes the node file in metres, imports it with
+        \code{IMPORT\_WAKE\_EDGES\_FROM\_FILE}, and compares the solver's count
+        with the points: a difference is \code{FAILED\_SCRIPT}. A point that
+        misses an edge is otherwise \textbf{silent}.
+  \item \textbf{26.124 only} [3]. The row must export its log.
+  \item Detection is the second route, written in full: \code{detect = "auto"},
+        or by surface with a sweep angle.
+  \item \code{BASE\_REGIONS} names the \textbf{base}, not the body [3].
+\end{itemize}
+\end{frame}
+
+\begin{frame}{A public airframe to practise on}
+\begin{columns}[T]
+\begin{column}{0.54\textwidth}
+\begin{itemize}\small
+  \item The SMI airframe geometry [9] is published as IGES components: the
+        fuselage, the nacelles with their pylons, the lifting surfaces, and
+        the wing-body geometry they share. Each component is whole, so
+        intermediate configurations can be built from it.
+  \item It carries \textbf{no propeller}. Any rotor is added by the user and
+        placed by a rotor block of the reference (Guide 3); a public
+        propeller geometry such as XPROP [10] serves.
+  \item Mesh it with the site's mesher, export OBJ \textbf{in metres}, and
+        write its \code{<stem>.boundaries.toml} beside it: the route of the
+        two previous frames.
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\begin{block}{Its licence}
+\small CC BY-NC 4.0: credit the record, no commercial use. Cite it as [9]
+wherever a result uses it.
+\end{block}
+\begin{takeaway}A first workspace on a known public geometry makes a
+mistake visible before it costs a campaign.\end{takeaway}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{Every key in one generated page, and an optional workbook}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{\code{inputs/INPUTS.md} and \code{inputs/input\_template.md}}
+\begin{itemize}\small
+  \item \code{INPUTS.md} lists every key an input may state: the row by run
+        type, the setup, the pproc, the reference, the sidecar. Each says what
+        it sets, its unit or values and the command it reaches.
+  \item \code{input\_template.md} shows every input \textbf{file}, one
+        complete example per kind, each one a file the package reads as it
+        stands.
+  \item Both are \textbf{generated} by \pyfs{init}, \pyfs{plan} and
+        \pyfs{post}; never edit them.
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{An Excel workbook, if you want one [6]}
+\small An ordinary \code{.xlsx}, no macros. Python creates it and
+synchronises saved files in both directions, always as a preview first, then
+an apply:
+\begin{lstlisting}[style=ftsbase,basicstyle=\ttfamily\tiny]
+pip install "pyflightstream[excel]"
+python -m pyflightstream.workspace.excel preview
+   <book>.xlsx --workspace . --direction read
+   --batch read-preview.json
+python -m pyflightstream.workspace.excel apply
+   read-preview.json
+\end{lstlisting}
+The ASCII matrix stays the record; the workbook is an editor.
+\end{block}
+\end{column}
+\end{columns}
+\end{frame}
+
+\section{Site folders}
+
+\begin{frame}{\code{ansa/}, \code{builds/}, \code{docs/}}
+\begin{columns}[T]
+\begin{column}{0.32\textwidth}
+\begin{block}{\code{ansa/}}
+\small The mesh scripts. The script is versioned, the mesh is not.
+\end{block}
+\end{column}
+\begin{column}{0.32\textwidth}
+\begin{block}{\code{builds/}}
+\small One folder per solver build number.
+\end{block}
+\end{column}
+\begin{column}{0.32\textwidth}
+\begin{block}{\code{docs/}}
+\small What a second person needs to repeat the first one's work: these
+guides, the install notes.
+\end{block}
+\end{column}
+\end{columns}
+\vspace{2mm}
+\begin{block}{Adding a build, in order}
+\small \textbf{1} copy into its own folder \quad \textbf{2} register in
+\code{executables.toml} \quad \textbf{3} point your local file at it, and add its
+\code{[builds]} line on the cluster \quad \textbf{4} plan one row and read the
+build number in its log. \textbf{Keep the old build.}
+\end{block}
+\end{frame}

@@ -1,0 +1,122 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% shared/preamble-common.tex
+%
+% The common layer every deck reads: packages, colours, the few macros the
+% decks use, and the listing styles. Read from preamble-slides.tex. The build
+% recipe compiles with this folder (shared/) as the working directory, so the
+% literal ../shared/ below resolves to this folder.
+
+\newcommand{\FTSROOT}{../}
+
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\let\Bbbk\relax
+\usepackage{amssymb}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage[most]{tcolorbox}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,calc,shapes,shapes.geometric,decorations.pathreplacing}
+
+\makeatletter
+\edef\input@path{{\FTSROOT}{\FTSROOT shared/}}
+\makeatother
+
+% ------------------------------------------------------------- colours -----
+\definecolor{myblue}{rgb}{0.2,0.2,0.7}
+\definecolor{darkblue}{rgb}{0,0,0.5}
+\definecolor{darkred}{rgb}{0.5,0,0}
+\definecolor{darkgreen}{rgb}{0,0.5,0}
+\definecolor{hanblue}{rgb}{0.2,0.2,0.7}
+\definecolor{WarmGold}{HTML}{C89B3C}
+\definecolor{SoftGray}{HTML}{6B7280}
+\colorlet{DeepBlue}{myblue}
+\colorlet{CourseBlue}{myblue}
+\colorlet{CourseRed}{darkred}
+\colorlet{CourseGreen}{darkgreen}
+\colorlet{CourseGray}{SoftGray}
+\colorlet{CourseGold}{WarmGold}
+\definecolor{CodeKeyword}{HTML}{1F4E79}
+\definecolor{CodeComment}{HTML}{6B7280}
+\definecolor{CodeString}{HTML}{7A5C1E}
+\definecolor{CodeBack}{HTML}{F7F7F9}
+
+% -------------------------------------------------------------- macros -----
+\newcommand{\ftsinput}[1]{\input{\FTSROOT shared/#1.tex}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\ftsbs}{\textbackslash}
+\newcommand{\fscmd}[1]{\texttt{#1}}
+\newcommand{\pyfs}[1]{\texttt{#1}}
+\newcommand{\gui}[1]{\textsc{#1}}
+\newcommand{\ftsmissing}[1]{%
+  \textcolor{CourseRed}{\texttt{[MISSING: #1]}}%
+  \PackageWarning{ftsguide}{missing #1}}
+\newsavebox{\ftsfigbox}
+
+% ------------------------------------------------------ listing styles -----
+\lstdefinelanguage{FlightStream}{
+  morecomment=[l]{\#},
+  morestring=[b]",
+  alsoletter={_},
+  sensitive=true,
+  morekeywords={
+    NEW_SIMULATION, OPEN, SAVEAS, CLOSE_FLIGHTSTREAM, EXPORT_LOG,
+    IMPORT, CCS_IMPORT, EXPORT_SURFACE_MESH, DELETE_SURFACES,
+    SET_SIMULATION_LENGTH_UNITS, SET_SIGNIFICANT_DIGITS,
+    AUTO_DETECT_TRAILING_EDGES, SET_TRAILING_EDGE_TYPE,
+    DISABLE_WAKE_NODES_ON_TRAILING_EDGE, AUTO_DETECT_WAKE_TERMINATION_NODES,
+    SET_FREESTREAM, FLUID_PROPERTIES, AIR_ALTITUDE,
+    CREATE_NEW_COORDINATE_SYSTEM, EDIT_COORDINATE_SYSTEM,
+    CREATE_NEW_ACTUATOR, SET_PROP_ACTUATOR_RPM, ENABLE_ACTUATOR,
+    CREATE_NEW_MOTION, SET_MOTION_BOUNDARIES, SET_MOTION_COORDINATE_SYSTEM,
+    SET_MOTION_ROTOR_AXIS, SET_MOTION_ROTOR_RPM,
+    INITIALIZE_SOLVER, REMOVE_INITIALIZATION, START_SOLVER, CLEAR_SOLUTION,
+    SOLVER_PROXIMAL_BOUNDARIES, SET_MAX_PARALLEL_THREADS,
+    SOLVER_SET_AOA, SOLVER_SET_SIDESLIP, SOLVER_SET_VELOCITY,
+    SOLVER_SET_MACH_NUMBER, SOLVER_SET_ITERATIONS, SOLVER_SET_CONVERGENCE,
+    SOLVER_SET_REF_VELOCITY, SOLVER_SET_REF_AREA, SOLVER_SET_REF_LENGTH,
+    SET_SOLVER_STEADY, SET_SOLVER_UNSTEADY, SET_BOUNDARY_LAYER_TYPE,
+    SET_SOLVER_VISCOUS_COUPLING, SET_VISCOUS_EXCLUDED_BOUNDARIES,
+    SOLVER_MINIMUM_CP, SET_WAKE_TERMINATION_TIME_STEPS,
+    SET_SOLVER_ANALYSIS_LOADS_FRAME, SET_ANALYSIS_SYMMETRY_LOADS,
+    SET_SOLVER_ANALYSIS_BOUNDARIES, SET_VORTICITY_DRAG_BOUNDARIES,
+    EXPORT_SOLVER_ANALYSIS_SPREADSHEET, EXPORT_SOLVER_ANALYSIS_TECPLOT,
+    EXPORT_SOLVER_ANALYSIS_VTK, EXPORT_SOLVER_ANALYSIS_FORCE_DISTRIBUTIONS,
+    UNSTEADY_SOLVER_NEW_FORCE_PLOT, UNSTEADY_SOLVER_NEW_FLUID_PLOT,
+    UNSTEADY_SOLVER_EXPORT_PLOTS,
+    NEW_SURFACE_SECTION_DISTRIBUTION, COMPUTE_SURFACE_SECTIONAL_LOADS,
+    EXPORT_SURFACE_SECTIONAL_LOADS, EXPORT_ALL_SURFACE_SECTIONS,
+    NEW_STREAMLINE_DISTRIBUTION, GENERATE_ALL_OFF_BODY_STREAMLINES,
+    EXPORT_ALL_OFF_BODY_STREAMLINES,
+    SWEEPER_SET_AOA_SWEEP, SWEEPER_START, SWEEPER_EXPORT_SPREADSHEET
+  }
+}
+\lstdefinestyle{ftsbase}{
+  basicstyle=\ttfamily\ftscodesize,
+  keywordstyle=\color{CodeKeyword}\bfseries,
+  commentstyle=\color{CodeComment}\itshape,
+  stringstyle=\color{CodeString},
+  backgroundcolor=\color{CodeBack},
+  frame=leftline,
+  framerule=1.2pt,
+  rulecolor=\color{CourseBlue!45},
+  xleftmargin=6pt,
+  framexleftmargin=6pt,
+  breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  tabsize=2,
+  aboveskip=4pt,
+  belowskip=4pt,
+  escapeinside={(*@}{@*)}
+}
+\lstdefinestyle{ftsfs}{style=ftsbase, language=FlightStream}
+\lstdefinestyle{ftspy}{style=ftsbase, language=Python}
+\lstset{style=ftsfs}

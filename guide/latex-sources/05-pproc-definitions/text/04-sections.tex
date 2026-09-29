@@ -1,0 +1,116 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{The sections table}
+
+\begin{frame}{One export contains every declared distribution}
+\begin{itemize}
+  \item \code{sections/<point>\_sections.csv} is one solver export.
+  \item It holds every distribution the pproc declares: the wing in
+        \code{XZ}, each blade in its own frame.
+  \item The distributions follow one another with no marker between them.
+  \item Leading columns identify which distribution each row belongs to.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The sections table: step and distribution identity}
+\relax
+{\ftstablesize
+\begin{tabular}{@{}p{0.17\linewidth}p{0.76\linewidth}@{}}
+\toprule
+\textbf{Column} & \textbf{Meaning} \\
+\midrule
+\code{STEP} & Unsteady: the run's last time step, from the run record.
+The export is written when the march ends; its own header counts inner
+iterations, not time steps. Steady: the solver iteration the export states.
+One name across every table \\
+\code{FAMILY} & Geometry families of the row's distribution, joined by \code{+} \\
+\code{PLANE} & Cutting plane of that distribution \\
+\bottomrule
+\end{tabular}}
+\end{frame}
+
+\begin{frame}{The sections table: rotor identity}
+\relax
+{\ftstablesize
+\begin{tabular}{@{}p{0.17\linewidth}p{0.76\linewidth}@{}}
+\toprule
+\textbf{Column} & \textbf{Meaning, after \code{PLANE}} \\
+\midrule
+\code{ROTOR} & Rotor whose blades those families are;
+\code{NA} for a surface no rotor owns \\
+\code{AZIMUTH} & Where blade one of that rotor is at \code{STEP}, in degrees,
+wrapped to one turn; \code{NA} without a rotor \\
+\bottomrule
+\end{tabular}}
+\end{frame}
+
+\begin{frame}{Each rotor has its own azimuth clock}
+\small
+\[
+\mathrm{AZIMUTH}=\left(
+  \mathrm{blade1.azimuth\_deg}
+  +\mathrm{sense}\,\mathrm{STEP}\,
+   \frac{360}{\mathrm{steps\_per\_revolution}}
+\right)\bmod 360.
+\]
+\begin{itemize}
+  \item The datum, the sense of rotation and the steps per revolution all
+        come from \textbf{that rotor}.
+  \item Sense is the sign of the rotor's speed.
+  \item Two rotors at two speeds have two azimuths at the same step.
+        A wing has none.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Distribution identity comes from the run record}
+\begin{itemize}
+  \item The run records which distribution is which. The script states
+        surfaces by index; post cannot recover their names from that alone.
+  \item An older record writes \code{NA} in all four identity
+        fields: \code{FAMILY}, \code{PLANE}, \code{ROTOR}, \code{AZIMUTH}.
+  \item The same rule applies when the recorded blocks do not add up to
+        the number of exported rows.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The sections table is one instant}
+\begin{itemize}
+  \item At an unsteady point, the distribution is at \code{STEP}.
+        It is not an average over the window.
+  \item Its \code{products.json} entry states \code{"kind": "instant"}.
+  \item The history is \code{series/<point>\_sections\_series.csv},
+        with the same identity on every row.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{One loads file and one Cp file per distribution}
+\begin{itemize}\small
+  \item Each \code{[[sections.distributions]]} entry gets
+        \code{sections/<point>\_sloads\_<name>.csv} and
+        \code{sections/<point>\_cp\_<name>.csv} when its export is available.
+  \item The name preserves the alias or joins the declared families with
+        \code{-}. Filename-invalid characters become \code{\_}; collisions
+        receive the entry's 1-based position suffix.
+  \item All planes and expanded blade blocks of that entry share its file.
+        Cp now has a table, rather than only a manifest listing.
+  \item With per-step exports enabled, every exported step appears in ascending
+        \code{STEP} order. Without them, the file holds the end-of-run export.
+  \item The combined sections table and combined sections series remain available.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Distribution columns and recorded identity}
+\begin{itemize}\small
+  \item Rows start with \code{STEP, time\_s, FAMILY, PLANE, ROTOR, AZIMUTH},
+        then the condition block and export columns. Cp also carries
+        \code{SECTION}, the export's 1-based cross-section index.
+  \item Missing values are \code{NA}. The manifest records the distribution,
+        original families and \code{steps\_tabled}.
+  \item A new run records each block's distribution entry. A record can
+        be split only when its recorded layout and pproc identify the blocks
+        unambiguously by families, plane, frame and count.
+  \item Missing or ambiguous identity, mismatched counts, malformed exports
+        and unavailable steps are named skips in \code{products.json}.
+        Editing today's pproc cannot supply missing recorded identity.
+\end{itemize}
+\end{frame}

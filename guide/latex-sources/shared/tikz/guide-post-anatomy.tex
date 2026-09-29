@@ -1,0 +1,44 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% shared/tikz/guide-post-anatomy.tex
+% post/<stem>/ opened up, with arrows from sims/ showing what each product was
+% built FROM. The five folders answer five different questions.
+% Shared fragment: no sectioning, no frame, no size command, no float. Wrapped by the caller.
+\begin{tikzpicture}[font=\scriptsize, node distance=2mm,
+  src/.style={draw=CourseGray, thick, rounded corners, fill=CourseGray!8,
+              align=center, text width=26mm, minimum height=7mm, inner sep=3pt},
+  prod/.style={draw=CourseBlue, thick, rounded corners, fill=CourseBlue!8,
+               align=left, text width=24mm, minimum height=6mm, inner sep=3pt},
+  top/.style={draw=CourseGold, thick, rounded corners, fill=CourseGold!15,
+              align=left, text width=30mm, minimum height=6mm, inner sep=3pt},
+  q/.style={font=\tiny\itshape, text=CourseGray, align=left, text width=40mm}]
+
+\node[src] (sims) {\texttt{sims/}\\ \tiny the raw exports};
+
+\node[prod, right=16mm of sims] (pol) {\texttt{polars/}};
+\node[prod, below=2mm of pol]   (ser) {\texttt{series/}};
+\node[prod, below=2mm of ser]   (sec) {\texttt{sections/}};
+\node[prod, below=2mm of sec]   (pro) {\texttt{probes/}};
+\node[prod, below=2mm of pro]   (prv) {\texttt{provenance/}};
+
+\node[q, right=2mm of pol] {what does the coefficient do};
+\node[q, right=2mm of ser] {how did it get there};
+\node[q, right=2mm of sec] {where on each surface, declared frame};
+\node[q, right=2mm of pro] {what the flow field did};
+\node[q, right=2mm of prv] {what produced this, with hashes};
+
+\foreach \n in {pol, ser, sec, pro, prv}
+  \draw[-{Stealth}, thick, CourseBlue] (sims.east) -- (\n.west);
+
+% ------------------------------------------------ the three at the top ----
+\node[top, above=9mm of pol] (csv) {\texttt{campaign\_sweep.csv}};
+\node[top, right=3mm of csv] (pl)  {\texttt{plan.json}};
+\node[top, right=3mm of pl]  (pj)  {\texttt{products.json}};
+
+\node[q, above=1mm of csv, text width=34mm] {what most people open};
+\node[q, above=1mm of pj, text width=40mm] {asked for, against produced:\\ says missing or wrong};
+
+\node[font=\tiny\itshape, text=CourseRed, below=5mm of prv, text width=76mm, align=center]
+  {Rebuilt, never edited. A rebuild archives the old product first.};
+
+\end{tikzpicture}

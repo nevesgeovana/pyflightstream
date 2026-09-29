@@ -1,0 +1,15 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{The token for a value that does not exist}
+
+\begin{frame}{Every product writes \code{NA} for no value}
+\begin{itemize}\small
+  \item Zero is a real value. Advance ratio at rest is exactly zero,
+        so zero cannot stand for a value that does not exist.
+  \item A blank cannot distinguish missing data, an inapplicable column
+        or a writer that stopped halfway.
+  \item The token is defined once in
+        \code{pyflightstream.\_tokens.NOT\_APPLICABLE}, below every layer.
+  \item Readers still accept \code{-}, the token written in older files.
+\end{itemize}
+\end{frame}

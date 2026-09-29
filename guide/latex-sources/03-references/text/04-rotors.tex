@@ -1,0 +1,104 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{One block per rotor}
+
+\begin{frame}[fragile]{One block per rotor: \code{kind = "rotor"}}
+\small The block's NAME is an alias over everything that rotor owns.
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,numbers=none]
+[PORT]
+kind = "rotor"
+x_m = 4.5              # the hub, in the geometry's own frame
+y_m = 2.5
+z_m = 0.0
+axis = "X"              # what it turns about
+rpm_sign = 1             # which way
+diameter_m = 3.6576      # what an advance ratio resolves against
+families_general = []              # hub, spinner: anything not a blade
+families_blades = ["Blade1"]       # the blades
+blade1 = { azimuth_deg = 0.0, zero = "Y" }   # where blade 1 sits
+\end{lstlisting}
+\begin{itemize}\small
+  \item After this a row says \code{PORT} (\code{MOVING\_BC\_ALIAS} or a
+        \code{MOTIONS} record) and states nothing else about that rotor:
+        the hub, the axis, the sign, the families and the diameter are all
+        here, once.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{RotorBlock};
+  \code{cases/workflows.py}}
+\end{frame}
+
+\begin{frame}{\code{rpm\_sign}: the hand lives in the reference}
+\begin{itemize}\small
+  \item \code{rpm\_sign} is \code{1} or \code{-1}: which way the rotor
+        turns. \code{+1} is the right-hand rule about the block's
+        \code{axis}.
+  \item A row's own speed, whether stated as \code{RPM} or derived from
+        \code{ADVANCE\_RATIO}, is always a \textbf{magnitude}: it says how
+        fast, never which way.
+  \item A row that restates \code{RPM\_SIGN} beside a rotor the reference
+        declares is refused, whether or not the two agree: a row that
+        agrees today says nothing when the reference is corrected
+        tomorrow, so the refusal is about where the key goes rather than
+        about its value.
+  \item One exception: a row whose reference declares no rotor block at
+        all, using the flat \code{ROTOR\_AXIS} and \code{MOVING\_BOUNDARIES}
+        keys, has nowhere else to put the hand, so \code{RPM\_SIGN} beside
+        the speed is correct there.
+\end{itemize}
+\begin{ftslimit}
+The hand is declared once, beside the axis, the hub and the blade count it
+already declares there; the row and the reference can never disagree
+because only one of them is allowed to say it.
+\end{ftslimit}
+\setupsources{\code{cases/workflows.py}, \code{\_refuse\_a\_row\_restating\_the\_hand},
+  \code{\_rpm\_sign}; \code{cases/matrix.py}}
+\end{frame}
+
+\begin{frame}{The blade count, and where \code{blade1} sits}
+\begin{itemize}\small
+  \item \code{families\_general}: what turns with the rotor and is
+        \emph{not} a blade, such as the hub or a spinner.
+  \item \code{families\_blades}: the blades. \textbf{The blade count is
+        the length of this list and nothing else}, so a row states no
+        count of its own, and a sector mesh carrying one blade of four
+        still reduces over four.
+  \item \code{blade1}: \code{azimuth\_deg} (where blade 1 sits, measured
+        from \code{zero}) and \code{zero} (the axis that angle is measured
+        from). It locates the first family of \code{families\_blades} so
+        a per-blade frame can be placed; it does not say which family is
+        the first blade, only where that one sits.
+  \item A rotor block naming a blade family the opened geometry does not
+        carry, or one listing no \code{families\_blades} at all when a row
+        needs the count, is refused naming the block and what to add.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{RotorBlock};
+  \code{cases/workflows.py}}
+\end{frame}
+
+\begin{frame}{What else reads the rotor block}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{block}{The tip and helical Mach numbers}
+\small \(R\) is half the block's \code{diameter\_m}, else half the
+reference's \code{rotor\_diameter\_m}; a disc's is its
+\code{tip\_radius\_m}. With the point's speed \(V\) and speed of sound \(a\):
+\(M_\mathrm{tip} = \Omega R / a\) and \(M_\mathrm{hel} =
+\sqrt{V^2 + (\Omega R)^2}/a\) [3, 7]. A rotor with no diameter anywhere gets
+no Mach numbers, and the plan and the run record say so, naming the row:
+nothing is guessed.
+\end{block}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{block}{A \code{qsteady\_rotor} row}
+\small solves the rotor steady, blades still and the free stream turning
+about the block's \code{axis} at the row's speed. It is valid only for an
+\textbf{isolated, axisymmetric} rotor. The sector case (periodic symmetry)
+meshes one blade; the wheel meshes all of them, and
+\code{families\_blades} still gives the count that spaces the passage
+positions, \(360^\circ/N\).
+\end{block}
+\end{column}
+\end{columns}
+\setupsources{\code{cases/workflows.py}; the page ``Post-processing
+  definitions'', tip and helical Mach numbers}
+\end{frame}

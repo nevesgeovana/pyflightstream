@@ -1,0 +1,97 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 02-gui-to-pyfs/text/07-basic-post.tex
+%
+% Transcribed from the tables of docs/gui-to-pyfs.md, one row per GUI step:
+% the key that takes it (links and solver commands dropped) and the builds
+% its commands are verified on. When the page changes a row, change the same
+% row here, and the counts of 01-reading.tex with it.
+
+\section{Basic post}
+
+\begin{frame}{Basic post: what a key takes (1/5)}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.05}
+\begin{tabularx}{\linewidth}{@{}JKZ@{}}
+\guihead
+Export the loads table & pproc table \code{[exports]}: \code{loads}, always on & 26.101 to 26.124 \\
+Save the solved simulation & pproc table \code{[exports]}: \code{simulation}, always on & 26.100 to 26.124 \\
+Place the moment reference point and take the loads about it & reference table \code{[moment\_point]}, which creates the frame \code{MRP} & 26.121 to 26.124 \\
+Report the loads of the meshed half or sector, or of the whole & row key \code{SYMMETRY\_LOADS}, or setup key \code{symmetry\_loads} & 26.120, 26.122, 26.123 \\
+Take the induced drag from the vorticity of the surfaces you name & setup key \code{vorticity\_drag\_families}; setup key \code{clear\_vorticity\_drag\_boundaries} clears the selection after a steady solve & 26.121 to 26.124, except one \\
+Loads in newtons rather than coefficients, inviscid loads, or boundaries left out of the loads (steady rows) & setup keys \code{load\_units}, \code{inviscid\_loads} and \code{analysis\_families} & 26.120, 26.122, 26.123, except one \\
+\bottomrule
+\end{tabularx}}
+\guisource{Basic post}
+\end{frame}
+
+\begin{frame}{Basic post: what a key takes (2/5)}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.05}
+\begin{tabularx}{\linewidth}{@{}JKZ@{}}
+\guihead
+Print more significant digits & setup key \code{significant\_digits} & none \\
+Export the surface solution as Tecplot, VTK or CSV, with the VTK variables you choose & pproc table \code{[exports]}: \code{tecplot} (on unless switched off), \code{vtk} and \code{csv} (off unless switched on); pproc key \code{vtk\_variables}. The package preserves VTK cell values; pproc key \code{singularity\_strength} (off unless set to true) adds same-step native nodal \code{Singularity\_strength} after a unique geometry/topology match & 26.120 to 26.124, except one \\
+Export the force distribution, panel by panel & pproc table \code{[exports]}: \code{force\_distributions}, off unless switched on & 26.120 to 26.124 \\
+Average the surface solution over the last steps of an unsteady run & pproc table \code{[time\_averaging]}: the row exports its surface at every step of the window and \code{pyfs-matrix post} averages them, cell by cell & none \\
+\bottomrule
+\end{tabularx}}
+\guisource{Basic post}
+\end{frame}
+
+\begin{frame}{Basic post: what a key takes (3/5)}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.05}
+\begin{tabularx}{\linewidth}{@{}JKZ@{}}
+\guihead
+Read boundary-layer integrals along configured cuts & pproc \code{[products]}: \code{boundary\_layer\_integrals = true}; original VTK cell values at recorded section cuts. A fixed-frame native comparison exists on 26.124; other conventions need their own evidence & none \\
+Write sampled velocity fields as VTK, Tecplot or reusable inflow & pproc \code{[[probes]]}: \code{field\_formats} and \code{reusable\_inflow}; volume sections use the same probe sampling route. Evidence is specific to the export, the build and the unit; the guide states it & none \\
+Cut surface sections and export their Cp and sectional loads & pproc table \code{[sections]} & 26.120 to 26.124, except one \\
+Sample a flow-field plane and export velocity & pproc table \code{[volume\_section]}; steady probes or unsteady/rotor fluid plots become package-written point fields; evidence is specific to the export, the build and the unit & 26.124, except one \\
+\bottomrule
+\end{tabularx}}
+\guisource{Basic post}
+\end{frame}
+
+\begin{frame}{Basic post: what a key takes (4/5)}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.05}
+\begin{tabularx}{\linewidth}{@{}JKZ@{}}
+\guihead
+Probe the flow at points and along lines (steady rows) & pproc table \code{[[probes]]} & 26.101 to 26.124, except one \\
+Probe the flow through an unsteady run & pproc table \code{[[probes]]}, sampled as fluid plots & 26.124 \\
+Plot the forces through an unsteady run & pproc table \code{[plots]} & 26.124 \\
+Save residual, load and final section Cp plots & pproc table \code{[exports]}: \code{plot\_residuals}, \code{plot\_loads} and \code{plot\_sections\_cp}; section Cp is exported once after the march, never at every STEP & 26.124 \\
+Export the solver log & pproc table \code{[exports]}: \code{log}; row key \code{EXPORT\_LOG}, which the HPC profile's \code{[log]} table writes, and row key \code{LOG\_OUTPUT} from Python alone & 26.100 to 26.124 \\
+Export at every step of an unsteady run, from a step on & row keys \code{EXPORT\_UNSTEADY\_AFTER\_ITER} and \code{EXPORT\_UNSTEADY\_AFTER\_REV} & none \\
+Sum the loads of groups of surfaces into polars & pproc tables \code{[groups]} and \code{[products]} & none \\
+\bottomrule
+\end{tabularx}}
+\guisource{Basic post}
+\end{frame}
+
+\begin{frame}{Basic post: what a key takes (5/5)}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.05}
+\begin{tabularx}{\linewidth}{@{}JKZ@{}}
+\guihead
+Average an unsteady run over its last steps, per blade and at each azimuth & row keys \code{LAST\_ITERS\_AVG} or \code{LAST\_REVS\_AVG}, and \code{BLADES}; pproc tables \code{[phase\_locked]}, \code{[equations]}, \code{[glossary]} and \code{[names]}, and pproc key \code{blade\_pattern} & none \\
+Post-process a saved simulation again, without solving it again & row key \code{ADDITIONAL\_PPROC}, naming a second pproc of sections, sectional loads and surface exports, which \code{pyfs-matrix post --additional-pproc} extracts from each recorded point's final \code{.fsm} with no solve & 26.124, except one \\
+Export a boundary-layer velocity profile & Separate pproc \code{[products]} flag \code{boundary\_layer\_velocity\_profile}; currently refused by name before execution. Integral products are not a substitute. The command has no positive unattended-build evidence: it opens a modal dialog on 26.122 and is broken on 26.124 & none \\
+Probe a surface property through an unsteady run & pproc table \code{[[surface\_probes]]}, one per named point, parameter and frame & none \\
+\bottomrule
+\end{tabularx}}
+\guisource{Basic post}
+\end{frame}
+
+\begin{frame}{Basic post: not yet}
+\begin{itemize}\small
+  \item Trace streamlines, on the surface or through the field (\code{GENERATE\_ALL\_SURFACE\_STREAMLINES}, \code{NEW\_OFF\_BODY\_STREAMLINE}, \code{EXPORT\_ALL\_SURFACE\_STREAMLINES}, \code{EXPORT\_ALL\_OFF\_BODY\_STREAMLINES}).
+  \item Save a picture of the scene, coloured by a variable (\code{SET\_SCENE\_CONTOUR}, \code{SAVE\_SCENE\_AS\_IMAGE}).
+  \item Export the surface pressures as structural loads (\code{EXPORT\_SOLVER\_ANALYSIS\_PLOAD\_BDF}, verified 26.120 to 26.124).
+  \item Import probe points from a file (\code{PROBE\_POINTS\_IMPORT}, verified 26.101 to 26.124).
+  \item Animate a surface through an unsteady run (\code{UNSTEADY\_SOLVER\_ANIMATION}).
+\end{itemize}
+{\scriptsize \emph{except one}: one command of the line has no probe run on those builds; the page names it.\par}
+\guisource{Basic post}
+\end{frame}

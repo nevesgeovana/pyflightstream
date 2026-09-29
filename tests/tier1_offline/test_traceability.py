@@ -76,7 +76,12 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: requirement is new and its tests were written with it: a row stating the
 #: additional pproc plans READY, and each point is extracted into its own
 #: folder, hashed, with the run's own record untouched.
-MARKED_FLOOR = 22
+#: Raised from 22 to 23 on 2026-09-29 (the 0.30.0 guides), for NFR-03. The
+#: repository's pdf refusal gained its one exemption, guide/, by the owner's
+#: decision, and the rule became measurable where it had been a hook and a CI
+#: grep alone: the tracked tree is walked, and the hook and the CI job are
+#: shown to refuse exactly what the walk refuses.
+MARKED_FLOOR = 23
 
 
 def _marked() -> dict[str, list[str]]:

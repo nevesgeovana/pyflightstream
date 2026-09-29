@@ -1,0 +1,52 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 02-gui-to-pyfs/text/02-geometry.tex
+%
+% Transcribed from the tables of docs/gui-to-pyfs.md, one row per GUI step:
+% the key that takes it (links and solver commands dropped) and the builds
+% its commands are verified on. When the page changes a row, change the same
+% row here, and the counts of 01-reading.tex with it.
+
+\section{Geometry and mesh}
+
+\begin{frame}{Geometry and mesh: what a key takes (1/2)}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.05}
+\begin{tabularx}{\linewidth}{@{}JKZ@{}}
+\guihead
+Open a saved simulation & row key \code{GEOMETRY} naming a \code{.fsm}; setup key \code{load\_solver\_initialization} loads the solver state it was saved with & 26.100 to 26.124 \\
+See the boundaries a saved simulation carries, in its order & sidecar key \code{boundaries}, which \code{pyfs-matrix inventory} writes from the file & none \\
+Start a new simulation and import a mesh file in its length unit & row key \code{GEOMETRY} naming an \code{.obj} or \code{.stl}; sidecar table \code{[import]} with its \code{units}, and sidecar key \code{boundaries}, the file's surface names in its order, which the plan writes from an OBJ's groups; setup key \code{simulation\_length\_unit} states the simulation's own length unit & 26.101 to 26.124, except one \\
+\bottomrule
+\end{tabularx}}
+\guisource{Geometry and mesh}
+\end{frame}
+
+\begin{frame}{Geometry and mesh: what a key takes (2/2)}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.05}
+\begin{tabularx}{\linewidth}{@{}JKZ@{}}
+\guihead
+Scale, mirror, rename, move or turn a surface of the imported mesh & sidecar table \code{[[import.operations]]}, one per operation & none \\
+Turn part of the geometry for one row: a flap, a blade's pitch & row key \code{ROTATE} & none \\
+Move part of the geometry for one row & row key \code{TRANSLATE} & none \\
+Name the configuration you loaded & row key \code{CONFIGURATION}, a label the script carries as a comment on its first line & none \\
+\bottomrule
+\end{tabularx}}
+\guisource{Geometry and mesh}
+\end{frame}
+
+\begin{frame}{Geometry and mesh: not yet}
+\begin{itemize}\small
+  \item Import CAD and mesh it (\code{IMPORT\_CAD}, \code{CONVERT\_CAD\_TO\_MESH}).
+  \item Build a wing, a fuselage or a body of revolution from cross-section curves (\code{CCS\_IMPORT}, \code{CAD\_CREATE\_WING\_MESH\_FROM\_CCS}, \code{CAD\_CREATE\_FUSELAGE\_MESH\_FROM\_CCS}, \code{CAD\_CREATE\_REVOLVE\_MESH\_FROM\_CCS}).
+  \item Wrap or unite meshes into one closed surface (\code{WRAPPER\_EXECUTE}, \code{BOOLEAN\_UNITE\_MESH}).
+  \item Repair a surface: delete, combine, invert, cut by a plane, fill holes (\code{SURFACE\_DELETE}, \code{SURFACE\_COMBINE}, \code{SURFACE\_INVERT}, \code{SURFACE\_CUT\_BY\_PLANE}, \code{SURFACE\_AUTO\_HOLE\_FILL}, \code{DELETE\_DEGENERATE\_FACES}).
+  \item Copy a surface around an axis or along a line (\code{SURFACE\_CIRCULAR\_COPY\_PASTE}, \code{SURFACE\_LINEAR\_COPY\_PASTE}).
+  \item Export the surface mesh (\code{EXPORT\_SURFACE\_MESH}).
+\end{itemize}
+\begin{takeaway}
+A step that is more than a few lines, such as a geometry built from CAD, is done once in the GUI and saved as a \code{.fsm}: GUI once, script everything after.
+\end{takeaway}
+\guisource{Geometry and mesh}
+\end{frame}

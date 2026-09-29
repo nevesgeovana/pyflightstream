@@ -1,0 +1,206 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 01-workspaces/text/05-vcs-and-reference.tex
+
+\section{Version control}
+\label{sec:slides-vcs}
+
+\begin{frame}{What version control carries}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+{\ftstablesize
+\begin{tabular}{@{}p{0.32\linewidth}p{0.58\linewidth}@{}}
+\toprule
+\textbf{In} & \textbf{Why} \\
+\midrule
+the matrices     & the study; written, not produced \\
+\code{inputs/}   & every file a row cites \\
+\code{ansa/}     & the script encodes the decision \\
+\code{docs/}     & a second person needs it \\
+\code{builds/}   & a site decision: a checkout is complete \\
+\bottomrule
+\end{tabular}}
+\end{column}
+\begin{column}{0.48\textwidth}
+{\ftstablesize
+\begin{tabular}{@{}p{0.54\linewidth}p{0.36\linewidth}@{}}
+\toprule
+\textbf{Out} & \textbf{Why} \\
+\midrule
+\code{executables.local.toml} & true of one machine only \\
+the meshes                     & large, derived from \code{ansa/} \\
+\code{sims/}, \code{post/}, \code{archive/} & produced \\
+\code{pfs-wheels/}, \code{py-venv/} & binaries, absolute paths \\
+\bottomrule
+\end{tabular}}
+\end{column}
+\end{columns}
+\begin{takeaway}Version inputs, not run products. The generated \code{VARIABLES.md} and
+\code{WRITING-EQUATIONS.md} in pproc may be committed or ignored.\end{takeaway}
+\end{frame}
+
+\begin{frame}{Version control lives with the main workspace}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}\small
+  \item \textbf{The main workspace is the checkout.} The cluster workspace
+        holds a copy of its \code{inputs/}, not a checkout.
+  \item Every matrix of the study is in version control, whichever workspace
+        owns it: \pyfs{sync} brings the cluster's matrices to the main, where
+        they are committed.
+  \item \pyfs{plan} checks every POL against \textbf{every} \code{.fs} of the
+        workspace it runs in.
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{alertblock}{Why a stale copy lets a collision through}
+\small \code{--update-ids} picks the next free POL from the matrices, run
+records and \code{sims/} \textbf{of its own side}. A POL used only on the
+cluster is invisible on the main until a sync brings its matrix, and the
+cluster sees a new main row only once its inputs are refreshed.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{The ritual that keeps \pyfs{plan} honest}
+\begin{enumerate}\small
+  \item \textbf{Update} the main checkout, and \textbf{sync} it from the
+        cluster, before touching any matrix.
+  \item \textbf{Edit and plan the main's matrices on the main}, where every
+        matrix sits side by side, so a repeated POL is refused there.
+  \item \textbf{Commit} at once, with the reason in the message.
+  \item \textbf{Refresh the cluster's inputs} from the main before planning
+        or running there.
+  \item \textbf{Edit a cluster-owned matrix only on the cluster}, and bring it
+        home with the next sync; commit it on the main before its results are
+        used.
+\end{enumerate}
+\begin{takeaway}The main workspace is the one place every matrix meets. A plan
+run anywhere else is only as right as the last refresh.\end{takeaway}
+\end{frame}
+
+\begin{frame}{The daily cycle, and the two commits that hurt everyone}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{Every day}
+\begin{itemize}\small
+  \item \textbf{Update and sync before you plan.}
+  \item \textbf{Commit an input change with its reason}: which row, and what
+        changed about the physics.
+  \item \textbf{Never commit while a run is writing.}
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{alertblock}{Never commit}
+\begin{itemize}\small
+  \item \code{sims/} after a campaign: hundreds of megabytes in every
+        colleague's next update.
+  \item \code{executables.local.toml}: it silently redirects everybody who
+        updates.
+\end{itemize}
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+\section{Reference}
+
+\begin{frame}{Refusals you will meet first}
+% \relax first: a brace group right after the title is read as a subtitle.
+\relax
+{\ftstablesize
+\begin{tabular}{@{}p{0.40\linewidth}p{0.54\linewidth}@{}}
+\toprule
+\textbf{Message contains} & \textbf{Do this} \\
+\midrule
+\code{POL(s) are stated more than once across the matrices} & renumber, or \code{plan ... --update-ids}; then commit and refresh \\
+\code{cites the probe survey ... holds no such file} & put the survey in \code{inputs/profiles/} \\
+\code{is already in a scheduler's queue as} & \code{pyfs-matrix collect} first \\
+\code{maps no alias for build(s)} & add the build's line under \code{[builds]} \\
+\code{and nothing says which cluster this machine is} & keep exactly one profile in \code{inputs/hpc/} \\
+\code{the record it continues does not say where it stopped} & use \code{\{ADDITIONAL\_ITERS=n\}} \\
+\code{which is not a run that STOPPED with more to do} & drop \code{RESTART}; nothing to continue \\
+\code{TRANSLATE DISTANCE is ..., which is not a finite number} & write metres, as \code{0.05} \\
+\code{is ignored: it is either a non-existing path} & the wheels folder is not there (Guide 7) \\
+\code{bad interpreter} & the environment was moved; rebuild it in place \\
+\bottomrule
+\end{tabular}}
+\end{frame}
+
+\begin{frame}{Refusals to resolve before using results}
+\begin{itemize}\small
+\item No unsteady window: add \code{LAST\_REVS\_AVG} or
+\code{LAST\_ITERS\_AVG}. \code{WINDOW\_*} keys are refused.
+\item Duplicate attitude: keep \code{ALPHA}/\code{BETA} in one cell.
+Duplicate stabilisation: keep one preset interface.
+\item Linked file destination or names differing only by case: use ordinary,
+distinct staging destinations and update references.
+\item Unknown export-frame rotation: export loads in global \code{MRP}.
+\item Export area/chord mismatch: reconcile the project and reference
+\code{SREF}/\code{CREF}; the simulation otherwise gets no product.
+\item Invalid plot name: letters, digits, underscores and bare
+\code{\{family\}} only. Ambiguous names skip rotor histories or axes blocks.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Forms that are refused, and what to write}
+\small Each is refused naming its replacement:
+\begin{itemize}\small
+  \item \code{iteration=}: write \code{step=}.
+  \item \code{run.assess\_unsteady\_from\_plots}: use \code{LoadsAssessor}.
+  \item The three \code{WINDOW\_*} row keys: \code{LAST\_ITERS\_AVG} or
+        \code{LAST\_REVS\_AVG} (degrees divided by 360).
+  \item Group-member lists: one alias per group, members in the reference's
+        \code{[aliases]}.
+\end{itemize}
+\small The \code{broken\_commands} reader stays as plain compatibility.
+Existing run records are never rewritten.
+\end{frame}
+
+\begin{frame}[fragile]{Cheatsheet}
+% \relax first: a brace group right after the title is read as a subtitle.
+\relax
+{\ftstablesize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.10\linewidth}
+                 >{\raggedright\arraybackslash}p{0.52\linewidth}
+                 >{\raggedright\arraybackslash}p{0.30\linewidth}@{}}
+\toprule
+\textbf{Step} & \textbf{Windows (main)} & \textbf{Cluster} \\
+\midrule
+get in   & \code{.venv\textbackslash Scripts\textbackslash activate} & \code{source \$FTS/bin/\envname-env} \\
+get out  & \code{deactivate} & new shell, or \code{exit} \\
+update   & update the checkout & refresh the inputs from the main \\
+plan     & \code{pyfs-matrix plan <matrix>.fs --workspace . --fs-version 26.123} & same \\
+POL fix  & \code{... --update-ids} & same, then sync and commit on the main \\
+run      & \code{pyfs-matrix run <matrix>.fs --workspace . --fs-version 26.123} & same; submits \\
+collect  & not needed & \code{pyfs-matrix collect --workspace .} \\
+sync     & \code{pyfs-matrix sync post --workspace . --apply} & not run here \\
+post     & \code{pyfs-matrix post <matrix>.fs --workspace .} & same \\
+continue & \code{RESTART: \{FINISH\_PENDING\}} in the free cell & same \\
+space    & \code{pyfs-matrix space-in-use --workspace .} & same \\
+\bottomrule
+\end{tabular}}
+\vspace{2mm}
+
+{\scriptsize \code{\$FTS} is \code{\clusterroot}.}
+\end{frame}
+
+\begin{frame}{Where to go next}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{itemize}\small
+  \item \textbf{The other guides}: 2, from the GUI to pyfs; 3, the reference
+        file; 4, solver setup; 5, post-processing definitions; 6, FSI; 7,
+        Python on an offline machine.
+  \item \textbf{The package}: its own documentation [1, 2].
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{Cite the version}
+\small \pkgcitation
+\end{block}
+\end{column}
+\end{columns}
+\end{frame}

@@ -1,0 +1,37 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% shared/tikz/guide-one-tree-two-machines.tex
+% One tree, two workspaces: the inputs both share, the two machines that
+% open them, and the three files that differ.
+% Shared fragment: no sectioning, no frame, no size command, no float.
+\begin{tikzpicture}[font=\scriptsize, node distance=3mm,
+  same/.style={draw=CourseBlue, very thick, rounded corners, fill=CourseBlue!12,
+               align=center, text width=44mm, minimum height=22mm, inner sep=4pt},
+  m/.style={draw=CourseGray, thick, rounded corners, fill=CourseGray!8,
+            align=center, text width=46mm, minimum height=12mm, inner sep=3pt},
+  d/.style={draw=CourseGold, thick, rounded corners, fill=CourseGold!15,
+            align=left, text width=36mm, minimum height=5mm, inner sep=2pt, font=\tiny}]
+
+\node[same] (core)
+  {\textbf{the same inputs}\\[2pt]
+   \texttt{references/} \ \texttt{setups/}\\ \texttt{pproc/} \ \texttt{geometries/}\\[2pt]
+   \tiny each matrix owned by one workspace};
+
+\node[m, above left=10mm and 14mm of core] (win)
+  {\textbf{Windows workstation}\\ main workspace\\ \tiny\texttt{\mainworkspace}};
+\node[m, below left=10mm and 14mm of core] (lin)
+  {\textbf{HPC cluster}\\ cluster workspace\\ \tiny\texttt{\clusterworkspace}};
+
+\draw[-{Stealth}, thick, CourseBlue] (core.west) -- (win.east);
+\draw[-{Stealth}, thick, CourseBlue] (core.west) -- (lin.east);
+\draw[-{Stealth}, thick, CourseGreen, dashed] (lin.north) -- node[left, font=\tiny, text=CourseGreen] {\texttt{sync}} (win.south);
+
+\node[d, right=12mm of core] (d1) {1.\ \texttt{inputs/hpc/h001.toml}\\ \ \ cluster only};
+\node[d, below=2mm of d1] (d2) {2.\ \texttt{executables.local.toml}\\ \ \ per machine, never versioned};
+\node[d, below=2mm of d2] (d3) {3.\ \texttt{sync-workspaces.toml}\\ \ \ on the main workspace};
+
+\node[font=\tiny\bfseries, text=CourseGold, above=2mm of d1] {three files differ};
+
+\draw[-{Stealth}, thick, CourseGold] (core.east) -- (d2.west);
+
+\end{tikzpicture}

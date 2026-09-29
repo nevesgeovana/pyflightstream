@@ -1,0 +1,46 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% shared/tikz/guide-sims-anatomy.tex
+% One sim_<POL> opened up, with a callout naming who wrote each part.
+% Shared fragment: no sectioning, no frame, no size command, no float. Wrapped by the caller.
+\begin{tikzpicture}[font=\scriptsize, node distance=2mm,
+  box/.style={draw=CourseBlue, thick, rounded corners, fill=CourseBlue!8,
+              align=left, text width=32mm, minimum height=6mm, inner sep=3pt},
+  dp/.style={draw=CourseGold, thick, rounded corners, fill=CourseGold!15,
+             align=left, text width=32mm, minimum height=6mm, inner sep=3pt},
+  who/.style={font=\tiny\itshape, text=CourseGray, align=left, text width=34mm},
+  file/.style={font=\tiny\ttfamily, align=left, text width=36mm}]
+
+\node[box] (sim) {\texttt{sims/sim\_<POL>/}};
+
+\node[box, below right=4mm and 6mm of sim] (in)  {\texttt{inputs/}};
+\node[box, below=2mm of in]                (scr) {\texttt{scripts/}};
+\node[box, below=2mm of scr]               (prf) {\texttt{profiles/}};
+\node[box, below=2mm of prf]               (dps) {\texttt{datapoints/}};
+
+\node[who, right=2mm of in]  {a link to the mesh's\\ own library folder};
+\node[who, right=2mm of scr] {what the package emitted\\ for the solver};
+\node[who, right=2mm of prf] {where the probes\\ were placed};
+\node[who, right=2mm of dps] {one folder per point};
+
+\foreach \n in {in, scr, prf, dps}
+  \draw[CourseGray, thin] (sim.south) |- (\n.west);
+
+% ------------------------------------------------------- one datapoint ----
+\node[dp, below=8mm of dps] (dp) {\texttt{DP-<point>/}};
+\draw[-{Stealth}, thick, CourseGold] (dps.south) -- (dp.north);
+
+\node[file, below right=3mm and 6mm of dp] (f1) {<stem>.fsm};
+\node[file, below=1mm of f1] (f2) {<stem>\_log.txt};
+\node[file, below=1mm of f2] (f3) {<stem>.txt \ \_sloads \ \_probes \ \_plots};
+\node[file, below=1mm of f3] (f4) {<stem>\_cp.txt \ \ <stem>.dat};
+
+\node[who, right=0mm of f1] {RESTART reopens this};
+\node[who, right=0mm of f2] {declared LAST: the settled signal};
+\node[who, right=0mm of f3] {what post reads};
+\node[who, right=0mm of f4] {for a viewer; nothing reads them};
+
+\node[font=\tiny\itshape, text=CourseRed, below=5mm of f4, text width=76mm, align=center]
+  {Nothing in this figure is edited. If a number is wrong, an input is wrong.};
+
+\end{tikzpicture}

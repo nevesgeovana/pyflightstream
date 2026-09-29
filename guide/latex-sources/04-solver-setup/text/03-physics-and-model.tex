@@ -1,0 +1,117 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{Physics and model}
+
+\begin{frame}{Boundary layer and viscous coupling}
+\begin{itemize}\small
+  \item \code{boundary\_layer}: string, default \code{None}; alias
+        \code{boundary\_layer\_type}. Emits \code{SET\_BOUNDARY\_LAYER\_TYPE}
+        with \code{LAMINAR}, \code{TRANSITIONAL} or \code{TURBULENT}.
+        The database gives \code{TRANSITIONAL} as the solver default.
+  \item Its notes state the default model's chord Reynolds range as
+        500000 to 1500000, with an explicit laminar or turbulent choice
+        outside that range [3, p.203].
+  \item \code{viscous\_coupling}: toggle, default \code{None}; emits
+        \code{SET\_SOLVER\_VISCOUS\_COUPLING}. It couples the boundary
+        layer model to the potential solution. Stall capture also needs
+        a flow-separation model assignment.
+  \item \code{reynolds\_averaged\_drag}: toggle, default \code{None}; alias
+        \code{reynolds\_averaged\_drag\_forces}. Emits
+        \code{REYNOLDS\_AVERAGED\_DRAG\_FORCES}, the flat-plate
+        boundary-layer calculation toggle. No solver default is stated.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}; \code{workspace/matrix.py};
+  \code{cases/workflows.py}; \code{script/helpers.py};
+  \code{commands/solver\_settings.yaml}; \code{commands/advanced\_settings.yaml}}
+\end{frame}
+
+\begin{frame}{Model and initialization}
+\begin{itemize}\small
+  \item \code{solver\_model}: string, default \code{None}; alias
+        \code{set\_solver\_model}. The workflow passes it to
+        \code{INITIALIZE\_SOLVER}, using \code{INCOMPRESSIBLE} if omitted.
+  \item Accepted model arguments: \code{INCOMPRESSIBLE},
+        \code{SUBSONIC\_PRANDTL\_GLAUERT}, \code{TRANSONIC\_FIELD\_PANEL},
+        \code{TANGENT\_CONE}, \code{MODIFIED\_NEWTONIAN}.
+  \item \code{wall\_collision\_avoidance}: toggle, default \code{None};
+        alias \code{proximity\_avoidance}. Another argument of
+        \code{INITIALIZE\_SOLVER}; the database says it applies to
+        the first three models above.
+  \item \code{load\_solver\_initialization}: toggle, default \code{None}.
+        Reaches \code{OPEN}'s \code{LOAD\_SOLVER\_INITIALIZATION} argument.
+        The workflow uses \code{DISABLE} if omitted, so a saved solver state
+        is not loaded implicitly.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}; \code{workspace/matrix.py};
+  \code{cases/workflows.py}; \code{script/helpers.py}, \code{initialize\_solver};
+  \code{commands/solver\_initialization.yaml}; \code{commands/file\_io.yaml}}
+\end{frame}
+
+\begin{frame}{Stabilization and pressure floor}
+\begin{itemize}\small
+  \item \code{solver\_stabilization}: finite float $\geq 0$, default
+        \code{None}; emits \code{SOLVER\_STABILIZATION <value>}.
+        The database describes a dimensionless strength from 0 to 1;
+        the model does not impose that upper bound. No solver default is stated.
+  \item Alternative preset form: \code{stabilization = "ENABLE"} and
+        \code{stabilization\_strength = 0.25}. A strength without a gate
+        is enabled. Enabling without a strength is refused.
+  \item \code{stabilization = "DISABLE"} produces no stabilization line.
+        Do not combine the gated pair with \code{solver\_stabilization}.
+        Zero is an emitted numeric value, even though the manual describes
+        zero strength as equivalent to disabling.
+  \item \code{minimum\_cp}: finite float, default \code{None}; alias
+        \code{solver\_minimum\_cp}. It sets the pressure-coefficient floor
+        with \code{SOLVER\_MINIMUM\_CP}. Omission uses the library's
+        \code{-100}, overriding the solver default \code{-20}.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}; \code{workspace/matrix.py},
+  \code{\_resolve\_stabilization}; \code{script/helpers.py};
+  \code{commands/solver\_settings.yaml}; \code{commands/advanced\_settings.yaml}}
+\end{frame}
+
+\begin{frame}{Boundary families}
+\begin{itemize}\small
+  \item \code{vorticity\_drag\_families}: list of strings, default
+        \code{None}; aliases \code{vorticity\_drag\_boundaries} and
+        \code{set\_vorticity\_drag\_boundaries}. Reaches
+        \code{SET\_VORTICITY\_DRAG\_BOUNDARIES} in analysis.
+  \item \code{axial\_separation\_families}: list of strings, default
+        \code{None}; no alias. Reaches
+        \code{SET\_AXIAL\_SEPARATION\_BOUNDARIES} in init.
+        Documented through 26.100; a later build is refused at plan.
+  \item Write family names, not indices. Both lists resolve against the
+        opened geometry: absent families are left out; a selection resolving
+        to nothing is refused. An omitted key emits no selection or deletion.
+  \item Without a vorticity selection, the solver uses surface-pressure
+        integration for induced drag. The helper notes advise against a
+        blanket vorticity selection on mixed wing and bluff-body geometry.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}; \code{workspace/matrix.py};
+  \code{cases/workflows.py}, \code{\_vorticity\_indices}, \code{\_axial\_separation\_indices};
+  \code{script/helpers.py}; \code{commands/solver\_settings.yaml}}
+\end{frame}
+
+\begin{frame}{Reference velocity, precision and symmetry loads}
+\begin{itemize}\small
+  \item \code{reference\_velocity\_m\_per\_s}: finite float $>0$, default
+        \code{None}; alias \code{reference\_velocity\_mps}. Emits
+        \code{SOLVER\_SET\_REF\_VELOCITY}, in m/s, for coefficient
+        normalization. Omission makes the workflow state freestream velocity.
+  \item \code{significant\_digits}: integer $\geq 1$, default \code{None};
+        emits \code{SET\_SIGNIFICANT\_DIGITS} in setup. The command database
+        describes output precision from 1 to 8; the model has no upper bound.
+        The model's comment records the solver default as 4 decimals.
+  \item \code{symmetry\_loads}: toggle, default \code{None}; emits
+        \code{SET\_ANALYSIS\_SYMMETRY\_LOADS} before solving.
+        It moved to the row's \code{SYMMETRY\_LOADS} column, with the
+        preset still accepted as a fallback.
+  \item A stated row value wins; disagreement with the setup warns.
+        True includes the whole wheel, false the meshed sector. If neither
+        states it, no line is emitted.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}; \code{workspace/matrix.py};
+  \code{cases/workflows.py}, \code{\_row\_symmetry\_loads};
+  \code{commands/runtime\_settings.yaml}; \code{commands/simulation\_controls.yaml};
+  \code{commands/solver\_analysis.yaml}}
+\end{frame}

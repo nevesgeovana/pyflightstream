@@ -1,0 +1,50 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{The study's own words}
+
+\begin{frame}[fragile]{The aliases table}
+\small An alias is a name YOUR study gives to a set of boundaries, read
+everywhere a boundary is cited: a \code{MOVING\_BC\_ALIAS}, a \code{ROTATE}
+record, a \code{[groups]} member of the pproc, a \code{families} entry.
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,numbers=none]
+[aliases]
+airframe = ["Body", "Base"]
+rotors = ["PORT", "STARBOARD"]
+\end{lstlisting}
+\begin{itemize}\small
+  \item A member may be another alias, followed to the end: \code{rotors}
+        above names two rotor blocks, and a row can write \code{rotors} to
+        reach both.
+  \item A member the opened mesh does not carry is \textbf{left out}
+        rather than refused. This is what lets one reference file serve a
+        wing-body mesh and an isolated-rotor mesh alike.
+  \item Declare the set here once; every row, every group and every plot
+        then says \code{airframe} instead of listing the boundaries again.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}, the reference model;
+  \code{cases/workflows.py}}
+\end{frame}
+
+\begin{frame}[fragile]{Custom coordinate systems: \code{[[frames]]}}
+\small One entry per frame, in the order written.
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,numbers=none]
+[[frames]]
+name = "NACELLE"          # the name a row's ROTATE axis cites
+origin = [4.5, 0.0, 0.0]  # in the geometry's own frame, metres
+x_axis = [1.0, 0.0, 0.0]  # optional; default shown
+y_axis = [0.0, 1.0, 0.0]  # optional; the third axis is their
+                           # right-handed cross product
+\end{lstlisting}
+\begin{itemize}\small
+  \item Created right after the frames the package makes itself
+        (\code{MRP}, then \code{<ALIAS>\_SMRP} on a rotor run type), in the
+        order written, and before any motion: a rotor whose axis is one of
+        these turns about a frame that already exists.
+  \item A row's rotation or translation cites a frame axis as
+        \code{<frame>-X}, \code{<frame>-Y} or \code{<frame>-Z}.
+  \item Refused at plan time: a name the package already creates, a name
+        defined twice, or an origin that is not three numbers.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}, the reference model;
+  \code{cases/workflows.py}}
+\end{frame}

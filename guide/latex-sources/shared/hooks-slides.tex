@@ -1,0 +1,80 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% shared/hooks-slides.tex
+%
+% The hooks every deck relies on (checked by hooks-contract.tex), and the
+% slides' own tools: the title frame, the figure fitter and the numbered
+% reference list.
+
+\newcommand{\ftsbodysize}{\small}
+\newcommand{\ftscodesize}{\scriptsize}
+\newcommand{\ftstablesize}{\scriptsize}
+\newcommand{\ftsfigscale}{1.0}
+
+\newcommand{\deckonly}[1]{#1}
+\long\def\bookonly#1{}
+
+\newcommand{\ftscodeopts}{\lstset{numbers=none}}
+% Empty on purpose: a breakable tcolorbox inside a beamer frame is an error.
+\newcommand{\ftsboxopts}{}
+
+\newcommand{\ftsref}[2]{}
+
+\newenvironment{ftslist}{\ftsbodysize\begin{itemize}}{\end{itemize}}
+
+\newenvironment{ftsfigure}[2]
+  {\begin{center}\begin{lrbox}{\ftsfigbox}}
+  {\end{lrbox}\scalebox{\ftsfigscale}{\usebox{\ftsfigbox}}\end{center}}
+
+\newenvironment{ftsprocedure}[3]
+  {\begin{block}{#1, #2: #3}\ftstablesize}
+  {\end{block}}
+\newcommand{\ftsstep}[4]{\par\textbf{#1}\quad\texttt{#2}\par}
+
+\newenvironment{ftspitfall}[1][Pitfall]
+  {\begin{alertblock}{#1}\ftsbodysize}
+  {\end{alertblock}}
+
+% ---------------------------------------------------- the slides' own tools --
+% The title frame of every deck.
+%   \guidetitleframe{<number>}{<title>}{<short title for the footer>}{<subtitle>}{<sources line>}
+% It prints the one statement of the version the deck is written for and the
+% full authorship and licence notice.
+\newcommand{\guidetitleframe}[5]{%
+  \gdef\guidenumber{#1}\gdef\guideshort{#3}%
+  \hypersetup{pdftitle={Guide #1: #3, \pkgname}}%
+  \begin{frame}[plain,noframenumbering]
+    \vspace*{4mm}
+    {\color{SoftGray}\small\bfseries \guideseries, guide #1 of \guidecount\par}
+    \vspace{5mm}
+    {\color{hanblue}\huge\bfseries Guide #1: #2\par}
+    \vspace{2mm}
+    {\large #4\par}
+    \vspace{7mm}
+    {\small \guidewritten.\par}
+    \vspace{1mm}
+    {\small #5\par}
+    \vfill
+    {\scriptsize\color{SoftGray} \pkgname{} is the work of \pkgauthor:
+    \url{\pkgrepo}, concept DOI \texttt{\pkgdoiconcept}.\par
+    \guidenotice\par}
+  \end{frame}}
+
+% A guide figure fitted to the frame: never wider than the text, never taller
+% than the given fraction of the frame.
+\newcommand{\slidefig}[2][0.72]{%
+  \begin{center}
+  \adjustbox{max width=\linewidth, max totalheight=#1\textheight}{\input{tikz/#2.tex}}%
+  \end{center}}
+
+% A value each site supplies for itself. Grey and italic, impossible to
+% mistake for content.
+\newcommand{\tofill}[1]{{\color{SoftGray}\itshape\small [your site: #1]}}
+
+% The numbered references of a deck, cited in the text as [1], [2], ...
+% and listed on the deck's last frame, as in a paper:
+%   \begin{frame}{References}\begin{reflist}\item ... \end{reflist}\end{frame}
+\newenvironment{reflist}
+  {\scriptsize\setbeamertemplate{enumerate item}{[\insertenumlabel]}%
+   \begin{enumerate}\setlength{\itemsep}{2pt}}
+  {\end{enumerate}}

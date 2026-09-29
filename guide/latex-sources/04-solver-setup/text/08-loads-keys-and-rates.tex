@@ -1,0 +1,79 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{Loads keys and body rates}
+
+\begin{frame}{Loads analysis keys on steady rows}
+\relax
+{\ftstablesize
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.20\linewidth}>{\RaggedRight\arraybackslash}p{0.30\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Setup key} & \textbf{Solver command} & \textbf{Value} \\
+\midrule
+\code{analysis\_\allowbreak families} & \code{SET\_\allowbreak SOLVER\_\allowbreak ANALYSIS\_\allowbreak BOUNDARIES} & family names; every other boundary leaves the loads. Resolved like \code{vorticity\_drag\_families} \\
+\code{load\_\allowbreak units} & \code{SET\_\allowbreak LOADS\_\allowbreak AND\_\allowbreak MOMENTS\_\allowbreak UNITS} & \code{COEFFICIENTS}, \code{NEWTONS}, \code{KILO-NEWTONS}, \code{POUND-FORCE}, \code{KILOGRAM-FORCE} \\
+\code{inviscid\_\allowbreak loads} & \code{SET\_\allowbreak INVISCID\_\allowbreak LOADS} & toggle: the loads without their viscous part \\
+\bottomrule
+\end{tabularx}}
+\begin{itemize}\small
+  \item Stated after \code{START\_SOLVER} on every point. The solver's own
+        spellings (\code{set\_loads\_and\_moments\_units}, ...) are aliases.
+  \item A row of an unsteady run type stating one is \textbf{refused at plan}.
+  \item A point whose loads table is not in \code{COEFFICIENTS} writes
+        \textbf{no product row}; its export is still collected and hashed, and
+        the post names the unit.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings};
+  \code{workspace/matrix.py}, \code{\_PRESET\_ALIASES}; \code{cases/workflows.py};
+  \code{commands/solver\_analysis.yaml}}
+\end{frame}
+
+\begin{frame}{Two keys 26.124 does not answer}
+\relax
+{\ftstablesize
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.30\linewidth}>{\RaggedRight\arraybackslash}p{0.34\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Setup key} & \textbf{Solver command} & \textbf{On 26.124} \\
+\midrule
+\code{vorticity\_\allowbreak lift\_\allowbreak model} & \code{SET\_\allowbreak VORTICITY\_\allowbreak LIFT\_\allowbreak MODEL} & removed: refused at plan \\
+\code{unsteady\_\allowbreak viscous\_\allowbreak coupling\_\allowbreak iteration} & \code{SET\_\allowbreak UNSTEADY\_\allowbreak VISCOUS\_\allowbreak COUPLING\_\allowbreak ITERATION} & removed: refused at plan \\
+\bottomrule
+\end{tabularx}}
+\begin{itemize}\small
+  \item Both are stated before \code{INITIALIZE\_SOLVER}. The lift model is a
+        toggle on every run type; the coupling step is an integer $\geq 1$,
+        unsteady run types only, and emits on 25.100 and 26.000 alone.
+  \item 26.124 answers both names as \emph{Unrecognized command}, word for
+        word as an unknown name [2]. A \code{[[raw]]}
+        \code{SET\_VORTICITY\_LIFT\_MODEL} on a 26.124 row is refused too.
+  \item The lift model beside \code{kutta\_joukowski\_lift = true} plans with a
+        warning.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings};
+  \code{commands/advanced\_settings.yaml}}
+\end{frame}
+
+\begin{frame}[fragile]{Body rates: a cell of the row, not the setup}
+\small \code{roll\_rate}, \code{pitch\_rate} and \code{yaw\_rate} are keys of
+\code{FLIGHT\_CONDITION}, in deg/s, one non-zero rate per row; the reference's
+\code{[body\_axes]} says which model axis is which.
+\begin{lstlisting}[style=ftsbase]
+MACH:0.2, REmi:5.5, ALPHA:0, roll_rate:sweep | -40,0,40
+\end{lstlisting}
+\relax
+{\ftstablesize
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.13\linewidth}>{\RaggedRight\arraybackslash}p{0.15\linewidth}>{\RaggedRight\arraybackslash}p{0.27\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Rate} & \textbf{Positive is} & \textbf{Emitted for +40 deg/s} & \textbf{Measured on 26.124} \\
+\midrule
+\code{roll\_rate}  & right wing down & \code{ROTATION <frame> X -6.667} & rolling moment opposes the roll [2] \\
+\code{pitch\_rate} & nose up         & \code{ROTATION <frame> Y 6.667}  & pitching moment nose down [2] \\
+\code{yaw\_rate}   & nose right      & \code{ROTATION <frame> Z -6.667} & advancing left wing gains lift [2] \\
+\bottomrule
+\end{tabularx}}
+\begin{alertblock}{Older rows: reversed sign}
+\small Roll and yaw were emitted with the opposite sign and solved at $-p$ or
+$-r$. Redo such points with \code{--force-rerun}; \code{--resume} skips them.
+\end{alertblock}
+\setupsources{\code{cases/workflows.py}, \code{FREESTREAM\_ROTATION\_SIGN};
+  \code{workspace/matrix.py}}
+\end{frame}
