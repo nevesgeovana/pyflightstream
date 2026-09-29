@@ -223,7 +223,11 @@ def test_no_forbidden_identifier_in_the_versioned_tree() -> None:
     # repository (their sources and PDFs carry the byline and licence notice),
     # and docs/ gained storage-and-sync.md and migrating-to-0.30.0.md. The cap
     # allows 0.31.0's migration page and nothing more.
-    assert numbers["exempt"] <= 150, (
+    # 167 on the 0.31.0 candidate, the author's decision of 2026-09-29: the 15
+    # files of guide 00 in the byline tree guide/, docs/migrating-to-0.31.0.md
+    # and the two 0.31 pages docs/field-operations.md and
+    # docs/qsteady-corrections.md.
+    assert numbers["exempt"] <= 167, (
         f"{numbers['exempt']} files exempt, up from the 149 measured at 0.30.0. "
         "An exemption was widened, or a tree grew by more than a release's own "
         "pages; widen this number in the same commit and say why in "
