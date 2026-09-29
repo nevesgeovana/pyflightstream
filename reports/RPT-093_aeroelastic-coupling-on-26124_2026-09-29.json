@@ -1,0 +1,154 @@
+{
+ "report": "RPT-093",
+ "build": "26.124 build 8172026",
+ "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+ "sources": {
+  "private_campaign": {
+   "description": "owner's licensed FSI probe campaign, 2026-09-28, private geometry (not disclosed here)",
+   "file": "PHASE3-RESULTS.md (local, not in this repository)",
+   "sections_used": ["1", "2", "3", "4", "5", "9", "10", "11", "12", "13"]
+  },
+  "vendor_case": {
+   "description": "self-contained reproduction, synthetic public-law geometry, safe to cite freely",
+   "folder": "fsi-vendor-case",
+   "zip_size_bytes": 303887,
+   "zip_sha256": "413cc6d1feed9a468c2388414e0f80c135202ff8f3eec9d9f813a38cbc7193ad",
+   "blade": {"family": "NACA 4409 research propeller blade (OBJ import)", "tip_radius_m": 1.8288, "root_radius_m": 0.2743, "boundary_count": 1, "vertices": 1552},
+   "wing": {"family": "NACA 0012 rectangular wing", "chord_m": 1.0, "span_m": 8.0, "vertices": 2052},
+   "cases": ["A_unsteady_rotary_fsi", "B_staged", "C_steady_rotating_freestream", "D_fixed_wing_unsteady"]
+  }
+ },
+ "findings": [
+  {
+   "id": 1,
+   "topic": "scripted structural-frame import stores Reference regardless of the frame argument",
+   "measured": {
+    "scripted_variants_tested": 8,
+    "stored_frame_field_every_variant": 1,
+    "node_coordinates_transformed": false,
+    "gui_saved_frame_field": 4,
+    "gui_frame_survives_scripted_open": true,
+    "gui_frame_survives_scripted_delete_and_reimport": true
+   }
+  },
+  {
+   "id": 2,
+   "topic": "aeroelastic surface list matched against the boundary ID",
+   "measured": {
+    "obj_import_first_boundary_id": 2,
+    "stl_import_first_boundary_id": 1,
+    "flightstream_saved_boundary_id": 1,
+    "wrong_id_mapped_vertices": 0,
+    "wrong_id_silent_failure": true,
+    "correct_id_mapped_vertices_private_geometry": 936,
+    "correct_id_mapped_vertices_vendor_case": 1552
+   }
+  },
+  {
+   "id": 3,
+   "topic": "rotary motion with coupling from t=0: morph applied to un-rotated reference geometry",
+   "measured_vendor_case_A": {
+    "mapping": "1552 of 1552",
+    "steps": 9,
+    "azimuth_before_each_call_deg": [10, 20, 30, 40, 50, 60, 70, 80, 90],
+    "azimuth_after_each_call_deg": 0.0,
+    "flap_error_after_call_mm": 0.11,
+    "unrotated_vs_expected_max_error_step1_mm": 319,
+    "unrotated_vs_expected_max_error_step9_mm": 2588,
+    "also_measured_on": ["a second research propeller blade geometry", "build 26.122"]
+   },
+   "diagnostic_rotation_in_displacement": {
+    "description": "FSIDisp = R(theta)(x0 + flap) - x0 in the reference node frame",
+    "lands_blade_at_correct_azimuth": true,
+    "rbf_rigid_rotation_residual_root_at_90deg_mm": 37.1,
+    "coupled_solve_diverges_within_steps": 5
+   }
+  },
+  {
+   "id": 4,
+   "topic": "enabling coupling mid-run without re-initializing never builds a mapping",
+   "measured_vendor_case_B": {"mapping_at_every_coupled_step": 0, "displacement_ever_applied": false},
+   "measured_private_staged": {"rigid_steps_first": 36, "coupled_steps_after": 9, "mapping_throughout_coupled_phase": 0}
+  },
+  {
+   "id": 5,
+   "topic": "blade fixed, free stream rotating, steady FSI maps and exports the morph",
+   "measured_private_test2": {
+    "mapping": "936 of 936",
+    "fsi_iterations_to_converge": 2,
+    "residual_sequence": [0.9375, 0.0],
+    "final_export_max_error_m": 0.0001,
+    "final_export_rms_error_m": 0.00002,
+    "fx_fixed_rotating_freestream_N": -404.78,
+    "fx_rotating_rigid_reference_N": -403.38,
+    "agreement_pct": 0.35
+   },
+   "measured_vendor_case_C": {
+    "mapping": "1552 of 1552",
+    "residual_sequence": [0.9375, 0.0],
+    "flap_error_mm": 0.11,
+    "fx_fixed_rotating_freestream_N": -755.26,
+    "fx_rotating_rigid_reference_N": -751.32,
+    "agreement_pct": 0.5
+   }
+  },
+  {
+   "id": 6,
+   "topic": "fixed wing, steady and unsteady, maps and exports",
+   "measured": {
+    "mapping": "2052 of 2052",
+    "round1_rigid_CL": 0.4221742,
+    "round2_steady_tip_dz_m": 0.4066,
+    "round2_steady_imposed_tip_bend_m": 0.4,
+    "round2_steady_max_error_m": 0.02419,
+    "round2_steady_CL": 0.2464516,
+    "round2_steady_fsi_iterations_to_converge": 2,
+    "round2_unsteady_tip_dz_m": 0.4066,
+    "round2_unsteady_max_error_m": 0.02419
+   }
+  },
+  {
+   "id": 7,
+   "topic": "WENDLAND_C2 against MULTI_QUADRATIC on one beam line",
+   "measured": {
+    "multi_quadratic_le_delivery_error_m": 0.0029,
+    "multi_quadratic_tip_delivery_m": [0.4007, 0.4066],
+    "multi_quadratic_diverges": false,
+    "wendland_c2_le_delivery_pct_of_bend": 64,
+    "wendland_c2_te_delivery_pct_of_bend": 1.4,
+    "wendland_c2_tip_nose_up_shear_deg": 14,
+    "wendland_c2_diverges": true,
+    "wendland_c2_diverges_from_step": 3
+   }
+  },
+  {
+   "id": 8,
+   "topic": "steady coupled run: residual log line, and a script cannot see the result",
+   "measured": {
+    "execute_aeroelastic_analysis_blocks": false,
+    "log_line_pattern": "Aeroelastic solver residual for FSI iteration-N is <value>",
+    "completion_line": "Aeroelastic solver run time: <value> minutes.",
+    "post_script_runs_per_fsi_iteration": true,
+    "post_script_runs_on_final_iteration": true
+   }
+  },
+  {
+   "id": 9,
+   "topic": "export formats: morph vs reference geometry",
+   "measured": {
+    "fsi_displacement_scene_variables_present": true,
+    "fsi_displacement_export_column_present": false,
+    "tecplot_carries_morph_after_call": true,
+    "vtk_carries_morph_after_call": true,
+    "tri_carries_morph": false,
+    "saveas_fsm_carries_morph": false,
+    "unsteady_post_script_runs_per_step": 2
+   }
+  }
+ ],
+ "cites": {
+  "corrects_or_extends": ["RPT-025"],
+  "cited_by_command_database": "src/pyflightstream/commands/aeroelastic_coupling.yaml (ASSIGN_AEROELASTIC_SURFACES notes)",
+  "implements": ["FSI-1", "FSI-G", "FSI-GUARD", "qsteady_rotor"]
+ }
+}
