@@ -173,10 +173,17 @@ declares no `[qsteady_correction]`. See [the wheel's corrections](qsteady-correc
 free-stream file of `inputs/freestreams/` from other fields: mirrored through
 a coordinate plane, moved so a source point lands on a target point,
 `total - (other - reference)` point by point on one grid, or the time mean of
-an unsteady run's per-step fields. Each previews by default, writes only with
+an unsteady run's per-step fields. `field move` takes `--source-point X Y Z`
+and `--target-point X Y Z`; `field subtract` REQUIRES `--reference VX VY VZ`,
+the free stream `OTHER` was solved in (`0 0 0` only where `OTHER` is already
+induced-only); every operation writes into the workspace `--workspace` names
+(the current directory by default). Each previews by default, writes only with
 `--apply` (the file and `<stem>.provenance.json`), and never overwrites without
 `--overwrite`. From Python, the functions are in
-`pyflightstream.workspace.fields`. See [field operations](field-operations.md).
+`pyflightstream.workspace.fields`, their parameters keyword-only
+(`move_field(field, source_point_m=..., target_point_m=...)`,
+`mirror_field(field, plane=...)`, `subtract_fields(total, other,
+reference_m_s=...)`). See [field operations](field-operations.md).
 
 ## Planning
 

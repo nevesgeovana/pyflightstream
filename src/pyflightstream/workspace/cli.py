@@ -32,7 +32,8 @@ free-stream file of ``inputs/freestreams/`` out of other fields, through
 coordinate plane, moved so a source point lands on a target point, one
 field subtracted from another on the same grid (with a stated reference
 free stream), or the time mean of an unsteady run's per-step fields. Each
-previews by default and writes only with ``--apply``, the file and its
+previews by default and writes only with ``--apply`` into the workspace
+named by ``--workspace`` (the current directory by default), the file and its
 ``<stem>.provenance.json``, and never overwrites without ``--overwrite``; a
 refusal is printed to stderr with exit 2.
 """
@@ -125,9 +126,9 @@ def _add_output_options(sub: argparse.ArgumentParser) -> None:
         "gives it, .txt STRUCTURED, .dat UNSTRUCTURED)",
     )
     sub.add_argument(
-        "--root",
+        "--workspace",
         default=".",
-        help="campaign root whose inputs/freestreams/ receives the field (default: the "
+        help="campaign workspace whose inputs/freestreams/ receives the field (default: the "
         "current directory)",
     )
     sub.add_argument("--apply", action="store_true", help="write the files (default: preview)")
@@ -191,8 +192,8 @@ def _add_field_commands(subparsers: argparse._SubParsersAction) -> None:
     )
     move.add_argument("field", help="the field file (.txt STRUCTURED or .dat UNSTRUCTURED)")
     for flag, dest, what in (
-        ("--from", "source_point", "the source point"),
-        ("--to", "target_point", "the target point"),
+        ("--source-point", "source_point", "the source point (a hub)"),
+        ("--target-point", "target_point", "the point the source point lands on"),
     ):
         move.add_argument(
             flag,
@@ -211,8 +212,10 @@ def _add_field_commands(subparsers: argparse._SubParsersAction) -> None:
         description=(
             "Subtracts OTHER from TOTAL point by point, matched by position: the result is "
             "total - (other - reference), with --reference the uniform free stream OTHER was "
-            "solved in, so only the velocity OTHER's body induces is removed (zero when not "
-            "stated). Two grids that are not one point set are refused."
+            "solved in, so only the velocity OTHER's body induces is removed. --reference is "
+            "required: state 0 0 0 only where OTHER is already induced-only (its free stream "
+            "taken out), and the result is then total - other. Two grids that are not one "
+            "point set are refused."
         ),
     )
     subtract.add_argument("total", help="the field subtracted from (its positions are kept)")
@@ -221,9 +224,10 @@ def _add_field_commands(subparsers: argparse._SubParsersAction) -> None:
         "--reference",
         nargs=3,
         type=float,
-        default=None,
+        required=True,
         metavar=("VX", "VY", "VZ"),
-        help="the reference free stream in m/s, global frame (default: 0 0 0)",
+        help="the free stream OTHER was solved in, m/s, global frame (required; 0 0 0 only "
+        "where OTHER is already induced-only)",
     )
     _add_tolerance(subtract)
     _add_output_options(subtract)
@@ -341,22 +345,24 @@ def _cmd_field(args: argparse.Namespace) -> int:
     parameters: dict[str, object]
     try:
         if args.field_command == "mirror":
-            result = _fields.mirror_field(_fields.read_field(args.field), args.plane)
+            result = _fields.mirror_field(_fields.read_field(args.field), plane=args.plane)
             inputs = [args.field]
             parameters = {"plane": f"{args.plane} = 0"}
             what = f"{args.field} mirrored through the plane {args.plane} = 0"
         elif args.field_command == "move":
             result = _fields.move_field(
-                _fields.read_field(args.field), args.source_point, args.target_point
+                _fields.read_field(args.field),
+                source_point_m=args.source_point,
+                target_point_m=args.target_point,
             )
             inputs = [args.field]
-            parameters = {"from_m": args.source_point, "to_m": args.target_point}
+            parameters = {"source_point_m": args.source_point, "target_point_m": args.target_point}
             what = (
                 f"{args.field} moved from {_vector(args.source_point)} to "
                 f"{_vector(args.target_point)} m"
             )
         elif args.field_command == "subtract":
-            reference = args.reference or [0.0, 0.0, 0.0]
+            reference = args.reference
             result = _fields.subtract_fields(
                 _fields.read_field(args.total),
                 _fields.read_field(args.other),
@@ -381,7 +387,7 @@ def _cmd_field(args: argparse.Namespace) -> int:
             }
             what = f"the time mean of {len(steps)} steps, {steps[0].step:g} to {steps[-1].step:g}"
         written = _fields.write_freestream(
-            args.root,
+            args.workspace,
             args.out,
             result,
             operation=args.field_command,

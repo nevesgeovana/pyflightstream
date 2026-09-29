@@ -17,8 +17,9 @@ the four operations, each a pure function of its fields:
   coordinates are translated, the velocities are unchanged;
 * :func:`subtract_fields`, point by point on one grid:
   ``result = total - (other - reference)``, with the reference a uniform
-  velocity the caller states (the free stream the other field was solved
-  in, so that only its induced part is removed); two grids that are not the
+  velocity the caller MUST state (the free stream the other field was
+  solved in, so that only its induced part is removed; ``(0, 0, 0)`` where
+  the other field is already induced-only); two grids that are not the
   same point set are refused, naming both files;
 * :func:`time_mean_fields`, the mean of per-step fields of one unsteady run
   over equally spaced steps, every step holding the same points.
@@ -44,9 +45,9 @@ Examples
 ...     form="UNSTRUCTURED",
 ...     rows=((1.0, 0.5, 0.0, 30.0, 2.0, 1.0), (1.0, -0.5, 1.0, 31.0, -2.0, 0.0)),
 ... )
->>> mirror_field(survey, "y").rows[0]
+>>> mirror_field(survey, plane="y").rows[0]
 (1.0, -0.5, 0.0, 30.0, -2.0, 1.0)
->>> move_field(survey, (1.0, 0.0, 0.0), (0.0, 0.0, 2.0)).rows[1]
+>>> move_field(survey, source_point_m=(1.0, 0.0, 0.0), target_point_m=(0.0, 0.0, 2.0)).rows[1]
 (0.0, -0.5, 3.0, 31.0, -2.0, 0.0)
 """
 
@@ -223,7 +224,7 @@ def _flip(value: float) -> float:
     return 0.0 - value
 
 
-def mirror_field(field: Field, plane: str) -> Field:
+def mirror_field(field: Field, *, plane: str) -> Field:
     """Mirror a field through the coordinate plane ``<plane> = 0``.
 
     The coordinate normal to the plane and the velocity component along it
@@ -262,6 +263,7 @@ def _mirrored(row: Row, axis: int) -> Row:
 
 def move_field(
     field: Field,
+    *,
     source_point_m: Sequence[float],
     target_point_m: Sequence[float],
 ) -> Field:
@@ -269,7 +271,8 @@ def move_field(
 
     Every position ``p`` becomes ``(p - source) + target``, so the source
     point itself lands on the target exactly; the velocities are unchanged,
-    since a translation turns no vector.
+    since a translation turns no vector. Both points are keyword-only, so
+    the two cannot be swapped by position.
 
     Raises
     ------
@@ -348,7 +351,7 @@ def subtract_fields(
     total: Field,
     other: Field,
     *,
-    reference_m_s: Sequence[float] = (0.0, 0.0, 0.0),
+    reference_m_s: Sequence[float],
     tolerance_m: float = POSITION_TOLERANCE_M,
 ) -> Field:
     """Subtract one field from another point by point: ``total - (other - reference)``.
@@ -362,8 +365,10 @@ def subtract_fields(
     ``reference_m_s`` is a uniform velocity, the free stream ``other`` was
     solved in: ``other - reference`` is then the velocity ``other``'s body
     induces, and the result is ``total`` with that induced velocity removed.
-    With no reference stated it is zero, and the result is the plain
-    difference ``total - other``.
+    It has no default: a reference left out would silently remove the free
+    stream itself. State ``(0, 0, 0)`` where ``other`` is already
+    induced-only (a field with its free stream taken out), and the result is
+    the plain difference ``total - other``.
 
     Raises
     ------

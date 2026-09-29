@@ -54,7 +54,7 @@ def _rows(path: Path) -> list[list[float]]:
 def test_mirror_through_y_zero_flips_y_and_vy_only():
     # P0310-G3-MIRROR
     field = Field("UNSTRUCTURED", SURVEY, source="survey.dat")
-    mirrored = mirror_field(field, "y")
+    mirrored = mirror_field(field, plane="y")
     assert mirrored.rows == (
         (2.0, -1.0, 0.5, 30.0, -1.5, -2.0),
         (2.0, 1.0, 0.5, 31.0, 0.5, 0.25),
@@ -63,13 +63,13 @@ def test_mirror_through_y_zero_flips_y_and_vy_only():
     )
     # a zero stays a zero, never written "-0"
     assert str(mirrored.rows[3][4]) == "0.0"
-    assert mirror_field(mirrored, "y").rows == SURVEY
+    assert mirror_field(mirrored, plane="y").rows == SURVEY
 
 
 def test_mirror_through_z_zero_keeps_a_structured_header_and_the_row_order():
     # P0310-G3-MIRROR
     field = Field("STRUCTURED", SURVEY, header="2 2")
-    mirrored = mirror_field(field, "z")
+    mirrored = mirror_field(field, plane="z")
     assert mirrored.header == "2 2" and mirrored.form == "STRUCTURED"
     assert [row[2] for row in mirrored.rows] == [-0.5, -0.5, 0.5, 0.5]
     assert [row[5] for row in mirrored.rows] == [2.0, -0.25, -1.0, 0.75]
@@ -79,7 +79,7 @@ def test_mirror_through_z_zero_keeps_a_structured_header_and_the_row_order():
 def test_mirror_refuses_a_plane_that_is_not_a_coordinate():
     # P0310-G3-MIRROR
     with pytest.raises(WorkspaceError, match="x, y or z"):
-        mirror_field(Field("UNSTRUCTURED", SURVEY), "w")
+        mirror_field(Field("UNSTRUCTURED", SURVEY), plane="w")
 
 
 # --- move -------------------------------------------------------------------
@@ -88,7 +88,7 @@ def test_mirror_refuses_a_plane_that_is_not_a_coordinate():
 def test_move_lands_the_source_point_on_the_target_and_keeps_velocities():
     # P0310-G3-MOVE
     field = Field("UNSTRUCTURED", SURVEY)
-    moved = move_field(field, (2.0, -3.5, 1.25), (0.5, 0.0, -1.0))
+    moved = move_field(field, source_point_m=(2.0, -3.5, 1.25), target_point_m=(0.5, 0.0, -1.0))
     assert moved.rows == (
         (0.5, 4.5, -1.75, 30.0, 1.5, -2.0),
         (0.5, 2.5, -1.75, 31.0, -0.5, 0.25),
@@ -97,17 +97,32 @@ def test_move_lands_the_source_point_on_the_target_and_keeps_velocities():
     )
     # the source point itself lands exactly on the target
     hub = Field("UNSTRUCTURED", ((5.3, -1.7, 0.9, 1.0, 2.0, 3.0),))
-    assert move_field(hub, (5.3, -1.7, 0.9), (0.0, 0.0, 0.0)).rows[0][:3] == (0.0, 0.0, 0.0)
+    landed = move_field(hub, source_point_m=(5.3, -1.7, 0.9), target_point_m=(0.0, 0.0, 0.0))
+    assert landed.rows[0][:3] == (0.0, 0.0, 0.0)
 
 
 def test_move_refuses_a_point_that_is_not_three_finite_numbers():
     # P0310-G3-MOVE
     with pytest.raises(WorkspaceError, match="three finite numbers"):
-        move_field(Field("UNSTRUCTURED", SURVEY), (0.0, 1.0), (0.0, 0.0, 0.0))
+        move_field(
+            Field("UNSTRUCTURED", SURVEY), source_point_m=(0.0, 1.0), target_point_m=(0.0, 0.0, 0.0)
+        )
+
+
+def test_the_geometry_of_move_and_mirror_is_keyword_only():
+    # P0310-G3-MOVE: a source and a target passed by position could be swapped
+    # silently, and both are three numbers, so nothing else would notice.
+    with pytest.raises(TypeError):
+        move_field(Field("UNSTRUCTURED", SURVEY), (0.0, 0.0, 0.0), (1.0, 0.0, 0.0))  # type: ignore[misc]
+    with pytest.raises(TypeError):
+        mirror_field(Field("UNSTRUCTURED", SURVEY), "y")  # type: ignore[misc]
 
 
 # --- subtract ---------------------------------------------------------------
 
+
+#: A zero reference free stream, stated: OTHER already induced-only.
+Z = (0.0, 0.0, 0.0)
 
 #: The "other" field on SURVEY's grid in another row order, and a reference.
 OTHER = (
@@ -130,9 +145,30 @@ def test_subtract_is_total_minus_other_minus_reference_matched_by_position():
         (2.0, 1.0, -0.5, 29.5, 2.5, 1.0),
         (2.0, -1.0, -0.5, 30.25, -0.5, -1.25),
     )
-    # no reference stated: the plain difference total - other
-    plain = subtract_fields(total, other)
+    # a zero reference, stated: the plain difference total - other
+    plain = subtract_fields(total, other, reference_m_s=(0.0, 0.0, 0.0))
     assert plain.rows[0][3:] == (-1.0, 0.5, -1.0)
+
+
+def test_subtract_refuses_a_reference_left_out_in_python_and_on_the_command_line(tmp_path, capsys):
+    # P0310-G3-SUBTRACT: a reference left out would remove OTHER's free stream
+    # from TOTAL along with its induced velocity, so it is never defaulted.
+    total = Field("UNSTRUCTURED", SURVEY, source="total.dat")
+    other = Field("UNSTRUCTURED", OTHER, source="other.dat")
+    with pytest.raises(TypeError, match="reference_m_s"):
+        subtract_fields(total, other)  # type: ignore[call-arg]
+    a = _write(tmp_path / "total.dat", SURVEY)
+    b = _write(tmp_path / "other.dat", OTHER)
+    root = tmp_path / "campaign"
+    args = ["field", "subtract", str(a), str(b), "--out", "c", "--workspace", str(root)]
+    with pytest.raises(SystemExit) as refused:
+        workspace_cli([*args, "--apply"])
+    assert refused.value.code == 2
+    assert "--reference" in capsys.readouterr().err
+    assert not (root / "inputs" / "freestreams").exists(), "a refusal wrote something"
+    # an explicit zero stays allowed
+    assert workspace_cli([*args, "--reference", "0", "0", "0", "--apply"]) == 0
+    assert _rows(root / "inputs" / "freestreams" / "c.dat")[0][3:] == [-1.0, 0.5, -1.0]
 
 
 def test_subtract_refuses_two_grids_naming_both_files():
@@ -140,23 +176,25 @@ def test_subtract_refuses_two_grids_naming_both_files():
     total = Field("UNSTRUCTURED", SURVEY, source="total.dat")
     shifted = tuple((r[0], r[1] + 0.01, *r[2:]) for r in OTHER)
     with pytest.raises(WorkspaceError, match="the grids differ") as refused:
-        subtract_fields(total, Field("UNSTRUCTURED", shifted, source="other.dat"))
+        subtract_fields(total, Field("UNSTRUCTURED", shifted, source="other.dat"), reference_m_s=Z)
     assert "total.dat" in str(refused.value) and "other.dat" in str(refused.value)
     with pytest.raises(WorkspaceError, match="the grids differ.*holds 4 points.*holds 3"):
-        subtract_fields(total, Field("UNSTRUCTURED", OTHER[:3], source="other.dat"))
+        subtract_fields(
+            total, Field("UNSTRUCTURED", OTHER[:3], source="other.dat"), reference_m_s=Z
+        )
     twice = (OTHER[0], OTHER[0], OTHER[1], OTHER[2])
     with pytest.raises(WorkspaceError, match="one point"):
-        subtract_fields(total, Field("UNSTRUCTURED", twice, source="other.dat"))
+        subtract_fields(total, Field("UNSTRUCTURED", twice, source="other.dat"), reference_m_s=Z)
 
 
 def test_subtract_accepts_a_point_within_the_tolerance_and_refuses_one_beyond_it():
     # P0310-G3-SUBTRACT
     total = Field("UNSTRUCTURED", SURVEY, source="total.dat")
     near = tuple((r[0], r[1] + 5e-7, *r[2:]) for r in OTHER)
-    assert len(subtract_fields(total, Field("UNSTRUCTURED", near)).rows) == 4
+    assert len(subtract_fields(total, Field("UNSTRUCTURED", near), reference_m_s=Z).rows) == 4
     far = tuple((r[0], r[1] + 2e-6, *r[2:]) for r in OTHER)
     with pytest.raises(WorkspaceError, match="the grids differ"):
-        subtract_fields(total, Field("UNSTRUCTURED", far))
+        subtract_fields(total, Field("UNSTRUCTURED", far), reference_m_s=Z)
 
 
 # --- time mean --------------------------------------------------------------
@@ -225,14 +263,16 @@ def test_cli_previews_by_default_and_writes_only_with_apply(tmp_path, capsys):
     source = _write(tmp_path / "surveys" / "survey.dat", SURVEY)
     root = tmp_path / "campaign"
     args = ["field", "mirror", str(source), "--plane", "y", "--out", "mirrored"]
-    assert workspace_cli([*args, "--root", str(root)]) == 0
+    assert workspace_cli([*args, "--workspace", str(root)]) == 0
     out = capsys.readouterr().out
     assert "preview: would write" in out and "nothing written" in out
     assert not (root / "inputs" / "freestreams").exists(), "a preview wrote something"
 
-    assert workspace_cli([*args, "--root", str(root), "--apply"]) == 0
+    assert workspace_cli([*args, "--workspace", str(root), "--apply"]) == 0
     target = root / "inputs" / "freestreams" / "mirrored.dat"
-    assert _rows(target) == [list(r) for r in mirror_field(Field("UNSTRUCTURED", SURVEY), "y").rows]
+    assert _rows(target) == [
+        list(r) for r in mirror_field(Field("UNSTRUCTURED", SURVEY), plane="y").rows
+    ]
     record = json.loads((target.parent / "mirrored.provenance.json").read_text())
     assert record["schema"] == "pyfs-field-operation/1"
     assert record["operation"] == "mirror" and record["parameters"] == {"plane": "y = 0"}
@@ -252,8 +292,9 @@ def test_cli_never_overwrites_without_overwrite(tmp_path, capsys):
     source = _write(tmp_path / "survey.dat", SURVEY)
     root = tmp_path / "campaign"
     args = [
-        "field", "move", str(source), "--from", "2", "0", "0", "--to", "0", "0", "0",
-        "--out", "moved", "--root", str(root), "--apply",
+        "field", "move", str(source), "--source-point", "2", "0", "0",
+        "--target-point", "0", "0", "0",
+        "--out", "moved", "--workspace", str(root), "--apply",
     ]  # fmt: skip
     assert workspace_cli(args) == 0
     target = root / "inputs" / "freestreams" / "moved.dat"
@@ -273,7 +314,17 @@ def test_cli_refuses_the_other_form_of_the_same_stem(tmp_path, capsys):
     source = _write(tmp_path / "survey.dat", SURVEY)
     root = tmp_path / "campaign"
     _write(root / "inputs" / "freestreams" / "gust.txt", SURVEY, header="2 2")
-    args = ["field", "mirror", str(source), "--plane", "y", "--out", "gust", "--root", str(root)]
+    args = [
+        "field",
+        "mirror",
+        str(source),
+        "--plane",
+        "y",
+        "--out",
+        "gust",
+        "--workspace",
+        str(root),
+    ]
     assert workspace_cli(args) == 2
     assert "one stem names one file" in capsys.readouterr().err
 
@@ -294,16 +345,17 @@ def test_cli_subtract_builds_the_corrected_inflow_and_its_file_is_read_by_the_bu
     staged = root / "stage"
     assert (
         workspace_cli(
-            ["field", "mirror", str(total), "--plane", "y", "--out", "m", "--root", str(staged),
-             "--apply"]
+            ["field", "mirror", str(total), "--plane", "y", "--out", "m",
+             "--workspace", str(staged), "--apply"]
         )
         == 0
     )  # fmt: skip
     mirrored = staged / "inputs" / "freestreams" / "m.dat"
     assert (
         workspace_cli(
-            ["field", "move", str(mirrored), "--from", "2", "0", "0", "--to", "0", "0", "0",
-             "--out", "mm", "--root", str(staged), "--apply"]
+            ["field", "move", str(mirrored), "--source-point", "2", "0", "0",
+             "--target-point", "0", "0", "0",
+             "--out", "mm", "--workspace", str(staged), "--apply"]
         )
         == 0
     )  # fmt: skip
@@ -312,7 +364,7 @@ def test_cli_subtract_builds_the_corrected_inflow_and_its_file_is_read_by_the_bu
     assert (
         workspace_cli(
             ["field", "subtract", str(total), str(body), "--reference", "30", "0", "0",
-             "--out", "corrected", "--root", str(root), "--apply"]
+             "--out", "corrected", "--workspace", str(root), "--apply"]
         )
         == 2
     )  # fmt: skip
@@ -321,7 +373,7 @@ def test_cli_subtract_builds_the_corrected_inflow_and_its_file_is_read_by_the_bu
     assert (
         workspace_cli(
             ["field", "subtract", str(moved), str(body), "--reference", "30", "0", "0",
-             "--out", "corrected", "--root", str(root), "--apply"]
+             "--out", "corrected", "--workspace", str(root), "--apply"]
         )
         == 0
     )  # fmt: skip
@@ -354,7 +406,7 @@ def test_cli_time_mean_reads_a_glob_and_records_the_steps(tmp_path, capsys):
     )
     root = tmp_path / "campaign"
     pattern = str(folder / "P1_field_01_step_*.inflow.dat")
-    args = ["field", "time-mean", pattern, "--last", "2", "--out", "mean", "--root", str(root)]
+    args = ["field", "time-mean", pattern, "--last", "2", "--out", "mean", "--workspace", str(root)]
     assert workspace_cli([*args, "--apply"]) == 0
     assert "the time mean of 2 steps, 2 to 3" in capsys.readouterr().out
     target = root / "inputs" / "freestreams" / "mean.dat"

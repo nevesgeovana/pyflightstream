@@ -86,6 +86,11 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # define the field written and are recorded in its provenance; `--out` is
     # the stem written; `--apply` and `--overwrite` are the preview/change
     # switches of `pyfs-matrix`'s storage commands, per call for the same reason.
+    # `--workspace` is the campaign the field is written into, spelled as every
+    # sibling command that names a workspace spells it (the 0.31.0 release
+    # review); `init`, `archive` and `migrate-geometries` keep their positional
+    # `root`.
+    ("pyfs-workspace", "workspace"): SUBJECT,
     ("pyfs-workspace", "field"): SUBJECT,
     ("pyfs-workspace", "total"): SUBJECT,
     ("pyfs-workspace", "other"): SUBJECT,
@@ -416,9 +421,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-qa", "timeout"): frozenset({"probe"}),
     ("pyfs-qa", "workroot"): frozenset({"drift", "probe"}),
     ("pyfs-qa", "workspace"): frozenset({"drift", "physics"}),
-    ("pyfs-workspace", "root"): frozenset(
-        {"archive", "init", "migrate-geometries", "mirror", "move", "subtract", "time-mean"}
-    ),
+    ("pyfs-workspace", "root"): frozenset({"archive", "init", "migrate-geometries"}),
+    ("pyfs-workspace", "workspace"): frozenset({"mirror", "move", "subtract", "time-mean"}),
     ("pyfs-workspace", "sim_id"): frozenset({"archive"}),
     ("pyfs-workspace", "field"): frozenset({"mirror", "move"}),
     ("pyfs-workspace", "total"): frozenset({"subtract"}),

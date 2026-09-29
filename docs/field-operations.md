@@ -33,7 +33,7 @@ any file of the folder.
 | command | result |
 |---|---|
 | `field mirror FIELD --plane y` | through the plane y = 0: each row `x y z vx vy vz` becomes `x -y z vx -vy vz` (`--plane x` and `--plane z` likewise) |
-| `field move FIELD --from X Y Z --to X Y Z` | every position `p` becomes `(p - from) + to`, so the source point lands exactly on the target; the velocities are unchanged |
+| `field move FIELD --source-point X Y Z --target-point X Y Z` | every position `p` becomes `(p - source) + target`, so the source point lands exactly on the target; the velocities are unchanged |
 | `field subtract TOTAL OTHER --reference VX VY VZ` | `TOTAL - (OTHER - reference)`, point by point |
 | `field time-mean FILES... [--last K]` | the mean of per-step fields of one unsteady run |
 
@@ -48,8 +48,10 @@ number of points, or a point of either with no point of the other within
 files and the first point without a partner. `--reference` is a uniform
 velocity, the free stream `OTHER` was solved in: `OTHER - reference` is then
 the velocity `OTHER`'s body induces, and the result is `TOTAL` with that
-induced velocity removed. With no reference the result is the plain
-difference `TOTAL - OTHER`.
+induced velocity removed. `--reference` is REQUIRED, because a reference left
+out would remove `OTHER`'s free stream from `TOTAL` as well. State `0 0 0`
+only where `OTHER` is already induced-only (a field with its free stream
+taken out): the result is then the plain difference `TOTAL - OTHER`.
 
 **time-mean** reads the step from each file name
 (`<point>_field_NN_step_<N>.inflow.dat`); a pattern such as
@@ -75,8 +77,9 @@ The provenance record states the operation, its parameters, every input file
 with its sha256, the sha256 of the file written, and the units. An existing
 file or record is replaced only with `--overwrite`, and a stem the folder
 already holds in the other form is refused, since one stem names one file.
-`--root` names the campaign root (the current directory by default). A
-refusal is printed on stderr with exit status 2 and writes nothing.
+`--workspace` names the campaign workspace (the current directory by
+default), as every command that names a workspace spells it. A refusal is
+printed on stderr with exit status 2 and writes nothing.
 
 ## Per-step fields of an unsteady row
 
@@ -109,7 +112,7 @@ body induces removed. The second body's own survey, on the same grid about
 ```text
 pyfs-workspace field time-mean "post/m1/fields/P1_field_01_step_*.inflow.dat" --last 72 --out p1_mean --apply
 pyfs-workspace field mirror inputs/freestreams/p1_mean.dat --plane y --out p1_mirrored --apply
-pyfs-workspace field move inputs/freestreams/p1_mirrored.dat --from 2 3 0 --to 0 0 0 --out p1_moved --apply
+pyfs-workspace field move inputs/freestreams/p1_mirrored.dat --source-point 2 3 0 --target-point 0 0 0 --out p1_moved --apply
 pyfs-workspace field subtract inputs/freestreams/p1_moved.dat post/m1/fields/P2_field_01.inflow.dat --reference 40 0 0 --out inflow_a --apply
 ```
 
@@ -118,7 +121,8 @@ starts there. A row then states `FREESTREAM: inflow_a`. Each intermediate file
 carries its own provenance record, so the chain can be read back from the last
 one to the first.
 
-The same operations are functions of `pyflightstream.workspace.fields`:
+The same operations are functions of `pyflightstream.workspace.fields`,
+whose parameters (the plane, the two points, the reference) are keyword-only:
 
 ```python
 from pyflightstream.workspace.fields import Field, mirror_field, move_field, subtract_fields
@@ -132,7 +136,9 @@ survey = Field(
         (2.0, 1.0, -0.5, 40.5, 0.0, -1.0),
     ),
 )
-moved = move_field(mirror_field(survey, "y"), (2.0, 0.0, 0.0), (0.0, 0.0, 0.0))
+moved = move_field(
+    mirror_field(survey, plane="y"), source_point_m=(2.0, 0.0, 0.0), target_point_m=(0.0, 0.0, 0.0)
+)
 body = Field(form="UNSTRUCTURED", rows=tuple((*r[:3], 40.25, 0.0, 0.0) for r in moved.rows))
 corrected = subtract_fields(moved, body, reference_m_s=(40.0, 0.0, 0.0))
 assert corrected.rows[0] == (0.0, 1.0, 0.5, 40.75, -0.5, 0.0)
