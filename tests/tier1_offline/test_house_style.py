@@ -841,6 +841,129 @@ def test_the_spreadsheet_guard_fires_on_what_it_exists_to_catch(monkeypatch):
     )
 
 
+# --- PDF files, and the one folder that may track them (invariant 1) -------
+#
+# A pdf never entered Git until 0.30.0: a licensed manual arrives as one, and
+# NFR-03 keeps the manual out of the repository. The owner then decided that
+# the seven guide decks ship their compiled PDFs beside their LaTeX sources,
+# so `guide/` is exempted, and only `guide/`. Three mechanisms state the rule
+# and must agree: the forbid-pdf hook (`files` with `exclude`), the CI guard
+# job's two greps, and this walk over the tracked files, which is the one with
+# the mutation proof. The equivalence test below runs the hook's and the CI
+# job's own patterns over the same sample paths as the suite's detector, so a
+# change to one of the three that the others do not carry fails here.
+PDF_ALLOWED_PREFIX = "guide/"
+
+#: Sample paths the three mechanisms must judge alike: pdfs in and out of
+#: guide/, spellings that only look like it, a mixed-case suffix, and files
+#: that are no pdf at all.
+PDF_RULE_SAMPLES = (
+    "guide/fts-guide-01-workspaces.pdf",
+    "guide/latex-sources/06-fsi/figures/fsi_xprop_convergence.pdf",
+    "guide/pyflightstream_user_guide.tex",
+    "docs/manual_26.124.pdf",
+    "reports/Manual.PDF",
+    "guide.pdf",
+    "docs/guide/deck.pdf",
+    "guides/deck.pdf",
+    "README.md",
+)
+
+
+def _pdf_offenses(relative_posix_paths):
+    """Tracked paths carrying a pdf extension outside the exempt folder.
+
+    Factored out so the tree scan, the mutation proof and the equivalence
+    with the hook and CI run the SAME code.
+    """
+    return sorted(
+        path
+        for path in relative_posix_paths
+        if Path(path).suffix.lower() == ".pdf" and not path.startswith(PDF_ALLOWED_PREFIX)
+    )
+
+
+@pytest.mark.requirement("NFR-03")
+def test_no_pdf_is_tracked_outside_the_guide():
+    """A pdf in the public tree is refused anywhere but guide/."""
+    offenders = _pdf_offenses(
+        str(path.relative_to(REPO_ROOT).as_posix()) for path in _tracked_files()
+    )
+    assert not offenders, (
+        "these tracked files are pdfs outside guide/:\n"
+        + "\n".join(offenders)
+        + "\n\nA licensed manual arrives as a pdf and never enters the repository "
+        "(CONTRIBUTING.md invariant 1, SRS NFR-03). Only the compiled guide decks "
+        "and their figures, under guide/, are tracked as pdf."
+    )
+
+
+def test_the_pdf_guard_fires_on_what_it_exists_to_catch(monkeypatch):
+    """Mutation proof: a pdf outside guide/ is refused, one inside is admitted,
+    and each half comes from its own rule.
+
+    With the exemption withdrawn the guide's own pdfs are refused too, so the
+    admission comes from the prefix; with the suffix test replaced by one that
+    matches nothing, the leak passes, so the refusal comes from the suffix.
+    """
+    leak = "docs/manual_26.124.pdf"
+    assert _pdf_offenses([leak]) == [leak]
+    assert _pdf_offenses(
+        ["reports/Manual.PDF", "guide.pdf", "docs/guide/deck.pdf", "guides/deck.pdf"]
+    ) == [
+        "docs/guide/deck.pdf",
+        "guide.pdf",
+        "guides/deck.pdf",
+        "reports/Manual.PDF",
+    ]
+    admitted = [
+        "guide/fts-guide-01-workspaces.pdf",
+        "guide/latex-sources/06-fsi/figures/fsi_xprop_convergence.pdf",
+        "README.md",
+    ]
+    assert _pdf_offenses(admitted) == []
+    # Control 1: withdraw the exemption and the guide's pdfs are refused.
+    monkeypatch.setitem(globals(), "PDF_ALLOWED_PREFIX", "\0")
+    assert _pdf_offenses(admitted) == admitted[:2], (
+        "with the exemption withdrawn the guide's pdfs still pass, so their "
+        "admission above was not coming from the guide/ prefix"
+    )
+
+
+@pytest.mark.requirement("NFR-03")
+def test_the_pdf_hook_and_the_ci_guard_admit_exactly_what_the_suite_admits():
+    """The forbid-pdf hook, the CI guard job and `_pdf_offenses` are one rule."""
+    import yaml
+
+    config = yaml.safe_load((REPO_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8"))
+    hooks = [hook for repo in config["repos"] for hook in repo.get("hooks", ())]
+    (hook,) = [hook for hook in hooks if hook["id"] == "forbid-pdf"]
+    files, exclude = re.compile(hook["files"]), re.compile(hook.get("exclude", "(?!)"))
+
+    def hook_refuses(path: str) -> bool:
+        # pre-commit matches `files` and `exclude` with re.search on the path.
+        return bool(files.search(path)) and not exclude.search(path)
+
+    ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    line = next(text for text in ci.splitlines() if "git ls-files | grep -Ei" in text)
+    patterns = re.findall(r"grep -Ei(v?) '([^']+)'", line)
+    assert [flag for flag, _ in patterns] == ["", "v"], (
+        f"the CI guard line is not the two-grep shape this test reads: {line.strip()}"
+    )
+    keep, drop = (re.compile(pattern, re.IGNORECASE) for _, pattern in patterns)
+
+    def ci_refuses(path: str) -> bool:
+        return bool(keep.search(path)) and not drop.search(path)
+
+    suite = set(_pdf_offenses(PDF_RULE_SAMPLES))
+    refused_by_hook = {path for path in PDF_RULE_SAMPLES if hook_refuses(path)}
+    # The hook is case-sensitive on `.pdf`, as it always was; the suite and
+    # the CI job also refuse `.PDF`. So the hook refuses exactly the suite's
+    # lower-case offenders, and the CI job exactly the suite's offenders.
+    assert refused_by_hook == {path for path in suite if path.endswith(".pdf")}
+    assert {path for path in PDF_RULE_SAMPLES if ci_refuses(path)} == suite
+
+
 # --- The container directory's absolute path (PYFS-023) --------------------
 #
 # The identifier guard above catches an email address and a user-profile path.

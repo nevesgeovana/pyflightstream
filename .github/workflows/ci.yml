@@ -217,9 +217,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
-      - name: No pdf, notebook, or _private content tracked
+      # guide/ is the one place a pdf may be tracked (the compiled guide
+      # decks and their figures), as the forbid-pdf hook and
+      # tests/tier1_offline/test_house_style.py state.
+      - name: No pdf outside guide/, notebook, or _private content tracked
         run: |
-          bad=$(git ls-files | grep -Ei '\.pdf$|\.ipynb$|^_private/' || true)
+          bad=$(git ls-files | grep -Ei '\.pdf$|\.ipynb$|^_private/' | grep -Eiv '^guide/.*\.pdf$' || true)
           if [ -n "$bad" ]; then
             echo "Forbidden tracked files found:"
             echo "$bad"

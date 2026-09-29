@@ -45,3 +45,10 @@ tests/tier3_licensed/inputs/geometries/*.fsm binary
 # and the tier-1 control reads them normalized, so the file on disk is the same
 # on every machine and a CRLF checkout does not read as a moved script.
 tests/tier3_licensed/goldens/** text eol=lf
+
+# The guide decks' compiled PDFs and figures are binary: no line-ending or
+# whitespace rule may touch them. Their LaTeX sources and build recipes are LF
+# on every machine, so a deck builds from the same bytes everywhere.
+guide/**/*.pdf binary
+guide/latex-sources/** text eol=lf
+guide/latex-sources/**/*.pdf binary

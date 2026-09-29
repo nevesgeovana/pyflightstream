@@ -26,9 +26,16 @@ site/
 # drift_runs*/, fsi_runs/) moved under runs/ the same day.
 runs/
 
-# LaTeX build artifacts of the beamer guide; the built pdf never
-# enters Git (repository guard), only guide/*.tex is committed
+# LaTeX build artifacts of the beamer guide; its built pdf never
+# enters Git, only guide/*.tex is committed.
 guide/*.pdf
+# The seven guide decks are the one exception to the pdf rule, by the
+# owner's decision: their compiled PDFs and the figures they include are
+# tracked beside their sources. The repository guards (pre-commit, the CI
+# guard job and tests/tier1_offline/test_house_style.py) admit a pdf under
+# guide/ and nowhere else; the decks' build/ folder stays ignored.
+!guide/fts-guide-0[1-7]-*.pdf
+!guide/latex-sources/0[1-7]-*/figures/*.pdf
 guide/*.aux
 guide/*.log
 guide/*.nav
