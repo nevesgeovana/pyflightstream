@@ -142,7 +142,12 @@ def test_the_projection_is_the_one_in_post_axes():
     # F = (4, 0, -2), r = (0, 0.5, 0): r x F = (-1, 0, -2).
     assert axial == pytest.approx(4.0 / 3.0 - 4.0 / 3.0)
     assert torque == pytest.approx(-1.0 / 3.0 - 4.0 / 3.0)
-    assert section_station_shaft_loads(4.0, -2.0, 0.5, plane="XY", shaft=a) is None
+    # XY, measured on 26.124 at the 0.31.0 short confirmation: F = (4, -2, 0),
+    # r = (0, 0, 0.5): r x F = (1, 2, 0).
+    axial, torque = section_station_shaft_loads(4.0, -2.0, 0.5, plane="XY", shaft=a)
+    assert axial == pytest.approx(4.0 / 3.0 - 4.0 / 3.0)
+    assert torque == pytest.approx(1.0 / 3.0 + 4.0 / 3.0)
+    assert section_station_shaft_loads(4.0, -2.0, 0.5, plane="YZ", shaft=a) is None
     assert section_station_shaft_loads(4.0, -2.0, 0.5, plane="XZ", shaft=(0, 0, 0)) is None
 
 

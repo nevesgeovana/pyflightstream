@@ -469,10 +469,16 @@ def rotor_in_plane_loads(
 #: the frame's XZ plane states ``Fx`` along the frame's x, ``Fz`` along its z
 #: and ``Offset`` along its y, the normal (the pilot evidence of RPT-005 and
 #: RPT-006: the export's ``Fx`` of a blade cut in a blade frame whose x is the
-#: shaft matched the integrated axial force). The other two planes are not
-#: read: nothing the package holds states which frame axes their two force
-#: columns lie along.
-SECTION_FORCE_AXES: dict[str, tuple[int, int, int]] = {"XZ": (0, 2, 1)}
+#: shaft matched the integrated axial force). A cut in the XY plane states
+#: ``Fx`` along the frame's x, ``Fz`` along its y and ``Offset`` along its z:
+#: measured on 26.124 (the 0.31.0 short confirmation of the clocked wheel, an
+#: XY distribution over blade one in the rotor's hub frame whose x is the
+#: shaft), where the strip integrals of ``Fx``, ``Fz`` and ``Fz Offset``
+#: matched the blade's force along x, its force along y and its moment about x
+#: to about 2 per cent, the midpoint rule's error at 30 stations. The YZ plane
+#: is not read: no run has stated which frame axes its two force columns lie
+#: along.
+SECTION_FORCE_AXES: dict[str, tuple[int, int, int]] = {"XZ": (0, 2, 1), "XY": (0, 1, 2)}
 
 
 def section_station_shaft_loads(
@@ -490,8 +496,9 @@ def section_station_shaft_loads(
     axes, the frame the distribution was cut in; ``plane`` is the cut's plane
     in that frame and ``shaft`` the rotor's axis stated in the same frame's
     axes, in the sense its thrust is counted positive. The station's force is
-    ``F = Fx e_x + Fz e_z`` for an XZ cut (:data:`SECTION_FORCE_AXES`) and it
-    sits at ``r = Offset e_y`` from the frame's origin, the rotor's hub for a
+    ``F = Fx e_x + Fz e_z`` for an XZ cut, ``Fx e_x + Fz e_y`` for an XY cut
+    (:data:`SECTION_FORCE_AXES`), and it sits at ``r = Offset e_y`` (XZ) or
+    ``Offset e_z`` (XY) from the frame's origin, the rotor's hub for a
     frame of the rotor:
 
     * ``axial = F . a``, the force along the shaft ``a``;
@@ -510,6 +517,12 @@ def section_station_shaft_loads(
     (10.0, 1.0)
     >>> section_station_shaft_loads(10.0, 2.0, 0.5, plane="XZ", shaft=(0.0, 0.0, 1.0))
     (2.0, -5.0)
+
+    An XY cut in the hub frame of a rotor whose shaft is x, the blade along z:
+    Fx is the thrust and ``-Offset Fz`` the torque.
+
+    >>> section_station_shaft_loads(10.0, 2.0, 0.5, plane="XY", shaft=(1.0, 0.0, 0.0))
+    (10.0, -1.0)
     >>> section_station_shaft_loads(10.0, 2.0, 0.5, plane="YZ", shaft=(1.0, 0.0, 0.0)) is None
     True
     """

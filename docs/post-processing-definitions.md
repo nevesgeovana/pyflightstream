@@ -2023,7 +2023,8 @@ over all strips, of the thrust and of the torque per unit span, both taken
 along the rotor's axis (since 0.31.0). The export states `Fx` and `Fz` in the
 axes of the frame the distribution was cut in, which the run's sections layout
 names for each block; for a cut in that frame's XZ plane the station's force
-is `F = Fx e_x + Fz e_z` and the station sits at `r = Offset e_y`, and with
+is `F = Fx e_x + Fz e_z` and the station sits at `r = Offset e_y`, for a cut
+in its XY plane `F = Fx e_x + Fz e_y` and `r = Offset e_z`, and with
 `a` the rotor's axis (the record's `axis_vector`, in the sense its thrust is
 counted positive) stated in the same frame's axes:
 
@@ -2042,12 +2043,15 @@ clocking's copy of one) `a` is the frame's shaft axis, the rotor's letter or
 turned about the shaft; in `MRP`, whose axes are the geometry's, `a` is
 `axis_vector` itself. Until 0.31.0 the export's `Fx` was read as the thrust
 and `Fz |Offset|` as the torque, which holds only in a frame whose x axis is
-the shaft. The reading of `Fx` along the frame's x and `Fz` along its z for an
-XZ cut rests on the FSI pilot records (RPT-005, RPT-006) and is not measured on a
-licensed quasi-steady run. **A share is `NA`**, and the post says why in a
-WARNING line of `post.log` naming the point, where a block was cut in a frame
-whose axes the post does not know (one a setup creates), in a plane other than
-XZ, or in a block the layout does not name; where the total is zero; and where
+the shaft. The reading of an XZ cut rests on the FSI pilot records (RPT-005,
+RPT-006); the reading of an XY cut was measured on the 0.31.0 short licensed
+confirmation of a clocked wheel, where the strip integrals of `Fx`, `Fz` and
+`Fz Offset` over blade one matched the blade's force along the shaft, its
+in-plane force and its moment about the shaft to about 2 per cent. **A share
+is `NA`**, and the post says why in a WARNING line of `post.log` naming the
+point, where a block was cut in a frame whose axes the post does not know (one
+a setup creates), in the YZ plane (not measured), or in a block the layout does
+not name; where the total is zero; and where
 stations of opposite sign put the share outside 0 to 100 per cent, the total
 then having no sign a share of it could be read against. Where the point has
 no such export the values are the plan's, the chord read off the mesh
