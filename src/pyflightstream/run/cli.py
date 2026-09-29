@@ -77,7 +77,6 @@ from pyflightstream.run import (
     CampaignErrors,
     CampaignPlan,
     LoadsAssessor,
-    _build_label,
     format_cost_table,
     inflow_harmonics_line,
     plan_receipt_error,
@@ -1785,8 +1784,8 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             )
     missing_families = _the_missing_family_choice(args)
     # THE WARNINGS ARE HELD while the plan is made and printed as one titled
-    # block after its header (0.31.0), because the owner could not tell what
-    # she was reading when they arrived first, unannounced. They are released
+    # block after its header (0.31.0), because a reader could not tell what
+    # the warnings were about when they arrived first, unannounced. They are released
     # on every path, a refusal included, and still reach stderr.
     held: list[warnings.WarningMessage] = []
     try:
@@ -1882,7 +1881,11 @@ def _plan_blocks(plan: CampaignPlan, *, cost: bool) -> list[tuple[str, list[str]
         cases.append(f"  solver installations: {len(plan.build_groups)}")
         for key, sims in plan.build_groups.items():
             cases.extend(
-                wrap(f"{_build_label(key)}: {len(sims)} case(s) ({', '.join(sims)})", first="    ")
+                wrap(
+                    f"{CampaignPlan.installation_label(key)}: {len(sims)} case(s) "
+                    f"({', '.join(sims)})",
+                    first="    ",
+                )
             )
     waiving = [entry for entry in plan.points if entry.waived_commands]
     if waiving:

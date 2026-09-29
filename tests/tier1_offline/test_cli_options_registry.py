@@ -338,7 +338,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "setup_guidelines"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "setup_standards"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "pproc_warnings"): frozenset({"collect", "post", "run"}),
-    ("pyfs-matrix", "verbose"): frozenset({"collect", "post", "run"}),
+    # 0.31.0 (P0310-CONSOLE-BLOCKS): plan, and its alias inspect-setups, take --verbose too,
+    # which is what shows the [continuation] lines on the console.
+    ("pyfs-matrix", "verbose"): frozenset({"collect", "inspect-setups", "plan", "post", "run"}),
     ("pyfs-matrix", "diagnostics"): frozenset({"post"}),
     ("pyfs-matrix", "fs_exe"): frozenset({"convert", "inspect-setups", "plan", "post", "run"}),
     ("pyfs-matrix", "fs_version"): frozenset({"convert", "inspect-setups", "plan", "post", "run"}),

@@ -5209,6 +5209,11 @@ class CampaignPlan:
         """The points the manifest already holds (resume would skip them)."""
         return [entry for entry in self.points if entry.status is PlanStatus.ALREADY_RECORDED]
 
+    @staticmethod
+    def installation_label(key: str) -> str:
+        """Name one of :attr:`build_groups` the way a message should say it (0.31.0)."""
+        return _build_label(key)
+
     def summary(self) -> str:
         """Return the one-paragraph human summary of the plan."""
         lines = [
