@@ -60,6 +60,7 @@ REQUIRED_CITATIONS = {
         "FSI Blade Coupling Plan rev. 2",
         "Houbolt and Brooks, NACA Report 1346",
     ),
+    (centrifugal, "in_plane_softening_coefficients"): ("Houbolt and Brooks, NACA Report 1346",),
     (centrifugal, "southwell_fit"): (
         "FSI Blade Coupling Plan rev. 2",
         "Bielawa",
@@ -94,6 +95,7 @@ PHYSICS_FUNCTIONS = [
     (centrifugal, "total_pitch_rad"),
     (centrifugal, "propeller_moment_distribution"),
     (centrifugal, "propeller_moment_twist_stiffness"),
+    (centrifugal, "in_plane_softening_coefficients"),
     (centrifugal, "southwell_fit"),
     (beam, "lumped_station_masses"),
     (beam, "_condense_massless"),
@@ -137,6 +139,12 @@ NON_PHYSICS_PUBLIC = {
         "unflatten_translations",
         "write_fsidisp",
         "read_fsidisp",
+        # 0.30.0 (FSI-1): section geometry and the inside check; plane
+        # geometry of the node placement, no physical formula.
+        "section_chord_fraction",
+        "camber_point",
+        "node_clearances",
+        "refuse_nodes_outside_sections",
     },
     "driver": {"coupling_step"},
     # check_state_matches_config is a SHAPE check on a resumed state, not an

@@ -78,7 +78,6 @@ ASSIGN_AEROELASTIC_SURFACES:
       type: int
     - name: boundary_indices
       type: int_list
-      cites: boundaries
       separator: newline
       required: false
   manual_ref: "SRC-003 p.375"
@@ -92,6 +91,19 @@ ASSIGN_AEROELASTIC_SURFACES:
     Mesh boundaries whose deflections the toolbox interpolates; one
     index per line after the count, -1 selects all boundaries with no
     index lines.
+
+    THE VALUES ARE BOUNDARY IDS, NOT TREE POSITIONS, which is why the
+    argument cites no entity. The solver stores the list as written and
+    maps the boundaries whose ID (the first field of each boundary
+    record of the saved $MESH$ block) matches; the motion commands
+    convert a tree position to that ID, this one does not. An OBJ
+    import numbers its boundaries from 2, so a blade cited by its
+    position 1 stored "1," and mapped 0 vertices, and the same blade
+    cited as 2 mapped 936 (26.124, probe evidence of 2026-09-28). The
+    workspace route computes the ID
+    (pyflightstream.cases.fsi_workspace.aeroelastic_surface_ids); a
+    range check against the declared inventory would refuse the ID of
+    an OBJ import's last boundary, so none is made.
 
 ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS:
   layout: payload_lines

@@ -66,6 +66,55 @@ FlightStream versions.
 
 ### Changed
 
+- **FSI on `unsteady_rotor` is refused by the plan** (FSI-GUARD): "FSI on
+  unsteady_rotor is still in debug on this release (the morph is applied to the
+  un-rotated blade, reported to the vendor)." On 26.124 the morph of a mapped
+  rotating blade is applied at its import azimuth and replaces the rotation;
+  RPT-025 carries the dated correction. FSI on `steady` and on `unsteady` without
+  rotor motion arrives with the fixed-wing structural route of this release
+  (FSI-G) and is refused with that wording until it is wired. `qsteady_rotor`
+  has its entry in `pyflightstream.cases.fsi_workspace.FSI_WORKFLOW_STATE`, the
+  table every workflow's FSI state is read from.
+- **The structural nodes sit inside the blade** (FSI-1). A configuration that
+  carries the blade's sections (`BladeProperties.section_contours_m`, which a
+  calculated blade now carries from its `[sections]`, and a supplied blade may
+  state) places the nodes on each section's camber line: the elastic-axis node
+  at the configured elastic axis's chord fraction (30 % when that lies outside
+  20 to 50 %), the leading-edge and trailing-edge nodes at 10 % and 90 %, at
+  the local twist as before. Planning refuses a node set with any node outside
+  its section, or inside it by less than max(1 mm, 10 % of the local
+  thickness), naming the node. Order, roles and row count are unchanged, so
+  the FSIDisp rows keep their meaning; `fsi_node_map.json` gains the
+  leading-edge and trailing-edge normal positions only for such a layout. A
+  configuration without sections keeps the offset layout, unchecked, because
+  it holds no geometry to check against. A calculated configuration's
+  `config.json`, and so its `config_sha256`, now include the sections.
+- **The coupled blade route emits `AEROELASTIC_RBF_TYPE MULTI_QUADRATIC`**
+  unless the row's setup states a kernel. The package's structural nodes are a
+  beam line, and on one beam line WENDLAND_C2 delivered 64 % of an imposed bend
+  at the leading edge and 1.4 % at the trailing edge, a nose-up shear of up to
+  14 deg, and the coupled run diverged; MULTI_QUADRATIC delivered it to 3 mm
+  (26.124, probe evidence of 2026-09-28). See docs/fsi-workspace.md.
+- **The rotating structural solve includes the in-plane centrifugal softening**
+  mu Omega^2 sin^2(beta) w of the flap (`fsi.centrifugal.in_plane_softening_coefficients`),
+  iterated with the twist in `solve_rotating_static`; a flap along the section
+  normal at pitch beta moves the section in the rotor plane, where the
+  centrifugal field pulls it outward. On a solid metal propeller blade it adds
+  about 2.7 % to the tip flap, which the tier-1 oracle reproduces on a
+  synthetic blade. `RotatingSolution` gains `flap_residual_m` and
+  `flap_tolerance_m`, and `converged` requires both residuals.
+- The workspace FSI pieces a coupled route calls are in
+  `pyflightstream.cases.fsi_workspace`: `aeroelastic_surface_ids`,
+  `structural_node_layout`, `patch_structural_node_frame` (the node-block
+  frame field a scripted `IMPORT_AEROELASTIC_STRUCTURAL_NODES` does not set on
+  26.124, patched in the saved file for a route that needs a moving node
+  frame), `aeroelastic_rbf_type`, `aeroelastic_post_script` (the exports that
+  must show the deformation, run in the post script's post-call pass), and
+  `emit_steady_aeroelastic_analysis` with `refuse_lines_after_steady_analysis`
+  and `steady_aeroelastic_finished` (in a script `EXECUTE_AEROELASTIC_ANALYSIS`
+  returns at once, so nothing may follow it and the run is waited for on the
+  line `Aeroelastic solver run time`).
+
 - **A Tecplot surface no longer exports the native Tecplot by default.** A row
   whose pproc does not set `singularity_strength = true` exports the VTK alone:
   its `.dat` carries every VTK variable and states `Singularity_strength` as
@@ -99,6 +148,14 @@ FlightStream versions.
 
 ### Fixed
 
+- **The aeroelastic surface list holds the blade's boundary ID** (FSI-1).
+  `ASSIGN_AEROELASTIC_SURFACES` is stored as written and maps the boundaries
+  whose ID matches, and an OBJ import numbers its boundaries from 2 where the
+  script cites them from 1, so a blade imported from an OBJ was given a
+  surface that does not exist and mapped 0 vertices, in silence. The route
+  now emits the ID the blade's motion holds (tree position plus 1 for an OBJ,
+  plus 0 for an STL; any other geometry is refused rather than guessed), and
+  the command database no longer range checks that list against the tree.
 - A matrix row stating `HIDDEN 0` runs with the solver's GUI again. The
   window watcher of 0.29.0 took the GUI's startup splash (class `#32770`, no
   title, no text, no button, measured on 26.124 (reports/RPT-086)) for a
@@ -7006,6 +7063,14 @@ unblocked on 26.122 and still NOT VALIDATED: that report says an
 imposed deformation reaches the mesh, not that the morphing is
 correct, and no coupled acceptance run has been made against a build
 where it applies.
+
+*Correction (2026-09-28):* "measured fixed in 26.122" and "unblocked on
+26.122" are withdrawn. RPT-025 never exported the surface; on 26.124 a
+mapped rotating blade is morphed at its import azimuth, the morph replacing
+the rotation, so the defect changed form after 26.121 rather than being
+fixed. The dated correction section of RPT-025 says what the report still
+establishes, and FSI on `unsteady_rotor` is refused from 0.30.0 while the
+rotor morph is in debug.
 
 Read the Tier 3 pass with its scope. The first run
 (`reports/physics/PHY-26122_2026-08-11.yaml`) covered PHY-01 and

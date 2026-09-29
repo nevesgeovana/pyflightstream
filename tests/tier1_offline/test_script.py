@@ -2418,6 +2418,11 @@ def test_the_backfilled_early_build_rows_are_emittable(command, version, args):
 #: than an omission. Extending the tracker to a new kind is what removes
 #: a row from this list.
 _INDEXES_OF_UNTRACKED_OBJECTS = {
+    # A boundary ID, not a tree position (0.30.0, FSI-1): the solver stores the
+    # aeroelastic surface list as written and maps the boundaries whose ID
+    # matches, and an OBJ import numbers its boundaries from 2. A range check
+    # against the tree would refuse the ID of an OBJ import's last boundary.
+    ("ASSIGN_AEROELASTIC_SURFACES", "boundary_indices"),
     ("CAD_BODY_DELETE", "body_index"),
     ("CAD_BODY_MIRROR", "body_index"),
     ("CAD_BODY_ROTATE", "body_index"),

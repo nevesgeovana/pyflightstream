@@ -196,6 +196,17 @@ class BladeProperties(BaseModel):
         serialised at all, so the dump and the :func:`config_sha256` of
         such a configuration are exactly what they were before the
         field existed.
+    section_contours_m : list of list of list of float or None
+        The blade's section at every station, one closed polygon of
+        (chordwise toward the leading edge, normal toward the suction
+        side) points [m] per station, in the section frame, origin on
+        the pitch axis: the geometry the structural nodes are placed in
+        and checked against
+        (:func:`pyflightstream.fsi.nodes.generate_node_layout`). Carried
+        by a blade generated from its sections, and by a typed blade
+        that states it. None when no section geometry is known, and
+        then it is not serialised, for the reason given for
+        ``provenance``.
     """
 
     # allow_inf_nan=False closes the SCALAR half of PYFS-012. The list guard
@@ -221,6 +232,7 @@ class BladeProperties(BaseModel):
     cg_offset_normal_m: list[float]
     geometric_pitch_deg: list[float]
     provenance: BladePropertiesProvenance | None = None
+    section_contours_m: list[list[list[float]]] | None = None
 
     @model_serializer(mode="wrap")
     def _provenance_only_when_present(
@@ -236,8 +248,9 @@ class BladeProperties(BaseModel):
         configuration. Dropping the key keeps both byte-identical.
         """
         data: dict[str, object] = handler(self)
-        if data.get("provenance") is None:
-            data.pop("provenance", None)
+        for optional in ("provenance", "section_contours_m"):
+            if data.get(optional) is None:
+                data.pop(optional, None)
         return data
 
     @model_validator(mode="before")
@@ -353,6 +366,20 @@ class BladeProperties(BaseModel):
                     f"{n} radial stations; every per-station list must be "
                     "sampled at exactly the stations of station_radii_m"
                 )
+        if self.section_contours_m is not None:
+            if len(self.section_contours_m) != n:
+                raise ValueError(
+                    f"section_contours_m has {len(self.section_contours_m)} sections but "
+                    f"there are {n} radial stations; the nodes of a station are placed "
+                    "in that station's own section"
+                )
+            for index, contour in enumerate(self.section_contours_m):
+                if len(contour) < 3 or any(len(point) != 2 for point in contour):
+                    raise ValueError(
+                        f"section_contours_m[{index}] is not a polygon of (chordwise, "
+                        "normal) points: it needs three points or more, two coordinates "
+                        "each"
+                    )
         if self.provenance is not None:
             for name in ("torsion_grid_cells", "thin_section_torsion_ratio"):
                 m = len(getattr(self.provenance, name))

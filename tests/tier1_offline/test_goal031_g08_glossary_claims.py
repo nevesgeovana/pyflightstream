@@ -807,7 +807,29 @@ def _measure(variation: Variation, tmp: Path) -> Outcome:
 
 
 @pytest.fixture(scope="module")
-def measured(tmp_path_factory) -> dict[tuple[tuple[str, str], str], Outcome]:
+def rotor_fsi_route_open():
+    """Open the unsteady_rotor FSI route the FSI keys are measured on.
+
+    0.30.0 refuses FSI on unsteady_rotor while the rotor morph is in debug
+    (FSI-GUARD), and no other workflow is wired yet, so without this the FSI
+    keys would build no script on any build. What the glossary claims is what
+    the key sets in the script of the route that reads it; the route's wiring
+    is kept behind the guard, so it is measured with the guard opened.
+    """
+    from pyflightstream.cases import fsi_workspace
+
+    guard = fsi_workspace.fsi_workflow_refusal
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(
+            fsi_workspace,
+            "fsi_workflow_refusal",
+            lambda workflow: None if workflow == "unsteady_rotor" else guard(workflow),
+        )
+        yield
+
+
+@pytest.fixture(scope="module")
+def measured(tmp_path_factory, rotor_fsi_route_open) -> dict[tuple[tuple[str, str], str], Outcome]:
     tmp = tmp_path_factory.mktemp("glossary_claims")
     outcomes = {}
     for table, variations in ((ROW_KEYS, ROW_KEY_VARIATIONS), (SETTINGS, SETTING_VARIATIONS)):
