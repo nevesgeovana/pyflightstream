@@ -383,12 +383,12 @@ FlightStream versions.
 
 ### Changed (the type-checker debt, re-measured on the gate-fixing tree)
 
-- mypy recount 2026-09-28: 921 errors in 18 of 131 modules, on the
-  `feat/0-30-storage-sync` tree fixing nine tier-1 house-style/registry
-  guards and the push-review findings after them, against 0.29.0's 922 in 18
-  of 128. The three modules the tracked package gained, `workspace/storage.py`,
-  `_signature.py` and `workspace/_links.py`, are clean; the shipped
-  configuration is green over all 131 (`reports/RPT-029`).
+- mypy recount 2026-09-29: 998 errors in 18 of 134 modules, on the
+  `feat/0-30-storage-sync` tree once its quasi-steady rotor work had merged,
+  against the gate-fixing tree's own 921 in 18 of 131. The three further
+  modules the tracked package gained, `cases/qsteady.py`, `fsi/wing.py` and
+  `post/qsteady.py`, are clean; the shipped configuration is green over all
+  134 (`reports/RPT-029`).
 
 ## [0.29.0] - 2026-09-28
 

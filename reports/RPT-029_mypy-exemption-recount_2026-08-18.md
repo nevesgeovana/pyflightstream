@@ -1,4 +1,4 @@
-# RPT-029: the type-checker exemption re-count at 0.8.0.dev0 (2026-08-18, amended twice on 2026-08-19, re-measured 2026-08-20, 2026-08-24, 2026-09-02 and 2026-09-09)
+# RPT-029: the type-checker exemption re-count at 0.8.0.dev0 (2026-08-18, amended twice on 2026-08-19, re-measured 2026-08-20, 2026-08-24, 2026-09-02, 2026-09-09 and 2026-09-29)
 
 > **Amended before this file was ever committed, and the amendment is the
 > report's own reproduction rule catching its own author.**
@@ -56,7 +56,10 @@
 > tree, and by the run of 2026-09-28 on the 0.30.0 storage-and-sync
 > gate-fixing tree (`feat/0-30-storage-sync`, the nine tier-1 house-style
 > guards), whose one new module, `workspace/storage.py`, brought the tracked
-> package from 128 to 129. (An
+> package from 128 to 129, and by the run of 2026-09-29 on the 0.30.0 tree
+> once its quasi-steady rotor work had merged, whose three new modules,
+> `cases/qsteady.py`, `fsi/wing.py` and `post/qsteady.py`, brought the
+> tracked package from 131 to 134. (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
 > modules and the 0.24.0 tree at 661 in 18 of 93; the 0.28.0 release tree read
 > 863 errors in 18 of 104 on 2026-09-25; the 0.29.0 quality-gate candidate
@@ -65,24 +68,23 @@
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 921 errors in 18 files (checked 131 source files)
->     Success: no issues found in 131 source files
+>     Found 998 errors in 18 files (checked 134 source files)
+>     Success: no issues found in 134 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-28: 921 errors in 18 of 131 modules.**
+**mypy recount 2026-09-29: 998 errors in 18 of 134 modules.**
 
-The module total rises by the three modules the 0.30.0 work adds
-(`workspace/storage.py`, `_signature.py`, `workspace/_links.py`), and the
-error total falls by one, inside the exempted set; the number of modules
+The module total rises by the three modules the quasi-steady rotor work
+adds (`cases/qsteady.py`, `fsi/wing.py`, `post/qsteady.py`), and the error
+total rises with them, inside the exempted set; the number of modules
 holding an exemption is unchanged at eighteen, and the shipped configuration
-is green over all 131. The run was taken by `python scripts/mypy_recount.py`
-on the `feat/0-30-storage-sync` tree fixing the nine tier-1 house-style
-guards and the push-review findings after them. The previous reading of this
-report, the v0.29.0 release tree at 922 errors in 18 of 128 modules, is in
-its own history.
+is green over all 134. The run was taken by `python scripts/mypy_recount.py`
+on the `feat/0-30-storage-sync` tree once the quasi-steady rotor work had
+merged. The previous reading of this report, the 0.30.0 storage-and-sync
+gate-fixing tree at 921 errors in 18 of 131 modules, is in its own history.
 
 THE NINETIETH TO THE NINETY-THIRD ARRIVED AT 0.24.0 and all four arrive
 CLEAN: `post/axes.py`, the one home of the frame conventions; `cases/windows.py`,
@@ -358,11 +360,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 921 errors in 18 files (checked 131 source files)
+    Found 998 errors in 18 files (checked 134 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 131 source files
+    Success: no issues found in 134 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
