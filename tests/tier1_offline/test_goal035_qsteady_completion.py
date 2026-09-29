@@ -618,3 +618,32 @@ def test_the_sections_validity_wins_the_plan_in_the_super_file_row(tmp_path):
     plan_only = _qsteady_super_cells(point, record, {})
     assert plan_only["K_1P_MAX"] == "0.02000" and plan_only["THRUST_PCT_K_GT_0_1"] == "NA"
     assert _qsteady_super_cells(point, SimpleNamespace(recipe="steady"), {"P": after}) == {}
+
+
+# ------------------------------------------------------------- E: the docs --
+
+
+def test_the_docs_state_the_clockings_guidance_the_revolutions_warning_and_the_blade_count():
+    """The owner's decisions reach the page a user reads, in words a reader can act on.
+
+    PASSAGE_POSITIONS 2 for thrust and torque and 6 or more for the in-plane
+    loads; a mean from few unsteady revolutions sits below the developed wake;
+    and nP is counted on ONE BLADE, not the N P a fixed surface or the rotor's
+    total sees (the owner's emphasis of 2026-09-29).
+    """
+    # P0300-QS-DOCS
+    import re
+
+    root = Path(__file__).resolve().parents[2]
+    page = (root / "docs" / "workspace-and-workflows.md").read_text(encoding="utf-8")
+    flat = " ".join(page.split())
+    assert "`PASSAGE_POSITIONS: 2` converges thrust and torque" in flat
+    assert "6 or more for the in-plane loads" in flat
+    assert re.search(r"(?is)few[^.\n]{0,80}revolution", flat)
+    assert "`pyfs-matrix plan --inflow-fft`" in flat
+    assert "nP is counted on the BLADE" in flat
+    assert "NOT the blade-passing excitation `N P` a fixed surface" in flat
+    assert "NOT what a balance carrying the whole rotor measures" in flat
+    assert "PASSAGE_POSITIONS >= n_max / N + 1" in flat
+    fsi = " ".join((root / "docs" / "fsi-workspace.md").read_text(encoding="utf-8").split())
+    assert "## Quasi-steady sector FSI" in fsi and "centrifugal tension" in fsi

@@ -1728,5 +1728,20 @@ shares are `NA`.
 row of the rotor (`NA` on a row no rotor owns), and the validity columns,
 after the export's own columns.
 
-The polar and the rotor table of a quasi-steady point do not carry the
-validity columns in this release.
+**The super file** row of a wheel point carries the validity columns after
+every other key of the row, the sections' values where the point has them,
+else the plan's; `NA` in the rows of every other point.
+
+**The per-point validity file**, `<point>_qsteady_validity.json`, is written by
+the post into the wheel point's datapoint folder, beside the run's
+`<point>_qsteady.json`: every value of the validity columns (the thrust and
+torque shares included, `null` where not known), `K_1P_SOURCE`, and the
+plan's record as the run kept it. The run's record is a hashed input of the
+run and is never rewritten; this file is the post's and every post rewrites
+it. `products.json` names each point's file under the clockings and average
+tables' entries (`validity_files`, relative to the products folder).
+
+The steady polar table and the rotor table of a quasi-steady point do not
+carry the validity columns: their columns are a fixed contract a reader's
+scripts index, and no line precedes a CSV header, so a reader of those two
+finds the point's values in its super-file row and in its validity file.

@@ -26,7 +26,7 @@ shell, spar, hollow-section, shear-center or second structural model.
 | --- | --- |
 | `unsteady_rotor` | Refused by the plan: FSI on unsteady_rotor is still in debug on this release (the morph is applied to the un-rotated blade, reported to the vendor). |
 | `steady`, `unsteady` without rotor motion | Accepted: the fixed-wing route (FSI-G), [below](#fixed-wing-fsi). |
-| `qsteady_rotor` | Arrives with the `qsteady_rotor` workflow and its sector structural route. |
+| `qsteady_rotor` | Accepted on a periodic SECTOR: the rotating blade at the row's speed, [below](#quasi-steady-sector-fsi). Refused on a whole wheel. |
 
 On 26.124 a mapped rotating blade is morphed at its imported azimuth: after
 each structural call the surface is the un-rotated blade carrying the
@@ -35,6 +35,39 @@ morph replaces the rotation instead of composing with it, so no coupled rotor
 number of that route is a rotor result. RPT-025 carries the dated correction
 of the earlier reading. The rotor wiring below is kept, tested, and closed by
 the plan until the route is released.
+
+## Quasi-steady sector FSI
+
+A `qsteady_rotor` row with `SYMMETRY PERIODIC` (one blade meshed, its free
+stream turning about the shaft at the rotor's speed) couples that blade on the
+steady route. The blade is held still; the STRUCTURE turns: the configuration
+the run stages as the point's `config.json` takes `omega_rad_per_s` from the
+row, `|RPM| pi / 30`, the speed its free stream turns at, whatever the FSI
+input wrote (an input stating another non-zero speed is warned, the row's
+wins; `fsi-provenance.json` records the move), so an RPM sweep couples each
+point at its own speed. Each coupling call solves the rotating blade under
+the loads of the solve before it: the centrifugal tension and its
+stiffening, the propeller moment and the in-plane centrifugal softening, with
+the configured `coupling_relaxation` on every call. The run folder is marked
+`fsi_quasi_steady_rotor`, which routes the structural program to that steady
+rotating solve; a steady export on a rotating configuration is refused without
+it.
+
+What the route fixes, as the fixed-wing route does: the blade's boundary ID,
+the structural nodes placed inside its sections, the `MULTI_QUADRATIC`
+kernel, at most 50 coupling iterations, the row's whole export block in the
+aeroelastic post-processing script, `EXECUTE_AEROELASTIC_ANALYSIS` last and
+the process stopped after the solver prints that the analysis ended.
+
+Because the blade does not move, its frame is the one it was meshed in, and
+the scripted import stores the structural nodes in the reference frame. So
+the route couples blade one at azimuth 0 with its datum on Z, on a shaft
+along X through the origin (where the rotor blade frame, x the shaft and z
+the span, is the reference frame), with `blade_count = 1` and one section
+distribution over blade one cut on XY in a frame the run created that
+coincides with the reference (the rotor's hub frame, `SMRP`, at the origin).
+Anything else is refused, named, rather than converted. A sector turning at
+0 rev/min is refused: the route exists to apply the centrifugal loads.
 
 ## Fixed-wing FSI
 

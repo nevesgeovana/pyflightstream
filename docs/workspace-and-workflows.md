@@ -3185,7 +3185,8 @@ speed (`SET_FREESTREAM ROTATION`, in the rotor's hub frame, about its shaft,
 at its `RPM` signed by the rotor block's `rpm_sign`). The reference declares
 exactly one rotor block, and the rotor is that block: its hub, its shaft, its
 hand and its blades. The row states the speed as `RPM` (or `ADVANCE_RATIO`)
-in its `FLIGHT_CONDITION` cell. It runs WITHOUT FSI.
+in its `FLIGHT_CONDITION` cell. It runs without FSI; a sector may couple its
+blade (FSI, below).
 
 It is valid only where nothing but the rotor is in the flow and every blade
 is alike, and the builder refuses what it can detect is not: a reference
@@ -3207,15 +3208,21 @@ A `MIRROR` symmetry is refused: a turning rotor is not its own mirror image.
 **The sector** stands for the wheel only in an inflow that is the same at
 every azimuth. An angle of attack or of sideslip is refused on it, and a
 custom inflow (`FREESTREAM`) is accepted only where it varies with the
-radius alone: rows at the same distance from the shaft must state the same
-axial, radial and swirl velocity, and a file with no two rows at one radius
-is refused, since nothing in it shows that it is axisymmetric.
+radius alone: rows at the same distance from the shaft (to 1e-4 of the
+field's largest radius) must state the same axial, radial and swirl
+velocity to 0.1 % of the field's largest speed, a tolerance a field extracted
+from another solution and interpolated onto rings meets
+(`pyflightstream.cases.qsteady.azimuthal_variation`, whose `relative` and
+`radius_relative` a caller states otherwise), and a file with no two rows at
+one radius is refused, since nothing in it shows that it is axisymmetric.
 
 **The wheel** meshes every blade the rotor block lists (a mesh of one blade is
-a sector). In an axial, uniform inflow it is steady in the rotating frame and
+a sector); a blade is present by its own label or by the alias the row's
+reference gives it. In an axial, uniform inflow it is steady in the rotating frame and
 solved once. In an inflow that varies around the disc (an angle of attack or
 of sideslip, or a custom inflow) each blade meets a different flow, and the
-row MUST state `PASSAGE_POSITIONS: k`, one or more: the wheel is solved at
+row MUST state `PASSAGE_POSITIONS: k`, a count, one or more (`2` or `2.0`,
+read as every count of a row is): the wheel is solved at
 `k` clockings uniform inside ONE blade passage,
 `theta_i = i * (360 / N) / k` for `i` from 0 to `k - 1` with `N` the blade
 count, and the post averages them. The clockings are rotations of the
@@ -3233,19 +3240,27 @@ within 1.6 % of 24 clockings at 6). The cost is one steady solve per
 clocking, about ten times less than three unsteady revolutions at 6.
 
 **A custom inflow on the wheel is the TOTAL velocity of the air at the disc**,
-in the global frame, and the package adds the rotation: it writes a new field
-file, `v - Omega x (p - hub)` at every row, the air as the blade held still
-meets it, and states `SET_FREESTREAM CUSTOM` of that file (a run has one
+in the global frame, and the package composes from it the RELATIVE free
+stream the fixed blades see, which removes the rotational velocity of each
+point: it writes a new field file, `v - Omega x (p - hub)` at every row, with
+`Omega` along the rotor's shaft (a letter or a vector) and `p - hub` measured
+from the rotor's hub, the air as the blade held still meets it, and states
+`SET_FREESTREAM CUSTOM` of that file (a run has one
 `SET_FREESTREAM`). The field lies in the YZ plane, so the rotor's shaft must
 be the global X axis; the file's units are declared by `FREESTREAM_UNITS`
 (an undeclared file is read in metres and metres per second, and refused on
 a simulation in another unit). The source file is never written; the new
 one carries a provenance file naming what was added.
 
-**FSI.** A sector with FSI is refused in this release until its wiring
-lands; a wheel with FSI is refused: a quasi-steady wheel is several steady
-clockings averaged, and a blade deformed once per clocking is not the state
-of one structure.
+**FSI.** A SECTOR couples its blade: the steady coupled route, the blade held
+still and the free stream turning, and the structural solve is the ROTATING
+blade at the speed the row turns the free stream (its `omega_rad_per_s` is
+taken from the row's `RPM`, whatever the FSI input states), so the
+centrifugal tension and its stiffening and the in-plane centrifugal softening
+are applied ([FSI in the workspace](fsi-workspace.md#quasi-steady-sector-fsi)).
+A WHEEL with FSI is refused: a quasi-steady wheel is several steady clockings
+averaged, and a blade deformed once per clocking is not the state of one
+structure.
 
 **The validity parameter.** The quasi-steady solution holds where the blade's
 load changes slowly against the time the flow takes to cross it. Its measure
@@ -3267,13 +3282,44 @@ cent is above zero; nothing is refused. The plan reads the chord off the
 blade's mesh where the geometry is an OBJ the row does not move (the largest
 width of each radial band of the first blade's surface); where it cannot, it
 says why and states what it knows, `k` per metre of chord at the root and at
-the tip. Each wheel point leaves `<point>_qsteady.json` in its datapoint
-folder: the case, the rotor, each clocking and its loads export, and the
-plan's `k` (minimum, maximum, mean and the span above 0.05 and above 0.1).
-After the run the post reads the chord from the sectional loads export and
-adds the share of thrust and of torque from the stations above 0.1; every
-quasi-steady product of the point carries these values
+the tip; a point with no free-stream speed and no rotation says that `k` is
+not defined there, since the blade sees no relative flow. Each wheel point
+leaves `<point>_qsteady.json` in its datapoint folder: the case, the rotor,
+each clocking and its loads export, and the plan's `k` (minimum, maximum,
+mean and the span above 0.05 and above 0.1). After the run the post reads the
+chord from the sectional loads export and adds the share of thrust and of
+torque from the stations above 0.1, and writes the point's values into
+`<point>_qsteady_validity.json` beside that record (the run's record is a
+hashed input of the run and is not rewritten); the sections, the clockings
+and average tables and the point's super-file row carry the same values
 ([the definitions](post-processing-definitions.md#the-quasi-steady-rotor)).
+
+**The harmonics of a custom inflow: `pyfs-matrix plan --inflow-fft`.** The 1P
+`k` measures the slowest change a blade meets; a custom inflow can make it
+meet faster ones. With `--inflow-fft` the plan reads, for every wheel point
+in a custom inflow, the angle-of-attack perturbation ONE BLADE meets as it
+turns once through the field, at each station of blade one (the field
+sampled at 360 azimuths by inverse-distance weighting of its four nearest
+rows, the rotation composed, `w = v - Omega x (p - hub)`, the inflow angle
+`atan2(w_axial, w_tangential)`), its Fourier spectrum, and `n95`, the
+smallest harmonic order whose harmonics hold 95 % of its variance. Then, per
+point: `k_eff = n95 k_1P` per station, its minimum, maximum, span-weighted
+mean and the per cent of the span with `k_eff > 0.1`; `n_max`, the highest
+`n95`; and the suggested `PASSAGE_POSITIONS >= n_max / N + 1`, rounded up,
+with a WARNING naming the point when the row states fewer. With the option
+the reduced-frequency warning reads `k_eff`. Without a chord at plan time
+the harmonics are read at equal bands from 0.2 R to the tip and `k_eff` is
+not computed, and the plan says so.
+
+**nP is counted on the BLADE.** The harmonic order `n` is how many times ONE
+blade meets the perturbation in one revolution, seen in the blade's own
+frame as it turns through the field. It is NOT the blade-passing excitation
+`N P` a fixed surface near the rotor feels as the `N` blades go by, and it is
+NOT what a balance carrying the whole rotor measures: summed over `N`
+identical blades `360 / N` apart, every harmonic of one blade cancels in the
+rotor's total except the multiples of `N` (`m N P`). That is why the count of
+clockings is read against `n_max / N`: the clockings sample one blade
+passage, in which the rotor's total repeats.
 
 **The limits.** Axisymmetric, isolated rotors only. At an angle, the
 in-plane loads are quasi-steady ESTIMATES: on the measured propeller the

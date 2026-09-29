@@ -4914,7 +4914,7 @@ def _qsteady_products(
         if quasi.get("case") == "wheel":
             # 0.30.0: THE WHEEL POINT'S VALIDITY AFTER THE RUN, in its datapoint
             # folder beside the run's record, the shares of thrust and torque
-            # from the stations above k = 0.1 included (the owner's decision).
+            # from the stations above k = 0.1 included (0.30.0).
             try:
                 written_file = _qsteady.write_point_validity_file(point.loads_path, quasi, validity)
             except OSError as error:

@@ -178,6 +178,7 @@ def test_a_radial_inflow_is_accepted_and_a_crossflow_is_named():
 
 def test_a_wheel_is_solved_at_each_clocking_and_last_at_clocking_zero():
     """k = 3 on three blades: 0, 40 and 80 deg; clocking 0 last, with the point's exports."""
+    # P0300-QS-WHEEL
     lines, script = _lines(_case(PASSAGE_POSITIONS="3", ALPHA_POINT=5.0))
     assert _rotations(lines) == [
         "ROTATE_SURFACE 2 X 40.0 -1 DISABLE",
@@ -214,6 +215,7 @@ def test_a_wheel_in_an_axial_inflow_is_one_solve():
 
 
 def test_a_wheel_at_an_angle_must_state_its_clockings():
+    # P0300-QS-PASSAGE-POSITIONS
     with pytest.raises(CampaignConfigError, match="states no PASSAGE_POSITIONS"):
         _lines(_case(ALPHA_POINT=5.0))
     with pytest.raises(CampaignConfigError, match="whole number, one or more"):
@@ -221,6 +223,7 @@ def test_a_wheel_at_an_angle_must_state_its_clockings():
 
 
 def test_a_sector_is_one_steady_solve_and_refuses_an_angle_or_clockings():
+    # P0300-QS-SECTOR
     sector = {"SYMMETRY": "PERIODIC", "PERIODIC_COPIES": "3"}
     lines, _ = _lines(_case(**sector))
     assert not _rotations(lines) and lines.count("START_SOLVER") == 1
@@ -293,6 +296,7 @@ RING = [
 
 def test_a_custom_inflow_is_written_with_the_rotation_taken_out(tmp_path):
     """v_rel = v - Omega x (p - hub): at (0, 1, 0), 40 pi about +x, vz = -40 pi."""
+    # P0300-QS-WHEEL
     path = _field(tmp_path, [(*p, 30.0, 0.0, 0.0) for p in RING])
     lines, script = _lines(_custom(_case(PASSAGE_POSITIONS="2"), path))
     at = lines.index("SET_FREESTREAM CUSTOM UNSTRUCTURED")
@@ -309,6 +313,7 @@ def test_a_custom_inflow_is_written_with_the_rotation_taken_out(tmp_path):
 
 
 def test_a_sector_accepts_a_radial_inflow_and_refuses_a_crossflow(tmp_path):
+    # P0300-QS-SECTOR-INFLOW
     sector = {"SYMMETRY": "PERIODIC", "PERIODIC_COPIES": "3"}
     radial = _field(tmp_path, [(*p, 30.0, 0.0, 0.0) for p in RING])
     lines, _ = _lines(_custom(_case(**sector), radial))
@@ -330,6 +335,7 @@ def test_a_custom_inflow_needs_the_shaft_on_the_global_x_axis(tmp_path):
 
 def test_the_plan_shows_the_four_values_of_a_wheel_read_off_its_mesh(tmp_path):
     """Chord 0.2 m everywhere, 40 pi rad/s, 30 m/s: k = 0.2 Omega / (2 V_rel) per station."""
+    # P0300-QS-VALIDITY-PLAN
     obj = _blade_obj(tmp_path / "prop.obj")
     case = _with_obj(_case(), obj, ("Blade1", "Blade2", "Blade3"))
     validity = qsteady_validity(case)
@@ -421,6 +427,7 @@ def test_the_clockings_table_holds_each_clocking_and_the_average_their_mean(tmp_
     both clockings; blade one's is 0.1 q S = 169.56 N at clocking 0 and 0.3 q S =
     508.68 N at clocking 1 (60 deg), 339.12 N on average.
     """
+    # P0300-QS-WHEEL-AVERAGE
     record, folder = _clocked_point(tmp_path)
     clockings = post_qsteady.clockings_of(
         record, folder, reference=REFERENCE, density_kg_m3=1.2, shaft_loads=rotor_shaft_loads
@@ -469,6 +476,8 @@ def test_the_sections_carry_k_per_station_and_the_shares(tmp_path):
     all above 0.1, so every share is 100 per cent; a fourth station at 0.9 m with a
     chord of 0.05 m (k 0.0276) takes the shares below it.
     """
+    # P0300-QS-VALIDITY-SHARE
+    # P0300-QS-VALIDITY-SECTIONS
     table = tmp_path / "sections.csv"
     header = "POL,STEP,FAMILY,PLANE,ROTOR,AZIMUTH,Offset,Chord,X_QC,Z_QC,Fx,Fz,Moment"
     rows = [
@@ -532,6 +541,7 @@ def test_the_post_stage_writes_the_clockings_and_the_average_of_a_recorded_wheel
     wheel of two clockings whose rotor is the configuration's own two surfaces,
     W and B. Clocking 1's export is clocking 0's, so the average equals either.
     """
+    # P0300-QS-WHEEL-AVERAGE
     from pyflightstream.workspace import RunRecord
     from tests.tier1_offline.test_post_superfile import _post, _workspace
 
@@ -594,6 +604,7 @@ def test_the_post_stage_writes_the_clockings_and_the_average_of_a_recorded_wheel
 
 def test_the_plan_warns_naming_the_wheel_point_whose_blade_passes_k_one_tenth():
     """A warning, never a refusal: the point above 0.1 is named, the one below is not."""
+    # P0300-QS-VALIDITY-PLAN
     from pyflightstream.run.matrix import _warn_when_a_quasi_steady_point_leaves_its_assumption
 
     hot = {"span_pct_k_gt_0_1": 40.0, "k_min": 0.05, "k_max": 0.3, "k_mean": 0.12, "note": None}

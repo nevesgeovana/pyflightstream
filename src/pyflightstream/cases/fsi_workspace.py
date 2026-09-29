@@ -67,10 +67,10 @@ LOADS_FILE = "FS_SurfaceSection_Loads.txt"
 #:
 #: ``qsteady_rotor``: ACCEPTED on a periodic SECTOR, the route of the FSI
 #: study's test 2 (the blade static, the rotation in the free stream, the
-#: structure's centrifugal load at that speed): :func:`wire_quasi_steady_sector_fsi`.
-#: The owner: "no qsteady_rotor, o solver estrutural tem que aplicar as cargas
-#: centrifugas". The WHEEL stays refused by its builder: several clockings
-#: averaged are not the state of one structure.
+#: structure's centrifugal load at that speed): :func:`wire_quasi_steady_sector_fsi`,
+#: whose structural solve applies the centrifugal loads. The WHEEL stays
+#: refused by its builder: several clockings averaged are not the state of
+#: one structure.
 FSI_ROTOR_IN_DEBUG = (
     "FSI on unsteady_rotor is still in debug on this release (the morph is applied "
     "to the un-rotated blade, reported to the vendor)."
@@ -180,7 +180,7 @@ def aeroelastic_surface_ids(
 def structural_node_layout(cfg: FsiConfig) -> NodeOrderingMap:
     """Return the structural node layout, refused when a node is not inside the blade.
 
-    The owner's rule of 2026-09-28: the structural nodes sit inside the
+    The rule of 0.30.0: the structural nodes sit inside the
     component. With the blade's sections in the configuration
     (``BladeProperties.section_contours_m``), the nodes are placed on
     each section's camber line and a node outside its section, or
@@ -693,8 +693,8 @@ def _stage_and_emit(
 def quasi_steady_fsi_config(case: SimCase, *, rpm: float, quiet: bool = False) -> FsiConfig:
     """Return the structure of a quasi-steady sector turning at the row's speed.
 
-    The owner's rule of 2026-09-28: on ``qsteady_rotor`` the structural solve
-    applies the centrifugal loads at the speed the free stream turns. So the
+    On ``qsteady_rotor`` the structural solve applies the centrifugal loads
+    at the speed the free stream turns (0.30.0). So the
     configuration's ``omega_rad_per_s`` is TAKEN FROM THE ROW, ``|RPM| pi / 30``,
     the speed its ``SET_FREESTREAM ROTATION`` (or its rotating custom field)
     states, whatever the FSI input wrote; an input that states another non-zero
