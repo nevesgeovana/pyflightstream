@@ -3235,7 +3235,11 @@ rotor's surfaces about its shaft in the sense of its rotation, each followed
 by a new initialisation of the solver; clocking 0 is solved last, with the
 point's full set of exports, so its loads export is of that one solve. Each
 further clocking exports its loads alone, as `<point>_qs<i>.txt` beside the
-point's own. The solver log the point exports holds EVERY clocking's solve,
+point's own. The pproc's section distributions are created once, with the
+wheel at clocking 0 as meshed, before it turns to clocking 1: the solver
+fixes a distribution's cuts when it creates it, over the blade's extent in
+the pose it then holds, so cuts made at another clocking would miss part of
+the blade at clocking 0, where the sections are exported. The solver log the point exports holds EVERY clocking's solve,
 in the order they ran (clockings 1 to `k - 1`, then 0), each residual table
 counting its iterations from 1 again. The run reads it solve by solve: each
 clocking's convergence is judged from its own solve, and its last iteration

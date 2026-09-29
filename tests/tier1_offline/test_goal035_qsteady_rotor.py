@@ -186,7 +186,9 @@ def test_a_wheel_is_solved_at_each_clocking_and_last_at_clocking_zero():
         "ROTATE_SURFACE 2 X -80.0 -1 DISABLE",
     ]
     assert "SET_FREESTREAM ROTATION 2 X 1200.0" in lines
-    assert lines.count("INITIALIZE_SOLVER") == 3 and lines.count("START_SOLVER") == 3
+    # One initialisation per clocking, and one before it at clocking 0, where
+    # the section distributions are cut (L1, RPT-091).
+    assert lines.count("INITIALIZE_SOLVER") == 4 and lines.count("START_SOLVER") == 3
     exported = [
         lines[at + 1]
         for at, line in enumerate(lines)

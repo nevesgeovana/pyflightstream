@@ -13,6 +13,10 @@
    the point carried no residual, and on the points-file route the
    trailing-edge verdict failed the point for want of the log that said the
    edges were imported (RPT-091 F1).
+3. A clocked wheel's section distribution was created with the wheel at
+   clocking 1, and the solver freezes the cut planes over the blade's extent
+   in that pose, so at clocking 0, where the sections are exported, the cuts
+   missed the blade's root and left its outer part uncut (RPT-091 F2).
 
 Every expected value is worked from the definitions and the fixture, never
 read off the implementation.
@@ -21,11 +25,12 @@ read off the implementation.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import pytest
 
-from pyflightstream.cases import SimCase
+from pyflightstream.cases import PprocSpec, SimCase
 from pyflightstream.cases import fsi_workspace as ws
 from pyflightstream.results import (
     MalformedOutputError,
@@ -37,7 +42,13 @@ from pyflightstream.run._wake_edge_verdict import collected_solver_log, wake_edg
 from pyflightstream.workspace import RunRecord, RunStatus
 from tests.tier1_offline.test_fsig_fixed_wing import steady_wing_case
 from tests.tier1_offline.test_goal035_qsteady_completion import _sector_fsi_case
-from tests.tier1_offline.test_goal035_qsteady_rotor import LOADS, _case, _lines
+from tests.tier1_offline.test_goal035_qsteady_rotor import (
+    LOADS,
+    _blade_obj,
+    _case,
+    _lines,
+    _with_obj,
+)
 
 #: The analysis commands the row's exports read (the phase order places every
 #: one of them before the first export).
@@ -302,3 +313,101 @@ def test_the_trailing_edge_verdict_reads_the_wheel_s_log(tmp_path):
     log_text = collected_solver_log(sim, collected, assessment.log_file_used)
     assert log_text is not None
     assert wake_edge_import_verdict(150, log_text) is None
+
+
+# ------------------------------- 3: a clocked wheel's sections cover its blade --
+
+
+def _cuts_the_solver_places(lines: list[str], obj: Path, family: str) -> list[float]:
+    """Where the solver puts a distribution's cuts, by the rule L1 measured.
+
+    The solver freezes the cut planes when the distribution is created, over
+    the surface's extent along the plane's normal in the pose it then holds,
+    and places N cuts at the middles of N equal intervals of that extent
+    (RPT-091: created with a six-blade wheel clocked 30 deg, whose blade one
+    then spanned 0.3253 to 1.6078 m along the normal, the 30 cuts ran from
+    0.3467 to 1.5860 m, 0.04275 m apart). The pose is the sum of the
+    ROTATE_SURFACE angles about the shaft (x) the script emitted before it.
+    """
+    at = lines.index("NEW_SURFACE_SECTION_DISTRIBUTION")
+    pose = sum(float(line.split()[3]) for line in lines[:at] if line.startswith("ROTATE_SURFACE"))
+    block = lines[at : at + 8]
+    plane = next(line.split()[1] for line in block if line.startswith("PLANE"))
+    count = int(next(line.split()[1] for line in block if line.startswith("NUM_SECTIONS")))
+    normal = {"XY": 2, "XZ": 1, "YZ": 0}[plane]
+    turn = math.radians(pose)
+    extent = []
+    for x, y, z in _vertices(obj, family):
+        # A turn about x by the pose; the extent along y or z is even in the
+        # angle, so the sense of the turn does not matter here.
+        turned = (
+            x,
+            y * math.cos(turn) - z * math.sin(turn),
+            y * math.sin(turn) + z * math.cos(turn),
+        )
+        extent.append(turned[normal])
+    low, high = min(extent), max(extent)
+    step = (high - low) / count
+    return [low + (index + 0.5) * step for index in range(count)]
+
+
+def _vertices(obj: Path, family: str) -> list[tuple[float, float, float]]:
+    vertices: list[tuple[float, float, float]] = []
+    used: set[int] = set()
+    group = None
+    for line in obj.read_text(encoding="utf-8").splitlines():
+        if line.startswith("o "):
+            group = line.split()[1]
+        elif line.startswith("v "):
+            x, y, z = (float(value) for value in line.split()[1:4])
+            vertices.append((x, y, z))
+        elif line.startswith("f ") and group == family:
+            used.update(int(token) - 1 for token in line.split()[1:])
+    return [vertices[index] for index in sorted(used)]
+
+
+def test_a_clocked_wheel_cuts_its_sections_over_the_blade_s_radial_span(tmp_path):
+    """Two clockings of three blades, 0 and 60 deg: the cuts span 0.2 to 1.0 m, the blade's radii.
+
+    Blade one of the fixture lies along +y from r = 0.2 to 1.0 m, so its
+    sections are cut normal to y (plane XZ). Eight cuts over that span sit at
+    0.25, 0.35, ... 0.95 m: the first and the last half a spacing, 0.05 m,
+    inside each end. Cut with the wheel at 60 deg they would span 0.1 to 0.5
+    m along y (r cos 60), the first cut outside the blade and the outer half
+    of the blade uncut.
+    """
+    # P0300-QS-WHEEL
+    obj = _blade_obj(tmp_path / "wheel.obj")
+    case = _with_obj(
+        _case(PASSAGE_POSITIONS="2", ALPHA_POINT=5.0), obj, ("Blade1", "Blade2", "Blade3")
+    )
+    case = case.model_copy(
+        update={
+            "pproc": PprocSpec.model_validate(
+                {
+                    "sections": {
+                        "count": 8,
+                        "include_symmetry": False,
+                        "distributions": [
+                            {"families": ["Blade1"], "frame": "PROP_SMRP", "planes": ["XZ"]}
+                        ],
+                    }
+                }
+            )
+        }
+    )
+    lines, _ = _lines(case)
+    assert lines.count("NEW_SURFACE_SECTION_DISTRIBUTION") == 1
+    radii = [math.hypot(y, z) for _, y, z in _vertices(obj, "Blade1")]
+    inner, outer = min(radii), max(radii)
+    assert (inner, outer) == pytest.approx((0.2, 1.0))
+    cuts = _cuts_the_solver_places(lines, obj, "Blade1")
+    assert inner < cuts[0] and cuts[-1] < outer
+    assert cuts == pytest.approx([0.25 + 0.1 * index for index in range(8)])
+    # The wheel is back at clocking 0, as the cuts were made, for the solve
+    # whose exports carry the sections.
+    last_start = max(at for at, line in enumerate(lines) if line == "START_SOLVER")
+    assert sum(
+        float(line.split()[3]) for line in lines[:last_start] if line.startswith("ROTATE_SURFACE")
+    ) == pytest.approx(0.0)
+    assert "EXPORT_ALL_SURFACE_SECTIONS" not in lines[:last_start]

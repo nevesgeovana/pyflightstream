@@ -14287,11 +14287,17 @@ def _build_qsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCon
     clocking ``theta_i = i * (360 / N) / k`` of ``PASSAGE_POSITIONS`` (k),
     which the post stage averages. The rotor's surfaces are clocked about its
     shaft in its hub frame, in the sense of its rotation, so blade one's
-    azimuth advances by ``theta_i``. Clocking 1 is emitted before the solver is
-    initialised; each later one after a solve, through the one door past the
-    phase guard (:meth:`~pyflightstream.script.Script.emit_after_initialization`),
-    and the solver is initialised again with the first initialisation's
-    settings. The wheel returns to clocking 0 last and is solved there with the
+    azimuth advances by ``theta_i``. Every clocking is emitted after an
+    initialisation, through the one door past the phase guard
+    (:meth:`~pyflightstream.script.Script.emit_after_initialization`), and the
+    solver is initialised again with the first initialisation's settings.
+    Clocking 1 too: the solver freezes a section distribution's cut planes at
+    its creation against the pose the surfaces then hold, spread over their
+    extent along the plane's normal, so the distributions are created first,
+    with the wheel at clocking 0 as meshed, where that extent is the blade's
+    radial one (L1, RPT-091: created at clocking 1 of a six-blade wheel, 30
+    deg, the 30 cuts ran from 0.347 to 1.586 m on a blade spanning 0.41 to
+    1.824 m). The wheel returns to clocking 0 last and is solved there with the
     point's full export set, so a single clocking (k = 1) is the plain steady
     build. Clockings 1 to k - 1 export their loads alone, each named
     ``<loads stem>_qs<i>`` (:func:`pyflightstream.cases.qsteady.position_loads_name`).
@@ -14346,8 +14352,6 @@ def _build_qsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCon
             after_initialization=after_initialization,
         )
 
-    if len(angles) > 1:
-        clock(angles[1], after_initialization=False)
     _significant_digits(case, script)
     _qsteady_free_stream(
         case, script, rotor_frame=rotor_frame, rotor=rotor, speed=speed, custom=custom, kind=kind
@@ -14357,7 +14361,12 @@ def _build_qsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCon
     if len(angles) == 1:
         _script_tail(conventions, case, script, frame, unsteady=False, frames=frames)
         return
+    # The sections are cut at clocking 0 (above), then the wheel turns to
+    # clocking 1 and the solver initialises again.
     _script_init(case, script, frame, frames=frames)
+    clock(angles[1], after_initialization=True)
+    _initialize(case, script)
+    _analysis(case, script, frame)
     _solve_one_clocking(case, script, _qsteady.position_loads_name(loads, 1))
     for index in range(2, len(angles)):
         script.begin_point()

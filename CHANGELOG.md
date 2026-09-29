@@ -393,6 +393,18 @@ FlightStream versions.
   residual. A log of one solve is read as before, and a restart in it is
   still refused.
 
+- **A clocked wheel's sections cover its blade.** The solver fixes a section
+  distribution's cuts when it creates it, spread over the blade's extent
+  along the cut planes' normal in the pose the blade then holds, and a
+  `qsteady_rotor` wheel of `PASSAGE_POSITIONS` 2 or more created its
+  distributions with the wheel already turned to clocking 1. At clocking 0,
+  where the sections are exported, the cuts then sat on the extent of a
+  turned blade: 30 cuts from 0.347 to 1.586 m on a blade spanning 0.41 to
+  1.824 m, the two innermost empty and the outer 0.24 m uncut (L1,
+  reports/RPT-091). The distributions are now created with the wheel at
+  clocking 0 as meshed, and the wheel turns to clocking 1 after them, with
+  one more initialisation of the solver.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
