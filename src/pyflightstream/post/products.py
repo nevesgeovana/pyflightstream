@@ -123,7 +123,7 @@ from pyflightstream.cases import (
     select_families,
     select_group_members,
 )
-from pyflightstream.cases.qsteady import QsteadyRecordError, read_qsteady_record
+from pyflightstream.cases.qsteady import QsteadyRecord, QsteadyRecordError, read_qsteady_record
 from pyflightstream.cases.windows import AZIMUTHAL, averaging_span, regate, replan
 from pyflightstream.cases.workflows import (
     BLADE_FAMILIES_KEY,
@@ -2228,12 +2228,12 @@ def _rotor_tables(
             # neither source above states it; the builder wrote the row's speed,
             # the one the free stream turns at, in the record beside the loads
             # export, and the table reads it there as an unsteady rotor's reads
-            # its plan's. The loads are the point's own export, as every steady
-            # point's are (docs/post-processing-definitions.md, the quasi-steady
-            # rotor): a sector's one solve, read as it stands, the package never
-            # multiplying by the copies; a wheel's clocking 0, whose mean with
-            # the other clockings is the average table's.
-            if rpm is None and record.recipe == QSTEADY_ROTOR:
+            # its plan's. The loads (docs/post-processing-definitions.md, the
+            # quasi-steady rotor): a sector's one solve, read as it stands, the
+            # package never multiplying by the copies; a WHEEL's mean over its
+            # clockings (0.31.0, P0310-ROTOR-MEAN), below.
+            quasi: QsteadyRecord | None = None
+            if getattr(record, "recipe", None) == QSTEADY_ROTOR:
                 # A RECORD THAT CANNOT BE READ costs this point its row, named
                 # (0.31.0: one reader, one refusal, the caller decides).
                 try:
@@ -2241,7 +2241,8 @@ def _rotor_tables(
                 except QsteadyRecordError as error:
                     left_out.append((run_id, f"{point.name}: {error}"))
                     continue
-                rpm = _qsteady.rotor_speed(quasi, str(alias))
+                if rpm is None:
+                    rpm = _qsteady.rotor_speed(quasi, str(alias))
             own = getattr(point, "state", None)
             density = (
                 own.density_kg_m3
@@ -2340,12 +2341,36 @@ def _rotor_tables(
                     # sum the whole rotor once per blade.
                     surfaces = {str(families[0]): averaged_surfaces}
                     instant = False
+            # A QUASI-STEADY WHEEL'S ROW IS THE MEAN OF ITS k CLOCKINGS (0.31.0,
+            # P0310-ROTOR-MEAN), not clocking 0 alone:
+            # each surface's loads averaged over the clockings' own exports, so
+            # the statics below take every coefficient of the MEAN loads, never
+            # a mean of per-clocking ETA. A clocking that cannot be read costs
+            # the point its row, named: a mean of the rest is not its mean.
+            clockings: int | None = None
+            if quasi is not None and quasi.case == "wheel":
+                meaned = _qsteady.mean_clocking_surfaces(
+                    quasi, point.loads_path.parent, speed_m_s=float(speed)
+                )
+                if isinstance(meaned, str):
+                    left_out.append(
+                        (
+                            run_id,
+                            f"{point.name}: {meaned}; the row of a wheel is the mean of all "
+                            "its clockings, never of the others",
+                        )
+                    )
+                    continue
+                surfaces = meaned.surfaces
+                clockings = meaned.clockings
             rows.append(
                 {
                     "run_id": run_id,
                     "surfaces": surfaces,
                     "aliases": aliases,
                     "instant": instant,
+                    # 0.31.0: k, where the row is the mean of a wheel's clockings.
+                    "clockings": clockings,
                     "condition": point_condition(
                         point,
                         mach=record.mach or 0.0,
@@ -4959,13 +4984,22 @@ def _qsteady_sections(
                 f"point={point.name} product=sections: {note}", PyflightstreamWarning, stacklevel=2
             )
     try:
+        # 0.31.0: the frame each block was cut in, so each station's force is
+        # projected on the rotor's axis rather than read in the export's axes.
         validity = _qsteady.add_reduced_frequency_to_sections(
-            table, quasi, velocity_m_per_s=float(point.loads.freestream_velocity_m_s)
+            table,
+            quasi,
+            velocity_m_per_s=float(point.loads.freestream_velocity_m_s),
+            layout=list(getattr(record, "sections_layout", None) or []),
         )
     except (QsteadyRecordError, CampaignConfigError, KeyError, ValueError) as error:
         skipped[f"{SECTIONS_DIR}/{point.name}_sections.csv#k_1p"] = str(error)
         return {}
-    return {} if validity is None else {point.name: validity}
+    if validity is None:
+        return {}
+    for note in validity.notes:
+        warn(f"point={point.name} product=sections: {note}", PyflightstreamWarning, stacklevel=2)
+    return {point.name: validity}
 
 
 def _write_harmonics(
@@ -5290,12 +5324,56 @@ def _qsteady_products(
             continue
         alias = quasi.rotor_alias
         validity = validity_of.get(point.name) or _qsteady.validity_of_the_plan(quasi)
+        own = point.state
+        density = (
+            own.density_kg_m3
+            if own is not None and own.density_kg_m3 is not None
+            else record.density_kg_m3
+        )
+        clockings = (
+            _qsteady.clockings_of(
+                quasi,
+                point.loads_path.parent,
+                reference=reference,
+                density_kg_m3=float(density),
+                shaft_loads=rotor_shaft_loads,
+            )
+            if density is not None
+            else None
+        )
+        # 0.31.0: A WHEEL POINT'S ROTOR STATE, from the mean thrust over its
+        # clockings, for the average table and the validity file; what cannot
+        # be taken is NA and a WARNING line of the post's log.
+        state: _qsteady.RotorState | None = None
+        if quasi.case == "wheel" and isinstance(clockings, list) and density is not None:
+            loads = point.loads
+            state = _qsteady.rotor_state(
+                quasi,
+                clockings,
+                density_kg_m3=float(density),
+                velocity_m_s=getattr(loads, "freestream_velocity_m_s", None),
+                alpha_deg=float(getattr(loads, "angle_of_attack_deg", None) or 0.0),
+                beta_deg=float(getattr(loads, "sideslip_deg", None) or 0.0),
+            )
+            product = (
+                f"{POLARS_DIR}/{sweep_file_stem(sim_id, _a_name_a_file_may_carry(alias))}"
+                f"{_qsteady.AVERAGE_SUFFIX}"
+            )
+            for note in state.notes:
+                warn(
+                    f"point={point.name} product={product}: {note}",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
         if quasi.case == "wheel":
             # 0.30.0: THE WHEEL POINT'S VALIDITY AFTER THE RUN, in its datapoint
             # folder beside the run's record, the shares of thrust and torque
-            # from the stations above k = 0.1 included (0.30.0).
+            # from the stations above k = 0.1 included (0.30.0), and its rotor
+            # state (0.31.0).
             try:
-                written_file = _qsteady.write_point_validity_file(point.loads_path, quasi, validity)
+                written_file = _qsteady.write_point_validity_file(
+                    point.loads_path, quasi, validity, state
+                )
             except OSError as error:
                 skipped[f"runs/{record.run_id}#qsteady_validity"] = (
                     f"the per-point validity file of {point.name} could not be written: {error}"
@@ -5304,25 +5382,13 @@ def _qsteady_products(
                 validity_files.setdefault(alias, {})[point.name] = Path(
                     os.path.relpath(written_file, out)
                 ).as_posix()
-        own = point.state
-        density = (
-            own.density_kg_m3
-            if own is not None and own.density_kg_m3 is not None
-            else record.density_kg_m3
-        )
         if density is None:
             left_out.setdefault(alias, []).append(f"{point.name}: the point states no density")
             continue
-        clockings = _qsteady.clockings_of(
-            quasi,
-            point.loads_path.parent,
-            reference=reference,
-            density_kg_m3=float(density),
-            shaft_loads=rotor_shaft_loads,
-        )
         if isinstance(clockings, str):
             left_out.setdefault(alias, []).append(f"{point.name}: {clockings}")
             continue
+        assert clockings is not None
         wheel.setdefault(alias, []).append(
             _qsteady.WheelPoint(
                 pol=sim_id,
@@ -5330,6 +5396,7 @@ def _qsteady_products(
                 record=quasi,
                 clockings=clockings,
                 validity=validity,
+                state=state,
             )
         )
         runs.setdefault(alias, []).append(record.run_id)
@@ -6260,6 +6327,15 @@ def _sim_products(
             pol=sim_id,
         )
         relative = destination.relative_to(out).as_posix()
+        # 0.31.0: THE k OF EVERY WRITTEN ROW THAT IS A WHEEL'S MEAN, for the entry.
+        stated_rows = plan.get("rows")
+        clockings_of_run = {
+            str(row.get("run_id")): row["clockings"]
+            for row in (stated_rows if isinstance(stated_rows, list) else [])
+            if isinstance(row, Mapping)
+            and isinstance(row.get("clockings"), int)
+            and row.get("run_id") in rotor_runs
+        }
         if done:
             written.append(destination)
             written_names[relative] = {
@@ -6295,6 +6371,22 @@ def _sim_products(
                         "kind": "instant",
                     }
                     if any(str(r.recipe or "").startswith("unsteady") for r in records)
+                    # A QUASI-STEADY WHEEL'S ROWS ARE THE MEAN OF ITS k CLOCKINGS
+                    # (0.31.0), and the entry says so with the k: one number where
+                    # every row has the same, else each run's.
+                    else {
+                        "source": (
+                            f"mean of {next(iter(set(clockings_of_run.values())))} clockings"
+                            if len(set(clockings_of_run.values())) == 1
+                            else "mean of k clockings"
+                        ),
+                        "clockings": (
+                            next(iter(set(clockings_of_run.values())))
+                            if len(set(clockings_of_run.values())) == 1
+                            else dict(sorted(clockings_of_run.items()))
+                        ),
+                    }
+                    if clockings_of_run
                     else {"source": "the loads export of a steady run"}
                 ),
             }

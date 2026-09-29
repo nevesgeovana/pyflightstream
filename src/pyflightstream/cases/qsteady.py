@@ -10,7 +10,10 @@ arithmetic and live here, below the builder that asks them:
   mesh gives (:func:`blade_stations`, :func:`obj_group_vertices`) or the
   sectional loads export gives after the run;
 * whether a custom inflow varies with the radius alone (:func:`azimuthal_variation`),
-  which is what a periodic sector can stand for.
+  which is what a periodic sector can stand for;
+* the momentum-theory induced inflow of a rotor state
+  (:func:`glauert_induced_inflow`, 0.31.0), which the wheel's correction
+  routes read.
 
 It also holds the point's quasi-steady record, ``<point>_qsteady.json``, as one
 type (:class:`QsteadyRecord`) with one reader (:func:`read_qsteady_record`) and
@@ -172,6 +175,79 @@ def strip_lengths(radii: Sequence[float]) -> tuple[float, ...]:
         high = radii[index] if index == count - 1 else 0.5 * (radii[index] + radii[index + 1])
         lengths.append(abs(high - low))
     return tuple(lengths)
+
+
+#: The step of the induced inflow below which :func:`glauert_induced_inflow`
+#: has converged (0.31.0).
+INFLOW_TOLERANCE = 1e-10
+#: The Newton steps :func:`glauert_induced_inflow` takes before it says it did
+#: not converge.
+INFLOW_ITERATIONS = 100
+
+
+def glauert_induced_inflow(
+    ct: float,
+    mu: float,
+    lambda_c: float,
+    *,
+    tolerance: float = INFLOW_TOLERANCE,
+    iterations: int | None = None,
+) -> float | None:
+    """Return the momentum-theory induced inflow ``lambda_i`` of a rotor state, or None (0.31.0).
+
+    Glauert's relation for a rotor of thrust coefficient ``ct`` (rotor
+    convention, ``T / (rho A (Omega R)^2)``), advance ratio ``mu`` and climb
+    inflow ``lambda_c``, both over the tip speed ``Omega R``::
+
+        lambda_i = ct / (2 sqrt(mu^2 + (lambda_c + lambda_i)^2))
+
+    solved by Newton's method on
+    ``f(l) = l - ct / (2 sqrt(mu^2 + (lambda_c + l)^2))`` from the hover value
+    ``sign(ct) sqrt(|ct| / 2)``, until a step is no larger than ``tolerance``
+    (:data:`INFLOW_TOLERANCE`). A thrust of zero induces nothing and is 0.
+
+    None where it does not converge in ``iterations`` steps
+    (:data:`INFLOW_ITERATIONS` where not given), where a step is not a finite
+    number, or where an input is not one: momentum theory then states no
+    inflow, which is typical of a rotor descending into its own wake, and a
+    caller writes ``NA`` rather than the last iterate.
+
+    Examples
+    --------
+    Axial climb, ``mu = 0``: ``l (lambda_c + l) = ct / 2``, so
+    ``l = -lambda_c / 2 + sqrt(lambda_c^2 / 4 + ct / 2)``.
+
+    >>> round(glauert_induced_inflow(0.01, 0.0, 0.05), 12)
+    0.05
+    >>> glauert_induced_inflow(0.0, 0.2, 0.01)
+    0.0
+    >>> glauert_induced_inflow(0.01, 0.1, 0.0, iterations=1) is None
+    True
+    """
+    steps = INFLOW_ITERATIONS if iterations is None else int(iterations)
+    stated = (float(ct), float(mu), float(lambda_c))
+    if not all(math.isfinite(value) for value in stated):
+        return None
+    thrust, advance, climb = stated
+    if thrust == 0.0:
+        return 0.0
+    inflow = math.copysign(math.sqrt(abs(thrust) / 2.0), thrust)
+    for _ in range(steps):
+        through = climb + inflow
+        speed = math.hypot(advance, through)
+        if speed == 0.0:
+            return None
+        residual = inflow - thrust / (2.0 * speed)
+        slope = 1.0 + thrust * through / (2.0 * speed**3)
+        if slope == 0.0 or not math.isfinite(slope):
+            return None
+        step = residual / slope
+        inflow -= step
+        if not math.isfinite(inflow):
+            return None
+        if abs(step) <= tolerance:
+            return inflow
+    return None
 
 
 @dataclass(frozen=True)

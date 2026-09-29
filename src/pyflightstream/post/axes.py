@@ -56,9 +56,11 @@ __all__ = [
     "body_to_wind",
     "dcm",
     "free_stream_in_export_frame",
+    "free_stream_on_rotor_axis",
     "polar_axis_coefficients",
     "rotor_in_plane_axes",
     "rotor_in_plane_loads",
+    "section_station_shaft_loads",
     "stability_force_coefficients",
     "velocity_in_body_frame",
     "wind_angles",
@@ -459,3 +461,106 @@ def rotor_in_plane_loads(
         float(m @ normal) + 0.0,
         float(m @ side) + 0.0,
     )
+
+
+#: The cutting planes whose sectional loads export the package reads in the
+#: section frame's own axes (0.31.0): for each, the axes its ``Fx`` and ``Fz``
+#: columns lie along and the axis its ``Offset`` is measured along. A cut in
+#: the frame's XZ plane states ``Fx`` along the frame's x, ``Fz`` along its z
+#: and ``Offset`` along its y, the normal (the pilot evidence of RPT-005 and
+#: RPT-006: the export's ``Fx`` of a blade cut in a blade frame whose x is the
+#: shaft matched the integrated axial force). The other two planes are not
+#: read: nothing the package holds states which frame axes their two force
+#: columns lie along.
+SECTION_FORCE_AXES: dict[str, tuple[int, int, int]] = {"XZ": (0, 2, 1)}
+
+
+def section_station_shaft_loads(
+    force_x: float,
+    force_z: float,
+    offset: float,
+    *,
+    plane: str,
+    shaft: Sequence[float],
+) -> tuple[float, float] | None:
+    """Return ``(axial, torque)`` of one station of a sectional loads export, per unit span.
+
+    ``force_x`` and ``force_z`` are the export's ``Fx`` and ``Fz`` of the
+    station and ``offset`` its ``Offset``, all in the SECTION FRAME's own
+    axes, the frame the distribution was cut in; ``plane`` is the cut's plane
+    in that frame and ``shaft`` the rotor's axis stated in the same frame's
+    axes, in the sense its thrust is counted positive. The station's force is
+    ``F = Fx e_x + Fz e_z`` for an XZ cut (:data:`SECTION_FORCE_AXES`) and it
+    sits at ``r = Offset e_y`` from the frame's origin, the rotor's hub for a
+    frame of the rotor:
+
+    * ``axial = F . a``, the force along the shaft ``a``;
+    * ``torque = (r x F) . a``, its moment about the shaft, which only the
+      in-plane (tangential) component of ``F`` produces.
+
+    None where the plane is not one whose force axes are known or the shaft
+    names no direction.
+
+    Examples
+    --------
+    A blade frame whose x is the shaft: the export's Fx is the thrust and
+    ``Offset Fz`` the torque; one whose z is the shaft: Fz is the thrust.
+
+    >>> section_station_shaft_loads(10.0, 2.0, 0.5, plane="XZ", shaft=(1.0, 0.0, 0.0))
+    (10.0, 1.0)
+    >>> section_station_shaft_loads(10.0, 2.0, 0.5, plane="XZ", shaft=(0.0, 0.0, 1.0))
+    (2.0, -5.0)
+    >>> section_station_shaft_loads(10.0, 2.0, 0.5, plane="YZ", shaft=(1.0, 0.0, 0.0)) is None
+    True
+    """
+    axes = SECTION_FORCE_AXES.get(str(plane).strip().upper())
+    if axes is None:
+        return None
+    along = np.asarray(shaft, dtype=float)
+    length = float(np.linalg.norm(along))
+    if not math.isfinite(length) or length == 0.0:
+        return None
+    along = along / length
+    first, second, normal = axes
+    force = np.zeros(3)
+    force[first] = float(force_x)
+    force[second] = float(force_z)
+    arm = np.zeros(3)
+    arm[normal] = float(offset)
+    # `+ 0.0` turns a negative zero into zero: a table prints `-0.00000` otherwise.
+    return float(force @ along) + 0.0, float(np.cross(arm, force) @ along) + 0.0
+
+
+def free_stream_on_rotor_axis(
+    axis: Sequence[float], alpha_deg: float, beta_deg: float
+) -> tuple[float, float] | None:
+    """Return ``(cos alpha_p, sin alpha_p)``: the flight direction on a rotor's axis (0.31.0).
+
+    ``alpha_p`` is the angle between the rotor's axis ``axis``, in the sense
+    its thrust is counted positive, and the direction the free stream comes
+    FROM (the rotor's direction of flight through the air, the opposite of
+    :func:`free_stream_in_export_frame`). ``cos alpha_p`` is that direction's
+    component along the axis and ``sin alpha_p`` the length of its component
+    square to it, so ``alpha_p`` is 0 in axial flight along the thrust and 90
+    degrees edgewise. Both are taken from the vectors rather than through the
+    angle, so an axis along a geometry axis gives them exactly.
+
+    None where the axis names no direction.
+
+    Examples
+    --------
+    >>> free_stream_on_rotor_axis((-1.0, 0.0, 0.0), 0.0, 0.0)
+    (1.0, 0.0)
+    >>> free_stream_on_rotor_axis((0.0, 0.0, 1.0), 0.0, 0.0)
+    (0.0, 1.0)
+    """
+    along = np.asarray(axis, dtype=float)
+    length = float(np.linalg.norm(along))
+    if not math.isfinite(length) or length == 0.0:
+        return None
+    along = along / length
+    flight = -free_stream_in_export_frame(alpha_deg, beta_deg)
+    cosine = float(flight @ along)
+    square = flight - cosine * along
+    # `+ 0.0` turns a negative zero into zero.
+    return cosine + 0.0, float(np.linalg.norm(square)) + 0.0

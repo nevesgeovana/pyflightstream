@@ -36,6 +36,35 @@ FlightStream versions.
   `pyflightstream.post.qsteady.read_qsteady_record` and
   `pyflightstream.workspace.inputs.qsteady_record_rotor_alias` are removed;
   the latter lives on in `pyflightstream.cases.qsteady`.
+- **The rotor table of a quasi-steady wheel is the mean of its clockings.**
+  A `qsteady_rotor` wheel point's row of `polars/P<sim>-<ALIAS>_rotor.csv`
+  was clocking 0's solve alone; it is now taken from the rotor's force and
+  moment averaged over the point's k clockings, each clocking's own loads
+  export, and `CT`, `CQ`, `CP`, `ETA`, `ETAW`, `CN`, `CS`, `CMN` and `CMS` are
+  computed from those mean loads (never a mean of per-clocking `ETA`). The
+  table's `products.json` entry states `"source": "mean of k clockings"` and
+  `"clockings": k`. A wheel point whose clocking export is missing is not a
+  row and is named in `skipped`. A sector's row is unchanged. The rotor
+  numbers a 0.30.0 post wrote for a wheel remain a valid record of clocking 0.
+- **A wheel's thrust and torque shares are taken along the rotor's axis.**
+  `THRUST_PCT_K_GT_0_1` and `TORQUE_PCT_K_GT_0_1` read the sectional loads
+  export's `Fx` as the thrust and `Fz |Offset|` as the torque in the export's
+  own axes, which holds only in a frame whose x is the shaft. Each station's
+  force is now projected on the record's `axis_vector` stated in the frame the
+  distribution was cut in (the run's sections layout names it), and the torque
+  is the moment of its in-plane component about the axis
+  (`pyflightstream.post.axes.section_station_shaft_loads`). A share reads `NA`,
+  with a WARNING line in `post.log`, where the frame's axes or the plane are
+  not known to the post, where the total is zero, or where stations of
+  opposite sign put it outside 0 to 100 per cent.
+- **The clockings table of a left-hand wheel states blade one's azimuth in
+  the sense it turns.** The `AZIMUTH` of `_qs_positions.csv` was the datum
+  plus the clocking angle unsigned, while the sections of the same wheel
+  follow `pyflightstream.post.axes.clocked_blade_azimuth_deg`
+  (`datum + sign(rpm) * theta_i`). The clockings table now reads the same
+  rule, so the `_qs_positions` `AZIMUTH` of a left-hand wheel (`rpm_sign`
+  -1) changes: clocking `i` states `datum - theta_i`, as its sections do. A
+  right-hand wheel's is unchanged.
 ### Changed (0.31.0)
 
 - A `qsteady_rotor` row that states `ADVANCE_RATIO` resolves J, and so the rotor
@@ -121,6 +150,16 @@ FlightStream versions.
 
 ### Added
 
+- A quasi-steady wheel point states its rotor state, the quantities the
+  wheel's correction routes read: `CT_ROTOR` (`T / (rho A (Omega R)^2)`),
+  `CT_PROPELLER` (`T / (rho n^2 D^4)`), `MU_ROTOR` and `LAMBDA_C` (the free
+  stream in and through the disc over the tip speed), the momentum-theory
+  induced inflow `LAMBDA_I` (Glauert, solved by Newton to 1e-10) and the wake
+  skew `CHI_DEG`, from the mean thrust over its clockings. They follow the
+  validity columns in `_qs_avg.csv` and sit under `rotor_state` in
+  `<point>_qsteady_validity.json`; an inflow that does not converge is `NA`
+  with a WARNING line in `post.log`. `pyflightstream.cases.qsteady.glauert_induced_inflow`
+  and `pyflightstream.post.axes.free_stream_on_rotor_axis` are public.
 - The rotor table states the rotor's in-plane coefficients as its last four
   columns, after `MTIP_<alias>` and `MHEL_<alias>`: `CN_<alias>`,
   `CS_<alias>`, `CMN_<alias>` and `CMS_<alias>`, the force along the rotor's

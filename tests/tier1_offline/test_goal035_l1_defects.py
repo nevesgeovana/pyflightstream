@@ -538,22 +538,23 @@ _RHO_N2_D4 = 1.225 * 20.0**2 * 2.0**4
 
 
 def test_a_quasi_steady_wheel_gets_its_rotor_table_at_the_row_s_speed(tmp_path):
-    """The speed from the row's record, 1200 rev/min; CT from clocking 0, the point's own solve.
+    """The speed from the row's record, 1200 rev/min; CT from the mean of the two clockings.
 
-    The definitions page: a quasi-steady point's rotor table is written as any
-    steady point's, the instant of its own solve, on a wheel clocking 0, and the
-    mean over the clockings is the average table's. The thrust is the force
-    along the shaft (+x): W's Cx plus B's, 0.0274326 at clocking 0 (0.0374326
-    at clocking 1), so CT = 0.0274326 q S / (rho n^2 D^4).
+    The definitions page: a quasi-steady wheel's rotor table is the mean over
+    its clockings (0.31.0, the owner's decision P4; until 0.30.0 it was
+    clocking 0 alone, 0.0274326 q S / (rho n^2 D^4) here). The thrust is the
+    force along the shaft (+x): W's Cx plus B's, 0.0274326 at clocking 0 and
+    0.0374326 at clocking 1, so CT = 0.0324326 q S / (rho n^2 D^4).
     """
     # P0300-QS-WHEEL
+    # P0310-ROTOR-MEAN
     products, folder = _posted_qsteady(tmp_path, "wheel")
     rows = _rotor_rows(products, folder)
     assert len(rows) == 2
     for row in rows:
         assert float(row["RPM_PROP"]) == pytest.approx(1200.0)
         assert float(row["DIAMETER_PROP"]) == pytest.approx(2.0)
-        assert float(row["CT_PROP"]) == pytest.approx(0.0274326 * _QS / _RHO_N2_D4, rel=1e-5)
+        assert float(row["CT_PROP"]) == pytest.approx(0.0324326 * _QS / _RHO_N2_D4, rel=1e-5)
         # J = V / (n D) at the free stream the export states, 68.058 m/s.
         assert float(row["J_PROP"]) == pytest.approx(68.058 / (20.0 * 2.0), rel=1e-5)
 

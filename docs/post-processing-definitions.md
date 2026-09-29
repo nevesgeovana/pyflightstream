@@ -1701,9 +1701,10 @@ CMS = MS / (rho n^2 D^5)
   They also read `NA` wherever `CT` does (a static point, a loads frame that
   is not the geometry's), because they come from the same force.
 - On an unsteady point they are the window's average, as every other column
-  of the row is. On a quasi-steady point they are the point's own solve (a
-  wheel's clocking 0, one instant of its clockings), and on a sector solved
-  without symmetry loads they are the modelled sector's, not the whole rotor's.
+  of the row is. On a quasi-steady wheel they are of the mean loads over its
+  clockings, as every other column of the row is (since 0.31.0), and on a
+  sector solved without symmetry loads they are the modelled sector's, not
+  the whole rotor's.
 
 ### A static point
 
@@ -1941,20 +1942,52 @@ A workspace opts in per `[[probes]]` entry with `frame = "REFERENCE"`, `field_fo
 A `qsteady_rotor` point is steady, and every product a steady point writes
 (the polar, the rotor table, the sections, the probes) is written for it as
 for any steady point: the instant of its own solve, which on a wheel is
-clocking 0, except that a wheel's sections hold every clocking (since 0.31.0,
+clocking 0, except that a wheel's sections hold every clocking and a wheel's
+row of the rotor table is the mean of its clockings (both since 0.31.0,
 below). The rotor table's speed, `RPM_<alias>`, is the row's, the speed
 the free stream turns at, read from the point's quasi-steady record
 (`<point>_qsteady.json`), as an unsteady rotor's is read from its plan. Where the row states `ADVANCE_RATIO`, the speed is n = V / (J D) with D the rotor block's own `diameter_m`, never the reference's top-level `rotor_diameter_m`. A
 sector's table is its one solve's export as it stands, with no factor for
 the periodic copies (the export carries the whole rotor where the row enables
-symmetry loads and the sector alone where it does not). Two products are the run type's own, and a wheel point's sections
+symmetry loads and the sector alone where it does not).
+
+**The rotor table of a wheel is the mean of its clockings** (since 0.31.0;
+until 0.30.0 it was clocking 0 alone). The rotor's force and its moment about
+the hub are averaged over the `k` clockings, each clocking's own loads export
+as the point's record names it: every surface's six components, each taken
+from its export's reference velocity to the point's, averaged over the
+clockings by the same average the average table takes, and then the rotor's
+statics as for any steady point. Because the sum over the rotor's surfaces
+and the transfer of the moment to the hub are linear, that is the mean of the
+rotor's force and moment, and `CT`, `CQ`, `CP`, `ETA`, `ETAW`, `CN`, `CS`,
+`CMN` and `CMS` are then computed from those mean loads:
+
+```text
+F_mean = (1/k) sum_i F_i        M_hub,mean = (1/k) sum_i M_hub,i
+ETA    = J CT(F_mean) / CP(M_hub,mean)     never (1/k) sum_i ETA_i
+```
+
+The table's `products.json` entry says `"source": "mean of k clockings"`
+with `k` written out, and `"clockings": k` (a mapping of run to `k` where the
+points of one table differ). A wheel point one of whose clocking exports is
+missing, unreadable, without a reference velocity, in another analysis frame
+or listing other surfaces is not a row of the table and is named under its
+key in `products.json` `skipped`; the mean of the other clockings is never
+written in its place. A sector is one solve and its row is that solve, as
+before.
+
+Two products are the run type's own, and a wheel point's sections
 gain its clockings and its validity.
 
 - **The clockings table**, `polars/P<sim>-<ALIAS>_qs_positions.csv`: one row
   per point and clocking, the shape of the unsteady rotor's phase-locked table
   (one row per azimuth). `REDUCTION` is `qsteady_position`; `AZIMUTH` is where
-  blade one is at that clocking, its datum plus `theta_i`, in the direction of
-  rotation; `POSITION` is `i` and `POSITIONS` is `k`. Each value is an
+  blade one is at that clocking, `(blade1.azimuth_deg + sense * theta_i) mod 360`
+  with `sense` the sign of the rotor's speed, by the one rule the sections
+  table's `AZIMUTH` follows (`pyflightstream.post.axes.clocked_blade_azimuth_deg`),
+  so the two agree for either hand (until 0.31.0 this added `theta_i`
+  unsigned, and a left-hand wheel's two tables disagreed); `POSITION` is `i`
+  and `POSITIONS` is `k`. Each value is an
   INSTANT, the steady solve at that clocking.
 - **The average table**, `polars/P<sim>-<ALIAS>_qs_avg.csv`: one row per
   point, `REDUCTION` `qsteady_average`, the mean over its clockings of every
@@ -1962,6 +1995,7 @@ gain its clockings and its validity.
   average, and it is an AVERAGE over clockings, never over time.
 
 Both carry `CONTEXT_COLUMNS`, the moment point, the validity columns below
+(the average table then the rotor state of a wheel point, below, since 0.31.0)
 and then, for the rotor (`_<ALIAS>`) and for each blade (`_<family>`),
 `FX FY FZ` (N) and `MX MY MZ` (N m, about the rotor's HUB), in the loads
 frame's axes, and `THRUST` and `TORQUE`, the components along the shaft, each
@@ -1985,13 +2019,74 @@ the rotor, read as the radius of a distribution cut along the blade from the
 hub; the summary is taken over the rotor's first blade present, so a wheel's
 blades do not count one station several times. Each station stands for a
 strip, half-way to its neighbours. The two shares are the strips above 0.1
-over all strips, of the export's `Fx` per unit span for thrust and of `Fz`
-times the radius for torque: the export's `Fx` is read as the force along the
-shaft and `Fz` as the in-plane force, which holds for a distribution cut
-normal to the blade in a frame whose x axis is the shaft, and is not measured
-on a licensed run. Where the point has no such export the values are the
-plan's, the chord read off the mesh (`K_1P_SOURCE` `mesh`), and the two
-shares are `NA`.
+over all strips, of the thrust and of the torque per unit span, both taken
+along the rotor's axis (since 0.31.0). The export states `Fx` and `Fz` in the
+axes of the frame the distribution was cut in, which the run's sections layout
+names for each block; for a cut in that frame's XZ plane the station's force
+is `F = Fx e_x + Fz e_z` and the station sits at `r = Offset e_y`, and with
+`a` the rotor's axis (the record's `axis_vector`, in the sense its thrust is
+counted positive) stated in the same frame's axes:
+
+```text
+thrust per unit span  t = F . a
+torque per unit span  q = (r x F) . a
+THRUST_PCT_K_GT_0_1 = 100 sum_{k > 0.1} t w / sum t w
+TORQUE_PCT_K_GT_0_1 = 100 sum_{k > 0.1} q w / sum q w
+```
+
+with `w` each station's strip, so the torque comes from the in-plane
+(tangential) component of the force only. In a frame of the rotor
+(`<ALIAS>_SMRP`, `<ALIAS>_RMRP`, a blade's `<ALIAS>_RMRP<k>`, and each
+clocking's copy of one) `a` is the frame's shaft axis, the rotor's letter or
+`z` for a shaft stated as a vector, because every such frame is the hub frame
+turned about the shaft; in `MRP`, whose axes are the geometry's, `a` is
+`axis_vector` itself. Until 0.31.0 the export's `Fx` was read as the thrust
+and `Fz |Offset|` as the torque, which holds only in a frame whose x axis is
+the shaft. The reading of `Fx` along the frame's x and `Fz` along its z for an
+XZ cut rests on the FSI pilot records (RPT-005, RPT-006) and is not measured on a
+licensed quasi-steady run. **A share is `NA`**, and the post says why in a
+WARNING line of `post.log` naming the point, where a block was cut in a frame
+whose axes the post does not know (one a setup creates), in a plane other than
+XZ, or in a block the layout does not name; where the total is zero; and where
+stations of opposite sign put the share outside 0 to 100 per cent, the total
+then having no sign a share of it could be read against. Where the point has
+no such export the values are the plan's, the chord read off the mesh
+(`K_1P_SOURCE` `mesh`), and the two shares are `NA`.
+
+**The rotor state of a wheel point** (since 0.31.0), the quantities the
+wheel's correction routes read: six columns after the validity columns in
+`_qs_avg.csv`, and the same six under `rotor_state` in the point's validity
+file (`null` where not known). With `T` the rotor's thrust along its axis,
+the mean over the clockings of `THRUST_<ALIAS>` (the thrust of the rotor
+table's mean loads), `rho` the point's density, `V` its free-stream speed,
+`n = |rpm| / 60` and `Omega = 2 pi n` the rotor's speed, `D` its diameter,
+`R = D / 2`, `A = pi R^2`, and `alpha_p` the angle between the rotor's axis
+(in the sense its thrust is counted positive) and the direction of flight,
+the direction the free stream comes from (`alpha_p = 0` in axial flight along
+the thrust, 90 degrees edgewise):
+
+| column | definition |
+|---|---|
+| `CT_ROTOR` | `T / (rho A (Omega R)^2)`, the rotor convention |
+| `CT_PROPELLER` | `T / (rho n^2 D^4)`, the propeller convention, `pi^3 / 4` times `CT_ROTOR` |
+| `MU_ROTOR` | `V sin(alpha_p) / (Omega R)`, the advance ratio in the disc plane |
+| `LAMBDA_C` | `V cos(alpha_p) / (Omega R)`, the free stream through the disc against the thrust |
+| `LAMBDA_I` | the momentum-theory induced inflow, the root of Glauert's relation below |
+| `CHI_DEG` | `atan2(MU_ROTOR, LAMBDA_C + LAMBDA_I)` in degrees, the wake skew angle |
+
+```text
+LAMBDA_I = CT_ROTOR / (2 sqrt(MU_ROTOR^2 + (LAMBDA_C + LAMBDA_I)^2))
+```
+
+`LAMBDA_I` is solved by Newton's method from the hover value
+`sign(CT_ROTOR) sqrt(|CT_ROTOR| / 2)` until a step is no larger than 1e-10, in
+at most 100 steps (`pyflightstream.cases.qsteady.glauert_induced_inflow`). A
+relation that does not converge (momentum theory does not describe a rotor
+descending into its own wake) leaves `LAMBDA_I` and `CHI_DEG` `NA`, and the
+post says so in a WARNING line of `post.log` naming the point and the average
+table; `NA` everywhere a thrust is not known at every clocking, or the point
+states no density or speed. `MU_ROTOR`, not `MU`: `MU` is the air's viscosity
+in every table's condition block. A sector's row reads `NA` in all six.
 
 **The sections of a wheel point** (0.31.0) hold EVERY clocking: the wheel
 exports its section distributions at each clocking, created again in that
@@ -2041,7 +2136,7 @@ else the plan's; `NA` in the rows of every other point.
 **The per-point validity file**, `<point>_qsteady_validity.json`, is written by
 the post into the wheel point's datapoint folder, beside the run's
 `<point>_qsteady.json`: every value of the validity columns (the thrust and
-torque shares included, `null` where not known), `K_1P_SOURCE`, and the
+torque shares included, `null` where not known), `K_1P_SOURCE`, the rotor state (`rotor_state`, since 0.31.0), and the
 plan's record as the run kept it. The run's record is a hashed input of the
 run and is never rewritten; this file is the post's and every post rewrites
 it. `products.json` names each point's file under the clockings and average
