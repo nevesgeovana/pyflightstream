@@ -7,6 +7,16 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed (0.31.0)
+
+- A `qsteady_rotor` row that states `ADVANCE_RATIO` resolves J, and so the rotor
+  speed n = V / (J D), against the rotor block's own `diameter_m`, as an
+  `unsteady_rotor` row does, instead of the reference's top-level
+  `rotor_diameter_m`.
+- The fixed-wing and quasi-steady-rotor FSI steps of `fsi/driver.py` share one
+  step body with the structural solve as the variation point; behaviour is
+  unchanged.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
