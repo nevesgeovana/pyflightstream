@@ -160,8 +160,10 @@ angle of attack and the sideslip never turn; `self_weight = false` removes it,
 for a wind-tunnel model. A steady coupled row runs each point as its own
 process and allows at most 50 coupling iterations; a submitting executor
 refuses the script, and the probe points, the volume section and the loads
-selections are refused on that route. The route and the sign of the XZ cut's
-moment column wait on their licensed confirmation.
+selections are refused on that route. On 26.124 the route converged and
+mapped 1052 of 1052 vertices (reports/RPT-092); the XZ cut's moment column
+agrees in sign at the integral (+7.49 against +17.13 N m) and not in
+magnitude (44 %), so its sign is not confirmed in magnitude.
 
 A `qsteady_rotor` sector takes its `omega_rad_per_s` from the row's `RPM`, so
 the structural solve applies the centrifugal terms at the speed the free
@@ -189,7 +191,7 @@ Four changes reach a coupled blade you already have:
 - The coupled route emits `AEROELASTIC_RBF_TYPE MULTI_QUADRATIC` unless the
   row's setup states a kernel. State the kernel in the setup to keep another.
 - The rotating structural solve includes the in-plane centrifugal softening
-  of the flap, about 2.7 % more tip flap on a solid metal propeller blade.
+  of the flap, which raises the tip flap of a pitched blade.
   `RotatingSolution` gains `flap_residual_m` and `flap_tolerance_m`, and
   `converged` requires both residuals.
 - The aeroelastic surface list holds the blade's boundary ID. A blade imported

@@ -161,9 +161,11 @@ sections_m = [
   `fixed_wing`.
 
 The export's moment column of an XZ cut is read as positive about +y, which
-is nose up on either wing, by analogy with the blade's XY cut. That sign, and
-the route as a whole, wait on their licensed confirmation; the offline tests
-hold the emitted script, the weight against the cantilever's closed form
+is nose up on either wing, by analogy with the blade's XY cut. On 26.124
+(reports/RPT-092) the route converged and mapped 1052 of 1052 vertices, and
+that reading agrees in sign at the integral (+7.49 against +17.13 N m) and
+not in magnitude (44 %): the sign is not confirmed in magnitude. The
+offline tests hold the emitted script, the weight against the cantilever's closed form
 q L^4 / (8 E I) and the absence of any centrifugal term.
 
 ## Automatic workspace coupling

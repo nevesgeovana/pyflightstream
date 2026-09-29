@@ -6,10 +6,8 @@ section by w sin(beta) in the rotor plane, where the centrifugal field pulls
 it outward, and the flap load gains mu Omega^2 sin^2(beta) w. The oracle is an
 independent hand integration of the cantilever (a fine grid, the moment
 integral with the centrifugal tension as a P-Delta term and the softening as
-a load, solved by fixed-point iteration), the method of the offline hand
-check that measured +2.7 % of tip flap on a solid metal propeller blade. It is written here
-again from its equations, on a synthetic blade, and shares no code with the
-package.
+a load, solved by fixed-point iteration), written from its equations on a
+synthetic blade; it shares no code with the package.
 """
 
 import math

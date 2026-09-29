@@ -175,9 +175,9 @@ def in_plane_softening_coefficients(cfg: FsiConfig) -> list[float]:
     the distance from the shaft, projected on the flap direction of the
     embedding; the in-plane term m Omega^2 v of the chordwise bending
     equation after Houbolt and Brooks, NACA Report 1346 (primary source
-    not independently verified). Checked against an independent hand
-    integration of a solid metal propeller blade (+2.7 % of tip flap),
-    which the tier-1 oracle test reproduces on a synthetic blade.
+    not independently verified). The tier-1 oracle test checks it
+    against an independent hand integration on a synthetic blade: the
+    tip-flap increase the term gives agrees to 0.1 percentage point.
 
     Parameters
     ----------

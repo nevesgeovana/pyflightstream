@@ -168,9 +168,11 @@ stderr (`docs/migrating-to-0.30.0.md`).
   (`weight_loads`, `solve_wing_static`), `FixedWing`,
   `fsi.loads.project_wing_frame_loads`, `fsi.nodes.config_triads` and the
   `wing_frame` embedding, `cases.fsi_workspace.wire_fixed_wing_fsi`,
-  `aeroelastic_post` and `is_steady_aeroelastic_script`. The sign of the XZ
-  cut's moment column (read as positive about +y, nose up) and the whole
-  route wait on their licensed confirmation. See docs/fsi-workspace.md.
+  `aeroelastic_post` and `is_steady_aeroelastic_script`. On 26.124 the route
+  converged and mapped 1052 of 1052 vertices (reports/RPT-092). The XZ
+  cut's moment column, read as positive about +y (nose up), agrees in sign
+  at the integral (+7.49 against +17.13 N m) and not in magnitude (44 %),
+  so the sign is not confirmed in magnitude. See docs/fsi-workspace.md.
 - `pyfs-matrix space-in-use`, `free-space`, `delete-sims` and `sync`: the four
   storage commands of 0.30.0 (`pyflightstream.workspace.storage`).
   `space-in-use` reports the workspace's sizes on disk, by top level folder,
@@ -274,14 +276,15 @@ stderr (`docs/migrating-to-0.30.0.md`).
   beam line, and on one beam line WENDLAND_C2 delivered 64 % of an imposed bend
   at the leading edge and 1.4 % at the trailing edge, a nose-up shear of up to
   14 deg, and the coupled run diverged; MULTI_QUADRATIC delivered it to 3 mm
-  (26.124, probe evidence of 2026-09-28). See docs/fsi-workspace.md.
+  (26.124, reports/RPT-093 section 7). See docs/fsi-workspace.md.
 - **The rotating structural solve includes the in-plane centrifugal softening**
   mu Omega^2 sin^2(beta) w of the flap (`fsi.centrifugal.in_plane_softening_coefficients`),
   iterated with the twist in `solve_rotating_static`; a flap along the section
   normal at pitch beta moves the section in the rotor plane, where the
-  centrifugal field pulls it outward. On a solid metal propeller blade it adds
-  about 2.7 % to the tip flap, which the tier-1 oracle reproduces on a
-  synthetic blade. `RotatingSolution` gains `flap_residual_m` and
+  centrifugal field pulls it outward. The tier-1 oracle checks the
+  coefficient station by station and, on a synthetic blade, that the
+  tip-flap increase the term gives equals an independent hand integration's
+  to 0.1 percentage point. `RotatingSolution` gains `flap_residual_m` and
   `flap_tolerance_m`, and `converged` requires both residuals.
 - The workspace FSI pieces a coupled route calls are in
   `pyflightstream.cases.fsi_workspace`: `aeroelastic_surface_ids`,
