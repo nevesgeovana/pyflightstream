@@ -25,11 +25,12 @@ the morph from the rotation.
 
 Every fact below comes from one of two places, both licensed, both on 26.124:
 
-- The owner's private FSI probe campaign of 2026-09-28 (`C:\WORK\fsi-direct\`,
-  `PHASE3-RESULTS.md`, sections 1 to 14). That geometry is private; where a
-  fact is stated with numbers from it, this report says so and gives no
-  geometry, project or vendor-order identifier.
-- A self-contained, generic-geometry reproduction, **`C:\WORK\fsi-vendor-case`**
+- A private licensed probe campaign of 2026-09-28 (its results file
+  `PHASE3-RESULTS.md`, sections 1 to 14, not in this repository). That
+  geometry is private; where a fact is stated with numbers from it, this
+  report says so and gives no geometry, project or vendor-order identifier.
+- A self-contained, generic-geometry reproduction, the folder
+  **`fsi-vendor-case`**
   (zip SHA-256 `413cc6d1feed9a468c2388414e0f80c135202ff8f3eec9d9f813a38cbc7193ad`):
   a synthetic NACA 4409 research propeller blade (tip radius 1.8288 m, root
   radius 0.2743 m, one boundary, 1552 vertices, generated from public shape
@@ -52,7 +53,7 @@ frame list, a non-identity frame rotated 30 deg) all stored `1` and all left
 the node coordinates equal to the input file. This is a solver scripting
 limitation on 26.124, not a property of any one script.
 
-A frame chosen in the GUI IS stored (field `4` in the owner's saved file,
+A frame chosen in the GUI IS stored (field `4` in a saved project file,
 where the file's frame table names it a moving frame), and that stored value
 **survives a scripted `OPEN`** of the GUI-saved file, and a scripted delete and
 re-import of the nodes: the scripted import does not overwrite the field, it

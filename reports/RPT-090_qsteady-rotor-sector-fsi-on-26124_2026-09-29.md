@@ -62,8 +62,12 @@ Aeroelastic solver residual for FSI iteration-17 is  1.0142337E-5
 Aeroelastic solver residual for FSI iteration-18 is  5.6531191E-6
 ```
 
-It roughly halves per iteration (the configured `coupling_relaxation` 0.5) and
-stops at iteration 18 of 50, below the 1e-5 convergence limit. The package
+The first two steps divide it by 3.0 and 2.3; from iteration 3 to iteration
+14 each step multiplies it by 0.46 to 0.50, the step to iteration 15 by 0.83,
+and the last three by 0.50, 0.49 and 0.56 (`fsi_residual_ratios`). The
+configured `coupling_relaxation` is 0.5 (`fsi_convergence_log.csv`, column
+`relaxation`, every call). It stops at iteration 18 of 50, below the 1e-5
+convergence limit. The package
 stopped the solver after the completion line (`pyfs-aeroelastic-stop.log` in
 the datapoint folder: "stopped after the aeroelastic analysis ended (its
 completion line printed)"). The post-processing script the toolbox runs after
@@ -76,11 +80,12 @@ export block.
 flap of 3.340913e-3 m and a tip twist of 0.128534 deg; the written tip
 displacement (`FSIDisp.txt`, the last three rows, the tip station's
 elastic-axis, leading-edge and trailing-edge nodes) is (-2.660e-3, +2.022e-3, 0) m
-at the elastic-axis node, 3.34 mm, and 3.24 to 3.50 mm at the other two. The
-exported deformed surface (`P9012-...vtk`) against the rigid run's surface
-(`P9011-...vtk`), over the 936 vertices of the meshed blade, moves by at most
-3.55 mm, at the tip (r = 1.824 m): 2.84 mm toward -x (the thrust side) and
-2.14 mm along +y.
+at the elastic-axis node, 3.34 mm, and 3.24 and 3.50 mm at the leading-edge
+and trailing-edge nodes (`fsidisp_tip_nodes_m`). The exported deformed surface
+(`P9012-...vtk`) against the rigid run's surface (`P9011-...vtk`), over the
+936 vertices of blade one, moves by at most 3.55 mm, at the tip
+(r = 1.824 m): 2.84 mm toward -x (the thrust side) and 2.14 mm along +y
+(`exported_surface_max_displacement_components_m`).
 
 **4. The Omega staged is 2 pi rpm / 60.** The staged `config.json` states
 `omega_rad_per_s = 49.55048456248367`, and 2 pi x 473.17227304307556 / 60 =
@@ -99,7 +104,7 @@ J = 1.70001):
 |---|---|---|---|
 | axial force Fx (N) | -373.84 | -376.82 | +0.80 % in magnitude |
 | shaft moment Mx (N m) | -415.89 | -408.23 | -1.84 % in magnitude |
-| in-plane Fy (N) | +338.99 | +333.09 | -1.74 % |
+| in-plane Fy (N) | +338.99 | +333.09 | -1.74 % (`fy_change_pct`) |
 | CT | -0.05309 | -0.05351 | +0.8 % in magnitude |
 | CQ | -0.01615 | -0.01585 | -1.9 % in magnitude |
 | CP | -0.10146 | -0.09959 | -1.8 % in magnitude |
@@ -111,8 +116,11 @@ efficiency is positive.) The loads export of the coupled run states `CDo`
 coupling off), so the two axial coefficients do not hold the same terms: `Cx`
 rigid -0.0098306 is `CDi` -0.0099531 plus `CDo`, `Cx` coupled -0.0099088 is
 `CDi` alone. On the induced part alone the coupled blade carries 0.45 % less
-axial force than the rigid one (-0.0099088 against -0.0099531), and much of
-the efficiency difference is that missing viscous term, not the deformation.
+axial force than the rigid one (-0.0099088 against -0.0099531). The efficiency
+is 2.7 % higher coupled: its axial force is 0.8 % larger and its shaft moment
+1.8 % smaller. The missing viscous term is 1.25 % of the rigid run's axial
+coefficient, more than the whole axial difference; how much of the smaller
+shaft moment is the same missing term, these exports do not separate.
 
 ## Found and fixed before release
 
@@ -128,8 +136,39 @@ run is their confirmation with the default exports:
   (RPT-091);
 - a `qsteady_rotor` point had no rotor table: **4113de02** (the tables above).
 
-The solver-side numbers of this point are identical to every printed digit to
-the first confirmation's (loads, residuals, mapping, displacement).
+Against the first confirmation, measured file by file (`first_confirmation`
+in the sidecar): the emitted run scripts are equal apart from paths and run
+names; 69cffa41 changed the coupled row's post-processing script, which now
+adds `UPDATE_PROBE_POINTS` and the section, sectional-load, probe and
+section-Cp exports; and every solver-side number is equal. The loads exports
+are equal in every line apart from the file name and the time (seven printed
+decimals per coefficient), the averaged six components to every printed digit,
+the residual lines, the `$AEROELASTIC$` header, `FSIDisp.txt` and the
+convergence log equal, and the two VTK exports byte-identical.
+
+## First confirmation (draft, 0331fe91, not released)
+
+Dated 2026-09-29. The first confirmation ran on `0331fe91` and was committed
+as a draft of this report in `c89c603d`; it was never pushed and never on
+main, and git history keeps that draft. Its values, from its own run files:
+
+| run id (code `0331fe91`) | status | iterations | residual | wall time |
+|---|---|---|---|---|
+| `pfs0300-l1-ws/sim_9001/M144RE438AL+000BE+000RPM00473` (rigid) | CONVERGED | 60 | 8.28e-7 | 4.3 s |
+| `pfs0300-l1-ws/sim_9002/M144RE438AL+000BE+000RPM00473` (coupled) | CONVERGED | 427 | 3.18e-7 | 81.8 s |
+
+- Loads (quasi-steady average): Fx -373.84 N rigid (9001) and -376.82 N
+  coupled (9002), Mx -415.89 and -408.23 N m, Fy +338.99 and +333.09 N.
+- Residuals: 18 coupling iterations of 50 on 9002, from 9.375e-1 to 5.65e-6.
+- Mapping: `$AEROELASTIC$` header `1,936,1,50,4` on 9002.
+- Tip deflection: tip flap 3.340913e-3 m and tip twist 0.128534 deg on 9002,
+  the elastic-axis node at (-2.660e-3, +2.022e-3, 0) m.
+
+What changed between it and the run above: with the default exports the plan
+refused the coupled row, so 9002 ran with the section, sectional-load, probe
+and section-Cp kinds turned off and has no sections product; the post wrote
+no rotor table for either point. Both are fixed (69cffa41, 4113de02), and the
+numbers above are equal to the re-run's.
 
 ## What remains an observation
 
