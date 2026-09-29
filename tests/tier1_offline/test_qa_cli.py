@@ -13,11 +13,13 @@ user whose script stopped working.
 
 from __future__ import annotations
 
+import random
 import shutil
 from pathlib import Path
 
 import pytest
 
+from pyflightstream import _cli
 from pyflightstream.qa.cli import main
 
 
@@ -500,7 +502,9 @@ def _chapter_and_report(tmp_path):
     return commands, write
 
 
-def test_apply_compat_refuses_a_superseded_report_without_a_traceback(tmp_path, capsys):
+def test_apply_compat_refuses_a_superseded_report_without_a_traceback(
+    tmp_path, capsys, monkeypatch
+):
     """The trap added on 2026-08-11, which had no test on any path.
 
     The library's refusals here say which report supersedes this one and
@@ -508,6 +512,10 @@ def test_apply_compat_refuses_a_superseded_report_without_a_traceback(tmp_path, 
     under a stack the operator did not ask for, and says nothing about
     whether the database was written.
     """
+    # The signature box on stderr draws a drawing at random, and one "failed"
+    # drawing (segfault) is art that contains the word Traceback; seed it so
+    # the assertion below reads the CLI, not the draw (the QA lens, 0.30.0).
+    monkeypatch.setattr(_cli, "_RNG", random.Random(20260928))
     _, write = _chapter_and_report(tmp_path)
     older = write("2026-07-21", "broken")
     write("2026-07-23", "verified", "reprobe")

@@ -39,19 +39,22 @@ Tecplot surface whether its strength is carried.
 | Velocity components | Cell/panel | VTK values with the measured loads-frame export transform undone |
 
 The native export must match the VTK through a unique node bijection and the
-complete polygon edge topology. Equal counts alone are insufficient. Ambiguous
+complete polygon edge topology (reports/RPT-074). Equal counts alone are insufficient. Ambiguous
 nodes, changed topology, missing step sources, truncated files and nonfinite
 native values are refused with an explicit reason. The match is made in the
 loads frame the VTK was written in: the native nodes are carried into that
 frame, and each loads axis allows half the single-precision spacing of the
 written VTK coordinates along it plus the rounding of the carry, and never less
-than 1e-6 of the native geometry's diagonal extent. The run record states those
+than 1e-6 of the native geometry's diagonal extent (the VTK is written in the
+loads frame at single precision, reports/RPT-074). A row under
+`SYMMETRY PERIODIC` writes one native zone per copy, and each copy is matched
+on its own (reports/RPT-087). The run record states those
 per-axis tolerances and the frame they are measured in. Callers of the
 low-level API must provide the actual VTK loads frame and sources in matching
 physical units.
 
 For measured FlightStream exports, the VTK velocity convention includes the
-loads-frame origin as well as its axes. The package retains that observed
+loads-frame origin as well as its axes (reports/RPT-074). The package retains that observed
 convention rather than applying a generic vector rotation. This is an export
 convention, not a statement that physical velocity depends on origin.
 
@@ -85,6 +88,7 @@ accepts the VTK, native source, new output path and recorded frame JSON. Normal
 workspace execution performs the same acquisition and translation automatically.
 
 Native acceptance uses a translated and Z-rotated saved surface and additional
-Y-tilted, rotor and six-step exports on the measured build. Exact source and
+Y-tilted, rotor and six-step exports on the measured build (reports/RPT-074).
+Exact source and
 executable hashes belong to the local acceptance receipts. These controls do
 not establish every solver build or export convention.

@@ -259,6 +259,7 @@ __all__ = [
     "surface_time_averaging",
     "tecplot_source",
     "with_tecplot_source",
+    "carries_singularity_strength",
     "require_coverage",
     "resolve_workflow",
     "rotor_relaxed_trailing_edges",
