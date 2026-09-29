@@ -655,7 +655,8 @@ def blade_properties_from_sections(
     Returns
     -------
     BladeProperties
-        Validated distributions with their provenance.
+        Validated distributions with their provenance, carrying the
+        contours as ``section_contours_m``.
 
     Examples
     --------
@@ -746,6 +747,10 @@ def blade_properties_from_sections(
         cg_offset_normal_m=[0.0] * count,
         geometric_pitch_deg=list(geometric_pitch_deg),
         provenance=provenance,
+        # FSI-1: the sections travel with the blade, so the structural nodes
+        # are placed in, and checked against, the geometry these numbers came
+        # from (pyflightstream.fsi.nodes.generate_node_layout).
+        section_contours_m=[_as_polygon(section).tolist() for section in sections_m],
     )
 
 

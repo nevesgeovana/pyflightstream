@@ -33,6 +33,25 @@ case and of the dry-run node fixture. The rule choosing the embedding
 is :func:`pyflightstream.fsi.config.frame_embedding`, shared with the
 loads projection so both sides of the interface always agree.
 
+Nodes inside the blade (FSI-1). When the configuration carries the
+blade's section at every station (``BladeProperties.section_contours_m``,
+the contours a calculated blade is generated from), the nodes are placed
+on that section's camber line: the elastic-axis node at the configured
+elastic-axis chord fraction (:data:`ELASTIC_AXIS_FALLBACK_CHORD_FRACTION`
+when the configured one lies outside
+:data:`ELASTIC_AXIS_CHORD_FRACTION_WINDOW`), the leading-edge and
+trailing-edge nodes at :data:`LEADING_EDGE_NODE_CHORD_FRACTION` and
+:data:`TRAILING_EDGE_NODE_CHORD_FRACTION`. The embedding at the local
+twist is unchanged, and so are the node order, the roles and the row
+count, so the FSIDisp rows keep their meaning. A node set with any node
+outside its section, or inside it by less than
+max(:data:`MIN_NODE_CLEARANCE_M`, :data:`MIN_NODE_CLEARANCE_THICKNESS_FRACTION`
+of the local thickness), is refused naming the node
+(:func:`refuse_nodes_outside_sections`): a structural node the solver
+finds outside the surface it morphs is a node the interpolation reads
+from the wrong side of the skin. Without section geometry the layout
+is the offset layout described above and no check can be made.
+
 File formats, per the dry-run evidence (RPT-005 finding 5): both the
 node CSV and ``FSIDisp.txt`` are comma separated three-column files,
 one row per node, no header.
@@ -40,10 +59,19 @@ one row per node, no header.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 from pyflightstream.fsi.config import FsiConfig, frame_embedding
 from pyflightstream.fsi.errors import FsiInputError
@@ -55,6 +83,20 @@ EMBEDDINGS = ("section_frame", "rotor_frame")
 #: Node CSV number format: micrometer resolution, the decimal style of
 #: the dry-run import evidence (structural_nodes.csv fixture).
 _NODE_FORMAT = "{:.6f}"
+#: Chord fractions from the leading edge of the section-generated nodes
+#: (FSI-1, module docstring). The elastic-axis node takes the configured
+#: elastic axis when its chord fraction lies in the window, the fallback
+#: otherwise: an elastic axis configured outside it was measured to put
+#: nodes outside the real section of a propeller blade.
+ELASTIC_AXIS_FALLBACK_CHORD_FRACTION = 0.30
+ELASTIC_AXIS_CHORD_FRACTION_WINDOW = (0.20, 0.50)
+LEADING_EDGE_NODE_CHORD_FRACTION = 0.10
+TRAILING_EDGE_NODE_CHORD_FRACTION = 0.90
+#: The least clearance a structural node keeps from its section's skin:
+#: max(1 mm, 10 % of the local thickness at the node's chord fraction).
+MIN_NODE_CLEARANCE_M = 1.0e-3
+MIN_NODE_CLEARANCE_THICKNESS_FRACTION = 0.10
+
 #: FSIDisp number format: 17 significant digits, so a written float64
 #: reads back bit-identical and the WP5 round trip closes at machine
 #: precision through the file.
@@ -86,6 +128,13 @@ class NodeOrderingMap(BaseModel):
     le_offset_m, te_offset_m : list of float
         Chordwise offsets [m] of the leading-edge (positive) and
         trailing-edge (negative) nodes from the elastic axis.
+    le_offset_normal_m, te_offset_normal_m : list of float or None
+        Normal position [m] of the leading-edge and trailing-edge nodes
+        in the section plane, when they sit on the camber line of a
+        section-generated layout. None places them at the elastic
+        axis's normal position (the offset layout), and is then not
+        serialised, so a map written before the fields existed reads
+        back and dumps exactly as it did.
     embedding : str
         Geometric embedding of the section frame in the import frame
         (module docstring): ``"section_frame"`` (identity, Omega zero)
@@ -107,6 +156,19 @@ class NodeOrderingMap(BaseModel):
     te_offset_m: list[float]
     embedding: str = "section_frame"
     blade_angle_deg: list[float] | None = None
+    le_offset_normal_m: list[float] | None = None
+    te_offset_normal_m: list[float] | None = None
+
+    @model_serializer(mode="wrap")
+    def _camber_offsets_only_when_present(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> dict[str, object]:
+        """Serialise the per-role normal offsets only for a camber layout."""
+        data: dict[str, object] = handler(self)
+        for optional in ("le_offset_normal_m", "te_offset_normal_m"):
+            if data.get(optional) is None:
+                data.pop(optional, None)
+        return data
 
     @model_validator(mode="after")
     def _consistent(self) -> NodeOrderingMap:
@@ -130,6 +192,13 @@ class NodeOrderingMap(BaseModel):
                 raise ValueError(
                     f"'{name}' has {len(getattr(self, name))} entries for {n} "
                     "stations; every per-station list must match station_radii_m"
+                )
+        for name in ("le_offset_normal_m", "te_offset_normal_m"):
+            values = getattr(self, name)
+            if values is not None and len(values) != n:
+                raise ValueError(
+                    f"'{name}' has {len(values)} entries for {n} stations; every "
+                    "per-station list must match station_radii_m"
                 )
         if len(self.blade_angle_deg) != n:
             raise ValueError(
@@ -183,10 +252,15 @@ class NodeOrderingMap(BaseModel):
 def generate_node_layout(cfg: FsiConfig) -> NodeOrderingMap:
     """Build the node layout of a configuration (FSI-R14 single source).
 
-    Three nodes per station: the elastic-axis node at e(r) in the
-    section plane, and the leading-edge and trailing-edge nodes offset
-    chordwise from it by plus and minus ``node_offset_chord_fraction``
-    of the local chord (DLV-007 Section 4.4). The embedding follows
+    Three nodes per station. With the blade's sections known
+    (``BladeProperties.section_contours_m``) they sit on each section's
+    camber line at the chord fractions of the module docstring, and the
+    layout is checked inside its sections before it is returned
+    (:func:`refuse_nodes_outside_sections`). Without them, the
+    elastic-axis node sits at e(r) in the section plane and the
+    leading-edge and trailing-edge nodes are offset chordwise from it
+    by plus and minus ``node_offset_chord_fraction`` of the local chord
+    (DLV-007 Section 4.4). The embedding follows
     :func:`pyflightstream.fsi.config.frame_embedding`: a spinning
     blade embeds its sections at the local blade angle, taken from the
     geometric pitch distribution.
@@ -200,10 +274,20 @@ def generate_node_layout(cfg: FsiConfig) -> NodeOrderingMap:
     -------
     NodeOrderingMap
         The map every node-related file derives from.
+
+    Raises
+    ------
+    FsiInputError
+        If a section-generated node lies outside its section, or inside
+        it by less than the clearance, naming the node.
     """
     blade = cfg.blade
-    fraction = cfg.node_offset_chord_fraction
     embedding = frame_embedding(cfg)
+    if blade.section_contours_m is not None:
+        layout = _camber_node_layout(cfg, embedding)
+        refuse_nodes_outside_sections(layout, blade.section_contours_m)
+        return layout
+    fraction = cfg.node_offset_chord_fraction
     return NodeOrderingMap(
         blade_count=cfg.blade_count,
         station_radii_m=list(blade.station_radii_m),
@@ -214,6 +298,326 @@ def generate_node_layout(cfg: FsiConfig) -> NodeOrderingMap:
         te_offset_m=[-fraction * c for c in blade.chord_m],
         embedding=embedding,
         blade_angle_deg=(list(blade.geometric_pitch_deg) if embedding == "rotor_frame" else None),
+    )
+
+
+def _camber_node_layout(cfg: FsiConfig, embedding: str) -> NodeOrderingMap:
+    """Place the three nodes of every station on its section's camber line."""
+    blade = cfg.blade
+    contours = blade.section_contours_m or []
+    ea_c: list[float] = []
+    ea_n: list[float] = []
+    le_c: list[float] = []
+    le_n: list[float] = []
+    te_c: list[float] = []
+    te_n: list[float] = []
+    low, high = ELASTIC_AXIS_CHORD_FRACTION_WINDOW
+    for station, contour in enumerate(contours):
+        polygon = _polygon(contour, station)
+        configured = np.array(
+            [
+                blade.elastic_axis_offset_chordwise_m[station],
+                blade.elastic_axis_offset_normal_m[station],
+            ]
+        )
+        fraction = section_chord_fraction(polygon, configured)
+        if not low <= fraction <= high:
+            fraction = ELASTIC_AXIS_FALLBACK_CHORD_FRACTION
+        points = [
+            camber_point(polygon, s)[0]
+            for s in (
+                fraction,
+                LEADING_EDGE_NODE_CHORD_FRACTION,
+                TRAILING_EDGE_NODE_CHORD_FRACTION,
+            )
+        ]
+        ea_c.append(float(points[0][0]))
+        ea_n.append(float(points[0][1]))
+        le_c.append(float(points[1][0] - points[0][0]))
+        le_n.append(float(points[1][1]))
+        te_c.append(float(points[2][0] - points[0][0]))
+        te_n.append(float(points[2][1]))
+    return NodeOrderingMap(
+        blade_count=cfg.blade_count,
+        station_radii_m=list(blade.station_radii_m),
+        roles=list(NODE_ROLES),
+        ea_offset_chordwise_m=ea_c,
+        ea_offset_normal_m=ea_n,
+        le_offset_m=le_c,
+        te_offset_m=te_c,
+        embedding=embedding,
+        blade_angle_deg=(list(blade.geometric_pitch_deg) if embedding == "rotor_frame" else None),
+        le_offset_normal_m=le_n,
+        te_offset_normal_m=te_n,
+    )
+
+
+def _polygon(contour: Sequence[Sequence[float]], station: int) -> np.ndarray:
+    """Return one station's section as an (n, 2) array, refusing a non-polygon."""
+    points = np.asarray(contour, dtype=float)
+    if points.ndim != 2 or points.shape[1] != 2 or len(points) < 3:
+        raise FsiInputError(
+            f"the section of station {station} is not a polygon of (chordwise, normal) "
+            f"points: got shape {points.shape}"
+        )
+    if not np.all(np.isfinite(points)):
+        raise FsiInputError(f"the section of station {station} carries a non-finite point")
+    return points
+
+
+def _chord(polygon: np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:
+    """Leading edge, unit chord direction toward the trailing edge, chord length.
+
+    The trailing edge is the vertex farthest aft (the smallest
+    chordwise coordinate, since the section frame's chordwise axis
+    points to the leading edge) and the leading edge is the vertex
+    farthest from it. A blunt edge, several vertices tied within
+    rounding, takes their mean, so a rectangle's chord is its middle
+    line and not its diagonal.
+    """
+    tie = 1.0e-9 * float(np.max(np.ptp(polygon, axis=0)))
+    trailing = polygon[polygon[:, 0] <= float(np.min(polygon[:, 0])) + tie].mean(axis=0)
+    reach = np.hypot(*(polygon - trailing).T)
+    leading = polygon[reach >= float(np.max(reach)) - tie].mean(axis=0)
+    chord = float(np.hypot(*(trailing - leading)))
+    return leading, (trailing - leading) / chord, chord
+
+
+def section_chord_fraction(polygon: np.ndarray, point: np.ndarray) -> float:
+    """Chord fraction from the leading edge of a point projected on the chord line.
+
+    Parameters
+    ----------
+    polygon : numpy.ndarray
+        One section, shape ``(n, 2)``, in the section frame.
+    point : numpy.ndarray
+        A point of the section plane, (chordwise, normal) [m].
+
+    Returns
+    -------
+    float
+        0 at the leading edge, 1 at the trailing edge.
+    """
+    leading, along, chord = _chord(np.asarray(polygon, dtype=float))
+    return float(np.dot(np.asarray(point, dtype=float) - leading, along) / chord)
+
+
+def camber_point(polygon: np.ndarray, fraction: float) -> tuple[np.ndarray, float]:
+    """Return the camber-line point of a section at a chord fraction, and its thickness.
+
+    The line normal to the chord at ``fraction`` crosses the section's
+    outline; the camber point is the midpoint of its outermost two
+    crossings and the thickness is their distance.
+
+    Parameters
+    ----------
+    polygon : numpy.ndarray
+        One section, shape ``(n, 2)``, in the section frame.
+    fraction : float
+        Chord fraction from the leading edge, strictly between 0 and 1.
+
+    Returns
+    -------
+    tuple of (numpy.ndarray, float)
+        The (chordwise, normal) point [m] and the local thickness [m].
+
+    Raises
+    ------
+    FsiInputError
+        If the chord-normal line at ``fraction`` does not cross the
+        outline twice.
+    """
+    polygon = np.asarray(polygon, dtype=float)
+    leading, along, chord = _chord(polygon)
+    normal = np.array([-along[1], along[0]])
+    base = leading + fraction * chord * along
+    crossings = []
+    for start, end in zip(polygon, np.roll(polygon, -1, axis=0), strict=True):
+        a = float(np.dot(start - base, along))
+        b = float(np.dot(end - base, along))
+        if (a < 0.0) != (b < 0.0):
+            hit = start + (a / (a - b)) * (end - start)
+            crossings.append(float(np.dot(hit - base, normal)))
+    if len(crossings) < 2:
+        raise FsiInputError(
+            f"the chord-normal line at chord fraction {fraction:.3f} does not cross the "
+            "section outline twice, so the section has no camber point there"
+        )
+    lower, upper = min(crossings), max(crossings)
+    return base + 0.5 * (lower + upper) * normal, upper - lower
+
+
+def _inside(polygon: np.ndarray, point: np.ndarray) -> bool:
+    """Even-odd point-in-polygon test."""
+    x, y = float(point[0]), float(point[1])
+    inside = False
+    for (x1, y1), (x2, y2) in zip(polygon, np.roll(polygon, -1, axis=0), strict=True):
+        if (y1 > y) != (y2 > y) and x < x1 + (y - y1) * (x2 - x1) / (y2 - y1):
+            inside = not inside
+    return inside
+
+
+def _distance_to_outline(polygon: np.ndarray, point: np.ndarray) -> float:
+    """Shortest distance from a point to the section outline [m]."""
+    edge = np.roll(polygon, -1, axis=0) - polygon
+    length_sq = np.einsum("ij,ij->i", edge, edge)
+    safe = np.where(length_sq > 0.0, length_sq, 1.0)
+    t = np.clip(np.einsum("ij,ij->i", point - polygon, edge) / safe, 0.0, 1.0)
+    nearest = polygon + t[:, None] * edge
+    return float(np.min(np.hypot(*(nearest - point).T)))
+
+
+@dataclass(frozen=True)
+class NodeClearance:
+    """Where one structural node sits against its station's section.
+
+    Attributes
+    ----------
+    row : int
+        The node's 0-based row in the node file (one blade's import).
+    station : int
+        Station index, 0-based from the root.
+    radius_m : float
+        The station's radius [m].
+    role : str
+        One of :data:`~pyflightstream.fsi.kinematics.NODE_ROLES`.
+    inside : bool
+        Whether the node lies inside the section outline.
+    clearance_m : float
+        Distance from the node to the outline [m].
+    thickness_m : float
+        Local section thickness at the node's chord fraction [m]; zero
+        where the chord-normal line there misses the section.
+    required_m : float
+        The clearance the node must keep:
+        max(:data:`MIN_NODE_CLEARANCE_M`,
+        :data:`MIN_NODE_CLEARANCE_THICKNESS_FRACTION` times the
+        thickness).
+    """
+
+    row: int
+    station: int
+    radius_m: float
+    role: str
+    inside: bool
+    clearance_m: float
+    thickness_m: float
+    required_m: float
+
+    @property
+    def ok(self) -> bool:
+        """Whether the node is inside by at least the required clearance."""
+        return self.inside and self.clearance_m >= self.required_m
+
+
+def _section_node_points(node_map: NodeOrderingMap) -> np.ndarray:
+    """Section-plane (chordwise, normal) of every node, shape (stations, roles, 2)."""
+    n = node_map.station_count
+    points = np.zeros((n, len(node_map.roles), 2))
+    for i in range(n):
+        e_c = node_map.ea_offset_chordwise_m[i]
+        e_n = node_map.ea_offset_normal_m[i]
+        le_n = e_n if node_map.le_offset_normal_m is None else node_map.le_offset_normal_m[i]
+        te_n = e_n if node_map.te_offset_normal_m is None else node_map.te_offset_normal_m[i]
+        points[i, 0] = (e_c, e_n)
+        points[i, 1] = (e_c + node_map.le_offset_m[i], le_n)
+        points[i, 2] = (e_c + node_map.te_offset_m[i], te_n)
+    return points
+
+
+def node_clearances(
+    node_map: NodeOrderingMap, sections_m: Sequence[Sequence[Sequence[float]]]
+) -> list[NodeClearance]:
+    """Measure every node of one blade against its station's section.
+
+    Parameters
+    ----------
+    node_map : NodeOrderingMap
+        The layout whose nodes are measured, in the section plane
+        (before the embedding at the local twist, which turns the
+        section and its nodes together).
+    sections_m : sequence of polygons
+        One section per station, (chordwise, normal) points [m] in the
+        section frame (``BladeProperties.section_contours_m``).
+
+    Returns
+    -------
+    list of NodeClearance
+        One entry per node row, in the node file's row order.
+    """
+    if len(sections_m) != node_map.station_count:
+        raise FsiInputError(
+            f"{len(sections_m)} sections for {node_map.station_count} stations; every "
+            "station's nodes are measured against that station's own section"
+        )
+    points = _section_node_points(node_map)
+    result = []
+    for station, contour in enumerate(sections_m):
+        polygon = _polygon(contour, station)
+        for k, role in enumerate(node_map.roles):
+            point = points[station, k]
+            fraction = section_chord_fraction(polygon, point)
+            thickness = 0.0
+            if 0.0 < fraction < 1.0:
+                try:
+                    thickness = camber_point(polygon, fraction)[1]
+                except FsiInputError:
+                    thickness = 0.0
+            result.append(
+                NodeClearance(
+                    row=station * len(node_map.roles) + k,
+                    station=station,
+                    radius_m=float(node_map.station_radii_m[station]),
+                    role=role,
+                    inside=_inside(polygon, point),
+                    clearance_m=_distance_to_outline(polygon, point),
+                    thickness_m=float(thickness),
+                    required_m=max(
+                        MIN_NODE_CLEARANCE_M, MIN_NODE_CLEARANCE_THICKNESS_FRACTION * thickness
+                    ),
+                )
+            )
+    return result
+
+
+def refuse_nodes_outside_sections(
+    node_map: NodeOrderingMap, sections_m: Sequence[Sequence[Sequence[float]]]
+) -> None:
+    """Refuse a node set with any node outside its section or too near its skin.
+
+    Parameters
+    ----------
+    node_map : NodeOrderingMap
+        The layout to check.
+    sections_m : sequence of polygons
+        One section per station, as :func:`node_clearances` takes them.
+
+    Raises
+    ------
+    FsiInputError
+        Naming the offending nodes: row, station, radius, role, and the
+        clearance against the one required.
+    """
+    bad = [item for item in node_clearances(node_map, sections_m) if not item.ok]
+    if not bad:
+        return
+    shown = "; ".join(
+        f"row {item.row} (station {item.station}, r = {item.radius_m:.4f} m, {item.role}): "
+        + (
+            f"inside by {item.clearance_m * 1e3:.2f} mm, needs {item.required_m * 1e3:.2f} mm"
+            if item.inside
+            else f"OUTSIDE the section, {item.clearance_m * 1e3:.2f} mm from its skin"
+        )
+        for item in bad[:6]
+    )
+    more = f"; and {len(bad) - 6} more" if len(bad) > 6 else ""
+    raise FsiInputError(
+        f"{len(bad)} structural node(s) are not inside their blade section by the "
+        f"clearance max({MIN_NODE_CLEARANCE_M * 1e3:.0f} mm, "
+        f"{MIN_NODE_CLEARANCE_THICKNESS_FRACTION:.0%} of the local thickness): "
+        f"{shown}{more}. The solver interpolates the surface motion from these nodes, "
+        "and a node outside the skin drives it from the wrong side. Correct the elastic "
+        "axis or the section geometry of those stations."
     )
 
 
@@ -269,13 +673,12 @@ def node_positions(node_map: NodeOrderingMap) -> np.ndarray:
         :data:`~pyflightstream.fsi.kinematics.NODE_ROLES` order.
     """
     triads = station_triads(node_map)
+    points = _section_node_points(node_map)
     rows = []
     for i, radius in enumerate(node_map.station_radii_m):
-        e_c = node_map.ea_offset_chordwise_m[i]
-        e_n = node_map.ea_offset_normal_m[i]
         toward_le, toward_suction, span = triads[i]
-        for chordwise in (0.0, node_map.le_offset_m[i], node_map.te_offset_m[i]):
-            rows.append((e_c + chordwise) * toward_le + e_n * toward_suction + radius * span)
+        for chordwise, normal in points[i]:
+            rows.append(chordwise * toward_le + normal * toward_suction + radius * span)
     return np.asarray(rows, dtype=float)
 
 

@@ -7992,7 +7992,7 @@ def _script_init(
         validate_workspace_fsi(
             case,
             script,
-            unsteady_rotor=select_workflow(case) == "unsteady_rotor",
+            workflow=select_workflow(case),
             continuation=reopens_a_saved_state,
         )
     if frames is not None:

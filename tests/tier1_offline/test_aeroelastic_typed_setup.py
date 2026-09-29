@@ -25,6 +25,25 @@ from tests.tier1_offline.test_g06_actuator_disc import _lines
 from tests.tier1_offline.test_workflows import FIXTURE_ROTOR, rotor_case, steady_case
 
 
+@pytest.fixture(autouse=True)
+def rotor_route_open(monkeypatch):
+    """Open the unsteady_rotor FSI route these wiring tests exercise.
+
+    FSI on unsteady_rotor is refused in 0.30.0 while the rotor morph is in
+    debug (FSI-GUARD, test_fsi1_workspace_pieces.py proves the refusal). The
+    wiring behind the guard is kept and tested here, so the day the route
+    opens it opens on tested code. Every other workflow keeps its refusal.
+    """
+    from pyflightstream.cases import fsi_workspace
+
+    guard = fsi_workspace.fsi_workflow_refusal
+    monkeypatch.setattr(
+        fsi_workspace,
+        "fsi_workflow_refusal",
+        lambda workflow: None if workflow == "unsteady_rotor" else guard(workflow),
+    )
+
+
 def coupled_case(tmp_path):
     geometry = tmp_path / "blade.obj"
     geometry.write_text("o Blade1\nv 0 0 0.2\nv 0 .1 .2\nv 0 0 1.2\nf 1 2 3\n")
@@ -71,6 +90,11 @@ def test_selected_fsi_wires_existing_driver_and_stages_single_source(tmp_path):
     assert "EXECUTE_AEROELASTIC_ANALYSIS" not in lines
     frame = int(script.section_blocks[0]["frame_index"])
     assert f"IMPORT_AEROELASTIC_STRUCTURAL_NODES {frame} DISABLE" in lines
+    # FSI-1: the OBJ blade at tree position 1 is boundary ID 2 to the solver.
+    at = lines.index("ASSIGN_AEROELASTIC_SURFACES 1")
+    assert lines[at + 1] == "2"
+    # FSI-1: the beam-line kernel, where the row states none.
+    assert "AEROELASTIC_RBF_TYPE MULTI_QUADRATIC" in lines
     run_dir = tmp_path / "run"
     hashes = _write_pending_files(script, run_dir, case=case, recorded={})
     assert {
@@ -128,7 +152,7 @@ def test_inconsistent_structural_inputs_are_refused(tmp_path, field, value, mess
 
 def test_steady_selection_is_named_refusal(tmp_path):
     case = steady_case().model_copy(update={"fsi": coupled_case(tmp_path).fsi})
-    with pytest.raises(ValueError, match="unsteady"):
+    with pytest.raises(ValueError, match="FSI-G"):
         _lines(case)
 
 

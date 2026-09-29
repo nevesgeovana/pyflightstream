@@ -132,6 +132,8 @@ def test_material_factor_changes_only_its_physical_dependents(
     base, effective = result.base.blade.model_dump(), result.effective.blade.model_dump()
     assert base.pop("provenance")["material"][field] == result.material_base[field]
     assert effective.pop("provenance")["material"][field] == result.material_effective[field]
+    # The sections are geometry: no material factor reaches them.
+    assert effective.pop("section_contours_m") == base.pop("section_contours_m")
     for key, original in base.items():
         assert effective[key] == pytest.approx(
             [value * 1.1 for value in original] if key in affected else original

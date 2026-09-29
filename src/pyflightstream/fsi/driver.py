@@ -606,10 +606,15 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         unconverged = [index for index, result in enumerate(solved) if not result.converged]
         if unconverged:
             residuals = tuple(result.twist_residual_rad for result in solved)
-            named = ", ".join(f"blade {i} at {residuals[i]:.3e} rad" for i in unconverged)
+            named = ", ".join(
+                f"blade {i} at {residuals[i]:.3e} rad and {solved[i].flap_residual_m:.3e} m "
+                f"of flap (flap tolerance {solved[i].flap_tolerance_m:.1e} m)"
+                for i in unconverged
+            )
             raise TwistIterationError(
-                f"the inner twist iteration did not converge after {inner_solves} solves "
-                f"({named}, tolerance {twist_tolerance:.1e} rad), so the deflections "
+                f"the inner twist and flap iteration did not converge after {inner_solves} "
+                f"solves ({named}, twist tolerance {twist_tolerance:.1e} rad), so the "
+                "deflections "
                 "describe a blade shape the structural model never settled on. They are "
                 "NOT written: the solver would fly them and the run would continue as "
                 "though they were a solution. The usual cause is a propeller moment "

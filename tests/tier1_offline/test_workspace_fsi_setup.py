@@ -212,7 +212,8 @@ def test_matrix_binding_reaches_effective_case_and_registered_vocabulary(tmp_pat
     assert "FSI" in ROW_KEY_MEANINGS
     script = Script("26.120")
     # Selection is now active coupling; a steady row must not silently ignore it.
-    with pytest.raises(ValueError, match="unsteady_rotor"):
+    # Until the fixed-wing route (FSI-G) wires it, the refusal says so.
+    with pytest.raises(ValueError, match="FSI-G"):
         workflow_registry()["steady"](result.campaign.sims[0], script)
     assert "START_SOLVER" not in script.render()
 
@@ -310,10 +311,16 @@ def test_geometric_pitch_calibration_reaches_structural_nodes_once(tmp_path, tem
     effective_layout.pop("blade_angle_deg")
     assert effective_layout == base_layout
     positions = node_positions(effective_map)
+    # The supplied blade states offsets: the leading-edge node sits 0.25 chord
+    # ahead of the elastic axis. The calculated blade carries its 40 mm section,
+    # so the nodes sit on its camber line (FSI-1): the elastic axis at the
+    # centroid, half chord, and the leading-edge node at 10 % chord, 0.4 chord
+    # ahead of it.
+    lead = 0.01 if template is SUPPLIED else 0.016
     for station, angle in enumerate(effective_angles):
         radians = math.radians(angle)
         radius = result.base.blade.station_radii_m[station]
         assert positions[3 * station] == pytest.approx([0.0, 0.0, radius], abs=1e-14)
         assert positions[3 * station + 1] == pytest.approx(
-            [-0.01 * math.sin(radians), -0.01 * math.cos(radians), radius], abs=1e-14
+            [-lead * math.sin(radians), -lead * math.cos(radians), radius], abs=1e-14
         )

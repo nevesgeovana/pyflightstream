@@ -2,11 +2,13 @@
 
 Pipeline role: WP4 of DLV-007. Computes the loads that rotation adds
 on top of the aerodynamic ones at every coupling call: the axial
-tension that stiffens bending (through P-Delta, FSI-R05) and the
+tension that stiffens bending (through P-Delta, FSI-R05), the
 propeller moment that twists the blade toward flat pitch (evaluated at
 the current total pitch and re-solved in a small inner iteration,
-FSI-R06 and FSI-R11). The frequency sweep of the Campbell diagram
-(Gate 1) also lives here.
+FSI-R06 and FSI-R11), and, since 0.30.0, the in-plane centrifugal
+softening of the flap (:func:`in_plane_softening_coefficients`,
+re-solved in the same iteration). The frequency sweep of the Campbell
+diagram (Gate 1) also lives here.
 
 Evidence status (DLV-007 Section 2): the primary sources of the model
 (Bielawa; Houbolt and Brooks, NACA Report 1346) have not been
@@ -38,6 +40,11 @@ logger = logging.getLogger(__name__)
 # propeller moment stiffening to GJ).
 _INNER_TOLERANCE_RAD = 1.0e-6
 _INNER_MAX_SOLVES = 8
+# The flap half of the same iteration (the in-plane softening depends on
+# the flap it softens): the largest flap change of an iteration against
+# the largest flap, relative, with a floor for a blade that barely moves.
+_INNER_FLAP_RELATIVE_TOLERANCE = 1.0e-7
+_INNER_FLAP_FLOOR_M = 1.0e-12
 
 
 def axial_load_distribution(cfg: FsiConfig) -> list[float]:
@@ -150,6 +157,47 @@ def propeller_moment_distribution(
     ]
 
 
+def in_plane_softening_coefficients(cfg: FsiConfig) -> list[float]:
+    """In-plane centrifugal softening of the flap at every station [N/m per m].
+
+    k(r) = mu(r) Omega^2 sin^2(beta(r)), so the distributed flap load
+    gains k(r) w(r), in the direction of the flap w. The flap degree of
+    freedom lies along the section normal, which the node embedding
+    turns by the blade angle beta (the geometric pitch,
+    :func:`pyflightstream.fsi.nodes.station_triads`): a flap w moves
+    the section by w sin(beta) in the rotor plane, where the
+    centrifugal field pulls it outward by mu Omega^2 w sin(beta), and
+    that force has the component mu Omega^2 sin^2(beta) w back along
+    the normal. It lowers the flap stiffness the tension raises; at zero
+    pitch the flap is along the shaft and the term vanishes.
+
+    Source: the centrifugal field of a rotating frame, Omega^2 times
+    the distance from the shaft, projected on the flap direction of the
+    embedding; the in-plane term m Omega^2 v of the chordwise bending
+    equation after Houbolt and Brooks, NACA Report 1346 (primary source
+    not independently verified). Checked against an independent hand
+    integration of a solid metal propeller blade (+2.7 % of tip flap),
+    which the tier-1 oracle test reproduces on a synthetic blade.
+
+    Parameters
+    ----------
+    cfg : FsiConfig
+        Configuration with mu(r), the geometric pitch and Omega.
+
+    Returns
+    -------
+    list of float
+        k(r_i) at every station [N/m per m of flap].
+    """
+    omega_sq = cfg.omega_rad_per_s**2
+    return [
+        mu * omega_sq * math.sin(math.radians(beta)) ** 2
+        for mu, beta in zip(
+            cfg.blade.mass_per_length_kg_per_m, cfg.blade.geometric_pitch_deg, strict=True
+        )
+    ]
+
+
 def propeller_moment_twist_stiffness(
     cfg: FsiConfig, elastic_twist_rad: Sequence[float]
 ) -> list[float]:
@@ -209,22 +257,33 @@ class RotatingSolution:
         state its own verdict without importing a private name, and so
         the number reaches the FSI log and the state where a later
         reader needs it (PYFS-013).
+    flap_residual_m : float
+        Largest flap change of the last inner iteration [m]; the
+        in-plane softening depends on the flap, so the flap iterates
+        with the twist. Zero where the term vanishes.
+    flap_tolerance_m : float
+        Threshold the flap residual was judged against [m].
     converged : bool
-        Whether the inner twist iteration reached the tolerance. False
+        Whether the inner iteration reached both tolerances. False
         means the returned ``solution`` is the last iterate, not a
-        solution: the twist distribution was still moving when the
-        solve budget ran out.
+        solution: the twist or the flap distribution was still moving
+        when the solve budget ran out.
     """
 
     solution: beam.StaticBeamSolution
     inner_solves: int
     twist_residual_rad: float
     tolerance_rad: float = _INNER_TOLERANCE_RAD
+    flap_residual_m: float = 0.0
+    flap_tolerance_m: float = _INNER_FLAP_FLOOR_M
 
     @property
     def converged(self) -> bool:
-        """Whether the inner twist iteration reached its tolerance."""
-        return self.twist_residual_rad < self.tolerance_rad
+        """Whether the inner iteration reached its twist and flap tolerances."""
+        return (
+            self.twist_residual_rad < self.tolerance_rad
+            and self.flap_residual_m <= self.flap_tolerance_m
+        )
 
 
 def solve_rotating_static(
@@ -235,11 +294,13 @@ def solve_rotating_static(
     """Solve the rotating blade statically with the inner twist iteration.
 
     Each pass rebuilds the beam, applies the aerodynamic loads plus
-    the centrifugal tension and the propeller moment evaluated at the
-    current twist, and solves with P-Delta. The loop repeats until the
-    twist distribution stabilizes, converging the structural
-    nonlinearity implicitly at millisecond cost, decoupled from the
-    aerodynamic loop (FSI-R11; typically 2 to 3 solves).
+    the centrifugal tension, the propeller moment evaluated at the
+    current twist and the in-plane softening evaluated at the current
+    flap (:func:`in_plane_softening_coefficients`), and solves with
+    P-Delta. The loop repeats until the twist and the flap
+    distributions stabilize, converging the structural nonlinearity
+    implicitly at millisecond cost, decoupled from the aerodynamic loop
+    (FSI-R11; typically 2 to 5 solves).
 
     Parameters
     ----------
@@ -259,35 +320,55 @@ def solve_rotating_static(
     """
     n = len(cfg.blade.station_radii_m)
     aero_torsion = list(torsion_moment_n_m_per_m or [0.0] * n)
+    aero_flap = list(flap_load_n_per_m) if flap_load_n_per_m is not None else None
     axial = axial_load_distribution(cfg)
+    softening = in_plane_softening_coefficients(cfg)
+    softens = any(k != 0.0 for k in softening)
     twist = [0.0] * n
+    flap = [0.0] * n
     residual = math.inf
+    flap_residual = 0.0
+    flap_tolerance = _INNER_FLAP_FLOOR_M
     solve_count = 0
     while solve_count < _INNER_MAX_SOLVES:
         solve_count += 1
         model = beam.build_beam_model(cfg)
         propeller = propeller_moment_distribution(cfg, twist)
         torsion = [aero + prop for aero, prop in zip(aero_torsion, propeller, strict=True)]
+        flap_load = aero_flap
+        if softens:
+            base = aero_flap if aero_flap is not None else [0.0] * n
+            flap_load = [q + k * w for q, k, w in zip(base, softening, flap, strict=True)]
         beam.apply_station_loads(
             model,
             cfg,
-            flap_load_n_per_m=flap_load_n_per_m,
+            flap_load_n_per_m=flap_load,
             torsion_moment_n_m_per_m=torsion,
             axial_load_n_per_m=axial if cfg.omega_rad_per_s > 0.0 else None,
         )
         beam.solve_static(model, p_delta=cfg.omega_rad_per_s > 0.0)
         solution = beam.extract_solution(model, cfg)
         new_twist = list(solution.elastic_twist_rad)
+        new_flap = list(solution.flap_deflection_m)
         residual = max(abs(a - b) for a, b in zip(new_twist, twist, strict=True))
+        if softens:
+            flap_residual = max(abs(a - b) for a, b in zip(new_flap, flap, strict=True))
+            flap_tolerance = max(
+                _INNER_FLAP_FLOOR_M,
+                _INNER_FLAP_RELATIVE_TOLERANCE * max(abs(w) for w in new_flap),
+            )
         twist = new_twist
-        if residual < _INNER_TOLERANCE_RAD:
+        flap = new_flap
+        if residual < _INNER_TOLERANCE_RAD and flap_residual <= flap_tolerance:
             break
-    if residual >= _INNER_TOLERANCE_RAD:
+    if residual >= _INNER_TOLERANCE_RAD or flap_residual > flap_tolerance:
         logger.warning(
-            "inner twist iteration hit %d solves with residual %.3e rad; the "
-            "propeller moment is unusually strong for this blade stiffness",
+            "inner iteration hit %d solves with twist residual %.3e rad and flap "
+            "residual %.3e m; the propeller moment or the in-plane softening is "
+            "unusually strong for this blade stiffness",
             _INNER_MAX_SOLVES,
             residual,
+            flap_residual,
         )
     logger.debug("rotating static solve: %d inner solves", solve_count)
     return RotatingSolution(
@@ -295,6 +376,8 @@ def solve_rotating_static(
         inner_solves=solve_count,
         twist_residual_rad=residual,
         tolerance_rad=_INNER_TOLERANCE_RAD,
+        flap_residual_m=flap_residual,
+        flap_tolerance_m=flap_tolerance,
     )
 
 
