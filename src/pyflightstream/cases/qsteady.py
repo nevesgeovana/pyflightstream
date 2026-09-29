@@ -586,24 +586,45 @@ AZIMUTH_SAMPLES = 360
 #: The share of the variance of the blade's angle-of-attack perturbation that
 #: ``n95`` harmonics hold.
 HARMONIC_VARIANCE_SHARE = 0.95
-#: How many of the field's rows are weighted into one sample.
-_NEAREST_ROWS = 4
+#: The smallest harmonic of the blade's angle-of-attack perturbation that is
+#: counted, in degrees of amplitude. A harmonic below it is not counted, and a
+#: perturbation with none above it is a constant (``n95`` 0). Measured on
+#: 2026-09-29 on fields the blade meets as constant (radial profiles of 5 and
+#: 20 % over the span on rings every 0.05 m with 72 per ring, on a 0.05 m
+#: Cartesian grid and on 30 rings, and a uniform field with a relative noise of
+#: 1e-6, at 1200 rev/min and 20 m/s), the sampling leaves at most 8.5e-5 deg, so
+#: 0.001 deg sits twelve times above it; the smallest content that matters sits
+#: well above it: a 1 deg crossflow reaches the blade as 0.03 deg at the tip of
+#: that rotor, a 1 % six-lobed inflow as 0.10 deg, and 0.001 deg moves a
+#: section's lift coefficient by 2 pi 1.7e-5, about 1e-4.
+HARMONIC_AMPLITUDE_FLOOR_DEG = 0.001
+#: How many of the field's rows one sample is fitted to.
+_NEAREST_ROWS = 12
 
 
-def harmonic_order(signal: Sequence[float], *, share: float = HARMONIC_VARIANCE_SHARE) -> int:
+def harmonic_order(
+    signal: Sequence[float], *, share: float = HARMONIC_VARIANCE_SHARE, floor: float = 0.0
+) -> int:
     """Return ``n95``: the smallest n whose harmonics 1 to n hold ``share`` of the variance.
 
     ``signal`` is one revolution sampled uniformly in azimuth; its mean is
     removed first. The variance of each harmonic is read off the discrete
     Fourier transform (Parseval: ``2 |X_n|^2`` for every bin below Nyquist,
-    ``|X_n|^2`` at it, over ``N^2``). A signal with no variation holds no
-    harmonic and gives 0.
+    ``|X_n|^2`` at it, over ``N^2``). A harmonic whose amplitude (``2 |X_n| /
+    N``, ``|X_n| / N`` at Nyquist, in the signal's units) is below ``floor`` is
+    not counted, and the share is of the harmonics that are. A signal with no
+    variation, or none above ``floor``, holds no harmonic and gives 0.
 
     Examples
     --------
     >>> import math
-    >>> harmonic_order([math.cos(3 * 2 * math.pi * i / 360) for i in range(360)])
+    >>> psi = [2 * math.pi * i / 360 for i in range(360)]
+    >>> harmonic_order([math.cos(3 * p) for p in psi])
     3
+    >>> harmonic_order([math.cos(3 * p) + 1e-4 * math.cos(40 * p) for p in psi], floor=1e-3)
+    3
+    >>> harmonic_order([1e-4 * math.cos(40 * p) for p in psi], floor=1e-3)
+    0
     """
     import numpy as np
 
@@ -612,9 +633,12 @@ def harmonic_order(signal: Sequence[float], *, share: float = HARMONIC_VARIANCE_
     if count < 2:
         return 0
     spectrum = np.fft.rfft(values - values.mean())
+    amplitude = 2.0 * np.abs(spectrum[1:]) / count
     energy = 2.0 * np.abs(spectrum[1:]) ** 2
     if count % 2 == 0:
         energy[-1] /= 2.0
+        amplitude[-1] /= 2.0
+    energy[amplitude < floor] = 0.0
     total = float(energy.sum())
     if total <= 1e-30 * max(1.0, float(np.abs(values).max()) ** 2 * count**2):
         return 0
@@ -659,6 +683,38 @@ def _field_sampler(
     return plane, data[:, 3:6], (n, e1, e2)
 
 
+def _sample_velocities(plane: Any, velocities: Any, points: Any) -> Any:
+    """Return the field's velocity at each of ``points``: a quadratic fitted to its nearest rows.
+
+    At each point a quadratic in the disc-plane offsets is fitted, by least
+    squares weighted by the inverse distance, to the point's
+    :data:`_NEAREST_ROWS` nearest rows, and its value at the point is taken,
+    held within the least and greatest of those rows so it never reaches past
+    the field. A quadratic reproduces a field that varies smoothly between the
+    rows, a radial profile on a Cartesian grid or on rings, to third order in
+    the spacing, where a weighted mean of the rows leaves a ripple at the
+    rows' own spacing that the spectrum would count (on the fields
+    :data:`HARMONIC_AMPLITUDE_FLOOR_DEG` names, up to 1.4e-2 deg of angle of
+    attack against 8.5e-5 deg).
+    """
+    import numpy as np
+
+    nearest = min(_NEAREST_ROWS, len(plane))
+    distance = np.hypot(
+        points[:, None, 0] - plane[None, :, 0], points[:, None, 1] - plane[None, :, 1]
+    )
+    index = np.argpartition(distance, nearest - 1, axis=1)[:, :nearest]
+    near = np.take_along_axis(distance, index, axis=1)
+    offset = plane[index] - points[:, None, :]
+    scale = np.maximum(near.max(axis=1), 1e-12)[:, None]
+    x, y = offset[..., 0] / scale, offset[..., 1] / scale
+    design = np.stack((np.ones_like(x), x, y, x * x, x * y, y * y), axis=-1)
+    weight = (1.0 / np.maximum(near, 1e-12 * scale))[..., None]
+    values = velocities[index]
+    solution = np.linalg.pinv(design * weight) @ (values * weight)
+    return np.clip(solution[:, 0, :], values.min(axis=1), values.max(axis=1))
+
+
 def blade_inflow_harmonics(
     rows: Sequence[Sequence[float]],
     *,
@@ -671,16 +727,18 @@ def blade_inflow_harmonics(
     """Return ``n95`` of the angle-of-attack perturbation one blade meets at each radius.
 
     At each radius the blade is carried once round the disc: at every one of
-    ``samples`` azimuths the field's TOTAL velocity ``v`` there is read (by
-    inverse-distance weighting of its four nearest rows in the disc plane, an
-    estimate that smooths a feature finer than the field's own spacing), the
-    velocity relative to the turning blade is composed,
-    ``w = v - Omega axis x (p - hub)``, and its inflow angle is taken,
-    ``phi = atan2(w_axial, w_tangential)`` with the tangential component
-    counted against the blade's motion. The perturbation is ``phi`` less its
-    mean over the revolution (the angle of attack moves by minus that), and
-    :func:`harmonic_order` counts its harmonics. The count is in the BLADE's
-    frame (the section's comment above says what it is not).
+    ``samples`` azimuths the field's TOTAL velocity ``v`` there is read (a
+    quadratic fitted to its twelve nearest rows in the disc plane,
+    :func:`_sample_velocities`, an estimate that smooths a feature finer than
+    the field's own spacing), the velocity relative to the turning blade is
+    composed, ``w = v - Omega axis x (p - hub)``, and its inflow angle is
+    taken, ``phi = atan2(w_axial, w_tangential)`` with the tangential
+    component counted against the blade's motion. The perturbation is ``phi``
+    less its mean over the revolution (the angle of attack moves by minus
+    that), and :func:`harmonic_order` counts its harmonics of at least
+    :data:`HARMONIC_AMPLITUDE_FLOOR_DEG`, so a field the blade meets as a
+    constant gives 0. The count is in the BLADE's frame (the section's
+    comment above says what it is not).
 
     Parameters
     ----------
@@ -705,25 +763,18 @@ def blade_inflow_harmonics(
     plane, velocities, (n, e1, e2) = _field_sampler(rows, hub=hub, axis=axis)
     psi = 2.0 * np.pi * np.arange(samples) / samples
     sense = 1.0 if omega_rad_s >= 0.0 else -1.0
-    nearest = min(_NEAREST_ROWS, len(plane))
+    floor = math.radians(HARMONIC_AMPLITUDE_FLOOR_DEG)
     orders = []
     for radius in radii_m:
         points = np.column_stack((radius * np.cos(psi), radius * np.sin(psi)))
-        distance = np.hypot(
-            points[:, None, 0] - plane[None, :, 0], points[:, None, 1] - plane[None, :, 1]
-        )
-        index = np.argsort(distance, axis=1)[:, :nearest]
-        near = np.take_along_axis(distance, index, axis=1)
-        weights = 1.0 / np.maximum(near, 1e-12) ** 2
-        weights /= weights.sum(axis=1, keepdims=True)
-        v = np.einsum("sk,skc->sc", weights, velocities[index])
+        v = _sample_velocities(plane, velocities, points)
         e_r = np.outer(np.cos(psi), e1) + np.outer(np.sin(psi), e2)
         e_t = np.cross(n, e_r)
         w = v - omega_rad_s * radius * e_t
         axial = w @ n
         against = -sense * np.einsum("sc,sc->s", w, e_t)
         phi = np.arctan2(axial, against)
-        orders.append(harmonic_order(phi.tolist()))
+        orders.append(harmonic_order(phi.tolist(), floor=floor))
     return tuple(orders)
 
 
@@ -773,8 +824,9 @@ class InflowHarmonics:
             "suggested_passage_positions": suggested,
             "passage_positions": declared_positions,
             "sampling": (
-                f"{AZIMUTH_SAMPLES} azimuths per revolution, the field read by inverse-distance "
-                f"weighting of its {_NEAREST_ROWS} nearest rows"
+                f"{AZIMUTH_SAMPLES} azimuths per revolution, the field read by a quadratic "
+                f"fitted to its {_NEAREST_ROWS} nearest rows; harmonics below "
+                f"{HARMONIC_AMPLITUDE_FLOOR_DEG} deg of angle of attack not counted"
             ),
         }
         effective = self.k_eff

@@ -47,7 +47,11 @@ FlightStream versions.
   nP counts how many times one blade meets the perturbation per turn, not
   the blade-passing N P of a fixed surface nor the rotor total, where only
   multiples of N P survive (`cases.qsteady.blade_inflow_harmonics`,
-  `cases.workflows.qsteady_inflow_fft`).
+  `cases.workflows.qsteady_inflow_fft`). The field is sampled by a quadratic
+  fitted to its twelve nearest rows, and a harmonic below 0.001 deg of angle
+  of attack is not counted
+  (`cases.qsteady.HARMONIC_AMPLITUDE_FLOOR_DEG`), so a radial profile or a
+  uniform field gives `n95` 0 and one clocking.
 - After the post, each quasi-steady wheel point's
   `<point>_qsteady_validity.json` in its datapoint folder carries its
   validity, the thrust and torque shares from the stations above k = 0.1

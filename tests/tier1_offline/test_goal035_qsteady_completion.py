@@ -379,6 +379,131 @@ def test_one_blade_meets_a_six_lobed_inflow_six_times_a_revolution(tmp_path):
     assert arithmetic.blade_inflow_harmonics(cross, **common) == (1, 1, 1)
 
 
+# The fields of the 0.30.0 verification: a wheel of three blades at 1200 rev/min
+# in 20 m/s, read at 0.3, 0.5, 0.7 and 0.9 m.
+_V = 20.0
+_STATIONS = {
+    "hub": (0, 0, 0),
+    "axis": (1, 0, 0),
+    "omega_rad_s": OMEGA,
+    "radii_m": (0.3, 0.5, 0.7, 0.9),
+}
+
+
+def _verifier_rings(velocity) -> list[list[float]]:
+    """Rings about the shaft every 0.05 m to 1.2 m, 72 rows a ring; ``velocity(r, theta)``."""
+    rows = []
+    for i in range(24):
+        r = 0.05 * (i + 1)
+        for j in range(72):
+            theta = 2.0 * math.pi * j / 72
+            rows.append([0.0, r * math.cos(theta), r * math.sin(theta), *velocity(r, theta)])
+    return rows
+
+
+def _verifier_grid(velocity) -> list[list[float]]:
+    """A Cartesian grid every 0.05 m over +-1.2 m in the disc plane; ``velocity(r, theta)``."""
+    rows = []
+    for y in np.arange(-1.2, 1.2 + 1e-9, 0.05):
+        for z in np.arange(-1.2, 1.2 + 1e-9, 0.05):
+            r, theta = math.hypot(y, z), math.atan2(z, y)
+            rows.append([0.0, float(y), float(z), *velocity(r, theta)])
+    return rows
+
+
+def test_a_field_the_blade_meets_as_a_constant_holds_no_harmonic():
+    """A radial profile, on rings or on a grid, and 1e-6 noise are constant on the blade: n95 0.
+
+    The blade at radius r meets the same speed at every azimuth, so its angle
+    of attack does not move and the rotor needs one clocking. Before the
+    amplitude floor, the sampling's ripple at the rows' spacing was counted:
+    n95 144 on the rings (PASSAGE_POSITIONS 49 for three blades), 116 to 160
+    on the grid, 13 to 45 for the noise.
+    """
+    # P0300-QS-VALIDITY-PLAN
+    assert arithmetic.HARMONIC_AMPLITUDE_FLOOR_DEG == 0.001
+    radial = _verifier_rings(lambda r, t: (_V * (1.0 + 0.05 * r), 0.0, 0.0))
+    orders = arithmetic.blade_inflow_harmonics(radial, **_STATIONS)
+    assert orders == (0, 0, 0, 0)
+    assert arithmetic.suggested_passage_positions(max(orders), 3) == 1
+    steep = _verifier_grid(lambda r, t: (_V * (1.0 + 0.2 * r), 0.0, 0.0))
+    assert arithmetic.blade_inflow_harmonics(steep, **_STATIONS) == (0, 0, 0, 0)
+    grid = _verifier_grid(lambda r, t: (_V * (1.0 + 0.05 * r), 0.0, 0.0))
+    assert arithmetic.blade_inflow_harmonics(grid, **_STATIONS) == (0, 0, 0, 0)
+
+    def noisy(r: float, t: float) -> tuple[float, float, float]:
+        y, z = r * math.cos(t), r * math.sin(t)
+        return (_V * (1.0 + 1e-6 * math.sin(37.0 * y + 11.0 * z)), 0.0, 0.0)
+
+    assert arithmetic.blade_inflow_harmonics(_verifier_grid(noisy), **_STATIONS) == (0, 0, 0, 0)
+    assert arithmetic.blade_inflow_harmonics(_verifier_rings(noisy), **_STATIONS) == (0, 0, 0, 0)
+    record = arithmetic.InflowHarmonics(
+        radii_m=(0.3,), n95=(0,), k_1p=None, strips_m=(0.1,), blades=3
+    ).record(declared_positions=None)
+    assert "harmonics below 0.001 deg of angle of attack not counted" in str(record["sampling"])
+
+
+def test_the_floor_still_finds_a_crossflow_and_six_lobes_on_the_same_fields():
+    """The controls: a crossflow of 1 deg and of 0.1 deg is 1P, six lobes of 1 % are 6P.
+
+    Over the same radial profile and the same rows, so the floor removes the
+    ripple and not the content. A crossflow c moves the inflow angle by
+    V c / (V^2 + (Omega r)^2) in 1P: at 0.9 m, 20 x 0.35 / 13190 rad, 0.03 deg
+    for 1 deg, and 0.003 deg for 0.1 deg, both above the floor of 0.001 deg.
+    """
+    # P0300-QS-VALIDITY-PLAN
+    for layout in (_verifier_rings, _verifier_grid):
+        for degrees in (1.0, 0.1):
+            lateral = _V * math.sin(math.radians(degrees))
+            cross = layout(lambda r, t, c=lateral: (_V * (1.0 + 0.05 * r), 0.0, c))
+            assert arithmetic.blade_inflow_harmonics(cross, **_STATIONS) == (1, 1, 1, 1)
+        lobes = layout(lambda r, t: (_V * (1.0 + 0.05 * r) * (1.0 + 0.01 * math.cos(6 * t)), 0, 0))
+        assert arithmetic.blade_inflow_harmonics(lobes, **_STATIONS) == (6, 6, 6, 6)
+    assert arithmetic.suggested_passage_positions(6, 3) == 3
+
+
+def test_the_floor_drops_a_harmonic_below_it_and_keeps_one_above_it():
+    """harmonic_order(floor=...): 0.9e-3 of 40P is dropped beside 3P, 1.1e-3 is counted.
+
+    cos 3 psi + 0.5 cos 40 psi holds 1 / 1.25 = 80 % in 3P, so 95 % needs 40;
+    with the 40P at half the floor it is not counted and the answer is 3; a
+    signal holding only a harmonic below the floor is a constant, 0.
+    """
+    # P0300-QS-VALIDITY-PLAN
+    psi = [2.0 * math.pi * i / 360 for i in range(360)]
+    floor = 1e-3
+    assert (
+        arithmetic.harmonic_order(
+            [math.cos(3 * p) + 0.5 * math.cos(40 * p) for p in psi], floor=floor
+        )
+        == 40
+    )
+    small = [1e-3 * math.cos(3 * p) + 0.5e-3 * math.cos(40 * p) for p in psi]
+    assert arithmetic.harmonic_order(small, floor=floor) == 3
+    assert arithmetic.harmonic_order(small) == 40
+    assert arithmetic.harmonic_order([0.9e-3 * math.cos(40 * p) for p in psi], floor=floor) == 0
+    assert arithmetic.harmonic_order([1.1e-3 * math.cos(40 * p) for p in psi], floor=floor) == 40
+
+
+def test_the_sampling_fits_a_quadratic_and_never_reaches_past_the_field():
+    """Inside a grid of v = x^2 + y^2 the fit is exact; far outside it is held at the rows' largest.
+
+    At (0.05, 0.03) the field is 0.0025 + 0.0009 = 0.0034, which a quadratic
+    reproduces and a weighted mean or a plane does not; at (1, 0), where the
+    quadratic would read 1.0, the value is held within the nearest rows.
+    """
+    # P0300-QS-VALIDITY-PLAN
+    axis = np.linspace(-0.1, 0.1, 9)
+    plane = np.array([(x, y) for x in axis for y in axis])
+    velocities = np.column_stack(
+        (plane[:, 0] ** 2 + plane[:, 1] ** 2, np.zeros(len(plane)), np.zeros(len(plane)))
+    )
+    inside = arithmetic._sample_velocities(plane, velocities, np.array([[0.05, 0.03]]))
+    assert inside[0, 0] == pytest.approx(0.0034, abs=1e-12)
+    outside = arithmetic._sample_velocities(plane, velocities, np.array([[1.0, 0.0]]))
+    assert outside[0, 0] <= float(velocities[:, 0].max()) + 1e-12
+
+
 def test_the_plan_reports_k_eff_and_warns_when_the_row_states_too_few_clockings(tmp_path):
     """Six-lobed inflow on a three-blade wheel of chord 0.2 m, 1200 rev/min, 30 m/s.
 
@@ -645,5 +770,6 @@ def test_the_docs_state_the_clockings_guidance_the_revolutions_warning_and_the_b
     assert "NOT the blade-passing excitation `N P` a fixed surface" in flat
     assert "NOT what a balance carrying the whole rotor measures" in flat
     assert "PASSAGE_POSITIONS >= n_max / N + 1" in flat
+    assert "A harmonic below 0.001 deg of angle of attack is not counted" in flat
     fsi = " ".join((root / "docs" / "fsi-workspace.md").read_text(encoding="utf-8").split())
     assert "## Quasi-steady sector FSI" in fsi and "centrifugal tension" in fsi

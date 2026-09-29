@@ -3299,10 +3299,16 @@ and average tables and the point's super-file row carry the same values
 meet faster ones. With `--inflow-fft` the plan reads, for every wheel point
 in a custom inflow, the angle-of-attack perturbation ONE BLADE meets as it
 turns once through the field, at each station of blade one (the field
-sampled at 360 azimuths by inverse-distance weighting of its four nearest
-rows, the rotation composed, `w = v - Omega x (p - hub)`, the inflow angle
+sampled at 360 azimuths by a quadratic fitted to its twelve nearest rows,
+the rotation composed, `w = v - Omega x (p - hub)`, the inflow angle
 `atan2(w_axial, w_tangential)`), its Fourier spectrum, and `n95`, the
-smallest harmonic order whose harmonics hold 95 % of its variance. Then, per
+smallest harmonic order whose harmonics hold 95 % of its variance. A
+harmonic below 0.001 deg of angle of attack is not counted, and a station
+with none above it meets a constant inflow: `n95` 0, one clocking. The
+sampling leaves at most about 1e-4 deg on a field the blade meets as a
+constant (a radial profile on rings or on a grid), and a 1 deg crossflow
+reaches a blade tip as a few hundredths of a degree, so the floor sits
+between the two. Then, per
 point: `k_eff = n95 k_1P` per station, its minimum, maximum, span-weighted
 mean and the per cent of the span with `k_eff > 0.1`; `n_max`, the highest
 `n95`; and the suggested `PASSAGE_POSITIONS >= n_max / N + 1`, rounded up,
