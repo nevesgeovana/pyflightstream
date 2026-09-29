@@ -1,0 +1,145 @@
+{
+ "report": "RPT-092",
+ "title": "Fixed-wing FSI with the wing's own weight, confirmed on 26.124",
+ "build": "26.124 build 8172026",
+ "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+ "package": {
+  "version": "0.30.0.dev2",
+  "tree": "feat/0-30-storage-sync at 4f12aede",
+  "recorded_commit": "c89c603d (report branch on 4f12aede, identical src/)",
+  "dirty": false
+ },
+ "pproc_exports": "defaults (no export kind turned off)",
+ "found_and_fixed_before_release": {
+  "69cffa41": "coupled row with default exports updates the sections once",
+  "c46bee0e": "clocked wheel log read solve by solve, one verdict per clocking",
+  "24edb353": "wheel cut at clocking 0 over the blade radial span",
+  "4113de02": "qsteady point gets its rotor table at the row speed"
+ },
+ "first_confirmation": "on 0331fe91, runs sim_9001/9002, 9101/9102, 9201/9202",
+ "route": "pyfs-matrix plan, pyfs-matrix run (LocalExecutor, -hidden -script), the post run performs",
+ "campaign": "pfs0300-l1-ws",
+ "solver_rules": {
+  "one_instance_at_a_time": true,
+  "hidden": true,
+  "farfield_layers": 5
+ },
+ "case": {
+  "workflow": "steady",
+  "kind": "fixed-wing FSI (FSI-G)",
+  "geometry": "closed right half of the synthetic NACA 0012 wing (public shape law), chord 1 m, semi-span 4 m, OBJ, 1052 vertices",
+  "mach": 0.147,
+  "reynolds": 3420000.0,
+  "alpha_deg": 5.0,
+  "velocity_m_s": 50.023,
+  "density_kg_m3": 1.2231224147950637,
+  "fsi_input": {
+   "mode": "calculated",
+   "material": "ti-6al-4v-grade5-annealed",
+   "stations_m": [
+    0,
+    0.5,
+    1,
+    1.5,
+    2,
+    2.5,
+    3,
+    3.5,
+    4
+   ],
+   "self_weight": true,
+   "gravity_m_s2": [
+    0,
+    0,
+    -9.80665
+   ],
+   "span_axis": "+Y",
+   "origin_m": [
+    0.25,
+    0,
+    0
+   ],
+   "mass_per_length_kg_m": 361.00585985176036,
+   "EI_N_m2": 7661280.775665698,
+   "GJ_N_m2": 11587290.494153326
+  }
+ },
+ "runs": {
+  "rigid": {
+   "run_id": "pfs0300-l1-ws/sim_9211/M147RE342AL+050",
+   "status": "CONVERGED",
+   "wall_time_s": 2.6,
+   "iterations": 62
+  },
+  "fsi": {
+   "run_id": "pfs0300-l1-ws/sim_9212/M147RE342AL+050",
+   "status": "CONVERGED",
+   "wall_time_s": 47.0,
+   "iterations": 461
+  },
+  "matrix_run_wall_time_s": 50
+ },
+ "measured": {
+  "vertices_mapped": 1052,
+  "aeroelastic_header": "1,1052,1,50,4",
+  "aeroelastic_surface_id": 2,
+  "fsi_iterations": 20,
+  "fsi_first_residual": 0.88888889,
+  "fsi_final_residual": 3.5770635e-06,
+  "relaxation": 0.4,
+  "stopped_after_completion_line": true,
+  "tip_displacement_z_m": [
+   -0.01270531865588891,
+   -0.01272397664907137,
+   -0.01267708562226289
+  ],
+  "weight_only_tip_m": -0.014787117586964339,
+  "weight_only_closed_form_m": -0.014787117096105175,
+  "last_call_aero_normal_force_N": 1978.83,
+  "exported_surface_max_dz_m": -0.011727042325264066,
+  "CL_rigid": 0.3383257,
+  "CL_fsi": 0.3393173,
+  "CL_change_pct": 0.29,
+  "CDi_rigid": 0.0126215,
+  "CDi_fsi": 0.0126148,
+  "CDo_rigid": 0.0093534,
+  "CDo_fsi": 0.0,
+  "CMy_rigid": 0.0027989,
+  "CMy_fsi": 0.0023671
+ },
+ "checks": {
+  "xz_moment_sign": {
+   "integrated_section_moment_rigid_Nm": 7.485,
+   "solver_My_rigid_Nm": 17.133,
+   "integrated_section_moment_fsi_Nm": 4.906,
+   "solver_My_fsi_Nm": 14.49,
+   "fsi_source": "P9212-M147RE342AL+050_sloads.txt (equal to FS_SurfaceSection_Loads.txt)",
+   "integrated_Fz_rigid_N": 2038.44,
+   "Cz_qS_rigid_N": 2070.679,
+   "verdict": "same sign (positive) at the level of the integral; magnitude not reconciled (44 %); not corroborated in magnitude"
+  },
+  "coupling_block_after_initialize_solver": {
+   "script": "sims/sim_9212/scripts/P9212-M147RE342AL+050.txt",
+   "initialize_solver_lines": [
+    54,
+    62
+   ],
+   "coupling_block_lines": [
+    78,
+    101
+   ],
+   "execute_is_last_line": true,
+   "mapping_formed": 1052
+  }
+ },
+ "post_skipped": {},
+ "observations": [
+  "the coupled export carries CDo = 0 (rigid 0.0093534)",
+  "fsi_convergence_log.csv tip_flap_m is unsigned (src/pyflightstream/fsi/driver.py:653)"
+ ],
+ "cites": [
+  "RPT-025",
+  "RPT-090",
+  "RPT-093"
+ ]
+}

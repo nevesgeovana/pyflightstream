@@ -1,0 +1,171 @@
+{
+ "report": "RPT-091",
+ "title": "The qsteady_rotor wheel at an AoA, confirmed on 26.124",
+ "build": "26.124 build 8172026",
+ "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+ "package": {
+  "version": "0.30.0.dev2",
+  "tree": "feat/0-30-storage-sync at 4f12aede",
+  "recorded_commit": "c89c603d (report branch on 4f12aede, identical src/)",
+  "dirty": false
+ },
+ "pproc_exports": "defaults (no export kind turned off)",
+ "found_and_fixed_before_release": {
+  "69cffa41": "coupled row with default exports updates the sections once",
+  "c46bee0e": "clocked wheel log read solve by solve, one verdict per clocking",
+  "24edb353": "wheel cut at clocking 0 over the blade radial span",
+  "4113de02": "qsteady point gets its rotor table at the row speed"
+ },
+ "first_confirmation": "on 0331fe91, runs sim_9001/9002, 9101/9102, 9201/9202",
+ "route": "pyfs-matrix plan, pyfs-matrix run (LocalExecutor, -hidden -script), the post run performs",
+ "campaign": "pfs0300-l1-ws",
+ "solver_rules": {
+  "one_instance_at_a_time": true,
+  "hidden": true,
+  "farfield_layers": 5
+ },
+ "case": {
+  "workflow": "qsteady_rotor",
+  "kind": "wheel",
+  "geometry": "a six-blade research propeller (not published), OBJ, 6 blades, 5616 vertices",
+  "symmetry": "NONE",
+  "fsi": null,
+  "mach": 0.1441,
+  "reynolds": 4380000.0,
+  "alpha_deg": 5.0,
+  "rpm": 473.17227304307556,
+  "passage_positions": 2,
+  "clockings_deg": [
+   0.0,
+   30.0
+  ]
+ },
+ "plan": {
+  "span_pct_k_gt_0_1": 28.947368421052627,
+  "k_min": 0.04209678238407341,
+  "k_max": 0.13145529188966235,
+  "k_mean": 0.08975727891735796,
+  "span_pct_k_gt_0_05": 97.36842105263159,
+  "chord_source": "mesh",
+  "stations": 20,
+  "warning": true,
+  "inflow_fft_line": null,
+  "inflow_fft_note": "no inflow-harmonics line and no inflow_fft entry: the option reads a custom inflow and the row states an AoA"
+ },
+ "runs": {
+  "points_file_route": {
+   "run_id": "pfs0300-l1-ws/sim_9111/M144RE438AL+050BE+000RPM00473",
+   "status": "CONVERGED",
+   "wall_time_s": 12.4,
+   "matrix_run_wall_time_s": 13,
+   "log_file_used": "P9111-M144RE438AL+050BE+000RPM00473_log.txt",
+   "residual": 1.2296017e-06,
+   "trailing_edges_imported": 150,
+   "clocking_verdicts": [
+    {
+     "index": 1,
+     "clocking_deg": 30.0,
+     "status": "CONVERGED",
+     "iterations": 61,
+     "residual": 1.1573656e-06
+    },
+    {
+     "index": 0,
+     "clocking_deg": 0.0,
+     "status": "CONVERGED",
+     "iterations": 61,
+     "residual": 1.2296017e-06
+    }
+   ]
+  },
+  "detection_control_earlier_code": {
+   "run_id": "pfs0300-l1-ws/sim_9102/M144RE438AL+050BE+000RPM00473",
+   "code": "0331fe91",
+   "status": "CONVERGED",
+   "wall_time_s": 11.7
+  },
+  "post_skipped": {}
+ },
+ "sections": {
+  "cuts": 30,
+  "first_offset_m": 0.4336,
+  "first_chord_m": 0.2823,
+  "last_offset_m": 1.8,
+  "last_chord_m": 0.1419,
+  "blade_span_m": [
+   0.41,
+   1.824
+  ],
+  "inside_blade": true,
+  "empty_cuts": 0
+ },
+ "validity_file": {
+  "file": "P9111-M144RE438AL+050BE+000RPM00473_qsteady_validity.json",
+  "K_1P_MIN": 0.03454061367211,
+  "K_1P_MAX": 0.13064121476302754,
+  "K_1P_MEAN": 0.08952132296098343,
+  "SPAN_PCT_K_GT_0_05": 91.40076112412179,
+  "SPAN_PCT_K_GT_0_1": 32.768588992974244,
+  "THRUST_PCT_K_GT_0_1": 11.731554734578957,
+  "TORQUE_PCT_K_GT_0_1": 10.25995486525163,
+  "K_1P_SOURCE": "sections"
+ },
+ "averaged_six_components": {
+  "units": "N and N m about the hub, loads-frame axes",
+  "sim_9111": {
+   "FX": -2300.04111,
+   "FY": -23.90465,
+   "FZ": 267.26738,
+   "MX": -2547.91712,
+   "MY": 40.95987,
+   "MZ": -364.1048
+  },
+  "RPT-089_k2": {
+   "FX": -2206.12,
+   "FY": -23.81,
+   "FZ": 257.17,
+   "MX": -2434.21,
+   "MY": 40.64,
+   "MZ": -346.05
+  },
+  "sim_9111_vs_RPT-089_pct_magnitude": {
+   "FX": 4.3,
+   "FY": 0.4,
+   "FZ": 3.9,
+   "MX": 4.7,
+   "MY": 0.8,
+   "MZ": 5.2
+  },
+  "sim_9102_detection_earlier_code": {
+   "FX": -2255.295,
+   "FY": -24.32296,
+   "FZ": 263.59383,
+   "MX": -2488.17757,
+   "MY": 41.42576,
+   "MZ": -356.61695
+  },
+  "clockings_sim_9111": {
+   "0": {
+    "FX": -2305.33086,
+    "MX": -2552.50877
+   },
+   "30": {
+    "FX": -2294.75136,
+    "MX": -2543.32546
+   }
+  }
+ },
+ "rotor_table": {
+  "file": "post/l2_wheel/polars/P9111-ROTOR_rotor.csv",
+  "RPM": 473.17227,
+  "J": 1.70001,
+  "CT": -0.3274,
+  "CQ": -0.09911,
+  "CP": -0.62272,
+  "ETA": 0.89379,
+  "ETAW": 0.88126
+ },
+ "cites": [
+  "RPT-089"
+ ]
+}
