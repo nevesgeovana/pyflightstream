@@ -30,6 +30,14 @@ hashes; an undeclared file keeps its bytes. The final emitted transforms
 and rotor sweep feed conservative spatial bounds, not a guarantee of
 interpolation support inside an unstructured field. These controls do not
 automatically rotate a field or accept a nonzero incidence beside it.
+
+The 0.30 quasi-steady rotor (the ``qsteady_rotor`` run type of
+:mod:`pyflightstream.cases.workflows`) keeps its own arithmetic in
+:mod:`pyflightstream.cases.qsteady`: the clockings of a wheel, the 1P
+reduced frequency and its validity figures, and the harmonic content of a
+custom inflow as one blade meets it. The plan and the post both read it.
+:mod:`pyflightstream.cases.fsi_workspace` states which workflows may couple
+and wires the fixed-wing and quasi-steady sector routes.
 """
 
 from __future__ import annotations

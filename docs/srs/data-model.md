@@ -242,12 +242,14 @@ The managed folder tree of a campaign:
     matrices/        run matrices kept inside the library; new files go here, and a
                      matrix at the workspace root keeps its location (0.29.0)
     management/      storage recipes a `pyfs-matrix free-space` call runs: m<id>.toml (0.30.0)
+    sync-workspaces.toml  the other workspaces `pyfs-matrix sync` brings runs and results from (0.30.0)
     executables.toml the build-id to executable registry, with an
                      optional declared version per build
   sims/sim_<id>/     per-simulation staged inputs, scripts and raw outputs
   post/              post-processing outputs
   archive/           archived simulations (zip)
   runs.json          the manifest
+  storage_management.json  the record of every storage and sync call (0.30.0)
 ```
 
 Input artifacts are declarative TOML validated by pydantic, resolved

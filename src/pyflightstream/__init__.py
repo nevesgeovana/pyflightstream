@@ -44,6 +44,8 @@ Cross-cutting support modules, importable from any layer:
   workspace logs.
 - ``_fsi_calibration``: private dimensionless FSI factor names, read by
   the cases layer's matrix workflows and re-exported by ``fsi.calibration``.
+- ``_signature``: private drawings and phrases of the box every console
+  command ends with on stderr, rendered by ``_cli``.
 
 Where to start:
 

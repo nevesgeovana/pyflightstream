@@ -69,6 +69,13 @@ direction through the existing sync engine. Dictionary column names and
 MATRIX/POL identities govern mapping. Saved-file hashes reject stale
 previews; recoverable originals and untouched workbook parts are retained.
 There is no background synchronization or macro execution.
+
+The 0.30 workspace manages its own disk and its other copies:
+:mod:`pyflightstream.workspace.storage` holds ``pyfs-matrix space-in-use``,
+``free-space``, ``delete-sims`` and ``sync``, each previewing until applied
+and recorded in ``storage_management.json`` at the root. The directory
+links it and this module stage and remove are
+:mod:`pyflightstream.workspace._links`, private to both.
 """
 
 from __future__ import annotations
