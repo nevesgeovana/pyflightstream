@@ -291,7 +291,7 @@ class _RecordAsCase:
     rather than a bare ``None``.
     """
 
-    __slots__ = ("point", "outputs", "velocity", "datapoint_name")
+    __slots__ = ("point", "outputs", "velocity", "datapoint_name", "recipe")
 
     def __init__(self, record: RunRecord, *, velocity_is_the_point_s: bool = True) -> None:
         self.point = dict(record.point or {})
@@ -316,6 +316,9 @@ class _RecordAsCase:
         # point's speed would refuse a correct export. Unasked is recorded as
         # unasked there, which rule 3 of `_bind_case_conditions` exists for.
         self.velocity = record.velocity_requested_m_s if velocity_is_the_point_s else None
+        # 0.31.0: the run type the record states, which the assessor reads to
+        # know a quasi-steady point (its record is judged per clocking).
+        self.recipe = record.recipe
 
 
 def assess_collected(record: RunRecord, sim_dir: Path) -> tuple[RunStatus, str | None]:

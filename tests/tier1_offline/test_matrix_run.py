@@ -4805,7 +4805,10 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
     # rotor with flat keys and cites no rotor block, so nothing says which families
     # are its blades. The file it used to get was one row of the TOTAL's average
     # under the per-blade name.
+    # 0.31.0 (P0310-G2-PER-REV, the owner's requirement P1 of 2026-09-29): an
+    # unsteady rotor point also leaves its per-revolution table.
     assert sorted(p.name for p in plots.iterdir()) == [
+        "M200RE1177AL-020_per_revolution.csv",
         "M200RE1177AL-020_phase_locked.csv",
         "M200RE1177AL-020_plots.csv",
         "M200RE1177AL-020_time_average.csv",
@@ -4827,6 +4830,9 @@ def test_a_rotor_row_run_through_the_workflow_leaves_its_reductions_beside_the_p
         "polars/7001#rotor_tables",
         "polars/P7001_M200RE1177AL-020_uns_avg.csv#axes",
         "probes/M200RE1177AL-020_per_blade.csv",
+        # 0.31.0 (P0310-G2-PER-REV): the run's last revolution is partial, and the
+        # per-revolution table says so rather than averaging it.
+        "probes/M200RE1177AL-020_per_revolution.csv#partial",
         # NO `sections/..#distributions`, which this list pinned from 0.25.0 F07
         # until 0.27.0: this row's pproc declares no distribution, so its script
         # created none and its record says so with the empty layout. There is
