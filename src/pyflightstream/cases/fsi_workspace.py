@@ -58,8 +58,8 @@ LOADS_FILE = "FS_SurfaceSection_Loads.txt"
 #: refusal. A workflow absent from the table accepts no FSI.
 #:
 #: ``steady`` and ``unsteady`` (no rotor motion): ACCEPTED, the fixed-wing
-#: structural route of this release (FSI-G, :func:`wire_fixed_wing_fsi`).
-#: The owner: "fsi de asa fixa tem que entrar sim, e basico".
+#: structural route of this release (FSI-G, :func:`wire_fixed_wing_fsi`),
+#: required because fixed-wing coupling is the basic FSI case.
 #:
 #: ``unsteady_rotor``: refused. On 26.124 the morph of a mapped rotating
 #: blade is applied to the blade at its imported azimuth and replaces the
