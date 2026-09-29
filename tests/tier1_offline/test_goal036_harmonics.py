@@ -377,8 +377,8 @@ def _unsteady(tmp_path: Path, monkeypatch, *, blades: int, rpm: float) -> Campai
 def test_an_unsteady_rotor_s_last_revolution_gives_back_its_harmonics(tmp_path, monkeypatch, rpm):
     """Three blades over steps 7 to 12: eighteen samples at six azimuths per station.
 
-    The series states blade one's azimuth; blade n is fitted at its own,
-    (n - 1) 120 deg ahead. Every step outside the last complete revolution
+    The series states each block's own blade's azimuth (P0310-H2-BLADE-AZIMUTH),
+    blade n (n - 1) 120 deg ahead of blade one. Every step outside the last complete revolution
     carries 999 in every load, so a fit that read one would not give back
     the harmonics.
     """
@@ -388,9 +388,10 @@ def test_an_unsteady_rotor_s_last_revolution_gives_back_its_harmonics(tmp_path, 
     sign = 1 if rpm > 0 else -1
     _, series = read_csv_table(out / "series" / "AL-020_sections_series.csv")
     for row in series:
-        # THE SERIES' AZIMUTH is blade one's on every block, worked by hand.
+        # THE SERIES' AZIMUTH is the block's own blade's, worked by hand.
+        blade = int(row["FAMILY"].removeprefix("Blade"))
         assert float(row["AZIMUTH"]) == pytest.approx(
-            _unsteady_azimuth(1, 3, int(row["STEP"]), sign), abs=1e-9
+            _unsteady_azimuth(blade, 3, int(row["STEP"]), sign), abs=1e-9
         )
     columns, rows = read_csv_table(out / "sections" / "AL-020_harmonics.csv")
     assert tuple(columns) == HARMONICS_COLUMNS

@@ -9,6 +9,16 @@ FlightStream versions.
 
 ### Changed
 
+- **The AZIMUTH of blade blocks 2 to N of an unsteady rotor changes.** The
+  sections table and the sections series of an `unsteady_rotor` point stated
+  blade one's azimuth on every block, whichever blade the block cut. A block
+  that cuts the families of one blade now states THAT blade's azimuth, blade
+  `n` of `N` at blade one's plus `(n - 1) 360 / N` through
+  `pyflightstream.post.axes.placed_blade_azimuth_deg` (the ahead-of-blade-one
+  placement the wheel and the per-blade table use, whatever the sense of
+  rotation); a block over several blades or the general families keeps blade
+  one's. Blade one's rows are unchanged, and the per-station harmonic product
+  reads the stated azimuth as it is (P0310-H2-BLADE-AZIMUTH).
 - **The repeated-POL census reads the matrices `sync` reads.** `pyfs-matrix plan`
   compared POLs across `<root>/*.fs` only, while `sync` and storage also read
   `<root>/inputs/matrices/*.fs`, so a POL repeated between the two folders shared

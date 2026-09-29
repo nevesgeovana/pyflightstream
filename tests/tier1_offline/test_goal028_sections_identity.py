@@ -144,13 +144,14 @@ def test_the_stage_takes_a_rotors_families_from_the_reference_and_its_clock_from
     table = _section_rotors(live, {"blades": ["Blade1", "Blade2"]}, record)
     assert table["PUSHER"] == {
         "families": ["Blade1", "Blade2"],
+        "blade_families": [["Blade1", "Blade2"]],
         "steps_per_revolution": 72.0,
         "blade1_azimuth_deg": 90.0,
         "rpm": -1200.0,
     }
     # A rotor the record says nothing of is NAMED and has no clock: with two rotors
     # the row-level clock belongs to one of them and is not lent to the other.
-    assert table["LIFTER"] == {"families": ["L1"]}
+    assert table["LIFTER"] == {"families": ["L1"], "blade_families": [["L1"]]}
 
 
 def test_the_stage_reads_the_layout_off_the_points_own_record_and_says_it_is_one_instant(tmp_path):

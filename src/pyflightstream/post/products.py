@@ -4246,10 +4246,14 @@ def _section_rotors(
             if not isinstance(named, Sequence) or isinstance(named, str):
                 continue
             stated_blades: list[str] = []
+            per_blade: list[list[str]] = []
             for name in named:
-                stated_blades.extend(str(m) for m in (aliases or {}).get(str(name), (name,)))
+                members = [str(m) for m in (aliases or {}).get(str(name), (name,))]
+                stated_blades.extend(members)
+                per_blade.append(members)
             table[str(alias)] = {
                 "families": stated_blades,
+                "blade_families": per_blade,
                 **{
                     key: own.get(key)
                     for key in ("steps_per_revolution", "blade1_azimuth_deg", "rpm")
@@ -4258,13 +4262,16 @@ def _section_rotors(
         return table
     for alias, block in blocks.items():
         families: list[str] = []
+        per_blade_families: list[list[str]] = []
         for name in getattr(block, "families_blades", ()) or ():
-            families.extend(str(m) for m in (aliases or {}).get(str(name), (name,)))
+            members = [str(m) for m in (aliases or {}).get(str(name), (name,))]
+            families.extend(members)
+            per_blade_families.append(members)
         own = stated.get(str(alias)) if isinstance(stated, Mapping) else None
         if not isinstance(own, Mapping) and len(blocks) == 1:
             # THE ROW-LEVEL PATH: one rotor, whose clock is the plan's own.
             own = reductions
-        entry: dict[str, object] = {"families": families}
+        entry: dict[str, object] = {"families": families, "blade_families": per_blade_families}
         if isinstance(own, Mapping):
             for key in ("steps_per_revolution", "blade1_azimuth_deg", "rpm"):
                 entry[key] = own.get(key)
@@ -5175,7 +5182,7 @@ def _harmonic_rotors(
                 alias=alias,
                 blades=blades,
                 diameter_m=stated_diameter,
-                azimuth_is_blade_one=True,
+                azimuth_is_blade_one=False,
             ),
             clock.get("steps_per_revolution"),
         )

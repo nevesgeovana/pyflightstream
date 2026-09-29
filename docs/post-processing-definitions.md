@@ -261,12 +261,21 @@ frame, one after another with no marker between them. Each row leads with:
 | `FAMILY` | the geometry families of the row's distribution, joined by `+` |
 | `PLANE` | the cutting plane of that distribution |
 | `ROTOR` | the rotor whose blades those families are; `NA` for a surface no rotor owns |
-| `AZIMUTH` | where BLADE ONE OF THAT ROTOR is at `STEP`, in degrees, wrapped to one turn; `NA` without a rotor |
+| `AZIMUTH` | where the block's blade is at `STEP`, in degrees, wrapped to one turn: the block's OWN blade when it cuts the families of one blade of its rotor, else where BLADE ONE OF THAT ROTOR is; `NA` without a rotor |
 
 `AZIMUTH = (blade1.azimuth_deg + sense * STEP * 360 / steps_per_revolution) mod 360`,
 with the datum, the sense of rotation (the sign of the rotor's speed) and the
 steps per revolution all taken from THAT rotor. Two rotors at two speeds have
-two azimuths at one step, and a wing has none. The sections of a quasi-steady
+two azimuths at one step, and a wing has none. A block that cuts the
+families of ONE blade of its rotor (the rotor's `families_blades`, blade `n`
+from 1, expanded through the aliases) states THAT blade's azimuth, `AZIMUTH`
+above placed `(n - 1) 360 / B` ahead (0.31.0,
+`pyflightstream.post.axes.placed_blade_azimuth_deg`, the one home), whatever
+the sense of rotation: the sense turns the clock, not the blades' places on
+the disc. So the four blade blocks of a four-blade rotor read four azimuths a
+quarter turn apart, in the sections table and in the sections series alike.
+A block over several blades, over the rotor's general families, or of a rotor
+whose record states no blade grouping keeps blade one's azimuth. The sections of a quasi-steady
 WHEEL point hold every clocking, and there a block of one blade states where
 THAT blade is at its clocking ([The quasi-steady rotor](#the-quasi-steady-rotor)).
 
@@ -862,10 +871,12 @@ computed again. Which rows:
   stamped step as [`per_revolution`](#per_revolution) counts from its first
   row, with `N` the rotor's own `steps_per_revolution` from the run record
   rounded to a whole step; the steps after the last complete revolution are
-  not read. The series states where BLADE ONE is at each step, so a block of
-  blade `n` of the rotor's `B` is fitted at `AZIMUTH + (n - 1) 360 / B`, the
+  not read. Since 0.31.0 the series states each block's OWN blade's azimuth
+  (blade `n` of the rotor's `B` at blade one's plus `(n - 1) 360 / B`, the
   blades placed ahead of blade one whatever the sense of rotation, as the
-  per-blade table places them (`pyflightstream.post.axes.placed_blade_azimuth_deg`).
+  per-blade table places them,
+  `pyflightstream.post.axes.placed_blade_azimuth_deg`), and the fit reads it
+  as stated; a series written before 0.31.0 stated blade one's on every block.
 
 A sample is a BLOCK of one blade: the consecutive rows of one clocking or
 step whose `FAMILY` names families of one blade of the rotor, blade `n` being
