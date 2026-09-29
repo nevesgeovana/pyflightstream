@@ -865,9 +865,10 @@ PDF_SUFFIX = ".pdf"
 
 #: Sample paths the three mechanisms must judge alike: the seven decks' own
 #: files, pdfs under guide/ that are neither a deck nor a deck's figure,
-#: spellings that only look like the guide, a mixed-case suffix, a mixed-case
-#: folder, a notebook under guide/ (which the CI job refuses as a notebook)
-#: and files that are no pdf at all.
+#: spellings that only look like the guide, an allowed path under another
+#: folder (so each of the three anchors the exemption at the repository root),
+#: a mixed-case suffix, a mixed-case folder, a notebook under guide/ (which
+#: the CI job refuses as a notebook) and files that are no pdf at all.
 PDF_RULE_SAMPLES = (
     "guide/fts-guide-01-workspaces.pdf",
     "guide/fts-guide-07-python-environment-offline.pdf",
@@ -877,6 +878,8 @@ PDF_RULE_SAMPLES = (
     "guide/fts-guide-08-extra.pdf",
     "guide/latex-sources/06-fsi/notes.pdf",
     "guide/latex-sources/06-fsi/figures/sub/deep.pdf",
+    "x/guide/fts-guide-01-workspaces.pdf",
+    "vendor/guide/latex-sources/01-a/figures/manual.pdf",
     "guide/notes.ipynb",
     "Guide/x.pdf",
     "docs/manual_26.124.pdf",
@@ -942,6 +945,8 @@ def test_the_pdf_guard_fires_on_what_it_exists_to_catch(monkeypatch):
             "guide/fts-guide-08-extra.pdf",
             "guide/latex-sources/06-fsi/notes.pdf",
             "guide/latex-sources/06-fsi/figures/sub/deep.pdf",
+            "x/guide/fts-guide-01-workspaces.pdf",
+            "vendor/guide/latex-sources/01-a/figures/manual.pdf",
         ]
     ) == [
         "Guide/x.pdf",
@@ -953,6 +958,8 @@ def test_the_pdf_guard_fires_on_what_it_exists_to_catch(monkeypatch):
         "guide/pyflightstream_user_guide.pdf",
         "guides/deck.pdf",
         "reports/Manual.PDF",
+        "vendor/guide/latex-sources/01-a/figures/manual.pdf",
+        "x/guide/fts-guide-01-workspaces.pdf",
     ]
     admitted = [
         "guide/fts-guide-01-workspaces.pdf",
