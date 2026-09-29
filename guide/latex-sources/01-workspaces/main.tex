@@ -1,0 +1,107 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 01-workspaces/main.tex
+%
+% Guide 1 of the fts-workspace guides: the workspace, its files, running,
+% and working on a Windows workstation and an HPC cluster with two
+% workspaces kept together by sync. Built by ../build-all.ps1 (or
+% build-all.sh) with this folder and ../shared/ as include directories.
+%
+% No em dashes and no en dashes. No underscores in frame or section titles
+% outside \code: beamer writes titles to .nav and .toc.
+
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\input{preamble-slides.tex}
+\input{hooks-slides.tex}
+\ftsinput{boxes}
+\ftsinput{hooks-contract}
+
+\usepackage[nohyphen]{underscore}
+
+\input{info.tex}
+
+\begin{document}
+
+\guidetitleframe{1}{Workspaces}{Workspaces}
+  {One tree, two workspaces, and every file in it}
+  {Sources: the package pages ``The workspace and the workflow'' and
+   ``Storage and sync'' [1, 2].}
+
+\begin{frame}{Who reads what}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{You are going to USE the workspace}
+\begin{itemize}\small
+  \item Parts 1 and 2: the tree and the map.
+  \item Parts 3 and 4: first time on Windows; on the cluster it is one line.
+  \item Parts 5 to 9: inputs, site folders, running, what a run and its post
+        leave.
+  \item Parts 10 and 11: Windows and an HPC cluster, two workspaces and sync;
+        space on disk.
+  \item Parts 12 and 13: version control, and a reference.
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{The other guides}
+\begin{itemize}\small
+  \item 2: from the GUI to pyfs. \quad 3: the reference file.
+  \item 4: solver setup. \quad 5: post-processing definitions.
+  \item 6: fluid-structure interaction.
+  \item 7: installing Python and the package on an offline machine,
+        Windows and Linux. It happens once per machine.
+\end{itemize}
+\end{block}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Contents}
+\begin{multicols}{2}
+\tableofcontents
+\end{multicols}
+\end{frame}
+
+\input{text/01-orientation.tex}
+\input{text/02-first-time.tex}
+\input{text/03-inputs.tex}
+\input{text/04-running.tex}
+\input{text/06-two-workspaces-sync.tex}
+\input{text/05-vcs-and-reference.tex}
+
+\begin{frame}{References}
+\begin{reflist}
+  \item \docref{workspace-and-workflows}{The workspace and the workflow}
+  \item \docref{storage-and-sync}{Storage and sync}
+  \item \recordsref
+  \item \docref{post-processing-definitions}{Post-processing definitions}
+  \item \docref{flight-conditions}{Flight conditions}
+  \item \docref{excel-matrices}{Optional Excel matrix workbook}
+  \item International Organization for Standardization, \emph{ISO
+        2533:1975, Standard Atmosphere}, ISO, Geneva, 1975.
+  \item F. M. White, \emph{Viscous Fluid Flow}, 3rd ed., McGraw-Hill, New
+        York, 2006. Sutherland's law for the viscosity of air.
+  \item \smiref
+  \item TU Delft, ``TUD-XPROP propeller geometry'', Zenodo.
+        \url{https://doi.org/10.5281/zenodo.18598046}
+\end{reflist}
+\end{frame}
+
+\begin{frame}{References (continued)}
+\begin{reflist}
+  \setcounter{enumi}{10}
+  \item T. Theodorsen, ``General theory of aerodynamic instability and the
+        mechanism of flutter'', NACA Report 496, 1935.
+  \item W. R. Sears, ``Some aspects of non-stationary airfoil theory and its
+        practical application'', \emph{Journal of the Aeronautical Sciences},
+        8(3), pp. 104-108, 1941.
+  \item J. G. Leishman, \emph{Principles of Helicopter Aerodynamics}, 2nd
+        ed., Cambridge University Press, Cambridge, 2006.
+  \item H. Glauert, ``The effect of compressibility on the lift of an
+        aerofoil'', \emph{Proceedings of the Royal Society of London, Series
+        A}, 118(779), pp. 113-119, 1928.
+\end{reflist}
+\end{frame}
+
+\end{document}

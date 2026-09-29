@@ -1,0 +1,66 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% gui/text/08-raw-route.tex
+
+\section{The raw route}
+
+\begin{frame}[fragile]{A step with no key: three ways a row still takes it}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\small \textbf{A \code{[[raw]]} line in the setup}: every row naming the setup
+emits it.
+\begin{lstlisting}[style=ftsbase]
+[[raw]]
+command = "SET_TRAILING_EDGE_TYPE 3 RELAXED"
+before = "init"
+\end{lstlisting}
+\small \textbf{A \code{RAW} record in the row's own cell}, for that row alone:
+\begin{lstlisting}[style=ftsbase]
+RAW: {COMMAND: SET_TRAILING_EDGE_TYPE 3 RELAXED / BEFORE: init}
+\end{lstlisting}
+\small \textbf{A custom flag}, for a command of one value; each row states
+\code{base\_bending: 12.5}:
+\begin{lstlisting}[style=ftsbase]
+[[flags]]
+name = "base_bending"
+command = "SET_BASE_REGION_BENDING_ANGLE"
+\end{lstlisting}
+\end{column}
+\begin{column}{0.44\textwidth}
+\begin{itemize}\small
+  \item Each line passes the checks a curated line passes: the command exists
+        on the row's build, its arguments have the database's types, and it
+        keeps the script's phase order. A line that fails is refused at
+        \code{plan}, before any seat is spent.
+  \item A raw line names what it acts on \textbf{by index}, a fact about one
+        mesh file: keep it to the case it is written for.
+  \item More than a few lines, such as a geometry from CAD: do it once in the
+        GUI and save a \code{.fsm}. A \code{LEGACY} row runs a recipe of your
+        own, in Python.
+\end{itemize}
+\end{column}
+\end{columns}
+\guisource{The raw route}
+\end{frame}
+
+\begin{frame}{The whole session, in the order we work}
+\begin{enumerate}\small
+  \item \textbf{Geometry}: a \code{.fsm} prepared once in the GUI, or an OBJ in
+        metres with its sidecar: names, unit, trailing edge by file (26.124).
+  \item \textbf{The study}: one row per position in \code{matriz.fs}, citing
+        the reference, the setup (\code{farfield\_layers = 5}) and the pproc.
+  \item \pyfs{pyfs-matrix plan}: no seat spent; every refusal happens here.
+  \item \pyfs{pyfs-matrix run}, then \pyfs{collect} on the cluster;
+        \code{--resume} for a matrix that grew, \code{--force-rerun} for a row
+        that was wrong.
+  \item \pyfs{pyfs-matrix post}: products under \code{post/}, and
+        \code{post.log} read first.
+  \item \textbf{More later, with no solve}: \code{ADDITIONAL\_PPROC} and
+        \code{post --additional-pproc}, from each point's saved \code{.fsm}
+        (26.124).
+\end{enumerate}
+\begin{takeaway}
+The GUI is for what has no key yet. Everything with a key is a line in a file
+that the next person can read, plan and run again.
+\end{takeaway}
+\end{frame}

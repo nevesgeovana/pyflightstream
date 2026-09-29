@@ -1,0 +1,77 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% shared/info.tex
+%
+% Identity of the seven guide decks: the version they are written for, the
+% authorship and licence notice, the citation, and the generic placeholders
+% that stand for every site-specific path. Every deck reads this one file, so
+% no two decks can state different versions, notices or paths.
+
+% ------------------------------------------------------------ the series ---
+\newcommand{\guideseries}{The fts-workspace guides}
+\newcommand{\guidecount}{7}
+
+% ----------------------------------------------- the version written for ---
+% One statement per guide, printed on its title page. No history of earlier
+% releases: the decks describe this version and nothing else.
+\newcommand{\pkgname}{pyflightstream}
+\newcommand{\pkgversion}{0.30.0}
+\newcommand{\guidewritten}{Written for \pkgname{} \pkgversion}
+
+% The solver build the examples name. Not a version of the package.
+\newcommand{\fsbuild}{26.123}
+
+% ----------------------------------------- authorship and the licence ------
+\newcommand{\pkgauthor}{Geovana Neves}
+\newcommand{\pkglicense}{MIT}
+\newcommand{\pkgrepo}{https://github.com/nevesgeovana/pyflightstream}
+% The concept DOI resolves to the latest archived release of the package.
+\newcommand{\pkgdoiconcept}{10.5281/zenodo.21482924}
+
+% The package's documentation site. A deck cites one page of it as a
+% numbered reference, by the page's slug (its file name under docs/ without
+% .md) and its title:
+%   \item \docref{storage-and-sync}{Storage and sync}
+% A tier-1 test of the repository checks that every slug names a page that
+% exists under docs/.
+\newcommand{\pkgsite}{https://nevesgeovana.github.io/pyflightstream}
+\newcommand{\docref}[2]{\pkgauthor, \emph{\pkgname{} documentation}, page
+  ``#2''. \url{\pkgsite/#1/}}
+
+% The measurement records a deck cites for the solver's measured behaviour.
+\newcommand{\recordsref}{\pkgauthor, \emph{\pkgname: measurement records of
+  the solver's behaviour}, 2026. \url{\pkgrepo}, concept DOI
+  \texttt{\pkgdoiconcept}.}
+
+% The public airframe geometry the decks point to for practice.
+\newcommand{\smiref}{G. Neves, ``SMI: airframe geometry'', version 1.0.0,
+  Zenodo, 2026. \url{https://zenodo.org/records/23025105}}
+
+\newcommand{\guidenotice}{Copyright (c) 2026 Geovana Neves. Licensed under
+  CC BY 4.0 (\url{https://creativecommons.org/licenses/by/4.0/}). See
+  LICENSE-AND-AUTHORSHIP.md.}
+\newcommand{\guidefootnotice}{Copyright (c) 2026 Geovana Neves, CC BY 4.0}
+
+% One block, used wherever a deck asks somebody to cite the tool.
+\newcommand{\pkgcitation}{%
+  \pkgauthor. \emph{\pkgname: version-aware, didactic Python driver for the
+  FlightStream panel-method solver}, 2026. \url{\pkgrepo}. Concept DOI:
+  \texttt{\pkgdoiconcept}.}
+
+% ------------------------------------------- the generic placeholders ------
+% Every site-specific path appears in the decks through these macros and
+% nowhere as a literal. Each site keeps its own values in a local note; the
+% decks stay the same everywhere.
+%
+%   \mainworkspace       the main workspace on the Windows workstation
+%   \clusterroot         the shared install folder on the cluster file system
+%   \clusterworkspace    the cluster workspace (runs submitted there)
+%   \shareunc            the shared install folder seen from Windows (a network share)
+%   \clusterworkspaceunc the cluster workspace seen from Windows, as sync reads it
+%   \envname             the name of one versioned environment (venv) folder
+\newcommand{\mainworkspace}{C:/<work-folder>/fts-workspace}
+\newcommand{\clusterroot}{<cluster-root>/fts-unix}
+\newcommand{\clusterworkspace}{<cluster-root>/fts-unix/fts-workspace}
+\newcommand{\shareunc}{\ftsbs\ftsbs<server>\ftsbs<share>\ftsbs fts-unix}
+\newcommand{\clusterworkspaceunc}{//<server>/<share>/fts-unix/fts-workspace}
+\newcommand{\envname}{pfs0300}

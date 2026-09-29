@@ -1,0 +1,44 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% gui/text/01-reading.tex
+
+\begin{frame}{How to read this deck}
+\begin{columns}[T]
+\begin{column}{0.56\textwidth}
+\begin{itemize}\footnotesize
+  \item A GUI session is a sequence of steps: load the geometry, mark where its
+        wakes leave it, place frames and set things turning, state the flight
+        condition and the solver, run, export. The deck takes them in that
+        order, one table per stage.
+  \item \textbf{In pyfs} says which file the key lives in: a \emph{row key}
+        (a matrix column or the \code{VAR\_NAMES\_VALUES} cell), a
+        \emph{setup} key, a \emph{pproc} table, the \emph{reference}, or the
+        \emph{sidecar} \code{<stem>.boundaries.toml} beside the geometry.
+  \item \textbf{Verified on}: the builds on which the command database
+        records a probe run of every command the key writes. \emph{none}: no
+        probe run, the command is still documented by its build's manual.
+        \emph{no command}: the step writes none.
+  \item \textbf{not yet}: no key of its own. The raw route still takes it
+        (last part).
+\end{itemize}
+\end{column}
+\begin{column}{0.40\textwidth}
+{\ftstablesize\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Stage} & \textbf{Key} & \textbf{Not yet} \\
+\midrule
+Geometry and mesh & 7 & 6 \\
+Boundary conditions & 14 & 0 \\
+Frames, motion, actuators & 11 & 5 \\
+Flight conditions, solver & 24 & 0 \\
+The run & 11 & 0 \\
+Basic post & 25 & 5 \\
+\midrule
+\textbf{108 steps} & \textbf{92} & \textbf{16} \\
+\bottomrule
+\end{tabular}}
+\end{column}
+\end{columns}
+\guisource{How to read a line}
+\end{frame}

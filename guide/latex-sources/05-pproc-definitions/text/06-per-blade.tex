@@ -1,0 +1,79 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{\code{per\_blade}}
+
+\begin{frame}{One shared window, one row per blade}
+\begin{itemize}\small
+  \item \code{probes/<point>\_per\_blade\_<ALIAS>.csv} averages each blade
+        over the last part of the run: the matrix row's averaging window.
+  \item Every blade shares that window. Each row states that blade's start
+        and end azimuth.
+  \item The window is the one the unsteady plots and POLAR use, from
+        \code{LAST\_REVS\_AVG} or \code{LAST\_ITERS\_AVG} on the matrix row.
+  \item There is one row per blade.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The same time interval makes blades comparable}
+\begin{itemize}
+  \item Each blade starts at a different azimuth. Its azimuth columns
+        state that difference explicitly.
+  \item A separate passage window for each blade would also sample each
+        blade at a different time, mixing azimuth and history differences.
+  \item Averaging from step one mixes the transient with the answer.
+\end{itemize}
+\begin{takeaway}
+The last shared window keeps the sampling time the same for every blade.
+\end{takeaway}
+\end{frame}
+
+\begin{frame}{The leading columns of each blade row}
+\small Each row leads with these fields, in this order:
+\begin{enumerate}
+  \item \code{REDUCTION}, \code{ROTOR}, \code{BLADE}, \code{FAMILY}.
+  \item The window: \code{FIRST\_STEP}, \code{LAST\_STEP}, \code{STEPS}.
+  \item \code{AZIMUTH\_START}, \code{AZIMUTH\_END}.
+  \item The condition block, then the moment point.
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Blade plot columns share one heading}
+\begin{itemize}\small
+  \item A blade's columns are plots named for its family.
+        A plot is \code{<parameter>\_<group>}; a group cut per blade is
+        named for the blade's family.
+  \item Blade one's \code{CL\_MRP\_Blade1} and \code{FX\_LOCAL\_Blade1}
+        become \code{CL\_MRP} and \code{FX\_LOCAL} in its row.
+        Removing the family makes the blades line up under one heading.
+  \item The pproc requests these with \code{families = "each"} or
+        \code{frame = "LOCAL\_AXIS"} over the rotor.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Start and end azimuth belong to that blade}
+\small At the first and last step of the shared window, use
+\[
+\begin{split}
+\mathrm{azimuth}=\biggl(&\mathrm{blade1.azimuth\_deg}
+ +\mathrm{blade\ position}\,\frac{360}{\mathrm{blades}}\\
+ &+\mathrm{sense}\,\mathrm{step}\,
+ \frac{360}{\mathrm{steps\_per\_revolution}}\biggr)\bmod 360.
+\end{split}
+\]
+\begin{itemize}
+  \item \code{blades} is the rotor's count. A periodic sector carrying
+        two blades of four spaces them a quarter turn apart.
+  \item Without the rotor's clock, the azimuths are \code{NA}.
+        The averages are still written.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The reference identifies the blade families}
+\begin{itemize}
+  \item The rotor block's \code{families\_blades} in the reference artifact
+        identifies its blades.
+  \item The run also records these families.
+  \item A row using flat rotor keys and citing no block gets no per-blade
+        table. \code{products.json} states why.
+\end{itemize}
+\end{frame}

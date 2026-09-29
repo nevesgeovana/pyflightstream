@@ -1,0 +1,55 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 02-gui-to-pyfs/text/04-frames-motion.tex
+%
+% Transcribed from the tables of docs/gui-to-pyfs.md, one row per GUI step:
+% the key that takes it (links and solver commands dropped) and the builds
+% its commands are verified on. When the page changes a row, change the same
+% row here, and the counts of 01-reading.tex with it.
+
+\section{Frames, motion and actuators}
+
+\begin{frame}{Frames, motion and actuators: what a key takes (1/2)}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.05}
+\begin{tabularx}{\linewidth}{@{}JKZ@{}}
+\guihead
+Create a coordinate system & reference table \code{[[frames]]} & 26.120 to 26.124 \\
+Create a rotor's hub and blade frames & reference block \code{kind = "rotor"}: its hub, \code{axis} and \code{families\_blades} & 26.120 to 26.124 \\
+Turn a rotor: a rotary motion about its axis, at its speed, moving its blades and frames & row key \code{RPM} or \code{ADVANCE\_RATIO}; the rotor's reference block gives its hub, axis, hand (\code{rpm\_sign}) and blades, and a row stating \code{RPM\_SIGN} is refused & none \\
+Hold the blades still and turn the free stream about the shaft & \code{WORKFLOW} \code{qsteady\_rotor}: a sector where the row states periodic symmetry, else the whole wheel; \code{PASSAGE\_POSITIONS} for a wheel at incidence or in a custom inflow & none \\
+Turn several rotors in one run & row keys \code{MOTIONS} and \code{CLOCK\_MOTION}: one record per rotor, and the rotor whose turn sets the time step & none \\
+\bottomrule
+\end{tabularx}}
+\guisource{Frames, motion and actuators}
+\end{frame}
+
+\begin{frame}{Frames, motion and actuators: what a key takes (2/2)}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.05}
+\begin{tabularx}{\linewidth}{@{}JKZ@{}}
+\guihead
+Choose the direction a rotor's relaxed wake sheds & row key \code{ROTOR\_SHEDDING}, refused whatever its value: no workflow command applies the direction, so a row stating it is refused rather than run with a wake it did not ask for & none \\
+Turn the free stream: a roll, pitch or yaw rate & row keys \code{roll\_rate}, \code{pitch\_rate} and \code{yaw\_rate} in the \code{FLIGHT\_CONDITION} cell; reference table \code{[body\_axes]} & none \\
+Create an actuator disc: its axis, radius, speed and swirl & reference block \code{kind = "actuator"}; row keys \code{ACTUATOR} and \code{ACTUATOR\_RPM} & 26.121 to 26.124, except one \\
+Load the disc by its thrust & row key \code{ACTUATOR\_THRUST} & none \\
+Load the disc by a radial profile & row key \code{PROFILE}, a file of \code{inputs/profiles/} & none \\
+Rename or delete a disc & setup key \code{actuator\_operations}, each naming one disc by its exact current name & 26.120 to 26.124 \\
+\bottomrule
+\end{tabularx}}
+\guisource{Frames, motion and actuators}
+\end{frame}
+
+\begin{frame}{Frames, motion and actuators: not yet}
+\begin{itemize}\small
+  \item Disable a disc, or change its wake (\code{DISABLE\_ACTUATOR}, \code{SET\_ACTUATOR\_WAKE\_TYPE}).
+  \item Duplicate, mirror or delete a coordinate system (\code{DUPLICATE\_COORDINATE\_SYSTEM}, \code{MIRROR\_COORDINATE\_SYSTEM}, \code{DELETE\_COORDINATE\_SYSTEM}).
+  \item A motion of six degrees of freedom, with its mass, forces and gravity (\code{CREATE\_NEW\_MOTION\_6DOF}, \code{SET\_MOTION\_MASS\_PROPERTIES}, \code{CREATE\_NEW\_6DOF\_EXTERNAL\_FORCE}, \code{SET\_MOTION\_GRAVITY}).
+  \item A prescribed motion: a velocity, an acceleration, or a table in time (\code{CREATE\_NEW\_MOTION\_EUCLIDEAN}, \code{SET\_MOTION\_VELOCITY}, \code{SET\_MOTION\_ACCELERATION}, \code{CREATE\_NEW\_MOTION\_CUSTOM}, \code{SET\_MOTION\_CUSTOM\_TABLE}).
+  \item Start a motion after the run has started (\code{SET\_MOTION\_START\_TIME}).
+\end{itemize}
+\begin{alertblock}{The rates' sense is measured (26.124)}
+\small Roll and yaw take the sign of their body axis: \code{roll\_rate:40} writes \code{ROTATION <frame> X -6.667} [2].
+\end{alertblock}
+\guisource{Frames, motion and actuators}
+\end{frame}

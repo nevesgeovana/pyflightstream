@@ -1,0 +1,253 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% fsi/text/03-the-input.tex
+
+\section{The structural input}
+
+\begin{frame}[fragile]{One structural input, selected by name}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}\small
+  \item One configuration per file, \code{inputs/fsi/f001.toml}: \code{f},
+        then letters, digits, \code{\_} or \code{-}; no extension in the row.
+  \item The row selects it in \code{VAR\_NAMES\_VALUES}, with any
+        calibration beside it.
+  \item The resolver attaches the \emph{effective} \code{FsiConfig} and its
+        provenance to the case. No solver runs while loading or planning.
+  \item The run writes both files in the point's working directory and
+        records their hashes. The source is hashed too: changing it means
+        planning again.
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{lstlisting}[style=ftsbase, basicstyle=\ttfamily\tiny, breaklines=true]
+FSI: f001 / FSI_BENDING_STIFFNESS_N_M2_FACTOR: 1.15
+\end{lstlisting}
+\vspace{1mm}
+\begin{center}
+\begin{adjustbox}{max width=\linewidth, max totalheight=0.36\textheight}
+\begin{tikzpicture}
+  \node[fsifile, minimum width=2.9cm] (toml) at (-1.8,0) {inputs/fsi/f001.toml};
+  \node[fsifile, minimum width=2.9cm] (row) at (1.8,0) {the row's FSI keys};
+  \node[fsibox, minimum width=4.6cm] (res) at (0,-1.15) {the resolver, at plan:\\base, factors, effective};
+  \node[fsifile, minimum width=2.9cm] (cfg) at (-1.8,-2.3) {config.json};
+  \node[fsifile, minimum width=2.9cm] (prov) at (1.8,-2.3) {fsi-provenance.json};
+  \draw[fsiarrow] (toml.south) -- (res.north -| toml.south);
+  \draw[fsiarrow] (row.south) -- (res.north -| row.south);
+  \draw[fsiarrow] (res.south -| cfg.north) -- (cfg.north);
+  \draw[fsiarrow] (res.south -| prov.north) -- (prov.north);
+  \node[fsinote] at (0,-2.85) {written and hashed in the point's working directory};
+\end{tikzpicture}
+\end{adjustbox}
+\end{center}
+\begin{takeaway}
+The geometry library is never a destination for these generated files.
+\end{takeaway}
+\end{column}
+\end{columns}
+\fsisource{\code{docs/fsi-workspace.md}, opening section;
+  \code{workspace/fsi\_setup.py}, \code{resolve\_row\_fsi};
+  \code{docs/srs/data-model.md}, the \code{inputs/} tree}
+\end{frame}
+
+\begin{frame}{Two ways to state the blade}
+\relax % a body opening with a brace group would be read as the frame subtitle
+{\ftstablesize\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\linewidth}{@{}P{0.20\linewidth}RR@{}}
+\toprule
+ & \textbf{\code{mode = "supplied"}} & \textbf{\code{mode = "calculated"}} \\
+\midrule
+What you write & the \code{FsiConfig} scalars under \code{[config]} and the
+  complete \code{BladeProperties} arrays under \code{[config.blade]} &
+  the \code{[config]} scalars, a \code{material}, and \code{[sections]}: one
+  closed contour per station, in metres \\
+What the package computes & nothing: the distributions are the file's, then
+  calibrated & area, centroid, principal inertias, the torsion constant, then
+  EI, GJ, running mass and mass inertias from the material \\
+Where the numbers come from & you: the example distributions are synthetic,
+  not a material or airframe dataset & the geometry and ONE sourced
+  material, recorded with the numbers \\
+Refused & a \code{material} or \code{[sections]} table; any material factor &
+  a \code{[config.blade]} table; no material; no \code{[sections]} \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{2mm}
+\begin{takeaway}
+Either way the result is the existing solid homogeneous Euler beam: this input
+adds no shell, spar, hollow-section, shear-centre or second structural model.
+\end{takeaway}
+\fsisource{\code{docs/fsi-workspace.md}, ``Supplied distributions'' and
+  ``Calculated solid sections''; \code{workspace/fsi\_setup.py},
+  \code{resolve\_fsi\_setup}}
+\end{frame}
+
+\begin{frame}[fragile]{Supplied distributions}
+\begin{columns}[T]
+\begin{column}{0.47\textwidth}
+\begin{lstlisting}[style=ftsbase, basicstyle=\ttfamily\tiny]
+mode = "supplied"
+
+[calibration]
+bending_stiffness_n_m2 = 1.05
+
+[config]
+blade_count = 2
+omega_rad_per_s = 0.0
+
+[config.blade]
+station_radii_m = [0.1, 0.5]
+chord_m = [0.04, 0.04]
+mass_per_length_kg_per_m = [1.0, 2.0]
+inertia_major_kg_m = [0.001, 0.002]
+inertia_minor_kg_m = [0.0001, 0.0002]
+bending_stiffness_n_m2 = [10.0, 20.0]
+torsion_stiffness_n_m2 = [5.0, 10.0]
+elastic_axis_offset_chordwise_m = [0.0, 0.0]
+elastic_axis_offset_normal_m = [0.0, 0.0]
+cg_offset_chordwise_m = [0.0, 0.0]
+cg_offset_normal_m = [0.0, 0.0]
+geometric_pitch_deg = [0.0, 0.0]
+\end{lstlisting}
+\end{column}
+\begin{column}{0.49\textwidth}
+{\ftstablesize\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Array} & \textbf{Unit} \\
+\midrule
+\code{station\_radii\_m}, strictly increasing & m \\
+\code{mass\_per\_length\_kg\_per\_m} & kg/m \\
+\code{bending\_stiffness\_n\_m2} (EI, flap) & N\,m\(^2\) \\
+\code{torsion\_stiffness\_n\_m2} (GJ) & N\,m\(^2\) \\
+\code{inertia\_major\_kg\_m}, \code{\_minor\_kg\_m} & kg\,m \\
+offsets, \code{chord\_m} & m \\
+\bottomrule
+\end{tabular}}
+\par\vspace{1.5mm}
+\begin{itemize}\scriptsize
+  \item Every array has the length of \code{station\_radii\_m}; values are
+        finite; mass, EI, GJ and chord positive; principal inertias not
+        negative.
+  \item With the row factor 1.15 of the previous part, the effective EI is
+        \code{[11.5, 23.0]}: the row replaces the file's 1.05, it does not
+        multiply it.
+\end{itemize}
+{\scriptsize\itshape A zero-speed input like this one is a valid structural
+input for offline checks, not a runnable coupled rotor row.\par}
+\end{column}
+\end{columns}
+\fsisource{\code{docs/fsi-workspace.md}, ``Supplied distributions'';
+  \code{fsi/config.py}, \code{BladeProperties}}
+\end{frame}
+
+\begin{frame}[fragile]{Calculated solid sections}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{lstlisting}[style=ftsbase, basicstyle=\ttfamily\tiny]
+mode = "calculated"
+material = "ti-6al-4v-grade5-annealed"
+
+[config]
+blade_count = 2
+omega_rad_per_s = 0.0
+
+[sections]
+station_radii_m = [0.1, 0.5]
+chord_m = [0.04, 0.04]
+geometric_pitch_deg = [0.0, 0.0]
+geometry_source = "Synthetic rectangular sections in SI units"
+torsion_grid_cells = 16
+sections_m = [
+  [[-0.02, -0.002], [0.02, -0.002],
+   [0.02, 0.002], [-0.02, 0.002]],
+  [[-0.02, -0.002], [0.02, -0.002],
+   [0.02, 0.002], [-0.02, 0.002]]
+]
+\end{lstlisting}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{itemize}\small
+  \item \code{sections\_m}: one closed polygon per station, chordwise and
+        normal metres about the pitch axis.
+  \item \code{geometry\_source}: what the contours were built from, in
+        words; it travels with the numbers.
+  \item \code{torsion\_grid\_cells}: cells across the thickness for the
+        torsion solve, 8 to 512, 64 when omitted.
+  \item No \code{[config.blade]}: this mode derives it.
+\end{itemize}
+\begin{takeaway}
+A 40 by 4 mm titanium strip; example 1 turns these contours into EI.
+\end{takeaway}
+\end{column}
+\end{columns}
+\fsisource{\code{docs/fsi-workspace.md}, ``Calculated solid sections'';
+  \code{workspace/fsi\_setup.py}, \code{SolidSections}, \code{FSI\_TEMPLATE}}
+\end{frame}
+
+\begin{frame}{The material database: no number without a source}
+\relax % a body opening with a brace group would be read as the frame subtitle
+{\ftstablesize\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\linewidth}{@{}lrrrrR@{}}
+\toprule
+\textbf{Key} & \(\rho\) [kg/m\(^3\)] & \(E\) [GPa] & \(G\) [GPa] & \(\nu\) & \textbf{Source, as recorded} \\
+\midrule
+\code{ti-6al-4v-grade5-annealed} & 4430 & 113.8 & 44.0 & 0.342 &
+  ASM Aerospace Specification Metals data sheet, annealed; \(G\) tabulated \\
+\code{al-7075-t6} & 2810 & 71.7 & 26.9 & 0.33 &
+  ASM Aerospace Specification Metals data sheet, T6 typical values; \(G\) tabulated \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{2mm}
+\begin{itemize}\small
+  \item Each entry's four numbers come from ONE cited data set, with its table,
+        condition, address and reading date. Database version \code{1}; a
+        changed number is a new version.
+  \item Your own material: a \code{[material]} table stating every field, with
+        a \code{[material.source]} of \code{document}, \code{table},
+        \code{condition}, \code{url}, \code{consulted}. Density, \(E\), \(G\)
+        finite and positive; \(-1 < \nu < 0.5\).
+  \item Room-temperature typical values for a structural model of a blade, not
+        the design allowables of a certified part.
+\end{itemize}
+\fsisource{\code{fsi/materials.py}; \code{docs/fsi-workspace.md},
+  ``Calculated solid sections''; FSI tutorial, ``sections and materials''}
+\end{frame}
+
+\begin{frame}{The solid-section calculator}
+\begin{columns}[T]
+\begin{column}{0.60\textwidth}
+{\ftstablesize\renewcommand{\arraystretch}{1.12}
+\begin{tabularx}{\linewidth}{@{}P{0.50\linewidth}R@{}}
+\toprule
+\textbf{Field} & \textbf{Generated as} \\
+\midrule
+\code{mass\_per\_length\_kg\_per\_m} & \(\rho A\) \\
+\code{inertia\_major\_kg\_m}, \code{\_minor} & \(\rho\) times the larger, smaller principal second moment \\
+\code{bending\_stiffness\_n\_m2} & \(E\) times the second moment about the chordwise centroidal axis \\
+\code{torsion\_stiffness\_n\_m2} & \(G J\), \(J\) computed numerically \\
+\code{elastic\_axis\_offset\_*} & the centroid's position from the pitch axis \\
+\code{cg\_offset\_*} & zero \\
+\bottomrule
+\end{tabularx}}
+\end{column}
+\begin{column}{0.36\textwidth}
+\begin{itemize}\scriptsize
+  \item Area, centroid, second moments: exact closed forms of the polygon.
+        A contour that crosses or touches itself, repeats a vertex or folds
+        back is refused by name.
+  \item \(J\): the Prandtl stress function by finite differences cut exactly at
+        the polygon [6, 7]. 16 cells across are within about 1\,\% of the closed
+        forms, 32 within 0.3\,\%, 64 within 0.08\,\%.
+  \item The thin-section \(\frac13\!\int t^3\,ds\) is kept as a cross-check,
+        never as the value.
+\end{itemize}
+\end{column}
+\end{columns}
+\par\vspace{1mm}
+\begin{alertblock}{Stated hypotheses, recorded with every generated blade}
+\scriptsize SOLID, HOMOGENEOUS sections; the elastic axis at the CENTROID, the
+shear centre not computed; a zero elastic-axis-to-CG offset, so no bend-twist
+coupling from it; flap bending about the chordwise axis.
+\end{alertblock}
+\fsisource{FSI tutorial, ``sections and materials''}
+\end{frame}

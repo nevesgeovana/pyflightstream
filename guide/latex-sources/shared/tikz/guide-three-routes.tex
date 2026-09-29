@@ -1,0 +1,34 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% shared/tikz/guide-three-routes.tex
+% The decision tree for getting a Python 3.12 into fts-unix. Two questions,
+% three leaves. Drawn so that route A is visually the cheap one.
+% Shared fragment: no sectioning, no frame, no size command, no float. Wrapped by the caller.
+\begin{tikzpicture}[font=\scriptsize, node distance=4mm,
+  q/.style={draw=CourseBlue, thick, rounded corners, fill=CourseBlue!8,
+            align=center, text width=38mm, minimum height=9mm, inner sep=3pt},
+  r/.style={draw=CourseGold, thick, rounded corners, fill=CourseGold!15,
+            align=center, text width=34mm, minimum height=11mm, inner sep=3pt},
+  yes/.style={font=\tiny\bfseries, text=CourseGreen},
+  no/.style={font=\tiny\bfseries, text=CourseRed}]
+
+\node[q] (q1) {Does \texttt{module avail python}\\ show a 3.12 or newer?};
+
+\node[r, right=22mm of q1] (a) {\textbf{Route A}\\ load the module\\ \tiny record its exact name};
+
+\node[q, below=12mm of q1] (q2) {Does the login node\\ reach the internet?};
+
+\node[r, right=22mm of q2] (b) {\textbf{Route B}\\ \texttt{uv} into \texttt{fts-unix/bin}\\ \tiny it downloads a 3.12};
+
+\node[r, below=12mm of q2] (c) {\textbf{Route C}\\ standalone tarball\\ \tiny copied in from a connected machine};
+
+\draw[-{Stealth}, thick, CourseGreen] (q1) -- node[yes, above] {yes} (a);
+\draw[-{Stealth}, thick, CourseRed]   (q1) -- node[no, right] {no} (q2);
+\draw[-{Stealth}, thick, CourseGreen] (q2) -- node[yes, above] {yes} (b);
+\draw[-{Stealth}, thick, CourseRed]   (q2) -- node[no, right] {no} (c);
+
+\node[font=\tiny\itshape, text=CourseGray, below=3mm of c, text width=70mm, align=center]
+  {Route C always works. The interpreter is relocatable and writes nothing
+   outside \texttt{fts-unix}; it is not compiling Python.};
+
+\end{tikzpicture}

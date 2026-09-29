@@ -1,0 +1,95 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{The axes of a steady polar}
+
+\begin{frame}{One exported force and moment, three axis systems}
+\small The loads export gives one force and one moment per surface in the
+geometry frame: \textbf{x aft, y right, z up}. Sum over the group's surfaces,
+then turn that pair.
+\par\vspace{2mm}
+{\ftstablesize
+\begin{tabular}{@{}p{0.34\linewidth}p{0.21\linewidth}p{0.36\linewidth}@{}}
+\toprule
+\textbf{Columns} & \textbf{Axes} & \textbf{How} \\
+\midrule
+\code{CDB, CYB, CLB, CRB25, CMB25, CNB25} & Body: forward, right, down &
+Half a turn about y. $\mathrm{CDB}=\mathrm{Cx}$ and $\mathrm{CLB}=\mathrm{Cz}$ of the export \\
+\code{CDS ... CNS} & Stability & Body axes turned by $-\alpha_s$ about y \\
+\code{CDW ... CNW} & Wind & Stability axes turned by $\beta_w$ about z \\
+\bottomrule
+\end{tabular}}
+\end{frame}
+
+\begin{frame}{Force signs and moment normalisation}
+\begin{itemize}
+  \item Drag opposes $+x$ and lift opposes $+z$ in each system.
+        Side force keeps its sign.
+  \item Turn the moment as \textbf{one vector in one length}, then normalise.
+  \item Divide \code{CR} and \code{CN} by the span, and \code{CM} by the chord.
+  \item Under sideslip, this moves pitch into roll by the ratio of chord to span.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The rotation angles come from the flown velocity}
+\small The solver turns sideslip about body z first, then incidence. It flies
+\[
+ (u,v,w)=V(\cos a\cos b,\ \cos a\sin b,\ \sin a),
+ \qquad
+ \alpha_s=\operatorname{atan2}(w,u),\quad
+ \beta_w=\arcsin(v/V).
+\]
+\begin{itemize}
+  \item These angles equal the written \code{ALPHA} and \code{BETA} whenever
+        either is zero. Otherwise they differ at second order.
+  \item At \code{ALPHA 4, BETA 2}, they are $4.0024^\circ$ and $1.9951^\circ$.
+  \item The \code{ALPHA} and \code{BETA} columns keep what the row wrote.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Wind-axis drag and the solver's integrals}
+\[
+  \mathrm{CDW}=\mathrm{CDi}+\mathrm{CDo}.
+\]
+\begin{itemize}
+  \item Wind-axis drag from the export's own vector equals the drag the
+        solver integrates, including under sideslip.
+  \item Recorded exports confirm this to their printed precision.
+  \item \code{CD0} and \code{CDI} state the solver's two integrals.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Wind-axis lift comes from the exported vector}
+\begin{itemize}\small
+  \item \code{CLW} is the vector's wind-axis lift, not the export's \code{CL}.
+  \item On 27 of 28 recorded lifting exports with lift above $0.05$,
+        the printed \code{CL} is 0.10 to 0.25 per cent higher. One is
+        0.71 per cent higher. The cause is unknown.
+  \item Every polar axis column uses one source, keeping \code{CDB} and
+        \code{CLB} consistent with the export's \code{Cx} and \code{Cz}.
+  \item Older tables used the solver's \code{CL} directly, so their
+        \code{CLS} and \code{CLW} are higher by those amounts.
+\end{itemize}
+\vspace{2mm}
+{\scriptsize Recorded evidence:
+\code{tests/tier1\_offline/fixtures/recorded\_total\_rows.csv}.}
+\end{frame}
+
+\begin{frame}{An induced drag the solver did not compute is \code{NA}}
+\begin{itemize}\small
+  \item A boundary on the vorticity induced-drag list
+        (\code{SET\_VORTICITY\_DRAG\_BOUNDARIES}) without a defined trailing
+        edge is not computed, and the export prints its \code{CDi} as zero
+        [2, p.202].
+  \item When the point's run record puts a surface on the list and its printed
+        \code{CDi} is exactly zero, the group's \code{CDI} is \code{NA}, and so
+        is every axis column the export's x force reaches at that point's
+        angles: \code{CDB}, \code{CDS}, \code{CDW}; \code{CLS} and \code{CLW}
+        off zero incidence; \code{CYW} under sideslip.
+  \item The moments, \code{CYB}, \code{CLB}, \code{CYS} and \code{CD0} keep
+        their numbers; the fixed-width custom polar writes \code{nan}.
+        \code{post.log} names the declined surfaces.
+  \item A trailing-edged surface whose induced drag rounds to zero at the
+        printed precision reads \code{NA} too; \code{significant\_digits}
+        narrows that band.
+\end{itemize}
+\end{frame}

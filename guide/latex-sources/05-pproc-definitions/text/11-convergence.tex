@@ -1,0 +1,67 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{What the package does not judge}
+
+\begin{frame}{Last-step convergence does not judge a settled history}
+\begin{itemize}
+  \item For an unsteady point, the package asserts whether the numerical
+        iterations \textbf{within the last time step} converged.
+  \item It does not judge whether the time history has settled.
+  \item There is no settle tolerance or convergence criterion over the history,
+        and no point fails for one.
+\end{itemize}
+\begin{takeaway}
+The user judges whether the history has settled afterwards, from the history.
+\end{takeaway}
+\end{frame}
+
+\begin{frame}{Frozen solves and averages}
+\begin{itemize}\small
+  \item Two consecutive frozen steps make the point \code{FAILED\_DIVERGED}.
+        In a frozen step, inner iterations after the first print exactly zero
+        velocity residual, and the last prints both residuals exactly zero.
+  \item Assessment names the first frozen step and count. Post reads the native
+        log again, including for a record previously assessed successful.
+  \item An average whose window reaches the first frozen step is skipped with
+        its reason in \code{products.json}. An earlier stale product is archived.
+  \item Windows wholly before the freeze, raw histories and explicitly instant
+        products remain available. A frozen stretch requires a new solve.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The post never blocks and always writes its log}
+\begin{itemize}\small
+  \item Every \code{pyfs-matrix post} writes \code{post.log} beside
+        \code{products.json}, even when nothing is wrong; the manifest names it.
+        Read it after every post: each named skip and warning states the point,
+        the product, the step and what settles it.
+  \item By default a frozen point, an unread residual block, a failed status or a
+        reference mismatch is a WARNING line, and every computable product is
+        written. \code{--check-frozen} refuses the affected averages instead.
+  \item The freeze and azimuthal guards judge the exact set of plotted samples the
+        reducer reads, blade aliases resolved and every nonzero interpolation
+        weight counted; the guard does no arithmetic of its own.
+  \item \code{integrate = true} on a \code{[[sections.distributions]]} pproc
+        entry appends \code{Strip\_length}, \code{Fx\_int}, \code{Fz\_int} and
+        \code{My\_int} to the same sloads file: strips midpoint to midpoint,
+        half strips at the ends, the moment about each station's quarter chord.
+        Off by default; the file is byte-identical when off.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{One post, one log, and the log as fields}
+\begin{itemize}\small
+  \item \code{post.log.json} sits beside \code{post.log}: the same header
+        (\code{version}, \code{workspace}, \code{matrix}, \code{time},
+        \code{check\_frozen}) and one record per WARNING line, in the same
+        order, with \code{point}, \code{product}, \code{message} and
+        \code{remedy}. \code{products.json} names it under \code{log\_json}.
+  \item Both are written from one list, on a clean, a failed and an
+        interrupted post, so they cannot disagree. Parse the JSON, not the text.
+  \item A WARNING line names its own point and product:
+        \code{WARNING point=camp/sim\_7001/AL-020 product=available-exports: ...}.
+  \item Each post collects the package's warnings in its own thread: two posts
+        in one process no longer share a log, and a warning from code outside
+        the package is not written to it [3].
+\end{itemize}
+\end{frame}

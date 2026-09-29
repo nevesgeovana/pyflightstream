@@ -1,0 +1,49 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{Actuator discs}
+
+\begin{frame}[fragile]{One actuator disc: \code{kind = "actuator"}}
+\small A row may load a disc the reference declares: the solver's
+linearized propeller slipstream.
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,numbers=none]
+[PROP]
+kind = "actuator"
+frame = "HUB"          # a declared frame, MRP, or a rotor's own frame
+axis = "X"              # X, Y or Z of that frame
+offset_m = 0.0           # along the axis, from the frame's origin
+tip_radius_m = 0.5
+hub_radius_m = 0.1       # 0 <= hub < tip
+rpm_sign = 1              # the right-hand rule about axis
+blades = 3                 # needed by a row loading a profile
+profile_units = "NEWTONS"   # unit the profile file is written in
+\end{lstlisting}
+\begin{itemize}\small
+  \item The block's NAME is what a row's \code{ACTUATOR} key cites, one
+        disc per row.
+  \item Refused: a block name shared with a rotor, an alias or a frame,
+        and a block that forgets \code{kind = "actuator"}.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}, the actuator model;
+  \code{cases/workflows.py}}
+\end{frame}
+
+\begin{frame}[fragile]{One row, one disc: geometry here, loading on the row}
+\small The disc's GEOMETRY belongs to the configuration, so it lives in the
+reference beside the rotors and the frames; its LOADING belongs to the
+condition, so the row states it.
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,numbers=none]
+ACTUATOR: PROP / ACTUATOR_RPM: 2400 / ACTUATOR_THRUST: 120
+ACTUATOR: PROP / ACTUATOR_RPM: 2400 / PROFILE: prop_ct
+\end{lstlisting}
+\begin{itemize}\small
+  \item \code{ACTUATOR\_RPM} is a magnitude, rev/min; its hand is the
+        block's \code{rpm\_sign}, exactly as a rotor's speed is.
+  \item A row states exactly one loading: \code{ACTUATOR\_THRUST} (net
+        thrust, the elliptical model) or \code{PROFILE} (the stem of a
+        file under \code{inputs/profiles/}, the custom model). Stating
+        both, or neither, is refused.
+  \item A reference declaring a disc changes nothing on a row that names
+        no \code{ACTUATOR}: the disc simply is not loaded on that row.
+\end{itemize}
+\setupsources{\code{cases/workflows.py}; \code{workspace/matrix.py}}
+\end{frame}

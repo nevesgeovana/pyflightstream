@@ -1,0 +1,33 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{The vocabulary}
+
+\begin{frame}{Turns, passages and windows}
+\relax
+{\ftstablesize
+\begin{tabular}{@{}p{0.24\linewidth}p{0.69\linewidth}@{}}
+\toprule
+\textbf{Term} & \textbf{Meaning} \\
+\midrule
+Revolution & One full turn of a rotor:
+  $60/\mathrm{rpm}$ seconds, $60/(\mathrm{rpm}\,\mathrm{dt})$ solver steps \\
+Blade passage & One revolution divided by the blade count \\
+Azimuthal position & Where a blade is in its turn, 0 to 360 degrees \\
+Window & An inclusive, 1-based range of solver steps that a reduction averages over \\
+\bottomrule
+\end{tabular}}
+\end{frame}
+
+\begin{frame}{Rotor names and reference points}
+\relax
+{\ftstablesize
+\begin{tabular}{@{}p{0.24\linewidth}p{0.69\linewidth}@{}}
+\toprule
+\textbf{Term} & \textbf{Meaning} \\
+\midrule
+\code{SMRP} & A rotor's own static moment reference point, \code{<ALIAS>\_SMRP} \\
+\code{MRP} & The global moment reference point of the aircraft \\
+Alias & The name of a rotor, and of the integration group built from its families \\
+\bottomrule
+\end{tabular}}
+\end{frame}

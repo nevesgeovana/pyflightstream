@@ -1,0 +1,188 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% fsi/text/04-calibration.tex
+
+\section{Calibration and provenance}
+
+\begin{frame}{Calibration factors: unity, the file, the matrix}
+\begin{columns}[T]
+\begin{column}{0.60\textwidth}
+{\ftstablesize\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\linewidth}{@{}P{0.27\linewidth}R@{}}
+\toprule
+\textbf{Level} & \textbf{Property names} \\
+\midrule
+Distributions, either mode & \code{mass\_per\_length\_kg\_per\_m},
+  \code{inertia\_major\_kg\_m}, \code{inertia\_minor\_kg\_m},
+  \code{bending\_stiffness\_n\_m2}, \code{torsion\_stiffness\_n\_m2} \\
+Orientation & \code{geometric\_pitch\_deg} \\
+Offsets & \code{elastic\_axis\_offset\_chordwise\_m}, \code{\_normal\_m},
+  \code{cg\_offset\_chordwise\_m}, \code{\_normal\_m} \\
+Material, calculated mode only & \code{density\_kg\_per\_m3},
+  \code{youngs\_modulus\_pa}, \code{shear\_modulus\_pa}, \code{poisson\_ratio} \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{1.5mm}
+{\small The matrix key is \code{FSI\_} + the name in capitals + \code{\_FACTOR}:
+\code{FSI\_TORSION\_STIFFNESS\_N\_M2\_FACTOR}.\par}
+\end{column}
+\begin{column}{0.36\textwidth}
+\begin{center}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tikzpicture}[node distance=3mm]
+  \node[fsibox, minimum width=4.2cm] (m) {\textbf{matrix}: \code{FSI\_*\_FACTOR}\\on the row, even \code{1.0}};
+  \node[fsibox, below=of m, minimum width=4.2cm, fill=CourseGold!10, draw=CourseGold] (f) {\textbf{file}: the TOML's\\\code{[calibration]} table};
+  \node[fsibox, below=of f, minimum width=4.2cm, fill=SoftGray!10, draw=SoftGray] (u) {\textbf{unity}: stated nowhere};
+  \draw[fsiarrow] ([xshift=3mm]u.south east) -- ([xshift=3mm]m.north east)
+    node[midway, fsinote, rotate=90, above] {takes precedence};
+\end{tikzpicture}
+\end{adjustbox}
+\end{center}
+\begin{itemize}\scriptsize
+  \item Every factor is dimensionless, finite and positive.
+  \item An explicit matrix value replaces the file factor exactly once; it
+        is never multiplied by it.
+\end{itemize}
+\end{column}
+\end{columns}
+\fsisource{\code{docs/fsi-workspace.md}, ``Calibration and provenance'';
+  \code{\_fsi\_calibration.py}, \code{MATRIX\_FACTORS}}
+\end{frame}
+
+\begin{frame}{One property, scaled once}
+\begin{columns}[T]
+\begin{column}{0.54\textwidth}
+{\small Calibrating a source and a property derived from it would scale the
+same number twice. Refused, in calculated mode:\par}
+{\ftstablesize\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\linewidth}{@{}P{0.46\linewidth}R@{}}
+\toprule
+\textbf{Source factor} & \textbf{with any of} \\
+\midrule
+density & mass per length, either mass inertia \\
+Young's modulus \(E\) & EI \\
+shear modulus \(G\) & GJ \\
+\(E\) or \(\nu\), when \(G\) is derived & a separate \(G\) or GJ factor \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{1.5mm}
+{\scriptsize \says{\ldots: calibrating youngs\_modulus\_pa and its derived
+bending\_stiffness\_n\_m2 would scale the same property twice; choose one
+calibration level.}\par}
+\end{column}
+\begin{column}{0.42\textwidth}
+\begin{itemize}\scriptsize
+  \item The legacy \code{config.stiffness\_scale\_factor} must be 1.0 in a
+        workspace input: calibrate EI and GJ explicitly instead of a second
+        scaling at solve time.
+  \item Supplied mode takes no material factor: calibrate the distribution
+        itself.
+  \item Every effective property is validated again, including major
+        principal inertia not below minor.
+\end{itemize}
+\begin{ftsevidence}[File 1.05, row 1.15]
+\scriptsize Effective EI = base \(\times\) 1.15, not base \(\times\) 1.2075.
+The origin recorded is \code{matrix}.
+\end{ftsevidence}
+\end{column}
+\end{columns}
+\fsisource{\code{workspace/fsi\_setup.py}, \code{resolve\_fsi\_setup};
+  \code{docs/fsi-workspace.md}, ``Calibration and provenance''}
+\end{frame}
+
+\begin{frame}{A tabulated shear modulus stays tabulated}
+\begin{columns}[T]
+\begin{column}{0.54\textwidth}
+\begin{itemize}\small
+  \item A material either takes \(G\) as its source tabulates it, or derives it
+        as \(E / (2(1+\nu))\) and says so (\code{shear\_modulus\_basis}).
+  \item When the source tabulates \(G\), changing \(E\) or \(\nu\) keeps that
+        \(G\). Only a material declaring a derived \(G\) follows the formula.
+  \item The two contracts stay distinct even at unity calibration: nothing
+        substitutes the isotropic formula for a tabulated value.
+  \item Calibration never rewrites the source database; the base and effective
+        material both go to the provenance.
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\begin{ftsevidence}[The titanium entry]
+\small Tabulated: \(G = 44.0\) GPa.\\
+From the same sheet, \(E/(2(1+\nu)) = 42.4\) GPa.\\[1mm]
+The entry keeps 44.0, about 4\,\% apart, and a torsion stiffness built from
+it keeps it too.
+\end{ftsevidence}
+\begin{takeaway}
+Unity calibration, or a density, \(E\) or \(\nu\) change, does not substitute
+the formula for a tabulated \(G\).
+\end{takeaway}
+\end{column}
+\end{columns}
+\fsisource{\code{docs/fsi-workspace.md}, ``Calculated solid sections'' and
+  ``Calibration and provenance''; \code{fsi/materials.py}}
+\end{frame}
+
+\begin{frame}{The pitch factor scales angles, once}
+\begin{columns}[T]
+\begin{column}{0.54\textwidth}
+\begin{itemize}\small
+  \item \code{FSI\_GEOMETRIC\_PITCH\_DEG\_FACTOR} scales each signed
+        structural angle in degrees once; zero stays zero.
+  \item It changes the orientation of the spinning beam's sections used to
+        generate the structural nodes and to project the loads; section
+        properties, radii and node order stay.
+  \item It is not an angular offset. It does not turn the section contours
+        again, and it does not re-pitch the aerodynamic mesh.
+  \item Keep the aerodynamic geometry consistent with the intended structural
+        orientation, and regenerate the node file and ordering map from the
+        effective configuration.
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\begin{ftsevidence}[File factor 2.0, row factor 1.5]
+\small \code{geometric\_pitch\_deg = [-60, 20]}\\[1mm]
+becomes \code{[-90, 30]},\\
+not \code{[-180, 60]}.
+\end{ftsevidence}
+\begin{alertblock}{Alone, it validates nothing}
+\small This parameter alone does not establish coupled aerodynamic
+validation.
+\end{alertblock}
+\end{column}
+\end{columns}
+\fsisource{\code{docs/fsi-workspace.md}, ``Calibration and provenance''}
+\end{frame}
+
+\begin{frame}{Provenance: every number says where it came from}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\textbf{\small \code{fsi-provenance.json}, per point}
+\begin{itemize}\scriptsize
+  \item the source path and its sha256, and the mode;
+  \item the unscaled (base) and effective configurations;
+  \item every factor, and whether it came from \code{unity}, \code{file} or
+        \code{matrix};
+  \item calculated mode: the base and effective material properties and the
+        section algorithm's provenance;
+  \item \code{section\_model}: \code{"existing solid homogeneous Euler beam"}.
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\textbf{\small Inside a generated blade: \code{BladeProperties.provenance}}
+\begin{itemize}\scriptsize
+  \item the material entry, its source and the database version;
+  \item the geometry file's NAME and sha256, never its path;
+  \item the hypotheses, the torsion method and its grid per station, and the
+        thin-section ratio per station.
+\end{itemize}
+\textbf{\small \code{config\_sha256}}
+\begin{itemize}\scriptsize
+  \item over the sorted, whitespace-free JSON: it identifies the physics, not
+        the file layout;
+  \item on every row of the convergence log. A typed configuration has no
+        provenance and keeps the digest it always had.
+\end{itemize}
+\end{column}
+\end{columns}
+\fsisource{\code{workspace/fsi\_setup.py}, \code{ResolvedFsiSetup.provenance};
+  \code{fsi/config.py}, \code{config\_sha256}; FSI tutorial, ``config''}
+\end{frame}

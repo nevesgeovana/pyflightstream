@@ -1,0 +1,56 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{Reading the reference back}
+
+\begin{frame}[fragile]{What post reads from the reference}
+\small A pproc \code{[groups]} entry names a product file and what is
+summed into it, and every value is one word the reference declares:
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,numbers=none]
+[groups]
+PUSHER   = "PUSHER"      # a rotor of the reference: that rotor's own
+                           # families
+AIRFRAME = "airframe"    # an alias of the reference's [aliases] table
+TOTAL    = "all"          # every family the geometry carries
+\end{lstlisting}
+\begin{itemize}\small
+  \item The alias resolves through the reference \textbf{as it stands when
+        \code{pyfs-matrix post} runs}, not as it stood when the row was
+        planned: renaming or extending an alias needs a re-run of post,
+        never of the solver.
+  \item A group whose alias selects no surface of any loads export writes
+        no table: it is named under \code{skipped} in \code{products.json}
+        with the surfaces the export does carry.
+  \item Family resolution for surface-section integration reads the same
+        live reference, including rotor names and their aliases, matched
+        against the recorded boundary families [3].
+\end{itemize}
+\setupsources{\code{workspace/matrix.py}; also repository
+  \code{docs/post-processing-definitions.md}}
+\end{frame}
+
+\begin{frame}{Common refusals}
+\relax
+{\ftstablesize
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.3\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{A row or file states} & \textbf{The refusal says} \\
+\midrule
+\code{RPM\_SIGN} beside a rotor block & Remove it from the row; set
+  \code{rpm\_sign} on that rotor's block instead, naming which of the two
+  is true today. \\
+\code{ADVANCE\_RATIO}, reference has no diameter & Names the missing
+  field: the top-level \code{rotor\_diameter\_m}, or the cited block's
+  \code{diameter\_m}. \\
+A rotor block with no \code{families\_blades} & Names the block; add the
+  families, or state the blade count on the row instead. \\
+An actuator block missing \code{kind = "actuator"} & Names the block and
+  that the key is missing. \\
+A row loading an actuator: both loadings, or neither & Names the row and
+  that exactly one of \code{ACTUATOR\_THRUST} or \code{PROFILE} is wanted. \\
+Two blocks (rotor, alias, frame, disc) sharing one name & Names the
+  collision and both blocks. \\
+\bottomrule
+\end{tabularx}}
+\setupsources{\code{cases/workflows.py}; \code{cases/matrix.py};
+  \code{workspace/inputs.py}}
+\end{frame}

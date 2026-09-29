@@ -1,0 +1,73 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% shared/tikz/guide-workspace-tree.tex
+% The whole fts-workspace tree on one page, NATIVE against OURS, with the
+% main-only and cluster-only branches marked.
+% Shared fragment: no sectioning, no frame, no size command, no float. Wrapped by the caller.
+\begin{tikzpicture}[font=\scriptsize,
+  native/.style={draw=CourseBlue, thick, rounded corners, fill=CourseBlue!8,
+                 align=left, minimum height=5.5mm, text width=30mm, inner sep=3pt},
+  ours/.style={draw=CourseGold, thick, rounded corners, fill=CourseGold!15,
+               align=left, minimum height=5.5mm, text width=30mm, inner sep=3pt},
+  leaf/.style={align=left, text width=42mm, font=\scriptsize\ttfamily},
+  win/.style={draw=CourseGray, dashed, thin},
+  lin/.style={draw=CourseGreen, dashed, thin}]
+
+% ------------------------------------------------------------------ root ---
+\node[align=center, font=\scriptsize\bfseries] (root) {fts-workspace};
+
+% ------------------------------------------------------------ the inputs ---
+\node[native, below left=6mm and 22mm of root] (inputs) {\texttt{inputs/}};
+\node[leaf, right=2mm of inputs] (inputsleaf)
+  {geometries/ \ \ references/\\ setups/ \ \ pproc/\\ profiles/ \ \ hpc/\\ executables.toml};
+
+\node[native, below=3mm of inputs] (matriz) {\texttt{matriz.fs}};
+\node[leaf, right=2mm of matriz] (matrizleaf) {the study, 19 columns};
+
+% ----------------------------------------------------------- the results ---
+\node[native, below=3mm of matriz] (sims) {\texttt{sims/}};
+\node[leaf, right=2mm of sims] (simsleaf) {what a run left};
+
+\node[native, below=3mm of sims] (post) {\texttt{post/}};
+\node[leaf, right=2mm of post] (postleaf) {what post-processing left};
+
+\node[native, below=3mm of post] (archive) {\texttt{archive/}};
+\node[leaf, right=2mm of archive] (archiveleaf) {what a rebuild replaced};
+
+% -------------------------------------------------------------- our own ---
+\node[ours, below=7mm of archive] (ansa) {\texttt{ansa/}};
+\node[leaf, right=2mm of ansa] (ansaleaf) {mesh scripts, obj generation};
+
+\node[ours, below=3mm of ansa] (builds) {\texttt{builds/}};
+\node[leaf, right=2mm of builds] (buildsleaf) {the solver executables};
+
+\node[ours, below=3mm of builds] (docs) {\texttt{docs/}};
+\node[leaf, right=2mm of docs] (docsleaf) {these guides, the install notes};
+
+\node[ours, below=3mm of docs] (wheels) {\texttt{pfs-wheels/}};
+\node[leaf, right=2mm of wheels] (wheelsleaf) {cached wheels\\older installations kept beside};
+
+\node[ours, below=3mm of wheels] (venv) {\texttt{py-venv/}};
+\node[leaf, right=2mm of venv] (venvleaf) {the shared environment\\older installations kept beside};
+
+% ------------------------------------------------------------ the spine ---
+% A short stub left of every folder, so the column reads as one tree rather
+% than as two stacked lists. No calc library: a relative ++ is enough.
+\foreach \n in {inputs, matriz, sims, post, archive, ansa, builds, docs, wheels, venv}
+  \draw[CourseGray, thin] (\n.west) -- ++(-4mm, 0);
+
+% ------------------------------------------------------------- platforms ---
+\node[font=\scriptsize\itshape, left=13mm of ansa, text width=16mm, align=right]
+  (winonly) {main\\only};
+\draw[win] (winonly.east) -- (ansa.west);
+
+\node[font=\scriptsize\itshape, left=13mm of wheels, text width=16mm, align=right]
+  (linonly) {cluster\\only};
+\draw[lin] (linonly.east) -- (wheels.west);
+\draw[lin] (linonly.east) -- (venv.west);
+
+% ---------------------------------------------------------------- legend ---
+\node[native, below=9mm of venv, text width=26mm] (lnat) {NATIVE: written by \texttt{init}};
+\node[ours, right=4mm of lnat, text width=26mm] (lours) {OURS: the site added it};
+
+\end{tikzpicture}

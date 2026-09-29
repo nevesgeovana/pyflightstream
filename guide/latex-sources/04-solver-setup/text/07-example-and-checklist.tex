@@ -1,0 +1,74 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{Example and checklist}
+
+\begin{frame}[fragile]{Complete setup example: settings}
+\small \code{inputs/setups/s901.toml}, selected by \code{SET = s901}.
+An illustrative unsteady setup for 26.123 or 26.124, continued next frame.
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,numbers=none]
+iterations = 500
+convergence = 1e-5
+forced_iterations = false
+convergence_iterations = 5
+max_threads = 8
+timeout_s = 3600.0
+walltime_margin_s = 1200.0
+boundary_layer = "TURBULENT"
+viscous_coupling = true
+solver_model = "INCOMPRESSIBLE"
+wall_collision_avoidance = false
+solver_stabilization = 0.25
+minimum_cp = -100.0
+reynolds_averaged_drag = false
+reference_velocity_m_per_s = 40.0
+significant_digits = 7
+\end{lstlisting}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings};
+  \code{workspace/matrix.py}; \code{cases/workflows.py}; \code{script/helpers.py}}
+\end{frame}
+
+\begin{frame}[fragile]{Complete setup example: wake settings}
+\small Continue the same file. Use
+geometry carrying the \code{Wing} family; these are example choices.
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,numbers=none]
+load_solver_initialization = false
+symmetry_loads = false
+vorticity_drag_families = ["Wing"]
+mesh_induced_wake_velocity = true
+farfield_layers = 5          # the recommended value; above 5 is refused
+unsteady_pressure_and_kutta = true
+wake_termination_steps = 72
+wake_on_wake_induction = true
+additional_wake_relaxation = false
+laminar_separation = true
+\end{lstlisting}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings};
+  \code{workspace/matrix.py}; \code{cases/workflows.py};
+  \code{commands/advanced\_settings.yaml}; \code{commands/unsteady\_solver.yaml}}
+\end{frame}
+
+\begin{frame}{Before planning the row}
+\begin{enumerate}\small
+  \item Check the \code{SET} id and the file under \code{inputs/setups/}.
+        Keep settings above \code{[[raw]]} tables so TOML does not put them
+        inside the last raw entry.
+  \item Check each key, alias, type and bound. Toggle strings are quoted;
+        TOML booleans are not. Omit optional keys for \code{None}.
+  \item Check the row's build and workflow. Set the physical clock on the
+        row; choose one wake-termination unit. Family names must resolve
+        on that geometry.
+  \item Check row overrides for \code{NCPUS} and \code{SYMMETRY\_LOADS}.
+        Read recorded-only warnings; they mean no solver command was emitted.
+  \item Run \code{pyfs-matrix plan}. Inspect the emitted commands, including
+        the minimum-Cp default and each raw line, before running the solver.
+        \code{pyfs-matrix inspect-setups} shows each resolved
+        value and where it came from, and \code{plan --setup-standards
+        --setup-guidelines} writes the \code{s9XX} presets and their guide.
+  \item After the run, inspect \code{solver\_setup} and
+        \code{raw\_commands} in the run record. A documented command is
+        not a measured result on that build.
+\end{enumerate}
+\setupsources{\code{workspace/inputs.py}; \code{workspace/matrix.py};
+  \code{cases/workflows.py}; \code{script/solver\_setup.py};
+  also repository \code{docs/workspace-and-workflows.md}}
+\end{frame}

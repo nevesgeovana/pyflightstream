@@ -63,8 +63,22 @@ FlightStream versions.
   declares a Tecplot surface whether its strength is carried, and `plan.json`
   carries it as `singularity_strength` in the row's setup inspection. See
   docs/surface-translation.md.
+- The seven guide decks in `guide/`, written for 0.30.0, with their LaTeX
+  sources (`guide/latex-sources/`), their build recipe and their compiled
+  PDFs: workspaces, from the GUI to pyfs, the reference file, solver setup,
+  post-processing definitions, FSI, and Python on an offline machine. Each
+  ends on numbered references, the package's documentation pages and the
+  textbooks and papers behind each physical explanation. They are CC BY 4.0
+  (`guide/LICENSE-AND-AUTHORSHIP.md`); `guide/pyflightstream_user_guide.tex`,
+  the guide to the Python library, stays beside them.
 
 ### Changed
+
+- A pdf may now be tracked under `guide/`, and only there: the forbid-pdf
+  hook, the CI guard job and a tier-1 walk of the tracked files
+  (`test_house_style.py`) carry the same exemption, and a test shows the hook
+  and the CI job refuse exactly what the walk refuses. A pdf anywhere else is
+  refused as before.
 
 - **A Tecplot surface no longer exports the native Tecplot by default.** A row
   whose pproc does not set `singularity_strength = true` exports the VTK alone:

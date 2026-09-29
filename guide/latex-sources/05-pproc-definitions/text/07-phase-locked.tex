@@ -1,0 +1,137 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{\code{phase\_locked}}
+
+\begin{frame}{A mean at a fixed azimuth across revolutions}
+\begin{enumerate}\small
+  \item Take the last \code{last\_revolutions\_avg} revolutions.
+  \item At each azimuth, average the samples at that same position across
+        those revolutions.
+  \item Tabulate the result by azimuthal position, 0 to 360 degrees.
+\end{enumerate}
+\begin{takeaway}
+With three revolutions, three datapoints enter each azimuth's mean.
+The row is an azimuthal position, not a passage, revolution or blade.
+\end{takeaway}
+\end{frame}
+
+\begin{frame}{Blade and alias means in one file}
+\begin{itemize}
+  \item Do the fixed-azimuth average for each blade on its own, about that
+        rotor's \code{SMRP}.
+  \item Then do it for each alias, about the global \code{MRP}.
+  \item Put all of it in one file with columns suffixed
+        \code{\_\{alias or blade\_name\}\_\{SMRP or MRP\}}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The azimuthal table's leading columns}
+\small \code{probes/<point>\_phase\_locked[\_<ALIAS>].csv} leads with:
+\begin{enumerate}
+  \item \code{REDUCTION}, \code{ROTOR}, \code{AZIMUTH}, \code{STEP},
+        \code{REVOLUTIONS}.
+  \item The steps the revolutions span:
+        \code{FIRST\_STEP}, \code{LAST\_STEP}, \code{STEPS}.
+  \item The condition block and the moment point.
+  \item The plotted columns, under the names the export prints.
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Rows use the rotor's last revolution}
+\begin{itemize}
+  \item There is one row per solver step of the rotor's last revolution,
+        sorted by azimuth from 0 towards 360.
+  \item \code{AZIMUTH} is where blade one is, using the sections-table formula.
+  \item \code{STEP} is the step of the last revolution that azimuth falls on.
+  \item \code{REVOLUTIONS} is the number of samples entering the mean.
+        It equals \code{last\_revolutions\_avg} when that is a whole number.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Blade columns align by each blade's own azimuth}
+\begin{itemize}\small
+  \item A column ending in a blade family of the rotor is sampled where
+        \textbf{that blade} is at the row's azimuth.
+  \item The blade sits its position times $360/\mathrm{blades}$ after blade one.
+        This offset makes two blades line up azimuth for azimuth.
+  \item Every other column, including a rotor total or the aircraft, is
+        tabulated by blade one's azimuth.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Azimuthal suffixes come from the plots}
+\begin{itemize}\small
+  \item A plot is \code{<parameter>\_<group>}. The pproc names the group.
+  \item The suffix \code{\_\{alias or blade\_name\}\_\{SMRP or MRP\}}
+        is what a group named \code{PUSHER\_SMRP} or cut per blade prints.
+  \item The package does not rename these columns.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Samples between history steps are read linearly}
+\begin{itemize}
+  \item One revolution earlier falls a whole number of steps earlier only
+        when \code{steps\_per\_revolution} is whole.
+  \item A blade offset falls on a whole step only when the steps per
+        revolution divide by the blade count.
+  \item Where both hold, every sample is a history row and nothing is
+        interpolated. Between steps, the history is read linearly.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The azimuthal mean needs a rotor clock and depth}
+\begin{itemize}
+  \item Without blade one's datum or the rotor's signed speed, an azimuth
+        cannot be stated. The table is a named skip.
+  \item Declare the rotor in the reference and have the matrix row cite it.
+  \item A depth below one revolution is a named skip too.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{The pproc declares the gate and averaging depth}
+\begin{lstlisting}[style=ftsbase]
+[phase_locked]
+min_revolutions      = 4.0
+last_revolutions_avg = 2.0
+\end{lstlisting}
+\begin{itemize}\small
+  \item \code{min\_revolutions} is the minimum \textbf{total} revolutions
+        required for the table to exist. Equal or greater generates it.
+  \item Compare the revolutions the matrix row states it turns,
+        not the length of the exported window.
+  \item \code{last\_revolutions\_avg} is the depth of each azimuthal mean
+        and may not exceed \code{min\_revolutions}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The gate and depth can change at post}
+\begin{itemize}
+  \item The declared \code{[phase\_locked]} table binds.
+  \item \code{pyfs-matrix post} reads the current pproc again.
+  \item Editing the gate or depth needs no solver re-run.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{A short run loses only the azimuthal reduction}
+\begin{itemize}
+  \item A row turning fewer total revolutions than the minimum skips this
+        reduction.
+  \item Its POLAR, per-blade table and every other product are written as usual.
+\end{itemize}
+\begin{takeaway}
+Missing the threshold skips the reduction; it does not refuse the run's products.
+\end{takeaway}
+\end{frame}
+
+\begin{frame}{An undeclared table keeps the passage series}
+\begin{itemize}
+  \item A pproc without \code{[phase\_locked]} still gets the averaging
+        window cut into consecutive blade passages, one row per passage.
+  \item This is the passage series written under this name.
+  \item Declaring the table selects the fixed-azimuth mean instead.
+        Leaving it absent preserves the passage series.
+\end{itemize}
+\begin{takeaway}
+Absent is not zero: there is no minimum gate on the undeclared passage series.
+\end{takeaway}
+\end{frame}

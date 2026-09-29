@@ -1,0 +1,68 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{Run control}
+
+\begin{frame}{Iteration and convergence controls}
+\relax
+{\ftstablesize
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.25\linewidth}>{\RaggedRight\arraybackslash}p{0.38\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Setup key} & \textbf{Solver command} & \textbf{Type and package default} \\
+\midrule
+\code{iterations} (alias \code{NITER}) & \code{SOLVER\_SET\_ITERATIONS} & Integer $\geq 1$; \code{500}. \\
+\code{convergence} & \code{SOLVER\_SET\_CONVERGENCE} & Float $>0$; \code{1e-5}. \\
+\code{forced\_iterations} & \code{SOLVER\_SET\_FORCED\_ITERATIONS} & Toggle; \code{None}. \\
+\code{convergence\_iterations} & \code{SET\_SOLVER\_CONVERGENCE\_ITERATIONS} & Integer $\geq 1$; \code{None}. \\
+\bottomrule
+\end{tabularx}}
+\begin{itemize}\small
+  \item \code{iterations} is the solver iteration limit. Convergence is
+        the residual threshold on surface velocity and pressure.
+  \item Forced iterations run the full count regardless of convergence.
+        Convergence iterations is how long the residual must remain below
+        the threshold before convergence is declared.
+  \item A toggle accepts \code{true}/\code{false} or the solver words
+        \code{"ENABLE"}/\code{"DISABLE"}. Numbers must be finite.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings};
+  \code{workspace/matrix.py}, \code{\_PRESET\_ALIASES};
+  \code{commands/runtime\_settings.yaml}; \code{commands/advanced\_settings.yaml}; \code{script/helpers.py}}
+\end{frame}
+
+\begin{frame}{Threads and wall-clock limits}
+\begin{itemize}\small
+  \item \code{max\_threads}: integer $\geq 1$, default \code{None}; alias
+        \code{max\_parallel\_threads}. Parallel core count, emitted as
+        \code{SET\_MAX\_PARALLEL\_THREADS}. A stated row \code{NCPUS}
+        overrides the setup value; an unstated row inherits it.
+  \item \code{timeout\_s}: finite float $>0$, default \code{None}.
+        Wall-clock limit for one point's solver process, enforced by the
+        executor, not by a FlightStream command.
+  \item \code{walltime\_margin\_s}: finite float $>0$, default \code{None}.
+        Seconds of the row's \code{WALLTIME} reserved for exports.
+        When unstated, the wall-clock program uses 20 minutes.
+  \item The margin belongs to the setup. It emits no solver command;
+        the wall-clock program written beside the script reads it.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings};
+  \code{cases/workflows.py}, \code{row\_ncpus}; \code{workspace/matrix.py};
+  \code{commands/runtime\_settings.yaml}}
+\end{frame}
+
+\begin{frame}{NITER: measured on build 26.124}
+\begin{itemize}\small
+  \item One short rotor case, 36 physical time steps: with \code{NITER = 5},
+        every step used 5 inner iterations, 180 total; \code{COMPLETED\_MAX\_ITER}.
+  \item With \code{NITER = 300} and \code{convergence\_iterations = 3},
+        the case converged in 6 to 90 inner iterations per step,
+        median 32.5, 1100 total.
+  \item On this measured build and geometry, \code{NITER} caps each time step.
+        Convergence iterations counts consecutive iterations satisfying the
+        criterion; it is not an iteration cap.
+\end{itemize}
+\begin{block}{Budget and scope}
+Worst-case inner work is the number of time steps times \code{NITER}.
+This is one build and one geometry, not verification of every solver build.
+\end{block}
+{\tiny Release evidence: measurement record, check \code{niter\_limit} [2].\par}
+\end{frame}

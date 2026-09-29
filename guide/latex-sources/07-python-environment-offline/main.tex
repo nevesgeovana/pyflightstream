@@ -1,0 +1,428 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 07-python-environment-offline/main.tex
+%
+% Guide 7 of the fts-workspace guides: Python, a virtual environment and
+% pyflightstream on a machine with no internet, on Windows and on Linux.
+% Built by ../build-all.ps1 (or build-all.sh) with this folder and ../shared/
+% as include directories.
+%
+% The download commands were run on 2026-09-28 against the package index:
+% for Linux, manylinux_2_28_x86_64 ALONE fails (pydantic-core publishes only
+% manylinux2014 wheels) and manylinux2014_x86_64 ALONE fails with the fsi
+% extra (PyNiteFEA needs numpy >= 2.4, which publishes no manylinux2014
+% wheel); the two tags together resolve.
+%
+% The sentence "To run a matrix locally on Linux, change only the executable
+% path in executables.toml." is kept verbatim, whole and unhyphenated.
+%
+% No em dashes and no en dashes. No underscores in frame or section titles
+% outside \code: beamer writes titles to .nav and .toc.
+
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\input{preamble-slides.tex}
+\input{hooks-slides.tex}
+\ftsinput{boxes}
+\ftsinput{hooks-contract}
+
+\usepackage[nohyphen]{underscore}
+
+\input{info.tex}
+
+\begin{document}
+
+\guidetitleframe{7}{Python environment for offline machines}{Offline Python environment}
+  {Python, a virtual environment and \pkgname{} on a machine with no internet, Windows and Linux}
+  {Sources: the package's installation notes and the \code{pip} documentation [1, 2].}
+
+\begin{frame}{Who reads this}
+\begin{itemize}
+  \item The person who installs \pkgname{} on a machine that cannot reach the
+        internet: a Windows workstation behind a closed network, a Linux
+        workstation, or the shared file system of an HPC cluster.
+  \item It happens once per machine and per version. Everybody else activates
+        the environment with one line (Guide 1).
+  \item The same recipe serves both systems: \textbf{download on a connected
+        machine, carry one folder, install with the network forbidden}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Contents}
+\small
+\begin{multicols}{2}
+\tableofcontents
+\end{multicols}
+\end{frame}
+
+\section{The idea}
+
+\begin{frame}{Two machines and one folder}
+\begin{center}
+\begin{tikzpicture}[font=\scriptsize, node distance=9mm,
+  m/.style={draw=CourseBlue, thick, rounded corners, fill=CourseBlue!8,
+            align=center, text width=36mm, minimum height=16mm, inner sep=3pt},
+  f/.style={draw=CourseGold, thick, rounded corners, fill=CourseGold!15,
+            align=center, text width=28mm, minimum height=12mm, inner sep=3pt}]
+\node[m] (on) {\textbf{Connected machine}\\ any system, any Python\\ \tiny \code{pip download} for the TARGET};
+\node[f, right=of on] (w) {\textbf{one folder of wheels}\\ \tiny every file ends in \code{.whl}};
+\node[m, right=of w] (off) {\textbf{Offline machine}\\ Windows or Linux\\ \tiny \code{pip install --no-index}};
+\draw[-{Stealth}, thick, CourseBlue] (on) -- (w);
+\draw[-{Stealth}, thick, CourseBlue] (w) -- node[above, font=\tiny] {carry} (off);
+\end{tikzpicture}
+\end{center}
+\begin{itemize}\small
+  \item A \textbf{wheel} is a ready-built package. With wheels only, the
+        offline machine needs no compiler and no network.
+  \item The download names the \textbf{target's} Python version and platform,
+        not the connected machine's.
+  \item The install forbids the network, so it either installs from what was
+        carried or fails naming what is missing. It never hangs.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{What the target needs to be}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{Python 3.12 or newer}
+\begin{itemize}\small
+  \item The package declares \code{requires-python = ">=3.12"}, following the
+        scientific-python support schedule SPEC 0 [3].
+  \item 3.9 and 3.10 lack \code{tomllib} and \code{enum.StrEnum}, which the
+        package uses. 3.11 is below the declared floor: \code{pip} refuses it
+        naming \code{Requires-Python}.
+  \item Download for the same minor version the target runs: \code{312}.
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+{\ftstablesize
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Target} & \textbf{Platform tags to download} \\
+\midrule
+Windows, 64 bit & \code{win\_amd64} \\
+Linux x86-64,   & \code{manylinux\_2\_28\_x86\_64} \\
+glibc 2.28 or later & \emph{and} \code{manylinux2014\_x86\_64} \\
+\bottomrule
+\end{tabular}}
+\vspace{2mm}
+\begin{alertblock}{Linux: check the C library first}
+\small \code{ldd --version} on a node must print 2.28 or later (RHEL 8
+and its rebuilds, and newer). Older systems cannot run the current
+\code{numpy} wheels [4].
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Why two Linux tags}
+\begin{itemize}\small
+  \item \code{--platform} tells \code{pip} which wheels the target accepts. It
+        accepts \textbf{exactly the tags you list}, so list every one the
+        target can run.
+  \item The structural solver of the FSI extra, PyNiteFEA, needs
+        \code{numpy >= 2.4}, whose Linux wheels are \code{manylinux\_2\_28}
+        only: with \code{manylinux2014} alone the download fails.
+  \item Other dependencies (\code{pydantic-core}) publish \code{manylinux2014}
+        wheels only: with \code{manylinux\_2\_28} alone the download fails
+        too.
+  \item Both tags together resolve. A glibc 2.28 system runs both kinds.
+\end{itemize}
+\begin{takeaway}If the download fails with \emph{ResolutionImpossible}, a
+platform tag is missing; do not drop \code{--only-binary}.\end{takeaway}
+\end{frame}
+
+\section{Python on the offline machine}
+
+\begin{frame}[fragile]{Windows: one installer, no administrator}
+\begin{itemize}\small
+  \item On the connected machine, download the \textbf{Windows installer
+        (64-bit)} of the latest Python 3.12 from \code{python.org} [5], and
+        carry it with the wheels.
+  \item On the offline machine, run it for the current user only: leave
+        \emph{Install for all users} off. No administrator is needed.
+  \item Keep the \code{py} launcher on. Check:
+\end{itemize}
+\begin{lstlisting}[style=ftsbase]
+py -3.12 --version
+\end{lstlisting}
+\begin{alertblock}{Corporate images}
+\small A machine may already carry a managed Python. Use it only if it is 3.12
+or newer; otherwise install beside it, per user, and always call it as
+\code{py -3.12}.
+\end{alertblock}
+\end{frame}
+
+\begin{frame}{Linux: three routes to a 3.12, no administrator}
+\slidefig[0.46]{guide-three-routes}
+\begin{itemize}\small
+  \item A cluster's system Python is usually older than 3.12. Put a 3.12
+        \textbf{inside the shared install folder} (\code{\clusterroot}); none
+        of the routes touches the system Python.
+  \item Route C always works on an offline machine: a relocatable CPython from
+        the python-build-standalone project [6], copied in.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Linux, Route C: choosing the standalone archive}
+% \relax first: a brace group right after the title is read as a subtitle.
+\relax
+{\ftstablesize
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Choice} & \textbf{Take} & \textbf{Why not the other} \\
+\midrule
+version   & \code{3.12}       & the wheels are \code{cp312}; a 3.13 rejects them \\
+CPU level & \code{x86\_64}    & \code{x86\_64\_v3} needs AVX2 and dies on an older node \\
+contents  & \code{install\_only\_stripped} & the same interpreter, about a third of the size \\
+libc      & \code{linux-gnu}  & \code{musl} is for Alpine \\
+\bottomrule
+\end{tabular}}\par
+\vspace{2mm}
+\small Copy the archive into the shared folder, then on the Linux machine:
+\begin{lstlisting}[style=ftsbase]
+export FTS=(*@\clusterroot@*)
+cd $FTS
+sha256sum cpython-3.12*-install_only_stripped.tar.gz   # compare with the release
+tar -xzf  cpython-3.12*-install_only_stripped.tar.gz   # creates $FTS/python
+$FTS/python/bin/python3.12 --version
+\end{lstlisting}
+\small The interpreter finds its standard library relative to its own binary
+and writes nothing outside \code{\$FTS}. Nothing is compiled.
+\end{frame}
+
+\section{The wheels}
+
+\begin{frame}[fragile]{Download on the connected machine}
+\small For a Linux target (one command; \code{\^{}} continues a line in the
+Windows shell, \code{\textbackslash} in a Linux one):
+\begin{lstlisting}[style=ftsbase]
+python -m pip download "pyflightstream[fsi]==0.30.0" -d (*@\envname@*)-linux ^
+    --python-version 312 --only-binary=:all: ^
+    --platform manylinux_2_28_x86_64 --platform manylinux2014_x86_64
+\end{lstlisting}
+\small For a Windows target:
+\begin{lstlisting}[style=ftsbase]
+python -m pip download "pyflightstream[fsi]==0.30.0" -d (*@\envname@*)-win ^
+    --python-version 312 --only-binary=:all: --platform win_amd64
+\end{lstlisting}
+{\ftstablesize
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Option} & \textbf{What it prevents} \\
+\midrule
+\code{--python-version 312} & downloading for the connected machine's Python \\
+\code{--platform ...}       & downloading the connected machine's own wheels \\
+\code{--only-binary=:all:}  & downloading source, which would need a compiler \\
+\bottomrule
+\end{tabular}}
+\end{frame}
+
+\begin{frame}[fragile]{A development build, and the check before carrying}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\small A development build (a version ending in \code{.dev<N>}) is not on
+the package index. Name its wheel file instead of the version; \code{pip}
+copies it and downloads its dependencies:
+\begin{lstlisting}[style=ftsbase,basicstyle=\ttfamily\tiny]
+python -m pip download ^
+  "pyflightstream-<version>.dev<N>-py3-none-any.whl[fsi]" ^
+  -d (*@\envname@*)-win --python-version 312 ^
+  --only-binary=:all: --platform win_amd64
+\end{lstlisting}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{alertblock}{The failure that gives no warning}
+\small Without \code{--platform} and \code{--python-version}, \code{pip}
+quietly downloads for \emph{your} machine. The folder looks right and copies
+fine, and the install fails on the target after everything was moved.
+\end{alertblock}
+\begin{block}{Check}
+\small Every file must end in \code{.whl}; one \code{.tar.gz} means source got
+in. The platform files must carry the target's tag.
+\end{block}
+\end{column}
+\end{columns}
+\end{frame}
+
+\section{Installing}
+
+\begin{frame}[fragile]{Linux: the environment at its final path}
+\begin{lstlisting}[style=ftsbase]
+$FTS/python/bin/python3.12 -m venv --copies $FTS/py-venv/(*@\envname@*)
+source $FTS/py-venv/(*@\envname@*)/bin/activate
+ls $FTS/pfs-wheels/(*@\envname@*) | wc -l      # the folder pip will read
+pip install --no-index --find-links $FTS/pfs-wheels/(*@\envname@*) "pyflightstream[fsi]"
+python -c "import pyflightstream; print(pyflightstream.__version__)"
+pyfs-matrix --help
+\end{lstlisting}
+\begin{itemize}\small
+  \item \code{--no-index} forbids the internet; \code{--find-links} says where
+        to look instead.
+  \item \code{--copies} puts the interpreter inside the environment, so it
+        survives anybody tidying up \code{python/} later.
+  \item The version line must print the version you downloaded, and
+        \code{pyfs-matrix --help} must answer.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Windows: the same, with the launcher}
+\begin{lstlisting}[style=ftsbase]
+cd (*@\mainworkspace@*)
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+pip install --no-index --find-links <folder>\(*@\envname@*)-win "pyflightstream[fsi]"
+python -c "import pyflightstream; print(pyflightstream.__version__)"
+pyfs-matrix --help
+\end{lstlisting}
+\begin{itemize}\small
+  \item \code{<folder>} is where the carried wheels are; any local or network
+        folder works.
+  \item \code{deactivate} leaves the environment.
+  \item A development build installs the same way: its wheel is in the folder.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Rules of a shared environment}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{alertblock}{Build it at its final path}
+\small A virtual environment cannot be moved: its absolute path is written
+into \code{activate} and into every command. Built in \code{\$HOME} and copied,
+it breaks for a colleague days later with \code{bad interpreter}.
+\end{alertblock}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{The interpreter is recorded, not configured}
+\small A run writes the path of the Python that ran it into the solver's
+action programs. The environment must therefore sit at a path valid on every
+node.
+\end{block}
+\end{column}
+\end{columns}
+\vspace{2mm}
+\begin{takeaway}Put the version in the folder name (\code{\envname}). Older
+environments stay beside the new one, and an old study stays
+reproducible.\end{takeaway}
+\end{frame}
+
+\begin{frame}[fragile]{Two folders with the same name}
+\small \code{py-venv/\envname} is the environment, and \code{venv} creates it.
+\code{pfs-wheels/\envname} is the folder of wheels, and only the copy from the
+connected machine creates it. When the second is missing, \code{pip} answers:
+\begin{lstlisting}[style=ftsbase]
+WARNING: Location '.../pfs-wheels/(*@\envname@*)' is ignored: it is either
+a non-existing path or lacks a specific scheme.
+ERROR: No matching distribution found for pyflightstream
+\end{lstlisting}
+\begin{takeaway}An \code{ls} of \code{py-venv/} shows a folder that looks like
+proof. It is the other folder: list the one \code{pip} reads.\end{takeaway}
+\end{frame}
+
+\begin{frame}[fragile]{One activation file for everybody (Linux)}
+\begin{lstlisting}[style=ftsbase]
+# $FTS/bin/(*@\envname@*)-env
+export PATH=(*@\clusterroot@*)/py-venv/(*@\envname@*)/bin:$PATH
+\end{lstlisting}
+\begin{itemize}\small
+  \item Users write \code{source \$FTS/bin/\envname-env} at the top of a
+        session or of a job script.
+  \item It exports \code{PATH} rather than defining an alias, because a job
+        script does not expand aliases.
+  \item The files of older environments stay beside it.
+  \item To leave it: a new shell, or take the folder off \code{PATH} again.
+\end{itemize}
+\end{frame}
+
+\section{Running and recording}
+
+\begin{frame}[fragile]{Running a matrix locally on Linux}
+\begin{block}{The rule}
+{\hyphenpenalty=10000\exhyphenpenalty=10000\relax
+\textbf{To run a matrix locally on Linux, change only the executable path in executables.toml.}\par}
+\end{block}
+\begin{itemize}\small
+  \item The row's \code{FS\_BUILD} id maps to the executable in
+        \code{inputs/executables.toml}; a path true of one machine only goes in
+        \code{inputs/executables.local.toml}, read over it. Nothing else changes.
+  \item With a profile in \code{inputs/hpc/} the run would submit; keep it here:
+\end{itemize}
+\begin{lstlisting}[style=ftsbase]
+source $FTS/bin/(*@\envname@*)-env
+pyfs-matrix run matriz.fs --workspace . --local
+\end{lstlisting}
+\small Records say \code{forced\_local}; no \code{collect} needed afterwards.
+\end{frame}
+
+\begin{frame}{Record what you did}
+\relax
+{\ftstablesize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.36\linewidth}>{\raggedright\arraybackslash}p{0.56\linewidth}@{}}
+\toprule
+\textbf{Fact} & \textbf{Why the next person needs it} \\
+\midrule
+where the 3.12 came from & the module name, or the standalone archive and its sha256 \\
+the environment folder   & \code{py-venv/\envname}, and the activation file \\
+the package version      & what \code{pyflightstream.\_\_version\_\_} printed \\
+the platform tags used   & the download command, verbatim \\
+when, and by whom        & so the next installation is the same one \\
+\bottomrule
+\end{tabular}}
+\vspace{2mm}
+\begin{takeaway}Two facts exist only in the head of whoever installed. Write
+them down, beside the environment.\end{takeaway}
+\end{frame}
+
+\begin{frame}[fragile]{Command summary}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\small\textbf{Windows target}
+\begin{lstlisting}[style=ftsbase,basicstyle=\ttfamily\tiny]
+pip download "pyflightstream[fsi]==0.30.0" ^
+  -d W --python-version 312 ^
+  --only-binary=:all: --platform win_amd64
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+pip install --no-index --find-links W ^
+  "pyflightstream[fsi]"
+pyfs-matrix --help
+\end{lstlisting}
+\end{column}
+\begin{column}{0.46\textwidth}
+\small\textbf{Linux target}
+\begin{lstlisting}[style=ftsbase,basicstyle=\ttfamily\tiny]
+pip download "pyflightstream[fsi]==0.30.0" \
+  -d L --python-version 312 \
+  --only-binary=:all: \
+  --platform manylinux_2_28_x86_64 \
+  --platform manylinux2014_x86_64
+python3.12 -m venv --copies $FTS/py-venv/E
+source $FTS/py-venv/E/bin/activate
+pip install --no-index --find-links L \
+  "pyflightstream[fsi]"
+\end{lstlisting}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{References}
+\begin{reflist}
+  \item \docref{getting-started}{Getting started}, and the repository's
+        \code{README.md}: \url{\pkgrepo}.
+  \item Python Packaging Authority, \emph{pip documentation}: \code{pip
+        download} and \code{pip install}, 2026.
+        \url{https://pip.pypa.io/en/stable/cli/pip_download/}
+  \item Scientific Python, \emph{SPEC 0: minimum supported dependencies}.
+        \url{https://scientific-python.org/specs/spec-0000/}
+  \item N. J. Smith, T. Kluyver, \emph{PEP 600: future manylinux platform
+        tags for portable Linux built distributions}, 2019.
+        \url{https://peps.python.org/pep-0600/}
+  \item Python Software Foundation, \emph{Python releases for Windows}.
+        \url{https://www.python.org/downloads/windows/}
+  \item Astral, \emph{python-build-standalone}: relocatable CPython builds.
+        \url{https://github.com/astral-sh/python-build-standalone}
+\end{reflist}
+\end{frame}
+
+\end{document}

@@ -1,0 +1,141 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{The unsteady POLAR}
+
+\begin{frame}{The unsteady POLAR averages the plots history}
+\begin{itemize}\small
+  \item The source is the plots history, time-averaged over the row's window.
+        It does not read the native coefficient export for that average.
+  \item Columns are plot variables under the names the export prints,
+        rather than the steady polar's fixed twenty-four columns.
+  \item Flight-condition and reference-length columns are added from the workspace.
+  \item The native export states only the last time step, one instant of a
+        rotor cycle. It still ships as a health check.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{One file per simulation, one row per point}
+\small \code{polars/P<sim>\_<name>\_uns\_avg.csv}
+\begin{itemize}
+  \item Every file under \code{post/} comes from a sweep.
+        The name states that this is an average of unsteady history.
+  \item It carries the \code{P} used by every per-point product.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Each polar row states its window and moment point}
+\begin{enumerate}
+  \item \code{FIRST\_STEP}, \code{LAST\_STEP}, \code{STEPS} open the row
+        and identify that point's averaging window.
+  \item The condition block follows.
+  \item Then \code{XMOM}, \code{YMOM}, \code{ZMOM} state the moment point.
+\end{enumerate}
+\begin{takeaway}
+The plots carry moments. A moment needs its point.
+\end{takeaway}
+\end{frame}
+
+\begin{frame}{The super-file content joins the polar}
+\small After the plot columns, the table adds:
+\begin{itemize}
+  \item The matrix row's cells and the run record's scalars.
+  \item Each rotor's speed.
+  \item The solver flags.
+\end{itemize}
+\begin{takeaway}
+For an unsteady point, this content is part of the polar, not a second super file.
+\end{takeaway}
+\end{frame}
+
+\begin{frame}{Each global plot group supplies eighteen axis columns}
+\begin{itemize}\small
+  \item The axis coefficients follow the plot columns, using the steady
+        polar's names in this order:
+        \code{CDW .. CNW25}, \code{CDS .. CNS25}, \code{CDB .. CNB25}.
+  \item Each name takes the plot group's \textbf{whole} name as a suffix,
+        for example \code{CLW\_MRP\_TOTAL}.
+  \item A second global-frame group adds its own eighteen columns
+        and renames none.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The unsteady axes use dimensional global loads}
+\begin{itemize}\small
+  \item Use \code{FX, FY, FZ, MX, MY, MZ} from a pproc plot group with
+        \code{frame = "MRP"}, in Newtons and Newton metres.
+  \item Average these components over the row's window.
+        Divide by that row's
+        $\tfrac12\mathrm{RHO}\,\mathrm{VINF}^2\,\mathrm{SREF}$
+        and also by \code{CREF} for moments.
+  \item Turn them as the steady-polar axes are turned, with the same
+        force signs and final moment normalisation.
+  \item A rotor's own frame cannot supply this block: its axes are not
+        the geometry's axes.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Missing global plots and the axes block}
+\begin{itemize}\small
+  \item If the pproc has no global-frame group plotting all six components,
+        the run adds \code{MRP\_TOTAL} over every boundary, where the run
+        has an \code{MRP} frame.
+  \item A pproc that already plots them stays unchanged, to the byte.
+  \item An older run without those plots has no axes block.
+        \code{products.json} records this under \code{polars/<file>\#axes}.
+\end{itemize}
+\begin{takeaway}
+Missing source plots do not produce an axes block filled with \code{NA}.
+\end{takeaway}
+\end{frame}
+
+\begin{frame}[fragile]{The pproc can declare output column names}
+\small The package cannot infer which plot label carries which coefficient.
+Undeclared names pass through exactly as the export prints them.
+\begin{lstlisting}[style=ftsbase]
+[names]
+CL_MRP_TOTAL = "CL_TOTAL"
+FX_HUB_PUSHER = "FX_PUSHER"
+\end{lstlisting}
+\small This dictionary maps an exported plot column to the name
+a downstream reader wants. Inventing a source label would otherwise risk
+an entire column of \code{NA}.
+\end{frame}
+
+\begin{frame}{The names dictionary changes selected headings last}
+\begin{itemize}\small
+  \item It renames the unsteady polar and averaged reductions:
+        \code{time\_average} and the passage series.
+  \item \code{probes/<point>\_plots.csv} keeps the export's names because
+        it is the source table.
+  \item Per-blade and azimuthal tables are not renamed: their columns are
+        no longer the export's own names.
+  \item Axes and \code{[equations]} read export names.
+        The dictionary applies last, to the heading alone.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The whole dictionary applies, or none of it does}
+\begin{itemize}\small
+  \item A source column that no plot of the point prints invalidates the
+        dictionary for that point.
+  \item A destination name already carried by the table does the same.
+  \item Every column then retains the export's name, with a warning and
+        \code{products.json} entries under \code{polars/<file>\#names}
+        and \code{probes/<point>\#names}.
+\end{itemize}
+\begin{takeaway}
+A failed rename never becomes a column of \code{NA}.
+\end{takeaway}
+\end{frame}
+
+\begin{frame}{Names that are occupied or refused}
+\begin{itemize}\small
+  \item \code{CL} is taken. The native export's last-step \code{CL},
+        \code{CDi}, \code{CDo}, \code{Cx} and the rest already appear
+        in the polar's setup content as a health check.
+  \item A plotted column cannot take one of those names.
+        \code{CL\_TOTAL} is available instead.
+  \item Two dictionary entries giving one name, or a name that is not
+        one word, are refused when the pproc is read.
+\end{itemize}
+\end{frame}

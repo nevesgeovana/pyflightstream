@@ -1,0 +1,96 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{What every product states}
+
+\begin{frame}{The condition block: angles and velocities}
+\small Every table the post stage composes states its condition in one block,
+in the order shown across these two frames.
+\par\vspace{3mm}
+{\ftstablesize
+\begin{tabular}{@{}p{0.22\linewidth}p{0.10\linewidth}p{0.59\linewidth}@{}}
+\toprule
+\textbf{Column} & \textbf{Unit} & \textbf{Meaning} \\
+\midrule
+\code{ALPHA}, \code{BETA} & deg & Angles the solver reports it ran at, as the row wrote them \\
+\code{MACH} & - & Mach number of that point \\
+\code{RE} & millions & Reynolds number the solver reports \\
+\code{VINF} & m/s & Free-stream velocity the solver reports \\
+\code{VREF} & m/s & Solver reference velocity, used to normalise a coefficient \\
+\bottomrule
+\end{tabular}}
+\end{frame}
+
+\begin{frame}{The condition block: atmosphere and references}
+\relax
+{\ftstablesize
+\begin{tabular}{@{}p{0.22\linewidth}p{0.10\linewidth}p{0.59\linewidth}@{}}
+\toprule
+\textbf{Column} & \textbf{Unit} & \textbf{Meaning, continuing the block} \\
+\midrule
+\code{ALT} & ft & Altitude the row states; \code{NA} where it states none \\
+\code{RHO} & kg/m$^3$ & Air density the run resolved for that point \\
+\code{TEMP} & K & Air temperature the run resolved for that point \\
+\code{MU} & Pa s & Dynamic viscosity, written in scientific notation \\
+\code{J} & - & Advance ratio the row requested; \code{NA} on a row that turns no rotor \\
+\code{J\_CLOCK} & - & Advance ratio the clock rotor ran at, $V/(nD)$; \code{NA} where the record or the reference does not say \\
+\code{RPM\_CLOCK} & rev/min & Speed the clock rotor turned at, with its hand; \code{NA} with no clock \\
+\code{SREF}, \code{CREF}, \code{BREF} & m$^2$, m, m & Reference area, chord and span \\
+\bottomrule
+\end{tabular}}
+\end{frame}
+
+\begin{frame}{A coefficient needs its normalisation}
+\small A coefficient is a force divided by
+\[
+  \frac{1}{2}\rho V^2 S.
+\]
+\begin{itemize}
+  \item Area alone does not let a reader recover a force or compare campaigns.
+        Density and the velocity used in the division must be stated too.
+  \item \code{ALT} cannot stand in for density: a row may pin density directly.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Which velocity normalises which product}
+\begin{itemize}\small
+  \item The solver uses \code{VREF}. The steady polar's twenty-four
+        coefficients are the solver's own and use \code{VREF}.
+  \item The plots table, every reduction of it and the unsteady polar are
+        rescaled to the free stream by
+        $\left(\mathrm{VREF}/\mathrm{VINF}\right)^2$ and use \code{VINF}.
+  \item The rotor table recovers Newtons with \code{VREF}, undoing the
+        solver's division. Its coefficients use $\rho n^2 D^4$ and carry
+        no velocity.
+\end{itemize}
+\begin{takeaway}
+Both velocities are stated. When they differ, post warns and names the point.
+\end{takeaway}
+\end{frame}
+
+\begin{frame}{Reference area and chord must match the export}
+\begin{itemize}\small
+  \item The solver divides by the area and length in the project it opened.
+        The loads export prints both.
+  \item The package sets neither. It states the reference artifact's
+        \code{SREF} and \code{CREF}, and checks them against the export.
+  \item A difference beyond the export's printed precision is a
+        \textbf{warning} in \code{post.log} naming both numbers, and every
+        computable product is still written;
+        \code{--check-frozen} refuses the simulation's products instead.
+\end{itemize}
+\begin{takeaway}
+A reference beside a coefficient must be the reference that divided it.
+\end{takeaway}
+\end{frame}
+
+\begin{frame}{Where the condition block appears}
+\begin{itemize}
+  \item The steady polar already carries \code{ALPHA}, \code{BETA},
+        \code{MACH} and \code{RE} among its twenty-four columns. It adds
+        the rest beside them.
+  \item \code{probes/<point>\_plots.csv} states \textbf{no condition}.
+        It keeps the export's own header.
+  \item Reductions read every column of that plots table back as a plotted
+        quantity.
+\end{itemize}
+\end{frame}

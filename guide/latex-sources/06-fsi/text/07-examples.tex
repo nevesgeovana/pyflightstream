@@ -1,0 +1,204 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% fsi/text/07-examples.tex
+%
+% The numbers are what the three examples print when run against the tag's
+% sources (python examples/<name>.py, PYTHONPATH at the tag's src/, the [fsi]
+% extra installed), on 2026-09-28. Every blade is synthetic by the package's
+% policy. A release that changes an example changes these numbers: run it
+% again and copy them.
+
+\section{Worked examples}
+
+\begin{frame}[fragile]{Example 1: calculated and supplied inputs agree}
+\begin{columns}[T]
+\begin{column}{0.54\textwidth}
+\code{examples/workspace\_fsi\_calibration.py}, offline, no solver:
+\begin{enumerate}\scriptsize
+  \item Writes \code{inputs/fsi/f\_calculated.toml} from the package template
+        (the titanium strip), with the file factor 1.05 on EI.
+  \item Resolves it and reads the \emph{unscaled} base distributions.
+  \item Writes \code{f\_supplied.toml} with those base distributions and the
+        same file factor 1.05. Reusing the effective values here would apply
+        the calibration a second time.
+  \item Resolves both with \code{FSI\_BENDING\_STIFFNESS\_N\_M2\_FACTOR: 1.15}.
+  \item Asserts every distribution equal across the two modes, effective EI
+        equal to base EI times 1.15, and the origin \code{matrix}.
+\end{enumerate}
+\begin{lstlisting}[style=ftsbase, basicstyle=\ttfamily\tiny]
+python workspace_fsi_calibration.py /absolute/path/to/new-workspace
+\end{lstlisting}
+\end{column}
+\begin{column}{0.42\textwidth}
+{\ftstablesize\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Printed} & \textbf{Value} \\
+\midrule
+base EI, each station & 24.277 N\,m\(^2\) \\
+effective EI, each station & 27.919 N\,m\(^2\) \\
+file factor, matrix factor & 1.05, 1.15 \\
+\code{factor\_origin} & \code{matrix} \\
+\code{mode\_equivalence} & verified \\
+\code{solver\_executed} & \code{false} \\
+\bottomrule
+\end{tabular}}
+\begin{ftsevidence}[Check it by hand]
+\scriptsize \(I = b h^3/12 = 0.04 \times 0.004^3 / 12 = 2.133\times10^{-10}\) m\(^4\);
+\(E I = 113.8\) GPa \(\times\, I = 24.28\) N\,m\(^2\);
+\(\times\, 1.15 = 27.92\), not \(\times\, 1.05 \times 1.15\).
+\end{ftsevidence}
+{\scriptsize Choose a new destination: the example refuses to overwrite its
+two inputs.\par}
+\end{column}
+\end{columns}
+\fsisource{\code{examples/workspace\_fsi\_calibration.py}, run at the tag;
+  \code{workspace/fsi\_setup.py}, \code{FSI\_TEMPLATE}}
+\end{frame}
+
+\begin{frame}{Example 2: one section, and its torsion constant}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\code{examples/fsi\_solid\_blade\_properties.py} builds a synthetic blade:
+seven stations from 0.15 to 0.75 m, chord 80 to 40 mm, pitch 35 to 11 deg,
+NACA 2415 at the root thinning to NACA 2409 at the tip, written to a section
+file and read back, the file's sha256 into the provenance.
+\par\vspace{2mm}
+{\tiny\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Root section, NACA 2415} & \\
+\midrule
+area & 654.144 mm\(^2\) \\
+centroid from the pitch axis & \(-13.422\) mm chordwise \\
+\(I\) flap, \(I\) chord & 5512.2, 227784.7 mm\(^4\) \\
+principal angle & \(-0.100\) deg \\
+\bottomrule
+\end{tabular}}
+\end{column}
+\begin{column}{0.48\textwidth}
+{\ftstablesize\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Grid, cells across} & \(J\) [mm\(^4\)] \\
+\midrule
+16 & 20926.02 \\
+32 & 20956.81 \\
+64, the default & 20962.52 \\
+thin-section estimate & 21721.14 \\
+\bottomrule
+\end{tabular}}
+\par\vspace{1.5mm}
+\begin{itemize}\scriptsize
+  \item Doubling the cells divides the error by about four: at 64 cells about
+        a third of the change from 32 to 64 is left.
+  \item The thin-section formula is 3.6\,\% high here: a cross-check, never
+        the value.
+\end{itemize}
+\end{column}
+\end{columns}
+\fsisource{\code{examples/fsi\_solid\_blade\_properties.py}, run at the tag}
+\end{frame}
+
+\begin{frame}{Example 2: the whole blade, in titanium}
+\relax % a body opening with a brace group would be read as the frame subtitle
+{\ftstablesize\renewcommand{\arraystretch}{1.1}
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}rrrrrrrr@{}}
+\toprule
+\(r\) [m] & \(\mu\) [kg/m] & EI [N\,m\(^2\)] & GJ [N\,m\(^2\)] & \(I_1\) [kg\,m] & \(I_2\) [kg\,m] & \(e_c\) [mm] & thin\(/J\) \\
+\midrule
+0.15 & 2.8979 & 627.29 & 922.35 & 1.009e-03 & 2.442e-05 & \(-13.42\) & 1.036 \\
+0.25 & 2.2727 & 361.01 & 531.76 & 6.650e-04 & 1.405e-05 & \(-12.30\) & 1.032 \\
+0.35 & 1.7441 & 198.04 & 291.97 & 4.217e-04 & 7.708e-06 & \(-11.19\) & 1.028 \\
+0.45 & 1.3040 & 102.60 & 151.24 & 2.554e-04 & 3.993e-06 & \(-10.07\) & 1.024 \\
+0.55 & 0.9445 & 49.58 & 72.98 & 1.462e-04 & 1.930e-06 & \(-8.95\) & 1.020 \\
+0.65 & 0.6574 & 21.98 & 32.24 & 7.789e-05 & 8.553e-07 & \(-7.83\) & 1.017 \\
+0.75 & 0.4347 & 8.73 & 12.72 & 3.784e-05 & 3.395e-07 & \(-6.71\) & 1.014 \\
+\bottomrule
+\end{tabular*}}
+\par\vspace{2mm}
+\begin{columns}[T]
+\begin{column}{0.56\textwidth}
+\begin{itemize}\scriptsize
+  \item Ti-6Al-4V grade 5, annealed: \(\rho\) 4430 kg/m\(^3\), \(E\) 113.8 GPa,
+        \(G\) 44.0 GPa, \(\nu\) 0.342, database version 1.
+  \item The configuration round-trips through \code{config.json} unchanged,
+        with its provenance and its \code{config\_sha256}.
+  \item \(e_c\): the centroid ahead of or behind the pitch axis, which the
+        elastic axis is assumed to follow.
+\end{itemize}
+\end{column}
+\begin{column}{0.40\textwidth}
+\begin{ftsevidence}[At rest, from the beam]
+\small first flap: 30.6 Hz\\
+first torsion: 601.9 Hz
+\end{ftsevidence}
+\end{column}
+\end{columns}
+\fsisource{\code{examples/fsi\_solid\_blade\_properties.py}, sections 3 and 4,
+  run at the tag}
+\end{frame}
+
+\begin{frame}{Example 3: the Campbell diagram of a rotating blade}
+\begin{columns}[T]
+\begin{column}{0.58\textwidth}
+\begin{center}
+\begin{adjustbox}{max width=\linewidth, max totalheight=0.70\textheight}
+\begin{tikzpicture}[x=0.085cm, y=0.0118cm]
+  % axes
+  \draw[->, SoftGray] (0,0) -- (98,0);
+  \node[font=\tiny, anchor=north] at (48,-30) {rotor speed \(\Omega\) [rad/s]};
+  \draw[->, SoftGray] (0,0) -- (0,430);
+  \node[font=\tiny, anchor=south, rotate=90] at (-14,215) {natural frequency \(\omega_n\) [rad/s]};
+  \foreach \x in {0,15,30,45,60,75,90}
+    \draw[SoftGray] (\x,0) -- (\x,-6) node[below, font=\tiny, text=black] {\x};
+  \foreach \y in {0,100,200,300,400}
+    \draw[SoftGray] (0,\y) -- (-1.5,\y) node[left, font=\tiny, text=black] {\y};
+  % legend, in the empty upper left
+  \draw[thick, CourseBlue] (5,405) -- (13,405);
+  \fill[CourseBlue] (9,405) circle (1.2pt);
+  \node[font=\tiny, anchor=west] at (14,405) {first flap};
+  \draw[thick, CourseRed] (5,378) -- (13,378);
+  \fill[CourseRed] (8.2,375.5) rectangle (9.8,380.5);
+  \node[font=\tiny, anchor=west] at (14,378) {first torsion};
+  \draw[dotted, SoftGray, thick] (5,351) -- (13,351);
+  \node[font=\tiny, anchor=west] at (14,351) {\(n\)P excitation, \(n\,\Omega\)};
+  % excitation rays nP
+  \foreach \n in {1,2,3,4} {
+    \draw[dotted, SoftGray, thick] (0,0) -- (90,{\n*90});
+    \node[font=\tiny, text=SoftGray, right] at (90,{\n*90}) {\n P};
+  }
+  % first flap
+  \draw[thick, CourseBlue] plot[mark=*, mark size=1.2pt] coordinates
+    {(0,27.17) (15,31.70) (30,42.37) (45,55.55) (60,69.69) (75,84.23) (90,98.95)};
+  % first torsion
+  \draw[thick, CourseRed] plot[mark=square*, mark size=1.2pt] coordinates
+    {(0,310.90) (15,311.25) (30,312.29) (45,314.02) (60,316.42) (75,319.48) (90,323.18)};
+\end{tikzpicture}
+\end{adjustbox}
+\end{center}
+\end{column}
+\begin{column}{0.38\textwidth}
+{\scriptsize A uniform synthetic blade, 1 m, 15 stations, swept from 0 to 90
+rad/s. At every speed: static solve under its own centrifugal loads, then the
+modes with the tension's geometric stiffness.\par}
+\vspace{1.5mm}
+{\ftstablesize\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Southwell fit} & \textbf{flap} & \textbf{torsion} \\
+\midrule
+\(\omega_0\) [rad/s] & 27.96 & 310.90 \\
+\(S\) & 1.118 & 0.961 \\
+\(r^2\) & 0.99986 & 1.00000 \\
+\bottomrule
+\end{tabular}}
+\par\vspace{1.5mm}
+{\scriptsize \(\omega_n^2 = \omega_0^2 + S\,\Omega^2\). Flap \(S\) sits in
+the expected 1.1 to 1.3; torsion near \((I_1 - I_2)/(I_1 + I_2) = 0.961\).
+A crossing of a track and a ray flags a potential resonance [10, 11].\par}
+\end{column}
+\end{columns}
+\fsisource{\code{examples/fsi\_campbell\_diagram.py}, run at the tag;
+  FSI tutorial, ``centrifugal''}
+\end{frame}

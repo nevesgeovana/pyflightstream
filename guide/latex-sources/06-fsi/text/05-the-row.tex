@@ -1,0 +1,118 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% fsi/text/05-the-row.tex
+
+\section{From the row to the solver}
+
+\begin{frame}{What a coupled row stages}
+\small A row that states \code{FSI: f001} on a workflow that allows it
+prepares the driver's complete input interface. Planning derives the nodes
+and the maps from the effective configuration and resolves the boundaries and
+the frames of each blade or of the wing; the run writes and hashes:
+\par\vspace{1.5mm}
+{\ftstablesize\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\linewidth}{@{}P{0.27\linewidth}R@{}}
+\toprule
+\textbf{File, in the point's directory} & \textbf{What it is} \\
+\midrule
+\code{config.json}, \code{fsi-provenance.json} & the effective configuration, and where every number came from \\
+\code{fsi\_nodes.csv} & the structural nodes, inside the component, in its own frame; one identical file imported once per blade \\
+\code{fsi\_node\_map.json} & the node ordering map (\code{node\_map\_file}), from the same generator \\
+\code{fsi\_family\_map.json} & the emitted section-load order: which rows of the loads export belong to which blade \\
+\code{fsi\_post.txt} & the native loads-export callback: update the sections, compute their loads in Newtons, export them \\
+\code{fsi\_callback.py} & the Python callback: one \code{pyfs-fsi} step in the point's directory \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{1.5mm}
+{\scriptsize The callback runs under the interpreter that prepared the run
+(its \code{pythonw.exe} sibling on Windows): the package, with its
+\code{[fsi]} extra, must be installed for that interpreter on the machine
+that executes the point.\par}
+\fsisource{\code{docs/fsi-workspace.md}, ``Automatic workspace coupling'';
+  \code{cases/fsi\_workspace.py}, \code{wire\_workspace\_fsi};
+  \code{fsi/beam.py} (PyNite from the \code{[fsi]} extra)}
+\end{frame}
+
+% RE-CHECK after the FSI branch (FSI-1, FSI-GUARD, FSI-G) merges: the
+% command list and its order are written from the requirements (surface by
+% boundary ID, multiquadric kernel, steady and unsteady coupling), not read
+% from the merged builder; compare with a planned script of each workflow.
+\begin{frame}[fragile]{The native commands, in the order they are emitted}
+\relax % a body opening with a brace group would be read as the frame subtitle
+{\ftstablesize\renewcommand{\arraystretch}{0.97}
+\begin{tabularx}{\linewidth}{@{}P{0.47\linewidth}R@{}}
+\toprule
+\textbf{Command} & \textbf{What the row gives it} \\
+\midrule
+\code{DELETE\_AEROELASTIC\_STRUCTURAL\_NODES} & nothing: a clean start \\
+\code{AEROELASTIC\_RBF\_TYPE} & \code{MULTI\_QUADRATIC}, for a beam line of nodes \\
+\code{ASSIGN\_AEROELASTIC\_SURFACES} & the coupled boundaries, by their identifiers in the mesh \\
+\code{ASSIGN\_AEROELASTIC\_COORDINATE\_SYSTEMS} & each blade's own frame, or the wing's \\
+\code{IMPORT\_AEROELASTIC\_STRUCTURAL\_NODES} & per blade, in blade order: its frame, \code{DISABLE}, \code{fsi\_nodes.csv} \\
+\code{SET\_AEROELASTIC\_WORKING\_DIRECTORY} & \code{.}, the point's directory \\
+\code{SET\_AEROELASTIC\_POST\_PROCESSING\_SCRIPT} & \code{fsi\_post.txt} \\
+\code{SET\_AEROELASTIC\_STRUCTURAL\_EXECUTION\_COMMAND} & the interpreter and \code{fsi\_callback.py} \\
+\code{SET\_AEROELASTIC\_ITERATIONS} & \code{1}, one call per coupling step \\
+\code{EXECUTE\_AEROELASTIC\_ANALYSIS} & a \code{steady} or \code{qsteady\_rotor} row: the steady coupled solve \\
+\code{SET\_AEROELASTIC\_COUPLING\_IN\_UNSTEADY} & an \code{unsteady} row: \code{ENABLE}, before \code{START\_SOLVER} \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{1mm}
+\begin{columns}[T]
+\begin{column}{0.44\textwidth}
+\scriptsize \code{fsi\_callback.py}, whole:
+\begin{lstlisting}[style=ftsbase, language=Python, basicstyle=\ttfamily\tiny]
+from pyflightstream.fsi.cli import main
+raise SystemExit(main(['step', '--dir', '.']))
+\end{lstlisting}
+\end{column}
+\begin{column}{0.52\textwidth}
+\begin{alertblock}{Documented, not verified}
+\scriptsize The command database records every command of the family as
+documented, none as verified: its 26.124 rows are carried from the 26.123
+manual. The coupled runs of this version are measurements, not promotions.
+\end{alertblock}
+\end{column}
+\end{columns}
+\fsidecided{\code{cases/fsi\_workspace.py}, \code{wire\_workspace\_fsi};
+  \code{commands/aeroelastic\_coupling.yaml}}
+\end{frame}
+
+\begin{frame}[fragile]{The pproc sections a coupled row needs}
+\begin{columns}[T]
+\begin{column}{0.44\textwidth}
+\small A one-blade rotor whose family is \code{Blade1}:
+\begin{lstlisting}[style=ftsbase, basicstyle=\ttfamily\scriptsize]
+[sections]
+count = 50
+include_symmetry = false
+
+[[sections.distributions]]
+families = ["Blade1"]
+frame = "LOCAL_AXIS"
+planes = ["XY"]
+\end{lstlisting}
+{\scriptsize No separate \code{[settings.aeroelastic]} table is
+needed.\par}
+\end{column}
+\begin{column}{0.52\textwidth}
+\begin{itemize}\small
+  \item Exactly one XY distribution per blade, emitted in blade order, each in
+        that blade's own frame (span along Z); a wing takes one along its
+        span.
+  \item Several blades: select the rotor's blades so \code{LOCAL\_AXIS}
+        expands them in the declared blade order. The structural
+        \code{blade\_count} counts every explicit blade.
+  \item Duplicate cuts, aggregated families, other planes or additional
+        distributions are refused, never attributed to the first matching
+        blade.
+\end{itemize}
+\begin{takeaway}
+The loads export is one flat table in creation order; the family map is what
+tells the driver which rows are which blade.
+\end{takeaway}
+\end{column}
+\end{columns}
+\fsisource{\code{docs/fsi-workspace.md}, ``Automatic workspace coupling'';
+  FSI tutorial, ``loads''}
+\end{frame}

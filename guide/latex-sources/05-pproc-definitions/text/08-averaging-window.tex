@@ -1,0 +1,63 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{The averaging window}
+
+\begin{frame}{The matrix row states the averaging window}
+\relax
+{\ftstablesize
+\begin{tabular}{@{}p{0.26\linewidth}p{0.24\linewidth}p{0.12\linewidth}p{0.28\linewidth}@{}}
+\toprule
+\textbf{Column} & \textbf{Run type} & \textbf{Required} & \textbf{Unit} \\
+\midrule
+\code{LAST\_REVS\_AVG} & \code{unsteady\_rotor} & Yes & Last revolutions; accepts a float \\
+\code{LAST\_ITERS\_AVG} & \code{unsteady} & Yes & Last iterations \\
+\bottomrule
+\end{tabular}}
+\vspace{3mm}
+\small The window belongs on the matrix row beside \code{DELTA\_TIME},
+\code{TIME\_ITERATIONS} and \code{RPM}. It does not belong in the pproc:
+these quantities define its temporal setup.
+\end{frame}
+
+\begin{frame}{Window keys use the exact upper-case spelling}
+\begin{itemize}
+  \item \code{VAR\_NAMES\_VALUES} keys match the exact spelling.
+  \item A lower-case \code{last\_revs\_avg} on a workflow row is refused
+        as a key of no run type.
+  \item Where that check does not run, the key is not read at all and
+        its intended window is not applied.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Retired window keys are refused; the refusal names the key to write}
+\begin{itemize}\small
+  \item \code{WINDOW\_STEPS}, \code{WINDOW\_REVOLUTIONS} and
+        \code{WINDOW\_DEGREES} are retired.
+  \item A row using one is refused at plan time, naming the replacement,
+        even beside its replacement: \code{LAST\_ITERS\_AVG} for steps,
+        \code{LAST\_REVS\_AVG} for revolutions, degrees divided by 360.
+  \item These keys bind the \code{time\_average} window and the passages
+        cut from it. They do not bind the unsteady POLAR window.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{New plans and older records without current keys}
+\begin{itemize}
+  \item A new plan with \textbf{no window key} is refused.
+  \item A retired \code{WINDOW\_*} key no longer permits planning: it
+        is refused with the key to write instead.
+  \item An older record without the current keys is averaged over the
+        window the run was given, with a warning naming the steps.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Retired compatibility forms are refused by name}
+\small
+Each retired form is refused, naming its replacement:
+\code{iteration=} (use \code{step=}),
+\code{run.assess\_unsteady\_from\_plots} (use \code{LoadsAssessor}), the three
+\code{WINDOW\_*} row keys (\code{LAST\_ITERS\_AVG} or \code{LAST\_REVS\_AVG};
+degrees divided by 360) and group-member lists (one alias per group, members in
+the reference's \code{[aliases]}). The \code{broken\_commands} reader stays as
+plain compatibility with no countdown; existing run records are never rewritten.
+\end{frame}

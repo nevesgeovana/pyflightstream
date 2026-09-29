@@ -1,0 +1,109 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 01-workspaces/text/01-orientation.tex
+
+\section{One tree, two workspaces}
+
+\begin{frame}{A workspace is a folder}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{itemize}
+  \item Everything a study needs is \textbf{inside one folder}: the matrix,
+        the inputs it cites by name, the meshes, the results.
+  \item Nothing lives in a database, a registry or somebody's head.
+  \item A study moves between machines by being \textbf{opened} there.
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+{\ftstablesize
+\begin{tabular}{@{}p{0.32\linewidth}p{0.58\linewidth}@{}}
+\toprule
+\textbf{Machine} & \textbf{What it is for} \\
+\midrule
+Windows workstation & planning, one point, looking at it \\
+HPC cluster & a long march, many points \\
+\bottomrule
+\end{tabular}}
+
+\vspace{3mm}
+{\scriptsize
+main: \code{\mainworkspace}\\
+cluster: \code{\clusterworkspace}\par}
+\end{column}
+\end{columns}
+\begin{takeaway}The solver seat and the queue are both scarce, in different ways.
+Use each machine for what it is good at.\end{takeaway}
+\end{frame}
+
+\begin{frame}{The path is not a preference}
+\begin{center}
+{\Large\bfseries\color{hanblue}\code{\mainworkspace}}\par
+\vspace{1mm}{\small one agreed root, the same for everybody}
+\end{center}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{Why}
+\begin{itemize}
+  \item The solver is reached by an \textbf{absolute path}.
+  \item Paths are \textbf{recorded inside runs}; another root stops finding
+        them months later.
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{alertblock}{How it gets broken}
+\begin{itemize}
+  \item A workspace in \code{Documents}. Move it, do not fix it up.
+  \item A mapped drive letter, \code{Z:/...}. Per user, per session.
+  \item The agreed root cannot be created? \textbf{Stop and raise it.}
+\end{itemize}
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{What differs between the two machines}
+\slidefig[0.50]{guide-one-tree-two-machines}
+\begin{itemize}\small
+  \item \code{inputs/hpc/h001.toml}: cluster only, how the cluster runs a job.
+  \item \code{inputs/executables.local.toml}: per machine, never versioned.
+  \item \code{inputs/sync-workspaces.toml}: on the main workspace, which
+        brings the cluster's runs home (Part~\ref{sec:two-workspaces}).
+\end{itemize}
+\end{frame}
+
+\section{The map}
+
+\begin{frame}{The whole tree}
+\slidefig[0.80]{guide-workspace-tree}
+\end{frame}
+
+\begin{frame}{NATIVE or OURS, and three writers}
+\begin{columns}[T]
+\begin{column}{0.44\textwidth}
+\begin{block}{Two kinds of folder}
+\begin{itemize}
+  \item \textbf{NATIVE}: created by \pyfs{pyfs-matrix init}. Renaming one
+        breaks the tool.
+  \item \textbf{OURS}: added by the site (for example \code{ansa/},
+        \code{builds/}, \code{docs/}). Renaming one is a team decision.
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.52\textwidth}
+{\ftstablesize
+\begin{tabular}{@{}lp{0.62\linewidth}@{}}
+\toprule
+\textbf{Writer} & \textbf{Writes} \\
+\midrule
+You        & \code{inputs/}, \code{matriz.fs}, \code{ansa/}, \code{docs/} \\
+The tool   & \code{sims/}, \code{post/}, \code{archive/}; two pproc guides in \code{inputs/pproc/} \\
+The solver & inside a datapoint folder \\
+\bottomrule
+\end{tabular}}
+\end{column}
+\end{columns}
+\vspace{2mm}
+\begin{takeaway}You never edit anything under \code{sims/} or \code{post/}. If a
+number there is wrong, an input is wrong.\end{takeaway}
+\end{frame}

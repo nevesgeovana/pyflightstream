@@ -1,0 +1,78 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% fsi/text/06-refusals.tex
+%
+% The plan-time refusals are described by what they refuse and why, from the
+% requirements of this version; the input-reading messages of the last frame
+% are quoted from workspace/fsi_setup.py, shortened only where "..." says so.
+
+\section{What is refused, and why}
+
+\begin{frame}{Refused at plan: the shape of the run}
+\small The automatic route is deliberately bounded: each of these refuses the
+row when it is planned, before it can run.
+\par\vspace{1.5mm}
+{\ftstablesize\renewcommand{\arraystretch}{1.18}
+\begin{tabularx}{\linewidth}{@{}P{0.30\linewidth}R@{}}
+\toprule
+\textbf{The row} & \textbf{Why it is refused} \\
+\midrule
+turns a rotor (\code{unsteady\_rotor}) & the plan says the feature is still in
+  debug: a turning blade is deformed in its un-turned position [4] \\
+is a \code{qsteady\_rotor} wheel & the coupled quasi-steady case is the sector \\
+continues a stopped run & the structural state and the section order of a
+  continuation are not proved \\
+opens a saved \code{.fsm} & the section order a saved simulation inherits has
+  no proof: import the mesh, with its boundary sidecar \\
+places nodes in a unit other than metres & other native node units have not
+  been measured \\
+carries a raw command or a custom flag & the section and frame order can no
+  longer be proved \\
+puts a structural node outside the component & the interpolation cannot
+  place a surface around a node that is not within it \\
+\bottomrule
+\end{tabularx}}
+\fsidecided{\code{cases/fsi\_workspace.py}, \code{validate\_workspace\_fsi};
+  \code{cases/workflows.py}}
+\end{frame}
+
+\begin{frame}{Refused at plan: blades, frames and the speed}
+\begin{itemize}\small
+  \item \textbf{The count.} The structural \code{blade\_count} must equal the
+        rotor's blades, every one explicit.
+  \item \textbf{The speed.} \(\Omega = |\mathrm{rpm}|\,\pi/30\) must equal the
+        row's rotor speed; on a \code{qsteady\_rotor} row that is the speed of
+        its free-stream rotation. A structure that does not turn has
+        \(\Omega = 0\) and carries its own weight instead.
+  \item \textbf{The clock.} On an \code{unsteady} row the structural time
+        increment must equal the solver's time step.
+  \item \textbf{The mapping.} Blade, frame and boundary are one-to-one; there
+        is exactly one section distribution per blade, in blade import order,
+        each in its own frame with XY cuts, span along Z.
+\end{itemize}
+{\scriptsize Geometry and structural pitch must describe the same blade: the
+adapter infers no basis and re-pitches no mesh.\par}
+\fsidecided{\code{cases/fsi\_workspace.py}, \code{wire\_workspace\_fsi},
+  \code{validate\_workspace\_fsi}}
+\end{frame}
+
+\begin{frame}{Refused while reading the input}
+\relax % a body opening with a brace group would be read as the frame subtitle
+{\ftstablesize\renewcommand{\arraystretch}{1.18}
+\begin{tabularx}{\linewidth}{@{}P{0.28\linewidth}R@{}}
+\toprule
+\textbf{The input} & \textbf{The message says} \\
+\midrule
+a factor key the package does not know & \says{unknown FSI matrix keys [...]; use FSI\_GEOMETRIC\_PITCH\_DEG\_FACTOR, ...} \\
+factors on a row with no \code{FSI} & \says{matrix calibration states no FSI input; add FSI: f001 in VAR\_NAMES\_VALUES.} \\
+a code that is not \code{f} + name & \says{FSI='...'; name an f-prefixed code without an extension, such as f001.} \\
+a zero or negative factor & \says{... use a finite positive factor.} \\
+a stiffness scale other than 1 in \code{[config]} & \says{... config.stiffness\_scale\_factor must be 1.0 in workspace inputs; calibrate bending\_stiffness\_n\_m2 and torsion\_stiffness\_n\_m2 explicitly ...} \\
+material factors in supplied mode & \says{supplied mode cannot apply material factors [...] to already supplied distributions; calibrate the distribution itself.} \\
+a blade table in calculated mode & \says{calculated mode derives config.blade; remove the supplied blade table.} \\
+a material the database lacks & \says{no material '...' in the materials database (version 1); it holds: al-7075-t6, ti-6al-4v-grade5-annealed. ...} \\
+\bottomrule
+\end{tabularx}}
+\fsisource{\code{workspace/fsi\_setup.py}, \code{resolve\_row\_fsi},
+  \code{resolve\_fsi\_setup}; \code{fsi/materials.py}, \code{material}}
+\end{frame}

@@ -1,0 +1,45 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% shared/tikz/guide-stage-flow.tex
+% The four stages, two lanes, converging on one post/. The point of the figure
+% is that only the middle stage differs between the machines.
+% Shared fragment: no sectioning, no frame, no size command, no float. Wrapped by the caller.
+\begin{tikzpicture}[font=\scriptsize, node distance=3mm,
+  st/.style={draw=CourseBlue, thick, rounded corners, fill=CourseBlue!8,
+             align=center, minimum height=8mm, minimum width=22mm},
+  same/.style={draw=CourseBlue, very thick, rounded corners, fill=CourseBlue!18,
+               align=center, minimum height=8mm, minimum width=22mm},
+  lane/.style={font=\scriptsize\bfseries, align=right, text width=14mm},
+  note/.style={font=\scriptsize\itshape, align=center, text=CourseGray}]
+
+% ------------------------------------------------------------ plan, once ---
+\node[same] (plan) {\texttt{plan}\\ \tiny no seat, no queue};
+\node[lane, left=4mm of plan] {both};
+
+% ------------------------------------------------------------ two middles --
+\node[st, above right=4mm and 12mm of plan] (runw) {\texttt{run}\\ \tiny solves here};
+\node[st, below right=4mm and 12mm of plan] (runl) {\texttt{run}\\ \tiny submits};
+\node[note, right=3mm of runw] (nw) {returns when solved,\\products written};
+\node[note, right=3mm of runl] (nl) {returns at once,\\record says SUBMITTED};
+
+\node[lane, left=4mm of runw, text=CourseGray] {Windows};
+\node[lane, left=4mm of runl, text=CourseGray] {cluster};
+
+% -------------------------------------------------------------- collect ----
+\node[st, right=6mm of nl] (collect) {\texttt{collect}\\ \tiny waits for settled};
+
+% --------------------------------------------------------------- post ------
+\node[same, above right=4mm and 8mm of collect] (post) {\texttt{post}\\ \tiny products};
+% Below rather than right of the node: to its right it ran off the page.
+\node[note, below=2mm of post] {one \texttt{post/},\\whichever machine ran it};
+
+% ---------------------------------------------------------------- arrows ---
+\draw[-{Stealth}, thick, CourseBlue] (plan) -- (runw);
+\draw[-{Stealth}, thick, CourseBlue] (plan) -- (runl);
+\draw[-{Stealth}, thick, CourseBlue] (runl) -- (collect);
+\draw[-{Stealth}, thick, CourseBlue] (collect) -- (post);
+% From past the note, not from the node: from the node the line crossed it.
+\draw[thick, CourseBlue] (runw.east) -- (nw.west);
+\draw[-{Stealth}, thick, CourseBlue] (nw.east) -- ++(3mm,0) |- (post.west);
+
+\end{tikzpicture}

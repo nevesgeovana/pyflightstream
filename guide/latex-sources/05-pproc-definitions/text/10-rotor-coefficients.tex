@@ -1,0 +1,120 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{Rotor coefficients}
+
+\begin{frame}{Rotor coefficients describe one rotor}
+\begin{itemize}
+  \item \code{J}, \code{CT}, \code{CQ}, \code{CP}, \code{ETA}, \code{ETAW}:
+        one table per rotor, every column suffixed with that rotor's alias.
+  \item They are meaningful for one rotor. Summing several rotors mixes
+        different diameters and speeds in the normalisation.
+\end{itemize}
+\[
+  J = \frac{V}{|n|\,D}, \quad
+  C_T = \frac{T}{\rho n^2 D^4}, \quad
+  C_Q = \frac{Q}{\rho n^2 D^5}, \quad
+  C_P = 2\pi\,C_Q\,\mathrm{sign}(n), \quad
+  \eta = \frac{J\,C_T}{C_P}
+\]
+\begin{itemize}\small
+  \item \(n\) is the signed speed in revolutions per \textbf{second}: its
+        magnitude sets \(J\), its sign multiplies \(C_P\). These are the
+        classical airscrew coefficients [6, 7].
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Tip and helical Mach numbers}
+\[ \Omega = \frac{2\pi\,\mathrm{RPM}}{60}, \qquad
+   M_\mathrm{tip} = \frac{\Omega R}{a}, \qquad
+   M_\mathrm{hel} = \frac{\sqrt{V^2 + (\Omega R)^2}}{a} \]
+\begin{itemize}\small
+  \item Stated for each rotor an \code{unsteady\_rotor} row turns, for the
+        rotor of a \code{steady} row that states \code{RPM}, and for each
+        actuator disc a row names. \(R\) is half the rotor's diameter, or the
+        disc's tip radius; \(V\) and \(a\) are the point's own resolved free
+        stream and speed of sound. At \(V = 0\), \(M_\mathrm{hel} =
+        M_\mathrm{tip}\).
+  \item The rotor table ends with \code{MTIP\_<alias>} and
+        \code{MHEL\_<alias>}; \code{plan.json} and the run record carry both
+        under \code{rotor\_mach}. A point whose condition does not resolve
+        reads \code{NA} in both and keeps its row.
+  \item Both are geometric: \(V\) is the free stream alone, without the
+        rotor's induced velocity, which near hover adds to the speed the tip
+        sees. At \(M_\mathrm{hel} \ge 1\) the tip is sonic, beyond the
+        linearised compressibility of a panel method, and the plan warns
+        [1, 10].
+\end{itemize}
+\end{frame}
+
+\begin{frame}{An unsteady rotor row uses the shared history window}
+\begin{itemize}
+  \item A steady point's row comes from the loads export.
+  \item An unsteady point's row averages the plots history over the
+        matrix row's window, shared with the unsteady POLAR and reductions.
+  \item The loads export of an unsteady run is the last time step,
+        one instant of a cycle.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The rotor history is a global group over its own families}
+\begin{itemize}\small
+  \item Use the rotor's six components \code{FX, FY, FZ, MX, MY, MZ}
+        in global \code{MRP}, over exactly its general and blade families.
+  \item Find them through a \code{[[plots.groups]]} entry with
+        \code{frame = "MRP"} and those exact families, whatever its name.
+  \item If the pproc plots none, the run adds \code{ROTOR\_<ALIAS>}.
+  \item A group in the rotor's own frame cannot supply this history:
+        its forces turn with the rotor and its moments are already about the hub.
+  \item A group that only shares the alias's name but covers other families
+        is not a source either.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{A windowed rotor row never substitutes an instant}
+\begin{itemize}\small
+  \item A point whose history does not cover the window, or lacks the required
+        columns, is left out and named in \code{products.json}.
+  \item The unsteady POLAR applies the same exclusion rule.
+  \item The rotor table's manifest entry states \code{source} and \code{window}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{\code{ETAW}: the full force vector in wind axes}
+\begin{enumerate}
+  \item Take the full rotor-frame force vector, $[F_x,F_y,F_z]_{\mathrm{rotor}}$.
+  \item Carry it to the airframe body frame with the \textbf{transpose}
+        of the rotor-to-body rotation.
+  \item Carry it to wind axes with the \textbf{AIAA rotation}, using
+        both alpha and beta.
+  \item Take its X component, \code{Fx\_W}.
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{\code{ETAW}: a dimensionless efficiency}
+\[
+  \mathrm{CTW}=\frac{F_{x,W}}{\rho n^2D^4},
+  \qquad
+  \mathrm{ETAW}=\frac{J\,\mathrm{CTW}}{\mathrm{CP}}.
+\]
+\begin{itemize}\small
+  \item Wind-axis force replaces thrust, normalised exactly as thrust is.
+        \code{CTW} enters where \code{CT} enters the efficiency.
+  \item \code{ETAW} reduces to \code{ETA} when the shaft lies along the stream.
+  \item No wind-axis force supplied means \code{NA}.
+  \item Two vector rotations preserve the off-axis force components.
+        The cosine of a scalar angle does not.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{A static point has only a real zero advance ratio}
+\begin{itemize}\small
+  \item Every rotor coefficient is \code{NA} at a static point except
+        \code{J}, which is \code{0.00000}.
+  \item The export gives coefficients normalised by the run's dynamic pressure.
+        At $V=0$, that pressure is zero: the real thrust has already been
+        divided away before the package sees it.
+  \item No rotor coefficient can be recovered from that static export.
+  \item A hover figure of merit cannot be offered either: it needs a force
+        the run does not state.
+\end{itemize}
+\end{frame}

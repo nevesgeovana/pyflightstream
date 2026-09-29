@@ -1,0 +1,131 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+\section{Advanced settings with setup keys}
+
+\begin{frame}{Convergence and pressure floor}
+\small All commands here are inline, in phase \code{init}. Package default:
+\code{None} for every key below. Floats must be finite.
+\par\vspace{3mm}
+{\ftstablesize\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.18\linewidth}>{\RaggedRight\arraybackslash}p{0.18\linewidth}>{\RaggedRight\arraybackslash}p{0.26\linewidth}>{\RaggedRight\arraybackslash}p{0.07\linewidth}>{\RaggedRight\arraybackslash}p{0.10\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Key} & \textbf{Alias} & \textbf{Solver command} & \textbf{Type} & \textbf{Solver default} & \textbf{26.123 / 26.124} \\
+\midrule
+\code{convergence\_\allowbreak iterations} & None & \code{SET\_\allowbreak SOLVER\_\allowbreak CONVERGENCE\_\allowbreak ITERATIONS} & int $\geq 1$ & Not stated & V / V \\
+\code{minimum\_\allowbreak cp} & \code{solver\_\allowbreak minimum\_\allowbreak cp} & \code{SOLVER\_\allowbreak MINIMUM\_\allowbreak CP} & float & -20 & V / V \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{3mm}
+\small \textbf{V}: verified on that build. \textbf{D}: documented, not verified on that build.
+\par\vspace{2mm}
+\small The first is the count below the residual threshold required for convergence. The second is the pressure-coefficient floor. An omitted minimum Cp emits the library default \code{-100}; the solver default is \code{-20}.
+\par\vspace{2mm}{\scriptsize Manual references in the database: [3, p.344]; [3, p.345].}
+
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}, \code{\_PRESET\_ALIASES}; \code{cases/workflows.py}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
+\end{frame}
+
+\begin{frame}{Drag and mesh-induced wake velocity}
+\small All commands here are inline, in phase \code{init}. Package default:
+\code{None} for every key below. Floats must be finite.
+\par\vspace{3mm}
+{\ftstablesize\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.18\linewidth}>{\RaggedRight\arraybackslash}p{0.18\linewidth}>{\RaggedRight\arraybackslash}p{0.26\linewidth}>{\RaggedRight\arraybackslash}p{0.07\linewidth}>{\RaggedRight\arraybackslash}p{0.10\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Key} & \textbf{Alias} & \textbf{Solver command} & \textbf{Type} & \textbf{Solver default} & \textbf{26.123 / 26.124} \\
+\midrule
+\code{reynolds\_\allowbreak averaged\_\allowbreak drag} & \code{reynolds\_\allowbreak averaged\_\allowbreak drag\_\allowbreak forces} & \code{REYNOLDS\_\allowbreak AVERAGED\_\allowbreak DRAG\_\allowbreak FORCES} & toggle & Not stated & V / D \\
+\code{mesh\_\allowbreak induced\_\allowbreak wake\_\allowbreak velocity} & \code{induced\_\allowbreak wake\_\allowbreak velocity} & \code{SOLVER\_\allowbreak SET\_\allowbreak MESH\_\allowbreak INDUCED\_\allowbreak WAKE\_\allowbreak VELOCITY} & toggle & Not stated & V / D \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{3mm}
+\small \textbf{V}: verified on that build. \textbf{D}: documented, not verified on that build.
+\par\vspace{2mm}
+\small \code{reynolds\_averaged\_drag} switches the flat-plate boundary-layer calculations. For these toggles, the database gives no solver default; omission does not assert \code{DISABLE}.
+\par\vspace{2mm}{\scriptsize Manual references in the database: [3, p.344].}
+
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}, \code{\_PRESET\_ALIASES}; \code{cases/workflows.py}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
+\end{frame}
+
+\begin{frame}{Farfield and unsteady pressure}
+\small All commands here are inline, in phase \code{init}. Package default:
+\code{None} for every key below. Floats must be finite.
+\par\vspace{3mm}
+{\ftstablesize\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.18\linewidth}>{\RaggedRight\arraybackslash}p{0.18\linewidth}>{\RaggedRight\arraybackslash}p{0.26\linewidth}>{\RaggedRight\arraybackslash}p{0.07\linewidth}>{\RaggedRight\arraybackslash}p{0.10\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Key} & \textbf{Alias} & \textbf{Solver command} & \textbf{Type} & \textbf{Solver default} & \textbf{26.123 / 26.124} \\
+\midrule
+\code{farfield\_\allowbreak layers} & None & \code{SOLVER\_\allowbreak SET\_\allowbreak FARFIELD\_\allowbreak LAYERS} & int 1 to 5 & 3 & V / D \\
+\code{unsteady\_\allowbreak pressure\_\allowbreak and\_\allowbreak kutta} & \code{unsteady\_\allowbreak pressure\_\allowbreak kutta} & \code{SOLVER\_\allowbreak UNSTEADY\_\allowbreak PRESSURE\_\allowbreak AND\_\allowbreak KUTTA} & toggle & Not stated & V / D \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{3mm}
+\small \textbf{V}: verified on that build. \textbf{D}: documented, not verified on that build.
+\par\vspace{2mm}
+\small The documented farfield layer range is \textbf{1 to 5}, solver default \textbf{3}; a value above 5 is refused, and every standard setup states \textbf{5}. The pressure toggle controls the unsteady Bernoulli and Kutta terms.
+\par\vspace{2mm}{\scriptsize Manual references in the database: [3, p.344].}
+
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}, \code{\_PRESET\_ALIASES}; \code{cases/workflows.py}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
+\end{frame}
+
+\begin{frame}{Wake termination units}
+\small All commands here are inline, in phase \code{init}. Package default:
+\code{None} for every key below. Floats must be finite.
+\par\vspace{3mm}
+{\ftstablesize\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.18\linewidth}>{\RaggedRight\arraybackslash}p{0.18\linewidth}>{\RaggedRight\arraybackslash}p{0.26\linewidth}>{\RaggedRight\arraybackslash}p{0.07\linewidth}>{\RaggedRight\arraybackslash}p{0.10\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Key} & \textbf{Alias} & \textbf{Solver command} & \textbf{Type} & \textbf{Solver default} & \textbf{26.123 / 26.124} \\
+\midrule
+\code{wake\_\allowbreak termination\_\allowbreak steps} & None & \code{SET\_\allowbreak WAKE\_\allowbreak TERMINATION\_\allowbreak TIME\_\allowbreak STEPS} & int & Not stated & D / D \\
+\code{wake\_\allowbreak termination\_\allowbreak revolutions} & \code{unsteady\_\allowbreak N\_\allowbreak revolutions\_\allowbreak wake} & \code{SET\_\allowbreak WAKE\_\allowbreak TERMINATION\_\allowbreak TIME\_\allowbreak STEPS} & float & Not stated & D / D \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{3mm}
+\small \textbf{V}: verified on that build. \textbf{D}: documented, not verified on that build.
+\par\vspace{2mm}
+\small The command takes an integer time-step count. The revolutions key is converted using the rotor clock; it is not a second solver command. No numeric bound is declared on either model field.
+\par\vspace{2mm}{\scriptsize Manual references in the database: [3, p.344].}
+
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}, \code{\_PRESET\_ALIASES}; \code{cases/workflows.py}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
+\end{frame}
+
+\begin{frame}{Wake induction and extra relaxation}
+\small All commands here are inline, in phase \code{init}. Package default:
+\code{None} for every key below. Floats must be finite.
+\par\vspace{3mm}
+{\ftstablesize\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{0.18\linewidth}>{\RaggedRight\arraybackslash}p{0.18\linewidth}>{\RaggedRight\arraybackslash}p{0.26\linewidth}>{\RaggedRight\arraybackslash}p{0.07\linewidth}>{\RaggedRight\arraybackslash}p{0.10\linewidth}>{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Key} & \textbf{Alias} & \textbf{Solver command} & \textbf{Type} & \textbf{Solver default} & \textbf{26.123 / 26.124} \\
+\midrule
+\code{wake\_\allowbreak on\_\allowbreak wake\_\allowbreak induction} & None & \code{SET\_\allowbreak WAKE\_\allowbreak ON\_\allowbreak WAKE\_\allowbreak INDUCTION} & toggle & Not stated & V / D \\
+\code{additional\_\allowbreak wake\_\allowbreak relaxation} & \code{additional\_\allowbreak wake\_\allowbreak relaxation\_\allowbreak iteration} & \code{ADDITIONAL\_\allowbreak WAKE\_\allowbreak RELAXATION\_\allowbreak ITERATION} & toggle & Not stated & V / D \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{3mm}
+\small \textbf{V}: verified on that build. \textbf{D}: documented, not verified on that build.
+\par\vspace{2mm}
+\small The first switches wake-on-wake induced velocity computation. The second requests one additional wake relaxation iteration. Neither command has a stated solver default.
+\par\vspace{2mm}{\scriptsize Manual references in the database: [3, pp.344-345]; [3, p.345].}
+
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}, \code{\_PRESET\_ALIASES}; \code{cases/workflows.py}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
+\end{frame}
+
+\begin{frame}{Wake termination and the row clock}
+\begin{itemize}\small
+  \item \code{wake\_termination\_steps} supplies the integer directly.
+        For \code{wake\_termination\_revolutions}, the workflow computes
+        \code{round(revolutions * steps\_per\_revolution)} and converts to an integer.
+  \item Negative values count backwards from the end of the run, as the
+        model and workflow describe. State one unit, not both; the rotor
+        resolver refuses both together.
+  \item Revolutions require a rotor speed and a clock. A steady row or
+        a nonrotating unsteady row cannot convert them; use the run type's
+        supported clock and the steps form where appropriate.
+  \item The database describes the command as the number of time steps
+        after which a wake vortex filament edge that has lost all its
+        strength is removed. It states no default.
+\end{itemize}
+\setupsources{\code{cases/\_\_init\_\_.py}, \code{SolverSettings}; \code{workspace/matrix.py}, \code{\_PRESET\_ALIASES}; \code{cases/workflows.py}; \code{script/helpers.py}; \code{commands/advanced\_settings.yaml}}
+\end{frame}
