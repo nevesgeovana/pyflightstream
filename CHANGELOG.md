@@ -209,6 +209,12 @@ FlightStream versions.
   `pyfts-guide-07`.** `guide/fts-guide-0N-<topic>.pdf` of 0.30.0 is
   `guide/pyfts-guide-0N-<topic>.pdf`, the topic suffixes unchanged, and guide
   00 (`pyfts-guide-00-fts-overview.pdf`, the overview read first) is new.
+- mypy recount 2026-09-29: 1084 errors in 18 of 138 modules, on the 0.31.0
+  release candidate, against 0.30.0's 1065 in 18 of 134. The four modules the
+  0.31 work adds (`cases/corrections.py`, `post/corrections.py`,
+  `post/harmonics.py` and `workspace/fields.py`) are clean; the errors more
+  sit inside the exempted set, and the shipped configuration is green over
+  all 138 (`reports/RPT-029`).
 
 ### Removed
 
