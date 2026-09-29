@@ -54,6 +54,8 @@ acceptance or publication of their findings.
 | [RPT-091](RPT-091_qsteady-rotor-wheel-at-aoa-on-26124_2026-09-29.md) | The qsteady_rotor wheel at an AoA of 5 deg on 26.124: CONVERGED on the points-file route with one verdict per clocking, cuts over the blade, the rotor table, validity values and the averaged six components against RPT-089 | Bounded evidence; final release review pending |
 | [RPT-092](RPT-092_fixed-wing-fsi-on-26124_2026-09-29.md) | Fixed-wing FSI with the wing's own weight on 26.124: 1052 vertices mapped, -12.7 mm tip, CL +0.29 % against rigid; with the default pproc exports; the XZ-moment sign and the block order as measured | Bounded evidence; final release review pending |
 | [RPT-093](RPT-093_aeroelastic-coupling-on-26124_2026-09-29.md) | The Aeroelastic Coupling Toolbox on 26.124: nine measured facts about the surface-ID mapping, the rotor morph, the RBF kernels and the exports | Bounded evidence; final release review pending |
+| [RPT-094](RPT-094_wheel-clockings-thrust-pct-on-26124_2026-09-29.md) | The 0.31 G1 wheel on 26.124: three clockings with sections at every one, the XY cut read to about 2 per cent, THRUST_PCT 11.73 % and TORQUE_PCT 10.26 %, the rotor table as the mean of 3 clockings, the harmonic product with its 2P NA | Bounded evidence; final release review pending |
+| [RPT-095](RPT-095_custom-freestream-unsteady-rotor-on-26124_2026-09-29.md) | The 0.31 G6 on 26.124: a uniform 13 x 13 custom free stream on unsteady_rotor read by the solver and equal to the constant control to the fifth decimal; the skips both points share | Bounded evidence; final release review pending |
 
 ## Dependency evidence
 

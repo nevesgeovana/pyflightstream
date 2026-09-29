@@ -150,6 +150,14 @@ FlightStream versions.
 
 ### Added
 
+- Two short licensed confirmations of the 0.31 items on FlightStream 26.124
+  (build 8172026): `reports/RPT-094` (G1, the clocked wheel: sections at every
+  clocking after `DELETE_ALL_SURFACE_SECTIONS`, the XY cut's `Fx`, `Fz` and
+  `Fz x Offset` matching the blade's loads to about 2 per cent, THRUST_PCT and
+  TORQUE_PCT, the rotor table as the mean of 3 clockings, the harmonic
+  product) and `reports/RPT-095` (G6, a custom free stream on
+  `unsteady_rotor` read by the solver and equal to the constant control to the
+  fifth decimal).
 - A quasi-steady wheel point states its rotor state, the quantities the
   wheel's correction routes read: `CT_ROTOR` (`T / (rho A (Omega R)^2)`),
   `CT_PROPELLER` (`T / (rho n^2 D^4)`), `MU_ROTOR` and `LAMBDA_C` (the free
