@@ -37,6 +37,7 @@ from pathlib import Path
 
 import numpy as np
 
+from pyflightstream._errors import ProductError
 from pyflightstream._tokens import (
     CONTEXT_COLUMNS,
     INTEGRATED_SECTION_COLUMNS,
@@ -202,6 +203,12 @@ def fit_harmonics(azimuths_deg: Sequence[float], values: Sequence[float]) -> Har
     harmonic left out is None. ``RESIDUAL_RMS`` is the root mean square of
     the samples less the fit that was made.
 
+    Raises
+    ------
+    ProductError
+        When there is not one value per azimuth, or no sample at all. It is
+        a ``ValueError``, so an existing ``except ValueError`` still holds.
+
     Examples
     --------
     >>> psi = [0.0, 90.0, 180.0, 270.0]
@@ -212,7 +219,7 @@ def fit_harmonics(azimuths_deg: Sequence[float], values: Sequence[float]) -> Har
     psi = np.radians(np.asarray(azimuths_deg, dtype=float))
     load = np.asarray(values, dtype=float)
     if psi.shape != load.shape or load.size == 0:
-        raise ValueError("a fit needs one value per azimuth and at least one sample")
+        raise ProductError("a fit needs one value per azimuth and at least one sample")
     distinct = distinct_azimuths([float(value) for value in azimuths_deg])
     orders = max(
         (order for order, needed in MINIMUM_DISTINCT_AZIMUTHS.items() if distinct >= needed),

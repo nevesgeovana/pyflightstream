@@ -30,7 +30,7 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream._errors import PyflightstreamWarning
+from pyflightstream._errors import ProductError, PyflightstreamWarning
 from pyflightstream.cases import PprocSpec
 from pyflightstream.cases import qsteady as arithmetic
 from pyflightstream.post.axes import placed_blade_azimuth_deg
@@ -418,6 +418,24 @@ def test_an_unsteady_rotor_short_of_one_revolution_is_named(tmp_path, monkeypatc
     assert any("AL-020_harmonics.csv" in line and "complete revolution" in line for line in log)
 
 
+def test_an_unsteady_rotor_with_no_sections_series_is_named(tmp_path, monkeypatch):
+    """No per-step sectional loads, so no series: the harmonics are a named skip.
+
+    Seen on a licensed run: the product was absent and neither products.json
+    nor post.log said so (invariant 2).
+    """
+    # P0310-HARMONICS
+    workspace = _unsteady(tmp_path, monkeypatch, blades=3, rpm=1200.0)
+    for path in workspace.sim_dir("7001").glob("AL-020_sloads_iteration=*.txt"):
+        path.unlink()
+    out, manifest, log = _post(workspace)
+    assert not (out / "series" / "AL-020_sections_series.csv").exists()
+    assert not (out / "sections" / "AL-020_harmonics.csv").exists()
+    reason = manifest["skipped"]["sections/AL-020_harmonics.csv"]
+    assert "no sections series" in reason and "AL-020_sections_series.csv" in reason
+    assert any("AL-020_harmonics.csv" in line and "no sections series" in line for line in log)
+
+
 # ------------------------------------------------------------ the fit --
 
 
@@ -453,6 +471,15 @@ def test_the_na_rules_follow_the_distinct_azimuths():
     assert four.h1_amp is not None and four.h2_amp is None and four.h2_phase_deg is None
     five = fit_harmonics([0.0, 72.0, 144.0, 216.0, 288.0], [1.0, 2.0, 3.0, 4.0, 5.0])
     assert five.h2_amp is not None and five.residual_rms == pytest.approx(0.0, abs=1e-12)
+
+
+def test_a_fit_without_one_value_per_azimuth_raises_the_catalogued_error():
+    """The refusal is a ProductError, which is still a ValueError (FR-39)."""
+    # P0310-HARMONICS
+    with pytest.raises(ProductError, match="one value per azimuth"):
+        fit_harmonics([0.0, 120.0], [1.0])
+    with pytest.raises(ValueError, match="at least one sample"):
+        fit_harmonics([], [])
 
 
 def test_the_last_complete_revolution_is_counted_from_the_first_step():

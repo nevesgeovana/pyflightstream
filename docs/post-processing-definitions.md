@@ -948,6 +948,10 @@ blocks: the table is written.
 `steps_per_revolution`, or whose series holds no complete revolution, is named
 under `sections/<point>_harmonics.csv#rotor=<ALIAS>`; where no station of any
 rotor could be fitted the file is not written and `products.json` names it.
+An unsteady rotor point with no sections series (its row exported no per-step
+sectional loads, or the series was not written), no export window, or no
+rotor its record states is named under `sections/<point>_harmonics.csv`, with
+a WARNING line in `post.log`.
 
 **The manifest.** `products.json` registers the file with `kind`
 `harmonics`, `source` `wheel clockings` or `unsteady last revolution`,

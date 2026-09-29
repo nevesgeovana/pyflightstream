@@ -76,6 +76,14 @@ The 0.30 workspace manages its own disk and its other copies:
 and recorded in ``storage_management.json`` at the root. The directory
 links it and this module stage and remove are
 :mod:`pyflightstream.workspace._links`, private to both.
+
+The 0.31 workspace builds custom free-stream files out of other fields:
+:mod:`pyflightstream.workspace.fields` mirrors, moves, subtracts and
+time-averages the fields of ``inputs/freestreams/``, previewing until applied
+and writing each result beside a provenance record
+(``pyfs-workspace field``). The calibration files of a quasi-steady wheel's
+correction live under ``inputs/calibrations/``
+(:mod:`pyflightstream.cases.corrections`).
 """
 
 from __future__ import annotations

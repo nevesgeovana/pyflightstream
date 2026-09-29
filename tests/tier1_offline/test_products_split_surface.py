@@ -13,8 +13,10 @@ from pyflightstream.post import products
 from tests.tier1_offline.test_public_api import PUBLIC_MODULES
 
 # Captured with git show HEAD:src/pyflightstream/post/products.py before S02, plus
-# ProductArgumentError, which the exceptions catalogue added in the same release.
-# Keep the order too: the extraction must not edit the existing export inventory.
+# ProductArgumentError, which the exceptions catalogue added in the same release,
+# plus the six names of the per-revolution product 0.31.0 added (P0310-G2-PER-REV),
+# appended at the end. Keep the order too: the extraction must not edit the
+# existing export inventory, and an addition goes after it.
 _ORIGINAL_ALL = [
     "ADVANCE_RATIO_COLUMN",
     "COEFFICIENT_COLUMNS",
@@ -72,6 +74,12 @@ _ORIGINAL_ALL = [
     "write_campaign_products",
     "write_recorded_polar",
     "write_sections_table",
+    "PER_REVOLUTION_COLUMNS",
+    "DEFAULT_DRIFT_LIMIT_PCT",
+    "DRIFT_SUFFIX",
+    "per_revolution_table",
+    "revolution_drift_pct",
+    "is_force_or_moment_column",
 ]
 
 

@@ -323,12 +323,6 @@ __all__ = [
     "CustomPolarTable",
     "PRODUCTS_MANIFEST",
     "PER_BLADE_COLUMNS",
-    "PER_REVOLUTION_COLUMNS",
-    "DEFAULT_DRIFT_LIMIT_PCT",
-    "DRIFT_SUFFIX",
-    "per_revolution_table",
-    "revolution_drift_pct",
-    "is_force_or_moment_column",
     "REDUCTION_COLUMNS",
     "PolarPoint",
     "ProductArgumentError",
@@ -365,6 +359,14 @@ __all__ = [
     "write_campaign_products",
     "write_recorded_polar",
     "write_sections_table",
+    # The per-revolution product (0.31.0, P0310-G2-PER-REV), appended so the
+    # inventory recorded before it keeps its order.
+    "PER_REVOLUTION_COLUMNS",
+    "DEFAULT_DRIFT_LIMIT_PCT",
+    "DRIFT_SUFFIX",
+    "per_revolution_table",
+    "revolution_drift_pct",
+    "is_force_or_moment_column",
 ]
 
 #: WHY THE ADVANCE RATIO HAS A COLUMN AT ALL (FR-85), kept here beside its one
@@ -5206,14 +5208,30 @@ def _unsteady_harmonics(
     ``steps_per_revolution`` from the record, counted from the series' first
     step (:func:`pyflightstream.post.harmonics.last_complete_revolution`). A
     rotor with no stated clock or no complete revolution is named under the
-    product's key; a point with no sections series writes nothing and says
-    nothing more than the series already said.
+    product's key. A point with no sections series, no export window or no
+    rotor to fit writes nothing and is named under the product's key too,
+    with a line in ``post.log`` (invariant 2): the product was silently absent
+    on a licensed run whose row exported no per-step sectional loads.
     """
-    table = next((path for path in series if path.name == f"{stem}_sections_series.csv"), None)
+    name = f"{stem}_sections_series.csv"
+    table = next((path for path in series if path.name == name), None)
     window = record.export_window
-    if table is None or not window or not rotors:
-        return None
     relative = f"{SECTIONS_DIR}/{stem}{_harmonics.HARMONICS_SUFFIX}"
+    missing = None
+    if not rotors:
+        missing = "the point's record states no rotor whose blades and clock the fit can read"
+    elif table is None:
+        missing = (
+            f"the point wrote no sections series ({name}), which the harmonics of an "
+            "unsteady rotor are fitted from: the row exported no per-step sectional "
+            "loads, or the series was not written (see its own entry)"
+        )
+    elif not window:
+        missing = "the point's record states no export window to find its last revolution in"
+    if missing is not None:
+        skipped[relative] = missing
+        warn(f"point={stem} product={relative}: {missing}", PyflightstreamWarning, stacklevel=2)
+        return None
     first, last = int(window["first_step"]), int(window["time_iterations"])
     windows: dict[str, tuple[int, int]] = {}
     clocks: dict[str, float] = {}
