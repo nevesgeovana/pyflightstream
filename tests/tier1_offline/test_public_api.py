@@ -87,6 +87,10 @@ PUBLIC_MODULES = [
     # does not change its direction.
     "pyflightstream.post.field_frames",
     "pyflightstream.post.guides",
+    # 0.31.0 (P0310-HARMONICS): the per-station harmonic product. PUBLIC
+    # deliberately: its least-squares fit is what a user checks a station of
+    # the product against, on samples of her own.
+    "pyflightstream.post.harmonics",
     "pyflightstream.post.probe_fields",
     "pyflightstream.post.products",
     "pyflightstream.post.provenance",

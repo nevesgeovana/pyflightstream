@@ -52,6 +52,7 @@ __all__ = [
     "blade_azimuth_deg",
     "body_to_stability",
     "clocked_blade_azimuth_deg",
+    "placed_blade_azimuth_deg",
     "body_to_wind",
     "dcm",
     "free_stream_in_export_frame",
@@ -148,12 +149,45 @@ def clocked_blade_azimuth_deg(
     assert isinstance(clocking, int) and isinstance(positions, int)
     if blades < 1 or positions < 1 or not 1 <= blade <= blades or clocking < 0:
         return None
-    placed = blade_azimuth_deg(datum_deg, step=blade - 1, steps_per_revolution=blades, rpm=1.0)
+    placed = placed_blade_azimuth_deg(datum_deg, blade=blade, blades=blades)
     if placed is None:
         return None
     return blade_azimuth_deg(
         placed, step=clocking, steps_per_revolution=blades * positions, rpm=rpm
     )
+
+
+def placed_blade_azimuth_deg(
+    blade_one_deg: object, *, blade: object, blades: object
+) -> float | None:
+    """Return where blade ``blade`` of ``blades`` is when blade one is at ``blade_one_deg``.
+
+    Blade n sits ``(n - 1) / N`` of a turn from blade one, right-handed about
+    the shaft, whatever the sense of rotation, as the builder places the
+    blade frames and as :func:`clocked_blade_azimuth_deg` and the per-blade
+    table place them (0.31.0). The turn is counted by
+    :func:`blade_azimuth_deg`: the blade's place is step n - 1 of a revolution
+    of N steps turned forwards. The harmonic product reads blade one's
+    ``AZIMUTH`` of an unsteady sections series through here, so that a block
+    of blade n is fitted at that blade's own azimuth.
+
+    None where anything is not stated: an azimuth that is not a number, a
+    blade from 1 to N, or a count of blades that is not a positive integer.
+
+    Examples
+    --------
+    >>> placed_blade_azimuth_deg(300.0, blade=2, blades=3)
+    60.0
+    >>> placed_blade_azimuth_deg(300.0, blade=4, blades=3) is None
+    True
+    """
+    counts = (blade, blades)
+    if any(isinstance(value, bool) or not isinstance(value, int) for value in counts):
+        return None
+    assert isinstance(blade, int) and isinstance(blades, int)
+    if blades < 1 or not 1 <= blade <= blades:
+        return None
+    return blade_azimuth_deg(blade_one_deg, step=blade - 1, steps_per_revolution=blades, rpm=1.0)
 
 
 Matrix = NDArray[np.float64]
