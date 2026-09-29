@@ -432,14 +432,14 @@ FlightStream versions.
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
 
-### Changed (the type-checker debt, re-measured on the gate-fixing tree)
+### Changed (the type-checker debt, re-measured on the release tree)
 
-- mypy recount 2026-09-29: 998 errors in 18 of 134 modules, on the
-  `feat/0-30-storage-sync` tree once its quasi-steady rotor work had merged,
-  against the gate-fixing tree's own 921 in 18 of 131. The three further
-  modules the tracked package gained, `cases/qsteady.py`, `fsi/wing.py` and
-  `post/qsteady.py`, are clean; the shipped configuration is green over all
-  134 (`reports/RPT-029`).
+- mypy recount 2026-09-29: 1065 errors in 18 of 134 modules, on the v0.30.0
+  release tree, against 0.29.0's 922 in 18 of 128. The six modules the 0.30
+  work adds (`_signature.py`, `cases/qsteady.py`, `fsi/wing.py`,
+  `post/qsteady.py`, `workspace/_links.py` and `workspace/storage.py`) are
+  clean; the errors more sit inside the exempted set, and the shipped
+  configuration is green over all 134 (`reports/RPT-029`).
 
 ## [0.29.0] - 2026-09-28
 
