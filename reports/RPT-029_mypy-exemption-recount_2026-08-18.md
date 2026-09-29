@@ -801,3 +801,7 @@ and the environments by the type checker's own version, so the run
 measured the tree as it is and assigns the difference to no single change.
 The quoted mypy lines above are this run's, and the sentence at the top of
 this report is this measurement.
+
+Re-run the same day on `97279f15`, after the review fixes changed `src/`
+(one module-level import in `cases/fsi_workspace.py` and docstrings only):
+1065 errors in 18 of 134 modules, 198 distinct source lines, unchanged.
