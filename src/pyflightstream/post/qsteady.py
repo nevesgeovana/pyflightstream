@@ -60,6 +60,7 @@ from pyflightstream.cases.qsteady import (
 )
 from pyflightstream.post._tables import _cell, context_row, write_csv_table
 from pyflightstream.results import parse_loads
+from pyflightstream.workspace.inputs import qsteady_record_rotor_alias
 
 #: The point's validity, carried by every quasi-steady product of the point.
 VALIDITY_COLUMNS: tuple[str, ...] = (
@@ -248,7 +249,7 @@ def add_reduced_frequency_to_sections(
     index = {name: at for at, name in enumerate(columns)}
     if not {"ROTOR", "Offset", "Chord", "Fx", "Fz"} <= set(index):
         return None
-    alias = str(record["rotor"])
+    alias = qsteady_record_rotor_alias(record)
     omega = _omega(record)
     k_of_row: list[float | None] = []
     for row in rows:
@@ -405,7 +406,7 @@ def clockings_of(
 
 def load_columns(record: Mapping[str, Any]) -> tuple[str, ...]:
     """Return the loads columns of a rotor's tables: the rotor's, then each blade's."""
-    alias = str(record["rotor"])
+    alias = qsteady_record_rotor_alias(record)
     families = [str(name) for name in record.get("families_blades") or []]
     return tuple(f"{name}_{owner}" for owner in (alias, *families) for name in LOAD_NAMES)
 
@@ -449,7 +450,7 @@ def write_qsteady_tables(
     average_rows = []
     for point in usable:
         context = context_row(point.condition, lengths)
-        alias = str(point.record["rotor"])
+        alias = qsteady_record_rotor_alias(point.record)
         count = len(point.clockings)
         for clocking in point.clockings:
             position_rows.append(

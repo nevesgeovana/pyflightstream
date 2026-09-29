@@ -1048,6 +1048,20 @@ _ACTUATOR_ONLY_KEYS = ("tip_radius_m", "hub_radius_m", "profile_units", "swirl")
 _ROTOR_FRAME_SUFFIX = re.compile(r"_(SMRP|RMRP\d*)$")
 
 
+def qsteady_record_rotor_alias(record: Mapping[str, Any]) -> str:
+    """Return the rotor alias a parked quasi-steady point record names.
+
+    ``record["rotor"]`` is the alias the quasi-steady rotor's builder
+    (``cases/workflows.py::_park_the_qsteady_record``) wrote into the
+    point's own JSON record, not a read of the recorded rotor block itself;
+    it shares the watched word by coincidence of vocabulary
+    (PFS-2030.03.02). ``post/qsteady.py`` calls this rather than
+    subscripting the record directly, so the module that may read
+    ``"rotor"`` stays the one this file names.
+    """
+    return str(record["rotor"])
+
+
 def _frame_of_a_rotor(spelling: str, rotors: Mapping[str, Any]) -> str | None:
     """Return the rotor whose own frames a declared name would collide with, if any."""
     token = spelling.strip().upper()
