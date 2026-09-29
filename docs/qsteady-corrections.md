@@ -144,6 +144,7 @@ writes a `sector_offset` file from a wheel point and an axial sector point
 the post has tabled, both at zero angle of attack and sideslip and at the same
 `J_<ALIAS>`:
 
+<!-- skip: next -->
 ```python
 from pyflightstream.post.corrections import sector_offset_calibration
 
