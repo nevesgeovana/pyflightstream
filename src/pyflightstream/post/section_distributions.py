@@ -41,6 +41,7 @@ from pyflightstream.post._tables import (
 from pyflightstream.post.series import SECTIONS_SERIES_LEAD, run_clock, stamped_exports
 from pyflightstream.results import labeled_value, parse_surface_sections
 from pyflightstream.workspace import RunRecord
+from pyflightstream.workspace.storage import pruned_step_refusal
 
 __all__ = ["write_section_distributions"]
 
@@ -1153,6 +1154,26 @@ def write_section_distributions(
                 int(record.export_window["time_iterations"]) + 1,
             )
             present = {current for current, _ in files}
+            # A STEP FREE-SPACE DELETED REFUSES THE KIND BY NAME (0.30.0), where a
+            # step never exported is a per-step skip and the table is written.
+            pruned = pruned_step_refusal(
+                sim_dir,
+                record.run_id,
+                {
+                    missing: [
+                        folder / f"{stem}_{kind}_iteration={missing}.txt"
+                        for folder in (sim_dir, *folders)
+                    ]
+                    for missing in expected
+                    if missing not in present
+                },
+                product=f"sections/{stem}_{kind}",
+                window=(expected.start, expected.stop - 1),
+            )
+            if pruned is not None:
+                for relative in relatives.values():
+                    skipped[relative] = pruned
+                continue
             for missing in expected:
                 if missing not in present:
                     for relative in relatives.values():

@@ -45,6 +45,7 @@ from pyflightstream.results import (
     parse_probe_points,
 )
 from pyflightstream.workspace import AdditionalRecord, RunRecord
+from pyflightstream.workspace.storage import pruned_step_refusal
 
 __all__ = [
     "PROBE_COLUMN",
@@ -419,6 +420,11 @@ def write_point_series(
     a header and no row, recorded in the manifest as written; ``skipped``, when
     given, receives the reason under the table's own name.
 
+    A STEP OF THE WINDOW THAT ``free-space`` DELETED (``prune_step_exports``,
+    0.30.0) refuses that kind's table, naming the step and the storage call,
+    under the same name in ``skipped``, or as a
+    :class:`~pyflightstream._errors.ProductError` when no ``skipped`` is given.
+
     Parameters
     ----------
     root : Path
@@ -493,6 +499,26 @@ def write_point_series(
     for kind, suffix in SERIES_KINDS:
         files = stamped.get((suffix or "", "txt"), {})
         relative = f"{SERIES_DIR}/{stem}_{kind}_series.csv"
+        # A STEP FREE-SPACE DELETED IS A REFUSAL, NAMED (0.30.0), never the
+        # silent gap a series of the steps that remain would be. A step that
+        # was never exported keeps the rule it always had.
+        pruned = pruned_step_refusal(
+            sim_dir,
+            record.run_id,
+            {
+                step: [folder / f"{stem}{suffix or ''}_iteration={step}.txt" for folder in ran_in]
+                + [sim_dir / f"{stem}{suffix or ''}_iteration={step}.txt"]
+                for step in steps
+                if step not in files
+            },
+            product=relative,
+            window=(first, last),
+        )
+        if pruned is not None:
+            if skipped is None:
+                raise ProductError(pruned)
+            skipped[relative] = pruned
+            continue
         if not any(step in files for step in steps):
             if skipped is not None:
                 looked = ", ".join(str(folder) for folder in dict.fromkeys([sim_dir, *ran_in]))

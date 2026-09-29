@@ -2540,13 +2540,16 @@ def _template_sections() -> tuple[TemplateSection, ...]:
             heading="Storage recipe, `inputs/management/m<id>.toml`",
             intro=(
                 "Optional: what `pyfs-matrix free-space m001 --workspace . --apply` runs. "
-                "Up to three tables, each a list of steps run in this order."
+                "Up to four tables, each a list of steps run in this order."
             ),
             examples=(
                 TemplateExample(
                     "inputs/management/m001.toml",
                     "toml",
                     (
+                        "[[prune_step_exports]]\n"
+                        'sims = "all"\n'
+                        "\n"
                         "[[compact_sims]]\n"
                         'sims = "all"\n'
                         'status = ["CONVERGED"]\n'
@@ -2561,6 +2564,9 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                 ),
             ),
             after=(
+                "`[[prune_step_exports]]` deletes the per-step exports of an unsteady "
+                "point but the last step of each export; a later `post` refuses a product "
+                "that needs a deleted step and names it. "
                 "`[[compact_sims]]` zips a converged simulation folder to "
                 "`sims/sim_<id>.zip`, restored automatically the next time `post`, "
                 "`collect` or a continuation reads it. `[[delete_extensions]]` deletes "

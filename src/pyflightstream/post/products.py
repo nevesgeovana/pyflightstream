@@ -272,7 +272,7 @@ from pyflightstream.workspace.naming import (
 from pyflightstream.workspace.naming import (
     ARCHIVE_STAMP as ARCHIVE_STAMP,
 )
-from pyflightstream.workspace.storage import ensure_sim_expanded
+from pyflightstream.workspace.storage import STEP_EXPORTS_PRUNED, ensure_sim_expanded
 
 if TYPE_CHECKING:
     from pyflightstream.cases.matrix import MatrixRow
@@ -6620,6 +6620,35 @@ def products_to_retire(
     return refused
 
 
+def products_kept_after_pruning(
+    skipped: Mapping[str, str],
+    previous_products: Mapping[str, Mapping[str, object]],
+    out: Path,
+) -> dict[str, dict[str, object]]:
+    """Return the previous products a refusal for a pruned step keeps, with their entries.
+
+    A PRODUCT MADE BEFORE ``free-space`` PRUNED ITS STEPS STAYS (0.30.0). The
+    refusal is about rebuilding it, not about the file already made from
+    every step: that file stays in its folder and its previous entry stays in
+    the manifest, marked ``kept_after_pruning`` with the refusal. A refusal
+    opens with :data:`~pyflightstream.workspace.storage.STEP_EXPORTS_PRUNED`
+    and is keyed by the product's own name; a product sharing that name's
+    stem (the VTK beside an averaged Tecplot) is kept with it. Only a file
+    still on disk is kept.
+    """
+    kept: dict[str, dict[str, object]] = {}
+    for key, reason in skipped.items():
+        if not str(reason).startswith(STEP_EXPORTS_PRUNED):
+            continue
+        base = key.split("#", 1)[0]
+        family = base.rsplit(".", 1)[0]
+        for name, entry in previous_products.items():
+            same = name == base or name.rsplit(".", 1)[0] == family
+            if same and (out / name).is_file():
+                kept[name] = {**entry, "kept_after_pruning": reason}
+    return kept
+
+
 #: One record of the post log: the keys `point`, `product`, `message` and
 #: `remedy`, the last None when the message states no remedy apart from itself.
 _LogRecord = dict[str, str | None]
@@ -7034,6 +7063,10 @@ def _campaign_products(
             archive_stamp=archive_stamp,
             check_frozen=check_frozen,
         )
+        # 0.30.0: what a previous post made from steps free-space has since
+        # pruned stays, file and entry, and is therefore not retired below.
+        for name, entry in products_kept_after_pruning(skipped, previous_products, out).items():
+            products_index.setdefault(name, entry)
         # Retire refused generated tables under both rebuild policies. Native exports
         # outside this folder remain evidence and are never removed here.
         for name, entry in previous_products.items():

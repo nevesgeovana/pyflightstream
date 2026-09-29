@@ -22,6 +22,16 @@ FlightStream versions.
   `--matrix-products` says what happens to it. Every call is recorded in
   `storage_management.json`, the schema the standalone `fts_sync.py` script
   started; see docs/storage-and-sync.md.
+- `free-space` recipe table `[[prune_step_exports]]`: for an unsteady row that
+  exported at every step, keeps the last step of each per-step export
+  (`<name>_iteration=<step>`) of each point and deletes the earlier steps,
+  previewing by default and deleting only with `--apply`. The recorded call
+  lists the steps deleted per point, and the listings of the deleted files
+  leave `products.json`. A product made before stays, file and entry (marked
+  `kept_after_pruning`); a later `post` that needs a deleted step refuses the
+  series, the time-averaged surface or the section distribution by name,
+  naming the missing steps and the storage call, instead of writing it from
+  the steps that remain. See docs/storage-and-sync.md.
 - `pyfs-matrix sync`: brings runs and results from the other workspaces named
   in `inputs/sync-workspaces.toml` into the main one, at a cumulative level
   (`runs`, `post`, `fsm`, `all`), previewing by default. Main wins a conflict
