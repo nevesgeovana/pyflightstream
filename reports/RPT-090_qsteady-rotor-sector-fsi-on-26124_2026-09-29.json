@@ -16,7 +16,72 @@
   "24edb353": "wheel cut at clocking 0 over the blade radial span",
   "4113de02": "qsteady point gets its rotor table at the row speed"
  },
- "first_confirmation": "on 0331fe91, runs sim_9001/9002, 9101/9102, 9201/9202",
+ "first_confirmation": {
+  "status": "draft, not released: run on 0331fe91, first committed in c89c603d, never pushed and never on main; git history keeps that draft",
+  "code": "0331fe91",
+  "runs": {
+   "rigid": {
+    "run_id": "pfs0300-l1-ws/sim_9001/M144RE438AL+000BE+000RPM00473",
+    "code": "0331fe91",
+    "status": "CONVERGED",
+    "iterations": 60,
+    "residual": 8.2770324e-07,
+    "wall_time_s": 4.3
+   },
+   "fsi": {
+    "run_id": "pfs0300-l1-ws/sim_9002/M144RE438AL+000BE+000RPM00473",
+    "code": "0331fe91",
+    "status": "CONVERGED",
+    "iterations": 427,
+    "residual": 3.1803694e-07,
+    "wall_time_s": 81.8
+   }
+  },
+  "pproc_exports": "rigid row defaults; coupled row with the section, sectional-loads, probe and section-Cp kinds turned off, because with the defaults the plan refused it (ScriptOrderError, fixed by 69cffa41)",
+  "loads_qs_avg": {
+   "rigid_9001": {
+    "FX": -373.84196,
+    "FY": 338.99274,
+    "FZ": 7.53343,
+    "MX": -415.8906,
+    "MY": -485.13046,
+    "MZ": -7.78084
+   },
+   "fsi_9002": {
+    "FX": -376.81578,
+    "FY": 333.09073,
+    "FZ": 6.14159,
+    "MX": -408.23464,
+    "MY": -488.03146,
+    "MZ": -7.50226
+   }
+  },
+  "fsi_iterations": 18,
+  "fsi_first_residual": 0.9375,
+  "fsi_final_residual": 5.6531191e-06,
+  "aeroelastic_header": "1,936,1,50,4",
+  "tip_flap_m": 0.003340913,
+  "tip_twist_deg": 0.128534,
+  "fsidisp_tip_elastic_axis_node_m": [
+   -0.0026597356479187454,
+   0.0020217244183525374,
+   0.0
+  ],
+  "rotor_table": "not written: the post skipped it (the record states no speed for ROTOR); fixed by 4113de02",
+  "against_rerun": {
+   "run_script": "equal to the re-run's apart from paths and run names (sim_9001/9011 and sim_9002/9012)",
+   "fsi_post_script": "69cffa41 changed it: the re-run's fsi_post.txt adds UPDATE_PROBE_POINTS and the section, sectional-loads, probe and section-Cp exports of the default export block",
+   "loads_exports": "equal in every line apart from the simulation-file name and the time line (7 printed decimals per coefficient)",
+   "qs_avg_six_components": "equal to every printed digit (5 decimals), fields loads_qs_avg against measured.fx/mx/fy",
+   "run_records": "same status, iterations and residual",
+   "fsi_log_residual_lines": "equal",
+   "aeroelastic_header": "equal",
+   "fsi_convergence_log_tip_flap_twist_relaxation": "equal",
+   "fsidisp": "equal in every value",
+   "vtk": "byte-identical (equal SHA-256)",
+   "sectional_loads_export": "rigid 9001 and 9011 equal apart from the name and time lines; 9002 had none"
+  }
+ },
  "route": "pyfs-matrix plan, pyfs-matrix run (LocalExecutor, -hidden -script), the post run performs",
  "campaign": "pfs0300-l1-ws",
  "solver_rules": {
@@ -82,6 +147,27 @@
    1.0142337e-05,
    5.6531191e-06
   ],
+  "fsi_residual_ratios": [
+   0.332,
+   0.426,
+   0.465,
+   0.48,
+   0.49,
+   0.492,
+   0.496,
+   0.499,
+   0.5,
+   0.464,
+   0.486,
+   0.5,
+   0.5,
+   0.833,
+   0.5,
+   0.488,
+   0.557
+  ],
+  "coupling_relaxation": 0.5,
+  "coupling_relaxation_source": "fsi_convergence_log.csv, column relaxation, every call",
   "stopped_after_completion_line": true,
   "tip_flap_m": 0.003340913,
   "tip_twist_deg": 0.128534,
@@ -90,8 +176,39 @@
    0.0020217244,
    0.0
   ],
+  "fsidisp_tip_nodes_m": {
+   "order": "elastic axis, leading edge, trailing edge (the last three rows of FSIDisp.txt)",
+   "rows": [
+    [
+     -0.0026597356479187454,
+     0.0020217244183525374,
+     0.0
+    ],
+    [
+     -0.002578190925609482,
+     0.00195974045524349,
+     0.0
+    ],
+    [
+     -0.0027853771183881625,
+     0.002117227303763163,
+     0.0
+    ]
+   ],
+   "norms_mm": [
+    3.3409,
+    3.2385,
+    3.4987
+   ]
+  },
   "exported_surface_max_displacement_m": 0.0035528,
   "exported_surface_max_displacement_at_radius_m": 1.824,
+  "exported_surface_max_displacement_components_m": [
+   -0.0028376,
+   0.0021379,
+   0.0
+  ],
+  "exported_surface_compared_over": "the first 936 points of each VTK (blade one), P9012 against P9011",
   "omega_staged_rad_s": 49.55048456248367,
   "omega_2pi_rpm_over_60_rad_s": 49.55048456248367,
   "fx_rigid_N": -373.84196,
@@ -102,6 +219,7 @@
   "mx_change_pct_magnitude": -1.84,
   "fy_rigid_N": 338.99274,
   "fy_fsi_N": 333.09073,
+  "fy_change_pct": -1.74,
   "cx_rigid": -0.0098306,
   "cdi_rigid": -0.0099531,
   "cdo_rigid": 0.0001225,
@@ -123,7 +241,9 @@
    "CP": -0.09959,
    "ETA": 0.91345
   },
-  "post_skipped": {}
+  "post_skipped": {},
+  "eta_change_pct": 2.69,
+  "cdo_rigid_share_of_cx_pct": 1.25
  },
  "sources": {
   "rigid_loads": "P9011-M144RE438AL+000BE+000RPM00473.txt",

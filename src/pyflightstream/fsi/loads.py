@@ -641,7 +641,8 @@ def project_wing_frame_loads(
     rotor's XY cut is read about +z; +y turns the leading edge up on either
     wing, so it is nose up. THAT SIGN IS THE ONE READING HERE NOT YET
     CORROBORATED ON THIS CUT: the rotor's was, by the soft-blade pilot
-    (RPT-007); the wing's waits on the licensed confirmation of FSI-G.
+    (RPT-007); the wing's agrees in sign at the integral on 26.124 and
+    not in magnitude (+7.49 against +17.13 N m, 44 %, RPT-092).
     Inputs broadcast; densities in N/m and N m / m, angles in rad.
 
     Source: rigid-section geometry of the wing-frame embedding; the moment

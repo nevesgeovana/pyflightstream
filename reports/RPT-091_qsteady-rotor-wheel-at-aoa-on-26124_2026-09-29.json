@@ -16,7 +16,77 @@
   "24edb353": "wheel cut at clocking 0 over the blade radial span",
   "4113de02": "qsteady point gets its rotor table at the row speed"
  },
- "first_confirmation": "on 0331fe91, runs sim_9001/9002, 9101/9102, 9201/9202",
+ "first_confirmation": {
+  "status": "draft, not released: run on 0331fe91, first committed in c89c603d, never pushed and never on main; git history keeps that draft",
+  "code": "0331fe91",
+  "runs": {
+   "points_file_route": {
+    "run_id": "pfs0300-l1-ws/sim_9101/M144RE438AL+050BE+000RPM00473",
+    "code": "0331fe91",
+    "status": "FAILED_INCOMPLETE_OUTPUT",
+    "iterations": 61,
+    "residual": null,
+    "wall_time_s": 12.6,
+    "log_file_used": null,
+    "iterations_per_clocking": 61
+   },
+   "detection_control": {
+    "run_id": "pfs0300-l1-ws/sim_9102/M144RE438AL+050BE+000RPM00473",
+    "code": "0331fe91",
+    "status": "CONVERGED",
+    "iterations": 61,
+    "residual": null,
+    "wall_time_s": 11.7,
+    "log_file_used": null
+   }
+  },
+  "failure": "FAILED_INCOMPLETE_OUTPUT: the exported log holds both clockings, the residual reader refused it and the trailing-edge verdict read no log; fixed by c46bee0e",
+  "loads_qs_avg": {
+   "sim_9101": {
+    "FX": -2300.04111,
+    "FY": -23.90465,
+    "FZ": 267.26738,
+    "MX": -2547.91712,
+    "MY": 40.95987,
+    "MZ": -364.1048
+   },
+   "sim_9102": {
+    "FX": -2255.295,
+    "FY": -24.32296,
+    "FZ": 263.59383,
+    "MX": -2488.17757,
+    "MY": 41.42576,
+    "MZ": -356.61695
+   }
+  },
+  "sections": {
+   "cuts": 30,
+   "first_offset_m": 0.3467,
+   "last_offset_m": 1.586,
+   "empty_cuts": 2,
+   "uncut_outer_span_m": 0.238,
+   "fixed_by": "24edb353"
+  },
+  "validity_from_sections_9101": {
+   "K_1P_MIN": 0.0,
+   "K_1P_MAX": 0.13076,
+   "K_1P_MEAN": 0.09228,
+   "SPAN_PCT_K_GT_0_05": 94.82369,
+   "SPAN_PCT_K_GT_0_1": 37.94077,
+   "THRUST_PCT_K_GT_0_1": 15.08853,
+   "TORQUE_PCT_K_GT_0_1": 13.35786
+  },
+  "rotor_table": "not written; fixed by 4113de02",
+  "against_rerun_9111": {
+   "run_script": "24edb353 changed it: ROTATE_SURFACE 30 deg moves from before the wake-termination detection to after the section distribution and the loads-frame lines, so the distribution is declared at clocking 0, and one INITIALIZE_SOLVER block follows the rotation; the rest equal apart from paths and run names",
+   "loads_exports": "P9101 and P9111 .txt (clocking 0) and _qs01.txt (clocking 30 deg) equal in every line apart from the simulation-file name and the time line (7 printed decimals per coefficient)",
+   "qs_avg_six_components": "equal to every printed digit (5 decimals): loads_qs_avg.sim_9101 against averaged_six_components.sim_9111",
+   "clockings": "FX and MX at 0 and 30 deg equal to every printed digit",
+   "vtk": "byte-identical (equal SHA-256)",
+   "sections_and_validity": "changed: the cuts, and every K_1P and share value read from them (validity_from_sections_9101 against validity_file)"
+  },
+  "detection_control_scope": "sim_9102 ran on 0331fe91, the code of sim_9101, so the trailing-edge route comparison is 9101 against 9102 on one code; 9111 equals 9101 in loads. The detection route was not re-run on the fixed code"
+ },
  "route": "pyfs-matrix plan, pyfs-matrix run (LocalExecutor, -hidden -script), the post run performs",
  "campaign": "pfs0300-l1-ws",
  "solver_rules": {
@@ -82,7 +152,8 @@
    "run_id": "pfs0300-l1-ws/sim_9102/M144RE438AL+050BE+000RPM00473",
    "code": "0331fe91",
    "status": "CONVERGED",
-   "wall_time_s": 11.7
+   "wall_time_s": 11.7,
+   "iterations_per_clocking": 61
   },
   "post_skipped": {}
  },
@@ -108,7 +179,8 @@
   "SPAN_PCT_K_GT_0_1": 32.768588992974244,
   "THRUST_PCT_K_GT_0_1": 11.731554734578957,
   "TORQUE_PCT_K_GT_0_1": 10.25995486525163,
-  "K_1P_SOURCE": "sections"
+  "K_1P_SOURCE": "sections",
+  "axis_reading_caveat": "THRUST_PCT and TORQUE_PCT read the export's Fx as the force along the shaft and Fz as the in-plane force; docs/post-processing-definitions.md states that reading is not measured on a licensed run"
  },
  "averaged_six_components": {
   "units": "N and N m about the hub, loads-frame axes",

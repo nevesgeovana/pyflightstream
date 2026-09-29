@@ -6,7 +6,7 @@
  "setup": {"rpm": 473.17, "speed_m_s": 49.04, "rho_kg_m3": 0.6326, "diameter_m": 3.648, "farfield_layers": 5, "launches": "one per run, serial"},
  "sources": {
   "private_campaign": {
-   "description": "owner's licensed quasi-steady rotor campaign, 2026-09-28 and 2026-09-29, private geometry (not disclosed here)",
+   "description": "a private licensed quasi-steady rotor campaign, 2026-09-28 and 2026-09-29, private geometry (not disclosed here)",
    "file": "PHASE3-RESULTS.md (local, not in this repository)",
    "sections_used": ["12", "15", "15b", "16", "17"]
   }
@@ -42,7 +42,9 @@
    "measured": {
     "fx_n": {"unsteady_3rev": -1993.71, "unsteady_6rev": -2025.10, "qsteady_k6": -2177.54},
     "mx_nm": {"unsteady_3rev": -2253.93, "unsteady_6rev": -2282.82, "qsteady_k6": -2414.05},
-    "fx_per_revolution_n": [-2159.86, -1983.38, -1993.71, -2004.01, -2014.46, -2025.10]
+    "fx_per_revolution_n": [-2159.86, -1983.38, -1993.71, -2004.01, -2014.46, -2025.10],
+    "fx_gap_pct": {"convention": "(Q - U) / abs(U)", "rev3": 9.22, "rev6": 7.53},
+    "mx_gap_pct": {"convention": "(Q - U) / abs(U)", "rev3": 7.10, "rev6": 5.75}
    }
   },
   {
@@ -52,6 +54,10 @@
     "k": [1, 2, 3, 6, 12, 24],
     "fx_n": [-2210.56, -2206.12, -2207.84, -2204.64, -2203.95, -2203.82],
     "fy_n": [-23.37, -23.81, -27.53, -27.09, -27.46, -27.57],
+    "fz_n": [258.84, 257.17, 260.58, 257.75, 258.21, 258.23],
+    "mx_nm": [-2437.94, -2434.21, -2435.92, -2433.44, -2432.96, -2432.82],
+    "my_nm": [40.43, 40.64, 45.97, 44.68, 45.16, 45.27],
+    "mz_nm": [-347.98, -346.05, -348.87, -345.45, -345.95, -345.95],
     "wall_s_per_clocking": 1.7
    }
   },

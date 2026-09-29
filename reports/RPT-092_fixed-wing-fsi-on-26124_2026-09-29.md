@@ -60,7 +60,7 @@ then carries the structure's sectional loads and the row's whole default
 export block.
 
 **Tip deflection: -12.71 mm, downward, weight-dominated.** The written tip
-displacement (`FSIDisp.txt`, the tip station's three nodes) is -12.705 to
+displacement (`FSIDisp.txt`, the tip station's three nodes) is -12.677 to
 -12.724 mm along z, and 0 in x and y. The convergence log's `tip_flap_m`
 column states 1.270541e-02 m, as a magnitude (`fsi/driver.py:653`), so the
 sign is read from `FSIDisp.txt`. As a check on the weight, the package's own
@@ -70,7 +70,8 @@ structural solve of the staged configuration under its weight alone gives
 the last call (1978.8 N) takes 2.08 mm of it back. The exported deformed
 surface (`P9212-...vtk`) against the rigid one (`P9211-...vtk`) moves at most
 11.73 mm, downward, at the tip's leading edge, and less than 0.02 mm in x and
-y.
+y. That is 92 % of the 12.68 to 12.72 mm the structure wrote for the tip
+nodes; it is observed here, and these files do not say why.
 
 **CL against rigid.** From the two loads exports:
 
@@ -110,7 +111,9 @@ initialisations), then `AEROELASTIC_RBF_TYPE MULTI_QUADRATIC` (78),
 `DELETE_AEROELASTIC_STRUCTURAL_NODES` (79), `ASSIGN_AEROELASTIC_SURFACES` (80),
 `ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS` (83),
 `IMPORT_AEROELASTIC_STRUCTURAL_NODES 2 DISABLE` (86), the working directory,
-post-processing script and execution command (89 to 95),
+post-processing script and execution command
+(`SET_AEROELASTIC_WORKING_DIRECTORY`, `SET_AEROELASTIC_POST_PROCESSING_SCRIPT`,
+`SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND`, 89 to 95),
 `SET_AEROELASTIC_ITERATIONS 50` (98) and `EXECUTE_AEROELASTIC_ANALYSIS` (101),
 the last line. With that order the solver mapped all 1052 vertices and morphed
 the wing, so the order works on a wing.
@@ -129,8 +132,38 @@ defects; each was fixed on `feat/0-30-storage-sync` before this run:
   (RPT-091);
 - a `qsteady_rotor` point had no rotor table: **4113de02** (RPT-090, RPT-091).
 
-The solver-side numbers of this point are identical to every printed digit to
-the first confirmation's.
+Against the first confirmation, measured file by file (`first_confirmation`
+in the sidecar): the emitted run scripts are equal apart from paths and run
+names; 69cffa41 changed the coupled row's post-processing script, which now
+adds `UPDATE_PROBE_POINTS` and the section, sectional-load, probe and
+section-Cp exports; and every solver-side number is equal. The loads exports
+are equal in every line apart from the file name and the time (seven printed
+decimals per coefficient), the residual lines, the `$AEROELASTIC$` header,
+`FSIDisp.txt` and the structure's sectional loads equal, and the two VTK
+exports byte-identical.
+
+## First confirmation (draft, 0331fe91, not released)
+
+Dated 2026-09-29. The first confirmation ran on `0331fe91` and was committed
+as a draft of this report in `c89c603d`; it was never pushed and never on
+main, and git history keeps that draft. Its values, from its own run files:
+
+| run id (code `0331fe91`) | status | iterations | residual | wall time |
+|---|---|---|---|---|
+| `pfs0300-l1-ws/sim_9201/M147RE342AL+050` (rigid) | CONVERGED | 62 | 1.92e-6 | 2.8 s |
+| `pfs0300-l1-ws/sim_9202/M147RE342AL+050` (coupled) | CONVERGED | 461 | 1.34e-7 | 49.0 s |
+
+- Loads: CL 0.3383257 rigid (9201) and 0.3393173 coupled (9202), CDi
+  0.0126215 and 0.0126148, CDo 0.0093534 and 0, CMy +0.0027989 and
+  +0.0023671.
+- Residuals: 20 coupling iterations of 50 on 9202, from 8.889e-1 to 3.58e-6.
+- Mapping: `$AEROELASTIC$` header `1,1052,1,50,4` on 9202.
+- Tip deflection: -12.677 to -12.724 mm along z at the tip nodes of 9202.
+
+What changed between it and the run above: 9202 ran with the section,
+sectional-load, probe and section-Cp kinds turned off, so check (a) read the
+coupled moments from the structure's `FS_SurfaceSection_Loads.txt`; that is
+fixed (69cffa41), and the numbers above are equal to the re-run's.
 
 ## What remains an observation
 

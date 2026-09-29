@@ -401,12 +401,15 @@ The workflow a row runs decides whether it may couple, and one table in
 refused by its builder, because several clockings averaged are not the state
 of one structure, and `unsteady_rotor` by the plan, because on the measured
 build the morph of a mapped rotating blade replaces its rotation. The
-structural executable stays the side branch it was: the cases row reaches
-`fsi` downward, and `fsi` imports nothing from the pipeline rows. A steady
+structural executable stays the side branch it was: `fsi` imports only the
+floors, `extras` and `results`, so it sits between the script/results row
+and the cases row, which reach it downward. A steady
 coupled script ends at its aeroelastic analysis, which returns at once, so
 the run waits for the solver's own completion line and nothing may follow
-the analysis in the script. The fixed-wing route and the sign of its moment
-column wait on their licensed confirmation.
+the analysis in the script. On 26.124 the fixed-wing route converged and
+mapped 1052 of 1052 vertices (reports/RPT-092); its XZ moment column agrees
+in sign at the integral (+7.49 against +17.13 N m) and not in magnitude
+(44 %), so that sign is not confirmed in magnitude.
 
 ### Storage and sync
 

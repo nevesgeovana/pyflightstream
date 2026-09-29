@@ -89,7 +89,10 @@ beside it:
 | TORQUE_PCT_K_GT_0_1 | 10.3 % | not computed at plan |
 
 The same values are in the clockings and average tables and in the point's
-super-file rows. The post's minimum is at the tip cut (1.8 m, chord
+super-file rows. `THRUST_PCT_K_GT_0_1` and `TORQUE_PCT_K_GT_0_1` read the
+export's `Fx` as the force along the shaft and `Fz` as the in-plane force;
+`docs/post-processing-definitions.md` states that this axis reading is not
+yet measured on a licensed run, and this run does not measure it either. The post's minimum is at the tip cut (1.8 m, chord
 0.1419 m), the plan's at its outermost band; the two read the chord in
 different places, and the mean agrees to 0.3 %.
 
@@ -118,10 +121,18 @@ the thrust and torque) is reproduced. The clocking spread is small (Fx
 code (`pfs0300-l1-ws/sim_9102/M144RE438AL+050BE+000RPM00473`, the same OBJ
 with the trailing edges by detection, CONVERGED, 11.7 s) gave Fx -2255.30 N,
 Fy -24.32 N, Fz +263.59 N, Mx -2488.18 N m, My +41.43 N m, Mz -356.62 N m,
-2 to 3 % above RPT-089: about half of the gap is the trailing-edge route. The
-fixes changed no solver input (the loads of 9111 equal those of the first,
-failed confirmation of this row to every printed digit), so that control still
-stands. What makes the remaining 2 to 3 % was not separated by these runs.
+2 to 3 % above RPT-089. That control ran on `0331fe91`, the code of the first
+confirmation's points-file run `sim_9101`, so the trailing-edge route is
+compared on one code: 9101 against 9102, about half of the gap to RPT-089.
+24edb353 changed the emitted script (the section distribution declared at
+clocking 0, the 30 deg rotation moved after it and after the wake-termination
+detection, and one more initialisation after the rotation), and the
+integrated loads of 9111 are equal to those of 9101 to every printed digit:
+both loads exports (clocking 0 and 30 deg) equal in every coefficient to their
+seven printed decimals, and the averaged six components to their five
+(measured, fields `first_confirmation.loads_qs_avg.sim_9101` and
+`averaged_six_components.sim_9111`). The detection route was not re-run on the
+fixed code. What makes the remaining 2 to 3 % was not separated by these runs.
 
 The rotor table (`post/l2_wheel/polars/P9111-ROTOR_rotor.csv`) is written:
 
@@ -148,6 +159,31 @@ FAILED_INCOMPLETE_OUTPUT and found four package defects; each was fixed on
   outer 0.24 m of the blade uncut: **24edb353** (the wheel is cut at clocking
   0 over the blade's radial span, above);
 - a `qsteady_rotor` point had no rotor table: **4113de02** (above).
+
+## First confirmation (draft, 0331fe91, not released)
+
+Dated 2026-09-29. The first confirmation ran on `0331fe91` and was committed
+as a draft of this report in `c89c603d`; it was never pushed and never on
+main, and git history keeps that draft. Its values, from its own run files:
+
+| run id (code `0331fe91`) | status | iterations per clocking | wall time |
+|---|---|---|---|
+| `pfs0300-l1-ws/sim_9101/M144RE438AL+050BE+000RPM00473` (points file) | FAILED_INCOMPLETE_OUTPUT | 61 | 12.6 s |
+| `pfs0300-l1-ws/sim_9102/M144RE438AL+050BE+000RPM00473` (detection) | CONVERGED | 61 | 11.7 s |
+
+- Loads (quasi-steady average, 9101): Fx -2300.04 N, Fy -23.90 N,
+  Fz +267.27 N, Mx -2547.92 N m, My +40.96 N m, Mz -364.10 N m; the same as
+  9111's above.
+- Residuals: neither record read the log (`log_file_used` null, residual
+  null); the residual reader refused the two-clocking log.
+- Sections: 30 cuts from 0.347 to 1.586 m, two of them empty (chord 0), the
+  outer 0.238 m of the blade uncut; so `K_1P_MIN` 0, `K_1P_MAX` 0.1308,
+  `K_1P_MEAN` 0.0923, 37.9 % of the span above 0.1, `THRUST_PCT_K_GT_0_1`
+  15.1 % and `TORQUE_PCT_K_GT_0_1` 13.4 %.
+- No FSI on this row, so no mapping and no tip deflection.
+
+What changed: the four fixes listed above. The loads are equal to the
+re-run's; the sections, and every validity value read from them, changed.
 
 ## What this does not establish
 

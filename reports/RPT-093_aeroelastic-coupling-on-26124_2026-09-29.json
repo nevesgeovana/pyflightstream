@@ -4,7 +4,7 @@
  "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
  "sources": {
   "private_campaign": {
-   "description": "owner's licensed FSI probe campaign, 2026-09-28, private geometry (not disclosed here)",
+   "description": "a private licensed probe campaign, 2026-09-28, private geometry (not disclosed here)",
    "file": "PHASE3-RESULTS.md (local, not in this repository)",
    "sections_used": ["1", "2", "3", "4", "5", "9", "10", "11", "12", "13"]
   },

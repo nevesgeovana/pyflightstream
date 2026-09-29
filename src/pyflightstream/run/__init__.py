@@ -1145,7 +1145,7 @@ def _run_until_the_analysis_ends(
     In a script ``EXECUTE_AEROELASTIC_ANALYSIS`` returns at once and the
     process never exits by itself; the solver prints
     :data:`pyflightstream.cases.fsi_workspace.STEADY_AEROELASTIC_COMPLETION`
-    when the analysis ends (26.124, probe evidence of 2026-09-28). The
+    when the analysis ends (26.124, reports/RPT-093 section 8). The
     output goes to two files in the working directory, read every two
     seconds; once the line is there the process is stopped and the run is
     a success, the planned stop noted in :data:`STEADY_COUPLED_STOP_LOG`.

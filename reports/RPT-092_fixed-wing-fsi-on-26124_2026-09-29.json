@@ -16,7 +16,66 @@
   "24edb353": "wheel cut at clocking 0 over the blade radial span",
   "4113de02": "qsteady point gets its rotor table at the row speed"
  },
- "first_confirmation": "on 0331fe91, runs sim_9001/9002, 9101/9102, 9201/9202",
+ "first_confirmation": {
+  "status": "draft, not released: run on 0331fe91, first committed in c89c603d, never pushed and never on main; git history keeps that draft",
+  "code": "0331fe91",
+  "runs": {
+   "rigid": {
+    "run_id": "pfs0300-l1-ws/sim_9201/M147RE342AL+050",
+    "code": "0331fe91",
+    "status": "CONVERGED",
+    "iterations": 62,
+    "residual": 1.9218679e-06,
+    "wall_time_s": 2.8
+   },
+   "fsi": {
+    "run_id": "pfs0300-l1-ws/sim_9202/M147RE342AL+050",
+    "code": "0331fe91",
+    "status": "CONVERGED",
+    "iterations": 461,
+    "residual": 1.3393502e-07,
+    "wall_time_s": 49.0
+   }
+  },
+  "pproc_exports": "rigid row defaults; coupled row with the section, sectional-loads, probe and section-Cp kinds turned off (fixed by 69cffa41)",
+  "loads": {
+   "rigid_9201": {
+    "CL": 0.3383257,
+    "CDi": 0.0126215,
+    "CDo": 0.0093534,
+    "CMy": 0.0027989
+   },
+   "fsi_9202": {
+    "CL": 0.3393173,
+    "CDi": 0.0126148,
+    "CDo": 0.0,
+    "CMy": 0.0023671
+   }
+  },
+  "fsi_iterations": 20,
+  "fsi_first_residual": 0.88888889,
+  "fsi_final_residual": 3.5770635e-06,
+  "aeroelastic_header": "1,1052,1,50,4",
+  "tip_displacement_z_m": [
+   -0.01270531865588891,
+   -0.01272397664907137,
+   -0.01267708562226289
+  ],
+  "tip_flap_m_convergence_log": 0.01270541,
+  "xz_moment_fsi_source": "FS_SurfaceSection_Loads.txt (the coupled row had no sectional export of its own)",
+  "against_rerun": {
+   "run_script": "equal to the re-run's apart from paths and run names (sim_9201/9211 and sim_9202/9212)",
+   "fsi_post_script": "69cffa41 changed it: the re-run's fsi_post.txt adds UPDATE_PROBE_POINTS and the section, sectional-loads, probe and section-Cp exports of the default export block",
+   "loads_exports": "equal in every line apart from the simulation-file name and the time line (7 printed decimals per coefficient)",
+   "run_records": "same status, iterations and residual",
+   "fsi_log_residual_lines": "equal",
+   "aeroelastic_header": "equal",
+   "fsidisp": "equal in every value",
+   "vtk": "byte-identical (equal SHA-256)",
+   "structure_sectional_loads": "FS_SurfaceSection_Loads.txt of 9202 and 9212 equal apart from the name and time lines",
+   "rigid_sectional_loads": "9201 and 9211 equal apart from the name and time lines"
+  }
+ },
  "route": "pyfs-matrix plan, pyfs-matrix run (LocalExecutor, -hidden -script), the post run performs",
  "campaign": "pfs0300-l1-ws",
  "solver_rules": {
@@ -105,7 +164,35 @@
   "CDo_rigid": 0.0093534,
   "CDo_fsi": 0.0,
   "CMy_rigid": 0.0027989,
-  "CMy_fsi": 0.0023671
+  "CMy_fsi": 0.0023671,
+  "tip_displacement_z_range_m": [
+   -0.01272397664907137,
+   -0.01267708562226289
+  ],
+  "exported_surface_max_dz_over_tip_node_mean": 0.923,
+  "exported_surface_vs_nodes_note": "observed: the exported surface moves less than the structure's tip nodes; not explained by these files",
+  "fsi_residuals": [
+   0.88888889,
+   0.33334716,
+   0.16325648,
+   0.088212787,
+   0.049938724,
+   0.028971438,
+   0.017033953,
+   0.010091703,
+   0.0060011746,
+   0.0035767558,
+   0.0021264383,
+   0.0012658394,
+   0.00075142517,
+   0.00044380126,
+   0.00025388182,
+   0.0001450292,
+   8.0440582e-05,
+   4.453241e-05,
+   2.0001533e-05,
+   3.5770635e-06
+  ]
  },
  "checks": {
   "xz_moment_sign": {
