@@ -1006,7 +1006,8 @@ class SubmittingExecutor:
                 f"{Path(script_path).name} is a steady coupled run (it ends at "
                 "EXECUTE_AEROELASTIC_ANALYSIS), whose process never exits by itself: a "
                 "local run stops it once the analysis ends, and a submitted job would hold "
-                "its node until the wall clock. Run it with --local in this release."
+                "its node until the wall clock. Run it with local (CLI: --local) in this "
+                "release."
             )
         build = values.get("fs_build")
         if build and _canonical_build(build) in (getattr(self.profile, "builds", None) or {}):
