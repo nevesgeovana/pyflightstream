@@ -101,6 +101,7 @@ from pyflightstream.workspace import (
     ADDITIONAL_DIR,
     ARCHIVE_DIR,
     ARCHIVE_STAMP,
+    MATRIX_FOLDERS,
     AdditionalRecord,
     CampaignWorkspace,
     ExtractionStatus,
@@ -617,6 +618,28 @@ def _bind_row_builds(
     return campaign.model_copy(update={"sims": sims}), builds
 
 
+def _warn_a_matrix_outside_the_matrix_folders(
+    path: str | Path, workspace: CampaignWorkspace
+) -> None:
+    """Warn, never refuse, when the matrix lies outside both matrix folders.
+
+    ``sync`` and the repeated-POL census read the root and ``inputs/matrices/``
+    only (P0310-POL-CENSUS); a matrix elsewhere plans and runs, but neither of
+    them sees it.
+    """
+    root = Path(workspace.root).resolve()
+    parent = Path(path).resolve().parent
+    if any(parent == (root / folder).resolve() for folder in MATRIX_FOLDERS):
+        return
+    warnings.warn(
+        f"{Path(path).name} lies outside the workspace's matrix folders ({root} and "
+        f"{root / 'inputs' / 'matrices'}): `sync` and the repeated-POL census do not see it. "
+        "Move it into one of the two folders.",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
+
+
 def plan_matrix(
     path: str | Path,
     workspace: CampaignWorkspace,
@@ -751,6 +774,7 @@ def plan_matrix(
         fs_exe=fs_exe,
         ignore_missing_families=ignore_missing_families,
     )
+    _warn_a_matrix_outside_the_matrix_folders(path, workspace)
     _warn_the_legacy_rows_saving_no_simulation(resolved)
     _warn_the_rows_whose_additional_post_is_one_instant(resolved)
     from pyflightstream.workspace.setup_inspection import inspect_case_setup

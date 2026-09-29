@@ -127,7 +127,12 @@ from pyflightstream.script._surface_averaging import (
     SurfaceAveragingWindow,
 )
 from pyflightstream.script.solver_setup import explicit_empty_selections
-from pyflightstream.workspace._links import _is_link, _make_dir_link, _remove_link
+from pyflightstream.workspace._links import (
+    _is_link,
+    _is_reparse,
+    _make_dir_link,
+    _remove_link,
+)
 from pyflightstream.workspace.inputs import (
     EXECUTABLES_FILE,
     GEOMETRIES_README,
@@ -178,6 +183,8 @@ from pyflightstream.workspace.trailing_edges import (
 )
 
 __all__ = [
+    "MATRIX_FOLDERS",
+    "matrix_files",
     # DECLARED, not merely importable. All three were imported into this
     # module for internal use and left out of this list, so a reader could
     # not tell whether `pyflightstream.workspace.ARCHIVE_STAMP` was a
@@ -1709,6 +1716,31 @@ _ERP_PATTERN = re.compile(r"^ERP([0-9]*)$")
 
 #: The airframe reference point. Singular by construction.
 _AIRFRAME_POINT = "ARP"
+
+
+#: The two folders a workspace's matrices live in, relative to its root.
+MATRIX_FOLDERS: tuple[str, ...] = (".", "inputs/matrices")
+
+
+def matrix_files(root: str | Path) -> list[Path]:
+    """Every matrix of the workspace at ``root``: its ``*.fs`` and ``inputs/matrices/*.fs``.
+
+    THE ONE DEFINITION of where a workspace's matrices are (P0310-POL-CENSUS).
+    ``sync``, the storage layer and the repeated-POL census of the plan all
+    read this list, so they cannot disagree about which matrices exist. A file
+    that is a link or junction is never followed and is not listed; each
+    folder is listed in name order, the root first.
+    """
+    base = Path(root)
+    found: list[Path] = []
+    for relative in MATRIX_FOLDERS:
+        folder = base / relative
+        if not folder.is_dir():
+            continue
+        found.extend(
+            path for path in sorted(folder.glob("*.fs")) if path.is_file() and not _is_reparse(path)
+        )
+    return found
 
 
 def check_unique_stems(inputs_dir: str | Path) -> None:

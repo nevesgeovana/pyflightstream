@@ -123,6 +123,7 @@ from pyflightstream.workspace import (
     PprocArtifact,
     ReferenceArtifact,
     SetupArtifact,
+    matrix_files,
     wake_edges,
 )
 from pyflightstream.workspace.flight_condition import (
@@ -1761,7 +1762,11 @@ class PolChange:
 def _pol_claims(
     path: str | Path, workspace: CampaignWorkspace
 ) -> tuple[list[MatrixRow], dict[Path, list[MatrixRow]]]:
-    """Every row of the matrix and of every other matrix in the workspace root.
+    """Every row of the matrix and of every other matrix of the workspace.
+
+    "Of the workspace" is the list ``sync`` reads
+    (:func:`pyflightstream.workspace.matrix_files`): the root AND
+    ``inputs/matrices/`` (P0310-POL-CENSUS).
 
     EVERY ROW, ACTIVE OR NOT (PFS-2031.21). A row with RUN = 0 today is
     flipped to 1 tomorrow, and its POL already names a simulation folder; the
@@ -1778,7 +1783,7 @@ def _pol_claims(
     root = Path(workspace.root).resolve()
     mine = read_matrix(matrix, active_only=False)
     siblings: dict[Path, list[MatrixRow]] = {}
-    for sibling in sorted(root.glob("*.fs")):
+    for sibling in matrix_files(root):
         if sibling.resolve() == matrix:
             continue
         try:
