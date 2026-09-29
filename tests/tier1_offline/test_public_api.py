@@ -58,6 +58,8 @@ PUBLIC_MODULES = [
     "pyflightstream.fsi.nodes",
     "pyflightstream.fsi.sections",
     "pyflightstream.fsi.state",
+    # 0.30.0 (FSI-G): the fixed wing's structural solve, its own weight.
+    "pyflightstream.fsi.wing",
     "pyflightstream.options",
     "pyflightstream.overview",
     "pyflightstream.post",
@@ -194,6 +196,7 @@ EXTRA_GATED_MODULES = {
     "pyflightstream.fsi.centrifugal",  # imports beam
     "pyflightstream.fsi.driver",  # imports beam
     "pyflightstream.fsi.cli",  # imports driver
+    "pyflightstream.fsi.wing",  # imports beam
 }
 
 

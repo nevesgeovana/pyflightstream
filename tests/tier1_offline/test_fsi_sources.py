@@ -35,6 +35,7 @@ from pyflightstream.fsi import (
     nodes,
     sections,
     state,
+    wing,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -70,6 +71,9 @@ REQUIRED_CITATIONS = {
     (beam, "_condense_massless"): ("R. J. Guyan", "AIAA Journal 3(2), 1965"),
     (loads, "transfer_moment_to_elastic_axis"): ("DLV-007 Section 4.3",),
     (loads, "project_rotor_frame_loads"): ("DLV-007 Section 4.2",),
+    # 0.30.0 (FSI-G): the fixed wing's section axes and its own weight.
+    (loads, "project_wing_frame_loads"): ("rigid-section geometry of the wing-frame embedding",),
+    (wing, "weight_loads"): ("elementary statics of a distributed weight", "DLV-007 Section 4.3"),
     (kinematics, "station_normal_translation"): ("DLV-007 Section 4.4",),
     (kinematics, "twist_from_node_translations"): ("DLV-007 Section 4.4",),
     (driver, "relax_displacements"): ("DLV-007 Section 4.5",),
@@ -101,6 +105,8 @@ PHYSICS_FUNCTIONS = [
     (beam, "_condense_massless"),
     (loads, "transfer_moment_to_elastic_axis"),
     (loads, "project_rotor_frame_loads"),
+    (loads, "project_wing_frame_loads"),
+    (wing, "weight_loads"),
     (kinematics, "station_normal_translation"),
     (kinematics, "twist_from_node_translations"),
     (driver, "relax_displacements"),
@@ -130,6 +136,8 @@ NON_PHYSICS_PUBLIC = {
     "nodes": {
         "generate_node_layout",
         "station_triads",
+        # 0.30.0 (FSI-G): the same triads asked of a configuration.
+        "config_triads",
         "node_positions",
         "write_node_file",
         "render_node_file",  # Serialize the same node positions; no independent physics.
@@ -147,6 +155,8 @@ NON_PHYSICS_PUBLIC = {
         "refuse_nodes_outside_sections",
     },
     "driver": {"coupling_step"},
+    # 0.30.0 (FSI-G): the wing's linear solve orchestrates beam and weight.
+    "wing": {"solve_wing_static"},
     # check_state_matches_config is a SHAPE check on a resumed state, not an
     # equation: it compares array dimensions against the configured blade
     # count and station count and cites no physical source (PYFS-012).
@@ -270,6 +280,7 @@ def test_every_public_function_is_classified():
         (driver, "driver"),
         (state, "state"),
         (sections, "sections"),
+        (wing, "wing"),
     )
     for module, key in modules:
         listed = {name for mod, name in PHYSICS_FUNCTIONS if mod is module}

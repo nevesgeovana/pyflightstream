@@ -622,6 +622,39 @@ def project_rotor_frame_loads(
     return chordwise, normal, -np.asarray(moment_qc_nm_per_m, dtype=float)
 
 
+def project_wing_frame_loads(
+    fx_n_per_m: np.ndarray,
+    fz_n_per_m: np.ndarray,
+    moment_qc_nm_per_m: np.ndarray,
+    section_pitch_rad: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Project a wing's XZ-cut load densities onto its section axes (FSI-G).
+
+    f_chordwise = -Fx cos b + Fz sin b (toward the leading edge),
+    f_normal = Fx sin b + Fz cos b (toward the suction side), and
+    m_nose_up = +Moment. The cut is the reference XZ plane in a frame with
+    the reference axes (x aft, y right, z up; the wiring refuses any other),
+    so ``Fx`` and ``Fz`` are the x and z force densities, and the section
+    axes at nose-up pitch b are (-cos b, sin b) and (sin b, cos b) in (x, z)
+    (:func:`pyflightstream.fsi.nodes.station_triads`). The moment column is
+    read as positive about +y, the axis the XZ plane leaves out, as the
+    rotor's XY cut is read about +z; +y turns the leading edge up on either
+    wing, so it is nose up. THAT SIGN IS THE ONE READING HERE NOT YET
+    CORROBORATED ON THIS CUT: the rotor's was, by the soft-blade pilot
+    (RPT-007); the wing's waits on the licensed confirmation of FSI-G.
+    Inputs broadcast; densities in N/m and N m / m, angles in rad.
+
+    Source: rigid-section geometry of the wing-frame embedding; the moment
+    convention by analogy with :func:`project_rotor_frame_loads`.
+    """
+    fx = np.asarray(fx_n_per_m, dtype=float)
+    fz = np.asarray(fz_n_per_m, dtype=float)
+    beta = np.asarray(section_pitch_rad, dtype=float)
+    chordwise = -fx * np.cos(beta) + fz * np.sin(beta)
+    normal = fx * np.sin(beta) + fz * np.cos(beta)
+    return chordwise, normal, np.asarray(moment_qc_nm_per_m, dtype=float)
+
+
 @dataclass(frozen=True)
 class ElasticAxisLoads:
     """Per-section aerodynamic load densities of one blade, about its EA.
@@ -714,7 +747,16 @@ def to_elastic_axis(block: SectionBlock, cfg: FsiConfig) -> ElasticAxisLoads:
         in section components.
     """
     stations = np.asarray(cfg.blade.station_radii_m, dtype=float)
-    radii = block.offset_m
+    embedding = frame_embedding(cfg)
+    # FSI-G: a wing's sections are cut on the reference XZ plane, so the
+    # export's Offset is the y coordinate from the cut frame's origin, which
+    # the wiring holds at the wing's own origin; a left wing's span runs
+    # along -y and its stations are distances, so the sign is undone here.
+    radii = (
+        block.offset_m * cfg.wing.span_sign
+        if embedding == "wing_frame" and cfg.wing is not None
+        else block.offset_m
+    )
     span = stations[-1] - stations[0]
     tolerance = _SPAN_TOLERANCE * span
     if radii.min() < stations[0] - tolerance or radii.max() > stations[-1] + tolerance:
@@ -760,9 +802,14 @@ def to_elastic_axis(block: SectionBlock, cfg: FsiConfig) -> ElasticAxisLoads:
     widths = _tributary_widths(ascending)
     if radii[0] > radii[-1]:
         widths = widths[::-1]
-    if frame_embedding(cfg) == "rotor_frame":
+    if embedding == "rotor_frame":
         beta = np.radians(np.interp(radii, stations, cfg.blade.geometric_pitch_deg))
         chordwise, normal, moment_pa = project_rotor_frame_loads(
+            block.fx_n_per_m, block.fz_n_per_m, block.moment_qc_nm_per_m, beta
+        )
+    elif embedding == "wing_frame":
+        beta = np.radians(np.interp(radii, stations, cfg.blade.geometric_pitch_deg))
+        chordwise, normal, moment_pa = project_wing_frame_loads(
             block.fx_n_per_m, block.fz_n_per_m, block.moment_qc_nm_per_m, beta
         )
     else:

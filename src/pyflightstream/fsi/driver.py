@@ -41,6 +41,12 @@ fixed for sensitivity runs and Gate 2.
 The convergence log carries the config hash on every row (FSI-R15)
 and states the quasi-steady validity boundary in its header (DLV-007
 Section 4.1).
+
+A fixed wing (FSI-G of 0.30.0, a configuration stating ``wing``) has
+no revolution and no phase schedule: each call solves the clamped wing
+under its loads and its own weight
+(:func:`pyflightstream.fsi.wing.solve_wing_static`) and writes the
+relaxed displacement, steady or unsteady alike.
 """
 
 from __future__ import annotations
@@ -52,7 +58,7 @@ from pathlib import Path
 
 import numpy as np
 
-from pyflightstream.fsi import beam, centrifugal, kinematics, nodes
+from pyflightstream.fsi import beam, centrifugal, kinematics, nodes, wing
 from pyflightstream.fsi.config import FsiConfig, config_sha256, load_config
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import (
@@ -386,6 +392,118 @@ def _frozen_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
     )
 
 
+#: The phase a fixed wing's call reports: it has no revolution schedule.
+FIXED_WING_PHASE = "fixed_wing"
+
+
+def _fixed_wing_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
+    """One coupling call of a fixed wing, steady or unsteady (FSI-G of 0.30.0).
+
+    The call reads the loads of the solve before it, adds the wing's own
+    weight (:func:`pyflightstream.fsi.wing.solve_wing_static`), solves the
+    clamped beam once and writes the relaxed displacement,
+    d_new = d_old + lambda (d_calc - d_old) with lambda the configured
+    ``coupling_relaxation`` on every call. There is no revolution and so no
+    phase schedule: a steady coupled run calls it once per coupling
+    iteration until the solver's own residual stops the loop, an unsteady
+    one once per time step (``SET_AEROELASTIC_ITERATIONS 1``). Nothing
+    centrifugal is reached. A steady export carries no time increment, and
+    an unsteady one's is held to a configured increment as the rotor's is.
+    """
+    layout = _verified_layout(cfg, run_dir)
+    report = parse_sectional_loads((run_dir / LOADS_FILE).read_text(encoding="utf-8"))
+    if state.last_solver_iteration is not None and (
+        report.current_iteration <= state.last_solver_iteration
+    ):
+        raise StaleLoadsError(
+            f"call {state.call_count + 1} received solver iteration "
+            f"{report.current_iteration}, not ahead of the previous "
+            f"{state.last_solver_iteration}: the loads file was not rewritten by a solve "
+            "since the last call, so the wing would be deflected by loads it already had"
+        )
+    if (
+        cfg.time_increment_s is not None
+        and report.time_increment_s is not None
+        and abs(cfg.time_increment_s - report.time_increment_s) > 5.0e-4
+    ):
+        raise FsiInputError(
+            f"the loads export prints a time increment of {report.time_increment_s} s but "
+            f"the configuration declares {cfg.time_increment_s} s; beyond the header's "
+            "three-decimal print precision this is a different run than the configuration "
+            "describes (RPT-006)"
+        )
+    state.call_count += 1
+    state.step_count += 1
+    state.last_solver_iteration = report.current_iteration
+    family_map = SectionFamilyMap.model_validate_json(
+        (run_dir / FAMILY_MAP_FILE).read_text(encoding="utf-8")
+    )
+    wings = [family.name for family in family_map.families if family.is_blade]
+    if len(wings) != 1:
+        raise FsiInputError(
+            f"the family map marks {len(wings)} structural families ({wings}); a fixed-wing "
+            "configuration is one cantilever, fed by one section distribution"
+        )
+    ea_loads = to_elastic_axis(report.split(family_map)[wings[0]], cfg)
+    flap, torsion = _blade_densities(ea_loads, cfg.blade.station_radii_m)
+    total_normal_force = float((ea_loads.force_normal_n_per_m * ea_loads.tributary_width_m).sum())
+    solution = wing.solve_wing_static(cfg, flap_load_n_per_m=flap, torsion_moment_n_m_per_m=torsion)
+    computed = nodes.flatten_blade_translations(
+        layout,
+        [
+            kinematics.encode_station_translations(
+                np.asarray(solution.flap_deflection_m),
+                np.asarray(solution.elastic_twist_rad),
+                np.asarray(layout.le_offset_m),
+                np.asarray(layout.te_offset_m),
+            )
+        ],
+    )
+    previous = (
+        np.asarray(state.previous_displacements, dtype=float)
+        if state.previous_displacements is not None
+        else np.zeros((layout.total_nodes, 3))
+    )
+    relaxation = cfg.phases.coupling_relaxation
+    written = relax_displacements(previous, computed, relaxation)
+    nodes.write_fsidisp(run_dir / DISPLACEMENT_FILE, written)
+    state.previous_displacements = written.tolist()
+    state.previous_twist_rad = [list(solution.elastic_twist_rad)]
+    _append_log(
+        run_dir,
+        {
+            "call": state.call_count,
+            "step": state.step_count,
+            "phase": FIXED_WING_PHASE,
+            "revolutions": "",
+            "solver_iteration": report.current_iteration,
+            "total_normal_force_n": f"{total_normal_force:.6f}",
+            "tip_flap_m": f"{abs(solution.flap_deflection_m[-1]):.6e}",
+            "tip_twist_deg": f"{abs(math.degrees(solution.elastic_twist_rad[-1])):.6e}",
+            "inner_solves": 1,
+            "twist_residual_rad": "",
+            "twist_tolerance_rad": "",
+            "relaxation": f"{relaxation:.3f}",
+            "config_sha256": config_sha256(cfg),
+        },
+    )
+    write_state_atomic(state, run_dir / STATE_FILE)
+    logger.info(
+        "fixed-wing coupling call %d (solver iteration %d) written",
+        state.call_count,
+        report.current_iteration,
+    )
+    return StepResult(
+        call=state.call_count,
+        step=state.step_count,
+        phase=FIXED_WING_PHASE,
+        revolutions=None,
+        relaxation=relaxation,
+        displacements=written,
+        solutions=(solution,),
+    )
+
+
 def coupling_step(run_dir: str | Path) -> StepResult:
     """Execute one coupling call inside a run folder.
 
@@ -469,6 +587,8 @@ def coupling_step(run_dir: str | Path) -> StepResult:
 
     if (run_dir / FROZEN_FILE).is_file():
         return _frozen_step(run_dir, cfg, state)
+    if cfg.wing is not None:
+        return _fixed_wing_step(run_dir, cfg, state)
 
     layout = _verified_layout(cfg, run_dir)
     report = parse_sectional_loads((run_dir / LOADS_FILE).read_text(encoding="utf-8"))

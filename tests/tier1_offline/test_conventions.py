@@ -120,7 +120,8 @@ def test_conventions_markdown_mirrors_the_same_home():
 #: a whitelist entry, which would have recorded a real unit as debt.
 _UNIT_SUFFIX = re.compile(
     r"_(m|m2|m3|mm|um|deg|rad|s|hz|k|n|pa|kg|kg_m|kg_per_m|n_m2|per_m"
-    r"|rad_per_s|m_per_s|millions)$"
+    # m_per_s2 since 0.30.0: an acceleration, the fixed wing's gravity (FSI-G).
+    r"|rad_per_s|m_per_s|m_per_s2|millions)$"
 )
 
 #: Field names accepted without a unit suffix, each with its reason.

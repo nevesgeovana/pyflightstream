@@ -18,6 +18,7 @@ import json
 import logging
 import math
 from pathlib import Path
+from typing import Literal
 
 from pydantic import (
     BaseModel,
@@ -28,6 +29,8 @@ from pydantic import (
     model_serializer,
     model_validator,
 )
+
+from pyflightstream._atmosphere import ISA
 
 logger = logging.getLogger(__name__)
 
@@ -458,6 +461,65 @@ class PhaseSchedule(BaseModel):
     recording_revolutions: float = Field(default=1.0, gt=0.0)
 
 
+class FixedWing(BaseModel):
+    """A fixed wing: where its beam sits and whether it carries its own weight (FSI-G).
+
+    Present on a configuration whose structure is a wing on a steady or an
+    unsteady workflow without rotor motion, and absent (not serialised) on
+    a rotor blade's, so every configuration written before it existed keeps
+    its dump and its :func:`config_sha256`. A fixed wing does not turn: its
+    configuration states ``omega_rad_per_s = 0`` and one structure, so no
+    centrifugal term reaches its solve; the dynamic load its structural
+    solver applies is the wing's weight.
+
+    The wing is one cantilever, clamped at its first station. The package's
+    geometry frame is x aft, y right, z up (:mod:`pyflightstream.post.axes`),
+    and the beam lies along ``span_axis`` through ``origin_m``: station ``s``
+    of ``BladeProperties.station_radii_m`` is the point ``origin_m + s`` along
+    that axis, so a station is a distance along the span, never a signed
+    coordinate. The section axes are the toward-leading-edge direction
+    (-x, turned nose up by the station's ``geometric_pitch_deg`` about the
+    span) and the toward-suction direction (+z, turned with it); the node
+    embedding and the load projection share that rule
+    (:func:`pyflightstream.fsi.nodes.station_triads`,
+    :func:`pyflightstream.fsi.loads.to_elastic_axis`).
+
+    Attributes
+    ----------
+    self_weight : bool
+        Whether the structural solve applies the wing's own weight, the
+        running mass under ``gravity_m_per_s2``. True by default; False for
+        a wind-tunnel model whose weight the balance and the support carry
+        and whose deflection under gravity is not part of the measurement.
+    gravity_m_per_s2 : tuple of float
+        The acceleration of gravity in the REFERENCE frame [m/s^2]. The
+        angle of attack and the sideslip turn the free stream, never the
+        body, so gravity stays -z of the reference frame at every attitude;
+        a configuration states another vector only for a model mounted in
+        another orientation. Default ``(0, 0, -g0)`` with g0 the standard
+        gravity of :data:`pyflightstream._atmosphere.ISA`.
+    span_axis : {"+Y", "-Y"}
+        The reference axis the span runs along from the root: ``+Y`` for a
+        right wing, ``-Y`` for a left one.
+    origin_m : tuple of float
+        The reference-frame point [m] the stations are measured from, on the
+        beam's pitch axis; the section contours and the elastic-axis offsets
+        are drawn about that axis.
+    """
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    self_weight: bool = True
+    gravity_m_per_s2: tuple[float, float, float] = (0.0, 0.0, -ISA.gravity_m_per_s2)
+    span_axis: Literal["+Y", "-Y"] = "+Y"
+    origin_m: tuple[float, float, float] = (0.0, 0.0, 0.0)
+
+    @property
+    def span_sign(self) -> int:
+        """+1 when the span runs along +y, -1 along -y."""
+        return 1 if self.span_axis == "+Y" else -1
+
+
 class FsiConfig(BaseModel):
     """Complete per-run configuration of the coupling executable.
 
@@ -493,6 +555,12 @@ class FsiConfig(BaseModel):
         by the node generator; the same generator emits the node file
         imported into FlightStream, keeping a single source of truth
         for the FSIDisp ordering (FSI-R14).
+    wing : FixedWing or None
+        The fixed wing this structure is (FSI-G of 0.30.0): its placement
+        in the reference frame and its own weight. None for a rotor blade,
+        and then it is not serialised, for the reason given for
+        ``BladeProperties.provenance``. A wing states ``omega_rad_per_s =
+        0`` and ``blade_count = 1``.
     """
 
     # allow_inf_nan=False closes the SCALAR half of PYFS-012. The list guard
@@ -513,24 +581,63 @@ class FsiConfig(BaseModel):
     node_offset_chord_fraction: float = Field(default=0.25, gt=0.0, le=0.5)
     phases: PhaseSchedule = Field(default_factory=PhaseSchedule)
     node_map_file: str = "fsi_node_map.json"
+    wing: FixedWing | None = None
+
+    @model_serializer(mode="wrap")
+    def _wing_only_when_present(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        """Serialise the wing only for a wing, so a blade's digest is unchanged."""
+        data: dict[str, object] = handler(self)
+        if data.get("wing") is None:
+            data.pop("wing", None)
+        return data
+
+    @model_validator(mode="after")
+    def _a_wing_does_not_turn(self) -> "FsiConfig":
+        """Refuse a fixed wing that turns or holds a second structure.
+
+        The owner's rule of 2026-09-28: a wing at rest has no centrifugal
+        load, it has its weight. A wing configuration stating a speed would
+        hand the solve a centrifugal term it must not have, so it is
+        refused here, where the configuration is read, and never reaches
+        the structural program.
+        """
+        if self.wing is None:
+            return self
+        if self.omega_rad_per_s != 0.0:
+            raise ValueError(
+                f"a fixed wing does not turn: omega_rad_per_s is {self.omega_rad_per_s} rad/s "
+                "and a [wing] configuration states 0. A wing at rest carries no centrifugal "
+                "load; its structural solve applies the aerodynamic loads and its own weight."
+            )
+        if self.blade_count != 1:
+            raise ValueError(
+                f"a fixed-wing configuration is one cantilever, blade_count = 1; got "
+                f"{self.blade_count}. Each wing is its own row's structure."
+            )
+        return self
 
 
 def frame_embedding(cfg: FsiConfig) -> str:
     """Return the geometric embedding of the blade section frame.
 
+    ``"wing_frame"`` for a fixed wing (:class:`FixedWing`: the section
+    axes are -x and +z of the reference frame turned nose up by the
+    local ``geometric_pitch_deg``, the span along ``span_axis``);
     ``"rotor_frame"`` for a spinning blade (RPT-006 finding 3: the
     import frame is rotor-axis X, in-plane Y, span Z, and the section
     chordwise/normal axes rotate with the local blade angle, taken
-    from ``geometric_pitch_deg``); ``"section_frame"`` at Omega zero,
-    where the import frame is the section frame itself (the wing
-    case). One rule shared by the node generator and the loads
-    projection, so both sides of the interface always agree.
+    from ``geometric_pitch_deg``); ``"section_frame"`` at Omega zero
+    without a wing, where the import frame is the section frame itself.
+    One rule shared by the node generator and the loads projection, so
+    both sides of the interface always agree.
 
     Parameters
     ----------
     cfg : FsiConfig
         Validated configuration.
     """
+    if cfg.wing is not None:
+        return "wing_frame"
     return "rotor_frame" if cfg.omega_rad_per_s > 0.0 else "section_frame"
 
 

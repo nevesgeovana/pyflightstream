@@ -18,13 +18,18 @@ so the rotor route and the fixed-wing route wire the same facts once:
 * :func:`aeroelastic_post_script`, :func:`emit_steady_aeroelastic_analysis`
   and :func:`steady_aeroelastic_finished`, when an export shows the
   deformation and how a steady coupled run is waited for.
+
+THE ROUTES (0.30.0): :func:`wire_fixed_wing_fsi` couples a fixed wing on
+``steady`` and ``unsteady`` (FSI-G), and :func:`wire_workspace_fsi` the
+rotor's blades on ``unsteady_rotor``, refused in this release; both stage
+and emit through one helper.
 """
 
 from __future__ import annotations
 
 import math
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import PurePath
 from types import MappingProxyType
 
@@ -44,41 +49,42 @@ CALLBACK_FILE = "fsi_callback.py"
 LOADS_FILE = "FS_SurfaceSection_Loads.txt"
 
 #: THE WORKFLOWS AND FSI IN THIS RELEASE (FSI-GUARD, owner decision of
-#: 2026-09-28: FSI on steady, qsteady and unsteady; unsteady_rotor refused
-#: while the rotor morph is in debug). Every workflow is named with the state
-#: it is in; a workflow absent from the table accepts no FSI.
+#: 2026-09-28: "vamos permitir o FSI para steady, qsteady e unsteady";
+#: unsteady_rotor refused while the rotor morph is in debug). Every workflow
+#: is named with the state it is in: None accepts FSI, a sentence is the
+#: refusal. A workflow absent from the table accepts no FSI.
+#:
+#: ``steady`` and ``unsteady`` (no rotor motion): ACCEPTED, the fixed-wing
+#: structural route of this release (FSI-G, :func:`wire_fixed_wing_fsi`).
+#: The owner: "fsi de asa fixa tem que entrar sim, e basico".
 #:
 #: ``unsteady_rotor``: refused. On 26.124 the morph of a mapped rotating
 #: blade is applied to the blade at its imported azimuth and replaces the
 #: rotation instead of composing with it; reported to the vendor.
 #:
-#: ``steady`` and ``unsteady`` (no rotor motion): the fixed-wing structural
-#: route of this release (FSI-G) wires them; until it lands they are refused
-#: with the interim wording below.
-#:
-#: ``qsteady_rotor``: THE HOOK. The workflow does not exist yet; sector FSI
-#: arrives with it. Its entry is here so the day it is registered, FSI on it
-#: is a decision in this table and not an accident of the lookup.
+#: ``qsteady_rotor``: THE HOOK. The workflow does not exist on this branch;
+#: sector FSI arrives with it. Its entry is here so the day it is registered,
+#: FSI on it is a decision in this table and not an accident of the lookup.
 FSI_ROTOR_IN_DEBUG = (
     "FSI on unsteady_rotor is still in debug on this release (the morph is applied "
     "to the un-rotated blade, reported to the vendor)."
-)
-FSI_ARRIVES_WITH_FSI_G = (
-    "FSI on this workflow arrives with the fixed-wing structural route of this "
-    "release (FSI-G); not wired yet."
 )
 FSI_ARRIVES_WITH_QSTEADY_ROTOR = (
     "FSI on qsteady_rotor arrives with the qsteady_rotor workflow and its sector "
     "structural route; not wired yet."
 )
-FSI_WORKFLOW_STATE: Mapping[str, str] = MappingProxyType(
+FSI_WORKFLOW_STATE: Mapping[str, str | None] = MappingProxyType(
     {
         "unsteady_rotor": FSI_ROTOR_IN_DEBUG,
-        "steady": FSI_ARRIVES_WITH_FSI_G,
-        "unsteady": FSI_ARRIVES_WITH_FSI_G,
+        "steady": None,
+        "unsteady": None,
         "qsteady_rotor": FSI_ARRIVES_WITH_QSTEADY_ROTOR,
     }
 )
+
+#: The workflows whose FSI is the fixed wing's (FSI-G): nothing turns, the
+#: structure is one clamped wing, and its dynamic load is its own weight.
+FIXED_WING_WORKFLOWS: tuple[str, ...] = ("steady", "unsteady")
 
 
 def fsi_workflow_refusal(workflow: str) -> str | None:
@@ -94,8 +100,8 @@ def fsi_workflow_refusal(workflow: str) -> str | None:
     -------
     str or None
         The refusal's reason, from :data:`FSI_WORKFLOW_STATE`; None when
-        the workflow accepts FSI. Every workflow of this release is
-        refused on this branch: none is wired yet.
+        the workflow accepts FSI (``steady`` and ``unsteady``, the fixed
+        wing).
     """
     if workflow in FSI_WORKFLOW_STATE:
         return FSI_WORKFLOW_STATE[workflow]
@@ -298,8 +304,51 @@ def patch_structural_node_frame(saved: bytes, frame_index: int, *, node_count: i
 STEADY_AEROELASTIC_COMPLETION = "Aeroelastic solver run time"
 
 
+def aeroelastic_post(
+    version: str | FsVersion,
+    *,
+    surface_exports: Sequence[tuple[str, Sequence[object]]] = (),
+    exports: Callable[[Script], None] | None = None,
+) -> Script:
+    """Build the aeroelastic post-processing script, as a script.
+
+    :func:`aeroelastic_post_script` renders it; this is the same script
+    before rendering, for a caller that needs what its exports recorded
+    (the Tecplot surfaces a steady coupled run writes from its VTK).
+
+    Parameters
+    ----------
+    version : str
+        The FlightStream version the script is built for.
+    surface_exports : sequence of (command, arguments)
+        As :func:`aeroelastic_post_script` takes them.
+    exports : callable, optional
+        Emits the row's own exports into the script, after the loads the
+        structural program reads and the surface exports: a steady coupled
+        run's whole export block, which no line of the run's script may
+        follow ``EXECUTE_AEROELASTIC_ANALYSIS`` to write.
+
+    Returns
+    -------
+    Script
+        The post-processing script.
+    """
+    post = Script(version)
+    post.emit("UPDATE_ALL_SURFACE_SECTIONS")
+    post.emit("COMPUTE_SURFACE_SECTIONAL_LOADS", "NEWTONS")
+    post.emit("EXPORT_SURFACE_SECTIONAL_LOADS", LOADS_FILE)
+    for command, arguments in surface_exports:
+        post.emit(command, *arguments)
+    if exports is not None:
+        exports(post)
+    return post
+
+
 def aeroelastic_post_script(
-    version: str | FsVersion, *, surface_exports: Sequence[tuple[str, Sequence[object]]] = ()
+    version: str | FsVersion,
+    *,
+    surface_exports: Sequence[tuple[str, Sequence[object]]] = (),
+    exports: Callable[[Script], None] | None = None,
 ) -> str:
     """Render the aeroelastic post-processing script.
 
@@ -324,19 +373,15 @@ def aeroelastic_post_script(
         the order given after the loads (a Tecplot or VTK surface
         export: those write the solver's morphed vertices, where a
         triangulation export and ``SAVEAS`` keep the reference ones).
+    exports : callable, optional
+        The row's own exports, as :func:`aeroelastic_post` takes them.
 
     Returns
     -------
     str
         The script text.
     """
-    post = Script(version)
-    post.emit("UPDATE_ALL_SURFACE_SECTIONS")
-    post.emit("COMPUTE_SURFACE_SECTIONAL_LOADS", "NEWTONS")
-    post.emit("EXPORT_SURFACE_SECTIONAL_LOADS", LOADS_FILE)
-    for command, arguments in surface_exports:
-        post.emit(command, *arguments)
-    return post.render()
+    return aeroelastic_post(version, surface_exports=surface_exports, exports=exports).render()
 
 
 def emit_steady_aeroelastic_analysis(script: Script) -> None:
@@ -381,6 +426,22 @@ def steady_aeroelastic_finished(native_output: str) -> bool:
     return STEADY_AEROELASTIC_COMPLETION in native_output
 
 
+def is_steady_aeroelastic_script(rendered: str) -> bool:
+    """Whether a rendered script is a steady coupled run's: its last command is the analysis.
+
+    The run layer asks it of the script it launches: such a process never
+    exits by itself (:data:`STEADY_AEROELASTIC_COMPLETION`), so it is waited
+    on until the solver prints the completion line and then stopped.
+    Comment lines and blank lines are not commands.
+    """
+    lines = [
+        line.strip()
+        for line in rendered.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    return bool(lines) and lines[-1] == "EXECUTE_AEROELASTIC_ANALYSIS"
+
+
 def validate_workspace_fsi(
     case: SimCase,
     script: Script,
@@ -398,6 +459,18 @@ def validate_workspace_fsi(
     refusal = fsi_workflow_refusal(workflow)
     if refusal is not None:
         raise CampaignConfigError(f"case {case.sim_id!r}: {refusal}")
+    if workflow in FIXED_WING_WORKFLOWS and case.fsi.wing is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: FSI on the {workflow} workflow is a fixed wing's (FSI-G), "
+            "and the FSI input this row names states no [config.wing] table, so it describes "
+            "a rotor blade and no wing. State [config.wing] (self_weight, gravity_m_per_s2, "
+            "span_axis, origin_m) with omega_rad_per_s = 0 and blade_count = 1."
+        )
+    if workflow not in FIXED_WING_WORKFLOWS and case.fsi.wing is not None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the FSI input states a fixed wing ([config.wing]) and the "
+            f"row runs {workflow}; a fixed wing couples on {' or '.join(FIXED_WING_WORKFLOWS)}."
+        )
     if continuation:
         raise CampaignConfigError(
             "FSI continuation requires proved compatible structural state and section order; "
@@ -496,6 +569,56 @@ def wire_workspace_fsi(
         families.append(SectionFamily(name=blade, count=count, is_blade=True))
     family_map = SectionFamilyMap(families=families)
     layout = structural_node_layout(cfg)
+    _stage_and_emit(
+        case,
+        script,
+        layout=layout,
+        family_map=family_map,
+        post=aeroelastic_post_script(script.version),
+        boundaries=boundaries,
+        frames=frame_indices,
+        interpreter=interpreter,
+        steady=False,
+    )
+
+
+#: The cap on a steady coupled run's coupling iterations (FSI-G). The solver
+#: stops the loop itself once its displacement residual falls below the
+#: convergence it was given (26.124: 2 of 20 for a fixed displacement, probe
+#: evidence of 2026-09-28); a relaxed update closes (1 - lambda) of the
+#: remaining gap per call at the configured relaxation, so the cap leaves
+#: room for the default 0.4 to settle.
+STEADY_AEROELASTIC_ITERATIONS = 50
+
+#: The deformed surface an unsteady coupled wing writes after every call:
+#: exported in the post-processing script, so the file left after a step is
+#: the morphed one (a VTK surface carries the solver's morphed vertices).
+DEFORMED_SURFACE_FILE = "fsi_surface.vtk"
+
+
+def _stage_and_emit(
+    case: SimCase,
+    script: Script,
+    *,
+    layout: NodeOrderingMap,
+    family_map: SectionFamilyMap,
+    post: str,
+    boundaries: Sequence[int],
+    frames: Sequence[int],
+    interpreter: str,
+    steady: bool,
+) -> None:
+    """Stage the structural files and emit the coupling block: one home for both routes.
+
+    Every identity and ordering check of the calling route precedes this,
+    so a refusal leaves the script without an aeroelastic line and without
+    a staged file. A steady run takes :data:`STEADY_AEROELASTIC_ITERATIONS`
+    coupling iterations at most and is analysed by
+    :func:`emit_steady_aeroelastic_analysis`; an unsteady one couples once
+    per time step inside the solver's march.
+    """
+    cfg = case.fsi
+    assert cfg is not None
     reserved = {
         "config.json",
         "fsi-provenance.json",
@@ -506,6 +629,7 @@ def wire_workspace_fsi(
         POST_FILE.casefold(),
         CALLBACK_FILE.casefold(),
         LOADS_FILE.casefold(),
+        DEFORMED_SURFACE_FILE.casefold(),
     }
     map_name = cfg.node_map_file
     if (
@@ -521,7 +645,7 @@ def wire_workspace_fsi(
         NODES_FILE: render_node_file(layout),
         map_name: layout.model_dump_json(indent=2) + "\n",
         FAMILY_FILE: family_map.model_dump_json(indent=2) + "\n",
-        POST_FILE: aeroelastic_post_script(script.version),
+        POST_FILE: post,
         CALLBACK_FILE: (
             "from pyflightstream.fsi.cli import main\n"
             "raise SystemExit(main(['step', '--dir', '.']))\n"
@@ -534,15 +658,164 @@ def wire_workspace_fsi(
     # All identity/ordering checks precede either staging or coupling emission.
     emit_aeroelastic_rbf_type(case, script)
     script.emit("DELETE_AEROELASTIC_STRUCTURAL_NODES")
-    script.emit("ASSIGN_AEROELASTIC_SURFACES", len(boundaries), boundaries)
-    script.emit("ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS", len(frame_indices), frame_indices)
-    for frame in frame_indices:
+    script.emit("ASSIGN_AEROELASTIC_SURFACES", len(boundaries), list(boundaries))
+    script.emit("ASSIGN_AEROELASTIC_COORDINATE_SYSTEMS", len(frames), list(frames))
+    for frame in frames:
         script.emit("IMPORT_AEROELASTIC_STRUCTURAL_NODES", frame, "DISABLE", NODES_FILE)
     script.emit("SET_AEROELASTIC_WORKING_DIRECTORY", ".")
     script.emit("SET_AEROELASTIC_POST_PROCESSING_SCRIPT", POST_FILE)
     script.emit(
         "SET_AEROELASTIC_STRUCTURAL_EXECUTION_COMMAND", f'"{interpreter}" "{CALLBACK_FILE}"'
     )
-    script.emit("SET_AEROELASTIC_ITERATIONS", 1)
-    script.emit("SET_AEROELASTIC_COUPLING_IN_UNSTEADY", "ENABLE")
+    if steady:
+        script.emit("SET_AEROELASTIC_ITERATIONS", STEADY_AEROELASTIC_ITERATIONS)
+    else:
+        script.emit("SET_AEROELASTIC_ITERATIONS", 1)
+        script.emit("SET_AEROELASTIC_COUPLING_IN_UNSTEADY", "ENABLE")
     script._pending_input_files.update(payloads)
+
+
+#: How far a cut frame's axes may stray from the reference's and still be read
+#: as the reference's, and how far its origin may sit off the wing's origin
+#: along the span (FSI-G). Both are round-off, never a tolerance of geometry.
+_AXES_TOLERANCE = 1.0e-12
+_ORIGIN_TOLERANCE_M = 1.0e-9
+
+
+def wire_fixed_wing_fsi(
+    case: SimCase,
+    script: Script,
+    *,
+    workflow: str,
+    interpreter: str,
+    exports: Callable[[Script], None] | None,
+) -> list[dict[str, object]]:
+    """Stage the fixed wing's structure and emit its coupling (FSI-G of 0.30.0).
+
+    The wing is one clamped beam fed by ONE section distribution of the
+    row's pproc: over the wing's one family, on the XZ plane (sections
+    normal to the span), in a frame with the reference axes whose origin
+    sits on the wing's own origin along the span, so the export's offset
+    is the station's distance (a frame with other axes, or elsewhere, is
+    refused rather than converted). The surface list holds that family's
+    boundary ID (:func:`aeroelastic_surface_ids`), the linked frame is that
+    frame (the manual forbids the reference itself there), and the nodes
+    are the configuration's, placed inside the wing's sections and stored
+    in the reference frame (:func:`structural_node_layout`); a fixed wing
+    needs no node-frame patch. The kernel is the beam line's
+    (:data:`BEAM_LINE_RBF_TYPE`).
+
+    Steady: at most :data:`STEADY_AEROELASTIC_ITERATIONS` coupling
+    iterations, and the row's whole export block runs in the
+    post-processing script (``exports``); the builder ends the script with
+    :func:`emit_steady_aeroelastic_analysis`. Unsteady: one coupling
+    iteration per time step inside the march
+    (``SET_AEROELASTIC_COUPLING_IN_UNSTEADY ENABLE``), and ``exports``
+    writes the deformed surface after every call.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case; ``case.fsi`` states a fixed wing.
+    script : Script
+        The script, after the section distributions were emitted.
+    workflow : str
+        ``steady`` or ``unsteady``.
+    interpreter : str
+        The Python the structural callback runs under.
+    exports : callable or None
+        Emits the exports the post-processing script carries.
+
+    Returns
+    -------
+    list of dict
+        The Tecplot surfaces the post-processing script's exports recorded,
+        for the caller to state in the run's script once its loads frame is
+        placed; empty when the exports write none.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the configuration is not a wing, the sections do not identify
+        one wing, or a node is not inside its section.
+    """
+    cfg = case.fsi
+    if cfg is None:
+        return []
+    wing = cfg.wing
+    if wing is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the fixed-wing route needs [config.wing] in the FSI input."
+        )
+    blocks = script.section_blocks
+    if len(blocks) != 1:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: a fixed wing is fed by exactly one section distribution, "
+            f"over the wing's one family on the XZ plane; the pproc emits {len(blocks)}. The "
+            "flat loads export concatenates every distribution, so a second one would be "
+            "attributed to the wing or guessed."
+        )
+    block = blocks[0]
+    families = block.get("families")
+    if not isinstance(families, list) or len(families) != 1:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the wing's section distribution covers {families!r}; it "
+            "names the wing's one family, whose boundary the solver morphs."
+        )
+    if block.get("plane") != "XZ":
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the wing's sections are cut on the {block.get('plane')!r} "
+            "plane; a wing along the y axis is cut on XZ, so each section is normal to its span."
+        )
+    frame = block.get("frame_index")
+    if not isinstance(frame, int) or frame <= 1:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the wing's section distribution is in frame {frame!r}; the "
+            "wing is linked to the frame its sections are cut in, which must be a frame the "
+            "run created (the manual refuses the reference frame there)."
+        )
+    placement = script.frame_placements.get(frame)
+    identity = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+    if (
+        placement is None
+        or placement.origin is None
+        or placement.axes is None
+        or any(
+            abs(float(a) - b) > _AXES_TOLERANCE
+            for axis, unit in zip(placement.axes, identity, strict=True)
+            for a, b in zip(axis, unit, strict=True)
+        )
+    ):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the wing's sections are cut in frame {frame}, whose axes "
+            "are not known to be the reference's; the export's forces are read as x and z "
+            "of the reference frame, so the frame must be placed with the reference axes."
+        )
+    if abs(float(placement.origin[1]) - wing.origin_m[1]) > _ORIGIN_TOLERANCE_M:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the wing's sections are cut in frame {frame}, whose origin "
+            f"is at y = {float(placement.origin[1])} m, and the wing's stations are measured "
+            f"from y = {wing.origin_m[1]} m ([config.wing] origin_m). The export's offsets are "
+            "read as station distances, so the two must agree: state the frame's y in origin_m "
+            "and measure the stations from it."
+        )
+    count = block.get("count")
+    if not isinstance(count, int) or count < 1:
+        raise CampaignConfigError("FSI section count is not established.")
+    name = str(families[0])
+    boundaries = aeroelastic_surface_ids(case, script, [name], context="FSI wing")
+    family_map = SectionFamilyMap(families=[SectionFamily(name=name, count=count, is_blade=True)])
+    layout = structural_node_layout(cfg)
+    post = aeroelastic_post(script.version, exports=exports)
+    _stage_and_emit(
+        case,
+        script,
+        layout=layout,
+        family_map=family_map,
+        post=post.render(),
+        boundaries=boundaries,
+        frames=[frame],
+        interpreter=interpreter,
+        steady=workflow == "steady",
+    )
+    return [dict(translation) for translation in post.surface_translations]

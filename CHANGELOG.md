@@ -63,6 +63,35 @@ FlightStream versions.
   declares a Tecplot surface whether its strength is carried, and `plan.json`
   carries it as `singularity_strength` in the row's setup inspection. See
   docs/surface-translation.md.
+- **Fixed-wing FSI on `steady` and on `unsteady` without rotor motion**
+  (FSI-G). An FSI input stating `[config.wing]` (with `omega_rad_per_s = 0`
+  and `blade_count = 1`) is one wing clamped at its first station, its
+  stiffness and mass distributions built as a blade's are, from `[sections]`
+  and a material. Its structural solve applies the aerodynamic sectional loads
+  plus the wing's OWN WEIGHT, the running mass under gravity, and no
+  centrifugal term: gravity is a vector of the reference frame, -z by default
+  (`gravity_m_per_s2`, standard gravity), which the angle of attack and the
+  sideslip never turn. `self_weight = false` removes the weight, for a
+  wind-tunnel model; it is on by default. The wing is fed by one XZ section
+  distribution over its one family, in a frame with the reference axes at the
+  wing's origin (`origin_m`, `span_axis` `+Y` or `-Y`); its boundary ID, the
+  nodes inside its sections in the reference frame, and `MULTI_QUADRATIC` are
+  the FSI-1 pieces. A steady coupled script ends at
+  `EXECUTE_AEROELASTIC_ANALYSIS` with at most 50 coupling iterations, the
+  row's whole export block runs in the aeroelastic post-processing script, each
+  point is its own process, and a local run stops the solver once it prints
+  `Aeroelastic solver run time` (a submitting executor refuses the script; the
+  probe points, the volume section and the loads selections are refused on
+  that route). An unsteady row couples once per step
+  (`SET_AEROELASTIC_COUPLING_IN_UNSTEADY ENABLE`) and exports the deformed
+  surface `fsi_surface.vtk` after every call. The structural call relaxes each
+  update by `phases.coupling_relaxation`. New: `pyflightstream.fsi.wing`
+  (`weight_loads`, `solve_wing_static`), `FixedWing`,
+  `fsi.loads.project_wing_frame_loads`, `fsi.nodes.config_triads` and the
+  `wing_frame` embedding, `cases.fsi_workspace.wire_fixed_wing_fsi`,
+  `aeroelastic_post` and `is_steady_aeroelastic_script`. The sign of the XZ
+  cut's moment column (read as positive about +y, nose up) and the whole
+  route wait on their licensed confirmation. See docs/fsi-workspace.md.
 
 ### Changed
 
@@ -71,10 +100,10 @@ FlightStream versions.
   un-rotated blade, reported to the vendor)." On 26.124 the morph of a mapped
   rotating blade is applied at its import azimuth and replaces the rotation;
   RPT-025 carries the dated correction. FSI on `steady` and on `unsteady` without
-  rotor motion arrives with the fixed-wing structural route of this release
-  (FSI-G) and is refused with that wording until it is wired. `qsteady_rotor`
-  has its entry in `pyflightstream.cases.fsi_workspace.FSI_WORKFLOW_STATE`, the
-  table every workflow's FSI state is read from.
+  rotor motion is accepted through the fixed-wing structural route (FSI-G,
+  under Added). `qsteady_rotor` has its entry in
+  `pyflightstream.cases.fsi_workspace.FSI_WORKFLOW_STATE`, the table every
+  workflow's FSI state is read from, where None now means accepted.
 - **The structural nodes sit inside the blade** (FSI-1). A configuration that
   carries the blade's sections (`BladeProperties.section_contours_m`, which a
   calculated blade now carries from its `[sections]`, and a supplied blade may

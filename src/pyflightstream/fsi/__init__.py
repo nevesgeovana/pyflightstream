@@ -10,6 +10,10 @@ displacement file back for the solver to deform the mesh. All exchange
 happens in the rotating blade frames; this package never handles
 azimuth or global-frame transforms (FSI-R02).
 
+Since 0.30.0 the same executable couples a fixed wing, one clamped
+beam in the reference frame loaded by its own weight besides the
+aerodynamic loads (:mod:`pyflightstream.fsi.wing`).
+
 The structural backend is PyNite (PyPI distribution ``PyNiteFEA``,
 import name ``Pynite``), pulled in only by the optional ``[fsi]``
 extra; importing :mod:`pyflightstream.fsi` itself stays dependency
