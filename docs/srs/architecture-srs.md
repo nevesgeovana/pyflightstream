@@ -422,3 +422,75 @@ removal undoes every link first, so the mesh it points at survives. A
 pruning of per-step exports keeps each point's last step; a later post that
 needs a pruned step refuses the product by name rather than writing it from
 the steps that remain.
+
+## The 0.31.0 additions and their limits
+
+This section records what 0.31.0 adds to the paths above and the limit each
+one keeps. The tracked package holds 138 modules, four more than 0.30.0; none
+takes a new row of the layered pipeline, and each imports only at or below
+its own row (a sibling of its own subpackage included).
+
+### The modules and their rows
+
+- `cases/corrections.py`, in the cases row, imports only the floors
+  (`_digest`, `_errors`). It is the quasi-steady wheel's correction routes as
+  a pproc names them (`[qsteady_correction]`) and the reader of a calibration
+  file of `inputs/calibrations/`, refused whole naming the line
+  (`CalibrationError`). The plan (`workspace.matrix`) and the post
+  (`post.corrections`) both read it, which is why it lives in `cases`.
+- `post/harmonics.py`, in the post row, imports `_errors`, `_tokens`,
+  `post._tables`, `post.axes` and `post.qsteady`. It fits each blade station's
+  0P, 1P and 2P load around the disc from a WRITTEN sections table, a wheel's
+  over its blades and clockings and an unsteady rotor's over its last complete
+  revolution.
+- `post/corrections.py`, in the post row, imports `_errors`, `_tokens`,
+  `cases.corrections`, `post._tables`, `post.harmonics` and `post.qsteady`,
+  and, inside two functions, `post.products` (its table reader) and
+  `workspace` (a recorded point for a route 2 calibration), both at or below
+  its row. It is the one applicator of the correction routes: every corrected
+  product is a new file beside its raw one, never written over it, and none is
+  validated. The Theodorsen and Sears functions are a diagnostic only.
+- `workspace/fields.py`, in the workspace row, imports `_digest`, `cases`,
+  `cases.freestream`, `cases.workflows` and `workspace`. It builds a custom
+  free-stream file of `inputs/freestreams/` from other fields (mirror, move,
+  subtract, time mean), previewing until applied, with a provenance record
+  beside each result; the command-line layer (`pyfs-workspace field`) is a
+  thin argument layer over it.
+
+### The one-home rules they keep
+
+- A blade's azimuth has one home, `post.axes`: a clocked wheel's blade
+  (`clocked_blade_azimuth_deg`) and blade `n` placed ahead of blade one
+  (`placed_blade_azimuth_deg`). The clockings table, the sections table, the
+  sections series and the harmonic product read it, so their azimuths agree
+  for either sense of rotation.
+- The quasi-steady record has one type, one reader and one refusal, beside the
+  file name in `cases.qsteady` (`QsteadyRecord`, `read_qsteady_record`,
+  `QsteadyRecordError`); the run and the post both read it.
+- The harmonic fit is made once, in `post.harmonics`; the corrections read the
+  file it wrote and never fit again.
+- A free-stream file is read by one reader, `cases.freestream`; a field
+  operation refuses a result that reader would refuse, so what it writes is
+  what a row can name.
+- Where a workspace's matrices are is one function, `workspace.matrix_files`
+  (the root's `*.fs` and `inputs/matrices/*.fs`), read by the repeated-POL
+  census of the plan, the storage commands and `sync`.
+- The fixed wing's and the quasi-steady sector's FSI steps are one shared step
+  in `fsi.driver`, with the structural solve as the variation point.
+
+### The clocked wheel and its products
+
+A `qsteady_rotor` wheel is cut into sections at every clocking: each clocking
+deletes the previous clocking's distributions, turns the wheel, initialises,
+creates them again in frames turned with the wheel to that clocking and held
+there, updates them and exports them, so every clocking is cut at the same
+stations over the blade's span. The short licensed confirmation on 26.124 is
+`reports/RPT-094`. The wheel's row of the rotor table is the mean of its
+clockings' force and moment, with every coefficient computed from those mean
+loads; a wheel point states its rotor state (`CT_ROTOR`, `MU_ROTOR`,
+`LAMBDA_I`, `CHI_DEG` and the others) from the mean thrust. The thrust and
+torque shares are taken along the rotor's axis in the frame each distribution
+was cut in; an XZ or an XY cut is read, and a YZ cut is `NA` because it is not
+measured. The correction routes are off by default and not validated; a route
+the release does not offer is refused with its reason where the pproc or the
+calibration is read.
