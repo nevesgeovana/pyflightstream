@@ -7,6 +7,52 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Owed
+
+- **The Zenodo archive row of v0.30.0 is owed.** A version DOI is minted from
+  the GitHub release object and recorded one commit after the tag, so between
+  the tag and that commit this release has no archive row; cite the concept DOI
+  until it lands.
+
+- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
+  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
+  concept record lists NINETEEN archived versions and v0.14.0 is not among
+  them. The earlier reading of 2026-09-10 said the same and could not be
+  confirmed for four days because the service was answering 504; it is
+  confirmed now, so this is a fact about the archive rather than about its
+  availability.
+  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
+  had what it needs and the archive still has no version for it. Whatever
+  failed, it failed silently, and re-triggering it is the repair.
+  Until that row lands this section says so, because a shipped release that
+  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
+  release by the concept DOI, which resolves to the newest archived version.
+
+## [0.30.0] - 2026-09-29
+
+THE QUASI-STEADY ROTOR, FSI ON THE STEADY ROUTES, AND THE WORKSPACE'S
+STORAGE. The `qsteady_rotor` run type solves an isolated, axisymmetric rotor
+steady, its blades held still in a free stream turning about the shaft: a
+periodic SECTOR solves one blade, and a WHEEL solves every blade at the
+`PASSAGE_POSITIONS` clockings the post averages; the 1P reduced frequency is
+its validity parameter at plan, in a per-point file and in every product of
+the point, and `pyfs-matrix plan --inflow-fft` reads a custom inflow's
+harmonics as one blade meets it. FSI couples a fixed wing on `steady` and on
+`unsteady` without rotor motion, loaded by its own weight, and the rotating
+blade of a `qsteady_rotor` sector at the row's speed; FSI on `unsteady_rotor`
+is refused by the plan. `pyfs-matrix space-in-use`, `free-space`,
+`delete-sims` and `sync` manage a workspace's disk and bring runs, results and
+matrices from other workspaces into it, and `free-space` can keep only the
+last step of an unsteady row's per-step exports. Every rotor point states its
+tip and helical Mach numbers. A reader changes what follows: a Tecplot surface
+carries the native nodal strength only when the pproc sets
+`singularity_strength = true`, a coupled blade route emits
+`AEROELASTIC_RBF_TYPE MULTI_QUADRATIC` unless the setup states a kernel, the
+structural nodes of a blade that carries its sections sit inside it, a
+configuration's `config_sha256` now includes its sections, the rotor table
+gains two last columns, and every console command ends with a drawn box on
+stderr (`docs/migrating-to-0.30.0.md`).
+
 ### Added
 
 - The `qsteady_rotor` run type: an isolated, axisymmetric rotor solved steady,
@@ -26,18 +72,14 @@ FlightStream versions.
   disc, and the package writes a field with the rotation taken out
   (`pyflightstream.cases.freestream.prepare_rotating_field`). FSI couples on
   a sector (below) and is refused on a wheel.
-- FSI on a `qsteady_rotor` periodic sector: the steady coupled route of the
-  fixed wing with the ROTATING blade as the structure. Its `omega_rad_per_s`
-  is taken from the row's `RPM` (`cases.workflows.effective_fsi_config`, the
-  configuration the run stages), so the structural solve applies the
-  centrifugal tension and stiffening and the in-plane centrifugal softening
-  at the speed the free stream turns; a run folder marked
-  `fsi_quasi_steady_rotor` routes the structural program to that steady
-  rotating solve. The route couples blade one at azimuth 0 on Z, shaft X
-  through the origin, one XY section distribution in a frame coinciding with
-  the reference, and refuses anything else by name
-  (`cases.fsi_workspace.wire_quasi_steady_sector_fsi`). The wheel stays
-  refused.
+- The 1P reduced frequency `k = Omega c / (2 V_rel)` of a quasi-steady wheel
+  (`pyflightstream.cases.qsteady`), the `1P` counted on the blade (one blade
+  meets the inflow's non-uniformity once per revolution; not the
+  blade-passing excitation of a fixed surface, nor a balance summing every
+  blade): `pyfs-matrix plan` shows the per cent of
+  the span with `k > 0.1`, `k` min, max and mean for every wheel point and
+  warns, naming the point, when that per cent is above zero; each wheel point
+  leaves `<point>_qsteady.json` in its datapoint folder.
 - `pyfs-matrix plan --inflow-fft`: for every quasi-steady wheel point in a
   custom inflow, the harmonic content of that inflow as ONE BLADE meets it
   over a revolution: per station `n95` and `k_eff = n95 k_1P`, per point
@@ -58,14 +100,6 @@ FlightStream versions.
   included, and its super-file row carries the validity columns;
   `products.json` names each file under the clockings tables
   (`validity_files`). The run's `<point>_qsteady.json` is not rewritten.
-- The 1P reduced frequency `k = Omega c / (2 V_rel)` of a quasi-steady wheel
-  (`pyflightstream.cases.qsteady`), the `1P` counted on the blade (one blade
-  meets the inflow's non-uniformity once per revolution; not the
-  blade-passing excitation of a fixed surface, nor a balance summing every
-  blade): `pyfs-matrix plan` shows the per cent of
-  the span with `k > 0.1`, `k` min, max and mean for every wheel point and
-  warns, naming the point, when that per cent is above zero; each wheel point
-  leaves `<point>_qsteady.json` in its datapoint folder.
 - Two products of the quasi-steady rotor (`pyflightstream.post.qsteady`):
   `polars/P<sim>-<ALIAS>_qs_positions.csv`, the rotor's and each blade's
   loads at every clocking, and `_qs_avg.csv`, their mean per point; both and
@@ -74,6 +108,15 @@ FlightStream versions.
 - `RotorShaftLoads` states the rotor's force and its moment about the hub
   (`force_n`, `moment_hub_nm`), and `helpers.rotate_surfaces` takes
   `after_initialization=True` to clock surfaces between two solves.
+- Quasi-steady rotor, before release (found by an independent reading): a
+  wheel blade named by an alias of the row is present (it was refused); a
+  point with no free-stream speed and no rotation states that its `k` is not
+  defined instead of raising `ZeroDivisionError` at plan; `PASSAGE_POSITIONS`
+  is read as every count of a row (`2.0` was refused); a sector's custom
+  inflow is judged axisymmetric to 0.1 % of its largest speed and 1e-4 of its
+  largest radius (1e-6 refused real extracted fields); the docstrings state
+  that the package REMOVES the rotational velocity of each point from the
+  total inflow, composing the relative free stream the fixed blades see.
 - The unsteady rotor's documentation states that a mean thrust from few
   revolutions sits below the developed wake (about 0.5 % per revolution
   still at revolution 6 on a measured six-blade propeller, RPT-089), and
@@ -87,88 +130,18 @@ FlightStream versions.
   3.6 % of the quasi-steady wheel, the normal force 11.7 % and `Mz` 8.2 %
   away, and the side force and the yawing moment still of opposite sign, at
   780 to 1458 s a run against 11 to 42 s for the quasi-steady wheel.
-- Quasi-steady rotor, before release (found by an independent reading): a
-  wheel blade named by an alias of the row is present (it was refused); a
-  point with no free-stream speed and no rotation states that its `k` is not
-  defined instead of raising `ZeroDivisionError` at plan; `PASSAGE_POSITIONS`
-  is read as every count of a row (`2.0` was refused); a sector's custom
-  inflow is judged axisymmetric to 0.1 % of its largest speed and 1e-4 of its
-  largest radius (1e-6 refused real extracted fields); the docstrings state
-  that the package REMOVES the rotational velocity of each point from the
-  total inflow, composing the relative free stream the fixed blades see.
-
-- `pyfs-matrix space-in-use`, `free-space`, `delete-sims` and `sync`: the four
-  storage commands of 0.30.0 (`pyflightstream.workspace.storage`).
-  `space-in-use` reports the workspace's sizes on disk, by top level folder,
-  by `sims/sim_*` and by extension. `free-space m<id>` runs a recipe from
-  `inputs/management/m<id>.toml` that compacts simulation folders into
-  `sims/sim_<id>.zip`, deletes files of named extensions under `sims/`, or
-  compacts or deletes the post's `archive/<stamp>/` folders, previewing by
-  default and changing files only with `--apply`. `delete-sims` deletes named
-  simulations, their own post products and their `runs.json` records, and
-  refuses to apply against a matrix product shared with other points until
-  `--matrix-products` says what happens to it. Every call is recorded in
-  `storage_management.json`, the schema the standalone `fts_sync.py` script
-  started; see docs/storage-and-sync.md.
-- `free-space` recipe table `[[prune_step_exports]]`: for an unsteady row that
-  exported at every step, keeps the last step of each per-step export
-  (`<name>_iteration=<step>`) of each point and deletes the earlier steps,
-  previewing by default and deleting only with `--apply`. The recorded call
-  lists the steps deleted per point, and the listings of the deleted files
-  leave `products.json`. A product made before stays, file and entry (marked
-  `kept_after_pruning`); a later `post` that needs a deleted step refuses the
-  series, the time-averaged surface or the section distribution by name,
-  naming the missing steps and the storage call, instead of writing it from
-  the steps that remain. See docs/storage-and-sync.md.
-- `pyfs-matrix sync`: brings runs and results from the other workspaces named
-  in `inputs/sync-workspaces.toml` into the main one, at a cumulative level
-  (`runs`, `post`, `fsm`, `all`), previewing by default. Main wins a conflict
-  unless `--prefer-other`, and `--overwrite` archives main's copy of a
-  conflicting file before taking the other's.
-- `pyfs-matrix plan` warns when the points still to run may not fit on the
-  workspace's disk, estimated from the mean size of a recorded datapoint,
-  naming `free-space` as the way to make room.
-- Tip and helical Mach numbers on every point of an `unsteady_rotor` row, a
-  `steady` row that states `RPM` and a row naming an actuator disc (M1):
-  `M_tip = Omega R / a` and `M_hel = sqrt(V^2 + (Omega R)^2) / a`, with
-  `Omega = 2 pi RPM / 60`, `R` half the rotor's diameter (a disc's
-  `tip_radius_m`) and `V`, `a` the point's resolved free stream and speed of
-  sound (on a static rig the velocity the package derives; at `V = 0`,
-  `M_hel = M_tip`), computed in one place
-  (`pyflightstream.cases.workflows.rotor_mach_numbers`, per rotor by
-  `rotor_machs`). `pyfs-matrix plan` prints both per rotor per point and
-  `plan.json` carries them under `rotor_mach`; the plan WARNS, naming each
-  point, its rotor and its value, when `M_hel >= 1`, and never refuses for it.
-  A rotor with no known radius (no rotor block diameter, no
-  `rotor_diameter_m`) is named with the row instead of a number. The run
-  record carries the same block under `rotor_mach` (absent where no point
-  carries one; a steady job keys it by point name), and the rotor table
-  `polars/P<sim>-<alias>_rotor.csv` gains two
-  LAST columns, `MTIP_<alias>` and `MHEL_<alias>`, so every existing column
-  keeps its position. See docs/post-processing-definitions.md, "Tip and
-  helical Mach numbers".
-- `sync` also brings matrices: each is declared in `sync-workspaces.toml` by
-  the one workspace that owns it (`matrices = [...]`), every difference is
-  reported as a merge conflict, and the owner's copy wins. A synced
-  simulation's `inputs` is linked into the main workspace's own geometry
-  library, never copied; `delete-sims` and `free-space` undo every link in a
-  simulation folder before removing it, so the mesh it points at survives.
-- The pproc key `singularity_strength` (SS1): `singularity_strength = true`
-  makes a row's Tecplot surface carry the nodal `Singularity_strength`, read
-  from a native Tecplot export beside the VTK, at the end of the run and at
-  every exported step, exactly as 0.29.0 did. The value is a TOML boolean;
-  `"true"` or `1` is refused. `pyfs-matrix plan` states on each row that
-  declares a Tecplot surface whether its strength is carried, and `plan.json`
-  carries it as `singularity_strength` in the row's setup inspection. See
-  docs/surface-translation.md.
-- The seven guide decks in `guide/`, written for 0.30.0, with their LaTeX
-  sources (`guide/latex-sources/`), their build recipe and their compiled
-  PDFs: workspaces, from the GUI to pyfs, the reference file, solver setup,
-  post-processing definitions, FSI, and Python on an offline machine. Each
-  ends on numbered references, the package's documentation pages and the
-  textbooks and papers behind each physical explanation. They are CC BY 4.0
-  (`guide/LICENSE-AND-AUTHORSHIP.md`); `guide/pyflightstream_user_guide.tex`,
-  the guide to the Python library, stays beside them.
+- FSI on a `qsteady_rotor` periodic sector: the steady coupled route of the
+  fixed wing with the ROTATING blade as the structure. Its `omega_rad_per_s`
+  is taken from the row's `RPM` (`cases.workflows.effective_fsi_config`, the
+  configuration the run stages), so the structural solve applies the
+  centrifugal tension and stiffening and the in-plane centrifugal softening
+  at the speed the free stream turns; a run folder marked
+  `fsi_quasi_steady_rotor` routes the structural program to that steady
+  rotating solve. The route couples blade one at azimuth 0 on Z, shaft X
+  through the origin, one XY section distribution in a frame coinciding with
+  the reference, and refuses anything else by name
+  (`cases.fsi_workspace.wire_quasi_steady_sector_fsi`). The wheel stays
+  refused.
 - **Fixed-wing FSI on `steady` and on `unsteady` without rotor motion**
   (FSI-G). An FSI input stating `[config.wing]` (with `omega_rad_per_s = 0`
   and `blade_count = 1`) is one wing clamped at its first station, its
@@ -198,6 +171,78 @@ FlightStream versions.
   `aeroelastic_post` and `is_steady_aeroelastic_script`. The sign of the XZ
   cut's moment column (read as positive about +y, nose up) and the whole
   route wait on their licensed confirmation. See docs/fsi-workspace.md.
+- `pyfs-matrix space-in-use`, `free-space`, `delete-sims` and `sync`: the four
+  storage commands of 0.30.0 (`pyflightstream.workspace.storage`).
+  `space-in-use` reports the workspace's sizes on disk, by top level folder,
+  by `sims/sim_*` and by extension. `free-space m<id>` runs a recipe from
+  `inputs/management/m<id>.toml` that compacts simulation folders into
+  `sims/sim_<id>.zip`, deletes files of named extensions under `sims/`, or
+  compacts or deletes the post's `archive/<stamp>/` folders, previewing by
+  default and changing files only with `--apply`. `delete-sims` deletes named
+  simulations, their own post products and their `runs.json` records, and
+  refuses to apply against a matrix product shared with other points until
+  `--matrix-products` says what happens to it. Every call is recorded in
+  `storage_management.json`, the schema the standalone `fts_sync.py` script
+  started; see docs/storage-and-sync.md.
+- `free-space` recipe table `[[prune_step_exports]]`: for an unsteady row that
+  exported at every step, keeps the last step of each per-step export
+  (`<name>_iteration=<step>`) of each point and deletes the earlier steps,
+  previewing by default and deleting only with `--apply`. The recorded call
+  lists the steps deleted per point, and the listings of the deleted files
+  leave `products.json`. A product made before stays, file and entry (marked
+  `kept_after_pruning`); a later `post` that needs a deleted step refuses the
+  series, the time-averaged surface or the section distribution by name,
+  naming the missing steps and the storage call, instead of writing it from
+  the steps that remain. See docs/storage-and-sync.md.
+- `pyfs-matrix sync`: brings runs and results from the other workspaces named
+  in `inputs/sync-workspaces.toml` into the main one, at a cumulative level
+  (`runs`, `post`, `fsm`, `all`), previewing by default. Main wins a conflict
+  unless `--prefer-other`, and `--overwrite` archives main's copy of a
+  conflicting file before taking the other's.
+- `sync` also brings matrices: each is declared in `sync-workspaces.toml` by
+  the one workspace that owns it (`matrices = [...]`), every difference is
+  reported as a merge conflict, and the owner's copy wins. A synced
+  simulation's `inputs` is linked into the main workspace's own geometry
+  library, never copied; `delete-sims` and `free-space` undo every link in a
+  simulation folder before removing it, so the mesh it points at survives.
+- `pyfs-matrix plan` warns when the points still to run may not fit on the
+  workspace's disk, estimated from the mean size of a recorded datapoint,
+  naming `free-space` as the way to make room.
+- Tip and helical Mach numbers on every point of an `unsteady_rotor` row, a
+  `steady` row that states `RPM` and a row naming an actuator disc (M1):
+  `M_tip = Omega R / a` and `M_hel = sqrt(V^2 + (Omega R)^2) / a`, with
+  `Omega = 2 pi RPM / 60`, `R` half the rotor's diameter (a disc's
+  `tip_radius_m`) and `V`, `a` the point's resolved free stream and speed of
+  sound (on a static rig the velocity the package derives; at `V = 0`,
+  `M_hel = M_tip`), computed in one place
+  (`pyflightstream.cases.workflows.rotor_mach_numbers`, per rotor by
+  `rotor_machs`). `pyfs-matrix plan` prints both per rotor per point and
+  `plan.json` carries them under `rotor_mach`; the plan WARNS, naming each
+  point, its rotor and its value, when `M_hel >= 1`, and never refuses for it.
+  A rotor with no known radius (no rotor block diameter, no
+  `rotor_diameter_m`) is named with the row instead of a number. The run
+  record carries the same block under `rotor_mach` (absent where no point
+  carries one; a steady job keys it by point name), and the rotor table
+  `polars/P<sim>-<alias>_rotor.csv` gains two
+  LAST columns, `MTIP_<alias>` and `MHEL_<alias>`, so every existing column
+  keeps its position. See docs/post-processing-definitions.md, "Tip and
+  helical Mach numbers".
+- The pproc key `singularity_strength` (SS1): `singularity_strength = true`
+  makes a row's Tecplot surface carry the nodal `Singularity_strength`, read
+  from a native Tecplot export beside the VTK, at the end of the run and at
+  every exported step, exactly as 0.29.0 did. The value is a TOML boolean;
+  `"true"` or `1` is refused. `pyfs-matrix plan` states on each row that
+  declares a Tecplot surface whether its strength is carried, and `plan.json`
+  carries it as `singularity_strength` in the row's setup inspection. See
+  docs/surface-translation.md.
+- The seven guide decks in `guide/`, written for 0.30.0, with their LaTeX
+  sources (`guide/latex-sources/`), their build recipe and their compiled
+  PDFs: workspaces, from the GUI to pyfs, the reference file, solver setup,
+  post-processing definitions, FSI, and Python on an offline machine. Each
+  ends on numbered references, the package's documentation pages and the
+  textbooks and papers behind each physical explanation. They are CC BY 4.0
+  (`guide/LICENSE-AND-AUTHORSHIP.md`); `guide/pyflightstream_user_guide.tex`,
+  the guide to the Python library, stays beside them.
 
 ### Changed
 
@@ -249,12 +294,6 @@ FlightStream versions.
   and `steady_aeroelastic_finished` (in a script `EXECUTE_AEROELASTIC_ANALYSIS`
   returns at once, so nothing may follow it and the run is waited for on the
   line `Aeroelastic solver run time`).
-- A pdf may now be tracked under `guide/`, and only there: the forbid-pdf
-  hook, the CI guard job and a tier-1 walk of the tracked files
-  (`test_house_style.py`) carry the same exemption, and a test shows the hook
-  and the CI job refuse exactly what the walk refuses. A pdf anywhere else is
-  refused as before.
-
 - **A Tecplot surface no longer exports the native Tecplot by default.** A row
   whose pproc does not set `singularity_strength = true` exports the VTK alone:
   its `.dat` carries every VTK variable and states `Singularity_strength` as
@@ -263,7 +302,6 @@ FlightStream versions.
   not `FAILED_INCOMPLETE_OUTPUT` for lacking it. The time-averaged surface
   states the strength not carried the same way. Set the key in the pproc to
   keep the 0.29.0 behaviour.
-
 - `runs.json` may hold a `delete-sims` note row (`deleted_sim`) alongside its
   run records; `read_manifest` skips it, and the row's full mention lives in
   `storage_management.json`.
@@ -285,6 +323,11 @@ FlightStream versions.
   instead of one per point. Nothing is lost: `logs/activity.log` keeps every
   point and absolute paths, and the new `--verbose` switch of `run`, `collect`
   and `post` prints Python's full warning format and the per-point lines again.
+- A pdf may now be tracked under `guide/`, and only there: the forbid-pdf
+  hook, the CI guard job and a tier-1 walk of the tracked files
+  (`test_house_style.py`) carry the same exemption, and a test shows the hook
+  and the CI job refuse exactly what the walk refuses. A pdf anywhere else is
+  refused as before.
 
 ### Fixed
 
@@ -296,6 +339,53 @@ FlightStream versions.
   now emits the ID the blade's motion holds (tree position plus 1 for an OBJ,
   plus 0 for an STL; any other geometry is refused rather than guessed), and
   the command database no longer range checks that list against the tree.
+- **A coupled row with the pproc's default exports builds again.** On the
+  steady coupled routes (the fixed wing and the `qsteady_rotor` sector) the
+  aeroelastic post-processing script exports the loads the structural program
+  reads, and the row's export block then updated the sections again whenever
+  a section, sectional-loads, probe or section Cp export was on, which they
+  are by default: an analysis command after an export, refused at plan with a
+  `ScriptOrderError`, so such a row ran only with those four exports turned
+  off (L1, reports/RPT-090 and RPT-092). The post now updates the sections
+  and computes their loads once, then the probe points when the row exports
+  them, before its first export, and the row's exports follow with no update
+  of their own.
+- **A quasi-steady wheel's solver log is read, clocking by clocking.** A
+  wheel solved at `PASSAGE_POSITIONS: k` clockings exports one log holding
+  its k solves in sequence, each residual table counting from 1 again, and
+  the residual reader refused it as two logs concatenated: the point was
+  judged with no log (`log_file_used` and `residual` empty), and on the
+  trailing-edge points-file route it was recorded FAILED_INCOMPLETE_OUTPUT
+  although the log says the edges were imported (L1, reports/RPT-091). The
+  new `pyflightstream.results.parse_residual_solves` reads such a log, a new
+  solve being a table of its own starting at iteration 1; the assessor reads
+  the point's quasi-steady record, judges each clocking from its own solve,
+  holds each solve's last iteration to that clocking's loads export, and
+  records one verdict per clocking in the run record's new
+  `clocking_verdicts`, with the worst of them as the point's status and
+  residual. A log of one solve is read as before, and a restart in it is
+  still refused.
+- **A clocked wheel's sections cover its blade.** The solver fixes a section
+  distribution's cuts when it creates it, spread over the blade's extent
+  along the cut planes' normal in the pose the blade then holds, and a
+  `qsteady_rotor` wheel of `PASSAGE_POSITIONS` 2 or more created its
+  distributions with the wheel already turned to clocking 1. At clocking 0,
+  where the sections are exported, the cuts then sat on the extent of a
+  turned blade: 30 cuts from 0.347 to 1.586 m on a blade spanning 0.41 to
+  1.824 m, the two innermost empty and the outer 0.24 m uncut (L1,
+  reports/RPT-091). The distributions are now created with the wheel at
+  clocking 0 as meshed, and the wheel turns to clocking 1 after them, with
+  one more initialisation of the solver.
+- **A `qsteady_rotor` point gets its rotor table.** The table reads a
+  rotor's speed from the record's reductions, which a steady run does not
+  plan, so every quasi-steady point, sector and wheel, was left out with "its
+  record states no speed" and no `J`, `CT`, `CQ`, `CP`, `ETA` or `ETAW` was
+  written (L1, reports/RPT-090 and RPT-091). The table now reads the row's
+  speed from the point's quasi-steady record, the speed the free stream
+  turns at. As the definitions page states for every steady product of the
+  run type, the loads are the point's own solve: a sector's export as it
+  stands, never multiplied by the copies, and a wheel's clocking 0, whose
+  mean with the other clockings stays the average table's.
 - A matrix row stating `HIDDEN 0` runs with the solver's GUI again. The
   window watcher of 0.29.0 took the GUI's startup splash (class `#32770`, no
   title, no text, no button, measured on 26.124 (reports/RPT-086)) for a
@@ -317,9 +407,6 @@ FlightStream versions.
   it, so that surface is refused and the true one still matches. The
   `node_mapping` record states its tolerances along the loads axes and names
   that frame in a new `coordinate_tolerance_frame` key.
-
-### Fixed
-
 - **A row under `SYMMETRY PERIODIC` is translated to Tecplot again.** Its
   native Tecplot holds one zone per periodic copy, each a complete file of its
   own (measured on 26.124 (reports/RPT-087): a six-copy sector, six zones of one blade each), and
@@ -365,81 +452,18 @@ FlightStream versions.
   `storage_management.json`) and printed as `PLANNED WITHOUT RECORD`; a plan
   that cannot be read is named with why.
 
-- **A coupled row with the pproc's default exports builds again.** On the
-  steady coupled routes (the fixed wing and the `qsteady_rotor` sector) the
-  aeroelastic post-processing script exports the loads the structural program
-  reads, and the row's export block then updated the sections again whenever
-  a section, sectional-loads, probe or section Cp export was on, which they
-  are by default: an analysis command after an export, refused at plan with a
-  `ScriptOrderError`, so such a row ran only with those four exports turned
-  off (L1, reports/RPT-090 and RPT-092). The post now updates the sections
-  and computes their loads once, then the probe points when the row exports
-  them, before its first export, and the row's exports follow with no update
-  of their own.
+See [the migration guide](docs/migrating-to-0.30.0.md) for the storage
+commands, the quasi-steady rotor, the FSI routes and the behaviour that
+changed.
 
-- **A quasi-steady wheel's solver log is read, clocking by clocking.** A
-  wheel solved at `PASSAGE_POSITIONS: k` clockings exports one log holding
-  its k solves in sequence, each residual table counting from 1 again, and
-  the residual reader refused it as two logs concatenated: the point was
-  judged with no log (`log_file_used` and `residual` empty), and on the
-  trailing-edge points-file route it was recorded FAILED_INCOMPLETE_OUTPUT
-  although the log says the edges were imported (L1, reports/RPT-091). The
-  new `pyflightstream.results.parse_residual_solves` reads such a log, a new
-  solve being a table of its own starting at iteration 1; the assessor reads
-  the point's quasi-steady record, judges each clocking from its own solve,
-  holds each solve's last iteration to that clocking's loads export, and
-  records one verdict per clocking in the run record's new
-  `clocking_verdicts`, with the worst of them as the point's status and
-  residual. A log of one solve is read as before, and a restart in it is
-  still refused.
+### Changed (the type-checker debt, re-measured on the release tree)
 
-- **A clocked wheel's sections cover its blade.** The solver fixes a section
-  distribution's cuts when it creates it, spread over the blade's extent
-  along the cut planes' normal in the pose the blade then holds, and a
-  `qsteady_rotor` wheel of `PASSAGE_POSITIONS` 2 or more created its
-  distributions with the wheel already turned to clocking 1. At clocking 0,
-  where the sections are exported, the cuts then sat on the extent of a
-  turned blade: 30 cuts from 0.347 to 1.586 m on a blade spanning 0.41 to
-  1.824 m, the two innermost empty and the outer 0.24 m uncut (L1,
-  reports/RPT-091). The distributions are now created with the wheel at
-  clocking 0 as meshed, and the wheel turns to clocking 1 after them, with
-  one more initialisation of the solver.
-
-- **A `qsteady_rotor` point gets its rotor table.** The table reads a
-  rotor's speed from the record's reductions, which a steady run does not
-  plan, so every quasi-steady point, sector and wheel, was left out with "its
-  record states no speed" and no `J`, `CT`, `CQ`, `CP`, `ETA` or `ETAW` was
-  written (L1, reports/RPT-090 and RPT-091). The table now reads the row's
-  speed from the point's quasi-steady record, the speed the free stream
-  turns at. As the definitions page states for every steady product of the
-  run type, the loads are the point's own solve: a sector's export as it
-  stands, never multiplied by the copies, and a wheel's clocking 0, whose
-  mean with the other clockings stays the average table's.
-
-### Owed
-
-- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
-  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
-  concept record lists NINETEEN archived versions and v0.14.0 is not among
-  them. The earlier reading of 2026-09-10 said the same and could not be
-  confirmed for four days because the service was answering 504; it is
-  confirmed now, so this is a fact about the archive rather than about its
-  availability.
-  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
-  had what it needs and the archive still has no version for it. Whatever
-  failed, it failed silently, and re-triggering it is the repair.
-  Until that row lands this section says so, because a shipped release that
-  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
-  release by the concept DOI, which resolves to the newest archived version.
-
-### Changed (the type-checker debt, re-measured on the gate-fixing tree)
-
-- mypy recount 2026-09-29: 998 errors in 18 of 134 modules, on the
-  `feat/0-30-storage-sync` tree once its quasi-steady rotor work had merged,
-  against the gate-fixing tree's own 921 in 18 of 131. The three further
-  modules the tracked package gained, `cases/qsteady.py`, `fsi/wing.py` and
-  `post/qsteady.py`, are clean; the shipped configuration is green over all
-  134 (`reports/RPT-029`).
+- mypy recount 2026-09-29: 1065 errors in 18 of 134 modules, on the v0.30.0
+  release tree, against 0.29.0's 922 in 18 of 128. The six modules the 0.30
+  work adds (`_signature.py`, `cases/qsteady.py`, `fsi/wing.py`,
+  `post/qsteady.py`, `workspace/_links.py` and `workspace/storage.py`) are
+  clean; the errors more sit inside the exempted set, and the shipped
+  configuration is green over all 134 (`reports/RPT-029`).
 
 ## [0.29.0] - 2026-09-28
 
@@ -13350,7 +13374,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.30.0
 [0.29.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.29.0
 [0.28.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.28.0
 [0.27.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.27.0

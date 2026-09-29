@@ -59,32 +59,35 @@
 > package from 128 to 129, and by the run of 2026-09-29 on the 0.30.0 tree
 > once its quasi-steady rotor work had merged, whose three new modules,
 > `cases/qsteady.py`, `fsi/wing.py` and `post/qsteady.py`, brought the
-> tracked package from 131 to 134. (An
+> tracked package from 131 to 134, and by the run of 2026-09-29 on the
+> v0.30.0 release tree. (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
 > modules and the 0.24.0 tree at 661 in 18 of 93; the 0.28.0 release tree read
 > 863 errors in 18 of 104 on 2026-09-25; the 0.29.0 quality-gate candidate
 > read 923 in 18 of 128 on 2026-09-28, the same date as the release tree;
+> the 0.30.0 tree once its quasi-steady rotor work had merged read 998 in
+> 18 of 134 on 2026-09-29, the same date as the v0.30.0 release tree;
 > measurements of different
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 998 errors in 18 files (checked 134 source files)
+>     Found 1065 errors in 18 files (checked 134 source files)
 >     Success: no issues found in 134 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-29: 998 errors in 18 of 134 modules.**
+**mypy recount 2026-09-29: 1065 errors in 18 of 134 modules.**
 
-The module total rises by the three modules the quasi-steady rotor work
-adds (`cases/qsteady.py`, `fsi/wing.py`, `post/qsteady.py`), and the error
-total rises with them, inside the exempted set; the number of modules
-holding an exemption is unchanged at eighteen, and the shipped configuration
-is green over all 134. The run was taken by `python scripts/mypy_recount.py`
-on the `feat/0-30-storage-sync` tree once the quasi-steady rotor work had
-merged. The previous reading of this report, the 0.30.0 storage-and-sync
-gate-fixing tree at 921 errors in 18 of 131 modules, is in its own history.
+The module total is the 134 the tracked package holds at the v0.30.0
+release tree, six more than v0.29.0's 128, each of the six clean; the error
+total sits inside the exempted set, the number of modules holding an
+exemption is unchanged at eighteen, and the shipped configuration is green
+over all 134. The run was taken by `python scripts/mypy_recount.py` on the
+release tree of v0.30.0, which the script reported clean; the reading of the
+same date on the tree before its last four fixes merged, 998 errors, is
+stated in its own section below.
 
 THE NINETIETH TO THE NINETY-THIRD ARRIVED AT 0.24.0 and all four arrive
 CLEAN: `post/axes.py`, the one home of the frame conventions; `cases/windows.py`,
@@ -360,7 +363,7 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 998 errors in 18 files (checked 134 source files)
+    Found 1065 errors in 18 files (checked 134 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
@@ -770,5 +773,31 @@ run. The one module the tracked-module count gained since the release tag is
 `workspace/storage.py`, the home of the five `pyfs-matrix` storage commands;
 it is not itself exempted and the tool reports it CLEAN, so the dirty count
 still reads 18. The shipped configuration is green over all 130 modules. The
-quoted mypy lines above are this run's, and the sentence at the top of this
-report is this measurement.
+quoted mypy lines above were this run's until the next run, below.
+
+## Re-measured 2026-09-29, the 0.30.0 tree with the quasi-steady rotor: three modules arrived clean
+
+`python scripts/mypy_recount.py` on 2026-09-29, on `feat/0-30-storage-sync`
+once its quasi-steady rotor work had merged (1f6999aa): 998 errors in 18 of
+134 modules. The three modules that brought the tracked package from 131
+to 134, `cases/qsteady.py`, `fsi/wing.py` and `post/qsteady.py`, are clean,
+and the shipped configuration is green over all 134. This section is
+written after the fact from that commit's own record, and its figure is
+unedited; the quoted mypy lines above were this run's until the release
+tree was measured, next.
+
+## Re-measured 2026-09-29, the v0.30.0 release tree
+
+`python scripts/mypy_recount.py` on 2026-09-29, on the release tree of
+v0.30.0 (the source of `4f12aede`, on which the release commit is made and
+which the script reported clean), with python 3.12.0, mypy 2.3.1, numpy
+2.5.3, xarray 2026.7.0, pandas 3.0.6 and pydantic 2.13.5: 1065 errors in 18
+of 134 modules, against the 998 of the same date before the last four fixes
+of the quasi-steady rotor merged and the v0.29.0 release tree's 922 in 18
+of 128 (read with mypy 1.20.2). The dirty count still reads 18,
+`pyflightstream.run` holds 870 errors on 97 lines, and the shipped
+configuration is green over all 134 modules. The trees differ by source
+and the environments by the type checker's own version, so the run
+measured the tree as it is and assigns the difference to no single change.
+The quoted mypy lines above are this run's, and the sentence at the top of
+this report is this measurement.

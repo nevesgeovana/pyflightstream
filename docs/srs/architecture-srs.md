@@ -176,9 +176,10 @@ Five console entry points, one per operational concern: `pyfs-qa`
 archiving of a recorded simulation, and migration of a flat geometry
 library into one folder per geometry),
 `pyfs-matrix` (run-matrix upgrade, conversion, pre-flight, run, boundary
-inventory, collection of a submitted job's outputs, and post-processing;
-submission is not a command of its own, it is what `run` does on Linux with a
-cluster profile),
+inventory, collection of a submitted job's outputs, post-processing, and,
+since 0.30.0, the workspace's disk and its other copies: `space-in-use`,
+`free-space`, `delete-sims` and `sync`; submission is not a command of its
+own, it is what `run` does on Linux with a cluster profile),
 `pyfs-fsi` (the coupling-loop executable), and `pyfs-manual`
 (reading a vendor manual against the command database, and WRITING
 documented version rows back into it from that reading; maintainer
@@ -337,3 +338,84 @@ distribution excludes macro modules, binary workbook residue and log
 files, so a working copy's leftovers cannot ship. An Excel edit to a
 column the target matrix's legacy layout lacks is refused with the
 migration remedy rather than dropped.
+
+## The 0.30.0 additions and their limits
+
+This section records what 0.30.0 adds to the paths above and the limit each
+one keeps. The tracked package holds 134 modules, six more than 0.29.0; none
+takes a new row of the layered pipeline, and each imports only at or below
+its own row.
+
+### The modules and their rows
+
+- `cases/qsteady.py`, in the cases row, imports only `cases`. It is the
+  arithmetic of the quasi-steady rotor: the clocking angles of a wheel, the
+  1P reduced frequency and its validity figures, the harmonic content of a
+  custom inflow as one blade meets it, and the names of the files a wheel
+  point leaves. Both the plan (`cases.workflows`) and the post
+  (`post.qsteady`) call it, which is why it lives in `cases`: `post` may
+  import `cases` and never the reverse.
+- `post/qsteady.py`, in the post row, imports `_errors`, `_tokens`,
+  `cases.qsteady`, `post._tables`, `results` and `workspace.inputs`. It
+  writes the quasi-steady rotor's positions and average tables and the
+  validity of its sections, from the recorded loads exports.
+- `fsi/wing.py`, in the `fsi` side branch, imports only `fsi` modules
+  (`beam`, `config`, `errors`, `loads`, `nodes`). It is the fixed wing's
+  structural solve: one beam clamped at its first station, loaded by the
+  aerodynamic sectional loads and by the wing's own weight.
+- `workspace/storage.py`, in the workspace row, imports `workspace`,
+  `workspace._links` and `workspace.naming`. It owns the four storage
+  commands and the record they keep; the command-line layer is a thin
+  argument layer over it.
+- `workspace/_links.py` holds the directory-link primitives the workspace
+  stages and archives with, private to `workspace` and `workspace.storage`,
+  and imports nothing from this package.
+- `_signature.py` holds the drawings and phrases of the box a console
+  command ends with on stderr, rendered by `_cli`; it imports nothing from
+  this package, so it is a floor of the same kind as `_cli`.
+
+### The quasi-steady rotor
+
+The `qsteady_rotor` run type solves an isolated, axisymmetric rotor steady,
+its blades held still in a free stream that turns about the shaft at the
+rotor's speed. It is one workflow of `cases.workflows` beside the others, and
+a row states it the way it states any run type. A periodic SECTOR solves one
+blade, and is accepted only in an inflow that varies with the radius alone;
+a WHEEL solves every blade, and in an inflow that varies around the disc it
+is solved at `PASSAGE_POSITIONS` clockings inside one blade passage, which
+the post averages. The builder refuses what it can detect is not an isolated
+rotor (a second rotor, an actuator disc, a body rate, a boundary that is none
+of the rotor's families); whether the blades are alike is not checked. The
+validity parameter, the 1P reduced frequency, is computed once in
+`cases.qsteady` and read by the plan, the per-point validity file and every
+product of the point. The assessor reads a wheel's log solve by solve and
+records one verdict per clocking. The wheel's corrections for unsteady
+effects are not part of this release.
+
+### The FSI routes
+
+The workflow a row runs decides whether it may couple, and one table in
+`cases.fsi_workspace` states it for every workflow. A fixed wing couples on
+`steady` and on `unsteady` without rotor motion; the rotating blade of a
+`qsteady_rotor` sector couples at the row's speed; a `qsteady_rotor` wheel is
+refused by its builder, because several clockings averaged are not the state
+of one structure, and `unsteady_rotor` by the plan, because on the measured
+build the morph of a mapped rotating blade replaces its rotation. The
+structural executable stays the side branch it was: the cases row reaches
+`fsi` downward, and `fsi` imports nothing from the pipeline rows. A steady
+coupled script ends at its aeroelastic analysis, which returns at once, so
+the run waits for the solver's own completion line and nothing may follow
+the analysis in the script. The fixed-wing route and the sign of its moment
+column wait on their licensed confirmation.
+
+### Storage and sync
+
+The four storage commands act on the workspace's own folders and records.
+Every call
+previews by default, changes files only when applied, and is recorded in
+`storage_management.json` at the workspace root. A synced simulation's
+inputs are a link into the main workspace's geometry library, and a
+removal undoes every link first, so the mesh it points at survives. A
+pruning of per-step exports keeps each point's last step; a later post that
+needs a pruned step refuses the product by name rather than writing it from
+the steps that remain.
