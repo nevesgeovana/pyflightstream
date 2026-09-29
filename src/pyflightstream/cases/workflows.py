@@ -13705,9 +13705,15 @@ def _qsteady_speed(case: SimCase, rotor: RotorBlock) -> RotorSpeed:
     rotor row uses (:func:`_rotor_the_row_names`). Without it the row's number
     turned right-handed whatever the block declared.
     """
-    view = case.model_copy(
-        update={"variables": {**case.variables, MOVING_BC_ALIAS_VARIABLE: rotor.alias}}
-    )
+    update: dict[str, object] = {
+        "variables": {**case.variables, MOVING_BC_ALIAS_VARIABLE: rotor.alias}
+    }
+    # THE DIAMETER IS THIS ROTOR'S (P0310-J-OWN-DIAMETER), as an unsteady rotor
+    # row resolves it (:func:`_motion_view`): J is a ratio against the diameter of the
+    # rotor that turns, not the reference's single top-level rotor_diameter_m.
+    if case.reference is not None:
+        update["reference"] = case.reference.model_copy(update={"rotor_diameter": rotor.diameter_m})
+    view = case.model_copy(update=update)
     return rotor_speed(view)
 
 

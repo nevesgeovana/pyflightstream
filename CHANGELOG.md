@@ -7,6 +7,7 @@ FlightStream versions.
 
 ## [Unreleased]
 
+<<<<<<< HEAD
 ### Changed
 
 - **The quasi-steady record has one type, one reader and one refusal.**
@@ -23,6 +24,17 @@ FlightStream versions.
   `pyflightstream.post.qsteady.read_qsteady_record` and
   `pyflightstream.workspace.inputs.qsteady_record_rotor_alias` are removed;
   the latter lives on in `pyflightstream.cases.qsteady`.
+=======
+### Changed (0.31.0)
+
+- A `qsteady_rotor` row that states `ADVANCE_RATIO` resolves J, and so the rotor
+  speed n = V / (J D), against the rotor block's own `diameter_m`, as an
+  `unsteady_rotor` row does, instead of the reference's top-level
+  `rotor_diameter_m`.
+- The fixed-wing and quasi-steady-rotor FSI steps of `fsi/driver.py` share one
+  step body with the structural solve as the variation point; behaviour is
+  unchanged.
+>>>>>>> feat/0-31-r2a2
 
 ### Owed
 

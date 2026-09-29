@@ -1686,7 +1686,7 @@ A `qsteady_rotor` point is steady, and every product a steady point writes
 for any steady point: the instant of its own solve, which on a wheel is
 clocking 0. The rotor table's speed, `RPM_<alias>`, is the row's, the speed
 the free stream turns at, read from the point's quasi-steady record
-(`<point>_qsteady.json`), as an unsteady rotor's is read from its plan; a
+(`<point>_qsteady.json`), as an unsteady rotor's is read from its plan. Where the row states `ADVANCE_RATIO`, the speed is n = V / (J D) with D the rotor block's own `diameter_m`, never the reference's top-level `rotor_diameter_m`. A
 sector's table is its one solve's export as it stands, with no factor for
 the periodic copies (the export carries the whole rotor where the row enables
 symmetry loads and the sector alone where it does not). Two products are the run type's own, and a wheel point's sections
