@@ -9,6 +9,12 @@ FlightStream versions.
 
 ### Changed
 
+- **The docs site navigation is grouped by stage.** The menu of
+  `properdocs.yml` was one flat list of 33 entries; it is now Start here,
+  Workspace, 1 Geometry to 6 Post, FSI, Examples, Versions (holding the
+  Reference group) and Project, as approved on 2026-09-28. Only the menu
+  changed: no page moved or was renamed, and each is reachable exactly once.
+
 - **The quasi-steady record has one type, one reader and one refusal.**
   `<point>_qsteady.json` is read as a `QsteadyRecord` by
   `pyflightstream.cases.qsteady.read_qsteady_record`, which raises
