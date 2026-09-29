@@ -9,6 +9,7 @@ FlightStream versions.
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ### Changed
 
 - **The quasi-steady record has one type, one reader and one refusal.**
@@ -41,6 +42,21 @@ FlightStream versions.
 
 - **The per-revolution product** (P0310-G2-PER-REV). An `unsteady_rotor` point now writes `probes/<point>_per_revolution_<ALIAS>.csv` for each rotor its row turns: one row per COMPLETE revolution, read from the written plots table, with the mean of every plotted column and, from the second revolution on, each column's drift from the previous revolution in per cent (`NA` where that mean is zero). A trailing partial revolution is excluded and said. The pproc may declare `[per_revolution] drift_limit_pct` (positive, default 1); when the last revolution's drift of a force or moment column exceeds it, `post.log` carries a WARNING line naming the point, rotor, column, drift and limit, and nothing is blocked. Defined in `docs/post-processing-definitions.md`.
 >>>>>>> feat/0-31-g2
+=======
+### Added (0.31.0)
+
+- `pyfs-workspace field mirror|move|subtract|time-mean` builds a custom
+  free-stream file of `inputs/freestreams/` from other fields: mirrored
+  through the plane x, y or z = 0, moved so a source point lands on a target
+  point, `total - (other - reference)` point by point on one grid (a
+  different grid is refused naming both files), or the time mean of an
+  unsteady run's equally spaced per-step fields. Metres and m/s in the global
+  frame, nothing converted. Each previews by default, writes only with
+  `--apply` (the file and `<stem>.provenance.json`, naming the operation, its
+  parameters and every input with its sha256), and never overwrites without
+  `--overwrite`. The functions are public in the new module
+  `pyflightstream.workspace.fields`. See docs/field-operations.md.
+>>>>>>> feat/0-31-g3
 
 ### Owed
 

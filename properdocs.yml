@@ -60,6 +60,7 @@ nav:
   - Simulation geometry controls: simulation-geometry-controls.md
   - CAD inputs: cad-inputs.md
   - Custom field units and coverage: custom-field-units.md
+  - Field operations: field-operations.md
   - Replaying a recorded run: tutorial-replay.md
   - What a run cost: solver-cost.md
   - The workspace and the workflow: workspace-and-workflows.md
