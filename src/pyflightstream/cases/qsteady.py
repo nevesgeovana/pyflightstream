@@ -526,6 +526,11 @@ POSITION_SUFFIX = "_qs"
 #: The file the run writes beside a quasi-steady point's exports: the case,
 #: the clockings and the validity of the quasi-steady assumption.
 RECORD_SUFFIX = "_qsteady.json"
+#: The file the POST writes beside it for a wheel point (0.30.0): the point's
+#: validity after the run, the shares of thrust and torque from the stations
+#: above k = 0.1 included. A file of its own because the run's record is a
+#: hashed input of the run (its digest is in the run record), never rewritten.
+VALIDITY_FILE_SUFFIX = "_qsteady_validity.json"
 
 
 def position_loads_name(loads: str, index: int) -> str:
@@ -538,6 +543,18 @@ def position_loads_name(loads: str, index: int) -> str:
     """
     path = PurePath(loads)
     return str(path.with_name(f"{path.stem}{POSITION_SUFFIX}{index:02d}{path.suffix}"))
+
+
+def validity_file_name(loads: str) -> str:
+    """Return the post's per-point validity file's name, beside the point's own loads export.
+
+    Examples
+    --------
+    >>> validity_file_name("DP_AL+050.txt")
+    'DP_AL+050_qsteady_validity.json'
+    """
+    path = PurePath(loads)
+    return str(path.with_name(f"{path.stem}{VALIDITY_FILE_SUFFIX}"))
 
 
 def record_file_name(loads: str) -> str:

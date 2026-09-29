@@ -475,3 +475,146 @@ def test_the_plan_through_the_campaign_carries_the_inflow_harmonics(tmp_path):
     assert fft["k_eff_max"] is None and "k_eff is not computed" in str(fft["note"])
     summary = plan.summary()
     assert "inflow harmonics (per blade, nP): n_max 6" in summary
+
+
+# --------------------------------------- B: the validity after the post run --
+
+
+def test_the_point_validity_file_carries_the_shares_of_thrust_and_torque(tmp_path):
+    """The post's file beside the run's record: every validity value, the shares included."""
+    # P0300-QS-VALIDITY-FILE
+    # P0300-QS-VALIDITY-SHARE
+    from pyflightstream.post import qsteady as post_qsteady
+
+    loads = tmp_path / "DP.txt"
+    record = {"run_type": QSTEADY_ROTOR, "case": "wheel", "rotor": "PROP", "rpm": 1200.0}
+    validity = post_qsteady.PointValidity(
+        {
+            "K_1P_MIN": 0.03,
+            "K_1P_MAX": 0.29,
+            "K_1P_MEAN": 0.15,
+            "SPAN_PCT_K_GT_0_05": 90.0,
+            "SPAN_PCT_K_GT_0_1": 70.0,
+            "THRUST_PCT_K_GT_0_1": 80.3,
+            "TORQUE_PCT_K_GT_0_1": 75.1,
+            "K_1P_SOURCE": "sections",
+        }
+    )
+    path = post_qsteady.write_point_validity_file(loads, record, validity)
+    assert path == tmp_path / "DP_qsteady_validity.json"
+    written = json.loads(path.read_text())
+    assert written["validity"]["THRUST_PCT_K_GT_0_1"] == 80.3
+    assert written["validity"]["TORQUE_PCT_K_GT_0_1"] == 75.1
+    assert written["validity"]["K_1P_SOURCE"] == "sections"
+    assert written["run_record"] == "DP_qsteady.json"
+
+
+def test_the_post_stage_leaves_each_wheel_point_its_validity_and_the_super_file_carries_it(
+    tmp_path,
+):
+    """A recorded two-point wheel whose record carries the plan's k: after the post,
+
+    each point's datapoint folder holds ``<point>_qsteady_validity.json`` with
+    those values (shares null: no sectional export), the clockings tables' entry
+    names it, and the point's super-file row carries the validity columns.
+    """
+    # P0300-QS-VALIDITY-FILE
+    from pyflightstream.workspace import RunRecord
+    from tests.tier1_offline.test_post_superfile import _post, _workspace
+
+    workspace = _workspace(tmp_path)
+    records = workspace.read_manifest()
+    (workspace.root / "runs.json").unlink()
+    plan = {
+        "k_min": 0.04,
+        "k_max": 0.21,
+        "k_mean": 0.11,
+        "span_pct_k_gt_0_05": 88.0,
+        "span_pct_k_gt_0_1": 55.0,
+        "note": None,
+    }
+    loads_of = []
+    for record in records:
+        if record.sim_id == "6001":
+            loads = workspace.sim_dir("6001") / record.outputs[0]
+            loads_of.append(loads)
+            quasi = {
+                "run_type": QSTEADY_ROTOR,
+                "case": "wheel",
+                "rotor": "PROP",
+                "blades": 2,
+                "rpm": 1200.0,
+                "hub_m": [0.0, 0.0, 0.0],
+                "axis_vector": [1.0, 0.0, 0.0],
+                "families_general": [],
+                "families_blades": ["W", "B"],
+                "blade1_azimuth_deg": 0.0,
+                "positions": [{"index": 0, "clocking_deg": 0.0, "loads": loads.name}],
+                "validity": plan,
+            }
+            loads.with_name(loads.stem + "_qsteady.json").write_text(json.dumps(quasi))
+            record = record.model_copy(update={"recipe": QSTEADY_ROTOR})
+        workspace.append_record(RunRecord(**record.model_dump()))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        _post(workspace)
+    assert loads_of
+    for loads in loads_of:
+        written = json.loads(loads.with_name(loads.stem + "_qsteady_validity.json").read_text())
+        assert written["validity"]["K_1P_MAX"] == 0.21
+        assert written["validity"]["SPAN_PCT_K_GT_0_1"] == 55.0
+        assert written["validity"]["THRUST_PCT_K_GT_0_1"] is None
+        assert written["validity"]["K_1P_SOURCE"] == "mesh"
+    (manifest,) = workspace.root.rglob("products.json")
+    products = json.loads(manifest.read_text(encoding="utf-8"))["products"]
+    (average,) = [name for name in products if name.endswith("_qs_avg.csv")]
+    named = products[average]["validity_files"]
+    assert len(named) == len(loads_of)
+    assert all((manifest.parent / path).is_file() for path in named.values())
+    supers = sorted(manifest.parent.rglob("SUPER-6001*"))
+    assert supers, sorted(p.name for p in manifest.parent.rglob("*"))
+    head, *rows = supers[0].read_text().splitlines()
+    heading = head.split(",")
+    assert "K_1P_MAX" in heading and "THRUST_PCT_K_GT_0_1" in heading
+    cells = [row.split(",") for row in rows]
+    assert all(line[heading.index("K_1P_MAX")] == "0.21000" for line in cells)
+    assert all(line[heading.index("THRUST_PCT_K_GT_0_1")] == "NA" for line in cells)
+
+
+def test_the_sections_validity_wins_the_plan_in_the_super_file_row(tmp_path):
+    """After the run, a wheel point's row takes the sections' values, shares included."""
+    # P0300-QS-VALIDITY-SHARE
+    from types import SimpleNamespace
+
+    from pyflightstream.post import qsteady as post_qsteady
+    from pyflightstream.post.products import _qsteady_super_cells
+
+    loads = tmp_path / "DP.txt"
+    quasi = {
+        "case": "wheel",
+        "rotor": "PROP",
+        "validity": {
+            "k_min": 0.01,
+            "k_max": 0.02,
+            "k_mean": 0.015,
+            "span_pct_k_gt_0_05": 0.0,
+            "span_pct_k_gt_0_1": 0.0,
+            "note": None,
+        },
+    }
+    (tmp_path / "DP_qsteady.json").write_text(json.dumps(quasi))
+    point = SimpleNamespace(name="P", loads_path=loads)
+    record = SimpleNamespace(recipe=QSTEADY_ROTOR)
+    after = post_qsteady.PointValidity(
+        {
+            "K_1P_MAX": 0.3,
+            "THRUST_PCT_K_GT_0_1": 42.0,
+            "TORQUE_PCT_K_GT_0_1": 40.0,
+            "K_1P_SOURCE": "sections",
+        }
+    )
+    cells = _qsteady_super_cells(point, record, {"P": after})
+    assert cells["THRUST_PCT_K_GT_0_1"] == "42.00000" and cells["K_1P_SOURCE"] == "sections"
+    plan_only = _qsteady_super_cells(point, record, {})
+    assert plan_only["K_1P_MAX"] == "0.02000" and plan_only["THRUST_PCT_K_GT_0_1"] == "NA"
+    assert _qsteady_super_cells(point, SimpleNamespace(recipe="steady"), {"P": after}) == {}
