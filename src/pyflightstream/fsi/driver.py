@@ -62,9 +62,10 @@ from __future__ import annotations
 
 import logging
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -73,6 +74,7 @@ from pyflightstream.fsi.config import FsiConfig, config_sha256, load_config
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import (
     ElasticAxisLoads,
+    SectionalLoadsReport,
     SectionFamilyMap,
     parse_sectional_loads,
     to_elastic_axis,
@@ -446,28 +448,46 @@ def _refuse_an_unsettled_blade(solved: Sequence[centrifugal.RotatingSolution]) -
     )
 
 
-def _quasi_steady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
-    """One coupling call of a quasi-steady rotor sector (0.30.0).
+@dataclass(frozen=True)
+class _StructuralSolve:
+    """What a steady coupling step's structural solve hands back to the shared step.
 
-    The run is steady: the blade is held still and the free stream turns about
-    the shaft at the rotor's speed, so the solver calls this once per coupling
-    iteration until its own residual stops the loop, and there is no
-    revolution and no phase schedule. The STRUCTURE turns: the call reads the
-    loads of the solve before it and solves each blade of the configuration
-    as a rotating blade at the configured Omega
-    (:func:`pyflightstream.fsi.centrifugal.solve_rotating_static`: the
-    centrifugal tension and its stiffening, the propeller moment and the
-    in-plane centrifugal softening), then writes
-    d_new = d_old + lambda (d_calc - d_old) with lambda the configured
-    ``coupling_relaxation`` on every call. A configuration that does not turn
-    is refused: the route exists to apply the centrifugal loads.
+    Attributes
+    ----------
+    solutions : tuple
+        One structural solution per solved blade or wing.
+    total_normal_force_n : float
+        The summed normal force of the loads the solve read.
+    log : dict
+        The convergence-log fields only the route knows: tip flap and twist,
+        inner solves, the twist residual and its tolerance.
     """
-    if cfg.omega_rad_per_s <= 0.0:
-        raise FsiInputError(
-            f"the run folder marks a quasi-steady rotor ({QUASI_STEADY_ROTOR_FILE}) and the "
-            f"configuration turns at {cfg.omega_rad_per_s} rad/s; the rotating blade's "
-            "structural solve needs the rotor's speed, which the package writes from the row"
-        )
+
+    solutions: tuple[Any, ...]
+    total_normal_force_n: float
+    log: dict[str, object]
+
+
+def _steady_coupling_step(
+    run_dir: Path,
+    cfg: FsiConfig,
+    state: FsiState,
+    *,
+    phase: str,
+    subject: str,
+    label: str,
+    check_time_increment: bool,
+    solve: Callable[[SectionFamilyMap, SectionalLoadsReport], _StructuralSolve],
+) -> StepResult:
+    """One coupling call of a steady route, the structural solve being the variation.
+
+    The fixed wing and the quasi-steady rotor sector share everything but the
+    structure: read the loads of the solve before, refuse stale ones, count the
+    call, hand the family map and the loads to ``solve``, write the relaxed
+    displacement d_new = d_old + lambda (d_calc - d_old), log and persist the
+    state. ``subject`` names what the stale loads would deflect and ``label``
+    the route in the log line.
+    """
     layout = _verified_layout(cfg, run_dir)
     report = parse_sectional_loads((run_dir / LOADS_FILE).read_text(encoding="utf-8"))
     if state.last_solver_iteration is not None and (
@@ -477,7 +497,19 @@ def _quasi_steady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> 
             f"call {state.call_count + 1} received solver iteration "
             f"{report.current_iteration}, not ahead of the previous "
             f"{state.last_solver_iteration}: the loads file was not rewritten by a solve "
-            "since the last call, so the blade would be deflected by loads it already had"
+            f"since the last call, so the {subject} would be deflected by loads it already had"
+        )
+    if (
+        check_time_increment
+        and cfg.time_increment_s is not None
+        and report.time_increment_s is not None
+        and abs(cfg.time_increment_s - report.time_increment_s) > 5.0e-4
+    ):
+        raise FsiInputError(
+            f"the loads export prints a time increment of {report.time_increment_s} s but "
+            f"the configuration declares {cfg.time_increment_s} s; beyond the header's "
+            "three-decimal print precision this is a different run than the configuration "
+            "describes (RPT-006)"
         )
     state.call_count += 1
     state.step_count += 1
@@ -485,30 +517,8 @@ def _quasi_steady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> 
     family_map = SectionFamilyMap.model_validate_json(
         (run_dir / FAMILY_MAP_FILE).read_text(encoding="utf-8")
     )
-    blade_families = [family.name for family in family_map.families if family.is_blade]
-    if len(blade_families) != cfg.blade_count:
-        raise FsiInputError(
-            f"the family map marks {len(blade_families)} blade families "
-            f"({blade_families}) but the configuration expects {cfg.blade_count} "
-            "blades; attribution is single-sourced in the map (RPT-005 finding 6)"
-        )
-    blocks = report.split(family_map)
-    stations = cfg.blade.station_radii_m
-    solved = []
-    total_normal_force = 0.0
-    for name in blade_families:
-        ea_loads = to_elastic_axis(blocks[name], cfg)
-        flap, torsion = _blade_densities(ea_loads, stations)
-        total_normal_force += float(
-            (ea_loads.force_normal_n_per_m * ea_loads.tributary_width_m).sum()
-        )
-        solved.append(
-            centrifugal.solve_rotating_static(
-                cfg, flap_load_n_per_m=list(flap), torsion_moment_n_m_per_m=list(torsion)
-            )
-        )
-    _refuse_an_unsettled_blade(solved)
-    solutions = tuple(result.solution for result in solved)
+    solved = solve(family_map, report)
+    solutions = solved.solutions
     computed = nodes.flatten_blade_translations(
         layout,
         [
@@ -536,35 +546,104 @@ def _quasi_steady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> 
         {
             "call": state.call_count,
             "step": state.step_count,
-            "phase": QUASI_STEADY_ROTOR_PHASE,
+            "phase": phase,
             "revolutions": "",
             "solver_iteration": report.current_iteration,
-            "total_normal_force_n": f"{total_normal_force:.6f}",
-            "tip_flap_m": f"{max(abs(s.flap_deflection_m[-1]) for s in solutions):.6e}",
-            "tip_twist_deg": (
-                f"{max(abs(math.degrees(s.elastic_twist_rad[-1])) for s in solutions):.6e}"
-            ),
-            "inner_solves": max(result.inner_solves for result in solved),
-            "twist_residual_rad": f"{max(r.twist_residual_rad for r in solved):.3e}",
-            "twist_tolerance_rad": f"{solved[0].tolerance_rad:.3e}",
+            "total_normal_force_n": f"{solved.total_normal_force_n:.6f}",
+            **solved.log,
             "relaxation": f"{relaxation:.3f}",
             "config_sha256": config_sha256(cfg),
         },
     )
     write_state_atomic(state, run_dir / STATE_FILE)
     logger.info(
-        "quasi-steady rotor coupling call %d (solver iteration %d) written",
+        "%s coupling call %d (solver iteration %d) written",
+        label,
         state.call_count,
         report.current_iteration,
     )
     return StepResult(
         call=state.call_count,
         step=state.step_count,
-        phase=QUASI_STEADY_ROTOR_PHASE,
+        phase=phase,
         revolutions=None,
         relaxation=relaxation,
         displacements=written,
         solutions=solutions,
+    )
+
+
+def _quasi_steady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
+    """One coupling call of a quasi-steady rotor sector (0.30.0).
+
+    The run is steady: the blade is held still and the free stream turns about
+    the shaft at the rotor's speed, so the solver calls this once per coupling
+    iteration until its own residual stops the loop, and there is no
+    revolution and no phase schedule. The STRUCTURE turns: the call reads the
+    loads of the solve before it and solves each blade of the configuration
+    as a rotating blade at the configured Omega
+    (:func:`pyflightstream.fsi.centrifugal.solve_rotating_static`: the
+    centrifugal tension and its stiffening, the propeller moment and the
+    in-plane centrifugal softening), then writes
+    d_new = d_old + lambda (d_calc - d_old) with lambda the configured
+    ``coupling_relaxation`` on every call. A configuration that does not turn
+    is refused: the route exists to apply the centrifugal loads.
+    """
+    if cfg.omega_rad_per_s <= 0.0:
+        raise FsiInputError(
+            f"the run folder marks a quasi-steady rotor ({QUASI_STEADY_ROTOR_FILE}) and the "
+            f"configuration turns at {cfg.omega_rad_per_s} rad/s; the rotating blade's "
+            "structural solve needs the rotor's speed, which the package writes from the row"
+        )
+
+    def solve(family_map: SectionFamilyMap, report: SectionalLoadsReport) -> _StructuralSolve:
+        blade_families = [family.name for family in family_map.families if family.is_blade]
+        if len(blade_families) != cfg.blade_count:
+            raise FsiInputError(
+                f"the family map marks {len(blade_families)} blade families "
+                f"({blade_families}) but the configuration expects {cfg.blade_count} "
+                "blades; attribution is single-sourced in the map (RPT-005 finding 6)"
+            )
+        blocks = report.split(family_map)
+        stations = cfg.blade.station_radii_m
+        solved = []
+        total_normal_force = 0.0
+        for name in blade_families:
+            ea_loads = to_elastic_axis(blocks[name], cfg)
+            flap, torsion = _blade_densities(ea_loads, stations)
+            total_normal_force += float(
+                (ea_loads.force_normal_n_per_m * ea_loads.tributary_width_m).sum()
+            )
+            solved.append(
+                centrifugal.solve_rotating_static(
+                    cfg, flap_load_n_per_m=list(flap), torsion_moment_n_m_per_m=list(torsion)
+                )
+            )
+        _refuse_an_unsettled_blade(solved)
+        solutions = tuple(result.solution for result in solved)
+        return _StructuralSolve(
+            solutions=solutions,
+            total_normal_force_n=total_normal_force,
+            log={
+                "tip_flap_m": f"{max(abs(s.flap_deflection_m[-1]) for s in solutions):.6e}",
+                "tip_twist_deg": (
+                    f"{max(abs(math.degrees(s.elastic_twist_rad[-1])) for s in solutions):.6e}"
+                ),
+                "inner_solves": max(result.inner_solves for result in solved),
+                "twist_residual_rad": f"{max(r.twist_residual_rad for r in solved):.3e}",
+                "twist_tolerance_rad": f"{solved[0].tolerance_rad:.3e}",
+            },
+        )
+
+    return _steady_coupling_step(
+        run_dir,
+        cfg,
+        state,
+        phase=QUASI_STEADY_ROTOR_PHASE,
+        subject="blade",
+        label="quasi-steady rotor",
+        check_time_increment=False,
+        solve=solve,
     )
 
 
@@ -582,97 +661,43 @@ def _fixed_wing_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResu
     centrifugal is reached. A steady export carries no time increment, and
     an unsteady one's is held to a configured increment as the rotor's is.
     """
-    layout = _verified_layout(cfg, run_dir)
-    report = parse_sectional_loads((run_dir / LOADS_FILE).read_text(encoding="utf-8"))
-    if state.last_solver_iteration is not None and (
-        report.current_iteration <= state.last_solver_iteration
-    ):
-        raise StaleLoadsError(
-            f"call {state.call_count + 1} received solver iteration "
-            f"{report.current_iteration}, not ahead of the previous "
-            f"{state.last_solver_iteration}: the loads file was not rewritten by a solve "
-            "since the last call, so the wing would be deflected by loads it already had"
-        )
-    if (
-        cfg.time_increment_s is not None
-        and report.time_increment_s is not None
-        and abs(cfg.time_increment_s - report.time_increment_s) > 5.0e-4
-    ):
-        raise FsiInputError(
-            f"the loads export prints a time increment of {report.time_increment_s} s but "
-            f"the configuration declares {cfg.time_increment_s} s; beyond the header's "
-            "three-decimal print precision this is a different run than the configuration "
-            "describes (RPT-006)"
-        )
-    state.call_count += 1
-    state.step_count += 1
-    state.last_solver_iteration = report.current_iteration
-    family_map = SectionFamilyMap.model_validate_json(
-        (run_dir / FAMILY_MAP_FILE).read_text(encoding="utf-8")
-    )
-    wings = [family.name for family in family_map.families if family.is_blade]
-    if len(wings) != 1:
-        raise FsiInputError(
-            f"the family map marks {len(wings)} structural families ({wings}); a fixed-wing "
-            "configuration is one cantilever, fed by one section distribution"
-        )
-    ea_loads = to_elastic_axis(report.split(family_map)[wings[0]], cfg)
-    flap, torsion = _blade_densities(ea_loads, cfg.blade.station_radii_m)
-    total_normal_force = float((ea_loads.force_normal_n_per_m * ea_loads.tributary_width_m).sum())
-    solution = wing.solve_wing_static(cfg, flap_load_n_per_m=flap, torsion_moment_n_m_per_m=torsion)
-    computed = nodes.flatten_blade_translations(
-        layout,
-        [
-            kinematics.encode_station_translations(
-                np.asarray(solution.flap_deflection_m),
-                np.asarray(solution.elastic_twist_rad),
-                np.asarray(layout.le_offset_m),
-                np.asarray(layout.te_offset_m),
+
+    def solve(family_map: SectionFamilyMap, report: SectionalLoadsReport) -> _StructuralSolve:
+        wings = [family.name for family in family_map.families if family.is_blade]
+        if len(wings) != 1:
+            raise FsiInputError(
+                f"the family map marks {len(wings)} structural families ({wings}); a "
+                "fixed-wing configuration is one cantilever, fed by one section distribution"
             )
-        ],
-    )
-    previous = (
-        np.asarray(state.previous_displacements, dtype=float)
-        if state.previous_displacements is not None
-        else np.zeros((layout.total_nodes, 3))
-    )
-    relaxation = cfg.phases.coupling_relaxation
-    written = relax_displacements(previous, computed, relaxation)
-    nodes.write_fsidisp(run_dir / DISPLACEMENT_FILE, written)
-    state.previous_displacements = written.tolist()
-    state.previous_twist_rad = [list(solution.elastic_twist_rad)]
-    _append_log(
+        ea_loads = to_elastic_axis(report.split(family_map)[wings[0]], cfg)
+        flap, torsion = _blade_densities(ea_loads, cfg.blade.station_radii_m)
+        total_normal_force = float(
+            (ea_loads.force_normal_n_per_m * ea_loads.tributary_width_m).sum()
+        )
+        solution = wing.solve_wing_static(
+            cfg, flap_load_n_per_m=flap, torsion_moment_n_m_per_m=torsion
+        )
+        return _StructuralSolve(
+            solutions=(solution,),
+            total_normal_force_n=total_normal_force,
+            log={
+                "tip_flap_m": f"{abs(solution.flap_deflection_m[-1]):.6e}",
+                "tip_twist_deg": f"{abs(math.degrees(solution.elastic_twist_rad[-1])):.6e}",
+                "inner_solves": 1,
+                "twist_residual_rad": "",
+                "twist_tolerance_rad": "",
+            },
+        )
+
+    return _steady_coupling_step(
         run_dir,
-        {
-            "call": state.call_count,
-            "step": state.step_count,
-            "phase": FIXED_WING_PHASE,
-            "revolutions": "",
-            "solver_iteration": report.current_iteration,
-            "total_normal_force_n": f"{total_normal_force:.6f}",
-            "tip_flap_m": f"{abs(solution.flap_deflection_m[-1]):.6e}",
-            "tip_twist_deg": f"{abs(math.degrees(solution.elastic_twist_rad[-1])):.6e}",
-            "inner_solves": 1,
-            "twist_residual_rad": "",
-            "twist_tolerance_rad": "",
-            "relaxation": f"{relaxation:.3f}",
-            "config_sha256": config_sha256(cfg),
-        },
-    )
-    write_state_atomic(state, run_dir / STATE_FILE)
-    logger.info(
-        "fixed-wing coupling call %d (solver iteration %d) written",
-        state.call_count,
-        report.current_iteration,
-    )
-    return StepResult(
-        call=state.call_count,
-        step=state.step_count,
+        cfg,
+        state,
         phase=FIXED_WING_PHASE,
-        revolutions=None,
-        relaxation=relaxation,
-        displacements=written,
-        solutions=(solution,),
+        subject="wing",
+        label="fixed-wing",
+        check_time_increment=True,
+        solve=solve,
     )
 
 
