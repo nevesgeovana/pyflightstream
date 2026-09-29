@@ -485,6 +485,29 @@ def test_the_floor_drops_a_harmonic_below_it_and_keeps_one_above_it():
     assert arithmetic.harmonic_order([1.1e-3 * math.cos(40 * p) for p in psi], floor=floor) == 40
 
 
+def test_a_pure_nyquist_signal_is_the_last_harmonic():
+    """cos(pi i) alternates every sample: its only content is the last harmonic, count / 2."""
+    # P0300-QS-VALIDITY-PLAN
+    count = 360
+    signal = [math.cos(math.pi * i) for i in range(count)]
+    assert arithmetic.harmonic_order(signal) == count // 2
+
+
+def test_the_nyquist_amplitude_is_not_doubled_like_the_other_harmonics():
+    """|X_n| / N at Nyquist, not 2 |X_n| / N: a floor between the two tells them apart.
+
+    A pure signal at Nyquist carries amplitude 1.0 by the docstring's Nyquist
+    rule and 2.0 by the ordinary (doubled) one it states for every other
+    harmonic; a floor of 1.5 sits strictly between them, so the documented
+    convention holds no harmonic above it (0) where the ordinary one would
+    still count the last harmonic.
+    """
+    # P0300-QS-VALIDITY-PLAN
+    count = 360
+    signal = [math.cos(math.pi * i) for i in range(count)]
+    assert arithmetic.harmonic_order(signal, floor=1.5) == 0
+
+
 def test_the_sampling_fits_a_quadratic_and_never_reaches_past_the_field():
     """Inside a grid of v = x^2 + y^2 the fit is exact; far outside it is held at the rows' largest.
 

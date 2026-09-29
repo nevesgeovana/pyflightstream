@@ -238,6 +238,20 @@ def test_a_restart_that_is_not_a_new_table_from_one_is_refused():
         parse_residual_solves(fallen)
 
 
+def test_a_restart_to_one_without_a_new_page_is_refused():
+    """Counter 1, 2, 3, 1, 2 with no new Iteration header: one bad table, not two solves."""
+    # P0300-QS-WHEEL
+    lines = ["", "Angle of attack (Deg): 5.000", "", _RULE, _HEADER, _RULE]
+    for iteration in (1, 2, 3, 1, 2):
+        cells = [1.0e-3, 0.8e-3, 1.2e-2, -6.5e-2, 4.2e-4]
+        lines.append(f"{iteration:<19}\t" + "\t".join(_cell(value) for value in cells).rstrip())
+    lines += [_RULE, "Solver run time: .0614167 minutes."]
+    text = "".join(f"{line}\r\n\x00\r\n" for line in lines)
+    match = "goes from 3 to 1 inside one solve, so it does not increase"
+    with pytest.raises(MalformedOutputError, match=match):
+        parse_residual_solves(text)
+
+
 def test_a_wheel_is_judged_clocking_by_clocking_from_its_one_log(tmp_path):
     """Two converged clockings: CONVERGED, the log named, one verdict each, the largest residual.
 
@@ -307,6 +321,18 @@ def test_a_log_short_of_a_clocking_is_refused(tmp_path):
     assessment = LoadsAssessor(log_file="DP_log.txt")(case, None, sim)
     assert assessment.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
     assert "1 solve(s)" in (assessment.error or "") and "2 clockings" in (assessment.error or "")
+
+
+def test_a_log_with_a_clocking_too_many_is_refused(tmp_path):
+    """The record says two clockings and the log holds three solves: nothing is judged from it."""
+    # P0300-QS-WHEEL
+    case, sim = _clocked_wheel(tmp_path, (2.0e-6, 3.0e-6))
+    (sim / "outputs" / "DP_log.txt").write_bytes(
+        _wheel_log((2.0e-6, 3.0e-6, 4.0e-6), (61, 61, 61)).encode("utf-8")
+    )
+    assessment = LoadsAssessor(log_file="DP_log.txt")(case, None, sim)
+    assert assessment.status is RunStatus.FAILED_INCOMPLETE_OUTPUT
+    assert "3 solve(s)" in (assessment.error or "") and "2 clockings" in (assessment.error or "")
 
 
 def test_the_trailing_edge_verdict_reads_the_wheel_s_log(tmp_path):
