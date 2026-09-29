@@ -57,8 +57,10 @@ license: MIT
 # with its date rather than as a list. 0.30.0.dev0 OPENED 0.30.0
 # DEVELOPMENT, the FORTY-FIRST move (a pre-release wheel of this tree is
 # handed to the owner; each later hand-over bumps devN); 0.30.0.dev1 was the
-# FORTY-SECOND and 0.30.0.dev2 the FORTY-THIRD; THIS COMMIT IS THE v0.30.0
-# RELEASE, the FORTY-FOURTH move, and the paragraph is re-stated with it
+# FORTY-SECOND and 0.30.0.dev2 the FORTY-THIRD; the v0.30.0 release was the
+# FORTY-FOURTH move, and the 0.31.0.dev0 bump that should have followed its
+# tag was missed (RELEASE-READY.md says so); THIS COMMIT IS THE v0.31.0
+# RELEASE, the FORTY-FIFTH move, and the paragraph is re-stated with it
 # because a tally naming a bump three releases old as "this" one is the
 # same staleness from the other side (the independent review of GitHub
 # main, 2026-09-22). A FOURTH
@@ -98,7 +100,7 @@ license: MIT
 # v0.17.0 for a day. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
-version: 0.30.0
+version: 0.31.0
 date-released: 2026-09-29
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:

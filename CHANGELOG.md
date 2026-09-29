@@ -7,6 +7,24 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Owed
+
+- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
+  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
+  concept record lists NINETEEN archived versions and v0.14.0 is not among
+  them. The earlier reading of 2026-09-10 said the same and could not be
+  confirmed for four days because the service was answering 504; it is
+  confirmed now, so this is a fact about the archive rather than about its
+  availability.
+  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
+  had what it needs and the archive still has no version for it. Whatever
+  failed, it failed silently, and re-triggering it is the repair.
+  Until that row lands this section says so, because a shipped release that
+  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
+  release by the concept DOI, which resolves to the newest archived version.
+
+## [0.31.0] - 2026-09-29
+
 ### Added
 
 - **The per-revolution product** (P0310-G2-PER-REV). An `unsteady_rotor` point now writes `probes/<point>_per_revolution_<ALIAS>.csv` for each rotor its row turns: one row per COMPLETE revolution, read from the written plots table, with the mean of every plotted column and, from the second revolution on, each column's drift from the previous revolution in per cent (`NA` where that mean is zero). A trailing partial revolution is excluded and said. The pproc may declare `[per_revolution] drift_limit_pct` (positive, default 1); when the last revolution's drift of a force or moment column exceeds it, `post.log` carries a WARNING line naming the point, rotor, column, drift and limit, and nothing is blocked. Defined in `docs/post-processing-definitions.md`.
@@ -222,22 +240,6 @@ FlightStream versions.
   `pyflightstream.workspace.inputs.qsteady_record_rotor_alias` are removed;
   the latter lives on in `pyflightstream.cases.qsteady`, and the record is
   read by `pyflightstream.cases.qsteady.read_qsteady_record` (P0310-A3-RECORD).
-
-### Owed
-
-- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
-  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
-  concept record lists NINETEEN archived versions and v0.14.0 is not among
-  them. The earlier reading of 2026-09-10 said the same and could not be
-  confirmed for four days because the service was answering 504; it is
-  confirmed now, so this is a fact about the archive rather than about its
-  availability.
-  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
-  had what it needs and the archive still has no version for it. Whatever
-  failed, it failed silently, and re-triggering it is the repair.
-  Until that row lands this section says so, because a shipped release that
-  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
-  release by the concept DOI, which resolves to the newest archived version.
 
 ## [0.30.0] - 2026-09-29
 
@@ -13588,7 +13590,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.30.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.31.0...HEAD
+[0.31.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.31.0
 [0.30.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.30.0
 [0.29.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.29.0
 [0.28.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.28.0

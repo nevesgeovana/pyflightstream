@@ -8,7 +8,7 @@ Version-aware Python driver for the FlightStream panel-method solver: write a
 run matrix, and pyflightstream plans, runs and post-processes every point,
 from your workstation or a cluster. MIT licensed.
 
-Status: v0.30.0 is the current release; CHANGELOG.md carries the history.
+Status: v0.31.0 is the current release; CHANGELOG.md carries the history.
 
 **Documentation: [nevesgeovana.github.io/pyflightstream](https://nevesgeovana.github.io/pyflightstream/)**
 
