@@ -14,7 +14,11 @@ one loads export per further clocking. This module reads them and writes:
   the mean over its clockings, the shape of the unsteady time average;
 * the 1P reduced frequency of each station (``K_1P``) in the point's sections
   table, and the point's validity columns (:data:`VALIDITY_COLUMNS`) in all
-  three.
+  three, and in the point's row of the super file;
+* for a WHEEL point, the per-point validity file
+  ``<point>_qsteady_validity.json`` in its datapoint folder, beside the run's
+  record (:func:`write_point_validity_file`), which carries the thrust and
+  torque shares from the stations above k = 0.1.
 
 The loads are the rotor's force in N and its moment about its HUB in N m, in
 the loads frame's axes, and the thrust and torque along its shaft, each by
@@ -52,6 +56,7 @@ from pyflightstream.cases.qsteady import (
     reduced_frequencies,
     reduced_frequency,
     strip_lengths,
+    validity_file_name,
 )
 from pyflightstream.post._tables import _cell, context_row, write_csv_table
 from pyflightstream.results import parse_loads
@@ -173,6 +178,52 @@ def validity_of_the_plan(record: Mapping[str, Any]) -> PointValidity:
             "K_1P_SOURCE": "mesh",
         }
     )
+
+
+def validity_cells(validity: PointValidity) -> dict[str, str]:
+    """Return the point's validity as cells of :data:`VALIDITY_COLUMNS`, ``NA`` where unknown."""
+    return {
+        column: _cell(value) if value is not None else NOT_APPLICABLE
+        for column, value in zip(VALIDITY_COLUMNS, validity.cells(), strict=True)
+    }
+
+
+def write_point_validity_file(
+    loads_path: Path, record: Mapping[str, Any], validity: PointValidity
+) -> Path:
+    """Write a wheel point's validity after the run, beside its loads export (0.30.0).
+
+    ``<point>_qsteady_validity.json`` in the point's datapoint folder, next to
+    the run's own ``<point>_qsteady.json``: the values of
+    :data:`VALIDITY_COLUMNS` (``K_1P_MIN``, ``K_1P_MAX``, ``K_1P_MEAN``, the
+    span above 0.05 and above 0.1, and the SHARES OF THRUST AND TORQUE from
+    the stations above k = 0.1), where they come from (``K_1P_SOURCE``:
+    ``sections`` after the run, ``mesh`` the plan's estimate, whose shares are
+    null), and the plan's record as the run kept it. The run's record is a
+    hashed input of the run and is never rewritten; this file is the post's,
+    rewritten by every post.
+
+    Returns
+    -------
+    Path
+        The file written.
+    """
+    path = loads_path.with_name(Path(validity_file_name(loads_path.name)).name)
+    payload = {
+        "schema_version": 1,
+        "run_type": record.get("run_type"),
+        "case": record.get("case"),
+        "rotor": record.get("rotor"),
+        "rpm": record.get("rpm"),
+        "run_record": Path(record_file_name(loads_path.name)).name,
+        "validity": {
+            column: value for column, value in zip(VALIDITY_COLUMNS, validity.cells(), strict=True)
+        },
+        "plan": record.get("validity"),
+        "written_by": "the post stage; the run record beside it is not rewritten",
+    }
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return path
 
 
 def add_reduced_frequency_to_sections(

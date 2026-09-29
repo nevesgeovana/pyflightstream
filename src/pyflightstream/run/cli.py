@@ -417,6 +417,17 @@ def _build_parser() -> argparse.ArgumentParser:
         "comparable recorded run reads 'unknown' rather than a number with no basis",
     )
     plan.add_argument(
+        "--inflow-fft",
+        action="store_true",
+        help="for every qsteady_rotor WHEEL point in a custom inflow, read the inflow's "
+        "harmonic content as ONE BLADE meets it over a revolution (nP counts how many times "
+        "one blade meets the perturbation per turn, in the blade's frame; not the N P a fixed "
+        "surface or a balance under the whole rotor sees, where only multiples of N P "
+        "survive): per point k_eff = n95 k_1P (min, max, mean, per cent of the span above "
+        "0.1), n_max and the suggested PASSAGE_POSITIONS >= n_max / N + 1, WARNED when the "
+        "row states fewer; the reduced-frequency warning then reads k_eff",
+    )
+    plan.add_argument(
         "--update-ids",
         "--updateIDs",
         dest="update_ids",
@@ -1772,6 +1783,7 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             recipe_registry=workflow_registry(),
             ignore_missing_families=_the_missing_family_choice(args),
             cost=getattr(args, "cost", False),  # FR-82
+            inflow_fft=getattr(args, "inflow_fft", False),  # 0.30.0
             write_plan=args.subcommand != "inspect-setups",
             accept_unregistered_build=args.accept_unregistered_build,
         )

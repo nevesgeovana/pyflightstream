@@ -897,9 +897,17 @@ def _rendered(root, matrix):
     rendered = {}
     original = prun._plan_point
 
-    def hooked(campaign, case, point, ws, recipe, case_error, recorded, *, fs_version):
+    def hooked(campaign, case, point, ws, recipe, case_error, recorded, *, fs_version, **options):
         plan = original(
-            campaign, case, point, ws, recipe, case_error, recorded, fs_version=fs_version
+            campaign,
+            case,
+            point,
+            ws,
+            recipe,
+            case_error,
+            recorded,
+            fs_version=fs_version,
+            **options,
         )
         if plan.status.name in ("READY", "ALREADY_RECORDED") and recipe is not None:
             stem, outputs = prun._point_names(campaign, case, point, ws)

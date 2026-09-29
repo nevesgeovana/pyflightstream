@@ -368,12 +368,24 @@ def _warn_when_a_quasi_steady_point_leaves_its_assumption(
     each point with the four values the plan shows for it. A wheel point whose
     chord is not known at plan time is named in a second warning, with why.
     Called from :func:`plan_matrix` alone.
+
+    WITH ``--inflow-fft`` (0.30.0) a point carrying the harmonic content of its
+    custom inflow is judged by ``k_eff = n95 k_1P`` instead of ``k``, where
+    that is known, and a point whose row states fewer ``PASSAGE_POSITIONS``
+    than ``n_max / N + 1`` is named in a warning of its own. nP is counted on
+    ONE BLADE, not the blade-passing N P of a fixed surface, nor the rotor
+    total, in which only multiples of N P survive.
     """
-    from pyflightstream.cases.qsteady import REDUCED_FREQUENCY_LIMIT, summarise
+    from pyflightstream.cases.qsteady import (
+        REDUCED_FREQUENCY_LIMIT,
+        summarise,
+        summarise_inflow_harmonics,
+    )
 
     cases = {case.sim_id: case for case in resolved.campaign.sims}
     above: list[str] = []
     unknown: list[str] = []
+    too_few: list[str] = []
     for entry in plan.points:
         validity = entry.qsteady_validity
         if not validity:
@@ -383,6 +395,24 @@ def _warn_when_a_quasi_steady_point_leaves_its_assumption(
             name = point_name(case, entry.point) if case is not None else entry.run_id
         except CampaignConfigError:
             name = entry.run_id
+        harmonics = validity.get("inflow_fft")
+        if isinstance(harmonics, Mapping):
+            suggested = harmonics.get("suggested_passage_positions")
+            stated = harmonics.get("passage_positions")
+            if isinstance(suggested, int) and isinstance(stated, int) and stated < suggested:
+                too_few.append(
+                    f"POL {entry.sim_id} point {name}: PASSAGE_POSITIONS {stated}, the inflow "
+                    f"needs {suggested} (n_max {harmonics.get('n_max')} on "
+                    f"{harmonics.get('blades')} blades)"
+                )
+            effective_share = harmonics.get("span_pct_k_eff_gt_0_1")
+            if isinstance(effective_share, int | float):
+                # THE VALIDITY WARNING READS k_eff WHEN IT IS KNOWN.
+                if effective_share > 0.0:
+                    above.append(
+                        f"POL {entry.sim_id} point {name}: {summarise_inflow_harmonics(harmonics)}"
+                    )
+                continue
         if validity.get("note"):
             unknown.append(f"POL {entry.sim_id} point {name}: {validity['note']}")
             continue
@@ -403,6 +433,18 @@ def _warn_when_a_quasi_steady_point_leaves_its_assumption(
         warn(
             f"quasi-steady rotor: the 1P reduced frequency is not known at plan time for "
             f"{'; '.join(unknown)}.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    if too_few:
+        warn(
+            f"quasi-steady rotor: {len(too_few)} wheel point(s) state fewer clockings than "
+            f"their custom inflow's harmonics need: {'; '.join(too_few)}. n_max is the highest "
+            "harmonic one blade meets per revolution holding 95 % of its angle-of-attack "
+            "perturbation (nP counted on the blade, not the N P a fixed surface or a balance "
+            "under the whole rotor sees; only multiples of N P reach the rotor's total), and "
+            "PASSAGE_POSITIONS >= n_max / N + 1 samples them in one blade passage. Nothing is "
+            "refused.",
             PyflightstreamWarning,
             stacklevel=3,
         )
@@ -590,6 +632,7 @@ def plan_matrix(
     ignore_missing_families: bool = True,
     cost: bool = False,
     accept_unregistered_build: bool = False,
+    inflow_fft: bool = False,
 ) -> CampaignPlan:
     """Pre-flight a run matrix without executing anything.
 
@@ -639,6 +682,15 @@ def plan_matrix(
         :func:`pyflightstream.workspace.matrix.resolve_matrix`
         (PFS-2035.13); the command line spells it
         ``--ignore-missing-families``.
+    inflow_fft : bool
+        For every quasi-steady WHEEL point in a custom inflow, read the
+        inflow's harmonic content as ONE BLADE meets it over a revolution
+        (:func:`pyflightstream.cases.workflows.qsteady_inflow_fft`): per
+        station ``n95`` and ``k_eff = n95 k_1P``; per point ``k_eff`` min,
+        max, mean and the per cent of the span above 0.1, ``n_max`` and the
+        suggested ``PASSAGE_POSITIONS >= n_max / N + 1``, WARNED when the row
+        states fewer. With it the reduced-frequency warning reads ``k_eff``.
+        The command line spells it ``--inflow-fft`` (0.30.0).
 
     Returns
     -------
@@ -718,6 +770,7 @@ def plan_matrix(
         setup_inspections=inspections,
         matrix_path=path,
         accept_unregistered_build=accept_unregistered_build,
+        inflow_fft=inflow_fft,
     )
     _warn_when_the_points_may_not_fit(workspace, len(plan.ready))
     _warn_when_a_helical_mach_may_reach_one(resolved, plan)

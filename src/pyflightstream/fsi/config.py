@@ -595,7 +595,7 @@ class FsiConfig(BaseModel):
     def _a_wing_does_not_turn(self) -> "FsiConfig":
         """Refuse a fixed wing that turns or holds a second structure.
 
-        The owner's rule of 2026-09-28: a wing at rest has no centrifugal
+        The rule of 0.30.0: a wing at rest has no centrifugal
         load, it has its weight. A wing configuration stating a speed would
         hand the solve a centrifugal term it must not have, so it is
         refused here, where the configuration is read, and never reaches

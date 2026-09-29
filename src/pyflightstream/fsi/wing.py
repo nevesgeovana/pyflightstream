@@ -12,7 +12,7 @@ clamped at its first station.
 The loads it solves under are the aerodynamic loads the solver exports,
 projected on the section axes (:func:`pyflightstream.fsi.loads.to_elastic_axis`),
 plus the wing's own weight: the running mass under gravity, applied as a
-distributed load (:func:`weight_loads`). The owner's rule of 2026-09-28:
+distributed load (:func:`weight_loads`). The rule of 0.30.0:
 a wing at rest has no centrifugal load, it has its weight. So nothing of
 :mod:`pyflightstream.fsi.centrifugal` is reached from here: no tension, no
 propeller moment, no in-plane softening, and the solve is linear.

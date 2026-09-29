@@ -37,6 +37,7 @@ import math
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePath
+from typing import Any
 
 from pyflightstream.cases import CampaignConfigError
 
@@ -404,26 +405,57 @@ def obj_group_vertices(path: str | Path, *, metres_per_unit: float) -> dict[str,
     }
 
 
+#: How far two rows on one ring may differ, in any of the axial, radial and
+#: swirl velocities, and still be read as the same flow: a fraction of the
+#: field's largest speed. 0.1 per cent: a field extracted from another solution
+#: and interpolated onto rings carries round-off and interpolation noise far
+#: above 1e-6 of its speed (the first writing refused such fields), while a
+#: real azimuthal variation, a crossflow of an angle of attack of a degree or a
+#: wake deficit, is well above it.
+AXISYMMETRY_SPEED_TOLERANCE = 1e-3
+#: How far two rows' distances from the shaft may differ and still be one
+#: ring: a fraction of the field's largest radius (0.1 mm on a 1 m disc), above
+#: the round-off of coordinates written with six significant digits.
+AXISYMMETRY_RADIUS_TOLERANCE = 1e-4
+
+
 def azimuthal_variation(
     rows: Sequence[Sequence[float]],
     *,
     hub: Sequence[float],
     axis: Sequence[float],
-    relative: float = 1e-6,
+    relative: float = AXISYMMETRY_SPEED_TOLERANCE,
+    radius_relative: float = AXISYMMETRY_RADIUS_TOLERANCE,
 ) -> str | None:
     """Say why an inflow field varies with azimuth, or None when it varies with radius alone.
 
     The field's rows are ``x y z vx vy vz`` in one frame. Each row's velocity
     is read in the shaft's cylindrical frame, axial, radial and swirl; rows at
-    the same radius, to ``relative`` of the largest radius, must state the same
-    three components, to ``relative`` of the largest speed. A field in which no
-    two rows share a radius cannot show that it varies with the radius alone
-    and is named too, because a row is refused rather than guessed.
+    the same radius, to ``radius_relative`` of the largest radius, must state
+    the same three components, to ``relative`` of the largest speed. A field
+    in which no two rows share a radius cannot show that it varies with the
+    radius alone and is named too, because a row is refused rather than
+    guessed.
+
+    Parameters
+    ----------
+    rows : sequence of (x, y, z, vx, vy, vz)
+        The field, in metres and metres per second.
+    hub, axis : (x, y, z)
+        A point of the shaft and its direction.
+    relative : float
+        The speed tolerance, a fraction of the field's largest speed; by
+        default :data:`AXISYMMETRY_SPEED_TOLERANCE`, 0.1 per cent. A caller
+        who knows the noise of the field states another.
+    radius_relative : float
+        The ring tolerance, a fraction of the largest radius; by default
+        :data:`AXISYMMETRY_RADIUS_TOLERANCE`.
 
     Returns
     -------
     str or None
-        The reason, naming the two rows' radius and components, or None.
+        The reason, naming the two rows' radius and components and the
+        tolerance, or None.
     """
     n = _unit(axis)
     placed: list[tuple[float, Vector]] = []
@@ -445,7 +477,7 @@ def azimuthal_variation(
             components = (_dot(v, n), _dot(v, e_r), _dot(v, e_t))
         placed.append((r, components))
     largest_radius = max((r for r, _ in placed), default=0.0)
-    radius_tolerance = relative * max(largest_radius, 1e-12)
+    radius_tolerance = radius_relative * max(largest_radius, 1e-12)
     speed_tolerance = relative * max(largest_speed, 1e-12)
     placed.sort(key=lambda entry: entry[0])
     shared = False
@@ -458,7 +490,8 @@ def azimuthal_variation(
                 return (
                     f"two rows at radius {r:.6g} m state axial, radial and swirl velocities "
                     f"({components[0]:.6g}, {components[1]:.6g}, {components[2]:.6g}) and "
-                    f"({other[0]:.6g}, {other[1]:.6g}, {other[2]:.6g}) m/s"
+                    f"({other[0]:.6g}, {other[1]:.6g}, {other[2]:.6g}) m/s, apart by more "
+                    f"than {relative:g} of the field's largest speed ({speed_tolerance:.3g} m/s)"
                 )
     if not shared:
         return (
@@ -496,6 +529,11 @@ POSITION_SUFFIX = "_qs"
 #: The file the run writes beside a quasi-steady point's exports: the case,
 #: the clockings and the validity of the quasi-steady assumption.
 RECORD_SUFFIX = "_qsteady.json"
+#: The file the POST writes beside it for a wheel point (0.30.0): the point's
+#: validity after the run, the shares of thrust and torque from the stations
+#: above k = 0.1 included. A file of its own because the run's record is a
+#: hashed input of the run (its digest is in the run record), never rewritten.
+VALIDITY_FILE_SUFFIX = "_qsteady_validity.json"
 
 
 def position_loads_name(loads: str, index: int) -> str:
@@ -510,6 +548,18 @@ def position_loads_name(loads: str, index: int) -> str:
     return str(path.with_name(f"{path.stem}{POSITION_SUFFIX}{index:02d}{path.suffix}"))
 
 
+def validity_file_name(loads: str) -> str:
+    """Return the post's per-point validity file's name, beside the point's own loads export.
+
+    Examples
+    --------
+    >>> validity_file_name("DP_AL+050.txt")
+    'DP_AL+050_qsteady_validity.json'
+    """
+    path = PurePath(loads)
+    return str(path.with_name(f"{path.stem}{VALIDITY_FILE_SUFFIX}"))
+
+
 def record_file_name(loads: str) -> str:
     """Return the quasi-steady record's name, beside the point's own loads export.
 
@@ -520,3 +570,331 @@ def record_file_name(loads: str) -> str:
     """
     path = PurePath(loads)
     return str(path.with_name(f"{path.stem}{RECORD_SUFFIX}"))
+
+
+# --- the harmonic content of a custom inflow (0.30.0, ``plan --inflow-fft``) ----
+#
+# WHAT nP COUNTS. The harmonic order n of this section is the number of times
+# ONE BLADE meets a perturbation of the inflow in one revolution, read in the
+# blade's own frame as it turns through the field. It is NOT the blade-passing
+# excitation N P a fixed surface beside the rotor feels as the N blades go by,
+# and it is NOT what a balance under the whole rotor measures: summed over N
+# identical blades spaced 360 / N apart, every harmonic of one blade cancels in
+# the rotor's total except the multiples of N (m N P). That is why the count of
+# clockings a wheel needs is read against n_max / N: the clockings sample one
+# blade passage, 360 / N, in which the rotor total repeats.
+
+#: Azimuths per revolution the blade's inflow is read at.
+AZIMUTH_SAMPLES = 360
+#: The share of the variance of the blade's angle-of-attack perturbation that
+#: ``n95`` harmonics hold.
+HARMONIC_VARIANCE_SHARE = 0.95
+#: The smallest harmonic of the blade's angle-of-attack perturbation that is
+#: counted, in degrees of amplitude. A harmonic below it is not counted, and a
+#: perturbation with none above it is a constant (``n95`` 0). Measured on
+#: 2026-09-29 on fields the blade meets as constant (radial profiles of 5 and
+#: 20 % over the span on rings every 0.05 m with 72 per ring, on a 0.05 m
+#: Cartesian grid and on 30 rings, and a uniform field with a relative noise of
+#: 1e-6, at 1200 rev/min and 20 m/s), the sampling leaves at most 8.5e-5 deg, so
+#: 0.001 deg sits twelve times above it; the smallest content that matters sits
+#: well above it: a 1 deg crossflow reaches the blade as 0.03 deg at the tip of
+#: that rotor, a 1 % six-lobed inflow as 0.10 deg, and 0.001 deg moves a
+#: section's lift coefficient by 2 pi 1.7e-5, about 1e-4.
+HARMONIC_AMPLITUDE_FLOOR_DEG = 0.001
+#: How many of the field's rows one sample is fitted to.
+_NEAREST_ROWS = 12
+
+
+def harmonic_order(
+    signal: Sequence[float], *, share: float = HARMONIC_VARIANCE_SHARE, floor: float = 0.0
+) -> int:
+    """Return ``n95``: the smallest n whose harmonics 1 to n hold ``share`` of the variance.
+
+    ``signal`` is one revolution sampled uniformly in azimuth; its mean is
+    removed first. The variance of each harmonic is read off the discrete
+    Fourier transform (Parseval: ``2 |X_n|^2`` for every bin below Nyquist,
+    ``|X_n|^2`` at it, over ``N^2``). A harmonic whose amplitude (``2 |X_n| /
+    N``, ``|X_n| / N`` at Nyquist, in the signal's units) is below ``floor`` is
+    not counted, and the share is of the harmonics that are. A signal with no
+    variation, or none above ``floor``, holds no harmonic and gives 0.
+
+    Examples
+    --------
+    >>> import math
+    >>> psi = [2 * math.pi * i / 360 for i in range(360)]
+    >>> harmonic_order([math.cos(3 * p) for p in psi])
+    3
+    >>> harmonic_order([math.cos(3 * p) + 1e-4 * math.cos(40 * p) for p in psi], floor=1e-3)
+    3
+    >>> harmonic_order([1e-4 * math.cos(40 * p) for p in psi], floor=1e-3)
+    0
+    """
+    import numpy as np
+
+    values = np.asarray(signal, dtype=float)
+    count = len(values)
+    if count < 2:
+        return 0
+    spectrum = np.fft.rfft(values - values.mean())
+    amplitude = 2.0 * np.abs(spectrum[1:]) / count
+    energy = 2.0 * np.abs(spectrum[1:]) ** 2
+    if count % 2 == 0:
+        energy[-1] /= 2.0
+        amplitude[-1] /= 2.0
+    energy[amplitude < floor] = 0.0
+    total = float(energy.sum())
+    if total <= 1e-30 * max(1.0, float(np.abs(values).max()) ** 2 * count**2):
+        return 0
+    cumulative = np.cumsum(energy) / total
+    return int(np.searchsorted(cumulative, share - 1e-12) + 1)
+
+
+def suggested_passage_positions(n_max: int, blades: int) -> int:
+    """Return the fewest clockings holding the rotor total's harmonics: ``n_max / N + 1``, up.
+
+    The rotor total carries only the multiples of N of one blade's
+    harmonics, and the clockings sample one blade passage, so ``k`` clockings
+    resolve the rotor-total harmonics up to about ``(k - 1) N``; the count
+    that reaches ``n_max`` is the smallest whole ``k >= n_max / N + 1``.
+
+    Examples
+    --------
+    >>> suggested_passage_positions(1, 3), suggested_passage_positions(6, 6)
+    (2, 2)
+    >>> suggested_passage_positions(0, 6), suggested_passage_positions(7, 6)
+    (1, 3)
+    """
+    if n_max <= 0:
+        return 1
+    return -(-n_max // blades) + 1
+
+
+def _field_sampler(
+    rows: Sequence[Sequence[float]], *, hub: Sequence[float], axis: Sequence[float]
+) -> tuple[Any, Any, tuple[Any, Any, Any]]:
+    """Return the field's rows as disc-plane coordinates and velocities, and the plane basis."""
+    import numpy as np
+
+    n = np.asarray(_unit(axis))
+    data = np.asarray(rows, dtype=float)
+    relative = data[:, :3] - np.asarray(hub, dtype=float)
+    trial = np.array([0.0, 0.0, 1.0]) if abs(n[2]) < 0.9 else np.array([1.0, 0.0, 0.0])
+    e1 = trial - n * float(trial @ n)
+    e1 /= np.linalg.norm(e1)
+    e2 = np.cross(n, e1)
+    plane = np.column_stack((relative @ e1, relative @ e2))
+    return plane, data[:, 3:6], (n, e1, e2)
+
+
+def _sample_velocities(plane: Any, velocities: Any, points: Any) -> Any:
+    """Return the field's velocity at each of ``points``: a quadratic fitted to its nearest rows.
+
+    At each point a quadratic in the disc-plane offsets is fitted, by least
+    squares weighted by the inverse distance, to the point's
+    :data:`_NEAREST_ROWS` nearest rows, and its value at the point is taken,
+    held within the least and greatest of those rows so it never reaches past
+    the field. A quadratic reproduces a field that varies smoothly between the
+    rows, a radial profile on a Cartesian grid or on rings, to third order in
+    the spacing, where a weighted mean of the rows leaves a ripple at the
+    rows' own spacing that the spectrum would count (on the fields
+    :data:`HARMONIC_AMPLITUDE_FLOOR_DEG` names, up to 1.4e-2 deg of angle of
+    attack against 8.5e-5 deg).
+    """
+    import numpy as np
+
+    nearest = min(_NEAREST_ROWS, len(plane))
+    distance = np.hypot(
+        points[:, None, 0] - plane[None, :, 0], points[:, None, 1] - plane[None, :, 1]
+    )
+    index = np.argpartition(distance, nearest - 1, axis=1)[:, :nearest]
+    near = np.take_along_axis(distance, index, axis=1)
+    offset = plane[index] - points[:, None, :]
+    scale = np.maximum(near.max(axis=1), 1e-12)[:, None]
+    x, y = offset[..., 0] / scale, offset[..., 1] / scale
+    design = np.stack((np.ones_like(x), x, y, x * x, x * y, y * y), axis=-1)
+    weight = (1.0 / np.maximum(near, 1e-12 * scale))[..., None]
+    values = velocities[index]
+    solution = np.linalg.pinv(design * weight) @ (values * weight)
+    return np.clip(solution[:, 0, :], values.min(axis=1), values.max(axis=1))
+
+
+def blade_inflow_harmonics(
+    rows: Sequence[Sequence[float]],
+    *,
+    hub: Sequence[float],
+    axis: Sequence[float],
+    omega_rad_s: float,
+    radii_m: Sequence[float],
+    samples: int = AZIMUTH_SAMPLES,
+) -> tuple[int, ...]:
+    """Return ``n95`` of the angle-of-attack perturbation one blade meets at each radius.
+
+    At each radius the blade is carried once round the disc: at every one of
+    ``samples`` azimuths the field's TOTAL velocity ``v`` there is read (a
+    quadratic fitted to its twelve nearest rows in the disc plane,
+    :func:`_sample_velocities`, an estimate that smooths a feature finer than
+    the field's own spacing), the velocity relative to the turning blade is
+    composed, ``w = v - Omega axis x (p - hub)``, and its inflow angle is
+    taken, ``phi = atan2(w_axial, w_tangential)`` with the tangential
+    component counted against the blade's motion. The perturbation is ``phi``
+    less its mean over the revolution (the angle of attack moves by minus
+    that), and :func:`harmonic_order` counts its harmonics of at least
+    :data:`HARMONIC_AMPLITUDE_FLOOR_DEG`, so a field the blade meets as a
+    constant gives 0. The count is in the BLADE's frame (the section's
+    comment above says what it is not).
+
+    Parameters
+    ----------
+    rows : sequence of (x, y, z, vx, vy, vz)
+        The field, in metres and metres per second, in one frame.
+    hub, axis : (x, y, z)
+        A point of the shaft and its direction, in that frame.
+    omega_rad_s : float
+        The rotor's angular speed, signed by its hand about ``axis``.
+    radii_m : sequence of float
+        The stations.
+    samples : int
+        Azimuths per revolution.
+
+    Returns
+    -------
+    tuple of int
+        ``n95`` per station, in the order given.
+    """
+    import numpy as np
+
+    plane, velocities, (n, e1, e2) = _field_sampler(rows, hub=hub, axis=axis)
+    psi = 2.0 * np.pi * np.arange(samples) / samples
+    sense = 1.0 if omega_rad_s >= 0.0 else -1.0
+    floor = math.radians(HARMONIC_AMPLITUDE_FLOOR_DEG)
+    orders = []
+    for radius in radii_m:
+        points = np.column_stack((radius * np.cos(psi), radius * np.sin(psi)))
+        v = _sample_velocities(plane, velocities, points)
+        e_r = np.outer(np.cos(psi), e1) + np.outer(np.sin(psi), e2)
+        e_t = np.cross(n, e_r)
+        w = v - omega_rad_s * radius * e_t
+        axial = w @ n
+        against = -sense * np.einsum("sc,sc->s", w, e_t)
+        phi = np.arctan2(axial, against)
+        orders.append(harmonic_order(phi.tolist(), floor=floor))
+    return tuple(orders)
+
+
+@dataclass(frozen=True)
+class InflowHarmonics:
+    """The harmonic content of a custom inflow as one blade of a wheel meets it.
+
+    Attributes
+    ----------
+    radii_m, n95 : tuple
+        Per station: its radius and the harmonic order holding 95 per cent of
+        its angle-of-attack perturbation (:func:`blade_inflow_harmonics`).
+    k_1p : tuple of float or None
+        Per station, the 1P reduced frequency, where the chord is known.
+    strips_m : tuple of float
+        The span each station stands for (:func:`strip_lengths`).
+    blades : int
+        ``N``.
+    """
+
+    radii_m: tuple[float, ...]
+    n95: tuple[int, ...]
+    k_1p: tuple[float, ...] | None
+    strips_m: tuple[float, ...]
+    blades: int
+
+    @property
+    def n_max(self) -> int:
+        """The largest relevant harmonic: the highest ``n95`` of any station."""
+        return max(self.n95, default=0)
+
+    @property
+    def k_eff(self) -> tuple[float, ...] | None:
+        """``k_eff = n95 k_1P`` per station, or None where the chord is not known."""
+        if self.k_1p is None:
+            return None
+        return tuple(n * k for n, k in zip(self.n95, self.k_1p, strict=True))
+
+    def record(self, *, declared_positions: int | None) -> dict[str, object]:
+        """Return the JSON-ready record the plan carries under ``inflow_fft``."""
+        suggested = suggested_passage_positions(self.n_max, self.blades)
+        record: dict[str, object] = {
+            "radius_m": list(self.radii_m),
+            "n95": list(self.n95),
+            "n_max": self.n_max,
+            "blades": self.blades,
+            "suggested_passage_positions": suggested,
+            "passage_positions": declared_positions,
+            "sampling": (
+                f"{AZIMUTH_SAMPLES} azimuths per revolution, the field read by a quadratic "
+                f"fitted to its {_NEAREST_ROWS} nearest rows; harmonics below "
+                f"{HARMONIC_AMPLITUDE_FLOOR_DEG} deg of angle of attack not counted"
+            ),
+        }
+        effective = self.k_eff
+        if effective is None:
+            record.update(
+                {
+                    "k_eff_min": None,
+                    "k_eff_max": None,
+                    "k_eff_mean": None,
+                    "span_pct_k_eff_gt_0_1": None,
+                    "k_eff": None,
+                }
+            )
+            return record
+        span = sum(self.strips_m)
+        mean = (
+            sum(k * w for k, w in zip(effective, self.strips_m, strict=True)) / span
+            if span > 0.0
+            else sum(effective) / len(effective)
+        )
+        above = (
+            sum(
+                w
+                for k, w in zip(effective, self.strips_m, strict=True)
+                if k > REDUCED_FREQUENCY_LIMIT
+            )
+            / span
+            if span > 0.0
+            else float(any(k > REDUCED_FREQUENCY_LIMIT for k in effective))
+        )
+        record.update(
+            {
+                "k_eff_min": min(effective),
+                "k_eff_max": max(effective),
+                "k_eff_mean": mean,
+                "span_pct_k_eff_gt_0_1": 100.0 * above,
+                "k_eff": list(effective),
+            }
+        )
+        return record
+
+
+def summarise_inflow_harmonics(record: Mapping[str, object]) -> str:
+    """Return the words the plan prints for one point's ``inflow_fft`` record.
+
+    Examples
+    --------
+    >>> words = summarise_inflow_harmonics({"n_max": 4, "suggested_passage_positions": 2,
+    ...     "passage_positions": 2, "span_pct_k_eff_gt_0_1": 25.0, "k_eff_min": 0.02,
+    ...     "k_eff_max": 0.3, "k_eff_mean": 0.1})
+    >>> for part in words.split("; "):
+    ...     print(part)
+    inflow harmonics (per blade, nP): n_max 4, suggested PASSAGE_POSITIONS >= 2 (stated 2)
+    k_eff > 0.1 over 25.0 % of the span, k_eff min 0.0200, k_eff max 0.3000, k_eff mean 0.1000
+    """
+    head = (
+        f"inflow harmonics (per blade, nP): n_max {record.get('n_max')}, suggested "
+        f"PASSAGE_POSITIONS >= {record.get('suggested_passage_positions')} "
+        f"(stated {record.get('passage_positions')})"
+    )
+    if record.get("k_eff_max") is None:
+        return head + "; k_eff not computed, the chord is not known at plan time"
+    return (
+        f"{head}; k_eff > {REDUCED_FREQUENCY_LIMIT:g} over "
+        f"{_number(record, 'span_pct_k_eff_gt_0_1'):.1f} % of the span, "
+        f"k_eff min {_number(record, 'k_eff_min'):.4f}, k_eff max "
+        f"{_number(record, 'k_eff_max'):.4f}, k_eff mean {_number(record, 'k_eff_mean'):.4f}"
+    )

@@ -4848,6 +4848,28 @@ def _qsteady_sections(
     return {} if validity is None else {point.name: validity}
 
 
+def _qsteady_super_cells(
+    point: PolarPoint,
+    record: RunRecord | None,
+    validity_of: Mapping[str, _qsteady.PointValidity],
+) -> dict[str, str]:
+    """Return a quasi-steady wheel point's validity cells for its super-file row (0.30.0).
+
+    Empty for any other point, and for one whose quasi-steady record cannot be
+    read (the clockings tables name that point under their own key).
+    """
+    if record is None or record.recipe != QSTEADY_ROTOR:
+        return {}
+    try:
+        quasi = _qsteady.read_qsteady_record(point.loads_path)
+    except ProductError:
+        return {}
+    if quasi is None or quasi.get("case") != "wheel":
+        return {}
+    validity = validity_of.get(point.name) or _qsteady.validity_of_the_plan(quasi)
+    return _qsteady.validity_cells(validity)
+
+
 def _qsteady_products(
     sim_id: str,
     points: Sequence[PolarPoint],
@@ -4872,6 +4894,7 @@ def _qsteady_products(
     wheel: dict[str, list[_qsteady.WheelPoint]] = {}
     runs: dict[str, list[str]] = {}
     left_out: dict[str, list[str]] = {}
+    validity_files: dict[str, dict[str, str]] = {}
     for point in points:
         record = record_of.get(point.name)
         if record is None or record.recipe != QSTEADY_ROTOR:
@@ -4887,6 +4910,21 @@ def _qsteady_products(
             )
             continue
         alias = str(quasi["rotor"])
+        validity = validity_of.get(point.name) or _qsteady.validity_of_the_plan(quasi)
+        if quasi.get("case") == "wheel":
+            # 0.30.0: THE WHEEL POINT'S VALIDITY AFTER THE RUN, in its datapoint
+            # folder beside the run's record, the shares of thrust and torque
+            # from the stations above k = 0.1 included (0.30.0).
+            try:
+                written_file = _qsteady.write_point_validity_file(point.loads_path, quasi, validity)
+            except OSError as error:
+                skipped[f"runs/{record.run_id}#qsteady_validity"] = (
+                    f"the per-point validity file of {point.name} could not be written: {error}"
+                )
+            else:
+                validity_files.setdefault(alias, {})[point.name] = Path(
+                    os.path.relpath(written_file, out)
+                ).as_posix()
         own = point.state
         density = (
             own.density_kg_m3
@@ -4912,7 +4950,7 @@ def _qsteady_products(
                 condition=condition_of(point),
                 record=quasi,
                 clockings=clockings,
-                validity=validity_of.get(point.name) or _qsteady.validity_of_the_plan(quasi),
+                validity=validity,
             )
         )
         runs.setdefault(alias, []).append(record.run_id)
@@ -4947,6 +4985,9 @@ def _qsteady_products(
                             if kind == "clockings"
                             else "the mean of the steady clockings of a quasi-steady rotor"
                         ),
+                        # Where each wheel point's validity file sits, relative to
+                        # this products folder (0.30.0).
+                        "validity_files": dict(sorted(validity_files.get(alias, {}).items())),
                     },
                 )
             )
@@ -6018,6 +6059,14 @@ def _sim_products(
                         plots_row=last_step.get(point.name),
                     )
                 )
+            # 0.30.0: A QUASI-STEADY WHEEL POINT'S ROW CARRIES ITS VALIDITY, the
+            # columns its clockings tables carry, after every key the row holds.
+            for point, row in zip(group_points, wide, strict=True):
+                # (Named apart from `cell`, the matrix row's cells bound above.)
+                for validity_column, validity_cell in _qsteady_super_cells(
+                    point, record_of.get(point.name), qsteady_validity_of
+                ).items():
+                    row.setdefault(validity_column, validity_cell)
             drafts.append(
                 SuperfileDraft(
                     path=path,

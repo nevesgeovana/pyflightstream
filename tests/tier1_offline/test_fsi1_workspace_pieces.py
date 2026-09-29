@@ -51,14 +51,18 @@ def test_fixed_wing_workflows_refuse_a_rotor_blade_configuration(tmp_path, make)
     assert ws.fsi_workflow_refusal(make().variables["matrix_workflow"]) is None
 
 
-def test_every_workflow_states_its_fsi_state_and_qsteady_rotor_is_a_hook():
+def test_every_workflow_states_its_fsi_state_and_qsteady_rotor_accepts_it():
     from pyflightstream.cases.workflows import WORKFLOWS
 
     # Every registered workflow is named in the table, so FSI on a new one
     # is a decision there and not an accident of the lookup.
     assert set(WORKFLOWS) <= set(ws.FSI_WORKFLOW_STATE)
     assert ws.fsi_workflow_refusal("unsteady_rotor") == ws.FSI_ROTOR_IN_DEBUG
-    assert "qsteady_rotor" in (ws.fsi_workflow_refusal("qsteady_rotor") or "")
+    # THE REQUIREMENT CHANGED, by the owner (2026-09-29, GOAL-035): FSI on a
+    # qsteady_rotor sector is wired in 0.30.0 ("no qsteady_rotor, o solver
+    # estrutural tem que aplicar as cargas centrifugas"); the table accepts
+    # it and the builder refuses the wheel (test_goal035_qsteady_completion).
+    assert ws.fsi_workflow_refusal("qsteady_rotor") is None
     assert "not one of them" in (ws.fsi_workflow_refusal("my_recipe") or "")
 
 

@@ -20,9 +20,11 @@ so the rotor route and the fixed-wing route wire the same facts once:
   deformation and how a steady coupled run is waited for.
 
 THE ROUTES (0.30.0): :func:`wire_fixed_wing_fsi` couples a fixed wing on
-``steady`` and ``unsteady`` (FSI-G), and :func:`wire_workspace_fsi` the
-rotor's blades on ``unsteady_rotor``, refused in this release; both stage
-and emit through one helper.
+``steady`` and ``unsteady`` (FSI-G), :func:`wire_quasi_steady_sector_fsi`
+the blade of a ``qsteady_rotor`` periodic sector (steady, the blade held
+still, the structure turning at the speed the free stream turns), and
+:func:`wire_workspace_fsi` the rotor's blades on ``unsteady_rotor``, refused
+in this release; all three stage and emit through one helper.
 """
 
 from __future__ import annotations
@@ -37,6 +39,7 @@ from pyflightstream.fsi.config import FsiConfig
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import SectionFamily, SectionFamilyMap
 from pyflightstream.fsi.nodes import NodeOrderingMap, generate_node_layout, render_node_file
+from pyflightstream.fsi.state import QUASI_STEADY_ROTOR_FILE
 from pyflightstream.script import Script
 from pyflightstream.versions import FsVersion
 
@@ -62,25 +65,27 @@ LOADS_FILE = "FS_SurfaceSection_Loads.txt"
 #: blade is applied to the blade at its imported azimuth and replaces the
 #: rotation instead of composing with it; reported to the vendor.
 #:
-#: ``qsteady_rotor``: THE HOOK. The workflow does not exist on this branch;
-#: sector FSI arrives with it. Its entry is here so the day it is registered,
-#: FSI on it is a decision in this table and not an accident of the lookup.
+#: ``qsteady_rotor``: ACCEPTED on a periodic SECTOR, the route of the FSI
+#: study's test 2 (the blade static, the rotation in the free stream, the
+#: structure's centrifugal load at that speed): :func:`wire_quasi_steady_sector_fsi`,
+#: whose structural solve applies the centrifugal loads. The WHEEL stays
+#: refused by its builder: several clockings averaged are not the state of
+#: one structure.
 FSI_ROTOR_IN_DEBUG = (
     "FSI on unsteady_rotor is still in debug on this release (the morph is applied "
     "to the un-rotated blade, reported to the vendor)."
-)
-FSI_ARRIVES_WITH_QSTEADY_ROTOR = (
-    "FSI on qsteady_rotor arrives with the qsteady_rotor workflow and its sector "
-    "structural route; not wired yet."
 )
 FSI_WORKFLOW_STATE: Mapping[str, str | None] = MappingProxyType(
     {
         "unsteady_rotor": FSI_ROTOR_IN_DEBUG,
         "steady": None,
         "unsteady": None,
-        "qsteady_rotor": FSI_ARRIVES_WITH_QSTEADY_ROTOR,
+        "qsteady_rotor": None,
     }
 )
+
+#: The workflow whose FSI is the quasi-steady sector's.
+QUASI_STEADY_WORKFLOW = "qsteady_rotor"
 
 #: The workflows whose FSI is the fixed wing's (FSI-G): nothing turns, the
 #: structure is one clamped wing, and its dynamic load is its own weight.
@@ -101,7 +106,8 @@ def fsi_workflow_refusal(workflow: str) -> str | None:
     str or None
         The refusal's reason, from :data:`FSI_WORKFLOW_STATE`; None when
         the workflow accepts FSI (``steady`` and ``unsteady``, the fixed
-        wing).
+        wing; ``qsteady_rotor``, whose builder accepts it on a sector
+        only).
     """
     if workflow in FSI_WORKFLOW_STATE:
         return FSI_WORKFLOW_STATE[workflow]
@@ -174,7 +180,7 @@ def aeroelastic_surface_ids(
 def structural_node_layout(cfg: FsiConfig) -> NodeOrderingMap:
     """Return the structural node layout, refused when a node is not inside the blade.
 
-    The owner's rule of 2026-09-28: the structural nodes sit inside the
+    The rule of 0.30.0: the structural nodes sit inside the
     component. With the blade's sections in the configuration
     (``BladeProperties.section_contours_m``), the nodes are placed on
     each section's camber line and a node outside its section, or
@@ -494,7 +500,13 @@ def validate_workspace_fsi(
         raise CampaignConfigError(
             "Workspace FSI cannot prove section/frame order with raw commands or custom flags."
         )
-    if str(case.variables.get("SYMMETRY", "NONE")).upper() != "NONE":
+    # A QUASI-STEADY SECTOR IS PERIODIC BY DEFINITION: one blade meshed, the
+    # others its images. Its structure is the meshed blade alone, so the copies
+    # are refused where they would reach the structure, in the sections below.
+    if (
+        workflow != QUASI_STEADY_WORKFLOW
+        and str(case.variables.get("SYMMETRY", "NONE")).upper() != "NONE"
+    ):
         raise CampaignConfigError(
             "Workspace FSI requires all blades explicitly, without symmetry copies."
         )
@@ -607,8 +619,9 @@ def _stage_and_emit(
     frames: Sequence[int],
     interpreter: str,
     steady: bool,
+    extra: Mapping[str, str] | None = None,
 ) -> None:
-    """Stage the structural files and emit the coupling block: one home for both routes.
+    """Stage the structural files and emit the coupling block: one home for every route.
 
     Every identity and ordering check of the calling route precedes this,
     so a refusal leaves the script without an aeroelastic line and without
@@ -630,6 +643,7 @@ def _stage_and_emit(
         CALLBACK_FILE.casefold(),
         LOADS_FILE.casefold(),
         DEFORMED_SURFACE_FILE.casefold(),
+        QUASI_STEADY_ROTOR_FILE.casefold(),
     }
     map_name = cfg.node_map_file
     if (
@@ -650,6 +664,7 @@ def _stage_and_emit(
             "from pyflightstream.fsi.cli import main\n"
             "raise SystemExit(main(['step', '--dir', '.']))\n"
         ),
+        **(extra or {}),
     }
     existing = {name.casefold(): content for name, content in script.pending_input_files.items()}
     for name, content in payloads.items():
@@ -675,11 +690,210 @@ def _stage_and_emit(
     script._pending_input_files.update(payloads)
 
 
+def quasi_steady_fsi_config(case: SimCase, *, rpm: float, quiet: bool = False) -> FsiConfig:
+    """Return the structure of a quasi-steady sector turning at the row's speed.
+
+    On ``qsteady_rotor`` the structural solve applies the centrifugal loads
+    at the speed the free stream turns (0.30.0). So the
+    configuration's ``omega_rad_per_s`` is TAKEN FROM THE ROW, ``|RPM| pi / 30``,
+    the speed its ``SET_FREESTREAM ROTATION`` (or its rotating custom field)
+    states, whatever the FSI input wrote; an input that states another non-zero
+    speed is warned, naming both, and the row's wins. The run stages this
+    configuration as the point's ``config.json``, so an RPM sweep couples each
+    point at its own speed. ``quiet`` leaves the warning to the builder, which
+    says it once at plan and once at run; the run's staging asks it quietly.
+
+    Raises
+    ------
+    CampaignConfigError
+        A row that does not turn: the route exists to apply the centrifugal
+        loads, and a blade at rest is a fixed structure.
+    """
+    cfg = case.fsi
+    if cfg is None:
+        raise CampaignConfigError(f"case {case.sim_id!r} states no FSI input.")
+    omega = abs(float(rpm)) * math.pi / 30.0
+    if omega <= 0.0:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} couples a quasi-steady sector at 0 rev/min. The structural "
+            "solve of this route applies the centrifugal loads at the speed the free stream "
+            "turns, and a sector that does not turn has none; state the rotor's RPM."
+        )
+    stated = cfg.omega_rad_per_s
+    if not quiet and stated > 0.0 and not math.isclose(stated, omega, rel_tol=1e-9):
+        from pyflightstream._errors import PyflightstreamWarning, warn
+
+        warn(
+            f"case {case.sim_id!r}: the FSI input states omega_rad_per_s = {stated} rad/s and "
+            f"the row turns the free stream at {abs(float(rpm))} rev/min ({omega} rad/s). The "
+            "structure of a quasi-steady sector turns at the row's speed, so the row's is used.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    return cfg.model_copy(update={"omega_rad_per_s": omega})
+
+
 #: How far a cut frame's axes may stray from the reference's and still be read
 #: as the reference's, and how far its origin may sit off the wing's origin
 #: along the span (FSI-G). Both are round-off, never a tolerance of geometry.
 _AXES_TOLERANCE = 1.0e-12
 _ORIGIN_TOLERANCE_M = 1.0e-9
+
+
+def _refuse_a_frame_other_than_the_reference(
+    case: SimCase, script: Script, frame: int, *, what: str, origin: Sequence[float]
+) -> None:
+    """Refuse a cut frame whose axes are not the reference's or whose origin is not ``origin``."""
+    placement = script.frame_placements.get(frame)
+    identity = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+    if (
+        placement is None
+        or placement.origin is None
+        or placement.axes is None
+        or any(
+            abs(float(a) - b) > _AXES_TOLERANCE
+            for axis, unit in zip(placement.axes, identity, strict=True)
+            for a, b in zip(axis, unit, strict=True)
+        )
+        or any(
+            abs(float(a) - float(b)) > _ORIGIN_TOLERANCE_M
+            for a, b in zip(placement.origin, origin, strict=True)
+        )
+    ):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: {what} are cut in frame {frame}, which is not known to be "
+            f"placed with the reference axes at {tuple(origin)} m. The scripted import stores "
+            "the structural nodes in the reference frame (FSI-1), so the frame the blade is "
+            "linked to must coincide with it for the nodes and the loads to describe one blade."
+        )
+
+
+def wire_quasi_steady_sector_fsi(
+    case: SimCase,
+    script: Script,
+    *,
+    config: FsiConfig,
+    rotor: RotorBlock,
+    interpreter: str,
+    exports: Callable[[Script], None] | None,
+) -> list[dict[str, object]]:
+    """Stage a quasi-steady sector's rotating blade and emit its coupling (0.30.0).
+
+    THE ROUTE of the FSI study's test 2: the blade is held still, the free
+    stream turns about the shaft at the rotor's speed, and the structure is
+    the ROTATING blade at that speed (``config``, from
+    :func:`quasi_steady_fsi_config`): the structural program solves it with the
+    centrifugal tension and its stiffening, the propeller moment and the
+    in-plane centrifugal softening (the run folder is marked with
+    :data:`~pyflightstream.fsi.state.QUASI_STEADY_ROTOR_FILE`, which routes
+    each call to that solve). The run is steady: at most
+    :data:`STEADY_AEROELASTIC_ITERATIONS` coupling iterations, the row's whole
+    export block in the post-processing script (``exports``), and the builder
+    ends the script with :func:`emit_steady_aeroelastic_analysis`; the runner
+    stops the process after :data:`STEADY_AEROELASTIC_COMPLETION`.
+
+    THE BLADE IS FIXED, so its frame is the one it was meshed in, and no frame
+    patch is needed where that frame is the reference: blade one, at azimuth
+    0 with its datum on Z, on a shaft along X through the origin, is the
+    blade frame of the rotor route (x the shaft, z the span) and the reference
+    frame at once. The structure is that ONE blade (``blade_count = 1``), fed
+    by one section distribution over it, cut on XY (normal to the span) in a
+    frame the run created that coincides with the reference. Anything else is
+    refused rather than converted: the scripted import stores the nodes in the
+    reference frame (FSI-1), so a blade elsewhere would be described twice.
+    The surface list holds the blade's boundary ID
+    (:func:`aeroelastic_surface_ids`), the nodes are placed inside its sections
+    (:func:`structural_node_layout`) and the kernel is the beam line's
+    (:data:`BEAM_LINE_RBF_TYPE`).
+
+    Returns
+    -------
+    list of dict
+        The Tecplot surfaces the post-processing script's exports recorded,
+        for the caller to state in the run's script once its loads frame is
+        placed.
+
+    Raises
+    ------
+    CampaignConfigError
+        A structure of more than one blade, a blade other than blade one at
+        azimuth 0 on Z, a shaft other than X through the origin, or sections
+        that do not identify the blade in the reference frame.
+    """
+    if config.wing is not None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the FSI input states a fixed wing ([config.wing]) and the "
+            "row is a quasi-steady rotor sector, whose structure is a turning blade."
+        )
+    if config.blade_count != 1:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the FSI input of a quasi-steady sector states "
+            f"blade_count = {config.blade_count}; the sector's structure is its one meshed "
+            "blade, blade one, and the others are its periodic images."
+        )
+    if (
+        rotor.axis != "X"
+        or rotor.blade1.zero != "Z"
+        or abs(rotor.blade1.azimuth_deg) > 1e-12
+        or any(abs(value) > _ORIGIN_TOLERANCE_M for value in rotor.origin)
+    ):
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: FSI on a quasi-steady sector couples blade one at azimuth 0 "
+            "with its datum on Z, on a shaft along X through the origin, where the blade frame "
+            "of the rotor route (x the shaft, z the span) is the reference frame the scripted "
+            "import stores the nodes in. Rotor "
+            f"{rotor.alias} turns about {rotor.axis!r} from {rotor.origin} with blade one at "
+            f"{rotor.blade1.azimuth_deg} deg from {rotor.blade1.zero}; mesh the sector there."
+        )
+    blocks = script.section_blocks
+    blade = rotor.families_blades[0] if rotor.families_blades else None
+    if len(blocks) != 1 or blade is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: a quasi-steady sector's blade is fed by exactly one section "
+            f"distribution, over blade one on the XY plane; the pproc emits {len(blocks)}."
+        )
+    block = blocks[0]
+    if block.get("families") != [blade] or block.get("plane") != "XY":
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the sector's section distribution covers "
+            f"{block.get('families')!r} on the {block.get('plane')!r} plane; the structure is "
+            f"blade one ({blade}), cut on XY so each section is normal to its span."
+        )
+    frame = block.get("frame_index")
+    if not isinstance(frame, int) or frame <= 1:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the blade's section distribution is in frame {frame!r}; the "
+            "blade is linked to the frame its sections are cut in, which must be a frame the "
+            "run created (the manual refuses the reference frame there)."
+        )
+    _refuse_a_frame_other_than_the_reference(
+        case, script, frame, what="the blade's sections", origin=(0.0, 0.0, 0.0)
+    )
+    count = block.get("count")
+    if not isinstance(count, int) or count < 1:
+        raise CampaignConfigError("FSI section count is not established.")
+    boundaries = aeroelastic_surface_ids(case, script, [blade], context="FSI blade")
+    family_map = SectionFamilyMap(families=[SectionFamily(name=blade, count=count, is_blade=True)])
+    layout = structural_node_layout(config)
+    post = aeroelastic_post(script.version, exports=exports)
+    _stage_and_emit(
+        case,
+        script,
+        layout=layout,
+        family_map=family_map,
+        post=post.render(),
+        boundaries=boundaries,
+        frames=[frame],
+        interpreter=interpreter,
+        steady=True,
+        extra={
+            QUASI_STEADY_ROTOR_FILE: (
+                "quasi-steady rotor sector: steady coupling of a blade held still, the "
+                f"structure turning at {config.omega_rad_per_s!r} rad/s\n"
+            )
+        },
+    )
+    return [dict(translation) for translation in post.surface_translations]
 
 
 def wire_fixed_wing_fsi(

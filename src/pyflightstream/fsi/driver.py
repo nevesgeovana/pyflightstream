@@ -47,12 +47,22 @@ no revolution and no phase schedule: each call solves the clamped wing
 under its loads and its own weight
 (:func:`pyflightstream.fsi.wing.solve_wing_static`) and writes the
 relaxed displacement, steady or unsteady alike.
+
+A quasi-steady rotor sector (0.30.0, a run folder holding
+:data:`QUASI_STEADY_ROTOR_FILE`) is steady too: its blade is held still
+and the free stream turns, so there is no revolution and no phase
+schedule, but its structure turns at the configured Omega. Each call
+solves the ROTATING blade under the loads of the solve before it
+(:func:`pyflightstream.fsi.centrifugal.solve_rotating_static`: the
+centrifugal tension and its stiffening, the propeller moment and the
+in-plane centrifugal softening) and writes the relaxed displacement.
 """
 
 from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -68,6 +78,7 @@ from pyflightstream.fsi.loads import (
     to_elastic_axis,
 )
 from pyflightstream.fsi.state import (
+    QUASI_STEADY_ROTOR_FILE,
     FsiState,
     LoadSample,
     RecordedTwist,
@@ -93,6 +104,9 @@ FROZEN_FILE = "fsi_frozen_displacements.txt"
 # configuration (REV010-009). A marker rather than a flag, because the
 # executable is invoked bare; see the call site in coupling_step.
 ALLOW_CONFIG_CHANGE_FILE = "fsi_allow_config_change"
+# QUASI_STEADY_ROTOR_FILE (0.30.0) lives in pyflightstream.fsi.state, which
+# is import-light, because the builder that stages it must import without
+# the [fsi] extra; re-exported here because the driver is what reads it.
 
 _LOG_HEADER = (
     "# pyflightstream FSI convergence log (FSI-R09, FSI-R15)\n"
@@ -394,6 +408,164 @@ def _frozen_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
 
 #: The phase a fixed wing's call reports: it has no revolution schedule.
 FIXED_WING_PHASE = "fixed_wing"
+#: The phase a quasi-steady rotor sector's call reports: steady, no schedule.
+QUASI_STEADY_ROTOR_PHASE = "quasi_steady_rotor"
+
+
+def _refuse_an_unsettled_blade(solved: Sequence[centrifugal.RotatingSolution]) -> None:
+    """Refuse to write the deflections of a rotating solve whose inner iteration did not settle.
+
+    PYFS-013. Refused one line above the write, because the write is the
+    irreversible act: once FSIDisp.txt exists the solver reads it and the
+    coupled run flies whatever shape it holds.
+    """
+    unconverged = [index for index, result in enumerate(solved) if not result.converged]
+    if not unconverged:
+        return
+    inner_solves = max(result.inner_solves for result in solved)
+    twist_tolerance = solved[0].tolerance_rad
+    residuals = tuple(result.twist_residual_rad for result in solved)
+    named = ", ".join(
+        f"blade {i} at {residuals[i]:.3e} rad and {solved[i].flap_residual_m:.3e} m "
+        f"of flap (flap tolerance {solved[i].flap_tolerance_m:.1e} m)"
+        for i in unconverged
+    )
+    raise TwistIterationError(
+        f"the inner twist and flap iteration did not converge after {inner_solves} "
+        f"solves ({named}, twist tolerance {twist_tolerance:.1e} rad), so the "
+        "deflections "
+        "describe a blade shape the structural model never settled on. They are "
+        "NOT written: the solver would fly them and the run would continue as "
+        "though they were a solution. The usual cause is a propeller moment "
+        "unusually strong for this blade stiffness; check the torsional "
+        "stiffness distribution and the chordwise mass offsets of the "
+        "configuration.",
+        residuals_rad=residuals,
+        tolerance_rad=twist_tolerance,
+        inner_solves=inner_solves,
+    )
+
+
+def _quasi_steady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
+    """One coupling call of a quasi-steady rotor sector (0.30.0).
+
+    The run is steady: the blade is held still and the free stream turns about
+    the shaft at the rotor's speed, so the solver calls this once per coupling
+    iteration until its own residual stops the loop, and there is no
+    revolution and no phase schedule. The STRUCTURE turns: the call reads the
+    loads of the solve before it and solves each blade of the configuration
+    as a rotating blade at the configured Omega
+    (:func:`pyflightstream.fsi.centrifugal.solve_rotating_static`: the
+    centrifugal tension and its stiffening, the propeller moment and the
+    in-plane centrifugal softening), then writes
+    d_new = d_old + lambda (d_calc - d_old) with lambda the configured
+    ``coupling_relaxation`` on every call. A configuration that does not turn
+    is refused: the route exists to apply the centrifugal loads.
+    """
+    if cfg.omega_rad_per_s <= 0.0:
+        raise FsiInputError(
+            f"the run folder marks a quasi-steady rotor ({QUASI_STEADY_ROTOR_FILE}) and the "
+            f"configuration turns at {cfg.omega_rad_per_s} rad/s; the rotating blade's "
+            "structural solve needs the rotor's speed, which the package writes from the row"
+        )
+    layout = _verified_layout(cfg, run_dir)
+    report = parse_sectional_loads((run_dir / LOADS_FILE).read_text(encoding="utf-8"))
+    if state.last_solver_iteration is not None and (
+        report.current_iteration <= state.last_solver_iteration
+    ):
+        raise StaleLoadsError(
+            f"call {state.call_count + 1} received solver iteration "
+            f"{report.current_iteration}, not ahead of the previous "
+            f"{state.last_solver_iteration}: the loads file was not rewritten by a solve "
+            "since the last call, so the blade would be deflected by loads it already had"
+        )
+    state.call_count += 1
+    state.step_count += 1
+    state.last_solver_iteration = report.current_iteration
+    family_map = SectionFamilyMap.model_validate_json(
+        (run_dir / FAMILY_MAP_FILE).read_text(encoding="utf-8")
+    )
+    blade_families = [family.name for family in family_map.families if family.is_blade]
+    if len(blade_families) != cfg.blade_count:
+        raise FsiInputError(
+            f"the family map marks {len(blade_families)} blade families "
+            f"({blade_families}) but the configuration expects {cfg.blade_count} "
+            "blades; attribution is single-sourced in the map (RPT-005 finding 6)"
+        )
+    blocks = report.split(family_map)
+    stations = cfg.blade.station_radii_m
+    solved = []
+    total_normal_force = 0.0
+    for name in blade_families:
+        ea_loads = to_elastic_axis(blocks[name], cfg)
+        flap, torsion = _blade_densities(ea_loads, stations)
+        total_normal_force += float(
+            (ea_loads.force_normal_n_per_m * ea_loads.tributary_width_m).sum()
+        )
+        solved.append(
+            centrifugal.solve_rotating_static(
+                cfg, flap_load_n_per_m=list(flap), torsion_moment_n_m_per_m=list(torsion)
+            )
+        )
+    _refuse_an_unsettled_blade(solved)
+    solutions = tuple(result.solution for result in solved)
+    computed = nodes.flatten_blade_translations(
+        layout,
+        [
+            kinematics.encode_station_translations(
+                np.asarray(sol.flap_deflection_m),
+                np.asarray(sol.elastic_twist_rad),
+                np.asarray(layout.le_offset_m),
+                np.asarray(layout.te_offset_m),
+            )
+            for sol in solutions
+        ],
+    )
+    previous = (
+        np.asarray(state.previous_displacements, dtype=float)
+        if state.previous_displacements is not None
+        else np.zeros((layout.total_nodes, 3))
+    )
+    relaxation = cfg.phases.coupling_relaxation
+    written = relax_displacements(previous, computed, relaxation)
+    nodes.write_fsidisp(run_dir / DISPLACEMENT_FILE, written)
+    state.previous_displacements = written.tolist()
+    state.previous_twist_rad = [list(sol.elastic_twist_rad) for sol in solutions]
+    _append_log(
+        run_dir,
+        {
+            "call": state.call_count,
+            "step": state.step_count,
+            "phase": QUASI_STEADY_ROTOR_PHASE,
+            "revolutions": "",
+            "solver_iteration": report.current_iteration,
+            "total_normal_force_n": f"{total_normal_force:.6f}",
+            "tip_flap_m": f"{max(abs(s.flap_deflection_m[-1]) for s in solutions):.6e}",
+            "tip_twist_deg": (
+                f"{max(abs(math.degrees(s.elastic_twist_rad[-1])) for s in solutions):.6e}"
+            ),
+            "inner_solves": max(result.inner_solves for result in solved),
+            "twist_residual_rad": f"{max(r.twist_residual_rad for r in solved):.3e}",
+            "twist_tolerance_rad": f"{solved[0].tolerance_rad:.3e}",
+            "relaxation": f"{relaxation:.3f}",
+            "config_sha256": config_sha256(cfg),
+        },
+    )
+    write_state_atomic(state, run_dir / STATE_FILE)
+    logger.info(
+        "quasi-steady rotor coupling call %d (solver iteration %d) written",
+        state.call_count,
+        report.current_iteration,
+    )
+    return StepResult(
+        call=state.call_count,
+        step=state.step_count,
+        phase=QUASI_STEADY_ROTOR_PHASE,
+        revolutions=None,
+        relaxation=relaxation,
+        displacements=written,
+        solutions=solutions,
+    )
 
 
 def _fixed_wing_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
@@ -589,6 +761,8 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         return _frozen_step(run_dir, cfg, state)
     if cfg.wing is not None:
         return _fixed_wing_step(run_dir, cfg, state)
+    if (run_dir / QUASI_STEADY_ROTOR_FILE).is_file():
+        return _quasi_steady_rotor_step(run_dir, cfg, state)
 
     layout = _verified_layout(cfg, run_dir)
     report = parse_sectional_loads((run_dir / LOADS_FILE).read_text(encoding="utf-8"))
@@ -716,35 +890,13 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         twist_residual = max(result.twist_residual_rad for result in solved)
         twist_tolerance = solved[0].tolerance_rad
         # PYFS-013. Refused HERE, one line above the write, because the
-        # write is the irreversible act: once FSIDisp.txt exists the
-        # solver reads it and the coupled run flies whatever shape it
-        # holds. The driver used to take result.solution and never look
-        # at result.twist_residual_rad, so an iterate that was still
-        # moving when the solve budget ran out was applied exactly like
-        # a converged one, and the only trace was a logger.warning that
-        # nobody reads in a batch run.
-        unconverged = [index for index, result in enumerate(solved) if not result.converged]
-        if unconverged:
-            residuals = tuple(result.twist_residual_rad for result in solved)
-            named = ", ".join(
-                f"blade {i} at {residuals[i]:.3e} rad and {solved[i].flap_residual_m:.3e} m "
-                f"of flap (flap tolerance {solved[i].flap_tolerance_m:.1e} m)"
-                for i in unconverged
-            )
-            raise TwistIterationError(
-                f"the inner twist and flap iteration did not converge after {inner_solves} "
-                f"solves ({named}, twist tolerance {twist_tolerance:.1e} rad), so the "
-                "deflections "
-                "describe a blade shape the structural model never settled on. They are "
-                "NOT written: the solver would fly them and the run would continue as "
-                "though they were a solution. The usual cause is a propeller moment "
-                "unusually strong for this blade stiffness; check the torsional "
-                "stiffness distribution and the chordwise mass offsets of the "
-                "configuration.",
-                residuals_rad=residuals,
-                tolerance_rad=twist_tolerance,
-                inner_solves=inner_solves,
-            )
+        # write is the irreversible act. The driver used to take
+        # result.solution and never look at result.twist_residual_rad, so
+        # an iterate that was still moving when the solve budget ran out
+        # was applied exactly like a converged one, and the only trace was
+        # a logger.warning that nobody reads in a batch run. One home for
+        # the refusal, shared with the quasi-steady rotor's steady call.
+        _refuse_an_unsettled_blade(solved)
     nodes.write_fsidisp(run_dir / DISPLACEMENT_FILE, written)
     state.previous_displacements = written.tolist()
 

@@ -24,8 +24,40 @@ FlightStream versions.
   post (2 converges thrust and torque to about 0.2 %, 6 or more the in-plane
   loads, RPT-089). A custom inflow on the wheel is the total velocity at the
   disc, and the package writes a field with the rotation taken out
-  (`pyflightstream.cases.freestream.prepare_rotating_field`). FSI is refused:
-  on a sector until its wiring lands in this release, on a wheel for good.
+  (`pyflightstream.cases.freestream.prepare_rotating_field`). FSI couples on
+  a sector (below) and is refused on a wheel.
+- FSI on a `qsteady_rotor` periodic sector: the steady coupled route of the
+  fixed wing with the ROTATING blade as the structure. Its `omega_rad_per_s`
+  is taken from the row's `RPM` (`cases.workflows.effective_fsi_config`, the
+  configuration the run stages), so the structural solve applies the
+  centrifugal tension and stiffening and the in-plane centrifugal softening
+  at the speed the free stream turns; a run folder marked
+  `fsi_quasi_steady_rotor` routes the structural program to that steady
+  rotating solve. The route couples blade one at azimuth 0 on Z, shaft X
+  through the origin, one XY section distribution in a frame coinciding with
+  the reference, and refuses anything else by name
+  (`cases.fsi_workspace.wire_quasi_steady_sector_fsi`). The wheel stays
+  refused.
+- `pyfs-matrix plan --inflow-fft`: for every quasi-steady wheel point in a
+  custom inflow, the harmonic content of that inflow as ONE BLADE meets it
+  over a revolution: per station `n95` and `k_eff = n95 k_1P`, per point
+  `k_eff` min, max, mean and the per cent of the span above 0.1, `n_max` and
+  the suggested `PASSAGE_POSITIONS >= n_max / N + 1`, warned when the row
+  states fewer; with the option the reduced-frequency warning reads `k_eff`.
+  nP counts how many times one blade meets the perturbation per turn, not
+  the blade-passing N P of a fixed surface nor the rotor total, where only
+  multiples of N P survive (`cases.qsteady.blade_inflow_harmonics`,
+  `cases.workflows.qsteady_inflow_fft`). The field is sampled by a quadratic
+  fitted to its twelve nearest rows, and a harmonic below 0.001 deg of angle
+  of attack is not counted
+  (`cases.qsteady.HARMONIC_AMPLITUDE_FLOOR_DEG`), so a radial profile or a
+  uniform field gives `n95` 0 and one clocking.
+- After the post, each quasi-steady wheel point's
+  `<point>_qsteady_validity.json` in its datapoint folder carries its
+  validity, the thrust and torque shares from the stations above k = 0.1
+  included, and its super-file row carries the validity columns;
+  `products.json` names each file under the clockings tables
+  (`validity_files`). The run's `<point>_qsteady.json` is not rewritten.
 - The 1P reduced frequency `k = Omega c / (2 V_rel)` of a quasi-steady wheel
   (`pyflightstream.cases.qsteady`), the `1P` counted on the blade (one blade
   meets the inflow's non-uniformity once per revolution; not the
@@ -55,6 +87,15 @@ FlightStream versions.
   3.6 % of the quasi-steady wheel, the normal force 11.7 % and `Mz` 8.2 %
   away, and the side force and the yawing moment still of opposite sign, at
   780 to 1458 s a run against 11 to 42 s for the quasi-steady wheel.
+- Quasi-steady rotor, before release (found by an independent reading): a
+  wheel blade named by an alias of the row is present (it was refused); a
+  point with no free-stream speed and no rotation states that its `k` is not
+  defined instead of raising `ZeroDivisionError` at plan; `PASSAGE_POSITIONS`
+  is read as every count of a row (`2.0` was refused); a sector's custom
+  inflow is judged axisymmetric to 0.1 % of its largest speed and 1e-4 of its
+  largest radius (1e-6 refused real extracted fields); the docstrings state
+  that the package REMOVES the rotational velocity of each point from the
+  total inflow, composing the relative free stream the fixed blades see.
 
 - `pyfs-matrix space-in-use`, `free-space`, `delete-sims` and `sync`: the four
   storage commands of 0.30.0 (`pyflightstream.workspace.storage`).

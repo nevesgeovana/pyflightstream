@@ -131,6 +131,7 @@ from pyflightstream.cases import (
     sweep_name,
 )
 from pyflightstream.cases.qsteady import summarise as summarise_validity
+from pyflightstream.cases.qsteady import summarise_inflow_harmonics
 from pyflightstream.cases.workflows import (
     COLD_START_VARIABLE,
     EXPORT_LOG_VARIABLE,
@@ -155,6 +156,7 @@ from pyflightstream.cases.workflows import (
     carries_singularity_strength,
     creates_surface_sections,
     disc_speed_moves_with_the_point,
+    effective_fsi_config,
     parse_restart,
     qsteady_validity,
     read_a_choice,
@@ -4993,6 +4995,9 @@ class CampaignPlan:
         for entry in self.points:
             if entry.qsteady_validity:
                 lines.append(f"  {entry.run_id}: {qsteady_validity_line(entry.qsteady_validity)}")
+                harmonics = entry.qsteady_validity.get("inflow_fft")
+                if isinstance(harmonics, Mapping):
+                    lines.append(f"  {entry.run_id}: {inflow_harmonics_line(harmonics)}")
         return "\n".join(lines)
 
 
@@ -5011,6 +5016,20 @@ def qsteady_validity_line(validity: Mapping[str, object]) -> str:
         )
         return f"quasi-steady validity not computed: {note}{known}"
     return f"quasi-steady validity (1P reduced frequency): {summarise_validity(validity)}"
+
+
+def inflow_harmonics_line(harmonics: Mapping[str, object]) -> str:
+    """Return the words the plan prints for one point's ``--inflow-fft`` record (0.30.0).
+
+    nP is counted on ONE BLADE (how many times it meets the perturbation per
+    revolution), not the blade-passing N P of a fixed surface nor the rotor
+    total (:mod:`pyflightstream.cases.qsteady`).
+    """
+    note = harmonics.get("note")
+    if harmonics.get("n_max") is None:
+        return f"inflow harmonics not computed: {note}"
+    words = summarise_inflow_harmonics(harmonics)
+    return f"{words}; {note}" if note else words
 
 
 def rotor_mach_line(alias: str, mach: Mapping[str, object]) -> str:
@@ -5094,8 +5113,14 @@ def plan_campaign(
     matrix_path: str | Path | None = None,
     accept_unregistered_build: bool = False,
     setup_inspections: Sequence[dict[str, object]] | None = None,
+    inflow_fft: bool = False,
 ) -> CampaignPlan:
     """Pre-flight a campaign: validate every point without executing any.
+
+    ``inflow_fft`` (0.30.0, ``pyfs-matrix plan --inflow-fft``) adds to each
+    quasi-steady wheel point in a custom inflow the harmonic content of that
+    inflow as one blade meets it
+    (:func:`pyflightstream.cases.workflows.qsteady_inflow_fft`).
 
     Per case, in order: allocate the managed simulation folders,
     resolve the recipe, and verify the geometry file exists; per
@@ -5213,6 +5238,7 @@ def plan_campaign(
                     case_error,
                     recorded_here,
                     fs_version=case_version,
+                    inflow_fft=inflow_fft,
                 )
             )
     groups = _build_groups(campaign)
@@ -5288,6 +5314,7 @@ def _plan_point(
     recorded: set[str],
     *,
     fs_version: str,
+    inflow_fft: bool = False,
 ) -> PointPlan:
     """Judge one point in dry run: names, script build, manifest state.
 
@@ -5317,7 +5344,7 @@ def _plan_point(
     base["rotor_mach"] = {mach.alias: mach.record() for mach in rotor_machs(point_case)}
     # 0.30.0: a quasi-steady wheel point states its blade's 1P reduced frequency,
     # READY or not, as the Mach numbers do.
-    base["qsteady_validity"] = qsteady_validity(point_case) or {}
+    base["qsteady_validity"] = qsteady_validity(point_case, inflow_fft=inflow_fft) or {}
     # THE PRE-FLIGHT RESOLVES A CONTINUATION, exactly as the run does, and the
     # reason is that a rehearsal which refuses what the run accepts is not a
     # rehearsal. A row stating RESTART carries no saved file and no step count
@@ -6675,9 +6702,21 @@ def _write_pending_files(
     if case.fsi is not None:
         # FSI files are point-owned inputs and use the existing guarded writer,
         # never the simulation inputs folder which may link to geometry data.
+        # THE CONFIGURATION THE BUILDER WIRED (0.30.0): a quasi-steady sector's
+        # structure turns at the speed its row turns the free stream, so its
+        # omega is the row's and not the input's; the provenance says so.
+        effective = effective_fsi_config(case)
+        assert effective is not None  # case.fsi is not None
+        provenance = dict(case.fsi_provenance)
+        if effective.omega_rad_per_s != case.fsi.omega_rad_per_s:
+            provenance["omega_rad_per_s_from_row"] = {
+                "input": case.fsi.omega_rad_per_s,
+                "staged": effective.omega_rad_per_s,
+                "rule": "qsteady_rotor sector: the structure turns at the row's RPM",
+            }
         payloads = {
-            "config.json": case.fsi.model_dump_json(indent=2) + "\n",
-            "fsi-provenance.json": json.dumps(case.fsi_provenance, indent=2) + "\n",
+            "config.json": effective.model_dump_json(indent=2) + "\n",
+            "fsi-provenance.json": json.dumps(provenance, indent=2) + "\n",
         }
         source_name = case.fsi_provenance.get("source")
         if source_name:
