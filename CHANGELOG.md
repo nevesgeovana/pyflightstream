@@ -405,6 +405,17 @@ FlightStream versions.
   clocking 0 as meshed, and the wheel turns to clocking 1 after them, with
   one more initialisation of the solver.
 
+- **A `qsteady_rotor` point gets its rotor table.** The table reads a
+  rotor's speed from the record's reductions, which a steady run does not
+  plan, so every quasi-steady point, sector and wheel, was left out with "its
+  record states no speed" and no `J`, `CT`, `CQ`, `CP`, `ETA` or `ETAW` was
+  written (L1, reports/RPT-090 and RPT-091). The table now reads the row's
+  speed from the point's quasi-steady record, the speed the free stream
+  turns at. As the definitions page states for every steady product of the
+  run type, the loads are the point's own solve: a sector's export as it
+  stands, never multiplied by the copies, and a wheel's clocking 0, whose
+  mean with the other clockings stays the average table's.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

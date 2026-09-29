@@ -2179,6 +2179,24 @@ def _rotor_tables(
                 # rotor in the reference that speed can only be this rotor's;
                 # with several nothing says whose it is, and the skip stays.
                 rpm = float(flat)
+            # A QUASI-STEADY ROTOR'S SPEED IS IN ITS OWN RECORD (L1 of 0.30.0,
+            # RPT-090 and RPT-091). The run is steady and plans no reductions, so
+            # neither source above states it; the builder wrote the row's speed,
+            # the one the free stream turns at, in the record beside the loads
+            # export, and the table reads it there as an unsteady rotor's reads
+            # its plan's. The loads are the point's own export, as every steady
+            # point's are (docs/post-processing-definitions.md, the quasi-steady
+            # rotor): a sector's one solve, read as it stands, the package never
+            # multiplying by the copies; a wheel's clocking 0, whose mean with
+            # the other clockings is the average table's.
+            if rpm is None and record.recipe == QSTEADY_ROTOR:
+                try:
+                    quasi = _qsteady.read_qsteady_record(point.loads_path)
+                except ProductError as error:
+                    left_out.append((run_id, f"{point.name}: {error}"))
+                    continue
+                if quasi is not None:
+                    rpm = _qsteady.rotor_speed(quasi, str(alias))
             own = getattr(point, "state", None)
             density = (
                 own.density_kg_m3

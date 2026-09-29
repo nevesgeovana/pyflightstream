@@ -17,6 +17,9 @@
    clocking 1, and the solver freezes the cut planes over the blade's extent
    in that pose, so at clocking 0, where the sections are exported, the cuts
    missed the blade's root and left its outer part uncut (RPT-091 F2).
+4. No quasi-steady point got a rotor table: the table reads a rotor's speed
+   from the record's reductions, which a steady run does not plan (RPT-090
+   F3, RPT-091 F3).
 
 Every expected value is worked from the definitions and the fixture, never
 read off the implementation.
@@ -26,6 +29,7 @@ from __future__ import annotations
 
 import json
 import math
+import warnings
 from pathlib import Path
 
 import pytest
@@ -411,3 +415,116 @@ def test_a_clocked_wheel_cuts_its_sections_over_the_blade_s_radial_span(tmp_path
         float(line.split()[3]) for line in lines[:last_start] if line.startswith("ROTATE_SURFACE")
     ) == pytest.approx(0.0)
     assert "EXPORT_ALL_SURFACE_SECTIONS" not in lines[:last_start]
+
+
+# ------------------------------------ 4: the rotor table of a qsteady_rotor point --
+
+#: The reference of polar 6001 of the recorded campaign, now declaring its two
+#: surfaces a rotor, PROP: shaft X through the origin, 2 m.
+_PROP_REFERENCE = """area_m2 = 50.0
+chord_m = 2.526
+span_m = 20.0
+
+[rotors.PROP]
+alias = "PROP"
+x_m = 0.0
+y_m = 0.0
+z_m = 0.0
+axis = "X"
+rpm_sign = 1
+diameter_m = 2.0
+families_blades = ["W", "B"]
+blade1 = { azimuth_deg = 0.0, zero = "Y" }
+"""
+
+
+def _posted_qsteady(tmp_path: Path, case: str) -> tuple[dict, Path]:
+    """Polar 6001 re-recorded as a quasi-steady ``case`` at 1200 rev/min, then posted.
+
+    A wheel of two clockings (0 and 90 deg) whose clocking 1 export carries a
+    W surface Cx 0.01 higher; a sector of one solve.
+    """
+    from tests.tier1_offline.test_post_superfile import _post, _workspace
+
+    workspace = _workspace(tmp_path)
+    (workspace.inputs_dir / "references" / "r001.toml").write_text(
+        _PROP_REFERENCE, encoding="utf-8"
+    )
+    records = workspace.read_manifest()
+    (workspace.root / "runs.json").unlink()
+    for record in records:
+        if record.sim_id == "6001":
+            loads = workspace.sim_dir("6001") / record.outputs[0]
+            positions = [{"index": 0, "clocking_deg": 0.0, "loads": loads.name}]
+            if case == "wheel":
+                clocked = loads.with_name(loads.stem + "_qs01.txt")
+                clocked.write_text(
+                    loads.read_text().replace("W,+0.0193288", "W,+0.0293288"), encoding="utf-8"
+                )
+                positions.append({"index": 1, "clocking_deg": 90.0, "loads": clocked.name})
+            quasi = {
+                "run_type": "qsteady_rotor",
+                "case": case,
+                "rotor": "PROP",
+                "blades": 2,
+                "rpm": 1200.0,
+                "hub_m": [0.0, 0.0, 0.0],
+                "axis_vector": [1.0, 0.0, 0.0],
+                "families_general": [],
+                "families_blades": ["W", "B"],
+                "blade1_azimuth_deg": 0.0,
+                "positions": positions,
+                "validity": None,
+            }
+            loads.with_name(loads.stem + "_qsteady.json").write_text(json.dumps(quasi))
+            record = record.model_copy(update={"recipe": "qsteady_rotor"})
+        workspace.append_record(RunRecord(**record.model_dump()))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        _post(workspace)
+    (manifest,) = workspace.root.rglob("products.json")
+    return json.loads(manifest.read_text(encoding="utf-8")), manifest.parent
+
+
+def _rotor_rows(products: dict, folder: Path) -> list[dict[str, str]]:
+    (name,) = [name for name in products["products"] if name.endswith("PROP_rotor.csv")]
+    head, *rows = (folder / name).read_text(encoding="utf-8").splitlines()
+    return [dict(zip(head.split(","), row.split(","), strict=True)) for row in rows]
+
+
+#: The dynamic pressure of polar 6001's exports and what divides a thrust into
+#: CT: 0.5 * 1.225 * 68.058^2 Pa over 50 m2; rho n^2 D^4 = 1.225 * 20^2 * 2^4.
+_QS = 0.5 * 1.225 * 68.058**2 * 50.0
+_RHO_N2_D4 = 1.225 * 20.0**2 * 2.0**4
+
+
+def test_a_quasi_steady_wheel_gets_its_rotor_table_at_the_row_s_speed(tmp_path):
+    """The speed from the row's record, 1200 rev/min; CT from clocking 0, the point's own solve.
+
+    The definitions page: a quasi-steady point's rotor table is written as any
+    steady point's, the instant of its own solve, on a wheel clocking 0, and the
+    mean over the clockings is the average table's. The thrust is the force
+    along the shaft (+x): W's Cx plus B's, 0.0274326 at clocking 0 (0.0374326
+    at clocking 1), so CT = 0.0274326 q S / (rho n^2 D^4).
+    """
+    # P0300-QS-WHEEL
+    products, folder = _posted_qsteady(tmp_path, "wheel")
+    rows = _rotor_rows(products, folder)
+    assert len(rows) == 2
+    for row in rows:
+        assert float(row["RPM_PROP"]) == pytest.approx(1200.0)
+        assert float(row["DIAMETER_PROP"]) == pytest.approx(2.0)
+        assert float(row["CT_PROP"]) == pytest.approx(0.0274326 * _QS / _RHO_N2_D4, rel=1e-5)
+        # J = V / (n D) at the free stream the export states, 68.058 m/s.
+        assert float(row["J_PROP"]) == pytest.approx(68.058 / (20.0 * 2.0), rel=1e-5)
+
+
+def test_a_quasi_steady_sector_gets_its_rotor_table_from_its_one_solve(tmp_path):
+    """The sector's export read as it stands: the package never multiplies by copies or blades."""
+    # P0300-QS-SECTOR
+    products, folder = _posted_qsteady(tmp_path, "sector")
+    rows = _rotor_rows(products, folder)
+    assert len(rows) == 2
+    for row in rows:
+        assert float(row["RPM_PROP"]) == pytest.approx(1200.0)
+        assert float(row["CT_PROP"]) == pytest.approx(0.0274326 * _QS / _RHO_N2_D4, rel=1e-5)

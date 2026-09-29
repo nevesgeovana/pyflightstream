@@ -126,6 +126,19 @@ def read_qsteady_record(loads_path: Path) -> dict[str, Any] | None:
     return record
 
 
+def rotor_speed(record: Mapping[str, Any], alias: str) -> float | None:
+    """Return the speed, in rev/min and signed, a point's run turned rotor ``alias`` at.
+
+    The row's speed as the builder resolved it and wrote it in the point's
+    quasi-steady record (the free stream turns at it). None where the record
+    is of another rotor or states no number.
+    """
+    stated = record.get("rpm")
+    if str(record.get("rotor")) != str(alias) or isinstance(stated, bool):
+        return None
+    return float(stated) if isinstance(stated, int | float) else None
+
+
 def _omega(record: Mapping[str, Any]) -> float:
     return float(record["rpm"]) * 2.0 * math.pi / 60.0
 
