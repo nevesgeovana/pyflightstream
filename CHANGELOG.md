@@ -7,6 +7,20 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Added (0.31.0)
+
+- `pyfs-workspace field mirror|move|subtract|time-mean` builds a custom
+  free-stream file of `inputs/freestreams/` from other fields: mirrored
+  through the plane x, y or z = 0, moved so a source point lands on a target
+  point, `total - (other - reference)` point by point on one grid (a
+  different grid is refused naming both files), or the time mean of an
+  unsteady run's equally spaced per-step fields. Metres and m/s in the global
+  frame, nothing converted. Each previews by default, writes only with
+  `--apply` (the file and `<stem>.provenance.json`, naming the operation, its
+  parameters and every input with its sha256), and never overwrites without
+  `--overwrite`. The functions are public in the new module
+  `pyflightstream.workspace.fields`. See docs/field-operations.md.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

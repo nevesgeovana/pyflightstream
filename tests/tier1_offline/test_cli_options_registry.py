@@ -48,6 +48,10 @@ SWITCH = "a mode switch of one invocation, with no process-wide meaning"
 OUTPUT = "where this invocation writes; the registry holds the scratch ROOT, the leaf is per call"
 MANUAL = "licensed vendor material or its citation, named explicitly per call (invariant 1)"
 RECORD = "text written into the record of this invocation"
+FIELD_OPERATION = (
+    "a parameter of one field operation, written into the result's provenance record; "
+    "it defines the field written, so it is stated per call and never a machine default"
+)
 
 #: (console script, destination) -> why it is not a registry knob.
 ALLOWLIST: dict[tuple[str, str], str] = {
@@ -76,6 +80,25 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-fsi", "dir"): SUBJECT,
     ("pyfs-workspace", "root"): SUBJECT,
     ("pyfs-workspace", "sim_id"): SUBJECT,
+    # 0.31.0 (G3), `pyfs-workspace field mirror|move|subtract|time-mean`. The
+    # input fields are what the command works on; the plane, the two points,
+    # the reference free stream, the step count and the position tolerance
+    # define the field written and are recorded in its provenance; `--out` is
+    # the stem written; `--apply` and `--overwrite` are the preview/change
+    # switches of `pyfs-matrix`'s storage commands, per call for the same reason.
+    ("pyfs-workspace", "field"): SUBJECT,
+    ("pyfs-workspace", "total"): SUBJECT,
+    ("pyfs-workspace", "other"): SUBJECT,
+    ("pyfs-workspace", "files"): SUBJECT,
+    ("pyfs-workspace", "plane"): FIELD_OPERATION,
+    ("pyfs-workspace", "source_point"): FIELD_OPERATION,
+    ("pyfs-workspace", "target_point"): FIELD_OPERATION,
+    ("pyfs-workspace", "reference"): FIELD_OPERATION,
+    ("pyfs-workspace", "last"): FIELD_OPERATION,
+    ("pyfs-workspace", "tolerance"): FIELD_OPERATION,
+    ("pyfs-workspace", "out"): OUTPUT,
+    ("pyfs-workspace", "apply"): SWITCH,
+    ("pyfs-workspace", "overwrite"): SWITCH,
     ("pyfs-matrix", "matrix"): SUBJECT,
     ("pyfs-matrix", "inputs"): SUBJECT,
     ("pyfs-matrix", "geometry"): SUBJECT,
@@ -393,8 +416,23 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-qa", "timeout"): frozenset({"probe"}),
     ("pyfs-qa", "workroot"): frozenset({"drift", "probe"}),
     ("pyfs-qa", "workspace"): frozenset({"drift", "physics"}),
-    ("pyfs-workspace", "root"): frozenset({"archive", "init", "migrate-geometries"}),
+    ("pyfs-workspace", "root"): frozenset(
+        {"archive", "init", "migrate-geometries", "mirror", "move", "subtract", "time-mean"}
+    ),
     ("pyfs-workspace", "sim_id"): frozenset({"archive"}),
+    ("pyfs-workspace", "field"): frozenset({"mirror", "move"}),
+    ("pyfs-workspace", "total"): frozenset({"subtract"}),
+    ("pyfs-workspace", "other"): frozenset({"subtract"}),
+    ("pyfs-workspace", "files"): frozenset({"time-mean"}),
+    ("pyfs-workspace", "plane"): frozenset({"mirror"}),
+    ("pyfs-workspace", "source_point"): frozenset({"move"}),
+    ("pyfs-workspace", "target_point"): frozenset({"move"}),
+    ("pyfs-workspace", "reference"): frozenset({"subtract"}),
+    ("pyfs-workspace", "last"): frozenset({"time-mean"}),
+    ("pyfs-workspace", "tolerance"): frozenset({"subtract", "time-mean"}),
+    ("pyfs-workspace", "out"): frozenset({"mirror", "move", "subtract", "time-mean"}),
+    ("pyfs-workspace", "apply"): frozenset({"mirror", "move", "subtract", "time-mean"}),
+    ("pyfs-workspace", "overwrite"): frozenset({"mirror", "move", "subtract", "time-mean"}),
 }
 
 

@@ -49,7 +49,8 @@ the last step rather than the first.
 Five command-line
 tools ship with the package: `pyfs-qa`
 (probes, physics regression, drift), `pyfs-workspace` (campaign
-workspace init, archive and migrate-geometries), `pyfs-matrix` (run-matrix upgrade, convert, pre-flight, run, read a mesh's boundary
+workspace init, archive, migrate-geometries, and the field operations
+that build a custom free stream), `pyfs-matrix` (run-matrix upgrade, convert, pre-flight, run, read a mesh's boundary
 inventory, collect a submitted job's outputs when they land, and post-process;
 there is no separate submit command, because `run` on Linux with a cluster
 profile submits rather than running here),
@@ -69,6 +70,8 @@ a person. Both write only with an explicit `--write`.
 * [Setup standards and guidance](setup-standards.md): build-specific complete
   presets, one-setting studies, physical explanations and preservation of edits.
 * [Boundary conditions](boundary-conditions.md): typed setup and mesh-sidecar inputs.
+* [Field operations](field-operations.md): mirror, move, subtract and time-mean
+  fields into a custom free-stream file, previewed before `--apply`.
 * [Sampled fields](sampled-fields.md), [surface translation](surface-translation.md),
   [boundary-layer products](boundary-layer-products.md) and
   [unsteady plots and averages](unsteady-postprocessing.md): source association,

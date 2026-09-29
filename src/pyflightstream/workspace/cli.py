@@ -25,11 +25,22 @@ and provenance record, through :func:`migrate_geometry_layout`
 moved and which folders it left alone, moves nothing on a second run,
 and refuses a root with no ``inputs/geometries`` with exit 2. Nothing
 migrates by itself, and the flat layout is not deprecated.
+
+``pyfs-workspace field mirror|move|subtract|time-mean`` builds a custom
+free-stream file of ``inputs/freestreams/`` out of other fields, through
+:mod:`pyflightstream.workspace.fields` (0.31.0): a field mirrored through a
+coordinate plane, moved so a source point lands on a target point, one
+field subtracted from another on the same grid (with a stated reference
+free stream), or the time mean of an unsteady run's per-step fields. Each
+previews by default and writes only with ``--apply``, the file and its
+``<stem>.provenance.json``, and never overwrites without ``--overwrite``; a
+refusal is printed to stderr with exit 2.
 """
 
 from __future__ import annotations
 
 import argparse
+import glob
 import sys
 
 from pyflightstream._cli import cli_entrypoint
@@ -40,6 +51,7 @@ from pyflightstream.workspace import (
     WorkspaceError,
     migrate_geometry_layout,
 )
+from pyflightstream.workspace import fields as _fields
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -99,7 +111,142 @@ def _build_parser() -> argparse.ArgumentParser:
         default=".",
         help="campaign root carrying inputs/geometries/ (default: the current directory)",
     )
+    _add_field_commands(subparsers)
     return parser
+
+
+def _add_output_options(sub: argparse.ArgumentParser) -> None:
+    """Add the options every field operation shares: where it writes and whether it does."""
+    sub.add_argument(
+        "--out",
+        required=True,
+        metavar="STEM",
+        help="the stem of the file written in inputs/freestreams/ (no extension: the form "
+        "gives it, .txt STRUCTURED, .dat UNSTRUCTURED)",
+    )
+    sub.add_argument(
+        "--root",
+        default=".",
+        help="campaign root whose inputs/freestreams/ receives the field (default: the "
+        "current directory)",
+    )
+    sub.add_argument("--apply", action="store_true", help="write the files (default: preview)")
+    sub.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="replace an existing <stem> file and its provenance record",
+    )
+
+
+def _add_tolerance(sub: argparse.ArgumentParser) -> None:
+    sub.add_argument(
+        "--tolerance",
+        type=float,
+        default=_fields.POSITION_TOLERANCE_M,
+        metavar="M",
+        help="two positions closer than this, in m along each axis, are one point "
+        f"(default: {_fields.POSITION_TOLERANCE_M:g})",
+    )
+
+
+def _add_field_commands(subparsers: argparse._SubParsersAction) -> None:
+    """Add the ``field`` group: four operations that write a custom free-stream file."""
+    field = subparsers.add_parser(
+        "field",
+        help="build a custom free-stream file of inputs/freestreams/ from other fields",
+        description=(
+            "Builds a custom free-stream field (the file a row's FREESTREAM names) from other "
+            "fields: mirror, move, subtract, time-mean. Metres and m/s in the global frame, "
+            "nothing converted. Previews by default; --apply writes inputs/freestreams/"
+            "<stem>.txt or .dat and <stem>.provenance.json (operation, parameters, inputs "
+            "with sha256), and an existing file is replaced only with --overwrite."
+        ),
+    )
+    operations = field.add_subparsers(dest="field_command", required=True)
+
+    mirror = operations.add_parser(
+        "mirror",
+        help="mirror a field through the plane x = 0, y = 0 or z = 0",
+        description=(
+            "Mirrors a field through a coordinate plane: through y = 0 each row x y z vx vy vz "
+            "becomes x -y z vx -vy vz. The row order and a STRUCTURED header are kept."
+        ),
+    )
+    mirror.add_argument("field", help="the field file (.txt STRUCTURED or .dat UNSTRUCTURED)")
+    mirror.add_argument(
+        "--plane",
+        required=True,
+        choices=sorted(_fields.MIRROR_PLANES),
+        help="the coordinate whose sign changes: y mirrors through the plane y = 0",
+    )
+    _add_output_options(mirror)
+
+    move = operations.add_parser(
+        "move",
+        help="translate a field so a source point lands on a target point",
+        description=(
+            "Translates every position by (target - source), so the source point (a hub) "
+            "lands on the target point; the velocities are unchanged."
+        ),
+    )
+    move.add_argument("field", help="the field file (.txt STRUCTURED or .dat UNSTRUCTURED)")
+    for flag, dest, what in (
+        ("--from", "source_point", "the source point"),
+        ("--to", "target_point", "the target point"),
+    ):
+        move.add_argument(
+            flag,
+            dest=dest,
+            nargs=3,
+            type=float,
+            required=True,
+            metavar=("X", "Y", "Z"),
+            help=f"{what} in m, global frame",
+        )
+    _add_output_options(move)
+
+    subtract = operations.add_parser(
+        "subtract",
+        help="total - (other - reference), point by point on one grid",
+        description=(
+            "Subtracts OTHER from TOTAL point by point, matched by position: the result is "
+            "total - (other - reference), with --reference the uniform free stream OTHER was "
+            "solved in, so only the velocity OTHER's body induces is removed (zero when not "
+            "stated). Two grids that are not one point set are refused."
+        ),
+    )
+    subtract.add_argument("total", help="the field subtracted from (its positions are kept)")
+    subtract.add_argument("other", help="the field subtracted, on the same grid")
+    subtract.add_argument(
+        "--reference",
+        nargs=3,
+        type=float,
+        default=None,
+        metavar=("VX", "VY", "VZ"),
+        help="the reference free stream in m/s, global frame (default: 0 0 0)",
+    )
+    _add_tolerance(subtract)
+    _add_output_options(subtract)
+
+    mean = operations.add_parser(
+        "time-mean",
+        help="the time mean of an unsteady run's per-step fields",
+        description=(
+            "Averages the per-step fields of an unsteady run (<point>_field_NN_step_<N>"
+            ".inflow.dat, written by the post from a [[probes]] entry with reusable_inflow) "
+            "into one field. The steps must be equally spaced and hold the same points."
+        ),
+    )
+    mean.add_argument("files", nargs="+", help="the per-step field files, or glob patterns")
+    mean.add_argument(
+        "--last",
+        type=int,
+        default=None,
+        metavar="K",
+        help="average only the last K steps given (default: every step given)",
+    )
+    _add_tolerance(mean)
+    _add_output_options(mean)
 
 
 @cli_entrypoint
@@ -110,6 +257,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_archive(args)
     if args.subcommand == "migrate-geometries":
         return _cmd_migrate_geometries(args)
+    if args.subcommand == "field":
+        return _cmd_field(args)
     return _cmd_init(args)
 
 
@@ -166,6 +315,93 @@ def _cmd_migrate_geometries(args: argparse.Namespace) -> int:
         )
     else:
         print(f"nothing to move under {workspace.inputs_dir / 'geometries'}")
+    return 0
+
+
+def _expand(patterns: list[str]) -> list[str]:
+    """Expand the glob patterns a shell left alone (a Windows console expands none)."""
+    found: list[str] = []
+    for pattern in patterns:
+        if glob.has_magic(pattern):
+            matches = sorted(glob.glob(pattern))
+            if not matches:
+                raise WorkspaceError(f"no file matches {pattern}")
+            found.extend(matches)
+        else:
+            found.append(pattern)
+    return found
+
+
+def _vector(values: list[float]) -> str:
+    return "(" + ", ".join(f"{v:g}" for v in values) + ")"
+
+
+def _cmd_field(args: argparse.Namespace) -> int:
+    """Run one field operation; a preview unless --apply, a refusal to stderr with exit 2."""
+    parameters: dict[str, object]
+    try:
+        if args.field_command == "mirror":
+            result = _fields.mirror_field(_fields.read_field(args.field), args.plane)
+            inputs = [args.field]
+            parameters = {"plane": f"{args.plane} = 0"}
+            what = f"{args.field} mirrored through the plane {args.plane} = 0"
+        elif args.field_command == "move":
+            result = _fields.move_field(
+                _fields.read_field(args.field), args.source_point, args.target_point
+            )
+            inputs = [args.field]
+            parameters = {"from_m": args.source_point, "to_m": args.target_point}
+            what = (
+                f"{args.field} moved from {_vector(args.source_point)} to "
+                f"{_vector(args.target_point)} m"
+            )
+        elif args.field_command == "subtract":
+            reference = args.reference or [0.0, 0.0, 0.0]
+            result = _fields.subtract_fields(
+                _fields.read_field(args.total),
+                _fields.read_field(args.other),
+                reference_m_s=reference,
+                tolerance_m=args.tolerance,
+            )
+            inputs = [args.total, args.other]
+            parameters = {
+                "rule": "total - (other - reference)",
+                "reference_m_s": reference,
+                "tolerance_m": args.tolerance,
+            }
+            what = f"{args.total} - ({args.other} - {_vector(reference)} m/s)"
+        else:
+            steps = _fields.read_step_fields(_expand(args.files), last=args.last)
+            result = _fields.time_mean_fields(steps, tolerance_m=args.tolerance)
+            inputs = [str(each.field.source) for each in steps]
+            parameters = {
+                "steps": [each.step for each in steps],
+                "last": args.last,
+                "tolerance_m": args.tolerance,
+            }
+            what = f"the time mean of {len(steps)} steps, {steps[0].step:g} to {steps[-1].step:g}"
+        written = _fields.write_freestream(
+            args.root,
+            args.out,
+            result,
+            operation=args.field_command,
+            parameters=parameters,
+            inputs=inputs,
+            apply=args.apply,
+            overwrite=args.overwrite,
+        )
+    except (OSError, WorkspaceError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    print(f"field {args.field_command}: {what}")
+    print(f"  {len(result.rows)} points, {result.form}; m and m/s, global frame, not converted")
+    if not written.applied:
+        print(f"preview: would write {written.target} and {written.sidecar.name}")
+        print("nothing written; run again with --apply to write")
+        return 0
+    for path in written.overwritten:
+        print(f"replaced {path}")
+    print(f"wrote {written.target} and {written.sidecar.name}")
     return 0
 
 

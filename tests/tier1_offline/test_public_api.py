@@ -166,6 +166,11 @@ PUBLIC_MODULES = [
     "pyflightstream.workspace.excel_bridge",
     "pyflightstream.workspace.excel_file",
     "pyflightstream.workspace.excel_sync",
+    # 0.31.0 (G3): the field operations behind `pyfs-workspace field` (mirror,
+    # move, subtract, time mean) that build a custom free-stream file. PUBLIC
+    # deliberately: a script composes them on fields it already holds, the
+    # same reason `storage` is public.
+    "pyflightstream.workspace.fields",
     "pyflightstream.workspace.flight_condition",
     "pyflightstream.workspace.fsi_setup",
     "pyflightstream.workspace.inputs",
