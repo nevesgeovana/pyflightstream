@@ -182,7 +182,7 @@ def test_the_plan_refuses_a_blade_whose_nodes_are_not_inside(tmp_path, monkeypat
     case = case.model_copy(update={"fsi": case.fsi.model_copy(update={"blade": thin})})
     with pytest.raises(CampaignConfigError, match="FSI structural nodes: .*row 0 \\(station 0"):
         _lines(case)
-    with pytest.raises(CampaignConfigError):
+    with pytest.raises(CampaignConfigError, match="FSI structural nodes: .*row 0 \\(station 0"):
         ws.structural_node_layout(case.fsi)
     script = Script("26.124")
     assert "AEROELASTIC" not in script.render()

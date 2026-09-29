@@ -471,6 +471,36 @@ def test_a_missing_clocking_export_is_named(tmp_path):
     assert isinstance(said, str) and "DP_qs01.txt" in said
 
 
+def test_a_clocking_with_one_unread_load_leaves_the_average_blank(tmp_path):
+    """One clocking's thrust is unread: the average cell is blank, not the mean of the other one."""
+    # P0300-QS-WHEEL-AVERAGE
+    record, folder = _clocked_point(tmp_path)
+    clockings = post_qsteady.clockings_of(
+        record, folder, reference=REFERENCE, density_kg_m3=1.2, shaft_loads=rotor_shaft_loads
+    )
+    assert not isinstance(clockings, str)
+    columns = post_qsteady.load_columns(record)
+    blade1 = columns.index("THRUST_Blade1")
+    loads = list(clockings[1].loads)
+    loads[blade1] = None
+    clockings[1] = post_qsteady.Clocking(clockings[1].index, clockings[1].azimuth_deg, tuple(loads))
+    point = post_qsteady.WheelPoint(
+        pol="9001",
+        condition={"ALPHA": 5.0},
+        record=record,
+        clockings=clockings,
+        validity=post_qsteady.PointValidity({"K_1P_MAX": 0.25, "K_1P_SOURCE": "mesh"}),
+    )
+    written = post_qsteady.write_qsteady_tables(
+        tmp_path / "pos2.csv", tmp_path / "avg2.csv", [point], reference=REFERENCE
+    )
+    assert written is not None
+    head, *rows = (tmp_path / "avg2.csv").read_text().splitlines()
+    heading = head.split(",")
+    (row,) = [line.split(",") for line in rows]
+    assert row[heading.index("THRUST_Blade1")] == "NA"
+
+
 def test_the_sections_carry_k_per_station_and_the_shares(tmp_path):
     """Three stations of blade one at r 0.25, 0.5, 0.75 m, chord 0.2 m.
 

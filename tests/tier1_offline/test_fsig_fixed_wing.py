@@ -143,8 +143,11 @@ def test_a_wing_configuration_on_the_rotor_workflow_is_refused(tmp_path):
 
     case = coupled_case(tmp_path).model_copy(update={"fsi": wing_config()})
     script = Script("26.124")
-    with pytest.raises(CampaignConfigError):
-        ws.validate_workspace_fsi(case, script, workflow="unsteady_rotor", continuation=False)
+    # unsteady_rotor is refused wholesale (FSI_ROTOR_IN_DEBUG), before the wing
+    # check ever runs; qsteady_rotor is the rotor workflow FSI now couples on
+    # (GOAL-035), so a wing on it is what the wing/workflow check itself refuses.
+    with pytest.raises(CampaignConfigError, match="a fixed wing couples on"):
+        ws.validate_workspace_fsi(case, script, workflow="qsteady_rotor", continuation=False)
 
 
 # --------------------------------------------------------------------------

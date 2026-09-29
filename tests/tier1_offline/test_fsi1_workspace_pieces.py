@@ -154,17 +154,18 @@ def test_the_frame_patch_changes_exactly_that_field(frame):
 
 
 @pytest.mark.parametrize(
-    "saved, count",
+    "saved, count, match",
     [
-        (_saved(), 48),
-        (_saved(node_block=b"C:\\elsewhere"), 3),
-        (_saved(blocks=2), 3),
-        (_saved(blocks=0), 3),
+        (_saved(), 48, "not the node block"),
+        (_saved(node_block=b"C:\\elsewhere"), 3, "not the node block"),
+        (_saved(blocks=2), 3, "2 aeroelastic blocks"),
+        (_saved(blocks=0), 3, "0 aeroelastic blocks"),
     ],
     ids=["other-count", "not-the-node-block", "two-blocks", "no-block"],
 )
-def test_the_frame_patch_refuses_a_line_that_is_not_the_node_block(saved, count):
-    with pytest.raises(CampaignConfigError):
+def test_the_frame_patch_refuses_a_line_that_is_not_the_node_block(saved, count, match):
+    # P0300-FSI1-NODE-FRAME
+    with pytest.raises(CampaignConfigError, match=match):
         ws.patch_structural_node_frame(saved, 5, node_count=count)
 
 
