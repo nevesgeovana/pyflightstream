@@ -58,6 +58,7 @@ def _stamped(folder: Path) -> list[str]:
 
 
 def test_the_preview_deletes_nothing_and_records_the_steps_it_would_delete(tmp_path):
+    # P0300-S7-PREVIEW-APPLY
     workspace = _submitted_workspace(tmp_path)
     before = _stamped(_dp(workspace))
     entry = free_space(workspace.root, _recipe(workspace))
@@ -71,6 +72,7 @@ def test_the_preview_deletes_nothing_and_records_the_steps_it_would_delete(tmp_p
 
 
 def test_apply_keeps_the_last_step_of_each_export_and_records_the_steps_per_point(tmp_path):
+    # P0300-S7-LAST-STEP
     workspace = _submitted_workspace(tmp_path)
     entry = free_space(workspace.root, _recipe(workspace), apply=True)
     assert _stamped(_dp(workspace)) == [f"AL-020{kind}_iteration=5.txt" for kind in sorted(KINDS)]
@@ -92,6 +94,49 @@ def test_each_export_keeps_its_own_last_step(tmp_path):
     (_dp(workspace) / "AL-020_probes_iteration=5.txt").unlink()
     free_space(workspace.root, _recipe(workspace), apply=True)
     assert "AL-020_probes_iteration=4.txt" in _stamped(_dp(workspace))
+
+
+def _three_sims(tmp_path):
+    """7001 and 7002 CONVERGED, 7003 FAILED_EXECUTION, each with the same stamped steps."""
+    import shutil
+
+    workspace = _submitted_workspace(tmp_path)
+    raw = workspace.read_raw_manifest()
+    for sim, status in (("7002", RunStatus.CONVERGED), ("7003", RunStatus.FAILED_EXECUTION)):
+        shutil.copytree(workspace.sim_dir("7001"), workspace.sim_dir(sim))
+        row = dict(raw[0], run_id=f"camp/sim_{sim}/AL-020", sim_id=sim, status=status.value)
+        raw.append(row)
+    workspace._replace_manifest(raw)
+    return workspace
+
+
+def _pruned_sims(workspace) -> list[str]:
+    return [
+        sim
+        for sim in ("7001", "7002", "7003")
+        if len(_stamped(workspace.sim_dir(sim) / "datapoints" / "DP-AL-020")) == 3
+    ]
+
+
+@pytest.mark.parametrize(
+    ("selection", "pruned"),
+    [
+        ('sims = ["7002"]', ["7002"]),
+        ('sims = "all"\nstatus = ["CONVERGED"]', ["7001", "7002"]),
+        ('sims = ["7001", "7003"]\nstatus = ["CONVERGED"]', ["7001"]),
+    ],
+)
+def test_the_named_sims_and_the_status_filter_limit_what_is_pruned(tmp_path, selection, pruned):
+    # P0300-S7-LAST-STEP: the selection of a [[prune_step_exports]] table is
+    # honoured; a simulation it does not select keeps every step.
+    workspace = _three_sims(tmp_path)
+    text = f"[[{PRUNE_MODE}]]\n{selection}\n"
+    entry = free_space(workspace.root, _recipe(workspace, text), apply=True)
+    assert _pruned_sims(workspace) == pruned
+    for sim in {"7001", "7002", "7003"}.difference(pruned):
+        assert len(_stamped(workspace.sim_dir(sim) / "datapoints" / "DP-AL-020")) == 9, sim
+    folders = [point["folder"] for point in entry["steps"][0]["points"]]
+    assert folders == [f"sims/sim_{sim}/datapoints/DP-AL-020" for sim in pruned]
 
 
 def test_a_submitted_simulation_is_refused_and_keeps_every_step(tmp_path):
@@ -152,6 +197,7 @@ def test_the_cli_prints_the_pruned_steps_of_each_point(tmp_path, capsys):
 
 
 def test_a_post_after_pruning_refuses_the_series_by_step_and_keeps_the_one_made_before(tmp_path):
+    # P0300-S7-REFUSE-DELETED
     workspace = _submitted_workspace(tmp_path)
     write_campaign_products(workspace)
     table = workspace.root / "post" / "products" / "series" / "AL-020_loads_series.csv"

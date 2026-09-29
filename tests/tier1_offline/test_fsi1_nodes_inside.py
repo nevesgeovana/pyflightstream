@@ -87,6 +87,7 @@ def test_nodes_sit_on_the_camber_line_at_their_chord_fractions():
 
 
 def test_every_generated_node_clears_its_skin():
+    # P0300-FSI1-NODES-INSIDE
     blade = _blade()
     layout = nodes.generate_node_layout(_config(blade))
     report = nodes.node_clearances(layout, blade.section_contours_m)
@@ -163,6 +164,7 @@ def test_an_offset_layout_outside_its_section_is_refused_naming_the_node():
 
 
 def test_the_plan_refuses_a_blade_whose_nodes_are_not_inside(tmp_path, monkeypatch):
+    # P0300-FSI1-NODES-INSIDE
     from tests.tier1_offline.test_aeroelastic_typed_setup import coupled_case
     from tests.tier1_offline.test_g06_actuator_disc import _lines
 
