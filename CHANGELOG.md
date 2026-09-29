@@ -7,93 +7,9 @@ FlightStream versions.
 
 ## [Unreleased]
 
-### Changed
-
-- **The AZIMUTH of blade blocks 2 to N of an unsteady rotor changes.** The
-  sections table and the sections series of an `unsteady_rotor` point stated
-  blade one's azimuth on every block, whichever blade the block cut. A block
-  that cuts the families of one blade now states THAT blade's azimuth, blade
-  `n` of `N` at blade one's plus `(n - 1) 360 / N` through
-  `pyflightstream.post.axes.placed_blade_azimuth_deg` (the ahead-of-blade-one
-  placement the wheel and the per-blade table use, whatever the sense of
-  rotation); a block over several blades or the general families keeps blade
-  one's. Blade one's rows are unchanged, and the per-station harmonic product
-  reads the stated azimuth as it is (P0310-H2-BLADE-AZIMUTH).
-- **The input template names the pproc's `[per_revolution]` and
-  `[qsteady_correction]` tables** among what its example leaves out, and has a
-  section, with an example, for the new calibration file. `[per_revolution]`
-  had reached the pproc with no line in the template.
-
-- **The repeated-POL census reads the matrices `sync` reads.** `pyfs-matrix plan`
-  compared POLs across `<root>/*.fs` only, while `sync` and storage also read
-  `<root>/inputs/matrices/*.fs`, so a POL repeated between the two folders shared
-  one simulation folder unseen. One function, `pyflightstream.workspace.matrix_files`,
-  now lists them for the census, storage and sync, and a matrix planned from any
-  other folder plans with a warning naming it and saying sync and the census do
-  not see it (P0310-POL-CENSUS).
-- **The docs site navigation is grouped by stage.** The menu of
-  `properdocs.yml` was one flat list of 33 entries; it is now Start here,
-  Workspace, 1 Geometry to 6 Post, FSI, Examples, Versions (holding the
-  Reference group) and Project, as approved on 2026-09-28. Only the menu
-  changed: no page moved or was renamed, and each is reachable exactly once.
-
-- **The quasi-steady record has one type, one reader and one refusal.**
-  `<point>_qsteady.json` is read as a `QsteadyRecord` by
-  `pyflightstream.cases.qsteady.read_qsteady_record`, which raises
-  `QsteadyRecordError` (in `pyflightstream.exceptions`) for a record that is
-  missing, unreadable or of another schema. The file the builder writes is
-  byte for byte what 0.30.0 wrote. The run no longer ignores an unreadable
-  record in silence: it judges the point's log as one solve, as before, and
-  records a warning on the point. The post names each product such a point
-  loses in `products.json` and `post.log`; a missing record, which the
-  sections table passed over in silence and the rotor table reported as a
-  speed not stated, is now named as what it is.
-  `pyflightstream.post.qsteady.read_qsteady_record` and
-  `pyflightstream.workspace.inputs.qsteady_record_rotor_alias` are removed;
-  the latter lives on in `pyflightstream.cases.qsteady`.
-- **The rotor table of a quasi-steady wheel is the mean of its clockings.**
-  A `qsteady_rotor` wheel point's row of `polars/P<sim>-<ALIAS>_rotor.csv`
-  was clocking 0's solve alone; it is now taken from the rotor's force and
-  moment averaged over the point's k clockings, each clocking's own loads
-  export, and `CT`, `CQ`, `CP`, `ETA`, `ETAW`, `CN`, `CS`, `CMN` and `CMS` are
-  computed from those mean loads (never a mean of per-clocking `ETA`). The
-  table's `products.json` entry states `"source": "mean of k clockings"` and
-  `"clockings": k`. A wheel point whose clocking export is missing is not a
-  row and is named in `skipped`. A sector's row is unchanged. The rotor
-  numbers a 0.30.0 post wrote for a wheel remain a valid record of clocking 0.
-- **A wheel's thrust and torque shares are taken along the rotor's axis.**
-  `THRUST_PCT_K_GT_0_1` and `TORQUE_PCT_K_GT_0_1` read the sectional loads
-  export's `Fx` as the thrust and `Fz |Offset|` as the torque in the export's
-  own axes, which holds only in a frame whose x is the shaft. Each station's
-  force is now projected on the record's `axis_vector` stated in the frame the
-  distribution was cut in (the run's sections layout names it), and the torque
-  is the moment of its in-plane component about the axis
-  (`pyflightstream.post.axes.section_station_shaft_loads`). A share reads `NA`,
-  with a WARNING line in `post.log`, where the frame's axes or the plane are
-  not known to the post, where the total is zero, or where stations of
-  opposite sign put it outside 0 to 100 per cent.
-- **The clockings table of a left-hand wheel states blade one's azimuth in
-  the sense it turns.** The `AZIMUTH` of `_qs_positions.csv` was the datum
-  plus the clocking angle unsigned, while the sections of the same wheel
-  follow `pyflightstream.post.axes.clocked_blade_azimuth_deg`
-  (`datum + sign(rpm) * theta_i`). The clockings table now reads the same
-  rule, so the `_qs_positions` `AZIMUTH` of a left-hand wheel (`rpm_sign`
-  -1) changes: clocking `i` states `datum - theta_i`, as its sections do. A
-  right-hand wheel's is unchanged.
-### Changed (0.31.0)
-
-- A `qsteady_rotor` row that states `ADVANCE_RATIO` resolves J, and so the rotor
-  speed n = V / (J D), against the rotor block's own `diameter_m`, as an
-  `unsteady_rotor` row does, instead of the reference's top-level
-  `rotor_diameter_m`.
-- The fixed-wing and quasi-steady-rotor FSI steps of `fsi/driver.py` share one
-  step body with the structural solve as the variation point; behaviour is
-  unchanged.
-### 0.31.0
+### Added
 
 - **The per-revolution product** (P0310-G2-PER-REV). An `unsteady_rotor` point now writes `probes/<point>_per_revolution_<ALIAS>.csv` for each rotor its row turns: one row per COMPLETE revolution, read from the written plots table, with the mean of every plotted column and, from the second revolution on, each column's drift from the previous revolution in per cent (`NA` where that mean is zero). A trailing partial revolution is excluded and said. The pproc may declare `[per_revolution] drift_limit_pct` (positive, default 1); when the last revolution's drift of a force or moment column exceeds it, `post.log` carries a WARNING line naming the point, rotor, column, drift and limit, and nothing is blocked. Defined in `docs/post-processing-definitions.md`.
-### Added (0.31.0)
-
 - **The per-station harmonic product** (P0310-HARMONICS). A rotor point now
   writes `sections/<point>_harmonics.csv`: per rotor, blade station (radius
   and r/R) and sectional load quantity (`Fx`, `Fz`, `Moment`), the
@@ -104,7 +20,10 @@ FlightStream versions.
   the sections series. `PHI` is in degrees in [0, 360), the kP term peaking
   where `k psi = PHI`. A harmonic whose station has fewer distinct azimuths
   than it needs (1P 3, 2P 5) is `NA`, said once in `post.log`; a station
-  that does not match across samples is a named skip. Registered in
+  that does not match across samples is a named skip, and so is an
+  `unsteady_rotor` point with no sections series, no export window or no
+  rotor its record states (under `sections/<point>_harmonics.csv`, with a
+  WARNING line in `post.log`). Registered in
   `products.json` (`kind` `harmonics`); defined in
   `docs/post-processing-definitions.md`. New public module
   `pyflightstream.post.harmonics` and
@@ -120,59 +39,6 @@ FlightStream versions.
   parameters and every input with its sha256), and never overwrites without
   `--overwrite`. The functions are public in the new module
   `pyflightstream.workspace.fields`. See docs/field-operations.md.
-### Changed
-
-- **A clocked quasi-steady wheel exports its sections at every clocking.** A
-  `qsteady_rotor` wheel of `PASSAGE_POSITIONS` 2 or more exported its
-  sections, sectional loads and section Cp at clocking 0 alone. Each clocking
-  now deletes the previous clocking's distributions, turns the wheel,
-  initialises, creates them again in frames turned with the wheel to that
-  clocking and held there, updates them and exports them as
-  `<point>_qs<i>_cp.txt`, `<point>_qs<i>_sloads.txt` and
-  `<point>_qs<i>_plot_cp_sections.txt`, the ones the row declares. Every
-  clocking is cut at the same stations over the blade's span, and the point's
-  quasi-steady record names each clocking's files (`section_exports`).
-- **A wheel's `LOCAL_AXIS` distributions are cut.** A wheel whose pproc cuts
-  its sections in `LOCAL_AXIS` places one frame per blade, `<ALIAS>_RMRP<k>`,
-  at the blade's azimuth; such a distribution was left out with a warning
-  before, because a steady run placed no blade frame.
-- **A wheel point's sections table holds every clocking.**
-  `sections/<point>_sections.csv` and each distribution's sectional loads and
-  Cp file gain a `CLOCKING` column and one block of rows per clocking, and
-  `AZIMUTH` states where each block's blade is at that clocking,
-  `(blade1.azimuth_deg + (n - 1) * 360 / N + sense * theta_i) mod 360`. A
-  clocking not cut at clocking 0's stations is warned in `post.log`, and one
-  whose export is missing is named in `products.json`. The validity summary
-  stays clocking 0's.
-- **`post.axes.clocked_blade_azimuth_deg`**, where blade `n` of a wheel of `N`
-  blades solved at `k` clockings is at clocking `i`, is public.
-
-### Owed
-
-- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
-  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
-  concept record lists NINETEEN archived versions and v0.14.0 is not among
-  them. The earlier reading of 2026-09-10 said the same and could not be
-  confirmed for four days because the service was answering 504; it is
-  confirmed now, so this is a fact about the archive rather than about its
-  availability.
-  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
-  had what it needs and the archive still has no version for it. Whatever
-  failed, it failed silently, and re-triggering it is the repair.
-  Until that row lands this section says so, because a shipped release that
-  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
-  release by the concept DOI, which resolves to the newest archived version.
-
-### Added
-
-- Two short licensed confirmations of the 0.31 items on FlightStream 26.124
-  (build 8172026): `reports/RPT-094` (G1, the clocked wheel: sections at every
-  clocking after `DELETE_ALL_SURFACE_SECTIONS`, the XY cut's `Fx`, `Fz` and
-  `Fz x Offset` matching the blade's loads to about 2 per cent, THRUST_PCT and
-  TORQUE_PCT, the rotor table as the mean of 3 clockings, the harmonic
-  product) and `reports/RPT-095` (G6, a custom free stream on
-  `unsteady_rotor` read by the solver and equal to the constant control to the
-  fifth decimal).
 - **The quasi-steady wheel's correction machinery, off by default and NOT
   VALIDATED** (P0310-CAL-SCHEMA, P0310-ROUTE2, P0310-ROUTE4, P0310-APPLY-*). A
   pproc's new `[qsteady_correction]` table names a `route` (`none`, the
@@ -228,6 +94,144 @@ FlightStream versions.
   once in the post log (`docs/post-processing-definitions.md`, "The in-plane
   coefficients"; `post.axes.rotor_in_plane_axes`,
   `post.axes.rotor_in_plane_loads`).
+- **`post.axes.clocked_blade_azimuth_deg`**, where blade `n` of a wheel of `N`
+  blades solved at `k` clockings is at clocking `i`, is public.
+- Two short licensed confirmations of the 0.31 items on FlightStream 26.124
+  (build 8172026): `reports/RPT-094` (G1, the clocked wheel: sections at every
+  clocking after `DELETE_ALL_SURFACE_SECTIONS`, the XY cut's `Fx`, `Fz` and
+  `Fz x Offset` matching the blade's loads to about 2 per cent, THRUST_PCT and
+  TORQUE_PCT, the rotor table as the mean of 3 clockings, the harmonic
+  product) and `reports/RPT-095` (G6, a custom free stream on
+  `unsteady_rotor` read by the solver and equal to the constant control to the
+  fifth decimal).
+
+### Changed
+
+- **The AZIMUTH of blade blocks 2 to N of an unsteady rotor changes.** The
+  sections table and the sections series of an `unsteady_rotor` point stated
+  blade one's azimuth on every block, whichever blade the block cut. A block
+  that cuts the families of one blade now states THAT blade's azimuth, blade
+  `n` of `N` at blade one's plus `(n - 1) 360 / N` through
+  `pyflightstream.post.axes.placed_blade_azimuth_deg` (the ahead-of-blade-one
+  placement the wheel and the per-blade table use, whatever the sense of
+  rotation); a block over several blades or the general families keeps blade
+  one's. Blade one's rows are unchanged, and the per-station harmonic product
+  reads the stated azimuth as it is (P0310-H2-BLADE-AZIMUTH).
+- **The input template names the pproc's `[per_revolution]` and
+  `[qsteady_correction]` tables** among what its example leaves out, and has a
+  section, with an example, for the new calibration file. `[per_revolution]`
+  had reached the pproc with no line in the template.
+- **The repeated-POL census reads the matrices `sync` reads.** `pyfs-matrix plan`
+  compared POLs across `<root>/*.fs` only, while `sync` and storage also read
+  `<root>/inputs/matrices/*.fs`, so a POL repeated between the two folders shared
+  one simulation folder unseen. One function, `pyflightstream.workspace.matrix_files`,
+  now lists them for the census, storage and sync, and a matrix planned from any
+  other folder plans with a warning naming it and saying sync and the census do
+  not see it (P0310-POL-CENSUS).
+- **The docs site navigation is grouped by stage.** The menu of
+  `properdocs.yml` was one flat list of 33 entries; it is now Start here,
+  Workspace, 1 Geometry to 6 Post, FSI, Examples, Versions (holding the
+  Reference group) and Project, as approved on 2026-09-28. Only the menu
+  changed: no page moved or was renamed, and each is reachable exactly once.
+- **The quasi-steady record has one type, one reader and one refusal.**
+  `<point>_qsteady.json` is read as a `QsteadyRecord` by
+  `pyflightstream.cases.qsteady.read_qsteady_record`, which raises
+  `QsteadyRecordError` (in `pyflightstream.exceptions`) for a record that is
+  missing, unreadable or of another schema. The file the builder writes is
+  byte for byte what 0.30.0 wrote. The run no longer ignores an unreadable
+  record in silence: it judges the point's log as one solve, as before, and
+  records a warning on the point. The post names each product such a point
+  loses in `products.json` and `post.log`; a missing record, which the
+  sections table passed over in silence and the rotor table reported as a
+  speed not stated, is now named as what it is. The two readers it
+  replaces are under Removed.
+- **The rotor table of a quasi-steady wheel is the mean of its clockings.**
+  A `qsteady_rotor` wheel point's row of `polars/P<sim>-<ALIAS>_rotor.csv`
+  was clocking 0's solve alone; it is now taken from the rotor's force and
+  moment averaged over the point's k clockings, each clocking's own loads
+  export, and `CT`, `CQ`, `CP`, `ETA`, `ETAW`, `CN`, `CS`, `CMN` and `CMS` are
+  computed from those mean loads (never a mean of per-clocking `ETA`). The
+  table's `products.json` entry states `"source": "mean of k clockings"` and
+  `"clockings": k`. A wheel point whose clocking export is missing is not a
+  row and is named in `skipped`. A sector's row is unchanged. The rotor
+  numbers a 0.30.0 post wrote for a wheel remain a valid record of clocking 0.
+- **A wheel's thrust and torque shares are taken along the rotor's axis.**
+  `THRUST_PCT_K_GT_0_1` and `TORQUE_PCT_K_GT_0_1` read the sectional loads
+  export's `Fx` as the thrust and `Fz |Offset|` as the torque in the export's
+  own axes, which holds only in a frame whose x is the shaft. Each station's
+  force is now projected on the record's `axis_vector` stated in the frame the
+  distribution was cut in (the run's sections layout names it), and the torque
+  is the moment of its in-plane component about the axis
+  (`pyflightstream.post.axes.section_station_shaft_loads`). A share reads `NA`,
+  with a WARNING line in `post.log`, where the frame's axes or the plane are
+  not known to the post, where the total is zero, or where stations of
+  opposite sign put it outside 0 to 100 per cent. A cut in the frame's XZ
+  or XY plane is read (the XY reading measured on FlightStream 26.124,
+  `reports/RPT-094`); a YZ cut reads `NA`.
+- **The clockings table of a left-hand wheel states blade one's azimuth in
+  the sense it turns.** The `AZIMUTH` of `_qs_positions.csv` was the datum
+  plus the clocking angle unsigned, while the sections of the same wheel
+  follow `pyflightstream.post.axes.clocked_blade_azimuth_deg`
+  (`datum + sign(rpm) * theta_i`). The clockings table now reads the same
+  rule, so the `_qs_positions` `AZIMUTH` of a left-hand wheel (`rpm_sign`
+  -1) changes: clocking `i` states `datum - theta_i`, as its sections do. A
+  right-hand wheel's is unchanged.
+- A `qsteady_rotor` row that states `ADVANCE_RATIO` resolves J, and so the rotor
+  speed n = V / (J D), against the rotor block's own `diameter_m`, as an
+  `unsteady_rotor` row does, instead of the reference's top-level
+  `rotor_diameter_m`.
+- The fixed-wing and quasi-steady-rotor FSI steps of `fsi/driver.py` share one
+  step body with the structural solve as the variation point; behaviour is
+  unchanged.
+- **A clocked quasi-steady wheel exports its sections at every clocking.** A
+  `qsteady_rotor` wheel of `PASSAGE_POSITIONS` 2 or more exported its
+  sections, sectional loads and section Cp at clocking 0 alone. Each clocking
+  now deletes the previous clocking's distributions, turns the wheel,
+  initialises, creates them again in frames turned with the wheel to that
+  clocking and held there, updates them and exports them as
+  `<point>_qs<i>_cp.txt`, `<point>_qs<i>_sloads.txt` and
+  `<point>_qs<i>_plot_cp_sections.txt`, the ones the row declares. Every
+  clocking is cut at the same stations over the blade's span, and the point's
+  quasi-steady record names each clocking's files (`section_exports`).
+- **A wheel's `LOCAL_AXIS` distributions are cut.** A wheel whose pproc cuts
+  its sections in `LOCAL_AXIS` places one frame per blade, `<ALIAS>_RMRP<k>`,
+  at the blade's azimuth; such a distribution was left out with a warning
+  before, because a steady run placed no blade frame.
+- **A wheel point's sections table holds every clocking.**
+  `sections/<point>_sections.csv` and each distribution's sectional loads and
+  Cp file gain a `CLOCKING` column and one block of rows per clocking, and
+  `AZIMUTH` states where each block's blade is at that clocking,
+  `(blade1.azimuth_deg + (n - 1) * 360 / N + sense * theta_i) mod 360`. A
+  clocking not cut at clocking 0's stations is warned in `post.log`, and one
+  whose export is missing is named in `products.json`. The validity summary
+  stays clocking 0's.
+- **The guide decks are eight, renamed `pyfts-guide-00` to
+  `pyfts-guide-07`.** `guide/fts-guide-0N-<topic>.pdf` of 0.30.0 is
+  `guide/pyfts-guide-0N-<topic>.pdf`, the topic suffixes unchanged, and guide
+  00 (`pyfts-guide-00-fts-overview.pdf`, the overview read first) is new.
+
+### Removed
+
+- `pyflightstream.post.qsteady.read_qsteady_record` and
+  `pyflightstream.workspace.inputs.qsteady_record_rotor_alias` are removed;
+  the latter lives on in `pyflightstream.cases.qsteady`, and the record is
+  read by `pyflightstream.cases.qsteady.read_qsteady_record` (P0310-A3-RECORD).
+
+### Owed
+
+- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
+  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
+  concept record lists NINETEEN archived versions and v0.14.0 is not among
+  them. The earlier reading of 2026-09-10 said the same and could not be
+  confirmed for four days because the service was answering 504; it is
+  confirmed now, so this is a fact about the archive rather than about its
+  availability.
+  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
+  had what it needs and the archive still has no version for it. Whatever
+  failed, it failed silently, and re-triggering it is the repair.
+  Until that row lands this section says so, because a shipped release that
+  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
+  release by the concept DOI, which resolves to the newest archived version.
 
 ## [0.30.0] - 2026-09-29
 
