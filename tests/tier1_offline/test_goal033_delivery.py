@@ -14,8 +14,9 @@ thing that answers it rather than of a restatement of it:
   written by the generator the site runs), every committed page is reachable,
   and every page the release's CHANGELOG section cites is in the menu;
 - the migration page: every reader-facing change the CHANGELOG lists under
-  0.29.0 is named on ``docs/migrating-to-0.29.0.md``, and every link on that
-  page resolves to a page and a heading that exist.
+  the release is named on ``docs/migrating-to-<release>.md`` (0.29.0 first,
+  0.30.0 since its release commit), and every link on that page resolves to a
+  page and a heading that exist.
 
 Building the wheel needs setuptools in the environment that runs the test; a
 job without it skips with that reason rather than passing on a guess.
@@ -308,8 +309,10 @@ def test_every_documented_page_is_built_and_reachable():
 
 
 #: Each reader-facing change of the CHANGELOG's ``### Changed`` list, by its
-#: bold head, and the words the migration page must say for a reader to act on it.
-_MIGRATION_NAMES = {
+#: bold head, and the words the migration page must say for a reader to act on it,
+#: per release: the checks read the entry of the release under check, and a
+#: release with no entry fails rather than passing on an empty list.
+_MIGRATION_NAMES_0_29_0 = {
     "Steady sweeps start every point cold by default.": ("cold start", "warm"),
     "A volume section is sampled, not natively exported.": (
         "`[volume_section]`",
@@ -340,6 +343,50 @@ _MIGRATION_NAMES = {
     "`farfield_layers` above 5 is refused.": ("`farfield_layers` above 5 is refused", "`s929`"),
 }
 
+_MIGRATION_NAMES_0_30_0 = {
+    "FSI on `unsteady_rotor` is refused by the plan": (
+        "`unsteady_rotor`",
+        "still in debug on this release",
+    ),
+    "The structural nodes sit inside the blade": ("sit INSIDE", "`config_sha256`"),
+    "The coupled blade route emits `AEROELASTIC_RBF_TYPE MULTI_QUADRATIC`": (
+        "AEROELASTIC_RBF_TYPE MULTI_QUADRATIC",
+        "State the kernel in the setup",
+    ),
+    "The rotating structural solve includes the in-plane centrifugal softening": (
+        "in-plane centrifugal softening",
+        "`flap_residual_m`",
+    ),
+    "A Tecplot surface no longer exports the native Tecplot by default.": (
+        "singularity_strength = true",
+        "`NOT_CARRIED`",
+        "_native_tecplot.dat",
+    ),
+}
+
+_MIGRATION_NAMES_BY_RELEASE = {
+    "0.29.0": _MIGRATION_NAMES_0_29_0,
+    "0.30.0": _MIGRATION_NAMES_0_30_0,
+}
+
+#: The inputs each release's summary refuses, each of which its section and
+#: its migration page must name, and further words its page must carry.
+_REFUSED_BY_RELEASE = {
+    "0.29.0": (
+        "ROTOR_SHEDDING",
+        "legacy_solver_model",
+        "sonic_velocity_m_per_s",
+        "farfield_layers",
+    ),
+    "0.30.0": ("unsteady_rotor",),
+}
+_PAGE_WORDS_BY_RELEASE = {
+    # The unreleased sidecar form the 0.29.0 Added list says is refused.
+    "0.29.0": ("[[inlets]]", "refused"),
+    "0.30.0": ("PASSAGE_POSITIONS", "prune_step_exports", "--apply"),
+}
+_MIGRATION_NAMES = _MIGRATION_NAMES_BY_RELEASE.get(RELEASED, {})
+
 
 def _slug(heading: str) -> str:
     text = re.sub(r"[^\w\s-]", "", heading.strip().lower())
@@ -363,6 +410,9 @@ def test_the_migration_page_names_every_reader_facing_change():
     assert changed, "the CHANGELOG section has no ### Changed list"
     heads = re.findall(r"^- \*\*(.+?)\*\*", changed.group("body"), flags=re.MULTILINE)
     assert heads, "the ### Changed list has no entries"
+    assert RELEASED in _MIGRATION_NAMES_BY_RELEASE, (
+        f"no migration words are recorded for {RELEASED}; add its entry"
+    )
     assert set(heads) == set(_MIGRATION_NAMES), (
         f"changes with no migration words here: {sorted(set(heads) - set(_MIGRATION_NAMES))}; "
         f"words kept for no listed change: {sorted(set(_MIGRATION_NAMES) - set(heads))}"
@@ -374,15 +424,11 @@ def test_the_migration_page_names_every_reader_facing_change():
     }
     assert not unnamed, f"changes the migration page does not name: {unnamed}"
     # The refused inputs the release summary lists are each on the page too,
-    # and so is the unreleased sidecar form the Added list says is refused.
-    for refused in (
-        "ROTOR_SHEDDING",
-        "legacy_solver_model",
-        "sonic_velocity_m_per_s",
-        "farfield_layers",
-    ):
+    # and so are the words the release's page must carry.
+    for refused in _REFUSED_BY_RELEASE[RELEASED]:
         assert refused in section and refused in page, refused
-    assert "[[inlets]]" in page and "refused" in page
+    for word in _PAGE_WORDS_BY_RELEASE[RELEASED]:
+        assert word in page, word
 
     broken = []
     for target, anchor in re.findall(r"\]\(([\w./-]+\.md)(?:#([\w-]+))?\)", page):
