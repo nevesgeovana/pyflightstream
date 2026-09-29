@@ -63,6 +63,7 @@ from pyflightstream.cases import (
     SurfaceTimeAveragingSpec,
     VolumeSectionSpec,
 )
+from pyflightstream.cases.corrections import QsteadyCorrectionSpec
 from pyflightstream.cases.matrix import _COLUMNS, ATTITUDE_KEYS, FLIGHT_CONDITION_KEYS
 from pyflightstream.cases.workflows import RATE_VARIABLES, RAW_VARIABLE, WORKFLOWS
 from pyflightstream.commands import CommandRegistry
@@ -149,6 +150,8 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         ("pproc", "`[exports]`"): exports,
         ("pproc", "`[phase_locked]`"): _fields(PhaseLockedSpec),
         ("pproc", "`[per_revolution]`"): _fields(PerRevolutionSpec),
+        # 0.31.0 (P0310-CAL-SCHEMA): the quasi-steady wheel's correction route.
+        ("pproc", "`[qsteady_correction]`"): _fields(QsteadyCorrectionSpec),
         ("pproc", "`[equations.<NAME>]`"): _fields(EquationSpec),
         ("pproc", "`[time_averaging]`"): _fields(SurfaceTimeAveragingSpec),
         ("pproc", "`[sections]`"): _fields(SectionsSpec),

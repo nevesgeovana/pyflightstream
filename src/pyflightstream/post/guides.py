@@ -100,6 +100,7 @@ from pyflightstream.cases import (
     SolverToggle,
     default_outputs,
 )
+from pyflightstream.cases.corrections import CALIBRATIONS_DIR
 from pyflightstream.cases.matrix import ATTITUDE_KEYS, COLUMN_MEANINGS, FLIGHT_CONDITION_KEYS
 from pyflightstream.cases.workflows import (
     FREESTREAM_DIR,
@@ -2312,6 +2313,36 @@ _FREESTREAM_EXAMPLE = """\
 -2.0 5.0 1.0 50.0 0.0 0.0
 """
 
+#: 0.31.0 (P0310-CAL-SCHEMA): a quasi-steady wheel's calibration table, route 4,
+#: two rows of one component over J; every number is a placeholder, and no
+#: route is validated.
+_CALIBRATION_EXAMPLE = """\
+# A calibration table (route 4) a pproc's [qsteady_correction] names by its id.
+# NOT VALIDATED: the numbers below are placeholders, not a recommendation.
+route = "table"
+description = "a discrepancy surface over J, constant in ALPHA and K_1P"
+
+[[rows]]
+COMPONENT = "THRUST"
+J = 0.5
+ALPHA = 0.0
+K_1P = 0.05
+OFFSET_0P = 0.0
+GAIN_0P = 1.0
+GAIN_1P = 1.0
+PHASE_1P_DEG = 0.0
+
+[[rows]]
+COMPONENT = "THRUST"
+J = 0.7
+ALPHA = 0.0
+K_1P = 0.05
+OFFSET_0P = 0.0
+GAIN_0P = 1.0
+GAIN_1P = 1.0
+PHASE_1P_DEG = 0.0
+"""
+
 _HPC_EXAMPLE = """\
 # The profile of the cluster this workspace may be opened on. No row cites it:
 # a run on Linux with one profile here submits each point to the scheduler
@@ -2801,6 +2832,24 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                         {
                             "an unsteady row's surface average, which a steady row refuses; "
                             "INPUTS.md names the builds": ("time_averaging",),
+                            "an unsteady rotor's drift limit, 1 per cent where the table "
+                            "is absent": ("per_revolution",),
+                            "a quasi-steady wheel's correction route, off where the table "
+                            "is absent; its calibration file has a section of its own": (
+                                "qsteady_correction",
+                            ),
+                        }
+                    ),
+                    "`[per_revolution]`": MappingProxyType(
+                        {"the table is left out, for the reason above": ("drift_limit_pct",)}
+                    ),
+                    "`[qsteady_correction]`": MappingProxyType(
+                        {
+                            "the table is left out, for the reason above": (
+                                "route",
+                                "file",
+                                "diagnostic",
+                            ),
                         }
                     ),
                     "`[time_averaging]`": MappingProxyType(
@@ -3076,6 +3125,34 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                 "keys."
             ),
             pages=(_page("gui-to-pyfs", "From the GUI to pyfs"),),
+        ),
+        TemplateSection(
+            heading=f"The quasi-steady wheel calibration, `inputs/{CALIBRATIONS_DIR}/<id>.toml`",
+            intro=(
+                "Optional (0.31.0): the calibration a pproc's `[qsteady_correction]` "
+                'table names by its id, `file = "<id>"`, for a `qsteady_rotor` wheel. '
+                "The post writes each corrected product beside its raw file, "
+                "`<name>_corrected.csv`, and never over it; no route is validated. "
+                "`route` is `table` (a surface you fitted) or `sector_offset` (a 0P "
+                "offset from an axial unsteady sector run, which the file names in "
+                "`source_run_id`). Each `[[rows]]` names a `COMPONENT`, its place on "
+                "the axes `J`, `ALPHA` and `K_1P`, and `OFFSET_0P`, `GAIN_0P`, `GAIN_1P` "
+                "and `PHASE_1P_DEG`; the rows of one component form a grid over the "
+                "axes that vary."
+            ),
+            examples=(
+                TemplateExample(
+                    f"inputs/{CALIBRATIONS_DIR}/c001.toml", "toml", _CALIBRATION_EXAMPLE
+                ),
+            ),
+            after=(
+                "Inside the grid the coefficients are interpolated multilinearly; a point "
+                "outside it is never extrapolated, and is named in `products.json` and "
+                "`post.log`. The plan reads the file a row's pproc names and refuses it "
+                "naming the line; the post reads it again, so a route is chosen or "
+                "changed with no new run."
+            ),
+            pages=(_page("qsteady-corrections", "Quasi-steady wheel corrections"),),
         ),
         TemplateSection(
             heading=f"The HPC profile, `inputs/{HPC_DIR}/<name>.toml`",

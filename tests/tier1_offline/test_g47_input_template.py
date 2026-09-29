@@ -296,6 +296,12 @@ def _read_every_example(workspace: CampaignWorkspace, blocks) -> dict[str, str]:
             f"freestreams/{path.name} is an example no row's FREESTREAM cites"
         )
         claim(path, "the custom free-stream reader")
+    # 0.31.0: a quasi-steady wheel's calibration, by the reader the plan and the post use.
+    from pyflightstream.cases.corrections import read_calibration
+
+    for path in sorted((inputs / "calibrations").glob("*.toml")):
+        assert read_calibration(path).rows
+        claim(path, "read_calibration")
     return read
 
 
@@ -480,6 +486,9 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
         "`[[flags]]`": [e for f in data for e in f.get("flags", [])],
         "`[[surface_probes]]`": [e for f in data for e in f.get("surface_probes", [])],
         "`[phase_locked]`": [f.get("phase_locked", {}) for f in data],
+        # 0.31.0: the per-revolution drift limit and the wheel's correction route.
+        "`[per_revolution]`": [f.get("per_revolution", {}) for f in data],
+        "`[qsteady_correction]`": [f.get("qsteady_correction", {}) for f in data],
         "`[equations.<NAME>]`": [e for f in data for e in f.get("equations", {}).values()],
         "`[exports]`": [f.get("exports", {}) for f in data],
         "`[time_averaging]`": [f.get("time_averaging", {}) for f in data],
@@ -632,6 +641,7 @@ BREAKS: dict[str, tuple[str, str]] = {
     "inputs/profiles/prop_thrust.txt": ("", "r_R,F\n"),
     "inputs/profiles/wake_survey.csv": ("", "9\n"),
     "inputs/freestreams/gust.txt": ("", "3 3\n"),
+    "inputs/calibrations/c001.toml": ('route = "table"', 'route = "skewed_wake"'),
     "inputs/hpc/h001.toml": ("\napplication_id =", "\naplication_id ="),
     "inputs/management/m001.toml": ('action = "delete"', 'action = "invalid"'),
     f"inputs/{EXECUTABLES_FILE}": ("version =", "verison ="),

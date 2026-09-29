@@ -32,6 +32,12 @@ module, which is stated rather than left to be discovered:
 * :mod:`pyflightstream.post.qsteady` tables a quasi-steady rotor's steady
   clockings and their average, and gives its sections the 1P reduced
   frequency of each station (0.30.0). Reached through its own module;
+* :mod:`pyflightstream.post.harmonics` fits each blade station's 0P, 1P and 2P
+  load around the disc from the written sections (0.31.0). Reached through its
+  own module;
+* :mod:`pyflightstream.post.corrections` writes a quasi-steady wheel's
+  corrected products beside the raw ones and its Theodorsen and Sears
+  diagnostic, none of it validated (0.31.0). Reached through its own module;
 * :mod:`pyflightstream.post.custom_polar` and
   :mod:`pyflightstream.post.provenance` hold the custom polar format and the
   PROV-JSON writer that the products entry below names; their existing

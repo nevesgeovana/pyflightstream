@@ -9,6 +9,11 @@ FlightStream versions.
 
 ### Changed
 
+- **The input template names the pproc's `[per_revolution]` and
+  `[qsteady_correction]` tables** among what its example leaves out, and has a
+  section, with an example, for the new calibration file. `[per_revolution]`
+  had reached the pproc with no line in the template.
+
 - **The repeated-POL census reads the matrices `sync` reads.** `pyfs-matrix plan`
   compared POLs across `<root>/*.fs` only, while `sync` and storage also read
   `<root>/inputs/matrices/*.fs`, so a POL repeated between the two folders shared
@@ -150,6 +155,41 @@ FlightStream versions.
 
 ### Added
 
+- **The quasi-steady wheel's correction machinery, off by default and NOT
+  VALIDATED** (P0310-CAL-SCHEMA, P0310-ROUTE2, P0310-ROUTE4, P0310-APPLY-*). A
+  pproc's new `[qsteady_correction]` table names a `route` (`none`, the
+  default; `table`, a calibration table you fitted, route 4; `sector_offset`,
+  a 0P offset from an axial unsteady sector run, route 2), the `file` of its
+  calibration, `inputs/calibrations/<id>.toml` (a new input kind, created by
+  `pyfs-workspace init`), and a `diagnostic`. A calibration's rows name a
+  component (the rotor's thrust, torque, force and moment, `CT`, `CQ`,
+  `CT_ROTOR`, the in-plane coefficients, or a sectional `Fx`, `Fz`,
+  `Moment`), its place on `J`, `ALPHA` and `K_1P`, and `OFFSET_0P`, `GAIN_0P`,
+  `GAIN_1P`, `PHASE_1P_DEG`; the rows form a tensor grid, interpolated
+  multilinearly and never extrapolated (a point outside is `NA`, named and
+  warned). A file that cannot be read is refused whole naming the line
+  (`CalibrationError`, in `pyflightstream.exceptions`), at plan and at post.
+  The post writes `<name>_corrected.csv` BESIDE the rotor table, the average
+  table, the harmonic product and the sections of each wheel point, never over
+  them: 0P quantities `GAIN_0P q + OFFSET_0P`, per station `H0'`, `A1'`,
+  `PHI1'`, and each section row the raw row plus the change of its 0P and 1P
+  terms. Every corrected file ends with `CORRECTION_ROUTE` and
+  `CALIBRATION_SHA256`, and its `products.json` entry names the raw file, the
+  route, the calibration and its sha256, the grid cells used and "not
+  validated". `pyflightstream.post.corrections.sector_offset_calibration`
+  builds a route 2 file from a recorded wheel point and a recorded axial
+  sector point at the same J. Everything runs at post: no route needs a new
+  run. See docs/qsteady-corrections.md.
+- **The Theodorsen and Sears diagnostic** (P0310-ROUTE1-DIAGNOSTIC).
+  `diagnostic = "theodorsen"` writes `sections/<point>_theodorsen.csv`: per
+  station `K_1P`, `C(k)` and `S(k)` (modulus and phase), beside the measured 1P
+  amplitude and phase of the harmonic product. It corrects nothing. The Bessel
+  functions of orders 0 and 1 are the package's own
+  (`pyflightstream.post.corrections.bessel_j`, `bessel_y`), held to 1e-10,
+  since scipy is not a core dependency. Route 1 asked as a correction, and
+  route 3 (`dynamic_inflow`, `skewed_wake`, `pitt_peters`, `coleman`), are
+  refused where the pproc or the calibration is read, each with its reason
+  (P0310-ROUTE3-REFUSED).
 - A quasi-steady wheel point states its rotor state, the quantities the
   wheel's correction routes read: `CT_ROTOR` (`T / (rho A (Omega R)^2)`),
   `CT_PROPELLER` (`T / (rho n^2 D^4)`), `MU_ROTOR` and `LAMBDA_C` (the free

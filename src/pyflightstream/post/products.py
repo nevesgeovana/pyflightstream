@@ -138,6 +138,7 @@ from pyflightstream.cases.workflows import (
     rotor_mach_numbers,
 )
 from pyflightstream.fsi.loads import SectionalLoadsReport, parse_sectional_loads
+from pyflightstream.post import corrections as _corrections
 from pyflightstream.post import harmonics as _harmonics
 from pyflightstream.post import qsteady as _qsteady
 from pyflightstream.post._tables import (
@@ -5440,6 +5441,69 @@ def _qsteady_products(
     return written
 
 
+def _qsteady_corrections(
+    workspace: CampaignWorkspace,
+    sim_id: str,
+    points: Sequence[PolarPoint],
+    record_of: Mapping[str, RunRecord],
+    *,
+    pproc: PprocSpec,
+    out: Path,
+    written_names: Mapping[str, Mapping[str, object]],
+    target: Callable[[Path], Path],
+    skipped: dict[str, str],
+) -> list[tuple[Path, dict[str, object]]]:
+    """Write a simulation's corrected wheel products and diagnostic (0.31.0, P0310-CAL).
+
+    Nothing where the pproc states no ``[qsteady_correction]`` table or states
+    it with no route and no diagnostic, which is the default. Otherwise the
+    applicator (:mod:`pyflightstream.post.corrections`) reads back each wheel
+    point's written tables and writes ``<name>_corrected.csv`` beside them;
+    what it cannot correct is named in ``skipped`` and warned, and nothing
+    blocks.
+    """
+    spec = getattr(pproc, "qsteady_correction", None)
+    if spec is None or (spec.route == "none" and spec.diagnostic == "none"):
+        return []
+    wheel: list[_corrections.WheelPointRef] = []
+    stated = False
+    for point in points:
+        record = record_of.get(point.name)
+        if record is None or record.recipe != QSTEADY_ROTOR:
+            continue
+        stated = True
+        try:
+            quasi = read_qsteady_record(point.loads_path)
+        except QsteadyRecordError:
+            # The record's refusal is named under the products that need it.
+            continue
+        if quasi.case == "wheel":
+            wheel.append(_corrections.WheelPointRef(point.name, record.run_id, quasi.rotor_alias))
+    if stated and not wheel:
+        skipped[f"qsteady_correction#sim={sim_id}"] = (
+            f"the pproc states [qsteady_correction] and simulation {sim_id} holds no "
+            "quasi-steady WHEEL point, which is the only point it applies to"
+        )
+    if not wheel:
+        return []
+    try:
+        known_runs: set[str] | None = {record.run_id for record in workspace.read_manifest()}
+    except (OSError, ValueError, PyflightstreamError):
+        known_runs = None
+    return _corrections.write_qsteady_corrections(
+        spec,
+        sim_id=sim_id,
+        inputs_dir=Path(workspace.inputs_dir),
+        out=out,
+        wheel_points=wheel,
+        written_names=written_names,
+        known_runs=known_runs,
+        target=target,
+        skipped=skipped,
+        sections_dir=SECTIONS_DIR,
+    )
+
+
 def _sim_products(
     workspace: CampaignWorkspace,
     sim_id: str,
@@ -6412,6 +6476,23 @@ def _sim_products(
             cell=cell,
             clock=clock_rotor_facts(record_of.get(point.name), matrix_row, live),
         ),
+        target=_target,
+        skipped=skipped,
+    ):
+        written.append(target_path)
+        written_names[target_path.relative_to(out).as_posix()] = entry
+
+    # 0.31.0 (P0310-CAL): THE QUASI-STEADY WHEEL'S CORRECTION ROUTE AND ITS
+    # DIAGNOSTIC, each corrected product a new file beside its raw one, read back
+    # from the files written above and never written over them. Off by default.
+    for target_path, entry in _qsteady_corrections(
+        workspace,
+        sim_id,
+        points,
+        record_of,
+        pproc=pproc,
+        out=out,
+        written_names=written_names,
         target=_target,
         skipped=skipped,
     ):

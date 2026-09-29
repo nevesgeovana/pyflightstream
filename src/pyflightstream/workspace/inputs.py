@@ -52,6 +52,10 @@ The library tree, created by ``CampaignWorkspace.init``:
   ``FREESTREAM`` names by stem (G15, since 0.27.0), ``<stem>.txt`` in the
   manual's STRUCTURED form or ``<stem>.dat`` in its UNSTRUCTURED form; the
   matrix binding resolves them (``workspace.matrix``).
+- ``inputs/calibrations/``: the quasi-steady wheel's calibration files
+  (0.31.0), ``<id>.toml``, which a pproc's ``[qsteady_correction]`` table
+  names by id (:mod:`pyflightstream.cases.corrections`); the plan validates
+  the one a row's pproc names, and the post applies it.
 - ``inputs/executables.toml``: the build registry, mapping a
   FlightStream build id to its executable path; an explicit override
   path bypasses the registry, and that override is the only way to run
@@ -142,6 +146,7 @@ INPUT_KINDS = (
     "pproc",
     "profiles",
     "freestreams",
+    "calibrations",
     "hpc",
     "fsi",
     "matrices",

@@ -77,6 +77,12 @@ from pyflightstream.cases import (
     SolverSettings,
     point_state_key,
 )
+from pyflightstream.cases.corrections import (
+    CALIBRATIONS_DIR,
+    CalibrationError,
+    calibration_path,
+    read_calibration,
+)
 from pyflightstream.cases.matrix import (
     ATTITUDE_KEYS,
     DEFAULT_VERSION_OPTION,
@@ -1684,6 +1690,37 @@ def _resolve_actuator_profile(
     return str(resolved)
 
 
+def _validate_qsteady_calibration(
+    workspace: CampaignWorkspace, pproc: object, row: MatrixRow
+) -> None:
+    """Refuse at plan a calibration the pproc's ``[qsteady_correction]`` names and cannot read.
+
+    0.31.0 (P0310-CAL-SCHEMA). The route is applied at post, which reads the
+    file again and never blocks; the plan reads it first so a broken file is
+    named before a solver runs rather than after. Nothing of the file reaches
+    the script: choosing or changing a route needs no new run.
+    """
+    spec = getattr(pproc, "qsteady_correction", None)
+    if spec is None or spec.route == "none" or not spec.file:
+        return
+    path = calibration_path(workspace.inputs_dir, spec.file)
+    if not path.is_file():
+        raise InputArtifactError(
+            f"matrix row POL {row.pol}: the pproc {row.pproc_code!r} names the calibration "
+            f"{spec.file!r} in [qsteady_correction], and {path} does not exist. A calibration "
+            f"lives in the workspace's inputs/{CALIBRATIONS_DIR}/ folder, named by its id.",
+            kind="calibration",
+            artifact_id=spec.file,
+        )
+    calibration = read_calibration(path)
+    if calibration.route != spec.route:
+        raise CalibrationError(
+            f"matrix row POL {row.pol}: the pproc {row.pproc_code!r} asks route "
+            f"{spec.route!r} and the calibration {path} states route {calibration.route!r}",
+            path=path,
+        )
+
+
 def _resolve_freestream(workspace: CampaignWorkspace, row: MatrixRow) -> str | None:
     """Give a row's ``FREESTREAM`` the absolute path of its file of ``inputs/freestreams/`` (G15).
 
@@ -2328,6 +2365,7 @@ def resolve_matrix(
             pprocs[row.pproc_code] = _resolve_cited_profiles(
                 workspace, pprocs[row.pproc_code], row.pproc_code, row.pol
             )
+            _validate_qsteady_calibration(workspace, pprocs[row.pproc_code], row)
     additional = _additional_pprocs(
         rows, row_builds, builds, workspace, fs_version=fs_version, campaign=campaign_version
     )

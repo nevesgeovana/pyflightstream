@@ -26,6 +26,10 @@ from pyflightstream._deprecations import DEPRECATED_MODULES
 #: to their dotted names.
 PUBLIC_MODULES = [
     "pyflightstream.cases",
+    # 0.31.0 (P0310-CAL-SCHEMA): the quasi-steady wheel's correction choice and
+    # its calibration file. PUBLIC deliberately: a user writing or checking a
+    # calibration reads it with `read_calibration` here.
+    "pyflightstream.cases.corrections",
     "pyflightstream.cases.field_coverage",
     "pyflightstream.cases.freestream",
     "pyflightstream.cases.fsi_workspace",
@@ -72,6 +76,10 @@ PUBLIC_MODULES = [
     # vector of their own the way the polar does, calls `polar_axis_coefficients`.
     "pyflightstream.post.axes",
     "pyflightstream.post.boundary_layer",
+    # 0.31.0 (P0310-ROUTE2): the quasi-steady wheel's corrected products and
+    # diagnostic. PUBLIC deliberately: `sector_offset_calibration` is what a user
+    # calls to build a route 2 file from her recorded runs.
+    "pyflightstream.post.corrections",
     "pyflightstream.post.custom_polar",
     # 0.24.0: the evaluator of a pproc `[equations]` table. PUBLIC deliberately:
     # `resolve_symbol` IS the rule by which a symbol finds its column, the

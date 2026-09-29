@@ -245,6 +245,10 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         # or of another schema. ValueError because the file's CONTENT is not
         # what the package writes.
         "QsteadyRecordError": ValueError,
+        # 0.31.0 (P0310-CAL-SCHEMA): a quasi-steady wheel's calibration file that
+        # cannot be read. ValueError because the file's CONTENT is refused,
+        # naming the line.
+        "CalibrationError": ValueError,
     }
     catalogued = set(exceptions.__all__) - {"PyflightstreamError"}
     assert catalogued == set(expected_builtin), (
