@@ -189,10 +189,18 @@ def distinct_azimuths(azimuths_deg: Sequence[float]) -> int:
     return count
 
 
+#: Degrees below 360 still read as 0: far above round-off (1e-13 deg) and far below any
+#: azimuth a sectional export resolves.
+_PHASE_WRAP_DEG = 1e-9
+
+
 def _phase_deg(cosine: float, sine: float) -> float:
     """Return the phase of ``cosine cos x + sine sin x`` in degrees in [0, 360)."""
     phase = math.degrees(math.atan2(sine, cosine)) % 360.0
-    return 0.0 if phase >= 360.0 else phase + 0.0
+    # A least-squares sine of a pure cosine is round-off, about -1e-17, whose atan2
+    # lands a hair below 360 (359.99999999999994 on Linux, 0.0 on Windows): a phase
+    # within _PHASE_WRAP_DEG of 0 or of 360 is the same azimuth and is stated as 0.
+    return 0.0 if phase < _PHASE_WRAP_DEG or phase >= 360.0 - _PHASE_WRAP_DEG else phase
 
 
 def fit_harmonics(azimuths_deg: Sequence[float], values: Sequence[float]) -> HarmonicFit:

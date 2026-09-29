@@ -573,3 +573,13 @@ def test_the_na_note_is_one_per_rotor_and_harmonic():
     assert len(result.notes) == 2
     assert "1P harmonic is NA in 3 row(s)" in result.notes[0]
     assert "2P harmonic is NA in 3 row(s)" in result.notes[1]
+
+
+def test_a_phase_a_hair_below_360_is_stated_as_zero():
+    """Round-off in the fitted sine must not print 359.99999999999994 for a phase of 0."""
+    # P0310-HARMONICS
+    from pyflightstream.post.harmonics import _phase_deg
+
+    assert _phase_deg(1.0, -1e-17) == 0.0
+    assert _phase_deg(1.0, 1e-17) == 0.0
+    assert _phase_deg(0.0, -1.0) == pytest.approx(270.0)
