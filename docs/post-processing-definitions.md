@@ -27,6 +27,7 @@ them was inferred from an implementation.
 - [`time_average`](#time_average)
 - [`per_blade`](#per_blade)
 - [`phase_locked`](#phase_locked)
+- [`per_revolution`](#per_revolution)
 - [The averaging window](#the-averaging-window)
 - [Native surface flow exports](#native-surface-flow-exports)
 - [The solver's own plots](#the-solvers-own-plots)
@@ -729,6 +730,94 @@ never the answer to a threshold not being met.
 **A pproc that says nothing about `phase_locked` gets one as it always did.**
 Absent is not zero: nothing gates it, and it is the passage series it has
 always been.
+
+---
+
+## `per_revolution`
+
+!!! note "New in 0.31.0"
+    The one product that answers "has the rotor's load settled from one
+    revolution to the next?" from the history the post already wrote.
+
+One row per COMPLETE revolution of one rotor, each column of the plots table
+averaged over that revolution, and from the second revolution on how far that
+mean moved from the previous revolution's.
+
+**It is read from the WRITTEN plots table.** `probes/<point>_plots.csv` is read
+back by `plots_table_series`, as every reduction is, and the raw export is not
+read again: a reduction is of the file a user holds and can be recomputed from
+it.
+
+**Which files.** A point of an `unsteady_rotor` row that names its rotors gets
+`probes/<point>_per_revolution_<ALIAS>.csv`, one per rotor, each cut on THAT
+rotor's own `steps_per_revolution` from the run record's reductions plan (a
+rotor turning at another speed has another revolution). A row that states its
+clock flat and names no rotor by alias gets `probes/<point>_per_revolution.csv`,
+its `ROTOR` `NA`. A steady point and a plain unsteady one have no revolution and
+no file. The product is registered in `products.json` like the other
+reductions, with `reduction` = `per_revolution`, its `windows` (one per
+revolution) and its `rotor`.
+
+**How the history is cut.** Revolution `k` is rows `(k-1) * N + 1` to `k * N` of
+the table, counted from its first row, where `N` is the rotor's steps per
+revolution rounded to a whole solver step, as the phase-locked reduction does.
+A history that starts at step 1 cuts at steps 1 to `N`, `N+1` to `2N` and so
+on. Each mean is the package's one average over that window, the one the time
+average takes.
+
+**A partial last revolution is EXCLUDED, and said.** The steps after the last
+complete revolution are not averaged: their mean would be the mean of another
+length of history under the same name. `products.json` states it under
+`skipped`, keyed `probes/<point>_per_revolution_<ALIAS>.csv#partial`, and the
+post log carries a WARNING line naming the point, the file, the complete
+revolutions and the steps left over. A table with not one complete revolution
+writes no file and says why under `skipped`, and a rotor whose record states no
+steps per revolution (its speed or the solver time step was not resolved) is
+named the same way.
+
+**The columns.** `POL`, `REDUCTION` (`per_revolution`), `ROTOR`, `REVOLUTION`
+(counted from one), `FIRST_STEP`, `LAST_STEP`, `STEPS` (the revolution's length),
+the condition and reference block, `XMOM`, `YMOM`, `ZMOM`, then the mean of every
+plotted column under the name the plots table carries (or the pproc's `[names]`
+entry for it), then `<column>_DRIFT_PCT` for each of them. The plots table's
+clock is not a plotted column and is not averaged.
+
+**The drift** of a column at revolution `k >= 2` is
+
+    (mean_k - mean_(k-1)) / |mean_(k-1)| * 100
+
+in per cent: positive where the mean rose, whatever the sign of the quantity. It
+is `NA` on the first revolution, and `NA` where the previous mean is exactly
+zero, which has no relative change. `NA` is the package's one token for a value
+that does not exist.
+
+**The declared threshold.** The pproc may declare
+
+```toml
+[per_revolution]
+drift_limit_pct = 1.0
+```
+
+`drift_limit_pct` is positive (zero and negative values are refused) and
+defaults to 1 per cent where the table or the key is absent. When the drift of
+the LAST revolution of any force or moment column exceeds it in magnitude,
+`post.log` gets a WARNING line naming the point, the rotor, the column, the
+drift and the limit:
+
+```
+WARNING point=<point> product=probes/<point>_per_revolution_<ALIAS>.csv: rotor '<ALIAS>' column FX_MRP_TOTAL drifts +4.7619 per cent between revolution 2 and revolution 3, over the drift limit of 1 per cent ([per_revolution] drift_limit_pct): the last revolution is still moving
+```
+
+A force or moment column is a plotted column whose parameter (the text before
+the first underscore) is one of `FX`, `FY`, `FZ`, `MX`, `MY`, `MZ` or the force
+coefficients `CL`, `CDI`, `CDO`, `CD`. A probe or any other plotted column has a
+drift and no warning. **The warning never blocks**: the table is written whether
+or not the limit is exceeded, as nothing in the post blocks by default. Only a
+history with at least two complete revolutions can drift. The table is read again
+by `pyfs-matrix post`, so declaring or editing the limit needs no new run.
+
+A frozen solve is judged like every other average: the default warns, and the
+explicit refusal mode skips the table naming the reason.
 
 ---
 

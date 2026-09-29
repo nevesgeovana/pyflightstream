@@ -2295,6 +2295,35 @@ class AliasCycleError(PyflightstreamError, ValueError):
     """
 
 
+class PerRevolutionSpec(BaseModel):
+    """The ``[per_revolution]`` table: how far one revolution may differ from the last.
+
+    ``drift_limit_pct`` is the per-revolution product's declared threshold, in
+    per cent. The product ``probes/<point>_per_revolution_<ALIAS>.csv`` states,
+    from the second revolution on, the drift of the mean of every plotted column
+    relative to the previous revolution. When the drift of the LAST revolution
+    of any force or moment column exceeds this limit, the post writes a WARNING
+    line in ``post.log`` naming the point, the rotor, the column, the drift and
+    the limit. It never blocks a product: nothing in the post does by default.
+
+    Absent, the limit is 1.0 per cent. The table is optional and read again by
+    ``pyfs-matrix post``, so declaring or editing it needs no new run.
+
+    Examples
+    --------
+    >>> PerRevolutionSpec().drift_limit_pct
+    1.0
+    >>> PerRevolutionSpec(drift_limit_pct=0.25).drift_limit_pct
+    0.25
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: The drift, in per cent of the previous revolution's mean, above which the
+    #: last revolution of a force or moment column is warned about. Positive.
+    drift_limit_pct: float = Field(default=1.0, gt=0.0)
+
+
 class PhaseLockedSpec(BaseModel):
     """The ``[phase_locked]`` table: when the reduction exists, and over how much.
 
@@ -2521,6 +2550,8 @@ class PprocSpec(BaseModel):
     phase_locked : PhaseLockedSpec, optional
         When the phase-locked reduction is generated, and over how many
         revolutions; absent, it is the series of blade passages.
+    per_revolution : PerRevolutionSpec, optional
+        The drift limit, in per cent, of the per-revolution product; absent, 1.
     equations : dict of str to EquationSpec
         Coefficients the post stage derives into the unsteady polar, keyed by
         the derived coefficient's name.
@@ -2576,6 +2607,11 @@ class PprocSpec(BaseModel):
     #: mean at each azimuth over the last ``last_revolutions_avg`` revolutions;
     #: a shorter run loses this reduction and nothing else.
     phase_locked: PhaseLockedSpec | None = None
+    #: ``[per_revolution]``, OPTIONAL (0.31.0): the drift limit, in per cent, above
+    #: which the last revolution of a force or moment column is warned about in
+    #: ``post.log``. The product itself is written for every unsteady rotor point
+    #: whatever this table says; absent, the limit is 1 per cent.
+    per_revolution: PerRevolutionSpec | None = None
     #: ``[equations]``, keyed by the derived coefficient's own name; the value
     #: says what it is and which alias it is about. The post stage evaluates
     #: them, in :meth:`equation_order`, into the unsteady polar.
