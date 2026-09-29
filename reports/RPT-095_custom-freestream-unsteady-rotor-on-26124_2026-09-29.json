@@ -1,0 +1,107 @@
+{
+ "report": "RPT-095",
+ "title": "The 0.31 G6: a custom free stream on unsteady_rotor, confirmed on 26.124",
+ "build": "26.124 build 8172026",
+ "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+ "package": "feat/0-31 at 8d0c8827 (runs.json package_commit 8d0c8827255cf0b6da298bc0db33c4f020d6340f, package_dirty false); a second post on f64d888c listed the same 22 products and the same skips",
+ "files_read": {
+  "runs.json": "C:/WORK/pfs0310-l1-ws/runs.json",
+  "matrix": "C:/WORK/pfs0310-l1-ws/l1_g6.fs",
+  "scripts": "C:/WORK/pfs0310-l1-ws/sims/sim_9321 and sim_9322 scripts",
+  "field": "C:/WORK/pfs0310-l1-ws/inputs/freestreams/fs_l1uniform.txt",
+  "products": "C:/WORK/pfs0310-l1-ws/post/l1_g6/products.json",
+  "polars": "C:/WORK/pfs0310-l1-ws/post/l1_g6/polars/",
+  "log": "P9321-M144RE438AL+000BE+000_log.txt line 23 in the datapoint folder of sim_9321"
+ },
+ "row": {
+  "recipe": "unsteady_rotor",
+  "delta_theta_deg": 10,
+  "revolutions": 1,
+  "last_revs_avg": 0.5,
+  "time_iterations": 36,
+  "delta_time_s": 0.0035223252959180485,
+  "mach": 0.1441,
+  "re_million": 4.38,
+  "alpha_deg": 0.0,
+  "rpm": 473.17227304307556
+ },
+ "field": {
+  "kind": "STRUCTURED",
+  "points": "13 x 13",
+  "point_lines": 169,
+  "velocity_m_s": [
+   49.036,
+   0.0,
+   0.0
+  ],
+  "uniform": true,
+  "command_field_run": "SET_FREESTREAM CUSTOM STRUCTURED",
+  "command_control": "SET_FREESTREAM CONSTANT",
+  "solver_log_line": "Freestream velocity custom profile imported from this location: (9321 log line 23; absent from the 9322 log)"
+ },
+ "points": {
+  "9321_field": {
+   "status": "CONVERGED",
+   "iterations": 1048,
+   "residual": 2.1517531e-07,
+   "wall_time_s": 50.96,
+   "solver_run_time_s": 48.6,
+   "window_steps": [
+    19,
+    36
+   ],
+   "FX_ROTOR_ROTOR_N": -2040.97222,
+   "MX_ROTOR_ROTOR_Nm": -2321.91667,
+   "rotor_table": {
+    "J_ROTOR": "1.70001",
+    "CT_ROTOR": "-0.28985",
+    "CQ_ROTOR": "-0.09016",
+    "CP_ROTOR": "-0.56646",
+    "ETA_ROTOR": "0.86988",
+    "CN_ROTOR": "-0.00002",
+    "CS_ROTOR": "-0.00001",
+    "MTIP_ROTOR": "0.26630",
+    "MHEL_ROTOR": "0.30278"
+   }
+  },
+  "9322_control": {
+   "status": "CONVERGED",
+   "iterations": 1048,
+   "residual": 2.17022e-07,
+   "wall_time_s": 49.24,
+   "solver_run_time_s": 46.800000000000004,
+   "window_steps": [
+    19,
+    36
+   ],
+   "FX_ROTOR_ROTOR_N": -2040.91111,
+   "MX_ROTOR_ROTOR_Nm": -2321.86111,
+   "rotor_table": {
+    "J_ROTOR": "1.70001",
+    "CT_ROTOR": "-0.28984",
+    "CQ_ROTOR": "-0.09015",
+    "CP_ROTOR": "-0.56645",
+    "ETA_ROTOR": "0.86987",
+    "CN_ROTOR": "-0.00002",
+    "CS_ROTOR": "-0.00002",
+    "MTIP_ROTOR": "0.26630",
+    "MHEL_ROTOR": "0.30278"
+   }
+  }
+ },
+ "differences": {
+  "FX_ROTOR_ROTOR_N": -0.06111,
+  "FX_relative": 2.99e-05,
+  "MX_relative": 2.39e-05,
+  "rotor_table": "CT, CQ, CP and ETA differ by one unit of the fifth decimal (not equal to every printed digit)"
+ },
+ "products_per_point": 11,
+ "products_total": 22,
+ "skips_each_point": {
+  "probes/P9321-M144RE438AL+000BE+000_phase_locked.csv": "case '9321' names its rotors, so each reduces over ITS OWN blade passage and there is no single passage of the ROW: the per-rotor files are probes/P9321-M144RE438AL+000BE+000_phase_locked_ROTOR.csv.",
+  "probes/P9321-M144RE438AL+000BE+000_per_blade.csv": "case '9321' names its rotors, so each reduces over ITS OWN blade passage and there is no single passage of the ROW: the per-rotor files are probes/P9321-M144RE438AL+000BE+000_per_blade_ROTOR.csv.",
+  "probes/P9321-M144RE438AL+000BE+000_per_blade_ROTOR.csv": "the plots table holds no column of a blade family of rotor 'ROTOR' (its blades are ['Blade1', 'Blade2', 'Blade3', 'Blade4', 'Blade5', 'Blade6']), so there is no blade to give a row to. A blade's plots are the ones named for its family: declare a plot group with families = \"each\" or frame = \"LOCAL_AXIS\" over the rotor in the pproc artifact. It takes a new run; the script defines what the solver plots."
+ },
+ "skips_total": 6,
+ "not_written_without_skip": "sections/<point>_harmonics.csv (no sections series written for these points)"
+}

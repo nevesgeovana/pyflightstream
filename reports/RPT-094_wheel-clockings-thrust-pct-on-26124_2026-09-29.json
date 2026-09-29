@@ -1,0 +1,208 @@
+{
+ "report": "RPT-094",
+ "title": "The 0.31 G1 wheel: sections at every clocking, the XY cut read, THRUST_PCT and the rotor table as the mean, on 26.124",
+ "build": "26.124 build 8172026",
+ "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+ "trees": {
+  "run_and_first_post": "feat/0-31 at 8d0c8827 (runs.json package_commit 8d0c8827255cf0b6da298bc0db33c4f020d6340f, package_dirty false)",
+  "repost_for_THRUST_PCT_and_TORQUE_PCT": "this branch at f64d888c (post only, on a plain copy of the workspace, no solver); the run's own post on 8d0c8827 left both null"
+ },
+ "files_read": {
+  "runs.json": "C:/WORK/pfs0310-l1-ws/runs.json (run record, clocking_verdicts)",
+  "repost": "C:/WORK/pfs0310-l1-repost/post/l1_g1/ (sections, polars, products.json) and the validity file under sims/sim_9311/datapoints",
+  "script": "C:/WORK/pfs0310-l1-ws/sims/sim_9311/scripts/P9311-M144RE438AL+050BE+000RPM00473.txt"
+ },
+ "run": {
+  "pol": 9311,
+  "recipe": "qsteady_rotor",
+  "case": "WHEEL",
+  "passage_positions": 3,
+  "alpha_deg": 5.0,
+  "mach": 0.1441,
+  "re_million": 4.38,
+  "rpm": 473.17227304307556,
+  "status": "CONVERGED",
+  "iterations_per_clocking": 61,
+  "final_residual": 1.4376889e-06,
+  "wall_time_s": 9.1,
+  "clocking_verdicts": [
+   {
+    "index": 1,
+    "clocking_deg": 20.0,
+    "status": "CONVERGED",
+    "iterations": 61,
+    "residual": 1.3419515e-06
+   },
+   {
+    "index": 2,
+    "clocking_deg": 40.0,
+    "status": "CONVERGED",
+    "iterations": 61,
+    "residual": 1.4376889e-06
+   },
+   {
+    "index": 0,
+    "clocking_deg": 0.0,
+    "status": "CONVERGED",
+    "iterations": 61,
+    "residual": 1.2296017e-06
+   }
+  ],
+  "log_file_used": "P9311-M144RE438AL+050BE+000RPM00473_log.txt"
+ },
+ "delete_and_recreate_cycle": {
+  "script_order": [
+   "ROTATE 20, NEW distribution FRAME 4, solve, export (qs01)",
+   "DELETE_ALL_SURFACE_SECTIONS, ROTATE 20, NEW distribution FRAME 5, solve, export (qs02)",
+   "DELETE_ALL_SURFACE_SECTIONS, ROTATE -40, NEW distribution FRAME 3, solve, export (datum)"
+  ],
+  "delete_all_surface_sections_run_count": 2,
+  "distributions_created": 3,
+  "sloads_export_lines_each": 67,
+  "evidence": "each clocking's sloads export has 67 lines and the table 30 stations per clocking, not accumulating"
+ },
+ "sections_table": {
+  "rows": 90,
+  "clockings": [
+   0,
+   1,
+   2
+  ],
+  "azimuths_deg": [
+   0.0,
+   20.0,
+   40.0
+  ],
+  "stations_per_clocking": 30,
+  "same_stations_every_clocking": true,
+  "first_cut_r_over_R": 0.2371,
+  "last_cut_r_over_R": 0.9843,
+  "blade_extent_r_over_R": [
+   0.224,
+   0.997
+  ],
+  "blade_extent_from": "RPT-091 (same mesh), divided by R"
+ },
+ "xy_cut_strip_integrals": [
+  {
+   "clocking": 0,
+   "azimuth_deg": 0.0,
+   "integral_Fx_N": -368.75,
+   "blade_force_along_shaft_N": -376.00577,
+   "ratio_Fx": 0.9807,
+   "integral_Fz_N": 333.653,
+   "blade_in_plane_force_N": 338.689,
+   "ratio_Fz": 0.9851,
+   "integral_Fz_Offset_Nm": 410.384,
+   "blade_moment_about_shaft_Nm": -417.85983,
+   "ratio_moment": -0.9821
+  },
+  {
+   "clocking": 1,
+   "azimuth_deg": 20.0,
+   "integral_Fx_N": -396.822,
+   "blade_force_along_shaft_N": -404.80848,
+   "ratio_Fx": 0.9803,
+   "integral_Fz_N": 358.451,
+   "blade_in_plane_force_N": 364.041,
+   "ratio_Fz": 0.9846,
+   "integral_Fz_Offset_Nm": 438.043,
+   "blade_moment_about_shaft_Nm": -446.06297,
+   "ratio_moment": -0.982
+  },
+  {
+   "clocking": 2,
+   "azimuth_deg": 40.0,
+   "integral_Fx_N": -434.775,
+   "blade_force_along_shaft_N": -443.68491,
+   "ratio_Fx": 0.9799,
+   "integral_Fz_N": 391.878,
+   "blade_in_plane_force_N": 398.182,
+   "ratio_Fz": 0.9842,
+   "integral_Fz_Offset_Nm": 475.186,
+   "blade_moment_about_shaft_Nm": -483.96814,
+   "ratio_moment": -0.9819
+  }
+ ],
+ "validity_repost_f64d888c": {
+  "K_1P_MIN": 0.03454061367211,
+  "K_1P_MAX": 0.13064121476302754,
+  "K_1P_MEAN": 0.08952132296098343,
+  "SPAN_PCT_K_GT_0_05": 91.40076112412179,
+  "SPAN_PCT_K_GT_0_1": 32.768588992974244,
+  "THRUST_PCT_K_GT_0_1": 11.731554734578957,
+  "TORQUE_PCT_K_GT_0_1": 10.25995486525163,
+  "K_1P_SOURCE": "sections"
+ },
+ "validity_run_post_8d0c8827": {
+  "THRUST_PCT_K_GT_0_1": null,
+  "TORQUE_PCT_K_GT_0_1": null
+ },
+ "rotor_table_row": {
+  "RPM_ROTOR": "473.17227",
+  "J_ROTOR": "1.70001",
+  "CT_ROTOR": "-0.32683",
+  "CQ_ROTOR": "-0.09897",
+  "CP_ROTOR": "-0.62187",
+  "ETA_ROTOR": "0.89345",
+  "ETAW_ROTOR": "0.88089",
+  "CN_ROTOR": "0.03846",
+  "CS_ROTOR": "-0.00397",
+  "CMN_ROTOR": "-0.01425",
+  "CMS_ROTOR": "0.00182"
+ },
+ "rotor_table_source": "mean of 3 clockings",
+ "mean_check": {
+  "FX_ROTOR_clockings_N": [
+   -2305.33086,
+   -2300.97281,
+   -2297.72898
+  ],
+  "mean_N": -2301.34422,
+  "qs_avg_FX_ROTOR_N": -2301.34422,
+  "qs_avg_MX_ROTOR_Nm": -2549.04101,
+  "qs_avg_FZ_ROTOR_N": 270.83317
+ },
+ "rotor_table_two_clocking_RPT_091_CT": -0.3274,
+ "harmonics": {
+  "rows": 90,
+  "quantities": [
+   "Fx",
+   "Fz",
+   "Moment"
+  ],
+  "samples": [
+   "3"
+  ],
+  "distinct_azimuths": [
+   "3"
+  ],
+  "H1_NA_rows": 0,
+  "H2_NA_rows": 90,
+  "first_station_Fx": {
+   "R_OVER_R": "0.23710",
+   "H0": "-45.21230",
+   "H1_AMP": "21.58850",
+   "H1_PHASE_DEG": "319.44395"
+  },
+  "products_json_entry": {
+   "sim_id": "9311",
+   "pproc": "p101",
+   "runs": [
+    "pfs0310-l1-ws/sim_9311/M144RE438AL+050BE+000RPM00473"
+   ],
+   "kind": "harmonics",
+   "source": "wheel clockings",
+   "samples": 3,
+   "samples_by_rotor": {
+    "ROTOR": 3
+   },
+   "clockings": 3
+  }
+ },
+ "products": {
+  "written": 13,
+  "skipped": {},
+  "complete": true
+ }
+}
