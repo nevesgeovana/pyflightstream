@@ -56,8 +56,9 @@ repos:
       - id: end-of-file-fixer
         exclude: '^tests/(tier1_offline/(goldens|fixtures)|tier3_licensed/(goldens|inputs/geometries))/'
       - id: check-yaml
-      # The eight compiled guide decks, 00 to 07 (under 1 MB each) are tracked by the
-      # owner's decision and exceed the hook's 500 kB default; every other
+      # The eight compiled guide decks, 00 to 07 (0.47 to 0.87 MB each, and
+      # guide 01 1.04 MB, as built for 0.31.0) are tracked by the owner's
+      # decision, and most exceed the hook's 500 kB default; every other
       # file keeps the default.
       - id: check-added-large-files
         exclude: '^guide/pyfts-guide-0[0-7]-[a-z-]+\.pdf$'

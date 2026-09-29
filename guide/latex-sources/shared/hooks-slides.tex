@@ -36,13 +36,30 @@
   {\end{alertblock}}
 
 % ---------------------------------------------------- the slides' own tools --
+% The PDF's Title, stated in each deck's PREAMBLE:
+%   \guidepdftitle{<number>}{<short title for the footer>}
+% Beamer writes pdftitle from \title as the document begins (usepdftitle, its
+% default), and hyperref fixes the PDF's information there, so a Title set in
+% the body is never written: all eight decks of 0.30.0 carried an empty Title
+% from a \hypersetup inside the title frame. The title frame checks that its
+% number and short title are the ones stated here.
+\newcommand{\guidepdfdeck}{}
+\newcommand{\guidepdftitle}[2]{%
+  \gdef\guidepdfdeck{#1: #2}%
+  \title{Guide #1: #2, \pkgname}}
+
 % The title frame of every deck.
 %   \guidetitleframe{<number>}{<title>}{<short title for the footer>}{<subtitle>}{<sources line>}
 % It prints the one statement of the version the deck is written for and the
 % full authorship and licence notice.
 \newcommand{\guidetitleframe}[5]{%
   \gdef\guidenumber{#1}\gdef\guideshort{#3}%
-  \hypersetup{pdftitle={Guide #1: #3, \pkgname}}%
+  \def\guidetitledeck{#1: #3}%
+  \ifx\guidetitledeck\guidepdfdeck\else
+    \GenericError{}{Guide deck: the preamble's \string\guidepdftitle\space
+      states `\guidepdfdeck', the title frame `#1: #3'}{}{State the same
+      number and short title in both.}%
+  \fi
   \begin{frame}[plain,noframenumbering]
     \vspace*{4mm}
     {\color{SoftGray}\small\bfseries \guideseries, guide #1 of \guidecount, numbered \guiderange\par}

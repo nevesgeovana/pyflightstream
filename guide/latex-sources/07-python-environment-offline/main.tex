@@ -29,6 +29,7 @@
 \usepackage[nohyphen]{underscore}
 
 \input{info.tex}
+\guidepdftitle{7}{Offline Python environment}
 
 \begin{document}
 
@@ -198,13 +199,13 @@ and writes nothing outside \code{\$FTS}. Nothing is compiled.
 \small For a Linux target (one command; \code{\^{}} continues a line in the
 Windows shell, \code{\textbackslash} in a Linux one):
 \begin{lstlisting}[style=ftsbase]
-python -m pip download "pyflightstream[fsi]==0.30.0" -d (*@\envname@*)-linux ^
+python -m pip download "pyflightstream[fsi]==(*@\pkgversion@*)" -d (*@\envname@*)-linux ^
     --python-version 312 --only-binary=:all: ^
     --platform manylinux_2_28_x86_64 --platform manylinux2014_x86_64
 \end{lstlisting}
 \small For a Windows target:
 \begin{lstlisting}[style=ftsbase]
-python -m pip download "pyflightstream[fsi]==0.30.0" -d (*@\envname@*)-win ^
+python -m pip download "pyflightstream[fsi]==(*@\pkgversion@*)" -d (*@\envname@*)-win ^
     --python-version 312 --only-binary=:all: --platform win_amd64
 \end{lstlisting}
 {\ftstablesize
@@ -379,7 +380,7 @@ them down, beside the environment.\end{takeaway}
 \begin{column}{0.50\textwidth}
 \small\textbf{Windows target}
 \begin{lstlisting}[style=ftsbase,basicstyle=\ttfamily\tiny]
-pip download "pyflightstream[fsi]==0.30.0" ^
+pip download "pyflightstream[fsi]==(*@\pkgversion@*)" ^
   -d W --python-version 312 ^
   --only-binary=:all: --platform win_amd64
 py -3.12 -m venv .venv
@@ -392,7 +393,7 @@ pyfs-matrix --help
 \begin{column}{0.46\textwidth}
 \small\textbf{Linux target}
 \begin{lstlisting}[style=ftsbase,basicstyle=\ttfamily\tiny]
-pip download "pyflightstream[fsi]==0.30.0" \
+pip download "pyflightstream[fsi]==(*@\pkgversion@*)" \
   -d L --python-version 312 \
   --only-binary=:all: \
   --platform manylinux_2_28_x86_64 \
