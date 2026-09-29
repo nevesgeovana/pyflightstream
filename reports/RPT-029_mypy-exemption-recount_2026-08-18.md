@@ -828,3 +828,8 @@ shipped configuration is green over all 138 modules; the run measured the
 tree as it is and assigns the nineteen errors more to no single change.
 The quoted mypy lines above are this run's, and the sentence at the top of
 this report is this measurement.
+
+Re-run the same day on `97682ca2`, after the reconciliation's last source
+change (the harmonic skip scoped to a point that cuts sections, in
+`post/products.py`), with only `RELEASE-READY.md` uncommitted: 1084 errors in
+18 of 138 modules, 198 distinct source lines, unchanged.
