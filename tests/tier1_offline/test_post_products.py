@@ -647,6 +647,7 @@ def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path
     names = sorted(p.name for p in plots.iterdir())
     assert names == [
         "AL-020_per_blade.csv",
+        "AL-020_per_revolution.csv",  # 0.31.0 (G2)
         "AL-020_phase_locked.csv",
         "AL-020_plots.csv",
         "AL-020_time_average.csv",
@@ -777,6 +778,8 @@ def test_a_transition_row_writes_one_passage_reduction_per_rotor(tmp_path):
     assert names == [
         "AL-020_per_blade_LIFT_L1.csv",
         "AL-020_per_blade_PUSHER.csv",
+        "AL-020_per_revolution_LIFT_L1.csv",  # 0.31.0 (G2)
+        "AL-020_per_revolution_PUSHER.csv",
         "AL-020_phase_locked_LIFT_L1.csv",
         "AL-020_phase_locked_PUSHER.csv",
         "AL-020_plots.csv",
@@ -849,6 +852,7 @@ def test_a_row_turning_one_rotor_names_it_too(tmp_path):
     names = sorted(p.name for p in plots.iterdir())
     assert names == [
         "AL-020_per_blade_LIFT_L1.csv",
+        "AL-020_per_revolution_LIFT_L1.csv",  # 0.31.0 (G2)
         "AL-020_phase_locked_LIFT_L1.csv",
         "AL-020_plots.csv",
         "AL-020_time_average.csv",

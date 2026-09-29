@@ -114,6 +114,7 @@ from pyflightstream._tokens import REDUCTION_COLUMNS as REDUCTION_COLUMNS
 from pyflightstream.cases import (
     AXES_PLOT_COMPONENTS,
     AXES_PLOT_GROUP,
+    FORCE_PLOT_PARAMETERS,
     ROTOR_PLOT_GROUP_PREFIX,
     CampaignConfigError,
     PprocSpec,
@@ -317,6 +318,12 @@ __all__ = [
     "CustomPolarTable",
     "PRODUCTS_MANIFEST",
     "PER_BLADE_COLUMNS",
+    "PER_REVOLUTION_COLUMNS",
+    "DEFAULT_DRIFT_LIMIT_PCT",
+    "DRIFT_SUFFIX",
+    "per_revolution_table",
+    "revolution_drift_pct",
+    "is_force_or_moment_column",
     "REDUCTION_COLUMNS",
     "PolarPoint",
     "ProductArgumentError",
@@ -5792,6 +5799,7 @@ def _sim_products(
                     rotor_facts=_section_rotors(live, aliases, record_of[point.name]),
                     names=getattr(pproc, "names", None) or None,
                     pol=sim_id,
+                    drift_limit_pct=_drift_limit_pct(pproc),
                 )
     # ITEM 17, AT THE OUTER NESTING AND NOT INSIDE THE SUPERFILE GUARD.
     # IT WAS INSIDE, AND THE ARCHITECT LENS OF THE RELEASE ROUND MEASURED WHAT
@@ -6479,6 +6487,7 @@ def _point_reductions(
     names: Mapping[str, str] | None = None,
     frozen: FrozenSolve | None = None,
     pol: str | int | None = None,
+    drift_limit_pct: float | None = None,
 ) -> None:
     """Write every applicable reduction of one plots table beside it (PFS-2015.04).
 
@@ -6737,6 +6746,38 @@ def _point_reductions(
             # interface lens, 2026-09-10).
             record["rotor"] = rotor
         written_names[relative] = record
+    # THE PER-REVOLUTION PRODUCT (0.31.0, P0310-G2-PER-REV) is read off the same
+    # WRITTEN table and is not one of `REDUCTION_NAMES`: it has no window of the
+    # row's, it cuts the whole history into revolutions.
+    if not (
+        isinstance(plan.get(ROTORS_KEY), Mapping) or isinstance(plan.get("phase_locked"), Mapping)
+    ):
+        return  # no rotor turns in this point: the product is not applicable
+    if series is None:
+        try:
+            columns, series = plots_table_series(plots_table)
+        except (PyflightstreamError, OSError, ValueError) as error:
+            skipped[f"{PROBES_DIR}/{stem}_{_PER_REVOLUTION}.csv"] = str(error)
+            return
+        names = _dictionary_the_table_can_honour(columns, names, stem, skipped)
+    _write_the_per_revolution_products(
+        series,
+        columns,
+        plan,
+        out,
+        stem=stem,
+        runs=runs,
+        target=target,
+        written=written,
+        written_names=written_names,
+        skipped=skipped,
+        condition=condition,
+        reference=reference,
+        names=names,
+        frozen=frozen,
+        pol=pol,
+        drift_limit_pct=DEFAULT_DRIFT_LIMIT_PCT if drift_limit_pct is None else drift_limit_pct,
+    )
 
 
 _PER_BLADE = "per_blade"
@@ -6805,6 +6846,292 @@ def _write_the_per_blade_table(
         reference=reference,
         pol=pol,
     )
+
+
+#: The reduction the per-revolution product is, as `REDUCTION` states it.
+_PER_REVOLUTION = "per_revolution"
+
+#: The drift limit of a pproc that declares no `[per_revolution]` table, in per cent.
+DEFAULT_DRIFT_LIMIT_PCT = 1.0
+
+#: What a drift column's name ends with: the plotted column it is the drift of.
+DRIFT_SUFFIX = "_DRIFT_PCT"
+
+#: What a per-revolution row states before the means: the polar, which reduction,
+#: which rotor, which revolution (counted from one), the steps it spans, the
+#: condition and the moment point. The time average's `WINDOW` is `REVOLUTION`.
+PER_REVOLUTION_COLUMNS: tuple[str, ...] = (
+    POLAR_ID_COLUMN,
+    "REDUCTION",
+    ROTOR_ID_COLUMN,
+    "REVOLUTION",
+    "FIRST_STEP",
+    "LAST_STEP",
+    "STEPS",
+    *CONTEXT_COLUMNS,
+    *_MOMENT_POINT_COLUMNS,
+)
+
+
+def is_force_or_moment_column(name: str) -> bool:
+    """Whether a plotted column is a force or a moment, or a force coefficient of one.
+
+    The plots table names a column `<parameter>_<group>` (`FX_MRP_TOTAL`), and the
+    parameter is one of the solver's force plot parameters: the six components
+    and the four force coefficients. The parameter is what is asked, so a group
+    that happens to begin with `F` is not mistaken for a force.
+
+    Examples
+    --------
+    >>> is_force_or_moment_column("FX_MRP_TOTAL"), is_force_or_moment_column("CDI_WING")
+    (True, True)
+    >>> is_force_or_moment_column("VX_probe1"), is_force_or_moment_column("FXX_TOTAL")
+    (False, False)
+    """
+    return name.split("_", 1)[0] in FORCE_PLOT_PARAMETERS
+
+
+def per_revolution_table(
+    series: TimestepSeries,
+    columns: Sequence[str],
+    *,
+    revolution_steps: int,
+    read_steps: set[int] | None = None,
+) -> tuple[list[tuple[int, int]], list[dict[str, float]], int]:
+    """Cut a plots history into COMPLETE revolutions and take each column's mean.
+
+    Revolution ``k`` is rows ``(k-1) * revolution_steps`` to
+    ``k * revolution_steps - 1`` of the table, counted from its first row, so a
+    history that begins at step one cuts at steps 1 to N, N+1 to 2N and so on.
+    The mean is :func:`pyflightstream.post.unsteady.blade_passage_average`, the
+    package's one implementation of that average, so this table cannot disagree
+    with the time average about what a mean is. A trailing partial revolution is
+    NOT averaged: its length differs, so its mean would be the mean of another
+    thing under the same name.
+
+    Returns
+    -------
+    tuple
+        The (first, last) step of each complete revolution, each revolution's
+        mean by column, and the number of rows left over in the partial one.
+    """
+    if revolution_steps < 1:
+        raise ProductError("a revolution of under one solver step cannot be cut")
+    rows = len(series.steps)
+    complete = rows // revolution_steps
+    windows: list[tuple[int, int]] = []
+    means: list[dict[str, float]] = []
+    for index in range(complete):
+        first = int(series.steps[index * revolution_steps])
+        last = int(series.steps[(index + 1) * revolution_steps - 1])
+        average = blade_passage_average(series, window=(first, last), read_steps=read_steps)
+        windows.append((first, last))
+        means.append({name: float(average.fields[name][0]) for name in columns})
+    return windows, means, rows - complete * revolution_steps
+
+
+def revolution_drift_pct(current: float, previous: float) -> float | None:
+    """Return the drift of one mean from the previous one, in per cent, or None (`NA`).
+
+    ``(current - previous) / |previous| * 100``: the sign says whether the mean
+    rose or fell whatever the sign of the quantity. None where the previous mean
+    is zero, which has no relative change, and where either mean is not a number.
+
+    Examples
+    --------
+    >>> revolution_drift_pct(101.0, 100.0)
+    1.0
+    >>> revolution_drift_pct(-99.0, -100.0)
+    1.0
+    >>> revolution_drift_pct(1.0, 0.0) is None
+    True
+    """
+    if previous == 0.0 or math.isnan(previous) or math.isnan(current):
+        return None
+    return (current - previous) / abs(previous) * 100.0
+
+
+def _drift_limit_pct(pproc: object) -> float:
+    """Return the drift limit the pproc declares, in per cent, else the default."""
+    declared = getattr(getattr(pproc, "per_revolution", None), "drift_limit_pct", None)
+    return float(declared) if isinstance(declared, int | float) else DEFAULT_DRIFT_LIMIT_PCT
+
+
+def _per_revolution_targets(
+    plan: Mapping[str, object], stem: str
+) -> list[tuple[str | None, object, str]]:
+    """Return (rotor alias or None, steps per revolution, file) for each rotor of the plan."""
+    blocks = plan.get(ROTORS_KEY)
+    targets: list[tuple[str | None, object, str]] = []
+    if isinstance(blocks, Mapping):
+        for alias, block in blocks.items():
+            stated = block.get("steps_per_revolution") if isinstance(block, Mapping) else None
+            safe = _a_name_a_file_may_carry(str(alias))
+            targets.append(
+                (str(alias), stated, f"{PROBES_DIR}/{stem}_{_PER_REVOLUTION}_{safe}.csv")
+            )
+    elif isinstance(plan.get("phase_locked"), Mapping):
+        targets.append(
+            (None, plan.get("steps_per_revolution"), f"{PROBES_DIR}/{stem}_{_PER_REVOLUTION}.csv")
+        )
+    return targets
+
+
+def _write_the_per_revolution_products(
+    series: TimestepSeries,
+    columns: Sequence[str],
+    plan: Mapping[str, object],
+    out: Path,
+    *,
+    stem: str,
+    runs: list[str],
+    target: Callable[[Path], Path],
+    written: list[Path],
+    written_names: dict[str, dict[str, object]],
+    skipped: dict[str, str],
+    condition: Mapping[str, object] | None,
+    reference: ReferenceValues | None,
+    names: Mapping[str, str] | None,
+    frozen: FrozenSolve | None,
+    pol: str | int | None,
+    drift_limit_pct: float,
+) -> None:
+    """Write `<point>_per_revolution_<ALIAS>.csv` for each rotor the record's plan turns.
+
+    One file per rotor of the plan's ``rotors`` block, each cut on THAT rotor's
+    own steps per revolution; a row that names no rotor by alias and states its
+    clock flat gets `<point>_per_revolution.csv` with `NA` for the rotor. A point
+    whose plan states no rotor at all (a steady or a plain unsteady one) has no
+    revolution and no entry: it is not applicable, as `phase_locked` is not.
+    A rotor whose clock could not be resolved, a history shorter than one
+    revolution and a refused frozen solve are each a named skip.
+
+    THE WARNING NEVER BLOCKS (invariant 12): the last revolution's drift over the
+    declared limit is a WARNING line in ``post.log`` and the table is written.
+    """
+    printed = [name for name in columns if name not in _PLOTS_CLOCK_COLUMNS]
+    for rotor, per_revolution, relative in _per_revolution_targets(plan, stem):
+        who = f"rotor {rotor!r}" if rotor is not None else "the row's rotor"
+        if (
+            isinstance(per_revolution, bool)
+            or not isinstance(per_revolution, int | float)
+            or not per_revolution >= 0.5
+        ):
+            skipped[relative] = (
+                f"the run record states no steps per revolution for {who}, so a revolution "
+                "has no length in solver steps and the history cannot be cut into revolutions. "
+                "It is stated where the row gives the rotor speed and the solver time step."
+            )
+            continue
+        revolution_steps = int(round(float(per_revolution)))
+        read: set[int] = set()
+        try:
+            windows, means, partial = per_revolution_table(
+                series, printed, revolution_steps=revolution_steps, read_steps=read
+            )
+        except (PyflightstreamError, ValueError) as error:
+            skipped[relative] = str(error)
+            continue
+        if not windows:
+            skipped[relative] = (
+                f"the plots table of this point holds {len(series.steps)} time steps and "
+                f"{who} turns {float(per_revolution):g} solver steps per revolution "
+                f"({revolution_steps} used), so not one COMPLETE revolution was written and "
+                "there is nothing to average"
+            )
+            continue
+        reason = _judge_average(frozen, read, point=stem, product=relative)
+        if reason is not None:
+            target(out / relative)  # archive any stale product from an earlier post
+            skipped[relative] = reason
+            continue
+        drifts: list[dict[str, float | None]] = [{name: None for name in printed}]
+        for previous, current in zip(means, means[1:], strict=False):
+            drifts.append(
+                {name: revolution_drift_pct(current[name], previous[name]) for name in printed}
+            )
+        try:
+            heading = renamed_columns(
+                (*PER_REVOLUTION_COLUMNS, *printed),
+                names,
+                printed=printed,
+                where=_names_location(PROBES_DIR, relative),
+            )
+        except ProductError as refused:
+            skipped[relative] = str(refused)
+            continue
+        shown = heading[len(PER_REVOLUTION_COLUMNS) :]
+        context = context_row(condition, None if reference is None else reference.as_lengths())
+        moment = context_row(
+            None if reference is None else reference.as_moment_point(),
+            None,
+            columns=_MOMENT_POINT_COLUMNS,
+        )
+        rows: list[tuple[object, ...]] = []
+        for index, ((first, last), mean, drift) in enumerate(
+            zip(windows, means, drifts, strict=True), start=1
+        ):
+            rows.append(
+                (
+                    pol,
+                    _PER_REVOLUTION,
+                    rotor,
+                    index,
+                    first,
+                    last,
+                    revolution_steps,
+                    *context,
+                    *moment,
+                    *(mean[name] for name in printed),
+                    *(drift[name] for name in printed),
+                )
+            )
+        destination = target(out / relative)
+        written.append(
+            write_csv_table(
+                destination,
+                (*heading, *(f"{name}{DRIFT_SUFFIX}" for name in shown)),
+                rows,
+            )
+        )
+        if partial:
+            note = (
+                f"the plots table holds {len(series.steps)} time steps, {len(windows)} complete "
+                f"revolution(s) of {revolution_steps} and {partial} step(s) of a partial one, "
+                "which is NOT averaged: a mean of part of a revolution is a mean of another thing"
+            )
+            skipped[f"{relative}#partial"] = note
+            warn(f"point={stem} product={relative}: {note}", PyflightstreamWarning, stacklevel=2)
+        if len(windows) >= 2:
+            for name, shown_name in zip(printed, shown, strict=True):
+                drift_now = drifts[-1][name]
+                if (
+                    drift_now is not None
+                    and is_force_or_moment_column(name)
+                    and abs(drift_now) > drift_limit_pct
+                ):
+                    warn(
+                        f"point={stem} product={relative}: {who} column {shown_name} "
+                        f"drifts {drift_now:+.4f} per cent between revolution "
+                        f"{len(windows) - 1} and revolution {len(windows)}, over the "
+                        f"drift limit of {drift_limit_pct:g} per cent "
+                        "([per_revolution] drift_limit_pct): the last revolution is "
+                        "still moving",
+                        PyflightstreamWarning,
+                        stacklevel=2,
+                    )
+        record: dict[str, object] = {
+            "runs": runs,
+            "reduction": _PER_REVOLUTION,
+            "windows": [list(window) for window in windows],
+            "window_from": (
+                f"the plots table cut into complete revolutions of {revolution_steps} solver steps"
+            ),
+            "steps_per_revolution": float(per_revolution),
+        }
+        if rotor is not None:
+            record["rotor"] = rotor
+        written_names[relative] = record
 
 
 def products_to_retire(

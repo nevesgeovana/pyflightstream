@@ -166,6 +166,10 @@ _DIMENSIONLESS_OR_DEBT = {
     "last_revolutions_avg",  # PhaseLockedSpec.last_revolutions_avg
     # 0.25.0 F02: the same count of turns, for the surface time average.
     "last_revs",  # SurfaceTimeAveragingSpec.last_revs
+    # 0.31.0 (G2). A PERCENTAGE, a dimensionless ratio of two means of one
+    # quantity, so no SI unit suffix exists for it; `_pct` is the spelling the
+    # per-revolution product's own drift columns use (`<col>_DRIFT_PCT`).
+    "drift_limit_pct",  # PerRevolutionSpec.drift_limit_pct
     # 0.27.0 G03, an import operation of a raw mesh. `factors` are scale
     # factors, a ratio per axis. `vector` is a translation stated in the unit
     # the sidecar's [import] table names (the file's own unit), so a `_m`
