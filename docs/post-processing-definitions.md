@@ -1709,7 +1709,11 @@ or one of whose clocking exports is missing is not a row, and
 point: `K_1P_MIN`, `K_1P_MAX`, `K_1P_MEAN` (span weighted),
 `SPAN_PCT_K_GT_0_05`, `SPAN_PCT_K_GT_0_1`, `THRUST_PCT_K_GT_0_1`,
 `TORQUE_PCT_K_GT_0_1` and `K_1P_SOURCE`, with
-`k = Omega c / (2 sqrt(V^2 + (Omega r)^2))` per station. Where the point has
+`k = Omega c / (2 sqrt(V^2 + (Omega r)^2))` per station. The `1P` is counted
+on the blade, once per revolution of that blade: the frequency at which one
+blade meets an inflow that varies once around the disc, never the
+blade-passing frequency a fixed surface near the rotor feels, nor what a
+balance summing every blade reads. Where the point has
 a sectional loads export (`K_1P_SOURCE` `sections`), `c` is the export's
 `Chord` and `r` the absolute `Offset` of the rows the record's layout gives to
 the rotor, read as the radius of a distribution cut along the blade from the
