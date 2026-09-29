@@ -72,9 +72,12 @@
 \newcommand{\tofill}[1]{{\color{SoftGray}\itshape\small [your site: #1]}}
 
 % The numbered references of a deck, cited in the text as [1], [2], ...
-% and listed on the deck's last frame, as in a paper:
-%   \begin{frame}{References}\begin{reflist}\item ... \end{reflist}\end{frame}
+% and listed on the deck's last frame, as in a paper. Each entry is a
+% \bibitem with a key, so the entries are a bibliography a reader or a tool
+% can count; the key is not printed and the number is the list's:
+%   \begin{frame}{References}\begin{reflist}\bibitem{key} ... \end{reflist}\end{frame}
 \newenvironment{reflist}
   {\scriptsize\setbeamertemplate{enumerate item}{[\insertenumlabel]}%
+   \renewcommand{\bibitem}[1]{\item}%
    \begin{enumerate}\setlength{\itemsep}{2pt}}
   {\end{enumerate}}

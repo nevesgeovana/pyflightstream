@@ -15,9 +15,9 @@
         every coupling call.
   \item A matrix row selects its structure by name, \code{FSI: f001}, and
         calibrates it from the matrix.
-  \item Each frame names its source at its foot. The example numbers are what
-        the package's own examples print, on synthetic blades, and one
-        campaign on a public propeller geometry [2].
+  \item Each frame names its source at its foot: the examples' numbers are
+        the package's, on synthetic blades; the solver's behaviour is measured
+        on 26.124 [2].
 \end{itemize}
 \end{column}
 \begin{column}{0.41\textwidth}
@@ -37,34 +37,41 @@ still being debugged.
   \code{fsi/beam.py}; \code{extras.py}; the page ``FSI in a workspace''}
 \end{frame}
 
-% RE-CHECK after the FSI branch (FSI-1, FSI-GUARD, FSI-G) merges: the
-% workflow table and the loads each structure carries are written from the
-% requirements, not read from the merged code.
+% Re-checked against the merged FSI-1, FSI-GUARD and FSI-G code
+% (cases/fsi_workspace.py FSI_WORKFLOW_STATE, validate_workspace_fsi,
+% wire_fixed_wing_fsi). The qsteady_rotor sector row states the sector
+% structural route that lands with the qsteady_rotor FSI wiring of this
+% release.
 \begin{frame}{Where FSI runs, and what the structure carries}
 \relax % a body opening with a brace group would be read as the frame subtitle
-{\ftstablesize\renewcommand{\arraystretch}{1.18}
+{\ftstablesize\renewcommand{\arraystretch}{1.02}
 \begin{tabularx}{\linewidth}{@{}P{0.20\linewidth}P{0.10\linewidth}R@{}}
 \toprule
 \textbf{Workflow} & \textbf{FSI} & \textbf{What the structure carries, and why} \\
 \midrule
-\code{steady} & allowed & a fixed wing: the aerodynamic loads and the
-  structure's \textbf{own weight}; nothing turns, so no centrifugal load \\
+\code{steady} & allowed & a fixed wing, one clamped beam: the aerodynamic
+  loads and the structure's \textbf{own weight}; nothing turns, so no
+  centrifugal load. At most 50 coupling iterations \\
 \code{qsteady\_rotor}, sector & allowed & one blade held still in a free stream
   turning at the rotor's speed: the structural solver applies the
-  \textbf{centrifugal} loads and stiffening at that speed, \(\Omega\) taken
-  from the row's free-stream rotation \\
-\code{qsteady\_rotor}, wheel & refused & the rigid wheel runs; its coupled
-  form is not offered \\
-\code{unsteady} & allowed & a structure that does not turn: the loads and its
+  \textbf{centrifugal} loads and stiffening at the \textbf{free-stream
+  rotation's} rpm, \(\Omega = |\mathrm{rpm}|\,\pi/30\) \\
+\code{qsteady\_rotor}, wheel & refused & several steady clockings averaged; a
+  blade deformed once per clocking is not the state of one structure \\
+\code{unsteady} & allowed & a fixed wing, nothing turning: the loads and its
   own weight, one coupling call per time step \\
-\code{unsteady\_rotor} & refused & the plan says the feature is still in
-  debug: on 26.124 the solver deforms a turning blade in its un-turned
-  position [4] \\
+\code{unsteady\_rotor} & refused & \says{FSI on unsteady\_rotor is still in
+  debug on this release}: on 26.124 the morph of a turning blade is applied
+  to the blade at its imported azimuth [2] \\
 \bottomrule
 \end{tabularx}}
 \par\vspace{1mm}
-{\scriptsize A quasi-steady answer is valid only for an isolated,
+{\scriptsize A fixed wing's FSI input states \code{[config.wing]} and couples
+on \code{steady} or \code{unsteady} only; a blade's input, without it, couples
+on the rotor route only. A quasi-steady answer is valid only for an isolated,
 axisymmetric rotor, and only while the flow at each station changes slowly
-beside the revolution (Guide 5, the reduced frequency).\par}
-\fsidecided{\code{cases/fsi\_workspace.py}; \code{cases/workflows.py}}
+beside the revolution (Guide 1, the workflows; Guide 5).\par}
+\fsisource{\code{cases/fsi\_workspace.py}, \code{FSI\_WORKFLOW\_STATE},
+  \code{validate\_workspace\_fsi}, \code{STEADY\_AEROELASTIC\_ITERATIONS};
+  \code{cases/workflows.py}; RPT-093 [2]}
 \end{frame}

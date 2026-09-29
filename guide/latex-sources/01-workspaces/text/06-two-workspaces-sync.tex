@@ -190,7 +190,7 @@ pyfs-matrix delete-sims 4001,2009 --workspace . --apply
 \begin{itemize}\small
   \item \code{space-in-use}: sizes by top folder, by \code{sims/sim\_*} and by
         extension (\code{--top N}).
-  \item \code{free-space}: compacts simulation folders into
+  \item \code{free-space}: prunes per-step exports, compacts simulation folders into
         \code{sims/sim\_<id>.zip}, deletes files of named extensions, compacts
         or deletes \code{post/<matrix>/archive/}. A compacted folder is
         restored, hash checked, the moment \pyfs{post}, \pyfs{collect} or a
@@ -210,8 +210,9 @@ pyfs-matrix delete-sims 4001,2009 --workspace . --apply
   \item An unsteady point that exports along its march (the surface of an
         averaging window, the stamped series) leaves one file per step. They
         are the largest thing a campaign keeps.
-  \item A \code{free-space} mode deletes them and \textbf{keeps only the last
-        step's} export of each unsteady point. Like every storage call it
+  \item The recipe table \code{[[prune\_step\_exports]]} of
+        \code{inputs/management/m<id>.toml} deletes them and \textbf{keeps only
+        the last step's} export of each unsteady point. Like every storage call it
         previews first and deletes only with \code{--apply}, and the call is
         recorded.
   \item Products already written stay as they are.

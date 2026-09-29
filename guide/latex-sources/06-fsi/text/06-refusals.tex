@@ -2,38 +2,65 @@
 %
 % fsi/text/06-refusals.tex
 %
-% The plan-time refusals are described by what they refuse and why, from the
-% requirements of this version; the input-reading messages of the last frame
-% are quoted from workspace/fsi_setup.py, shortened only where "..." says so.
+% The plan-time refusals are described by what they refuse and why, read from
+% the merged FSI-1, FSI-GUARD and FSI-G code (cases/fsi_workspace.py,
+% validate_workspace_fsi; cases/workflows.py); the input-reading messages of
+% the last frame are quoted from workspace/fsi_setup.py, shortened only where
+% "..." says so.
 
 \section{What is refused, and why}
 
 \begin{frame}{Refused at plan: the shape of the run}
 \small The automatic route is deliberately bounded: each of these refuses the
-row when it is planned, before it can run.
-\par\vspace{1.5mm}
-{\ftstablesize\renewcommand{\arraystretch}{1.18}
-\begin{tabularx}{\linewidth}{@{}P{0.30\linewidth}R@{}}
+row when it is planned, before it can run. The workflow is judged first.
+\par\vspace{1mm}
+{\ftstablesize\renewcommand{\arraystretch}{1.08}
+\begin{tabularx}{\linewidth}{@{}P{0.33\linewidth}R@{}}
 \toprule
 \textbf{The row} & \textbf{Why it is refused} \\
 \midrule
-turns a rotor (\code{unsteady\_rotor}) & the plan says the feature is still in
-  debug: a turning blade is deformed in its un-turned position [4] \\
-is a \code{qsteady\_rotor} wheel & the coupled quasi-steady case is the sector \\
+turns a rotor (\code{unsteady\_rotor}) & \says{FSI on unsteady\_rotor is still
+  in debug on this release (the morph is applied to the un-rotated blade,
+  reported to the vendor)} [2] \\
+is a \code{qsteady\_rotor} wheel & several clockings averaged are not the state
+  of one structure; the coupled quasi-steady case is the sector \\
+names a wing input on a rotor workflow, or a blade input on \code{steady} or
+  \code{unsteady} & a fixed wing (\code{[config.wing]}) couples on
+  \code{steady} and \code{unsteady}; a blade on the rotor route \\
 continues a stopped run & the structural state and the section order of a
   continuation are not proved \\
-opens a saved \code{.fsm} & the section order a saved simulation inherits has
-  no proof: import the mesh, with its boundary sidecar \\
+\bottomrule
+\end{tabularx}}
+\fsisource{\code{cases/fsi\_workspace.py}, \code{validate\_workspace\_fsi},
+  \code{fsi\_workflow\_refusal}}
+\end{frame}
+
+\begin{frame}{Refused at plan: the geometry and what the script may carry}
+\relax % a body opening with a brace group would be read as the frame subtitle
+{\ftstablesize\renewcommand{\arraystretch}{1.12}
+\begin{tabularx}{\linewidth}{@{}P{0.33\linewidth}R@{}}
+\toprule
+\textbf{The row} & \textbf{Why it is refused} \\
+\midrule
+opens a saved \code{.fsm} & \says{Workspace FSI requires a fresh mesh import}:
+  import the mesh, with its boundary sidecar \\
 places nodes in a unit other than metres & other native node units have not
   been measured \\
 carries a raw command or a custom flag & the section and frame order can no
   longer be proved \\
+copies blades by symmetry, outside the \code{qsteady\_rotor} sector & every
+  coupled blade must be explicit, with its own sections \\
+is a steady coupled row asking for probes, a volume section or loads
+  selections & the script never starts the solver after the analysis, so they
+  would be exported empty \\
 puts a structural node outside the component & the interpolation cannot
   place a surface around a node that is not within it \\
 \bottomrule
 \end{tabularx}}
-\fsidecided{\code{cases/fsi\_workspace.py}, \code{validate\_workspace\_fsi};
-  \code{cases/workflows.py}}
+\fsisource{\code{cases/fsi\_workspace.py}, \code{validate\_workspace\_fsi};
+  \code{fsi/nodes.py}, \code{refuse\_nodes\_outside\_sections};
+  \code{cases/workflows.py},
+  \code{\_refuse\_what\_a\_steady\_coupled\_run\_cannot\_export}}
 \end{frame}
 
 \begin{frame}{Refused at plan: blades, frames and the speed}
@@ -44,16 +71,19 @@ puts a structural node outside the component & the interpolation cannot
         row's rotor speed; on a \code{qsteady\_rotor} row that is the speed of
         its free-stream rotation. A structure that does not turn has
         \(\Omega = 0\) and carries its own weight instead.
-  \item \textbf{The clock.} On an \code{unsteady} row the structural time
-        increment must equal the solver's time step.
+  \item \textbf{The clock.} Where the structure states a time increment, it
+        must equal the solver's time step.
+  \item \textbf{The basis.} A rotor's shaft is X and its blade datum Z; a
+        wing's sections are cut in a frame with the reference axes, its origin
+        on the wing's \code{origin\_m} along the span.
   \item \textbf{The mapping.} Blade, frame and boundary are one-to-one; there
         is exactly one section distribution per blade, in blade import order,
-        each in its own frame with XY cuts, span along Z.
+        each in its own frame with XY cuts, span along Z (a wing: one, XZ).
 \end{itemize}
 {\scriptsize Geometry and structural pitch must describe the same blade: the
 adapter infers no basis and re-pitches no mesh.\par}
-\fsidecided{\code{cases/fsi\_workspace.py}, \code{wire\_workspace\_fsi},
-  \code{validate\_workspace\_fsi}}
+\fsisource{\code{cases/fsi\_workspace.py}, \code{wire\_workspace\_fsi},
+  \code{wire\_fixed\_wing\_fsi}, \code{validate\_workspace\_fsi}}
 \end{frame}
 
 \begin{frame}{Refused while reading the input}

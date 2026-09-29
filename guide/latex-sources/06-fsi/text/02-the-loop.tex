@@ -140,8 +140,9 @@ generated, exactly as written.
         \code{steady} or an \code{unsteady} row; the loop is the same.
   \item \textbf{A blade held still} in a turning free stream
         (\code{qsteady\_rotor}, sector) is the opposite case: the aerodynamics
-        see no motion, and the structural solver still applies the
-        centrifugal loads at the row's rotation speed.
+        see the rotation through the free stream, which reproduces the
+        turning blade's axial force to 0.35\,\% [3], and the structural solver
+        still applies the centrifugal loads at the free-stream rotation's rpm.
   \item \textbf{Quasi-static.} The mean deformation is exact within the beam
         idealisation; the once-per-revolution content is trustworthy only well
         below resonance, roughly \(n\,\Omega / \omega_n \le 0.3\) [12, 13].
@@ -152,7 +153,9 @@ generated, exactly as written.
 against the implemented formulas; each formula lives in one small function
 that cites its source, so a correction stays local.
 \end{alertblock}
-\fsidecided{\code{fsi/centrifugal.py}; the page ``FSI in a workspace''}
+\fsisource{\code{fsi/wing.py} module docstring (gravity \(-z\) by default,
+  \code{[config.wing]}); \code{fsi/centrifugal.py}; the page ``FSI in a
+  workspace''}
 \end{frame}
 
 \begin{frame}{Twist travels as three nodes per station}
@@ -244,30 +247,33 @@ that cites its source, so a correction stays local.
 \begin{frame}{The structural nodes, and how the surface follows them}
 \begin{columns}[T]
 \begin{column}{0.52\textwidth}
-\begin{itemize}\small
-  \item \textbf{Inside the component.} The nodes lie on the camber line of
-        each station, turned by its local twist, inside the blade or the
-        wing; a node outside is refused at plan.
-  \item \textbf{In the frame that turns with the blade}, so a displacement
-        means the same thing at every position.
-  \item \textbf{The surface by its boundary}: the aeroelastic surface is
-        assigned by the boundary's own identifier in the mesh.
-  \item \textbf{After the structural call}: a coupled point exports once the
-        last call has moved the surface; a steady run waits for it.
+\begin{itemize}\footnotesize
+  \item \textbf{Inside the component.} Where the input gives section
+        contours, the nodes lie on the camber line of each station, turned by
+        its local twist, inside the blade or the wing; a node outside is
+        refused at plan.
+  \item \textbf{The node frame.} On 26.124 a scripted node import stores the
+        reference frame whatever frame it names [2].
+  \item \textbf{The surface by its boundary ID}: an OBJ import numbers its
+        first boundary 2 and an STL 1; a list holding the tree position maps
+        0 vertices, in silence [2].
+  \item \textbf{After the structural call}: the exports that must show the
+        deformation run in the post-processing script.
 \end{itemize}
 \end{column}
 \begin{column}{0.44\textwidth}
 \begin{block}{A radial basis function carries the nodes to the panels}
-\small The displacement known at the nodes is interpolated onto every
+\footnotesize The displacement known at the nodes is interpolated onto every
 aerodynamic panel [14, 15, 16]. A beam is a \textbf{line} of nodes: a
-compactly supported kernel reaches only the panels within its radius of that
-line, and the rest of the surface barely moves. The coupled row uses the
-\textbf{multiquadric} [14], whose support is global.
+compactly supported kernel reaches only the panels near it. The coupled row
+uses the \textbf{multiquadric} [14], whose support is global: on one beam line
+it delivered an imposed bend to 3 mm, where the compact kernel gave 64\,\% of
+it and the coupled run diverged [2].
 \end{block}
 \end{column}
 \end{columns}
-\fsidecided{\code{fsi/nodes.py}; \code{cases/fsi\_workspace.py}; Guide 4,
-  \code{aeroelastic\_rbf\_type}}
+\fsisource{\code{fsi/nodes.py}; \code{cases/fsi\_workspace.py}; Guide 4,
+  \code{aeroelastic\_rbf\_type}; RPT-093 [2], facts 1, 2 and 7}
 \end{frame}
 
 \begin{frame}{Route B: the direct transform, a sanity check}
@@ -290,9 +296,10 @@ line, and the rest of the surface barely moves. The coupled row uses the
 \small A simplified run, a check of the coupled route against an
 independent one, and an FSI option where the coupled route is not
 available. It is \textbf{not} the coupled route: it carries no dynamics and
-no in-run deformation. The worked example of Part 7 was solved this way.
+no in-run deformation.
 \end{ftslimit}
 \end{column}
 \end{columns}
-\fsidecided{the worked example's route diagnostic [3]}
+\fsisource{\code{fsi/loads.py}, \code{to\_elastic\_axis};
+  \code{fsi/centrifugal.py}, \code{solve\_rotating\_static}}
 \end{frame}

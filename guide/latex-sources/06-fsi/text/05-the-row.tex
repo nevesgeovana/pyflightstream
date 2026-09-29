@@ -33,48 +33,65 @@ that executes the point.\par}
   \code{fsi/beam.py} (PyNite from the \code{[fsi]} extra)}
 \end{frame}
 
-% RE-CHECK after the FSI branch (FSI-1, FSI-GUARD, FSI-G) merges: the
-% command list and its order are written from the requirements (surface by
-% boundary ID, multiquadric kernel, steady and unsteady coupling), not read
-% from the merged builder; compare with a planned script of each workflow.
+% Re-checked against the merged builder (cases/fsi_workspace.py
+% _stage_and_emit, emit_steady_aeroelastic_analysis; cases/workflows.py
+% _script_init, _script_tail): the block sits in the init phase after
+% INITIALIZE_SOLVER and the section distributions, before the loads frame.
 \begin{frame}[fragile]{The native commands, in the order they are emitted}
 \relax % a body opening with a brace group would be read as the frame subtitle
-{\ftstablesize\renewcommand{\arraystretch}{0.97}
+{\ftstablesize\renewcommand{\arraystretch}{1.0}
 \begin{tabularx}{\linewidth}{@{}P{0.47\linewidth}R@{}}
 \toprule
 \textbf{Command} & \textbf{What the row gives it} \\
 \midrule
+\code{AEROELASTIC\_RBF\_TYPE} & \code{MULTI\_QUADRATIC}, for a beam line of nodes, unless the setup states \code{aeroelastic\_rbf\_type} \\
 \code{DELETE\_AEROELASTIC\_STRUCTURAL\_NODES} & nothing: a clean start \\
-\code{AEROELASTIC\_RBF\_TYPE} & \code{MULTI\_QUADRATIC}, for a beam line of nodes \\
-\code{ASSIGN\_AEROELASTIC\_SURFACES} & the coupled boundaries, by their identifiers in the mesh \\
-\code{ASSIGN\_AEROELASTIC\_COORDINATE\_SYSTEMS} & each blade's own frame, or the wing's \\
+\code{ASSIGN\_AEROELASTIC\_SURFACES} & the coupled boundaries by their \textbf{boundary ID}: the tree position plus 1 for an OBJ import, plus 0 for an STL \\
+\code{ASSIGN\_AEROELASTIC\_COORDINATE\_SYSTEMS} & each blade's own frame, or the frame the wing's sections are cut in \\
 \code{IMPORT\_AEROELASTIC\_STRUCTURAL\_NODES} & per blade, in blade order: its frame, \code{DISABLE}, \code{fsi\_nodes.csv} \\
 \code{SET\_AEROELASTIC\_WORKING\_DIRECTORY} & \code{.}, the point's directory \\
 \code{SET\_AEROELASTIC\_POST\_PROCESSING\_SCRIPT} & \code{fsi\_post.txt} \\
 \code{SET\_AEROELASTIC\_STRUCTURAL\_EXECUTION\_COMMAND} & the interpreter and \code{fsi\_callback.py} \\
-\code{SET\_AEROELASTIC\_ITERATIONS} & \code{1}, one call per coupling step \\
-\code{EXECUTE\_AEROELASTIC\_ANALYSIS} & a \code{steady} or \code{qsteady\_rotor} row: the steady coupled solve \\
-\code{SET\_AEROELASTIC\_COUPLING\_IN\_UNSTEADY} & an \code{unsteady} row: \code{ENABLE}, before \code{START\_SOLVER} \\
+\code{SET\_AEROELASTIC\_ITERATIONS} & steady: \code{50}, a cap; unsteady: \code{1} per time step \\
+\code{SET\_AEROELASTIC\_COUPLING\_IN\_UNSTEADY} & an unsteady row: \code{ENABLE}, before \code{START\_SOLVER} \\
+\code{EXECUTE\_AEROELASTIC\_ANALYSIS} & a steady row: the \textbf{last line} of the script \\
 \bottomrule
 \end{tabularx}}
-\par\vspace{1mm}
+\fsisource{\code{cases/fsi\_workspace.py}, \code{\_stage\_and\_emit},
+  \code{emit\_steady\_aeroelastic\_analysis}}
+\end{frame}
+
+\begin{frame}[fragile]{A steady coupled script ends at the analysis}
 \begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\begin{itemize}\footnotesize
+  \item In a script the analysis \textbf{returns at once}: an export after it
+        would write the rigid surface, and a \code{CLOSE\_FLIGHTSTREAM} would
+        end the analysis [2]. So it is the last line; the plan refuses any
+        line after it.
+  \item The exports run in \code{fsi\_post.txt}, after every coupling
+        iteration, the last included: the files left are the deformed ones.
+  \item The run waits for \code{Aeroelastic solver run time}, then stops the
+        process.
+  \item Unsteady: \code{fsi\_post.txt} runs twice per step, before and after
+        the structural call.
+\end{itemize}
+\end{column}
 \begin{column}{0.44\textwidth}
 \scriptsize \code{fsi\_callback.py}, whole:
 \begin{lstlisting}[style=ftsbase, language=Python, basicstyle=\ttfamily\tiny]
 from pyflightstream.fsi.cli import main
 raise SystemExit(main(['step', '--dir', '.']))
 \end{lstlisting}
-\end{column}
-\begin{column}{0.52\textwidth}
 \begin{alertblock}{Documented, not verified}
 \scriptsize The command database records every command of the family as
-documented, none as verified: its 26.124 rows are carried from the 26.123
-manual. The coupled runs of this version are measurements, not promotions.
+documented, none as verified. The coupled runs of this version are
+measurements (RPT-093 [2]), not promotions.
 \end{alertblock}
 \end{column}
 \end{columns}
-\fsidecided{\code{cases/fsi\_workspace.py}, \code{wire\_workspace\_fsi};
+\fsisource{\code{cases/fsi\_workspace.py}, \code{refuse\_lines\_after\_steady\_analysis},
+  \code{STEADY\_AEROELASTIC\_COMPLETION}, \code{aeroelastic\_post\_script};
   \code{commands/aeroelastic\_coupling.yaml}}
 \end{frame}
 
@@ -86,31 +103,28 @@ manual. The coupled runs of this version are measurements, not promotions.
 [sections]
 count = 50
 include_symmetry = false
-
 [[sections.distributions]]
 families = ["Blade1"]
 frame = "LOCAL_AXIS"
 planes = ["XY"]
 \end{lstlisting}
-{\scriptsize No separate \code{[settings.aeroelastic]} table is
-needed.\par}
+\begin{takeaway}
+The loads export is one flat table; the family map tells the driver which
+rows are which blade.
+\end{takeaway}
 \end{column}
 \begin{column}{0.52\textwidth}
-\begin{itemize}\small
+\begin{itemize}\footnotesize
   \item Exactly one XY distribution per blade, emitted in blade order, each in
-        that blade's own frame (span along Z); a wing takes one along its
-        span.
-  \item Several blades: select the rotor's blades so \code{LOCAL\_AXIS}
-        expands them in the declared blade order. The structural
-        \code{blade\_count} counts every explicit blade.
-  \item Duplicate cuts, aggregated families, other planes or additional
-        distributions are refused, never attributed to the first matching
-        blade.
+        that blade's own frame (span along Z).
+  \item A wing: exactly one distribution, over its one family, on the XZ
+        plane, in a frame the run creates with the reference axes and its
+        origin on the wing's \code{origin\_m} along the span.
+  \item Several blades: \code{LOCAL\_AXIS} expands the rotor's blades in the
+        declared order; \code{blade\_count} counts every explicit blade.
+  \item Duplicate cuts, aggregated families, other planes or more
+        distributions are refused, never guessed.
 \end{itemize}
-\begin{takeaway}
-The loads export is one flat table in creation order; the family map is what
-tells the driver which rows are which blade.
-\end{takeaway}
 \end{column}
 \end{columns}
 \fsisource{\code{docs/fsi-workspace.md}, ``Automatic workspace coupling'';
