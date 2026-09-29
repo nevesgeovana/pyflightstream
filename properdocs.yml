@@ -132,6 +132,7 @@ nav:
           - Numeric settings codebook: settings-codebook.md
       # One section, newest first, so a release adds a line here.
       - Migrating to newer versions:
+          - Migrating to 0.31.0: migrating-to-0.31.0.md
           - Migrating to 0.30.0: migrating-to-0.30.0.md
           - Migrating to 0.29.0: migrating-to-0.29.0.md
           - Migrating to 0.28.0: migrating-to-0.28.0.md
