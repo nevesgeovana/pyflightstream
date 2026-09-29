@@ -77,6 +77,7 @@ from tests.tier1_offline.test_aeroelastic_typed_setup import coupled_case
 from tests.tier1_offline.test_goal031_g08_input_glossary import parsed_page
 from tests.tier1_offline.test_rotor_by_alias import saved_simulation, two_rotor_case
 from tests.tier1_offline.test_workflows import (
+    qsteady_case,
     rotor_case,
     steady_case,
     steady_case_resolved,
@@ -434,6 +435,8 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
         lambda _: _continuing("{ADDITIONAL_ITERS=200}", "200"),
     ),
     "LAST_REVS_AVG": _rows(rotor_case, "LAST_REVS_AVG", "0.25", "0.5"),
+    # 0.30.0: the quasi-steady wheel's clockings, two and three of one passage.
+    "PASSAGE_POSITIONS": _rows(qsteady_case, "PASSAGE_POSITIONS", "2", "3"),
     "CLOCK_MOTION": Variation(
         lambda tmp: _azimuthal_clock(tmp, CLOCK_MOTION="LIFT_L1"),
         lambda tmp: _azimuthal_clock(tmp, CLOCK_MOTION="PUSHER"),

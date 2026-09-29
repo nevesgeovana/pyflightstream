@@ -356,6 +356,58 @@ def _warn_when_a_helical_mach_may_reach_one(resolved: ResolvedMatrix, plan: Camp
         )
 
 
+def _warn_when_a_quasi_steady_point_leaves_its_assumption(
+    resolved: ResolvedMatrix, plan: CampaignPlan
+) -> None:
+    """Name each quasi-steady wheel point whose blade has k above 0.1 anywhere (0.30.0).
+
+    ``k = Omega c / (2 V_rel)`` is the 1P reduced frequency of a blade station
+    (:mod:`pyflightstream.cases.qsteady`); above 0.1 the lag of the unsteady
+    wake is no longer small against the once-per-revolution load, so the
+    quasi-steady load there is an estimate. A warning, never a refusal, naming
+    each point with the four values the plan shows for it. A wheel point whose
+    chord is not known at plan time is named in a second warning, with why.
+    Called from :func:`plan_matrix` alone.
+    """
+    from pyflightstream.cases.qsteady import REDUCED_FREQUENCY_LIMIT, summarise
+
+    cases = {case.sim_id: case for case in resolved.campaign.sims}
+    above: list[str] = []
+    unknown: list[str] = []
+    for entry in plan.points:
+        validity = entry.qsteady_validity
+        if not validity:
+            continue
+        case = cases.get(entry.sim_id)
+        try:
+            name = point_name(case, entry.point) if case is not None else entry.run_id
+        except CampaignConfigError:
+            name = entry.run_id
+        if validity.get("note"):
+            unknown.append(f"POL {entry.sim_id} point {name}: {validity['note']}")
+            continue
+        share = validity.get("span_pct_k_gt_0_1")
+        if isinstance(share, int | float) and share > 0.0:
+            above.append(f"POL {entry.sim_id} point {name}: {summarise(validity)}")
+    if above:
+        warn(
+            f"quasi-steady rotor: the 1P reduced frequency k = Omega c / (2 V_rel) exceeds "
+            f"{REDUCED_FREQUENCY_LIMIT:g} on part of the blade at {len(above)} point(s): "
+            f"{'; '.join(above)}. There the unsteady wake lags the once-per-revolution load "
+            "and the quasi-steady load is an estimate. Nothing is refused; every product of "
+            "these points carries the values.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+    if unknown:
+        warn(
+            f"quasi-steady rotor: the 1P reduced frequency is not known at plan time for "
+            f"{'; '.join(unknown)}.",
+            PyflightstreamWarning,
+            stacklevel=3,
+        )
+
+
 def _warn_the_rows_whose_additional_post_is_one_instant(resolved: ResolvedMatrix) -> None:
     """Name each unsteady row stating ADDITIONAL_PPROC, whose extraction is one instant (G12).
 
@@ -669,6 +721,7 @@ def plan_matrix(
     )
     _warn_when_the_points_may_not_fit(workspace, len(plan.ready))
     _warn_when_a_helical_mach_may_reach_one(resolved, plan)
+    _warn_when_a_quasi_steady_point_leaves_its_assumption(resolved, plan)
     if write_plan:
         # THE GENERATED PPROC GUIDES (0.24.0), written by the step every campaign
         # passes through, so a workspace made before they existed gets them and a

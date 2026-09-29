@@ -1676,3 +1676,57 @@ The public `post.write_probe_field` writes finite REFERENCE-frame samples in met
 Example: `write_probe_field(stem, points_m, velocity_m_s, source=csv_path, provenance=record, formats=("vtk", "tecplot"), reusable_inflow=True)`. Tecplot zone dimensions and nodal POINT packing follow the [official data format guide](https://tecplot.azureedge.net/products/360/2024r1m1/360-data-format.html).
 
 A workspace opts in per `[[probes]]` entry with `frame = "REFERENCE"`, `field_formats = ["vtk", "tecplot"]` and optionally `reusable_inflow = true`. These requests automatically sample VX, VY and VZ. The emitted sample IDs and native-to-meter factor are recorded with the run. Post writes `fields/<point>_field_<entry>[_step_<step>]` from complete probe tables; every actual transient step remains separate. Missing components or recorded sample IDs produce a named post warning and no interpolated replacement.
+
+## The quasi-steady rotor
+
+A `qsteady_rotor` point is steady, and every product a steady point writes
+(the polar, the rotor table, the sections, the probes) is written for it as
+for any steady point: the instant of its own solve, which on a wheel is
+clocking 0. Two products are the run type's own, and a wheel point's sections
+gain two things.
+
+- **The clockings table**, `polars/P<sim>-<ALIAS>_qs_positions.csv`: one row
+  per point and clocking, the shape of the unsteady rotor's phase-locked table
+  (one row per azimuth). `REDUCTION` is `qsteady_position`; `AZIMUTH` is where
+  blade one is at that clocking, its datum plus `theta_i`, in the direction of
+  rotation; `POSITION` is `i` and `POSITIONS` is `k`. Each value is an
+  INSTANT, the steady solve at that clocking.
+- **The average table**, `polars/P<sim>-<ALIAS>_qs_avg.csv`: one row per
+  point, `REDUCTION` `qsteady_average`, the mean over its clockings of every
+  loads column. It is the quasi-steady counterpart of the unsteady time
+  average, and it is an AVERAGE over clockings, never over time.
+
+Both carry `CONTEXT_COLUMNS`, the moment point, the validity columns below
+and then, for the rotor (`_<ALIAS>`) and for each blade (`_<family>`),
+`FX FY FZ` (N) and `MX MY MZ` (N m, about the rotor's HUB), in the loads
+frame's axes, and `THRUST` and `TORQUE`, the components along the shaft, each
+taken from the loads export of that clocking at its reference velocity and
+the point's density, by the rotor table's own statics. A point whose record
+or one of whose clocking exports is missing is not a row, and
+`products.json` names it under the file.
+
+**The validity columns**, on both tables and on the sections of a wheel
+point: `K_1P_MIN`, `K_1P_MAX`, `K_1P_MEAN` (span weighted),
+`SPAN_PCT_K_GT_0_05`, `SPAN_PCT_K_GT_0_1`, `THRUST_PCT_K_GT_0_1`,
+`TORQUE_PCT_K_GT_0_1` and `K_1P_SOURCE`, with
+`k = Omega c / (2 sqrt(V^2 + (Omega r)^2))` per station. Where the point has
+a sectional loads export (`K_1P_SOURCE` `sections`), `c` is the export's
+`Chord` and `r` the absolute `Offset` of the rows the record's layout gives to
+the rotor, read as the radius of a distribution cut along the blade from the
+hub; the summary is taken over the rotor's first blade present, so a wheel's
+blades do not count one station several times. Each station stands for a
+strip, half-way to its neighbours. The two shares are the strips above 0.1
+over all strips, of the export's `Fx` per unit span for thrust and of `Fz`
+times the radius for torque: the export's `Fx` is read as the force along the
+shaft and `Fz` as the in-plane force, which holds for a distribution cut
+normal to the blade in a frame whose x axis is the shaft, and is not measured
+on a licensed run. Where the point has no such export the values are the
+plan's, the chord read off the mesh (`K_1P_SOURCE` `mesh`), and the two
+shares are `NA`.
+
+**The sections of a wheel point** gain `K_1P`, the reduced frequency of each
+row of the rotor (`NA` on a row no rotor owns), and the validity columns,
+after the export's own columns.
+
+The polar and the rotor table of a quasi-steady point do not carry the
+validity columns in this release.

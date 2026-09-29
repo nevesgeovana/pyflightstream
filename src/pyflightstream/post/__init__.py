@@ -29,6 +29,9 @@ module, which is stated rather than left to be discovered:
 * :mod:`pyflightstream.post.section_distributions` tables the sectional
   loads and chordwise Cp, one table per recorded pproc distribution.
   Reached through its own module;
+* :mod:`pyflightstream.post.qsteady` tables a quasi-steady rotor's steady
+  clockings and their average, and gives its sections the 1P reduced
+  frequency of each station (0.30.0). Reached through its own module;
 * :mod:`pyflightstream.post.custom_polar` and
   :mod:`pyflightstream.post.provenance` hold the custom polar format and the
   PROV-JSON writer that the products entry below names; their existing

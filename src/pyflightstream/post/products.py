@@ -115,6 +115,7 @@ from pyflightstream.cases import (
     AXES_PLOT_COMPONENTS,
     AXES_PLOT_GROUP,
     ROTOR_PLOT_GROUP_PREFIX,
+    CampaignConfigError,
     PprocSpec,
     classify_outputs,
     global_frame_plot_declarations,
@@ -129,11 +130,13 @@ from pyflightstream.cases.workflows import (
     ORIGINAL_FRAME_SUFFIX,
     PER_ROTOR_REDUCTIONS,
     PROBE_POSITION_COLUMNS,
+    QSTEADY_ROTOR,
     REDUCTION_NAMES,
     ROTORS_KEY,
     rotor_mach_numbers,
 )
 from pyflightstream.fsi.loads import SectionalLoadsReport, parse_sectional_loads
+from pyflightstream.post import qsteady as _qsteady
 from pyflightstream.post._tables import (
     _COEFFICIENT_PLOT_PREFIXES,
     ADVANCE_RATIO_COLUMN,
@@ -1079,6 +1082,12 @@ class RotorShaftLoads:
     shaft_angle_deg: float
     wind_force_n: float
     families_used: tuple[str, ...]
+    #: The rotor's force in N and its moment about the HUB in N m, both in the
+    #: loads frame's axes, of which the thrust and the torque are the shaft
+    #: components; None where those two are not a number (0.30.0, for the
+    #: quasi-steady rotor's in-plane loads).
+    force_n: tuple[float, float, float] | None = None
+    moment_hub_nm: tuple[float, float, float] | None = None
 
 
 #: The analysis frames whose axes are the GEOMETRY's, so a force stated in them
@@ -1232,6 +1241,8 @@ def rotor_shaft_loads(
     ]
 
     return RotorShaftLoads(
+        force_n=(newtons[0], newtons[1], newtons[2]),
+        moment_hub_nm=(about_hub[0], about_hub[1], about_hub[2]),
         thrust_n=sum(a * b for a, b in zip(newtons, shaft, strict=True)),
         torque_nm=sum(a * b for a, b in zip(about_hub, shaft, strict=True)),
         shaft_angle_deg=_shaft_angle(shaft, alpha_deg, beta_deg),
@@ -4811,6 +4822,137 @@ def _in_coefficients(report: LoadsReport) -> bool:
     )
 
 
+def _qsteady_sections(
+    table: Path,
+    point: PolarPoint,
+    record: RunRecord | None,
+    skipped: dict[str, str],
+) -> dict[str, _qsteady.PointValidity]:
+    """Add the 1P reduced frequency to a quasi-steady wheel point's sections table (0.30.0).
+
+    Returns ``{point name: validity}`` for a wheel point whose sections are the
+    rotor's, and nothing for any other point, whose table is left as written.
+    """
+    if record is None or record.recipe != QSTEADY_ROTOR:
+        return {}
+    try:
+        quasi = _qsteady.read_qsteady_record(point.loads_path)
+        if quasi is None or quasi.get("case") != "wheel":
+            return {}
+        validity = _qsteady.add_reduced_frequency_to_sections(
+            table, quasi, velocity_m_per_s=float(point.loads.freestream_velocity_m_s)
+        )
+    except (ProductError, CampaignConfigError, KeyError, ValueError) as error:
+        skipped[f"{SECTIONS_DIR}/{point.name}_sections.csv#k_1p"] = str(error)
+        return {}
+    return {} if validity is None else {point.name: validity}
+
+
+def _qsteady_products(
+    sim_id: str,
+    points: Sequence[PolarPoint],
+    record_of: Mapping[str, RunRecord],
+    *,
+    reference: ReferenceValues,
+    out: Path,
+    validity_of: Mapping[str, _qsteady.PointValidity],
+    condition_of: Callable[[PolarPoint], Mapping[str, object]],
+    target: Callable[[Path], Path],
+    skipped: dict[str, str],
+) -> list[tuple[Path, dict[str, object]]]:
+    """Write a quasi-steady simulation's clockings table and average table (0.30.0).
+
+    One pair per rotor, named after it like the rotor table:
+    ``polars/P<sim>-<ALIAS>_qs_positions.csv`` and ``_qs_avg.csv``. A point
+    whose record or clocking export is missing is left out and named under the
+    file's key. A sector point is one clocking and is tabled like a wheel of
+    one position. The validity is the sections' where the point has them, else
+    the plan's estimate from the mesh (:mod:`pyflightstream.post.qsteady`).
+    """
+    wheel: dict[str, list[_qsteady.WheelPoint]] = {}
+    runs: dict[str, list[str]] = {}
+    left_out: dict[str, list[str]] = {}
+    for point in points:
+        record = record_of.get(point.name)
+        if record is None or record.recipe != QSTEADY_ROTOR:
+            continue
+        try:
+            quasi = _qsteady.read_qsteady_record(point.loads_path)
+        except ProductError as error:
+            left_out.setdefault("?", []).append(f"{point.name}: {error}")
+            continue
+        if quasi is None:
+            left_out.setdefault("?", []).append(
+                f"{point.name}: no quasi-steady record beside its loads export"
+            )
+            continue
+        alias = str(quasi["rotor"])
+        own = point.state
+        density = (
+            own.density_kg_m3
+            if own is not None and own.density_kg_m3 is not None
+            else record.density_kg_m3
+        )
+        if density is None:
+            left_out.setdefault(alias, []).append(f"{point.name}: the point states no density")
+            continue
+        clockings = _qsteady.clockings_of(
+            quasi,
+            point.loads_path.parent,
+            reference=reference,
+            density_kg_m3=float(density),
+            shaft_loads=rotor_shaft_loads,
+        )
+        if isinstance(clockings, str):
+            left_out.setdefault(alias, []).append(f"{point.name}: {clockings}")
+            continue
+        wheel.setdefault(alias, []).append(
+            _qsteady.WheelPoint(
+                pol=sim_id,
+                condition=condition_of(point),
+                record=quasi,
+                clockings=clockings,
+                validity=validity_of.get(point.name) or _qsteady.validity_of_the_plan(quasi),
+            )
+        )
+        runs.setdefault(alias, []).append(record.run_id)
+    written: list[tuple[Path, dict[str, object]]] = []
+    for alias in sorted(set(wheel) | set(left_out)):
+        stem = sweep_file_stem(sim_id, _a_name_a_file_may_carry(alias))
+        positions = out / POLARS_DIR / f"{stem}{_qsteady.POSITIONS_SUFFIX}"
+        average = out / POLARS_DIR / f"{stem}{_qsteady.AVERAGE_SUFFIX}"
+        if left_out.get(alias):
+            skipped[positions.relative_to(out).as_posix()] = (
+                "these quasi-steady points are not rows of the clockings tables: "
+                + "; ".join(left_out[alias])
+            )
+        points_of = wheel.get(alias) or []
+        if not points_of:
+            continue
+        done = _qsteady.write_qsteady_tables(
+            target(positions), target(average), points_of, reference=reference
+        )
+        if done is None:
+            continue
+        for path, kind in zip(done, ("clockings", "average"), strict=True):
+            written.append(
+                (
+                    path,
+                    {
+                        "runs": runs[alias],
+                        "rotor": alias,
+                        "kind": kind,
+                        "source": (
+                            "the loads export of each steady clocking of a quasi-steady rotor"
+                            if kind == "clockings"
+                            else "the mean of the steady clockings of a quasi-steady rotor"
+                        ),
+                    },
+                )
+            )
+    return written
+
+
 def _sim_products(
     workspace: CampaignWorkspace,
     sim_id: str,
@@ -4862,6 +5004,7 @@ def _sim_products(
     sources: dict[str, list[str]] = {}
     record_of: dict[str, RunRecord] = {}
     points: list[PolarPoint] = []
+    qsteady_validity_of: dict[str, _qsteady.PointValidity] = {}
     exports: dict[str, tuple[Path | None, Path | None, Path | None]] = {}
     plans: dict[str, dict[str, object] | None] = {}
     point_windows: dict[str, tuple[int, int]] = {}
@@ -5394,6 +5537,12 @@ def _sim_products(
                 skipped[relative] = str(error)
                 done = None
             if done is not None:
+                # 0.30.0: A QUASI-STEADY WHEEL POINT'S SECTIONS carry the 1P reduced
+                # frequency of each station and the point's validity, and the point
+                # keeps that validity for its clockings tables below.
+                qsteady_validity_of.update(
+                    _qsteady_sections(done, point, record_of.get(point.name), skipped)
+                )
                 written.append(done)
                 written_names[done.relative_to(out).as_posix()] = {
                     "runs": sources[point.name],
@@ -5695,6 +5844,28 @@ def _sim_products(
                 f"these points of the sweep are not rows of the {alias} rotor table: "
                 + "; ".join(reason for _rid, reason in rotor_left_out)
             )
+
+    # 0.30.0: THE QUASI-STEADY ROTOR'S CLOCKINGS AND THEIR AVERAGE, one pair of
+    # tables per simulation, from the record each point's run wrote beside its
+    # loads export.
+    for target_path, entry in _qsteady_products(
+        sim_id,
+        points,
+        record_of,
+        reference=reference,
+        out=out,
+        validity_of=qsteady_validity_of,
+        condition_of=lambda point: point_condition(
+            point,
+            mach=_mach_of(point, mach),
+            cell=cell,
+            clock=clock_rotor_facts(record_of.get(point.name), matrix_row, live),
+        ),
+        target=_target,
+        skipped=skipped,
+    ):
+        written.append(target_path)
+        written_names[target_path.relative_to(out).as_posix()] = entry
 
     # so that the reference-velocity scaling is performed in one place.
     if unsteady_window_steps is not None:

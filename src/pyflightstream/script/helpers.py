@@ -2876,6 +2876,7 @@ def rotate_surfaces(
     detach: Toggle = False,
     split_vertices: Toggle = False,
     adaptive_mesh: Toggle = False,
+    after_initialization: bool = False,
 ) -> None:
     """Rotate existing mesh surfaces about an axis of a named frame.
 
@@ -2926,6 +2927,12 @@ def rotate_surfaces(
         that documents the newer one is refused rather than dropped: a
         silently discarded mesh option produces a different mesh, on a
         build the helper chose rather than the caller.
+    after_initialization : bool
+        Emit the rotation through
+        :meth:`~pyflightstream.script.Script.emit_after_initialization`, on a
+        solver already initialised, which must then be initialised again
+        before it starts. The quasi-steady rotor clocks its wheel this way
+        between two steady solves (0.30.0).
 
     Raises
     ------
@@ -3022,7 +3029,10 @@ def rotate_surfaces(
         arguments["split_vertices"] = _toggle(split_on)
         arguments["adaptive_mesh"] = _toggle(adaptive_on)
         arguments["detach_normal_to_axis"] = _toggle(detach_on)
-    script.emit(command, **arguments)
+    if after_initialization:
+        script.emit_after_initialization(command, **arguments)
+    else:
+        script.emit(command, **arguments)
 
 
 #: The action registration, and the two kinds it takes.
