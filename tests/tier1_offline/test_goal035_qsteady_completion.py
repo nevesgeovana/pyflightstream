@@ -504,6 +504,41 @@ def test_the_sampling_fits_a_quadratic_and_never_reaches_past_the_field():
     assert outside[0, 0] <= float(velocities[:, 0].max()) + 1e-12
 
 
+def test_a_swirl_is_met_by_the_hand_the_rotor_turns():
+    """The rotation removed is the rotor's own, ``w = v - Omega x (p - hub)``, not its mirror.
+
+    A swirling inflow at 0.5 m: axial 30 + 2 cos theta, tangential (along
+    +x cross p, the hand of a positive Omega) 0.3 Omega r + cos 2 theta. The
+    blade turning WITH the swirl meets a relative tangential speed
+    Omega r - v_t = 0.7 Omega r, and the axial 1P over it holds 90 % of the
+    variance, so n95 = 2; turning AGAINST it (Omega negative, or the rotation
+    added instead of removed) it meets 1.3 Omega r, the 1P holds 97 %, n95 = 1.
+    """
+    # P0300-QS-VALIDITY-PLAN
+    radius, v_axial, v_swirl = 0.5, 30.0, 0.3 * OMEGA * 0.5
+
+    def velocity(r: float, t: float) -> tuple[float, float, float]:
+        tangential = v_swirl + math.cos(2 * t)
+        return (v_axial + 2.0 * math.cos(t), -tangential * math.sin(t), tangential * math.cos(t))
+
+    rows = _verifier_rings(velocity)
+    theta = [2.0 * math.pi * i / 360 for i in range(360)]
+    floor = math.radians(arithmetic.HARMONIC_AMPLITUDE_FLOOR_DEG)
+    with_swirl = [
+        math.atan2(v_axial + 2.0 * math.cos(t), OMEGA * radius - v_swirl - math.cos(2 * t))
+        for t in theta
+    ]
+    against_swirl = [
+        math.atan2(v_axial + 2.0 * math.cos(t), OMEGA * radius + v_swirl + math.cos(2 * t))
+        for t in theta
+    ]
+    assert arithmetic.harmonic_order(with_swirl, floor=floor) == 2
+    assert arithmetic.harmonic_order(against_swirl, floor=floor) == 1
+    common = {"hub": (0, 0, 0), "axis": (1, 0, 0), "radii_m": (radius,)}
+    assert arithmetic.blade_inflow_harmonics(rows, omega_rad_s=OMEGA, **common) == (2,)
+    assert arithmetic.blade_inflow_harmonics(rows, omega_rad_s=-OMEGA, **common) == (1,)
+
+
 def test_the_plan_reports_k_eff_and_warns_when_the_row_states_too_few_clockings(tmp_path):
     """Six-lobed inflow on a three-blade wheel of chord 0.2 m, 1200 rev/min, 30 m/s.
 
