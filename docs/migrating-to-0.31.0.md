@@ -120,7 +120,8 @@ confirmation of this sequence is `reports/RPT-094`.
   the least-squares `H0 + A1 cos(psi - PHI1) + A2 cos(2 psi - PHI2)` over a
   wheel's blades at every clocking, or over an unsteady rotor's blades across
   its last complete revolution. A harmonic short of distinct azimuths is `NA`,
-  and an unsteady point with no sections series is a named skip. See
+  and an unsteady point that cuts sections but wrote no sections series is a
+  named skip. See
   [the per-station harmonics](post-processing-definitions.md#the-per-station-harmonics).
 - **The per-revolution table** of an `unsteady_rotor` point,
   `probes/<point>_per_revolution_<ALIAS>.csv`, one row per COMPLETE revolution

@@ -5208,15 +5208,19 @@ def _unsteady_harmonics(
     ``steps_per_revolution`` from the record, counted from the series' first
     step (:func:`pyflightstream.post.harmonics.last_complete_revolution`). A
     rotor with no stated clock or no complete revolution is named under the
-    product's key. A point with no sections series, no export window or no
-    rotor to fit writes nothing and is named under the product's key too,
-    with a line in ``post.log`` (invariant 2): the product was silently absent
-    on a licensed run whose row exported no per-step sectional loads.
+    product's key. A point that cuts sections (its record states a sections
+    layout) and has no sections series, no export window or no rotor to fit
+    writes nothing and is named under the product's key too, with a line in
+    ``post.log`` (invariant 2): the product was silently absent on a licensed
+    run whose row cut sections and exported no per-step sectional loads. A
+    point that cuts no sections asked for no harmonics, and nothing is said.
     """
     name = f"{stem}_sections_series.csv"
     table = next((path for path in series if path.name == name), None)
     window = record.export_window
     relative = f"{SECTIONS_DIR}/{stem}{_harmonics.HARMONICS_SUFFIX}"
+    if table is None and not record.sections_layout:
+        return None
     if table is None or not window or not rotors:
         if not rotors:
             missing = "the point's record states no rotor whose blades and clock the fit can read"

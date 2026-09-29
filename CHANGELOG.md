@@ -21,8 +21,8 @@ FlightStream versions.
   where `k psi = PHI`. A harmonic whose station has fewer distinct azimuths
   than it needs (1P 3, 2P 5) is `NA`, said once in `post.log`; a station
   that does not match across samples is a named skip, and so is an
-  `unsteady_rotor` point with no sections series, no export window or no
-  rotor its record states (under `sections/<point>_harmonics.csv`, with a
+  `unsteady_rotor` point that cuts sections and has no sections series, no
+  export window or no rotor its record states (under `sections/<point>_harmonics.csv`, with a
   WARNING line in `post.log`). Registered in
   `products.json` (`kind` `harmonics`); defined in
   `docs/post-processing-definitions.md`. New public module
