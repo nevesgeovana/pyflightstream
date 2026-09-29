@@ -139,7 +139,7 @@ rigid, rotated blade. The morph replaces the rotation instead of being
 composed with it. The result is the same with the structural nodes inside
 the blade, and a self-contained reproduction on the package's synthetic
 blade (boundary ID 1) behaves the same way. Source: the 26.124 aeroelastic
-probes of 2026-09-28, not yet a numbered report.
+probes of 2026-09-28, [RPT-093](RPT-093_aeroelastic-coupling-on-26124_2026-09-29.md).
 
 ### What that does to this report's numbers
 

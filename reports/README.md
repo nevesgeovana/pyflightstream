@@ -50,6 +50,7 @@ acceptance or publication of their findings.
 | [RPT-086](RPT-086_gui-launch-windows_2026-09-28.md) | The windows 26.124 shows when launched with its GUI: the startup splash asks nothing | Bounded evidence; final release review pending |
 | [RPT-087](RPT-087_periodic-native-tecplot-one-zone-per-copy_2026-09-28.md) | A periodic row's native Tecplot holds one zone per copy, each equal to its VTK block | Bounded evidence; final release review pending |
 | [RPT-088](RPT-088_26124-unsteady-log-without-a-completion-line_2026-09-28.md) | A 26.124 unsteady log ends without a completion line; every log reader judges it | Bounded evidence; final release review pending |
+| [RPT-093](RPT-093_aeroelastic-coupling-on-26124_2026-09-29.md) | The Aeroelastic Coupling Toolbox on 26.124: nine measured facts about the surface-ID mapping, the rotor morph, the RBF kernels and the exports | Bounded evidence; final release review pending |
 
 ## Dependency evidence
 
