@@ -15,8 +15,9 @@ The routes, as the pproc's ``[qsteady_correction]`` table names them:
   unsteady SECTOR run at the same ``J``; the file names that run
   (``source_run_id``).
 * The Theodorsen and Sears lift deficiency (route 1) is refused as a route and
-  offered only as a DIAGNOSTIC (``diagnostic = "theodorsen"``): against the
-  measured unsteady result it has the wrong sign.
+  offered only as a DIAGNOSTIC (``diagnostic = "theodorsen"``): it is not
+  validated against the unsteady solver, so 0.31.0 writes it beside the
+  harmonics and applies it to nothing.
 * A skewed-wake or dynamic-inflow model (route 3: ``dynamic_inflow``,
   ``skewed_wake``, ``pitt_peters``, ``coleman``) is refused: its double counting
   with the solver's own wake is unmeasured.
@@ -151,8 +152,8 @@ _GRID_TOLERANCE = 1e-9
 _ROUTE1_WHY = (
     "the Theodorsen and Sears lift deficiency (route 1) is offered as a DIAGNOSTIC only, "
     'never as a correction: write diagnostic = "theodorsen" in the pproc\'s '
-    "[qsteady_correction] table to write it beside the harmonics. Against the measured "
-    "unsteady result it has the wrong sign"
+    "[qsteady_correction] table to write it beside the harmonics. It is not validated "
+    "against the unsteady solver, so 0.31.0 offers it as a diagnostic only"
 )
 _ROUTE3_WHY = (
     "a skewed-wake or dynamic-inflow model (route 3) is not offered as a correction "
@@ -219,6 +220,8 @@ class QsteadyCorrectionSpec(BaseModel):
     ('none', 'none')
     >>> QsteadyCorrectionSpec(route="table", file="c001").file
     'c001'
+    >>> QsteadyCorrectionSpec(route="table", file="c001.toml").file
+    'c001'
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -229,7 +232,8 @@ class QsteadyCorrectionSpec(BaseModel):
     #: is validated; route 1 is a diagnostic and route 3 is refused.
     route: Literal["none", "table", "sector_offset"] = "none"
     #: The calibration file's id, the stem of inputs/calibrations/<id>.toml;
-    #: required by a route other than "none".
+    #: required by a route other than "none". Written with its ".toml" suffix
+    #: it names the same file, and the suffix is dropped.
     file: str | None = None
     #: A diagnostic written beside the harmonics and never applied: "none" (the
     #: default) or "theodorsen", the Theodorsen and Sears functions of each
@@ -250,12 +254,16 @@ class QsteadyCorrectionSpec(BaseModel):
     def _a_file_is_an_id(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", value) or value.endswith(".toml"):
+        # "c001.toml" names the file "c001" names: the suffix is the folder's
+        # one form, so it is accepted and dropped rather than refused.
+        stem = value[: -len(".toml")] if value.lower().endswith(".toml") else value
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", stem):
             raise ValueError(
                 f"[qsteady_correction] file = {value!r}: name the calibration by its id, the "
-                "stem of inputs/calibrations/<id>.toml, with no folder and no extension"
+                "stem of inputs/calibrations/<id>.toml (the .toml suffix may be written), "
+                "with no folder"
             )
-        return value
+        return stem
 
     @model_validator(mode="after")
     def _a_route_names_its_file(self) -> QsteadyCorrectionSpec:

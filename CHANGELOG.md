@@ -48,15 +48,21 @@ FlightStream versions.
   `pyflightstream.post.axes.placed_blade_azimuth_deg`.
 - `pyfs-workspace field mirror|move|subtract|time-mean` builds a custom
   free-stream file of `inputs/freestreams/` from other fields: mirrored
-  through the plane x, y or z = 0, moved so a source point lands on a target
-  point, `total - (other - reference)` point by point on one grid (a
-  different grid is refused naming both files), or the time mean of an
-  unsteady run's equally spaced per-step fields. Metres and m/s in the global
-  frame, nothing converted. Each previews by default, writes only with
-  `--apply` (the file and `<stem>.provenance.json`, naming the operation, its
-  parameters and every input with its sha256), and never overwrites without
-  `--overwrite`. The functions are public in the new module
-  `pyflightstream.workspace.fields`. See docs/field-operations.md.
+  through the plane x, y or z = 0 (`--plane`), moved so a source point lands
+  on a target point (`--source-point X Y Z --target-point X Y Z`),
+  `total - (other - reference)` point by point on one grid with the reference
+  free stream REQUIRED (`--reference VX VY VZ`, `0 0 0` only where `other` is
+  already induced-only; a different grid is refused naming both files), or
+  the time mean of an unsteady run's equally spaced per-step fields. Metres
+  and m/s in the global frame, nothing converted. Each writes into the
+  workspace `--workspace` names (default the current directory), previews by
+  default, writes only with `--apply` (the file and `<stem>.provenance.json`,
+  naming the operation, its parameters and every input with its sha256), and
+  never overwrites without `--overwrite`. The functions are public in the new
+  module `pyflightstream.workspace.fields`, their parameters keyword-only
+  (`move_field(field, source_point_m=..., target_point_m=...)`,
+  `mirror_field(field, plane=...)`, `subtract_fields(total, other,
+  reference_m_s=...)`). See docs/field-operations.md.
 - **The quasi-steady wheel's correction machinery, off by default and NOT
   VALIDATED** (P0310-CAL-SCHEMA, P0310-ROUTE2, P0310-ROUTE4, P0310-APPLY-*). A
   pproc's new `[qsteady_correction]` table names a `route` (`none`, the
@@ -182,7 +188,9 @@ FlightStream versions.
   is the moment of its in-plane component about the axis
   (`pyflightstream.post.axes.section_station_shaft_loads`). A share reads `NA`,
   with a WARNING line in `post.log`, where the frame's axes or the plane are
-  not known to the post, where the total is zero, or where stations of
+  not known to the post, where a station of the blade states its `Fx`, `Fz`
+  or `Offset` as `NA` (the line names the station; a gap is never read as a
+  zero load), where the total is zero, or where stations of
   opposite sign put it outside 0 to 100 per cent. A cut in the frame's XZ
   or XY plane is read (the XY reading measured on FlightStream 26.124,
   `reports/RPT-094`); a YZ cut reads `NA`.

@@ -26,7 +26,7 @@ The pproc's `[qsteady_correction]` table:
 ```toml
 [qsteady_correction]
 route = "table"        # "none" (the default), "table" or "sector_offset"
-file = "c001"          # inputs/calibrations/c001.toml; required by a route
+file = "c001"          # inputs/calibrations/c001.toml ("c001.toml" also names it); required by a route
 diagnostic = "none"    # "none" (the default) or "theodorsen"
 ```
 
@@ -35,7 +35,7 @@ diagnostic = "none"    # "none" (the default) or "theodorsen"
 | `none` | nothing is corrected, and no corrected file is written | the default |
 | `table` | route 4: a calibration table, a discrepancy surface you fitted over `J`, `ALPHA` and `K_1P` | applied, not validated |
 | `sector_offset` | route 2: a 0P offset calibrated from an axial unsteady SECTOR run at the same `J` | applied, not validated |
-| `theodorsen`, `sears`, or any spelling asking the lift deficiency | route 1 | REFUSED as a route: offered as a diagnostic only (below), because against the measured unsteady result it has the wrong sign |
+| `theodorsen`, `sears`, or any spelling asking the lift deficiency | route 1 | REFUSED as a route: offered as a diagnostic only (below), because it is not validated against the unsteady solver |
 | `dynamic_inflow`, `skewed_wake`, `pitt_peters`, `coleman` | route 3 | REFUSED: not offered as a correction, because its double counting with the solver's own wake is unmeasured |
 
 A refused route is refused where the pproc is read, with the reason, and the

@@ -192,3 +192,44 @@ def test_a_wheel_whose_clocking_export_is_missing_is_a_named_skip(tmp_path):
     ]
     assert "_qs01.txt" in reason and "is not on disk" in reason
     assert "the row of a wheel is the mean of all its clockings" in reason
+
+
+def test_each_clocking_is_taken_back_to_the_point_s_speed_before_the_mean(tmp_path):
+    """Clocking 1 is exported at TWICE the point's reference velocity.
+
+    Its coefficients are normalised by (2 V)^2, so its loads are 4 times what
+    the same coefficient means at V: taken back to V, W's Cx of 0.0193288 at
+    clocking 1 stands for 4 x 0.0193288, and the mean over the two clockings
+    is (1 + 4) / 2 = 2.5 times 0.0193288. Read at face value it would be
+    0.0193288 itself.
+    """
+    # P0310-ROTOR-MEAN
+    from pyflightstream.cases import qsteady as arithmetic
+    from pyflightstream.post import qsteady as post_qsteady
+    from tests.tier1_offline.test_post_superfile import _loads
+
+    for index, velocity in ((0, "68.058"), (1, "136.116")):
+        (tmp_path / f"c{index}.txt").write_text(_loads(0.0, velocity=velocity), encoding="utf-8")
+    record = arithmetic.QsteadyRecord(
+        case="wheel",
+        rotor_alias="PROP",
+        blades=2,
+        rpm=1200.0,
+        shaft_frame_axis="X",
+        hub_m=(0.0, 0.0, 0.0),
+        axis_vector=(1.0, 0.0, 0.0),
+        diameter_m=2.0,
+        families_general=(),
+        families_blades=("W", "B"),
+        blade1_azimuth_deg=0.0,
+        positions=(
+            arithmetic.QsteadyClocking(0, 0.0, 0.0, "c0.txt"),
+            arithmetic.QsteadyClocking(1, 90.0, 90.0, "c1.txt"),
+        ),
+        validity=None,
+    )
+    mean = post_qsteady.mean_clocking_surfaces(record, tmp_path, speed_m_s=68.058)
+    assert isinstance(mean, post_qsteady.ClockingMean) and mean.clockings == 2
+    assert mean.surfaces["W"]["Cx"] == pytest.approx(2.5 * 0.0193288, rel=1e-12)
+    assert mean.surfaces["B"]["CMy"] == pytest.approx(2.5 * -0.0892137, rel=1e-12)
+    assert mean.surfaces["W"]["Cx"] != pytest.approx(0.0193288, rel=1e-3)

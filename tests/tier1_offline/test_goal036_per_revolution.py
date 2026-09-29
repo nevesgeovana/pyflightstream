@@ -103,6 +103,18 @@ def _table(workspace, alias="PROP"):
     return read_csv_table(path)
 
 
+def test_the_drift_limit_default_has_one_home_both_layers_read():
+    """The pproc model's default and the post's fallback are the one constant of cases."""
+    # P0310-G2-PER-REV
+    from pyflightstream import cases
+    from pyflightstream.cases import PerRevolutionSpec
+    from pyflightstream.post import products
+
+    assert products.DEFAULT_DRIFT_LIMIT_PCT is cases.DEFAULT_DRIFT_LIMIT_PCT
+    assert PerRevolutionSpec().drift_limit_pct == cases.DEFAULT_DRIFT_LIMIT_PCT
+    assert products._drift_limit_pct(PprocSpec()) == cases.DEFAULT_DRIFT_LIMIT_PCT
+
+
 def test_each_revolution_is_one_row_with_exact_means_and_drifts(tmp_path):
     # P0310-G2-PER-REV
     workspace = _workspace(tmp_path, FX)

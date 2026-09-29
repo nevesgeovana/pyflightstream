@@ -191,6 +191,8 @@ from pyflightstream.workspace.trailing_edges import (
 )
 
 __all__ = [
+    # 0.31.0 (P0310-POL-CENSUS): the one definition of where a workspace's
+    # matrices are, read by `sync`, the storage layer and the plan's census.
     "MATRIX_FOLDERS",
     "matrix_files",
     # DECLARED, not merely importable. All three were imported into this

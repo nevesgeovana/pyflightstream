@@ -1716,7 +1716,9 @@ def _validate_qsteady_calibration(
     if calibration.route != spec.route:
         raise CalibrationError(
             f"matrix row POL {row.pol}: the pproc {row.pproc_code!r} asks route "
-            f"{spec.route!r} and the calibration {path} states route {calibration.route!r}",
+            f"{spec.route!r} and the calibration {path} states route {calibration.route!r}. "
+            f"Set the pproc's [qsteady_correction] route = {calibration.route!r} to match "
+            f"the calibration, or point its file at a calibration of route {spec.route!r}",
             path=path,
         )
 

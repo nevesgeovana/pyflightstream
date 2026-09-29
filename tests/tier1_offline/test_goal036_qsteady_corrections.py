@@ -207,6 +207,33 @@ def test_the_pproc_table_is_off_by_default_and_forbids_unknown_keys():
             PprocSpec.model_validate({"qsteady_correction": wrong})
 
 
+def test_a_calibration_file_may_be_named_with_or_without_its_toml_suffix(tmp_path):
+    """``c001`` and ``c001.toml`` name one file; a folder is still refused."""
+    # P0310-CAL-SCHEMA
+    from types import SimpleNamespace
+
+    from pyflightstream.workspace.matrix import _validate_qsteady_calibration
+
+    bare, suffixed = (
+        PprocSpec.model_validate(
+            {"qsteady_correction": {"route": "table", "file": spelled}}
+        ).qsteady_correction
+        for spelled in ("c001", "c001.toml")
+    )
+    assert bare == suffixed and suffixed is not None and suffixed.file == "c001"
+    for folder in ("calibrations/c001.toml", "calibrations\\c001", "../c001.toml", ".toml"):
+        with pytest.raises(ValidationError, match="by its id"):
+            QsteadyCorrectionSpec(route="table", file=folder)
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    (workspace.inputs_dir / "calibrations" / "c001.toml").write_text(_GOOD, encoding="utf-8")
+    row = SimpleNamespace(pol="7001", pproc_code="p001")
+    for spelled in ("c001", "c001.toml"):
+        pproc = PprocSpec.model_validate(
+            {"qsteady_correction": {"route": "table", "file": spelled}}
+        )
+        assert _validate_qsteady_calibration(workspace, pproc, row) is None
+
+
 def test_the_plan_refuses_a_calibration_the_pproc_names_and_cannot_read(tmp_path):
     """The binding reads the named file before a run: absent, broken or of another route."""
     # P0310-CAL-SCHEMA
@@ -225,8 +252,12 @@ def test_the_plan_refuses_a_calibration_the_pproc_names_and_cannot_read(tmp_path
     with pytest.raises(CalibrationError, match="line 4"):
         _validate_qsteady_calibration(workspace, pproc, row)
     path.write_text('route = "sector_offset"\nsource_run_id = "x"\n' + _GOOD.split("\n", 1)[1])
-    with pytest.raises(CalibrationError, match="asks route 'table'"):
+    with pytest.raises(CalibrationError, match="asks route 'table'") as mismatch:
         _validate_qsteady_calibration(workspace, pproc, row)
+    # The refusal names both fixes: the route that matches the file, or a file
+    # of the route asked.
+    assert "route = 'sector_offset' to match the calibration" in str(mismatch.value)
+    assert "a calibration of route 'table'" in str(mismatch.value)
     path.write_text(_GOOD, encoding="utf-8")
     assert _validate_qsteady_calibration(workspace, pproc, row) is None
     assert _validate_qsteady_calibration(workspace, PprocSpec(), row) is None
@@ -244,6 +275,10 @@ def test_route_1_is_refused_as_a_correction_and_named_a_diagnostic(route, tmp_pa
     with pytest.raises(CalibrationError, match="DIAGNOSTIC only") as caught:
         parse_calibration(_GOOD.replace('"table"', f'"{route}"'))
     assert caught.value.line == 1
+    # The reason is what the package holds, not a measurement no committed
+    # report records (the 0.31.0 release review): not validated, diagnostic only.
+    assert "not validated against the unsteady solver" in str(caught.value)
+    assert "sign" not in str(caught.value)
     assert PprocSpec.model_validate(
         {"qsteady_correction": {"diagnostic": "theodorsen"}}
     ).qsteady_correction.diagnostic == ("theodorsen")

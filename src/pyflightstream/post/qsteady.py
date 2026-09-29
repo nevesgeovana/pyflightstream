@@ -534,7 +534,10 @@ def add_reduced_frequency_to_sections(
     :attr:`PointValidity.notes`, where a station's frame or plane is not one
     whose axes are known, where the total is zero, or where stations of
     opposite sign put the share outside 0 to 100 per cent: the total then has
-    no sign a share of it could be read against.
+    no sign a share of it could be read against. A station of the blade the
+    shares are taken over whose ``Fx``, ``Fz`` or ``Offset`` is ``NA`` or
+    unreadable makes BOTH shares ``NA``, with a note naming the station
+    (invariant 8: an ``NA`` is never read as a zero load).
 
     Returns
     -------
@@ -585,8 +588,17 @@ def add_reduced_frequency_to_sections(
     notes: list[str] = []
     frame_of = _section_frames(layout) if layout is not None else None
     along: list[tuple[float, float]] = []
-    projected = True
-    for at, w in zip(chosen, strips, strict=True):
+    gaps = _unread_stations(path.name, columns, rows, alias, first)
+    if gaps:
+        notes.append(
+            "THRUST_PCT_K_GT_0_1 and TORQUE_PCT_K_GT_0_1 read NA: "
+            + "; ".join(gaps)
+            + f", so the sectional loads of rotor {alias} are not all known and a gap is "
+            "never read as a zero load"
+        )
+    projected = not gaps
+    stations = list(zip(chosen, strips, strict=True)) if projected else []
+    for at, w in stations:
         row = rows[at]
         family = row[index["FAMILY"]] if "FAMILY" in index else ""
         plane = row[index["PLANE"]] if "PLANE" in index else ""
@@ -665,6 +677,46 @@ def add_reduced_frequency_to_sections(
         ],
     )
     return validity
+
+
+def _unread_stations(
+    name: str,
+    columns: Sequence[str],
+    rows: Sequence[Sequence[str]],
+    alias: str,
+    family: str | None,
+) -> list[str]:
+    """Name each station of the summarised blade whose ``Offset``, ``Fx`` or ``Fz`` is unread.
+
+    The stations are the rotor's rows of clocking 0 (where the table holds
+    every clocking) and of ``family`` (where one is named), the rows the
+    shares are taken over, including a row whose ``Offset`` cannot be read
+    and so has no reduced frequency.
+    """
+    index = {column: at for at, column in enumerate(columns)}
+    found: list[str] = []
+    for at, row in enumerate(rows):
+        if row[index["ROTOR"]] != alias:
+            continue
+        if CLOCKING_COLUMN in index and row[index[CLOCKING_COLUMN]] != "0":
+            continue
+        if family is not None and "FAMILY" in index and row[index["FAMILY"]] != family:
+            continue
+        unread = [
+            f"{column} {row[index[column]] or 'empty'}"
+            for column in ("Offset", "Fx", "Fz")
+            if _number(row[index[column]]) is None
+        ]
+        if unread:
+            where = " ".join(
+                row[index[column]] for column in ("FAMILY", "PLANE") if column in index
+            )
+            found.append(
+                f"the station on line {at + 2} of {name}"
+                + (f" ({where})" if where else "")
+                + f" states {', '.join(unread)}"
+            )
+    return found
 
 
 def _view(record: QsteadyRecord, members: Sequence[str]) -> SimpleNamespace:

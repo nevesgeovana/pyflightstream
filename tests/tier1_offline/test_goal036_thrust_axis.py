@@ -222,3 +222,39 @@ def test_the_post_says_a_share_it_cannot_take_in_its_log(tmp_path):
         and "SETUP_FRAME" in line
         for line in lines
     ), lines
+
+
+def test_a_station_whose_force_or_offset_is_na_leaves_both_shares_na_naming_it(tmp_path):
+    """Invariant 8: an NA is never a zero load, so a gap costs both shares, said.
+
+    Read as zero, an NA Fx at the second station would give a thrust share of
+    the other three alone, a number the table does not support. A station
+    whose Offset is NA has no reduced frequency, and still costs the shares.
+    """
+    # P0310-THRUST-AXIS
+    forces = ((10.0, 1.0), (20.0, 2.0), (30.0, 3.0), (40.0, 4.0))
+    record = _record(letter="X", axis=(1.0, 0.0, 0.0))
+    at_column = HEADER.split(",").index
+    for at, (column, bad, line) in enumerate(
+        (("Fx", "NA", 3), ("Fz", "n/a", 4), ("Offset", "NA", 6))
+    ):
+        table = _table(tmp_path / f"s{at}.csv", forces)
+        text = table.read_text(encoding="utf-8").splitlines()
+        if line > len(text):
+            # a fifth station of blade one, a copy of the fourth
+            text.append(text[-1])
+        cells = text[line - 1].split(",")
+        cells[at_column(column)] = bad
+        text[line - 1] = ",".join(cells)
+        table.write_text("\n".join(text) + "\n", encoding="utf-8")
+        validity = post_qsteady.add_reduced_frequency_to_sections(
+            table, record, velocity_m_per_s=30.0, layout=_layout("PROP_RMRP1")
+        )
+        assert validity is not None
+        assert validity.values["THRUST_PCT_K_GT_0_1"] is None, column
+        assert validity.values["TORQUE_PCT_K_GT_0_1"] is None, column
+        assert validity.values["K_1P_MAX"] is not None
+        (note,) = validity.notes
+        assert "THRUST_PCT_K_GT_0_1 and TORQUE_PCT_K_GT_0_1 read NA" in note
+        assert f"line {line} of s{at}.csv (Blade1 XZ) states {column} {bad}" in note, note
+        assert "never read as a zero load" in note

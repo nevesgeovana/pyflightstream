@@ -114,6 +114,7 @@ from pyflightstream._tokens import REDUCTION_COLUMNS as REDUCTION_COLUMNS
 from pyflightstream.cases import (
     AXES_PLOT_COMPONENTS,
     AXES_PLOT_GROUP,
+    DEFAULT_DRIFT_LIMIT_PCT,
     FORCE_PLOT_PARAMETERS,
     ROTOR_PLOT_GROUP_PREFIX,
     CampaignConfigError,
@@ -7463,8 +7464,9 @@ def _write_the_per_blade_table(
 #: The reduction the per-revolution product is, as `REDUCTION` states it.
 _PER_REVOLUTION = "per_revolution"
 
-#: The drift limit of a pproc that declares no `[per_revolution]` table, in per cent.
-DEFAULT_DRIFT_LIMIT_PCT = 1.0
+# The drift limit of a pproc that declares no `[per_revolution]` table, in per
+# cent, is `DEFAULT_DRIFT_LIMIT_PCT`, imported from `pyflightstream.cases` (its one
+# home, which the pproc model's default reads too) and re-exported here.
 
 #: What a drift column's name ends with: the plotted column it is the drift of.
 DRIFT_SUFFIX = "_DRIFT_PCT"

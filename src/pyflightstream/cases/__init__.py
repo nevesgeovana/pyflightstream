@@ -2303,6 +2303,13 @@ class AliasCycleError(PyflightstreamError, ValueError):
     """
 
 
+#: The drift limit of a pproc that declares no ``[per_revolution]`` table, in
+#: per cent. ONE HOME (0.31.0 release review): the pproc model's default below
+#: and the post's fallback (``pyflightstream.post.products``, which imports it
+#: from here) read this one constant, so the two cannot disagree.
+DEFAULT_DRIFT_LIMIT_PCT = 1.0
+
+
 class PerRevolutionSpec(BaseModel):
     """The ``[per_revolution]`` table: how far one revolution may differ from the last.
 
@@ -2314,8 +2321,9 @@ class PerRevolutionSpec(BaseModel):
     line in ``post.log`` naming the point, the rotor, the column, the drift and
     the limit. It never blocks a product: nothing in the post does by default.
 
-    Absent, the limit is 1.0 per cent. The table is optional and read again by
-    ``pyfs-matrix post``, so declaring or editing it needs no new run.
+    Absent, the limit is 1.0 per cent (:data:`DEFAULT_DRIFT_LIMIT_PCT`). The
+    table is optional and read again by ``pyfs-matrix post``, so declaring or
+    editing it needs no new run.
 
     Examples
     --------
@@ -2329,7 +2337,7 @@ class PerRevolutionSpec(BaseModel):
 
     #: The drift, in per cent of the previous revolution's mean, above which the
     #: last revolution of a force or moment column is warned about. Positive.
-    drift_limit_pct: float = Field(default=1.0, gt=0.0)
+    drift_limit_pct: float = Field(default=DEFAULT_DRIFT_LIMIT_PCT, gt=0.0)
 
 
 class PhaseLockedSpec(BaseModel):
