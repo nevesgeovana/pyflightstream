@@ -932,7 +932,10 @@ def _add_storage_parsers(subparsers: Any) -> None:
         "free-space",
         help="run a storage recipe inputs/management/m<id>.toml (preview unless --apply)",
         description=(
-            "Runs the recipe's steps in order: [[compact_sims]] zips a simulation folder "
+            "Runs the recipe's steps in order: [[prune_step_exports]] deletes an unsteady "
+            "point's per-step exports (the *_iteration=<step> files) except the last step of "
+            "each export, and a later post refuses a product that needs a deleted step, "
+            "naming it; [[compact_sims]] zips a simulation folder "
             "into sims/sim_<id>.zip (post, collect and a continuation restore it "
             "automatically), [[delete_extensions]] deletes files of the named extensions "
             "under sims/ except what a later post needs (saved simulations, scripts, logs, "
@@ -1055,7 +1058,20 @@ def _print_free_space(entry: dict[str, Any]) -> None:
     mode = "APPLIED" if entry["applied"] else "preview"
     print(f"free-space {entry['recipe']} ({mode})")
     for step in entry["steps"]:
-        if step["mode"] == "compact_sims":
+        if step["mode"] == "prune_step_exports":
+            files = [item for point in step["points"] for item in point["files"]]
+            print(
+                f"  prune_step_exports: {len(step['points'])} point(s), {len(files)} per-step "
+                f"file(s), {human_bytes(sum(item['bytes'] for item in files))}; the last step "
+                "of each export kept"
+            )
+            for point in step["points"]:
+                steps = point["deleted_steps"]
+                shown = f"{steps[0]} to {steps[-1]}" if steps else "none"
+                print(f"    {point['folder']}: steps {shown} ({len(steps)} step(s))")
+            for sim, why in step["refused"].items():
+                print(f"    refused sim {sim}: {why}")
+        elif step["mode"] == "compact_sims":
             sims = [str(item["sim_id"]) for item in step["sims"]]
             print(f"  compact_sims: {len(sims)} sim(s) {', '.join(sims)}")
             for sim, why in step["refused"].items():

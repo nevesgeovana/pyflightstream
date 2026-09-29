@@ -15,11 +15,13 @@ frame, as a point, RPT-074); every step weighs the same; nothing is
 interpolated. The steps must share one topology (the node and polygon counts and
 the nodes around every polygon), or the average is REFUSED by name; a step of
 the window that was not exported SKIPS the average by name, never a partial
-one. The nodes of the averaged file are those of the window's LAST step: on a
-turning rotor the nodes move from step to step and their mean would be a
-surface nobody flew. The average itself is :func:`~pyflightstream.post.unsteady.
-blade_passage_average`, the package's one averaging routine: the panels are its
-samples and the steps its frames.
+one, and one that ``free-space`` deleted (``prune_step_exports``, 0.30.0)
+REFUSES it naming the step and the storage call. The nodes of the averaged
+file are those of the window's LAST step: on a turning rotor the nodes move
+from step to step and their mean would be a surface nobody flew. The average
+itself is :func:`~pyflightstream.post.unsteady.blade_passage_average`, the
+package's one averaging routine: the panels are its samples and the steps its
+frames.
 
 ``SOLVER_TIME_AVERAGING`` is never emitted: it hangs 26.124 (C01). The per-step
 instants stay on disk and in ``products.json`` as ``kind: instant``.
@@ -54,6 +56,7 @@ from pyflightstream.results.native_surface import (
     read_native_tecplot_zones,
 )
 from pyflightstream.workspace import RunRecord
+from pyflightstream.workspace.storage import pruned_step_refusal
 
 __all__ = [
     "SURFACES_DIR",
@@ -391,6 +394,21 @@ def write_point_surface_average(
     if refused is not None:
         if skipped is not None:
             skipped[name] = refused
+        return [], {}
+    # A STEP FREE-SPACE DELETED REFUSES THE AVERAGE BY NAME (0.30.0): "not
+    # exported" would be false of a step that was exported and then deleted.
+    window = (int(bounds[0]), int(bounds[1]))
+    expected: dict[int, list[Path]] = {}
+    for step in range(window[0], window[1] + 1):
+        for found, named in ((files, source), (native_files, native_name)):
+            if found is not None and named is not None and step not in found:
+                name_at = f"{Path(str(named)).stem}_iteration={step}{Path(str(named)).suffix}"
+                looked = [sim_dir / name_at, *(folder / name_at for folder in ran_in)]
+                expected.setdefault(step, []).extend(looked)
+    pruned = pruned_step_refusal(sim_dir, record.run_id, expected, product=name, window=window)
+    if pruned is not None:
+        if skipped is not None:
+            skipped[name] = pruned
         return [], {}
     try:
         if not isinstance(frame_record, Mapping):

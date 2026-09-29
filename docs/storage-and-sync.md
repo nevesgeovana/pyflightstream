@@ -37,9 +37,10 @@ pyfs-matrix free-space m001 --workspace . --apply
 
 Runs a recipe named `m<id>`, read from
 `inputs/management/m<id>.toml`. Without `--apply` it only reports what it
-would do. A recipe holds up to three tables, run in this order: compacting
-simulation folders, deleting files of named extensions, and compacting or
-deleting the post's archived folders. See "The recipe file" below for the
+would do. A recipe holds up to four tables, run in this order: pruning an
+unsteady point's per-step exports to its last step, compacting simulation
+folders, deleting files of named extensions, and compacting or deleting the
+post's archived folders. See "The recipe file" below for the
 format of each.
 
 The owner's flag form works here too:
@@ -88,9 +89,62 @@ the configuration file, the levels, and how a conflict is settled.
 
 A recipe lives at `inputs/management/m<id>.toml`, where `<id>` is anything
 after the leading `m` (so the file for `pyfs-matrix free-space m001` is
-`inputs/management/m001.toml`). It holds three tables, each a list of
+`inputs/management/m001.toml`). It holds four tables, each a list of
 steps, run in the order the sections below list them. A table you leave
 out simply runs no steps of that kind.
+
+### `[[prune_step_exports]]`: keep only the last step of each per-step export
+
+```toml
+[[prune_step_exports]]
+sims = "all"
+status = ["CONVERGED", "COMPLETED_MAX_ITER"]
+```
+
+For an unsteady row that exports at every step
+(`EXPORT_UNSTEADY_AFTER_ITER` or `EXPORT_UNSTEADY_AFTER_REV`), the solver
+writes one file per step and export where the point ran, stamped
+`<name>_iteration=<step>` before the extension (`.txt`, `.dat`, `.vtk` or
+`.csv`): the loads, the sectional loads (`_sloads`), the Cp sections
+(`_cp`), the probes (`_probes`) and each surface. This table keeps the LAST
+step of each of those exports, point by point, and deletes the earlier
+steps.
+
+- `sims` and `status` select simulations exactly as for `compact_sims`.
+- Each export keeps its own last step: a probe export that stopped one step
+  before the loads keeps that step, it is not deleted for want of the later
+  one.
+- A simulation with any run still `SUBMITTED` is refused and keeps every
+  step.
+- The declared outputs, the scripts, the logs and every file a run record
+  names are never deleted (see "What is protected, and why" below), and
+  nothing under a simulation's `inputs` is read, whether it is a link into
+  the geometry library or a staged copy.
+
+The recorded call lists, for each point folder, the runs it belongs to, the
+steps deleted (`deleted_steps`), every file deleted with its step and size,
+and the files kept. Once applied, the listings of the deleted files leave
+the matrix's `products.json`, with a `pruned_by_storage` note saying which
+and when, because that manifest never names a file that is not on disk.
+
+What happens to the post afterwards:
+
+- A product made before the call stays as it was: the series table, the
+  time-averaged surface or the section distribution built from every step
+  keeps its file and its entry in `products.json`. A later `post` does not
+  rebuild it, marks the entry `kept_after_pruning` with the reason, and does
+  not archive it.
+- A product a later `post` would build from a window that includes a
+  deleted step is refused, never written from the steps that remain. The
+  refusal is recorded in `products.json` under `skipped`, under the
+  product's name, and names the missing steps, the first missing file and
+  the call of `storage_management.json` that deleted them.
+- A step that was never exported, which no storage call deleted, keeps the
+  rule it had before: the series is written from the steps that exist, and
+  the time-averaged surface is skipped naming the step.
+
+Run the post you need over the full window before pruning, and prune only
+the simulations whose per-step history you will not need again.
 
 ### `[[compact_sims]]`: zip a simulation folder
 
