@@ -14,6 +14,8 @@ reader, which the product stage calls) and writes:
   the shape of the unsteady rotor's phase-locked table (one row per azimuth);
 * the AVERAGE table, ``polars/P<sim>-<ALIAS>_qs_avg.csv``: one row per point,
   the mean over its clockings, the shape of the unsteady time average;
+* for a WHEEL point, the loads its row of the rotor table is taken from: each
+  surface's mean over the clockings (0.31.0, :func:`mean_clocking_surfaces`);
 * for a WHEEL point, every clocking's rows in the point's sections table, each
   with its ``CLOCKING`` and each blade's own ``AZIMUTH`` at that clocking
   (0.31.0, :func:`add_clockings_to_sections`), the wheel exporting its section
@@ -576,6 +578,104 @@ def clockings_of(
             )
         )
     return sorted(found, key=lambda clocking: clocking.index)
+
+
+#: The six components of a surface of a loads export, the ones a clocking mean
+#: takes: the force and moment coefficients the rotor's statics read.
+SURFACE_COMPONENTS: tuple[str, ...] = ("Cx", "Cy", "Cz", "CMx", "CMy", "CMz")
+
+
+@dataclass(frozen=True)
+class ClockingMean:
+    """A wheel point's surfaces, each the mean of its loads over the point's clockings (0.31.0).
+
+    ``surfaces`` holds the loads export's six components per surface, as
+    coefficients by the point's own reference velocity, so the rotor table
+    turns them into its coefficients by the same statics as any steady
+    point's; ``clockings`` is k, the number of clockings the mean is over.
+    """
+
+    surfaces: dict[str, dict[str, float]]
+    clockings: int
+
+
+def mean_clocking_surfaces(
+    record: QsteadyRecord, folder: Path, *, speed_m_s: float
+) -> ClockingMean | str:
+    """Return a wheel point's loads averaged over its clockings, or why they cannot be (0.31.0).
+
+    The rotor table of a quasi-steady WHEEL point is the mean over its k
+    clockings (0.31.0, P0310-ROTOR-MEAN), never clocking 0 alone.
+    Each clocking's loads export, named by the point's record and read where
+    the point's own sits, states every surface's force and moment as
+    coefficients by that export's reference velocity; each is taken back to
+    the point's own ``speed_m_s`` (a factor ``(V_ref,i / V_ref)^2``, the
+    density being the point's at every clocking) and each surface's six
+    components are averaged over the clockings by the one average of the
+    clockings tables. The rotor's force and its moment about the hub are sums
+    over its surfaces and a transfer linear in them, so the rotor's force and
+    moment from these surfaces ARE the mean of its force and moment over the
+    clockings, and every coefficient the table takes from them (``CT``,
+    ``CQ``, ``CP``, ``ETA``, ``ETAW``, ``CN``, ``CS``, ``CMN``, ``CMS``) is
+    of the mean loads, never a mean of per-clocking coefficients.
+
+    A clocking whose export is not on disk or not readable, that states no
+    reference velocity, is in another analysis frame than clocking 0's, or
+    lists other surfaces, is the reason returned: the point is not a row,
+    because a mean of the other clockings is not the point's mean.
+    """
+    positions = sorted(record.positions, key=lambda entry: entry.index)
+    read: list[tuple[int, dict[str, dict[str, float]], float, object]] = []
+    for position in positions:
+        path = folder / Path(position.loads).name
+        if not path.is_file():
+            return f"the loads export of clocking {position.index}, {path.name}, is not on disk"
+        try:
+            report = parse_loads(path.read_text(encoding="utf-8", errors="replace"))
+        except Exception as error:  # noqa: BLE001 -- any unreadable export is named, not raised
+            return f"the loads export of clocking {position.index}, {path.name}: {error}"
+        stated = report.reference_velocity_m_s
+        if not isinstance(stated, int | float) or not math.isfinite(stated) or stated <= 0.0:
+            return (
+                f"the loads export of clocking {position.index}, {path.name}, states no "
+                "reference velocity, which is what its coefficients are normalised by"
+            )
+        surfaces = {
+            str(name): {key: float(row.get(key, 0.0) or 0.0) for key in SURFACE_COMPONENTS}
+            for name, row in report.surfaces.items()
+        }
+        read.append((position.index, surfaces, float(stated), getattr(report, "frame", None)))
+    if not read:
+        return "the point's record names no clocking"
+    first_index, first, _speed, first_frame = read[0]
+    for index, surfaces, _stated, frame in read[1:]:
+        if frame != first_frame:
+            return (
+                f"the loads export of clocking {index} states the analysis frame {frame!r} "
+                f"and clocking {first_index}'s states {first_frame!r}"
+            )
+        if list(surfaces) != list(first):
+            return (
+                f"the loads export of clocking {index} lists other surfaces than clocking "
+                f"{first_index}'s"
+            )
+    point_speed = float(speed_m_s)
+    scale = [
+        (stated / point_speed) ** 2 if point_speed > 0.0 else 1.0 for _i, _s, stated, _f in read
+    ]
+    meaned: dict[str, dict[str, float]] = {}
+    for name in first:
+        components: dict[str, float] = {}
+        for key in SURFACE_COMPONENTS:
+            value = _mean(
+                [
+                    surfaces[name][key] * factor
+                    for (_i, surfaces, _v, _f), factor in zip(read, scale, strict=True)
+                ]
+            )
+            components[key] = 0.0 if value is None else value
+        meaned[name] = components
+    return ClockingMean(surfaces=meaned, clockings=len(read))
 
 
 def load_columns(record: QsteadyRecord) -> tuple[str, ...]:

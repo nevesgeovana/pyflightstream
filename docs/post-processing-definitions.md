@@ -1583,9 +1583,10 @@ CMS = MS / (rho n^2 D^5)
   They also read `NA` wherever `CT` does (a static point, a loads frame that
   is not the geometry's), because they come from the same force.
 - On an unsteady point they are the window's average, as every other column
-  of the row is. On a quasi-steady point they are the point's own solve (a
-  wheel's clocking 0, one instant of its clockings), and on a sector solved
-  without symmetry loads they are the modelled sector's, not the whole rotor's.
+  of the row is. On a quasi-steady wheel they are of the mean loads over its
+  clockings, as every other column of the row is (since 0.31.0), and on a
+  sector solved without symmetry loads they are the modelled sector's, not
+  the whole rotor's.
 
 ### A static point
 
@@ -1823,13 +1824,41 @@ A workspace opts in per `[[probes]]` entry with `frame = "REFERENCE"`, `field_fo
 A `qsteady_rotor` point is steady, and every product a steady point writes
 (the polar, the rotor table, the sections, the probes) is written for it as
 for any steady point: the instant of its own solve, which on a wheel is
-clocking 0, except that a wheel's sections hold every clocking (since 0.31.0,
+clocking 0, except that a wheel's sections hold every clocking and a wheel's
+row of the rotor table is the mean of its clockings (both since 0.31.0,
 below). The rotor table's speed, `RPM_<alias>`, is the row's, the speed
 the free stream turns at, read from the point's quasi-steady record
 (`<point>_qsteady.json`), as an unsteady rotor's is read from its plan. Where the row states `ADVANCE_RATIO`, the speed is n = V / (J D) with D the rotor block's own `diameter_m`, never the reference's top-level `rotor_diameter_m`. A
 sector's table is its one solve's export as it stands, with no factor for
 the periodic copies (the export carries the whole rotor where the row enables
-symmetry loads and the sector alone where it does not). Two products are the run type's own, and a wheel point's sections
+symmetry loads and the sector alone where it does not).
+
+**The rotor table of a wheel is the mean of its clockings** (since 0.31.0;
+until 0.30.0 it was clocking 0 alone). The rotor's force and its moment about
+the hub are averaged over the `k` clockings, each clocking's own loads export
+as the point's record names it: every surface's six components, each taken
+from its export's reference velocity to the point's, averaged over the
+clockings by the same average the average table takes, and then the rotor's
+statics as for any steady point. Because the sum over the rotor's surfaces
+and the transfer of the moment to the hub are linear, that is the mean of the
+rotor's force and moment, and `CT`, `CQ`, `CP`, `ETA`, `ETAW`, `CN`, `CS`,
+`CMN` and `CMS` are then computed from those mean loads:
+
+```text
+F_mean = (1/k) sum_i F_i        M_hub,mean = (1/k) sum_i M_hub,i
+ETA    = J CT(F_mean) / CP(M_hub,mean)     never (1/k) sum_i ETA_i
+```
+
+The table's `products.json` entry says `"source": "mean of k clockings"`
+with `k` written out, and `"clockings": k` (a mapping of run to `k` where the
+points of one table differ). A wheel point one of whose clocking exports is
+missing, unreadable, without a reference velocity, in another analysis frame
+or listing other surfaces is not a row of the table and is named under its
+key in `products.json` `skipped`; the mean of the other clockings is never
+written in its place. A sector is one solve and its row is that solve, as
+before.
+
+Two products are the run type's own, and a wheel point's sections
 gain its clockings and its validity.
 
 - **The clockings table**, `polars/P<sim>-<ALIAS>_qs_positions.csv`: one row

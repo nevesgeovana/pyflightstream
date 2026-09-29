@@ -23,6 +23,16 @@ FlightStream versions.
   `pyflightstream.post.qsteady.read_qsteady_record` and
   `pyflightstream.workspace.inputs.qsteady_record_rotor_alias` are removed;
   the latter lives on in `pyflightstream.cases.qsteady`.
+- **The rotor table of a quasi-steady wheel is the mean of its clockings.**
+  A `qsteady_rotor` wheel point's row of `polars/P<sim>-<ALIAS>_rotor.csv`
+  was clocking 0's solve alone; it is now taken from the rotor's force and
+  moment averaged over the point's k clockings, each clocking's own loads
+  export, and `CT`, `CQ`, `CP`, `ETA`, `ETAW`, `CN`, `CS`, `CMN` and `CMS` are
+  computed from those mean loads (never a mean of per-clocking `ETA`). The
+  table's `products.json` entry states `"source": "mean of k clockings"` and
+  `"clockings": k`. A wheel point whose clocking export is missing is not a
+  row and is named in `skipped`. A sector's row is unchanged. The rotor
+  numbers a 0.30.0 post wrote for a wheel remain a valid record of clocking 0.
 ### Changed (0.31.0)
 
 - A `qsteady_rotor` row that states `ADVANCE_RATIO` resolves J, and so the rotor
