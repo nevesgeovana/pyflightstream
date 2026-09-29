@@ -1,9 +1,9 @@
-"""Tier 1: the seven guide decks under guide/ are complete, current and clean.
+"""Tier 1: the eight guide decks, 00 to 07, under guide/ are complete, current and clean.
 
 Pipeline role: quality gate on the didactic material, beside
 ``test_guide_currency.py`` and ``test_guide_api_names.py``, which guard the
 guide to the Python library (``guide/pyflightstream_user_guide.tex``). This
-file guards the seven decks that sit beside it since 0.30.0: their LaTeX
+file guards the decks that sit beside it since 0.30.0, eight since guide 00: their LaTeX
 sources under ``guide/latex-sources/``, their compiled PDFs in ``guide/`` and
 the two notes of the folder.
 
@@ -58,7 +58,7 @@ def _citation_author() -> str:
 
 NOTICE = f"Copyright (c) 2026 {_citation_author()}. Licensed under CC BY 4.0"
 TEXT_SUFFIXES = {".tex", ".sh", ".ps1", ".md"}
-DECK_FOLDER = re.compile(r"^0[1-7]-[a-z0-9-]+$")
+DECK_FOLDER = re.compile(r"^0[0-7]-[a-z0-9-]+$")
 DOCREF = re.compile(r"\\docref\{([^}]*)\}")
 
 
@@ -102,8 +102,10 @@ def _base_version() -> str:
 
 
 def test_the_deck_walk_has_something_to_check():
-    """A floor: seven decks and their shared layer, so a moved folder cannot pass as clean."""
-    assert [path.name[:2] for path in _deck_folders()] == ["01", "02", "03", "04", "05", "06", "07"]
+    """A floor: eight decks, 00 to 07, and their shared layer, so a moved folder
+    cannot pass as clean."""
+    expected = ["00", "01", "02", "03", "04", "05", "06", "07"]
+    assert [path.name[:2] for path in _deck_folders()] == expected
     assert len(_text_files()) >= 60
 
 
@@ -181,7 +183,8 @@ def test_the_decks_state_the_version_this_tree_releases_once():
 
 def test_every_deck_has_its_pdf_and_ends_on_its_references():
     decks = {deck.name for deck in _deck_folders()}
-    pdfs = {path.name[len("fts-guide-") : -len(".pdf")] for path in GUIDE.glob("fts-guide-*.pdf")}
+    prefix = "pyfts-guide-"
+    pdfs = {path.name[len(prefix) : -len(".pdf")] for path in GUIDE.glob(f"{prefix}*.pdf")}
     assert pdfs == decks, (
         f"decks without a PDF: {sorted(decks - pdfs)}; PDFs without a deck: {sorted(pdfs - decks)}"
     )
@@ -195,7 +198,7 @@ def test_every_deck_has_its_pdf_and_ends_on_its_references():
 def test_no_compiled_deck_carries_a_path_of_the_machine_that_built_it():
     carriers = [
         path.name
-        for path in sorted(GUIDE.glob("fts-guide-*.pdf"))
+        for path in sorted(GUIDE.glob("pyfts-guide-*.pdf"))
         if b"/PTEX.FileName" in path.read_bytes()
     ]
     assert not carriers, (

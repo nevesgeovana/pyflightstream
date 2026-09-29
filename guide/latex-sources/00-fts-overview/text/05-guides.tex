@@ -1,0 +1,94 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 00-fts-overview/text/05-guides.tex
+%
+% Part 5: the map of the other seven guides, the order to read them in for
+% four kinds of reader, the public geometries to practise on, and how to cite
+% the tool.
+
+\section{The guides}
+
+\begin{frame}{Eight guides, and when to read each}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.08}
+\begin{tabularx}{\linewidth}{@{}P{0.04\linewidth}P{0.31\linewidth}RP{0.24\linewidth}@{}}
+\toprule
+& \textbf{File} \code{pyfts-guide-} & \textbf{What it covers} & \textbf{Read it when} \\
+\midrule
+0 & \code{00-fts-overview} & the solver, the workflow, the map &
+  before anything else \\
+1 & \code{01-workspaces} & the tree, the input files, choosing a
+  workflow, running, what a run leaves, two workspaces and sync, version
+  control & you set up or run a study \\
+2 & \code{02-gui-to-pyfs} & every step of a GUI session, and the
+  key that takes it & you know the interface \\
+3 & \code{03-references} & lengths, the moment point, aliases,
+  frames, rotors, actuator discs & you write a reference file \\
+4 & \code{04-solver-setup} & the setup file, its keys and the
+  solver commands behind them & you tune how a point is solved \\
+5 & \code{05-pproc-definitions} & what every product, reduction
+  and window means & you read or plot a result \\
+6 & \code{06-fsi} & the fluid-structure loop, the structural
+  input, calibration, limits [22] & a structure deforms under load \\
+7 & \code{07-python-environment-offline} & Python, a virtual
+  environment and the package with no internet & once per offline machine \\
+\bottomrule
+\end{tabularx}}
+\end{frame}
+
+\begin{frame}{Four ways through them}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{A first study}
+\small 0, then 1 (Parts 1 to 11), then 3 and 4 for the files you cite, then 5
+before you plot. The package page ``Getting started'' is the shortest path to
+a first run [21].
+\end{block}
+\begin{block}{From the interface to the workspace}
+\small 0 (Parts 3 and 4), then 2 side by side with your own session, then 4.
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{A rotor}
+\small 0 (Part 2, rotation), 3 (the rotor block), 1 (choosing a workflow and
+the quasi-steady rotor), 5 (per-blade, phase-locked and window products); 6
+for a blade that deforms.
+\end{block}
+\begin{block}{Installing and operating}
+\small 7 on each machine without internet, then 1 (the cluster, two
+workspaces and sync, space on disk).
+\end{block}
+\end{column}
+\end{columns}
+\begin{takeaway}Each guide is written for one version of the package; its
+title page says which.\end{takeaway}
+\end{frame}
+
+\begin{frame}{Where to practise, and how to cite}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{Two public geometries}
+\begin{itemize}\small
+  \item \textbf{SMI}: an airframe geometry, wing and wing-body, published
+        for practice [18].
+  \item \textbf{TUD-XPROP}: a research propeller of Delft University of
+        Technology, requested from its own record and cited by it [19].
+\end{itemize}
+\end{block}
+\begin{block}{Where to take a question}
+\small Solver behaviour to the vendor, with the build and the page. The
+driver to the repository, as an issue.
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{Citing the tool}
+\small \pkgcitation
+\end{block}
+\begin{block}{The Python library}
+\small For scripts written in Python rather than a matrix: the library
+guide, \code{pyflightstream\_user\_guide.tex} in the repository's
+\code{guide/} folder.
+\end{block}
+\end{column}
+\end{columns}
+\end{frame}

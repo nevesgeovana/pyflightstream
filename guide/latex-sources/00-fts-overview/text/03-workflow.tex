@@ -1,0 +1,175 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 00-fts-overview/text/03-workflow.tex
+%
+% Part 3: the simulation workflow as ten stages, from the question to the
+% engineering analysis, with what each stage decides. Manual pages are those
+% of build 26121 [6].
+
+\section{The simulation workflow}
+
+\begin{frame}{Ten stages, in the order decisions constrain each other}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.12}
+\begin{tabularx}{\linewidth}{@{}r@{\hspace{2mm}}P{0.34\linewidth}R@{}}
+\toprule
+\textbf{\#} & \textbf{Stage} & \textbf{The decision it owns} \\
+\midrule
+1  & Case study and scope & what question the case answers, and what it does not \\
+2  & Matrix definition & which points are run, and why those \\
+3  & Water-tight geometry & blunt or sharp trailing edge, and where the components split \\
+4  & Surface mesh & where resolution is spent \\
+5  & Boundary conditions & which edges shed vorticity, and how much \\
+6  & Solver setup & what the solver is allowed to assume \\
+7  & Execution and monitoring & whether the answer has converged \\
+8  & Output definition and export & what evidence the run leaves behind \\
+9  & Verification and validation & whether the answer is right \\
+10 & Engineering analyses & what the answer means for the design \\
+\bottomrule
+\end{tabularx}}
+\vspace{1mm}
+\begin{takeaway}The stages are not a checklist to tick: a decision taken out of
+order has to be taken again.\end{takeaway}
+\end{frame}
+
+\begin{frame}{One session in the interface, and the lock in it}
+\slidefig[0.34]{g00-workflow-chart}
+\begin{itemize}\small
+  \item \textbf{Initialisation is a lock.} It freezes the solver against the
+        mesh and the boundary conditions as they stand, and fixes the solver
+        mode and the symmetry claim [6, pp.~218-221].
+  \item A runtime setting (angle, velocity, iterations) can change after it.
+        A mesh or boundary change needs the initialisation removed and taken
+        again. That is why boundary conditions precede setup [6, p.~411].
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Stages 3 and 4: geometry and surface mesh}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{Geometry}
+\begin{itemize}\small
+  \item \textbf{Water-tight} means the body closes, not the domain.
+  \item Collapsed or blunt trailing edge: decided in CAD (Part 2).
+  \item Components are split by the \textbf{boundary condition they will
+        receive}, and by the loads you will want per component, never by CAD
+        convenience.
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{Surface mesh}
+\begin{itemize}\small
+  \item Four sources: the tool's cross-section meshers, transfinite
+        interpolation, the wrapper, or an imported mesh [6, pp.~72-75].
+        Only the first two regenerate in seconds.
+  \item Faces go where the gradients are: leading edge, tip, junction, the
+        row the wake leaves from [6, p.~62].
+  \item A mesh convergence study is an obligation, and it is affordable.
+\end{itemize}
+\end{block}
+\end{column}
+\end{columns}
+\begin{takeaway}The mesh carries the boundary conditions. A boundary is a
+decision about what you will be able to ask for later.\end{takeaway}
+\end{frame}
+
+\begin{frame}{Stage 5: boundary conditions are marking}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}\small
+  \item \textbf{Farfield}: there is none to set. \textbf{Walls}: every face is
+        a slip wall once meshed, switched to no slip by the solver when the
+        boundary layer is active [6, p.~164].
+  \item What remains is \textbf{marking} where that default is wrong:
+        trailing edges, with their type (Part 2); base regions; wake
+        termination nodes; and, when the case needs them, actuator discs,
+        inlets and outlets, custom free-stream fields [6, pp.~164-197].
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{alertblock}{Auto-detection is a proposal}
+\small The solver can detect trailing edges; it proposes, you decide. Inspect
+every marked edge before initialisation: a split trailing edge is two edges,
+and a missing one is silent.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Stage 6: what the solver may assume}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.12}
+\begin{tabularx}{\linewidth}{@{}P{0.14\linewidth}R@{}}
+\toprule
+\textbf{Symmetry} & \textbf{What it asserts} \\
+\midrule
+None & nothing: the mesh in front of the solver is the whole problem \\
+Mirror & a symmetry plane in the flow, not only in the geometry; false as
+  soon as the sideslip is not zero \\
+Periodic & an onset flow the same at every azimuth, plus a copy count; false
+  as soon as the angle of attack is not zero \\
+\bottomrule
+\end{tabularx}}
+\vspace{1mm}
+\begin{itemize}\small
+  \item \textbf{Coordinate systems first}: loads are reported in one, and a
+        moment without its frame and point is not a number.
+  \item \textbf{Reference velocity, area and length} normalise every
+        coefficient. Set them; never inherit them.
+  \item \textbf{Convergence is three controls}: an iteration cap, a residual
+        threshold, and how long the residual must stay below it
+        [6, pp.~202-203]. Viscous settings change the answer; leaving them off
+        is a decision too.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Stages 7 and 8: run, watch, and declare the outputs}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{Execution and monitoring}
+\begin{itemize}\small
+  \item \textbf{Converged is a state that was held}, not a number that was
+        touched. A run stopped at its cap ran out of iterations.
+  \item Unsteady asks twice: the residual inside each step, and the history
+        of the quantity you want. They are independent.
+  \item Periodic: judge the \textbf{per-revolution} statistic, not the
+        sample.
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{Output definition and export}
+\begin{itemize}\small
+  \item \textbf{An output not declared was not computed}: sections, probes
+        and plots are set before the run.
+  \item Symmetry-load doubling changes what the solver computes. Two runs set
+        differently are not the same quantity.
+  \item Every coefficient carries a normalisation: record it with the number.
+\end{itemize}
+\end{block}
+\end{column}
+\end{columns}
+\begin{takeaway}Recovering a variable that was never declared means running
+the case again, which for a rotor is the most expensive mistake
+available.\end{takeaway}
+\end{frame}
+
+\begin{frame}{Stages 9 and 10: is it right, and what does it mean}
+\begin{itemize}\small
+  \item \textbf{Verification}: the solution against a theoretical anchor and
+        against itself. A finite-wing lift slope, a span efficiency, a mesh
+        and a time-step study, a sector against the full wheel.
+  \item \textbf{Validation}: the solution against measured data, inside the
+        envelope where the method has been compared with experiment
+        [13, 14].
+  \item An error that scales the whole solution divides out of a ratio. An
+        efficiency can agree while thrust and torque are both off: check the
+        forces, not only their ratio.
+  \item \textbf{Engineering analyses} use the answer: derivatives, trim,
+        installation deltas, component breakdowns. They inherit every
+        assumption of stages 3 to 8.
+\end{itemize}
+\begin{takeaway}A mid-fidelity number is defensible when its build, its
+settings, its convergence and its verification travel with it.\end{takeaway}
+\end{frame}

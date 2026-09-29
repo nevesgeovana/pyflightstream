@@ -845,7 +845,7 @@ def test_the_spreadsheet_guard_fires_on_what_it_exists_to_catch(monkeypatch):
 #
 # A pdf never entered Git until 0.30.0: a licensed manual arrives as one, and
 # NFR-03 keeps the manual out of the repository. The owner then admitted the
-# seven guide DECKS: their compiled PDFs beside their LaTeX sources, and the
+# guide DECKS, eight of them, 00 to 07: their compiled PDFs beside their LaTeX sources, and the
 # figure PDFs those sources include. Nothing else, not any pdf under guide/:
 # the exemption names the deck files and the figures folder of a deck. Three
 # mechanisms state the rule and must agree: the forbid-pdf hook (`files` with
@@ -857,28 +857,31 @@ def test_the_spreadsheet_guard_fires_on_what_it_exists_to_catch(monkeypatch):
 # `Guide/` folder is not the guide), and the pdf suffix is case-insensitive in
 # all three (a `.PDF` manual is a pdf).
 PDF_ALLOWED = re.compile(
-    r"^guide/(fts-guide-0[1-7]-[a-z0-9-]+|latex-sources/0[1-7]-[a-z0-9-]+/figures/[A-Za-z0-9_.-]+)\.pdf$"
+    r"^guide/(pyfts-guide-0[0-7]-[a-z0-9-]+|latex-sources/0[0-7]-[a-z0-9-]+/figures/[A-Za-z0-9_.-]+)\.pdf$"
 )
 
 #: The suffix that makes a tracked file a pdf, compared case-insensitively.
 PDF_SUFFIX = ".pdf"
 
-#: Sample paths the three mechanisms must judge alike: the seven decks' own
-#: files, pdfs under guide/ that are neither a deck nor a deck's figure,
+#: Sample paths the three mechanisms must judge alike: the eight decks' own
+#: files, pdfs under guide/ that are neither a deck nor a deck's figure, a
+#: deck under its 0.30.0 name (fts-guide-, refused since the pyfts- rename),
 #: spellings that only look like the guide, an allowed path under another
 #: folder (so each of the three anchors the exemption at the repository root),
 #: a mixed-case suffix, a mixed-case folder, a notebook under guide/ (which
 #: the CI job refuses as a notebook) and files that are no pdf at all.
 PDF_RULE_SAMPLES = (
-    "guide/fts-guide-01-workspaces.pdf",
-    "guide/fts-guide-07-python-environment-offline.pdf",
+    "guide/pyfts-guide-00-fts-overview.pdf",
+    "guide/pyfts-guide-01-workspaces.pdf",
+    "guide/pyfts-guide-07-python-environment-offline.pdf",
     "guide/latex-sources/01-workspaces/figures/qsteady_k_vs_J.pdf",
     "guide/pyflightstream_user_guide.tex",
     "guide/pyflightstream_user_guide.pdf",
-    "guide/fts-guide-08-extra.pdf",
+    "guide/pyfts-guide-08-extra.pdf",
+    "guide/fts-guide-01-workspaces.pdf",
     "guide/latex-sources/06-fsi/notes.pdf",
     "guide/latex-sources/06-fsi/figures/sub/deep.pdf",
-    "x/guide/fts-guide-01-workspaces.pdf",
+    "x/guide/pyfts-guide-01-workspaces.pdf",
     "vendor/guide/latex-sources/01-a/figures/manual.pdf",
     "guide/notes.ipynb",
     "Guide/x.pdf",
@@ -918,8 +921,8 @@ def test_no_pdf_is_tracked_outside_the_guide():
         "these tracked files are pdfs that are not a guide deck or its figure:\n"
         + "\n".join(offenders)
         + "\n\nA licensed manual arrives as a pdf and never enters the repository "
-        "(CONTRIBUTING.md invariant 1, SRS NFR-03). Only the seven compiled guide "
-        "decks, guide/fts-guide-0N-*.pdf, and the figures their sources include, "
+        "(CONTRIBUTING.md invariant 1, SRS NFR-03). Only the eight compiled guide "
+        "decks, guide/pyfts-guide-0N-*.pdf, and the figures their sources include, "
         "guide/latex-sources/0N-*/figures/*.pdf, are tracked as pdf."
     )
 
@@ -942,34 +945,37 @@ def test_the_pdf_guard_fires_on_what_it_exists_to_catch(monkeypatch):
             "guides/deck.pdf",
             "Guide/x.pdf",
             "guide/pyflightstream_user_guide.pdf",
-            "guide/fts-guide-08-extra.pdf",
+            "guide/pyfts-guide-08-extra.pdf",
+            "guide/fts-guide-01-workspaces.pdf",
             "guide/latex-sources/06-fsi/notes.pdf",
             "guide/latex-sources/06-fsi/figures/sub/deep.pdf",
-            "x/guide/fts-guide-01-workspaces.pdf",
+            "x/guide/pyfts-guide-01-workspaces.pdf",
             "vendor/guide/latex-sources/01-a/figures/manual.pdf",
         ]
     ) == [
         "Guide/x.pdf",
         "docs/guide/deck.pdf",
         "guide.pdf",
-        "guide/fts-guide-08-extra.pdf",
+        "guide/fts-guide-01-workspaces.pdf",
         "guide/latex-sources/06-fsi/figures/sub/deep.pdf",
         "guide/latex-sources/06-fsi/notes.pdf",
         "guide/pyflightstream_user_guide.pdf",
+        "guide/pyfts-guide-08-extra.pdf",
         "guides/deck.pdf",
         "reports/Manual.PDF",
         "vendor/guide/latex-sources/01-a/figures/manual.pdf",
-        "x/guide/fts-guide-01-workspaces.pdf",
+        "x/guide/pyfts-guide-01-workspaces.pdf",
     ]
     admitted = [
-        "guide/fts-guide-01-workspaces.pdf",
+        "guide/pyfts-guide-00-fts-overview.pdf",
+        "guide/pyfts-guide-01-workspaces.pdf",
         "guide/latex-sources/01-workspaces/figures/qsteady_k_vs_J.pdf",
         "README.md",
     ]
     assert _pdf_offenses(admitted) == []
     # Control 1: withdraw the exemption and the decks' pdfs are refused.
     monkeypatch.setitem(globals(), "PDF_ALLOWED", re.compile(r"(?!)"))
-    assert _pdf_offenses(admitted) == admitted[:2], (
+    assert _pdf_offenses(admitted) == sorted(admitted[:3]), (
         "with the exemption withdrawn the decks' pdfs still pass, so their "
         "admission above was not coming from the exemption"
     )

@@ -11,16 +11,16 @@ Keep this file with the folder.
 
 | Material | License |
 |---|---|
-| `fts-guide-01-workspaces.pdf` to `fts-guide-07-python-environment-offline.pdf`: the seven guides (slide decks) | Creative Commons Attribution 4.0 International (CC BY 4.0) |
+| `pyfts-guide-00-fts-overview.pdf` to `pyfts-guide-07-python-environment-offline.pdf`: the eight guides, 0 to 7 (slide decks) | Creative Commons Attribution 4.0 International (CC BY 4.0) |
 | `latex-sources/`: the LaTeX sources of those guides, their figures and their build recipe | CC BY 4.0 |
 | `README.md` and `LICENSE-AND-AUTHORSHIP.md` (this file) | CC BY 4.0 |
 | `pyflightstream_user_guide.tex`: the guide to the Python library | MIT License, as the rest of the repository (`LICENSE` at its root) |
 
-Every file of the seven guides repeats, in its first lines, who wrote it and
+Every file of the eight guides repeats, in its first lines, who wrote it and
 under which license it is published; each PDF carries the notice on its title
 page, on the foot of every page and in its metadata.
 
-To rebuild the seven PDFs from their sources, run `latex-sources/build-all.ps1`
+To rebuild the eight PDFs from their sources, run `latex-sources/build-all.ps1`
 (Windows) or `latex-sources/build-all.sh` (Linux); each copies the finished
 PDFs into this folder, overwriting them. The header of each script says what
 the build needs.
