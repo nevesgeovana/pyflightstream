@@ -132,7 +132,9 @@ def test_the_guard_allows_steady_and_unsteady_and_keeps_the_rotor_refused():
     assert ws.fsi_workflow_refusal("steady") is None
     assert ws.fsi_workflow_refusal("unsteady") is None
     assert ws.fsi_workflow_refusal("unsteady_rotor") == ws.FSI_ROTOR_IN_DEBUG
-    assert "qsteady_rotor" in (ws.fsi_workflow_refusal("qsteady_rotor") or "")
+    # The owner's requirement moved (GOAL-035): the qsteady_rotor sector couples
+    # in 0.30.0, so the table accepts it; its builder refuses the wheel.
+    assert ws.fsi_workflow_refusal("qsteady_rotor") is None
     assert ws.FIXED_WING_WORKFLOWS == ("steady", "unsteady")
 
 

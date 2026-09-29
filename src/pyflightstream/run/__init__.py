@@ -155,6 +155,7 @@ from pyflightstream.cases.workflows import (
     carries_singularity_strength,
     creates_surface_sections,
     disc_speed_moves_with_the_point,
+    effective_fsi_config,
     parse_restart,
     qsteady_validity,
     read_a_choice,
@@ -6675,9 +6676,21 @@ def _write_pending_files(
     if case.fsi is not None:
         # FSI files are point-owned inputs and use the existing guarded writer,
         # never the simulation inputs folder which may link to geometry data.
+        # THE CONFIGURATION THE BUILDER WIRED (0.30.0): a quasi-steady sector's
+        # structure turns at the speed its row turns the free stream, so its
+        # omega is the row's and not the input's; the provenance says so.
+        effective = effective_fsi_config(case)
+        assert effective is not None  # case.fsi is not None
+        provenance = dict(case.fsi_provenance)
+        if effective.omega_rad_per_s != case.fsi.omega_rad_per_s:
+            provenance["omega_rad_per_s_from_row"] = {
+                "input": case.fsi.omega_rad_per_s,
+                "staged": effective.omega_rad_per_s,
+                "rule": "qsteady_rotor sector: the structure turns at the row's RPM",
+            }
         payloads = {
-            "config.json": case.fsi.model_dump_json(indent=2) + "\n",
-            "fsi-provenance.json": json.dumps(case.fsi_provenance, indent=2) + "\n",
+            "config.json": effective.model_dump_json(indent=2) + "\n",
+            "fsi-provenance.json": json.dumps(provenance, indent=2) + "\n",
         }
         source_name = case.fsi_provenance.get("source")
         if source_name:

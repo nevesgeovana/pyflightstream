@@ -29,6 +29,16 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.fsi.errors import FsiInputError
 
+#: The run-folder marker of a quasi-steady rotor sector (0.30.0). Its presence
+#: says the run is a STEADY coupled run of a ROTATING structure, whose loads
+#: export carries no time increment; the driver then solves the rotating blade
+#: once per coupling iteration. A marker, as the frozen and config-change
+#: decisions are, because the executable is invoked bare and a route a row
+#: chooses must not move the configuration's digest. Without it a steady
+#: export on a rotating configuration is still refused. Here, import-light,
+#: so the builder that stages it imports without the [fsi] extra.
+QUASI_STEADY_ROTOR_FILE = "fsi_quasi_steady_rotor"
+
 logger = logging.getLogger(__name__)
 
 

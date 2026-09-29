@@ -258,9 +258,11 @@ def test_a_geometry_holding_more_than_the_rotor_is_refused(tmp_path):
     assert _rotations(lines)[0] == "ROTATE_SURFACE 2 X 60.0 3 DISABLE"
 
 
-def test_fsi_is_refused_on_a_sector_until_its_wiring_and_on_a_wheel_for_good():
-    with pytest.raises(CampaignConfigError, match="arrives in this release with the FSI"):
-        _lines(_case(FSI="f001", SYMMETRY="PERIODIC", PERIODIC_COPIES="3"))
+def test_fsi_is_refused_on_a_wheel_for_good():
+    # P0300-QS-WHEEL-FSI-REFUSED
+    # THE REQUIREMENT CHANGED, by the owner (GOAL-035): the sector's FSI wiring
+    # landed in 0.30.0 and the sector now couples
+    # (test_goal035_qsteady_completion.py); the wheel's refusal stands.
     with pytest.raises(CampaignConfigError, match="quasi-steady wheel with FSI is not supported"):
         _lines(_case(FSI="f001"))
 

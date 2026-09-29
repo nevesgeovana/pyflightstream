@@ -141,6 +141,7 @@ from pyflightstream.commands import (
     Status,
     VersionView,
 )
+from pyflightstream.fsi.config import FsiConfig
 from pyflightstream.results import MalformedOutputError, SurfaceFrame
 from pyflightstream.script import (
     MARCH_ACTIONS,
@@ -279,6 +280,7 @@ __all__ = [
     "STEADY_RUN_TYPES",
     "qsteady_case_kind",
     "qsteady_validity",
+    "effective_fsi_config",
 ]
 
 #: Case-variable key carrying the matrix ``WORKFLOW`` column.
@@ -8103,6 +8105,8 @@ def _script_init(
     workflow = select_workflow(case) if case.fsi is not None else None
     if case.fsi is not None and workflow in ("steady", "unsteady"):
         coupled_surfaces = _wire_the_fixed_wing(case, script, workflow, frames, conventions)
+    elif case.fsi is not None and workflow == QSTEADY_ROTOR:
+        coupled_surfaces = _wire_the_quasi_steady_sector(case, script, frames, conventions)
     elif case.fsi is not None:
         from .fsi_workspace import wire_workspace_fsi
 
@@ -8177,6 +8181,70 @@ def _wire_the_fixed_wing(
         case,
         script,
         workflow=workflow,
+        interpreter=_action_interpreter(sys.executable),
+        exports=exports,
+    )
+
+
+def effective_fsi_config(case: SimCase) -> FsiConfig | None:
+    """Return the structural configuration a point's run stages as its ``config.json``.
+
+    The row's FSI input as resolved, except on a ``qsteady_rotor`` sector,
+    whose structure turns at the speed the row turns the free stream: there
+    ``omega_rad_per_s`` is the row's
+    (:func:`pyflightstream.cases.fsi_workspace.quasi_steady_fsi_config`), so the
+    structural solve applies the centrifugal loads at that speed. The
+    builder and the run read this one function, so the nodes the script
+    imports and the configuration the structural program loads describe one
+    structure.
+
+    Returns
+    -------
+    FsiConfig or None
+        None for a row with no FSI.
+    """
+    if case.fsi is None:
+        return None
+    if select_workflow(case) != QSTEADY_ROTOR or qsteady_case_kind(case) != "sector":
+        return case.fsi
+    from .fsi_workspace import quasi_steady_fsi_config
+
+    rotor = _the_isolated_rotor(case)
+    return quasi_steady_fsi_config(case, rpm=_qsteady_speed(case, rotor).rpm, quiet=True)
+
+
+def _wire_the_quasi_steady_sector(
+    case: SimCase,
+    script: Script,
+    frames: Frames | None,
+    conventions: WorkflowConventions | None,
+) -> list[dict[str, object]]:
+    """Wire a quasi-steady sector's coupling (0.30.0), returning its steady Tecplot surfaces.
+
+    The structure is blade one turning at the row's speed
+    (:func:`pyflightstream.cases.fsi_workspace.quasi_steady_fsi_config`); the
+    route is steady, so the row's whole export block is the post-processing
+    script's, after the loads the structural program reads, and what a
+    steady coupled script cannot place there is refused first
+    (:func:`_refuse_what_a_steady_coupled_run_cannot_export`).
+    """
+    from .fsi_workspace import quasi_steady_fsi_config, wire_quasi_steady_sector_fsi
+
+    if frames is None:
+        raise CampaignConfigError("FSI requires the initial blade/frame mapping.")
+    rotor = _the_isolated_rotor(case)
+    config = quasi_steady_fsi_config(case, rpm=_qsteady_speed(case, rotor).rpm)
+    _refuse_what_a_steady_coupled_run_cannot_export(case)
+    exports_of = conventions or WorkflowConventions.for_case(case)
+
+    def exports(post: Script) -> None:
+        _export_block(exports_of, case, post, unsteady=False)
+
+    return wire_quasi_steady_sector_fsi(
+        case,
+        script,
+        config=config,
+        rotor=rotor,
         interpreter=_action_interpreter(sys.executable),
         exports=exports,
     )
@@ -13577,23 +13645,19 @@ def _qsteady_speed(case: SimCase, rotor: RotorBlock) -> RotorSpeed:
 
 
 def _refuse_fsi_on_a_quasi_steady_rotor(case: SimCase, kind: str) -> None:
-    """Refuse an FSI row: the sector's wiring is later in this release, the wheel's never.
+    """Refuse FSI on a quasi-steady WHEEL; a SECTOR couples (0.30.0).
 
-    THE HOOK FOR THE FSI WIRING (0.30.0). A sector is one steady solve of one
-    blade in a free stream turning at the rotor's speed, which is the route the
-    licensed test 2 of the FSI study coupled (the blade static, the rotation in
-    the free stream, the structure's centrifugal load at that speed); it is
-    refused by name until that wiring lands. A wheel is several clockings
+    A sector is one steady solve of one blade in a free stream turning at the
+    rotor's speed, which is the route the licensed test 2 of the FSI study
+    coupled (the blade static, the rotation in the free stream, the
+    structure's centrifugal load at that speed): it is wired by
+    :func:`_wire_the_quasi_steady_sector`. A wheel is several clockings
     averaged, and one deformed blade per clocking is not a structure's state.
     """
     if case.fsi is None and _variable(case, "FSI") is None:
         return
     if kind == "sector":
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} names the run type {QSTEADY_ROTOR} on a periodic sector and "
-            "states FSI. FSI on a quasi-steady sector arrives in this release with the FSI "
-            "wiring; until then run the sector without FSI, or the rotor as unsteady_rotor."
-        )
+        return
     raise CampaignConfigError(
         f"case {case.sim_id!r} names the run type {QSTEADY_ROTOR} on a whole wheel and states "
         "FSI: a quasi-steady wheel with FSI is not supported. The wheel is several steady "
