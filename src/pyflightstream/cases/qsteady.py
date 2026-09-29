@@ -401,26 +401,57 @@ def obj_group_vertices(path: str | Path, *, metres_per_unit: float) -> dict[str,
     }
 
 
+#: How far two rows on one ring may differ, in any of the axial, radial and
+#: swirl velocities, and still be read as the same flow: a fraction of the
+#: field's largest speed. 0.1 per cent: a field extracted from another solution
+#: and interpolated onto rings carries round-off and interpolation noise far
+#: above 1e-6 of its speed (the first writing refused such fields), while a
+#: real azimuthal variation, a crossflow of an angle of attack of a degree or a
+#: wake deficit, is well above it.
+AXISYMMETRY_SPEED_TOLERANCE = 1e-3
+#: How far two rows' distances from the shaft may differ and still be one
+#: ring: a fraction of the field's largest radius (0.1 mm on a 1 m disc), above
+#: the round-off of coordinates written with six significant digits.
+AXISYMMETRY_RADIUS_TOLERANCE = 1e-4
+
+
 def azimuthal_variation(
     rows: Sequence[Sequence[float]],
     *,
     hub: Sequence[float],
     axis: Sequence[float],
-    relative: float = 1e-6,
+    relative: float = AXISYMMETRY_SPEED_TOLERANCE,
+    radius_relative: float = AXISYMMETRY_RADIUS_TOLERANCE,
 ) -> str | None:
     """Say why an inflow field varies with azimuth, or None when it varies with radius alone.
 
     The field's rows are ``x y z vx vy vz`` in one frame. Each row's velocity
     is read in the shaft's cylindrical frame, axial, radial and swirl; rows at
-    the same radius, to ``relative`` of the largest radius, must state the same
-    three components, to ``relative`` of the largest speed. A field in which no
-    two rows share a radius cannot show that it varies with the radius alone
-    and is named too, because a row is refused rather than guessed.
+    the same radius, to ``radius_relative`` of the largest radius, must state
+    the same three components, to ``relative`` of the largest speed. A field
+    in which no two rows share a radius cannot show that it varies with the
+    radius alone and is named too, because a row is refused rather than
+    guessed.
+
+    Parameters
+    ----------
+    rows : sequence of (x, y, z, vx, vy, vz)
+        The field, in metres and metres per second.
+    hub, axis : (x, y, z)
+        A point of the shaft and its direction.
+    relative : float
+        The speed tolerance, a fraction of the field's largest speed; by
+        default :data:`AXISYMMETRY_SPEED_TOLERANCE`, 0.1 per cent. A caller
+        who knows the noise of the field states another.
+    radius_relative : float
+        The ring tolerance, a fraction of the largest radius; by default
+        :data:`AXISYMMETRY_RADIUS_TOLERANCE`.
 
     Returns
     -------
     str or None
-        The reason, naming the two rows' radius and components, or None.
+        The reason, naming the two rows' radius and components and the
+        tolerance, or None.
     """
     n = _unit(axis)
     placed: list[tuple[float, Vector]] = []
@@ -442,7 +473,7 @@ def azimuthal_variation(
             components = (_dot(v, n), _dot(v, e_r), _dot(v, e_t))
         placed.append((r, components))
     largest_radius = max((r for r, _ in placed), default=0.0)
-    radius_tolerance = relative * max(largest_radius, 1e-12)
+    radius_tolerance = radius_relative * max(largest_radius, 1e-12)
     speed_tolerance = relative * max(largest_speed, 1e-12)
     placed.sort(key=lambda entry: entry[0])
     shared = False
@@ -455,7 +486,8 @@ def azimuthal_variation(
                 return (
                     f"two rows at radius {r:.6g} m state axial, radial and swirl velocities "
                     f"({components[0]:.6g}, {components[1]:.6g}, {components[2]:.6g}) and "
-                    f"({other[0]:.6g}, {other[1]:.6g}, {other[2]:.6g}) m/s"
+                    f"({other[0]:.6g}, {other[1]:.6g}, {other[2]:.6g}) m/s, apart by more "
+                    f"than {relative:g} of the field's largest speed ({speed_tolerance:.3g} m/s)"
                 )
     if not shared:
         return (

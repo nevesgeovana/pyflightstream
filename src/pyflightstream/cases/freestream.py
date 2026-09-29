@@ -132,7 +132,9 @@ def field_rows_in_metres(
     metres and metres per second; ``NATIVE`` is converted from the simulation's
     measured unit. An undeclared file on a simulation whose unit is not the
     metre is refused, because nothing then says which of the two it is written
-    in, and the rotation added to it is in metres per second.
+    in, and the rotational velocity the quasi-steady rotor removes from it,
+    composing the relative free stream the fixed blades see, is in metres per
+    second.
     """
     header, rows = read_field_rows(path, form=form)
     if source_units == "NATIVE":
@@ -147,8 +149,9 @@ def field_rows_in_metres(
     elif source_units is None and native_unit not in {None, "METER"}:
         raise CampaignConfigError(
             f"The custom field {path} declares no FREESTREAM_UNITS on a simulation in "
-            f"{native_unit}; declare SI or NATIVE, since the rotation the quasi-steady rotor "
-            "adds to it is in metres per second."
+            f"{native_unit}; declare SI or NATIVE, since the rotational velocity the "
+            "quasi-steady rotor removes from it (the relative free stream the fixed blades "
+            "see) is in metres per second."
         )
     return header, rows
 
@@ -163,12 +166,14 @@ def prepare_rotating_field(
     axis: tuple[float, float, float],
     omega_rad_s: float,
 ) -> PreparedField:
-    """Write the field a blade held still meets: the user's inflow less the rotation.
+    """Write the field a blade held still meets: the user's inflow less the rotational velocity.
 
     The user's file is the TOTAL velocity of the air at the disc, in the global
-    frame. A blade turning at ``omega`` (right-hand about the unit ``axis``,
-    signed by the rotor's hand) moves at ``omega axis x (p - hub)``, so the air
-    relative to it, which is what a blade held still must meet, is::
+    frame, and this composes the RELATIVE free stream the fixed blades see: the
+    rotational velocity of each point is removed, never added. A blade turning
+    at ``omega`` (right-hand about the unit ``axis``, signed by the rotor's
+    hand) moves at ``omega axis x (p - hub)``, so the air relative to it, which
+    is what a blade held still must meet, is::
 
         v_rel(p) = v(p) - omega axis x (p - hub)
 
