@@ -44,6 +44,14 @@ FlightStream versions.
   with a WARNING line in `post.log`, where the frame's axes or the plane are
   not known to the post, where the total is zero, or where stations of
   opposite sign put it outside 0 to 100 per cent.
+- **The clockings table of a left-hand wheel states blade one's azimuth in
+  the sense it turns.** The `AZIMUTH` of `_qs_positions.csv` was the datum
+  plus the clocking angle unsigned, while the sections of the same wheel
+  follow `pyflightstream.post.axes.clocked_blade_azimuth_deg`
+  (`datum + sign(rpm) * theta_i`). The clockings table now reads the same
+  rule, so the `_qs_positions` `AZIMUTH` of a left-hand wheel (`rpm_sign`
+  -1) changes: clocking `i` states `datum - theta_i`, as its sections do. A
+  right-hand wheel's is unchanged.
 ### Changed (0.31.0)
 
 - A `qsteady_rotor` row that states `ADVANCE_RATIO` resolves J, and so the rotor

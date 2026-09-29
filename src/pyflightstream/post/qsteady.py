@@ -688,10 +688,14 @@ def _loads_of(shaft: Any) -> tuple[float | None, ...]:
 
 @dataclass(frozen=True)
 class Clocking:
-    """One clocking of one wheel point: where blade one is, and the loads."""
+    """One clocking of one wheel point: where blade one is, and the loads.
+
+    ``azimuth_deg`` is None where the record does not state where blade one
+    is (the product writes ``NA``).
+    """
 
     index: int
-    azimuth_deg: float
+    azimuth_deg: float | None
     loads: tuple[float | None, ...]
 
 
@@ -709,10 +713,15 @@ def clockings_of(
     rotor's and each blade's loads taken by ``shaft_loads``
     (:func:`pyflightstream.post.products.rotor_shaft_loads`) at that export's
     reference velocity and the point's density.
+
+    Where blade one is at each clocking is the sections table's own reading
+    (0.31.0), :func:`~pyflightstream.post.axes.clocked_blade_azimuth_deg`:
+    ``datum + sign(rpm) * theta_i``, so a left-hand wheel's clocking turns
+    blade one backwards here as it does there. Until 0.31.0 this added
+    ``theta_i`` unsigned, and the two tables of one left-hand wheel disagreed.
     """
     families = list(record.families_blades)
     members = [*record.families_general, *families]
-    datum = float(record.blade1_azimuth_deg)
     found: list[Clocking] = []
     for position in record.positions:
         path = folder / Path(position.loads).name
@@ -741,7 +750,14 @@ def clockings_of(
         found.append(
             Clocking(
                 position.index,
-                (datum + float(position.clocking_deg)) % 360.0,
+                clocked_blade_azimuth_deg(
+                    record.blade1_azimuth_deg,
+                    blade=1,
+                    blades=record.blades,
+                    clocking=position.index,
+                    positions=len(record.positions),
+                    rpm=record.rpm,
+                ),
                 tuple(values),
             )
         )

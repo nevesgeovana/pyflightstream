@@ -1864,8 +1864,12 @@ gain its clockings and its validity.
 - **The clockings table**, `polars/P<sim>-<ALIAS>_qs_positions.csv`: one row
   per point and clocking, the shape of the unsteady rotor's phase-locked table
   (one row per azimuth). `REDUCTION` is `qsteady_position`; `AZIMUTH` is where
-  blade one is at that clocking, its datum plus `theta_i`, in the direction of
-  rotation; `POSITION` is `i` and `POSITIONS` is `k`. Each value is an
+  blade one is at that clocking, `(blade1.azimuth_deg + sense * theta_i) mod 360`
+  with `sense` the sign of the rotor's speed, by the one rule the sections
+  table's `AZIMUTH` follows (`pyflightstream.post.axes.clocked_blade_azimuth_deg`),
+  so the two agree for either hand (until 0.31.0 this added `theta_i`
+  unsigned, and a left-hand wheel's two tables disagreed); `POSITION` is `i`
+  and `POSITIONS` is `k`. Each value is an
   INSTANT, the steady solve at that clocking.
 - **The average table**, `polars/P<sim>-<ALIAS>_qs_avg.csv`: one row per
   point, `REDUCTION` `qsteady_average`, the mean over its clockings of every
