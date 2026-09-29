@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from pyflightstream._console import wrap
 from pyflightstream.cases import (
     SOLVER_SETTING_COMMANDS,
     CampaignConfigError,
@@ -92,24 +93,50 @@ def setup_inspection_summary(records: Sequence[Mapping[str, Any]]) -> str:
     """
     lines = []
     for record in records:
-        settings = record["settings"]
-        selected = [
-            f"{key}={settings[key]['value']}"
-            for key in ("solver_model", "boundary_layer", "viscous_coupling")
-        ]
-        aliases = ", ".join(sorted(record["aliases"])) or "none"
-        strength = record.get("singularity_strength")
-        surface = (
-            ""
-            if strength is None
-            else "; Singularity_strength: carried (pproc singularity_strength = true)"
-            if strength
-            else "; Singularity_strength: not carried (pproc singularity_strength = false)"
-        )
+        settings, aliases, strength = _setup_facts(record)
         lines.append(
             f"  setup {record['sim_id']} ({record['build']}): "
-            + ", ".join(selected)
+            + settings
             + f"; aliases: {aliases}"
-            + surface
+            + (f"; {strength}" if strength else "")
         )
     return "\n".join(lines)
+
+
+def setup_inspection_block(records: Sequence[Mapping[str, Any]]) -> list[str]:
+    """Return the lines of the console block ``Solver setup per case`` (0.31.0).
+
+    The facts of :func:`setup_inspection_summary`, laid out for a reader: one
+    heading line per case, then its settings, its aliases and, on a row
+    declaring a Tecplot surface, whether the surface carries the nodal
+    ``Singularity_strength``, each on its own line indented under the heading.
+    """
+    lines: list[str] = []
+    for record in records:
+        settings, aliases, strength = _setup_facts(record)
+        setup = f", setup {record['setup']}" if record.get("setup") else ""
+        lines.append(f"  POL {record['sim_id']} (FlightStream {record['build']}{setup})")
+        lines.extend(wrap(f"settings: {settings}", first="    ", rest="      "))
+        lines.extend(wrap(f"aliases: {aliases}", first="    ", rest="      "))
+        if strength:
+            lines.extend(wrap(strength, first="    ", rest="      "))
+    return lines
+
+
+def _setup_facts(record: Mapping[str, Any]) -> tuple[str, str, str]:
+    """Return one record's selected settings, its aliases and its surface note, as words."""
+    settings = record["settings"]
+    selected = ", ".join(
+        f"{key}={settings[key]['value']}"
+        for key in ("solver_model", "boundary_layer", "viscous_coupling")
+    )
+    aliases = ", ".join(sorted(record["aliases"])) or "none"
+    strength = record.get("singularity_strength")
+    surface = (
+        ""
+        if strength is None
+        else "Singularity_strength: carried (pproc singularity_strength = true)"
+        if strength
+        else "Singularity_strength: not carried (pproc singularity_strength = false)"
+    )
+    return selected, aliases, surface

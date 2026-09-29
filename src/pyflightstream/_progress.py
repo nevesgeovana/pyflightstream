@@ -170,8 +170,15 @@ def _failure_message(result: object) -> str:
     return str(message)
 
 
-def workspace_activity(stage: str, argument: str = "workspace"):
-    """Log one stage without changing its result."""
+def workspace_activity(stage: str, argument: str = "workspace", *, verbose_only: bool = False):
+    """Log one stage without changing its result.
+
+    With ``verbose_only`` the stage's ``started`` and ``finished`` lines reach
+    the console of a command only under ``--verbose`` (0.31.0): a stage that
+    runs once per point whether or not it has anything to do is otherwise noise.
+    The activity log records it either way, a Python caller outside a command
+    sees the lines as before, and a stage that raises is always said.
+    """
 
     def decorate(function):
         signature = inspect.signature(function)
@@ -190,7 +197,7 @@ def workspace_activity(stage: str, argument: str = "workspace"):
                 if key in bound.arguments
             }
             started = time.monotonic()
-            quiet = bool(bound.arguments.get("quiet", False))
+            quiet = bool(bound.arguments.get("quiet", False)) or (verbose_only and terse_terminal())
             try:
                 record_activity(stage, "started", str(root), **context)
                 if not quiet:

@@ -42,8 +42,9 @@ no commit can be green on its own (OPS-2007.01, and the lane's own
 determination of 2026-08-18).
 
 The console entry point is unchanged: the command is still
-``pyfs-matrix``, with the same subcommands, the same flags and the same
-output, so FR-44's contract is untouched. What moved is the dotted
+``pyfs-matrix``, with the same subcommands and the same flags, so FR-44's contract is
+untouched. The human output of ``plan`` is laid out in titled blocks since
+0.31.0; its exit codes and ``plan.json`` did not change. What moved is the dotted
 module path, which a user never writes.
 """
 
@@ -52,11 +53,14 @@ from __future__ import annotations
 import argparse
 import sys
 import warnings
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, NoReturn
 
 from pyflightstream._cli import cli_entrypoint, note_post_ran, post_warning_policy
+from pyflightstream._console import blocks, held_warnings, release_warnings, table, wrap
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._progress import terse_terminal
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_matrix
 from pyflightstream.cases.workflows import (
@@ -71,8 +75,13 @@ from pyflightstream.results.tables import LoadsNotFoundError, sweep_table, write
 from pyflightstream.run import (
     SWEEP_TABLE_NAME,
     CampaignErrors,
+    CampaignPlan,
     LoadsAssessor,
+    _build_label,
+    format_cost_table,
+    inflow_harmonics_line,
     plan_receipt_error,
+    qsteady_validity_line,
 )
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import (
@@ -449,6 +458,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "the build the solver printed. `plan` launches no solver and records the flag in "
         "plan.json, so it rehearses the same command line `run` executes",
     )
+    plan.add_argument(
+        "--verbose",
+        action="store_true",
+        help="print every warning in Python's full format (file, line and source) and the "
+        "started and finished lines of the stages printed only on request, such as "
+        "[continuation]; logs/activity.log holds them either way (0.31.0)",
+    )
 
     run = subparsers.add_parser(
         "run",
@@ -744,7 +760,8 @@ def _build_parser() -> argparse.ArgumentParser:
             "--verbose",
             action="store_true",
             help="print every warning in Python's full format (file, line and source) and "
-            "one line per item where a repeated warning is otherwise counted in one line; "
+            "one line per item where a repeated warning is otherwise counted in one line, "
+            "and the [continuation] started and finished lines (0.31.0); "
             "logs/activity.log holds the full detail either way",
         )
     post.add_argument(
@@ -1766,28 +1783,36 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
                 f"--update-ids: {matrix_name} row {change.row_number}: "
                 f"POL {change.old} -> {change.new}"
             )
+    missing_families = _the_missing_family_choice(args)
+    # THE WARNINGS ARE HELD while the plan is made and printed as one titled
+    # block after its header (0.31.0), because the owner could not tell what
+    # she was reading when they arrived first, unannounced. They are released
+    # on every path, a refusal included, and still reach stderr.
+    held: list[warnings.WarningMessage] = []
     try:
-        plan = plan_matrix(
-            args.matrix,
-            workspace,
-            name=name,
-            name_from=name_from,
-            # The keyword the library takes, not the flag the user types:
-            # the parameter renamed with PFS-2009.08.01 and `--fs-version`
-            # deliberately did not. Passing the old spelling here fired a
-            # deprecation warning at a user who had typed a shell command
-            # and named a Python keyword they never wrote.
-            default_fs_version=args.fs_version,
-            recipes=recipes,
-            fs_exe=args.fs_exe,
-            recipe_registry=workflow_registry(),
-            ignore_missing_families=_the_missing_family_choice(args),
-            cost=getattr(args, "cost", False),  # FR-82
-            inflow_fft=getattr(args, "inflow_fft", False),  # 0.30.0
-            write_plan=args.subcommand != "inspect-setups",
-            accept_unregistered_build=args.accept_unregistered_build,
-        )
+        with held_warnings() as held:
+            plan = plan_matrix(
+                args.matrix,
+                workspace,
+                name=name,
+                name_from=name_from,
+                # The keyword the library takes, not the flag the user types:
+                # the parameter renamed with PFS-2009.08.01 and `--fs-version`
+                # deliberately did not. Passing the old spelling here fired a
+                # deprecation warning at a user who had typed a shell command
+                # and named a Python keyword they never wrote.
+                default_fs_version=args.fs_version,
+                recipes=recipes,
+                fs_exe=args.fs_exe,
+                recipe_registry=workflow_registry(),
+                ignore_missing_families=missing_families,
+                cost=getattr(args, "cost", False),  # FR-82
+                inflow_fft=getattr(args, "inflow_fft", False),  # 0.30.0
+                write_plan=args.subcommand != "inspect-setups",
+                accept_unregistered_build=args.accept_unregistered_build,
+            )
     except (MatrixError, InputArtifactError, OSError, ValueError) as error:
+        release_warnings(held)
         print(f"matrix not planned: {error}", file=sys.stderr)
         if renumbered:
             # SAID AT THE MOMENT IT MATTERS (the interface and V&V lenses,
@@ -1799,38 +1824,143 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
                 file=sys.stderr,
             )
         return 2
+    except BaseException:
+        release_warnings(held)
+        raise
     if args.subcommand == "inspect-setups":
         import json
 
+        release_warnings(held)
         print(json.dumps(plan.setup_inspections, indent=2, ensure_ascii=False))
         return 1 if plan.blocked else 0
-    print(plan.summary())
-    from pyflightstream.workspace.setup_inspection import setup_inspection_summary
+    _print_plan(plan, Path(args.matrix).name, held, cost=getattr(args, "cost", False))
+    return 1 if plan.blocked else 0
 
-    print(setup_inspection_summary(plan.setup_inspections))
-    if getattr(args, "cost", False) and not plan.costs:
+
+def _print_plan(
+    plan: CampaignPlan,
+    matrix: str,
+    held: list[warnings.WarningMessage],
+    *,
+    cost: bool,
+) -> None:
+    """Print a plan as titled blocks, a blank line between two (0.31.0).
+
+    STDOUT carries every block but the warnings, as it carried the summary
+    before; the warnings stay on stderr, held until the header is out so they
+    arrive under their own title. A block with nothing to say is not printed.
+    """
+    header = [
+        f"  matrix: {matrix}",
+        f"  campaign: {plan.campaign}",
+        f"  FlightStream build: {plan.fs_version}",
+    ]
+    print(blocks([("pyfs-matrix plan", header)]), flush=True)
+    if held:
+        print(f"\nWarnings ({len(held)})", file=sys.stderr, flush=True)
+        release_warnings(held)
+        if not terse_terminal() or not issubclass(held[-1].category, PyflightstreamWarning):
+            # Python's own format (under --verbose, or a third party's warning)
+            # ends without the blank line the short form adds.
+            print(file=sys.stderr)
+        sys.stderr.flush()
+    rest = blocks(_plan_blocks(plan, cost=cost))
+    if rest:
+        # After the warnings the blank line is already out.
+        print(rest if held else f"\n{rest}", flush=True)
+
+
+def _plan_blocks(plan: CampaignPlan, *, cost: bool) -> list[tuple[str, list[str]]]:
+    """Return every block of a plan after its header and its warnings, titled, in order."""
+    from pyflightstream.workspace.setup_inspection import setup_inspection_block
+
+    cases = [
+        f"  points: {len(plan.ready)} ready, {len(plan.blocked)} blocked, "
+        f"{len(plan.already_recorded)} already recorded"
+    ]
+    if plan.build_groups:
+        cases.append(f"  solver installations: {len(plan.build_groups)}")
+        for key, sims in plan.build_groups.items():
+            cases.extend(
+                wrap(f"{_build_label(key)}: {len(sims)} case(s) ({', '.join(sims)})", first="    ")
+            )
+    waiving = [entry for entry in plan.points if entry.waived_commands]
+    if waiving:
+        commands = sorted({name for entry in waiving for name in entry.waived_commands})
+        cases.extend(
+            wrap(
+                f"{len(waiving)} point(s) waive a command recorded broken: {', '.join(commands)}",
+                first="  ",
+            )
+        )
+    raw = [entry for entry in plan.points if entry.raw]
+    if raw:
+        cases.append(f"  {len(raw)} point(s) use the raw() escape hatch")
+    blocked: list[str] = []
+    for entry in plan.blocked:
+        blocked.append(f"  {entry.run_id}")
+        blocked.extend(wrap(str(entry.error), first="    "))
+    validity: list[str] = []
+    for entry in plan.points:
+        if not entry.qsteady_validity:
+            continue
+        validity.append(f"  POL {entry.sim_id} point {_point_of(entry.run_id)}")
+        validity.extend(wrap(qsteady_validity_line(entry.qsteady_validity), first="    "))
+        harmonics = entry.qsteady_validity.get("inflow_fft")
+        if isinstance(harmonics, Mapping):
+            validity.extend(wrap(inflow_harmonics_line(harmonics), first="    "))
+    costs: list[str] = []
+    if plan.costs:
+        costs = format_cost_table(plan.costs).splitlines()
+    elif cost:
         # A FLAG THE USER PASSED MUST ANSWER. `point_costs` returns nothing
         # when no planned point resolves to a case, and printing nothing is
         # indistinguishable from not having passed the flag at all (the
         # interface lens, 2026-09-11).
-        print()
-        print(
+        costs = wrap(
             "no cost row: none of the planned points resolved to a case of this "
-            "matrix, so there is nothing to table. The plan above still stands."
+            "matrix, so there is nothing to table. The plan above still stands.",
+            first="  ",
         )
-    if plan.costs:
-        # FR-82. The table goes to STDOUT beside the summary, because an
-        # operator asked for it explicitly with a flag; the progress lines of
-        # FR-78 go to stderr because nobody asked for those.
-        from pyflightstream.run import format_cost_table
+    files = [f"  plan: {plan.plan_file}"] if plan.plan_file is not None else []
+    files.extend(f"  guide: {guide}" for guide in plan.guides)
+    return [
+        ("Cases", cases),
+        (f"Blocked points ({len(plan.blocked)})", blocked),
+        ("Rotor Mach numbers", _rotor_mach_block(plan)),
+        ("Quasi-steady validity per point", validity),
+        ("Solver setup per case", setup_inspection_block(plan.setup_inspections)),
+        ("Solver cost per point", costs),
+        ("Files written", files),
+    ]
 
-        print()
-        print(format_cost_table(plan.costs))
-    if plan.plan_file is not None:
-        print(f"plan: {plan.plan_file}")
-    for guide in plan.guides:
-        print(f"guide written: {guide}")
-    return 1 if plan.blocked else 0
+
+def _point_of(run_id: str) -> str:
+    """Return the point name a run id ends with (``<campaign>/sim_<POL>/<point>``)."""
+    return run_id.rpartition("/")[2]
+
+
+def _rotor_mach_block(plan: CampaignPlan) -> list[str]:
+    """Return one aligned row per rotor per point, then each rotor the plan could not compute."""
+    rows = [["POL", "point", "rotor", "M_tip", "M_hel"]]
+    unknown: list[str] = []
+    for entry in plan.points:
+        for alias, mach in entry.rotor_mach.items():
+            rotor = f"{mach.get('kind') or 'rotor'} {alias}"
+            tip, helical = mach.get("mach_tip"), mach.get("mach_helical")
+            if isinstance(tip, int | float) and isinstance(helical, int | float):
+                rows.append(
+                    [entry.sim_id, _point_of(entry.run_id), rotor, f"{tip:.3f}", f"{helical:.3f}"]
+                )
+            else:
+                unknown.extend(
+                    wrap(
+                        f"POL {entry.sim_id} point {_point_of(entry.run_id)}, {rotor}: "
+                        f"M_tip and M_hel not computed: {mach.get('note')}",
+                        first="  ",
+                    )
+                )
+    return [*(table(rows) if len(rows) > 1 else []), *unknown]
 
 
 def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:

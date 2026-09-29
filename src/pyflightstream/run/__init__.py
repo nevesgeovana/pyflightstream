@@ -7344,7 +7344,7 @@ def _unused_continuation_run_id(run_id: str, stamp: datetime, recorded: Collecti
     return f"{head}.{index}/{tag}"
 
 
-@workspace_activity("continuation")
+@workspace_activity("continuation", verbose_only=True)
 def resolve_continuation(
     workspace: CampaignWorkspace,
     case: SimCase,

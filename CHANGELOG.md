@@ -131,6 +131,22 @@ FlightStream versions.
 
 ### Changed
 
+- **The console of `pyfs-matrix plan` is laid out in titled blocks.** Each
+  block has a short title line saying what it is, and one blank line separates
+  two: the header (the command, the matrix, the campaign, the build),
+  `Warnings (n)`, `Cases`, `Blocked points (n)`, `Rotor Mach numbers` (one
+  aligned row per rotor per point: POL, point, rotor, M_tip, M_hel),
+  `Quasi-steady validity per point`, `Solver setup per case` (settings,
+  aliases and the Singularity_strength note each on its own line), `Solver
+  cost per point` and `Files written`. A block with nothing to say is not
+  printed. Every console warning of the package, under any command, is wrapped
+  at 90 columns under its text and followed by a blank line, its words
+  unchanged. The `[continuation] started` and `finished` lines print only with
+  `--verbose`, which `plan` now accepts; `logs/activity.log` records them as
+  before. The warnings stay on stderr and the blocks on stdout; the exit
+  codes, `plan.json` and every product are unchanged. `plan`'s file lines read
+  `plan: <path>` and `guide: <path>` (was `guide written: <path>`) under
+  `Files written` (P0310-CONSOLE-BLOCKS).
 - **The AZIMUTH of blade blocks 2 to N of an unsteady rotor changes.** The
   sections table and the sections series of an `unsteady_rotor` point stated
   blade one's azimuth on every block, whichever blade the block cut. A block

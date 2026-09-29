@@ -579,7 +579,7 @@ def test_pyfs_matrix_plan_writes_them_with_the_glossary_and_only_when_they_diffe
     out = capsys.readouterr().out
     variables, equations = _guides(workspace)
     assert variables.is_file() and equations.is_file()
-    assert out.count("guide written:") == 2, out
+    assert out.count("  guide: ") == 2, out
     text = variables.read_text(encoding="utf-8")
     assert "Your own definitions" in text
     assert "`CTX`: my own coefficient (from p001.toml)" in text
@@ -587,7 +587,7 @@ def test_pyfs_matrix_plan_writes_them_with_the_glossary_and_only_when_they_diffe
     # IDEMPOTENT: a second plan touches neither page and says nothing.
     before = [(guide.stat().st_mtime_ns, guide.read_bytes()) for guide in _guides(workspace)]
     assert main(_workflow_plan_args(workspace)) == 0
-    assert "guide written:" not in capsys.readouterr().out
+    assert "  guide: " not in capsys.readouterr().out
     assert before == [
         (guide.stat().st_mtime_ns, guide.read_bytes()) for guide in _guides(workspace)
     ]
@@ -597,7 +597,7 @@ def test_pyfs_matrix_plan_writes_them_with_the_glossary_and_only_when_they_diffe
     with open(folder / "p001.toml", "a", encoding="utf-8") as handle:
         handle.write('CTY = "another"\n')
     assert main(_workflow_plan_args(workspace)) == 0
-    assert capsys.readouterr().out.count("guide written:") == 1
+    assert capsys.readouterr().out.count("  guide: ") == 1
     assert "`CTY`: another" in variables.read_text(encoding="utf-8")
 
 

@@ -337,7 +337,10 @@ def test_full_inspection_and_saved_plan_share_the_same_resolved_records(tmp_path
     argv[0] = "plan"
     assert main(argv) == 0
     output = capsys.readouterr().out
-    assert all("setup " + row["sim_id"] in output for row in full)
+    # 0.31.0 (P0310-CONSOLE-BLOCKS): each row heads its own lines in the block
+    # "Solver setup per case".
+    block = output.split("\nSolver setup per case\n", 1)[1].split("\n\n", 1)[0]
+    assert all(f"  POL {row['sim_id']} (FlightStream {row['build']}" in block for row in full)
     plan_file = workspace.plan_dir(Path(argv[1]).stem) / "plan.json"
     saved = json.loads(plan_file.read_text(encoding="utf-8"))
     assert saved["setup_inspections"] == full
