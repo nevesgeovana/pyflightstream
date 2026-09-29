@@ -40,6 +40,8 @@ Cross-cutting support modules, importable from any layer:
 - ``exceptions``: the single catalog of every exception and warning.
 - ``testing``: public assertions with quantified violation reports.
 - ``_cli``: private invocation outcome reporting and scoped terminal policy.
+- ``_console``: private console layout, titled blocks and wrapped lines,
+  shared by every command's human output.
 - ``_progress``: private durable stage events and failure context in the
   workspace logs.
 - ``_fsi_calibration``: private dimensionless FSI factor names, read by

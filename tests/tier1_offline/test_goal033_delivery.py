@@ -397,6 +397,22 @@ _MIGRATION_NAMES_0_31_0 = {
         "`section_exports`",
     ),
     "A wheel's `LOCAL_AXIS` distributions are cut.": ("`LOCAL_AXIS`", "`<ALIAS>_RMRP<k>`"),
+    "The input template names the pproc's `[per_revolution]` and `[qsteady_correction]` tables": (
+        "[per_revolution]",
+        "[qsteady_correction]",
+    ),
+    "The clockings table of a left-hand wheel states blade one's azimuth in the sense it turns.": (
+        "The clockings table of a left-hand wheel",
+        "`datum - theta_i`",
+    ),
+    "The guide decks are eight, renamed `pyfts-guide-00` to `pyfts-guide-07`.": (
+        "The guide decks are eight",
+        "`pyfts-guide-00-fts-overview.pdf`",
+    ),
+    "The console of `pyfs-matrix plan` is laid out in titled blocks.": (
+        "The console of `plan` reads as titled blocks",
+        "`Warnings (n)`",
+    ),
     "A wheel point's sections table holds every clocking.": (
         "`CLOCKING` column",
         "group by",

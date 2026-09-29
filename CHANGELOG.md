@@ -157,8 +157,7 @@ FlightStream versions.
   rotation); a block over several blades or the general families keeps blade
   one's. Blade one's rows are unchanged, and the per-station harmonic product
   reads the stated azimuth as it is (P0310-H2-BLADE-AZIMUTH).
-- **The input template names the pproc's `[per_revolution]` and
-  `[qsteady_correction]` tables** among what its example leaves out, and has a
+- **The input template names the pproc's `[per_revolution]` and `[qsteady_correction]` tables** among what its example leaves out, and has a
   section, with an example, for the new calibration file. `[per_revolution]`
   had reached the pproc with no line in the template.
 - **The repeated-POL census reads the matrices `sync` reads.** `pyfs-matrix plan`
@@ -210,8 +209,7 @@ FlightStream versions.
   opposite sign put it outside 0 to 100 per cent. A cut in the frame's XZ
   or XY plane is read (the XY reading measured on FlightStream 26.124,
   `reports/RPT-094`); a YZ cut reads `NA`.
-- **The clockings table of a left-hand wheel states blade one's azimuth in
-  the sense it turns.** The `AZIMUTH` of `_qs_positions.csv` was the datum
+- **The clockings table of a left-hand wheel states blade one's azimuth in the sense it turns.** The `AZIMUTH` of `_qs_positions.csv` was the datum
   plus the clocking angle unsigned, while the sections of the same wheel
   follow `pyflightstream.post.axes.clocked_blade_azimuth_deg`
   (`datum + sign(rpm) * theta_i`). The clockings table now reads the same
@@ -247,16 +245,16 @@ FlightStream versions.
   clocking not cut at clocking 0's stations is warned in `post.log`, and one
   whose export is missing is named in `products.json`. The validity summary
   stays clocking 0's.
-- **The guide decks are eight, renamed `pyfts-guide-00` to
-  `pyfts-guide-07`.** `guide/fts-guide-0N-<topic>.pdf` of 0.30.0 is
+- **The guide decks are eight, renamed `pyfts-guide-00` to `pyfts-guide-07`.** `guide/fts-guide-0N-<topic>.pdf` of 0.30.0 is
   `guide/pyfts-guide-0N-<topic>.pdf`, the topic suffixes unchanged, and guide
   00 (`pyfts-guide-00-fts-overview.pdf`, the overview read first) is new.
-- mypy recount 2026-09-29: 1084 errors in 18 of 138 modules, on the 0.31.0
-  release candidate, against 0.30.0's 1065 in 18 of 134. The four modules the
+- mypy recount 2026-09-29: 1084 errors in 18 of 139 modules, on the 0.31.0
+  release candidate, against 0.30.0's 1065 in 18 of 134. The five modules the
   0.31 work adds (`cases/corrections.py`, `post/corrections.py`,
-  `post/harmonics.py` and `workspace/fields.py`) are clean; the errors more
+  `post/harmonics.py`, `workspace/fields.py` and the floor module
+  `_console.py`) are clean; the errors more
   sit inside the exempted set, and the shipped configuration is green over
-  all 138 (`reports/RPT-029`).
+  all 139 (`reports/RPT-029`).
 
 ### Removed
 
