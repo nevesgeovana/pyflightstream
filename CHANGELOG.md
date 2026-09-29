@@ -249,6 +249,10 @@ FlightStream versions.
   the latter lives on in `pyflightstream.cases.qsteady`, and the record is
   read by `pyflightstream.cases.qsteady.read_qsteady_record` (P0310-A3-RECORD).
 
+See [the migration guide](docs/migrating-to-0.31.0.md) for the quasi-steady
+wheel corrections, the new products and columns, the field operations and the
+behaviour that changed.
+
 ## [0.30.0] - 2026-09-29
 
 THE QUASI-STEADY ROTOR, FSI ON THE STEADY ROUTES, AND THE WORKSPACE'S

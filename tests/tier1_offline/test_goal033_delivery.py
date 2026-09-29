@@ -364,9 +364,49 @@ _MIGRATION_NAMES_0_30_0 = {
     ),
 }
 
+_MIGRATION_NAMES_0_31_0 = {
+    "The AZIMUTH of blade blocks 2 to N of an unsteady rotor changes.": (
+        "Blade blocks 2 to N of an unsteady rotor",
+        "placed_blade_azimuth_deg",
+    ),
+    "The repeated-POL census reads the matrices `sync` reads.": (
+        "The repeated-POL census reads both matrix folders",
+        "inputs/matrices/*.fs",
+    ),
+    "The docs site navigation is grouped by stage.": (
+        "menu is grouped by stage",
+        "no page moved or was",
+    ),
+    "The quasi-steady record has one type, one reader and one refusal.": (
+        "`QsteadyRecordError`",
+        "`pyflightstream.cases.qsteady`",
+        "read_qsteady_record",
+    ),
+    "The rotor table of a quasi-steady wheel is the mean of its clockings.": (
+        "mean of k clockings",
+        "Re-post a wheel point",
+    ),
+    "A wheel's thrust and torque shares are taken along the rotor's axis.": (
+        "`THRUST_PCT_K_GT_0_1`",
+        "the rotor's axis",
+        "re-post those points",
+    ),
+    "A clocked quasi-steady wheel exports its sections at every clocking.": (
+        "cut into sections at every clocking",
+        "`_qs<i>`",
+        "`section_exports`",
+    ),
+    "A wheel's `LOCAL_AXIS` distributions are cut.": ("`LOCAL_AXIS`", "`<ALIAS>_RMRP<k>`"),
+    "A wheel point's sections table holds every clocking.": (
+        "`CLOCKING` column",
+        "group by",
+    ),
+}
+
 _MIGRATION_NAMES_BY_RELEASE = {
     "0.29.0": _MIGRATION_NAMES_0_29_0,
     "0.30.0": _MIGRATION_NAMES_0_30_0,
+    "0.31.0": _MIGRATION_NAMES_0_31_0,
 }
 
 #: The inputs each release's summary refuses, each of which its section and
@@ -379,11 +419,13 @@ _REFUSED_BY_RELEASE = {
         "farfield_layers",
     ),
     "0.30.0": ("unsteady_rotor",),
+    "0.31.0": ("unsteady_rotor",),
 }
 _PAGE_WORDS_BY_RELEASE = {
     # The unreleased sidecar form the 0.29.0 Added list says is refused.
     "0.29.0": ("[[inlets]]", "refused"),
     "0.30.0": ("PASSAGE_POSITIONS", "prune_step_exports", "--apply"),
+    "0.31.0": ("PASSAGE_POSITIONS", "qsteady_rotor", "--apply"),
 }
 _MIGRATION_NAMES = _MIGRATION_NAMES_BY_RELEASE.get(RELEASED, {})
 
