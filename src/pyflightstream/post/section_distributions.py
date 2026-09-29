@@ -23,10 +23,13 @@ from pyflightstream.cases import (
     RotorBlock,
     SectionDistribution,
     SimCase,
+    classify_outputs,
     select_families,
 )
+from pyflightstream.cases.qsteady import QsteadyRecord, QsteadyRecordError, read_qsteady_record
 from pyflightstream.cases.workflows import (
     ORIGINAL_FRAME_SUFFIX,
+    QSTEADY_ROTOR,
     creates_surface_sections,
     pproc_emissions,
 )
@@ -37,6 +40,11 @@ from pyflightstream.post._tables import (
     context_row,
     section_identity,
     write_csv_table,
+)
+from pyflightstream.post.qsteady import (
+    CLOCKING_COLUMN,
+    clocking_section_export,
+    wheel_block_identity,
 )
 from pyflightstream.post.series import SECTIONS_SERIES_LEAD, run_clock, stamped_exports
 from pyflightstream.results import labeled_value, parse_surface_sections
@@ -990,6 +998,33 @@ def _file_names(selections: Mapping[int, str | list[str]]) -> dict[int, str]:
         names = {k: f"{name}_{k}" if k in clashes else name for k, name in names.items()}
 
 
+#: The export kind of each distribution product, as a wheel's record names a
+#: clocking's section exports (0.31.0).
+_RECORDED_KIND = {"sloads": "sectional_loads", "cp": "sections"}
+
+
+def _wheel_record(sim_dir: Path, record: RunRecord) -> QsteadyRecord | None:
+    """Return a quasi-steady WHEEL point's record of its clockings, or None (0.31.0).
+
+    None for every other point, for a wheel of one clocking, and for a record
+    that cannot be read, whose distributions are then tabled from the point's
+    own exports, as before 0.31.0; the sections table names the unreadable
+    record.
+    """
+    if record.recipe != QSTEADY_ROTOR:
+        return None
+    loads = classify_outputs(record.outputs, package_version=record.package_version).get("loads")
+    if loads is None:
+        return None
+    try:
+        quasi = read_qsteady_record(sim_dir / loads)
+    except QsteadyRecordError:
+        return None
+    if quasi.case != "wheel":
+        return None
+    return quasi if len(quasi.positions) > 1 else None
+
+
 def write_section_distributions(
     *,
     sim_dir: Path,
@@ -1092,6 +1127,13 @@ def write_section_distributions(
         `Integrated sectional loads
         <../post-processing-definitions.md#integrated-sectional-loads-since-0260>`_.
 
+    A quasi-steady WHEEL point exports its distributions at every clocking
+    (0.31.0): each file then holds every clocking's rows, clocking 0 first,
+    with a ``CLOCKING`` column after the export's own and ``AZIMUTH`` stating
+    each block's blade at that clocking
+    (:func:`pyflightstream.post.qsteady.wheel_block_identity`). A clocking whose
+    export is missing is named and the others are written.
+
     Returns
     -------
     tuple[list[Path], dict[str, dict[str, object]]]
@@ -1139,6 +1181,7 @@ def write_section_distributions(
         integrate = set()
         matching_errors = dict.fromkeys(selections, integration_error)
     delta, _ = run_clock(record)
+    wheel = None if record.export_window else _wheel_record(sim_dir, record)
     context = context_row(condition, reference)
     written: list[Path] = []
     entries: dict[str, dict[str, object]] = {}
@@ -1186,6 +1229,26 @@ def write_section_distributions(
                 sim_dir / f"{stem}_{kind}.txt",
             )
             files = [(step, end)] if end.is_file() else []
+        # 0.31.0: A WHEEL'S FURTHER CLOCKINGS, named by the point's record, after
+        # clocking 0 and in their order; the clocking each file is of.
+        clocking_of: dict[Path, int] = {}
+        if wheel is not None and files:
+            own = files[0][1]
+            for position in wheel.positions:
+                clocking = position.index
+                if clocking == 0:
+                    continue
+                name = clocking_section_export(position, _RECORDED_KIND[kind])
+                export = None if name is None else own.parent / Path(name).name
+                if export is None or not export.is_file():
+                    for relative in relatives.values():
+                        skipped[f"{relative}#clocking={clocking}"] = (
+                            f"no {stem}_{kind} export of clocking {clocking}"
+                            + ("" if export is None else f": {export.name} is not on disk")
+                        )
+                    continue
+                files.append((step, export))
+                clocking_of[export] = clocking
         rows: dict[int, list[tuple[object, ...]]] = {k: [] for k in names}
         integrated: dict[int, list[tuple[float, ...]]] = {k: [] for k in names}
         integration_errors = dict(matching_errors)
@@ -1240,6 +1303,20 @@ def write_section_distributions(
                                 )
                         start = block_end
                 identity = section_identity(total, layout, rotors, current, None)
+                tail: tuple[object, ...] = ()
+                if wheel is not None:
+                    clocking = clocking_of.get(path, 0)
+                    identity = [
+                        (
+                            family,
+                            plane,
+                            *wheel_block_identity(
+                                wheel, [] if family is None else str(family).split("+"), clocking
+                            ),
+                        )
+                        for family, plane, _, _ in identity
+                    ]
+                    tail = (clocking,)
                 touched: set[int] = set()
                 for i, values in samples:
                     owner = owners[i]
@@ -1250,6 +1327,7 @@ def write_section_distributions(
                             *identity[i],
                             *context,
                             *values,
+                            *tail,
                         )
                     )
                     touched.add(owner)
@@ -1269,7 +1347,12 @@ def write_section_distributions(
             if not rows[k]:
                 skipped[relative] = "recorded layout/export has no rows for this distribution"
                 continue
-            headings = (*SECTIONS_SERIES_LEAD, *CONTEXT_COLUMNS, *columns)
+            headings = (
+                *SECTIONS_SERIES_LEAD,
+                *CONTEXT_COLUMNS,
+                *columns,
+                *((CLOCKING_COLUMN,) if wheel is not None else ()),
+            )
             output_rows = rows[k]
             if kind == "sloads" and (k in integrate or k in matching_errors):
                 if k in integration_errors:

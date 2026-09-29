@@ -7,9 +7,6 @@ FlightStream versions.
 
 ## [Unreleased]
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 ### Changed
 
 - **The quasi-steady record has one type, one reader and one refusal.**
@@ -26,7 +23,6 @@ FlightStream versions.
   `pyflightstream.post.qsteady.read_qsteady_record` and
   `pyflightstream.workspace.inputs.qsteady_record_rotor_alias` are removed;
   the latter lives on in `pyflightstream.cases.qsteady`.
-=======
 ### Changed (0.31.0)
 
 - A `qsteady_rotor` row that states `ADVANCE_RATIO` resolves J, and so the rotor
@@ -36,13 +32,9 @@ FlightStream versions.
 - The fixed-wing and quasi-steady-rotor FSI steps of `fsi/driver.py` share one
   step body with the structural solve as the variation point; behaviour is
   unchanged.
->>>>>>> feat/0-31-r2a2
-=======
 ### 0.31.0
 
 - **The per-revolution product** (P0310-G2-PER-REV). An `unsteady_rotor` point now writes `probes/<point>_per_revolution_<ALIAS>.csv` for each rotor its row turns: one row per COMPLETE revolution, read from the written plots table, with the mean of every plotted column and, from the second revolution on, each column's drift from the previous revolution in per cent (`NA` where that mean is zero). A trailing partial revolution is excluded and said. The pproc may declare `[per_revolution] drift_limit_pct` (positive, default 1); when the last revolution's drift of a force or moment column exceeds it, `post.log` carries a WARNING line naming the point, rotor, column, drift and limit, and nothing is blocked. Defined in `docs/post-processing-definitions.md`.
->>>>>>> feat/0-31-g2
-=======
 ### Added (0.31.0)
 
 - `pyfs-workspace field mirror|move|subtract|time-mean` builds a custom
@@ -56,7 +48,32 @@ FlightStream versions.
   parameters and every input with its sha256), and never overwrites without
   `--overwrite`. The functions are public in the new module
   `pyflightstream.workspace.fields`. See docs/field-operations.md.
->>>>>>> feat/0-31-g3
+### Changed
+
+- **A clocked quasi-steady wheel exports its sections at every clocking.** A
+  `qsteady_rotor` wheel of `PASSAGE_POSITIONS` 2 or more exported its
+  sections, sectional loads and section Cp at clocking 0 alone. Each clocking
+  now deletes the previous clocking's distributions, turns the wheel,
+  initialises, creates them again in frames turned with the wheel to that
+  clocking and held there, updates them and exports them as
+  `<point>_qs<i>_cp.txt`, `<point>_qs<i>_sloads.txt` and
+  `<point>_qs<i>_plot_cp_sections.txt`, the ones the row declares. Every
+  clocking is cut at the same stations over the blade's span, and the point's
+  quasi-steady record names each clocking's files (`section_exports`).
+- **A wheel's `LOCAL_AXIS` distributions are cut.** A wheel whose pproc cuts
+  its sections in `LOCAL_AXIS` places one frame per blade, `<ALIAS>_RMRP<k>`,
+  at the blade's azimuth; such a distribution was left out with a warning
+  before, because a steady run placed no blade frame.
+- **A wheel point's sections table holds every clocking.**
+  `sections/<point>_sections.csv` and each distribution's sectional loads and
+  Cp file gain a `CLOCKING` column and one block of rows per clocking, and
+  `AZIMUTH` states where each block's blade is at that clocking,
+  `(blade1.azimuth_deg + (n - 1) * 360 / N + sense * theta_i) mod 360`. A
+  clocking not cut at clocking 0's stations is warned in `post.log`, and one
+  whose export is missing is named in `products.json`. The validity summary
+  stays clocking 0's.
+- **`post.axes.clocked_blade_azimuth_deg`**, where blade `n` of a wheel of `N`
+  blades solved at `k` clockings is at clocking `i`, is public.
 
 ### Owed
 

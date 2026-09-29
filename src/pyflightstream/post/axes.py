@@ -51,6 +51,7 @@ __all__ = [
     "ROTOR_NORMAL_FLOOR",
     "blade_azimuth_deg",
     "body_to_stability",
+    "clocked_blade_azimuth_deg",
     "body_to_wind",
     "dcm",
     "free_stream_in_export_frame",
@@ -101,6 +102,58 @@ def blade_azimuth_deg(
     sense = 1.0 if rpm > 0 else -1.0  # type: ignore[operator]
     turned = sense * float(step) * 360.0 / float(steps_per_revolution)  # type: ignore[arg-type]
     return (float(datum_deg) + turned) % 360.0 + 0.0  # type: ignore[arg-type]
+
+
+def clocked_blade_azimuth_deg(
+    datum_deg: object,
+    *,
+    blade: object,
+    blades: object,
+    clocking: object,
+    positions: object,
+    rpm: object,
+) -> float | None:
+    """Return where blade ``blade`` of a quasi-steady wheel is at clocking ``clocking``, or None.
+
+    A wheel of ``blades`` blades solved at ``positions`` clockings (0.31.0).
+    Blade n sits ``(n - 1) / N`` of a turn from blade one, right-handed about the
+    shaft, as the builder places the blade frames; clocking i turns the whole
+    wheel by ``theta_i = i * (360 / N) / k`` in the sense of the sign of ``rpm``,
+    as the builder turns the surfaces. So
+
+        psi = (datum + (n - 1) * 360 / N + sign(rpm) * theta_i) mod 360,
+
+    in degrees in [0, 360). Both turns are counted by :func:`blade_azimuth_deg`,
+    the one home of a turn counted in steps: the blade's place is step n - 1 of
+    a revolution of N steps turned forwards, and the clocking is step i of a
+    revolution of N k steps turned in the sense of ``rpm``.
+
+    None where anything is not stated: a datum, a blade from 1 to N, a count of
+    blades or of clockings that is not a positive integer, a clocking that is
+    not an integer, or an ``rpm`` that is zero or not a number.
+
+    Examples
+    --------
+    >>> clocked_blade_azimuth_deg(0.0, blade=2, blades=3, clocking=1, positions=3, rpm=1200.0)
+    160.0
+    >>> clocked_blade_azimuth_deg(0.0, blade=2, blades=3, clocking=1, positions=3, rpm=-1200.0)
+    80.0
+    >>> clocked_blade_azimuth_deg(0.0, blade=4, blades=3, clocking=0, positions=3, rpm=1.0) is None
+    True
+    """
+    counts = (blade, blades, clocking, positions)
+    if any(isinstance(value, bool) or not isinstance(value, int) for value in counts):
+        return None
+    assert isinstance(blade, int) and isinstance(blades, int)
+    assert isinstance(clocking, int) and isinstance(positions, int)
+    if blades < 1 or positions < 1 or not 1 <= blade <= blades or clocking < 0:
+        return None
+    placed = blade_azimuth_deg(datum_deg, step=blade - 1, steps_per_revolution=blades, rpm=1.0)
+    if placed is None:
+        return None
+    return blade_azimuth_deg(
+        placed, step=clocking, steps_per_revolution=blades * positions, rpm=rpm
+    )
 
 
 Matrix = NDArray[np.float64]

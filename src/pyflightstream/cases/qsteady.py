@@ -555,6 +555,34 @@ def position_loads_name(loads: str, index: int) -> str:
     return str(path.with_name(f"{path.stem}{POSITION_SUFFIX}{index:02d}{path.suffix}"))
 
 
+def position_export_name(name: str, suffix: str, index: int) -> str:
+    """Return export ``name`` of clocking ``index``: the position before its kind's suffix (0.31.0).
+
+    A wheel exports its section distributions at every clocking, and each
+    clocking's file keeps the suffix that says which kind of export it is, so
+    ``_qs<i>`` goes in front of that suffix and never after it: a sectional
+    loads export of clocking 2 still ends ``_sloads.txt``. For the loads table
+    (suffix ``.txt``) this is :func:`position_loads_name`.
+
+    Raises
+    ------
+    CampaignConfigError
+        If ``name`` does not end with ``suffix`` (a ``ValueError``, as before).
+
+    Examples
+    --------
+    >>> position_export_name("DP_AL+050_sloads.txt", "_sloads.txt", 2)
+    'DP_AL+050_qs02_sloads.txt'
+    >>> position_export_name("DP_AL+050.txt", ".txt", 3) == position_loads_name("DP_AL+050.txt", 3)
+    True
+    """
+    if not name.endswith(suffix):
+        raise CampaignConfigError(
+            f"the export {name!r} does not end with its kind's suffix {suffix!r}"
+        )
+    return f"{name[: len(name) - len(suffix)]}{POSITION_SUFFIX}{index:02d}{suffix}"
+
+
 def validity_file_name(loads: str) -> str:
     """Return the post's per-point validity file's name, beside the point's own loads export.
 
@@ -618,6 +646,9 @@ _RECORD_KEYS: tuple[str, ...] = (
 )
 #: The keys of one clocking of the record, in the order the file holds them.
 _CLOCKING_KEYS: tuple[str, ...] = ("index", "clocking_deg", "rotated_deg", "loads")
+#: The one key a clocking holds only where it applies, after :data:`_CLOCKING_KEYS`:
+#: the section exports of a wheel that cuts sections (0.31.0).
+_CLOCKING_OPTIONAL_KEYS: tuple[str, ...] = ("section_exports",)
 
 
 class QsteadyRecordError(PyflightstreamError, ValueError):
@@ -638,21 +669,30 @@ class QsteadyClocking:
     ``clocking_deg`` is where blade one was turned to, in the sense of the
     rotation; ``rotated_deg`` is the signed angle the surfaces were rotated
     by; ``loads`` is the loads export that clocking's solve wrote.
+    ``section_exports`` (0.31.0) is, for a wheel that declares section
+    distributions only, the file of each section export that clocking wrote,
+    keyed by its export kind (``sectional_loads``, ``sections``,
+    ``plot_sections_cp``); None for every other record, which then holds no
+    such key, so its file is the one 0.30.0 wrote.
     """
 
     index: int
     clocking_deg: float
     rotated_deg: float
     loads: str
+    section_exports: Mapping[str, str] | None = None
 
     def as_json(self) -> dict[str, Any]:
         """Return the clocking as the record's file holds it."""
-        return {
+        data: dict[str, Any] = {
             "index": self.index,
             "clocking_deg": self.clocking_deg,
             "rotated_deg": self.rotated_deg,
             "loads": self.loads,
         }
+        if self.section_exports is not None:
+            data["section_exports"] = dict(self.section_exports)
+        return data
 
 
 @dataclass(frozen=True)
@@ -801,10 +841,15 @@ def _record_names(value: object, key: str) -> tuple[str, ...]:
     return tuple(_record_text(item, key) for item in value)
 
 
-def _exact_keys(data: Mapping[str, Any], keys: Sequence[str], what: str) -> None:
-    """Refuse an object whose keys are not exactly ``keys``: a missing key or an unknown one."""
+def _exact_keys(
+    data: Mapping[str, Any], keys: Sequence[str], what: str, *, optional: Sequence[str] = ()
+) -> None:
+    """Refuse an object whose keys are not exactly ``keys``, plus any of ``optional``.
+
+    A missing key of ``keys`` or a key of neither is refused.
+    """
     missing = [key for key in keys if key not in data]
-    unknown = sorted(str(key) for key in data if key not in keys)
+    unknown = sorted(str(key) for key in data if key not in keys and key not in optional)
     if missing or unknown:
         said = "; ".join(
             part
@@ -824,7 +869,9 @@ def _record_clocking(value: object, at: int) -> QsteadyClocking:
     """Return clocking ``at`` of the record's ``positions``, or refuse it."""
     if not isinstance(value, Mapping):
         raise QsteadyRecordError(f"holds no object at positions[{at}] (it holds {value!r})")
-    _exact_keys(value, _CLOCKING_KEYS, f"clocking (positions[{at}])")
+    _exact_keys(
+        value, _CLOCKING_KEYS, f"clocking (positions[{at}])", optional=_CLOCKING_OPTIONAL_KEYS
+    )
     key = f"positions[{at}]"
     index = _record_integer(value["index"], f"{key}.index", least=0)
     if index != at:
@@ -837,7 +884,24 @@ def _record_clocking(value: object, at: int) -> QsteadyClocking:
         clocking_deg=_record_number(value["clocking_deg"], f"{key}.clocking_deg"),
         rotated_deg=_record_number(value["rotated_deg"], f"{key}.rotated_deg"),
         loads=_record_text(value["loads"], f"{key}.loads"),
+        section_exports=(
+            _record_exports(value["section_exports"], f"{key}.section_exports")
+            if "section_exports" in value
+            else None
+        ),
     )
+
+
+def _record_exports(value: object, key: str) -> dict[str, str]:
+    """Return a clocking's section exports, a JSON object of kind to file name, or refuse it."""
+    if not isinstance(value, Mapping):
+        raise QsteadyRecordError(
+            f"states no object of export kind to file name under {key!r} (it holds {value!r})"
+        )
+    return {
+        _record_text(kind, f"{key} (a kind)"): _record_text(name, f"{key}.{kind}")
+        for kind, name in value.items()
+    }
 
 
 def _parse_record(data: object) -> QsteadyRecord:

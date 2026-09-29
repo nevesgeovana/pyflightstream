@@ -80,6 +80,7 @@ from pyflightstream._deprecations import (
 from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
+    collecting_warnings,
     warn,
 )
 from pyflightstream._fsi_calibration import MATRIX_FACTORS
@@ -147,6 +148,7 @@ from pyflightstream.script import (
     MARCH_ACTIONS,
     MARCH_SINGLE,
     CommandArgumentError,
+    FramePlacement,
     MarchStrategy,
     Script,
     ScriptReferenceError,
@@ -8021,6 +8023,7 @@ def _script_init(
     frames: Frames | None,
     reopens_a_saved_state: bool = False,
     conventions: WorkflowConventions | None = None,
+    sections: bool = True,
 ) -> None:
     """Emit the init phase, which happens ONCE however many points follow.
 
@@ -8040,6 +8043,10 @@ def _script_init(
     wing's route on ``steady`` and ``unsteady`` (FSI-G), whose steady
     exports are the row's export block run in the aeroelastic
     post-processing script (``conventions`` names them), and the rotor's.
+
+    ``sections`` False leaves the section distributions to the caller: a
+    clocked quasi-steady wheel creates them at each clocking, in the pose that
+    clocking holds (0.31.0, :func:`_build_qsteady_rotor`).
     """
     if case.fsi is not None:
         from .fsi_workspace import validate_workspace_fsi
@@ -8082,7 +8089,8 @@ def _script_init(
     # Both positions are the `init` phase, so this is a move WITHIN a phase and
     # the script's phase guard neither permitted nor prevented it.
     if frames is not None:
-        _pproc_sections(case, script, frames)
+        if sections:
+            _pproc_sections(case, script, frames)
     elif reopens_a_saved_state:
         # A CONTINUATION EMITS NO DISTRIBUTION AND IS NOT REFUSED FOR IT
         # (0.24.0). It builds no frames because the saved simulation it reopens
@@ -14238,6 +14246,7 @@ def _park_the_qsteady_record(
             "named after it."
         )
     sign = 1.0 if speed.rpm >= 0.0 else -1.0
+    wheel_sections = kind == "wheel" and bool(_clocking_section_exports(conventions, case, 0))
     # ONE TYPE FOR THE WRITER AND THE READERS (0.31.0): the file is the typed
     # record's own text, so what `read_qsteady_record` reads back is what was
     # written, key for key and in the same order.
@@ -14259,6 +14268,18 @@ def _park_the_qsteady_record(
                 clocking_deg=angle,
                 rotated_deg=sign * angle,
                 loads=loads if index == 0 else _qsteady.position_loads_name(loads, index),
+                # 0.31.0: A WHEEL THAT CUTS SECTIONS EXPORTS THEM AT EVERY CLOCKING,
+                # and the record names each clocking's files, so the post reads
+                # the names the script wrote rather than composing them again.
+                # Every other record holds no such key and keeps 0.30.0's bytes.
+                section_exports=(
+                    {
+                        each: name
+                        for each, _, name in _clocking_section_exports(conventions, case, index)
+                    }
+                    if wheel_sections
+                    else None
+                ),
             )
             for index, angle in enumerate(angles)
         ),
@@ -14268,18 +14289,288 @@ def _park_the_qsteady_record(
     return loads
 
 
-def _solve_one_clocking(case: SimCase, script: Script, loads: str) -> None:
-    """Solve the wheel at one clocking and export its loads alone.
+#: The export kinds that read the section distributions, which a clocked wheel
+#: writes at EVERY clocking since 0.31.0: the sections' Cp, their sectional
+#: loads and the section Cp plot, where the row declares them.
+_CLOCKED_SECTION_KINDS: frozenset[str] = frozenset(
+    {"sections", "sectional_loads", "plot_sections_cp"}
+)
+
+
+def _clocking_section_exports(
+    conventions: WorkflowConventions, case: SimCase, index: int
+) -> list[tuple[str, str, str]]:
+    """Return ``(kind, verb, name)`` of each section export a wheel writes at clocking ``index``.
+
+    The kinds of :data:`_CLOCKED_SECTION_KINDS` the row declares, in the order
+    :data:`~pyflightstream.cases.EXPORT_KINDS` lists them; at clocking 0 the
+    point's own names, at clocking i each name with ``_qs<i>`` before its
+    kind's suffix (:func:`pyflightstream.cases.qsteady.position_export_name`).
+    Empty where the pproc declares no section distribution, since there is
+    then nothing to cut. The one home of these names: the script writes them
+    and the quasi-steady record states them for the post.
+    """
+    if case.pproc is None or not case.pproc.sections.distributions:
+        return []
+    _, kinds = _declared_export_kinds(conventions, case, unsteady=False)
+    return [
+        (
+            kind,
+            verb,
+            kinds[kind]
+            if index == 0
+            else _qsteady.position_export_name(kinds[kind], suffix, index),
+        )
+        for kind, suffix, verb, _ in EXPORT_KINDS
+        if kind in _CLOCKED_SECTION_KINDS and kind in kinds
+    ]
+
+
+def _solve_one_clocking(
+    case: SimCase,
+    script: Script,
+    conventions: WorkflowConventions,
+    loads: str,
+    index: int,
+) -> None:
+    """Solve the wheel at clocking ``index`` and export its loads and its section distributions.
 
     The point's full export set is written once, at clocking 0, which is solved
     LAST so that the solver log and the loads export the run judges the point
-    by are of one solve.
+    by are of one solve. Every other clocking exports its loads, named
+    ``<loads stem>_qs<i>``, and since 0.31.0 the section exports the row
+    declares (:func:`_clocking_section_exports`), after the updates they read,
+    so a wheel's radial loads exist at every clocking and not at clocking 0
+    alone.
     """
     helpers.start_solver(script)
     _loads_selections(case, script)
     if case.solver.clear_vorticity_drag_boundaries:
         script.emit("DELETE_VORTICITY_DRAG_BOUNDARIES")
-    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", loads)
+    sections = _clocking_section_exports(conventions, case, index)
+    if sections:
+        script.emit("UPDATE_ALL_SURFACE_SECTIONS")
+        script.emit("COMPUTE_SURFACE_SECTIONAL_LOADS", "NEWTONS")
+    script.emit("EXPORT_SOLVER_ANALYSIS_SPREADSHEET", _qsteady.position_loads_name(loads, index))
+    for kind, verb, name in sections:
+        if not _surface_export(script, case, kind, name):
+            script.emit(verb, name)
+
+
+def _turned_about(
+    vector: Sequence[float], axis: Sequence[float], angle_deg: float
+) -> tuple[float, float, float]:
+    """Return ``vector`` turned right-handed about the direction ``axis`` by ``angle_deg``.
+
+    Rodrigues' rotation, the axis normalised here; each component is rounded to
+    twelve decimals, so a frame turned by a whole passage reads as the axes it
+    is and not as their last-bit residue.
+
+    Examples
+    --------
+    >>> _turned_about((0.0, 1.0, 0.0), (1.0, 0.0, 0.0), 90.0)
+    (0.0, 0.0, 1.0)
+    """
+    norm = math.sqrt(sum(float(value) ** 2 for value in axis))
+    kx, ky, kz = (float(value) / norm for value in axis)
+    vx, vy, vz = (float(value) for value in vector)
+    cos, sin = math.cos(math.radians(angle_deg)), math.sin(math.radians(angle_deg))
+    dot = kx * vx + ky * vy + kz * vz
+    cross = (ky * vz - kz * vy, kz * vx - kx * vz, kx * vy - ky * vx)
+    x, y, z = (
+        round(v * cos + c * sin + k * dot * (1.0 - cos), 12) + 0.0
+        for v, c, k in zip((vx, vy, vz), cross, (kx, ky, kz), strict=True)
+    )
+    return x, y, z
+
+
+def _placement_of(case: SimCase, script: Script, index: int, name: str) -> FramePlacement:
+    """Return where the script placed frame ``index``, refusing a frame it cannot place.
+
+    A clocked wheel places each of its section frames from a frame the script
+    already placed, turned about the shaft; a frame whose origin or axes the
+    script does not know (a turn the ledger does not follow, a frame of the
+    saved simulation) cannot be turned with the blades, and a distribution
+    created in it would cut the blade where RPT-091 measured it cut: outside
+    its span.
+    """
+    placement = script.frame_placements.get(index)
+    if placement is None or placement.origin is None or placement.axes is None:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: a quasi-steady wheel solved at several clockings creates "
+            "its section distributions again at each clocking, each in its frame turned with "
+            f"the blades, and the script does not know where frame {name!r} (index {index}) "
+            "stands, so it cannot turn it. Cite a frame the setup places by its origin and "
+            "axes, such as the rotor's <ALIAS>_SMRP or LOCAL_AXIS, or solve one clocking."
+        )
+    return placement
+
+
+def _qsteady_blade_frames(
+    case: SimCase, script: Script, rotor: RotorBlock, rotor_frame: int
+) -> dict[str, int]:
+    """Place ``<ALIAS>_RMRP<k>`` for each blade of a wheel the mesh carries, fixed (0.31.0).
+
+    Blade k of N at the hub, its axes the hub frame's turned right-handed about
+    the shaft by ``blade1.azimuth_deg + (k - 1) * 360 / N``, which is where the
+    blade frames of a turning rotor start (:func:`_rotor_blade_frames`). They
+    are written by their axes rather than by a turn of a copy, because the
+    solver's sense of ``ROTATE_COORDINATE_SYSTEM`` is not stated by the manual
+    and the frames of each clocking are turned from these. Nothing moves them:
+    a steady run has no motion, so a ``LOCAL_AXIS`` distribution of a wheel is
+    cut in a frame that holds the pose it was placed in.
+    """
+    hub = _placement_of(case, script, rotor_frame, f"{rotor.alias}_SMRP")
+    assert hub.origin is not None and hub.axes is not None
+    shaft = hub.axes["XYZ".index(_the_shaft_letter(rotor))]
+    inventory = set(_inventory(script))
+    created: dict[str, int] = {}
+    for number, family in enumerate(rotor.families_blades, start=1):
+        if family not in inventory:
+            continue
+        angle = rotor.blade1.azimuth_deg + (number - 1) * 360.0 / rotor.blade_count
+        x_axis, y_axis, z_axis = (_turned_about(each, shaft, angle) for each in hub.axes)
+        created[f"{rotor.alias}_RMRP{number}"] = helpers.coordinate_frame(
+            script,
+            name=f"{rotor.alias}_RMRP{number}",
+            origin=hub.origin,
+            x_axis=x_axis,
+            y_axis=y_axis,
+            z_axis=z_axis,
+            label=f"blade_axis:{family}",
+        )
+    return created
+
+
+def _section_frame_names(case: SimCase, script: Script, frames: Frames) -> list[str]:
+    """Return the frames the pproc's section distributions are created in, each once.
+
+    Read by the one expansion the distributions are emitted by
+    (:func:`pproc_emissions`), so a frame is turned for a clocking exactly
+    when a distribution is created in it. Its warnings are the emission's
+    own, said when the distributions are created, and dropped here.
+    """
+    pproc = case.pproc
+    if pproc is None:
+        return []
+    inventory = _inventory(script)
+    names: list[str] = []
+    with collecting_warnings():
+        for position, entry in enumerate(pproc.sections.distributions, start=1):
+            for name, _families, _label in pproc_emissions(
+                case,
+                entry.frame,
+                entry.families,
+                inventory,
+                pproc.is_blade,
+                f"section distribution {position}",
+                frames,
+                blades_only=True,
+            ):
+                if isinstance(frames.get(name), int) and name not in names:
+                    names.append(name)
+    return names
+
+
+def _qsteady_section_frames(
+    case: SimCase,
+    script: Script,
+    frames: dict[str, int | None | Mapping[str, int]],
+    *,
+    rotor: RotorBlock,
+    rotor_frame: int,
+    angles: Sequence[float],
+    sense: float,
+) -> list[Frames]:
+    """Place the frames each clocking of a wheel cuts its sections in, and return them (0.31.0).
+
+    One mapping per clocking, by index. The solver fixes a distribution's cuts
+    at its creation, over the extent of its surfaces along the plane's normal
+    in the pose they then hold (RPT-091, 24edb353), and a frame on a steady
+    run does not turn with the surfaces. So clocking i cites each frame of its
+    distributions TURNED with the wheel: the same frame placed again, its
+    origin and axes turned right-handed about the shaft through the hub by
+    ``sense * theta_i``, the turn ``ROTATE_SURFACE`` gives the blades, and
+    held there. The blade then spans the same interval along the turned
+    normal at every clocking, so every clocking is cut at the same stations.
+    Clocking 0 cites the frames as placed. A wheel whose pproc cites
+    ``LOCAL_AXIS`` first gets its blade frames (:func:`_qsteady_blade_frames`),
+    added to ``frames``.
+
+    Every frame is created here, in the setup phase, so no frame is placed
+    after the solver initialised.
+    """
+    pproc = case.pproc
+    if pproc is None or not pproc.sections.distributions:
+        return [frames] * len(angles)
+    if any(
+        EXPANDING_FRAMES.get(entry.frame.strip().upper()) == "blade"
+        for entry in pproc.sections.distributions
+    ):
+        frames.update(_qsteady_blade_frames(case, script, rotor, rotor_frame))
+    if len(angles) == 1:
+        return [frames]
+    hub = _placement_of(case, script, rotor_frame, f"{rotor.alias}_SMRP")
+    assert hub.origin is not None and hub.axes is not None
+    shaft = hub.axes["XYZ".index(_the_shaft_letter(rotor))]
+    placed: dict[str, FramePlacement] = {}
+    for name in _section_frame_names(case, script, frames):
+        index = frames[name]
+        assert isinstance(index, int)
+        placed[name] = _placement_of(case, script, index, name)
+    by_clocking: list[Frames] = [frames]
+    for position, angle in enumerate(angles[1:], start=1):
+        turn = sense * angle
+        turned: dict[str, int | None | Mapping[str, int]] = dict(frames)
+        for name, placement in placed.items():
+            assert placement.origin is not None and placement.axes is not None
+            arm = [a - b for a, b in zip(placement.origin, hub.origin, strict=True)]
+            origin = [
+                round(a + b, 12) + 0.0
+                for a, b in zip(hub.origin, _turned_about(arm, shaft, turn), strict=True)
+            ]
+            x_axis, y_axis, z_axis = (_turned_about(each, shaft, turn) for each in placement.axes)
+            turned[name] = helpers.coordinate_frame(
+                script,
+                name=f"{name}{_qsteady.POSITION_SUFFIX.upper()}{position:02d}",
+                origin=origin,
+                x_axis=x_axis,
+                y_axis=y_axis,
+                z_axis=z_axis,
+                label=f"qsteady_clocking:{name}:{position}",
+            )
+        by_clocking.append(turned)
+    return by_clocking
+
+
+def _delete_the_clocking_sections(script: Script) -> None:
+    """Delete every surface section, so the next clocking's distributions are the only ones.
+
+    A clocked wheel creates its distributions again at each clocking, and the
+    previous clocking's would otherwise be exported beside them.
+    ``DELETE_ALL_SURFACE_SECTIONS`` is an analysis command, so the point the
+    next clocking opens starts at init again after it (:meth:`Script.begin_point`).
+    """
+    script.emit("DELETE_ALL_SURFACE_SECTIONS")
+    script.begin_point()
+
+
+def _cut_the_clocking_sections(
+    case: SimCase, script: Script, frames: Frames, *, quiet: bool
+) -> None:
+    """Create a clocking's section distributions in its frames, recording only this set.
+
+    The run records one layout for the point, and every clocking cuts the same
+    distributions, so the record keeps the last set created, clocking 0's, in
+    the frames the pproc names. ``quiet`` drops the emission's warnings, which
+    the first clocking already said.
+    """
+    script.section_blocks.clear()
+    if not quiet:
+        _pproc_sections(case, script, frames)
+        return
+    with collecting_warnings():
+        _pproc_sections(case, script, frames)
 
 
 def _build_qsteady_rotor(case: SimCase, script: Script, conventions: WorkflowConventions) -> None:
@@ -14298,14 +14589,20 @@ def _build_qsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCon
     solver is initialised again with the first initialisation's settings.
     Clocking 1 too: the solver freezes a section distribution's cut planes at
     its creation against the pose the surfaces then hold, spread over their
-    extent along the plane's normal, so the distributions are created first,
-    with the wheel at clocking 0 as meshed, where that extent is the blade's
-    radial one (L1, RPT-091: created at clocking 1 of a six-blade wheel, 30
-    deg, the 30 cuts ran from 0.347 to 1.586 m on a blade spanning 0.41 to
-    1.824 m). The wheel returns to clocking 0 last and is solved there with the
-    point's full export set, so a single clocking (k = 1) is the plain steady
-    build. Clockings 1 to k - 1 export their loads alone, each named
-    ``<loads stem>_qs<i>`` (:func:`pyflightstream.cases.qsteady.position_loads_name`).
+    extent along the plane's normal (L1, RPT-091: created at clocking 1 of a
+    six-blade wheel, 30 deg, in a frame that did not turn, the 30 cuts ran from
+    0.347 to 1.586 m on a blade spanning 0.41 to 1.824 m). So since 0.31.0 each
+    clocking deletes the previous clocking's distributions, turns the wheel,
+    initialises, and creates them again in its own frames, placed in the setup
+    turned with the wheel and fixed there (:func:`_qsteady_section_frames`):
+    the blade spans the same interval along every clocking's normal, and each
+    clocking is cut at the same stations. The wheel returns to clocking 0 last
+    and is solved there with the point's full export set, so a single clocking
+    (k = 1) is the plain steady build. Clockings 1 to k - 1 export their loads,
+    each named ``<loads stem>_qs<i>``
+    (:func:`pyflightstream.cases.qsteady.position_loads_name`), and the section
+    exports the row declares, each with ``_qs<i>`` before its suffix
+    (:func:`_clocking_section_exports`).
 
     Every point parks its quasi-steady record (:func:`_park_the_qsteady_record`).
     """
@@ -14346,6 +14643,19 @@ def _build_qsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCon
     axis = _the_shaft_letter(rotor)
     sense = 1.0 if speed.rpm >= 0.0 else -1.0
     selection: Sequence[int] | Literal["all"] = surfaces or "all"
+    section_frames = (
+        _qsteady_section_frames(
+            case,
+            script,
+            frames,
+            rotor=rotor,
+            rotor_frame=rotor_frame,
+            angles=angles,
+            sense=sense,
+        )
+        if kind == "wheel"
+        else [frames] * len(angles)
+    )
 
     def clock(angle: float, *, after_initialization: bool) -> None:
         helpers.rotate_surfaces(
@@ -14366,23 +14676,26 @@ def _build_qsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCon
     if len(angles) == 1:
         _script_tail(conventions, case, script, frame, unsteady=False, frames=frames)
         return
-    # The sections are cut at clocking 0 (above), then the wheel turns to
-    # clocking 1 and the solver initialises again.
-    _script_init(case, script, frame, frames=frames)
-    clock(angles[1], after_initialization=True)
-    _initialize(case, script)
-    _analysis(case, script, frame)
-    _solve_one_clocking(case, script, _qsteady.position_loads_name(loads, 1))
-    for index in range(2, len(angles)):
-        script.begin_point()
-        clock(angles[index] - angles[index - 1], after_initialization=True)
+    # EACH CLOCKING CUTS ITS OWN SECTIONS (0.31.0): the init phase creates none,
+    # and every clocking, 1 to k - 1 and then 0, deletes the previous clocking's
+    # distributions, turns the wheel, initialises again and creates them in its
+    # own frames, so none accumulates and each is cut over the blade's span.
+    sectioned = case.pproc is not None and bool(case.pproc.sections.distributions)
+    _script_init(case, script, frame, frames=frames, sections=not sectioned)
+    previous = 0
+    for turn, index in enumerate((*range(1, len(angles)), 0)):
+        if turn:
+            script.begin_point()
+            if sectioned:
+                _delete_the_clocking_sections(script)
+        clock(angles[index] - angles[previous], after_initialization=True)
+        previous = index
         _initialize(case, script)
+        if sectioned:
+            _cut_the_clocking_sections(case, script, section_frames[index], quiet=turn > 0)
         _analysis(case, script, frame)
-        _solve_one_clocking(case, script, _qsteady.position_loads_name(loads, index))
-    script.begin_point()
-    clock(-angles[-1], after_initialization=True)
-    _initialize(case, script)
-    _analysis(case, script, frame)
+        if index:
+            _solve_one_clocking(case, script, conventions, loads, index)
     _script_solve_and_export(conventions, case, script, unsteady=False, frames=frames)
     script.emit("CLOSE_FLIGHTSTREAM")
     _finish_custom_field_coverage(case, script)

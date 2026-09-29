@@ -348,7 +348,9 @@ def test_the_trailing_edge_verdict_reads_the_wheel_s_log(tmp_path):
 # ------------------------------- 3: a clocked wheel's sections cover its blade --
 
 
-def _cuts_the_solver_places(lines: list[str], obj: Path, family: str) -> list[float]:
+def _cuts_the_solver_places(
+    lines: list[str], obj: Path, family: str, *, which: int = 0
+) -> list[float]:
     """Where the solver puts a distribution's cuts, by the rule L1 measured.
 
     The solver freezes the cut planes when the distribution is created, over
@@ -358,8 +360,9 @@ def _cuts_the_solver_places(lines: list[str], obj: Path, family: str) -> list[fl
     then spanned 0.3253 to 1.6078 m along the normal, the 30 cuts ran from
     0.3467 to 1.5860 m, 0.04275 m apart). The pose is the sum of the
     ROTATE_SURFACE angles about the shaft (x) the script emitted before it.
+    ``which`` picks the distribution by its order in the script, -1 the last.
     """
-    at = lines.index("NEW_SURFACE_SECTION_DISTRIBUTION")
+    at = [n for n, line in enumerate(lines) if line == "NEW_SURFACE_SECTION_DISTRIBUTION"][which]
     pose = sum(float(line.split()[3]) for line in lines[:at] if line.startswith("ROTATE_SURFACE"))
     block = lines[at : at + 8]
     plane = next(line.split()[1] for line in block if line.startswith("PLANE"))
@@ -427,11 +430,14 @@ def test_a_clocked_wheel_cuts_its_sections_over_the_blade_s_radial_span(tmp_path
         }
     )
     lines, _ = _lines(case)
-    assert lines.count("NEW_SURFACE_SECTION_DISTRIBUTION") == 1
+    # 0.31.0, the owner's changed requirement (P0310-G1-EVERY-CLOCKING): the
+    # distribution is created again at each of the two clockings, the last one
+    # at clocking 0; test_goal036_wheel_sections.py cuts every clocking.
+    assert lines.count("NEW_SURFACE_SECTION_DISTRIBUTION") == 2
     radii = [math.hypot(y, z) for _, y, z in _vertices(obj, "Blade1")]
     inner, outer = min(radii), max(radii)
     assert (inner, outer) == pytest.approx((0.2, 1.0))
-    cuts = _cuts_the_solver_places(lines, obj, "Blade1")
+    cuts = _cuts_the_solver_places(lines, obj, "Blade1", which=-1)
     assert inner < cuts[0] and cuts[-1] < outer
     assert cuts == pytest.approx([0.25 + 0.1 * index for index in range(8)])
     # The wheel is back at clocking 0, as the cuts were made, for the solve
