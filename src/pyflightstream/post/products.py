@@ -138,6 +138,7 @@ from pyflightstream.cases.workflows import (
     rotor_mach_numbers,
 )
 from pyflightstream.fsi.loads import SectionalLoadsReport, parse_sectional_loads
+from pyflightstream.post import harmonics as _harmonics
 from pyflightstream.post import qsteady as _qsteady
 from pyflightstream.post._tables import (
     _COEFFICIENT_PLOT_PREFIXES,
@@ -4967,6 +4968,254 @@ def _qsteady_sections(
     return {} if validity is None else {point.name: validity}
 
 
+def _write_harmonics(
+    table: Path,
+    *,
+    point: str,
+    pol: str,
+    rotors: Mapping[str, _harmonics.HarmonicRotor],
+    sample_column: str,
+    source: str,
+    windows: Mapping[str, tuple[int, int]] | None,
+    out: Path,
+    target: Callable[[Path], Path],
+    runs: Sequence[str],
+    skipped: dict[str, str],
+    extra: Mapping[str, object] | None = None,
+) -> tuple[Path, dict[str, object]] | None:
+    """Write ``sections/<point>_harmonics.csv`` from a WRITTEN sections table (0.31.0).
+
+    ``table`` is the wheel's sections table or the unsteady point's sections
+    series, read back as a user holds it; ``windows``, where given, keeps each
+    rotor's rows of the steps of its last complete revolution. The condition
+    is the table's own, the one its writer assembled. What is not fitted is
+    named under the product's key in ``skipped`` and warned in ``post.log``: a
+    rotor or a station (``#rotor=<alias>``, ``#rotor=<alias>#station=<j>``),
+    and, once per rotor and harmonic, the rows whose harmonic is ``NA`` for
+    want of distinct azimuths. Nothing blocks.
+
+    Returns the path written and its ``products.json`` entry, or None where not
+    one station could be fitted, which is named under the product's key.
+    """
+    relative = f"{SECTIONS_DIR}/{point}{_harmonics.HARMONICS_SUFFIX}"
+    try:
+        columns, rows = read_csv_table(table)
+    except (ProductError, OSError) as error:
+        skipped[relative] = f"the table {table.name} cannot be read back: {error}"
+        warn(
+            f"point={point} product={relative}: {skipped[relative]}",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        return None
+    if windows is not None:
+        rows = [
+            row
+            for row in rows
+            if (window := windows.get(row.get("ROTOR", ""))) is not None
+            and (step := _step_of(row.get("STEP"))) is not None
+            and window[0] <= step <= window[1]
+        ]
+    result = _harmonics.station_harmonics(columns, rows, rotors, sample_column=sample_column)
+    for marker, reason in result.skipped.items():
+        skipped[f"{relative}{marker}"] = reason
+        warn(f"point={point} product={relative}: {reason}", PyflightstreamWarning, stacklevel=2)
+    for note in result.notes:
+        warn(f"point={point} product={relative}: {note}", PyflightstreamWarning, stacklevel=2)
+    if not result.rows:
+        skipped[relative] = "no station of any rotor could be fitted" + (
+            ": " + "; ".join(result.skipped.values()) if result.skipped else ""
+        )
+        return None
+    lead = next(row for row in rows if row.get("ROTOR") in result.samples)
+    done = _harmonics.write_harmonics_table(
+        target(out / relative),
+        pol=pol,
+        context=tuple(lead.get(name) for name in CONTEXT_COLUMNS),
+        result=result,
+    )
+    return done, {
+        "runs": list(runs),
+        "kind": _harmonics.HARMONICS_KIND,
+        "source": source,
+        "samples": sum(result.samples.values()),
+        "samples_by_rotor": dict(result.samples),
+        **(extra or {}),
+    }
+
+
+def _step_of(cell: object) -> int | None:
+    """Return a table's ``STEP`` cell as a whole step, or None where it states none."""
+    try:
+        return int(float(str(cell)))
+    except ValueError:
+        return None
+
+
+def _wheel_harmonics(
+    table: Path,
+    point: PolarPoint,
+    record: RunRecord | None,
+    *,
+    out: Path,
+    target: Callable[[Path], Path],
+    runs: Sequence[str],
+    skipped: dict[str, str],
+) -> tuple[Path, dict[str, object]] | None:
+    """Fit a quasi-steady WHEEL point's harmonics over its blades and clockings (0.31.0).
+
+    None, and nothing said, for any point that is not a wheel, and for a
+    wheel whose record cannot be read (its sections table names that).
+    """
+    if record is None or record.recipe != QSTEADY_ROTOR:
+        return None
+    try:
+        quasi = read_qsteady_record(point.loads_path)
+    except QsteadyRecordError:
+        return None
+    if quasi.case != "wheel":
+        return None
+    rotor = _harmonics.HarmonicRotor(
+        alias=quasi.rotor_alias,
+        blades=tuple((str(family),) for family in quasi.families_blades),
+        diameter_m=float(quasi.diameter_m),
+        azimuth_is_blade_one=False,
+    )
+    return _write_harmonics(
+        table,
+        point=point.name,
+        pol=record.sim_id,
+        rotors={rotor.alias: rotor},
+        sample_column=_qsteady.CLOCKING_COLUMN,
+        source=_harmonics.SOURCE_WHEEL,
+        windows=None,
+        out=out,
+        target=target,
+        runs=runs,
+        skipped=skipped,
+        extra={"clockings": len(quasi.positions)},
+    )
+
+
+def _harmonic_rotors(
+    live: object | None, aliases: Mapping[str, Sequence[str]] | None, record: RunRecord
+) -> dict[str, tuple[_harmonics.HarmonicRotor, object]]:
+    """Return each rotor of an unsteady point for the harmonic product, with its clock.
+
+    Blade n is the n-th entry of the rotor's ``families_blades`` (the count of
+    blades is their number), expanded through the aliases as the sections
+    identity expands them; the diameter is the rotor block's own, from the
+    reference the row names today, and None where there is none to ask. The
+    clock (``steps_per_revolution``) is the point's record's, through
+    :func:`_section_rotors`.
+    """
+    clocks = _section_rotors(live, aliases, record)
+    blocks = getattr(live, "rotors", None) or {}
+    reductions = record.reductions if isinstance(record.reductions, Mapping) else {}
+    stated = reductions.get("rotors")
+    table: dict[str, tuple[_harmonics.HarmonicRotor, object]] = {}
+    for alias, clock in clocks.items():
+        block = blocks.get(alias)
+        names: Sequence[object] = []
+        diameter: object = None
+        if block is not None:
+            names = list(getattr(block, "families_blades", ()) or ())
+            diameter = getattr(block, "diameter_m", None)
+        else:
+            own = stated.get(alias) if isinstance(stated, Mapping) else None
+            recorded = own if isinstance(own, Mapping) else reductions
+            named = recorded.get(BLADE_FAMILIES_KEY)
+            if isinstance(named, Sequence) and not isinstance(named, str):
+                names = list(named)
+        blades = tuple(
+            tuple(str(member) for member in (aliases or {}).get(str(name), (str(name),)))
+            for name in names
+        )
+        stated_diameter = (
+            float(diameter)
+            if isinstance(diameter, int | float) and not isinstance(diameter, bool)
+            else None
+        )
+        table[alias] = (
+            _harmonics.HarmonicRotor(
+                alias=alias,
+                blades=blades,
+                diameter_m=stated_diameter,
+                azimuth_is_blade_one=True,
+            ),
+            clock.get("steps_per_revolution"),
+        )
+    return table
+
+
+def _unsteady_harmonics(
+    record: RunRecord,
+    *,
+    stem: str,
+    out: Path,
+    series: Sequence[Path],
+    rotors: Mapping[str, tuple[_harmonics.HarmonicRotor, object]],
+    target: Callable[[Path], Path],
+    skipped: dict[str, str],
+) -> tuple[Path, dict[str, object]] | None:
+    """Fit an ``unsteady_rotor`` point's harmonics over each rotor's last complete revolution.
+
+    Read from the WRITTEN sections series; each rotor is cut on its own
+    ``steps_per_revolution`` from the record, counted from the series' first
+    step (:func:`pyflightstream.post.harmonics.last_complete_revolution`). A
+    rotor with no stated clock or no complete revolution is named under the
+    product's key; a point with no sections series writes nothing and says
+    nothing more than the series already said.
+    """
+    table = next((path for path in series if path.name == f"{stem}_sections_series.csv"), None)
+    window = record.export_window
+    if table is None or not window or not rotors:
+        return None
+    relative = f"{SECTIONS_DIR}/{stem}{_harmonics.HARMONICS_SUFFIX}"
+    first, last = int(window["first_step"]), int(window["time_iterations"])
+    windows: dict[str, tuple[int, int]] = {}
+    clocks: dict[str, float] = {}
+    for alias, (_, per_revolution) in rotors.items():
+        if (
+            isinstance(per_revolution, bool)
+            or not isinstance(per_revolution, int | float)
+            or not per_revolution >= 0.5
+        ):
+            reason = f"rotor {alias!r} states no steps per revolution in the point's record"
+        else:
+            revolution = _harmonics.last_complete_revolution(first, last, float(per_revolution))
+            if revolution is not None:
+                windows[alias] = revolution
+                clocks[alias] = float(per_revolution)
+                continue
+            reason = (
+                f"the series holds steps {first} to {last}, not one complete revolution of "
+                f"rotor {alias!r} at {float(per_revolution):g} steps per revolution"
+            )
+        skipped[f"{relative}#rotor={alias}"] = reason
+        warn(f"point={stem} product={relative}: {reason}", PyflightstreamWarning, stacklevel=2)
+    if not windows:
+        skipped.setdefault(relative, "no rotor of the point has a complete revolution to fit")
+        return None
+    return _write_harmonics(
+        table,
+        point=stem,
+        pol=record.sim_id,
+        rotors={alias: rotors[alias][0] for alias in windows},
+        sample_column="STEP",
+        source=_harmonics.SOURCE_UNSTEADY,
+        windows=windows,
+        out=out,
+        target=target,
+        runs=[record.run_id],
+        skipped=skipped,
+        extra={
+            "revolution": {alias: list(steps) for alias, steps in windows.items()},
+            "steps_per_revolution": clocks,
+        },
+    )
+
+
 def _the_sections_writer(**arguments: Any) -> Callable[[Path, str], Path | None]:
     """Return :func:`write_sections_table` bound to one steady point's arguments (0.31.0).
 
@@ -5746,6 +5995,21 @@ def _sim_products(
                     # history is `series/<point>_sections_series.csv`.
                     "kind": "instant",
                 }
+                # 0.31.0 (P0310-HARMONICS): A QUASI-STEADY WHEEL'S PER-STATION
+                # HARMONICS, fitted over every blade at every clocking of the
+                # table just written, read back as a user holds it.
+                harmonics = _wheel_harmonics(
+                    done,
+                    point,
+                    record_of.get(point.name),
+                    out=out,
+                    target=_target,
+                    runs=sources[point.name],
+                    skipped=skipped,
+                )
+                if harmonics is not None:
+                    written.append(harmonics[0])
+                    written_names[harmonics[0].relative_to(out).as_posix()] = harmonics[1]
         # F01: the recorded run type selects the source. An instant from an
         # older unsteady run cannot supply or replace a fluid-plots history.
         record = record_of[point.name]
@@ -6392,6 +6656,25 @@ def _point_series(
             stacklevel=2,
         )
         written, names = [], {}
+    # 0.31.0 (P0310-HARMONICS): AN UNSTEADY ROTOR POINT'S PER-STATION HARMONICS,
+    # fitted over its last complete revolution of the sections series just written.
+    if record.recipe == "unsteady_rotor":
+        harmonics = _unsteady_harmonics(
+            record,
+            stem=stem,
+            out=out,
+            series=written,
+            rotors=_harmonic_rotors(live, aliases, record),
+            target=lambda path: _refuse_an_existing_product(
+                path, archive=archive, stamp=archive_stamp
+            ),
+            skipped=split_skips,
+        )
+        if harmonics is not None:
+            written = [*written, harmonics[0]]
+            done = harmonics[0]
+            key = done.relative_to(out) if done.is_relative_to(out) else done
+            names = {**names, key.as_posix(): harmonics[1]}
     # G25: THE SURFACE AVERAGED OVER THE RECORD'S WINDOW, by the package, from the
     # per-step VTK exports; a VTK beside the Tecplot where the pproc asks for one.
     asked = recorded_pproc if recorded_pproc is not None else pproc

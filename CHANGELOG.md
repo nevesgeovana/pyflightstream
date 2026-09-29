@@ -50,6 +50,21 @@ FlightStream versions.
 - **The per-revolution product** (P0310-G2-PER-REV). An `unsteady_rotor` point now writes `probes/<point>_per_revolution_<ALIAS>.csv` for each rotor its row turns: one row per COMPLETE revolution, read from the written plots table, with the mean of every plotted column and, from the second revolution on, each column's drift from the previous revolution in per cent (`NA` where that mean is zero). A trailing partial revolution is excluded and said. The pproc may declare `[per_revolution] drift_limit_pct` (positive, default 1); when the last revolution's drift of a force or moment column exceeds it, `post.log` carries a WARNING line naming the point, rotor, column, drift and limit, and nothing is blocked. Defined in `docs/post-processing-definitions.md`.
 ### Added (0.31.0)
 
+- **The per-station harmonic product** (P0310-HARMONICS). A rotor point now
+  writes `sections/<point>_harmonics.csv`: per rotor, blade station (radius
+  and r/R) and sectional load quantity (`Fx`, `Fz`, `Moment`), the
+  least-squares `H0 + A1 cos(psi - PHI1) + A2 cos(2 psi - PHI2)` over every
+  sample of the station, `psi` being the blade azimuth the written sections
+  state. A `qsteady_rotor` wheel fits every blade at every clocking; an
+  `unsteady_rotor` point every blade over its last complete revolution of
+  the sections series. `PHI` is in degrees in [0, 360), the kP term peaking
+  where `k psi = PHI`. A harmonic whose station has fewer distinct azimuths
+  than it needs (1P 3, 2P 5) is `NA`, said once in `post.log`; a station
+  that does not match across samples is a named skip. Registered in
+  `products.json` (`kind` `harmonics`); defined in
+  `docs/post-processing-definitions.md`. New public module
+  `pyflightstream.post.harmonics` and
+  `pyflightstream.post.axes.placed_blade_azimuth_deg`.
 - `pyfs-workspace field mirror|move|subtract|time-mean` builds a custom
   free-stream file of `inputs/freestreams/` from other fields: mirrored
   through the plane x, y or z = 0, moved so a source point lands on a target
