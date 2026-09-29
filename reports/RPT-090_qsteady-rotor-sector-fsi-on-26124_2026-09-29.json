@@ -1,0 +1,149 @@
+{
+ "report": "RPT-090",
+ "title": "The qsteady_rotor sector with FSI, confirmed on 26.124",
+ "build": "26.124 build 8172026",
+ "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+ "package": {
+  "version": "0.30.0.dev2",
+  "commit": "0331fe9135be61b391103a3fcec90113a8a7bb75",
+  "dirty": false
+ },
+ "route": "pyfs-matrix plan, pyfs-matrix run (LocalExecutor, -hidden -script), the post run performs",
+ "campaign": "pfs0300-l1-ws",
+ "solver_rules": {
+  "one_instance_at_a_time": true,
+  "hidden": true,
+  "farfield_layers": 5
+ },
+ "case": {
+  "workflow": "qsteady_rotor",
+  "kind": "sector",
+  "geometry": "one blade of a six-blade research propeller (not published), OBJ, 936 vertices",
+  "symmetry": "PERIODIC",
+  "periodic_copies": 6,
+  "mach": 0.1441,
+  "reynolds": 4380000.0,
+  "alpha_deg": 0.0,
+  "rpm": 473.17227304307556,
+  "velocity_m_s": 49.03578900000001,
+  "density_kg_m3": 0.6326127450123294,
+  "freestream_line": "SET_FREESTREAM ROTATION 3 X 473.17227304307556",
+  "fsi_input": "calculated solid Ti-6Al-4V grade 5 annealed, one blade, EI and GJ factor 1.0, 48 nodes"
+ },
+ "runs": {
+  "rigid": {
+   "run_id": "pfs0300-l1-ws/sim_9001/M144RE438AL+000BE+000RPM00473",
+   "status": "CONVERGED",
+   "wall_time_s": 4.34,
+   "iterations": 60,
+   "residual": 8.2770324e-07
+  },
+  "fsi": {
+   "run_id": "pfs0300-l1-ws/sim_9002/M144RE438AL+000BE+000RPM00473",
+   "status": "CONVERGED",
+   "wall_time_s": 81.79,
+   "iterations": 427,
+   "residual": 3.1803694e-07
+  },
+  "matrix_run_wall_time_s": 88
+ },
+ "measured": {
+  "vertices_mapped": 936,
+  "aeroelastic_header": "1,936,1,50,4",
+  "aeroelastic_surface_id": 2,
+  "fsi_iterations": 18,
+  "fsi_iteration_cap": 50,
+  "fsi_residuals": [
+   0.9375,
+   0.31141876,
+   0.13273779,
+   0.06167472,
+   0.029632527,
+   0.014531336,
+   0.0071472188,
+   0.003543696,
+   0.0017685107,
+   0.00088362205,
+   0.00040993198,
+   0.00019934587,
+   9.9660551e-05,
+   4.9846646e-05,
+   4.1526876e-05,
+   2.076983e-05,
+   1.0142337e-05,
+   5.6531191e-06
+  ],
+  "stopped_after_completion_line": true,
+  "tip_flap_m": 0.003340913,
+  "tip_twist_deg": 0.128534,
+  "fsidisp_tip_elastic_axis_node_m": [
+   -0.0026597356,
+   0.0020217244,
+   0.0
+  ],
+  "exported_surface_max_displacement_m": 0.0035528,
+  "exported_surface_max_displacement_at_radius_m": 1.824,
+  "omega_staged_rad_s": 49.55048456248367,
+  "omega_2pi_rpm_over_60_rad_s": 49.55048456248367,
+  "fx_rigid_N": -373.84196,
+  "fx_fsi_N": -376.81578,
+  "fx_change_pct_magnitude": 0.8,
+  "mx_rigid_Nm": -415.8906,
+  "mx_fsi_Nm": -408.23464,
+  "mx_change_pct_magnitude": -1.84,
+  "fy_rigid_N": 338.99274,
+  "fy_fsi_N": 333.09073,
+  "cx_rigid": -0.0098306,
+  "cdi_rigid": -0.0099531,
+  "cdo_rigid": 0.0001225,
+  "cx_fsi": -0.0099088,
+  "cdi_fsi": -0.0099088,
+  "cdo_fsi": 0.0,
+  "induced_axial_change_pct": -0.45
+ },
+ "sources": {
+  "rigid_loads": "P9001-M144RE438AL+000BE+000RPM00473.txt",
+  "fsi_loads": "P9002-M144RE438AL+000BE+000RPM00473.txt",
+  "fsi_log": "P9002-M144RE438AL+000BE+000RPM00473_log.txt",
+  "fsi_state": "P9002-M144RE438AL+000BE+000RPM00473.fsm",
+  "fsi_convergence_log": "fsi_convergence_log.csv",
+  "fsi_displacement": "FSIDisp.txt",
+  "staged_config": "config.json",
+  "stop_log": "pyfs-aeroelastic-stop.log",
+  "averages": [
+   "post/l1_sector/polars/P9001-ROTOR_qs_avg.csv",
+   "post/l1_sector/polars/P9002-ROTOR_qs_avg.csv"
+  ]
+ },
+ "findings": [
+  {
+   "id": "F1",
+   "kind": "defect",
+   "topic": "a coupled row with the default pproc exports does not build (ScriptOrderError)",
+   "where": [
+    "src/pyflightstream/cases/fsi_workspace.py:343-345",
+    "src/pyflightstream/cases/workflows.py:11165-11166"
+   ],
+   "workaround_used": "pproc [exports] sections, sectional_loads, probes, plot_sections_cp = false on the coupled row"
+  },
+  {
+   "id": "F2",
+   "kind": "observation",
+   "topic": "the coupled export carries CDo = 0"
+  },
+  {
+   "id": "F3",
+   "kind": "observation",
+   "topic": "no rotor table for a qsteady_rotor point: its record states no speed for the rotor"
+  },
+  {
+   "id": "F4",
+   "kind": "observation",
+   "topic": "the console line 'Aeroelastic solver run time' is not kept among the outputs; pyfs-aeroelastic-stop.log attests it"
+  }
+ ],
+ "cites": [
+  "RPT-089",
+  "RPT-093"
+ ]
+}

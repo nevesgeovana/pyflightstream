@@ -50,6 +50,9 @@ acceptance or publication of their findings.
 | [RPT-086](RPT-086_gui-launch-windows_2026-09-28.md) | The windows 26.124 shows when launched with its GUI: the startup splash asks nothing | Bounded evidence; final release review pending |
 | [RPT-087](RPT-087_periodic-native-tecplot-one-zone-per-copy_2026-09-28.md) | A periodic row's native Tecplot holds one zone per copy, each equal to its VTK block | Bounded evidence; final release review pending |
 | [RPT-088](RPT-088_26124-unsteady-log-without-a-completion-line_2026-09-28.md) | A 26.124 unsteady log ends without a completion line; every log reader judges it | Bounded evidence; final release review pending |
+| [RPT-090](RPT-090_qsteady-rotor-sector-fsi-on-26124_2026-09-29.md) | The qsteady_rotor sector with FSI on 26.124: 936 vertices mapped, residual converged in 18 iterations, 3.34 mm tip flap at the row's Omega; a coupled row with the default pproc exports does not build | Bounded evidence; final release review pending |
+| [RPT-091](RPT-091_qsteady-rotor-wheel-at-aoa-on-26124_2026-09-29.md) | The qsteady_rotor wheel at an AoA of 5 deg on 26.124: validity values, averaged six components against RPT-089; the clocked wheel's log and sections defects | Bounded evidence; final release review pending |
+| [RPT-092](RPT-092_fixed-wing-fsi-on-26124_2026-09-29.md) | Fixed-wing FSI with the wing's own weight on 26.124: 1052 vertices mapped, -12.7 mm tip, CL +0.29 % against rigid; the XZ-moment sign and the block order as measured | Bounded evidence; final release review pending |
 | [RPT-093](RPT-093_aeroelastic-coupling-on-26124_2026-09-29.md) | The Aeroelastic Coupling Toolbox on 26.124: nine measured facts about the surface-ID mapping, the rotor morph, the RBF kernels and the exports | Bounded evidence; final release review pending |
 
 ## Dependency evidence

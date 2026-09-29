@@ -1,0 +1,145 @@
+{
+ "report": "RPT-091",
+ "title": "The qsteady_rotor wheel at an AoA, confirmed on 26.124",
+ "build": "26.124 build 8172026",
+ "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+ "package": {
+  "version": "0.30.0.dev2",
+  "commit": "0331fe9135be61b391103a3fcec90113a8a7bb75",
+  "dirty": false
+ },
+ "route": "pyfs-matrix plan, pyfs-matrix run (LocalExecutor, -hidden -script), the post run performs",
+ "campaign": "pfs0300-l1-ws",
+ "solver_rules": {
+  "one_instance_at_a_time": true,
+  "hidden": true,
+  "farfield_layers": 5
+ },
+ "case": {
+  "workflow": "qsteady_rotor",
+  "kind": "wheel",
+  "geometry": "a six-blade research propeller (not published), OBJ, 6 blades, 5616 vertices",
+  "symmetry": "NONE",
+  "fsi": null,
+  "mach": 0.1441,
+  "reynolds": 4380000.0,
+  "alpha_deg": 5.0,
+  "rpm": 473.17227304307556,
+  "passage_positions": 2,
+  "clockings_deg": [
+   0.0,
+   30.0
+  ]
+ },
+ "plan": {
+  "span_pct_k_gt_0_1": 28.947368421052627,
+  "k_min": 0.04209678238407341,
+  "k_max": 0.13145529188966235,
+  "k_mean": 0.08975727891735796,
+  "span_pct_k_gt_0_05": 97.36842105263159,
+  "chord_source": "mesh",
+  "stations": 20,
+  "warning": true,
+  "inflow_fft_line": null,
+  "inflow_fft_note": "no inflow-harmonics line and no inflow_fft entry: the option reads a custom inflow and the row states an AoA"
+ },
+ "runs": {
+  "points_file_route": {
+   "run_id": "pfs0300-l1-ws/sim_9101/M144RE438AL+050BE+000RPM00473",
+   "status": "FAILED_INCOMPLETE_OUTPUT",
+   "wall_time_s": 12.61,
+   "iterations_per_clocking": 61,
+   "log_file_used": null,
+   "residual": null
+  },
+  "detection_control": {
+   "run_id": "pfs0300-l1-ws/sim_9102/M144RE438AL+050BE+000RPM00473",
+   "status": "CONVERGED",
+   "wall_time_s": 11.7,
+   "log_file_used": null,
+   "residual": null
+  }
+ },
+ "validity_file": {
+  "file": "P9101-M144RE438AL+050BE+000RPM00473_qsteady_validity.json",
+  "K_1P_MIN": 0.0,
+  "K_1P_MAX": 0.1307553948459401,
+  "K_1P_MEAN": 0.09227943916576044,
+  "SPAN_PCT_K_GT_0_05": 94.82369079318971,
+  "SPAN_PCT_K_GT_0_1": 37.940773017025734,
+  "THRUST_PCT_K_GT_0_1": 15.088532522142495,
+  "TORQUE_PCT_K_GT_0_1": 13.357857670692182,
+  "K_1P_SOURCE": "sections"
+ },
+ "averaged_six_components": {
+  "units": "N and N m about the hub, loads-frame axes",
+  "sim_9101": {
+   "FX": -2300.04111,
+   "FY": -23.90465,
+   "FZ": 267.26738,
+   "MX": -2547.91712,
+   "MY": 40.95987,
+   "MZ": -364.1048
+  },
+  "sim_9102": {
+   "FX": -2255.295,
+   "FY": -24.32296,
+   "FZ": 263.59383,
+   "MX": -2488.17757,
+   "MY": 41.42576,
+   "MZ": -356.61695
+  },
+  "RPT-089_k2": {
+   "FX": -2206.12,
+   "FY": -23.81,
+   "FZ": 257.17,
+   "MX": -2434.21,
+   "MY": 40.64,
+   "MZ": -346.05
+  },
+  "sim_9102_vs_RPT-089_pct_magnitude": {
+   "FX": 2.2,
+   "FY": 2.1,
+   "FZ": 2.5,
+   "MX": 2.2,
+   "MY": 1.9,
+   "MZ": 3.1
+  },
+  "clockings_sim_9101": {
+   "0": {
+    "FX": -2305.33086,
+    "MX": -2552.50877
+   },
+   "30": {
+    "FX": -2294.75136,
+    "MX": -2543.32546
+   }
+  }
+ },
+ "findings": [
+  {
+   "id": "F1",
+   "kind": "defect",
+   "topic": "the wheel's exported log holds every clocking (counter 61 -> 1), the residual reader refuses it, and on the points-file route the trailing-edge verdict fails the point FAILED_INCOMPLETE_OUTPUT",
+   "where": [
+    "src/pyflightstream/results/__init__.py:1382",
+    "src/pyflightstream/run/_wake_edge_verdict.py:155",
+    "src/pyflightstream/run/_wake_edge_verdict.py:384-391",
+    "docs/workspace-and-workflows.md:3235"
+   ]
+  },
+  {
+   "id": "F2",
+   "kind": "defect",
+   "topic": "the clocked wheel's 30 section cuts run 0.347 to 1.586 m while the blade spans 0.41 to 1.824 m: two empty cuts (K_1P_MIN 0) and the outer 0.24 m uncut; the post's span fractions and shares use them"
+  },
+  {
+   "id": "F3",
+   "kind": "observation",
+   "topic": "no rotor table for a qsteady_rotor point"
+  }
+ ],
+ "cites": [
+  "RPT-089"
+ ]
+}
