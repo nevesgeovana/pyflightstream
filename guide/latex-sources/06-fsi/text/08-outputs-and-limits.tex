@@ -49,7 +49,7 @@
   \item \textbf{The rotor}: one isolated, axisymmetric rotor; shaft X, blade
         datum Z; \code{blade\_count} equal to its blades;
         \code{omega\_rad\_per\_s} equal to the row's free-stream rotation. A
-        wing: its span, and \(\Omega = 0\).
+        wing: \code{[config.wing]}, \(\Omega = 0\), \code{blade\_count = 1}.
   \item \textbf{The pproc}: one XY distribution per blade, \code{LOCAL\_AXIS},
         in blade order, \code{include\_symmetry = false}.
   \item \textbf{Then} \code{pyfs-matrix plan}, where the refusals of this deck
@@ -65,12 +65,13 @@
   \item \textbf{Wiring is not validation}: the staging and callback checks do
         not establish native two-way rotor deformation, convergence or
         aerodynamic validity.
-  \item \textbf{The native evidence so far} [4]: on 26.124 a blade held
-        still in a turning free stream, its nodes inside the blade and the
-        multiquadric kernel, mapped every node and deformed; its thrust stayed
-        within 0.35\,\% of the rigid turning blade. A turning blade is
-        deformed in its un-turned position, which is why
-        \code{unsteady\_rotor} with FSI is refused.
+  \item \textbf{The native evidence so far} (RPT-093 [2]): on 26.124 a blade
+        held still in a turning free stream, steady, mapped every surface
+        vertex and exported the imposed flap to 0.1 mm, its rigid axial force
+        within 0.35\,\% of the same blade turning; a fixed wing mapped and
+        exported the bend, steady and unsteady. A turning blade is morphed at
+        its imported azimuth, which is why \code{unsteady\_rotor} with FSI is
+        refused. These are imposed-displacement probes, not coupled accuracy.
   \item \textbf{Open}: saved-simulation and continuation use, and native
         coupled validation; staging or command acceptance implies neither.
   \item \textbf{The zero-speed example inputs} are for offline checks, not

@@ -42,79 +42,20 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}{\code{qsteady\_rotor}: a rotor solved steady}
-\begin{columns}[T]
-\begin{column}{0.50\textwidth}
-\begin{itemize}\small
-  \item \textbf{One workflow, for an isolated, axisymmetric rotor only.} The
-        blades stay still; the free stream turns about the shaft at the
-        rotor's speed, and every solve is steady.
-  \item \textbf{Sector}, when the row states periodic symmetry: one blade and
-        its periodic copies. An inflow that varies with radius only is
-        accepted; one that varies with azimuth is refused. FSI is allowed
-        (Guide 6).
-  \item \textbf{Wheel}, without periodic symmetry: every blade. A user inflow
-        file is the \textbf{total} velocity reaching the rotor; the package
-        adds the rotation. FSI is refused.
-\end{itemize}
-\end{column}
-\begin{column}{0.46\textwidth}
-\begin{block}{A wheel at incidence, or in a custom inflow}
-\small One steady solve per blade position, then the average:
-\code{PASSAGE\_POSITIONS: k} is mandatory, \(k \ge 1\), the positions uniform
-over one blade passage, \(\theta_i = i\,(360^\circ/N)/k\), \(i = 0 \ldots
-k-1\). Its products are those of an unsteady point.
-\end{block}
-\begin{takeaway}Two positions settle thrust and torque; the in-plane forces
-and moments want six or more.\end{takeaway}
-\end{column}
-\end{columns}
-\end{frame}
-
-\begin{frame}{Is a quasi-steady answer valid? The reduced frequency}
-\begin{columns}[T]
-\begin{column}{0.52\textwidth}
-\begin{itemize}\small
-  \item A wheel point at incidence sees its inflow change once per
-        revolution. Each blade station's \textbf{1P reduced frequency},
-        \[ k = \frac{\Omega\,c}{2\,V_\mathrm{rel}}, \]
-        measures how far that change is from quasi-steady: below about 0.05
-        the lag of the circulation and the shed wake are small; above 0.1
-        they are not [11, 12, 13].
-  \item \pyfs{plan} shows four values per wheel point: the per cent of the
-        span with \(k > 0.1\), and \(k\) minimum, maximum and mean over the
-        span. It \textbf{warns} when that per cent is above zero; it never
-        refuses.
-\end{itemize}
-\end{column}
-\begin{column}{0.44\textwidth}
-\begin{block}{Carried with the results}
-\small The datapoint folder holds the point's \(k\) minimum, maximum and
-mean, the span fractions above 0.05 and 0.1, and the shares of thrust and
-torque from stations above 0.1. Every post product of the point carries
-them; the sections product carries \(k\) per station.
-\end{block}
-\begin{alertblock}{And the unsteady reference}
-\small A few revolutions do not settle a rotor's wake: compare with an
-\code{unsteady\_rotor} result only once its history has settled.
-\end{alertblock}
-\end{column}
-\end{columns}
-\end{frame}
-
 \begin{frame}{Tip and helical Mach, on every rotor point}
 \[ \Omega = \frac{2\pi\,\mathrm{RPM}}{60}, \qquad
    M_\mathrm{tip} = \frac{\Omega R}{a}, \qquad
    M_\mathrm{hel} = \frac{\sqrt{V^2 + (\Omega R)^2}}{a} \]
 \begin{itemize}\small
-  \item For each rotor an \code{unsteady\_rotor} row turns, a \code{steady}
-        row that states \code{RPM}, and each actuator disc a row names. \(R\)
+  \item For each rotor an \code{unsteady\_rotor} or \code{qsteady\_rotor} row
+        turns, a \code{steady} row that states \code{RPM}, and each actuator
+        disc a row names. \(R\)
         is the rotor's half diameter or the disc's tip radius; \(V\) and
         \(a\) are the point's own resolved free stream and speed of sound.
   \item \pyfs{plan} prints both per rotor and per point, and \textbf{warns},
         naming the point, when \(M_\mathrm{hel} \ge 1\): the tip is sonic or
         supersonic, where the linearised compressibility of a panel method
-        stops holding [4, 13, 14]. A warning, never a refusal.
+        stops holding [4, 12, 13]. A warning, never a refusal.
   \item The rotor table ends with \code{MTIP\_<alias>} and
         \code{MHEL\_<alias>}. Both are geometric: \(V\) is the free stream
         alone, without the rotor's own induced velocity.

@@ -24,12 +24,6 @@
   \par\vfill
   {\tiny\color{SoftGray} Source: \pkgname{} [1]; #1.\par}}
 
-% The source line of the campaign example: its numbers are a native run's
-% own record, not the package's own sources.
-\newcommand{\fsicampaign}[1]{%
-  \par\vfill
-  {\tiny\color{SoftGray} Source: \pkgname{} campaign, 2026 [3]; #1.\par}}
-
 % The source line of a frame that describes this version's behaviour from its
 % requirements, written while the code that implements it was being merged.
 \newcommand{\fsidecided}[1]{%
@@ -80,7 +74,6 @@
 \input{text/05-the-row.tex}
 \input{text/06-refusals.tex}
 \input{text/07-examples.tex}
-\input{text/07b-xprop-titanium.tex}
 \input{text/08-outputs-and-limits.tex}
 
 \begin{frame}{The physics behind the coupling, and where to read it}
@@ -103,20 +96,21 @@
 
 \begin{frame}{References}
 \begin{reflist}
-  \item \docref{fsi-workspace}{FSI in a workspace}; and the FSI tutorial,
+  \bibitem{g06r01} \docref{fsi-workspace}{FSI in a workspace}; and the FSI tutorial,
         \code{src/pyflightstream/fsi/README.md} of the repository.
-  \item TU Delft, ``TUD-XPROP propeller geometry'', Zenodo.
-        \url{https://doi.org/10.5281/zenodo.18598046}
-  \item G. Neves, \emph{\pkgname} (software and campaign records), 2026.
-        \url{\pkgrepo}, concept DOI \texttt{\pkgdoiconcept}.
-  \item \recordsref
-  \item D. C. Brinck, \emph{PyNite}: a 3D structural finite element library
+  \bibitem{g06r02} \pkgauthor, ``The Aeroelastic Coupling Toolbox on 26.124: nine
+        measured facts'', report RPT-093, 2026, \code{reports/} of
+        \url{\pkgrepo}.
+  \bibitem{g06r03} \pkgauthor, ``The quasi-steady rotor against the unsteady rotor,
+        measured'', report RPT-089, 2026, \code{reports/} of \url{\pkgrepo}.
+  \bibitem{g06r04} \recordsref
+  \bibitem{g06r05} D. C. Brinck, \emph{PyNite}: a 3D structural finite element library
         for Python. \url{https://github.com/JWock82/Pynite}
-  \item S. P. Timoshenko, J. N. Goodier, \emph{Theory of Elasticity}, 3rd ed.,
+  \bibitem{g06r06} S. P. Timoshenko, J. N. Goodier, \emph{Theory of Elasticity}, 3rd ed.,
         McGraw-Hill, New York, 1970.
-  \item W. D. Pilkey, \emph{Analysis and Design of Elastic Beams:
+  \bibitem{g06r07} W. D. Pilkey, \emph{Analysis and Design of Elastic Beams:
         Computational Methods}, Wiley, New York, 2002.
-  \item D. H. Hodges, E. H. Dowell, ``Nonlinear equations of motion for the
+  \bibitem{g06r08} D. H. Hodges, E. H. Dowell, ``Nonlinear equations of motion for the
         elastic bending and torsion of twisted nonuniform rotor blades'',
         NASA TN D-7818, 1974.
 \end{reflist}
@@ -125,24 +119,24 @@
 \begin{frame}{References (continued)}
 \begin{reflist}
   \setcounter{enumi}{8}
-  \item R. L. Bielawa, \emph{Rotary Wing Structural Dynamics and
+  \bibitem{g06r09} R. L. Bielawa, \emph{Rotary Wing Structural Dynamics and
         Aeroelasticity}, AIAA Education Series, AIAA, Washington, 1992.
-  \item R. V. Southwell, B. S. Gough, ``On the free transverse vibration of
+  \bibitem{g06r10} R. V. Southwell, B. S. Gough, ``On the free transverse vibration of
         airscrew blades'', Aeronautical Research Committee, Reports and
         Memoranda 766, 1921.
-  \item W. Campbell, ``The protection of steam-turbine disk wheels from axial
+  \bibitem{g06r11} W. Campbell, ``The protection of steam-turbine disk wheels from axial
         vibration'', \emph{Transactions of the ASME}, 46, pp. 31-160, 1924.
-  \item R. L. Bisplinghoff, H. Ashley, R. L. Halfman, \emph{Aeroelasticity},
+  \bibitem{g06r12} R. L. Bisplinghoff, H. Ashley, R. L. Halfman, \emph{Aeroelasticity},
         Addison-Wesley, Reading, 1955.
-  \item T. Theodorsen, ``General theory of aerodynamic instability and the
+  \bibitem{g06r13} T. Theodorsen, ``General theory of aerodynamic instability and the
         mechanism of flutter'', NACA Report 496, 1935.
-  \item R. L. Hardy, ``Multiquadric equations of topography and other
+  \bibitem{g06r14} R. L. Hardy, ``Multiquadric equations of topography and other
         irregular surfaces'', \emph{Journal of Geophysical Research}, 76(8),
         pp. 1905-1915, 1971.
-  \item A. Beckert, H. Wendland, ``Multivariate interpolation for
+  \bibitem{g06r15} A. Beckert, H. Wendland, ``Multivariate interpolation for
         fluid-structure-interaction problems using radial basis functions'',
         \emph{Aerospace Science and Technology}, 5(2), pp. 125-134, 2001.
-  \item A. de Boer, M. S. van der Schoot, H. Bijl, ``Mesh deformation based
+  \bibitem{g06r16} A. de Boer, M. S. van der Schoot, H. Bijl, ``Mesh deformation based
         on radial basis function interpolation'', \emph{Computers and
         Structures}, 85(11-14), pp. 784-795, 2007.
 \end{reflist}

@@ -239,6 +239,9 @@ last_revs = 1.5 # OR last_iters = 54; exactly one, positive
         written from its VTK.
   \item An older record keeps the solver's window and its
         meaning. The matrix's plots-reduction window remains a separate choice.
+  \item A storage recipe's \code{[[prune\_step\_exports]]} keeps only each
+        point's last step; a post that needs a deleted step refuses, naming it
+        (Guide 1).
 \end{itemize}
 \end{frame}
 

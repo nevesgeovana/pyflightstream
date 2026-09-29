@@ -28,9 +28,9 @@
    M_\mathrm{tip} = \frac{\Omega R}{a}, \qquad
    M_\mathrm{hel} = \frac{\sqrt{V^2 + (\Omega R)^2}}{a} \]
 \begin{itemize}\small
-  \item Stated for each rotor an \code{unsteady\_rotor} row turns, for the
-        rotor of a \code{steady} row that states \code{RPM}, and for each
-        actuator disc a row names. \(R\) is half the rotor's diameter, or the
+  \item Stated for each rotor an \code{unsteady\_rotor} or
+        \code{qsteady\_rotor} row turns, for the rotor of a \code{steady} row
+        that states \code{RPM}, and for each actuator disc a row names. \(R\) is half the rotor's diameter, or the
         disc's tip radius; \(V\) and \(a\) are the point's own resolved free
         stream and speed of sound. At \(V = 0\), \(M_\mathrm{hel} =
         M_\mathrm{tip}\).
@@ -42,6 +42,7 @@
         rotor's induced velocity, which near hover adds to the speed the tip
         sees. At \(M_\mathrm{hel} \ge 1\) the tip is sonic, beyond the
         linearised compressibility of a panel method, and the plan warns
+        once, naming every such point, its rotor and its \(M_\mathrm{hel}\)
         [1, 10].
 \end{itemize}
 \end{frame}

@@ -8,7 +8,7 @@ which), and the guide to the Python library itself.
 
 | Guide | PDF | What it covers |
 |---|---|---|
-| 1 | `fts-guide-01-workspaces.pdf` | the workspace tree, its input files, running, what a run and its post leave, a Windows workstation and an HPC cluster kept together by sync, space on disk, version control |
+| 1 | `fts-guide-01-workspaces.pdf` | the workspace tree, its input files, choosing a workflow and the quasi-steady rotor, running, what a run and its post leave, a Windows workstation and an HPC cluster kept together by sync, space on disk, version control |
 | 2 | `fts-guide-02-gui-to-pyfs.pdf` | every step of a FlightStream GUI session, and the key that takes it in a workspace |
 | 3 | `fts-guide-03-references.pdf` | the reference file: lengths, the moment point, aliases, frames, rotors and actuator discs |
 | 4 | `fts-guide-04-solver-setup.pdf` | the setup file, its keys and the solver commands behind them |
