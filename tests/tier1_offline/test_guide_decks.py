@@ -40,7 +40,23 @@ REPO = Path(__file__).resolve().parents[2]
 GUIDE = REPO / "guide"
 SOURCES = GUIDE / "latex-sources"
 DOCS = REPO / "docs"
-NOTICE = "Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0"
+
+
+def _citation_author() -> str:
+    """The first author of CITATION.cff, given names then family names.
+
+    The guides' notice names the package's author. The name is read from the
+    citation record, the file that states it for the repository, so this test
+    holds the notice exactly without spelling a person's name in the tree.
+    """
+    text = (REPO / "CITATION.cff").read_text(encoding="utf-8")
+    family = re.search(r"^\s*-\s*family-names:\s*(.+?)\s*$", text, re.M)
+    given = re.search(r"^\s*given-names:\s*(.+?)\s*$", text, re.M)
+    assert family and given, "CITATION.cff states no first author (family-names, given-names)"
+    return f"{given.group(1)} {family.group(1)}"
+
+
+NOTICE = f"Copyright (c) 2026 {_citation_author()}. Licensed under CC BY 4.0"
 TEXT_SUFFIXES = {".tex", ".sh", ".ps1", ".md"}
 DECK_FOLDER = re.compile(r"^0[1-7]-[a-z0-9-]+$")
 DOCREF = re.compile(r"\\docref\{([^}]*)\}")
@@ -96,8 +112,8 @@ def test_every_guide_file_carries_the_authorship_and_licence_notice():
     assert not missing, (
         "these guide files do not state their author and licence in their first lines:\n"
         + "\n".join(missing)
-        + f"\n\nEvery file of the guides opens with the line {NOTICE!r} ... (the owner's rule for "
-        "the guides: CC BY 4.0, authorship in every file)."
+        + f"\n\nEvery file of the guides opens with the line {NOTICE!r} ... (the guides are "
+        "CC BY 4.0, with the authorship stated in every file)."
     )
 
 

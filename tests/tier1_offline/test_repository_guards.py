@@ -217,9 +217,14 @@ def test_no_forbidden_identifier_in_the_versioned_tree() -> None:
     # migrating-to-0.29.0.md and thirteen feature pages, each named beside
     # `exempt-tree: docs/` in tools/shipped_surface.conf, and the twelve
     # exempt-path lines are unchanged. The cap allows 0.30.0's migration page
-    # and nothing more.
-    assert numbers["exempt"] <= 60, (
-        f"{numbers['exempt']} files exempt, up from the 59 measured at 0.29.0. "
+    # and nothing more. 149 measured on the 0.30.0 candidate on 2026-09-29
+    # (GOAL-035), widened on the author's decision of that date: the guide/
+    # byline path became the guide/ tree when the seven decks moved into the
+    # repository (their sources and PDFs carry the byline and licence notice),
+    # and docs/ gained storage-and-sync.md and migrating-to-0.30.0.md. The cap
+    # allows 0.31.0's migration page and nothing more.
+    assert numbers["exempt"] <= 150, (
+        f"{numbers['exempt']} files exempt, up from the 149 measured at 0.30.0. "
         "An exemption was widened, or a tree grew by more than a release's own "
         "pages; widen this number in the same commit and say why in "
         "tools/shipped_surface.conf."
