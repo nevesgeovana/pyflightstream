@@ -241,6 +241,10 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         # 0.30.0: a storage command's refusal is a WorkspaceError, so a
         # caller catching RuntimeError keeps catching it.
         "StorageError": RuntimeError,
+        # 0.31.0: a quasi-steady point's record that is missing, unreadable
+        # or of another schema. ValueError because the file's CONTENT is not
+        # what the package writes.
+        "QsteadyRecordError": ValueError,
     }
     catalogued = set(exceptions.__all__) - {"PyflightstreamError"}
     assert catalogued == set(expected_builtin), (

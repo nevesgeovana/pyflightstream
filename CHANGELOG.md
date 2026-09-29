@@ -7,6 +7,23 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- **The quasi-steady record has one type, one reader and one refusal.**
+  `<point>_qsteady.json` is read as a `QsteadyRecord` by
+  `pyflightstream.cases.qsteady.read_qsteady_record`, which raises
+  `QsteadyRecordError` (in `pyflightstream.exceptions`) for a record that is
+  missing, unreadable or of another schema. The file the builder writes is
+  byte for byte what 0.30.0 wrote. The run no longer ignores an unreadable
+  record in silence: it judges the point's log as one solve, as before, and
+  records a warning on the point. The post names each product such a point
+  loses in `products.json` and `post.log`; a missing record, which the
+  sections table passed over in silence and the rotor table reported as a
+  speed not stated, is now named as what it is.
+  `pyflightstream.post.qsteady.read_qsteady_record` and
+  `pyflightstream.workspace.inputs.qsteady_record_rotor_alias` are removed;
+  the latter lives on in `pyflightstream.cases.qsteady`.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

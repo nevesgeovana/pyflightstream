@@ -130,9 +130,14 @@ from pyflightstream.cases import (
     resolve_recipe,
     sweep_name,
 )
+from pyflightstream.cases.qsteady import (
+    QsteadyClocking,
+    QsteadyRecordError,
+    read_qsteady_record,
+    summarise_inflow_harmonics,
+)
 from pyflightstream.cases.qsteady import record_file_name as qsteady_record_file_name
 from pyflightstream.cases.qsteady import summarise as summarise_validity
-from pyflightstream.cases.qsteady import summarise_inflow_harmonics
 from pyflightstream.cases.workflows import (
     COLD_START_VARIABLE,
     EXPORT_LOG_VARIABLE,
@@ -1612,6 +1617,12 @@ class Assessment:
         the worst status, the largest final residual, and the iterations of
         clocking 0, the solve its loads export is of. None on every other
         point.
+    warnings : list of str, optional
+        What the judgment could not use and did without, for the point's
+        record's ``warnings`` (0.31.0): a quasi-steady point whose record
+        cannot be read (:class:`~pyflightstream.cases.qsteady.QsteadyRecordError`)
+        has its solver log judged as one solve, and says so here. None where
+        there is nothing to say.
     """
 
     status: RunStatus
@@ -1627,6 +1638,7 @@ class Assessment:
     solver_initialization_s: float | None = None
     time_steps: int | None = None
     clocking_verdicts: list[dict[str, object]] | None = None
+    warnings: list[str] | None = None
 
 
 def _bind_case_conditions(case: SimCase | None, report: LoadsReport) -> ConditionBinding:
@@ -2115,7 +2127,13 @@ class LoadsAssessor:
         # k solves in sequence, each counter starting at 1 (L1 of 0.30.0,
         # RPT-091): the run's own record beside the loads export says so, and
         # the log is then read and judged solve by solve.
-        clockings = _wheel_clockings(report_path)
+        clockings, record_warning = _wheel_clockings(
+            report_path, quasi_steady=None if case is None else case.recipe == QSTEADY_ROTOR
+        )
+        if record_warning is not None:
+            # 0.31.0: THE RECORD'S ONE REFUSAL, decided here: the log is judged
+            # as one solve, and the point's record says why.
+            stamp["warnings"] = [record_warning]
         solves = 1 if clockings is None else len(clockings)
         if self.log_file is None:
             # AUTO-DETECTION BY CONTENT, on the same ground the loads
@@ -2384,35 +2402,46 @@ def _judge_final_residuals(history: Sequence[ResidualSample], limit: float) -> _
 _CLOCKING_SEVERITY = (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER, RunStatus.FAILED_DIVERGED)
 
 
-def _wheel_clockings(loads_path: Path) -> list[dict[str, object]] | None:
-    """Return a quasi-steady wheel's clockings in the order its run solved them, or None.
+def _wheel_clockings(
+    loads_path: Path, *, quasi_steady: bool | None
+) -> tuple[tuple[QsteadyClocking, ...] | None, str | None]:
+    """Return a quasi-steady wheel's clockings in the order its run solved them, and a warning.
 
     Read from the point's quasi-steady record, which the run writes beside the
-    loads export (``<loads stem>_qsteady.json``): clockings 1 to k - 1 are
-    solved first and clocking 0 last, with the point's full exports
-    (:func:`pyflightstream.cases.workflows._build_qsteady_rotor`). None for
-    every point that is not a wheel of two clockings or more, including one
-    whose record cannot be read: that point's log is then judged as one
-    solve, which refuses a log of several.
+    loads export (``<loads stem>_qsteady.json``), by its one reader
+    (:func:`pyflightstream.cases.qsteady.read_qsteady_record`): clockings 1 to
+    k - 1 are solved first and clocking 0 last, with the point's full exports
+    (:meth:`~pyflightstream.cases.qsteady.QsteadyRecord.solve_order`). The
+    clockings are None for every point that is not a wheel of two clockings
+    or more, and the point's log is then judged as one solve, which refuses a
+    log of several.
+
+    THE RECORD'S REFUSAL IS DECIDED HERE (0.31.0). A point of the
+    ``qsteady_rotor`` run type (``quasi_steady`` True) whose record is
+    missing, unreadable or of another schema has its log judged as one solve,
+    and the returned warning says so for the point's record. A point of
+    another run type (``quasi_steady`` False) has no record to read: only the
+    quasi-steady builder writes one, and only its run type is a steady solve
+    repeated. Where the run type is not known (``quasi_steady`` None, a folder
+    judged without its case), a record on disk is read and one that is absent
+    says nothing.
     """
+    if quasi_steady is False:
+        return None, None
     path = loads_path.with_name(Path(qsteady_record_file_name(loads_path.name)).name)
-    if not path.is_file():
-        return None
+    if quasi_steady is None and not path.is_file():
+        return None, None
     try:
-        record = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    if not isinstance(record, dict):
-        return None
-    if record.get("run_type") != QSTEADY_ROTOR or record.get("case") != "wheel":
-        return None
-    positions = record.get("positions")
-    if not isinstance(positions, list) or len(positions) < 2:
-        return None
-    if not all(isinstance(entry, dict) for entry in positions):
-        return None
-    by_index = sorted(positions, key=lambda entry: int(entry.get("index", 0)))
-    return [*by_index[1:], by_index[0]]
+        record = read_qsteady_record(loads_path)
+    except QsteadyRecordError as error:
+        return None, (
+            f"{error}; its solver log is judged as one solve, so a log holding the solves "
+            "of several clockings is refused. Re-run the point so that its run writes the "
+            "record again"
+        )
+    if record.case != "wheel" or len(record.positions) < 2:
+        return None, None
+    return record.solve_order(), None
 
 
 def _judge_the_clockings(
@@ -2420,7 +2449,7 @@ def _judge_the_clockings(
     log_path: Path,
     report: LoadsReport,
     report_path: Path,
-    clockings: Sequence[Mapping[str, object]],
+    clockings: Sequence[QsteadyClocking],
     stamp: dict[str, object],
 ) -> Assessment:
     """Judge a quasi-steady wheel from the one log holding every clocking's solve.
@@ -2490,11 +2519,11 @@ def _judge_the_clockings(
     notes: list[str] = []
     errors: list[str] = []
     for clocking, history in zip(clockings, solves, strict=True):
-        index = clocking.get("index")
+        index = clocking.index
         judged = _judge_final_residuals(history, report.convergence_limit)
         status, error = judged.status, judged.error
-        loads = clocking.get("loads")
-        if index != 0 and isinstance(loads, str):
+        loads = clocking.loads
+        if index != 0:
             # EACH CLOCKING'S LOADS EXPORT IS OF ITS OWN SOLVE, held to it as
             # the point's own export is held to the last one.
             exported = report_path.with_name(Path(loads).name)
@@ -2514,7 +2543,7 @@ def _judge_the_clockings(
                 )
         verdict: dict[str, object] = {
             "index": index,
-            "clocking_deg": clocking.get("clocking_deg"),
+            "clocking_deg": clocking.clocking_deg,
             "status": str(status),
             "iterations": history[-1].iteration,
             "residual": judged.residual,
@@ -8500,10 +8529,17 @@ def _execute_point(
         base.get("export_window"),
         assessment.time_steps,
     )
+    # 0.31.0: what the judgment did without (an unreadable quasi-steady record).
+    for line in assessment.warnings or []:
+        warnings.warn(f"{point_name(case, point)}: {line}", PyflightstreamWarning, stacklevel=2)
     return RunRecord(
         **base,
         status=status,
-        warnings=[*post_warnings, *([step_warning] if step_warning else [])],
+        warnings=[
+            *post_warnings,
+            *(assessment.warnings or []),
+            *([step_warning] if step_warning else []),
+        ],
         iterations=assessment.iterations,
         residual=assessment.residual,
         fs_version_reported=assessment.fs_version_reported,

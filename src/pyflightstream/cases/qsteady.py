@@ -12,6 +12,11 @@ arithmetic and live here, below the builder that asks them:
 * whether a custom inflow varies with the radius alone (:func:`azimuthal_variation`),
   which is what a periodic sector can stand for.
 
+It also holds the point's quasi-steady record, ``<point>_qsteady.json``, as one
+type (:class:`QsteadyRecord`) with one reader (:func:`read_qsteady_record`) and
+one refusal (:class:`QsteadyRecordError`), beside the name of the file
+(:func:`record_file_name`): the builder writes it, the run and the post read it.
+
 The 1P reduced frequency of a blade station at radius ``r`` with chord ``c`` is::
 
     Omega = 2 pi RPM / 60                  (rad/s)
@@ -33,12 +38,14 @@ This module imports nothing from a higher layer; the builder in
 
 from __future__ import annotations
 
+import json
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePath
-from typing import Any
+from typing import Any, ClassVar
 
+from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import CampaignConfigError
 
 Vector = tuple[float, float, float]
@@ -570,6 +577,344 @@ def record_file_name(loads: str) -> str:
     """
     path = PurePath(loads)
     return str(path.with_name(f"{path.stem}{RECORD_SUFFIX}"))
+
+
+# --- the point's quasi-steady record (0.31.0): one type, one reader, one refusal ----
+#
+# ``<point>_qsteady.json`` is written by the builder and read by the run (which
+# judges a wheel's one solver log clocking by clocking) and by the post (the
+# rotor table's speed, the clockings and average tables, the validity). Until
+# 0.31.0 it had no type and two readers with two failure contracts: the post's
+# raised on a file it could not read and the run's returned None on the same
+# file. Its one type and its one reader live here, beside the name of the file,
+# and every failure is one refusal, :class:`QsteadyRecordError`; each caller
+# decides what the point loses.
+
+#: The one schema of the record this package writes and reads.
+RECORD_SCHEMA_VERSION = 1
+#: The run type a quasi-steady record is of: the builder's own name for it,
+#: ``pyflightstream.cases.workflows.QSTEADY_ROTOR``, which this module cannot
+#: import because the builder imports this module.
+RECORD_RUN_TYPE = "qsteady_rotor"
+#: The two cases a quasi-steady point is built as.
+RECORD_CASES: tuple[str, ...] = ("sector", "wheel")
+#: The record's keys, in the order the file holds them.
+_RECORD_KEYS: tuple[str, ...] = (
+    "schema_version",
+    "run_type",
+    "case",
+    "rotor",
+    "blades",
+    "rpm",
+    "shaft_frame_axis",
+    "hub_m",
+    "axis_vector",
+    "diameter_m",
+    "families_general",
+    "families_blades",
+    "blade1_azimuth_deg",
+    "positions",
+    "validity",
+)
+#: The keys of one clocking of the record, in the order the file holds them.
+_CLOCKING_KEYS: tuple[str, ...] = ("index", "clocking_deg", "rotated_deg", "loads")
+
+
+class QsteadyRecordError(PyflightstreamError, ValueError):
+    """A point's quasi-steady record is missing, unreadable, or of no schema this package writes.
+
+    The one refusal of :func:`read_qsteady_record`, whatever is wrong with the
+    file, so that the callers, and not the reader, decide what the point
+    loses: the run judges the point's solver log as one solve and records a
+    warning on the point; the post leaves out each product that needs the
+    record and names it in ``products.json`` and ``post.log``.
+    """
+
+
+@dataclass(frozen=True)
+class QsteadyClocking:
+    """One clocking a quasi-steady point was solved at, as its record states it.
+
+    ``clocking_deg`` is where blade one was turned to, in the sense of the
+    rotation; ``rotated_deg`` is the signed angle the surfaces were rotated
+    by; ``loads`` is the loads export that clocking's solve wrote.
+    """
+
+    index: int
+    clocking_deg: float
+    rotated_deg: float
+    loads: str
+
+    def as_json(self) -> dict[str, Any]:
+        """Return the clocking as the record's file holds it."""
+        return {
+            "index": self.index,
+            "clocking_deg": self.clocking_deg,
+            "rotated_deg": self.rotated_deg,
+            "loads": self.loads,
+        }
+
+
+@dataclass(frozen=True)
+class QsteadyRecord:
+    """The point's quasi-steady record, ``<point>_qsteady.json``, as one type.
+
+    The builder makes one and parks :meth:`to_text` beside the point's loads
+    export; the run and the post read it back with :func:`read_qsteady_record`.
+    One field per key of the file, except ``rotor``, held as
+    :attr:`rotor_alias` because it is the ALIAS of the rotor block the point
+    was built for, a name, and not that block (see
+    :func:`qsteady_record_rotor_alias`). ``validity`` is the plan's validity
+    record as the builder computed it, kept as it was written, or None where
+    the plan estimated none (a sector).
+
+    Examples
+    --------
+    >>> record = QsteadyRecord(
+    ...     case="sector", rotor_alias="PROP", blades=3, rpm=1200.0, shaft_frame_axis="X",
+    ...     hub_m=(0.0, 0.0, 0.0), axis_vector=(1.0, 0.0, 0.0), diameter_m=2.0,
+    ...     families_general=(), families_blades=("Blade1", "Blade2", "Blade3"),
+    ...     blade1_azimuth_deg=0.0,
+    ...     positions=(QsteadyClocking(0, 0.0, 0.0, "DP.txt"),), validity=None,
+    ... )
+    >>> [clocking.index for clocking in record.solve_order()]
+    [0]
+    >>> record.as_json()["rotor"]
+    'PROP'
+    """
+
+    #: The schema this type writes and reads (:data:`RECORD_SCHEMA_VERSION`).
+    schema_version: ClassVar[int] = RECORD_SCHEMA_VERSION
+    #: The run type the record is of (:data:`RECORD_RUN_TYPE`).
+    run_type: ClassVar[str] = RECORD_RUN_TYPE
+
+    case: str
+    rotor_alias: str
+    blades: int
+    rpm: float
+    shaft_frame_axis: str
+    hub_m: tuple[float, float, float]
+    axis_vector: tuple[float, float, float]
+    diameter_m: float
+    families_general: tuple[str, ...]
+    families_blades: tuple[str, ...]
+    blade1_azimuth_deg: float
+    positions: tuple[QsteadyClocking, ...]
+    validity: Mapping[str, Any] | None
+
+    def solve_order(self) -> tuple[QsteadyClocking, ...]:
+        """Return the clockings in the order the run solved them: 1 to k - 1, then 0.
+
+        Clocking 0 is solved LAST, with the point's full export set, so that
+        the solver log and the loads export the run judges the point by are
+        of one solve (``cases/workflows.py::_build_qsteady_rotor``).
+        """
+        by_index = sorted(self.positions, key=lambda clocking: clocking.index)
+        return (*by_index[1:], *by_index[:1])
+
+    def as_json(self) -> dict[str, Any]:
+        """Return the record as its file holds it, key for key and in the file's order."""
+        return {
+            "schema_version": self.schema_version,
+            "run_type": self.run_type,
+            "case": self.case,
+            "rotor": self.rotor_alias,
+            "blades": self.blades,
+            "rpm": self.rpm,
+            "shaft_frame_axis": self.shaft_frame_axis,
+            "hub_m": list(self.hub_m),
+            "axis_vector": list(self.axis_vector),
+            "diameter_m": self.diameter_m,
+            "families_general": list(self.families_general),
+            "families_blades": list(self.families_blades),
+            "blade1_azimuth_deg": self.blade1_azimuth_deg,
+            "positions": [clocking.as_json() for clocking in self.positions],
+            "validity": self.validity,
+        }
+
+    def to_text(self) -> str:
+        """Return the record's file: the JSON of :meth:`as_json`, indented by two, one newline."""
+        return json.dumps(self.as_json(), indent=2) + "\n"
+
+
+def qsteady_record_rotor_alias(data: Mapping[str, Any]) -> str:
+    """Return the rotor alias a quasi-steady record's JSON object names.
+
+    ``rotor`` in ``<point>_qsteady.json`` is the alias the builder
+    (``cases/workflows.py::_park_the_qsteady_record``) wrote, the NAME of the
+    rotor block the point was built for; it is not a read of the recorded
+    rotor block itself and shares that word by coincidence of vocabulary
+    (PFS-2030.03.02). The record's reader takes it here, and every other
+    module reads :attr:`QsteadyRecord.rotor_alias`.
+
+    Raises
+    ------
+    QsteadyRecordError
+        The object names no alias: the key is absent, or not a non-empty string.
+
+    Examples
+    --------
+    >>> qsteady_record_rotor_alias({"rotor": "PROP"})
+    'PROP'
+    """
+    alias = data.get("rotor")
+    if not isinstance(alias, str) or not alias.strip():
+        raise QsteadyRecordError(f"names no rotor alias under 'rotor' (it holds {alias!r})")
+    return alias
+
+
+def _record_number(value: object, key: str) -> float:
+    """Return a finite JSON number of the record, or refuse it naming its key."""
+    if isinstance(value, bool) or not isinstance(value, int | float) or not math.isfinite(value):
+        raise QsteadyRecordError(f"states no finite number under {key!r} (it holds {value!r})")
+    return value
+
+
+def _record_integer(value: object, key: str, *, least: int) -> int:
+    """Return a JSON integer of the record no smaller than ``least``, or refuse it."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < least:
+        raise QsteadyRecordError(
+            f"states no integer of at least {least} under {key!r} (it holds {value!r})"
+        )
+    return value
+
+
+def _record_text(value: object, key: str) -> str:
+    """Return a non-empty JSON string of the record, or refuse it naming its key."""
+    if not isinstance(value, str) or not value.strip():
+        raise QsteadyRecordError(f"states no name under {key!r} (it holds {value!r})")
+    return value
+
+
+def _record_vector(value: object, key: str) -> tuple[float, float, float]:
+    """Return three JSON numbers of the record, or refuse them naming their key."""
+    if not isinstance(value, list) or len(value) != 3:
+        raise QsteadyRecordError(f"states no three numbers under {key!r} (it holds {value!r})")
+    x, y, z = (_record_number(item, key) for item in value)
+    return (x, y, z)
+
+
+def _record_names(value: object, key: str) -> tuple[str, ...]:
+    """Return a JSON list of names of the record, or refuse it naming its key."""
+    if not isinstance(value, list):
+        raise QsteadyRecordError(f"states no list of names under {key!r} (it holds {value!r})")
+    return tuple(_record_text(item, key) for item in value)
+
+
+def _exact_keys(data: Mapping[str, Any], keys: Sequence[str], what: str) -> None:
+    """Refuse an object whose keys are not exactly ``keys``: a missing key or an unknown one."""
+    missing = [key for key in keys if key not in data]
+    unknown = sorted(str(key) for key in data if key not in keys)
+    if missing or unknown:
+        said = "; ".join(
+            part
+            for part in (
+                f"missing {missing}" if missing else "",
+                f"unknown {unknown}" if unknown else "",
+            )
+            if part
+        )
+        raise QsteadyRecordError(
+            f"is not a {what} of schema {RECORD_SCHEMA_VERSION}, the one this package writes: "
+            f"{said}"
+        )
+
+
+def _record_clocking(value: object, at: int) -> QsteadyClocking:
+    """Return clocking ``at`` of the record's ``positions``, or refuse it."""
+    if not isinstance(value, Mapping):
+        raise QsteadyRecordError(f"holds no object at positions[{at}] (it holds {value!r})")
+    _exact_keys(value, _CLOCKING_KEYS, f"clocking (positions[{at}])")
+    key = f"positions[{at}]"
+    index = _record_integer(value["index"], f"{key}.index", least=0)
+    if index != at:
+        raise QsteadyRecordError(
+            f"numbers its clocking at {key} {index}; the builder numbers them 0 to k - 1 "
+            "in order, so which export is which clocking's cannot be told"
+        )
+    return QsteadyClocking(
+        index=index,
+        clocking_deg=_record_number(value["clocking_deg"], f"{key}.clocking_deg"),
+        rotated_deg=_record_number(value["rotated_deg"], f"{key}.rotated_deg"),
+        loads=_record_text(value["loads"], f"{key}.loads"),
+    )
+
+
+def _parse_record(data: object) -> QsteadyRecord:
+    """Return the typed record of one parsed JSON document, or refuse it."""
+    if not isinstance(data, Mapping):
+        raise QsteadyRecordError(f"is not a JSON object (it holds a {type(data).__name__})")
+    version = data.get("schema_version")
+    if isinstance(version, bool) or version != RECORD_SCHEMA_VERSION:
+        raise QsteadyRecordError(
+            f"is of schema {version!r}; this package writes and reads schema "
+            f"{RECORD_SCHEMA_VERSION} only"
+        )
+    _exact_keys(data, _RECORD_KEYS, "record")
+    if data["run_type"] != RECORD_RUN_TYPE:
+        raise QsteadyRecordError(f"is of run type {data['run_type']!r}, not {RECORD_RUN_TYPE!r}")
+    case = data["case"]
+    if case not in RECORD_CASES:
+        raise QsteadyRecordError(f"is of case {case!r}, which is neither of {RECORD_CASES}")
+    positions = data["positions"]
+    if not isinstance(positions, list) or not positions:
+        raise QsteadyRecordError(f"states no clocking under 'positions' (it holds {positions!r})")
+    validity = data["validity"]
+    if validity is not None and not isinstance(validity, dict):
+        raise QsteadyRecordError(
+            f"states neither an object nor null under 'validity' (it holds {validity!r})"
+        )
+    return QsteadyRecord(
+        case=str(case),
+        rotor_alias=qsteady_record_rotor_alias(data),
+        blades=_record_integer(data["blades"], "blades", least=1),
+        rpm=_record_number(data["rpm"], "rpm"),
+        shaft_frame_axis=_record_text(data["shaft_frame_axis"], "shaft_frame_axis"),
+        hub_m=_record_vector(data["hub_m"], "hub_m"),
+        axis_vector=_record_vector(data["axis_vector"], "axis_vector"),
+        diameter_m=_record_number(data["diameter_m"], "diameter_m"),
+        families_general=_record_names(data["families_general"], "families_general"),
+        families_blades=_record_names(data["families_blades"], "families_blades"),
+        blade1_azimuth_deg=_record_number(data["blade1_azimuth_deg"], "blade1_azimuth_deg"),
+        positions=tuple(_record_clocking(value, at) for at, value in enumerate(positions)),
+        validity=validity,
+    )
+
+
+def read_qsteady_record(loads_path: Path) -> QsteadyRecord:
+    """Return the quasi-steady record the run wrote beside a point's loads export.
+
+    The one reader of ``<point>_qsteady.json`` (:func:`record_file_name` of the
+    loads export's name, in the loads export's folder), for the run and the
+    post alike.
+
+    Parameters
+    ----------
+    loads_path : Path
+        The point's own loads export; the record is read from beside it.
+
+    Raises
+    ------
+    QsteadyRecordError
+        The record is not on disk, cannot be read or parsed as JSON, is of
+        another schema than :data:`RECORD_SCHEMA_VERSION` or another run type,
+        misses a key or holds one this package does not write, or holds a
+        value of the wrong kind. One refusal for every case: the caller
+        decides what the point loses.
+    """
+    path = loads_path.with_name(Path(record_file_name(loads_path.name)).name)
+    if not path.is_file():
+        raise QsteadyRecordError(f"the quasi-steady record {path} is not on disk")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError) as error:
+        raise QsteadyRecordError(
+            f"the quasi-steady record {path} cannot be read: {error}"
+        ) from error
+    try:
+        return _parse_record(data)
+    except QsteadyRecordError as error:
+        raise QsteadyRecordError(f"the quasi-steady record {path} {error}") from None
 
 
 # --- the harmonic content of a custom inflow (0.30.0, ``plan --inflow-fft``) ----
