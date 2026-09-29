@@ -8,7 +8,8 @@ Every invocation ends with the package's signature on stderr (0.30.0): a box
 drawn from :mod:`pyflightstream._signature` for an outcome, or one short line
 for ``--help`` and ``--version`` so their output stays compact. For the length
 of the call, a warning of the package's own categories prints as
-``[warning] <message>`` with no file, line or echoed source; ``--verbose``
+``[warning] <message>`` with no file, line or echoed source, wrapped at 90
+columns under its text and followed by a blank line (0.31.0); ``--verbose``
 keeps Python's full format. A Python caller outside a console script is never
 touched.
 """
@@ -23,6 +24,7 @@ from contextvars import ContextVar
 from functools import wraps
 
 import pyflightstream._signature as _signature
+from pyflightstream._console import warning_text
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._progress import command_terminal
 
@@ -72,7 +74,7 @@ def _short_warnings(standard: Callable[..., str]) -> Callable[..., str]:
         line: str | None = None,
     ) -> str:
         if issubclass(category, PyflightstreamWarning):
-            return f"[warning] {message}\n"
+            return warning_text(message)
         return standard(message, category, filename, lineno, line)
 
     return formatwarning

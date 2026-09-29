@@ -198,6 +198,19 @@ reference_m_s=...)`). See [field operations](field-operations.md).
   `diameter_m`, as an `unsteady_rotor` row does, instead of the reference's
   top-level `rotor_diameter_m`. Where the two diameters differ, the speed of
   such a row changes; state the diameter you mean on the rotor block.
+- **The console of `plan` reads as titled blocks.** What `pyfs-matrix plan`
+  prints is grouped under short titles (`Warnings (n)`, `Cases`, `Blocked
+  points (n)`, `Rotor Mach numbers`, `Solver setup per case`, `Files written`
+  and the rest) with a blank line between two blocks, and a block with nothing
+  to say is not printed. Every console warning is wrapped at 90 columns and
+  followed by a blank line. The `[continuation] started` and `finished` lines
+  print only with `--verbose`, and stay in `logs/activity.log`. Nothing a
+  script reads changed: the exit codes, `plan.json` and the products are the
+  same, and the warnings are on stderr as before. A script that searched
+  `plan`'s stdout for a line should look again: the lines are indented under
+  their title, `guide written: <path>` reads `guide: <path>`, and the rotor
+  Mach numbers are one table row per rotor per point. See
+  [what plan prints](workspace-and-workflows.md#what-plan-prints).
 
 ## The guides and the site
 

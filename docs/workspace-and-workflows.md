@@ -297,11 +297,14 @@ point of an `unsteady_rotor` row, a `steady` row that states `RPM` and a
 row that names an actuator disc, `pyfs-matrix plan` prints the tip and
 helical Mach numbers of each rotor and disc, from the speed the run turns,
 the rotor's diameter (a disc's `tip_radius_m`) and the point's own free
-stream and speed of sound:
+stream and speed of sound, one row per rotor per point under the title
+`Rotor Mach numbers`:
 
 ```text
-  mach/sim_9001/M144RE438AL+000RPM03000: rotor PORT M_tip 0.554, M_hel 0.572
-  mach/sim_9001/M144RE438AL+000RPM06000: rotor PORT M_tip 1.108, M_hel 1.117
+Rotor Mach numbers
+  POL   point                    rotor       M_tip  M_hel
+  9001  M144RE438AL+000RPM03000  rotor PORT  0.554  0.572
+  9001  M144RE438AL+000RPM06000  rotor PORT  1.108  1.117
 ```
 
 and warns, naming each point, when a helical Mach number is 1 or more
@@ -312,7 +315,7 @@ helical Mach >= 1 on 1 polar point(s): POL 9001 point M144RE438AL+000RPM06000,
 rotor PORT, M_hel 1.117. ...
 ```
 
-A disc's line reads `actuator PROP M_tip ...`. The plan refuses nothing for
+A disc's row reads `actuator PROP` in the rotor column. The plan refuses nothing for
 the warning. A rotor whose reference states no diameter for it has no known
 radius: the plan says so naming the row instead of a number. The
 definitions, and where else the two numbers appear (the run record, the
@@ -3643,11 +3646,89 @@ stale, the post skips it under its own key and retires none of the run's
 products for it, and the next `--additional-pproc` extracts the new run
 (`test_g12_a_stale_extraction_is_skipped_and_retires_no_main_product`).
 
+### What plan prints
+
+`pyfs-matrix plan` prints its answer in blocks. Each block starts with a short
+title saying what it is, and one blank line separates two blocks; a block with
+nothing to say is not printed at all. A plan of two rotor rows that both block,
+with two warnings:
+
+```text
+pyfs-matrix plan
+  matrix: named.fs
+  campaign: camp
+  FlightStream build: 26.120
+
+Warnings (2)
+[warning] named.fs lies outside the workspace's matrix folders
+          (C:\work\camp and C:\work\camp\inputs\matrices): `sync` and the
+          repeated-POL census do not see it. Move it into one of the two folders.
+
+[warning] helical Mach >= 1 on 2 polar point(s): POL 9001 point M144RE438AL+000RPM06000,
+          rotor PORT, M_hel 1.117; POL 9002 point M144RE438AL+000RPM06000, rotor PORT,
+          M_hel 1.117. ...
+
+Cases
+  points: 0 ready, 4 blocked, 0 already recorded
+  solver installations: 1
+    the campaign's own installation: 2 case(s) (9001, 9002)
+
+Blocked points (4)
+  camp/sim_9001/M144RE438AL+000RPM03000
+    ScriptReferenceError: case '9001' states MOVING_BOUNDARIES with 'PORT', and
+    wing_clean.fsm carries no mesh block, so no boundary name can be read from it. ...
+  ...
+
+Rotor Mach numbers
+  POL   point                    rotor       M_tip  M_hel
+  9001  M144RE438AL+000RPM03000  rotor PORT  0.554  0.572
+  9001  M144RE438AL+000RPM06000  rotor PORT  1.108  1.117
+  9002  M144RE438AL+000RPM03000  rotor PORT  0.554  0.572
+  9002  M144RE438AL+000RPM06000  rotor PORT  1.108  1.117
+
+Solver setup per case
+  POL 9001 (FlightStream 26.120, setup s002)
+    settings: solver_model=None, boundary_layer=None, viscous_coupling=None
+    aliases: PORT
+    Singularity_strength: not carried (pproc singularity_strength = false)
+  POL 9002 (FlightStream 26.120, setup s002)
+    ...
+
+Files written
+  plan: C:\work\camp\post\named\plan.json
+```
+
+What each block says:
+
+- the header names the command, the matrix, the campaign and the FlightStream
+  build the campaign defaults to;
+- `Warnings (n)` is every warning the plan raised, each wrapped under its text
+  and followed by a blank line. A warning refuses nothing; read it before you
+  run;
+- `Cases` counts the points that are ready, blocked and already recorded, and
+  names the solver installations the cases run on;
+- `Blocked points (n)` names each point that cannot run, and why;
+- `Rotor Mach numbers` is one row per rotor and actuator disc per point, and
+  `Quasi-steady validity per point` the reduced frequency of each wheel point
+  (below);
+- `Solver setup per case` is each row's solver model, boundary layer and
+  viscous coupling, its aliases and, on a row with a Tecplot surface, whether
+  the surface carries `Singularity_strength`;
+- `Solver cost per point` is the `--cost` table (below);
+- `Files written` is the plan receipt `run` asks for and each guide the plan
+  wrote.
+
+The warnings go to stderr and everything else to stdout; the exit code is 1
+when a point is blocked and 0 otherwise. The `[continuation] started` and
+`finished` lines of each point print only with `--verbose`, which also prints
+each warning in Python's full format; `logs/activity.log` records them either
+way.
+
 ### Before you spend the seat: what the study will cost
 
 `plan` answers whether a row will run. It does not, on its own, answer what
 running it will cost, and the cost is a licence seat and an afternoon. Add
-`--cost` and it tables one row per point beside the READY and BLOCKED report:
+`--cost` and it tables one row per point under the title `Solver cost per point`:
 
 ```text
 pyfs-matrix plan matriz.fs --workspace . --fs-version 26.123 --cost
