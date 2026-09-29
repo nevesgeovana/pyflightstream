@@ -42,7 +42,12 @@ from pyflightstream.cases import (
     SimCase,
 )
 from pyflightstream.cases import qsteady as arithmetic
-from pyflightstream.cases.workflows import build_script, effective_fsi_config, qsteady_validity
+from pyflightstream.cases.workflows import (
+    QSTEADY_ROTOR,
+    build_script,
+    effective_fsi_config,
+    qsteady_validity,
+)
 from pyflightstream.fsi import centrifugal, driver, nodes
 from pyflightstream.fsi.config import FsiConfig
 from pyflightstream.run import _write_pending_files
@@ -315,3 +320,158 @@ def test_the_sector_call_solves_the_rotating_blade_at_the_configured_speed(tmp_p
     assert np.abs(written).max() > 0.0
     with pytest.raises(Exception, match="not ahead"):
         driver.coupling_step(tmp_path)
+
+
+# ------------------------------------------- D: plan --inflow-fft, per blade --
+
+
+def _ring_field(tmp_path: Path, axial) -> Path:
+    """A dense field on rings about the shaft: radii 0.05 to 1.2 m, 5 deg apart.
+
+    ``axial(theta)`` is the axial velocity at azimuth ``theta``; the in-plane
+    velocity is zero, so the field is the TOTAL velocity of an axial inflow.
+    """
+    rows = []
+    for i in range(24):
+        r = 0.05 * (i + 1)
+        for j in range(72):
+            theta = 2.0 * math.pi * j / 72
+            rows.append((0.0, r * math.cos(theta), r * math.sin(theta), axial(theta), 0.0, 0.0))
+    return _field(tmp_path, rows)
+
+
+def test_the_harmonic_order_is_the_smallest_n_holding_95_per_cent_of_the_variance():
+    """cos 3 psi is 3P; cos psi + 0.1 cos 7 psi holds 1 / 1.01 = 99 % in 1P; a constant, none."""
+    # P0300-QS-VALIDITY-PLAN
+    psi = [2.0 * math.pi * i / 360 for i in range(360)]
+    assert arithmetic.harmonic_order([math.cos(3 * p) for p in psi]) == 3
+    assert arithmetic.harmonic_order([math.cos(p) + 0.1 * math.cos(7 * p) for p in psi]) == 1
+    # 0.5 cos psi + cos 5 psi: 1P holds 0.25 / 1.25 = 20 %, so 95 % needs n = 5.
+    assert arithmetic.harmonic_order([0.5 * math.cos(p) + math.cos(5 * p) for p in psi]) == 5
+    assert arithmetic.harmonic_order([2.0] * 360) == 0
+
+
+def test_the_suggested_clockings_are_n_max_over_n_plus_one_rounded_up():
+    """k >= n_max / N + 1: 1P on 3 blades is 2; 6P on 3 blades is 3; 7P on 6 blades is 3."""
+    # P0300-QS-PASSAGE-POSITIONS
+    assert arithmetic.suggested_passage_positions(1, 3) == 2
+    assert arithmetic.suggested_passage_positions(6, 3) == 3
+    assert arithmetic.suggested_passage_positions(7, 6) == 3
+    assert arithmetic.suggested_passage_positions(0, 3) == 1
+
+
+def test_one_blade_meets_a_six_lobed_inflow_six_times_a_revolution(tmp_path):
+    """nP is counted on the blade: an axial inflow 30 (1 + 0.1 cos 6 theta) is 6P at every radius.
+
+    The blade's inflow angle phi = atan2(V_axial, Omega r) moves with the axial
+    speed, six times a turn; a uniform field moves nothing (0), and a cross wind
+    of 3 m/s, which the turning blade meets once per revolution, is 1P.
+    """
+    # P0300-QS-VALIDITY-PLAN
+    radii = (0.3, 0.6, 0.9)
+    lobed = _ring_field(tmp_path / "a", lambda t: 30.0 * (1.0 + 0.1 * math.cos(6 * t)))
+    rows = [[float(v) for v in line.split()] for line in lobed.read_text().splitlines()]
+    common = {"hub": (0, 0, 0), "axis": (1, 0, 0), "omega_rad_s": OMEGA, "radii_m": radii}
+    assert arithmetic.blade_inflow_harmonics(rows, **common) == (6, 6, 6)
+    uniform = [[*row[:3], 30.0, 0.0, 0.0] for row in rows]
+    assert arithmetic.blade_inflow_harmonics(uniform, **common) == (0, 0, 0)
+    cross = [[*row[:3], 30.0, 3.0, 0.0] for row in rows]
+    assert arithmetic.blade_inflow_harmonics(cross, **common) == (1, 1, 1)
+
+
+def test_the_plan_reports_k_eff_and_warns_when_the_row_states_too_few_clockings(tmp_path):
+    """Six-lobed inflow on a three-blade wheel of chord 0.2 m, 1200 rev/min, 30 m/s.
+
+    n95 = 6 at every station, so k_eff = 6 k_1P with k_1P = 0.2 Omega / (2 V_rel);
+    n_max = 6 and PASSAGE_POSITIONS >= 6 / 3 + 1 = 3, and the row states 2.
+    """
+    # P0300-QS-VALIDITY-PLAN
+    # P0300-QS-PASSAGE-POSITIONS
+    from types import SimpleNamespace
+
+    from pyflightstream.run import qsteady_validity_line
+    from pyflightstream.run.matrix import _warn_when_a_quasi_steady_point_leaves_its_assumption
+
+    obj = _blade_obj(tmp_path / "prop.obj")
+    lobed = _ring_field(tmp_path, lambda t: 30.0 * (1.0 + 0.1 * math.cos(6 * t)))
+    case = _with_obj(
+        _custom(_case(PASSAGE_POSITIONS="2"), lobed), obj, ("Blade1", "Blade2", "Blade3")
+    )
+    plain = qsteady_validity(case)
+    assert plain is not None and "inflow_fft" not in plain
+    validity = qsteady_validity(case, inflow_fft=True)
+    assert validity is not None
+    fft = validity["inflow_fft"]
+    assert fft["n95"] == [6] * len(validity["radius_m"]) and fft["n_max"] == 6
+    by_hand = [6 * OMEGA * 0.2 / (2.0 * math.hypot(30.0, OMEGA * r)) for r in validity["radius_m"]]
+    assert fft["k_eff"] == pytest.approx(by_hand, rel=1e-9)
+    assert fft["k_eff_max"] == pytest.approx(max(by_hand))
+    assert fft["suggested_passage_positions"] == 3 and fft["passage_positions"] == 2
+    assert fft["span_pct_k_eff_gt_0_1"] == pytest.approx(100.0)
+    plan = SimpleNamespace(
+        points=[
+            SimpleNamespace(
+                sim_id="9001", run_id="c/sim_9001/P", point={}, qsteady_validity=validity
+            )
+        ]
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _warn_when_a_quasi_steady_point_leaves_its_assumption(
+            SimpleNamespace(campaign=SimpleNamespace(sims=[])), plan
+        )
+    said = [str(w.message) for w in caught if issubclass(w.category, PyflightstreamWarning)]
+    assert any("k_eff > 0.1 over 100.0 % of the span" in text for text in said), said
+    assert any("PASSAGE_POSITIONS 2, the inflow needs 3" in text for text in said), said
+    assert any("not the N P a fixed surface" in text for text in said), said
+    assert "k per metre" not in qsteady_validity_line(validity)
+
+
+def test_the_plan_command_line_takes_inflow_fft(monkeypatch):
+    """`pyfs-matrix plan --inflow-fft` reaches plan_matrix(inflow_fft=True)."""
+    # P0300-QS-VALIDITY-PLAN
+    from pyflightstream.run import cli
+
+    seen: dict[str, object] = {}
+
+    def fake(*_args, **kwargs):
+        seen.update(kwargs)
+        raise ValueError("stop here")
+
+    monkeypatch.setattr(cli, "plan_matrix", fake)
+    parser = cli._build_parser()
+    args = parser.parse_args(["plan", "m.fs", "--workspace", ".", "--inflow-fft"])
+    assert args.inflow_fft is True
+    cli.main(["plan", "m.fs", "--workspace", ".", "--fs-version", "26.124", "--inflow-fft"])
+    assert seen.get("inflow_fft") is True
+
+
+def test_the_plan_through_the_campaign_carries_the_inflow_harmonics(tmp_path):
+    """plan_campaign(inflow_fft=True) puts the record on the point and its summary line."""
+    # P0300-QS-VALIDITY-PLAN
+    import sys
+
+    from pyflightstream.cases import Campaign
+    from pyflightstream.run import plan_campaign
+    from pyflightstream.workspace import CampaignWorkspace
+
+    lobed = _ring_field(tmp_path, lambda t: 30.0 * (1.0 + 0.1 * math.cos(6 * t)))
+    case = _custom(_case(PASSAGE_POSITIONS="3"), lobed)
+    campaign = Campaign(name="camp", fs_version="26.124", fs_exe=sys.executable, sims=[case])
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        plan = plan_campaign(
+            campaign,
+            workspace,
+            recipes={QSTEADY_ROTOR: build_script},
+            write_plan=False,
+            inflow_fft=True,
+        )
+    (point,) = plan.points
+    fft = point.qsteady_validity["inflow_fft"]
+    assert fft["n_max"] == 6 and fft["suggested_passage_positions"] == 3
+    # The chord is not known without a mesh: k_eff is not computed, and says so.
+    assert fft["k_eff_max"] is None and "k_eff is not computed" in str(fft["note"])
+    summary = plan.summary()
+    assert "inflow harmonics (per blade, nP): n_max 6" in summary

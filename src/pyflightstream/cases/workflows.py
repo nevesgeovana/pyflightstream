@@ -280,6 +280,7 @@ __all__ = [
     "STEADY_RUN_TYPES",
     "qsteady_case_kind",
     "qsteady_validity",
+    "qsteady_inflow_fft",
     "effective_fsi_config",
 ]
 
@@ -13947,8 +13948,23 @@ def _blade_stations_from_the_mesh(
     return radii, chords
 
 
-def qsteady_validity(case: SimCase) -> dict[str, object] | None:
+def qsteady_validity(case: SimCase, *, inflow_fft: bool = False) -> dict[str, object] | None:
     """Return the 1P reduced frequency of a quasi-steady wheel point, as the plan shows it.
+
+    With ``inflow_fft`` (``pyfs-matrix plan --inflow-fft``), a wheel point in a
+    custom inflow also carries, under ``inflow_fft``, the harmonic content of
+    that inflow as one blade meets it (:func:`qsteady_inflow_fft`).
+    """
+    record = _one_per_revolution_validity(case)
+    if record is not None and inflow_fft:
+        harmonics = qsteady_inflow_fft(case)
+        if harmonics is not None:
+            record = {**record, "inflow_fft": harmonics}
+    return record
+
+
+def _one_per_revolution_validity(case: SimCase) -> dict[str, object] | None:
+    """Return the 1P reduced frequency of a quasi-steady wheel point (:func:`qsteady_validity`).
 
     ``k = Omega c / (2 V_rel)`` at every station of blade one
     (:mod:`pyflightstream.cases.qsteady`), with the chord read off the mesh
@@ -14025,6 +14041,97 @@ def qsteady_validity(case: SimCase) -> dict[str, object] | None:
         "chord_m": list(frequencies.chords_m),
         "k": list(frequencies.k),
     }
+
+
+#: Stations of the blade read for the inflow's harmonics when the mesh gives
+#: none: equal bands from this fraction of the tip radius to the tip.
+_INFLOW_FFT_ROOT_FRACTION = 0.2
+
+
+def qsteady_inflow_fft(case: SimCase) -> dict[str, object] | None:
+    """Return the harmonic content of a quasi-steady wheel's custom inflow (``plan --inflow-fft``).
+
+    For each station of blade one (the chord read off the mesh, as
+    :func:`qsteady_validity` reads it; else equal bands from 0.2 of the tip
+    radius to the tip, and no ``k_eff``), the angle-of-attack perturbation ONE
+    BLADE meets over one revolution in the row's custom inflow, with the
+    rotation composed, and its harmonic order ``n95``
+    (:func:`pyflightstream.cases.qsteady.blade_inflow_harmonics`);
+    ``k_eff = n95 k_1P`` per station; ``n_max``, the highest ``n95``; and the
+    suggested ``PASSAGE_POSITIONS >= n_max / N + 1`` beside the row's own.
+
+    nP IS COUNTED ON THE BLADE: how many times one blade meets the
+    perturbation per revolution. It is not the blade-passing N P a fixed
+    surface near the rotor feels, nor what a balance under the whole rotor
+    measures (only the multiples of N P survive in the rotor's total, which is
+    why the clockings are read against ``n_max / N``).
+
+    NEVER RAISES for a row the builder would refuse: a point that is not a
+    quasi-steady wheel with a custom inflow returns None, and a field that
+    cannot be read returns a record whose ``note`` says why.
+    """
+    if case.recipe != QSTEADY_ROTOR:
+        return None
+    try:
+        if qsteady_case_kind(case) != "wheel":
+            return None
+        custom = _the_custom_freestream(case)
+        if custom is None:
+            return None
+        rotor = _the_isolated_rotor(case)
+        rpm = float(_qsteady_speed(case, rotor).rpm)
+        velocity = _velocity(case)
+        stated = _variable(case, PASSAGE_POSITIONS_VARIABLE)
+        declared = _passage_positions(case, "wheel") if stated is not None else None
+    except CampaignConfigError:
+        return None
+    omega = rpm * RAD_PER_S_PER_REV_PER_MIN
+    from .freestream import field_rows_in_metres
+
+    unit = getattr(case.mesh_import, "units", None)
+    native = str(unit) if unit else None
+    try:
+        _, rows = field_rows_in_metres(
+            Path(custom.path),
+            form=custom.form,
+            source_units=custom.source_units,
+            native_unit=native,
+        )
+    except (CampaignConfigError, OSError, UnicodeError) as error:
+        return {"note": f"POL {case.sim_id}: the custom inflow cannot be read: {error}"}
+    stations = _blade_stations_from_the_mesh(case, rotor)
+    if isinstance(stations, str):
+        tip = rotor.diameter_m / 2.0
+        count = _qsteady.DEFAULT_STATIONS
+        low = _INFLOW_FFT_ROOT_FRACTION * tip
+        width = (tip - low) / count
+        radii: tuple[float, ...] = tuple(low + (i + 0.5) * width for i in range(count))
+        k_1p: tuple[float, ...] | None = None
+        note: str | None = (
+            f"POL {case.sim_id}: the chord is not known at plan time ({stations}), so k_eff is "
+            "not computed; the harmonics are read at equal bands from 0.2 R to the tip"
+        )
+    else:
+        radii, chords = stations
+        try:
+            frequencies = _qsteady.reduced_frequencies(
+                radii, chords, omega_rad_s=omega, velocity_m_per_s=velocity, source="mesh"
+            )
+        except CampaignConfigError as error:
+            radii, k_1p, note = tuple(radii), None, f"POL {case.sim_id}: {error}"
+        else:
+            radii, k_1p, note = frequencies.radii_m, frequencies.k, None
+    orders = _qsteady.blade_inflow_harmonics(
+        rows, hub=rotor.origin, axis=rotor.axis_vector, omega_rad_s=omega, radii_m=radii
+    )
+    harmonics = _qsteady.InflowHarmonics(
+        radii_m=tuple(radii),
+        n95=orders,
+        k_1p=k_1p,
+        strips_m=_qsteady.strip_lengths(radii),
+        blades=rotor.blade_count,
+    )
+    return {**harmonics.record(declared_positions=declared), "note": note}
 
 
 def _park_the_qsteady_record(
