@@ -481,21 +481,28 @@ def _posted_qsteady(tmp_path: Path, case: str) -> tuple[dict, Path]:
     for record in records:
         if record.sim_id == "6001":
             loads = workspace.sim_dir("6001") / record.outputs[0]
-            positions = [{"index": 0, "clocking_deg": 0.0, "loads": loads.name}]
+            positions = [{"index": 0, "clocking_deg": 0.0, "rotated_deg": 0.0, "loads": loads.name}]
             if case == "wheel":
                 clocked = loads.with_name(loads.stem + "_qs01.txt")
                 clocked.write_text(
                     loads.read_text().replace("W,+0.0193288", "W,+0.0293288"), encoding="utf-8"
                 )
-                positions.append({"index": 1, "clocking_deg": 90.0, "loads": clocked.name})
+                positions.append(
+                    {"index": 1, "clocking_deg": 90.0, "rotated_deg": 90.0, "loads": clocked.name}
+                )
+            # 0.31.0: the whole record the builder writes, which its one
+            # reader refuses to take in part.
             quasi = {
+                "schema_version": 1,
                 "run_type": "qsteady_rotor",
                 "case": case,
                 "rotor": "PROP",
                 "blades": 2,
                 "rpm": 1200.0,
+                "shaft_frame_axis": "X",
                 "hub_m": [0.0, 0.0, 0.0],
                 "axis_vector": [1.0, 0.0, 0.0],
+                "diameter_m": 2.0,
                 "families_general": [],
                 "families_blades": ["W", "B"],
                 "blade1_azimuth_deg": 0.0,

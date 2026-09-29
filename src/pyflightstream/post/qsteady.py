@@ -5,7 +5,9 @@ steady solves of a whole wheel at ``PASSAGE_POSITIONS`` clockings inside one
 blade passage. The run leaves, beside the point's own loads export, the
 point's quasi-steady record (``<point>_qsteady.json``: the case, the rotor,
 each clocking and the loads export it wrote, the plan's validity record) and
-one loads export per further clocking. This module reads them and writes:
+one loads export per further clocking. This module reads them (the record
+as :class:`pyflightstream.cases.qsteady.QsteadyRecord`, through its one
+reader, which the product stage calls) and writes:
 
 * the CLOCKINGS table, ``polars/P<sim>-<ALIAS>_qs_positions.csv``: one row
   per point and clocking, the rotor's loads and each blade's at that clocking,
@@ -47,11 +49,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from pyflightstream._errors import ProductError
 from pyflightstream._tokens import CONTEXT_COLUMNS, NOT_APPLICABLE, POLAR_ID_COLUMN
 from pyflightstream.cases.qsteady import (
     REDUCED_FREQUENCY_LIMIT,
     REDUCED_FREQUENCY_WATCH,
+    QsteadyRecord,
     record_file_name,
     reduced_frequencies,
     reduced_frequency,
@@ -60,7 +62,6 @@ from pyflightstream.cases.qsteady import (
 )
 from pyflightstream.post._tables import _cell, context_row, write_csv_table
 from pyflightstream.results import parse_loads
-from pyflightstream.workspace.inputs import qsteady_record_rotor_alias
 
 #: The point's validity, carried by every quasi-steady product of the point.
 VALIDITY_COLUMNS: tuple[str, ...] = (
@@ -107,41 +108,22 @@ AVERAGE_SUFFIX = "_qs_avg.csv"
 ShaftLoads = Callable[..., Any]
 
 
-def read_qsteady_record(loads_path: Path) -> dict[str, Any] | None:
-    """Return the quasi-steady record the run wrote beside a point's loads export, or None.
-
-    Raises
-    ------
-    ProductError
-        The record is there and is not JSON of an object.
-    """
-    path = loads_path.with_name(Path(record_file_name(loads_path.name)).name)
-    if not path.is_file():
-        return None
-    try:
-        record = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, ValueError) as error:
-        raise ProductError(f"the quasi-steady record {path} cannot be read: {error}") from error
-    if not isinstance(record, dict):
-        raise ProductError(f"the quasi-steady record {path} is not an object")
-    return record
-
-
-def rotor_speed(record: Mapping[str, Any], alias: str) -> float | None:
+def rotor_speed(record: QsteadyRecord, alias: str) -> float | None:
     """Return the speed, in rev/min and signed, a point's run turned rotor ``alias`` at.
 
     The row's speed as the builder resolved it and wrote it in the point's
     quasi-steady record (the free stream turns at it). None where the record
-    is of another rotor or states no number.
+    is of another rotor. The record is read by
+    :func:`pyflightstream.cases.qsteady.read_qsteady_record`, which refuses one
+    that states no number.
     """
-    stated = record.get("rpm")
-    if str(record.get("rotor")) != str(alias) or isinstance(stated, bool):
+    if record.rotor_alias != str(alias):
         return None
-    return float(stated) if isinstance(stated, int | float) else None
+    return float(record.rpm)
 
 
-def _omega(record: Mapping[str, Any]) -> float:
-    return float(record["rpm"]) * 2.0 * math.pi / 60.0
+def _omega(record: QsteadyRecord) -> float:
+    return float(record.rpm) * 2.0 * math.pi / 60.0
 
 
 def _number(text: object) -> float | None:
@@ -177,9 +159,9 @@ class PointValidity:
         return tuple(self.values.get(column) for column in VALIDITY_COLUMNS)
 
 
-def validity_of_the_plan(record: Mapping[str, Any]) -> PointValidity:
+def validity_of_the_plan(record: QsteadyRecord) -> PointValidity:
     """Return the validity the plan estimated from the mesh, the shares not known."""
-    plan = record.get("validity") or {}
+    plan = record.validity or {}
     if not isinstance(plan, Mapping) or plan.get("note") or "k_min" not in plan:
         return PointValidity({})
     return PointValidity(
@@ -203,7 +185,7 @@ def validity_cells(validity: PointValidity) -> dict[str, str]:
 
 
 def write_point_validity_file(
-    loads_path: Path, record: Mapping[str, Any], validity: PointValidity
+    loads_path: Path, record: QsteadyRecord, validity: PointValidity
 ) -> Path:
     """Write a wheel point's validity after the run, beside its loads export (0.30.0).
 
@@ -225,15 +207,15 @@ def write_point_validity_file(
     path = loads_path.with_name(Path(validity_file_name(loads_path.name)).name)
     payload = {
         "schema_version": 1,
-        "run_type": record.get("run_type"),
-        "case": record.get("case"),
-        "rotor": record.get("rotor"),
-        "rpm": record.get("rpm"),
+        "run_type": record.run_type,
+        "case": record.case,
+        "rotor": record.rotor_alias,
+        "rpm": record.rpm,
         "run_record": Path(record_file_name(loads_path.name)).name,
         "validity": {
             column: value for column, value in zip(VALIDITY_COLUMNS, validity.cells(), strict=True)
         },
-        "plan": record.get("validity"),
+        "plan": record.validity,
         "written_by": "the post stage; the run record beside it is not rewritten",
     }
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -241,7 +223,7 @@ def write_point_validity_file(
 
 
 def add_reduced_frequency_to_sections(
-    path: Path, record: Mapping[str, Any], *, velocity_m_per_s: float
+    path: Path, record: QsteadyRecord, *, velocity_m_per_s: float
 ) -> PointValidity | None:
     """Give a wheel point's sections table ``K_1P`` per station and the point's validity.
 
@@ -262,7 +244,7 @@ def add_reduced_frequency_to_sections(
     index = {name: at for at, name in enumerate(columns)}
     if not {"ROTOR", "Offset", "Chord", "Fx", "Fz"} <= set(index):
         return None
-    alias = qsteady_record_rotor_alias(record)
+    alias = record.rotor_alias
     omega = _omega(record)
     k_of_row: list[float | None] = []
     for row in rows:
@@ -282,7 +264,7 @@ def add_reduced_frequency_to_sections(
     candidates = [at for at, k in enumerate(k_of_row) if k is not None]
     if not candidates:
         return None
-    families = [str(name) for name in record.get("families_blades") or []]
+    families = list(record.families_blades)
     present = {rows[at][index["FAMILY"]] for at in candidates} if "FAMILY" in index else set()
     first = next((family for family in families if family in present), None)
     chosen = (
@@ -336,10 +318,10 @@ def add_reduced_frequency_to_sections(
     return validity
 
 
-def _view(record: Mapping[str, Any], members: Sequence[str]) -> SimpleNamespace:
-    hub = record["hub_m"]
+def _view(record: QsteadyRecord, members: Sequence[str]) -> SimpleNamespace:
+    hub = record.hub_m
     return SimpleNamespace(
-        axis_vector=tuple(float(v) for v in record["axis_vector"]),
+        axis_vector=tuple(float(v) for v in record.axis_vector),
         x_m=float(hub[0]),
         y_m=float(hub[1]),
         z_m=float(hub[2]),
@@ -365,7 +347,7 @@ class Clocking:
 
 
 def clockings_of(
-    record: Mapping[str, Any],
+    record: QsteadyRecord,
     folder: Path,
     *,
     reference: Any,
@@ -379,18 +361,18 @@ def clockings_of(
     (:func:`pyflightstream.post.products.rotor_shaft_loads`) at that export's
     reference velocity and the point's density.
     """
-    families = [str(name) for name in record.get("families_blades") or []]
-    members = [*(str(name) for name in record.get("families_general") or []), *families]
-    datum = float(record.get("blade1_azimuth_deg") or 0.0)
+    families = list(record.families_blades)
+    members = [*record.families_general, *families]
+    datum = float(record.blade1_azimuth_deg)
     found: list[Clocking] = []
-    for position in record.get("positions") or []:
-        path = folder / Path(str(position["loads"])).name
+    for position in record.positions:
+        path = folder / Path(position.loads).name
         if not path.is_file():
-            return f"the loads export of clocking {position['index']}, {path.name}, is not on disk"
+            return f"the loads export of clocking {position.index}, {path.name}, is not on disk"
         try:
             report = parse_loads(path.read_text(encoding="utf-8", errors="replace"))
         except Exception as error:  # noqa: BLE001 -- any unreadable export is named, not raised
-            return f"the loads export of clocking {position['index']}, {path.name}: {error}"
+            return f"the loads export of clocking {position.index}, {path.name}: {error}"
         speed = report.reference_velocity_m_s or report.freestream_velocity_m_s
         arguments = {
             "reference": reference,
@@ -409,18 +391,18 @@ def clockings_of(
             )
         found.append(
             Clocking(
-                int(position["index"]),
-                (datum + float(position["clocking_deg"])) % 360.0,
+                position.index,
+                (datum + float(position.clocking_deg)) % 360.0,
                 tuple(values),
             )
         )
     return sorted(found, key=lambda clocking: clocking.index)
 
 
-def load_columns(record: Mapping[str, Any]) -> tuple[str, ...]:
+def load_columns(record: QsteadyRecord) -> tuple[str, ...]:
     """Return the loads columns of a rotor's tables: the rotor's, then each blade's."""
-    alias = qsteady_record_rotor_alias(record)
-    families = [str(name) for name in record.get("families_blades") or []]
+    alias = record.rotor_alias
+    families = list(record.families_blades)
     return tuple(f"{name}_{owner}" for owner in (alias, *families) for name in LOAD_NAMES)
 
 
@@ -437,7 +419,7 @@ class WheelPoint:
 
     pol: str
     condition: Mapping[str, object]
-    record: Mapping[str, Any]
+    record: QsteadyRecord
     clockings: list[Clocking]
     validity: PointValidity
 
@@ -463,7 +445,7 @@ def write_qsteady_tables(
     average_rows = []
     for point in usable:
         context = context_row(point.condition, lengths)
-        alias = qsteady_record_rotor_alias(point.record)
+        alias = point.record.rotor_alias
         count = len(point.clockings)
         for clocking in point.clockings:
             position_rows.append(

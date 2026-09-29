@@ -14232,34 +14232,33 @@ def _park_the_qsteady_record(
             "named after it."
         )
     sign = 1.0 if speed.rpm >= 0.0 else -1.0
-    record = {
-        "schema_version": 1,
-        "run_type": QSTEADY_ROTOR,
-        "case": kind,
-        "rotor": rotor.alias,
-        "blades": rotor.blade_count,
-        "rpm": speed.rpm,
-        "shaft_frame_axis": _the_shaft_letter(rotor),
-        "hub_m": list(rotor.origin),
-        "axis_vector": list(rotor.axis_vector),
-        "diameter_m": rotor.diameter_m,
-        "families_general": list(rotor.families_general),
-        "families_blades": list(rotor.families_blades),
-        "blade1_azimuth_deg": rotor.blade1.azimuth_deg,
-        "positions": [
-            {
-                "index": index,
-                "clocking_deg": angle,
-                "rotated_deg": sign * angle,
-                "loads": loads if index == 0 else _qsteady.position_loads_name(loads, index),
-            }
+    # ONE TYPE FOR THE WRITER AND THE READERS (0.31.0): the file is the typed
+    # record's own text, so what `read_qsteady_record` reads back is what was
+    # written, key for key and in the same order.
+    record = _qsteady.QsteadyRecord(
+        case=kind,
+        rotor_alias=rotor.alias,
+        blades=rotor.blade_count,
+        rpm=speed.rpm,
+        shaft_frame_axis=_the_shaft_letter(rotor),
+        hub_m=rotor.origin,
+        axis_vector=rotor.axis_vector,
+        diameter_m=rotor.diameter_m,
+        families_general=tuple(rotor.families_general),
+        families_blades=tuple(rotor.families_blades),
+        blade1_azimuth_deg=rotor.blade1.azimuth_deg,
+        positions=tuple(
+            _qsteady.QsteadyClocking(
+                index=index,
+                clocking_deg=angle,
+                rotated_deg=sign * angle,
+                loads=loads if index == 0 else _qsteady.position_loads_name(loads, index),
+            )
             for index, angle in enumerate(angles)
-        ],
-        "validity": qsteady_validity(case),
-    }
-    script._pending_input_files[_qsteady.record_file_name(loads)] = (
-        json.dumps(record, indent=2) + "\n"
+        ),
+        validity=qsteady_validity(case),
     )
+    script._pending_input_files[_qsteady.record_file_name(loads)] = record.to_text()
     return loads
 
 

@@ -410,13 +410,17 @@ LOADS = """\
 """
 
 
-def _clocked_point(tmp_path: Path) -> tuple[dict, Path]:
-    """Two clockings of a three-blade wheel, blade Cx 0.1/0.2/0.3 then 0.3/0.2/0.1."""
+def _clocked_point(tmp_path: Path) -> tuple[arithmetic.QsteadyRecord, Path]:
+    """Two clockings of a three-blade wheel, blade Cx 0.1/0.2/0.3 then 0.3/0.2/0.1.
+
+    The record is the builder's own, written where the run leaves it and read
+    back by its one reader (0.31.0: the post takes the typed record).
+    """
     _, script = _lines(_case(PASSAGE_POSITIONS="2", ALPHA_POINT=5.0))
-    record = json.loads(str(script.pending_input_files["DP_qsteady.json"]))
+    (tmp_path / "DP_qsteady.json").write_text(str(script.pending_input_files["DP_qsteady.json"]))
     (tmp_path / "DP.txt").write_text(LOADS.format(c1="+0.1", c2="+0.2", c3="+0.3"))
     (tmp_path / "DP_qs01.txt").write_text(LOADS.format(c1="+0.3", c2="+0.2", c3="+0.1"))
-    return record, tmp_path
+    return arithmetic.read_qsteady_record(tmp_path / "DP.txt"), tmp_path
 
 
 REFERENCE = ReferenceValues(sref_m2=3.14, cref_m=0.2, bref_m=2.0)
@@ -522,7 +526,23 @@ def test_the_sections_carry_k_per_station_and_the_shares(tmp_path):
         )
     ]
     table.write_text("\n".join([header, *rows, "9001,60,Wing,XZ,NA,NA,1.0,0.3,0,0,1,1,0"]) + "\n")
-    record = {"rotor": "PROP", "rpm": 1200.0, "families_blades": ["Blade1", "Blade2", "Blade3"]}
+    # 0.31.0: the post takes the typed record; the three values this test
+    # states (the rotor, its speed, its blade families) are unchanged.
+    record = arithmetic.QsteadyRecord(
+        case="wheel",
+        rotor_alias="PROP",
+        blades=3,
+        rpm=1200.0,
+        shaft_frame_axis="X",
+        hub_m=(0.0, 0.0, 0.0),
+        axis_vector=(1.0, 0.0, 0.0),
+        diameter_m=2.0,
+        families_general=(),
+        families_blades=("Blade1", "Blade2", "Blade3"),
+        blade1_azimuth_deg=0.0,
+        positions=(arithmetic.QsteadyClocking(0, 0.0, 0.0, "DP.txt"),),
+        validity=None,
+    )
     validity = post_qsteady.add_reduced_frequency_to_sections(table, record, velocity_m_per_s=30.0)
     assert validity is not None
     head, *lines = table.read_text().splitlines()
@@ -584,19 +604,27 @@ def test_the_post_stage_writes_the_clockings_and_the_average_of_a_recorded_wheel
         if record.sim_id == "6001":
             loads = workspace.sim_dir("6001") / record.outputs[0]
             quasi = {
+                "schema_version": 1,
                 "run_type": QSTEADY_ROTOR,
                 "case": "wheel",
                 "rotor": "PROP",
                 "blades": 2,
                 "rpm": 1200.0,
+                "shaft_frame_axis": "X",
                 "hub_m": [0.0, 0.0, 0.0],
                 "axis_vector": [1.0, 0.0, 0.0],
+                "diameter_m": 2.0,
                 "families_general": [],
                 "families_blades": ["W", "B"],
                 "blade1_azimuth_deg": 0.0,
                 "positions": [
-                    {"index": 0, "clocking_deg": 0.0, "loads": loads.name},
-                    {"index": 1, "clocking_deg": 90.0, "loads": loads.stem + "_qs01.txt"},
+                    {"index": 0, "clocking_deg": 0.0, "rotated_deg": 0.0, "loads": loads.name},
+                    {
+                        "index": 1,
+                        "clocking_deg": 90.0,
+                        "rotated_deg": 90.0,
+                        "loads": loads.stem + "_qs01.txt",
+                    },
                 ],
                 "validity": None,
             }

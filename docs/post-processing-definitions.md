@@ -1756,3 +1756,12 @@ The steady polar table and the rotor table of a quasi-steady point do not
 carry the validity columns: their columns are a fixed contract a reader's
 scripts index, and no line precedes a CSV header, so a reader of those two
 finds the point's values in its super-file row and in its validity file.
+
+**A point whose quasi-steady record cannot be read** (missing, not JSON, of a
+schema other than the one the package writes, or holding a key it does not
+write) keeps every product that does not need the record, and loses, each by
+name in `products.json` `skipped` and as a WARNING line in `post.log`, the ones
+that do: its row of the rotor table (the speed is the record's), its rows of the
+clockings and average tables, and, where it has a sections table, that
+table's `K_1P` column and validity columns. The reason given is the record's
+own refusal, naming the file. The post never stops on it.

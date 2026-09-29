@@ -3314,6 +3314,11 @@ torque from the stations above 0.1, and writes the point's values into
 hashed input of the run and is not rewritten); the sections, the clockings
 and average tables and the point's super-file row carry the same values
 ([the definitions](post-processing-definitions.md#the-quasi-steady-rotor)).
+The record has one reader, `pyflightstream.cases.qsteady.read_qsteady_record`,
+which returns it as a `QsteadyRecord` and refuses a record that is missing,
+unreadable or of another schema with one error, `QsteadyRecordError`. The run
+then judges the point's solver log as one solve and says so in the point's
+record `warnings`; the post names every product the point loses.
 
 **The harmonics of a custom inflow: `pyfs-matrix plan --inflow-fft`.** The 1P
 `k` measures the slowest change a blade meets; a custom inflow can make it

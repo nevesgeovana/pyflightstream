@@ -122,6 +122,7 @@ from pyflightstream.cases import (
     select_families,
     select_group_members,
 )
+from pyflightstream.cases.qsteady import QsteadyRecordError, read_qsteady_record
 from pyflightstream.cases.windows import AZIMUTHAL, averaging_span, regate, replan
 from pyflightstream.cases.workflows import (
     BLADE_FAMILIES_KEY,
@@ -2190,13 +2191,14 @@ def _rotor_tables(
             # multiplying by the copies; a wheel's clocking 0, whose mean with
             # the other clockings is the average table's.
             if rpm is None and record.recipe == QSTEADY_ROTOR:
+                # A RECORD THAT CANNOT BE READ costs this point its row, named
+                # (0.31.0: one reader, one refusal, the caller decides).
                 try:
-                    quasi = _qsteady.read_qsteady_record(point.loads_path)
-                except ProductError as error:
+                    quasi = read_qsteady_record(point.loads_path)
+                except QsteadyRecordError as error:
                     left_out.append((run_id, f"{point.name}: {error}"))
                     continue
-                if quasi is not None:
-                    rpm = _qsteady.rotor_speed(quasi, str(alias))
+                rpm = _qsteady.rotor_speed(quasi, str(alias))
             own = getattr(point, "state", None)
             density = (
                 own.density_kg_m3
@@ -4854,13 +4856,15 @@ def _qsteady_sections(
     if record is None or record.recipe != QSTEADY_ROTOR:
         return {}
     try:
-        quasi = _qsteady.read_qsteady_record(point.loads_path)
-        if quasi is None or quasi.get("case") != "wheel":
+        # A record that cannot be read is a named skip of the column (0.31.0),
+        # as a quasi-steady point always has one.
+        quasi = read_qsteady_record(point.loads_path)
+        if quasi.case != "wheel":
             return {}
         validity = _qsteady.add_reduced_frequency_to_sections(
             table, quasi, velocity_m_per_s=float(point.loads.freestream_velocity_m_s)
         )
-    except (ProductError, CampaignConfigError, KeyError, ValueError) as error:
+    except (QsteadyRecordError, CampaignConfigError, KeyError, ValueError) as error:
         skipped[f"{SECTIONS_DIR}/{point.name}_sections.csv#k_1p"] = str(error)
         return {}
     return {} if validity is None else {point.name: validity}
@@ -4879,10 +4883,10 @@ def _qsteady_super_cells(
     if record is None or record.recipe != QSTEADY_ROTOR:
         return {}
     try:
-        quasi = _qsteady.read_qsteady_record(point.loads_path)
-    except ProductError:
+        quasi = read_qsteady_record(point.loads_path)
+    except QsteadyRecordError:
         return {}
-    if quasi is None or quasi.get("case") != "wheel":
+    if quasi.case != "wheel":
         return {}
     validity = validity_of.get(point.name) or _qsteady.validity_of_the_plan(quasi)
     return _qsteady.validity_cells(validity)
@@ -4917,19 +4921,16 @@ def _qsteady_products(
         record = record_of.get(point.name)
         if record is None or record.recipe != QSTEADY_ROTOR:
             continue
+        # A MISSING, UNREADABLE OR UNKNOWN RECORD is one refusal (0.31.0), and
+        # the point is named under the clockings tables' key, never a traceback.
         try:
-            quasi = _qsteady.read_qsteady_record(point.loads_path)
-        except ProductError as error:
+            quasi = read_qsteady_record(point.loads_path)
+        except QsteadyRecordError as error:
             left_out.setdefault("?", []).append(f"{point.name}: {error}")
             continue
-        if quasi is None:
-            left_out.setdefault("?", []).append(
-                f"{point.name}: no quasi-steady record beside its loads export"
-            )
-            continue
-        alias = str(quasi["rotor"])
+        alias = quasi.rotor_alias
         validity = validity_of.get(point.name) or _qsteady.validity_of_the_plan(quasi)
-        if quasi.get("case") == "wheel":
+        if quasi.case == "wheel":
             # 0.30.0: THE WHEEL POINT'S VALIDITY AFTER THE RUN, in its datapoint
             # folder beside the run's record, the shares of thrust and torque
             # from the stations above k = 0.1 included (0.30.0).

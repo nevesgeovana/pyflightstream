@@ -667,10 +667,28 @@ def test_the_point_validity_file_carries_the_shares_of_thrust_and_torque(tmp_pat
     """The post's file beside the run's record: every validity value, the shares included."""
     # P0300-QS-VALIDITY-FILE
     # P0300-QS-VALIDITY-SHARE
+    from pyflightstream.cases.qsteady import QsteadyClocking, QsteadyRecord
     from pyflightstream.post import qsteady as post_qsteady
 
     loads = tmp_path / "DP.txt"
-    record = {"run_type": QSTEADY_ROTOR, "case": "wheel", "rotor": "PROP", "rpm": 1200.0}
+    # 0.31.0: the post takes the typed record; its run type, case, rotor and
+    # speed are this test's four values, unchanged.
+    record = QsteadyRecord(
+        case="wheel",
+        rotor_alias="PROP",
+        blades=2,
+        rpm=1200.0,
+        shaft_frame_axis="X",
+        hub_m=(0.0, 0.0, 0.0),
+        axis_vector=(1.0, 0.0, 0.0),
+        diameter_m=2.0,
+        families_general=(),
+        families_blades=("W", "B"),
+        blade1_azimuth_deg=0.0,
+        positions=(QsteadyClocking(0, 0.0, 0.0, "DP.txt"),),
+        validity=None,
+    )
+    assert record.run_type == QSTEADY_ROTOR
     validity = post_qsteady.PointValidity(
         {
             "K_1P_MIN": 0.03,
@@ -722,17 +740,22 @@ def test_the_post_stage_leaves_each_wheel_point_its_validity_and_the_super_file_
             loads = workspace.sim_dir("6001") / record.outputs[0]
             loads_of.append(loads)
             quasi = {
+                "schema_version": 1,
                 "run_type": QSTEADY_ROTOR,
                 "case": "wheel",
                 "rotor": "PROP",
                 "blades": 2,
                 "rpm": 1200.0,
+                "shaft_frame_axis": "X",
                 "hub_m": [0.0, 0.0, 0.0],
                 "axis_vector": [1.0, 0.0, 0.0],
+                "diameter_m": 2.0,
                 "families_general": [],
                 "families_blades": ["W", "B"],
                 "blade1_azimuth_deg": 0.0,
-                "positions": [{"index": 0, "clocking_deg": 0.0, "loads": loads.name}],
+                "positions": [
+                    {"index": 0, "clocking_deg": 0.0, "rotated_deg": 0.0, "loads": loads.name}
+                ],
                 "validity": plan,
             }
             loads.with_name(loads.stem + "_qsteady.json").write_text(json.dumps(quasi))
@@ -773,9 +796,23 @@ def test_the_sections_validity_wins_the_plan_in_the_super_file_row(tmp_path):
     from pyflightstream.post.products import _qsteady_super_cells
 
     loads = tmp_path / "DP.txt"
+    # 0.31.0: the record on disk is the whole record the builder writes, which
+    # its one reader refuses to take in part; the plan's values are unchanged.
     quasi = {
+        "schema_version": 1,
+        "run_type": QSTEADY_ROTOR,
         "case": "wheel",
         "rotor": "PROP",
+        "blades": 2,
+        "rpm": 1200.0,
+        "shaft_frame_axis": "X",
+        "hub_m": [0.0, 0.0, 0.0],
+        "axis_vector": [1.0, 0.0, 0.0],
+        "diameter_m": 2.0,
+        "families_general": [],
+        "families_blades": ["W", "B"],
+        "blade1_azimuth_deg": 0.0,
+        "positions": [{"index": 0, "clocking_deg": 0.0, "rotated_deg": 0.0, "loads": "DP.txt"}],
         "validity": {
             "k_min": 0.01,
             "k_max": 0.02,

@@ -76,6 +76,7 @@ from pyflightstream.cases import (
     CampaignConfigError,
 )
 from pyflightstream.cases.matrix import MatrixError
+from pyflightstream.cases.qsteady import QsteadyRecordError
 from pyflightstream.cases.workflows import BuildCapabilityError, WorkflowCoverageError
 from pyflightstream.commands import CommandDatabaseError, CommandNotInVersionError
 from pyflightstream.extras import (
@@ -185,6 +186,7 @@ __all__ = [
     "PyflightstreamError",
     "PyflightstreamWarning",
     "QaEvidenceError",
+    "QsteadyRecordError",
     "RetiredAttributeError",
     "ScriptDeclarationTypeError",
     "ScriptLabelError",
