@@ -993,6 +993,16 @@ class SubmittingExecutor:
         refusal = _unmapped_build_refusal(self.profile, [values.get("fs_build")])
         if refusal is not None:
             raise CampaignConfigError(refusal)
+        if _a_steady_coupled_script(Path(script_path)):
+            # FSI-G: a steady coupled script never exits by itself; only a local
+            # run reads its completion line and stops it, and a submitted job
+            # would hold its node until the wall clock.
+            raise CampaignConfigError(
+                f"{Path(script_path).name} is a steady coupled run (it ends at "
+                "EXECUTE_AEROELASTIC_ANALYSIS), whose process never exits by itself: a "
+                "local run stops it once the analysis ends, and a submitted job would hold "
+                "its node until the wall clock. Run it with --local in this release."
+            )
         build = values.get("fs_build")
         if build and _canonical_build(build) in (getattr(self.profile, "builds", None) or {}):
             values[HPC_BUILD_ALIAS] = self.profile.builds[_canonical_build(build)]
@@ -1106,6 +1116,122 @@ def _progress_line(step: int, total: int, elapsed_s: float) -> str:
         f"        [{'#' * done}{'.' * (20 - done)}] step {step}/{total} "
         f"({100 * share:.0f}%)  {_clock(elapsed_s)}"
     )
+
+
+#: Where a steady coupled run's standard output and error are written while
+#: it runs, in its own working directory, so its completion line can be read
+#: before the process ends (FSI-G). Read into the result and removed after.
+STEADY_COUPLED_STDOUT = "pyfs-solver-stdout.txt"
+STEADY_COUPLED_STDERR = "pyfs-solver-stderr.txt"
+#: The note a steady coupled run's planned stop leaves beside its outputs.
+STEADY_COUPLED_STOP_LOG = "pyfs-aeroelastic-stop.log"
+
+
+def _run_until_the_analysis_ends(
+    argv: list[str], working_dir: Path, timeout_s: float | None
+) -> tuple[int | None, str, str, bool]:
+    """Run a steady coupled script and stop its process once the analysis ended (FSI-G).
+
+    In a script ``EXECUTE_AEROELASTIC_ANALYSIS`` returns at once and the
+    process never exits by itself; the solver prints
+    :data:`pyflightstream.cases.fsi_workspace.STEADY_AEROELASTIC_COMPLETION`
+    when the analysis ends (26.124, probe evidence of 2026-09-28). The
+    output goes to two files in the working directory, read every two
+    seconds; once the line is there the process is stopped and the run is
+    a success, the planned stop noted in :data:`STEADY_COUPLED_STOP_LOG`.
+    A process that exits first returns its own code; a timeout kills it as
+    every other run's. The owned-window check of every run applies.
+    """
+    from pyflightstream.cases.fsi_workspace import steady_aeroelastic_finished
+
+    start = time.perf_counter()
+    out_path = working_dir / STEADY_COUPLED_STDOUT
+    err_path = working_dir / STEADY_COUPLED_STDERR
+
+    def captured() -> tuple[str, str]:
+        texts = []
+        for path in (out_path, err_path):
+            try:
+                texts.append(path.read_text(encoding="utf-8", errors="replace"))
+            except OSError:
+                texts.append("")
+        return texts[0], texts[1]
+
+    def finish(
+        code: int | None, timed_out: bool, note: str = ""
+    ) -> tuple[int | None, str, str, bool]:
+        out, err = captured()
+        for path in (out_path, err_path):
+            try:
+                path.unlink()
+            except OSError:
+                pass
+        return code, out, err + note, timed_out
+
+    def wait_for_the_end(process: subprocess.Popen[str]) -> tuple[int | None, bool, str]:
+        while True:
+            remaining = None if timeout_s is None else timeout_s - (time.perf_counter() - start)
+            if remaining is not None and remaining <= 0:
+                process.kill()
+                process.wait()
+                return None, True, ""
+            try:
+                code = process.wait(timeout=2.0 if remaining is None else min(2.0, remaining))
+                return code, False, ""
+            except subprocess.TimeoutExpired:
+                pass
+            if steady_aeroelastic_finished(captured()[0]):
+                process.kill()
+                process.wait()
+                note = (
+                    f"{_utc_now()} pid={process.pid} stopped after the aeroelastic analysis "
+                    "ended (its completion line printed); a steady coupled script never exits "
+                    "by itself.\n"
+                )
+                try:
+                    with (working_dir / STEADY_COUPLED_STOP_LOG).open("a", encoding="utf-8") as log:
+                        log.write(note)
+                except (OSError, ValueError):
+                    pass
+                return 0, False, ""
+            pid = getattr(process, "pid", 0)
+            try:
+                dialogs = _owned_solver_dialogs(pid)
+            except OSError as error:
+                dialogs = (f"Solver window monitoring failed: {error}",)
+            if dialogs:
+                diagnostic = (
+                    f"{_utc_now()} solver modal/error detected pid={pid}; "
+                    "terminating this owned solver process without clicking its dialog.\n"
+                    + "\n\n".join(dialogs)
+                    + "\n"
+                )
+                process.kill()
+                process.wait()
+                try:
+                    with (working_dir / "pyfs-modal-error.log").open("a", encoding="utf-8") as log:
+                        log.write(diagnostic)
+                except (OSError, ValueError) as log_error:
+                    say_line(f"[solver] could not persist modal diagnostic: {log_error}")
+                say_line(diagnostic.rstrip())
+                return process.returncode or 1, False, "\n" + diagnostic
+
+    with (
+        out_path.open("w", encoding="utf-8") as out_file,
+        err_path.open("w", encoding="utf-8") as err_file,
+    ):
+        process = subprocess.Popen(
+            argv,
+            cwd=working_dir,
+            stdout=out_file,
+            stderr=err_file,
+            text=True,
+            env=os.environ.copy(),
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        )
+        code, timed_out, note = wait_for_the_end(process)
+    # The files are closed here, so they can be read whole and removed.
+    return finish(code, timed_out, note)
 
 
 def _run_with_progress(
@@ -1329,7 +1455,11 @@ class LocalExecutor:
             if getattr(self, "progress_every", 0) > 0
             else None
         )
-        if total is not None or os.name == "nt":
+        if _a_steady_coupled_script(script_path):
+            return_code, stdout, stderr, timed_out = _run_until_the_analysis_ends(
+                argv, Path(working_dir), timeout_s
+            )
+        elif total is not None or os.name == "nt":
             return_code, stdout, stderr, timed_out = _run_with_progress(
                 argv,
                 Path(working_dir),
@@ -1384,6 +1514,17 @@ class LocalExecutor:
             finished_at=finished_at,
             **invocation,
         )
+
+
+def _a_steady_coupled_script(script_path: Path) -> bool:
+    """Whether the script at this path is a steady coupled run's (FSI-G of 0.30.0)."""
+    from pyflightstream.cases.fsi_workspace import is_steady_aeroelastic_script
+
+    try:
+        text = Path(script_path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return is_steady_aeroelastic_script(text)
 
 
 def _utc_now() -> str:
@@ -5776,8 +5917,14 @@ def _is_one_job(campaign: Campaign, case: SimCase) -> bool:
     point. A disc that derives its speed from a swept advance ratio (G20) is
     set once in a warm job, so every point after the first would turn at the
     first point's speed; such a row is one job per point, as a flow sweep is.
+
+    A SIXTH SINCE 0.30.0: the row couples a fixed wing (FSI-G). A steady
+    coupled script ends at ``EXECUTE_AEROELASTIC_ANALYSIS`` and its process
+    is stopped once the analysis ends, so one script holds one point.
     """
     if not (case.recipe == ONE_JOB_RECIPE and bool(getattr(campaign, "matrix_stem", None))):
+        return False
+    if case.fsi is not None:
         return False
     return not (_sweeps_the_flow(case) or disc_speed_moves_with_the_point(case))
 

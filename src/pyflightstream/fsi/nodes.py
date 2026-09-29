@@ -29,7 +29,11 @@ it, which keeps the scalar twist encoding dy = w + theta d exact
 (nose-up is the rotation about -Z for this geometry, and
 -theta z x (d toward-LE) = +theta d toward-suction). At Omega zero the
 embedding is the identity (``section_frame``), the frame of the wing
-case and of the dry-run node fixture. The rule choosing the embedding
+case and of the dry-run node fixture. A fixed wing (FSI-G of 0.30.0)
+embeds in the package's reference frame, x aft, y right, z up
+(``wing_frame``): toward the leading edge is -x and toward the suction
+side +z, turned nose up by the station's pitch, the span along +y or -y
+from the wing's origin. The rule choosing the embedding
 is :func:`pyflightstream.fsi.config.frame_embedding`, shared with the
 loads projection so both sides of the interface always agree.
 
@@ -62,6 +66,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 from pydantic import (
@@ -78,7 +83,7 @@ from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.kinematics import NODE_ROLES
 
 #: Recognized geometric embeddings of the section frame (module docstring).
-EMBEDDINGS = ("section_frame", "rotor_frame")
+EMBEDDINGS = ("section_frame", "rotor_frame", "wing_frame")
 
 #: Node CSV number format: micrometer resolution, the decimal style of
 #: the dry-run import evidence (structural_nodes.csv fixture).
@@ -137,12 +142,19 @@ class NodeOrderingMap(BaseModel):
         back and dumps exactly as it did.
     embedding : str
         Geometric embedding of the section frame in the import frame
-        (module docstring): ``"section_frame"`` (identity, Omega zero)
-        or ``"rotor_frame"`` (section rotated by the local blade
-        angle).
+        (module docstring): ``"section_frame"`` (identity, Omega zero),
+        ``"rotor_frame"`` (section rotated by the local blade
+        angle) or ``"wing_frame"`` (a fixed wing in the reference frame).
     blade_angle_deg : list of float or None
         Local blade angle beta per station [deg] of the rotor-frame
-        embedding; None normalizes to zeros (identity sections).
+        embedding, or the nose-up section pitch of the wing-frame one;
+        None normalizes to zeros (identity sections).
+    span_sign : {1, -1} or None
+        Which way a ``wing_frame`` span runs along y; stated by that
+        embedding alone, and not serialised for any other.
+    origin_m : tuple of float or None
+        The reference-frame point a ``wing_frame`` layout's stations are
+        measured from; None is the origin, and is not serialised.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -158,14 +170,16 @@ class NodeOrderingMap(BaseModel):
     blade_angle_deg: list[float] | None = None
     le_offset_normal_m: list[float] | None = None
     te_offset_normal_m: list[float] | None = None
+    span_sign: Literal[-1, 1] | None = None
+    origin_m: tuple[float, float, float] | None = None
 
     @model_serializer(mode="wrap")
     def _camber_offsets_only_when_present(
         self, handler: SerializerFunctionWrapHandler
     ) -> dict[str, object]:
-        """Serialise the per-role normal offsets only for a camber layout."""
+        """Serialise the per-role normal offsets and the wing placement only when set."""
         data: dict[str, object] = handler(self)
-        for optional in ("le_offset_normal_m", "te_offset_normal_m"):
+        for optional in ("le_offset_normal_m", "te_offset_normal_m", "span_sign", "origin_m"):
             if data.get(optional) is None:
                 data.pop(optional, None)
         return data
@@ -183,6 +197,11 @@ class NodeOrderingMap(BaseModel):
             raise ValueError(
                 f"unknown embedding {self.embedding!r}; the recognized geometric "
                 f"embeddings are {EMBEDDINGS} (module docstring)"
+            )
+        if (self.embedding == "wing_frame") != (self.span_sign is not None):
+            raise ValueError(
+                "a wing_frame layout states its span_sign, and no other embedding does; "
+                f"got embedding {self.embedding!r} with span_sign {self.span_sign!r}"
             )
         n = len(self.station_radii_m)
         if self.blade_angle_deg is None:
@@ -296,9 +315,24 @@ def generate_node_layout(cfg: FsiConfig) -> NodeOrderingMap:
         ea_offset_normal_m=list(blade.elastic_axis_offset_normal_m),
         le_offset_m=[fraction * c for c in blade.chord_m],
         te_offset_m=[-fraction * c for c in blade.chord_m],
-        embedding=embedding,
-        blade_angle_deg=(list(blade.geometric_pitch_deg) if embedding == "rotor_frame" else None),
+        **_embedding_fields(cfg, embedding),
     )
+
+
+def _embedding_fields(cfg: FsiConfig, embedding: str) -> dict[str, object]:
+    """Return the layout fields that place the sections: embedding and angles.
+
+    A spinning blade and a fixed wing turn each station by its
+    ``geometric_pitch_deg``; a wing also states which way its span runs
+    and the point its stations are measured from (:class:`FixedWing`).
+    """
+    fields: dict[str, object] = {"embedding": embedding}
+    if embedding in ("rotor_frame", "wing_frame"):
+        fields["blade_angle_deg"] = list(cfg.blade.geometric_pitch_deg)
+    if embedding == "wing_frame" and cfg.wing is not None:
+        fields["span_sign"] = cfg.wing.span_sign
+        fields["origin_m"] = tuple(cfg.wing.origin_m)
+    return fields
 
 
 def _camber_node_layout(cfg: FsiConfig, embedding: str) -> NodeOrderingMap:
@@ -345,8 +379,7 @@ def _camber_node_layout(cfg: FsiConfig, embedding: str) -> NodeOrderingMap:
         ea_offset_normal_m=ea_n,
         le_offset_m=le_c,
         te_offset_m=te_c,
-        embedding=embedding,
-        blade_angle_deg=(list(blade.geometric_pitch_deg) if embedding == "rotor_frame" else None),
+        **_embedding_fields(cfg, embedding),
         le_offset_normal_m=le_n,
         te_offset_normal_m=te_n,
     )
@@ -641,12 +674,48 @@ def station_triads(node_map: NodeOrderingMap) -> np.ndarray:
         invariant, so components still embed and extract by dot
         products.
     """
-    n = node_map.station_count
+    return _triads(
+        node_map.embedding,
+        node_map.blade_angle_deg or [0.0] * node_map.station_count,
+        node_map.span_sign,
+    )
+
+
+def config_triads(cfg: FsiConfig) -> np.ndarray:
+    """Per-station section axes in the import frame, from the configuration.
+
+    The rule of :func:`station_triads`, asked of a configuration without
+    placing any node, so a caller that needs only the axes (the wing's
+    weight, :func:`pyflightstream.fsi.wing.weight_loads`) reads the same
+    embedding the node file is written in.
+    """
+    embedding = frame_embedding(cfg)
+    turned = embedding in ("rotor_frame", "wing_frame")
+    angles = (
+        list(cfg.blade.geometric_pitch_deg) if turned else [0.0] * len(cfg.blade.station_radii_m)
+    )
+    span_sign = cfg.wing.span_sign if embedding == "wing_frame" and cfg.wing is not None else None
+    return _triads(embedding, angles, span_sign)
+
+
+def _triads(embedding: str, blade_angle_deg: Sequence[float], span_sign: int | None) -> np.ndarray:
+    """Return the section axes of every station for one embedding (module docstring)."""
+    n = len(blade_angle_deg)
     triads = np.zeros((n, 3, 3))
-    if node_map.embedding == "section_frame":
+    if embedding == "section_frame":
         triads[:] = np.eye(3)
         return triads
-    beta = np.radians(np.asarray(node_map.blade_angle_deg, dtype=float))
+    beta = np.radians(np.asarray(blade_angle_deg, dtype=float))
+    if embedding == "wing_frame":
+        # FSI-G: x aft, y right, z up. Toward the leading edge is -x and
+        # toward the suction side +z, both turned nose up by the station's
+        # pitch about the span; the span runs along +y or -y.
+        triads[:, 0, 0] = -np.cos(beta)
+        triads[:, 0, 2] = np.sin(beta)
+        triads[:, 1, 0] = np.sin(beta)
+        triads[:, 1, 2] = np.cos(beta)
+        triads[:, 2, 1] = float(span_sign or 1)
+        return triads
     triads[:, 0, 0] = -np.sin(beta)
     triads[:, 0, 1] = -np.cos(beta)
     triads[:, 1, 0] = -np.cos(beta)
@@ -674,11 +743,12 @@ def node_positions(node_map: NodeOrderingMap) -> np.ndarray:
     """
     triads = station_triads(node_map)
     points = _section_node_points(node_map)
+    origin = np.asarray(node_map.origin_m or (0.0, 0.0, 0.0), dtype=float)
     rows = []
     for i, radius in enumerate(node_map.station_radii_m):
         toward_le, toward_suction, span = triads[i]
         for chordwise, normal in points[i]:
-            rows.append(chordwise * toward_le + normal * toward_suction + radius * span)
+            rows.append(origin + chordwise * toward_le + normal * toward_suction + radius * span)
     return np.asarray(rows, dtype=float)
 
 

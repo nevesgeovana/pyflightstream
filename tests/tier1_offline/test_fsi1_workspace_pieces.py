@@ -1,10 +1,10 @@
 """Tier 1: the coupled-route pieces of FSI-1 and the FSI-GUARD of 0.30.0.
 
-Each piece is tested on its own, because in this release no workflow wires
-FSI end to end: unsteady_rotor is refused while the rotor morph is in debug,
-and steady and unsteady wait for the fixed-wing route. The rotor wiring that
-calls these pieces is exercised in ``test_aeroelastic_typed_setup.py`` with
-the guard opened for that module.
+Each piece is tested on its own. unsteady_rotor is refused while the rotor
+morph is in debug; steady and unsteady accept FSI through the fixed-wing
+route (FSI-G, ``test_fsig_fixed_wing.py``). The rotor wiring that calls
+these pieces is exercised in ``test_aeroelastic_typed_setup.py`` with the
+guard opened for that module.
 """
 
 import pytest
@@ -35,14 +35,19 @@ def test_unsteady_rotor_with_fsi_is_refused_as_in_debug(tmp_path):
 
 
 @pytest.mark.parametrize("make", [steady_case, unsteady_case], ids=["steady", "unsteady"])
-def test_fixed_wing_workflows_wait_for_the_fsi_g_route(tmp_path, make):
+def test_fixed_wing_workflows_refuse_a_rotor_blade_configuration(tmp_path, make):
+    # THE EXPECTATION CHANGED BECAUSE THE OWNER CHANGED THE REQUIREMENT
+    # (2026-09-28, "vamos permitir o FSI para steady, qsteady e unsteady"):
+    # steady and unsteady accept FSI through the fixed-wing route, so a row
+    # there is no longer refused by the guard. A rotor blade's configuration
+    # (no [config.wing]) on them is refused naming what a wing states.
     case = make().model_copy(update={"fsi": coupled_case(tmp_path).fsi})
     with pytest.raises(CampaignConfigError) as refused:
         _lines(case)
     message = str(refused.value)
-    assert "arrives with the fixed-wing structural route of this release (FSI-G)" in message
-    assert "not wired yet" in message
-    assert "not supported" not in message
+    assert "is a fixed wing's (FSI-G)" in message
+    assert "[config.wing]" in message
+    assert ws.fsi_workflow_refusal(make().variables["matrix_workflow"]) is None
 
 
 def test_every_workflow_states_its_fsi_state_and_qsteady_rotor_is_a_hook():

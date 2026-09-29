@@ -7958,7 +7958,29 @@ def _script_tail(
     (PFS-2033.01) meet each phase at one seam rather than at four copies
     of it.
     """
-    _script_init(case, script, frame, frames=frames, reopens_a_saved_state=reopens_a_saved_state)
+    _script_init(
+        case,
+        script,
+        frame,
+        frames=frames,
+        reopens_a_saved_state=reopens_a_saved_state,
+        conventions=conventions,
+    )
+    if case.fsi is not None and not unsteady:
+        # FSI-G: A STEADY COUPLED SCRIPT ENDS AT THE ANALYSIS. It returns at once
+        # in a script, so a line after it would run before it iterates (an
+        # export of the rigid surface) or end it (CLOSE_FLIGHTSTREAM). The
+        # exports are in the aeroelastic post-processing script and the run
+        # stops the process once the solver prints that the analysis ended.
+        from .fsi_workspace import (
+            emit_steady_aeroelastic_analysis,
+            refuse_lines_after_steady_analysis,
+        )
+
+        emit_steady_aeroelastic_analysis(script)
+        refuse_lines_after_steady_analysis(script.render())
+        _finish_custom_field_coverage(case, script)
+        return
     _script_solve_and_export(conventions, case, script, unsteady=unsteady, frames=frames)
     script.emit("CLOSE_FLIGHTSTREAM")
     _finish_custom_field_coverage(case, script)
@@ -7971,6 +7993,7 @@ def _script_init(
     *,
     frames: Frames | None,
     reopens_a_saved_state: bool = False,
+    conventions: WorkflowConventions | None = None,
 ) -> None:
     """Emit the init phase, which happens ONCE however many points follow.
 
@@ -7985,6 +8008,11 @@ def _script_init(
     decides what an unsteady row's step exports state. A steady sweep, warm
     or cold, states them here for its first point and again before each
     later point's `START_SOLVER` (:func:`build_steady_sweep`).
+
+    FSI is wired here, after the section distributions it reads: the fixed
+    wing's route on ``steady`` and ``unsteady`` (FSI-G), whose steady
+    exports are the row's export block run in the aeroelastic
+    post-processing script (``conventions`` names them), and the rotor's.
     """
     if case.fsi is not None:
         from .fsi_workspace import validate_workspace_fsi
@@ -8047,7 +8075,11 @@ def _script_init(
             "of them would be emitted. That is a defect in the builder rather than "
             "in the artifact."
         )
-    if case.fsi is not None:
+    coupled_surfaces: list[dict[str, object]] = []
+    workflow = select_workflow(case) if case.fsi is not None else None
+    if case.fsi is not None and workflow in ("steady", "unsteady"):
+        coupled_surfaces = _wire_the_fixed_wing(case, script, workflow, frames, conventions)
+    elif case.fsi is not None:
         from .fsi_workspace import wire_workspace_fsi
 
         turning, lost = _the_rotors_the_row_turns(case)
@@ -8078,6 +8110,84 @@ def _script_init(
     # the raw exec commands, which open the exec phase and would leave no init
     # position behind them.
     _analysis(case, script, frame)
+    # FSI-G: the Tecplot surfaces a steady coupled run writes from its VTK are
+    # exported by the post-processing script, which places no frame; the frame
+    # they are in is this script's loads frame, placed just above.
+    for surface in coupled_surfaces:
+        script.surface_translations.append({**surface, "frame": script.loads_frame_record()})
+
+
+def _wire_the_fixed_wing(
+    case: SimCase,
+    script: Script,
+    workflow: str,
+    frames: Frames | None,
+    conventions: WorkflowConventions | None,
+) -> list[dict[str, object]]:
+    """Wire the fixed wing's coupling (FSI-G of 0.30.0), returning its steady Tecplot surfaces.
+
+    Steady: the row's whole export block is the post-processing script's,
+    after the loads the structural program reads, because nothing may follow
+    ``EXECUTE_AEROELASTIC_ANALYSIS``; what the steady script cannot place
+    there is refused first (:func:`_refuse_what_a_steady_coupled_run_cannot_export`).
+    Unsteady: the post-processing script exports the deformed surface after
+    every call, and the row's exports stay at the end of the march.
+    """
+    from .fsi_workspace import DEFORMED_SURFACE_FILE, wire_fixed_wing_fsi
+
+    if frames is None:
+        raise CampaignConfigError("FSI requires the initial wing/frame mapping.")
+    if workflow == "steady":
+        _refuse_what_a_steady_coupled_run_cannot_export(case)
+        exports_of = conventions or WorkflowConventions.for_case(case)
+
+        def exports(post: Script) -> None:
+            _export_block(exports_of, case, post, unsteady=False)
+
+    else:
+
+        def exports(post: Script) -> None:
+            _export_surface_vtk(post, case, DEFORMED_SURFACE_FILE)
+
+    return wire_fixed_wing_fsi(
+        case,
+        script,
+        workflow=workflow,
+        interpreter=_action_interpreter(sys.executable),
+        exports=exports,
+    )
+
+
+def _refuse_what_a_steady_coupled_run_cannot_export(case: SimCase) -> None:
+    """Refuse what a steady coupled row would ask of a solve its script never starts (FSI-G).
+
+    A steady coupled script ends at ``EXECUTE_AEROELASTIC_ANALYSIS`` and
+    exports from the aeroelastic post-processing script, which the solver
+    runs after every coupling iteration. The probe points, the pproc's volume
+    section and the loads selections are emitted after ``START_SOLVER`` on a
+    steady row, which this script never reaches, and creating them in a
+    script the solver runs once per iteration would create them again on
+    every pass; so they are refused here, named, rather than exported empty.
+    """
+    pproc = case.pproc
+    stated = [
+        key
+        for key in (*LOADS_SELECTION_KEYS, "clear_vorticity_drag_boundaries")
+        if getattr(case.solver, key) not in (None, False)
+    ]
+    if pproc is not None and pproc.probes:
+        stated.append("the pproc's [[probes]]")
+    if pproc is not None and pproc.volume_section is not None:
+        stated.append("the pproc's [volume_section]")
+    if stated:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r} couples a fixed wing on a steady row (FSI-G), whose script "
+            "ends at EXECUTE_AEROELASTIC_ANALYSIS and exports from the aeroelastic "
+            f"post-processing script, and it states {', '.join(stated)}. Those are emitted "
+            "after START_SOLVER on a steady row, which this script never reaches, and the "
+            "post-processing script runs once per coupling iteration; this release does not "
+            "wire them on the steady coupled route. Remove them from the row's preset or pproc."
+        )
 
 
 def _script_solve_and_export(
@@ -11239,6 +11349,12 @@ def build_steady_sweep(
             "with nothing to run and the campaign refuses it before this."
         )
     first = point_cases[0]
+    if first.fsi is not None:
+        raise CampaignConfigError(
+            f"case {first.sim_id!r} couples a fixed wing (FSI-G), and a steady coupled script "
+            "ends at EXECUTE_AEROELASTIC_ANALYSIS, so one script cannot run a second point; "
+            "each point of a coupled row is its own run."
+        )
     conventions = WorkflowConventions.for_case(first)
     _refuse_wake_termination_without_a_clock(first)
     _refuse_a_coupling_step_without_a_clock(first)
