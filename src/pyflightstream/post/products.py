@@ -5075,12 +5075,56 @@ def _qsteady_products(
             continue
         alias = quasi.rotor_alias
         validity = validity_of.get(point.name) or _qsteady.validity_of_the_plan(quasi)
+        own = point.state
+        density = (
+            own.density_kg_m3
+            if own is not None and own.density_kg_m3 is not None
+            else record.density_kg_m3
+        )
+        clockings = (
+            _qsteady.clockings_of(
+                quasi,
+                point.loads_path.parent,
+                reference=reference,
+                density_kg_m3=float(density),
+                shaft_loads=rotor_shaft_loads,
+            )
+            if density is not None
+            else None
+        )
+        # 0.31.0: A WHEEL POINT'S ROTOR STATE, from the mean thrust over its
+        # clockings, for the average table and the validity file; what cannot
+        # be taken is NA and a WARNING line of the post's log.
+        state: _qsteady.RotorState | None = None
+        if quasi.case == "wheel" and isinstance(clockings, list) and density is not None:
+            loads = point.loads
+            state = _qsteady.rotor_state(
+                quasi,
+                clockings,
+                density_kg_m3=float(density),
+                velocity_m_s=getattr(loads, "freestream_velocity_m_s", None),
+                alpha_deg=float(getattr(loads, "angle_of_attack_deg", None) or 0.0),
+                beta_deg=float(getattr(loads, "sideslip_deg", None) or 0.0),
+            )
+            product = (
+                f"{POLARS_DIR}/{sweep_file_stem(sim_id, _a_name_a_file_may_carry(alias))}"
+                f"{_qsteady.AVERAGE_SUFFIX}"
+            )
+            for note in state.notes:
+                warn(
+                    f"point={point.name} product={product}: {note}",
+                    PyflightstreamWarning,
+                    stacklevel=2,
+                )
         if quasi.case == "wheel":
             # 0.30.0: THE WHEEL POINT'S VALIDITY AFTER THE RUN, in its datapoint
             # folder beside the run's record, the shares of thrust and torque
-            # from the stations above k = 0.1 included (0.30.0).
+            # from the stations above k = 0.1 included (0.30.0), and its rotor
+            # state (0.31.0).
             try:
-                written_file = _qsteady.write_point_validity_file(point.loads_path, quasi, validity)
+                written_file = _qsteady.write_point_validity_file(
+                    point.loads_path, quasi, validity, state
+                )
             except OSError as error:
                 skipped[f"runs/{record.run_id}#qsteady_validity"] = (
                     f"the per-point validity file of {point.name} could not be written: {error}"
@@ -5089,25 +5133,13 @@ def _qsteady_products(
                 validity_files.setdefault(alias, {})[point.name] = Path(
                     os.path.relpath(written_file, out)
                 ).as_posix()
-        own = point.state
-        density = (
-            own.density_kg_m3
-            if own is not None and own.density_kg_m3 is not None
-            else record.density_kg_m3
-        )
         if density is None:
             left_out.setdefault(alias, []).append(f"{point.name}: the point states no density")
             continue
-        clockings = _qsteady.clockings_of(
-            quasi,
-            point.loads_path.parent,
-            reference=reference,
-            density_kg_m3=float(density),
-            shaft_loads=rotor_shaft_loads,
-        )
         if isinstance(clockings, str):
             left_out.setdefault(alias, []).append(f"{point.name}: {clockings}")
             continue
+        assert clockings is not None
         wheel.setdefault(alias, []).append(
             _qsteady.WheelPoint(
                 pol=sim_id,
@@ -5115,6 +5147,7 @@ def _qsteady_products(
                 record=quasi,
                 clockings=clockings,
                 validity=validity,
+                state=state,
             )
         )
         runs.setdefault(alias, []).append(record.run_id)

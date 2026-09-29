@@ -26,7 +26,13 @@ reader, which the product stage calls) and writes:
 * for a WHEEL point, the per-point validity file
   ``<point>_qsteady_validity.json`` in its datapoint folder, beside the run's
   record (:func:`write_point_validity_file`), which carries the thrust and
-  torque shares from the stations above k = 0.1.
+  torque shares from the stations above k = 0.1;
+* for a WHEEL point, the rotor state its correction routes read
+  (:data:`STATE_COLUMNS`, 0.31.0, :func:`rotor_state`): the thrust
+  coefficient in the rotor and the propeller conventions, the advance ratio,
+  the climb and induced inflows and the wake skew, from the mean loads over
+  its clockings, beside the validity columns in the average table and in the
+  per-point validity file.
 
 The loads are the rotor's force in N and its moment about its HUB in N m, in
 the loads frame's axes, and the thrust and torque along its shaft, each by
@@ -66,6 +72,7 @@ from pyflightstream.cases.qsteady import (
     REDUCED_FREQUENCY_WATCH,
     QsteadyClocking,
     QsteadyRecord,
+    glauert_induced_inflow,
     record_file_name,
     reduced_frequencies,
     reduced_frequency,
@@ -73,7 +80,11 @@ from pyflightstream.cases.qsteady import (
     validity_file_name,
 )
 from pyflightstream.post._tables import _cell, context_row, write_csv_table
-from pyflightstream.post.axes import clocked_blade_azimuth_deg, section_station_shaft_loads
+from pyflightstream.post.axes import (
+    clocked_blade_azimuth_deg,
+    free_stream_on_rotor_axis,
+    section_station_shaft_loads,
+)
 from pyflightstream.results import parse_loads
 
 #: The point's validity, carried by every quasi-steady product of the point.
@@ -86,6 +97,18 @@ VALIDITY_COLUMNS: tuple[str, ...] = (
     "THRUST_PCT_K_GT_0_1",
     "TORQUE_PCT_K_GT_0_1",
     "K_1P_SOURCE",
+)
+#: A wheel point's rotor state (0.31.0), beside its validity in the average
+#: table and in its validity file; the definitions page states each with its
+#: equation. ``MU_ROTOR`` and not ``MU``: ``MU`` is the air's viscosity in
+#: every table's condition block, and one name is one quantity in a folder.
+STATE_COLUMNS: tuple[str, ...] = (
+    "CT_ROTOR",
+    "CT_PROPELLER",
+    "MU_ROTOR",
+    "LAMBDA_C",
+    "LAMBDA_I",
+    "CHI_DEG",
 )
 #: The column the sections table of a quasi-steady wheel point gains per station.
 STATION_COLUMN = "K_1P"
@@ -210,7 +233,10 @@ def validity_cells(validity: PointValidity) -> dict[str, str]:
 
 
 def write_point_validity_file(
-    loads_path: Path, record: QsteadyRecord, validity: PointValidity
+    loads_path: Path,
+    record: QsteadyRecord,
+    validity: PointValidity,
+    state: RotorState | None = None,
 ) -> Path:
     """Write a wheel point's validity after the run, beside its loads export (0.30.0).
 
@@ -222,7 +248,9 @@ def write_point_validity_file(
     ``sections`` after the run, ``mesh`` the plan's estimate, whose shares are
     null), and the plan's record as the run kept it. The run's record is a
     hashed input of the run and is never rewritten; this file is the post's,
-    rewritten by every post.
+    rewritten by every post. Since 0.31.0 it carries the point's rotor state
+    (``rotor_state``, the values of :data:`STATE_COLUMNS`, null where not
+    known or where ``state`` is not given).
 
     Returns
     -------
@@ -239,6 +267,10 @@ def write_point_validity_file(
         "run_record": Path(record_file_name(loads_path.name)).name,
         "validity": {
             column: value for column, value in zip(VALIDITY_COLUMNS, validity.cells(), strict=True)
+        },
+        "rotor_state": {
+            column: (state.values.get(column) if state is not None else None)
+            for column in STATE_COLUMNS
         },
         "plan": record.validity,
         "written_by": "the post stage; the run record beside it is not rewritten",
@@ -814,6 +846,102 @@ def mean_clocking_surfaces(
     return ClockingMean(surfaces=meaned, clockings=len(read))
 
 
+@dataclass(frozen=True)
+class RotorState:
+    """A wheel point's rotor state (0.31.0): the values of :data:`STATE_COLUMNS`.
+
+    ``notes`` are what the post says about them in its log, one line each: a
+    value written ``NA`` and why.
+    """
+
+    values: dict[str, float | None]
+    notes: tuple[str, ...] = ()
+
+    def cells(self) -> tuple[float | None, ...]:
+        """Return the values of :data:`STATE_COLUMNS`, ``None`` where not known."""
+        return tuple(self.values.get(column) for column in STATE_COLUMNS)
+
+
+def rotor_state(
+    record: QsteadyRecord,
+    clockings: Sequence[Clocking],
+    *,
+    density_kg_m3: float | None,
+    velocity_m_s: float | None,
+    alpha_deg: float,
+    beta_deg: float,
+) -> RotorState:
+    """Return a wheel point's rotor state from the mean thrust over its clockings (0.31.0).
+
+    ``T`` is the rotor's thrust along its axis, the mean over the clockings of
+    ``THRUST_<alias>`` (the one average of the clockings tables, which is the
+    thrust of the rotor table's mean loads); ``rho`` the point's density,
+    ``V`` its free-stream speed, ``Omega = 2 pi |rpm| / 60``, ``n = |rpm| / 60``,
+    ``R = D / 2`` and ``A = pi R^2`` of the record's rotor, and ``alpha_p`` the
+    angle between the rotor's axis and the direction of flight
+    (:func:`pyflightstream.post.axes.free_stream_on_rotor_axis`)::
+
+        CT_ROTOR     = T / (rho A (Omega R)^2)
+        CT_PROPELLER = T / (rho n^2 D^4)
+        MU_ROTOR     = V sin(alpha_p) / (Omega R)
+        LAMBDA_C     = V cos(alpha_p) / (Omega R)
+        LAMBDA_I     = CT_ROTOR / (2 sqrt(MU_ROTOR^2 + (LAMBDA_C + LAMBDA_I)^2))
+        CHI_DEG      = atan2(MU_ROTOR, LAMBDA_C + LAMBDA_I)   in degrees
+
+    ``LAMBDA_I`` by :func:`pyflightstream.cases.qsteady.glauert_induced_inflow`.
+    A value that cannot be taken is None with a line in :attr:`RotorState.notes`:
+    a thrust not known at every clocking, a density, speed or rotor that is
+    not stated, or an induced inflow that does not converge (and ``CHI_DEG``
+    with it).
+    """
+    alias = record.rotor_alias
+    notes: list[str] = []
+    values: dict[str, float | None] = dict.fromkeys(STATE_COLUMNS)
+    thrust = _mean([clocking.loads[LOAD_NAMES.index("THRUST")] for clocking in clockings])
+    rate = abs(float(record.rpm)) / 60.0
+    diameter = float(record.diameter_m)
+    if thrust is None or not clockings:
+        notes.append(
+            f"the rotor state of rotor {alias} reads NA: its thrust is not known at every clocking"
+        )
+        return RotorState(values, tuple(notes))
+    if density_kg_m3 is None or not density_kg_m3 > 0.0 or rate <= 0.0 or diameter <= 0.0:
+        notes.append(
+            f"the rotor state of rotor {alias} reads NA: the point states no density, "
+            "or the rotor no speed or no diameter"
+        )
+        return RotorState(values, tuple(notes))
+    radius = diameter / 2.0
+    tip = 2.0 * math.pi * rate * radius
+    ct_rotor = thrust / (density_kg_m3 * math.pi * radius**2 * tip**2)
+    values["CT_ROTOR"] = ct_rotor
+    values["CT_PROPELLER"] = thrust / (density_kg_m3 * rate**2 * diameter**4)
+    flight = free_stream_on_rotor_axis(record.axis_vector, alpha_deg, beta_deg)
+    if velocity_m_s is None or not math.isfinite(velocity_m_s) or flight is None:
+        notes.append(
+            f"MU_ROTOR, LAMBDA_C, LAMBDA_I and CHI_DEG of rotor {alias} read NA: the "
+            "point states no free-stream speed, or the rotor no axis"
+        )
+        return RotorState(values, tuple(notes))
+    along, across = flight
+    mu = float(velocity_m_s) * across / tip
+    climb = float(velocity_m_s) * along / tip
+    values["MU_ROTOR"] = mu
+    values["LAMBDA_C"] = climb
+    induced = glauert_induced_inflow(ct_rotor, mu, climb)
+    if induced is None:
+        notes.append(
+            f"LAMBDA_I and CHI_DEG of rotor {alias} read NA: the momentum-theory induced "
+            f"inflow did not converge at CT_ROTOR {ct_rotor:.6g}, MU_ROTOR "
+            f"{mu:.6g}, LAMBDA_C {climb:.6g}, which momentum theory does not describe "
+            "(a rotor descending into its own wake)"
+        )
+        return RotorState(values, tuple(notes))
+    values["LAMBDA_I"] = induced
+    values["CHI_DEG"] = math.degrees(math.atan2(mu, climb + induced)) + 0.0
+    return RotorState(values, tuple(notes))
+
+
 def load_columns(record: QsteadyRecord) -> tuple[str, ...]:
     """Return the loads columns of a rotor's tables: the rotor's, then each blade's."""
     alias = record.rotor_alias
@@ -837,6 +965,8 @@ class WheelPoint:
     record: QsteadyRecord
     clockings: list[Clocking]
     validity: PointValidity
+    #: The rotor state of a wheel point (0.31.0), None where not taken.
+    state: RotorState | None = None
 
 
 def write_qsteady_tables(
@@ -886,6 +1016,7 @@ def write_qsteady_tables(
                 *context,
                 *moment,
                 *point.validity.cells(),
+                *(point.state.cells() if point.state is not None else (None,) * len(STATE_COLUMNS)),
                 *(
                     _mean([clocking.loads[at] for clocking in point.clockings])
                     for at in range(len(columns))
@@ -896,5 +1027,9 @@ def write_qsteady_tables(
         write_csv_table(
             positions_path, (*POSITION_SPINE, *VALIDITY_COLUMNS, *columns), position_rows
         ),
-        write_csv_table(average_path, (*AVERAGE_SPINE, *VALIDITY_COLUMNS, *columns), average_rows),
+        write_csv_table(
+            average_path,
+            (*AVERAGE_SPINE, *VALIDITY_COLUMNS, *STATE_COLUMNS, *columns),
+            average_rows,
+        ),
     )

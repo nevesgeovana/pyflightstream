@@ -1873,6 +1873,7 @@ gain its clockings and its validity.
   average, and it is an AVERAGE over clockings, never over time.
 
 Both carry `CONTEXT_COLUMNS`, the moment point, the validity columns below
+(the average table then the rotor state of a wheel point, below, since 0.31.0)
 and then, for the rotor (`_<ALIAS>`) and for each blade (`_<family>`),
 `FX FY FZ` (N) and `MX MY MZ` (N m, about the rotor's HUB), in the loads
 frame's axes, and `THRUST` and `TORQUE`, the components along the shaft, each
@@ -1930,6 +1931,41 @@ then having no sign a share of it could be read against. Where the point has
 no such export the values are the plan's, the chord read off the mesh
 (`K_1P_SOURCE` `mesh`), and the two shares are `NA`.
 
+**The rotor state of a wheel point** (since 0.31.0), the quantities the
+wheel's correction routes read: six columns after the validity columns in
+`_qs_avg.csv`, and the same six under `rotor_state` in the point's validity
+file (`null` where not known). With `T` the rotor's thrust along its axis,
+the mean over the clockings of `THRUST_<ALIAS>` (the thrust of the rotor
+table's mean loads), `rho` the point's density, `V` its free-stream speed,
+`n = |rpm| / 60` and `Omega = 2 pi n` the rotor's speed, `D` its diameter,
+`R = D / 2`, `A = pi R^2`, and `alpha_p` the angle between the rotor's axis
+(in the sense its thrust is counted positive) and the direction of flight,
+the direction the free stream comes from (`alpha_p = 0` in axial flight along
+the thrust, 90 degrees edgewise):
+
+| column | definition |
+|---|---|
+| `CT_ROTOR` | `T / (rho A (Omega R)^2)`, the rotor convention |
+| `CT_PROPELLER` | `T / (rho n^2 D^4)`, the propeller convention, `pi^3 / 4` times `CT_ROTOR` |
+| `MU_ROTOR` | `V sin(alpha_p) / (Omega R)`, the advance ratio in the disc plane |
+| `LAMBDA_C` | `V cos(alpha_p) / (Omega R)`, the free stream through the disc against the thrust |
+| `LAMBDA_I` | the momentum-theory induced inflow, the root of Glauert's relation below |
+| `CHI_DEG` | `atan2(MU_ROTOR, LAMBDA_C + LAMBDA_I)` in degrees, the wake skew angle |
+
+```text
+LAMBDA_I = CT_ROTOR / (2 sqrt(MU_ROTOR^2 + (LAMBDA_C + LAMBDA_I)^2))
+```
+
+`LAMBDA_I` is solved by Newton's method from the hover value
+`sign(CT_ROTOR) sqrt(|CT_ROTOR| / 2)` until a step is no larger than 1e-10, in
+at most 100 steps (`pyflightstream.cases.qsteady.glauert_induced_inflow`). A
+relation that does not converge (momentum theory does not describe a rotor
+descending into its own wake) leaves `LAMBDA_I` and `CHI_DEG` `NA`, and the
+post says so in a WARNING line of `post.log` naming the point and the average
+table; `NA` everywhere a thrust is not known at every clocking, or the point
+states no density or speed. `MU_ROTOR`, not `MU`: `MU` is the air's viscosity
+in every table's condition block. A sector's row reads `NA` in all six.
+
 **The sections of a wheel point** (0.31.0) hold EVERY clocking: the wheel
 exports its section distributions at each clocking, created again in that
 clocking's pose in frames turned with the wheel (see the workspace page), and
@@ -1978,7 +2014,7 @@ else the plan's; `NA` in the rows of every other point.
 **The per-point validity file**, `<point>_qsteady_validity.json`, is written by
 the post into the wheel point's datapoint folder, beside the run's
 `<point>_qsteady.json`: every value of the validity columns (the thrust and
-torque shares included, `null` where not known), `K_1P_SOURCE`, and the
+torque shares included, `null` where not known), `K_1P_SOURCE`, the rotor state (`rotor_state`, since 0.31.0), and the
 plan's record as the run kept it. The run's record is a hashed input of the
 run and is never rewritten; this file is the post's and every post rewrites
 it. `products.json` names each point's file under the clockings and average

@@ -114,6 +114,16 @@ FlightStream versions.
 
 ### Added
 
+- A quasi-steady wheel point states its rotor state, the quantities the
+  wheel's correction routes read: `CT_ROTOR` (`T / (rho A (Omega R)^2)`),
+  `CT_PROPELLER` (`T / (rho n^2 D^4)`), `MU_ROTOR` and `LAMBDA_C` (the free
+  stream in and through the disc over the tip speed), the momentum-theory
+  induced inflow `LAMBDA_I` (Glauert, solved by Newton to 1e-10) and the wake
+  skew `CHI_DEG`, from the mean thrust over its clockings. They follow the
+  validity columns in `_qs_avg.csv` and sit under `rotor_state` in
+  `<point>_qsteady_validity.json`; an inflow that does not converge is `NA`
+  with a WARNING line in `post.log`. `pyflightstream.cases.qsteady.glauert_induced_inflow`
+  and `pyflightstream.post.axes.free_stream_on_rotor_axis` are public.
 - The rotor table states the rotor's in-plane coefficients as its last four
   columns, after `MTIP_<alias>` and `MHEL_<alias>`: `CN_<alias>`,
   `CS_<alias>`, `CMN_<alias>` and `CMS_<alias>`, the force along the rotor's

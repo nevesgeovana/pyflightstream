@@ -55,6 +55,7 @@ __all__ = [
     "body_to_wind",
     "dcm",
     "free_stream_in_export_frame",
+    "free_stream_on_rotor_axis",
     "polar_axis_coefficients",
     "rotor_in_plane_axes",
     "rotor_in_plane_loads",
@@ -494,3 +495,38 @@ def section_station_shaft_loads(
     arm[normal] = float(offset)
     # `+ 0.0` turns a negative zero into zero: a table prints `-0.00000` otherwise.
     return float(force @ along) + 0.0, float(np.cross(arm, force) @ along) + 0.0
+
+
+def free_stream_on_rotor_axis(
+    axis: Sequence[float], alpha_deg: float, beta_deg: float
+) -> tuple[float, float] | None:
+    """Return ``(cos alpha_p, sin alpha_p)``: the flight direction on a rotor's axis (0.31.0).
+
+    ``alpha_p`` is the angle between the rotor's axis ``axis``, in the sense
+    its thrust is counted positive, and the direction the free stream comes
+    FROM (the rotor's direction of flight through the air, the opposite of
+    :func:`free_stream_in_export_frame`). ``cos alpha_p`` is that direction's
+    component along the axis and ``sin alpha_p`` the length of its component
+    square to it, so ``alpha_p`` is 0 in axial flight along the thrust and 90
+    degrees edgewise. Both are taken from the vectors rather than through the
+    angle, so an axis along a geometry axis gives them exactly.
+
+    None where the axis names no direction.
+
+    Examples
+    --------
+    >>> free_stream_on_rotor_axis((-1.0, 0.0, 0.0), 0.0, 0.0)
+    (1.0, 0.0)
+    >>> free_stream_on_rotor_axis((0.0, 0.0, 1.0), 0.0, 0.0)
+    (0.0, 1.0)
+    """
+    along = np.asarray(axis, dtype=float)
+    length = float(np.linalg.norm(along))
+    if not math.isfinite(length) or length == 0.0:
+        return None
+    along = along / length
+    flight = -free_stream_in_export_frame(alpha_deg, beta_deg)
+    cosine = float(flight @ along)
+    square = flight - cosine * along
+    # `+ 0.0` turns a negative zero into zero.
+    return cosine + 0.0, float(np.linalg.norm(square)) + 0.0
