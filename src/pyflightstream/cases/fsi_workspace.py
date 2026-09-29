@@ -35,6 +35,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import PurePath
 from types import MappingProxyType
 
+from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream.fsi.config import FsiConfig
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import SectionFamily, SectionFamilyMap
@@ -739,8 +740,6 @@ def quasi_steady_fsi_config(case: SimCase, *, rpm: float, quiet: bool = False) -
         )
     stated = cfg.omega_rad_per_s
     if not quiet and stated > 0.0 and not math.isclose(stated, omega, rel_tol=1e-9):
-        from pyflightstream._errors import PyflightstreamWarning, warn
-
         warn(
             f"case {case.sim_id!r}: the FSI input states omega_rad_per_s = {stated} rad/s and "
             f"the row turns the free stream at {abs(float(rpm))} rev/min ({omega} rad/s). The "
