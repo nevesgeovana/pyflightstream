@@ -3167,15 +3167,20 @@ has run on a licensed solver. What is not established here is whether a
 strength of it, which is why the limits list still says `BLADES`
 configures no rotor.
 
-**A mean taken from few revolutions sits below the developed wake.** An
-`unsteady_rotor` point's thrust and torque are still moving after the
-start-up revolution: on a six-blade research propeller measured on 26.124
-the thrust gained about 0.5 % per revolution and had not levelled at
-revolution 6 (RPT-089). A `LAST_REVS_AVG` window over the third revolution
-of a three-revolution run is therefore a mean of a wake still developing;
-run more revolutions before the window when the absolute level matters, and
-compare points at the same revolution count when the difference between
-them is what matters.
+**A mean taken from few revolutions, or at a coarse time step, sits below
+the developed wake.** An `unsteady_rotor` point's thrust and torque are still
+moving after the start-up revolution: on a six-blade research propeller
+measured on 26.124 the thrust gained about 0.5 % per revolution and had not
+levelled at revolution 6 (RPT-089). A finer time step raises the mean thrust
+too, not only more revolutions: at the third revolution the thrust sat 8.4 %
+below the quasi-steady wheel's at 10 deg per step, 6.6 % at 5 deg and 4.0 %
+at 2.5 deg, and halving the step roughly doubled the gain per revolution, so
+neither the step nor the revolution count had converged at the finest step
+run. A `LAST_REVS_AVG` window over the third revolution of a
+three-revolution run at 10 deg per step is therefore a mean of a wake still
+developing; refine the step and run more revolutions before the window when
+the absolute level matters, and compare points at the same step and the same
+revolution count when the difference between them is what matters.
 
 ### The quasi-steady rotor: `qsteady_rotor`
 
@@ -3258,7 +3263,12 @@ k     = Omega c / (2 V_rel)
 ```
 
 with `r` the station's radius, `c` its chord and `V` the point's free-stream
-speed. Below about 0.05 the flow follows a once-per-revolution load as it
+speed. The `1P` is counted ON THE BLADE: how many times one blade meets the
+inflow's non-uniformity in one of its own revolutions, once for an inflow
+that varies once around the disc. It is not the excitation a fixed surface
+near the rotor feels as the blades pass it (the blade count times the
+rotation rate), nor what a balance under the whole rotor reads summing every
+blade. Below about 0.05 the flow follows a once-per-revolution load as it
 changes; above about 0.1 the lag of the unsteady wake is no longer small and
 the load there is an estimate. `pyfs-matrix plan` shows, for every wheel
 point, the per cent of the span with `k > 0.1`, the minimum, the maximum and
@@ -3280,7 +3290,11 @@ in-plane loads are quasi-steady ESTIMATES: on the measured propeller the
 side force and the yawing moment came out with the opposite sign to the
 unsteady rotor's and the normal force 20 % lower, whatever the clocking
 count, and thrust and torque 7 to 9 % above an unsteady rotor averaged after
-three to six revolutions (RPT-089). No script this run type builds has run
+three to six revolutions at 10 deg per step (RPT-089). A finer unsteady step
+closes part of that: at 5 deg per step and six revolutions the thrust gap was
+3.6 % at 5 deg of angle and 3.9 % at 0 deg, the normal force was 11.7 % and
+`Mz` 8.2 % away, and the side force and the yawing moment kept their
+opposite sign. No script this run type builds has run
 on a licensed solver at this writing: the measurement is of hand-built
 scripts of the same commands, which clocked the wheel from a new simulation
 per clocking rather than by rotating its surfaces between solves.

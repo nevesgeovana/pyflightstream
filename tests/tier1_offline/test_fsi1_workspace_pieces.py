@@ -22,6 +22,7 @@ from tests.tier1_offline.test_workflows import steady_case, unsteady_case
 
 
 def test_unsteady_rotor_with_fsi_is_refused_as_in_debug(tmp_path):
+    # P0300-FSI-GUARD
     case = coupled_case(tmp_path)
     script = Script("26.124")
     with pytest.raises(CampaignConfigError) as refused:
@@ -82,6 +83,7 @@ def test_an_imported_blade_gets_the_id_its_motion_gets(tmp_path, suffix, offset)
     # boundary's ID in its list: 2 for the first boundary of an OBJ import,
     # 1 for an STL one (26.124). The surface list is stored as written, so it
     # must be handed that same ID.
+    # P0300-FSI1-SURFACE-ID
     case = coupled_case(tmp_path).model_copy(update={"fsi": None})
     if suffix == ".stl":
         stl = tmp_path / "blade.stl"
@@ -110,6 +112,7 @@ def test_an_unmeasured_numbering_is_refused_not_guessed(tmp_path):
 def test_the_id_of_the_last_obj_boundary_is_emitted(tmp_path):
     # The ID of an OBJ import's last boundary is one past the inventory; the
     # command database must not range check it against the tree.
+    # P0300-FSI1-SURFACE-ID
     script = _declared(["Blade1"])
     script.emit("ASSIGN_AEROELASTIC_SURFACES", 1, [2])
     lines = [line for line in script.render().splitlines() if line]
@@ -135,6 +138,7 @@ def _saved(node_block=b"1,0,0,3,1", blocks=1):
 
 @pytest.mark.parametrize("frame", [5, 12])
 def test_the_frame_patch_changes_exactly_that_field(frame):
+    # P0300-FSI1-NODE-FRAME
     saved = _saved()
     patched = ws.patch_structural_node_frame(saved, frame, node_count=3)
     field = saved.index(b"1,0,0,3,1")
@@ -165,6 +169,7 @@ def test_the_frame_patch_refuses_a_line_that_is_not_the_node_block(saved, count)
 
 
 def test_the_beam_line_kernel_is_emitted_where_the_row_states_none(tmp_path):
+    # P0300-FSI1-BEAM-KERNEL
     case = coupled_case(tmp_path)
     script = Script("26.124")
     ws.emit_aeroelastic_rbf_type(case, script)
@@ -188,6 +193,7 @@ def test_a_row_stating_its_kernel_keeps_it(tmp_path):
 
 
 def test_deformation_exports_run_in_the_post_script_after_the_loads():
+    # P0300-FSI1-EXPORT-TIMING
     text = ws.aeroelastic_post_script(
         "26.124",
         surface_exports=[("EXPORT_SOLVER_ANALYSIS_TECPLOT", ("coupling-surface.dat",))],
@@ -212,6 +218,7 @@ def test_a_line_after_the_steady_analysis_is_refused():
 
 
 def test_the_steady_wait_reads_the_completion_line():
+    # P0300-FSI1-STEADY-WAIT
     running = (
         'Executed FSI command: "python" "fsi_callback.py"\n'
         "Aeroelastic solver residual for FSI iteration-1 is  9.3750000E-1\n"

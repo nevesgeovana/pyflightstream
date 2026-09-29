@@ -1,0 +1,109 @@
+{
+ "report": "RPT-089",
+ "build": "26.124 build 8172026",
+ "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+ "geometry": "a six-blade research propeller, one blade mesh copied six times about the shaft in 60 deg steps, no spinner, no nacelle, no symmetry (not published)",
+ "setup": {"rpm": 473.17, "speed_m_s": 49.04, "rho_kg_m3": 0.6326, "diameter_m": 3.648, "farfield_layers": 5, "launches": "one per run, serial"},
+ "sources": {
+  "private_campaign": {
+   "description": "owner's licensed quasi-steady rotor campaign, 2026-09-28 and 2026-09-29, private geometry (not disclosed here)",
+   "file": "PHASE3-RESULTS.md (local, not in this repository)",
+   "sections_used": ["12", "15", "15b", "16", "17"]
+  }
+ },
+ "gap_conventions": {
+  "sections_2_3": "(Q - U) / abs(U)",
+  "section_5": "(U - Q) / abs(Q), the unsteady value's distance below the steady one"
+ },
+ "sections": [
+  {
+   "id": 1,
+   "topic": "the rotating free stream stands for the turning blade (steady, one blade)",
+   "measured": {
+    "fx_n": {"steady_rotating_freestream": -404.78, "unsteady_turning_blade": -403.38, "difference_pct": 0.35},
+    "fy_n": {"steady_rotating_freestream": 363.12, "unsteady_turning_blade": 372.47, "difference_pct": 2.5}
+   }
+  },
+  {
+   "id": 2,
+   "topic": "whole wheel at 5 deg angle of attack: six clockings against the unsteady rotor at 10 deg per step, three revolutions",
+   "measured": {
+    "unsteady_last_rev": {"Fx": -2022.76, "Fy": 55.36, "Fz": 320.52, "Mx": -2274.67, "My": -54.83, "Mz": -410.73},
+    "qsteady_k6": {"Fx": -2204.64, "Fy": -27.09, "Fz": 257.75, "Mx": -2433.44, "My": 44.68, "Mz": -345.45},
+    "ct": {"unsteady": 0.2903, "qsteady": 0.3164},
+    "cp": {"unsteady": 0.5623, "qsteady": 0.6015},
+    "once_per_revolution_load": "counted on the blade: one blade meets the non-uniform inflow once per revolution; not the blade-passing excitation of a fixed surface, nor a balance summing every blade",
+    "wall_s": {"unsteady_3rev": 102.7, "qsteady_k6": 10.8}
+   }
+  },
+  {
+   "id": 3,
+   "topic": "control at 0 deg angle of attack, unsteady at 10 deg per step",
+   "measured": {
+    "fx_n": {"unsteady_3rev": -1993.71, "unsteady_6rev": -2025.10, "qsteady_k6": -2177.54},
+    "mx_nm": {"unsteady_3rev": -2253.93, "unsteady_6rev": -2282.82, "qsteady_k6": -2414.05},
+    "fx_per_revolution_n": [-2159.86, -1983.38, -1993.71, -2004.01, -2014.46, -2025.10]
+   }
+  },
+  {
+   "id": 4,
+   "topic": "clocking convergence at 5 deg angle of attack, k positions per 60 deg passage",
+   "measured": {
+    "k": [1, 2, 3, 6, 12, 24],
+    "fx_n": [-2210.56, -2206.12, -2207.84, -2204.64, -2203.95, -2203.82],
+    "fy_n": [-23.37, -23.81, -27.53, -27.09, -27.46, -27.57],
+    "wall_s_per_clocking": 1.7
+   }
+  },
+  {
+   "id": 5,
+   "topic": "unsteady rotor time-step study: 10, 5 and 2.5 deg per step, only DELTA_TIME and TIME_ITERATIONS changed, wake settings identical",
+   "measured_aoa_0": {
+    "reference_qsteady_k6": {"Fx": -2177.54, "Mx": -2414.05},
+    "fx_per_revolution_n": {
+     "step_10_deg": [-2159.86, -1983.38, -1993.71, -2004.01, -2014.46, -2025.10],
+     "step_5_deg": [-2106.45, -2015.51, -2034.90, -2054.23, -2073.53, -2092.71],
+     "step_2p5_deg": [-2087.42, -2052.15, -2089.88]
+    },
+    "mx_per_revolution_nm": {
+     "step_10_deg": [-2418.04, -2244.40, -2253.93, -2263.43, -2273.04, -2282.82],
+     "step_5_deg": [-2364.38, -2278.71, -2296.68, -2314.58, -2332.37, -2349.99],
+     "step_2p5_deg": [-2344.50, -2314.50, -2349.45]
+    },
+    "fx_gap_pct_rev3": {"step_10_deg": 8.44, "step_5_deg": 6.55, "step_2p5_deg": 4.03},
+    "mx_gap_pct_rev3": {"step_10_deg": 6.63, "step_5_deg": 4.86, "step_2p5_deg": 2.68},
+    "fx_gap_pct_rev6": {"step_10_deg": 7.00, "step_5_deg": 3.90},
+    "mx_gap_pct_rev6": {"step_10_deg": 5.44, "step_5_deg": 2.65},
+    "fx_drift_n_per_rev": {"step_10_deg_rev2_to_6": 10.4, "step_5_deg_rev2_to_6": 19.3, "step_2p5_deg_rev2_to_3": 37.7},
+    "drift_doubles_when_step_halves": true,
+    "levelled_off": false,
+    "in_plane_within_n": 0.2
+   },
+   "measured_aoa_5_step_5_deg_6rev": {
+    "reference_qsteady_k24": {"Fx": -2203.82, "Fy": -27.57, "Fz": 258.23, "Mx": -2432.82, "My": 45.27, "Mz": -345.95},
+    "unsteady_step_10_deg_rev3": {"Fx": -2022.76, "Fy": 55.36, "Fz": 320.52, "Mx": -2274.67, "My": -54.83, "Mz": -410.73},
+    "unsteady_step_5_deg_rev3": {"Fx": -2062.81, "Fy": 42.07, "Fz": 287.82, "Mx": -2317.23, "My": -35.89, "Mz": -372.15},
+    "unsteady_step_5_deg_rev6": {"Fx": -2123.73, "Fy": 41.66, "Fz": 288.34, "Mx": -2373.38, "My": -35.25, "Mz": -374.32},
+    "rev6_against_qsteady": {"Fx_pct": 3.6, "Fz_pct": 11.7, "Mx_pct": 2.4, "Mz_pct": -8.2, "Fy": "opposite sign", "My": "opposite sign"}
+   },
+   "wall_s": {
+    "aoa0_step_10_deg_3rev": 101.9,
+    "aoa0_step_10_deg_6rev": 236.5,
+    "aoa0_step_5_deg_6rev": 780.4,
+    "aoa0_step_2p5_deg_3rev": 1457.8,
+    "aoa5_step_10_deg_3rev": 102.7,
+    "aoa5_step_5_deg_6rev": 1105.4,
+    "qsteady_k6": 11,
+    "qsteady_k24": 42
+   },
+   "not_run": "six revolutions at 2.5 deg per step, estimated at about 56 min"
+  }
+ ],
+ "not_established": [
+  "the package's own qsteady_rotor scripts on a licensed solver",
+  "clocking the wheel inside one launch by ROTATE_SURFACE",
+  "where the unsteady rotor's thrust levels off",
+  "a time step at which the unsteady rotor is converged",
+  "any geometry but this six-blade propeller"
+ ]
+}

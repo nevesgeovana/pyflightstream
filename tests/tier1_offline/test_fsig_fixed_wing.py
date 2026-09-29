@@ -174,6 +174,7 @@ def _commands(lines: list[str]) -> list[str]:
 
 
 def test_the_steady_wing_script_ends_at_the_analysis_and_exports_from_the_post(tmp_path):
+    # P0300-FSIG-STEADY
     case = steady_wing_case(tmp_path)
     lines, script = _lines(case)
     body = _commands(lines)
@@ -220,6 +221,7 @@ def test_a_steady_wing_s_tecplot_is_recorded_in_the_run_s_loads_frame(tmp_path):
 
 
 def test_the_unsteady_wing_couples_inside_the_march_with_the_post_call_export(tmp_path):
+    # P0300-FSIG-UNSTEADY
     case = unsteady_wing_case(tmp_path)
     lines, script = _lines(case)
     body = _commands(lines)
@@ -283,6 +285,7 @@ def test_sections_in_a_frame_off_the_wing_origin_are_refused(tmp_path):
 
 
 def test_the_weight_of_a_uniform_wing_deflects_it_as_a_cantilever_under_mg():
+    # P0300-FSIG-WEIGHT
     mu, ei = 3.0, 2.0e5
     cfg = wing_config(mass_per_length_kg_per_m=mu, bending_stiffness_n_m2=ei)
     solution = wing.solve_wing_static(cfg)
@@ -368,6 +371,7 @@ def _staged_run(tmp_path: Path, make, cfg: FsiConfig) -> Path:
     ids=["steady", "unsteady"],
 )
 def test_the_wing_call_reaches_no_centrifugal_term(tmp_path, monkeypatch, make, unsteady):
+    # P0300-FSIG-WEIGHT
     def refused(*_args, **_kwargs):
         raise AssertionError("a fixed wing reached the rotating blade's centrifugal solve")
 

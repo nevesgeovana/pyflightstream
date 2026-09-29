@@ -27,7 +27,10 @@ FlightStream versions.
   (`pyflightstream.cases.freestream.prepare_rotating_field`). FSI is refused:
   on a sector until its wiring lands in this release, on a wheel for good.
 - The 1P reduced frequency `k = Omega c / (2 V_rel)` of a quasi-steady wheel
-  (`pyflightstream.cases.qsteady`): `pyfs-matrix plan` shows the per cent of
+  (`pyflightstream.cases.qsteady`), the `1P` counted on the blade (one blade
+  meets the inflow's non-uniformity once per revolution; not the
+  blade-passing excitation of a fixed surface, nor a balance summing every
+  blade): `pyfs-matrix plan` shows the per cent of
   the span with `k > 0.1`, `k` min, max and mean for every wheel point and
   warns, naming the point, when that per cent is above zero; each wheel point
   leaves `<point>_qsteady.json` in its datapoint folder.
@@ -41,7 +44,17 @@ FlightStream versions.
   `after_initialization=True` to clock surfaces between two solves.
 - The unsteady rotor's documentation states that a mean thrust from few
   revolutions sits below the developed wake (about 0.5 % per revolution
-  still at revolution 6 on a measured six-blade propeller, RPT-089).
+  still at revolution 6 on a measured six-blade propeller, RPT-089), and
+  that a finer time step raises it too, not only more revolutions: at the
+  third revolution the thrust sat 8.4 % below the quasi-steady wheel's at
+  10 deg per step, 6.6 % at 5 deg and 4.0 % at 2.5 deg.
+- RPT-089 gains its time-step study (section 5, with a JSON sidecar): the
+  unsteady rotor at 10, 5 and 2.5 deg per step, the drift per revolution
+  roughly doubling each time the step is halved and no step levelled off;
+  at 5 deg of angle, 5 deg per step and six revolutions, thrust within
+  3.6 % of the quasi-steady wheel, the normal force 11.7 % and `Mz` 8.2 %
+  away, and the side force and the yawing moment still of opposite sign, at
+  780 to 1458 s a run against 11 to 42 s for the quasi-steady wheel.
 
 - `pyfs-matrix space-in-use`, `free-space`, `delete-sims` and `sync`: the four
   storage commands of 0.30.0 (`pyflightstream.workspace.storage`).

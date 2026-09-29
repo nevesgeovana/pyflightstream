@@ -290,3 +290,29 @@ def test_every_public_function_is_classified():
             "add each to PHYSICS_FUNCTIONS (with a Source: line) or to "
             "NON_PHYSICS_PUBLIC"
         )
+
+
+def test_the_rpt_025_correction_withdraws_the_fixed_claim_and_keeps_the_history():
+    """RPT-025 said the rotor morph was FIXED in 26.122; 0.30.0 withdraws that.
+
+    The report never exported the surface, and on 26.124 a mapped rotating
+    blade is morphed at its import azimuth. The history is not edited: the
+    dated correction section follows it and names the withdrawn claim, and
+    the CHANGELOG line of 0.8.0 that repeated the claim is followed by a dated
+    correction.
+    """
+    # P0300-FSI1-RPT025
+    report = REPO_ROOT / "reports" / "RPT-025_rotor-morphing-across-three-builds_2026-08-11.md"
+    text = report.read_text(encoding="utf-8")
+    heading = "## Correction (2026-09-28): where the morphed rotor surface went"
+    assert text.count(heading) == 1, "RPT-025 lost its dated correction section"
+    history, correction = text.split(heading)
+    assert "The defect is FIXED, in 26.122" in history, "the history above was edited"
+    withdrawn = correction.split("### What this report can no longer claim", 1)
+    assert len(withdrawn) == 2, "the correction no longer says what it withdraws"
+    assert '"The defect is FIXED, in 26.122"' in withdrawn[1]
+    assert "changed form after 26.121" in " ".join(withdrawn[1].split())
+    changelog = (REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    claim = changelog.index("26.122 and NOT fixed in 26.121 (RPT-025)")
+    fix = changelog.index('*Correction (2026-09-28):* "measured fixed in 26.122"')
+    assert claim < fix < claim + 1200, "the CHANGELOG correction does not follow the 0.8.0 claim"

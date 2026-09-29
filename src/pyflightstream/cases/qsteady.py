@@ -20,7 +20,10 @@ The 1P reduced frequency of a blade station at radius ``r`` with chord ``c`` is:
 
 the once-per-revolution frequency of the load a non-uniform inflow puts on the
 blade, made dimensionless by the time the relative flow takes to cross half a
-chord. Below about 0.05 the flow at the station follows the load's change as
+chord. The ``1P`` is counted in the blade's own frame: how many times ONE blade
+meets the non-uniformity in one of its revolutions. It is not the blade-passing
+excitation a fixed surface near the rotor feels, nor what a balance summing
+every blade reads. Below about 0.05 the flow at the station follows the load's change as
 it happens and a steady solution stands for it; above about 0.1 the lag of the
 unsteady wake is no longer small and the quasi-steady load is an estimate.
 

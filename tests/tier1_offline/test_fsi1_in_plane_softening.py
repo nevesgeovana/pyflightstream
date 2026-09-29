@@ -97,12 +97,14 @@ def _package_tip_flap() -> float:
 
 
 def test_softening_coefficient_is_mu_omega_squared_sin_squared_pitch():
+    # P0300-FSI1-SOFTENING
     coefficients = centrifugal.in_plane_softening_coefficients(_config())
     for k, mu, beta in zip(coefficients, MU, PITCH_DEG, strict=True):
         assert k == pytest.approx(mu * OMEGA**2 * math.sin(math.radians(beta)) ** 2, rel=1e-12)
 
 
 def test_softening_raises_the_tip_flap_as_the_hand_integration_does(hand, monkeypatch):
+    # P0300-FSI1-SOFTENING
     softened = _package_tip_flap()
     monkeypatch.setattr(
         centrifugal,
