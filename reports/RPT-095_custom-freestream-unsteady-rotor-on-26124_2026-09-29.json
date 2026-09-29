@@ -19,25 +19,20 @@
   "revolutions": 1,
   "last_revs_avg": 0.5,
   "time_iterations": 36,
-  "delta_time_s": 0.0035223252959180485,
   "mach": 0.1441,
   "re_million": 4.38,
   "alpha_deg": 0.0,
-  "rpm": 473.17227304307556
+  "advance_ratio_J": 1.70001
  },
  "field": {
   "kind": "STRUCTURED",
   "points": "13 x 13",
   "point_lines": 169,
-  "velocity_m_s": [
-   49.036,
-   0.0,
-   0.0
-  ],
   "uniform": true,
   "command_field_run": "SET_FREESTREAM CUSTOM STRUCTURED",
   "command_control": "SET_FREESTREAM CONSTANT",
-  "solver_log_line": "Freestream velocity custom profile imported from this location: (9321 log line 23; absent from the 9322 log)"
+  "solver_log_line": "Freestream velocity custom profile imported from this location: (9321 log line 23; absent from the 9322 log)",
+  "velocity": "(V, 0, 0) at every point, V the row's free-stream speed"
  },
  "points": {
   "9321_field": {
@@ -50,8 +45,6 @@
     19,
     36
    ],
-   "FX_ROTOR_ROTOR_N": -2040.97222,
-   "MX_ROTOR_ROTOR_Nm": -2321.91667,
    "rotor_table": {
     "J_ROTOR": "1.70001",
     "CT_ROTOR": "-0.28985",
@@ -74,8 +67,6 @@
     19,
     36
    ],
-   "FX_ROTOR_ROTOR_N": -2040.91111,
-   "MX_ROTOR_ROTOR_Nm": -2321.86111,
    "rotor_table": {
     "J_ROTOR": "1.70001",
     "CT_ROTOR": "-0.28984",
@@ -90,8 +81,9 @@
   }
  },
  "differences": {
-  "FX_ROTOR_ROTOR_N": -0.06111,
+  "FX_ROTOR_ROTOR_field_over_control": 1.0000299,
   "FX_relative": 2.99e-05,
+  "MX_ROTOR_ROTOR_field_over_control": 1.0000239,
   "MX_relative": 2.39e-05,
   "rotor_table": "CT, CQ, CP and ETA differ by one unit of the fifth decimal (not equal to every printed digit)"
  },
@@ -103,5 +95,6 @@
   "probes/P9321-M144RE438AL+000BE+000_per_blade_ROTOR.csv": "the plots table holds no column of a blade family of rotor 'ROTOR' (its blades are ['Blade1', 'Blade2', 'Blade3', 'Blade4', 'Blade5', 'Blade6']), so there is no blade to give a row to. A blade's plots are the ones named for its family: declare a plot group with families = \"each\" or frame = \"LOCAL_AXIS\" over the rotor in the pproc artifact. It takes a new run; the script defines what the solver plots."
  },
  "skips_total": 6,
- "not_written_without_skip": "sections/<point>_harmonics.csv (no sections series written for these points)"
+ "not_written_without_skip": "sections/<point>_harmonics.csv (no sections series written for these points)",
+ "nondimensional_only": "only nondimensional values of the propeller and its run; the rotor speed, free-stream speed, density, time step and every force and moment in N or N m are not published"
 }

@@ -9,6 +9,12 @@ build 8172026**, executable SHA-256
 (`fs_exe_sha256` in `runs.json`, measured from the executable that ran). One
 solver instance, hidden, far field 5 layers.
 
+Only nondimensional values of the propeller and its run are stated here:
+Mach and Reynolds numbers, the advance ratio, r/R, coefficients, ratios,
+fractions, counts and times. The run's rotor speed, free-stream speed and
+density, and every force and moment in newtons, are not published; the run
+id's last token, which states the rotor speed, is written `RPM<n>`.
+
 Two trees appear here and are kept apart:
 
 - **The run and its first post**: the package tree of `feat/0-31` at
@@ -26,16 +32,16 @@ A six-blade research propeller (its geometry is not published): six blades,
 one OBJ group each, no spinner, no nacelle, no symmetry, trailing edges from
 the mesh's points file, shaft along X through the origin. POL 9311, workflow
 `qsteady_rotor`, case WHEEL, `PASSAGE_POSITIONS: 3`, Mach 0.1441, Re 4.38
-million on the reference chord, **AoA 5 deg**, beta 0, 473.17227304307556
-rev/min (49.036 m/s, 0.63261 kg/m3 as the run resolves them), steady solver,
-sections at 30 stations over blade one.
+million on the reference chord, **AoA 5 deg**, beta 0, advance ratio J
+1.70001 (the rotor table's `J_ROTOR`), steady solver, sections at 30 stations
+over blade one.
 
 | run id | status | iterations per clocking | final residual | wall time |
 |---|---|---|---|---|
-| `pfs0310-l1-ws/sim_9311/M144RE438AL+050BE+000RPM00473` | **CONVERGED** | 61 | 1.4377e-06 | 9.1 s |
+| `pfs0310-l1-ws/sim_9311/M144RE438AL+050BE+000RPM<n>` | **CONVERGED** | 61 | 1.4377e-06 | 9.1 s |
 
 The record read the solver log (`log_file_used`
-`P9311-M144RE438AL+050BE+000RPM00473_log.txt`) and carries one verdict per
+`P9311-M144RE438AL+050BE+000RPM<n>_log.txt`) and carries one verdict per
 clocking (`clocking_verdicts` in `runs.json`):
 
 | clocking index | blade one azimuth (deg) | status | iterations | residual |
@@ -64,7 +70,7 @@ the command, so the evidence is the exports, not a log message.
 
 ## 2. The sections table
 
-`post/l1_g1/sections/P9311-M144RE438AL+050BE+000RPM00473_sections.csv` holds
+`post/l1_g1/sections/P9311-M144RE438AL+050BE+000RPM<n>_sections.csv` holds
 **90 rows: clockings 0, 1 and 2, at azimuths 0, 20 and 40 deg, 30 stations at
 every clocking**, one family (`Blade1`), plane XY, step 61. The stations are
 **the same at every clocking** (the 30 `Offset` values of clocking 0 equal
@@ -84,25 +90,14 @@ over blade one's stations (trapezoid rule over the `Offset` values of the
 sections table, per clocking) is compared with the blade's own load in the
 run's loads exports (`post/l1_g1/polars/P9311-ROTOR_qs_positions.csv`,
 columns `FX_Blade1`, `FY_Blade1`, `FZ_Blade1`, `MX_Blade1`), which the solver
-integrates over the whole blade in the loads frame:
+integrates over the whole blade in the loads frame. Each ratio is the strip
+integral divided by the blade's own load:
 
-| clocking | integral of Fx (N) | blade force along the shaft (N) | ratio |
+| clocking | integral of Fx / blade force along the shaft | integral of Fz / blade in-plane force, the magnitude of (FY, FZ) | integral of Fz x Offset / blade moment about the shaft |
 |---|---|---|---|
-| 0 | -368.75 | -376.006 | 0.9807 |
-| 1 | -396.82 | -404.808 | 0.9803 |
-| 2 | -434.77 | -443.685 | 0.9799 |
-
-| clocking | integral of Fz (N) | blade in-plane force, the magnitude of (FY, FZ) (N) | ratio |
-|---|---|---|---|
-| 0 | 333.65 | 338.69 | 0.9851 |
-| 1 | 358.45 | 364.04 | 0.9846 |
-| 2 | 391.88 | 398.18 | 0.9842 |
-
-| clocking | integral of Fz x Offset (N m) | blade moment about the shaft (N m) | ratio |
-|---|---|---|---|
-| 0 | 410.38 | -417.860 | -0.9821 |
-| 1 | 438.04 | -446.063 | -0.9820 |
-| 2 | 475.19 | -483.968 | -0.9819 |
+| 0 | 0.9807 | 0.9851 | -0.9821 |
+| 1 | 0.9803 | 0.9846 | -0.9820 |
+| 2 | 0.9799 | 0.9842 | -0.9819 |
 
 So an XY cut states **`Fx` along the frame's x (the shaft) and `Fz` along its
 y, the station at `Offset` along z**: the three strip integrals match the
@@ -113,10 +108,10 @@ strips do not hold may be the ends of the blade outside the first and last
 cut (the cuts stop at r/R 0.2371 and 0.9843 and the trapezoid rule adds
 nothing outside them); this run does not separate it from the other
 candidates (the strip rule, the cut's own discretisation). At clocking 0
-the blade's in-plane force is almost wholly along y (FZ_Blade1 8.2 N against
-FY_Blade1 338.6 N); at 20 and 40 deg it turns with the blade (FZ_Blade1 133.0
-and 263.6 N), and the `Fz` column of the rotated cut follows it, which is why
-the comparison uses the magnitude of the in-plane force.
+the blade's in-plane force is almost wholly along y (`FZ_Blade1` is 0.024 of
+the in-plane magnitude); at 20 and 40 deg it turns with the blade (`FZ_Blade1`
+0.365 and 0.662 of it), and the `Fz` column of the rotated cut follows it,
+which is why the comparison uses the magnitude of the in-plane force.
 
 ## 4. THRUST_PCT and TORQUE_PCT (from the re-post on `f64d888c`)
 
@@ -147,16 +142,17 @@ the sections table's columns of the same names.
 `post/l1_g1/polars/P9311-ROTOR_rotor.csv` is written, and `products.json`
 gives its source as **"mean of 3 clockings"** (`"clockings": 3`). The row:
 
-| RPM_ROTOR | J_ROTOR | CT_ROTOR | CQ_ROTOR | CP_ROTOR | ETA_ROTOR | ETAW_ROTOR | CN_ROTOR | CS_ROTOR | CMN_ROTOR | CMS_ROTOR |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 473.17227 | 1.70001 | -0.32683 | -0.09897 | -0.62187 | 0.89345 | 0.88089 | 0.03846 | -0.00397 | -0.01425 | 0.00182 |
+| J_ROTOR | CT_ROTOR | CQ_ROTOR | CP_ROTOR | ETA_ROTOR | ETAW_ROTOR | CN_ROTOR | CS_ROTOR | CMN_ROTOR | CMS_ROTOR |
+|---|---|---|---|---|---|---|---|---|---|
+| 1.70001 | -0.32683 | -0.09897 | -0.62187 | 0.89345 | 0.88089 | 0.03846 | -0.00397 | -0.01425 | 0.00182 |
 
 (CT and CQ negative by the shaft sense of the loads frame; ETAW the wind-axis
 efficiency, which at 5 deg differs from ETA; CN, CS, CMN and CMS the rotor's
-in-plane coefficients, new in 0.31.) The mean is the mean: the three
-clockings' `FX_ROTOR` in `_qs_positions.csv` (-2305.331, -2300.973 and
--2297.729 N) average to -2301.344 N, the `FX_ROTOR` of `_qs_avg.csv` (-2301.34422
-N), and likewise `MX_ROTOR` (-2549.04101 N m) and `FZ_ROTOR` (+270.83317 N).
+in-plane coefficients, new in 0.31; the row's `RPM_ROTOR` is not reported
+here.) The mean is the mean: the three clockings' `FX_ROTOR` in
+`_qs_positions.csv` are 1.00173, 0.99984 and 0.99843 of the `FX_ROTOR` of
+`_qs_avg.csv`, and their mean is that value to the printed digit (a ratio of
+1.00000); likewise `MX_ROTOR` and `FZ_ROTOR`.
 The two-clocking row of RPT-091 (same point, clockings 0 and 30 deg) read CT
 -0.32740; the three-clocking row reads -0.32683, 0.2 % from it.
 
@@ -166,7 +162,7 @@ The `_qs_avg.csv` row also carries the wheel's rotor state (`CT_PROPELLER`
 
 ## 6. The harmonic product
 
-`post/l1_g1/sections/P9311-M144RE438AL+050BE+000RPM00473_harmonics.csv` is
+`post/l1_g1/sections/P9311-M144RE438AL+050BE+000RPM<n>_harmonics.csv` is
 written and registered in `products.json` (`kind` `harmonics`, `source` "wheel
 clockings", `samples` 3, `clockings` 3): 90 rows, three quantities (`Fx`,
 `Fz`, `Moment`) at each of the 30 stations. Every row has `SAMPLES` 3 and
@@ -176,15 +172,16 @@ azimuths per station the once-per-revolution fit (needs 3) is written: `H0`,
 0 (three samples, three unknowns; the fit is exact and says nothing about its
 own error). The twice-per-revolution fit needs 5, so **`H2_AMP` and
 `H2_PHASE_DEG` are `NA` in all 90 rows, as designed**. The first station
-(`Fx`, r/R 0.2371) reads `H0` -45.212, `H1_AMP` 21.589, `H1_PHASE_DEG`
-319.44.
+(`Fx`, r/R 0.2371) reads `H1_AMP` 0.4775 of the magnitude of its `H0`
+(which is negative) and `H1_PHASE_DEG` 319.44.
 
 ## 7. What this does not establish
 
 - Three clockings at 0, 20 and 40 deg cover one 60 deg blade passage, not a
   revolution; the 1P harmonic is an exact fit of three samples and the 2P is
-  not reported. RPT-089 section 4
-  recommends 6 or more clockings for the in-plane components.
+  not reported. RPT-089's "What the package takes from this" section gives
+  the guidance of 6 or more clockings for the in-plane loads, from its
+  section 4 convergence study.
 - The 2 per cent between the strip integrals and the blade loads is not
   attributed to a cause by any run.
 - One point, one angle of attack; no comparison with an unsteady rotor is

@@ -10,7 +10,7 @@
  "files_read": {
   "runs.json": "C:/WORK/pfs0310-l1-ws/runs.json (run record, clocking_verdicts)",
   "repost": "C:/WORK/pfs0310-l1-repost/post/l1_g1/ (sections, polars, products.json) and the validity file under sims/sim_9311/datapoints",
-  "script": "C:/WORK/pfs0310-l1-ws/sims/sim_9311/scripts/P9311-M144RE438AL+050BE+000RPM00473.txt"
+  "script": "C:/WORK/pfs0310-l1-ws/sims/sim_9311/scripts/P9311-M144RE438AL+050BE+000RPM<n>.txt"
  },
  "run": {
   "pol": 9311,
@@ -20,7 +20,6 @@
   "alpha_deg": 5.0,
   "mach": 0.1441,
   "re_million": 4.38,
-  "rpm": 473.17227304307556,
   "status": "CONVERGED",
   "iterations_per_clocking": 61,
   "final_residual": 1.4376889e-06,
@@ -48,7 +47,8 @@
     "residual": 1.2296017e-06
    }
   ],
-  "log_file_used": "P9311-M144RE438AL+050BE+000RPM00473_log.txt"
+  "log_file_used": "P9311-M144RE438AL+050BE+000RPM<n>_log.txt",
+  "advance_ratio_J": 1.70001
  },
  "delete_and_recreate_cycle": {
   "script_order": [
@@ -87,41 +87,26 @@
   {
    "clocking": 0,
    "azimuth_deg": 0.0,
-   "integral_Fx_N": -368.75,
-   "blade_force_along_shaft_N": -376.00577,
    "ratio_Fx": 0.9807,
-   "integral_Fz_N": 333.653,
-   "blade_in_plane_force_N": 338.689,
    "ratio_Fz": 0.9851,
-   "integral_Fz_Offset_Nm": 410.384,
-   "blade_moment_about_shaft_Nm": -417.85983,
-   "ratio_moment": -0.9821
+   "ratio_moment": -0.9821,
+   "FZ_Blade1_over_in_plane_magnitude": 0.0242
   },
   {
    "clocking": 1,
    "azimuth_deg": 20.0,
-   "integral_Fx_N": -396.822,
-   "blade_force_along_shaft_N": -404.80848,
    "ratio_Fx": 0.9803,
-   "integral_Fz_N": 358.451,
-   "blade_in_plane_force_N": 364.041,
    "ratio_Fz": 0.9846,
-   "integral_Fz_Offset_Nm": 438.043,
-   "blade_moment_about_shaft_Nm": -446.06297,
-   "ratio_moment": -0.982
+   "ratio_moment": -0.982,
+   "FZ_Blade1_over_in_plane_magnitude": 0.3653
   },
   {
    "clocking": 2,
    "azimuth_deg": 40.0,
-   "integral_Fx_N": -434.775,
-   "blade_force_along_shaft_N": -443.68491,
    "ratio_Fx": 0.9799,
-   "integral_Fz_N": 391.878,
-   "blade_in_plane_force_N": 398.182,
    "ratio_Fz": 0.9842,
-   "integral_Fz_Offset_Nm": 475.186,
-   "blade_moment_about_shaft_Nm": -483.96814,
-   "ratio_moment": -0.9819
+   "ratio_moment": -0.9819,
+   "FZ_Blade1_over_in_plane_magnitude": 0.662
   }
  ],
  "validity_repost_f64d888c": {
@@ -139,7 +124,6 @@
   "TORQUE_PCT_K_GT_0_1": null
  },
  "rotor_table_row": {
-  "RPM_ROTOR": "473.17227",
   "J_ROTOR": "1.70001",
   "CT_ROTOR": "-0.32683",
   "CQ_ROTOR": "-0.09897",
@@ -153,15 +137,13 @@
  },
  "rotor_table_source": "mean of 3 clockings",
  "mean_check": {
-  "FX_ROTOR_clockings_N": [
-   -2305.33086,
-   -2300.97281,
-   -2297.72898
+  "FX_ROTOR_clockings_over_qs_avg_FX_ROTOR": [
+   1.00173,
+   0.99984,
+   0.99843
   ],
-  "mean_N": -2301.34422,
-  "qs_avg_FX_ROTOR_N": -2301.34422,
-  "qs_avg_MX_ROTOR_Nm": -2549.04101,
-  "qs_avg_FZ_ROTOR_N": 270.83317
+  "mean_over_qs_avg_FX_ROTOR": 1.0,
+  "MX_ROTOR_and_FZ_ROTOR": "the mean of the clockings equals the _qs_avg.csv value likewise"
  },
  "rotor_table_two_clocking_RPT_091_CT": -0.3274,
  "harmonics": {
@@ -181,15 +163,15 @@
   "H2_NA_rows": 90,
   "first_station_Fx": {
    "R_OVER_R": "0.23710",
-   "H0": "-45.21230",
-   "H1_AMP": "21.58850",
+   "H1_AMP_over_abs_H0": 0.4775,
+   "H0_sign": "negative",
    "H1_PHASE_DEG": "319.44395"
   },
   "products_json_entry": {
    "sim_id": "9311",
    "pproc": "p101",
    "runs": [
-    "pfs0310-l1-ws/sim_9311/M144RE438AL+050BE+000RPM00473"
+    "pfs0310-l1-ws/sim_9311/M144RE438AL+050BE+000RPM<n>"
    ],
    "kind": "harmonics",
    "source": "wheel clockings",
@@ -204,5 +186,7 @@
   "written": 13,
   "skipped": {},
   "complete": true
- }
+ },
+ "nondimensional_only": "only nondimensional values of the propeller and its run; the rotor speed, free-stream speed, density and every force and moment in N or N m are not published, and the run id's rotor-speed token is written RPM<n>",
+ "xy_cut_ratio_definition": "each ratio is the strip integral over blade one's stations divided by the blade's own load in the loads export"
 }

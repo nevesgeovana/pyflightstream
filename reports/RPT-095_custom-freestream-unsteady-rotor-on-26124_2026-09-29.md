@@ -13,15 +13,18 @@ the session's workspace of 2026-09-29; a second post of the same files on this
 branch (`f64d888c`, no solver) listed the same 22 products and the same six
 skips.
 
+Only nondimensional values of the propeller and its run are stated here:
+Mach and Reynolds numbers, the advance ratio, coefficients, ratios, counts
+and times. The run's rotor speed, free-stream speed and density, its time
+step, and every force and moment in newtons, are not published.
+
 ## 1. What was run
 
 A six-blade research propeller (its geometry is not published), shaft along X,
-Mach 0.1441, Re 4.38 million, alpha 0, beta 0, 473.17227304307556 rev/min
-(49.036 m/s, 0.63261 kg/m3 as the run resolves them), advance ratio 1.70001.
+Mach 0.1441, Re 4.38 million, alpha 0, beta 0, advance ratio 1.70001.
 Workflow `unsteady_rotor`, `DELTA_THETA` 10 deg per step, `REVOLUTIONS` 1,
 `LAST_REVS_AVG` 0.5, `CLOCK_MOTION` ROTOR. The script sets 36 time
-iterations of 0.0035223 s (one revolution) and 500 solver iterations per step
-at most.
+iterations (one revolution) and 500 solver iterations per step at most.
 
 | POL | row | field | status | iterations | final residual | wall time |
 |---|---|---|---|---|---|---|
@@ -36,8 +39,8 @@ row otherwise, and both converged in about 50 s, 1048 iterations each.
 
 **The field of 9321** (`inputs/freestreams/fs_l1uniform.txt`) is a uniform
 STRUCTURED field of **13 x 13 points** (the header line `13 13` and 169 point
-lines): every point states the velocity (49.036, 0, 0) m/s, the row's
-speed along the shaft, on one plane. It is uniform on purpose: the control 9322
+lines): every point states the velocity (V, 0, 0), V the row's free-stream
+speed, along the shaft, on one plane. It is uniform on purpose: the control 9322
 states the same speed as a constant, so a solver that reads the field must give
 the control's result.
 
@@ -61,9 +64,9 @@ run are one unit of the fifth decimal above the control's in magnitude (about
 3e-5 relative, and the same in every one of the four, a sign of one common
 cause rather than four). They are not equal to every printed digit, and this
 report does not say they are. The averaged loads say the same
-(`P9321_M144RE438AL+000BE+000_uns_avg.csv` and its 9322 twin): `FX_ROTOR_ROTOR`
--2040.97222 N against -2040.91111 N (a difference of 0.061 N, 3.0e-5 relative),
-`MX_ROTOR_ROTOR` -2321.91667 N m against -2321.86111 N m (2.4e-5). Both
+(`P9321_M144RE438AL+000BE+000_uns_avg.csv` and its 9322 twin): the field
+run's `FX_ROTOR_ROTOR` is 1.0000299 of the control's (3.0e-5 relative), and
+its `MX_ROTOR_ROTOR` 1.0000239 of it (2.4e-5). Both
 runs' rotor table also states MTIP 0.26630, MHEL 0.30278 and J 1.70001. So a
 custom free stream that equals the constant is read on `unsteady_rotor`: the
 row builds (the 26.124 script accepted the command inside an unsteady
@@ -97,11 +100,11 @@ this run**.
 
 ## 4. What this does not establish
 
-- One uniform field; a field that varies in space is not exercised. The
-  guarantee that the solver reads the values, not just the file, comes from
-  the control's agreement being to the fifth decimal with a field that equals
-  the constant, which a wrongly read field could also give if it were merely the same
-  speed; a field with a gradient would separate the two.
+- One uniform field; a field that varies in space is not exercised. That
+  the solver reads the field's values, and not only the file, is not shown
+  by this run: a field equal to the constant gives the control's result
+  whether its values are read or not. A field with a gradient would separate
+  the two.
 - The 3e-5 relative difference between the field run and the control was not
   attributed (iteration-level noise of the unsteady solve is one candidate;
   this run did not test it).

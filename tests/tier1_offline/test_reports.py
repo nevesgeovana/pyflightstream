@@ -9,7 +9,9 @@ carries a record of the invocation, the sentence is built from it.
 
 from __future__ import annotations
 
+import re
 from dataclasses import fields
+from pathlib import Path
 
 import yaml
 
@@ -67,3 +69,25 @@ def test_the_sentence_built_from_a_record_says_it_was_read():
     assert describe_invocation({"class_name": "FakeExecutor", "argv": []}).startswith(
         "FakeExecutor, no argv recorded"
     )
+
+
+#: A dimensional value of a propeller or its run, from which a length can be
+#: recovered: a force or moment in newtons, a speed, a density, a rotor speed,
+#: a time step, or a run id's rotor-speed token.
+_DIMENSIONAL = re.compile(
+    r"\d\s?(?:N m|N|m/s|kg/m3|rev/min)\b|RPM\d|\"rpm\"|_Nm?\"|delta_time_s|velocity_m_s"
+)
+
+
+def test_the_0_31_licensed_reports_state_only_nondimensional_values():
+    """The owner's rule P6 for 0.31.0: only nondimensional values of the propeller."""
+    # P0310-REPORTS: RPT-094 and RPT-095 and their sidecars.
+    reports = Path(__file__).resolve().parents[2] / "reports"
+    paths = sorted(reports.glob("RPT-09[45]_*"))
+    assert len(paths) == 4, [p.name for p in paths]
+    found = [
+        f"{path.name}: {match.group(0)!r}"
+        for path in paths
+        for match in _DIMENSIONAL.finditer(path.read_text(encoding="utf-8"))
+    ]
+    assert not found, found
