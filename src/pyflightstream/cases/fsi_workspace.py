@@ -315,6 +315,7 @@ def aeroelastic_post(
     *,
     surface_exports: Sequence[tuple[str, Sequence[object]]] = (),
     exports: Callable[[Script], None] | None = None,
+    updates: Callable[[Script], None] | None = None,
 ) -> Script:
     """Build the aeroelastic post-processing script, as a script.
 
@@ -332,7 +333,17 @@ def aeroelastic_post(
         Emits the row's own exports into the script, after the loads the
         structural program reads and the surface exports: a steady coupled
         run's whole export block, which no line of the run's script may
-        follow ``EXECUTE_AEROELASTIC_ANALYSIS`` to write.
+        follow ``EXECUTE_AEROELASTIC_ANALYSIS`` to write. It exports only:
+        the sections are updated and their loads computed once, here, before
+        any export, and every other update those exports read is emitted by
+        ``updates``.
+    updates : callable, optional
+        Emits the updates the row's exports read beyond the sections and
+        their loads (the probe points), after those two and before the first
+        export: every update is an analysis command, which the phase order
+        refuses after an export (the L1 runs of 0.30.0, where a coupled row
+        with the default exports updated the sections a second time after
+        this script's loads export and did not build).
 
     Returns
     -------
@@ -342,6 +353,8 @@ def aeroelastic_post(
     post = Script(version)
     post.emit("UPDATE_ALL_SURFACE_SECTIONS")
     post.emit("COMPUTE_SURFACE_SECTIONAL_LOADS", "NEWTONS")
+    if updates is not None:
+        updates(post)
     post.emit("EXPORT_SURFACE_SECTIONAL_LOADS", LOADS_FILE)
     for command, arguments in surface_exports:
         post.emit(command, *arguments)
@@ -355,6 +368,7 @@ def aeroelastic_post_script(
     *,
     surface_exports: Sequence[tuple[str, Sequence[object]]] = (),
     exports: Callable[[Script], None] | None = None,
+    updates: Callable[[Script], None] | None = None,
 ) -> str:
     """Render the aeroelastic post-processing script.
 
@@ -381,13 +395,17 @@ def aeroelastic_post_script(
         triangulation export and ``SAVEAS`` keep the reference ones).
     exports : callable, optional
         The row's own exports, as :func:`aeroelastic_post` takes them.
+    updates : callable, optional
+        The updates those exports read, as :func:`aeroelastic_post` takes them.
 
     Returns
     -------
     str
         The script text.
     """
-    return aeroelastic_post(version, surface_exports=surface_exports, exports=exports).render()
+    return aeroelastic_post(
+        version, surface_exports=surface_exports, exports=exports, updates=updates
+    ).render()
 
 
 def emit_steady_aeroelastic_analysis(script: Script) -> None:
@@ -776,6 +794,7 @@ def wire_quasi_steady_sector_fsi(
     rotor: RotorBlock,
     interpreter: str,
     exports: Callable[[Script], None] | None,
+    updates: Callable[[Script], None] | None = None,
 ) -> list[dict[str, object]]:
     """Stage a quasi-steady sector's rotating blade and emit its coupling (0.30.0).
 
@@ -875,7 +894,7 @@ def wire_quasi_steady_sector_fsi(
     boundaries = aeroelastic_surface_ids(case, script, [blade], context="FSI blade")
     family_map = SectionFamilyMap(families=[SectionFamily(name=blade, count=count, is_blade=True)])
     layout = structural_node_layout(config)
-    post = aeroelastic_post(script.version, exports=exports)
+    post = aeroelastic_post(script.version, exports=exports, updates=updates)
     _stage_and_emit(
         case,
         script,
@@ -903,6 +922,7 @@ def wire_fixed_wing_fsi(
     workflow: str,
     interpreter: str,
     exports: Callable[[Script], None] | None,
+    updates: Callable[[Script], None] | None = None,
 ) -> list[dict[str, object]]:
     """Stage the fixed wing's structure and emit its coupling (FSI-G of 0.30.0).
 
@@ -939,6 +959,9 @@ def wire_fixed_wing_fsi(
         The Python the structural callback runs under.
     exports : callable or None
         Emits the exports the post-processing script carries.
+    updates : callable, optional
+        Emits the updates those exports read, as :func:`aeroelastic_post`
+        takes them.
 
     Returns
     -------
@@ -1020,7 +1043,7 @@ def wire_fixed_wing_fsi(
     boundaries = aeroelastic_surface_ids(case, script, [name], context="FSI wing")
     family_map = SectionFamilyMap(families=[SectionFamily(name=name, count=count, is_blade=True)])
     layout = structural_node_layout(cfg)
-    post = aeroelastic_post(script.version, exports=exports)
+    post = aeroelastic_post(script.version, exports=exports, updates=updates)
     _stage_and_emit(
         case,
         script,

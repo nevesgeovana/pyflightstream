@@ -365,6 +365,18 @@ FlightStream versions.
   `storage_management.json`) and printed as `PLANNED WITHOUT RECORD`; a plan
   that cannot be read is named with why.
 
+- **A coupled row with the pproc's default exports builds again.** On the
+  steady coupled routes (the fixed wing and the `qsteady_rotor` sector) the
+  aeroelastic post-processing script exports the loads the structural program
+  reads, and the row's export block then updated the sections again whenever
+  a section, sectional-loads, probe or section Cp export was on, which they
+  are by default: an analysis command after an export, refused at plan with a
+  `ScriptOrderError`, so such a row ran only with those four exports turned
+  off (L1, reports/RPT-090 and RPT-092). The post now updates the sections
+  and computes their loads once, then the probe points when the row exports
+  them, before its first export, and the row's exports follow with no update
+  of their own.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
