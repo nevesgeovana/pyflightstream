@@ -25,7 +25,7 @@ shell, spar, hollow-section, shear-center or second structural model.
 | Workflow | FSI in this release |
 | --- | --- |
 | `unsteady_rotor` | Refused by the plan: FSI on unsteady_rotor is still in debug on this release (the morph is applied to the un-rotated blade, reported to the vendor). |
-| `steady`, `unsteady` without rotor motion | Arrive with the fixed-wing structural route of this release (FSI-G); until it is wired the plan says so. |
+| `steady`, `unsteady` without rotor motion | Accepted: the fixed-wing route (FSI-G), [below](#fixed-wing-fsi). |
 | `qsteady_rotor` | Arrives with the `qsteady_rotor` workflow and its sector structural route. |
 
 On 26.124 a mapped rotating blade is morphed at its imported azimuth: after
@@ -35,6 +35,103 @@ morph replaces the rotation instead of composing with it, so no coupled rotor
 number of that route is a rotor result. RPT-025 carries the dated correction
 of the earlier reading. The rotor wiring below is kept, tested, and closed by
 the plan until the route is released.
+
+## Fixed-wing FSI
+
+A `steady` row, or an `unsteady` row with nothing turning, couples a fixed
+wing. The FSI input states `[config.wing]`, and the structure is then one wing
+clamped at its first station:
+
+```toml
+mode = "calculated"
+material = "ti-6al-4v-grade5-annealed"
+
+[config]
+blade_count = 1
+omega_rad_per_s = 0.0
+
+[config.wing]
+self_weight = true
+gravity_m_per_s2 = [0.0, 0.0, -9.80665]
+span_axis = "+Y"
+origin_m = [0.25, 0.0, 0.0]
+
+[sections]
+station_radii_m = [0.0, 2.0, 4.0]
+chord_m = [1.0, 1.0, 1.0]
+geometric_pitch_deg = [0.0, 0.0, 0.0]
+geometry_source = "Synthetic lens sections about the quarter chord, in metres"
+sections_m = [
+  [[0.25, 0.0], [0.0, 0.06], [-0.25, 0.08], [-0.75, 0.0], [-0.25, -0.08], [0.0, -0.06]],
+  [[0.25, 0.0], [0.0, 0.06], [-0.25, 0.08], [-0.75, 0.0], [-0.25, -0.08], [0.0, -0.06]],
+  [[0.25, 0.0], [0.0, 0.06], [-0.25, 0.08], [-0.75, 0.0], [-0.25, -0.08], [0.0, -0.06]]
+]
+```
+
+- **The stiffness and mass along the span** come from the same section and
+  material tooling a calculated blade uses: `[sections]` gives one closed
+  contour per station, in metres, chordwise toward the leading edge and normal
+  toward the suction side, about the wing's pitch axis. A supplied
+  configuration states the distributions under `[config.blade]` instead. The
+  stations are distances along the span from `origin_m`, the reference-frame
+  point on the pitch axis; `span_axis` is `+Y` for a right wing and `-Y` for a
+  left one. The package's frame is x aft, y right, z up, so a station's
+  section axes are -x and +z, turned nose up by its `geometric_pitch_deg`.
+- **The loads** are the aerodynamic sectional loads the solver exports, plus
+  the wing's own weight: the running mass under `gravity_m_per_s2`, a vector of
+  the reference frame, -z at standard gravity by default. The angle of attack
+  and the sideslip turn the free stream, never the body, so they never turn
+  gravity; a model mounted in another orientation states its own vector. With
+  its centre of gravity off the elastic axis (`cg_offset_chordwise_m`,
+  `cg_offset_normal_m`), the weight twists the section too. A wing at rest has
+  no centrifugal load, and none is applied: a `[config.wing]` configuration
+  stating a speed, or more than one structure, is refused.
+- **`self_weight = false`** removes the weight, for a wind-tunnel model whose
+  weight the balance and the support carry. It is on by default.
+- **The sections the loads come from** are one distribution of the row's
+  pproc, over the wing's one family, on the XZ plane, in a frame with the
+  reference axes whose origin sits on the wing's `origin_m` along the span.
+  The MRP frame of a reference whose moment point is on that plane is one:
+
+  ```toml
+  [sections]
+  count = 40
+  include_symmetry = false
+
+  [[sections.distributions]]
+  families = ["Wing"]
+  frame = "MRP"
+  planes = ["XZ"]
+  ```
+
+  Another distribution, another plane or a frame elsewhere is refused rather
+  than converted. The surface list holds the family's boundary ID, the nodes
+  are placed inside the wing's sections and stored in the reference frame,
+  and the kernel is `MULTI_QUADRATIC`, as below.
+- **A steady row** ends its script at `EXECUTE_AEROELASTIC_ANALYSIS`, with at
+  most 50 coupling iterations; the solver stops the loop itself once its
+  displacement residual converges. The row's exports all run in the
+  aeroelastic post-processing script, after the loads the structural call
+  reads, so the files left after the run are those of the last coupling
+  iteration. Each point is its own process, and a local run stops the solver
+  once it prints `Aeroelastic solver run time`; a submitting executor refuses
+  such a script, because the process never exits by itself. The probe points,
+  the pproc's volume section and the loads selections are refused on this
+  route.
+- **An unsteady row** couples once per time step inside the march
+  (`SET_AEROELASTIC_COUPLING_IN_UNSTEADY ENABLE`, one coupling iteration per
+  step) and writes the deformed surface, `fsi_surface.vtk`, after every
+  structural call; the row's own exports stay at the end of the march.
+- Each structural call solves the clamped beam once and relaxes the written
+  displacement by `phases.coupling_relaxation` (0.4 unless the configuration
+  states it). Its row in `fsi_convergence_log.csv` states the phase
+  `fixed_wing`.
+
+The export's moment column of an XZ cut is read as positive about +y, which
+is nose up on either wing, by analogy with the blade's XY cut. That sign, and
+the route as a whole, wait on their licensed confirmation; the offline tests
+hold the emitted script, the weight against the cantilever's closed form
+q L^4 / (8 E I) and the absence of any centrifugal term.
 
 ## Automatic workspace coupling
 
