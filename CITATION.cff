@@ -56,8 +56,8 @@ license: MIT
 # reading of v0.25.1 found the stale tally, so the count is now stated
 # with its date rather than as a list. 0.30.0.dev0 OPENED 0.30.0
 # DEVELOPMENT, the FORTY-FIRST move (a pre-release wheel of this tree is
-# handed to the owner; each later hand-over bumps devN); THIS COMMIT MAKES
-# IT 0.30.0.dev1, the FORTY-SECOND, and the paragraph is re-stated with it
+# handed to the owner; each later hand-over bumps devN); 0.30.0.dev1 was the
+# FORTY-SECOND; THIS COMMIT MAKES IT 0.30.0.dev2, the FORTY-THIRD, and the paragraph is re-stated with it
 # because a tally naming a bump three releases old as "this" one is the
 # same staleness from the other side (the independent review of GitHub
 # main, 2026-09-22). A FOURTH
@@ -97,7 +97,7 @@ license: MIT
 # v0.17.0 for a day. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
-version: 0.30.0.dev1
+version: 0.30.0.dev2
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:
   - type: doi
