@@ -1389,16 +1389,19 @@ FX_HUB_PUSHER = "FX_PUSHER"
 
 ## Rotor coefficients
 
-`J`, `CT`, `CQ`, `CP`, `ETA`, `ETAW`, one table per rotor, every column suffixed
-with the rotor's alias. They make physical sense for **one** rotor and not for
+`J`, `CT`, `CQ`, `CP`, `ETA`, `ETAW`, and since 0.31.0 the in-plane `CN`, `CS`,
+`CMN`, `CMS`, one table per rotor, every column suffixed with the rotor's alias. They make physical sense for **one** rotor and not for
 several summed: the diameters and speeds that normalise them are different
 numbers.
 
 The table is `polars/P<sim>-<alias>_rotor.csv`. It opens with `POL` and
 `ROTOR`, the rotor's alias, on every row, then the condition block,
 `RPM_<alias>`, `DIAMETER_<alias>` and the six, `J_<alias>` to `ETAW_<alias>`,
-then, last since 0.30.0, `MTIP_<alias>` and `MHEL_<alias>`
-([Tip and helical Mach numbers](#tip-and-helical-mach-numbers)).
+then, since 0.30.0, `MTIP_<alias>` and `MHEL_<alias>`
+([Tip and helical Mach numbers](#tip-and-helical-mach-numbers)), and then, last
+since 0.31.0, `CN_<alias>`, `CS_<alias>`, `CMN_<alias>` and `CMS_<alias>`
+([The in-plane coefficients](#the-in-plane-coefficients)). The column contract
+grows at its end only, so every earlier column keeps its position.
 Its first line is its header: from 0.23.0 to 0.26.x the alias stood alone on
 the first line, before the header, so a loaded table knew its rotor, and no CSV
 reader took the file as written. The column keeps that promise.
@@ -1448,6 +1451,46 @@ name would leave a reader unable to tell which of the two they hold.
 **It is two rotations on a vector, never the cosine of a scalar angle.** A cosine
 discards the components that are not along the axis, which is exactly what the
 rotation chain preserves.
+
+### The in-plane coefficients
+
+Since 0.31.0 the table states the rotor's force and moment square to its
+axis, in the rotor's own axes `(T, S, N)`:
+
+- `T` is the rotor's axis as the reference declares it, the direction in
+  which its thrust is counted positive (the same axis `CT` projects on).
+- `N`, the normal, is the part of the reference frame's up direction (`+z`
+  of the loads frame: x aft, y right, z up) square to `T`, normalised.
+- `S`, the side axis, completes the right-handed set: `S = N x T`, so
+  `T x S = N`.
+
+For a level rotor whose axis points forward (`-x`), `N` is `+z` and `S` is
+`-y`, the right of a viewer upstream of the rotor looking downstream at it;
+the force components are then `N = +FZ` and `S = -FY`, and the moments
+`MN = +MZ` and `MS = -MY`. `N`, `S`, `MN` and `MS` are taken from the same
+rotor force and the same moment about the HUB that `CT` and `CQ` are taken
+from (`M_hub = M_mrp + (r_mrp - r_hub) x F`), and normalised as they are,
+with that row's density, the magnitude of its rotor speed and the rotor's
+diameter:
+
+```text
+CN  = N  / (rho n^2 D^4)
+CS  = S  / (rho n^2 D^4)
+CMN = MN / (rho n^2 D^5)
+CMS = MS / (rho n^2 D^5)
+```
+
+- The axes turn with the rotor: a tilted axis tilts `N` with it, and `N`
+  stays in the vertical plane that holds the axis.
+- The sense of rotation does not enter them: none is a power.
+- **An axis along the up direction has no normal and no side axis.** The four
+  read `NA` on every row, and the post says so once for the table, in its log.
+  They also read `NA` wherever `CT` does (a static point, a loads frame that
+  is not the geometry's), because they come from the same force.
+- On an unsteady point they are the window's average, as every other column
+  of the row is. On a quasi-steady point they are the point's own solve (a
+  wheel's clocking 0, one instant of its clockings), and on a sector solved
+  without symmetry loads they are the modelled sector's, not the whole rotor's.
 
 ### A static point
 
@@ -1509,7 +1552,8 @@ Where they appear:
   the key is absent on a record with no such point. A steady row runs its
   points as one job, so its job record keys the blocks one level up by the
   point's name, and each point read out of the job carries its own.
-- The rotor table ends with `MTIP_<alias>` and `MHEL_<alias>`, taken at that
+- The rotor table carries `MTIP_<alias>` and `MHEL_<alias>` after its six
+  coefficients (and before the four in-plane ones of 0.31.0), taken at that
   row's speed and `DIAMETER_<alias>` and at the point's resolved condition. A
   point whose condition does not resolve reads `NA` in both and keeps its row.
   A disc has no rotor table, and a steady row's record states no rotor speed

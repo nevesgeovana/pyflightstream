@@ -23,6 +23,19 @@ FlightStream versions.
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
 
+### Added
+
+- The rotor table states the rotor's in-plane coefficients as its last four
+  columns, after `MTIP_<alias>` and `MHEL_<alias>`: `CN_<alias>`,
+  `CS_<alias>`, `CMN_<alias>` and `CMS_<alias>`, the force along the rotor's
+  normal and side axes over `rho n^2 D^4` and the moment about them at the
+  hub over `rho n^2 D^5`. The axes `(T, S, N)` are right-handed: `T` the
+  rotor's axis, `N` the part of the reference frame's up (+z) square to it,
+  `S = N x T`. A rotor whose axis lies along up reads `NA` in the four, said
+  once in the post log (`docs/post-processing-definitions.md`, "The in-plane
+  coefficients"; `post.axes.rotor_in_plane_axes`,
+  `post.axes.rotor_in_plane_loads`).
+
 ## [0.30.0] - 2026-09-29
 
 THE QUASI-STEADY ROTOR, FSI ON THE STEADY ROUTES, AND THE WORKSPACE'S
