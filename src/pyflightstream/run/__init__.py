@@ -130,6 +130,7 @@ from pyflightstream.cases import (
     resolve_recipe,
     sweep_name,
 )
+from pyflightstream.cases.qsteady import record_file_name as qsteady_record_file_name
 from pyflightstream.cases.qsteady import summarise as summarise_validity
 from pyflightstream.cases.qsteady import summarise_inflow_harmonics
 from pyflightstream.cases.workflows import (
@@ -137,6 +138,7 @@ from pyflightstream.cases.workflows import (
     EXPORT_LOG_VARIABLE,
     FREESTREAM_VARIABLE,
     LOG_OUTPUT_VARIABLE,
+    QSTEADY_ROTOR,
     RAW_MESH_FORMATS,
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
@@ -175,12 +177,14 @@ from pyflightstream.results import (
     SOLVER_MODES,
     IncompleteOutputError,
     LoadsReport,
+    ResidualSample,
     VersionMismatchWarning,
     classify_solver_mode,
     frozen_time_steps,
     parse_loads,
     parse_log_times,
     parse_residual_history,
+    parse_residual_solves,
     translate_surface_exports,
 )
 from pyflightstream.results.conditions import ConditionBinding, bind_conditions
@@ -1598,6 +1602,16 @@ class Assessment:
         The solver's own run time and initialization time in seconds and the
         time steps of an unsteady run, read from the log the verdict read;
         None where no log was read or it prints no such line.
+    clocking_verdicts : list of dict, optional
+        A quasi-steady rotor wheel solved at several clockings (0.30.0): one
+        entry per clocking, in the order the run solved them, with its
+        ``index``, ``clocking_deg``, ``status``, ``iterations``, ``residual``
+        and, where it has one, ``note`` or ``error``, each judged from that
+        clocking's own solve in the one log the run exports. The point's
+        ``status``, ``residual`` and ``iterations`` are then the worst case:
+        the worst status, the largest final residual, and the iterations of
+        clocking 0, the solve its loads export is of. None on every other
+        point.
     """
 
     status: RunStatus
@@ -1612,6 +1626,7 @@ class Assessment:
     solver_run_time_s: float | None = None
     solver_initialization_s: float | None = None
     time_steps: int | None = None
+    clocking_verdicts: list[dict[str, object]] | None = None
 
 
 def _bind_case_conditions(case: SimCase | None, report: LoadsReport) -> ConditionBinding:
@@ -2096,6 +2111,12 @@ class LoadsAssessor:
                 **stamp,
             )
         log_path = None
+        # A QUASI-STEADY WHEEL SOLVED AT k CLOCKINGS exports ONE log holding its
+        # k solves in sequence, each counter starting at 1 (L1 of 0.30.0,
+        # RPT-091): the run's own record beside the loads export says so, and
+        # the log is then read and judged solve by solve.
+        clockings = _wheel_clockings(report_path)
+        solves = 1 if clockings is None else len(clockings)
         if self.log_file is None:
             # AUTO-DETECTION BY CONTENT, on the same ground the loads
             # table is found by content: a swept case names its outputs
@@ -2122,7 +2143,7 @@ class LoadsAssessor:
             candidates = [
                 path
                 for path in collected
-                if path != report_path and reads_as_residual_history(path)
+                if path != report_path and reads_as_residual_history(path, solves=solves)
             ]
             if len(candidates) == 1:
                 log_path = candidates[0]
@@ -2172,6 +2193,10 @@ class LoadsAssessor:
             stamp["solver_run_time_s"] = times.solver_run_time_s
             stamp["solver_initialization_s"] = times.solver_initialization_s
             stamp["time_steps"] = times.time_steps
+            if clockings is not None:
+                return _judge_the_clockings(
+                    log_text, log_path, report, report_path, clockings, stamp
+                )
             try:
                 history = parse_residual_history(log_text)
                 final = history[-1]
@@ -2223,87 +2248,14 @@ class LoadsAssessor:
                     error=frozen.reason,
                     **stamp,
                 )
-            # PYFS-007. Every component is judged BEFORE they are combined,
-            # and that order is the fix rather than a detail of it.
-            #
-            # This was `max(velocity, pressure)` followed by a NaN test on the
-            # result. Python's max returns the first argument when the
-            # comparison is False, and every comparison against NaN is False,
-            # so max(9.6e-8, nan) is 9.6e-08: a NaN in the SECOND position was
-            # swallowed and the test below it never fired. The point was then
-            # published CONVERGED, carrying a residual that is not the residual
-            # that decided it. The guard only ever worked when the NaN happened
-            # to land in the velocity column.
-            #
-            # Infinity is the same class and was also wrong: inf <= limit is
-            # False, so an infinite residual read as COMPLETED_MAX_ITER, which
-            # says the solver ran out of iterations. It did not; it diverged.
-            #
-            # Reducing a set of numbers cannot be trusted to preserve the
-            # invalidity of one of them, so validity is established first.
-            components = {
-                "velocity": final.velocity_residual,
-                "pressure": final.pressure_residual,
-            }
-            # A FIELD TOO NARROW IS NOT A DIVERGENCE. The solver prints a run
-            # of asterisks when a number does not fit its column, and on the
-            # LAST row that turned a converged run into FAILED_DIVERGED: a
-            # 26.100 rotor printed `*************` in the pressure column at
-            # its final iteration, 1.15e-9 on the row before. The overflowed
-            # column is read from its last printed value, and ONLY when that
-            # value is already within the limit: a column that overflowed from
-            # above the limit may have overflowed because it grew, so it stays
-            # unjudged. What was read, and from which iteration, is recorded.
-            notes: list[str] = []
-            for name in sorted(final.overflowed):
-                earlier = next(
-                    (
-                        (sample.iteration, getattr(sample, f"{name}_residual"))
-                        for sample in reversed(history[:-1])
-                        if name not in sample.overflowed
-                        and math.isfinite(getattr(sample, f"{name}_residual"))
-                    ),
-                    None,
-                )
-                if earlier is not None and earlier[1] <= report.convergence_limit:
-                    components[name] = earlier[1]
-                    notes.append(
-                        f"the {name} residual of iteration {final.iteration} did not fit its "
-                        f"printed field; read from iteration {earlier[0]}, {earlier[1]:.4g}"
-                    )
-            if notes:
-                stamp["residual_note"] = "; ".join(notes)
-            nonfinite = [
-                f"{name}={value!r}"
-                for name, value in components.items()
-                if value is None or not math.isfinite(value)
-            ]
-            if nonfinite:
-                overflow = (
-                    f" The solver printed {', '.join(sorted(final.overflowed))} as a field "
-                    "of asterisks, and the last printed value of that column is not within "
-                    "the limit, so it may have overflowed because it grew."
-                    if final.overflowed
-                    else ""
-                )
-                return Assessment(
-                    status=RunStatus.FAILED_DIVERGED,
-                    iterations=final.iteration,
-                    error=(
-                        "non-finite final residual(s): "
-                        f"{', '.join(nonfinite)}. A residual that is NaN or "
-                        "infinite is not a small number, so no convergence "
-                        "judgment can be made from it; the solver diverged or "
-                        "the log is corrupt at that iteration." + overflow
-                    ),
-                    **stamp,
-                )
-            residual = max(components.values())
-            converged = residual <= report.convergence_limit
+            judged = _judge_final_residuals(history, report.convergence_limit)
+            if judged.note:
+                stamp["residual_note"] = judged.note
             return Assessment(
-                status=RunStatus.CONVERGED if converged else RunStatus.COMPLETED_MAX_ITER,
+                status=judged.status,
                 iterations=final.iteration,
-                residual=residual,
+                residual=judged.residual,
+                error=judged.error,
                 **stamp,
             )
         if mode == "steady":
@@ -2323,6 +2275,277 @@ class LoadsAssessor:
             error=None,
             **stamp,
         )
+
+
+@dataclass(frozen=True)
+class _ResidualJudgment:
+    """The verdict one residual history's final row gives, with what it read."""
+
+    status: RunStatus
+    residual: float | None
+    note: str | None
+    error: str | None
+
+
+def _judge_final_residuals(history: Sequence[ResidualSample], limit: float) -> _ResidualJudgment:
+    """Judge one solve's final residuals against the convergence limit.
+
+    CONVERGED within the limit, COMPLETED_MAX_ITER above it, FAILED_DIVERGED
+    for a residual that is NaN or infinite; an overflowed field is read from
+    its last printed value where that is within the limit, and the note says
+    so.
+    """
+    final = history[-1]
+    # PYFS-007. Every component is judged BEFORE they are combined,
+    # and that order is the fix rather than a detail of it.
+    #
+    # This was `max(velocity, pressure)` followed by a NaN test on the
+    # result. Python's max returns the first argument when the
+    # comparison is False, and every comparison against NaN is False,
+    # so max(9.6e-8, nan) is 9.6e-08: a NaN in the SECOND position was
+    # swallowed and the test below it never fired. The point was then
+    # published CONVERGED, carrying a residual that is not the residual
+    # that decided it. The guard only ever worked when the NaN happened
+    # to land in the velocity column.
+    #
+    # Infinity is the same class and was also wrong: inf <= limit is
+    # False, so an infinite residual read as COMPLETED_MAX_ITER, which
+    # says the solver ran out of iterations. It did not; it diverged.
+    #
+    # Reducing a set of numbers cannot be trusted to preserve the
+    # invalidity of one of them, so validity is established first.
+    components = {
+        "velocity": final.velocity_residual,
+        "pressure": final.pressure_residual,
+    }
+    # A FIELD TOO NARROW IS NOT A DIVERGENCE. The solver prints a run
+    # of asterisks when a number does not fit its column, and on the
+    # LAST row that turned a converged run into FAILED_DIVERGED: a
+    # 26.100 rotor printed `*************` in the pressure column at
+    # its final iteration, 1.15e-9 on the row before. The overflowed
+    # column is read from its last printed value, and ONLY when that
+    # value is already within the limit: a column that overflowed from
+    # above the limit may have overflowed because it grew, so it stays
+    # unjudged. What was read, and from which iteration, is recorded.
+    notes: list[str] = []
+    for name in sorted(final.overflowed):
+        earlier = next(
+            (
+                (sample.iteration, getattr(sample, f"{name}_residual"))
+                for sample in reversed(history[:-1])
+                if name not in sample.overflowed
+                and math.isfinite(getattr(sample, f"{name}_residual"))
+            ),
+            None,
+        )
+        if earlier is not None and earlier[1] <= limit:
+            components[name] = earlier[1]
+            notes.append(
+                f"the {name} residual of iteration {final.iteration} did not fit its "
+                f"printed field; read from iteration {earlier[0]}, {earlier[1]:.4g}"
+            )
+    nonfinite = [
+        f"{name}={value!r}"
+        for name, value in components.items()
+        if value is None or not math.isfinite(value)
+    ]
+    if nonfinite:
+        overflow = (
+            f" The solver printed {', '.join(sorted(final.overflowed))} as a field "
+            "of asterisks, and the last printed value of that column is not within "
+            "the limit, so it may have overflowed because it grew."
+            if final.overflowed
+            else ""
+        )
+        return _ResidualJudgment(
+            status=RunStatus.FAILED_DIVERGED,
+            residual=None,
+            note="; ".join(notes) or None,
+            error=(
+                "non-finite final residual(s): "
+                f"{', '.join(nonfinite)}. A residual that is NaN or "
+                "infinite is not a small number, so no convergence "
+                "judgment can be made from it; the solver diverged or "
+                "the log is corrupt at that iteration." + overflow
+            ),
+        )
+    residual = max(components.values())
+    converged = residual <= limit
+    return _ResidualJudgment(
+        status=RunStatus.CONVERGED if converged else RunStatus.COMPLETED_MAX_ITER,
+        residual=residual,
+        note="; ".join(notes) or None,
+        error=None,
+    )
+
+
+#: The order of badness of a clocking's verdict, worst last: the worst of a
+#: wheel's clockings is its point's status.
+_CLOCKING_SEVERITY = (RunStatus.CONVERGED, RunStatus.COMPLETED_MAX_ITER, RunStatus.FAILED_DIVERGED)
+
+
+def _wheel_clockings(loads_path: Path) -> list[dict[str, object]] | None:
+    """Return a quasi-steady wheel's clockings in the order its run solved them, or None.
+
+    Read from the point's quasi-steady record, which the run writes beside the
+    loads export (``<loads stem>_qsteady.json``): clockings 1 to k - 1 are
+    solved first and clocking 0 last, with the point's full exports
+    (:func:`pyflightstream.cases.workflows._build_qsteady_rotor`). None for
+    every point that is not a wheel of two clockings or more, including one
+    whose record cannot be read: that point's log is then judged as one
+    solve, which refuses a log of several.
+    """
+    path = loads_path.with_name(Path(qsteady_record_file_name(loads_path.name)).name)
+    if not path.is_file():
+        return None
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(record, dict):
+        return None
+    if record.get("run_type") != QSTEADY_ROTOR or record.get("case") != "wheel":
+        return None
+    positions = record.get("positions")
+    if not isinstance(positions, list) or len(positions) < 2:
+        return None
+    if not all(isinstance(entry, dict) for entry in positions):
+        return None
+    by_index = sorted(positions, key=lambda entry: int(entry.get("index", 0)))
+    return [*by_index[1:], by_index[0]]
+
+
+def _judge_the_clockings(
+    log_text: str,
+    log_path: Path,
+    report: LoadsReport,
+    report_path: Path,
+    clockings: Sequence[Mapping[str, object]],
+    stamp: dict[str, object],
+) -> Assessment:
+    """Judge a quasi-steady wheel from the one log holding every clocking's solve.
+
+    Each solve is judged as a point's one solve is
+    (:func:`_judge_final_residuals`); the point carries each verdict in
+    ``clocking_verdicts`` and the worst case in its status and residual. The
+    log's last solve is clocking 0's, whose loads export is the point's, so
+    it must end at the iteration that export was written at; each earlier
+    clocking's own loads export is held to its solve the same way where it
+    was collected.
+    """
+    try:
+        solves = parse_residual_solves(log_text)
+    except (IncompleteOutputError, ValueError) as error:
+        return Assessment(
+            status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            error=f"solver log unusable: {error}",
+            **stamp,
+        )
+    if len(solves) != len(clockings):
+        return Assessment(
+            status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            iterations=report.current_iteration,
+            error=(
+                f"the solver log {log_path.name} holds {len(solves)} solve(s) and the point "
+                f"was solved at {len(clockings)} clockings, one solve each, so which solve "
+                "is which clocking's cannot be told and no convergence judgment is made "
+                "from it. The log is of another run, or the run stopped before its last "
+                "clocking"
+            ),
+            **stamp,
+        )
+    final = solves[-1][-1]
+    if final.iteration != report.current_iteration:
+        return Assessment(
+            status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            iterations=report.current_iteration,
+            error=(
+                f"the last solve of the solver log {log_path.name}, clocking 0's, ends at "
+                f"iteration {final.iteration} and the loads export {report_path.name} was "
+                f"written at iteration {report.current_iteration}, so the residual is not "
+                "the residual of the exported coefficients and no convergence judgment is "
+                "made from it"
+            ),
+            **stamp,
+        )
+    try:
+        frozen = frozen_time_steps(log_text)
+    except IncompleteOutputError as error:
+        return Assessment(
+            status=RunStatus.FAILED_INCOMPLETE_OUTPUT,
+            iterations=final.iteration,
+            error=f"solver log unusable: {error}",
+            **stamp,
+        )
+    if frozen is not None:
+        return Assessment(
+            status=RunStatus.FAILED_DIVERGED,
+            iterations=final.iteration,
+            error=frozen.reason,
+            **stamp,
+        )
+    verdicts: list[dict[str, object]] = []
+    statuses: list[RunStatus] = []
+    residuals: list[float | None] = []
+    notes: list[str] = []
+    errors: list[str] = []
+    for clocking, history in zip(clockings, solves, strict=True):
+        index = clocking.get("index")
+        judged = _judge_final_residuals(history, report.convergence_limit)
+        status, error = judged.status, judged.error
+        loads = clocking.get("loads")
+        if index != 0 and isinstance(loads, str):
+            # EACH CLOCKING'S LOADS EXPORT IS OF ITS OWN SOLVE, held to it as
+            # the point's own export is held to the last one.
+            exported = report_path.with_name(Path(loads).name)
+            own = _read_loads(exported, None)[0] if exported.is_file() else None
+            if own is None:
+                status = RunStatus.FAILED_INCOMPLETE_OUTPUT
+                error = (
+                    f"no readable loads export {exported.name} for this clocking, so its "
+                    "solve's residual describes no exported coefficients"
+                )
+            elif own.current_iteration != history[-1].iteration:
+                status = RunStatus.FAILED_INCOMPLETE_OUTPUT
+                error = (
+                    f"its solve ends at iteration {history[-1].iteration} and its loads "
+                    f"export {exported.name} was written at iteration "
+                    f"{own.current_iteration}, so the residual is not that export's"
+                )
+        verdict: dict[str, object] = {
+            "index": index,
+            "clocking_deg": clocking.get("clocking_deg"),
+            "status": str(status),
+            "iterations": history[-1].iteration,
+            "residual": judged.residual,
+        }
+        if judged.note:
+            verdict["note"] = judged.note
+            notes.append(f"clocking {index}: {judged.note}")
+        if error:
+            verdict["error"] = error
+            errors.append(f"clocking {index}: {error}")
+        verdicts.append(verdict)
+        statuses.append(status)
+        residuals.append(judged.residual)
+    stamp["clocking_verdicts"] = verdicts
+    if notes:
+        stamp["residual_note"] = "; ".join(notes)
+    if RunStatus.FAILED_INCOMPLETE_OUTPUT in statuses:
+        worst = RunStatus.FAILED_INCOMPLETE_OUTPUT
+    else:
+        worst = max(statuses, key=_CLOCKING_SEVERITY.index)
+    judged_residuals = [value for value in residuals if value is not None]
+    return Assessment(
+        status=worst,
+        iterations=final.iteration,
+        # THE LARGEST, the worst case, and only where every clocking has one:
+        # a clocking that diverged has none, and the largest of the others
+        # would read as the point's.
+        residual=max(judged_residuals) if len(judged_residuals) == len(residuals) else None,
+        error="; ".join(errors) or None,
+        **stamp,
+    )
 
 
 class CampaignErrors(PyflightstreamError, RuntimeError):  # noqa: N818 (the SAD Section 7 name)
@@ -8305,6 +8528,7 @@ def _execute_point(
         solver_run_time_s=assessment.solver_run_time_s,
         solver_initialization_s=assessment.solver_initialization_s,
         time_steps=assessment.time_steps,
+        clocking_verdicts=assessment.clocking_verdicts,
         error=error,
     )
 

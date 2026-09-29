@@ -1331,74 +1331,156 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
     # Real hidden-mode log exports carry stray NUL bytes between lines
     # (observed on 26.120 build 7012026); scrub them before parsing.
     clean = text.replace("\x00", "")
-    # EVERY PAGE, AND NOT ONLY THE FIRST. `EXPORT_LOG` prints this table in
-    # pages, each repeating the `Iteration` header and closing with a dashed
-    # line, and `delimited_table` returns the FIRST table it finds, by
-    # construction and by its own docstring. So a run longer than its first
-    # page was judged on the residual it held at that page's end, and
-    # published that row's number as its iteration count.
-    #
-    # MEASURED on the runs of 2026-09-11, which is where this was found:
-    # a 206-row log parsed 100 rows and reported a last velocity residual of
-    # 1.26e-5 where the file's last row reads 1.35e-6; a 1294-row log parsed
-    # 81. Every point of every recorded campaign in this estate reports an
-    # iteration count equal to a page boundary rather than a real stop, and
-    # the convergence verdict of every long run was read from the wrong row.
-    #
-    # The counter carries ACROSS pages, measured across an unsteady log's
-    # time-step boundary at 1144 to 1145, so joining them leaves the
-    # monotonic guard below NO WEAKER. Not "exactly as strict", which is what
-    # the first writing claimed and which the verification lens refuted:
-    # before this, a page after the first was never read at all, so the
-    # guard could not have refused anything in it. It is now STRICTER, and
-    # it applies to rows it never saw.
-    pages = _RESIDUAL_PAGE.split(clean)
-    rows: list[list[str]] = []
-    for index, page in enumerate(pages):
-        if index == 0:
-            continue
-        rows.extend(delimited_table("Iteration" + page, "Iteration", delimiter=None))
-    if not rows:
-        # No page at all is the same error the single-table read raised, and
-        # it is raised from the same place so the message does not change.
-        rows = delimited_table(clean, "Iteration", delimiter=None)
+    # EVERY PAGE, AND NOT ONLY THE FIRST, joined (:func:`_residual_rows`, which
+    # says why and what it measured). A log of several solves is read by
+    # :func:`parse_residual_solves`; here a restart is refused.
     history: list[ResidualSample] = []
-    for row in rows:
-        if len(row) < 3:
-            raise MalformedOutputError(
-                f"residual row {row!r} holds fewer than three columns (iteration, "
-                "velocity residual, pressure residual); the log table layout changed"
-            )
-        iteration = parse_count(row[0], label="the residual table's iteration counter")
+    for row, _ in _residual_rows(clean):
+        sample = _residual_sample(row)
         # PYFS-009. The counter was read and never checked, so a history of
         # [1, 2, 1574, 2] parsed clean. That shape is two runs' logs
         # concatenated, or a table that wrapped, and the CONVERGENCE JUDGMENT
         # READS THE LAST ROW: the run would be judged on a residual belonging
         # to an earlier iteration of a different solve. A monotonic counter is
         # what makes "the last row" mean "the final state".
-        if history and iteration <= history[-1].iteration:
+        if history and sample.iteration <= history[-1].iteration:
             raise MalformedOutputError(
                 f"the residual table's iteration counter goes from "
-                f"{history[-1].iteration} to {iteration}, so it does not increase. "
+                f"{history[-1].iteration} to {sample.iteration}, so it does not increase. "
                 "The final row is the convergence evidence of the run, and it is only "
                 "the final state if the counter orders the table; a repeat or a "
                 "decrease means two logs were concatenated or the table wrapped"
             )
-        history.append(
-            ResidualSample(
-                iteration=iteration,
-                velocity_residual=_residual_cell(row[1]),
-                pressure_residual=_residual_cell(row[2]),
-                overflowed=frozenset(
-                    name
-                    for name, token in (("velocity", row[1]), ("pressure", row[2]))
-                    if _OVERFLOWED_FIELD.match(token.strip())
-                ),
-            )
-        )
+        history.append(sample)
     if not history:
         raise IncompleteOutputError("the log residual table is empty")
     return history
+
+
+def _residual_rows(clean: str) -> list[tuple[list[str], bool]]:
+    """Return the residual table's rows, each with whether it opens a page.
+
+    EVERY PAGE, AND NOT ONLY THE FIRST. ``EXPORT_LOG`` prints this table in
+    pages, each repeating the ``Iteration`` header and closing with a dashed
+    line, and ``delimited_table`` returns the FIRST table it finds, by
+    construction and by its own docstring. So a run longer than its first
+    page was judged on the residual it held at that page's end, and
+    published that row's number as its iteration count.
+
+    MEASURED on the runs of 2026-09-11, which is where this was found: a
+    206-row log parsed 100 rows and reported a last velocity residual of
+    1.26e-5 where the file's last row reads 1.35e-6; a 1294-row log parsed
+    81. Every point of every recorded campaign in this estate reports an
+    iteration count equal to a page boundary rather than a real stop, and
+    the convergence verdict of every long run was read from the wrong row.
+
+    The counter carries ACROSS pages, measured across an unsteady log's
+    time-step boundary at 1144 to 1145, so joining them leaves the monotonic
+    guard of :func:`parse_residual_history` NO WEAKER. Not "exactly as
+    strict", which is what the first writing claimed and which the
+    verification lens refuted: before this, a page after the first was never
+    read at all, so the guard could not have refused anything in it. It is
+    now STRICTER, and it applies to rows it never saw.
+    """
+    pages = _RESIDUAL_PAGE.split(clean)
+    rows: list[tuple[list[str], bool]] = []
+    for index, page in enumerate(pages):
+        if index == 0:
+            continue
+        table = delimited_table("Iteration" + page, "Iteration", delimiter=None)
+        rows.extend((row, at == 0) for at, row in enumerate(table))
+    if not rows:
+        # No page at all is the same error the single-table read raised, and
+        # it is raised from the same place so the message does not change.
+        table = delimited_table(clean, "Iteration", delimiter=None)
+        rows = [(row, at == 0) for at, row in enumerate(table)]
+    return rows
+
+
+def _residual_sample(row: list[str]) -> ResidualSample:
+    """Read one row of the residual table: its iteration and its two residuals."""
+    if len(row) < 3:
+        raise MalformedOutputError(
+            f"residual row {row!r} holds fewer than three columns (iteration, "
+            "velocity residual, pressure residual); the log table layout changed"
+        )
+    return ResidualSample(
+        iteration=parse_count(row[0], label="the residual table's iteration counter"),
+        velocity_residual=_residual_cell(row[1]),
+        pressure_residual=_residual_cell(row[2]),
+        overflowed=frozenset(
+            name
+            for name, token in (("velocity", row[1]), ("pressure", row[2]))
+            if _OVERFLOWED_FIELD.match(token.strip())
+        ),
+    )
+
+
+def parse_residual_solves(text: str) -> list[list[ResidualSample]]:
+    r"""Parse a solver log that holds several steady solves, one residual history each.
+
+    A quasi-steady rotor wheel is solved at each of its clockings in one run
+    (0.30.0): the solver is initialised again between them and each solve
+    prints its own residual table, its counter starting again at 1, so the
+    one log the run exports holds every clocking's solve in the order the
+    script ran them. :func:`parse_residual_history` refuses such a log, as it
+    must for a log of one solve, where a restart is two logs concatenated.
+
+    A NEW SOLVE IS A TABLE OF ITS OWN: the counter goes back to 1 on the
+    first row after the ``Iteration`` header. A counter that falls or repeats
+    anywhere else, or starts again at any other number, is refused as
+    :func:`parse_residual_history` refuses it, because it is not a solve the
+    solver started. Within each solve the counter increases. How many solves
+    the log must hold is the caller's to check against the run.
+
+    Parameters
+    ----------
+    text : str
+        Complete log text (EXPORT_LOG output or captured log file).
+
+    Returns
+    -------
+    list of list of ResidualSample
+        One history per solve, in the order the log prints them; a log of one
+        solve gives one.
+
+    Raises
+    ------
+    MalformedOutputError
+        A counter that does not increase inside a solve, or a restart that is
+        not a new table starting at iteration 1.
+    IncompleteOutputError
+        No residual row at all.
+
+    Examples
+    --------
+    >>> page = "Iteration  Res.Vel.  Res.Pres.\n{}\n----------\n"
+    >>> log = page.format("1 1.0 1.0\n2 1e-6 1e-6") + page.format("1 1.0 1.0\n2 2e-6 1e-6")
+    >>> [[sample.iteration for sample in solve] for solve in parse_residual_solves(log)]
+    [[1, 2], [1, 2]]
+    """
+    clean = text.replace("\x00", "")
+    solves: list[list[ResidualSample]] = []
+    for row, opens_a_page in _residual_rows(clean):
+        sample = _residual_sample(row)
+        current = solves[-1] if solves else None
+        if current is None or (
+            sample.iteration <= current[-1].iteration and opens_a_page and sample.iteration == 1
+        ):
+            solves.append([sample])
+            continue
+        if sample.iteration <= current[-1].iteration:
+            raise MalformedOutputError(
+                f"the residual table's iteration counter goes from "
+                f"{current[-1].iteration} to {sample.iteration} inside one solve, so it "
+                "does not increase. A new solve prints a table of its own whose counter "
+                "starts at 1; a repeat or a decrease anywhere else means two logs were "
+                "concatenated or the table wrapped"
+            )
+        current.append(sample)
+    if not solves:
+        raise IncompleteOutputError("the log residual table is empty")
+    return solves
 
 
 @dataclass(frozen=True)
@@ -3452,6 +3534,7 @@ __all__ = [
     "parse_off_body_streamlines",
     "parse_probe_points",
     "parse_residual_history",
+    "parse_residual_solves",
     "FrozenSolve",
     "UnjudgeableSolve",
     "frozen_time_steps",

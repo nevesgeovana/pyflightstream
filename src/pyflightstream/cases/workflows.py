@@ -8166,13 +8166,12 @@ def _wire_the_fixed_wing(
 
     if frames is None:
         raise CampaignConfigError("FSI requires the initial wing/frame mapping.")
+    exports: Callable[[Script], None]
+    updates: Callable[[Script], None] | None = None
     if workflow == "steady":
         _refuse_what_a_steady_coupled_run_cannot_export(case)
         exports_of = conventions or WorkflowConventions.for_case(case)
-
-        def exports(post: Script) -> None:
-            _export_block(exports_of, case, post, unsteady=False)
-
+        exports, updates = _coupled_export_block(exports_of, case)
     else:
 
         def exports(post: Script) -> None:
@@ -8184,6 +8183,7 @@ def _wire_the_fixed_wing(
         workflow=workflow,
         interpreter=_action_interpreter(sys.executable),
         exports=exports,
+        updates=updates,
     )
 
 
@@ -8237,10 +8237,7 @@ def _wire_the_quasi_steady_sector(
     config = quasi_steady_fsi_config(case, rpm=_qsteady_speed(case, rotor).rpm)
     _refuse_what_a_steady_coupled_run_cannot_export(case)
     exports_of = conventions or WorkflowConventions.for_case(case)
-
-    def exports(post: Script) -> None:
-        _export_block(exports_of, case, post, unsteady=False)
-
+    exports, updates = _coupled_export_block(exports_of, case)
     return wire_quasi_steady_sector_fsi(
         case,
         script,
@@ -8248,7 +8245,33 @@ def _wire_the_quasi_steady_sector(
         rotor=rotor,
         interpreter=_action_interpreter(sys.executable),
         exports=exports,
+        updates=updates,
     )
+
+
+def _coupled_export_block(
+    conventions: WorkflowConventions, case: SimCase
+) -> tuple[Callable[[Script], None], Callable[[Script], None]]:
+    """Return a steady coupled row's export block as the post-processing script takes it.
+
+    Two parts, because the post-processing script updates the sections and
+    computes their loads itself, once, before the loads the structural
+    program reads (:func:`pyflightstream.cases.fsi_workspace.aeroelastic_post`):
+    the updates the row's exports read beyond those two, which it emits
+    before its first export, and the row's exports with no update of their
+    own. The whole block in one piece updated the sections a second time
+    after that first export, an analysis command in the export phase, so a
+    coupled row with the default exports did not build (the L1 runs of
+    0.30.0, both coupled routes).
+    """
+
+    def updates(post: Script) -> None:
+        _export_updates(conventions, case, post, unsteady=False, sections_updated=True)
+
+    def exports(post: Script) -> None:
+        _export_block(conventions, case, post, unsteady=False, updated=True)
+
+    return exports, updates
 
 
 def _refuse_what_a_steady_coupled_run_cannot_export(case: SimCase) -> None:
@@ -11127,8 +11150,55 @@ def _surface_export(
     return True
 
 
+def _declared_export_kinds(
+    conventions: WorkflowConventions, case: SimCase, *, unsteady: bool
+) -> tuple[list[str], dict[str, str]]:
+    """Return the row's output names and the export kind each one carries."""
+    names = list(conventions.outputs or case.outputs)
+    kinds = classify_outputs(names)
+    if unsteady:
+        for kind in STEADY_ONLY_EXPORT_KINDS:
+            kinds.pop(kind, None)
+    return names, kinds
+
+
+def _export_updates(
+    conventions: WorkflowConventions,
+    case: SimCase,
+    script: Script,
+    *,
+    unsteady: bool,
+    sections_updated: bool = False,
+) -> None:
+    """Emit the updates the row's exports read, which precede every export.
+
+    UPDATE_ALL_SURFACE_SECTIONS and COMPUTE_SURFACE_SECTIONAL_LOADS whenever a
+    section, sectional-loads, probe or section Cp export is asked for, unless
+    ``sections_updated`` says the caller already emitted both (the
+    post-processing script of a steady coupled row, which updates them for
+    the loads the structural program reads); UPDATE_PROBE_POINTS when the
+    probe points are exported. Each is an analysis command, so each must come
+    before the first export.
+    """
+    _, kinds = _declared_export_kinds(conventions, case, unsteady=unsteady)
+    if not any(kind in kinds for kind in _UPDATED_KINDS):
+        return
+    if not sections_updated:
+        script.emit("UPDATE_ALL_SURFACE_SECTIONS")
+        script.emit("COMPUTE_SURFACE_SECTIONAL_LOADS", "NEWTONS")
+    # F01: only a row that still exports probe points updates them; an
+    # unsteady row samples its probes through fluid plots and has none.
+    if "probes" in kinds:
+        script.emit("UPDATE_PROBE_POINTS")
+
+
 def _export_block(
-    conventions: WorkflowConventions, case: SimCase, script: Script, *, unsteady: bool
+    conventions: WorkflowConventions,
+    case: SimCase,
+    script: Script,
+    *,
+    unsteady: bool,
+    updated: bool = False,
 ) -> None:
     """Export what the study needs, in the order, with the updates first.
 
@@ -11149,12 +11219,13 @@ def _export_block(
     of its outputs is the log through LOG_OUTPUT is honoured by
     :func:`_export_log`; a row whose outputs carry a ``_log.txt`` name is
     read by suffix like every other kind.
+
+    ``updated`` says the caller already emitted the updates
+    (:func:`_export_updates`), before an export of its own: then this block
+    exports only, because an update after an export is refused by the phase
+    order.
     """
-    names = list(conventions.outputs or case.outputs)
-    kinds = classify_outputs(names)
-    if unsteady:
-        for kind in STEADY_ONLY_EXPORT_KINDS:
-            kinds.pop(kind, None)
+    names, kinds = _declared_export_kinds(conventions, case, unsteady=unsteady)
     if "loads" not in kinds:
         raise CampaignConfigError(
             f"case {case.sim_id!r} declares outputs {names or 'nothing'} and none of them "
@@ -11162,13 +11233,8 @@ def _export_block(
             "export suffixes). The loads table is the export this package judges a run "
             "by, so every row leaves one; the default outputs name it {point}.txt."
         )
-    if any(kind in kinds for kind in _UPDATED_KINDS):
-        script.emit("UPDATE_ALL_SURFACE_SECTIONS")
-        script.emit("COMPUTE_SURFACE_SECTIONAL_LOADS", "NEWTONS")
-        # F01: only a row that still exports probe points updates them; an
-        # unsteady row samples its probes through fluid plots and has none.
-        if "probes" in kinds:
-            script.emit("UPDATE_PROBE_POINTS")
+    if not updated:
+        _export_updates(conventions, case, script, unsteady=unsteady)
     declared_log = _variable(case, LOG_OUTPUT_VARIABLE) is not None
     # A FILE-ROUTE ROW DECLARES ITS LOG (G02). The run holds a trailing-edge
     # import to the count the solver logs as imported, keyed to the SCRIPT as
@@ -14221,11 +14287,17 @@ def _build_qsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCon
     clocking ``theta_i = i * (360 / N) / k`` of ``PASSAGE_POSITIONS`` (k),
     which the post stage averages. The rotor's surfaces are clocked about its
     shaft in its hub frame, in the sense of its rotation, so blade one's
-    azimuth advances by ``theta_i``. Clocking 1 is emitted before the solver is
-    initialised; each later one after a solve, through the one door past the
-    phase guard (:meth:`~pyflightstream.script.Script.emit_after_initialization`),
-    and the solver is initialised again with the first initialisation's
-    settings. The wheel returns to clocking 0 last and is solved there with the
+    azimuth advances by ``theta_i``. Every clocking is emitted after an
+    initialisation, through the one door past the phase guard
+    (:meth:`~pyflightstream.script.Script.emit_after_initialization`), and the
+    solver is initialised again with the first initialisation's settings.
+    Clocking 1 too: the solver freezes a section distribution's cut planes at
+    its creation against the pose the surfaces then hold, spread over their
+    extent along the plane's normal, so the distributions are created first,
+    with the wheel at clocking 0 as meshed, where that extent is the blade's
+    radial one (L1, RPT-091: created at clocking 1 of a six-blade wheel, 30
+    deg, the 30 cuts ran from 0.347 to 1.586 m on a blade spanning 0.41 to
+    1.824 m). The wheel returns to clocking 0 last and is solved there with the
     point's full export set, so a single clocking (k = 1) is the plain steady
     build. Clockings 1 to k - 1 export their loads alone, each named
     ``<loads stem>_qs<i>`` (:func:`pyflightstream.cases.qsteady.position_loads_name`).
@@ -14280,8 +14352,6 @@ def _build_qsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCon
             after_initialization=after_initialization,
         )
 
-    if len(angles) > 1:
-        clock(angles[1], after_initialization=False)
     _significant_digits(case, script)
     _qsteady_free_stream(
         case, script, rotor_frame=rotor_frame, rotor=rotor, speed=speed, custom=custom, kind=kind
@@ -14291,7 +14361,12 @@ def _build_qsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCon
     if len(angles) == 1:
         _script_tail(conventions, case, script, frame, unsteady=False, frames=frames)
         return
+    # The sections are cut at clocking 0 (above), then the wheel turns to
+    # clocking 1 and the solver initialises again.
     _script_init(case, script, frame, frames=frames)
+    clock(angles[1], after_initialization=True)
+    _initialize(case, script)
+    _analysis(case, script, frame)
     _solve_one_clocking(case, script, _qsteady.position_loads_name(loads, 1))
     for index in range(2, len(angles)):
         script.begin_point()

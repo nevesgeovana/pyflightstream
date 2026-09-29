@@ -22,6 +22,7 @@ from pyflightstream.results import (
     IncompleteOutputError,
     imported_trailing_edges,
     parse_residual_history,
+    parse_residual_solves,
 )
 from pyflightstream.workspace import RunStatus
 
@@ -132,7 +133,7 @@ def actuator_profile_verdict(*log_texts: str | None) -> tuple[RunStatus, str] | 
     )
 
 
-def reads_as_residual_history(path: Path) -> bool:
+def reads_as_residual_history(path: Path, *, solves: int = 1) -> bool:
     """Whether one collected file parses as a solver residual history.
 
     The identification is by CONTENT and never by name, the same rule
@@ -141,12 +142,19 @@ def reads_as_residual_history(path: Path) -> bool:
     does not parse, including a file this process cannot read, because
     the caller's fallback is the judgment that existed before and never
     an error about a file nobody asked it to read.
+
+    ``solves`` above 1 asks for a log holding exactly that many solves in
+    sequence, each counter starting at 1 (a quasi-steady wheel solved at
+    that many clockings, :func:`pyflightstream.results.parse_residual_solves`);
+    1, the default, for a log of one solve, which refuses any restart.
     """
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return False
     try:
+        if solves > 1:
+            return len(parse_residual_solves(text)) == solves
         return bool(parse_residual_history(text))
     except (IncompleteOutputError, ValueError):
         return False

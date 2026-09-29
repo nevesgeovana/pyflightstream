@@ -1514,7 +1514,9 @@ Where they appear:
   point whose condition does not resolve reads `NA` in both and keeps its row.
   A disc has no rotor table, and a steady row's record states no rotor speed
   for the table to read, so for those two the numbers are in the plan,
-  `plan.json` and the run record.
+  `plan.json` and the run record. A `qsteady_rotor` point is the exception
+  among steady rows: its rotor table reads the row's speed from the point's
+  quasi-steady record (below).
 
 ---
 
@@ -1682,7 +1684,12 @@ A workspace opts in per `[[probes]]` entry with `frame = "REFERENCE"`, `field_fo
 A `qsteady_rotor` point is steady, and every product a steady point writes
 (the polar, the rotor table, the sections, the probes) is written for it as
 for any steady point: the instant of its own solve, which on a wheel is
-clocking 0. Two products are the run type's own, and a wheel point's sections
+clocking 0. The rotor table's speed, `RPM_<alias>`, is the row's, the speed
+the free stream turns at, read from the point's quasi-steady record
+(`<point>_qsteady.json`), as an unsteady rotor's is read from its plan; a
+sector's table is its one solve's export as it stands, with no factor for
+the periodic copies (the export carries the whole rotor where the row enables
+symmetry loads and the sector alone where it does not). Two products are the run type's own, and a wheel point's sections
 gain two things.
 
 - **The clockings table**, `polars/P<sim>-<ALIAS>_qs_positions.csv`: one row

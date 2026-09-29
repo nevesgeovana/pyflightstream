@@ -873,6 +873,8 @@ def _complete(
             "solver_run_time_s",
             "solver_initialization_s",
             "time_steps",
+            # 0.30.0: a quasi-steady wheel's verdict per clocking.
+            "clocking_verdicts",
             # 0.24.0: WHAT WAS COMPARED, as the local path records it. The
             # verdict above rests on these checks, and a record that kept the
             # verdict and dropped the comparison could not say what the point

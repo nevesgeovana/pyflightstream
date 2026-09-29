@@ -365,6 +365,57 @@ FlightStream versions.
   `storage_management.json`) and printed as `PLANNED WITHOUT RECORD`; a plan
   that cannot be read is named with why.
 
+- **A coupled row with the pproc's default exports builds again.** On the
+  steady coupled routes (the fixed wing and the `qsteady_rotor` sector) the
+  aeroelastic post-processing script exports the loads the structural program
+  reads, and the row's export block then updated the sections again whenever
+  a section, sectional-loads, probe or section Cp export was on, which they
+  are by default: an analysis command after an export, refused at plan with a
+  `ScriptOrderError`, so such a row ran only with those four exports turned
+  off (L1, reports/RPT-090 and RPT-092). The post now updates the sections
+  and computes their loads once, then the probe points when the row exports
+  them, before its first export, and the row's exports follow with no update
+  of their own.
+
+- **A quasi-steady wheel's solver log is read, clocking by clocking.** A
+  wheel solved at `PASSAGE_POSITIONS: k` clockings exports one log holding
+  its k solves in sequence, each residual table counting from 1 again, and
+  the residual reader refused it as two logs concatenated: the point was
+  judged with no log (`log_file_used` and `residual` empty), and on the
+  trailing-edge points-file route it was recorded FAILED_INCOMPLETE_OUTPUT
+  although the log says the edges were imported (L1, reports/RPT-091). The
+  new `pyflightstream.results.parse_residual_solves` reads such a log, a new
+  solve being a table of its own starting at iteration 1; the assessor reads
+  the point's quasi-steady record, judges each clocking from its own solve,
+  holds each solve's last iteration to that clocking's loads export, and
+  records one verdict per clocking in the run record's new
+  `clocking_verdicts`, with the worst of them as the point's status and
+  residual. A log of one solve is read as before, and a restart in it is
+  still refused.
+
+- **A clocked wheel's sections cover its blade.** The solver fixes a section
+  distribution's cuts when it creates it, spread over the blade's extent
+  along the cut planes' normal in the pose the blade then holds, and a
+  `qsteady_rotor` wheel of `PASSAGE_POSITIONS` 2 or more created its
+  distributions with the wheel already turned to clocking 1. At clocking 0,
+  where the sections are exported, the cuts then sat on the extent of a
+  turned blade: 30 cuts from 0.347 to 1.586 m on a blade spanning 0.41 to
+  1.824 m, the two innermost empty and the outer 0.24 m uncut (L1,
+  reports/RPT-091). The distributions are now created with the wheel at
+  clocking 0 as meshed, and the wheel turns to clocking 1 after them, with
+  one more initialisation of the solver.
+
+- **A `qsteady_rotor` point gets its rotor table.** The table reads a
+  rotor's speed from the record's reductions, which a steady run does not
+  plan, so every quasi-steady point, sector and wheel, was left out with "its
+  record states no speed" and no `J`, `CT`, `CQ`, `CP`, `ETA` or `ETAW` was
+  written (L1, reports/RPT-090 and RPT-091). The table now reads the row's
+  speed from the point's quasi-steady record, the speed the free stream
+  turns at. As the definitions page states for every steady product of the
+  run type, the loads are the point's own solve: a sector's export as it
+  stands, never multiplied by the copies, and a wheel's clocking 0, whose
+  mean with the other clockings stays the average table's.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

@@ -1151,9 +1151,11 @@ class RunRecord(BaseModel):
     def _leave_the_unrecorded_0270_keys_out(
         self, handler: SerializerFunctionWrapHandler
     ) -> dict[str, Any]:
-        """Write no ``inventory``, ``mesh_import`` or ``rotor_mach`` key where none is stated.
+        """Write none of the keys a reader older than their release may not know, where unstated.
 
-        R03 and G01 of 0.27.0, and M1 of 0.30.0.
+        ``inventory``, ``mesh_import``, ``rotor_mach`` and ``clocking_verdicts``.
+
+        R03 and G01 of 0.27.0, and M1 and the L1 fixes of 0.30.0.
 
         The rule ``forced_local`` follows: a key a reader older than 0.27.0
         does not know is written only where something was recorded, so a
@@ -1163,7 +1165,7 @@ class RunRecord(BaseModel):
         pydantic 2.11 where this package's floor is pydantic 2.
         """
         data: dict[str, Any] = handler(self)
-        for key in ("inventory", "mesh_import", "rotor_mach"):
+        for key in ("inventory", "mesh_import", "rotor_mach", "clocking_verdicts"):
             if data.get(key) is None:
                 data.pop(key, None)
         return data
@@ -1234,6 +1236,14 @@ class RunRecord(BaseModel):
     solver_run_time_s: float | None = None
     solver_initialization_s: float | None = None
     time_steps: int | None = None
+    #: 0.30.0 (L1, RPT-091): a quasi-steady rotor wheel solved at several
+    #: clockings, one verdict per clocking read from that clocking's solve in
+    #: the one log the run exports (``index``, ``clocking_deg``, ``status``,
+    #: ``iterations``, ``residual``, and a ``note`` or ``error`` where there is
+    #: one), in the order the run solved them; the record's status and residual
+    #: are the worst of them. Written only where recorded, so every other
+    #: record, and MANIFEST_SCHEMA, is unchanged.
+    clocking_verdicts: list[dict[str, Any]] | None = None
     solver_setup: dict | None = None
     status: RunStatus
     iterations: int | None = None
