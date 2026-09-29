@@ -36,6 +36,10 @@ The 0.30 quasi-steady rotor (the ``qsteady_rotor`` run type of
 :mod:`pyflightstream.cases.qsteady`: the clockings of a wheel, the 1P
 reduced frequency and its validity figures, and the harmonic content of a
 custom inflow as one blade meets it. The plan and the post both read it.
+The 0.31 correction routes of a wheel, the pproc's ``[qsteady_correction]``
+table and the calibration file it names, are
+:mod:`pyflightstream.cases.corrections`, which the plan validates and the
+post applies; none of them is validated.
 :mod:`pyflightstream.cases.fsi_workspace` states which workflows may couple
 and wires the fixed-wing and quasi-steady sector routes.
 """
@@ -83,6 +87,10 @@ from pyflightstream._expressions import ALLOWED_FUNCTIONS, expression_symbols
 from pyflightstream._fsm import names_of
 from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS, retired_frame
 from pyflightstream._tokens import REDUCTION_COLUMNS
+
+# The quasi-steady wheel's correction choice (0.31.0), a table of the pproc; its
+# module imports only the floor, so the package may import it while it loads.
+from pyflightstream.cases.corrections import QsteadyCorrectionSpec
 from pyflightstream.commands import CommandRegistry, Phase
 from pyflightstream.fsi.config import FsiConfig
 from pyflightstream.script import Script
@@ -2552,6 +2560,9 @@ class PprocSpec(BaseModel):
         revolutions; absent, it is the series of blade passages.
     per_revolution : PerRevolutionSpec, optional
         The drift limit, in per cent, of the per-revolution product; absent, 1.
+    qsteady_correction : QsteadyCorrectionSpec, optional
+        The correction route and the diagnostic of a quasi-steady wheel's post;
+        absent, none. Every route is off by default and not validated.
     equations : dict of str to EquationSpec
         Coefficients the post stage derives into the unsteady polar, keyed by
         the derived coefficient's name.
@@ -2612,6 +2623,11 @@ class PprocSpec(BaseModel):
     #: ``post.log``. The product itself is written for every unsteady rotor point
     #: whatever this table says; absent, the limit is 1 per cent.
     per_revolution: PerRevolutionSpec | None = None
+    #: ``[qsteady_correction]``, OPTIONAL (0.31.0): the correction route a
+    #: quasi-steady wheel's post applies, beside the raw products and never over
+    #: them, and the diagnostic it writes; absent, no route and no diagnostic.
+    #: No route is validated (:mod:`pyflightstream.cases.corrections`).
+    qsteady_correction: QsteadyCorrectionSpec | None = None
     #: ``[equations]``, keyed by the derived coefficient's own name; the value
     #: says what it is and which alias it is about. The post stage evaluates
     #: them, in :meth:`equation_order`, into the unsteady polar.

@@ -75,6 +75,7 @@ from pyflightstream.cases import (
     AliasCycleError,
     CampaignConfigError,
 )
+from pyflightstream.cases.corrections import CalibrationError
 from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.cases.qsteady import QsteadyRecordError
 from pyflightstream.cases.workflows import BuildCapabilityError, WorkflowCoverageError
@@ -149,6 +150,7 @@ __all__ = [
     "AtmosphereError",
     "BrokenCommandError",
     "BuildCapabilityError",
+    "CalibrationError",
     "CampaignConfigError",
     "CampaignErrors",
     "CommandArgumentError",

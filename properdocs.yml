@@ -87,6 +87,7 @@ nav:
       - Boundary-layer products: boundary-layer-products.md
   - 6 Post:
       - Post-processing definitions: post-processing-definitions.md
+      - Quasi-steady wheel corrections: qsteady-corrections.md
       - Unsteady plots and averages: unsteady-postprocessing.md
   - FSI:
       - FSI in a workspace: fsi-workspace.md
