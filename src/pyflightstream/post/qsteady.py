@@ -38,8 +38,10 @@ THE VALIDITY. ``k = Omega c / (2 V_rel)`` per station
 the point has one: its ``Chord`` at its ``Offset``, read as the radius of a
 distribution cut along the blade from the hub (a block of the rotor in the
 record's layout); the shares of thrust and torque from the stations above 0.1
-then take the export's ``Fx`` as the force along the shaft and ``Fz`` as the
-in-plane force, each per unit span, over the stations' strips. Else the
+then take each station's sectional force projected on the rotor's axis in the
+frame its distribution was cut in (0.31.0, through
+:func:`pyflightstream.post.axes.section_station_shaft_loads`), and its moment
+about the axis, each per unit span, over the stations' strips. Else the
 plan's estimate from the mesh, with the shares ``NA``. The definitions page
 states both and what is not measured.
 """
@@ -49,6 +51,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -70,7 +73,7 @@ from pyflightstream.cases.qsteady import (
     validity_file_name,
 )
 from pyflightstream.post._tables import _cell, context_row, write_csv_table
-from pyflightstream.post.axes import clocked_blade_azimuth_deg
+from pyflightstream.post.axes import clocked_blade_azimuth_deg, section_station_shaft_loads
 from pyflightstream.results import parse_loads
 
 #: The point's validity, carried by every quasi-steady product of the point.
@@ -167,9 +170,14 @@ def _rewrite(path: Path, columns: Sequence[str], rows: Sequence[Sequence[str]]) 
 
 @dataclass(frozen=True)
 class PointValidity:
-    """The validity of one quasi-steady wheel point, as its products carry it."""
+    """The validity of one quasi-steady wheel point, as its products carry it.
+
+    ``notes`` (0.31.0) are what the post says about the values in its log, one
+    line each: a share written ``NA`` and why.
+    """
 
     values: dict[str, object]
+    notes: tuple[str, ...] = ()
 
     def cells(self) -> tuple[object, ...]:
         """Return the point's values of :data:`VALIDITY_COLUMNS`, ``None`` where not known."""
@@ -399,8 +407,73 @@ def add_clockings_to_sections(
     return result
 
 
+#: The frame a section distribution is cut in that states the GEOMETRY's
+#: axes: the moment reference frame the run creates, a translation of the
+#: reference frame whose axes it keeps (0.31.0, the shares' projection).
+GEOMETRY_SECTION_FRAMES = frozenset({"MRP"})
+
+#: The suffix a clocking's copy of a frame carries (``<frame>_QS<ii>``): the
+#: same frame turned about the shaft with the wheel.
+_CLOCKING_FRAME = re.compile(rf"^(?P<frame>.+){POSITION_SUFFIX.upper()}\d{{2}}$")
+
+
+def shaft_in_section_frame(record: QsteadyRecord, frame: str) -> tuple[float, float, float] | None:
+    """Return the rotor's axis in the axes of section frame ``frame``, or None (0.31.0).
+
+    A frame of the record's rotor, ``<ALIAS>_SMRP``, ``<ALIAS>_RMRP`` or a
+    blade's ``<ALIAS>_RMRP<k>``, and each clocking's copy of one
+    (``<frame>_QS<ii>``), is the hub frame turned about the shaft, and the hub
+    frame is built with the shaft on its axis ``shaft_frame_axis`` (the
+    rotor's letter, or Z of a shaft stated as a vector): in its own axes the
+    rotor's axis ``axis_vector`` is that unit axis, whatever the turn. A
+    frame of :data:`GEOMETRY_SECTION_FRAMES` keeps the geometry's axes, in
+    which the axis is ``axis_vector`` itself. Any other frame (one a setup
+    creates, a hub frame kept from before a row's rotation) is None: its axes
+    are not the package's to know.
+    """
+    name = str(frame).strip().upper()
+    clocked = _CLOCKING_FRAME.match(name)
+    if clocked is not None:
+        name = clocked.group("frame")
+    if name in GEOMETRY_SECTION_FRAMES:
+        vector = tuple(float(value) for value in record.axis_vector)
+        return (vector[0], vector[1], vector[2])
+    alias = str(record.rotor_alias).strip().upper()
+    own = name in (f"{alias}_SMRP", f"{alias}_RMRP") or (
+        name.startswith(f"{alias}_RMRP") and name[len(alias) + 5 :].isdigit()
+    )
+    letter = str(record.shaft_frame_axis).strip().upper()
+    if not own or letter not in ("X", "Y", "Z"):
+        return None
+    unit = [0.0, 0.0, 0.0]
+    unit["XYZ".index(letter)] = 1.0
+    return (unit[0], unit[1], unit[2])
+
+
+def _section_frames(layout: Sequence[Mapping[str, object]]) -> dict[tuple[str, str], str | None]:
+    """Return the frame each ``(FAMILY, PLANE)`` block of a run's sections layout was cut in.
+
+    None for a block the layout names under two frames or under none.
+    """
+    frames: dict[tuple[str, str], set[str]] = {}
+    for block in layout:
+        families = block.get("families")
+        if not isinstance(families, list):
+            continue
+        key = ("+".join(str(family) for family in families), str(block.get("plane", "")))
+        frames.setdefault(key, set()).add(str(block.get("frame", "") or ""))
+    return {
+        key: next(iter(names)) if len(names) == 1 and "" not in names else None
+        for key, names in frames.items()
+    }
+
+
 def add_reduced_frequency_to_sections(
-    path: Path, record: QsteadyRecord, *, velocity_m_per_s: float
+    path: Path,
+    record: QsteadyRecord,
+    *,
+    velocity_m_per_s: float,
+    layout: Sequence[Mapping[str, object]] | None = None,
 ) -> PointValidity | None:
     """Give a wheel point's sections table ``K_1P`` per station and the point's validity.
 
@@ -413,6 +486,23 @@ def add_reduced_frequency_to_sections(
     (:data:`CLOCKING_COLUMN`, 0.31.0), the point's own solve. The
     table is rewritten in place with ``K_1P`` and :data:`VALIDITY_COLUMNS`
     after its own columns; a row of no rotor reads ``NA`` in ``K_1P``.
+
+    THE SHARES ARE TAKEN ALONG THE ROTOR'S AXIS (0.31.0). Each station's
+    sectional force, the export's ``Fx`` and ``Fz`` in the axes of the frame
+    its distribution was cut in (``layout``, the run's ``sections_layout``,
+    read by ``FAMILY`` and ``PLANE``), is projected on the record's
+    ``axis_vector`` stated in that frame (:func:`shaft_in_section_frame`) by
+    :func:`pyflightstream.post.axes.section_station_shaft_loads`: the thrust
+    per unit span is the force along the axis and the torque per unit span its
+    moment about the axis, from the in-plane (tangential) component at the
+    station's ``Offset``. Until 0.31.0 the export's ``Fx`` was the thrust and
+    ``Fz |Offset|`` the torque, which holds only for a frame whose x is the
+    shaft. A caller holding no ``layout`` states that the sections are cut in
+    the rotor's own frames. A share is ``NA``, with a line in
+    :attr:`PointValidity.notes`, where a station's frame or plane is not one
+    whose axes are known, where the total is zero, or where stations of
+    opposite sign put the share outside 0 to 100 per cent: the total then has
+    no sign a share of it could be read against.
 
     Returns
     -------
@@ -460,21 +550,66 @@ def add_reduced_frequency_to_sections(
         radii, chords, omega_rad_s=omega, velocity_m_per_s=velocity_m_per_s, source="sections"
     )
     strips = strip_lengths(radii)
-    thrust = [
-        (_number(rows[at][index["Fx"]]) or 0.0) * w for at, w in zip(chosen, strips, strict=True)
-    ]
-    torque = [
-        (_number(rows[at][index["Fz"]]) or 0.0) * r * w
-        for at, r, w in zip(chosen, radii, strips, strict=True)
-    ]
+    notes: list[str] = []
+    frame_of = _section_frames(layout) if layout is not None else None
+    along: list[tuple[float, float]] = []
+    projected = True
+    for at, w in zip(chosen, strips, strict=True):
+        row = rows[at]
+        family = row[index["FAMILY"]] if "FAMILY" in index else ""
+        plane = row[index["PLANE"]] if "PLANE" in index else ""
+        if frame_of is None:
+            frame: str | None = f"{alias}_RMRP"
+        else:
+            frame = frame_of.get((family, plane))
+        shaft = shaft_in_section_frame(record, frame) if frame is not None else None
+        station = (
+            section_station_shaft_loads(
+                _number(row[index["Fx"]]) or 0.0,
+                _number(row[index["Fz"]]) or 0.0,
+                _number(row[index["Offset"]]) or 0.0,
+                plane=plane,
+                shaft=shaft,
+            )
+            if shaft is not None
+            else None
+        )
+        if station is None:
+            why = (
+                f"the run's sections layout names no one frame for block {family} {plane}"
+                if frame is None
+                else f"the axes of frame {frame} are not known to the post"
+                if shaft is None
+                else f"the force columns of a cut in plane {plane or 'NA'} are not read"
+            )
+            notes.append(
+                f"THRUST_PCT_K_GT_0_1 and TORQUE_PCT_K_GT_0_1 read NA: {why}, so the "
+                f"sectional force of rotor {alias} cannot be projected on its axis"
+            )
+            projected = False
+            break
+        along.append((station[0] * w, station[1] * w))
     above = [k > REDUCED_FREQUENCY_LIMIT for k in frequencies.k]
 
-    def share(values: Sequence[float]) -> float | None:
+    def share(values: Sequence[float], name: str) -> float | None:
         total = sum(values)
         if total == 0.0:
+            notes.append(f"{name} reads NA: the total over the stations of rotor {alias} is zero")
             return None
-        return 100.0 * sum(v for v, hot in zip(values, above, strict=True) if hot) / total
+        value = 100.0 * sum(v for v, hot in zip(values, above, strict=True) if hot) / total
+        if not 0.0 <= value <= 100.0:
+            notes.append(
+                f"{name} reads NA: the stations of rotor {alias} carry loads of opposite "
+                f"sign, so the share above k = 0.1 would be {value:.5g} per cent, outside "
+                "0 to 100, and the total has no sign to read it against"
+            )
+            return None
+        return value
 
+    thrust_share = torque_share = None
+    if projected:
+        thrust_share = share([pair[0] for pair in along], "THRUST_PCT_K_GT_0_1")
+        torque_share = share([pair[1] for pair in along], "TORQUE_PCT_K_GT_0_1")
     validity = PointValidity(
         {
             "K_1P_MIN": frequencies.k_min,
@@ -482,10 +617,11 @@ def add_reduced_frequency_to_sections(
             "K_1P_MEAN": frequencies.k_mean,
             "SPAN_PCT_K_GT_0_05": 100.0 * frequencies.span_fraction_above(REDUCED_FREQUENCY_WATCH),
             "SPAN_PCT_K_GT_0_1": 100.0 * frequencies.span_fraction_above(REDUCED_FREQUENCY_LIMIT),
-            "THRUST_PCT_K_GT_0_1": share(thrust),
-            "TORQUE_PCT_K_GT_0_1": share(torque),
+            "THRUST_PCT_K_GT_0_1": thrust_share,
+            "TORQUE_PCT_K_GT_0_1": torque_share,
             "K_1P_SOURCE": "sections",
-        }
+        },
+        notes=tuple(notes),
     )
     tail = [_cell(value) for value in validity.cells()]
     _rewrite(

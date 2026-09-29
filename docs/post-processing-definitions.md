@@ -1896,13 +1896,39 @@ the rotor, read as the radius of a distribution cut along the blade from the
 hub; the summary is taken over the rotor's first blade present, so a wheel's
 blades do not count one station several times. Each station stands for a
 strip, half-way to its neighbours. The two shares are the strips above 0.1
-over all strips, of the export's `Fx` per unit span for thrust and of `Fz`
-times the radius for torque: the export's `Fx` is read as the force along the
-shaft and `Fz` as the in-plane force, which holds for a distribution cut
-normal to the blade in a frame whose x axis is the shaft, and is not measured
-on a licensed run. Where the point has no such export the values are the
-plan's, the chord read off the mesh (`K_1P_SOURCE` `mesh`), and the two
-shares are `NA`.
+over all strips, of the thrust and of the torque per unit span, both taken
+along the rotor's axis (since 0.31.0). The export states `Fx` and `Fz` in the
+axes of the frame the distribution was cut in, which the run's sections layout
+names for each block; for a cut in that frame's XZ plane the station's force
+is `F = Fx e_x + Fz e_z` and the station sits at `r = Offset e_y`, and with
+`a` the rotor's axis (the record's `axis_vector`, in the sense its thrust is
+counted positive) stated in the same frame's axes:
+
+```text
+thrust per unit span  t = F . a
+torque per unit span  q = (r x F) . a
+THRUST_PCT_K_GT_0_1 = 100 sum_{k > 0.1} t w / sum t w
+TORQUE_PCT_K_GT_0_1 = 100 sum_{k > 0.1} q w / sum q w
+```
+
+with `w` each station's strip, so the torque comes from the in-plane
+(tangential) component of the force only. In a frame of the rotor
+(`<ALIAS>_SMRP`, `<ALIAS>_RMRP`, a blade's `<ALIAS>_RMRP<k>`, and each
+clocking's copy of one) `a` is the frame's shaft axis, the rotor's letter or
+`z` for a shaft stated as a vector, because every such frame is the hub frame
+turned about the shaft; in `MRP`, whose axes are the geometry's, `a` is
+`axis_vector` itself. Until 0.31.0 the export's `Fx` was read as the thrust
+and `Fz |Offset|` as the torque, which holds only in a frame whose x axis is
+the shaft. The reading of `Fx` along the frame's x and `Fz` along its z for an
+XZ cut rests on the FSI pilot records (RPT-005, RPT-006) and is not measured on a
+licensed quasi-steady run. **A share is `NA`**, and the post says why in a
+WARNING line of `post.log` naming the point, where a block was cut in a frame
+whose axes the post does not know (one a setup creates), in a plane other than
+XZ, or in a block the layout does not name; where the total is zero; and where
+stations of opposite sign put the share outside 0 to 100 per cent, the total
+then having no sign a share of it could be read against. Where the point has
+no such export the values are the plan's, the chord read off the mesh
+(`K_1P_SOURCE` `mesh`), and the two shares are `NA`.
 
 **The sections of a wheel point** (0.31.0) hold EVERY clocking: the wheel
 exports its section distributions at each clocking, created again in that

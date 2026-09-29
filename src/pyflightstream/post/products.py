@@ -4983,13 +4983,22 @@ def _qsteady_sections(
                 f"point={point.name} product=sections: {note}", PyflightstreamWarning, stacklevel=2
             )
     try:
+        # 0.31.0: the frame each block was cut in, so each station's force is
+        # projected on the rotor's axis rather than read in the export's axes.
         validity = _qsteady.add_reduced_frequency_to_sections(
-            table, quasi, velocity_m_per_s=float(point.loads.freestream_velocity_m_s)
+            table,
+            quasi,
+            velocity_m_per_s=float(point.loads.freestream_velocity_m_s),
+            layout=list(getattr(record, "sections_layout", None) or []),
         )
     except (QsteadyRecordError, CampaignConfigError, KeyError, ValueError) as error:
         skipped[f"{SECTIONS_DIR}/{point.name}_sections.csv#k_1p"] = str(error)
         return {}
-    return {} if validity is None else {point.name: validity}
+    if validity is None:
+        return {}
+    for note in validity.notes:
+        warn(f"point={point.name} product=sections: {note}", PyflightstreamWarning, stacklevel=2)
+    return {point.name: validity}
 
 
 def _the_sections_writer(**arguments: Any) -> Callable[[Path, str], Path | None]:

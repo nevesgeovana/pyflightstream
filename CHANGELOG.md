@@ -33,6 +33,17 @@ FlightStream versions.
   `"clockings": k`. A wheel point whose clocking export is missing is not a
   row and is named in `skipped`. A sector's row is unchanged. The rotor
   numbers a 0.30.0 post wrote for a wheel remain a valid record of clocking 0.
+- **A wheel's thrust and torque shares are taken along the rotor's axis.**
+  `THRUST_PCT_K_GT_0_1` and `TORQUE_PCT_K_GT_0_1` read the sectional loads
+  export's `Fx` as the thrust and `Fz |Offset|` as the torque in the export's
+  own axes, which holds only in a frame whose x is the shaft. Each station's
+  force is now projected on the record's `axis_vector` stated in the frame the
+  distribution was cut in (the run's sections layout names it), and the torque
+  is the moment of its in-plane component about the axis
+  (`pyflightstream.post.axes.section_station_shaft_loads`). A share reads `NA`,
+  with a WARNING line in `post.log`, where the frame's axes or the plane are
+  not known to the post, where the total is zero, or where stations of
+  opposite sign put it outside 0 to 100 per cent.
 ### Changed (0.31.0)
 
 - A `qsteady_rotor` row that states `ADVANCE_RATIO` resolves J, and so the rotor
