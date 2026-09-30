@@ -621,7 +621,7 @@ def fluctuation_report(
     if len(fields) < 2:
         raise WorkspaceError(
             "a steady field has no fluctuation: the report needs at least two per-step fields "
-            "(give the last K steps of an unsteady run with last, CLI: --last)."
+            "(give the last K steps of an unsteady run with last (CLI: --last))."
         )
     ordered = sorted(fields, key=lambda each: each.step)
     steps = [each.step for each in ordered]

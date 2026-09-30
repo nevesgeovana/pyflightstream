@@ -1919,7 +1919,8 @@ def sync_workspaces(
         raise StorageError(
             f"restore (CLI: --restore) rebuilds records into runs.json only; with runs (CLI: "
             f"--runs) {manifest.name} it is refused. Rebuild into another manifest with "
-            "pyfs-matrix rebuild --out NAME."
+            "pyflightstream.run.records.rebuild and its out (CLI: --out) (the command "
+            "pyfs-matrix rebuild)."
         )
     main_name, spaces = read_sync_config(main.root)
     if main.manifest_path.with_name("runs.json.lock").exists():

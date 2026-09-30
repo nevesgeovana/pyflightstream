@@ -132,8 +132,8 @@ def installed_frame_columns(
     missing = sorted(wanted - known)
     if missing:
         raise ProductError(
-            f"refused: --flip names {', '.join(missing)}, which is not a column of the table "
-            f"(columns: {', '.join(columns)})."
+            f"refused: flip (CLI: --flip) names {', '.join(missing)}, which is not a column of "
+            f"the table (columns: {', '.join(columns)})."
         )
     flipped = tuple(c for c in columns if _FLIP.match(c) or c.upper() in wanted)
     mapped = tuple(c for c in columns if c.upper() in _AZIMUTH)

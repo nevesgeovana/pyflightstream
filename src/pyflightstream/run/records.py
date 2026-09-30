@@ -432,7 +432,8 @@ def restore(
         ):
             raise RecordsError(
                 f"restore {kind}: {matrix!r} is not a matrix stem: name the folder under "
-                f"{base / 'post'} (CLI: --matrix STEM), with no path in it; nothing was changed"
+                f"{base / 'post'} as matrix (CLI: --matrix), with no path in it; nothing was "
+                "changed"
             )
         stems = (
             [matrix]
@@ -448,7 +449,7 @@ def restore(
         if len(stems) > 1:
             raise RecordsError(
                 f"restore {kind}: archives of {name} exist for several matrices "
-                f"({', '.join(stems)}); name the one to restore (CLI: --matrix STEM)"
+                f"({', '.join(stems)}); name the one to restore as matrix (CLI: --matrix)"
             )
         stem = stems[0] if stems else (matrix or "<matrix>")
         target = base / "post" / stem / name
@@ -1636,8 +1637,8 @@ def _refuse_before_any_work(
     """Every refusal a rebuild can make from its arguments alone, before it reads anything."""
     if all_sims and out is None:
         raise RecordsError(
-            "rebuild all_sims (CLI: --all-sims) needs out (CLI: --out NAME): it rebuilds every "
-            "simulation to compare with runs.json, and never writes runs.json"
+            "rebuild all_sims (CLI: --all-sims) needs out (CLI: --out), the manifest NAME: it "
+            "rebuilds every simulation to compare with runs.json, and never writes runs.json"
         )
     if all_sims and sims:
         raise RecordsError(
@@ -1889,8 +1890,8 @@ def rebuild(
         return entry
     if not fresh:
         raise RecordsError(
-            "rebuild: every rebuilt run id is already in runs.json; nothing to write (name out, "
-            "CLI: --out NAME, to write the rebuilt records beside it)"
+            "rebuild: every rebuilt run id is already in runs.json; nothing to write (name "
+            "out (CLI: --out) to write the rebuilt records beside it)"
         )
     with manifest_lock(base):
         now = manifest.read_bytes() if manifest.is_file() else None
@@ -2207,8 +2208,8 @@ class ManifestWorkspace(CampaignWorkspace):
     def _refuse_a_write(self) -> None:
         if self._assembled is not None:
             raise WorkspaceError(
-                "records assembled from the simulation folders by --from-sims are never "
-                f"written: they live in memory for one post of {self.root}"
+                "records assembled from the simulation folders by from_sims_workspace are "
+                f"never written: they live in memory for one post of {self.root}"
             )
 
     def append_record(self, record: RunRecord) -> None:
@@ -2258,7 +2259,8 @@ def manifest_workspace(root: str | Path, runs: str | None = None) -> CampaignWor
     if path.stem == FROM_SIMS_LABEL:
         raise RunsManifestError(
             f"the manifest name {runs!r} would post into post/<matrix>{APART_MARK}"
-            f"{FROM_SIMS_LABEL}/, the folder of post --from-sims; rename the manifest"
+            f"{FROM_SIMS_LABEL}/, the folder of the from_sims (CLI: --from-sims) post, whose "
+            "records from_sims_workspace assembles; rename the manifest"
         )
     if not path.is_file():
         raise RunsManifestError(
@@ -2342,8 +2344,8 @@ def assemble_records(
     workspace = CampaignWorkspace(root)
     if steps_per_revolution is not None and not steps_per_revolution > 0:
         raise WorkspaceError(
-            f"--steps-per-revolution {steps_per_revolution:g} is not a positive number of "
-            "solver steps"
+            "steps_per_revolution (CLI: --steps-per-revolution) "
+            f"{steps_per_revolution:g} is not a positive number of solver steps"
         )
     matrix = _the_matrix(workspace.root, matrix_stem)
     assembled: list[RunRecord] = []
@@ -2407,7 +2409,7 @@ def _the_matrix(root: Path, matrix_stem: str) -> Path:
     if found is None:
         raise WorkspaceError(
             f"the matrix {stem!r} is neither at the root of {root} nor under "
-            "inputs/matrices/; post --from-sims reads its rows to assemble the records"
+            "inputs/matrices/; from_sims_workspace reads its rows to assemble the records"
         )
     return found
 
@@ -2644,7 +2646,8 @@ def _reductions(
         raise WorkspaceError(
             f"the steps per revolution: row POL {row.pol} states LAST_REVS_AVG = "
             f"{stated[1]:g}, a window counted in revolutions, and nothing states how many "
-            "solver steps one revolution of this run is; pass --steps-per-revolution N"
+            "solver steps one revolution of this run is; pass steps_per_revolution "
+            "(CLI: --steps-per-revolution)"
         )
     try:
         history = parse_unsteady_plots(plots.read_text(encoding="utf-8"))
