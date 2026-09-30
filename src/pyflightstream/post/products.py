@@ -5059,6 +5059,8 @@ def _write_harmonics(
             PyflightstreamWarning,
             stacklevel=2,
         )
+        if disc_maps is not None:
+            _skip_disc_maps(point, skipped[relative], skipped)
         return None
     if windows is not None:
         rows = [
@@ -5172,6 +5174,17 @@ def _acoustic_products(
         for path in made.files
     }
     return made.files, names
+
+
+def _skip_disc_maps(point: str, reason: str, skipped: dict[str, str], marker: str = "") -> None:
+    """Name the disc maps a point could not write, and why (0.32.0)."""
+    relative = f"{SECTIONS_DIR}/{point}{_disc_maps.DISC_MAP_MARK}{marker}"
+    skipped[relative] = f"no disc map: {reason}"
+    warn(
+        f"point={point} product={relative}: {skipped[relative]}",
+        PyflightstreamWarning,
+        stacklevel=3,
+    )
 
 
 def _write_disc_maps(
@@ -5379,6 +5392,7 @@ def _unsteady_harmonics(
             missing = "the point's record states no export window to find its last revolution in"
         skipped[relative] = missing
         warn(f"point={stem} product={relative}: {missing}", PyflightstreamWarning, stacklevel=2)
+        _skip_disc_maps(stem, missing, skipped)
         return None
     first, last = int(window["first_step"]), int(window["time_iterations"])
     windows: dict[str, tuple[int, int]] = {}
@@ -5402,6 +5416,7 @@ def _unsteady_harmonics(
             )
         skipped[f"{relative}#rotor={alias}"] = reason
         warn(f"point={stem} product={relative}: {reason}", PyflightstreamWarning, stacklevel=2)
+        _skip_disc_maps(stem, reason, skipped, f"#rotor={alias}")
     if not windows:
         skipped.setdefault(relative, "no rotor of the point has a complete revolution to fit")
         return None

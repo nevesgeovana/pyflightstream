@@ -287,3 +287,54 @@ def test_a_saved_simulation_that_cannot_tell_its_faces_says_why_and_never_refuse
     assert validity is not None
     assert "does not tell its faces to their boundaries" in str(validity["note"])
     assert validity["k_per_chord_m_tip"] is not None
+
+
+# ------------------------------------------------- review of package G --
+
+
+def _table(offsets: list[str], azimuth: str) -> tuple[list[str], list[dict[str, str]]]:
+    columns = ["POL", "ALPHA", "ROTOR", "FAMILY", "AZIMUTH", "Offset", "Fz"]
+    rows = [
+        {
+            "POL": "1",
+            "ALPHA": "0",
+            "ROTOR": "PROP",
+            "FAMILY": "Blade1",
+            "AZIMUTH": azimuth,
+            "Offset": offset,
+            "Fz": str(10 + index),
+            "CLOCKING": "0",
+        }
+        for index, offset in enumerate(offsets)
+    ]
+    return columns, rows
+
+
+def test_a_station_left_of_the_axis_maps_at_its_radius_and_an_azimuth_is_a_turn():
+    """Offset -0.4 is radius 0.4; 370 deg is 10 deg; a missing offset sorts last."""
+    # P0320-G5-DISC-MAP
+    rotor = HarmonicRotor(
+        alias="PROP", blades=(("Blade1",),), diameter_m=2.0, azimuth_is_blade_one=False
+    )
+    columns, rows = _table(["-0.4", "NA", "0.2"], "370")
+    mapped = disc_maps.disc_map_rows(columns, rows, {"PROP": rotor}, sample_column="CLOCKING")
+    entries = mapped.maps[("PROP", "Fz")]
+    assert [entry[5] for entry in entries[:2]] == [0.2, 0.4]
+    assert math.isnan(entries[2][5])
+    assert {entry[4] for entry in entries} == {10.0}
+    assert entries[1][6] == pytest.approx(0.4)
+
+
+def test_a_rotor_short_of_a_revolution_is_named_in_the_skips_of_the_disc_maps(
+    tmp_path, monkeypatch
+):
+    """No complete revolution, so no rows: a named skip and a post.log line, never a file."""
+    # P0320-G5-DISC-MAP
+    workspace = _unsteady(tmp_path, monkeypatch, blades=3, rpm=1200.0)
+    record = workspace.read_manifest()[0]
+    record.reductions["rotors"]["PROP"]["steps_per_revolution"] = 20.0  # type: ignore[index]
+    out, manifest, log = _post(workspace)
+    assert not list((out / "sections").glob("*_disc_*"))
+    reason = manifest["skipped"]["sections/AL-020_disc_#rotor=PROP"]
+    assert "no disc map" in reason
+    assert any("AL-020_disc_" in line and "no disc map" in line for line in log)
