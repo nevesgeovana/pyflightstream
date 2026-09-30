@@ -509,6 +509,19 @@ def test_p0320_noise_collect_a_submitted_point_names_its_section_files(tmp_path)
     ]
 
 
+def test_p0320_noise_collect_the_acoustic_files_are_never_classified_as_an_export():
+    """P0320-NOISE-COLLECT: the signals file ends in .txt like the loads table and a
+    section's files end in .vtk like the surface export, and the classifier claims
+    neither: listed first, the signals file does not take the loads table's place,
+    and a section VTK is not the point's surface."""
+    signals = "datapoints/DP-a/P_acoustic_signals.txt"
+    section = "datapoints/DP-a/P_acoustic_section/VTK_output-001.vtk"
+    names = [signals, section, "datapoints/DP-a/P.txt"]
+    claimed = classify_outputs(names, package_version="0.32.0")
+    assert claimed.get("loads") == "datapoints/DP-a/P.txt"
+    assert not {signals, section} & set(claimed.values()), claimed
+
+
 def test_p0320_noise_collect_lists_the_section_files_beside_the_collected_outputs(tmp_path):
     """P0320-NOISE-COLLECT: the collect's listing finds each section folder in the
     datapoint folders the collected outputs sit in, every file but the run's own note,
