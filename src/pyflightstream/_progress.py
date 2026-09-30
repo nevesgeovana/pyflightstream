@@ -535,16 +535,36 @@ def stage_progress(
         _close_quietly(stage, stopped=False)
 
 
-def tracked[T](name: str, items: Iterable[T], *, label: Callable[[T], object] = str) -> Iterator[T]:
+def tracked[T](
+    name: str,
+    items: Iterable[T],
+    *,
+    label: Callable[[T], object] = str,
+    size: Callable[[T], int] | None = None,
+) -> Iterator[T]:
     """Iterate ``items`` as one stage, each item one file of it: the one-line hook of a loop.
 
     ``for record in tracked("collect: points", submitted, label=...)`` shows
     the stage exactly as :func:`stage_progress` with :meth:`StageProgress.each`
-    would, without indenting the loop under a ``with``.
+    would, without indenting the loop under a ``with``. ``size``, where the
+    stage already knows each item's bytes, adds them: the byte total, and
+    each item's bytes done once its body has run.
     """
     listed = list(items)
-    with stage_progress(name, total_files=len(listed)) as stage:
-        yield from stage.each(listed, label)
+    sizes = [_size_of(size, item) for item in listed] if size is not None else None
+    total = sum(sizes) if sizes is not None else None
+    with stage_progress(name, total_files=len(listed), total_bytes=total) as stage:
+        for index, item in enumerate(stage.each(listed, label)):
+            yield item
+            if sizes is not None:
+                stage.advance(bytes=sizes[index])
+
+
+def _size_of[T](size: Callable[[T], int], item: T) -> int:
+    try:
+        return max(int(size(item)), 0)
+    except Exception:  # an observer never changes the stage it observes
+        return 0
 
 
 def _close_quietly(stage: StageProgress, *, stopped: bool) -> None:

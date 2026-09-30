@@ -65,7 +65,8 @@
     `test_tracked_counts_each_item_after_its_body_even_on_continue`,
     `test_a_tracked_loop_whose_body_raises_says_where_it_stopped_not_done`,
     `test_a_terminal_redraws_one_line_with_a_bar_and_ends_it`,
-    `test_free_space_and_delete_sims_show_their_stages` and
+    `test_free_space_and_delete_sims_show_their_stages`,
+    `test_delete_sims_removal_shows_bytes_over_the_total_it_measured` and
     `test_collect_and_post_show_their_stages`.*
 
     Need: a command that works for minutes says, while it works, how far each
@@ -82,13 +83,16 @@
     stage with nothing to do says nothing; a Python caller outside a console
     command sees nothing; the progress never changes a stage's result and
     never raises. The stages shown: `free-space` (one per recipe table, per
-    simulation), `delete-sims` (measure, then remove), `collect` (per
-    submitted point) and `post` (per simulation); `sync` and `restore` call
-    the same interface from their own packages of 0.32.0.
+    simulation), `delete-sims` (measure, then remove, the removal also by
+    the bytes the measure found), `collect` (per submitted point) and `post`
+    (per simulation); the bytes appear where the stage knows them, and
+    `sync` and `restore` call the same interface from their own packages of
+    0.32.0.
 
     Solution (release 0.32.0): `pyflightstream._progress.StageProgress`
     (`advance`, `each`), `stage_progress` and `tracked`, the one-line hook of
-    a loop; the line's shape is `_console.progress_text`.
+    a loop (`size=` adds each item's known bytes); the line's shape is
+    `_console.progress_text`.
 
 !!! requirement "FR-203 A long command writes a live log while it runs <span class='srs-implemented'>implemented</span>"
 

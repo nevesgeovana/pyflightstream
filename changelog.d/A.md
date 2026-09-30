@@ -1,7 +1,7 @@
 ## Added
 
 - Every `pyfs-matrix` and `pyfs-workspace` command opens with a titled block on standard error: `<program> <command>`, then its purpose, its workspace and, for a long command, its live log (FR-200). A test walks every command both programs register.
-- The long commands show the progress of each stage on standard error: files and bytes done over the total, the share, the elapsed time, an estimate of what is left and the current file, then a closing `done` or `stopped at` line (FR-202). `free-space` (per recipe table), `delete-sims` (measure, remove), `collect` (per submitted point) and `post` (per simulation) show it; `pyflightstream._progress.stage_progress` is the interface `sync` and `restore` call.
+- The long commands show the progress of each stage on standard error: files done over the total, and bytes where the stage knows them, the share, the elapsed time, an estimate of what is left and the current file, then a closing `done` or `stopped at` line (FR-202). `free-space` (per recipe table), `delete-sims` (measure, then remove, the removal also in bytes), `collect` (per submitted point) and `post` (per simulation) show it; `pyflightstream._progress.stage_progress` is the interface `sync` and `restore` call.
 - `sync`, `restore`, `free-space`, `delete-sims`, `collect` and `post`, run in a campaign workspace, write a live log `logs/<command>-<UTC stamp>.log` while they run, every console line flushed as it is said, standard output included (FR-203).
 - Where standard error is not a terminal (a cluster job, a redirected output), the progress is plain lines, one at a stage's first advance, then at most one every 10 s, then its closing line; on a terminal the line is redrawn in place with a bar (FR-204).
 

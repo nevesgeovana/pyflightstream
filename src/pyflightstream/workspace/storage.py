@@ -1082,9 +1082,11 @@ def delete_sims(
     products = _products_of(workspace, set(ids), run_ids)
     shared = {folder: item["shared"] for folder, item in products.items() if item["shared"]}
     sims_entry = []
+    measured: dict[str, int] = {}
     for sim in tracked("delete-sims: measure", ids, label=_sim_folder):
         folder, archive = workspace.sim_dir(sim), _zip_path(workspace, sim)
         rows = records.get(sim, [])
+        measured[sim] = sum(_size(p) for p in _walk_files(folder)) + _size(archive)
         sims_entry.append(
             {
                 "sim_id": sim,
@@ -1094,7 +1096,7 @@ def delete_sims(
                 "dates": sorted(
                     {str(row.get("started_at") or row.get("ended_at")) for row in rows}
                 ),
-                "bytes": sum(_size(p) for p in _walk_files(folder)) + _size(archive),
+                "bytes": measured[sim],
                 "outputs_sha256": {
                     str(row.get("run_id")): row.get("output_digests") or row.get("outputs_sha256")
                     for row in rows
@@ -1124,7 +1126,7 @@ def delete_sims(
     # THE FOLDERS GO FIRST, links undone before anything is removed: a
     # refusal there leaves the records, the products and the mesh as they were.
     links_undone: dict[str, list[str]] = {}
-    for sim in tracked("delete-sims: remove", ids, label=_sim_folder):
+    for sim in tracked("delete-sims: remove", ids, label=_sim_folder, size=measured.__getitem__):
         folder = workspace.sim_dir(sim)
         if folder.exists():
             links_undone[sim] = _remove_sim_folder(folder)

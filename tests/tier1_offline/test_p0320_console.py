@@ -393,6 +393,18 @@ def test_free_space_and_delete_sims_show_their_stages(tmp_path, monkeypatch):
     assert "[delete-sims: remove] done: 1/1" in removed, removed
 
 
+def test_delete_sims_removal_shows_bytes_over_the_total_it_measured(tmp_path, monkeypatch):
+    # P0320-PROGRESS-STAGES: "files and bytes done over the total" where the stage knows them.
+    monkeypatch.chdir(tmp_path)
+    workspace = _workspace(tmp_path)
+    for sim, size in (("1320", 1500), ("1321", 2500)):
+        _write(workspace.sim_dir(sim) / "datapoints" / "DP-1" / "loads.vtk", "x" * size)
+        workspace.append_record(_record(sim, f"camp/sim_{sim}/AL+000"))
+    argv = ["delete-sims", "1320,1321", "--workspace", str(workspace.root), "--apply"]
+    removed = _merged(matrix_cli.main, argv)
+    assert "[delete-sims: remove] done: 2/2, 4.0 kB/4.0 kB" in removed, removed
+
+
 def test_collect_and_post_show_their_stages(tmp_path, capsys):
     # P0320-PROGRESS-STAGES: called from collect (per point) and post (per simulation).
     from pyflightstream.post.products import write_campaign_products
