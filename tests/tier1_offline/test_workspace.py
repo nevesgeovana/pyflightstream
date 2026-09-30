@@ -28,6 +28,7 @@ from pyflightstream.workspace import (
 )
 from pyflightstream.workspace.cli import main as workspace_cli
 from pyflightstream.workspace.inputs import resolve_build
+from tests.tier1_offline._workflow_docs import workflow_docs_text
 
 
 def make_record(run_id="camp/sim_9001/a+02.0", sim_id="9001", **overrides):
@@ -2295,10 +2296,8 @@ def test_the_documented_pproc_artifact_resolves_as_the_page_reads(tmp_path):
     refused the top-level form the comment meant as an old-shape groups
     file. The block is read off the page so the two cannot drift.
     """
-    page = (Path(__file__).parents[2] / "docs" / "workspace-and-workflows.md").read_text(
-        encoding="utf-8"
-    )
-    section = page.split("### What the post-processing artifact holds", 1)[1]
+    page = workflow_docs_text()
+    section = page.split("## What the post-processing artifact holds", 1)[1]
     block = section.split("```toml", 1)[1].split("```", 1)[0]
     workspace = library(tmp_path)
     (workspace.inputs_dir / "pproc" / "p020.toml").write_text(block, encoding="utf-8")

@@ -23,14 +23,15 @@ from pyflightstream.cases import CampaignConfigError
 from pyflightstream.exceptions import InputArtifactError
 from pyflightstream.run import SubmittingExecutor, _unmapped_build_refusal
 from pyflightstream.workspace.inputs import read_hpc_profile
+from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 
 REPO = Path(__file__).resolve().parents[2]
-DOC = REPO / "docs" / "workspace-and-workflows.md"
+DOC = WORKFLOW_DOCS
 
 
 def documented_profile() -> str:
     text = DOC.read_text(encoding="utf-8")
-    section = text.split("### Naming the build to a cluster's scheduler", 1)
+    section = text.split("## Naming the build to a cluster's scheduler", 1)
     assert len(section) == 2, "the docs no longer carry the section that documents [builds]"
     match = re.search(r"```toml\n(.*?)```", section[1], re.S)
     assert match, "the section carries no toml example"

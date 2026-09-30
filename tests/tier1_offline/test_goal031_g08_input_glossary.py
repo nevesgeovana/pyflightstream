@@ -85,6 +85,7 @@ from pyflightstream.workspace.matrix import (
     _PRESET_RECORDED_ONLY,
     _PRESET_RECORDED_ONLY_KEY,
 )
+from tests.tier1_offline._workflow_docs import workflow_docs_text
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -518,7 +519,7 @@ def test_the_post_stage_refreshes_the_page_too(tmp_path):
 def test_the_guides_cite_the_page_and_the_site_renders_it():
     """D08: the user guide and the workflows page name it, and the docs build writes it."""
     guide = (REPO / "guide" / "pyflightstream_user_guide.tex").read_text(encoding="utf-8")
-    workflows = (REPO / "docs" / "workspace-and-workflows.md").read_text(encoding="utf-8")
+    workflows = workflow_docs_text()
     assert "INPUTS.md" in guide, "the user guide does not cite the input glossary"
     assert "INPUTS.md" in workflows, "the workflows page does not cite the input glossary"
     assert "inputs/INPUTS.md" in workflows, "the input library listing does not show where it is"

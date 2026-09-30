@@ -36,11 +36,12 @@ from pyflightstream.post.products import NOT_APPLICABLE
 from pyflightstream.run import run_campaign
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
+from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 from tests.tier1_offline.test_run_campaign import StubSolver, converged
 from tests.tier1_offline.test_workflows import rotor_case, unsteady_case
 
 REPO = Path(__file__).resolve().parents[2]
-PAGE = REPO / "docs" / "workspace-and-workflows.md"
+PAGE = WORKFLOW_DOCS
 
 REV = "EXPORT_UNSTEADY_AFTER_REV"
 ITER = "EXPORT_UNSTEADY_AFTER_ITER"

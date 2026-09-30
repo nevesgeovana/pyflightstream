@@ -3773,7 +3773,7 @@ names no key, the window the run recorded still stands.
 - **A point is named by its flight condition.** The name writes every variable
   the row's `FLIGHT_CONDITION` cell declares, in the order written, each as a
   code and a fixed-width integer: `M144RE438AL+000BE+000J+080`. The code table is
-  in [How a point is named](docs/workspace-and-workflows.md#how-a-point-is-named).
+  in [How a point is named](docs/workflow-run-matrix.md#how-a-point-is-named).
   One name does every job: it ends the `run_id`, names the datapoint folder
   `DP-<name>`, and is the stem of every file, `P<sim>-<name>`. The superfile is
   `SUPER-<sim>-<name>`, with the swept field written `<code>+sweep`, for example

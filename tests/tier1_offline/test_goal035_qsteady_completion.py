@@ -52,6 +52,7 @@ from pyflightstream.fsi import centrifugal, driver, nodes
 from pyflightstream.fsi.config import FsiConfig
 from pyflightstream.run import _write_pending_files
 from pyflightstream.script import Script
+from tests.tier1_offline._workflow_docs import workflow_docs_text
 from tests.tier1_offline.conftest import make_uniform_blade_config
 from tests.tier1_offline.test_goal035_qsteady_rotor import (
     OMEGA,
@@ -855,7 +856,7 @@ def test_the_docs_state_the_clockings_guidance_the_revolutions_warning_and_the_b
     import re
 
     root = Path(__file__).resolve().parents[2]
-    page = (root / "docs" / "workspace-and-workflows.md").read_text(encoding="utf-8")
+    page = workflow_docs_text()
     flat = " ".join(page.split())
     assert "`PASSAGE_POSITIONS: 2` converges thrust and torque" in flat
     assert "6 or more for the in-plane loads" in flat

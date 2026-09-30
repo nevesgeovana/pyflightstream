@@ -126,7 +126,7 @@ sequence. The assessor reads it solve by solve and records one verdict per
 clocking in the run record's new `clocking_verdicts`, the worst of them being
 the point's status. The new `pyflightstream.results.parse_residual_solves`
 reads such a log from Python. See
-[the quasi-steady rotor](workspace-and-workflows.md#the-quasi-steady-rotor-qsteady_rotor)
+[the quasi-steady rotor](workflow-qsteady-rotor.md#the-quasi-steady-rotor-qsteady_rotor)
 and its [definitions](post-processing-definitions.md#the-quasi-steady-rotor).
 
 If you compare against `unsteady_rotor`: a mean thrust taken from few

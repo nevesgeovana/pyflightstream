@@ -51,99 +51,110 @@ markdown_extensions:
 
 extra_css:
   - stylesheets/extra.css
-
 nav:
-  # Grouped by stage of the pipeline (approved 2026-09-28: Reference nested
-  # inside Versions). Stages 1 to 6 follow the order of a run: geometry,
-  # references, setup, run, collect, post. Pages only move; none is renamed.
-  - Start here:
+  # Organized by task (0.32.0): Getting started, Workflows, Post-processing,
+  # Reference, Migration. A page keeps its file name and its anchors; the old
+  # workspace page is now the index of the Workflows group, and each run type
+  # and topic it held has a page of its own. Each fact has one home.
+  - Getting started:
       - Home: index.md
       - Getting started: getting-started.md
-  - Workspace:
       - From the GUI to pyfs: gui-to-pyfs.md
-      - The workspace and the workflow: workspace-and-workflows.md
-      - Storage and sync: storage-and-sync.md
-      - Excel matrix synchronization: excel-matrices.md
-  - 1 Geometry:
-      - Mesh inputs and GUI-only operations: mesh-inputs.md
-      - CAD inputs: cad-inputs.md
-      - Geometry units and starts: geometry-units-and-starts.md
-      - Simulation geometry controls: simulation-geometry-controls.md
-      - Surface translation: surface-translation.md
-  - 2 References:
-      - Flight conditions: flight-conditions.md
-      - Custom field units and coverage: custom-field-units.md
-  - 3 Setup:
-      - Setup standards and guidance: setup-standards.md
-      - Boundary conditions: boundary-conditions.md
-      - Field operations: field-operations.md
-      - The input glossary: inputs.md
-  - 4 Run:
       - Replaying a recorded run: tutorial-replay.md
-      - What a run cost: solver-cost.md
-      - Continuation and recovery: continuation-recovery.md
-  - 5 Collect:
+  - Workflows:
+      - The workspace and the workflow: workspace-and-workflows.md
+      - Run types:
+          - The run matrix, a campaign and its record: workflow-run-matrix.md
+          - The steady workflow: workflow-steady.md
+          - The unsteady workflow: workflow-unsteady.md
+          - The unsteady rotor workflow: workflow-unsteady-rotor.md
+          - The quasi-steady rotor: workflow-qsteady-rotor.md
+      - Geometry:
+          - Mesh inputs and GUI-only operations: mesh-inputs.md
+          - CAD inputs: cad-inputs.md
+          - Geometry units and starts: geometry-units-and-starts.md
+          - Simulation geometry controls: simulation-geometry-controls.md
+          - Surface translation: surface-translation.md
+          - One row, one geometry, turned or moved: workflow-row-geometry-motion.md
+      - Inputs and setup:
+          - The input library and the solver presets: workflow-input-library.md
+          - The reference artifact: workflow-reference-artifact.md
+          - Flight conditions: flight-conditions.md
+          - Custom field units and coverage: custom-field-units.md
+          - Setup standards and guidance: setup-standards.md
+          - Boundary conditions: boundary-conditions.md
+          - Field operations: field-operations.md
+          - One row, one actuator disc or one custom free stream: workflow-row-flow-inputs.md
+          - The input glossary: inputs.md
+      - Running:
+          - Planning a campaign and what it costs: workflow-plan-and-cost.md
+          - Builds, local runs and clusters: workflow-builds-and-hpc.md
+          - What a run cost: solver-cost.md
+          - Continuation and recovery: continuation-recovery.md
+          - Storage and sync: storage-and-sync.md
+          - Excel matrix synchronization: excel-matrices.md
+      - FSI:
+          - FSI in a workspace: fsi-workspace.md
+          - FSI driver tutorial: fsi-tutorial.md
+          - FSI Campbell diagram: examples/fsi_campbell_diagram.md
+          - FSI blade properties from its sections: examples/fsi_solid_blade_properties.md
+          - Workspace FSI calibration: examples/workspace_fsi_calibration.md
+      - Examples:
+          - CAD script with explicit units: examples/cad_import.md
+          - Base-region setup: examples/base_region_setup.md
+          - Steady polar: examples/steady_polar.md
+          - Campaign from a run matrix: examples/campaign_matrix.md
+          - Wing static deflection: examples/wing_static_deflection.md
+          - Wing OBJ, trailing edge by file: examples/obj_wing_trailing_edge_file.md
+          - A row with a roll rate: examples/roll_rate_row.md
+          - Inspect continuation recovery: examples/continuation_frame_recovery.md
+          - Prepare an SI custom field: examples/prepare_custom_field.md
+          - Excel workbook synchronization: examples/excel_matrix_sync.md
+  - Post-processing:
+      - Post-processing definitions: post-processing-definitions.md
+      - The post-processing artifact and its products: pproc-artifact.md
+      - Extracting more from a finished point: workflow-additional-post.md
       - Sampled velocity fields: sampled-fields.md
       - Boundary-layer products: boundary-layer-products.md
-  - 6 Post:
-      - Post-processing definitions: post-processing-definitions.md
       - Quasi-steady wheel corrections: qsteady-corrections.md
       - Unsteady plots and averages: unsteady-postprocessing.md
-  - FSI:
-      - FSI in a workspace: fsi-workspace.md
-      - FSI driver tutorial: fsi-tutorial.md
-      - FSI Campbell diagram: examples/fsi_campbell_diagram.md
-      - FSI blade properties from its sections: examples/fsi_solid_blade_properties.md
-      - Workspace FSI calibration: examples/workspace_fsi_calibration.md
-  - Examples:
-      - CAD script with explicit units: examples/cad_import.md
-      - Base-region setup: examples/base_region_setup.md
-      - Steady polar: examples/steady_polar.md
-      - Campaign from a run matrix: examples/campaign_matrix.md
-      - Wing static deflection: examples/wing_static_deflection.md
-      - Wing OBJ, trailing edge by file: examples/obj_wing_trailing_edge_file.md
-      - A row with a roll rate: examples/roll_rate_row.md
-      - Extracting more from a finished point: examples/additional_post.md
-      - Native nodal surface strength: examples/surface_with_native_strength.md
-      - Sampled-field products: examples/sampled_field_export.md
-      - Boundary-layer sections: examples/boundary_layer_sections.md
-      - Inspect continuation recovery: examples/continuation_frame_recovery.md
-      - Prepare an SI custom field: examples/prepare_custom_field.md
-      - Excel workbook synchronization: examples/excel_matrix_sync.md
-  - Versions:
-      - Reference:
-          - Command reference: reference/
-          - SRS:
-              - srs/index.md
-              - Introduction: srs/introduction.md
-              - Philosophy: srs/philosophy.md
-              - Scope: srs/scope.md
-              - Data and evidence model: srs/data-model.md
-              - Architecture: srs/architecture-srs.md
-              - Functional requirements: srs/functional-requirements.md
-              - Non-functional requirements: srs/nonfunctional-requirements.md
-              - Standards alignment: srs/standards.md
-              - Roadmap: srs/roadmap.md
-          - Which build do I have: builds.md
-          - Compatibility matrix: compatibility.md
-          - House conventions: conventions.md
-          - The test tiers and the licensed workspace: tiers.md
-          - Acceptance mapping: requirement-mapping.md
-          - Numeric settings codebook: settings-codebook.md
-      # One section, newest first, so a release adds a line here.
-      - Migrating to newer versions:
-          - Migrating to 0.31.0: migrating-to-0.31.0.md
-          - Migrating to 0.30.0: migrating-to-0.30.0.md
-          - Migrating to 0.29.0: migrating-to-0.29.0.md
-          - Migrating to 0.28.0: migrating-to-0.28.0.md
-          - Migrating to 0.27.0: migrating-to-0.27.0.md
-          - Migrating to 0.26.0: migrating-to-0.26.0.md
-          - Migrating to 0.25.0: migrating-to-0.25.0.md
-          - Migrating to 0.24.0: migrating-to-0.24.0.md
-          - Migrating to 0.23.0: migrating-to-0.23.0.md
-          - Migrating to 0.22.0: migrating-to-0.22.0.md
-          - Migrating to 0.21.0: migrating-to-0.21.0.md
-      - Release notes: release-notes.md
-  - Project:
-      - Sister library (ITACA): sister-itaca.md
+      - Examples:
+          - Extracting more from a finished point: examples/additional_post.md
+          - Native nodal surface strength: examples/surface_with_native_strength.md
+          - Sampled-field products: examples/sampled_field_export.md
+          - Boundary-layer sections: examples/boundary_layer_sections.md
+  - Reference:
+      - Command reference: reference/
+      - SRS:
+          - srs/index.md
+          - Introduction: srs/introduction.md
+          - Philosophy: srs/philosophy.md
+          - Scope: srs/scope.md
+          - Data and evidence model: srs/data-model.md
+          - Architecture: srs/architecture-srs.md
+          - Functional requirements: srs/functional-requirements.md
+          - Non-functional requirements: srs/nonfunctional-requirements.md
+          - Standards alignment: srs/standards.md
+          - Roadmap: srs/roadmap.md
+      - Which build do I have: builds.md
+      - Compatibility matrix: compatibility.md
+      - House conventions: conventions.md
+      - The test tiers and the licensed workspace: tiers.md
+      - Acceptance mapping: requirement-mapping.md
+      - Numeric settings codebook: settings-codebook.md
       - Architecture: architecture.md
+      - Sister library (ITACA): sister-itaca.md
+  - Migration:
+      # One section, newest first, so a release adds a line here.
+      - Release notes: release-notes.md
+      - Migrating to 0.31.0: migrating-to-0.31.0.md
+      - Migrating to 0.30.0: migrating-to-0.30.0.md
+      - Migrating to 0.29.0: migrating-to-0.29.0.md
+      - Migrating to 0.28.0: migrating-to-0.28.0.md
+      - Migrating to 0.27.0: migrating-to-0.27.0.md
+      - Migrating to 0.26.0: migrating-to-0.26.0.md
+      - Migrating to 0.25.0: migrating-to-0.25.0.md
+      - Migrating to 0.24.0: migrating-to-0.24.0.md
+      - Migrating to 0.23.0: migrating-to-0.23.0.md
+      - Migrating to 0.22.0: migrating-to-0.22.0.md
+      - Migrating to 0.21.0: migrating-to-0.21.0.md
