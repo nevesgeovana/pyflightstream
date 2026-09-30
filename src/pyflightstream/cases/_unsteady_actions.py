@@ -111,9 +111,11 @@ def walltime_clock_command_line() -> str:
 def documents_actions(script: Script) -> bool:
     """Whether the script's build documents the unsteady solver action command.
 
-    A build that does not (26.120 to 26.122) marches a row without per-step
-    exports as one single march, with no action and so with no counter: a
-    count-only counter is registered only where the build can run it.
+    Read from the committed command database: 26.122 and later document it,
+    26.121 and earlier do not. A build that does not marches a row without
+    per-step exports as one single march, with no action and so with no
+    counter: a count-only counter is registered only where the build can run
+    it, and a row asking per-step exports there is refused by the emitter.
     """
     try:
         script.entry(helpers.UNSTEADY_ACTION_COMMAND)

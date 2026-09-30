@@ -74,17 +74,27 @@ API_EXEMPT = {"stamp_derived_campaign": "0.33 scope decision 9 deletes it"}
 
 #: Differences a named 0.33 requirement states. ``kind`` is "scripts" or "post";
 #: ``pattern`` is an fnmatch glob over the render name or the post-relative file;
-#: ``lines``, when given, is a regex every changed line must match.
+#: ``lines``, when given, is a regex every changed line must match; ``block``,
+#: when given, is a regex the changed lines of one file, joined by line feeds,
+#: must match whole, so a difference is held to its lines, their order and
+#: their number.
 NAMED_DIFFERENCES: list[dict[str, str]] = [
     {
         "kind": "scripts",
         "pattern": "*",
         # The three lines of the counter's registration and nothing else: its
         # head, its command line (the interpreter as the render spells it, then
-        # the program) and the blank line that closes the action.
+        # the program) and the blank line that closes the action. The diff may
+        # place the blank line before or after the two, and nothing else.
         "lines": (
             r"^(SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE pfs_unsteady_counter"
             r'|"[^"]+" "actions/pfs_unsteady_actions\.py"|)$'
+        ),
+        "block": (
+            r"(SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE pfs_unsteady_counter\n"
+            r'"[^"\n]+" "actions/pfs_unsteady_actions\.py"\n'
+            r"|\nSET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE pfs_unsteady_counter\n"
+            r'"[^"\n]+" "actions/pfs_unsteady_actions\.py")'
         ),
         "requirement": "FR-314",
         "why": (
@@ -369,6 +379,9 @@ def name_difference(
             continue
         pattern = named.get("lines")
         if pattern and not all(re.search(pattern, line) for line in lines):
+            continue
+        block = named.get("block")
+        if block and not re.fullmatch(block, "\n".join(lines)):
             continue
         if named["requirement"] not in defined:
             entry["unnamed_because"] = f"{named['requirement']} is not defined in the release SRS"

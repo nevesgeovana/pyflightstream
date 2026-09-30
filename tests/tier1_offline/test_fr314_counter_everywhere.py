@@ -17,6 +17,7 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -83,12 +84,85 @@ def test_fr314_every_unsteady_row_without_export_registers_the_counter_alone(row
     assert unsteady_counter_steps(case) == steps
 
 
+@pytest.mark.parametrize("build", ["26.120", "26.121"])
 @pytest.mark.parametrize("row", sorted(ROWS))
-def test_fr314_a_build_without_actions_registers_nothing_the_control(row):
+def test_fr314_a_build_without_actions_registers_nothing_the_control(row, build):
     requirement = "FR-314"
-    script = Script("26.120")
+    script = Script(build)
     build_script(ROWS[row][0](), script)
     assert ACTION_HEAD not in script.render(), requirement
+
+
+@pytest.mark.parametrize("build", ["26.120", "26.121"])
+def test_fr314_a_per_step_export_on_a_build_without_actions_is_refused(build):
+    """As before 0.33.0: the threshold asks an action the build cannot run."""
+    from pyflightstream.cases.workflows import BuildCapabilityError
+
+    requirement = "FR-314"
+    with pytest.raises(BuildCapabilityError, match=ACTION_HEAD):
+        build_script(rotor_case(EXPORT_UNSTEADY_AFTER_REV="1"), Script(build))
+    assert requirement
+
+
+#: The sha256 of the goldens as v0.32.0 committed them, recorded from the tag.
+GOLDENS_0320 = Path(__file__).parent / "fixtures" / "goldens_v0320_sha256.json"
+REPO = Path(__file__).resolve().parents[2]
+#: The counter's registration, the only lines FR-314 adds to a script (R4).
+COUNTER_REGISTRATION = re.compile(
+    r"^SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE pfs_unsteady_counter\n"
+    r'"[^"\n]+" "actions/pfs_unsteady_actions\.py"\n\n',
+    re.MULTILINE,
+)
+#: The goldens FR-314 changes: every unsteady run type on every build that
+#: documents the action, and the tier-3 scripts of rows without per-step export.
+CHANGED_GOLDENS = {
+    *(
+        f"tests/tier1_offline/goldens/workflows/{kind}__{form}__{build}.txt"
+        for kind in ("unsteady", "unsteady_rotor")
+        for form in ("bare", "full", "resolved")
+        for build in ("26.122", "26.123", "26.124")
+    ),
+    "tests/tier3_licensed/goldens/matriz_builds/P7002-M144RE438AL+000BE+000.txt",
+    "tests/tier3_licensed/goldens/matriz_mesh/P4105-M100RE230AL+020.txt",
+    "tests/tier3_licensed/goldens/matriz_vocab/P8001-M100RE230AL+000BE+000.txt",
+    "tests/tier3_licensed/goldens/matriz_vocab/P8002-M100RE230AL+000BE+000J+060.txt",
+    "tests/tier3_licensed/goldens/matriz_vocab/P8002-M100RE230AL+000BE+000J+080.txt",
+    "tests/tier3_licensed/goldens/matriz_vocab/P8003-M100RE230AL+000BE+000J+060.txt",
+    "tests/tier3_licensed/goldens/matriz_vocab/P8003-M100RE230AL+000BE+000J+080.txt",
+    "tests/tier3_licensed/goldens/matriz_vocab/P8004-M100RE230AL+000BE+000.txt",
+    "tests/tier3_licensed/goldens/matriz_vocab/P8005-M100RE230AL+000BE+000.txt",
+    "tests/tier3_licensed/goldens/matriz_vocab/P8006-M100RE230AL+000BE+000.txt",
+}
+
+
+def _sha(text: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def test_fr314_every_golden_differs_from_0320_only_by_the_counter_registration():
+    """R4, against the goldens of v0.32.0 by their recorded digests.
+
+    Every unsteady tier-1 golden and every tier-3 golden is either the bytes
+    v0.32.0 committed, or those bytes with exactly one counter registration
+    added. The set of the second kind is every unsteady run type on 26.122 to
+    26.124 and the ten tier-3 scripts of rows without per-step export. The
+    control: a changed golden, the counter kept, does not match its digest.
+    """
+    requirement = "FR-314"
+    record = json.loads(GOLDENS_0320.read_text(encoding="utf-8"))
+    assert record["tag"] == "v0.32.0" and len(record["digests"]) == 134, record.keys()
+    changed = set()
+    for name, digest in sorted(record["digests"].items()):
+        text = "\n".join((REPO / name).read_text(encoding="utf-8").splitlines())
+        if _sha(text) == digest:
+            continue
+        stripped, found = COUNTER_REGISTRATION.subn("", text)
+        assert found == 1, (requirement, name, found)
+        assert _sha(stripped) == digest, (requirement, name, "differs beyond the counter")
+        changed.add(name)
+    assert changed == CHANGED_GOLDENS, (requirement, changed ^ CHANGED_GOLDENS)
 
 
 def test_fr314_a_row_with_per_step_export_registers_the_pair_as_before():
@@ -168,6 +242,10 @@ def test_fr314_a_stopped_run_recorded_without_the_counter_still_recovers_its_fra
     script = workspace.sim_dir("9001") / record.script_path
     lines = script.read_text(encoding="utf-8").split("\n")
     at = lines.index("SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE pfs_unsteady_counter")
+    # What is removed is the counter's registration and nothing else: the
+    # three lines the golden record below proves are all 0.33.0 adds.
+    assert re.fullmatch(r'"[^"]+" "actions/pfs_unsteady_actions\.py"', lines[at + 1]), lines
+    assert lines[at + 2] == "" and ACTION_HEAD not in "\n".join(lines[at + 3 :]), lines
     del lines[at : at + 3]
     script.write_text("\n".join(lines), encoding="utf-8")
     rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
