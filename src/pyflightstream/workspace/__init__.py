@@ -84,6 +84,18 @@ and writing each result beside a provenance record
 (``pyfs-workspace field``). The calibration files of a quasi-steady wheel's
 correction live under ``inputs/calibrations/``
 (:mod:`pyflightstream.cases.corrections`).
+
+The 0.32 workspace has two equal homes for its matrices, the root and
+``inputs/matrices/``: :func:`matrix_by_stem` and :func:`find_matrix` read one
+matrix per stem across both, once when the two files are identical, and the
+plan and ``sync`` refuse a stem whose two copies differ, naming both paths.
+``sync`` names every ``sims/sim_*`` folder of both workspaces, recorded or
+not, skips every folder named ``archive`` unless asked, holds the
+``runs.json`` lease for the whole of its merge and copy, and copies each file
+under a temporary name that is renamed in place once its digest matches.
+The long commands write a live log ``logs/<command>-<stamp>.log`` beside the
+activity log while they run. A manifest other than ``runs.json`` may sit in
+the root, read when a command names it (:mod:`pyflightstream.run.records`).
 """
 
 from __future__ import annotations

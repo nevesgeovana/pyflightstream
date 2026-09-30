@@ -43,7 +43,8 @@ Cross-cutting support modules, importable from any layer:
 - ``_console``: private console layout, titled blocks and wrapped lines,
   shared by every command's human output.
 - ``_progress``: private durable stage events and failure context in the
-  workspace logs.
+  workspace logs, the stage progress of the long commands and their live
+  log.
 - ``_fsi_calibration``: private dimensionless FSI factor names, read by
   the cases layer's matrix workflows and re-exported by ``fsi.calibration``.
 - ``_signature``: private drawings and phrases of the box every console

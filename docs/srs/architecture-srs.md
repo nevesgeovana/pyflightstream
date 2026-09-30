@@ -47,12 +47,16 @@ unit factor has one home, while each caller separately restricts support
 to the units measured for its command or file format. Knowing a scale
 does not prove that a solver boundary uses that scale.
 
-Three private support modules are floors of the same kind: they import
-nothing from this package, so any layer may import them. `_cli` reports
-a console command's outcome on stderr, `_progress` appends each stage's
-activity to the workspace logs, and `_fsi_calibration` holds the
-dimensionless structural factor names the matrix workflows read without
-importing the structural side branch.
+Five private support modules are floors of the same kind: they import
+nothing from the pipeline rows, only `_errors` and one another, so any
+layer may import them. `_cli` reports a console command's outcome on
+stderr; `_console` lays out a command's console output (its titled
+blocks, wrapped lines and held warnings); `_progress` appends each
+stage's activity to the workspace logs, draws the stage progress of the
+long commands and writes their live log; `_signature` holds the drawings
+and phrases of the box a command ends with, which `_cli` renders; and
+`_fsi_calibration` holds the dimensionless structural factor names the
+matrix workflows read without importing the structural side branch.
 
 ## Architectural rules
 
@@ -494,3 +498,186 @@ was cut in; an XZ or an XY cut is read, and a YZ cut is `NA` because it is not
 measured. The correction routes are off by default and not validated; a route
 the release does not offer is refused with its reason where the pproc or the
 calibration is read.
+
+## The 0.32.0 additions and their limits
+
+This section records what 0.32.0 adds to the paths above and the limit each
+one keeps. The tracked package holds 150 modules, eleven more than 0.31.0;
+none takes a new row of the layered pipeline, and each imports only at or
+below its own row, a sibling of its own subpackage included. The imports
+below were read from each module's import statements, those inside function
+bodies included.
+
+### The modules and their rows
+
+- `run/records.py`, in the run row, imports the floors `_digest` and
+  `_errors`, `cases`, `cases.matrix`, `cases.windows`, `results`,
+  `workspace`, `workspace.flight_condition`, `workspace.inputs`,
+  `workspace.matrix` and `workspace.naming`, and inside function bodies
+  `_progress`, `cases.workflows`, `run` and `run.collect`. It holds the
+  operations on a workspace's records: which manifest a command reads, the
+  exact restore of a records file from the archive, the rebuild of run
+  records from the simulation folders and the records a post assembles from
+  them. `workspace.storage`, in the same row, reaches it inside two function
+  bodies for the sync's rebuild.
+- `cases/acoustics.py`, in the cases row, imports `_errors` and `cases`. It
+  emits the solver's acoustic toolbox on an unsteady row and states the
+  contract of the export the post stage reads (`AcousticSignal`, the file
+  suffix), which is why it lives in `cases`: the run and the post both name
+  it, and `post` may import `cases` and never the reverse.
+- `cases/_ccs.py` (private), `cases/ccs_wing.py`, `cases/ccs_fuselage.py` and
+  `cases/ccs_revolution.py`, in the cases row. `_ccs` imports only
+  `script.helpers`; `ccs_wing` imports `cases`, `cases._ccs` and `script`;
+  the fuselage and the revolution import `ccs_wing`, which reaches them only
+  inside a function body, so the siblings form no import cycle. They emit
+  the commands that have the solver make a mesh of a row's CCS file.
+- `cases/setup_surfaces.py`, in the cases row, imports only `cases`. It
+  removes the surfaces a setup names and emits the slipstream wake
+  stabilization of each rotor motion.
+- `post/acoustics.py`, in the post row, imports `_errors`,
+  `cases.acoustics` and `post._tables`. It reads the acoustic export and
+  writes the per-observer products.
+- `post/disc_maps.py`, in the post row, imports `_errors`, `_tokens`,
+  `post._tables`, `post.axes` and `post.harmonics`. It tables a rotor's
+  sectional load over its disc.
+- `post/inflow_tools.py`, in the post row, imports `_errors` and
+  `cases.qsteady`. It writes a product table in the installed frame and the
+  blade-view harmonics of a custom inflow.
+- `post/qsteady_noise.py`, in the post row, imports only `_errors`. It is a
+  contract laid down before its body: its one function refuses with
+  `ContractNotImplementedError`, because its work package is not part of this
+  release.
+
+The floor module `_progress` now imports `_console` and `_errors`; the floors
+still import nothing from the pipeline rows.
+
+### The console and the long commands
+
+Every `pyfs-matrix` and `pyfs-workspace` command opens standard error with a
+titled block (the command, its purpose, its workspace and, for a long
+command, its live log) and prints its warnings together at its end, under
+`Warnings (<count>)`. Standard output and exit codes do not change. The long
+commands report each stage's progress through one interface,
+`_progress.stage_progress` and its iterator `tracked`: `free-space`,
+`delete-sims`, `collect`, `post` and `sync`. On a terminal the line is
+redrawn in place; elsewhere it is plain lines, at most one every 10 s. The
+live log `logs/<command>-<stamp>.log` is written by `sync`, `restore`,
+`free-space`, `delete-sims`, `collect` and `post` in a campaign workspace,
+every console line flushed as it is said. The progress observes a stage and
+never decides it.
+
+### The records: restore and rebuild
+
+The two ways back to a lost or overwritten `runs.json` are kept apart.
+`pyfs-matrix restore` puts back an archived copy of a records file byte for
+byte (the manifest, the storage record, the additional-post record, a
+matrix's products record or its plan receipt), previewing until applied,
+archiving the current file first so a restore can be undone, and writing
+under the leases a sync holds, refusing while one writes. `pyfs-matrix
+rebuild` makes run records again from `sims/`: each row runs again in a
+throwaway copy with nothing submitted, a record is accepted only when the
+executed script is the one this version renders, and the collect stage
+completes it without writing, so a truncated output is a failure and never
+a convergence; every rebuilt record carries a `REBUILT` warning. The
+rebuild's refusals and their remedies are requirements: a row switched off
+after it ran rebuilds with the switch set only in the copy; a build the
+submission profile no longer maps takes an alias for the job descriptor
+only; a simulation no current matrix holds waits for the matrix revision
+that ran; a run executed on a cluster is compared with separators
+normalized and each root set aside, and keeps its own root and path style;
+a submitted record is pointed to `collect`, and with `--all-sims` takes the
+status its outputs support unless its folder was written in the last 30
+minutes; and a drifted script is refused naming each changed line, its
+class and the input it comes from. The migration page says never to resume
+a simulation a rebuild refused, because with no record the resume runs it
+again.
+
+### Sync, the matrix homes and the other manifests
+
+`sync` names every simulation folder of both workspaces, recorded or not,
+and rebuilds the records of those no merged record carries only when asked
+(`--restore`), after it has released the manifest lease. It skips every
+folder named `archive` unless asked (`--include-archives`), holds the
+`runs.json` lease for the whole of its merge and copy, and copies each file
+under a temporary name renamed in place once its digest matches, so an
+interrupted sync never leaves a partial file. The workspace root and
+`inputs/matrices/` are two equal homes of the matrices: one stem in both is
+read once when the files are identical, refused by the plan and `sync`
+naming both paths when they differ, and warned by the post. `post`,
+`collect`, `sync`, `free-space` and `delete-sims` take `--runs NAME`, a
+manifest in the workspace root. A post of another manifest writes to
+`post/<matrix>@<stem>/`, and `post --from-sims` assembles records in memory
+from the simulation folders and writes to `post/<matrix>@sims/`, refusing
+by name what cannot be recovered and never guessing it; neither ever writes
+the default products folder.
+
+### The CCS geometry route
+
+A row whose `GEOMETRY` names a CCS file has the solver make its mesh, by the
+`[import.ccs]` table of the file's sidecar: a wing, a fuselage or a body of
+revolution lofted by the curve route, or every component imported whole by
+the file route, the only route that reads a component's relaxed trailing
+edge line, whose shedding direction the row key `CCS_SHEDDING` restates in
+the run's own copy of the file. A unit that names no length is refused. The
+licensed probe round of this release (reports/RPT-096) read the import and
+the three lofts; it refused the control-surface command in the form the
+manual prints, so the package writes every argument of it, and that form has
+not been run. The round read that the shedding direction digit is accepted
+and changes the saved state, not what it changes.
+
+### The acoustic chain
+
+An `unsteady` or `unsteady_rotor` row may switch the solver's acoustic
+sources on before the solver initializes, declare observers (named points,
+a file of the input library, or an annular section) over an observer time
+window, and have the signals computed and exported after the solve. The
+export is a declared output, collected and hashed with the point's others,
+and never read as a surface or a loads export; the setup after the
+initialization, the computation on a steady row or before the solve, and a
+continuation of an acoustic row are refused. The post stage reads the export
+into one signal per observer and writes, under `acoustics/`, the pressure
+against time and the one-sided spectrum per observer, a summary with the
+overall sound pressure level and the blade-passage harmonics, and the
+directivity when four or more observers lie on an arc; a harmonic the record
+cannot support is `NA` with a log line, and nothing blocks. Limit: the run
+lists the export among the record's outputs, and the post reads it from a
+record's `acoustic_signals` entry, so the two halves are not joined on one
+record field in this release. The quasi-steady noise report is not part of
+this release.
+
+### The rotor products and the setup keys
+
+A quasi-steady wheel and an `unsteady_rotor` point that cut sections write
+disc maps, `sections/<point>_disc_<ROTOR>_<QUANTITY>.csv`, the sectional
+load by radius and azimuth, each blade placed where `post.axes` places it;
+a rotor with no blade in the table is a named skip. The plan reads the chord
+of a saved simulation as it reads an OBJ's, so a wheel's reduced frequency
+is warned before the run. The setup key `delete_surfaces` removes surfaces by
+name, alias or family, never by index, and the script's and the record's
+inventories are renumbered as the solver renumbers them; the key
+`slipstream_wake_stabilization` emits the stabilization, enable or disable,
+for each rotor motion. A stated key that reaches no surface or no rotor
+motion is refused.
+
+### The inflow tools
+
+The field time mean may write a per-probe fluctuation report beside the
+mean, and a fill of the probes inside a body radius from the nearest probe
+outside on the same azimuth, each previewing until applied and recorded with
+its provenance. A product table stated in the isolated frame may be written
+again in the installed frame, the mirror through y = 0, by one column
+classification stated on the post-processing definitions page. The plan's
+inflow harmonics gain the variance share of harmonics 1 to 8 and a map over
+the advance ratio, read through the same reading of the field the plan uses.
+
+### Rigor, requirements and the site
+
+The native strength match has one tolerance function that allows for the
+digits a native file was printed at; a static rig row stating a fixed speed
+and a swept advance ratio is planned; the two quasi-steady tables state the
+clock columns and, where the row requested none, the advance ratio from the
+rotor's own speed and diameter. The requirements of the capabilities of
+0.25.0 to 0.31.0 are written, and every capability bullet of the change log
+from 0.25.0 on names the requirement that states it, which a tier-1 test
+holds. The documentation site is organized by task, each run type and topic
+on a page of its own.

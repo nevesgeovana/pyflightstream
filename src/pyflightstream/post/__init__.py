@@ -38,12 +38,22 @@ module, which is stated rather than left to be discovered:
 * :mod:`pyflightstream.post.corrections` writes a quasi-steady wheel's
   corrected products beside the raw ones and its Theodorsen and Sears
   diagnostic, none of it validated (0.31.0). Reached through its own module;
-* :mod:`pyflightstream.post.acoustics`, :mod:`pyflightstream.post.qsteady_noise`,
-  :mod:`pyflightstream.post.disc_maps` and :mod:`pyflightstream.post.inflow_tools`
-  are the 0.32.0 contract modules of the acoustic signals product, the
-  exploratory quasi-steady noise report, the rotor disc maps and the inflow
-  tools: signatures laid down before their bodies, each refusing until its
-  work package fills it. Reached through their own modules;
+* :mod:`pyflightstream.post.acoustics` reads a point's acoustic signals
+  export into one signal per observer and writes, per observer, the pressure
+  against time, the spectrum, the overall sound pressure level and the
+  blade-passage harmonics, and the directivity when the observers lie on an
+  arc (0.32.0). Reached through its own module;
+* :mod:`pyflightstream.post.disc_maps` tables a rotor's sectional load by
+  radius and azimuth over the disc, from a quasi-steady wheel's clockings or
+  an unsteady rotor's last complete revolution (0.32.0). Reached through its
+  own module;
+* :mod:`pyflightstream.post.inflow_tools` writes a product table in the
+  installed frame and the blade-view harmonics of a custom inflow (0.32.0).
+  Reached through its own module;
+* :mod:`pyflightstream.post.qsteady_noise` is a 0.32.0 contract module, the
+  exploratory quasi-steady noise report: its signature was laid down before
+  its body, and it refuses until its work package fills it. Reached through
+  its own module;
 * :mod:`pyflightstream.post.custom_polar` and
   :mod:`pyflightstream.post.provenance` hold the custom polar format and the
   PROV-JSON writer that the products entry below names; their existing
