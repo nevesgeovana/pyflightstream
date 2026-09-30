@@ -125,6 +125,7 @@ from pyflightstream.script.toggles import resolve_toggle
 # than restating either (G02, T05). The module and not its names, so this
 # module's namespace does not offer them as its own.
 from pyflightstream.workspace import (
+    MATRIX_FOLDERS,
     CampaignWorkspace,
     InputArtifactError,
     PprocArtifact,
@@ -1822,9 +1823,24 @@ def _pol_claims(
     root = Path(workspace.root).resolve()
     mine = read_matrix(matrix, active_only=False)
     siblings: dict[Path, list[MatrixRow]] = {}
+    # P0320-MATRICES-HOME, RST-1: the root and inputs/matrices/ are one home,
+    # so a stem held in both is ONE matrix, read once, when the bytes are the
+    # same, and refused, naming both, when they are not. It was read twice and
+    # every POL of it refused as stated by two matrices.
+    homes = {(root / folder).resolve() for folder in MATRIX_FOLDERS}
+    first_of: dict[str, Path] = {matrix.stem: matrix} if matrix.parent in homes else {}
     for sibling in matrix_files(root):
         if sibling.resolve() == matrix:
             continue
+        first = first_of.setdefault(sibling.stem, sibling.resolve())
+        if first != sibling.resolve():
+            if first.read_bytes() == sibling.read_bytes():
+                continue
+            raise MatrixError(
+                f"the matrix {sibling.stem} is in both homes of this workspace with different "
+                f"content: {first} and {sibling}. Which one is meant cannot be told; keep one, "
+                "or make the two identical."
+            )
         try:
             siblings[sibling] = read_matrix(sibling, active_only=False)
         except MatrixError as error:

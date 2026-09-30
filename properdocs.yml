@@ -65,6 +65,7 @@ nav:
       - Storage and sync: storage-and-sync.md
       - Restore and rebuild the run records: restore-and-rebuild.md
       - Excel matrix synchronization: excel-matrices.md
+      - Sync every folder, and the two matrix homes: sync-folders-and-matrix-homes.md
   - 1 Geometry:
       - Mesh inputs and GUI-only operations: mesh-inputs.md
       - CAD inputs: cad-inputs.md

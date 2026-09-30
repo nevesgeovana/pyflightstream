@@ -195,6 +195,10 @@ __all__ = [
     # matrices are, read by `sync`, the storage layer and the plan's census.
     "MATRIX_FOLDERS",
     "matrix_files",
+    # 0.32.0 (P0320-MATRICES-HOME, RST-1): one matrix per stem across the two
+    # homes, identical bytes read once and different bytes refused.
+    "find_matrix",
+    "matrix_by_stem",
     # DECLARED, not merely importable. All three were imported into this
     # module for internal use and left out of this list, so a reader could
     # not tell whether `pyflightstream.workspace.ARCHIVE_STAMP` was a
@@ -1751,6 +1755,55 @@ def matrix_files(root: str | Path) -> list[Path]:
             path for path in sorted(folder.glob("*.fs")) if path.is_file() and not _is_reparse(path)
         )
     return found
+
+
+def _one_of_both_homes(stem: str, first: Path, second: Path) -> None:
+    """Refuse one stem held in both homes with different bytes, naming both paths."""
+    if first.read_bytes() != second.read_bytes():
+        raise WorkspaceError(
+            f"the matrix {stem} is in both homes of the workspace with different content: "
+            f"{first} and {second}. Which one is meant cannot be told; keep one, or make the "
+            "two identical."
+        )
+
+
+def matrix_by_stem(root: str | Path) -> dict[str, Path]:
+    """Every matrix of the workspace at ``root``, one path per stem (P0320-MATRICES-HOME).
+
+    ``inputs/matrices/`` is a home equal to the root (RST-1): a stem held in
+    both is read ONCE when the two files hold the same bytes, and the path
+    returned is the root's; with different bytes the workspace is refused,
+    naming both paths, because which one ran cannot be told. The files are
+    the ones :func:`matrix_files` lists.
+
+    Raises
+    ------
+    WorkspaceError
+        When one stem is in both homes with different content.
+    """
+    chosen: dict[str, Path] = {}
+    for path in matrix_files(root):
+        first = chosen.setdefault(path.stem, path)
+        if first != path:
+            _one_of_both_homes(path.stem, first, path)
+    return chosen
+
+
+def find_matrix(root: str | Path, stem: str) -> Path | None:
+    """Return the matrix ``stem`` of the workspace at ``root``, from either home, or None.
+
+    The rule of :func:`matrix_by_stem` asked of ONE stem, so a differing pair
+    of another stem does not refuse this lookup.
+
+    Raises
+    ------
+    WorkspaceError
+        When ``stem`` is in both homes with different content.
+    """
+    found = [path for path in matrix_files(root) if path.stem == stem]
+    for other in found[1:]:
+        _one_of_both_homes(stem, found[0], other)
+    return found[0] if found else None
 
 
 def check_unique_stems(inputs_dir: str | Path) -> None:
