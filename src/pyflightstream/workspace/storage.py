@@ -44,6 +44,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
+from pyflightstream._progress import tracked
 from pyflightstream.workspace import (
     CampaignWorkspace,
     RunStatus,
@@ -571,6 +572,23 @@ def _select_sims(
     return candidates
 
 
+def _sim_folder(sim: str) -> str:
+    """Return a simulation's folder as a progress line names it (0.32.0)."""
+    return f"sims/sim_{sim}"
+
+
+def _relative_to(root: str | Path):
+    """Return the progress label of a path under ``root``: relative where it can be."""
+
+    def label(path: Path) -> str:
+        try:
+            return Path(path).resolve().relative_to(Path(root).resolve()).as_posix()
+        except ValueError:
+            return str(path)
+
+    return label
+
+
 def _older_than(path: Path, days: float | None) -> bool:
     if days is None:
         return True
@@ -839,7 +857,8 @@ def free_space(root: str | Path, recipe: str, *, apply: bool = False) -> dict[st
     for spec in document.get(PRUNE_MODE, []):
         step: dict[str, Any] = {"mode": PRUNE_MODE, "points": [], "refused": {}}
         deleted: set[Path] = set()
-        for sim in _select_sims(spec, records, present):
+        selected = _select_sims(spec, records, present)
+        for sim in tracked(f"free-space: {PRUNE_MODE}", selected, label=_sim_folder):
             rows = records.get(sim, [])
             if any(row.get("status") == RunStatus.SUBMITTED.value for row in rows):
                 step["refused"][sim] = "a run is still SUBMITTED; every step is kept"
@@ -853,7 +872,8 @@ def free_space(root: str | Path, recipe: str, *, apply: bool = False) -> dict[st
         steps.append(step)
     for spec in document.get("compact_sims", []):
         step = {"mode": "compact_sims", "sims": [], "refused": {}}
-        for sim in _select_sims(spec, records, present):
+        selected = _select_sims(spec, records, present)
+        for sim in tracked("free-space: compact_sims", selected, label=_sim_folder):
             rows = records.get(sim, [])
             if any(row.get("status") == RunStatus.SUBMITTED.value for row in rows):
                 step["refused"][sim] = "a run is still SUBMITTED"
@@ -882,7 +902,8 @@ def free_space(root: str | Path, recipe: str, *, apply: bool = False) -> dict[st
                 "is what a later post or continuation reopens"
             )
         step = {"mode": "delete_extensions", "extensions": extensions, "files": [], "kept": []}
-        for sim in _select_sims(spec, records, present):
+        selected = _select_sims(spec, records, present)
+        for sim in tracked("free-space: delete_extensions", selected, label=_sim_folder):
             rows = records.get(sim, [])
             if any(row.get("status") == RunStatus.SUBMITTED.value for row in rows):
                 continue
@@ -908,7 +929,7 @@ def free_space(root: str | Path, recipe: str, *, apply: bool = False) -> dict[st
         step = {"mode": "post_archives", "action": action, "archives": []}
         post_root = workspace.root / "post"
         roots = sorted(post_root.rglob(ARCHIVE_DIR)) if post_root.is_dir() else []
-        for archive_root in roots:
+        for archive_root in tracked("free-space: post_archives", roots, label=_relative_to(root)):
             # An `archive` folder inside another archive is part of that
             # archive's stamp, handled (or already removed) with it.
             inner = ARCHIVE_DIR in archive_root.relative_to(post_root).parts[:-1]
@@ -1061,7 +1082,7 @@ def delete_sims(
     products = _products_of(workspace, set(ids), run_ids)
     shared = {folder: item["shared"] for folder, item in products.items() if item["shared"]}
     sims_entry = []
-    for sim in ids:
+    for sim in tracked("delete-sims: measure", ids, label=_sim_folder):
         folder, archive = workspace.sim_dir(sim), _zip_path(workspace, sim)
         rows = records.get(sim, [])
         sims_entry.append(
@@ -1103,7 +1124,7 @@ def delete_sims(
     # THE FOLDERS GO FIRST, links undone before anything is removed: a
     # refusal there leaves the records, the products and the mesh as they were.
     links_undone: dict[str, list[str]] = {}
-    for sim in ids:
+    for sim in tracked("delete-sims: remove", ids, label=_sim_folder):
         folder = workspace.sim_dir(sim)
         if folder.exists():
             links_undone[sim] = _remove_sim_folder(folder)

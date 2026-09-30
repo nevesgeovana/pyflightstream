@@ -58,13 +58,20 @@ from pathlib import Path
 from typing import Any, NoReturn
 
 from pyflightstream._cli import cli_entrypoint, note_post_ran, post_warning_policy
-from pyflightstream._console import blocks, held_warnings, release_warnings, table, wrap
+from pyflightstream._console import (
+    blocks,
+    command_help,
+    held_warnings,
+    release_warnings,
+    table,
+    wrap,
+)
 from pyflightstream._errors import (
     ContractNotImplementedError,
     PyflightstreamError,
     PyflightstreamWarning,
 )
-from pyflightstream._progress import terse_terminal
+from pyflightstream._progress import LIVE_LOG_COMMANDS, command_console, print_held_warnings
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_matrix
 from pyflightstream.cases.workflows import (
@@ -809,44 +816,58 @@ def _confirmed_destruction(yes: bool) -> bool:
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
     """Run ``pyfs-matrix``; returns the process exit code."""
-    args = _build_parser().parse_args(_storage_flag_form(argv))
-    if (refused := _refuse_runs_manifest(args)) is not None:
-        return refused
-    if args.subcommand in _RECORDS_COMMANDS:
-        return _cmd_records(args)
-    if args.subcommand in _STORAGE_COMMANDS:
-        return _cmd_storage(args)
-    # Before the recipe parsing below, deliberately: upgrading a file
-    # needs no recipes, no version and no executable, and requiring them
-    # would refuse the one user this subcommand exists for.
-    if args.subcommand == "post":
-        note_post_ran()
-        return _cmd_post(args)
-    if args.subcommand == "collect":
-        return _cmd_collect(args)
-    if args.subcommand == "inventory":
-        return _cmd_inventory(args)
-    if args.subcommand == "upgrade":
-        return _cmd_upgrade(args)
-    if args.subcommand == "rename":
-        return _cmd_rename(args)
-    try:
-        recipes = _parse_recipes(args.recipe)
-        if args.subcommand in ("run", "plan", "inspect-setups"):
-            # BOTH, since 2026-08-19. `plan` is the zero-cost rehearsal of
-            # `run`, and a rehearsal that refuses what the run accepts is
-            # not a rehearsal: a workflow matrix could be run and not
-            # planned, so the one user who writes no Python had no way to
-            # check a study before spending a licensed seat on it.
-            recipes = _one_builder_per_code(recipes, _parse_workflows(args.workflow))
-    except (ValueError, CampaignConfigError) as error:
-        print(str(error), file=sys.stderr)
-        return 2
-    if args.subcommand == "convert":
-        return _cmd_convert(args, recipes)
-    if args.subcommand == "run":
-        return _cmd_run(args, recipes)
-    return _cmd_plan(args, recipes)
+    parser = _build_parser()
+    args = parser.parse_args(_storage_flag_form(argv))
+    # THE CONSOLE CONTRACT (0.32.0, FR-200 to FR-204): a titled opening block,
+    # the warnings at the end, a live log for a long command. `plan` keeps the
+    # header and the warnings block of 0.31.0, after its header.
+    with command_console(
+        "pyfs-matrix",
+        args.subcommand,
+        what=command_help(parser, [args.subcommand]),
+        workspace=getattr(args, "workspace", None),
+        # `post --diagnostics` reads and changes no file of the workspace.
+        live_log=args.subcommand in LIVE_LOG_COMMANDS and not getattr(args, "diagnostics", False),
+        header=args.subcommand == "plan",
+        hold=args.subcommand != "plan",
+    ):
+        if (refused := _refuse_runs_manifest(args)) is not None:
+            return refused
+        if args.subcommand in _RECORDS_COMMANDS:
+            return _cmd_records(args)
+        if args.subcommand in _STORAGE_COMMANDS:
+            return _cmd_storage(args)
+        # Before the recipe parsing below, deliberately: upgrading a file
+        # needs no recipes, no version and no executable, and requiring them
+        # would refuse the one user this subcommand exists for.
+        if args.subcommand == "post":
+            note_post_ran()
+            return _cmd_post(args)
+        if args.subcommand == "collect":
+            return _cmd_collect(args)
+        if args.subcommand == "inventory":
+            return _cmd_inventory(args)
+        if args.subcommand == "upgrade":
+            return _cmd_upgrade(args)
+        if args.subcommand == "rename":
+            return _cmd_rename(args)
+        try:
+            recipes = _parse_recipes(args.recipe)
+            if args.subcommand in ("run", "plan", "inspect-setups"):
+                # BOTH, since 2026-08-19. `plan` is the zero-cost rehearsal of
+                # `run`, and a rehearsal that refuses what the run accepts is
+                # not a rehearsal: a workflow matrix could be run and not
+                # planned, so the one user who writes no Python had no way to
+                # check a study before spending a licensed seat on it.
+                recipes = _one_builder_per_code(recipes, _parse_workflows(args.workflow))
+        except (ValueError, CampaignConfigError) as error:
+            print(str(error), file=sys.stderr)
+            return 2
+        if args.subcommand == "convert":
+            return _cmd_convert(args, recipes)
+        if args.subcommand == "run":
+            return _cmd_run(args, recipes)
+        return _cmd_plan(args, recipes)
 
 
 #: Printed by `upgrade` on both routes, because this subcommand is the
@@ -1977,14 +1998,7 @@ def _print_plan(
         f"  FlightStream build: {plan.fs_version}",
     ]
     print(blocks([("pyfs-matrix plan", header)]), flush=True)
-    if held:
-        print(f"\nWarnings ({len(held)})", file=sys.stderr, flush=True)
-        release_warnings(held)
-        if not terse_terminal() or not issubclass(held[-1].category, PyflightstreamWarning):
-            # Python's own format (under --verbose, or a third party's warning)
-            # ends without the blank line the short form adds.
-            print(file=sys.stderr)
-        sys.stderr.flush()
+    print_held_warnings(held)
     rest = blocks(_plan_blocks(plan, cost=cost))
     if rest:
         # After the warnings the blank line is already out.

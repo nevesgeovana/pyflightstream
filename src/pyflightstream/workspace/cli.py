@@ -45,6 +45,8 @@ import glob
 import sys
 
 from pyflightstream._cli import cli_entrypoint
+from pyflightstream._console import command_help
+from pyflightstream._progress import command_console
 from pyflightstream.workspace import (
     INPUT_KINDS,
     CampaignWorkspace,
@@ -256,14 +258,24 @@ def _add_field_commands(subparsers: argparse._SubParsersAction) -> None:
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
     """Run ``pyfs-workspace``; returns the process exit code."""
-    args = _build_parser().parse_args(argv)
-    if args.subcommand == "archive":
-        return _cmd_archive(args)
-    if args.subcommand == "migrate-geometries":
-        return _cmd_migrate_geometries(args)
-    if args.subcommand == "field":
-        return _cmd_field(args)
-    return _cmd_init(args)
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    # THE CONSOLE CONTRACT (0.32.0, FR-200, FR-201): a titled opening block
+    # and the warnings at the end, as every pyfs-matrix command.
+    names = [args.subcommand, *([args.field_command] if args.subcommand == "field" else [])]
+    with command_console(
+        "pyfs-workspace",
+        " ".join(names),
+        what=command_help(parser, names),
+        workspace=getattr(args, "workspace", None) or getattr(args, "root", None),
+    ):
+        if args.subcommand == "archive":
+            return _cmd_archive(args)
+        if args.subcommand == "migrate-geometries":
+            return _cmd_migrate_geometries(args)
+        if args.subcommand == "field":
+            return _cmd_field(args)
+        return _cmd_init(args)
 
 
 def _cmd_init(args: argparse.Namespace) -> int:
