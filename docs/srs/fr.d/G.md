@@ -48,7 +48,11 @@
 
     *Requirement.* A rotor with no blade at a stated azimuth shall be named in
     the stage's skips under `sections/<point>_disc_#rotor=<ALIAS>` and warned,
-    never blocking the other products; the standalone writer
+    never blocking the other products; a point whose harmonics cannot be fitted
+    for want of a readable table, a sections series, an export window or a
+    complete revolution shall name its disc maps under
+    `sections/<point>_disc_` (or `_disc_#rotor=<ALIAS>`) with the reason and a
+    `post.log` line, so no map is silently absent; the standalone writer
     `pyflightstream.post.disc_maps.write_disc_map` shall refuse such a table
     with a `ProductError` and write nothing.
 
@@ -57,8 +61,9 @@
 
     *Trace.*
     `test_a_table_with_no_blade_of_the_rotor_refuses_to_map_and_names_why`
-    (P0320-G5-DISC-MAP), and
-    `test_the_disc_map_writer_maps_a_written_table_by_its_rotor`.
+    (P0320-G5-DISC-MAP),
+    `test_a_rotor_short_of_a_revolution_is_named_in_the_skips_of_the_disc_maps`
+    and `test_the_disc_map_writer_maps_a_written_table_by_its_rotor`.
 
 !!! requirement "FR-273 A saved simulation's faces are told to their boundaries <span class='srs-implemented'>implemented</span>"
 

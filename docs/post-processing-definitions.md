@@ -977,7 +977,7 @@ map in the tool of the user's choice. No figure is drawn: the table is the
 product.
 
 **It is read from the WRITTEN sections**, as the harmonics are, and `AZIMUTH_DEG`
-is the table's own: no azimuth is computed again. The samples are the same:
+is the table's own or placed by `pyflightstream.post.axes`: no azimuth is computed again here. The samples are the same:
 
 - a `qsteady_rotor` WHEEL point: every blade at every clocking of
   `sections/<point>_sections.csv`, `SAMPLE` being the `CLOCKING`;
@@ -993,7 +993,7 @@ condition columns of every table of the post, then
 | `ROTOR`, `QUANTITY` | the rotor's alias and the sectional load column the file maps |
 | `SAMPLE` | the clocking of a wheel, the step of an unsteady point |
 | `BLADE` | which blade of the rotor, from 1, in the order of its `BLADE_FAMILIES` |
-| `AZIMUTH_DEG` | where THAT blade is at that sample, in `[0, 360)`, as the sections table states it |
+| `AZIMUTH_DEG` | where THAT blade is at that sample, in `[0, 360)`: the table's own azimuth of the block (a table that states blade one's is placed by `pyflightstream.post.axes`) |
 | `STATION_R_M` | the station's radius, `|Offset|`, in metres |
 | `R_OVER_R` | the radius over the rotor's radius (half its diameter), or `NA` where the diameter is not known |
 | `VALUE` | the sectional load of that station at that sample, as the export states it |
@@ -1005,7 +1005,9 @@ per station at each; a value the export does not state is `NA`.
 **What is not mapped.** A rotor with no block that is one of its blades at a
 stated azimuth has no file, and is named under
 `sections/<point>_disc_#rotor=<ALIAS>` in the post's skips and warned in
-`post.log`; the other products are written.
+`post.log`; so is a rotor of an unsteady point with no complete revolution,
+and a point with no readable table, sections series or export window (named
+under `sections/<point>_disc_`). The other products are written.
 
 **The manifest.** `products.json` registers each file with `kind` `disc_map`,
 `source` `wheel clockings` or `unsteady last revolution`, `samples` (the blade
