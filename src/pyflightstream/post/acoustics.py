@@ -22,6 +22,12 @@ the loading part and PT as the thickness part, which is the customary split
 and is not a vendor statement. The length unit of the position is not stated
 by the file and is read as the contract's metre.
 
+RE-EXPORT, deliberate: the contract (:class:`~pyflightstream.cases.acoustics.AcousticSignal`
+and :data:`~pyflightstream.cases.acoustics.ACOUSTIC_SIGNALS_SUFFIX`) has ONE
+home, :mod:`pyflightstream.cases.acoustics`; this module re-exports both in
+``__all__`` for the readers of the product, who import the reader and the
+record it returns from one place. The objects are the same, never copies.
+
 Nothing here blocks a post (invariant 12): the writers return the lines the
 post log carries and a value that cannot be computed is ``NA``.
 """
