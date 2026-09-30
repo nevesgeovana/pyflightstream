@@ -207,7 +207,11 @@ class _Archived:
 
     @property
     def key(self) -> tuple[str, int, str]:
-        index = int(self.label.split(".", 1)[1]) if self.label.startswith(".") else 1
+        # ``.2`` numbers a second copy within one stamp; a label may follow the
+        # number (``.2-before-doctor``) or stand alone (``-before-doctor``, or
+        # any suffix of a post archive folder), and then it counts as the first.
+        number = re.match(r"\.(\d+)", self.label)
+        index = int(number.group(1)) if number else 1
         return (self.stamp, index, self.label)
 
 

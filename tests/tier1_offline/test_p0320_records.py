@@ -711,3 +711,15 @@ def test_rst6_restore_writes_holding_the_runs_lease_and_the_records_own(
     if kind in ("storage", "additional"):
         assert held["own"], f"the restore wrote {live} without the lease its writer holds"
     assert not (tmp_path / "runs.json.lock").exists(), "the lease was not released"
+
+
+def test_restore_sorts_every_name_the_archive_pattern_accepts(tmp_path):
+    """P0320-RESTORE-ARCHIVE: a numbered and labelled copy is read, never a crash."""
+    _write(tmp_path / "archive" / "runs-20260929-120000.json", '[{"run_id": "a"}]\n')
+    _write(
+        tmp_path / "archive" / "runs-20260929-120000.2-before-doctor.json", '[{"run_id": "b"}]\n'
+    )
+    entry = records.restore(tmp_path, "runs")
+    assert entry["source"] == "archive/runs-20260929-120000.2-before-doctor.json"
+    _write(tmp_path / "post" / "m1" / "archive" / "20260929-120000.old" / "products.json", "{}")
+    assert records.restore(tmp_path, "products")["stamp"] == "20260929-120000.old"
