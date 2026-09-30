@@ -576,7 +576,12 @@ The two ways back to a lost or overwritten `runs.json` are kept apart.
 byte (the manifest, the storage record, the additional-post record, a
 matrix's products record or its plan receipt), previewing until applied,
 archiving the current file first so a restore can be undone, and writing
-under the leases a sync holds, refusing while one writes. `pyfs-matrix
+under the leases a sync holds, refusing while one writes. The writers of
+the storage record, the additional-post record, the plan receipt and the
+products record archive the previous file first, through the one home of the
+archive names (`workspace.naming.archive_previous`), so each kind has a copy
+to restore; a failed copy warns and never blocks the write (FR-291 to
+FR-294). `pyfs-matrix
 rebuild` makes run records again from `sims/`: each row runs again in a
 throwaway copy with nothing submitted, a record is accepted only when the
 executed script is the one this version renders, and the collect stage
@@ -642,11 +647,12 @@ into one signal per observer and writes, under `acoustics/`, the pressure
 against time and the one-sided spectrum per observer, a summary with the
 overall sound pressure level and the blade-passage harmonics, and the
 directivity when four or more observers lie on an arc; a harmonic the record
-cannot support is `NA` with a log line, and nothing blocks. Limit: the run
-lists the export among the record's outputs, and the post reads it from a
-record's `acoustic_signals` entry, so the two halves are not joined on one
-record field in this release. The quasi-steady noise report is not part of
-this release.
+cannot support is `NA` with a log line, and nothing blocks. The run lists
+the export among the record's outputs, and the post finds it there, as the
+entry that ends with the one acoustic suffix
+(`cases.acoustics.ACOUSTIC_SIGNALS_SUFFIX`), so the two halves meet on one
+record field (FR-290). The quasi-steady noise report is not part of this
+release.
 
 ### The rotor products and the setup keys
 
