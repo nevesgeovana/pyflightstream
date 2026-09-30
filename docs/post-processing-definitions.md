@@ -2287,7 +2287,7 @@ the file and is read as metres.
   bin width.
 - **Blade-passage harmonics**, `<point>_acoustics_bpf.csv`: for each rotor of the
   record with its blade count `B` and speed `rpm`, harmonic `n` (1 to 4) is at
-  `n B rpm / 60` hertz, read at the nearest bin of the observer's spectrum, with
+  `n B |rpm| / 60` hertz (the sign of the speed only states the sense of rotation), read at the nearest bin of the observer's spectrum, with
   the bin frequency, the amplitude and the level. `NA` when the record states no
   blades or speed, above the Nyquist frequency, or below one bin width; each `NA`
   has a line in `post.log`.

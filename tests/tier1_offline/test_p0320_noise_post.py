@@ -294,3 +294,65 @@ def test_p0320_noise_post_the_hook_asks_nothing_of_a_plain_record_and_never_bloc
         and "acoustics" in skipped
         and "cannot be read" in skipped["acoustics"]
     )
+
+
+def test_p0320_noise_post_counter_rotation_reads_the_speed_magnitude_fr_263(tmp_path):
+    """P0320-NOISE-POST: a negative rpm (opposite rotation) still gives the harmonics."""
+    signal = _cosine("m", frequency=50.0, amplitude=2.0)
+    spectrum = acoustics.spectrum_of(signal)
+    rows = acoustics.blade_passage_harmonics(spectrum, blades=2, rpm=-1500.0, harmonics=1)
+    assert rows[0][1] == pytest.approx(50.0) and rows[0][3] == pytest.approx(2.0)
+    made = acoustics.write_acoustic_products(
+        [signal], tmp_path, stem="P1", rotors={"main": (2, -1500.0)}
+    )
+    bpf = _rows(tmp_path / "P1_acoustics_bpf.csv")
+    assert float(bpf[0]["AMPLITUDE_PA"]) == pytest.approx(2.0)
+    assert made.notes == []
+
+
+def test_p0320_noise_post_nyquist_bin_and_odd_count_fr_261():
+    """P0320-NOISE-POST: the Nyquist bin of an even count and the last bin of an odd count."""
+    even = _cosine("e", frequency=500.0, amplitude=1.5, samples=200)
+    spectrum = acoustics.spectrum_of(even)
+    assert spectrum.frequency_hz[-1] == pytest.approx(500.0)
+    assert spectrum.amplitude_pa[-1] == pytest.approx(1.5)
+    odd = _cosine("o", frequency=50.0, amplitude=2.0, samples=201, rate=1005.0)
+    spectrum = acoustics.spectrum_of(odd)
+    assert len(spectrum.frequency_hz) == 101
+    assert spectrum.amplitude_pa[10] == pytest.approx(2.0)
+    assert spectrum.amplitude_pa[-1] < 1e-9
+
+
+def test_p0320_noise_post_arc_angle_direction_follows_the_second_observer_fr_264():
+    """P0320-NOISE-POST: angles increase toward observer 2 whichever way the arc is walked."""
+    forward = _arc(5)
+    orders = (forward, forward[::-1], [forward[2], forward[3], forward[1], forward[0], forward[4]])
+    for signals in orders:
+        fit = acoustics.arc_of(signals)
+        assert fit is not None
+        assert fit.angle_deg[0] == pytest.approx(0.0)
+        assert fit.angle_deg[1] == pytest.approx(
+            30.0 * abs(int(signals[1].observer[1:]) - int(signals[0].observer[1:]))
+        )
+
+
+def test_p0320_noise_post_an_unwritable_product_never_blocks_the_post_fr_264(tmp_path):
+    """P0320-NOISE-POST: a write that fails is skipped with a warning, not raised."""
+    sim = tmp_path / "sim"
+    sim.mkdir()
+    (sim / "e.txt").write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    blocker = tmp_path / "post"
+    blocker.write_text("a file where the products folder should be", encoding="utf-8")
+    skipped: dict[str, str] = {}
+    with pytest.warns(Warning, match="acoustics"):
+        files, names = _products._acoustic_products(
+            _record("e.txt"),
+            sim_dir=sim,
+            stem="P1",
+            out=blocker,
+            rotors={},
+            clocks={},
+            target=lambda p: p,
+            skipped=skipped,
+        )
+    assert (files, names) == ([], {}) and "acoustics" in skipped

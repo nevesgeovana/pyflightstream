@@ -251,16 +251,17 @@ def blade_passage_harmonics(
 ) -> list[_Harmonic]:
     """Return the blade-passage harmonics read from a spectrum (FR-263).
 
-    The blade-passage frequency is ``blades * rpm / 60`` hertz and harmonic
+    The blade-passage frequency is ``blades * |rpm| / 60`` hertz (the sign of the
+    speed only states the sense of rotation) and harmonic
     ``n`` is ``n`` times it. Each row is ``(n, frequency_hz, bin_hz,
     amplitude_pa, level_db)`` read at the nearest bin; the bin, amplitude and
     level are None (``NA``) when the frequency is above the Nyquist frequency
     of the record or below its bin width (the record holds less than one
     period of it).
     """
-    if blades < 1 or not rpm > 0.0:
+    if blades < 1 or not abs(rpm) > 0.0:
         raise ProductError(f"blades={blades} and rpm={rpm} state no blade-passage frequency")
-    base = blades * rpm / 60.0
+    base = blades * abs(rpm) / 60.0
     nyquist = spectrum.frequency_hz[-1]
     rows: list[_Harmonic] = []
     for order in range(1, harmonics + 1):
@@ -381,7 +382,7 @@ def write_acoustic_products(
     summary: list[Sequence[object]] = []
     bpf: list[Sequence[object]] = []
     stated = dict(rotors or {})
-    usable = {a: (b, r) for a, (b, r) in stated.items() if b and r and r > 0}
+    usable = {a: (b, abs(r)) for a, (b, r) in stated.items() if b and r}
     if not stated:
         result.notes.append(
             "the record states no rotor with blades and speed: the blade-passage harmonics are NA"
