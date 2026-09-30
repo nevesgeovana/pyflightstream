@@ -723,3 +723,16 @@ def test_restore_sorts_every_name_the_archive_pattern_accepts(tmp_path):
     assert entry["source"] == "archive/runs-20260929-120000.2-before-doctor.json"
     _write(tmp_path / "post" / "m1" / "archive" / "20260929-120000.old" / "products.json", "{}")
     assert records.restore(tmp_path, "products")["stamp"] == "20260929-120000.old"
+
+
+def test_restore_of_a_named_stamp_takes_the_copy_of_that_exact_name(tmp_path):
+    """P0320-RESTORE-ARCHIVE: --stamp STAMP is the copy so named, not a labelled sibling."""
+    _write(tmp_path / "archive" / "runs-20260929-120000.json", '[{"run_id": "plain"}]\n')
+    _write(
+        tmp_path / "archive" / "runs-20260929-120000-before-doctor.json",
+        '[{"run_id": "labelled"}]\n',
+    )
+    plain = records.restore(tmp_path, "runs", stamp="20260929-120000")
+    assert plain["source"] == "archive/runs-20260929-120000.json", plain["source"]
+    labelled = records.restore(tmp_path, "runs", stamp="20260929-120000-before-doctor")
+    assert labelled["source"] == "archive/runs-20260929-120000-before-doctor.json"

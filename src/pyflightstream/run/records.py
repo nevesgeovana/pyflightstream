@@ -360,7 +360,9 @@ def restore(
         (``post/<matrix>/plan.json``).
     stamp : str, optional
         The archive stamp to restore from, ``YYYYMMDD-HHMMSS`` as the archive
-        spells it, or the whole numbered or labelled stamp. None takes the
+        spells it, or the whole numbered or labelled stamp. The copy of
+        exactly that name is taken; a bare stamp that no plain copy carries
+        takes the newest numbered or labelled copy of it. None takes the
         newest copy.
     apply : bool, default False
         Change files; without it the call previews and changes nothing. With
@@ -432,7 +434,11 @@ def restore(
         )
     available = sorted(found, key=lambda item: item.key)
     if stamp is not None:
-        chosen = [item for item in available if stamp in (item.stamp, item.stamp + item.label)]
+        # The copy of exactly that name first; a bare stamp with no plain copy
+        # then takes the newest numbered or labelled copy of it.
+        chosen = [item for item in available if stamp == item.stamp + item.label] or [
+            item for item in available if stamp == item.stamp
+        ]
         if not chosen:
             raise RecordsError(
                 f"restore {kind}: no archived copy of {name} carries the stamp {stamp!r}; the "
