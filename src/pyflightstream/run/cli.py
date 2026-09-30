@@ -1054,6 +1054,18 @@ def _add_storage_parsers(subparsers: Any) -> None:
         action="store_true",
         help="on a file conflict, archive main's copy and take the other's",
     )
+    # 0.32.0 (package B2): both off by default, her words for the first.
+    sync.add_argument(
+        "--restore",
+        action="store_true",
+        help="with --apply, rebuild the records of the sims/ folders no record carries",
+    )
+    sync.add_argument(
+        "--include-archives",
+        dest="include_archives",
+        action="store_true",
+        help="also bring the files under folders named archive (skipped by default)",
+    )
 
 
 def _cmd_storage(args: argparse.Namespace) -> int:
@@ -1066,7 +1078,9 @@ def _cmd_storage(args: argparse.Namespace) -> int:
             print("\n".join(report.lines(top=args.top)))
             return 0
         if args.subcommand == "free-space":
-            entry = storage.free_space(args.workspace, args.recipe, apply=args.apply)
+            entry = storage.free_space(
+                args.workspace, args.recipe, apply=args.apply, runs=args.runs
+            )
             _print_free_space(entry)
             return 0
         if args.subcommand == "delete-sims":
@@ -1074,7 +1088,11 @@ def _cmd_storage(args: argparse.Namespace) -> int:
             listed = args.sims.replace(" ", "").strip("[]")
             ids = [item for item in listed.split(",") if item]
             entry = storage.delete_sims(
-                args.workspace, ids, matrix_products=args.matrix_products, apply=args.apply
+                args.workspace,
+                ids,
+                matrix_products=args.matrix_products,
+                apply=args.apply,
+                runs=args.runs,
             )
             _print_delete_sims(entry)
             return 0
@@ -1085,6 +1103,9 @@ def _cmd_storage(args: argparse.Namespace) -> int:
             apply=args.apply,
             prefer_other=args.prefer_other,
             overwrite=args.overwrite,
+            restore=args.restore,
+            include_archives=args.include_archives,
+            runs=args.runs,
         )
         for entry in entries:
             _print_sync(entry)
@@ -1159,7 +1180,7 @@ def _print_delete_sims(entry: dict[str, Any]) -> None:
 
 
 def _print_sync(entry: dict[str, Any]) -> None:
-    from pyflightstream.workspace.storage import human_bytes
+    from pyflightstream.workspace.storage import human_bytes, sync_summary_lines
 
     mode = "APPLY" if entry["applied"] else "preview"
     print(f"[{entry['source_name']}] {entry['source']}   level {entry['level']}   {mode}")
@@ -1168,7 +1189,8 @@ def _print_sync(entry: dict[str, Any]) -> None:
         return
     runs, files = entry["runs"], entry["files"]
     print(
-        f"  runs.json: {len(runs['added'])} added, {len(runs['replaced'])} replaced, "
+        f"  {runs.get('manifest', 'runs.json')}: {len(runs['added'])} added, "
+        f"{len(runs['replaced'])} replaced, "
         f"{len(runs['conflicts'])} conflicts, {runs['records_before']} -> "
         f"{runs['records_after']} records"
     )
@@ -1185,6 +1207,9 @@ def _print_sync(entry: dict[str, Any]) -> None:
     )
     for conflict in files["conflicts"][:20]:
         print(f"    CONFLICT file {conflict}")
+    # 0.32.0 (package B2): archives skipped, the sims/ folders, the restore.
+    for line in sync_summary_lines(entry):
+        print(line)
     for sim, what in entry.get("inputs_links", {}).items():
         print(f"  {sim}/inputs: {what}")
     matrices = entry.get("matrices", {})
@@ -1312,7 +1337,9 @@ def _refuse_runs_manifest(args: argparse.Namespace) -> int | None:
         return None
     try:
         args.runs_manifest = run_records.resolve_manifest(args.workspace, name)
-        if args.runs_manifest != run_records.resolve_manifest(args.workspace):
+        # The storage commands read the named manifest since 0.32.0 (B2).
+        filled = args.subcommand in ("sync", "free-space", "delete-sims")
+        if not filled and args.runs_manifest != run_records.resolve_manifest(args.workspace):
             raise ContractNotImplementedError(
                 f"--runs {name}: reading a manifest other than runs.json is "
                 "not implemented yet (0.32.0 contract)"

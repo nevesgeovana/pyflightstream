@@ -260,6 +260,11 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "out"): OUTPUT,
     ("pyfs-matrix", "all_sims"): SWITCH,
     ("pyfs-matrix", "build_alias"): CASE,
+    # 0.32.0, package B2. `sync --restore` rebuilds the records of the folders
+    # no record carries, and `sync --include-archives` brings the archive
+    # folders; both are modes of THIS call, off by default in her words.
+    ("pyfs-matrix", "restore"): SWITCH,
+    ("pyfs-matrix", "include_archives"): SWITCH,
 }
 
 #: (console script, subcommand, destination) -> the registry key its
@@ -423,6 +428,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "out"): frozenset({"rebuild"}),
     ("pyfs-matrix", "all_sims"): frozenset({"rebuild"}),
     ("pyfs-matrix", "build_alias"): frozenset({"rebuild"}),
+    ("pyfs-matrix", "restore"): frozenset({"sync"}),
+    ("pyfs-matrix", "include_archives"): frozenset({"sync"}),
     ("pyfs-qa", "campaign"): frozenset({"cost"}),
     ("pyfs-qa", "case"): frozenset({"update-reference"}),
     ("pyfs-qa", "commands"): frozenset({"probe"}),

@@ -235,12 +235,19 @@ def test_rebuild_refuses_a_build_alias_without_its_equals_sign(tmp_path, capsys)
     assert "BUILD=ALIAS" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("command", [["post"], ["collect"], ["sync", "runs"]])
+@pytest.mark.parametrize(
+    ("command", "filled"), [(["post"], False), (["collect"], False), (["sync", "runs"], True)]
+)
 def test_runs_resolves_its_name_and_refuses_another_manifest_until_filled(
-    tmp_path, capsys, command
+    tmp_path, capsys, command, filled
 ):
     base = [*command, "--workspace", str(tmp_path)]
     assert cli.main([*base, "--runs", "sub/runs.json"]) == 2
     assert "not a file name" in capsys.readouterr().err
+    # Filled by B2 for sync (tests/tier1_offline/test_p0320_sync_matrices.py):
+    # the name reaches the command, which refuses tmp_path as no workspace.
     assert cli.main([*base, "--runs", "runs-rebuilt.json"]) == 2
-    assert NOT_YET in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert (NOT_YET not in err) if filled else (NOT_YET in err)
+    if filled:
+        assert "not a pyfs-matrix workspace" in err

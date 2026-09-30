@@ -92,6 +92,7 @@ from pyflightstream.post._tables import (
     write_csv_table,
 )
 from pyflightstream.post._tables import _cell as _fixed_cell
+from pyflightstream.workspace import WorkspaceError, find_matrix
 from pyflightstream.workspace.naming import SUPER_FILE_PREFIX, group_token, sweep_file_stem
 
 __all__ = [
@@ -195,11 +196,15 @@ def matrix_rows(root: Path, matrix_stem: str | None) -> dict[str, MatrixRow]:
     rule the format states: both workspaces that ran on the licensed
     machine on 2026-09-11, `pfs0160` and `pfs0160-extract`, hold their
     matrix at the workspace root under the stem every record names, so
-    `matrix_stem = "matriz"` is `<root>/matriz.fs`. A matrix kept
-    elsewhere is not found, and the consequence is stated rather than
-    hidden: its cells are then absent from the superfile AND from the
-    union of what the workspace knows, so the two still agree and no
-    field is silently dropped from a file that claims to be complete.
+    `matrix_stem = "matriz"` is `<root>/matriz.fs`. Since 0.32.0
+    (P0320-MATRICES-HOME) `inputs/matrices/matriz.fs` is an equal home
+    (:func:`pyflightstream.workspace.find_matrix`): one stem in both is read
+    once when the bytes are the same, and refused when they differ, which
+    here, as for a matrix kept elsewhere, is no rows; the post stage says
+    which. The consequence is stated rather than hidden: its cells are then
+    absent from the superfile AND from the union of what the workspace
+    knows, so the two still agree and no field is silently dropped from a
+    file that claims to be complete.
 
     EVERY ROW, active or not. `active_only` would drop a row whose RUN
     cell was set back to 0 after it ran, and the records of that run are
@@ -208,8 +213,11 @@ def matrix_rows(root: Path, matrix_stem: str | None) -> dict[str, MatrixRow]:
     """
     if not matrix_stem:
         return {}
-    path = root / f"{matrix_stem}{_MATRIX_SUFFIX}"
-    if not path.is_file():
+    try:
+        path = find_matrix(root, matrix_stem)
+    except WorkspaceError:
+        return {}
+    if path is None:
         return {}
     try:
         rows = read_matrix(path, active_only=False)

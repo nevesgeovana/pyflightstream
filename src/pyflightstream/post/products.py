@@ -268,7 +268,7 @@ from pyflightstream.results import (
     superseded_by_a_continuation,
 )
 from pyflightstream.script.solver_setup import VORTICITY_COMMAND
-from pyflightstream.workspace import ExtractionStatus, RunStatus
+from pyflightstream.workspace import ExtractionStatus, RunStatus, WorkspaceError, find_matrix
 from pyflightstream.workspace.flight_condition import resolve_flight_condition
 from pyflightstream.workspace.inputs import resolve_reference, rotor_integration_groups
 from pyflightstream.workspace.naming import (
@@ -8196,14 +8196,22 @@ def _campaign_products(
     rows_of_the_matrix = matrix_rows(workspace.root, matrix_stem)
     if matrix_stem and not rows_of_the_matrix:
         # SAID, NOT SWALLOWED (PO-06). `matrix_rows` answers `{}` for a matrix that
-        # is not at the root and for one it cannot parse, and every post-only
+        # is in neither home, for one it cannot parse, and (0.32.0, RST-1) for a
+        # stem held in both homes with different bytes, and every post-only
         # choice then falls back to the run records in silence: an edited window
         # does nothing and the rotor tables, which need the row's reference, are
         # not written at all.
-        where = workspace.root / f"{matrix_stem}.fs"
-        state = "cannot be read" if where.is_file() else "is not at the workspace root"
+        try:
+            found = find_matrix(workspace.root, matrix_stem)
+            state = (
+                "cannot be read"
+                if found is not None
+                else "is in neither the workspace root nor inputs/matrices/"
+            )
+        except WorkspaceError as two_homes:
+            state = f"is refused: {two_homes}"
         warn(
-            f"the matrix {where.name} {state}. Every post-only choice falls back to the run "
+            f"the matrix {matrix_stem}.fs {state}. Every post-only choice falls back to the run "
             "records, and the rotor tables, which take their geometry from the row's "
             "reference, are not written.",
             PyflightstreamWarning,
