@@ -305,17 +305,91 @@ def read_native_tecplot_surface(source: str | Path) -> VtkSurface:
     return read_native_tecplot_zones(source, zones=1)[0]
 
 
-def _default_coordinate_tolerance(points: np.ndarray) -> np.ndarray:
+def native_match_tolerance(points: np.ndarray, *, printed_digits: int | None = None) -> np.ndarray:
     """Return the per-axis match tolerance :func:`attach_native_strength` takes by default.
 
-    The largest of 1e-10, 1e-6 of the geometry's diagonal extent, and four
-    single-precision epsilons of the largest coordinate magnitude, per axis.
+    THE ONE HOME of the rule (0.29.1-tol): the whole-surface match, the
+    periodic-copy match and the time-averaged native strength all resolve it
+    here. Per axis it is the largest of 1e-10, 1e-6 of the geometry's diagonal
+    extent, and four single-precision epsilons of the largest coordinate
+    magnitude (a VTK written at single precision rounds with the magnitude).
+
+    A native far from the origin also carries the rounding of its own
+    printing. When the caller states ``printed_digits``, the significant
+    digits the native was printed at (:func:`native_printed_digits`), a fourth
+    term joins: half a unit of the last printed digit, ``0.5 * 10**(1 -
+    printed_digits)`` of the magnitude, plus half a single-precision spacing.
+    Absent, the rule is the one it always was, and a native printed at full
+    precision (the measured 26.124 export prints sixteen digits) adds nothing.
+
+    Parameters
+    ----------
+    points : numpy.ndarray
+        The native nodes, one row each, in the length unit of the match.
+    printed_digits : int, optional
+        Significant digits the native prints its coordinates at.
+
+    Returns
+    -------
+    numpy.ndarray
+        Three limits, along X, Y and Z, in the unit of ``points``.
     """
     measurable = bool(len(points)) and bool(np.isfinite(points).all())
     extent = float(np.linalg.norm(np.ptp(points, axis=0))) if measurable else 0.0
     magnitude = np.abs(points).max(axis=0) if measurable else np.zeros(3)
     rounding = 4.0 * float(np.finfo(np.float32).eps) * magnitude
+    if printed_digits is not None:
+        if isinstance(printed_digits, bool) or not isinstance(printed_digits, int):
+            raise MalformedOutputError(
+                f"Printed significant digits must be a whole number, got {printed_digits!r}"
+            )
+        if printed_digits < 1:
+            raise MalformedOutputError(
+                f"Printed significant digits must be at least 1, got {printed_digits}"
+            )
+        relative = 0.5 * 10.0 ** (1 - printed_digits) + 0.5 * float(np.finfo(np.float32).eps)
+        rounding = np.maximum(rounding, relative * magnitude)
     return np.maximum(max(1e-10, extent * 1e-6), rounding)
+
+
+def _significant_digits(token: str) -> int:
+    """Return the significant digits one printed number carries (at least 1)."""
+    mantissa = re.split(r"[eEdD]", token.lstrip("+-"), maxsplit=1)[0]
+    digits = mantissa.replace(".", "").lstrip("0")
+    if "." not in mantissa:
+        # A whole number's trailing zeros are place holders, not printed digits.
+        digits = digits.rstrip("0")
+    return max(1, len(digits))
+
+
+def native_printed_digits(source: str | Path) -> int | None:
+    """Return the significant digits a native export printed its coordinates at.
+
+    The most any coordinate of the first zone shows, which is the printing
+    precision because a number printed at ``d`` digits shows ``d`` unless its
+    tail is zeros. None when the file's first zone cannot be read that way, in
+    which case the caller states nothing and the default rule stands.
+    """
+    try:
+        with Path(source).open(encoding="utf-8-sig") as stream:
+            nodes = 0
+            for line in stream:
+                found = re.search(r"NODES\s*=\s*(\d+)", line, re.IGNORECASE)
+                if line.lstrip().upper().startswith("ZONE ") and found:
+                    nodes = int(found.group(1))
+                    break
+            if not nodes:
+                return None
+            best, seen = 0, 0
+            for line in stream:
+                for token in line.split():
+                    best = max(best, _significant_digits(token))
+                    seen += 1
+                    if seen >= 3 * nodes:
+                        return best or None
+    except (OSError, ValueError):
+        return None
+    return None
 
 
 def _copy_of(surface: VtkSurface, nodes: tuple[int, int], cells: tuple[int, int]) -> VtkSurface:
@@ -372,9 +446,7 @@ def attach_native_strength_by_copy(
             f"{surface.n_cells}"
         )
     if coordinate_tolerance is None:
-        coordinate_tolerance = _default_coordinate_tolerance(
-            np.vstack([zone.points for zone in zones])
-        )
+        coordinate_tolerance = native_match_tolerance(np.vstack([zone.points for zone in zones]))
     strengths: list[np.ndarray] = []
     copies: list[dict[str, object]] = []
     node, cell = 0, 0
@@ -441,7 +513,8 @@ def attach_native_strength(
     (GOAL-034 Q8 CXQ8R4-1); any other shape is refused. By default it is, per
     axis, the larger of max(1e-10, 1e-6 of the native geometry's diagonal
     extent) and four single-precision epsilons of the largest native
-    coordinate magnitude along that axis: a VTK written at single precision
+    coordinate magnitude along that axis (:func:`native_match_tolerance`, the
+    one home of the rule): a VTK written at single precision
     rounds with the coordinates' magnitude, which for a small part far from
     the origin exceeds any fraction of its extent. Ambiguous coincident
     vertices are refused; this function never averages, guesses orientation,
@@ -450,7 +523,7 @@ def attach_native_strength(
     input length unit); ``coordinate_tolerance`` is their maximum.
     """
     if coordinate_tolerance is None:
-        coordinate_tolerance = _default_coordinate_tolerance(native.points)
+        coordinate_tolerance = native_match_tolerance(native.points)
     try:
         limits = np.broadcast_to(np.asarray(coordinate_tolerance, dtype=float), (3,)).copy()
     except ValueError as error:

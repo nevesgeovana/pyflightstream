@@ -1638,7 +1638,11 @@ def _the_cell_states_both(case: SimCase) -> bool:
     declared = set(case.condition_order)
     if not {"RPM", "ADVANCE_RATIO"} <= declared:
         return False
-    return not any(key in case.flight_condition for key in ("MACH", "TASmps"))
+    # P0320-D-RIG: WHAT THE CELL WROTE, NOT WHAT THE POINT RESOLVED. At a point
+    # the case's flight condition carries the velocity the rig derived from
+    # J x (RPM/60) x D, so asking it whether a velocity is there answered yes
+    # for every planned point and refused the very row this form exists for.
+    return not any(key in declared for key in ("MACH", "TASmps"))
 
 
 def _stated_rpm(case: SimCase) -> str | None:

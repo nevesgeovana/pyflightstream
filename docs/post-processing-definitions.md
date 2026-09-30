@@ -123,7 +123,7 @@ one block, in this order:
 | `RHO` | kg/m3 | the air density the run resolved for that point |
 | `TEMP` | K | the air temperature the run resolved for that point |
 | `MU` | Pa s | the dynamic viscosity, written in scientific notation |
-| `J` | - | the advance ratio the row REQUESTED; `NA` on a row that turns no rotor, and on one that states its speed as `RPM` |
+| `J` | - | the advance ratio the row REQUESTED; `NA` on a row that turns no rotor, and on one that states its speed as `RPM` (in the two quasi-steady tables it is the ratio the rotor ran at where the row requested none, below) |
 | `J_CLOCK` | - | the advance ratio the CLOCK rotor RAN at, `V / (n D)` from this point's free stream, the speed the record kept and the rotor's diameter; `NA` where the record or the reference does not say |
 | `RPM_CLOCK` | rev/min | the speed the CLOCK rotor turned at, with its hand; the CLOCK rotor is the one `CLOCK_MOTION` names, or the only rotor the row turns. A row turning several and naming none has no clock, and both columns are `NA` rather than taking one rotor's number for another's |
 | `SREF`, `CREF`, `BREF` | m2, m, m | the reference area, chord and span |
@@ -2110,6 +2110,13 @@ gain its clockings and its validity.
   point, `REDUCTION` `qsteady_average`, the mean over its clockings of every
   loads column. It is the quasi-steady counterpart of the unsteady time
   average, and it is an AVERAGE over clockings, never over time.
+
+In both tables `J_CLOCK` and `RPM_CLOCK` state what the rotor ran at, from the
+speed of the point's own record, the diameter of the rotor's block and the
+point's free stream (`V / (n D)`, the one formula of the rotor table), and `J`
+states the same number where the row requested no advance ratio. A point with
+a speed and a free stream is never `NA` in them; what the row requested is kept
+as written, and a point whose free stream or diameter is not stated stays `NA`.
 
 Both carry `CONTEXT_COLUMNS`, the moment point, the validity columns below
 (the average table then the rotor state of a wheel point, below, since 0.31.0)
