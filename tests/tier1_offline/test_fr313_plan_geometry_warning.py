@@ -87,3 +87,72 @@ def test_fr313_the_command_exits_as_the_clean_plan_does(geometry, tmp_path, caps
         codes[case] = main(["plan", str(matrix), "--workspace", str(workspace.root)])
     err = capsys.readouterr().err
     assert codes[geometry] == codes["clean"] != 2, (requirement, codes, err)
+
+
+def _row(sim_id: str, geometry: Path | None, run_type: str = "unsteady", **variables):
+    """A real row of the plan: a continuation when it names what it continues."""
+    from pyflightstream.cases.workflows import WORKFLOW_KEY
+    from tests.tier1_offline.test_restart_continuation import _continuing_case
+
+    case = _continuing_case("{ADDITIONAL_ITERS=120}", **variables)
+    return case.model_copy(
+        update={
+            "sim_id": sim_id,
+            "geometry": None if geometry is None else str(geometry),
+            "variables": {**case.variables, WORKFLOW_KEY: run_type},
+        }
+    )
+
+
+def _warned(rows) -> list[str]:
+    from pyflightstream.cases.workflows import WORKFLOW_KEY
+    from pyflightstream.workspace._geometry_clean import warn_saved_actions_of_unsteady_rows
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        warn_saved_actions_of_unsteady_rows(rows, WORKFLOW_KEY)
+    return [str(item.message) for item in caught]
+
+
+def test_fr313_one_warning_per_geometry_names_every_row_that_opens_it(tmp_path):
+    """R2: two rows on one dirty file give ONE warning naming both; a clean file gives none."""
+    requirement = "FR-313"
+    dirty = _saved_simulation(tmp_path / "shared.fsm", ACTIONS)
+    clean = _saved_simulation(tmp_path / "clean.fsm", [])
+    said = _warned(
+        [_row("7001", dirty), _row("7002", dirty, "unsteady_rotor"), _row("7003", clean)]
+    )
+    assert len(said) == 1, (requirement, said)
+    assert said[0].startswith("row(s) 7001, 7002: shared.fsm carries 2"), said
+    assert "7003" not in said[0]
+
+
+def test_fr313_a_continuation_of_an_unsteady_row_is_read(tmp_path):
+    """R1: a row that continues a saved unsteady run opens its geometry too."""
+    from pyflightstream.cases.workflows import RESTART_FROM_VARIABLE, RESTART_ITERATIONS_VARIABLE
+
+    requirement = "FR-313"
+    dirty = _saved_simulation(tmp_path / "wing.fsm", ACTIONS)
+    row = _row(
+        "9001", dirty, **{RESTART_FROM_VARIABLE: "P9001-AL+000", RESTART_ITERATIONS_VARIABLE: "120"}
+    )
+    assert row.variables[RESTART_FROM_VARIABLE], "the row is a continuation"
+    said = _warned([row])
+    assert len(said) == 1 and "row(s) 9001" in said[0], (requirement, said)
+
+
+@pytest.mark.parametrize("run_type", ["steady", "polar", ""])
+def test_fr313_a_row_that_is_not_unsteady_is_not_read_the_control(run_type, tmp_path):
+    """R5 and the control of R1: the same dirty file under a row with no time loop warns nothing."""
+    requirement = "FR-313"
+    dirty = _saved_simulation(tmp_path / "wing.fsm", ACTIONS)
+    assert _warned([_row("7001", dirty)]) != [], "the control: the unsteady row warns"
+    assert _warned([_row("7001", dirty, run_type)]) == [], (requirement, run_type)
+
+
+def test_fr313_a_raw_mesh_or_a_row_with_no_geometry_is_not_read(tmp_path):
+    """R5: only a saved simulation carries actions; a raw mesh is never opened for them."""
+    requirement = "FR-313"
+    mesh = tmp_path / "wing.stl"
+    mesh.write_text("solid wing\nendsolid wing\n", encoding="utf-8")
+    assert _warned([_row("7001", mesh), _row("7002", None)]) == [], requirement
