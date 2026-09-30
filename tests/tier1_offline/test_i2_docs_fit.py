@@ -109,15 +109,17 @@ def test_p0320_i2_the_raw_route_is_offered_only_for_commands_it_carries():
     database = CommandRegistry.load().commands
     offered = []
     for cells in _rows():
-        if len(cells) == 4 and "`[[raw]]`" in cells[1]:
+        if len(cells) == 4 and ("`[[raw]]`" in cells[1] or "#the-raw-route" in cells[1]):
+            clauses = cells[1].split(";")
             for command in _COMMAND.findall(cells[2]):
                 spec = database.get(command)
-                # A block the row names in its own In pyfs cell is named as out of reach.
-                if (
-                    spec is not None
-                    and spec.layout not in (Layout.BARE, Layout.INLINE)
-                    and f"`{command}`" not in cells[1]
-                ):
+                if spec is None or spec.layout in (Layout.BARE, Layout.INLINE):
+                    continue
+                # A block may be NAMED in the cell, but only as out of reach: its own clause
+                # says "block" and does not say the raw route "carries" it (a review mutant
+                # that wrote "carries `BOOLEAN_UNITE_MESH`" passed the first form of this test).
+                clause = next((text for text in clauses if f"`{command}`" in text), "")
+                if "block" not in clause or "carries" in clause:
                     offered.append(f"{command} ({spec.layout.value}) in: {cells[0]}")
     assert not offered, "the raw route is offered for block commands:\n  " + "\n  ".join(offered)
 
