@@ -64,7 +64,7 @@ from pyflightstream._errors import (
     PyflightstreamError,
     PyflightstreamWarning,
 )
-from pyflightstream._progress import terse_terminal
+from pyflightstream._progress import stage_progress, terse_terminal
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_matrix
 from pyflightstream.cases.workflows import (
@@ -781,6 +781,21 @@ def _build_parser() -> argparse.ArgumentParser:
             default=None,
             help="the manifest file to read, directly in the workspace root (default: runs.json)",
         )
+    post.add_argument(  # 0.32.0 hook: the post from the simulation folders (B3)
+        "--from-sims",
+        dest="from_sims",
+        action="store_true",
+        help="ignore runs.json and assemble the records in memory from sims/, for points run "
+        "outside the package; the products go to post/<matrix>@sims/",
+    )
+    post.add_argument(
+        "--steps-per-revolution",
+        dest="steps_per_revolution",
+        type=float,
+        metavar="N",
+        default=None,
+        help="with --from-sims: the solver steps of one revolution, for a LAST_REVS_AVG window",
+    )
     return parser
 
 
@@ -1224,6 +1239,9 @@ _RECORDS_COMMANDS = ("restore", "rebuild")
 #: The commands that take ``--runs NAME``, the manifest they read (0.32.0).
 _RUNS_COMMANDS = ("post", "collect", "free-space", "delete-sims", "sync")
 
+#: The commands whose ``--runs NAME`` reads another manifest (B3); the others refuse it.
+_RUNS_READERS = ("post", "collect")
+
 
 def _add_records_parsers(subparsers: Any) -> None:
     """Register ``restore`` and ``rebuild``, the 0.32.0 records commands."""
@@ -1312,7 +1330,8 @@ def _refuse_runs_manifest(args: argparse.Namespace) -> int | None:
         return None
     try:
         args.runs_manifest = run_records.resolve_manifest(args.workspace, name)
-        if args.runs_manifest != run_records.resolve_manifest(args.workspace):
+        default = run_records.resolve_manifest(args.workspace)
+        if args.runs_manifest != default and args.subcommand not in _RUNS_READERS:
             raise ContractNotImplementedError(
                 f"--runs {name}: reading a manifest other than runs.json is "
                 "not implemented yet (0.32.0 contract)"
@@ -1321,6 +1340,44 @@ def _refuse_runs_manifest(args: argparse.Namespace) -> int | None:
         print(str(error), file=sys.stderr)
         return 2
     return None
+
+
+def _records_workspace(args: argparse.Namespace) -> CampaignWorkspace | None:
+    """Return the workspace post and collect read (0.32.0, B3); None after a refusal.
+
+    runs.json, the manifest ``--runs NAME`` names, or, for ``post --from-sims``,
+    records assembled in memory from sims/, each refusal of which is printed.
+    """
+    from_sims = getattr(args, "from_sims", False)
+    clock = getattr(args, "steps_per_revolution", None)
+    runs = getattr(args, "runs", None)
+    idle = None
+    if clock is not None and not from_sims:
+        idle = "--steps-per-revolution only means something to --from-sims"
+    elif from_sims and args.matrix is None:
+        idle = "--from-sims names the matrix it assembles: pyfs-matrix post <matrix> --from-sims"
+    elif from_sims and runs is not None:
+        idle = "--from-sims reads no manifest, so --runs cannot name one beside it"
+    elif getattr(args, "additional_pproc", False) and (from_sims or runs is not None):
+        idle = (
+            "--additional-pproc reopens the simulations of runs.json and records them in "
+            "additional.json; --from-sims and --runs post other records apart. Drop one"
+        )
+    if idle is not None:
+        print(idle, file=sys.stderr)
+        return None
+    try:
+        if not from_sims:
+            return run_records.manifest_workspace(args.workspace, runs)
+        workspace = run_records.from_sims_workspace(
+            args.workspace, Path(args.matrix).stem, steps_per_revolution=clock
+        )
+    except PyflightstreamError as error:
+        print(str(error), file=sys.stderr)
+        return None
+    for where, reason in workspace.refusals.items():
+        print(f"refused, {where}: {reason}", file=sys.stderr)
+    return workspace
 
 
 def _naming(args: argparse.Namespace) -> NamingTemplate:
@@ -1402,7 +1459,8 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         collect_and_post,
     )
 
-    workspace = CampaignWorkspace(Path(args.workspace))
+    if (workspace := _records_workspace(args)) is None:  # 0.32.0: --runs NAME (B3)
+        return 2
     interval = DEFAULT_SETTLE_INTERVAL_S if args.interval is None else args.interval
     watch_interval = (
         DEFAULT_WATCH_INTERVAL_S if args.watch_interval is None else args.watch_interval
@@ -1435,14 +1493,15 @@ def _cmd_collect(args: argparse.Namespace) -> int:
             )
 
     try:
-        report = collect_and_post(
-            workspace,
-            watch=args.watch,
-            interval=interval,
-            watch_interval=watch_interval,
-            rounds=args.rounds,
-            post_matrix=_post if args.post else None,
-        )
+        with stage_progress("collect"):
+            report = collect_and_post(
+                workspace,
+                watch=args.watch,
+                interval=interval,
+                watch_interval=watch_interval,
+                rounds=args.rounds,
+                post_matrix=_post if args.post else None,
+            )
     except (WorkspaceError, CampaignConfigError) as error:
         print(str(error), file=sys.stderr)
         return 2
@@ -1498,11 +1557,14 @@ def _cmd_post(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    workspace = CampaignWorkspace(args.workspace)
+    if (workspace := _records_workspace(args)) is None:  # 0.32.0: --runs, --from-sims (B3)
+        return 2
     extraction_failed = 0
     extraction_skipped = 0
     try:
-        records = workspace.read_manifest()
+        # Assembled records are read here without announcing their refusals,
+        # which the post's own first read writes into its log.
+        records = getattr(workspace, "assembled", None) or workspace.read_manifest()
         if not records:
             print(
                 f"the manifest {workspace.manifest_path} records no run, so there is nothing "
@@ -1567,19 +1629,21 @@ def _cmd_post(args: argparse.Namespace) -> int:
                 return 2
             extraction_failed, extraction_skipped = outcome
         written: list[Path] = []
-        for matrix in matrices:
-            for stage in post_stages():
-                written.extend(
-                    stage(
-                        workspace,
-                        overwrite=True,
-                        archive=not args.force_overwrite,
-                        matrix_stem=matrix,
-                        # Only when set, so a stage registered before 0.25.1
-                        # keeps running under the bare command.
-                        **({"check_frozen": True} if args.check_frozen else {}),
+        with stage_progress("post", total_files=len(matrices)) as progress:
+            for matrix in matrices:
+                for stage in post_stages():
+                    written.extend(
+                        stage(
+                            workspace,
+                            overwrite=True,
+                            archive=not args.force_overwrite,
+                            matrix_stem=matrix,
+                            # Only when set, so a stage registered before 0.25.1
+                            # keeps running under the bare command.
+                            **({"check_frozen": True} if args.check_frozen else {}),
+                        )
                     )
-                )
+                progress.advance(files=1, current=workspace.products_dir(matrix))
     except (OSError, PyflightstreamError) as error:
         print(str(error), file=sys.stderr)
         return 2

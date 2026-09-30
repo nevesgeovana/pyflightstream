@@ -243,4 +243,7 @@ def test_runs_resolves_its_name_and_refuses_another_manifest_until_filled(
     assert cli.main([*base, "--runs", "sub/runs.json"]) == 2
     assert "not a file name" in capsys.readouterr().err
     assert cli.main([*base, "--runs", "runs-rebuilt.json"]) == 2
-    assert NOT_YET in capsys.readouterr().err
+    # B3 filled post and collect: a named manifest that is not there is refused
+    # by its name (test_p0320_b3_post_records.py reads one that is).
+    words = "runs-rebuilt.json" if command[0] in ("post", "collect") else NOT_YET
+    assert words in capsys.readouterr().err

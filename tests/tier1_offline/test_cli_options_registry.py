@@ -260,6 +260,11 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "out"): OUTPUT,
     ("pyfs-matrix", "all_sims"): SWITCH,
     ("pyfs-matrix", "build_alias"): CASE,
+    # 0.32.0, B3: `post --from-sims` is a mode of this call (the records come
+    # from sims/, not from a manifest); `--steps-per-revolution` states the clock
+    # a run outside the package turned at, a fact of the case its record carries.
+    ("pyfs-matrix", "from_sims"): SWITCH,
+    ("pyfs-matrix", "steps_per_revolution"): CASE,
 }
 
 #: (console script, subcommand, destination) -> the registry key its
@@ -423,6 +428,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "out"): frozenset({"rebuild"}),
     ("pyfs-matrix", "all_sims"): frozenset({"rebuild"}),
     ("pyfs-matrix", "build_alias"): frozenset({"rebuild"}),
+    ("pyfs-matrix", "from_sims"): frozenset({"post"}),
+    ("pyfs-matrix", "steps_per_revolution"): frozenset({"post"}),
     ("pyfs-qa", "campaign"): frozenset({"cost"}),
     ("pyfs-qa", "case"): frozenset({"update-reference"}),
     ("pyfs-qa", "commands"): frozenset({"probe"}),
