@@ -350,6 +350,26 @@ def test_p0320_post_no_manifest_refuses_an_angle_outside_the_sweep(tmp_path):
     assert any("-3" in reason and "sweep" in reason for reason in refusals.values())
 
 
+def test_p0320_post_no_manifest_takes_a_points_exports_by_their_kinds_only(tmp_path):
+    """P0320-POST-NO-MANIFEST: a point's exports are its stem plus an export kind's suffix.
+
+    The surface export ``<stem>.dat`` is the point's own and must be taken; the
+    log of another point whose stem merely begins with this one's must not.
+    """
+    workspace = _from_sims_workspace(tmp_path)
+    outputs = workspace.sim_dir("6001") / "outputs"
+    stem = "POLAR-6001_M20AL+000BE+000"
+    (outputs / f"{stem}.dat").write_text("surface", encoding="utf-8")
+    # The alpha -2 point, named so its stem begins with the alpha 0 point's.
+    (outputs / "POLAR-6001_M20AL-020BE+000.txt").replace(outputs / f"{stem}_b.txt")
+    (outputs / f"{stem}_b_log.txt").write_text("log", encoding="utf-8")
+
+    assembled, _ = records.assemble_records(workspace.root, "matriz")
+    (zero,) = [record for record in assembled if record.point.get("alpha") == 0.0]
+    assert f"outputs/{stem}.dat" in zero.outputs, "the point's own surface export was dropped"
+    assert f"outputs/{stem}_b_log.txt" not in zero.outputs, "another point's log was taken"
+
+
 def test_p0320_post_no_manifest_never_writes_a_manifest(tmp_path):
     """P0320-POST-NO-MANIFEST: records assembled in memory refuse every manifest writer."""
     workspace = _from_sims_workspace(tmp_path)

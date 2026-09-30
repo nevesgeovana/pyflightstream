@@ -82,6 +82,7 @@ from typing import Any
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases import (
+    EXPORT_KINDS,
     POINT_AXIS_KEYS,
     POINT_NAME_FIELDS,
     SWEEP_NAME_VALUE,
@@ -2308,7 +2309,8 @@ def assemble_records(
     ``sims/sim_<POL>/``. One point is one loads export (a ``.txt`` no longer
     export suffix claims), anywhere under the simulation folder but its
     ``archive``, ``scripts`` and ``inputs`` folders; the point's other exports
-    are the files beside it whose names extend its stem. Its name is its
+    are the files beside it named its stem plus the suffix of another export
+    kind (:data:`pyflightstream.cases.EXPORT_KINDS`). Its name is its
     ``DP-<name>`` folder's, else the export's stem. Its status is the one the
     collect's assessor gives the exports.
 
@@ -2478,15 +2480,14 @@ def _loads_exports(sim_dir: Path) -> Iterator[Path]:
 
 
 def _companions(loads: Path) -> list[Path]:
-    """Return the exports beside a loads export whose names extend its stem, in order."""
-    prefix = f"{loads.stem}_"
-    return sorted(
-        path
-        for path in loads.parent.iterdir()
-        if path.is_file()
-        and path.name.startswith(prefix)
-        and classify_outputs([path.name]) not in ({}, {"loads": path.name})
-    )
+    """Return the exports beside a loads export, each its stem plus an export kind's suffix.
+
+    EXACTLY the stem and a suffix, never a prefix: ``<stem>.dat`` is the point's
+    surface export, and ``<stem>_b_log.txt`` is the log of another point whose
+    stem merely begins with this one's.
+    """
+    names = {f"{loads.stem}{suffix}" for kind, suffix, _, _ in EXPORT_KINDS if kind != "loads"}
+    return sorted(loads.parent / name for name in names if (loads.parent / name).is_file())
 
 
 def _swept_name(row: MatrixRow) -> str:

@@ -2413,8 +2413,10 @@ completes the submitted records of `NAME` and posts them apart the same way.
 
 **What `--from-sims` assembles, and what it refuses.** Each loads export under
 `sims/sim_<POL>/` of a row of the matrix is one point (outside the `archive`,
-`scripts` and `inputs` folders), and the files beside it whose names extend its
-stem are its other exports. The record takes:
+`scripts` and `inputs` folders), and the files beside it named its stem plus
+the suffix of another export kind (`<stem>.dat`, `<stem>_plots.txt`,
+`<stem>_log.txt` and the rest) are its other exports; a file whose name only
+begins with the stem is another point's. The record takes:
 
 - the point: the value of the row's sweep at the angles the export reports;
 - the flight condition: the row's, the swept value in place, resolved with the
