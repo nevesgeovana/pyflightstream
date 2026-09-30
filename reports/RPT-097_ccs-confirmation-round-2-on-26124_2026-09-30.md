@@ -76,13 +76,16 @@ run, which this round was not.
 
 `kind = "file"` imports the whole CCS file by `CCS_IMPORT`, with every
 `Relaxed_TE` line restated in the row's direction. Both directions ran, saved,
-and list one boundary, `PYFS_CCS_FUS`. The two saved simulations differ (the
-axial one is 4740 lines and the azimuth one 5026), and the first per-face lines
-that differ are lines 30, 37, 46, 47 and 48, the same five lines round 1 found
-by two script imports. So the effect of the direction digit is now observed
-through the package route as a difference between the two saves: **the two
-saves differ**. The AZIMUTH run ended at its iteration limit
-(`COMPLETED_MAX_ITER`), which is the round's cap and not a defect.
+and list one boundary, `PYFS_CCS_FUS`. The two saved simulations differ: the
+axial one is 4740 lines and the azimuth one 5026, and 4413 lines differ
+between them. The two saves are solved simulations of different lengths and
+the AZIMUTH run ended at its iteration limit (`COMPLETED_MAX_ITER`, the
+round's cap and not a defect), so the difference mixes whatever the direction
+digit does to the geometry with the two solutions. **The two saves differ**,
+and that is all this round shows: the direction digit's own effect is not
+separated from the solution, and round 1 recorded five differing lines without line numbers, so the two rounds are not
+compared line by line. What is confirmed is that both directions are accepted and run
+through the package route.
 
 ## 4. The verdict, item by item
 

@@ -19,7 +19,7 @@
   {"id": "CCS2-PARAMETRIC", "pol": "3204", "moved": "CCS1-WING plus one control surface, ten-argument PARAMETRIC form", "record_status": "CONVERGED", "boundaries": ["PYFS_WING", "PYFS_AIL", "PYFS_AIL_side"], "verdict": "confirmed", "effect": "saved simulation differs from CCS1-WING: 1431 lines against 1744, not byte equal"},
   {"id": "CCS2-REAL", "pol": "3205", "moved": "the same control surface with REAL spanwise limits", "record_status": "FAILED_EXECUTION", "boundaries": null, "verdict": "not confirmed", "effect": "no saved simulation; the log names no cause"},
   {"id": "G35-AXIAL", "pol": "3206", "moved": "kind file (CCS_IMPORT), CCS_SHEDDING AXIAL", "record_status": "CONVERGED", "boundaries": ["PYFS_CCS_FUS"], "verdict": "confirmed"},
-  {"id": "G35-AZIMUTH", "pol": "3207", "moved": "kind file (CCS_IMPORT), CCS_SHEDDING AZIMUTH", "record_status": "COMPLETED_MAX_ITER", "boundaries": ["PYFS_CCS_FUS"], "verdict": "confirmed", "effect": "the two saves differ: 4740 lines against 5026, first differing per-face lines 30, 37, 46, 47, 48"}
+  {"id": "G35-AZIMUTH", "pol": "3207", "moved": "kind file (CCS_IMPORT), CCS_SHEDDING AZIMUTH", "record_status": "COMPLETED_MAX_ITER", "boundaries": ["PYFS_CCS_FUS"], "verdict": "confirmed", "effect": "the two saves differ: axial 4740 lines against azimuth 5026, 4413 differing lines between two solved saves of different lengths, the azimuth one at its iteration cap; the direction digit's own effect is not separated from the solution"}
  ],
  "package_consequence": "the plan refuses a control surface with REAL spanwise limits on every build, naming RPT-097 and the PARAMETRIC form (FR-295 to FR-299); the command database keeps the 26.124 status documented",
  "not_established": [
