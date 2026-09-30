@@ -179,7 +179,6 @@ PLACEHOLDERS = [
     ("pyflightstream.cases.ccs_revolution", "emit_ccs_revolution", (None, None)),
     ("pyflightstream.cases.setup_surfaces", "emit_setup_surfaces", (None, None)),
     ("pyflightstream.post.qsteady_noise", "write_qsteady_noise_report", (".",)),
-    ("pyflightstream.post.disc_maps", "write_disc_map", ("P1_sections.csv",)),
     ("pyflightstream.post.inflow_tools", "to_installed_frame", ("table.csv",)),
 ]
 

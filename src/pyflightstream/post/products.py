@@ -140,6 +140,7 @@ from pyflightstream.cases.workflows import (
 )
 from pyflightstream.fsi.loads import SectionalLoadsReport, parse_sectional_loads
 from pyflightstream.post import corrections as _corrections
+from pyflightstream.post import disc_maps as _disc_maps
 from pyflightstream.post import harmonics as _harmonics
 from pyflightstream.post import qsteady as _qsteady
 from pyflightstream.post._tables import (
@@ -5027,8 +5028,13 @@ def _write_harmonics(
     runs: Sequence[str],
     skipped: dict[str, str],
     extra: Mapping[str, object] | None = None,
+    disc_maps: list[tuple[Path, dict[str, object]]] | None = None,
 ) -> tuple[Path, dict[str, object]] | None:
     """Write ``sections/<point>_harmonics.csv`` from a WRITTEN sections table (0.31.0).
+
+    Where ``disc_maps`` is a list (0.32.0), the same rows, cut the same way,
+    are also mapped over the disc (:func:`_write_disc_maps`) and each map's
+    path and ``products.json`` entry is appended to it.
 
     ``table`` is the wheel's sections table or the unsteady point's sections
     series, read back as a user holds it; ``windows``, where given, keeps each
@@ -5061,6 +5067,23 @@ def _write_harmonics(
             and (step := _step_of(row.get("STEP"))) is not None
             and window[0] <= step <= window[1]
         ]
+    if disc_maps is not None:
+        disc_maps.extend(
+            _write_disc_maps(
+                columns,
+                rows,
+                rotors,
+                sample_column=sample_column,
+                point=point,
+                pol=pol,
+                source=source,
+                out=out,
+                target=target,
+                runs=runs,
+                skipped=skipped,
+                extra=extra,
+            )
+        )
     result = _harmonics.station_harmonics(columns, rows, rotors, sample_column=sample_column)
     for marker, reason in result.skipped.items():
         skipped[f"{relative}{marker}"] = reason
@@ -5089,6 +5112,62 @@ def _write_harmonics(
     }
 
 
+def _write_disc_maps(
+    columns: Sequence[str],
+    rows: Sequence[Mapping[str, str]],
+    rotors: Mapping[str, _harmonics.HarmonicRotor],
+    *,
+    sample_column: str,
+    point: str,
+    pol: str,
+    source: str,
+    out: Path,
+    target: Callable[[Path], Path],
+    runs: Sequence[str],
+    skipped: dict[str, str],
+    extra: Mapping[str, object] | None,
+) -> list[tuple[Path, dict[str, object]]]:
+    """Write ``sections/<point>_disc_<ROTOR>_<QUANTITY>.csv`` from a table already read (0.32.0).
+
+    One file per rotor and sectional load quantity of the rows given (a wheel's
+    every clocking, an unsteady point's last complete revolution), by
+    :mod:`pyflightstream.post.disc_maps`. A rotor with no blade at a stated
+    azimuth is named under ``sections/<point>_disc_`` in ``skipped`` and
+    warned; nothing blocks. Returns each file with its ``products.json`` entry.
+    """
+    relative = f"{SECTIONS_DIR}/{point}{_disc_maps.DISC_MAP_MARK}"
+    mapped = _disc_maps.disc_map_rows(columns, rows, rotors, sample_column=sample_column)
+    for marker, reason in mapped.skipped.items():
+        skipped[f"{relative}{marker}"] = reason
+        warn(f"point={point} product={relative}: {reason}", PyflightstreamWarning, stacklevel=2)
+    if not mapped.maps:
+        return []
+    lead = next(row for row in rows if row.get("ROTOR") in mapped.samples)
+    paths = _disc_maps.write_disc_maps(
+        mapped,
+        point=point,
+        pol=pol,
+        context=tuple(lead.get(name) for name in CONTEXT_COLUMNS),
+        out_dir=out / SECTIONS_DIR,
+        target=target,
+    )
+    return [
+        (
+            path,
+            {
+                "runs": list(runs),
+                "kind": _disc_maps.DISC_MAP_KIND,
+                "source": source,
+                "samples": mapped.samples[alias],
+                "rotor": alias,
+                "quantity": quantity,
+                **(extra or {}),
+            },
+        )
+        for path, (alias, quantity) in zip(paths, sorted(mapped.maps), strict=True)
+    ]
+
+
 def _step_of(cell: object) -> int | None:
     """Return a table's ``STEP`` cell as a whole step, or None where it states none."""
     try:
@@ -5106,6 +5185,7 @@ def _wheel_harmonics(
     target: Callable[[Path], Path],
     runs: Sequence[str],
     skipped: dict[str, str],
+    disc_maps: list[tuple[Path, dict[str, object]]] | None = None,
 ) -> tuple[Path, dict[str, object]] | None:
     """Fit a quasi-steady WHEEL point's harmonics over its blades and clockings (0.31.0).
 
@@ -5139,6 +5219,7 @@ def _wheel_harmonics(
         runs=runs,
         skipped=skipped,
         extra={"clockings": len(quasi.positions)},
+        disc_maps=disc_maps,
     )
 
 
@@ -5202,6 +5283,7 @@ def _unsteady_harmonics(
     rotors: Mapping[str, tuple[_harmonics.HarmonicRotor, object]],
     target: Callable[[Path], Path],
     skipped: dict[str, str],
+    disc_maps: list[tuple[Path, dict[str, object]]] | None = None,
 ) -> tuple[Path, dict[str, object]] | None:
     """Fit an ``unsteady_rotor`` point's harmonics over each rotor's last complete revolution.
 
@@ -5277,6 +5359,7 @@ def _unsteady_harmonics(
             "revolution": {alias: list(steps) for alias, steps in windows.items()},
             "steps_per_revolution": clocks,
         },
+        disc_maps=disc_maps,
     )
 
 
@@ -6158,6 +6241,8 @@ def _sim_products(
                 # 0.31.0 (P0310-HARMONICS): A QUASI-STEADY WHEEL'S PER-STATION
                 # HARMONICS, fitted over every blade at every clocking of the
                 # table just written, read back as a user holds it.
+                # 0.32.0 (P0320-G5-DISC-MAP): the same rows mapped over the disc.
+                wheel_maps: list[tuple[Path, dict[str, object]]] = []
                 harmonics = _wheel_harmonics(
                     done,
                     point,
@@ -6166,10 +6251,14 @@ def _sim_products(
                     target=_target,
                     runs=sources[point.name],
                     skipped=skipped,
+                    disc_maps=wheel_maps,
                 )
                 if harmonics is not None:
                     written.append(harmonics[0])
                     written_names[harmonics[0].relative_to(out).as_posix()] = harmonics[1]
+                for mapped_path, mapped_entry in wheel_maps:
+                    written.append(mapped_path)
+                    written_names[mapped_path.relative_to(out).as_posix()] = mapped_entry
         # F01: the recorded run type selects the source. An instant from an
         # older unsteady run cannot supply or replace a fluid-plots history.
         record = record_of[point.name]
@@ -6861,6 +6950,7 @@ def _point_series(
     # 0.31.0 (P0310-HARMONICS): AN UNSTEADY ROTOR POINT'S PER-STATION HARMONICS,
     # fitted over its last complete revolution of the sections series just written.
     if record.recipe == "unsteady_rotor":
+        series_maps: list[tuple[Path, dict[str, object]]] = []
         harmonics = _unsteady_harmonics(
             record,
             stem=stem,
@@ -6871,12 +6961,19 @@ def _point_series(
                 path, archive=archive, stamp=archive_stamp
             ),
             skipped=split_skips,
+            disc_maps=series_maps,
         )
         if harmonics is not None:
             written = [*written, harmonics[0]]
             done = harmonics[0]
             key = done.relative_to(out) if done.is_relative_to(out) else done
             names = {**names, key.as_posix(): harmonics[1]}
+        for mapped_path, mapped_entry in series_maps:
+            written = [*written, mapped_path]
+            mapped_key = (
+                mapped_path.relative_to(out) if mapped_path.is_relative_to(out) else mapped_path
+            )
+            names = {**names, mapped_key.as_posix(): mapped_entry}
     # G25: THE SURFACE AVERAGED OVER THE RECORD'S WINDOW, by the package, from the
     # per-step VTK exports; a VTK beside the Tecplot where the pproc asks for one.
     asked = recorded_pproc if recorded_pproc is not None else pproc

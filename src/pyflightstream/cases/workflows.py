@@ -88,6 +88,7 @@ from pyflightstream._fsm import (
     MeshReadError,
     boundary_labels,
     boundary_names,
+    boundary_vertices,
     saved_actuators,
     saved_length_unit,
     saved_mesh_coordinate_unit,
@@ -13985,31 +13986,53 @@ def _blade_stations_from_the_mesh(
     """Return blade one's stations and chords read off the mesh, or why they cannot be.
 
     Read from an OBJ, whose groups name its boundaries and whose ``[import]``
-    unit converts it to metres, and only where the row leaves the mesh where
-    the file holds it. A saved simulation's mesh is not read per boundary, and
-    an STL names no boundary; for those the chords come from the sectional
-    loads export after the run.
+    unit converts it to metres, or (0.32.0) from a saved simulation, whose
+    boundary row tells each face to its boundary and whose stored coordinate
+    unit is measured (:func:`pyflightstream._fsm.boundary_vertices`); and only
+    where the row leaves the mesh where the file holds it. An STL names no
+    boundary; for it the chords come from the sectional loads export after
+    the run.
     """
     geometry = case.geometry
     if geometry is None:
         return "the row opens no geometry"
     path = Path(str(geometry))
-    if path.suffix.lower() != ".obj":
+    suffix = path.suffix.lower()
+    if suffix not in (".obj", ".fsm"):
         return (
-            f"the chord is read at plan time from an OBJ mesh only, and {path.name} is "
-            f"a {path.suffix or 'file with no extension'}"
+            f"the chord is read at plan time from an OBJ mesh or a saved simulation only, "
+            f"and {path.name} is a {path.suffix or 'file with no extension'}"
         )
-    unit = getattr(case.mesh_import, "units", None)
-    factor = scale(str(unit), "METER") if unit else None
-    if factor is None:
-        return f"{path.name} states no length unit a metre can be read from"
+    factor: float | None
+    if suffix == ".fsm":
+        try:
+            stored = saved_mesh_coordinate_unit(path)
+        except (MeshReadError, OSError) as error:
+            return f"{path.name} could not be read: {error}"
+        factor = scale(stored, "METER") if stored else None
+        if factor is None:
+            return f"{path.name} states no length unit a metre can be read from"
+    else:
+        unit = getattr(case.mesh_import, "units", None)
+        factor = scale(str(unit), "METER") if unit else None
+        if factor is None:
+            return f"{path.name} states no length unit a metre can be read from"
     moved = [key for key in (ROTATE_VARIABLE, TRANSLATE_VARIABLE) if _variable(case, key)]
     operations = getattr(case.mesh_import, "operations", None) or ()
     moved += sorted({f"the import's {op.op}" for op in operations if op.op != "rename"})
     if moved:
         return f"the row moves the mesh ({', '.join(moved)}) before the solve"
     try:
-        groups = _qsteady.obj_group_vertices(path, metres_per_unit=factor)
+        if suffix == ".fsm":
+            boundaries = boundary_vertices(path)
+            if boundaries is None:
+                return f"{path.name} does not tell its faces to their boundaries"
+            groups = {
+                name: [(x * factor, y * factor, z * factor) for x, y, z in vertices]
+                for name, vertices in boundaries.items()
+            }
+        else:
+            groups = _qsteady.obj_group_vertices(path, metres_per_unit=factor)
     except (OSError, UnicodeError, ValueError) as error:
         return f"{path.name} could not be read: {error}"
     blade = rotor.families_blades[0] if rotor.families_blades else None
