@@ -4,7 +4,7 @@ GEO-066 2.1: the workspace and workflow guide is one page per run type or
 topic with each fact in one home, and the definition of record is one page.
 The top of the nav was the five task groups of 0.32.0 (Getting started,
 Workflows, Post-processing, Reference, Migration) until 0.33.0, when the
-owner's decision 13 of GOAL-038 (NFR-29 R1) grouped it by Diataxis quadrant
+a decision of the 0.33 scope (NFR-29 R1) grouped it by Diataxis quadrant
 with the SRS under a Project group; the expectations below moved with it:
 the five groups are the quadrants and Project, every migration page is under
 Project, the definition of record is under Reference and every run-type page

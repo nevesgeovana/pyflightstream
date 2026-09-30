@@ -885,8 +885,8 @@
     its decisions 10, 11, 13 and 14), from the documentation audit of
     v0.32.0, which found no Python API reference, 427 of 577 exported
     names on no page and 30 of 112 command-line options on no page.
-    Pending: built by DOC-A, and the status moves only at the owner's
-    acceptance. It reverses the position of v0.3.0, when mkdocstrings
+    Pending: built by DOC-A; the status stays pending until the
+    requirement is accepted. It reverses the position of v0.3.0, when mkdocstrings
     was evaluated and declined and the site was to gain no Python API
     reference; NFR-19 is reworded to match. Evidence offered for the
     acceptance: `tests/tier1_offline/test_p0330_doca_reference.py` (R1
