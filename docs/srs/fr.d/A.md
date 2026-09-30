@@ -181,5 +181,5 @@
     blank line, then its first block (`Cases`): never two blank lines and
     never none.
 
-    Solution (release 0.32.0): the behaviour of 0.31.0, now pinned by the
+    Solution (release 0.32.0): the behavior of 0.31.0, now pinned by the
     test above.
