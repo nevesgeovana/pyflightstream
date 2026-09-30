@@ -13,6 +13,8 @@ L3: the per-point force_rerun warning is one line per simulation with a count.
 L4: nothing is lost: every point's move is in ``logs/activity.log`` in full,
 and ``--verbose`` prints the per-point lines again.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-178.
 
 from __future__ import annotations
 

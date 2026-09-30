@@ -20,6 +20,8 @@ polar and the rotor table.
 THE NUMBERS. The export states a free stream of 68.058 m/s, so
 `J = V / (n D) = 68.058 / (2200 / 60 * 2.0) = 0.92806` at the products' five decimals.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-118.
 
 from __future__ import annotations
 

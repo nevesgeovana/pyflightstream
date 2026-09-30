@@ -3,6 +3,8 @@
 The fixture ``data/acoustic_signals_probe_a1.txt`` is the export of the licensed
 round-1 probe on a tier-3 library geometry (three observers, 16 samples each).
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-261, FR-262, FR-263, FR-290.
 
 from __future__ import annotations
 

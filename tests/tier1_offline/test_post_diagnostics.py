@@ -1,4 +1,6 @@
 """Post warnings stay in durable records even when terminal reporting is disabled."""
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-120, FR-162.
 
 import json
 import warnings

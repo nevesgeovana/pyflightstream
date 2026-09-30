@@ -21,6 +21,8 @@ The names of the new surface module are imported inside the tests that use
 them, so each case collects on a tree without it and fails there on what it
 asserts rather than on an import.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-113, FR-160.
 
 from __future__ import annotations
 

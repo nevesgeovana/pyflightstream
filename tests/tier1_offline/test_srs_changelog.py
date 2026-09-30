@@ -13,6 +13,8 @@ excluded.
 The release tests are parametrised so a release whose bullets all cite ids
 passes on its own, whatever the state of its neighbours.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-194.
 
 from __future__ import annotations
 

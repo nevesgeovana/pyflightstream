@@ -5,6 +5,8 @@ subtract, time mean), their command line ``pyfs-workspace field``, and the
 route that gives an airframe-only unsteady row its per-step probe fields.
 Every number below is exact in binary, so each result is compared with ``==``.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-184.
 
 from __future__ import annotations
 

@@ -1,4 +1,6 @@
 """Workspace setup controls reach the curated emitter without losing evidence."""
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-150, FR-151.
 
 import tomllib
 

@@ -28,6 +28,8 @@ No solver runs here: a stub process stands in for FlightStream and
 writes the committed loads fixture wherever the built script asked for
 an export.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-151.
 
 from __future__ import annotations
 

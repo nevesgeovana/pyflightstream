@@ -9,6 +9,8 @@ not under a waiver and not on a build that verified it. Four revolutions at 10
 degrees give 144 steps, so the last 54 steps (or 1.5 revolutions) are
 independently 91 through 144.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-112.
 
 import sys
 

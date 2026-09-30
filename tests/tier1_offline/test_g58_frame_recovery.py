@@ -1,4 +1,6 @@
 """G58: unchanged stopped rows recover their frame without a solver."""
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-163.
 
 from pathlib import Path
 

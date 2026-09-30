@@ -14,6 +14,8 @@ EVERY EXPECTED NUMBER is worked by hand below from the plotted values, never
 taken from the module under test. Four steps per revolution, three complete
 revolutions and two steps of a partial fourth.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-180.
 
 from __future__ import annotations
 

@@ -1,4 +1,6 @@
 """B01: recorded residual freezes must fail assessment and suppress affected averages."""
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-119.
 
 from __future__ import annotations
 

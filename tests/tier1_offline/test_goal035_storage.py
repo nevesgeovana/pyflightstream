@@ -20,6 +20,8 @@ geometry library on restore. Each ``test_mutant_*`` function shows the same
 check passes against the real module and fails (returns the opposite of what
 the real behaviour proves) against the mutant.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-173, FR-175.
 
 from __future__ import annotations
 

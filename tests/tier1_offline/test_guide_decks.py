@@ -27,6 +27,8 @@ What this does NOT check: that the PDFs are current with their sources. The
 build is a LaTeX run CI does not make; the build recipe prints the overfull
 box count, and the release step rebuilds.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-177.
 
 from __future__ import annotations
 

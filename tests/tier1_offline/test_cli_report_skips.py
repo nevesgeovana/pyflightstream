@@ -1,4 +1,6 @@
 """A recorded skip is said on stderr by the CLI (PFS-2031.16, PFS-2031.19)."""
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-162.
 
 import json
 

@@ -1,4 +1,6 @@
 """Since 0.26.0 the post always warns; check_frozen opts into refusing averages."""
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-119.
 
 from __future__ import annotations
 

@@ -14,6 +14,8 @@ numbers of the fixture, never read off the implementation. The speed of sound
 of the International Standard Atmosphere is ``sqrt(1.4 * 287.05287 * T)``:
 340.294 m/s at sea level (288.15 K), 328.387 m/s at 10 000 ft (268.338 K).
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-176.
 
 from __future__ import annotations
 

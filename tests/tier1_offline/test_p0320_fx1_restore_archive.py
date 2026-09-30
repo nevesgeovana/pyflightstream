@@ -7,6 +7,8 @@ to bring back but its own copies. Each test writes twice through the real writer
 restores the FIRST content end to end, byte for byte, from what the writer archived.
 The oracle is the archive form ``restore`` reads, named in its docstring.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-291, FR-292, FR-293, FR-294.
 
 from __future__ import annotations
 

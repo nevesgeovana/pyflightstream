@@ -1,4 +1,6 @@
 """Acceptance of the files users request while planning a workspace."""
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-150.
 
 import re
 import tomllib

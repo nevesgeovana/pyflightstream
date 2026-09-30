@@ -15,6 +15,8 @@ raw row and the written harmonic product; the route 2 offsets are the difference
 of the two rotor table rows turned into newtons with ``rho n^2 D^4``. Nothing
 expected is read off the module under test.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-185, FR-186.
 
 from __future__ import annotations
 

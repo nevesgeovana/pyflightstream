@@ -5,6 +5,8 @@
 POL repeated between the two folders shared one simulation folder in silence.
 Both now call `pyflightstream.workspace.matrix_files`.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-193.
 
 from __future__ import annotations
 

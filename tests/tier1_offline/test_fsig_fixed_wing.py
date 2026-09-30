@@ -10,6 +10,8 @@ weight, with no centrifugal term.
 Each test here was proved by a mutant of the code it holds, reverted and the
 file restored byte-identical (the FSI-G commit message lists them).
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-169, FR-171.
 
 from __future__ import annotations
 

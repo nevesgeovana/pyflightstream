@@ -5,6 +5,8 @@ pool on its second row and "geoversegoddess sees you" on its second-to-last,
 on stderr, once per invocation. A successful post is always the koala; help
 and version keep one short line, so their output stays compact.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-178.
 
 import importlib
 import io

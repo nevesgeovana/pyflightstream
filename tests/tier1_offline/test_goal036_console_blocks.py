@@ -12,6 +12,8 @@ nothing to say is not printed.
 The command runs in a child process with stderr joined to stdout, so the
 order asserted is the order a terminal shows, the warnings included.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-179.
 
 from __future__ import annotations
 

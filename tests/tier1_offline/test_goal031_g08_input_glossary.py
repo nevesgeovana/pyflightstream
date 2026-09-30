@@ -21,6 +21,8 @@ a table or a key the generator stopped writing.
 D08 is the citation: the user guide and the workflows page name the page, and
 the docs site renders it from the same function.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-123.
 
 from __future__ import annotations
 

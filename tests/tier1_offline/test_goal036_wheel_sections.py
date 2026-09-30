@@ -19,6 +19,8 @@ the blade's span.
 Every expected value is worked by hand from the fixture and the definitions,
 never read off the implementation.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-183.
 
 from __future__ import annotations
 

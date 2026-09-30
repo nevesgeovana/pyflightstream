@@ -20,6 +20,8 @@ block 3). In a frame spelt like a rotor's the builder resolved an expanding
 entry against the reference's rotor families, never over the names alone, so
 there the match is 0.26.0's: a user's own `X_RMRP` stays refused by name.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-122.
 
 from __future__ import annotations
 

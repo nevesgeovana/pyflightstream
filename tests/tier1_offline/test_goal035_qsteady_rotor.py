@@ -12,6 +12,8 @@ wheel's for good.
 Every expected number below is worked by hand from those definitions and the
 fixture's own values, never read off the implementation.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-165, FR-166.
 
 from __future__ import annotations
 

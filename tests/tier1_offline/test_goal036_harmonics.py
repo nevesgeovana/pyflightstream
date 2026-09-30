@@ -19,6 +19,8 @@ the loads are written from the known harmonics at those azimuths, and the
 fit must give the harmonics back. Nothing expected is read off the module
 under test.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-181.
 
 from __future__ import annotations
 

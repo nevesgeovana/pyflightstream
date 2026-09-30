@@ -47,6 +47,8 @@ The module imports the functions of the additional post through their module
 at call time rather than by name at the top, so on a tree without them each
 test fails on its own line instead of the whole file failing to collect.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-157, FR-163.
 
 from __future__ import annotations
 

@@ -1,4 +1,6 @@
 """F01: the run type selects the probe source for every declaration form."""
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-117, FR-153.
 
 from pathlib import Path
 

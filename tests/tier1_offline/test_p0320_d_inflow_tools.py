@@ -7,6 +7,8 @@ P0320-FILL-INTERIOR: the probes inside the body take the value of the ray outsid
 
 Every fixture is synthetic and built from the formulas of the requirement.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-250, FR-251, FR-252, FR-253.
 
 from __future__ import annotations
 

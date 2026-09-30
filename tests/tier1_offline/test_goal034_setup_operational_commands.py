@@ -14,6 +14,8 @@ consulted directly, the block is read off the rendered script. It is not a
 native claim; what the solver does with each line is the native-evidence
 obligations' business.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-152.
 
 from __future__ import annotations
 

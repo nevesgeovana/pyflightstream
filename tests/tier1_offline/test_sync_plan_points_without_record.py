@@ -5,6 +5,8 @@ said so. The other workspace's ``post/<stem>/plan.json`` lists what its plan
 called for; after the merge, a planned point no record carries was never
 attempted there. The sync entry records it per matrix and the CLI prints it.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-175.
 
 from __future__ import annotations
 

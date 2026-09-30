@@ -1,4 +1,6 @@
 """Integrated strips use exported positions and retain each instantaneous row."""
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-116.
 
 from __future__ import annotations
 

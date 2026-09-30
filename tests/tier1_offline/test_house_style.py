@@ -4,6 +4,8 @@ No em dash (U+2014) or en dash (U+2013) characters in Markdown or Python
 files, per the project style. Binary and local-only content guards run in
 pre-commit and in the CI guard job.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-177.
 
 import importlib.util
 import re

@@ -1,4 +1,6 @@
 """Boundary-layer section data retain original cell association."""
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-154.
 
 import numpy as np
 import pytest

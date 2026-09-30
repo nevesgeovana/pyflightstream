@@ -11,6 +11,8 @@ change, so the FSIDisp rows keep their meaning.
 The camber line is checked against the NACA four-digit mean line in closed
 form, not against the package's own crossing construction.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-170.
 
 import json
 import math

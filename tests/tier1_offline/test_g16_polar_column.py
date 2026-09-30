@@ -36,6 +36,8 @@ every table: the walk refuses any header that still names it, the fixed-width su
 included, and a table written before 0.27.0, which names the polar `POLAR` and has no `POL`,
 still reads into the super file's union as the polar.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-124.
 
 from __future__ import annotations
 

@@ -6,6 +6,8 @@ recorded as one job runs again as one job); the count is said before anything ru
 --sims narrows the run to those simulations; the mode is refused beside --resume and
 --force-rerun, for an id the matrix does not carry, and when nothing is recorded.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-131.
 
 from __future__ import annotations
 

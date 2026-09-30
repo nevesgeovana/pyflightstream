@@ -1,4 +1,6 @@
 """Physical input invariants; these tests do not substitute for a coupled solve."""
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-155.
 
 import hashlib
 import json

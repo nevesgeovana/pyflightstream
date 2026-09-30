@@ -20,6 +20,8 @@ added after it:
 Every expected number is worked by hand from the definitions and the
 fixture's own values, never read off the implementation.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-166, FR-167.
 
 from __future__ import annotations
 

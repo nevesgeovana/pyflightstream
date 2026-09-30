@@ -13,6 +13,8 @@ per unit coefficient and 9800 N m per unit moment coefficient. The rotor: D 2
 m at 3000 rev/min, ``n = 50`` rev/s, so ``rho n^2 D^4 = 1.225 * 2500 * 16 =
 49000`` and ``rho n^2 D^5 = 98000``.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-188.
 
 from __future__ import annotations
 

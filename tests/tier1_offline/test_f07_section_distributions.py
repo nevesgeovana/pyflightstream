@@ -1,4 +1,6 @@
 """F07 products use recorded export rows and preserve every stamped step."""
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-116.
 
 from __future__ import annotations
 

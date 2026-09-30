@@ -32,6 +32,8 @@ not the same fact as being accepted by a solver, and the
 acceptance clause of PFS-2025.06 that asks for one real unsteady case
 producing all four outputs needs a licensed seat that was not open.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-134.
 
 from __future__ import annotations
 

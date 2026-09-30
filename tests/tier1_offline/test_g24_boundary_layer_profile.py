@@ -8,6 +8,8 @@ unattended; it does not, so the command is recorded broken on 26.124 from the
 probe's compat transcription, and a row that writes it raw is refused at plan,
 naming the report, before a seat is spent.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-115.
 
 from __future__ import annotations
 

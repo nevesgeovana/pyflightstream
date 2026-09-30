@@ -13,6 +13,8 @@ direction of every ``Relaxed_TE`` shedding line with ``CCS_SHEDDING`` (G35).
 The fixtures are synthetic shapes written from public shape laws: a symmetric
 airfoil, a circular pod and an ellipse, never a research geometry.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-240, FR-241, FR-242, FR-243, FR-244, FR-295, FR-296, FR-297, FR-298.
 
 from __future__ import annotations
 

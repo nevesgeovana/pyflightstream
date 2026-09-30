@@ -27,6 +27,8 @@ row creates it after its solve and exports it under the point's own name:
 Nothing here runs a solver. What the delete-then-create sequence does on a
 seat is not measured: DELETE_VOLUME_SECTION is verified alone.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-159.
 
 from __future__ import annotations
 

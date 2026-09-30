@@ -40,6 +40,8 @@ refused in a modal dialog and logged as unreadable, and the same rows without
 the final newline are read. The thrust and the enable ran without abort on
 26.120 to 26.124 with their effect unobserved.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-128.
 
 from __future__ import annotations
 

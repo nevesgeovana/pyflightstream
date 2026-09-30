@@ -6,6 +6,8 @@ writing of F01 returned without writing the table AND without naming it: the pro
 was lost in silence, which is the failure this project spends its refusals on. A
 point whose artifact declares NO probe is not missing a product and is not named.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-117.
 
 from __future__ import annotations
 

@@ -1,4 +1,6 @@
 """Tier 1: a quasi-steady rotor row resolves J against the rotor block's own diameter."""
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-192.
 
 from __future__ import annotations
 

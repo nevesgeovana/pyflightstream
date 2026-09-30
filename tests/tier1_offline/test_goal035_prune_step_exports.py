@@ -13,6 +13,8 @@ call), in the series, the time-averaged surface and the section
 distributions, never a silent gap. A step that was never exported keeps the
 rule it had. Every workspace here is a real ``tmp_path`` tree.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-174.
 
 from __future__ import annotations
 

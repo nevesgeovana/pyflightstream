@@ -11,6 +11,8 @@ exactly those families renders the same script for that rotor.
 the alias over OTHER families, and an expanding frame names its emissions `<alias>`
 in the rotor's own turning axes. Neither is the rotor's global-frame history.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-132.
 
 from __future__ import annotations
 

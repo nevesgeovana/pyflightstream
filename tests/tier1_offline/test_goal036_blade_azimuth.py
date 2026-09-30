@@ -9,6 +9,8 @@ blade one's azimuth placed (n - 1) / N of a turn ahead, through
 definitions page states, ahead of blade one whatever the sense of rotation:
 the sense turns the CLOCK (the step), never the place of a blade on the disc.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-182.
 
 from __future__ import annotations
 

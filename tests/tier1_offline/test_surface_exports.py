@@ -3,6 +3,8 @@
 Oracle: inclusive last-n windows; 360 / DELTA_THETA steps per revolution.
 Command payload expectations come from the committed command database.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-113.
 
 from __future__ import annotations
 

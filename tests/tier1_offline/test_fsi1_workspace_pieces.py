@@ -6,6 +6,8 @@ route (FSI-G, ``test_fsig_fixed_wing.py``). The rotor wiring that calls
 these pieces is exercised in ``test_aeroelastic_typed_setup.py`` with the
 guard opened for that module.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-168, FR-169, FR-171.
 
 import pytest
 

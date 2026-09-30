@@ -7,6 +7,8 @@ convention) and ``CT_PROPELLER``, ``MU_ROTOR``, ``LAMBDA_C``, the momentum-theor
 the mean loads over the clockings. An inflow that does not converge is ``NA``
 and a WARNING line of ``post.log``.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-187.
 
 from __future__ import annotations
 

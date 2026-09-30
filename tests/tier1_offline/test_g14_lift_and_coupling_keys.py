@@ -11,6 +11,8 @@ that does not carry the command refuses the row at plan, naming the build. On
 database records that on their 26.124 rows, so a 26.124 row stating either key is
 refused naming the report instead of stopping mid-run.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-114.
 
 from __future__ import annotations
 

@@ -1,4 +1,6 @@
 """Post a campaign normally to warn, or pass check_frozen=True to refuse doubts."""
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-120.
 
 import json
 import re

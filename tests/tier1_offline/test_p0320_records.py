@@ -16,6 +16,8 @@ Every workspace here is synthetic: a steady row run through the real matrix
 entry with a stand-in solver that writes the exports the script names, the
 loads export of the fixture and a solver log that the assessor reads.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-212, FR-213, FR-214, FR-215, FR-216, FR-217, FR-218, FR-219.
 
 from __future__ import annotations
 

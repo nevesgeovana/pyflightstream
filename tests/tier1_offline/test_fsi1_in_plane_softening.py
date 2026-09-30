@@ -9,6 +9,8 @@ integral with the centrifugal tension as a P-Delta term and the softening as
 a load, solved by fixed-point iteration), written from its equations on a
 synthetic blade; it shares no code with the package.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-172.
 
 import math
 

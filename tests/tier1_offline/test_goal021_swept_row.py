@@ -11,6 +11,8 @@ Proved against a submitting executor that writes its descriptor and calls no
 scheduler, and a fake solver that writes into each point's working directory.
 Whether it holds on a real cluster is the owner's to run.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-130.
 
 from __future__ import annotations
 

@@ -12,6 +12,8 @@ Every blade here is cut in a frame whose axes are NOT the export's reading of
 the shaft: a rotor turning about z cut in its blade frame's XZ plane, whose
 ``Fx`` lies in the disc, and a tilted rotor cut in the geometry's frame.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-191.
 
 from __future__ import annotations
 

@@ -1,4 +1,6 @@
 """F04: setup keys reach the existing advanced-setting emitters and flag IDs."""
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-114.
 
 import pytest
 

@@ -12,6 +12,8 @@ So the point gets its `_uns_avg` table over the window its own record carries
 without), the stage SAYS which window that was, and no last-step polar is written
 under a steady name.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-161.
 
 from __future__ import annotations
 

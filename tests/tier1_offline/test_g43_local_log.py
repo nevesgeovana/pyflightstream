@@ -7,6 +7,8 @@ for a point with per-step actions rewrites `actions/pfs_unsteady_actions.count` 
 completed time step), never from what the solver prints. A stand-in solver advances that
 file here as the real one would.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-129, FR-130.
 
 from __future__ import annotations
 

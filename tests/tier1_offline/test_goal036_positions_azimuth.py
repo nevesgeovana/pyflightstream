@@ -7,6 +7,8 @@ the one home of a blade's azimuth,
 ``datum + sign(rpm) * theta_i``. For a left-hand wheel the two disagreed. The
 clockings table now reads the same home, so both agree for either hand.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-182.
 
 from __future__ import annotations
 

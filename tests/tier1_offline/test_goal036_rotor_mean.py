@@ -11,6 +11,8 @@ missing costs the point its row, named, rather than a mean of the rest.
 Polar 6001 of the recorded campaign is re-recorded as a quasi-steady wheel of
 two clockings at 1200 rev/min on a 2 m rotor PROP whose surfaces are W and B.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-190.
 
 from __future__ import annotations
 

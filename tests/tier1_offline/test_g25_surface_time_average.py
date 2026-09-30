@@ -14,6 +14,8 @@ same rule with the solver's own average on 26.122, which a licensed seat ran.
 The names this release adds are imported inside the tests that use them, so
 each case collects on a tree without them and fails on what it asserts.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-112, FR-160.
 
 from __future__ import annotations
 

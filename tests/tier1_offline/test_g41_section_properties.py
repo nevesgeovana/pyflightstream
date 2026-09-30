@@ -24,6 +24,8 @@ What is held here, and against what:
   generated blade deflects and twists as E I and G J say, which a
   modulus applied twice would miss by a factor of E.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-127.
 
 from __future__ import annotations
 

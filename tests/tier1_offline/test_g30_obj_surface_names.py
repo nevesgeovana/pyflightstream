@@ -26,6 +26,8 @@ one:
 The new names are reached through the module, not imported by name, so each
 test fails on its own assertion on a tree without the item.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-126.
 
 from __future__ import annotations
 

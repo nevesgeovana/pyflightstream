@@ -20,6 +20,8 @@
 
 Every workspace here is synthetic.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-220, FR-221, FR-222, FR-225, FR-226, FR-227.
 
 from __future__ import annotations
 

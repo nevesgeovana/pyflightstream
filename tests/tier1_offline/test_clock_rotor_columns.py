@@ -9,6 +9,8 @@ The pair is the CLOCK rotor's because a row may turn several rotors, each with i
 the one `CLOCK_MOTION` names, or the only one the row turns. The rotor table keeps `J_<alias>`
 per rotor.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-118.
 
 from __future__ import annotations
 

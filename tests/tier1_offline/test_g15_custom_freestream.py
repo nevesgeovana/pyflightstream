@@ -40,6 +40,8 @@ the rows alone. So:
 Nothing here runs a solver; what T14 measured on the seat is read by
 ``tests/tier3_licensed/test_freestream.py``.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-125.
 
 from __future__ import annotations
 

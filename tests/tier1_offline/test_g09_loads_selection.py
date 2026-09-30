@@ -14,6 +14,8 @@ exports, on every point of a sweep. A row of an unsteady run type stating any of
 them is refused: set after the solve starts, a march's per-step exports would not
 see them. A point whose loads table is not in coefficients writes no polar row.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-114.
 
 from __future__ import annotations
 

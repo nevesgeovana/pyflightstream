@@ -10,6 +10,8 @@ by the builder as its own text and read back by
 callers decide: the run judges the log as one solve and says so on the point's
 record, the post names each product it leaves out and never raises.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-189.
 
 from __future__ import annotations
 

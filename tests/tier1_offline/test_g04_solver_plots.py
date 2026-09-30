@@ -22,6 +22,8 @@ run wrote on 26.124: the header, the column line, the first three rows and the
 units footer, with the simulation file name made generic. Every other byte is
 the solver's.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-133.
 
 from __future__ import annotations
 

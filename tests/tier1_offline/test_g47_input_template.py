@@ -25,6 +25,8 @@ against the generator:
   unbroken control, so the acceptance above is not satisfied by a reader that
   accepts everything.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-123.
 
 from __future__ import annotations
 

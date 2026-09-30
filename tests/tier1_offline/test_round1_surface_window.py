@@ -1,4 +1,6 @@
 """Read malformed recorded windows and continue a stopped surface average."""
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-161.
 
 import pytest
 from pydantic import ValidationError

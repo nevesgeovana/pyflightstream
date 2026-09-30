@@ -10,6 +10,8 @@ record. The command order is the one the licensed round-1 probe A1 ran on
 26.124 (``reports/compat/CMP-26124_2026-09-30_acoustics.yaml``). Every fixture
 is synthetic.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-266, FR-267, FR-268.
 
 from __future__ import annotations
 

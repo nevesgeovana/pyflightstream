@@ -31,6 +31,8 @@ the rotations, ``PROFILE`` into the resolved file, ``RESTART`` into the owed
 step count) is varied where the builder reads it, and each such variation says
 which field stands for the key.
 """
+# The evidence line of these requirements cites this module (docs/srs/functional-requirements.md):
+# FR-164.
 
 from __future__ import annotations
 
