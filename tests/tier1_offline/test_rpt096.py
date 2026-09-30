@@ -85,3 +85,23 @@ def test_rpt096_is_indexed_where_the_tree_indexes_reports():
     assert f"[RPT-096]({STEM}.md)" in index
     fragment = (REPO / "changelog.d" / "R1.md").read_text(encoding="utf-8")
     assert "reports/RPT-096" in fragment
+
+
+def test_rpt096_totals_count_readings_and_the_report_says_so():
+    """The runner's 14 verified are (probe, command) readings; 11 commands are distinct."""
+    text = MD.read_text(encoding="utf-8")
+    totals = json.loads(SIDECAR.read_text(encoding="utf-8"))["totals"]
+    assert totals["commands_verified"] == 14
+    assert totals["distinct_commands_verified"] == 11
+    assert "14 verified readings of 11 distinct commands" in text
+    assert "14 commands verified" not in text
+    assert f"{totals['commands_unprobed']} accepted and unprobed readings" in text
+    assert f"{totals['commands_broken']} broken" in text
+
+
+def test_rpt096_stays_the_probe_report_and_not_a_ccs_or_acoustic_confirmation():
+    """The L1 arm counts a 0.32 report with these words as a confirmation."""
+    for path in (MD, SIDECAR):
+        text = path.read_text(encoding="utf-8")
+        assert not re.search(r"(?i)confirm", text), path.name
+        assert "unsteady_rotor" not in text, path.name

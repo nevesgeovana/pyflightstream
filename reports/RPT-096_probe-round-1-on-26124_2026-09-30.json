@@ -13,7 +13,7 @@
   "execution": "C:/WORK/release-0320/probes/round1/runs/<probe>/execution.json",
   "signals": "runs/A0_acoustic_sources_off/signals.txt and runs/A1_acoustic_chain/signals.txt"
  },
- "totals": {"probes": 13, "commands_verified": 14, "commands_unprobed": 26, "commands_broken": 1},
+ "totals": {"probes": 13, "commands_verified": 14, "distinct_commands_verified": 11, "totals_count": "readings, one command in one probe", "commands_unprobed": 26, "commands_broken": 1},
  "probes": [
   {
    "id": "B0_baseline",
