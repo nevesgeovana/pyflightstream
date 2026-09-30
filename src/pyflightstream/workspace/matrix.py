@@ -1095,7 +1095,6 @@ _PRESET_RECORDED_ONLY = {
         "a separation model that selects boundaries, and a preset carries no boundary "
         "selection; state it in a recipe"
     ),
-    "slipstream_wake_stabilization": "no emitter in this package",
     "wake_layers": "no emitter in this package",
 }
 

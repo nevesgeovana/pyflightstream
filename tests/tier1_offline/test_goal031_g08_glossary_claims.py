@@ -622,6 +622,10 @@ SETTING_VARIATIONS: dict[str, Variation] = {
     "axial_separation_families": _setting(
         "axial_separation_families", ["Wing"], ["Body"], on_wing=True
     ),
+    "delete_surfaces": _setting("delete_surfaces", ["Wing"], ["Body"], on_wing=True),
+    "slipstream_wake_stabilization": _setting(
+        "slipstream_wake_stabilization", True, False, rotor_case
+    ),
     "load_solver_initialization": _setting("load_solver_initialization", True, False, on_wing=True),
     "analysis_families": _setting("analysis_families", ["Wing"], ["Body"], on_wing=True),
     "load_units": _setting("load_units", "NEWTONS", "POUND-FORCE"),
