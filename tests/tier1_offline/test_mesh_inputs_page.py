@@ -316,7 +316,7 @@ def _reader_key_paths() -> set[tuple[str, ...]]:
     assert DETECT in sidecar_reader._TRAILING_EDGE_KEYS
     assert SURFACES in sidecar_reader._DETECT_KEYS
     tables = sidecar_reader.RAW_MESH_CONDITION_TABLES
-    paths = {(BOUNDARIES,), (imports,), *((name,) for name in tables)}
+    paths: set[tuple[str, ...]] = {(BOUNDARIES,), (imports,), *((name,) for name in tables)}
     paths |= {(imports, key) for key in MeshImport.model_fields}
     # 0.32.0 (P0320-I2): [import.ccs] is a model of its own. Its REQUIRED keys are what a
     # sidecar block must state to be accepted, so they are the page's; the optional ones
