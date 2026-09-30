@@ -680,7 +680,7 @@
     migration commit. A core dependency adopted without one would breach
     a requirement this batch did not touch.
 
-!!! requirement "NFR-23 Layering guard <span class='srs-implemented'>implemented</span>"
+!!! requirement "NFR-23 Layering guard <span class='srs-pending'>pending</span>"
     *Origin: the ITACA mirror review (item M2), accepted 2026-07-27 as
     a new requirement rather than a mirror. Evidence:
     `tests/tier1_offline/test_goal028_module_level_layering.py::test_no_module_level_import_reaches_a_higher_layer`,

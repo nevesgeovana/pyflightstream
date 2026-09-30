@@ -2515,9 +2515,9 @@
    "id": "NFR-23",
    "text": "Read with PFS-2054, PFS-2054.06, PFS-2054.07 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.",
    "priority": "M",
-   "status": "implemented",
+   "status": "pending",
    "evidence": "*Origin: the ITACA mirror review (item M2), accepted 2026-07-27 as a new requirement rather than a mirror. Evidence: tests/tier1_offline/test_goal028_module_level_layering.py::test_no_module_level_import_reaches_a_higher_layer, tests/tier1_offline/test_conventions.py::test_no_function_body_import_reaches_a_higher_layer, ::test_the_matrix_reader_imports_nothing_above_the_cases_layer and ::test_the_results_tables_module_imports_the_workspace_layer_nowhere_at_runtime, each marked with this requirement.*",
-   "verification": "test"
+   "verification": "none"
   },
   {
    "id": "NFR-24",
