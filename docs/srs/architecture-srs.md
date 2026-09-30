@@ -320,10 +320,15 @@ one of them keeps.
     records reading their pattern, `ARCHIVE_STAMP_PATTERN`, from the same
     home), `FLAG_PHASES` (from `cases`), the unit that names no length
     (`UNIT_THAT_NAMES_NO_LENGTH`, from the floor `_lengths`, for
-    `cases.ccs_wing` and the workflows), the section command (from
-    `cases.workflows`, for `post.superfile`), the stabilization command
-    (from `script.helpers`, for `cases.setup_surfaces`), the length-unit
-    command (from `script`, for `script.helpers`), `VELOCITY_KEYS` (from
+    `cases.ccs_wing` and the workflows), the section command
+    `SECTION_DISTRIBUTION_COMMAND` (from `cases.workflows`, for
+    `post.superfile`), the stabilization command
+    `WAKE_STABILIZATION_COMMAND` (from `script.helpers`, for
+    `cases.setup_surfaces`), the length-unit command `LENGTH_UNIT_COMMAND`
+    (from `script`, for `script.helpers` and `workspace.wake_edges`, whose
+    public copy the guard found once the private pair had gone; the shared
+    names are public, so no module imports a private name of a sibling),
+    `VELOCITY_KEYS` (from
     `cases.matrix`, for `workspace.flight_condition`) and `ACOUSTICS_DIR`
     (from `cases.acoustics`, for `post.acoustics`). Two more pairs the
     guard measured, the loads export and the displacement file of the

@@ -76,7 +76,7 @@ from pyflightstream._errors import (
 )
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.script import (
-    _LENGTH_UNIT_COMMAND,
+    LENGTH_UNIT_COMMAND,
     CommandArgumentError,
     Script,
     ScriptReferenceError,
@@ -980,8 +980,8 @@ def _refuse_what_a_euclidean_rotor_cannot_state(
         counted = [
             version.canonical
             for version in known_versions()
-            if _STABILIZATION in (view := registry.for_version(version.canonical))
-            and "num_blades" in {arg.name for arg in view[_STABILIZATION].args}
+            if WAKE_STABILIZATION_COMMAND in (view := registry.for_version(version.canonical))
+            and "num_blades" in {arg.name for arg in view[WAKE_STABILIZATION_COMMAND].args}
         ]
         raise CommandArgumentError(
             f"rotary_motion: FlightStream {build} documents no slipstream wake "
@@ -992,7 +992,9 @@ def _refuse_what_a_euclidean_rotor_cannot_state(
         )
 
 
-_STABILIZATION = "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION"
+#: The slipstream wake stabilization command; its one home (AD-10), which
+#: cases.setup_surfaces emits too.
+WAKE_STABILIZATION_COMMAND = "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION"
 
 #: The factor from a speed in rev/min to each unit a Euclidean angular
 #: velocity is written in. Keyed by the rotor_vocabulary unit constants, so
@@ -3279,7 +3281,7 @@ def render_wake_edge_node_file(midpoints: Sequence[Sequence[float]]) -> str:
 
 # The command whose enumeration is the simulation's length-unit vocabulary,
 # which is where the import's third token is drawn from, is
-# `_LENGTH_UNIT_COMMAND`, imported from its one home in the script root (AD-10).
+# `LENGTH_UNIT_COMMAND`, imported from its one home in the script root (AD-10).
 
 #: The one build the file route was run on, and the report that ran it.
 WAKE_EDGE_FILE_ROUTE_MEASURED_ON = "26.124"
@@ -3292,7 +3294,7 @@ def _simulation_length_units(script: Script) -> tuple[str, ...]:
     OTHER names no scale, so a node file converted to it would carry
     coordinates in nothing the package can state.
     """
-    entry = script.registry.commands.get(_LENGTH_UNIT_COMMAND)
+    entry = script.registry.commands.get(LENGTH_UNIT_COMMAND)
     if entry is None:
         return ()
     for arg in entry.args:
@@ -3435,7 +3437,7 @@ def mark_wake_edges(
     if units not in known:
         raise CommandArgumentError(
             f"mark_wake_edges: units is {units!r}, and the third token is the "
-            f"simulation's length unit, one of the {_LENGTH_UNIT_COMMAND} tokens with a "
+            f"simulation's length unit, one of the {LENGTH_UNIT_COMMAND} tokens with a "
             f"scale: {', '.join(known)}. The solver reads the node file in the "
             "simulation's unit and reads no unit from the file, so the points must "
             "already be in it"

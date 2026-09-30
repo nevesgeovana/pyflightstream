@@ -75,9 +75,6 @@ from pyflightstream.results.sectional_loads import (
 from pyflightstream.results.sectional_loads import SectionBlock as SectionBlock
 from pyflightstream.results.sectional_loads import UnitsError as UnitsError
 from pyflightstream.results.sectional_loads import (
-    _validate_block_boundaries as _validate_block_boundaries,
-)
-from pyflightstream.results.sectional_loads import (
     parse_sectional_loads as parse_sectional_loads,
 )
 

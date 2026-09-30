@@ -36,7 +36,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from pyflightstream.cases import CampaignConfigError, select_group_members
-from pyflightstream.script.helpers import _STABILIZATION
+from pyflightstream.script.helpers import WAKE_STABILIZATION_COMMAND
 
 if TYPE_CHECKING:
     from pyflightstream.cases import SimCase
@@ -147,7 +147,9 @@ def emit_wake_stabilization(
     enabled = case.solver.slipstream_wake_stabilization
     if enabled is None:
         return
-    takes_count = "num_blades" in {argument.name for argument in script.entry(_STABILIZATION).args}
+    takes_count = "num_blades" in {
+        argument.name for argument in script.entry(WAKE_STABILIZATION_COMMAND).args
+    }
     if enabled and blades is None and takes_count:
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {WAKE_STABILIZATION_KEY} as ENABLE, and the solver "
@@ -157,7 +159,7 @@ def emit_wake_stabilization(
     arguments: list[object] = [motion_id, "ENABLE" if enabled else "DISABLE"]
     if takes_count:
         arguments.append(blades if blades is not None else 1)
-    script.emit(_STABILIZATION, *arguments)
+    script.emit(WAKE_STABILIZATION_COMMAND, *arguments)
 
 
 def refuse_setup_keys_that_reached_nothing(script: Script, case: SimCase) -> None:
@@ -186,7 +188,7 @@ def refuse_setup_keys_that_reached_nothing(script: Script, case: SimCase) -> Non
             "remove the key."
         )
     if solver.slipstream_wake_stabilization is not None and not any(
-        line.startswith(_STABILIZATION + " ") for line in lines
+        line.startswith(WAKE_STABILIZATION_COMMAND + " ") for line in lines
     ):
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {WAKE_STABILIZATION_KEY}, and the row creates no "

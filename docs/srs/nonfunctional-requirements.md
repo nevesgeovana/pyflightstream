@@ -847,7 +847,9 @@
     errors in 18 of 97 modules, 0.30.0 read 1065 in 18 of 134, 0.31.0 read 1084
     in 18 of 139 (RPT-029, 2026-09-29), and the 0.32.0 development branch read
     1084 in 18 of 149 after the step that laid down its ten contract modules,
-    and 1112 in 18 of 150 once every 0.32.0 package had merged (2026-09-30).
+    and 1112 in 18 of 150 once every 0.32.0 package had merged (2026-09-30);
+    the 0.33.0 branch of work packages WP1 and WP2 read 1137 in 18 of 151 on
+    the same date, its base 1137 in 18 of 150, the one module it added clean.
     The eighteen exempted modules are the same set, every module a release
     adds is clean, and the shipped configuration is green over all of them.
     The count of errors inside the exempted set grows with the code those

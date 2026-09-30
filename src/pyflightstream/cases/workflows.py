@@ -10819,15 +10819,15 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
             # none when the pproc asks for none, and is refused by name when it
             # asks to include the copy; a build with the argument is unchanged.
             takes_symmetry = _SECTION_SYMMETRY_ARG in {
-                arg.name for arg in script._view[_SECTION_COMMAND].args
+                arg.name for arg in script._view[SECTION_DISTRIBUTION_COMMAND].args
             }
             if sections.include_symmetry and not takes_symmetry:
                 raise CampaignConfigError(
                     f"case {case.sim_id!r}: the pproc artifact asks section distributions to "
                     f"include the symmetry copy (include_symmetry = true), and FlightStream "
                     f"{script.version.canonical} has no INCLUDE_SYMMETRY in "
-                    f"{_SECTION_COMMAND}. Set include_symmetry = false for this build, or run "
-                    "the row on a build whose distributions take the switch."
+                    f"{SECTION_DISTRIBUTION_COMMAND}. Set include_symmetry = false for this "
+                    "build, or run the row on a build whose distributions take the switch."
                 )
             symmetry = (
                 {"include_symmetry": "ENABLE" if sections.include_symmetry else "DISABLE"}
@@ -10851,7 +10851,7 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
                     }
                 )
                 script.emit(
-                    _SECTION_COMMAND,
+                    SECTION_DISTRIBUTION_COMMAND,
                     frame=frame,
                     plane=plane,
                     # FR-76: the entry's own where it states one, the
@@ -10868,15 +10868,16 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
                 )
 
 
-#: The section command, and the argument only the builds from 26.120 take.
-_SECTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
+#: The section command, and the argument only the builds from 26.120 take. The
+#: command's one home (AD-10): post.superfile reads a super file with it.
+SECTION_DISTRIBUTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
 _SECTION_SYMMETRY_ARG = "include_symmetry"
 
 #: Every command that adds a surface section or takes one away, the builder's
 #: distribution among them. A script carrying none of them changes no section.
 _SURFACE_SECTION_COMMANDS = frozenset(
     {
-        _SECTION_COMMAND,
+        SECTION_DISTRIBUTION_COMMAND,
         "CREATE_NEW_SURFACE_SECTION",
         "DELETE_SURFACE_SECTION",
         "DELETE_ALL_SURFACE_SECTIONS",
