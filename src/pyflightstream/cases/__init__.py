@@ -103,6 +103,14 @@ from pyflightstream._tokens import REDUCTION_COLUMNS
 # while it loads.
 from pyflightstream.cases._ccs import CcsImportOptions
 
+# The setup keys' command table and the tables FR-319 added; its module imports
+# only pydantic and the command database, so the package may import it while it loads.
+from pyflightstream.cases._setup_keys import (
+    SOLVER_SETTING_COMMANDS,
+    MomentsModel,
+    UnsteadyAction,
+)
+
 # The quasi-steady wheel's correction choice (0.31.0), a table of the pproc; its
 # module imports only the floor, so the package may import it while it loads.
 from pyflightstream.cases.corrections import QsteadyCorrectionSpec
@@ -4295,6 +4303,13 @@ class SolverSettings(BaseModel):
     #: 25.000, 25.100 and 26.000 editions alone, so the database refuses it on
     #: every later build, naming the build.
     unsteady_viscous_coupling_iteration: int | None = Field(default=None, ge=1)
+    #: SET_ANALYSIS_MOMENTS_MODEL (FR-317): PRESSURE or VORTICITY, the moments
+    #: model stated before the solve; None states the default PRESSURE, except on a
+    #: row turning a rotor with vorticity drag, which states VORTICITY (FR-318).
+    moments_model: MomentsModel | None = None
+    #: SET_NEW_UNSTEADY_SOLVER_ACTION (FR-319): actions run after every time step
+    #: of an unsteady row, after the package's own. None emits nothing.
+    unsteady_solver_actions: list[UnsteadyAction] | None = Field(default=None, min_length=1)
 
     @field_validator("load_units")
     @classmethod
@@ -4312,100 +4327,6 @@ class SolverSettings(BaseModel):
             f"load_units = {value!r} is not one of {', '.join(allowed)} "
             f"(SET_LOADS_AND_MOMENTS_UNITS, {entry.citation})"
         )
-
-
-#: The solver command each :class:`SolverSettings` field reaches, for the
-#: generated input glossary ``INPUTS.md`` (G08 of 0.27.0), which reads the
-#: builds a setting is accepted on off the command's own evidence. A field
-#: absent here reaches no command: ``timeout_s`` is the executor's and
-#: ``walltime_margin_s`` the wall-clock program's. Written out rather than
-#: matched by name against the helper's flags, because two fields share a
-#: helper keyword's name and reach another command: ``solver_model`` and
-#: ``wall_collision_avoidance`` are arguments of ``INITIALIZE_SOLVER``.
-SOLVER_SETTING_COMMANDS: dict[str, str] = {
-    "simulation_length_unit": "SET_SIMULATION_LENGTH_UNITS",
-    "vertex_merge_tolerance_m": "SET_VERTEX_MERGE_TOLERANCE",
-    "geometric_edge_bluntness_angle_deg": "SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE",
-    "iterations": "SOLVER_SET_ITERATIONS",
-    "convergence": "SOLVER_SET_CONVERGENCE",
-    "forced_iterations": "SOLVER_SET_FORCED_ITERATIONS",
-    "boundary_layer": "SET_BOUNDARY_LAYER_TYPE",
-    "viscous_coupling": "SET_SOLVER_VISCOUS_COUPLING",
-    "viscous_excluded": "SET_VISCOUS_EXCLUDED_BOUNDARIES",
-    "surface_roughness": "SET_SURFACE_ROUGHNESS",
-    "thin_boundaries": "SET_THIN_BOUNDARIES",
-    "bulk_separation": "CREATE_BULK_SEPARATION",
-    "airfoil_separation": "CREATE_AIRFOIL_SEPARATION",
-    "axial_vortex_separation": "CREATE_AXIAL_VORTEX_SEPARATION",
-    "cylindrical_bulk_separation": "CREATE_CYLINDRICAL_BULK_SEPARATION",
-    "stratford_bulk_separation": "CREATE_STRATFORD_BULK_SEPARATION",
-    "delete_separations": "DELETE_SEPARATION",
-    "valarezo_criterion": "VALAREZO_CRITERION",
-    "valarezo_separation_boundaries": "SET_VALAREZO_SEPARATION_BOUNDARIES",
-    "crossflow_separation_boundaries": "SET_CROSSFLOW_SEPARATION_BOUNDARIES",
-    "crossflow_separation_diameter": "SET_CROSSFLOW_SEPARATION_DIAMETER",
-    "crossflow_separation_mean_diameter": "SET_CROSSFLOW_SEPARATION_CP",
-    "crossflow_separation_axisymmetric": "SET_CROSSFLOW_SEPARATION_AXISYMMETRIC",
-    "legacy_solver_model": "SET_SOLVER_MODEL",
-    "trailing_edge_types": "SET_TRAILING_EDGE_TYPE",
-    "disabled_wake_trailing_edges": "DISABLE_WAKE_NODES_ON_TRAILING_EDGE",
-    "leading_edge_wake_boundaries": "DETECT_LEADING_EDGES_WAKES_BY_SURFACE",
-    "mark_wake_termination_nodes": "MARK_WAKE_TERMINATION_NODES",
-    "delete_inlets": "DELETE_INLET",
-    "delete_outlets": "DELETE_OUTLET",
-    "proximal_boundaries": "SOLVER_PROXIMAL_BOUNDARIES",
-    "remove_initialization": "REMOVE_INITIALIZATION",
-    "base_region_bending_angle_deg": "SET_BASE_REGION_BENDING_ANGLE",
-    "delete_transition_trips": "DELETE_TRANSITION_TRIP",
-    "clear_vorticity_drag_boundaries": "DELETE_VORTICITY_DRAG_BOUNDARIES",
-    "sonic_velocity_m_per_s": "SONIC_VELOCITY",
-    "physics_auto_trailing_edges": "PHYSICS",
-    "physics_auto_wake_nodes": "PHYSICS",
-    "max_threads": "SET_MAX_PARALLEL_THREADS",
-    "solver_model": "INITIALIZE_SOLVER",
-    "wall_collision_avoidance": "INITIALIZE_SOLVER",
-    "convergence_iterations": "SET_SOLVER_CONVERGENCE_ITERATIONS",
-    "minimum_cp": "SOLVER_MINIMUM_CP",
-    "farfield_layers": "SOLVER_SET_FARFIELD_LAYERS",
-    "mesh_induced_wake_velocity": "SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY",
-    "unsteady_pressure_and_kutta": "SOLVER_UNSTEADY_PRESSURE_AND_KUTTA",
-    "wake_on_wake_induction": "SET_WAKE_ON_WAKE_INDUCTION",
-    "additional_wake_relaxation": "ADDITIONAL_WAKE_RELAXATION_ITERATION",
-    "reynolds_averaged_drag": "REYNOLDS_AVERAGED_DRAG_FORCES",
-    "solver_stabilization": "SOLVER_STABILIZATION",
-    "laminar_separation": "LAMINAR_SEPARATION",
-    "kutta_joukowski_lift": "KUTTA_JOUKOWSKI_LIFT_FORCES",
-    "aeroelastic_rbf_type": "AEROELASTIC_RBF_TYPE",
-    "print_rotor_induced_velocities": "PRINT_ROTOR_INDUCED_VELOCITIES",
-    "adaptive_field_grid_refinement": "SET_ADAPTIVE_FIELD_GRID_REFINEMENT",
-    "rotor_induced_velocity_blending": "ROTOR_INDUCED_VELOCITY_BLENDING",
-    "wake_numerical_relaxation": "SET_WAKE_NUMERICAL_RELAXATION",
-    "wake_relaxation": "SET_WAKE_RELAXATION",
-    "wake_decay_constant_per_m": "SET_WAKE_DECAY_CONSTANT",
-    "wake_streamwise_agglomeration": "SET_WAKE_STREAMWISE_AGGLOMERATION",
-    "jet_wake_decay_normalized_length": "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH",
-    "jet_wake_filaments_grid_induction": "SET_JET_WAKE_FILAMENTS_GRID_INDUCTION",
-    "adverse_gradient_boundary_layer": "SOLVER_SET_ADVERSE_GRADIENT_BOUNDARY_LAYER",
-    "vortex_ring_normalization": "SOLVER_VORTEX_RING_NORMALIZATION",
-    "wake_termination_revolutions": "SET_WAKE_TERMINATION_TIME_STEPS",
-    "wake_termination_steps": "SET_WAKE_TERMINATION_TIME_STEPS",
-    "symmetry_loads": "SET_ANALYSIS_SYMMETRY_LOADS",
-    "significant_digits": "SET_SIGNIFICANT_DIGITS",
-    "reference_velocity_m_per_s": "SOLVER_SET_REF_VELOCITY",
-    "freestream_input": "SOLVER_SET_MACH_NUMBER",
-    "reference_mach": "SOLVER_SET_REF_MACH_NUMBER",
-    "disable_reference_velocity": "DISABLE_SOLVER_REF_VELOCITY",
-    "vorticity_drag_families": "SET_VORTICITY_DRAG_BOUNDARIES",
-    "axial_separation_families": "SET_AXIAL_SEPARATION_BOUNDARIES",
-    "delete_surfaces": "DELETE_SURFACES",
-    "slipstream_wake_stabilization": "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION",
-    "load_solver_initialization": "OPEN",
-    "analysis_families": "SET_SOLVER_ANALYSIS_BOUNDARIES",
-    "load_units": "SET_LOADS_AND_MOMENTS_UNITS",
-    "inviscid_loads": "SET_INVISCID_LOADS",
-    "vorticity_lift_model": "SET_VORTICITY_LIFT_MODEL",
-    "unsteady_viscous_coupling_iteration": "SET_UNSTEADY_VISCOUS_COUPLING_ITERATION",
-}
 
 
 class FluidState(BaseModel):
@@ -5240,6 +5161,9 @@ class SimCase(BaseModel):
     #: angle or a ratio, which resolve once for the whole row.
     point_states: dict[str, PointState] = Field(default_factory=dict)
     fs_build: str | None = None
+    #: The setup keys the matrix row stated over its preset, as written in the
+    #: cell (FR-316); :attr:`solver` already carries their effective values.
+    setup_from_row: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _one_sweep_per_case(self) -> SimCase:

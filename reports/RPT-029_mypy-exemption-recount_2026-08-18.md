@@ -77,7 +77,12 @@
 > `cases/_unsteady_actions.py`, `workspace/_geometry_clean.py` and
 > `workspace/_matrix_homes.py`, brought it from 150 to 154, and by the run of
 > 2026-09-30 on `rel/0-33` with both branches merged, which holds the 150 and
-> all five new modules, 155. (An
+> all five new modules, 155, and by the run of 2026-09-30 on the 0.33.0
+> branch of the setup requirements FR-316 to FR-319 (`feat/0-33-setup`),
+> whose three new modules, `cases/_setup_keys.py`, `cases/_setup_link.py`
+> and `workspace/_row_setup.py`, brought it from 150 to 153, and by the run
+> of 2026-09-30 on `rel/0-33` with all three branches merged, which holds
+> the 150 and all eight new modules, 158. (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
 > modules and the 0.24.0 tree at 661 in 18 of 93; the 0.28.0 release tree read
 > 863 errors in 18 of 104 on 2026-09-25; the 0.29.0 quality-gate candidate
@@ -87,33 +92,37 @@
 > read 1065 in 18 of 134, and as the 0.31.0 release candidate; the
 > 0.32.0 preparation step read 1084 in 18 of 149 on 2026-09-29;
 > the 0.33.0 branch of WP1 and WP2 read 1137 in 18 of 151 and the branch
-> of FR-310 to FR-314 1133 in 18 of 154, both on 2026-09-30;
+> of FR-310 to FR-314 1133 in 18 of 154, the branch of FR-316 to FR-319
+> 1137 in 18 of 153 and `rel/0-33` with WP1, WP2 and FR-310 to FR-314 merged
+> 1133 in 18 of 155, all on 2026-09-30;
 > measurements of different
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 1133 errors in 18 files (checked 155 source files)
->     Success: no issues found in 155 source files
+>     Found 1133 errors in 18 files (checked 158 source files)
+>     Success: no issues found in 158 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-30: 1133 errors in 18 of 155 modules.**
+**mypy recount 2026-09-30: 1133 errors in 18 of 158 modules.**
 
-The module total is the 155 the tracked package holds on the 0.33.0 branch
-with work packages WP1 and WP2 and FR-310 to FR-314 merged, five more than
-the integrated 0.32.0 branch's 150, each of the five clean
-(`results/sectional_loads.py` from WP1 and WP2; `_fsm_fresh.py`,
+The module total is the 158 the tracked package holds on the 0.33.0 branch
+with work packages WP1 and WP2, FR-310 to FR-314 and FR-316 to FR-319
+merged, eight more than the integrated 0.32.0 branch's 150, each of the
+eight clean (`results/sectional_loads.py` from WP1 and WP2; `_fsm_fresh.py`,
 `cases/_unsteady_actions.py`, `workspace/_geometry_clean.py` and
-`workspace/_matrix_homes.py` from FR-310 to FR-314); those 150 were eleven
-more than v0.31.0's 139, each of the eleven clean
+`workspace/_matrix_homes.py` from FR-310 to FR-314; `cases/_setup_keys.py`,
+`cases/_setup_link.py` and `workspace/_row_setup.py` from FR-316 to
+FR-319); those 150 were eleven more than v0.31.0's 139, each of the eleven
+clean
 (the ten contract modules of the preparation step and `cases/_ccs.py`);
 v0.31.0's own 139 were five more than
 v0.30.0's 134, each of the five clean;
 the error total sits inside the exempted set, the number of modules holding
 an exemption is unchanged at eighteen, and the shipped configuration is
-green over all 155. The run at 139 was taken by `python scripts/mypy_recount.py`
+green over all 158. The run at 139 was taken by `python scripts/mypy_recount.py`
 on the 0.31.0 release candidate at `33c1d7ef`, which the script reported
 clean, and the runs at 149 and 150 are stated in their own sections at the end; the v0.30.0 release tree's reading, 1065 errors in 18 of 134, is
 stated in its own section below.
@@ -392,11 +401,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 1133 errors in 18 files (checked 155 source files)
+    Found 1133 errors in 18 files (checked 158 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 155 source files
+    Success: no issues found in 158 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -955,3 +964,37 @@ alone read 1133 in 18 of 154, each against the base `rel/0-33` at
 `5df3d692` at 1137 in 18 of 150, and the merged tree reads 1133; this run
 assigns no share of the difference to one change. The quoted mypy lines and
 the sentence at the top of this report are this run's.
+
+## Re-measured 2026-09-30, the 0.33.0 branch of FR-316 to FR-319: three modules arrived clean
+
+`python scripts/mypy_recount.py` on 2026-09-30, on the 0.33.0 branch of the
+setup requirements FR-316 to FR-319 (`feat/0-33-setup` at `ef831369`, the
+tree committed and clean, as the script reported), with python 3.12.0, numpy
+2.5.3, xarray 2026.7.0, pandas 3.0.6 and pydantic 2.13.5 (the script printed
+mypy's version as unknown): 1137 errors in 18 of 153 modules on 199 distinct
+source lines. The three modules the branch adds, `cases/_setup_keys.py`, `cases/_setup_link.py` and `workspace/_row_setup.py`,
+are not exempted and the tool reports each CLEAN, so the dirty count still
+reads 18. The base of the branch, `rel/0-33` at `8bf21f3b`, was not
+re-measured; `rel/0-33` at `5df3d692`, four source files earlier, read 1137 in
+18 of 150 on the same environment. The run assigns no share of any difference
+to a change. The shipped configuration is green over all 153. The quoted mypy
+lines and the sentence at the top of this report are this run's.
+
+## Re-measured 2026-09-30, the 0.33.0 branch with WP1, WP2, FR-310 to FR-314 and FR-316 to FR-319 merged: eight modules arrived clean
+
+`python scripts/mypy_recount.py` on 2026-09-30, on `rel/0-33` during the
+merge of `feat/0-33-setup` at `a031f5ac` into `rel/0-33` at `7d1f50ac`
+(which carries WP1, WP2 and FR-310 to FR-314), every file under `src/`
+resolved and staged, with python 3.12.0, numpy 2.5.3, xarray 2026.7.0,
+pandas 3.0.6 and pydantic 2.13.5 (the script printed mypy's version as
+unknown): 1133 errors in 18 of 158 modules on 199 distinct source lines.
+The eight modules the three branches added are not exempted and the tool
+reports each CLEAN, so the dirty count still reads 18, and the shipped
+configuration is green over all 158. The script read 155 tracked modules
+because it lists the tree of HEAD, and the three modules the merge stages
+are the three of FR-316 to FR-319; the merge commit brings the tracked
+total to the 158 mypy checked. `rel/0-33` before this merge read 1133 in 18
+of 155 and FR-316 to FR-319 alone read 1137 in 18 of 153, and the merged
+tree reads 1133; this run assigns no share of any difference to one
+change. The quoted mypy lines and the sentence at the top of this report
+are this run's.

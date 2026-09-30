@@ -100,6 +100,7 @@ from pyflightstream.cases import (
     SolverToggle,
     default_outputs,
 )
+from pyflightstream.cases._setup_keys import TEMPLATE_SETTINGS_LEFT_OUT as _SETTINGS_LEFT_OUT
 from pyflightstream.cases.corrections import CALIBRATIONS_DIR
 from pyflightstream.cases.matrix import ATTITUDE_KEYS, COLUMN_MEANINGS, FLIGHT_CONDITION_KEYS
 from pyflightstream.cases.workflows import (
@@ -2440,96 +2441,74 @@ def _filled(text: str) -> str:
 #: example shows the table's other form, and the comment beside it shows this.
 _IN_THE_COMMENT = "the other form, shown in the comment above its table"
 
-#: The setup's solver settings the example leaves at their defaults.
-_SETTINGS_LEFT_OUT: tuple[str, ...] = (
-    "apply_trailing_edges",
-    "apply_wake_termination",
-    "apply_base_regions",
-    "simulation_length_unit",
-    "vertex_merge_tolerance_m",
-    "geometric_edge_bluntness_angle_deg",
-    "actuator_operations",
-    "base_region_operations",
-    "base_region_bending_angle_deg",
-    "delete_inlets",
-    "delete_outlets",
-    "proximal_boundaries",
-    "remove_initialization",
-    "delete_transition_trips",
-    "clear_vorticity_drag_boundaries",
-    "viscous_excluded",
-    "surface_roughness",
-    "legacy_solver_model",
-    "trailing_edge_types",
-    "thin_boundaries",
-    "bulk_separation",
-    "airfoil_separation",
-    "axial_vortex_separation",
-    "cylindrical_bulk_separation",
-    "stratford_bulk_separation",
-    "delete_separations",
-    "valarezo_criterion",
-    "valarezo_separation_boundaries",
-    "crossflow_separation_boundaries",
-    "crossflow_separation_diameter",
-    "crossflow_separation_mean_diameter",
-    "crossflow_separation_axisymmetric",
-    "disabled_wake_trailing_edges",
-    "leading_edge_wake_boundaries",
-    "mark_wake_termination_nodes",
-    "sonic_velocity_m_per_s",
-    "physics_auto_trailing_edges",
-    "physics_auto_wake_nodes",
-    "forced_iterations",
-    "max_threads",
-    "timeout_s",
-    "walltime_margin_s",
-    "solver_model",
-    "convergence_iterations",
-    "minimum_cp",
-    "mesh_induced_wake_velocity",
-    "unsteady_pressure_and_kutta",
-    "wake_on_wake_induction",
-    "additional_wake_relaxation",
-    "reynolds_averaged_drag",
-    "laminar_separation",
-    "kutta_joukowski_lift",
-    "aeroelastic_rbf_type",
-    "print_rotor_induced_velocities",
-    "adaptive_field_grid_refinement",
-    "rotor_induced_velocity_blending",
-    "wake_numerical_relaxation",
-    "wake_relaxation",
-    "wake_decay_constant_per_m",
-    "wake_streamwise_agglomeration",
-    "jet_wake_decay_normalized_length",
-    "jet_wake_filaments_grid_induction",
-    "adverse_gradient_boundary_layer",
-    "vortex_ring_normalization",
-    "wake_termination_revolutions",
-    "wake_termination_steps",
-    "symmetry_loads",
-    "significant_digits",
-    "reference_velocity_m_per_s",
-    "freestream_input",
-    "reference_mach",
-    "disable_reference_velocity",
-    "vorticity_drag_families",
-    "axial_separation_families",
-    "load_solver_initialization",
-    "analysis_families",
-    "load_units",
-    "inviscid_loads",
-    "vorticity_lift_model",
-    "unsteady_viscous_coupling_iteration",
-    "delete_surfaces",
-    "slipstream_wake_stabilization",
-)
-
 
 def _page(name: str, title: str) -> tuple[str, str]:
     """Return a documentation page the template links: ``docs/<name>.md`` and its title."""
     return (name, title)
+
+
+#: The setup tables the input template's example leaves out, each with the
+#: reason and its keys: the separation models, whose assignment is
+#: scenario-specific, and the per-step actions of FR-319.
+_SETUP_TABLES_LEFT_OUT: Mapping[str, Mapping[str, tuple[str, ...]]] = {
+    "`[bulk_separation]`": MappingProxyType(
+        {
+            "scenario-specific assignment; select surfaces explicitly": (
+                "name",
+                "separation_type",
+                "diameter",
+                "boundaries",
+            )
+        }
+    ),
+    "`[[airfoil_separation]]`": MappingProxyType(
+        {
+            "scenario-specific assignment; select surfaces explicitly": (
+                "name",
+                "valarezo_criterion",
+                "boundaries",
+            )
+        }
+    ),
+    "`[[axial_vortex_separation]]`": MappingProxyType(
+        {
+            "scenario-specific assignment; select surfaces explicitly": (
+                "name",
+                "diameter",
+                "frame",
+                "body_axis",
+                "sharp_nose_vortices",
+                "boundaries",
+            )
+        }
+    ),
+    "`[[cylindrical_bulk_separation]]`": MappingProxyType(
+        {
+            "scenario-specific assignment; select surfaces explicitly": (
+                "name",
+                "diameter",
+                "boundaries",
+            )
+        }
+    ),
+    "`[[stratford_bulk_separation]]`": MappingProxyType(
+        {
+            "scenario-specific assignment; select surfaces explicitly": (
+                "name",
+                "boundaries",
+            )
+        }
+    ),
+    "`[[unsteady_solver_actions]]`": MappingProxyType(
+        {
+            "optional, a marching row's per-step actions": (
+                "type",
+                "name",
+                "filename",
+            )
+        }
+    ),
+}
 
 
 def _template_sections() -> tuple[TemplateSection, ...]:
@@ -2706,54 +2685,7 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                             ),
                         }
                     ),
-                    "`[bulk_separation]`": MappingProxyType(
-                        {
-                            "scenario-specific assignment; select surfaces explicitly": (
-                                "name",
-                                "separation_type",
-                                "diameter",
-                                "boundaries",
-                            )
-                        }
-                    ),
-                    "`[[airfoil_separation]]`": MappingProxyType(
-                        {
-                            "scenario-specific assignment; select surfaces explicitly": (
-                                "name",
-                                "valarezo_criterion",
-                                "boundaries",
-                            )
-                        }
-                    ),
-                    "`[[axial_vortex_separation]]`": MappingProxyType(
-                        {
-                            "scenario-specific assignment; select surfaces explicitly": (
-                                "name",
-                                "diameter",
-                                "frame",
-                                "body_axis",
-                                "sharp_nose_vortices",
-                                "boundaries",
-                            )
-                        }
-                    ),
-                    "`[[cylindrical_bulk_separation]]`": MappingProxyType(
-                        {
-                            "scenario-specific assignment; select surfaces explicitly": (
-                                "name",
-                                "diameter",
-                                "boundaries",
-                            )
-                        }
-                    ),
-                    "`[[stratford_bulk_separation]]`": MappingProxyType(
-                        {
-                            "scenario-specific assignment; select surfaces explicitly": (
-                                "name",
-                                "boundaries",
-                            )
-                        }
-                    ),
+                    **_SETUP_TABLES_LEFT_OUT,
                     "`[[actuator_operations]]`": MappingProxyType(
                         {
                             "explicit actions require actual saved or created actuator names": (

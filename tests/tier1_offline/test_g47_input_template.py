@@ -478,6 +478,9 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
             e.get("remesh", {}) for f in data for e in f.get("ports", []) if isinstance(e, dict)
         ],
         "`[[actuator_operations]]`": [e for f in data for e in f.get("actuator_operations", [])],
+        "`[[unsteady_solver_actions]]`": [
+            e for f in data for e in f.get("unsteady_solver_actions", [])
+        ],
         "`[[base_region_operations]]`": [
             e for f in data for e in f.get("base_region_operations", [])
         ],

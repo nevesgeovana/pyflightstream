@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.55.0 |
+| Version | 1.56.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -41,7 +41,7 @@ or ambiguous.
    rules, with the generated [architecture overview](../architecture.md)
    as the live companion.
 6. [Functional requirements](functional-requirements.md): FR-01 to
-   FR-315, each with origin, status, and evidence.
+   FR-319, each with origin, status, and evidence.
 7. [Non-functional requirements](nonfunctional-requirements.md):
    NFR-01 to NFR-30.
 8. [Standards alignment](standards.md): the external practices this
@@ -98,6 +98,7 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.56.0 | 2026-09-30 | **THE FUNCTIONAL RANGE READS FR-01 TO FR-319**: four requirements join the functional chapter for 0.33.0, each an author decision of the day for a per-build setup study. FR-316 (a matrix row states native setup keys over its preset, warned at plan, refused where it would change a value the preset states), FR-317 (the moments model is a setup key, `PRESSURE` unstated as before), FR-318 (on a row turning a rotor the moments model follows the vorticity drag list; the two do not yet reach the same step exports, and the licensed confirmation is registered) and FR-319 (every choosable command of the five solver chapters has a key or a measured reason for none, in the audit RPT-106). NFR-27 records the type-checker re-count of the branch with WP1, WP2, FR-310 to FR-314 and FR-316 to FR-319 merged, 1133 errors in 18 of 158 modules. |
 | 1.55.0 | 2026-09-30 | **FR-310 TO FR-314 RECORD WHAT WAS BUILT, AND THEIR STATUSES STAY PENDING, because moving a status is the owner's acceptance.** FR-310 names the one lookup, `pyflightstream.workspace._matrix_homes.matrix_path`, the commands it serves read from the parsers, and what `space-in-use`, `free-space`, `delete-sims` and `restore --matrix` were checked to read. FR-311 fixes its key, `[log] job_end_files`, and the 20 lines a record carries, and stays pending until a cluster folder confirms the file names. FR-312 lists the blocks reset and kept from the measurement over the ten tier-3 fresh imports of 26.120, and stays pending on the paired measurement, a 26.124 fresh import and the licensed confirmation; FR-308 R3 says which blocks FR-312 now changes. FR-313 states one warning per geometry naming every row. FR-314 states the builds that register the counter (26.122 and later) and that a row without export stays a `single_march`. NFR-27 records the type-checker re-count of the branch with WP1, WP2 and FR-310 to FR-314 merged, 1133 errors in 18 of 155 modules. |
 | 1.54.0 | 2026-09-30 | **THE FUNCTIONAL RANGE READS FR-01 TO FR-315**: FR-315 (every command ends with the signature on standard error, an author decision of the day) joins the functional chapter for 0.33.0. A standard error that cannot encode the drawing now receives it with replacement marks instead of nothing. |
 | 1.53.0 | 2026-09-30 | **NFR-29 R2 STATES WHICH MODULES IT COVERS AND HOW A MODULE WITH NO `__all__` COUNTS.** A public subpackage is every public module at every depth, the inventory the public-API test affirms, each with a page of its own; read as the root and the modules one level down, the reference carried 582 names on 21 pages, and it now carries 1894 on 123. A public module that declares no `__all__` (51 of 122) contributes the public names it defines itself, by the renderer's rule, and the list of such modules is pinned and only shrinks. NFR-29 records what DOC-A built and the evidence offered for its acceptance; its status stays pending, because moving a status is the owner's acceptance. AD-02 lists the three new generated pages. |

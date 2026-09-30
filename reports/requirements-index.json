@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 262,
-  "total": 322,
+  "cited_by_a_test": 266,
+  "total": 326,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -2309,6 +2309,38 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: an author decision of 2026-09-30 about the signature of FR-178: it appears at the end of every command, always. Evidence: tests/tier1_offline/test_p0330_signature_always.py::test_every_console_script_is_wrapped_fr_315, ::test_every_outcome_signs_on_a_non_terminal_stderr_fr_315, ::test_an_ascii_stderr_still_carries_the_signature_fr_315, ::test_mutant_without_the_fallback_loses_the_signature_fr_315.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-316",
+   "text": "Need: A study that varies one setup factor per row needed one preset per row, because a row could not state a setup key at all.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: an author decision of 2026-09-30, for a per-build setup study whose matrix gives every row one basic preset and one setup factor, the factor named by its native setup key; the default that a row never overwrites a value its preset states is part of the same decision. Measured before it on 0.32.0: a row stating viscous_coupling, wake_on_wake_induction or reynolds_averaged_drag in its cell was refused by the run type as a key of no run type. Evidence: tests/tier1_offline/test_fr316_row_setup_keys.py::test_a_key_the_preset_lacks_is_added_for_that_row_only_and_warned, ::test_an_equal_value_is_accepted_with_the_warning, ::test_a_differing_value_for_a_key_the_preset_states_is_refused, ::test_a_solver_alias_is_a_setup_key_and_follows_the_same_rule, ::test_an_unstated_row_resolves_its_preset_unchanged, ::test_an_unknown_key_is_still_refused, ::test_a_table_valued_key_is_refused_naming_what_a_row_can_carry, ::test_a_list_of_names_is_carried_comma_separated, ::test_one_setting_in_both_vocabularies_is_refused_as_ambiguous, ::test_an_invalid_value_is_refused_by_the_presets_own_loader, ::test_the_row_keys_reach_the_setup_snapshot_of_the_run_record.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-317",
+   "text": "Need: The moments model is a choice of the analysis, and a hard-coded value is a setting nobody can change.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: an author decision of 2026-09-30 asking for a key for the moments model, which every builder wrote as SET_ANALYSIS_MOMENTS_MODEL PRESSURE with no key; found missing by the audit of FR-319. Evidence: tests/tier1_offline/test_fr317_fr318_moments_model.py::test_an_unstated_moments_model_leaves_the_script_byte_identical, ::test_a_stated_moments_model_changes_that_line_and_no_other, ::test_a_moments_model_the_command_does_not_take_is_refused, ::test_a_stated_moments_model_is_emitted_where_no_frame_is_placed; the workflow goldens, unchanged.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-318",
+   "text": "Need: A rotor's thrust and torque read from one load must come from one integration.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: an author requirement of 2026-09-30, set from a prior measurement made outside this package: on a propeller run with the induced drag by vorticity and the moments by pressure, the thrust came from the vorticity integration and the torque from the pressure integration. The requirement is that on a rotor the two settings are one decision; it asserts no solver behaviour of its own. Evidence: tests/tier1_offline/test_fr317_fr318_moments_model.py::test_on_a_rotor_vorticity_drag_implies_vorticity_moments_warned_and_recorded, ::test_on_a_rotor_pressure_moments_beside_vorticity_drag_are_refused, ::test_the_link_holds_only_on_a_rotor_and_only_with_a_drag_list, ::test_a_rotor_row_is_recognised_by_the_builder. Owed: the licensed confirmation of R5, registered in RPT-106.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-319",
+   "text": "Need: A command whose value a user can choose and no key reaches is a setting the package takes on the user's behalf.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: an author decision of 2026-09-30 that every setting of the solver's setup and advanced settings be reached by the workflow, and that a setting that cannot be is listed with its measured reason for a decision rather than deferred silently. Evidence: reports/RPT-106_setup-key-audit_2026-09-30.md; tests/tier1_offline/test_fr319_setup_key_audit.py::test_every_choosable_command_of_the_five_chapters_has_a_key_or_a_reason, ::test_each_audit_defect_is_caught, ::test_no_emitter_hard_codes_a_choosable_value_of_the_five_chapters, ::test_the_keys_given_now_are_routed_to_their_commands_on_26124, ::test_a_marching_row_registers_the_setups_actions_and_a_steady_row_refuses_them.*",
    "verification": "test"
   },
   {
