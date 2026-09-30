@@ -12,6 +12,8 @@ of the call, a warning of the package's own categories prints as
 columns under its text and followed by a blank line (0.31.0); ``--verbose``
 keeps Python's full format. A Python caller outside a console script is never
 touched.
+
+The signature always appears (FR-315): no flag, stream kind or error path hides it.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ import warnings
 from collections.abc import Callable
 from contextvars import ContextVar
 from functools import wraps
+from typing import TextIO
 
 import pyflightstream._signature as _signature
 from pyflightstream._console import warning_text
@@ -61,6 +64,43 @@ def _signature_text(outcome: str) -> str:
         return f"{_RNG.choice(_MESSAGES[outcome])} {_signature.SEES_YOU}"
     name, phrase = _signature.pick(outcome, _RNG)
     return f"\n{_signature.box(name, phrase)}\n"
+
+
+def _write_replaced(text: str, stream: TextIO) -> None:
+    """Write ``text`` with the stream's own encoding, a replacement mark for what it lacks."""
+    encoding = getattr(stream, "encoding", None) or "ascii"
+    data = text.encode(encoding, errors="replace")
+    buffer = getattr(stream, "buffer", None)
+    if buffer is not None:
+        stream.flush()
+        buffer.write(data)
+        buffer.flush()
+    else:
+        stream.write(data.decode(encoding, errors="replace"))
+
+
+def _sign(outcome: str) -> None:
+    """Print the signature of ``outcome`` on stderr; it always appears (FR-315).
+
+    It is never optional and no flag, stream kind or error path silences it: a
+    stream that cannot encode the drawing gets the same text with replacement
+    marks, and a drawing that cannot be built falls back to the bare line. Only
+    a closed or broken stream prints nothing, and it never replaces the
+    command's own result or exit code.
+    """
+    try:
+        text = _signature_text(outcome)
+    except Exception:
+        text = _signature.SEES_YOU
+    stream = sys.stderr
+    try:
+        try:
+            print(text, file=stream)
+        except UnicodeEncodeError:
+            _write_replaced(f"{text}\n", stream)
+    except (OSError, ValueError, AttributeError):
+        # A closed diagnostic stream must not replace the real result.
+        pass
 
 
 def _short_warnings(standard: Callable[..., str]) -> Callable[..., str]:
@@ -125,11 +165,6 @@ def cli_entrypoint[**P, R](function: Callable[P, R]) -> Callable[P, R]:
             _ACTIVE.reset(token)
             if outcome == "success" and posted[0]:
                 outcome = "post"
-            try:
-                print(_signature_text(outcome), file=sys.stderr)
-            except (OSError, ValueError):
-                # A closed or unencodable diagnostic stream must not replace
-                # the real result.
-                pass
+            _sign(outcome)
 
     return wrapped

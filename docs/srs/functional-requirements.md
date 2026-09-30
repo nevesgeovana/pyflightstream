@@ -7786,3 +7786,19 @@ Requirements written after the specification was last reconciled with the packag
     - R5 That the counter leaves the solver's results unchanged on a row without export is not measured; the report of the licensed round states the comparison, and until then the claim is unverified.
 
     Solution (planned for 0.33.0): the counter registration of `pyflightstream.cases.workflows` for every unsteady row.
+
+!!! requirement "FR-315 Every command ends with the signature on standard error <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the owner's decision of 2026-09-30, "quero que sempre apareça a mensagem, sempre kkkkkk", about the signature of FR-178. Evidence: `tests/tier1_offline/test_p0330_signature_always.py::test_every_console_script_is_wrapped_fr_315`, `::test_every_outcome_signs_on_a_non_terminal_stderr_fr_315`, `::test_an_ascii_stderr_still_carries_the_signature_fr_315`, `::test_mutant_without_the_fallback_loses_the_signature_fr_315`.*
+
+    Need: The signature is the owner's mark on every command, and she wants it to appear every time. Until 0.32.0 a standard error whose encoding could not encode the drawing printed nothing, and a failure while drawing was swallowed with it.
+
+    Requirement: every command of the package ends with the signature of FR-178 on standard error, whatever the outcome, the stream or the flags.
+
+    - R1 Every console script of the package, and every module documented to run with `python -m`, is wrapped by `pyflightstream._cli.cli_entrypoint`.
+    - R2 The signature appears for a success, a failed return, a nonzero exit, an uncaught exception, an interrupt, `--help`, `--version` and a post; help and version keep their one compact line, which carries "geoversegoddess sees you".
+    - R3 No flag, environment variable or kind of stream (terminal or not) hides it.
+    - R4 A standard error that cannot encode the text receives it encoded with the stream's own encoding and replacement marks for the characters it lacks; a drawing that cannot be built is replaced by the line "geoversegoddess sees you". Only a closed or broken stream prints nothing.
+    - R5 The signature never replaces the command's result, its exception or its exit code.
+
+    Solution (release 0.33.0): `pyflightstream._cli.cli_entrypoint`, which signs through one function with the fallback of R4.
