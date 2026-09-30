@@ -2,7 +2,7 @@ schema: pyflightstream-compat-report/1
 fs_version: '26.124'
 date: '2026-09-30'
 fs_exe: FlightStream_26124.exe
-fs_exe_sha256: 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+fs_exe_sha256: 'withheld; build 8172026'
 measured_at: '2026-09-30T01:11:09+00:00'
 executor: the 0.32.0 round-1 probe harness, -hidden -script (as run; mechanism SRC-003 pp.279-280; argument spelling RPT-023)
 solver_identity:

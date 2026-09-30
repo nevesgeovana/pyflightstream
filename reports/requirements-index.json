@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 257,
-  "total": 322,
+  "cited_by_a_test": 258,
+  "total": 323,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -2581,6 +2581,14 @@
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: item DOC-B of the 0.33.0 scope (GEO-071, section 3.3), from the same audit, which found 64 percent of docstrings describing their parameters and result and 15 percent also carrying Raises and Examples, and the unsteady reductions explained on three pages that contradict one another. Pending: nothing of it is built. Evidence owed: the ruff configuration and its clean run, a tier-1 test over the exported functions for R2, and the documentation tests for R3.*",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-31",
+   "text": "What is committed (reports, compatibility and probe records, fixtures, source and tests) identifies the solver by its version and build, never by the machine it ran on.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: an author decision of 2026-09-30 for 0.33.0. Pending: the first sweep is built (the executable digest of FlightStream 26.124 left every tracked file, and the workspace paths left RPT-095; the paths other reports still name, and the digests of other builds, are not yet swept), and moving the status is the owner's acceptance. Evidence: the tier-1 guard tests/tier1_offline/test_p0330_no_executable_hash.py (P0330-NO-EXE-HASH), which scans every tracked text file for 64-character hexadecimal tokens and refuses the withheld digest, compared by its own SHA-256 so the guard does not carry it.*",
    "verification": "none"
   }
  ]

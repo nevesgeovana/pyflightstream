@@ -5,7 +5,7 @@ row that states `FREESTREAM` (a custom free-stream field) builds, runs and
 is read by the solver, through the package's own path (`pyfs-matrix plan`,
 `pyfs-matrix run`, the post that `run` performs) on **FlightStream 26.124,
 build 8172026**, executable SHA-256
-`68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65`
+withheld from the public tree per NFR-31
 (`fs_exe_sha256` in `runs.json`). The package is the tree of `feat/0-31` at
 `8d0c8827` (`package_commit`, `package_dirty: false`). One solver instance at
 a time, hidden, far field 5 layers. The run records and the post are those of

@@ -29,7 +29,7 @@ registered before the solver ran.
 One probe workspace, seven steady points, ONE THING MOVED per point: the rate.
 
     geometry    30_WB, the same half wing-body mesh as RPT-052 (sha256 3a5f174c...)
-    build       FlightStream 26.124 (build 8172026, executable sha256 68e64e66...)
+    build       FlightStream 26.124 (build 8172026, executable sha256 withheld per NFR-31)
     package     0.27.0.dev0 at b705329
     condition   MACH 0.2, REmi 11.7716754, alpha 2 deg, beta 0
     setup       RPT-052's preset plus farfield_layers = 5; SYMMETRY NONE

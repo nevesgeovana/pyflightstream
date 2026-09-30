@@ -271,7 +271,7 @@ def test_recorded_millimetre_rotor_field_keeps_units_frames_and_vertex_topology(
     import pyflightstream.post.probe_fields as fields
 
     identity = {
-        "fs_exe_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+        "fs_exe_sha256": "9" * 64,
         "fs_build": "8172026",
     }
     motion = {
@@ -452,7 +452,7 @@ def test_steady_field_uses_measured_reference_export_and_si_velocity(tmp_path):
             campaign=None,
             probe_field_layout=[layout],
             frame_motions=script.frame_motions,
-            fs_exe_sha256="68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+            fs_exe_sha256="9" * 64,
             fs_build="8172026",
             solver_setup=helpers.solver_settings(Script("26.124"), velocity=30).model_dump(
                 mode="json"

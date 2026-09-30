@@ -29,7 +29,7 @@ manual's sample writes it:
     SAVE_PLOT_TO_FILE
     <path of the file to write>
 
-    build       FlightStream 26.124 (build 8172026, executable sha256 68e64e66...)
+    build       FlightStream 26.124 (build 8172026, executable sha256 withheld per NFR-31)
 
 ## What came back
 

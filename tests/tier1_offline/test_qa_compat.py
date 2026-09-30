@@ -1616,6 +1616,8 @@ def test_the_committed_compat_corpus_is_readable_and_carries_no_digest():
     """
     from pathlib import Path
 
+    from pyflightstream.versions import resolve
+
     corpus = sorted((Path(__file__).resolve().parents[2] / "reports" / "compat").glob("*.yaml"))
     assert len(corpus) >= 27, (
         f"the walk read {len(corpus)} committed compat reports, fewer than the 27 that "
@@ -1639,6 +1641,12 @@ def test_the_committed_compat_corpus_is_readable_and_carries_no_digest():
                 f"{path.name} carries a digest; the committed corpus before 2026-08-19 "
                 "predates the field and is never back-filled"
             )
+        elif str(digest or "").startswith("withheld"):
+            # NFR-31: the public tree withholds the digest; the record names the
+            # build, which is the registry's, and the baseline withholds it too.
+            version = str(document["fs_version"])
+            assert digest == f"withheld; build {resolve(version).build}", path.name
+            assert baseline[version]["sha256"] == "", path.name
         elif digest is not None:
             recorded = baseline[str(document["fs_version"])]["sha256"]
             assert digest == recorded, (
@@ -1709,6 +1717,33 @@ def test_a_printed_build_that_disagrees_stops_licensed_work_naming_both_numbers(
     assert answer.verdict is ExecutableVerdict.MISMATCH
     assert "9992026" in answer.message and "8112026" in answer.message
     assert "no further licensed work starts" in answer.message
+
+
+def test_a_withheld_baseline_digest_is_compared_by_the_build(tmp_path):
+    """NFR-31: a row whose digest is withheld reads as empty, never as a digest.
+
+    The binary is then UNKNOWN by its bytes and named as withheld, and the
+    identity probe's build confirms it; a local baseline that keeps the digest
+    still transfers it without a seat.
+    """
+    exe, digest = fake_executable(tmp_path)
+    table = tmp_path / "baseline.md"
+    table.write_text(
+        "| Version | Names | sha256 | Bytes |\n|---|---|---|---|\n"
+        "| 26.124 | Fake.exe | withheld; build 8172026 | 1 |\n",
+        encoding="utf-8",
+    )
+    baseline = read_executable_baseline(table)
+    assert baseline["26.124"]["sha256"] == ""
+    answer = classify_executable(exe, version="26.124", baseline=baseline)
+    assert answer.verdict is ExecutableVerdict.UNKNOWN and answer.baseline_sha256 is None
+    assert "withholds the digest" in answer.message and "--identity-only" in answer.message
+    confirmed = classify_executable(
+        exe, version="26.124", baseline=baseline, printed_build="8172026"
+    )
+    assert confirmed.verdict is ExecutableVerdict.CONFIRMED
+    local = classify_executable(exe, version="26.124", baseline={"26.124": {"sha256": digest}})
+    assert local.verdict is ExecutableVerdict.TRANSFERS
 
 
 def test_an_unreadable_executable_is_refused_rather_than_reported_unknown(tmp_path):

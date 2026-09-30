@@ -29,7 +29,7 @@ saves it, applies ONE block, and saves again. Any script that initialises states
                 both imported and saved with no detection
     instrument  the saved mesh block's edge-slot rows turned into edge mid-points;
                 offline, the reader gives 16 on the stored 10_WING.fsm and 12 on 30_BLADE.fsm
-    build       FlightStream 26.124 (build 8172026, executable sha256 68e64e66...)
+    build       FlightStream 26.124 (build 8172026, executable sha256 withheld per NFR-31)
 
 ## What came back
 

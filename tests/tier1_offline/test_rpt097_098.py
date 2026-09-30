@@ -18,7 +18,9 @@ STEMS = {
     "RPT-097": "RPT-097_ccs-confirmation-round-2-on-26124_2026-09-30",
     "RPT-098": "RPT-098_acoustic-chain-wake-and-surface-removal-round-3-on-26124_2026-09-30",
 }
-EXE_SHA = "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65"
+#: NFR-31: the report names the build and withholds the executable digest.
+EXE_IDENTITY = "withheld; build 8172026"
+WITHHELD_WORDS = "withheld from the public tree per NFR-31"
 LENGTH = re.compile(r"(?i)(diameter|chord|radius|span)[^.\n]{0,40}\d+(\.\d+)?\s?(m|mm)\b")
 DIMENSIONAL = re.compile(
     r"\d\s?(?:N m|N|m/s|kg/m3|rev/min)\b|RPM\d|\"rpm\"|_Nm?\"|delta_time_s|velocity_m_s"
@@ -34,10 +36,10 @@ def _paths(report: str) -> tuple[Path, Path]:
 def test_the_report_names_the_release_the_build_and_the_hash(report):
     md, sidecar = _paths(report)
     text = md.read_text(encoding="utf-8")
-    assert "26.124" in text and "8172026" in text and EXE_SHA in text
+    assert "26.124" in text and "8172026" in text and WITHHELD_WORDS in text
     assert re.search(r"(?<![\d.])0\.32(?![\d])", text)
     data = json.loads(sidecar.read_text(encoding="utf-8"))
-    assert data["report"] == report and data["executable_sha256"] == EXE_SHA
+    assert data["report"] == report and data["executable_sha256"] == EXE_IDENTITY
     assert "## What these rounds do not establish" in text or (
         "## What this round does not establish" in text
     )

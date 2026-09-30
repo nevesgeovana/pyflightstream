@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-EXECUTABLE_SHA256 = "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65"
 RECEIPTS = {
     "GOAL033_FSI_NATIVE_RECEIPT": (
         "0c502422a1fe0fcf21c2883983bd3204b3ecaf66efbebb979dfb8ead65664ab9"
@@ -28,7 +27,9 @@ def _case(name):
     raw = Path(location).read_bytes()
     assert hashlib.sha256(raw).hexdigest() == RECEIPTS[key]
     receipt = json.loads(raw)
-    assert receipt["exe_sha256"] == EXECUTABLE_SHA256
+    # The receipt's bytes are pinned above; its executable digest stays in
+    # the private receipt and is never repeated here (NFR-31).
+    assert len(str(receipt["exe_sha256"])) == 64
     return next(case for case in receipt["cases"] if case["name"] == name)
 
 

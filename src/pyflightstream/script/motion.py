@@ -7,12 +7,14 @@ from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
 
-# Exact version, simulation unit and executable digest. Delayed starts remain unproved.
+# Exact version, simulation unit and solver build (NFR-31: the build identifies the
+# measured executable; the package carries no executable digest). A run must still
+# have recorded its own executable digest. Delayed starts remain unproved.
 _ROTARY_PROOFS: dict[tuple[str, str, str], dict[str, Any]] = {
     (
         "26.124",
         "METER",
-        "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+        "8172026",
     ): {
         "fs_build": "8172026",
         "signed_rpm_factor": 1,
@@ -34,7 +36,7 @@ _ROTARY_PROOFS: dict[tuple[str, str, str], dict[str, Any]] = {
     (
         "26.124",
         "MILLIMETER",
-        "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+        "8172026",
     ): {
         "fs_build": "8172026",
         "signed_rpm_factor": 1,
@@ -90,12 +92,12 @@ def resolve_frame_motion(
         (
             str(result.get("solver_version", "")),
             str(result.get("length_unit", "")),
-            str(solver_identity.get("fs_exe_sha256", "")),
+            str(solver_identity.get("fs_build", "")),
         )
     )
     if proof is None or proof.get("fs_build") != solver_identity.get("fs_build"):
         return result
-    if not solver_identity.get("fs_build"):
+    if not solver_identity.get("fs_build") or not solver_identity.get("fs_exe_sha256"):
         return result
     vectors = [result.get(k) for k in ("origin_native", "x_axis", "y_axis", "z_axis")]
     vectors += [trajectory.get(k) for k in ("center_native", "axis_reference")]
@@ -219,8 +221,10 @@ class MotionLedger:
     ) -> dict[int, dict[str, Any]]:
         """Return detached final placement and timing records, preserving unknowns."""
         result: dict[int, dict[str, Any]] = {}
-        proof = _ROTARY_PROOFS.get((version, length_unit or "", executable_sha256 or ""))
-        if proof is not None and (not build or proof.get("fs_build") != build):
+        # Keyed by the build (NFR-31), so a proof found names this build; the run
+        # must still have bound a digest of the executable it ran.
+        proof = _ROTARY_PROOFS.get((version, length_unit or "", build or ""))
+        if proof is not None and (not executable_sha256 or proof.get("fs_build") != build):
             proof = None
         ambiguous = any("frames" not in m or m.get("all_frames") for m in self.motions.values())
         for index in range(1, frame_count + 1):

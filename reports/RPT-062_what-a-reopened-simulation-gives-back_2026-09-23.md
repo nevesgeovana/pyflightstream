@@ -28,7 +28,7 @@ solver alive and at least 4 GB free before each.
     unsteady    40_PUSHER, tier-3 row 9001 run again on 26.124 with farfield layers 5:
                 30 degrees per step, one revolution, step exports from half a revolution;
                 COMPLETED_MAX_ITER, 857 iterations
-    build       FlightStream 26.124 (build 8172026, executable sha256 68e64e66...)
+    build       FlightStream 26.124 (build 8172026, executable sha256 withheld per NFR-31)
     package     0.27.0.dev0 at 709bbd1
 
 Each variant moved one thing:

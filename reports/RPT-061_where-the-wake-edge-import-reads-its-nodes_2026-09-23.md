@@ -29,7 +29,7 @@ the variant, and saves it again.
 
     geometry    the tier-3 10_WING mesh: 816 faces, a straight trailing edge at
                 x = 1, z = 0, 16 mesh edges on it every 0.5 m of span
-    build       FlightStream 26.124 (build 8172026, executable sha256 68e64e66...)
+    build       FlightStream 26.124 (build 8172026, executable sha256 withheld per NFR-31)
     package     0.27.0.dev0 at 2f3c10e
     instrument  the saved simulation's per-face trailing-edge rows (two 0/1 rows
                 and two T/F rows), counted before and after, the edge-type row,

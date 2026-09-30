@@ -11,7 +11,7 @@ report is the committed evidence.
 
 | Item | Value |
 |---|---|
-| Executable | Flightstream_26124.exe (sha256 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65, local, `_private/exe/`, never committed) |
+| Executable | Flightstream_26124.exe (sha256 withheld from the public tree per NFR-31, local, `_private/exe/`, never committed) |
 | Executor | LocalExecutor, `-hidden -script` (as run; mechanism SRC-003 pp.279-280; argument spelling RPT-023) |
 | Package | pyflightstream 0.27.0.dev6 |
 | Solver identity lines | FlightStream version 26.1, build #8172026 |

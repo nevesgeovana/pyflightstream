@@ -247,7 +247,7 @@ def test_steady_volume_layout_round_trips_through_field_writer(tmp_path):
         solver_setup=helpers.solver_settings(Script("26.124"), velocity=30).model_dump(),
         probe_field_layout=script.probe_field_layout,
         frame_motions=script.frame_motions,
-        fs_exe_sha256="68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+        fs_exe_sha256="9" * 64,
         fs_build="8172026",
     )
     written = write_recorded_probe_fields(table, record, tmp_path / "fields", "volume")

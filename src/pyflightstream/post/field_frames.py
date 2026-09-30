@@ -245,11 +245,14 @@ def native_velocity_proof(
     Fluid-plot evidence does not establish steady probe or surface-vector
     conventions, and metre controls do not establish millimetre behavior.
     """
-    expected_hash = "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65"
+    # NFR-31: build 8172026 of 26.124 identifies the measured executable; the run's
+    # own recorded digest is required and echoed, never compared with a constant.
+    digest = solver_identity.get("fs_exe_sha256")
     unit = motion_record.get("length_unit")
     if (
         motion_record.get("solver_version") != "26.124"
-        or solver_identity.get("fs_exe_sha256") != expected_hash
+        or not isinstance(digest, str)
+        or not digest
         or solver_identity.get("fs_build") != "8172026"
     ):
         raise ProductError("native velocity convention has no evidence for this export/build/unit")
@@ -284,7 +287,7 @@ def native_velocity_proof(
         raise ProductError("native velocity convention has no evidence for this export/build/unit")
     return {
         "state": "known",
-        "fs_exe_sha256": expected_hash,
+        "fs_exe_sha256": digest,
         "fs_build": "8172026",
         "length_unit": unit,
         "export_kind": export_kind,

@@ -6,7 +6,7 @@ where_the_raw_files_are: 'The solver outputs stayed on the measuring machine and
 geometry: 30_WB (the RPT-052 mesh)
 input_mesh_sha256: 3a5f174c594e6cd6b47517da4da9b633ea4c95cf9f00d17f4ddfd5d1539bd00a
 executable_sha256:
-  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+  '26.124': 'withheld; build 8172026'
 package: {version: 0.27.0.dev0, commit: b705329}
 setup: RPT-052 preset plus farfield_layers = 5 (every script carries SOLVER_SET_FARFIELD_LAYERS 5)
 points:

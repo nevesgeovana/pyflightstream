@@ -42,7 +42,7 @@ and names both files.
 | 26.121 | 7262026 | Flightstream_2612.exe, FlightStream_26121.exe | `d318da05d4df3f7fca57c565bab6da9712b11b256dda93a691e74cd7d027afec` | 19134856 |
 | 26.122 | 8092026 | Flightstream_2612.exe, FlightStream_26122.exe | `75668a514d1887db2f94a97e3d57662888029e3e9e0b5e8f5611ac7082b15690` | 19169160 |
 | 26.123 | 8112026 | Flightstream_2612.exe, FlightStream_26123.exe | `213c854a3f6569d74c760fda93b51dadef3a85a4cb724efa18f79b60fce84348` | 19194760 |
-| 26.124 | 8172026 | Flightstream_26124.exe | `68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65` | 19197320 |
+| 26.124 | 8172026 | Flightstream_26124.exe | withheld; build 8172026 | 19197320 |
 
 The 26.124 row was ADDED ON 2026-09-14, when that build was registered, from
 the digest its identity run recorded (`reports/compat/CMP-26124_2026-09-14.yaml`);
@@ -50,6 +50,17 @@ its size is not in that file and is read in
 `reports/RPT-050_the-26124-package-against-26123_2026-09-15.md`, which measures
 the whole package. Every other row is this report's own measurement of
 2026-08-19.
+
+The 26.124 digest is WITHHELD from the public tree since 2026-09-30
+(NFR-31): the public tree carries no identity of a user's machine, and the
+row states the build, 8172026, which identifies that executable. The digest
+was measured and still exists in the run records on the measuring machine;
+only its committed copy is gone. `read_executable_baseline` reads a cell that
+starts with `withheld` as a row whose digest is not public, so
+`classify_executable` compares a 26.124 binary by its build (the
+identity-only probe) instead of by its bytes; a byte comparison reads the same
+table from a local, uncommitted copy that keeps the digest (for example under
+`_private/exe/`). The findings below are unchanged.
 
 The Build column is the registry's number for that canonical version, not
 a second measurement: it is reproduced here so the two sides of a future

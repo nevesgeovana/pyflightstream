@@ -55,7 +55,7 @@ are each killed by the suite.
 POL 3201 of licensed round 3 (`C:/WORK/release-0320/probes/round3/`): the
 `unsteady_rotor` row of package E2 on FlightStream 26.124, build 8172026,
 executable SHA-256
-`68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65`. The
+withheld from the public tree per NFR-31. The
 synthetic single blade `30_BLADE` (`pyflightstream.qa.geometry.BladeSpec`),
 axis X, one blade, one revolution in 24 steps from an impulsive start,
 acoustic sources ENABLE; its control POL 3202 is the same row with sources

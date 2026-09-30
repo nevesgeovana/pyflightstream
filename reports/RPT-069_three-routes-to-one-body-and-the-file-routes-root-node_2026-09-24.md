@@ -20,7 +20,7 @@ models the hub, and its loads sat 1.8% (CDi) away.
 
 ## What was run
 
-FlightStream 26.124 (build 8172026, executable sha256 68e64e66...), one
+FlightStream 26.124 (build 8172026, executable sha256 withheld per NFR-31), one
 detached run at a time, no solver alive before each, every solving script
 stating `SOLVER_SET_FARFIELD_LAYERS 5`. The band was committed before the
 first solve: 1e-4 relative to each coefficient, or to a floor of 1e-3 where

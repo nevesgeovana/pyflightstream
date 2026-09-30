@@ -1,7 +1,7 @@
 {
  "report": "RPT-089",
  "build": "26.124 build 8172026",
- "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+ "executable_sha256": "withheld; build 8172026",
  "geometry": "a six-blade research propeller, one blade mesh copied six times about the shaft in 60 deg steps, no spinner, no nacelle, no symmetry (not published)",
  "setup": {"rpm": 473.17, "speed_m_s": 49.04, "rho_kg_m3": 0.6326, "diameter_m": 3.648, "farfield_layers": 5, "launches": "one per run, serial"},
  "sources": {

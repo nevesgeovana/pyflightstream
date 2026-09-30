@@ -4,7 +4,7 @@ The report of licensed round 2 of pyflightstream 0.32.0 (GOAL-037), package C
 (CCS). Seven items, each its own matrix row, ran one after the other through
 the **package route** (`pyfs-matrix plan`, then `pyfs-matrix run --local`) on
 **FlightStream 26.124, build 8172026**, executable SHA-256
-`68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65`. Round 1
+withheld from the public tree per NFR-31. Round 1
 (RPT-096) proved the CCS commands one script at a time; this round asks whether
 the package's own emission of them works when a user runs a row. Every row is a
 steady solve at an angle of attack of 4 degrees and a Mach number of 0.1, 150

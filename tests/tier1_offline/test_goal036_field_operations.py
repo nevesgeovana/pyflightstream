@@ -492,7 +492,7 @@ def test_an_airframe_only_unsteady_row_requests_per_step_probe_fields(tmp_path):
         solver_setup=helpers.solver_settings(Script("26.124"), velocity=30).model_dump(mode="json"),
         probe_field_layout=script.probe_field_layout,
         frame_motions=script.frame_motions,
-        fs_exe_sha256="68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+        fs_exe_sha256="9" * 64,
         fs_build="8172026",
     )
     written = write_recorded_probe_fields(table, record, tmp_path / "fields", "P1")

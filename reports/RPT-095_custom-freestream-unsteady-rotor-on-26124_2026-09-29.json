@@ -2,15 +2,16 @@
  "report": "RPT-095",
  "title": "The 0.31 G6: a custom free stream on unsteady_rotor, confirmed on 26.124",
  "build": "26.124 build 8172026",
- "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+ "executable_sha256": "withheld; build 8172026",
  "package": "feat/0-31 at 8d0c8827 (runs.json package_commit 8d0c8827255cf0b6da298bc0db33c4f020d6340f, package_dirty false); a second post on f64d888c listed the same 22 products and the same skips",
  "files_read": {
-  "runs.json": "C:/WORK/pfs0310-l1-ws/runs.json",
-  "matrix": "C:/WORK/pfs0310-l1-ws/l1_g6.fs",
-  "scripts": "C:/WORK/pfs0310-l1-ws/sims/sim_9321 and sim_9322 scripts",
-  "field": "C:/WORK/pfs0310-l1-ws/inputs/freestreams/fs_l1uniform.txt",
-  "products": "C:/WORK/pfs0310-l1-ws/post/l1_g6/products.json",
-  "polars": "C:/WORK/pfs0310-l1-ws/post/l1_g6/polars/",
+  "<workspace>": "the run's own workspace; its machine path is withheld (NFR-31)",
+  "runs.json": "<workspace>/runs.json",
+  "matrix": "<workspace>/l1_g6.fs",
+  "scripts": "<workspace>/sims/sim_9321 and sim_9322 scripts",
+  "field": "<workspace>/inputs/freestreams/fs_l1uniform.txt",
+  "products": "<workspace>/post/l1_g6/products.json",
+  "polars": "<workspace>/post/l1_g6/polars/",
   "log": "P9321-M144RE438AL+000BE+000_log.txt line 23 in the datapoint folder of sim_9321"
  },
  "row": {

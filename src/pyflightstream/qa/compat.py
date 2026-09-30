@@ -1038,6 +1038,13 @@ def _validate_chapter(chapter_name: str, text: str, names: list[str]) -> None:
 #: is measured by hashing files with the solver never started.
 EXECUTABLE_BASELINE_REPORT = "reports/RPT-032_executable-identity-baseline_2026-08-19.md"
 
+#: How a baseline cell begins when the public tree withholds that build's
+#: digest (NFR-31), as in ``withheld; build 8172026``. The row is read with
+#: an empty digest, so the build, not the bytes, identifies that executable;
+#: a local, uncommitted copy of the table that keeps the digest is read by
+#: the same function and compares bytes again.
+WITHHELD_DIGEST = "withheld"
+
 
 class ExecutableVerdict(enum.StrEnum):
     """What a candidate executable does to the evidence already gathered."""
@@ -1101,6 +1108,19 @@ class ExecutableIdentity:
         return self.verdict is ExecutableVerdict.UNKNOWN
 
 
+def _baseline_digest(cell: str, *, path: Path, version: str) -> str:
+    """Return a baseline cell's digest, or ``""`` when it is withheld (NFR-31)."""
+    digest = cell.strip("`").lower()
+    if digest.startswith(WITHHELD_DIGEST):
+        return ""
+    if len(digest) != 64 or set(digest) - set("0123456789abcdef"):
+        raise QaEvidenceError(
+            f"{path} records {digest!r} for {version}, which is not a sha256; a "
+            "baseline digest is 64 hexadecimal characters and is measured, never typed"
+        )
+    return digest
+
+
 def read_executable_baseline(path: str | Path) -> dict[str, dict[str, str]]:
     """Read the committed executable digest baseline.
 
@@ -1118,13 +1138,15 @@ def read_executable_baseline(path: str | Path) -> dict[str, dict[str, str]]:
     -------
     dict of str to dict
         Keyed by canonical version; each value carries ``sha256``,
-        ``names`` and ``bytes`` as read from the row.
+        ``names`` and ``bytes`` as read from the row. ``sha256`` is the
+        empty string for a row whose cell begins with
+        :data:`WITHHELD_DIGEST` (NFR-31).
 
     Raises
     ------
     QaEvidenceError
         When the file carries no table with the expected labels, when a
-        digest is not 64 hexadecimal characters, or when one version is
+        digest is neither withheld nor 64 hexadecimal characters, or when one version is
         recorded twice with different digests. A baseline that cannot be
         read is refused rather than treated as empty: an empty baseline
         makes every executable UNKNOWN, which reads as caution and is
@@ -1164,12 +1186,7 @@ def read_executable_baseline(path: str | Path) -> dict[str, dict[str, str]]:
                 "baseline row that loses a column is a row whose digest cannot be read"
             )
         version = row["version"].strip("`")
-        digest = row["sha256"].strip("`").lower()
-        if len(digest) != 64 or set(digest) - set("0123456789abcdef"):
-            raise QaEvidenceError(
-                f"{path} records {digest!r} for {version}, which is not a sha256; a "
-                "baseline digest is 64 hexadecimal characters and is measured, never typed"
-            )
+        digest = _baseline_digest(row["sha256"], path=path, version=version)
         if version in baseline and baseline[version]["sha256"] != digest:
             raise QaEvidenceError(
                 f"{path} records two different digests for {version}; one version names one "
@@ -1265,7 +1282,7 @@ def classify_executable(
         )
     name = Path(fs_exe).name
     recorded = baseline.get(resolved.canonical)
-    baseline_sha256 = None if recorded is None else recorded["sha256"]
+    baseline_sha256 = (recorded or {}).get("sha256") or None
     common = (
         f"executable {name} sha256 {digest}; baseline for {resolved.canonical} "
         f"{baseline_sha256 or 'not recorded'}"
@@ -1295,8 +1312,15 @@ def classify_executable(
             printed_build=None,
             registry_build=resolved.build,
             message=(
-                f"this binary is not the one recorded for FlightStream {resolved.canonical}, "
-                "so nothing is known about it yet. Ask it its build number FIRST, with "
+                (
+                    f"the public baseline withholds the digest of FlightStream "
+                    f"{resolved.canonical} (NFR-31), so this binary is compared by its build "
+                    "(a local baseline that keeps the digest compares bytes instead). "
+                    if recorded is not None and baseline_sha256 is None
+                    else f"this binary is not the one recorded for FlightStream "
+                    f"{resolved.canonical}, so nothing is known about it yet. "
+                )
+                + "Ask it its build number FIRST, with "
                 f"`pyfs-qa probe --fs-version {resolved.canonical} --fs-exe <path> "
                 "--identity-only`, and start no campaign, probe or physics run until that "
                 f"number is compared with the registry's. {common}"

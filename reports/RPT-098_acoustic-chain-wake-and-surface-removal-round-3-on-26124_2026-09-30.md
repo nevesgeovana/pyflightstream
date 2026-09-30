@@ -4,7 +4,7 @@ The report of licensed round 3 of pyflightstream 0.32.0 (GOAL-037), packages E2
 (noise emission) and H (G4 and G9). Nine rows in two matrices ran through the
 **package route** (`pyfs-matrix plan`, then `pyfs-matrix run --local`) on
 **FlightStream 26.124, build 8172026**, executable SHA-256
-`68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65`, serially,
+withheld from the public tree per NFR-31, serially,
 with far field 5 layers in every setup. Round 1 (RPT-096) proved the acoustic
 commands, `DELETE_SURFACES` and the wake stabilisation `DISABLE` one script at
 a time; this round proves the package's own emission, collection and hashing of

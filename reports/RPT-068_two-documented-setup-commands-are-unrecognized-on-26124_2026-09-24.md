@@ -28,7 +28,7 @@ build.
     instrument  whether the script reaches the second sentinel and exports its
                 log, and the solver's own log (FlightStreamLog.txt), which the
                 build writes when a script ends abnormally
-    build       FlightStream 26.124 (build 8172026, executable sha256 68e64e66...)
+    build       FlightStream 26.124 (build 8172026, executable sha256 withheld per NFR-31)
 
 ## What came back
 

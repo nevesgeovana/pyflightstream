@@ -88,7 +88,7 @@ def test_exact_solver_identity_is_required_for_synthetic_timing(monkeypatch):
     digest = "a" * 64
     monkeypatch.setitem(
         motion._ROTARY_PROOFS,
-        ("26.124", "METER", digest),
+        ("26.124", "METER", "synthetic"),
         {
             "fs_build": "synthetic",
             "signed_rpm_factor": 1,
@@ -107,6 +107,7 @@ def test_exact_solver_identity_is_required_for_synthetic_timing(monkeypatch):
     )
     helpers.unsteady_solver(script, time_iterations=6, delta_time=0.00625)
     assert script.frame_motions[moving]["state"] == "unknown"
+    # NFR-31: the proof is keyed by version, unit and build; another build is refused.
     script.bind_native_solver_identity(executable_sha256=digest, build="other")
     assert script.frame_motions[moving]["state"] == "unknown"
     script.bind_native_solver_identity(executable_sha256=digest, build="synthetic")
@@ -116,13 +117,13 @@ def test_exact_solver_identity_is_required_for_synthetic_timing(monkeypatch):
     assert record["trajectory"]["step_time_origin"] == 1
 
 
-def test_saved_timing_resolution_keeps_original_and_refuses_other_executable(monkeypatch):
+def test_saved_timing_resolution_keeps_original_and_refuses_other_build(monkeypatch):
     from pyflightstream.script import motion
 
     digest = "b" * 64
     monkeypatch.setitem(
         motion._ROTARY_PROOFS,
-        ("26.124", "METER", digest),
+        ("26.124", "METER", "synthetic"),
         {
             "fs_build": "synthetic",
             "signed_rpm_factor": -1,
@@ -142,9 +143,13 @@ def test_saved_timing_resolution_keeps_original_and_refuses_other_executable(mon
     helpers.unsteady_solver(script, time_iterations=6, delta_time=0.00625)
     original = script.frame_motions[moving]
     wrong = motion.resolve_frame_motion(
-        original, solver_identity={"fs_exe_sha256": "c" * 64, "fs_build": "synthetic"}
+        original, solver_identity={"fs_exe_sha256": "c" * 64, "fs_build": "other"}
     )
     assert wrong["state"] == "unknown"
+    unrecorded = motion.resolve_frame_motion(
+        original, solver_identity={"fs_exe_sha256": None, "fs_build": "synthetic"}
+    )
+    assert unrecorded["state"] == "unknown"
     resolved = motion.resolve_frame_motion(
         original, solver_identity={"fs_exe_sha256": digest, "fs_build": "synthetic"}
     )
@@ -192,7 +197,7 @@ def test_measured_timing_is_bound_to_executable_build_and_unit():
     helpers.unsteady_solver(script, time_iterations=6, delta_time=0.00625)
     original = script.frame_motions[moving]
     identity = {
-        "fs_exe_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+        "fs_exe_sha256": "9" * 64,
         "fs_build": "8172026",
     }
     resolved = resolve_frame_motion(original, solver_identity=identity)
@@ -211,3 +216,9 @@ def test_measured_timing_is_bound_to_executable_build_and_unit():
     assert resolve_frame_motion(delayed, solver_identity=identity)["state"] == "unknown"
     other = {**identity, "fs_build": "other"}
     assert resolve_frame_motion(original, solver_identity=other)["state"] == "unknown"
+    # NFR-31: the build identifies the executable, so another recorded digest
+    # of the same build resolves, and a run that recorded no digest does not.
+    rebuilt = {**identity, "fs_exe_sha256": "8" * 64}
+    assert resolve_frame_motion(original, solver_identity=rebuilt)["state"] == "known"
+    unrecorded = {**identity, "fs_exe_sha256": None}
+    assert resolve_frame_motion(original, solver_identity=unrecorded)["state"] == "unknown"

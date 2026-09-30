@@ -959,3 +959,32 @@
       definitions page `docs/post-processing-definitions.md`, and every
       other page that mentions them links to it and restates no
       definition.
+
+!!! requirement "NFR-31 The public tree carries no identity of a user's machine <span class='srs-pending'>pending</span>"
+    *Origin: an author decision of 2026-09-30 for 0.33.0. Pending: the
+    first sweep is built (the executable digest of FlightStream 26.124
+    left every tracked file, and the workspace paths left RPT-095; the
+    paths other reports still name, and the digests of other builds, are
+    not yet swept), and moving the status is the owner's acceptance. Evidence: the tier-1
+    guard `tests/tier1_offline/test_p0330_no_executable_hash.py`
+    (P0330-NO-EXE-HASH), which scans every tracked text file for
+    64-character hexadecimal tokens and refuses the withheld digest,
+    compared by its own SHA-256 so the guard does not carry it.*
+
+    What is committed (reports, compatibility and probe records,
+    fixtures, source and tests) identifies the solver by its version and
+    build, never by the machine it ran on.
+
+    - R1 No tracked file carries the SHA-256 of a user's solver
+      executable; the solver build identifies the executable (for
+      example FlightStream 26.124, build 8172026), and a record states
+      the digest as `withheld; build <build>` where its format has a
+      digest field.
+    - R2 No tracked file carries a user's folder path, host name, licence
+      server or licence detail; a report names a file by its path inside
+      the run's workspace.
+    - R3 A run record keeps its own `fs_exe_sha256`: it is written on
+      the user's machine into the workspace, which is not committed, and
+      the products carry it from there. The package holds no copy of it:
+      evidence measured on one executable is keyed by the version, the
+      build and the unit, and requires the run to have recorded a digest.

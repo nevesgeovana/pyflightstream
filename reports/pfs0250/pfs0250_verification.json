@@ -18,7 +18,7 @@
         "mutant_measured_at": "2026-09-19T23:47:00-0300",
         "mutant_output_count": 0,
         "fs_exe": "FlightStream_26124.exe",
-        "fs_exe_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+        "fs_exe_sha256": "withheld; build 8172026",
         "positions_tried": 1
       },
       "verdict": "refused-by-measurement",

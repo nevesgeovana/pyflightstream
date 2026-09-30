@@ -37,7 +37,7 @@ row.**
 
 ## What was run
 
-FlightStream 26.124 (build 8172026, executable sha256 68e64e66...), detached, one
+FlightStream 26.124 (build 8172026, executable sha256 withheld per NFR-31), detached, one
 solver at a time, no solver alive before each launch. The run used a fresh copy of
 the tier-3 folder at 51f45932 (0.28.0.dev3) with no run state. A local executables
 overlay sent every build id the rows name (26.120, 26.123 and 26.124) to the 26.124

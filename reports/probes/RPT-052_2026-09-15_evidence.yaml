@@ -15,7 +15,7 @@ input_mesh_sha256: # the inputs/30_WB.fsm of each simulation, measured 2026-09-1
   sim_4102: 3a5f174c594e6cd6b47517da4da9b633ea4c95cf9f00d17f4ddfd5d1539bd00a
   sim_4103: 3a5f174c594e6cd6b47517da4da9b633ea4c95cf9f00d17f4ddfd5d1539bd00a
 executable_sha256:
-  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+  '26.124': 'withheld; build 8172026'
 command_measured: SET_FREESTREAM ROTATION
 free_stream_line_per_simulation:
   sim_4101: SET_FREESTREAM CONSTANT

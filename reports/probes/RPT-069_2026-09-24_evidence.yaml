@@ -4,7 +4,7 @@ question: does one body give its control's coefficients through the saved simula
   edge from a points file, and its OBJ with the trailing edge detected (T07)
 where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
 executable_sha256:
-  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+  '26.124': 'withheld; build 8172026'
 band: 'Band (T07): 1e-4 relative, floor 1e-3, committed at 3e40129c before the first solve'
 export:
   10_WING.fsm: 410 vertices, 816 faces, max vertex distance 4.6e-9 m, same face order

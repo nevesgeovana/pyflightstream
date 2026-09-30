@@ -4,7 +4,7 @@ A short licensed confirmation of the 0.30.0 `qsteady_rotor` workflow on a whole
 **wheel** at an angle of attack (**AoA** 5 deg), no FSI, run through the
 package's own path (`pyfs-matrix plan`, `pyfs-matrix run`, the post that `run`
 performs) on **FlightStream 26.124, build 8172026**, executable SHA-256
-`68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65` (measured
+withheld from the public tree per NFR-31 (measured
 from the executable that ran, and recorded as `fs_exe_sha256` in the run
 record). The package is the tree of `feat/0-30-storage-sync` at `4f12aede`,
 which carries the four fixes listed at the end (the record names `c89c603d`,
