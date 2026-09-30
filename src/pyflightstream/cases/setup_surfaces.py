@@ -141,20 +141,21 @@ def emit_wake_stabilization(
     Raises
     ------
     CampaignConfigError
-        If the setup enables the stabilization on a row that states no
-        blade count.
+        If the setup enables the stabilization, the build's command takes a
+        blade count, and the row states none.
     """
     enabled = case.solver.slipstream_wake_stabilization
     if enabled is None:
         return
-    if enabled and blades is None:
+    takes_count = "num_blades" in {argument.name for argument in script.entry(_STABILIZATION).args}
+    if enabled and blades is None and takes_count:
         raise CampaignConfigError(
             f"case {case.sim_id!r} states {WAKE_STABILIZATION_KEY} as ENABLE, and the solver "
             "reads the blade count per propeller, which the row does not state. Add "
             "'BLADES: <count>' (or the sector's PERIODIC_COPIES) to the row."
         )
     arguments: list[object] = [motion_id, "ENABLE" if enabled else "DISABLE"]
-    if "num_blades" in {argument.name for argument in script.entry(_STABILIZATION).args}:
+    if takes_count:
         arguments.append(blades if blades is not None else 1)
     script.emit(_STABILIZATION, *arguments)
 

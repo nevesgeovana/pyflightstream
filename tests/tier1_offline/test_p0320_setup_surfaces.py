@@ -175,3 +175,11 @@ def test_the_wake_stabilization_enable_without_a_blade_count_is_refused():
     case = _with(row, slipstream_wake_stabilization=True)
     with pytest.raises(CampaignConfigError, match="blade count"):
         rendered(case, build="26.124")
+
+
+def test_the_february_edition_enable_needs_no_blade_count_because_it_takes_none():
+    """P0320-G4-WAKE-DISABLE: 26.100 reads no count, so none is required."""
+    row = rotor_case(BLADES=None, PERIODIC_COPIES=None)
+    case = _with(row, slipstream_wake_stabilization=True)
+    lines = rendered(case, build="26.100").splitlines()
+    assert f"{STABILIZATION} 1 ENABLE" in lines

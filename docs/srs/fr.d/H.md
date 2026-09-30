@@ -53,7 +53,7 @@
     emits `SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION` for each rotor motion the
     row creates, with the row's blade count where the build's command takes
     one. A DISABLE states 1 when the row states no count; an ENABLE without a
-    count is refused. A setup that states no key emits nothing, and the key
+    count is refused where the command takes one. A setup that states no key emits nothing, and the key
     is no longer recorded-only.
 
     **Solution (0.32.0).** `emit_wake_stabilization`, called by the rotor
