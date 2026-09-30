@@ -73,6 +73,8 @@ FlightStream versions.
 - The SRS states the capabilities of 0.29.0, 0.30.0 and 0.31.0 that had no requirement (FR-150 to FR-193, in `docs/srs/fr.d/k2.md`): each has its need, its verifiable requirement, the solution with its release and the trace to its test, and every Added and Changed bullet of those three releases in this change log now ends on its requirement id (FR-194).
 - A tier-1 test ties the change log to the SRS: every Added and Changed bullet of every release from 0.25.0 on, and of every `changelog.d` fragment, cites an id the SRS defines or says `(no requirement: <reason>)` (`tests/tier1_offline/test_srs_changelog.py`, FR-194).
 - **`reports/RPT-096`, the report of licensed probe round 1 of 0.32.0** on FlightStream 26.124 (build 8172026): thirteen probes that each move one thing, with the exact command lines, the verdict and the evidence read. The CCS import and the wing, fuselage and revolve lofts, `CCS_WING_MESH_SUBDIVISIONS`, `DELETE_SURFACES` (inventory before and after), the wake stabilization `DISABLE` and the acoustic chain with its sources-off control read verified; `NEW_CCS_WING_CONTROL_SURFACE` is refused on its arguments; the effect of the G35 direction digit is not observed. The report states nondimensional values only and lists what the round does not establish. (no requirement: licensed probe report RPT-096, not a capability)
+- **`reports/RPT-097`, CCS confirmation, round 2 of 0.32.0** on FlightStream 26.124: the wing, the fuselage, the body of revolution, the control surface in the PARAMETRIC form and the G35 axial and azimuth files confirmed through the package route; the REAL control surface form not confirmed. (no requirement: licensed report RPT-097, not a capability)
+- **`reports/RPT-098`, the acoustic chain on `unsteady_rotor`, wake stabilisation and surface removal, round 3 of 0.32.0** on FlightStream 26.124: the noise emission through the package route, the `SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION` DISABLE, ENABLE and absent-key comparison, and `DELETE_SURFACES` with the renumbered inventory. (no requirement: licensed report RPT-098, not a capability)
 
 ### Changed
 
@@ -108,6 +110,8 @@ FlightStream versions.
 - `docs/srs/nonfunctional-requirements.md` (NFR-27 carries the type-checker re-measurements to 0.32.0), `docs/srs/roadmap.md` (the milestones from 0.16.0 to 0.32.0 and the 0.33.0 plan), `docs/srs/index.md` (revision 1.44.0) and `docs/requirement-mapping.md` (the change log names the requirement, FR-194) are brought to 0.32.0.
 
 See [the migration guide](docs/migrating-to-0.32.0.md) for what a sync copies, the records archived before each rewrite, restore and rebuild, `--runs`, the console and the products that gained files or columns.
+- FR-295, FR-296, FR-297: a CCS wing whose control surface states `space = "REAL"` is refused when the row is planned, on every build, naming RPT-097 and the PARAMETRIC form to use. Licensed round 2 on FlightStream 26.124 completed the PARAMETRIC form and ended the REAL form `FAILED_EXECUTION` with no saved simulation; see [CCS geometry](docs/ccs-geometry.md).
+- FR-298, FR-299: the PARAMETRIC form plans as before, and the command database entry of `NEW_CCS_WING_CONTROL_SURFACE` on 26.124 stays `documented` with a note of what round 2 measured; promotion needs a `pyfs-qa probe` run.
 
 ### Fixed
 

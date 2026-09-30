@@ -1,0 +1,34 @@
+{
+ "report": "RPT-097",
+ "title": "pyflightstream 0.32 CCS confirmation, round 2 on FlightStream 26.124",
+ "release": "0.32",
+ "build": "26.124 build 8172026",
+ "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+ "route": "package route: pyfs-matrix plan, then pyfs-matrix run --local, one matrix per item, serial",
+ "files_read": {
+  "readme": "C:/WORK/release-0320/probes/round2/ccs/README.md",
+  "verdicts": "C:/WORK/release-0320/probes/round2/ccs/verdicts_ccs.json",
+  "workspace": "C:/WORK/release-0320/probes/round2/ccs/ws/",
+  "summary": "C:/WORK/release-0320/probes/round23_done.txt"
+ },
+ "totals": {"items": 7, "confirmed": 6, "not_confirmed": 1},
+ "items": [
+  {"id": "CCS1-WING", "pol": "3201", "moved": "the wing loft through a whole row with CCS_WING_MESH_SUBDIVISIONS CHORD 30", "record_status": "CONVERGED", "boundaries": ["PYFS_WING"], "verdict": "confirmed"},
+  {"id": "CCS1-FUSELAGE", "pol": "3202", "moved": "the fuselage loft", "record_status": "CONVERGED", "boundaries": ["PYFS_FUS"], "verdict": "confirmed"},
+  {"id": "CCS1-REVOLUTION", "pol": "3203", "moved": "the body of revolution", "record_status": "CONVERGED", "boundaries": ["PYFS_REV"], "verdict": "confirmed"},
+  {"id": "CCS2-PARAMETRIC", "pol": "3204", "moved": "CCS1-WING plus one control surface, ten-argument PARAMETRIC form", "record_status": "CONVERGED", "boundaries": ["PYFS_WING", "PYFS_AIL", "PYFS_AIL_side"], "verdict": "confirmed", "effect": "saved simulation differs from CCS1-WING: 1431 lines against 1744, not byte equal"},
+  {"id": "CCS2-REAL", "pol": "3205", "moved": "the same control surface with REAL spanwise limits", "record_status": "FAILED_EXECUTION", "boundaries": null, "verdict": "not confirmed", "effect": "no saved simulation; the log names no cause"},
+  {"id": "G35-AXIAL", "pol": "3206", "moved": "kind file (CCS_IMPORT), CCS_SHEDDING AXIAL", "record_status": "CONVERGED", "boundaries": ["PYFS_CCS_FUS"], "verdict": "confirmed"},
+  {"id": "G35-AZIMUTH", "pol": "3207", "moved": "kind file (CCS_IMPORT), CCS_SHEDDING AZIMUTH", "record_status": "COMPLETED_MAX_ITER", "boundaries": ["PYFS_CCS_FUS"], "verdict": "confirmed", "effect": "the two saves differ: 4740 lines against 5026, first differing per-face lines 30, 37, 46, 47, 48"}
+ ],
+ "package_consequence": "the plan refuses a control surface with REAL spanwise limits on every build, naming RPT-097 and the PARAMETRIC form (FR-295 to FR-299); the command database keeps the 26.124 status documented",
+ "not_established": [
+  "why the REAL form failed, and whether any REAL argument set is accepted",
+  "what the control surface does to the flow or the loads: no coefficient was compared",
+  "what the differing lines of the G35 saves are",
+  "any build other than 26.124",
+  "convergence of any row as a physical result: generic shapes solved to exercise the route",
+  "a promotion of any command to verified: no pyfs-qa probe ran"
+ ],
+ "nondimensional_only": true
+}

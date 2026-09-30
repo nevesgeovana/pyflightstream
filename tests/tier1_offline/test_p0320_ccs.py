@@ -368,8 +368,16 @@ def test_p0320_ccs2_control_surface_in_real_space_names_its_axis(tmp_path):
         'space = "REAL"\naxis = "Y"\n'
     )
     case = _row_case(tmp_path, "wing", 'kind = "wing"\ncomponent = 1\n' + real, ["WING"])
-    _, lines = _built(case)
-    _index(lines, "NEW_CCS_WING_CONTROL_SURFACE AIL 2.0 3.6 0.25 0.25 0.5 20.0 1.0 REAL Y")
+    # The emitter still writes the form; the plan refuses it before (RPT-097), see
+    # test_p0320_ccs2_the_real_form_is_refused_at_plan_naming_rpt_097.
+    from pyflightstream.cases.ccs_wing import emit_ccs_wing
+
+    script = Script(BUILD)
+    emit_ccs_wing(script, case)
+    _index(
+        script.render().splitlines(),
+        "NEW_CCS_WING_CONTROL_SURFACE AIL 2.0 3.6 0.25 0.25 0.5 20.0 1.0 REAL Y",
+    )
 
 
 def test_p0320_ccs2_control_surfaces_follow_the_subdivisions_in_the_order_written(tmp_path):
@@ -390,6 +398,41 @@ def test_p0320_ccs2_control_surfaces_follow_the_subdivisions_in_the_order_writte
     )
     loft = _index(lines, "CAD_CREATE_WING_MESH_FROM_CCS WING TRUE SHARP TRUE C2 C0")
     assert selected < chord < first < second < loft
+
+
+def _real_case(tmp_path):
+    real = AILERON.replace("v0 = 0.5\nv1 = 0.9\n", "v0 = 2.0\nv1 = 3.6\n") + (
+        'space = "REAL"\naxis = "Y"\n'
+    )
+    return _row_case(tmp_path, "wing", 'kind = "wing"\ncomponent = 1\n' + real, ["WING"])
+
+
+def test_p0320_ccs2_the_real_form_is_refused_at_plan_naming_rpt_097(tmp_path):
+    """P0320-CCS2-CONTROL-SURFACE: REAL limits ended FAILED_EXECUTION on 26.124 (POL 3205).
+
+    The plan refuses the form, naming the report and the PARAMETRIC form to use.
+    """
+    case = _real_case(tmp_path)
+    with pytest.raises(CampaignConfigError, match="refus") as refusal:
+        _built(case)
+    text = str(refusal.value)
+    assert "RPT-097" in text and "PARAMETRIC" in text and "AIL" in text
+
+
+@pytest.mark.parametrize("build", ["26.120", "26.121", "26.123", "26.124"])
+def test_p0320_ccs2_the_real_form_is_refused_on_every_build_that_has_it(tmp_path, build):
+    """P0320-CCS2-CONTROL-SURFACE: no build measured REAL working, so none accepts it."""
+    case = _real_case(tmp_path)
+    with pytest.raises(CampaignConfigError, match="refus") as refusal:
+        build_script(case, Script(build))
+    assert "RPT-097" in str(refusal.value)
+
+
+def test_p0320_ccs2_the_parametric_form_is_still_planned(tmp_path):
+    """P0320-CCS2-CONTROL-SURFACE: the form round 2 confirmed on 26.124 (POL 3204) plans."""
+    case = _row_case(tmp_path, "wing", 'kind = "wing"\ncomponent = 1\n' + AILERON, ["WING"])
+    _, lines = _built(case)
+    _index(lines, "NEW_CCS_WING_CONTROL_SURFACE AIL 0.5 0.9 0.25 0.25 0.5 20.0 1.0 PARAMETRIC Y")
 
 
 @pytest.mark.parametrize("build", ["26.100", "26.101"])

@@ -91,7 +91,7 @@ axis = "Y"
 ```
 
 `v0` and `v1` are the inner and outer spanwise limits, parametric between 0 and
-1 (or, with `space = "REAL"`, coordinates along `axis` of the reference frame);
+1 (the `REAL` form, coordinates along `axis` of the reference frame, is refused: see below);
 `u0` and `u1` the chordwise depths from the trailing edge, above 0 and below
 0.5; `hinge_height` runs from the upper surface (0) to the lower one (1);
 `slot_gap_pct` is a percentage of span. The line always carries all ten
@@ -100,6 +100,15 @@ when the row is planned.
 
 If the control surfaces add boundaries of their own, list them after the wing's
 name in `boundaries`; the wing is always the first name.
+
+**`space = "REAL"` is refused when the row is planned.** Licensed round 2 on
+FlightStream 26.124 ran the same aileron in both forms: the PARAMETRIC form
+completed and its saved simulation differs from the wing without it, and the
+REAL form ended `FAILED_EXECUTION` with no saved simulation (RPT-097). No other
+build measured it, so the plan refuses it on every build; write the limits as
+fractions of the span and leave `space` at `PARAMETRIC`. The round observed the
+PARAMETRIC aileron adding two boundaries after the wing's (`PYFS_AIL` and
+`PYFS_AIL_side` for a control surface named `PYFS_AIL`).
 
 ## The shedding direction of a relaxed trailing edge
 

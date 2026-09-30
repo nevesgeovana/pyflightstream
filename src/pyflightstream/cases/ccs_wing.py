@@ -337,6 +337,28 @@ def _emit_file_route(script: Script, case: SimCase, names: Sequence[str]) -> Non
     )
 
 
+def _refuse_the_real_control_surface_form(case: SimCase, spec: CcsImportOptions) -> None:
+    """Refuse a control surface written with REAL spanwise limits (RPT-097, POL 3205).
+
+    Licensed round 2 on FlightStream 26.124 ran the same aileron in the two
+    forms through the package route: the PARAMETRIC form completed and saved a
+    simulation that differs from the wing without it (POL 3204), and the REAL
+    form ended ``FAILED_EXECUTION`` with no saved simulation (POL 3205). No
+    other build measured the REAL form, so it is refused on every build.
+    """
+    for surface in spec.control_surfaces:
+        if surface.space != "REAL":
+            continue
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the control surface {surface.name!r} is written with REAL "
+            "spanwise limits, and the plan refuses that form. On FlightStream 26.124 the REAL "
+            "form ended FAILED_EXECUTION with no saved simulation, where the same surface in "
+            "the PARAMETRIC form completed (licensed round 2, RPT-097), and no other build "
+            "measured it. Write the limits as fractions of the span between 0 and 1 and "
+            'space = "PARAMETRIC" (the default) in the sidecar\'s [[import.ccs.control_surfaces]].'
+        )
+
+
 def emit_ccs_geometry(script: Script, case: SimCase) -> None:
     """Make the case's CCS file a mesh: the loft its table names, or the whole file.
 
@@ -397,6 +419,7 @@ def emit_ccs_geometry(script: Script, case: SimCase) -> None:
             "imports the file with its Relaxed_TE lines in the row's direction."
         )
     if spec.kind == "wing":
+        _refuse_the_real_control_surface_form(case, spec)
         emit_ccs_wing(script, case)
     elif spec.kind == "fuselage":
         from pyflightstream.cases.ccs_fuselage import emit_ccs_fuselage
