@@ -42,13 +42,17 @@ table and the calibration file it names, are
 post applies; none of them is validated.
 :mod:`pyflightstream.cases.fsi_workspace` states which workflows may couple
 and wires the fixed-wing and quasi-steady sector routes.
-The 0.32.0 contract modules lay down signatures before their bodies, each
-refusing until its work package fills it: :mod:`pyflightstream.cases.acoustics`
-(the acoustic signals a point exports and the post stage reads),
+
+The 0.32 modules of this layer: :mod:`pyflightstream.cases.acoustics` emits
+the solver's acoustic sources, observers and signals export on an unsteady
+row and states the contract of the export the post stage reads;
 :mod:`pyflightstream.cases.ccs_wing`, :mod:`pyflightstream.cases.ccs_fuselage`
-and :mod:`pyflightstream.cases.ccs_revolution` (meshes the solver's CCS
-commands generate) and :mod:`pyflightstream.cases.setup_surfaces` (surface
-setup operations).
+and :mod:`pyflightstream.cases.ccs_revolution` have the solver make a mesh of
+a row's CCS file, by the curve route or the file route, with the vocabulary of
+the sidecar's ``[import.ccs]`` table in the private ``cases._ccs``; and
+:mod:`pyflightstream.cases.setup_surfaces` removes the surfaces a setup names,
+renumbering the inventory as the solver does, and emits the slipstream wake
+stabilization of each rotor motion.
 """
 
 from __future__ import annotations

@@ -71,6 +71,17 @@ on whether each file still hashes to what the record says. That is the
 collectable half of NFR-07's promise, and :func:`package_vcs_state`
 supplies the other end of it, recording which commit of this package
 ran.
+
+Since 0.32, :mod:`pyflightstream.run.records` holds the operations on the
+records themselves: which manifest a command reads (``runs.json``, or
+another file of the workspace root named by ``--runs``), the exact restore
+of a records file from the workspace's archive (``pyfs-matrix restore``),
+and the rebuild of run records from the folders under ``sims/``
+(``pyfs-matrix rebuild``), which runs each row again in a throwaway copy
+with nothing submitted, accepts a record only when the executed script is
+the one this version renders, completes it read-only and marks it
+``REBUILT``. It also assembles the in-memory records of
+``pyfs-matrix post --from-sims``.
 """
 
 from __future__ import annotations
