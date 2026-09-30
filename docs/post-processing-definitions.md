@@ -2255,3 +2255,45 @@ sections), `C_ABS` and `C_PHASE_DEG` of `C(k) = H1(k) / (H1(k) + i H0(k))`,
 phases in degrees in `[-180, 180]`, `C(0) = S(0) = 1`, then the measured
 `H1_AMP` and `H1_PHASE_DEG`. Entry: `kind` `theodorsen`, `source` (the harmonic
 product), `diagnostic`, `validation`. It corrects nothing.
+
+## The acoustic signals product
+
+A point whose record lists acoustic signals (since 0.32.0) gets, under
+`acoustics/` of its products, the tables below, read from the file the solver's
+`EXPORT_ACOUSTIC_SIGNALS` wrote. The export holds, per observer, a block: a line
+`Observer: <name>`, a line `Position: x,y,z` (Fortran-style numbers such as
+`.00,10.0,.00`), a line `Columns: Observer time (sec), PL (Pa), PT (Pa), PO (Pa)`
+and one row per sample (measured on build 26.124, probe A1). The manual pages of
+the toolbox (SRC-003 pp.374 and 380) do not define the three pressure columns;
+the probe shows `PO = PL + PT` in every row, and the package reads `PO` as the
+overall pressure and calls PL the loading part and PT the thickness part, which is
+the customary split and not a vendor statement. The unit of the position is not in
+the file and is read as metres.
+
+- **Pressure against time**, `<point>_<n>_<observer>_pressure.csv`: `TIME_S`,
+  `PRESSURE_PA`, the `PO` column.
+- **Spectrum**, `<point>_<n>_<observer>_spectrum.csv`: the one-sided amplitude
+  spectrum of `PO` over the observer time, the real FFT of the samples as they are
+  (no window, mean kept). For `N` samples at the constant step `dt`, the sampling
+  rate is `1/dt` and the bin width `1/(N dt)`; bin 0 is `|X0|/N` (the mean), a
+  bin below Nyquist is `2|Xk|/N`, the Nyquist bin of an even `N` is `|Xk|/N`, so
+  a cosine of amplitude `A` on a bin reads `A`. `LEVEL_DB` is
+  `20 log10((A/sqrt(2)) / 20e-6 Pa)`, `NA` for bin 0 and for a zero amplitude. A
+  step that is not constant (relative spread above 1e-3) gives no spectrum.
+- **OASPL**, `OASPL_DB` of `<point>_acoustics_summary.csv`:
+  `20 log10(p_rms / 20e-6 Pa)`, `p_rms` the root mean square of `PO` about its
+  mean over the whole record; `NA` for a silent record. The summary also states
+  the position, the samples, the first and last time, the sampling rate and the
+  bin width.
+- **Blade-passage harmonics**, `<point>_acoustics_bpf.csv`: for each rotor of the
+  record with its blade count `B` and speed `rpm`, harmonic `n` (1 to 4) is at
+  `n B rpm / 60` hertz, read at the nearest bin of the observer's spectrum, with
+  the bin frequency, the amplitude and the level. `NA` when the record states no
+  blades or speed, above the Nyquist frequency, or below one bin width; each `NA`
+  has a line in `post.log`.
+- **Directivity**, `<point>_acoustics_directivity.csv`, written only when at
+  least four observers are coplanar and lie on one circle (each within 1e-3 of the
+  radius): per observer the angle about the circle's centre, measured from the
+  first observer and increasing toward the second, in `[0, 360)` degrees, the
+  radius and the OASPL. Fewer than four observers, or any off the circle, is not
+  an arc and writes no file.

@@ -139,6 +139,7 @@ from pyflightstream.cases.workflows import (
     rotor_mach_numbers,
 )
 from pyflightstream.fsi.loads import SectionalLoadsReport, parse_sectional_loads
+from pyflightstream.post import acoustics as _acoustics
 from pyflightstream.post import corrections as _corrections
 from pyflightstream.post import harmonics as _harmonics
 from pyflightstream.post import qsteady as _qsteady
@@ -5089,6 +5090,62 @@ def _write_harmonics(
     }
 
 
+def _acoustic_products(
+    record: RunRecord,
+    *,
+    sim_dir: Path,
+    stem: str,
+    out: Path,
+    rotors: Mapping[str, tuple[_harmonics.HarmonicRotor, object]],
+    clocks: Mapping[str, Mapping[str, object]],
+    target: Callable[[Path], Path],
+    skipped: dict[str, str],
+) -> tuple[list[Path], dict[str, dict[str, object]]]:
+    """Write a point's acoustic products from the export its record lists (0.32.0, FR-264).
+
+    The record lists the export in ``acoustic_signals``: a path, absolute or
+    relative to the point's simulation folder (the entry work package E2 adds;
+    a record without one asks for no acoustics, and nothing is said). A file
+    that cannot be read is named under ``acoustics`` in ``skipped`` and warned
+    in ``post.log``; every ``NA`` the writer owes is warned too. Nothing blocks.
+    """
+    listed = getattr(record, "acoustic_signals", None)
+    if not isinstance(listed, str | os.PathLike) or not str(listed):
+        return [], {}
+    source = Path(listed)
+    if not source.is_absolute():
+        source = sim_dir / source
+    key = _acoustics.ACOUSTICS_DIR
+    try:
+        signals = _acoustics.read_acoustic_signals(source)
+    except ProductError as error:
+        skipped[key] = str(error)
+        warn(f"point={stem} product={key}: {error}", PyflightstreamWarning, stacklevel=2)
+        return [], {}
+    speeds: dict[str, tuple[int | None, float | None]] = {}
+    for alias, (rotor, _) in rotors.items():
+        rpm = clocks.get(alias, {}).get("rpm")
+        speeds[alias] = (
+            len(rotor.blades) or None,
+            float(rpm) if isinstance(rpm, int | float) and not isinstance(rpm, bool) else None,
+        )
+    made = _acoustics.write_acoustic_products(
+        signals, out / key, stem=stem, rotors=speeds, target=target
+    )
+    for note in made.notes:
+        warn(f"point={stem} product={key}: {note}", PyflightstreamWarning, stacklevel=2)
+    names: dict[str, dict[str, object]] = {
+        (path.relative_to(out) if path.is_relative_to(out) else path).as_posix(): {
+            "runs": [record.run_id],
+            "kind": "acoustics",
+            "source": "acoustic_signals",
+            "observers": len(signals),
+        }
+        for path in made.files
+    }
+    return made.files, names
+
+
 def _step_of(cell: object) -> int | None:
     """Return a table's ``STEP`` cell as a whole step, or None where it states none."""
     try:
@@ -6877,6 +6934,20 @@ def _point_series(
             done = harmonics[0]
             key = done.relative_to(out) if done.is_relative_to(out) else done
             names = {**names, key.as_posix(): harmonics[1]}
+    # 0.32.0 (P0320-NOISE-POST): the acoustic signals the record lists, read into
+    # the per-observer products, whatever the recipe was.
+    acoustic_files, acoustic_names = _acoustic_products(
+        record,
+        sim_dir=workspace.sim_dir(sim_id),
+        stem=stem,
+        out=out,
+        rotors=_harmonic_rotors(live, aliases, record),
+        clocks=_section_rotors(live, aliases, record),
+        target=lambda path: _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp),
+        skipped=split_skips,
+    )
+    written = [*written, *acoustic_files]
+    names = {**names, **acoustic_names}
     # G25: THE SURFACE AVERAGED OVER THE RECORD'S WINDOW, by the package, from the
     # per-step VTK exports; a VTK beside the Tecplot where the pproc asks for one.
     asked = recorded_pproc if recorded_pproc is not None else pproc
