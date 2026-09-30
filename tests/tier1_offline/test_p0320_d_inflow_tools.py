@@ -442,3 +442,97 @@ def test_p0320_installed_frame_classification_by_behavior_not_only_by_page(tmp_p
     }
     assert row["FYZ"] == row["FX"] == row["MY"] == row["CT"] == "2"
     assert row["AZIMUTH_END"] == "270"
+
+
+def test_p0320_inflow_harmonics_k_eff_is_n95_times_k_1p_and_sense_keeps_the_size():
+    """P0320-INFLOW-HARMONICS: with n95 above 1 k_eff = n95 k_1P; the J map takes either hand."""
+    rows = _plane_grid(lambda y, z: (30.0 + 40.0 * y * y - 30.0 * z * z, 0.0, 12.0 * y * z))
+    kwargs = {"hub": (0.0, 0.0, 0.0), "axis": (1.0, 0.0, 0.0), "omega_rad_s": OMEGA}
+    stations = inflow_tools.blade_view_harmonics(
+        rows, radii_m=[0.3, 0.6], chords_m=[0.1, 0.1], **kwargs
+    )
+    assert max(s.n95 for s in stations) > 1
+    for s in stations:
+        assert s.k_eff == pytest.approx(s.n95 * s.k_1p, rel=1e-12)
+    common = {
+        "hub": (0.0, 0.0, 0.0),
+        "axis": (1.0, 0.0, 0.0),
+        "radii_m": [0.3],
+        "chords_m": [0.1],
+        "diameter_m": 1.0,
+        "v_inf_m_s": 30.0,
+        "advance_ratios": [1.0],
+        "blades": 6,
+    }
+    right = inflow_tools.inflow_harmonics_map(rows, sense=1, **common).stations[0][1]
+    left = inflow_tools.inflow_harmonics_map(rows, sense=-1, **common).stations[0][1]
+    omega = 2.0 * math.pi * 30.0
+    assert right.k_1p == pytest.approx(left.k_1p, rel=1e-9)
+    assert right.k_1p > 0.0
+    w = math.hypot(30.0, omega * 0.3)
+    assert right.k_1p == pytest.approx(omega * 0.1 / (2.0 * w), rel=0.1)
+    assert left.n95 >= 1
+
+
+def test_p0320_inflow_harmonics_refuses_wrong_chords_advance_ratio_and_sense():
+    """P0320-INFLOW-HARMONICS: a chord count, a non-positive J and a sense of 2 are refused."""
+    rows = _uniform_at_aoa(5.0)
+    kwargs = {"hub": (0.0, 0.0, 0.0), "axis": (1.0, 0.0, 0.0)}
+    with pytest.raises(ValueError, match="refus.*chords"):
+        inflow_tools.blade_view_harmonics(
+            rows, omega_rad_s=OMEGA, radii_m=[0.2, 0.3], chords_m=[0.1], **kwargs
+        )
+    common = {"radii_m": [0.3], "diameter_m": 1.0, "v_inf_m_s": 30.0, "blades": 6, **kwargs}
+    with pytest.raises(ValueError, match="refus.*advance ratio"):
+        inflow_tools.inflow_harmonics_map(rows, advance_ratios=[1.0, 0.0], **common)
+    with pytest.raises(ValueError, match="refus.*sense"):
+        inflow_tools.inflow_harmonics_map(rows, advance_ratios=[1.0], sense=2, **common)
+
+
+def test_p0320_inflow_harmonics_shares_use_the_amplitude_floor_of_n95():
+    """P0320-INFLOW-HARMONICS: a harmonic under 0.001 degree is in neither n95 nor the shares."""
+    kwargs = {
+        "hub": (0.0, 0.0, 0.0),
+        "axis": (1.0, 0.0, 0.0),
+        "omega_rad_s": OMEGA,
+        "radii_m": [RADIUS],
+    }
+    quiet = _plane_grid(lambda y, z: (30.0 + 1e-4 * (y * y - z * z), 0.0, 0.0))
+    (below,) = inflow_tools.blade_view_harmonics(quiet, **kwargs)
+    assert below.n95 == 0
+    assert below.shares == (0.0,) * 8
+    loud = _plane_grid(lambda y, z: (30.0 + 1.0 * (y * y - z * z), 0.0, 0.0))
+    (above,) = inflow_tools.blade_view_harmonics(loud, **kwargs)
+    assert above.n95 == 2
+    assert above.shares[1] > 0.99
+
+
+def test_p0320_inflow_fluctuation_sidecar_hash_is_the_file_and_it_is_never_overwritten(tmp_path):
+    """P0320-INFLOW-FLUCTUATION: the recorded sha256 is the file's; a stale sidecar is refused."""
+    import hashlib
+
+    survey = tmp_path / "post"
+    survey.mkdir()
+    _write_steps(survey, 8)
+    arguments = [
+        "field",
+        "time-mean",
+        str(survey / "P1_field_01_step_*.inflow.dat"),
+        "--last",
+        "8",
+        "--out",
+        "p1_mean",
+        "--workspace",
+        str(tmp_path),
+        "--fluctuation",
+        "--apply",
+    ]
+    assert main(arguments) == 0
+    folder = tmp_path / "inputs" / "freestreams"
+    record = json.loads((folder / "p1_mean.provenance.json").read_text())
+    digest = hashlib.sha256((folder / "p1_mean.fluctuation.csv").read_bytes()).hexdigest()
+    assert [each["sha256"] for each in record["sidecars"]] == [digest]
+    (folder / "p1_mean.dat").unlink()
+    (folder / "p1_mean.provenance.json").unlink()
+    assert main(arguments) == 2
+    assert (folder / "p1_mean.fluctuation.csv").read_bytes()
