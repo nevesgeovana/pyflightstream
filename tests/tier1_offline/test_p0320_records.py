@@ -45,8 +45,8 @@ from tests.tier1_offline.test_matrix_run import (
 
 VERSION = pyflightstream.__version__
 
-#: The fields a rebuilt record may differ in by nature, as GEO-066 2.3 item 4
-#: measured them on the fts-research copy: the package's own identity, the
+#: The fields a rebuilt record may differ in by nature (GEO-066 2.3 item 4):
+#: the package's own identity, the
 #: clock, the warnings (the REBUILT line) and the staging. ``argv``,
 #: ``executor`` and ``cwd`` are added because the run here was started by a
 #: stand-in whose argv no rebuild can know; ``submitted_by`` is the account.
@@ -604,7 +604,7 @@ def test_the_cli_restores_and_rebuilds(tmp_path, monkeypatch, capsys):
 
 
 def test_rst8_each_drift_class_is_named_with_the_input_it_comes_from(tmp_path):
-    """P0320-RST-8: her drift classes, each named, never overwritten in silence."""
+    """P0320-RST-8: the four drift classes, each named, never overwritten in silence."""
     inputs = tmp_path / "inputs"
     _write(inputs / "pproc" / "p001.toml", '[[plots.groups]]\nname = "SHAFT_PUSHER"\n')
     _write(inputs / "references" / "r003.toml", "area_m2 = 10.0\n")
