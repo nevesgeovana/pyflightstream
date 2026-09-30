@@ -140,6 +140,22 @@ from pyflightstream.cases import qsteady as _qsteady
 from pyflightstream.cases import setup_surfaces as _setup_surfaces
 from pyflightstream.cases import windows as _windows
 from pyflightstream.cases._ccs import CCS_FORMATS, CCS_SHEDDING_VARIABLE
+from pyflightstream.cases._unsteady_actions import (
+    UNSTEADY_ACTION_COUNT,
+    UNSTEADY_ACTION_PROGRAM,
+    UNSTEADY_ACTION_SCRIPT,
+    UNSTEADY_COUNTER_ACTION,
+    UNSTEADY_EXPORTS_ACTION,
+    WALLTIME_CLOCK_ACTION,  # noqa: F401 - re-exported, imported from here
+    WALLTIME_CLOCK_PROGRAM,  # noqa: F401 - re-exported, imported from here
+    WALLTIME_CLOCK_STATE,
+    WALLTIME_STOP_ACTION,  # noqa: F401 - re-exported, imported from here
+    WALLTIME_STOP_SCRIPT,
+    register_unsteady_actions,
+    unsteady_action_command_line,
+    walltime_clock_command_line,  # noqa: F401 - re-exported, imported from here
+)
+from pyflightstream.cases._unsteady_actions import action_interpreter as _action_interpreter
 from pyflightstream.cases.ccs_wing import (
     emit_ccs_geometry,
     refuse_ccs_options_off_a_ccs_file,
@@ -281,6 +297,7 @@ __all__ = [
     "rotor_time_stepping",
     "time_steps_of",
     "unsteady_action_command_line",
+    "unsteady_counter_steps",
     "unsteady_export_threshold",
     "unsteady_time_stepping",
     "select_workflow",
@@ -11885,41 +11902,6 @@ def _refuse_wake_termination_without_a_rotor(case: SimCase) -> None:
 # name relative to its cwd is not measured (the probe used absolute
 # paths); row 6002 of the tier-3 actions matrix is the measurement.
 
-#: The names the two registration lines carry, in creation order. The
-#: solver runs actions in creation order and the order cannot be changed
-#: afterwards, so the counter is registered FIRST: it rewrites the file
-#: before the SCRIPT action of the same step reads it.
-UNSTEADY_COUNTER_ACTION = "pfs_unsteady_counter"
-UNSTEADY_EXPORTS_ACTION = "pfs_unsteady_exports"
-#: The program, the file it rewrites, and the count it keeps, relative to
-#: the simulation folder. Under ``actions/`` and NOT under ``inputs/``:
-#: ``inputs/`` is a junction to the workspace geometry library whenever
-#: the geometry came from it (PFS-2029.17), and a file written there
-#: would land in the library. The two are staged inputs all the same:
-#: the record carries their sha256 beside the geometry's.
-UNSTEADY_ACTION_PROGRAM = "actions/pfs_unsteady_actions.py"
-UNSTEADY_ACTION_SCRIPT = "actions/pfs_unsteady_exports.txt"
-UNSTEADY_ACTION_COUNT = "actions/pfs_unsteady_actions.count"
-
-#: FR-98. THE CLOCK PAIR, and it is the SAME SHAPE as the
-#: counter pair above because it has the same problem: a python that can
-#: compute cannot also be the command list the solver runs, so one writes
-#: and one is read.
-#:
-#: The counter is (1), the exports script is
-#: (2), the clock is (3) and the stop script is (4). When a row states no
-#: export threshold the first pair is not registered at all and the clock
-#: pair takes (1) and (2), which is why the positions are conditional and
-#: not fixed.
-WALLTIME_CLOCK_ACTION = "pfs_walltime_clock"
-WALLTIME_STOP_ACTION = "pfs_walltime_stop"
-
-#: The program, the file it rewrites, and the state it keeps, relative to
-#: the simulation folder. Under ``actions/`` for the reason the counter's
-#: files are: ``inputs/`` may be a junction into the geometry library.
-WALLTIME_CLOCK_PROGRAM = "actions/pfs_walltime_clock.py"
-WALLTIME_STOP_SCRIPT = "actions/pfs_walltime_stop.txt"
-WALLTIME_CLOCK_STATE = "actions/pfs_walltime_clock.json"
 
 #: Rescue declared outputs before closing the native process. T41 on 26.122
 #: measured STOP continuing the march; CLOSE_FLIGHTSTREAM ended it. A rescued
@@ -12261,31 +12243,6 @@ def unsteady_export_threshold(
             conventions or WorkflowConventions.for_case(case), case, version=version
         ),
     )
-
-
-def _action_interpreter(interpreter: str) -> str:
-    """Choose the sibling Windows GUI interpreter before any native action runs."""
-    if sys.platform != "win32":
-        return interpreter
-    windowless = Path(interpreter).with_name("pythonw.exe")
-    if not windowless.is_file():
-        raise CampaignConfigError(
-            f"Windows solver actions require the sibling pythonw.exe: {windowless}; "
-            "use a Python installation that provides it before preparing the run"
-        )
-    return str(windowless)
-
-
-def unsteady_action_command_line(interpreter: str = sys.executable) -> str:
-    """Return the shell line the COMMAND_LINE action runs: the interpreter, then the program.
-
-    Both quoted, because an interpreter path with a space in it is one
-    argument. The interpreter is the one building the script, which is
-    the one the run layer names when it writes the program, so the line
-    the solver runs and the program it runs agree on which Python. On Windows,
-    its existing pythonw.exe sibling prevents a console per callback.
-    """
-    return f'"{_action_interpreter(interpreter)}" "{UNSTEADY_ACTION_PROGRAM}"'
 
 
 #: FR-96. The three things a RESTART may ask for.
@@ -12692,6 +12649,22 @@ def continuation_of(case: SimCase) -> tuple[str, int] | None:
     return str(saved), int(float(str(iterations)))
 
 
+def unsteady_counter_steps(case: SimCase) -> int:
+    """Return the time steps an unsteady row's step counter counts to (FR-314).
+
+    The steps the point's script marches: a continuation's owed steps, else
+    the clock of its run type, the same clock :func:`unsteady_export_threshold`
+    reads. The run layer writes it into the count-only program, where the
+    progress bar of a local run reads it (FR-129).
+    """
+    continuation = continuation_of(case)
+    if continuation is not None:
+        return continuation[1]
+    if select_workflow(case) == "unsteady_rotor":
+        return _rotor_clock(case).time_iterations
+    return unsteady_time_stepping(case).time_iterations
+
+
 def _build_continuation(
     case: SimCase,
     script: Script,
@@ -12757,7 +12730,7 @@ def _build_continuation(
     else:
         stepping = unsteady_time_stepping(case)
     helpers.unsteady_solver(script, time_iterations=iterations, delta_time=stepping.delta_time_s)
-    _unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
+    register_unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, None, unsteady=True, reopens_a_saved_state=True)
 
 
@@ -12788,68 +12761,6 @@ def walltime_stop_text(
     lines += action_export_lines(conventions, case, whole_run=True, version=version)
     lines.append(WALLTIME_STOP_VERB)
     return "\n".join(lines) + "\n"
-
-
-def walltime_clock_command_line() -> str:
-    """Return the COMMAND_LINE the clock action registers: interpreter, then program."""
-    interpreter = _action_interpreter(sys.executable)
-    return f'"{interpreter}" "{WALLTIME_CLOCK_PROGRAM}"'
-
-
-def _unsteady_actions(
-    script: Script,
-    threshold: UnsteadyExportThreshold | None,
-    *,
-    walltime: bool = False,
-) -> None:
-    """Register the action pairs this row needs, in creation order.
-
-    TWO PAIRS AND A FIXED NUMBERING. The counter is (1) and the
-    exports script is (2); the wall clock is (3) and the stop script is
-    (4). A row that states no export threshold registers no first pair, so
-    the clock pair takes (1) and (2): the positions are what the row asks
-    for rather than fixed numbers.
-
-    EACH PAIR IS A WRITER AND A READER, and the writer is registered first
-    because the solver runs actions in creation order and cannot be told
-    otherwise: the python rewrites the script file before the SCRIPT action
-    of the same step reads it.
-
-    Both SCRIPT files are parked EMPTY. Until the count reaches its
-    threshold, and until the clock reaches its margin, the solver must find
-    a file with no command in it; the run layer writes what is parked
-    before the solver starts (PFS-2031.13). A build that does not document
-    the action command is refused by the emitter, naming the command and
-    the builds that do.
-    """
-    if threshold is not None:
-        helpers.unsteady_action(
-            script,
-            name=UNSTEADY_COUNTER_ACTION,
-            kind="COMMAND_LINE",
-            filename=unsteady_action_command_line(),
-        )
-        helpers.unsteady_action(
-            script,
-            name=UNSTEADY_EXPORTS_ACTION,
-            kind="SCRIPT",
-            filename=UNSTEADY_ACTION_SCRIPT,
-            action_script="",
-        )
-    if walltime:
-        helpers.unsteady_action(
-            script,
-            name=WALLTIME_CLOCK_ACTION,
-            kind="COMMAND_LINE",
-            filename=walltime_clock_command_line(),
-        )
-        helpers.unsteady_action(
-            script,
-            name=WALLTIME_STOP_ACTION,
-            kind="SCRIPT",
-            filename=WALLTIME_STOP_SCRIPT,
-            action_script="",
-        )
 
 
 def _refuse_cold_start_on_a_march(case: SimCase, run_type: str) -> None:
@@ -12934,7 +12845,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     # The wake termination in STEPS is the one this run type can state
     # (PFS-2030.03.04); the revolutions form was refused above.
     _settings(case, script, wake_termination_time_steps=case.solver.wake_termination_steps)
-    _unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
+    register_unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
 
 
@@ -13077,7 +12988,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
         delta_time=stepping.delta_time_s,
     )
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
-    _unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
+    register_unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
 
 
@@ -13304,7 +13215,7 @@ def _rotor_motions(
         delta_time=stepping.delta_time_s,
     )
     _settings(case, script, wake_termination_time_steps=_wake_termination(case, stepping))
-    _unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
+    register_unsteady_actions(script, threshold, walltime=row_walltime_s(case) is not None)
     _script_tail(conventions, case, script, frame, unsteady=True, frames=frames)
 
 
@@ -15703,10 +15614,11 @@ def build_script(
     if case.recipe not in _UNSTEADY_RECIPES or continuation_of(case) is None:
         refuse_an_untranslatable_surface(case, script)
     # THE LABEL IS THE SCRIPT: a point recorded as marched by actions registers
-    # at least one, and one recorded as a single march registers none. The
-    # builders emit the actions from the row, so this is where the two are
-    # held together (architect lens, GOAL-023 opening round).
-    emitted = bool(script.unsteady_actions)
+    # at least one, and one recorded as a single march registers none but the
+    # step counter, which counts only on such a row (FR-314). The builders emit
+    # the actions from the row, so this is where the two are held together
+    # (architect lens, GOAL-023 opening round).
+    emitted = any(use.name != UNSTEADY_COUNTER_ACTION for use in script.unsteady_actions)
     if script.march_strategy is not None and emitted != (script.march_strategy == MARCH_ACTIONS):
         raise WorkflowCoverageError(
             f"internal defect: case {case.sim_id!r} on FlightStream {script.version.canonical} "

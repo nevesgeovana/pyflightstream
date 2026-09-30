@@ -71,7 +71,13 @@
 > package merged), whose one further module, the CCS floor
 > `cases/_ccs.py`, brought it from 149 to 150, and by the run of 2026-09-30 on
 > the 0.33.0 branch of work packages WP1 and WP2 (`feat/0-33-wp12`), whose one
-> new module, `results/sectional_loads.py`, brought it from 150 to 151. (An
+> new module, `results/sectional_loads.py`, brought it from 150 to 151, and by
+> the run of 2026-09-30 on the 0.33.0 branch of the functional requirements
+> FR-310 to FR-314 (`feat/0-33-fr`), whose four new modules, `_fsm_fresh.py`,
+> `cases/_unsteady_actions.py`, `workspace/_geometry_clean.py` and
+> `workspace/_matrix_homes.py`, brought it from 150 to 154, and by the run of
+> 2026-09-30 on `rel/0-33` with both branches merged, which holds the 150 and
+> all five new modules, 155. (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
 > modules and the 0.24.0 tree at 661 in 18 of 93; the 0.28.0 release tree read
 > 863 errors in 18 of 104 on 2026-09-25; the 0.29.0 quality-gate candidate
@@ -80,29 +86,34 @@
 > 18 of 134 on 2026-09-29, the same date as the v0.30.0 release tree, which
 > read 1065 in 18 of 134, and as the 0.31.0 release candidate; the
 > 0.32.0 preparation step read 1084 in 18 of 149 on 2026-09-29;
+> the 0.33.0 branch of WP1 and WP2 read 1137 in 18 of 151 and the branch
+> of FR-310 to FR-314 1133 in 18 of 154, both on 2026-09-30;
 > measurements of different
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 1137 errors in 18 files (checked 151 source files)
->     Success: no issues found in 151 source files
+>     Found 1133 errors in 18 files (checked 155 source files)
+>     Success: no issues found in 155 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-30: 1137 errors in 18 of 151 modules.**
+**mypy recount 2026-09-30: 1133 errors in 18 of 155 modules.**
 
-The module total is the 151 the tracked package holds on the 0.33.0 branch
-of work packages WP1 and WP2, one more than the integrated 0.32.0 branch's
-150, the one clean (`results/sectional_loads.py`); those 150 were eleven more
-than v0.31.0's 139, each of the eleven clean
+The module total is the 155 the tracked package holds on the 0.33.0 branch
+with work packages WP1 and WP2 and FR-310 to FR-314 merged, five more than
+the integrated 0.32.0 branch's 150, each of the five clean
+(`results/sectional_loads.py` from WP1 and WP2; `_fsm_fresh.py`,
+`cases/_unsteady_actions.py`, `workspace/_geometry_clean.py` and
+`workspace/_matrix_homes.py` from FR-310 to FR-314); those 150 were eleven
+more than v0.31.0's 139, each of the eleven clean
 (the ten contract modules of the preparation step and `cases/_ccs.py`);
 v0.31.0's own 139 were five more than
 v0.30.0's 134, each of the five clean;
 the error total sits inside the exempted set, the number of modules holding
 an exemption is unchanged at eighteen, and the shipped configuration is
-green over all 151. The run at 139 was taken by `python scripts/mypy_recount.py`
+green over all 155. The run at 139 was taken by `python scripts/mypy_recount.py`
 on the 0.31.0 release candidate at `33c1d7ef`, which the script reported
 clean, and the runs at 149 and 150 are stated in their own sections at the end; the v0.30.0 release tree's reading, 1065 errors in 18 of 134, is
 stated in its own section below.
@@ -381,11 +392,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 1137 errors in 18 files (checked 151 source files)
+    Found 1133 errors in 18 files (checked 155 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 151 source files
+    Success: no issues found in 155 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -906,3 +917,41 @@ same environment, so the two packages moved the error total by none; the 25
 over the 1112 of the integrated 0.32.0 branch were already on that base, and
 this run assigns no share of them to a change. The quoted mypy lines and the
 sentence at the top of this report are this run's.
+
+## Re-measured 2026-09-30, the 0.33.0 branch of FR-310 to FR-314: four modules arrived clean
+
+`python scripts/mypy_recount.py` on 2026-09-30, on `feat/0-33-fr` at
+`e127c8fc` (the functional requirements FR-310 to FR-314 of 0.33.0, the source
+tree committed and clean), with python 3.12.0, numpy 2.5.3, xarray 2026.7.0,
+pandas 3.0.6 and pydantic 2.13.5 (the script printed mypy's version as
+unknown): 1133 errors in 18 of 154 modules on 199 distinct source lines. The
+four modules the branch added, `_fsm_fresh.py`, `cases/_unsteady_actions.py`,
+`workspace/_geometry_clean.py` and `workspace/_matrix_homes.py`, are not
+exempted and the tool reports each CLEAN, so the dirty count still reads 18,
+and the shipped configuration is green over all 154. The base of the branch,
+`rel/0-33` at `5df3d692`, read 1137 errors in 18 of 150 on the same
+environment (the run recorded by work packages WP1 and WP2), so this branch
+reads four errors fewer; this run assigns no share of the difference to one
+change. The quoted mypy lines and the sentence at the top of this report are
+this run's.
+
+## Re-measured 2026-09-30, the 0.33.0 branch with WP1, WP2 and FR-310 to FR-314 merged: five modules arrived clean
+
+`python scripts/mypy_recount.py` on 2026-09-30, on `rel/0-33` during the
+merge of `feat/0-33-fr` at `a438aea1` into `rel/0-33` at `3f42e2ad` (which
+carries WP1 and WP2), every file under `src/` resolved and staged, with
+python 3.12.0, numpy 2.5.3, xarray 2026.7.0, pandas 3.0.6 and pydantic
+2.13.5 (the script printed mypy's version as unknown): 1133 errors in 18 of
+155 modules on 199 distinct source lines. The five modules the two branches
+added, `results/sectional_loads.py`, `_fsm_fresh.py`,
+`cases/_unsteady_actions.py`, `workspace/_geometry_clean.py` and
+`workspace/_matrix_homes.py`, are not exempted and the tool reports each
+CLEAN, so the dirty count still reads 18, and the shipped configuration is
+green over all 155. The script read 151 tracked modules because it lists
+the tree of HEAD, and the four modules the merge stages are the four of
+FR-310 to FR-314; the merge commit brings the tracked total to the 155 mypy
+checked. WP1 and WP2 alone read 1137 in 18 of 151 and FR-310 to FR-314
+alone read 1133 in 18 of 154, each against the base `rel/0-33` at
+`5df3d692` at 1137 in 18 of 150, and the merged tree reads 1133; this run
+assigns no share of the difference to one change. The quoted mypy lines and
+the sentence at the top of this report are this run's.

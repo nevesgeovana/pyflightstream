@@ -127,22 +127,38 @@ def _key(matrix: str, pol: str, name: str) -> str:
     return json.dumps([matrix, pol, name], ensure_ascii=False, separators=(",", ":"))
 
 
-def _matrix_path(workspace: Path, name: str) -> Path:
+def _matrix_path(workspace: Path, name: str, direction: str) -> Path:
+    """Return the file of the matrix ``name``, by the workspace's one lookup (FR-310).
+
+    Read, it is the home that holds the name, the root's when both hold the
+    same bytes, and ``inputs/matrices/<name>`` when neither does; written, it
+    is the home that holds it, or ``inputs/matrices/`` for a new file, and a
+    name held in both homes is refused, since writing one would leave the
+    other stale. Different bytes in both homes are refused either way.
+    """
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_. -]*\.fs", name) or ".." in name:
         raise ExcelSyncError(f"MATRIX {name!r}: use an .fs filename, without directories or '..'.")
-    directories = (workspace.resolve(), (workspace / "inputs" / "matrices").resolve())
-    candidates = [(directory / name).resolve() for directory in directories]
-    if any(
-        path.parent != directory for path, directory in zip(candidates, directories, strict=True)
-    ):
-        raise ExcelSyncError(f"MATRIX {name!r} resolves outside its declared matrix directory.")
-    existing = [path for path in candidates if path.exists()]
-    if len(existing) > 1:
-        raise ExcelSyncError(
-            f"MATRIX {name!r} is ambiguous: both workspace root and inputs/matrices contain it."
-        )
-    # New files use the dedicated folder. Existing root matrices retain their location.
-    return existing[0] if existing else candidates[1]
+    from pyflightstream.workspace import WorkspaceError
+    from pyflightstream.workspace._matrix_homes import matrix_path, matrix_to_write
+
+    try:
+        if direction == "write":
+            return matrix_to_write(workspace, name)
+        found = matrix_path(workspace, name)
+    except WorkspaceError as error:
+        raise ExcelSyncError(f"MATRIX {name!r}: {error}") from error
+    return matrix_to_write(workspace, name) if found == Path(name) else found
+
+
+def _every_matrix_name(root: Path) -> list[str]:
+    """Every matrix name of the workspace, one per stem over both homes (FR-310)."""
+    from pyflightstream.workspace import WorkspaceError
+    from pyflightstream.workspace._matrix_homes import every_matrix
+
+    try:
+        return sorted(path.name for path in every_matrix(root))
+    except WorkspaceError as error:
+        raise ExcelSyncError(str(error)) from error
 
 
 def dictionary_mapping(snapshot: WorkbookSnapshot) -> dict[str, str]:
@@ -328,11 +344,7 @@ def preview_sync(
         matrices
         if matrices is not None
         else (
-            sorted(
-                path.name
-                for directory in (root, root / "inputs" / "matrices")
-                for path in directory.glob("*.fs")
-            )
+            _every_matrix_name(root)
             if direction == "read"
             else sorted({row[1]["MATRIX"].value for row in sheet_rows.values()})
         )
@@ -344,7 +356,7 @@ def preview_sync(
         )
     loaded: dict[str, tuple[bytes | None, _Matrix]] = {}
     for filename in selected:
-        path = _matrix_path(root, filename)
+        path = _matrix_path(root, filename, direction)
         raw = path.read_bytes() if path.exists() else None
         if raw is None and direction == "read":
             raise ExcelSyncError(f"matrix {path} does not exist; choose an existing source.")
@@ -525,7 +537,7 @@ def apply_preview(preview: SyncPreview, snapshot: WorkbookSnapshot) -> ApplyResu
         )
     root = Path(preview.workspace)
     for filename, expected in preview.file_digests.items():
-        path = _matrix_path(root, filename)
+        path = _matrix_path(root, filename, preview.direction)
         actual = _digest(path.read_bytes()) if path.exists() else None
         if expected != actual:
             raise ExcelSyncError(f"{filename} changed after Preview; preview again before Apply.")
@@ -540,7 +552,7 @@ def apply_preview(preview: SyncPreview, snapshot: WorkbookSnapshot) -> ApplyResu
     if preview.direction == "read":
         return result
     for filename, content in preview.file_outputs.items():
-        path = _matrix_path(root, filename)
+        path = _matrix_path(root, filename, preview.direction)
         temporary: str | None = None
         try:
             path.parent.mkdir(parents=True, exist_ok=True)

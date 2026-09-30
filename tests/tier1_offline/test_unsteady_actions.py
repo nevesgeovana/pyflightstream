@@ -138,11 +138,25 @@ def test_a_rotor_row_stating_revolutions_registers_the_two_actions_in_order():
     assert script.pending_action_scripts == {SCRIPT_FILE: ""}
 
 
-def test_a_row_stating_no_threshold_registers_no_action():
+def test_a_row_stating_no_threshold_registers_the_counter_alone():
+    """FR-314 changed this expectation: until 0.32.0 such a row registered no action.
+
+    The counter counts only: no exports SCRIPT action, no parked file. The
+    control is the same row on 26.120, a build that documents no action,
+    which still registers none.
+    """
+    requirement = "FR-314"
     script = Script("26.123")
     build_script(rotor_case(), script)
-    assert "SET_NEW_UNSTEADY_SOLVER_ACTION" not in script.render()
+    rendered = script.render()
+    actions = _action_lines(rendered)
+    assert [head.split()[1] for head, _ in actions] == ["COMMAND_LINE"], (requirement, rendered)
+    assert actions[0][1] == f'"{ACTION_INTERPRETER}" "{PROGRAM}"', actions
     assert script.pending_action_scripts == {}
+    assert script.march_strategy == "single_march", requirement
+    control = Script("26.120")
+    build_script(rotor_case(), control)
+    assert "SET_NEW_UNSTEADY_SOLVER_ACTION" not in control.render(), requirement
 
 
 def test_the_program_the_run_layer_writes_carries_the_step_degrees_and_the_threshold():
@@ -400,22 +414,34 @@ def test_a_second_point_of_the_same_case_starts_its_count_again(tmp_path):
     assert [record.action_count for record in records] == [4, 4]
 
 
-def test_a_run_without_a_threshold_records_none_for_the_three_fields(tmp_path):
+def test_a_run_without_a_threshold_records_the_count_only_program(tmp_path):
+    """FR-314 changed this expectation: until 0.32.0 the row wrote no program at all.
+
+    The count-only program counts the solver's invocations and writes nothing
+    else: the record names the program, no exports file and no export window,
+    and the count reached.
+    """
+    requirement = "FR-314"
     campaign = _threshold_campaign(tmp_path)
     workspace = CampaignWorkspace(tmp_path / "camp")
-    from tests.tier1_offline.test_run_campaign import WRITES_LOADS
-
     records = run_campaign(
         campaign,
-        StubSolver(WRITES_LOADS),
+        StubSolver(RUNS_THE_COUNTER_FOUR_TIMES),
         workspace,
         assess=converged,
         recipes={"unsteady": workflow_registry()["unsteady"]},
     )
     record = records[0]
     assert record.status is RunStatus.CONVERGED, record.error
-    assert (record.action_program, record.action_script, record.action_count) == (None,) * 3
-    assert not any(workspace.sim_dir("9001").rglob("actions"))
+    sim_dir = workspace.sim_dir("9001") / "datapoints" / f"DP-{record.point_name}"
+    assert (record.action_program, record.action_script) == (PROGRAM, None), requirement
+    assert record.export_window is None
+    assert record.action_count == 4, requirement
+    assert record.inputs_sha256[PROGRAM] == _sha256(sim_dir / PROGRAM)
+    assert SCRIPT_FILE not in record.inputs_sha256
+    program = (sim_dir / PROGRAM).read_text(encoding="utf-8")
+    assert "TIME_ITERATIONS = 4" in program and "EXPORTS" not in program, program
+    assert not (sim_dir / SCRIPT_FILE).exists(), "a count-only counter writes no exports file"
 
 
 # --- the worked example on the page is the one this module builds -------------------
@@ -615,17 +641,17 @@ def test_goal019_watchdog_the_clock_pair_registers_after_the_counter_pair():
     cannot be told otherwise, so in each pair the python that WRITES is
     registered before the script that READS.
     """
+    from pyflightstream.cases._unsteady_actions import register_unsteady_actions
     from pyflightstream.cases.workflows import (
         UNSTEADY_COUNTER_ACTION,
         UNSTEADY_EXPORTS_ACTION,
         WALLTIME_CLOCK_ACTION,
         WALLTIME_STOP_ACTION,
-        _unsteady_actions,
     )
     from pyflightstream.script import Script
 
     script = Script(version="26.123")
-    _unsteady_actions(script, _a_threshold(), walltime=True)
+    register_unsteady_actions(script, _a_threshold(), walltime=True)
     names = [use.name for use in script.unsteady_actions]
     assert names == [
         UNSTEADY_COUNTER_ACTION,
@@ -635,26 +661,30 @@ def test_goal019_watchdog_the_clock_pair_registers_after_the_counter_pair():
     ], names
 
 
-def test_goal019_watchdog_the_clock_pair_takes_one_and_two_when_alone():
+def test_goal019_watchdog_the_clock_pair_follows_the_counter_alone():
     """ "When the other two exist", in her words, and when they do not.
 
-    A row that states no export threshold registers no counter pair at
-    all, so the clock pair is (1) and (2). The positions are what the row
-    asks for rather than fixed numbers.
+    FR-314 changed this expectation: until 0.32.0 a row stating no export
+    threshold registered no counter at all and the clock pair was (1) and
+    (2). Now the counter counts alone, so the clock pair is (2) and (3). The
+    positions are what the row asks for rather than fixed numbers.
     """
+    requirement = "FR-314"
+    from pyflightstream.cases._unsteady_actions import register_unsteady_actions
     from pyflightstream.cases.workflows import (
+        UNSTEADY_COUNTER_ACTION,
         WALLTIME_CLOCK_ACTION,
         WALLTIME_STOP_ACTION,
-        _unsteady_actions,
     )
     from pyflightstream.script import Script
 
     script = Script(version="26.123")
-    _unsteady_actions(script, None, walltime=True)
+    register_unsteady_actions(script, None, walltime=True)
     assert [use.name for use in script.unsteady_actions] == [
+        UNSTEADY_COUNTER_ACTION,
         WALLTIME_CLOCK_ACTION,
         WALLTIME_STOP_ACTION,
-    ]
+    ], requirement
 
 
 def test_goal019_watchdog_the_clock_fires_once_and_says_where_it_stopped(tmp_path):

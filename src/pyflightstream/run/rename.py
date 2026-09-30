@@ -69,7 +69,7 @@ from pyflightstream.cases import (
     sweep_name,
 )
 from pyflightstream.cases.matrix import MatrixError, MatrixRow, read_matrix
-from pyflightstream.workspace import CampaignWorkspace, RunStatus, WorkspaceError
+from pyflightstream.workspace import CampaignWorkspace, RunStatus, WorkspaceError, find_matrix
 from pyflightstream.workspace.naming import (
     ARCHIVE_DIR,
     ARCHIVE_STAMP,
@@ -319,13 +319,16 @@ def _rows_of(root: Path, stem: str | None) -> dict[str, MatrixRow]:
     """Return the rows of one matrix of the workspace, keyed by POL."""
     if not stem:
         return {}
-    path = root / f"{stem}.fs"
-    if not path.is_file():
+    # FR-310: either home of the workspace, by the one lookup, which refuses a
+    # stem held in both with different bytes.
+    found = find_matrix(root, stem)
+    if found is None:
         raise WorkspaceError(
             f"the manifest records runs of the matrix {stem!r} and the workspace holds no "
-            f"{path.name} at its root, so the rows that write the new names cannot be read. "
-            "Put the matrix back beside runs.json and run this again."
+            f"{stem}.fs at its root or under inputs/matrices/, so the rows that write the new "
+            "names cannot be read. Put the matrix back in either home and run this again."
         )
+    path = found
     try:
         # EVERY row, including the ones the RUN column hides: a hidden row may
         # still have records from before it was hidden, and they are renamed.

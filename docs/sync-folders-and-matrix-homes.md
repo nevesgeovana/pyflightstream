@@ -84,12 +84,29 @@ wrote:
 ## The two matrix homes
 
 A workspace keeps its matrices at its root or in `inputs/matrices/`, and
-both are equal homes for the sync, the plan's POL census and the post:
+both are equal homes for every command that takes a matrix or looks one up
+(since 0.33.0, FR-310): `upgrade`, `convert`, `plan`, `inspect-setups`,
+`run`, `post` (its matrix and `--additional-pproc`), `rebuild --matrix` and
+the rebuild's own scan, `rename`, `sync`, the Excel synchronization with and
+without `--matrix`, and the physics check of `pyfs-qa`. `space-in-use` and
+`free-space` read no matrix, and `delete-sims --matrix-products regenerate`
+reads it through the post. All of them ask one lookup:
 
-- a matrix in either home is found;
+- a value that names its folder (`inputs/matrices/wing.fs`, an absolute
+  path) is read from that folder, as before;
+- a bare file name or a stem (`wing.fs`, `wing`) is looked up in both
+  homes of the command's `--workspace`, the working directory for `upgrade`
+  and `convert`, which take none; a name in neither home is read as given;
 - one stem in both homes is read once when the two files hold the same
   bytes;
-- with different bytes it is refused, naming both paths: `sync` and `plan`
-  stop, and `post` warns naming both and falls back to the run records.
+- with different bytes it is refused before any work, naming both paths:
+  every command stops, except `post`, which warns naming both and falls
+  back to the run records;
+- a bare name found in a home, given from outside the workspace, whose
+  working directory holds a file of that name too (the file 0.32.0 read):
+  the same bytes are one matrix, and different bytes are refused naming
+  both, so a command never reads another file than 0.32.0 did without
+  saying so.
 
-Keep one copy, or make the two identical.
+`restore --matrix` names the folder under `post/` by the matrix's stem and
+reads no matrix file. Keep one copy, or make the two identical.

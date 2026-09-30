@@ -849,7 +849,10 @@
     1084 in 18 of 149 after the step that laid down its ten contract modules,
     and 1112 in 18 of 150 once every 0.32.0 package had merged (2026-09-30);
     the 0.33.0 branch of work packages WP1 and WP2 read 1137 in 18 of 151 on
-    the same date, its base 1137 in 18 of 150, the one module it added clean.
+    the same date, its base 1137 in 18 of 150, the one module it added clean;
+    the 0.33.0 branch of FR-310 to FR-314 read 1133 in 18 of 154, the four
+    modules it added clean; and the branch with both merged read 1133 in 18
+    of 155, every one of the five new modules clean.
     The eighteen exempted modules are the same set, every module a release
     adds is clean, and the shipped configuration is green over all of them.
     The count of errors inside the exempted set grows with the code those

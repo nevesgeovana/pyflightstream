@@ -77,7 +77,14 @@ from pyflightstream.results.tables import parse_run_loads
 from pyflightstream.run import CampaignErrors, LoadsAssessor
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.versions import resolve
-from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+from pyflightstream.workspace import (
+    CampaignWorkspace,
+    RunRecord,
+    RunStatus,
+    WorkspaceError,
+    matrix_files,
+)
+from pyflightstream.workspace._matrix_homes import matrix_path, names_its_folder
 from pyflightstream.workspace.inputs import LOCAL_EXECUTABLES_FILE
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate, is_portable_name
 
@@ -113,26 +120,34 @@ def physics_matrix(root: str | Path, matrix: str = DEFAULT_MATRIX) -> Path:
     root : str or Path
         The workspace root.
     matrix : str
-        The matrix FILE NAME inside the root, ``matriz_physics.fs`` by
-        default. A name and not a path, deliberately: the command reads
-        one workspace, and the matrices of a workspace sit at its root
-        beside ``inputs/`` (the workspace page), so a path elsewhere would
-        name rows that the workspace's manifest cannot record.
+        The matrix FILE NAME, ``matriz_physics.fs`` by default, looked up at
+        the root and under ``inputs/matrices/`` by the workspace's one lookup
+        (FR-310); a name in both homes with different bytes is refused. A
+        name and not a path, deliberately: the command reads one workspace,
+        so a path elsewhere would name rows that the workspace's manifest
+        cannot record; a path is read relative to the root, as before.
 
     Raises
     ------
     PhysicsEnvironmentError
-        When the root holds no matrix of that name; the message lists the
-        matrices it does hold, and the parameter that picks another.
+        When neither home holds a matrix of that name, or both hold it with
+        different bytes; the message lists the matrices it does hold, and the
+        parameter that picks another.
     """
-    path = Path(root) / matrix
+    try:
+        path = Path(root) / matrix if names_its_folder(matrix) else matrix_path(root, matrix)
+    except WorkspaceError as error:
+        raise PhysicsEnvironmentError(str(error)) from error
+    if path == Path(matrix):
+        path = Path(root) / matrix
     if path.is_file():
         return path
-    held = sorted(candidate.name for candidate in Path(root).glob("*.fs"))
+    held = sorted({candidate.name for candidate in matrix_files(root)})
     raise PhysicsEnvironmentError(
         f"the workspace {Path(root)} holds no matrix named {matrix!r}; it holds "
         f"{', '.join(held) if held else 'no matrix at all'}. The physics cases are rows "
-        f"of a run matrix at the workspace root, {DEFAULT_MATRIX} by convention; name "
+        f"of a run matrix at the workspace root or under inputs/matrices/, "
+        f"{DEFAULT_MATRIX} by convention; name "
         "another with matrix (CLI: --matrix), or point at the workspace that holds it."
     )
 

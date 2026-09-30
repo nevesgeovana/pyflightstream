@@ -232,10 +232,19 @@ def test_an_edit_to_a_column_the_legacy_layout_lacks_is_refused_not_skipped(
     assert preview_sync(tmp_path, snap, direction="write").applicable
 
 
-def test_duplicate_filename_across_locations_is_ambiguous(tmp_path: Path) -> None:
+def test_duplicate_filename_across_locations_is_read_once_or_refused(tmp_path: Path) -> None:
+    """FR-310 changed this expectation: equal bytes in both homes are read once.
+
+    Until 0.32.0 any name in both homes was refused as ambiguous. Now equal
+    bytes are one matrix and different bytes are refused naming both paths.
+    """
+    requirement = "FR-310"
     nested = matrix(tmp_path)
     (tmp_path / "batch.fs").write_bytes(nested.read_bytes())
-    with pytest.raises(ExcelSyncError, match="ambigu"):
+    preview = preview_sync(tmp_path, blank(), direction="read")
+    assert list(preview.file_digests) == ["batch.fs"], requirement
+    (tmp_path / "batch.fs").write_bytes(nested.read_bytes() + b"# edited\r\n")
+    with pytest.raises(ExcelSyncError, match="both homes"):
         preview_sync(tmp_path, blank(), direction="read")
 
 

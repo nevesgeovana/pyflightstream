@@ -138,6 +138,10 @@ from pyflightstream.versions import (
     UnknownVersionError,
     resolve,
 )
+from pyflightstream.workspace._geometry_clean import CleanedGeometry as CleanedGeometry
+from pyflightstream.workspace._geometry_clean import (
+    clean_saved_actions as clean_saved_actions,
+)
 
 INPUT_KINDS = (
     "geometries",
@@ -2322,86 +2326,6 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
     return sidecar
 
 
-@dataclass(frozen=True)
-class CleanedGeometry:
-    """What :func:`clean_saved_actions` removed from a saved simulation.
-
-    Attributes
-    ----------
-    actions : tuple of (str, str, str)
-        Each removed action's name, command or script file, and type.
-    backup : Path or None
-        The copy of the file as it was, None when nothing was removed.
-    """
-
-    actions: tuple[tuple[str, str, str], ...]
-    backup: Path | None
-
-
-def clean_saved_actions(geometry: str | Path, *, stamp: str) -> CleanedGeometry:
-    """Remove the unsteady solver actions saved in a geometry (FR-308).
-
-    A saved action keeps its name when the script creates one of the same
-    name, so the solver runs the saved command instead of the script's
-    (:func:`pyflightstream._fsm.saved_solver_actions`). The action count
-    becomes 0 and the records go; every other byte is kept. The file as it
-    was is copied to ``<name>.bak-<stamp>`` beside it first, the new text
-    replaces it through a temporary file, and its boundary names are read
-    before and after: when they differ, the copy is put back and the call
-    refused.
-
-    Parameters
-    ----------
-    geometry : str or Path
-        A saved simulation.
-    stamp : str
-        The suffix of the backup's name, the caller's timestamp.
-
-    Returns
-    -------
-    CleanedGeometry
-        The actions removed and the backup, or no action and no backup
-        when the file carried none, in which case it is not written.
-
-    Raises
-    ------
-    InputArtifactError
-        A file that cannot be read, that has no closed SOLVER block, whose
-        actions do not hold their shape, or whose boundary names changed.
-    """
-    import os
-    import shutil
-
-    from pyflightstream._fsm import without_saved_solver_actions
-
-    path = Path(geometry)
-    try:
-        text = path.read_bytes().decode("latin-1")
-        cleaned, actions = without_saved_solver_actions(text, path.name)
-        before = boundary_names(path)
-    except (OSError, MeshReadError) as error:
-        raise InputArtifactError(f"{path.name}: {error}") from error
-    if not actions:
-        return CleanedGeometry(actions=(), backup=None)
-    backup = path.with_name(f"{path.name}.bak-{stamp}")
-    shutil.copy2(path, backup)
-    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-    temporary.write_bytes(cleaned.encode("latin-1"))
-    os.replace(temporary, path)
-    after: object
-    try:
-        after = boundary_names(path)
-    except MeshReadError as error:
-        after = f"unreadable: {error}"
-    if after != before:
-        shutil.copy2(backup, path)
-        raise InputArtifactError(
-            f"{path.name}: its boundary names read {after} after removing the saved actions "
-            f"and {before} before, so the file was put back from {backup.name}."
-        )
-    return CleanedGeometry(actions=actions, backup=backup)
-
-
 # --- an OBJ's surface names, read from its groups (G30, RPT-078) ---------------------
 
 #: The raw-mesh suffix whose surface names are read from the file itself. An
@@ -3295,6 +3219,12 @@ class HpcProfile:
     #: reads one file whatever the scheduler called it. None where the
     #: scheduler writes none.
     native_log: str | None = None
+    #: THE FILES THE SCHEDULER WRITES WHEN A JOB ENDS (FR-311), as globs relative
+    #: to the run's working directory with the placeholders of ``native_log``
+    #: (``{sim}``, ``{point}``); the job id, which the package never learns, is
+    #: matched by the glob. When every one matches and the solver log does not,
+    #: `collect` records the point FAILED_EXECUTION. Empty: `collect` waits.
+    job_end_files: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         """Refuse a descriptor name that is not a plain file name.
@@ -3375,7 +3305,7 @@ WALLTIME_ARITHMETIC: frozenset[str] = frozenset({"wall", "seconds"})
 HPC_PROFILE_KEYS: frozenset[str] = frozenset(
     {"application_id", "descriptor", "submit", "defaults", "builds", "walltime_arithmetic", "log"}
 )
-HPC_LOG_KEYS: frozenset[str] = frozenset({"export_log", "native_log"})
+HPC_LOG_KEYS: frozenset[str] = frozenset({"export_log", "native_log", "job_end_files"})
 
 
 def _refuse_unknown_keys(
@@ -3509,6 +3439,7 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         walltime_arithmetic=arithmetic,
         export_log=export_log,
         native_log=native_log,
+        job_end_files=_job_end_files(target, log.get("job_end_files", [])),
         builds=builds,
         application_id=str(table["application_id"]),
         descriptor_format=fmt,
@@ -3525,6 +3456,23 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         defaults=dict(table.get("defaults") or {}),
         path=target,
     )
+
+
+def _job_end_files(target: Path, ends: object) -> tuple[str, ...]:
+    """Read ``[log] job_end_files`` (FR-311): a list of globs with native_log's placeholders."""
+    try:
+        valid = isinstance(ends, list) and all(
+            str(pattern.format(sim="s", point="p")).strip() for pattern in ends
+        )
+    except (AttributeError, IndexError, KeyError, ValueError):
+        valid = False
+    if not valid or not isinstance(ends, list):
+        raise InputArtifactError(
+            f"the HPC profile {target} states job_end_files = {ends!r}. It is a list of the "
+            "file names the scheduler writes when a job ends, as globs with the placeholders "
+            'of native_log, {sim} and {point}, for example ["FTS{sim}.o*", "FTS{sim}.e*"].'
+        )
+    return tuple(str(pattern).strip() for pattern in ends)
 
 
 def _read_build_aliases(target: Path, table: object) -> dict[str, str]:

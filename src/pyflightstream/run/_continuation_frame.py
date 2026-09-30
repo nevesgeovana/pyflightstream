@@ -9,9 +9,17 @@ from typing import NoReturn
 
 from pyflightstream._digest import file_sha256
 from pyflightstream.cases import CampaignConfigError, ScriptRecipe, SimCase, case_at_point
-from pyflightstream.cases.workflows import RESERVED_CONTINUATION_VARIABLES, RESTART_VARIABLE
+from pyflightstream.cases.workflows import (
+    RESERVED_CONTINUATION_VARIABLES,
+    RESTART_VARIABLE,
+    UNSTEADY_COUNTER_ACTION,
+)
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, RunRecord
+
+#: The step counter's registration, which every unsteady row carries since 0.33.0
+#: (FR-314) and which counts and places nothing.
+_COUNTER_HEAD = f"SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE {UNSTEADY_COUNTER_ACTION}"
 
 
 def _refuse(record: RunRecord, reason: str) -> NoReturn:
@@ -34,7 +42,9 @@ def _native_setup(text: str, script: Script) -> tuple[str, ...]:
     """Compare native setup, excluding output serialization and comments.
 
     0.27 wrote Tecplot natively; current releases translate VTK. Exports
-    select no loads frame. Scientific commands and their order stay compared.
+    select no loads frame, and neither does the step counter 0.33.0 registers
+    on every unsteady row (FR-314). Scientific commands and their order stay
+    compared.
     """
     lines = [
         line.strip()
@@ -45,6 +55,10 @@ def _native_setup(text: str, script: Script) -> tuple[str, ...]:
     at = 0
     while at < len(lines):
         line = lines[at]
+        # FR-314: a row recorded by 0.32.0 without the counter is the same setup.
+        if line == _COUNTER_HEAD and at + 1 < len(lines):
+            at += 2
+            continue
         if line == "SET_VTK_EXPORT_VARIABLES -1 DISABLE":
             at += 1
             continue

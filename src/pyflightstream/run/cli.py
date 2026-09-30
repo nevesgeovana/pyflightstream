@@ -107,6 +107,7 @@ from pyflightstream.workspace import (
     post_diagnostics,
     selected_sims,
 )
+from pyflightstream.workspace._matrix_homes import resolve_matrix_arguments
 from pyflightstream.workspace.matrix import renumber_repeated_pols
 from pyflightstream.workspace.naming import (
     MATRIX_POINT_NAME,
@@ -893,7 +894,8 @@ def main(argv: list[str] | None = None) -> int:
         header=args.subcommand == "plan",
         hold=args.subcommand != "plan",
     ):
-        if (refused := _refuse_runs_manifest(args)) is not None:
+        # FR-310: every matrix argument over the two homes, before any command reads it.
+        if (refused := _refuse_runs_manifest(args) or resolve_matrix_arguments(args)) is not None:
             return refused
         if args.subcommand in _RECORDS_COMMANDS:
             return _cmd_records(args)
@@ -2031,12 +2033,13 @@ def _cmd_inventory(args: argparse.Namespace) -> int:
 
     A saved simulation that carries unsteady solver actions is named on
     standard error with each action and the ``--clean`` command, on every
-    call (FR-308); ``--clean`` removes them first, and then an existing
-    sidecar is kept, since the boundaries it lists did not change.
+    call (FR-308); ``--clean`` reduces the file to its meshes and boundary
+    conditions first (FR-308, FR-312), and then an existing sidecar is kept,
+    since the boundaries it lists did not change.
     """
     from datetime import UTC, datetime
 
-    from pyflightstream._fsm import MeshReadError, saved_solver_actions
+    from pyflightstream.workspace._geometry_clean import saved_action_warning
     from pyflightstream.workspace.inputs import (
         OBJ_SUFFIX,
         clean_saved_actions,
@@ -2053,36 +2056,22 @@ def _cmd_inventory(args: argparse.Namespace) -> int:
         except (OSError, PyflightstreamError) as error:
             print(str(error), file=sys.stderr)
             return 2
-        for name, command, kind in cleaned.actions:
-            print(f"removed saved action {name} [{kind}] {command}", file=sys.stderr)
-        if cleaned.backup is not None:
-            print(f"the file as it was is {cleaned.backup.name}", file=sys.stderr)
-        else:
-            print(f"{geometry.name} carries no saved unsteady solver action", file=sys.stderr)
+        said = [f"removed saved action {n} [{k}] {c}" for n, c, k in cleaned.actions]
+        said += [f"reset block {name} to its fresh-import content" for name in cleaned.blocks_reset]
+        said += [cleaned.note] if cleaned.note else []
+        said += [
+            f"the file as it was is {cleaned.backup.name}"
+            if cleaned.backup is not None
+            else f"{geometry.name} carries no saved unsteady solver action"
+            + ("" if cleaned.note else ", and each measured block holds its fresh-import content")
+        ]
+        for line in said:
+            print(line, file=sys.stderr)
         if inventory_sidecar(geometry).exists() and not args.overwrite:
             print(inventory_sidecar(geometry))
             return 0
-    elif saved:
-        try:
-            actions = saved_solver_actions(geometry)
-        except MeshReadError as error:
-            print(f"warning: {error}", file=sys.stderr)
-            actions = None
-        if actions:
-            print(
-                f"warning: {geometry.name} carries {len(actions)} unsteady solver action(s) "
-                "saved in the file:",
-                file=sys.stderr,
-            )
-            for name, command, kind in actions:
-                print(f"  {name} [{kind}] {command}", file=sys.stderr)
-            print(
-                "  A saved action keeps its name when the script creates one of the same "
-                "name, and the solver runs the saved command (an interpreter path of "
-                "another machine aborts the unsteady run when it fires). Remove them "
-                f"with: pyfs-matrix inventory {args.geometry} --clean",
-                file=sys.stderr,
-            )
+    elif saved and (warning := saved_action_warning(geometry, args.geometry)) is not None:
+        print(f"warning: {warning}", file=sys.stderr)
     try:
         sidecar = write_inventory(args.geometry, overwrite=args.overwrite)
     except (OSError, PyflightstreamError) as error:

@@ -482,6 +482,76 @@ def _native_log(
     return _NativeLog(source=found[0] if found else None, target=target)
 
 
+def _native_log_or_job_end(
+    workspace: CampaignWorkspace, record: RunRecord, names: list[str], work_dir: Path
+) -> tuple[_NativeLog, CollectOutcome | None]:
+    """Resolve the scheduler's log, and the outcome of a point that stops the sweep here.
+
+    The outcome is the refusal :func:`_native_log` states, or the FAILED_EXECUTION
+    record of a job that ended without its log (:func:`_job_ended_without_log`);
+    None when the point is observed as before.
+    """
+    native = _native_log(workspace, record, names, work_dir)
+    if native.refusal is not None:
+        return native, CollectOutcome(run_id=record.run_id, state="FAILED", detail=native.refusal)
+    return native, _job_ended_without_log(workspace, record, names, work_dir, native)
+
+
+#: The lines of each end-of-job file a FAILED_EXECUTION record carries (FR-311 R2).
+JOB_END_TAIL_LINES = 20
+
+
+def _job_ended_without_log(
+    workspace: CampaignWorkspace,
+    record: RunRecord,
+    names: Sequence[str],
+    work_dir: Path,
+    native: _NativeLog,
+) -> CollectOutcome | None:
+    """Record FAILED_EXECUTION for a job whose end-of-job files exist and whose log does not.
+
+    FR-311. The HPC profile's ``job_end_files`` lists the files the scheduler
+    writes when a job ends; nothing of one scheduler is written here. When
+    every pattern matches a file and the solver log does not exist (the
+    ``native_log`` match, or else the declared log), the job ended without
+    it: the record is written FAILED_EXECUTION, carrying the last
+    :data:`JOB_END_TAIL_LINES` lines of each matched file, read as bytes and
+    decoded with replacement. None, and the sweep goes on as before, when the
+    profile lists none, when a pattern matches nothing, when the point
+    declares no log, or when the log exists. A heuristic (R5): a log delayed
+    on a shared file system, or a requeued job, can be misjudged.
+    """
+    profile = resolve_hpc_profile(workspace.inputs_dir)
+    patterns = tuple(getattr(profile, "job_end_files", ()) or ())
+    logs = [work_dir / name for name in names if str(name).endswith(LOG_SUFFIX)]
+    if not patterns or not logs or native.source is not None or any(p.exists() for p in logs):
+        return None
+    point = _datapoint_of(record) or ""
+    matched: list[Path] = []
+    for pattern in patterns:
+        found = sorted(p for p in work_dir.glob(pattern.format(sim=record.sim_id, point=point)))
+        if not any(path.is_file() for path in found):
+            return None
+        matched += [path for path in found if path.is_file()]
+    tails = [
+        f"--- last {JOB_END_TAIL_LINES} lines of {path.name} ---\n"
+        + "\n".join(
+            path.read_bytes().decode("utf-8", errors="replace").splitlines()[-JOB_END_TAIL_LINES:]
+        )
+        for path in matched
+    ]
+    error = (
+        f"the job ended without its solver log: {', '.join(p.name for p in matched)} exist "
+        f"(job_end_files of the HPC profile) and {', '.join(p.name for p in logs)} does not "
+        "(FR-311).\n" + "\n".join(tails)
+    )
+    failed = record.model_copy(update={"status": RunStatus.FAILED_EXECUTION, "error": error})
+    _write(workspace, failed)
+    return CollectOutcome(
+        run_id=record.run_id, state="FAILED", detail=error.split("\n", 1)[0], record=failed
+    )
+
+
 def _copy_native_log(native: _NativeLog) -> None:
     """Copy the SETTLED scheduler log to the declared name, over any earlier copy."""
     if native.source is not None and native.target is not None:
@@ -711,11 +781,10 @@ def collect_once(
         # THE SCHEDULER'S OWN LOG IS PUT WHERE THE ROW SAID, before anything
         # waits on it: on a machine that aborts at EXPORT_LOG the declared log
         # is the one file that never arrives, and the sweep would wait forever.
-        native = _native_log(workspace, record, names, work_dir)
-        if native.refusal is not None:
-            report.failed.append(
-                CollectOutcome(run_id=record.run_id, state="FAILED", detail=native.refusal)
-            )
+        # FR-311: and A JOB THAT ENDED WITHOUT ITS LOG is failed, not waited for forever.
+        native, stopped = _native_log_or_job_end(workspace, record, names, work_dir)
+        if stopped is not None:
+            report.failed.append(stopped)
             continue
         # G45: A TECPLOT THE PACKAGE WRITES IS NOT WAITED FOR. The solver writes
         # its VTK and never the .dat, which is written from it once the job is

@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import ast
 import math
+import sys
 import warnings
 from collections.abc import Sequence
 from pathlib import Path
@@ -1959,9 +1960,26 @@ def render_or_refusal(name: str, label: str, build: str) -> str:
         "backs is about a different matrix than the one it names"
     )
     try:
-        return rendered(case, build)
+        return portable_interpreter(rendered(case, build))
     except (CampaignConfigError, CommandArgumentError, WorkflowCoverageError) as error:
         return f"REFUSED {type(error).__name__}\n{error}\n"
+
+
+#: The placeholder the tier-3 goldens hold for the building interpreter.
+INTERPRETER_PLACEHOLDER = "<python>"
+
+
+def portable_interpreter(text: str) -> str:
+    """Replace the building interpreter a render names with the placeholder (FR-314).
+
+    Every unsteady row on a build with actions registers the step counter
+    since 0.33.0, whose command line names the interpreter building the
+    script (its ``pythonw.exe`` sibling on Windows), which differs per
+    machine; a golden holds the placeholder, as the tier-3 goldens do.
+    """
+    for spelling in (str(Path(sys.executable).with_name("pythonw.exe")), sys.executable):
+        text = text.replace(spelling, INTERPRETER_PLACEHOLDER)
+    return text
 
 
 @pytest.mark.parametrize(("name", "label", "build"), GOLDEN_RENDERS)
