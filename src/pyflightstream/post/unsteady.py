@@ -45,14 +45,16 @@ form of either this repository has evidence for.
 
 from __future__ import annotations
 
+import math
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 
 from pyflightstream._errors import ProductError
+from pyflightstream.cases import FORCE_PLOT_PARAMETERS
 from pyflightstream.post.axes import blade_azimuth_deg
 from pyflightstream.results import IncompleteOutputError, MalformedOutputError
 
@@ -64,6 +66,7 @@ __all__ = [
     "passage_windows",
     "phase_locked_rows",
     "read_timestep_series",
+    "revolution_drift_warnings",
 ]
 
 #: What the refusal tells a reader who has frames and no order.
@@ -535,6 +538,73 @@ def passage_windows(series: TimestepSeries, *, period_steps: int) -> list[tuple[
         windows.append((start, start + period - 1))
         start += period
     return windows
+
+
+def revolution_drift_warnings(
+    previous: Mapping[str, float],
+    current: Mapping[str, float],
+    shown: Mapping[str, str],
+    *,
+    limit_pct: float,
+) -> list[str]:
+    """Judge the last revolution of each force and moment column against its SCALE (FR-180).
+
+    A plotted load column is named ``<parameter>_<group>`` (``FY_PROP_X``), the
+    parameter one of the solver's force plot parameters. Its KIND is what the
+    parameter measures (a force ``FX FY FZ``, a moment ``MX MY MZ``, a force
+    coefficient ``CL CDI CDO CD``) and its GROUP is the text after the parameter:
+    the columns of one kind and one group are the components of ONE load of one
+    body in one frame, so an in-plane force is judged against the thrust and an
+    in-plane moment against the torque. The scale is the largest magnitude among
+    the PREVIOUS revolution's means of that kind and group, the revolution the
+    relative drift divides by; a column warns when
+    ``|mean_now - mean_prev| > limit_pct / 100 * scale``. For the column that IS
+    the largest this is the relative drift of the table, unchanged; a near-zero
+    component is not judged against itself, whose relative change is noise.
+
+    ``shown`` maps each column to the name the table prints. Returns one clause
+    per warned column, in column order, stating the change against the scale. A
+    column that is no load, whose group has no finite nonzero mean, or whose own
+    means are not numbers is never warned about.
+
+    Examples
+    --------
+    >>> before = {"FX_P": 100.0, "FY_P": 0.02, "MACH_P1": 0.1}
+    >>> names = {name: name for name in before}
+    >>> after = {"FX_P": 100.1, "FY_P": 0.005, "MACH_P1": 0.2}
+    >>> revolution_drift_warnings(before, after, names, limit_pct=1.0)
+    []
+    >>> (clause,) = revolution_drift_warnings(before, {**after, "FY_P": 2.5}, names, limit_pct=1.0)
+    >>> clause.split(" (")[0]
+    'column FY_P drifts +2.4800 per cent of its scale 100'
+    """
+    kinds: dict[str, tuple[str, str]] = {}
+    largest: dict[tuple[str, str], str] = {}
+    for name, value in previous.items():
+        parameter, _, group = name.partition("_")
+        if parameter not in FORCE_PLOT_PARAMETERS:
+            continue
+        measured, units = FORCE_PLOT_PARAMETERS[parameter]
+        key = ("coefficient" if units == "COEFFICIENTS" else measured.split("_")[0].lower(), group)
+        kinds[name] = key
+        best = largest.get(key)
+        if math.isfinite(value) and (best is None or abs(value) > abs(previous[best])):
+            largest[key] = name
+    clauses: list[str] = []
+    for name, key in kinds.items():
+        by = largest.get(key)
+        if by is None or previous[by] == 0.0:
+            continue
+        scale = abs(previous[by])
+        change = current[name] - previous[name]
+        pct = change / scale * 100.0
+        if abs(pct) > limit_pct:  # NaN compares False: a mean that is no number is quiet
+            clauses.append(
+                f"column {shown[name]} drifts {pct:+.4f} per cent of its scale {scale:.6g} "
+                f"(the magnitude of {shown[by]}, the largest {key[0]} mean of its group in "
+                f"the earlier revolution; a change of {change:+.6g})"
+            )
+    return clauses
 
 
 def per_blade_rows(

@@ -254,6 +254,7 @@ from pyflightstream.post.unsteady import (
     blade_passage_average,
     per_blade_rows,
     phase_locked_rows,
+    revolution_drift_warnings,
 )
 from pyflightstream.results import (
     FrozenSolve,
@@ -7916,24 +7917,18 @@ def _write_the_per_revolution_products(
             )
             skipped[f"{relative}#partial"] = note
             warn(f"point={stem} product={relative}: {note}", PyflightstreamWarning, stacklevel=2)
-        if len(windows) >= 2:
-            for name, shown_name in zip(printed, shown, strict=True):
-                drift_now = drifts[-1][name]
-                if (
-                    drift_now is not None
-                    and is_force_or_moment_column(name)
-                    and abs(drift_now) > drift_limit_pct
-                ):
-                    warn(
-                        f"point={stem} product={relative}: {who} column {shown_name} "
-                        f"drifts {drift_now:+.4f} per cent between revolution "
-                        f"{len(windows) - 1} and revolution {len(windows)}, over the "
-                        f"drift limit of {drift_limit_pct:g} per cent "
-                        "([per_revolution] drift_limit_pct): the last revolution is "
-                        "still moving",
-                        PyflightstreamWarning,
-                        stacklevel=2,
-                    )
+        before = means[-2] if len(means) >= 2 else {}  # only a second revolution can drift
+        for clause in revolution_drift_warnings(
+            before, means[-1], dict(zip(printed, shown, strict=True)), limit_pct=drift_limit_pct
+        ):
+            warn(
+                f"point={stem} product={relative}: {who} {clause} between revolution "
+                f"{len(windows) - 1} and revolution {len(windows)}, over the drift limit "
+                f"of {drift_limit_pct:g} per cent ([per_revolution] drift_limit_pct): "
+                "the last revolution is still moving",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
         record: dict[str, object] = {
             "runs": runs,
             "reduction": _PER_REVOLUTION,
