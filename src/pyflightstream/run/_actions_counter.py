@@ -18,17 +18,33 @@ in a process the solver starts, with nothing of this package importable:
 it must stand alone. Every constant is spelled with ``repr``, so a path
 with backslashes and a script text with newlines survive the substitution
 without an escaping rule of their own.
+
+A ROW WITH NO PER-STEP EXPORT GETS A COUNTER TOO (FR-314): the progress bar
+of a local run (FR-129) reads the count, and until 0.33.0 only a row asking
+for per-step exports had one. Such a row's program is
+:data:`COUNT_ONLY_TEMPLATE`: it keeps the count and rewrites nothing else, so
+no exports file exists and no exports script runs. :func:`stage_counter`
+writes whichever program the script's registration names.
 """
 
 from __future__ import annotations
 
-from pathlib import PurePosixPath
+import sys
+from collections.abc import Mapping
+from pathlib import Path, PurePosixPath
 
+from pyflightstream._digest import file_sha256
+from pyflightstream.cases import SimCase
 from pyflightstream.cases.workflows import (
     UNSTEADY_ACTION_COUNT,
+    UNSTEADY_ACTION_PROGRAM,
     UNSTEADY_ACTION_SCRIPT,
+    UNSTEADY_COUNTER_ACTION,
     UnsteadyExportThreshold,
+    unsteady_counter_steps,
+    unsteady_export_threshold,
 )
+from pyflightstream.script import Script
 
 #: The written program. The tokens in angle brackets are replaced by
 #: :func:`render_program`; nothing else in the text is touched.
@@ -135,3 +151,131 @@ def render_program(threshold: UnsteadyExportThreshold, *, interpreter: str) -> s
     for token, value in values.items():
         text = text.replace(f"<{token}>", repr(value))
     return text
+
+
+#: The program of a row that asks no per-step export (FR-314): the count and
+#: nothing else. The tokens in angle brackets are replaced by
+#: :func:`render_count_program`.
+COUNT_ONLY_TEMPLATE = '''"""Step counter of one pyflightstream point, counting only.
+
+Written by pyflightstream (FR-314). The solver runs this program after
+every unsteady time step and passes it nothing, so the count of
+invocations kept in COUNT_FILE is the time step, exactly (RPT-041). Each
+invocation increments the count and writes nothing else: the row asks no
+per-step export. Every path is taken from this file's own location.
+"""
+
+import json
+from pathlib import Path
+
+#: Written by pyflightstream at build time, from the row.
+TIME_ITERATIONS = <TIME_ITERATIONS>
+INTERPRETER = <INTERPRETER>
+
+HERE = Path(__file__).resolve().parent
+COUNT_FILE = HERE / <COUNT_NAME>
+
+
+def main():
+    count = 0
+    if COUNT_FILE.is_file():
+        count = int(json.loads(COUNT_FILE.read_text(encoding="utf-8"))["count"])
+    COUNT_FILE.write_text(json.dumps({"count": count + 1}), encoding="utf-8")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+
+def render_count_program(time_iterations: int, *, interpreter: str) -> str:
+    """Return the count-only program of a point whose row asks no per-step export.
+
+    Parameters
+    ----------
+    time_iterations : int
+        The time steps the point marches, which the progress bar counts to.
+    interpreter : str
+        The Python the registration line names, recorded in the program.
+
+    Returns
+    -------
+    str
+        The program, ready to be written where the registration line points.
+
+    Examples
+    --------
+    >>> "TIME_ITERATIONS = 40" in render_count_program(40, interpreter="python")
+    True
+    """
+    values = {
+        "TIME_ITERATIONS": int(time_iterations),
+        "INTERPRETER": interpreter,
+        "COUNT_NAME": PurePosixPath(UNSTEADY_ACTION_COUNT).name,
+    }
+    text = COUNT_ONLY_TEMPLATE
+    for token, value in values.items():
+        text = text.replace(f"<{token}>", repr(value))
+    return text
+
+
+def stage_counter(
+    work_dir: Path,
+    script: Script,
+    point_case: SimCase,
+    fs_version: str,
+    inputs_sha256: Mapping[str, str],
+) -> dict[str, object] | None:
+    """Write the counter program a point's script registers, and return the record fields.
+
+    PFS-2031.18, FR-314. The threshold is resolved from the case again (the
+    same function the builder called, so the two agree); with one, the
+    program counts and rewrites the exports file, and the record states the
+    export window; without one, the count-only program is written. Either is
+    rendered with the interpreter the registration line names and hashed into
+    the record as the staged input it is. The count file of an EARLIER point
+    of the same case is removed: every point runs in the same folder, and a
+    count carried over would start the second point past its first step.
+
+    Returns
+    -------
+    dict or None
+        The fields the record gains (``inputs_sha256``, ``action_program``
+        and, with a threshold, ``action_script`` and ``export_window``);
+        None when the script registers no counter.
+    """
+    if not any(use.name == UNSTEADY_COUNTER_ACTION for use in script.unsteady_actions):
+        return None
+    threshold = unsteady_export_threshold(point_case, version=fs_version)
+    program = work_dir / UNSTEADY_ACTION_PROGRAM
+    program.parent.mkdir(parents=True, exist_ok=True)
+    program.write_text(
+        render_program(threshold, interpreter=sys.executable)
+        if threshold is not None
+        else render_count_program(unsteady_counter_steps(point_case), interpreter=sys.executable),
+        encoding="utf-8",
+    )
+    (work_dir / UNSTEADY_ACTION_COUNT).unlink(missing_ok=True)
+    hashes = {**inputs_sha256, UNSTEADY_ACTION_PROGRAM: file_sha256(program)}
+    fields: dict[str, object] = {"inputs_sha256": hashes, "action_program": UNSTEADY_ACTION_PROGRAM}
+    if threshold is None:
+        return fields
+    hashes[UNSTEADY_ACTION_SCRIPT] = file_sha256(work_dir / UNSTEADY_ACTION_SCRIPT)
+    fields["action_script"] = UNSTEADY_ACTION_SCRIPT
+    # What the row stated and the step the exports begin on, so a reader of the
+    # manifest answers "from which step" without opening the counter program
+    # (the release review of 2026-09-09), and the clock the program ran with, so
+    # the series tables compute each step's time and azimuth by the same
+    # arithmetic (PFS-2031.18.01); a rotorless row has no azimuth step.
+    window: dict[str, object] = {
+        "stated_form": threshold.stated_form,
+        "stated_value": threshold.stated_value,
+        "first_step": threshold.first_step,
+        "time_iterations": threshold.time_iterations,
+        "delta_time_s": threshold.delta_time_s,
+    }
+    if threshold.step_deg is not None:
+        window["step_deg"] = threshold.step_deg
+    fields["export_window"] = window
+    return fields

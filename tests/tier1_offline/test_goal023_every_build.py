@@ -42,6 +42,7 @@ from tests.tier1_offline.test_workflows import (
     GOLDEN_CASES,
     GOLDEN_WORKFLOWS,
     golden_name,
+    portable_interpreter,
     rendered,
     rotor_case,
     unsteady_case,
@@ -132,12 +133,18 @@ def test_goal023_single_march_the_reductions_of_a_single_march_come_from_the_row
 def test_goal023_single_march_a_row_asking_for_nothing_actions_give_marches_once_where_they_exist(
     build,
 ):
-    """On a build WITH actions, a row that asks for none of them is the same single march."""
+    """On a build WITH actions, a row that asks for none of them is the same single march.
+
+    FR-314 changed this expectation: until 0.32.0 such a row registered no
+    action; it now registers the step counter alone, which counts only, and
+    stays a single march.
+    """
+    requirement = "FR-314"
     case = unsteady_case()
     script = Script(build)
     build_script(case, script)
     assert script.march_strategy == MARCH_SINGLE
-    assert "SET_NEW_UNSTEADY_SOLVER_ACTION" not in _commands(script.render())
+    assert [use.name for use in script.unsteady_actions] == ["pfs_unsteady_counter"], requirement
 
 
 def test_goal023_single_march_a_row_asking_for_actions_where_they_exist_uses_them():
@@ -224,10 +231,16 @@ BUILD_ROWS = [
 @pytest.mark.parametrize("build", WITH_ACTIONS)
 @pytest.mark.parametrize(("label", "cells"), BUILD_ROWS)
 def test_goal023_told_not_hidden_the_label_is_what_the_script_registers(build, label, cells):
-    """Qa lens 3: the recorded strategy and the emitted actions agree on every row shape."""
+    """Qa lens 3: the recorded strategy and the emitted actions agree on every row shape.
+
+    FR-314 changed this expectation: the step counter every unsteady row now
+    registers is not an action the label counts; any other action is.
+    """
+    requirement = "FR-314"
     script = Script(build)
     build_script(unsteady_case(**cells), script)
-    emitted = "SET_NEW_UNSTEADY_SOLVER_ACTION" in _commands(script.render())
+    emitted = any(use.name != "pfs_unsteady_counter" for use in script.unsteady_actions)
+    assert requirement
     assert (script.march_strategy == MARCH_ACTIONS) is emitted, (label, script.march_strategy)
 
 
@@ -559,7 +572,8 @@ def test_goal023_support_matrix_the_cells_that_do_not_render_are_exactly_the_dec
 def test_goal023_unchanged_on_26123_every_golden_of_26123_renders_byte_for_byte(name):
     for label, make in sorted(GOLDEN_CASES[name].items()):
         golden = GOLDEN_WORKFLOWS / golden_name(name, label, "26.123")
-        assert rendered(make(), "26.123") == golden.read_text(encoding="utf-8"), golden.name
+        text = portable_interpreter(rendered(make(), "26.123"))
+        assert text == golden.read_text(encoding="utf-8"), golden.name
 
 
 # --------------------------------------------------------------- intake 26.124 --

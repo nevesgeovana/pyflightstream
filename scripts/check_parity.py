@@ -75,7 +75,25 @@ API_EXEMPT = {"stamp_derived_campaign": "0.33 scope decision 9 deletes it"}
 #: Differences a named 0.33 requirement states. ``kind`` is "scripts" or "post";
 #: ``pattern`` is an fnmatch glob over the render name or the post-relative file;
 #: ``lines``, when given, is a regex every changed line must match.
-NAMED_DIFFERENCES: list[dict[str, str]] = []
+NAMED_DIFFERENCES: list[dict[str, str]] = [
+    {
+        "kind": "scripts",
+        "pattern": "*",
+        # The three lines of the counter's registration and nothing else: its
+        # head, its command line (the interpreter as the render spells it, then
+        # the program) and the blank line that closes the action.
+        "lines": (
+            r"^(SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE pfs_unsteady_counter"
+            r'|"[^"]+" "actions/pfs_unsteady_actions\.py"|)$'
+        ),
+        "requirement": "FR-314",
+        "why": (
+            "every unsteady row registers the step counter; a row asking no per-step "
+            "export gains the count-only counter's registration, on a build that "
+            "documents the unsteady solver action"
+        ),
+    },
+]
 
 #: Rewrites applied to both sides of a post file before comparison, as
 #: (file glob, regex, replacement, reason). Only measured volatile fields.

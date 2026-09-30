@@ -67,9 +67,14 @@ What each run type does on each registered build:
 documents no unsteady solver action (`SET_NEW_UNSTEADY_SOLVER_ACTION`,
 first documented in 26.122): the plots are declared before one solver
 start that runs every time step the row states, and every export is
-taken after it. It is also what a row asking for none of the features
-below has always rendered on every build, so such a row renders the
-same script on 26.123 as it did before 0.20.0. The per-step history of
+taken after it. It is also how a row asking for none of the features
+below runs on every build. Since 0.33.0 (FR-314) such a row, on a build
+that documents the actions, also registers the step counter alone, which
+counts the time steps and writes nothing else, so the progress bar of a
+local run (FR-129) appears on every unsteady row; its script differs from
+the one 0.32.0 wrote by those three lines only, and its `march_strategy`
+stays `single_march`. That the counter leaves the results unchanged is owed
+by the licensed round of 0.33.0. The per-step history of
 the products stage comes from the plots table the solver writes, so the
 reductions and the series are built on every build.
 

@@ -3,13 +3,13 @@
  "module_code_lines": {
   "cases/__init__.py": 2430,
   "cases/matrix.py": 1810,
-  "cases/workflows.py": 9000,
+  "cases/workflows.py": 8965,
   "post/corrections.py": 1007,
   "post/guides.py": 2729,
   "post/products.py": 5724,
   "qa/specs.py": 1334,
   "results/__init__.py": 1583,
-  "run/__init__.py": 4539,
+  "run/__init__.py": 4513,
   "run/cli.py": 2018,
   "run/matrix.py": 1316,
   "run/records.py": 1954,
@@ -846,9 +846,9 @@
    "positional": 3
   },
   "run/__init__.py:_execute_point": {
-   "complexity": 47,
-   "branches": 48,
-   "statements": 171,
+   "complexity": 44,
+   "branches": 45,
+   "statements": 159,
    "positional": 0
   },
   "run/__init__.py:_execute_sweep": {
@@ -1452,7 +1452,7 @@
   "pyflightstream.cases.matrix": 19,
   "pyflightstream.cases.qsteady": 1,
   "pyflightstream.cases.setup_surfaces": 1,
-  "pyflightstream.cases.workflows": 47,
+  "pyflightstream.cases.workflows": 46,
   "pyflightstream.fsi.driver": 5,
   "pyflightstream.fsi.loads": 1,
   "pyflightstream.options": 2,
@@ -1604,7 +1604,7 @@
   "post/__init__.py": 28,
   "probes/__init__.py": 441,
   "results/__init__.py": 3001,
-  "run/__init__.py": 7971,
+  "run/__init__.py": 7936,
   "script/__init__.py": 1954,
   "workspace/__init__.py": 3625
  },

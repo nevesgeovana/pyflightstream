@@ -96,7 +96,6 @@ import random
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 import time
 import warnings
@@ -168,8 +167,6 @@ from pyflightstream.cases.workflows import (
     STEADY_RUN_TYPES,
     UNSTEADY_ACTION_COUNT,
     UNSTEADY_ACTION_PROGRAM,
-    UNSTEADY_ACTION_SCRIPT,
-    UNSTEADY_COUNTER_ACTION,
     WALLTIME_CLOCK_ACTION,
     WALLTIME_CLOCK_PROGRAM,
     WALLTIME_CLOCK_STATE,
@@ -189,7 +186,6 @@ from pyflightstream.cases.workflows import (
     row_ncpus,
     row_walltime_s,
     row_walltime_text,
-    unsteady_export_threshold,
     walltime_clock_program,
     walltime_margin_s,
     with_tecplot_source,
@@ -210,7 +206,7 @@ from pyflightstream.results import (
 )
 from pyflightstream.results.conditions import ConditionBinding, bind_conditions
 from pyflightstream.results.tables import sweep_table, write_table
-from pyflightstream.run._actions_counter import render_program
+from pyflightstream.run._actions_counter import stage_counter
 from pyflightstream.run._continuation_frame import recover_frame as _recover_continuation_frame
 from pyflightstream.run._solver_windows import owned_solver_dialogs as _owned_solver_dialogs
 from pyflightstream.run._solver_windows import spared_solver_windows as _spared_solver_windows
@@ -8220,45 +8216,10 @@ def _execute_point(
     if written:
         inputs_sha256 = {**inputs_sha256, **written}
         base["inputs_sha256"] = inputs_sha256
-    # PFS-2031.18. A script that registered the counter action names a
-    # program this layer writes: the threshold is resolved from the case
-    # again (the same function the builder called, so the two agree),
-    # the program is rendered with the interpreter the registration
-    # line names, and both files are hashed into the record as the
-    # staged inputs they are. The count file of an EARLIER point of the
-    # same case is removed: every point runs in the same folder, and a
-    # count carried over would put the second point past its threshold
-    # before its first step.
-    threshold = None
-    if any(use.name == UNSTEADY_COUNTER_ACTION for use in script.unsteady_actions):
-        threshold = unsteady_export_threshold(point_case, version=fs_version)
-    if threshold is not None:
-        program = work_dir / UNSTEADY_ACTION_PROGRAM
-        program.parent.mkdir(parents=True, exist_ok=True)
-        program.write_text(render_program(threshold, interpreter=sys.executable), encoding="utf-8")
-        (work_dir / UNSTEADY_ACTION_COUNT).unlink(missing_ok=True)
-        base["inputs_sha256"] = {
-            **inputs_sha256,
-            UNSTEADY_ACTION_PROGRAM: file_sha256(program),
-            UNSTEADY_ACTION_SCRIPT: file_sha256(work_dir / UNSTEADY_ACTION_SCRIPT),
-        }
-        base["action_program"] = UNSTEADY_ACTION_PROGRAM
-        base["action_script"] = UNSTEADY_ACTION_SCRIPT
-        # What the row stated and the step the exports begin on, so a
-        # reader of the manifest answers "from which step" without opening
-        # the counter program (the release review of 2026-09-09).
-        base["export_window"] = {
-            "stated_form": threshold.stated_form,
-            "stated_value": threshold.stated_value,
-            "first_step": threshold.first_step,
-            "time_iterations": threshold.time_iterations,
-            # The clock the counter program ran with, so the series tables
-            # compute each step's time and azimuth by the same arithmetic
-            # (PFS-2031.18.01); a rotorless row has no azimuth step.
-            "delta_time_s": threshold.delta_time_s,
-        }
-        if threshold.step_deg is not None:
-            base["export_window"]["step_deg"] = threshold.step_deg
+    # PFS-2031.18, FR-314: the counter program the script registers, count-only on a
+    # row that asks no per-step export (`run._actions_counter.stage_counter`).
+    counter = stage_counter(work_dir, script, point_case, fs_version, inputs_sha256)
+    base.update(counter or {})
     # FR-98. THE CLOCK PAIR, written the same way and for
     # the same reason: the program is rendered with this row's deadline so
     # the emitted file states the number the run will use, and the script
@@ -8363,9 +8324,9 @@ def _execute_point(
     # PFS-2031.18. How far the counter got, read from the file the
     # program left, on every path below: a failed execution's count is
     # evidence about the failure. None when the file was never written,
-    # which is a run with no threshold or a solver that never reached a
+    # which is a run with no counter or a solver that never reached a
     # time step.
-    if threshold is not None:
+    if counter is not None:
         base["action_count"] = action_count(work_dir / UNSTEADY_ACTION_COUNT)
     # FR-98. WHETHER THE CLOCK FIRED, read from the state the program left.
     # This is the only thing that knows: the solver reports a run that

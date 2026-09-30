@@ -736,11 +736,13 @@ SCRIPT_ROUTES: dict[str, ScriptRoute] = {
         _raw_mesh_route(DETECT_AUTO),
         ("IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER", "wing.wake_nodes.txt"),
     ),
-    # A time-averaging window registers the per-step counter action.
+    # A time-averaging window registers the per-step exports action. FR-314
+    # changed this expectation: every unsteady row registers the counter now,
+    # the control included, so the block the window adds is the exports action.
     "SET_NEW_UNSTEADY_SOLVER_ACTION": ScriptRoute(
         _built(lambda _: _rotor(time_averaging={"last_revs": 1.5})),
         _built(lambda _: _rotor()),
-        ("SET_NEW_UNSTEADY_SOLVER_ACTION COMMAND_LINE pfs_unsteady_counter",),
+        ("SET_NEW_UNSTEADY_SOLVER_ACTION SCRIPT pfs_unsteady_exports",),
     ),
     "NEW_UNSTEADY_SOLVER_SURFACE_PROBE": ScriptRoute(
         _built(_unsteady_pproc({"surface_probes": [SURFACE_PROBE]})),

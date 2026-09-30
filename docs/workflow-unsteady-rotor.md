@@ -463,6 +463,16 @@ of the point: the run record names them as `action_program` and
 `action_count` the count the program reached, which is the number of time
 steps the solver completed.
 
+**A row that states neither key registers the counter alone** (since
+0.33.0, FR-314), on a build that documents the actions: only the first of
+the two registrations above, whose program counts the time steps and
+writes nothing else, so no exports file exists and no exports action runs.
+The record names the program as `action_program` and keeps `action_count`,
+with no `action_script` and no `export_window`, and the progress bar of a
+local run reads that count, as it reads it on a row with exports. That the
+counter leaves the results unchanged is owed by the licensed round of
+0.33.0.
+
 What is exported per step is read from the row's outputs and nowhere
 else: the loads table, the surface (the VTK, from which the run writes each
 step's Tecplot file since 0.28.0), the sections, the sectional

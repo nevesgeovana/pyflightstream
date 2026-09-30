@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 256,
+  "cited_by_a_test": 257,
   "total": 321,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -2300,7 +2300,7 @@
    "text": "Need: The progress bar of a local run (FR-129) is read from the step counter, which only rows asking for a per-step export register, so a long unsteady run without export shows no progress.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: item PROGRESS-ALL-UNSTEADY of the 0.33.0 scope (GEO-071, section 2.3). Pending: no code yet. Evidence owed: a tier-1 test that every unsteady run type is covered by a golden and that the diff of each regenerated golden against the golden of v0.32.0 is confined to the counter lines; the parity receipt of the release listing each changed golden against this requirement; and the licensed run of an unsteady row without per-step export on 26.124 (licensed round L1), which is the only evidence that the solver accepts the counter on such a row. A golden regenerated in the same commit as the code verifies the emitter and nothing about the solver.*",
+   "evidence": "*Origin: item PROGRESS-ALL-UNSTEADY of the 0.33.0 scope (GEO-071, section 2.3). Built on 2026-09-30; the status is the owner's to move. Evidence: tests/tier1_offline/test_fr314_counter_everywhere.py (every run type and a continuation on 26.123 and 26.124, the 26.120 control, the count-only program run by the real interpreter, the local-run bar read off it), tests/tier1_offline/test_unsteady_actions.py::test_a_row_stating_no_threshold_registers_the_counter_alone, ::test_a_run_without_a_threshold_records_the_count_only_program, the 18 regenerated tier-1 goldens and the 10 tier-3 goldens, whose diff against 0.32.0 is the counter's three lines, and the FR-314 entry of scripts/check_parity.py. Evidence asked: a tier-1 test that every unsteady run type is covered by a golden and that the diff of each regenerated golden against the golden of v0.32.0 is confined to the counter lines; the parity receipt of the release listing each changed golden against this requirement; and the licensed run of an unsteady row without per-step export on 26.124 (licensed round L1), which is the only evidence that the solver accepts the counter on such a row. A golden regenerated in the same commit as the code verifies the emitter and nothing about the solver.*",
    "verification": "none"
   },
   {
