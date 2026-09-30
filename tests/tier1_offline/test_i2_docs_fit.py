@@ -122,6 +122,22 @@ def test_p0320_i2_the_raw_route_is_offered_only_for_commands_it_carries():
     assert not offered, "the raw route is offered for block commands:\n  " + "\n  ".join(offered)
 
 
+def test_p0320_i2_the_surface_removal_row_names_the_command_its_key_writes():
+    """P0320-I2-DELETE-SURFACES: `delete_surfaces` writes DELETE_SURFACES, not SURFACE_DELETE.
+
+    SURFACE_DELETE is the keyword-block command of the mesh operations; the setup key emits the
+    inline DELETE_SURFACES of the geometry phase (``setup_surfaces._DELETE``). The row that sends
+    a reader to the key must list the command the key writes, in the column that says so.
+    """
+    from pyflightstream.cases import setup_surfaces
+
+    written = setup_surfaces._DELETE
+    rows = [cells for cells in _rows() if len(cells) == 4 and "`delete_surfaces`" in cells[1]]
+    assert rows, "no row of the page sends a reader to the setup key delete_surfaces"
+    for cells in rows:
+        assert f"`{written}`" in cells[2], f"row {cells[0]!r} omits {written} from its commands"
+
+
 def test_p0320_i2_no_step_says_not_yet_for_what_a_key_already_does():
     """P0320-I2-NOT-YET: a probe file and an actuator's wake and switch have keys."""
     said_not_yet = [
