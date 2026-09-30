@@ -10,7 +10,7 @@ solver_identity:
 source: >
   Transcription of the licensed probes A0 and A1 of the 0.32.0 round 1 (work package E2,
   GEO-066 2.6), run detached on 2026-09-30 by the release's own probe harness and not by
-  pyfs-qa probe. One unsteady march of 24 steps of a single blade turning at 290 rev/min,
+  pyfs-qa probe. One unsteady march of 24 steps of a single blade turning at the run's one rotation rate (not stated here),
   far-field layers 5, then the whole acoustic chain; A0 and A1 differ in the
   ACOUSTIC_SOURCES token only (DISABLE, ENABLE), which is the one-thing comparison every
   judgment below reads. Each command was followed by a PRINT sentinel and a log export, and
