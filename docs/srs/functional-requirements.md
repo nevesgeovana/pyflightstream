@@ -3710,9 +3710,9 @@ requirement below is one seam of that division.
     ONE SCRIPT PER POINT WAS THE RUN MODEL THIS RESTED ON, AND AT 0.17.0 IT
     IS NOT. This paragraph said that reusing a converged solution across the
     points of a steady sweep was a different run model and was deferred. It is
-    deferred no longer: FR-95, "A steady row is ONE warm job and leaves ONE
-    record", makes the sweep one script whose solver is never cleared between
-    points.
+    deferred no longer: FR-95, "A steady row is ONE job and leaves ONE
+    record", makes the sweep one script (FR-158 states whether its solver is
+    cleared between points).
 
     WHAT THIS REQUIREMENT GUARANTEES IS UNTOUCHED, and the distinction is the
     reason the change is safe here. It is the FOLDER that separates a point's
@@ -3784,25 +3784,30 @@ requirement below is one seam of that division.
     reference tooling. A row that states no configuration writes the title it
     always wrote, so no recorded file changes shape.
 
-!!! requirement "FR-95 A steady row is ONE warm job and leaves ONE record <span class='srs-implemented'>implemented</span>"
+!!! requirement "FR-95 A steady row is ONE job and leaves ONE record <span class='srs-implemented'>implemented</span>"
 
     *Origin: the owning seat's convention of 2026-09-12, taken with the
     predecessor toolchain's steady recipe in hand. Evidence:
     tests/tier1_offline/test_matrix_run.py and test_run_campaign.py.*
 
-    EVERY POINT OF A STEADY MATRIX ROW RUNS IN ONE SCRIPT AND ONE PROCESS, and
-    the solver is never cleared between them, so each point begins from the
-    previous point's converged solution. The panelling and the wake survive
-    from one angle to the next and the sweep costs one setup rather than one
-    per point. That is the warm start, and it is what a polar sweep IS rather
-    than a switch on top of it.
+    EVERY POINT OF A STEADY MATRIX ROW RUNS IN ONE SCRIPT AND ONE PROCESS,
+    and since 0.29.0 THE SOLUTION IS CLEARED BEFORE EACH POINT
+    (`CLEAR_SOLUTION`, the first point of a reopened simulation included):
+    COLD IS THE DEFAULT AND `COLD_START: false` IS THE OPT-IN to the warm
+    start, as FR-158 states. A warm row does not clear between points, so each
+    point begins from the previous point's converged solution, the panelling
+    and the wake survive from one angle to the next, and the sweep costs one
+    setup rather than one per point. A warm result depends on the order of
+    the points, which the record states. A cold row is still ONE job; only the
+    clear differs.
 
-    WARM IS THE DEFAULT AND `COLD_START: True` IS THE OPT-OUT. This follows
-    the evidence rather than the safer-looking choice: the predecessor
-    toolchain's steady recipe never cleared the solver between points and had
-    no switch to, so a default of cold would be a change of behaviour wearing
-    the clothes of a safe default. A cold row is still ONE job; only the clear
-    differs, and the clear is `CLEAR_SOLUTION`.
+    AMENDED AT 0.29.0 BY FR-158. From 0.17.0 to 0.28.0 the default was warm and
+    `COLD_START: True` was the opt-out, which followed the predecessor
+    toolchain's steady recipe, that never cleared the solver between points.
+    The 0.29.0 quality gate reversed it because a warm result depends on the
+    order of the points; `build_steady_sweep` takes `cold=True` by default and
+    the input glossary says the same. The one-job, one-record guarantee below
+    is unchanged by the reversal.
 
     ONE JOB IS ONE RECORD. The record's `run_id` ends with the `sweep` token
     and never with a point tag, because the point tag is run IDENTITY and ends
@@ -4404,7 +4409,7 @@ requirement below is one seam of that division.
       whose profile the solver read; and the profile command on any build but
       26.124.
 
-!!! requirement "FR-110 The pproc declares a volume section and each steady point exports it <span class='srs-implemented'>implemented</span>"
+!!! requirement "FR-110 The pproc declares a volume section, and each point samples it <span class='srs-implemented'>implemented</span>"
 
     *Origin: G05 of the 0.27.0 scope, the basic GUI steps through the
     workflow: a volume section and its VTK or Tecplot export were reachable
@@ -4420,23 +4425,24 @@ requirement below is one seam of that division.
     A pproc artifact declares at most ONE `[volume_section]`: a rectangle
     (`corners_m`) or a circle (`radii_m`, `points`) in a `plane` of a named
     `frame` at an `offset_m`, every length in metres, and a `format`, `vtk` or
-    `tecplot`. Every point of a steady row creates it after its solve, in the
-    analysis phase, and exports it to `{name}_vsec.vtk` or `{name}_vsec.dat`,
-    which the point declares, collects and hashes like its other outputs; a
-    later point of a sweep deletes the previous section first, so each export
-    writes its own point's plane.
+    `tecplot`. SINCE 0.29.0 THE SECTION IS SAMPLED, NOT NATIVELY EXPORTED
+    (FR-159): the package samples the declared plane through probes on a
+    steady row, or through fluid plots on an unsteady or rotor row, and writes
+    a vertex cloud to `post/<matrix>/fields/<point>_vsec.vtk` or `.dat`, with
+    `_step_<STEP>` per unsteady step. No native volume section is cut or
+    exported into `datapoints/DP-<point>/`.
+
+    AMENDED AT 0.29.0 BY FR-159. In 0.27.0 and 0.28.0 each steady point cut the
+    section after its solve and exported it natively to `{name}_vsec.vtk` or
+    `{name}_vsec.dat` in its datapoint folder, an unsteady or rotor row that
+    declared the table was refused, and a later point of a sweep deleted the
+    previous section first. A historical 0.27.x or 0.28.x record keeps that
+    native export. The licensed evidence cited above (RPT-070) measured the
+    native path.
 
     - Each shape's keys are refused on the other, and a shape missing its own
-      is refused naming them. The prism-layer arguments are not the table's:
-      the package sends the values the verified probes sent.
-    - `[exports]` cannot name the two volume-section kinds; the table declares
-      the file.
-    - An unsteady or rotor row whose pproc declares the table is refused before
-      any emission, because its step and wall-clock exports run before a section
-      cut after the march exists.
-    - Not measured: the delete-then-create sequence inside one script, a
-      `COLD_START` clear's effect on a section, and any `refinement_layers`
-      other than 1.
+      is refused naming them.
+    - Not measured: any `refinement_layers` other than 1 on the native path.
 
 !!! requirement "FR-111 A row names an additional pproc, and the post extracts it from each point's saved simulation with no solve <span class='srs-implemented'>implemented</span>"
 
