@@ -318,6 +318,17 @@ def test_tracked_counts_each_item_after_its_body_even_on_continue(capsys):
     assert "[collect: points] done: 3/3" in capsys.readouterr().err
 
 
+def test_a_tracked_loop_whose_body_raises_says_where_it_stopped_not_done(capsys):
+    # P0320-PROGRESS-STAGES: the hook every long command uses; the loop body is the stage.
+    with pytest.raises(KeyError), command_terminal(verbose=False):
+        for item in tracked("free-space: compact_sims", ["a", "b", "c"]):
+            if item == "b":
+                raise KeyError("the stage's own error")
+    err = capsys.readouterr().err
+    assert "[free-space: compact_sims] stopped at 1/3" in err, err
+    assert "done:" not in err, err
+
+
 def test_a_terminal_redraws_one_line_with_a_bar_and_ends_it(monkeypatch):
     # P0320-PROGRESS-STAGES: on a terminal the line is redrawn in place.
     clock = FakeClock()

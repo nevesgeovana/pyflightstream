@@ -452,6 +452,10 @@ class StageProgress:
             yield item
             self.advance(files=1)
 
+    def _unfinished(self) -> bool:
+        """Return whether the stage stated a file total and has not reached it."""
+        return self.total_files is not None and self._files < self.total_files
+
     def _line(self, *, bar: int = 0) -> str:
         return progress_text(
             self.name,
@@ -520,7 +524,9 @@ def stage_progress(
     try:
         yield stage
     except GeneratorExit:
-        _close_quietly(stage, stopped=False)
+        # A loop that left :func:`tracked` early, by an error of its body or a
+        # ``break``, closes the generator: the stage stopped where its count is.
+        _close_quietly(stage, stopped=stage._unfinished())
         raise
     except BaseException:
         _close_quietly(stage, stopped=True)
