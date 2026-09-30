@@ -7630,3 +7630,13 @@ Requirements written after the specification was last reconciled with the packag
     Requirement: `pyfs-matrix free-space --list` prints, after the summary of each recipe step, every path the step would touch (preview) or touched (`--apply`), relative to the workspace, with its size and what happens to it: each post archive folder deleted or compacted (and the zip written), each file `delete_extensions` deletes and each it keeps with the reason, each per-step export `prune_step_exports` deletes or keeps, and each simulation `compact_sims` compacts with its folder size. The lines are read from the entry `free_space` returns, nothing is recomputed, and a preview changes nothing on disk. Without `--list` the output is unchanged.
 
     Solution (release 0.33.0): the `--list` option of `pyfs-matrix free-space` and `pyflightstream.run.cli._print_free_space_paths`.
+
+!!! requirement "FR-306 The delete-sims command can delete a simulation whatever its status <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the 0.33.0 development cycle, the owner's word on `pyfs-matrix delete-sims` ("o delete-sims recusa sims com submitted, mas elas deram pau, eu quero mais uma flag que permite deletar sim bypassando qualquer status"). Evidence: `tests/tier1_offline/test_delete_sims_force.py::test_refused_without_force_with_the_same_text`, `::test_force_preview_names_the_submitted_sim_and_changes_nothing`, `::test_force_apply_deletes_folder_products_records_and_records_the_call`, `::test_cli_force_flag_reaches_the_library`, `::test_mutant_ignoring_force_turns_the_check_red`.*
+
+    Need: A simulation whose run failed can stay SUBMITTED in `runs.json`, and `delete-sims` refuses it; the person wants to delete it anyway, bypassing any status.
+
+    Requirement: `pyfs-matrix delete-sims --force` (keyword `force` of `delete_sims`) deletes the named simulations whatever the status of their records, SUBMITTED included; everything else is as a normal delete (`runs.json` archived first, the note row per simulation, the matrix-products rule, links undone so the mesh survives). The call recorded in `storage_management.json` states `force` and, per simulation, the statuses its records had; the preview (no `--apply`) names each SUBMITTED simulation that `--force` would delete. Without `--force` a simulation with a run still SUBMITTED is refused with the same text as before.
+
+    Solution (release 0.33.0): the `force` keyword of `pyflightstream.workspace.storage.delete_sims` and the `--force` option of `pyfs-matrix delete-sims`.

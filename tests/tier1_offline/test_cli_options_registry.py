@@ -248,6 +248,10 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # prints (every path of each step), presentation of THIS invocation like
     # `top`; the detail is always in the entry and in storage_management.json.
     ("pyfs-matrix", "list_paths"): SWITCH,
+    # 0.33.0, `delete-sims --force` (FR-306): delete a simulation whatever the
+    # status of its records, SUBMITTED included. A decision of THIS call, taken
+    # because the named runs failed; a default would delete unattended.
+    ("pyfs-matrix", "force"): SWITCH,
     # `sync`'s positional: which level to bring over (runs/post/fsm/all) is
     # what the command works on, a SUBJECT, not a knob a workspace defaults.
     ("pyfs-matrix", "level"): SUBJECT,
@@ -443,6 +447,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ),
     ("pyfs-matrix", "top"): frozenset({"space-in-use"}),
     ("pyfs-matrix", "list_paths"): frozenset({"free-space"}),
+    ("pyfs-matrix", "force"): frozenset({"delete-sims"}),
     ("pyfs-matrix", "level"): frozenset({"sync"}),
     ("pyfs-matrix", "source"): frozenset({"sync"}),
     ("pyfs-matrix", "prefer_other"): frozenset({"sync"}),

@@ -23,6 +23,10 @@ FlightStream versions.
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
 
+### Added
+
+- `pyfs-matrix delete-sims --force` (keyword `force` of `delete_sims`) deletes the named simulations whatever the status of their records, SUBMITTED included, which `delete-sims` otherwise refuses; the rest is a normal delete, the call recorded in `storage_management.json` states `force` and the statuses each simulation had, and the preview names each SUBMITTED simulation `--force` would delete (FR-306).
+
 ## [0.32.0] - 2026-09-30
 
 ### Added

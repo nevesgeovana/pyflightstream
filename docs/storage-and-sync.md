@@ -88,6 +88,14 @@ Without one of the two, `--apply` refuses and names the product it cannot
 decide about. Preview (no `--apply`) never needs the flag: it only reports
 what would be shared.
 
+A simulation with a run still `SUBMITTED` is refused ("have a run still
+SUBMITTED; collect it first"). `--force` deletes it anyway, whatever the
+status of its records: everything else is as above (`runs.json` archived
+first, the note row, the matrix-products rule, links undone so the mesh
+survives). The preview (no `--apply`) names each `SUBMITTED` simulation that
+`--force` would delete, and the call recorded in `storage_management.json`
+states `force` and the statuses each simulation's records had (FR-306).
+
 See "What a deleted simulation leaves behind" below for what happens to its
 row in `runs.json` and whether its id can be used again.
 

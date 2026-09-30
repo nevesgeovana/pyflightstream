@@ -1061,6 +1061,12 @@ def _add_storage_parsers(subparsers: Any) -> None:
         default=None,
         help="what happens to a matrix product that also holds the deleted points",
     )
+    delete.add_argument(
+        "--force",
+        action="store_true",
+        help="delete a simulation whatever the status of its records; without it a "
+        "simulation with a run still SUBMITTED is refused",
+    )
     delete.add_argument("--apply", action="store_true", help=apply_help)
     sync = subparsers.add_parser(
         "sync",
@@ -1140,6 +1146,7 @@ def _cmd_storage(args: argparse.Namespace) -> int:
                 matrix_products=args.matrix_products,
                 apply=args.apply,
                 runs=args.runs,
+                force=args.force,
             )
             _print_delete_sims(entry)
             return 0
@@ -1268,6 +1275,8 @@ def _print_delete_sims(entry: dict[str, Any]) -> None:
             f"  sim {item['sim_id']}: {len(item['run_ids'])} record(s), "
             f"{human_bytes(item['bytes'])}, matrix {', '.join(item['matrix'])}"
         )
+    for sim in entry.get("forced_submitted", []):
+        print(f"  sim {sim}: still SUBMITTED, deleted because of --force")
     for folder, found in entry["post"].items():
         print(f"  {folder}: {len(found['own'])} own product(s)")
         for name in found["shared"]:

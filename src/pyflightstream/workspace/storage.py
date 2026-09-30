@@ -1117,6 +1117,7 @@ def delete_sims(
     apply: bool = False,
     caller: str | None = None,
     runs: str | None = None,
+    force: bool = False,
 ) -> dict[str, Any]:
     """Delete simulations, their post products and their records.
 
@@ -1133,6 +1134,10 @@ def delete_sims(
     ``archive/<stem>-<stamp>.json``, and ``runs.json`` is not touched
     (P0320-RUNS-NAME). ``regenerate`` is refused with it, because the post it
     reruns reads ``runs.json``.
+
+    A simulation with a record still SUBMITTED is refused unless ``force``
+    (CLI: ``--force``), which deletes it whatever the status of its records
+    (FR-306); the entry then states ``force`` and each simulation's statuses.
     """
     workspace = _workspace(root)
     manifest = _manifest_of(workspace.root, runs)
@@ -1167,7 +1172,7 @@ def delete_sims(
         for sim in ids
         if any(row.get("status") == RunStatus.SUBMITTED.value for row in records.get(sim, []))
     ]
-    if submitted:
+    if submitted and not force:
         raise StorageError(f"sims {submitted} have a run still SUBMITTED; collect it first")
     run_ids = {str(row.get("run_id")) for sim in ids for row in records.get(sim, [])}
     products = _products_of(workspace, set(ids), run_ids)
@@ -1199,6 +1204,8 @@ def delete_sims(
         "applied": False,
         "caller": caller or os.environ.get("USERNAME") or os.environ.get("USER"),
         "matrix_products": matrix_products,
+        "force": force,
+        "forced_submitted": submitted if force else [],
         "manifest": manifest.name,
         "sims": sims_entry,
         "post": products,
