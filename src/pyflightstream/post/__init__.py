@@ -54,9 +54,11 @@ module, which is stated rather than left to be discovered:
   quasi-steady rotor noise model (0.32.0): a blade's load reconstructed
   against azimuth from a quasi-steady wheel's clockings and propagated to an
   observer by a compact loading-noise model, not wired into the post stage.
-  Its report writer, ``write_qsteady_noise_report``, is left unfilled on
-  purpose and raises ``ContractNotImplementedError``. Reached through its
-  own module;
+  Its report writer,
+  :func:`pyflightstream.post.qsteady_noise.write_qsteady_noise_report`, is
+  left unfilled on purpose and raises
+  :class:`pyflightstream._errors.ContractNotImplementedError`. Reached
+  through its own module;
 * :mod:`pyflightstream.post.custom_polar` and
   :mod:`pyflightstream.post.provenance` hold the custom polar format and the
   PROV-JSON writer that the products entry below names; their existing
