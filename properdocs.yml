@@ -32,8 +32,9 @@ plugins:
   - literate-nav:
       nav_file: SUMMARY.md
   # The Python API reference (NFR-29 R2): gen_docs_pages.py writes one page per
-  # public subpackage under api/, one `::: dotted.name` entry per name of its
-  # __all__, and this plugin renders each entry from the docstrings (licence
+  # public module, at every depth, under api/, one `::: dotted.name` entry per
+  # name of its __all__, and this plugin renders each entry from the docstrings;
+  # the docs job then checks the built objects.inv holds every name (licence
   # evidence: the RPT-101 card). `paths` points griffe at this tree's sources,
   # so the reference documents the checkout being built and not an install.
   - mkdocstrings:
@@ -86,6 +87,7 @@ nav:
       - Your first session with the Python API: tutorial-python-api.md
       - Replaying a recorded run: tutorial-replay.md
       - FSI driver tutorial: fsi-tutorial.md
+      - The PDF guides: guides.md
   - How-to guides:
       - Run types:
           - The run matrix, a campaign and its record: workflow-run-matrix.md

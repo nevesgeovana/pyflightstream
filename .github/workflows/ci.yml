@@ -201,6 +201,10 @@ jobs:
         run: pip install -e .[dev,fsi,geom,excel]
       - name: Docs build
         run: properdocs build --strict
+      - name: Every public name is in the built reference
+        # The tier-1 test proves each page carries an entry per public name;
+        # this proves the renderer produced every one of them (NFR-29 R2).
+        run: python scripts/gen_api_reference.py site
       - name: Docs hook effect check
         # The scripts/docs_hooks.py exclusion must keep the literate-nav
         # input out of the rendered site; strict mode alone would not

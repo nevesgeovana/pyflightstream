@@ -4,13 +4,17 @@ Pipeline role: a docs-build helper, imported by ``scripts/gen_docs_pages.py``
 (which writes the pages at build time, so nothing generated is committed)
 and by the tier-1 tests that prove the reference complete.
 
-The reference has one page per public subpackage: the root package and every
-module one level below it whose name has no leading underscore. A page holds
-one mkdocstrings entry (``::: dotted.name``) per name of the subpackage's
-public surface, which is its ``__all__``; a module that declares no
-``__all__`` exposes the public names it defines itself, read from its source.
-Every name is on the page. The tier of a name only orders it: the names a
-guide or an example uses come first, the rest follow under "Advanced". A name
+The reference has one page per public module, at every depth: the root
+package and every module of the package whose dotted path has no component
+with a leading underscore and which is not a deprecation shim. That is the
+inventory ``tests/tier1_offline/test_public_api.py`` affirms as
+``PUBLIC_MODULES``, and the tier-1 test of NFR-29 R2 holds the two equal. A
+page holds one mkdocstrings entry (``::: dotted.name``) per name of the
+module's public surface, which is its ``__all__``; a module that declares no
+``__all__`` exposes the public names it defines itself, read from its source
+(the rule the renderer applies too). Every name is on the page. The tier of a
+name only orders it: the names a guide or an example uses come first, the
+rest follow under "Advanced". A name
 nobody should use leaves ``__all__`` rather than being hidden here (NFR-29 R8).
 
 The exceptions catalog is generated from :mod:`pyflightstream.exceptions`:
@@ -26,6 +30,9 @@ import importlib.util
 import inspect
 import pkgutil
 import re
+import sys
+import warnings
+import zlib
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -35,25 +42,49 @@ PACKAGE = "pyflightstream"
 TIER_USED = "Used in the guides"
 TIER_ADVANCED = "Advanced"
 
+#: Public functions whose docstring the numpydoc parser cannot read cleanly:
+#: prose follows the Parameters section with no heading of its own, so the
+#: parser takes its words for parameters and the strict build refuses. The
+#: docstrings are the work of DOC-B (NFR-30), not of this reference; until it
+#: lands, these entries render with the parser's warnings off. A tier-1 test
+#: fails the day a docstring here parses cleanly, so the list only shrinks.
+DOCSTRING_DEFECTS = {
+    "pyflightstream.post.acoustics.write_acoustic_products": (
+        "a paragraph after Parameters is read as the parameters Nothing and table"
+    ),
+    "pyflightstream.post.section_distributions.write_section_distributions": (
+        "two paragraphs after Parameters are read as parameters"
+    ),
+}
+
 _DIRECTIVE = re.compile(r"^::: ([\w.]+)\s*$", re.MULTILINE)
 _WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _FENCE = re.compile(r"^```python[^\n]*\n(.*?)^```", re.MULTILINE | re.DOTALL)
 
 
 def public_subpackages() -> list[str]:
-    """Return the root package and every public module one level below it.
+    """Return the root package and every public module below it, at any depth.
 
     Returns
     -------
     list of str
-        ``pyflightstream`` first, then ``pyflightstream.<name>`` for every
-        module or subpackage whose name has no leading underscore, sorted.
+        ``pyflightstream`` first, then every module or subpackage whose
+        dotted path has no component with a leading underscore and which is
+        not a deprecation shim, sorted.
     """
     package = importlib.import_module(PACKAGE)
+    shims = {
+        entry.module
+        for entry in importlib.import_module(f"{PACKAGE}._deprecations").DEPRECATED_MODULES
+    }
+    with warnings.catch_warnings():
+        # Walking imports the subpackages; a shim's import warning is not use.
+        warnings.simplefilter("ignore", DeprecationWarning)
+        found = [info.name for info in pkgutil.walk_packages(package.__path__, f"{PACKAGE}.")]
     below = sorted(
-        f"{PACKAGE}.{info.name}"
-        for info in pkgutil.iter_modules(package.__path__)
-        if not info.name.startswith("_")
+        name
+        for name in found
+        if not any(part.startswith("_") for part in name.split(".")) and name not in shims
     )
     return [PACKAGE, *below]
 
@@ -125,7 +156,7 @@ def guide_words(repo: Path = REPO) -> set[str]:
 
 
 def page_slug(module_name: str) -> str:
-    """Return the page name under ``api/`` for a subpackage, without suffix.
+    """Return the page path under ``api/`` for a public module, without suffix.
 
     Parameters
     ----------
@@ -135,9 +166,13 @@ def page_slug(module_name: str) -> str:
     Returns
     -------
     str
-        ``pyflightstream`` for the root, the last dotted part otherwise.
+        ``pyflightstream`` for the root; the dotted path below the root with
+        its dots as folders otherwise, so ``pyflightstream.cases`` is
+        ``cases`` and ``pyflightstream.cases.matrix`` is ``cases/matrix``.
     """
-    return module_name.rpartition(".")[2]
+    if module_name == PACKAGE:
+        return PACKAGE
+    return module_name[len(PACKAGE) + 1 :].replace(".", "/")
 
 
 def _summary(module_name: str) -> str:
@@ -201,6 +236,16 @@ def _shadows_a_submodule(module_name: str, name: str) -> bool:
 
 
 def _entry(module_name: str, name: str) -> list[str]:
+    if f"{module_name}.{name}" in DOCSTRING_DEFECTS:
+        # Rendered in full; only the parser's warnings about the misplaced
+        # prose are silenced, so the strict build stays strict elsewhere.
+        return [
+            f"::: {module_name}.{name}",
+            "    options:",
+            "      docstring_options:",
+            "        warnings: false",
+            "",
+        ]
     if not _shadows_a_submodule(module_name, name):
         return [f"::: {module_name}.{name}", ""]
     # The package re-exports a function under the name of its own submodule
@@ -245,7 +290,7 @@ def documented_names(page: str, module_name: str) -> set[str]:
 
 
 def api_reference_pages(repo: Path = REPO) -> dict[str, str]:
-    """Render the Python API reference, one page per public subpackage.
+    """Render the Python API reference, one page per public module.
 
     Parameters
     ----------
@@ -256,29 +301,48 @@ def api_reference_pages(repo: Path = REPO) -> dict[str, str]:
     -------
     dict of str to str
         Page path under ``api/`` to its markdown, with ``index.md`` and the
-        ``SUMMARY.md`` the literate-nav plugin reads.
+        ``SUMMARY.md`` the literate-nav plugin reads. A module two levels
+        down sits in the folder of its parent (``cases/matrix.md``), and the
+        menu nests it under that parent.
     """
     words = guide_words(repo)
+    modules = public_subpackages()
     index = [
         "# Python API",
         "",
         "Every public name of the package, generated from the docstrings at build "
-        "time, one page per public subpackage. A page lists every name of the "
-        "subpackage's `__all__`; the names a guide or an example uses come first. "
-        "The [Python API tutorial](../tutorial-python-api.md) is the place to start, "
-        "and the [exceptions catalog](../exceptions.md) lists every refusal.",
+        f"time, one page for each of its {len(modules)} public modules. A page lists "
+        "every name of the module's `__all__`; the names a guide or an example uses "
+        "come first. A subpackage's page carries what it re-exports, and the pages of "
+        "its modules follow it. The [Python API tutorial](../tutorial-python-api.md) "
+        "is the place to start, and the [exceptions catalog](../exceptions.md) lists "
+        "every refusal.",
         "",
-        "| Subpackage | Names | What it holds |",
+        "| Module | Names | What it holds |",
         "|---|---:|---|",
     ]
     pages: dict[str, str] = {}
+    children: dict[str, list[str]] = {}
+    for module_name in modules:
+        parent = module_name.rpartition(".")[0]
+        if module_name.count(".") >= 2:
+            children.setdefault(parent, []).append(module_name)
     summary = ["- [Overview](index.md)"]
-    for module_name in public_subpackages():
+    for module_name in modules:
         slug = page_slug(module_name)
         pages[f"{slug}.md"] = subpackage_page(module_name, words)
         count = len(public_surface(module_name))
         index.append(f"| [`{module_name}`]({slug}.md) | {count} | {_summary(module_name)} |")
-        summary.append(f"- [{module_name}]({slug}.md)")
+        if module_name.count(".") >= 2:
+            continue  # listed under its parent below
+        if module_name in children:
+            summary.append(f"- {module_name}")
+            summary.append(f"    - [{module_name}]({slug}.md)")
+            summary += [
+                f"    - [{child}]({page_slug(child)}.md)" for child in children[module_name]
+            ]
+        else:
+            summary.append(f"- [{module_name}]({slug}.md)")
     pages["index.md"] = "\n".join(index) + "\n"
     pages["SUMMARY.md"] = "\n".join(summary) + "\n"
     return pages
@@ -349,3 +413,68 @@ def exceptions_catalog_markdown() -> str:
         bases = ", ".join(f"`{base.__name__}`" for base in cls.__bases__)
         lines.append(f"| {link(name)} | {bases} | {_first_line(cls)} |")
     return "\n".join(lines) + "\n"
+
+
+def inventory_names(data: bytes) -> set[str]:
+    """Return the object names a Sphinx ``objects.inv`` (version 2) carries.
+
+    Parameters
+    ----------
+    data : bytes
+        The file's bytes: four header lines, then the zlib-compressed body
+        of one ``name domain:role priority uri display`` line per object.
+
+    Returns
+    -------
+    set of str
+        Every name of the body.
+
+    Raises
+    ------
+    ValueError
+        If the header is not that of a version 2 inventory.
+    """
+    lines = data.split(b"\n", 4)
+    if len(lines) < 5 or lines[0].strip() != b"# Sphinx inventory version 2":
+        raise ValueError("not a version 2 Sphinx inventory")
+    body = zlib.decompress(lines[4]).decode("utf-8")
+    return {line.split(" ", 1)[0] for line in body.splitlines() if line.strip()}
+
+
+def missing_from_inventory(names: set[str]) -> list[str]:
+    """Return every public name the built site's inventory lacks.
+
+    The inventory is what the renderer actually produced: an entry that did
+    not resolve, or rendered nothing, is absent from it.
+
+    Parameters
+    ----------
+    names : set of str
+        The names of the built site's ``objects.inv``, from
+        :func:`inventory_names`.
+
+    Returns
+    -------
+    list of str
+        The dotted path of every name of the public surface of every module
+        of :func:`public_subpackages` that the inventory does not carry,
+        sorted.
+    """
+    # A module's own entry renders its docstring with no heading, so the
+    # module itself is not an inventory object; its names are.
+    expected = set()
+    for module_name in public_subpackages():
+        expected.update(f"{module_name}.{name}" for name in public_surface(module_name))
+    return sorted(expected - names)
+
+
+if __name__ == "__main__":
+    # The docs job runs this after the strict build (NFR-29 R2): the pages
+    # carry an entry per name, and here the rendered site is shown to hold
+    # every one of them.
+    site = Path(sys.argv[1]) if len(sys.argv) > 1 else REPO / "site"
+    missing = missing_from_inventory(inventory_names((site / "objects.inv").read_bytes()))
+    for dotted in missing:
+        print(f"not in the built reference: {dotted}")
+    print(f"{len(missing)} public names missing from {site / 'objects.inv'}")
+    sys.exit(1 if missing else 0)

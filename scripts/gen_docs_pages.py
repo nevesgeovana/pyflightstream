@@ -90,7 +90,7 @@ with mkdocs_gen_files.open("fsi-tutorial.md", "w") as page:
     tutorial = Path(__file__).resolve().parents[1] / "src/pyflightstream/fsi/README.md"
     page.write(tutorial.read_text(encoding="utf-8"))
 
-# The Python API reference (NFR-29 R2): one page per public subpackage, every
+# The Python API reference (NFR-29 R2): one page per public module, every
 # name of its __all__ an mkdocstrings entry, so the page renders the docstring.
 for path, content in api_reference_pages().items():
     with mkdocs_gen_files.open(f"api/{path}", "w") as page:

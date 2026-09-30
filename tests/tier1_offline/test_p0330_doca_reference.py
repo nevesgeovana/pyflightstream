@@ -14,14 +14,17 @@ added, so a check that accepts everything cannot pass.
 from __future__ import annotations
 
 import argparse
-import ast
-import importlib
+import functools
 import importlib.util
+import logging
 import re
 import sys
 import tomllib
+import zlib
 from pathlib import Path
 
+import griffe
+import pytest
 import yaml
 
 from tests.tier1_offline.test_public_api import PUBLIC_MODULES
@@ -66,28 +69,98 @@ def _group(name: str) -> list[str]:
 
 
 def _expected_subpackages() -> list[str]:
-    """The root and every public module one level below it, from the affirmed list."""
-    return ["pyflightstream", *sorted(m for m in PUBLIC_MODULES if m.count(".") == 1)]
+    """The root and every public module at every depth, from the affirmed list."""
+    return ["pyflightstream", *PUBLIC_MODULES]
+
+
+#: The public modules that declare no ``__all__`` at 0.33.0, 51 of 122. Their
+#: surface is the public names they define (R2 as amended in SRS 1.53.0). The
+#: list only shrinks: a new public module declares ``__all__`` (R8), and a
+#: module listed here that gains one leaves the list in the same change.
+MODULES_WITHOUT_ALL = {
+    "pyflightstream.cases.acoustics",
+    "pyflightstream.cases.field_coverage",
+    "pyflightstream.cases.freestream",
+    "pyflightstream.cases.fsi_workspace",
+    "pyflightstream.cases.qsteady",
+    "pyflightstream.cases.setup_surfaces",
+    "pyflightstream.commands",
+    "pyflightstream.fsi.beam",
+    "pyflightstream.fsi.centrifugal",
+    "pyflightstream.fsi.cli",
+    "pyflightstream.fsi.config",
+    "pyflightstream.fsi.driver",
+    "pyflightstream.fsi.kinematics",
+    "pyflightstream.fsi.loads",
+    "pyflightstream.fsi.nodes",
+    "pyflightstream.fsi.state",
+    "pyflightstream.fsi.wing",
+    "pyflightstream.options",
+    "pyflightstream.overview",
+    "pyflightstream.post.boundary_layer",
+    "pyflightstream.post.diagnostics",
+    "pyflightstream.post.field_frames",
+    "pyflightstream.post.probe_fields",
+    "pyflightstream.post.qsteady",
+    "pyflightstream.probes.errors",
+    "pyflightstream.qa.cli",
+    "pyflightstream.qa.compat",
+    "pyflightstream.qa.errors",
+    "pyflightstream.qa.probes",
+    "pyflightstream.reference",
+    "pyflightstream.results.native_surface",
+    "pyflightstream.results.tables",
+    "pyflightstream.run.cli",
+    "pyflightstream.run.records",
+    "pyflightstream.script.entities",
+    "pyflightstream.script.helpers",
+    "pyflightstream.script.motion",
+    "pyflightstream.utils.cli",
+    "pyflightstream.versions",
+    "pyflightstream.workspace.cli",
+    "pyflightstream.workspace.excel",
+    "pyflightstream.workspace.excel_bridge",
+    "pyflightstream.workspace.excel_file",
+    "pyflightstream.workspace.excel_sync",
+    "pyflightstream.workspace.flight_condition",
+    "pyflightstream.workspace.fsi_setup",
+    "pyflightstream.workspace.inputs",
+    "pyflightstream.workspace.naming",
+    "pyflightstream.workspace.rename_groups",
+    "pyflightstream.workspace.setup_inspection",
+    "pyflightstream.workspace.setup_standards",
+}
+
+
+@functools.cache
+def _static_package():
+    """The package as the renderer reads it: griffe, from the sources, no import."""
+    return griffe.load("pyflightstream", search_paths=[str(REPO / "src")], resolve_aliases=False)
+
+
+def _static_module(module_name: str):
+    package = _static_package()
+    return package if module_name == "pyflightstream" else package[module_name.split(".", 1)[1]]
 
 
 def _expected_surface(module_name: str) -> set[str]:
-    """``__all__``; with none, the public names the module's own source defines."""
-    module = importlib.import_module(module_name)
-    if hasattr(module, "__all__"):
-        return {str(name) for name in module.__all__}
-    source = Path(module.__file__).read_text(encoding="utf-8")
-    names: set[str] = set()
-    for node in ast.parse(source).body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            names.add(node.name)
-        elif isinstance(node, ast.Assign):
-            names.update(t.id for t in node.targets if isinstance(t, ast.Name))
-        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            names.add(node.target.id)
-    return {name for name in names if not name.startswith("_")}
+    """The public names of a module by the renderer's own rule, read statically.
+
+    Deliberately not the generator's rule: the generator imports the module
+    and reads ``__all__`` at run time, or walks its source; this asks griffe,
+    the library mkdocstrings renders with, which names it holds public. A
+    submodule is a page of its own, not a name of its parent's surface.
+    """
+    module = _static_module(module_name)
+    if module.exports is not None:
+        return {str(name) for name in module.exports}
+    return {
+        name for name, member in module.members.items() if member.is_public and not member.is_module
+    }
 
 
 _ENTRY = re.compile(r"^::: ([\w.]+)[ \t]*$", re.MULTILINE)
+_ENTRY_WITH_OPTIONS = re.compile(r"^::: ([\w.]+)[ \t]*\n((?:    .*\n)*)", re.MULTILINE)
 
 
 def _entries(page: str, module_name: str) -> set[str]:
@@ -99,6 +172,37 @@ def _entries(page: str, module_name: str) -> set[str]:
         prefix = f"{module_name}."
         found.add(target[len(prefix) :] if target.startswith(prefix) else target)
     return found
+
+
+def _entry_defects(page: str, module_name: str, generator) -> list[str]:
+    """Why an entry of the page would render less than its object, or nothing.
+
+    Each entry must resolve, in the renderer's own reading of the sources, to
+    an object; and only two option blocks are allowed on a name's entry: the
+    one that names the function a package re-exports under its submodule's
+    name, and the one that silences the docstring parser for a listed defect.
+    Anything else (``members: false``, a filter) could hide what the entry is
+    for, so it is refused here rather than trusted.
+    """
+    package = _static_package()
+    defects = []
+    for target, options in _ENTRY_WITH_OPTIONS.findall(page):
+        if target == module_name:
+            continue  # the module's own docstring, rendered without members on purpose
+        try:
+            obj = package[target.split(".", 1)[1]]
+            if obj.is_alias:
+                obj.final_target  # noqa: B018  (resolving is the check)
+        except Exception as error:  # a KeyError or an alias resolution error
+            defects.append(f"{target} does not resolve in the sources: {error!r}")
+            continue
+        name = target.rpartition(".")[2]
+        allowed = {"", f"    options:\n      members: [{name}]\n"}
+        if target in generator.DOCSTRING_DEFECTS:
+            allowed.add("    options:\n      docstring_options:\n        warnings: false\n")
+        if options not in allowed:
+            defects.append(f"{target} carries options that may hide it: {options!r}")
+    return defects
 
 
 def _api_differences(page: str, module_name: str, expected: set[str]) -> tuple[set, set]:
@@ -115,15 +219,21 @@ def test_the_api_reference_carries_every_public_name_and_nothing_else():
     generator = _script("gen_api_reference")
     subpackages = _expected_subpackages()
     assert generator.public_subpackages() == subpackages, (
-        "the reference's list of public subpackages is not the affirmed one of "
+        "the reference's list of public modules is not the affirmed one of "
         "test_public_api.PUBLIC_MODULES"
+    )
+    without_all = {m for m in subpackages if _static_module(m).exports is None}
+    assert without_all == MODULES_WITHOUT_ALL, (
+        f"public modules newly without __all__ (declare one, R8): "
+        f"{sorted(without_all - MODULES_WITHOUT_ALL)}; listed modules that now "
+        f"declare one (take them off the list): {sorted(MODULES_WITHOUT_ALL - without_all)}"
     )
     pages = generator.api_reference_pages()
     summary = pages["SUMMARY.md"]
     failures = []
     total = 0
     for module_name in subpackages:
-        slug = module_name.rpartition(".")[2]
+        slug = module_name.split(".", 1)[1].replace(".", "/") if "." in module_name else module_name
         page = pages.get(f"{slug}.md")
         assert page is not None, f"{module_name} has no reference page"
         assert f"({slug}.md)" in summary, f"{module_name}'s page is not in the reference menu"
@@ -132,10 +242,12 @@ def test_the_api_reference_carries_every_public_name_and_nothing_else():
         missing, extra = _api_differences(page, module_name, expected)
         if missing or extra:
             failures.append(f"{module_name}: missing {sorted(missing)}, extra {sorted(extra)}")
+        failures += _entry_defects(page, module_name, generator)
     assert not failures, "\n".join(failures)
-    # Non-vacuity: 577 names in 20 subpackages at the v0.32.0 audit.
-    assert len(subpackages) >= 15, subpackages
-    assert total >= 500, f"only {total} public names were compared"
+    # Non-vacuity: 123 modules and 1894 names measured at 0.33.0 development;
+    # the floor leaves room for the one name decision 9 deletes and little more.
+    assert len(subpackages) >= 120, subpackages
+    assert total >= 1850, f"only {total} public names were compared"
 
     # The control: the same comparison refuses a cut page and a padded one.
     page = pages["script.md"]
@@ -152,6 +264,65 @@ def test_the_api_reference_carries_every_public_name_and_nothing_else():
     assert _api_differences(foreign, "pyflightstream.script", expected)[1] == {
         "pyflightstream.results.parse_loads"
     }
+    # And the entry check refuses an entry that resolves to nothing and one
+    # whose options would render less than its object.
+    assert _entry_defects(page, "pyflightstream.script", generator) == []
+    dangling = page + "\n::: pyflightstream.script.NoSuchName\n"
+    assert len(_entry_defects(dangling, "pyflightstream.script", generator)) == 1
+    hidden = page.replace(
+        "::: pyflightstream.script.Script\n",
+        "::: pyflightstream.script.Script\n    options:\n      members: false\n",
+        1,
+    )
+    assert len(_entry_defects(hidden, "pyflightstream.script", generator)) == 1
+
+
+def test_the_built_reference_holds_every_public_name():
+    """NFR-29 R2: the rendered site's inventory, when a build is at hand.
+
+    P0330-DOC-API-COMPLETE
+    """
+    # P0330-DOC-API-COMPLETE: the check the docs job runs after the strict
+    # build, proved here on inventories written for the purpose, then run on
+    # the site in this checkout if one was built after the last source change.
+    generator = _script("gen_api_reference")
+    expected = set()
+    for module_name in _expected_subpackages():
+        expected.update(f"{module_name}.{name}" for name in _expected_surface(module_name))
+    assert len(expected) >= 1850
+
+    def inventory(names: set[str]) -> bytes:
+        body = "".join(f"{name} py:function 1 api/x/#$ -\n" for name in sorted(names))
+        header = b"# Sphinx inventory version 2\n# Project: x\n# Version: 0\n# zlib\n"
+        return header + zlib.compress(body.encode("utf-8"))
+
+    assert generator.inventory_names(inventory(expected)) == expected
+    assert generator.missing_from_inventory(expected) == []
+    dropped = sorted(expected)[len(expected) // 2]
+    assert generator.missing_from_inventory(expected - {dropped}) == [dropped]
+
+    built = REPO / "site" / "objects.inv"
+    sources = [*(REPO / "src").rglob("*.py"), SCRIPTS / "gen_api_reference.py"]
+    if not built.is_file() or built.stat().st_mtime < max(p.stat().st_mtime for p in sources):
+        pytest.skip("no site built after the last source change; the docs job checks it")
+    assert generator.missing_from_inventory(generator.inventory_names(built.read_bytes())) == []
+
+
+def test_every_silenced_docstring_is_still_defective(caplog):
+    """NFR-29 R2: the list of docstrings rendered with warnings off only shrinks.
+
+    P0330-DOC-API-COMPLETE
+    """
+    # P0330-DOC-API-COMPLETE: an entry silenced for a docstring DOC-B has not
+    # yet fixed must still be defective, or it leaves the list.
+    generator = _script("gen_api_reference")
+    assert generator.DOCSTRING_DEFECTS, "the list is empty: remove this test's reason to exist"
+    for dotted in generator.DOCSTRING_DEFECTS:
+        obj = _static_package()[dotted.split(".", 1)[1]]
+        caplog.clear()
+        with caplog.at_level(logging.WARNING, logger="griffe"):
+            griffe.parse_numpy(obj.docstring)
+        assert caplog.records, f"{dotted} now parses cleanly: take it off DOCSTRING_DEFECTS"
 
 
 # --------------------------------------------------------------------- the CLI
@@ -172,6 +343,14 @@ def _walk(parser: argparse.ArgumentParser, path: str, out: set[tuple[str, str]])
             name = action.metavar if isinstance(action.metavar, str) else action.dest
             out.add((path, f"<{name}>"))
 
+
+#: The ``python -m`` tools the guides name, beside the console scripts.
+MODULE_TOOLS = (
+    "python -m pyflightstream.workspace.excel",
+    "python -m pyflightstream.workspace.excel_bridge",
+)
+CLI_ARGUMENTS_MEASURED = 355
+CLI_SUBCOMMANDS_MEASURED = 45
 
 _HEADING = re.compile(r"^#{2,6} `([^`]+)`\s*$")
 _ROW = re.compile(r"^\| ((?:`[^`]+`)(?:, `[^`]+`)*) \|")
@@ -206,10 +385,10 @@ def test_the_cli_reference_carries_every_tool_subcommand_and_option():
     ]
     tools = generator.tools()
     names = [tool.name for tool in tools]
-    assert set(declared) <= set(names), (
-        f"console scripts with no page: {set(declared) - set(names)}"
-    )
-    assert "python -m pyflightstream.workspace.excel" in names, "the workbook tool has no page"
+    # The tool list is named here, not taken from the generator: the console
+    # scripts pyproject.toml declares, and the two module entries the guides
+    # name. A tool the generator dropped would otherwise leave both sides.
+    assert sorted(names) == sorted([*declared, *MODULE_TOOLS]), names
     pages = generator.cli_reference_pages()
     failures = []
     options = subcommands = 0
@@ -221,27 +400,43 @@ def test_the_cli_reference_carries_every_tool_subcommand_and_option():
         _walk(tool.parser, tool.name, expected)
         found = _page_pairs(page)
         options += sum(1 for _, argument in expected if argument)
-        subcommands += sum(1 for command, argument in expected if not argument) - 1
+        subcommands += sum(
+            1 for command, argument in expected if command != tool.name and not argument
+        )
         if expected != found:
             failures.append(
                 f"{tool.name}: missing {sorted(expected - found)[:10]}, "
                 f"extra {sorted(found - expected)[:10]}"
             )
     assert not failures, "\n".join(failures)
-    # Non-vacuity: 112 options and 30 subcommands at the v0.32.0 audit.
-    assert len(tools) >= 7, names
-    assert options >= 100, f"only {options} arguments were compared"
-    assert subcommands >= 20, f"only {subcommands} subcommands were compared"
+    # Non-vacuity, at the counts measured at 0.33.0 development (help flags
+    # and positionals included). The parity arm of GOAL-038 keeps every
+    # option and subcommand of 0.32.0, so these only grow.
+    assert len(tools) == 7, names
+    assert options >= CLI_ARGUMENTS_MEASURED, f"only {options} arguments were compared"
+    assert subcommands >= CLI_SUBCOMMANDS_MEASURED, f"only {subcommands} subcommands"
 
     # The control: a page with one row cut, and one with an invented option.
-    page = pages["pyfs-matrix.md"]
+    tool = next(t for t in tools if t.name == "pyfs-matrix")
+    page = pages[f"{tool.slug}.md"]
     expected = set()
-    _walk(next(t for t in tools if t.name == "pyfs-matrix").parser, "pyfs-matrix", expected)
-    row = next(line for line in page.splitlines() if line.startswith("| `--apply`"))
+    _walk(tool.parser, tool.name, expected)
+    # A long option spelled on exactly one row of the page, taken from the
+    # parser, so the control needs no option name of its own.
+    lines = page.splitlines()
+    unique = sorted(
+        (command, argument)
+        for command, argument in expected
+        if argument.startswith("--")
+        and sum(1 for line in lines if _ROW.match(line) and f"`{argument}`" in line) == 1
+    )
+    assert unique, f"no option of {tool.name} sits on one row alone"
+    command, option = unique[0]
+    row = next(line for line in lines if _ROW.match(line) and f"`{option}`" in line)
     cut = page.replace(row + "\n", "", 1)
-    assert expected - _page_pairs(cut), "cutting a row went unseen"
+    assert (command, option) in expected - _page_pairs(cut), "cutting a row went unseen"
     invented = page.replace(row, row + "\n| `--no-such-flag` |  |  | invented |", 1)
-    assert _page_pairs(invented) - expected, "an invented option went unseen"
+    assert _page_pairs(invented) - expected == {(command, "--no-such-flag")}
 
 
 # ---------------------------------------------------------------- the tutorial
@@ -272,9 +467,13 @@ def test_the_python_api_tutorial_is_on_the_site_and_its_blocks_run():
     text = page.read_text(encoding="utf-8")
     blocks = _executed_blocks(text)
     assert len(blocks) >= 5, f"only {len(blocks)} executed blocks on the tutorial"
-    # The skip marker is honoured by the same reading: this page holds one
-    # block that needs the solver, and it is not among the executed ones.
-    assert len(_FENCE.findall(text)) == len(blocks) + 1
+    # The skip marker is honoured by the same reading: a block marked skip
+    # (one that needs the solver) is never among the executed ones, every
+    # other block is, and the executed blocks are most of the page.
+    fences = _FENCE.findall(text)
+    skipped = [block for block in fences if block not in blocks]
+    assert len(blocks) + len(skipped) == len(fences)
+    assert len(skipped) < len(blocks), f"{len(skipped)} of {len(fences)} blocks are skipped"
     assert _executed_blocks("<!-- skip: next -->\n```python\nx = 1\n```\n") == []
     namespace: dict[str, object] = {"__name__": "tutorial_python_api"}
     for index, block in enumerate(blocks):
@@ -357,6 +556,33 @@ def test_the_nav_is_the_four_quadrants_and_project_with_the_srs_under_project():
     assert not elsewhere, elsewhere
     for folder in ("api/", "cli/", "reference/"):
         assert folder in _group("Reference"), f"{folder} is not under Reference"
-    # The LaTeX guides are linked from the home page, not absorbed (decision 14).
+    # R9: the LaTeX guides are linked from the navigation, not absorbed
+    # (decision 14): one page in the menu links every PDF in guide/, and the
+    # home page links the folder.
+    assert "guides.md" in _group("Tutorials")
+    guides = (DOCS / "guides.md").read_text(encoding="utf-8")
+    pdfs = sorted(p.name for p in (REPO / "guide").glob("pyfts-guide-*.pdf"))
+    assert len(pdfs) >= 8, pdfs
+    for pdf in pdfs:
+        assert f"](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/{pdf})" in guides
     home = (DOCS / "index.md").read_text(encoding="utf-8")
     assert "](https://github.com/nevesgeovana/pyflightstream/tree/main/guide)" in home
+
+
+def test_the_renderer_is_a_docs_dependency_with_its_licence_card():
+    """NFR-29 R7: mkdocstrings[python] in the docs dependencies, its card committed."""
+    # NFR-29 R7 (decision 11 of GOAL-038)
+    project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    dev = project["optional-dependencies"]["dev"]
+    assert any(req.replace(" ", "").startswith("mkdocstrings[python]") for req in dev), dev
+    plugins = yaml.safe_load((REPO / "properdocs.yml").read_text(encoding="utf-8"))["plugins"]
+    assert any(isinstance(p, dict) and "mkdocstrings" in p for p in plugins), plugins
+    cards = [
+        path
+        for path in (REPO / "reports").glob("RPT-*.md")
+        if "mkdocstrings" in (text := path.read_text(encoding="utf-8"))
+        and "RPT-009" in text
+        and "| mkdocstrings | " in text
+        and "ISC" in text
+    ]
+    assert cards, "no licence card for mkdocstrings in the form of RPT-009"

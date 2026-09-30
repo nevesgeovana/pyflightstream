@@ -880,11 +880,14 @@
     its decisions 10, 11, 13 and 14), from the documentation audit of
     v0.32.0, which found no Python API reference, 427 of 577 exported
     names on no page and 30 of 112 command-line options on no page.
-    Pending: nothing of it is built. It reverses the position of v0.3.0,
-    when mkdocstrings was evaluated and declined and the site was to gain
-    no Python API reference; NFR-19 is reworded to match. Evidence owed:
-    the tier-1 tests of R2, R3 and R5, the docs build in strict mode,
-    and the licence card of R7.*
+    Pending: built by DOC-A, and the status moves only at the owner's
+    acceptance. It reverses the position of v0.3.0, when mkdocstrings
+    was evaluated and declined and the site was to gain no Python API
+    reference; NFR-19 is reworded to match. Evidence offered for the
+    acceptance: `tests/tier1_offline/test_p0330_doca_reference.py` (R1
+    to R9), the docs build in strict mode followed by the docs job's
+    check that the built inventory holds every public name, and the
+    licence card RPT-101 of R7.*
 
     The documentation site is organized by kind of page and its
     reference is generated from the code, so that every public name and
@@ -899,7 +902,13 @@
       tiers of a name (documented, advanced) only order the page. A
       tier-1 test proves both set differences empty: no name of an
       `__all__` is missing from the reference, and no name on the
-      reference is outside every `__all__`.
+      reference is outside every `__all__`. A public subpackage here is
+      every public module at every depth, the inventory the public-API
+      test affirms, each with a page of its own. A public module that
+      declares no `__all__` contributes the public names it defines
+      itself, by the rule the renderer applies; the list of such modules
+      is pinned by the same test and only shrinks, so R8 applies to each
+      as it gains an `__all__`.
     - R3 A command-line reference is generated from the argument parsers
       and carries every console tool, every subcommand and every option;
       a tier-1 test proves the same two differences empty.
