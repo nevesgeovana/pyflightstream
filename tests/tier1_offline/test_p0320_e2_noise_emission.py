@@ -196,6 +196,26 @@ def test_p0320_noise_observers_as_an_acoustic_section_after_the_signals():
     assert framed[framed.index("CREATE_ACOUSTIC_SECTION") + 1] != "FRAME 1"
 
 
+def test_p0320_noise_observers_a_section_is_placed_in_the_frame_it_names():
+    """P0320-NOISE-OBSERVERS: FRAME carries the index of the very frame the record
+    names among those the run created, not merely some frame other than the
+    reference one."""
+    case = _acoustic(
+        rotor_case,
+        ACOUSTIC_SOURCES="ENABLE",
+        ACOUSTIC_OBSERVER_TIME=TIME,
+        ACOUSTIC_SECTION=SECTION.replace("{", "{FRAME:AFT / "),
+    )
+    script = Script("26.124")
+    script.declare_existing(frames=5)
+    helpers.start_solver(script)
+    acoustics.emit_acoustic_signals(
+        case, script, unsteady=True, frames={"FORE": 2, "AFT": 5}, from_metres=lambda what: 1.0
+    )
+    lines = script.render().splitlines()
+    assert lines[lines.index("CREATE_ACOUSTIC_SECTION") + 1] == "FRAME 5"
+
+
 @pytest.mark.parametrize(
     ("variables", "words"),
     [
