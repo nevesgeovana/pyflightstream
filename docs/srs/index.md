@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.45.0 |
+| Version | 1.46.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -41,7 +41,7 @@ or ambiguous.
    rules, with the generated [architecture overview](../architecture.md)
    as the live companion.
 6. [Functional requirements](functional-requirements.md): FR-01 to
-   FR-294, each with origin, status, and evidence.
+   FR-304, each with origin, status, and evidence.
 7. [Non-functional requirements](nonfunctional-requirements.md):
    NFR-01 to NFR-28.
 8. [Standards alignment](standards.md): the external practices this
@@ -98,6 +98,7 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.46.0 | 2026-09-30 | **THE FUNCTIONAL RANGE READS FR-01 TO FR-304**: FR-295 to FR-299 (the REAL control surface refused, the PARAMETRIC form kept) and FR-300 to FR-304 (the exploratory quasi-steady noise model) joined the functional chapter after the fold. **The origins state the scope, not a person**: every origin that quoted a private conversation or attributed a requirement to a person (FR-118, FR-119, FR-165, FR-166, FR-168, FR-173, FR-175, FR-176, FR-177, FR-179, FR-185, FR-186, FR-193, FR-194, FR-250, FR-251, FR-253, FR-280, FR-285 and FR-300) now names the scope item it came from, and a matrix's copy in a sync is the owning workspace's. **Nineteen boxes take the chapter's form**: FR-212 to FR-222, FR-224 to FR-227 and FR-296 to FR-299 held their need, requirement, solution and trace in one italic paragraph, which the requirements index reads as an origin tag, so they published no statement; each now has an italic origin and evidence line and plain Need, Requirement and Solution paragraphs, in the same words. No requirement statement changes. |
 | 1.45.0 | 2026-09-30 | **THE REQUIREMENT FRAGMENTS ARE FOLDED.** The fragments of `docs/srs/fr.d/` (the requirements of 0.25.0 to 0.31.0 that K1 and K2 wrote, and FR-200 to FR-294 of the 0.32.0 packages) join the functional chapter under its section of 0.25.0 to 0.32.0 additions, 136 boxes in package order, and the functional range above reads FR-01 to FR-294. **FR-51 is CORRECTED**: its 0.27.0 amendment said an unsteady point saves no solver plot and that an artifact stating one on an unsteady row is refused at plan, which FR-133 replaced at 0.28.0 and the code contradicts (`cases/__init__.py:default_outputs` leaves out of an unsteady point only `probes`; `cases/workflows.py:END_OF_RUN_EXPORT_KINDS` saves the plots once after the march); it now says what FR-133 says. Each requirement the 0.32.0 work reads names the planning items that read it. |
 | 1.44.0 | 2026-09-30 | **THE SRS CATCHES UP WITH RELEASES 0.25.0 TO 0.31.0.** FR-109 to FR-111, added at 0.27.0 without a revision row, are recorded here. Requirements for the capabilities of 0.29.0, 0.30.0 and 0.31.0 that had none are written under the numbers 150 to 194, in the fragment `docs/srs/fr.d/k2.md`, and join the functional chapter when the fragments are integrated; each states the need, the verifiable requirement, the solution with its release and the trace to its test. FR-95 is RESTATED, because it said a steady sweep is warm by default and since 0.29.0 it is cold by default (the new cold-start requirement states it), and its title drops the word warm. FR-110 is RESTATED, because it said each steady point exports the volume section natively and since 0.29.0 the section is sampled through probes or fluid plots. NFR-27 gains the type-checker re-measurements of 0.25.0 to 0.32.0. The roadmap carries the milestones to 0.32.0 and the 0.33.0 plan, and the acceptance mapping the release lines to 0.32.0. A tier-1 test (P0320-SRS-CHANGELOG) now requires every Added and Changed bullet of every release from 0.25.0 on, and of every change log fragment, to cite a requirement id the SRS defines or to say why it has none. |
 | 1.43.0 | 2026-09-14 | **FR-100 is added**: a row states `TRANSLATE` as a list of records with the grammar of `ROTATE`, `DISTANCE` in metres along one axis of a named frame and one declared `ALIAS`; the surfaces move in that frame with their vertices split from their neighbours, every owned and auxiliary frame moves to its new absolute origin once, the kept hub is shared with a rotation, and every translation precedes every rotation. **FR-71's doubling is reached by a rendered script**: the kept hub frame now reaches the post-processing, where only the unit tests had reached it. FR-35 and FR-71 are amended by FR-100 |

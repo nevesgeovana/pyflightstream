@@ -4858,154 +4858,202 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-212 A rebuild written to another manifest never touches runs.json <span class='srs-implemented'>implemented</span>"
 
-    *Need: a rebuilt record must be comparable with the original before it
-    replaces anything. Requirement: `--out NAME` writes the rebuilt records to
-    that file in the workspace root and never writes `runs.json`; the name
-    `runs.json`, a file that exists, and a name that is not a file directly in
-    the root are refused before any work. Solution, release 0.32.0: the
-    refusals come before anything is read, the file is created
-    exclusively, and it holds the rows of `runs.json` with each rebuilt
-    record in the place of the row of its run id and the other rebuilt
-    records after them. Trace: `tests/tier1_offline/test_p0320_records.py`
+    *Origin: the 0.32.0 scope. Evidence:
+    `tests/tier1_offline/test_p0320_records.py`
     (`test_rebuild_out_refuses_runs_json_and_an_existing_file_before_any_work`,
     `test_rebuild_out_never_touches_runs_json`,
     `test_rebuild_out_holds_the_rebuilt_record_of_a_named_recorded_sim`).*
 
+    **Need.** A rebuilt record must be comparable with the original before it
+    replaces anything.
+
+    **Requirement.** `--out NAME` writes the rebuilt records to that file in
+    the workspace root and never writes `runs.json`; the name `runs.json`, a
+    file that exists, and a name that is not a file directly in the root are
+    refused before any work.
+
+    **Solution (release 0.32.0).** The refusals come before anything is read,
+    the file is created exclusively, and it holds the rows of `runs.json` with
+    each rebuilt record in the place of the row of its run id and the other
+    rebuilt records after them.
+
 !!! requirement "FR-213 Every simulation on disk is rebuilt for comparison, only into another manifest <span class='srs-implemented'>implemented</span>"
 
-    *Need: comparing what the folders say with `runs.json` needs the recorded
-    simulations rebuilt too. Requirement: `--all-sims` rebuilds every
-    simulation folder under `sims/`, recorded or not, and is refused without
-    `--out`. Solution, release 0.32.0: with `--all-sims` the written file holds
-    the rebuilt records only. Trace: `tests/tier1_offline/test_p0320_records.py`
+    *Origin: the 0.32.0 scope. Evidence:
+    `tests/tier1_offline/test_p0320_records.py`
     (`test_rebuild_all_sims_requires_out_and_rebuilds_the_recorded_ones_too`).*
+
+    **Need.** Comparing what the folders say with `runs.json` needs the
+    recorded simulations rebuilt too.
+
+    **Requirement.** `--all-sims` rebuilds every simulation folder under
+    `sims/`, recorded or not, and is refused without `--out`.
+
+    **Solution (release 0.32.0).** With `--all-sims` the written file holds the
+    rebuilt records only.
 
 !!! requirement "FR-214 A row switched off after it ran still describes that run <span class='srs-implemented'>implemented</span>"
 
-    *Need: a row set to `RUN 0` after it ran is still the row that ran.
-    Requirement: the rebuild sets `RUN 1` on that row in the throwaway copy of
-    the matrix only, leaves the matrix unchanged, and says so in the record.
-    Solution, release 0.32.0 (RST-2). Trace:
+    *Origin: the 0.32.0 scope (RST-2). Evidence:
     `tests/tier1_offline/test_p0320_records.py`
     (`test_rst2_a_row_switched_off_after_it_ran_still_describes_the_run`).*
 
+    **Need.** A row set to `RUN 0` after it ran is still the row that ran.
+
+    **Requirement.** The rebuild sets `RUN 1` on that row in the throwaway copy
+    of the matrix only, leaves the matrix unchanged, and says so in the record.
+
 !!! requirement "FR-215 A build the submission profile no longer maps takes the scheduler's name of its time <span class='srs-implemented'>implemented</span>"
 
-    *Need: a run on a build the profile's `[builds]` table no longer maps is
-    refused by the run layer before a descriptor is written. Requirement:
-    `--build-alias BUILD=ALIAS` names the scheduler's word for that build,
-    the build itself by default; it enters only the job descriptor of the
-    throwaway run, never the solver script, and the record and the result say
-    which alias was assumed. Solution, release 0.32.0 (RST-3): the profile is
-    extended in memory only. Trace: `tests/tier1_offline/test_p0320_records.py`
+    *Origin: the 0.32.0 scope (RST-3). Evidence:
+    `tests/tier1_offline/test_p0320_records.py`
     (`test_rst3_a_build_the_profile_no_longer_maps_takes_the_alias_in_the_descriptor_only`).*
+
+    **Need.** A run on a build the profile's `[builds]` table no longer maps is
+    refused by the run layer before a descriptor is written.
+
+    **Requirement.** `--build-alias BUILD=ALIAS` names the scheduler's word for
+    that build, the build itself by default; it enters only the job descriptor
+    of the throwaway run, never the solver script, and the record and the
+    result say which alias was assumed.
+
+    **Solution (release 0.32.0).** The profile is extended in memory only.
 
 !!! requirement "FR-216 A POL in no current matrix waits for the matrix revision that ran <span class='srs-implemented'>implemented</span>"
 
-    *Need: a row deleted or renumbered after it ran leaves a folder no matrix
-    names. Requirement: the rebuild names the simulations that wait for the
-    revision that ran (`waiting_for_matrix`) and rebuilds them from
-    `--matrix <file>`. Solution, release 0.32.0 (RST-4). Trace:
+    *Origin: the 0.32.0 scope (RST-4). Evidence:
     `tests/tier1_offline/test_p0320_records.py`
     (`test_rst4_a_pol_in_no_current_matrix_waits_for_the_revision_that_ran`).*
 
+    **Need.** A row deleted or renumbered after it ran leaves a folder no
+    matrix names.
+
+    **Requirement.** The rebuild names the simulations that wait for the
+    revision that ran (`waiting_for_matrix`) and rebuilds them from `--matrix
+    <file>`.
+
 !!! requirement "FR-217 A run on a cluster restored on Windows keeps its own root and style <span class='srs-implemented'>implemented</span>"
 
-    *Need: a script executed on a cluster names a POSIX root with forward
-    slashes, and a rebuild on Windows renders backslashes. Requirement: the
-    identity check compares with the separators normalised and each side's
-    own root replaced by one token, and the rebuilt record writes its paths
-    in the run's root and style, never with the separators mixed. Solution,
-    release 0.32.0 (RST-5). Trace: `tests/tier1_offline/test_p0320_records.py`
+    *Origin: the 0.32.0 scope (RST-5). Evidence:
+    `tests/tier1_offline/test_p0320_records.py`
     (`test_rst5_a_cluster_run_restored_on_windows_keeps_the_runs_own_root`).*
+
+    **Need.** A script executed on a cluster names a POSIX root with forward
+    slashes, and a rebuild on Windows renders backslashes.
+
+    **Requirement.** The identity check compares with the separators normalised
+    and each side's own root replaced by one token, and the rebuilt record
+    writes its paths in the run's root and style, never with the separators
+    mixed.
 
 !!! requirement "FR-218 A SUBMITTED record is pointed to collect, unless every simulation is judged from its outputs <span class='srs-implemented'>implemented</span>"
 
-    *Need: a rebuild must not invent the end of a job, and a comparison of
-    every folder must not keep a status the outputs contradict. Requirement:
-    without `--all-sims` a `SUBMITTED` record is not rebuilt and is pointed to
-    `pyfs-matrix collect`; with `--all-sims` that status is ignored and each
-    simulation takes the status its outputs support, except a folder written
-    within the last quiet window (`QUIET_WINDOW_S`, 30 minutes), which stays
-    `SUBMITTED`. Solution, release 0.32.0 (RST-7). Trace:
+    *Origin: the 0.32.0 scope (RST-7). Evidence:
     `tests/tier1_offline/test_p0320_records.py`
     (`test_rst7_submitted_records_point_to_collect_without_all_sims`,
     `test_rst7_all_sims_ignores_submitted_and_judges_the_outputs`).*
 
+    **Need.** A rebuild must not invent the end of a job, and a comparison of
+    every folder must not keep a status the outputs contradict.
+
+    **Requirement.** Without `--all-sims` a `SUBMITTED` record is not rebuilt
+    and is pointed to `pyfs-matrix collect`; with `--all-sims` that status is
+    ignored and each simulation takes the status its outputs support, except a
+    folder written within the last quiet window (`QUIET_WINDOW_S`, 30 minutes),
+    which stays `SUBMITTED`.
+
 !!! requirement "FR-219 A drifted input is named, and inputs from another origin are accepted <span class='srs-implemented'>implemented</span>"
 
-    *Need: an input changed after the run (a pproc group renamed, an export
-    line switched, the loads frame line, a plot type) makes the executed script
-    differ, and refusing or accepting that wholesale says nothing about which
-    input changed. Requirement: the refusal names each changed line with its
-    drift class and the input the package renders it from now; `--inputs-from
-    <folder>` lays another origin's `inputs/` over the workspace's in the
-    throwaway copy, and each rebuilt record names the inputs taken from there
-    whose bytes differ; the workspace's inputs are never overwritten.
-    Solution, release 0.32.0 (RST-8). Trace:
+    *Origin: the 0.32.0 scope (RST-8). Evidence:
     `tests/tier1_offline/test_p0320_records.py`
     (`test_rst8_a_drifted_input_is_named_and_another_origin_is_accepted`,
     `test_rst8_each_drift_class_is_named_with_the_input_it_comes_from`).*
 
+    **Need.** An input changed after the run (a pproc group renamed, an export
+    line switched, the loads frame line, a plot type) makes the executed script
+    differ, and refusing or accepting that wholesale says nothing about which
+    input changed.
+
+    **Requirement.** The refusal names each changed line with its drift class
+    and the input the package renders it from now; `--inputs-from <folder>`
+    lays another origin's `inputs/` over the workspace's in the throwaway copy,
+    and each rebuilt record names the inputs taken from there whose bytes
+    differ; the workspace's inputs are never overwritten.
+
 !!! requirement "FR-220 Sync compares every simulation folder of both workspaces, recorded or not <span class='srs-implemented'>implemented</span>"
 
-    *Need: a workspace holds simulation folders that no record names,
-    most copied by hand from a cluster, and `sync` said nothing about them:
-    it merged the records and brought files without naming which folders
-    each side holds and which no record carries. Requirement: every sync
-    entry names the `sims/sim_*` folders of main and of the other workspace,
-    compacted ones included, those only in main, only in the other and in
-    both, and every folder main holds or will hold that no record of the
-    merged manifest carries; `pyfs-matrix sync` prints the counts and the
-    folders without a record. Solution, release 0.32.0: the entry's `sims`
-    block (`main`, `other`, `only_main`, `only_other`, `both`,
-    `without_record`) in `pyflightstream.workspace.storage.sync_workspaces`;
-    a folder a `delete-sims` note names is accounted for by the note and
-    left out of `without_record`, and so is a simulation of the other
-    workspace that the sync's level does not bring. Trace:
+    *Origin: the 0.32.0 scope. Evidence:
     `tests/tier1_offline/test_p0320_sync_matrices.py`
     (`test_p0320_sync_all_folders_names_every_sim_folder_of_both_sides`,
     `test_p0320_sync_all_folders_counts_a_compacted_sim_and_the_cli_prints_them`,
     `test_p0320_sync_all_folders_without_record_names_only_what_main_will_hold`,
     `test_p0320_sync_all_folders_leaves_out_a_folder_a_delete_sims_note_names`).*
 
+    **Need.** A workspace holds simulation folders that no record names, most
+    copied by hand from a cluster, and `sync` said nothing about them: it
+    merged the records and brought files without naming which folders each side
+    holds and which no record carries.
+
+    **Requirement.** Every sync entry names the `sims/sim_*` folders of main
+    and of the other workspace, compacted ones included, those only in main,
+    only in the other and in both, and every folder main holds or will hold
+    that no record of the merged manifest carries; `pyfs-matrix sync` prints
+    the counts and the folders without a record.
+
+    **Solution (release 0.32.0).** The entry's `sims` block (`main`, `other`,
+    `only_main`, `only_other`, `both`, `without_record`) in
+    `pyflightstream.workspace.storage.sync_workspaces`; a folder a
+    `delete-sims` note names is accounted for by the note and left out of
+    `without_record`, and so is a simulation of the other workspace that the
+    sync's level does not bring.
+
 !!! requirement "FR-221 Sync rebuilds the records of folders without one only when asked <span class='srs-implemented'>implemented</span>"
 
-    *Need: the folders without a record stay invisible to `post` until a
-    record exists, and rebuilding them is not what every sync should do.
-    Requirement: `sync` never rebuilds a record by default; with `--restore`
-    (library: `restore=True`) an applying sync rebuilds the records of the
-    folders without one through `pyflightstream.run.records.rebuild`, after
-    it released the `runs.json` lease, and the preview names the folders
-    it would restore; a refused rebuild is written in the entry and the
-    files the sync copied stand; `--restore` with `--runs` naming another
-    manifest is refused, because the rebuild appends to `runs.json` only.
-    Solution, release 0.32.0: the entry's `restore` block (`asked`, `sims`,
-    `result` without the bulky records, `error`) and the storage record of
-    the call. Trace: `tests/tier1_offline/test_p0320_sync_matrices.py`
+    *Origin: the 0.32.0 scope. Evidence:
+    `tests/tier1_offline/test_p0320_sync_matrices.py`
     (`test_p0320_sync_restore_is_off_by_default`,
     `test_p0320_sync_restore_rebuilds_the_orphans_after_the_lease_is_released`,
     `test_p0320_sync_restore_reports_a_refused_rebuild_and_keeps_the_sync`,
     `test_p0320_sync_restore_with_another_manifest_is_refused`,
     `test_p0320_sync_the_cli_passes_restore_and_include_archives`).*
 
+    **Need.** The folders without a record stay invisible to `post` until a
+    record exists, and rebuilding them is not what every sync should do.
+
+    **Requirement.** `sync` never rebuilds a record by default; with
+    `--restore` (library: `restore=True`) an applying sync rebuilds the records
+    of the folders without one through `pyflightstream.run.records.rebuild`,
+    after it released the `runs.json` lease, and the preview names the folders
+    it would restore; a refused rebuild is written in the entry and the files
+    the sync copied stand; `--restore` with `--runs` naming another manifest is
+    refused, because the rebuild appends to `runs.json` only.
+
+    **Solution (release 0.32.0).** The entry's `restore` block (`asked`,
+    `sims`, `result` without the bulky records, `error`) and the storage record
+    of the call.
+
 !!! requirement "FR-222 A sync copy never leaves a partial file under the target's name <span class='srs-implemented'>implemented</span>"
 
-    *Need: a sync over a network share can be interrupted, and a copy
-    written in place left a truncated file where the whole one belonged,
-    or had already moved main's own copy to the archive. Requirement: every
-    file and matrix a sync brings is written to a temporary name in the
-    target's folder, checked against the source's digest, and only then
-    renamed over the target; an overwritten file stays in place, archived
-    by a copy, until its replacement is whole; an interruption removes the
-    temporary file and leaves the target as it was. Solution, release
-    0.32.0: `_atomic_copy` in `workspace/storage.py`, the temporary name
-    `.<name>.<pid>.pyfs-sync.tmp`, never brought by a later sync. Trace:
+    *Origin: the 0.32.0 scope. Evidence:
     `tests/tier1_offline/test_p0320_sync_matrices.py`
     (`test_p0320_sync_atomic_an_interrupted_copy_leaves_no_partial_target`,
     `test_p0320_sync_atomic_an_interrupted_overwrite_keeps_mains_copy_in_place`,
     `test_p0320_sync_atomic_a_finished_copy_leaves_no_temporary_file`,
     `test_p0320_sync_atomic_a_temporary_file_a_killed_sync_left_is_never_brought`).*
+
+    **Need.** A sync over a network share can be interrupted, and a copy
+    written in place left a truncated file where the whole one belonged, or had
+    already moved main's own copy to the archive.
+
+    **Requirement.** Every file and matrix a sync brings is written to a
+    temporary name in the target's folder, checked against the source's digest,
+    and only then renamed over the target; an overwritten file stays in place,
+    archived by a copy, until its replacement is whole; an interruption removes
+    the temporary file and leaves the target as it was.
+
+    **Solution (release 0.32.0).** `_atomic_copy` in `workspace/storage.py`,
+    the temporary name `.<name>.<pid>.pyfs-sync.tmp`, never brought by a later
+    sync.
 
 !!! requirement "FR-223 Sync skips archive folders unless asked, and says how much it skipped <span class='srs-implemented'>implemented</span>"
 
@@ -5025,19 +5073,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-224 inputs/matrices/ is a matrix home equal to the workspace root <span class='srs-implemented'>implemented</span>"
 
-    *Need: matrices are kept at the root or in `inputs/matrices/`, and a
-    command that looked in one home only missed the matrix, or read one
-    stem twice and refused every POL of it as stated by two matrices.
-    Requirement: the sync, the plan's POL census and the post find a matrix
-    in either home; one stem in both homes is read once when the two files
-    hold the same bytes, and refused, naming both paths, when they differ;
-    in the post the refusal is a warning naming both paths and the
-    products fall back to the run records, never blocking. Solution,
-    release 0.32.0: `pyflightstream.workspace.matrix_by_stem` and
-    `find_matrix`, read by `workspace/storage.py`, `workspace/matrix.py`
-    (the census), `post/superfile.matrix_rows` and the post stage's matrix
-    warning; a sync that replaces a matrix main keeps in both homes
-    replaces both. Trace: `tests/tier1_offline/test_p0320_sync_matrices.py`
+    *Origin: the 0.32.0 scope. Evidence:
+    `tests/tier1_offline/test_p0320_sync_matrices.py`
     (`test_p0320_matrices_home_one_stem_in_both_homes_is_read_once_or_refused`,
     `test_p0320_matrices_home_sync_reads_an_identical_pair_once_and_refuses_a_differing_one`,
     `test_p0320_matrices_home_sync_replaces_every_copy_main_keeps`,
@@ -5047,36 +5084,45 @@ Requirements written after the specification was last reconciled with the packag
     `test_p0320_matrices_home_the_post_finds_the_matrix_in_inputs_matrices`,
     `test_p0320_matrices_home_the_post_refuses_a_differing_pair_naming_both`).*
 
+    **Need.** Matrices are kept at the root or in `inputs/matrices/`, and a
+    command that looked in one home only missed the matrix, or read one stem
+    twice and refused every POL of it as stated by two matrices.
+
+    **Requirement.** The sync, the plan's POL census and the post find a matrix
+    in either home; one stem in both homes is read once when the two files hold
+    the same bytes, and refused, naming both paths, when they differ; in the
+    post the refusal is a warning naming both paths and the products fall back
+    to the run records, never blocking.
+
+    **Solution (release 0.32.0).** `pyflightstream.workspace.matrix_by_stem`
+    and `find_matrix`, read by `workspace/storage.py`, `workspace/matrix.py`
+    (the census), `post/superfile.matrix_rows` and the post stage's matrix
+    warning; a sync that replaces a matrix main keeps in both homes replaces
+    both.
+
 !!! requirement "FR-225 A sync holds the runs.json lease for the whole of its merge and copy <span class='srs-implemented'>implemented</span>"
 
-    *Need: a restore ran while a sync wrote into the same workspace, and
-    the sync held the `runs.json` lease around its merge only. Requirement:
-    an applying or previewing sync holds `runs.json.lock` from the merge of
-    the records to the end of the copy, the input links and the matrices,
-    so a restore, a run, a collect or a second sync refuses (or waits on
-    the lease) while it writes; a sync started while the lease is held is
-    refused naming it; a restore asked of the sync runs after the lease is
-    released. Solution, release 0.32.0: one `_manifest_lock` block in
-    `_sync_one`. Trace: `tests/tier1_offline/test_p0320_sync_matrices.py`
+    *Origin: the 0.32.0 scope. Evidence:
+    `tests/tier1_offline/test_p0320_sync_matrices.py`
     (`test_p0320_rst6_the_sync_holds_the_runs_lease_so_a_second_writer_is_refused`,
     `test_p0320_sync_restore_rebuilds_the_orphans_after_the_lease_is_released`).*
 
+    **Need.** A restore ran while a sync wrote into the same workspace, and the
+    sync held the `runs.json` lease around its merge only.
+
+    **Requirement.** An applying or previewing sync holds `runs.json.lock` from
+    the merge of the records to the end of the copy, the input links and the
+    matrices, so a restore, a run, a collect or a second sync refuses (or waits
+    on the lease) while it writes; a sync started while the lease is held is
+    refused naming it; a restore asked of the sync runs after the lease is
+    released.
+
+    **Solution (release 0.32.0).** One `_manifest_lock` block in `_sync_one`.
+
 !!! requirement "FR-226 sync, free-space and delete-sims read the manifest --runs names <span class='srs-implemented'>implemented</span>"
 
-    *Need: a rebuilt manifest beside `runs.json` must be usable by the
-    storage commands without replacing `runs.json`. Requirement: `sync`,
-    `free-space` and `delete-sims` take `--runs NAME` (library: `runs=`),
-    resolved by `pyflightstream.run.records.resolve_manifest`, and a name
-    that is not a JSON file directly in the root is refused before any
-    work. `sync` merges the other workspace's `runs.json` into the named
-    manifest of main and leaves main's `runs.json` untouched;
-    `delete-sims` reads the records from the named manifest and removes
-    them from it, archived first as `archive/<stem>-<stamp>.json`, and
-    refuses `--matrix-products regenerate` with it; `free-space` reads the
-    named manifest IN ADDITION to `runs.json`, so naming one never protects
-    fewer files. Solution, release 0.32.0: `runs=` on `sync_workspaces`,
-    `free_space` and `delete_sims`, and the command line passing the name
-    through. Trace: `tests/tier1_offline/test_p0320_sync_matrices.py`
+    *Origin: the 0.32.0 scope. Evidence:
+    `tests/tier1_offline/test_p0320_sync_matrices.py`
     (`test_p0320_runs_name_sync_merges_into_the_named_manifest_only`,
     `test_p0320_runs_name_a_bad_name_is_refused_before_any_work`,
     `test_p0320_runs_name_delete_sims_edits_the_named_manifest_only`,
@@ -5084,15 +5130,37 @@ Requirements written after the specification was last reconciled with the packag
     `test_p0320_runs_name_free_space_protects_what_the_named_manifest_names`,
     `test_p0320_runs_name_the_cli_passes_the_name_to_sync_and_storage`).*
 
+    **Need.** A rebuilt manifest beside `runs.json` must be usable by the
+    storage commands without replacing `runs.json`.
+
+    **Requirement.** `sync`, `free-space` and `delete-sims` take `--runs NAME`
+    (library: `runs=`), resolved by
+    `pyflightstream.run.records.resolve_manifest`, and a name that is not a
+    JSON file directly in the root is refused before any work. `sync` merges
+    the other workspace's `runs.json` into the named manifest of main and
+    leaves main's `runs.json` untouched; `delete-sims` reads the records from
+    the named manifest and removes them from it, archived first as
+    `archive/<stem>-<stamp>.json`, and refuses `--matrix-products regenerate`
+    with it; `free-space` reads the named manifest IN ADDITION to `runs.json`,
+    so naming one never protects fewer files.
+
+    **Solution (release 0.32.0).** `runs=` on `sync_workspaces`, `free_space`
+    and `delete_sims`, and the command line passing the name through.
+
 !!! requirement "FR-227 Sync reports its hash, merge and copy stages to the progress <span class='srs-implemented'>implemented</span>"
 
-    *Need: a long sync printed only its final summary. Requirement: the
-    sync reports three stages, `sync hash` (the files compared, with their
-    count), `sync merge` (the records) and `sync copy` (the files and bytes
-    copied), to the stage progress of the package. Solution, release
-    0.32.0: `pyflightstream._progress.stage_progress` called in `_sync_one`.
-    Trace: `tests/tier1_offline/test_p0320_sync_matrices.py`
+    *Origin: the 0.32.0 scope. Evidence:
+    `tests/tier1_offline/test_p0320_sync_matrices.py`
     (`test_p0320_sync_reports_its_three_stages_to_the_progress`).*
+
+    **Need.** A long sync printed only its final summary.
+
+    **Requirement.** The sync reports three stages, `sync hash` (the files
+    compared, with their count), `sync merge` (the records) and `sync copy`
+    (the files and bytes copied), to the stage progress of the package.
+
+    **Solution (release 0.32.0).** `pyflightstream._progress.stage_progress`
+    called in `_sync_one`.
 
 !!! requirement "FR-230 The post and the collect read the records of another manifest <span class='srs-implemented'>implemented</span>"
 
@@ -5358,7 +5426,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-250 A per-probe fluctuation report beside the time mean of per-step fields <span class='srs-implemented'>implemented</span>"
 
-    *Origin: her answer Q19 ("Média + medir flutuação"), GEO-066 2.5.
+    *Origin: the 0.32.0 scope, GEO-066 2.5 (Q19: the time mean and a measure
+    of the fluctuation).
     Evidence: `tests/tier1_offline/test_p0320_d_inflow_tools.py`
     (P0320-INFLOW-FLUCTUATION).*
 
@@ -5391,7 +5460,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-251 A product table is copied into the installed frame <span class='srs-implemented'>implemented</span>"
 
-    *Origin: her answer Q6a ("vamos ter os dois"), GEO-066 2.5. Evidence:
+    *Origin: the 0.32.0 scope, GEO-066 2.5 (Q6a: both frames kept). Evidence:
     `tests/tier1_offline/test_p0320_d_inflow_tools.py`
     (P0320-INSTALLED-FRAME).*
 
@@ -5448,8 +5517,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-253 The probes inside the body are filled from the ray outside it <span class='srs-implemented'>implemented</span>"
 
-    *Origin: her answer of 2026-09-30 ("fill-interior (Recommended)"), step 5
-    of the field chain 0.31.0 did not do. Evidence:
+    *Origin: the 0.32.0 scope (package D), step 5 of the field chain 0.31.0
+    did not do. Evidence:
     `tests/tier1_offline/test_p0320_d_inflow_tools.py`
     (P0320-FILL-INTERIOR).*
 
@@ -5842,7 +5911,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-280 A static rig row with MOTIONS is not refused for stating its speed twice <span class='srs-implemented'>implemented</span>"
 
-    *Origin: D-RIG, moved from 0.33 by the owner's "pode entrar" (GEO-066,
+    *Origin: D-RIG, moved from the 0.33.0 plan into 0.32.0 (GEO-066,
     package J). Evidence: `tests/tier1_offline/test_p0320_rigor.py`
     (`test_p0320_d_rig_a_static_rig_with_motions_is_not_refused_for_a_double_speed`).*
 
@@ -5925,8 +5994,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-285 A quasi-steady point's products state J <span class='srs-implemented'>implemented</span>"
 
-    *Origin: QS-J, the owner's post-release defect class "ADVANCE_RATIO not
-    NA", found by the X1 rehearsal: 17 rows of `_qs_avg.csv` and
+    *Origin: QS-J, the post-release defect class "ADVANCE_RATIO not NA",
+    found by the X1 rehearsal: 17 rows of `_qs_avg.csv` and
     `_qs_positions.csv` of the recorded wheel workspace read `NA` in `J` and
     `J_CLOCK`. Evidence: `test_p0320_qs_j_a_wheel_point_states_its_j_from_its_own_speed_and_diameter`,
     `test_p0320_qs_j_a_requested_j_is_kept_and_a_missing_free_stream_stays_na`.*
@@ -6115,8 +6184,8 @@ Requirements written after the specification was last reconciled with the packag
 !!! requirement "FR-118 Every product's condition carries the speed and the advance ratio the clock rotor ran at <span class='srs-implemented'>implemented</span>"
 
     *Origin: the polar measured in 0.25.0 whose `J` read `NA` in every row while
-    the record held the velocity and the speed. The requester's decision, in her
-    words: "0.25.1 com as colunas mesmo assim." Evidence:
+    the record held the velocity and the speed; the columns were released in
+    0.25.1. Evidence:
     `tests/tier1_offline/test_clock_rotor_columns.py` and
     `tests/tier1_offline/test_clock_columns_at_the_product.py`.*
 
@@ -6133,17 +6202,15 @@ Requirements written after the specification was last reconciled with the packag
       for nobody.
     - The rotor table keeps `J_<alias>` per rotor, unchanged.
 
-    Solution: 0.25.1, as columns in a patch release by her decision, although
-    semantic versioning would call them a minor change.
+    Solution: 0.25.1, as columns in a patch release, although semantic
+    versioning would call them a minor change.
 
 !!! requirement "FR-119 Nothing in the post refuses by default, and the freeze check is opt-in <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the owner decisions of 2026-09-22 for 0.25.1 and 0.26.0. First:
-    "esse guard lendo o log vira um opcional, nao quero ele ligado por default
-    ja na 0.25.1 e na 26 vamos rediscutir essa arquitetura, registra como
-    pendencia." Then: "sobre arquitetura do post, eu nao quero que nada barre
-    por default mas sempre seja escrito um log do proprio post com warnings se
-    aplicavel." Evidence:
+    *Origin: the decisions of 2026-09-22 for 0.25.1 and 0.26.0: the guard that
+    reads the native log becomes optional and off by default, and the post
+    blocks nothing by default while it always writes its own log with the
+    warnings that apply. Evidence:
     `tests/tier1_offline/test_frozen_check_is_opt_in.py` and
     `tests/tier1_offline/test_b01_frozen_solve.py`.*
 
@@ -6795,10 +6862,9 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-165 A quasi-steady rotor is a run type: a sector or a wheel <span class='srs-implemented'>implemented</span>"
 
-    *Origin: her decisions of 2026-09-29: "ai fica qsteady_rotor - se tiver
-    simetria periodica, fica o caso setor"; "sobre os modos quasi steady,
-    lembrando que eles podem ser chamados sem fsi. Eles se tornam workflows e
-    o fsi continua como variavel opcional a direita da matriz". Evidence:
+    *Origin: the 0.30.0 scope: a rotor with periodic symmetry is solved as a
+    sector, and the quasi-steady modes are workflows that run with or without
+    FSI, which stays an optional variable of the matrix. Evidence:
     `tests/tier1_offline/test_goal035_qsteady_rotor.py`,
     `test_goal035_qsteady_completion.py` and `test_goal035_l1_defects.py`
     under `tests/tier1_offline/`.*
@@ -6826,8 +6892,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-166 A wheel point states where its quasi-steady assumption holds <span class='srs-implemented'>implemented</span>"
 
-    *Origin: her decision of 2026-09-29: "concordo do plan avisar", the plan
-    warning when part of the span has k above 0.1. Evidence:
+    *Origin: the 0.30.0 scope: the plan warns when part of the span has k above
+    0.1. Evidence:
     `tests/tier1_offline/test_goal035_qsteady_completion.py` and
     `tests/tier1_offline/test_goal035_qsteady_rotor.py`.*
 
@@ -6866,10 +6932,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-168 FSI couples on a quasi-steady periodic sector and is refused on the wheel <span class='srs-implemented'>implemented</span>"
 
-    *Origin: her decisions of 2026-09-29: "esse do quasi steady quero que entre
-    na 30, e tanto o modo setor quanto o modo wheel" and, on the wheel with
-    FSI, "esse wheel quasi estatico parece nao fazer sentido com fsi, vamos
-    manter esse recusado por enquanto". Evidence:
+    *Origin: the 0.30.0 scope: both quasi-steady modes, the sector and the
+    wheel, enter 0.30.0, and the wheel with FSI stays refused. Evidence:
     `tests/tier1_offline/test_fsi1_workspace_pieces.py`.*
 
     FSI on a `qsteady_rotor` periodic sector is the steady coupled route of
@@ -6973,10 +7037,10 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-173 The workspace's disk is measured, freed and cleaned by named commands <span class='srs-implemented'>implemented</span>"
 
-    *Origin: her decision of 2026-09-28 on the modes of the recipe,
-    "compact_sims, delete_extensions, post_archives", and her request "quero
-    no plan um check de memoria disponivel e um aviso se as rodadas da matriz
-    vao caber ou nao, pra ver se ele recomenda um free-space". Evidence:
+    *Origin: the 0.30.0 scope: the recipe modes compact_sims,
+    delete_extensions and post_archives, and a plan check of the free space
+    that warns when the matrix may not fit and recommends a free-space.
+    Evidence:
     `tests/tier1_offline/test_goal035_storage.py`.*
 
     `pyfs-matrix space-in-use` reports the sizes on disk by top level folder,
@@ -7020,8 +7084,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-175 Sync brings runs, results and matrices from the other workspaces <span class='srs-implemented'>implemented</span>"
 
-    *Origin: her instruction of 2026-09-28, "foca no storage-management e
-    sync". Evidence: `tests/tier1_offline/test_goal035_storage.py` and
+    *Origin: the 0.30.0 scope, storage management and sync. Evidence: `tests/tier1_offline/test_goal035_storage.py` and
     `tests/tier1_offline/test_sync_plan_points_without_record.py`.*
 
     `pyfs-matrix sync` brings runs and results from the workspaces named in
@@ -7032,7 +7095,7 @@ Requirements written after the specification was last reconciled with the packag
 
     - A matrix is declared by the one workspace that owns it
       (`matrices = [...]`), every difference is reported as a merge conflict,
-      and the owner's copy wins.
+      and the owning workspace's copy wins.
     - A synced simulation's `inputs` is linked into the main workspace's own
       geometry library, never copied; `delete-sims` and `free-space` undo
       every link in a simulation folder before removing it, so the mesh it
@@ -7043,11 +7106,10 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-176 Tip and helical Mach numbers are stated for every rotor point <span class='srs-implemented'>implemented</span>"
 
-    *Origin: her instruction of 2026-09-28: "para todos unsteady rotor a
-    inclusao do calculo de mach tip (vindo da velocidade tangencial devido ao
-    rpm) e o mach helicoidal (composicao tangencial e freestream)" and "no
-    plan, eu quero que avise se tem pontos da polar que podem exceder mach
-    helicodal = 1". Evidence:
+    *Origin: the 0.30.0 scope: every unsteady rotor states its tip Mach number
+    (from the tangential speed of its RPM) and its helical Mach number (the
+    tangential speed composed with the free stream), and the plan warns of
+    polar points whose helical Mach number may exceed 1. Evidence:
     `tests/tier1_offline/test_goal035_rotor_mach.py`.*
 
     Every point of an `unsteady_rotor` row, of a `steady` row that states
@@ -7071,10 +7133,10 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-177 The user guides ship as numbered decks under guide/ <span class='srs-implemented'>implemented</span>"
 
-    *Origin: her instruction of 2026-09-28, "vamos enumerar os guias tambem,
-    fica na ordem: geral workspaces, gui to pyfs, references (novo, explicando
-    arquivo refs), setup, pproc, fsi, python enviroment installation for
-    offline machines". Evidence: `tests/tier1_offline/test_guide_decks.py`
+    *Origin: the 0.30.0 scope: the guides are numbered, in the order general
+    workspaces, GUI to pyfs, references (new, explaining the references
+    file), setup, pproc, FSI, and the Python environment installation for
+    offline machines. Evidence: `tests/tier1_offline/test_guide_decks.py`
     and `tests/tier1_offline/test_house_style.py`.*
 
     The guides are decks in `guide/` with their LaTeX sources
@@ -7117,10 +7179,9 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-179 The plan console is laid out in titled blocks <span class='srs-implemented'>implemented</span>"
 
-    *Origin: her words of 2026-09-29: "claude, ainda to achando o log dificil
-    de ler, talvez vale um espaco entre linhas" and "eu como usuaria nao sei o
-    que eu to olhando sabe? o que cada bloco diz, etc"; she placed it inside
-    0.31.0 (P13, "Dentro da 0.31.0"). Evidence:
+    *Origin: the 0.31.0 scope (P13): the plan console was hard to read, with
+    no space between its blocks and nothing saying what each block holds.
+    Evidence:
     `tests/tier1_offline/test_goal036_console_blocks.py` (P0310-CONSOLE-BLOCKS).*
 
     The console of `pyfs-matrix plan` is laid out in blocks, each with a title
@@ -7250,8 +7311,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-185 The wheel's correction machinery applies a fitted calibration beside the raw product <span class='srs-implemented'>implemented</span>"
 
-    *Origin: her answer P9 of 2026-09-29, "Tudo, inclusive R1 (Recomendado)",
-    which shipped routes 2 and 4 and only a diagnostic for route 1. Evidence:
+    *Origin: the 0.31.0 scope (P9), which shipped routes 2 and 4 and only a
+    diagnostic for route 1. Evidence:
     `tests/tier1_offline/test_goal036_qsteady_corrections.py`
     (P0310-CAL-SCHEMA, P0310-ROUTE2, P0310-ROUTE4, P0310-APPLY-*).*
 
@@ -7282,7 +7343,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-186 The Theodorsen and Sears diagnostic corrects nothing, and the other routes are refused <span class='srs-implemented'>implemented</span>"
 
-    *Origin: her answer P9 of 2026-09-29 (route 1 only as a diagnostic).
+    *Origin: the 0.31.0 scope (P9: route 1 only as a diagnostic).
     Evidence: `tests/tier1_offline/test_goal036_qsteady_corrections.py`
     (P0310-ROUTE1-DIAGNOSTIC, P0310-ROUTE3-REFUSED).*
 
@@ -7401,7 +7462,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-193 The repeated-POL census reads the matrices that sync reads <span class='srs-implemented'>implemented</span>"
 
-    *Origin: her answer P12 of 2026-09-29, "Entra na 0.31 (Recomendado)".
+    *Origin: the 0.31.0 scope (P12).
     Evidence: `tests/tier1_offline/test_goal036_pol_census.py`
     (P0310-POL-CENSUS).*
 
@@ -7417,7 +7478,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-194 The change log names the requirement of every capability it lists <span class='srs-implemented'>implemented</span>"
 
-    *Origin: her request of 2026-09-29: "eu tambem quero que todas essas novas necessidades atendidas pelo pyflightstream nos ultimos releases sejam refletidas no src. Eu trouxe aqui as necessidade, debatemos requisito e solucao, mas nem tudo foi parar na documentacao do src". Evidence: `tests/tier1_offline/test_srs_changelog.py` (P0320-SRS-CHANGELOG).*
+    *Origin: the 0.32.0 preparation, because not every need the recent releases met had reached the specification. Evidence: `tests/tier1_offline/test_srs_changelog.py` (P0320-SRS-CHANGELOG).*
 
     Every top-level bullet of the Added and Changed sections of every release
     from 0.25.0 on, and of every `changelog.d` fragment, cites a requirement
@@ -7457,51 +7518,62 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-296 The refusal of the REAL form names RPT-097 and the PARAMETRIC form to use <span class='srs-implemented'>implemented</span>"
 
-    *Origin: CCS-2 of the 0.32.0 scope. Need: a refusal the user can act on.
-    Solution, release 0.32.0: the message names the report that holds the
-    evidence (RPT-097), the control surface's name, and the alternative that
-    round 2 confirmed, the PARAMETRIC form with the spanwise limits as
-    fractions of the span between 0 and 1. Trace:
+    *Origin: CCS-2 of the 0.32.0 scope. Evidence:
     `tests/tier1_offline/test_p0320_ccs.py`, the test
     `test_p0320_ccs2_the_real_form_is_refused_at_plan_naming_rpt_097`
     (P0320-CCS2-CONTROL-SURFACE).*
 
+    **Need.** A refusal the user can act on.
+
+    **Solution (release 0.32.0).** The message names the report that holds the
+    evidence (RPT-097), the control surface's name, and the alternative that
+    round 2 confirmed, the PARAMETRIC form with the spanwise limits as
+    fractions of the span between 0 and 1.
+
 !!! requirement "FR-297 The REAL form is refused on every build, because none measured it working <span class='srs-implemented'>implemented</span>"
 
-    *Origin: CCS-2 of the 0.32.0 scope. Need: a form not measured is not
-    planned as if it were. The only measurement of the REAL form is the failure
-    on 26.124. Solution, release 0.32.0: the refusal does not depend on the
-    build; on 26.100 and 26.101, whose grammar has eight arguments, the emitter
-    already refuses the line (FR-243). Trace:
+    *Origin: CCS-2 of the 0.32.0 scope. Evidence:
     `tests/tier1_offline/test_p0320_ccs.py`, the test
     `test_p0320_ccs2_the_real_form_is_refused_on_every_build_that_has_it`
     (P0320-CCS2-CONTROL-SURFACE).*
 
+    **Need.** A form not measured is not planned as if it were. The only
+    measurement of the REAL form is the failure on 26.124.
+
+    **Solution (release 0.32.0).** The refusal does not depend on the build; on
+    26.100 and 26.101, whose grammar has eight arguments, the emitter already
+    refuses the line (FR-243).
+
 !!! requirement "FR-298 The PARAMETRIC control surface keeps planning as it did <span class='srs-implemented'>implemented</span>"
 
-    *Origin: CCS-2 of the 0.32.0 scope. Need: the refusal removes the failing
-    form and nothing else. Solution, release 0.32.0: the ten-argument
-    PARAMETRIC line is written where it was, between the subdivisions and the
-    loft, and the emitter still writes a REAL line when it is called directly.
-    Trace: `tests/tier1_offline/test_p0320_ccs.py`, the tests
+    *Origin: CCS-2 of the 0.32.0 scope. Evidence:
+    `tests/tier1_offline/test_p0320_ccs.py`, the tests
     `test_p0320_ccs2_the_parametric_form_is_still_planned` and
     `test_p0320_ccs2_control_surface_in_real_space_names_its_axis`
     (P0320-CCS2-CONTROL-SURFACE).*
 
+    **Need.** The refusal removes the failing form and nothing else.
+
+    **Solution (release 0.32.0).** The ten-argument PARAMETRIC line is written
+    where it was, between the subdivisions and the loft, and the emitter still
+    writes a REAL line when it is called directly.
+
 !!! requirement "FR-299 The command database records the round without promoting the command <span class='srs-implemented'>implemented</span>"
 
     *Origin: CCS-2 of the 0.32.0 scope, the add-command rule that a status is
-    promoted only by a dated run report through the promotion tool. Solution,
-    release 0.32.0: the 26.124 entry of `NEW_CCS_WING_CONTROL_SURFACE` stays
-    `documented` and its note states what round 2 measured (PARAMETRIC ran,
-    REAL failed, RPT-097). Promotion to `verified` for the PARAMETRIC form
-    needs a `pyfs-qa probe` run with a catalog entry, which round 2 was not.
-    Trace: the entry in `src/pyflightstream/commands/ccs_wing_mesh.yaml` and
-    the command database tests.*
+    promoted only by a dated run report through the promotion tool. Evidence:
+    the entry in `src/pyflightstream/commands/ccs_wing_mesh.yaml` and the
+    command database tests.*
+
+    **Solution (release 0.32.0).** The 26.124 entry of
+    `NEW_CCS_WING_CONTROL_SURFACE` stays `documented` and its note states what
+    round 2 measured (PARAMETRIC ran, REAL failed, RPT-097). Promotion to
+    `verified` for the PARAMETRIC form needs a `pyfs-qa probe` run with a
+    catalog entry, which round 2 was not.
 
 !!! requirement "FR-300 A rotor's loading noise from its blade loads, by a compact source model <span class='srs-implemented'>implemented</span>"
 
-    *Origin: P0320-QS-NOISE, section 2.6 part 5 of the 0.32.0 scope, EXPLORATORY by the owner's decision of 2026-09-29 (no threshold, no gate). Evidence: `tests/tier1_offline/test_p0320_f_qsteady_noise.py::test_a_point_force_at_rest_gives_the_exact_dipole_field_fr_300`, `::test_a_steady_force_in_uniform_motion_gives_the_convected_dipole_fr_300`, `::test_an_unloaded_moving_blade_is_silent_the_model_has_no_thickness_term_fr_300`.*
+    *Origin: P0320-QS-NOISE, section 2.6 part 5 of the 0.32.0 scope, EXPLORATORY (no threshold, no gate). Evidence: `tests/tier1_offline/test_p0320_f_qsteady_noise.py::test_a_point_force_at_rest_gives_the_exact_dipole_field_fr_300`, `::test_a_steady_force_in_uniform_motion_gives_the_convected_dipole_fr_300`, `::test_an_unloaded_moving_blade_is_silent_the_model_has_no_thickness_term_fr_300`.*
 
     Need: A quasi-steady rotor solve records no acoustic sources, so a user who wants its tonal noise needs it estimated from the loads the solve does give.
 
