@@ -2397,8 +2397,11 @@ the file and is read as metres.
 
 The products of `pyfs-matrix post` are rebuilt from `runs.json` by default.
 Two options post other records, and their products stand apart from the
-default ones so the two can be compared; the file names and the columns inside
-are the default post's.
+default ones so the two can be compared; the columns inside are the default
+post's. The file names of `--runs NAME` are the default post's too; those of
+`--from-sims` carry the point names and the sweep token the records were
+assembled with (below), since the naming a run outside the package used is
+not recorded anywhere to be repeated.
 
 | command | the records | the products folder |
 |---|---|---|
@@ -2426,8 +2429,11 @@ begins with the stem is another point's. The record takes:
 - the averaging window: the row's `LAST_REVS_AVG` or `LAST_ITERS_AVG`, cut over
   the steps of the point's plots export, with `--steps-per-revolution N` for a
   window in revolutions;
-- the status: the collect's assessment of the exports, so a point with no log
-  export reads `FAILED_INCOMPLETE_OUTPUT` and is posted with a warning.
+- the point's name: its `DP-<name>` folder's, else the export's stem; the
+  sweep token in the file names is `<code>+sweep`, for example
+  `P6001-AL+sweep_g02.csv`;
+- the status: the collect's assessment of the exports, so a steady point with
+  no log export reads `FAILED_INCOMPLETE_OUTPUT` and is posted with a warning.
 
 What cannot be recovered is refused by name and that point or row is left out,
 printed and written into `post.log`: a reference that does not resolve, a

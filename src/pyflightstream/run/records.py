@@ -2257,7 +2257,7 @@ def manifest_workspace(root: str | Path, runs: str | None = None) -> CampaignWor
     -------
     CampaignWorkspace
         The plain workspace for runs.json; otherwise a
-        :class:`ManifestWorkspace` labelled with the manifest's stem, whose
+        :class:`ManifestWorkspace` labeled with the manifest's stem, whose
         products land in ``post/<matrix>@<stem>/``.
 
     Raises
