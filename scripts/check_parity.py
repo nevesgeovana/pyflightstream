@@ -83,7 +83,7 @@ _STAMP = r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:[+-]\d\d:\d\d|Z)"
 POST_NORMALIZE: list[tuple[str, str, str, str]] = [
     (
         "*/post.log",
-        rf"(?m)^time={_STAMP}$",
+        rf"(?m)^time={_STAMP}(?=\r?$)",
         "time=<TIME>",
         "the wall-clock stamp of each log record; measured 2026-09-30 as the only difference",
     ),
