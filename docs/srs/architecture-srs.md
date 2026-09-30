@@ -204,9 +204,11 @@ one of them keeps.
       nothing. From 1000 to 2000 its module docstring carries a line
       beginning `Size exemption:` that states, on that line, why (a
       catalog of items of one shape, or one deep abstraction); mixed
-      logic has no exemption. Above 2000 a module is refused unless it is
-      in the baseline table of today's counts, whose entries may only be
-      lowered and are deleted when the module falls under the ceiling.
+      logic has no exemption. Above 2000 a module is refused. Every
+      module above 1000 code lines at the freeze is in the baseline table
+      of today's counts, whatever its docstring says; an entry may not
+      grow, is lowered when its module shrinks, and is deleted when the
+      module falls to 1000 or under.
       The 1000 and 2000 are conventions (pylint's default applied to code
       lines, and twice it), not a law. Non-vacuity: the walk reads at
       least the module count of the G7 record and the code lines it
@@ -216,9 +218,11 @@ one of them keeps.
     - Deep modules. A module created in 0.33.0 hides substantial
       function behind a narrow interface: about 150 code lines or more,
       never a one-function file, never siblings that all import one
-      another. This is a review check of each package, and the G7 record
-      lists every module created since v0.32.0 under 150 code lines so
-      the reviewer reads the list rather than finds it.
+      another. A new module that is not a package root is refused below
+      two top-level definitions or 60 code lines (the hard floor); between
+      60 and 150 code lines it is a review check, and the G7 record lists
+      every module created since v0.32.0 under 150 code lines so the
+      reviewer reads the list rather than finds it.
     - G2 Function limits. A new or changed function stays within the
       defaults of ruff and pylint (complexity 10, branches 12, statements
       50, positional arguments 5); every function over them today is in
