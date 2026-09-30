@@ -11,6 +11,7 @@ import pytest
 
 from pyflightstream.workspace import RunRecord
 from pyflightstream.workspace.inputs import PprocArtifact
+from tests.tier1_offline._workflow_docs import workflow_docs_text
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -86,7 +87,7 @@ def test_empty_group_migration_checks_alias_collision():
 
 
 def test_current_group_examples_and_docstring_use_one_alias():
-    text = (ROOT / "docs/workspace-and-workflows.md").read_text(encoding="utf-8")
+    text = workflow_docs_text()
     for block in re.findall(r"```toml\n(.*?)```", text, re.S):
         if "[groups]" in block:
             groups = tomllib.loads(block)["groups"]

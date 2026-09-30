@@ -43,9 +43,11 @@ import markdown
 import pytest
 import yaml
 
+from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
+
 REPO = Path(__file__).resolve().parents[2]
 DOCS = REPO / "docs"
-WORKFLOWS = DOCS / "workspace-and-workflows.md"
+WORKFLOWS = WORKFLOW_DOCS
 DEFINITIONS = DOCS / "post-processing-definitions.md"
 FLIGHT = DOCS / "flight-conditions.md"
 PAGES = (WORKFLOWS, DEFINITIONS, FLIGHT)

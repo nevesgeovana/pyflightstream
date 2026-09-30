@@ -74,6 +74,7 @@ from pyflightstream.workspace.inputs import (
 )
 from pyflightstream.workspace.matrix import resolve_matrix
 from pyflightstream.workspace.wake_edges import read_trailing_edge_points
+from tests.tier1_offline._workflow_docs import workflow_docs_text
 from tests.tier1_offline.test_goal031_g08_input_glossary import expected_tables
 
 REPO = Path(__file__).resolve().parents[2]
@@ -759,7 +760,7 @@ def test_g47_without_the_metadata_a_page_is_named_by_its_file(monkeypatch):
 
 def test_g47_the_docs_and_the_changelog_name_the_page():
     """Where INPUTS.md is documented, the template is named beside it."""
-    workflows = (REPO / "docs" / "workspace-and-workflows.md").read_text(encoding="utf-8")
+    workflows = workflow_docs_text()
     migrating = (REPO / "docs" / "migrating-to-0.28.0.md").read_text(encoding="utf-8")
     changelog = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
     # The section that describes 0.28.0: [Unreleased] until the release commit

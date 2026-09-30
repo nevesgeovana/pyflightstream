@@ -118,10 +118,11 @@ from pyflightstream.script import (
 )
 from pyflightstream.versions import known_versions
 from pyflightstream.workspace import WorkspaceError
+from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 
 REPO = Path(__file__).resolve().parents[2]
 FIXTURE = Path(__file__).parent / "fixtures" / "workflow_rotor_matrix.fs"
-PAGE = REPO / "docs" / "workspace-and-workflows.md"
+PAGE = WORKFLOW_DOCS
 SRC = REPO / "src" / "pyflightstream"
 
 #: The FS_SCRIPT code to workflow NAME mapping the fixture expects. No

@@ -210,7 +210,7 @@ reference_m_s=...)`). See [field operations](field-operations.md).
   `plan`'s stdout for a line should look again: the lines are indented under
   their title, `guide written: <path>` reads `guide: <path>`, and the rotor
   Mach numbers are one table row per rotor per point. See
-  [what plan prints](workspace-and-workflows.md#what-plan-prints).
+  [what plan prints](workflow-plan-and-cost.md#what-plan-prints).
 
 ## The guides and the site
 

@@ -143,7 +143,7 @@ run against the one geometry you believe carries everything.
 
 One refusal below no longer stands: since 0.23.0 a `[groups]` table keyed by a
 word is accepted, and the product file carries the word. See
-[what the post-processing artifact holds](workspace-and-workflows.md#what-the-post-processing-artifact-holds).
+[what the post-processing artifact holds](pproc-artifact.md#what-the-post-processing-artifact-holds).
 
 **What changes for you, and what you must do.** v0.13.0 changes no
 column of the run-matrix file. Two inputs that used to plan are refused at

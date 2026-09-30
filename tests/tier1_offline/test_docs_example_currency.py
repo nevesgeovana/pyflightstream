@@ -30,9 +30,10 @@ import re
 from pathlib import Path
 
 from pyflightstream.cases.workflows import GEOMETRY_VARIABLE
+from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 
 REPO = Path(__file__).resolve().parents[2]
-PAGE = REPO / "docs" / "workspace-and-workflows.md"
+PAGE = WORKFLOW_DOCS
 FIXTURE = REPO / "tests" / "tier1_offline" / "fixtures" / "matrix_registry.fs"
 LIFTED_FROM = "test_run_matrix_executes_and_records_every_point"
 SOURCE_TEST = REPO / "tests" / "tier1_offline" / "test_matrix_run.py"

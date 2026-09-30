@@ -163,7 +163,7 @@ putting it in would have renamed every run that has one, which is the same
 cost running the other way. Since 0.21.0 the NAME of a point carries every
 variable the cell declares, held or swept, which is a different question
 from what the point MAPPING carries; see
-[How a point is named](workspace-and-workflows.md#how-a-point-is-named).
+[How a point is named](workflow-run-matrix.md#how-a-point-is-named).
 
 ## The rotor speed, the advance ratio and the velocity
 

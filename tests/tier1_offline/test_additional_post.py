@@ -73,6 +73,7 @@ from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
+from tests.tier1_offline._workflow_docs import workflow_docs_text
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
     REGISTRY_FIXTURE,
@@ -1483,9 +1484,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 def test_g12_the_pages_state_the_additional_post_and_cite_tests_on_disk():
     """The workflows page and the definition of record say it; every test cited is here."""
-    workflows_page = " ".join(
-        (REPO / "docs" / "workspace-and-workflows.md").read_text(encoding="utf-8").split()
-    )
+    workflows_page = " ".join(workflow_docs_text().split())
     for phrase in (
         "datapoints/DP-<point>/additional/<pid>/",
         f"`{KEY}`",

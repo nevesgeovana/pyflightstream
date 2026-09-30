@@ -1416,7 +1416,7 @@ not use those sections as its addressing basis. The direct native/custom API
 still does not discover their indices. Its caller must establish the actual
 native section inventory, as explained in [sampled fields](sampled-fields.md).
 A new grid or a missing history cannot be reconstructed merely by posting old
-results. See [the workspace example](workspace-and-workflows.md#a-volume-section)
+results. See [the workspace example](pproc-artifact.md#a-volume-section)
 for input syntax and the measured-domain restrictions.
 
 ### Historical native volume exports, 0.27.x and 0.28.x
@@ -1432,7 +1432,7 @@ files above, and the package writes no product from it:
 | field | definition |
 |---|---|
 | file | `{name}_vsec.vtk` (`format = "vtk"`, `EXPORT_VOLUME_SECTION_VTK`) or `{name}_vsec.dat` (`format = "tecplot"`, `EXPORT_VOLUME_SECTION_TECPLOT`), in the point's `datapoints/DP-<point>/`, hashed in its record |
-| plane | a rectangle between two diagonal corners (`corners_m`), or an annulus between two radii (`radii_m`), in the `plane` of the named `frame`, `offset_m` along its normal; every length in metres, written in the simulation's length unit, and a saved simulation whose unit the package cannot read is refused at plan ([the workflows page](workspace-and-workflows.md#one-row-one-actuator-disc)) |
+| plane | a rectangle between two diagonal corners (`corners_m`), or an annulus between two radii (`radii_m`), in the `plane` of the named `frame`, `offset_m` along its normal; every length in metres, written in the simulation's length unit, and a saved simulation whose unit the package cannot read is refused at plan ([the workflows page](workflow-row-flow-inputs.md#one-row-one-actuator-disc)) |
 | instant | the converged state of THAT point: the section is created after the point's `START_SOLVER`, its flow computed by `UPDATE_ALL_VOLUME_SECTIONS` before the export, and a later point of a sweep deletes the previous section before creating its own, so each file is its own point's plane; a section exported with no update held every cell at 0.0 in the licensed run of 2026-09-24 (RPT-070), and with the update the rerun's 96 cell values of each point are all non-zero and differ between its two points (RPT-070) |
 | which section | the pproc's own: the export and the delete cite the index the pproc's section takes in the solver's list, counting every section the script cuts, a raw line's included, so a section a raw line cut before it never fills the pproc's file; a raw line deleting the pproc's section leaves the file nothing to export, and the row is refused when its script is built |
 

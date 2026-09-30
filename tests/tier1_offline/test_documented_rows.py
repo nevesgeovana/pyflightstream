@@ -29,9 +29,10 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.cases.matrix import read_matrix
+from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 
 REPO = Path(__file__).resolve().parents[2]
-GUIDE = REPO / "docs" / "workspace-and-workflows.md"
+GUIDE = WORKFLOW_DOCS
 STARTED = REPO / "docs" / "getting-started.md"
 VOCAB = REPO / "tests" / "tier3_licensed" / "matriz_vocab.fs"
 GOLDENS = REPO / "tests" / "tier3_licensed" / "goldens" / "matriz_vocab"

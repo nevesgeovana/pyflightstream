@@ -33,6 +33,7 @@ from pyflightstream.post.products import (
     write_sections_table,
 )
 from pyflightstream.results import parse_loads
+from tests.tier1_offline._workflow_docs import workflow_docs_text
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -726,9 +727,7 @@ def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path
     assert _skipped_besides_the_axes(manifest) == {}
 
     # The docs name the files a user meets beside the plots table.
-    page = (Path(__file__).parents[2] / "docs" / "workspace-and-workflows.md").read_text(
-        encoding="utf-8"
-    )
+    page = workflow_docs_text()
     for name in ("<point>_time_average.csv", "<point>_phase_locked.csv", "<point>_per_blade.csv"):
         assert name in page, f"docs/workspace-and-workflows.md does not name {name}"
 
@@ -1179,9 +1178,7 @@ def test_pyfs_matrix_post_writes_a_prov_json_document_per_recorded_run(tmp_path)
     assert len(failed["used"]) == 3
 
     # The docs name the folder and the format.
-    page = (Path(__file__).parents[2] / "docs" / "workspace-and-workflows.md").read_text(
-        encoding="utf-8"
-    )
+    page = workflow_docs_text()
     assert "PROV-JSON" in page and ".prov.json" in page
 
 
@@ -1362,9 +1359,7 @@ def test_pyfs_matrix_post_writes_her_format_beside_the_polar_tables_when_asked(t
     ], "without the key the custom format is not written"
 
     # The docs name the key and what the format is for.
-    page = (Path(__file__).parents[2] / "docs" / "workspace-and-workflows.md").read_text(
-        encoding="utf-8"
-    )
+    page = workflow_docs_text()
     assert "custom_polar_format" in page and "existing tooling" in page
 
 

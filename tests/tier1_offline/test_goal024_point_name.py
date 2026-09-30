@@ -40,6 +40,7 @@ from pyflightstream.workspace.naming import (
     datapoint_dir_name,
     point_file_stem,
 )
+from tests.tier1_offline._workflow_docs import workflow_docs_text
 from tests.tier1_offline.test_matrix_run import (
     RECIPES,
     WRITES_EVERY_EXPORT,
@@ -364,10 +365,8 @@ def test_goal024_point_name_the_code_table_reads_the_same_in_all_three_homes():
     """
     import re
 
-    docs = (Path(__file__).resolve().parents[2] / "docs" / "workspace-and-workflows.md").read_text(
-        encoding="utf-8"
-    )
-    table = docs.split("### How a point is named", 1)[1].split("###", 1)[0]
+    docs = workflow_docs_text()
+    table = docs.split("## How a point is named", 1)[1].split(chr(10) + "## ", 1)[0]
     documented = {}
     for line in table.splitlines():
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]

@@ -37,7 +37,7 @@ The superfile is the same name with `SUPER-` and the swept field written
 `<code>+sweep`: `SUPER-3207-M144RE438AL+000BE+000J+sweep_g01.csv`.
 
 The code and the digits of each variable are in
-[How a point is named](workspace-and-workflows.md#how-a-point-is-named).
+[How a point is named](workflow-run-matrix.md#how-a-point-is-named).
 Read that table before you rename, because the names it gives are the ones
 your folders will carry.
 
