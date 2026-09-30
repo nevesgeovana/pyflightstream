@@ -274,11 +274,25 @@ def _replace_bytes(target: Path, payload: bytes) -> None:
     temporary.replace(target)
 
 
-def _lease(base: Path, target: Path) -> contextlib.AbstractContextManager[None]:
-    """Return the workspace's lease on ``target`` for the two leased manifests, else none."""
-    if target.name not in (DEFAULT_MANIFEST, _ROOT_KINDS["additional"]) or target.parent != base:
-        return contextlib.nullcontext()
-    return manifest_lock(base, target)
+def _leases(base: Path, target: Path) -> contextlib.ExitStack:
+    """Hold the leases a restore of ``target`` writes under, and return them.
+
+    Always the lease on ``runs.json``: the run, the collect and the sync hold
+    it while they write in the workspace, the sync for the whole of its copy,
+    so a restore neither interleaves with a sync nor starts while one writes
+    (RST-6). For a root record with a lease of its own (the storage record,
+    the additional-post record) that lease too, the one its writer holds.
+    """
+    stack = contextlib.ExitStack()
+    try:
+        stack.enter_context(manifest_lock(base))
+        if target.parent == base and target.name in _ROOT_KINDS.values():
+            if target.name != DEFAULT_MANIFEST:
+                stack.enter_context(manifest_lock(base, target))
+    except BaseException:
+        stack.close()
+        raise
+    return stack
 
 
 def manifest_lock(root: str | Path, manifest: str | Path | None = None) -> Any:
@@ -367,8 +381,11 @@ def restore(
         An unknown kind; no archived copy (naming where it was looked for); a
         stamp no copy carries (naming the stamps that exist); archives for
         several matrices and none named; an archived copy that is not
-        readable JSON, or a manifest copy that is not a list of records; a
-        manifest whose lease is held by a run (``runs.json.lock``).
+        readable JSON, or a manifest copy that is not a list of records; an
+        applying restore of any kind while ``runs.json.lock`` is held (a run,
+        a collect or a sync writing in the workspace), or while the restored
+        file's own lease is held (``storage_management.json.lock``,
+        ``additional.json.lock``). The write itself holds those leases (RST-6).
     """
     base = Path(root)
     if kind not in RESTORE_KINDS:
@@ -450,13 +467,15 @@ def restore(
         entry["records"] = len(document)
     if not apply or same:
         return entry
-    lock = target.with_name(target.name + ".lock")
-    if lock.exists():
-        raise RecordsError(
-            f"restore {kind}: {lock.name} is present, so a run is writing {target.name}; "
-            "try again when it ends. Nothing was changed."
-        )
-    with _lease(base, target):
+    for lock in dict.fromkeys(
+        (base / f"{DEFAULT_MANIFEST}.lock", target.with_name(target.name + ".lock"))
+    ):
+        if lock.exists():
+            raise RecordsError(
+                f"restore {kind}: {lock.name} is present, so a run, a collect or a sync is "
+                "writing in the workspace; try again when it ends. Nothing was changed."
+            )
+    with _leases(base, target):
         if target.is_file():
             if stem is None:
                 kept = _free_root_archive(base, name, _now_stamp())

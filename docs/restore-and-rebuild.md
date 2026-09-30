@@ -45,8 +45,11 @@ several matrices have archives.
 With `--apply` the current file, when there is one, is first archived in the
 same form, so a restore can itself be undone by restoring that copy. A copy
 that is not readable JSON, or a manifest copy that is not a list of records,
-is refused, and so is a restore of `runs.json` while a run holds
-`runs.json.lock`.
+is refused. A restore writes holding the lease on `runs.json` that a run, a
+collect and a sync hold while they write, and for the storage and
+additional-post records their own lease too; while one of those leases is held
+(`runs.json.lock` is there, for example during a sync), the restore is refused
+and nothing changes.
 
 The writers of the storage record, the products record, the plan receipt and
 the additional-post record do not archive their file before rewriting it, so

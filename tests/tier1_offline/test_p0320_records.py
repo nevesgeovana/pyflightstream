@@ -675,3 +675,39 @@ def test_rebuild_out_holds_the_rebuilt_record_of_a_named_recorded_sim(tmp_path, 
         "the file --out names holds the original record, not the rebuilt one"
     )
     assert _sha(workspace.manifest_path) == sha
+
+
+@pytest.mark.parametrize(("kind", "live", "archived"), KINDS)
+def test_rst6_every_restore_refuses_while_a_sync_holds_the_runs_lease(
+    tmp_path, kind, live, archived
+):
+    """P0320-RST-6: a sync copies under runs.json.lock; a restore of any kind refuses meanwhile."""
+    _write(tmp_path / live, "[]\n")
+    _write(tmp_path / archived, '[{"run_id": "then"}]\n')
+    _write(tmp_path / "runs.json.lock", "held by a sync")
+    with pytest.raises(records.RecordsError, match=r"runs\.json\.lock"):
+        records.restore(tmp_path, kind, apply=True, matrix="matrix-lnx")
+    assert (tmp_path / live).read_text(encoding="utf-8") == "[]\n"
+
+
+@pytest.mark.parametrize(("kind", "live", "archived"), KINDS)
+def test_rst6_restore_writes_holding_the_runs_lease_and_the_records_own(
+    tmp_path, monkeypatch, kind, live, archived
+):
+    """P0320-RST-6: the write happens under runs.json.lock, and under the file's own lease."""
+    _write(tmp_path / live, "[]\n")
+    _write(tmp_path / archived, '[{"run_id": "then"}]\n')
+    held: dict[str, bool] = {}
+    real = records._replace_bytes
+
+    def spy(target: Path, payload: bytes) -> None:
+        held["runs"] = (tmp_path / "runs.json.lock").exists()
+        held["own"] = target.with_name(target.name + ".lock").exists()
+        real(target, payload)
+
+    monkeypatch.setattr(records, "_replace_bytes", spy)
+    records.restore(tmp_path, kind, apply=True, matrix="matrix-lnx")
+    assert held["runs"], "the restore wrote without the runs.json lease a sync holds"
+    if kind in ("storage", "additional"):
+        assert held["own"], f"the restore wrote {live} without the lease its writer holds"
+    assert not (tmp_path / "runs.json.lock").exists(), "the lease was not released"
