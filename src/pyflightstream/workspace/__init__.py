@@ -175,6 +175,7 @@ from pyflightstream.workspace.naming import (
     NamingTemplate,
     NamingTemplateError,
     PointName,
+    archive_previous,
     datapoint_dir_name,
     datapoint_name_of,
 )
@@ -3805,6 +3806,7 @@ class CampaignWorkspace:
                 else []
             )
             raw.append(record.model_dump(mode="json"))
+            archive_previous(self.root, self.additional_path)
             temporary = self.additional_path.with_suffix(f".json.{os.getpid()}.tmp")
             temporary.write_text(json.dumps(raw, indent=2) + "\n", encoding="utf-8")
             temporary.replace(self.additional_path)

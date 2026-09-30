@@ -236,7 +236,13 @@ from pyflightstream.workspace import (
     post_stages,
 )
 from pyflightstream.workspace.inputs import HPC_BUILD_ALIAS, HpcProfile
-from pyflightstream.workspace.naming import ARCHIVE_STAMP, PointName, submitted_by, sweep_file_stem
+from pyflightstream.workspace.naming import (
+    ARCHIVE_STAMP,
+    PointName,
+    archive_previous,
+    submitted_by,
+    sweep_file_stem,
+)
 from pyflightstream.workspace.storage import ensure_sim_expanded
 
 
@@ -5531,6 +5537,9 @@ def plan_campaign(
             "accept_unregistered_build": accept_unregistered_build,
         }
         plan_file.parent.mkdir(parents=True, exist_ok=True)
+        if campaign.matrix_stem:
+            # 0.32.0 (P0320-RESTORE-ARCHIVE): the plan this one replaces, for `restore plan`.
+            archive_previous(workspace.root, plan_file, matrix=campaign.matrix_stem)
         plan_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return CampaignPlan(
         campaign=campaign.name,

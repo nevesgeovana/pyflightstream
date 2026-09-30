@@ -72,7 +72,7 @@ from pyflightstream.workspace._links import (
     _make_dir_link,
     _remove_link,
 )
-from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP
+from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP, archive_previous
 
 __all__ = [
     "COMPACTED_SUFFIX",
@@ -288,6 +288,7 @@ def record_storage_call(root: str | Path, entry: dict[str, Any]) -> int:
     with workspace._manifest_lock(path):
         calls = read_storage_calls(workspace.root)
         calls.append(full)
+        archive_previous(workspace.root, path)
         temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
         temporary.write_text(
             json.dumps({"schema": STORAGE_SCHEMA, "calls": calls}, indent=1, ensure_ascii=False)

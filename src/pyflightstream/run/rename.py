@@ -75,6 +75,7 @@ from pyflightstream.workspace.naming import (
     ARCHIVE_STAMP,
     DATAPOINT_PREFIX,
     PointName,
+    archive_previous,
     datapoint_dir_name,
     point_file_stem,
     sweep_file_stem,
@@ -867,6 +868,7 @@ def _plan_changes(
         after = json.dumps(payload, indent=2) + "\n"
         if after != before:
             if applied:
+                archive_previous(workspace.root, plan_file, matrix=stem)
                 plan_file.write_text(after, encoding="utf-8")
             changes.append(
                 RenameChange(

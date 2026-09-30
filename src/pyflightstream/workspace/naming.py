@@ -34,14 +34,16 @@ before 0.21.0 carries the old names and is renamed by
 
 from __future__ import annotations
 
+import datetime as _dt
 import getpass
 import re
-from pathlib import PurePosixPath, PureWindowsPath
+import shutil
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from string import Formatter
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from pyflightstream._errors import ProductError, PyflightstreamError
+from pyflightstream._errors import ProductError, PyflightstreamError, PyflightstreamWarning, warn
 
 _POINT_PLACEHOLDERS = (
     "campaign",
@@ -129,6 +131,66 @@ ARCHIVE_DIR = "archive"
 #: module's subject, so the constant moved down rather than being copied
 #: into a second home that would drift from the first.
 ARCHIVE_STAMP = "%Y%m%d-%H%M%S"
+
+
+def free_root_archive(base: Path, name: str, stamp: str) -> Path:
+    """Return the free archive path of a root file: ``archive/<stem>-<stamp>.json`` (0.32.0).
+
+    A second copy within one stamp is numbered ``.2``, ``.3``. This is the ONE
+    home of the spelling: ``run.records.restore`` reads what it names and every
+    writer of a restorable file archives through it.
+    """
+    stem = Path(name).stem
+    folder = base / ARCHIVE_DIR
+    target = folder / f"{stem}-{stamp}.json"
+    index = 2
+    while target.exists():
+        target = folder / f"{stem}-{stamp}.{index}.json"
+        index += 1
+    return target
+
+
+def free_matrix_archive(base: Path, stem: str, name: str, stamp: str) -> Path:
+    """Return the free archive path of a matrix file: ``post/<stem>/archive/<stamp>/<name>``."""
+    folder = base / "post" / stem / ARCHIVE_DIR
+    target = folder / stamp / name
+    index = 2
+    while target.exists():
+        target = folder / f"{stamp}.{index}" / name
+        index += 1
+    return target
+
+
+def archive_previous(base: Path, path: Path, *, matrix: str | None = None) -> Path | None:
+    """Copy the file a writer is about to rewrite into the archive ``restore`` reads (0.32.0).
+
+    ``matrix`` names the folder under ``post/`` for the kinds kept per matrix
+    (``products.json``, ``plan.json``); a root kind (``storage_management.json``,
+    ``additional.json``) leaves it ``None``. Nothing is done when there is no
+    previous file. A copy that fails is warned and never raised: the writer goes
+    on, and the archive is a courtesy the write does not depend on. Returns the
+    copy, or ``None``.
+    """
+    try:
+        if not path.is_file():
+            return None
+        stamp = _dt.datetime.now().strftime(ARCHIVE_STAMP)
+        kept = (
+            free_root_archive(base, path.name, stamp)
+            if matrix is None
+            else free_matrix_archive(base, matrix, path.name, stamp)
+        )
+        kept.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, kept)
+        return kept
+    except OSError as error:
+        warn(
+            f"the previous {path.name} could not be archived ({error}); it is rewritten "
+            "anyway and pyfs-matrix restore will have nothing to bring back for it",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+        return None
 
 
 def datapoint_dir_name(name: PointName) -> str:

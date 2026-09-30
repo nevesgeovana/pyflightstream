@@ -227,7 +227,9 @@ def test_p0320_noise_post_na_and_notes_when_the_record_lacks_blades_fr_263(tmp_p
 
 
 def _record(listed):
-    return SimpleNamespace(run_id="run-1", acoustic_signals=listed)
+    """A record the way E2 makes it: the export is one of its outputs, named by the suffix."""
+    outputs = ["P1.txt", "P1.vtk"] + ([listed] if listed else [])
+    return SimpleNamespace(run_id="run-1", outputs=outputs)
 
 
 def _rotor():
@@ -280,7 +282,7 @@ def test_p0320_noise_post_the_hook_asks_nothing_of_a_plain_record_and_never_bloc
     assert quiet == ([], {}) and skipped == {}
     with pytest.warns(Warning, match="acoustics"):
         files, names = _products._acoustic_products(
-            _record("gone.txt"),
+            _record("gone_acoustic_signals.txt"),
             sim_dir=tmp_path,
             stem="P1",
             out=tmp_path,
@@ -340,13 +342,15 @@ def test_p0320_noise_post_an_unwritable_product_never_blocks_the_post_fr_264(tmp
     """P0320-NOISE-POST: a write that fails is skipped with a warning, not raised."""
     sim = tmp_path / "sim"
     sim.mkdir()
-    (sim / "e.txt").write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+    (sim / "e_acoustic_signals.txt").write_text(
+        FIXTURE.read_text(encoding="utf-8"), encoding="utf-8"
+    )
     blocker = tmp_path / "post"
     blocker.write_text("a file where the products folder should be", encoding="utf-8")
     skipped: dict[str, str] = {}
     with pytest.warns(Warning, match="acoustics"):
         files, names = _products._acoustic_products(
-            _record("e.txt"),
+            _record("e_acoustic_signals.txt"),
             sim_dir=sim,
             stem="P1",
             out=blocker,
@@ -356,3 +360,52 @@ def test_p0320_noise_post_an_unwritable_product_never_blocks_the_post_fr_264(tmp
             skipped=skipped,
         )
     assert (files, names) == ([], {}) and "acoustics" in skipped
+
+
+def _unsteady_rotor_workspace(tmp_path, *, listed: bool):
+    """A workspace with one unsteady_rotor point whose record lists (or not) the E2 export."""
+    from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
+
+    workspace = CampaignWorkspace.init(tmp_path / "camp")
+    outputs = ["p.txt", "p.vtk"] + (["p_acoustic_signals.txt"] if listed else [])
+    record = RunRecord(
+        run_id="camp/sim_7010/AL+000",
+        sim_id="7010",
+        point_name="AL+000",
+        fs_version_requested="26.124",
+        status=RunStatus.CONVERGED,
+        recipe="unsteady_rotor",
+        outputs=outputs,
+        package_version="0.32.0",
+        script_sha256="",
+        raw_flag=False,
+    )
+    sim = workspace.sim_dir(record.sim_id)
+    sim.mkdir(parents=True, exist_ok=True)
+    (sim / "p.txt").write_text("native export", encoding="utf-8")
+    (sim / "p_acoustic_signals.txt").write_text(FIXTURE.read_text(encoding="utf-8"), "utf-8")
+    workspace.append_record(record)
+    return workspace
+
+
+def test_p0320_noise_post_the_record_lists_the_export_as_an_output_fr_290(tmp_path):
+    """P0320-NOISE-POST, P0320-NOISE-COLLECT: end to end, the export E2 records among the
+    outputs of an unsteady_rotor point reaches write_campaign_products, and the noise
+    product files and their manifest entries appear; a record that does not list it
+    asks for no acoustics. Reverting the reader to a field RunRecord lacks fails this."""
+    import json
+
+    from pyflightstream.post.products import write_campaign_products
+
+    workspace = _unsteady_rotor_workspace(tmp_path, listed=True)
+    write_campaign_products(workspace, overwrite=True)
+    out = workspace.products_dir(None)
+    manifest = json.loads((out / "products.json").read_text(encoding="utf-8"))
+    noise = {k: v for k, v in manifest["products"].items() if v.get("kind") == "acoustics"}
+    assert "acoustics/p_acoustics_summary.csv" in noise, sorted(manifest["products"])
+    assert (out / "acoustics" / "p_acoustics_summary.csv").is_file()
+    assert all((out / name).is_file() for name in noise)
+
+    quiet = _unsteady_rotor_workspace(tmp_path / "q", listed=False)
+    write_campaign_products(quiet, overwrite=True)
+    assert not (quiet.products_dir(None) / "acoustics").exists()
