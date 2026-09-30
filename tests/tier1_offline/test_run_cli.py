@@ -643,6 +643,8 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
     # `upgrade`, `post`, `inventory`, `collect` and `rename`, they take no
     # recipe, no version and no executable, because they manage a
     # workspace's files rather than running the solver.
+    # `restore` and `rebuild` joined at 0.32.0 as the records commands
+    # (`pyflightstream.run.records`), for the same reason.
     assert set(choices) == {
         "collect",
         "convert",
@@ -652,7 +654,9 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
         "inventory",
         "plan",
         "post",
+        "rebuild",
         "rename",
+        "restore",
         "run",
         "space-in-use",
         "sync",

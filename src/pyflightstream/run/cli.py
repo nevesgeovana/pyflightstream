@@ -59,7 +59,11 @@ from typing import Any, NoReturn
 
 from pyflightstream._cli import cli_entrypoint, note_post_ran, post_warning_policy
 from pyflightstream._console import blocks, held_warnings, release_warnings, table, wrap
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import (
+    ContractNotImplementedError,
+    PyflightstreamError,
+    PyflightstreamWarning,
+)
 from pyflightstream._progress import terse_terminal
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.matrix import MatrixError, convert_matrix, upgrade_matrix
@@ -82,6 +86,7 @@ from pyflightstream.run import (
     plan_receipt_error,
     qsteady_validity_line,
 )
+from pyflightstream.run import records as run_records
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -350,6 +355,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     _add_storage_parsers(subparsers)
+    _add_records_parsers(subparsers)
 
     convert = subparsers.add_parser(
         "convert",
@@ -768,6 +774,13 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="print recorded post diagnostics as Markdown without changing products",
     )
+    for name in _RUNS_COMMANDS:  # 0.32.0 hook: the manifest a command reads (B1, B3)
+        subparsers.choices[name].add_argument(
+            "--runs",
+            metavar="NAME",
+            default=None,
+            help="the manifest file to read, directly in the workspace root (default: runs.json)",
+        )
     return parser
 
 
@@ -797,6 +810,10 @@ def _confirmed_destruction(yes: bool) -> bool:
 def main(argv: list[str] | None = None) -> int:
     """Run ``pyfs-matrix``; returns the process exit code."""
     args = _build_parser().parse_args(_storage_flag_form(argv))
+    if (refused := _refuse_runs_manifest(args)) is not None:
+        return refused
+    if args.subcommand in _RECORDS_COMMANDS:
+        return _cmd_records(args)
     if args.subcommand in _STORAGE_COMMANDS:
         return _cmd_storage(args)
     # Before the recipe parsing below, deliberately: upgrading a file
@@ -1199,6 +1216,111 @@ def _print_sync(entry: dict[str, Any]) -> None:
             print(f"    {run_id}")
     if entry["applied"]:
         print(f"  applied: {human_bytes(entry['bytes_copied'])} copied")
+
+
+#: The records commands of 0.32.0 (:mod:`pyflightstream.run.records`, package B1).
+_RECORDS_COMMANDS = ("restore", "rebuild")
+
+#: The commands that take ``--runs NAME``, the manifest they read (0.32.0).
+_RUNS_COMMANDS = ("post", "collect", "free-space", "delete-sims", "sync")
+
+
+def _add_records_parsers(subparsers: Any) -> None:
+    """Register ``restore`` and ``rebuild``, the 0.32.0 records commands."""
+    workspace_help = "the workspace root carrying runs.json (default: the current directory)"
+    apply_help = "change files; without it the command previews and changes nothing"
+    restore = subparsers.add_parser(
+        "restore",
+        help="restore runs.json or another records file from archive/ (preview unless --apply)",
+    )
+    restore.add_argument("kind", choices=run_records.RESTORE_KINDS, help="the file to restore")
+    restore.add_argument("--workspace", default=".", help=workspace_help)
+    restore.add_argument("--stamp", default=None, help="the archive stamp to restore from")
+    restore.add_argument("--apply", action="store_true", help=apply_help)
+    rebuild = subparsers.add_parser(
+        "rebuild",
+        help="rebuild run records from the folders under sims/ (preview unless --apply)",
+    )
+    rebuild.add_argument("--workspace", default=".", help=workspace_help)
+    rebuild.add_argument(
+        "--out",
+        metavar="NAME",
+        default=None,
+        help="the manifest file the rebuilt records go to, directly in the workspace root",
+    )
+    rebuild.add_argument(
+        "--all-sims",
+        dest="all_sims",
+        action="store_true",
+        help="rebuild every simulation folder on disk, recorded or not",
+    )
+    rebuild.add_argument("--sims", default=None, help="simulation ids, comma separated: 4001,2009")
+    rebuild.add_argument(
+        "--build-alias",
+        dest="build_alias",
+        action="append",
+        default=[],
+        metavar="BUILD=ALIAS",
+        help="the scheduler name of a solver build (repeatable)",
+    )
+    rebuild.add_argument("--matrix", default=None, help="the matrix the simulations ran from")
+    rebuild.add_argument("--apply", action="store_true", help=apply_help)
+
+
+def _cmd_records(args: argparse.Namespace) -> int:
+    """Run ``restore`` or ``rebuild`` through :mod:`pyflightstream.run.records`."""
+    try:
+        if args.subcommand == "restore":
+            entry = run_records.restore(
+                args.workspace, args.kind, stamp=args.stamp, apply=args.apply
+            )
+        else:
+            aliases: dict[str, str] = {}
+            for item in args.build_alias:
+                build, separator, alias = item.partition("=")
+                if not separator or not build.strip() or not alias.strip():
+                    _refuse(f"--build-alias expects BUILD=ALIAS, got {item!r}")
+                aliases[build.strip()] = alias.strip()
+            listed = None if args.sims is None else args.sims.replace(" ", "").strip("[]")
+            entry = run_records.rebuild(
+                args.workspace,
+                out=args.out,
+                all_sims=args.all_sims,
+                sims=None if listed is None else [item for item in listed.split(",") if item],
+                build_alias=aliases or None,
+                matrix=args.matrix,
+                apply=args.apply,
+            )
+    except (PyflightstreamError, OSError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    for key, value in entry.items():
+        print(f"{key}: {value}")
+    return 0
+
+
+def _refuse_runs_manifest(args: argparse.Namespace) -> int | None:
+    """Resolve ``--runs NAME`` into ``args.runs_manifest``; an exit code when refused.
+
+    The 0.32.0 hook: the name is resolved by
+    :func:`pyflightstream.run.records.resolve_manifest`. Reading a manifest
+    other than runs.json is the work of the packages that fill it, so until
+    then such a name is refused rather than read as runs.json in silence.
+    """
+    name = getattr(args, "runs", None)
+    if name is None:
+        return None
+    try:
+        args.runs_manifest = run_records.resolve_manifest(args.workspace, name)
+        if args.runs_manifest != run_records.resolve_manifest(args.workspace):
+            raise ContractNotImplementedError(
+                f"--runs {name}: reading a manifest other than runs.json is "
+                "not implemented yet (0.32.0 contract)"
+            )
+    except PyflightstreamError as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    return None
 
 
 def _naming(args: argparse.Namespace) -> NamingTemplate:

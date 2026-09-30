@@ -248,6 +248,18 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # invocation's own choice, forced explicit by the function when a shared
     # product exists; never a default a registry could hold.
     ("pyfs-matrix", "matrix_products"): SWITCH,
+    # 0.32.0 preparation, the records commands and the manifest a command
+    # reads (pyflightstream.run.records). `--runs NAME` and `restore`'s
+    # positional kind and `--stamp` name WHICH file this call works on, a
+    # SUBJECT; `rebuild --out` is where this call writes; `--all-sims` is a
+    # mode of this call; `--build-alias` states the scheduler name a build
+    # ran under, a fact of the recorded run the rebuilt record carries.
+    ("pyfs-matrix", "runs"): SUBJECT,
+    ("pyfs-matrix", "kind"): SUBJECT,
+    ("pyfs-matrix", "stamp"): SUBJECT,
+    ("pyfs-matrix", "out"): OUTPUT,
+    ("pyfs-matrix", "all_sims"): SWITCH,
+    ("pyfs-matrix", "build_alias"): CASE,
 }
 
 #: (console script, subcommand, destination) -> the registry key its
@@ -349,7 +361,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "in_place"): frozenset({"upgrade"}),
     ("pyfs-matrix", "inputs"): frozenset({"upgrade"}),
     ("pyfs-matrix", "matrix"): frozenset(
-        {"convert", "inspect-setups", "plan", "post", "run", "upgrade"}
+        {"convert", "inspect-setups", "plan", "post", "rebuild", "run", "upgrade"}
     ),
     ("pyfs-matrix", "name"): frozenset({"convert", "inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "output"): frozenset({"convert"}),
@@ -372,7 +384,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "resume"): frozenset({"run"}),
     ("pyfs-matrix", "force_rerun"): frozenset({"run"}),
     ("pyfs-matrix", "force_rerun_all"): frozenset({"run"}),
-    ("pyfs-matrix", "sims"): frozenset({"delete-sims", "run"}),
+    ("pyfs-matrix", "sims"): frozenset({"delete-sims", "rebuild", "run"}),
     ("pyfs-matrix", "progress_every"): frozenset({"run"}),
     ("pyfs-matrix", "cost"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "inflow_fft"): frozenset({"inspect-setups", "plan"}),
@@ -389,18 +401,28 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "inspect-setups",
             "plan",
             "post",
+            "rebuild",
             "rename",
+            "restore",
             "run",
             "space-in-use",
             "sync",
         }
     ),
-    ("pyfs-matrix", "apply"): frozenset({"delete-sims", "free-space", "sync"}),
+    ("pyfs-matrix", "apply"): frozenset(
+        {"delete-sims", "free-space", "rebuild", "restore", "sync"}
+    ),
     ("pyfs-matrix", "top"): frozenset({"space-in-use"}),
     ("pyfs-matrix", "level"): frozenset({"sync"}),
     ("pyfs-matrix", "source"): frozenset({"sync"}),
     ("pyfs-matrix", "prefer_other"): frozenset({"sync"}),
     ("pyfs-matrix", "matrix_products"): frozenset({"delete-sims"}),
+    ("pyfs-matrix", "runs"): frozenset({"collect", "delete-sims", "free-space", "post", "sync"}),
+    ("pyfs-matrix", "kind"): frozenset({"restore"}),
+    ("pyfs-matrix", "stamp"): frozenset({"restore"}),
+    ("pyfs-matrix", "out"): frozenset({"rebuild"}),
+    ("pyfs-matrix", "all_sims"): frozenset({"rebuild"}),
+    ("pyfs-matrix", "build_alias"): frozenset({"rebuild"}),
     ("pyfs-qa", "campaign"): frozenset({"cost"}),
     ("pyfs-qa", "case"): frozenset({"update-reference"}),
     ("pyfs-qa", "commands"): frozenset({"probe"}),
