@@ -3,7 +3,7 @@
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
   "cited_by_a_test": 255,
-  "total": 314,
+  "total": 321,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -2233,10 +2233,10 @@
   },
   {
    "id": "FR-306",
-   "text": "Need: A simulation whose run failed can stay SUBMITTED in runs.json, and delete-sims refuses it; the person wants to delete it anyway, bypassing any status.",
+   "text": "Need: A simulation whose run failed can stay SUBMITTED in runs.json, and delete-sims refuses it; the person wants to delete it anyway.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the 0.33.0 development cycle, pyfs-matrix delete-sims (item DELETE-SIMS-FORCE of the 0.33.0 scope). Evidence: tests/tier1_offline/test_delete_sims_force.py::test_refused_without_force_with_the_same_text, ::test_force_preview_names_the_submitted_sim_and_changes_nothing, ::test_force_apply_deletes_folder_products_records_and_records_the_call, ::test_cli_force_flag_reaches_the_library, ::test_mutant_ignoring_force_turns_the_check_red.*",
+   "evidence": "*Origin: the 0.33.0 development cycle, pyfs-matrix delete-sims (item DELETE-SIMS-FORCE of the 0.33.0 scope, which asked for a flag bypassing any status). Evidence: tests/tier1_offline/test_delete_sims_force.py::test_refused_without_force_with_the_same_text, ::test_force_preview_names_the_submitted_sim_and_changes_nothing, ::test_force_apply_deletes_folder_products_records_and_records_the_call, ::test_without_force_the_call_records_force_false, ::test_cli_force_flag_reaches_the_library, ::test_mutant_ignoring_force_turns_the_check_red.*",
    "verification": "test"
   },
   {
@@ -2244,7 +2244,7 @@
    "text": "Need: After a few simulations of a matrix are run again or collected, the person wants to rebuild and collect those simulations alone, without rewriting the products of every other simulation of the matrix.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the 0.33.0 development cycle, the post and collect stages of pyfs-matrix. Evidence: tests/tier1_offline/test_sims_selection.py::test_post_sims_rewrites_only_the_named_simulation_fr_307, ::test_post_sims_replaces_only_the_named_entries_and_skips_fr_307, ::test_post_sims_leaves_the_super_files_and_says_so_fr_307, ::test_post_without_sims_is_the_whole_post_fr_307, ::test_post_sims_refuses_an_unknown_simulation_before_any_work_fr_307, ::test_collect_sims_collects_only_the_named_simulation_fr_307, ::test_collect_sims_limits_its_post_to_the_same_simulations_fr_307, ::test_mutant_ignoring_post_sims_turns_the_check_red_fr_307, ::test_mutant_ignoring_collect_sims_turns_the_check_red_fr_307.*",
+   "evidence": "*Origin: the 0.33.0 development cycle, the post and collect stages of pyfs-matrix. Evidence: tests/tier1_offline/test_sims_selection.py::test_post_sims_rewrites_only_the_named_simulation_fr_307, ::test_post_sims_replaces_only_the_named_entries_and_skips_fr_307, ::test_post_sims_leaves_the_super_files_and_says_so_fr_307, ::test_post_without_sims_is_the_whole_post_fr_307, ::test_post_sims_refuses_an_unknown_simulation_before_any_work_fr_307, ::test_post_sims_refuses_a_simulation_of_another_matrix_fr_307, ::test_cli_post_sims_reaches_the_stage_in_both_forms_fr_307, ::test_the_sims_parser_has_one_home_fr_307, ::test_collect_sims_collects_only_the_named_simulation_fr_307, ::test_collect_sims_limits_its_post_to_the_same_simulations_fr_307, ::test_collect_sims_refuses_an_unknown_simulation_fr_307, ::test_cli_collect_sims_reaches_the_sweep_and_the_post_fr_307, ::test_mutant_ignoring_post_sims_turns_the_check_red_fr_307, ::test_mutant_ignoring_collect_sims_turns_the_check_red_fr_307.*",
    "verification": "test"
   },
   {
@@ -2262,6 +2262,46 @@
    "status": "implemented",
    "evidence": "*Origin: the 0.33.0 development cycle, the run records of pyfs-matrix. Evidence: tests/tier1_offline/test_mark_failed.py::test_preview_names_each_record_and_writes_nothing_fr_309, ::test_apply_marks_keeps_the_history_and_archives_fr_309, ::test_an_unknown_simulation_is_refused_before_any_write_fr_309, ::test_a_record_already_marked_is_left_as_it_is_fr_309, ::test_a_marked_record_is_a_failure_to_every_reader_fr_309, ::test_cli_marks_through_the_library_fr_309, ::test_mutant_leaving_the_status_turns_the_check_red_fr_309; tests/tier1_offline/test_workspace.py::test_the_terminal_status_set_is_exactly_the_nine_it_declares.*",
    "verification": "test"
+  },
+  {
+   "id": "FR-310",
+   "text": "Need: A run matrix may sit in the workspace root or in inputs/matrices/. Since 0.32.0 the restore, the post (--from-sims and collect --post included), the plan's census and the sync find it in both homes, while the other commands read the path as given or read the root alone, so a matrix one command accepts is one another command cannot find.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: item MATRIX-HOMES-ALL of the 0.33.0 scope (scope record GEO-071, section 2.1). Pending: no code yet. Evidence owed: a tier-1 test parametrized over every console subcommand whose parser takes a run matrix, read from the parsers themselves so that a command added later without joining R1 fails, each case with a matrix in the root only, in inputs/matrices/ only, in both with equal bytes and in both with different bytes.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-311",
+   "text": "Need: collect waits for the solver log the HPC profile names (native_log). A job that died before writing that log stays SUBMITTED indefinitely, and a person cannot tell it from a job still running.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: item COLLECT-JOB-ENDED of the 0.33.0 scope (GEO-071, section 2.2). Pending: no code yet, and the scheduler's file names are not confirmed. Evidence owed, in two tiers: tier-1 tests on recorded folders (every listed file present and no log, recorded FAILED_EXECUTION with the tail in the record; only some of the files present, still SUBMITTED; the files of another profile's patterns present, still SUBMITTED; the log present, collected as before), asserting the status and the recorded text rather than an exception type; and a dated receipt of a real cluster folder, naming the scheduler and the date, that shows the files the patterns name.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-312",
+   "text": "Need: A saved simulation carries the state of the run that saved it, and that state takes precedence over what the script sets (the saved actions of FR-308 are one case of it). A geometry meant as an input should hold only the meshes and the boundary conditions already set (the base, the trailing edges and the others), so that everything else comes from the script.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3), the part of the clean beyond the saved actions of FR-308. Pending: the block-by-block measurement it rests on has not been made. Evidence owed: the dated report of that measurement (a simulation carrying every block against the same mesh freshly imported with the same boundary conditions, the builds compared named); tier-1 tests on recorded fixtures, each with a control; and the licensed confirmation, on 26.124, that the solver opens and runs a cleaned file (licensed round L1 of the 0.33.0 release), without which the claim of R1 is unverified.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-313",
+   "text": "Need: A saved action takes precedence over the script's action of the same name (FR-308), so an unsteady row can run a command the person never wrote; the plan is the last step before a run is spent.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: the plan check of item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3; PLAN-FSM-WARN in the release's map of scope items), which asks that every unsteady row of the plan check its geometry and only warn. Pending: no code yet. Evidence owed: a tier-1 test parametrized over the unsteady run types and over a clean, a dirty and an unreadable geometry, asserting in every case that the plan is written and its exit status is 0, and the warning text in the dirty and unreadable cases and its absence in the clean one.*",
+   "verification": "none"
+  },
+  {
+   "id": "FR-314",
+   "text": "Need: The progress bar of a local run (FR-129) is read from the step counter, which only rows asking for a per-step export register, so a long unsteady run without export shows no progress.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: item PROGRESS-ALL-UNSTEADY of the 0.33.0 scope (GEO-071, section 2.3). Pending: no code yet. Evidence owed: a tier-1 test that every unsteady run type is covered by a golden and that the diff of each regenerated golden against the golden of v0.32.0 is confined to the counter lines; the parity receipt of the release listing each changed golden against this requirement; and the licensed run of an unsteady row without per-step export on 26.124 (licensed round L1), which is the only evidence that the solver accepts the counter on such a row. A golden regenerated in the same commit as the code verifies the emitter and nothing about the solver.*",
+   "verification": "none"
   },
   {
    "id": "NFR-01",
@@ -2475,9 +2515,9 @@
    "id": "NFR-23",
    "text": "Read with PFS-2054, PFS-2054.06, PFS-2054.07 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the ITACA mirror review (item M2), accepted 2026-07-27 as a new requirement rather than a mirror.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the ITACA mirror review (item M2), accepted 2026-07-27 as a new requirement rather than a mirror. Evidence: tests/tier1_offline/test_goal028_module_level_layering.py::test_no_module_level_import_reaches_a_higher_layer, tests/tier1_offline/test_conventions.py::test_no_function_body_import_reaches_a_higher_layer, ::test_the_matrix_reader_imports_nothing_above_the_cases_layer and ::test_the_results_tables_module_imports_the_workspace_layer_nowhere_at_runtime, each marked with this requirement.*",
+   "verification": "test"
   },
   {
    "id": "NFR-24",
@@ -2517,6 +2557,22 @@
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: feedback item #0 of 2026-09-02, \"tratar como um teste simples sem comentarios de historico\". Carried by PFS-2029.13. Evidence owed: the checker that node names.*",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-29",
+   "text": "The documentation site is organized by kind of page and its reference is generated from the code, so that every public name and every command-line option is documented where a reader looks for it.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: item DOC-A of the 0.33.0 scope (GEO-071, section 3.3, and its decisions 10, 11, 13 and 14), from the documentation audit of v0.32.0, which found no Python API reference, 427 of 577 exported names on no page and 30 of 112 command-line options on no page. Pending: nothing of it is built. It reverses the position of v0.3.0, when mkdocstrings was evaluated and declined and the site was to gain no Python API reference; NFR-19 is reworded to match. Evidence owed: the tier-1 tests of R2, R3 and R5, the docs build in strict mode, and the licence card of R7.*",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-30",
+   "text": "The docstring of every exported function says what it takes, what it returns and how it fails, in the numpydoc form, and its examples run.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: item DOC-B of the 0.33.0 scope (GEO-071, section 3.3), from the same audit, which found 64 percent of docstrings describing their parameters and result and 15 percent also carrying Raises and Examples, and the unsteady reductions explained on three pages that contradict one another. Pending: nothing of it is built. Evidence owed: the ruff configuration and its clean run, a tier-1 test over the exported functions for R2, and the documentation tests for R3.*",
    "verification": "none"
   }
  ]

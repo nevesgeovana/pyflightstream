@@ -204,12 +204,16 @@ build (FR-02c).
 Every campaign writes `runs.json`, append-only with atomic writes and
 duplicate-id rejection. Per run it records: run id, case point,
 requested and reported FlightStream version and build, package
-version, script and input hashes, the raw-emission flag, status
-(CONVERGED, COMPLETED_MAX_ITER, FAILED_EXECUTION, FAILED_SCRIPT,
-FAILED_INCOMPLETE_OUTPUT, FAILED_DIVERGED, and, since 0.33.0,
+version, script and input hashes, the raw-emission flag, status (one
+of the nine values of `pyflightstream.workspace.RunStatus`: CONVERGED,
+COMPLETED_MAX_ITER, FAILED_EXECUTION, FAILED_SCRIPT,
+FAILED_INCOMPLETE_OUTPUT, FAILED_DIVERGED, WALLTIME_REACHED, the run
+stopped by its wall clock with its outputs written, SUBMITTED, the run
+handed to a scheduler and not yet collected, and, since 0.33.0,
 FAILED_MARKED, a run the person marked failed with `pyfs-matrix
 mark-failed`, whose record keeps under `marked` the status it had, when
-and why), iterations, residual,
+and why; a release before 0.33.0 has no FAILED_MARKED in its set, so a
+`runs.json` holding one is written for 0.33.0 and later), iterations, residual,
 wall time, output paths, error text, and (since the v0.3 line) the
 solver-setup provenance snapshot.
 

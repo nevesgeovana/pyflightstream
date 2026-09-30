@@ -58,7 +58,7 @@ private session records carry the day-to-day detail.
 
 ## The 0.32.0 release and the 0.33.0 plan
 
-**0.32.0 (in preparation, GOAL-037).** A console with progress and titled
+**0.32.0 (released on 2026-09-30, GOAL-037).** A console with progress and titled
 blocks, restore and rebuild of a workspace, `post` and `collect` on a named
 run set, sync of every simulation folder, the inflow tools of the quasi-steady
 wheel, the CCS commands, the acoustics toolbox, the disc maps and the blade chord
@@ -67,15 +67,26 @@ documentation site by task, and this SRS brought up to what 0.25.0 to 0.31.0
 already did. Its packages and their requirement numbers are in the scope
 record GEO-066.
 
-**0.33.0 (planned; everything the 0.32.0 scope left out by the owner's rule,
-"O resto fica para 33").** The plan, from the scope record GEO-066 section 3:
+**0.33.0 (planned, GOAL-038): the house organized, and everything 0.32.0
+does still done.** The scope record is GEO-071 (sections 2 and 3, in their
+core cut); the lines that the 0.33.0 plan of GEO-066 held (FSI, the rigor
+probes, the Excel adjustments) move to 0.34.0, and what was planned for
+0.34.0 moves to 0.35.0 (GEO-071 section 5).
 
-| Line | Content | Depends on |
+| Line | Content | Requirements |
 |---|---|---|
-| Quasi-steady rotor | The 1P reduced frequency against the top diameter is already delivered (0.31.0); nothing further is planned here | Nothing |
-| FSI | The `CDo` reading zero in coupled exports (a short measuring probe first); the signed tip flap column and the sign of the XZ moment (an offline column, then a licensed cambered-section run); the modal (direct morphing) backend with its truncation test; and the location of the evidence the PHASE3 citations rest on | A licensed run, the vendor's answer on the file format, and the owner's decision on where the evidence lives |
-| Rigor | The probe specifications of the four commands that have none, so tier 2 measures them again | One native round |
-| Other people | Fine Excel adjustments deferred from 0.29.0, and the quasi-steady rotor installed on a body (a request to the vendor, not package code) | The owner's list, and a conversation with the vendor |
+| Records and storage | `free-space --list`, `delete-sims --force`, `post` and `collect` limited to named simulations, the inventory's warning and clean of the saved solver actions, `mark-failed` (built on the development branch); every command that takes a matrix finds it in either home | FR-305 to FR-310 |
+| Collect | A job that ended without its solver log is recorded failed, the end-of-job files read from the HPC profile | FR-311 |
+| Geometry and execution | A geometry reduced to its meshes and applied boundary conditions; the plan warns, never refuses, on the saved actions of every unsteady row; every unsteady row registers the step counter | FR-312 to FR-314 |
+| Architecture | The guards first, then the row order, one home per constant, the cheap extractions, the workflows package, the post families and the run facade, under one evolution policy and one integration recount | AD-08 to AD-15 |
+| Documentation | Navigation by quadrant with a generated Python API and command-line reference; numpydoc docstrings with running examples | NFR-29, NFR-30 |
+
+**0.34.0 (planned).** The rest of the structural work (the `workspace`
+manifest and layout, the `cases` models, `cases.matrix`, `workspace.matrix`,
+`script.helpers`, `run.cli`, and the decomposition of the largest remaining
+functions), the readability pass of the documentation (one home per concept,
+the definitions page split), and the lines the 0.33.0 plan of GEO-066 held,
+in GEO-071 section 4.
 
 ## Open lines
 

@@ -6481,10 +6481,11 @@ Requirements written after the specification was last reconciled with the packag
     `(1-3 of 17)`), and closes with a table of how the points ended, a job's
     points counted one by one, and the time it took.
 
-    - An unsteady point that carries its step counter prints a progress bar with
-      its step, its share and the time so far every N completed time steps, read
-      from the run's own counter while the solver runs, never from what the solver
-      prints.
+    - An unsteady point whose row registers the step counter prints a progress
+      bar with its step, its share and the time so far every N completed time
+      steps, read from the run's own counter while the solver runs, never from
+      what the solver prints. Which rows register the counter is stated by
+      FR-314 and not here.
     - `pyfs-matrix run --progress-every N` sets N (10 by default, 0 for none); a
       negative N is refused. A row with no counter runs as before.
 
@@ -7627,27 +7628,40 @@ Requirements written after the specification was last reconciled with the packag
 
     Need: Before a recipe is applied, the person running it wants to see which folders and files it would delete or compact, not only how many and how large; the preview of the archived post folders showed counts and bytes alone.
 
-    Requirement: `pyfs-matrix free-space --list` prints, after the summary of each recipe step, every path the step would touch (preview) or touched (`--apply`), relative to the workspace, with its size and what happens to it: each post archive folder deleted or compacted (and the zip written), each file `delete_extensions` deletes and each it keeps with the reason, each per-step export `prune_step_exports` deletes or keeps, and each simulation `compact_sims` compacts with its folder size. The lines are read from the entry `free_space` returns, nothing is recomputed, and a preview changes nothing on disk. Without `--list` the output is unchanged.
+    Requirement: `pyfs-matrix free-space --list` prints, after the summary of each recipe step, every path the step would touch (preview) or touched (`--apply`), relative to the workspace, with its size and what happens to it: each post archive folder deleted or compacted (and the zip written), each file `delete_extensions` deletes and each it keeps with the reason, each per-step export `prune_step_exports` deletes or keeps, and each simulation `compact_sims` compacts with its folder size and, after `--apply`, the size of the zip it was compacted into. The four step names are the recipe steps defined on the [storage and sync page](../storage-and-sync.md#the-recipe-file). The lines are read from the entry `free_space` returns, nothing is recomputed, and a preview changes nothing on disk. Without `--list` the output is unchanged.
 
     Solution (release 0.33.0): the `--list` option of `pyfs-matrix free-space` and `pyflightstream.run.cli._print_free_space_paths`.
 
-!!! requirement "FR-306 The delete-sims command can delete a simulation whatever its status <span class='srs-implemented'>implemented</span>"
+!!! requirement "FR-306 The delete-sims command can delete a simulation whose run is still SUBMITTED <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the 0.33.0 development cycle, `pyfs-matrix delete-sims` (item DELETE-SIMS-FORCE of the 0.33.0 scope). Evidence: `tests/tier1_offline/test_delete_sims_force.py::test_refused_without_force_with_the_same_text`, `::test_force_preview_names_the_submitted_sim_and_changes_nothing`, `::test_force_apply_deletes_folder_products_records_and_records_the_call`, `::test_cli_force_flag_reaches_the_library`, `::test_mutant_ignoring_force_turns_the_check_red`.*
+    *Origin: the 0.33.0 development cycle, `pyfs-matrix delete-sims` (item DELETE-SIMS-FORCE of the 0.33.0 scope, which asked for a flag bypassing any status). Evidence: `tests/tier1_offline/test_delete_sims_force.py::test_refused_without_force_with_the_same_text`, `::test_force_preview_names_the_submitted_sim_and_changes_nothing`, `::test_force_apply_deletes_folder_products_records_and_records_the_call`, `::test_without_force_the_call_records_force_false`, `::test_cli_force_flag_reaches_the_library`, `::test_mutant_ignoring_force_turns_the_check_red`.*
 
-    Need: A simulation whose run failed can stay SUBMITTED in `runs.json`, and `delete-sims` refuses it; the person wants to delete it anyway, bypassing any status.
+    Need: A simulation whose run failed can stay SUBMITTED in `runs.json`, and `delete-sims` refuses it; the person wants to delete it anyway.
 
-    Requirement: `pyfs-matrix delete-sims --force` (keyword `force` of `delete_sims`) deletes the named simulations whatever the status of their records, SUBMITTED included; everything else is as a normal delete (`runs.json` archived first, the note row per simulation, the matrix-products rule, links undone so the mesh survives). The call recorded in `storage_management.json` states `force` and, per simulation, the statuses its records had; the preview (no `--apply`) names each SUBMITTED simulation that `--force` would delete. Without `--force` a simulation with a run still SUBMITTED is refused with the same text as before.
+    Requirement: the only status `delete-sims` refuses is SUBMITTED, and `--force` (keyword `force` of `delete_sims`) lifts that refusal.
+
+    - R1 Without `--force`, a simulation with a record still SUBMITTED is refused with the same text as before.
+    - R2 With `--force`, that simulation is deleted as a normal delete deletes one: `runs.json` archived first, the note row per simulation, the matrix-products rule, links undone so the mesh survives.
+    - R3 A simulation whose records hold any other status is deleted with or without the flag, as before.
+    - R4 The call recorded in `storage_management.json` states `force` (false when the flag is absent) and, per simulation, the statuses its records had.
+    - R5 The preview (no `--apply`) names each SUBMITTED simulation that `--force` would delete, and changes nothing.
 
     Solution (release 0.33.0): the `force` keyword of `pyflightstream.workspace.storage.delete_sims` and the `--force` option of `pyfs-matrix delete-sims`.
 
 !!! requirement "FR-307 The post and collect commands can be limited to named simulations <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the 0.33.0 development cycle, the post and collect stages of `pyfs-matrix`. Evidence: `tests/tier1_offline/test_sims_selection.py::test_post_sims_rewrites_only_the_named_simulation_fr_307`, `::test_post_sims_replaces_only_the_named_entries_and_skips_fr_307`, `::test_post_sims_leaves_the_super_files_and_says_so_fr_307`, `::test_post_without_sims_is_the_whole_post_fr_307`, `::test_post_sims_refuses_an_unknown_simulation_before_any_work_fr_307`, `::test_collect_sims_collects_only_the_named_simulation_fr_307`, `::test_collect_sims_limits_its_post_to_the_same_simulations_fr_307`, `::test_mutant_ignoring_post_sims_turns_the_check_red_fr_307`, `::test_mutant_ignoring_collect_sims_turns_the_check_red_fr_307`.*
+    *Origin: the 0.33.0 development cycle, the post and collect stages of `pyfs-matrix`. Evidence: `tests/tier1_offline/test_sims_selection.py::test_post_sims_rewrites_only_the_named_simulation_fr_307`, `::test_post_sims_replaces_only_the_named_entries_and_skips_fr_307`, `::test_post_sims_leaves_the_super_files_and_says_so_fr_307`, `::test_post_without_sims_is_the_whole_post_fr_307`, `::test_post_sims_refuses_an_unknown_simulation_before_any_work_fr_307`, `::test_post_sims_refuses_a_simulation_of_another_matrix_fr_307`, `::test_cli_post_sims_reaches_the_stage_in_both_forms_fr_307`, `::test_the_sims_parser_has_one_home_fr_307`, `::test_collect_sims_collects_only_the_named_simulation_fr_307`, `::test_collect_sims_limits_its_post_to_the_same_simulations_fr_307`, `::test_collect_sims_refuses_an_unknown_simulation_fr_307`, `::test_cli_collect_sims_reaches_the_sweep_and_the_post_fr_307`, `::test_mutant_ignoring_post_sims_turns_the_check_red_fr_307`, `::test_mutant_ignoring_collect_sims_turns_the_check_red_fr_307`.*
 
     Need: After a few simulations of a matrix are run again or collected, the person wants to rebuild and collect those simulations alone, without rewriting the products of every other simulation of the matrix.
 
-    Requirement: `pyfs-matrix post [matrix] --sims IDS` (keyword `sims` of `write_campaign_products`) rebuilds only the named simulations' products of the matrix, in place: each named simulation's files are archived and rewritten as a whole post writes them, every other simulation's files keep their bytes, and `products.json` replaces only the named simulations' entries and skips. A product built from several simulations is never written from some of them: the super files and their measurement are left as the last whole post wrote them, the sections measurement is rebuilt from every recorded simulation of the matrix or, when another simulation's folder cannot be read, left, and each product left is named with its reason under `partial.not_rebuilt` in `products.json` and in `post.log`. `pyfs-matrix collect --sims IDS` (keyword `sims` of `collect_once` and `collect_and_post`) sweeps only the SUBMITTED records of the named simulations, leaves every other record untouched and not counted as outstanding, and limits its post to the same simulations. Both read the ids as `delete-sims` does, comma separated or in brackets, and refuse by name, before any work, a simulation with no record (of the matrix, for the post). Without `--sims` both behave as before.
+    Requirement: `pyfs-matrix post [matrix] --sims IDS` (keyword `sims` of `write_campaign_products`) and `pyfs-matrix collect --sims IDS` (keyword `sims` of `collect_once` and `collect_and_post`) limit their stage to the named simulations.
+
+    - R1 The post rebuilds only the named simulations' products of the matrix, in place: each named simulation's files are archived and rewritten as a whole post writes them, and every other simulation's files keep their bytes.
+    - R2 The post's `products.json` replaces only the named simulations' entries and skips.
+    - R3 A product built from several simulations is never written from some of them: the super files and their measurement are left as the last whole post wrote them, and the sections measurement is rebuilt from every recorded simulation of the matrix or, when another simulation's folder cannot be read, left. Each product left is named with its reason under `partial.not_rebuilt` in `products.json` and in `post.log`.
+    - R4 The collect sweeps only the SUBMITTED records of the named simulations, leaves every other record untouched and not counted as outstanding, and limits its post to the same simulations.
+    - R5 Both read the ids as `delete-sims` does, comma separated or in brackets, and refuse by name, before any work, a simulation with no record (of the matrix, for the post).
+    - R6 Without `--sims` both behave as before.
 
     Solution (release 0.33.0): the `sims` keyword of `pyflightstream.post.products.write_campaign_products`, `pyflightstream.run.collect.collect_once` and `collect_and_post`, `pyflightstream.workspace.selected_sims`, and the `--sims` option of `pyfs-matrix post` and `pyfs-matrix collect`.
 
@@ -7657,7 +7671,17 @@ Requirements written after the specification was last reconciled with the packag
 
     Need: A geometry saved after an unsteady run keeps that run's solver actions, and an action the script creates with the same name does not replace the saved one, so the solver runs a command the person never meant to run, such as an interpreter path of another machine that aborts every unsteady run on a cluster. The person needs to learn that a geometry carries saved actions before spending a run, and to remove them without opening the graphical interface.
 
-    Requirement: `pyfs-matrix inventory <file>` names on standard error, on every call on a saved simulation, each unsteady solver action saved at the end of its SOLVER block (name, type, command or script file) and the command `pyfs-matrix inventory <file> --clean`; the file is not changed and the sidecar is written as before. `--clean` (function `pyflightstream.workspace.inputs.clean_saved_actions`) sets the action count to 0 and removes the action records, every other byte unchanged, after copying the file as it was to `<file>.bak-<stamp>`; it puts the copy back and refuses when the boundary names read after the change differ from those before, refuses without writing a file whose count disagrees with the records read, writes nothing for a file with no saved action, and keeps an existing sidecar unless `--overwrite`.
+    Requirement: `pyfs-matrix inventory <file>` reports the unsteady solver actions saved at the end of a saved simulation's SOLVER block, and `pyfs-matrix inventory <file> --clean` (function `pyflightstream.workspace.inputs.clean_saved_actions`) removes them.
+
+    - R1 When the geometry carries one or more saved unsteady solver actions, `inventory` prints to standard error, for each, its name, its type and its command or script file, then the line `pyfs-matrix inventory <file> --clean`. When it carries none, it prints nothing about actions. The file is not changed.
+    - R2 Without `--clean`, the sidecar is written as it was before this requirement.
+    - R3 `--clean` first copies the file as it was to `<file>.bak-<stamp>`, the stamp being the time of the call (`YYYYMMDD-HHMMSS`, UTC), which enters no hash. It then sets the action count to 0 and removes the action records, every other byte unchanged.
+    - R4 `--clean` puts the copy back and refuses when the boundary names read after the change differ from those read before.
+    - R5 `--clean` refuses, writing nothing, a file whose action count disagrees with the records read, and writes nothing for a file with no saved action.
+    - R6 `--clean` keeps an existing sidecar unless `--overwrite` is given.
+    - R7 A cleaned file has new bytes and so a new hash: a campaign staged after the clean records the cleaned file's hash, runs staged before it keep the hash they recorded, and the clean itself records the hash the file had before nowhere, which is a known gap; the backup keeps those bytes.
+
+    Conditions of the evidence, stated so that verification is not read as validation. The tests above verify the reader and the cleaner on files the tests build and on the tier-3 geometries; they do not show the solver's behaviour. That a saved action takes precedence over the script's action of the same name, and that the saved interpreter path aborts the unsteady runs of a cluster, were reported from one cluster run on 2026-09-30 and are not reproduced by a measurement in this repository. The layout of the action records was read on 2026-09-30 from the ten tier-3 geometries, which all end the block with the count 0, and from one save of the 26.1 series that carried two actions; it is not documented by the vendor, and only that one sample carried actions. A file cleaned by this command has not yet been opened by the solver; that confirmation is owed by the licensed round of FR-312.
 
     Solution (release 0.33.0): `pyflightstream._fsm.saved_solver_actions` and `without_saved_solver_actions`, `pyflightstream.workspace.inputs.clean_saved_actions`, and the warning and the `--clean` option of `pyfs-matrix inventory`.
 
@@ -7667,6 +7691,98 @@ Requirements written after the specification was last reconciled with the packag
 
     Need: A run can end converged and still be wrong, which the person finds only later, reading its products, and a run whose job died can stay SUBMITTED. The person needs to record that verdict from the command line, so that the post and a delete treat the run as failed, without deleting its history.
 
-    Requirement: `pyfs-matrix mark-failed --sims IDS [--reason TEXT] [--apply]` (function `pyflightstream.run.records.mark_failed`) sets the status of every record of the named simulations to `FAILED_MARKED`, whatever it was, and records under `marked` the status it had (`from`), the time (`at`) and the reason as given (`reason`). Without `--apply` it names each record and its status and writes nothing. With it, `runs.json` is copied to `archive/runs-<stamp>.json` under the manifest lease before it is rewritten, and every other record keeps its content. An id with no record is refused by name before any write; a record already `FAILED_MARKED` is left unchanged. `FAILED_MARKED` begins with `FAILED`, so every reader that decides failure by that prefix treats it as a failure, and it is the most severe status in the severity order.
+    Requirement: `pyfs-matrix mark-failed --sims IDS [--reason TEXT] [--apply]` (function `pyflightstream.run.records.mark_failed`) marks every record of the named simulations failed.
+
+    - R1 With `--apply`, the status of every record of the named simulations becomes `FAILED_MARKED`, whatever it was, and the record keeps under `marked` the status it had (`from`), the time (`at`) and the reason as given (`reason`).
+    - R2 Without `--apply` it names each record and its status and writes nothing.
+    - R3 With `--apply`, `runs.json` is copied to `archive/runs-<stamp>.json` before it is rewritten, while the command holds the records lock, so no other command writes the records meanwhile; every other record keeps its content.
+    - R4 An id with no record is refused by name before any write.
+    - R5 A record already `FAILED_MARKED` is left unchanged.
+    - R6 `FAILED_MARKED` begins with `FAILED`, so a reader of this package that decides failure by that prefix (the post, the cost estimate and `delete-sims`) treats it as a failure; the prefix, `delete-sims` and the severity order are the ones the evidence above exercises, and readers outside this package are not checked.
+    - R7 `FAILED_MARKED` is the last, most severe, entry of the severity order by which `pyflightstream.run.worse_of` reports a point's worse outcome.
+    - R8 The manifest schema stays `pyfs-manifest/3`. A release before 0.33.0 has no `FAILED_MARKED` in its status set and is not expected to read a `runs.json` that holds one (not measured against an installed older release); `pyfs-matrix restore runs` puts the archived copy of R3 back.
 
     Solution (release 0.33.0): `pyflightstream.workspace.RunStatus.FAILED_MARKED`, the `marked` field of `RunRecord`, `pyflightstream.run.records.mark_failed`, and the command `pyfs-matrix mark-failed`.
+
+!!! requirement "FR-310 Every command that takes a run matrix finds it in either matrix home <span class='srs-pending'>pending</span>"
+
+    *Origin: item MATRIX-HOMES-ALL of the 0.33.0 scope (scope record GEO-071, section 2.1). Pending: no code yet. Evidence owed: a tier-1 test parametrized over every console subcommand whose parser takes a run matrix, read from the parsers themselves so that a command added later without joining R1 fails, each case with a matrix in the root only, in `inputs/matrices/` only, in both with equal bytes and in both with different bytes.*
+
+    Need: A run matrix may sit in the workspace root or in `inputs/matrices/`. Since 0.32.0 the restore, the post (`--from-sims` and `collect --post` included), the plan's census and the sync find it in both homes, while the other commands read the path as given or read the root alone, so a matrix one command accepts is one another command cannot find.
+
+    Requirement: every command that takes a run matrix, or looks one up by name or stem, resolves it through one function of the workspace layer over the two matrix homes, the workspace root and `inputs/matrices/`.
+
+    - R1 The commands are: `pyfs-matrix` `upgrade`, `convert`, `plan`, `inspect-setups`, `run`, `post` (its matrix argument and `--additional-pproc`), `rebuild --matrix` and `restore --matrix`; `rename` and `sync`, which look matrices up by themselves; the Excel synchronization with and without `--matrix`; the matrix check of `pyflightstream.qa.matrix`; and `space-in-use`, `free-space` and `delete-sims` wherever they read a matrix, which was not checked on v0.32.0 and is checked by the work that implements this requirement. A command added later that takes a matrix joins this list.
+    - R2 A bare file name or a stem is looked up in both homes. A path that names its folder is read from that folder, as before.
+    - R3 When the name is in both homes with identical bytes, the matrix is read once and the command proceeds as with one file.
+    - R4 When the name is in both homes with different bytes, the command refuses before any work, naming both paths.
+    - R5 No other routine of the package resolves a matrix name: the rebuild's scan, the Excel synchronization's own lookup and the Excel read without `--matrix`, three separate copies of the rule on v0.32.0, use the one function.
+
+    Solution (planned for 0.33.0): `pyflightstream.workspace.find_matrix` and its callers.
+
+!!! requirement "FR-311 The collect command recognises a job that ended without its solver log <span class='srs-pending'>pending</span>"
+
+    *Origin: item COLLECT-JOB-ENDED of the 0.33.0 scope (GEO-071, section 2.2). Pending: no code yet, and the scheduler's file names are not confirmed. Evidence owed, in two tiers: tier-1 tests on recorded folders (every listed file present and no log, recorded FAILED_EXECUTION with the tail in the record; only some of the files present, still SUBMITTED; the files of another profile's patterns present, still SUBMITTED; the log present, collected as before), asserting the status and the recorded text rather than an exception type; and a dated receipt of a real cluster folder, naming the scheduler and the date, that shows the files the patterns name.*
+
+    Need: `collect` waits for the solver log the HPC profile names (`native_log`). A job that died before writing that log stays SUBMITTED indefinitely, and a person cannot tell it from a job still running.
+
+    Requirement: `collect` records a job that ended without its solver log as failed, reading which files mark the end of a job from the HPC profile.
+
+    - R1 The HPC profile `h<id>.toml` carries a key, beside `native_log`, listing the file-name patterns the scheduler writes when a job ends, with placeholders for the case name and the job id; the key's name is fixed by the implementation and written into this requirement when it lands. No file name of one scheduler or one cluster is written in the code.
+    - R2 When every file the key lists exists for a SUBMITTED point and its solver log does not, `collect` records the point `FAILED_EXECUTION`, and the record carries the last lines of the error file the key names (the number of lines is stated here when implemented), read as bytes and decoded with replacement rather than assumed to be UTF-8.
+    - R3 When only some of the listed files exist, the point stays SUBMITTED.
+    - R4 When the solver log exists, and when the profile has no such key, `collect` behaves as before.
+    - R5 The rule "the end-of-job files exist and the log does not" is a heuristic: a log delayed on a shared file system and a job the scheduler requeued can be misjudged, and neither case is measured. The record names the files that were read.
+
+    Conditions: the file names `<case>.o<id>` and `<case>.e<id>` are the ones reported for one cluster on 2026-09-30; they have not been confirmed from a real cluster folder, and this requirement stays pending until the receipt above is committed.
+
+    Solution (planned for 0.33.0): the new key of the HPC profile and the end-of-job reading of `pyflightstream.run.collect`.
+
+!!! requirement "FR-312 A geometry file can be reduced to its meshes and applied boundary conditions <span class='srs-pending'>pending</span>"
+
+    *Origin: item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3), the part of the clean beyond the saved actions of FR-308. Pending: the block-by-block measurement it rests on has not been made. Evidence owed: the dated report of that measurement (a simulation carrying every block against the same mesh freshly imported with the same boundary conditions, the builds compared named); tier-1 tests on recorded fixtures, each with a control; and the licensed confirmation, on 26.124, that the solver opens and runs a cleaned file (licensed round L1 of the 0.33.0 release), without which the claim of R1 is unverified.*
+
+    Need: A saved simulation carries the state of the run that saved it, and that state takes precedence over what the script sets (the saved actions of FR-308 are one case of it). A geometry meant as an input should hold only the meshes and the boundary conditions already set (the base, the trailing edges and the others), so that everything else comes from the script.
+
+    Requirement: a command, an extension of `pyfs-matrix inventory --clean` whose spelling the implementation fixes, writes a geometry file that keeps the meshes and the applied boundary conditions and holds, in every other block, the content a freshly imported file holds.
+
+    - R1 Each block other than the meshes and the boundary conditions is reset to the content a freshly imported file holds, measured block by block.
+    - R2 The blocks reset, and the fresh-import content of each, are listed in this requirement from the measurement named above; a block not in that list is left unchanged, never guessed.
+    - R3 Every count and length field of a rewritten block agrees with the content it counts; the command refuses, writing nothing, when it cannot make them agree.
+    - R4 The boundary names and the boundary-condition marks read before and after are equal, or the command puts the original back and refuses.
+    - R5 The original is first copied to `<file>.bak-<stamp>`, the stamp being the time of the call, which enters no hash; a file already clean is not rewritten.
+    - R6 A cleaned file has new bytes and so a new hash, with the consequences FR-308 R7 states.
+
+    Solution (planned for 0.33.0): an extension of `pyflightstream.workspace.inputs.clean_saved_actions` and of the `--clean` option of `pyfs-matrix inventory`.
+
+!!! requirement "FR-313 The plan warns when the geometry of an unsteady row carries saved solver actions <span class='srs-pending'>pending</span>"
+
+    *Origin: the plan check of item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3; PLAN-FSM-WARN in the release's map of scope items), which asks that every unsteady row of the plan check its geometry and only warn. Pending: no code yet. Evidence owed: a tier-1 test parametrized over the unsteady run types and over a clean, a dirty and an unreadable geometry, asserting in every case that the plan is written and its exit status is 0, and the warning text in the dirty and unreadable cases and its absence in the clean one.*
+
+    Need: A saved action takes precedence over the script's action of the same name (FR-308), so an unsteady row can run a command the person never wrote; the plan is the last step before a run is spent.
+
+    Requirement: `pyfs-matrix plan` checks the geometry of every unsteady row for saved solver actions and warns, and never refuses on that account.
+
+    - R1 The plan reads, with the reader of FR-308, the geometry of every row whose run type is `unsteady` or `unsteady_rotor`, a continuation of such a row included.
+    - R2 For each saved unsteady solver action found, the plan prints to standard error a warning naming the row, the geometry, the action (its name, its type and its command or script file) and the command `pyfs-matrix inventory <file> --clean`.
+    - R3 A geometry whose action records the reader cannot read is warned about as unreadable, naming the file.
+    - R4 The warnings change neither the plan's exit status nor what it writes: the rows planned and the files written are the ones the plan writes without them.
+    - R5 A row whose geometry carries no saved action, or is not a saved simulation, gets no warning.
+
+    Solution (planned for 0.33.0): the geometry check of `pyfs-matrix plan`, over `pyflightstream._fsm.saved_solver_actions`.
+
+!!! requirement "FR-314 Every unsteady row registers the step counter <span class='srs-pending'>pending</span>"
+
+    *Origin: item PROGRESS-ALL-UNSTEADY of the 0.33.0 scope (GEO-071, section 2.3). Pending: no code yet. Evidence owed: a tier-1 test that every unsteady run type is covered by a golden and that the diff of each regenerated golden against the golden of v0.32.0 is confined to the counter lines; the parity receipt of the release listing each changed golden against this requirement; and the licensed run of an unsteady row without per-step export on 26.124 (licensed round L1), which is the only evidence that the solver accepts the counter on such a row. A golden regenerated in the same commit as the code verifies the emitter and nothing about the solver.*
+
+    Need: The progress bar of a local run (FR-129) is read from the step counter, which only rows asking for a per-step export register, so a long unsteady run without export shows no progress.
+
+    Requirement: the emitted script of every unsteady row registers the step counter.
+
+    - R1 The emitted script of every row whose run type is `unsteady` or `unsteady_rotor`, a continuation of such a row included, registers the step counter action.
+    - R2 On a row that asks no per-step export the counter only counts: it writes no export file and triggers no exports script.
+    - R3 A local run prints the progress bar of FR-129 for every such row.
+    - R4 Only the emitted scripts of the rows of R2 differ from those of 0.32.0, and only in the counter lines; a script emitted by a release before 0.33.0 for such a row differs from the one 0.33.0 emits.
+    - R5 That the counter leaves the solver's results unchanged on a row without export is not measured; the report of the licensed round states the comparison, and until then the claim is unverified.
+
+    Solution (planned for 0.33.0): the counter registration of `pyflightstream.cases.workflows` for every unsteady row.

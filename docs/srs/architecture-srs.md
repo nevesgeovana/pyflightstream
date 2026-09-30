@@ -173,6 +173,266 @@ matrix workflows read without importing the structural side branch.
     what changed is the pace and the granularity, from per
     structure to one move.
 
+### The 0.33.0 architecture decisions
+
+The decisions below are the architecture half of the 0.33.0 scope (scope
+record GEO-071, section 3, and the architecture review GEO-072, whose
+review lens binds every one of them). Each is pending until the work
+package named in its first line lands, and each names the evidence that
+package owes. None changes what the package does: AD-15 states what every
+one of them keeps.
+
+!!! decision "AD-08 The architecture guards <span class='srs-pending'>pending</span>"
+    *Work package WP0 of the 0.33.0 scope, which lands before any other
+    package so that every later one is measured. Evidence owed: the
+    tier-1 tests of G1 to G8 below, each with its non-vacuity condition,
+    `scripts/arch_metrics.py`, and the architecture metrics report under
+    `reports/`.*
+
+    The concentration measured on v0.32.0 (13 modules holding 47.7
+    percent of 146,463 lines, 17 modules over 2,000 lines) does not come
+    back, because each rule below is a tier-1 test whose baseline is the
+    number measured at the freeze with the test's own reader and may only
+    shrink. No allowlist grows. A guard that reads nothing, or that its
+    own mutant does not turn red, is itself a failure.
+
+    - G1 Module size, in the unit of the review lens: CODE lines, the
+      lines that are not blank, not comment-only and not inside a
+      docstring, counted with `ast`. Up to 1000 code lines a module needs
+      nothing. From 1000 to 2000 its module docstring carries a line
+      beginning `Size exemption:` that states, on that line, why (a
+      catalog of items of one shape, or one deep abstraction); mixed
+      logic has no exemption. Above 2000 a module is refused unless it is
+      in the baseline table of today's counts, whose entries may only be
+      lowered and are deleted when the module falls under the ceiling.
+      The 1000 and 2000 are conventions (pylint's default applied to code
+      lines, and twice it), not a law. Non-vacuity: the walk reads at
+      least the module count of the G7 record and the code lines it
+      totals agree with that record; one more line in a listed module,
+      an unlisted module of 1001 code lines without the exemption line,
+      and a deleted row of a module still over the ceiling are each red.
+    - Deep modules. A module created in 0.33.0 hides substantial
+      function behind a narrow interface: about 150 code lines or more,
+      never a one-function file, never siblings that all import one
+      another. This is a review check of each package, and the G7 record
+      lists every module created since v0.32.0 under 150 code lines so
+      the reviewer reads the list rather than finds it.
+    - G2 Function limits. A new or changed function stays within the
+      defaults of ruff and pylint (complexity 10, branches 12, statements
+      50, positional arguments 5); every function over them today is in
+      a baseline that may only shrink, compared as "at most the recorded
+      value". Non-vacuity: a function at the limit passes and one over
+      it is red.
+    - G3 Import graph. (a) A strongly connected component of the module
+      graph, module-level and deferred imports together, that spans two
+      top-level packages is refused unless it is in the frozen baseline;
+      a baseline component may not gain a member and is deleted when it
+      no longer exists; at the freeze the components found equal the
+      baseline exactly, both ways, so an empty graph cannot pass. (b)
+      Inside a package that declares an order (`pyflightstream.cases.workflows`,
+      AD-12, and `pyflightstream.run`, AD-14), a module imports only
+      modules after it in the order, at module level and deferred alike,
+      and a module missing from the order fails.
+    - G4 Fan-out. A module imports at most 25 distinct modules of the
+      package at module level, and at most 25 in deferred imports,
+      counted separately; today's excess (`post/products.py`, 32 at
+      module level, and any deferred excess measured at the freeze) is a
+      baseline that may only shrink. Non-vacuity: a synthetic module of
+      26 imports is red.
+    - G5 Private-name test coupling. The pairs (source module, private
+      name) that tests reference, and the monkeypatch targets on source
+      modules, are counted per source module; a count may not rise. A
+      facade that re-exports a private name for tests during the cycle
+      is still counted (AD-15), so the count falls only as tests are
+      retargeted. Non-vacuity: a test referencing a new private name is
+      red, and the totals are re-measured at the freeze with the same
+      reader rather than copied from the review.
+    - G6 One home per literal. Every top-level `NAME = <literal>` of the
+      package (a string, a number, a tuple of literals) is grouped by the
+      pair (name, value); two modules defining the same pair where
+      neither imports it from the other fail, naming both files and
+      lines. The allowlist is empty (AD-10). The same value under two
+      different names is out of this guard's scope. Non-vacuity: the
+      nine pairs measured on v0.32.0 are kept inside the test as
+      synthetic sources that must always be red, beside a clean control.
+    - G7 The architecture metrics record. `scripts/arch_metrics.py`
+      writes a report under `reports/` stating the module count, the
+      total and the code lines, the shares of the largest 1, 5 and 13
+      modules, the modules over 1000 and 2000 code lines, the functions
+      over the limits of G2, the cross-package components, the largest
+      fan-out, the private-name coupling and the non-import lines of
+      each package root. A tier-1 test re-measures the tree and compares
+      it with the report and with a committed table of the same numbers
+      that may only improve, so regenerating the report in the same
+      commit cannot hide growth.
+    - G8 Roots are facades. A package `__init__.py` holds only its
+      docstring, imports, its `__all__` and at most a lazy `__getattr__`
+      loader, counted with `ast` as the statements that are none of
+      these; no root uses a star import. The roots that hold more today
+      are a baseline that may only shrink, and a root absent from it
+      holds none. Non-vacuity: a function defined in a facade root is
+      red.
+
+    The guards run in the existing `test` job of continuous integration;
+    they are tier-1 tests.
+
+!!! decision "AD-09 The row order: run above workspace <span class='srs-pending'>pending</span>"
+    *Work package WP1 of the 0.33.0 scope (decision 4 of the scope).
+    Evidence owed: the layer guards of NFR-23 reading the new table, the
+    test that holds this chapter's table, the user-guide diagram and the
+    generated overview to the module data, and a count of zero
+    `workspace` to `run` imports.*
+
+    The layered pipeline has seven rows, from the top: `post` and `qa`;
+    `run` alone; `workspace` alone; `cases`; `script` and `results`;
+    `commands`; `versions`; with the two floors `_atmosphere` and
+    `_errors` below them. No module of `workspace` imports a module of
+    `run`, at module level, inside a function body or under
+    `TYPE_CHECKING`. The two imports that go the other way on v0.32.0
+    are removed: the lookup of which records file a `--runs` name means
+    moves down into `workspace`, beside the matrix lookup, and the
+    rebuild of orphaned records that the sync reached for is asked by
+    the command that runs the sync, after the sync returns. This
+    chapter's table, the user-guide diagram, the layer table of
+    `pyflightstream.overview` and the guards state the same rows.
+
+    Transition, stated because the table above this section and this
+    decision do not yet agree: the table still shows `run` and
+    `workspace` in one row and the prose counts six rows. Both change in
+    the same commit as the overview's layer table, because a tier-1 test
+    holds the table to that module.
+
+!!! decision "AD-10 One home per constant, and the loads cycle removed <span class='srs-pending'>pending</span>"
+    *Work package WP2 of the 0.33.0 scope (decision 15). Evidence owed:
+    G6 green with an empty allowlist, and G3 finding no component that
+    holds `fsi.loads` and `results.tables`.*
+
+    Each of the nine constants that v0.32.0 defines twice has one
+    defining module, and every other module imports it from there:
+    `ARCHIVE_DIR` and `ARCHIVE_STAMP` (from `workspace.naming`, the run
+    records deriving their pattern from them), `FLAG_PHASES` (from
+    `cases`), the unit that names no length (one home for
+    `cases.ccs_wing` and the workflows), the section command (one home
+    in `cases` for the workflows and `post.superfile`), the stabilization
+    table (from `script.helpers`), the length-unit command (one home for
+    `script` and `script.helpers`), `VELOCITY_KEYS` (from `cases.matrix`)
+    and `ACOUSTICS_DIR` (from `cases.acoustics`). The duplicated module
+    `__getattr__` becomes one helper in `_deprecations`. The private
+    names no caller reaches are deleted after a search of the estate's
+    scripts. `parse_sectional_loads` is defined in `results` and
+    `fsi.loads` re-exports it, which removes the cycle between
+    `fsi.loads` and `results.tables`.
+
+!!! decision "AD-11 The four cheap extractions <span class='srs-pending'>pending</span>"
+    *Work package WP3 of the 0.33.0 scope. Evidence owed: G1 and G8
+    entries lowered for each module named here, every public import path
+    kept (AD-15), and the tests of this chapter's module lists updated
+    with them.*
+
+    Four modules are cut along the clusters the review measured, each
+    public path kept by a facade and each new module within the lens:
+    `post.guides` (the input template and the glossary each move to a
+    module of their own, the guides of the post stay); `run.records` (the
+    rebuild and the assembly move to private modules, the manifests, the
+    locks, the restore and `mark_failed` stay); the `results` root (its
+    parsers move to modules of their own, the errors, primitives and codes
+    stay, and the root becomes a facade, which removes the only
+    module-level import cycle measured on v0.32.0); and `workspace.inputs` (the
+    sidecars and the HPC profile move to modules of their own, and
+    `workspace.inputs` gains an `__all__`). The names of the new modules
+    are the review's; a package that changes one records it in the 0.33.0
+    section of this chapter.
+
+!!! decision "AD-12 cases/workflows is a package with a guarded order <span class='srs-pending'>pending</span>"
+    *Work package WP4 of the 0.33.0 scope. Evidence owed: G3(b) for the
+    package, the 29 goldens and the tier-3 golden diff unchanged, and G1
+    for every module of the package.*
+
+    `pyflightstream.cases.workflows` becomes a package cut along the
+    measured clusters (the vocabulary, the conventions, the row readers,
+    the names, the geometry, the frames, the settings, the free stream,
+    the actuator, the reductions, the exports, the post-processing
+    emission, the script skeleton, and the builders of each run type).
+    Its `__init__` is a facade that keeps every public name, `__all__` in
+    content and order, and the objects whose order feeds a generated
+    page or the command line (`WORKFLOWS`, `ROW_KEY_MEANINGS`) move as
+    objects, never rebuilt. Its modules import one another only in the
+    declared order of G3(b), module-level and deferred imports alike.
+
+!!! decision "AD-13 The post families are sibling modules <span class='srs-pending'>pending</span>"
+    *Work package WP5 of the 0.33.0 scope (decisions 5, 8 and 15).
+    Evidence owed: the byte snapshot of the products, taken before the
+    first move and compared after every move, and the surface test of
+    `post.products` extended to each public family module.*
+
+    The product families of `post/products.py` become sibling modules
+    under `post/` (the polar, the rotor table, the unsteady polar, the
+    point tables, the rotor products, and a private module for the point
+    condition), each public one with an exact `__all__`. `post/products.py`
+    stays a module and a facade: every name of its `__all__` and every
+    import path is kept. `read_csv_table` and the readers of the plots
+    table move to `post/_tables`, which removes the sibling cycle between
+    `post.products` and `post.corrections`. `_sim_products` is decomposed
+    over one frozen `SimContext` that its first part resolves, with the
+    product families called in the order the manifest has today; the
+    proof is a byte snapshot of `products.json`, `post.log`,
+    `post.log.json` and every CSV of the recorded campaigns, stamps
+    normalized, taken from the tree of v0.32.0 before the first move and
+    compared after each. `run_campaign`, `_execute_point` and
+    `_execute_sweep` are not decomposed in 0.33.0; `PointState` stays
+    until this package decides whether the two classes of that name
+    converge.
+
+!!! decision "AD-14 run is a facade over private modules and leaves the type-check exemptions <span class='srs-pending'>pending</span>"
+    *Work package WP6 of the 0.33.0 scope (decision 7). Evidence owed:
+    G8 for `run/__init__.py`, G3(b) for the package, and the type-check
+    exemption list one module shorter in `pyproject.toml` and in the
+    recount records of NFR-27.*
+
+    `pyflightstream.run` becomes a facade over private modules (the
+    executors, the assessment, the solver identity, the plan, the
+    campaign, the points, the continuation and the surface-mesh export),
+    keeping its `__all__` in content and order and every import path,
+    and its private modules import one another only in the declared
+    order of G3(b). `pyflightstream.run` leaves the list of modules the
+    static type checker exempts, so the list shrinks by one; every line
+    moved is typed, and a construct that resists is narrowed with a
+    stated reason rather than given a new exemption. `run.matrix`,
+    `run.collect`, `run.records` and `run.cli` keep importing from
+    `pyflightstream.run`.
+
+!!! decision "AD-15 The evolution policy of 0.33.0 <span class='srs-pending'>pending</span>"
+    *All work packages of the 0.33.0 scope and its integration recount
+    (WPX; decisions 6, 9 and 15). Evidence owed: the parity receipt of
+    the release, produced by a committed script comparing tag `v0.32.0`
+    with the release commit, and the recount records.*
+
+    0.33.0 does everything 0.32.0 does. The rules that keep it so, while
+    [NFR-20](nonfunctional-requirements.md) does not yet bind:
+
+    - Every name in every `__all__` of v0.32.0 imports from the same
+      dotted path in 0.33.0, and each `__all__` keeps its content and its
+      order. The one exception is `stamp_derived_campaign`, removed with
+      a CHANGELOG Removed entry by decision 9 of the scope.
+    - During the cycle a facade may re-export a private name that tests
+      use, counted by G5; every test is retargeted before the tag, so at
+      the 0.33.0 tag no test reaches a private name through a facade.
+    - Compared against tag `v0.32.0`, and excepting only what a named
+      requirement changes (FR-314 for the emitted scripts of the unsteady
+      rows without per-step export): the public API names and their
+      signatures accept every call they accepted; every console tool,
+      subcommand and option is still accepted; the emitted scripts of
+      the golden and tier-3 campaign set are byte-identical; and the
+      product bytes and `products.json` of a post over a recorded
+      workspace are identical, stamps normalized. The baseline of each
+      comparison is produced from the tree of that tag, never from the
+      branch, and each comparison states its counts so an empty one
+      cannot pass.
+    - One recount per work package and one integration recount after the
+      merges: the module count, the type-check exemption list, the
+      metrics record of G7, the change log and this chapter's section of
+      0.33.0, which the integration writes.
+
 ## Command-line surface
 
 Five console entry points, one per operational concern: `pyfs-qa`

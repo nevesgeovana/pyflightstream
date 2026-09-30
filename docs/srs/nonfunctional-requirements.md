@@ -550,15 +550,13 @@
     Where the schema is documented, decided 2026-07-27 rather than left
     as an open half. It lives in the docstrings of `results/tables.py`.
     The only other copy is the deliberate literal in the test named
-    above, which exists precisely so a schema change costs two files. The docs site publishes no Python API reference
-    and will not gain one for this requirement's sake (mkdocstrings was
-    evaluated and declined at v0.3.0), so a reader who wants the exact
-    column set opens that module. The cost is stated rather than
-    softened, because this SRS declares a readership that does not read
-    source by preference: the honest form of the promise is that
-    `overview()` and the Architecture page carry the narrative, both
-    rendering the same module docstrings, the changelog carries the
-    announcement, and the module carries the list. Not `help()`, which
+    above, which exists precisely so a schema change costs two files. The
+    generated Python API reference of NFR-29 renders those docstrings, so
+    from 0.33.0 a reader finds the exact column set on the site; until it
+    lands, the reader opens that module. `overview()` and the Architecture
+    page carry the narrative, both rendering the same module docstrings,
+    the changelog carries the announcement, and the module carries the
+    list. Not `help()`, which
     renders the FlightStream command reference and says nothing about
     result tables.
 
@@ -682,15 +680,27 @@
     migration commit. A core dependency adopted without one would breach
     a requirement this batch did not touch.
 
-!!! requirement "NFR-23 Layering guard <span class='srs-pending'>pending</span>"
+!!! requirement "NFR-23 Layering guard <span class='srs-implemented'>implemented</span>"
     *Origin: the ITACA mirror review (item M2), accepted 2026-07-27 as
-    a new requirement rather than a mirror.*
+    a new requirement rather than a mirror. Evidence:
+    `tests/tier1_offline/test_goal028_module_level_layering.py::test_no_module_level_import_reaches_a_higher_layer`,
+    `tests/tier1_offline/test_conventions.py::test_no_function_body_import_reaches_a_higher_layer`,
+    `::test_the_matrix_reader_imports_nothing_above_the_cases_layer` and
+    `::test_the_results_tables_module_imports_the_workspace_layer_nowhere_at_runtime`,
+    each marked with this requirement.*
 
     Read with PFS-2054, PFS-2054.06, PFS-2054.07 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     A Tier 1 mechanism enforces AD-01: a module that imports from a
     layer above its own fails the suite, rather than being caught by
     review.
+
+    The guard reads the layer table of `pyflightstream.overview`, so it
+    enforces the rows that table states and nothing finer. Until the
+    row-order work of 0.33.0 (AD-09) gives `run` and `workspace` a row
+    each, the two share one row and an import between them is not
+    refused; from then on an import from `workspace` into `run` fails
+    the suite like any other upward import.
 
     What this is NOT, since the item arrived as a candidate mirror of
     the sister's REQ-82 and its rationale has since been rewritten. The
@@ -864,3 +874,77 @@
     migration that produced the file. Whether the cleaned workspace stays
     a reproduction record, whose receipt is then retaken, or becomes a
     plain example is the design decision and is asked in GOAL-011.
+
+!!! requirement "NFR-29 The documentation reference covers every public name and every command-line option <span class='srs-pending'>pending</span>"
+    *Origin: item DOC-A of the 0.33.0 scope (GEO-071, section 3.3, and
+    its decisions 10, 11, 13 and 14), from the documentation audit of
+    v0.32.0, which found no Python API reference, 427 of 577 exported
+    names on no page and 30 of 112 command-line options on no page.
+    Pending: nothing of it is built. It reverses the position of v0.3.0,
+    when mkdocstrings was evaluated and declined and the site was to gain
+    no Python API reference; NFR-19 is reworded to match. Evidence owed:
+    the tier-1 tests of R2, R3 and R5, the docs build in strict mode,
+    and the licence card of R7.*
+
+    The documentation site is organized by kind of page and its
+    reference is generated from the code, so that every public name and
+    every command-line option is documented where a reader looks for it.
+
+    - R1 The site navigation is grouped by the four Diataxis quadrants,
+      Tutorials, How-to guides, Reference and Explanation, each page in
+      one of them, and this SRS sits under a fifth group, Project, of the
+      same site.
+    - R2 A Python API reference is generated from the docstrings and
+      carries every name in the `__all__` of every public subpackage; the
+      tiers of a name (documented, advanced) only order the page. A
+      tier-1 test proves both set differences empty: no name of an
+      `__all__` is missing from the reference, and no name on the
+      reference is outside every `__all__`.
+    - R3 A command-line reference is generated from the argument parsers
+      and carries every console tool, every subcommand and every option;
+      a tier-1 test proves the same two differences empty.
+    - R4 The home page offers two routes: the workspace driven by
+      `pyfs-matrix`, and the Python API.
+    - R5 A tutorial of the Python API is executed by the documentation
+      tests.
+    - R6 The catalog of exceptions is generated from the exception
+      classes.
+    - R7 `mkdocstrings[python]` joins the documentation dependencies with
+      a licence card in the form of RPT-009.
+    - R8 A name nobody should use leaves `__all__` rather than being
+      hidden on the page.
+    - R9 The LaTeX guides are linked from the navigation, not absorbed
+      into it.
+
+    Pages this changes besides the new ones: the navigation block of
+    `properdocs.yml` and its comment, which records the grouping by task
+    of 0.32.0 as the rule; the Diataxis row of the
+    [standards alignment](standards.md); the sentence of the
+    [architecture chapter](architecture-srs.md) that says which pages are
+    generated; and the revision history of this SRS.
+
+!!! requirement "NFR-30 Every exported function documents its parameters, result and failures in numpydoc form <span class='srs-pending'>pending</span>"
+    *Origin: item DOC-B of the 0.33.0 scope (GEO-071, section 3.3), from
+    the same audit, which found 64 percent of docstrings describing their
+    parameters and result and 15 percent also carrying Raises and
+    Examples, and the unsteady reductions explained on three pages that
+    contradict one another. Pending: nothing of it is built. Evidence
+    owed: the ruff configuration and its clean run, a tier-1 test over
+    the exported functions for R2, and the documentation tests for R3.*
+
+    The docstring of every exported function says what it takes, what
+    it returns and how it fails, in the numpydoc form, and its examples
+    run.
+
+    - R1 Ruff's rule D417 is selected and reports nothing on the exported
+      functions.
+    - R2 Every exported function has numpydoc `Parameters` and `Returns`
+      sections, and a `Raises` section where it raises; a physical
+      quantity in `Parameters` states its unit (NFR-01a).
+    - R3 Each documented entry point carries an `Examples` section whose
+      examples run as tests; the list of documented entry points is the
+      reference's documented tier of NFR-29.
+    - R4 The reductions of the unsteady run are defined on one page, the
+      definitions page `docs/post-processing-definitions.md`, and every
+      other page that mentions them links to it and restates no
+      definition.
