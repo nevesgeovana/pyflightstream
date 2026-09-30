@@ -256,6 +256,18 @@ def test_p0320_ccs1_a_loft_refuses_the_file_unit(tmp_path):
         _built(case)
 
 
+def test_p0320_ccs1_a_loft_refuses_the_unit_that_names_no_length(tmp_path):
+    """P0320-CCS1-WING: OTHER names no length, refused on a loft as on a raw mesh import.
+
+    ``CAD_CREATE_IMPORT_CURVE_CCS`` lists OTHER among its units, and a curve
+    read in it would be scaled by whatever the solver assumes, which is the
+    assumed unit the ``[import]`` table exists to rule out.
+    """
+    case = _row_case(tmp_path, "wing", 'kind = "wing"\ncomponent = 1\n', ["WING"], units="OTHER")
+    with pytest.raises(CampaignConfigError, match="OTHER"):
+        _built(case)
+
+
 @pytest.mark.parametrize(
     ("ccs", "key"),
     [

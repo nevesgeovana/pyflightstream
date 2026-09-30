@@ -78,6 +78,12 @@ _PAGE = "docs/ccs-geometry.md"
 #: The unit word of the ``[import]`` table that says the file states its own.
 _FILE_UNIT = "FILE"
 
+#: The unit ``CAD_CREATE_IMPORT_CURVE_CCS`` lists that names no length: curves
+#: read in it would be scaled by whatever the solver assumes, which is the
+#: assumed unit the ``[import]`` table exists to rule out. A raw mesh import
+#: refuses it for the same reason.
+_UNIT_THAT_NAMES_NO_LENGTH = "OTHER"
+
 #: The frame a CCS file's coordinates and a body of revolution's axis are read
 #: in: the reference frame, index 1, since the route runs before any frame exists.
 REFERENCE_FRAME = 1
@@ -128,7 +134,8 @@ def loft_component(case: SimCase, kind: str) -> tuple[CcsImportOptions, str, int
     ------
     CampaignConfigError
         A table of another kind; the ``FILE`` unit, which is the file
-        route's; a component the file does not hold; a sidecar naming no
+        route's; the ``OTHER`` unit, which names no length; a component the
+        file does not hold; a sidecar naming no
         boundary, or more than the loft and its control surfaces make; a
         boundary name carrying whitespace.
     """
@@ -146,6 +153,13 @@ def loft_component(case: SimCase, kind: str) -> tuple[CcsImportOptions, str, int
             f'states, and units = "{_FILE_UNIT}" is the file route\'s (kind = "file", '
             "whose file states its own Units line). Write the unit the file's coordinates "
             'are in, such as units = "METER".'
+        )
+    if case.mesh_import.units == _UNIT_THAT_NAMES_NO_LENGTH:
+        raise CampaignConfigError(
+            f"case {case.sim_id!r}: the {kind} loft reads its curves in the unit [import] "
+            f'states, and units = "{_UNIT_THAT_NAMES_NO_LENGTH}" names no length, so the '
+            "solver would choose the scale. Write the unit the file's coordinates are in, "
+            'such as units = "METER".'
         )
     component = spec.component
     assert component is not None  # the table refuses a loft without one

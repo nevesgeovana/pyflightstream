@@ -33,7 +33,8 @@
       `[import.ccs]` table; a table beside a file that is not a CCS file; a
       component the file does not hold; a sidecar naming no boundary or more
       than the loft and its control surfaces make; a boundary name carrying
-      whitespace; `units = "FILE"`; mesh operations or `[import.cad]` beside
+      whitespace; `units = "FILE"`, and `units = "OTHER"`, which names no
+      length; mesh operations or `[import.cad]` beside
       the table; the raw-mesh tables `[trailing_edges]`, `[wake_termination]`
       and `[base_regions]`; a setup loading a saved solver initialization.
     - Refused when the row is planned: a table naming no component, and a key

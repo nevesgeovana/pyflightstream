@@ -135,7 +135,8 @@ Each refusal names the row and what to write instead:
 - a loft whose component the file does not hold, whose sidecar names no
   boundary or more than the loft and its control surfaces make, or whose
   boundary name carries a space;
-- `units = "FILE"` on a loft, and any other unit on the file route;
+- `units = "FILE"` on a loft, and `units = "OTHER"`, which names no length;
+  any unit but `FILE` on the file route;
 - boundaries on the file route that are not the file's components in order;
 - mesh operations or an `[import.cad]` table beside `[import.ccs]`;
 - the raw-mesh tables `[trailing_edges]`, `[wake_termination]` and
