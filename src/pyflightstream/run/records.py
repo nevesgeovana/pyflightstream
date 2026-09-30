@@ -99,6 +99,7 @@ from pyflightstream.workspace import (
     WorkspaceError,
     find_matrix,
 )
+from pyflightstream.workspace._matrix_homes import every_matrix, matrix_path
 from pyflightstream.workspace.flight_condition import (
     canonical_condition_defaults,
     resolve_flight_condition,
@@ -1006,30 +1007,17 @@ def _changes(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
     return changes
 
 
-def _matrices(base: Path, matrix: str | Path | None, notes: list[str]) -> list[Path]:
+def _matrices(base: Path, matrix: str | Path | None) -> list[Path]:
     """Return the matrices to rebuild from: the named revision, or every one there is.
 
-    A workspace keeps a matrix at its root or in ``inputs/matrices/``. One
-    stem in both homes is read once when the two files hold the same bytes,
-    and left out with a note naming both when they differ, since which one
-    ran cannot be told from here.
+    Both through the workspace's one lookup of a matrix (FR-310): a named
+    matrix is found in either home, and the sweep reads one file per stem. A
+    stem in both homes with different bytes is refused, naming both, before
+    any work; until 0.32.0 the sweep left it out with a note instead.
     """
     if matrix is not None:
-        return [Path(matrix).resolve()]
-    by_stem: dict[str, list[Path]] = {}
-    for folder in (base, base / "inputs" / "matrices"):
-        for path in sorted(folder.glob("*.fs")) if folder.is_dir() else []:
-            by_stem.setdefault(path.stem, []).append(path.resolve())
-    chosen = []
-    for stem, paths in sorted(by_stem.items()):
-        if len(paths) > 1 and len({path.read_bytes() for path in paths}) > 1:
-            notes.append(
-                f"the matrix {stem} is at {paths[0]} and at {paths[1]} with different content; "
-                "it is left out: pass the one that ran as matrix (CLI: --matrix FILE)"
-            )
-            continue
-        chosen.append(paths[0])
-    return chosen
+        return [matrix_path(base, matrix).resolve()]
+    return [path.resolve() for path in every_matrix(base)]
 
 
 def _reactivate(matrix: Path, sims: set[str]) -> list[str]:
@@ -2104,7 +2092,7 @@ def _rebuild_all(
     from pyflightstream.cases.matrix import read_matrix
 
     notes = out.notes
-    matrices = _matrices(base, matrix, notes)
+    matrices = _matrices(base, matrix)
     by_pol: dict[str, Path] = {}
     for path in matrices:
         try:

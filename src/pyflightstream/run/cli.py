@@ -107,6 +107,7 @@ from pyflightstream.workspace import (
     post_diagnostics,
     selected_sims,
 )
+from pyflightstream.workspace._matrix_homes import resolve_matrix_arguments
 from pyflightstream.workspace.matrix import renumber_repeated_pols
 from pyflightstream.workspace.naming import (
     MATRIX_POINT_NAME,
@@ -893,7 +894,8 @@ def main(argv: list[str] | None = None) -> int:
         header=args.subcommand == "plan",
         hold=args.subcommand != "plan",
     ):
-        if (refused := _refuse_runs_manifest(args)) is not None:
+        # FR-310: every matrix argument over the two homes, before any command reads it.
+        if (refused := _refuse_runs_manifest(args) or resolve_matrix_arguments(args)) is not None:
             return refused
         if args.subcommand in _RECORDS_COMMANDS:
             return _cmd_records(args)

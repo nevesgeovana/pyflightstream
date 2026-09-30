@@ -47,8 +47,10 @@ refused; custom formulas retain their original XML and cached values. Sweeps
 remain in one cell. Python does not calculate formulas.
 
 Matrices may live at the workspace root or in inputs/matrices. Existing files
-keep their location; new files use inputs/matrices. A duplicate filename across
-both locations is ambiguous. These two folders, and only these, are the workspace's
+keep their location; new files use inputs/matrices. A filename in both
+locations is read once when the two files hold the same bytes and refused,
+naming both, when they differ; writing to it is refused either way, since
+writing one copy would leave the other stale (FR-310). These two folders, and only these, are the workspace's
 matrices: `sync`, storage and the repeated-POL check of `pyfs-matrix plan` all read
 the same list. A matrix planned from any other folder plans with a warning that
 sync and that check do not see it. Recognized historical schemas retain their own

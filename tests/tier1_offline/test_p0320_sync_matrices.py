@@ -657,23 +657,20 @@ def test_p0320_merge_b1_b2_restore_reaches_the_real_rebuild_and_keeps_its_refusa
 
 def test_p0320_merge_b1_b2_rebuild_and_the_two_homes_agree_on_the_path(tmp_path):
     # P0320-MATRICES-HOME and B1's rebuild: an identical pair is read once,
-    # from the root, by both; a differing pair names both paths in both, the
-    # workspace lookup by refusing and the rebuild by leaving that stem out
-    # with a note while the other stems are still rebuilt (FR-224 lists sync,
-    # the census and the post as the commands that refuse).
+    # from the root, by both; a differing pair names both paths in both. FR-310
+    # changed this expectation: the rebuild uses the workspace's one lookup and
+    # REFUSES the differing pair, naming both, where until 0.32.0 it left that
+    # stem out with a note.
+    requirement = "FR-310"
     root = tmp_path / "ws"
     _write(root / "m.fs", "same")
     _write(root / "inputs" / "matrices" / "m.fs", "same")
     _write(root / "inputs" / "matrices" / "n.fs", "only here")
-    notes: list[str] = []
-    chosen = run_records._matrices(root, None, notes)
+    chosen = run_records._matrices(root, None)
     assert chosen == [path.resolve() for path in matrix_by_stem(root).values()]
-    assert notes == []
     _write(root / "inputs" / "matrices" / "m.fs", "different")
     with pytest.raises(WorkspaceError):
         matrix_by_stem(root)
-    chosen = run_records._matrices(root, None, notes)
-    assert chosen == [(root / "inputs" / "matrices" / "n.fs").resolve()]
-    (note,) = notes
-    assert str((root / "m.fs").resolve()) in note
-    assert str((root / "inputs" / "matrices" / "m.fs").resolve()) in note
+    with pytest.raises(WorkspaceError) as refused:
+        run_records._matrices(root, None)
+    assert "m.fs" in str(refused.value) and "matrices" in str(refused.value), requirement
