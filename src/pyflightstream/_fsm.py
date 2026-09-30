@@ -628,11 +628,20 @@ _EDGE_SLOT_ROWS = {2: (0, 1), 3: (1, 2), 4: (2, 0)}
 #: A token of a T/F row.
 _FLAGS = frozenset({"T", "F"})
 
-#: The mesh a block holds: vertices, 0-based triangles, and the T/F rows.
+#: Which of the per-face rows before the T/F rows names the face's boundary
+#: (0-based among them, 0.32.0). Measured on every saved simulation of the
+#: tier-3 library: the seventh row holds each face's 1-based boundary
+#: number (1032 faces of ``Body`` and 24 of ``Base`` in the two-boundary
+#: body, three and four boundaries in the pusher and the twin).
+_BOUNDARY_ROW = 6
+
+#: The mesh a block holds: vertices, 0-based triangles, the T/F rows and the
+#: 1-based boundary number of each face (empty when the block has no such row).
 _Block = tuple[
     tuple[tuple[float, float, float], ...],
     tuple[tuple[int, int, int], ...],
     tuple[tuple[bool, ...], ...],
+    tuple[int, ...],
 ]
 
 
@@ -733,10 +742,20 @@ def _mesh_block(path: str | Path) -> _Block:
             raise block.refuse(f"a vertex-index row holds a non-integer ({error})") from error
         # The 0/1 rows run until the first T/F row; their number is not
         # used, and each is held to the face count like every per-face row.
+        preliminary: list[list[str]] = []
         while True:
             tokens = block.sized("per-face flag row", faces, "faces")
             if set(tokens) <= _FLAGS:
                 break
+            preliminary.append(tokens)
+        owners: tuple[int, ...] = ()
+        if len(preliminary) > _BOUNDARY_ROW:
+            try:
+                owners = tuple(int(value) for value in preliminary[_BOUNDARY_ROW])
+            except ValueError:
+                owners = ()
+            if any(not 1 <= owner <= boundaries for owner in owners):
+                owners = ()
         flags = [tuple(token == "T" for token in tokens)]
         while True:
             line = block.row("line after the T/F rows")
@@ -768,7 +787,7 @@ def _mesh_block(path: str | Path) -> _Block:
         raise block.refuse(f"a face names a vertex outside the {points} the block states")
     vertices = tuple(zip(axes[0], axes[1], axes[2], strict=True))
     triangles = tuple(zip(slots[0], slots[1], slots[2], strict=True))
-    return vertices, triangles, tuple(flags)
+    return vertices, triangles, tuple(flags), owners
 
 
 def surface_mesh(
@@ -798,7 +817,7 @@ def surface_mesh(
         triangle, a T/F row count other than five, or a row whose length
         is not the count the block states.
     """
-    vertices, triangles, _ = _mesh_block(path)
+    vertices, triangles, _, _ = _mesh_block(path)
     return vertices, triangles
 
 
@@ -837,7 +856,7 @@ def trailing_edge_midpoints(path: str | Path) -> tuple[tuple[float, float, float
     boundaries, so the result is every boundary's trailing edge together.
     Only triangular meshes have been read.
     """
-    vertices, triangles, flags = _mesh_block(path)
+    vertices, triangles, flags, _ = _mesh_block(path)
     found: set[tuple[float, float, float]] = set()
     for row, (first, second) in _EDGE_SLOT_ROWS.items():
         for face, flagged in enumerate(flags[row - 1]):
@@ -846,3 +865,44 @@ def trailing_edge_midpoints(path: str | Path) -> tuple[tuple[float, float, float
                 b = vertices[triangles[face][second]]
                 found.add(((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2))
     return tuple(sorted(found))
+
+
+def boundary_vertices(
+    path: str | Path,
+) -> dict[str, tuple[tuple[float, float, float], ...]] | None:
+    """Return each boundary's vertices of a saved simulation, by the boundary's name (0.32.0).
+
+    A boundary's vertices are those of the faces the block's boundary row
+    assigns to it, each once, in the order the block stores them. A name
+    carried by more than one boundary is left out, as
+    :func:`boundary_labels` leaves it out of the inventory.
+
+    Parameters
+    ----------
+    path : str or Path
+        A saved simulation file.
+
+    Returns
+    -------
+    dict of str to tuple of (x, y, z) or None
+        The vertices in stored internal coordinates
+        (:func:`saved_mesh_coordinate_unit` says their unit). None when the
+        block carries no boundary row, so no face can be told to a boundary.
+
+    Raises
+    ------
+    MeshReadError
+        As :func:`surface_mesh`.
+    """
+    vertices, triangles, _, owners = _mesh_block(path)
+    names = boundary_names(path) or ()
+    if not owners or len(owners) != len(triangles) or not names:
+        return None
+    labels, _ = boundary_labels(names)
+    used: dict[int, set[int]] = {}
+    for face, owner in zip(triangles, owners, strict=True):
+        used.setdefault(owner, set()).update(face)
+    return {
+        name: tuple(vertices[index] for index in sorted(used.get(position, ())))
+        for name, position in labels.items()
+    }

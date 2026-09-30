@@ -186,7 +186,6 @@ def test_the_acoustic_signals_contract():
 #: The placeholder modules: (module, the one stub, the arguments to call it with).
 PLACEHOLDERS = [
     ("pyflightstream.post.qsteady_noise", "write_qsteady_noise_report", (".",)),
-    ("pyflightstream.post.disc_maps", "write_disc_map", ("P1_sections.csv",)),
 ]
 
 

@@ -61,10 +61,12 @@ __all__ = [
     "HarmonicFit",
     "HarmonicRotor",
     "StationHarmonics",
+    "blade_of",
     "distinct_azimuths",
     "fit_harmonics",
     "last_complete_revolution",
     "load_quantities",
+    "sample_blocks",
     "station_harmonics",
     "write_harmonics_table",
 ]
@@ -302,7 +304,8 @@ def load_quantities(columns: Sequence[str]) -> list[str]:
     ]
 
 
-def _blade_of(families: Sequence[str], rotor: HarmonicRotor) -> int | None:
+def blade_of(families: Sequence[str], rotor: HarmonicRotor) -> int | None:
+    """Return the blade of ``rotor`` (from 1) whose families include every one given, or None."""
     if not families:
         return None
     for number, members in enumerate(rotor.blades, start=1):
@@ -311,7 +314,9 @@ def _blade_of(families: Sequence[str], rotor: HarmonicRotor) -> int | None:
     return None
 
 
-def _blocks(rows: Sequence[Mapping[str, str]], sample_column: str) -> list[list[Mapping[str, str]]]:
+def sample_blocks(
+    rows: Sequence[Mapping[str, str]], sample_column: str
+) -> list[list[Mapping[str, str]]]:
     """Split the table into its blocks: consecutive rows of one sample and one distribution."""
     blocks: list[list[Mapping[str, str]]] = []
     key: tuple[str, str, str, str] | None = None
@@ -355,14 +360,14 @@ def station_harmonics(
     result = StationHarmonics()
     quantities = load_quantities(columns)
     samples: dict[str, list[tuple[float, list[Mapping[str, str]]]]] = {}
-    for block in _blocks(rows, sample_column):
+    for block in sample_blocks(rows, sample_column):
         first = block[0]
         rotor = rotors.get(first.get("ROTOR", ""))
         if rotor is None:
             continue
         family = first.get("FAMILY", "")
         families = [] if family in ("", NOT_APPLICABLE) else family.split("+")
-        blade = _blade_of(families, rotor)
+        blade = blade_of(families, rotor)
         stated = _number(first.get("AZIMUTH"))
         if blade is None or stated is None:
             continue
