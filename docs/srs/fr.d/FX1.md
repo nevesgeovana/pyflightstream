@@ -11,7 +11,7 @@
     nothing.
 
     Solution, release 0.32.0: `_acoustic_products` in `pyflightstream.post.products`
-    reads the record's outputs and the suffix of `pyflightstream.post.acoustics`.
+    reads the record's outputs and the suffix `pyflightstream.cases.acoustics.ACOUSTIC_SIGNALS_SUFFIX`.
 
 !!! requirement "FR-291 The storage record is archived before each write <span class='srs-implemented'>implemented</span>"
 
