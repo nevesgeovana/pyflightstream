@@ -32,7 +32,8 @@
     *Origin: item 2.2 of the 0.32.0 scope (GEO-066). Evidence:
     `tests/tier1_offline/test_p0320_console.py`,
     `test_warnings_are_held_and_printed_together_at_the_end`,
-    `test_a_refused_command_still_prints_its_held_warnings_at_the_end` and
+    `test_a_refused_command_still_prints_its_held_warnings_at_the_end`,
+    `test_an_interrupted_command_still_prints_its_held_warnings_at_the_end` and
     `test_a_python_caller_recording_warnings_still_receives_them`.*
 
     Need: a warning that arrives in the middle of a command's output is read
@@ -62,6 +63,7 @@
     `test_a_stage_with_nothing_to_do_prints_nothing_and_a_python_caller_sees_nothing`,
     `test_a_stage_that_raises_says_where_it_stopped_and_lets_the_error_through`,
     `test_tracked_counts_each_item_after_its_body_even_on_continue`,
+    `test_a_tracked_loop_whose_body_raises_says_where_it_stopped_not_done`,
     `test_a_terminal_redraws_one_line_with_a_bar_and_ends_it`,
     `test_free_space_and_delete_sims_show_their_stages` and
     `test_collect_and_post_show_their_stages`.*
@@ -93,8 +95,10 @@
     *Origin: item 2.2 of the 0.32.0 scope (GEO-066). Evidence:
     `tests/tier1_offline/test_p0320_console.py`,
     `test_a_long_command_writes_its_live_log_while_it_runs` (the log is read
-    from inside the running command) and
-    `test_only_the_long_commands_keep_a_live_log_and_only_in_a_workspace`.*
+    from inside the running command),
+    `test_only_the_long_commands_keep_a_live_log_and_only_in_a_workspace`,
+    `test_a_second_live_log_of_the_same_second_gets_its_own_name` and
+    `test_a_live_log_that_cannot_be_written_is_named_and_the_command_runs_on`.*
 
     Need: a command whose console is lost (a closed window, a cluster job)
     leaves what it said on disk as it said it, not only the record written at
@@ -144,8 +148,9 @@
 
     *Origin: ARCH2-B1 of the 0.31.0 review, registered for 0.32.0.
     Evidence: `tests/tier1_offline/test_p0320_console.py`,
-    `test_a_returned_failure_of_a_verbose_only_stage_shows_on_a_terse_console`
-    and `test_a_verbose_only_stage_that_finishes_stays_off_a_terse_console`;
+    `test_a_returned_failure_of_a_verbose_only_stage_shows_on_a_terse_console`,
+    `test_a_verbose_only_stage_that_finishes_stays_off_a_terse_console` and
+    `test_a_caller_that_asked_quiet_keeps_it_for_a_returned_failure`;
     the first fails on the 0.31.0 condition.*
 
     Need: `workspace_activity(verbose_only=True)` keeps a stage that runs

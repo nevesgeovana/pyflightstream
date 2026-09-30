@@ -254,6 +254,29 @@ def test_a_refused_command_still_prints_its_held_warnings_at_the_end(tmp_path, m
     assert text.index("Warnings (1)") < text.index("said before the refusal"), text
 
 
+def test_an_interrupted_command_still_prints_its_held_warnings_at_the_end(tmp_path, monkeypatch):
+    # P0320-CONSOLE-WARNINGS-LAST: an interruption (Ctrl+C) loses no warning either.
+    monkeypatch.chdir(tmp_path)
+
+    def interrupted(args):
+        warnings.warn("said before the interruption", PyflightstreamWarning, stacklevel=1)
+        print("body line")
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(matrix_cli, "_cmd_storage", interrupted)
+    monkeypatch.setattr(warnings, "showwarning", _shown_on_stderr)
+    stream = io.StringIO()
+    with (
+        contextlib.redirect_stdout(stream),
+        contextlib.redirect_stderr(stream),
+        pytest.raises(KeyboardInterrupt),
+    ):
+        matrix_cli.main(["space-in-use"])
+    text = stream.getvalue()
+    assert text.index("body line") < text.index("Warnings (1)"), text
+    assert text.index("Warnings (1)") < text.index("said before the interruption"), text
+
+
 def test_a_python_caller_recording_warnings_still_receives_them(tmp_path, monkeypatch):
     # P0320-CONSOLE-WARNINGS-LAST: held, then warned again, never swallowed.
     monkeypatch.chdir(tmp_path)
@@ -438,6 +461,55 @@ def test_only_the_long_commands_keep_a_live_log_and_only_in_a_workspace(tmp_path
     }
 
 
+def test_a_second_live_log_of_the_same_second_gets_its_own_name(tmp_path, monkeypatch):
+    # P0320-PROGRESS-LIVE-LOG: a name already taken gains -2; no log is overwritten.
+    workspace = _workspace(tmp_path)
+    fixed = _progress.datetime(2026, 9, 30, 12, 0, 0, tzinfo=_progress.UTC)
+
+    class _Frozen(_progress.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed
+
+    monkeypatch.setattr(_progress, "datetime", _Frozen)
+    for said in ("LINE-ONE", "LINE-TWO"):
+        with (
+            command_terminal(verbose=False),
+            _progress.command_console(
+                "pyfs-matrix", "collect", what="x", workspace=workspace.root, live_log=True
+            ),
+        ):
+            print(said, file=sys.stderr)
+    logs = workspace.root / "logs"
+    first = logs / "collect-20260930T120000Z.log"
+    second = logs / "collect-20260930T120000Z-2.log"
+    assert "LINE-ONE" in first.read_text(encoding="utf-8")
+    assert "LINE-TWO" in second.read_text(encoding="utf-8")
+    assert "LINE-TWO" not in first.read_text(encoding="utf-8")
+
+
+def test_a_live_log_that_cannot_be_written_is_named_and_the_command_runs_on(tmp_path, capsys):
+    # P0320-PROGRESS-LIVE-LOG: `logs` is a file here, so no log can be opened.
+    workspace = _workspace(tmp_path)
+    logs = workspace.root / "logs"
+    if logs.is_dir():
+        for child in logs.iterdir():
+            child.unlink()
+        logs.rmdir()
+    logs.write_text("not a folder", encoding="utf-8")
+    ran = []
+    with (
+        command_terminal(verbose=False),
+        _progress.command_console(
+            "pyfs-matrix", "collect", what="x", workspace=workspace.root, live_log=True
+        ),
+    ):
+        ran.append(True)
+    err = capsys.readouterr().err
+    assert ran == [True]
+    assert re.search(r"^  live log: not written \(.+\)$", err, re.MULTILINE), err
+
+
 # --------------------------------------------------------------------------- FR-204
 
 
@@ -508,6 +580,21 @@ def test_a_returned_failure_of_a_verbose_only_stage_shows_on_a_terse_console(tmp
     err = capsys.readouterr().err
     assert "[hidden] failed" in err, err
     assert "[hidden] started" not in err, err
+
+
+@workspace_activity("hidden", verbose_only=True)
+def _hidden_quiet_stage(workspace, *, result, quiet=False):
+    return result
+
+
+def test_a_caller_that_asked_quiet_keeps_it_for_a_returned_failure(tmp_path, capsys):
+    # P0320-ARCH2-B1: the lifted failure line never overrides the caller's own quiet.
+    with command_terminal(verbose=False):
+        _hidden_quiet_stage(tmp_path, result=_Returned(), quiet=True)
+    assert "[hidden]" not in capsys.readouterr().err
+    with command_terminal(verbose=False):
+        _hidden_quiet_stage(tmp_path, result=_Returned(), quiet=False)
+    assert "[hidden] failed" in capsys.readouterr().err
 
 
 def test_a_verbose_only_stage_that_finishes_stays_off_a_terse_console(tmp_path, capsys):
