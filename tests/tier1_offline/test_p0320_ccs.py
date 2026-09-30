@@ -302,6 +302,19 @@ def test_p0320_ccs1_ccs_options_beside_a_raw_mesh_are_refused(tmp_path):
         _open_geometry(case, Script(BUILD))
 
 
+def test_p0320_ccs1_an_unopenable_suffix_is_told_of_the_ccs_route(tmp_path):
+    """P0320-CCS1-WING: the refusal of a suffix no workflow reads names the CCS files too."""
+    from pyflightstream.cases.workflows import _open_geometry
+    from tests.tier1_offline.test_workflows import steady_case
+
+    shape = tmp_path / "wing.txt"
+    shape.write_text("Component;WING\n", encoding="utf-8")
+    case = steady_case().model_copy(update={"geometry": str(shape), "mesh_import": None})
+    with pytest.raises(CampaignConfigError) as refusal:
+        _open_geometry(case, Script(BUILD))
+    assert ".ccs" in str(refusal.value) and "ccs-geometry" in str(refusal.value)
+
+
 def test_p0320_ccs1_a_ccs_file_without_its_table_is_refused(tmp_path):
     """P0320-CCS1-WING: a CCS file with no ``[import.ccs]`` names how to write one."""
     workspace = _library(tmp_path, "wing", THREE, 'boundaries = ["WING"]\n')

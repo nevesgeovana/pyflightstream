@@ -4547,10 +4547,11 @@ def _open_geometry(case: SimCase, script: Script) -> None:
     ------
     CampaignConfigError
         If the geometry's suffix is neither :data:`SIMULATION_SUFFIX` nor
-        one of :data:`RAW_MESH_FORMATS`, naming the suffix written and the
-        documented routes; if a saved simulation's sidecar states an
-        ``[import]`` table, which nothing would read; or if a raw mesh is
-        refused by :func:`_import_mesh`.
+        one of :data:`RAW_MESH_FORMATS` or the CCS formats, naming the
+        suffix written and the documented routes; if a saved simulation's
+        sidecar states an ``[import]`` table, which nothing would read; if
+        a raw mesh is refused by :func:`_import_mesh`; or if a CCS file is
+        refused by :func:`pyflightstream.cases.ccs_wing.emit_ccs_geometry`.
     """
     _configuration_comment(case, script)
     if case.geometry is None:
@@ -4590,7 +4591,9 @@ def _open_geometry(case: SimCase, script: Script) -> None:
             f"length units the [import] table of {sidecar} beside it states. Convert "
             "the file to one of those, or open it in the FlightStream window once and "
             f"save a {SIMULATION_SUFFIX}; docs/mesh-inputs.md carries both routes; "
-            f"search that page for '{_MESH_PAGE_ANCHOR}'. The file this resolved to is "
+            f"search that page for '{_MESH_PAGE_ANCHOR}'. A CCS file "
+            f"({' or '.join(sorted(CCS_FORMATS))}) is meshed by the solver's CCS commands "
+            "(docs/ccs-geometry.md). The file this resolved to is "
             f"{case.geometry!r}."
         )
     elif case.mesh_import is not None:
