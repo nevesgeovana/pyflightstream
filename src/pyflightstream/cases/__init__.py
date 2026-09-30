@@ -2341,12 +2341,12 @@ class PerRevolutionSpec(BaseModel):
     """The ``[per_revolution]`` table: how far one revolution may differ from the last.
 
     ``drift_limit_pct`` is the per-revolution product's declared threshold, in
-    per cent. The product ``probes/<point>_per_revolution_<ALIAS>.csv`` states,
-    from the second revolution on, the drift of the mean of every plotted column
-    relative to the previous revolution. When the drift of the LAST revolution
-    of any force or moment column exceeds this limit, the post writes a WARNING
-    line in ``post.log`` naming the point, the rotor, the column, the drift and
-    the limit. It never blocks a product: nothing in the post does by default.
+    per cent. The product ``probes/<point>_per_revolution_<ALIAS>.csv`` states the
+    drift of every plotted column's mean from the previous revolution. When the
+    LAST revolution's change of a force or moment column exceeds this limit in per
+    cent of its scale (the largest previous mean of its kind in its group: thrust
+    for an in-plane force, torque for an in-plane moment), ``post.log`` gets a
+    WARNING line; it never blocks a product (FR-180).
 
     Absent, the limit is 1.0 per cent (:data:`DEFAULT_DRIFT_LIMIT_PCT`). The
     table is optional and read again by ``pyfs-matrix post``, so declaring or
@@ -2362,8 +2362,8 @@ class PerRevolutionSpec(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    #: The drift, in per cent of the previous revolution's mean, above which the
-    #: last revolution of a force or moment column is warned about. Positive.
+    #: The change, in per cent of a force or moment column's scale, above which
+    #: its last revolution is warned about. Positive.
     drift_limit_pct: float = Field(default=DEFAULT_DRIFT_LIMIT_PCT, gt=0.0)
 
 

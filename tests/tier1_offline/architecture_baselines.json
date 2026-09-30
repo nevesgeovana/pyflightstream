@@ -6,7 +6,7 @@
   "cases/workflows.py": 9000,
   "post/corrections.py": 1007,
   "post/guides.py": 2729,
-  "post/products.py": 5724,
+  "post/products.py": 5719,
   "qa/specs.py": 1334,
   "results/__init__.py": 1583,
   "run/__init__.py": 4539,
@@ -504,8 +504,8 @@
    "positional": 7
   },
   "post/products.py:_write_the_per_revolution_products": {
-   "complexity": 14,
-   "branches": 13,
+   "complexity": 12,
+   "branches": 11,
    "statements": 47,
    "positional": 4
   },

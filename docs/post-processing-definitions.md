@@ -823,19 +823,40 @@ drift_limit_pct = 1.0
 ```
 
 `drift_limit_pct` is positive (zero and negative values are refused) and
-defaults to 1 per cent where the table or the key is absent. When the drift of
-the LAST revolution of any force or moment column exceeds it in magnitude,
-`post.log` gets a WARNING line naming the point, the rotor, the column, the
-drift and the limit:
+defaults to 1 per cent where the table or the key is absent.
+
+**The warning judges a load against its SCALE, not against itself** (since
+0.33.0). A force or moment column is a plotted column whose parameter (the text
+before the first underscore) is one of `FX`, `FY`, `FZ`, `MX`, `MY`, `MZ` or the
+force coefficients `CL`, `CDI`, `CDO`, `CD`; the text after it is the column's
+group. Its KIND is a force (`FX`, `FY`, `FZ`), a moment (`MX`, `MY`, `MZ`) or a
+force coefficient (`CL`, `CDI`, `CDO`, `CD`), and the columns of one kind and
+one group are the components of one load of one body in one frame. The SCALE of
+a column at the last revolution `n` is the largest magnitude among the means at
+revolution `n - 1` of the columns of its kind and group, so an in-plane force is
+judged against the thrust and an in-plane moment against the torque. The column
+warns when
+
+    |mean_n - mean_(n-1)| > drift_limit_pct / 100 * scale
+
+For the column that IS the largest of its group this is its drift in the table
+exceeding the limit. A near-zero component (an in-plane force of a rotor in
+uniform inflow) has a large relative drift that is noise and is not warned
+about unless its change is large against the load it is a component of. A group
+whose means at `n - 1` are all zero or not numbers, and a column whose own means
+are not numbers, give no warning.
+
+The WARNING line in `post.log` names the point, the rotor, the column, its
+change in per cent of the scale, the scale and the column that sets it, the
+change itself and the limit:
 
 ```
-WARNING point=<point> product=probes/<point>_per_revolution_<ALIAS>.csv: rotor '<ALIAS>' column FX_MRP_TOTAL drifts +4.7619 per cent between revolution 2 and revolution 3, over the drift limit of 1 per cent ([per_revolution] drift_limit_pct): the last revolution is still moving
+WARNING point=<point> product=probes/<point>_per_revolution_<ALIAS>.csv: rotor '<ALIAS>' column FX_MRP_TOTAL drifts +4.7619 per cent of its scale 10.5 (the magnitude of FX_MRP_TOTAL, the largest force mean of its group in the earlier revolution; a change of +0.5) between revolution 2 and revolution 3, over the drift limit of 1 per cent ([per_revolution] drift_limit_pct): the last revolution is still moving
 ```
 
-A force or moment column is a plotted column whose parameter (the text before
-the first underscore) is one of `FX`, `FY`, `FZ`, `MX`, `MY`, `MZ` or the force
-coefficients `CL`, `CDI`, `CDO`, `CD`. A probe or any other plotted column has a
-drift and no warning. **The warning never blocks**: the table is written whether
+The `<column>_DRIFT_PCT` columns of the table keep the relative drift defined
+above; only the warning reads the scale. A probe or any other plotted column has
+a drift and no warning. **The warning never blocks**: the table is written whether
 or not the limit is exceeded, as nothing in the post blocks by default. Only a
 history with at least two complete revolutions can drift. The table is read again
 by `pyfs-matrix post`, so declaring or editing the limit needs no new run.

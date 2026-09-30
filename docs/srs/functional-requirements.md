@@ -7215,11 +7215,24 @@ Requirements written after the specification was last reconciled with the packag
     mean is zero). A trailing partial revolution is excluded and said.
 
     - The pproc may declare `[per_revolution] drift_limit_pct` (positive,
-      default 1); when the last revolution's drift of a force or moment column
-      exceeds it, `post.log` carries a WARNING naming the point, rotor, column,
-      drift and limit, and nothing is blocked.
+      default 1); when the last revolution's change of a force or moment column
+      exceeds it against the column's scale (below), `post.log` carries a
+      WARNING naming the point, rotor, column, the change in percent of the
+      scale, the scale, the column that sets it and the limit, and nothing is
+      blocked.
+    - (0.33.0) The scale of a force or moment column `<parameter>_<group>` is
+      the largest magnitude among the previous revolution's means of the
+      columns of the same kind (forces `FX FY FZ`, moments `MX MY MZ`, force
+      coefficients `CL CDI CDO CD`) and the same group; the column warns when
+      `|mean_n - mean_(n-1)| > drift_limit_pct / 100 * scale`. An in-plane
+      force is judged against the thrust and an in-plane moment against the
+      torque, and the column that is the largest of its group warns exactly
+      when its relative drift exceeds the limit. The `_DRIFT_PCT` columns keep
+      the relative drift.
 
-    **Solution (0.31.0).** Defined in `docs/post-processing-definitions.md`.
+    **Solution (0.31.0).** Defined in `docs/post-processing-definitions.md`;
+    the scale rule of 0.33.0 is
+    `pyflightstream.post.unsteady.revolution_drift_warnings`.
     **Trace.** The test above.
 
 !!! requirement "FR-181 A rotor point writes a per-station harmonic product <span class='srs-implemented'>implemented</span>"
