@@ -128,6 +128,9 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "fs_exe"): SOLVER,
     ("pyfs-matrix", "in_place"): SWITCH,
     ("pyfs-matrix", "overwrite"): SWITCH,
+    # 0.33.0 (FR-308): `inventory --clean` rewrites THIS geometry once; a
+    # default would rewrite every geometry a machine ever inventories.
+    ("pyfs-matrix", "clean"): SWITCH,
     # GOAL-019 item 5, her instruction of 2026-09-12. Both SWITCHES, and
     # both on `post` alone: a rebuild archives what is there, this is the
     # escape that destroys it instead, and `--yes` answers the question it
@@ -402,6 +405,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "name"): frozenset({"convert", "inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "output"): frozenset({"convert"}),
     ("pyfs-matrix", "overwrite"): frozenset({"inventory", "sync"}),
+    ("pyfs-matrix", "clean"): frozenset({"inventory"}),
     ("pyfs-matrix", "force_overwrite"): frozenset({"post"}),
     ("pyfs-matrix", "yes"): frozenset({"post"}),
     ("pyfs-matrix", "watch"): frozenset({"collect"}),

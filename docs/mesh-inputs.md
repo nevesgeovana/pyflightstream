@@ -843,6 +843,32 @@ distribution's selection over them. The sidecar is what lets a name resolve
 for a file whose mesh block a reader cannot open, and it is otherwise a
 statement the run verifies rather than trusts.
 
+### Actions saved in the geometry (since 0.33.0)
+
+A saved simulation keeps the unsteady solver actions it was saved with. When
+the script creates an action with the name of a saved one, the saved one
+stays and the solver runs ITS command, so a geometry saved on a workstation
+after an unsteady run carries that workstation's walltime clock, interpreter
+path included, and every unsteady run of it on a cluster aborts when the
+clock fires. `pyfs-matrix inventory` names each saved action, on every call,
+with the command that removes them:
+
+```text
+pyfs-matrix inventory inputs/geometries/30_WB/30_WB.fsm --clean
+```
+
+`--clean` sets the action count to 0 and removes the action records; no
+other byte changes. The file as it was is copied to
+`30_WB.fsm.bak-<stamp>` beside it first, and it is put back, with the call
+refused, if the boundary names read after the change differ from those read
+before. An existing sidecar is kept, since the boundaries it lists did not
+change, unless `--overwrite` is given too. To clean every geometry of a
+workspace kept one per folder:
+
+```text
+for d in inputs/geometries/*/; do n=$(basename "$d"); f="$d$n.fsm"; [ -f "$f" ] && pyfs-matrix inventory "$f" --clean; done
+```
+
 ## Mesh format policy
 
 The library's mesh seam is deliberately narrow: OBJ in and out. READING a

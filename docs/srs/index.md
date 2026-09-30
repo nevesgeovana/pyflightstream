@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.49.0 |
+| Version | 1.50.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -41,7 +41,7 @@ or ambiguous.
    rules, with the generated [architecture overview](../architecture.md)
    as the live companion.
 6. [Functional requirements](functional-requirements.md): FR-01 to
-   FR-307, each with origin, status, and evidence.
+   FR-308, each with origin, status, and evidence.
 7. [Non-functional requirements](nonfunctional-requirements.md):
    NFR-01 to NFR-28.
 8. [Standards alignment](standards.md): the external practices this
@@ -98,6 +98,7 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.50.0 | 2026-09-30 | **THE FUNCTIONAL RANGE READS FR-01 TO FR-308**: FR-308 (`pyfs-matrix inventory` names the unsteady solver actions saved in a geometry, and `--clean` removes them keeping a copy) joins the functional chapter for 0.33.0. |
 | 1.49.0 | 2026-09-30 | **THE FUNCTIONAL RANGE READS FR-01 TO FR-307**: FR-307 (`pyfs-matrix post --sims` rebuilds only the named simulations' products in place, leaving the cross-simulation products named under `partial.not_rebuilt`, and `pyfs-matrix collect --sims` sweeps only the named simulations' SUBMITTED records) joins the functional chapter for 0.33.0. |
 | 1.48.0 | 2026-09-30 | **THE FUNCTIONAL RANGE READS FR-01 TO FR-306**: FR-306 (`pyfs-matrix delete-sims --force` deletes a simulation whatever the status of its records, SUBMITTED included) joins the functional chapter for 0.33.0. |
 | 1.47.0 | 2026-09-30 | **THE FUNCTIONAL RANGE READS FR-01 TO FR-305**: FR-305 (`pyfs-matrix free-space --list` prints every path each recipe step touches, with its size and what happens to it) joins the functional chapter for 0.33.0. |

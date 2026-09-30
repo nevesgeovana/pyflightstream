@@ -72,10 +72,12 @@ __all__ = [
     "boundary_names",
     "resolve_family",
     "saved_actuators",
+    "saved_solver_actions",
     "saved_length_unit",
     "saved_mesh_coordinate_unit",
     "surface_mesh",
     "trailing_edge_midpoints",
+    "without_saved_solver_actions",
 ]
 
 #: Opens the mesh section of a saved simulation. It is SEARCHED for and
@@ -411,6 +413,88 @@ def saved_actuators(path: str | Path) -> tuple[str, ...] | None:
         names.append(name)
     physics.count("count after the actuators")
     return tuple(names)
+
+
+#: The last line of one saved unsteady solver action: the length of its
+#: command line, its type (1 COMMAND_LINE, 0 SCRIPT) and a flag.
+_ACTION_TAIL = re.compile(r"^\s*(\d+)\s*,\s*([01])\s*,\s*[TF]\s*$")
+
+#: One saved unsteady solver action: its name, its command or script file,
+#: and its type.
+SavedAction = tuple[str, str, str]
+
+
+def _saved_actions_in(lines: Sequence[str], where: str) -> tuple[int, tuple[SavedAction, ...]]:
+    """Return the index of the action count in a SOLVER block and the actions after it.
+
+    THE SOLVER BLOCK ENDS WITH THE UNSTEADY SOLVER ACTIONS THE SIMULATION
+    WAS SAVED WITH, walked backwards from its last line: a count, then
+    per action three lines, its name, its command or script file padded
+    with spaces, and :data:`_ACTION_TAIL`, whose first number is the
+    length of the command without its padding. Measured on 2026-09-30:
+    the ten tier-3 geometries end the block with the count ``0``, and a
+    26.1 save that carried a walltime clock and a stop script ends it
+    with ``2`` and two such records. A count that disagrees with the
+    records read is refused rather than guessed at.
+    """
+    entries: list[SavedAction] = []
+    index = len(lines) - 1
+    while index >= 2:
+        tail = _ACTION_TAIL.match(lines[index])
+        command = lines[index - 1].rstrip()
+        if tail is None or int(tail.group(1)) != len(command):
+            break
+        kind = "COMMAND_LINE" if tail.group(2) == "1" else "SCRIPT"
+        entries.append((lines[index - 2].strip(), command, kind))
+        index -= 3
+    count = lines[index].strip() if index >= 0 else ""
+    if not _NUMERIC.match(count) or int(count) != len(entries):
+        raise MeshReadError(
+            f"{where}: the unsteady solver actions at the end of its SOLVER block do not "
+            f"hold their shape (count {count!r} before {len(entries)} action record(s))"
+        )
+    entries.reverse()
+    return index, tuple(entries)
+
+
+def saved_solver_actions(path: str | Path) -> tuple[SavedAction, ...] | None:
+    """Return the unsteady solver actions a saved simulation carries (FR-308).
+
+    An action saved in the geometry keeps its name when a script creates
+    one of the same name, and the solver runs the SAVED command: a
+    geometry saved on a workstation with the walltime clock of an earlier
+    run carries that workstation's interpreter path, and every unsteady
+    run of it on a cluster aborts when the clock fires. None when the file
+    has no SOLVER block; ``()`` when it carries no action.
+    """
+    lines = _block(path, "SOLVER")
+    if lines is None:
+        return None
+    return _saved_actions_in(lines, Path(path).name)[1]
+
+
+def without_saved_solver_actions(text: str, where: str) -> tuple[str, tuple[SavedAction, ...]]:
+    """Return ``text`` with its saved unsteady solver actions removed, and the actions.
+
+    The count becomes ``0`` and the action records go; no other line
+    changes, and the line ending of the file is kept. ``text`` is the
+    whole saved simulation decoded byte for byte (latin-1), so encoding it
+    back returns every other byte unchanged.
+    """
+    eol = "\r\n" if "\r\n" in text else "\n"
+    lines = text.split(eol)
+    try:
+        start = next(i for i, line in enumerate(lines) if line.strip() == "$SOLVER_START$")
+        end = next(i for i in range(start, len(lines)) if lines[i].strip() == "$SOLVER_END$")
+    except StopIteration:
+        raise MeshReadError(f"{where}: carries no closed SOLVER block") from None
+    offset, actions = _saved_actions_in(lines[start + 1 : end], where)
+    if not actions:
+        return text, actions
+    count_line = start + 1 + offset
+    head = lines[count_line]
+    kept = head[: len(head) - len(head.lstrip())] + "0"
+    return eol.join([*lines[:count_line], kept, *lines[end:]]), actions
 
 
 def boundary_names(path: str | Path) -> tuple[str, ...] | None:

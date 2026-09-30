@@ -2322,6 +2322,86 @@ def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
     return sidecar
 
 
+@dataclass(frozen=True)
+class CleanedGeometry:
+    """What :func:`clean_saved_actions` removed from a saved simulation.
+
+    Attributes
+    ----------
+    actions : tuple of (str, str, str)
+        Each removed action's name, command or script file, and type.
+    backup : Path or None
+        The copy of the file as it was, None when nothing was removed.
+    """
+
+    actions: tuple[tuple[str, str, str], ...]
+    backup: Path | None
+
+
+def clean_saved_actions(geometry: str | Path, *, stamp: str) -> CleanedGeometry:
+    """Remove the unsteady solver actions saved in a geometry (FR-308).
+
+    A saved action keeps its name when the script creates one of the same
+    name, so the solver runs the saved command instead of the script's
+    (:func:`pyflightstream._fsm.saved_solver_actions`). The action count
+    becomes 0 and the records go; every other byte is kept. The file as it
+    was is copied to ``<name>.bak-<stamp>`` beside it first, the new text
+    replaces it through a temporary file, and its boundary names are read
+    before and after: when they differ, the copy is put back and the call
+    refused.
+
+    Parameters
+    ----------
+    geometry : str or Path
+        A saved simulation.
+    stamp : str
+        The suffix of the backup's name, the caller's timestamp.
+
+    Returns
+    -------
+    CleanedGeometry
+        The actions removed and the backup, or no action and no backup
+        when the file carried none, in which case it is not written.
+
+    Raises
+    ------
+    InputArtifactError
+        A file that cannot be read, that has no closed SOLVER block, whose
+        actions do not hold their shape, or whose boundary names changed.
+    """
+    import os
+    import shutil
+
+    from pyflightstream._fsm import without_saved_solver_actions
+
+    path = Path(geometry)
+    try:
+        text = path.read_bytes().decode("latin-1")
+        cleaned, actions = without_saved_solver_actions(text, path.name)
+        before = boundary_names(path)
+    except (OSError, MeshReadError) as error:
+        raise InputArtifactError(f"{path.name}: {error}") from error
+    if not actions:
+        return CleanedGeometry(actions=(), backup=None)
+    backup = path.with_name(f"{path.name}.bak-{stamp}")
+    shutil.copy2(path, backup)
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    temporary.write_bytes(cleaned.encode("latin-1"))
+    os.replace(temporary, path)
+    after: object
+    try:
+        after = boundary_names(path)
+    except MeshReadError as error:
+        after = f"unreadable: {error}"
+    if after != before:
+        shutil.copy2(backup, path)
+        raise InputArtifactError(
+            f"{path.name}: its boundary names read {after} after removing the saved actions "
+            f"and {before} before, so the file was put back from {backup.name}."
+        )
+    return CleanedGeometry(actions=actions, backup=backup)
+
+
 # --- an OBJ's surface names, read from its groups (G30, RPT-078) ---------------------
 
 #: The raw-mesh suffix whose surface names are read from the file itself. An

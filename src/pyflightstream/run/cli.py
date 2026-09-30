@@ -365,6 +365,15 @@ def _build_parser() -> argparse.ArgumentParser:
             "existing one is refused"
         ),
     )
+    inventory.add_argument(
+        "--clean",
+        action="store_true",
+        help=(
+            "remove the unsteady solver actions saved in the simulation, which inventory "
+            "otherwise names as a warning, keeping a copy <file>.bak-<stamp> beside it; an "
+            "existing sidecar is then kept unless --overwrite (FR-308)"
+        ),
+    )
 
     _add_storage_parsers(subparsers)
     _add_records_parsers(subparsers)
@@ -1980,9 +1989,62 @@ def _report_skips(workspace: CampaignWorkspace, matrices: list[str | None]) -> i
 
 
 def _cmd_inventory(args: argparse.Namespace) -> int:
-    """Write the boundary inventory sidecar of one saved simulation."""
-    from pyflightstream.workspace.inputs import write_inventory
+    """Write the boundary inventory sidecar of one saved simulation.
 
+    A saved simulation that carries unsteady solver actions is named on
+    standard error with each action and the ``--clean`` command, on every
+    call (FR-308); ``--clean`` removes them first, and then an existing
+    sidecar is kept, since the boundaries it lists did not change.
+    """
+    from datetime import UTC, datetime
+
+    from pyflightstream._fsm import MeshReadError, saved_solver_actions
+    from pyflightstream.workspace.inputs import (
+        OBJ_SUFFIX,
+        clean_saved_actions,
+        inventory_sidecar,
+        write_inventory,
+    )
+
+    geometry = Path(args.geometry)
+    saved = geometry.is_file() and geometry.suffix.lower() != OBJ_SUFFIX
+    if saved and args.clean:
+        stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+        try:
+            cleaned = clean_saved_actions(geometry, stamp=stamp)
+        except (OSError, PyflightstreamError) as error:
+            print(str(error), file=sys.stderr)
+            return 2
+        for name, command, kind in cleaned.actions:
+            print(f"removed saved action {name} [{kind}] {command}", file=sys.stderr)
+        if cleaned.backup is not None:
+            print(f"the file as it was is {cleaned.backup.name}", file=sys.stderr)
+        else:
+            print(f"{geometry.name} carries no saved unsteady solver action", file=sys.stderr)
+        if inventory_sidecar(geometry).exists() and not args.overwrite:
+            print(inventory_sidecar(geometry))
+            return 0
+    elif saved:
+        try:
+            actions = saved_solver_actions(geometry)
+        except MeshReadError as error:
+            print(f"warning: {error}", file=sys.stderr)
+            actions = None
+        if actions:
+            print(
+                f"warning: {geometry.name} carries {len(actions)} unsteady solver action(s) "
+                "saved in the file:",
+                file=sys.stderr,
+            )
+            for name, command, kind in actions:
+                print(f"  {name} [{kind}] {command}", file=sys.stderr)
+            print(
+                "  A saved action keeps its name when the script creates one of the same "
+                "name, and the solver runs the saved command (an interpreter path of "
+                "another machine aborts the unsteady run when it fires). Remove them "
+                f"with: pyfs-matrix inventory {args.geometry} --clean",
+                file=sys.stderr,
+            )
     try:
         sidecar = write_inventory(args.geometry, overwrite=args.overwrite)
     except (OSError, PyflightstreamError) as error:
