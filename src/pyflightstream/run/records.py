@@ -386,7 +386,8 @@ def restore(
     RecordsError
         An unknown kind; no archived copy (naming where it was looked for); a
         stamp no copy carries (naming the stamps that exist); archives for
-        several matrices and none named; an archived copy that is not
+        several matrices and none named; a ``matrix`` that is not a bare
+        folder name under ``post/``; an archived copy that is not
         readable JSON, or a manifest copy that is not a list of records; an
         applying restore of any kind while ``runs.json.lock`` is held (a run,
         a collect or a sync writing in the workspace), or while the restored
@@ -407,6 +408,13 @@ def restore(
         stem = None
     else:
         name = _MATRIX_KINDS[kind]
+        if matrix is not None and (
+            not matrix or matrix in (".", "..") or Path(matrix).name != matrix
+        ):
+            raise RecordsError(
+                f"restore {kind}: {matrix!r} is not a matrix stem: name the folder under "
+                f"{base / 'post'} (CLI: --matrix STEM), with no path in it; nothing was changed"
+            )
         stems = (
             [matrix]
             if matrix is not None

@@ -736,3 +736,14 @@ def test_restore_of_a_named_stamp_takes_the_copy_of_that_exact_name(tmp_path):
     assert plain["source"] == "archive/runs-20260929-120000.json", plain["source"]
     labelled = records.restore(tmp_path, "runs", stamp="20260929-120000-before-doctor")
     assert labelled["source"] == "archive/runs-20260929-120000-before-doctor.json"
+
+
+def test_restore_refuses_a_matrix_stem_that_leaves_post(tmp_path):
+    """P0320-RESTORE-ARCHIVE: --matrix is a folder name under post/, never a path out of it."""
+    outside = tmp_path / "elsewhere"
+    _write(outside / "archive" / "20260929-120000" / "products.json", "{}")
+    workspace = tmp_path / "ws"
+    (workspace / "post").mkdir(parents=True)
+    with pytest.raises(records.RecordsError, match="matrix stem"):
+        records.restore(workspace, "products", matrix="../../elsewhere", apply=True)
+    assert not (outside / "products.json").exists(), "the restore wrote outside the workspace"
