@@ -42,6 +42,11 @@ them was inferred from an implementation.
 - [What the package does NOT judge](#what-the-package-does-not-judge)
 - [The token for a value that does not exist](#the-token-for-a-value-that-does-not-exist)
 - [Quasi-steady wheel corrections](#quasi-steady-wheel-corrections)
+- [The installed-frame copy of a product table](#the-installed-frame-copy-of-a-product-table)
+- [The inflow tools' products](#the-inflow-tools-products)
+- [The quasi-steady rotor](#the-quasi-steady-rotor)
+- [The acoustic signals product](#the-acoustic-signals-product)
+- [The post of other records](#the-post-of-other-records-since-0320)
 
 ---
 
@@ -2015,7 +2020,7 @@ A workspace opts in per `[[probes]]` entry with `frame = "REFERENCE"`, `field_fo
 
 ## The installed-frame copy of a product table
 
-`pyflightstream.post.inflow_tools.to_installed_frame(table)` (since 0.32.0) writes `<table>_installed.csv` beside a product table stated in the ISOLATED frame, the same numbers in the INSTALLED frame, which is the isolated one mirrored through `y = 0`. It never overwrites; the isolated table is the record and this is a second table beside it. Applying it to its own output returns the input. A rotor table may open with one alias line that holds no comma; it is kept as it stands.
+`pyflightstream.post.inflow_tools.to_installed_frame(table)` (since 0.32.0) writes `<table>_installed.csv` beside a product table stated in the ISOLATED frame, the same numbers in the INSTALLED frame, which is the isolated one mirrored through `y = 0`. It never overwrites; the isolated table is the record and this is a second table beside it, unless `out=` names another place for it, and `flip=` names further columns to negate. Applying it to its own output returns the input. A rotor table may open with one alias line that holds no comma; it is kept as it stands.
 
 Blade and family names do not change. Blade `k` of the image wheel, at `+(k - 1) 60` degrees on a six-blade wheel, is blade `k` of the installed wheel, at `-(k - 1) 60`, so a table keeps its row order and its names. The mirror changes sign or maps a column as this table says (a column name is matched case-insensitively at its start, then `_`, a digit or the end of the name; the code reads the same list, `FLIPPED_COLUMNS` and `AZIMUTH_COLUMNS`, and a test holds the two equal):
 
@@ -2372,9 +2377,13 @@ overall pressure and calls PL the loading part and PT the thickness part, which 
 the customary split and not a vendor statement. The unit of the position is not in
 the file and is read as metres.
 
+`<n>` is the observer's place in the export, from 01, and `<observer>` its name
+made safe for a file name.
+
 - **Pressure against time**, `<point>_<n>_<observer>_pressure.csv`: `TIME_S`,
   `PRESSURE_PA`, the `PO` column.
-- **Spectrum**, `<point>_<n>_<observer>_spectrum.csv`: the one-sided amplitude
+- **Spectrum**, `<point>_<n>_<observer>_spectrum.csv`, with the columns
+  `FREQUENCY_HZ`, `AMPLITUDE_PA` and `LEVEL_DB`: the one-sided amplitude
   spectrum of `PO` over the observer time, the real FFT of the samples as they are
   (no window, mean kept). For `N` samples at the constant step `dt`, the sampling
   rate is `1/dt` and the bin width `1/(N dt)`; bin 0 is `|X0|/N` (the mean), a
@@ -2384,10 +2393,14 @@ the file and is read as metres.
   step that is not constant (relative spread above 1e-3) gives no spectrum.
 - **OASPL**, `OASPL_DB` of `<point>_acoustics_summary.csv`:
   `20 log10(p_rms / 20e-6 Pa)`, `p_rms` the root mean square of `PO` about its
-  mean over the whole record; `NA` for a silent record. The summary also states
-  the position, the samples, the first and last time, the sampling rate and the
-  bin width.
-- **Blade-passage harmonics**, `<point>_acoustics_bpf.csv`: for each rotor of the
+  mean over the whole record; `NA` for a silent record. The summary has one row
+  per observer, with the columns `OBSERVER`, `X_M`, `Y_M`, `Z_M` (the position),
+  `SAMPLES`, `TIME_START_S`, `TIME_END_S`, `SAMPLE_RATE_HZ`, `BIN_HZ` (the bin
+  width of the spectrum) and `OASPL_DB`; the sampling rate and the bin width are
+  `NA` where the step is not constant.
+- **Blade-passage harmonics**, `<point>_acoustics_bpf.csv`, with the columns
+  `ROTOR`, `OBSERVER`, `HARMONIC`, `FREQUENCY_HZ`, `BIN_HZ`, `AMPLITUDE_PA` and
+  `LEVEL_DB`, one row per observer, rotor and harmonic: for each rotor of the
   record with its blade count `B` and speed `rpm`, harmonic `n` (1 to 4) is at
   `n B |rpm| / 60` hertz (the sign of the speed only states the sense of rotation), read at the nearest bin of the observer's spectrum, with
   the bin frequency, the amplitude and the level. `NA` when the record states no
@@ -2397,8 +2410,21 @@ the file and is read as metres.
   least four observers are coplanar and lie on one circle (each within 1e-3 of the
   radius): per observer the angle about the circle's centre, measured from the
   first observer and increasing toward the second, in `[0, 360)` degrees, the
-  radius and the OASPL. Fewer than four observers, or any off the circle, is not
+  radius and the OASPL, as the columns `OBSERVER`, `ANGLE_DEG`, `RADIUS_M` and
+  `OASPL_DB`. Fewer than four observers, or any off the circle, is not
   an arc and writes no file.
+
+**The manifest and the skips.** `products.json` registers each of these files
+with `kind` `acoustics`, `source` `acoustic_signals` and `observers`, the number
+of observers of the export. The export is the file the record lists under
+`acoustic_signals`; a record that lists none asks for no acoustics, and nothing
+is said. An export the post cannot read is named under `acoustics` in the
+post's skips and warned in `post.log`, and the other products are written.
+
+**The section is not a table.** The VTK files of an `ACOUSTIC_SECTION`, in
+`<point>_acoustic_section/`, are the solver's own and are recorded and hashed
+as outputs of the point ([acoustic signals](acoustic-emission.md#what-the-run-writes));
+the post reads none of them, and no table is derived from them.
 
 ## The post of other records (since 0.32.0)
 

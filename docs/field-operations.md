@@ -6,7 +6,7 @@ by its stem, and the run writes it as `SET_FREESTREAM CUSTOM` (see
 file holds is often built out of other fields: a survey plane sampled by one
 run, mirrored or moved to where another body sits, averaged over the steps of
 an unsteady run, or corrected by a second survey. `pyfs-workspace field` does
-these four operations and writes the result where a row can name it.
+these operations and writes the result where a row can name it.
 
 ## The file forms
 
@@ -28,7 +28,7 @@ as the files state them. Nothing is converted, rotated or interpolated. The
 row's `FREESTREAM_UNITS` states the units of the result as it states those of
 any file of the folder.
 
-## The four operations
+## The operations
 
 | command | result |
 |---|---|
@@ -36,6 +36,8 @@ any file of the folder.
 | `field move FIELD --source-point X Y Z --target-point X Y Z` | every position `p` becomes `(p - source) + target`, so the source point lands exactly on the target; the velocities are unchanged |
 | `field subtract TOTAL OTHER --reference VX VY VZ` | `TOTAL - (OTHER - reference)`, point by point |
 | `field time-mean FILES... [--last K]` | the mean of per-step fields of one unsteady run |
+| `field time-mean FILES... --fluctuation` | the same, and the per-probe fluctuation report beside the mean |
+| `field fill-interior FIELD [--r-body M]` | the probes inside the body take the value of the probe outside it on the same azimuth ray |
 
 **mirror** keeps the row order, so a STRUCTURED grid keeps its header and its
 neighbours.
@@ -60,6 +62,23 @@ works in a console that expands none. The steps must be equally spaced (the
 mean of samples at unequal intervals is not the time mean over their span) and
 every step must hold the same points in the same order. `--last K` keeps the
 last K steps given.
+
+**time-mean --fluctuation** (since 0.32.0) also writes
+`<stem>.fluctuation.csv` beside the mean: for each probe, the population
+standard deviation of each velocity component over the steps averaged, and its
+magnitude. It needs at least two steps; a steady field has no fluctuation and is
+refused. `--fluctuation-only --last K` writes that report alone and no field, and
+refuses to run without `--last`, since a run whose steps are not chosen has no
+fluctuation to report. `--vinf M_S` states, in the summary printed, the largest
+and the root-mean-square fluctuation as a percentage of that free-stream speed.
+The columns and the arithmetic are defined in
+[the inflow tools' products](post-processing-definitions.md#the-inflow-tools-products).
+
+**fill-interior** (since 0.32.0) gives every probe with a distance `r` from the
+x axis below `--r-body` (0.38 m by default) the velocity of the probe at `r` at or
+above it, of smallest radius, on the same azimuth ray. It changes no position and
+says how many probes it replaced; a probe with no partner on its ray is refused,
+and nothing is guessed. It previews and applies as the other operations do.
 
 ## Preview, apply, overwrite
 

@@ -43,6 +43,7 @@ from pyflightstream.cases import (
     case_at_point,
     point_name,
 )
+from pyflightstream.cases._ccs import CcsImportOptions
 from pyflightstream.cases.matrix import read_matrix
 from pyflightstream.cases.workflows import SIMULATION_LENGTH_UNIT, build_script
 from pyflightstream.run.cli import main as pyfs_matrix
@@ -317,6 +318,14 @@ def _reader_key_paths() -> set[tuple[str, ...]]:
     tables = sidecar_reader.RAW_MESH_CONDITION_TABLES
     paths = {(BOUNDARIES,), (imports,), *((name,) for name in tables)}
     paths |= {(imports, key) for key in MeshImport.model_fields}
+    # 0.32.0 (P0320-I2): [import.ccs] is a model of its own. Its REQUIRED keys are what a
+    # sidecar block must state to be accepted, so they are the page's; the optional ones
+    # belong to docs/ccs-geometry.md, which holds every key of each kind.
+    paths |= {
+        (imports, "ccs", key)
+        for key, field in CcsImportOptions.model_fields.items()
+        if field.is_required()
+    }
     paths |= {(imports, OPERATIONS, key) for key in MeshOperation.model_fields}
     paths |= {(trailing, key) for key in sidecar_reader._TRAILING_EDGE_KEYS}
     paths |= {(trailing, DETECT, key) for key in sidecar_reader._DETECT_KEYS}
