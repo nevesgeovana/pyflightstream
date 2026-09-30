@@ -131,7 +131,8 @@ from pyflightstream.workspace import (
     PprocArtifact,
     ReferenceArtifact,
     SetupArtifact,
-    matrix_files,
+    WorkspaceError,
+    matrix_by_stem,
     wake_edges,
 )
 from pyflightstream.workspace.flight_condition import (
@@ -1827,20 +1828,16 @@ def _pol_claims(
     # so a stem held in both is ONE matrix, read once, when the bytes are the
     # same, and refused, naming both, when they are not. It was read twice and
     # every POL of it refused as stated by two matrices.
+    # The rule itself has one home, `matrix_by_stem`; this census only asks it.
+    try:
+        one_per_stem = matrix_by_stem(root)
+    except WorkspaceError as two_homes:
+        raise MatrixError(str(two_homes)) from two_homes
     homes = {(root / folder).resolve() for folder in MATRIX_FOLDERS}
-    first_of: dict[str, Path] = {matrix.stem: matrix} if matrix.parent in homes else {}
-    for sibling in matrix_files(root):
-        if sibling.resolve() == matrix:
+    in_a_home = matrix.parent in homes
+    for stem, sibling in one_per_stem.items():
+        if sibling.resolve() == matrix or (in_a_home and stem == matrix.stem):
             continue
-        first = first_of.setdefault(sibling.stem, sibling.resolve())
-        if first != sibling.resolve():
-            if first.read_bytes() == sibling.read_bytes():
-                continue
-            raise MatrixError(
-                f"the matrix {sibling.stem} is in both homes of this workspace with different "
-                f"content: {first} and {sibling}. Which one is meant cannot be told; keep one, "
-                "or make the two identical."
-            )
         try:
             siblings[sibling] = read_matrix(sibling, active_only=False)
         except MatrixError as error:

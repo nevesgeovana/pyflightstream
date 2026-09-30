@@ -419,6 +419,19 @@ def test_p0320_matrices_home_the_census_refuses_a_differing_copy_naming_both(tmp
     assert str(other) in str(refused.value)
 
 
+def test_p0320_matrices_home_the_census_refuses_in_the_words_of_the_one_rule(tmp_path):
+    # P0320-MATRICES-HOME and P0320-RST-1: one fact, one home. The census
+    # refuses a differing pair through `matrix_by_stem`, not a second copy of it.
+    workspace = _library(tmp_path)
+    planned = _matrix(workspace.root, "a.fs", [row(8104)])
+    _matrix(workspace.inputs_dir / "matrices", "a.fs", [row(8104), row(8105)])
+    with pytest.raises(WorkspaceError) as rule:
+        matrix_by_stem(workspace.root)
+    with pytest.raises(MatrixError) as refused:
+        _plan_recording(workspace, planned)
+    assert str(rule.value) in str(refused.value)
+
+
 def _post_warnings(workspace) -> list[str]:
     from tests.tier1_offline.test_post_superfile import _post
 
