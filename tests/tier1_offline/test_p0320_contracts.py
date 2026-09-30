@@ -248,7 +248,7 @@ def test_rebuild_refuses_a_build_alias_without_its_equals_sign(tmp_path, capsys)
         (["sync", "runs"], "not a pyfs-matrix workspace"),
     ],
 )
-def test_runs_resolves_its_name_and_refuses_another_manifest_until_filled(
+def test_runs_name_is_checked_by_resolve_manifest_then_reaches_the_command(
     tmp_path, capsys, command, words
 ):
     base = [*command, "--workspace", str(tmp_path)]
@@ -260,5 +260,7 @@ def test_runs_resolves_its_name_and_refuses_another_manifest_until_filled(
     # refused by its name (test_p0320_b3_post_records.py reads one that is).
     assert cli.main([*base, "--runs", "runs-rebuilt.json"]) == 2
     err = capsys.readouterr().err
-    assert NOT_YET not in err
+    # A valid name passes resolve_manifest (no name refusal) and is refused,
+    # if at all, by the command that reads it.
+    assert "not a file name" not in err
     assert words in err

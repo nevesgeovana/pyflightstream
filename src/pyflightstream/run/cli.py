@@ -67,7 +67,6 @@ from pyflightstream._console import (
     wrap,
 )
 from pyflightstream._errors import (
-    ContractNotImplementedError,
     PyflightstreamError,
     PyflightstreamWarning,
 )
@@ -1290,10 +1289,6 @@ _RECORDS_COMMANDS = ("restore", "rebuild")
 #: The commands that take ``--runs NAME``, the manifest they read (0.32.0).
 _RUNS_COMMANDS = ("post", "collect", "free-space", "delete-sims", "sync")
 
-#: The commands whose ``--runs NAME`` reads another manifest: post and collect
-#: (B3), sync, free-space and delete-sims (B2); any other refuses it.
-_RUNS_READERS = ("post", "collect", "sync", "free-space", "delete-sims")
-
 
 def _add_records_parsers(subparsers: Any) -> None:
     """Register ``restore`` and ``rebuild``, the 0.32.0 records commands."""
@@ -1385,24 +1380,18 @@ def _cmd_records(args: argparse.Namespace) -> int:
 
 
 def _refuse_runs_manifest(args: argparse.Namespace) -> int | None:
-    """Resolve ``--runs NAME`` into ``args.runs_manifest``; an exit code when refused.
+    """Validate ``--runs NAME``; an exit code when its name is refused.
 
-    The 0.32.0 hook: the name is resolved by
-    :func:`pyflightstream.run.records.resolve_manifest`. Reading a manifest
-    other than runs.json is the work of the packages that fill it, so until
-    then such a name is refused rather than read as runs.json in silence.
+    The name is checked by :func:`pyflightstream.run.records.resolve_manifest`
+    (a file name directly in the workspace root, ending in ``.json``). Every
+    command that takes the flag reads the manifest it names, so a valid name
+    is passed on and the command resolves it again where it reads.
     """
     name = getattr(args, "runs", None)
     if name is None:
         return None
     try:
-        args.runs_manifest = run_records.resolve_manifest(args.workspace, name)
-        default = run_records.resolve_manifest(args.workspace)
-        if args.runs_manifest != default and args.subcommand not in _RUNS_READERS:
-            raise ContractNotImplementedError(
-                f"--runs {name}: reading a manifest other than runs.json is "
-                "not implemented yet (0.32.0 contract)"
-            )
+        run_records.resolve_manifest(args.workspace, name)
     except PyflightstreamError as error:
         print(str(error), file=sys.stderr)
         return 2
