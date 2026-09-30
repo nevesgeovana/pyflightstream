@@ -118,7 +118,9 @@ Where the rebuilt records go:
   run ids it does not hold, after copying it to `archive/runs-<stamp>.json`,
   or writes `runs.json` when there is none.
 - `--out NAME` writes them to that file in the workspace root and never
-  touches `runs.json`. A name that is `runs.json`, or a file that exists, is
+  touches `runs.json`: the file holds the rows of `runs.json`, each rebuilt
+  record in the place of the row with its run id, and the other rebuilt
+  records after them. A name that is `runs.json`, or a file that exists, is
   refused before any work.
 - `--all-sims` rebuilds every simulation folder on disk, recorded or not, to
   compare with `runs.json`, and requires `--out`.

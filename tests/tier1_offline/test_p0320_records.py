@@ -658,3 +658,20 @@ def test_the_archive_spellings_are_the_workspaces(tmp_path):
     entry = records.restore(workspace.root, "runs", apply=True)
     assert entry["source"] == f"{ARCHIVE_DIR}/{kept.name}"
     assert json.loads(workspace.manifest_path.read_text(encoding="utf-8"))[0]["sim_id"] == "1"
+
+
+# ------------------------------------------------------------------ review of B1
+
+
+def test_rebuild_out_holds_the_rebuilt_record_of_a_named_recorded_sim(tmp_path, monkeypatch):
+    """P0320-REBUILD-OUT: --out with --sims writes the REBUILT record, never the original again."""
+    workspace, _matrix_path, original = _local_campaign(tmp_path, monkeypatch)
+    sha = _sha(workspace.manifest_path)
+    done = records.rebuild(workspace.root, sims=["5001"], out="runs-5001.json", apply=True)
+    assert [row["sim"] for row in done["rebuilt"]] == ["5001"]
+    (written,) = json.loads((workspace.root / "runs-5001.json").read_text(encoding="utf-8"))
+    assert written["run_id"] == original["run_id"]
+    assert any(line.startswith(records.REBUILT) for line in written["warnings"]), (
+        "the file --out names holds the original record, not the rebuilt one"
+    )
+    assert _sha(workspace.manifest_path) == sha

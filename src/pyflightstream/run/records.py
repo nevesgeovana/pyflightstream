@@ -1639,7 +1639,10 @@ def rebuild(
         The manifest file the rebuilt records go to, a name
         :func:`resolve_manifest` accepts, never ``runs.json`` and never a file
         that exists: both refused before any work. With it ``runs.json`` is
-        never touched. Without it, applying appends the rebuilt records whose
+        never touched: the file holds the rows of ``runs.json`` with each
+        rebuilt record in the place of the row of its run id, and the other
+        rebuilt records after them (with ``all_sims``, the rebuilt records
+        only). Without it, applying appends the rebuilt records whose
         run ids ``runs.json`` does not hold, after archiving ``runs.json`` to
         ``archive/runs-<stamp>.json``, or writes ``runs.json`` when there is
         none.
@@ -1809,7 +1812,15 @@ def rebuild(
     ids = {row.get("run_id") for row in live}
     fresh = [row for row in out_come.records if row.get("run_id") not in ids]
     if target is not None:
-        written = list(out_come.records) if all_sims else [*rows, *fresh]
+        # The file out names holds the REBUILT records: a rebuilt run id that
+        # runs.json holds takes that row's place in this copy (runs.json itself
+        # is never written), and the others are appended after the rows.
+        rebuilt = {row.get("run_id"): row for row in out_come.records}
+        written = (
+            list(out_come.records)
+            if all_sims
+            else [rebuilt.get(row.get("run_id"), row) for row in rows] + fresh
+        )
         try:
             with target.open("x", encoding="utf-8") as handle:
                 handle.write(json.dumps(written, indent=2) + "\n")
