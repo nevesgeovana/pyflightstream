@@ -506,7 +506,7 @@ one keeps. The tracked package holds 150 modules, eleven more than 0.31.0;
 none takes a new row of the layered pipeline, and each imports only at or
 below its own row, a sibling of its own subpackage included. The imports
 below were read from each module's import statements, those inside function
-bodies included.
+bodies and those under `TYPE_CHECKING` included.
 
 ### The modules and their rows
 
@@ -520,7 +520,8 @@ bodies included.
   records from the simulation folders and the records a post assembles from
   them. `workspace.storage`, in the same row, reaches it inside two function
   bodies for the sync's rebuild.
-- `cases/acoustics.py`, in the cases row, imports `_errors` and `cases`. It
+- `cases/acoustics.py`, in the cases row, imports `_errors` and `cases`, and
+  `script` for annotations only, under `TYPE_CHECKING`. It
   emits the solver's acoustic toolbox on an unsteady row and states the
   contract of the export the post stage reads (`AcousticSignal`, the file
   suffix), which is why it lives in `cases`: the run and the post both name
@@ -531,7 +532,8 @@ bodies included.
   the fuselage and the revolution import `ccs_wing`, which reaches them only
   inside a function body, so the siblings form no import cycle. They emit
   the commands that have the solver make a mesh of a row's CCS file.
-- `cases/setup_surfaces.py`, in the cases row, imports only `cases`. It
+- `cases/setup_surfaces.py`, in the cases row, imports `cases`, and `script`
+  for annotations only, under `TYPE_CHECKING`. It
   removes the surfaces a setup names and emits the slipstream wake
   stabilization of each rotor motion.
 - `post/acoustics.py`, in the post row, imports `_errors`,
@@ -556,7 +558,8 @@ still import nothing from the pipeline rows.
 Every `pyfs-matrix` and `pyfs-workspace` command opens standard error with a
 titled block (the command, its purpose, its workspace and, for a long
 command, its live log) and prints its warnings together at its end, under
-`Warnings (<count>)`. Standard output and exit codes do not change. The long
+`Warnings (<count>)`; `plan` keeps its own header and its own warnings
+block. Standard output and exit codes do not change. The long
 commands report each stage's progress through one interface,
 `_progress.stage_progress` and its iterator `tracked`: `free-space`,
 `delete-sims`, `collect`, `post` and `sync`. On a terminal the line is
@@ -666,9 +669,11 @@ mean, and a fill of the probes inside a body radius from the nearest probe
 outside on the same azimuth, each previewing until applied and recorded with
 its provenance. A product table stated in the isolated frame may be written
 again in the installed frame, the mirror through y = 0, by one column
-classification stated on the post-processing definitions page. The plan's
-inflow harmonics gain the variance share of harmonics 1 to 8 and a map over
-the advance ratio, read through the same reading of the field the plan uses.
+classification stated on the post-processing definitions page. The
+blade-view harmonics of a custom inflow gain the variance share of harmonics
+1 to 8 and a map over the advance ratio, read through the same reading of the
+field the plan uses. The last two are library functions of `post.inflow_tools`:
+no command calls them in this release, so they are reached from Python only.
 
 ### Rigor, requirements and the site
 
