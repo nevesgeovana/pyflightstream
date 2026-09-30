@@ -101,7 +101,12 @@ reads it through the post. All of them ask one lookup:
   bytes;
 - with different bytes it is refused before any work, naming both paths:
   every command stops, except `post`, which warns naming both and falls
-  back to the run records.
+  back to the run records;
+- a bare name found in a home, given from outside the workspace, whose
+  working directory holds a file of that name too (the file 0.32.0 read):
+  the same bytes are one matrix, and different bytes are refused naming
+  both, so a command never reads another file than 0.32.0 did without
+  saying so.
 
 `restore --matrix` names the folder under `post/` by the matrix's stem and
 reads no matrix file. Keep one copy, or make the two identical.

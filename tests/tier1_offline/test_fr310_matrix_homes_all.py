@@ -78,27 +78,42 @@ def _names(said: str, path: Path, root: Path) -> bool:
     return str(path) in said or str(path.relative_to(root)) in said
 
 
-def _matrix_actions() -> set[tuple[str, str]]:
-    """Every (subcommand, destination) of pyfs-matrix whose destination names a matrix."""
-    parser = _build_parser()
+#: Arguments whose destination says matrix and which name no matrix file, and why.
+NOT_A_MATRIX = {
+    ("delete-sims", "matrix_products"): "a choice of what happens to the matrix products",
+}
+
+
+def _matrix_actions(parser: argparse.ArgumentParser) -> set[tuple[str, str]]:
+    """Every (subcommand, destination) of a parser whose destination or option says matrix."""
     sub = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
     found = set()
     for name, subparser in sub.choices.items():
         for action in subparser._actions:
-            if action.dest in ("matrix", "matrices"):
+            spelled = [action.dest, *action.option_strings]
+            if any("matri" in text.lower() for text in spelled):
                 found.add((name, action.dest))
     return found
+
+
+def _unresolved(parser: argparse.ArgumentParser) -> set[tuple[str, str]]:
+    """The matrix arguments of ``parser`` that neither table nor the stated exemptions hold."""
+    known = MATRIX_ARGUMENTS | MATRIX_STEM_ARGUMENTS | set(NOT_A_MATRIX)
+    return _matrix_actions(parser) - known
 
 
 def test_fr310_every_matrix_argument_of_the_parsers_joins_the_one_lookup():
     """Read from the parsers: a matrix argument outside both tables fails here."""
     requirement = "FR-310"
-    found = _matrix_actions()
-    assert found, "the parser read found no matrix argument at all"
-    assert found <= MATRIX_ARGUMENTS | MATRIX_STEM_ARGUMENTS, (requirement, found)
+    parser = _build_parser()
+    assert _matrix_actions(parser), "the parser read found no matrix argument at all"
+    assert _unresolved(parser) == set(), requirement
     assert set(ARGV) == set(MATRIX_ARGUMENTS), requirement
-    # The control: a planted argument is caught by the same reading.
-    assert ("planted", "matrix") not in MATRIX_ARGUMENTS | MATRIX_STEM_ARGUMENTS
+    # The control: an argument planted in the real parser, under a spelling
+    # other than ``matrix``, is caught by the same reading.
+    sub = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
+    sub.choices["collect"].add_argument("--baseline-matrix", dest="baseline")
+    assert _unresolved(parser) == {("collect", "baseline")}, requirement
 
 
 @pytest.mark.parametrize("layout", LAYOUTS)
@@ -232,7 +247,9 @@ def test_fr310_rename_with_the_matrix_in_neither_home_is_refused_the_control(tmp
 def test_fr310_no_other_routine_lists_the_matrices_of_a_workspace():
     """R5: the one listing is ``matrix_files``; no other module globs ``*.fs``."""
     requirement = "FR-310"
-    pattern = re.compile(r"""glob\(\s*f?["']\*\.fs["']\s*\)""")
+    pattern = re.compile(
+        r"""r?glob\(\s*f?["'][^"']*\.fs["']|\.suffix(\.lower\(\))?\s*==\s*["']\.fs["']""", re.I
+    )
     hits = [
         path.relative_to(REPO).as_posix()
         for path in sorted((REPO / "src" / "pyflightstream").rglob("*.py"))
@@ -240,3 +257,97 @@ def test_fr310_no_other_routine_lists_the_matrices_of_a_workspace():
     ]
     # The control is the one home itself, which the same pattern must find.
     assert hits == ["src/pyflightstream/workspace/__init__.py"], (requirement, hits)
+
+
+#: Each command as ``main`` receives it, ``post --additional-pproc`` among them.
+THROUGH_MAIN = [(command, []) for command, _ in sorted(MATRIX_ARGUMENTS) if command != "upgrade"]
+THROUGH_MAIN.append(("post", ["--additional-pproc"]))
+
+#: The commands whose standard error tells a matrix read from a missing one:
+#: the plan names the file it read, the rebuild says "no such file" only when
+#: it found none. The others refuse a matrix this small earlier, for another
+#: reason, and are driven through ``main`` by the refusal above.
+NAMES_WHAT_IT_READ = {"plan", "inspect-setups", "rebuild"}
+
+
+#: A matrix too small to plan, which every command reads or refuses quickly.
+SMALL = b"POL | RUN\n1 | 1\n"
+
+
+def _through_main(command: tuple[str, str], extra: list[str], ws: Path) -> int:
+    where = [] if command in WITHOUT_WORKSPACE else ["--workspace", str(ws)]
+    return main([*ARGV[command], *extra, *where])
+
+
+@pytest.mark.parametrize(
+    ("command", "extra"), THROUGH_MAIN, ids=[" ".join([c, *e]) for c, e in THROUGH_MAIN]
+)
+def test_fr310_main_refuses_a_differing_pair_for_every_command(
+    command, extra, tmp_path, capsys, monkeypatch
+):
+    """Through ``main``: the lookup runs before every command, which never starts.
+
+    Only the lookup names both homes; without it each command would read the
+    bare name from the working directory, find nothing, and say something else.
+    """
+    requirement = "FR-310"
+    monkeypatch.chdir(tmp_path)
+    ws = tmp_path if (command, "matrix") in WITHOUT_WORKSPACE else tmp_path / "ws"
+    placed = _place(ws, "both-different", SMALL)
+    code = _through_main((command, "matrix"), extra, ws)
+    said = capsys.readouterr().err
+    assert code == 2, (requirement, said)
+    assert "matrix not read:" in said, (requirement, said)
+    assert _names(said, placed["root"], ws) and _names(said, placed["inputs"], ws), said
+
+
+@pytest.mark.parametrize("layout", ["inputs", "absent"])
+@pytest.mark.parametrize("command", sorted(NAMES_WHAT_IT_READ))
+def test_fr310_main_hands_the_command_the_file_in_inputs_matrices(
+    command, layout, tmp_path, capsys, monkeypatch
+):
+    """Through ``main``: the command reads ``inputs/matrices/m.fs`` from a bare name.
+
+    The control is the same call with no matrix in either home: the bare name,
+    the 0.32.0 reading, is then read as given and names no file.
+    """
+    requirement = "FR-310"
+    monkeypatch.chdir(tmp_path)
+    ws = tmp_path / "ws"
+    if layout == "inputs":
+        placed = _place(ws, "inputs", SMALL)["inputs"]
+    else:
+        ws.mkdir()
+        placed = ws / "inputs" / "matrices" / NAME
+    _through_main((command, "matrix"), [], ws)
+    said = capsys.readouterr().err
+    missing = "no such file" in said.lower()
+    assert missing is (layout == "absent"), (requirement, layout, said)
+    if command != "rebuild":
+        # The plan's refusal of a matrix this small names the file it read.
+        assert _names(said, placed, ws) is (layout == "inputs"), (requirement, layout, said)
+
+
+@pytest.mark.parametrize("same", [True, False], ids=["equal-bytes", "different-bytes"])
+def test_fr310_a_bare_name_in_a_home_and_in_the_working_directory(same, tmp_path, monkeypatch):
+    """0.32.0 read the working directory's file: a different one is refused, never swapped."""
+    requirement = "FR-310"
+    ws = tmp_path / "ws"
+    placed = _place(ws, "inputs", b"POL | RUN\n1 | 1\n")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    local = elsewhere / NAME
+    local.write_bytes(placed["inputs"].read_bytes() + (b"" if same else b"# local edit\n"))
+    monkeypatch.chdir(elsewhere)
+    args = _build_parser().parse_args(["plan", NAME, "--workspace", str(ws)])
+    if same:
+        assert resolve_matrix_arguments(args) is None, requirement
+        assert Path(args.matrix).read_bytes() == local.read_bytes()
+        return
+    with pytest.raises(WorkspaceError) as caught:
+        from pyflightstream.workspace._matrix_homes import matrix_path
+
+        matrix_path(ws, NAME)
+    said = str(caught.value)
+    assert str(local.resolve()) in said and str(placed["inputs"]) in said, (requirement, said)
+    assert resolve_matrix_arguments(args) == 2, requirement
