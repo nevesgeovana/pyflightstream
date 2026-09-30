@@ -156,6 +156,31 @@ def test_p0320_noise_observers_imported_from_the_point_s_copy_of_a_file(tmp_path
     assert lines.index("ACOUSTIC_OBSERVERS_IMPORT") < _first(lines, "INITIALIZE_SOLVER")
 
 
+def test_p0320_noise_observers_a_file_on_a_simulation_not_in_metres_is_refused(tmp_path):
+    """P0320-NOISE-OBSERVERS: the solver reads the file's coordinates in the
+    simulation's own unit and the package does not rewrite the file, so on a
+    simulation not in metres the file is refused before its import is emitted or its
+    copy parked, while named points on the same simulation are converted."""
+    source = tmp_path / "ring.csv"
+    source.write_text(OBSERVER_FILE, encoding="utf-8")
+    case = unsteady_case(
+        ACOUSTIC_SOURCES="ENABLE", ACOUSTIC_OBSERVERS_FILE="ring", ACOUSTIC_OBSERVER_TIME=TIME
+    ).model_copy(update={"acoustic_observers_file": str(source)})
+    script = Script("26.124")
+    with pytest.raises(CampaignConfigError, match=r"length unit is not the metre"):
+        acoustics.emit_acoustic_setup(case, script, from_metres=lambda what: 1000.0)
+    assert "ACOUSTIC_OBSERVERS_IMPORT" not in script.render()
+    assert not script.pending_input_files
+    points = unsteady_case(
+        ACOUSTIC_SOURCES="ENABLE",
+        ACOUSTIC_OBSERVERS="MIC1 0.0 0.5 0.0",
+        ACOUSTIC_OBSERVER_TIME=TIME,
+    )
+    in_millimetres = Script("26.124")
+    acoustics.emit_acoustic_setup(points, in_millimetres, from_metres=lambda what: 1000.0)
+    assert "CREATE_NEW_ACOUSTIC_OBSERVER MIC1 0.0 500.0 0.0" in in_millimetres.render()
+
+
 def test_p0320_noise_observers_as_an_acoustic_section_after_the_signals():
     """P0320-NOISE-OBSERVERS: the section is created after the signals are computed, in
     the reference coordinate system unless FRAME names a frame the run creates, into the
