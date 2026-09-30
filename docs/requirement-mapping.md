@@ -84,6 +84,29 @@ does not have to work out whether it was forgotten.
 | C10 | Closed as a citation | The owning seat closed it on FR-31 with no new requirement |
 | M4 (b), the PROV export | Deferred at the gate | Accepted the split (a) and deferred the standardized export |
 
+## From 0.25.0 to 0.32.0: the change log names the requirement
+
+The register above records one gate. After it, a capability reaches the SRS
+through the change log itself: every top-level bullet of the Added and Changed
+sections of a release, and of every `changelog.d` fragment, ends on the
+identifier of the requirement that states it, or on `(no requirement: <reason>)`
+when it is not a capability of the package (a measurement, a refactor that
+changes no behavior, a documentation layout). The tier-1 test
+`tests/tier1_offline/test_srs_changelog.py` (P0320-SRS-CHANGELOG) reads the
+change log and the SRS and fails on a bullet that does neither.
+
+| Release | Requirements written for it | Where they are |
+|---|---|---|
+| 0.29.0 | numbers 150 to 164 | `docs/srs/fr.d/k2.md` until integration, then the functional chapter |
+| 0.30.0 | numbers 165 to 178 (and 160, which the release turned into an opt-in) | the same |
+| 0.31.0 | numbers 179 to 193 | the same |
+| 0.32.0 | each capability's requirement is written in the commit that adds it | the package's own fragment, then the functional chapter |
+
+Two requirements were restated because the release that followed them changed
+what they say, and each says so in its own text: the steady sweep of the
+run model is cold by default since 0.29.0, and the volume section is sampled
+since 0.29.0.
+
 ## One tension this mapping surfaced, resolved 2026-08-03
 
 FR-37 and FR-46 were both accepted and they disagreed. FR-46

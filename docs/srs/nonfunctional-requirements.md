@@ -823,6 +823,16 @@
     exemption list is empty, and the promise joins this requirement
     then rather than now.
 
+    Re-measured on the release trees, the ratchet holding: 0.25.0 read 713
+    errors in 18 of 97 modules, 0.30.0 read 1065 in 18 of 134, 0.31.0 read 1084
+    in 18 of 139 (RPT-029, 2026-09-29), and the 0.32.0 development branch read
+    1084 in 18 of 149 after the step that laid down its ten contract modules.
+    The eighteen exempted modules are the same set, every module a release
+    adds is clean, and the shipped configuration is green over all of them.
+    The count of errors inside the exempted set grows with the code those
+    modules gain and is a measurement, not a promise; the requirement is that
+    the set of modules does not grow. `py.typed` is still not shipped.
+
 !!! requirement "NFR-28 A shipped workspace reads as a set-up, not as a diary <span class='srs-pending'>pending</span>"
     *Origin: feedback item #0 of 2026-09-02, "tratar como um teste
     simples sem comentarios de historico". Carried by PFS-2029.13.

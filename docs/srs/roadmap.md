@@ -35,6 +35,47 @@ private session records carry the day-to-day detail.
 | v0.13.1 | The same-day patch the reference cases asked for: `pyfs-matrix run` pre-flights a row on a second build under that build's grammar, as `plan` already did, and a nonzero sideslip under `SYMMETRY: MIRROR` is refused at plan time, the solver having been measured running a mirrored half model at zero sideslip whatever the script states | 2026-09-09 |
 | v0.15.0 | THE USE CASE BECOMES THE RELEASE (GOAL-014, the design of 2026-09-10). A study's vocabulary lives in the REFERENCE artifact: an `[aliases]` table whose members may be other aliases, a `[[frames]]` table moved out of the setup preset, and one block per rotor whose name is an alias over everything that rotor owns, carrying its hub, axis, sign, diameter and blade families. A row names its rotor by alias and states nothing else about it; one advance ratio written once in the flight condition gives a 1.20 m lifter and a 1.80 m pusher two different speeds; each rotor's frames take its alias as their radical, so nine rotors instantiate nine sets. THE FRAME DECIDES how a post-processing entry expands, so six lines of a `[plots]` table become twenty-seven emissions on a nine-rotor aircraft, and there is no `expand` key. `CLOCK_MOTION` is required on a row that states a `MOTIONS` list. A rotation cites an alias, carries that alias's frames, and keeps `<ALIAS>_SMRP_ORIGINAL`, the frame it turned FROM, which an entry naming the turned frame is written in too. The matrix loses its `SWEEP_TYPE` column: a sweep is applied to a variable that DEFINES the flight condition, and the cell says which by carrying the word `sweep`. A row may state raw solver commands of its own. `--ignore-missing-families false` turns a family the mesh does not carry from a skip into a refusal. The three reference cases ran against the wheel before the tag and MOVED NO NUMBER: 0.15.0 reproduces 0.14.0 coefficient for coefficient, and the rotor case's emitted script is byte for byte 0.14.0's | 2026-09-10 |
 | v0.14.0 | The incidence study from a row (GOAL-013, the design of 2026-09-09): a setup preset defines custom coordinate systems and states raw solver commands before a named phase through the emitter's own checks; a row turns the mesh with `ROTATE`, a list of records in the order written, the families by name and the rotor's axis frame turned with them; the products stage tables the stamped per-step exports as a series; the blade count of a sector comes from `PERIODIC_COPIES`; the run record carries the raw lines and the export window's clock; a zero-probe export reads as an empty table; a setup names groups of mesh families under `[aliases]`, read wherever a boundary is cited; an empty pproc group is every family the geometry carries; and the polar format's five public names are spelled `custom` where they were spelled `the reference`, the old spellings warning until 0.16.0; the reference cases ran against the wheel before the tag (pfs0140) | 2026-09-09 |
+| v0.16.0 | The five names the 0.14.0 polar rename deprecated are gone on time, the reductions of a rotor row that sweeps its advance ratio stop being skipped, and a changelog entry that claimed a feature for a version that lacked it is corrected | 2026-09-11 |
+| v0.17.0 | The run matrix carries nineteen columns (FR-93) and a steady row is ONE job with ONE record (FR-95), and the deprecations that were never promises are corrected rather than left standing | 2026-09-13 |
+| v0.18.0 | A row may state `RESTART` and the solver continues the march it stopped (FR-96), and a tag counts as released only when the release object and the archive DOI both exist | 2026-09-14 |
+| v0.18.1 | A swept row submits every point, each into its own datapoint folder, the HPC profile names a build the way its scheduler does, and `plan --update-ids` renumbers repeated POLs | 2026-09-14 |
+| v0.19.0 | A row translates an alias the way it rotates one (FR-100), and `TRANSLATE_SURFACE_IN_FRAME` is phase setup | 2026-09-14 |
+| v0.20.0 | Every workflow runs on every build that can run it and four cells are refused by name; builds without unsteady solver actions offer no snapshot threshold, in-run wall clock or continuation (FR-101) | 2026-09-15 |
+| v0.20.1 | The 26.100 rotor's unit is stated as a maintainer decision and not a measurement, and no solver run has used that motion | 2026-09-15 |
+| v0.21.0 | The `WALLTIME` column carries its unit, a point is named by its flight condition, and the HPC profile states its `[log]` table | 2026-09-16 |
+| v0.21.1 | A 0.20.x workspace holding submitted points migrates, and one bad folder name no longer aborts the whole collecting sweep | 2026-09-16 |
+| v0.22.0 | A row's `RPM` is a magnitude and the hand of the rotation comes from the reference, `--force-rerun` redoes a wrong point (FR-108), and `supersede_records` is public | 2026-09-17 |
+| v0.23.0 | The rotor table is dimensionalised per point, a counter-rotating rotor produces its table, and an unsteady rotor table states which instant it publishes | 2026-09-18 |
+| v0.24.0 | Attitude keys in two interfaces and loads in a frame the package cannot rotate are refused, staging refuses a linked destination, and the post-processing definitions become one page | 2026-09-19 |
+| v0.25.0 | On an unsteady row every `[[probes]]` entry is a fluid plot and its table is the plots history, with section distributions, provenance and a custom polar | 2026-09-20 |
+| v0.25.1 | `J_CLOCK` and `RPM_CLOCK` beside `J` in every product's condition, and `post` and `collect` refuse nothing from a native log unless `--check-frozen` asks | 2026-09-22 |
+| v0.26.0 | Every campaign post writes `post.log`, optional integrated sectional loads, and `write_sections_table(step=)` | 2026-09-23 |
+| v0.27.0 | `run --local`, `post.log.json`, the published axes and signs of every coefficient, the actuator disc (FR-109), the volume section (FR-110) and the additional post (FR-111) | 2026-09-24 |
+| v0.28.0 | The custom free stream by an input file measured on 26.124, an OBJ's surface names read from its groups, and the time-averaged surface averaged by the package from the per-step exports | 2026-09-25 |
+| v0.29.0 | Setup presets and guidance, typed boundary editing, sampled velocity and boundary-layer products, named FSI inputs, Excel synchronization, a cold steady sweep by default and a sampled volume section (FR numbers 150 to 164) | 2026-09-28 |
+| v0.30.0 | The `qsteady_rotor` run type, fixed-wing FSI and FSI on a quasi-steady sector, the storage and sync commands, tip and helical Mach numbers, and a readable console (FR numbers 165 to 178) | 2026-09-29 |
+| v0.31.0 | The per-revolution and per-station harmonic products, the field operations, the wheel's correction machinery (off by default, not validated), the rotor state and the titled plan console (FR numbers 179 to 193) | 2026-09-29 |
+
+## The 0.32.0 release and the 0.33.0 plan
+
+**0.32.0 (in preparation, GOAL-037).** A console with progress and titled
+blocks, restore and rebuild of a workspace, `post` and `collect` on a named
+run set, sync of every simulation folder, the inflow tools of the quasi-steady
+wheel, the CCS commands, the acoustics toolbox, the disc maps and the blade chord
+in the plan, the removal of surfaces and the wake stabilization key, the rigor items carried from the 0.29.1 review, the
+documentation site by task, and this SRS brought up to what 0.25.0 to 0.31.0
+already did. Its packages and their requirement numbers are in the scope
+record GEO-066.
+
+**0.33.0 (planned; everything the 0.32.0 scope left out by the owner's rule,
+"O resto fica para 33").** The plan, from the scope record GEO-066 section 3:
+
+| Line | Content | Depends on |
+|---|---|---|
+| Quasi-steady rotor | The 1P reduced frequency against the top diameter is already delivered (0.31.0); nothing further is planned here | Nothing |
+| FSI | The `CDo` reading zero in coupled exports (a short measuring probe first); the signed tip flap column and the sign of the XZ moment (an offline column, then a licensed cambered-section run); the modal (direct morphing) backend with its truncation test; and the location of the evidence the PHASE3 citations rest on | A licensed run, the vendor's answer on the file format, and the owner's decision on where the evidence lives |
+| Rigor | The probe specifications of the four commands that have none, so tier 2 measures them again | One native round |
+| Other people | Fine Excel adjustments deferred from 0.29.0, and the quasi-steady rotor installed on a body (a request to the vendor, not package code) | The owner's list, and a conversation with the vendor |
 
 ## Open lines
 
