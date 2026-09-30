@@ -372,6 +372,7 @@ __all__ = [
     "per_revolution_table",
     "revolution_drift_pct",
     "is_force_or_moment_column",
+    "rotor_advance_ratio",
 ]
 
 #: WHY THE ADVANCE RATIO HAS A COLUMN AT ALL (FR-85), kept here beside its one

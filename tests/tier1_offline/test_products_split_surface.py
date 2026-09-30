@@ -15,7 +15,9 @@ from tests.tier1_offline.test_public_api import PUBLIC_MODULES
 # Captured with git show HEAD:src/pyflightstream/post/products.py before S02, plus
 # ProductArgumentError, which the exceptions catalogue added in the same release,
 # plus the six names of the per-revolution product 0.31.0 added (P0310-G2-PER-REV),
-# appended at the end. Keep the order too: the extraction must not edit the
+# appended at the end, plus rotor_advance_ratio, which 0.32.0 added to post._tables
+# for the quasi-steady tables' advance ratio (package J). Keep the order too: the
+# extraction must not edit the
 # existing export inventory, and an addition goes after it.
 _ORIGINAL_ALL = [
     "ADVANCE_RATIO_COLUMN",
@@ -80,6 +82,7 @@ _ORIGINAL_ALL = [
     "per_revolution_table",
     "revolution_drift_pct",
     "is_force_or_moment_column",
+    "rotor_advance_ratio",
 ]
 
 
