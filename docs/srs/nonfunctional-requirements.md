@@ -104,6 +104,8 @@
     2026-09-09 that is Python 3.12, numpy 2.2 and pandas 2.3
     (PFS-2024.07). HPC submission stays a deferred executor (FR-15).
 
+    Read with PFS-2054, PFS-2054.03, PFS-2054.04 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     Following a published schedule rather than choosing is what lets a
     user predict the window: until 0.13.0 the floor was `>=3.11` since
     the first release and the numerical dependencies carried none, so
@@ -267,6 +269,8 @@
     Evidence: the process rules below plus the consistency guard
     test.*
 
+    Read with PFS-2054, PFS-2054.08, PFS-2063, PFS-2063.02, PFS-2068, PFS-2068.01, PFS-2068.02, PFS-2068.03, PFS-2068.04, PFS-2069, PFS-2069.01, PFS-2071, PFS-2071.01, PFS-2071.02, PFS-2072, PFS-2072.01, PFS-2072.03, PFS-2072.05 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     Read with PFS-2031.10 at 0.13.0 (GOAL-012): the tiers page, the workspace page, the guide and CONTRIBUTING move in the same session as the folders.
 
     Documentation may never drift silently from the code. The
@@ -307,6 +311,8 @@
     *Origin: Phase 4 review theme 1, accepted 2026-07-27, absorbing the
     T3 traceability acceptance and the TRC-01 marker convention, which
     is the mechanism this requirement asserts.*
+
+    Read with PFS-2054, PFS-2054.05, PFS-2054.08, PFS-2071, PFS-2071.01, PFS-2071.02, PFS-2072, PFS-2072.01, PFS-2072.03, PFS-2072.04, PFS-2072.05 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     A Tier 1 test asserts requirement-to-test closure: every
     requirement whose status is not pending resolves to at least one
@@ -455,6 +461,8 @@
 
 !!! requirement "NFR-17 One float-comparison convention <span class='srs-pending'>pending</span>"
     *Origin: Phase 4 review, accepted 2026-07-27.*
+
+    Read with PFS-2070, PFS-2070.02, PFS-2070.03 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     The repository defines one float-comparison convention, a named
     helper with default absolute and relative tolerances, and every
@@ -677,6 +685,8 @@
 !!! requirement "NFR-23 Layering guard <span class='srs-pending'>pending</span>"
     *Origin: the ITACA mirror review (item M2), accepted 2026-07-27 as
     a new requirement rather than a mirror.*
+
+    Read with PFS-2054, PFS-2054.06, PFS-2054.07 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     A Tier 1 mechanism enforces AD-01: a module that imports from a
     layer above its own fails the suite, rather than being caught by

@@ -122,6 +122,8 @@ Milestones and session records are listed in the
     *Origin: BRF-03. Evidence: milestone M1 (schema), M3 (first
     promotions); committed compat reports.*
 
+    Read with PFS-2001.05, PFS-2003.06, PFS-2054, PFS-2054.09, PFS-2059 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     Each command carries a per-version status: `documented`,
     `verified`, `broken`, or `removed`. Documented and verified are
     distinct because the manual and the solver disagree in practice.
@@ -150,6 +152,8 @@ Milestones and session records are listed in the
 !!! requirement "FR-06 Curated helpers <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-04. Evidence: milestone M2; helper goldens
     ([glossary](index.md#glossary)).*
+
+    Read with PFS-2059, PFS-2059.01, PFS-2060, PFS-2060.01, PFS-2061, PFS-2061.01, PFS-2061.02, PFS-2061.03 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     Read with PFS-2031.13 at 0.13.0 (GOAL-012): the child script a helper parks for a SCRIPT action is written by the run before the solver starts, so a helper's promise about the run is kept by the run.
 
@@ -251,6 +255,8 @@ Milestones and session records are listed in the
     fixtures carrying that claim are
     `tests/tier1_offline/fixtures/pfs202512_matrix15.fs` and
     `tests/tier1_offline/fixtures/pfs202701_matrix16.fs`.*
+
+    Read with PFS-2056, PFS-2056.05, PFS-2057, PFS-2057.03 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     A dedicated reader consumes the documented pipe-delimited
     run-matrix format: rows with RUN = 1 are active, the sweep columns
@@ -393,12 +399,16 @@ Milestones and session records are listed in the
     *Origin: PP-5, BRF-12. Evidence: milestone M2; campaign-loop
     tests.*
 
+    Read with PFS-2056, PFS-2056.11 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     A campaign run records every datapoint outcome. Failures are
     collected and reported at the end as a structured error; a silent
     skip is structurally impossible.
 
 !!! requirement "FR-15 HPC executor <span class='srs-pending'>pending</span>"
     *Origin: BRF-01.*
+
+    Read with PFS-2056, PFS-2056.07, PFS-2056.09, PFS-2057, PFS-2057.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     An HPC executor submits runs through a cluster submission path.
     The executor interface must allow this without changes to the
@@ -430,6 +440,8 @@ Milestones and session records are listed in the
 !!! requirement "FR-19 The manifest <span class='srs-implemented'>implemented</span>"
     *Origin: PP-6. Evidence: milestone M2; manifest tests; extended
     by FR-31.*
+
+    Read with PFS-2056, PFS-2056.02 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     Read with PFS-2033.02 at 0.14.0 (GOAL-013): the record gains `raw_commands`, the setup's raw lines the script carried, and `aliases`, the setup's boundary aliases the polar tables resolve by (the design decision of 2026-09-09), both absent on older records and read as empty.
 
@@ -524,6 +536,8 @@ Milestones and session records are listed in the
 !!! requirement "FR-24 CI-runnable test suite <span class='srs-implemented'>implemented</span>"
     *Origin: PP-9. Evidence: the Tier 1 suite in CI on every push.*
 
+    Read with PFS-2054, PFS-2054.05, PFS-2054.06, PFS-2054.07, PFS-2068, PFS-2068.04 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     Read with PFS-2031.02, PFS-2031.06 and PFS-2031.01 at 0.13.0 (GOAL-012): the suite is organized by tier, tier 1 plans and builds the tier-3 matrices without a solver, and the goal's checker is its own falsifiable command.
 
     A CI-runnable suite covers database integrity, emission
@@ -534,6 +548,8 @@ Milestones and session records are listed in the
 !!! requirement "FR-25 Probe harness <span class='srs-implemented'>implemented</span>"
     *Origin: BRF-03. Evidence: milestone M3; the committed compat
     reports and the promotion mechanism.*
+
+    Read with PFS-2001.05, PFS-2003.06, PFS-2054, PFS-2054.09, PFS-2059 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     Read with PFS-2031.08 and PFS-2031.09 at 0.13.0 (GOAL-012): the action re-read probe runs as a row of the tier-3 matrix and writes its verdict into the command database, and the pyfs-qa study decides where the probe harness lives beside the workspace; PFS-2031.17 carries the decision, pyfs-qa physics reading the workspace, and PFS-2031.18 the unsteady actions design the probe confirmed.
 
@@ -589,6 +605,8 @@ Milestones and session records are listed in the
     *Origin: BRF-15, PP-6, PP-7. Evidence: milestone M2; archive
     refusal tests.*
 
+    Read with PFS-2056, PFS-2056.01, PFS-2056.10, PFS-2056.12, PFS-2057, PFS-2057.01, PFS-2057.02, PFS-2057.04, PFS-2057.05 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     The package stages inputs into the run folder, records their
     hashes in the manifest, collects outputs to declared locations,
     and provides archive and cleanup operations that refuse to touch
@@ -626,6 +644,8 @@ the session records.
     <span class='srs-deferred'>deferred</span> behind a licensed
     probe (does the OBJ export write one named group per boundary?).*
 
+    Read with PFS-2061, PFS-2061.02, PFS-2067, PFS-2067.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     FlightStream is index-parameterized; pyflightstream identifies
     entities by label. The builder registry tracks frames, actuators,
     motions, and boundaries with optional labels; every entity-citing
@@ -637,6 +657,8 @@ the session records.
     *Origin: usage feedback. Evidence: the v0.3 line; snapshot
     round-trip tests. Evidence for the remaining unknown defaults is
     <span class='srs-deferred'>deferred</span> to the licensed queue.*
+
+    Read with PFS-2062, PFS-2062.04 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     Read with PFS-2033.01 and PFS-2034.01 at 0.14.0 (GOAL-013): a setup artifact defines custom coordinate systems and raw solver commands, both consumed out of its settings, so the snapshot of solver flags stays what it was and the raw lines are recorded beside it rather than inside it.
 
@@ -657,6 +679,8 @@ the session records.
 !!! requirement "FR-32 Tabular results <span class='srs-implemented'>implemented</span>"
     *Origin: usage feedback. Evidence: the v0.3 line; table tests on
     the sanitized fixtures.*
+
+    Read with PFS-2054, PFS-2054.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     Read with PFS-2031.16 and PFS-2031.19 at 0.13.0 (GOAL-012): a product refused by design is a recorded skip in products.json, the other simulations' products are written, and pyfs-matrix post --strict makes such a skip exit 2.
 
@@ -698,6 +722,8 @@ the session records.
 !!! requirement "FR-35 Matrix as first-class interface <span class='srs-implemented'>implemented</span>"
     *Origin: usage feedback, amending the posture of FR-10/FR-11.
     Evidence: the v0.3 line; resolution hit and miss tests.*
+
+    Read with PFS-2056, PFS-2056.05, PFS-2056.08, PFS-2057, PFS-2057.03 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     Read with PFS-2034.01, PFS-2034.02, PFS-2034.03, PFS-2034.04 and PFS-2034.05 at 0.14.0 (GOAL-013): the row turns the mesh (`ROTATE`, a list of records in the order written, one row per angle), the setup defines the frames the row cites, the refusals name the cell, and the licensed seat run measures the rotated propeller on the solver.
 
@@ -1198,6 +1224,8 @@ the base could not offer while it bundled several.
     exported public name, and every module-private helper an exported
     one calls, for bare standard-library raises.*
 
+    Read with PFS-2070, PFS-2070.04 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     Every exception raised by the public API derives from a single
     documented base exception, each type is documented with the
     condition that raises it, and every exception and warning is
@@ -1385,6 +1413,8 @@ the base could not offer while it bundled several.
     history and the far field. The conventions entry "Axes and signs of
     every emitted coefficient" says the same, per family.*
 
+    Read with PFS-2062, PFS-2062.02 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     Read with PFS-2028.09 at 0.14.0 (GOAL-013): the sense of rotation derived into the reference of the recorded campaign is for the domain seat to confirm, and it is asked in writing rather than decided.
 
     *Amended 2026-08-19. The rotor half of this requirement was badged
@@ -1422,6 +1452,8 @@ The allocation is recorded in the
     requirement box was never transcribed, so an accepted item existed
     with no requirement anywhere.*
 
+    Read with PFS-2070, PFS-2070.04 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     A conservation ledger's imbalance is reported against a stated
     acceptance band, and a run whose imbalance leaves the band is
     reported as such rather than as a number the reader must judge.
@@ -1440,6 +1472,8 @@ The allocation is recorded in the
     *Origin: the C4 acceptance, 2026-07-27, taken in the FULL-contract
     form against the review's own recommendation of a narrower one.*
 
+    Read with PFS-2054, PFS-2054.03, PFS-2055, PFS-2055.01, PFS-2055.02 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     The package provides one documented console entry point per
     operational concern, and their commands and flags change only
     under the deprecation policy of NFR-20.
@@ -1457,6 +1491,8 @@ The allocation is recorded in the
     test added with this consolidation after review found the clause
     resting on a model-config line no assertion observed.*
 
+    Read with PFS-2056, PFS-2056.01, PFS-2056.02, PFS-2056.03, PFS-2056.04, PFS-2056.06, PFS-2056.10, PFS-2057, PFS-2057.02, PFS-2057.04, PFS-2058, PFS-2058.01, PFS-2058.02, PFS-2058.03 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     Read with PFS-2033.02 at 0.14.0 (GOAL-013): the strict record gains two fields, `raw_commands` and `aliases` (the setup's boundary aliases, the design decision of 2026-09-09), and the manifest schema stays at 3 because an absent key reads as empty.
 
     The manifest record rejects unknown fields and duplicate run
@@ -1467,6 +1503,8 @@ The allocation is recorded in the
     of `RunStatus` pinned in `tests/tier1_offline/test_workspace.py`, added with this
     consolidation; using the members, which the campaign tests do, does
     not notice an addition.*
+
+    Read with PFS-2056, PFS-2056.11 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     Every executed point terminates in exactly one value of a closed
     set of six status values, and a seventh cannot be introduced
@@ -1625,6 +1663,8 @@ nodes.
     PFS-2029.18 and PFS-2029.19 and its children. Evidence owed: the
     export goldens and the script-parity arm of GOAL-011.*
 
+    Read with PFS-2064, PFS-2064.03 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     Read with PFS-2031.18.01 and PFS-2034.05 at 0.14.0 (GOAL-013): the stamped per-step exports of a windowed point are tabled as a series under the matrix's products, and the licensed seat run reads them for the rotated propeller.
 
     Every point of a workflow campaign leaves, beside the loads table and
@@ -1675,6 +1715,8 @@ nodes.
     children, PFS-2029.15 and its children, and PFS-2029.16. Evidence
     owed: the tests each node names and the offline parity arm of
     GOAL-011.*
+
+    Read with PFS-2063, PFS-2063.01, PFS-2063.02, PFS-2065, PFS-2065.01, PFS-2066, PFS-2066.01, PFS-2070, PFS-2070.05 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     Read with PFS-2031.18.01 and PFS-2015.04.01 at 0.14.0 (GOAL-013): the series tables join the products beside the reductions, and the blade count of a sector is read from `PERIODIC_COPIES` when `BLADES` is absent, so the per-blade reductions of the reference isolated propeller are written.
 
@@ -1750,6 +1792,8 @@ nodes.
     PFS-2030.03 and its four children, and PFS-2028.05 on the design decision of
     2026-09-02. Evidence owed: the tests each node names.*
 
+    Read with PFS-2064, PFS-2064.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     A matrix row can state the fluid constants its writer pinned
     (density, viscosity, sonic velocity, temperature, pressure) as
     flight-condition keys that override the standard atmosphere and are
@@ -1804,6 +1848,8 @@ nodes.
     PFS-2029.10. Evidence owed: the tests each node names. AMENDS FR-33a's
     resolution of a geometry by stable id, and the acceptance sentence of
     PFS-2009.01, in the same change.*
+
+    Read with PFS-2059, PFS-2059.01, PFS-2060, PFS-2060.01, PFS-2061, PFS-2061.01, PFS-2067, PFS-2067.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     Read with PFS-2034.02 and PFS-2034.03 at 0.14.0 (GOAL-013): the rotation's families resolve by name against the geometry's inventory, never by index, and a name the inventory lacks is refused naming the cell.
 
@@ -1955,6 +2001,8 @@ nodes.
     refusal's own reason), `tests/tier1_offline/test_matrix_run.py` (the file, the record
     the run layer writes, and the equal-render arm below), scored against
     nineteen mutants with an unmutated control.*
+
+    Read with PFS-2054, PFS-2054.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     A setup artifact may carry a `[flight_condition]` table holding the five
     pins of FR-54 and nothing else, its pin names matching case-insensitively
@@ -2178,6 +2226,8 @@ requirement below is one seam of that division.
     one length per quantity", whose single `rotor_diameter_m` is the
     advance-ratio length today.*
 
+    Read with PFS-2066, PFS-2066.02, PFS-2070, PFS-2070.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     A motion record states `RPM` or `ADVANCE_RATIO`, never both and never
     neither, refused PER ROTOR with the message the row-level refusal carries
     today.
@@ -2325,6 +2375,8 @@ requirement below is one seam of that division.
     source). EXTENDS the preset-level `[[raw]]`
     table of FR-31, "Solver-setup provenance", to the row.*
 
+    Read with PFS-2067, PFS-2067.02 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     A cell's `RAW` list states solver commands, each before a named phase, in
     either of two forms: `COMMAND`, the line written in the cell, and `FILE`,
     a text file of the workspace whose lines are emitted in order. Both pass
@@ -2369,6 +2421,8 @@ requirement below is one seam of that division.
     `tests/tier1_offline/test_post_products.py` (the files name the rotor, and a
     one-rotor row keeps the names it has always had). AMENDS PFS-2015.04.01,
     which reads the count from `PERIODIC_COPIES` at 0.14.0.*
+
+    Read with PFS-2070, PFS-2070.05 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     The per-blade and phase-locked reductions of a point are computed PER
     ROTOR, each from the blade count of its own rotor block, so a transition
@@ -2498,6 +2552,8 @@ requirement below is one seam of that division.
     motion that states no speed and halving the ratio doubles that rotor's
     rev/min, a record stating its own ratio holds it against the sweep, and
     a record writing the word is refused naming where sweeping is stated).*
+
+    Read with PFS-2070, PFS-2070.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     `ADVANCE_RATIO` may be stated in `FLIGHT_CONDITION`, as a value or as
     `sweep`, and it then reaches every motion of the row THAT STATES NO SPEED
@@ -2706,6 +2762,8 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-74 A setup declares custom flags, so a row sets a solver command by name <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2061, PFS-2061.03, PFS-2064, PFS-2064.01, PFS-2067, PFS-2067.02 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     *Origin: the instruction of 2026-09-10: the setup gains a declaration of custom
     flags, so that raw commands are left for genuinely particular cases. Carried by PFS-2035.20. Evidence:
     `tests/tier1_offline/test_custom_flags.py`, and the worked example
@@ -2782,6 +2840,8 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-75 A section distribution over a rotor cuts its blades and not the rotor <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2054, PFS-2054.02, PFS-2066, PFS-2066.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     *Origin: the design decision of 2026-09-10: a section distribution over a
     whole rotor makes no sense, so a rotor declaring three blades takes three
     cuts and not one, unlike the plots, which keep the total. Carried by PFS-2035.22.
@@ -2843,6 +2903,8 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-77 Probe lines are a list of tables, so one artifact probes several frames <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2062, PFS-2062.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     *Origin: the design decision of 2026-09-10: `[probes]` becomes `[[probes]]`, as an
     item of the next release. Carried by
     PFS-2035.24. Evidence:
@@ -2878,6 +2940,8 @@ requirement below is one seam of that division.
     for once.
 
 !!! requirement "FR-78 A run says on the console which stage it is in, and its warnings arrive while it runs <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2055, PFS-2055.01, PFS-2055.03, PFS-2055.04, PFS-2055.05, PFS-2055.06 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     *Origin: the request of 2026-09-10 for a log in the terminal while a
     campaign runs, saying which stage it is on and carrying any warning it
@@ -2916,6 +2980,8 @@ requirement below is one seam of that division.
     records.
 
 !!! requirement "FR-79 A probe entry prescribes a rectangular or a circular plane, not only a line <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2064, PFS-2064.02 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     *Origin: the request of 2026-09-10: a rectangular plane can be prescribed by
     its vertices and its discretisation, and a circular one by a
@@ -2976,6 +3042,8 @@ requirement below is one seam of that division.
     reads its expectation from the thing it tests asserts nothing.
 
 !!! requirement "FR-80 A probe entry may cite a points file the user wrote, under inputs/profiles <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2064, PFS-2064.02 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     *Origin: the request of 2026-09-10: a user may write a text file of the
     points they want and cite it from the pproc artifact; the file belongs
@@ -3070,6 +3138,8 @@ requirement below is one seam of that division.
     builds, because the defect is the PAIRING and not the run type.
 
 !!! requirement "FR-82 A plan flag tables what each polar will cost, and what it is expected to take <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2066, PFS-2066.02 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     *Origin: the request of 2026-09-10 for a plan flag that also returns a
     summary of the expected execution time per polar, with a stated column
@@ -3215,6 +3285,8 @@ requirement below is one seam of that division.
     figure with no basis.
 
 !!! requirement "FR-83 A section distribution is created after the solver is initialised <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2054, PFS-2054.02 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     *Origin: usage feedback of 2026-09-10. Carried by PFS-2036.01. Evidence:
     tests/tier1_offline/test_workflows.py.*
@@ -3393,6 +3465,8 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-87 Flow-field samples go to probes and carry the fluid quantities, steady or unsteady <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2062, PFS-2062.01, PFS-2062.03, PFS-2062.04, PFS-2063, PFS-2063.01, PFS-2065, PFS-2065.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     *Origin: the fifth feedback item of 2026-09-10, the plot file is missing the fluid
     quantities; to keep it uniform between steady and unsteady, the unsteady
     fluid plots go in a `probes` folder. Carried by
@@ -3506,6 +3580,8 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-90 The post stage writes no file twice <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2058, PFS-2058.01 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     *Origin: measured on 2026-09-10 while reading the reference workspace;
     it was not reported. Carried by PFS-2036.08. Evidence: tests/tier1_offline/test_run_cli.py.*
 
@@ -3530,6 +3606,8 @@ requirement below is one seam of that division.
     asserting the absence of one file name.
 
 !!! requirement "FR-91 A probe table carries where each point IS, beside what the flow did there <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2062, PFS-2062.02, PFS-2062.03, PFS-2062.04 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     *Origin: the instruction of 2026-09-11: a csv carrying the probe results, the
     xyz position of each probe and the reference frame, beside the fluid
@@ -3625,6 +3703,8 @@ requirement below is one seam of that division.
 
 
 !!! requirement "FR-92 Each datapoint collects its outputs into its own folder <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2058, PFS-2058.02, PFS-2064, PFS-2064.03 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     *Origin: a swept row could not be judged past its first point, held in
     the tree as a strict expected failure since 0.16.0's sweep work and
@@ -3786,6 +3866,8 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-95 A steady row is ONE job and leaves ONE record <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2072, PFS-2072.02 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     *Origin: the owning seat's convention of 2026-09-12, taken with the
     predecessor toolchain's steady recipe in hand. Evidence:
     tests/tier1_offline/test_matrix_run.py and test_run_campaign.py.*
@@ -3884,6 +3966,8 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-97 A run needs a plan, and the plan is pinned to the matrix it read <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2056, PFS-2056.06, PFS-2056.08, PFS-2056.12, PFS-2058, PFS-2058.03 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
+
     *Origin: the owning seat's instruction of 2026-09-12, that the warning and
     the confirmation belong to `plan` and that without one `run` does not go.
     Evidence: tests/tier1_offline/test_run_cli.py and test_matrix_run.py.*
@@ -3942,6 +4026,8 @@ requirement below is one seam of that division.
     substitutable line to make that probe cheap.
 
 !!! requirement "FR-99 Linux is the cluster, and no cell says so <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2054, PFS-2054.04, PFS-2056, PFS-2056.07, PFS-2056.09 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     *Origin: the owning seat's decision of 2026-09-12, that the code sees the
     environment and that a Linux run submits rather than calling the solver
@@ -4410,6 +4496,8 @@ requirement below is one seam of that division.
       26.124.
 
 !!! requirement "FR-110 The pproc declares a volume section, and each point samples it <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2072, PFS-2072.02 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
     *Origin: G05 of the 0.27.0 scope, the basic GUI steps through the
     workflow: a volume section and its VTK or Tecplot export were reachable
