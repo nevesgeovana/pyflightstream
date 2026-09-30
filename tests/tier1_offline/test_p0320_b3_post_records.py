@@ -186,6 +186,9 @@ def test_p0320_runs_name_collect_once_writes_only_the_named_manifest(tmp_path):
     assert len(report.collected) == 1
     assert not (root / "runs.json").exists()
     assert not list(root.glob("runs-hpc.json.lock"))
+    # THE LEASE WAS THE NAMED MANIFEST'S: its persistent guard is what a lease
+    # leaves behind, and a lease of runs.json would have left none for it.
+    assert (root / ".runs-hpc.json.lock.guard").is_file()
 
 
 def test_p0320_post_and_collect_report_their_stage_progress(tmp_path, monkeypatch):
@@ -387,6 +390,67 @@ def test_p0320_post_no_manifest_refuses_a_post_that_assembled_nothing(tmp_path, 
     assert "records no run" not in err and "run a matrix first" not in err
     assert err.count("names the reference 'r001'") == 1, err
     assert not (workspace.root / "post" / "matriz@sims").exists()
+
+
+def test_p0320_post_no_manifest_refuses_two_exports_at_one_point(tmp_path):
+    """P0320-POST-NO-MANIFEST: two exports at one point cost both, none is chosen."""
+    workspace = _from_sims_workspace(tmp_path)
+    outputs = workspace.sim_dir("6001") / "outputs"
+    again = outputs / "again"
+    again.mkdir()
+    name = "POLAR-6001_M20AL+000BE+000.txt"
+    (again / name).write_bytes((outputs / name).read_bytes())
+
+    assembled, refusals = records.assemble_records(workspace.root, "matriz")
+    steady = [record for record in assembled if record.sim_id == "6001"]
+    assert [record.point["alpha"] for record in steady] == [-2.0]
+    refused = [key for key, reason in refusals.items() if "none is chosen" in reason]
+    assert set(refused) == {f"sims/sim_6001/outputs/again/{name}", f"sims/sim_6001/outputs/{name}"}
+
+
+def test_p0320_post_no_manifest_refuses_a_row_sweeping_no_angle_over_two_values(tmp_path):
+    """P0320-POST-NO-MANIFEST: a J sweep of two values cannot be told apart by the angles."""
+    workspace = _from_sims_workspace(tmp_path, variables="LAST_ITERS_AVG: 2")
+    matrix = workspace.root / "matriz.fs"
+    text = matrix.read_text(encoding="utf-8")
+    assert text.count("| 1.7 | 05_NX.fsm") == 1
+    matrix.write_text(text.replace("| 1.7 | 05_NX.fsm", "| 1.7,2.0 | 05_NX.fsm"), "utf-8")
+
+    assembled, refusals = records.assemble_records(workspace.root, "matriz")
+    assert "6002" not in {record.sim_id for record in assembled}
+    reason = next(reason for key, reason in refusals.items() if "6002" in key)
+    assert "split the row" in reason
+
+
+def test_p0320_post_no_manifest_status_is_the_collects_assessment(tmp_path):
+    """P0320-POST-NO-MANIFEST: a steady point with no log export is not called converged."""
+    workspace = _from_sims_workspace(tmp_path)
+    assembled, _ = records.assemble_records(workspace.root, "matriz")
+    steady = [record for record in assembled if record.sim_id == "6001"]
+    assert {record.status.value for record in steady} == {"FAILED_INCOMPLETE_OUTPUT"}
+    assert all(record.warnings == [records.ASSEMBLED_NOTE] for record in steady)
+
+
+def test_p0320_runs_name_collect_posts_the_named_manifest_apart(tmp_path, monkeypatch):
+    """P0320-POST-RUNS-APART: the post a collect of NAME runs lands in post/<matrix>@<stem>/."""
+    from pyflightstream import workspace as workspace_module
+
+    seen: list[Path] = []
+
+    def spy(ws, *, matrix_stem=None, **_):
+        seen.append(ws.products_dir(matrix_stem))
+        return []
+
+    monkeypatch.setattr(workspace_module, "post_stages", lambda: [spy])
+    workspace, sim = _submitted_workspace(tmp_path)
+    root = workspace.root
+    workspace.manifest_path.replace(root / "runs-hpc.json")
+    (sim / "loads.txt").write_text("numbers", encoding="utf-8")
+    (sim / "run_log.txt").write_text("log", encoding="utf-8")
+
+    cli.main(["collect", "--workspace", str(root), "--runs", "runs-hpc.json", "--interval", "0"])
+
+    assert seen == [root / "post" / "matriz@runs-hpc"]
 
 
 def test_p0320_post_no_manifest_never_writes_a_manifest(tmp_path):
