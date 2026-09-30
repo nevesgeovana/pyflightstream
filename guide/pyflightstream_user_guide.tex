@@ -557,9 +557,9 @@ helpers.export_results(script,
 \begin{frame}[fragile]{Probe management}
 \begin{lstlisting}
 helpers.probe_points(script, [(0.5, 0.0, 0.1),
-                              (0.5, 0.5, 0.1)], units="METER")
+                              (0.5, 0.5, 0.1)])   # simulation length units
 
-helpers.probe_line(script, points=50, units="METER",
+helpers.probe_line(script, points=50,
                    start=(1.5, 0.0, 0.0), end=(1.5, 4.0, 0.0))
 
 helpers.probes_from_file(script, "lattice.csv", units="METER")
@@ -827,8 +827,8 @@ helpers.solver_settings(script, velocity=v_inf,
     \item Define the stations (three equivalent entries):
   \end{enumerate}
 \begin{lstlisting}
-helpers.probe_points(script, [(1.5, 0.0, 0.0)], units="METER")
-helpers.probe_line(script, points=50, units="METER",
+helpers.probe_points(script, [(1.5, 0.0, 0.0)])   # simulation length units
+helpers.probe_line(script, points=50,
                    start=(1.5, -2.0, 0.0), end=(1.5, 2.0, 0.0))
 helpers.probes_from_file(script, "survey_lattice.csv",
                          units="METER")   # X,Y,Z,TYPE rows
@@ -1333,6 +1333,8 @@ pyfs-matrix space-in-use --workspace DIR              # sizes: folders, sims, ex
 pyfs-matrix free-space   m001 --workspace DIR [--apply]  # a storage recipe
 pyfs-matrix delete-sims  4001,2009 --workspace DIR [--apply]  # sims, products, records
 pyfs-matrix sync         runs --workspace DIR [--apply]  # from sync-workspaces.toml
+pyfs-matrix restore      runs --workspace DIR [--apply]  # a records file, back from archive/
+pyfs-matrix rebuild      --workspace DIR [--apply]    # run records again, from the sims/ folders
 pyfs-fsi init-dummy      --node-count N [--dir DIR]   # dummy config for a dry run
 pyfs-fsi step            [--dir DIR]                  # one coupling step
 pyfs-manual sweep        --editions MANIFEST [--by-section]  # every registered edition

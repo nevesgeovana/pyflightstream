@@ -181,6 +181,24 @@ raw-mesh unit or a scale correction. STEP remains refused. See
 options, unit observations and mesh-quality limitations. OBJ/STL inputs do not
 accept CAD options.
 
+### A CCS file is another route
+
+A CCS file (the solver's cross-section format) is routed by a third table of
+the same `[import]`, `[import.ccs]`, which chooses what the solver builds from
+it. The table's keys, what each kind of geometry reads and what is refused are
+on [CCS geometry](ccs-geometry.md); this page holds only its place in the
+sidecar.
+
+```toml
+boundaries = ["WING"]
+
+[import]
+units = "FILE"
+
+[import.ccs]
+kind = "file"
+```
+
 ### The mesh operations of an import
 
 A raw mesh is often not yet the body: a CAD export at another scale, half a
