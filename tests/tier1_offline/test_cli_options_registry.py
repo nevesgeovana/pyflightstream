@@ -189,6 +189,9 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # --sims names. A SWITCH of the invocation, like force_rerun, and `sims` names
     # what the command works on, a SUBJECT.
     ("pyfs-matrix", "force_rerun_all"): SWITCH,
+    # 0.33.0 (FR-307): `post --sims` and `collect --sims` name the simulations
+    # THIS call rebuilds or sweeps, the same SUBJECT; a default would limit
+    # every post of a machine to simulations a registry happened to hold.
     ("pyfs-matrix", "sims"): SUBJECT,
     # 0.28.0, G43: how often THIS local run says its progress. A SWITCH of the
     # invocation: how much a person wants to read, not a machine setting.
@@ -417,7 +420,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "resume"): frozenset({"run"}),
     ("pyfs-matrix", "force_rerun"): frozenset({"run"}),
     ("pyfs-matrix", "force_rerun_all"): frozenset({"run"}),
-    ("pyfs-matrix", "sims"): frozenset({"delete-sims", "rebuild", "run"}),
+    ("pyfs-matrix", "sims"): frozenset({"collect", "delete-sims", "post", "rebuild", "run"}),
     ("pyfs-matrix", "progress_every"): frozenset({"run"}),
     ("pyfs-matrix", "cost"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "inflow_fft"): frozenset({"inspect-setups", "plan"}),

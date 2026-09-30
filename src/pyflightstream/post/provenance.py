@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -485,6 +485,7 @@ def run_provenance(
     overwrite: bool = False,
     archive: bool = True,
     archive_stamp: datetime | None = None,
+    sims: Collection[str] | None = None,
 ) -> dict[str, str]:
     """Write one PROV-JSON document per record under ``out/provenance``.
 
@@ -493,6 +494,10 @@ def run_provenance(
     run id to the document's path relative to ``out``. An existing document
     is archived by default. With ``archive=False``, replacing it requires
     ``overwrite=True`` and keeps no copy; otherwise it is refused.
+
+    With ``sims`` (0.33.0, FR-307, ``post --sims``) only the records of those
+    simulations are written and returned; the names are still measured over
+    every record given, so each document keeps the name a whole post gives it.
     """
     # A POINT NAME NEED NOT BE UNIQUE AND A RUN ID IS (FR-86). The
     # default naming template is `{point}`, which carries no sim id, so
@@ -509,6 +514,8 @@ def run_provenance(
     claims = Counter(stem for stem in stems.values() if stem is not None)
     index: dict[str, str] = {}
     for record in records:
+        if sims is not None and record.sim_id not in sims:
+            continue
         stem = stems[record.run_id]
         if stem is not None and claims[stem] > 1:
             stem = None

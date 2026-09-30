@@ -105,6 +105,7 @@ from pyflightstream.workspace import (
     RunStatus,
     WorkspaceError,
     post_diagnostics,
+    selected_sims,
 )
 from pyflightstream.workspace.matrix import renumber_repeated_pols
 from pyflightstream.workspace.naming import (
@@ -666,6 +667,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="collect and do NOT rebuild the products, which is the half a reader wants "
         "when the products are built somewhere else",
     )
+    collect.add_argument(
+        "--sims",
+        dest="sims",
+        default=None,
+        metavar="IDS",
+        help="sweep only the SUBMITTED records of these simulations, comma separated as "
+        "delete-sims takes them (2006,2007 or [2006,2007]); every other record is left "
+        "untouched and is not counted as outstanding, and the post that follows is limited "
+        "to the same simulations. An id no record carries is refused before anything is swept",
+    )
 
     post = subparsers.add_parser(
         "post",
@@ -785,6 +796,19 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="print recorded post diagnostics as Markdown without changing products",
     )
+    post.add_argument(
+        "--sims",
+        dest="sims",
+        default=None,
+        metavar="IDS",
+        help="rebuild only these simulations' products of the matrix, comma separated as "
+        "delete-sims takes them (2006,2007 or [2006,2007]), in place: their files are "
+        "archived and rewritten, every other simulation's files and products.json entries "
+        "stay as they were, and the super files, whose columns are the union over every "
+        "simulation, are left as the last whole post wrote them and named under "
+        "partial.not_rebuilt in products.json and in post.log. An id with no record of the "
+        "matrix is refused before anything is written",
+    )
     for name in _RUNS_COMMANDS:  # 0.32.0 hook: the manifest a command reads (B1, B3)
         subparsers.choices[name].add_argument(
             "--runs",
@@ -808,6 +832,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="with --from-sims: the solver steps of one revolution, for a LAST_REVS_AVG window",
     )
     return parser
+
+
+def _listed_sims(text: str) -> list[str]:
+    """Read simulation ids as ``delete-sims`` spells them: ``4001,2009`` or ``[4001,2009]``.
+
+    The one home of that form, read by ``delete-sims``, ``rebuild --sims``,
+    ``post --sims`` and ``collect --sims`` (FR-307).
+    """
+    listed = text.replace(" ", "").strip("[]")
+    return [item for item in listed.split(",") if item]
 
 
 def _confirmed_destruction(yes: bool) -> bool:
@@ -1138,11 +1172,9 @@ def _cmd_storage(args: argparse.Namespace) -> int:
             return 0
         if args.subcommand == "delete-sims":
             # "4001,2009" or the bracketed "[4001,2009]" both read as two ids.
-            listed = args.sims.replace(" ", "").strip("[]")
-            ids = [item for item in listed.split(",") if item]
             entry = storage.delete_sims(
                 args.workspace,
-                ids,
+                _listed_sims(args.sims),
                 matrix_products=args.matrix_products,
                 apply=args.apply,
                 runs=args.runs,
@@ -1428,12 +1460,11 @@ def _cmd_records(args: argparse.Namespace) -> int:
                 if not separator or not build.strip() or not alias.strip():
                     _refuse(f"--build-alias expects BUILD=ALIAS, got {item!r}")
                 aliases[build.strip()] = alias.strip()
-            listed = None if args.sims is None else args.sims.replace(" ", "").strip("[]")
             entry = run_records.rebuild(
                 args.workspace,
                 out=args.out,
                 all_sims=args.all_sims,
-                sims=None if listed is None else [item for item in listed.split(",") if item],
+                sims=None if args.sims is None else _listed_sims(args.sims),
                 build_alias=aliases or None,
                 matrix=args.matrix,
                 apply=args.apply,
@@ -1590,7 +1621,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
         DEFAULT_WATCH_INTERVAL_S if args.watch_interval is None else args.watch_interval
     )
 
-    def _post(ws: CampaignWorkspace, matrix: str | None) -> None:
+    def _post(ws: CampaignWorkspace, matrix: str | None, sims: list[str] | None = None) -> None:
         # THE PRODUCTS ARE REBUILT ONLY WHERE SOMETHING WAS COLLECTED, which
         # `collect_and_post` decides: a rebuild ARCHIVES what it replaces, so
         # a watch that posted on every sweep would fill the archive with
@@ -1614,6 +1645,8 @@ def _cmd_collect(args: argparse.Namespace) -> int:
                 archive=True,
                 matrix_stem=matrix,
                 **({"check_frozen": True} if args.check_frozen else {}),
+                # FR-307: the post of `collect --sims` is limited to the same simulations.
+                **({"sims": sims} if sims is not None else {}),
             )
 
     try:
@@ -1625,6 +1658,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
                 watch_interval=watch_interval,
                 rounds=args.rounds,
                 post_matrix=_post if args.post else None,
+                sims=None if args.sims is None else _listed_sims(args.sims),
             )
     except (WorkspaceError, CampaignConfigError) as error:
         print(str(error), file=sys.stderr)
@@ -1681,6 +1715,16 @@ def _cmd_post(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
+    if args.sims is not None and (args.additional_pproc or args.diagnostics):
+        # FR-307: the additional post reopens every recorded point, and a rebuild
+        # limited to some simulations would leave the others' extractions
+        # unposted; --diagnostics changes nothing to limit.
+        print(
+            "--sims limits the rebuild of the products and cannot be combined with "
+            "--additional-pproc or --diagnostics; run those without it.",
+            file=sys.stderr,
+        )
+        return 2
     if (workspace := _records_workspace(args)) is None:  # 0.32.0: --runs, --from-sims (B3)
         return 2
     extraction_failed = 0
@@ -1724,6 +1768,24 @@ def _cmd_post(args: argparse.Namespace) -> int:
             # Every matrix the manifest names, in first-seen order, and the
             # records naming none as their own group (PFS-2031.04).
             matrices = named
+        sims_of: dict[str | None, list[str]] = {}
+        if args.sims is not None:
+            # FR-307: REFUSED BY NAME BEFORE ANY WORK. With a matrix, every id
+            # must be a simulation of it; without one, each matrix holding a
+            # named simulation is posted limited to the ones it holds.
+            listed = _listed_sims(args.sims)
+            scoped = [record for record in records if record.matrix_stem in matrices]
+            scope = f"of matrix {matrices[0]!r}" if args.matrix is not None else "in the manifest"
+            try:
+                chosen = selected_sims(scoped, listed, scope=scope)
+            except WorkspaceError as error:
+                print(str(error), file=sys.stderr)
+                return 2
+            for matrix in matrices:
+                held = {record.sim_id for record in scoped if record.matrix_stem == matrix}
+                if chosen & held:
+                    sims_of[matrix] = sorted(chosen & held)
+            matrices = [matrix for matrix in matrices if matrix in sims_of]
         if getattr(args, "diagnostics", False):
             if args.additional_pproc or args.force_overwrite or args.yes or args.check_frozen:
                 print(
@@ -1776,6 +1838,8 @@ def _cmd_post(args: argparse.Namespace) -> int:
                             # Only when set, so a stage registered before 0.25.1
                             # keeps running under the bare command.
                             **({"check_frozen": True} if args.check_frozen else {}),
+                            # FR-307, and only when set, for the same reason.
+                            **({"sims": sims_of[matrix]} if matrix in sims_of else {}),
                         )
                     )
                 progress.advance(files=1, current=workspace.products_dir(matrix))

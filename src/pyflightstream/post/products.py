@@ -271,11 +271,18 @@ from pyflightstream.results import (
     superseded_by_a_continuation,
 )
 from pyflightstream.script.solver_setup import VORTICITY_COMMAND
-from pyflightstream.workspace import ExtractionStatus, RunStatus, WorkspaceError, find_matrix
+from pyflightstream.workspace import (
+    ExtractionStatus,
+    RunStatus,
+    WorkspaceError,
+    find_matrix,
+    selected_sims,
+)
 from pyflightstream.workspace.flight_condition import resolve_flight_condition
 from pyflightstream.workspace.inputs import resolve_reference, rotor_integration_groups
 from pyflightstream.workspace.naming import (
     ADDITIONAL_DIR,
+    SUPER_FILE_PREFIX,
     archive_previous,
     group_token,
     sweep_file_stem,
@@ -8074,6 +8081,134 @@ def _log_line(record: _LogRecord) -> str:
     )
 
 
+@dataclass
+class _PartialPost:
+    """What a post limited to some simulations keeps of the previous manifest (FR-307).
+
+    ``products``, ``skipped`` and ``provenance`` are the previous entries of
+    every other simulation, carried unchanged, and the entries of every
+    CROSS-SIMULATION product, which such a post does not rebuild: the super
+    files, whose columns are the union over every simulation of the matrix.
+    ``not_rebuilt`` names each product left as the last whole post wrote it,
+    with the reason; it is the manifest's ``partial.not_rebuilt`` and the post
+    log's warning. ``rebuild_sections`` says whether the sections measurement,
+    which reads every recorded point's script, can be rebuilt as a whole post
+    rebuilds it.
+    """
+
+    sims: frozenset[str]
+    products: dict[str, dict[str, object]]
+    skipped: dict[str, str]
+    provenance: dict[str, str]
+    not_rebuilt: dict[str, str]
+    rebuild_sections: bool
+    whole: str
+
+
+def _is_a_super_file(name: str) -> bool:
+    """Whether a products.json name is a super file, the cross-simulation product (FR-89)."""
+    return name.startswith(f"{POLARS_DIR}/") and Path(name).name.startswith(SUPER_FILE_PREFIX)
+
+
+def _a_key_of_the_simulations(
+    key: str,
+    sims: frozenset[str],
+    ids: set[str],
+    previous_products: Mapping[str, Mapping[str, object]],
+) -> bool:
+    """Whether a ``skipped`` key of a previous manifest belongs to one of ``sims``.
+
+    A skip is keyed by the simulation id, by ``runs/``, ``series/`` or
+    ``tecplot/`` and a run id, by ``additional/<pid>/runs/`` and an extraction
+    id, or by the path the product would have had, with or without a
+    ``#marker``: a path a previous entry of the simulation holds, a path under
+    ``sims/sim_<id>/``, or a file name of the simulation (``P<id>-``,
+    ``POLAR-<id>_``, ``SUPER-<id>-``, ``<id>#rotor_tables``). ``ids`` are the
+    run and extraction ids of ``sims``.
+    """
+    if key in sims:
+        return True
+    if key.partition("/")[2] in ids or key.partition("/runs/")[2] in ids:
+        return True
+    base = key.split("#", 1)[0]
+    entry = previous_products.get(base)
+    if isinstance(entry, Mapping) and entry.get("sim_id") in sims:
+        return True
+    parts = base.split("/")
+    if any(part == f"sim_{sim}" for part in parts for sim in sims):
+        return True
+    return any(
+        re.match(rf"^(?:[A-Za-z]+-?)?{re.escape(sim)}(?:[-_.]|$)", parts[-1]) for sim in sims
+    )
+
+
+def _partial_post(
+    workspace: CampaignWorkspace,
+    records: Sequence[RunRecord],
+    sims: frozenset[str],
+    previous: Mapping[str, Any],
+    *,
+    matrix_stem: str | None,
+) -> _PartialPost:
+    """Return what a post limited to ``sims`` keeps of the ``previous`` manifest (FR-307)."""
+    previous_products: Mapping[str, Mapping[str, object]] = previous.get("products") or {}
+    own = [record for record in records if record.sim_id in sims]
+    ids = {record.run_id for record in own} | {
+        point.run_id for record in own for point in record.as_points()
+    }
+    ids |= {
+        extraction.extraction_id
+        for extraction in workspace.read_additional()
+        if extraction.sim_id in sims
+    }
+    label = ", ".join(sorted(sims))
+    whole = f"pyfs-matrix post {matrix_stem}" if matrix_stem else "pyfs-matrix post"
+    products = {
+        name: dict(entry)
+        for name, entry in previous_products.items()
+        if entry.get("sim_id") not in sims or _is_a_super_file(name)
+    }
+    not_rebuilt = {
+        name: (
+            "a super file's columns are the union over every simulation of the matrix, so the "
+            f"post limited to simulation(s) {label} does not rebuild it; this is the file the "
+            f"last whole post wrote, and {whole} rebuilds it"
+        )
+        for name in products
+        if _is_a_super_file(name)
+    }
+    if previous.get("superfile_report"):
+        not_rebuilt["superfile_report"] = (
+            "the measurement of the super files, which this post did not rebuild; it is the "
+            f"one the last whole post wrote, and {whole} rebuilds it"
+        )
+    others = sorted({record.sim_id for record in records} - sims)
+    unread = [sim for sim in others if not workspace.sim_dir(sim).is_dir()]
+    if unread:
+        not_rebuilt["sections_report"] = (
+            "the sections measurement reads the script of every recorded point of the matrix, "
+            f"and simulation(s) {', '.join(unread)} have no folder under sims/ to read "
+            f"(compacted or deleted), which only a whole post restores; {whole} rebuilds it"
+        )
+    return _PartialPost(
+        sims=sims,
+        products=products,
+        skipped={
+            key: reason
+            for key, reason in (previous.get("skipped") or {}).items()
+            if not _a_key_of_the_simulations(key, sims, ids, previous_products)
+        },
+        provenance={
+            run_id: relative
+            for run_id, relative in (previous.get("provenance") or {}).items()
+            if run_id not in ids
+        },
+        not_rebuilt=not_rebuilt,
+        rebuild_sections=not unread,
+        whole=whole,
+    )
+
+
 @workspace_activity("post")
 def write_campaign_products(
     workspace: CampaignWorkspace,
@@ -8083,6 +8218,7 @@ def write_campaign_products(
     archive_stamp: datetime | None = None,
     matrix_stem: str | None = None,
     check_frozen: bool = False,
+    sims: Collection[str] | None = None,
 ) -> list[Path]:
     """Write campaign products, post.log and its JSON; refuse doubts only with check_frozen=True.
 
@@ -8101,9 +8237,25 @@ def write_campaign_products(
     Since 0.27.0 (G12) the products of the additional post's current
     extractions are written too, under ``additional/<pid>/``, from
     ``additional.json``; the stage still launches nothing.
+
+    ``sims`` (0.33.0, FR-307, ``pyfs-matrix post --sims``) limits the rebuild
+    to those simulations of the matrix, IN PLACE: their files are archived and
+    rewritten as a whole post does, every other simulation's files and
+    ``products.json`` entries stay as they were, and the super files, whose
+    columns are the union over every simulation, are left as the last whole
+    post wrote them and named under ``partial.not_rebuilt`` and in the log. A
+    simulation with no record of the matrix is refused by name before
+    anything is written. None, the default, is the whole post.
     """
     import pyflightstream
 
+    selected: frozenset[str] | None = None
+    if sims is not None:
+        selected = selected_sims(
+            [record for record in workspace.read_manifest() if record.matrix_stem == matrix_stem],
+            sims,
+            scope=f"of matrix {matrix_stem!r}" if matrix_stem else "naming no matrix",
+        )
     stamp = archive_stamp or datetime.now()
     out = workspace.products_dir(matrix_stem)
     out.mkdir(parents=True, exist_ok=True)
@@ -8120,6 +8272,7 @@ def write_campaign_products(
         "matrix": matrix_stem,
         "time": datetime.now().astimezone().isoformat(),
         "check_frozen": check_frozen,
+        **({"sims": sorted(selected)} if selected is not None else {}),
     }
     records: list[_LogRecord] = []
     token = _POST_REFUSES.set(check_frozen)
@@ -8135,6 +8288,7 @@ def write_campaign_products(
                 f"workspace={header['workspace']}\nmatrix={header['matrix']}\n"
                 f"time={header['time']}\n"
                 f"check_frozen={header['check_frozen']} (refuse instead of warn)\n"
+                + (f"sims={','.join(sorted(selected))}\n" if selected is not None else "")
             )
             stream.flush()
             try:
@@ -8145,6 +8299,7 @@ def write_campaign_products(
                     archive_stamp=stamp,
                     matrix_stem=matrix_stem,
                     check_frozen=check_frozen,
+                    sims=selected,
                 )
             except BaseException as error:
                 records.append(
@@ -8218,6 +8373,7 @@ def _campaign_products(
     archive_stamp: datetime | None = None,
     matrix_stem: str | None = None,
     check_frozen: bool = False,
+    sims: frozenset[str] | None = None,
 ) -> list[Path]:
     """Write the products of the simulations in a workspace's manifest.
 
@@ -8258,6 +8414,9 @@ def _campaign_products(
     in post.log by default; check_frozen=True refuses affected averages.
     Computable products of failed points remain available by default.
     The definition of record is docs/post-processing-definitions.md.
+
+    ``sims`` (0.33.0, FR-307), already validated by the caller, limits the
+    rebuild to those simulations (:class:`_PartialPost`).
     """
     # ONE STAMP PER REBUILD, taken here and threaded to every archiver.
     # The archive folder's whole claim is that a rebuild is ONE thing a
@@ -8274,7 +8433,7 @@ def _campaign_products(
     records = [record for record in everything if record.matrix_stem == matrix_stem]
     # A COMPACTED SIMULATION IS READ AS IF IT WERE NOT (0.30.0, S4): the
     # post restores `sims/sim_<id>.zip` in place before it reads anything.
-    for sim_id in sorted({record.sim_id for record in records}):
+    for sim_id in sorted({record.sim_id for record in records} if sims is None else sims):
         ensure_sim_expanded(workspace, sim_id, reason="post")
     if matrix_stem is not None and not records:
         # The same refusal sweep_table gives the same keyword (PFS-2031.04):
@@ -8290,11 +8449,13 @@ def _campaign_products(
     by_sim: dict[str, list[RunRecord]] = {}
     # THE END OF A CONTINUATION CHAIN (0.24.0). Expanded first, because a chain
     # is between POINTS; named below in `skipped`, once that exists.
-    superseded = superseded_by_a_continuation(
-        [point for record in records for point in record.as_points()]
-    )
+    points = [point for record in records for point in record.as_points()]
+    superseded = superseded_by_a_continuation(points)
+    sim_of_point = {point.run_id: point.sim_id for point in points}
     skipped: dict[str, str] = {}
     for record in records:
+        if sims is not None and record.sim_id not in sims:
+            continue  # FR-307: another simulation's records are not read.
         # FR-95. ONE JOB IS SEVERAL POINTS, so the record is expanded
         # before its status is read. A steady row is one job since 0.17.0
         # and its record carries every point of the sweep; unexpanded, the
@@ -8375,6 +8536,8 @@ def _campaign_products(
     # existing product without overwrite is still the whole stage's
     # refusal, since it is about the caller's flag and not about a row.
     for old, new in superseded.items():
+        if sims is not None and sim_of_point.get(old) not in sims:
+            continue
         skipped[f"runs/{old}"] = (
             f"this run was continued by {new}, which wrote into the same folder, so its "
             "record names the files of its continuation; the products hold the point once, "
@@ -8420,13 +8583,30 @@ def _campaign_products(
     # one is invalidated first and the new one is written in a `finally`, saying it
     # is incomplete and why.
     previous = out / PRODUCTS_MANIFEST
-    previous_products = {}
+    previous_document: dict[str, Any] = {}
     if previous.is_file():
-        previous_products = json.loads(previous.read_text(encoding="utf-8")).get("products", {})
+        previous_document = json.loads(previous.read_text(encoding="utf-8"))
         # 0.32.0 (P0320-RESTORE-ARCHIVE): archived, not merely removed, so
         # `restore products` has the file this rebuild replaces.
         archive_previous(workspace.root, previous, matrix=out.name)
         previous.unlink()
+    previous_products = previous_document.get("products", {})
+    partial: _PartialPost | None = None
+    if sims is not None:
+        # FR-307: every other simulation's entries and the cross-simulation
+        # products are carried as they were; what is retired below is only
+        # ever a named simulation's.
+        partial = _partial_post(
+            workspace, records, sims, previous_document, matrix_stem=matrix_stem
+        )
+        previous_products = {
+            name: entry for name, entry in previous_products.items() if name not in partial.products
+        }
+        products_index.update(partial.products)
+        manifest["partial"] = {"sims": sorted(sims), "not_rebuilt": partial.not_rebuilt}
+        for kept in ("superfile_report", "sections_report"):
+            if kept in previous_document and kept in partial.not_rebuilt:
+                manifest[kept] = previous_document[kept]
     try:
         _write_the_products(
             workspace,
@@ -8445,6 +8625,7 @@ def _campaign_products(
             archive=archive,
             archive_stamp=archive_stamp,
             check_frozen=check_frozen,
+            partial=partial,
         )
         # 0.30.0: what a previous post made from steps free-space has since
         # pruned stays, file and entry, and is therefore not retired below.
@@ -8482,13 +8663,15 @@ def _campaign_products(
                 _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp)
                 if not archive:
                     path.unlink()
+        if partial is not None:
+            manifest["skipped"] = {**partial.skipped, **skipped}
         (out / PRODUCTS_MANIFEST).write_text(
             json.dumps(manifest, indent=1) + "\n", encoding="utf-8"
         )
     except BaseException as error:
         manifest["complete"] = False
         manifest["interrupted"] = f"{type(error).__name__}: {error}"
-        manifest["skipped"] = skipped
+        manifest["skipped"] = skipped if partial is None else {**partial.skipped, **skipped}
         products_index_on_disk = {
             name: entry for name, entry in products_index.items() if (out / name).is_file()
         }
@@ -8524,11 +8707,15 @@ def _write_the_products(
     archive: bool,
     archive_stamp: datetime | None,
     check_frozen: bool = False,
+    partial: _PartialPost | None = None,
 ) -> None:
     """Write every product of the campaign, filling the caller's manifest as it goes.
 
     Split out of :func:`write_campaign_products` so that function can wrap it in
-    the `try` that keeps the manifest true of the disk.
+    the `try` that keeps the manifest true of the disk. With ``partial``
+    (FR-307) ``by_sim`` holds the named simulations only, the super files are
+    not written, and the provenance and the sections measurement are measured
+    over every record of the matrix, as a whole post measures them.
     """
     for sim_id, sim_records in tracked("post: simulations", by_sim.items(), label=_sim_label):
         simulation_metadata = _simulation_metadata(sim_records)
@@ -8711,12 +8898,35 @@ def _write_the_products(
         archive=archive,
         archive_stamp=archive_stamp,
         check_frozen=check_frozen,
+        sims=None if partial is None else partial.sims,
     )
+    if partial is not None:
+        # FR-307: A PARTIAL VERSION OF A CROSS-SIMULATION PRODUCT IS NEVER
+        # WRITTEN. The drafts of the named simulations alone would give a
+        # header that is not the matrix's union; each super file stays as the
+        # last whole post wrote it, and one it never wrote is said too.
+        for draft in drafts:
+            name = draft.path.relative_to(out).as_posix()
+            partial.not_rebuilt.setdefault(
+                name,
+                "a super file's columns are the union over every simulation of the matrix, "
+                "so a post limited to some simulations does not write it; "
+                f"{partial.whole} writes it",
+            )
+        if partial.not_rebuilt:
+            warn(
+                f"post limited to simulation(s) {', '.join(sorted(partial.sims))}: "
+                f"{len(partial.not_rebuilt)} cross-simulation product(s) not rebuilt, each "
+                "named with its reason under partial.not_rebuilt in products.json: "
+                f"{', '.join(partial.not_rebuilt)}. {partial.whole} rebuilds them.",
+                PyflightstreamWarning,
+                stacklevel=2,
+            )
     # FR-89: the superfiles LAST, and all of them together. Their header is
     # the union over every draft of this campaign, so a steady polar's file
     # and a rotor's carry the same columns and a reader cannot tell from the
     # file which kind of run is behind a row.
-    if drafts:
+    if drafts and partial is None:
         super_files, super_entries, super_columns = write_superfiles(
             drafts,
             target=lambda path: _refuse_an_existing_product(
@@ -8764,8 +8974,10 @@ def _write_the_products(
     # sections, never got their report.
     import pyflightstream as _package
 
-    section_cases = measure_sections(
-        workspace.root, [record.model_dump(mode="json") for record in records]
+    section_cases = (
+        measure_sections(workspace.root, [record.model_dump(mode="json") for record in records])
+        if partial is None or partial.rebuild_sections
+        else []
     )
     if section_cases:
         sections_report = write_sections_report(
@@ -8774,16 +8986,18 @@ def _write_the_products(
             cases=section_cases,
         )
         manifest["sections_report"] = sections_report.relative_to(workspace.root).as_posix()
-    manifest["skipped"] = skipped
+    manifest["skipped"] = skipped if partial is None else {**partial.skipped, **skipped}
     # PFS-2012.08.01: one document per recorded run, whatever its status.
-    manifest["provenance"] = _run_provenance(
+    provenance = _run_provenance(
         workspace,
         records,
         out,
         overwrite=overwrite,
         archive=archive,
         archive_stamp=archive_stamp,
+        sims=None if partial is None else partial.sims,
     )
+    manifest["provenance"] = provenance if partial is None else {**partial.provenance, **provenance}
     manifest["complete"] = True
     out.mkdir(parents=True, exist_ok=True)
     (out / PRODUCTS_MANIFEST).write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
@@ -8857,6 +9071,7 @@ def _additional_products(
     archive: bool,
     archive_stamp: datetime | None,
     check_frozen: bool,
+    sims: frozenset[str] | None = None,
 ) -> None:
     """Write the products of every current extraction of the additional post (G12).
 
@@ -8869,7 +9084,8 @@ def _additional_products(
     THE ONE-RULE ROUTE. The current extractions of one simulation and one pproc
     are handed to :func:`_sim_products` as point records carrying the
     extraction's files and the additional pproc, under
-    ``post/<matrix>/additional/<pid>/``: the group polars, the sections tables
+    ``post/<matrix>/additional/<pid>/`` (with ``sims``, FR-307, only those
+    simulations' extractions are read): the group polars, the sections tables
     and, on an unsteady point, the plots tables and their reductions come from
     the builders the run's own products use. The loads and the surface are the
     ones the run left (RPT-062), so what is new is what the pproc asks of them.
@@ -8882,6 +9098,8 @@ def _additional_products(
     extractions: dict[str, AdditionalRecord] = {}
     for extraction in workspace.read_additional():
         if extraction.matrix_stem != matrix_stem:
+            continue
+        if sims is not None and extraction.sim_id not in sims:
             continue
         if extraction.status is ExtractionStatus.EXTRACTED:
             extractions[extraction.extraction_id] = extraction

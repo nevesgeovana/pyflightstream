@@ -275,6 +275,8 @@ __all__ = [
     "resolve_build",
     "post_diagnostics",
     "post_stages",
+    # 0.33.0 (FR-307): the one refusal of `post --sims` and `collect --sims`.
+    "selected_sims",
     "register_input_guide",
     "register_post_diagnostics",
     "register_post_stage",
@@ -625,6 +627,33 @@ def register_post_stage(stage: Callable[..., list[Path]]) -> Callable[..., list[
 def post_stages() -> tuple[Callable[..., list[Path]], ...]:
     """Return the registered post stages, in registration order."""
     return tuple(_POST_STAGES)
+
+
+def selected_sims(
+    records: Iterable[RunRecord], sims: Iterable[str], *, scope: str
+) -> frozenset[str]:
+    """Return the simulations ``sims`` names, each refused by name unless ``records`` hold it.
+
+    0.33.0 (FR-307): the one refusal of ``post --sims`` and ``collect --sims``,
+    raised before either touches anything. ``records`` are the records the
+    command may select from (one matrix's for the post), and ``scope`` says
+    which in the refusal, for example ``"of matrix 'matriz'"``.
+    """
+    named = list(dict.fromkeys(str(sim).strip() for sim in sims if str(sim).strip()))
+    if not named:
+        raise WorkspaceError(
+            "sims (CLI: --sims) names no simulation; give the ids comma separated, for "
+            "example --sims 2006,2007"
+        )
+    recorded = sorted({record.sim_id for record in records})
+    unknown = [sim for sim in named if sim not in recorded]
+    if unknown:
+        raise WorkspaceError(
+            f"sims (CLI: --sims) names simulation(s) {', '.join(unknown)}, which hold no "
+            f"record {scope}; the simulations recorded {scope} are "
+            f"{', '.join(recorded) or 'none'}. Name one of those; nothing was done."
+        )
+    return frozenset(named)
 
 
 # The post layer supplies its read-only diagnostic renderer at import time,

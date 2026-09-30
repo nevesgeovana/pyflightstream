@@ -59,7 +59,7 @@ from __future__ import annotations
 import shutil
 import time
 import warnings
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -92,6 +92,7 @@ from ..workspace import (
     RunRecord,
     RunStatus,
     WorkspaceError,
+    selected_sims,
 )
 from ..workspace.inputs import resolve_hpc_profile
 from ..workspace.naming import datapoint_name_of
@@ -562,7 +563,7 @@ def _finish_additional(workspace, record, context):
     return completed
 
 
-def _collect_additional(workspace, report, *, interval, sleep, observer) -> None:
+def _collect_additional(workspace, report, *, interval, sleep, observer, sims=None) -> None:
     """Complete stable submitted extractions; retain pending jobs and native logs."""
     from pyflightstream.workspace import ExtractionStatus
 
@@ -570,6 +571,8 @@ def _collect_additional(workspace, report, *, interval, sleep, observer) -> None
     for record in latest.values():
         if record.status is not ExtractionStatus.SUBMITTED:
             continue
+        if sims is not None and record.sim_id not in sims:
+            continue  # FR-307: another simulation's extraction is left as it is.
         try:
             context = _additional_context(workspace, record)
             folder = context[1]
@@ -621,6 +624,11 @@ def _run_label(record: RunRecord) -> str:
     return record.run_id
 
 
+def _of_the_simulations(records: list[RunRecord], sims: frozenset[str] | None) -> list[RunRecord]:
+    """Return the records of ``sims``, or every record when it is None (FR-307)."""
+    return records if sims is None else [record for record in records if record.sim_id in sims]
+
+
 @workspace_activity("collection")
 def collect_once(
     workspace: CampaignWorkspace,
@@ -629,6 +637,7 @@ def collect_once(
     sleep: Callable[[float], None] = time.sleep,
     observer: Callable[[Iterable[Path]], dict[str, Stamp | None]] = observe,
     assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None = None,
+    sims: Collection[str] | None = None,
 ) -> CollectReport:
     """Sweep every SUBMITTED record once and collect the ones that settled.
 
@@ -647,6 +656,11 @@ def collect_once(
         and no solver. A stage whose only entry point needs a scheduler is a
         stage nothing tests, which is the reason the injection exists rather
         than a preference for injection.
+    sims
+        0.33.0 (FR-307, ``collect --sims``): sweep only the SUBMITTED records
+        of these simulations; every other record is left untouched and is not
+        counted as outstanding. A simulation no record holds is refused by
+        name before anything is swept. None sweeps every record.
     """
     report = CollectReport()
     try:
@@ -654,8 +668,13 @@ def collect_once(
     except (WorkspaceError, CampaignConfigError) as error:
         raise WorkspaceError(f"the manifest could not be read: {error}") from error
 
-    submitted = [r for r in records if r.status is RunStatus.SUBMITTED]
-    _collect_additional(workspace, report, interval=interval, sleep=sleep, observer=observer)
+    selected = None if sims is None else selected_sims(records, sims, scope="in the manifest")
+    submitted = [
+        r for r in _of_the_simulations(records, selected) if r.status is RunStatus.SUBMITTED
+    ]
+    _collect_additional(
+        workspace, report, interval=interval, sleep=sleep, observer=observer, sims=selected
+    )
 
     for record in tracked("collect: points", submitted, label=_run_label):
         names = _declared_outputs(record)
@@ -1363,6 +1382,7 @@ def collect_and_post(
     # serious caller most needs.
     observer: Callable[[Iterable[Path]], dict[str, Stamp | None]] = observe,
     assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None = None,
+    sims: Collection[str] | None = None,
 ) -> CollectReport:
     """Collect, and post-process once something was collected.
 
@@ -1384,7 +1404,16 @@ def collect_and_post(
     second: the command line's own post called the stage with no matrix, and
     the stage then selected the records naming none, which left every
     named-matrix record out and wrote nothing (0.24.0).
+
+    ``sims`` (0.33.0, FR-307) limits every sweep to the SUBMITTED records of
+    those simulations (:func:`collect_once`) and the post to the same
+    simulations: ``post`` is then called with the keyword ``sims`` too, and
+    ``post_matrix`` with ``sims`` naming the ones of that matrix.
     """
+    selected = None
+    if sims is not None:
+        # REFUSED BEFORE THE FIRST SWEEP, so a watch over a typo stops at once.
+        selected = selected_sims(workspace.read_manifest(), sims, scope="in the manifest")
     total = CollectReport()
     swept = 0
     while True:
@@ -1394,6 +1423,7 @@ def collect_and_post(
             sleep=sleep,
             observer=observer,
             assessor=assessor,
+            sims=selected,
         )
         total.collected.extend(report.collected)
         total.failed.extend(report.failed)
@@ -1401,15 +1431,23 @@ def collect_and_post(
         total.unknown = list(report.unknown)
         swept += 1
         if report.collected and post is not None:
-            post(workspace)
+            if selected is None:
+                post(workspace)
+            else:
+                post(workspace, sims=sorted(selected))  # type: ignore[call-arg]
         if report.collected and post_matrix is not None:
             stems = [
                 outcome.record.matrix_stem
                 for outcome in report.collected
                 if outcome.record is not None
             ]
+            recorded = workspace.read_manifest() if selected is not None else []
             for stem in dict.fromkeys(stems):
-                post_matrix(workspace, stem)
+                if selected is None:
+                    post_matrix(workspace, stem)
+                    continue
+                of_matrix = {record.sim_id for record in recorded if record.matrix_stem == stem}
+                post_matrix(workspace, stem, sims=sorted(selected & of_matrix))  # type: ignore[call-arg]
         if not watch:
             break
         if report.outstanding == 0:

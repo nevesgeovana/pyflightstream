@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 252,
-  "total": 311,
+  "cited_by_a_test": 253,
+  "total": 312,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -2237,6 +2237,14 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the 0.33.0 development cycle, the owner's word on pyfs-matrix delete-sims (\"o delete-sims recusa sims com submitted, mas elas deram pau, eu quero mais uma flag que permite deletar sim bypassando qualquer status\"). Evidence: tests/tier1_offline/test_delete_sims_force.py::test_refused_without_force_with_the_same_text, ::test_force_preview_names_the_submitted_sim_and_changes_nothing, ::test_force_apply_deletes_folder_products_records_and_records_the_call, ::test_cli_force_flag_reaches_the_library, ::test_mutant_ignoring_force_turns_the_check_red.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-307",
+   "text": "Need: After a few simulations of a matrix are run again or collected, the person wants to rebuild and collect those simulations alone, without rewriting the products of every other simulation of the matrix.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the 0.33.0 development cycle, the post and collect stages of pyfs-matrix. Evidence: tests/tier1_offline/test_sims_selection.py::test_post_sims_rewrites_only_the_named_simulation_fr_307, ::test_post_sims_replaces_only_the_named_entries_and_skips_fr_307, ::test_post_sims_leaves_the_super_files_and_says_so_fr_307, ::test_post_without_sims_is_the_whole_post_fr_307, ::test_post_sims_refuses_an_unknown_simulation_before_any_work_fr_307, ::test_collect_sims_collects_only_the_named_simulation_fr_307, ::test_collect_sims_limits_its_post_to_the_same_simulations_fr_307, ::test_mutant_ignoring_post_sims_turns_the_check_red_fr_307, ::test_mutant_ignoring_collect_sims_turns_the_check_red_fr_307.*",
    "verification": "test"
   },
   {

@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.48.0 |
+| Version | 1.49.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -41,7 +41,7 @@ or ambiguous.
    rules, with the generated [architecture overview](../architecture.md)
    as the live companion.
 6. [Functional requirements](functional-requirements.md): FR-01 to
-   FR-306, each with origin, status, and evidence.
+   FR-307, each with origin, status, and evidence.
 7. [Non-functional requirements](nonfunctional-requirements.md):
    NFR-01 to NFR-28.
 8. [Standards alignment](standards.md): the external practices this
@@ -98,6 +98,7 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.49.0 | 2026-09-30 | **THE FUNCTIONAL RANGE READS FR-01 TO FR-307**: FR-307 (`pyfs-matrix post --sims` rebuilds only the named simulations' products in place, leaving the cross-simulation products named under `partial.not_rebuilt`, and `pyfs-matrix collect --sims` sweeps only the named simulations' SUBMITTED records) joins the functional chapter for 0.33.0. |
 | 1.48.0 | 2026-09-30 | **THE FUNCTIONAL RANGE READS FR-01 TO FR-306**: FR-306 (`pyfs-matrix delete-sims --force` deletes a simulation whatever the status of its records, SUBMITTED included) joins the functional chapter for 0.33.0. |
 | 1.47.0 | 2026-09-30 | **THE FUNCTIONAL RANGE READS FR-01 TO FR-305**: FR-305 (`pyfs-matrix free-space --list` prints every path each recipe step touches, with its size and what happens to it) joins the functional chapter for 0.33.0. |
 | 1.46.0 | 2026-09-30 | **THE FUNCTIONAL RANGE READS FR-01 TO FR-304**: FR-295 to FR-299 (the REAL control surface refused, the PARAMETRIC form kept) and FR-300 to FR-304 (the exploratory quasi-steady noise model) joined the functional chapter after the fold. **The origins state the scope, not a person**: every origin that quoted a private conversation or attributed a requirement to a person (FR-118, FR-119, FR-165, FR-166, FR-168, FR-173, FR-175, FR-176, FR-177, FR-179, FR-185, FR-186, FR-193, FR-194, FR-250, FR-251, FR-253, FR-280, FR-285 and FR-300) now names the scope item it came from, and a matrix's copy in a sync is the owning workspace's. **Nineteen boxes take the chapter's form**: FR-212 to FR-222, FR-224 to FR-227 and FR-296 to FR-299 held their need, requirement, solution and trace in one italic paragraph, which the requirements index reads as an origin tag, so they published no statement; each now has an italic origin and evidence line and plain Need, Requirement and Solution paragraphs, in the same words. No requirement statement changes. |
