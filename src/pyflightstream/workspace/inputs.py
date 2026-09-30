@@ -3219,6 +3219,12 @@ class HpcProfile:
     #: reads one file whatever the scheduler called it. None where the
     #: scheduler writes none.
     native_log: str | None = None
+    #: THE FILES THE SCHEDULER WRITES WHEN A JOB ENDS (FR-311), as globs relative
+    #: to the run's working directory with the placeholders of ``native_log``
+    #: (``{sim}``, ``{point}``); the job id, which the package never learns, is
+    #: matched by the glob. When every one matches and the solver log does not,
+    #: `collect` records the point FAILED_EXECUTION. Empty: `collect` waits.
+    job_end_files: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         """Refuse a descriptor name that is not a plain file name.
@@ -3299,7 +3305,7 @@ WALLTIME_ARITHMETIC: frozenset[str] = frozenset({"wall", "seconds"})
 HPC_PROFILE_KEYS: frozenset[str] = frozenset(
     {"application_id", "descriptor", "submit", "defaults", "builds", "walltime_arithmetic", "log"}
 )
-HPC_LOG_KEYS: frozenset[str] = frozenset({"export_log", "native_log"})
+HPC_LOG_KEYS: frozenset[str] = frozenset({"export_log", "native_log", "job_end_files"})
 
 
 def _refuse_unknown_keys(
@@ -3433,6 +3439,7 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         walltime_arithmetic=arithmetic,
         export_log=export_log,
         native_log=native_log,
+        job_end_files=_job_end_files(target, log.get("job_end_files", [])),
         builds=builds,
         application_id=str(table["application_id"]),
         descriptor_format=fmt,
@@ -3449,6 +3456,23 @@ def read_hpc_profile(path: str | Path) -> HpcProfile:
         defaults=dict(table.get("defaults") or {}),
         path=target,
     )
+
+
+def _job_end_files(target: Path, ends: object) -> tuple[str, ...]:
+    """Read ``[log] job_end_files`` (FR-311): a list of globs with native_log's placeholders."""
+    try:
+        valid = isinstance(ends, list) and all(
+            str(pattern.format(sim="s", point="p")).strip() for pattern in ends
+        )
+    except (AttributeError, IndexError, KeyError, ValueError):
+        valid = False
+    if not valid or not isinstance(ends, list):
+        raise InputArtifactError(
+            f"the HPC profile {target} states job_end_files = {ends!r}. It is a list of the "
+            "file names the scheduler writes when a job ends, as globs with the placeholders "
+            'of native_log, {sim} and {point}, for example ["FTS{sim}.o*", "FTS{sim}.e*"].'
+        )
+    return tuple(str(pattern).strip() for pattern in ends)
 
 
 def _read_build_aliases(target: Path, table: object) -> dict[str, str]:

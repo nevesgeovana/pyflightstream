@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 258,
+  "cited_by_a_test": 259,
   "total": 321,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -2276,7 +2276,7 @@
    "text": "Need: collect waits for the solver log the HPC profile names (native_log). A job that died before writing that log stays SUBMITTED indefinitely, and a person cannot tell it from a job still running.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: item COLLECT-JOB-ENDED of the 0.33.0 scope (GEO-071, section 2.2). Pending: no code yet, and the scheduler's file names are not confirmed. Evidence owed, in two tiers: tier-1 tests on recorded folders (every listed file present and no log, recorded FAILED_EXECUTION with the tail in the record; only some of the files present, still SUBMITTED; the files of another profile's patterns present, still SUBMITTED; the log present, collected as before), asserting the status and the recorded text rather than an exception type; and a dated receipt of a real cluster folder, naming the scheduler and the date, that shows the files the patterns name.*",
+   "evidence": "*Origin: item COLLECT-JOB-ENDED of the 0.33.0 scope (GEO-071, section 2.2). Pending: built on 2026-09-30 and verified on recorded folders (tests/tier1_offline/test_fr311_collect_job_ended.py), and the scheduler's file names are not confirmed. Evidence owed, in two tiers: tier-1 tests on recorded folders (every listed file present and no log, recorded FAILED_EXECUTION with the tail in the record; only some of the files present, still SUBMITTED; the files of another profile's patterns present, still SUBMITTED; the log present, collected as before), asserting the status and the recorded text rather than an exception type; and a dated receipt of a real cluster folder, naming the scheduler and the date, that shows the files the patterns name.*",
    "verification": "none"
   },
   {

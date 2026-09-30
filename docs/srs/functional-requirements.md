@@ -7722,21 +7722,21 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-311 The collect command recognises a job that ended without its solver log <span class='srs-pending'>pending</span>"
 
-    *Origin: item COLLECT-JOB-ENDED of the 0.33.0 scope (GEO-071, section 2.2). Pending: no code yet, and the scheduler's file names are not confirmed. Evidence owed, in two tiers: tier-1 tests on recorded folders (every listed file present and no log, recorded FAILED_EXECUTION with the tail in the record; only some of the files present, still SUBMITTED; the files of another profile's patterns present, still SUBMITTED; the log present, collected as before), asserting the status and the recorded text rather than an exception type; and a dated receipt of a real cluster folder, naming the scheduler and the date, that shows the files the patterns name.*
+    *Origin: item COLLECT-JOB-ENDED of the 0.33.0 scope (GEO-071, section 2.2). Pending: built on 2026-09-30 and verified on recorded folders (`tests/tier1_offline/test_fr311_collect_job_ended.py`), and the scheduler's file names are not confirmed. Evidence owed, in two tiers: tier-1 tests on recorded folders (every listed file present and no log, recorded FAILED_EXECUTION with the tail in the record; only some of the files present, still SUBMITTED; the files of another profile's patterns present, still SUBMITTED; the log present, collected as before), asserting the status and the recorded text rather than an exception type; and a dated receipt of a real cluster folder, naming the scheduler and the date, that shows the files the patterns name.*
 
     Need: `collect` waits for the solver log the HPC profile names (`native_log`). A job that died before writing that log stays SUBMITTED indefinitely, and a person cannot tell it from a job still running.
 
     Requirement: `collect` records a job that ended without its solver log as failed, reading which files mark the end of a job from the HPC profile.
 
-    - R1 The HPC profile `h<id>.toml` carries a key, beside `native_log`, listing the file-name patterns the scheduler writes when a job ends, with placeholders for the case name and the job id; the key's name is fixed by the implementation and written into this requirement when it lands. No file name of one scheduler or one cluster is written in the code.
-    - R2 When every file the key lists exists for a SUBMITTED point and its solver log does not, `collect` records the point `FAILED_EXECUTION`, and the record carries the last lines of the error file the key names (the number of lines is stated here when implemented), read as bytes and decoded with replacement rather than assumed to be UTF-8.
+    - R1 The HPC profile `h<id>.toml` carries a key, beside `native_log`, listing the file-name patterns the scheduler writes when a job ends, with placeholders for the case name and the job id: `[log] job_end_files`, a list of globs with the placeholders of `native_log` (`{sim}`, `{point}`), the job id, which the package never learns, matched by the glob. No file name of one scheduler or one cluster is written in the code; a malformed value is refused when the profile is read.
+    - R2 When every file the key lists exists for a SUBMITTED point and its solver log does not, `collect` records the point `FAILED_EXECUTION`, and the record carries the last 20 lines (`pyflightstream.run.collect.JOB_END_TAIL_LINES`) of every file the key lists, the error file among them, read as bytes and decoded with replacement rather than assumed to be UTF-8.
     - R3 When only some of the listed files exist, the point stays SUBMITTED.
     - R4 When the solver log exists, and when the profile has no such key, `collect` behaves as before.
     - R5 The rule "the end-of-job files exist and the log does not" is a heuristic: a log delayed on a shared file system and a job the scheduler requeued can be misjudged, and neither case is measured. The record names the files that were read.
 
     Conditions: the file names `<case>.o<id>` and `<case>.e<id>` are the ones reported for one cluster on 2026-09-30; they have not been confirmed from a real cluster folder, and this requirement stays pending until the receipt above is committed.
 
-    Solution (planned for 0.33.0): the new key of the HPC profile and the end-of-job reading of `pyflightstream.run.collect`.
+    Solution (0.33.0, pending the receipt): `HpcProfile.job_end_files` and the end-of-job reading of `pyflightstream.run.collect` (`_job_ended_without_log`).
 
 !!! requirement "FR-312 A geometry file can be reduced to its meshes and applied boundary conditions <span class='srs-pending'>pending</span>"
 

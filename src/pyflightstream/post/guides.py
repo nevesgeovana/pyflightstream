@@ -2387,12 +2387,12 @@ walltime = 28800
 [builds]
 "26.124" = "26.1"
 
-# The solver's log. A machine that aborts at the script's EXPORT_LOG states
-# export_log = false and names the log it writes itself, as a pattern relative
-# to the point's folder; collect copies it to the standard log name.
+# The solver's log: export_log = false on a machine that aborts at EXPORT_LOG,
+# the log it writes itself, and the files its scheduler writes when a job ends.
 [log]
 export_log = true
 native_log = "FTS{sim}.l*"
+job_end_files = ["FTS{sim}.o*", "FTS{sim}.e*"]
 """
 
 _EXECUTABLES_EXAMPLE = """\
