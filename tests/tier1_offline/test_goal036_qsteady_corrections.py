@@ -618,7 +618,9 @@ def _post_recorded(workspace) -> tuple[dict, Path, list[str]]:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PyflightstreamWarning)
         _post(workspace)
-    (manifest,) = workspace.root.rglob("products.json")
+    # A second post archives the previous manifest under archive/ (FR-293);
+    # the live one is outside it.
+    (manifest,) = [p for p in workspace.root.rglob("products.json") if "archive" not in p.parts]
     log = (manifest.parent / "post.log").read_text(encoding="utf-8").splitlines()
     return json.loads(manifest.read_text(encoding="utf-8")), manifest.parent, log
 

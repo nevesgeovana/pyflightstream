@@ -432,11 +432,12 @@ def test_a_long_command_writes_its_live_log_while_it_runs(tmp_path, monkeypatch)
     during: dict[str, str] = {}
     real = storage_module.free_space
 
-    def free_space(root, recipe, *, apply=False):
+    def free_space(root, recipe, *, apply=False, **kwargs):
         # Read the live log from inside the command: it is already written.
+        # kwargs carries what the command passes beside apply (runs=, FR-226).
         (log,) = [p for p in logs.iterdir() if LIVE_LOG.fullmatch(p.name)]
         during["text"] = log.read_text(encoding="utf-8")
-        return real(root, recipe, apply=apply)
+        return real(root, recipe, apply=apply, **kwargs)
 
     monkeypatch.setattr(storage_module, "free_space", free_space)
     text = _merged(matrix_cli.main, ["free-space", "m001", "--workspace", str(workspace.root)])
