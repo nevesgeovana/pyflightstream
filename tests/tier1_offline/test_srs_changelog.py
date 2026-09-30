@@ -8,7 +8,7 @@ An id is DEFINED by a page of ``docs/srs/**/*.md`` when it is the identifier
 of a requirement admonition title, appears in a heading, or is the first cell
 of a table row. The sections headed "Changed (the type-checker debt ...)" are
 a measurement of the type checker and are not capabilities, so they are
-excluded, as is any bullet that names the type-checker debt.
+excluded.
 
 The release tests are parametrised so a release whose bullets all cite ids
 passes on its own, whatever the state of its neighbours.
@@ -30,6 +30,7 @@ _FIRST_RELEASE = (0, 25, 0)
 _CAPTURED_SECTIONS = ("Added", "Changed")
 _EXEMPT = "type-checker debt"
 _NO_REQUIREMENT = "(no requirement:"
+_EXCUSE = re.compile(r"\(no requirement:\s*[^)\s][^)]*\)")
 
 
 def defined_ids(srs: Path) -> set[str]:
@@ -56,7 +57,7 @@ def top_level_bullets(lines: list[str], sections: tuple[str, ...], marker: str) 
 
     ``marker`` is the heading prefix of a section (``### `` in the change log,
     ``## `` in a fragment). A section whose heading holds the exempt phrase is
-    skipped whole.
+    skipped whole; a nested bullet is not part of its parent.
     """
     bullets: list[str] = []
     current: list[str] | None = None
@@ -75,11 +76,11 @@ def top_level_bullets(lines: list[str], sections: tuple[str, ...], marker: str) 
             if current is not None:
                 bullets.append(" ".join(current))
             current = [line]
-        elif current is not None:
+        elif current is not None and not line.lstrip().startswith("- "):
             current.append(line.strip())
     if current is not None:
         bullets.append(" ".join(current))
-    return [bullet for bullet in bullets if _EXEMPT not in bullet]
+    return bullets
 
 
 def release_bullets(changelog: str) -> dict[str, list[str]]:
@@ -120,7 +121,7 @@ def uncited(bullets: list[str], defined: set[str]) -> list[str]:
     return [
         bullet
         for bullet in bullets
-        if _NO_REQUIREMENT not in bullet and not (set(_ID.findall(bullet)) & defined)
+        if not _EXCUSE.search(bullet) and not (set(_ID.findall(bullet)) & defined)
     ]
 
 
@@ -202,3 +203,22 @@ def test_the_checker_refuses_a_bullet_that_cites_nothing_and_accepts_the_two_way
     refused = uncited(bullets, {"FR-95"})
     assert len(refused) == 1 and refused[0].startswith("- A capability with no id")
     assert uncited(bullets, set()) == [bullets[0], bullets[1]]
+
+
+def test_the_checker_refuses_an_empty_reason_a_nested_citation_and_the_phrase_alone():
+    """P0320-SRS-CHANGELOG: three loopholes stay shut (a refusal control)."""
+    text = "\n".join(
+        [
+            "## [0.31.0] - 2099-01-01",
+            "",
+            "### Added",
+            "",
+            "- Empty excuse (no requirement: ).",
+            "- A parent with no id of its own",
+            "  - whose nested bullet cites FR-95",
+            "- A capability that merely mentions the type-checker debt",
+        ]
+    )
+    bullets = release_bullets(text)["0.31.0"]
+    assert len(bullets) == 3
+    assert uncited(bullets, {"FR-95"}) == bullets
