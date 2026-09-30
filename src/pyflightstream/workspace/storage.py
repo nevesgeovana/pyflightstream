@@ -1517,14 +1517,33 @@ def _sim_ids(ws: Path) -> set[str]:
     return found
 
 
+def _brought_sim_ids(files: list[Path]) -> set[str]:
+    """Return the simulation ids with a file among ``files``, the paths a sync brings."""
+    found: set[str] = set()
+    for relative in files:
+        parts = relative.parts
+        if len(parts) < 2 or parts[0] != "sims" or not parts[1].startswith("sim_"):
+            continue
+        name = parts[1]
+        if len(parts) == 2 and name.endswith(COMPACTED_SUFFIX):
+            name = name[: -len(COMPACTED_SUFFIX)]
+        found.add(name[len("sim_") :])
+    return found
+
+
 def _sim_folders(
-    main_ids: set[str], other_ids: set[str], rows: list[dict[str, Any]]
+    main_ids: set[str], other_ids: set[str], brought: set[str], rows: list[dict[str, Any]]
 ) -> dict[str, list[str]]:
     """P0320-SYNC-ALL-FOLDERS: the simulation folders of both sides, compared.
 
     ``without_record`` names every folder main holds, or holds once the sync is
-    applied, that no record of the merged manifest carries; a folder a
-    ``delete-sims`` note names is accounted for by that note and left out.
+    applied (``brought``: the other's simulations with a file the level
+    copies), that no record of the merged manifest carries; a folder a
+    ``delete-sims`` note names is accounted for by that note and left out. A
+    simulation of the other workspace the level does not bring (a compacted
+    one below ``all``, a folder holding nothing the level copies) is in
+    ``other`` and never in ``without_record``, because the restore rebuilds in
+    main.
     """
     recorded = {
         str(row.get("sim_id"))
@@ -1538,7 +1557,7 @@ def _sim_folders(
         "only_main": sorted(main_ids - other_ids),
         "only_other": sorted(other_ids - main_ids),
         "both": sorted(main_ids & other_ids),
-        "without_record": sorted((main_ids | other_ids) - recorded - noted),
+        "without_record": sorted((main_ids | (other_ids & brought)) - recorded - noted),
     }
 
 
@@ -1804,7 +1823,7 @@ def _sync_one(
     entry["inputs_links"] = inputs_links
     # P0320-SYNC-ALL-FOLDERS: every simulation folder of both sides, recorded
     # or not; P0320-SYNC-RESTORE-OPTIN: their records rebuilt only when asked.
-    entry["sims"] = _sim_folders(main_ids, other_ids, merged)
+    entry["sims"] = _sim_folders(main_ids, other_ids, _brought_sim_ids(files), merged)
     orphans = entry["sims"]["without_record"]
     entry["restore"] = {"asked": restore, "sims": [], "result": None, "error": None}
     if restore:

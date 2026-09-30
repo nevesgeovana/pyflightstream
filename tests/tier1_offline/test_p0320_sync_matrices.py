@@ -104,13 +104,39 @@ def test_p0320_sync_all_folders_counts_a_compacted_sim_and_the_cli_prints_them(t
     # P0320-SYNC-ALL-FOLDERS
     main, other = _orphan_pair(tmp_path, "allcli")
     (other.root / "sims" / "sim_2003.zip").write_bytes(b"PK")
-    (entry,) = storage_module.sync_workspaces(main.root, "runs")
+    # The level "all" brings a compacted simulation, so main will hold 2003.
+    (entry,) = storage_module.sync_workspaces(main.root, "all")
     assert "2003" in entry["sims"]["other"]
-    assert matrix_cli.main(["sync", "runs", "--workspace", str(main.root)]) == 0
+    assert matrix_cli.main(["sync", "all", "--workspace", str(main.root)]) == 0
     out = capsys.readouterr().out
     assert "sims/: 1 in main, 3 in other, 0 in both" in out
     assert "without a record: 2002, 2003, 3000" in out
     assert "--restore" in out
+
+
+def test_p0320_sync_all_folders_without_record_names_only_what_main_will_hold(
+    tmp_path, monkeypatch
+):
+    # P0320-SYNC-ALL-FOLDERS and P0320-SYNC-RESTORE-OPTIN: "without a record"
+    # is what main holds, or holds once applied, so the restore, which rebuilds
+    # in main, is never handed a simulation the level does not bring: a
+    # compacted one below "all", or a folder holding nothing the level copies.
+    rebuilds = _Rebuilds()
+    monkeypatch.setattr(run_records, "rebuild", rebuilds)
+    main, other = _orphan_pair(tmp_path, "heldonly")
+    (other.root / "sims" / "sim_2003.zip").write_bytes(b"PK")
+    _write(other.sim_dir("2004") / "datapoints" / "DP-1" / "surface.vtk", "not at runs")
+    (preview,) = storage_module.sync_workspaces(main.root, "runs", restore=True)
+    assert preview["sims"]["other"] == ["2001", "2002", "2003", "2004"]
+    assert preview["sims"]["without_record"] == ["2002", "3000"]
+    assert preview["restore"]["sims"] == ["2002", "3000"]
+    (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=True, restore=True)
+    (call,) = rebuilds.calls
+    assert call["sims"] == ["2002", "3000"]
+    assert not (main.root / "sims" / "sim_2003.zip").exists()
+    assert not main.sim_dir("2004").exists()
+    (whole,) = storage_module.sync_workspaces(main.root, "all")
+    assert whole["sims"]["without_record"] == ["2002", "2003", "2004", "3000"]
 
 
 # --------------------------------------------------------------------------- restore opt-in
