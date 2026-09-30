@@ -108,7 +108,7 @@ NEW_CCS_WING_CONTROL_SURFACE:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.302, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.303, unchanged from SRC-750 p.303"}
-    "26.124": {status: documented, note: "SRC-752 p.303, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124": {status: documented, note: "SRC-752 p.303, the SRC-751 file, carried from 26.123. Run in licensed round 2 of 0.32.0 through the package route (RPT-097): the ten-argument PARAMETRIC form completed and its saved simulation differs from the wing without it, the REAL form ended FAILED_EXECUTION with no saved simulation. Not promoted: verified needs a pyfs-qa probe run"}
   notes: >
     Creates a gapped control surface on a CCS wing component. V0 and
     V1 are the spanwise limits, U0 and U1 the chordwise depths from

@@ -1,0 +1,52 @@
+{
+ "report": "RPT-098",
+ "title": "pyflightstream 0.32 round 3 on FlightStream 26.124: the acoustic chain, the wake stabilisation and the surface removal",
+ "release": "0.32",
+ "build": "26.124 build 8172026",
+ "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+ "route": "package route: pyfs-matrix plan, then pyfs-matrix run --local, two matrices, serial",
+ "files_read": {
+  "readme": "C:/WORK/release-0320/probes/round3/README.md",
+  "verdicts": ["C:/WORK/release-0320/probes/round3/verdicts_e2.json", "C:/WORK/release-0320/probes/round3/verdicts_h.json"],
+  "sims": "C:/WORK/release-0320/probes/round3/sims/",
+  "summary": "C:/WORK/release-0320/probes/round23_done.txt"
+ },
+ "totals": {"rows": 9, "e2_expectations_held": "30 of 30", "h_expectations_held": "39 of 40", "h_expectation_failed": "3301 status is COMPLETED_MAX_ITER, the short march, not a G9 defect"},
+ "acoustic_chain": {
+  "workflow": "unsteady_rotor",
+  "commands": ["ACOUSTIC_SOURCES", "CREATE_NEW_ACOUSTIC_OBSERVER", "ACOUSTIC_OBSERVERS_IMPORT", "SET_ACOUSTIC_OBSERVER_TIME", "COMPUTE_ACOUSTIC_SIGNALS", "EXPORT_ACOUSTIC_SIGNALS", "CREATE_ACOUSTIC_SECTION"],
+  "rows": [
+   {"pol": "3201", "moved": "the whole chain, sources ENABLE", "record_status": "CONVERGED", "observers": 5, "rows_per_observer": 16, "nonzero_pressure_values": "160 of 240", "section_files": 16, "outputs_hashed": "27 of 27"},
+   {"pol": "3202", "moved": "the control, sources DISABLE", "record_status": "CONVERGED", "observers": 5, "rows_per_observer": 16, "nonzero_pressure_values": "0 of 240", "section_files": 16, "outputs_hashed": "27 of 27"},
+   {"pol": "3203", "moved": "a section alone in the rotor hub frame, no export", "record_status": "CONVERGED", "signals_file": "none declared", "section_files": 16, "outputs_hashed": "26 of 26"}
+  ],
+  "time_window": "0.05 to 0.190625, 16 rows"
+ },
+ "g4_wake_stabilisation": {
+  "rows": [
+   {"pol": "3304", "key": "DISABLE", "line": "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION 1 DISABLE 2", "record_status": "CONVERGED"},
+   {"pol": "3305", "key": "ENABLE", "line": "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION 1 ENABLE 2", "record_status": "CONVERGED"},
+   {"pol": "3306", "key": "absent", "line": null, "record_status": "CONVERGED"}
+  ],
+  "comparison": "DISABLE and ENABLE saves differ in 482 of 3394 lines; the absent-key save is byte equal to neither"
+ },
+ "g9_delete_surfaces": {
+  "mesh_boundaries": ["Body", "Base", "Blade1", "Blade2"],
+  "rows": [
+   {"pol": "3301", "key": "delete_surfaces Blade1", "line": "DELETE_SURFACES 3", "inventory": ["Body", "Base", "Blade2"], "moving_boundary_index": 3, "record_status": "COMPLETED_MAX_ITER"},
+   {"pol": "3302", "key": "none", "line": null, "moving_boundary_index": 4, "record_status": "CONVERGED"},
+   {"pol": "3303", "key": "delete_surfaces family Blade", "lines": ["DELETE_SURFACES 4", "DELETE_SURFACES 3"], "inventory": ["Body", "Base"], "record_status": "CONVERGED"}
+  ]
+ },
+ "not_established": [
+  "an acoustic chain on a solved real propeller: library meshes marched for one revolution",
+  "any amplitude, level or spectrum",
+  "the relation of the observer time window to the solver time",
+  "what the section's 16 files hold per time step",
+  "what the differing lines of the G4 saves are, and whether DISABLE against absent is a setting or a stamp",
+  "the effect of the wake stabilisation on any solution",
+  "G9 on any other mesh",
+  "a promotion of any command to verified: no pyfs-qa probe ran"
+ ],
+ "nondimensional_only": true
+}
