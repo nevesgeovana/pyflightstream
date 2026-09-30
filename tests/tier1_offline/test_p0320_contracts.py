@@ -168,7 +168,9 @@ def test_the_acoustic_signals_contract():
     assert post_acoustics.AcousticSignal is signal_type
     assert post_acoustics.ACOUSTIC_SIGNALS_SUFFIX is cases_acoustics.ACOUSTIC_SIGNALS_SUFFIX
     assert _shape(post_acoustics.read_acoustic_signals) == [("path", POS, EMPTY)]
-    with pytest.raises(ContractNotImplementedError, match=r"not implemented yet \(0\.32\.0"):
+    # E1 filled the reader (FR-260): its behaviour is tested in test_p0320_noise_post.py;
+    # here only that the contract name now refuses a file that is not there.
+    with pytest.raises(exceptions.ProductError, match="cannot be read"):
         post_acoustics.read_acoustic_signals("P1_acoustic_signals.txt")
 
 
