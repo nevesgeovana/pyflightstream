@@ -31,6 +31,29 @@ plugins:
         - scripts/gen_docs_pages.py
   - literate-nav:
       nav_file: SUMMARY.md
+  # The Python API reference (NFR-29 R2): gen_docs_pages.py writes one page per
+  # public subpackage under api/, one `::: dotted.name` entry per name of its
+  # __all__, and this plugin renders each entry from the docstrings (licence
+  # evidence: the RPT-101 card). `paths` points griffe at this tree's sources,
+  # so the reference documents the checkout being built and not an install.
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: numpy
+            heading_level: 3
+            show_root_heading: true
+            show_root_full_path: true
+            show_source: false
+            members_order: source
+            merge_init_into_class: true
+            separate_signature: true
+            show_signature_annotations: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            filters: ["!^_"]
 
 markdown_extensions:
   - admonition
@@ -52,17 +75,18 @@ markdown_extensions:
 extra_css:
   - stylesheets/extra.css
 nav:
-  # Organized by task (0.32.0): Getting started, Workflows, Post-processing,
-  # Reference, Migration. A page keeps its file name and its anchors; the old
-  # workspace page is now the index of the Workflows group, and each run type
-  # and topic it held has a page of its own. Each fact has one home.
-  - Getting started:
+  # Organized by kind of page (0.33.0, NFR-29 R1): the four Diataxis quadrants,
+  # Tutorials, How-to guides, Reference and Explanation, then Project, which
+  # holds the SRS, the project records and the upgrade pages. Every page keeps
+  # its file name and its anchors; only its place in the menu moved. The LaTeX
+  # user guides are linked from the home page, not absorbed.
+  - Tutorials:
       - Home: index.md
       - Getting started: getting-started.md
-      - From the GUI to pyfs: gui-to-pyfs.md
+      - Your first session with the Python API: tutorial-python-api.md
       - Replaying a recorded run: tutorial-replay.md
-  - Workflows:
-      - The workspace and the workflow: workspace-and-workflows.md
+      - FSI driver tutorial: fsi-tutorial.md
+  - How-to guides:
       - Run types:
           - The run matrix, a campaign and its record: workflow-run-matrix.md
           - The steady workflow: workflow-steady.md
@@ -73,21 +97,16 @@ nav:
           - Mesh inputs and GUI-only operations: mesh-inputs.md
           - CAD inputs: cad-inputs.md
           - CCS geometry: ccs-geometry.md
-          - Geometry units and starts: geometry-units-and-starts.md
-          - Simulation geometry controls: simulation-geometry-controls.md
           - Surface translation: surface-translation.md
           - One row, one geometry, turned or moved: workflow-row-geometry-motion.md
       - Inputs and setup:
           - The input library and the solver presets: workflow-input-library.md
           - The reference artifact: workflow-reference-artifact.md
-          - Flight conditions: flight-conditions.md
-          - Custom field units and coverage: custom-field-units.md
           - Setup standards and guidance: setup-standards.md
           - Boundary conditions: boundary-conditions.md
           - Field operations: field-operations.md
           - Removing surfaces and the wake stabilization: removing-surfaces.md
           - One row, one actuator disc or one custom free stream: workflow-row-flow-inputs.md
-          - The input glossary: inputs.md
       - Running:
           - Planning a campaign and what it costs: workflow-plan-and-cost.md
           - Builds, local runs and clusters: workflow-builds-and-hpc.md
@@ -99,10 +118,17 @@ nav:
           - Sync every folder, and the two matrix homes: sync-folders-and-matrix-homes.md
       - FSI:
           - FSI in a workspace: fsi-workspace.md
-          - FSI driver tutorial: fsi-tutorial.md
           - FSI Campbell diagram: examples/fsi_campbell_diagram.md
           - FSI blade properties from its sections: examples/fsi_solid_blade_properties.md
           - Workspace FSI calibration: examples/workspace_fsi_calibration.md
+      - Post-processing:
+          - The post-processing artifact and its products: pproc-artifact.md
+          - Extracting more from a finished point: workflow-additional-post.md
+          - Sampled velocity fields: sampled-fields.md
+          - Boundary-layer products: boundary-layer-products.md
+          - Quasi-steady wheel corrections: qsteady-corrections.md
+          - Unsteady plots and averages: unsteady-postprocessing.md
+          - Acoustic signals from an unsteady run: acoustic-emission.md
       - Examples:
           - CAD script with explicit units: examples/cad_import.md
           - Base-region setup: examples/base_region_setup.md
@@ -114,22 +140,31 @@ nav:
           - Inspect continuation recovery: examples/continuation_frame_recovery.md
           - Prepare an SI custom field: examples/prepare_custom_field.md
           - Excel workbook synchronization: examples/excel_matrix_sync.md
-  - Post-processing:
-      - Post-processing definitions: post-processing-definitions.md
-      - The post-processing artifact and its products: pproc-artifact.md
-      - Extracting more from a finished point: workflow-additional-post.md
-      - Sampled velocity fields: sampled-fields.md
-      - Boundary-layer products: boundary-layer-products.md
-      - Quasi-steady wheel corrections: qsteady-corrections.md
-      - Unsteady plots and averages: unsteady-postprocessing.md
-      - Acoustic signals from an unsteady run: acoustic-emission.md
-      - Examples:
           - Extracting more from a finished point: examples/additional_post.md
           - Native nodal surface strength: examples/surface_with_native_strength.md
           - Sampled-field products: examples/sampled_field_export.md
           - Boundary-layer sections: examples/boundary_layer_sections.md
   - Reference:
-      - Command reference: reference/
+      - Python API: api/
+      - Command-line tools: cli/
+      - Solver command reference: reference/
+      - Exceptions catalog: exceptions.md
+      - Post-processing definitions: post-processing-definitions.md
+      - Workspace inputs:
+          - The input glossary: inputs.md
+          - Flight conditions: flight-conditions.md
+          - Custom field units and coverage: custom-field-units.md
+          - Simulation geometry controls: simulation-geometry-controls.md
+          - Numeric settings codebook: settings-codebook.md
+          - From the GUI to pyfs: gui-to-pyfs.md
+      - Which build do I have: builds.md
+      - Compatibility matrix: compatibility.md
+      - House conventions: conventions.md
+  - Explanation:
+      - The workspace and the workflow: workspace-and-workflows.md
+      - Architecture: architecture.md
+      - Geometry units and starts: geometry-units-and-starts.md
+  - Project:
       - SRS:
           - srs/index.md
           - Introduction: srs/introduction.md
@@ -141,26 +176,21 @@ nav:
           - Non-functional requirements: srs/nonfunctional-requirements.md
           - Standards alignment: srs/standards.md
           - Roadmap: srs/roadmap.md
-      - Which build do I have: builds.md
-      - Compatibility matrix: compatibility.md
-      - House conventions: conventions.md
-      - The test tiers and the licensed workspace: tiers.md
       - Acceptance mapping: requirement-mapping.md
-      - Numeric settings codebook: settings-codebook.md
-      - Architecture: architecture.md
+      - The test tiers and the licensed workspace: tiers.md
       - Sister library (ITACA): sister-itaca.md
-  - Migration:
-      # One section, newest first, so a release adds a line here.
-      - Release notes: release-notes.md
-      - Migrating to 0.32.0: migrating-to-0.32.0.md
-      - Migrating to 0.31.0: migrating-to-0.31.0.md
-      - Migrating to 0.30.0: migrating-to-0.30.0.md
-      - Migrating to 0.29.0: migrating-to-0.29.0.md
-      - Migrating to 0.28.0: migrating-to-0.28.0.md
-      - Migrating to 0.27.0: migrating-to-0.27.0.md
-      - Migrating to 0.26.0: migrating-to-0.26.0.md
-      - Migrating to 0.25.0: migrating-to-0.25.0.md
-      - Migrating to 0.24.0: migrating-to-0.24.0.md
-      - Migrating to 0.23.0: migrating-to-0.23.0.md
-      - Migrating to 0.22.0: migrating-to-0.22.0.md
-      - Migrating to 0.21.0: migrating-to-0.21.0.md
+      - Upgrading:
+          # One section, newest first, so a release adds a line here.
+          - Release notes: release-notes.md
+          - Migrating to 0.32.0: migrating-to-0.32.0.md
+          - Migrating to 0.31.0: migrating-to-0.31.0.md
+          - Migrating to 0.30.0: migrating-to-0.30.0.md
+          - Migrating to 0.29.0: migrating-to-0.29.0.md
+          - Migrating to 0.28.0: migrating-to-0.28.0.md
+          - Migrating to 0.27.0: migrating-to-0.27.0.md
+          - Migrating to 0.26.0: migrating-to-0.26.0.md
+          - Migrating to 0.25.0: migrating-to-0.25.0.md
+          - Migrating to 0.24.0: migrating-to-0.24.0.md
+          - Migrating to 0.23.0: migrating-to-0.23.0.md
+          - Migrating to 0.22.0: migrating-to-0.22.0.md
+          - Migrating to 0.21.0: migrating-to-0.21.0.md

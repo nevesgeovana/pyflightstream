@@ -205,12 +205,14 @@ jobs:
         # The scripts/docs_hooks.py exclusion must keep the literate-nav
         # input out of the rendered site; strict mode alone would not
         # fail on an extra unlisted page (dual-namespace note in the
-        # hook).
+        # hook). Three generated folders carry one since 0.33.0 (NFR-29).
         run: |
-          if [ -e site/reference/SUMMARY ] || [ -e site/reference/SUMMARY.md ] || [ -e site/reference/SUMMARY/index.html ]; then
-            echo "reference/SUMMARY leaked into the rendered site"
-            exit 1
-          fi
+          for folder in reference api cli; do
+            if [ -e site/$folder/SUMMARY ] || [ -e site/$folder/SUMMARY.md ] || [ -e site/$folder/SUMMARY/index.html ]; then
+              echo "$folder/SUMMARY leaked into the rendered site"
+              exit 1
+            fi
+          done
 
   guard:
     # Repository-wide guards for the hard invariants (CONTRIBUTING.md).

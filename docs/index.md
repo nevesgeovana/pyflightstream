@@ -6,6 +6,20 @@ solver. MIT licensed.
 Status: v0.32.0 is the current release; the changelog records what
 each release adds and what each one asks you to do.
 
+## Two ways in
+
+- **The workspace and the command line.** Fill in a run matrix, pre-flight
+  it and run it with `pyfs-matrix`, with no Python of your own. Start at
+  [Getting started](getting-started.md); every tool, subcommand and option is
+  in the [command-line reference](cli/index.md).
+- **The Python API.** Build scripts, declare campaigns and read results from
+  your own Python code. Start at
+  [Your first session with the Python API](tutorial-python-api.md); every
+  public name is in the [Python API reference](api/index.md).
+
+The [user guides](https://github.com/nevesgeovana/pyflightstream/tree/main/guide),
+LaTeX decks with their PDFs, walk the same workflow slide by slide.
+
 ## The idea in one paragraph
 
 FlightStream is scripted through ASCII command files, and the solver is

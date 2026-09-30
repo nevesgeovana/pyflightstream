@@ -142,6 +142,11 @@ dev = [
     "mkdocs-material",
     "mkdocs-gen-files",
     "mkdocs-literate-nav",
+    # The generated Python API reference (NFR-29 R2 and R7): renders every
+    # name of every public subpackage from its docstring. ISC, like the
+    # griffe library and the autorefs plugin it brings; licence evidence:
+    # reports/RPT-101_mkdocstrings-licence_2026-09-30.md.
+    "mkdocstrings[python]",
 ]
 
 [project.scripts]
