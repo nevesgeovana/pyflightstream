@@ -152,3 +152,41 @@ def test_the_command_line_folds_and_says_how_many(tmp_path, capsys):
     repo = _checkout(tmp_path, k1=_box(112) + "\n" + _box(113))
     assert _script().main(["--repo", str(repo)]) == 0
     assert "2 requirement" in capsys.readouterr().out
+
+
+def test_fragments_fold_in_natural_order_of_their_names(tmp_path):
+    repo = _checkout(tmp_path, k10=_box(160), k2=_box(150))
+    assert _script().assemble(repo)["fragments"] == ["k2.md", "k10.md"]
+    page = _page(repo)
+    assert page.index("FR-150") < page.index("FR-160")
+
+
+def test_a_fragment_folded_in_part_is_refused_and_nothing_is_written(tmp_path):
+    page = PAGE + "\n" + HEADING + "\n\n" + _box(112) + "\n"
+    repo = _checkout(tmp_path, page=page, k1=_box(112) + "\n" + _box(113))
+    with pytest.raises(_script().FragmentError, match="partly"):
+        _script().assemble(repo)
+    assert _page(repo) == page
+
+
+def test_a_heading_already_there_is_extended_before_the_section_that_follows_it(tmp_path):
+    page = (
+        PAGE + "\n" + HEADING + "\n\n" + _box(112).rstrip("\n") + "\n## Later section\n\nAfter.\n"
+    )
+    repo = _checkout(tmp_path, page=page, k2=_box(150))
+    _script().assemble(repo)
+    result = _page(repo)
+    assert result.index("FR-112") < result.index("FR-150") < result.index("## Later section")
+    assert result.endswith("After.\n")
+    assert result.count(HEADING) == 1
+    assert "\n\n## Later section" in result
+
+
+def test_the_line_ends_of_the_page_are_kept(tmp_path):
+    repo = _checkout(tmp_path, k1=_box(112))
+    page_path = repo / "docs" / "srs" / "functional-requirements.md"
+    page_path.write_bytes(PAGE.replace("\n", "\r\n").encode("utf-8"))
+    _script().assemble(repo)
+    raw = page_path.read_bytes()
+    assert b"FR-112" in raw
+    assert raw.count(b"\n") == raw.count(b"\r\n")
