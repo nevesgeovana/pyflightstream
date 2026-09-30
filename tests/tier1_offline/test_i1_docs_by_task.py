@@ -1,11 +1,14 @@
 """Tier 1, 0.32.0 package I1: the documentation site is organized by task.
 
-GEO-066 2.1: the nav has exactly five top-level groups, in this order (a
-Project group only at the end and only when the license or the changelog
-needs it); the workspace and workflow guide is one page per run type or topic
-with each fact in one home; every migration page is under Migration; the
-definition of record is one page under Post-processing. The GOAL-037 D1 arm
-reads the same nav.
+GEO-066 2.1: the workspace and workflow guide is one page per run type or
+topic with each fact in one home, and the definition of record is one page.
+The top of the nav was the five task groups of 0.32.0 (Getting started,
+Workflows, Post-processing, Reference, Migration) until 0.33.0, when the
+owner's decision 13 of GOAL-038 (NFR-29 R1) grouped it by Diataxis quadrant
+with the SRS under a Project group; the expectations below moved with it:
+the five groups are the quadrants and Project, every migration page is under
+Project, the definition of record is under Reference and every run-type page
+under How-to guides. Nothing else these tests hold changed.
 """
 
 from __future__ import annotations
@@ -21,7 +24,7 @@ from tests.tier1_offline._workflow_docs import WORKFLOW_PAGE_NAMES
 
 REPO = Path(__file__).resolve().parents[2]
 DOCS = REPO / "docs"
-GROUPS = ["Getting started", "Workflows", "Post-processing", "Reference", "Migration"]
+GROUPS = ["Tutorials", "How-to guides", "Reference", "Explanation", "Project"]
 
 
 def _nav() -> list:
@@ -47,21 +50,21 @@ def _group(name: str) -> list[str]:
     raise AssertionError(f"no {name!r} group in the nav")
 
 
-def test_the_nav_has_exactly_the_five_task_groups_in_order():
+def test_the_nav_has_exactly_the_five_groups_in_order():
     names = [next(iter(item)) for item in _nav()]
-    assert names in (GROUPS, [*GROUPS, "Project"]), names
+    assert names == GROUPS, names
 
 
-def test_every_migration_page_is_listed_under_migration():
-    listed = _group("Migration")
+def test_every_migration_page_is_listed_under_project():
+    listed = _group("Project")
     on_disk = sorted(path.name for path in DOCS.glob("migrating-to-*.md"))
     assert on_disk, "no migration page on disk: the check would prove nothing"
     assert set(on_disk) <= set(listed), sorted(set(on_disk) - set(listed))
     assert not [p for p in _pages(_nav()) if p.startswith("migrating-to-") and p not in listed]
 
 
-def test_the_definition_of_record_is_one_page_under_post_processing():
-    assert "post-processing-definitions.md" in _group("Post-processing")
+def test_the_definition_of_record_is_one_page_under_reference():
+    assert "post-processing-definitions.md" in _group("Reference")
     text = (DOCS / "post-processing-definitions.md").read_text(encoding="utf-8")
     assert len(text.splitlines()) > 1000, "the definition of record was split or cut down"
     assert not list(DOCS.glob("post-processing-definitions-*.md"))
@@ -70,7 +73,7 @@ def test_the_definition_of_record_is_one_page_under_post_processing():
 def test_the_workspace_guide_is_an_index_and_each_run_type_has_a_page():
     index = (DOCS / "workspace-and-workflows.md").read_text(encoding="utf-8")
     assert len(index.splitlines()) < 1000
-    workflows = _group("Workflows")
+    workflows = _group("How-to guides")
     for run_type, page in (
         ("steady", "workflow-steady.md"),
         ("unsteady", "workflow-unsteady.md"),

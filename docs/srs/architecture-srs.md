@@ -79,8 +79,10 @@ matrix workflows read without importing the structural side branch.
     Anything presented in two places is rendered from one source: the
     command reference and compatibility matrix from the database, the
     architecture overview from the module docstrings, the docs
-    example pages from the example scripts. Nothing generated is
-    committed.
+    example pages from the example scripts, and from 0.33.0 (NFR-29)
+    the Python API reference from the docstrings, the command-line
+    reference from the argument parsers and the exceptions catalog
+    from the exception classes. Nothing generated is committed.
 
     One stated exception, and its condition:
     `reports/requirements-index.json` IS generated and committed,

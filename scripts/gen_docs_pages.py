@@ -7,6 +7,7 @@ rendering source is ``pyflightstream.reference``, shared with the
 ``pyflightstream.help()`` offline HTML fallback.
 """
 
+import sys
 from pathlib import Path
 
 import mkdocs_gen_files
@@ -20,6 +21,13 @@ from pyflightstream.reference import (
     markdown_reference_pages,
     percent_script_markdown,
 )
+
+# The API and command-line references are rendered by helpers beside this
+# script; the plugin runs it by path, so its directory is not on sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from gen_api_reference import api_reference_pages, exceptions_catalog_markdown  # noqa: E402
+from gen_cli_reference import cli_reference_pages  # noqa: E402
 
 EXAMPLES = [
     "cad_import.py",
@@ -81,3 +89,18 @@ for script_name in EXAMPLES:
 with mkdocs_gen_files.open("fsi-tutorial.md", "w") as page:
     tutorial = Path(__file__).resolve().parents[1] / "src/pyflightstream/fsi/README.md"
     page.write(tutorial.read_text(encoding="utf-8"))
+
+# The Python API reference (NFR-29 R2): one page per public module, every
+# name of its __all__ an mkdocstrings entry, so the page renders the docstring.
+for path, content in api_reference_pages().items():
+    with mkdocs_gen_files.open(f"api/{path}", "w") as page:
+        page.write(content)
+
+# The command-line reference (NFR-29 R3), from the tools' own argument parsers.
+for path, content in cli_reference_pages().items():
+    with mkdocs_gen_files.open(f"cli/{path}", "w") as page:
+        page.write(content)
+
+# The exceptions catalog (NFR-29 R6), from pyflightstream.exceptions.
+with mkdocs_gen_files.open("exceptions.md", "w") as page:
+    page.write(exceptions_catalog_markdown())
