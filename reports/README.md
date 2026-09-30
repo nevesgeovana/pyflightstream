@@ -56,6 +56,7 @@ acceptance or publication of their findings.
 | [RPT-093](RPT-093_aeroelastic-coupling-on-26124_2026-09-29.md) | The Aeroelastic Coupling Toolbox on 26.124: nine measured facts about the surface-ID mapping, the rotor morph, the RBF kernels and the exports | Bounded evidence; final release review pending |
 | [RPT-094](RPT-094_wheel-clockings-thrust-pct-on-26124_2026-09-29.md) | The 0.31 G1 wheel on 26.124: three clockings with sections at every one, the XY cut read to about 2 per cent, THRUST_PCT 11.73 % and TORQUE_PCT 10.26 %, the rotor table as the mean of 3 clockings, the harmonic product with its 2P NA | Bounded evidence; final release review pending |
 | [RPT-095](RPT-095_custom-freestream-unsteady-rotor-on-26124_2026-09-29.md) | The 0.31 G6 on 26.124: a uniform 13 x 13 custom free stream on unsteady_rotor read by the solver and equal to the constant control to the fifth decimal; the skips both points share | Bounded evidence; final release review pending |
+| [RPT-096](RPT-096_probe-round-1-on-26124_2026-09-30.md) | The 0.32 licensed probe round 1 on 26.124: thirteen one-thing probes (CCS import and lofts, DELETE_SURFACES, wake stabilization DISABLE, the acoustic chain with its sources-off control); NEW_CCS_WING_CONTROL_SURFACE refused on its arguments; the G35 effect not observed | Bounded evidence; final release review pending |
 
 ## Dependency evidence
 
