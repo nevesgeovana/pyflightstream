@@ -884,6 +884,49 @@ def resolve_observers_file(
     return str(file.resolve())
 
 
+def acoustic_section_leftovers(work_dir: Path, sim_dir: Path) -> str | None:
+    """Return the refusal of a point whose section folder already holds a file, or None.
+
+    0.32.0 (E2, FR-268). The section's files are listed after the run from the
+    folder the solver writes into, so a file already there before the solver
+    starts (an aborted run's, a hand copy) would be listed and hashed as this
+    run's evidence, which is the defect a declared output is refused for when
+    it exists before its run (PYFS-006). The run's own note is not a leftover:
+    the run writes it before this is asked.
+
+    Parameters
+    ----------
+    work_dir : Path
+        The folder the point runs in, its datapoint folder.
+    sim_dir : Path
+        The simulation folder, for the names the sentence gives.
+
+    Returns
+    -------
+    str or None
+        The sentence of the refusal, naming each leftover; None where no section
+        folder of the point holds a file other than the note.
+    """
+    where = Path(work_dir)
+    leftovers = sorted(
+        path.relative_to(sim_dir).as_posix()
+        for section in where.glob(f"*{ACOUSTIC_SECTION_SUFFIX}")
+        if section.is_dir()
+        for path in section.rglob("*")
+        if path.is_file() and path.name != ACOUSTIC_SECTION_NOTE
+    )
+    if not leftovers:
+        return None
+    return (
+        f"acoustic section file(s) {', '.join(leftovers)} already exist in "
+        f"{where.relative_to(sim_dir).as_posix()}/, the folder this point runs in, before "
+        "it ran. The collect lists every file of a section folder after the run, and it "
+        "cannot tell a file this solver wrote from one that was already there. Redo the "
+        "point with pyfs-matrix run --force-rerun <point>, which archives what is there "
+        "first, or remove the leftover, then re-run."
+    )
+
+
 def acoustic_section_outputs(sim_dir: Path, collected: Sequence[str]) -> list[str]:
     """Return the collected outputs with every file of the point's acoustic sections added.
 

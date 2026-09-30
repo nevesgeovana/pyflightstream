@@ -14,7 +14,7 @@ is synthetic.
 from __future__ import annotations
 
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
@@ -29,6 +29,7 @@ from pyflightstream.cases.workflows import (
     build_script,
     workflow_registry,
 )
+from pyflightstream.run import CampaignErrors
 from pyflightstream.run.collect import acoustic_section_outputs
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.script import Script, helpers
@@ -412,6 +413,61 @@ def test_p0320_noise_collect_the_export_and_the_section_are_collected_and_hashed
         assert record.outputs_sha256[name] == file_sha256(workspace.sim_dir("3207") / name)
     assert any(name.endswith("ring.acoustic_observers.csv") for name in record.inputs_sha256)
     assert not set(classify_outputs(record.outputs).values()) & {*signals, *section}
+
+
+def _run_the_section_row(root: Path, executor, leftover: str | None = None):
+    """Run one unsteady matrix row declaring a section, in a workspace under ``root``,
+    after writing ``leftover`` (a name relative to the simulation folder) when given."""
+    cell = (
+        "DELTA_TIME:0.001 / TIME_ITERATIONS:8 / LAST_ITERS_AVG:8 / ACOUSTIC_SOURCES:ENABLE / "
+        f"ACOUSTIC_OBSERVER_TIME:{TIME} / ACOUSTIC_SECTION:{SECTION}"
+    )
+    root.mkdir()
+    workspace, matrix = _matrix(
+        root,
+        condition="MACH:0.2, REmi:2.3, ALPHA:sweep",
+        values="0.0",
+        workflow="unsteady",
+        cell=cell,
+    )
+    if leftover is not None:
+        stale = workspace.sim_dir("3207") / leftover
+        stale.parent.mkdir(parents=True)
+        stale.write_text("an earlier run's VTK", encoding="utf-8")
+    return run_matrix(
+        matrix,
+        workspace,
+        name="noise",
+        default_fs_version="26.120",
+        recipes=RECIPES,
+        recipe_registry=workflow_registry(),
+        assess=converged,
+        executor=executor,
+    )
+
+
+def test_p0320_noise_collect_refuses_a_section_file_left_before_the_run(tmp_path):
+    """P0320-NOISE-COLLECT: a file already in the point's section folder before the
+    solver runs is refused as a leftover, never listed and hashed as this run's
+    evidence (the rule declared outputs are held to, PYFS-006): the section's files
+    are listed after the run, so a leftover would be indistinguishable from a file
+    the solver wrote."""
+    # A first workspace names the folder the section writes into ...
+    first = _run_the_section_row(tmp_path / "first", CountingStub(WRITES_THE_ACOUSTIC_EXPORTS))
+    assert first[0].status is RunStatus.CONVERGED, first[0].error
+    written = [name for name in first[0].outputs if "_acoustic_section/" in name]
+    assert written, first[0].outputs
+    leftover = str(PurePosixPath(written[0]).parent / "VTK_output-009.vtk")
+    # ... and a second finds a file there before its run, as an aborted run leaves one.
+    stub = CountingStub(WRITES_THE_ACOUSTIC_EXPORTS)
+    with pytest.raises(CampaignErrors) as refused:
+        _run_the_section_row(tmp_path / "second", stub, leftover)
+    [record] = refused.value.records
+    assert leftover not in record.outputs
+    assert record.status is RunStatus.FAILED_INCOMPLETE_OUTPUT, record.status
+    assert "VTK_output-009.vtk" in str(record.error)
+    assert "before it ran" in str(record.error)
+    assert stub.invocations == []
 
 
 def test_p0320_noise_collect_lists_the_section_files_beside_the_collected_outputs(tmp_path):

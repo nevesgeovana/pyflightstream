@@ -130,7 +130,11 @@ from pyflightstream.cases import (
     resolve_recipe,
     sweep_name,
 )
-from pyflightstream.cases.acoustics import acoustic_section_outputs, with_acoustic_signals
+from pyflightstream.cases.acoustics import (
+    acoustic_section_leftovers,
+    acoustic_section_outputs,
+    with_acoustic_signals,
+)
 from pyflightstream.cases.qsteady import (
     QsteadyClocking,
     QsteadyRecordError,
@@ -8301,6 +8305,10 @@ def _execute_point(
                 "the leftover, then re-run."
             ),
         )
+    # 0.32.0 (E2): a section's files are listed after the run, so one already there is refused.
+    leftover = acoustic_section_leftovers(work_dir, sim_dir)
+    if leftover is not None:
+        return RunRecord(**base, status=RunStatus.FAILED_INCOMPLETE_OUTPUT, error=leftover)
     work_dir.mkdir(parents=True, exist_ok=True)
 
     # FR-99, GEO-047-C04. THE REFUSAL OF A SECOND SUBMITTED POINT OF A ROW IS

@@ -100,6 +100,10 @@ None of these files is ever read as a surface export or a loads table.
   sources recorded before the stop survive the saved simulation is not
   measured, so the signals could cover part of the march with nothing saying
   which.
+- A point whose `<point>_acoustic_section/` already holds a file before the
+  solver runs: the collect lists the folder after the run and could not tell
+  that file from one the solver wrote. Redo the point with `--force-rerun`,
+  which archives what is there, or remove the leftover.
 - In the Python API, the acoustic setup emitted after `INITIALIZE_SOLVER`, and
   the computation or the exports emitted on a steady run or before
   `START_SOLVER`.
