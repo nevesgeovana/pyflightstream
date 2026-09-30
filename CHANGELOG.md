@@ -25,6 +25,7 @@ FlightStream versions.
 
 ### Added
 
+- `pyfs-matrix free-space --list` prints, after the summary of each recipe step, every path the step would touch (preview) or touched (`--apply`), relative to the workspace, with its size and what happens to it: the post archive folders, the files `delete_extensions` deletes and keeps, the per-step exports `prune_step_exports` deletes and keeps, and the simulations `compact_sims` compacts. Without `--list` the output is unchanged (FR-305; [Storage and sync](docs/storage-and-sync.md)).
 - `pyfs-matrix delete-sims --force` (keyword `force` of `delete_sims`) deletes the named simulations whatever the status of their records, SUBMITTED included, which `delete-sims` otherwise refuses; the rest is a normal delete, the call recorded in `storage_management.json` states `force` and the statuses each simulation had, and the preview names each SUBMITTED simulation `--force` would delete (FR-306).
 
 ## [0.32.0] - 2026-09-30
@@ -102,7 +103,6 @@ FlightStream versions.
 - The observer-time retardation of a subsonic source, for an observer at rest or moving with the hub (`emission_times`) (FR-302).
 - Gutin's closed-form far-field harmonic of a steady rotor, which the time-domain model is tested against (`gutin_harmonic_rms`) (FR-303).
 - The measures that compare a predicted pressure record with a reference, and report RPT-099, route A against the unsteady_rotor acoustic signals of licensed round 3 (`compare_signals`) (FR-304).
-- `pyfs-matrix free-space --list` prints, after the summary of each recipe step, every path the step would touch (preview) or touched (`--apply`), relative to the workspace, with its size and what happens to it: the post archive folders, the files `delete_extensions` deletes and keeps, the per-step exports `prune_step_exports` deletes and keeps, and the simulations `compact_sims` compacts. Without `--list` the output is unchanged (FR-305; [Storage and sync](docs/storage-and-sync.md)).
 
 ### Changed
 
