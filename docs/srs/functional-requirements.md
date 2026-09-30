@@ -7802,9 +7802,9 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-315 Every command ends with the signature on standard error <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the owner's decision of 2026-09-30, "quero que sempre apareça a mensagem, sempre kkkkkk", about the signature of FR-178. Evidence: `tests/tier1_offline/test_p0330_signature_always.py::test_every_console_script_is_wrapped_fr_315`, `::test_every_outcome_signs_on_a_non_terminal_stderr_fr_315`, `::test_an_ascii_stderr_still_carries_the_signature_fr_315`, `::test_mutant_without_the_fallback_loses_the_signature_fr_315`.*
+    *Origin: an author decision of 2026-09-30 about the signature of FR-178: it appears at the end of every command, always. Evidence: `tests/tier1_offline/test_p0330_signature_always.py::test_every_console_script_is_wrapped_fr_315`, `::test_every_outcome_signs_on_a_non_terminal_stderr_fr_315`, `::test_an_ascii_stderr_still_carries_the_signature_fr_315`, `::test_mutant_without_the_fallback_loses_the_signature_fr_315`.*
 
-    Need: The signature is the owner's mark on every command, and she wants it to appear every time. Until 0.32.0 a standard error whose encoding could not encode the drawing printed nothing, and a failure while drawing was swallowed with it.
+    Need: The signature closes every command and is meant to appear every time. Until 0.32.0 a standard error whose encoding could not encode the drawing printed nothing, and a failure while drawing was swallowed with it.
 
     Requirement: every command of the package ends with the signature of FR-178 on standard error, whatever the outcome, the stream or the flags.
 

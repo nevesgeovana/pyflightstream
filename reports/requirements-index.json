@@ -2305,10 +2305,10 @@
   },
   {
    "id": "FR-315",
-   "text": "Need: The signature is the owner's mark on every command, and she wants it to appear every time. Until 0.32.0 a standard error whose encoding could not encode the drawing printed nothing, and a failure while drawing was swallowed with it.",
+   "text": "Need: The signature closes every command and is meant to appear every time. Until 0.32.0 a standard error whose encoding could not encode the drawing printed nothing, and a failure while drawing was swallowed with it.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: the owner's decision of 2026-09-30, \"quero que sempre apareça a mensagem, sempre kkkkkk\", about the signature of FR-178. Evidence: tests/tier1_offline/test_p0330_signature_always.py::test_every_console_script_is_wrapped_fr_315, ::test_every_outcome_signs_on_a_non_terminal_stderr_fr_315, ::test_an_ascii_stderr_still_carries_the_signature_fr_315, ::test_mutant_without_the_fallback_loses_the_signature_fr_315.*",
+   "evidence": "*Origin: an author decision of 2026-09-30 about the signature of FR-178: it appears at the end of every command, always. Evidence: tests/tier1_offline/test_p0330_signature_always.py::test_every_console_script_is_wrapped_fr_315, ::test_every_outcome_signs_on_a_non_terminal_stderr_fr_315, ::test_an_ascii_stderr_still_carries_the_signature_fr_315, ::test_mutant_without_the_fallback_loses_the_signature_fr_315.*",
    "verification": "test"
   },
   {
