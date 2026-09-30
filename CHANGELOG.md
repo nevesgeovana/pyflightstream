@@ -895,7 +895,7 @@ names, no `Singularity_strength`, and the symmetry images on a symmetric row
   measured: incidence written into the field loads the body as that incidence
   while the loads export prints CL and CDi in the axes of the stated zero angle
   (read Cx, Cy, Cz, or turn them), and a saved simulation carries its field until
-  a script sets the free stream again, which every row the package builds does.
+  a script sets the free stream again, which every row the package builds does. (FR-125)
 
 - **An OBJ's surface names are read from its groups (G30).** When an `.obj` a
   row names has no `<stem>.boundaries.toml`, `pyfs-matrix plan` and `run` write
@@ -913,7 +913,7 @@ names, no `Singularity_strength`, and the symmetry images on a symmetric row
   keeps the list by hand: `o` and `g` mixed in one file, a group name opened
   twice, a face before the first group, a group statement naming no group or
   several words. An `.stl` is unchanged. Library:
-  `pyflightstream.workspace.inputs.obj_boundary_names` and `ensure_inventory`.
+  `pyflightstream.workspace.inputs.obj_boundary_names` and `ensure_inventory`. (FR-126)
 
 - **The time-averaged surface, averaged by the package from the per-step exports
   (G25).** A pproc's `[time_averaging]` (`last_iters` or `last_revs`, as before)
@@ -935,7 +935,7 @@ names, no `Singularity_strength`, and the symmetry images on a symmetric row
   the window as `RunRecord.surface_average_window`, and the post reads it rather
   than the pproc. Library: `pyflightstream.post.surfaces`
   (`average_surface_exports`, `write_surface_average`,
-  `write_point_surface_average`), `pyflightstream.cases.windows.surface_average_window`.
+  `write_point_surface_average`), `pyflightstream.cases.windows.surface_average_window`. (FR-112)
 
 - **The FSI's blade properties from its sections and a material (G41).**
   `pyflightstream.fsi.sections.blade_properties_from_sections` generates a
@@ -965,7 +965,7 @@ names, no `Singularity_strength`, and the symmetry images on a symmetric row
   Ti-6Al-4V grade 5 annealed and aluminium 7075-T6. `airfoil_section_contour`
   places a unit airfoil in the section frame. Both modules need numpy only.
   Example: `examples/fsi_solid_blade_properties.py`. Hollow and spar sections
-  are a future option, not built.
+  are a future option, not built. (FR-127)
 - **`inputs/input_template.md`, a template of every input file (G47).**
   `pyfs-workspace init`, `pyfs-matrix plan` and `pyfs-matrix post` write it at
   the root of `inputs/`, rewriting it only when its content changes: one section
@@ -986,14 +986,14 @@ names, no `Singularity_strength`, and the symmetry images on a symmetric row
   example where its title says and reads it with the reader the run uses, holds
   every registered key to an example or to that list, and refuses a misspelled
   copy of each. Library: `pyflightstream.post.write_input_template` and
-  `INPUT_TEMPLATE_NAME`; `pyflightstream.post.guides.input_template_markdown`.
+  `INPUT_TEMPLATE_NAME`; `pyflightstream.post.guides.input_template_markdown`. (FR-123)
 - **An actuator disc takes its speed from the advance ratio (G20).** A row naming
   a disc and stating `ADVANCE_RATIO` (in its flight condition, swept or held) and
   no `ACTUATOR_RPM` turns the disc at n = V / (J D) by the rotors' rule, with the
   DISC's own diameter (twice its `tip_radius_m`) and the row's velocity; the hand
   stays the block's `rpm_sign`. A row stating neither is refused naming both.
   A steady row whose disc speed moves with a swept advance ratio runs one job
-  per point, as a flow sweep does, so each point sets its own speed.
+  per point, as a flow sweep does, so each point sets its own speed. (FR-128)
 - **A local run's log reads at a glance, and an unsteady point says how far it
   is (G43).** A run opens with a banner naming the campaign and how many points
   it runs, numbers each point (`(3 of 17)`, a steady job its range, `(1-3 of
@@ -1003,24 +1003,24 @@ names, no `Singularity_strength`, and the symmetry images on a symmetric row
   every N completed time steps, read from the run's own counter while the
   solver runs, never from what the solver prints: `pyfs-matrix run
   --progress-every N` (10 by default, 0 for none); library
-  `run_matrix(progress_every=...)` and `LocalExecutor(progress_every=...)`.
+  `run_matrix(progress_every=...)` and `LocalExecutor(progress_every=...)`. (FR-129)
 - **`CampaignErrors.records`.** Every record the failing call wrote, failed or
   not, beside `failures`; `pyfs-matrix run` reads it to tell a run that also
-  submitted a point, which writes no table.
+  submitted a point, which writes no table. (FR-130)
 - **`pyfs-matrix run --force-rerun-all [--sims SIM ...]` (G44).** Every recorded
   point of the matrix, or of the simulations `--sims` names, is archived and runs
   again, a steady row recorded as one job as one job; one line gives the count of
   points and jobs before anything runs. `--sims` narrows the run to those
   simulations. Refused beside `--resume` or `--force-rerun`, for an id the matrix
   does not carry, and when nothing is recorded. Library: `run_matrix(...,
-  force_rerun_all=True, sims=[...])`.
+  force_rerun_all=True, sims=[...])`. (FR-131)
 - **The plan warns when a pproc plot group takes the rotor table's plot name
   (G42).** A group named like the automatic `ROTOR_<ALIAS>` group, such as
   `ROTOR_{family}` in a rotor's own frame, emits the names the rotor table reads,
   so the run keeps that group and writes no global-frame history for the rotor,
   and the post cannot write its table. `pyfs-matrix plan` and `pyfs-matrix run`
   now say so before a seat is spent, naming the pproc, the name and the rotor,
-  and suggesting a rename (`SHAFT_{family}`). Nothing is refused or renamed.
+  and suggesting a rename (`SHAFT_{family}`). Nothing is refused or renamed. (FR-132)
 
 ### Changed
 
@@ -1064,7 +1064,7 @@ names, no `Singularity_strength`, and the symmetry images on a symmetric row
   `SurfaceFrame`), `Script.loads_frame`, `Script.sets_loads_frame`,
   `Script.surface_translations`,
   `workflows.tecplot_source`, `workflows.with_tecplot_source`,
-  `RunRecord.surface_translations`.
+  `RunRecord.surface_translations`. (FR-113)
 
 - **An unsteady row saves the solver's residual and load plots (G26).** On by
   default as on a steady point, `<point>_plot_residuals.txt` and
@@ -1073,22 +1073,22 @@ names, no `Singularity_strength`, and the symmetry images on a symmetric row
   inner iteration, measured on 26.124 (RPT-076). `plot_residuals = false` or
   `plot_loads = false` under `[exports]` turns one off; stated true on an
   unsteady row, which 0.27.0 refused, either is now accepted. The section Cp plot
-  stays steady-only and is refused stated true on an unsteady row.
+  stays steady-only and is refused stated true on an unsteady row. (FR-133)
 - **`EXPORT_BL_VELOCITY_PROFILE` is recorded broken on 26.124 (G24).** It holds an
   unattended script there, as on 26.122 (RPT-075, RPT-027), so a row writing it raw
   is refused at plan naming the report, and no pproc route is built for the
-  boundary-layer profile; the VTK surface carries the boundary-layer thicknesses.
+  boundary-layer profile; the VTK surface carries the boundary-layer thicknesses. (FR-115)
 - **A run that submits to a cluster does not post (G43).** Its points are in a
   queue with no outputs yet, so the post could only print a skip per point: the
   run now writes no product and no sweep table and ends with one line saying how
   many points it submitted and ran here, and the command that collects and then
   posts (`pyfs-matrix collect --workspace <root>`, `--watch` to wait). A run whose
-  every point ran here posts as before.
+  every point ran here posts as before. (FR-130)
 - **An unsteady or rotor row refuses `COLD_START` at plan (G36).** The key clears
   the solution between the points of a steady sweep over the attitude; every
   point of an unsteady row is its own job and starts cold, so the key, true or
   false, changed nothing there and is now refused naming it. The glossary
-  says so. See `docs/migrating-to-0.28.0.md`.
+  says so. See `docs/migrating-to-0.28.0.md`. (FR-134)
 
 ### Fixed
 
@@ -1155,7 +1155,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   nothing, on a machine that would not have submitted or beside an executor
   the caller supplies; it is refused beside any executor that submits, the
   package's own or a caller's adapter implementing the `Submitting`
-  protocol. `LocalExecutor` takes `forced_local` by keyword only.
+  protocol. `LocalExecutor` takes `forced_local` by keyword only. (FR-99)
 - **`post.log.json` beside `post.log`.** The same records, machine-readable:
   the header (`version`, `workspace`, `matrix`, `time`, `check_frozen`) and
   `records`, one per WARNING line in the same order, each with `point`,
@@ -1166,13 +1166,13 @@ gone (`docs/migrating-to-0.27.0.md`).
   archives it with the log (R02).
   A manifest holding a forced-local record needs 0.27.0 to read it: an
   older reader refuses the key (measured 2026-09-23 against the 0.26.0
-  schema), so post such a workspace with the same version that ran it.
+  schema), so post such a workspace with the same version that ran it. (FR-120)
 - **The axes and signs of every emitted coefficient are published in one
   place**, `help()` and the conventions page, and each family says whether it
   is scored against the solver's own recorded output, and by which test, or
   not yet, and which export it waits for. The emitted steady polar row is now
   scored column by column against 48 recorded loads exports, and the body-rate
-  sense against the recorded rate probes (OPS-2011.01, RPT-063, FR-42).
+  sense against the recorded rate probes (OPS-2011.01, RPT-063, FR-42). (FR-42)
 
 - **Every point of a row naming a run type leaves its final saved
   simulation, now a written guarantee.** After the point's solve, first
@@ -1183,11 +1183,11 @@ gone (`docs/migrating-to-0.27.0.md`).
   (25.000 renders none), and for each point of a steady sweep. Every
   workflow script already did this; the workflows page now states it and
   `tests/tier1_offline/test_saved_simulation.py` holds it. A case written in
-  Python that declares its own `outputs` still exports exactly those (G11).
+  Python that declares its own `outputs` still exports exactly those (G11). (FR-121)
 - **`pyfs-matrix plan` warns naming each `LEGACY` row whose `OUTPUTS`
   declare no `.fsm`**, because no final state of such a row is collected or
   hashed in its record. It blocks nothing; the row plans and runs as before
-  (G11).
+  (G11). (FR-121)
 - **Each run record carries its geometry's boundary names** (`inventory`,
   in the solver's order as the script read them at `OPEN`, the name at
   position i being boundary i), on the point path and the steady one-job
@@ -1198,7 +1198,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   geometry file whose sha256 the record carries. A manifest holding such a
   record needs 0.27.0 to read it: an older reader refuses the key (measured
   2026-09-24 against the 0.26.0 `RunRecord`), so post such a workspace with
-  0.27.0 (R03).
+  0.27.0 (R03). (FR-122)
 
 - **A workflow row imports an OBJ or STL.** `GEOMETRY: wing.obj` runs when
   `wing.boundaries.toml` beside it states the unit the file is written in,
@@ -1212,7 +1212,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   any seat, naming the table, the key and the sidecar; so are an `[import]`
   table beside a `.fsm` and any other suffix. The run record of a point that
   imported a raw mesh carries the table as `mesh_import`; a point that opened
-  a `.fsm` writes no such key (G01).
+  a `.fsm` writes no such key (G01). (FR-55)
 - **The mesh operations of an import are declared with the geometry.**
   `[[import.operations]]` in the sidecar of a raw mesh scales, renames,
   mirrors (joined to its source), translates (in the `[import]` unit) and
@@ -1221,7 +1221,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   names are the boundary inventory a row cites. An order the solver's phases
   cannot emit is refused naming both operations; a name absent at its step, a
   name two surfaces carry and a rename onto a name in use are refused before
-  anything is emitted (G03).
+  anything is emitted (G03). (FR-55)
 - **A raw mesh declares its trailing edge in its sidecar** (G02, T06).
   `[trailing_edges]` with `file = "<points file>"` is the default route, with
   optional `type` (STANDARD unless written) and `tolerance`. The points file
@@ -1244,7 +1244,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   states any of the three tables. New names: `cases.TrailingEdgeMarking`,
   `cases.RawMeshConditions`, `SimCase.raw_mesh_conditions`,
   `MeshImport.moving_operations`, `MeshImport.names_after_renames`,
-  `workspace.inputs.read_raw_mesh_conditions`.
+  `workspace.inputs.read_raw_mesh_conditions`. (FR-55)
 - **A run that imports trailing edges is held to the solver's own count.**
   It writes the node file before the solver starts, hashes it into the
   record's inputs, and compares the solver's count of imported edges with
@@ -1256,7 +1256,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   dropped by the solver in silence (RPT-061), and initialisation adds
   nothing to an import (RPT-065), so this count is the only warning of a
   wrong file. `results.imported_trailing_edges` reads the
-  count; the sweep-job path now writes the files a script parks (G02).
+  count; the sweep-job path now writes the files a script parks (G02). (FR-55)
 - **A trailing-edge points file is checked against the mesh before the
   run** (T05): `read_trailing_edge_points`, `matched_trailing_edge_points`,
   `TrailingEdgePoints`, `write_trailing_edge_points` and `length_scale` in
@@ -1264,14 +1264,14 @@ gone (`docs/migrating-to-0.27.0.md`).
   length unit, and every point must lie within the tolerance of a mesh-edge
   mid-point; the first point that does not is refused by its line and
   position. `workspace.trailing_edge_midpoints` gives the mid-points of every
-  trailing-edge mesh edge of a blade.
+  trailing-edge mesh edge of a blade. (FR-55)
 - **A probe specification for `IMPORT_WAKE_EDGES_FROM_FILE`**, and its 26.124
   row verified by the compat probe of 2026-09-24 (the qa wing's sixteen
   trailing edges imported and saved). The probe verifies only the import it
   wrote: exactly one import line, 16 edges for boundary `Wing`; another
   count, another boundary or a second import line is `broken`. The report of
   2026-09-24 was judged before that criterion and records the verdict, not
-  the lines the solver printed; a re-run on 26.124 records them.
+  the lines the solver printed; a re-run on 26.124 records them. (FR-55)
 
 - **A steady point saves the solver's own plots, by default.** After its other
   exports and before its log, every point of a steady workflow row chooses a
@@ -1285,12 +1285,12 @@ gone (`docs/migrating-to-0.27.0.md`).
   `[exports]` kind that `false` switches off (`plot_residuals`, `plot_loads`,
   `plot_sections_cp`), and `plot_sections_cp = true` without sections is
   refused. An unsteady row saves none, and a pproc stating one `true` on an
-  unsteady row is refused at plan (G04).
+  unsteady row is refused at plan (G04). (FR-51)
 - **`[exports] force_distributions = true`** saves
   `<point>_force_distributions.txt`, the per-panel pressure and viscous force
   coefficients of every surface, on every run type. It is off by default like
   VTK and CSV, exported once at the end of the run, and never written by an
-  unsteady row's per-step exports (G10).
+  unsteady row's per-step exports (G10). (FR-51)
 - **Setup keys for the loads analysis, on steady rows:** `analysis_families`
   (`SET_SOLVER_ANALYSIS_BOUNDARIES`, family names resolved like
   `vorticity_drag_families`); `load_units` (`SET_LOADS_AND_MOMENTS_UNITS`, one
@@ -1299,7 +1299,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   `START_SOLVER` on every point, and the solver's own spellings are aliases. A
   row of an unsteady run type stating one is refused at plan. A point whose
   loads table is not in coefficients writes no product row, and the post stage
-  names the unit (G09).
+  names the unit (G09). (FR-114)
 - **Setup keys `vorticity_lift_model` and
   `unsteady_viscous_coupling_iteration`** reach `SET_VORTICITY_LIFT_MODEL`
   (every run type) and `SET_UNSTEADY_VISCOUS_COUPLING_ITERATION` (unsteady run
@@ -1307,7 +1307,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   against the command database for the row's build: the coupling step emits on
   25.100 and 26.000 alone, and neither runs on 26.124 (RPT-068), where a row
   stating either is refused at plan naming the report. The lift model stated
-  beside `kutta_joukowski_lift = true` plans with a warning (G14).
+  beside `kutta_joukowski_lift = true` plans with a warning (G14). (FR-114)
 - **A volume section, declared in the pproc and exported by every steady point
   (G05, FR-110).** `[volume_section]` declares ONE flow-field plane: `shape =
   "rectangle"` (`corners_m = [x1, y1, x2, y2]`, optional `refinement_layers`)
@@ -1319,7 +1319,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   deletes the previous section first. The five commands are verified one at a
   time on 26.120 to 26.124 and documented on earlier builds; the
   delete-then-create sequence is not measured. An unsteady or rotor row naming
-  such a pproc is refused before anything is emitted.
+  such a pproc is refused before anything is emitted. (FR-110)
 - **An actuator disc on a matrix row (G06, FR-109).** A reference block of
   `kind = "actuator"` declares the disc (`frame`, `axis`, `offset_m`,
   `tip_radius_m`, `hub_radius_m`, `rpm_sign`, optional `blades`, `swirl`,
@@ -1332,7 +1332,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   licensed probe that measured the file form it reads (RPT-070); the thrust
   and enable commands ran with their effect unobserved, and a disc on unsteady
   and rotor rows is not measured. `helpers.actuator_disc` refuses the profile
-  route on 25.000 and 25.100 before writing anything.
+  route on 25.000 and 25.100 before writing anything. (FR-109)
 - **A custom free stream on a matrix row (G15).** `FREESTREAM: <stem>` names a
   file of the workspace's `inputs/freestreams/`, which `pyfs-workspace init`
   now creates: `<stem>.txt` in the manual's STRUCTURED form (a first line
@@ -1359,7 +1359,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   `BETA` as 0 and writes its incidence into the field's `vy` and `vz`; the
   sideslip, not measured, is refused for the same reason. The probe's row at
   4 deg (5011) is retired from the matrix. The UNSTRUCTURED form, and a custom
-  field on an unsteady or rotor row, are not measured.
+  field on an unsteady or rotor row, are not measured. (FR-125)
 
 - **`pyfs-matrix post --additional-pproc` extracts more from a finished point
   without solving it again** (G12, FR-111). A row may state `ADDITIONAL_PPROC:
@@ -1394,7 +1394,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   and its helpers in `pyflightstream.cases.workflows`, and
   `Script.frames_by_name`. A licensed run on 26.124 extracted two finished
   points end to end, the loads equal to the run's own, and a second post
-  extracted nothing again (`reports/RPT-072`).
+  extracted nothing again (`reports/RPT-072`). (FR-111)
 
 - **`inputs/pproc/INPUTS.md`, the glossary of every input key, generated from
   the code (G08).** Beside `VARIABLES.md`, `pyfs-workspace init`, `pyfs-matrix
@@ -1422,7 +1422,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   `PRESET_RECORDED_ONLY` and `PRESET_RESERVED_KEYS`, and
   `workspace.inputs.GEOMETRY_SIDECAR_KEYS`, `RAW_MESH_CONDITION_KEYS` and
   `TRAILING_EDGE_DETECT_KEYS`. The workflows page and the user guide cite the
-  page (D08).
+  page (D08). (FR-123)
 - **An example for each new capability, run by the suite** (D11).
   `examples/obj_wing_trailing_edge_file.py` writes a wing OBJ in millimetres
   from the package's own geometry, with its sidecar and trailing-edge points
@@ -1433,7 +1433,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   with the sign opposite to the rate (p = -omega_x of the geometry's frame),
   and `CONSTANT` at zero. It fails on any other sign or axis. Both run without
   FlightStream in tier 1 (`tests/tier1_offline/test_examples.py`) and appear
-  on the documentation site.
+  on the documentation site. (no requirement: an example run by the suite, which exercises the requirements above)
 - **An example of the additional post, `examples/additional_post.py`.** It
   records one steady point on 26.124 the way a run records it: its script, its
   outputs with the saved simulation among them, and the run record with every
@@ -1444,7 +1444,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   the exports, and no `START_SOLVER`. It then shows an additional pproc
   declaring `[[probes]]` refused, naming RPT-062. It runs with no solver in
   tier 1, and the documentation site renders it beside the other examples
-  (D11).
+  (D11). (no requirement: an example run by the suite, which exercises FR-111)
 
 ### Fixed
 
@@ -2000,7 +2000,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   trailing-edge node file a point writes before its solve are written there
   too, and the record's `cwd` names the folder. A steady row of several
   points is one job over one script and still runs in the simulation folder,
-  as its submitted form does.
+  as its submitted form does. (FR-92)
 - **An induced drag the solver did not compute is `NA` in every sum the
   package makes.** A boundary on the vorticity induced-drag list
   (`SET_VORTICITY_DRAG_BOUNDARIES`) without a defined trailing edge is not
@@ -2019,65 +2019,65 @@ gone (`docs/migrating-to-0.27.0.md`).
   printed zero. A trailing-edged surface whose induced drag rounds to zero at
   the printed precision reads `NA` too; `SET_SIGNIFICANT_DIGITS` narrows that
   band. `write_recorded_polar`, which holds no run record, is unchanged
-  (PFS-2006.03, FR-22a).
+  (PFS-2006.03, FR-22a). (FR-22a)
 - **The induced-drag default lives in the command database.**
   `SET_VORTICITY_DRAG_BOUNDARIES` records `default: []` with
   `default_ref: SRC-003 p.202`, and the solver-setup snapshot reads both from
   the entry instead of restating them in code; a command entry's `default`
   accepts a tuple of boundary indices, the empty one meaning a default that
   emits no line. The snapshot of a script that selects nothing is unchanged
-  (PFS-2006.01).
+  (PFS-2006.01). (FR-22b)
 - **A `post.log` WARNING line names the point and product its warning
   names**: `WARNING point=camp/sim_7001/AL-020 product=available-exports:
   ...` where 0.26.0 wrote `WARNING point=campaign product=stage:
   point=camp/sim_7001/AL-020 product=available-exports: ...`. A warning that
   names none still reads `point=campaign product=stage`, and an interrupted
-  post's line ends `Remedy: correct the stated input and post again.` (R02).
+  post's line ends `Remedy: correct the stated input and post again.` (R02). (FR-120)
 - **A warning raised during a post by code outside the package is no longer
   written to `post.log`.** It reaches the caller's warning filters as before;
-  the package's own warnings are logged as they were (RPT-058).
+  the package's own warnings are logged as they were (RPT-058). (FR-120)
 
 - **`[exports] simulation = false` is refused**, as `loads = false` has
   been: every point of a row naming a run type leaves its final saved
   simulation (G11). `pyfs-matrix plan` refuses an artifact stating it with
   `matrix not planned: ...` and exit 2, naming the row and the file; remove
-  the key.
+  the key. (FR-121)
 
 - **`helpers.mark_wake_edges` takes `units`, `node_file` and `midpoints`.**
   On 26.124 it emits `IMPORT_WAKE_EDGES_FROM_FILE <TYPE> <TOLERANCE> <UNITS>`
   with the node file on the next line, the form that build reads, parks the
   file on the script and records the count. 26.122 and 26.123 refuse the file
-  route as unmeasured, and builds before 26.122 refuse it as before (G02).
+  route as unmeasured, and builds before 26.122 refuse it as before (G02). (FR-55)
 - **`workspace.write_node_file` writes the node list 26.124 reads**: the
   count, one placeholder coordinate line, then the edge mid-points converted
   to the simulation's length unit (new `simulation_unit`), in plain decimals.
   `write_trailing_edge_node_file` writes the mid-points of every trailing-edge
   mesh edge under a unit line, as the points file a geometry names, and
   `TrailingEdge.write_node_file` refuses: a list of vertices marks nothing
-  (G02).
+  (G02). (FR-55)
 - **`BASE_REGIONS` (and a pproc's `base_regions`) names the boundary that
   becomes the base** (RPT-066). `DETECT_BASE_REGIONS_BY_SURFACE` given a
   body's own boundary marks nothing and says nothing; the page and FR-55
-  state it, and the emission is unchanged.
+  state it, and the emission is unchanged. (FR-55)
 
 - **Every steady workflow script gains its plot saves**, eight lines per point
   between `EXPORT_PROBE_POINTS` and `EXPORT_LOG`. Every steady point declares
   two more outputs (three with sections), and a missing one fails the point
   `FAILED_INCOMPLETE_OUTPUT`. LEGACY rows and outputs declared in Python are
-  unchanged (G04).
+  unchanged (G04). (FR-51)
 - **Command database:** `SET_PLOT_TYPE` and `SAVE_PLOT_TO_FILE` are
   export-phase commands, `verified` on 26.124 from the transcription
   `reports/compat/CMP-26124_2026-09-24_plots.yaml` of RPT-067's run; verified
   26.124 rows go from 87 to 89 (G04). `SET_VORTICITY_LIFT_MODEL` and
   `SET_UNSTEADY_VISCOUS_COUPLING_ITERATION` are `removed` on 26.124, citing
-  RPT-068; emittable 26.124 commands go from 371 to 370 (G14).
+  RPT-068; emittable 26.124 commands go from 371 to 370 (G14). (FR-51)
 - An output name ending `_vsec.vtk` or `_vsec.dat` is now the volume-section
   export, not a surface VTK or Tecplot export, in a case being built and in a
   run recorded by 0.27.0 or later; a run recorded before keeps the surface
-  meaning. A case declaring one without a cut section is refused (G05).
+  meaning. A case declaring one without a cut section is refused (G05). (FR-110)
 - `ACTUATOR`, `ACTUATOR_RPM`, `ACTUATOR_THRUST` and `PROFILE` are row keys of
   every run type, so a setup flag taking one of those words is refused (FR-74)
-  (G06).
+  (G06). (FR-74, FR-109)
 - **The first column of every table is the polar, and no line precedes the
   header (G16).** Every table the post writes under `post/<matrix>/`, the
   additional post's included, and `campaign_sweep.csv` open with `POL`, named as
@@ -2100,7 +2100,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   take `pol=` (`NA` where the caller states none), `results.sweep_table` and `results.run_table` lead with
   `POL`, `ROTOR_TABLE_LEAD_LINES` is 0, and `rotor_table_alias_line` is removed
   with the line it wrote. The solver's own files are not touched. See
-  `docs/migrating-to-0.27.0.md`.
+  `docs/migrating-to-0.27.0.md`. (FR-124)
 - **No cell of a table holds a comma or a double quote, and nothing is quoted
   (G16).** A reader that splits each line on `,`, as `numpy.genfromtxt` does,
   counted the commas inside the quoted list cells a super file and an unsteady
@@ -2109,7 +2109,7 @@ gone (`docs/migrating-to-0.27.0.md`).
   every table the post writes, header names included, and of the campaign
   sweep now writes a comma as `;`, a double quote as a single one and a line
   break as a space, through one rule, `pyflightstream._tokens.plain_cell`,
-  called by the products' funnel and by the tabular layer's `write_table`.
+  called by the products' funnel and by the tabular layer's `write_table`. (FR-124)
 
 ### Changed (the type-checker debt, re-measured on the release tree)
 
@@ -2203,7 +2203,7 @@ samples it reads, and no compatibility promise waits past this release.
   Warning capture is process-wide, so concurrent posts in threads can mix
   campaign warnings; post one campaign per process until
   [RPT-058](reports/RPT-058_post-log-captures-warnings-process-wide_2026-09-23.md)
-  is resolved in the planned 0.27.0 work.
+  is resolved in the planned 0.27.0 work. (FR-120)
 - Optional integrated sectional loads: `integrate = true` on a pproc
   `[[sections.distributions]]` entry appends `Strip_length`, `Fx_int`, `Fz_int`
   and `My_int` to the same sectional CSV. Each instant uses exported station
@@ -2212,7 +2212,7 @@ samples it reads, and no compatibility promise waits past this release.
   is off and preserves the previous file bytes. Without a live rotor
   definition the match is conservative and refuses by name wherever the
   recorded evidence cannot say what the builder would emit
-  ([RPT-059](reports/RPT-059_integration-match-without-rotor-definition-refuses-by-name_2026-09-23.md)).
+  ([RPT-059](reports/RPT-059_integration-match-without-rotor-definition-refuses-by-name_2026-09-23.md)). (FR-116)
 
 ### Removed
 
@@ -2234,17 +2234,17 @@ samples it reads, and no compatibility promise waits past this release.
 - Nothing in the post blocks by default: frozen solves and unread blocks warn
   while computable products are written. `--check-frozen` refuses affected
   averages instead of warning alone. Failed status alone no longer excludes
-  usable exports in default mode.
+  usable exports in default mode. (FR-119)
 - Malformed loads skip their point by name, preserving healthy points' products.
   Empty unsteady logs warn by default and refuse averages only when asked.
   Sparse per-blade tables use their combined window, and the unsteady polar
   and rotor guards judge the plotted steps their averages actually read.
   Integrated sectional columns follow the matrix's current PPROC selection
-  while distribution identity remains recorded.
+  while distribution identity remains recorded. (FR-119)
 - The reducer states its exact plotted sample set using its resolved families.
   The freeze guard no longer reconstructs azimuthal samples. Every nonzero
-  interpolation weight counts, including weights near 5e-11 (RPT-057).
-- See [Migrating to 0.26.0](docs/migrating-to-0.26.0.md) for each replacement.
+  interpolation weight counts, including weights near 5e-11 (RPT-057). (FR-119)
+- See [Migrating to 0.26.0](docs/migrating-to-0.26.0.md) for each replacement. (no requirement: a pointer to the migration page, no capability)
 - Recorded manifest key `broken_commands` is read silently as `waived_commands`
   for as long as such manifests exist. It is plain compatibility, with no
   removal countdown; recorded manifests are never rewritten. Re-measured on
@@ -2253,7 +2253,7 @@ samples it reads, and no compatibility promise waits past this release.
   `post/matriz_time/plan.json` and `post/matriz_builds/plan.json` are absent.
   All four are absent from this isolated worktree. The historical census of
   74 rows (46, 18, 8, 2) across four manifests does not reproduce here;
-  absent files are not a measurement of zero recorded rows.
+  absent files are not a measurement of zero recorded rows. (FR-48)
 
 ### Fixed
 
@@ -2324,7 +2324,7 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
   flat diameter answers for nobody. The rotor table keeps `J_<alias>` per rotor,
   unchanged.
   This is why 0.25.1 adds columns rather than only fixing defects: the owner
-  asked for it in this release (2026-09-22).
+  asked for it in this release (2026-09-22). (FR-118)
 
 ### Changed (breaking: the native-log freeze check is OPT-IN)
 
@@ -2347,7 +2347,7 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
   0.26.0, where the reducer states the moments it samples instead of a second
   implementation guessing them (`reports/RPT-057`).
   WHAT IS NOT A CHOICE: the crash. A log that cannot be read never ends the
-  post, with the reading on or off.
+  post, with the reading on or off. (FR-119)
 
 ### Fixed
 
@@ -2446,13 +2446,13 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
   probe points (`EXPORT_PROBE_POINTS`, the LAST STEP only). `post` builds an unsteady
   point's probes table from the plots history, never from a probe-points export, so
   a pproc mixing drawn lines and a cited profile yields ONE history table holding
-  both. A steady row is unchanged: both forms use the probe-points path.
+  both. A steady row is unchanged: both forms use the probe-points path. (FR-117)
 - **Re-posting an unsteady run recorded before 0.25.0**: its cited-profile probes
   were exported as a last-step instant and have no history; posting again cannot
   create one. They are left out with that reason in `products.json`, and the
   drawn-line probes of the same run keep their history. A new run is needed for the
-  cited probes' history.
-- An unsteady row's default outputs lose `{name}_probes.txt` (seven, not eight).
+  cited probes' history. (FR-117)
+- An unsteady row's default outputs lose `{name}_probes.txt` (seven, not eight). (FR-117)
 
 ### Known limitations
 
@@ -2488,13 +2488,13 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
   the semantics as UNVERIFIED, and the conversion is a single function so the day a
   build settles it the correction is one line. The run records the window it emitted, and
   the products manifest marks those exports `kind: average` with the window, read
-  from the record even if the pproc is edited later.
+  from the record even if the pproc is edited later. (FR-112)
 - **Surface flow in VTK and CSV.** Two `[exports]` kinds, `vtk` and `csv`, OFF BY
   DEFAULT, emit `EXPORT_SOLVER_ANALYSIS_VTK` (with `SET_VTK_EXPORT_VARIABLES` when the
   pproc lists `vtk_variables`, each validated against the build's database; absent,
   every variable) and `EXPORT_SOLVER_ANALYSIS_CSV`. Both join the per-step exports of
   `EXPORT_UNSTEADY_AFTER_REV` / `..._ITER` like the Tecplot file, and are the averaged
-  surface when `[time_averaging]` is set.
+  surface when `[time_averaging]` is set. (FR-113)
 - **Fourteen advanced solver settings have a setup key of their own**, so they no
   longer need `[[raw]]`: `laminar_separation`, `kutta_joukowski_lift`,
   `aeroelastic_rbf_type`, `print_rotor_induced_velocities`,
@@ -2505,14 +2505,14 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
   `vortex_ring_normalization`. Each emits its solver command when set and nothing
   when absent, so existing setups produce the same script; a value or command the
   run's build does not carry is refused naming the build; `[[raw]]` still works and
-  an unknown key is still refused.
+  an unknown key is still refused. (FR-114)
 - **The six boundary-layer fluid-plot parameters** (`BL_MOMENTUM_THICKNESS`,
   `BL_DISPLACEMENT_THICKNESS`, `BL_TOTAL_THICKNESS`, `BL_SHAPE_FACTOR`,
   `BL_SKIN_FRICTION`, `BL_TRANSITION_MARKER`) are accepted in a pproc probe's
   `parameters` on the builds whose manual lists them (26.122 and 26.123 manuals,
   p.352; 26.124 carries the 26.123 manual). A parameter the run's build does not
   document is refused naming the parameter and the build. The pproc's own
-  vocabulary refused them on every build before.
+  vocabulary refused them on every build before. (FR-115)
 
 ### Added
 
@@ -2525,24 +2525,24 @@ cluster and on Windows within an hour of each other, on campaigns recorded with
   pproc entry emits, over its planes and blades, lands in that entry's file. A record
   that does not identify its distributions is a named skip: the split is never
   guessed. The combined sections series and the end-of-run sections table are
-  unchanged. New public module: `pyflightstream.post.section_distributions`.
+  unchanged. New public module: `pyflightstream.post.section_distributions`. (FR-116)
 
 ### Changed
 
 - **Two public modules split out of `post.products`**: `post.provenance` and
   `post.custom_polar`. Every name importable from `post.products` today is still
-  importable from there under the same spelling, and no product's format changed.
+  importable from there under the same spelling, and no product's format changed. (no requirement: an internal module split that changes no name and no product format)
 
 - **New catalogued exception `ProductArgumentError`** (base `TypeError`), raised when
   a product writer is called with arguments that contradict each other, such as
   `write_sections_table(step=..., iteration=...)`. `except TypeError` catches it as it
-  caught the bare raise it replaces, and `except PyflightstreamError` now catches it too.
+  caught the bare raise it replaces, and `except PyflightstreamError` now catches it too. (FR-39)
 
 - **The recorded-export fixture carries a second witness**: a `sha256` column beside
   each row, so an export replaced on disk is caught even when its `Total` row still
-  agrees. No printed value moved (48 rows, the value columns byte-identical).
+  agrees. No printed value moved (48 rows, the value columns byte-identical). (no requirement: a test fixture column, evidence and not a capability)
 - Source documentation and the requirements specification state requirements rather
-  than attributing them to a person; no behaviour and no doctest changed.
+  than attributing them to a person; no behaviour and no doctest changed. (no requirement: a documentation wording change, no behavior changed)
 
 ### Deprecated
 
