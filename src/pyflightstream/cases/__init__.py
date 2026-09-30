@@ -678,11 +678,21 @@ def classify_outputs(names: Sequence[str], *, package_version: str | None = None
         # Older records keep their historical suffix interpretation.
         if (release is None or release >= (0, 29)) and lowered.endswith("_native_tecplot.dat"):
             continue
+        # 0.32.0 (E2): an acoustic export or section file is never a surface export.
+        if (release is None or release >= (0, 32)) and _is_acoustic_output(name):
+            continue
         for kind, suffix, _, _ in by_length:
             if lowered.endswith(suffix) and kind not in claimed:
                 claimed[kind] = str(name)
                 break
     return claimed
+
+
+def _is_acoustic_output(name: str) -> bool:
+    """Whether an output is an acoustic file (0.32.0), asked of its one home."""
+    from pyflightstream.cases.acoustics import is_acoustic_output
+
+    return is_acoustic_output(name)
 
 
 def _release_of(package_version: str | None) -> tuple[int, int] | None:
@@ -5173,6 +5183,11 @@ class SimCase(BaseModel):
     actuator_profile: str | None = None
     #: Profiles named by individual ACTUATOR records, resolved by library stem.
     actuator_profiles: dict[str, str] = Field(default_factory=dict)
+    #: The ABSOLUTE path of the file a row's ``ACOUSTIC_OBSERVERS_FILE`` names
+    #: under the workspace's ``inputs/acoustics/`` (0.32.0, FR-266), resolved and
+    #: checked when the row binds; the builder parks the point's own copy, which
+    #: the run writes and hashes. None for a row stating no such file.
+    acoustic_observers_file: str | None = None
     #: The boundary order a sidecar beside the geometry states
     #: (PFS-2029.06.03), bound by the workspace; the builder refuses the
     #: run when the file's own mesh block disagrees with it.

@@ -57,6 +57,7 @@ from pyflightstream.cases import (
     TrailingEdgeMarking,
     case_at_point,
 )
+from pyflightstream.cases.acoustics import with_acoustic_signals
 from pyflightstream.cases.workflows import (
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
@@ -204,6 +205,27 @@ def _custom_units(tmp: Path, units: str) -> SimCase:
     return _stated(case, FREESTREAM_UNITS=units).model_copy(
         update={"solver": SolverSettings(simulation_length_unit="METER")}
     )
+
+
+#: The sources and the observer time an acoustic observer needs (0.32.0, E2).
+_ACOUSTIC = {"ACOUSTIC_SOURCES": "ENABLE", "ACOUSTIC_OBSERVER_TIME": "0.05 0.2 16"}
+_SECTION = (
+    "{{PLANE:YZ / OFFSET:0.0 / RADIAL_OBSERVERS:2 / AZIMUTH_OBSERVERS:4 / INNER_RADIUS:5.0 / "
+    "OUTER_RADIUS:{outer}}}"
+)
+
+
+def _acoustic_row(tmp: Path, **variables: str) -> SimCase:
+    """An unsteady row stating acoustic keys, its export declared as the run layer does;
+    ``ACOUSTIC_OBSERVERS_FILE`` as the plan resolves it, a file of that stem."""
+    case = unsteady_case(**variables)
+    stem = variables.get("ACOUSTIC_OBSERVERS_FILE")
+    if stem is not None:
+        path = tmp / f"{stem}.csv"
+        path.write_text("1\n0.0,10.0,0.0\n" if stem.endswith("a") else "1\n0.0,12.0,0.0\n")
+        case = case.model_copy(update={"acoustic_observers_file": str(path)})
+    outputs = with_acoustic_signals(["loads_a+00.0.txt"], case, "loads_a+00.0")
+    return case.model_copy(update={"outputs": outputs})
 
 
 #: Two FSI inputs of the supplied mode, a beam with every property non-zero so
@@ -435,6 +457,37 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
         lambda _: _continuing("{ADDITIONAL_ITERS=200}", "200"),
     ),
     "LAST_REVS_AVG": _rows(rotor_case, "LAST_REVS_AVG", "0.25", "0.5"),
+    # 0.32.0 (E2): the acoustic toolbox, each key moved beside the others it needs.
+    "ACOUSTIC_SOURCES": Variation(
+        lambda tmp: _acoustic_row(tmp, ACOUSTIC_SOURCES="ENABLE"),
+        lambda tmp: _acoustic_row(tmp, ACOUSTIC_SOURCES="DISABLE"),
+    ),
+    "ACOUSTIC_OBSERVERS": Variation(
+        lambda tmp: _acoustic_row(tmp, **_ACOUSTIC, ACOUSTIC_OBSERVERS="MIC1 0.0 10.0 0.0"),
+        lambda tmp: _acoustic_row(tmp, **_ACOUSTIC, ACOUSTIC_OBSERVERS="MIC1 0.0 12.0 0.0"),
+    ),
+    "ACOUSTIC_OBSERVERS_FILE": Variation(
+        lambda tmp: _acoustic_row(tmp, **_ACOUSTIC, ACOUSTIC_OBSERVERS_FILE="ring_a"),
+        lambda tmp: _acoustic_row(tmp, **_ACOUSTIC, ACOUSTIC_OBSERVERS_FILE="ring_b"),
+    ),
+    "ACOUSTIC_OBSERVER_TIME": Variation(
+        lambda tmp: _acoustic_row(
+            tmp,
+            ACOUSTIC_SOURCES="ENABLE",
+            ACOUSTIC_OBSERVERS="M 0 1 0",
+            ACOUSTIC_OBSERVER_TIME="0.05 0.2 16",
+        ),
+        lambda tmp: _acoustic_row(
+            tmp,
+            ACOUSTIC_SOURCES="ENABLE",
+            ACOUSTIC_OBSERVERS="M 0 1 0",
+            ACOUSTIC_OBSERVER_TIME="0.05 0.3 16",
+        ),
+    ),
+    "ACOUSTIC_SECTION": Variation(
+        lambda tmp: _acoustic_row(tmp, **_ACOUSTIC, ACOUSTIC_SECTION=_SECTION.format(outer=10.0)),
+        lambda tmp: _acoustic_row(tmp, **_ACOUSTIC, ACOUSTIC_SECTION=_SECTION.format(outer=12.0)),
+    ),
     # 0.30.0: the quasi-steady wheel's clockings, two and three of one passage.
     "PASSAGE_POSITIONS": _rows(qsteady_case, "PASSAGE_POSITIONS", "2", "3"),
     "CLOCK_MOTION": Variation(

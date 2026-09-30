@@ -77,6 +77,7 @@ from pyflightstream.cases import (
     SolverSettings,
     point_state_key,
 )
+from pyflightstream.cases.acoustics import resolve_observers_file
 from pyflightstream.cases.corrections import (
     CALIBRATIONS_DIR,
     CalibrationError,
@@ -2524,6 +2525,15 @@ def resolve_matrix(
         freestream = _resolve_freestream(workspace, row)
         if freestream is not None:
             update["freestream_profile"] = freestream
+        # 0.32.0 (E2): AND ITS ACOUSTIC OBSERVER FILE, a file of inputs/acoustics/.
+        observers = resolve_observers_file(
+            workspace.inputs_dir,
+            row.variables,
+            pol=row.pol,
+            legacy=row.workflow == LEGACY_WORKFLOW,
+        )
+        if observers is not None:
+            update["acoustic_observers_file"] = observers
         if row.motions:
             update["motions"] = [_bind_motion(workspace, record, row.pol) for record in row.motions]
         # THE FLAT ROW'S OWN HUB, bound the same way (PFS-2031.12): one rotor

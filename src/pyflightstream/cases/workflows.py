@@ -133,6 +133,7 @@ from pyflightstream.cases import (
     select_group_members,
     warn_a_selector_that_guesses,
 )
+from pyflightstream.cases import acoustics as _acoustics
 from pyflightstream.cases import qsteady as _qsteady
 from pyflightstream.cases import windows as _windows
 from pyflightstream.commands import (
@@ -8314,6 +8315,13 @@ def _refuse_what_a_steady_coupled_run_cannot_export(case: SimCase) -> None:
         )
 
 
+def _acoustic_setup(case: SimCase, script: Script) -> None:
+    """Emit the row's acoustic setup before the clock (0.32.0, E2; cases.acoustics)."""
+    _acoustics.emit_acoustic_setup(
+        case, script, from_metres=lambda what: _from_metres(case, script, what)
+    )
+
+
 def _script_solve_and_export(
     conventions: WorkflowConventions,
     case: SimCase,
@@ -8343,6 +8351,14 @@ def _script_solve_and_export(
     # fluid plots long before this point and needs nothing here.
     if frames is not None:
         _pproc_probes(case, script, frames, unsteady=unsteady, analysis=True)
+    # 0.32.0 (E2): the acoustic signals, computed from the march and exported.
+    _acoustics.emit_acoustic_signals(
+        case,
+        script,
+        unsteady=unsteady,
+        frames=frames,
+        from_metres=lambda what: _from_metres(case, script, what),
+    )
     _raw_commands(case, script, "export")
     _export_block(conventions, case, script, unsteady=unsteady)
 
@@ -12720,6 +12736,7 @@ def _build_continuation(
     continuation exactly as on a run from the mesh.
     """
     _the_custom_freestream(case)
+    _acoustics.refuse_acoustics_on_a_continuation(case)
     _configuration_comment(case, script)
     # ENABLE, ALWAYS, and this is the one place in this package where the
     # initialisation flag is not the row's to choose: a continuation that
@@ -12905,6 +12922,7 @@ def _build_unsteady(case: SimCase, script: Script, conventions: WorkflowConventi
     _significant_digits(case, script)
     _free_stream(case, script, frames, custom)
     _fluid(case, script)
+    _acoustic_setup(case, script)
     stepping = unsteady_time_stepping(case)
     helpers.unsteady_solver(
         script,
@@ -13049,6 +13067,7 @@ def _build_unsteady_rotor(case: SimCase, script: Script, conventions: WorkflowCo
     # stating its azimuthal step and its revolutions emits the seconds
     # and the step count those work out to, and a row stating the
     # seconds and the count emits exactly what it always emitted.
+    _acoustic_setup(case, script)
     stepping = rotor_time_stepping(case, speed=speed)
     helpers.unsteady_solver(
         script,
@@ -13275,6 +13294,7 @@ def _rotor_motions(
             speed=speeds[number - 1],
             moving_frames=turning,
         )
+    _acoustic_setup(case, script)
     stepping = rotor_time_stepping(case, speed=_clock_speed(case, views, speeds))
     helpers.unsteady_solver(
         script,
@@ -14810,6 +14830,8 @@ _UNSTEADY_KEYS: tuple[str, ...] = (
     # Unsteady's alone: only a run that marches in time can be continued
     # from where the clock stopped it.
     RESTART_VARIABLE,
+    # 0.32.0 (E2): the acoustic toolbox, whose signals only a march records.
+    *_acoustics.ACOUSTIC_KEYS,
 )
 _UNSTEADY_ROTOR_KEYS: tuple[str, ...] = (
     *_UNSTEADY_KEYS,
@@ -15201,6 +15223,7 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "records {COMMAND: <line> / BEFORE: <phase>}, or FILE: <path> in place of COMMAND",
             accepted="every run type, and a LEGACY row",
         ),
+        **_acoustics.ACOUSTIC_KEY_MEANINGS,
     }
 )
 

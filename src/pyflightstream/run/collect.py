@@ -81,6 +81,7 @@ from pyflightstream.run._step_exports import missing_step_warning, untranslated_
 from pyflightstream.workspace.storage import ensure_sim_expanded
 
 from ..cases import CampaignConfigError
+from ..cases.acoustics import acoustic_section_outputs
 from ..results import translate_surface_exports
 from ..workspace import (
     SIM_DATAPOINTS_DIR,
@@ -1262,14 +1263,14 @@ def _collect_by_point(
     # (the V&V lens, closing round): a record written before 0.18.1 names no
     # working_dir, ran in the simulation folder, and asserts nothing.
     ran_here = bool(submission.get("working_dir"))
-    return list(
-        workspace.collect_outputs(
-            record.sim_id,
-            [work_dir / name for name in names],
-            datapoint=_recorded_name(record),
-            ran_in_datapoint=ran_here,
-        )
+    collected = workspace.collect_outputs(
+        record.sim_id,
+        [work_dir / name for name in names],
+        datapoint=_recorded_name(record),
+        ran_in_datapoint=ran_here,
     )
+    # 0.32.0 (E2): an acoustic section's files, written where the job ran.
+    return acoustic_section_outputs(workspace.sim_dir(record.sim_id), collected)
 
 
 def _recorded_name(record: RunRecord) -> PointName:

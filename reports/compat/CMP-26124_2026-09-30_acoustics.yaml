@@ -1,0 +1,124 @@
+schema: pyflightstream-compat-report/1
+fs_version: '26.124'
+date: '2026-09-30'
+fs_exe: FlightStream_26124.exe
+fs_exe_sha256: 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+measured_at: '2026-09-30T01:11:09+00:00'
+executor: the 0.32.0 round-1 probe harness, -hidden -script (as run; mechanism SRC-003 pp.279-280; argument spelling RPT-023)
+solver_identity:
+- 'FlightStream version 26.1, build #8172026'
+source: >
+  Transcription of the licensed probes A0 and A1 of the 0.32.0 round 1 (work package E2,
+  GEO-066 2.6), run detached on 2026-09-30 by the release's own probe harness and not by
+  pyfs-qa probe. One unsteady march of 24 steps of a single blade turning at 290 rev/min,
+  far-field layers 5, then the whole acoustic chain; A0 and A1 differ in the
+  ACOUSTIC_SOURCES token only (DISABLE, ENABLE), which is the one-thing comparison every
+  judgment below reads. Each command was followed by a PRINT sentinel and a log export, and
+  every sentinel after every command was printed in both probes. Scripts: A1 sha256
+  ab459c75ee8cb7ad5eb4fe3e07ad4e5df75fc76f2824d07d7de145a01f0294bb, A0 its twin with the one
+  token changed; exported signals: A1 sha256
+  f160e0e3aa4462f28375cf7e0992a26f7654d6bf2dbdc9464e79ccba6a5e22dd, A0 sha256
+  0ccdab020c55733a0e8469cd8fec5364e1ed6f8ac38a8fe32c2f9879a04ac29e. The mesh and the
+  exported files are local scratch and not committed; no solver was invoked while writing
+  this transcription.
+summary:
+  verified: 6
+  broken: 0
+  removed: 0
+  unprobed: 1
+commands:
+  ACOUSTIC_SOURCES:
+    outcome: verified
+    detail: >-
+      Measured 2026-09-30 on FlightStream 26.124 (round-1 probes A1 against A0, which differ
+      in this token only): with ENABLE before INITIALIZE_SOLVER the exported signals carry
+      nonzero pressures at every observer (151 of the file's 204 numbers nonzero); with
+      DISABLE every pressure column is zero (55 nonzero, the times and positions only).
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    return_code: 0
+    measurement:
+      - variant: A1_acoustic_chain
+        wall_time_s: 2.4
+        timed_out: false
+        script_sha256: ab459c75ee8cb7ad5eb4fe3e07ad4e5df75fc76f2824d07d7de145a01f0294bb
+  CREATE_NEW_ACOUSTIC_OBSERVER:
+    outcome: verified
+    detail: >-
+      Measured 2026-09-30 on FlightStream 26.124 (round-1 probe A1): the observer created
+      as PYFS_OBS1 at 0.0 10.0 0.0 is the export's first block, 'Observer: PYFS_OBS1' and
+      'Position: .00,10.0,.00'.
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    return_code: 0
+  ACOUSTIC_OBSERVERS_IMPORT:
+    outcome: verified
+    detail: >-
+      Measured 2026-09-30 on FlightStream 26.124 (round-1 probe A1): a file of a count line
+      '2' and the lines '0.0,-10.0,0.0' and '5.0,0.0,10.0', its path on the next line, adds
+      two observers the export names 'Observer 2' at '.00,-10.0,.00' and 'Observer 3' at
+      '5.00,.00,10.0': an imported observer is named by its place in the solver's list.
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    return_code: 0
+  SET_ACOUSTIC_OBSERVER_TIME:
+    outcome: verified
+    detail: >-
+      Measured 2026-09-30 on FlightStream 26.124 (round-1 probe A1): with 0.05 0.2 16 every
+      observer's block holds 16 rows whose time column runs from 0.05 to 0.190625 s in steps
+      of 0.009375 s, that is (T1 - T0) / N, the final time itself not sampled.
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    return_code: 0
+  COMPUTE_ACOUSTIC_SIGNALS:
+    outcome: unprobed
+    detail: >-
+      Accepted on FlightStream 26.124 (round-1 probes A0 and A1, the sentinel after it
+      printed in both), and the signals exported after it are nonzero with the sources on;
+      no probe exported without it, so its own effect is not isolated and no judgment is
+      recorded.
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: null
+      log_errors: []
+    return_code: 0
+  EXPORT_ACOUSTIC_SIGNALS:
+    outcome: verified
+    detail: >-
+      Measured 2026-09-30 on FlightStream 26.124 (round-1 probe A1): writes the path on the
+      next line, 5254 bytes, one block per observer ('Observer: <name>', 'Position: x,y,z',
+      'Columns: Observer time (sec), PL (Pa), PT (Pa), PO (Pa)', then one row per sample),
+      and the solver prints 'Acoustic signal data written to external text file'.
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    return_code: 0
+  CREATE_ACOUSTIC_SECTION:
+    outcome: verified
+    detail: >-
+      Measured 2026-09-30 on FlightStream 26.124 (round-1 probe A1): FRAME 1, PLANE YZ,
+      OFFSET 0.0, RADIAL_OBSERVERS 2, AZIMUTH_OBSERVERS 4, INNER_RADIUS 5.0, OUTER_RADIUS
+      10.0 and a STORAGE_PATH folder the probe had created wrote 16 files VTK_output-001.vtk
+      to VTK_output-016.vtk, one per sample of the observer time window, each an ASCII VTK
+      POLYDATA of 12 points.
+    signals:
+      sentinel_before: true
+      sentinel_after: true
+      effect: true
+      log_errors: []
+    return_code: 0
