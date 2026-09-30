@@ -112,6 +112,7 @@ from pyflightstream.results import (
     window_for_reduction,
 )
 from pyflightstream.results.conditions import bind_conditions
+from pyflightstream.results.sectional_loads import SectionalLoadsReport
 
 
 class _ManifestRecord(Protocol):
@@ -296,8 +297,8 @@ def to_table(result: object) -> pd.DataFrame:
     as well as at parse time, instead of being tabulated with each value
     under its neighbour's label.
 
-    - ``SectionalLoadsReport`` (:mod:`pyflightstream.fsi.loads`,
-      optional ``[fsi]`` extra): unit-suffixed columns ``offset_m``,
+    - ``SectionalLoadsReport`` (:mod:`pyflightstream.results.sectional_loads`,
+      re-exported by :mod:`pyflightstream.fsi.loads`): unit-suffixed columns ``offset_m``,
       ``chord_m``, ``x_qc_m``, ``z_qc_m`` [m], ``fx_n_per_m``,
       ``fz_n_per_m`` [N/m], ``moment_qc_nm_per_m`` [N m / m], in the
       cut-plane axes the FSI parser documents.
@@ -1165,16 +1166,14 @@ def _sectional_loads_frame(report: object) -> pd.DataFrame:
 
 
 def _sectional_loads_type() -> type | None:
-    """Return the optional SectionalLoadsReport type, or None without it.
+    """Return the SectionalLoadsReport type.
 
-    The import is deferred and failure tolerated because the sectional
-    loads parser ships with the optional ``[fsi]`` extra; the core
-    tables never require it.
+    Since 0.33.0 (AD-10) the parser and its report are defined in this row
+    (:mod:`pyflightstream.results.sectional_loads`), so the type is always
+    there and this module reaches into ``fsi`` nowhere. The ``None`` of the
+    signature is kept for the callers written when the type came with an
+    optional extra.
     """
-    try:
-        from pyflightstream.fsi.loads import SectionalLoadsReport
-    except ImportError:
-        return None
     return SectionalLoadsReport
 
 

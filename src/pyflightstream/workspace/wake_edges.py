@@ -60,7 +60,7 @@ from pyflightstream._decimal import plain_decimal
 from pyflightstream._lengths import METRES_PER_UNIT, scale
 from pyflightstream._mesh import read_mesh
 from pyflightstream.commands import CommandRegistry, Status
-from pyflightstream.script import CommandArgumentError
+from pyflightstream.script import LENGTH_UNIT_COMMAND, CommandArgumentError
 from pyflightstream.script.helpers import render_wake_edge_node_file
 from pyflightstream.workspace.inputs import InputArtifactError, PointXyz
 
@@ -362,12 +362,12 @@ class WakeEdgeImport(BaseModel):
         return evidence_notice(canonical)
 
 
-#: The command whose enumeration is the simulation's length-unit
-#: vocabulary. The solver reads the node file's coordinates in the
-#: SIMULATION's unit and reads no unit from the file (RPT-061), so points
-#: given in another unit are converted, and both units have to be tokens
-#: of the solver's vocabulary and not of this package's taste.
-LENGTH_UNIT_COMMAND = "SET_SIMULATION_LENGTH_UNITS"
+# LENGTH_UNIT_COMMAND, the command whose enumeration is the simulation's
+# length-unit vocabulary, is imported from its one home in the script root
+# (AD-10) and stays in this module's __all__. The solver reads the node file's
+# coordinates in the SIMULATION's unit and reads no unit from the file
+# (RPT-061), so points given in another unit are converted, and both units
+# have to be tokens of the solver's vocabulary and not of this package's taste.
 
 #: Metres in one of each length unit the solver records, exact as decimals.
 #: OTHER is absent on purpose: it names no scale, so nothing can be

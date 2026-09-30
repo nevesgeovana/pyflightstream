@@ -47,6 +47,7 @@ from collections.abc import Sequence
 from pathlib import Path, PurePath
 from typing import TYPE_CHECKING
 
+from pyflightstream._lengths import UNIT_THAT_NAMES_NO_LENGTH
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases._ccs import (
     CCS_FORMATS,
@@ -78,11 +79,10 @@ _PAGE = "docs/ccs-geometry.md"
 #: The unit word of the ``[import]`` table that says the file states its own.
 _FILE_UNIT = "FILE"
 
-#: The unit ``CAD_CREATE_IMPORT_CURVE_CCS`` lists that names no length: curves
-#: read in it would be scaled by whatever the solver assumes, which is the
-#: assumed unit the ``[import]`` table exists to rule out. A raw mesh import
-#: refuses it for the same reason.
-_UNIT_THAT_NAMES_NO_LENGTH = "OTHER"
+# The unit ``CAD_CREATE_IMPORT_CURVE_CCS`` lists that names no length,
+# ``_lengths.UNIT_THAT_NAMES_NO_LENGTH``: curves read in it would be scaled by
+# whatever the solver assumes, which is the assumed unit the ``[import]``
+# table exists to rule out. A raw mesh import refuses it for the same reason.
 
 #: The frame a CCS file's coordinates and a body of revolution's axis are read
 #: in: the reference frame, index 1, since the route runs before any frame exists.
@@ -154,10 +154,10 @@ def loft_component(case: SimCase, kind: str) -> tuple[CcsImportOptions, str, int
             "whose file states its own Units line). Write the unit the file's coordinates "
             'are in, such as units = "METER".'
         )
-    if case.mesh_import.units == _UNIT_THAT_NAMES_NO_LENGTH:
+    if case.mesh_import.units == UNIT_THAT_NAMES_NO_LENGTH:
         raise CampaignConfigError(
             f"case {case.sim_id!r}: the {kind} loft reads its curves in the unit [import] "
-            f'states, and units = "{_UNIT_THAT_NAMES_NO_LENGTH}" names no length, so the '
+            f'states, and units = "{UNIT_THAT_NAMES_NO_LENGTH}" names no length, so the '
             "solver would choose the scale. Write the unit the file's coordinates are in, "
             'such as units = "METER".'
         )

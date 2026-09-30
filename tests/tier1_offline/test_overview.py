@@ -206,8 +206,10 @@ def test_overview_sections_match_the_deliverable_list():
         "script",
         "results",
         "cases",
-        "run",
+        # Bottom-up since 0.33.0 (AD-09, P0330-WP1): workspace is the row
+        # below run, so its section comes first.
         "workspace",
+        "run",
         "post",
         "qa",
         "fsi",

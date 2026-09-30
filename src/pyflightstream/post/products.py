@@ -81,7 +81,6 @@ therefore no longer equal text in those four columns.
 
 from __future__ import annotations
 
-import csv
 import json
 import math
 import os
@@ -138,12 +137,16 @@ from pyflightstream.cases.workflows import (
     ROTORS_KEY,
     rotor_mach_numbers,
 )
-from pyflightstream.fsi.loads import SectionalLoadsReport, parse_sectional_loads
 from pyflightstream.post import acoustics as _acoustics
 from pyflightstream.post import corrections as _corrections
 from pyflightstream.post import disc_maps as _disc_maps
 from pyflightstream.post import harmonics as _harmonics
 from pyflightstream.post import qsteady as _qsteady
+
+# The post's one CSV reader and the plots-table readers (`read_csv_table`,
+# `plots_table_series` and the step column) are defined in `post._tables`
+# since 0.33.0 (AD-10), so `post.corrections` reads a table without importing
+# this module back; they stay in this module's __all__ and namespace.
 from pyflightstream.post._tables import (
     _COEFFICIENT_PLOT_PREFIXES,
     ADVANCE_RATIO_COLUMN,
@@ -158,6 +161,8 @@ from pyflightstream.post._tables import (
     ProductError,
     ProductExistsError,
     context_row,
+    plots_table_series,
+    read_csv_table,
     renamed_columns,
     rotor_advance_ratio,
     section_identity,
@@ -166,6 +171,7 @@ from pyflightstream.post._tables import (
 from pyflightstream.post._tables import (
     _DECIMALS as _DECIMALS,
 )
+from pyflightstream.post._tables import _PLOTS_STEP_COLUMN as PLOTS_STEP_COLUMN
 from pyflightstream.post._tables import _REFERENCE_COLUMNS as _REFERENCE_COLUMNS
 from pyflightstream.post._tables import COEFFICIENT_COLUMNS as COEFFICIENT_COLUMNS
 from pyflightstream.post._tables import ReferenceValues as ReferenceValues
@@ -271,6 +277,7 @@ from pyflightstream.results import (
     parse_unsteady_plots,
     superseded_by_a_continuation,
 )
+from pyflightstream.results.sectional_loads import SectionalLoadsReport, parse_sectional_loads
 from pyflightstream.script.solver_setup import VORTICITY_COMMAND
 from pyflightstream.workspace import (
     ExtractionStatus,
@@ -1541,39 +1548,6 @@ def rotor_coefficients(
     return values
 
 
-def read_csv_table(
-    path: str | Path, *, skip: int = 0
-) -> tuple[tuple[str, ...], list[dict[str, str]]]:
-    """Read one CSV table back: its columns and its rows as mappings of text.
-
-    Values come back as the text written, so a caller decides what is a
-    number; a row whose width differs from the header is refused naming
-    the line, which is what makes the round trip a proof.
-
-    ``skip`` drops that many lines before the header. No table the post writes
-    since 0.27.0 has one (G16): its first line is the header and its first
-    column `POL`. A rotor table written by 0.23.0 to 0.26.x leads with its
-    rotor's alias alone on the first line, and ``skip=1`` reads it.
-    """
-    target = Path(path)
-    with target.open("r", encoding="utf-8", newline="") as handle:
-        reader = csv.reader(handle)
-        for _ in range(max(0, int(skip))):
-            next(reader, None)
-        try:
-            columns = tuple(next(reader))
-        except StopIteration:
-            raise ProductError(f"{target} is empty; a table has at least its header") from None
-        rows = []
-        for number, cells in enumerate(reader, start=2):
-            if len(cells) != len(columns):
-                raise ProductError(
-                    f"{target} line {number} carries {len(cells)} values for {len(columns)} columns"
-                )
-            rows.append(dict(zip(columns, cells, strict=True)))
-    return columns, rows
-
-
 # `unsteady_window` WAS HERE AND IS DELETED, with item 16 landing through
 # `cases.workflows._averaging_window` and `_stated_window` below instead.
 #
@@ -2809,22 +2783,17 @@ def write_polar_table(
     return write_csv_table(path, POLAR_COLUMNS, full)
 
 
+# The polar format's REMOVED names are refused, naming the replacement, by
+# the one hook both post modules install (AD-10). It used to carry a
+# docstring saying it SERVED them and warned, over a body that raised the
+# bare AttributeError: the user this most fails is the one upgrading from a
+# published 0.14.0, where the old name still worked (the interface lens at
+# the release boundary, 2026-09-11).
 def __getattr__(name: str) -> object:
-    """Refuse the polar format's REMOVED names, naming the replacement.
+    """Refuse the names removed at 0.16.0 through the one hook of ``_deprecations``."""
+    from pyflightstream._deprecations import removed_names_hook
 
-    Those names carried a possessive prefix before 0.14.0, are spelled
-    ``custom`` since, and were removed at 0.16.0 on their promise. This
-    hook used to carry a docstring saying it SERVED them and warned, over
-    a body that raised the bare AttributeError Python raises with no hook
-    at all: the user this most fails is the one upgrading from a
-    published 0.14.0, where the old name still worked (the interface lens
-    at the release boundary, 2026-09-11).
-    """
-    from pyflightstream._deprecations import REMOVED_AT_0_16_0, removed_name_refusal
-
-    if name in REMOVED_AT_0_16_0:
-        raise AttributeError(removed_name_refusal(__name__, name))
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    return removed_names_hook(__name__)(name)
 
 
 def _reynolds_millions(text: str) -> float:
@@ -3411,88 +3380,6 @@ def _exact_position(spine: tuple[object, ...]) -> tuple[object, ...]:
 
 
 # --- PFS-2015.04: the reductions of a plots table, beside it -----------------------
-
-#: PFS-2038.04. The column an unsteady plots export states its clock in.
-#: The same name `post.superfile` and the probe table already read, and the
-#: same rule those two write down: the step a sample came from is not a guess.
-PLOTS_STEP_COLUMN = "Time-step"
-
-
-def _stated_steps(columns: Sequence[str], values: np.ndarray, n_rows: int) -> np.ndarray:
-    """Return the exported clock where the table states one, the ordinal otherwise."""
-    ordinal = np.arange(1, n_rows + 1, dtype=int)
-    if PLOTS_STEP_COLUMN not in columns or not n_rows:
-        return ordinal
-    stated = values[:, list(columns).index(PLOTS_STEP_COLUMN)]
-    if not bool(np.all(np.isfinite(stated))):
-        return ordinal
-    whole = np.rint(stated)
-    if not bool(np.all(np.abs(stated - whole) < 1e-9)):
-        # A fractional clock is a time and not a step; the windows a
-        # reduction states are whole steps, so the ordinal is what is left.
-        return ordinal
-    steps = whole.astype(int)
-    if n_rows > 1 and not bool(np.all(np.diff(steps) > 0)):
-        # Duplicated or out of order. Selecting a window by value would
-        # then pick rows the window did not name, which is worse than the
-        # ordinal it has always used.
-        return ordinal
-    return steps
-
-
-def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSeries]:
-    """Read a written plots table back as the series its reductions are taken over.
-
-    THE TABLE'S OWN CLOCK WHEN IT STATES ONE (PFS-2038.04, GEO-039-F05).
-    The export writes one row per time step (the manual's paraphrase in the
-    database entry for ``UNSTEADY_SOLVER_EXPORT_PLOTS``) and states the step
-    it wrote in a ``Time-step`` column; the step axis is that column, so a
-    window's ``FIRST_STEP`` and ``LAST_STEP`` mean what the file means. This
-    used to be the row number regardless, so an export whose clock does not
-    begin at one was labelled with ordinals and could not be reduced by its
-    own step numbers.
-
-    MEASURED 2026-09-11 over every recorded plots export in these
-    workspaces: 49 of 49 begin at 1 and step by 1, so the column and the
-    ordinal agree on every export this solver has produced and nothing
-    already recorded changes. What this closes is the silent mislabel if an
-    offset or sparse clock ever arrives.
-
-    THE ORDINAL REMAINS THE FALLBACK, for a table that states no such
-    column and for one whose column is not a strictly increasing whole
-    number: a product is better than a refusal there, and the review's
-    coverage validation, which would refuse windows that work today, is
-    deliberately not taken. The column is still carried as a FIELD as well,
-    so no existing product loses a value.
-
-    Every column is one field of one sample, since the plots table samples
-    no position; the sample position is the origin, which stands for the
-    configuration the plot was defined over.
-
-    Read from the WRITTEN table rather than from the export in memory, so a
-    reduction is of the file a user holds and can be recomputed from it.
-
-    `POL` IS NOT A PLOTTED QUANTITY (G16, 0.27.0). The table opens with the
-    polar its point belongs to, which says which polar the file is OF and is
-    no field of any sample: it is left out of the columns and of the series,
-    so no reduction averages it and no reduction states it twice. A table
-    written before 0.27.0 carries no such column and reads as it always did.
-
-    Returns
-    -------
-    tuple
-        The table's plotted columns, in its order, and the series.
-    """
-    header, rows = read_csv_table(path)
-    columns = tuple(name for name in header if name != POLAR_ID_COLUMN)
-    values = np.asarray([[float(row[name]) for name in columns] for row in rows], dtype=float)
-    return columns, TimestepSeries(
-        steps=_stated_steps(columns, values, len(rows)),
-        times_s=None,
-        points=np.zeros((1, 3)),
-        fields={name: values[:, index][:, None] for index, name in enumerate(columns)},
-        sources=(Path(path),),
-    )
 
 
 def _names_location(folder: str, path: str | Path) -> str:

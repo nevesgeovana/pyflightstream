@@ -211,7 +211,8 @@ _DELETION_COMMANDS = {
 _INITIALIZATION_COMMAND = "INITIALIZE_SOLVER"
 
 #: The command that states the simulation's length unit (G05, G06 of 0.27.0).
-_LENGTH_UNIT_COMMAND = "SET_SIMULATION_LENGTH_UNITS"
+#: Its one home (AD-10); script.helpers reads the unit vocabulary from it.
+LENGTH_UNIT_COMMAND = "SET_SIMULATION_LENGTH_UNITS"
 #: The command that names the analysis loads frame, in which the solver writes
 #: its VTK surface export (RPT-074).
 _LOADS_FRAME_COMMAND = "SET_SOLVER_ANALYSIS_LOADS_FRAME"
@@ -1595,7 +1596,7 @@ class Script:
         if name in {"OPEN", "NEW_SIMULATION"}:
             self._simulation_length_unit = None
             self._opened_length_unit = None
-        elif name == _LENGTH_UNIT_COMMAND:
+        elif name == LENGTH_UNIT_COMMAND:
             self._simulation_length_unit = str(bound["units"])
 
     @property

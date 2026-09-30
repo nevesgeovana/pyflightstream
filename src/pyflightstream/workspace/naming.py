@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import getpass
+import os
 import re
 import shutil
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -131,6 +132,77 @@ ARCHIVE_DIR = "archive"
 #: module's subject, so the constant moved down rather than being copied
 #: into a second home that would drift from the first.
 ARCHIVE_STAMP = "%Y%m%d-%H%M%S"
+
+#: The regular expression that matches a stamp :data:`ARCHIVE_STAMP` spells,
+#: for the readers that find an archive by its stamp (the run records'
+#: restore). One home beside the spelling, since 0.33.0 (AD-10).
+ARCHIVE_STAMP_PATTERN = r"\d{8}-\d{6}"
+
+#: The manifest a workspace keeps its run records in, and the name
+#: :func:`resolve_manifest` returns when no other is named.
+DEFAULT_MANIFEST = "runs.json"
+
+
+class RunsManifestError(PyflightstreamError, ValueError):
+    """A manifest name that does not name a file directly in the workspace root.
+
+    ValueError because the refused thing is the NAME a caller passed, before
+    any file is read.
+    """
+
+
+def resolve_manifest(root: str | Path, runs: str | None = None) -> Path:
+    """Return the manifest file a command reads in the workspace ``root``.
+
+    Since 0.33.0 (AD-09) this rule lives in the workspace layer, because it
+    names a file of the workspace root; :mod:`pyflightstream.run.records`
+    re-exports it under the name it has had since 0.32.0, and
+    :mod:`pyflightstream.workspace.storage` calls it without reaching into
+    the run layer above it.
+
+    Parameters
+    ----------
+    root : str or Path
+        The workspace root, the folder that holds ``runs.json``.
+    runs : str, optional
+        The manifest's file name. None means ``runs.json``. A name is a file
+        directly in ``root``: it must end in ``.json`` and carry no path
+        separator, no drive and nothing that leaves the root.
+
+    Returns
+    -------
+    Path
+        ``root / runs``. Whether the file exists is not asked: a command that
+        writes a new manifest resolves its name here too.
+
+    Raises
+    ------
+    RunsManifestError
+        When ``runs`` is empty, carries a separator or a drive, does not end in
+        ``.json``, has no name before ``.json``, or resolves outside ``root``.
+    """
+    base = Path(root)
+    if runs is None:
+        return base / DEFAULT_MANIFEST
+    separators = {"/", "\\", os.sep, *([os.altsep] if os.altsep else [])}
+    if not runs or any(mark in runs for mark in separators):
+        raise RunsManifestError(
+            f"the manifest name {runs!r} is not a file name: name a file directly in the "
+            f"workspace root {base}, such as runs-rebuilt.json, with no folder in it"
+        )
+    if not runs.endswith(".json") or runs == ".json":
+        raise RunsManifestError(
+            f"the manifest name {runs!r} does not end in .json: a manifest is a JSON file "
+            f"directly in the workspace root {base}"
+        )
+    candidate = base / runs
+    inside = Path(os.path.abspath(candidate)).parent == Path(os.path.abspath(base))
+    if Path(runs).drive or Path(runs).anchor or not inside:
+        raise RunsManifestError(
+            f"the manifest name {runs!r} resolves outside the workspace root {base}; name a "
+            "file directly in it"
+        )
+    return candidate
 
 
 def free_root_archive(base: Path, name: str, stamp: str) -> Path:

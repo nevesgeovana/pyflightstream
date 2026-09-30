@@ -30,12 +30,12 @@ import traceback
 from pathlib import Path
 
 from pyflightstream._cli import cli_entrypoint
+from pyflightstream.fsi.state import DISPLACEMENT_FILE, LOADS_FILE
 
 COUPLED_CONFIG = "config.json"
 
 DUMMY_CONFIG = "pyfs_fsi_dummy.json"
 STATE_FILE = "pyfs_fsi_dummy_state.json"
-DISPLACEMENT_FILE = "FSIDisp.txt"
 CALL_LOG = "pyfs_fsi_calls.log"
 ERROR_LOG = "pyfs_fsi_error.log"
 ARCHIVE_DIR = "fsi_archive"
@@ -87,7 +87,7 @@ def coupled_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
         return 1
     archive = cwd / ARCHIVE_DIR / f"call_{result.call:04d}"
     archive.mkdir(parents=True, exist_ok=True)
-    for name in (driver.LOADS_FILE, driver.DISPLACEMENT_FILE):
+    for name in (LOADS_FILE, DISPLACEMENT_FILE):
         source = cwd / name
         if source.is_file():
             shutil.copy2(source, archive / name)

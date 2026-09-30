@@ -7,7 +7,9 @@ post and collect reading ``--runs``, code against the same signatures):
 
 * :func:`resolve_manifest` names the manifest file a command reads: the
   default ``runs.json``, or another file directly in the workspace root
-  (``pyfs-matrix post --runs NAME`` and its siblings).
+  (``pyfs-matrix post --runs NAME`` and its siblings). Since 0.33.0 it is
+  defined in :mod:`pyflightstream.workspace.naming` and re-exported here
+  (AD-09), so the storage layer below this one reads it without reaching up.
 * :func:`restore` brings a file of the records family back from the
   workspace's archive, EXACTLY: the manifest, the storage record, a matrix's
   products record, the plan receipt or the additional-post record (the kinds
@@ -106,15 +108,21 @@ from pyflightstream.workspace.flight_condition import (
 from pyflightstream.workspace.inputs import ReferenceArtifact
 from pyflightstream.workspace.matrix import condition_defaults_origin
 from pyflightstream.workspace.naming import (
+    ARCHIVE_DIR,
+    ARCHIVE_STAMP,
+    ARCHIVE_STAMP_PATTERN,
     PointName,
     datapoint_name_of,
     free_matrix_archive,
     free_root_archive,
 )
 
-#: The manifest a workspace keeps its run records in, and the name
-#: :func:`resolve_manifest` returns when no other is named.
-DEFAULT_MANIFEST = "runs.json"
+# Since 0.33.0 (AD-09) the manifest-name rule lives in the workspace layer,
+# which names the files of a workspace root; its 0.32.0 path is kept here.
+from pyflightstream.workspace.naming import DEFAULT_MANIFEST as DEFAULT_MANIFEST
+from pyflightstream.workspace.naming import RunsManifestError as RunsManifestError
+from pyflightstream.workspace.naming import resolve_manifest as resolve_manifest
+from pyflightstream.workspace.storage import register_records_rebuild
 
 #: The file kinds :func:`restore` brings back from ``archive/``.
 RESTORE_KINDS = ("runs", "storage", "products", "plan", "additional")
@@ -131,14 +139,9 @@ _ROOT_KINDS = {
 #: products as ``post/<matrix>/archive/<stamp>/<name>``.
 _MATRIX_KINDS = {"products": "products.json", "plan": "plan.json"}
 
-#: The archive folder and the stamp spelling of the workspace
-#: (``workspace.naming.ARCHIVE_DIR`` and ``ARCHIVE_STAMP``), restated here
-#: because this module imports no workspace module at module level; a tier-1 test
-#: holds the two spellings equal.
-ARCHIVE_DIR = "archive"
-ARCHIVE_STAMP = "%Y%m%d-%H%M%S"
-
-_STAMP = r"\d{8}-\d{6}"
+#: The pattern of an archive stamp, from its one home beside the spelling
+#: (``workspace.naming``, since 0.33.0, AD-10).
+_STAMP = ARCHIVE_STAMP_PATTERN
 
 #: Seconds a simulation folder must have been quiet before its job is taken as
 #: over. A folder written more recently stays SUBMITTED, since its job may
@@ -166,14 +169,6 @@ _NOT_RECOVERABLE_NOTE = (
 )
 
 
-class RunsManifestError(PyflightstreamError, ValueError):
-    """A manifest name that does not name a file directly in the workspace root.
-
-    ValueError because the refused thing is the NAME a caller passed, before
-    any file is read.
-    """
-
-
 class RecordsError(PyflightstreamError, ValueError):
     """A restore or a rebuild refused, before anything was written.
 
@@ -181,54 +176,6 @@ class RecordsError(PyflightstreamError, ValueError):
     stamp, a manifest name, a combination of options, or a workspace state the
     request cannot be carried out in exactly.
     """
-
-
-def resolve_manifest(root: str | Path, runs: str | None = None) -> Path:
-    """Return the manifest file a command reads in the workspace ``root``.
-
-    Parameters
-    ----------
-    root : str or Path
-        The workspace root, the folder that holds ``runs.json``.
-    runs : str, optional
-        The manifest's file name. None means ``runs.json``. A name is a file
-        directly in ``root``: it must end in ``.json`` and carry no path
-        separator, no drive and nothing that leaves the root.
-
-    Returns
-    -------
-    Path
-        ``root / runs``. Whether the file exists is not asked: a command that
-        writes a new manifest resolves its name here too.
-
-    Raises
-    ------
-    RunsManifestError
-        When ``runs`` is empty, carries a separator or a drive, does not end in
-        ``.json``, has no name before ``.json``, or resolves outside ``root``.
-    """
-    base = Path(root)
-    if runs is None:
-        return base / DEFAULT_MANIFEST
-    separators = {"/", "\\", os.sep, *([os.altsep] if os.altsep else [])}
-    if not runs or any(mark in runs for mark in separators):
-        raise RunsManifestError(
-            f"the manifest name {runs!r} is not a file name: name a file directly in the "
-            f"workspace root {base}, such as runs-rebuilt.json, with no folder in it"
-        )
-    if not runs.endswith(".json") or runs == ".json":
-        raise RunsManifestError(
-            f"the manifest name {runs!r} does not end in .json: a manifest is a JSON file "
-            f"directly in the workspace root {base}"
-        )
-    candidate = base / runs
-    inside = Path(os.path.abspath(candidate)).parent == Path(os.path.abspath(base))
-    if Path(runs).drive or Path(runs).anchor or not inside:
-        raise RunsManifestError(
-            f"the manifest name {runs!r} resolves outside the workspace root {base}; name a "
-            "file directly in it"
-        )
-    return candidate
 
 
 # ---------------------------------------------------------------------------
@@ -2794,3 +2741,28 @@ def _reductions(
             "cut from it"
         )
     return cut
+
+
+def _rebuild_for_sync(root: Path, sims: list[str]) -> dict[str, Any]:
+    """Rebuild the records of ``sims`` as an applying ``sync --restore`` asks.
+
+    P0320-SYNC-RESTORE-OPTIN and AD-09. The storage layer, below this one,
+    calls it through the registry it owns
+    (:func:`pyflightstream.workspace.storage.register_records_rebuild`), after
+    the sync released the ``runs.json`` lease, which the rebuild takes itself.
+    It returns the entry's ``restore`` block: a refusal is its ``error``, not
+    the sync's, and the rebuilt records, which are in ``runs.json``, are left
+    out of ``result``. :func:`rebuild` is looked up when called.
+    """
+    outcome: dict[str, Any] = {"asked": True, "sims": sims, "result": None, "error": None}
+    try:
+        result = rebuild(root, sims=sims, apply=True)
+    except (PyflightstreamError, OSError) as error:
+        outcome["error"] = str(error)
+        return outcome
+    kept = {key: value for key, value in result.items() if key != "records"}
+    outcome["result"] = json.loads(json.dumps(kept, default=str))
+    return outcome
+
+
+register_records_rebuild(_rebuild_for_sync)

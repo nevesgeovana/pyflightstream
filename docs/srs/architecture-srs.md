@@ -11,7 +11,8 @@ Dependencies flow strictly downward; no module imports upward:
 
 ```
 post   qa          engineering data | probe and regression evidence
-run    workspace   headless execution | input library, run layout, manifest
+run                headless execution
+workspace          input library, run layout, manifest
 cases              simulation and campaign definitions
 script results     validating script builder | output parsers
 commands           the evidence-backed per-version command database
@@ -34,8 +35,8 @@ workspace layer's flight-condition resolver imports it as well. What
 makes it a floor is the DIRECTION, which is checkable, rather than a
 count of consumers, which changes.
 They are the floor the stack stands on rather than steps in it, which is
-why the arrow chains that state the flow name six rows and this table
-names eight.
+why the arrow chains that state the flow name seven rows and this table
+names nine.
 
 Side branches follow the same downward-only rule: `fsi` (the
 structural side of the aeroelastic loop), `probes` and `farfield`
@@ -297,16 +298,21 @@ one of them keeps.
     `TYPE_CHECKING`. The two imports that go the other way on v0.32.0
     are removed: the lookup of which records file a `--runs` name means
     moves down into `workspace`, beside the matrix lookup, and the
-    rebuild of orphaned records that the sync reached for is asked by
-    the command that runs the sync, after the sync returns. This
-    chapter's table, the user-guide diagram, the layer table of
-    `pyflightstream.overview` and the guards state the same rows.
-
-    Transition, stated because the table above this section and this
-    decision do not yet agree: the table still shows `run` and
-    `workspace` in one row and the prose counts six rows. Both change in
-    the same commit as the overview's layer table, because a tier-1 test
-    holds the table to that module.
+    rebuild of orphaned records that the sync reached for is inverted:
+    `run.records` registers it with `workspace.storage` when it loads
+    (the package root loads it, as it loads the post that registers its
+    stages), and the sync calls whatever is registered after it released
+    the `runs.json` lease, the order RST-6 states. The registry holds
+    exactly one rebuild: the first registered is held, a rebuild of the
+    same module replaces it (a reload of `run.records`), one of another
+    module is not taken, and with nothing registered the restore block of
+    the sync names that in its `error` while the files it copied stand.
+    The library keeps its
+    0.32.0 contract (FR-221: `restore=True` rebuilds), which a rebuild
+    asked only by the command line would have broken. This chapter's
+    table, the user-guide diagram, the layer table of
+    `pyflightstream.overview` and the guards state the same rows, and
+    the interim count of `workspace` to `run` imports of guard G3 is 0.
 
 !!! decision "AD-10 One home per constant, and the loads cycle removed <span class='srs-pending'>pending</span>"
     *Work package WP2 of the 0.33.0 scope (decision 15). Evidence owed:
@@ -316,18 +322,34 @@ one of them keeps.
     Each of the nine constants that v0.32.0 defines twice has one
     defining module, and every other module imports it from there:
     `ARCHIVE_DIR` and `ARCHIVE_STAMP` (from `workspace.naming`, the run
-    records deriving their pattern from them), `FLAG_PHASES` (from
-    `cases`), the unit that names no length (one home for
-    `cases.ccs_wing` and the workflows), the section command (one home
-    in `cases` for the workflows and `post.superfile`), the stabilization
-    table (from `script.helpers`), the length-unit command (one home for
-    `script` and `script.helpers`), `VELOCITY_KEYS` (from `cases.matrix`)
-    and `ACOUSTICS_DIR` (from `cases.acoustics`). The duplicated module
-    `__getattr__` becomes one helper in `_deprecations`. The private
-    names no caller reaches are deleted after a search of the estate's
-    scripts. `parse_sectional_loads` is defined in `results` and
-    `fsi.loads` re-exports it, which removes the cycle between
-    `fsi.loads` and `results.tables`.
+    records reading their pattern, `ARCHIVE_STAMP_PATTERN`, from the same
+    home), `FLAG_PHASES` (from `cases`), the unit that names no length
+    (`UNIT_THAT_NAMES_NO_LENGTH`, from the floor `_lengths`, for
+    `cases.ccs_wing` and the workflows), the section command
+    `SECTION_DISTRIBUTION_COMMAND` (from `cases.workflows`, for
+    `post.superfile`), the stabilization command
+    `WAKE_STABILIZATION_COMMAND` (from `script.helpers`, for
+    `cases.setup_surfaces`), the length-unit command `LENGTH_UNIT_COMMAND`
+    (from `script`, for `script.helpers` and `workspace.wake_edges`, whose
+    public copy the guard found once the private pair had gone; the shared
+    names are public, so no module imports a private name of a sibling),
+    `VELOCITY_KEYS` (from
+    `cases.matrix`, for `workspace.flight_condition`) and `ACOUSTICS_DIR`
+    (from `cases.acoustics`, for `post.acoustics`). Two more pairs the
+    guard measured, the loads export and the displacement file of the
+    coupling, have their home in `fsi.state`, the import-light module the
+    staging builder already reads. The duplicated module `__getattr__` of
+    `post` and `post.products` is one helper in `_deprecations`
+    (`removed_names_hook`). The private helpers no caller reaches
+    (`_passages`, `_output`, `_cell_value`) are deleted after a search of
+    the repository and the estate's tracked scripts, and so is
+    `stamp_derived_campaign` (decision 9), whose marker the campaign
+    loader still reads. `parse_sectional_loads`, its report and
+    `UnitsError` are defined in `results.sectional_loads` and `fsi.loads`
+    re-exports them, which removes the cycle between `fsi.loads` and
+    `results.tables`; the coupling's refusal `FsiInputError`, which the
+    parser raises too, is defined in the floor `_errors` because two
+    layers name it, and `fsi.errors` re-exports it.
 
 !!! decision "AD-11 The four cheap extractions <span class='srs-pending'>pending</span>"
     *Work package WP3 of the 0.33.0 scope. Evidence owed: G1 and G8
@@ -715,9 +737,10 @@ its own row (a sibling of its own subpackage included).
   revolution.
 - `post/corrections.py`, in the post row, imports `_errors`, `_tokens`,
   `cases.corrections`, `post._tables`, `post.harmonics` and `post.qsteady`,
-  and, inside two functions, `post.products` (its table reader) and
-  `workspace` (a recorded point for a route 2 calibration), both at or below
-  its row. It is the one applicator of the correction routes: every corrected
+  and, inside one function, `workspace` (a recorded point for a route 2
+  calibration), below its row. Until 0.33.0 it also reached `post.products`
+  inside a function for its table reader; the reader is in `post._tables`
+  since then (AD-10), so the two modules no longer import each other. It is the one applicator of the correction routes: every corrected
   product is a new file beside its raw one, never written over it, and none is
   validated. The Theodorsen and Sears functions are a diagnostic only.
 - `workspace/fields.py`, in the workspace row, imports `_digest`, `cases`,
@@ -779,13 +802,18 @@ bodies and those under `TYPE_CHECKING` included.
 - `run/records.py`, in the run row, imports the floors `_digest` and
   `_errors`, `cases`, `cases.matrix`, `cases.windows`, `results`,
   `workspace`, `workspace.flight_condition`, `workspace.inputs`,
-  `workspace.matrix` and `workspace.naming`, and inside function bodies
-  `_progress`, `cases.workflows`, `run` and `run.collect`. It holds the
-  operations on a workspace's records: which manifest a command reads, the
-  exact restore of a records file from the archive, the rebuild of run
-  records from the simulation folders and the records a post assembles from
-  them. `workspace.storage`, in the same row, reaches it inside two function
-  bodies for the sync's rebuild.
+  `workspace.matrix`, `workspace.naming` and `workspace.storage`, and inside
+  function bodies `_progress`, `cases.workflows`, `run` and `run.collect`. It
+  holds the operations on a workspace's records: the exact restore of a
+  records file from the archive, the rebuild of run records from the
+  simulation folders and the records a post assembles from them; it
+  re-exports which manifest a command reads, defined in `workspace.naming`.
+  Until 0.33.0, `workspace.storage` reached this module inside two function
+  bodies, for the manifest name and for the sync's rebuild. Since 0.33.0
+  (AD-09, P0330-WP1) the manifest name is resolved in `workspace.naming`, and
+  this module registers the rebuild with `workspace.storage` when it loads,
+  which calls it through that registry: the workspace row imports nothing of
+  the run row above it.
 - `cases/acoustics.py`, in the cases row, imports `_errors` and `cases`, and
   `script` for annotations only, under `TYPE_CHECKING`. It
   emits the solver's acoustic toolbox on an unsteady row and states the
@@ -794,12 +822,14 @@ bodies and those under `TYPE_CHECKING` included.
   it, and `post` may import `cases` and never the reverse.
 - `cases/_ccs.py` (private), `cases/ccs_wing.py`, `cases/ccs_fuselage.py` and
   `cases/ccs_revolution.py`, in the cases row. `_ccs` imports only
-  `script.helpers`; `ccs_wing` imports `cases`, `cases._ccs` and `script`;
+  `script.helpers`; `ccs_wing` imports `_lengths`, `cases`, `cases._ccs` and
+  `script`;
   the fuselage and the revolution import `ccs_wing`, which reaches them only
   inside a function body, so the siblings form no import cycle. They emit
   the commands that have the solver make a mesh of a row's CCS file.
-- `cases/setup_surfaces.py`, in the cases row, imports `cases`, and `script`
-  for annotations only, under `TYPE_CHECKING`. It
+- `cases/setup_surfaces.py`, in the cases row, imports `cases` and
+  `script.helpers` (the stabilization command's one home, AD-10), and
+  `script` for annotations only, under `TYPE_CHECKING`. It
   removes the surfaces a setup names and emits the slipstream wake
   stabilization of each rotor motion.
 - `post/acoustics.py`, in the post row, imports `_errors`,

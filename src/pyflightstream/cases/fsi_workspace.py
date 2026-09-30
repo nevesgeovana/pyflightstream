@@ -40,7 +40,7 @@ from pyflightstream.fsi.config import FsiConfig
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import SectionFamily, SectionFamilyMap
 from pyflightstream.fsi.nodes import NodeOrderingMap, generate_node_layout, render_node_file
-from pyflightstream.fsi.state import QUASI_STEADY_ROTOR_FILE
+from pyflightstream.fsi.state import LOADS_FILE, QUASI_STEADY_ROTOR_FILE
 from pyflightstream.script import Script
 from pyflightstream.versions import FsVersion
 
@@ -50,7 +50,6 @@ NODES_FILE = "fsi_nodes.csv"
 FAMILY_FILE = "fsi_family_map.json"
 POST_FILE = "fsi_post.txt"
 CALLBACK_FILE = "fsi_callback.py"
-LOADS_FILE = "FS_SurfaceSection_Loads.txt"
 
 #: THE WORKFLOWS AND FSI IN THIS RELEASE (FSI-GUARD, owner decision of
 #: 2026-09-28: "vamos permitir o FSI para steady, qsteady e unsteady";

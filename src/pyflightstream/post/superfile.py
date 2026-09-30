@@ -86,6 +86,7 @@ from pyflightstream.cases.matrix import (
     MatrixRow,
     read_matrix,
 )
+from pyflightstream.cases.workflows import SECTION_DISTRIBUTION_COMMAND
 from pyflightstream.post._tables import (
     ROTOR_TABLE_SUFFIX,
     ProductError,
@@ -818,9 +819,10 @@ def write_superfile_report(
 #: `reports/sections-0160.json`.
 SECTIONS_REPORT_PREFIX = "sections-"
 
-#: The command a section distribution is emitted as. It is `keyword_block`, so
-#: the name sits ALONE on its line and its arguments follow as KEY VALUE lines.
-_SECTION_COMMAND = "NEW_SURFACE_SECTION_DISTRIBUTION"
+# The command a section distribution is emitted as, `SECTION_DISTRIBUTION_COMMAND`, has
+# its one home in cases.workflows, which emits it (AD-10). It is
+# `keyword_block`, so the name sits ALONE on its line and its arguments follow
+# as KEY VALUE lines.
 
 #: The keyword inside that block carrying how many sections it asks for.
 _SECTION_COUNT_KEY = "NUM_SECTIONS"
@@ -888,7 +890,7 @@ def measure_sections(root: Path, records: Sequence[Mapping[str, object]]) -> lis
         lines = script.read_text(encoding="utf-8", errors="replace").splitlines()
         asked: list[int] = []
         for index, line in enumerate(lines):
-            if line.strip() != _SECTION_COMMAND:
+            if line.strip() != SECTION_DISTRIBUTION_COMMAND:
                 continue
             for follow in lines[index + 1 : index + 9]:
                 head, _, value = follow.strip().partition(" ")

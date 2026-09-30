@@ -2385,10 +2385,6 @@ _SWEEP_CODE_KEYS = {"AL": "ALPHA", "BE": "BETA"}
 _KEYS_THAT_BECAME_COLUMNS = ("GEOMETRY", "SYMMETRY")
 
 
-def _cell_value(cell: bytes) -> str:
-    return cell.strip().decode("utf-8", "replace")
-
-
 def _pad_like(value: str, width: int, *, first: bool = False) -> bytes:
     """One cell, padded to the width its header needs, never narrower.
 

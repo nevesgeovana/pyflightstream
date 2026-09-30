@@ -1,4 +1,4 @@
-"""What the products stage and the series tables share: the CSV writer and the product errors.
+"""What the products stage and the series tables share: the CSV writer and reader, the errors.
 
 A private module below :mod:`pyflightstream.post.products` and
 :mod:`pyflightstream.post.series`, so both import downward and neither
@@ -6,6 +6,12 @@ imports the other (the architecture lens of REL-0140 found the two
 importing each other, one direction hidden inside a function).
 :mod:`pyflightstream.post.products` re-exports every public name here,
 which is where a reader finds them.
+
+Since 0.33.0 (AD-10) the post's one CSV reader, :func:`read_csv_table`, and
+the plots-table readers (:func:`plots_table_series` and the step clock it
+reads) are defined here too, so :mod:`pyflightstream.post.corrections`, which
+:mod:`pyflightstream.post.products` imports, reads a table without importing
+that module back.
 """
 
 from __future__ import annotations
@@ -34,6 +40,7 @@ from pyflightstream._tokens import NOT_APPLICABLE as NOT_APPLICABLE
 from pyflightstream._tokens import POLAR_ID_COLUMN, plain_cell
 from pyflightstream._tokens import REFERENCE_LENGTH_COLUMNS as REFERENCE_LENGTH_COLUMNS
 from pyflightstream.post.axes import blade_azimuth_deg, placed_blade_azimuth_deg
+from pyflightstream.post.unsteady import TimestepSeries
 
 #: The spellings a RUN recorded, mapped to the product column they mean.
 #:
@@ -580,3 +587,126 @@ def polar_file_name(polar: str | int, mach: float, group: str | int) -> str:
     :func:`swept_polar_file_name`, the standard point convention (FR-85).
     """
     return f"{polar}_M{_mach_code(mach):02d}_g{int(group):02d}.csv"
+
+
+# --- the post's one CSV reader (0.33.0, AD-10: moved from post.products) ---
+
+
+def read_csv_table(
+    path: str | Path, *, skip: int = 0
+) -> tuple[tuple[str, ...], list[dict[str, str]]]:
+    """Read one CSV table back: its columns and its rows as mappings of text.
+
+    Values come back as the text written, so a caller decides what is a
+    number; a row whose width differs from the header is refused naming
+    the line, which is what makes the round trip a proof.
+
+    ``skip`` drops that many lines before the header. No table the post writes
+    since 0.27.0 has one (G16): its first line is the header and its first
+    column `POL`. A rotor table written by 0.23.0 to 0.26.x leads with its
+    rotor's alias alone on the first line, and ``skip=1`` reads it.
+    """
+    target = Path(path)
+    with target.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.reader(handle)
+        for _ in range(max(0, int(skip))):
+            next(reader, None)
+        try:
+            columns = tuple(next(reader))
+        except StopIteration:
+            raise ProductError(f"{target} is empty; a table has at least its header") from None
+        rows = []
+        for number, cells in enumerate(reader, start=2):
+            if len(cells) != len(columns):
+                raise ProductError(
+                    f"{target} line {number} carries {len(cells)} values for {len(columns)} columns"
+                )
+            rows.append(dict(zip(columns, cells, strict=True)))
+    return columns, rows
+
+
+# --- the plots-table readers (0.33.0, AD-10: moved from post.products) ---
+
+#: PFS-2038.04. The column an unsteady plots export states its clock in.
+#: Private here, since this module's public names are the ones post.products
+#: lists; post.products keeps it as ``PLOTS_STEP_COLUMN`` (0.33.0, AD-10).
+#: The same name `post.superfile` and the probe table already read, and the
+#: same rule those two write down: the step a sample came from is not a guess.
+_PLOTS_STEP_COLUMN = "Time-step"
+
+
+def _stated_steps(columns: Sequence[str], values: np.ndarray, n_rows: int) -> np.ndarray:
+    """Return the exported clock where the table states one, the ordinal otherwise."""
+    ordinal = np.arange(1, n_rows + 1, dtype=int)
+    if _PLOTS_STEP_COLUMN not in columns or not n_rows:
+        return ordinal
+    stated = values[:, list(columns).index(_PLOTS_STEP_COLUMN)]
+    if not bool(np.all(np.isfinite(stated))):
+        return ordinal
+    whole = np.rint(stated)
+    if not bool(np.all(np.abs(stated - whole) < 1e-9)):
+        # A fractional clock is a time and not a step; the windows a
+        # reduction states are whole steps, so the ordinal is what is left.
+        return ordinal
+    steps = whole.astype(int)
+    if n_rows > 1 and not bool(np.all(np.diff(steps) > 0)):
+        # Duplicated or out of order. Selecting a window by value would
+        # then pick rows the window did not name, which is worse than the
+        # ordinal it has always used.
+        return ordinal
+    return steps
+
+
+def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSeries]:
+    """Read a written plots table back as the series its reductions are taken over.
+
+    THE TABLE'S OWN CLOCK WHEN IT STATES ONE (PFS-2038.04, GEO-039-F05).
+    The export writes one row per time step (the manual's paraphrase in the
+    database entry for ``UNSTEADY_SOLVER_EXPORT_PLOTS``) and states the step
+    it wrote in a ``Time-step`` column; the step axis is that column, so a
+    window's ``FIRST_STEP`` and ``LAST_STEP`` mean what the file means. This
+    used to be the row number regardless, so an export whose clock does not
+    begin at one was labelled with ordinals and could not be reduced by its
+    own step numbers.
+
+    MEASURED 2026-09-11 over every recorded plots export in these
+    workspaces: 49 of 49 begin at 1 and step by 1, so the column and the
+    ordinal agree on every export this solver has produced and nothing
+    already recorded changes. What this closes is the silent mislabel if an
+    offset or sparse clock ever arrives.
+
+    THE ORDINAL REMAINS THE FALLBACK, for a table that states no such
+    column and for one whose column is not a strictly increasing whole
+    number: a product is better than a refusal there, and the review's
+    coverage validation, which would refuse windows that work today, is
+    deliberately not taken. The column is still carried as a FIELD as well,
+    so no existing product loses a value.
+
+    Every column is one field of one sample, since the plots table samples
+    no position; the sample position is the origin, which stands for the
+    configuration the plot was defined over.
+
+    Read from the WRITTEN table rather than from the export in memory, so a
+    reduction is of the file a user holds and can be recomputed from it.
+
+    `POL` IS NOT A PLOTTED QUANTITY (G16, 0.27.0). The table opens with the
+    polar its point belongs to, which says which polar the file is OF and is
+    no field of any sample: it is left out of the columns and of the series,
+    so no reduction averages it and no reduction states it twice. A table
+    written before 0.27.0 carries no such column and reads as it always did.
+
+    Returns
+    -------
+    tuple
+        The table's plotted columns, in its order, and the series.
+    """
+    header, rows = read_csv_table(path)
+    columns = tuple(name for name in header if name != POLAR_ID_COLUMN)
+    values = np.asarray([[float(row[name]) for name in columns] for row in rows], dtype=float)
+    return columns, TimestepSeries(
+        steps=_stated_steps(columns, values, len(rows)),
+        times_s=None,
+        points=np.zeros((1, 3)),
+        fields={name: values[:, index][:, None] for index, name in enumerate(columns)},
+        sources=(Path(path),),
+    )

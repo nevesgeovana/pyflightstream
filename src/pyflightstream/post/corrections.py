@@ -72,7 +72,7 @@ from pyflightstream.cases.corrections import (
     calibration_text,
     read_calibration,
 )
-from pyflightstream.post._tables import ROTOR_TABLE_SUFFIX, write_csv_table
+from pyflightstream.post._tables import ROTOR_TABLE_SUFFIX, read_csv_table, write_csv_table
 from pyflightstream.post.harmonics import HARMONICS_SUFFIX
 from pyflightstream.post.qsteady import AVERAGE_SUFFIX, STATION_COLUMN, STATION_TOLERANCE
 
@@ -341,10 +341,8 @@ def _number(text: object) -> float | None:
 
 
 def _read(path: Path) -> tuple[tuple[str, ...], list[dict[str, str]]]:
-    # The post's one CSV reader, in the module that imports this one; asked for
-    # here at call time so neither module imports the other while it loads.
-    from pyflightstream.post.products import read_csv_table
-
+    # The post's one CSV reader, in `post._tables` since 0.33.0 (AD-10), so
+    # this module no longer reaches into `post.products`, which imports it.
     return read_csv_table(path)
 
 

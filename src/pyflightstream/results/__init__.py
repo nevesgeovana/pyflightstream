@@ -725,9 +725,9 @@ EXPORT_CONVERSIONS: dict[str, ExportConversion] = {
     ),
     "EXPORT_SURFACE_SECTIONAL_LOADS": ExportConversion(
         EXPORT_PARSED,
-        "pyflightstream.fsi.loads.parse_sectional_loads",
+        "pyflightstream.results.sectional_loads.parse_sectional_loads",
         None,
-        "spanwise load densities; ships with the optional [fsi] extra",
+        "spanwise load densities, the input of the FSI coupling",
     ),
     "EXPORT_SOLVER_ANALYSIS_TECPLOT": ExportConversion(
         EXPORT_EXCLUDED, None, "tecplot", "read by Tecplot itself"

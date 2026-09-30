@@ -22,21 +22,9 @@ false across the whole subpackage (architect and QA passes, 2026-08-03).
 
 from __future__ import annotations
 
-from pyflightstream._errors import PyflightstreamError
+# Defined in the package floor since 0.33.0 (AD-10): the sectional loads
+# parser of the results row raises it too, and a type two layers name lives
+# below both. This module keeps its name and its public path.
+from pyflightstream._errors import FsiInputError
 
 __all__ = ["FsiInputError"]
-
-
-class FsiInputError(PyflightstreamError, ValueError):
-    """Data handed to the coupling cannot describe a blade.
-
-    A shape that does not match the node map, a station count that
-    disagrees with the configuration, a displacement file that belongs
-    to another layout, a non-finite value where a length or a load is
-    required.
-
-    It keeps ``ValueError`` as a base, so code that already wrote
-    ``except ValueError`` around a coupling call catches exactly what it
-    caught before; what changes is that ``except PyflightstreamError``
-    now catches it too.
-    """

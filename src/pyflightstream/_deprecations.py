@@ -30,6 +30,7 @@ release that introduced the shim and the release that removes it, and
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import ClassVar
 
@@ -598,6 +599,38 @@ def removed_name_refusal(module: str, name: str) -> str:
         f"same rename applies to the [products] key her_polar_format, which is "
         f"custom_polar_format. (asked of module {module!r})"
     )
+
+
+def removed_names_hook(module: str) -> Callable[[str], object]:
+    """Return the module ``__getattr__`` that refuses the names removed at 0.16.0.
+
+    The polar format's names carried a possessive prefix before 0.14.0, are
+    spelled ``custom`` since, and were removed at 0.16.0 on their promise.
+    :mod:`pyflightstream.post` and :mod:`pyflightstream.post.products` each
+    answer for themselves with this hook, one definition since 0.33.0
+    (AD-10), rather than one routing through the other: a from-import asks a
+    package twice (``hasattr`` before the import opcode's own lookup), and
+    routing answered twice for it. Every other missing name gets the
+    ``AttributeError`` Python raises with no hook at all.
+
+    Parameters
+    ----------
+    module : str
+        The ``__name__`` of the module the hook is installed in, which the
+        refusal names.
+
+    Returns
+    -------
+    callable
+        The hook, to be bound as the module's ``__getattr__``.
+    """
+
+    def refuse(name: str) -> object:
+        if name in REMOVED_AT_0_16_0:
+            raise AttributeError(removed_name_refusal(module, name))
+        raise AttributeError(f"module {module!r} has no attribute {name!r}")
+
+    return refuse
 
 
 #: THE VOCABULARY THAT MOVED TO THE REFERENCE (FR-59 and FR-72, the design
