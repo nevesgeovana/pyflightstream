@@ -81,13 +81,15 @@ exports:
   each (`Observer: <name>`, `Position: x,y,z`, `Columns: Observer time (sec),
   PL (Pa), PT (Pa), PO (Pa)`, then one row per sample). The point declares the
   file among its outputs, so the collect files it in the point's datapoint
-  folder and the record lists it with its sha256;
+  folder and the record lists it, with its sha256 on a local run;
 - `CREATE_ACOUSTIC_SECTION` into `<point>_acoustic_section/`, where it declares
   a section: one VTK file per sample of the time window, `VTK_output-001.vtk`
   onwards, each holding every observer of the grid. The run creates the
   folder before the solver starts, by writing the note
   `pyfs-acoustic-section.txt` into it; after the run the collect lists every
-  other file of the folder in the record, each with its sha256.
+  other file of the folder in the record, each with its sha256 on a local run
+  (a submitted point that `pyfs-matrix collect` completes hashes none of its
+  outputs).
 
 None of these files is ever read as a surface export or a loads table.
 

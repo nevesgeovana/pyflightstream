@@ -30,10 +30,11 @@ from pyflightstream.cases.workflows import (
     workflow_registry,
 )
 from pyflightstream.run import CampaignErrors
-from pyflightstream.run.collect import acoustic_section_outputs
+from pyflightstream.run.collect import acoustic_section_outputs, collect_once
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.script import Script, helpers
-from pyflightstream.workspace import RunStatus
+from pyflightstream.workspace import CampaignWorkspace, RunStatus
+from tests.tier1_offline.test_collect_stage import _submitted_workspace
 from tests.tier1_offline.test_goal024_point_name import _matrix
 from tests.tier1_offline.test_matrix_run import RECIPES, STUB_BODY, CountingStub, converged
 from tests.tier1_offline.test_rotor_by_alias import two_rotor_case
@@ -468,6 +469,44 @@ def test_p0320_noise_collect_refuses_a_section_file_left_before_the_run(tmp_path
     assert "VTK_output-009.vtk" in str(record.error)
     assert "before it ran" in str(record.error)
     assert stub.invocations == []
+
+
+def test_p0320_noise_collect_a_submitted_point_names_its_section_files(tmp_path):
+    """P0320-NOISE-COLLECT: a submitted point collected by pyfs-matrix collect (run/collect.py)
+    names each file its section wrote in the record's outputs, the run's own note
+    left out, exactly as the local path does; the signals file is a declared output
+    and is waited for like any other."""
+    template, _ = _submitted_workspace(tmp_path / "template")
+    submitted = template.read_manifest()[0]
+    workspace = CampaignWorkspace(tmp_path / "camp")
+    workspace.init(tmp_path / "camp")
+    point = workspace.sim_dir("9001") / "datapoints" / "DP-AL+000"
+    section = point / "P_acoustic_section"
+    section.mkdir(parents=True)
+    workspace.append_record(
+        submitted.model_copy(
+            update={
+                "submission": {
+                    **(submitted.submission or {}),
+                    "working_dir": "datapoints/DP-AL+000",
+                    "declared_outputs": ["P.txt", "P_acoustic_signals.txt"],
+                }
+            }
+        )
+    )
+    (point / "P.txt").write_text("numbers", encoding="utf-8")
+    (point / "P_acoustic_signals.txt").write_text("Observer: MIC1", encoding="utf-8")
+    for name in ("VTK_output-001.vtk", "VTK_output-002.vtk", acoustics.ACOUSTIC_SECTION_NOTE):
+        (section / name).write_text("VTK", encoding="utf-8")
+    report = collect_once(workspace, interval=0.0, sleep=lambda _seconds: None)
+    [outcome] = report.collected
+    assert outcome.record is not None
+    outputs = outcome.record.outputs
+    assert "datapoints/DP-AL+000/P_acoustic_signals.txt" in outputs
+    assert [name for name in outputs if "_acoustic_section/" in name] == [
+        "datapoints/DP-AL+000/P_acoustic_section/VTK_output-001.vtk",
+        "datapoints/DP-AL+000/P_acoustic_section/VTK_output-002.vtk",
+    ]
 
 
 def test_p0320_noise_collect_lists_the_section_files_beside_the_collected_outputs(tmp_path):
