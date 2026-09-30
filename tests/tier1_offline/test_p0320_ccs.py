@@ -492,11 +492,12 @@ def test_p0320_g35_the_two_directions_render_two_different_scripts_inputs(tmp_pa
     """P0320-G35-SHEDDING: the control, the two rows differ in the copy and nowhere else."""
     axial = _file_case(tmp_path / "a", tail=" / CCS_SHEDDING: AXIAL")
     azimuth = _file_case(tmp_path / "b", tail=" / CCS_SHEDDING: AZIMUTH")
-    first, _ = _built(axial)
-    second, _ = _built(azimuth)
+    first, first_lines = _built(axial)
+    second, second_lines = _built(azimuth)
     (a_copy,) = first.pending_input_files.values()
     (b_copy,) = second.pending_input_files.values()
     assert a_copy != b_copy
+    assert first_lines == second_lines
 
 
 @pytest.mark.parametrize(
