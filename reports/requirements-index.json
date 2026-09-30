@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 259,
+  "cited_by_a_test": 261,
   "total": 321,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -2292,7 +2292,7 @@
    "text": "Need: A saved action takes precedence over the script's action of the same name (FR-308), so an unsteady row can run a command the person never wrote; the plan is the last step before a run is spent.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the plan check of item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3; PLAN-FSM-WARN in the release's map of scope items), which asks that every unsteady row of the plan check its geometry and only warn. Pending: no code yet. Evidence owed: a tier-1 test parametrized over the unsteady run types and over a clean, a dirty and an unreadable geometry, asserting in every case that the plan is written and its exit status is 0, and the warning text in the dirty and unreadable cases and its absence in the clean one.*",
+   "evidence": "*Origin: the plan check of item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3; PLAN-FSM-WARN in the release's map of scope items), which asks that every unsteady row of the plan check its geometry and only warn. Built on 2026-09-30; the status is the owner's to move. Evidence: tests/tier1_offline/test_fr313_plan_geometry_warning.py::test_fr313_the_plan_warns_and_writes_the_same_plan, ::test_fr313_the_command_exits_as_the_clean_plan_does. Evidence asked: a tier-1 test parametrized over the unsteady run types and over a clean, a dirty and an unreadable geometry, asserting in every case that the plan is written and its exit status is 0, and the warning text in the dirty and unreadable cases and its absence in the clean one.*",
    "verification": "none"
   },
   {

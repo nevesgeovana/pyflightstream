@@ -108,6 +108,7 @@ from pyflightstream.workspace import (
     RunStatus,
     write_input_guides,
 )
+from pyflightstream.workspace._geometry_clean import warn_saved_actions_of_unsteady_rows
 from pyflightstream.workspace._matrix_homes import warn_a_matrix_outside_the_homes
 from pyflightstream.workspace.inputs import (
     hpc_profiles,
@@ -755,6 +756,7 @@ def plan_matrix(
     warn_a_matrix_outside_the_homes(path, workspace.root)
     _warn_the_legacy_rows_saving_no_simulation(resolved)
     _warn_the_rows_whose_additional_post_is_one_instant(resolved)
+    warn_saved_actions_of_unsteady_rows(resolved.campaign.sims, WORKFLOW_KEY)  # FR-313
     from pyflightstream.workspace.setup_inspection import inspect_case_setup
 
     row_versions = _row_versions(resolved)

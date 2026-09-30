@@ -7757,19 +7757,19 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-313 The plan warns when the geometry of an unsteady row carries saved solver actions <span class='srs-pending'>pending</span>"
 
-    *Origin: the plan check of item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3; PLAN-FSM-WARN in the release's map of scope items), which asks that every unsteady row of the plan check its geometry and only warn. Pending: no code yet. Evidence owed: a tier-1 test parametrized over the unsteady run types and over a clean, a dirty and an unreadable geometry, asserting in every case that the plan is written and its exit status is 0, and the warning text in the dirty and unreadable cases and its absence in the clean one.*
+    *Origin: the plan check of item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3; PLAN-FSM-WARN in the release's map of scope items), which asks that every unsteady row of the plan check its geometry and only warn. Built on 2026-09-30; the status is the owner's to move. Evidence: `tests/tier1_offline/test_fr313_plan_geometry_warning.py::test_fr313_the_plan_warns_and_writes_the_same_plan`, `::test_fr313_the_command_exits_as_the_clean_plan_does`. Evidence asked: a tier-1 test parametrized over the unsteady run types and over a clean, a dirty and an unreadable geometry, asserting in every case that the plan is written and its exit status is 0, and the warning text in the dirty and unreadable cases and its absence in the clean one.*
 
     Need: A saved action takes precedence over the script's action of the same name (FR-308), so an unsteady row can run a command the person never wrote; the plan is the last step before a run is spent.
 
     Requirement: `pyfs-matrix plan` checks the geometry of every unsteady row for saved solver actions and warns, and never refuses on that account.
 
     - R1 The plan reads, with the reader of FR-308, the geometry of every row whose run type is `unsteady` or `unsteady_rotor`, a continuation of such a row included.
-    - R2 For each saved unsteady solver action found, the plan prints to standard error a warning naming the row, the geometry, the action (its name, its type and its command or script file) and the command `pyfs-matrix inventory <file> --clean`.
+    - R2 For each saved unsteady solver action found, the plan prints to standard error a warning naming the row, the geometry, the action (its name, its type and its command or script file) and the command `pyfs-matrix inventory <file> --clean`; one warning per geometry, naming every row that opens it, in the plan's warnings block.
     - R3 A geometry whose action records the reader cannot read is warned about as unreadable, naming the file.
     - R4 The warnings change neither the plan's exit status nor what it writes: the rows planned and the files written are the ones the plan writes without them.
     - R5 A row whose geometry carries no saved action, or is not a saved simulation, gets no warning.
 
-    Solution (planned for 0.33.0): the geometry check of `pyfs-matrix plan`, over `pyflightstream._fsm.saved_solver_actions`.
+    Solution (release 0.33.0): the geometry check of `pyfs-matrix plan` (`pyflightstream.workspace._geometry_clean.warn_saved_actions_of_unsteady_rows`, over `pyflightstream._fsm.saved_solver_actions`).
 
 !!! requirement "FR-314 Every unsteady row registers the step counter <span class='srs-pending'>pending</span>"
 

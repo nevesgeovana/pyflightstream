@@ -888,6 +888,15 @@ clean every geometry of a workspace kept one per folder:
 for d in inputs/geometries/*/; do n=$(basename "$d"); f="$d$n.fsm"; [ -f "$f" ] && pyfs-matrix inventory "$f" --clean; done
 ```
 
+**The plan warns too (FR-313).** `pyfs-matrix plan` reads the geometry of
+every row whose run type is `unsteady` or `unsteady_rotor`, a continuation
+included, with the same reader, and for each file carrying saved actions
+prints a warning naming the rows that open it, the file, each action (name,
+type, command) and the `--clean` command; a file whose action records cannot
+be read is named as unreadable. The plan never refuses on that account: its
+rows, its files and its exit status are those of the same plan without the
+warnings.
+
 ## Mesh format policy
 
 The library's mesh seam is deliberately narrow: OBJ in and out. READING a

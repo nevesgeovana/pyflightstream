@@ -660,7 +660,8 @@ def test_p0320_merge_b1_b2_rebuild_and_the_two_homes_agree_on_the_path(tmp_path)
     # from the root, by both; a differing pair names both paths in both. FR-310
     # changed this expectation: the rebuild uses the workspace's one lookup and
     # REFUSES the differing pair, naming both, where until 0.32.0 it left that
-    # stem out with a note.
+    # stem out with a note. FR-224 lists sync, the census and the post as the
+    # commands that refuse; FR-310 joins the rebuild to them.
     requirement = "FR-310"
     root = tmp_path / "ws"
     _write(root / "m.fs", "same")

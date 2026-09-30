@@ -21,7 +21,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from pyflightstream._errors import InputArtifactError, PyflightstreamError
+from pyflightstream._errors import InputArtifactError, PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import warn as _warn
 from pyflightstream._fsm import (
     MeshReadError,
     boundary_names,
@@ -32,10 +33,19 @@ from pyflightstream._fsm import (
 from pyflightstream._fsm_fresh import KEPT_BLOCKS, block_lines, reset_to_fresh_import
 
 __all__ = [
+    "UNSTEADY_WORKFLOWS",
     "CleanedGeometry",
     "clean_saved_actions",
     "saved_action_warning",
+    "warn_saved_actions_of_unsteady_rows",
 ]
+
+#: The run types whose rows the plan reads the geometry of (FR-313 R1): the ones
+#: with a time loop, and so with unsteady solver actions to run.
+UNSTEADY_WORKFLOWS: tuple[str, ...] = ("unsteady", "unsteady_rotor")
+
+#: The suffix of a saved simulation; a raw mesh carries no action (FR-313 R5).
+SAVED_SUFFIX = ".fsm"
 
 
 @dataclass(frozen=True)
@@ -174,3 +184,28 @@ def saved_action_warning(geometry: Path, shown: str, rows: Iterable[str] = ()) -
         "another machine aborts the unsteady run when it fires). Remove them with: "
         f"pyfs-matrix inventory {shown} --clean"
     )
+
+
+def warn_saved_actions_of_unsteady_rows(cases: Iterable[object], workflow_key: str) -> None:
+    """Warn, never refuse, for each unsteady row's geometry that carries saved actions (FR-313).
+
+    Every row whose run type (its ``workflow_key`` variable) is one of
+    :data:`UNSTEADY_WORKFLOWS`, a continuation included, has its geometry read
+    once per file; a file is named once, with every row that opens it. A raw
+    mesh and a row naming no geometry are not read. Called from the plan, so
+    the warnings join its warnings block; nothing the plan writes or returns
+    depends on them.
+    """
+    rows_of: dict[Path, list[str]] = {}
+    for case in cases:
+        variables = getattr(case, "variables", {}) or {}
+        geometry = getattr(case, "geometry", None)
+        if str(variables.get(workflow_key, "")).strip() not in UNSTEADY_WORKFLOWS:
+            continue
+        if not geometry or Path(str(geometry)).suffix.lower() != SAVED_SUFFIX:
+            continue
+        rows_of.setdefault(Path(str(geometry)), []).append(str(getattr(case, "sim_id", "")))
+    for geometry, rows in rows_of.items():
+        text = saved_action_warning(geometry, str(geometry), rows)
+        if text is not None:
+            _warn(text, PyflightstreamWarning, stacklevel=3)
