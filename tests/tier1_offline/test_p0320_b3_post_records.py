@@ -370,6 +370,25 @@ def test_p0320_post_no_manifest_takes_a_points_exports_by_their_kinds_only(tmp_p
     assert f"outputs/{stem}_b_log.txt" not in zero.outputs, "another point's log was taken"
 
 
+def test_p0320_post_no_manifest_refuses_a_post_that_assembled_nothing(tmp_path, capsys):
+    """P0320-POST-NO-MANIFEST: every row refused is said as such, each refusal once.
+
+    Not as a manifest that "records no run" with the advice to run a matrix:
+    the points ran, and what refused each of them is the answer.
+    """
+    workspace = _from_sims_workspace(tmp_path)
+    for ref in ("r001", "r002"):
+        (workspace.inputs_dir / "references" / f"{ref}.toml").unlink()
+
+    assert cli.main(["post", "matriz", "--workspace", str(workspace.root), "--from-sims"]) == 2
+
+    err = capsys.readouterr().err
+    assert "--from-sims assembled no record" in err
+    assert "records no run" not in err and "run a matrix first" not in err
+    assert err.count("names the reference 'r001'") == 1, err
+    assert not (workspace.root / "post" / "matriz@sims").exists()
+
+
 def test_p0320_post_no_manifest_never_writes_a_manifest(tmp_path):
     """P0320-POST-NO-MANIFEST: records assembled in memory refuse every manifest writer."""
     workspace = _from_sims_workspace(tmp_path)

@@ -1631,7 +1631,18 @@ def _cmd_post(args: argparse.Namespace) -> int:
     try:
         # Assembled records are read here without announcing their refusals,
         # which the post's own first read writes into its log.
-        records = getattr(workspace, "assembled", None) or workspace.read_manifest()
+        assembled = getattr(workspace, "assembled", None)
+        if assembled is not None and not assembled:
+            # EVERY POINT WAS REFUSED, each already printed once above: the
+            # points ran, so "records no run, run a matrix first" would be false.
+            print(
+                f"post --from-sims assembled no record of matrix {args.matrix} from "
+                f"{workspace.manifest_path}; each refusal is printed above, and nothing "
+                "was written.",
+                file=sys.stderr,
+            )
+            return 2
+        records = assembled if assembled is not None else workspace.read_manifest()
         if not records:
             print(
                 f"the manifest {workspace.manifest_path} records no run, so there is nothing "
