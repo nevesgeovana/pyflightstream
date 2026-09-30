@@ -63,6 +63,7 @@ def _rows(workspace: CampaignWorkspace) -> list[dict]:
 
 
 def test_preview_names_each_record_and_writes_nothing_fr_309(tmp_path):
+    # Verifies FR-309.
     workspace = _workspace(tmp_path)
     before = workspace.manifest_path.read_bytes()
     entry = mark_failed(workspace.root, ["2006"])
@@ -78,6 +79,7 @@ def test_preview_names_each_record_and_writes_nothing_fr_309(tmp_path):
 
 
 def test_apply_marks_keeps_the_history_and_archives_fr_309(tmp_path):
+    # Verifies FR-309.
     workspace = _workspace(tmp_path)
     before = workspace.manifest_path.read_bytes()
     untouched = [row for row in _rows(workspace) if row["sim_id"] != "2006"]
@@ -99,6 +101,7 @@ def test_apply_marks_keeps_the_history_and_archives_fr_309(tmp_path):
 
 
 def test_an_unknown_simulation_is_refused_before_any_write_fr_309(tmp_path):
+    # Verifies FR-309.
     workspace = _workspace(tmp_path)
     before = workspace.manifest_path.read_bytes()
     with pytest.raises(RunsManifestError, match="simulation\\(s\\) 9999; nothing was marked"):
@@ -107,6 +110,7 @@ def test_an_unknown_simulation_is_refused_before_any_write_fr_309(tmp_path):
 
 
 def test_a_record_already_marked_is_left_as_it_is_fr_309(tmp_path):
+    # Verifies FR-309.
     workspace = _workspace(tmp_path)
     mark_failed(workspace.root, ["2006"], reason="first", apply=True)
     after_first = workspace.manifest_path.read_bytes()
@@ -116,6 +120,7 @@ def test_a_record_already_marked_is_left_as_it_is_fr_309(tmp_path):
 
 
 def test_a_marked_record_is_a_failure_to_every_reader_fr_309(tmp_path):
+    # Verifies FR-309.
     assert RunStatus.FAILED_MARKED.startswith("FAILED")
     assert worse_of(RunStatus.FAILED_DIVERGED, RunStatus.FAILED_MARKED) is RunStatus.FAILED_MARKED
     workspace = _workspace(tmp_path)
@@ -126,6 +131,7 @@ def test_a_marked_record_is_a_failure_to_every_reader_fr_309(tmp_path):
 
 
 def test_cli_marks_through_the_library_fr_309(tmp_path, capsys):
+    # Verifies FR-309.
     workspace = _workspace(tmp_path)
     args = ["mark-failed", "--sims", "[2006,2008]", "--workspace", str(workspace.root)]
     assert matrix_cli.main(args) == 0
@@ -146,6 +152,7 @@ def test_cli_marks_through_the_library_fr_309(tmp_path, capsys):
 
 
 def test_mutant_leaving_the_status_turns_the_check_red_fr_309(tmp_path):
+    # Verifies FR-309.
     source = Path(records_module.__file__).read_text(encoding="utf-8")
     old = '            row["status"] = str(RunStatus.FAILED_MARKED)\n'
     assert source.count(old) == 1

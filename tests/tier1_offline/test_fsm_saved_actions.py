@@ -44,6 +44,7 @@ def _saved_simulation(path, actions, *, count=None, names=("Spinner", "Nacelle")
 
 
 def test_reader_names_each_saved_action_fr_308(tmp_path):
+    # Verifies FR-308.
     geometry = _saved_simulation(tmp_path / "01_ROTOR.fsm", ACTIONS)
     assert saved_solver_actions(geometry) == (
         ("pfs_walltime_clock", CLOCK, "COMMAND_LINE"),
@@ -52,6 +53,7 @@ def test_reader_names_each_saved_action_fr_308(tmp_path):
 
 
 def test_reader_reads_no_action_and_no_block_fr_308(tmp_path):
+    # Verifies FR-308.
     assert saved_solver_actions(_saved_simulation(tmp_path / "a.fsm", [])) == ()
     bare = tmp_path / "b.fsm"
     bare.write_text(f"{MESH_MARKER}\r\n9999\r\n99\r\n0\r\n$MESH_END$\r\n", encoding="utf-8")
@@ -59,6 +61,7 @@ def test_reader_reads_no_action_and_no_block_fr_308(tmp_path):
 
 
 def test_reader_refuses_a_count_that_disagrees_fr_308(tmp_path):
+    # Verifies FR-308.
     geometry = _saved_simulation(tmp_path / "c.fsm", ACTIONS, count=3)
     with pytest.raises(MeshReadError, match="count '3' before 2 action record"):
         saved_solver_actions(geometry)
@@ -66,6 +69,7 @@ def test_reader_refuses_a_count_that_disagrees_fr_308(tmp_path):
 
 @pytest.mark.skipif(not TIER3.is_dir(), reason="tier-3 geometries not in this checkout")
 def test_every_tier3_geometry_carries_no_saved_action_fr_308():
+    # Verifies FR-308.
     files = sorted(TIER3.glob("*.fsm"))
     assert files
     assert {path.name: saved_solver_actions(path) for path in files} == {
@@ -74,6 +78,7 @@ def test_every_tier3_geometry_carries_no_saved_action_fr_308():
 
 
 def test_inventory_warns_and_names_clean_by_default_fr_308(tmp_path, capsys):
+    # Verifies FR-308.
     geometry = _saved_simulation(tmp_path / "01_ROTOR.fsm", ACTIONS)
     before = geometry.read_bytes()
     assert main(["inventory", str(geometry)]) == 0
@@ -86,12 +91,14 @@ def test_inventory_warns_and_names_clean_by_default_fr_308(tmp_path, capsys):
 
 
 def test_inventory_is_silent_on_a_clean_geometry_fr_308(tmp_path, capsys):
+    # Verifies FR-308.
     geometry = _saved_simulation(tmp_path / "02_ROTOR.fsm", [])
     assert main(["inventory", str(geometry)]) == 0
     assert "warning" not in capsys.readouterr().err
 
 
 def test_clean_removes_only_the_actions_and_keeps_a_copy_fr_308(tmp_path, capsys):
+    # Verifies FR-308.
     geometry = _saved_simulation(tmp_path / "01_ROTOR.fsm", ACTIONS)
     original = geometry.read_bytes()
     expected = _saved_simulation(tmp_path / "expected.fsm", []).read_bytes()
@@ -110,6 +117,7 @@ def test_clean_removes_only_the_actions_and_keeps_a_copy_fr_308(tmp_path, capsys
 
 
 def test_clean_of_a_clean_geometry_writes_nothing_fr_308(tmp_path, capsys):
+    # Verifies FR-308.
     geometry = _saved_simulation(tmp_path / "02_ROTOR.fsm", [])
     before = geometry.read_bytes()
     assert main(["inventory", str(geometry), "--clean"]) == 0
@@ -119,6 +127,7 @@ def test_clean_of_a_clean_geometry_writes_nothing_fr_308(tmp_path, capsys):
 
 
 def test_clean_refuses_a_shape_it_cannot_read_fr_308(tmp_path, capsys):
+    # Verifies FR-308.
     geometry = _saved_simulation(tmp_path / "c.fsm", ACTIONS, count=3)
     before = geometry.read_bytes()
     assert main(["inventory", str(geometry), "--clean"]) == 2
@@ -128,6 +137,7 @@ def test_clean_refuses_a_shape_it_cannot_read_fr_308(tmp_path, capsys):
 
 
 def test_mutant_keeping_the_count_turns_the_check_red_fr_308(tmp_path):
+    # Verifies FR-308.
     source = Path(fsm_module.__file__).read_text(encoding="utf-8")
     old = '    kept = head[: len(head) - len(head.lstrip())] + "0"\n'
     assert source.count(old) == 1

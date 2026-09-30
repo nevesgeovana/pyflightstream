@@ -68,6 +68,7 @@ def _rows(workspace: CampaignWorkspace) -> list[dict]:
 
 
 def test_refused_without_force_with_the_same_text(tmp_path):
+    # Verifies FR-306.
     workspace = _workspace(tmp_path)
     with pytest.raises(StorageError) as caught:
         storage_module.delete_sims(workspace.root, ["6001"], apply=True)
@@ -78,6 +79,7 @@ def test_refused_without_force_with_the_same_text(tmp_path):
 
 
 def test_force_preview_names_the_submitted_sim_and_changes_nothing(tmp_path, capsys):
+    # Verifies FR-306.
     workspace = _workspace(tmp_path)
     before = workspace.manifest_path.read_bytes()
     entry = storage_module.delete_sims(workspace.root, ["6001", "6002"], force=True)
@@ -91,6 +93,7 @@ def test_force_preview_names_the_submitted_sim_and_changes_nothing(tmp_path, cap
 
 
 def test_force_apply_deletes_folder_products_records_and_records_the_call(tmp_path):
+    # Verifies FR-306.
     workspace = _workspace(tmp_path)
     entry = storage_module.delete_sims(workspace.root, ["6001"], force=True, apply=True)
     assert entry["applied"] is True
@@ -109,6 +112,7 @@ def test_force_apply_deletes_folder_products_records_and_records_the_call(tmp_pa
 
 
 def test_without_force_the_call_records_force_false(tmp_path):
+    # Verifies FR-306.
     workspace = _workspace(tmp_path)
     storage_module.delete_sims(workspace.root, ["6002"], apply=True)
     call = storage_module.read_storage_calls(workspace.root)[-1]
@@ -117,6 +121,7 @@ def test_without_force_the_call_records_force_false(tmp_path):
 
 
 def test_cli_force_flag_reaches_the_library(tmp_path):
+    # Verifies FR-306.
     workspace = _workspace(tmp_path)
     args = ["delete-sims", "6001", "--workspace", str(workspace.root)]
     assert matrix_cli.main([*args, "--apply"]) != 0
@@ -126,6 +131,7 @@ def test_cli_force_flag_reaches_the_library(tmp_path):
 
 
 def test_mutant_ignoring_force_turns_the_check_red(tmp_path):
+    # Verifies FR-306.
     source = Path(storage_module.__file__).read_text(encoding="utf-8")
     old = "    if submitted and not force:\n"
     assert source.count(old) == 1

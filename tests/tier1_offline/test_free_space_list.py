@@ -111,6 +111,7 @@ def _checks(out: str) -> list[str]:
 
 
 def test_list_shows_every_path_of_the_four_tables_in_a_preview_fr_305(tmp_path, capsys):
+    # Verifies FR-305.
     workspace = _workspace(tmp_path)
     before = _tree(workspace.root)
     out = _run(workspace, capsys, "--list")
@@ -121,6 +122,7 @@ def test_list_shows_every_path_of_the_four_tables_in_a_preview_fr_305(tmp_path, 
 
 
 def test_list_after_apply_says_what_was_done_fr_305(tmp_path, capsys):
+    # Verifies FR-305.
     workspace = _workspace(tmp_path)
     out = _run(workspace, capsys, "--apply", "--list")
     assert re.search(r"junk\.vtk  50 B  deleted", out), out
@@ -130,6 +132,7 @@ def test_list_after_apply_says_what_was_done_fr_305(tmp_path, capsys):
 
 
 def test_the_output_without_list_is_the_old_output_byte_for_byte_fr_305(tmp_path, capsys):
+    # Verifies FR-305.
     workspace = _workspace(tmp_path)
     out = _run(workspace, capsys)
     assert out == (
@@ -145,6 +148,7 @@ def test_the_output_without_list_is_the_old_output_byte_for_byte_fr_305(tmp_path
 
 
 def test_dropping_one_list_branch_turns_the_check_red_fr_305(tmp_path, capsys, monkeypatch):
+    # Verifies FR-305.
     workspace = _workspace(tmp_path)
     real = matrix_cli._print_free_space_paths
 

@@ -135,6 +135,7 @@ def _partial_post(tmp_path: Path, sims=("6001",)):
 
 
 def test_post_sims_rewrites_only_the_named_simulation_fr_307(tmp_path):
+    # Verifies FR-307.
     workspace, out, before_hashes, before, after_hashes, after = _partial_post(tmp_path)
     assert _violations(before_hashes, after_hashes, before, after, "6001") == []
     # The named simulation WAS rebuilt: its polar states the new lift.
@@ -164,6 +165,7 @@ def test_post_sims_rewrites_only_the_named_simulation_fr_307(tmp_path):
 
 
 def test_post_sims_replaces_only_the_named_entries_and_skips_fr_307(tmp_path):
+    # Verifies FR-307.
     _, _, _, before, _, after = _partial_post(tmp_path)
     assert after["complete"] is True
     assert after["partial"]["sims"] == ["6001"]
@@ -178,6 +180,7 @@ def test_post_sims_replaces_only_the_named_entries_and_skips_fr_307(tmp_path):
 
 
 def test_post_sims_leaves_the_super_files_and_says_so_fr_307(tmp_path):
+    # Verifies FR-307.
     _, out, before_hashes, before, after_hashes, after = _partial_post(tmp_path)
     supers = sorted(name for name in before["products"] if Path(name).name.startswith("SUPER-"))
     assert supers
@@ -196,6 +199,7 @@ def test_post_sims_leaves_the_super_files_and_says_so_fr_307(tmp_path):
 
 def test_post_without_sims_is_the_whole_post_fr_307(tmp_path):
     """The default path: every simulation rebuilt, the super files too, no partial mark."""
+    # Verifies FR-307.
     workspace, out, before_hashes, _, _, _ = _partial_post(tmp_path)
     write_campaign_products(
         workspace, matrix_stem="matriz", overwrite=True, archive_stamp=datetime(2026, 9, 30, 13)
@@ -215,6 +219,7 @@ def test_post_without_sims_is_the_whole_post_fr_307(tmp_path):
 
 
 def test_post_sims_refuses_an_unknown_simulation_before_any_work_fr_307(tmp_path):
+    # Verifies FR-307.
     workspace = _three_sims(tmp_path)
     out = _post_whole(workspace)
     log_before = (out / "post.log").read_bytes()
@@ -227,6 +232,7 @@ def test_post_sims_refuses_an_unknown_simulation_before_any_work_fr_307(tmp_path
 
 
 def test_post_sims_refuses_a_simulation_of_another_matrix_fr_307(tmp_path, capsys):
+    # Verifies FR-307.
     workspace = _three_sims(tmp_path)
     other = next(r for r in workspace.read_manifest() if r.sim_id == "6009")
     workspace.append_record(
@@ -246,6 +252,7 @@ def test_post_sims_refuses_a_simulation_of_another_matrix_fr_307(tmp_path, capsy
     ("spelled", "expected"), [("6001", ["6001"]), ("[6001,6009]", ["6001", "6009"])]
 )
 def test_cli_post_sims_reaches_the_stage_in_both_forms_fr_307(tmp_path, spelled, expected):
+    # Verifies FR-307.
     workspace = _three_sims(tmp_path)
     out = _post_whole(workspace)
     code = matrix_cli.main(
@@ -256,11 +263,13 @@ def test_cli_post_sims_reaches_the_stage_in_both_forms_fr_307(tmp_path, spelled,
 
 
 def test_the_sims_parser_has_one_home_fr_307():
+    # Verifies FR-307.
     assert matrix_cli._listed_sims("2006,2007") == ["2006", "2007"]
     assert matrix_cli._listed_sims("[2006, 2007]") == ["2006", "2007"]
 
 
 def test_mutant_ignoring_post_sims_turns_the_check_red_fr_307(tmp_path, monkeypatch):
+    # Verifies FR-307.
     real = products_module._campaign_products
 
     def ignoring(*args, **kwargs):
@@ -332,6 +341,7 @@ def _collect_check(workspace: CampaignWorkspace, report) -> list[str]:
 
 
 def test_collect_sims_collects_only_the_named_simulation_fr_307(tmp_path):
+    # Verifies FR-307.
     workspace = _submitted(tmp_path)
     report = collect_once(workspace, interval=0.0, sleep=_no_sleep, sims=["9001"])
     assert [outcome.run_id for outcome in report.collected] == ["camp/sim_9001/AL+000"]
@@ -341,6 +351,7 @@ def test_collect_sims_collects_only_the_named_simulation_fr_307(tmp_path):
 
 
 def test_collect_sims_limits_its_post_to_the_same_simulations_fr_307(tmp_path):
+    # Verifies FR-307.
     workspace = _submitted(tmp_path)
     posted: list[tuple[str | None, object]] = []
     collect_and_post(
@@ -354,6 +365,7 @@ def test_collect_sims_limits_its_post_to_the_same_simulations_fr_307(tmp_path):
 
 
 def test_collect_sims_refuses_an_unknown_simulation_fr_307(tmp_path):
+    # Verifies FR-307.
     workspace = _submitted(tmp_path)
     before = workspace.manifest_path.read_bytes()
     with pytest.raises(WorkspaceError, match="9099"):
@@ -362,6 +374,7 @@ def test_collect_sims_refuses_an_unknown_simulation_fr_307(tmp_path):
 
 
 def test_cli_collect_sims_reaches_the_sweep_and_the_post_fr_307(tmp_path, monkeypatch):
+    # Verifies FR-307.
     import pyflightstream.workspace as workspace_module
 
     workspace = _submitted(tmp_path)
@@ -382,6 +395,7 @@ def test_cli_collect_sims_reaches_the_sweep_and_the_post_fr_307(tmp_path, monkey
 
 
 def test_mutant_ignoring_collect_sims_turns_the_check_red_fr_307(tmp_path, monkeypatch):
+    # Verifies FR-307.
     monkeypatch.setattr(collect_module, "_of_the_simulations", lambda records, sims: records)
     workspace = _submitted(tmp_path)
     report = collect_once(workspace, interval=0.0, sleep=_no_sleep, sims=["9001"])
