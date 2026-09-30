@@ -406,3 +406,39 @@ def test_p0320_fill_interior_cli_previews_then_applies_with_provenance(tmp_path,
     assert (folder / "filled.dat").is_file()
     assert main([*arguments, "--apply"]) == 2  # never overwrites unasked
     assert "exists" in capsys.readouterr().err
+
+
+# ------------------------------------------------ review round (package d reviewer)
+
+
+def test_p0320_installed_frame_single_column_table_is_a_table_not_an_alias(tmp_path):
+    """P0320-INSTALLED-FRAME: a one-column table has no comma, but its header is not an alias."""
+    table = tmp_path / "one.csv"
+    table.write_text("FY\n5\n-2\n")
+    written = inflow_tools.to_installed_frame(table)
+    assert written.read_text() == "FY\n-5\n2\n"
+
+
+def test_p0320_installed_frame_classification_by_behavior_not_only_by_page(tmp_path):
+    """P0320-INSTALLED-FRAME: every family flips as stated; a longer name does not match."""
+    header = (
+        "fy,FY_BLADE1,CNB1,CYAW,CRR,CNB2,CMX,TORQUE,RPM,BETA,FYZ,FX,MY,CT,azimuth_deg,AZIMUTH_END"
+    )
+    table = tmp_path / "many.csv"
+    table.write_text(header + "\n" + ",".join(["2"] * 15) + ",90\n")
+    (row,) = _rows(inflow_tools.to_installed_frame(table))
+    flipped = {k for k, v in row.items() if v == "-2"}
+    assert flipped == {
+        "fy",
+        "FY_BLADE1",
+        "CNB1",
+        "CYAW",
+        "CRR",
+        "CNB2",
+        "CMX",
+        "TORQUE",
+        "RPM",
+        "BETA",
+    }
+    assert row["FYZ"] == row["FX"] == row["MY"] == row["CT"] == "2"
+    assert row["AZIMUTH_END"] == "270"

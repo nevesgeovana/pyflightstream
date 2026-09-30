@@ -63,7 +63,7 @@ __all__ = [
 
 #: The columns the mirror through y = 0 negates, as patterns matched
 #: case-insensitively at the START of a column name and followed by ``_``, a
-#: digit or the end of the name (so ``FY``, ``FY_BLADE1`` and ``CN1`` match and
+#: digit or the end of the name (so ``FY``, ``FY_BLADE1`` and ``CNB1`` match and
 #: ``FYZ`` does not). A force or moment component along y, a moment about x or
 #: z, the side and yaw coefficients, the sense of rotation and its derived
 #: quantities. ONE LIST: the definitions page states the same and a test holds
@@ -204,7 +204,9 @@ def to_installed_frame(
     target = Path(out) if out is not None else source.with_name(f"{source.stem}_installed.csv")
     lines = source.read_text(encoding="utf-8").splitlines()
     alias: list[str] = []
-    if len(lines) > 1 and "," not in lines[0]:
+    # An alias line has no comma and a table follows it; a one-column table has no
+    # comma anywhere, and its header is a header.
+    if len(lines) > 1 and "," not in lines[0] and "," in lines[1]:
         alias, lines = lines[:1], lines[1:]
     rows = list(csv.reader(lines))
     if not rows:
