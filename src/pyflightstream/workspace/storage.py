@@ -1394,8 +1394,8 @@ def _sync_matrices(
     every time; the owning workspace's copy is the one main keeps (main's
     own copy is archived first when the other workspace owns it). A matrix
     only in the other workspace is copied when that workspace owns it. Main
-    may hold one stem in both homes with the same bytes (RST-1); the owner's
-    copy then replaces both, so the two stay one.
+    may hold one stem in both homes with the same bytes (RST-1); the owning
+    workspace's copy then replaces both, so the two stay one.
     """
     mine, theirs = _matrix_files(main.root), _matrix_files(other)
     result: dict[str, Any] = {"conflicts": [], "copied": [], "identical": 0, "not_copied": []}

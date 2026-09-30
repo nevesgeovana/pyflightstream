@@ -1,9 +1,8 @@
 """The quasi-steady rotor noise model (QS-NOISE, work package F): EXPLORATORY.
 
 Pipeline role: a library beside the post row, NOT wired into the post stage.
-By the owner's decision of 2026-09-29 ("em aberto, por enquanto carater
-exploratorio") QS-NOISE carries no threshold and no gate, and 0.32.0 does not
-wait on it. The module holds the model of route A of the 0.32.0 scope (GEO-066
+QS-NOISE is exploratory: it carries no threshold and no gate, and 0.32.0
+does not wait on it. The module holds the model of route A of the 0.32.0 scope (GEO-066
 section 2.6 part 5): reconstruct a blade's load against azimuth from the loads
 a ``qsteady_rotor`` wheel wrote at its clockings, and propagate it to an
 observer by a compact tonal model. The comparison with the solver's own
