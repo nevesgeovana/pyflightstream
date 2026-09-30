@@ -865,7 +865,12 @@ build and length unit; everything else comes from the script. The blocks and
 their fresh-import content were measured on the ten tier-3 geometries, fresh
 imports saved by 26.120 (build 7012026) in metres, which hold the same
 `GLOBAL`, `MOTION`, `POST`, `WAKE`, `SOLVER`, `ACOUSTIC`, `STABILITY` and
-`AEROELASTIC` whatever the shape: those are the blocks reset. Never reset:
+`AEROELASTIC` whatever the shape: those are the blocks reset, and each one
+reset is named on standard error. Anything set by hand in them is discarded,
+the reference point and frame of `GLOBAL` and the solver and wake settings of
+`SOLVER` and `WAKE` included, since the script sets them again; the ten
+geometries were all made by one preparation recipe, so the content is the one
+common to those saves. Never reset:
 `MESH` (the meshes, the boundaries, the trailing edges and the wake
 termination marks), `PHYSICS` (the surface lists the boundary conditions are
 set in), `WRAPPER` and `GRAPHICS` (which differ between fresh imports), and

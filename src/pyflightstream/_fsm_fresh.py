@@ -18,9 +18,19 @@ ten committed tier-3 geometries, which the tier-3 preparation made by
 importing an STL, setting the length unit to metres, detecting the trailing
 edges and the wake termination nodes and saving, nothing else, on 26.120
 (build 7012026): the blocks below hold the SAME lines in all ten, whatever the
-shape (wing, half wing, body, blade, pusher, twin), so their content is the
-fresh import's and not the geometry's. :func:`common_blocks` is that
-measurement, and a tier-1 test re-measures the table against the files.
+shape (wing, half wing, body, blade, pusher, twin). :func:`common_blocks` is
+that measurement, and a tier-1 test re-measures the table against the files.
+
+WHAT THE MEASUREMENT SHOWS AND WHAT IT DOES NOT. It shows the content common
+to ten saves made by ONE preparation recipe, not that every fresh import of
+that build holds it, and not that these blocks hold nothing a person sets on
+purpose: ``GLOBAL`` holds the reference point and frame and ``SOLVER`` and
+``WAKE`` the solver and wake settings, and a clean discards any of them set by
+hand. That is the owner's statement of the clean (a geometry keeps its meshes
+and its boundary conditions, everything else comes from the script), not a
+measurement; the paired measurement FR-312 names (a simulation carrying every
+block against the same mesh freshly imported) is still owed, and the blocks a
+clean resets are named on standard error each time.
 
 Kept unchanged in every file, each for a measured reason:
 

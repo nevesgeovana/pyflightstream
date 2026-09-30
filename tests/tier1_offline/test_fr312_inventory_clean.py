@@ -111,6 +111,34 @@ def test_fr312_the_meshes_and_boundary_conditions_are_never_touched(tmp_path):
     assert cleaned.blocks == ("WAKE", "SOLVER", "STABILITY"), cleaned.blocks
 
 
+@pytest.mark.parametrize("block", sorted(FRESH_IMPORT[MEASURED]))
+def test_fr312_each_reset_block_dirtied_alone_is_put_back_byte_for_byte(block, tmp_path):
+    """Every block of the table, one at a time: a value changed and a line added.
+
+    The added line changes the block's length, so a reset that kept the old
+    line count, skipped the block or wrote it under another name leaves the
+    file different from the fresh import. The control is the dirtied file,
+    which differs from the fresh import before the clean.
+    """
+    requirement = "FR-312"
+    fresh = TIER3 / "10_WING.fsm"
+    text = _text(fresh)
+    lines = list(block_lines(text)[block])
+    # A line in the middle: the head of GLOBAL is the length unit, which the
+    # reset keys on, and the tail of SOLVER is the action count of FR-308.
+    middle = len(lines) // 2
+    lines[middle] = lines[middle] + "9"
+    lines.insert(middle + 1, " 1.00000000000000000E+00")
+    target = tmp_path / "10_WING.fsm"
+    target.write_bytes(_replace_block(text, block, lines).encode("latin-1"))
+    assert target.read_bytes() != fresh.read_bytes(), "the control: the block is dirtied"
+    result = clean_saved_actions(target, stamp="20260930-000000")
+    assert result.blocks_reset == (block,), (requirement, result.blocks_reset)
+    assert result.actions == () and result.note is None
+    assert target.read_bytes() == fresh.read_bytes(), (requirement, block)
+    assert boundary_names(target) == boundary_names(fresh)
+
+
 def test_fr312_a_clean_file_is_not_rewritten(tmp_path, capsys):
     requirement = "FR-312"
     target = tmp_path / "20_BODY.fsm"
