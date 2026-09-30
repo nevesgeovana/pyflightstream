@@ -161,18 +161,20 @@ knowing.
 1. **It names a setting this package emits**, directly or by alias, and
    it reaches the script.
 2. **It is declared recorded-only.** It stays in the artifact, emits
-   nothing, and a warning names it AND the reason. The eight this
+   nothing, and a warning names it AND the reason. The seven this
    package declares today are `solver`, `motion`, `symmetry_type`,
    `unsteady_delta_theta_deg`, `unsteady_N_revolutions`,
-   `set_base_region_trailing_edges`, `slipstream_wake_stabilization` and
-   `wake_layers`. `symmetry_type` belongs to the geometry a row opens
+   `set_base_region_trailing_edges` and `wake_layers`.
+   `symmetry_type` belongs to the geometry a row opens
    and is stated in the row's `SYMMETRY`; `solver` and `motion` are what
    the `WORKFLOW` column decides; `unsteady_delta_theta_deg` and
    `unsteady_N_revolutions` are superseded by the row's `DELTA_THETA`
    and `REVOLUTIONS`; `set_base_region_trailing_edges` is a
    separation model that selects boundaries, and a preset carries no
-   selection, so it is a recipe's job; and the last two have no
-   emitter in this package at all. Two keys LEFT this list at v0.11.0:
+   selection, so it is a recipe's job; and `wake_layers` has no
+   emitter in this package at all. `slipstream_wake_stabilization`
+   LEFT this list at v0.32.0, when it became a setup toggle (see
+   [The slipstream wake stabilization](removing-surfaces.md#the-slipstream-wake-stabilization)). Two keys LEFT it at v0.11.0:
    `symmetry_loads`, on the design decision of 2026-09-02 with the
    measurement in hand (a stated key reaches
    `SET_ANALYSIS_SYMMETRY_LOADS`; an absent one still emits nothing), and

@@ -156,3 +156,45 @@ def test_a_link_to_the_index_page_names_an_anchor_the_index_holds():
             if anchor not in held:
                 stale.append(f"{path.name}#{anchor}")
     assert not stale, stale[:20]
+
+
+def test_a_link_to_a_page_of_the_split_names_a_page_that_exists():
+    """A retargeted link to a page that was never written must fail here, not only in the build.
+
+    Other targets (examples, reference, builds) are generated at build time, so
+    only the pages this package owns are held to exist.
+    """
+    owned = set(WORKFLOW_PAGE_NAMES)
+    missing = []
+    for path in DOCS.rglob("*.md"):
+        rel = path.relative_to(DOCS).as_posix()
+        for target in re.findall(r"\]\(([^)\s#]+\.md)(?:#[^)\s]*)?\)", path.read_text("utf-8")):
+            name = os.path.basename(target)
+            if (name.startswith("workflow-") or name == "pproc-artifact.md") and (
+                name not in owned or not (DOCS / name).is_file()
+            ):
+                missing.append(f"{rel} -> {target}")
+    assert not missing, missing[:20]
+
+
+def test_the_recorded_only_list_keeps_the_merge_h_correction():
+    """The split must carry the page as feat/0-32 has it, not as it stood at the branch point.
+
+    slipstream_wake_stabilization left the recorded-only list at 0.32.0; the page
+    that holds the list is the input library page.
+    """
+    text = (DOCS / "workflow-input-library.md").read_text(encoding="utf-8")
+    assert "The seven this" in text
+    assert "`set_base_region_trailing_edges`, `slipstream_wake_stabilization` and" not in text
+    assert "removing-surfaces.md#the-slipstream-wake-stabilization" in text
+
+
+def test_the_qsteady_refusal_names_the_page_that_explains_the_passage_positions():
+    from pyflightstream.cases import workflows
+
+    source = Path(workflows.__file__).read_text(encoding="utf-8")
+    match = re.search(r"the in-plane loads \((docs/[\w-]+\.md), RPT-089\)", source)
+    assert match, "the refusal no longer cites a page"
+    page = REPO / match.group(1)
+    assert page.is_file()
+    assert workflows.PASSAGE_POSITIONS_VARIABLE in page.read_text(encoding="utf-8"), match.group(1)

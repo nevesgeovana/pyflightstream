@@ -13829,7 +13829,7 @@ def _passage_positions(case: SimCase, kind: str) -> int:
                 "varies around the disc each blade meets a different flow at each clocking, "
                 f"so the wheel is solved at k clockings inside one blade passage and averaged: "
                 f"write '{PASSAGE_POSITIONS_VARIABLE}: 2' for thrust and torque, 6 or more for "
-                "the in-plane loads (docs/workspace-and-workflows.md, RPT-089)."
+                "the in-plane loads (docs/workflow-qsteady-rotor.md, RPT-089)."
             )
         return 1
     # READ AS EVERY COUNT OF A ROW IS READ (BLADES included): a number, `2` or
