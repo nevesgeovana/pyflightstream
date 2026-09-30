@@ -36,6 +36,13 @@ previews by default and writes only with ``--apply`` into the workspace
 named by ``--workspace`` (the current directory by default), the file and its
 ``<stem>.provenance.json``, and never overwrites without ``--overwrite``; a
 refusal is printed to stderr with exit 2.
+
+0.32.0 adds ``field fill-interior`` (the probes inside the body radius
+``--r-body``, 0.38 m by default, take the value of the nearest probe outside it
+on the same azimuth ray) and, on ``field time-mean``, ``--fluctuation`` (the
+per-probe population standard deviation of the averaged steps, written beside
+the mean as ``<stem>.fluctuation.csv`` and named in its provenance) and
+``--fluctuation-only --last K`` (that report alone, no field).
 """
 
 from __future__ import annotations
@@ -251,8 +258,45 @@ def _add_field_commands(subparsers: argparse._SubParsersAction) -> None:
         metavar="K",
         help="average only the last K steps given (default: every step given)",
     )
+    mean.add_argument(
+        "--fluctuation",
+        action="store_true",
+        help="also write <stem>.fluctuation.csv: the per-probe population standard deviation "
+        "of the averaged steps (needs at least two steps)",
+    )
+    mean.add_argument(
+        "--fluctuation-only",
+        action="store_true",
+        help="report the fluctuation only, with no field (needs --last)",
+    )
+    mean.add_argument(
+        "--vinf",
+        type=float,
+        default=None,
+        metavar="M_S",
+        help="the free-stream speed, in m/s, the fluctuation summary is also stated against",
+    )
     _add_tolerance(mean)
     _add_output_options(mean)
+
+    fill = operations.add_parser(
+        "fill-interior",
+        help="fill the probes inside the body from the ray outside it",
+        description=(
+            "Every probe with r < --r-body about the x axis takes the velocity of the probe at "
+            "r >= --r-body with the smallest radius on the same azimuth ray (within 1e-3 rad). "
+            "A probe with no such partner is refused."
+        ),
+    )
+    fill.add_argument("field", help="the field file (.txt STRUCTURED or .dat UNSTRUCTURED)")
+    fill.add_argument(
+        "--r-body",
+        type=float,
+        default=_fields.DEFAULT_R_BODY_M,
+        metavar="M",
+        help=f"the body radius about the x axis, in m (default: {_fields.DEFAULT_R_BODY_M:g})",
+    )
+    _add_output_options(fill)
 
 
 @cli_entrypoint
@@ -352,9 +396,56 @@ def _vector(values: list[float]) -> str:
     return "(" + ", ".join(f"{v:g}" for v in values) + ")"
 
 
+def _fluctuation_words(report: _fields.FluctuationReport, v_inf: float | None) -> str:
+    """Say the largest and the rms fluctuation, in m/s and, given V_inf, in % of V_inf."""
+    peak, rms = _fields.fluctuation_extent(report)
+    words = f"fluctuation: max |std(V)| {peak:.6g} m/s, rms of std_mag {rms:.6g} m/s"
+    if v_inf:
+        words += f" ({100.0 * peak / v_inf:.4g} % and {100.0 * rms / v_inf:.4g} % of V_inf)"
+    return words
+
+
+def _cmd_fluctuation_only(args: argparse.Namespace) -> int:
+    """Report the fluctuation of the last K steps with no field; preview unless --apply."""
+    if args.last is None:
+        raise WorkspaceError(
+            "--fluctuation-only refuses to run without --last K: a steady field, or a run whose "
+            "steps are not chosen, has no fluctuation to report."
+        )
+    steps = _fields.read_step_fields(_expand(args.files), last=args.last)
+    report = _fields.fluctuation_report(steps, tolerance_m=args.tolerance)
+    written = _fields.write_fluctuation(
+        args.workspace,
+        args.out,
+        report,
+        parameters={
+            "steps": [each.step for each in steps],
+            "last": args.last,
+            "tolerance_m": args.tolerance,
+        },
+        inputs=[str(each.field.source) for each in steps],
+        apply=args.apply,
+        overwrite=args.overwrite,
+    )
+    print(
+        f"field time-mean --fluctuation-only: {len(steps)} steps, {steps[0].step:g} to "
+        f"{steps[-1].step:g}, {len(report.rows)} probes"
+    )
+    print("  " + _fluctuation_words(report, args.vinf))
+    if not written.applied:
+        print(f"preview: would write {written.target} and {written.sidecar.name}")
+        print("nothing written; run again with --apply to write")
+        return 0
+    for path in written.overwritten:
+        print(f"replaced {path}")
+    print(f"wrote {written.target} and {written.sidecar.name}")
+    return 0
+
+
 def _cmd_field(args: argparse.Namespace) -> int:
     """Run one field operation; a preview unless --apply, a refusal to stderr with exit 2."""
     parameters: dict[str, object]
+    sidecars: dict[str, str] | None = None
     try:
         if args.field_command == "mirror":
             result = _fields.mirror_field(_fields.read_field(args.field), plane=args.plane)
@@ -388,7 +479,19 @@ def _cmd_field(args: argparse.Namespace) -> int:
                 "tolerance_m": args.tolerance,
             }
             what = f"{args.total} - ({args.other} - {_vector(reference)} m/s)"
+        elif args.field_command == "fill-interior":
+            result, replaced = _fields.fill_interior(
+                _fields.read_field(args.field), r_body_m=args.r_body
+            )
+            inputs = [args.field]
+            parameters = {"r_body_m": args.r_body, "replaced": replaced}
+            what = (
+                f"{args.field} filled inside r < {args.r_body:g} m about the x axis: "
+                f"{replaced} points replaced"
+            )
         else:
+            if args.fluctuation_only:
+                return _cmd_fluctuation_only(args)
             steps = _fields.read_step_fields(_expand(args.files), last=args.last)
             result = _fields.time_mean_fields(steps, tolerance_m=args.tolerance)
             inputs = [str(each.field.source) for each in steps]
@@ -398,6 +501,11 @@ def _cmd_field(args: argparse.Namespace) -> int:
                 "tolerance_m": args.tolerance,
             }
             what = f"the time mean of {len(steps)} steps, {steps[0].step:g} to {steps[-1].step:g}"
+            if args.fluctuation:
+                report = _fields.fluctuation_report(steps, tolerance_m=args.tolerance)
+                sidecars = {".fluctuation.csv": _fields.render_fluctuation(report)}
+                parameters["fluctuation"] = True
+                what += "; " + _fluctuation_words(report, args.vinf)
         written = _fields.write_freestream(
             args.workspace,
             args.out,
@@ -407,6 +515,7 @@ def _cmd_field(args: argparse.Namespace) -> int:
             inputs=inputs,
             apply=args.apply,
             overwrite=args.overwrite,
+            sidecars=sidecars,
         )
     except (OSError, WorkspaceError) as error:
         print(str(error), file=sys.stderr)
