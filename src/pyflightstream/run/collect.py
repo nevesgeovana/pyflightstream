@@ -616,12 +616,12 @@ def _collect_additional(workspace, report, *, interval, sleep, observer) -> None
         (report.collected if success else report.failed).append(outcome)
 
 
-@workspace_activity("collection")
 def _run_label(record: RunRecord) -> str:
     """Return a record as the collect progress line names it (0.32.0)."""
     return record.run_id
 
 
+@workspace_activity("collection")
 def collect_once(
     workspace: CampaignWorkspace,
     *,
