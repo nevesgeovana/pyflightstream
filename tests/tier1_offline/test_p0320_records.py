@@ -747,3 +747,21 @@ def test_restore_refuses_a_matrix_stem_that_leaves_post(tmp_path):
     with pytest.raises(records.RecordsError, match="matrix stem"):
         records.restore(workspace, "products", matrix="../../elsewhere", apply=True)
     assert not (outside / "products.json").exists(), "the restore wrote outside the workspace"
+
+
+def test_rebuild_writes_nothing_when_the_workspace_changed_meanwhile(tmp_path, monkeypatch):
+    """P0320-REBUILD-SIMS: another writer during the rebuild refuses the apply; nothing written."""
+    workspace, _matrix_path, _original = _local_campaign(tmp_path, monkeypatch)
+    _lose_the_manifest(workspace)
+    real = records.collect_without_writing
+
+    def meanwhile(root, record, *, staging):
+        intruder = Path(root) / "post" / "written-meanwhile.txt"
+        intruder.parent.mkdir(parents=True, exist_ok=True)
+        intruder.write_text("another process", encoding="utf-8")
+        return real(root, record, staging=staging)
+
+    monkeypatch.setattr(records, "collect_without_writing", meanwhile)
+    with pytest.raises(records.RecordsError, match="changed during the rebuild"):
+        records.rebuild(workspace.root, apply=True)
+    assert not workspace.manifest_path.exists()
