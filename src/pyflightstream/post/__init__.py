@@ -50,10 +50,13 @@ module, which is stated rather than left to be discovered:
 * :mod:`pyflightstream.post.inflow_tools` writes a product table in the
   installed frame and the blade-view harmonics of a custom inflow (0.32.0).
   Reached through its own module;
-* :mod:`pyflightstream.post.qsteady_noise` is a 0.32.0 contract module, the
-  exploratory quasi-steady noise report: its signature was laid down before
-  its body, and it refuses until its work package fills it. Reached through
-  its own module;
+* :mod:`pyflightstream.post.qsteady_noise` holds the exploratory
+  quasi-steady rotor noise model (0.32.0): a blade's load reconstructed
+  against azimuth from a quasi-steady wheel's clockings and propagated to an
+  observer by a compact loading-noise model, not wired into the post stage.
+  Its report writer, ``write_qsteady_noise_report``, is left unfilled on
+  purpose and raises ``ContractNotImplementedError``. Reached through its
+  own module;
 * :mod:`pyflightstream.post.custom_polar` and
   :mod:`pyflightstream.post.provenance` hold the custom polar format and the
   PROV-JSON writer that the products entry below names; their existing

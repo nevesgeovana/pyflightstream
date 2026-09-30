@@ -118,8 +118,21 @@ def test_a_contract_claim_names_exactly_the_modules_that_still_refuse():
 
 
 def test_the_contract_detector_sees_the_one_module_that_still_refuses():
-    """P0320-ARCH-CONTRACT: the stub detector is not a green no-op."""
-    assert "post.qsteady_noise" in _refusing_stubs()
+    """P0320-ARCH-CONTRACT: the stub detector is not a green no-op.
+
+    Work package F filled ``post.qsteady_noise`` with its model and left only
+    the report writer refusing, so no module of the tree is a refusing stub
+    any more; the detector's positive control is a stub built here.
+    """
+    stub = ast.parse(
+        '"""A contract."""\n'
+        "def report(root):\n"
+        '    """Refuse."""\n'
+        '    raise ContractNotImplementedError("not implemented yet")\n'
+    )
+    assert _is_refusing_stub(stub)
+    assert not _is_refusing_stub(ast.parse("def report(root):\n    return root\n"))
+    assert "post.qsteady_noise" not in _refusing_stubs()
     assert "post.acoustics" not in _refusing_stubs()
     assert "run.cli" not in _refusing_stubs()
 

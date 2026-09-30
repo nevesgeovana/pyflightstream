@@ -545,10 +545,10 @@ bodies and those under `TYPE_CHECKING` included.
 - `post/inflow_tools.py`, in the post row, imports `_errors` and
   `cases.qsteady`. It writes a product table in the installed frame and the
   blade-view harmonics of a custom inflow.
-- `post/qsteady_noise.py`, in the post row, imports only `_errors`. It is a
-  contract laid down before its body: its one function refuses with
-  `ContractNotImplementedError`, because its work package is not part of this
-  release.
+- `post/qsteady_noise.py`, in the post row, imports only `_errors` from this
+  package. It holds the exploratory quasi-steady rotor noise model, not wired
+  into the post stage; its report writer `write_qsteady_noise_report` is left
+  unfilled on purpose and refuses with `ContractNotImplementedError`.
 
 The floor module `_progress` now imports `_console` and `_errors`; the floors
 still import nothing from the pipeline rows.
