@@ -67,6 +67,7 @@ nav:
   - 1 Geometry:
       - Mesh inputs and GUI-only operations: mesh-inputs.md
       - CAD inputs: cad-inputs.md
+      - CCS geometry: ccs-geometry.md
       - Geometry units and starts: geometry-units-and-starts.md
       - Simulation geometry controls: simulation-geometry-controls.md
       - Surface translation: surface-translation.md

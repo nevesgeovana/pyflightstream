@@ -176,9 +176,6 @@ def test_the_acoustic_signals_contract():
 
 #: The placeholder modules: (module, the one stub, the arguments to call it with).
 PLACEHOLDERS = [
-    ("pyflightstream.cases.ccs_wing", "emit_ccs_wing", (None, None)),
-    ("pyflightstream.cases.ccs_fuselage", "emit_ccs_fuselage", (None, None)),
-    ("pyflightstream.cases.ccs_revolution", "emit_ccs_revolution", (None, None)),
     ("pyflightstream.post.qsteady_noise", "write_qsteady_noise_report", (".",)),
     ("pyflightstream.post.disc_maps", "write_disc_map", ("P1_sections.csv",)),
     ("pyflightstream.post.inflow_tools", "to_installed_frame", ("table.csv",)),

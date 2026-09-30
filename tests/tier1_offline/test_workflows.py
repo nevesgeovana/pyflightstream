@@ -1341,9 +1341,9 @@ def test_the_fixture_is_a_three_row_matrix_that_declares_its_outputs():
 # component definition carries.
 
 #: The two shapes a component definition carries, in canonical spelling.
-FOUR_FIELD_EDGE = "0.5;0.1;0.9;1"
-AZIMUTH_EDGE = "0.5;0.1;0.9;1;1"
-AXIAL_EDGE = "0.5;0.1;0.9;1;0"
+THREE_VALUE_EDGE = "0.5;0.1;0.9"
+AZIMUTH_EDGE = "0.5;0.1;0.9;1"
+AXIAL_EDGE = "0.5;0.1;0.9;0"
 
 
 def test_the_azimuthal_option_is_reachable_from_the_rotor_row():
@@ -1356,7 +1356,7 @@ def test_the_azimuthal_option_is_reachable_from_the_rotor_row():
     """
     case = rotor_case(ROTOR_SHEDDING="AZIMUTH")
     assert rotor_shedding_direction(case) == "AZIMUTH"
-    assert rotor_relaxed_trailing_edges(case, [FOUR_FIELD_EDGE]) == [AZIMUTH_EDGE]
+    assert rotor_relaxed_trailing_edges(case, [THREE_VALUE_EDGE]) == [AZIMUTH_EDGE]
 
 
 @pytest.mark.parametrize("cell", ["AZIMUTH", "azimuth", "1", " Azimuth "])
@@ -1374,13 +1374,13 @@ def test_a_row_that_asks_for_nothing_leaves_every_specification_as_written():
     """Clause two, at the workflow layer.
 
     Absent is not AXIAL: a row that says nothing about shedding must not
-    silently widen a four-field specification, because the component
-    file it came from may be read by a build that has four fields.
+    silently widen a three-value specification, because the component
+    file it came from may be read by a build that reads three.
     """
     case = rotor_case()
     assert rotor_shedding_direction(case) is None
-    assert rotor_relaxed_trailing_edges(case, [FOUR_FIELD_EDGE, AXIAL_EDGE]) == [
-        FOUR_FIELD_EDGE,
+    assert rotor_relaxed_trailing_edges(case, [THREE_VALUE_EDGE, AXIAL_EDGE]) == [
+        THREE_VALUE_EDGE,
         AXIAL_EDGE,
     ]
 
@@ -1388,9 +1388,9 @@ def test_a_row_that_asks_for_nothing_leaves_every_specification_as_written():
 def test_the_axial_direction_asked_for_reaches_a_specification_that_states_another():
     """A row CAN turn the azimuthal option back off, on a stated one."""
     case = rotor_case(ROTOR_SHEDDING="AXIAL")
-    assert rotor_relaxed_trailing_edges(case, [AZIMUTH_EDGE, FOUR_FIELD_EDGE]) == [
+    assert rotor_relaxed_trailing_edges(case, [AZIMUTH_EDGE, THREE_VALUE_EDGE]) == [
         AXIAL_EDGE,
-        FOUR_FIELD_EDGE,
+        THREE_VALUE_EDGE,
     ]
 
 
@@ -1446,7 +1446,7 @@ def test_a_specification_the_package_cannot_read_names_which_one_of_how_many():
     """A component definition carries several, so 'unreadable' is not enough."""
     case = rotor_case(ROTOR_SHEDDING="AZIMUTH")
     with pytest.raises(CampaignConfigError) as raised:
-        rotor_relaxed_trailing_edges(case, [FOUR_FIELD_EDGE, "0.5;0.1;0.9", AZIMUTH_EDGE])
+        rotor_relaxed_trailing_edges(case, [THREE_VALUE_EDGE, "0.5;0.1", AZIMUTH_EDGE])
     message = str(raised.value)
     assert "7001" in message
     assert "number 2 of 3" in message, (
@@ -1475,10 +1475,10 @@ def test_one_specification_passed_without_its_list_is_refused_by_shape():
     list.
     """
     with pytest.raises(CampaignConfigError) as raised:
-        rotor_relaxed_trailing_edges(rotor_case(), FOUR_FIELD_EDGE)
+        rotor_relaxed_trailing_edges(rotor_case(), THREE_VALUE_EDGE)
     message = str(raised.value)
     assert "one character at a time" in message
-    assert repr(FOUR_FIELD_EDGE) in message
+    assert repr(THREE_VALUE_EDGE) in message
 
 
 def test_something_that_cannot_be_iterated_is_refused_and_not_left_to_len():
@@ -1500,7 +1500,7 @@ def test_a_generator_of_specifications_is_read_rather_than_refused():
     is what needed one.
     """
     case = rotor_case(ROTOR_SHEDDING="AZIMUTH")
-    produced = (edge for edge in [FOUR_FIELD_EDGE, AXIAL_EDGE])
+    produced = (edge for edge in [THREE_VALUE_EDGE, AXIAL_EDGE])
     assert rotor_relaxed_trailing_edges(case, produced) == [AZIMUTH_EDGE, AZIMUTH_EDGE]
 
 
@@ -1521,12 +1521,12 @@ def test_the_specification_restater_refuses_a_bad_row_rather_than_defaulting():
     still restates.
     """
     with pytest.raises(CampaignConfigError) as raised:
-        rotor_relaxed_trailing_edges(rotor_case(ROTOR_SHEDDING="diagonal"), [FOUR_FIELD_EDGE])
+        rotor_relaxed_trailing_edges(rotor_case(ROTOR_SHEDDING="diagonal"), [THREE_VALUE_EDGE])
     message = str(raised.value)
     assert "ROTOR_SHEDDING" in message, "the refusal does not name the key"
     assert "'diagonal'" in message, "the refusal does not name the value the row wrote"
 
-    good = rotor_relaxed_trailing_edges(rotor_case(ROTOR_SHEDDING="AZIMUTH"), [FOUR_FIELD_EDGE])
+    good = rotor_relaxed_trailing_edges(rotor_case(ROTOR_SHEDDING="AZIMUTH"), [THREE_VALUE_EDGE])
     assert good == [AZIMUTH_EDGE], (
         "the well-formed row stopped restating, so the case above would pass on a "
         "function that refuses everything"

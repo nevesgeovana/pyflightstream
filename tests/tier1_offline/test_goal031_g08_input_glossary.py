@@ -63,6 +63,7 @@ from pyflightstream.cases import (
     SurfaceTimeAveragingSpec,
     VolumeSectionSpec,
 )
+from pyflightstream.cases._ccs import CcsControlSurface, CcsImportOptions, CcsSubdivisions
 from pyflightstream.cases.corrections import QsteadyCorrectionSpec
 from pyflightstream.cases.matrix import _COLUMNS, ATTITUDE_KEYS, FLIGHT_CONDITION_KEYS
 from pyflightstream.cases.workflows import RATE_VARIABLES, RAW_VARIABLE, WORKFLOWS
@@ -188,6 +189,10 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         },
         ("geometry", "`[import]`"): _fields(MeshImport),
         ("geometry", "`[import.cad]`"): _fields(CadImportOptions),
+        # 0.32.0 (package C): how a CCS file becomes a mesh.
+        ("geometry", "`[import.ccs]`"): _fields(CcsImportOptions),
+        ("geometry", "`[import.ccs.subdivisions]`"): _fields(CcsSubdivisions),
+        ("geometry", "`[[import.ccs.control_surfaces]]`"): _fields(CcsControlSurface),
         ("geometry", "`[[import.operations]]`"): _fields(MeshOperation),
         ("geometry", "`[trailing_edges]`"): set(_TRAILING_EDGE_KEYS),
         ("geometry", "`detect = { ... }` of `[trailing_edges]`"): set(_DETECT_KEYS),

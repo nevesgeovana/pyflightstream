@@ -2,27 +2,28 @@
 
 Pipeline role: the cases row, where a row's solver commands are emitted.
 It emits the CCS fuselage commands of ``commands/ccs_fuselage_mesh.yaml``
-for a row that asks for a CCS fuselage.
+and ``commands/cad_create.yaml`` for a row whose CCS file's
+``[import.ccs]`` table says ``kind = "fuselage"``: the curve route's prelude
+(:func:`pyflightstream.cases.ccs_wing.emit_curve_prelude`) and the loft
+``CAD_CREATE_FUSELAGE_MESH_FROM_CCS``, which round 1 accepted on 26.124 with
+the saved simulation listing the new boundary (probe C4). The workflows reach
+it through :func:`pyflightstream.cases.ccs_wing.emit_ccs_geometry`.
 
-Laid down by the 0.32.0 preparation step so work package C2 writes its
-code here and touches :mod:`pyflightstream.cases.workflows` only through a
-short hook.
-
-The stub's name and signature are a placeholder: the module is what the
-contract fixes, and its package may rename the stub when it fills it.
-Until then it refuses with
-:class:`~pyflightstream._errors.ContractNotImplementedError`.
+On this loft ``loft_u`` is the RADIAL continuity and ``loft_v`` the AXIAL one,
+not the wing's chordwise and spanwise; both default to C2 (SRC-752 p.83).
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pyflightstream._errors import ContractNotImplementedError
+from pyflightstream.cases.ccs_wing import emit_curve_prelude, loft_component
 
 if TYPE_CHECKING:
     from pyflightstream.cases import SimCase
     from pyflightstream.script import Script
+
+__all__ = ["emit_ccs_fuselage"]
 
 
 def emit_ccs_fuselage(script: Script, case: SimCase) -> None:
@@ -33,13 +34,16 @@ def emit_ccs_fuselage(script: Script, case: SimCase) -> None:
     script : Script
         The script being built for the point.
     case : SimCase
-        The point's case, as the matrix row and its artifacts define it.
+        The point's case, whose ``[import.ccs]`` table says
+        ``kind = "fuselage"``.
 
     Raises
     ------
-    ContractNotImplementedError
-        Always, until work package C2 fills this body.
+    CampaignConfigError
+        As :func:`pyflightstream.cases.ccs_wing.loft_component` refuses: a
+        table of another kind among them.
     """
-    raise ContractNotImplementedError(
-        "pyflightstream.cases.ccs_fuselage.emit_ccs_fuselage: not implemented yet (0.32.0 contract)"
-    )
+    spec, name, component = loft_component(case, "fuselage")
+    emit_curve_prelude(script, case, component)
+    loft_u, loft_v = spec.lofts
+    script.emit("CAD_CREATE_FUSELAGE_MESH_FROM_CCS", name, spec.close_ends, loft_u, loft_v)

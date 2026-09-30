@@ -523,6 +523,14 @@ def _shown(artifact: str, heading: str, data: list[dict], matrices: list[str]) -
         ),
         "`[import]`": [f.get("import", {}) for f in data],
         "`[import.cad]`": [f.get("import", {}).get("cad", {}) for f in data],
+        # 0.32.0 (package C): the CCS table and its two nested tables.
+        "`[import.ccs]`": [f.get("import", {}).get("ccs", {}) for f in data],
+        "`[import.ccs.subdivisions]`": [
+            f.get("import", {}).get("ccs", {}).get("subdivisions", {}) for f in data
+        ],
+        "`[[import.ccs.control_surfaces]]`": [
+            e for f in data for e in f.get("import", {}).get("ccs", {}).get("control_surfaces", [])
+        ],
         "`[[import.operations]]`": [
             e for f in data for e in f.get("import", {}).get("operations", [])
         ],

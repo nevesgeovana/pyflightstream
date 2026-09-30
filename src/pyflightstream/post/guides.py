@@ -2988,10 +2988,25 @@ def _template_sections() -> tuple[TemplateSection, ...]:
                     "`detect = { ... }` of `[trailing_edges]`": MappingProxyType(
                         {_IN_THE_COMMENT: ("surfaces", "sweep_angle")}
                     ),
+                    # 0.32.0 (package C): beside a CCS file only, which the
+                    # CCS geometry page shows with every key.
+                    "`[import]`": MappingProxyType(
+                        {"beside a CCS file only, shown on the CCS geometry page": ("ccs",)}
+                    ),
+                    "`[import.ccs]`": MappingProxyType(
+                        {"the table is left out, for the reason above": ()}
+                    ),
+                    "`[import.ccs.subdivisions]`": MappingProxyType(
+                        {"the table is left out, for the reason above": ()}
+                    ),
+                    "`[[import.ccs.control_surfaces]]`": MappingProxyType(
+                        {"the table is left out, for the reason above": ()}
+                    ),
                 }
             ),
             pages=(
                 _page("mesh-inputs", "Mesh inputs"),
+                _page("ccs-geometry", "CCS geometry"),
                 _page("workspace-and-workflows", "The workspace and the workflow"),
             ),
         ),

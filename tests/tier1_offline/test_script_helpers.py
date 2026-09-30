@@ -1427,37 +1427,39 @@ def test_exactly_one_rotation_command_resolves_on_every_registered_build():
         )
 
 
-# --- PFS-2026.06: the relaxed trailing-edge specification's fifth field ------
+# --- PFS-2026.06: the relaxed trailing-edge specification's direction ---------
 #
 # The specification is a COMPONENT parameter, written where a component
 # is defined and not in a script, so this pair is the one place in the
-# helper module that takes no `script` and emits nothing. What 26.123
-# adds is a fifth field, the direction the relaxed wake sheds; the
-# four-field form of the earlier editions stays valid, which is the
-# clause that matters most here because artifacts written before this
-# release carry four.
+# helper module that takes no `script` and emits nothing. The line is
+# `Relaxed_TE;u;v1;v2;direction` (SRC-752 p.85): three values, and 26.123
+# adds a fourth, the direction the relaxed wake sheds; the three-value
+# form of the earlier editions stays valid, which is the clause that
+# matters most here because artifacts written before this release carry
+# three. Until 0.32.0 these tests counted four values and a fifth for the
+# direction, which the manual does not print (FR-244).
 
 #: One specification of each shape, in the canonical spelling: no spaces
 #: around the separators, so a render can be compared to its own input.
-FOUR_FIELD = "0.5;0.1;0.9;1"
-FIVE_FIELD_AXIAL = "0.5;0.1;0.9;1;0"
-FIVE_FIELD_AZIMUTH = "0.5;0.1;0.9;1;1"
+THREE_VALUE = "0.5;0.1;0.9"
+STATED_AXIAL = "0.5;0.1;0.9;0"
+STATED_AZIMUTH = "0.5;0.1;0.9;1"
 
 
-def test_the_specification_accepts_the_fifth_field():
+def test_the_specification_accepts_the_direction_value():
     """Clause one: the five-field form parses, and says which direction.
 
     SRC-751 p.85 gives the specification a fifth field, an integer
     direction of the relaxed wake shedding, 1 being the azimuth
     direction. Before this item nothing in the package could read one.
     """
-    edge = helpers.parse_relaxed_trailing_edge(FIVE_FIELD_AZIMUTH)
+    edge = helpers.parse_relaxed_trailing_edge(STATED_AZIMUTH)
     assert edge.direction == "AZIMUTH"
     assert edge.shedding_direction == "AZIMUTH"
-    assert edge.fields == ("0.5", "0.1", "0.9", "1"), (
-        f"the four leading fields did not survive the parse; got {edge.fields!r}"
+    assert edge.fields == ("0.5", "0.1", "0.9"), (
+        f"the three leading values did not survive the parse; got {edge.fields!r}"
     )
-    assert edge.render() == FIVE_FIELD_AZIMUTH
+    assert edge.render() == STATED_AZIMUTH
 
 
 def test_the_zero_field_is_the_axial_direction_and_stays_written():
@@ -1467,12 +1469,12 @@ def test_the_zero_field_is_the_axial_direction_and_stays_written():
     same text: an artifact that wrote the 0 keeps it, because rewriting
     it away would edit a file the caller did not ask to have edited.
     """
-    edge = helpers.parse_relaxed_trailing_edge(FIVE_FIELD_AXIAL)
+    edge = helpers.parse_relaxed_trailing_edge(STATED_AXIAL)
     assert edge.direction == "AXIAL"
-    assert edge.render() == FIVE_FIELD_AXIAL
+    assert edge.render() == STATED_AXIAL
 
 
-def test_a_four_field_specification_parses_and_behaves_as_it_did():
+def test_a_three_value_specification_parses_and_behaves_as_it_did():
     """Clause two, the one that gets forgotten.
 
     Every artifact written before 26.123 carries four fields. It must
@@ -1480,27 +1482,27 @@ def test_a_four_field_specification_parses_and_behaves_as_it_did():
     widened: a five-field specification handed to a build that reads
     four is a file the solver that wrote it can no longer read.
     """
-    edge = helpers.parse_relaxed_trailing_edge(FOUR_FIELD)
+    edge = helpers.parse_relaxed_trailing_edge(THREE_VALUE)
     assert edge.direction is None, (
         "the four-field form was recorded as STATING the axial direction; None and "
         "'AXIAL' are the same physical direction and different text, and only the "
         "second one writes a field"
     )
     assert edge.shedding_direction == "AXIAL"
-    assert edge.render() == FOUR_FIELD
-    assert edge.render().count(";") == 3
+    assert edge.render() == THREE_VALUE
+    assert edge.render().count(";") == 2
 
 
 @pytest.mark.parametrize("asked", ["AXIAL", "axial", 0, "0"])
-def test_asking_a_four_field_specification_for_the_default_leaves_it_alone(asked):
+def test_asking_a_three_value_specification_for_the_default_leaves_it_alone(asked):
     """The other half of clause two: the widening is not smuggled in here.
 
     Asking for the axial direction is asking for what the four-field
     form already means, so it comes back at four fields whichever
     vocabulary the caller used.
     """
-    edge = helpers.parse_relaxed_trailing_edge(FOUR_FIELD)
-    assert edge.with_shedding(asked).render() == FOUR_FIELD
+    edge = helpers.parse_relaxed_trailing_edge(THREE_VALUE)
+    assert edge.with_shedding(asked).render() == THREE_VALUE
 
 
 def test_asking_a_stated_specification_for_the_default_rewrites_the_field():
@@ -1510,15 +1512,15 @@ def test_asking_a_stated_specification_for_the_default_rewrites_the_field():
     One that states the azimuth direction and is asked for the axial one
     has been asked to change, so it changes.
     """
-    edge = helpers.parse_relaxed_trailing_edge(FIVE_FIELD_AZIMUTH)
-    assert edge.with_shedding("AXIAL").render() == FIVE_FIELD_AXIAL
+    edge = helpers.parse_relaxed_trailing_edge(STATED_AZIMUTH)
+    assert edge.with_shedding("AXIAL").render() == STATED_AXIAL
 
 
 @pytest.mark.parametrize("asked", ["AZIMUTH", "azimuth", 1, "1"])
 def test_the_azimuth_direction_is_asked_for_in_either_vocabulary(asked):
     """The specification writes an integer and a caller reads a word."""
-    edge = helpers.parse_relaxed_trailing_edge(FOUR_FIELD)
-    assert edge.with_shedding(asked).render() == FIVE_FIELD_AZIMUTH
+    edge = helpers.parse_relaxed_trailing_edge(THREE_VALUE)
+    assert edge.with_shedding(asked).render() == STATED_AZIMUTH
 
 
 @pytest.mark.parametrize("direction", ["2", "-1", "10", "azimuthal", "RADIAL", "1.0"])
@@ -1531,7 +1533,7 @@ def test_an_out_of_range_direction_is_refused_naming_it_and_the_two_accepted(dir
     received and BOTH accepted directions, in both spellings, so the
     reader does not have to open the manual to fix a typo.
     """
-    specification = f"0.5;0.1;0.9;1;{direction}"
+    specification = f"0.5;0.1;0.9;{direction}"
     with pytest.raises(CommandArgumentError) as raised:
         helpers.parse_relaxed_trailing_edge(specification)
     message = str(raised.value)
@@ -1552,7 +1554,7 @@ def test_the_same_refusal_reaches_a_caller_who_asks_directly(direction):
     same vocabulary, so it must refuse the same values the same way, or
     the two routes disagree about what the field accepts.
     """
-    edge = helpers.parse_relaxed_trailing_edge(FOUR_FIELD)
+    edge = helpers.parse_relaxed_trailing_edge(THREE_VALUE)
     with pytest.raises(CommandArgumentError) as raised:
         edge.with_shedding(direction)
     message = str(raised.value)
@@ -1569,7 +1571,7 @@ def test_true_is_not_the_azimuth_direction():
     True to the azimuth direction and False to the axial one, silently
     turning a caller's misunderstanding into a physical choice.
     """
-    edge = helpers.parse_relaxed_trailing_edge(FOUR_FIELD)
+    edge = helpers.parse_relaxed_trailing_edge(THREE_VALUE)
     for value in (True, False):
         with pytest.raises(CommandArgumentError) as raised:
             edge.with_shedding(value)
@@ -1578,7 +1580,7 @@ def test_true_is_not_the_azimuth_direction():
 
 @pytest.mark.parametrize(
     "specification",
-    ["0.5;0.1;0.9", "0.5", "0.5;0.1;0.9;1;0;7", ""],
+    ["0.5;0.1", "0.5", "0.5;0.1;0.9;1;0", ""],
 )
 def test_a_field_count_that_is_neither_documented_shape_is_refused(specification):
     """Four fields or five, and the refusal says which two and why.
@@ -1591,7 +1593,7 @@ def test_a_field_count_that_is_neither_documented_shape_is_refused(specification
         helpers.parse_relaxed_trailing_edge(specification)
     message = str(raised.value)
     assert repr(specification) in message
-    assert "4" in message and "5" in message
+    assert "3" in message and "4" in message
 
 
 def test_a_blank_field_is_refused_rather_than_read_as_a_default():
@@ -1621,9 +1623,9 @@ def test_something_that_is_not_the_specification_text_is_refused(unreadable):
 
 @pytest.mark.parametrize(
     "fields",
-    [("0.5", "0.1", "0.9"), ("0.5", "0.1", "0.9", "1", "1"), ()],
+    [("0.5", "0.1"), ("0.5", "0.1", "0.9", "1"), ()],
 )
-def test_the_record_itself_holds_the_four_leading_fields_and_no_more(fields):
+def test_the_record_itself_holds_the_three_leading_values_and_no_more(fields):
     """The direction is an attribute, never a fifth entry in `fields`.
 
     Constructed directly rather than parsed, because the dataclass is
@@ -1640,16 +1642,16 @@ def test_the_record_itself_holds_the_four_leading_fields_and_no_more(fields):
 def test_a_direction_token_the_field_does_not_spell_is_refused_on_the_record():
     """The other direct-construction hole: an unknown token."""
     with pytest.raises(CommandArgumentError) as raised:
-        helpers.RelaxedTrailingEdge(fields=("0.5", "0.1", "0.9", "1"), direction="RADIAL")
+        helpers.RelaxedTrailingEdge(fields=("0.5", "0.1", "0.9"), direction="RADIAL")
     message = str(raised.value)
     assert "'RADIAL'" in message and "AXIAL" in message and "AZIMUTH" in message
 
 
 def test_whitespace_around_a_field_is_not_part_of_it():
     """A component definition is written by hand, so it carries spaces."""
-    edge = helpers.parse_relaxed_trailing_edge(" 0.5 ; 0.1 ; 0.9 ; 1 ; 1 ")
-    assert edge.fields == ("0.5", "0.1", "0.9", "1")
-    assert edge.render() == FIVE_FIELD_AZIMUTH
+    edge = helpers.parse_relaxed_trailing_edge(" 0.5 ; 0.1 ; 0.9 ; 1 ")
+    assert edge.fields == ("0.5", "0.1", "0.9")
+    assert edge.render() == STATED_AZIMUTH
 
 
 def test_the_two_directions_are_the_two_the_manual_defines():
@@ -1662,8 +1664,8 @@ def test_the_two_directions_are_the_two_the_manual_defines():
     """
     assert helpers.RELAXED_SHEDDING_DIRECTIONS == {"AXIAL": 0, "AZIMUTH": 1}
     assert helpers.DEFAULT_SHEDDING_DIRECTION == "AXIAL"
-    assert helpers.RELAXED_TE_FIELDS_WITHOUT_DIRECTION == 4
-    assert helpers.RELAXED_TE_FIELDS_WITH_DIRECTION == 5
+    assert helpers.RELAXED_TE_FIELDS_WITHOUT_DIRECTION == 3
+    assert helpers.RELAXED_TE_FIELDS_WITH_DIRECTION == 4
 
 
 def test_the_specification_pair_takes_no_script_because_no_command_takes_it():
@@ -1703,9 +1705,9 @@ def test_a_field_carrying_whitespace_is_normalised_by_the_constructor():
     already split would render with the spaces still in it and a
     component file would carry `0.5; 0.1` where the field is `0.1`.
     """
-    edge = helpers.RelaxedTrailingEdge(fields=("  0.5", "0.1  ", " 0.9 ", "\t1"))
-    assert edge.fields == ("0.5", "0.1", "0.9", "1")
-    assert edge.render() == "0.5;0.1;0.9;1", (
+    edge = helpers.RelaxedTrailingEdge(fields=("  0.5", "0.1  ", "\t0.9 "))
+    assert edge.fields == ("0.5", "0.1", "0.9")
+    assert edge.render() == "0.5;0.1;0.9", (
         "a rendered specification carried whitespace inside a field, which a "
         "component definition reads as part of the value"
     )
@@ -1720,11 +1722,11 @@ def test_a_non_string_field_is_rendered_rather_than_crashing():
     would not have caught it and the message would have named `float`
     rather than the specification.
     """
-    edge = helpers.RelaxedTrailingEdge(fields=(0.5, 0.1, 0.9, 1))
-    assert edge.render() == "0.5;0.1;0.9;1"
+    edge = helpers.RelaxedTrailingEdge(fields=(0.5, 0.1, 0.9))
+    assert edge.render() == "0.5;0.1;0.9"
 
 
-def test_the_constructor_refuses_a_fifth_field_smuggled_into_the_leading_four():
+def test_the_constructor_refuses_a_direction_smuggled_into_the_leading_three():
     """The silent-widening clause, reached through the CONSTRUCTOR.
 
     Parsing four fields and rendering four is asserted elsewhere. This
@@ -1734,10 +1736,10 @@ def test_the_constructor_refuses_a_fifth_field_smuggled_into_the_leading_four():
     count it got and where the direction belongs.
     """
     with pytest.raises(helpers.CommandArgumentError, match="leading fields"):
-        helpers.RelaxedTrailingEdge(fields=("0.5", "0.1", "0.9", "1", "1"))
+        helpers.RelaxedTrailingEdge(fields=("0.5", "0.1", "0.9", "1"))
 
 
-def test_the_fifth_field_is_an_ascii_integer_or_one_of_the_two_words():
+def test_the_direction_value_is_an_ascii_integer_or_one_of_the_two_words():
     """What the direction field accepts, pinned in both directions.
 
     `int()` reads any Unicode decimal digit and a leading sign, so

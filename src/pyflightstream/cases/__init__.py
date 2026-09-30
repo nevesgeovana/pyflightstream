@@ -95,6 +95,11 @@ from pyflightstream._fsm import names_of
 from pyflightstream._retired_names import PROBE_SCALE_PROPELLER_RADIUS, retired_frame
 from pyflightstream._tokens import REDUCTION_COLUMNS
 
+# The CCS geometry table (0.32.0), a table of a geometry sidecar's [import]; its
+# module imports only pydantic and the script row, so the package may import it
+# while it loads.
+from pyflightstream.cases._ccs import CcsImportOptions
+
 # The quasi-steady wheel's correction choice (0.31.0), a table of the pproc; its
 # module imports only the floor, so the package may import it while it loads.
 from pyflightstream.cases.corrections import QsteadyCorrectionSpec
@@ -4700,6 +4705,8 @@ class MeshImport(BaseModel):
     units: str
     #: Explicit CAD conversion; units must be FILE because IMPORT_CAD reads file metadata.
     cad: CadImportOptions | None = None
+    #: How a CCS file is lofted or imported by the solver's CCS commands (0.32.0).
+    ccs: CcsImportOptions | None = None
     operations: tuple[MeshOperation, ...] = ()
 
     @field_validator("units", mode="before")
