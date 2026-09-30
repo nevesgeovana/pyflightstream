@@ -84,13 +84,16 @@ def test_rpt096_is_indexed_where_the_tree_indexes_reports():
     index = (REPO / "reports" / "README.md").read_text(encoding="utf-8")
     assert f"[RPT-096]({STEM}.md)" in index
     # Before the integration the entry is the R1 fragment; scripts/assemble_changelog.py
-    # then folds it into the change log's [Unreleased] section and deletes the fragment.
+    # then folds it into the change log's [Unreleased] section and deletes the fragment,
+    # and the release commit moves that section under [0.32.0]: read the section that
+    # carries the release the report belongs to.
     fragment_path = REPO / "changelog.d" / "R1.md"
     if fragment_path.is_file():
         fragment = fragment_path.read_text(encoding="utf-8")
     else:
         changelog = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
-        fragment = changelog.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
+        heading = "## [0.32.0]" if "\n## [0.32.0]" in changelog else "## [Unreleased]"
+        fragment = changelog.split(heading, 1)[1].split("\n## [", 1)[0]
     assert "reports/RPT-096" in fragment
 
 
