@@ -1032,6 +1032,13 @@ def _add_storage_parsers(subparsers: Any) -> None:
     free.add_argument("recipe", help="the recipe id, m<id> (inputs/management/m<id>.toml)")
     free.add_argument("--workspace", default=".", help=workspace_help)
     free.add_argument("--apply", action="store_true", help=apply_help)
+    free.add_argument(
+        "--list",
+        dest="list_paths",
+        action="store_true",
+        help="after each step, print every path it would touch (preview) or touched "
+        "(--apply) with its size and what happens to it",
+    )
     delete = subparsers.add_parser(
         "delete-sims",
         help="delete simulations, their post products and their records (preview unless --apply)",
@@ -1121,7 +1128,7 @@ def _cmd_storage(args: argparse.Namespace) -> int:
             entry = storage.free_space(
                 args.workspace, args.recipe, apply=args.apply, runs=args.runs
             )
-            _print_free_space(entry)
+            _print_free_space(entry, list_paths=args.list_paths)
             return 0
         if args.subcommand == "delete-sims":
             # "4001,2009" or the bracketed "[4001,2009]" both read as two ids.
@@ -1157,7 +1164,57 @@ def _cmd_storage(args: argparse.Namespace) -> int:
         return 2
 
 
-def _print_free_space(entry: dict[str, Any]) -> None:
+def _print_free_space_paths(step: dict[str, Any], applied: bool) -> None:
+    """Print every path one free-space step touches, read from the step's own entry.
+
+    ``pyfs-matrix free-space --list`` (FR-305): nothing is recomputed here;
+    the paths, sizes and reasons are the ones ``storage.free_space`` returned
+    and recorded in ``storage_management.json``.
+    """
+    from pyflightstream.workspace.storage import human_bytes
+
+    done = "deleted" if applied else "would delete"
+    if step["mode"] == "prune_step_exports":
+        for point in step["points"]:
+            for item in point["files"]:
+                print(
+                    f"      {item['path']}  {human_bytes(item['bytes'])}  {done} "
+                    f"(step {item['step']})"
+                )
+            for relative in point["protected"]:
+                print(f"      {relative}  kept (a record names it as an output)")
+            for item in point["kept"]:
+                print(f"      {item['path']}  kept (last step {item['step']})")
+    elif step["mode"] == "compact_sims":
+        for item in step["sims"]:
+            if applied:
+                print(
+                    f"    sims/sim_{item['sim_id']}  {human_bytes(item['bytes_before'])}  "
+                    f"compacted into {item['archive']} ({human_bytes(item['bytes_after'])})"
+                )
+            else:
+                print(
+                    f"    sims/sim_{item['sim_id']}  {human_bytes(item['bytes'])}  "
+                    "would be compacted"
+                )
+    elif step["mode"] == "delete_extensions":
+        for item in step["files"]:
+            print(f"    {item['path']}  {human_bytes(item['bytes'])}  {done}")
+        for relative in step["kept"]:
+            print(f"    {relative}  kept (a later post needs it)")
+    else:
+        if step["action"] == "compact":
+            verb = "compacted" if applied else "would be compacted"
+        else:
+            verb = done
+        for item in step["archives"]:
+            line = f"    {item['path']}  {human_bytes(item['bytes'])}  {verb}"
+            if "archive" in item:
+                line += f" into {item['archive']}"
+            print(line)
+
+
+def _print_free_space(entry: dict[str, Any], *, list_paths: bool = False) -> None:
     from pyflightstream.workspace.storage import human_bytes
 
     mode = "APPLIED" if entry["applied"] else "preview"
@@ -1193,6 +1250,8 @@ def _print_free_space(entry: dict[str, Any]) -> None:
                 f"  post_archives ({step['action']}): {len(step['archives'])} folder(s), "
                 f"{human_bytes(size)}"
             )
+        if list_paths:
+            _print_free_space_paths(step, entry["applied"])
     if entry["applied"]:
         print(f"  freed {human_bytes(entry['bytes_freed'])}")
     else:

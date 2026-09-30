@@ -244,6 +244,10 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # this invocation, like `progress_every`; a machine-wide default would
     # not know whether the reader wants a terminal-width table or a log.
     ("pyfs-matrix", "top"): SWITCH,
+    # 0.33.0, `free-space --list`: how much of the recipe's detail this call
+    # prints (every path of each step), presentation of THIS invocation like
+    # `top`; the detail is always in the entry and in storage_management.json.
+    ("pyfs-matrix", "list_paths"): SWITCH,
     # `sync`'s positional: which level to bring over (runs/post/fsm/all) is
     # what the command works on, a SUBJECT, not a knob a workspace defaults.
     ("pyfs-matrix", "level"): SUBJECT,
@@ -438,6 +442,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
         {"delete-sims", "free-space", "rebuild", "restore", "sync"}
     ),
     ("pyfs-matrix", "top"): frozenset({"space-in-use"}),
+    ("pyfs-matrix", "list_paths"): frozenset({"free-space"}),
     ("pyfs-matrix", "level"): frozenset({"sync"}),
     ("pyfs-matrix", "source"): frozenset({"sync"}),
     ("pyfs-matrix", "prefer_other"): frozenset({"sync"}),

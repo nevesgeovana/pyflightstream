@@ -49,6 +49,22 @@ The owner's flag form works here too:
 pyfs-matrix --workspace . --free-space m001
 ```
 
+Add `--list` to see the detail:
+
+```bash
+pyfs-matrix free-space m001 --workspace . --list
+```
+
+Without it the preview of `post_archives` (and of the other tables) shows only
+counts and sizes. With it, after the summary of each step, every path the step
+would touch (or touched, with `--apply`) is printed relative to the workspace,
+with its size and what happens to it: each `post_archives` folder (deleted, or
+compacted into its zip), each `delete_extensions` file deleted and each one
+kept, with why, each per-step export `prune_step_exports` deletes and the last
+step it keeps, and each `compact_sims` simulation with its folder size. The
+lines are read from the entry the call records in `storage_management.json`;
+`--list` changes nothing on disk.
+
 ### delete-sims
 
 ```bash

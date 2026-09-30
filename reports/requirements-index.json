@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 250,
-  "total": 309,
+  "cited_by_a_test": 251,
+  "total": 310,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -2221,6 +2221,14 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: P0320-QS-NOISE, section 2.6 part 5 of the 0.32.0 scope, EXPLORATORY (no threshold, no gate). Evidence: tests/tier1_offline/test_p0320_f_qsteady_noise.py::test_the_comparison_measures_fr_304, ::test_the_workspace_writer_is_not_wired_and_still_refuses_fr_304, ::test_rpt099_and_its_sidecar_state_only_nondimensional_values_fr_304; report reports/RPT-099_qsteady-noise-route-a-against-round-3_2026-09-30.md.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-305",
+   "text": "Need: Before a recipe is applied, the person running it wants to see which folders and files it would delete or compact, not only how many and how large; the preview of the archived post folders showed counts and bytes alone.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the 0.33.0 development cycle, the free-space preview of pyfs-matrix. Evidence: tests/tier1_offline/test_free_space_list.py::test_list_shows_every_path_of_the_four_tables_in_a_preview_fr_305, ::test_list_after_apply_says_what_was_done_fr_305, ::test_the_output_without_list_is_the_old_output_byte_for_byte_fr_305, ::test_dropping_one_list_branch_turns_the_check_red_fr_305.*",
    "verification": "test"
   },
   {

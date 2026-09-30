@@ -7620,3 +7620,13 @@ Requirements written after the specification was last reconciled with the packag
     Requirement: `compare_signals` returns, of the fluctuations about each record's mean, the rms ratio, its level difference in dB, the Pearson correlation and the rms of the difference over the reference's rms, plus the ratio of the means; records of unequal length, of fewer than two samples, or constant are refused. The workspace writer `write_qsteady_noise_report` stays a refusing contract in 0.32.0, and report RPT-099 states only nondimensional values.
 
     Solution (release 0.32.0): `compare_signals`, `SignalComparison`; RPT-099 and its JSON sidecar.
+
+!!! requirement "FR-305 The free-space command lists the paths it touches <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the 0.33.0 development cycle, the free-space preview of `pyfs-matrix`. Evidence: `tests/tier1_offline/test_free_space_list.py::test_list_shows_every_path_of_the_four_tables_in_a_preview_fr_305`, `::test_list_after_apply_says_what_was_done_fr_305`, `::test_the_output_without_list_is_the_old_output_byte_for_byte_fr_305`, `::test_dropping_one_list_branch_turns_the_check_red_fr_305`.*
+
+    Need: Before a recipe is applied, the person running it wants to see which folders and files it would delete or compact, not only how many and how large; the preview of the archived post folders showed counts and bytes alone.
+
+    Requirement: `pyfs-matrix free-space --list` prints, after the summary of each recipe step, every path the step would touch (preview) or touched (`--apply`), relative to the workspace, with its size and what happens to it: each post archive folder deleted or compacted (and the zip written), each file `delete_extensions` deletes and each it keeps with the reason, each per-step export `prune_step_exports` deletes or keeps, and each simulation `compact_sims` compacts with its folder size. The lines are read from the entry `free_space` returns, nothing is recomputed, and a preview changes nothing on disk. Without `--list` the output is unchanged.
+
+    Solution (release 0.33.0): the `--list` option of `pyfs-matrix free-space` and `pyflightstream.run.cli._print_free_space_paths`.
