@@ -201,6 +201,7 @@ jobs:
         run: pip install -e .[dev,fsi,geom,excel]
       - name: Docs build
         run: properdocs build --strict
+      - run: python scripts/arch_metrics.py check  # AD-08 guards G1-G6, G8 read beside the docs
       - name: Docs hook effect check
         # The scripts/docs_hooks.py exclusion must keep the literate-nav
         # input out of the rendered site; strict mode alone would not
