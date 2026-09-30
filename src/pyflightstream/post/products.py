@@ -157,6 +157,7 @@ from pyflightstream.post._tables import (
     ProductExistsError,
     context_row,
     renamed_columns,
+    rotor_advance_ratio,
     section_identity,
     write_csv_table,
 )
@@ -663,18 +664,11 @@ def point_condition(
         diameter = clock.get("diameter_m")
         if isinstance(rpm, int | float) and not isinstance(rpm, bool):
             condition["RPM_CLOCK"] = float(rpm)
-        speed = condition.get("VINF")
-        if (
-            isinstance(rpm, int | float)
-            and isinstance(diameter, int | float)
-            and isinstance(speed, int | float)
-            and not isinstance(speed, bool)
-            and abs(float(rpm)) > 0.0
-            and float(diameter) > 0.0
-        ):
+        ran = rotor_advance_ratio(condition.get("VINF"), rpm, diameter)
+        if ran is not None:
             # J = V / (n D), with n in rev/s and the MAGNITUDE of the speed: the
             # hand of the rotation is the rotor's and `RPM_CLOCK` carries it.
-            condition["J_CLOCK"] = float(speed) / (abs(float(rpm)) / 60.0 * float(diameter))
+            condition["J_CLOCK"] = ran
     return condition
 
 

@@ -53,6 +53,8 @@ from pyflightstream.results import (
 )
 from pyflightstream.results.native_surface import (
     attach_native_strength_by_copy,
+    native_match_tolerance,
+    native_printed_digits,
     read_native_tecplot_zones,
 )
 from pyflightstream.workspace import RunRecord
@@ -188,7 +190,17 @@ def average_surface_exports(
                 raise ProductError(f"step {step} native/VTK exports are from different run folders")
             try:
                 zones = read_native_tecplot_zones(native_path, zones=periodic_copies or 1)
-                surface, matching = attach_native_strength_by_copy(surface, zones)
+                # P0320-AVG-0291: the one tolerance function, told how many
+                # digits this native was printed at, so a native far from the
+                # origin is matched with the slack its printing costs.
+                surface, matching = attach_native_strength_by_copy(
+                    surface,
+                    zones,
+                    coordinate_tolerance=native_match_tolerance(
+                        np.vstack([zone.points for zone in zones]),
+                        printed_digits=native_printed_digits(native_path),
+                    ),
+                )
             except (OSError, MalformedOutputError, IncompleteOutputError) as error:
                 raise ProductError(
                     f"step {step} native nodal source is invalid: {error}"

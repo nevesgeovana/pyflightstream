@@ -79,7 +79,7 @@ from pyflightstream.cases.qsteady import (
     strip_lengths,
     validity_file_name,
 )
-from pyflightstream.post._tables import _cell, context_row, write_csv_table
+from pyflightstream.post._tables import _cell, context_row, rotor_advance_ratio, write_csv_table
 from pyflightstream.post.axes import (
     clocked_blade_azimuth_deg,
     free_stream_on_rotor_axis,
@@ -1037,6 +1037,37 @@ class WheelPoint:
     state: RotorState | None = None
 
 
+def _condition_with_own_j(
+    condition: Mapping[str, object], record: QsteadyRecord
+) -> dict[str, object]:
+    """Return the point's condition with the rotor's own advance ratio stated (P0320-QS-J).
+
+    A quasi-steady point turns its rotor at the speed of its record, and the
+    rotor's block gives its diameter (P0310-J-OWN-DIAMETER), so with the free
+    stream of the point the ratio it ran at is known: ``J_CLOCK``, and
+    ``RPM_CLOCK``, exactly as the rotor table states them
+    (:func:`pyflightstream.post._tables.rotor_advance_ratio`, the one home).
+    ``J``, which the row REQUESTS, is the same number where the row requested
+    none, so a point with a speed and a free stream never reads NA. What the
+    row requested is kept as written, and nothing is invented where the free
+    stream or the diameter is not stated.
+    """
+    merged = dict(condition)
+    ran = rotor_advance_ratio(
+        context_row(condition, columns=("VINF",))[0], record.rpm, record.diameter_m
+    )
+    if ran is None:
+        return merged
+    stated = context_row(condition, columns=("J", "J_CLOCK", "RPM_CLOCK"))
+    if stated[2] is None:
+        merged["RPM_CLOCK"] = float(record.rpm)
+    if stated[1] is None:
+        merged["J_CLOCK"] = ran
+    if stated[0] is None:
+        merged["J"] = ran
+    return merged
+
+
 def write_qsteady_tables(
     positions_path: Path,
     average_path: Path,
@@ -1057,7 +1088,7 @@ def write_qsteady_tables(
     position_rows = []
     average_rows = []
     for point in usable:
-        context = context_row(point.condition, lengths)
+        context = context_row(_condition_with_own_j(point.condition, point.record), lengths)
         alias = point.record.rotor_alias
         count = len(point.clockings)
         for clocking in point.clockings:

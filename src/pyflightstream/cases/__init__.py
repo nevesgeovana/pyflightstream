@@ -122,6 +122,7 @@ __all__ = [
     "ROTATION_SWEEP_KEY",
     "Campaign",
     "CampaignConfigError",
+    "DEFAULT_DRIFT_LIMIT_PCT",
     "DerivedFrom",
     "FluidState",
     "EVERY_SURFACE",

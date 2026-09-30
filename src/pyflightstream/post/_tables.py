@@ -131,6 +131,28 @@ def context_row(
     return tuple(folded.get(name.casefold()) for name in columns)
 
 
+def rotor_advance_ratio(speed_m_s: object, rpm: object, diameter_m: object) -> float | None:
+    """Return ``J = V / (n D)`` of a rotor at its own speed and diameter, or None.
+
+    THE ONE HOME of the ratio a rotor RAN at (P0320-QS-J): ``J_CLOCK`` of every
+    table and the ``J`` of a quasi-steady point's tables read it here. ``n`` is
+    in rev/s and its MAGNITUDE, because the hand of the rotation is the rotor's
+    and ``RPM_CLOCK`` carries it. None, and not a guess, where the speed, the
+    free stream or the diameter is missing, not a number or not positive.
+    """
+    values = []
+    for value in (speed_m_s, rpm, diameter_m):
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            return None
+        values.append(float(value))
+    speed, rate, diameter = values
+    if not all(math.isfinite(value) for value in values):
+        return None
+    if abs(rate) <= 0.0 or diameter <= 0.0:
+        return None
+    return speed / (abs(rate) / 60.0 * diameter)
+
+
 #: What tells one sections ROW from another, in front of the condition every
 #: row of the file shares. v0.23.0 item 13, found by reading a real production
 #: file: `POINT` carried the polar's NAME, which the file name already
