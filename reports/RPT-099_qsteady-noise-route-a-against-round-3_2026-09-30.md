@@ -183,16 +183,16 @@ it cannot be done:
 
 - the solver mode cannot be changed after the solver is initialised; it must
   first be uninitialised (SRC-751 p.197);
-- uninitialising "clears all solver memory allocations and boundary
-  assignments" (SRC-751 p.199), and on 26.124 a repeated `INITIALIZE_SOLVER`
+- uninitialising releases the solver's memory allocations and the boundary
+  assignments (SRC-751 p.199, paraphrased), and on 26.124 a repeated `INITIALIZE_SOLVER`
   logs that the solution was cleared (RPT-069, T07, in the notes of
   `AUTO_DETECT_WAKE_TERMINATION_NODES` in `commands/boundary_conditions.yaml`);
 - `SET_SOLVER_STEADY` and `SET_SOLVER_UNSTEADY` are both of the init phase in
   the command database, so the package's ordering check refuses them after
   `INITIALIZE_SOLVER`.
 
-A solve starts "on top of the existing solution" only within one mode
-(SRC-751 p.198), and a repeated unsteady run continues the previous block
+A solve continues from the existing solution only within one mode
+(SRC-751 p.198, paraphrased), and a repeated unsteady run continues the previous block
 (SRC-751 p.210): an unsteady run can be extended, but a steady solution cannot
 seed it. No scripts were written under `probes/round4/`. The run that would
 complete route A is instead a `qsteady_rotor` wheel of the same blade at the
