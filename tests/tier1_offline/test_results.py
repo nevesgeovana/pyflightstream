@@ -988,7 +988,7 @@ _AD06_RESIDUALS = {
 }
 
 #: MODULES THAT ARE NOT REACHABLE FROM THEIR OWN PACKAGE ROOT, which the
-#: reachability arm below otherwise refuses outright. One entry, and it is
+#: reachability arm below otherwise refuses outright. The first entry is
 #: the arm working rather than failing: `post/settings_table.py` is a public
 #: module with its own tests, and `post/__init__.py` names it in prose only,
 #: so `import pyflightstream.post` does not bring it in. Fixing it is one
@@ -998,6 +998,21 @@ _UNREACHABLE_FROM_ITS_PACKAGE_ROOT = {
     "pyflightstream.post.settings_table": (
         "post/__init__.py mentions it in its docstring and imports nothing from "
         "it; the re-export is owed and this entry goes stale the moment it lands"
+    ),
+    # 0.32.0: two library modules that no module of the package imports, by
+    # the architecture record (docs/srs/architecture-srs.md, the post row and
+    # "The inflow tools"), which test_p0320_arch_review.py pins as having no
+    # caller. Re-exporting them from post/__init__.py would contradict that
+    # record, so each is listed until a command or a stage calls it.
+    "pyflightstream.post.inflow_tools": (
+        "library functions no command calls in 0.32.0, reached from Python only "
+        "(P0320-ARCH-INFLOW); the entry closes when a command wires the installed "
+        "frame or the blade-view harmonics"
+    ),
+    "pyflightstream.post.qsteady_noise": (
+        "the exploratory noise model, not wired into the post stage and its report "
+        "writer left unfilled (P0320-QS-NOISE, FR-304); the entry closes when the "
+        "report writer is filled and a stage calls it"
     ),
 }
 
