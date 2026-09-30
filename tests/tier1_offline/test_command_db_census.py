@@ -163,10 +163,11 @@ VERIFIED = {
     # CMP-26124_2026-09-24_wake-edge-import (the qa wing's sixteen edges): 87.
     # +2 the same day: SET_PLOT_TYPE and SAVE_PLOT_TO_FILE, verified from the
     # compat-format transcription of RPT-067's run (CMP-26124_2026-09-24_plots): 89.
-    # +6 on 2026-09-30 (0.32.0, E2): the acoustic toolbox, verified from the
-    # transcription of the round-1 probes A0 and A1 (CMP-26124_2026-09-30_acoustics),
-    # COMPUTE_ACOUSTIC_SIGNALS left unprobed as its effect was not isolated: 95.
-    "26.124": 95,
+    # The 0.32.0 acoustic toolbox is NOT counted: the six rows were promoted
+    # from the release harness's transcription (CMP-26124_2026-09-30_acoustics)
+    # and reverted to documented, because promotion goes only through a
+    # qa.specs entry and a pyfs-qa probe run (RPT-096, RPT-098): 89.
+    "26.124": 89,
 }
 
 #: 388 at v0.5.0, then +16 on 2026-08-10 for the commands only the

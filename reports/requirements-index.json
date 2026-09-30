@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 152,
+  "cited_by_a_test": 153,
   "total": 309,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -1940,7 +1940,7 @@
    "text": "Need: A user who wants the noise of an unsteady run has the solver record its acoustic sources during the march, which it does only when switched on before it initialises.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: P0320-NOISE-SOURCES, section 2.6 part 1 of the 0.32.0 scope. Evidence: the licensed round-1 probes A0 and A1 on build 26.124 (reports/compat/CMP-26124_2026-09-30_acoustics.yaml, ACOUSTIC_SOURCES verified); tests/tier1_offline/test_p0320_e2_noise_emission.py::test_p0320_noise_sources_row_key_switches_acoustic_sources_before_initialization, ::test_p0320_noise_sources_reach_a_motions_row, ::test_p0320_noise_sources_are_registered_on_the_unsteady_run_types_only, ::test_p0320_noise_sources_value_outside_the_command_is_refused.*",
+   "evidence": "*Origin: P0320-NOISE-SOURCES, section 2.6 part 1 of the 0.32.0 scope. Evidence: the licensed round-1 probes A0 and A1 on build 26.124 (reports/compat/CMP-26124_2026-09-30_acoustics.yaml, ACOUSTIC_SOURCES accepted and its effect read, the command staying documented); tests/tier1_offline/test_p0320_e2_noise_emission.py::test_p0320_noise_sources_row_key_switches_acoustic_sources_before_initialization, ::test_p0320_noise_sources_reach_a_motions_row, ::test_p0320_noise_sources_are_registered_on_the_unsteady_run_types_only, ::test_p0320_noise_sources_value_outside_the_command_is_refused.*",
    "verification": "test"
   },
   {
@@ -1948,7 +1948,7 @@
    "text": "Need: The signal is computed at observers, which a study places as points, as a list prepared in a file, or as a grid for a directivity pattern, each over a time window of its own.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: P0320-NOISE-OBSERVERS, section 2.6 part 2 of the 0.32.0 scope. Evidence: round-1 probe A1 on build 26.124 (CREATE_NEW_ACOUSTIC_OBSERVER, ACOUSTIC_OBSERVERS_IMPORT, SET_ACOUSTIC_OBSERVER_TIME and CREATE_ACOUSTIC_SECTION verified in reports/compat/CMP-26124_2026-09-30_acoustics.yaml); tests/tier1_offline/test_p0320_e2_noise_emission.py::test_p0320_noise_observers_as_points_with_the_observer_time, ::test_p0320_noise_observers_imported_from_the_point_s_copy_of_a_file, ::test_p0320_noise_observers_as_an_acoustic_section_after_the_signals, ::test_p0320_noise_observers_a_malformed_declaration_is_refused_naming_the_key, ::test_p0320_noise_observers_without_sources_are_refused, ::test_p0320_noise_observers_file_resolves_at_bind_and_refuses_a_malformed_file, ::test_p0320_noise_observers_a_file_on_a_simulation_not_in_metres_is_refused, ::test_p0320_noise_observers_a_section_is_placed_in_the_frame_it_names.*",
+   "evidence": "*Origin: P0320-NOISE-OBSERVERS, section 2.6 part 2 of the 0.32.0 scope. Evidence: round-1 probe A1 on build 26.124 (CREATE_NEW_ACOUSTIC_OBSERVER, ACOUSTIC_OBSERVERS_IMPORT, SET_ACOUSTIC_OBSERVER_TIME and CREATE_ACOUSTIC_SECTION accepted and their effect read, transcribed in reports/compat/CMP-26124_2026-09-30_acoustics.yaml; they stay documented); tests/tier1_offline/test_p0320_e2_noise_emission.py::test_p0320_noise_observers_as_points_with_the_observer_time, ::test_p0320_noise_observers_imported_from_the_point_s_copy_of_a_file, ::test_p0320_noise_observers_as_an_acoustic_section_after_the_signals, ::test_p0320_noise_observers_a_malformed_declaration_is_refused_naming_the_key, ::test_p0320_noise_observers_without_sources_are_refused, ::test_p0320_noise_observers_file_resolves_at_bind_and_refuses_a_malformed_file, ::test_p0320_noise_observers_a_file_on_a_simulation_not_in_metres_is_refused, ::test_p0320_noise_observers_a_section_is_placed_in_the_frame_it_names.*",
    "verification": "test"
   },
   {
@@ -1956,7 +1956,7 @@
    "text": "Need: The signals exist only once the solver computes them from the recorded sources, and a user holds them only once they are exported to a file.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: P0320-NOISE-COMPUTE-EXPORT, section 2.6 part 3 of the 0.32.0 scope. Evidence: round-1 probe A1 on build 26.124 (EXPORT_ACOUSTIC_SIGNALS verified, COMPUTE_ACOUSTIC_SIGNALS accepted with its effect not isolated, reports/compat/CMP-26124_2026-09-30_acoustics.yaml); tests/tier1_offline/test_p0320_e2_noise_emission.py::test_p0320_noise_compute_export_at_the_end_of_the_run, ::test_p0320_noise_compute_export_sources_alone_compute_nothing, ::test_p0320_noise_compute_export_needs_its_declared_output.*",
+   "evidence": "*Origin: P0320-NOISE-COMPUTE-EXPORT, section 2.6 part 3 of the 0.32.0 scope. Evidence: round-1 probe A1 on build 26.124 (EXPORT_ACOUSTIC_SIGNALS accepted and its file read, COMPUTE_ACOUSTIC_SIGNALS accepted with its effect not isolated, both staying documented, reports/compat/CMP-26124_2026-09-30_acoustics.yaml); tests/tier1_offline/test_p0320_e2_noise_emission.py::test_p0320_noise_compute_export_at_the_end_of_the_run, ::test_p0320_noise_compute_export_sources_alone_compute_nothing, ::test_p0320_noise_compute_export_needs_its_declared_output.*",
    "verification": "test"
   },
   {

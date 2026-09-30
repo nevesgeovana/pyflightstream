@@ -115,8 +115,11 @@ None of these files is ever read as a surface export or a loads table.
 The whole chain ran on FlightStream 26.124 (build 8172026) in a licensed
 probe: sources, a named observer, an imported file, the time window, the
 export and the section, with the sources switched on against a control with
-them off (`reports/compat/CMP-26124_2026-09-30_acoustics.yaml`). Six of the
-seven commands are `verified` there; `COMPUTE_ACOUSTIC_SIGNALS` was accepted
-and its own effect was not isolated. Not measured: whether the solver creates
+them off (`reports/compat/CMP-26124_2026-09-30_acoustics.yaml`, a
+transcription of the release harness's probes that promotes nothing). The seven
+commands stay `documented` on 26.124: `verified` goes only through a
+`qa.specs` entry and a `pyfs-qa probe` run. Six showed their effect in the
+exported signals; `COMPUTE_ACOUSTIC_SIGNALS` was accepted and its own effect
+was not isolated. Not measured: whether the solver creates
 a section folder that does not exist (the run creates it), and the length
 unit of the exported coordinates on a simulation not in metres.

@@ -20,15 +20,19 @@ source: >
   f160e0e3aa4462f28375cf7e0992a26f7654d6bf2dbdc9464e79ccba6a5e22dd, A0 sha256
   0ccdab020c55733a0e8469cd8fec5364e1ed6f8ac38a8fe32c2f9879a04ac29e. The mesh and the
   exported files are local scratch and not committed; no solver was invoked while writing
-  this transcription.
+  this transcription. THIS RECORD PROMOTES NOTHING: every outcome is unprobed because
+  the evidence is the release harness and not pyfs-qa probe, so the seven commands stay
+  documented on 26.124 in the command database (RPT-096, RPT-098); the details below are the
+  measurements, kept as a transcription. Promotion goes only through a qa.specs entry and
+  a pyfs-qa probe run.
 summary:
-  verified: 6
+  verified: 0
   broken: 0
   removed: 0
-  unprobed: 1
+  unprobed: 7
 commands:
   ACOUSTIC_SOURCES:
-    outcome: verified
+    outcome: unprobed
     detail: >-
       Measured 2026-09-30 on FlightStream 26.124 (round-1 probes A1 against A0, which differ
       in this token only): with ENABLE before INITIALIZE_SOLVER the exported signals carry
@@ -46,7 +50,7 @@ commands:
         timed_out: false
         script_sha256: ab459c75ee8cb7ad5eb4fe3e07ad4e5df75fc76f2824d07d7de145a01f0294bb
   CREATE_NEW_ACOUSTIC_OBSERVER:
-    outcome: verified
+    outcome: unprobed
     detail: >-
       Measured 2026-09-30 on FlightStream 26.124 (round-1 probe A1): the observer created
       as PYFS_OBS1 at 0.0 10.0 0.0 is the export's first block, 'Observer: PYFS_OBS1' and
@@ -58,7 +62,7 @@ commands:
       log_errors: []
     return_code: 0
   ACOUSTIC_OBSERVERS_IMPORT:
-    outcome: verified
+    outcome: unprobed
     detail: >-
       Measured 2026-09-30 on FlightStream 26.124 (round-1 probe A1): a file of a count line
       '2' and the lines '0.0,-10.0,0.0' and '5.0,0.0,10.0', its path on the next line, adds
@@ -71,7 +75,7 @@ commands:
       log_errors: []
     return_code: 0
   SET_ACOUSTIC_OBSERVER_TIME:
-    outcome: verified
+    outcome: unprobed
     detail: >-
       Measured 2026-09-30 on FlightStream 26.124 (round-1 probe A1): with 0.05 0.2 16 every
       observer's block holds 16 rows whose time column runs from 0.05 to 0.190625 s in steps
@@ -96,7 +100,7 @@ commands:
       log_errors: []
     return_code: 0
   EXPORT_ACOUSTIC_SIGNALS:
-    outcome: verified
+    outcome: unprobed
     detail: >-
       Measured 2026-09-30 on FlightStream 26.124 (round-1 probe A1): writes the path on the
       next line, 5254 bytes, one block per observer ('Observer: <name>', 'Position: x,y,z',
@@ -109,7 +113,7 @@ commands:
       log_errors: []
     return_code: 0
   CREATE_ACOUSTIC_SECTION:
-    outcome: verified
+    outcome: unprobed
     detail: >-
       Measured 2026-09-30 on FlightStream 26.124 (round-1 probe A1): FRAME 1, PLANE YZ,
       OFFSET 0.0, RADIAL_OBSERVERS 2, AZIMUTH_OBSERVERS 4, INNER_RADIUS 5.0, OUTER_RADIUS
