@@ -20,7 +20,9 @@ simulations a record names. The preview prints:
 sync is applied, that no record of the merged manifest carries: typically
 folders copied by hand from a cluster. A folder whose simulation was
 deleted with `pyfs-matrix delete-sims` is accounted for by its note and is
-not listed.
+not listed, and neither is a simulation of the other workspace that the
+level does not bring (a compacted one below `all`, or a folder holding
+nothing the level copies): it is counted in the other workspace only.
 
 ## Restoring their records, only when asked
 
