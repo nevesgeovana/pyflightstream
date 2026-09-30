@@ -1694,18 +1694,29 @@ def sync_summary_lines(entry: Mapping[str, Any]) -> list[str]:
 #: registers its stages in :mod:`pyflightstream.workspace`, and the package
 #: root loads them. No import of this module points up at the run.
 _Rebuild = Callable[[Path, list[str]], dict[str, Any]]
-_RECORDS_REBUILD: list[_Rebuild] = []
+_REBUILDS: list[_Rebuild] = []
 
 
 def register_records_rebuild(rebuild: _Rebuild) -> _Rebuild:
-    """Register the rebuild a restoring sync calls with ``(root, sims)``; return it.
+    """Register the rebuild a restoring sync calls with ``(root, sims)``; return the held one.
 
     The rebuild returns the entry's ``restore`` block (``asked``, ``sims``,
     ``result``, ``error``) and never raises for a refusal, which it writes in
     ``error``: the files the sync copied stand.
+
+    The registry holds exactly one rebuild. The first registered is held; a
+    rebuild of the same module replaces it (a reload of
+    :mod:`pyflightstream.run.records`), and a rebuild of another module is
+    not taken: a copy of the records executed under another name, as a
+    mutation test does, never displaces the package's own. The return is the
+    rebuild the registry holds afterwards, so a registrant that was not taken
+    sees it. A module that loads this file by path, apart from the package,
+    holds an empty registry of its own until it registers: its restoring sync
+    then names that in the ``error`` of its restore block.
     """
-    _RECORDS_REBUILD[:] = [rebuild]
-    return rebuild
+    # Held rebuilds of another module stay; none held, or one of this module: take it.
+    _REBUILDS[:] = [h for h in _REBUILDS if h.__module__ != rebuild.__module__] or [rebuild]
+    return _REBUILDS[0]
 
 
 def _restore_orphans(root: Path, sims: list[str]) -> dict[str, Any]:
@@ -1718,8 +1729,8 @@ def _restore_orphans(root: Path, sims: list[str]) -> dict[str, Any]:
     sync's: the files it copied stand. The rebuilt records themselves are in
     ``runs.json`` and are not repeated in the storage record.
     """
-    if _RECORDS_REBUILD:
-        return _RECORDS_REBUILD[0](root, sims)
+    if _REBUILDS:
+        return _REBUILDS[0](root, sims)
     error = "no records rebuild is registered: import pyflightstream, which registers it"
     return {"asked": True, "sims": sims, "result": None, "error": error}
 

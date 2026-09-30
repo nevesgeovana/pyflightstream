@@ -111,20 +111,28 @@ def test_the_manifest_name_rule_has_one_home_in_the_workspace():
     assert records.DEFAULT_MANIFEST == naming.DEFAULT_MANIFEST == "runs.json"
 
 
-def test_importing_the_storage_layer_registers_the_records_rebuild():
+def test_importing_the_storage_layer_registers_the_records_rebuild(tmp_path):
     # P0330-WP1 (AD-09, FR-221): the storage layer imports nothing of the
     # run, and the package root loads the run records, which register the
     # rebuild a restoring sync calls; a library caller that imports only
-    # workspace.storage still gets it.
+    # workspace.storage, in a fresh interpreter, still gets it. Read by what
+    # the restore answers: the real rebuild's refusal of a workspace with no
+    # matrix, never the "nothing is registered" error.
+    root = tmp_path / "ws"
+    (root / "sims" / "sim_1").mkdir(parents=True)
     probe = (
         "import sys\n"
+        "from pathlib import Path\n"
         "import pyflightstream.workspace.storage as storage\n"
         "print('pyflightstream.run.records' in sys.modules)\n"
         "print(storage.register_records_rebuild.__module__)\n"
+        "outcome = storage._restore_orphans(Path(sys.argv[1]), ['1'])\n"
+        "print(outcome['error'].startswith('no records rebuild is registered'))\n"
+        "print(outcome['asked'], outcome['sims'] == ['1'], outcome['result'] is None)\n"
     )
     env = {**os.environ, "PYTHONPATH": str(_SRC.parent)}
     done = subprocess.run(
-        [sys.executable, "-c", probe],
+        [sys.executable, "-c", probe, str(root)],
         capture_output=True,
         text=True,
         check=False,
@@ -132,7 +140,77 @@ def test_importing_the_storage_layer_registers_the_records_rebuild():
         env=env,
     )
     assert done.returncode == 0, done.stderr
-    assert done.stdout.split() == ["True", "pyflightstream.workspace.storage"]
+    assert done.stdout.split() == [
+        "True",
+        "pyflightstream.workspace.storage",
+        "False",
+        "True",
+        "True",
+        "True",
+    ]
+
+
+def _storage_loaded_by_path():
+    """A copy of ``workspace/storage.py`` loaded by its path, apart from the package.
+
+    Its registry is its own and empty, the case of a caller that loads the
+    file by path; the package's registry is untouched.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "p0330_storage_by_path", _SRC / "workspace" / "storage.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    # Its dataclasses look their module up while it executes.
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        del sys.modules[spec.name]
+    return module
+
+
+def test_a_restore_with_nothing_registered_names_it_and_a_registered_one_is_called(tmp_path):
+    # P0330-WP1 (AD-09, FR-221): with nothing registered the restore block
+    # names the missing registration in its error and does not raise; once a
+    # rebuild is registered it is called with (root, sims) and its block is
+    # the answer; the registry holds exactly one: a rebuild of the same module
+    # replaces it (a reload), one of another module is not taken.
+    storage = _storage_loaded_by_path()
+    root = tmp_path / "ws"
+    empty = storage._restore_orphans(root, ["2002", "3000"])
+    assert empty["asked"] is True
+    assert empty["sims"] == ["2002", "3000"]
+    assert empty["result"] is None
+    assert empty["error"].startswith("no records rebuild is registered")
+
+    calls: list[tuple[Path, list[str]]] = []
+
+    def first(at: Path, sims: list[str]) -> dict:
+        calls.append((at, sims))
+        return {"asked": True, "sims": sims, "result": {"by": "first"}, "error": None}
+
+    def second(at: Path, sims: list[str]) -> dict:
+        calls.append((at, sims))
+        return {"asked": True, "sims": sims, "result": {"by": "second"}, "error": None}
+
+    assert storage.register_records_rebuild(first) is first
+    assert storage._restore_orphans(root, ["2002"])["result"] == {"by": "first"}
+    assert storage.register_records_rebuild(second) is second
+    assert storage._restore_orphans(root, ["3000"])["result"] == {"by": "second"}
+
+    def foreign(at: Path, sims: list[str]) -> dict:
+        calls.append((at, sims))
+        return {"asked": True, "sims": sims, "result": {"by": "foreign"}, "error": None}
+
+    # A copy of the records executed under another module name is not taken,
+    # and the return names the rebuild still held.
+    foreign.__module__ = "records_mutant_copy"
+    assert storage.register_records_rebuild(foreign) is second
+    assert storage._restore_orphans(root, ["2002"])["result"] == {"by": "second"}
+    assert calls == [(root, ["2002"]), (root, ["3000"]), (root, ["2002"])]
 
 
 # ------------------------------------------------------------------ WP2
@@ -153,6 +231,9 @@ def test_the_archive_stamp_pattern_matches_its_spelling():
     # that lives beside the spelling, and the two agree.
     stamp = datetime.datetime(2026, 9, 30, 7, 5, 9).strftime(naming.ARCHIVE_STAMP)
     assert re.fullmatch(naming.ARCHIVE_STAMP_PATTERN, stamp)
+    # Negative controls: a pattern that took anything would pass the line above.
+    for wrong in ("2026-09-30", "20260930_070509", "20260930-0705", "2026093-0070509", ""):
+        assert not re.fullmatch(naming.ARCHIVE_STAMP_PATTERN, wrong), wrong
     assert records.ARCHIVE_STAMP == naming.ARCHIVE_STAMP
     assert records.ARCHIVE_DIR == naming.ARCHIVE_DIR == "archive"
 
@@ -219,9 +300,10 @@ def test_both_post_modules_refuse_a_removed_name_through_one_hook():
 
 
 def test_the_dead_private_helpers_are_gone():
-    # P0330-WP2 (AD-10, GEO-072 4.4): three private helpers no caller reached
-    # (a search of the repository and the estate's tracked scripts found
-    # none) are deleted.
+    # P0330-WP2 (AD-10, GEO-072 4.4): three private helpers are deleted. A
+    # tombstone only: it holds the deletion, not the absence of a caller,
+    # which rests on the git grep of the tracked files named in the WP2
+    # review-fix commit message (no caller of any of the three).
     for relative, definition in (
         ("cases/workflows.py", "def _passages("),
         ("cases/workflows.py", "def _output("),

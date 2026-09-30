@@ -302,7 +302,12 @@ one of them keeps.
     `run.records` registers it with `workspace.storage` when it loads
     (the package root loads it, as it loads the post that registers its
     stages), and the sync calls whatever is registered after it released
-    the `runs.json` lease, the order RST-6 states. The library keeps its
+    the `runs.json` lease, the order RST-6 states. The registry holds
+    exactly one rebuild: the first registered is held, a rebuild of the
+    same module replaces it (a reload of `run.records`), one of another
+    module is not taken, and with nothing registered the restore block of
+    the sync names that in its `error` while the files it copied stand.
+    The library keeps its
     0.32.0 contract (FR-221: `restore=True` rebuilds), which a rebuild
     asked only by the command line would have broken. This chapter's
     table, the user-guide diagram, the layer table of

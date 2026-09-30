@@ -653,6 +653,10 @@ def test_p0320_merge_b1_b2_restore_reaches_the_real_rebuild_and_keeps_its_refusa
     assert outcome["sims"] == ["1"]
     assert outcome["result"] is None
     assert "rebuild" in outcome["error"]
+    # 0.33.0 (AD-09): the rebuild is reached through the registry, whose own
+    # "nothing is registered" error also names a rebuild; the refusal read
+    # here must be the real rebuild's.
+    assert not outcome["error"].startswith("no records rebuild is registered")
 
 
 def test_p0320_merge_b1_b2_rebuild_and_the_two_homes_agree_on_the_path(tmp_path):
