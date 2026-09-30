@@ -407,7 +407,9 @@ def test_a_long_command_writes_its_live_log_while_it_runs(tmp_path, monkeypatch)
     text = _merged(matrix_cli.main, ["free-space", "m001", "--workspace", str(workspace.root)])
     (log,) = [p for p in logs.iterdir() if LIVE_LOG.fullmatch(p.name)]
     assert LIVE_LOG.fullmatch(log.name)["command"] == "free-space"
-    assert "pyfs-matrix free-space" in during["text"], during
+    # A console line, not only the log's own first line: the opening block is
+    # already in it while the command runs.
+    assert "\npyfs-matrix free-space\n  purpose: " in during["text"], during
     assert f"live log: logs/{log.name}" in text, text
     final = log.read_text(encoding="utf-8")
     # Everything the console showed before the signature box, stdout included.
