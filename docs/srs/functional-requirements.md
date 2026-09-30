@@ -7633,7 +7633,7 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-306 The delete-sims command can delete a simulation whatever its status <span class='srs-implemented'>implemented</span>"
 
-    *Origin: the 0.33.0 development cycle, the owner's word on `pyfs-matrix delete-sims` ("o delete-sims recusa sims com submitted, mas elas deram pau, eu quero mais uma flag que permite deletar sim bypassando qualquer status"). Evidence: `tests/tier1_offline/test_delete_sims_force.py::test_refused_without_force_with_the_same_text`, `::test_force_preview_names_the_submitted_sim_and_changes_nothing`, `::test_force_apply_deletes_folder_products_records_and_records_the_call`, `::test_cli_force_flag_reaches_the_library`, `::test_mutant_ignoring_force_turns_the_check_red`.*
+    *Origin: the 0.33.0 development cycle, `pyfs-matrix delete-sims` (item DELETE-SIMS-FORCE of the 0.33.0 scope). Evidence: `tests/tier1_offline/test_delete_sims_force.py::test_refused_without_force_with_the_same_text`, `::test_force_preview_names_the_submitted_sim_and_changes_nothing`, `::test_force_apply_deletes_folder_products_records_and_records_the_call`, `::test_cli_force_flag_reaches_the_library`, `::test_mutant_ignoring_force_turns_the_check_red`.*
 
     Need: A simulation whose run failed can stay SUBMITTED in `runs.json`, and `delete-sims` refuses it; the person wants to delete it anyway, bypassing any status.
 

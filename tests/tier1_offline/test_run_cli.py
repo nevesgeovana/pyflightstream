@@ -646,7 +646,8 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
     # recipe, no version and no executable, because they manage a
     # workspace's files rather than running the solver.
     # `restore` and `rebuild` joined at 0.32.0 as the records commands
-    # (`pyflightstream.run.records`), for the same reason.
+    # (`pyflightstream.run.records`), for the same reason, and `mark-failed`
+    # joined them at 0.33.0 (FR-309).
     assert set(choices) == {
         "collect",
         "convert",
@@ -654,6 +655,7 @@ def test_convert_and_plan_still_take_recipe_references(tmp_path):
         "free-space",
         "inspect-setups",
         "inventory",
+        "mark-failed",
         "plan",
         "post",
         "rebuild",

@@ -38,6 +38,8 @@ CLOSED_SET = {
     "FAILED_DIVERGED",
     "WALLTIME_REACHED",
     "SUBMITTED",
+    # 0.33.0 (FR-309): the person's verdict, minted by mark-failed and never by collect.
+    "FAILED_MARKED",
 }
 
 

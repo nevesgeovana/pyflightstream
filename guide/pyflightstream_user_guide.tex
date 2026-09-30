@@ -1335,6 +1335,7 @@ pyfs-matrix delete-sims  4001,2009 --workspace DIR [--apply]  # sims, products, 
 pyfs-matrix sync         runs --workspace DIR [--apply]  # from sync-workspaces.toml
 pyfs-matrix restore      runs --workspace DIR [--apply]  # a records file, back from archive/
 pyfs-matrix rebuild      --workspace DIR [--apply]    # run records again, from the sims/ folders
+pyfs-matrix mark-failed  --sims 2006 [--apply]        # a run found wrong, FAILED_MARKED
 pyfs-fsi init-dummy      --node-count N [--dir DIR]   # dummy config for a dry run
 pyfs-fsi step            [--dir DIR]                  # one coupling step
 pyfs-manual sweep        --editions MANIFEST [--by-section]  # every registered edition
