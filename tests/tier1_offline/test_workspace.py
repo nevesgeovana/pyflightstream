@@ -151,8 +151,8 @@ def test_the_manifest_record_refuses_an_unknown_field():
         make_record(provenance_note="not a field of this model")
 
 
-def test_the_terminal_status_set_is_exactly_the_eight_it_declares():
-    """FR-46: a ninth status cannot be introduced silently.
+def test_the_terminal_status_set_is_exactly_the_nine_it_declares():
+    """FR-46: a tenth status cannot be introduced silently.
 
     Pinned as a set rather than by using the members, because using them
     is what every other test does and none of it notices an addition.
@@ -167,6 +167,11 @@ def test_the_terminal_status_set_is_exactly_the_eight_it_declares():
     point handed to a scheduler that has not come back, and folding it
     into any existing value would make a sweep report a verdict for a run
     that has not happened.
+
+    The ninth, 0.33.0 (FR-309), IS a failure and says so in its prefix:
+    FAILED_MARKED is the person's verdict on a run that may have converged,
+    given with `pyfs-matrix mark-failed`, so every reader asking
+    `startswith("FAILED")` treats it as a failure without a new branch.
     """
     assert {status.value for status in RunStatus} == {
         "CONVERGED",
@@ -177,6 +182,7 @@ def test_the_terminal_status_set_is_exactly_the_eight_it_declares():
         "FAILED_DIVERGED",
         "WALLTIME_REACHED",
         "SUBMITTED",
+        "FAILED_MARKED",
     }
 
 

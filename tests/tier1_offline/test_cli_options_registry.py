@@ -131,6 +131,9 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # 0.33.0 (FR-308): `inventory --clean` rewrites THIS geometry once; a
     # default would rewrite every geometry a machine ever inventories.
     ("pyfs-matrix", "clean"): SWITCH,
+    # 0.33.0 (FR-309): why THIS call marks these runs failed, recorded in
+    # each record as given; a default would put one sentence on every mark.
+    ("pyfs-matrix", "reason"): RECORD,
     # GOAL-019 item 5, her instruction of 2026-09-12. Both SWITCHES, and
     # both on `post` alone: a rebuild archives what is there, this is the
     # escape that destroys it instead, and `--yes` answers the question it
@@ -424,7 +427,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "resume"): frozenset({"run"}),
     ("pyfs-matrix", "force_rerun"): frozenset({"run"}),
     ("pyfs-matrix", "force_rerun_all"): frozenset({"run"}),
-    ("pyfs-matrix", "sims"): frozenset({"collect", "delete-sims", "post", "rebuild", "run"}),
+    ("pyfs-matrix", "sims"): frozenset(
+        {"collect", "delete-sims", "mark-failed", "post", "rebuild", "run"}
+    ),
     ("pyfs-matrix", "progress_every"): frozenset({"run"}),
     ("pyfs-matrix", "cost"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "inflow_fft"): frozenset({"inspect-setups", "plan"}),
@@ -439,6 +444,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "delete-sims",
             "free-space",
             "inspect-setups",
+            "mark-failed",
             "plan",
             "post",
             "rebuild",
@@ -450,8 +456,9 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
         }
     ),
     ("pyfs-matrix", "apply"): frozenset(
-        {"delete-sims", "free-space", "rebuild", "restore", "sync"}
+        {"delete-sims", "free-space", "mark-failed", "rebuild", "restore", "sync"}
     ),
+    ("pyfs-matrix", "reason"): frozenset({"mark-failed"}),
     ("pyfs-matrix", "top"): frozenset({"space-in-use"}),
     ("pyfs-matrix", "list_paths"): frozenset({"free-space"}),
     ("pyfs-matrix", "force"): frozenset({"delete-sims"}),

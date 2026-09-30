@@ -6131,6 +6131,8 @@ _STATUS_SEVERITY: tuple[RunStatus, ...] = (
     RunStatus.FAILED_EXECUTION,
     RunStatus.FAILED_INCOMPLETE_OUTPUT,
     RunStatus.FAILED_DIVERGED,
+    # FR-309: the person's verdict outranks any outcome the run reached.
+    RunStatus.FAILED_MARKED,
 )
 
 

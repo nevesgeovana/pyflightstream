@@ -1393,14 +1393,14 @@ def _print_sync(entry: dict[str, Any]) -> None:
 
 
 #: The records commands of 0.32.0 (:mod:`pyflightstream.run.records`, package B1).
-_RECORDS_COMMANDS = ("restore", "rebuild")
+_RECORDS_COMMANDS = ("restore", "rebuild", "mark-failed")
 
 #: The commands that take ``--runs NAME``, the manifest they read (0.32.0).
 _RUNS_COMMANDS = ("post", "collect", "free-space", "delete-sims", "sync")
 
 
 def _add_records_parsers(subparsers: Any) -> None:
-    """Register ``restore`` and ``rebuild``, the 0.32.0 records commands."""
+    """Register ``restore`` and ``rebuild`` (0.32.0) and ``mark-failed`` (0.33.0, FR-309)."""
     workspace_help = "the workspace root carrying runs.json (default: the current directory)"
     apply_help = "change files; without it the command previews and changes nothing"
     restore = subparsers.add_parser(
@@ -1453,10 +1453,27 @@ def _add_records_parsers(subparsers: Any) -> None:
         "changed after the run; each record names the inputs taken from it",
     )
     rebuild.add_argument("--apply", action="store_true", help=apply_help)
+    mark = subparsers.add_parser(
+        "mark-failed",
+        help="mark every run record of the named simulations FAILED_MARKED, whatever it "
+        "ended in (preview unless --apply)",
+        description=(
+            "A run can end CONVERGED and be found wrong later. Its records become "
+            "FAILED_MARKED, which the post, the re-run and delete-sims treat as any "
+            "failure, and each keeps the status it had, when and why under 'marked'; "
+            "runs.json is copied to archive/ first (FR-309)."
+        ),
+    )
+    mark.add_argument("--sims", required=True, help="simulation ids, comma separated: 2006,2007")
+    mark.add_argument("--reason", default=None, help="why, recorded as given")
+    mark.add_argument("--workspace", default=".", help=workspace_help)
+    mark.add_argument("--apply", action="store_true", help=apply_help)
 
 
 def _cmd_records(args: argparse.Namespace) -> int:
-    """Run ``restore`` or ``rebuild`` through :mod:`pyflightstream.run.records`."""
+    """Run ``restore``, ``rebuild`` or ``mark-failed`` through :mod:`pyflightstream.run.records`."""
+    if args.subcommand == "mark-failed":
+        return _cmd_mark_failed(args)
     try:
         if args.subcommand == "restore":
             entry = run_records.restore(
@@ -1484,6 +1501,27 @@ def _cmd_records(args: argparse.Namespace) -> int:
         return 2
     for line in run_records.summary_lines(entry):
         print(line)
+    return 0
+
+
+def _cmd_mark_failed(args: argparse.Namespace) -> int:
+    """Mark the named simulations' records FAILED_MARKED (FR-309)."""
+    try:
+        entry = run_records.mark_failed(
+            args.workspace, _listed_sims(args.sims), reason=args.reason, apply=args.apply
+        )
+    except (PyflightstreamError, OSError) as error:
+        print(str(error), file=sys.stderr)
+        return 2
+    verb = "marked" if entry["applied"] else "would mark"
+    for item in entry["marked"]:
+        print(f"{verb} FAILED_MARKED: sim {item['sim_id']} {item['run_id']} (was {item['from']})")
+    for run_id in entry["already"]:
+        print(f"already FAILED_MARKED, left as it is: {run_id}")
+    if entry["applied"]:
+        print(f"runs.json as it was: {entry['runs_archived_as']}")
+    elif entry["marked"]:
+        print("preview: nothing was written; run again with --apply")
     return 0
 
 

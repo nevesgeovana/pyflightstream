@@ -546,6 +546,13 @@ class RunStatus(enum.StrEnum):
     #: not blocked, and calling it any of those makes a sweep report a
     #: verdict for a run that has not happened.
     SUBMITTED = "SUBMITTED"
+    #: FR-309: the person marked the point failed with ``pyfs-matrix
+    #: mark-failed``, whatever it ended in, because a run that completed can
+    #: be found wrong later. A FAILED_ value on purpose: every reader that
+    #: asks ``startswith("FAILED")`` (the post, the cost estimate,
+    #: delete-sims) treats it as a failure without learning a new name. The
+    #: record keeps what it was in ``marked``.
+    FAILED_MARKED = "FAILED_MARKED"
 
 
 class ExecutorRecord(TypedDict):
@@ -1235,7 +1242,7 @@ class RunRecord(BaseModel):
         pydantic 2.11 where this package's floor is pydantic 2.
         """
         data: dict[str, Any] = handler(self)
-        for key in ("inventory", "mesh_import", "rotor_mach", "clocking_verdicts"):
+        for key in ("inventory", "mesh_import", "rotor_mach", "clocking_verdicts", "marked"):
             if data.get(key) is None:
                 data.pop(key, None)
         return data
@@ -1353,6 +1360,10 @@ class RunRecord(BaseModel):
     #: the identity of a row rather than a guess.
     sections_layout: list[dict[str, object]] | None = None
     error: str | None = None
+    #: FR-309: on a record marked FAILED_MARKED, the status it had (``from``),
+    #: when it was marked (``at``) and the reason given (``reason``, or None).
+    #: Written only where recorded, so every other record is unchanged.
+    marked: dict[str, Any] | None = None
     #: The two files of a row stating an export threshold (PFS-2031.18),
     #: relative to the simulation folder, and the count the program
     #: reached; None on every record written before 0.13.0 and on a row

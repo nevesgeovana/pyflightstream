@@ -206,7 +206,10 @@ duplicate-id rejection. Per run it records: run id, case point,
 requested and reported FlightStream version and build, package
 version, script and input hashes, the raw-emission flag, status
 (CONVERGED, COMPLETED_MAX_ITER, FAILED_EXECUTION, FAILED_SCRIPT,
-FAILED_INCOMPLETE_OUTPUT, FAILED_DIVERGED), iterations, residual,
+FAILED_INCOMPLETE_OUTPUT, FAILED_DIVERGED, and, since 0.33.0,
+FAILED_MARKED, a run the person marked failed with `pyfs-matrix
+mark-failed`, whose record keeps under `marked` the status it had, when
+and why), iterations, residual,
 wall time, output paths, error text, and (since the v0.3 line) the
 solver-setup provenance snapshot.
 

@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 254,
-  "total": 313,
+  "cited_by_a_test": 255,
+  "total": 314,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -2253,6 +2253,14 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: the 0.33.0 development cycle, pyfs-matrix inventory. Evidence: tests/tier1_offline/test_fsm_saved_actions.py::test_reader_names_each_saved_action_fr_308, ::test_reader_reads_no_action_and_no_block_fr_308, ::test_reader_refuses_a_count_that_disagrees_fr_308, ::test_every_tier3_geometry_carries_no_saved_action_fr_308, ::test_inventory_warns_and_names_clean_by_default_fr_308, ::test_inventory_is_silent_on_a_clean_geometry_fr_308, ::test_clean_removes_only_the_actions_and_keeps_a_copy_fr_308, ::test_clean_of_a_clean_geometry_writes_nothing_fr_308, ::test_clean_refuses_a_shape_it_cannot_read_fr_308, ::test_mutant_keeping_the_count_turns_the_check_red_fr_308.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-309",
+   "text": "Need: A run can end converged and still be wrong, which the person finds only later, reading its products, and a run whose job died can stay SUBMITTED. The person needs to record that verdict from the command line, so that the post and a delete treat the run as failed, without deleting its history.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: the 0.33.0 development cycle, the run records of pyfs-matrix. Evidence: tests/tier1_offline/test_mark_failed.py::test_preview_names_each_record_and_writes_nothing_fr_309, ::test_apply_marks_keeps_the_history_and_archives_fr_309, ::test_an_unknown_simulation_is_refused_before_any_write_fr_309, ::test_a_record_already_marked_is_left_as_it_is_fr_309, ::test_a_marked_record_is_a_failure_to_every_reader_fr_309, ::test_cli_marks_through_the_library_fr_309, ::test_mutant_leaving_the_status_turns_the_check_red_fr_309; tests/tier1_offline/test_workspace.py::test_the_terminal_status_set_is_exactly_the_nine_it_declares.*",
    "verification": "test"
   },
   {

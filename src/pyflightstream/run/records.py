@@ -232,6 +232,128 @@ def resolve_manifest(root: str | Path, runs: str | None = None) -> Path:
 
 
 # ---------------------------------------------------------------------------
+# mark-failed
+# ---------------------------------------------------------------------------
+
+
+def mark_failed(
+    root: str | Path,
+    sims: Sequence[str],
+    *,
+    reason: str | None = None,
+    apply: bool = False,
+) -> dict[str, Any]:
+    """Mark every record of the named simulations FAILED_MARKED (FR-309).
+
+    A run can end CONVERGED and still be wrong, which the person finds
+    only later, reading its products. The record is not deleted: its
+    status becomes ``FAILED_MARKED``, and ``marked`` keeps the status it
+    had, when it was marked and the reason given, so the post, the cost
+    estimate and delete-sims treat it as any failure and the history stays.
+
+    Parameters
+    ----------
+    root : str or Path
+        The workspace root.
+    sims : sequence of str
+        Simulation ids. An id with no record in ``runs.json`` is refused by
+        name before anything is written.
+    reason : str, optional
+        Why the runs are marked, recorded as it is given.
+    apply : bool
+        Write. Without it nothing changes and the result says what would.
+
+    Returns
+    -------
+    dict
+        ``applied``, ``marked`` (per record: ``sim_id``, ``run_id``,
+        ``from``), ``already`` (the run ids already FAILED_MARKED, left as
+        they are) and, when applied, ``runs_archived_as``.
+
+    Raises
+    ------
+    RunsManifestError
+        No ``runs.json``, no simulation named, or an id with no record.
+    """
+    from pyflightstream.workspace import CampaignWorkspace, RunStatus
+
+    base = Path(root)
+    manifest = base / DEFAULT_MANIFEST
+    ids = list(dict.fromkeys(str(sim).strip() for sim in sims if str(sim).strip()))
+    if not ids:
+        raise RunsManifestError("name the simulations to mark, comma separated: 2006,2007")
+    if not manifest.is_file():
+        raise RunsManifestError(f"{manifest} does not exist, so no run can be marked")
+
+    def plan(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
+        known = {str(row.get("sim_id")) for row in rows if row.get("deleted_sim") is None}
+        unknown = [sim for sim in ids if sim not in known]
+        if unknown:
+            raise RunsManifestError(
+                f"no record in {manifest.name} for simulation(s) {', '.join(unknown)}; "
+                "nothing was marked"
+            )
+        chosen = [
+            row for row in rows if row.get("deleted_sim") is None and str(row.get("sim_id")) in ids
+        ]
+        already = [
+            str(row["run_id"]) for row in chosen if row.get("status") == RunStatus.FAILED_MARKED
+        ]
+        todo = [row for row in chosen if row.get("status") != RunStatus.FAILED_MARKED]
+        return todo, already
+
+    def read() -> list[dict[str, Any]]:
+        rows = json.loads(manifest.read_text(encoding="utf-8"))
+        if not isinstance(rows, list):
+            raise RunsManifestError(f"{manifest} is not a list of run records")
+        return rows
+
+    todo, already = plan(read())
+    result: dict[str, Any] = {
+        "applied": False,
+        "marked": [
+            {
+                "sim_id": str(row.get("sim_id")),
+                "run_id": str(row["run_id"]),
+                "from": row.get("status"),
+            }
+            for row in todo
+        ],
+        "already": already,
+        "reason": reason,
+    }
+    if not apply or not todo:
+        return result
+    workspace = CampaignWorkspace(base)
+    stamp = _now_stamp()
+    at = dt.datetime.now(dt.UTC).isoformat()
+    with manifest_lock(base):
+        rows = read()
+        todo, already = plan(rows)
+        (base / ARCHIVE_DIR).mkdir(exist_ok=True)
+        archived = base / ARCHIVE_DIR / f"{manifest.stem}-{stamp}.json"
+        shutil.copy2(manifest, archived)
+        for row in todo:
+            row["marked"] = {"from": row.get("status"), "at": at, "reason": reason}
+            row["status"] = str(RunStatus.FAILED_MARKED)
+        workspace._replace_manifest(rows)
+    result.update(
+        applied=True,
+        runs_archived_as=_relative(base, archived),
+        marked=[
+            {
+                "sim_id": str(row.get("sim_id")),
+                "run_id": str(row["run_id"]),
+                "from": row["marked"]["from"],
+            }
+            for row in todo
+        ],
+        already=already,
+    )
+    return result
+
+
+# ---------------------------------------------------------------------------
 # restore
 # ---------------------------------------------------------------------------
 

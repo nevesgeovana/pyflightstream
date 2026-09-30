@@ -143,10 +143,31 @@ declared output, and the cases above that are refused.
     with no record, the resume takes it as never run and runs it again.
     Settle the reason first and rebuild again.
 
+## Mark a run failed after the fact (since 0.33.0)
+
+A run can end `CONVERGED` and still be wrong, which you find only later,
+reading its products. `mark-failed` records that verdict:
+
+```text
+pyfs-matrix mark-failed --sims 2006,2007 --reason "wrong mesh"           # preview
+pyfs-matrix mark-failed --sims 2006,2007 --reason "wrong mesh" --apply   # write
+```
+
+Every record of each named simulation becomes `FAILED_MARKED`, whatever it
+ended in, `SUBMITTED` included. Nothing is deleted: each record keeps, under
+`marked`, the status it had (`from`), when it was marked (`at`) and the
+reason (`reason`), and `runs.json` is copied to `archive/runs-<stamp>.json`
+first, so `pyfs-matrix restore runs` undoes it. `FAILED_MARKED` is a failure
+to every reader: the post treats the run as any failed one (it names the status
+in a warning, and the coefficient tables do not expect coefficients from it),
+the cost estimate leaves its wall time out, and `delete-sims` deletes the simulation
+without `--force`. A simulation id with no record is refused by name before
+anything is written, and a record already `FAILED_MARKED` is left as it is.
+
 ## From Python
 
-`pyflightstream.run.records.restore` and `pyflightstream.run.records.rebuild`
-take the same options as the commands and return what they did, or would do,
+`pyflightstream.run.records.restore`, `pyflightstream.run.records.rebuild`
+and `pyflightstream.run.records.mark_failed` take the same options as the commands and return what they did, or would do,
 as a dictionary; `summary_lines` gives the lines the commands print.
 `collect_without_writing` is the read-only collection on its own, and
 `manifest_lock` holds the lease the workspace's writers hold around a
