@@ -276,6 +276,7 @@ from pyflightstream.workspace.flight_condition import resolve_flight_condition
 from pyflightstream.workspace.inputs import resolve_reference, rotor_integration_groups
 from pyflightstream.workspace.naming import (
     ADDITIONAL_DIR,
+    archive_previous,
     group_token,
     sweep_file_stem,
 )
@@ -5122,14 +5123,23 @@ def _acoustic_products(
 ) -> tuple[list[Path], dict[str, dict[str, object]]]:
     """Write a point's acoustic products from the export its record lists (0.32.0, FR-264).
 
-    The record lists the export in ``acoustic_signals``: a path, absolute or
-    relative to the point's simulation folder (the entry work package E2 adds;
-    a record without one asks for no acoustics, and nothing is said). A file
+    The record lists the export among its ``outputs``, the entry that ends with
+    :data:`~pyflightstream.cases.acoustics.ACOUSTIC_SIGNALS_SUFFIX` (how the run
+    layer records it, ``with_acoustic_signals``): a path relative to the point's
+    simulation folder, or absolute. A record without one asks for no acoustics,
+    and nothing is said. A file
     that cannot be read is named under ``acoustics`` in ``skipped`` and warned
     in ``post.log``; every ``NA`` the writer owes is warned too. Nothing blocks.
     """
-    listed = getattr(record, "acoustic_signals", None)
-    if not isinstance(listed, str | os.PathLike) or not str(listed):
+    listed = next(
+        (
+            str(name)
+            for name in record.outputs
+            if str(name).lower().endswith(_acoustics.ACOUSTIC_SIGNALS_SUFFIX)
+        ),
+        None,
+    )
+    if listed is None:
         return [], {}
     source = Path(listed)
     if not source.is_absolute():
@@ -8412,6 +8422,9 @@ def _campaign_products(
     previous_products = {}
     if previous.is_file():
         previous_products = json.loads(previous.read_text(encoding="utf-8")).get("products", {})
+        # 0.32.0 (P0320-RESTORE-ARCHIVE): archived, not merely removed, so
+        # `restore products` has the file this rebuild replaces.
+        archive_previous(workspace.root, previous, matrix=out.name)
         previous.unlink()
     try:
         _write_the_products(

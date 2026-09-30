@@ -105,7 +105,12 @@ from pyflightstream.workspace.flight_condition import (
 )
 from pyflightstream.workspace.inputs import ReferenceArtifact
 from pyflightstream.workspace.matrix import condition_defaults_origin
-from pyflightstream.workspace.naming import PointName, datapoint_name_of
+from pyflightstream.workspace.naming import (
+    PointName,
+    datapoint_name_of,
+    free_matrix_archive,
+    free_root_archive,
+)
 
 #: The manifest a workspace keeps its run records in, and the name
 #: :func:`resolve_manifest` returns when no other is named.
@@ -283,27 +288,6 @@ def _now_stamp() -> str:
     return dt.datetime.now().strftime(ARCHIVE_STAMP)
 
 
-def _free_root_archive(base: Path, name: str, stamp: str) -> Path:
-    stem = Path(name).stem
-    folder = base / ARCHIVE_DIR
-    target = folder / f"{stem}-{stamp}.json"
-    index = 2
-    while target.exists():
-        target = folder / f"{stem}-{stamp}.{index}.json"
-        index += 1
-    return target
-
-
-def _free_matrix_archive(base: Path, stem: str, name: str, stamp: str) -> Path:
-    folder = base / "post" / stem / ARCHIVE_DIR
-    target = folder / stamp / name
-    index = 2
-    while target.exists():
-        target = folder / f"{stamp}.{index}" / name
-        index += 1
-    return target
-
-
 def _replace_bytes(target: Path, payload: bytes) -> None:
     """Write ``payload`` to ``target`` through a temporary file of this process."""
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -377,9 +361,10 @@ def restore(
     ``post/<matrix>/archive/<stamp>/products.json`` and ``.../plan.json``.
     Every restore that applies archives the file it replaces in these forms.
     The writers of the storage record, the products record, the plan receipt
-    and the additional-post record do not archive their file before
-    rewriting it, so for those kinds the copies found are the ones a restore
-    made or a user put there. A copy numbered within one stamp
+    and the additional-post record archive their file before rewriting it (0.32.0,
+    ``workspace.naming.archive_previous``, the one home of these names), so every
+    kind has copies to bring back; ``products.json`` is archived rather than
+    removed when a post rebuilds. A copy numbered within one stamp
     (``runs-<stamp>.2.json``) or labelled after it
     (``runs-<stamp>-before-doctor.json``) is found too.
 
@@ -530,9 +515,9 @@ def restore(
     with _leases(base, target):
         if target.is_file():
             if stem is None:
-                kept = _free_root_archive(base, name, _now_stamp())
+                kept = free_root_archive(base, name, _now_stamp())
             else:
-                kept = _free_matrix_archive(base, stem, name, _now_stamp())
+                kept = free_matrix_archive(base, stem, name, _now_stamp())
             kept.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(target, kept)
             entry["archived_as"] = _relative(base, kept)
@@ -1912,7 +1897,7 @@ def rebuild(
         if now != manifest_bytes:
             raise RecordsError("rebuild: runs.json changed while the rebuild ran; nothing written")
         if now is not None:
-            kept = _free_root_archive(base, DEFAULT_MANIFEST, _now_stamp())
+            kept = free_root_archive(base, DEFAULT_MANIFEST, _now_stamp())
             kept.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(manifest, kept)
             entry["archived_as"] = _relative(base, kept)
