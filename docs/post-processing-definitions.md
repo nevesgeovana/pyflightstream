@@ -1959,6 +1959,47 @@ Example: `write_probe_field(stem, points_m, velocity_m_s, source=csv_path, prove
 
 A workspace opts in per `[[probes]]` entry with `frame = "REFERENCE"`, `field_formats = ["vtk", "tecplot"]` and optionally `reusable_inflow = true`. These requests automatically sample VX, VY and VZ. The emitted sample IDs and native-to-meter factor are recorded with the run. Post writes `fields/<point>_field_<entry>[_step_<step>]` from complete probe tables; every actual transient step remains separate. Missing components or recorded sample IDs produce a named post warning and no interpolated replacement.
 
+## The installed-frame copy of a product table
+
+`pyflightstream.post.inflow_tools.to_installed_frame(table)` (since 0.32.0) writes `<table>_installed.csv` beside a product table stated in the ISOLATED frame, the same numbers in the INSTALLED frame, which is the isolated one mirrored through `y = 0`. It never overwrites; the isolated table is the record and this is a second table beside it. Applying it to its own output returns the input. A rotor table may open with one alias line that holds no comma; it is kept as it stands.
+
+Blade and family names do not change. Blade `k` of the image wheel, at `+(k - 1) 60` degrees on a six-blade wheel, is blade `k` of the installed wheel, at `-(k - 1) 60`, so a table keeps its row order and its names. The mirror changes sign or maps a column as this table says (a column name is matched case-insensitively at its start, then `_`, a digit or the end of the name; the code reads the same list, `FLIPPED_COLUMNS` and `AZIMUTH_COLUMNS`, and a test holds the two equal):
+
+| column | treatment | why |
+|---|---|---|
+| `FY` | flip | the force along the mirrored axis |
+| `MX` | flip | a moment about an axis in the mirror plane |
+| `MZ` | flip | a moment about an axis in the mirror plane |
+| `CY[A-Z]*` | flip | the side-force coefficients |
+| `CR[A-Z]*` | flip | the roll coefficients, a moment about x |
+| `CN[BSW]\d*` | flip | the yaw coefficients of the body, stability and wind axes |
+| `CMX` | flip | the coefficient of `MX` |
+| `CMZ` | flip | the coefficient of `MZ` |
+| `TORQUE` | flip | the sense of rotation reverses in the mirror |
+| `RPM` | flip | the signed speed follows the sense of rotation |
+| `BETA` | flip | the sideslip angle |
+| `CS` | flip | the side-force coefficient |
+| `CMN` | flip | the yawing-moment coefficient |
+| `AZIMUTH` | azimuth | `psi -> -psi mod 360` |
+| `AZIMUTH_START` | azimuth | `psi -> -psi mod 360` |
+| `AZIMUTH_END` | azimuth | `psi -> -psi mod 360` |
+| `azimuth_deg` | azimuth | `psi -> -psi mod 360` |
+| `FX` | keep | along the axis the mirror leaves |
+| `MY` | keep | a moment about the normal of the mirror plane |
+| `CT` | keep | the thrust coefficient |
+
+The sectional `Fx`, `Fz` and `Moment` are NOT negated by default: the orientation of the section axes is not settled, and negating them on a guess would write a wrong number that looks like a right one. The `flip=` argument names them once it is. Any other column is copied as written.
+
+## The inflow tools' products
+
+Three products of the quasi-steady inflow (since 0.32.0). Each states its units and refuses what it cannot state.
+
+**The fluctuation report.** `pyfs-workspace field time-mean --fluctuation` writes `<stem>.fluctuation.csv` beside the mean, and `--fluctuation-only --last K` writes it alone. For each probe of the last `K` per-step fields it gives the time mean's companion, the POPULATION standard deviation (divided by `K`, not `K - 1`) of each velocity component, `std_vx`, `std_vy`, `std_vz`, and `std_mag = sqrt(std_vx^2 + std_vy^2 + std_vz^2)`, in m/s, with the probe's `x, y, z`, values to nine significant figures. The steps must be consecutive integers holding the same probes (within 1e-6 m), and a single steady field has no fluctuation and is refused. The provenance record names the file and its sha256.
+
+**The interior fill.** `pyfs-workspace field fill-interior --r-body R` (default `0.38` m) gives every probe with `r < R`, `r` the distance from the x axis, the velocity of the probe at `r >= R` with the smallest radius on the same azimuth ray (`atan2(z, y)` within 1e-3 rad). It changes no position, states how many probes it replaced, and refuses a probe with no partner on its ray. A preview by default; `--apply` writes with the provenance of the other field operations.
+
+**The blade-view harmonics.** `pyflightstream.post.inflow_tools.blade_view_harmonics` reads a custom inflow as one blade meets it, in the blade frame with rotation. At radius `r` the blade, at `psi = 0` along `+Z` and `psi` positive in the sense of rotation about `+X`, meets `V_a = v.x` and `V_t = Omega r - v.e_t(psi)`; `phi = atan2(V_a, V_t)` and `dalpha(psi) = -(phi - mean phi)` (the pitch cancels and a power-off field has no self-induction). The variance share of each harmonic `n >= 1` of `dalpha` is reported for `n = 1..8`, `n95` is the smallest `n` whose cumulative share reaches 95 per cent (the plan's `inflow_fft` counting, a harmonic under 0.001 degree of amplitude not counted), `k_1P = Omega c / (2 mean V_rel)` with the mean relative speed of the revolution and `k_eff = n95 k_1P`, and `PASSAGE_POSITIONS` is suggested as `ceil(n_max / N + 1)` for `N` blades. `dalpha_rms_deg` and `dalpha_half_ptp_deg` are in degrees. The rotor axis must be `X` because the profile is a YZ plane. `inflow_harmonics_map` repeats it over advance ratios `J = V / (n D)` of one fixed field, `J` moving the rotor speed and `V` staying, and `write_inflow_harmonics` writes `inflow_harmonics.csv` (`J, r_over_R, c_over_R, dalpha_rms_deg, dalpha_half_ptp_deg, n95, k_1P, k_eff, share_n1 .. share_n8`) and `inflow_harmonics_J.csv` (`J, r_over_R, n95, k_1P, k_eff, dalpha_rms_deg`).
+
 ## The quasi-steady rotor
 
 A `qsteady_rotor` point is steady, and every product a steady point writes

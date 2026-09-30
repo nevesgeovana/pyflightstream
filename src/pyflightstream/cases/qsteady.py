@@ -1090,6 +1090,43 @@ HARMONIC_AMPLITUDE_FLOOR_DEG = 0.001
 _NEAREST_ROWS = 12
 
 
+def harmonic_variance_shares(signal: Sequence[float], *, floor: float = 0.0) -> Any:
+    """Return the share of the variance each harmonic 1, 2, ... holds, as an array.
+
+    The rule of :func:`harmonic_order` (Parseval on the discrete Fourier
+    transform of the mean-removed revolution, a harmonic below ``floor`` in
+    amplitude not counted, the shares of those counted adding to 1), split
+    out so the per-harmonic shares and ``n95`` are one computation. A signal
+    with no variation, or none above ``floor``, gives all zeros; fewer than
+    two samples give an empty array.
+
+    Examples
+    --------
+    >>> import math
+    >>> psi = [2 * math.pi * i / 360 for i in range(360)]
+    >>> [round(float(s), 3) for s in harmonic_variance_shares(
+    ...     [math.cos(p) + math.cos(2 * p) for p in psi])[:3]]
+    [0.5, 0.5, 0.0]
+    """
+    import numpy as np
+
+    values = np.asarray(signal, dtype=float)
+    count = len(values)
+    if count < 2:
+        return np.zeros(0)
+    spectrum = np.fft.rfft(values - values.mean())
+    amplitude = 2.0 * np.abs(spectrum[1:]) / count
+    energy = 2.0 * np.abs(spectrum[1:]) ** 2
+    if count % 2 == 0:
+        energy[-1] /= 2.0
+        amplitude[-1] /= 2.0
+    energy[amplitude < floor] = 0.0
+    total = float(energy.sum())
+    if total <= 1e-30 * max(1.0, float(np.abs(values).max()) ** 2 * count**2):
+        return np.zeros(len(energy))
+    return energy / total
+
+
 def harmonic_order(
     signal: Sequence[float], *, share: float = HARMONIC_VARIANCE_SHARE, floor: float = 0.0
 ) -> int:
@@ -1116,22 +1153,10 @@ def harmonic_order(
     """
     import numpy as np
 
-    values = np.asarray(signal, dtype=float)
-    count = len(values)
-    if count < 2:
+    shares = harmonic_variance_shares(signal, floor=floor)
+    if len(shares) == 0 or float(shares.sum()) == 0.0:
         return 0
-    spectrum = np.fft.rfft(values - values.mean())
-    amplitude = 2.0 * np.abs(spectrum[1:]) / count
-    energy = 2.0 * np.abs(spectrum[1:]) ** 2
-    if count % 2 == 0:
-        energy[-1] /= 2.0
-        amplitude[-1] /= 2.0
-    energy[amplitude < floor] = 0.0
-    total = float(energy.sum())
-    if total <= 1e-30 * max(1.0, float(np.abs(values).max()) ** 2 * count**2):
-        return 0
-    cumulative = np.cumsum(energy) / total
-    return int(np.searchsorted(cumulative, share - 1e-12) + 1)
+    return int(np.searchsorted(np.cumsum(shares), share - 1e-12) + 1)
 
 
 def suggested_passage_positions(n_max: int, blades: int) -> int:
@@ -1246,24 +1271,63 @@ def blade_inflow_harmonics(
     tuple of int
         ``n95`` per station, in the order given.
     """
+    floor = math.radians(HARMONIC_AMPLITUDE_FLOOR_DEG)
+    return tuple(
+        harmonic_order(
+            blade_inflow_angles(
+                rows,
+                hub=hub,
+                axis=axis,
+                omega_rad_s=omega_rad_s,
+                radius_m=radius,
+                samples=samples,
+            )[0].tolist(),
+            floor=floor,
+        )
+        for radius in radii_m
+    )
+
+
+def blade_inflow_angles(
+    rows: Sequence[Sequence[float]],
+    *,
+    hub: Sequence[float],
+    axis: Sequence[float],
+    omega_rad_s: float,
+    radius_m: float,
+    samples: int = AZIMUTH_SAMPLES,
+) -> tuple[Any, Any]:
+    """Return the inflow angle and the relative speed one blade meets round one revolution.
+
+    The reading :func:`blade_inflow_harmonics` takes at each radius, public
+    so the tools that go beyond ``n95`` (0.32.0, the per-harmonic shares and
+    the reduced frequency of :mod:`pyflightstream.post.inflow_tools`) read
+    the field ONE way. At each of ``samples`` azimuths the TOTAL velocity is
+    read, the velocity relative to the turning blade composed,
+    ``w = v - Omega axis x (p - hub)``, and ``phi = atan2(w_axial,
+    w_tangential)`` taken with the tangential component counted against the
+    blade's motion. The azimuth is positive in the sense of ``omega_rad_s``.
+
+    Returns
+    -------
+    (ndarray, ndarray)
+        ``phi`` in radians and the relative speed in the blade's section
+        plane, ``hypot(w_axial, w_tangential)``, in metres per second, one
+        per azimuth.
+    """
     import numpy as np
 
     plane, velocities, (n, e1, e2) = _field_sampler(rows, hub=hub, axis=axis)
     psi = 2.0 * np.pi * np.arange(samples) / samples
     sense = 1.0 if omega_rad_s >= 0.0 else -1.0
-    floor = math.radians(HARMONIC_AMPLITUDE_FLOOR_DEG)
-    orders = []
-    for radius in radii_m:
-        points = np.column_stack((radius * np.cos(psi), radius * np.sin(psi)))
-        v = _sample_velocities(plane, velocities, points)
-        e_r = np.outer(np.cos(psi), e1) + np.outer(np.sin(psi), e2)
-        e_t = np.cross(n, e_r)
-        w = v - omega_rad_s * radius * e_t
-        axial = w @ n
-        against = -sense * np.einsum("sc,sc->s", w, e_t)
-        phi = np.arctan2(axial, against)
-        orders.append(harmonic_order(phi.tolist(), floor=floor))
-    return tuple(orders)
+    points = np.column_stack((radius_m * np.cos(psi), radius_m * np.sin(psi)))
+    v = _sample_velocities(plane, velocities, points)
+    e_r = np.outer(np.cos(psi), e1) + np.outer(np.sin(psi), e2)
+    e_t = np.cross(n, e_r)
+    w = v - omega_rad_s * radius_m * e_t
+    axial = w @ n
+    against = -sense * np.einsum("sc,sc->s", w, e_t)
+    return np.arctan2(axial, against), np.hypot(axial, against)
 
 
 @dataclass(frozen=True)

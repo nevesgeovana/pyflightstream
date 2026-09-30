@@ -67,20 +67,29 @@ from pyflightstream.cases.workflows import FREESTREAM_DIR, FREESTREAM_FORMS
 from pyflightstream.workspace import WorkspaceError
 
 __all__ = [
+    "DEFAULT_R_BODY_M",
     "FIELD_PROVENANCE_SCHEMA",
+    "FILL_AZIMUTH_TOLERANCE_RAD",
     "MIRROR_PLANES",
     "POSITION_TOLERANCE_M",
     "Field",
     "FieldWrite",
+    "FluctuationReport",
+    "FluctuationWrite",
     "StepField",
+    "fill_interior",
+    "fluctuation_extent",
+    "fluctuation_report",
     "mirror_field",
     "move_field",
     "read_field",
     "read_step_fields",
     "render_field",
+    "render_fluctuation",
     "step_of",
     "subtract_fields",
     "time_mean_fields",
+    "write_fluctuation",
     "write_freestream",
 ]
 
@@ -95,6 +104,14 @@ MIRROR_PLANES: Mapping[str, int] = {"x": 0, "y": 1, "z": 2}
 #: Two positions closer than this, in metres, along each axis are one point:
 #: the default of :func:`subtract_fields` and :func:`time_mean_fields`.
 POSITION_TOLERANCE_M = 1e-6
+
+#: The radius about the x axis, in metres, inside which :func:`fill_interior`
+#: replaces a probe (the body's radius; a default the caller states again).
+DEFAULT_R_BODY_M = 0.38
+
+#: Two probes whose azimuths about the x axis differ by no more than this,
+#: in radians, are on one ray for :func:`fill_interior`.
+FILL_AZIMUTH_TOLERANCE_RAD = 1e-3
 
 #: The step a per-step field names in its file name, ``..._step_<N>.inflow.dat``
 #: (the post's ``write_recorded_probe_fields`` stamps it).
@@ -162,6 +179,39 @@ class FieldWrite:
     target: Path
     sidecar: Path
     field: Field
+    provenance: dict[str, object]
+    applied: bool
+    overwritten: tuple[Path, ...] = ()
+
+
+@dataclass(frozen=True)
+class FluctuationReport:
+    """The fluctuation of per-step fields at each probe over a run's last steps.
+
+    Attributes
+    ----------
+    rows : tuple of tuple of float
+        One ``(x, y, z, std_vx, std_vy, std_vz, std_mag)`` per probe, in the
+        first step's order: the POPULATION standard deviation (divided by the
+        number of steps) of each component about its time mean, and
+        ``std_mag = sqrt(std_vx^2 + std_vy^2 + std_vz^2)``. Metres and m/s.
+    steps : tuple of float
+        The steps the statistics span, in order.
+    sources : tuple of str
+        The files read, in step order.
+    """
+
+    rows: tuple[tuple[float, float, float, float, float, float, float], ...]
+    steps: tuple[float, ...]
+    sources: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class FluctuationWrite:
+    """What :func:`write_fluctuation` wrote, or would write in a preview."""
+
+    target: Path
+    sidecar: Path
     provenance: dict[str, object]
     applied: bool
     overwritten: tuple[Path, ...] = ()
@@ -541,6 +591,136 @@ def time_mean_fields(
     return Field(first.form, rows, first.header, first.source)
 
 
+def fluctuation_report(
+    fields: Sequence[StepField], *, tolerance_m: float = POSITION_TOLERANCE_M
+) -> FluctuationReport:
+    """Return the per-probe fluctuation of per-step fields (0.32.0, P0320-INFLOW-FLUCTUATION).
+
+    The steps must be consecutive integers (an evenly exported run's last
+    ``K`` steps) and hold the same probes as the first step within
+    ``tolerance_m``, the survey rule of :func:`time_mean_fields`. Each
+    probe's time mean and population standard deviation are taken per
+    component; the magnitude combines the three.
+
+    Raises
+    ------
+    WorkspaceError
+        If fewer than two steps are given (a steady field has no
+        fluctuation), the steps are not consecutive integers, or a step's
+        probes differ from the first step's (naming file and row).
+
+    Examples
+    --------
+    >>> steps = [
+    ...     StepField(1.0, Field("UNSTRUCTURED", ((0.0, 0.0, 0.0, 1.0, 0.0, 0.0),))),
+    ...     StepField(2.0, Field("UNSTRUCTURED", ((0.0, 0.0, 0.0, 3.0, 0.0, 0.0),))),
+    ... ]
+    >>> fluctuation_report(steps).rows[0][3:]
+    (1.0, 0.0, 0.0, 1.0)
+    """
+    if len(fields) < 2:
+        raise WorkspaceError(
+            "a steady field has no fluctuation: the report needs at least two per-step fields "
+            "(give the last K steps of an unsteady run with last, CLI: --last)."
+        )
+    ordered = sorted(fields, key=lambda each: each.step)
+    steps = [each.step for each in ordered]
+    if any(s != int(s) for s in steps) or any(
+        b - a != 1 for a, b in zip(steps, steps[1:], strict=False)
+    ):
+        raise WorkspaceError(
+            f"the steps {', '.join(f'{s:g}' for s in steps)} are not consecutive integers; the "
+            "fluctuation is reported over every step of a span, so give consecutive steps."
+        )
+    # The one survey rule (same probes, same form) is the time mean's, and it refuses first.
+    time_mean_fields(ordered, tolerance_m=tolerance_m)
+    count = len(ordered)
+    rows = []
+    for i, first in enumerate(ordered[0].field.rows):
+        stds = []
+        for component in (3, 4, 5):
+            samples = [each.field.rows[i][component] for each in ordered]
+            mean = math.fsum(samples) / count
+            stds.append(math.sqrt(math.fsum((v - mean) ** 2 for v in samples) / count))
+        magnitude = math.sqrt(math.fsum(v * v for v in stds))
+        rows.append((first[0], first[1], first[2], stds[0], stds[1], stds[2], magnitude))
+    return FluctuationReport(
+        rows=tuple(rows),
+        steps=tuple(steps),
+        sources=tuple(each.field.name for each in ordered),
+    )
+
+
+def render_fluctuation(report: FluctuationReport) -> str:
+    """Return the text of ``<stem>.fluctuation.csv``: ``x,y,z,std_vx,...,std_mag``, ``%.9g``."""
+    lines = ["x,y,z,std_vx,std_vy,std_vz,std_mag"]
+    lines.extend(",".join(format(v, ".9g") for v in row) for row in report.rows)
+    return "\n".join(lines) + "\n"
+
+
+def fluctuation_extent(report: FluctuationReport) -> tuple[float, float]:
+    """Return the largest ``std_mag`` over the probes and its root mean square, in m/s."""
+    magnitudes = [row[6] for row in report.rows]
+    return max(magnitudes), math.sqrt(math.fsum(m * m for m in magnitudes) / len(magnitudes))
+
+
+def fill_interior(field: Field, *, r_body_m: float = DEFAULT_R_BODY_M) -> tuple[Field, int]:
+    """Fill the probes inside the body from the ray outside it (0.32.0, P0320-FILL-INTERIOR).
+
+    Every probe with ``r < r_body_m`` (``r`` the distance from the x axis,
+    ``hypot(y, z)``) takes the velocity of the probe at ``r >= r_body_m`` with
+    the smallest radius on the same azimuth ray (``atan2(z, y)`` within
+    :data:`FILL_AZIMUTH_TOLERANCE_RAD`). Positions never change. A probe on
+    the axis itself has azimuth 0 by ``atan2``.
+
+    Returns
+    -------
+    (Field, int)
+        The filled field and the number of probes replaced.
+
+    Raises
+    ------
+    WorkspaceError
+        If ``r_body_m`` is not a positive finite radius, or an interior probe
+        has no probe at ``r >= r_body_m`` on its ray (nothing is guessed).
+
+    Examples
+    --------
+    >>> pair = ((0.0, 0.1, 0.0, 1.0, 0.0, 0.0), (0.0, 0.5, 0.0, 9.0, 0.0, 0.0))
+    >>> filled, count = fill_interior(Field("UNSTRUCTURED", pair), r_body_m=0.38)
+    >>> count, filled.rows[0][3]
+    (1, 9.0)
+    """
+    if not math.isfinite(r_body_m) or r_body_m <= 0.0:
+        raise WorkspaceError(
+            f"r_body (CLI: --r-body) is a positive radius in metres about the x axis; "
+            f"got {r_body_m!r}."
+        )
+    polar = [(math.hypot(row[1], row[2]), math.atan2(row[2], row[1])) for row in field.rows]
+    outside = sorted(
+        (i for i, (r, _azimuth) in enumerate(polar) if r >= r_body_m), key=lambda i: polar[i][0]
+    )
+    rows = list(field.rows)
+    count = 0
+    for i, (r, azimuth) in enumerate(polar):
+        if r >= r_body_m:
+            continue
+        for j in outside:
+            gap = abs(azimuth - polar[j][1])
+            if min(gap, 2.0 * math.pi - gap) <= FILL_AZIMUTH_TOLERANCE_RAD:
+                row = field.rows[i]
+                rows[i] = (row[0], row[1], row[2], *field.rows[j][3:6])
+                count += 1
+                break
+        else:
+            raise WorkspaceError(
+                f"{field.name}, row {i + 1}: the probe at r = {r:.6g} m, azimuth {azimuth:.6g} "
+                f"rad has no point at r >= {r_body_m:g} m within "
+                f"{FILL_AZIMUTH_TOLERANCE_RAD:g} rad of its azimuth to take a value from."
+            )
+    return Field(field.form, tuple(rows), field.header, field.source), count
+
+
 def render_field(field: Field) -> str:
     """Return the file text of a field: the header of a STRUCTURED one, then its rows."""
     lines = [] if field.header is None else [field.header]
@@ -602,6 +782,7 @@ def write_freestream(
     inputs: Sequence[str | Path],
     apply: bool = False,
     overwrite: bool = False,
+    sidecars: Mapping[str, str] | None = None,
 ) -> FieldWrite:
     """Write a field into ``<root>/inputs/freestreams/`` with its provenance, or preview it.
 
@@ -610,6 +791,11 @@ def write_freestream(
     operation, its parameters, every input file with its sha256, and the
     written file's own sha256. Without ``apply`` nothing is written and the
     same refusals fire, so a preview says what ``apply`` would do.
+
+    ``sidecars`` maps a suffix (``".fluctuation.csv"``) to the text of a file
+    written beside the field as ``<stem><suffix>`` (0.32.0): each is subject
+    to the same overwrite rule and is named in the record, with its sha256,
+    under ``"sidecars"``.
 
     Raises
     ------
@@ -635,7 +821,8 @@ def write_freestream(
             f"{others[0]} exists: the stem {name!r} would name two files, and the extension "
             "states the form, so one stem names one file. Choose another stem, or remove it."
         )
-    existing = tuple(path for path in (target, sidecar) if path.exists())
+    extras = {folder / f"{name}{suffix_}": text for suffix_, text in (sidecars or {}).items()}
+    existing = tuple(path for path in (target, sidecar, *extras) if path.exists())
     if existing and not overwrite:
         raise WorkspaceError(
             f"{', '.join(str(p) for p in existing)} exists; nothing is overwritten unless "
@@ -655,10 +842,70 @@ def write_freestream(
         },
         "units": {"coordinates": "m", "velocity": "m/s", "frame": "global", "converted": False},
     }
+    if extras:
+        provenance["sidecars"] = [
+            {"file": f"inputs/{FREESTREAM_DIR}/{path.name}", "sha256": text_sha256(extra)}
+            for path, extra in extras.items()
+        ]
     if apply:
         folder.mkdir(parents=True, exist_ok=True)
         # Bytes, not text: the record's sha256 is of these exact bytes, and a
         # text write would turn each newline into the platform's.
         target.write_bytes(text.encode("utf-8"))
+        for path, extra in extras.items():
+            path.write_bytes(extra.encode("utf-8"))
         sidecar.write_bytes((json.dumps(provenance, indent=2) + "\n").encode("utf-8"))
     return FieldWrite(target, sidecar, field, provenance, apply, existing if apply else ())
+
+
+def write_fluctuation(
+    root: str | Path,
+    stem: str,
+    report: FluctuationReport,
+    *,
+    parameters: Mapping[str, object],
+    inputs: Sequence[str | Path],
+    apply: bool = False,
+    overwrite: bool = False,
+) -> FluctuationWrite:
+    """Write only the fluctuation report of a run's last steps, with its provenance, or preview it.
+
+    The files are ``<root>/inputs/freestreams/<stem>.fluctuation.csv`` and
+    ``<stem>.fluctuation.provenance.json`` (no field is written, so the stem
+    names no free stream). The overwrite rule is :func:`write_freestream`'s.
+
+    Raises
+    ------
+    WorkspaceError
+        If the stem is not a plain name, or a target exists and ``overwrite``
+        is not set.
+    """
+    name = _check_stem(stem)
+    folder = Path(root) / "inputs" / FREESTREAM_DIR
+    target = folder / f"{name}.fluctuation.csv"
+    sidecar = folder / f"{name}.fluctuation.provenance.json"
+    existing = tuple(path for path in (target, sidecar) if path.exists())
+    if existing and not overwrite:
+        raise WorkspaceError(
+            f"{', '.join(str(p) for p in existing)} exists; nothing is overwritten unless "
+            "overwrite (CLI: --overwrite) is set."
+        )
+    text = render_fluctuation(report)
+    provenance: dict[str, object] = {
+        "schema": FIELD_PROVENANCE_SCHEMA,
+        "operation": "fluctuation",
+        "parameters": dict(parameters),
+        "inputs": [{"path": str(Path(p)), "sha256": file_sha256(Path(p))} for p in inputs],
+        "output": {
+            "file": f"inputs/{FREESTREAM_DIR}/{target.name}",
+            "form": "CSV",
+            "points": len(report.rows),
+            "sha256": text_sha256(text),
+        },
+        "units": {"coordinates": "m", "velocity": "m/s", "frame": "global", "converted": False},
+    }
+    if apply:
+        folder.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(text.encode("utf-8"))
+        sidecar.write_bytes((json.dumps(provenance, indent=2) + "\n").encode("utf-8"))
+    return FluctuationWrite(target, sidecar, provenance, apply, existing if apply else ())
