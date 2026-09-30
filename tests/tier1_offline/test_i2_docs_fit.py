@@ -17,14 +17,22 @@ from pyflightstream.script import helpers
 GUIDE = Path(__file__).parents[2] / "guide" / "pyflightstream_user_guide.tex"
 
 _LISTING = re.compile(r"\\begin\{lstlisting\}(?:\[[^\]]*\])?(.*?)\\end\{lstlisting\}", re.S)
-_CALL = re.compile(r"^helpers\.(\w+)\(", re.M)
+_CALL = re.compile(r"helpers\.(\w+)\(")
+_COMMENT = re.compile(r"#[^\n]*")
+_PLACEHOLDER = re.compile(r",?\s*\.\.\.\s*\)$")
 
 
-def _helper_calls() -> list[tuple[str, ast.Call]]:
-    """Every ``helpers.<name>(...)`` statement of every listing, parsed whole."""
-    calls: list[tuple[str, ast.Call]] = []
+def _helper_calls() -> list[tuple[str, ast.Call, bool]]:
+    """Every ``helpers.<name>(...)`` call of every listing, parsed whole, wherever it stands.
+
+    A call after ``disc = `` or indented under ``for`` is a call too. A trailing ``...`` (the
+    slide's "and the rest") is dropped and the call is marked partial: its arguments are
+    checked, its completeness is not.
+    """
+    calls: list[tuple[str, ast.Call, bool]] = []
     text = GUIDE.read_text(encoding="utf-8")
     for listing in _LISTING.findall(text):
+        listing = _COMMENT.sub("", listing)
         for match in _CALL.finditer(listing):
             start = match.start()
             depth = 0
@@ -36,27 +44,42 @@ def _helper_calls() -> list[tuple[str, ast.Call]]:
                     break
             else:
                 continue
+            partial = bool(_PLACEHOLDER.search(source))
+            source = _PLACEHOLDER.sub(")", source)
             try:
-                node = ast.parse(re.sub(r"#[^\n]*", "", source), mode="eval").body
+                node = ast.parse(source, mode="eval").body
             except SyntaxError:
                 continue
             if isinstance(node, ast.Call):
-                calls.append((match.group(1), node))
+                calls.append((match.group(1), node, partial))
     return calls
+
+
+def test_p0320_i2_the_guide_call_guard_reads_every_helper_call_of_the_listings():
+    """P0320-I2-GUIDE-ALL: a guard that skips a call it cannot reach guards nothing there.
+
+    The first form read only calls that opened a line at column zero, 21 of the 32 the
+    listings hold; the eleven after ``disc = `` or indented were never bound.
+    """
+    text = GUIDE.read_text(encoding="utf-8")
+    present = sum(len(_CALL.findall(_COMMENT.sub("", body))) for body in _LISTING.findall(text))
+    assert len(_helper_calls()) == present
 
 
 def test_p0320_i2_every_helper_call_in_the_guide_binds_to_its_signature():
     """P0320-I2-GUIDE-CALLS: a listing that raises TypeError teaches a call that fails."""
     assert _helper_calls(), "the guide has helper listings; the reader found none"
     broken = []
-    for name, node in _helper_calls():
+    for name, node, partial in _helper_calls():
         function = getattr(helpers, name, None)
         if function is None:
+            broken.append(f"helpers.{name}: there is no such helper")
             continue
         positional = [object()] * len(node.args)
         keywords = {kw.arg: object() for kw in node.keywords if kw.arg}
+        signature = inspect.signature(function)
         try:
-            inspect.signature(function).bind(*positional, **keywords)
+            (signature.bind_partial if partial else signature.bind)(*positional, **keywords)
         except TypeError as error:
             broken.append(f"helpers.{name}: {error}")
     assert not broken, "guide listings that raise TypeError:\n  " + "\n  ".join(broken)
