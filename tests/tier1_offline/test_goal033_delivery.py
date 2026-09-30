@@ -419,10 +419,21 @@ _MIGRATION_NAMES_0_31_0 = {
     ),
 }
 
+_MIGRATION_NAMES_0_32_0 = {
+    (
+        "Every capability bullet of the change log of 0.25.0 to 0.28.0 now ends with "
+        "the id of the requirement that states it"
+    ): (
+        "0.25.0 to 0.28.0",
+        "no behaviour changed",
+    ),
+}
+
 _MIGRATION_NAMES_BY_RELEASE = {
     "0.29.0": _MIGRATION_NAMES_0_29_0,
     "0.30.0": _MIGRATION_NAMES_0_30_0,
     "0.31.0": _MIGRATION_NAMES_0_31_0,
+    "0.32.0": _MIGRATION_NAMES_0_32_0,
 }
 
 #: The inputs each release's summary refuses, each of which its section and
@@ -436,12 +447,14 @@ _REFUSED_BY_RELEASE = {
     ),
     "0.30.0": ("unsteady_rotor",),
     "0.31.0": ("unsteady_rotor",),
+    "0.32.0": ("unsteady_rotor",),
 }
 _PAGE_WORDS_BY_RELEASE = {
     # The unreleased sidecar form the 0.29.0 Added list says is refused.
     "0.29.0": ("[[inlets]]", "refused"),
     "0.30.0": ("PASSAGE_POSITIONS", "prune_step_exports", "--apply"),
     "0.31.0": ("PASSAGE_POSITIONS", "qsteady_rotor", "--apply"),
+    "0.32.0": ("--apply", "REBUILT"),
 }
 _MIGRATION_NAMES = _MIGRATION_NAMES_BY_RELEASE.get(RELEASED, {})
 

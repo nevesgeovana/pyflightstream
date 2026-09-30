@@ -119,6 +119,12 @@ ENABLE on a row that states no blade count is now refused (FR-277).
 `field time-mean` accepts `--fluctuation`, `--fluctuation-only` and `--vinf`;
 without them it behaves as before (FR-250).
 
+## The change log of 0.25.0 to 0.28.0
+
+The capability bullets of the change log of 0.25.0 to 0.28.0 now end with the
+id of the requirement that states them; no behaviour changed and nothing in a
+reader's files needs to.
+
 ## Links into the documentation
 
 A link or a bookmark to a section of `workspace-and-workflows.md` that moved

@@ -7,6 +7,29 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Owed
+
+- **The Zenodo archive row of v0.32.0 is owed.** A version DOI is minted from
+  the GitHub release object and recorded one commit after the tag, so between
+  the tag and that commit this release has no archive row; cite the concept DOI
+  until it lands.
+
+- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
+  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
+  concept record lists NINETEEN archived versions and v0.14.0 is not among
+  them. The earlier reading of 2026-09-10 said the same and could not be
+  confirmed for four days because the service was answering 504; it is
+  confirmed now, so this is a fact about the archive rather than about its
+  availability.
+  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
+  had what it needs and the archive still has no version for it. Whatever
+  failed, it failed silently, and re-triggering it is the repair.
+  Until that row lands this section says so, because a shipped release that
+  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
+  release by the concept DOI, which resolves to the newest archived version.
+
+## [0.32.0] - 2026-09-30
+
 ### Added
 
 - Every `pyfs-matrix` and `pyfs-workspace` command opens with a titled block on standard error: `<program> <command>`, then its purpose, its workspace and, for a long command, its live log (FR-200). A test walks every command both programs register.
@@ -91,7 +114,7 @@ FlightStream versions.
   `cases/ccs_fuselage.py`, `cases/ccs_revolution.py`,
   `cases/setup_surfaces.py`, `post/acoustics.py`, `post/qsteady_noise.py`,
   `post/disc_maps.py` and `post/inflow_tools.py`) are clean, and the shipped
-  configuration is green over all 150.
+  configuration is green over all 150. (no requirement: type-checker measurement, not a capability)
 - A command's warnings are held and printed together at its end, under `Warnings (<count>)`, a refusal and an interruption included; `plan` keeps its 0.31.0 layout, the block right after its header (FR-201).
 - The architecture chapter of the SRS, `docs/srs/architecture-srs.md`, gains "The 0.32.0 additions and their limits": the row and the imports of each of the eleven new modules (150 in all), the console contract, restore and rebuild, the sync and the two matrix homes, the post of another manifest and from the simulation folders, the CCS route, the acoustic chain, the disc maps and the setup keys, the inflow tools and the rigor items, each with the limit it keeps. Its paragraph on the private floors names all five and says they import only `_errors` and one another (no requirement: architecture documentation of the release, held by `tests/tier1_offline/test_p0320_arch_docstrings.py`).
 - The package docstrings the generated architecture overview renders are brought to the tree: `cases` and `post` no longer call the filled 0.32.0 modules contracts that refuse (in `post.qsteady_noise` only the report writer `write_qsteady_noise_report` still refuses, left unfilled on purpose), `run` names `run.records`, `workspace` states the two matrix homes, the sync's folders, archives and atomic copies and the live logs, and the package lists `_progress`'s stage progress (no requirement: documentation of existing behaviour, held by `tests/tier1_offline/test_p0320_arch_docstrings.py`).
@@ -130,22 +153,6 @@ See [the migration guide](docs/migrating-to-0.32.0.md) for what a sync copies, t
 - The surface-removal step of `docs/gui-to-pyfs.md` listed `SURFACE_DELETE`, a keyword block the raw route refuses, as the command of the setup key `delete_surfaces`; the key writes the one-line `DELETE_SURFACES`, which the step now lists (no requirement: documentation accuracy). A test holds the row to the command the key emits.
 - A static rig row (fixed `RPM`, `ADVANCE_RATIO` swept, with `MOTIONS`) is no longer refused by the plan for stating the rotor speed twice (FR-280).
 - The thrust and torque shares of a wheel's sections table are pinned to clocking 0's rows by a test (FR-284).
-
-### Owed
-
-- **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
-  Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
-  concept record lists NINETEEN archived versions and v0.14.0 is not among
-  them. The earlier reading of 2026-09-10 said the same and could not be
-  confirmed for four days because the service was answering 504; it is
-  confirmed now, so this is a fact about the archive rather than about its
-  availability.
-  THE RELEASE OBJECT FOR v0.14.0 EXISTS, published 2026-09-09, so the webhook
-  had what it needs and the archive still has no version for it. Whatever
-  failed, it failed silently, and re-triggering it is the repair.
-  Until that row lands this section says so, because a shipped release that
-  quietly stops being citable is the gap PFS-2024.09 is about. Cite that
-  release by the concept DOI, which resolves to the newest archived version.
 
 ## [0.31.0] - 2026-09-29
 
@@ -13740,7 +13747,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.31.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.32.0...HEAD
+[0.32.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.32.0
 [0.31.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.31.0
 [0.30.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.30.0
 [0.29.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.29.0
