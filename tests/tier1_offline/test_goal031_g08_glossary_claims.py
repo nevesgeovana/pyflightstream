@@ -191,6 +191,31 @@ def _freestream(tmp: Path, stem: str, vx: float) -> SimCase:
     return steady_case(FREESTREAM=stem).model_copy(update={"freestream_profile": str(path)})
 
 
+#: A CCS file on the file route with one Relaxed_TE line stating no direction.
+_CCS_WITH_RELAXED_TE = (
+    "Aircraft;T\nUnits;Meter\n\nComponent;FUS\nLiftingSurface;false\n"
+    "Relaxed_TE;0.5;0.2;0.8\nCrossSection;0.0;0.0;0.1;0.0;0.1;0.0;0.0;0.0;0.1\n"
+)
+
+
+def _ccs_shedding(tmp: Path, direction: str) -> SimCase:
+    """CCS_SHEDDING as the plan binds it (0.32.0, G35): a CCS file on the file route.
+
+    The value reaches the run's own copy of the file, which CCS_IMPORT reads,
+    and no line of the script: both directions name the same copy.
+    """
+    path = tmp / "g35.csv"
+    path.write_text(_CCS_WITH_RELAXED_TE, encoding="utf-8")
+    return steady_case(CCS_SHEDDING=direction).model_copy(
+        update={
+            "geometry": str(path),
+            "mesh_import": MeshImport(units="FILE", ccs={"kind": "file"}),
+            "inventory": ("FUS",),
+            "inventory_source": "sidecar",
+        }
+    )
+
+
 def _raw(line: str) -> SimCase:
     """RAW reaches the case as its raw commands; the reader takes it out of the cell."""
     return steady_case().model_copy(
@@ -399,6 +424,9 @@ ROW_KEY_VARIATIONS: dict[str, Variation] = {
     ),
     "PROFILE": Variation(
         lambda tmp: _profile(tmp, "prop_ct"), lambda tmp: _profile(tmp, "prop_cq")
+    ),
+    "CCS_SHEDDING": Variation(
+        lambda tmp: _ccs_shedding(tmp, "AXIAL"), lambda tmp: _ccs_shedding(tmp, "AZIMUTH")
     ),
     "FREESTREAM": Variation(
         lambda tmp: _freestream(tmp, "fs_a", 30.0), lambda tmp: _freestream(tmp, "fs_b", 32.0)

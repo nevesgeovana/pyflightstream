@@ -135,6 +135,11 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases import qsteady as _qsteady
 from pyflightstream.cases import windows as _windows
+from pyflightstream.cases._ccs import CCS_FORMATS, CCS_SHEDDING_VARIABLE
+from pyflightstream.cases.ccs_wing import (
+    emit_ccs_geometry,
+    refuse_ccs_options_off_a_ccs_file,
+)
 from pyflightstream.commands import (
     CommandEntry,
     CommandNotInVersionError,
@@ -3161,7 +3166,7 @@ def rotor_shedding_direction(case: SimCase) -> str | None:
         ``"AXIAL"``, ``"AZIMUTH"``, or None where the row does not
         declare the key. None is the statement "this row asks nothing",
         and it is distinct from ``"AXIAL"``: a row asking for nothing
-        leaves a four-field specification at four fields, while a row
+        leaves a three-value specification at three values, while a row
         asking for the axial direction states it on every specification
         that already states one.
 
@@ -3210,7 +3215,7 @@ def rotor_relaxed_trailing_edges(case: SimCase, specifications: Sequence[str]) -
     THIS IS THE ROUTE TO THE AZIMUTHAL OPTION in 0.29.0, from Python: a
     case whose variables carry ``ROTOR_SHEDDING: AZIMUTH`` is passed here
     with the specifications its component definition carries, and they
-    come back with the fifth field set. A MATRIX ROW stating
+    come back with the direction value set. A MATRIX ROW stating
     ``ROTOR_SHEDDING`` is refused in 0.29.0, because no workflow command
     applies it (see ``docs/migrating-to-0.29.0.md``); direction control
     from the matrix is planned for 0.30.0. The library writes no
@@ -3224,15 +3229,15 @@ def rotor_relaxed_trailing_edges(case: SimCase, specifications: Sequence[str]) -
         direction; see :func:`rotor_shedding_direction`.
     specifications : sequence of str
         The relaxed trailing-edge specifications as the component
-        definition carries them, four fields or five.
+        definition carries them, three values or four (SRC-752 p.85).
 
     Returns
     -------
     list of str
         One rendered specification per input, in the same order. A
-        four-field specification comes back with four fields where the
+        three-value specification comes back with three values where the
         row asks for nothing or for the axial direction, because those
-        are what it already means; it gains the fifth field only where
+        are what it already means; it gains the direction only where
         the row asks for the azimuth direction.
 
     Raises
@@ -3256,8 +3261,8 @@ def rotor_relaxed_trailing_edges(case: SimCase, specifications: Sequence[str]) -
     ...     recipe="unsteady_rotor",
     ...     variables={"ROTOR_SHEDDING": "AZIMUTH"},
     ... )
-    >>> rotor_relaxed_trailing_edges(case, ["0.5;0.1;0.9;1"])
-    ['0.5;0.1;0.9;1;1']
+    >>> rotor_relaxed_trailing_edges(case, ["0.5;0.1;0.9"])
+    ['0.5;0.1;0.9;1']
     """
     # A bare string is a SEQUENCE of characters, so one specification
     # passed without its list would be read as thirteen unreadable ones
@@ -4556,9 +4561,16 @@ def _open_geometry(case: SimCase, script: Script) -> None:
             "IGES route (.igs/.iges), or convert and inspect a supported surface mesh. "
             "Native STEP controls produced empty geometry, so no script is emitted."
         )
+    refuse_ccs_options_off_a_ccs_file(case, suffix.lower())
     if suffix.lower() in CAD_FORMATS:
         _import_cad(case, script)
         _raw_mesh_boundary_conditions(case, script)
+    elif suffix.lower() in CCS_FORMATS:
+        # 0.32.0 PACKAGE C (FR-240 to FR-244): the solver makes the mesh from the
+        # CCS file by the route its [import.ccs] table names (cases/ccs_wing.py).
+        emit_ccs_geometry(script, case)
+        _geometry_simulation_controls(case, script, default_unit=SIMULATION_LENGTH_UNIT)
+        _declare_boundaries(case, script, stated=case.inventory)
     elif suffix.lower() in RAW_MESH_FORMATS:
         _import_mesh(case, script, RAW_MESH_FORMATS[suffix.lower()])
         # THE TRAILING EDGE RIGHT AFTER THE IMPORT (G02), on the body the
@@ -14783,6 +14795,10 @@ _STEADY_KEYS: tuple[str, ...] = (
     # on an unsteady or rotor row is not measured; the docs say so.
     FREESTREAM_VARIABLE,
     FREESTREAM_UNITS_VARIABLE,
+    # G35 (0.32.0, FR-244): the direction of a CCS file's Relaxed_TE shedding
+    # lines, on every run type because every run type opens its geometry
+    # through `_open_geometry`.
+    CCS_SHEDDING_VARIABLE,
     # G12: the additional post's pproc, on every run type because every run
     # type saves its final .fsm (G11). No builder reads it: it is registered
     # so the row can state it, and `pyfs-matrix post --additional-pproc` is
@@ -15029,6 +15045,18 @@ ROW_KEY_MEANINGS: Mapping[str, InputKey] = MappingProxyType(
             "native units. NATIVE preserves file bytes. Neither rotates the field.",
             "SI or NATIVE; omission preserves legacy bytes without inferring units",
             "SET_FREESTREAM",
+        ),
+        CCS_SHEDDING_VARIABLE: InputKey(
+            "The direction of every Relaxed_TE parametric shedding line of the CCS file "
+            "the row's GEOMETRY names, on the file route (kind = file in its sidecar's "
+            "[import.ccs]). Refused on a CCS loft, whose relaxed trailing-edge commands "
+            "take no direction, and on a file with no Relaxed_TE line.",
+            "AXIAL or 0, the default; AZIMUTH or 1",
+            "CCS_IMPORT",
+            unscripted=(
+                "the run's own copy of the CCS file, each Relaxed_TE line restated in "
+                "this direction, which CCS_IMPORT reads in place of the user's file."
+            ),
         ),
         FREESTREAM_VARIABLE: InputKey(
             "A custom free stream in place of the uniform one: a velocity field over the YZ "

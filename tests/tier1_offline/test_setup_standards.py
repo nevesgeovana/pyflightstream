@@ -190,7 +190,7 @@ def test_rotor_shedding_matrix_key_is_refused_without_changing_helper():
     )
     with pytest.raises(CampaignConfigError, match="ROTOR_SHEDDING.*every matrix workflow"):
         build_script(case, Script("26.124"))
-    assert rotor_relaxed_trailing_edges(case, ["0.5;0.1;0.9;1"]) == ["0.5;0.1;0.9;1;1"]
+    assert rotor_relaxed_trailing_edges(case, ["0.5;0.1;0.9"]) == ["0.5;0.1;0.9;1"]
 
 
 def test_multiple_actuator_records_have_independent_speed_and_loading():
