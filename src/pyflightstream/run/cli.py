@@ -1236,6 +1236,12 @@ def _add_records_parsers(subparsers: Any) -> None:
     restore.add_argument("kind", choices=run_records.RESTORE_KINDS, help="the file to restore")
     restore.add_argument("--workspace", default=".", help=workspace_help)
     restore.add_argument("--stamp", default=None, help="the archive stamp to restore from")
+    restore.add_argument(
+        "--matrix",
+        default=None,
+        metavar="STEM",
+        help="for products and plan: the matrix whose file to restore, when several have archives",
+    )
     restore.add_argument("--apply", action="store_true", help=apply_help)
     rebuild = subparsers.add_parser(
         "rebuild",
@@ -1264,6 +1270,14 @@ def _add_records_parsers(subparsers: Any) -> None:
         help="the scheduler name of a solver build (repeatable)",
     )
     rebuild.add_argument("--matrix", default=None, help="the matrix the simulations ran from")
+    rebuild.add_argument(
+        "--inputs-from",
+        dest="inputs_from",
+        default=None,
+        metavar="FOLDER",
+        help="another origin's inputs/ folder, laid over this workspace's for inputs that "
+        "changed after the run; each record names the inputs taken from it",
+    )
     rebuild.add_argument("--apply", action="store_true", help=apply_help)
 
 
@@ -1272,7 +1286,7 @@ def _cmd_records(args: argparse.Namespace) -> int:
     try:
         if args.subcommand == "restore":
             entry = run_records.restore(
-                args.workspace, args.kind, stamp=args.stamp, apply=args.apply
+                args.workspace, args.kind, stamp=args.stamp, apply=args.apply, matrix=args.matrix
             )
         else:
             aliases: dict[str, str] = {}
@@ -1290,12 +1304,13 @@ def _cmd_records(args: argparse.Namespace) -> int:
                 build_alias=aliases or None,
                 matrix=args.matrix,
                 apply=args.apply,
+                inputs_from=args.inputs_from,
             )
     except (PyflightstreamError, OSError) as error:
         print(str(error), file=sys.stderr)
         return 2
-    for key, value in entry.items():
-        print(f"{key}: {value}")
+    for line in run_records.summary_lines(entry):
+        print(line)
     return 0
 
 

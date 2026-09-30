@@ -121,7 +121,7 @@ from pyflightstream.run import (
     ExecutorConfigurationError,
     SurfaceMeshExportError,
 )
-from pyflightstream.run.records import RunsManifestError
+from pyflightstream.run.records import RecordsError, RunsManifestError
 from pyflightstream.script import (
     BrokenCommandError,
     CommandArgumentError,
@@ -192,6 +192,7 @@ __all__ = [
     "PyflightstreamWarning",
     "QaEvidenceError",
     "QsteadyRecordError",
+    "RecordsError",
     "RetiredAttributeError",
     "RunsManifestError",
     "ScriptDeclarationTypeError",
