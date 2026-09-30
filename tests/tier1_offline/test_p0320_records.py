@@ -765,3 +765,21 @@ def test_rebuild_writes_nothing_when_the_workspace_changed_meanwhile(tmp_path, m
     with pytest.raises(records.RecordsError, match="changed during the rebuild"):
         records.rebuild(workspace.root, apply=True)
     assert not workspace.manifest_path.exists()
+
+
+def test_rebuild_refuses_another_version_even_when_its_script_matches(tmp_path, monkeypatch):
+    """P0320-REBUILD-SIMS: another version, named by an archive or a sweep table, is refused."""
+    workspace, matrix, original = _local_campaign(tmp_path, monkeypatch)
+    older = dict(original, package_version="0.30.0")
+    archived = workspace.root / "archive" / "runs-20260901-080000.json"
+    _write(archived, json.dumps([older]))
+    _lose_the_manifest(workspace)
+    entry = records.rebuild(workspace.root)
+    assert entry["records"] == [], "the script matched, and the version was not asked"
+    reason = entry["refused"]["5001"]
+    assert "0.30.0" in reason and "archive/runs-20260901-080000.json" in reason, reason
+    archived.unlink()
+    sweep = workspace.root / "post" / matrix.stem / "campaign_sweep.csv"
+    _write(sweep, f"run_id,package_version\n{original['run_id']},0.29.0\n")
+    reason = records.rebuild(workspace.root)["refused"]["5001"]
+    assert "0.29.0" in reason and "campaign_sweep.csv" in reason, reason
