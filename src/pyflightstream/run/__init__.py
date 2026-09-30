@@ -130,6 +130,7 @@ from pyflightstream.cases import (
     resolve_recipe,
     sweep_name,
 )
+from pyflightstream.cases.acoustics import acoustic_section_outputs, with_acoustic_signals
 from pyflightstream.cases.qsteady import (
     QsteadyClocking,
     QsteadyRecordError,
@@ -4475,8 +4476,11 @@ def _point_names(
     ]
     # G45: the VTK a Tecplot surface is written from is an output of the point,
     # and the native Tecplot only where the pproc asks for the strength (SS1).
-    return stem, with_tecplot_source(
-        outputs, singularity_strength=carries_singularity_strength(case)
+    # 0.32.0 (E2): the acoustic export of a row that declares observers, last.
+    return stem, with_acoustic_signals(
+        with_tecplot_source(outputs, singularity_strength=carries_singularity_strength(case)),
+        case,
+        stem,
     )
 
 
@@ -8435,7 +8439,10 @@ def _execute_point(
             # filed where the solver wrote them.
             ran_in_datapoint=True,
         )
+        # 0.32.0 (E2): an acoustic section's files, listed where the solver wrote them.
+        collected = acoustic_section_outputs(workspace.sim_dir(case.sim_id), collected)
     except MissingOutputsError as error:
+        error.collected = acoustic_section_outputs(workspace.sim_dir(case.sim_id), error.collected)
         # A COMPLETED SOLVE IS NOT DEMOTED BY THE PACKAGE'S OWN POST-PROCESSING
         # (0.30.0). A Tecplot the package failed to write from the VTK the
         # solver did write is not a missing solver output: the point is
