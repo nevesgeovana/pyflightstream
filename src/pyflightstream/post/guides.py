@@ -2522,6 +2522,8 @@ _SETTINGS_LEFT_OUT: tuple[str, ...] = (
     "inviscid_loads",
     "vorticity_lift_model",
     "unsteady_viscous_coupling_iteration",
+    "delete_surfaces",
+    "slipstream_wake_stabilization",
 )
 
 
