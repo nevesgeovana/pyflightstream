@@ -730,18 +730,24 @@ def test_the_function_body_scanner_reports_a_restored_deferral():
     # `pyflightstream.run.matrix` and never to `pyflightstream.run`, and
     # what the guard reads is the row a name sits in. An assertion on the
     # spelling would fail on a scanner that is right.
-    run_row = _layer_row("pyflightstream.run")
-    for source, package in (
-        ("def f(x):\n    from ..run import plan_campaign\n", "pyflightstream.cases"),
-        ("def f(x):\n    from .. import run\n", "pyflightstream.cases"),
-        ("def f(x):\n    from ..run.matrix import run_matrix\n", "pyflightstream.cases"),
-        ("def f(x):\n    from .run import plan_campaign\n", "pyflightstream"),
-        ("def f(x):\n    from ..workspace.inputs import resolve_setup\n", "pyflightstream.cases"),
+    # Since 0.33.0 (AD-09, P0330-WP1) `run` and `workspace` are two rows,
+    # so each spelling carries the layer whose row it must resolve to.
+    for source, package, layer in (
+        ("def f(x):\n    from ..run import plan_campaign\n", "pyflightstream.cases", "run"),
+        ("def f(x):\n    from .. import run\n", "pyflightstream.cases", "run"),
+        ("def f(x):\n    from ..run.matrix import run_matrix\n", "pyflightstream.cases", "run"),
+        ("def f(x):\n    from .run import plan_campaign\n", "pyflightstream", "run"),
+        (
+            "def f(x):\n    from ..workspace.inputs import resolve_setup\n",
+            "pyflightstream.cases",
+            "workspace",
+        ),
     ):
         targets = {
             name for _, _, names in _function_body_imports(source, package) for name in names
         }
-        assert run_row in {_layer_row(name) for name in targets}, (
+        expected_row = _layer_row(f"pyflightstream.{layer}")
+        assert expected_row in {_layer_row(name) for name in targets}, (
             f"the scanner does not resolve the relative deferral in:\n{source}"
             f"(package {package}); it saw {sorted(targets)}"
         )

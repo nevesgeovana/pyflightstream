@@ -128,7 +128,9 @@ _LEGITIMATE = {
         "if TYPE_CHECKING:\n"
         "    from pyflightstream.post.products import PolarPoint\n"
     ),
-    "same row": "from pyflightstream.run import collect\n",
+    # Since 0.33.0 (AD-09, P0330-WP1) `run` is the row ABOVE `workspace`, so
+    # the same-row shape is a sibling module of the workspace row itself.
+    "same row": "from pyflightstream.workspace import storage\n",
     "downward": "from pyflightstream.cases import matrix\nimport pyflightstream.versions\n",
     "floor module": "from pyflightstream._errors import PyflightstreamError\n",
     "side branch": "import pyflightstream.fsi\n",

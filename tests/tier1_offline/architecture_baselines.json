@@ -12,7 +12,7 @@
   "run/__init__.py": 4539,
   "run/cli.py": 2018,
   "run/matrix.py": 1316,
-  "run/records.py": 1954,
+  "run/records.py": 1945,
   "script/helpers.py": 1678,
   "workspace/__init__.py": 1609,
   "workspace/inputs.py": 1831,
@@ -1423,15 +1423,10 @@
    "pyflightstream.post.corrections",
    "pyflightstream.post.guides",
    "pyflightstream.post.products",
-   "pyflightstream.post.provenance",
-   "pyflightstream.post.section_distributions",
-   "pyflightstream.post.series",
-   "pyflightstream.post.surfaces",
    "pyflightstream.run",
    "pyflightstream.run.collect",
    "pyflightstream.run.matrix",
-   "pyflightstream.run.records",
-   "pyflightstream.workspace.storage"
+   "pyflightstream.run.records"
   ],
   [
    "pyflightstream.fsi.loads",
@@ -1535,18 +1530,6 @@
    "post/acoustics.py"
   ],
   [
-   "ARCHIVE_DIR",
-   "'archive'",
-   "run/records.py",
-   "workspace/naming.py"
-  ],
-  [
-   "ARCHIVE_STAMP",
-   "'%Y%m%d-%H%M%S'",
-   "run/records.py",
-   "workspace/naming.py"
-  ],
-  [
    "DISPLACEMENT_FILE",
    "'FSIDisp.txt'",
    "fsi/cli.py",
@@ -1617,7 +1600,7 @@
   ]
  },
  "same_row_cross_imports": {
-  "workspace->run": 2
+  "workspace->run": 0
  },
  "modules_at_freeze": [
   "__init__.py",

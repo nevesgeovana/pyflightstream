@@ -313,13 +313,15 @@ resolve("26.12")           # Ambiguous: 26.120, 26.121, 26.122, 26.123 or 26.124
     \begin{tikzpicture}[node distance=3.2mm,
       lay/.style={draw=deepblue,thick,rounded corners,fill=softgray,minimum width=46mm,minimum height=7mm,align=center,font=\small}]
       \node[lay] (qa) {\textbf{post / qa}: physics matrix, drift, probes};
-      \node[lay,below=of qa] (run) {\textbf{run / workspace}: executor, campaign loop, workspace};
-      \node[lay,below=of run] (cases) {\textbf{cases}: SIM model, sweeps, run matrix};
+      \node[lay,below=of qa] (run) {\textbf{run}: executor, campaign loop};
+      \node[lay,below=of run] (ws) {\textbf{workspace}: input library, run layout, manifest};
+      \node[lay,below=of ws] (cases) {\textbf{cases}: SIM model, sweeps, run matrix};
       \node[lay,below=of cases] (script) {\textbf{script / results}: builder, helpers, parsers};
       \node[lay,below=of script] (cmd) {\textbf{commands}: the evidence database};
       \node[lay,below=of cmd] (ver) {\textbf{versions}: YY.XXX scheme, ordering};
       \draw[-{Stealth},thick,accentteal] (qa) -- (run);
-      \draw[-{Stealth},thick,accentteal] (run) -- (cases);
+      \draw[-{Stealth},thick,accentteal] (run) -- (ws);
+      \draw[-{Stealth},thick,accentteal] (ws) -- (cases);
       \draw[-{Stealth},thick,accentteal] (cases) -- (script);
       \draw[-{Stealth},thick,accentteal] (script) -- (cmd);
       \draw[-{Stealth},thick,accentteal] (cmd) -- (ver);

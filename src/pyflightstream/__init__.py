@@ -76,6 +76,11 @@ except metadata.PackageNotFoundError:
 # collection (PFS-2029.15.03); importing it here, above every layer, is
 # what puts the stage in the workspace registry the run layer reads.
 import pyflightstream.post  # noqa: E402, F401
+
+# The run records register, the same way, the rebuild a restoring sync asks
+# for (P0320-SYNC-RESTORE-OPTIN): the storage layer sits BELOW the run since
+# 0.33.0 (AD-09) and calls whatever is registered, so no import points upward.
+import pyflightstream.run.records  # noqa: E402, F401
 from pyflightstream.options import (  # noqa: E402
     describe_option,
     get_option,

@@ -30,14 +30,16 @@ file that script began is continued, never rewritten.
 
 0.32.0 (package B2). ``sync`` names every ``sims/sim_*`` folder of both sides,
 recorded or not, and with ``restore`` (off by default) rebuilds the records of
-the folders no record carries through :func:`pyflightstream.run.records.rebuild`;
+the folders no record carries through :func:`pyflightstream.run.records.rebuild`,
+which the run layer registers here (:func:`register_records_rebuild`, 0.33.0);
 it copies each file to a temporary name and renames it in place, skips every
 folder named ``archive`` unless ``include_archives``, and holds the
 ``runs.json`` lease for the whole of its merge and copy (RST-6). A matrix is
 read from the root or ``inputs/matrices/``, one stem in both homes once when
 the bytes are identical and refused naming both when they differ (RST-1).
 ``sync``, ``free-space`` and ``delete-sims`` take ``runs``, the manifest
-:func:`pyflightstream.run.records.resolve_manifest` names.
+:func:`pyflightstream.workspace.naming.resolve_manifest` names (the
+function :mod:`pyflightstream.run.records` re-exports).
 """
 
 from __future__ import annotations
@@ -50,12 +52,11 @@ import re
 import shutil
 import tomllib
 import zipfile
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-from pyflightstream._errors import PyflightstreamError
 from pyflightstream._progress import stage_progress, tracked
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -72,7 +73,12 @@ from pyflightstream.workspace._links import (
     _make_dir_link,
     _remove_link,
 )
-from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP, archive_previous
+from pyflightstream.workspace.naming import (
+    ARCHIVE_DIR,
+    ARCHIVE_STAMP,
+    archive_previous,
+    resolve_manifest,
+)
 
 __all__ = [
     "COMPACTED_SUFFIX",
@@ -215,20 +221,6 @@ def _workspace(root: str | Path) -> CampaignWorkspace:
             "root that holds runs.json as workspace (CLI: --workspace)"
         )
     return CampaignWorkspace(root)
-
-
-def _manifest_of(root: Path, runs: str | None) -> Path:
-    """Return the manifest ``runs`` names in ``root``; ``runs.json`` when None.
-
-    Resolved by :func:`pyflightstream.run.records.resolve_manifest`, the one
-    rule for a manifest name, which refuses a name that is not a JSON file
-    directly in the root. The run row shares this row (ARCHITECTURE section
-    3); the import is deferred only because ``run`` imports this module while
-    it loads.
-    """
-    from pyflightstream.run import records as run_records
-
-    return run_records.resolve_manifest(root, runs)
 
 
 def _read_rows(path: Path) -> list[dict[str, Any]]:
@@ -916,7 +908,7 @@ def free_space(
     ``storage_management.json``.
     """
     workspace = _workspace(root)
-    manifest = _manifest_of(workspace.root, runs)
+    manifest = resolve_manifest(workspace.root, runs)
     if workspace.manifest_path.with_name("runs.json.lock").exists():
         raise StorageError(f"{workspace.root}: runs.json.lock present, a run is in progress")
     path, document = read_recipe(workspace.root, recipe)
@@ -1140,7 +1132,7 @@ def delete_sims(
     (FR-306); the entry then states ``force`` and each simulation's statuses.
     """
     workspace = _workspace(root)
-    manifest = _manifest_of(workspace.root, runs)
+    manifest = resolve_manifest(workspace.root, runs)
     if matrix_products is not None and matrix_products not in MATRIX_PRODUCT_CHOICES:
         raise StorageError(
             "matrix_products (CLI: --matrix-products) is one of "
@@ -1695,8 +1687,29 @@ def sync_summary_lines(entry: Mapping[str, Any]) -> list[str]:
     return lines
 
 
+#: The rebuild of the records of simulation folders no record carries, which
+#: an applying ``sync --restore`` asks for (P0320-SYNC-RESTORE-OPTIN): the
+#: run records (:mod:`pyflightstream.run.records`), ABOVE this layer since
+#: 0.33.0 (AD-09), register it here when they load, the way the post
+#: registers its stages in :mod:`pyflightstream.workspace`, and the package
+#: root loads them. No import of this module points up at the run.
+_Rebuild = Callable[[Path, list[str]], dict[str, Any]]
+_RECORDS_REBUILD: list[_Rebuild] = []
+
+
+def register_records_rebuild(rebuild: _Rebuild) -> _Rebuild:
+    """Register the rebuild a restoring sync calls with ``(root, sims)``; return it.
+
+    The rebuild returns the entry's ``restore`` block (``asked``, ``sims``,
+    ``result``, ``error``) and never raises for a refusal, which it writes in
+    ``error``: the files the sync copied stand.
+    """
+    _RECORDS_REBUILD[:] = [rebuild]
+    return rebuild
+
+
 def _restore_orphans(root: Path, sims: list[str]) -> dict[str, Any]:
-    """Rebuild the records of ``sims`` through :func:`pyflightstream.run.records.rebuild`.
+    """Rebuild the records of ``sims`` through the registered records rebuild.
 
     P0320-SYNC-RESTORE-OPTIN. Called by an applying sync that was asked to
     restore, AFTER it released the ``runs.json`` lease, which the rebuild takes
@@ -1705,17 +1718,10 @@ def _restore_orphans(root: Path, sims: list[str]) -> dict[str, Any]:
     sync's: the files it copied stand. The rebuilt records themselves are in
     ``runs.json`` and are not repeated in the storage record.
     """
-    from pyflightstream.run import records as run_records
-
-    outcome: dict[str, Any] = {"asked": True, "sims": sims, "result": None, "error": None}
-    try:
-        result = run_records.rebuild(root, sims=sims, apply=True)
-    except (PyflightstreamError, OSError) as error:
-        outcome["error"] = str(error)
-        return outcome
-    kept = {key: value for key, value in result.items() if key != "records"}
-    outcome["result"] = json.loads(json.dumps(kept, default=str))
-    return outcome
+    if _RECORDS_REBUILD:
+        return _RECORDS_REBUILD[0](root, sims)
+    error = "no records rebuild is registered: import pyflightstream, which registers it"
+    return {"asked": True, "sims": sims, "result": None, "error": error}
 
 
 def _sync_one(
@@ -1921,7 +1927,7 @@ def sync_workspaces(
     if level not in SYNC_LEVELS:
         raise StorageError(f"sync level is one of {', '.join(SYNC_LEVELS)}")
     main = _workspace(root)
-    manifest = _manifest_of(main.root, runs)
+    manifest = resolve_manifest(main.root, runs)
     if restore and manifest != main.manifest_path:
         raise StorageError(
             f"restore (CLI: --restore) rebuilds records into runs.json only; with runs (CLI: "

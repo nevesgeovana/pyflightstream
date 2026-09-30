@@ -459,7 +459,8 @@ def test_the_driver_sits_in_the_qa_layer_and_nothing_below_imports_it():
     assert "pyflightstream.workspace" in imported, "the driver does not read the workspace"
     assert "pyflightstream.qa.physics" in imported, "the driver does not reduce with qa"
     rows = {name: row for row, (names, _) in enumerate(_CORE_LAYERS) for name in names}
-    assert rows["qa"] < rows["run"] == rows["workspace"], (
+    # Since 0.33.0 (AD-09, P0330-WP1) run is a row of its own above workspace.
+    assert rows["qa"] < rows["run"] < rows["workspace"], (
         "the layer table no longer puts qa above run and workspace, so the "
         "direction this module measures needs re-deciding rather than re-asserting"
     )

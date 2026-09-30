@@ -11,7 +11,8 @@ Dependencies flow strictly downward; no module imports upward:
 
 ```
 post   qa          engineering data | probe and regression evidence
-run    workspace   headless execution | input library, run layout, manifest
+run                headless execution
+workspace          input library, run layout, manifest
 cases              simulation and campaign definitions
 script results     validating script builder | output parsers
 commands           the evidence-backed per-version command database
@@ -34,8 +35,8 @@ workspace layer's flight-condition resolver imports it as well. What
 makes it a floor is the DIRECTION, which is checkable, rather than a
 count of consumers, which changes.
 They are the floor the stack stands on rather than steps in it, which is
-why the arrow chains that state the flow name six rows and this table
-names eight.
+why the arrow chains that state the flow name seven rows and this table
+names nine.
 
 Side branches follow the same downward-only rule: `fsi` (the
 structural side of the aeroelastic loop), `probes` and `farfield`
@@ -297,16 +298,16 @@ one of them keeps.
     `TYPE_CHECKING`. The two imports that go the other way on v0.32.0
     are removed: the lookup of which records file a `--runs` name means
     moves down into `workspace`, beside the matrix lookup, and the
-    rebuild of orphaned records that the sync reached for is asked by
-    the command that runs the sync, after the sync returns. This
-    chapter's table, the user-guide diagram, the layer table of
-    `pyflightstream.overview` and the guards state the same rows.
-
-    Transition, stated because the table above this section and this
-    decision do not yet agree: the table still shows `run` and
-    `workspace` in one row and the prose counts six rows. Both change in
-    the same commit as the overview's layer table, because a tier-1 test
-    holds the table to that module.
+    rebuild of orphaned records that the sync reached for is inverted:
+    `run.records` registers it with `workspace.storage` when it loads
+    (the package root loads it, as it loads the post that registers its
+    stages), and the sync calls whatever is registered after it released
+    the `runs.json` lease, the order RST-6 states. The library keeps its
+    0.32.0 contract (FR-221: `restore=True` rebuilds), which a rebuild
+    asked only by the command line would have broken. This chapter's
+    table, the user-guide diagram, the layer table of
+    `pyflightstream.overview` and the guards state the same rows, and
+    the interim count of `workspace` to `run` imports of guard G3 is 0.
 
 !!! decision "AD-10 One home per constant, and the loads cycle removed <span class='srs-pending'>pending</span>"
     *Work package WP2 of the 0.33.0 scope (decision 15). Evidence owed:
@@ -779,13 +780,18 @@ bodies and those under `TYPE_CHECKING` included.
 - `run/records.py`, in the run row, imports the floors `_digest` and
   `_errors`, `cases`, `cases.matrix`, `cases.windows`, `results`,
   `workspace`, `workspace.flight_condition`, `workspace.inputs`,
-  `workspace.matrix` and `workspace.naming`, and inside function bodies
-  `_progress`, `cases.workflows`, `run` and `run.collect`. It holds the
-  operations on a workspace's records: which manifest a command reads, the
-  exact restore of a records file from the archive, the rebuild of run
-  records from the simulation folders and the records a post assembles from
-  them. `workspace.storage`, in the same row, reaches it inside two function
-  bodies for the sync's rebuild.
+  `workspace.matrix`, `workspace.naming` and `workspace.storage`, and inside
+  function bodies `_progress`, `cases.workflows`, `run` and `run.collect`. It
+  holds the operations on a workspace's records: the exact restore of a
+  records file from the archive, the rebuild of run records from the
+  simulation folders and the records a post assembles from them; it
+  re-exports which manifest a command reads, defined in `workspace.naming`.
+  Until 0.33.0, `workspace.storage` reached this module inside two function
+  bodies, for the manifest name and for the sync's rebuild. Since 0.33.0
+  (AD-09, P0330-WP1) the manifest name is resolved in `workspace.naming`, and
+  this module registers the rebuild with `workspace.storage` when it loads,
+  which calls it through that registry: the workspace row imports nothing of
+  the run row above it.
 - `cases/acoustics.py`, in the cases row, imports `_errors` and `cases`, and
   `script` for annotations only, under `TYPE_CHECKING`. It
   emits the solver's acoustic toolbox on an unsteady row and states the
