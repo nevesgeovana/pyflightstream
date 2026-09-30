@@ -31,6 +31,13 @@ FlightStream versions.
 - `pyfs-matrix inventory` names, on every call, the unsteady solver actions a saved simulation carries (each action's name, type and command) and the command that removes them, `pyfs-matrix inventory <file> --clean`: a saved action keeps its name when the script creates one of the same name, and the solver runs the saved command, so a geometry saved with the walltime clock of an earlier run on another machine aborted every unsteady run of it when the clock fired. `--clean` (function `clean_saved_actions`) sets the action count to 0 and removes the records, keeps every other byte, copies the file as it was to `<file>.bak-<stamp>` first, and puts it back if the boundary names read after differ from those before; an existing sidecar is kept unless `--overwrite` (FR-308; [Mesh inputs](docs/mesh-inputs.md#actions-saved-in-the-geometry-since-0330)).
 - `pyfs-matrix mark-failed --sims 2006,2007 [--reason TEXT] [--apply]` (function `mark_failed` of `pyflightstream.run.records`) marks every record of the named simulations `FAILED_MARKED`, whatever it ended in, for a run found wrong after it completed. Each record keeps under `marked` the status it had, when and the reason; `runs.json` is archived first; the post, the cost estimate and `delete-sims` treat the new status as any failure. An id with no record is refused before any write. A manifest holding `FAILED_MARKED` is not readable by an older release (FR-309; [Restore and rebuild](docs/restore-and-rebuild.md#mark-a-run-failed-after-the-fact-since-0330)).
 
+### Changed
+
+- mypy recount 2026-09-30: 1137 errors in 18 of 153 modules, on the 0.33.0
+  branch of FR-316 to FR-319, against the 1112 in 18 of 150 recorded for the
+  integrated 0.32.0 branch. The three new modules, `cases/_setup_keys.py`, `cases/_setup_link.py` and `workspace/_row_setup.py`,
+  arrived clean; the dirty count still reads 18 (RPT-029).
+
 ## [0.32.0] - 2026-09-30
 
 ### Added
