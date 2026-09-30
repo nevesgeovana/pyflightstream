@@ -108,7 +108,7 @@ from pyflightstream._errors import (
     collecting_warnings,
     warn,
 )
-from pyflightstream._progress import workspace_activity
+from pyflightstream._progress import tracked, workspace_activity
 from pyflightstream._tokens import POLAR_ID_COLUMN, ROTOR_ID_COLUMN
 from pyflightstream._tokens import REDUCTION_COLUMNS as REDUCTION_COLUMNS
 from pyflightstream.cases import (
@@ -8373,6 +8373,11 @@ def _campaign_products(
     return written
 
 
+def _sim_label(item: tuple[str, object]) -> str:
+    """Return a simulation as the post progress line names it (0.32.0)."""
+    return f"sim_{item[0]}"
+
+
 def _write_the_products(
     workspace: CampaignWorkspace,
     records: Sequence[RunRecord],
@@ -8397,7 +8402,7 @@ def _write_the_products(
     Split out of :func:`write_campaign_products` so that function can wrap it in
     the `try` that keeps the manifest true of the disk.
     """
-    for sim_id, sim_records in by_sim.items():
+    for sim_id, sim_records in tracked("post: simulations", by_sim.items(), label=_sim_label):
         simulation_metadata = _simulation_metadata(sim_records)
         effective_pproc = _effective_pproc(
             workspace, sim_id, simulation_metadata, rows_of_the_matrix.get(sim_id)

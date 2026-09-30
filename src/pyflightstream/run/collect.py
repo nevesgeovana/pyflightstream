@@ -76,7 +76,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from pyflightstream._errors import PyflightstreamWarning
-from pyflightstream._progress import workspace_activity
+from pyflightstream._progress import tracked, workspace_activity
 from pyflightstream.run._step_exports import missing_step_warning, untranslated_surfaces
 from pyflightstream.workspace.storage import ensure_sim_expanded
 
@@ -617,6 +617,11 @@ def _collect_additional(workspace, report, *, interval, sleep, observer) -> None
 
 
 @workspace_activity("collection")
+def _run_label(record: RunRecord) -> str:
+    """Return a record as the collect progress line names it (0.32.0)."""
+    return record.run_id
+
+
 def collect_once(
     workspace: CampaignWorkspace,
     *,
@@ -652,7 +657,7 @@ def collect_once(
     submitted = [r for r in records if r.status is RunStatus.SUBMITTED]
     _collect_additional(workspace, report, interval=interval, sleep=sleep, observer=observer)
 
-    for record in submitted:
+    for record in tracked("collect: points", submitted, label=_run_label):
         names = _declared_outputs(record)
         if not names:
             report.unknown.append(
