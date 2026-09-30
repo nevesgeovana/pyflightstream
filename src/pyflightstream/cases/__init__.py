@@ -63,7 +63,6 @@ import string
 import tomllib
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from importlib import import_module
 from inspect import Parameter, signature
 from pathlib import Path
@@ -205,7 +204,6 @@ __all__ = [
     "point_tag",
     "sweep_name",
     "resolve_recipe",
-    "stamp_derived_campaign",
 ]
 
 #: The axes a point tag can name, and therefore the axes a run can be
@@ -5375,82 +5373,6 @@ def derived_body_sha256(text: str) -> str:
     while lines and not lines[-1]:
         lines.pop()
     return text_sha256("\n".join(lines))
-
-
-def stamp_derived_campaign(
-    text: str,
-    matrix: str | Path,
-    *,
-    generated_at: str | None = None,
-) -> str:
-    """Mark a generated ``campaign.toml`` text as derived from a matrix.
-
-    The ``[campaign.derived_from]`` table is inserted immediately after
-    the ``[campaign]`` scalars, which is where TOML requires a sub-table
-    of a table to go, and the content digest is computed over everything
-    else, so the returned text describes itself.
-
-    Parameters
-    ----------
-    text : str
-        The campaign text as generated, for example by
-        :func:`pyflightstream.cases.matrix.convert_matrix`.
-    matrix : str or Path
-        The matrix the text was converted from. It is read here, to be
-        hashed, and recorded verbatim as the marker's ``matrix``.
-    generated_at : str, optional
-        Override for the recorded moment; the default is now, in UTC,
-        ISO 8601 to the second. Present so a caller that needs a
-        byte-reproducible output can ask for one.
-
-    Returns
-    -------
-    str
-        The same campaign text with the marker table in it.
-
-    Examples
-    --------
-    >>> from pathlib import Path
-    >>> stamped = stamp_derived_campaign(   # doctest: +SKIP
-    ...     convert_matrix("matrix.fs", name="wing", fs_version="26.120",
-    ...                    fs_exe="FlightStream.exe", recipes={"003": "r:build"}),
-    ...     "matrix.fs",
-    ... )
-    >>> Path("campaign.toml").write_text(stamped, encoding="utf-8")  # doctest: +SKIP
-    """
-    moment = generated_at or datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
-    table = [
-        "[campaign.derived_from]",
-        f'matrix = "{matrix}"',
-        f'matrix_sha256 = "{file_sha256(matrix)}"',
-        f'generated_at = "{moment}"',
-    ]
-    lines = text.splitlines()
-    insert_at = len(lines)
-    for index, line in enumerate(lines):
-        if line.strip() == "[campaign]":
-            for after in range(index + 1, len(lines)):
-                if lines[after].lstrip().startswith("["):
-                    insert_at = after
-                    break
-            break
-    else:
-        raise CampaignConfigError(
-            "the text to stamp has no [campaign] table, so there is nowhere to "
-            "record where it was derived from; stamp the output of a campaign "
-            "generator, not an arbitrary file"
-        )
-    head = lines[:insert_at]
-    while head and not head[-1].strip():
-        head.pop()
-    tail = lines[insert_at:]
-    # The digest is taken over the text WITHOUT its own line, which is
-    # exactly what `derived_body_sha256` drops, so the value written here
-    # is the value a reader recomputes from the finished file.
-    unstamped = head + [""] + table + [""] + tail
-    digest = derived_body_sha256("\n".join(unstamped))
-    stamped = head + [""] + table + [f'{_CONTENT_DIGEST_KEY} = "{digest}"', ""] + tail
-    return "\n".join(stamped).rstrip("\n") + "\n"
 
 
 class Campaign(BaseModel):

@@ -80,6 +80,8 @@ from pyflightstream.fsi.loads import (
     to_elastic_axis,
 )
 from pyflightstream.fsi.state import (
+    DISPLACEMENT_FILE,
+    LOADS_FILE,
     QUASI_STEADY_ROTOR_FILE,
     FsiState,
     LoadSample,
@@ -97,8 +99,6 @@ logger = logging.getLogger(__name__)
 
 CONFIG_FILE = "config.json"
 STATE_FILE = "state.json"
-LOADS_FILE = "FS_SurfaceSection_Loads.txt"
-DISPLACEMENT_FILE = "FSIDisp.txt"
 FAMILY_MAP_FILE = "fsi_family_map.json"
 LOG_FILE = "fsi_convergence_log.csv"
 FROZEN_FILE = "fsi_frozen_displacements.txt"

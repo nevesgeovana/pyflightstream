@@ -196,6 +196,26 @@ class ProductExistsError(ProductError):
     """
 
 
+class FsiInputError(PyflightstreamError, ValueError):
+    """Data handed to the coupling cannot describe a blade.
+
+    A shape that does not match the node map, a station count that
+    disagrees with the configuration, a displacement file that belongs
+    to another layout, a non-finite value where a length or a load is
+    required.
+
+    It keeps ``ValueError`` as a base, so code that already wrote
+    ``except ValueError`` around a coupling call catches exactly what it
+    caught before; what changes is that ``except PyflightstreamError``
+    now catches it too.
+
+    Defined here since 0.33.0 (AD-10) because TWO LAYERS name it: the
+    coupling (``fsi``) and the sectional loads parser of the results row,
+    which moved there so the results row imports nothing of ``fsi``. Import
+    it from :mod:`pyflightstream.fsi.errors` or the catalog, as before.
+    """
+
+
 class ContractNotImplementedError(PyflightstreamError, NotImplementedError):
     """A 0.32.0 contract function whose body its work package has not filled yet.
 

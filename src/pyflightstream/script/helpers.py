@@ -76,6 +76,7 @@ from pyflightstream._errors import (
 )
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.script import (
+    _LENGTH_UNIT_COMMAND,
     CommandArgumentError,
     Script,
     ScriptReferenceError,
@@ -3276,9 +3277,9 @@ def render_wake_edge_node_file(midpoints: Sequence[Sequence[float]]) -> str:
     return "\n".join(lines) + "\n"
 
 
-#: The command whose enumeration is the simulation's length-unit vocabulary,
-#: which is where the import's third token is drawn from.
-_LENGTH_UNIT_COMMAND = "SET_SIMULATION_LENGTH_UNITS"
+# The command whose enumeration is the simulation's length-unit vocabulary,
+# which is where the import's third token is drawn from, is
+# `_LENGTH_UNIT_COMMAND`, imported from its one home in the script root (AD-10).
 
 #: The one build the file route was run on, and the report that ran it.
 WAKE_EDGE_FILE_ROUTE_MEASURED_ON = "26.124"

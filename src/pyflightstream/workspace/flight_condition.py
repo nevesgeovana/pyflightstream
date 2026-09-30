@@ -129,9 +129,10 @@ from pyflightstream._atmosphere import (
     isa,
 )
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream.cases.matrix import VELOCITY_KEYS
 
-#: The keys that fix velocity. Exactly one is required, always.
-VELOCITY_KEYS = ("MACH", "TASmps")
+# The keys that fix velocity, VELOCITY_KEYS, of which exactly one is required,
+# always, have their one home in the matrix reader (AD-10).
 
 #: The key that fixes density by solving the Reynolds definition.
 DENSITY_KEY = "REmi"

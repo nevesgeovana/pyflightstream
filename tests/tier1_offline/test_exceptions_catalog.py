@@ -805,7 +805,10 @@ _RATCHET = {
     "pyflightstream.run.cli._parse_recipes -> ValueError",
     "pyflightstream.farfield._delta_psi -> ValueError",
     "pyflightstream.fsi.driver._verified_layout -> ValueError",
-    "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError",
+    # RE-KEYED in 0.33.0 (AD-10, P0330-WP2), not re-decided: the parser moved
+    # from `fsi.loads` to `results.sectional_loads` and the exemption followed
+    # the site. The debt is unchanged and still owed.
+    "pyflightstream.results.sectional_loads._validate_block_boundaries -> ValueError",
     "pyflightstream.overview._module_doc -> RuntimeError",
     "pyflightstream.post.writers._checked -> ValueError",
     "pyflightstream.probes.planar._unit -> ValueError",
@@ -847,7 +850,7 @@ _RATCHET_COUNTS = {
     "pyflightstream.run.cli._parse_recipes -> ValueError": 1,
     "pyflightstream.farfield._delta_psi -> ValueError": 1,
     "pyflightstream.fsi.driver._verified_layout -> ValueError": 1,
-    "pyflightstream.fsi.loads._validate_block_boundaries -> ValueError": 2,
+    "pyflightstream.results.sectional_loads._validate_block_boundaries -> ValueError": 2,
     "pyflightstream.overview._module_doc -> RuntimeError": 1,
     "pyflightstream.post.writers._checked -> ValueError": 2,
     "pyflightstream.probes.planar._unit -> ValueError": 1,

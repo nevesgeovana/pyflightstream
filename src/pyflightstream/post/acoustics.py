@@ -43,7 +43,15 @@ from pathlib import Path
 import numpy as np
 
 from pyflightstream._errors import ProductError
-from pyflightstream.cases.acoustics import ACOUSTIC_SIGNALS_SUFFIX, AcousticSignal
+
+# ACOUSTICS_DIR, the folder of the acoustic products under the products folder,
+# has its one home in cases.acoustics, which names the input folder the same
+# (AD-10); it stays in this module's __all__.
+from pyflightstream.cases.acoustics import (
+    ACOUSTIC_SIGNALS_SUFFIX,
+    ACOUSTICS_DIR,
+    AcousticSignal,
+)
 from pyflightstream.post._tables import write_csv_table
 
 __all__ = [
@@ -62,8 +70,6 @@ __all__ = [
     "write_acoustic_products",
 ]
 
-#: The folder of the acoustic products, under the products folder.
-ACOUSTICS_DIR = "acoustics"
 
 #: The reference pressure of a sound pressure level, 20 micropascals.
 REFERENCE_PRESSURE_PA = 20e-6

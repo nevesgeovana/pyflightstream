@@ -27,7 +27,6 @@ from pathlib import Path
 
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream._tokens import NOT_APPLICABLE, POLAR_ID_COLUMN
-from pyflightstream.fsi.loads import parse_sectional_loads
 from pyflightstream.post._tables import (
     CONTEXT_COLUMNS,
     SECTION_COLUMNS,
@@ -44,6 +43,7 @@ from pyflightstream.results import (
     parse_loads,
     parse_probe_points,
 )
+from pyflightstream.results.sectional_loads import parse_sectional_loads
 from pyflightstream.workspace import AdditionalRecord, RunRecord
 from pyflightstream.workspace.storage import pruned_step_refusal
 

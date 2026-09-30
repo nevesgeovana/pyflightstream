@@ -317,18 +317,29 @@ one of them keeps.
     Each of the nine constants that v0.32.0 defines twice has one
     defining module, and every other module imports it from there:
     `ARCHIVE_DIR` and `ARCHIVE_STAMP` (from `workspace.naming`, the run
-    records deriving their pattern from them), `FLAG_PHASES` (from
-    `cases`), the unit that names no length (one home for
-    `cases.ccs_wing` and the workflows), the section command (one home
-    in `cases` for the workflows and `post.superfile`), the stabilization
-    table (from `script.helpers`), the length-unit command (one home for
-    `script` and `script.helpers`), `VELOCITY_KEYS` (from `cases.matrix`)
-    and `ACOUSTICS_DIR` (from `cases.acoustics`). The duplicated module
-    `__getattr__` becomes one helper in `_deprecations`. The private
-    names no caller reaches are deleted after a search of the estate's
-    scripts. `parse_sectional_loads` is defined in `results` and
-    `fsi.loads` re-exports it, which removes the cycle between
-    `fsi.loads` and `results.tables`.
+    records reading their pattern, `ARCHIVE_STAMP_PATTERN`, from the same
+    home), `FLAG_PHASES` (from `cases`), the unit that names no length
+    (`UNIT_THAT_NAMES_NO_LENGTH`, from the floor `_lengths`, for
+    `cases.ccs_wing` and the workflows), the section command (from
+    `cases.workflows`, for `post.superfile`), the stabilization command
+    (from `script.helpers`, for `cases.setup_surfaces`), the length-unit
+    command (from `script`, for `script.helpers`), `VELOCITY_KEYS` (from
+    `cases.matrix`, for `workspace.flight_condition`) and `ACOUSTICS_DIR`
+    (from `cases.acoustics`, for `post.acoustics`). Two more pairs the
+    guard measured, the loads export and the displacement file of the
+    coupling, have their home in `fsi.state`, the import-light module the
+    staging builder already reads. The duplicated module `__getattr__` of
+    `post` and `post.products` is one helper in `_deprecations`
+    (`removed_names_hook`). The private helpers no caller reaches
+    (`_passages`, `_output`, `_cell_value`) are deleted after a search of
+    the repository and the estate's tracked scripts, and so is
+    `stamp_derived_campaign` (decision 9), whose marker the campaign
+    loader still reads. `parse_sectional_loads`, its report and
+    `UnitsError` are defined in `results.sectional_loads` and `fsi.loads`
+    re-exports them, which removes the cycle between `fsi.loads` and
+    `results.tables`; the coupling's refusal `FsiInputError`, which the
+    parser raises too, is defined in the floor `_errors` because two
+    layers name it, and `fsi.errors` re-exports it.
 
 !!! decision "AD-11 The four cheap extractions <span class='srs-pending'>pending</span>"
     *Work package WP3 of the 0.33.0 scope. Evidence owed: G1 and G8
@@ -716,9 +727,10 @@ its own row (a sibling of its own subpackage included).
   revolution.
 - `post/corrections.py`, in the post row, imports `_errors`, `_tokens`,
   `cases.corrections`, `post._tables`, `post.harmonics` and `post.qsteady`,
-  and, inside two functions, `post.products` (its table reader) and
-  `workspace` (a recorded point for a route 2 calibration), both at or below
-  its row. It is the one applicator of the correction routes: every corrected
+  and, inside one function, `workspace` (a recorded point for a route 2
+  calibration), below its row. Until 0.33.0 it also reached `post.products`
+  inside a function for its table reader; the reader is in `post._tables`
+  since then (AD-10), so the two modules no longer import each other. It is the one applicator of the correction routes: every corrected
   product is a new file beside its raw one, never written over it, and none is
   validated. The Theodorsen and Sears functions are a diagnostic only.
 - `workspace/fields.py`, in the workspace row, imports `_digest`, `cases`,
@@ -800,12 +812,14 @@ bodies and those under `TYPE_CHECKING` included.
   it, and `post` may import `cases` and never the reverse.
 - `cases/_ccs.py` (private), `cases/ccs_wing.py`, `cases/ccs_fuselage.py` and
   `cases/ccs_revolution.py`, in the cases row. `_ccs` imports only
-  `script.helpers`; `ccs_wing` imports `cases`, `cases._ccs` and `script`;
+  `script.helpers`; `ccs_wing` imports `_lengths`, `cases`, `cases._ccs` and
+  `script`;
   the fuselage and the revolution import `ccs_wing`, which reaches them only
   inside a function body, so the siblings form no import cycle. They emit
   the commands that have the solver make a mesh of a row's CCS file.
-- `cases/setup_surfaces.py`, in the cases row, imports `cases`, and `script`
-  for annotations only, under `TYPE_CHECKING`. It
+- `cases/setup_surfaces.py`, in the cases row, imports `cases` and
+  `script.helpers` (the stabilization command's one home, AD-10), and
+  `script` for annotations only, under `TYPE_CHECKING`. It
   removes the surfaces a setup names and emits the slipstream wake
   stabilization of each rotor motion.
 - `post/acoustics.py`, in the post row, imports `_errors`,

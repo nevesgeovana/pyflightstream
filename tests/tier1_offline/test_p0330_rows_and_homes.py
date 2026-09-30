@@ -14,7 +14,10 @@ WP2 (AD-10): the constants v0.32.0 defined twice each have one home, and
 from __future__ import annotations
 
 import ast
+import datetime
+import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -130,3 +133,98 @@ def test_importing_the_storage_layer_registers_the_records_rebuild():
     )
     assert done.returncode == 0, done.stderr
     assert done.stdout.split() == ["True", "pyflightstream.workspace.storage"]
+
+
+# ------------------------------------------------------------------ WP2
+
+_BASELINES = json.loads(
+    (Path(__file__).parent / "architecture_baselines.json").read_text(encoding="utf-8")
+)
+
+
+def test_the_one_home_allowlist_is_empty():
+    # P0330-WP2 (AD-10): every constant v0.32.0 defined twice has one home,
+    # so guard G6 runs with nothing allowed.
+    assert _BASELINES["one_home_allowlist"] == []
+
+
+def test_the_archive_stamp_pattern_matches_its_spelling():
+    # P0330-WP2 (AD-10): the run records read archive stamps with the pattern
+    # that lives beside the spelling, and the two agree.
+    stamp = datetime.datetime(2026, 9, 30, 7, 5, 9).strftime(naming.ARCHIVE_STAMP)
+    assert re.fullmatch(naming.ARCHIVE_STAMP_PATTERN, stamp)
+    assert records.ARCHIVE_STAMP == naming.ARCHIVE_STAMP
+    assert records.ARCHIVE_DIR == naming.ARCHIVE_DIR == "archive"
+
+
+def test_results_imports_nothing_of_fsi_at_any_depth():
+    # P0330-WP2 (AD-10, decision 15): the fsi.loads <-> results.tables cycle
+    # is gone because results names nothing of fsi.
+    assert _package_imports("results", "pyflightstream.fsi") == []
+    for component in _BASELINES["baseline_sccs"]:
+        assert "pyflightstream.fsi.loads" not in component, component
+
+
+def test_the_sectional_loads_parser_has_one_home_in_results():
+    # P0330-WP2 (AD-10): parse_sectional_loads and its report are defined in
+    # results.sectional_loads; fsi.loads re-exports every name it had, and
+    # the coupling's refusal is the floor's.
+    from pyflightstream import _errors
+    from pyflightstream.fsi import errors as fsi_errors
+    from pyflightstream.fsi import loads
+    from pyflightstream.results import sectional_loads
+
+    for name in (
+        "parse_sectional_loads",
+        "SectionalLoadsReport",
+        "SectionBlock",
+        "UnitsError",
+        "EXPECTED_COLUMNS",
+    ):
+        assert getattr(loads, name) is getattr(sectional_loads, name), name
+    assert sectional_loads.parse_sectional_loads.__module__ == sectional_loads.__name__
+    assert fsi_errors.FsiInputError is _errors.FsiInputError
+    assert exceptions.UnitsError is sectional_loads.UnitsError
+    assert issubclass(fsi_errors.FsiInputError, ValueError)
+
+
+def test_the_csv_reader_has_one_home_in_post_tables():
+    # P0330-WP2 (AD-10): read_csv_table and the plots-table readers live in
+    # post._tables; post.products re-exports them in its unchanged __all__,
+    # and post.corrections reads tables without importing post.products.
+    from pyflightstream.post import _tables, products
+
+    for name in ("read_csv_table", "plots_table_series"):
+        assert getattr(products, name) is getattr(_tables, name), name
+        assert name in products.__all__, name
+    corrections = _SRC / "post" / "corrections.py"
+    reached = _imports_at_any_depth(corrections.read_text(encoding="utf-8"), "pyflightstream.post")
+    assert not any(name.startswith("pyflightstream.post.products") for name in reached)
+
+
+def test_both_post_modules_refuse_a_removed_name_through_one_hook():
+    # P0330-WP2 (AD-10): the duplicated module __getattr__ of post and
+    # post.products became one helper; each still names the replacement and
+    # still says a plain AttributeError for any other name.
+    import pytest
+
+    import pyflightstream.post as post
+    from pyflightstream.post import products
+
+    for module in (post, products):
+        with pytest.raises(AttributeError, match="CustomPolarTable"):
+            module.HerPolarTable  # noqa: B018
+        with pytest.raises(AttributeError, match="has no attribute 'no_such_name'"):
+            module.no_such_name  # noqa: B018
+
+
+def test_the_dead_private_helpers_are_gone():
+    # P0330-WP2 (AD-10, GEO-072 4.4): three private helpers no caller reached
+    # (a search of the repository and the estate's tracked scripts found
+    # none) are deleted.
+    for relative, definition in (
+        ("cases/workflows.py", "def _passages("),
+        ("cases/workflows.py", "def _output("),
+        ("cases/matrix.py", "def _cell_value("),
+    ):
+        assert definition not in (_SRC / relative).read_text(encoding="utf-8"), relative

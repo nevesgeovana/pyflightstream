@@ -33,7 +33,6 @@ from pyflightstream.cases.workflows import (
     creates_surface_sections,
     pproc_emissions,
 )
-from pyflightstream.fsi.loads import parse_sectional_loads
 from pyflightstream.post._tables import (
     CONTEXT_COLUMNS,
     ProductError,
@@ -48,6 +47,7 @@ from pyflightstream.post.qsteady import (
 )
 from pyflightstream.post.series import SECTIONS_SERIES_LEAD, run_clock, stamped_exports
 from pyflightstream.results import labeled_value, parse_surface_sections
+from pyflightstream.results.sectional_loads import parse_sectional_loads
 from pyflightstream.workspace import RunRecord
 from pyflightstream.workspace.storage import pruned_step_refusal
 

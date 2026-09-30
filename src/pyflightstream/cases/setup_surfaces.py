@@ -36,6 +36,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from pyflightstream.cases import CampaignConfigError, select_group_members
+from pyflightstream.script.helpers import _STABILIZATION
 
 if TYPE_CHECKING:
     from pyflightstream.cases import SimCase
@@ -48,7 +49,6 @@ DELETE_SURFACES_KEY = "delete_surfaces"
 WAKE_STABILIZATION_KEY = "slipstream_wake_stabilization"
 
 _DELETE = "DELETE_SURFACES"
-_STABILIZATION = "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION"
 
 
 def emit_setup_surfaces(script: Script, case: SimCase) -> None:

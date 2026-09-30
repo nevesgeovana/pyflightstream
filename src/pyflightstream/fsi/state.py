@@ -39,6 +39,14 @@ from pyflightstream.fsi.errors import FsiInputError
 #: so the builder that stages it imports without the [fsi] extra.
 QUASI_STEADY_ROTOR_FILE = "fsi_quasi_steady_rotor"
 
+#: The sectional loads export the solver writes into the run folder and the
+#: driver reads, and the displacement file the driver writes back. Their one
+#: home since 0.33.0 (AD-10), here for the same reason as the marker above:
+#: the builder that stages the loads export and the dummy executable name them
+#: without the [fsi] extra.
+LOADS_FILE = "FS_SurfaceSection_Loads.txt"
+DISPLACEMENT_FILE = "FSIDisp.txt"
+
 logger = logging.getLogger(__name__)
 
 

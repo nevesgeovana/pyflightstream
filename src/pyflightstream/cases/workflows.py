@@ -94,7 +94,7 @@ from pyflightstream._fsm import (
     saved_mesh_coordinate_unit,
     surface_mesh,
 )
-from pyflightstream._lengths import scale
+from pyflightstream._lengths import UNIT_THAT_NAMES_NO_LENGTH, scale
 from pyflightstream._retired_names import retired_frame
 from pyflightstream.cases import (
     AXES_PLOT_COMPONENTS,
@@ -103,6 +103,7 @@ from pyflightstream.cases import (
     EVERY_SURFACE,
     EXPANDING_FRAMES,
     EXPORT_KINDS,
+    FLAG_PHASES,
     FORCE_PLOT_PARAMETERS,
     OPT_IN_EXPORT_KINDS,
     PLOT_TYPES,
@@ -764,10 +765,10 @@ CAD_FORMATS = frozenset({".igs", ".iges"})
 #: the package places) is in metres.
 SIMULATION_LENGTH_UNIT = "METER"
 
-#: The ``IMPORT`` unit a raw mesh may NOT state, although the command lists
-#: it: ``OTHER`` names no length, so its scale would be the solver's to
-#: choose, which is the assumed unit the table exists to rule out.
-_UNIT_THAT_NAMES_NO_LENGTH = "OTHER"
+# The ``IMPORT`` unit a raw mesh may NOT state, although the command lists
+# it, is ``_lengths.UNIT_THAT_NAMES_NO_LENGTH``: ``OTHER`` names no length, so
+# its scale would be the solver's to choose, which is the assumed unit the
+# table exists to rule out.
 
 #: The command each mesh operation of an import becomes (G03). A rotation is
 #: not here: it goes through :func:`pyflightstream.script.helpers.rotate_surfaces`,
@@ -3795,17 +3796,6 @@ BLADE_FAMILIES_KEY = "blade_families"
 _UNSTEADY_RECIPES = ("unsteady", "unsteady_rotor")
 
 
-def _passages(window: tuple[int, int], period: int) -> list[tuple[int, int]]:
-    """Cut an inclusive step window into successive passages of ``period`` steps.
-
-    The arithmetic of :func:`pyflightstream.post.unsteady.passage_windows`
-    on a window rather than on a series, so the two agree: from the first
-    step forward, a trailing partial passage dropped rather than averaged
-    against a shorter one.
-    """
-    return _windows.passages(window, period)
-
-
 def per_blade_window(*, last_step: int, blades: int, period_steps: int) -> tuple[int, int] | None:
     """Return THE one window every blade of a rotor is averaged over (item 8).
 
@@ -4463,19 +4453,6 @@ def _velocity(case: SimCase) -> float:
     return _required_float(case, VELOCITY_VARIABLE, quantity="free-stream velocity", unit="m/s")
 
 
-def _output(conventions: WorkflowConventions, case: SimCase, index: int) -> str:
-    names = conventions.outputs or tuple(case.outputs)
-    if len(names) <= index:
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} declares {len(names)} output file(s) and this run "
-            f"type exports at least {index + 1}. A workflow exports the names the "
-            "workspace rendered for this point and never a literal, so the row has to "
-            "declare them: add them to the row's variables as "
-            "'OUTPUTS: loads_{point}.txt'."
-        )
-    return names[index]
-
-
 # --- PFS-2025.02.02: the case geometry, opened first --------------------------
 
 
@@ -4784,7 +4761,7 @@ def _import_mesh(case: SimCase, script: Script, file_type: str) -> None:
     # READ PER BUILD, never a list written here: the units the build's
     # IMPORT documents, less the one that names no length.
     documented = next(arg for arg in script.entry("IMPORT").args if arg.name == "units").values
-    accepted = [unit for unit in documented or () if unit != _UNIT_THAT_NAMES_NO_LENGTH]
+    accepted = [unit for unit in documented or () if unit != UNIT_THAT_NAMES_NO_LENGTH]
     route = f"docs/mesh-inputs.md carries the route; search that page for '{_MESH_PAGE_ANCHOR}'"
     spec = case.mesh_import
     if spec is not None and spec.cad is not None:
@@ -4807,7 +4784,7 @@ def _import_mesh(case: SimCase, script: Script, file_type: str) -> None:
     if spec.units not in accepted:
         why = (
             "which names no length, so the scale would be the solver's guess"
-            if spec.units == _UNIT_THAT_NAMES_NO_LENGTH
+            if spec.units == UNIT_THAT_NAMES_NO_LENGTH
             else f"which IMPORT does not take on FlightStream {script.version.canonical}"
         )
         raise CampaignConfigError(
@@ -8387,10 +8364,10 @@ def _script_solve_and_export(
     _export_block(conventions, case, script, unsteady=unsteady)
 
 
-#: THE SEAMS A FLAG MAY REACH, which are the three the builders open for a
-#: raw entry too. A command of a later phase is part of the RUN rather than
-#: of its setting up, and this package emits those itself.
-FLAG_PHASES: tuple[str, ...] = ("control", "geometry", "setup")
+# THE SEAMS A FLAG MAY REACH are ``FLAG_PHASES``, the three the builders open
+# for a raw entry too, imported from :mod:`pyflightstream.cases`, their one
+# home (AD-10). A command of a later phase is part of the RUN rather than of
+# its setting up, and this package emits those itself.
 
 
 def _the_flag_a_row_states(case: SimCase, flag: CustomFlag) -> str | None:

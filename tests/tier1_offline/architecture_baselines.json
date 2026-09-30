@@ -1,12 +1,12 @@
 {
  "about": "Baselines of the architecture guards G1 to G8 (AD-08, work package WP0 of 0.33.0), measured on 2026-09-30 by scripts/arch_metrics.py on the tree of rel/0-33 at 692fee7a. Sizes are code lines without docstrings (the review lens). Every entry only moves down, by hand, in the commit that earns it; a stale entry fails until it is deleted. function_lines and function_limits are at-most ratchets (AD-08 G2: 'at most the recorded value'); module_code_lines, fan_out, fan_out_deferred and facade_lines click: an entry may not grow and a fall fails until the entry is lowered; baseline_sccs, same_row_cross_imports, private_test_names, monkeypatch_targets, monkeypatch_targets_by_module and one_home_allowlist are exact; facade_lines lists every package root holding anything beyond its docstring, imports, __all__ and a lazy __getattr__, and a root absent from it holds none (AD-08 G8); facade_definitions only shrinks; package_order is declared by the packages AD-12 and AD-14 order. metrics is the committed table of the numbers of the architecture metrics record that may only improve (G7). 'python scripts/arch_metrics.py check' runs the guards; 'tables' prints what the tree measures today.",
  "module_code_lines": {
-  "cases/__init__.py": 2430,
-  "cases/matrix.py": 1810,
-  "cases/workflows.py": 9000,
-  "post/corrections.py": 1007,
+  "cases/__init__.py": 2392,
+  "cases/matrix.py": 1808,
+  "cases/workflows.py": 8986,
+  "post/corrections.py": 1006,
   "post/guides.py": 2729,
-  "post/products.py": 5724,
+  "post/products.py": 5678,
   "qa/specs.py": 1334,
   "results/__init__.py": 1583,
   "run/__init__.py": 4539,
@@ -345,12 +345,6 @@
    "complexity": 21,
    "branches": 22,
    "statements": 101,
-   "positional": 1
-  },
-  "fsi/loads.py:parse_sectional_loads": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 31,
    "positional": 1
   },
   "fsi/nodes.py:NodeOrderingMap._consistent": {
@@ -1420,20 +1414,12 @@
   [
    "pyflightstream",
    "pyflightstream.post",
-   "pyflightstream.post.corrections",
    "pyflightstream.post.guides",
    "pyflightstream.post.products",
    "pyflightstream.run",
    "pyflightstream.run.collect",
    "pyflightstream.run.matrix",
    "pyflightstream.run.records"
-  ],
-  [
-   "pyflightstream.fsi.loads",
-   "pyflightstream.results",
-   "pyflightstream.results.native_surface",
-   "pyflightstream.results.surface",
-   "pyflightstream.results.tables"
   ]
  ],
  "fan_out": {
@@ -1522,69 +1508,14 @@
   "pyflightstream.workspace.naming": 1,
   "pyflightstream.workspace.storage": 3
  },
- "one_home_allowlist": [
-  [
-   "ACOUSTICS_DIR",
-   "'acoustics'",
-   "cases/acoustics.py",
-   "post/acoustics.py"
-  ],
-  [
-   "DISPLACEMENT_FILE",
-   "'FSIDisp.txt'",
-   "fsi/cli.py",
-   "fsi/driver.py"
-  ],
-  [
-   "FLAG_PHASES",
-   "('control', 'geometry', 'setup')",
-   "cases/__init__.py",
-   "cases/workflows.py"
-  ],
-  [
-   "LOADS_FILE",
-   "'FS_SurfaceSection_Loads.txt'",
-   "cases/fsi_workspace.py",
-   "fsi/driver.py"
-  ],
-  [
-   "VELOCITY_KEYS",
-   "('MACH', 'TASmps')",
-   "cases/matrix.py",
-   "workspace/flight_condition.py"
-  ],
-  [
-   "_LENGTH_UNIT_COMMAND",
-   "'SET_SIMULATION_LENGTH_UNITS'",
-   "script/__init__.py",
-   "script/helpers.py"
-  ],
-  [
-   "_SECTION_COMMAND",
-   "'NEW_SURFACE_SECTION_DISTRIBUTION'",
-   "cases/workflows.py",
-   "post/superfile.py"
-  ],
-  [
-   "_STABILIZATION",
-   "'SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION'",
-   "cases/setup_surfaces.py",
-   "script/helpers.py"
-  ],
-  [
-   "_UNIT_THAT_NAMES_NO_LENGTH",
-   "'OTHER'",
-   "cases/ccs_wing.py",
-   "cases/workflows.py"
-  ]
- ],
+ "one_home_allowlist": [],
  "facade_lines": {
   "__init__.py": 9,
-  "cases/__init__.py": 5064,
+  "cases/__init__.py": 4990,
   "commands/__init__.py": 1199,
   "farfield/__init__.py": 644,
   "fsi/__init__.py": 25,
-  "post/__init__.py": 28,
+  "post/__init__.py": 13,
   "probes/__init__.py": 441,
   "results/__init__.py": 3001,
   "run/__init__.py": 7971,
@@ -1757,20 +1688,20 @@
  "package_order": {},
  "metrics": {
   "top1_share": 11.3,
-  "top5_share": 30.6,
-  "top13_share": 48.2,
+  "top5_share": 30.5,
+  "top13_share": 48.0,
   "modules_over_1000": 17,
   "modules_over_2000": 6,
   "functions_over_100": 75,
   "functions_over_200": 19,
   "functions_over_300": 8,
-  "functions_over_limits": 230,
-  "cross_package_sccs": 2,
+  "functions_over_limits": 229,
+  "cross_package_sccs": 1,
   "largest_fan_out": 36,
   "largest_fan_out_deferred": 11,
   "private_test_names": 242,
   "monkeypatch_targets": 83,
-  "workspace_to_run_imports": 2,
-  "root_facade_lines": 23961
+  "workspace_to_run_imports": 0,
+  "root_facade_lines": 23872
  }
 }

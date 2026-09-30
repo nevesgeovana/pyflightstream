@@ -14,17 +14,11 @@ file that CARRIES the marker, so every hand-written campaign in
 existence loads exactly as it did before; a refusal written the other
 way round would have refused all of them.
 
-Usage, the shortest call that exercises the whole rule::
-
-    from pyflightstream.cases import load_campaign, stamp_derived_campaign
-
-    text = convert_matrix(matrix, name=..., fs_version=..., fs_exe=..., recipes=...)
-    Path("campaign.toml").write_text(
-        stamp_derived_campaign(text, matrix), encoding="utf-8"
-    )
-    campaign = load_campaign("campaign.toml")   # refuses an edited copy
-    campaign.is_derived                         # True
-    campaign.source_path                        # the file it came from
+The writer of the marker, ``stamp_derived_campaign``, had no caller in the
+package or the estate and was deleted in 0.33.0 (decision 9 of the scope,
+P0330-WP2); the READER of the marker stays, because campaign files stamped
+by earlier releases exist. These tests therefore write the marker the way
+those releases did, with :func:`_stamp` below, and hold the reader to it.
 
 The matrix here is hashed, never parsed: the marker records the BYTES
 of the file the conversion read, so these tests write a short text file
@@ -37,7 +31,12 @@ import pytest
 
 import pyflightstream.cases as cases_module
 from pyflightstream._digest import file_sha256
-from pyflightstream.cases import Campaign, CampaignConfigError, load_campaign
+from pyflightstream.cases import (
+    Campaign,
+    CampaignConfigError,
+    derived_body_sha256,
+    load_campaign,
+)
 
 MATRIX_TEXT = "POL | RUN\n9001 | 1\n"
 
@@ -69,21 +68,33 @@ def _in_the_campaign_folder(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
-def _stamp(text, matrix, **kwargs):
-    """Stamp a campaign text as generated, asserting the package can.
+def _stamp(text, matrix, *, generated_at="2026-09-30T12:00:00Z"):
+    """Write the ``[campaign.derived_from]`` marker the way releases up to 0.32.0 did.
 
-    The assertion rather than an AttributeError is deliberate: what has
-    to turn this file green is the BEHAVIOUR of saying where a campaign
-    came from, and a test that errors on a missing name says only that
-    the name is missing.
+    The marker table goes right after the ``[campaign]`` scalars (TOML puts
+    a sub-table there), or at the end when no table follows; the content
+    digest is taken with :func:`pyflightstream.cases.derived_body_sha256`
+    over the text without its own line, which is what the reader recomputes.
     """
-    stamp = getattr(cases_module, "stamp_derived_campaign", None)
-    assert stamp is not None, (
-        "pyflightstream.cases cannot stamp a campaign it generated, so a "
-        "generated campaign.toml is byte-indistinguishable from one a user "
-        "authored and will be edited by someone who believes it is input"
+    table = [
+        "[campaign.derived_from]",
+        f'matrix = "{matrix}"',
+        f'matrix_sha256 = "{file_sha256(matrix)}"',
+        f'generated_at = "{generated_at}"',
+    ]
+    lines = text.splitlines()
+    start = next(i for i, line in enumerate(lines) if line.strip() == "[campaign]")
+    insert_at = next(
+        (i for i in range(start + 1, len(lines)) if lines[i].lstrip().startswith("[")),
+        len(lines),
     )
-    return stamp(text, matrix, **kwargs)
+    head = lines[:insert_at]
+    while head and not head[-1].strip():
+        head.pop()
+    tail = lines[insert_at:]
+    digest = derived_body_sha256("\n".join(head + [""] + table + [""] + tail))
+    stamped = head + [""] + table + [f'content_sha256 = "{digest}"', ""] + tail
+    return "\n".join(stamped).rstrip("\n") + "\n"
 
 
 def _derived_campaign(tmp_path, *, text=AUTHORED, matrix_text=MATRIX_TEXT):
@@ -322,12 +333,11 @@ def test_the_source_survives_the_copy_the_matrix_resolution_makes(tmp_path):
 
 
 def test_a_campaign_with_no_cases_still_takes_the_marker_at_the_end(tmp_path):
-    """The insertion arm nothing else reaches: no table follows [campaign].
+    """A marker at the end of the file, where no table follows [campaign].
 
     A campaign declaring no case is degenerate but legitimate, and the
-    marker has nowhere to be inserted BEFORE, so it lands at the end. Left
-    untested this arm would be counted as covered by the ordinary shape,
-    which never reaches it.
+    marker has nowhere to be inserted BEFORE, so it lands at the end; the
+    reader has to find it there too.
     """
     matrix = tmp_path / "matrix.fs"
     matrix.write_text(MATRIX_TEXT, encoding="utf-8")
@@ -339,17 +349,14 @@ def test_a_campaign_with_no_cases_still_takes_the_marker_at_the_end(tmp_path):
     assert campaign.sims == []
 
 
-def test_stamping_something_that_is_not_a_campaign_is_refused(tmp_path):
-    """The one arm no other test reaches, reached.
-
-    There is nowhere to put the marker in a text with no ``[campaign]``
-    table, and silently appending one would produce a file that claims a
-    provenance for content that has none.
-    """
-    matrix = tmp_path / "matrix.fs"
-    matrix.write_text(MATRIX_TEXT, encoding="utf-8")
-    with pytest.raises(CampaignConfigError, match=r"no \[campaign\] table"):
-        _stamp("[[sim]]\nsim_id = '1'\n", matrix.name)
+def test_the_marker_writer_is_deleted_and_its_reader_stays():
+    # P0330-WP2 (decision 9 of the 0.33.0 scope, AD-10): the writer had no
+    # caller and left the package with a CHANGELOG Removed entry; the reader,
+    # which the tests above hold to the marker, is still public.
+    assert not hasattr(cases_module, "stamp_derived_campaign")
+    assert "stamp_derived_campaign" not in cases_module.__all__
+    assert "derived_body_sha256" in cases_module.__all__
+    assert "DerivedFrom" in cases_module.__all__
 
 
 def test_a_campaign_file_cannot_declare_its_own_source(tmp_path):

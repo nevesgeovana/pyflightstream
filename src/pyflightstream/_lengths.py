@@ -33,6 +33,12 @@ from types import MappingProxyType
 
 __all__ = ["METRES_PER_UNIT", "scale"]
 
+#: The token of ``SET_SIMULATION_LENGTH_UNITS`` (and of the import commands
+#: that list the same words) that names no length, so it has no scale here.
+#: Its one home since 0.33.0 (AD-10): a raw mesh import and a CCS curve import
+#: both refuse it, because its scale would be whatever the solver assumes.
+UNIT_THAT_NAMES_NO_LENGTH = "OTHER"
+
 #: Metres in one of each length unit the solver records, exact as decimals.
 METRES_PER_UNIT: Mapping[str, Fraction] = MappingProxyType(
     {

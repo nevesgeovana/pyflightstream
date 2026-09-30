@@ -161,6 +161,10 @@ PUBLIC_MODULES = [
     # point is one a user can run on a VTK of her own, and the time-averaged
     # surface is written by the same writer.
     "pyflightstream.results.native_surface",
+    # 0.33.0 (AD-10, P0330-WP2): the sectional loads parser moved here from
+    # fsi.loads, which re-exports it; PUBLIC because the export conversion
+    # table names this module as the parser's home.
+    "pyflightstream.results.sectional_loads",
     "pyflightstream.results.surface",
     "pyflightstream.results.tables",
     "pyflightstream.run",
