@@ -359,6 +359,36 @@ def test_p0320_ccs2_control_surface_in_real_space_names_its_axis(tmp_path):
     _index(lines, "NEW_CCS_WING_CONTROL_SURFACE AIL 2.0 3.6 0.25 0.25 0.5 20.0 1.0 REAL Y")
 
 
+def test_p0320_ccs2_control_surfaces_follow_the_subdivisions_in_the_order_written(tmp_path):
+    """P0320-CCS2-CONTROL-SURFACE: selection, subdivisions, each surface as written, loft."""
+    flap = AILERON.replace('name = "AIL"', 'name = "FLAP"').replace(
+        "v0 = 0.5\nv1 = 0.9\n", "v0 = 0.1\nv1 = 0.4\n"
+    )
+    ccs = 'kind = "wing"\ncomponent = 1\nsubdivisions = { chord = 30 }\n' + flap + AILERON
+    case = _row_case(tmp_path, "wing", ccs, ["WING"])
+    _, lines = _built(case)
+    selected = _curve_route(lines, str(case.geometry), 1)
+    chord = _index(lines, "CCS_WING_MESH_SUBDIVISIONS CHORD 30")
+    first = _index(
+        lines, "NEW_CCS_WING_CONTROL_SURFACE FLAP 0.1 0.4 0.25 0.25 0.5 20.0 1.0 PARAMETRIC Y"
+    )
+    second = _index(
+        lines, "NEW_CCS_WING_CONTROL_SURFACE AIL 0.5 0.9 0.25 0.25 0.5 20.0 1.0 PARAMETRIC Y"
+    )
+    loft = _index(lines, "CAD_CREATE_WING_MESH_FROM_CCS WING TRUE SHARP TRUE C2 C0")
+    assert selected < chord < first < second < loft
+
+
+@pytest.mark.parametrize("build", ["26.100", "26.101"])
+def test_p0320_ccs2_a_build_with_the_eight_argument_grammar_refuses_the_line(tmp_path, build):
+    """P0320-CCS2-CONTROL-SURFACE: refused at the emitter where SPACE and AXIS do not exist."""
+    from pyflightstream.cases.ccs_wing import emit_ccs_wing
+
+    case = _row_case(tmp_path, "wing", 'kind = "wing"\ncomponent = 1\n' + AILERON, ["WING"])
+    with pytest.raises(CommandArgumentError, match="8 arguments"):
+        emit_ccs_wing(Script(build), case)
+
+
 @pytest.mark.parametrize(
     ("change", "needle"),
     [
