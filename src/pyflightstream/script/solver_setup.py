@@ -27,7 +27,14 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, ConfigDict, JsonValue
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+)
 
 from pyflightstream.commands import CommandEntry, CommandRegistry
 from pyflightstream.script import CommandArgumentError
@@ -571,6 +578,24 @@ class SolverSetup(BaseModel):
 
     fs_version: str
     flags: dict[str, FlagRecord]
+    #: The setup keys the matrix row stated over its preset, as the cell wrote
+    #: them (FR-316); the flags above already carry their effective values.
+    from_row: dict[str, str] = Field(default_factory=dict)
+    #: Settings the package chose from a rule rather than read from a key, each
+    #: with its value and the rule (FR-318: the moments model linked to the
+    #: vorticity drag on a row turning a rotor).
+    derived: dict[str, str] = Field(default_factory=dict)
+
+    @model_serializer(mode="wrap")
+    def _absent_when_empty(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        # A SNAPSHOT NAMING NEITHER SERIALIZES AS IT DID BEFORE FR-316, so every
+        # record and every product written from one keeps its bytes; an old
+        # record, which carries neither key, validates to the empty defaults.
+        dumped = handler(self)
+        for name in ("from_row", "derived"):
+            if not dumped.get(name):
+                dumped.pop(name, None)
+        return dumped
 
     def explicit_kwargs(self) -> dict[str, object]:
         """Return the helper keywords that reproduce the explicit flags.

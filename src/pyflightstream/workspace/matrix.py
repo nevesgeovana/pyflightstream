@@ -53,9 +53,10 @@ import math
 import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from functools import partial
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any
+from typing import Any, cast
 
 from pydantic import ValidationError
 
@@ -117,7 +118,6 @@ from pyflightstream.cases.workflows import (
     refuse_an_additional_post_build,
     refuse_what_a_saved_point_cannot_give,
 )
-from pyflightstream.script.toggles import resolve_toggle
 
 # `wake_edges` is SIDEWAYS, to the module of this layer that owns a
 # trailing-edge points file: its reader and its check against the mesh are
@@ -135,6 +135,10 @@ from pyflightstream.workspace import (
     matrix_by_stem,
     wake_edges,
 )
+
+# THE ROW'S OWN SETUP KEYS (FR-316) resolve through the loader below, which
+# the caller hands in, so the two stay one loader.
+from pyflightstream.workspace._row_setup import resolve_stabilization, row_setup
 from pyflightstream.workspace.flight_condition import (
     PINNED_KEYS,
     ResolvedCondition,
@@ -1234,41 +1238,6 @@ def _condition_defaults(setup: SetupArtifact, set_code: str) -> dict[str, float]
     return canonical_condition_defaults(defaults, condition_defaults_origin(set_code))
 
 
-def _resolve_stabilization(settings: Mapping[str, object], set_code: str) -> float | None:
-    """Resolve the two-key stabilization pair into one strength, or None.
-
-    A preset gates the strength with its own ENABLE/DISABLE key, and the
-    emitter takes a single number. Disabled therefore means ABSENT and
-    not zero: zero is a stabilization of zero strength that is still
-    switched on, and emitting it would be a different run from the one
-    the file describes.
-    """
-    if "stabilization" not in settings and "stabilization_strength" not in settings:
-        return None
-    gate = settings.get("stabilization")
-    enabled = True if gate is None else resolve_toggle(gate, context="stabilization")
-    if not enabled:
-        return None
-    strength = settings.get("stabilization_strength")
-    if strength is None:
-        raise InputArtifactError(
-            f"setup preset {set_code!r} enables stabilization and states no "
-            "stabilization_strength, so there is no number to emit. Add the strength, "
-            "or disable it."
-        )
-    # NARROWED RATHER THAN COERCED. A TOML value arrives as `object`, and
-    # `float(object)` is both untypeable and a worse refusal: a string
-    # would raise a bare ValueError naming neither the preset nor the
-    # key. A bool is excluded on its own line because it is an int in
-    # Python, so `True` would silently become a stabilization of 1.0.
-    if isinstance(strength, bool) or not isinstance(strength, (int, float)):
-        raise InputArtifactError(
-            f"setup preset {set_code!r} states stabilization_strength as {strength!r}, "
-            "and a stabilization strength is a number."
-        )
-    return float(strength)
-
-
 def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
     """Map one preset onto the case solver settings, refusing what it cannot.
 
@@ -1342,7 +1311,7 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
             "stabilization or stabilization_strength, which are two declarations of "
             "one solver setting. Keep the direct strength or the gated pair, not both."
         )
-    stabilization = _resolve_stabilization(settings, set_code)
+    stabilization = resolve_stabilization(settings, set_code)
     gated = "stabilization" in settings or "stabilization_strength" in settings
     settings.pop("stabilization", None)
     settings.pop("stabilization_strength", None)
@@ -1490,6 +1459,10 @@ def _solver_from_setup(setup: SetupArtifact, set_code: str) -> SolverSettings:
         raise InputArtifactError(
             f"setup preset {set_code!r} does not fit the case solver settings: {error}"
         ) from error
+
+
+#: The row-setup resolver bound to this module's preset loader and alias table.
+_setup_of_the_row = partial(row_setup, aliases=_PRESET_ALIASES, loader=_solver_from_setup)
 
 
 def _with_rotor_groups(pproc: PprocArtifact, reference, code: str, pol: str) -> PprocArtifact:
@@ -2421,7 +2394,9 @@ def resolve_matrix(
                 ),
                 body_axes=dict(reference.body_axes),
             ),
-            "solver": solvers[row.set_code],
+            # FR-316: THE ROW'S SETUP KEYS, over its preset, for this row only: the
+            # solver, and where the row states any, the keys and the variables left.
+            **_setup_of_the_row(setups[row.set_code], solvers[row.set_code], row, case),
             # THE REFERENCE'S FRAMES RIDE ON THE CASE (FR-72, the design decision of
             # 2026-09-10), created by the builders after the package's own; a
             # configuration defining none leaves the list empty and the script
@@ -2514,7 +2489,7 @@ def resolve_matrix(
             mesh_import = _mesh_import_of(geometry_path, row.pol)
             update["mesh_import"] = mesh_import
             update["raw_mesh_conditions"] = _raw_mesh_conditions_of(
-                geometry_path, row.pol, mesh_import, solvers[row.set_code]
+                geometry_path, row.pol, mesh_import, cast(SolverSettings, update["solver"])
             )
         # G06: A ROW'S PROFILE IS A FILE OF inputs/profiles/, resolved HERE, when
         # the row is planned, to the absolute path the script imports. A LEGACY

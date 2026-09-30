@@ -136,6 +136,7 @@ def expected_tables() -> dict[tuple[str, str], set[str]]:
         },
         ("setup", "`[[cylindrical_bulk_separation]]`"): {"name", "diameter", "boundaries"},
         ("setup", "`[[stratford_bulk_separation]]`"): {"name", "boundaries"},
+        ("setup", "`[[unsteady_solver_actions]]`"): {"type", "name", "filename"},
         ("setup", "The solver's own names, read as aliases"): set(_PRESET_ALIASES),
         ("setup", "Recorded, and emitting nothing"): set(_PRESET_RECORDED_ONLY),
         ("setup", "Tables and reserved keys"): {

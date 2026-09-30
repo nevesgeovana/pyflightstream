@@ -715,6 +715,14 @@ SETTING_VARIATIONS: dict[str, Variation] = {
     "unsteady_viscous_coupling_iteration": _setting(
         "unsteady_viscous_coupling_iteration", 5, 10, unsteady_case
     ),
+    # --- the setup fields 0.33.0 adds (FR-317, FR-319) -------------------
+    "moments_model": _setting("moments_model", "PRESSURE", "VORTICITY", on_wing=True),
+    "unsteady_solver_actions": _setting(
+        "unsteady_solver_actions",
+        [{"type": "COMMAND_LINE", "name": "first", "filename": "echo first"}],
+        [{"type": "COMMAND_LINE", "name": "second", "filename": "echo second"}],
+        unsteady_case,
+    ),
     # --- the setup fields 0.29.0 adds ------------------------------------
     # Geometry controls, applied after the saved wing opens and before frames.
     "simulation_length_unit": _setting_on(

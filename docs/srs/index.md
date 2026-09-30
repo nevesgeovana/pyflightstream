@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.54.0 |
+| Version | 1.55.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -41,7 +41,7 @@ or ambiguous.
    rules, with the generated [architecture overview](../architecture.md)
    as the live companion.
 6. [Functional requirements](functional-requirements.md): FR-01 to
-   FR-315, each with origin, status, and evidence.
+   FR-319, each with origin, status, and evidence.
 7. [Non-functional requirements](nonfunctional-requirements.md):
    NFR-01 to NFR-30.
 8. [Standards alignment](standards.md): the external practices this
@@ -98,6 +98,7 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.55.0 | 2026-09-30 | **THE FUNCTIONAL RANGE READS FR-01 TO FR-319**: four requirements join the functional chapter for 0.33.0, each an author decision of the day for a per-build setup study. FR-316 (a matrix row states native setup keys over its preset, warned at plan, refused where it would change a value the preset states), FR-317 (the moments model is a setup key, `PRESSURE` unstated as before), FR-318 (on a row turning a rotor the moments model follows the vorticity drag list; the two do not yet reach the same step exports, and the licensed confirmation is registered) and FR-319 (every choosable command of the five solver chapters has a key or a measured reason for none, in the audit RPT-104). |
 | 1.54.0 | 2026-09-30 | **THE FUNCTIONAL RANGE READS FR-01 TO FR-315**: FR-315 (every command ends with the signature on standard error, an author decision of the day) joins the functional chapter for 0.33.0. A standard error that cannot encode the drawing now receives it with replacement marks instead of nothing. |
 | 1.53.0 | 2026-09-30 | **NFR-29 R2 STATES WHICH MODULES IT COVERS AND HOW A MODULE WITH NO `__all__` COUNTS.** A public subpackage is every public module at every depth, the inventory the public-API test affirms, each with a page of its own; read as the root and the modules one level down, the reference carried 582 names on 21 pages, and it now carries 1894 on 123. A public module that declares no `__all__` (51 of 122) contributes the public names it defines itself, by the renderer's rule, and the list of such modules is pinned and only shrinks. NFR-29 records what DOC-A built and the evidence offered for its acceptance; its status stays pending, because moving a status is the owner's acceptance. AD-02 lists the three new generated pages. |
 | 1.52.0 | 2026-09-30 | **THE 0.33.0 SCOPE IS WRITTEN BEFORE IT IS BUILT, AND THE FUNCTIONAL RANGE READS FR-01 TO FR-314, THE NON-FUNCTIONAL NFR-01 TO NFR-30.** Four coordination reviews read this SRS against the 0.33.0 scope before any of its work packages started, and their findings are disposed here. FR-310 to FR-314 enter as pending: every command that takes a run matrix finds it in either home (FR-310), `collect` records a job that ended without its solver log as failed, the end-of-job files read from the HPC profile and their names not yet confirmed from a cluster folder (FR-311), a geometry reduced to its meshes and applied boundary conditions, resting on a block-by-block measurement and a licensed confirmation both owed (FR-312), the plan warns and never refuses on the saved solver actions of every unsteady row (FR-313), and every unsteady row registers the step counter (FR-314, which FR-129 now points to for which rows carry it). The architecture chapter gains the eight decisions of 0.33.0 as pending, AD-08 (the guards, module size counted in code lines) to AD-15 (the evolution policy that keeps everything 0.32.0 does), and AD-09 records that the layer table still shows six rows until the row-order work changes it with the overview. NFR-29 (the generated Python API and command-line references and the navigation by quadrant) and NFR-30 (numpydoc docstrings and running examples) enter as pending; NFR-19 stops saying the site will not gain an API reference. NFR-23 stays pending: moving a status is an acceptance and the owner's, though four tier-1 tests already enforce it. FR-305 to FR-309 are clarified without a change of behaviour: FR-306's title says the one status it lifts, FR-307 to FR-309 state numbered single obligations, FR-308 separates the evidence of its reader from the solver behaviour it reports, and FR-309 names the home of its severity order and the limit of an older release. The data model lists all nine run statuses, the standards row on Diataxis states the site as it is and as 0.33.0 makes it, and the roadmap states the 0.33.0 plan of the approved scope. |

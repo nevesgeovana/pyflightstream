@@ -328,6 +328,63 @@ key in `pyflightstream.workspace.inputs.ENTITY_SELECTIONS`, and the
 refusal prints the verdict; the post-processing artifact's keys are
 listed under that artifact below.
 
+**The moments model is a setup key**, since 0.33.0 (FR-317):
+
+```toml
+moments_model = "VORTICITY"   # PRESSURE (unstated) or VORTICITY
+```
+
+It reaches `SET_ANALYSIS_MOMENTS_MODEL`, an init-phase command stated with the
+loads frame before `START_SOLVER`, so every step export of a march carries it.
+Unstated, the script states `PRESSURE`, which is both the default the command
+database records for the command and the line every script of this package
+wrote before the key existed, so a preset naming none keeps its bytes. A word
+the command does not take is refused when the preset is read, naming the two
+it does.
+
+**On a row turning a rotor, the moments model follows the vorticity drag**
+(FR-318). A propeller whose induced drag, and so its thrust, comes from the
+vorticity integration (`vorticity_drag_families`) while its moments, and so
+its torque, come from the pressure integration mixes two integrations in one
+load, which a prior measurement outside this package showed. So on an
+`unsteady_rotor` or `qsteady_rotor` row, or a row stating a rotor speed:
+
+- `vorticity_drag_families` with no `moments_model` states `VORTICITY`; plan
+  warns naming both keys, and the setup snapshot of the run record names the
+  rule under `derived`;
+- `vorticity_drag_families` with `moments_model = "PRESSURE"` is refused at
+  plan, naming both keys and why;
+- a row turning no rotor keeps the model it states, `PRESSURE` unstated.
+
+!!! warning "The two settings do not yet reach the same exports on a march"
+    The moments model precedes `START_SOLVER`, so every step export of an
+    unsteady row carries it. The vorticity drag list is an analysis-phase
+    command in every edition of the command database, so it follows
+    `START_SOLVER` and reaches the final loads export, not the step exports.
+    Whether the solver takes the list before the solve, and whether the step
+    exports then carry it, is not documented and not measured; the licensed
+    confirmation is registered in RPT-104, and the order is kept until it runs.
+
+**The per-step actions of an unsteady run** are a setup table since 0.33.0
+(FR-319), each registered with `SET_NEW_UNSTEADY_SOLVER_ACTION` at the end of
+the solver settings, before the package's own counter and wall-clock actions:
+
+```toml
+[[unsteady_solver_actions]]
+type     = "COMMAND_LINE"            # or SCRIPT, a FlightStream script
+name     = "log_step"
+filename = "python log_step.py"      # the script file, or the shell command
+```
+
+The solver runs them after every time step, in the order written. A steady row
+whose preset states the table is refused at plan, naming the key: it has no
+time step. The file is named as written; nothing checks or writes it.
+
+Every choosable command of the Solver Settings, Advanced Settings, Runtime
+Settings, Unsteady Solver and Solver Analysis chapters has a key, or is listed
+with the measured reason it has none, in
+`reports/RPT-104_setup-key-audit_2026-09-30.md`.
+
 A preset defined **custom coordinate systems** at 0.14.0
 (PFS-2034.01), in a `[[frames]]` table, one entry per frame:
 
@@ -555,6 +612,49 @@ them on the solver run. The alias name is matched as written and then case
 folded, as a family name is, so `LIFTERS` finds `lifters`; an alias listing
 no member is refused when the preset is read, because an alias stands for
 the names after it.
+
+### A row may state setup keys over its preset
+
+Since 0.33.0 (FR-316) a row writes a setup key in its `VAR_NAMES_VALUES` cell
+under its native name, a field of the setup or one of the solver's own
+spellings above, so one basic preset serves a matrix whose rows each change one
+setup factor:
+
+```text
+... | s100 | ... | viscous_coupling: ENABLE
+... | s100 | ... | moments_model: VORTICITY
+... | s100 | ... | vorticity_drag_families: Wing, HTP
+```
+
+The rule, and its one default:
+
+- `plan` **warns** for every row that writes setup keys, naming the row and
+  the keys.
+- A key the preset **does not state** is added **for that row only**; the next
+  row naming the same preset reads the preset as written.
+- A key the preset states with an **equal** value is accepted and changes
+  nothing. Equal means the loader turns the two into the same setting, so
+  `convergence: 0.000001` equals `convergence = 1e-6`.
+- A key the preset states with a **different** value is **refused**, naming the
+  row, the key and both values. A row never silently overwrites its preset:
+  change the preset, drop the key, or give the row a preset of its own.
+
+Each value is validated by the loader the preset itself goes through, on a
+copy of the preset with the row's key in it, so a value is legal in a cell
+exactly when it is legal in a preset. The setup snapshot of the run record
+lists, under `from_row`, the keys the row stated and their cell text.
+
+A cell carries a number, a word, `true` or `false`, or a list of names
+separated by commas. It cannot carry a table, whose own pairs would need the
+cell's slash and whose records its comma, so the table-valued keys
+(`airfoil_separation`, `axial_vortex_separation`, `bulk_separation`,
+`cylindrical_bulk_separation`, `stratford_bulk_separation`, `ports`,
+`trailing_edge_types`, `actuator_operations`, `base_region_operations` and
+`unsteady_solver_actions`) are a preset's only, and a row naming one is refused
+with that list. A key named by a run type and by the setup at once, or one
+setting written in both vocabularies on one row (`SYMMETRY_LOADS` beside
+`symmetry_loads`), is refused as ambiguous. A key that is neither a run-type
+key nor a setup key is refused by the run type, as before.
 
 ### When a name you used no longer exists
 

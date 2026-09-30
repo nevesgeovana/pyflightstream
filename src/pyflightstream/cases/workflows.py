@@ -125,6 +125,7 @@ from pyflightstream.cases import (
     ScriptRecipe,
     SimCase,
     TrailingEdgeMarking,
+    _setup_link,
     alias_members_missing,
     classify_outputs,
     frame_basis_for_shaft,
@@ -139,6 +140,7 @@ from pyflightstream.cases import qsteady as _qsteady
 from pyflightstream.cases import setup_surfaces as _setup_surfaces
 from pyflightstream.cases import windows as _windows
 from pyflightstream.cases._ccs import CCS_FORMATS, CCS_SHEDDING_VARIABLE
+from pyflightstream.cases._setup_link import LOADS_SELECTION_KEYS
 from pyflightstream.cases.ccs_wing import (
     emit_ccs_geometry,
     refuse_ccs_options_off_a_ccs_file,
@@ -6024,155 +6026,6 @@ def _significant_digits(case: SimCase, script: Script) -> None:
         script.emit("SET_SIGNIFICANT_DIGITS", digits)
 
 
-def _family_indices(
-    case: SimCase,
-    script: Script,
-    families: Sequence[str] | None,
-    *,
-    keyword: str,
-    preset_key: str,
-    dropped: str,
-) -> list[int] | None:
-    """Resolve one preset boundary list's FAMILIES through the opened inventory.
-
-    PFS-2030.03.03. A family the geometry does not carry is left out, as the
-    reference driver filtered the preset's list to the configuration it opened;
-    a list that resolves to nothing is refused, because an empty selection would
-    be read by the solver as the default and the preset asked for something else.
-
-    ONE RULE FOR EVERY PER-FAMILY LIST, not one copy per list. This was written
-    for `vorticity_drag_families` alone and generalised when
-    `axial_separation_families` was added under the same rule as the vorticity
-    list. Two copies of this resolution would drift on the day one of them
-    learned something about a mesh the other did not, and every one of them
-    answers the same question: which boundaries of the opened geometry does this
-    family list name?
-
-    ``keyword`` is the helper argument this feeds, used as the resolution
-    context so a bad label names the key the user wrote. ``dropped`` completes
-    the sentence "or drop the key so ..." in the refusal, because what the
-    solver does with an ABSENT list is different for each one and is the fact a
-    reader needs in order to choose.
-    """
-    if families is None:
-        return None
-    # AN EMPTY LIST IS ITS OWN REFUSAL, and it fell through to the absent-family
-    # branch for one commit: the message read "the preset names <key>  and the
-    # opened geometry carries none of them (absent: )" -- two spaces, an empty
-    # parenthesis, and a sentence claiming the geometry lacks families that were
-    # never named. `vorticity_drag_families` is caught earlier and properly by an
-    # `EntitySelection` row at input validation; its new twin was given the
-    # resolver and not the validation, and the field's own docstring said it
-    # followed "the same rule ... through the same function", which is true of
-    # the resolver and not of the check. The QA lens of the closing round
-    # measured the mangled sentence.
-    if not list(families):
-        raise CampaignConfigError(
-            f"case {case.sim_id!r}: the preset states {preset_key} = [], an EMPTY "
-            "selection. The solver reads an empty list as its own default, which is "
-            f"not what a preset naming the key asked for: either name families, or "
-            f"drop {preset_key} so {dropped}."
-        )
-    chosen: list[int] = []
-    absent: list[str] = []
-    for name in families:
-        try:
-            chosen.append(script.resolve_boundary(name, context=keyword))
-        except PyflightstreamError:
-            absent.append(name)
-    if not chosen:
-        raise CampaignConfigError(
-            # THE PRESET'S OWN SPELLING, not the helper keyword. This named
-            # `keyword` -- which is the `solver_settings()` Python argument and
-            # is what `resolve_boundary` should be told -- so the refusal sent a
-            # user to `axial_separation_boundaries`, a key they cannot write in a
-            # preset at all. For `vorticity` an alias softened it; for the new
-            # twin there was nothing. The resolver's own docstring promised the
-            # opposite: "so a bad label names the key the user wrote".
-            f"case {case.sim_id!r}: the preset names {preset_key} "
-            f"{', '.join(families)} and the opened geometry carries none of them "
-            f"(absent: {', '.join(absent)}), so the selection would be empty. Name "
-            f"families the geometry carries, or drop {preset_key} so {dropped}."
-        )
-    return sorted(chosen)
-
-
-def _vorticity_indices(case: SimCase, script: Script) -> list[int] | None:
-    """Resolve the induced-drag boundary list from the preset's families."""
-    return _family_indices(
-        case,
-        script,
-        case.solver.vorticity_drag_families,
-        keyword="vorticity_drag_boundaries",
-        preset_key="vorticity_drag_families",
-        dropped="the solver integrates surface pressure on every boundary",
-    )
-
-
-def _axial_separation_indices(case: SimCase, script: Script) -> list[int] | None:
-    """Resolve the axial flow separation list from the preset's families.
-
-    `axial_separation_families` is a setup key and follows the same rule as
-    `vorticity_drag_families`. It had been reachable only as a helper keyword
-    that no campaign path passed -- the API-only shape this release exists to
-    catch, one level below the products.
-
-    THE BUILD GUARD STILL DECIDES WHETHER IT MAY RUN, and this does not argue
-    with it. `SET_AXIAL_SEPARATION_BOUNDARIES` is documented to 26.100 and no
-    further; RPT-018 measured it reported deprecated and then REFUSED by the
-    26.101 and 26.121 solvers. So a row naming this key on a later build is
-    refused by the mechanism that already refuses any command a build does not
-    offer, naming the build -- which is the honest outcome and much better than
-    emitting a line the solver will reject mid-run.
-    """
-    return _family_indices(
-        case,
-        script,
-        case.solver.axial_separation_families,
-        keyword="axial_separation_boundaries",
-        preset_key="axial_separation_families",
-        dropped="no boundary is placed on the axial flow separation list",
-    )
-
-
-def _analysis_indices(case: SimCase, script: Script) -> list[int] | None:
-    """Resolve the families that enter the loads (G09), by the per-family rule."""
-    return _family_indices(
-        case,
-        script,
-        case.solver.analysis_families,
-        keyword="boundaries",
-        preset_key="analysis_families",
-        dropped="every boundary enters the loads",
-    )
-
-
-#: The setup keys that select what the loads analysis reads (G09 of 0.27.0), each
-#: an analysis-phase command emitted after START_SOLVER, which is why a row of an
-#: unsteady run type may not state them.
-LOADS_SELECTION_KEYS: tuple[str, ...] = ("analysis_families", "load_units", "inviscid_loads")
-
-
-def _loads_selections(case: SimCase, script: Script) -> None:
-    """Emit the setup's selections of the loads analysis, after the solve (G09).
-
-    ANALYSIS PHASE, SO AFTER ``START_SOLVER`` and before the exports, which is
-    the order the verified inviscid-loads probe ran: the command, then the
-    export that reads it. Called once per point, so every point of a warm sweep
-    restates them. A setup that states none emits nothing.
-    """
-    solver = case.solver
-    boundaries = _analysis_indices(case, script)
-    if boundaries is None and solver.load_units is None and solver.inviscid_loads is None:
-        return
-    helpers.analysis_setup(
-        script,
-        load_units=solver.load_units,
-        boundaries=boundaries,
-        inviscid_only=solver.inviscid_loads,
-    )
-
-
 def _refuse_the_loads_selections_on_a_march(case: SimCase) -> None:
     """Refuse a loads selection on a row of an unsteady run type (G09).
 
@@ -6199,28 +6052,17 @@ def _refuse_the_loads_selections_on_a_march(case: SimCase) -> None:
 
 
 def _analysis(case: SimCase, script: Script, frame: int | None) -> None:
-    """Point the analysis at the MRP frame, BEFORE the solver starts (B05, RPT-064).
+    """Point the analysis at the MRP frame and state the moments model, BEFORE the solve.
 
-    THE ORDER DECIDES WHAT THE STEP EXPORTS STATE. This docstring said the
-    solver applied the two lines to the analysis that follows wherever they
-    sat, and that was true of the FINAL export only. An unsteady row's
-    per-step exports are written during the march, and with the two lines
-    after `START_SOLVER` every one of them printed `Coordinate frame for
-    analysis: Reference`, its CMy and CMz about the reference origin
-    (RPT-062). RPT-064 moved only these two lines, on 26.124: set before
-    `START_SOLVER`, every step export printed the MRP and the last step's
-    moments equalled the final export's; the forces agreed in every run.
-
-    So both are init-phase commands in the database, and every run type
-    emits them here, from :func:`_script_init`, once the solver is
-    initialised and the sections are declared: one position for all run
-    types. A steady row's numbers do not move, because its export follows
-    the solve. A row with no moment point (and a continuation, which
-    passes none) emits neither.
+    The two init-phase lines of B05 (RPT-064), and FR-317 and FR-318 with them:
+    :func:`~pyflightstream.cases._setup_link.analysis_frame_and_moments` says why
+    the order decides what the step exports state, and why a row turning a rotor
+    ties its moments model to its vorticity drag list. Every run type emits them
+    here, from :func:`_script_init`, once the solver is initialised and the
+    sections are declared.
     """
-    if frame is None:
-        return
-    helpers.analysis_setup(script, loads_frame=frame, moments_model="PRESSURE")
+    rotor = case.recipe in ("unsteady_rotor", QSTEADY_ROTOR) or _states_a_rotor_speed(case)
+    _setup_link.analysis_frame_and_moments(case, script, frame, rotor=rotor)
 
 
 def _refuse_sideslip_under_mirror(case: SimCase) -> None:
@@ -6401,12 +6243,12 @@ def _settings(
         ),
         ref_mach=solver.reference_mach,
         disable_ref_velocity=bool(solver.disable_reference_velocity),
-        vorticity_drag_boundaries=_vorticity_indices(case, script),
+        vorticity_drag_boundaries=_setup_link.vorticity_indices(case, script),
         # THE CALL SITE IS WHAT DELIVERS THIS, not the field and not the helper
         # keyword. Both of those existed already and a preset still could not ask
         # for an axial separation list, because this hand-written argument list is
         # the only path from a setup to the script.
-        axial_separation_boundaries=_axial_separation_indices(case, script),
+        axial_separation_boundaries=_setup_link.axial_separation_indices(case, script),
         iterations=solver.iterations,
         convergence=solver.convergence,
         max_threads=row_ncpus(case, solver.max_threads),
@@ -6478,6 +6320,7 @@ def _settings(
     symmetry_loads = row_symmetry_loads(case, solver.symmetry_loads)
     if symmetry_loads is not None:
         helpers.analysis_setup(script, symmetry_loads=symmetry_loads)
+    _setup_link.emit_setup_extras(case, script, marching=case.recipe in _UNSTEADY_RECIPES)
 
 
 def _lift_and_coupling(case: SimCase, script: Script) -> None:
@@ -8364,7 +8207,7 @@ def _script_solve_and_export(
     _raw_commands(case, script, "exec")
     helpers.start_solver(script)
     if not unsteady:
-        _loads_selections(case, script)
+        _setup_link.loads_selections(case, script)
         if case.solver.clear_vorticity_drag_boundaries:
             script.emit("DELETE_VORTICITY_DRAG_BOUNDARIES")
     _raw_commands(case, script, "analysis")
@@ -14410,7 +14253,7 @@ def _solve_one_clocking(
     alone.
     """
     helpers.start_solver(script)
-    _loads_selections(case, script)
+    _setup_link.loads_selections(case, script)
     if case.solver.clear_vorticity_drag_boundaries:
         script.emit("DELETE_VORTICITY_DRAG_BOUNDARIES")
     sections = _clocking_section_exports(conventions, case, index)
@@ -15725,10 +15568,11 @@ def build_script(
     if case.recipe not in _UNSTEADY_RECIPES or continuation_of(case) is None:
         refuse_an_untranslatable_surface(case, script)
     # THE LABEL IS THE SCRIPT: a point recorded as marched by actions registers
-    # at least one, and one recorded as a single march registers none. The
-    # builders emit the actions from the row, so this is where the two are
-    # held together (architect lens, GOAL-023 opening round).
-    emitted = bool(script.unsteady_actions)
+    # at least one of the package's own, and one recorded as a single march
+    # registers none. The builders emit the actions from the row, so this is
+    # where the two are held together (architect lens, GOAL-023 opening round).
+    # A setup's own per-step actions (FR-319) are the user's, and no label's.
+    emitted = bool(_setup_link.package_actions(case, script))
     if script.march_strategy is not None and emitted != (script.march_strategy == MARCH_ACTIONS):
         raise WorkflowCoverageError(
             f"internal defect: case {case.sim_id!r} on FlightStream {script.version.canonical} "
@@ -16143,7 +15987,7 @@ def build_additional_script(case: SimCase, script: Script, *, saved: str, shadow
     moment_frame = frames.get("MRP")
     _analysis(case, script, moment_frame if isinstance(moment_frame, int) else None)
     if not unsteady:
-        _loads_selections(case, script)
+        _setup_link.loads_selections(case, script)
     _export_block(WorkflowConventions(outputs=tuple(case.outputs)), case, script, unsteady=unsteady)
     if case.pproc.products.boundary_layer_integrals:
         for block in script.section_blocks:

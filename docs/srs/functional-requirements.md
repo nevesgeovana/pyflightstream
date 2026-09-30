@@ -7815,3 +7815,70 @@ Requirements written after the specification was last reconciled with the packag
     - R5 The signature never replaces the command's result, its exception or its exit code.
 
     Solution (release 0.33.0): `pyflightstream._cli.cli_entrypoint`, which signs through one function with the fallback of R4.
+
+!!! requirement "FR-316 A matrix row states native setup keys over its preset <span class='srs-implemented'>implemented</span>"
+
+    *Origin: an author decision of 2026-09-30, for a per-build setup study whose matrix gives every row one basic preset and one setup factor, the factor named by its native setup key; the default that a row never overwrites a value its preset states is part of the same decision. Measured before it on 0.32.0: a row stating `viscous_coupling`, `wake_on_wake_induction` or `reynolds_averaged_drag` in its cell was refused by the run type as a key of no run type. Evidence: `tests/tier1_offline/test_fr316_row_setup_keys.py::test_a_key_the_preset_lacks_is_added_for_that_row_only_and_warned`, `::test_an_equal_value_is_accepted_with_the_warning`, `::test_a_differing_value_for_a_key_the_preset_states_is_refused`, `::test_a_solver_alias_is_a_setup_key_and_follows_the_same_rule`, `::test_an_unstated_row_resolves_its_preset_unchanged`, `::test_an_unknown_key_is_still_refused`, `::test_a_table_valued_key_is_refused_naming_what_a_row_can_carry`, `::test_a_list_of_names_is_carried_comma_separated`, `::test_one_setting_in_both_vocabularies_is_refused_as_ambiguous`, `::test_an_invalid_value_is_refused_by_the_presets_own_loader`, `::test_the_row_keys_reach_the_setup_snapshot_of_the_run_record`.*
+
+    Need: A study that varies one setup factor per row needed one preset per row, because a row could not state a setup key at all.
+
+    Requirement: a key of a row's `VAR_NAMES_VALUES` cell that is a setup field, or one of the solver's own spellings of one, is a setup key of that row, resolved over the preset its `SET` cell names, for that row only.
+
+    - R1 `pyfs-matrix plan` warns for every row that states setup keys, naming the row and each key with its cell text.
+    - R2 A key the preset does not state is added to that row's settings; a key the preset states with an equal value is accepted and changes nothing. Equal means the preset's loader turns the two into the same setting.
+    - R3 A key the preset states with a different value is refused at plan, naming the row, the key and both values. No option lets a row overwrite its preset.
+    - R4 The row's value is validated by the loader that validates the preset, on a copy of the preset holding the row's key, so a value is legal in a cell exactly when it is legal in a preset; a value it refuses is refused naming the row.
+    - R5 The row's settings reach the script through the same emitter as the preset's; a row stating no setup key resolves to its preset unchanged, and no row's key reaches another row.
+    - R6 The setup snapshot of the run record lists, under `from_row`, each key the row stated and its cell text; a snapshot with none serializes as before.
+    - R7 A cell carries a number, a word, `true` or `false`, or a comma-separated list of names. A table-valued key (the separation models, `ports`, `trailing_edge_types`, `actuator_operations`, `base_region_operations`, `unsteady_solver_actions`) cannot be written in a cell, whose pairs are separated by a slash and records by a comma, and a row naming one is refused, listing the table-valued keys; they are a preset's only.
+    - R8 A key both a run-type key and a setup key, or one setting stated on one row in both vocabularies (`SYMMETRY_LOADS` and `symmetry_loads`), is refused as ambiguous; two spellings of one setup key on one row are refused; a key that is neither a run-type key nor a setup key stays refused by the run type.
+
+    Solution (release 0.33.0): `pyflightstream.workspace._row_setup.row_setup`, called by `resolve_matrix` with the preset loader and the alias table of `pyflightstream.workspace.matrix`.
+
+!!! requirement "FR-317 The moments model is a setup key <span class='srs-implemented'>implemented</span>"
+
+    *Origin: an author decision of 2026-09-30 asking for a key for the moments model, which every builder wrote as `SET_ANALYSIS_MOMENTS_MODEL PRESSURE` with no key; found missing by the audit of FR-319. Evidence: `tests/tier1_offline/test_fr317_fr318_moments_model.py::test_an_unstated_moments_model_leaves_the_script_byte_identical`, `::test_a_stated_moments_model_changes_that_line_and_no_other`, `::test_a_moments_model_the_command_does_not_take_is_refused`, `::test_a_stated_moments_model_is_emitted_where_no_frame_is_placed`; the workflow goldens, unchanged.*
+
+    Need: The moments model is a choice of the analysis, and a hard-coded value is a setting nobody can change.
+
+    Requirement: the setup key `moments_model` states `SET_ANALYSIS_MOMENTS_MODEL`.
+
+    - R1 It takes the tokens the command database lists for the command, `PRESSURE` and `VORTICITY`, in any case; any other word is refused when the setup is read.
+    - R2 It is emitted in the init phase, beside the loads frame and before `START_SOLVER`, where the command database places it.
+    - R3 Unstated, the script states `PRESSURE`, which is both the default the command database records for the command and the value every script emitted before this requirement; every script of a setup that does not state the key is byte-identical to the one emitted before it.
+    - R4 A stated model is emitted on a row with no moment point too; an unstated one there emits nothing, as before.
+
+    Solution (release 0.33.0): the field `SolverSettings.moments_model` and `pyflightstream.cases._setup_link.analysis_frame_and_moments`.
+
+!!! requirement "FR-318 On a row turning a rotor, the moments model follows the vorticity drag <span class='srs-implemented'>implemented</span>"
+
+    *Origin: an author requirement of 2026-09-30, set from a prior measurement made outside this package: on a propeller run with the induced drag by vorticity and the moments by pressure, the thrust came from the vorticity integration and the torque from the pressure integration. The requirement is that on a rotor the two settings are one decision; it asserts no solver behaviour of its own. Evidence: `tests/tier1_offline/test_fr317_fr318_moments_model.py::test_on_a_rotor_vorticity_drag_implies_vorticity_moments_warned_and_recorded`, `::test_on_a_rotor_pressure_moments_beside_vorticity_drag_are_refused`, `::test_the_link_holds_only_on_a_rotor_and_only_with_a_drag_list`, `::test_a_rotor_row_is_recognised_by_the_builder`. Owed: the licensed confirmation of R5, registered in RPT-104.*
+
+    Need: A rotor's thrust and torque read from one load must come from one integration.
+
+    Requirement: on a row turning a rotor (run type `unsteady_rotor` or `qsteady_rotor`, or a row stating a rotor speed), `vorticity_drag_families` and `moments_model` are linked.
+
+    - R1 A setup stating `vorticity_drag_families` and no `moments_model` states `VORTICITY` on that row; plan warns naming both keys, and the setup snapshot of the run record names the rule under `derived`.
+    - R2 A setup stating `vorticity_drag_families` with `moments_model = PRESSURE` is refused at plan on that row, naming both keys and why.
+    - R3 A setup stating both, `VORTICITY`, is accepted without a warning.
+    - R4 On a row turning no rotor, the moments model is the one stated, `PRESSURE` unstated (FR-317).
+    - R5 The two settings do not yet reach the same exports of an unsteady row. The moments model precedes `START_SOLVER`, so every step export carries it. The vorticity drag list is an analysis-phase command in every edition of the command database and follows `START_SOLVER`, so it reaches the final loads export and not the step exports. The order is kept as documented; whether the solver takes the list before the solve and the step exports then carry it is owed to a licensed round, registered in RPT-104.
+
+    Solution (release 0.33.0): `pyflightstream.cases._setup_link.moments_model_of`, called at the analysis settings of every run type.
+
+!!! requirement "FR-319 Every choosable command of the solver chapters has a setup key, or a measured reason for none <span class='srs-implemented'>implemented</span>"
+
+    *Origin: an author decision of 2026-09-30 that every setting of the solver's setup and advanced settings be reached by the workflow, and that a setting that cannot be is listed with its measured reason for a decision rather than deferred silently. Evidence: `reports/RPT-104_setup-key-audit_2026-09-30.md`; `tests/tier1_offline/test_fr319_setup_key_audit.py::test_every_choosable_command_of_the_five_chapters_has_a_key_or_a_reason`, `::test_each_audit_defect_is_caught`, `::test_no_emitter_hard_codes_a_choosable_value_of_the_five_chapters`, `::test_the_keys_given_now_are_routed_to_their_commands_on_26124`, `::test_a_marching_row_registers_the_setups_actions_and_a_steady_row_refuses_them`.*
+
+    Need: A command whose value a user can choose and no key reaches is a setting the package takes on the user's behalf.
+
+    Requirement: every command of the Solver Settings, Advanced Settings, Runtime Settings, Unsteady Solver and Solver Analysis chapters whose value a user can choose is reached through a key, or is listed with the measured reason it cannot be.
+
+    - R1 The audit lists every command of the five chapters of the command database and every command the 26.124 census files under those sections, with its key or its status: covered, given a key now, not a choosable value (a command with no argument), or cannot be covered.
+    - R2 A command marked covered names a key that reaches it: a setup key the routing table `SOLVER_SETTING_COMMANDS` maps to that command, or a row key, a matrix column, a reference key or a post-processing table that exists.
+    - R3 A choosable value the emitters write as a constant counts as missing even where a census counts it covered; the emitters of the workflows hold none.
+    - R4 A key given by the audit has as default the value emitted before it, so a setup that does not name it is byte-identical: `moments_model` (FR-317) and `unsteady_solver_actions`, the per-step actions an unsteady row registers with `SET_NEW_UNSTEADY_SOLVER_ACTION` before the package's own; a steady row stating the actions is refused at plan.
+    - R5 A command that cannot be covered is listed with its measured reason and awaits a decision: no entry in the command database (`SOLVER_INITIALIZATION`), a recorded failure on 26.124 (`SOLVER_TIME_AVERAGING`, which hangs the solver), a recorded product decision (`UNSTEADY_SOLVER_ANIMATION`), or a design decision (the per-parameter units of `UNSTEADY_SOLVER_NEW_FORCE_PLOT`, which every unsteady product reads).
+    - R6 A table-valued key is reachable through a preset only (FR-316, R7).
+
+    Solution (release 0.33.0): the audit report RPT-104, the routing table in `pyflightstream.cases._setup_keys`, and the field `SolverSettings.unsteady_solver_actions`, registered by `pyflightstream.cases._setup_link.emit_setup_extras`.
