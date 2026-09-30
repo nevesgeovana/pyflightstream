@@ -857,13 +857,32 @@ with the command that removes them:
 pyfs-matrix inventory inputs/geometries/30_WB/30_WB.fsm --clean
 ```
 
-`--clean` sets the action count to 0 and removes the action records; no
-other byte changes. The file as it was is copied to
-`30_WB.fsm.bak-<stamp>` beside it first, and it is put back, with the call
-refused, if the boundary names read after the change differ from those read
-before. An existing sidecar is kept, since the boundaries it lists did not
-change, unless `--overwrite` is given too. To clean every geometry of a
-workspace kept one per folder:
+`--clean` reduces the file to its meshes and the boundary conditions
+already applied (FR-308, FR-312). It sets the action count to 0 and removes
+the action records, and it puts every other block back to the content a
+freshly imported file holds, where that content is measured for the file's
+build and length unit; everything else comes from the script. The blocks and
+their fresh-import content were measured on the ten tier-3 geometries, fresh
+imports saved by 26.120 (build 7012026) in metres, which hold the same
+`GLOBAL`, `MOTION`, `POST`, `WAKE`, `SOLVER`, `ACOUSTIC`, `STABILITY` and
+`AEROELASTIC` whatever the shape: those are the blocks reset. Never reset:
+`MESH` (the meshes, the boundaries, the trailing edges and the wake
+termination marks), `PHYSICS` (the surface lists the boundary conditions are
+set in), `WRAPPER` and `GRAPHICS` (which differ between fresh imports), and
+`CAD`, `CADCREATE` and `CADMESHING` (measured on STL imports only). A file of
+another build or unit, 26.124 included, has no measured fresh import: only its
+saved actions are removed, every other block is kept, and the command says
+so. That the solver opens and runs a cleaned file is owed by the licensed
+round of 0.33.0.
+
+The file as it was is copied to `30_WB.fsm.bak-<stamp>` beside it first, and
+it is read again after the change: its boundary names and every block kept
+must be as before and its action records must read as none, or the copy is
+put back and the call refused. A file whose build is measured but which lacks
+one of the blocks to reset is refused before anything is written, and a file
+already clean is not written. An existing sidecar is kept, since the
+boundaries it lists did not change, unless `--overwrite` is given too. To
+clean every geometry of a workspace kept one per folder:
 
 ```text
 for d in inputs/geometries/*/; do n=$(basename "$d"); f="$d$n.fsm"; [ -f "$f" ] && pyfs-matrix inventory "$f" --clean; done

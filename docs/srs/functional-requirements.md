@@ -7675,7 +7675,7 @@ Requirements written after the specification was last reconciled with the packag
 
     - R1 When the geometry carries one or more saved unsteady solver actions, `inventory` prints to standard error, for each, its name, its type and its command or script file, then the line `pyfs-matrix inventory <file> --clean`. When it carries none, it prints nothing about actions. The file is not changed.
     - R2 Without `--clean`, the sidecar is written as it was before this requirement.
-    - R3 `--clean` first copies the file as it was to `<file>.bak-<stamp>`, the stamp being the time of the call (`YYYYMMDD-HHMMSS`, UTC), which enters no hash. It then sets the action count to 0 and removes the action records, every other byte unchanged.
+    - R3 `--clean` first copies the file as it was to `<file>.bak-<stamp>`, the stamp being the time of the call (`YYYYMMDD-HHMMSS`, UTC), which enters no hash. It then sets the action count to 0 and removes the action records, every other byte unchanged except the blocks FR-312 resets in a file whose build and unit have a measured fresh import.
     - R4 `--clean` puts the copy back and refuses when the boundary names read after the change differ from those read before.
     - R5 `--clean` refuses, writing nothing, a file whose action count disagrees with the records read, and writes nothing for a file with no saved action.
     - R6 `--clean` keeps an existing sidecar unless `--overwrite` is given.
@@ -7740,20 +7740,20 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-312 A geometry file can be reduced to its meshes and applied boundary conditions <span class='srs-pending'>pending</span>"
 
-    *Origin: item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3), the part of the clean beyond the saved actions of FR-308. Pending: the block-by-block measurement it rests on has not been made. Evidence owed: the dated report of that measurement (a simulation carrying every block against the same mesh freshly imported with the same boundary conditions, the builds compared named); tier-1 tests on recorded fixtures, each with a control; and the licensed confirmation, on 26.124, that the solver opens and runs a cleaned file (licensed round L1 of the 0.33.0 release), without which the claim of R1 is unverified.*
+    *Origin: item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3), the part of the clean beyond the saved actions of FR-308. Pending: built on 2026-09-30 over the measurement of R2; the paired measurement named below (a simulation carrying every block against the same mesh freshly imported) and the licensed confirmation are still owed, and no fresh import of 26.124 is committed. Evidence so far: `tests/tier1_offline/test_fr312_inventory_clean.py`. Evidence owed: the dated report of that measurement (a simulation carrying every block against the same mesh freshly imported with the same boundary conditions, the builds compared named); tier-1 tests on recorded fixtures, each with a control; and the licensed confirmation, on 26.124, that the solver opens and runs a cleaned file (licensed round L1 of the 0.33.0 release), without which the claim of R1 is unverified.*
 
     Need: A saved simulation carries the state of the run that saved it, and that state takes precedence over what the script sets (the saved actions of FR-308 are one case of it). A geometry meant as an input should hold only the meshes and the boundary conditions already set (the base, the trailing edges and the others), so that everything else comes from the script.
 
     Requirement: a command, an extension of `pyfs-matrix inventory --clean` whose spelling the implementation fixes, writes a geometry file that keeps the meshes and the applied boundary conditions and holds, in every other block, the content a freshly imported file holds.
 
     - R1 Each block other than the meshes and the boundary conditions is reset to the content a freshly imported file holds, measured block by block.
-    - R2 The blocks reset, and the fresh-import content of each, are listed in this requirement from the measurement named above; a block not in that list is left unchanged, never guessed.
+    - R2 The blocks reset, and the fresh-import content of each, are listed in this requirement from the measurement named above; a block not in that list is left unchanged, never guessed. Measured on 2026-09-30 over the ten committed tier-3 geometries, fresh imports saved by 26.120 (build 7012026) in metres: `GLOBAL`, `MOTION`, `POST`, `WAKE`, `SOLVER`, `ACOUSTIC`, `STABILITY` and `AEROELASTIC` hold the same lines in all ten, and are reset for a file of that build and unit (`pyflightstream._fsm_fresh.FRESH_IMPORT`, re-measured by a tier-1 test). Kept: `MESH`; `PHYSICS`, `WRAPPER` and `GRAPHICS`, which differ between the ten; `CAD`, `CADCREATE` and `CADMESHING`, measured on STL imports only. A file of any other build or unit keeps every block but its saved actions, and the command says so; on 26.124 (build 8172026) `CADCREATE` and `STABILITY` carry one line more than on 26.120, so a table of one build is not applied to another.
     - R3 Every count and length field of a rewritten block agrees with the content it counts; the command refuses, writing nothing, when it cannot make them agree.
     - R4 The boundary names and the boundary-condition marks read before and after are equal, or the command puts the original back and refuses.
     - R5 The original is first copied to `<file>.bak-<stamp>`, the stamp being the time of the call, which enters no hash; a file already clean is not rewritten.
     - R6 A cleaned file has new bytes and so a new hash, with the consequences FR-308 R7 states.
 
-    Solution (planned for 0.33.0): an extension of `pyflightstream.workspace.inputs.clean_saved_actions` and of the `--clean` option of `pyfs-matrix inventory`.
+    Solution (0.33.0, pending the evidence owed): `pyflightstream._fsm_fresh` and the extension of `pyflightstream.workspace.inputs.clean_saved_actions` and of the `--clean` option of `pyfs-matrix inventory`.
 
 !!! requirement "FR-313 The plan warns when the geometry of an unsteady row carries saved solver actions <span class='srs-pending'>pending</span>"
 

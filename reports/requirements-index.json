@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 257,
+  "cited_by_a_test": 258,
   "total": 321,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -2284,7 +2284,7 @@
    "text": "Need: A saved simulation carries the state of the run that saved it, and that state takes precedence over what the script sets (the saved actions of FR-308 are one case of it). A geometry meant as an input should hold only the meshes and the boundary conditions already set (the base, the trailing edges and the others), so that everything else comes from the script.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3), the part of the clean beyond the saved actions of FR-308. Pending: the block-by-block measurement it rests on has not been made. Evidence owed: the dated report of that measurement (a simulation carrying every block against the same mesh freshly imported with the same boundary conditions, the builds compared named); tier-1 tests on recorded fixtures, each with a control; and the licensed confirmation, on 26.124, that the solver opens and runs a cleaned file (licensed round L1 of the 0.33.0 release), without which the claim of R1 is unverified.*",
+   "evidence": "*Origin: item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3), the part of the clean beyond the saved actions of FR-308. Pending: built on 2026-09-30 over the measurement of R2; the paired measurement named below (a simulation carrying every block against the same mesh freshly imported) and the licensed confirmation are still owed, and no fresh import of 26.124 is committed. Evidence so far: tests/tier1_offline/test_fr312_inventory_clean.py. Evidence owed: the dated report of that measurement (a simulation carrying every block against the same mesh freshly imported with the same boundary conditions, the builds compared named); tier-1 tests on recorded fixtures, each with a control; and the licensed confirmation, on 26.124, that the solver opens and runs a cleaned file (licensed round L1 of the 0.33.0 release), without which the claim of R1 is unverified.*",
    "verification": "none"
   },
   {

@@ -10,12 +10,12 @@
   "qa/specs.py": 1334,
   "results/__init__.py": 1583,
   "run/__init__.py": 4513,
-  "run/cli.py": 2018,
+  "run/cli.py": 2004,
   "run/matrix.py": 1316,
   "run/records.py": 1954,
   "script/helpers.py": 1678,
   "workspace/__init__.py": 1609,
-  "workspace/inputs.py": 1831,
+  "workspace/inputs.py": 1801,
   "workspace/matrix.py": 1395,
   "workspace/storage.py": 1487
  },
@@ -946,12 +946,6 @@
    "branches": 2,
    "statements": 76,
    "positional": 0
-  },
-  "run/cli.py:_cmd_inventory": {
-   "complexity": 11,
-   "branches": 11,
-   "statements": 34,
-   "positional": 1
   },
   "run/cli.py:_cmd_plan": {
    "complexity": 13,
