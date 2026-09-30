@@ -69,7 +69,11 @@
 > packages, which brought it from 139 to 149, and by the run of
 > 2026-09-30 on the integrated 0.32.0 branch (`feat/0-32`, every 0.32
 > package merged), whose one further module, the CCS floor
-> `cases/_ccs.py`, brought it from 149 to 150. (An
+> `cases/_ccs.py`, brought it from 149 to 150, and by the run of 2026-09-30 on
+> the 0.33.0 branch of the functional requirements FR-310 to FR-314
+> (`feat/0-33-fr`), whose four new modules, `_fsm_fresh.py`,
+> `cases/_unsteady_actions.py`, `workspace/_geometry_clean.py` and
+> `workspace/_matrix_homes.py`, brought it from 150 to 154. (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
 > modules and the 0.24.0 tree at 661 in 18 of 93; the 0.28.0 release tree read
 > 863 errors in 18 of 104 on 2026-09-25; the 0.29.0 quality-gate candidate
@@ -82,23 +86,25 @@
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 1112 errors in 18 files (checked 150 source files)
->     Success: no issues found in 150 source files
+>     Found 1133 errors in 18 files (checked 154 source files)
+>     Success: no issues found in 154 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-30: 1112 errors in 18 of 150 modules.**
+**mypy recount 2026-09-30: 1133 errors in 18 of 154 modules.**
 
-The module total is the 150 the tracked package holds on the integrated
-0.32.0 branch, eleven more than v0.31.0's 139, each of the eleven clean
+The module total is the 154 the tracked package holds on the 0.33.0 branch
+of FR-310 to FR-314, four more than the integrated 0.32.0 branch's 150, each
+of the four clean; those 150 were eleven more than v0.31.0's 139, each of
+the eleven clean
 (the ten contract modules of the preparation step and `cases/_ccs.py`);
 v0.31.0's own 139 were five more than
 v0.30.0's 134, each of the five clean;
 the error total sits inside the exempted set, the number of modules holding
 an exemption is unchanged at eighteen, and the shipped configuration is
-green over all 150. The run at 139 was taken by `python scripts/mypy_recount.py`
+green over all 154. The run at 139 was taken by `python scripts/mypy_recount.py`
 on the 0.31.0 release candidate at `33c1d7ef`, which the script reported
 clean, and the runs at 149 and 150 are stated in their own sections at the end; the v0.30.0 release tree's reading, 1065 errors in 18 of 134, is
 stated in its own section below.
@@ -377,11 +383,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 1112 errors in 18 files (checked 150 source files)
+    Found 1133 errors in 18 files (checked 154 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 150 source files
+    Success: no issues found in 154 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -886,3 +892,20 @@ already carried exemptions, and the run measured the tree as it is and
 assigns no share of them to a change. The shipped configuration is
 green over all 150. The quoted mypy lines and the sentence at the top of
 this report are this run's.
+
+## Re-measured 2026-09-30, the 0.33.0 branch of FR-310 to FR-314: four modules arrived clean
+
+`python scripts/mypy_recount.py` on 2026-09-30, on `feat/0-33-fr` at
+`e127c8fc` (the functional requirements FR-310 to FR-314 of 0.33.0, the source
+tree committed and clean), with python 3.12.0, numpy 2.5.3, xarray 2026.7.0,
+pandas 3.0.6 and pydantic 2.13.5 (the script printed mypy's version as
+unknown): 1133 errors in 18 of 154 modules on 199 distinct source lines. The
+four modules the branch added, `_fsm_fresh.py`, `cases/_unsteady_actions.py`,
+`workspace/_geometry_clean.py` and `workspace/_matrix_homes.py`, are not
+exempted and the tool reports each CLEAN, so the dirty count still reads 18,
+and the shipped configuration is green over all 154. The base of the branch,
+`rel/0-33` at `5df3d692`, read 1137 errors in 18 of 150 on the same
+environment (the run recorded by work packages WP1 and WP2), so this branch
+reads four errors fewer; this run assigns no share of the difference to one
+change. The quoted mypy lines and the sentence at the top of this report are
+this run's.
