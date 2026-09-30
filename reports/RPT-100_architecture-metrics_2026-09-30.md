@@ -79,6 +79,8 @@ One row per top-level package (a single-file module counts as its own), the unit
 
 ## Modules over 1000 code lines
 
+The size table of `tests/tier1_offline/architecture_baselines.json` freezes every module over 1000 code lines at the freeze, those under 2000 included (the goal checker's A0 arm refuses a module over the soft ceiling missing from the table), so a listed module needs no `Size exemption:` line while it is listed; an entry may not grow, a fall fails until the entry is lowered, and a module that leaves the table above 1000 needs the line. A package root absent from the `facade_lines` table holds nothing beyond its docstring, imports, `__all__` and a lazy `__getattr__`.
+
 | module | code lines | lines | size exemption |
 |---|---:|---:|---|
 | `cases/workflows.py` | 9000 | 16171 | no |

@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import functools
 import importlib.util
 import json
 import os
@@ -93,14 +94,16 @@ PKG = readers.PKG
 SOFT_LINES, HARD_LINES = 1000, 2000
 DEEP_MIN_LINES, DEEP_MIN_DEFS = 60, 2
 DEEP_REVIEW_LINES = 150  # AD-08 "Deep modules": listed for the reviewer, not refused
-FACADE_CAP = 300  # G8: a root not in the baseline table holds at most this many statement lines
+FACADE_CAP = (
+    300  # G8: a tabled root above it may hold definitions; G3b: run declares its order under it
+)
 FUNCTION_FLOOR = 250  # G2: a function above this many code lines is in the length table
 FAN_OUT_CAP = 25  # G4
 LIMITS = {"complexity": 10, "branches": 12, "statements": 50, "positional": 5}  # G2, ruff/pylint
 LENGTH_BANDS = (100, 200, 300)  # G7: functions over these code lines
 TOP_SHARES = (1, 5, 13)  # G7
 RECORD_RE = re.compile(r"^RPT-(\d+)_architecture-metrics_(\d{4}-\d{2}-\d{2})\.md$")
-FACADE_ALLOWED_DEFS = frozenset({"__getattr__", "__dir__"})  # G8, lens C6: a lazy loader
+FACADE_ALLOWED_DEFS = frozenset({"__getattr__"})  # G8: "at most a lazy __getattr__ loader"
 
 # The metrics of the record that may only improve (G7), and the direction.
 MONOTONE = (
@@ -207,6 +210,19 @@ def _exact(measured: Mapping[str, int], table: Mapping[str, int], what: str) -> 
     return out
 
 
+def _shrinking(
+    measured: Mapping[str, int], table: Mapping[str, int], floor: int, what: str
+) -> list[str]:
+    """Judge a ratchet that clicks: 'at most', and a fall fails until the entry is lowered."""
+    out = _at_most(measured, table, floor, what)
+    for key in sorted(k for k in table if k in measured and floor < measured[k] < int(table[k])):
+        out.append(
+            f"{key}: {what} fell to {measured[key]} from {table[key]}; "
+            f"lower the baseline entry to {measured[key]}"
+        )
+    return out
+
+
 def size_findings(
     tree: Tree, table: Mapping[str, int], modules_at_freeze: Iterable[str]
 ) -> list[str]:
@@ -217,6 +233,11 @@ def size_findings(
         if path in table:
             if n > int(table[path]):
                 out.append(f"{path}: {n} code lines, above its baseline entry {table[path]}")
+            elif SOFT_LINES < n < int(table[path]):
+                out.append(
+                    f"{path}: {n} code lines, fell from {table[path]}; "
+                    f"lower the baseline entry to {n}"
+                )
             continue
         if n > HARD_LINES:
             out.append(
@@ -331,7 +352,7 @@ def fan_out_findings(
     tree: Tree, table: Mapping[str, int], deferred: Mapping[str, int]
 ) -> list[str]:
     """G4: module-level and deferred fan-out, each capped, counted separately."""
-    return _at_most(tree.fan_out, table, FAN_OUT_CAP, "module-level fan-out") + _at_most(
+    return _shrinking(tree.fan_out, table, FAN_OUT_CAP, "module-level fan-out") + _shrinking(
         tree.fan_out_deferred, deferred, FAN_OUT_CAP, "deferred fan-out"
     )
 
@@ -364,37 +385,77 @@ def one_home_findings(tree: Tree, allowlist: Iterable[Iterable[str]]) -> list[st
     return out
 
 
-def root_definitions(text: str) -> list[str]:
-    """Top-level functions and classes of a root other than a lazy loader (G8)."""
-    return [
+@functools.lru_cache(maxsize=128)
+def _root_facts(text: str) -> tuple[tuple[str, ...], tuple[int, ...], int]:
+    """Parse a root once: its definitions, its star-import lines, its lines beyond the facade."""
+    tree = ast.parse(text)
+    definitions = tuple(
         n.name
-        for n in ast.parse(text).body
+        for n in tree.body
         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
         and n.name not in FACADE_ALLOWED_DEFS
-    ]
+    )
+    stars = tuple(
+        n.lineno
+        for n in ast.walk(tree)
+        if isinstance(n, ast.ImportFrom) and any(a.name == "*" for a in n.names)
+    )
+    loader = sum(
+        (n.end_lineno or n.lineno) - n.lineno + 1
+        for n in tree.body
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name in FACADE_ALLOWED_DEFS
+    )
+    return definitions, stars, facade_lines(text) - loader
+
+
+def root_definitions(text: str) -> list[str]:
+    """Top-level functions and classes of a root other than a lazy loader (G8)."""
+    return list(_root_facts(text)[0])
 
 
 def star_imports(text: str) -> list[int]:
     """Lines of the star imports of a source."""
-    return [
-        n.lineno
-        for n in ast.walk(ast.parse(text))
-        if isinstance(n, ast.ImportFrom) and any(a.name == "*" for a in n.names)
-    ]
+    return list(_root_facts(text)[1])
+
+
+def facade_excess(text: str) -> int:
+    """Statement lines of a root beyond its docstring, imports, __all__ and a lazy __getattr__."""
+    return _root_facts(text)[2]
 
 
 def facade_findings(
     tree: Tree, table: Mapping[str, int], definitions: Mapping[str, list[str]]
 ) -> list[str]:
-    """G8: roots are facades; the roots that hold more today may only shrink."""
-    out = _at_most(tree.root_facade_lines, table, FACADE_CAP, "statement lines beyond the facade")
+    """G8: a root absent from the table holds nothing beyond the facade; entries only shrink."""
+    measured = tree.root_facade_lines
+    out = []
     for path in tree.roots:
         text = tree.sources[path]
+        n, entry, excess = measured[path], table.get(path), facade_excess(text)
         out += [f"{path}:{line}: a star import in a package root" for line in star_imports(text)]
-        if path in table:
+        if entry is None:
+            if excess:
+                out.append(
+                    f"{path}: {excess} statement lines beyond its docstring, imports, __all__ and "
+                    "a lazy __getattr__; a root absent from the baseline holds none"
+                )
+        elif n > int(entry):
+            out.append(
+                f"{path}: statement lines beyond the facade {n}, above its baseline entry {entry}"
+            )
+        elif not excess:
+            out.append(f"{path}: stale baseline entry, the root is now a facade; delete the entry")
+        elif n < int(entry):
+            out.append(
+                f"{path}: statement lines beyond the facade fell to {n} from {entry}; "
+                f"lower the baseline entry to {n}"
+            )
+        if int(entry or 0) > FACADE_CAP:
             continue
         extra = sorted(set(root_definitions(text)) - set(definitions.get(path, [])))
         out += [f"{path}: defines {name}; a facade root holds no definitions" for name in extra]
+    for path in sorted(set(table) - set(measured)):
+        out.append(f"{path}: stale baseline entry, the root is gone; delete the entry")
     for path, names in sorted(definitions.items()):
         if path not in tree.sources:
             out.append(f"{path}: stale definitions entry, the root is gone; delete it")
@@ -549,7 +610,11 @@ def tables(tree: Tree, coupling: Coupling) -> dict:
         "monkeypatch_targets": sum(coupling.patch_counts().values()),
         "monkeypatch_targets_by_module": coupling.patch_counts(),
         "one_home_allowlist": [list(readers.allowlist_key(p)) for p in tree.one_home_pairs],
-        "facade_lines": {p: n for p, n in sorted(tree.root_facade_lines.items()) if n > FACADE_CAP},
+        "facade_lines": {
+            p: n
+            for p, n in sorted(tree.root_facade_lines.items())
+            if facade_excess(tree.sources[p])
+        },
         "facade_definitions": {
             p: sorted(root_definitions(tree.sources[p]))
             for p in tree.roots
@@ -619,6 +684,11 @@ def _modules_added_since(ref: str, sources: Mapping[str, str]) -> list[str] | No
     return sorted(set(sources) - before)
 
 
+def deep_review_list(tree: Tree, added: Iterable[str]) -> list[str]:
+    """Return the modules of ``added`` under DEEP_REVIEW_LINES code lines (AD-08 deep modules)."""
+    return [p for p in sorted(added) if tree.module_code_lines.get(p, 0) < DEEP_REVIEW_LINES]
+
+
 def render_report(
     tree: Tree, coupling: Coupling, number: int, date: str, since: str = "v0.32.0"
 ) -> str:
@@ -670,7 +740,20 @@ def render_report(
             f"| `{package}` | {r['modules']} | {r['code_lines']} | {share} | {r['over_1000']} "
             f"| {r['over_limits']} | {r['private_names']} |"
         )
-    lines += ["", f"## Modules over {SOFT_LINES} code lines", ""]
+    lines += [
+        "",
+        f"## Modules over {SOFT_LINES} code lines",
+        "",
+        "The size table of `tests/tier1_offline/architecture_baselines.json` freezes every "
+        f"module over {SOFT_LINES} code lines at the freeze, those under {HARD_LINES} included "
+        "(the goal checker's A0 arm refuses a module over the soft ceiling missing from the "
+        "table), so a listed module needs no `Size exemption:` line while it is listed; an "
+        "entry may not grow, a fall fails until the entry is lowered, and a module that leaves "
+        f"the table above {SOFT_LINES} needs the line. A package root absent from the "
+        "`facade_lines` table holds nothing beyond its docstring, imports, `__all__` and a "
+        "lazy `__getattr__`.",
+        "",
+    ]
     lines += ["| module | code lines | lines | size exemption |", "|---|---:|---:|---|"]
     for path, n in sizes:
         if n > SOFT_LINES:
@@ -735,7 +818,7 @@ def render_report(
     if added is None:
         lines.append(f"Not measured: git could not list {since}.")
     else:
-        small = [p for p in added if tree.module_code_lines[p] < DEEP_REVIEW_LINES]
+        small = deep_review_list(tree, added)
         lines.append(
             f"{len(added)} modules created since {since}; "
             f"{len(small)} under {DEEP_REVIEW_LINES} code lines."

@@ -107,9 +107,23 @@ def test_module_size_ratchet_holds_on_the_tree(measured, records):
         am.size_findings(tree, BASELINES["module_code_lines"], BASELINES["modules_at_freeze"]) == []
     )
     # Non-vacuity: the walk read the tree the record describes.
+    # The table may reach empty; the walk totals are the non-vacuity.
     assert len(tree.paths) >= max(100, int(0.9 * newest["module_count"]))
     assert sum(tree.module_code_lines.values()) >= 0.9 * newest["code_lines"]
-    assert BASELINES["module_code_lines"], "the size table is empty"
+
+
+def _size_cases(tree):
+    """(tree, table, listed module over the ceiling): the real one while any, and a planted one.
+
+    The planted case keeps the mutants alive once the ratchet has emptied the table.
+    """
+    table = BASELINES["module_code_lines"]
+    over = [p for p in table if tree.module_code_lines.get(p, 0) > am.HARD_LINES]
+    cases = [(tree, table, max(over, key=lambda p: table[p]))] if over else []
+    planted = "qa/p0330_listed.py"
+    big = tree.with_changes({planted: _deep_module(am.HARD_LINES + 500)})
+    cases.append((big, {**table, planted: am.HARD_LINES + 500}, planted))
+    return cases
 
 
 def test_module_size_ratchet_refuses_each_planted_mutant(measured):
@@ -117,13 +131,24 @@ def test_module_size_ratchet_refuses_each_planted_mutant(measured):
     tree, _ = measured
     table = BASELINES["module_code_lines"]
     frozen = BASELINES["modules_at_freeze"]
-    listed = max(table, key=lambda p: table[p])
 
-    grown = tree.with_changes({listed: tree.sources[listed] + MUTANT})
-    assert any(
-        f.startswith(f"{listed}: ") and "above its baseline entry" in f
-        for f in am.size_findings(grown, table, frozen)
-    )
+    for base, listed_table, listed in _size_cases(tree):
+        assert am.size_findings(base, listed_table, frozen) == [], listed
+        grown = base.with_changes({listed: base.sources[listed] + MUTANT})
+        assert any(
+            f.startswith(f"{listed}: ") and "above its baseline entry" in f
+            for f in am.size_findings(grown, listed_table, frozen)
+        ), listed
+        slack = {**listed_table, listed: listed_table[listed] + 5}
+        assert any(
+            f.startswith(f"{listed}: ") and "lower the baseline entry" in f
+            for f in am.size_findings(base, slack, frozen)
+        ), listed
+        deleted = {k: v for k, v in listed_table.items() if k != listed}
+        assert any(
+            f.startswith(f"{listed}: ") and "not in the baseline" in f
+            for f in am.size_findings(base, deleted, frozen)
+        ), listed
 
     plain = tree.with_changes({"qa/p0330_big.py": _deep_module(1001)})
     assert any(
@@ -141,11 +166,6 @@ def test_module_size_ratchet_refuses_each_planted_mutant(measured):
         for f in am.size_findings(too_big, table, frozen)
     )
 
-    deleted = {k: v for k, v in table.items() if k != listed}
-    assert any(
-        f.startswith(f"{listed}: ") and "not in the baseline" in f
-        for f in am.size_findings(tree, deleted, frozen)
-    )
     small = min((p for p in tree.paths if p not in table), key=lambda p: tree.module_code_lines[p])
     stale = {**table, small: 1500, "gone/p0330.py": 1500}
     findings = am.size_findings(tree, stale, frozen)
@@ -171,13 +191,13 @@ def test_a_module_created_after_the_freeze_is_deep(measured):
 
 def test_function_ratchets_hold_on_the_tree(measured):
     # P0330-G2: the length table (code lines over 250) and the limits table
-    # (ruff and pylint defaults) hold, and neither is empty.
+    # (ruff and pylint defaults) hold; the tables may reach empty, the
+    # function count read is the non-vacuity.
     tree, _ = measured
     assert (
         am.function_findings(tree, BASELINES["function_lines"], BASELINES["function_limits"]) == []
     )
     assert len(tree.functions) >= 2000
-    assert BASELINES["function_lines"] and BASELINES["function_limits"]
 
 
 @pytest.mark.parametrize(
@@ -231,12 +251,21 @@ def test_function_ratchets_refuse_growth_and_stale_entries(measured):
     # limit in a real module, and a stale entry are each red.
     tree, _ = measured
     lengths, limits = BASELINES["function_lines"], BASELINES["function_limits"]
-    key = max(lengths, key=lambda k: lengths[k])
-    path, qualname = key.split(":", 1)
-    grown = tree.with_changes({path: _grow_function(tree.sources[path], qualname)})
-    assert any(
-        f.startswith(f"{key}: code lines") for f in am.function_findings(grown, lengths, limits)
-    )
+    cases = [(tree, lengths, max(lengths, key=lambda k: lengths[k]))] if lengths else []
+    # A planted listed function keeps the mutant alive once the table is empty.
+    long_fn = "def _p0330_long():\n" + "    x = 1\n" * (am.FUNCTION_FLOOR + 9)
+    planted = tree.with_changes({"qa/p0330_long.py": long_fn})
+    key = "qa/p0330_long.py:_p0330_long"
+    cases.append((planted, {**lengths, key: am.FUNCTION_FLOOR + 10}, key))
+    for base, table, key in cases:
+        path, qualname = key.split(":", 1)
+        grown = base.with_changes({path: _grow_function(base.sources[path], qualname)})
+        assert not any(
+            f.startswith(f"{key}: code lines") for f in am.function_findings(base, table, limits)
+        ), key
+        assert any(
+            f.startswith(f"{key}: code lines") for f in am.function_findings(grown, table, limits)
+        ), key
 
     complex_fn = "\n\ndef _p0330_complex(x):\n" + "    if x == 0:\n        pass\n" * 11
     planted = tree.with_changes({"versions.py": tree.sources["versions.py"] + complex_fn})
@@ -256,7 +285,8 @@ def test_cross_package_components_equal_the_baseline(measured):
     # P0330-G3: (a) found == baseline, both ways, so an empty graph cannot pass.
     tree, _ = measured
     assert am.scc_findings(tree, BASELINES["baseline_sccs"]) == []
-    assert len(BASELINES["baseline_sccs"]) >= 1
+    # The baseline may reach empty (WP2 removes the loads cycle); the edges
+    # read are the non-vacuity.
     assert sum(len(t) for t in tree.graph(("module", "deferred")).values()) >= 500
 
 
@@ -265,18 +295,32 @@ def test_a_component_that_gains_a_member_is_red(measured):
     # it, and a new two-package cycle, are each red (QA-S1-13).
     tree, _ = measured
     baseline = BASELINES["baseline_sccs"]
-    graph = tree.graph(("module", "deferred"))
-    component = set(baseline[0])
-    member, outside = next(
-        (m, t) for m in sorted(component) for t in sorted(graph[m]) if t not in component
+    cases = [(tree, baseline, baseline[0])] if baseline else []
+    # A planted two-package cycle keeps the mutant alive once the baseline is empty.
+    cycle = tree.with_changes(
+        {
+            "qa/p0330_c.py": (
+                "import pyflightstream.utils.p0330_d\nimport pyflightstream.versions\n"
+            ),
+            "utils/p0330_d.py": "def f():\n    import pyflightstream.qa.p0330_c\n",
+        }
     )
-    path = tree.path_of[outside]
-    planted = tree.with_changes(
-        {path: tree.sources[path] + f"\n\ndef _p0330_mutant():\n    import {member}\n"}
-    )
-    findings = am.scc_findings(planted, baseline)
-    assert any("not in the baseline" in f and outside in f for f in findings)
-    assert any("no longer found" in f for f in findings)
+    planted_component = ["pyflightstream.qa.p0330_c", "pyflightstream.utils.p0330_d"]
+    cases.append((cycle, [*baseline, planted_component], planted_component))
+    for base, frozen, members in cases:
+        assert am.scc_findings(base, frozen) == [], members
+        graph = base.graph(("module", "deferred"))
+        component = set(members)
+        member, outside = next(
+            (m, t) for m in sorted(component) for t in sorted(graph[m]) if t not in component
+        )
+        path = base.path_of[outside]
+        planted = base.with_changes(
+            {path: base.sources[path] + f"\n\ndef _p0330_mutant():\n    import {member}\n"}
+        )
+        findings = am.scc_findings(planted, frozen)
+        assert any("not in the baseline" in f and outside in f for f in findings), members
+        assert any("no longer found" in f for f in findings), members
 
     pair = tree.with_changes(
         {
@@ -370,19 +414,33 @@ def test_a_module_of_26_imports_is_red(deferred):
 
 
 def test_a_listed_module_that_imports_one_more_is_red(measured):
-    # P0330-G4: a baseline entry may not grow.
+    # P0330-G4: a baseline entry may not grow, and a fall fails until the
+    # entry is lowered; a planted listed module keeps the mutant alive once
+    # the table is empty.
     tree, _ = measured
-    table = BASELINES["fan_out"]
-    path = max(table, key=lambda p: table[p])
-    graph = tree.graph(("module",))
-    extra = next(
-        n for n in sorted(tree.path_of) if n not in graph[am.dotted(path)] and n != am.dotted(path)
-    )
-    planted = tree.with_changes({path: tree.sources[path] + f"\nimport {extra}\n"})
-    assert any(
-        f.startswith(f"{path}: ") and "above its baseline entry" in f
-        for f in am.fan_out_findings(planted, table, BASELINES["fan_out_deferred"])
-    )
+    table, deferred = BASELINES["fan_out"], BASELINES["fan_out_deferred"]
+    cases = [(tree, table, max(table, key=lambda p: table[p]))] if table else []
+    targets = [n for n in sorted(tree.path_of) if n != am.PKG][: am.FAN_OUT_CAP + 5]
+    wide = tree.with_changes({"qa/p0330_wide.py": "".join(f"import {n}\n" for n in targets)})
+    cases.append((wide, {**table, "qa/p0330_wide.py": am.FAN_OUT_CAP + 5}, "qa/p0330_wide.py"))
+    for base, listed, path in cases:
+        assert am.fan_out_findings(base, listed, deferred) == [], path
+        graph = base.graph(("module",))
+        extra = next(
+            n
+            for n in sorted(base.path_of)
+            if n not in graph[am.dotted(path)] and n not in (am.dotted(path), am.PKG)
+        )
+        planted = base.with_changes({path: base.sources[path] + f"\nimport {extra}\n"})
+        assert any(
+            f.startswith(f"{path}: ") and "above its baseline entry" in f
+            for f in am.fan_out_findings(planted, listed, deferred)
+        ), path
+        slack = {**listed, path: listed[path] + 1}
+        assert any(
+            f.startswith(f"{path}: ") and "lower the baseline entry" in f
+            for f in am.fan_out_findings(base, slack, deferred)
+        ), path
 
 
 # ---------------------------------------------------------------- G5 test coupling
@@ -402,39 +460,71 @@ def test_private_name_coupling_is_pinned(measured):
     # the reader found what the tests reach.
     tree, coupling = measured
     assert _g5(coupling) == []
-    assert sum(coupling.private_counts().values()) > 0
-    assert sum(coupling.patch_counts().values()) > 0
+    # The counts may reach zero as tests are retargeted; the test files read
+    # are the non-vacuity, beside the planted references below.
+    assert len(am.load_tests(REPO / "tests")) >= 100
 
 
 @pytest.mark.parametrize(
-    "source",
+    ("source", "module"),
     [
-        "from pyflightstream.run import _p0330_new_private\n",
-        "import pyflightstream.cases.workflows as wf\n\nwf._p0330_new_private\n",
-        "import pyflightstream.run as r\n\ngetattr(r, '_p0330_new_private')\n",
-        "def test_x(monkeypatch):\n    monkeypatch.setattr('pyflightstream.run.p0330_target', 1)\n",
-        "from unittest import mock\nimport pyflightstream.run as r\n\n"
-        "mock.patch.object(r, 'p0330_target')\n",
-        "from unittest.mock import patch\n\npatch('pyflightstream.workspace.p0330_target')\n",
+        ("from pyflightstream.run import _p0330_new_private\n", "pyflightstream.run"),
+        (
+            "import pyflightstream.cases.workflows as wf\n\nwf._p0330_new_private\n",
+            "pyflightstream.cases.workflows",
+        ),
+        (
+            "import pyflightstream.run as r\n\ngetattr(r, '_p0330_new_private')\n",
+            "pyflightstream.run",
+        ),
+        (
+            "def test_x(monkeypatch):\n"
+            "    monkeypatch.setattr('pyflightstream.run.p0330_target', 1)\n",
+            "pyflightstream.run",
+        ),
+        (
+            "from unittest import mock\nimport pyflightstream.run as r\n\n"
+            "mock.patch.object(r, 'p0330_target')\n",
+            "pyflightstream.run",
+        ),
+        (
+            "from unittest.mock import patch\n\npatch('pyflightstream.workspace.p0330_target')\n",
+            "pyflightstream.workspace",
+        ),
     ],
 )
-def test_a_test_reaching_a_new_private_name_or_target_is_red(measured, source):
-    # P0330-G5: each spelling the reader covers raises a count (QA-S1-15).
+def test_a_test_reaching_a_new_private_name_or_target_is_red(measured, source, module):
+    # P0330-G5: each spelling the reader covers raises the count of the
+    # module it names, from a clean start (QA-S1-15).
     tree, coupling = measured
+    assert _g5(coupling) == []
     extra = am.read_test_coupling({"test_p0330_planted.py": source}, tree.path_of)
     assert any(
-        "above its baseline entry" in f or "measured" in f for f in _g5(coupling.merged(extra))
+        f.startswith(f"{module}: ") and "above its baseline entry" in f
+        for f in _g5(coupling.merged(extra))
     )
 
 
 def test_a_retargeted_test_asks_for_the_entry_to_be_lowered(measured):
-    # P0330-G5: a count that falls fails until its entry is lowered.
-    _, coupling = measured
-    module = max(coupling.private, key=lambda m: len(coupling.private[m]))
-    fewer = am.Coupling(
-        {**coupling.private, module: set(sorted(coupling.private[module])[1:])}, coupling.patched
+    # P0330-G5: a count that falls fails until its entry is lowered; the
+    # coupling carries planted names so the mutant lives when the tree's is zero.
+    tree, coupling = measured
+    planted = am.read_test_coupling(
+        {"test_p0330_planted.py": "from pyflightstream.run import _p0330_a, _p0330_b\n"},
+        tree.path_of,
     )
-    assert any(f.startswith(module) and "lower the baseline entry" in f for f in _g5(fewer))
+    base = coupling.merged(planted)
+
+    def g5(c) -> list[str]:
+        counts = base.patch_counts()
+        return am.coupling_findings(c, base.private_counts(), sum(counts.values()), counts)
+
+    assert g5(base) == []
+    module = max(base.private, key=lambda m: len(base.private[m]))
+    fewer = am.Coupling(
+        {**base.private, module: set(sorted(base.private[module])[1:])}, base.patched
+    )
+    assert any(f.startswith(module) and "lower the baseline entry" in f for f in g5(fewer))
 
 
 # ---------------------------------------------------------------- G6 one home
@@ -526,6 +616,63 @@ def test_the_record_agrees_with_the_tree(measured, records):
         assert newest[key] > 0, key
 
 
+# The numbers of the freeze record, pinned here so that renumbering, editing
+# or deleting RPT-100 in the same commit as a table change cannot move the
+# floor the metrics table is compared with.
+_FREEZE_RECORD = "RPT-100_architecture-metrics_2026-09-30.md"
+_FREEZE = {
+    "module_count": 150,
+    "total_lines": 146463,
+    "code_lines": 79704,
+    "top1_share": 11.3,
+    "top5_share": 30.6,
+    "top13_share": 48.2,
+    "modules_over_1000": 17,
+    "modules_over_2000": 6,
+    "functions_over_100": 75,
+    "functions_over_200": 19,
+    "functions_over_300": 8,
+    "functions_over_limits": 230,
+    "cross_package_sccs": 2,
+    "largest_fan_out": 36,
+    "largest_fan_out_deferred": 11,
+    "private_test_names": 242,
+    "monkeypatch_targets": 83,
+    "workspace_to_run_imports": 2,
+    "root_facade_lines": 23961,
+}
+
+
+def test_the_freeze_record_is_pinned(records):
+    # P0330-G7: the first record is RPT-100 and states the freeze numbers,
+    # and the committed table is no worse than them.
+    first, _, _ = records
+    found = am.records(REPO / "reports")
+    assert found[0][1].name == _FREEZE_RECORD
+    assert {k: first[k] for k in _FREEZE} == _FREEZE
+    assert set(am.MONOTONE) <= set(_FREEZE)
+    for key in am.MONOTONE:
+        assert BASELINES["metrics"][key] <= _FREEZE[key], key
+
+
+def test_the_record_lists_new_modules_under_the_review_size(measured, monkeypatch):
+    # P0330-G7: a module created since v0.32.0 under 150 code lines is listed
+    # for the reviewer (AD-08 "Deep modules"); one of 150 or more is not.
+    tree, coupling = measured
+    short, deep = "qa/p0330_short.py", "qa/p0330_deep.py"
+    planted = tree.with_changes(
+        {short: _deep_module(am.DEEP_REVIEW_LINES - 1), deep: _deep_module(am.DEEP_REVIEW_LINES)}
+    )
+    assert am.deep_review_list(planted, [short, deep]) == [short]
+    monkeypatch.setattr(am, "_modules_added_since", lambda ref, sources: [deep, short])
+    text = am.render_report(planted, coupling, 999, "2026-09-30")
+    assert f"- `{short}` {am.DEEP_REVIEW_LINES - 1}" in text
+    assert (
+        f"`{deep}`"
+        not in text.split(f"under {am.DEEP_REVIEW_LINES} code lines", 1)[1].split("##", 1)[0]
+    )
+
+
 def test_a_regenerated_record_cannot_hide_growth(measured, records, monkeypatch):
     # P0330-G7: 500 lines added to the top module and the record regenerated
     # from the mutant is still red against the table (QA-S1-17); a module
@@ -560,35 +707,82 @@ def test_a_regenerated_record_cannot_hide_growth(measured, records, monkeypatch)
 
 
 def test_roots_are_facades_on_the_tree(measured):
-    # P0330-G8: tabled roots within their entry, every other root within the
-    # cap and holding no definitions beyond its recorded ones, no star import.
+    # P0330-G8: tabled roots at their entry, every other root holding nothing
+    # beyond docstring, imports, __all__ and a lazy __getattr__, no star import.
     tree, _ = measured
     assert (
         am.facade_findings(tree, BASELINES["facade_lines"], BASELINES["facade_definitions"]) == []
     )
-    assert len(tree.roots) >= 10 and BASELINES["facade_lines"]
+    # The table may reach empty; the roots read are the non-vacuity.
+    assert len(tree.roots) >= 10
+
+
+_CLEAN_ROOT = "qa/p0330_pkg/__init__.py"
 
 
 def test_a_definition_in_a_facade_root_is_red(measured):
-    # P0330-G8: a function or class defined in a facade root, a star import,
-    # and one more statement line in a tabled root are each red; a lazy
-    # __getattr__ is the one definition a facade may hold (QA-S1-18).
+    # P0330-G8: in a root absent from the table, a function, a class, a lazy
+    # __dir__, a star import and fifty lines of logic that define nothing are
+    # each red; a lazy __getattr__ is the one definition a facade may hold
+    # (QA-S1-18). The planted clean root keeps the mutants alive whatever the
+    # tree's roots become.
     tree, _ = measured
     table, defs = BASELINES["facade_lines"], BASELINES["facade_definitions"]
+    base = tree.with_changes({_CLEAN_ROOT: '"""A planted facade."""\nimport os\n\n__all__ = []\n'})
+    facades = sorted(p for p in base.roots if p not in table)
+    assert _CLEAN_ROOT in facades
+    assert am.facade_findings(base, table, defs) == []
 
     def red(path: str, addition: str) -> list[str]:
-        planted = tree.with_changes({path: tree.sources[path] + addition})
+        planted = base.with_changes({path: base.sources[path] + addition})
         return [f for f in am.facade_findings(planted, table, defs) if f.startswith(path)]
 
-    facade = min(tree.roots, key=lambda p: tree.root_facade_lines[p])
-    assert red(facade, "\n\ndef _p0330_helper():\n    return 1\n")
-    assert red(facade, "\n\nclass P0330:\n    pass\n")
-    assert red(facade, "\nfrom pyflightstream._errors import *\n")
-    assert red(facade, "\n\ndef __getattr__(name):\n    raise AttributeError(name)\n") == []
-    tabled = max(table, key=lambda p: table[p])
-    assert any("above its baseline entry" in f for f in red(tabled, MUTANT))
-    stale = {**defs, facade: ["_p0330_gone"]}
-    assert any("_p0330_gone left the root" in f for f in am.facade_findings(tree, table, stale))
+    logic = "".join(f"_P{i} = {i}\n" for i in range(40))
+    logic += "if _P0:\n    _Q = 1\nelse:\n    _Q = 2\n"
+    logic += "try:\n    _R = 1\nexcept ValueError:\n    _R = 2\n"
+    getattr_only = "\n\ndef __getattr__(name):\n    raise AttributeError(name)\n"
+    for facade in facades:
+        assert red(facade, "\n\ndef _p0330_helper():\n    return 1\n"), facade
+        assert red(facade, "\n\nclass P0330:\n    pass\n"), facade
+        assert red(facade, "\n\ndef __dir__():\n    return []\n"), facade
+        assert red(facade, "\nfrom pyflightstream._errors import *\n"), facade
+        assert any("holds none" in f for f in red(facade, "\n" + logic)), facade
+        assert red(facade, getattr_only) == [], facade
+
+
+def test_a_tabled_root_only_shrinks(measured):
+    # P0330-G8: one more statement line in a tabled root is red, a fall fails
+    # until the entry is lowered, and an entry for a root that is now a
+    # facade, or is gone, is stale.
+    tree, _ = measured
+    table, defs = BASELINES["facade_lines"], BASELINES["facade_definitions"]
+    base = tree.with_changes({_CLEAN_ROOT: '"""A planted root."""\nX = 1\nY = 2\n'})
+    listed = {**table, _CLEAN_ROOT: 2}
+    assert am.facade_findings(base, listed, defs) == []
+    tabled = [_CLEAN_ROOT] + ([max(table, key=lambda p: table[p])] if table else [])
+    for path in tabled:
+        grown = base.with_changes({path: base.sources[path] + MUTANT})
+        assert any(
+            f.startswith(path) and "above its baseline entry" in f
+            for f in am.facade_findings(grown, listed, defs)
+        ), path
+        slack = {**listed, path: listed[path] + 1}
+        assert any(
+            f.startswith(path) and "lower the baseline entry" in f
+            for f in am.facade_findings(base, slack, defs)
+        ), path
+    clean = base.with_changes({"qa/p0330_facade/__init__.py": '"""A facade."""\n'})
+    now_facade = {**listed, "qa/p0330_facade/__init__.py": 1}
+    assert any(
+        f.startswith("qa/p0330_facade/__init__.py: stale")
+        for f in am.facade_findings(clean, now_facade, defs)
+    )
+    gone = {**listed, "gone/__init__.py": 5}
+    assert any(
+        f.startswith("gone/__init__.py: stale") for f in am.facade_findings(base, gone, defs)
+    )
+    stale = {**defs, _CLEAN_ROOT: ["_p0330_gone"]}
+    assert any("_p0330_gone left the root" in f for f in am.facade_findings(base, listed, stale))
 
 
 def test_the_baselines_carry_every_key_the_goal_reads():

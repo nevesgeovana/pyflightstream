@@ -1,5 +1,5 @@
 {
- "about": "Baselines of the architecture guards G1 to G8 (AD-08, work package WP0 of 0.33.0), measured on 2026-09-30 by scripts/arch_metrics.py on the tree of rel/0-33 at 692fee7a. Sizes are code lines without docstrings (the review lens). Every entry only moves down, by hand, in the commit that earns it; a stale entry fails until it is deleted. module_code_lines, function_lines, function_limits, fan_out, fan_out_deferred and facade_lines are at-most ratchets; baseline_sccs, same_row_cross_imports, private_test_names, monkeypatch_targets, monkeypatch_targets_by_module and one_home_allowlist are exact; facade_definitions only shrinks; package_order is declared by the packages AD-12 and AD-14 order. metrics is the committed table of the numbers of the architecture metrics record that may only improve (G7). 'python scripts/arch_metrics.py check' runs the guards; 'tables' prints what the tree measures today.",
+ "about": "Baselines of the architecture guards G1 to G8 (AD-08, work package WP0 of 0.33.0), measured on 2026-09-30 by scripts/arch_metrics.py on the tree of rel/0-33 at 692fee7a. Sizes are code lines without docstrings (the review lens). Every entry only moves down, by hand, in the commit that earns it; a stale entry fails until it is deleted. function_lines and function_limits are at-most ratchets (AD-08 G2: 'at most the recorded value'); module_code_lines, fan_out, fan_out_deferred and facade_lines click: an entry may not grow and a fall fails until the entry is lowered; baseline_sccs, same_row_cross_imports, private_test_names, monkeypatch_targets, monkeypatch_targets_by_module and one_home_allowlist are exact; facade_lines lists every package root holding anything beyond its docstring, imports, __all__ and a lazy __getattr__, and a root absent from it holds none (AD-08 G8); facade_definitions only shrinks; package_order is declared by the packages AD-12 and AD-14 order. metrics is the committed table of the numbers of the architecture metrics record that may only improve (G7). 'python scripts/arch_metrics.py check' runs the guards; 'tables' prints what the tree measures today.",
  "module_code_lines": {
   "cases/__init__.py": 2430,
   "cases/matrix.py": 1810,
@@ -1596,9 +1596,12 @@
   ]
  ],
  "facade_lines": {
+  "__init__.py": 9,
   "cases/__init__.py": 5064,
   "commands/__init__.py": 1199,
   "farfield/__init__.py": 644,
+  "fsi/__init__.py": 25,
+  "post/__init__.py": 28,
   "probes/__init__.py": 441,
   "results/__init__.py": 3001,
   "run/__init__.py": 7971,
