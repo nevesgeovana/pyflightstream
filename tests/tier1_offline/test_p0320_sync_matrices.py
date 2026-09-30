@@ -139,6 +139,34 @@ def test_p0320_sync_all_folders_without_record_names_only_what_main_will_hold(
     assert whole["sims"]["without_record"] == ["2002", "2003", "2004", "3000"]
 
 
+def test_p0320_sync_all_folders_leaves_out_a_folder_a_delete_sims_note_names(tmp_path):
+    # P0320-SYNC-ALL-FOLDERS: a simulation deleted in main and still on disk in
+    # the other workspace is accounted for by its note, never offered to restore.
+    main, other = _orphan_pair(tmp_path, "noted")
+    _write(main.sim_dir("3100") / "datapoints" / "DP-1" / "x.txt", "a")
+    main.append_record(_record("3100", "campo/sim_3100/AL+000"))
+    storage_module.delete_sims(main.root, ["3100"], apply=True)
+    _write(other.sim_dir("3100") / "scripts" / "point.fs", "still in the other workspace")
+    (entry,) = storage_module.sync_workspaces(main.root, "runs")
+    assert "3100" in entry["sims"]["other"]
+    assert entry["sims"]["without_record"] == ["2002", "3000"]
+
+
+def test_p0320_sync_the_cli_passes_restore_and_include_archives(tmp_path, monkeypatch, capsys):
+    # P0320-SYNC-RESTORE-OPTIN and P0320-SYNC-SKIP-ARCHIVES: the two switches
+    # of the command line reach the sync, not only the library's keywords.
+    rebuilds = _Rebuilds()
+    monkeypatch.setattr(run_records, "rebuild", rebuilds)
+    main, _ = _archived_other(tmp_path, "cliflags")
+    _write(main.sim_dir("5900") / "scripts" / "point.fs", "by hand")
+    base = ["sync", "all", "--workspace", str(main.root), "--apply"]
+    assert matrix_cli.main([*base, "--include-archives", "--restore"]) == 0
+    assert (main.sim_dir("5001") / "archive" / "old.txt").read_text("utf-8") == "1234567"
+    (call,) = rebuilds.calls
+    assert call["sims"] == ["5001", "5900"]
+    assert "restore: 2 record(s) rebuilt, 0 sim(s) refused" in capsys.readouterr().out
+
+
 # --------------------------------------------------------------------------- restore opt-in
 
 
@@ -248,6 +276,19 @@ def test_p0320_sync_atomic_a_finished_copy_leaves_no_temporary_file(tmp_path):
     folder = main.sim_dir("4003") / "scripts"
     assert [path.name for path in folder.iterdir()] == ["point.fs"]
     assert (folder / "point.fs").read_text("utf-8") == "whole"
+
+
+def test_p0320_sync_atomic_a_temporary_file_a_killed_sync_left_is_never_brought(tmp_path):
+    # P0320-SYNC-ATOMIC: the half-written name of an interrupted sync stays behind.
+    main, other = _sync_pair(tmp_path, "atomicleft")
+    folder = other.sim_dir("4004") / "scripts"
+    _write(folder / "point.fs", "whole")
+    _write(folder / ".point.fs.999.pyfs-sync.tmp", "half")
+    (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=True)
+    copied = {item["path"] for item in entry["files"]["copied"]}
+    assert "sims/sim_4004/scripts/point.fs" in copied
+    assert not any(path.endswith(".pyfs-sync.tmp") for path in copied)
+    assert [path.name for path in (main.sim_dir("4004") / "scripts").iterdir()] == ["point.fs"]
 
 
 # --------------------------------------------------------------------------- archives
