@@ -8728,11 +8728,12 @@ def _write_the_products(
             matrix_stem,
             polars_dir=POLARS_DIR,
             probes_dir=PROBES_DIR,
+            raw_records=workspace.read_raw_manifest(),
         )
         import pyflightstream
 
         report = write_superfile_report(
-            workspace.root,
+            workspace.reports_root(matrix_stem),
             version=pyflightstream.__version__,
             files=[
                 (path, super_columns, len(draft.rows))
@@ -8760,7 +8761,7 @@ def _write_the_products(
     )
     if section_cases:
         sections_report = write_sections_report(
-            workspace.root,
+            workspace.reports_root(matrix_stem),
             version=_package.__version__,
             cases=section_cases,
         )

@@ -724,6 +724,7 @@ def union_the_workspace_knows(
     *,
     polars_dir: str,
     probes_dir: str,
+    raw_records: Sequence[Mapping[str, object]] | None = None,
 ) -> set[str]:
     """Build the union of what the workspace knows about a simulation, FROM THE WORKSPACE.
 
@@ -734,6 +735,11 @@ def union_the_workspace_knows(
     field that reaches one has to reach the other on its own. A union
     derived from the superfile's own columns would be a check that accepts
     everything, which is the defect this requirement exists to prevent.
+
+    ``raw_records`` are the manifest's rows as written, when the caller read
+    them from another manifest than ``runs.json`` or holds no manifest file
+    (0.32.0, ``post --runs NAME`` and ``post --from-sims``); None reads
+    ``runs.json`` beside ``root``.
     """
     known: set[str] = set()
     for table in sorted((out / polars_dir).glob(POLAR_TABLE_GLOB)):
@@ -748,9 +754,13 @@ def union_the_workspace_knows(
     known.add(RPM_COLUMN)
     manifest = root / "runs.json"
     pols: set[str] = set()
-    if manifest.is_file():
+    if raw_records is not None or manifest.is_file():
         try:
-            records = json.loads(manifest.read_text(encoding="utf-8"))
+            records = (
+                list(raw_records)
+                if raw_records is not None
+                else json.loads(manifest.read_text(encoding="utf-8"))
+            )
         except (OSError, json.JSONDecodeError):
             records = []
         for record in records if isinstance(records, list) else []:
