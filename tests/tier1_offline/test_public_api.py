@@ -26,6 +26,14 @@ from pyflightstream._deprecations import DEPRECATED_MODULES
 #: to their dotted names.
 PUBLIC_MODULES = [
     "pyflightstream.cases",
+    # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
+    "pyflightstream.cases.acoustics",
+    # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
+    "pyflightstream.cases.ccs_fuselage",
+    # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
+    "pyflightstream.cases.ccs_revolution",
+    # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
+    "pyflightstream.cases.ccs_wing",
     # 0.31.0 (P0310-CAL-SCHEMA): the quasi-steady wheel's correction choice and
     # its calibration file. PUBLIC deliberately: a user writing or checking a
     # calibration reads it with `read_calibration` here.
@@ -38,6 +46,8 @@ PUBLIC_MODULES = [
     # frequency. PUBLIC deliberately: a user checking a blade's k by hand, or the
     # clockings of a wheel, calls it.
     "pyflightstream.cases.qsteady",
+    # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
+    "pyflightstream.cases.setup_surfaces",
     # 0.24.0: the one resolver of an unsteady row's averaging window. PUBLIC
     # deliberately: a post-processing choice needs no new run, so a user who
     # recomputes a window off a recorded plan calls `averaging_steps` here.
@@ -71,6 +81,8 @@ PUBLIC_MODULES = [
     "pyflightstream.options",
     "pyflightstream.overview",
     "pyflightstream.post",
+    # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
+    "pyflightstream.post.acoustics",
     # 0.24.0: the one home of the frame conventions. PUBLIC deliberately: a
     # user checking which frame a published axis column is in, or turning a
     # vector of their own the way the polar does, calls `polar_axis_coefficients`.
@@ -86,6 +98,8 @@ PUBLIC_MODULES = [
     # generated guide and the workspace page both state it, and a user asking
     # why `CL` read `CL_WING` is who calls it.
     "pyflightstream.post.diagnostics",
+    # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
+    "pyflightstream.post.disc_maps",
     "pyflightstream.post.equations",
     # v0.23.0 item 11: the generated pproc guides. PUBLIC deliberately: a
     # user who wants the variable reference and the equation guide beside
@@ -99,6 +113,8 @@ PUBLIC_MODULES = [
     # deliberately: its least-squares fit is what a user checks a station of
     # the product against, on samples of her own.
     "pyflightstream.post.harmonics",
+    # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
+    "pyflightstream.post.inflow_tools",
     "pyflightstream.post.probe_fields",
     "pyflightstream.post.products",
     "pyflightstream.post.provenance",
@@ -106,6 +122,8 @@ PUBLIC_MODULES = [
     # deliberately: its readers of a point's record are what a user re-posting a
     # wheel by hand calls.
     "pyflightstream.post.qsteady",
+    # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
+    "pyflightstream.post.qsteady_noise",
     "pyflightstream.post.reductions",
     "pyflightstream.post.section_distributions",
     "pyflightstream.post.series",
@@ -153,6 +171,8 @@ PUBLIC_MODULES = [
     # of one-shot being the primitive.
     "pyflightstream.run.collect",
     "pyflightstream.run.matrix",
+    # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
+    "pyflightstream.run.records",
     # 0.21.0: the renaming command's module. PUBLIC deliberately, for the same
     # reason as the collect stage: `rename_workspace` is a thing a user drives,
     # from `pyfs-matrix rename` or from a script that moves several workspaces.

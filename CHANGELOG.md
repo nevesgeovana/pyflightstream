@@ -7,6 +7,17 @@ FlightStream versions.
 
 ## [Unreleased]
 
+### Changed
+
+- mypy recount 2026-09-29: 1084 errors in 18 of 149 modules, on the 0.32.0
+  development branch after its preparation step, against 0.31.0's 1084 in 18
+  of 139. The ten contract modules that step lays down for the 0.32 work
+  packages (`run/records.py`, `cases/acoustics.py`, `cases/ccs_wing.py`,
+  `cases/ccs_fuselage.py`, `cases/ccs_revolution.py`,
+  `cases/setup_surfaces.py`, `post/acoustics.py`, `post/qsteady_noise.py`,
+  `post/disc_maps.py` and `post/inflow_tools.py`) are clean, and the shipped
+  configuration is green over all 149.
+
 ### Owed
 
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against

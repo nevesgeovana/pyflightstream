@@ -249,6 +249,14 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         # cannot be read. ValueError because the file's CONTENT is refused,
         # naming the line.
         "CalibrationError": ValueError,
+        # 0.32.0 preparation: the refusal of a contract function whose body
+        # its work package has not filled yet. NotImplementedError, a
+        # RuntimeError, so `except RuntimeError` catches it.
+        "ContractNotImplementedError": NotImplementedError,
+        # 0.32.0 preparation: a manifest name (`--runs NAME`) that names no
+        # file directly in the workspace root. ValueError because the NAME is
+        # refused before any file is read.
+        "RunsManifestError": ValueError,
     }
     catalogued = set(exceptions.__all__) - {"PyflightstreamError"}
     assert catalogued == set(expected_builtin), (

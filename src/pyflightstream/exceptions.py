@@ -65,6 +65,7 @@ from __future__ import annotations
 
 from pyflightstream._atmosphere import AtmosphereError
 from pyflightstream._errors import (
+    ContractNotImplementedError,
     PyflightstreamDeprecationWarning,
     PyflightstreamError,
     PyflightstreamWarning,
@@ -120,6 +121,7 @@ from pyflightstream.run import (
     ExecutorConfigurationError,
     SurfaceMeshExportError,
 )
+from pyflightstream.run.records import RunsManifestError
 from pyflightstream.script import (
     BrokenCommandError,
     CommandArgumentError,
@@ -156,6 +158,7 @@ __all__ = [
     "CommandArgumentError",
     "CommandDatabaseError",
     "CommandNotInVersionError",
+    "ContractNotImplementedError",
     "ExcelSyncError",
     "ExecutorConfigurationError",
     "FarfieldInputError",
@@ -190,6 +193,7 @@ __all__ = [
     "QaEvidenceError",
     "QsteadyRecordError",
     "RetiredAttributeError",
+    "RunsManifestError",
     "ScriptDeclarationTypeError",
     "ScriptLabelError",
     "ScriptLineBreakError",

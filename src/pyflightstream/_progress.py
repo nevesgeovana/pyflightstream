@@ -282,3 +282,42 @@ def activity_stage(stage: str, **details: object) -> Iterator[dict[str, object]]
             **outcome,
             duration_s=time.monotonic() - started,
         )
+
+
+class StageProgress:
+    """The progress of one stage of a long command, as :func:`stage_progress` hands it.
+
+    The 0.32.0 contract of work package A, which the sync (B2) and the
+    records commands (B3) call: a stage announces its totals when it knows
+    them, and advances by the files and bytes it finished and the file it is
+    on. The body of :meth:`advance` is a NO-OP until A fills it, and it never
+    raises, so a caller adopts it before the progress is drawn.
+    """
+
+    __slots__ = ("name", "total_bytes", "total_files")
+
+    def __init__(self, name: str, total_files: int | None, total_bytes: int | None) -> None:
+        self.name = name
+        self.total_files = total_files
+        self.total_bytes = total_bytes
+
+    def advance(
+        self,
+        files: int = 0,
+        bytes: int = 0,
+        current: str | Path | None = None,
+    ) -> None:
+        """Advance the stage by ``files`` files and ``bytes`` bytes, now on ``current``."""
+
+
+@contextmanager
+def stage_progress(
+    name: str, *, total_files: int | None = None, total_bytes: int | None = None
+) -> Iterator[StageProgress]:
+    """Show the progress of one stage of a long command (0.32.0 contract, package A).
+
+    Yields a :class:`StageProgress` whose ``advance`` the stage calls as it
+    works. It prints nothing and records nothing until work package A fills
+    it, and it never raises.
+    """
+    yield StageProgress(name, total_files, total_bytes)

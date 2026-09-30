@@ -196,6 +196,19 @@ class ProductExistsError(ProductError):
     """
 
 
+class ContractNotImplementedError(PyflightstreamError, NotImplementedError):
+    """A 0.32.0 contract function whose body its work package has not filled yet.
+
+    Defined here because FOUR LAYERS name it (``run``, ``cases``, ``post`` and
+    the floor): the 0.32.0 preparation step laid down each new module with its
+    public signatures first, so the packages built in parallel code against a
+    fixed contract, and every body not yet written refuses with this class and
+    the words "not implemented yet (0.32.0 contract)". The standard-library
+    base is NotImplementedError, a RuntimeError, so ``except RuntimeError``
+    catches it too.
+    """
+
+
 class PyflightstreamWarning(UserWarning):
     """The category that says a warning came from THIS package.
 

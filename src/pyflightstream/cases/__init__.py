@@ -42,6 +42,13 @@ table and the calibration file it names, are
 post applies; none of them is validated.
 :mod:`pyflightstream.cases.fsi_workspace` states which workflows may couple
 and wires the fixed-wing and quasi-steady sector routes.
+The 0.32.0 contract modules lay down signatures before their bodies, each
+refusing until its work package fills it: :mod:`pyflightstream.cases.acoustics`
+(the acoustic signals a point exports and the post stage reads),
+:mod:`pyflightstream.cases.ccs_wing`, :mod:`pyflightstream.cases.ccs_fuselage`
+and :mod:`pyflightstream.cases.ccs_revolution` (meshes the solver's CCS
+commands generate) and :mod:`pyflightstream.cases.setup_surfaces` (surface
+setup operations).
 """
 
 from __future__ import annotations
