@@ -24,8 +24,8 @@ from tests.tier1_offline.test_goal024_profile_log import LOG_TABLE, _work_dir, _
 from tests.tier1_offline.test_goal028_hpc_collect import _loads, _log
 
 ENDS = 'job_end_files = ["FTS{sim}.o*", "FTS{sim}.e*"]\n'
-#: Twenty-five lines, the first five of which the record must not carry, and a byte
-#: that is not UTF-8, which the record must carry replaced rather than refuse.
+#: Twenty-six lines, the first six of which the record must not carry, the last one
+#: with a byte that is not UTF-8, which the record must carry replaced rather than refuse.
 ERROR_TEXT = b"".join(b"error line %d\n" % n for n in range(1, 26)) + b"bad byte \xff here\n"
 
 
@@ -49,9 +49,12 @@ def test_fr311_every_end_file_and_no_log_records_failed_execution_with_the_tail(
     error = record.error or ""
     assert "FTS9001.o3714205" in error and "FTS9001.e3714205" in error, error
     assert "P9001-AL+000_log.txt" in error, "the record names the log that is missing"
-    assert "error line 25" in error and "error line 5\n" not in error, error
-    assert "bad byte � here" in error, error
+    # The tail is exactly the last 20 lines: the error file's 26 lines are
+    # lines 1 to 25 and the undecodable one, so it starts at line 7.
     assert JOB_END_TAIL_LINES == 20
+    assert "error line 7\n" in error and "error line 6\n" not in error, error
+    assert "error line 25" in error, error
+    assert "bad byte � here" in error, error
 
 
 def test_fr311_only_some_end_files_leave_the_point_waiting(tmp_path):
