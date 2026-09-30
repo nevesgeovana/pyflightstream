@@ -104,6 +104,17 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-workspace", "out"): OUTPUT,
     ("pyfs-workspace", "apply"): SWITCH,
     ("pyfs-workspace", "overwrite"): SWITCH,
+    # 0.32.0 (package D, FR-250 and FR-253): `field time-mean --fluctuation` and
+    # `--fluctuation-only` choose what one invocation writes; `--r-body` is the
+    # radius `field fill-interior` fills inside, recorded in the provenance as
+    # r_body_m; `--vinf` only scales the printed fluctuation to % of V_inf.
+    ("pyfs-workspace", "fluctuation"): SWITCH,
+    ("pyfs-workspace", "fluctuation_only"): SWITCH,
+    ("pyfs-workspace", "r_body"): FIELD_OPERATION,
+    ("pyfs-workspace", "vinf"): (
+        "the reference speed the printed fluctuation is stated against (% of V_inf); "
+        "it changes only the words of one invocation, never a file"
+    ),
     ("pyfs-matrix", "matrix"): SUBJECT,
     ("pyfs-matrix", "inputs"): SUBJECT,
     ("pyfs-matrix", "geometry"): SUBJECT,
@@ -453,9 +464,11 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-qa", "workroot"): frozenset({"drift", "probe"}),
     ("pyfs-qa", "workspace"): frozenset({"drift", "physics"}),
     ("pyfs-workspace", "root"): frozenset({"archive", "init", "migrate-geometries"}),
-    ("pyfs-workspace", "workspace"): frozenset({"mirror", "move", "subtract", "time-mean"}),
+    ("pyfs-workspace", "workspace"): frozenset(
+        {"fill-interior", "mirror", "move", "subtract", "time-mean"}
+    ),
     ("pyfs-workspace", "sim_id"): frozenset({"archive"}),
-    ("pyfs-workspace", "field"): frozenset({"mirror", "move"}),
+    ("pyfs-workspace", "field"): frozenset({"fill-interior", "mirror", "move"}),
     ("pyfs-workspace", "total"): frozenset({"subtract"}),
     ("pyfs-workspace", "other"): frozenset({"subtract"}),
     ("pyfs-workspace", "files"): frozenset({"time-mean"}),
@@ -465,9 +478,19 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-workspace", "reference"): frozenset({"subtract"}),
     ("pyfs-workspace", "last"): frozenset({"time-mean"}),
     ("pyfs-workspace", "tolerance"): frozenset({"subtract", "time-mean"}),
-    ("pyfs-workspace", "out"): frozenset({"mirror", "move", "subtract", "time-mean"}),
-    ("pyfs-workspace", "apply"): frozenset({"mirror", "move", "subtract", "time-mean"}),
-    ("pyfs-workspace", "overwrite"): frozenset({"mirror", "move", "subtract", "time-mean"}),
+    ("pyfs-workspace", "out"): frozenset(
+        {"fill-interior", "mirror", "move", "subtract", "time-mean"}
+    ),
+    ("pyfs-workspace", "apply"): frozenset(
+        {"fill-interior", "mirror", "move", "subtract", "time-mean"}
+    ),
+    ("pyfs-workspace", "overwrite"): frozenset(
+        {"fill-interior", "mirror", "move", "subtract", "time-mean"}
+    ),
+    ("pyfs-workspace", "fluctuation"): frozenset({"time-mean"}),
+    ("pyfs-workspace", "fluctuation_only"): frozenset({"time-mean"}),
+    ("pyfs-workspace", "vinf"): frozenset({"time-mean"}),
+    ("pyfs-workspace", "r_body"): frozenset({"fill-interior"}),
 }
 
 
