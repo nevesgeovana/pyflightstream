@@ -485,3 +485,41 @@ def test_p0320_steps_per_revolution_is_refused_without_from_sims(tmp_path, capsy
     argv = ["post", "matriz", "--workspace", str(workspace.root), "--steps-per-revolution", "2"]
     assert cli.main(argv) == 2
     assert "--from-sims" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# Integration of B3 with B1 and B2 (merge of package b3 into feat/0-32).
+
+
+def test_p0320_from_sims_reads_the_matrix_by_the_workspaces_two_homes_rule(tmp_path):
+    """B3 x B2: ``--from-sims`` finds its matrix by B2's ONE two-homes rule.
+
+    The same bytes in both homes are read once; different bytes are refused
+    with B2's words, which name both paths, so post and sync cannot disagree
+    on which matrix a stem means.
+    """
+    workspace = _from_sims_workspace(tmp_path)
+    root = workspace.root
+    home = root / "inputs" / "matrices"
+    home.mkdir(parents=True, exist_ok=True)
+    twin = home / "matriz.fs"
+    twin.write_bytes((root / "matriz.fs").read_bytes())
+    assembled, _ = records.assemble_records(root, "matriz")
+    assert assembled, "the same matrix in both homes was not read"
+
+    twin.write_bytes(twin.read_bytes() + b"\n# another revision\n")
+    with pytest.raises(WorkspaceError, match="in both homes of the workspace") as refused:
+        records.assemble_records(root, "matriz")
+    assert str(twin) in str(refused.value)
+
+
+def test_p0320_from_sims_leaves_the_rebuilds_row_inputs_in_place(tmp_path):
+    """B3 x B1: the rebuild's ``_row_inputs(matrix, pol)`` is not shadowed by B3's helper.
+
+    Both packages appended a private ``_row_inputs`` to run/records.py; a later
+    definition would replace the rebuild's and break its drift report.
+    """
+    workspace = _from_sims_workspace(tmp_path)
+    names = records._row_inputs(workspace.root / "matriz.fs", "6001")
+    assert "references/r001.toml" in names
+    assert any(name.startswith("setups/") for name in names)
