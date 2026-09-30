@@ -250,7 +250,14 @@ SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION:
     "26.120": {status: documented}
     "26.121": {status: documented, note: "SRC-740 p.336, same grammar as 26.120"}
     "26.123": {status: documented, note: "SRC-751 p.338, unchanged from SRC-750 p.338"}
-    "26.124": {status: documented, note: "SRC-752 p.338, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124":
+      status: documented
+      note: >-
+        SRC-752 p.338, the SRC-751 file, carried from 26.123. Run on 26.124
+        by the 0.32.0 licensed probe round 1 (probe W1_wake_stab_disable):
+        the arguments 1 DISABLE 1 after 1 ENABLE 1 were accepted and the two saved
+        simulations differed; the status stays documented until a dated run
+        report promotes it.
   notes: >
     Stabilizes the slipstream wake of a rotor motion. NUM_BLADES is per
     PROPELLER rather than a total across the motion, which the manual

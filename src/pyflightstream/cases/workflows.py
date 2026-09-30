@@ -134,6 +134,7 @@ from pyflightstream.cases import (
     warn_a_selector_that_guesses,
 )
 from pyflightstream.cases import qsteady as _qsteady
+from pyflightstream.cases import setup_surfaces as _setup_surfaces
 from pyflightstream.cases import windows as _windows
 from pyflightstream.commands import (
     CommandEntry,
@@ -2755,7 +2756,7 @@ def emit_rotor_motion(
     # refusal lands before the first emission, like every other read
     # above it.
     rotor_shedding_direction(case)
-    return helpers.rotary_motion(
+    motion_id = helpers.rotary_motion(
         script,
         frame=frame,
         axis=axis.upper(),
@@ -2763,6 +2764,8 @@ def emit_rotor_motion(
         boundaries=boundaries,
         moving_frames=moving_frames,
     )
+    _setup_surfaces.emit_wake_stabilization(script, case, motion_id, _blade_count(case))
+    return motion_id
 
 
 def _moving_boundaries(case: SimCase, script: Script, cell: str) -> list[int | str]:
@@ -4620,6 +4623,7 @@ def _open_geometry(case: SimCase, script: Script) -> None:
     # time, against the inventory just declared (PFS-2028.00): the pproc
     # groups below, the base regions next, and the moving boundaries,
     # plots and sections where each builder resolves them.
+    _setup_surfaces.emit_setup_surfaces(script, case)
     _refuse_a_pproc_the_geometry_shares_no_name_with(case, script)
     _detect_base_regions(case, script)
 
@@ -15631,6 +15635,7 @@ def build_script(
         case, capabilities=BuildCapabilities.of(script._view), registry=registry
     )
     workflow.builder(case, script, conventions or WorkflowConventions.for_case(case))
+    _setup_surfaces.refuse_setup_keys_that_reached_nothing(script, case)
     if case.pproc is not None and case.pproc.products.boundary_layer_integrals:
         for block in script.section_blocks:
             block["loads_frame_index"] = script.loads_frame

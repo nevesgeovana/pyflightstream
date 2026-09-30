@@ -314,6 +314,40 @@ class EntityRegistry:
         if declaration > 0:
             self._boundary_total = (self._boundary_total or 0) + declaration
 
+    def renumber_boundaries(self, labels: Mapping[str, int], total: int) -> None:
+        """Replace the boundary inventory after surfaces were removed.
+
+        The solver renumbers the surfaces after a deleted one (RPT-014,
+        read back on 26.124 by probe round 1), so the labels of the
+        survivors change index and the total shrinks. The caller states
+        the inventory as it stands after the removal, and every later
+        boundary citation is judged against it.
+
+        Parameters
+        ----------
+        labels : mapping of str to int
+            The surviving labels with their new 1-based indices.
+        total : int
+            The boundary count after the removal, duplicates included.
+
+        Raises
+        ------
+        ScriptReferenceError
+            If the inventory was never declared, or a label maps outside
+            the new total.
+        """
+        if self._boundary_total is None:
+            raise ScriptReferenceError(
+                "cannot renumber the boundary inventory: no inventory was declared"
+            )
+        if total < 0 or any(not 1 <= index <= total for index in labels.values()):
+            raise ScriptReferenceError(
+                f"a renumbered inventory of {total} boundaries cannot hold the labels "
+                f"{dict(labels)!r}"
+            )
+        self._labels["boundaries"] = dict(labels)
+        self._boundary_total = total
+
     def resolve(
         self, kind: str, value: object, *, context: str, citation: str | None = None
     ) -> object:

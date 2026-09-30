@@ -77,6 +77,7 @@ nav:
       - Setup standards and guidance: setup-standards.md
       - Boundary conditions: boundary-conditions.md
       - Field operations: field-operations.md
+      - Removing surfaces and the wake stabilization: removing-surfaces.md
       - The input glossary: inputs.md
   - 4 Run:
       - Replaying a recorded run: tutorial-replay.md

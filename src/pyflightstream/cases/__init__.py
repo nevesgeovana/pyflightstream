@@ -3941,6 +3941,14 @@ class SolverSettings(BaseModel):
         by family name.
     axial_separation_families : list of str, optional
         The families on the axial flow separation list, by family name.
+    delete_surfaces : list of str, optional
+        The surfaces removed with ``DELETE_SURFACES`` after the geometry
+        opens, by name, alias or family; the inventory is renumbered after
+        the removal (FR-275).
+    slipstream_wake_stabilization : bool, optional
+        The slipstream wake stabilization of each rotor motion the row
+        creates, ``SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION`` (FR-277);
+        unstated, nothing is emitted.
     load_solver_initialization : bool, optional
         Whether ``OPEN`` loads the solver initialization a saved
         simulation carries; unstated, it does not.
@@ -4227,6 +4235,13 @@ class SolverSettings(BaseModel):
     #: the build -- which is better than emitting a line the solver rejects
     #: mid-run, after the seat is spent.
     axial_separation_families: list[str] | None = None
+    #: The surfaces the package removes after opening the geometry (FR-275),
+    #: named by name, alias or family and never by index; the surface
+    #: inventory is renumbered as the solver renumbers (probe D1, 26.124).
+    delete_surfaces: list[str] | None = None
+    #: The slipstream wake stabilization of each rotor motion (FR-277); None
+    #: emits nothing, True is ENABLE and False is DISABLE (probe W1, 26.124).
+    slipstream_wake_stabilization: SolverToggle | None = None
     #: The LOAD_SOLVER_INITIALIZATION argument of OPEN. None means DISABLE,
     #: which is what the reference scripts wrote on every open: a saved simulation
     #: may carry an initialised solver, and loading it would start the run
@@ -4364,6 +4379,8 @@ SOLVER_SETTING_COMMANDS: dict[str, str] = {
     "disable_reference_velocity": "DISABLE_SOLVER_REF_VELOCITY",
     "vorticity_drag_families": "SET_VORTICITY_DRAG_BOUNDARIES",
     "axial_separation_families": "SET_AXIAL_SEPARATION_BOUNDARIES",
+    "delete_surfaces": "DELETE_SURFACES",
+    "slipstream_wake_stabilization": "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION",
     "load_solver_initialization": "OPEN",
     "analysis_families": "SET_SOLVER_ANALYSIS_BOUNDARIES",
     "load_units": "SET_LOADS_AND_MOMENTS_UNITS",

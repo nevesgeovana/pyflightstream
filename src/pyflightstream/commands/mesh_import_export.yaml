@@ -107,7 +107,14 @@ DELETE_SURFACES:
     "26.121": {status: documented}
     "26.122": {status: documented, note: "SRC-750 p.316, same grammar as 26.121"}
     "26.123": {status: documented, note: "SRC-751 p.316, unchanged from SRC-750 p.316"}
-    "26.124": {status: documented, note: "SRC-752 p.316, the SRC-751 file, carried from 26.123; not run on 26.124"}
+    "26.124":
+      status: documented
+      note: >-
+        SRC-752 p.316, the SRC-751 file, carried from 26.123. Run on 26.124 by
+        the 0.32.0 licensed probe round 1 (probe D1_delete_surfaces): the
+        single-index form was accepted and the surfaces after the deleted one
+        were renumbered; the status stays documented until a dated run report
+        promotes it.
   notes: >
     Deletes a mesh surface by 1-based index. The parameter table states
     no all-form; the sample passing -1 for every surface is on the
@@ -124,3 +131,10 @@ DELETE_SURFACES:
     passes three bare integers under a multiple-surface heading. Those
     two readings delete different surfaces, so the single-index form is
     registered and the multi-index form awaits a probe (RPT-014).
+
+    PROBE ROUND 1 OF 0.32.0, on 26.124: DELETE_SURFACES 3 on a mesh whose
+    inventory was Body, Base, Blade1, Blade2 was accepted and left Body,
+    Base, Blade2, with only the last surface moving, to index 3. So the
+    single-index form runs and the surfaces after the deleted one are
+    renumbered, which the setup key delete_surfaces follows in the script's
+    own inventory. The multi-index form is still unprobed.
