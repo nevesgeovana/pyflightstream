@@ -63,6 +63,7 @@ nav:
       - From the GUI to pyfs: gui-to-pyfs.md
       - The workspace and the workflow: workspace-and-workflows.md
       - Storage and sync: storage-and-sync.md
+      - Restore and rebuild the run records: restore-and-rebuild.md
       - Excel matrix synchronization: excel-matrices.md
   - 1 Geometry:
       - Mesh inputs and GUI-only operations: mesh-inputs.md

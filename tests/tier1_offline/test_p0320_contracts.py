@@ -52,6 +52,7 @@ def test_the_records_signatures():
         ("kind", POS, EMPTY),
         ("stamp", KW, None),
         ("apply", KW, False),
+        ("matrix", KW, None),
     ]
     assert _shape(records.rebuild) == [
         ("root", POS, EMPTY),
@@ -61,21 +62,29 @@ def test_the_records_signatures():
         ("build_alias", KW, None),
         ("matrix", KW, None),
         ("apply", KW, False),
+        ("inputs_from", KW, None),
     ]
     assert records.RESTORE_KINDS == ("runs", "storage", "products", "plan", "additional")
 
 
 @pytest.mark.parametrize(
-    "call",
+    ("call", "words"),
     [
-        lambda root: records.restore(root, "runs"),
-        lambda root: records.restore(root, "storage", stamp="20260929-1200", apply=True),
-        lambda root: records.rebuild(root),
-        lambda root: records.rebuild(root, out="runs-rebuilt.json", all_sims=True, apply=True),
+        (lambda root: records.restore(root, "runs"), "no archived copy"),
+        (
+            lambda root: records.restore(root, "storage", stamp="20260929-1200", apply=True),
+            "no archived copy",
+        ),
+        (lambda root: records.rebuild(root), "no sims/ folder"),
+        (
+            lambda root: records.rebuild(root, out="runs-rebuilt.json", all_sims=True, apply=True),
+            "no sims/ folder",
+        ),
     ],
 )
-def test_the_records_stubs_refuse(tmp_path, call):
-    with pytest.raises(ContractNotImplementedError, match=r"not implemented yet \(0\.32\.0"):
+def test_the_records_bodies_are_filled_and_refuse_an_empty_workspace(tmp_path, call, words):
+    # Filled by B1 (tests/tier1_offline/test_p0320_records.py holds their behaviour).
+    with pytest.raises(records.RecordsError, match=words):
         call(tmp_path)
 
 
@@ -216,14 +225,14 @@ def test_the_cli_registers_restore_and_rebuild_with_their_flags():
         assert len(runs) == 1 and runs[0].default is None, f"{name} lacks --runs"
 
 
-def test_the_records_commands_reach_the_stubs_and_exit_two(tmp_path, capsys):
+def test_the_records_commands_reach_the_bodies_and_exit_two(tmp_path, capsys):
     assert cli.main(["restore", "runs", "--workspace", str(tmp_path)]) == 2
-    assert NOT_YET in capsys.readouterr().err
+    assert "no archived copy of runs.json" in capsys.readouterr().err
     code = cli.main(
         ["rebuild", "--workspace", str(tmp_path), "--sims", "4001,2009", "--build-alias", "a=b"]
     )
     assert code == 2
-    assert NOT_YET in capsys.readouterr().err
+    assert "no sims/ folder" in capsys.readouterr().err
 
 
 def test_rebuild_refuses_a_build_alias_without_its_equals_sign(tmp_path, capsys):

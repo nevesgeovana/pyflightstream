@@ -257,6 +257,10 @@ def test_the_package_base_does_not_widen_what_the_builtin_bases_caught():
         # file directly in the workspace root. ValueError because the NAME is
         # refused before any file is read.
         "RunsManifestError": ValueError,
+        # 0.32.0 (B1): a restore or a rebuild refused before anything was
+        # written. ValueError because the REQUEST as given is refused: a kind,
+        # a stamp, a manifest name, a combination of options.
+        "RecordsError": ValueError,
     }
     catalogued = set(exceptions.__all__) - {"PyflightstreamError"}
     assert catalogued == set(expected_builtin), (
