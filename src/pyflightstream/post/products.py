@@ -5129,9 +5129,14 @@ def _acoustic_products(
             len(rotor.blades) or None,
             float(rpm) if isinstance(rpm, int | float) and not isinstance(rpm, bool) else None,
         )
-    made = _acoustics.write_acoustic_products(
-        signals, out / key, stem=stem, rotors=speeds, target=target
-    )
+    try:
+        made = _acoustics.write_acoustic_products(
+            signals, out / key, stem=stem, rotors=speeds, target=target
+        )
+    except (ProductError, OSError) as error:
+        skipped[key] = str(error)
+        warn(f"point={stem} product={key}: {error}", PyflightstreamWarning, stacklevel=2)
+        return [], {}
     for note in made.notes:
         warn(f"point={stem} product={key}: {note}", PyflightstreamWarning, stacklevel=2)
     names: dict[str, dict[str, object]] = {
