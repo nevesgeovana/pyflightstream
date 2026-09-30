@@ -265,7 +265,8 @@ def command_help(parser: argparse.ArgumentParser, names: Sequence[str]) -> str:
     """Return the one-line help a parser gives the (nested) command ``names``.
 
     The line each ``add_parser(..., help=...)`` states, which ``--help`` lists;
-    the command's description where it states no help; and the empty string
+    an alias gets its command's line; the command's description where it
+    states no help; and the empty string
     where it states neither.
     """
     help_text = ""
@@ -277,7 +278,13 @@ def command_help(parser: argparse.ArgumentParser, names: Sequence[str]) -> str:
         )
         if action is None or name not in action.choices:
             return help_text
-        pseudo = {choice.dest: choice.help for choice in action._choices_actions}
+        # By the parser, not the name: an alias (`inspect-setups` of `plan`)
+        # has no help line of its own and shares its command's.
+        pseudo = {
+            id(action.choices[choice.dest]): choice.help
+            for choice in action._choices_actions
+            if choice.dest in action.choices
+        }
         current = action.choices[name]
-        help_text = str(pseudo.get(name) or current.description or "")
+        help_text = str(pseudo.get(id(current)) or current.description or "")
     return " ".join(help_text.split())

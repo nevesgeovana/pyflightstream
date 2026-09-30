@@ -151,6 +151,10 @@ def test_every_command_opens_with_a_titled_block_saying_what_it_is(tmp_path, mon
             assert _console.opens_with_titled_block(text), (argv, text)
             title = f"{program} {' '.join(names)}"
             assert text.lstrip("\n").splitlines()[0] == title, (argv, text)
+            # Saying what it is: the purpose line has words, an alias included.
+            if names != ("plan",):
+                purpose = text.lstrip("\n").splitlines()[1]
+                assert re.fullmatch(r"  purpose: \S.*", purpose), (argv, text)
     # Every command of both programs, the 0.32.0 records commands included.
     for expected in ("plan", "run", "collect", "post", "sync", "free-space", "delete-sims"):
         assert expected in walked, walked
