@@ -58,8 +58,10 @@ The control surface in the **PARAMETRIC** form, the ten-argument line that
 states SPACE and AXIS, is **confirmed**: the run completed, the log holds no
 error line, and the saved simulation lists three boundaries, the wing, the
 control surface and a side boundary of it (`PYFS_AIL_side`), where the plain
-wing lists one. The saved simulation differs from CCS1-WING's: 1431 lines
-against 1744, and the two files are not byte equal.
+wing lists one. The saved simulation differs from CCS1-WING's: the plain
+wing's save has 1431 lines and the save with the control surface 1744 (the
+order the round's read script compares them in), and the two files are not
+byte equal.
 
 The same control surface with **REAL** spanwise limits ended
 **FAILED_EXECUTION**: the record holds no saved simulation, and the log holds
