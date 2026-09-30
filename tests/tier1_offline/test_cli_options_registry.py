@@ -271,6 +271,10 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ("pyfs-matrix", "out"): OUTPUT,
     ("pyfs-matrix", "all_sims"): SWITCH,
     ("pyfs-matrix", "build_alias"): CASE,
+    # 0.32.0, P0 and B1: `rebuild --inputs-from` names the other origin's inputs/
+    # folder THIS call reads the inputs that ran from, a SUBJECT; `restore
+    # --matrix` names the matrix whose archived file this call restores.
+    ("pyfs-matrix", "inputs_from"): SUBJECT,
     # 0.32.0, package B2. `sync --restore` rebuilds the records of the folders
     # no record carries, and `sync --include-archives` brings the archive
     # folders; both are modes of THIS call, off by default in her words.
@@ -382,7 +386,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "in_place"): frozenset({"upgrade"}),
     ("pyfs-matrix", "inputs"): frozenset({"upgrade"}),
     ("pyfs-matrix", "matrix"): frozenset(
-        {"convert", "inspect-setups", "plan", "post", "rebuild", "run", "upgrade"}
+        {"convert", "inspect-setups", "plan", "post", "rebuild", "restore", "run", "upgrade"}
     ),
     ("pyfs-matrix", "name"): frozenset({"convert", "inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "output"): frozenset({"convert"}),
@@ -444,6 +448,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "out"): frozenset({"rebuild"}),
     ("pyfs-matrix", "all_sims"): frozenset({"rebuild"}),
     ("pyfs-matrix", "build_alias"): frozenset({"rebuild"}),
+    ("pyfs-matrix", "inputs_from"): frozenset({"rebuild"}),
     ("pyfs-matrix", "restore"): frozenset({"sync"}),
     ("pyfs-matrix", "include_archives"): frozenset({"sync"}),
     ("pyfs-matrix", "from_sims"): frozenset({"post"}),
