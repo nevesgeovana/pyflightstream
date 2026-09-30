@@ -227,7 +227,11 @@ def test_no_forbidden_identifier_in_the_versioned_tree() -> None:
     # files of guide 00 in the byline tree guide/, docs/migrating-to-0.31.0.md
     # and the two 0.31 pages docs/field-operations.md and
     # docs/qsteady-corrections.md.
-    assert numbers["exempt"] <= 167, (
+    # 186 on the integrated 0.32.0 branch, the author's authorisation of
+    # 2026-09-30 to raise it by exactly the measured count: docs/ gained 19
+    # pages (migrating-to-0.32.0.md, the six 0.32 feature pages and the twelve
+    # pages of the workflow split), and no exemption line was added or widened.
+    assert numbers["exempt"] <= 186, (
         f"{numbers['exempt']} files exempt, up from the 149 measured at 0.30.0. "
         "An exemption was widened, or a tree grew by more than a release's own "
         "pages; widen this number in the same commit and say why in "

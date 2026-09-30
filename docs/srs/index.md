@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.44.0 |
+| Version | 1.45.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -41,7 +41,7 @@ or ambiguous.
    rules, with the generated [architecture overview](../architecture.md)
    as the live companion.
 6. [Functional requirements](functional-requirements.md): FR-01 to
-   FR-111, each with origin, status, and evidence.
+   FR-294, each with origin, status, and evidence.
 7. [Non-functional requirements](nonfunctional-requirements.md):
    NFR-01 to NFR-28.
 8. [Standards alignment](standards.md): the external practices this
@@ -98,6 +98,7 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.45.0 | 2026-09-30 | **THE REQUIREMENT FRAGMENTS ARE FOLDED.** The fragments of `docs/srs/fr.d/` (the requirements of 0.25.0 to 0.31.0 that K1 and K2 wrote, and FR-200 to FR-294 of the 0.32.0 packages) join the functional chapter under its section of 0.25.0 to 0.32.0 additions, 136 boxes in package order, and the functional range above reads FR-01 to FR-294. **FR-51 is CORRECTED**: its 0.27.0 amendment said an unsteady point saves no solver plot and that an artifact stating one on an unsteady row is refused at plan, which FR-133 replaced at 0.28.0 and the code contradicts (`cases/__init__.py:default_outputs` leaves out of an unsteady point only `probes`; `cases/workflows.py:END_OF_RUN_EXPORT_KINDS` saves the plots once after the march); it now says what FR-133 says. Each requirement the 0.32.0 work reads names the planning items that read it. |
 | 1.44.0 | 2026-09-30 | **THE SRS CATCHES UP WITH RELEASES 0.25.0 TO 0.31.0.** FR-109 to FR-111, added at 0.27.0 without a revision row, are recorded here. Requirements for the capabilities of 0.29.0, 0.30.0 and 0.31.0 that had none are written under the numbers 150 to 194, in the fragment `docs/srs/fr.d/k2.md`, and join the functional chapter when the fragments are integrated; each states the need, the verifiable requirement, the solution with its release and the trace to its test. FR-95 is RESTATED, because it said a steady sweep is warm by default and since 0.29.0 it is cold by default (the new cold-start requirement states it), and its title drops the word warm. FR-110 is RESTATED, because it said each steady point exports the volume section natively and since 0.29.0 the section is sampled through probes or fluid plots. NFR-27 gains the type-checker re-measurements of 0.25.0 to 0.32.0. The roadmap carries the milestones to 0.32.0 and the 0.33.0 plan, and the acceptance mapping the release lines to 0.32.0. A tier-1 test (P0320-SRS-CHANGELOG) now requires every Added and Changed bullet of every release from 0.25.0 on, and of every change log fragment, to cite a requirement id the SRS defines or to say why it has none. |
 | 1.43.0 | 2026-09-14 | **FR-100 is added**: a row states `TRANSLATE` as a list of records with the grammar of `ROTATE`, `DISTANCE` in metres along one axis of a named frame and one declared `ALIAS`; the surfaces move in that frame with their vertices split from their neighbours, every owned and auxiliary frame moves to its new absolute origin once, the kept hub is shared with a rotation, and every translation precedes every rotation. **FR-71's doubling is reached by a rendered script**: the kept hub frame now reaches the post-processing, where only the unit tests had reached it. FR-35 and FR-71 are amended by FR-100 |
 | 1.42.0 | 2026-09-14 | **FR-99 is amended twice**: each submitted point runs in its own datapoint folder, with its action files, clock and descriptor, and the collect stage files its outputs in place; and **FR-96** opens the archived saved simulation by absolute path and runs a `RESTART` row under the campaign that recorded the stop; **FR-80** imports a cited survey by absolute path and refuses a name `inputs/profiles/` does not hold. FR-99 also gains the HPC profile's `[builds]` table: a row keeps naming one build and the profile states what its scheduler calls that build, through `{fs_build_alias}`, refusing an unmapped build before any point is submitted; the sentence that the descriptor already states the build a submitted job runs on is corrected, because the table declares the build and does not verify it. **FR-35 gains the workspace-wide POL rule**: every row of every matrix of the workspace, RUN = 0 rows and a matrix planned from outside the root included, is read for a repeated POL and every repeat is named at once, and `pyfs-matrix plan --update-ids` renumbers the repeated rows of the planned matrix alone |

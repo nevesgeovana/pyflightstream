@@ -83,7 +83,14 @@ def test_rpt096_states_no_length_and_no_dimensional_value_of_a_blade():
 def test_rpt096_is_indexed_where_the_tree_indexes_reports():
     index = (REPO / "reports" / "README.md").read_text(encoding="utf-8")
     assert f"[RPT-096]({STEM}.md)" in index
-    fragment = (REPO / "changelog.d" / "R1.md").read_text(encoding="utf-8")
+    # Before the integration the entry is the R1 fragment; scripts/assemble_changelog.py
+    # then folds it into the change log's [Unreleased] section and deletes the fragment.
+    fragment_path = REPO / "changelog.d" / "R1.md"
+    if fragment_path.is_file():
+        fragment = fragment_path.read_text(encoding="utf-8")
+    else:
+        changelog = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
+        fragment = changelog.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
     assert "reports/RPT-096" in fragment
 
 

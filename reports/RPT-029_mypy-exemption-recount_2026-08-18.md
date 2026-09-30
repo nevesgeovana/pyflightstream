@@ -66,36 +66,41 @@
 > `workspace/fields.py`, brought the tracked package from 134 to 138, and by the run of 2026-09-29 on the same candidate once the console change had merged, whose one new module, the floor module `_console.py`, brought it from 138 to 139, and by the run of
 > 2026-09-29 on the 0.32.0 development branch (`feat/0-32`) once its
 > preparation step had laid down the ten contract modules of the 0.32 work
-> packages, which brought it from 139 to 149. (An
+> packages, which brought it from 139 to 149, and by the run of
+> 2026-09-30 on the integrated 0.32.0 branch (`feat/0-32`, every 0.32
+> package merged), whose one further module, the CCS floor
+> `cases/_ccs.py`, brought it from 149 to 150. (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
 > modules and the 0.24.0 tree at 661 in 18 of 93; the 0.28.0 release tree read
 > 863 errors in 18 of 104 on 2026-09-25; the 0.29.0 quality-gate candidate
 > read 923 in 18 of 128 on 2026-09-28, the same date as the release tree;
 > the 0.30.0 tree once its quasi-steady rotor work had merged read 998 in
 > 18 of 134 on 2026-09-29, the same date as the v0.30.0 release tree, which
-> read 1065 in 18 of 134, and as the 0.31.0 release candidate;
+> read 1065 in 18 of 134, and as the 0.31.0 release candidate; the
+> 0.32.0 preparation step read 1084 in 18 of 149 on 2026-09-29;
 > measurements of different
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 1084 errors in 18 files (checked 149 source files)
->     Success: no issues found in 149 source files
+>     Found 1112 errors in 18 files (checked 150 source files)
+>     Success: no issues found in 150 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-29: 1084 errors in 18 of 149 modules.**
+**mypy recount 2026-09-30: 1112 errors in 18 of 150 modules.**
 
-The module total is the 149 the tracked package holds on the 0.32.0
-development branch after its preparation step, ten more than v0.31.0's
-139, each of the ten clean; v0.31.0's own 139 were five more than
+The module total is the 150 the tracked package holds on the integrated
+0.32.0 branch, eleven more than v0.31.0's 139, each of the eleven clean
+(the ten contract modules of the preparation step and `cases/_ccs.py`);
+v0.31.0's own 139 were five more than
 v0.30.0's 134, each of the five clean;
 the error total sits inside the exempted set, the number of modules holding
 an exemption is unchanged at eighteen, and the shipped configuration is
-green over all 149. The run at 139 was taken by `python scripts/mypy_recount.py`
+green over all 150. The run at 139 was taken by `python scripts/mypy_recount.py`
 on the 0.31.0 release candidate at `33c1d7ef`, which the script reported
-clean, and the run at 149 is stated in its own section at the end; the v0.30.0 release tree's reading, 1065 errors in 18 of 134, is
+clean, and the runs at 149 and 150 are stated in their own sections at the end; the v0.30.0 release tree's reading, 1065 errors in 18 of 134, is
 stated in its own section below.
 
 THE NINETIETH TO THE NINETY-THIRD ARRIVED AT 0.24.0 and all four arrive
@@ -372,11 +377,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 1084 errors in 18 files (checked 149 source files)
+    Found 1112 errors in 18 files (checked 150 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 149 source files
+    Success: no issues found in 150 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -863,5 +868,21 @@ the ten new modules not yet added), with python 3.12.0, mypy 2.3.1, numpy
 of 149 modules on 198 distinct source lines, the same errors as the run at
 139. The ten contract modules, `run/records.py`, `cases/acoustics.py`, `cases/ccs_wing.py`, `cases/ccs_fuselage.py`, `cases/ccs_revolution.py`, `cases/setup_surfaces.py`, `post/acoustics.py`, `post/qsteady_noise.py`, `post/disc_maps.py` and `post/inflow_tools.py`, are not exempted and the tool
 reports each CLEAN, so the dirty count still reads 18. The shipped
-configuration is green over all 149. The quoted mypy lines and the sentence
-at the top of this report are this run's.
+configuration is green over all 149.
+
+## Re-measured 2026-09-30, the integrated 0.32.0 branch: one module arrived clean
+
+`python scripts/mypy_recount.py` on 2026-09-30, on the integrated 0.32.0
+branch (`feat/0-32` at `44635709`, every 0.32 package merged, the source
+tree committed; the script reported the tree unsettled only by the
+uncommitted fold of the change log and SRS fragments, none of which mypy
+reads), with python 3.12.0, numpy 2.5.3, xarray 2026.7.0, pandas 3.0.6 and
+pydantic 2.13.5 (the script printed mypy's version as unknown): 1112
+errors in 18 of 150 modules on 199 distinct source lines, against 1084 on
+198 at 149. The one module added since the preparation step,
+`cases/_ccs.py`, is not exempted and the tool reports it CLEAN, so the
+dirty count still reads 18; the 28 further errors sit in modules that
+already carried exemptions, and the run measured the tree as it is and
+assigns no share of them to a change. The shipped configuration is
+green over all 150. The quoted mypy lines and the sentence at the top of
+this report are this run's.

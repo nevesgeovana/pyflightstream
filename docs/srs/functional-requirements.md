@@ -1696,8 +1696,12 @@ nodes.
     (`_plot_residuals.txt`, `_plot_loads.txt`, `_plot_cp_sections.txt`),
     collected and hashed like every export and never read as a source of
     a coefficient; the artifact may deselect each; an unsteady point
-    saves none, and an artifact stating one on an unsteady row is refused
-    at plan. Measured on 26.124 (RPT-067): the files are the plotted
+    saves the same plots once after the march, never per step, and an
+    artifact stating one on an unsteady row is accepted (FR-133; the code:
+    `cases/__init__.py:default_outputs` leaves out of an unsteady point
+    only `STEADY_ONLY_EXPORT_KINDS`, which holds `probes` alone, and
+    `cases/workflows.py:END_OF_RUN_EXPORT_KINDS` saves the plots once at
+    the end of the run). Measured on 26.124 (RPT-067): the files are the plotted
     series as text, and the solve and its exports are unchanged by the
     saves.
 
@@ -4583,3 +4587,2849 @@ requirement below is one seam of that division.
       (CLI: `--local`): the submitting half is not built.
     - Not measured: any build but 26.124, a surface averaged in time reopened,
       and whether the reopened distributions the run created can be deleted.
+
+## 0.25.0 to 0.32.0 additions
+
+Requirements written after the specification was last reconciled with the package: the capabilities of the releases 0.25.0 to 0.31.0 that had none, and the ones 0.32.0 adds.
+
+!!! requirement "FR-200 Every command opens with a titled block saying what it is <span class='srs-implemented'>implemented</span>"
+
+    *Origin: item 2.2 of the 0.32.0 scope (GEO-066): the titled blocks of
+    0.31.0 (P13) reached `pyfs-matrix plan` alone, and every other command
+    printed as before. Evidence: `tests/tier1_offline/test_p0320_console.py`,
+    `test_every_command_opens_with_a_titled_block_saying_what_it_is` (the
+    test walks every command both parsers register, nested ones included),
+    `test_the_opening_block_says_what_the_command_does_and_where_on_stderr_only`
+    and `test_the_titled_block_rule_itself`.*
+
+    Need: a user reading the console of any `pyfs-matrix` or `pyfs-workspace`
+    command knows which command printed it, what it is for and which folder
+    it works in, before the first line of its work.
+
+    Requirement: the output of every `pyfs-matrix` and `pyfs-workspace`
+    command opens with a titled block: the line `<program> <command>`, then,
+    indented under it, `purpose:` (the command's own one-line help),
+    `workspace:` (the folder, absolute, where the command has one) and, for a
+    command that keeps one, `live log:`. The block goes to standard error, so
+    standard output carries exactly what it carried before, byte for byte.
+    `pyfs-matrix plan` keeps its own header block of 0.31.0 on standard
+    output; its opening is said first only where another line would come
+    before that header (a refusal).
+
+    Solution (release 0.32.0): `pyflightstream._console` holds the shapes
+    (`opening_lines`, `opens_with_titled_block`, `command_help`) and
+    `pyflightstream._progress.command_console` prints the block, entered once
+    by each program's `main`.
+
+!!! requirement "FR-201 A command's warnings are held and printed together at the end <span class='srs-implemented'>implemented</span>"
+
+    *Origin: item 2.2 of the 0.32.0 scope (GEO-066). Evidence:
+    `tests/tier1_offline/test_p0320_console.py`,
+    `test_warnings_are_held_and_printed_together_at_the_end`,
+    `test_a_refused_command_still_prints_its_held_warnings_at_the_end`,
+    `test_an_interrupted_command_still_prints_its_held_warnings_at_the_end` and
+    `test_a_python_caller_recording_warnings_still_receives_them`.*
+
+    Need: a warning that arrives in the middle of a command's output is read
+    as part of whatever it interrupted; together, under one title, they are
+    read as what they are.
+
+    Requirement: every command but `plan` holds the warnings it raises and
+    prints them after its last line, on standard error, as one block titled
+    `Warnings (<count>)`, a blank line before it, each warning in the short
+    `[warning]` form of 0.31.0, in the order raised. A refusal (exit 2) and an
+    interruption print the held warnings too. A warning is never swallowed:
+    the filters in force decide as before, and a Python caller recording
+    warnings receives each one. `plan` keeps the layout of 0.31.0, its
+    `Warnings (<count>)` block right after its header block.
+
+    Solution (release 0.32.0): `command_console(hold=True)` over
+    `_console.held_warnings`, and `_progress.print_held_warnings`, the one
+    printer of the block, which `plan` also calls.
+
+!!! requirement "FR-202 A long command shows the progress of each stage <span class='srs-implemented'>implemented</span>"
+
+    *Origin: item 2.2 of the 0.32.0 scope (GEO-066): `pyfs-matrix sync
+    --apply` hashes, merges and copies with nothing printed until its final
+    record. Evidence:
+    `tests/tier1_offline/test_p0320_console.py`,
+    `test_a_stage_shows_files_and_bytes_over_the_total_the_file_elapsed_and_an_estimate`,
+    `test_a_stage_with_nothing_to_do_prints_nothing_and_a_python_caller_sees_nothing`,
+    `test_a_stage_that_raises_says_where_it_stopped_and_lets_the_error_through`,
+    `test_tracked_counts_each_item_after_its_body_even_on_continue`,
+    `test_a_tracked_loop_whose_body_raises_says_where_it_stopped_not_done`,
+    `test_a_terminal_redraws_one_line_with_a_bar_and_ends_it`,
+    `test_free_space_and_delete_sims_show_their_stages`,
+    `test_delete_sims_removal_shows_bytes_over_the_total_it_measured` and
+    `test_collect_and_post_show_their_stages`.*
+
+    Need: a command that works for minutes says, while it works, how far each
+    of its stages is, on which file, since when and for about how long more.
+
+    Requirement: inside a console command, a stage announced through
+    `stage_progress(name, total_files=..., total_bytes=...)` prints on
+    standard error the line `[<name>] <files>/<total>, <bytes>/<total
+    bytes>, <share>%, <MM:SS> elapsed, about <MM:SS> left, <current file>`,
+    the share by bytes where the byte total is known and by files otherwise,
+    the estimate the elapsed time scaled by what is left. It closes with
+    `[<name>] done: ...`, or `[<name>] stopped at ...` when the stage raised
+    or was interrupted, and the stage's own exception passes unchanged. A
+    stage with nothing to do says nothing; a Python caller outside a console
+    command sees nothing; the progress never changes a stage's result and
+    never raises. The stages shown: `free-space` (one per recipe table, per
+    simulation), `delete-sims` (measure, then remove, the removal also by
+    the bytes the measure found), `collect` (per submitted point) and `post`
+    (per simulation); the bytes appear where the stage knows them, and
+    `sync` and `restore` call the same interface from their own packages of
+    0.32.0.
+
+    Solution (release 0.32.0): `pyflightstream._progress.StageProgress`
+    (`advance`, `each`), `stage_progress` and `tracked`, the one-line hook of
+    a loop (`size=` adds each item's known bytes); the line's shape is
+    `_console.progress_text`.
+
+!!! requirement "FR-203 A long command writes a live log while it runs <span class='srs-implemented'>implemented</span>"
+
+    *Origin: item 2.2 of the 0.32.0 scope (GEO-066). Evidence:
+    `tests/tier1_offline/test_p0320_console.py`,
+    `test_a_long_command_writes_its_live_log_while_it_runs` (the log is read
+    from inside the running command),
+    `test_only_the_long_commands_keep_a_live_log_and_only_in_a_workspace`,
+    `test_a_second_live_log_of_the_same_second_gets_its_own_name` and
+    `test_a_live_log_that_cannot_be_written_is_named_and_the_command_runs_on`.*
+
+    Need: a command whose console is lost (a closed window, a cluster job)
+    leaves what it said on disk as it said it, not only the record written at
+    its end.
+
+    Requirement: `sync`, `restore`, `free-space`, `delete-sims`, `collect` and
+    `post`, run in a campaign workspace (a folder with `runs.json` or
+    `inputs/`), write `logs/<command>-<UTC stamp>.log`, where the stamp is
+    `YYYYMMDDTHHMMSSZ` and a name already taken gains `-2`, `-3`. It opens
+    with `# <program> <command> started <time>`, receives every line the
+    console shows (standard output included, the progress as plain lines)
+    and is flushed at each line, and ends with `# finished <time> after
+    <MM:SS>` (or `# ended with exit <code>`, `# ended by <exception>`). The
+    opening block names it. A folder that is not a campaign workspace gets
+    no file, a log that cannot be written is named in the opening block and
+    the command runs on, and `post --diagnostics`, which changes no file of
+    the workspace, writes none.
+
+    Solution (release 0.32.0): `command_console(live_log=True)` wraps standard
+    output and error for the length of the command; `LIVE_LOG_COMMANDS` names
+    the six commands.
+
+!!! requirement "FR-204 Without a terminal the progress is plain periodic lines <span class='srs-implemented'>implemented</span>"
+
+    *Origin: item 2.2 of the 0.32.0 scope (GEO-066): a cluster job and a
+    redirected output are not terminals. Evidence:
+    `tests/tier1_offline/test_p0320_console.py`,
+    `test_without_a_terminal_the_progress_is_plain_periodic_lines` and
+    `test_the_live_log_of_a_terminal_session_gets_plain_lines_not_redraws`.*
+
+    Need: a redrawn bar written to a file or a scheduler's log is a wall of
+    carriage returns; a job's log needs lines it can be read by.
+
+    Requirement: where standard error is a terminal, a stage's line is
+    redrawn in place, a bar of 20 cells after its name, at most every 0.2 s,
+    and cleared before any other line. Where it is not, the stage prints a
+    plain line at its first advance, then at most one every
+    `PLAIN_PERIOD_S` (10 s), then its closing line, and never a carriage
+    return. The live log always receives the plain lines, whatever the
+    console is.
+
+    Solution (release 0.32.0): `StageProgress._show` and the constants
+    `PLAIN_PERIOD_S`, `REDRAW_PERIOD_S` and `BAR_CELLS` of
+    `pyflightstream._progress`.
+
+!!! requirement "FR-205 A returned failure of a stage kept off a terse console is said there <span class='srs-implemented'>implemented</span>"
+
+    *Origin: ARCH2-B1 of the 0.31.0 review, registered for 0.32.0.
+    Evidence: `tests/tier1_offline/test_p0320_console.py`,
+    `test_a_returned_failure_of_a_verbose_only_stage_shows_on_a_terse_console`,
+    `test_a_verbose_only_stage_that_finishes_stays_off_a_terse_console` and
+    `test_a_caller_that_asked_quiet_keeps_it_for_a_returned_failure`;
+    the first fails on the 0.31.0 condition.*
+
+    Need: `workspace_activity(verbose_only=True)` keeps a stage that runs
+    once per point off a console without `--verbose`; a stage that returned a
+    failure without raising vanished from that console with it.
+
+    Requirement: on a console without `--verbose`, a `verbose_only` stage
+    whose result says it failed (`failed`, or an outcome starting with
+    `FAILED`) prints its `[<stage>] failed` line; its `started` line, and
+    both lines of a stage that finished, stay off that console, and the
+    activity log records every one as before. A caller that passed `quiet`
+    keeps it.
+
+    Solution (release 0.32.0): the condition of the closing line in
+    `pyflightstream._progress.workspace_activity`.
+
+!!! requirement "FR-206 A warning-free plan has one blank line before its first block <span class='srs-implemented'>implemented</span>"
+
+    *Origin: QA2-1 of the 0.31.0 review, a test gap registered for 0.32.0.
+    Evidence: `tests/tier1_offline/test_p0320_console.py`,
+    `test_a_warning_free_plan_has_one_blank_line_before_its_first_block`.*
+
+    Need: the blank line that separates the header block of `pyfs-matrix
+    plan` from its first block is written by a branch of its own when no
+    warning is printed between them, and nothing tested that branch.
+
+    Requirement: a plan that raises no warning prints its header block, one
+    blank line, then its first block (`Cases`): never two blank lines and
+    never none.
+
+    Solution (release 0.32.0): the behavior of 0.31.0, now pinned by the
+    test above.
+
+!!! requirement "FR-210 A file of the records family is restored from the workspace's archive, exactly <span class='srs-implemented'>implemented</span>"
+
+    *Need: `sync`, `--force-rerun`, `delete-sims` and `rename` archive
+    `runs.json` before they rewrite it, and nothing brought a copy back.
+    Requirement: `pyfs-matrix restore <kind>` (library:
+    `pyflightstream.run.records.restore`) previews by default, writes with
+    `--apply`, archives the current file first in the same form, and puts the
+    archived bytes back unchanged, for `runs.json`, `storage_management.json`,
+    `additional.json`, `post/<matrix>/products.json` and
+    `post/<matrix>/plan.json`. Solution, release 0.32.0: the archive forms
+    `archive/<stem>-<stamp>[.n][-label].json` and
+    `post/<matrix>/archive/<stamp>/<name>`, the newest copy by default,
+    `--stamp` (the copy of exactly that name) and `--matrix` (a folder
+    name under `post/`) to choose, and every restore written under the
+    `runs.json` lease a run, a collect and a sync hold, plus the storage or
+    additional-post record's own lease (RST-6). Trace:
+    `tests/tier1_offline/test_p0320_records.py`
+    (`test_restore_previews_then_applies_each_kind_archiving_the_current_file`,
+    `test_restore_takes_the_newest_stamp_and_a_named_one`,
+    `test_restore_refuses_what_it_cannot_do_exactly`,
+    `test_restore_of_the_manifest_refuses_while_a_run_holds_its_lock`,
+    `test_rst6_every_restore_refuses_while_a_sync_holds_the_runs_lease`,
+    `test_rst6_restore_writes_holding_the_runs_lease_and_the_records_own`,
+    `test_restore_sorts_every_name_the_archive_pattern_accepts`,
+    `test_restore_of_a_named_stamp_takes_the_copy_of_that_exact_name`,
+    `test_restore_refuses_a_matrix_stem_that_leaves_post`,
+    `test_the_archive_spellings_are_the_workspaces`,
+    `test_the_cli_restores_and_rebuilds`).*
+
+    - Refused, nothing changed: an unknown kind; no archived copy, naming
+      where it was looked for; a stamp no copy carries, naming the stamps
+      there are; archives of several matrices and none named; a copy that is
+      not readable JSON, or a manifest copy that is not a list of records; a
+      restore of any kind while `runs.json.lock` is held, as during a sync,
+      or while the restored record's own lease is held.
+    - The writers of the storage record, the products record, the plan
+      receipt and the additional-post record do not archive their file yet, so
+      for those kinds the copies found are the ones a restore made.
+
+!!! requirement "FR-211 Run records are rebuilt from the simulation folders, proved by the script the version that ran renders <span class='srs-implemented'>implemented</span>"
+
+    *Need: when no archive holds a record, a simulation whose outputs exist is
+    invisible to the post. Requirement: `pyfs-matrix rebuild` (library:
+    `pyflightstream.run.records.rebuild`) mints each record again by running
+    its matrix row in a throwaway copy of the workspace with nothing submitted,
+    rebuilds it only when the executed script equals the script this package
+    version renders for that row (workspace root and interpreter set aside),
+    and completes it through the collect stage run read-only
+    (`collect_without_writing`); a truncated or missing output is
+    `FAILED_INCOMPLETE_OUTPUT`, never `CONVERGED`; nothing in the workspace is
+    written until `--apply`. Solution, release 0.32.0: the run layer's
+    executor choice, build binding, per-row versions and manifest lease
+    exposed publicly (`campaign_executor`, `bind_row_builds`,
+    `row_versions`, `manifest_lock`), the workspace tree compared before and
+    after, and a `REBUILT` warning on every rebuilt record. Trace:
+    `tests/tier1_offline/test_p0320_records.py`
+    (`test_rebuild_from_sims_gives_the_record_back_and_writes_nothing_until_asked`,
+    `test_rebuild_refuses_an_edited_script_naming_the_version`,
+    `test_rebuild_refuses_a_version_other_than_the_one_that_ran`,
+    `test_rebuild_refuses_another_version_even_when_its_script_matches`,
+    `test_rebuild_writes_nothing_when_the_workspace_changed_meanwhile`,
+    `test_rebuild_of_a_truncated_output_is_failed_incomplete_never_converged`,
+    `test_rebuild_of_a_missing_output_is_failed_incomplete_never_converged`).*
+
+    - Refused per simulation, naming the reason: an executed script this
+      version does not render (naming the version), a run a known record of
+      another version wrote (naming both versions), a compressed simulation, a
+      retired one, one with no declared output.
+    - A collection that would move an output, copy the scheduler's log, write
+      a translated surface export or expand a compressed simulation is not
+      made; the record stays `SUBMITTED` for `pyfs-matrix collect`.
+    - Without `--out`, `--apply` appends the run ids `runs.json` lacks after
+      archiving it, or writes `runs.json` when there is none.
+
+!!! requirement "FR-212 A rebuild written to another manifest never touches runs.json <span class='srs-implemented'>implemented</span>"
+
+    *Need: a rebuilt record must be comparable with the original before it
+    replaces anything. Requirement: `--out NAME` writes the rebuilt records to
+    that file in the workspace root and never writes `runs.json`; the name
+    `runs.json`, a file that exists, and a name that is not a file directly in
+    the root are refused before any work. Solution, release 0.32.0: the
+    refusals come before anything is read, the file is created
+    exclusively, and it holds the rows of `runs.json` with each rebuilt
+    record in the place of the row of its run id and the other rebuilt
+    records after them. Trace: `tests/tier1_offline/test_p0320_records.py`
+    (`test_rebuild_out_refuses_runs_json_and_an_existing_file_before_any_work`,
+    `test_rebuild_out_never_touches_runs_json`,
+    `test_rebuild_out_holds_the_rebuilt_record_of_a_named_recorded_sim`).*
+
+!!! requirement "FR-213 Every simulation on disk is rebuilt for comparison, only into another manifest <span class='srs-implemented'>implemented</span>"
+
+    *Need: comparing what the folders say with `runs.json` needs the recorded
+    simulations rebuilt too. Requirement: `--all-sims` rebuilds every
+    simulation folder under `sims/`, recorded or not, and is refused without
+    `--out`. Solution, release 0.32.0: with `--all-sims` the written file holds
+    the rebuilt records only. Trace: `tests/tier1_offline/test_p0320_records.py`
+    (`test_rebuild_all_sims_requires_out_and_rebuilds_the_recorded_ones_too`).*
+
+!!! requirement "FR-214 A row switched off after it ran still describes that run <span class='srs-implemented'>implemented</span>"
+
+    *Need: a row set to `RUN 0` after it ran is still the row that ran.
+    Requirement: the rebuild sets `RUN 1` on that row in the throwaway copy of
+    the matrix only, leaves the matrix unchanged, and says so in the record.
+    Solution, release 0.32.0 (RST-2). Trace:
+    `tests/tier1_offline/test_p0320_records.py`
+    (`test_rst2_a_row_switched_off_after_it_ran_still_describes_the_run`).*
+
+!!! requirement "FR-215 A build the submission profile no longer maps takes the scheduler's name of its time <span class='srs-implemented'>implemented</span>"
+
+    *Need: a run on a build the profile's `[builds]` table no longer maps is
+    refused by the run layer before a descriptor is written. Requirement:
+    `--build-alias BUILD=ALIAS` names the scheduler's word for that build,
+    the build itself by default; it enters only the job descriptor of the
+    throwaway run, never the solver script, and the record and the result say
+    which alias was assumed. Solution, release 0.32.0 (RST-3): the profile is
+    extended in memory only. Trace: `tests/tier1_offline/test_p0320_records.py`
+    (`test_rst3_a_build_the_profile_no_longer_maps_takes_the_alias_in_the_descriptor_only`).*
+
+!!! requirement "FR-216 A POL in no current matrix waits for the matrix revision that ran <span class='srs-implemented'>implemented</span>"
+
+    *Need: a row deleted or renumbered after it ran leaves a folder no matrix
+    names. Requirement: the rebuild names the simulations that wait for the
+    revision that ran (`waiting_for_matrix`) and rebuilds them from
+    `--matrix <file>`. Solution, release 0.32.0 (RST-4). Trace:
+    `tests/tier1_offline/test_p0320_records.py`
+    (`test_rst4_a_pol_in_no_current_matrix_waits_for_the_revision_that_ran`).*
+
+!!! requirement "FR-217 A run on a cluster restored on Windows keeps its own root and style <span class='srs-implemented'>implemented</span>"
+
+    *Need: a script executed on a cluster names a POSIX root with forward
+    slashes, and a rebuild on Windows renders backslashes. Requirement: the
+    identity check compares with the separators normalised and each side's
+    own root replaced by one token, and the rebuilt record writes its paths
+    in the run's root and style, never with the separators mixed. Solution,
+    release 0.32.0 (RST-5). Trace: `tests/tier1_offline/test_p0320_records.py`
+    (`test_rst5_a_cluster_run_restored_on_windows_keeps_the_runs_own_root`).*
+
+!!! requirement "FR-218 A SUBMITTED record is pointed to collect, unless every simulation is judged from its outputs <span class='srs-implemented'>implemented</span>"
+
+    *Need: a rebuild must not invent the end of a job, and a comparison of
+    every folder must not keep a status the outputs contradict. Requirement:
+    without `--all-sims` a `SUBMITTED` record is not rebuilt and is pointed to
+    `pyfs-matrix collect`; with `--all-sims` that status is ignored and each
+    simulation takes the status its outputs support, except a folder written
+    within the last quiet window (`QUIET_WINDOW_S`, 30 minutes), which stays
+    `SUBMITTED`. Solution, release 0.32.0 (RST-7). Trace:
+    `tests/tier1_offline/test_p0320_records.py`
+    (`test_rst7_submitted_records_point_to_collect_without_all_sims`,
+    `test_rst7_all_sims_ignores_submitted_and_judges_the_outputs`).*
+
+!!! requirement "FR-219 A drifted input is named, and inputs from another origin are accepted <span class='srs-implemented'>implemented</span>"
+
+    *Need: an input changed after the run (a pproc group renamed, an export
+    line switched, the loads frame line, a plot type) makes the executed script
+    differ, and refusing or accepting that wholesale says nothing about which
+    input changed. Requirement: the refusal names each changed line with its
+    drift class and the input the package renders it from now; `--inputs-from
+    <folder>` lays another origin's `inputs/` over the workspace's in the
+    throwaway copy, and each rebuilt record names the inputs taken from there
+    whose bytes differ; the workspace's inputs are never overwritten.
+    Solution, release 0.32.0 (RST-8). Trace:
+    `tests/tier1_offline/test_p0320_records.py`
+    (`test_rst8_a_drifted_input_is_named_and_another_origin_is_accepted`,
+    `test_rst8_each_drift_class_is_named_with_the_input_it_comes_from`).*
+
+!!! requirement "FR-220 Sync compares every simulation folder of both workspaces, recorded or not <span class='srs-implemented'>implemented</span>"
+
+    *Need: a workspace holds simulation folders that no record names,
+    most copied by hand from a cluster, and `sync` said nothing about them:
+    it merged the records and brought files without naming which folders
+    each side holds and which no record carries. Requirement: every sync
+    entry names the `sims/sim_*` folders of main and of the other workspace,
+    compacted ones included, those only in main, only in the other and in
+    both, and every folder main holds or will hold that no record of the
+    merged manifest carries; `pyfs-matrix sync` prints the counts and the
+    folders without a record. Solution, release 0.32.0: the entry's `sims`
+    block (`main`, `other`, `only_main`, `only_other`, `both`,
+    `without_record`) in `pyflightstream.workspace.storage.sync_workspaces`;
+    a folder a `delete-sims` note names is accounted for by the note and
+    left out of `without_record`, and so is a simulation of the other
+    workspace that the sync's level does not bring. Trace:
+    `tests/tier1_offline/test_p0320_sync_matrices.py`
+    (`test_p0320_sync_all_folders_names_every_sim_folder_of_both_sides`,
+    `test_p0320_sync_all_folders_counts_a_compacted_sim_and_the_cli_prints_them`,
+    `test_p0320_sync_all_folders_without_record_names_only_what_main_will_hold`,
+    `test_p0320_sync_all_folders_leaves_out_a_folder_a_delete_sims_note_names`).*
+
+!!! requirement "FR-221 Sync rebuilds the records of folders without one only when asked <span class='srs-implemented'>implemented</span>"
+
+    *Need: the folders without a record stay invisible to `post` until a
+    record exists, and rebuilding them is not what every sync should do.
+    Requirement: `sync` never rebuilds a record by default; with `--restore`
+    (library: `restore=True`) an applying sync rebuilds the records of the
+    folders without one through `pyflightstream.run.records.rebuild`, after
+    it released the `runs.json` lease, and the preview names the folders
+    it would restore; a refused rebuild is written in the entry and the
+    files the sync copied stand; `--restore` with `--runs` naming another
+    manifest is refused, because the rebuild appends to `runs.json` only.
+    Solution, release 0.32.0: the entry's `restore` block (`asked`, `sims`,
+    `result` without the bulky records, `error`) and the storage record of
+    the call. Trace: `tests/tier1_offline/test_p0320_sync_matrices.py`
+    (`test_p0320_sync_restore_is_off_by_default`,
+    `test_p0320_sync_restore_rebuilds_the_orphans_after_the_lease_is_released`,
+    `test_p0320_sync_restore_reports_a_refused_rebuild_and_keeps_the_sync`,
+    `test_p0320_sync_restore_with_another_manifest_is_refused`,
+    `test_p0320_sync_the_cli_passes_restore_and_include_archives`).*
+
+!!! requirement "FR-222 A sync copy never leaves a partial file under the target's name <span class='srs-implemented'>implemented</span>"
+
+    *Need: a sync over a network share can be interrupted, and a copy
+    written in place left a truncated file where the whole one belonged,
+    or had already moved main's own copy to the archive. Requirement: every
+    file and matrix a sync brings is written to a temporary name in the
+    target's folder, checked against the source's digest, and only then
+    renamed over the target; an overwritten file stays in place, archived
+    by a copy, until its replacement is whole; an interruption removes the
+    temporary file and leaves the target as it was. Solution, release
+    0.32.0: `_atomic_copy` in `workspace/storage.py`, the temporary name
+    `.<name>.<pid>.pyfs-sync.tmp`, never brought by a later sync. Trace:
+    `tests/tier1_offline/test_p0320_sync_matrices.py`
+    (`test_p0320_sync_atomic_an_interrupted_copy_leaves_no_partial_target`,
+    `test_p0320_sync_atomic_an_interrupted_overwrite_keeps_mains_copy_in_place`,
+    `test_p0320_sync_atomic_a_finished_copy_leaves_no_temporary_file`,
+    `test_p0320_sync_atomic_a_temporary_file_a_killed_sync_left_is_never_brought`).*
+
+!!! requirement "FR-223 Sync skips archive folders unless asked, and says how much it skipped <span class='srs-implemented'>implemented</span>"
+
+    *Need: from the post level up the sync brought the whole `post/` tree,
+    with every `post/<matrix>/**/archive/<stamp>/` earlier posts left,
+    hundreds of files each read twice over the network. Requirement: a
+    sync skips every file under a folder named `archive`, in `post/` and
+    inside a simulation, unless `--include-archives` (library:
+    `include_archives=True`); the entry and the preview state how many
+    archive files and bytes were skipped. Solution, release 0.32.0:
+    `files.archives_skipped` (`files`, `bytes`) in the sync entry and the
+    line `archive: N file(s), X skipped` of `pyfs-matrix sync`. Trace:
+    `tests/tier1_offline/test_p0320_sync_matrices.py`
+    (`test_p0320_sync_skip_archives_by_default_and_counts_what_was_skipped`,
+    `test_p0320_sync_skip_archives_include_archives_brings_them`,
+    `test_p0320_sync_the_cli_passes_restore_and_include_archives`).*
+
+!!! requirement "FR-224 inputs/matrices/ is a matrix home equal to the workspace root <span class='srs-implemented'>implemented</span>"
+
+    *Need: matrices are kept at the root or in `inputs/matrices/`, and a
+    command that looked in one home only missed the matrix, or read one
+    stem twice and refused every POL of it as stated by two matrices.
+    Requirement: the sync, the plan's POL census and the post find a matrix
+    in either home; one stem in both homes is read once when the two files
+    hold the same bytes, and refused, naming both paths, when they differ;
+    in the post the refusal is a warning naming both paths and the
+    products fall back to the run records, never blocking. Solution,
+    release 0.32.0: `pyflightstream.workspace.matrix_by_stem` and
+    `find_matrix`, read by `workspace/storage.py`, `workspace/matrix.py`
+    (the census), `post/superfile.matrix_rows` and the post stage's matrix
+    warning; a sync that replaces a matrix main keeps in both homes
+    replaces both. Trace: `tests/tier1_offline/test_p0320_sync_matrices.py`
+    (`test_p0320_matrices_home_one_stem_in_both_homes_is_read_once_or_refused`,
+    `test_p0320_matrices_home_sync_reads_an_identical_pair_once_and_refuses_a_differing_one`,
+    `test_p0320_matrices_home_sync_replaces_every_copy_main_keeps`,
+    `test_p0320_matrices_home_the_census_reads_an_identical_copy_once`,
+    `test_p0320_matrices_home_the_census_refuses_a_differing_copy_naming_both`,
+    `test_p0320_matrices_home_the_census_refuses_in_the_words_of_the_one_rule`,
+    `test_p0320_matrices_home_the_post_finds_the_matrix_in_inputs_matrices`,
+    `test_p0320_matrices_home_the_post_refuses_a_differing_pair_naming_both`).*
+
+!!! requirement "FR-225 A sync holds the runs.json lease for the whole of its merge and copy <span class='srs-implemented'>implemented</span>"
+
+    *Need: a restore ran while a sync wrote into the same workspace, and
+    the sync held the `runs.json` lease around its merge only. Requirement:
+    an applying or previewing sync holds `runs.json.lock` from the merge of
+    the records to the end of the copy, the input links and the matrices,
+    so a restore, a run, a collect or a second sync refuses (or waits on
+    the lease) while it writes; a sync started while the lease is held is
+    refused naming it; a restore asked of the sync runs after the lease is
+    released. Solution, release 0.32.0: one `_manifest_lock` block in
+    `_sync_one`. Trace: `tests/tier1_offline/test_p0320_sync_matrices.py`
+    (`test_p0320_rst6_the_sync_holds_the_runs_lease_so_a_second_writer_is_refused`,
+    `test_p0320_sync_restore_rebuilds_the_orphans_after_the_lease_is_released`).*
+
+!!! requirement "FR-226 sync, free-space and delete-sims read the manifest --runs names <span class='srs-implemented'>implemented</span>"
+
+    *Need: a rebuilt manifest beside `runs.json` must be usable by the
+    storage commands without replacing `runs.json`. Requirement: `sync`,
+    `free-space` and `delete-sims` take `--runs NAME` (library: `runs=`),
+    resolved by `pyflightstream.run.records.resolve_manifest`, and a name
+    that is not a JSON file directly in the root is refused before any
+    work. `sync` merges the other workspace's `runs.json` into the named
+    manifest of main and leaves main's `runs.json` untouched;
+    `delete-sims` reads the records from the named manifest and removes
+    them from it, archived first as `archive/<stem>-<stamp>.json`, and
+    refuses `--matrix-products regenerate` with it; `free-space` reads the
+    named manifest IN ADDITION to `runs.json`, so naming one never protects
+    fewer files. Solution, release 0.32.0: `runs=` on `sync_workspaces`,
+    `free_space` and `delete_sims`, and the command line passing the name
+    through. Trace: `tests/tier1_offline/test_p0320_sync_matrices.py`
+    (`test_p0320_runs_name_sync_merges_into_the_named_manifest_only`,
+    `test_p0320_runs_name_a_bad_name_is_refused_before_any_work`,
+    `test_p0320_runs_name_delete_sims_edits_the_named_manifest_only`,
+    `test_p0320_runs_name_delete_sims_regenerate_with_another_manifest_is_refused`,
+    `test_p0320_runs_name_free_space_protects_what_the_named_manifest_names`,
+    `test_p0320_runs_name_the_cli_passes_the_name_to_sync_and_storage`).*
+
+!!! requirement "FR-227 Sync reports its hash, merge and copy stages to the progress <span class='srs-implemented'>implemented</span>"
+
+    *Need: a long sync printed only its final summary. Requirement: the
+    sync reports three stages, `sync hash` (the files compared, with their
+    count), `sync merge` (the records) and `sync copy` (the files and bytes
+    copied), to the stage progress of the package. Solution, release
+    0.32.0: `pyflightstream._progress.stage_progress` called in `_sync_one`.
+    Trace: `tests/tier1_offline/test_p0320_sync_matrices.py`
+    (`test_p0320_sync_reports_its_three_stages_to_the_progress`).*
+
+!!! requirement "FR-230 The post and the collect read the records of another manifest <span class='srs-implemented'>implemented</span>"
+
+    *Need: a workspace can hold more than one set of run records for the same
+    simulations, for example a manifest rebuilt from the simulation folders
+    beside the one the runs wrote, and the post of each must be possible
+    without renaming either file. Trace (P0320-RUNS-NAME):
+    `tests/tier1_offline/test_p0320_b3_post_records.py`, the tests
+    `test_p0320_runs_name_post_reads_another_manifest_into_its_own_folder`,
+    `test_p0320_runs_name_resolves_the_workspace_of_a_manifest`,
+    `test_p0320_runs_name_refuses_a_manifest_that_is_not_there`,
+    `test_p0320_runs_name_collect_completes_the_named_manifest`,
+    `test_p0320_runs_name_collect_once_writes_only_the_named_manifest` and
+    `test_p0320_post_and_collect_report_their_stage_progress`.*
+
+    `pyfs-matrix post --runs NAME` and `pyfs-matrix collect --runs NAME` shall
+    read the run records of the manifest `NAME`, a JSON file directly in the
+    workspace root, and `runs.json` shall be neither read nor written. The
+    collect shall complete the submitted records of that manifest in place,
+    under that manifest's own lock. A name that is not a file directly in the
+    root, and a named manifest that is not there, shall be refused by name with
+    exit status 2, never read as an empty manifest. `--runs runs.json` is the
+    default workspace, unchanged. Both commands report their stage to the
+    progress interface.
+
+    Solution, release 0.32.0: `pyflightstream.run.records.manifest_workspace`
+    resolves the name through `resolve_manifest` and returns a
+    `ManifestWorkspace` whose `manifest_path` is the named file, so every
+    reader and the three writers of the records follow it.
+
+!!! requirement "FR-231 A post of other records writes its products apart and never over the default ones <span class='srs-implemented'>implemented</span>"
+
+    *Need: the products of a post of another manifest are made to be compared
+    with the default ones, so neither may overwrite the other. Trace
+    (P0320-POST-RUNS-APART):
+    `tests/tier1_offline/test_p0320_b3_post_records.py`, the tests
+    `test_p0320_runs_name_post_reads_another_manifest_into_its_own_folder`,
+    `test_p0320_post_runs_apart_twice_archives_inside_its_own_folder`,
+    `test_p0320_runs_name_collect_posts_the_named_manifest_apart` and
+    `test_p0320_runs_name_refuses_the_name_of_the_from_sims_folder`.*
+
+    The products of `post --runs NAME` shall be written to
+    `post/<matrix>@<stem>/`, `<stem>` the manifest's name without `.json`, and
+    those of `post --from-sims` (FR-232) to `post/<matrix>@sims/`, each with its
+    own `products.json`, `post.log`, `archive/` and measurement reports under
+    its own `reports/`. Every byte under `post/<matrix>/` and under the
+    workspace's `reports/` shall be left as the default post wrote it. A
+    manifest named `sims.json` shall be refused, since its folder would be the
+    one of `post --from-sims`. The columns inside the folder are those of the
+    default post, and so are the file names of `post --runs NAME`; the file
+    names of `post --from-sims` carry the names its records were assembled
+    with (FR-232).
+
+    Solution, release 0.32.0: `ManifestWorkspace.products_dir` and
+    `ManifestWorkspace.reports_root` name the apart folder; the post stage asks
+    the workspace for both (`CampaignWorkspace.reports_root` is the root, so a
+    default post writes where it always did).
+
+!!! requirement "FR-232 The post assembles the records from the simulation folders and refuses by name what it cannot recover <span class='srs-implemented'>implemented</span>"
+
+    *Need: points run outside the package have no `runs.json` and no script to
+    compare with, and their exports must still be posted with the package's
+    products. Trace (P0320-POST-NO-MANIFEST):
+    `tests/tier1_offline/test_p0320_b3_post_records.py`, the tests whose names
+    begin `test_p0320_post_no_manifest_`, and
+    `test_p0320_steps_per_revolution_is_refused_without_from_sims`.*
+
+    `pyfs-matrix post MATRIX --from-sims` shall assemble the run records in
+    memory, one per loads export found under `sims/sim_<POL>/` of a row of the
+    matrix (outside its `archive`, `scripts` and `inputs` folders), and post
+    them to `post/<matrix>@sims/` (FR-231). No manifest shall be written.
+
+    - The point is the value of the row's sweep at the angles the export
+      reports; the point's other exports are the files beside it named its
+      stem plus the suffix of another export kind, never a file whose name
+      only begins with the stem; its name is its `DP-<name>` folder's, else the export's
+      stem; its status is the collect's assessment of its exports.
+    - The flight condition is the row's, with the swept value in place,
+      resolved with the setup's pins by the package's resolver; the reference
+      block and the aliases are the row's reference.
+    - The averaging window of a point with a time history is the row's
+      `LAST_REVS_AVG` or `LAST_ITERS_AVG`, cut over the steps of its plots
+      export; `--steps-per-revolution N` states the clock of a window in
+      revolutions.
+    - Refused by name, and that point or that row left out, never guessed: a
+      reference that does not resolve (the aliases and the reference block); a
+      condition the row and its setup do not resolve; an export whose angles
+      are no value of the sweep, or a row sweeping anything but an angle over
+      more than one value; two exports at one point; a time history with no
+      window in the row; a window in revolutions with no
+      `--steps-per-revolution`. Each refusal is printed and written into the
+      post's log, and every assembled record says in the log that it was
+      assembled.
+    - A record assembled here carries no rotor block, so the rotor tables and
+      the per-rotor reductions of its point are the post's named skips.
+    - `--from-sims` is refused with no matrix, beside `--runs` and beside
+      `--additional-pproc`; `--steps-per-revolution` is refused without
+      `--from-sims`.
+
+    Solution, release 0.32.0: `pyflightstream.run.records.assemble_records`
+    and `from_sims_workspace`, whose records refuse every manifest writer.
+
+!!! requirement "FR-240 A row names a CCS file and the solver lofts one of its components as a wing <span class='srs-implemented'>implemented</span>"
+
+    *Origin: CCS-1 of the 0.32.0 scope (GEO-066 section 2.4): no CCS command
+    was reachable from a matrix row, 0 of 12 wing commands. Need: a wing mesh
+    generated by the solver from the cross-sections of a CCS file, chosen by
+    the row, with nothing meshed by hand. Solution, release 0.32.0: the
+    `[import.ccs]` table of the geometry sidecar and the curve route of
+    `pyflightstream.cases.ccs_wing`, reached from `_open_geometry` by one hook.
+    Licensed round 1 on 26.124 accepted the route with the saved simulation
+    listing the new boundary (probe C1) and `CCS_WING_MESH_SUBDIVISIONS CHORD
+    30` changing the wing's faces from 4484 to 588 (C2 against C1). Trace:
+    `tests/tier1_offline/test_p0320_ccs.py`, the tests named `test_p0320_ccs1_wing_*`
+    and `test_p0320_ccs1_a_loft_*` (P0320-CCS1-WING).*
+
+    A row whose `GEOMETRY` names a file with the `.csv` or `.ccs` suffix
+    under `inputs/geometries/` is a CCS row. Its sidecar
+    `<stem>.boundaries.toml` states `[import]` with the unit of the file's
+    coordinates and `[import.ccs]` with `kind = "wing"` and `component`, the
+    component counted from 1 in the order of the file's `Component` lines.
+    Every run type then emits, before any other command, `CAD_CREATE_INITIALIZE`,
+    `CAD_CREATE_IMPORT_CURVE_CCS <units> 1 <component>` with the file on the
+    next line, `CAD_CREATE_CURVE_SELECT -1`, one `CCS_WING_MESH_SUBDIVISIONS`
+    line per stated count (`subdivisions = { chord, span }`), and
+    `CAD_CREATE_WING_MESH_FROM_CCS <name> <mark_trailing_edges>
+    <trailing_edge> <close_ends> <loft_u> <loft_v>`, the name being the first
+    entry of the sidecar's `boundaries`; then `SET_SIMULATION_LENGTH_UNITS
+    METER` and the boundary inventory from the sidecar.
+
+    - The loft defaults are `mark_trailing_edges = true`, `trailing_edge =
+      "SHARP"`, `close_ends = "TRUE"`, `loft_u = "C2"` (chordwise) and
+      `loft_v = "C0"` (spanwise).
+    - Refused before any line is written, naming the row: a CCS file with no
+      `[import.ccs]` table; a table beside a file that is not a CCS file; a
+      component the file does not hold; a sidecar naming no boundary or more
+      than the loft and its control surfaces make; a boundary name carrying
+      whitespace; `units = "FILE"`, and `units = "OTHER"`, which names no
+      length; mesh operations or `[import.cad]` beside
+      the table; the raw-mesh tables `[trailing_edges]`, `[wake_termination]`
+      and `[base_regions]`; a setup loading a saved solver initialization.
+    - Refused when the row is planned: a table naming no component, and a key
+      another kind reads.
+    - Not measured: the route inside a whole campaign row with a solve
+      (licensed round 2).
+
+!!! requirement "FR-241 A row names a CCS file and the solver lofts one of its components as a fuselage <span class='srs-implemented'>implemented</span>"
+
+    *Origin: CCS-1 of the 0.32.0 scope, 0 of 10 fuselage commands reachable.
+    Need: a fuselage mesh generated by the solver from a CCS component, chosen
+    by the row. Solution, release 0.32.0: `kind = "fuselage"` in
+    `[import.ccs]`, emitted by `pyflightstream.cases.ccs_fuselage`. Licensed
+    round 1 on 26.124 accepted the route with the saved simulation listing the
+    new boundary (probe C4). Trace: `tests/tier1_offline/test_p0320_ccs.py`,
+    `test_p0320_ccs1_fuselage_is_lofted_from_its_component`,
+    `test_p0320_ccs1_a_loft_refuses_the_file_unit` and
+    `test_p0320_ccs1_the_three_emitters_are_the_route_each_kind_takes`
+    (P0320-CCS1-FUSELAGE).*
+
+    A CCS row whose `[import.ccs]` says `kind = "fuselage"` emits the curve
+    route's prelude of FR-240 and `CAD_CREATE_FUSELAGE_MESH_FROM_CCS <name>
+    <close_ends> <loft_u> <loft_v>`, where `loft_u` is the radial and
+    `loft_v` the axial continuity, both `C2` by default.
+
+    - The refusals of FR-240 apply; a wing key (`trailing_edge`,
+      `mark_trailing_edges`, `subdivisions`, `control_surfaces`) or a
+      revolution key on a fuselage is refused when the row is planned.
+
+!!! requirement "FR-242 A row names a CCS file and the solver revolves one of its components into a body of revolution <span class='srs-implemented'>implemented</span>"
+
+    *Origin: CCS-1 of the 0.32.0 scope, 0 of 10 body-of-revolution commands
+    reachable. Need: a body of revolution generated by the solver from a CCS
+    profile, chosen by the row. Solution, release 0.32.0: `kind =
+    "revolution"` in `[import.ccs]`, emitted by
+    `pyflightstream.cases.ccs_revolution`. Licensed round 1 on 26.124
+    accepted the route with the saved simulation listing the new boundary
+    (probe C5). Trace: `tests/tier1_offline/test_p0320_ccs.py`,
+    `test_p0320_ccs1_revolution_is_revolved_about_the_reference_axis_it_names`,
+    `test_p0320_ccs1_revolution_default_is_a_full_turn` and
+    `test_p0320_ccs1_a_key_the_kind_does_not_read_is_refused_at_binding`
+    (P0320-CCS1-REVOLUTION).*
+
+    A CCS row whose `[import.ccs]` says `kind = "revolution"` emits the curve
+    route's prelude of FR-240 and `CAD_CREATE_REVOLVE_MESH_FROM_CCS <name> 1
+    <axis> <start_angle_deg> <end_angle_deg> <close_ends> <loft_u> <loft_v>`:
+    the profile turns about `axis` (`X` by default) through the origin of the
+    reference frame, from 0 to 360 degrees by default.
+
+    - The refusals of FR-240 apply; a wing key on a body of revolution is
+      refused when the row is planned.
+    - Not stated by the manual and not assumed: what a negative or a reversed
+      pair of angles does.
+
+!!! requirement "FR-243 A CCS wing declares its gapped control surfaces with all ten arguments <span class='srs-implemented'>implemented</span>"
+
+    *Origin: CCS-2 of the 0.32.0 scope, the helper PFS-2005.05. Need: the
+    control surface of a CCS wing declared from the geometry's sidecar.
+    Licensed round 1 on 26.124 refused the eight-token line the manual's own
+    sample prints (`NEW_CCS_WING_CONTROL_SURFACE PYFS_AIL 0.5 0.9 0.25 0.25 0.5
+    20.0 1.0`, "Review command syntax and arguments", probe C3), while SRC-752
+    p.303 declares ten parameters. Solution, release 0.32.0: each
+    `[[import.ccs.control_surfaces]]` table of a wing becomes one line with
+    SPACE and AXIS always written. Trace: `tests/tier1_offline/test_p0320_ccs.py`,
+    the tests named `test_p0320_ccs2_*` (P0320-CCS2-CONTROL-SURFACE).*
+
+    A wing's `[[import.ccs.control_surfaces]]` states `name`, `v0`, `v1`,
+    `u0`, `u1`, `hinge_height`, `angle_deg`, `slot_gap_pct`, and optionally
+    `space` (`PARAMETRIC`, the default, or `REAL`) and `axis` (`Y` by
+    default); each becomes `NEW_CCS_WING_CONTROL_SURFACE <name> <v0> <v1> <u0>
+    <u1> <hinge_height> <angle_deg> <slot_gap_pct> <space> <axis>` after the
+    curve selection and the subdivisions and before the loft, in the order
+    written. The sidecar may name the boundaries the control surfaces add
+    after the wing's own name.
+
+    - Refused when the row is planned, naming the field: `u0` or `u1` not
+      above 0 and below 0.5; `hinge_height` outside 0 to 1; `v1` not above
+      `v0`; PARAMETRIC limits outside 0 to 1; a name carrying whitespace; a
+      control surface on a kind other than a wing.
+    - Not measured: the ten-argument line on a licensed run, and which
+      boundaries the control surface adds (licensed round 2). Builds whose
+      grammar has eight arguments (26.100, 26.101) refuse the line at the
+      emitter.
+
+!!! requirement "FR-244 A row chooses the shedding direction of a CCS file's relaxed trailing edges <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G35 (N87) of the 0.32.0 scope. Need: the row chooses the direction
+    of a Relaxed_TE component's parametric shedding line. The direction exists
+    only in the CCS file's line `Relaxed_TE;u;v1;v2;direction` (SRC-752 p.85);
+    the script commands `NEW_CCS_FUSELAGE_RELAXED_TE` and
+    `NEW_CCS_REVOLVE_RELAXED_TE` take no direction (SRC-752 pp.306, 309).
+    Licensed round 1 on 26.124 imported one fuselage with the digit 0 and with
+    1 by `CCS_IMPORT` (probes G35a, G35b): both accepted, and the two saved
+    simulations differ in five per-face lines, the axial file marking a set of
+    faces 79 apart and the azimuth file a run of 47 consecutive faces; `CCS_IMPORT`
+    of a three-component file named one boundary per component (probe C0).
+    The same reading found `script.helpers.RelaxedTrailingEdge` counting four
+    leading values and a fifth for the direction, so the manual's
+    `0.5;0.2;0.8;1` read as a line with no direction and was restated with
+    five values. Solution, release 0.32.0: `kind = "file"` in `[import.ccs]`,
+    the row key `CCS_SHEDDING`, and the helper counting the manual's three
+    values. Trace: `tests/tier1_offline/test_p0320_ccs.py`, the tests named
+    `test_p0320_g35_*` (P0320-G35-SHEDDING).*
+
+    A CCS row whose `[import.ccs]` says `kind = "file"`, with `units =
+    "FILE"`, emits `CCS_IMPORT` with `CLOSE_COMPONENT_ENDS DISABLE`,
+    `UPDATE_PROPERTIES DISABLE`, `CLEAR_EXISTING ENABLE` and the file, and
+    declares one boundary per component, in the file's order, named after its
+    `Component` line. A row stating `CCS_SHEDDING` (`AXIAL` or `0`, `AZIMUTH`
+    or `1`, registered on every run type) imports instead the run's own copy
+    `<stem>.ccs_shedding.<ext>`, written where the point runs and hashed into
+    the record, with every `Relaxed_TE` line restated in that direction; the
+    user's file is never written. `parse_relaxed_trailing_edge` reads the
+    line with or without the `Relaxed_TE` keyword, three values or four with
+    the direction, and renders it as written.
+
+    - Refused naming the row: `CCS_SHEDDING` on a loft; on a file with no
+      `Relaxed_TE` line; a direction that is neither; a unit other than
+      `FILE`; boundaries that are not the file's components in order.
+    - A line stating no direction keeps stating none when the row asks for
+      the axial direction, which it already means.
+    - Not measured: the effect of the direction on a solution (licensed
+      round 2).
+
+!!! requirement "FR-250 A per-probe fluctuation report beside the time mean of per-step fields <span class='srs-implemented'>implemented</span>"
+
+    *Origin: her answer Q19 ("Média + medir flutuação"), GEO-066 2.5.
+    Evidence: `tests/tier1_offline/test_p0320_d_inflow_tools.py`
+    (P0320-INFLOW-FLUCTUATION).*
+
+    **Need.** A time mean of an unsteady run's per-step probe fields hides how
+    much the inflow moves about it. Before a mean stands in for the field, the
+    engineer must see the fluctuation per probe.
+
+    **Requirement.** Given the last `K` per-step fields of one run, the
+    package reports for each probe the population standard deviation (divided
+    by `K`) of each velocity component and of the magnitude, in m/s. It refuses
+    fewer than `K` steps on disk, steps that are not consecutive integers, any
+    step whose probes differ from the first step's by more than 1e-6 m, and a
+    single steady field. The report alone (`--fluctuation-only`) needs `--last`.
+    For `K` steps of `v0 + a sin(2 pi k / K)` on one component, with `K` a
+    multiple of 4, the standard deviation is `a / sqrt(2)`.
+
+    **Solution (release 0.32.0).**
+    `pyflightstream.workspace.fields.fluctuation_report`,
+    `render_fluctuation` and `write_fluctuation`; `pyfs-workspace field
+    time-mean --fluctuation` writes `<stem>.fluctuation.csv` beside the mean
+    and names it, with its sha256, in the provenance record;
+    `--fluctuation-only --last K` writes the report alone. The column and
+    product definitions are on the post-processing definitions page.
+
+    **Trace.** `test_p0320_inflow_fluctuation_population_std_of_a_sine`,
+    `test_p0320_inflow_fluctuation_refuses_what_is_not_one_survey`,
+    `test_p0320_inflow_fluctuation_folds_into_time_mean_with_provenance`,
+    `test_p0320_inflow_fluctuation_only_refuses_without_last`,
+    `test_p0320_inflow_fluctuation_only_refuses_more_steps_than_on_disk`.
+
+!!! requirement "FR-251 A product table is copied into the installed frame <span class='srs-implemented'>implemented</span>"
+
+    *Origin: her answer Q6a ("vamos ter os dois"), GEO-066 2.5. Evidence:
+    `tests/tier1_offline/test_p0320_d_inflow_tools.py`
+    (P0320-INSTALLED-FRAME).*
+
+    **Need.** A table computed on the isolated (image) wheel is wanted in the
+    installed frame too, and both must be kept.
+
+    **Requirement.** The installed-frame copy is the isolated table mirrored
+    through `y = 0`: the columns the definitions page lists change sign, the
+    azimuths map `psi -> -psi mod 360`, all else is copied; blade and family
+    names do not change; the copy is written beside the input, never
+    overwrites, keeps the one comma-free alias line of a rotor table, and
+    applying it twice returns the input. The sectional `Fx`, `Fz` and `Moment`
+    are not negated unless named. The classification has one home, the
+    definitions page, and the code reads one list held equal to it by a test.
+
+    **Solution (release 0.32.0).**
+    `pyflightstream.post.inflow_tools.to_installed_frame` and
+    `installed_frame_columns`, with `FLIPPED_COLUMNS` and `AZIMUTH_COLUMNS`.
+
+    **Trace.** `test_p0320_installed_frame_flips_the_classified_columns`,
+    `test_p0320_installed_frame_is_an_involution_and_never_overwrites`,
+    `test_p0320_installed_frame_keeps_the_alias_line_and_flips_named_columns`,
+    `test_p0320_installed_frame_classification_has_one_home_the_definitions_page`.
+
+!!! requirement "FR-252 The blade-view harmonics of a custom inflow, with their shares and reduced frequency <span class='srs-implemented'>implemented</span>"
+
+    *Origin: GEO-066 2.5, beyond the plan's `--inflow-fft` (0.30.0). Evidence:
+    `tests/tier1_offline/test_p0320_d_inflow_tools.py`
+    (P0320-INFLOW-HARMONICS).*
+
+    **Need.** The plan reports `n95` per radius; the engineer also needs how
+    the perturbation's variance divides among harmonics, its size in degrees,
+    the reduced frequency it implies and how all of it moves with the advance
+    ratio of one fixed field.
+
+    **Requirement.** For a field in a YZ plane and a rotor axis along X, per
+    radius and advance ratio `J`: the variance share of harmonics 1 to 8 of the
+    angle-of-attack perturbation, its rms and half peak-to-peak in degrees, the
+    plan's own `n95`, `k_1P = Omega c / (2 mean V_rel)`, `k_eff = n95 k_1P`,
+    and the suggested `PASSAGE_POSITIONS = ceil(n_max / N + 1)`. Another axis is
+    refused. A uniform field at 5 degrees of angle of attack gives a first
+    harmonic share of 1.
+
+    **Solution (release 0.32.0).**
+    `pyflightstream.post.inflow_tools.blade_view_harmonics`,
+    `inflow_harmonics_map` and `write_inflow_harmonics`, over the plan's own
+    reading `pyflightstream.cases.qsteady.blade_inflow_angles`; the tables
+    `inflow_harmonics.csv` and `inflow_harmonics_J.csv`.
+
+    **Trace.** `test_p0320_inflow_harmonics_uniform_field_at_aoa_is_first_harmonic`,
+    `test_p0320_inflow_harmonics_n95_agrees_with_the_plan_inflow_fft`,
+    `test_p0320_inflow_harmonics_refuses_an_axis_that_is_not_x`,
+    `test_p0320_inflow_harmonics_j_map_writes_the_two_tables`.
+
+!!! requirement "FR-253 The probes inside the body are filled from the ray outside it <span class='srs-implemented'>implemented</span>"
+
+    *Origin: her answer of 2026-09-30 ("fill-interior (Recommended)"), step 5
+    of the field chain 0.31.0 did not do. Evidence:
+    `tests/tier1_offline/test_p0320_d_inflow_tools.py`
+    (P0320-FILL-INTERIOR).*
+
+    **Need.** A survey plane crosses the body; its probes inside carry no
+    inflow and must not be read as one.
+
+    **Requirement.** Every probe with `r < r_body` about the x axis (default
+    0.38 m) takes the velocity of the probe at `r >= r_body` with the smallest
+    radius on the same azimuth ray (within 1e-3 rad). Positions do not change,
+    the count replaced is stated, a probe with no partner on its ray is
+    refused, and, like every field operation, it previews by default, writes
+    only with `--apply`, records its provenance and never overwrites unasked.
+
+    **Solution (release 0.32.0).**
+    `pyflightstream.workspace.fields.fill_interior`; `pyfs-workspace field
+    fill-interior --r-body`.
+
+    **Trace.** `test_p0320_fill_interior_takes_the_nearest_value_on_the_same_ray`,
+    `test_p0320_fill_interior_refuses_a_ray_with_no_point_outside_the_body`,
+    `test_p0320_fill_interior_cli_previews_then_applies_with_provenance`.
+
+!!! requirement "FR-260 The post stage reads the solver's acoustic export <span class='srs-implemented'>implemented</span>"
+
+    *Origin: P0320-NOISE-POST, section 2.6 part 4 of the 0.32.0 scope. Evidence: the export of the licensed round-1 probe on build 26.124 (`tests/tier1_offline/data/acoustic_signals_probe_a1.txt`), `tests/tier1_offline/test_p0320_noise_post.py::test_p0320_noise_post_reads_the_real_export_fr_260`, `::test_p0320_noise_post_refuses_a_bad_export_fr_260`.*
+
+    Need: A user who exports the acoustic signals of an unsteady point holds a text file the package must read back.
+
+    Requirement: `read_acoustic_signals(path)` returns one `AcousticSignal` per observer, in file order, with the position and the `PO` pressure against the observer time; a file that is unreadable, empty, lacks a position, a `PO` column or samples, or holds a non-numeric row is refused with a `ProductError` naming the line.
+
+    Solution (release 0.32.0): `pyflightstream.post.acoustics.read_acoustic_signals`, the format of `docs/post-processing-definitions.md`, section The acoustic signals product.
+
+!!! requirement "FR-261 Per observer, the pressure against time and its spectrum <span class='srs-implemented'>implemented</span>"
+
+    *Origin: P0320-NOISE-POST, section 2.6 part 4 of the 0.32.0 scope. Evidence: the export of the licensed round-1 probe on build 26.124 (`tests/tier1_offline/data/acoustic_signals_probe_a1.txt`), `tests/tier1_offline/test_p0320_noise_post.py::test_p0320_noise_post_spectrum_of_a_cosine_fr_261`, `::test_p0320_noise_post_refuses_a_nonuniform_time_fr_261`.*
+
+    Need: A reader wants each observer's record and its frequency content as tables.
+
+    Requirement: For each observer the post writes the pressure table and the one-sided amplitude spectrum of the pressure over the observer time with the sampling stated; a record whose time step is not constant, or of fewer than two samples, gets no spectrum, is named in `post.log` and blocks nothing.
+
+    Solution (release 0.32.0): `spectrum_of` and `write_acoustic_products`, files `<point>_<n>_<observer>_pressure.csv` and `_spectrum.csv` under `acoustics/`.
+
+!!! requirement "FR-262 The overall sound pressure level of each observer <span class='srs-implemented'>implemented</span>"
+
+    *Origin: P0320-NOISE-POST, section 2.6 part 4 of the 0.32.0 scope. Evidence: the export of the licensed round-1 probe on build 26.124 (`tests/tier1_offline/data/acoustic_signals_probe_a1.txt`), `tests/tier1_offline/test_p0320_noise_post.py::test_p0320_noise_post_oaspl_fr_262`.*
+
+    Need: One number per observer to compare records.
+
+    Requirement: OASPL is `20 log10(p_rms / 20e-6 Pa)`, `p_rms` about the mean of the record; a silent record is `NA`.
+
+    Solution (release 0.32.0): `oaspl_db`, the `OASPL_DB` column of `<point>_acoustics_summary.csv`.
+
+!!! requirement "FR-263 The blade-passage harmonics of each observer <span class='srs-implemented'>implemented</span>"
+
+    *Origin: P0320-NOISE-POST, section 2.6 part 4 of the 0.32.0 scope. Evidence: the export of the licensed round-1 probe on build 26.124 (`tests/tier1_offline/data/acoustic_signals_probe_a1.txt`), `tests/tier1_offline/test_p0320_noise_post.py::test_p0320_noise_post_blade_passage_harmonics_fr_263`, `::test_p0320_noise_post_na_and_notes_when_the_record_lacks_blades_fr_263`.*
+
+    Need: A rotor's noise concentrates at multiples of its blade-passage frequency.
+
+    Requirement: From the rotor's blade count and speed in the point's record, harmonic `n` is at `n * blades * rpm / 60` hertz and is read at the nearest bin; without blades or speed, above the Nyquist frequency or below one bin the values are `NA`, with a line in `post.log`.
+
+    Solution (release 0.32.0): `blade_passage_harmonics`, `<point>_acoustics_bpf.csv` (four harmonics per rotor and observer).
+
+!!! requirement "FR-264 The directivity on an arc, and the post-stage hook <span class='srs-implemented'>implemented</span>"
+
+    *Origin: P0320-NOISE-POST, section 2.6 part 4 of the 0.32.0 scope. Evidence: the export of the licensed round-1 probe on build 26.124 (`tests/tier1_offline/data/acoustic_signals_probe_a1.txt`), `tests/tier1_offline/test_p0320_noise_post.py::test_p0320_noise_post_arc_directivity_fr_264`, `::test_p0320_noise_post_writes_the_products_fr_261_to_fr_264`, `::test_p0320_noise_post_the_post_stage_hook_fr_264`, `::test_p0320_noise_post_the_hook_asks_nothing_of_a_plain_record_and_never_blocks_fr_264`.*
+
+    Need: Observers placed on an arc give the directivity of the source.
+
+    Requirement: When at least four observers are coplanar and on one circle (relative tolerance 1e-3) the post writes their angle about the centre and OASPL; a point whose record lists acoustic signals gets all the products above, and a record listing none is left alone.
+
+    Solution (release 0.32.0): `arc_of`, `<point>_acoustics_directivity.csv`, and the post stage's `_acoustic_products` reading the export the record lists among its outputs, the entry ending `_acoustic_signals.txt` (FR-290).
+
+!!! requirement "FR-265 A row key switches the acoustic sources on in an unsteady setup, before the solver initialises <span class='srs-implemented'>implemented</span>"
+
+    *Origin: P0320-NOISE-SOURCES, section 2.6 part 1 of the 0.32.0 scope. Evidence: the licensed round-1 probes A0 and A1 on build 26.124 (`reports/compat/CMP-26124_2026-09-30_acoustics.yaml`, `ACOUSTIC_SOURCES` verified); `tests/tier1_offline/test_p0320_e2_noise_emission.py::test_p0320_noise_sources_row_key_switches_acoustic_sources_before_initialization`, `::test_p0320_noise_sources_reach_a_motions_row`, `::test_p0320_noise_sources_are_registered_on_the_unsteady_run_types_only`, `::test_p0320_noise_sources_value_outside_the_command_is_refused`.*
+
+    Need: A user who wants the noise of an unsteady run has the solver record its acoustic sources during the march, which it does only when switched on before it initialises.
+
+    Requirement: The row key `ACOUSTIC_SOURCES: ENABLE` (or `DISABLE`, the control) of an `unsteady` or `unsteady_rotor` row, a flat rotor row or a `MOTIONS` row alike, emits `ACOUSTIC_SOURCES <mode>` in the setup, before `INITIALIZE_SOLVER`; a row without it emits no acoustic command; any other value is refused naming the key; the steady run types do not register the key.
+
+    Solution (release 0.32.0): `pyflightstream.cases.acoustics` (`ACOUSTIC_KEYS`, `emit_acoustic_setup`), registered on the two unsteady run types and called by each unsteady builder before its clock; the row's keys in `docs/acoustic-emission.md`.
+
+!!! requirement "FR-266 Observers declared by the row as points, from a file of the library, or as an acoustic section, with their time window <span class='srs-implemented'>implemented</span>"
+
+    *Origin: P0320-NOISE-OBSERVERS, section 2.6 part 2 of the 0.32.0 scope. Evidence: round-1 probe A1 on build 26.124 (`CREATE_NEW_ACOUSTIC_OBSERVER`, `ACOUSTIC_OBSERVERS_IMPORT`, `SET_ACOUSTIC_OBSERVER_TIME` and `CREATE_ACOUSTIC_SECTION` verified in `reports/compat/CMP-26124_2026-09-30_acoustics.yaml`); `tests/tier1_offline/test_p0320_e2_noise_emission.py::test_p0320_noise_observers_as_points_with_the_observer_time`, `::test_p0320_noise_observers_imported_from_the_point_s_copy_of_a_file`, `::test_p0320_noise_observers_as_an_acoustic_section_after_the_signals`, `::test_p0320_noise_observers_a_malformed_declaration_is_refused_naming_the_key`, `::test_p0320_noise_observers_without_sources_are_refused`, `::test_p0320_noise_observers_file_resolves_at_bind_and_refuses_a_malformed_file`, `::test_p0320_noise_observers_a_file_on_a_simulation_not_in_metres_is_refused`, `::test_p0320_noise_observers_a_section_is_placed_in_the_frame_it_names`.*
+
+    Need: The signal is computed at observers, which a study places as points, as a list prepared in a file, or as a grid for a directivity pattern, each over a time window of its own.
+
+    Requirement: `ACOUSTIC_OBSERVERS: NAME X Y Z, ...` creates each named observer in metres in the reference coordinate system, converted to the simulation's unit; `ACOUSTIC_OBSERVERS_FILE: <stem>` names `inputs/acoustics/<stem>.csv` (a count line, then that many `x,y,z` lines), resolved and checked when the row binds, whose copy the run writes in the point's folder and hashes, and which the solver imports; `ACOUSTIC_SECTION: {PLANE / OFFSET / RADIAL_OBSERVERS / AZIMUTH_OBSERVERS / INNER_RADIUS / OUTER_RADIUS, FRAME optional}` creates one annular grid after the signals are computed, into `<point>_acoustic_section/`; `ACOUSTIC_OBSERVER_TIME: T0 T1 N` sets the window. Refused, each naming the key: observers without `ACOUSTIC_SOURCES` or without the time window, the window without an observer, a declaration not in its form, two observers of one name, a frame the run does not create, a file that is missing or not in its form, the file key on a `LEGACY` row or on a simulation not in metres.
+
+    Solution (release 0.32.0): `pyflightstream.cases.acoustics` (`acoustic_request`, `emit_acoustic_setup`, `emit_acoustic_signals`, `resolve_observers_file`, `read_observers_file`), `SimCase.acoustic_observers_file` bound by `workspace.matrix`.
+
+!!! requirement "FR-267 The signals are computed and exported at the end of the run <span class='srs-implemented'>implemented</span>"
+
+    *Origin: P0320-NOISE-COMPUTE-EXPORT, section 2.6 part 3 of the 0.32.0 scope. Evidence: round-1 probe A1 on build 26.124 (`EXPORT_ACOUSTIC_SIGNALS` verified, `COMPUTE_ACOUSTIC_SIGNALS` accepted with its effect not isolated, `reports/compat/CMP-26124_2026-09-30_acoustics.yaml`); `tests/tier1_offline/test_p0320_e2_noise_emission.py::test_p0320_noise_compute_export_at_the_end_of_the_run`, `::test_p0320_noise_compute_export_sources_alone_compute_nothing`, `::test_p0320_noise_compute_export_needs_its_declared_output`.*
+
+    Need: The signals exist only once the solver computes them from the recorded sources, and a user holds them only once they are exported to a file.
+
+    Requirement: A row declaring any observer emits `COMPUTE_ACOUSTIC_SIGNALS` after `START_SOLVER`, then, with point or file observers, `EXPORT_ACOUSTIC_SIGNALS` to the point's declared `<point>_acoustic_signals.txt`, then the section, all before the point's saved simulation and other exports; a row stating the sources and no observer computes nothing and declares no file; a case whose outputs lack the export is refused naming the helper that declares it.
+
+    Solution (release 0.32.0): `emit_acoustic_signals`, called by the unsteady solve-and-export step; the export declared by `with_acoustic_signals` in the run layer's point names, for the plan and the run alike.
+
+!!! requirement "FR-268 The exported signals and the section's files are collected and hashed in the record <span class='srs-implemented'>implemented</span>"
+
+    *Origin: P0320-NOISE-COLLECT, section 2.6 part 3 of the 0.32.0 scope. Evidence: `tests/tier1_offline/test_p0320_e2_noise_emission.py::test_p0320_noise_collect_the_export_and_the_section_are_collected_and_hashed` (a matrix row through the real plan and run path with a stub solver), `::test_p0320_noise_collect_lists_the_section_files_beside_the_collected_outputs`, `::test_p0320_noise_collect_refuses_a_section_file_left_before_the_run`, `::test_p0320_noise_collect_a_submitted_point_names_its_section_files`.*
+
+    Need: A signal is evidence only when the record names the file and binds it to its bytes, like every other output of the point.
+
+    Requirement: The signals file is a declared output of the point, collected into its datapoint folder and hashed in `outputs_sha256`; every file of `<point>_acoustic_section/` but the run's own note is listed in the record's outputs, on a local run and on a submitted point `pyfs-matrix collect` completes, and hashed in `outputs_sha256` on a local run (a completed submitted point hashes none of its outputs, the section's files included); the observer file's copy is hashed among the inputs; none of these files is ever classified as a surface export or a loads table; a point whose section folder already holds a file other than the note before the solver runs is refused as a leftover, naming the file, and nothing runs.
+
+    Solution (release 0.32.0): `cases.acoustics.acoustic_section_outputs`, called by the local point path of `run` and by `run/collect.py`; `cases.acoustics.acoustic_section_leftovers`, asked by the point path of `run` before the solver starts; `cases.classify_outputs` asks `is_acoustic_output` for records of 0.32.0 on.
+
+!!! requirement "FR-269 The acoustic toolbox in the wrong order is refused <span class='srs-implemented'>implemented</span>"
+
+    *Origin: P0320-NOISE-ORDER, section 2.6 parts 1 and 3 of the 0.32.0 scope, and the ordering rules of the command database (`commands/acoustics.yaml`). Evidence: `tests/tier1_offline/test_p0320_e2_noise_emission.py::test_p0320_noise_order_sources_after_initialization_are_refused`, `::test_p0320_noise_order_compute_and_export_on_a_steady_run_are_refused`, `::test_p0320_noise_order_a_steady_row_stating_the_keys_is_refused`, `::test_p0320_noise_order_a_continuation_with_acoustic_keys_is_refused`.*
+
+    Need: Sources switched on after the solver initialises record nothing, and signals computed on a steady run or before a solve have no unsteady solution to read; either would spend a seat on a run whose signals mean nothing.
+
+    Requirement: The acoustic setup emitted into a script that already holds `INITIALIZE_SOLVER` is refused; the computation and the exports on a steady run, or before `START_SOLVER`, are refused; a steady row stating an acoustic key is refused by the row-key guard naming the run types that read it; a continuation of a row stating acoustic keys is refused, since whether the recorded sources survive the saved simulation is not measured.
+
+    Solution (release 0.32.0): the refusals of `emit_acoustic_setup`, `emit_acoustic_signals` and `refuse_acoustics_on_a_continuation`, each a `CampaignConfigError` naming the case.
+
+!!! requirement "FR-290 The post reads the acoustic export the record lists among its outputs <span class='srs-implemented'>implemented</span>"
+
+    *Origin: P0320-NOISE-POST and P0320-NOISE-COLLECT, integration defect found after wave 1: the post looked for an `acoustic_signals` field that `RunRecord` does not have, so the noise products were unreachable from a real record. Evidence: `tests/tier1_offline/test_p0320_noise_post.py::test_p0320_noise_post_the_record_lists_the_export_as_an_output_fr_290` (a synthetic `unsteady_rotor` record through `write_campaign_products`, with the trimmed real export), `::test_p0320_noise_post_the_post_stage_hook_fr_264`, `::test_p0320_noise_post_the_hook_asks_nothing_of_a_plain_record_and_never_blocks_fr_264`.*
+
+    The post stage shall find the acoustic export of a point among the
+    `outputs` of its run record, as the entry whose name ends with
+    `ACOUSTIC_SIGNALS_SUFFIX` (`_acoustic_signals.txt`, defined once in
+    `pyflightstream.cases.acoustics`), the way the run layer records it. A
+    record whose outputs list none asks for no acoustics and nothing is said. An
+    export that cannot be read is skipped by name with a warning and blocks
+    nothing.
+
+    Solution, release 0.32.0: `_acoustic_products` in `pyflightstream.post.products`
+    reads the record's outputs and the suffix `pyflightstream.cases.acoustics.ACOUSTIC_SIGNALS_SUFFIX`.
+
+!!! requirement "FR-291 The storage record is archived before each write <span class='srs-implemented'>implemented</span>"
+
+    *Origin: P0320-RESTORE-ARCHIVE, GEO-066 2.3 item 1. Evidence: `tests/tier1_offline/test_p0320_fx1_restore_archive.py::test_p0320_restore_archive_the_storage_record`.*
+
+    Before `storage_management.json` is rewritten, the previous file shall be
+    copied to `archive/storage_management-<stamp>.json`, the form
+    `pyfs-matrix restore storage` reads, so that a restore brings back the file
+    as it stood before the last call.
+
+    Solution, release 0.32.0: `record_storage_call` calls
+    `pyflightstream.workspace.naming.archive_previous`.
+
+!!! requirement "FR-292 The additional-post record is archived before each write <span class='srs-implemented'>implemented</span>"
+
+    *Origin: P0320-RESTORE-ARCHIVE, GEO-066 2.3 item 1. Evidence: `tests/tier1_offline/test_p0320_fx1_restore_archive.py::test_p0320_restore_archive_the_additional_record`.*
+
+    Before `additional.json` is rewritten, the previous file shall be copied to
+    `archive/additional-<stamp>.json`, so that `restore additional` brings it
+    back.
+
+    Solution, release 0.32.0: `CampaignWorkspace.append_additional` calls
+    `archive_previous`.
+
+!!! requirement "FR-293 The plan receipt and the products record are archived, not replaced or removed <span class='srs-implemented'>implemented</span>"
+
+    *Origin: P0320-RESTORE-ARCHIVE, GEO-066 2.3 item 1; `products.json` used to be removed before a rebuild (ARCHITECTURE.md 5.9). Evidence: `tests/tier1_offline/test_p0320_fx1_restore_archive.py::test_p0320_restore_archive_the_plan`, `::test_p0320_restore_archive_the_products_record_is_archived_not_removed`.*
+
+    Before a matrix's `plan.json` is rewritten, by a plan or by a rename, and
+    before a post rebuild removes and rewrites the matrix's `products.json`, the
+    previous file shall be copied to `post/<matrix>/archive/<stamp>/<name>`, the
+    form `restore plan` and `restore products` read. A plan of a campaign with no
+    matrix, which keeps its plan at the workspace root, is not archived, since
+    no restore kind reads it.
+
+    Solution, release 0.32.0: the plan writer, the rename and the post rebuild
+    call `archive_previous` with the matrix stem.
+
+!!! requirement "FR-294 A copy for the archive that fails warns and never blocks the write <span class='srs-implemented'>implemented</span>"
+
+    *Origin: P0320-RESTORE-ARCHIVE. Evidence: `tests/tier1_offline/test_p0320_fx1_restore_archive.py::test_p0320_restore_archive_a_failed_copy_warns_and_never_raises`.*
+
+    When the archive copy of a previous record cannot be made, the writer shall
+    warn with a `PyflightstreamWarning` naming the file and shall write anyway;
+    the archive names are spelled in one place,
+    `pyflightstream.workspace.naming`, which `restore` also reads.
+
+    Solution, release 0.32.0: `archive_previous`, `free_root_archive` and
+    `free_matrix_archive` in `pyflightstream.workspace.naming`.
+
+!!! requirement "FR-270 A wheel's sectional load is tabulated over its disc, by radius and azimuth <span class='srs-implemented'>implemented</span>"
+
+    *Need.* The sectional loads of a quasi-steady wheel exist at every clocking
+    with the azimuth of each blade (0.31.0), and the disc map was assembled by
+    hand from them.
+
+    *Requirement.* For each rotor and each sectional load quantity of a
+    quasi-steady wheel point, the post shall write
+    `sections/<point>_disc_<ROTOR>_<QUANTITY>.csv` with one row per blade
+    station of every blade at every clocking of
+    `sections/<point>_sections.csv`: `SAMPLE` (the clocking), `BLADE`,
+    `AZIMUTH_DEG` (the table's own azimuth of that blade), `STATION_R_M`,
+    `R_OVER_R` and `VALUE`, ordered by azimuth then radius, under the polar and
+    condition columns of every table of the post. It shall register the file in
+    `products.json` with `kind` `disc_map`.
+
+    *Solution (release 0.32.0).* `pyflightstream.post.disc_maps.disc_map_rows`
+    and `write_disc_maps` read the written table back and place each block at
+    its own azimuth through `pyflightstream.post.axes`; the stage hooks
+    `_write_disc_maps` in `pyflightstream.post.products` beside the harmonic
+    product, which reads the same rows. A table is the product; no figure is
+    drawn because matplotlib is not a dependency of the post.
+
+    *Trace.* `tests/tier1_offline/test_p0320_g_qsteady_products.py`:
+    `test_a_wheel_s_disc_map_gives_back_the_load_at_every_radius_and_azimuth`
+    (P0320-G5-DISC-MAP).
+
+!!! requirement "FR-271 An unsteady rotor's last revolution is tabulated over its disc <span class='srs-implemented'>implemented</span>"
+
+    *Need.* An `unsteady_rotor` point writes its sections at every step, and
+    the load over the disc of its last revolution was assembled by hand.
+
+    *Requirement.* For each rotor of an `unsteady_rotor` point the post shall
+    write the disc map of FR-270 from `series/<point>_sections_series.csv`,
+    cut to the steps of the rotor's last complete revolution, with `SAMPLE`
+    the step and `source` `unsteady last revolution` in the manifest.
+
+    *Solution (release 0.32.0).* The same writer, called with the rows the
+    harmonic product already cut to each rotor's revolution.
+
+    *Trace.* `test_an_unsteady_rotor_s_disc_map_holds_its_last_revolution_only`
+    (P0320-G5-DISC-MAP).
+
+!!! requirement "FR-272 A disc map that cannot be made is refused by name <span class='srs-implemented'>implemented</span>"
+
+    *Need.* A rotor with no blade in the table must not yield an empty file
+    that reads as a map.
+
+    *Requirement.* A rotor with no blade at a stated azimuth shall be named in
+    the stage's skips under `sections/<point>_disc_#rotor=<ALIAS>` and warned,
+    never blocking the other products; a point whose harmonics cannot be fitted
+    for want of a readable table, a sections series, an export window or a
+    complete revolution shall name its disc maps under
+    `sections/<point>_disc_` (or `_disc_#rotor=<ALIAS>`) with the reason and a
+    `post.log` line, so no map is silently absent; the standalone writer
+    `pyflightstream.post.disc_maps.write_disc_map` shall refuse such a table
+    with a `ProductError` and write nothing.
+
+    *Solution (release 0.32.0).* `disc_map_rows` reports the rotor under
+    `skipped`; `write_disc_map` raises where no map exists.
+
+    *Trace.*
+    `test_a_table_with_no_blade_of_the_rotor_refuses_to_map_and_names_why`
+    (P0320-G5-DISC-MAP),
+    `test_a_rotor_short_of_a_revolution_is_named_in_the_skips_of_the_disc_maps`
+    and `test_the_disc_map_writer_maps_a_written_table_by_its_rotor`.
+
+!!! requirement "FR-273 A saved simulation's faces are told to their boundaries <span class='srs-implemented'>implemented</span>"
+
+    *Need.* The plan read a blade's chord from an OBJ only; a row that opens a
+    saved simulation had no chord before the run.
+
+    *Requirement.* The saved-simulation reader shall return each boundary's
+    vertices by the boundary's name, from the block's per-face boundary row,
+    and shall say None where the block carries no such row.
+
+    *Solution (release 0.32.0).* `pyflightstream._fsm.boundary_vertices`. The
+    boundary row is the seventh per-face row before the T/F rows, measured on
+    every saved simulation of the tier-3 library (one to four boundaries); a
+    row holding a value outside `1..boundaries` is not read.
+
+    *Trace.* `test_the_saved_simulation_tells_each_face_to_its_boundary`
+    (P0320-G7-CHORD-PLAN).
+
+!!! requirement "FR-274 The plan warns before the run when the saved simulation's chord passes the reduced-frequency limit <span class='srs-implemented'>implemented</span>"
+
+    *Need.* The reduced frequency `k` of a quasi-steady wheel was known before
+    the run only for an OBJ mesh.
+
+    *Requirement.* For a quasi-steady wheel row that opens a saved simulation
+    (`.fsm`) unmoved before the solve, the plan shall read blade one's chord
+    from the mesh, compute `k` at each station with
+    `pyflightstream.cases.qsteady` (the one home of `k`) and warn before the
+    run where `k` exceeds `REDUCED_FREQUENCY_LIMIT` (0.1). It shall never
+    refuse: where the chord cannot be read the plan states why and gives `k`
+    per metre of chord.
+
+    *Solution (release 0.32.0).* `_blade_stations_from_the_mesh` reads a
+    saved simulation through FR-273 in metres by the stored coordinate unit;
+    the plan's existing warning then applies unchanged.
+
+    *Trace.* `test_the_plan_reads_the_chord_of_the_fsm_as_it_reads_the_obj`,
+    `test_the_plan_warns_before_the_run_when_the_fsm_chord_passes_the_limit`
+    and `test_a_saved_simulation_that_cannot_tell_its_faces_says_why_and_never_refuses`
+    (P0320-G7-CHORD-PLAN).
+
+!!! requirement "FR-275 A setup removes surfaces by name <span class='srs-implemented'>implemented</span>"
+    *Origin: G9 of the 0.32.0 scope (P0320-G9-DELETE-SURFACES). Evidence:
+    licensed probe round 1 on 26.124, probe D1_delete_surfaces, which removed
+    the third surface of a four-surface mesh and read the inventory back.*
+
+    **Need.** A body without its blades was a mesh built by hand in the
+    FlightStream window. A user never works with indices, so the surfaces to
+    remove are named the way a row names any surface.
+
+    **Requirement.** A setup key `delete_surfaces` lists boundary names,
+    aliases or families of the opened geometry, and the point's script removes
+    each with `DELETE_SURFACES` after the geometry opens and before any command
+    cites a surface. A stated name that resolves to no surface, an empty list,
+    a removal of every surface, and a row with no geometry or no boundary
+    names are refused, naming the key. A setup that states no key emits
+    nothing.
+
+    **Solution (0.32.0).** `pyflightstream.cases.setup_surfaces.emit_setup_surfaces`,
+    called from the geometry step of the workflow; a family is removed from its
+    last member so no index shifts under the next command.
+
+    **Trace.** `tests/tier1_offline/test_p0320_setup_surfaces.py`, the
+    delete, family, refusal and control tests.
+
+!!! requirement "FR-276 The surface inventory follows the solver's renumbering <span class='srs-implemented'>implemented</span>"
+    *Origin: G9 of the 0.32.0 scope (P0320-G9-DELETE-SURFACES). Evidence: probe
+    D1_delete_surfaces on 26.124, inventory Body, Base, Blade1, Blade2 before and
+    Body, Base, Blade2 after, and the mesh export confirming only Blade2 moved.*
+
+    **Need.** The solver renumbers the surfaces after a deleted one, so a
+    command citing the old index would act on the wrong surface, silently.
+
+    **Requirement.** After a removal, every later command of the point and the
+    run record's inventory use the new indices: the surviving names in their
+    original order, renumbered from 1, and the boundary total reduced by the
+    number removed.
+
+    **Solution (0.32.0).** The script's inventory and label table are rewritten
+    by `EntityRegistry.renumber_boundaries` at the end of the removal.
+
+    **Trace.** `test_delete_surfaces_by_name_emits_the_index_and_renumbers_the_inventory`
+    and `test_a_command_after_the_removal_cites_the_new_index`.
+
+!!! requirement "FR-277 A setup states the slipstream wake stabilization <span class='srs-implemented'>implemented</span>"
+    *Origin: G4 of the 0.32.0 scope (P0320-G4-WAKE-DISABLE). Evidence: probe
+    W1_wake_stab_disable on 26.124, DISABLE accepted after an ENABLE and the two
+    saved simulations differing.*
+
+    **Need.** The package recorded the option and never emitted it, so a setup
+    could not switch the stabilization off.
+
+    **Requirement.** A setup key `slipstream_wake_stabilization`, a toggle,
+    emits `SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION` for each rotor motion the
+    row creates, with the row's blade count where the build's command takes
+    one. A DISABLE states 1 when the row states no count; an ENABLE without a
+    count is refused where the command takes one. A setup that states no key emits nothing, and the key
+    is no longer recorded-only.
+
+    **Solution (0.32.0).** `emit_wake_stabilization`, called by the rotor
+    motion step of the workflow.
+
+    **Trace.** The wake stabilization tests of
+    `tests/tier1_offline/test_p0320_setup_surfaces.py`.
+
+!!! requirement "FR-278 A setup key that reaches nothing is refused <span class='srs-implemented'>implemented</span>"
+    *Origin: the package's rule that a key is never silently dropped.
+    Evidence: the refusal tests named below.*
+
+    **Need.** A `delete_surfaces` on a row that opens no geometry, or a
+    wake stabilization on a row with no rotor motion, would otherwise build a
+    script that ignores the setup.
+
+    **Requirement.** After the workflow builds the point, a stated
+    `delete_surfaces` with no removal emitted, or a stated
+    `slipstream_wake_stabilization` with no motion command emitted, is
+    refused, naming the case and the key.
+
+    **Solution (0.32.0).** `refuse_setup_keys_that_reached_nothing`, called
+    after the workflow's builder.
+
+    **Trace.** `test_a_removal_with_no_geometry_inventory_is_refused` and
+    `test_the_wake_stabilization_on_a_row_with_no_rotor_is_refused`.
+
+!!! requirement "FR-279 The two commands carry their 26.124 evidence <span class='srs-implemented'>implemented</span>"
+    *Origin: the add-command convention. Evidence: probe round 1 on 26.124.*
+
+    **Need.** A claim about the solver lives in the command database with its
+    evidence, and nowhere else.
+
+    **Requirement.** The 26.124 records of `DELETE_SURFACES` and
+    `SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION` cite probe round 1, and their
+    status stays documented: promotion to a measured status is done by a dated
+    run report and no other route.
+
+    **Solution (0.32.0).** The two records in the command database.
+
+    **Trace.** `tests/tier1_offline/test_command_db.py` (no quoted manual
+    text) and the two setup keys' tests.
+
+!!! requirement "FR-280 A static rig row with MOTIONS is not refused for stating its speed twice <span class='srs-implemented'>implemented</span>"
+
+    *Origin: D-RIG, moved from 0.33 by the owner's "pode entrar" (GEO-066,
+    package J). Evidence: `tests/tier1_offline/test_p0320_rigor.py`
+    (`test_p0320_d_rig_a_static_rig_with_motions_is_not_refused_for_a_double_speed`).*
+
+    **Need.** A rotor rig turns at a fixed speed and sweeps the advance ratio,
+    which then means the free stream, V = J x (RPM/60) x D.
+
+    **Requirement.** A row that states `RPM` and a swept `ADVANCE_RATIO` and
+    no velocity in its cell, with `MOTIONS`, is planned at every point and its
+    rotor Mach numbers are resolved; the plan does not read the velocity it
+    derived at the point as a stated one and refuse the row for stating its
+    rotor speed twice.
+
+    **Solution** (release 0.32.0). The static-rig test of `rotor_speed` asks
+    what the cell declared (`condition_order`), not what the point resolved.
+    Trace: `test_p0320_d_rig_a_static_rig_with_motions_is_not_refused_for_a_double_speed`.
+
+!!! requirement "FR-281 One native match tolerance, with the printed-precision slack <span class='srs-implemented'>implemented</span>"
+
+    *Origin: 0.29.1-tol, moved from 0.33 (GEO-066, package J). Evidence:
+    `test_p0320_tol_0291_one_function_gives_the_printed_precision_slack`,
+    `test_p0320_tol_0291_a_full_precision_native_adds_no_slack`.*
+
+    **Need.** A native nodal export printed at limited digits and a VTK written
+    at single precision differ, for a part far from the origin, by more than
+    four single-precision epsilons of the coordinates.
+
+    **Requirement.** One function, `native_match_tolerance`, beside
+    `attach_native_strength`, gives the per-axis tolerance the match takes by
+    default. Told the significant digits the native was printed at
+    (`native_printed_digits`), it adds half a unit of the last digit and half
+    a single-precision spacing of the coordinate magnitude. Told nothing, it is
+    the rule it always was, and a native printed at full precision adds
+    nothing.
+
+    **Solution** (release 0.32.0). `results/native_surface.py`. Trace: the two
+    tests above.
+
+!!! requirement "FR-282 The time-averaged native strength uses that tolerance <span class='srs-implemented'>implemented</span>"
+
+    *Origin: 0.29.1-avg, moved from 0.33 (GEO-066, package J). Evidence:
+    `test_p0320_avg_0291_the_time_average_matches_a_far_native_with_that_tolerance`.*
+
+    **Need.** The time average of a surface matched each step's native
+    strength with a tolerance of its own.
+
+    **Requirement.** `average_surface_exports` resolves the tolerance of each
+    step's native from `native_match_tolerance` and the digits that native was
+    printed at, and records it in the step's matching evidence.
+
+    **Solution** (release 0.32.0). `post/surfaces.py`. Trace: the test above.
+
+!!! requirement "FR-283 DEFAULT_DRIFT_LIMIT_PCT is public in cases <span class='srs-implemented'>implemented</span>"
+
+    *Origin: ARCH2-S2, moved from 0.33 (GEO-066, package J). Evidence:
+    `test_p0320_arch2_s2_the_default_drift_limit_is_public_in_cases`.*
+
+    **Need.** The default drift limit is read by the post stage and belongs to
+    the case model.
+
+    **Requirement.** `DEFAULT_DRIFT_LIMIT_PCT` is in `pyflightstream.cases.__all__`
+    and is the default of `PerRevolutionSpec.drift_limit_pct`.
+
+    **Solution** (release 0.32.0). `cases/__init__.py`. Trace: the test above.
+
+!!! requirement "FR-284 The clocking 0 filter of the NA shares is tested <span class='srs-implemented'>implemented</span>"
+
+    *Origin: QA2-2, moved from 0.33 (GEO-066, package J). Evidence:
+    `test_p0320_qa2_2_the_na_shares_read_clocking_zero_rows_only`.*
+
+    **Need.** The thrust and torque shares above k = 0.1 read the point's own
+    solve, clocking 0, of a table that holds every clocking; nothing pinned it.
+
+    **Requirement.** With rows of another clocking that carry other forces and
+    an unread force, the shares are those of clocking 0's rows alone and no
+    note is written.
+
+    **Solution** (release 0.32.0). A test of the 0.31.0 filter
+    (`add_reduced_frequency_to_sections`); a mutant that removes the filter
+    fails it. Trace: the test above.
+
+!!! requirement "FR-285 A quasi-steady point's products state J <span class='srs-implemented'>implemented</span>"
+
+    *Origin: QS-J, the owner's post-release defect class "ADVANCE_RATIO not
+    NA", found by the X1 rehearsal: 17 rows of `_qs_avg.csv` and
+    `_qs_positions.csv` of the recorded wheel workspace read `NA` in `J` and
+    `J_CLOCK`. Evidence: `test_p0320_qs_j_a_wheel_point_states_its_j_from_its_own_speed_and_diameter`,
+    `test_p0320_qs_j_a_requested_j_is_kept_and_a_missing_free_stream_stays_na`.*
+
+    **Need.** A quasi-steady point turns its rotor at the speed of its record,
+    and the rotor's block gives its diameter.
+
+    **Requirement.** `J_CLOCK`, `RPM_CLOCK` and, where the row requested none,
+    `J` state the rotor's own advance ratio `V / (n D)` in both quasi-steady
+    tables, by the one formula of the rotor table (`rotor_advance_ratio`).
+    What the row requested is kept, and a point without a free stream or a
+    diameter stays `NA`. Re-posting a copy of the recorded workspace gives all
+    17 rows a finite `J`.
+
+    **Solution** (release 0.32.0). `post/_tables.py` (`rotor_advance_ratio`,
+    shared with `J_CLOCK` of the other tables), `post/qsteady.py`. Trace: the
+    two tests above.
+
+!!! requirement "FR-112 The pproc declares a time-averaged surface, and the package averages the per-step exports <span class='srs-implemented'>implemented</span>"
+
+    *Origin: F02 of the 0.25.0 scope and G25 of the 0.28.0 scope. The need, in
+    the requester's words: "pyfs pode fazer a media com as exportações ja no
+    esquema como sections". Evidence:
+    `tests/tier1_offline/test_f02_time_averaging_refusal.py` (the refusal
+    where the solver's own average is not recorded verified) and
+    `tests/tier1_offline/test_g25_surface_time_average.py` (the window, the
+    average of the per-step exports, every refusal and skip by name).*
+
+    An unsteady row states the surface averaged over a window of its march in
+    the pproc, and the products say that the surface is an average and over
+    which window.
+
+    - A `[time_averaging]` table states exactly one of `last_revs` (revolutions
+      of the rotor clock, through the resolver of `LAST_REVS_AVG`) or
+      `last_iters`; both, or neither, is refused.
+    - The run exports the surface at every step of the window through the
+      per-step exports, and the post averages those exports into
+      `surfaces/<point>_time_average.dat`, and `.vtk` beside it where
+      `[exports] vtk` asks. Every step weighs the same, each is written back in
+      the reference frame first, and the nodes are those of the window's last
+      step.
+    - Steps that do not share one topology refuse the average by name, and a
+      step of the window that was not exported skips it by name, never a
+      partial average.
+    - `SOLVER_TIME_AVERAGING` is never emitted, because it holds a script on
+      26.124. The `products.json` entry carries `kind: average`, the window, the
+      steps and each input's sha256, and the run records the window as
+      `RunRecord.surface_average_window`.
+
+    Solution: 0.25.0 added the table and its emission of the solver's command,
+    refused on every build where that command is not verified; 0.28.0 replaced
+    the route with the package's own average (`pyflightstream.post.surfaces`).
+    Not measured: whether the command's bounds are time steps or inner
+    iterations.
+
+!!! requirement "FR-113 The surface flow leaves in VTK and CSV, and the Tecplot file is written from the VTK <span class='srs-implemented'>implemented</span>"
+
+    *Origin: F03 of the 0.25.0 scope and G45 of the 0.28.0 scope. The need, in
+    the requester's words: "tradutor vtk para tecplot (se vtk tiver mais
+    outputs) - usar sempre essa rota para tecplot". Evidence:
+    `tests/tier1_offline/test_surface_exports.py` (the two kinds, their
+    default off, the variable list validated against the database) and
+    `tests/tier1_offline/test_g45_tecplot_from_vtk.py` (the translation, the
+    variable names, the images of a symmetric row).*
+
+    A row can export the surface flow as VTK and as CSV, and every Tecplot
+    surface of a campaign point comes from the VTK export.
+
+    - `[exports]` accepts `vtk` and `csv`, both off by default. The VTK export
+      lists the variables of the pproc's `vtk_variables`, each validated
+      against the build's command database, or every variable when the list is
+      absent. Both files join the per-step exports and the averaged surface.
+    - `[exports] tecplot` exports the surface as VTK and the run writes the
+      `.dat` from it, at the name the solver's own Tecplot had, before the
+      point's outputs are collected and hashed. The script never emits
+      `EXPORT_SOLVER_ANALYSIS_TECPLOT`.
+    - The translated file is one cell-centered FEPolygon zone under the VTK's
+      variable names. A row under mirror or periodic symmetry carries the
+      images after the modeled surface, which the solver's file left out.
+
+    Solution: 0.25.0 added the two kinds; 0.28.0 made the translation the only
+    Tecplot route.
+
+!!! requirement "FR-114 Every advanced solver setting has a setup key, so no `[[raw]]` is needed <span class='srs-implemented'>implemented</span>"
+
+    *Origin: F04 of the 0.25.0 scope, and G09 and G14 of the 0.27.0 scope.
+    Their requester's words are not kept verbatim in the scope tables.
+    Evidence: `tests/tier1_offline/test_rel0250_f04_advanced_setup.py`,
+    `tests/tier1_offline/test_g09_loads_selection.py` and
+    `tests/tier1_offline/test_g14_lift_and_coupling_keys.py`.*
+
+    A solver setting a study needs is a key of the setup, named for what it
+    sets, and emits its solver command when stated and nothing when absent, so
+    a setup that does not state it produces the same script as before.
+
+    - Fourteen advanced settings: `laminar_separation`, `kutta_joukowski_lift`,
+      `aeroelastic_rbf_type`, `print_rotor_induced_velocities`,
+      `adaptive_field_grid_refinement`, `rotor_induced_velocity_blending`,
+      `wake_numerical_relaxation`, `wake_relaxation`, `wake_decay_constant_per_m`,
+      `wake_streamwise_agglomeration`, `jet_wake_decay_normalized_length`,
+      `jet_wake_filaments_grid_induction`, `adverse_gradient_boundary_layer` and
+      `vortex_ring_normalization`.
+    - The loads analysis, on steady rows: `analysis_families`, `load_units` and
+      `inviscid_loads`, stated after `START_SOLVER` on every point. A row of an
+      unsteady run type stating one is refused at plan.
+    - `vorticity_lift_model` (every run type) and
+      `unsteady_viscous_coupling_iteration` (unsteady run types), stated before
+      `INITIALIZE_SOLVER`.
+    - A value or a command the run's build does not carry is refused naming the
+      build, and on 26.124 a row stating either of the last two keys is refused
+      naming the report that measured the command absent. `[[raw]]` still works.
+
+    Solution: 0.25.0 (the fourteen) and 0.27.0 (the loads analysis and the two
+    model keys).
+
+!!! requirement "FR-115 Boundary-layer quantities are sampled where the build documents them, and the profile command is refused where it holds a script <span class='srs-implemented'>implemented</span>"
+
+    *Origin: F05 of the 0.25.0 scope and G24 of the 0.28.0 scope. Their
+    requester's words are not kept verbatim in the scope tables. Evidence:
+    `tests/tier1_offline/test_rel0250_f05_fluid_parameters.py` and
+    `tests/tier1_offline/test_g24_boundary_layer_profile.py`.*
+
+    The six boundary-layer fluid-plot parameters (`BL_MOMENTUM_THICKNESS`,
+    `BL_DISPLACEMENT_THICKNESS`, `BL_TOTAL_THICKNESS`, `BL_SHAPE_FACTOR`,
+    `BL_SKIN_FRICTION`, `BL_TRANSITION_MARKER`) are accepted in a pproc probe's
+    `parameters` on the builds whose manual lists them, and a build that does
+    not document one refuses it naming the parameter and the build.
+    `EXPORT_BL_VELOCITY_PROFILE` is recorded broken on 26.124, where it holds an
+    unattended script, so a row writing it raw is refused at plan naming the
+    report, and the package builds no route to the profile there.
+
+    Solution: 0.25.0 (the parameters) and 0.28.0 (the refusal of the profile
+    command on 26.124).
+
+!!! requirement "FR-116 Each section distribution has its own sectional-loads file and Cp file, with optional integrated loads <span class='srs-implemented'>implemented</span>"
+
+    *Origin: F07 of the 0.25.0 scope, and the integrated sectional loads of
+    the 0.26.0 scope. The requester chose the strip rule: midpoint to
+    midpoint, half a strip at the first and last station. Evidence:
+    `tests/tier1_offline/test_f07_section_distributions.py` and
+    `tests/tier1_offline/test_integrated_sectional_loads.py`.*
+
+    The post writes, per point and per pproc `[[sections.distributions]]`
+    entry, one sectional-loads file and one Cp file under `sections/`, named for
+    the entry's alias or families.
+
+    - The files are `<point>_sloads_<name>.csv` and `<point>_cp_<name>.csv`. With
+      the per-step exports on, each holds every exported step in a `STEP`
+      column; without them, the end-of-run export.
+    - A record that does not identify its distributions is a named skip: the
+      split is never guessed.
+    - `integrate = true` on an entry, off by default, appends `Strip_length`,
+      `Fx_int`, `Fz_int` and `My_int` to the same file, one instant at a time,
+      over exported station midpoints and about the local quarter chord. An
+      invalid distribution warns and keeps the original columns, and the default
+      preserves the previous bytes. Where the recorded evidence cannot say what
+      the builder would emit, the match refuses by name.
+
+    Solution: 0.25.0 (the split, `pyflightstream.post.section_distributions`) and
+    0.26.0 (the integrated columns).
+
+!!! requirement "FR-117 On an unsteady row every probe is a fluid plot, and its table is the plots history <span class='srs-implemented'>implemented</span>"
+
+    *Origin: F01 of the 0.25.0 scope. The scope row words the need: "A fonte da
+    probe segue o tipo de corrida, SEMPRE." Evidence:
+    `tests/tier1_offline/test_f01_probe_source.py` and
+    `tests/tier1_offline/test_rel0250_f01_probe_skip.py`.*
+
+    The source of a probe follows the run type. On an unsteady row every
+    `[[probes]]` entry, drawn lines and cited `points_file` alike, becomes a
+    fluid plot, and `post` builds the probes table from the plots history,
+    never from a probe-points export. A steady row keeps the probe points.
+
+    - A cited `points_file` is read at plan and each point, for each listed
+      parameter, becomes a plot on the same vertex counter as the drawn lines.
+      The row no longer imports the file nor exports probe points, and its
+      default outputs lose `{name}_probes.txt`.
+    - A pproc mixing drawn lines and a cited profile yields one history table.
+    - A run recorded before 0.25.0 whose cited-profile probes were exported as a
+      last-step instant has no history: those probes are left out with that
+      reason in `products.json`, and posting again cannot create one.
+
+    Solution: 0.25.0. This changed the probe source of every unsteady row, which
+    is why the migration page carries it.
+
+!!! requirement "FR-118 Every product's condition carries the speed and the advance ratio the clock rotor ran at <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the polar measured in 0.25.0 whose `J` read `NA` in every row while
+    the record held the velocity and the speed. The requester's decision, in her
+    words: "0.25.1 com as colunas mesmo assim." Evidence:
+    `tests/tier1_offline/test_clock_rotor_columns.py` and
+    `tests/tier1_offline/test_clock_columns_at_the_product.py`.*
+
+    Beside `J`, the advance ratio the row requested, every product's condition
+    carries `J_CLOCK` and `RPM_CLOCK`: what the clock rotor ran at, its speed
+    with its hand, and `V / (n D)` from the point's own free stream, the
+    recorded speed and the rotor's diameter.
+
+    - The clock rotor is the one `CLOCK_MOTION` names, or the only rotor the row
+      turns. A row turning several and naming none has no clock, and both columns
+      are `NA`, because one rotor's ratio is not another's.
+    - A flat single-rotor reference with a top-level `rotor_diameter_m` supplies
+      the span of its one rotor; beside named blocks the flat diameter answers
+      for nobody.
+    - The rotor table keeps `J_<alias>` per rotor, unchanged.
+
+    Solution: 0.25.1, as columns in a patch release by her decision, although
+    semantic versioning would call them a minor change.
+
+!!! requirement "FR-119 Nothing in the post refuses by default, and the freeze check is opt-in <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the owner decisions of 2026-09-22 for 0.25.1 and 0.26.0. First:
+    "esse guard lendo o log vira um opcional, nao quero ele ligado por default
+    ja na 0.25.1 e na 26 vamos rediscutir essa arquitetura, registra como
+    pendencia." Then: "sobre arquitetura do post, eu nao quero que nada barre
+    por default mas sempre seja escrito um log do proprio post com warnings se
+    aplicavel." Evidence:
+    `tests/tier1_offline/test_frozen_check_is_opt_in.py` and
+    `tests/tier1_offline/test_b01_frozen_solve.py`.*
+
+    `post` and `collect` refuse nothing from a point's native log unless asked,
+    and the post writes every product it can compute.
+
+    - `--check-frozen` turns the refusal of the averages of a frozen solve on.
+      Without it the stage reads a log only to admit a point recorded
+      `FAILED_DIVERGED` whose solver froze, so its histories, instants and
+      pre-freeze averages are written, and a frozen solve's averages are
+      published with a warning.
+    - Frozen solves and unread blocks warn, malformed loads skip their point by
+      name, an empty unsteady log warns and refuses averages only when asked,
+      and a failed status alone no longer excludes usable exports.
+    - The reducer states its exact plotted sample set from its resolved
+      families, and every nonzero interpolation weight counts.
+    - The provenance digest hashes every recorded output, the log included, in
+      every mode.
+
+    Solution: 0.25.1 (the option) and 0.26.0 (the rule for the whole post).
+
+!!! requirement "FR-120 Every post writes a log of its own, human and machine readable <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the same decision as FR-119: "sempre seja escrito um log do proprio
+    post com warnings se aplicavel." Evidence:
+    `tests/tier1_offline/test_post_log.py` and
+    `tests/tier1_offline/test_post_diagnostics.py`.*
+
+    Every campaign post writes `post.log` beside `products.json`, even when
+    clean, and `post.log.json` beside it.
+
+    - The log carries the invocation header and one record for every named skip
+      and stage warning, and is archived with the products on rebuild. The
+      manifest names both files (`log_json` for the second).
+    - `post.log.json` holds the header (`version`, `workspace`, `matrix`,
+      `time`, `check_frozen`) and `records`, one per WARNING line in the same
+      order, each with `point`, `product`, `message` and `remedy`. Both files
+      are written from one list of records on a clean, a failed and an
+      interrupted post, so they cannot disagree.
+    - A WARNING line names the point and product its warning names
+      (`WARNING point=<point> product=<product>: ...`); one that names none
+      reads `point=campaign product=stage`.
+    - A warning raised during a post by code outside the package is not written
+      to the log; it reaches the caller's warning filters as before.
+
+    Solution: 0.26.0 (`post.log`) and 0.27.0 (the JSON twin, the line form and
+    the exclusion of foreign warnings). Not solved: warning capture is
+    process-wide, so concurrent posts in threads can mix campaign warnings.
+
+!!! requirement "FR-121 Every point of a row naming a run type leaves its final saved simulation <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G11 of the 0.27.0 scope. The need, in the requester's words: "isso
+    não tá formalizado". Evidence:
+    `tests/tier1_offline/test_saved_simulation.py` (a save in every workflow
+    script of every run type and build, first among the point's exports, one for
+    each point of a steady sweep, collected and hashed, a missing one recorded
+    incomplete, the plan warning for a `LEGACY` row).*
+
+    After a point's solve, first among its exports, the script saves the solver
+    state as `<point file stem>.fsm`. The file is collected into the point's
+    datapoint folder and listed in the run record's `outputs` with its sha256 in
+    `outputs_sha256`.
+
+    - This holds on every run type, on every build a run type renders on, and
+      for each point of a steady sweep.
+    - `[exports] simulation = false` is refused at plan, naming the row and the
+      file, as `loads = false` is.
+    - A point whose saved simulation is missing is recorded incomplete.
+    - `pyfs-matrix plan` warns, naming the row, for each `LEGACY` row whose
+      `OUTPUTS` declare no `.fsm`, because no final state of it is collected or
+      hashed. The warning blocks nothing.
+
+    Solution: 0.27.0.
+
+!!! requirement "FR-122 A run record carries the boundary names of its geometry <span class='srs-implemented'>implemented</span>"
+
+    *Origin: R03 of the 0.27.0 review round. Evidence:
+    `tests/tier1_offline/test_r03_r04_recorded_inventory.py`.*
+
+    Each run record carries its geometry's boundary names as `inventory`, in the
+    solver's order as the script read them at `OPEN`, the name at position i
+    being boundary i, on the point path and on the steady one-job path alike.
+
+    - A run that opened no geometry declaring names (a `LEGACY` recipe, a file
+      without a mesh block) writes no key.
+    - `CampaignWorkspace.recorded_inventory(record)` returns the names, and for
+      a record written before 0.27.0 reads them from the mesh block of the
+      geometry file whose sha256 the record carries.
+    - A manifest holding such a record needs 0.27.0 to be read: an older reader
+      refuses the key.
+
+    Solution: 0.27.0.
+
+!!! requirement "FR-123 The input files describe themselves: a glossary of every key and a template of every file <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G08 of the 0.27.0 scope and G47 of the 0.28.0 scope. The need for
+    the second, in the requester's words: "Criar um md input_template dentro de
+    inputs". Evidence: `tests/tier1_offline/test_goal031_g08_input_glossary.py`
+    (a key added with no row fails) and
+    `tests/tier1_offline/test_g47_input_template.py` (every template read back
+    with the package's own reader).*
+
+    A workspace documents the input files a user writes, generated from the code
+    where the format is the code's.
+
+    - `inputs/pproc/INPUTS.md` holds one table per table of each input artifact
+      (matrix, setup, pproc, reference, geometry sidecar), one row per key: what
+      it sets, its unit or values, the run types or builds that accept it and
+      the solver command it reaches. A key added without a row fails a test.
+    - `inputs/input_template.md` holds one section per kind of input file (the
+      matrix, the setup, the pproc, the reference and its blocks, the named
+      points, the sidecars, the trailing-edge points file, the provenance
+      record, the profiles, the custom free stream, the HPC profile and the build
+      registry), each saying what the file is for and where it lives, with a
+      commented complete example and the links to the page that covers it.
+    - `pyfs-workspace init`, `pyfs-matrix plan` and `pyfs-matrix post` write both
+      files, rewriting one only when its content changes.
+
+    Solution: 0.27.0 (the glossary) and 0.28.0 (the template).
+
+!!! requirement "FR-124 Every table the post writes opens with its header and the polar, and no cell needs quoting <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G16 of the 0.27.0 scope. The need, in the requester's words: "o
+    numero da polar vai em todos os arquivos como um coluna", and of the rotor
+    table's first line: "coloca isso como coluna tb". Evidence:
+    `tests/tier1_offline/test_g16_polar_column.py` (every table written is read
+    back, including by `numpy.genfromtxt`).*
+
+    Every table the post writes under `post/<matrix>/`, the additional post's
+    included, and `campaign_sweep.csv`, holds its header on the first line and
+    the polar as its first column.
+
+    - The column is `POL`, named as the run matrix names its polar column, and
+      holds the polar of the point each row comes from. The steady polar and its
+      super file carry `POL` in place of the `POLAR` of 0.26.0.
+    - The rotor table's alias, alone on a line before the header since 0.23.0,
+      is the `ROTOR` column right after `POL`.
+    - Every text cell, header names included, writes a comma as `;`, a double
+      quote as a single one and a line break as a space, through one rule, so no
+      cell is quoted and a reader that splits on `,` reads every row as wide as
+      its header.
+    - Every other column keeps its name and its order after the new ones. The
+      solver's own raw files do not change.
+
+    Solution: 0.27.0. It moved every column of these tables one place to the
+    right for a reader by position, which is why the migration page carries it.
+
+!!! requirement "FR-125 A row states a custom free stream by an input file, and the plan checks the field against the body <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G15 of the 0.27.0 scope and G18 of the 0.28.0 scope. The need, in
+    the requester's words: "quero ja incluir na 27" and "custom freestream (G18)
+    por arquivo de input". Evidence:
+    `tests/tier1_offline/test_g15_custom_freestream.py` (the script, both forms,
+    every refusal, and the coverage warning of `test_g18_*`).*
+
+    `FREESTREAM: <stem>` names a velocity field over the YZ plane of the global
+    frame, in m and m/s, converted in no way, in a file of the workspace's
+    `inputs/freestreams/`.
+
+    - `<stem>.txt` is the STRUCTURED form of the manual (`Npts Mpts`, then
+      `x y z vx vy vz` rows); `<stem>.dat` is the UNSTRUCTURED form (the rows
+      alone). Every run type writes `SET_FREESTREAM CUSTOM <form>` and the file's
+      absolute path in place of `SET_FREESTREAM CONSTANT`, once for a steady
+      sweep, and nothing else of the script moves.
+    - The file is resolved at plan, read where it lives and hashed into the
+      record's `inputs_sha256`.
+    - The plan refuses, by name, a stem the folder does not hold or holds in both
+      forms, the key on a `LEGACY` row, and the key beside a body rate or a
+      non-zero angle of attack or sideslip, since a run has one
+      `SET_FREESTREAM`.
+    - The plan warns, naming both extents, when the field's grid does not cover
+      the body's y and z extent, and says the coverage was not checked on a row
+      that moves the body.
+
+    Solution: 0.27.0 (the key and the STRUCTURED form) and 0.28.0 (the
+    UNSTRUCTURED form measured, and the coverage warning).
+
+!!! requirement "FR-126 A raw OBJ's surface names are read from its groups <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G30 of the 0.28.0 scope: bringing an OBJ without writing its surface
+    names by hand. Evidence:
+    `tests/tier1_offline/test_g30_obj_surface_names.py`.*
+
+    When an `.obj` a row names has no `<stem>.boundaries.toml`, `pyfs-matrix plan`
+    and `run` write one beside it and say so on stderr, and `pyfs-matrix inventory
+    <file>.obj` writes the same file through the same function.
+
+    - The sidecar's `boundaries` are one per `o` or `g` group that holds a face,
+      named by the group, in the order of the file, which is how 26.124 numbers an
+      OBJ's surfaces on import. A group with no face makes none.
+    - The file carries the list under a comment naming the OBJ's sha256, and the
+      user adds `[import]` units and `[trailing_edges]` beneath it.
+    - A sidecar that exists is never rewritten, `--overwrite` or not. When its
+      `boundaries` differ from the groups a warning names both lists, and one
+      stating none is refused naming the list the groups make.
+    - What the measurement did not settle is refused naming the line, and an STL,
+      which has no names, keeps its refusals.
+
+    Solution: 0.28.0.
+
+!!! requirement "FR-127 The FSI's blade properties come from its sections and a material <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G41 of the 0.28.0 scope, mandatory. The need, in the requester's
+    words: "Geralmente blades de tunel de metal sao massiças, entao eu quero essa
+    capacidade no fsi do pyflightstream pq ja destrava muita analise" and "Tudo
+    precisa estar escriptado e reproduzivel". Evidence:
+    `tests/tier1_offline/test_g41_section_properties.py` (closed forms for
+    rectangles, plates, polygons standing for circles and ellipses, the torsion
+    constant converging, the material database, the round trip and the
+    provenance).*
+
+    `pyflightstream.fsi.sections.blade_properties_from_sections` generates a
+    `BladeProperties` from one closed section contour per station and a material,
+    for a solid homogeneous section, instead of typed numbers.
+
+    - The running mass is rho A, the mass moments of inertia per length are rho
+      times the principal second moments, EI is E times the second moment about
+      the chordwise centroidal axis, GJ is G J, and the elastic-axis offsets come
+      with them.
+    - Area, centroid, second moments and principal values of the polygon are
+      exact and summed about the vertices' mean, so a section far from the origin
+      keeps its digits. A contour that is no simple polygon is refused naming the
+      vertices or edges.
+    - The torsion constant J is computed from the Prandtl stress function and
+      converges toward the closed form.
+    - The material database carries a source for every entry, and an unknown
+      material is refused naming the database.
+    - The generation is scripted: the provenance records the material, the
+      geometry and the method, and one of another blade is refused.
+
+    - The elastic axis is taken at the centroid, a stated hypothesis; the shear
+      centre is not computed, and hollow and spar sections are a future option,
+      not built.
+
+    Solution: 0.28.0 (`pyflightstream.fsi.sections` and
+    `pyflightstream.fsi.materials`).
+
+!!! requirement "FR-128 An actuator disc takes its speed from the advance ratio <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G20 of the 0.28.0 scope: a disc turning at a rate given by the
+    advance ratio, as a rotor already does (FR-70). Evidence:
+    `tests/tier1_offline/test_g06_actuator_disc.py`
+    (`test_g20_a_disc_takes_its_speed_from_the_advance_ratio` and the swept
+    case).*
+
+    A row naming a disc and stating `ADVANCE_RATIO` (in its flight condition,
+    swept or held) and no `ACTUATOR_RPM` turns the disc at n = V / (J D) by the
+    rotors' rule.
+
+    - D is the disc's own diameter, twice its `tip_radius_m`; V is the row's
+      velocity; the hand stays the block's `rpm_sign`.
+    - A row stating neither `ADVANCE_RATIO` nor `ACTUATOR_RPM` is refused naming
+      both.
+    - A steady row whose disc speed moves with a swept advance ratio runs one job
+      per point, as a flow sweep does, so each point sets its own speed.
+
+    Solution: 0.28.0.
+
+!!! requirement "FR-129 A local run's log reads at a glance, and an unsteady point says how far it is <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G43 of the 0.28.0 scope. The need, in the requester's words: "vamos
+    deixar o log de execução local mais bonitinho". Evidence:
+    `tests/tier1_offline/test_g43_local_log.py` (the banner, the numbering, the
+    summary table, the progress cadence and its refusal).*
+
+    A local run opens with a banner naming the campaign and how many points it
+    runs, numbers each point (`(3 of 17)`, a steady job its range,
+    `(1-3 of 17)`), and closes with a table of how the points ended, a job's
+    points counted one by one, and the time it took.
+
+    - An unsteady point that carries its step counter prints a progress bar with
+      its step, its share and the time so far every N completed time steps, read
+      from the run's own counter while the solver runs, never from what the solver
+      prints.
+    - `pyfs-matrix run --progress-every N` sets N (10 by default, 0 for none); a
+      negative N is refused. A row with no counter runs as before.
+
+    Solution: 0.28.0.
+
+!!! requirement "FR-130 A run that submits to a cluster does not post <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G43 of the 0.28.0 scope, from a submission of 25 points that printed
+    270 lines. The need, in the requester's words: "ta muito poluido o log do run
+    com submissao para o hpc" and "se for submissao para linux, o run nao deveria
+    rodar post". Evidence:
+    `tests/tier1_offline/test_goal021_swept_row.py`
+    (`test_g43_a_run_that_submits_does_not_post`) and
+    `tests/tier1_offline/test_g43_local_log.py`.*
+
+    Points in a queue have no outputs yet, so a `run` that submits any point
+    writes no product and no sweep table.
+
+    - It ends with one line saying how many points it submitted and how many it
+      ran here, and the command that collects and then posts
+      (`pyfs-matrix collect --workspace <root>`, `--watch` to wait).
+    - A run whose every point ran here posts as before.
+    - `CampaignErrors.records` carries every record the failing call wrote,
+      failed or not, beside `failures`, and the CLI reads it to tell a run that
+      also submitted a point, which writes no table.
+
+    Solution: 0.28.0.
+
+!!! requirement "FR-131 The whole matrix is run again by one flag <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G44 of the 0.28.0 scope. The need, in the requester's words: "para
+    28, eu quero um --force-rerun-all". Evidence:
+    `tests/tier1_offline/test_g44_force_rerun_all.py`.*
+
+    `pyfs-matrix run --force-rerun-all [--sims SIM ...]` archives every recorded
+    point of the matrix, or of the simulations `--sims` names, with the archive
+    of `--force-rerun`, and runs it again, a steady row recorded as one job as one
+    job.
+
+    - One line gives the count of points and jobs before anything runs.
+    - It is refused beside `--resume` or `--force-rerun`, for an id the matrix
+      does not carry, when `--sims` stands alone, and when nothing is recorded, in
+      each case before anything runs.
+
+    Solution: 0.28.0.
+
+!!! requirement "FR-132 The plan warns when a plot group takes the rotor table's plot name <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G42 of the 0.28.0 scope, from a submission of 25 rows whose rotor
+    tables were skipped. The decision, in the requester's words: "nao precisa
+    fazer essa mudança, coloca no plan o aviso". Evidence:
+    `tests/tier1_offline/test_goal028_rotor_plot_group.py`
+    (`test_g42_the_plan_warns_when_a_group_takes_the_rotor_plot_name`).*
+
+    A pproc plot group named like the automatic `ROTOR_<ALIAS>` group, such as
+    `ROTOR_{family}` in a rotor's own frame, emits the names the rotor table
+    reads, so the run keeps that group and writes no global-frame history for the
+    rotor, and the post cannot write its table.
+
+    - `pyfs-matrix plan` and `pyfs-matrix run` say so before a seat is spent,
+      naming the pproc, the name and the rotor, and suggesting a rename
+      (`SHAFT_{family}`).
+    - Nothing is refused and nothing is renamed.
+
+    Solution: 0.28.0.
+
+!!! requirement "FR-133 An unsteady row saves the solver's residual and load plots <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G26 of the 0.28.0 scope, after the plots of a steady point (FR-51).
+    Evidence: `tests/tier1_offline/test_g04_solver_plots.py`
+    (`test_g26_an_unsteady_row_saves_its_residual_and_load_plots_once_after_the_march`).*
+
+    An unsteady row saves `<point>_plot_residuals.txt` and `<point>_plot_loads.txt`
+    by default, as a steady point does, once after the march and before the log
+    (and in the wall clock's rescue), never per step.
+
+    - Each file holds the whole march, one row per inner iteration.
+    - `plot_residuals = false` or `plot_loads = false` under `[exports]` turns one
+      off, and either stated true on an unsteady row is accepted, where 0.27.0
+      refused it. This replaces the clause of FR-51 that an unsteady point saves
+      none.
+
+    Solution: 0.28.0.
+
+!!! requirement "FR-134 An unsteady or rotor row refuses `COLD_START` at plan <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G36 of the 0.28.0 scope: a key that changed nothing on an unsteady
+    row, which the plan did not say. Evidence:
+    `tests/tier1_offline/test_workflows.py`
+    (`test_g36_an_unsteady_row_refuses_cold_start`).*
+
+    The key clears the solution between the points of a steady sweep over the
+    attitude. Every point of an unsteady or rotor row is its own job and starts
+    cold, so the key, true or false, changes nothing there, and the plan refuses
+    it naming the key and saying why. A steady row that sweeps the flow keeps the
+    key as the glossary states.
+
+    Solution: 0.28.0.
+
+!!! requirement "FR-150 A setup library and its physical guidance are written on request <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the setup standards of the 0.29.0 quality gate: a run needs a
+    complete preset and a reason for each choice in it. Evidence:
+    `tests/tier1_offline/test_setup_standards.py` and
+    `tests/tier1_offline/test_setup_library_contract.py`.*
+
+    `pyfs-matrix plan --setup-guidelines` writes
+    `inputs/setups/SETUP_GUIDELINES.md` and `--setup-standards` writes the
+    `s9XX` library of complete setup presets. The two options are independent.
+
+    - The guidelines name the low-cost and the additional-fidelity starting
+      point of each scenario, its assumptions and the supporting literature;
+      a study that varies one setting names its baseline.
+    - A command the build cannot emit stays a labeled comment; an existing
+      file that differs is preserved; no matrix is silently reassigned to a
+      new preset.
+
+    **Solution (0.29.0).** The two options of `plan` and the `s9XX` library of
+    `docs/setup-standards.md`. **Trace.** The two test files above.
+
+!!! requirement "FR-151 The setups a plan resolved are inspected, with where each value came from <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the setup standards of the 0.29.0 quality gate: a user could not
+    see what a setup would send to the solver. Evidence:
+    `tests/tier1_offline/test_setup_standards.py` and
+    `tests/tier1_offline/test_run_cli.py`.*
+
+    `pyfs-matrix inspect-setups` reports each setup's values, the origin of
+    each, its boundary selections and its raw commands, from the same records
+    that planning stores, so the report and the run cannot differ.
+
+    **Solution (0.29.0).** The command, the input glossary and the templates
+    covering the structured fields it reads. **Trace.** The test files above.
+
+!!! requirement "FR-152 Boundaries are edited by type, and each input has one owner <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the boundary handling of the 0.29.0 scope (G-series of the
+    quality gate). Evidence: `tests/tier1_offline/test_approved_capabilities_029.py`
+    and `tests/tier1_offline/test_goal034_setup_operational_commands.py`.*
+
+    A geometry sidecar maps port identities to surfaces. A setup declares
+    `[[ports]]` entries with the inlet or outlet role, optional remeshing and
+    the MATRIX variable names; the MATRIX supplies velocities and profile file
+    names. A setup selector applies a geometric trailing edge, wake or base
+    declaration without implicitly clearing saved state, and a setup can
+    remove initialization, delete transition trips and order base-region
+    edits.
+
+    - The unreleased physical sidecar forms are refused, with migration
+      guidance.
+    - A port to be created while its saved index is unknown is refused.
+    - Native coverage stays build-specific and is not claimed beyond the
+      builds measured.
+
+    **Solution (0.29.0).** The typed boundary tables of the setup and the
+    sidecar reader. **Trace.** The test files above.
+
+!!! requirement "FR-153 Probes and volume sections write sampled velocity fields <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the sampled-field need of the 0.29.0 quality gate. Evidence:
+    `tests/tier1_offline/test_f01_probe_source.py` and
+    `tests/tier1_offline/test_approved_capabilities_029.py`.*
+
+    Probes and volume sections write package-built VTK or Tecplot point
+    fields whose provenance states the source, the position, the frame and the
+    velocity components. Reusable inflow is offered only from an appropriate
+    global YZ survey; a point sample never invents a volume-cell topology.
+
+    **Solution (0.29.0).** `docs/sampled-fields.md` and the writers behind it.
+    **Trace.** The test files above.
+
+!!! requirement "FR-154 Boundary-layer products are separate: section integrals from the surface, profiles refused <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the boundary-layer products of the 0.29.0 scope. Evidence:
+    `tests/tier1_offline/test_boundary_layer_products.py`.*
+
+    A section-integral table reads the actual VTK cell quantities at the
+    configured section cuts and keeps every incidence that shares an
+    intersection. The velocity-profile request is a separate product, and it
+    is refused by name wherever an unattended native profile export has no
+    positive proof.
+
+    **Solution (0.29.0).** `docs/boundary-layer-products.md`. **Trace.** The
+    test above.
+
+!!! requirement "FR-155 A named FSI input supplies the structure, and factors are applied once <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the FSI input need of the 0.29.0 scope. Evidence:
+    `tests/tier1_offline/test_fsi_calibration_contract.py` and
+    `tests/tier1_offline/test_workspace_fsi_setup.py`.*
+
+    `inputs/fsi/f<id>.toml` supplies complete structural distributions, or
+    calculates solid homogeneous sections from one sourced material. A MATRIX
+    factor overrides a file factor exactly once, the base and effective values
+    and each factor's origin are staged with their hashes, and a source and a
+    derived factor along one dependency cannot compound silently. A supported
+    fresh-mesh unsteady rotor row stages the existing driver's nodes,
+    section-order maps and synchronous callbacks.
+
+    - Unsupported inherited state, units, or an ambiguous blade or frame
+      mapping is refused.
+    - Staging is wiring; it does not establish native coupled accuracy, and
+      the Euler beam and coupling model are unchanged.
+
+    **Solution (0.29.0).** The named input and its staging in
+    `pyflightstream.cases.fsi_workspace`. **Trace.** The test files above.
+
+!!! requirement "FR-156 A macro-free workbook synchronizes with the run matrix through explicit steps <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the Excel need of the 0.29.0 scope. Evidence:
+    `tests/tier1_offline/test_excel_sync.py`, `test_excel_file.py` and
+    `test_excel_cli_refusals.py` under `tests/tier1_offline/`.*
+
+    A macro-free `.xlsx` carries a Runs sheet and a Dictionary mapping. Python
+    synchronizes saved files in both directions through explicit preview,
+    apply and cancel commands.
+
+    - Three-way conflicts, leading-zero identifiers, custom cells, formulas,
+      legacy matrix schemas and recovery copies are kept within the supported
+      workbook contract.
+    - No Excel process and no trust-setting change is required, and an
+      existing `.xlsm` workbook is never converted silently.
+
+    **Solution (0.29.0).** `docs/excel-matrices.md` and the sync commands.
+    **Trace.** The test files above.
+
+!!! requirement "FR-157 A submitted additional-post extraction completes against a private copy <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the completion of FR-111 on a submitting workspace, 0.29.0.
+    Evidence: `tests/tier1_offline/test_additional_post.py`.*
+
+    On a submitting workspace each extraction is recorded `SUBMITTED` against
+    a private copy of the saved simulation. `pyfs-matrix collect` waits for
+    stable exports, checks the hashes of the original simulation, the script
+    and the copy, translates the surface outputs and records `EXTRACTED`.
+    Submission alone never means extracted, and a pending request is not
+    resubmitted.
+
+    **Solution (0.29.0).** The collect step of the additional post; it
+    replaces the refusal FR-111 recorded for a submitting workspace.
+    **Trace.** The test above.
+
+!!! requirement "FR-158 A steady sweep starts every point cold unless the row says otherwise <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the geometry, units and steady-start review of the 0.29.0 quality
+    gate: a warm result depends on the order of the points. It reverses the
+    default FR-95 recorded at 0.16.0. Evidence:
+    `tests/tier1_offline/test_approved_capabilities_029.py`.*
+
+    A steady row's script clears the solution (`CLEAR_SOLUTION`) before each
+    point, including the first point of a reopened simulation, and an absent
+    `COLD_START` means cold. `COLD_START: false` in the row, or
+    `build_steady_sweep(..., cold=False)`, keeps the warm behavior, and a warm
+    sweep still records the order its points ran in.
+
+    - An unsteady row refuses `COLD_START`, since every point of it is its own
+      job and starts cold.
+    - A value that is neither true nor false is refused at plan.
+
+    **Solution (0.29.0).** The `cold` argument defaults to true in
+    `pyflightstream.cases.workflows.build_steady_sweep`; see
+    `docs/geometry-units-and-starts.md`. **Trace.** The test above.
+
+!!! requirement "FR-159 A volume section is sampled through probes or fluid plots, not exported natively <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the volume-section review of the 0.29.0 quality gate, which
+    supersedes the native export of FR-110. Evidence:
+    `tests/tier1_offline/test_g05_volume_section.py`.*
+
+    `[volume_section]` does not cut or export a native volume section into
+    `datapoints/DP-<point>/`. It samples the declared plane through probes on
+    a steady row, or through fluid plots on an unsteady or rotor row, which
+    the section now accepts, and writes a vertex cloud to
+    `post/<matrix>/fields/<point>_vsec.vtk` or `.dat`, with `_step_<STEP>` per
+    unsteady step. A historical 0.27.x or 0.28.x record keeps its native
+    export.
+
+    **Solution (0.29.0).** `_pproc_sampled_volume` in
+    `pyflightstream.cases.workflows`; see `docs/migrating-to-0.29.0.md`.
+    **Trace.** The test above.
+
+!!! requirement "FR-160 A Tecplot surface carries the nodal singularity strength when the pproc asks for it <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the Tecplot surface need of 0.29.0, and its reversal as an opt-in
+    in 0.30.0 (SS1). Evidence: `tests/tier1_offline/test_g45_tecplot_from_vtk.py`
+    and `tests/tier1_offline/test_g25_surface_time_average.py`.*
+
+    A row whose pproc sets `singularity_strength = true` (a TOML boolean;
+    `"true"` and `1` are refused) makes its Tecplot surface carry the nodal
+    `Singularity_strength`, read from an auxiliary native Tecplot export beside
+    the VTK, at the end of the run and at each exported step. Coordinate and
+    polygon topology matching adds it beside the VTK cell quantities, without
+    converting their associations or guessing a normalization, and each step
+    uses its own source.
+
+    - Without the key, the row exports the VTK alone: the `.dat` states the
+      strength `NOT_CARRIED` (and `not_carried` in `products.json`), no native
+      Tecplot file is written or hashed, and the point is not
+      `FAILED_INCOMPLETE_OUTPUT` for lacking it. The time-averaged surface
+      states it the same way.
+    - `pyfs-matrix plan` states on each Tecplot row whether the strength is
+      carried, and `plan.json` holds it under `singularity_strength`.
+
+    **Solution (0.29.0 carries it always, 0.30.0 makes it a key).** See
+    `docs/surface-translation.md`. **Trace.** The test files above.
+
+!!! requirement "FR-161 Unsteady post-processing keeps an explicit time meaning <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the unsteady post review of the 0.29.0 quality gate. Evidence:
+    `tests/tier1_offline/test_round1_surface_window.py` and
+    `tests/tier1_offline/test_goal028_defaulted_window.py`.*
+
+    Final Cp curves are exported once after the march. A surface mean uses the
+    complete recorded window and keeps the final-step coordinates. A native
+    field that contains only its final instant is distinguished from an actual
+    time mean, and a wall-clock rescue whose native averaging or history
+    semantics are unresolved never implies acceptance.
+
+    **Solution (0.29.0).** The unsteady post paths of
+    `docs/unsteady-postprocessing.md`. **Trace.** The test files above.
+
+!!! requirement "FR-162 Execution and post logs report their stage and their outcome <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the log review of the 0.29.0 quality gate. Evidence:
+    `tests/tier1_offline/test_cli_report_skips.py` and
+    `tests/tier1_offline/test_post_diagnostics.py`.*
+
+    Post warnings stay in the structured log and are shown with
+    `--pproc-warnings`. `post --diagnostics` prints the recorded Markdown
+    diagnostics to stdout without regenerating a product. A command's
+    signature uses a result-aware message on stderr and leaves the structured
+    stdout unchanged. A Windows callback uses a hidden runtime where that route
+    is supported.
+
+    **Solution (0.29.0).** The two options of `post` and the signature of
+    `pyflightstream.run.cli`. **Trace.** The test files above.
+
+!!! requirement "FR-163 Continuation checks its recorded inputs before it extracts <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the continuation review of the 0.29.0 quality gate, on the
+    recovery of FR-96 and FR-111. Evidence:
+    `tests/tier1_offline/test_additional_post.py` and
+    `tests/tier1_offline/test_g58_frame_recovery.py`.*
+
+    Recovery follows the saved script and the exact frame and source
+    provenance. A historical command the package cannot read unambiguously is
+    refused by name before a new extraction can invent state.
+
+    **Solution (0.29.0).** The recovery readers of the additional post.
+    **Trace.** The test files above.
+
+!!! requirement "FR-164 A setting the package cannot apply honestly is refused by name <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the setup audit of the 0.29.0 quality gate: a key that runs with
+    an effect it did not ask for is worse than a refusal. Evidence:
+    `tests/tier1_offline/test_approved_capabilities_029.py` and
+    `tests/tier1_offline/test_goal031_g08_glossary_claims.py`.*
+
+    Three refusals, each on every build:
+
+    - `ROTOR_SHEDDING` in a matrix row, whatever its value: the direction is a
+      field of the relaxed trailing-edge component definition and no workflow
+      command applies it. The key stays registered so the refusal names it;
+      `rotor_relaxed_trailing_edges` still sets the direction from Python.
+    - `legacy_solver_model` and `sonic_velocity_m_per_s` in a setup:
+      `SET_SOLVER_MODEL` is documented by 25.000 alone, whose
+      `INITIALIZE_SOLVER` no workflow writes, and no build from 26.101 records
+      `SONIC_VELOCITY`. Use `solver_model`; the sound speed follows from the
+      resolved temperature and specific-heat ratio.
+    - `farfield_layers` above 5: the setup accepts 1 to 5, the documented
+      range, and every standard setup states 5.
+
+    **Solution (0.29.0).** The refusals at plan, and the input glossary that
+    says so. **Trace.** The test files above.
+
+!!! requirement "FR-165 A quasi-steady rotor is a run type: a sector or a wheel <span class='srs-implemented'>implemented</span>"
+
+    *Origin: her decisions of 2026-09-29: "ai fica qsteady_rotor - se tiver
+    simetria periodica, fica o caso setor"; "sobre os modos quasi steady,
+    lembrando que eles podem ser chamados sem fsi. Eles se tornam workflows e
+    o fsi continua como variavel opcional a direita da matriz". Evidence:
+    `tests/tier1_offline/test_goal035_qsteady_rotor.py`,
+    `test_goal035_qsteady_completion.py` and `test_goal035_l1_defects.py`
+    under `tests/tier1_offline/`.*
+
+    The `qsteady_rotor` run type solves an isolated axisymmetric rotor steady,
+    its blades held still and the free stream turning about its shaft at its
+    speed (`SET_FREESTREAM ROTATION` in the rotor's hub frame, signed by the
+    rotor block's `rpm_sign`). The reference declares exactly one rotor block.
+
+    - `SYMMETRY PERIODIC` is a SECTOR: one blade solved once, in an inflow that
+      varies with the radius alone; an angle is refused and a custom inflow is
+      checked for it (axisymmetric to 0.1 percent of its largest speed).
+    - No symmetry is the WHEEL: every blade, and with an inflow that varies
+      around the disc the row key `PASSAGE_POSITIONS: k` is required, the wheel
+      solved at `theta_i = i (360 / N) / k` inside one blade passage and
+      averaged by the post. A custom inflow on the wheel is the total velocity
+      at the disc, and the package removes the rotation
+      (`pyflightstream.cases.freestream.prepare_rotating_field`).
+    - A second rotor, an actuator disc, a body rate or a boundary of the
+      geometry that is none of the rotor's families is refused.
+
+    **Solution (0.30.0).** The run type, `RotorShaftLoads` (`force_n`,
+    `moment_hub_nm`) and `helpers.rotate_surfaces(after_initialization=True)`
+    to clock surfaces between two solves. **Trace.** The test files above.
+
+!!! requirement "FR-166 A wheel point states where its quasi-steady assumption holds <span class='srs-implemented'>implemented</span>"
+
+    *Origin: her decision of 2026-09-29: "concordo do plan avisar", the plan
+    warning when part of the span has k above 0.1. Evidence:
+    `tests/tier1_offline/test_goal035_qsteady_completion.py` and
+    `tests/tier1_offline/test_goal035_qsteady_rotor.py`.*
+
+    The 1P reduced frequency `k = Omega c / (2 V_rel)` of a wheel point, the
+    1P counted on the blade, is stated per station. `pyfs-matrix plan` shows
+    the percent of the span with `k > 0.1` and the `k` minimum, maximum and
+    mean, and warns naming the point when that percent is above zero. A point
+    with no free-stream speed and no rotation states that `k` is not defined.
+
+    After the post, each wheel point's `<point>_qsteady_validity.json` carries
+    its validity, including the thrust and torque shares from the stations
+    above `k = 0.1`, and its super-file row carries the validity columns
+    (`K_1P_MIN` to `TORQUE_PCT_K_GT_0_1`). Two products,
+    `polars/P<sim>-<ALIAS>_qs_positions.csv` (the loads at every clocking) and
+    `_qs_avg.csv` (their mean per point), carry the same columns.
+
+    **Solution (0.30.0).** `pyflightstream.cases.qsteady` and
+    `pyflightstream.post.qsteady`; `PASSAGE_POSITIONS` is read as every count
+    of a row. **Trace.** The test files above.
+
+!!! requirement "FR-167 The plan reports the inflow's harmonic content as one blade meets it <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the wheel validity design of 0.30.0. Evidence:
+    `tests/tier1_offline/test_goal035_qsteady_completion.py`.*
+
+    `pyfs-matrix plan --inflow-fft` reports, for each wheel point in a custom
+    inflow, the harmonics of that inflow as one blade meets it over a
+    revolution: per station `n95` and `k_eff = n95 k_1P`, per point the `k_eff`
+    minimum, maximum and mean, the percent of the span above 0.1, `n_max` and
+    the suggested `PASSAGE_POSITIONS >= n_max / N + 1`, warned when the row
+    states fewer. With the option the reduced-frequency warning reads `k_eff`.
+    A harmonic below 0.001 degree of angle of attack is not counted.
+
+    **Solution (0.30.0).** `blade_inflow_harmonics` and `qsteady_inflow_fft`.
+    **Trace.** The test above.
+
+!!! requirement "FR-168 FSI couples on a quasi-steady periodic sector and is refused on the wheel <span class='srs-implemented'>implemented</span>"
+
+    *Origin: her decisions of 2026-09-29: "esse do quasi steady quero que entre
+    na 30, e tanto o modo setor quanto o modo wheel" and, on the wheel with
+    FSI, "esse wheel quasi estatico parece nao fazer sentido com fsi, vamos
+    manter esse recusado por enquanto". Evidence:
+    `tests/tier1_offline/test_fsi1_workspace_pieces.py`.*
+
+    FSI on a `qsteady_rotor` periodic sector is the steady coupled route of
+    the fixed wing with the ROTATING blade as the structure. Its
+    `omega_rad_per_s` is taken from the row's `RPM`
+    (`effective_fsi_config`), so the structural solve applies the centrifugal
+    tension and stiffening and the in-plane centrifugal softening at the speed
+    the free stream turns.
+
+    - The route couples blade one at azimuth 0 on Z, shaft X through the
+      origin, one XY section distribution in a frame coinciding with the
+      reference, and refuses anything else by name.
+    - The wheel with FSI stays refused.
+
+    **Solution (0.30.0).** `cases.fsi_workspace.wire_quasi_steady_sector_fsi`
+    and the run folder marker `fsi_quasi_steady_rotor`. **Trace.** The test
+    above.
+
+!!! requirement "FR-169 A fixed wing couples on a steady or an unsteady row without rotor motion <span class='srs-implemented'>implemented</span>"
+
+    *Origin: FSI-G of the 0.30.0 scope, and the refusal FSI-GUARD that bounds
+    it. Evidence: `tests/tier1_offline/test_fsig_fixed_wing.py` and
+    `tests/tier1_offline/test_fsi1_workspace_pieces.py`.*
+
+    An FSI input stating `[config.wing]` (with `omega_rad_per_s = 0` and
+    `blade_count = 1`) is one wing clamped at its first station, its stiffness
+    and mass distributions built as a blade's are. Its structural solve
+    applies the aerodynamic sectional loads plus the wing's own weight, with no
+    centrifugal term. Gravity is a vector of the reference frame, -z by
+    default, which the angle of attack never turns; `self_weight = false`
+    removes it. The wing is fed by one XZ section distribution in a frame with
+    the reference axes at the wing's origin.
+
+    - A steady coupled script ends at `EXECUTE_AEROELASTIC_ANALYSIS` with at
+      most 50 coupling iterations, nothing follows it, and the run is waited
+      for on the line `Aeroelastic solver run time`; a submitting executor,
+      the probe points, the volume section and the loads selections are
+      refused on that route.
+    - FSI on `unsteady_rotor` is refused by the plan with the message "FSI on
+      unsteady_rotor is still in debug on this release"; the table
+      `FSI_WORKFLOW_STATE` states every workflow's FSI state, None meaning
+      accepted.
+
+    **Solution (0.30.0).** The pieces in `pyflightstream.cases.fsi_workspace`:
+    `aeroelastic_surface_ids`, `structural_node_layout`,
+    `patch_structural_node_frame`, `aeroelastic_rbf_type`,
+    `aeroelastic_post_script`, `emit_steady_aeroelastic_analysis`,
+    `refuse_lines_after_steady_analysis` and `steady_aeroelastic_finished`.
+    **Trace.** The test files above.
+
+!!! requirement "FR-170 The structural nodes sit inside the blade <span class='srs-implemented'>implemented</span>"
+
+    *Origin: FSI-1 of the 0.30.0 scope. Evidence:
+    `tests/tier1_offline/test_fsi1_nodes_inside.py`.*
+
+    A configuration that carries the blade's sections
+    (`BladeProperties.section_contours_m`) places the nodes on each section's
+    camber line: the elastic-axis node at the configured chord fraction (30
+    percent when that lies outside 20 to 50 percent), the leading-edge and
+    trailing-edge nodes at 10 and 90 percent, at the local twist. Planning
+    refuses a node set with any node outside its section, or inside it by less
+    than max(1 mm, 10 percent of the local thickness), naming the node. A
+    configuration without sections keeps the offset layout, unchecked.
+
+    **Solution (0.30.0).** The layout; `fsi_node_map.json` gains the leading
+    and trailing edge normal positions for such a layout, and a calculated
+    configuration's `config_sha256` includes its sections. **Trace.** The
+    test above.
+
+!!! requirement "FR-171 The coupled blade route emits a kernel that transfers the bend <span class='srs-implemented'>implemented</span>"
+
+    *Origin: FSI-1 of the 0.30.0 scope, measured on 26.124 (RPT-093 section
+    7). Evidence: `tests/tier1_offline/test_fsi1_workspace_pieces.py` and
+    `tests/tier1_offline/test_fsig_fixed_wing.py`.*
+
+    The coupled blade route emits `AEROELASTIC_RBF_TYPE MULTI_QUADRATIC`
+    unless the row's setup states a kernel. On one beam line `WENDLAND_C2`
+    delivered 64 percent of an imposed bend at the leading edge and 1.4
+    percent at the trailing edge, and the coupled run diverged;
+    `MULTI_QUADRATIC` delivered it to 3 mm.
+
+    **Solution (0.30.0).** `aeroelastic_rbf_type`; see `docs/fsi-workspace.md`.
+    **Trace.** The test files above.
+
+!!! requirement "FR-172 The rotating structural solve includes the in-plane centrifugal softening <span class='srs-implemented'>implemented</span>"
+
+    *Origin: FSI-1 of the 0.30.0 scope. Evidence:
+    `tests/tier1_offline/test_fsi1_in_plane_softening.py`.*
+
+    The rotating structural solve includes the in-plane centrifugal softening
+    `mu Omega^2 sin^2(beta) w` of the flap, iterated with the twist: a flap
+    along the section normal at pitch `beta` moves the section in the rotor
+    plane, where the centrifugal field pulls it outward. `RotatingSolution`
+    states `flap_residual_m` and `flap_tolerance_m`, and `converged` requires
+    both residuals.
+
+    **Solution (0.30.0).** `fsi.centrifugal.in_plane_softening_coefficients`
+    and `solve_rotating_static`. **Trace.** The test above, whose oracle checks
+    the coefficient station by station and the tip-flap increase against an
+    independent hand integration to 0.1 percentage point.
+
+!!! requirement "FR-173 The workspace's disk is measured, freed and cleaned by named commands <span class='srs-implemented'>implemented</span>"
+
+    *Origin: her decision of 2026-09-28 on the modes of the recipe,
+    "compact_sims, delete_extensions, post_archives", and her request "quero
+    no plan um check de memoria disponivel e um aviso se as rodadas da matriz
+    vao caber ou nao, pra ver se ele recomenda um free-space". Evidence:
+    `tests/tier1_offline/test_goal035_storage.py`.*
+
+    `pyfs-matrix space-in-use` reports the sizes on disk by top level folder,
+    by `sims/sim_*` and by extension. `free-space m<id>` runs the recipe of
+    `inputs/management/m<id>.toml`: compact simulation folders into
+    `sims/sim_<id>.zip`, delete files of named extensions under `sims/`, or
+    compact or delete the post's `archive/<stamp>/` folders. `delete-sims`
+    deletes named simulations, their own post products and their `runs.json`
+    records. Each command previews by default and changes files only with
+    `--apply`.
+
+    - `delete-sims` refuses to apply against a matrix product shared with
+      other points until `--matrix-products` says what happens to it.
+    - Every call is recorded in `storage_management.json`; a `deleted_sim`
+      note row may sit in `runs.json` and `read_manifest` skips it.
+    - `pyfs-matrix plan` warns when the points still to run may not fit on the
+      disk, from the mean size of a recorded datapoint, naming `free-space`.
+
+    **Solution (0.30.0).** `pyflightstream.workspace.storage`; see
+    `docs/storage-and-sync.md`. **Trace.** The test above.
+
+!!! requirement "FR-174 A recipe prunes the per-step exports and a later post refuses what it removed <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the storage recipes of 0.30.0. Evidence:
+    `tests/tier1_offline/test_goal035_prune_step_exports.py`.*
+
+    The `free-space` table `[[prune_step_exports]]` keeps the last step of each
+    per-step export (`<name>_iteration=<step>`) of each point of an unsteady
+    row that exported at every step, and deletes the earlier steps, previewing
+    by default. The recorded call lists the steps deleted per point and the
+    deleted files leave `products.json`; a product made before stays, file and
+    entry, marked `kept_after_pruning`.
+
+    - A later `post` that needs a deleted step refuses the series, the
+      time-averaged surface or the section distribution by name, naming the
+      missing steps and the storage call, instead of writing it from the
+      steps that remain.
+
+    **Solution (0.30.0).** `docs/storage-and-sync.md`. **Trace.** The test
+    above.
+
+!!! requirement "FR-175 Sync brings runs, results and matrices from the other workspaces <span class='srs-implemented'>implemented</span>"
+
+    *Origin: her instruction of 2026-09-28, "foca no storage-management e
+    sync". Evidence: `tests/tier1_offline/test_goal035_storage.py` and
+    `tests/tier1_offline/test_sync_plan_points_without_record.py`.*
+
+    `pyfs-matrix sync` brings runs and results from the workspaces named in
+    `inputs/sync-workspaces.toml` into the main one at a cumulative level
+    (`runs`, `post`, `fsm`, `all`), previewing by default. Main wins a
+    conflict unless `--prefer-other`, and `--overwrite` archives main's copy
+    of a conflicting file before taking the other's.
+
+    - A matrix is declared by the one workspace that owns it
+      (`matrices = [...]`), every difference is reported as a merge conflict,
+      and the owner's copy wins.
+    - A synced simulation's `inputs` is linked into the main workspace's own
+      geometry library, never copied; `delete-sims` and `free-space` undo
+      every link in a simulation folder before removing it, so the mesh it
+      points at survives.
+
+    **Solution (0.30.0).** `pyflightstream.workspace.storage`. **Trace.** The
+    test files above.
+
+!!! requirement "FR-176 Tip and helical Mach numbers are stated for every rotor point <span class='srs-implemented'>implemented</span>"
+
+    *Origin: her instruction of 2026-09-28: "para todos unsteady rotor a
+    inclusao do calculo de mach tip (vindo da velocidade tangencial devido ao
+    rpm) e o mach helicoidal (composicao tangencial e freestream)" and "no
+    plan, eu quero que avise se tem pontos da polar que podem exceder mach
+    helicodal = 1". Evidence:
+    `tests/tier1_offline/test_goal035_rotor_mach.py`.*
+
+    Every point of an `unsteady_rotor` row, of a `steady` row that states
+    `RPM`, and of a row naming an actuator disc states
+    `M_tip = Omega R / a` and `M_hel = sqrt(V^2 + (Omega R)^2) / a`, with
+    `Omega = 2 pi RPM / 60`, `R` half the rotor diameter (a disc's
+    `tip_radius_m`) and `V`, `a` the point's resolved free stream and speed of
+    sound; at `V = 0`, `M_hel = M_tip`. They are computed in one place
+    (`pyflightstream.cases.workflows.rotor_mach_numbers`).
+
+    - `pyfs-matrix plan` prints both per rotor per point, `plan.json` carries
+      them under `rotor_mach`, and the plan WARNS, naming the point, its rotor
+      and its value, when `M_hel >= 1`. It never refuses for it.
+    - A rotor of unknown radius is named with the row instead of a number.
+    - The run record carries the block, and the rotor table gains two LAST
+      columns, `MTIP_<alias>` and `MHEL_<alias>`, so every existing column
+      keeps its position.
+
+    **Solution (0.30.0).** `docs/post-processing-definitions.md`, "Tip and
+    helical Mach numbers". **Trace.** The test above.
+
+!!! requirement "FR-177 The user guides ship as numbered decks under guide/ <span class='srs-implemented'>implemented</span>"
+
+    *Origin: her instruction of 2026-09-28, "vamos enumerar os guias tambem,
+    fica na ordem: geral workspaces, gui to pyfs, references (novo, explicando
+    arquivo refs), setup, pproc, fsi, python enviroment installation for
+    offline machines". Evidence: `tests/tier1_offline/test_guide_decks.py`
+    and `tests/tier1_offline/test_house_style.py`.*
+
+    The guides are decks in `guide/` with their LaTeX sources
+    (`guide/latex-sources/`), their build recipe and their compiled PDFs, each
+    ending on numbered references, licensed CC BY 4.0
+    (`guide/LICENSE-AND-AUTHORSHIP.md`). Since 0.31.0 they are eight, named
+    `pyfts-guide-00` to `pyfts-guide-07`, guide 00 being the overview read
+    first. A PDF may be tracked under `guide/` and nowhere else: the
+    forbid-pdf hook, the CI guard job and the tier-1 walk of the tracked files
+    carry the same exemption, and a test shows the hook and the job refuse
+    exactly what the walk refuses.
+
+    **Solution (0.30.0 seven decks, 0.31.0 eight and renamed).** **Trace.**
+    The test files above.
+
+!!! requirement "FR-178 Every console command ends with a signature and prints a readable log <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the console of 0.30.0. Evidence:
+    `tests/tier1_offline/test_cli_signature.py` and
+    `tests/tier1_offline/test_clean_log.py`.*
+
+    Every console command ends with a box on stderr: an ASCII drawing 81
+    columns wide with a phrase, a blank line before and after. A successful
+    post is always the koala; another success, a failure and a cancellation
+    each draw from their own drawings. `--help` and `--version` keep one short
+    line, and the box never changes stdout or the exit code. The run banner
+    draws one of two aircraft at random.
+
+    A warning of the package's own categories prints as
+    `[warning] <message>`, without the installed file's path, line number or
+    echoed source line; Python callers keep Python's standard warnings. The
+    stage lines print the workspace root once, absolute, and paths under it
+    relative. `run --force-rerun` says one line per simulation with a count.
+    `logs/activity.log` keeps every point and absolute paths, and `--verbose`
+    of `run`, `collect` and `post` prints the full format again.
+
+    **Solution (0.30.0).** The signature and the warning formatter of
+    `pyflightstream.run.cli` and `pyflightstream._console`. **Trace.** The
+    test files above.
+
+!!! requirement "FR-179 The plan console is laid out in titled blocks <span class='srs-implemented'>implemented</span>"
+
+    *Origin: her words of 2026-09-29: "claude, ainda to achando o log dificil
+    de ler, talvez vale um espaco entre linhas" and "eu como usuaria nao sei o
+    que eu to olhando sabe? o que cada bloco diz, etc"; she placed it inside
+    0.31.0 (P13, "Dentro da 0.31.0"). Evidence:
+    `tests/tier1_offline/test_goal036_console_blocks.py` (P0310-CONSOLE-BLOCKS).*
+
+    The console of `pyfs-matrix plan` is laid out in blocks, each with a title
+    line saying what it is and one blank line between two: the header, `Warnings
+    (n)`, `Cases`, `Blocked points (n)`, `Rotor Mach numbers`, `Quasi-steady
+    validity per point`, `Solver setup per case`, `Solver cost per point` and
+    `Files written`. A block with nothing to say is not printed.
+
+    - Every console warning of the package, under any command, is wrapped at
+      90 columns under its text and followed by a blank line, its words
+      unchanged.
+    - The `[continuation] started` and `finished` lines print only with
+      `--verbose`, which `plan` accepts; `logs/activity.log` records them as
+      before.
+    - Warnings stay on stderr and the blocks on stdout; the exit codes,
+      `plan.json` and every product are unchanged.
+
+    **Solution (0.31.0).** **Trace.** The test above.
+
+!!! requirement "FR-180 An unsteady rotor point writes a per-revolution product with its drift <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G2 of the 0.31.0 scope (P0310-G2-PER-REV). Evidence:
+    `tests/tier1_offline/test_goal036_per_revolution.py`.*
+
+    An `unsteady_rotor` point writes
+    `probes/<point>_per_revolution_<ALIAS>.csv` for each rotor its row turns:
+    one row per COMPLETE revolution, read from the written plots table, with
+    the mean of every plotted column and, from the second revolution on, each
+    column's drift from the previous revolution in percent (`NA` where that
+    mean is zero). A trailing partial revolution is excluded and said.
+
+    - The pproc may declare `[per_revolution] drift_limit_pct` (positive,
+      default 1); when the last revolution's drift of a force or moment column
+      exceeds it, `post.log` carries a WARNING naming the point, rotor, column,
+      drift and limit, and nothing is blocked.
+
+    **Solution (0.31.0).** Defined in `docs/post-processing-definitions.md`.
+    **Trace.** The test above.
+
+!!! requirement "FR-181 A rotor point writes a per-station harmonic product <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the harmonic product of the 0.31.0 scope (P0310-HARMONICS).
+    Evidence: `tests/tier1_offline/test_goal036_harmonics.py`.*
+
+    A rotor point writes `sections/<point>_harmonics.csv`: per rotor, blade
+    station and sectional load quantity (`Fx`, `Fz`, `Moment`), the
+    least-squares `H0 + A1 cos(psi - PHI1) + A2 cos(2 psi - PHI2)` over every
+    sample of the station, `psi` being the blade azimuth the written sections
+    state. A wheel fits every blade at every clocking; an `unsteady_rotor`
+    point every blade over its last complete revolution. `PHI` is in degrees in
+    [0, 360).
+
+    - A harmonic whose station has fewer distinct azimuths than it needs (1P
+      3, 2P 5) is `NA`, said once in `post.log`.
+    - A station that does not match across samples, and an `unsteady_rotor`
+      point with no sections series, no export window or no rotor record, is
+      a named skip with a WARNING.
+    - The product is registered in `products.json` (`kind` `harmonics`).
+
+    **Solution (0.31.0).** `pyflightstream.post.harmonics`. **Trace.** The test
+    above.
+
+!!! requirement "FR-182 Each blade and each clocking states its own azimuth <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the azimuth corrections of the 0.31.0 scope
+    (P0310-H2-BLADE-AZIMUTH). Evidence:
+    `tests/tier1_offline/test_goal036_blade_azimuth.py` and
+    `tests/tier1_offline/test_goal036_positions_azimuth.py`.*
+
+    A block of an `unsteady_rotor` sections table or series that cuts the
+    families of one blade states THAT blade's azimuth: blade `n` of `N` at blade
+    one's plus `(n - 1) 360 / N`, through
+    `pyflightstream.post.axes.placed_blade_azimuth_deg`. A block over several
+    blades or the general families keeps blade one's, and blade one's rows are
+    unchanged. A wheel's blade `n` at clocking `i` is at
+    `pyflightstream.post.axes.clocked_blade_azimuth_deg`, `datum + sign(rpm)
+    theta_i`, and the clockings table `_qs_positions.csv` reads the same rule,
+    so a left-hand wheel (`rpm_sign` -1) states `datum - theta_i`.
+
+    **Solution (0.31.0).** The two public functions above. **Trace.** The test
+    files above.
+
+!!! requirement "FR-183 A clocked wheel cuts, exports and tabulates its sections at every clocking <span class='srs-implemented'>implemented</span>"
+
+    *Origin: G1 of the 0.31.0 scope, confirmed on 26.124 (RPT-094). Evidence:
+    `tests/tier1_offline/test_goal036_wheel_sections.py`.*
+
+    A `qsteady_rotor` wheel of `PASSAGE_POSITIONS` 2 or more exports its
+    sections, sectional loads and section Cp at every clocking: each clocking
+    deletes the previous clocking's distributions, turns the wheel,
+    initializes, creates them again in frames turned with the wheel and held
+    there, updates and exports them as `<point>_qs<i>_cp.txt`,
+    `<point>_qs<i>_sloads.txt` and `<point>_qs<i>_plot_cp_sections.txt`. Every
+    clocking is cut at the same stations, and the point's quasi-steady record
+    names each clocking's files (`section_exports`).
+
+    - A wheel whose pproc cuts its sections in `LOCAL_AXIS` places one frame
+      per blade, `<ALIAS>_RMRP<k>`, at the blade's azimuth.
+    - `sections/<point>_sections.csv` and each distribution's loads and Cp file
+      gain a `CLOCKING` column and a block of rows per clocking; a clocking not
+      cut at clocking 0's stations is warned, and a missing export is named in
+      `products.json`.
+
+    **Solution (0.31.0).** **Trace.** The test above.
+
+!!! requirement "FR-184 Custom free-stream files are built from other fields by named operations <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the field operations of the 0.31.0 scope (G6). Evidence:
+    `tests/tier1_offline/test_goal036_field_operations.py`.*
+
+    `pyfs-workspace field mirror|move|subtract|time-mean` builds a custom
+    free-stream file of `inputs/freestreams/`: mirrored through the plane
+    `x`, `y` or `z = 0` (`--plane`); moved so a source point lands on a target
+    point; `total - (other - reference)` point by point on one grid, with the
+    reference free stream REQUIRED (`--reference VX VY VZ`); or the time mean of
+    an unsteady run's equally spaced per-step fields. Values are metres and
+    metres per second in the global frame, nothing converted.
+
+    - A different grid on `subtract` is refused, naming both files.
+    - Each operation previews by default, writes only with `--apply` (the file
+      and `<stem>.provenance.json` naming the operation, its parameters and the
+      sha256 of every input), and never overwrites without `--overwrite`.
+
+    **Solution (0.31.0).** `pyflightstream.workspace.fields`
+    (`mirror_field`, `move_field`, `subtract_fields`); see
+    `docs/field-operations.md`. **Trace.** The test above.
+
+!!! requirement "FR-185 The wheel's correction machinery applies a fitted calibration beside the raw product <span class='srs-implemented'>implemented</span>"
+
+    *Origin: her answer P9 of 2026-09-29, "Tudo, inclusive R1 (Recomendado)",
+    which shipped routes 2 and 4 and only a diagnostic for route 1. Evidence:
+    `tests/tier1_offline/test_goal036_qsteady_corrections.py`
+    (P0310-CAL-SCHEMA, P0310-ROUTE2, P0310-ROUTE4, P0310-APPLY-*).*
+
+    A pproc's `[qsteady_correction]` table names a `route` (`none`, the
+    default; `table`, a calibration you fitted, route 4; `sector_offset`, a 0P
+    offset from an axial unsteady sector run, route 2), the `file` of its
+    calibration, `inputs/calibrations/<id>.toml` (an input kind created by
+    `pyfs-workspace init`), and a `diagnostic`. It is off by default and NOT
+    VALIDATED.
+
+    - A calibration's rows name a component, its place on `J`, `ALPHA` and
+      `K_1P`, and `OFFSET_0P`, `GAIN_0P`, `GAIN_1P`, `PHASE_1P_DEG`; the rows
+      form a tensor grid interpolated multilinearly and never extrapolated (a
+      point outside is `NA`, named and warned).
+    - A file that cannot be read is refused whole naming the line
+      (`CalibrationError`), at plan and at post.
+    - The post writes `<name>_corrected.csv` BESIDE the raw rotor table,
+      average table, harmonic product and sections, never over them. Each ends
+      with `CORRECTION_ROUTE` and `CALIBRATION_SHA256`, and its `products.json`
+      entry names the raw file, the route, the calibration, its sha256, the
+      grid cells used and "not validated".
+    - Everything runs at post; no route needs a new run.
+
+    **Solution (0.31.0).** `pyflightstream.post.corrections`, including
+    `sector_offset_calibration`; the input template names the
+    `[per_revolution]` and `[qsteady_correction]` tables and the calibration
+    file; see `docs/qsteady-corrections.md`. **Trace.** The test above.
+
+!!! requirement "FR-186 The Theodorsen and Sears diagnostic corrects nothing, and the other routes are refused <span class='srs-implemented'>implemented</span>"
+
+    *Origin: her answer P9 of 2026-09-29 (route 1 only as a diagnostic).
+    Evidence: `tests/tier1_offline/test_goal036_qsteady_corrections.py`
+    (P0310-ROUTE1-DIAGNOSTIC, P0310-ROUTE3-REFUSED).*
+
+    `diagnostic = "theodorsen"` writes `sections/<point>_theodorsen.csv`: per
+    station `K_1P`, `C(k)` and `S(k)` (modulus and phase), beside the measured
+    1P amplitude and phase of the harmonic product. The Bessel functions of
+    orders 0 and 1 are the package's own, held to 1e-10, since scipy is not a
+    core dependency.
+
+    - Route 1 asked as a correction, and route 3 (`dynamic_inflow`,
+      `skewed_wake`, `pitt_peters`, `coleman`), are refused where the pproc or
+      the calibration is read, each with its reason.
+
+    **Solution (0.31.0).** `pyflightstream.post.corrections.bessel_j` and
+    `bessel_y`. **Trace.** The test above.
+
+!!! requirement "FR-187 A wheel point states its rotor state <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the rotor state the correction routes read, 0.31.0. Evidence:
+    `tests/tier1_offline/test_goal036_rotor_state.py`.*
+
+    A wheel point states `CT_ROTOR` (`T / (rho A (Omega R)^2)`), `CT_PROPELLER`
+    (`T / (rho n^2 D^4)`), `MU_ROTOR` and `LAMBDA_C` (the free stream in and
+    through the disc over the tip speed), the momentum-theory induced inflow
+    `LAMBDA_I` (Glauert, solved by Newton to 1e-10) and the wake skew
+    `CHI_DEG`, from the mean thrust over its clockings. They follow the validity
+    columns in `_qs_avg.csv` and sit under `rotor_state` in
+    `<point>_qsteady_validity.json`. An inflow that does not converge is `NA`
+    with a WARNING in `post.log`.
+
+    **Solution (0.31.0).** `pyflightstream.cases.qsteady.glauert_induced_inflow`
+    and `pyflightstream.post.axes.free_stream_on_rotor_axis`. **Trace.** The
+    test above.
+
+!!! requirement "FR-188 The rotor table states the rotor's in-plane coefficients <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the in-plane loads of the 0.31.0 scope. Evidence:
+    `tests/tier1_offline/test_goal036_rotor_in_plane.py`.*
+
+    The rotor table states, as its last four columns after `MTIP_<alias>` and
+    `MHEL_<alias>`, `CN_<alias>`, `CS_<alias>`, `CMN_<alias>` and `CMS_<alias>`:
+    the force along the rotor's normal and side axes over `rho n^2 D^4` and the
+    moment about them at the hub over `rho n^2 D^5`. The axes `(T, S, N)` are
+    right-handed: `T` the rotor's axis, `N` the part of the reference frame's up
+    (+z) square to it, `S = N x T`. A rotor whose axis lies along up reads `NA`
+    in the four, said once in the post log.
+
+    **Solution (0.31.0).** `post.axes.rotor_in_plane_axes` and
+    `rotor_in_plane_loads`; defined in `docs/post-processing-definitions.md`.
+    **Trace.** The test above.
+
+!!! requirement "FR-189 The quasi-steady record has one type, one reader and one refusal <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the record consolidation of the 0.31.0 scope. Evidence:
+    `tests/tier1_offline/test_goal036_qsteady_record.py`.*
+
+    `<point>_qsteady.json` is read as a `QsteadyRecord` by
+    `pyflightstream.cases.qsteady.read_qsteady_record`, which raises
+    `QsteadyRecordError` for a record that is missing, unreadable or of another
+    schema. The file the builder writes is byte for byte what 0.30.0 wrote.
+
+    - The run never ignores an unreadable record in silence: it judges the
+      point's log as one solve and records a warning on the point.
+    - The post names each product such a point loses in `products.json` and
+      `post.log`; a missing record is named as what it is.
+
+    **Solution (0.31.0).** The two readers it replaces are removed.
+    **Trace.** The test above.
+
+!!! requirement "FR-190 The rotor table of a wheel is the mean of its clockings <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the wheel table of the 0.31.0 scope. Evidence:
+    `tests/tier1_offline/test_goal036_rotor_mean.py`.*
+
+    A wheel point's row of `polars/P<sim>-<ALIAS>_rotor.csv` is taken from the
+    rotor's force and moment averaged over the point's `k` clockings, each
+    clocking's own loads export, and `CT`, `CQ`, `CP`, `ETA`, `ETAW`, `CN`, `CS`,
+    `CMN` and `CMS` are computed from those mean loads, never as a mean of
+    per-clocking `ETA`. The table's `products.json` entry states `"source":
+    "mean of k clockings"` and `"clockings": k`. A wheel point whose clocking
+    export is missing is not a row and is named in `skipped`. A sector's row is
+    unchanged.
+
+    **Solution (0.31.0).** The 0.30.0 numbers remain a valid record of
+    clocking 0. **Trace.** The test above.
+
+!!! requirement "FR-191 A wheel's thrust and torque shares are taken along the rotor's axis <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the share defect of the 0.31.0 scope, confirmed on 26.124
+    (RPT-094). Evidence: `tests/tier1_offline/test_goal036_thrust_axis.py`.*
+
+    `THRUST_PCT_K_GT_0_1` and `TORQUE_PCT_K_GT_0_1` project each station's force
+    on the record's `axis_vector`, stated in the frame the distribution was cut
+    in, and take the torque as the moment of its in-plane component about the
+    axis. A share reads `NA`, with a WARNING in `post.log`, where the frame's
+    axes or the plane are not known, where a station states its `Fx`, `Fz` or
+    `Offset` as `NA` (a gap is never read as a zero load), where the total is
+    zero, or where stations of opposite sign put it outside 0 to 100 percent. A
+    cut in the frame's XZ or XY plane is read; a YZ cut reads `NA`.
+
+    **Solution (0.31.0).** `pyflightstream.post.axes.section_station_shaft_loads`.
+    **Trace.** The test above.
+
+!!! requirement "FR-192 A quasi-steady row resolves its advance ratio against the rotor block's own diameter <span class='srs-implemented'>implemented</span>"
+
+    *Origin: the diameter rule of FR-63 for `unsteady_rotor` extended to
+    the quasi-steady run type, 0.31.0. Evidence:
+    `tests/tier1_offline/test_goal036_qsteady_own_diameter.py`.*
+
+    A `qsteady_rotor` row that states `ADVANCE_RATIO` resolves `J`, and so the
+    rotor speed `n = V / (J D)`, against the rotor block's own `diameter_m`, as
+    an `unsteady_rotor` row does, instead of the reference's top-level
+    `rotor_diameter_m`.
+
+    **Solution (0.31.0).** **Trace.** The test above.
+
+!!! requirement "FR-193 The repeated-POL census reads the matrices that sync reads <span class='srs-implemented'>implemented</span>"
+
+    *Origin: her answer P12 of 2026-09-29, "Entra na 0.31 (Recomendado)".
+    Evidence: `tests/tier1_offline/test_goal036_pol_census.py`
+    (P0310-POL-CENSUS).*
+
+    `pyfs-matrix plan` compares POLs across `<root>/*.fs` and
+    `<root>/inputs/matrices/*.fs`, the two folders that sync and storage read,
+    so a POL repeated between them, which would share one simulation folder, is
+    seen. A matrix planned from any other folder plans with a warning naming
+    it and saying that sync and the census do not see it.
+
+    **Solution (0.31.0).** One function, `pyflightstream.workspace.matrix_files`,
+    lists the matrices for the census, storage and sync. **Trace.** The test
+    above.
+
+!!! requirement "FR-194 The change log names the requirement of every capability it lists <span class='srs-implemented'>implemented</span>"
+
+    *Origin: her request of 2026-09-29: "eu tambem quero que todas essas novas necessidades atendidas pelo pyflightstream nos ultimos releases sejam refletidas no src. Eu trouxe aqui as necessidade, debatemos requisito e solucao, mas nem tudo foi parar na documentacao do src". Evidence: `tests/tier1_offline/test_srs_changelog.py` (P0320-SRS-CHANGELOG).*
+
+    Every top-level bullet of the Added and Changed sections of every release
+    from 0.25.0 on, and of every `changelog.d` fragment, cites a requirement
+    id that a page under `docs/srs/` defines, or says
+    `(no requirement: <reason>)`. The sections headed as the type-checker debt
+    are a measurement and are excluded.
+
+    - A definition is an SRS admonition title, a heading or the first cell of a
+      table row.
+    - A bullet that cites nothing, or cites an id no page defines, fails the
+      test naming the release and quoting the bullet.
+
+    **Solution (0.32.0).** The tier-1 test, parametrised by release and by
+    fragment, with a control that the parser reads the releases it claims to
+    read and refuses an uncited bullet. **Trace.** The test above.

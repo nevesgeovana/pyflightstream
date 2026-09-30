@@ -152,6 +152,7 @@ nav:
   - Migration:
       # One section, newest first, so a release adds a line here.
       - Release notes: release-notes.md
+      - Migrating to 0.32.0: migrating-to-0.32.0.md
       - Migrating to 0.31.0: migrating-to-0.31.0.md
       - Migrating to 0.30.0: migrating-to-0.30.0.md
       - Migrating to 0.29.0: migrating-to-0.29.0.md
