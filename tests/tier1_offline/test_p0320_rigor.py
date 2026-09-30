@@ -256,3 +256,65 @@ def test_p0320_qs_j_a_requested_j_is_kept_and_a_missing_free_stream_stays_na(tmp
     bare.mkdir()
     unknown = _qs_tables(bare, {"ALPHA": 5.0})
     assert unknown["avg"][0]["J"] == "NA" and unknown["avg"][0]["J_CLOCK"] == "NA"
+
+
+# --- review of package J: the gaps the mutants found ---------------------------------
+
+
+def test_p0320_qs_j_the_ratio_uses_the_magnitude_of_the_speed_and_refuses_what_is_not_a_number():
+    """P0320-QS-J: J = V / (n D) with |n|; a missing or unusable input gives None."""
+    from pyflightstream.post._tables import rotor_advance_ratio
+
+    assert rotor_advance_ratio(30.0, 1200.0, 2.0) == pytest.approx(0.75)
+    assert rotor_advance_ratio(30.0, -1200.0, 2.0) == pytest.approx(0.75)
+    for bad in (
+        (None, 1200.0, 2.0),
+        (30.0, None, 2.0),
+        (30.0, 1200.0, None),
+        (30.0, 0.0, 2.0),
+        (30.0, 1200.0, 0.0),
+        (30.0, 1200.0, -2.0),
+        (True, 1200.0, 2.0),
+        (30.0, float("nan"), 2.0),
+        (float("inf"), 1200.0, 2.0),
+        ("30", 1200.0, 2.0),
+    ):
+        assert rotor_advance_ratio(*bad) is None, bad
+
+
+def test_p0320_tol_0291_the_printed_digits_are_refused_when_not_a_positive_whole_number():
+    """P0320-TOL-0291: a bool, a float or fewer than one digit is refused, never guessed."""
+    import numpy as np
+
+    from pyflightstream._errors import PyflightstreamError
+    from pyflightstream.results.native_surface import native_match_tolerance
+
+    points = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+    for bad in (0, -3, True, 7.0):
+        with pytest.raises(PyflightstreamError, match="digits"):
+            native_match_tolerance(points, printed_digits=bad)  # type: ignore[arg-type]
+
+
+def test_p0320_tol_0291_a_native_of_short_exact_numbers_states_no_precision(tmp_path):
+    """P0320-TOL-0291: whole numbers are exact, not a one-digit print, so no half-magnitude slack.
+
+    A file that prints 100000 and 101000 shows one and two digits by their
+    text, but they are exact values. A print precision below four
+    digits is not stated, because it would grant half the coordinate as slack.
+    """
+    import numpy as np
+
+    from pyflightstream.results.native_surface import (
+        native_match_tolerance,
+        native_printed_digits,
+    )
+    from tests.tier1_offline.test_native_nodal_surface import _native_at, _vtk
+
+    truth = _vtk().points * 1000.0 + np.array([100000.0, 0.0, 0.0])
+    path = _native_at(tmp_path / "whole.dat", truth, spelling=".0f")
+    digits = native_printed_digits(path)
+    assert digits is None
+    limits = native_match_tolerance(truth, printed_digits=digits)
+    assert limits[0] < 1e-3 * float(np.abs(truth[:, 0]).max())
+    missing = native_printed_digits(tmp_path / "absent.dat")
+    assert missing is None

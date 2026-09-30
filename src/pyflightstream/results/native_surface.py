@@ -362,13 +362,21 @@ def _significant_digits(token: str) -> int:
     return max(1, len(digits))
 
 
+#: Fewer significant digits than this, at most, are exact short numbers and not a
+#: print precision (see :func:`native_printed_digits`).
+_MIN_PRINTED_DIGITS = 4
+
+
 def native_printed_digits(source: str | Path) -> int | None:
     """Return the significant digits a native export printed its coordinates at.
 
     The most any coordinate of the first zone shows, which is the printing
     precision because a number printed at ``d`` digits shows ``d`` unless its
     tail is zeros. None when the file's first zone cannot be read that way, in
-    which case the caller states nothing and the default rule stands.
+    which case the caller states nothing and the default rule stands. A count
+    under :data:`_MIN_PRINTED_DIGITS` is a file of short exact numbers (whole
+    coordinates, say), not a print precision: read as one it would grant half
+    the coordinate as slack, so it also states nothing.
     """
     try:
         with Path(source).open(encoding="utf-8-sig") as stream:
@@ -386,7 +394,7 @@ def native_printed_digits(source: str | Path) -> int | None:
                     best = max(best, _significant_digits(token))
                     seen += 1
                     if seen >= 3 * nodes:
-                        return best or None
+                        return best if best >= _MIN_PRINTED_DIGITS else None
     except (OSError, ValueError):
         return None
     return None
