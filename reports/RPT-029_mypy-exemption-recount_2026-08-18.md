@@ -91,7 +91,10 @@
 > to 159, and by the run of 2026-09-30 on `rel/0-33` with WP3 and FR-320
 > merged, which holds the 158 and all fifteen new modules, 173, which the
 > run of 2026-10-01 on `rel/0-33` with FR-96 also merged, adding no module,
-> reads again. (An
+> reads again, and by the run of 2026-10-01 on the 0.33.0 branch of work
+> package WP5 (`feat/0-33-wp5`, from `rel/0-33` at `56f7b8bd`), whose twelve
+> new modules, cut out of `post/products.py` (AD-13), brought it from 173 to
+> 185. (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
 > modules and the 0.24.0 tree at 661 in 18 of 93; the 0.28.0 release tree read
 > 863 errors in 18 of 104 on 2026-09-25; the 0.29.0 quality-gate candidate
@@ -107,22 +110,26 @@
 > 18 of 158, the branch of WP3 1130 in 18 of 172, the branch of FR-320
 > 1133 in 18 of 159, `rel/0-33` with WP3 merged 1130 in 18 of 172 and
 > `rel/0-33` with WP3 and FR-320 merged 1130 in 18 of 173, all on
-> 2026-09-30, and the branch of FR-96 1125 in 18 of 158 on 2026-10-01;
+> 2026-09-30, the branch of FR-96 1125 in 18 of 158 and `rel/0-33` with
+> FR-96 merged 1122 in 18 of 173 on 2026-10-01;
 > measurements of different
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 1122 errors in 18 files (checked 173 source files)
->     Success: no issues found in 173 source files
+>     Found 1122 errors in 18 files (checked 185 source files)
+>     Success: no issues found in 185 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-10-01: 1122 errors in 18 of 173 modules.**
+**mypy recount 2026-10-01: 1122 errors in 18 of 185 modules.**
 
-The module total is the 173 the tracked package holds on `rel/0-33` with
-work package WP3, FR-320 and FR-96 merged (FR-96 adds no module),
+The module total is the 185 the tracked package holds on the branch of work
+package WP5, twelve more than the 173 of `rel/0-33` with work package WP3,
+FR-320 and FR-96 merged, each of the twelve clean (the modules AD-13 cut out
+of `post.products`); those 173 are the ones `rel/0-33` holds with work
+package WP3, FR-320 and FR-96 merged (FR-96 adds no module),
 fifteen more than the 158 of `rel/0-33` with work packages WP1 and WP2, FR-310 to FR-314 and FR-316 to
 FR-319 merged, each of the fifteen clean (the fourteen modules AD-11 cut
 out of `post.guides`, the `results` root, `run.records` and
@@ -139,7 +146,7 @@ v0.31.0's own 139 were five more than
 v0.30.0's 134, each of the five clean;
 the error total sits inside the exempted set, the number of modules holding
 an exemption is unchanged at eighteen, and the shipped configuration is
-green over all 173. The run at 139 was taken by `python scripts/mypy_recount.py`
+green over all 185. The run at 139 was taken by `python scripts/mypy_recount.py`
 on the 0.31.0 release candidate at `33c1d7ef`, which the script reported
 clean, and the runs at 149 and 150 are stated in their own sections at the end; the v0.30.0 release tree's reading, 1065 errors in 18 of 134, is
 stated in its own section below.
@@ -418,11 +425,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 1122 errors in 18 files (checked 173 source files)
+    Found 1122 errors in 18 files (checked 185 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 173 source files
+    Success: no issues found in 185 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -1084,3 +1091,22 @@ the branch reworked, and `run/_continuation_frame.py`, which it extends,
 stays clean. The dirty count still reads 18 and the shipped configuration is
 green over all 173. The quoted mypy lines and the sentence at the top of
 this report are this run's.
+
+## Re-measured 2026-10-01, the branch of WP5: twelve modules added, no error added
+
+`python scripts/mypy_recount.py` on 2026-10-01, on the branch of work package
+WP5 (`feat/0-33-wp5`, from `rel/0-33` at `56f7b8bd`) with its two commits
+`b8af5de3` and `a466d23b` and the retargeting of the tests in the working
+tree (no package module among the uncommitted paths but a docstring of
+`post/products.py`), with python 3.12.0, numpy 2.5.3, xarray 2026.7.0, pandas
+3.0.6 and pydantic 2.13.5 (the script printed mypy's version as unknown):
+1122 errors in 18 of 185 modules on 189 distinct source lines. The twelve
+modules AD-13 cut out of `post.products` (`post/_additional.py`,
+`post/_admit.py`, `post/_condition.py`, `post/_reduction_stage.py`,
+`post/_rotor_plan.py`, `post/_rotor_products.py`, `post/_sim.py`,
+`post/_stage.py`, `post/point_tables.py`, `post/polar.py`,
+`post/rotor_table.py` and `post/unsteady_polar.py`) are each clean, as
+`post.products` was; the error total and the eighteen dirty modules are those
+of `rel/0-33` at `56f7b8bd`, and the shipped configuration is green over all
+185. The quoted mypy lines and the sentence at the top of this report are
+this run's.

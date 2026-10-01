@@ -74,6 +74,12 @@ NUMPYDOC_PENDING = {
     "post/input_template.py",
     "post/probe_fields.py",
     "post/products.py",
+    # WP5 (AD-13) moved the pending functions of `post.products` into the four
+    # family modules, which are pinned in their stead.
+    "post/point_tables.py",
+    "post/polar.py",
+    "post/rotor_table.py",
+    "post/unsteady_polar.py",
     "results/core.py",
     "results/loads.py",
     "results/log.py",

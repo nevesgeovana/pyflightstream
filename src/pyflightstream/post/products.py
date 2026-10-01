@@ -77,6 +77,17 @@ written before differ from one written now by that much, and its ``CDB`` and
 ``CLB`` differ from the ``Cx`` and ``Cz`` printed in the same export. The 27 recorded polars that
 :func:`write_recorded_polar` regenerated as equal text on 2026-09-03 are
 therefore no longer equal text in those four columns.
+
+SINCE 0.33.0 (AD-13) THIS MODULE IS THE CAMPAIGN STAGE AND THE FACADE. The
+families it wrote are sibling modules: :mod:`pyflightstream.post.polar`,
+:mod:`pyflightstream.post.rotor_table`, :mod:`pyflightstream.post.unsteady_polar`
+and :mod:`pyflightstream.post.point_tables`, each with an exact ``__all__`` that
+this module re-exports, so every name of its ``__all__`` and every 0.32.0 import
+path is kept. One simulation's products are written by the private simulation
+stage (:mod:`pyflightstream.post._sim`) over one frozen ``SimContext``; what is
+left here is :func:`write_campaign_products`, which walks the campaign, writes
+the series, the superfiles and the additional post, and keeps the manifest and
+the post log.
 """
 
 from __future__ import annotations
@@ -116,26 +127,13 @@ from pyflightstream.post._condition import (
     _resolve_post_pproc,
     _simulation_metadata,
 )
-from pyflightstream.post._condition import _free_stream_and_sound as _free_stream_and_sound
-from pyflightstream.post._condition import _last_time_step as _last_time_step
-from pyflightstream.post._condition import _matrix_window as _matrix_window
-from pyflightstream.post._condition import _section_rotors as _section_rotors
-from pyflightstream.post._condition import _stated_window as _stated_window
 from pyflightstream.post._condition import clock_rotor_facts as clock_rotor_facts
 from pyflightstream.post._condition import point_condition as point_condition
 from pyflightstream.post._condition import point_state as point_state
-from pyflightstream.post._reduction_stage import _drift_limit_pct as _drift_limit_pct
-from pyflightstream.post._reduction_stage import _point_reductions as _point_reductions
-from pyflightstream.post._rotor_plan import _plot_name_can_emit as _plot_name_can_emit
-from pyflightstream.post._rotor_plan import _rotor_surfaces_carried as _rotor_surfaces_carried
-from pyflightstream.post._rotor_plan import _rotor_tables as _rotor_tables
 from pyflightstream.post._rotor_plan import rotor_plot_source as rotor_plot_source
-from pyflightstream.post._rotor_products import _acoustic_products as _acoustic_products
 from pyflightstream.post._rotor_products import (
     _point_series,
 )
-from pyflightstream.post._rotor_products import _qsteady_sections as _qsteady_sections
-from pyflightstream.post._rotor_products import _qsteady_super_cells as _qsteady_super_cells
 from pyflightstream.post._sim import _sim_products
 from pyflightstream.post._stage import (
     _POST_LOG,
@@ -154,13 +152,6 @@ from pyflightstream.post._stage import (
     _surface_export_skip,
     _warning_record,
 )
-from pyflightstream.post._stage import _frozen_window_reason as _frozen_window_reason
-from pyflightstream.post._stage import _judge_average as _judge_average
-from pyflightstream.post._stage import (
-    _refuse_aliases_a_file_name_cannot_tell_apart as _refuse_aliases_a_file_name_cannot_tell_apart,
-)
-from pyflightstream.post._stage import _the_plan_of_a_reduction as _the_plan_of_a_reduction
-from pyflightstream.post._stage import _window_the_reduction_reads as _window_the_reduction_reads
 from pyflightstream.post._stage import freeze_of_log as freeze_of_log
 from pyflightstream.post._tables import _DECIMALS as _DECIMALS
 from pyflightstream.post._tables import (
@@ -195,7 +186,6 @@ from pyflightstream.post._tables import (
 )
 from pyflightstream.post._tables import COEFFICIENT_COLUMNS as COEFFICIENT_COLUMNS
 from pyflightstream.post._tables import ReferenceValues as ReferenceValues
-from pyflightstream.post._tables import _mach_code as _mach_code
 from pyflightstream.post._tables import polar_file_name as polar_file_name
 from pyflightstream.post.custom_polar import (
     CUSTOM_DATE_FORMAT as _CUSTOM_DATE_FORMAT,  # noqa: F401
@@ -256,7 +246,6 @@ from pyflightstream.post.polar import (
     write_recorded_polar,
 )
 from pyflightstream.post.polar import declined_induced_drag as declined_induced_drag
-from pyflightstream.post.polar import group_polar_rows as _polar_rows  # noqa: F401
 from pyflightstream.post.polar import group_polar_rows as group_polar_rows
 from pyflightstream.post.polar import polar_table_rows as polar_table_rows
 from pyflightstream.post.provenance import PRODUCT_ARCHIVE_DIR as PRODUCT_ARCHIVE_DIR

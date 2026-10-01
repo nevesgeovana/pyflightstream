@@ -6,11 +6,11 @@ from types import SimpleNamespace
 import pytest
 
 from pyflightstream.cases import ForcePlotGroup
+from pyflightstream.post._rotor_plan import _rotor_tables
 from pyflightstream.post.products import (
     PolarPoint,
     ProductError,
     ReferenceValues,
-    _rotor_tables,
     global_frame_plot_groups,
     read_csv_table,
     rotor_plot_source,

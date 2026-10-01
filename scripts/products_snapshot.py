@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compare the post stage's products with the committed byte snapshot (GOAL-038 arm A4).
 
-    python scripts/products_snapshot.py [--out C:/WORK/release-0330/wp5_snapshot.json]
+    python scripts/products_snapshot.py --out <release folder>/wp5_snapshot.json
     python scripts/products_snapshot.py --write
 
 The snapshot and its campaigns are defined in
@@ -27,24 +27,30 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-DEFAULT_OUT = Path("C:/WORK/release-0330/wp5_snapshot.json")
 
 
 def _git(*args: str) -> str:
     return subprocess.run(
-        ["git", *args], cwd=REPO, capture_output=True, text=True, check=True
+        ["git", *args],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=True,
+        # Git reads nothing of the environment this script depends on.
+        env=os.environ.copy(),
     ).stdout.strip()
 
 
 def main(argv: list[str] | None = None) -> int:
     """Write the receipt (or store the snapshot) and return 0 when nothing differs."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="the receipt to write")
+    parser.add_argument("--out", type=Path, required=True, help="the receipt to write")
     parser.add_argument("--write", action="store_true", help="store the snapshot anew")
     args = parser.parse_args(argv)
     sys.path[:0] = [str(REPO / "src"), str(REPO)]

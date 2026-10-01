@@ -64,7 +64,9 @@ def test_acoustic_chain_states_the_joined_record_field() -> None:
     assert "among the record's outputs" in text
     assert "cases.acoustics.ACOUSTIC_SIGNALS_SUFFIX" in text
     assert acoustics.ACOUSTIC_SIGNALS_SUFFIX
-    body = _function_source(PACKAGE / "post" / "products.py", "_acoustic_products")
+    # The acoustic products of a record are written by post._rotor_products since
+    # WP5 of 0.33.0 (AD-13) cut the families out of post.products.
+    body = _function_source(PACKAGE / "post" / "_rotor_products.py", "_acoustic_products")
     code = body.split('"""', 2)[2]
     assert "record.outputs" in code
     assert "ACOUSTIC_SIGNALS_SUFFIX" in code

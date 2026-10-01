@@ -20,7 +20,7 @@ from pyflightstream._errors import ProductError
 from pyflightstream.cases.acoustics import AcousticSignal
 from pyflightstream.post import acoustics
 from pyflightstream.post import harmonics as _harmonics
-from pyflightstream.post import products as _products
+from pyflightstream.post._rotor_products import _acoustic_products
 
 FIXTURE = Path(__file__).parent / "data" / "acoustic_signals_probe_a1.txt"
 
@@ -249,7 +249,7 @@ def test_p0320_noise_post_the_post_stage_hook_fr_264(tmp_path):
     skipped: dict[str, str] = {}
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        files, names = _products._acoustic_products(
+        files, names = _acoustic_products(
             _record("P1_acoustic_signals.txt"),
             sim_dir=sim,
             stem="P1",
@@ -271,7 +271,7 @@ def test_p0320_noise_post_the_post_stage_hook_fr_264(tmp_path):
 def test_p0320_noise_post_the_hook_asks_nothing_of_a_plain_record_and_never_blocks_fr_264(tmp_path):
     """P0320-NOISE-POST: no listing is silent; an unreadable export is skipped with a warning."""
     skipped: dict[str, str] = {}
-    quiet = _products._acoustic_products(
+    quiet = _acoustic_products(
         _record(None),
         sim_dir=tmp_path,
         stem="P1",
@@ -283,7 +283,7 @@ def test_p0320_noise_post_the_hook_asks_nothing_of_a_plain_record_and_never_bloc
     )
     assert quiet == ([], {}) and skipped == {}
     with pytest.warns(Warning, match="acoustics"):
-        files, names = _products._acoustic_products(
+        files, names = _acoustic_products(
             _record("gone_acoustic_signals.txt"),
             sim_dir=tmp_path,
             stem="P1",
@@ -351,7 +351,7 @@ def test_p0320_noise_post_an_unwritable_product_never_blocks_the_post_fr_264(tmp
     blocker.write_text("a file where the products folder should be", encoding="utf-8")
     skipped: dict[str, str] = {}
     with pytest.warns(Warning, match="acoustics"):
-        files, names = _products._acoustic_products(
+        files, names = _acoustic_products(
             _record("e_acoustic_signals.txt"),
             sim_dir=sim,
             stem="P1",

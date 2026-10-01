@@ -49,12 +49,8 @@ def _loads_text(speed: float) -> str:
 
 def _rotor_sweep(tmp_path):
     """Plan the rotor table of a two-point sweep through `_rotor_tables`, the stage's planner."""
-    from pyflightstream.post.products import (
-        PolarPoint,
-        ReferenceValues,
-        _rotor_tables,
-        matrix_rows,
-    )
+    from pyflightstream.post._rotor_plan import _rotor_tables
+    from pyflightstream.post.products import PolarPoint, ReferenceValues, matrix_rows
     from pyflightstream.results import parse_loads
     from pyflightstream.workspace import RunRecord
     from tests.tier1_offline.test_post_superfile import _workspace

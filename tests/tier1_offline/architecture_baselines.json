@@ -1408,7 +1408,7 @@
  ],
  "fan_out": {
   "exceptions.py": 36,
-  "post/products.py": 27
+  "post/products.py": 26
  },
  "fan_out_deferred": {},
  "private_test_names": {
@@ -1423,10 +1423,16 @@
   "pyflightstream.options": 2,
   "pyflightstream.overview": 5,
   "pyflightstream.post": 1,
-  "pyflightstream.post._tables": 1,
+  "pyflightstream.post._condition": 6,
+  "pyflightstream.post._reduction_stage": 2,
+  "pyflightstream.post._rotor_plan": 3,
+  "pyflightstream.post._rotor_products": 3,
+  "pyflightstream.post._sim": 1,
+  "pyflightstream.post._stage": 7,
+  "pyflightstream.post._tables": 2,
   "pyflightstream.post.glossary": 1,
   "pyflightstream.post.harmonics": 1,
-  "pyflightstream.post.products": 28,
+  "pyflightstream.post.products": 4,
   "pyflightstream.post.section_distributions": 1,
   "pyflightstream.post.superfile": 1,
   "pyflightstream.probes.geometry": 2,

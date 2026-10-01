@@ -453,6 +453,30 @@ one of them keeps.
     until this package decides whether the two classes of that name
     converge.
 
+    As WP5 landed: four family modules are public, `post.polar` (the group
+    polar, `group_polar_rows`, published from the private `_polar_rows`,
+    and `write_recorded_polar`), `post.rotor_table`, `post.unsteady_polar`
+    and `post.point_tables` (which also holds the per-revolution table), and
+    the stage around them is private: `post._stage` (the products layout,
+    the one verdict of a frozen solve, which every stage looks up there,
+    the names a file may carry, the reduction plans, the post log records
+    and the partial post), `post._condition` (the point condition, state,
+    clock, windows and reference), `post._admit` (the records that can
+    supply a row), `post._sim` (the `SimContext` and the six steps),
+    `post._rotor_plan` (the rotor tables' plan), `post._reduction_stage`,
+    `post._rotor_products` (a record's series and its quasi-steady,
+    harmonic, noise and disc-map products) and `post._additional`. A
+    private helper two modules share lives in a private module, because a
+    private name is never imported out of a public one. `post.products`
+    keeps the campaign stage (952 code lines) and `_sim_products` is 68
+    lines. The byte snapshot (P0330-PRODUCTS-SNAPSHOT) was taken from the
+    tree of `rel/0-33` at 56f7b8bd, after the product changes of FR-314
+    and FR-180, over 25 recorded offline campaigns of the tier-1 suite and
+    292 files; it is compared by its tier-1 test and by
+    `scripts/products_snapshot.py`. `PointState` stays as it is: the post
+    stage's class carries the products' resolved state and the cases one
+    the run's, and converging them is not a structural move.
+
 !!! decision "AD-14 run is a facade over private modules and leaves the type-check exemptions <span class='srs-pending'>pending</span>"
     *Work package WP6 of the 0.33.0 scope (decision 7). Evidence owed:
     G8 for `run/__init__.py`, G3(b) for the package, and the type-check

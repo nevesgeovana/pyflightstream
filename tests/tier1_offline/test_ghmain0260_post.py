@@ -132,7 +132,7 @@ def test_v_a_successful_record_wins_a_metadata_conflict_and_only_absent_fields_f
     record's win on every field it carries, and a field it lacks falls back to
     the failed record's, which is the field-by-field contract.
     """
-    from pyflightstream.post.products import _simulation_metadata
+    from pyflightstream.post._condition import _simulation_metadata
     from pyflightstream.workspace import RunRecord
 
     base = dict(

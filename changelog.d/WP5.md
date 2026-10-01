@@ -1,7 +1,7 @@
 ## Added
 
 - Four public modules hold the product families `pyflightstream.post.products` wrote in one module of 9082 lines (AD-13, P0330-WP5): `pyflightstream.post.polar` (the group polar, its rows and `write_recorded_polar`), `pyflightstream.post.rotor_table` (the rotor coefficient table and the shaft loads), `pyflightstream.post.unsteady_polar` (the time-averaged polar of an unsteady simulation and its axes) and `pyflightstream.post.point_tables` (the sections, plots, probes, reduction and per-revolution tables of a point), each with an exact `__all__`. `pyflightstream.post.products` stays a module, re-exports every name of their `__all__`, and keeps its own `__all__` in content and order; every 0.32.0 import path keeps working.
-- `pyflightstream.post.polar.group_polar_rows`, the coefficient rows of one boundary group over the points of a polar, published: the post stage, `write_recorded_polar` and a product over the polar rows build a group's rows through it. It was the private `_polar_rows` of `post.products`.
+- `pyflightstream.post.polar.group_polar_rows`, the coefficient rows of one boundary group over the points of a polar, published: the post stage, `write_recorded_polar` and a product over the polar rows build a group's rows through it (AD-13). It was the private `_polar_rows` of `post.products`.
 
 ## Changed
 

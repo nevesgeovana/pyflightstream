@@ -76,7 +76,7 @@ def test_the_original_frame_suffix_can_occupy_the_automatic_rotor_name():
     """The builder appends `_ORIGINAL` to a group plotted in a retained original frame, so a
     declaration named `ROTOR_PROP` also emits `ROTOR_PROP_ORIGINAL`, the automatic name of a
     rotor aliased `PROP_ORIGINAL`: the matcher must count that emission."""
-    from pyflightstream.post.products import _plot_name_can_emit
+    from pyflightstream.post._rotor_plan import _plot_name_can_emit
 
     def emits(template: str, name: str) -> bool:
         return _plot_name_can_emit(template, name, (), inventory=(), is_blade=lambda _f: False)
@@ -89,7 +89,7 @@ def test_the_original_frame_suffix_can_occupy_the_automatic_rotor_name():
 def test_a_format_spec_in_the_family_field_is_still_a_wildcard():
     """The builder applies `str.format`, so `MRP_{family}{family:.0}` over TOTAL emits
     MRP_TOTAL (`:.0` prints nothing): every replacement field may put any text, or none."""
-    from pyflightstream.post.products import _plot_name_can_emit
+    from pyflightstream.post._rotor_plan import _plot_name_can_emit
 
     def emits(template: str, name: str) -> bool:
         return _plot_name_can_emit(template, name, (), inventory=(), is_blade=lambda _f: False)
@@ -113,7 +113,7 @@ def test_a_plot_name_with_a_format_spec_or_conversion_is_refused_when_read():
 
 
 def test_a_nested_format_spec_is_still_one_wildcard_in_the_matcher():
-    from pyflightstream.post.products import _plot_name_can_emit
+    from pyflightstream.post._rotor_plan import _plot_name_can_emit
 
     def emits(template: str, name: str) -> bool:
         return _plot_name_can_emit(template, name, (), inventory=(), is_blade=lambda _f: False)
@@ -135,7 +135,7 @@ def test_a_plot_name_outside_the_closed_alphabet_is_refused_when_read():
 
 def test_names_equal_but_for_case_are_taken_as_able_to_collide():
     """Whether the solver keeps a plot name's case is not measured: conservative."""
-    from pyflightstream.post.products import _plot_name_can_emit
+    from pyflightstream.post._rotor_plan import _plot_name_can_emit
 
     def emits(template: str, name: str) -> bool:
         return _plot_name_can_emit(template, name, (), inventory=(), is_blade=lambda _f: False)

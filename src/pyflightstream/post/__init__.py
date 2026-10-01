@@ -136,7 +136,7 @@ module, which is stated rather than left to be discovered:
   states: its condition, state, clock, windows and reference),
   :mod:`pyflightstream.post._admit` (which records of a simulation can supply a
   product row), :mod:`pyflightstream.post._sim` (one simulation's post over its
-  frozen ``SimContext``, the families called in the manifest's order),
+  frozen context, the families called in the manifest's order),
   :mod:`pyflightstream.post._rotor_plan` (where each rotor table's rows come
   from), :mod:`pyflightstream.post._reduction_stage` (the reductions of a
   point's plots table), :mod:`pyflightstream.post._rotor_products` (a point's

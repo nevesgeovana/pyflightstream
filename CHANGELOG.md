@@ -33,9 +33,12 @@ FlightStream versions.
 
 ### Changed
 
-- mypy recount 2026-10-01: 1122 errors in 18 of 173 modules, on `rel/0-33`
-  with work package WP3 (AD-11), the fix of FR-320 and the amendment of
-  FR-96 merged. The branch of FR-96 alone read 1125 in 18 of 158 and adds
+- mypy recount 2026-10-01: 1122 errors in 18 of 185 modules, on the branch
+  of work package WP5 (AD-13) from `rel/0-33` at `56f7b8bd`: its twelve
+  modules, cut out of `post.products`, are each clean, and the error total
+  and the eighteen dirty modules are those of `rel/0-33`, which read 1122
+  errors in 18 of 173 modules with work package WP3 (AD-11), the fix of
+  FR-320 and the amendment of FR-96 merged. The branch of FR-96 alone read 1125 in 18 of 158 and adds
   no module, and `rel/0-33` before it was merged, at `a5e66d9a`, read 1130
   in 18 of 173; the eight fewer are all in the exempted `run` root (938 to
   930), whose code FR-96 reworked, and `run/_continuation_frame.py` stays

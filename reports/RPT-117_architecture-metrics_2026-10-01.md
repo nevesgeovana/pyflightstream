@@ -1,6 +1,6 @@
 # RPT-117: architecture metrics (2026-10-01)
 
-Architecture metrics 2026-10-01: 185 modules, 156543 lines, 83066 code lines; the largest 1, 5 and 13 modules hold 10.7, 23.4 and 37.0 percent of the code lines.
+Architecture metrics 2026-10-01: 185 modules, 156530 lines, 83042 code lines; the largest 1, 5 and 13 modules hold 10.7, 23.5 and 37.0 percent of the code lines.
 
 Written by `python scripts/arch_metrics.py report --number 117 --date 2026-10-01`; every number below is that run's. The unit of module and function size is the code line of the review lens: a line holding a token other than a comment, docstring lines excluded. The tier-1 test `test_architecture_metrics.py::test_the_record_agrees_with_the_tree` re-measures the tree and refuses a disagreement with the numbers of the newest record, and refuses a record or a baseline table worse than the first record.
 
@@ -9,10 +9,10 @@ Written by `python scripts/arch_metrics.py report --number 117 --date 2026-10-01
 | metric | value |
 |---|---:|
 | module_count | 185 |
-| total_lines | 156543 |
-| code_lines | 83066 |
+| total_lines | 156530 |
+| code_lines | 83042 |
 | top1_share | 10.7 |
-| top5_share | 23.4 |
+| top5_share | 23.5 |
 | top13_share | 37.0 |
 | modules_over_1000 | 13 |
 | modules_over_2000 | 4 |
@@ -25,7 +25,7 @@ Written by `python scripts/arch_metrics.py report --number 117 --date 2026-10-01
 | largest_fan_out_module | exceptions.py |
 | largest_fan_out_deferred | 10 |
 | largest_fan_out_deferred_module | run/_rebuild.py |
-| private_test_names | 241 |
+| private_test_names | 240 |
 | monkeypatch_targets | 83 |
 | workspace_to_run_imports | 0 |
 | root_facade_lines | 20683 |
@@ -38,7 +38,7 @@ One row per top-level package (a single-file module counts as its own), the unit
 
 | package | modules | code lines | share | over 1000 | functions over a G2 limit | private names reached by tests |
 |---|---:|---:|---:|---:|---:|---:|
-| `post` | 41 | 17729 | 21.3 | 2 | 51 | 34 |
+| `post` | 41 | 17705 | 21.3 | 2 | 51 | 33 |
 | `cases` | 19 | 17226 | 20.7 | 3 | 43 | 67 |
 | `run` | 16 | 12237 | 14.7 | 3 | 47 | 57 |
 | `workspace` | 26 | 11967 | 14.4 | 3 | 28 | 29 |
@@ -131,7 +131,7 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
 
 ## Private-name coupling of the tests
 
-241 private names referenced by tests, 83 patch targets.
+240 private names referenced by tests, 83 patch targets.
 
 | module | private names | patch targets |
 |---|---:|---:|
@@ -151,15 +151,18 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
 | `pyflightstream.options` | 2 | 0 |
 | `pyflightstream.overview` | 5 | 0 |
 | `pyflightstream.post` | 1 | 0 |
-| `pyflightstream.post._rotor_plan` | 0 | 1 |
-| `pyflightstream.post._sim` | 0 | 1 |
-| `pyflightstream.post._stage` | 0 | 1 |
-| `pyflightstream.post._tables` | 1 | 0 |
+| `pyflightstream.post._condition` | 6 | 0 |
+| `pyflightstream.post._reduction_stage` | 2 | 0 |
+| `pyflightstream.post._rotor_plan` | 3 | 1 |
+| `pyflightstream.post._rotor_products` | 3 | 0 |
+| `pyflightstream.post._sim` | 1 | 1 |
+| `pyflightstream.post._stage` | 7 | 1 |
+| `pyflightstream.post._tables` | 2 | 0 |
 | `pyflightstream.post.glossary` | 1 | 1 |
 | `pyflightstream.post.harmonics` | 1 | 0 |
 | `pyflightstream.post.point_tables` | 0 | 1 |
 | `pyflightstream.post.probe_fields` | 0 | 1 |
-| `pyflightstream.post.products` | 28 | 3 |
+| `pyflightstream.post.products` | 4 | 3 |
 | `pyflightstream.post.section_distributions` | 1 | 0 |
 | `pyflightstream.post.superfile` | 1 | 0 |
 | `pyflightstream.probes.geometry` | 2 | 0 |
@@ -231,7 +234,7 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
 <!-- arch-metrics:begin -->
 ```json
 {
-  "code_lines": 83066,
+  "code_lines": 83042,
   "cross_package_sccs": 1,
   "functions_over_100": 73,
   "functions_over_200": 17,
@@ -245,7 +248,7 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
   "modules_over_1000": 13,
   "modules_over_2000": 4,
   "monkeypatch_targets": 83,
-  "private_test_names": 241,
+  "private_test_names": 240,
   "root_facade_lines": 20683,
   "thresholds": {
     "deep_min_defs": 2,
@@ -264,8 +267,8 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
   },
   "top13_share": 37.0,
   "top1_share": 10.7,
-  "top5_share": 23.4,
-  "total_lines": 156543,
+  "top5_share": 23.5,
+  "total_lines": 156530,
   "workspace_to_run_imports": 0
 }
 ```

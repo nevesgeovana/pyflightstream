@@ -12,13 +12,9 @@ import numpy as np
 import pytest
 
 from pyflightstream.cases.windows import AZIMUTHAL
-from pyflightstream.post.products import (
-    _frozen_window_reason,
-    freeze_of_log,
-)
-from pyflightstream.post.products import (
-    _window_the_reduction_reads as _reducer_steps,
-)
+from pyflightstream.post._stage import _frozen_window_reason
+from pyflightstream.post._stage import _window_the_reduction_reads as _reducer_steps
+from pyflightstream.post.products import freeze_of_log
 from pyflightstream.post.unsteady import TimestepSeries
 from pyflightstream.results import UnjudgeableSolve
 
@@ -331,7 +327,7 @@ def test_a_per_rotor_reduction_is_judged_by_that_rotors_blades():
     rotor was judged as though it had one blade and an unread step its samples
     reach went unnoticed.
     """
-    from pyflightstream.post.products import _the_plan_of_a_reduction
+    from pyflightstream.post._stage import _the_plan_of_a_reduction
 
     plan = {
         "rotors": {
