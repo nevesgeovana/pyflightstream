@@ -226,12 +226,13 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
       # The eight guide decks, 00 to 07, are the one exemption from the pdf rule: their
       # compiled PDFs and the figure PDFs their sources include, and since 0.33.0
-      # the compiled cheatsheet, guide/pyfts-cheatsheet-pyfs-matrix.pdf, as the
+      # the compiled cheatsheet, guide/pyfts-cheatsheet-pyfs-matrix.pdf, and since
+      # 0.34.0 the cheatsheet by stage, guide/pyfts-cheatsheet-by-stage.pdf, as the
       # forbid-pdf hook and tests/tier1_offline/test_house_style.py state. The
       # suffix grep is case-insensitive, the exemption grep case-sensitive.
       - name: No pdf but the guide decks', notebook, or _private content tracked
         run: |
-          bad=$(git ls-files | grep -Ei '\.pdf$|\.ipynb$|^_private/' | grep -Ev '^guide/(pyfts-guide-0[0-7]-[a-z0-9-]+|pyfts-cheatsheet-pyfs-matrix|latex-sources/0[0-7]-[a-z0-9-]+/figures/[A-Za-z0-9_.-]+)\.pdf$' || true)
+          bad=$(git ls-files | grep -Ei '\.pdf$|\.ipynb$|^_private/' | grep -Ev '^guide/(pyfts-guide-0[0-7]-[a-z0-9-]+|pyfts-cheatsheet-pyfs-matrix|pyfts-cheatsheet-by-stage|latex-sources/0[0-7]-[a-z0-9-]+/figures/[A-Za-z0-9_.-]+)\.pdf$' || true)
           if [ -n "$bad" ]; then
             echo "Forbidden tracked files found:"
             echo "$bad"

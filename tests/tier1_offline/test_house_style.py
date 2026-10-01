@@ -850,8 +850,10 @@ def test_the_spreadsheet_guard_fires_on_what_it_exists_to_catch(monkeypatch):
 # guide DECKS, eight of them, 00 to 07: their compiled PDFs beside their LaTeX sources, and the
 # figure PDFs those sources include. Since 0.33.0 one more file, the
 # compiled pyfs-matrix cheatsheet, guide/pyfts-cheatsheet-pyfs-matrix.pdf,
-# beside its source in guide/latex-sources/cheatsheet/. Nothing else, not any
-# pdf under guide/: the exemption names the deck files, the cheatsheet and
+# beside its source in guide/latex-sources/cheatsheet/, and since 0.34.0 the
+# compiled cheatsheet by stage, guide/pyfts-cheatsheet-by-stage.pdf, which the
+# owner asked for on 2026-10-01. Nothing else, not any
+# pdf under guide/: the exemption names the deck files, the two cheatsheets and
 # the figures folder of a deck. Three
 # mechanisms state the rule and must agree: the forbid-pdf hook (`files` with
 # `exclude`), the CI guard job's two greps, and this walk over the tracked
@@ -862,7 +864,7 @@ def test_the_spreadsheet_guard_fires_on_what_it_exists_to_catch(monkeypatch):
 # `Guide/` folder is not the guide), and the pdf suffix is case-insensitive in
 # all three (a `.PDF` manual is a pdf).
 PDF_ALLOWED = re.compile(
-    r"^guide/(pyfts-guide-0[0-7]-[a-z0-9-]+|pyfts-cheatsheet-pyfs-matrix|latex-sources/0[0-7]-[a-z0-9-]+/figures/[A-Za-z0-9_.-]+)\.pdf$"
+    r"^guide/(pyfts-guide-0[0-7]-[a-z0-9-]+|pyfts-cheatsheet-pyfs-matrix|pyfts-cheatsheet-by-stage|latex-sources/0[0-7]-[a-z0-9-]+/figures/[A-Za-z0-9_.-]+)\.pdf$"
 )
 
 #: The suffix that makes a tracked file a pdf, compared case-insensitively.
@@ -881,6 +883,7 @@ PDF_RULE_SAMPLES = (
     "guide/pyfts-guide-07-python-environment-offline.pdf",
     "guide/latex-sources/01-workspaces/figures/qsteady_k_vs_J.pdf",
     "guide/pyfts-cheatsheet-pyfs-matrix.pdf",
+    "guide/pyfts-cheatsheet-by-stage.pdf",
     "guide/pyfts-cheatsheet-other.pdf",
     "guide/latex-sources/cheatsheet/pyfts-cheatsheet-pyfs-matrix.pdf",
     "guide/pyflightstream_user_guide.tex",
@@ -931,8 +934,9 @@ def test_no_pdf_is_tracked_outside_the_guide():
         + "\n\nA licensed manual arrives as a pdf and never enters the repository "
         "(CONTRIBUTING.md invariant 1, SRS NFR-03). Only the eight compiled guide "
         "decks, guide/pyfts-guide-0N-*.pdf, the figures their sources include, "
-        "guide/latex-sources/0N-*/figures/*.pdf, and the compiled cheatsheet, "
-        "guide/pyfts-cheatsheet-pyfs-matrix.pdf, are tracked as pdf."
+        "guide/latex-sources/0N-*/figures/*.pdf, and the two compiled cheatsheets, "
+        "guide/pyfts-cheatsheet-pyfs-matrix.pdf and guide/pyfts-cheatsheet-by-stage.pdf, "
+        "are tracked as pdf."
     )
 
 

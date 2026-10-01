@@ -17,9 +17,13 @@ deck is written for one version of the package, and its title page says which.
 | [6, FSI](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/pyfts-guide-06-fsi.pdf) | Fluid-structure interaction: the loop, the structural input, calibration, refusals, examples and limits |
 | [7, An offline Python environment](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/pyfts-guide-07-python-environment-offline.pdf) | Python, a virtual environment and the package on a machine with no internet, Windows and Linux |
 
-The [pyfs-matrix cheatsheet](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/pyfts-cheatsheet-pyfs-matrix.pdf)
-is one page, every subcommand and option of `pyfs-matrix` by stage, kept
-beside the decks with its LaTeX source in the
+The [command-line cheatsheet](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/pyfts-cheatsheet-pyfs-matrix.pdf)
+is two pages: every subcommand and option of `pyfs-matrix` by stage, then
+every other command-line tool with every subcommand and option. The
+[cheatsheet by stage](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/pyfts-cheatsheet-by-stage.pdf)
+is eight pages, one per stage of the campaign workflow, each with its
+commands, the files it reads and writes, its common errors and a figure. Both
+are kept beside the decks with their LaTeX sources in the
 [cheatsheet folder](https://github.com/nevesgeovana/pyflightstream/tree/main/guide/latex-sources/cheatsheet). The
 [command-line reference](cli/index.md) gives the full text of each option.
 

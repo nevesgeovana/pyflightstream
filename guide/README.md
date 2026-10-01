@@ -35,16 +35,31 @@ with beamer, tcolorbox, listings, tikz, adjustbox, microtype and underscore.
 The build refuses a source with an em or en dash, and prints the number of
 overfull boxes per deck, which must be zero.
 
-## The pyfs-matrix cheatsheet
+## The cheatsheets
 
-`latex-sources/cheatsheet/pyfts-cheatsheet-pyfs-matrix.tex` is one page, A4
-landscape: every subcommand and every option of `pyfs-matrix`, by stage, for
-the version `latex-sources/shared/info.tex` names. A tier-1 test
-(`tests/tier1_offline/test_p0330_cheatsheet.py`) walks the parser and refuses
-the page when a subcommand or an option is missing from its entry. Its PDF,
-`pyfts-cheatsheet-pyfs-matrix.pdf`, is tracked here beside the decks'.
-`latex-sources/build-all.ps1` and `build-all.sh` build it with the decks and
-copy it here; the argument `cheatsheet` builds it alone. The build must
-report no overfull box, so the page stays one sheet.
+`latex-sources/cheatsheet/pyfts-cheatsheet-pyfs-matrix.tex` is two pages, A4
+landscape, for the version `latex-sources/shared/info.tex` names: page 1 is
+every subcommand and every option of `pyfs-matrix`, by stage; page 2 is every
+other command-line tool, the console scripts and the `python -m` entries,
+each with every subcommand and option. A tier-1 test
+(`tests/tier1_offline/test_p0330_cheatsheet.py`) walks every parser and
+refuses the sheet when a subcommand or an option is missing from its own
+entry. Its PDF is `pyfts-cheatsheet-pyfs-matrix.pdf`.
+
+`latex-sources/cheatsheet/pyfts-cheatsheet-by-stage.tex` is the expanded
+cheatsheet: eight pages, A4 landscape, one per stage of the campaign workflow
+(the workspace and its inputs, the run matrix, the reference, setup and pproc
+artifacts, plan, run, collect and the records, post and products,
+maintenance). Each page says what the stage is for, gives its commands and
+options with one line each, the files it reads and writes, its common errors
+with their fixes, and a figure. A tier-1 test
+(`tests/tier1_offline/test_p0340_cheatsheet_by_stage.py`) refuses a command or
+an option no parser has, and a PDF that is not eight pages. Its PDF is
+`pyfts-cheatsheet-by-stage.pdf`.
+
+Both PDFs are tracked here beside the decks'. `latex-sources/build-all.ps1`
+and `build-all.sh` build them with the decks and copy them here; the argument
+`cheatsheet` builds the two alone. The build must report no overfull box, so
+each page keeps its sheet.
 
 The authorship and license of this folder are in `LICENSE-AND-AUTHORSHIP.md`.
