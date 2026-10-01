@@ -81,7 +81,10 @@ INDEX = REPO / "reports" / "requirements-index.json"
 #: decision, and the rule became measurable where it had been a hook and a CI
 #: grep alone: the tracked tree is walked, and the hook and the CI job are
 #: shown to refuse exactly what the walk refuses.
-MARKED_FLOOR = 23
+#: Raised from 23 to 24 on 2026-09-30, for FR-320: the plan's warning for a
+#: family a row's geometry does not carry, shown falsifying by a mutant that
+#: removes the noting and leaves the plan silent again.
+MARKED_FLOOR = 24
 
 
 def _marked() -> dict[str, list[str]]:
@@ -215,8 +218,8 @@ def test_the_marker_is_registered_so_a_typo_is_not_silent():
 #: Re-counted at 0.8.0.dev0, and the SET DID move: one name left it, which
 #: the comment inside this frozenset records and this line denied until
 #: 2026-08-20. What did not move is the count of DIRTY modules:
-#: mypy recount 2026-09-30: 1130 errors in 18 of 172 modules, the 0.33.0
-#: branch rel/0-33 with work package WP3 merged
+#: mypy recount 2026-09-30: 1130 errors in 18 of 173 modules, the 0.33.0
+#: branch rel/0-33 with work package WP3 and FR-320 merged
 #: (reports/RPT-029).
 #: Removing one means deleting its override AND its line here, in the same
 #: commit.

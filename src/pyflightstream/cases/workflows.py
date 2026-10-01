@@ -127,7 +127,6 @@ from pyflightstream.cases import (
     SimCase,
     TrailingEdgeMarking,
     _setup_link,
-    alias_members_missing,
     classify_outputs,
     frame_basis_for_shaft,
     global_frame_plot_declarations,
@@ -142,6 +141,10 @@ from pyflightstream.cases import setup_surfaces as _setup_surfaces
 from pyflightstream.cases import windows as _windows
 from pyflightstream.cases._ccs import CCS_FORMATS, CCS_SHEDDING_VARIABLE
 from pyflightstream.cases._setup_link import LOADS_SELECTION_KEYS
+from pyflightstream.cases._skipped_families import (
+    names_no_boundary_answers,
+    saying_the_families_each_row_skips,
+)
 from pyflightstream.cases._unsteady_actions import (
     UNSTEADY_ACTION_COUNT,
     UNSTEADY_ACTION_PROGRAM,
@@ -7233,13 +7236,6 @@ def _ignore_missing_families(case: SimCase) -> bool:
         raise CampaignConfigError(str(error)) from None
 
 
-#: The words a families entry may write that name no set of their own, so
-#: a reader asking "does this name anything the geometry carries" would be
-#: asking the wrong question of them. `all` is the command's own
-#: every-boundary form and the two `each` words are one emission per family.
-_WORDS_THAT_NAME_NO_SET = frozenset({"all", "each", "each_blade"})
-
-
 def _refuse_what_the_geometry_does_not_carry(
     case: SimCase,
     selection: str | Sequence[str],
@@ -7269,33 +7265,15 @@ def _refuse_what_the_geometry_does_not_carry(
     geometry carries every family the artifact names and wants to hear
     about it when it does not.
     """
-    cited = [selection] if isinstance(selection, str) else [str(item) for item in selection]
-    missing: list[str] = []
-    for token in cited:
-        # AN ALIAS IS ASKED FIRST, and it answers with the alias that
-        # DECLARES each absent member rather than the word the entry wrote,
-        # because on a nested alias those are different and the declaring
-        # one is the table row the user has to edit (the interface lens).
-        absent = alias_members_missing(token, inventory, aliases)
-        if absent:
-            missing.extend(
-                f"{owner!r} names {member!r}"
-                for owner, member in absent
-                if f"{owner!r} names {member!r}" not in missing
-            )
-            continue
-        # NOT AN ALIAS, so it is a boundary or a family, and a MEMBER of a
-        # list has to be judged on its own. A list aggregates into one set
-        # that is non-empty as soon as ONE member resolves, so a misspelled
-        # member beside a good one passed in silence with the refusal asked
-        # for; the QA lens measured it with a mutant that survived every
-        # case in the module (2026-09-10).
-        if token.strip().casefold() in _WORDS_THAT_NAME_NO_SET:
-            continue
-        if not select_families(token, inventory, is_blade, aliases=aliases):
-            entry = f"{token!r} names nothing this geometry carries"
-            if entry not in missing:
-                missing.append(entry)
+    # THE REFUSAL'S READING, moved beside the plan's warning (FR-320): an alias
+    # answers with the alias that DECLARES each absent member, and a list
+    # member is judged on its own (the QA lens of 2026-09-10).
+    missing = [
+        f"{token!r} names nothing this geometry carries"
+        if owner is None
+        else f"{owner!r} names {token!r}"
+        for owner, token in names_no_boundary_answers(selection, inventory, aliases, is_blade)
+    ]
     declared = ", ".join(repr(name) for name in inventory) or "no boundary"
     if missing:
         told = "; ".join(missing)
@@ -7535,6 +7513,7 @@ def _and_the_frame_it_turned_from(
     return [(frame, families, label), (kept, families, label)]
 
 
+@saying_the_families_each_row_skips(_the_names_a_rotor_answers_to, _artifact_of)  # FR-320
 def pproc_emissions(
     case: SimCase,
     frame: str,
@@ -10653,6 +10632,7 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
     inventory = _inventory(script)
     sections = pproc.sections
     for position, entry in enumerate(sections.distributions, start=1):
+        what = f"section distribution {position}"
         # THE SAME RULE AS THE PLOTS (FR-65): a distribution measured in a
         # blade's own axes is one per blade, and one measured in a rotor's
         # is one per rotor. The reference `p010.toml` writes exactly that, over
@@ -10663,7 +10643,7 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
             entry.families,
             inventory,
             pproc.is_blade,
-            f"section distribution {position}",
+            what,
             frames,
             blades_only=True,  # FR-75
         ):

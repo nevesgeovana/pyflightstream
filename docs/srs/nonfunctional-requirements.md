@@ -866,8 +866,10 @@
     every one of the eight new modules clean; the branch of work
     package WP3 read 1130 in 18 of 172, every one of the fourteen modules
     it cut out of four existing ones clean, and `rel/0-33` before it was
-    merged 1133 in 18 of 158; and `rel/0-33` with WP3 merged read 1130 in
-    18 of 172.
+    merged 1133 in 18 of 158; `rel/0-33` with WP3 merged read 1130 in
+    18 of 172; the branch of FR-320 over the branch with all three merged
+    read 1133 in 18 of 159, the one module it added clean; and `rel/0-33`
+    with WP3 and FR-320 merged read 1130 in 18 of 173.
     The eighteen exempted modules are the same set, every module a release
     adds is clean, and the shipped configuration is green over all of them.
     The count of errors inside the exempted set grows with the code those

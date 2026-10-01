@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 267,
-  "total": 327,
+  "cited_by_a_test": 268,
+  "total": 328,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -2341,6 +2341,14 @@
    "priority": "M",
    "status": "implemented",
    "evidence": "*Origin: an author decision of 2026-09-30 that every setting of the solver's setup and advanced settings be reached by the workflow, and that a setting that cannot be is listed with its measured reason for a decision rather than deferred silently. Evidence: reports/RPT-106_setup-key-audit_2026-09-30.md; tests/tier1_offline/test_fr319_setup_key_audit.py::test_every_choosable_command_of_the_five_chapters_has_a_key_or_a_reason, ::test_each_audit_defect_is_caught, ::test_no_emitter_hard_codes_a_choosable_value_of_the_five_chapters, ::test_the_keys_given_now_are_routed_to_their_commands_on_26124, ::test_a_marching_row_registers_the_setups_actions_and_a_steady_row_refuses_them.*",
+   "verification": "test"
+  },
+  {
+   "id": "FR-320",
+   "text": "Need: The skip of a family the geometry does not carry (FR-73) is what lets one pproc serve a sector and a whole wheel, and it said nothing whenever the entry still emitted something, so a plan could not tell a sector from a misspelled family name.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: a defect measured on 0.32.0 with a real plan, fixed under the 0.33.0 rule that a defect found may be fixed. One pproc declared a [[sections.distributions]] entry over the families Blade1 to Blade5; the matrix held sector rows whose mesh carries Blade1 alone and wheel rows carrying all five. Every row planned READY, the sector scripts cut one blade and the wheel scripts five, and the plan named no family, no blade and no skip. Evidence: tests/tier1_offline/test_fr320_skipped_families_warn.py::test_a_sector_row_lacking_four_blades_is_named_once_per_blade_fr_320, ::test_a_mistyped_family_warns_naming_the_word_and_the_row_fr_320, ::test_a_row_carrying_every_family_gives_no_warning_fr_320, ::test_the_plan_still_plans_ready_and_refuses_only_when_asked_fr_320, ::test_a_numbered_name_is_lacking_where_only_its_family_answers_fr_320, ::test_the_refusals_reading_is_unchanged_by_the_move_fr_320, ::test_a_force_plot_group_is_said_the_same_way_fr_320, ::test_a_local_axis_entry_names_the_blade_through_the_rotor_it_cites_fr_320, ::test_the_words_that_name_no_set_and_the_guessing_selectors_are_never_said_fr_320, ::test_a_plan_that_raises_warns_nothing_and_a_note_outside_a_plan_is_dropped_fr_320, ::test_a_nested_plan_keeps_its_own_collection_fr_320, ::test_two_families_both_reach_a_user_and_point_at_the_plans_caller_fr_320; the workflow goldens, unchanged.*",
    "verification": "test"
   },
   {

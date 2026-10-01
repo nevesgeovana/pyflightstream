@@ -140,6 +140,7 @@ from pyflightstream.cases import (
     resolve_recipe,
     sweep_name,
 )
+from pyflightstream.cases._skipped_families import noting_the_families_rows_lack
 from pyflightstream.cases.acoustics import (
     acoustic_section_leftovers,
     acoustic_section_outputs,
@@ -5380,6 +5381,7 @@ def plan_receipt_error(
     return None
 
 
+@noting_the_families_rows_lack()  # FR-320: each family a row lacks, said once
 def plan_campaign(
     campaign: Campaign,
     workspace: CampaignWorkspace,
@@ -5478,12 +5480,10 @@ def plan_campaign(
     points: list[PointPlan] = []
     shared = _names_two_cases_share(campaign, workspace)
     for case, build in zip(campaign.sims, case_builds, strict=True):
+        # The row's build decides, then the version read for the row, then the campaign's.
+        case_version = (versions or {}).get(case.sim_id, campaign.fs_version)
         if build is not None:
             case_version = build.fs_version
-        elif versions is not None and case.sim_id in versions:
-            case_version = versions[case.sim_id]
-        else:
-            case_version = campaign.fs_version
         workspace.create_sim(case.sim_id)
         case_error = _plan_case_error(campaign, case, workspace, recipes) or shared.get(case.sim_id)
         recipe = None
