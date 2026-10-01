@@ -484,6 +484,11 @@ def effective_fsi_config(case: SimCase) -> FsiConfig | None:
     imports and the configuration the structural program loads describe one
     structure.
 
+    Parameters
+    ----------
+    case : SimCase
+        The point's case; its FSI input and run type are read.
+
     Returns
     -------
     FsiConfig or None

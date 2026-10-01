@@ -65,6 +65,25 @@ def surface_time_averaging(case: SimCase) -> SurfaceAverageWindow | None:
     exports over: its first step is where the per-step exports begin, and the
     post averages every step of it. None where the pproc states no
     ``[time_averaging]``.
+
+    Parameters
+    ----------
+    case : SimCase
+        The row's case; its pproc ``[time_averaging]`` table and the run
+        clock of its run type are read.
+
+    Returns
+    -------
+    SurfaceAverageWindow or None
+        The window of steps the surface exports are averaged over; None when
+        the pproc states no ``[time_averaging]``.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the run type is not an unsteady one; if the run has no valid
+        clock; or if the stated window cannot be resolved on that clock (the
+        resolver's message is carried, naming the case).
     """
     stated = case.pproc.time_averaging if case.pproc is not None else None
     if stated is None:
@@ -104,6 +123,20 @@ def tecplot_source(tecplot: str, kinds: Mapping[str, str]) -> str:
     'P1-AL+000.vtk'
     >>> tecplot_source("P1-AL+000.dat", {"tecplot": "P1-AL+000.dat", "vtk": "field.vtk"})
     'field.vtk'
+
+    Parameters
+    ----------
+    tecplot : str
+        The name of the native Tecplot output the point writes.
+    kinds : Mapping of str to str
+        The point's outputs by kind, as ``classify_outputs`` returns them;
+        its ``"vtk"`` entry, where present, is the VTK to use.
+
+    Returns
+    -------
+    str
+        The declared VTK name, else the Tecplot's own name with the ``.vtk``
+        extension.
     """
     declared = kinds.get("vtk")
     if declared is not None:
@@ -123,6 +156,17 @@ def carries_singularity_strength(case: SimCase) -> bool:
     ``singularity_strength = true`` in the pproc artifact the row names; absent,
     false, or no pproc at all, the script exports no native Tecplot and the
     translated surface declares ``Singularity_strength`` not carried.
+
+    Parameters
+    ----------
+    case : SimCase
+        The row's case; only its pproc artifact is read.
+
+    Returns
+    -------
+    bool
+        True when the pproc states ``singularity_strength = true``; False
+        when it states it false, omits it, or the case has no pproc.
     """
     return case.pproc is not None and case.pproc.singularity_strength
 
@@ -136,6 +180,21 @@ def with_tecplot_source(outputs: Sequence[str], *, singularity_strength: bool = 
     incomplete for a native file it was never asked to write. The sources are
     waited for, filed and hashed, including at each exported step. Calling
     this on an already expanded output list is idempotent.
+
+    Parameters
+    ----------
+    outputs : sequence of str
+        The output names the row declares.
+    singularity_strength : bool, optional
+        Whether the row's pproc asks the Tecplot surface to carry the
+        singularity strength; when True the native Tecplot source is also
+        added. Defaults to False.
+
+    Returns
+    -------
+    list of str
+        The outputs with each missing source placed right after the Tecplot;
+        the names unchanged when no Tecplot is declared.
     """
     names = [str(name) for name in outputs]
     kinds = classify_outputs(names)

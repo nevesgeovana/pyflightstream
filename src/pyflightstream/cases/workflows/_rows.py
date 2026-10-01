@@ -998,6 +998,30 @@ def row_symmetry_loads(case: SimCase, from_setup: bool | None) -> bool | None:
     The first decision that hour was to refuse both stating it, as the rotor
     speed is refused; it was changed the same hour, and the warning is what
     keeps the override from being silent.
+
+    Parameters
+    ----------
+    case : SimCase
+        The row's case; its symmetry-loads variable is read.
+    from_setup : bool or None
+        The value the setup preset states, or None when it states none.
+
+    Returns
+    -------
+    bool or None
+        The row's value when it states one, else ``from_setup``.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the row states a value that is none of true, false, ENABLE or
+        DISABLE.
+
+    Warns
+    -----
+    PyflightstreamWarning
+        If the row's value differs from the preset's, naming both; the row
+        wins.
     """
     stated = _variable(case, SYMMETRY_LOADS_VARIABLE)
     if stated is None:
@@ -1474,8 +1498,18 @@ def qsteady_case_kind(case: SimCase) -> str:
     Raises
     ------
     CampaignConfigError
-        A ``MIRROR`` symmetry, or any other: a rotor turning about its shaft is
+        If the symmetry is ``MIRROR``, or any other: a rotor turning about its shaft is
         not its own mirror image, so a mirrored rotor is neither case.
+
+    Parameters
+    ----------
+    case : SimCase
+        The ``qsteady_rotor`` row's case; its symmetry variable is read.
+
+    Returns
+    -------
+    str
+        ``"sector"`` for ``PERIODIC``, ``"wheel"`` for ``NONE`` or no symmetry.
     """
     stated = _variable(case, SYMMETRY_VARIABLE)
     mode = "NONE" if stated is None else str(stated).strip().upper()

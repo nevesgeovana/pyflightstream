@@ -279,6 +279,9 @@ def unsteady_export_threshold(
         ``EXPORT_UNSTEADY_AFTER_ITER``.
     conventions : WorkflowConventions, optional
         The rendered output names; defaults to the case's own.
+    version : str or FsVersion, optional
+        The solver version whose conventions the resolved threshold follows;
+        defaults to ``"26.120"``.
 
     Returns
     -------
@@ -511,6 +514,17 @@ def unsteady_counter_steps(case: SimCase) -> int:
     the clock of its run type, the same clock :func:`unsteady_export_threshold`
     reads. The run layer writes it into the count-only program, where the
     progress bar of a local run reads it (FR-129).
+
+    Parameters
+    ----------
+    case : SimCase
+        The point's case; its run type and its continuation, if any, decide
+        the clock that is read.
+
+    Returns
+    -------
+    int
+        The number of physical time steps the point's unsteady script marches.
     """
     continuation = continuation_of(case)
     if continuation is not None:

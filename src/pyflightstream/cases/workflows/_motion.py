@@ -84,6 +84,11 @@ def rotor_machs(case: SimCase) -> list[RotorMach]:
     is missing, because an addition by the package may not refuse a run. A
     rotor with no known diameter is said so, never guessed.
 
+    Parameters
+    ----------
+    case : SimCase
+        The point's case, with its flight condition resolved.
+
     Returns
     -------
     list of RotorMach

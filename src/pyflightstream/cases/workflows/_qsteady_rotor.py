@@ -459,6 +459,20 @@ def qsteady_validity(case: SimCase, *, inflow_fft: bool = False) -> dict[str, ob
     With ``inflow_fft`` (``pyfs-matrix plan --inflow-fft``), a wheel point in a
     custom inflow also carries, under ``inflow_fft``, the harmonic content of
     that inflow as one blade meets it (:func:`qsteady_inflow_fft`).
+
+    Parameters
+    ----------
+    case : SimCase
+        The point's case.
+    inflow_fft : bool, optional
+        Add the harmonic content of the custom inflow under ``inflow_fft``.
+        Defaults to False.
+
+    Returns
+    -------
+    dict of str to object or None
+        The 1P reduced-frequency record, with ``inflow_fft`` added where
+        asked and available; None for a point that carries no such record.
     """
     record = _one_per_revolution_validity(case)
     if record is not None and inflow_fft:
@@ -574,6 +588,19 @@ def qsteady_inflow_fft(case: SimCase) -> dict[str, object] | None:
     NEVER RAISES for a row the builder would refuse: a point that is not a
     quasi-steady wheel with a custom inflow returns None, and a field that
     cannot be read returns a record whose ``note`` says why.
+
+    Parameters
+    ----------
+    case : SimCase
+        The point's case; it must be a ``qsteady_rotor`` wheel in a custom
+        inflow for a record to be produced.
+
+    Returns
+    -------
+    dict of str to object or None
+        The harmonic record (per-station ``n95`` and ``k_eff``, ``n_max``,
+        the suggested ``PASSAGE_POSITIONS`` and a ``note``); None for a point
+        that is not a quasi-steady wheel with a custom inflow.
     """
     if case.recipe != QSTEADY_ROTOR:
         return None

@@ -273,6 +273,18 @@ def refuse_an_untranslatable_surface(case: SimCase, script: Script) -> None:
     refusal costs no seat; a continuation is not asked, because its loads frame
     is the saved simulation's and the run takes it from the run it continues.
 
+    Parameters
+    ----------
+    case : SimCase
+        The point's case; its pproc ``vtk_variables`` are read.
+    script : Script
+        The script just built; its recorded surface translations are checked.
+
+    Returns
+    -------
+    None
+        Returns normally when every translation can be undone.
+
     Raises
     ------
     CampaignConfigError

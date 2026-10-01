@@ -157,7 +157,13 @@ class Workflow:
 
 
 def workflow_names() -> tuple[str, ...]:
-    """Return the registered workflow names, sorted."""
+    """Return the registered workflow names, sorted.
+
+    Returns
+    -------
+    tuple of str
+        The names of every registered workflow, in alphabetical order.
+    """
     return tuple(sorted(WORKFLOWS))
 
 

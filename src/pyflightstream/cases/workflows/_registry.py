@@ -353,6 +353,15 @@ def workflow_registry(*, conventions: WorkflowConventions | None = None) -> dict
     dict of str to callable
         ``{name: build(case, script) -> None}``, satisfying
         :class:`pyflightstream.cases.ScriptRecipe`.
+
+    Examples
+    --------
+    >>> from pyflightstream.cases.workflows import workflow_registry
+    >>> registry = workflow_registry()
+    >>> "steady" in registry
+    True
+    >>> registry["steady"].__name__
+    'workflow_steady'
     """
 
     def _bind(name: str) -> ScriptRecipe:

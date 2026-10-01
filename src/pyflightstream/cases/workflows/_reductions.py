@@ -235,9 +235,15 @@ def export_window(
         Physical time steps of the whole run; the window ends here and
         may not be longer than it.
 
+    delta_theta_deg : float, optional
+        Rotor rotation per solver physical time step in degrees, used to
+        convert between the angular forms and steps.
+
     Returns
     -------
     ExportWindow
+        The window, with the stated form kept verbatim and the others
+        computed beside it.
 
     Raises
     ------
@@ -545,6 +551,20 @@ def phase_locked_gate(
     ABSENT IS NOT ZERO. A pproc saying nothing about `phase_locked` got one
     before this release and gets one now, so the gate changes nothing for a
     workspace that does not use it.
+
+    Parameters
+    ----------
+    spec : PhaseLockedSpec or None
+        The pproc's phase-locked specification; None when it states none.
+    revolutions : float
+        The revolutions the matrix row turns.
+
+    Returns
+    -------
+    dict of str to object or None
+        None when the reduction is generated (no spec, or the minimum is
+        reached); otherwise the SKIP entry, with its reason, that a short run
+        carries.
     """
     if spec is None or spec.generated_for(revolutions=revolutions):
         return None
