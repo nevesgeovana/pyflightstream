@@ -1,10 +1,12 @@
-"""Tier 1: every choosable command of the five solver chapters has a key, or a measured reason.
+"""Tier 1: every choosable command of the six solver chapters has a key, or a measured reason.
 
 The evidence line of FR-319 cites this module (docs/srs/functional-requirements.md).
 
 The audit is ``reports/RPT-106_setup-key-audit_2026-09-30.md``. These tests
 walk its table against the command database and the code: a command of the
-five chapters missing from the table, a command marked covered whose key does
+six chapters (the sixth is Solver Initialization, which the first version of
+the audit left out, so INITIALIZE_SOLVER and its arguments had no row)
+missing from the table, a command marked covered whose key does
 not reach it, a command marked not choosable that takes an argument, a
 cannot-be-covered row without its evidence, and a hard-coded choosable value
 in the emitters each fail. Each check also runs once on a planted defect, so a
@@ -35,7 +37,11 @@ CHAPTERS = (
     "advanced_settings",
     "unsteady_solver",
     "solver_analysis",
+    "solver_initialization",
 )
+#: The keyword blocks whose arguments are each a choice: every argument of the
+#: current grammar is a row of its own, ``COMMAND argument``.
+ARGUMENT_AUDITED = ("INITIALIZE_SOLVER",)
 #: The commands the 26.124 census files under the five sections and the
 #: database does not carry, each a row of the audit.
 CENSUS_ONLY = frozenset({"SOLVER_INITIALIZATION"})
@@ -115,6 +121,11 @@ def _audit_problems(text: str) -> list[str]:
     missing = sorted((set(db) | CENSUS_ONLY) - set(listed))
     if missing:
         problems.append(f"commands of the five chapters the audit does not list: {missing}")
+    argument_rows = {row["command"] for row in rows}
+    for command in ARGUMENT_AUDITED:
+        for arg in db.get(command, {}).get("args", []):
+            if f"{command} {arg['name']}" not in argument_rows:
+                problems.append(f"{command}: the audit does not list argument {arg['name']!r}")
     for row in rows:
         command = row["command"].split()[0]
         if row["status"] not in STATUSES:
@@ -140,7 +151,7 @@ def test_every_choosable_command_of_the_five_chapters_has_a_key_or_a_reason():
     """FR-319: the committed audit agrees with the command database and the code."""
     text = REPORT.read_text(encoding="utf-8")
     rows = _rows(text)
-    # THE NON-VACUITY FLOOR: the five chapters hold 83 database entries and one
+    # THE NON-VACUITY FLOOR: the six chapters hold 90 database entries and one
     # census-only name; an audit that lost its rows could agree with nothing.
     assert len(rows) >= 80, len(rows)
     assert _audit_problems(text) == []
@@ -162,6 +173,38 @@ def test_each_audit_defect_is_caught(planted, said):
     assert old in text, old
     problems = _audit_problems(text.replace(old, new, 1))
     assert any(said in problem for problem in problems), problems
+
+
+def test_the_audit_lists_initialize_solver_and_each_of_its_arguments():
+    """FR-319 control: the chapter the first audit missed is read, and dropping its rows fails."""
+    text = REPORT.read_text(encoding="utf-8")
+    assert "INITIALIZE_SOLVER" in _chapter_commands()
+    kept = [line for line in text.splitlines() if not line.startswith("| `INITIALIZE_SOLVER")]
+    problems = _audit_problems(chr(10).join(kept))
+    assert any("INITIALIZE_SOLVER" in p and "does not list" in p for p in problems), problems
+
+
+def test_every_argument_of_initialize_solver_has_a_row():
+    """FR-319: each argument of the current grammar is a row; a dropped argument row fails."""
+    text = REPORT.read_text(encoding="utf-8")
+    args = [a["name"] for a in _chapter_commands()["INITIALIZE_SOLVER"]["args"]]
+    assert "wake_termination_x" in args
+    listed = {row["command"] for row in _rows(text)}
+    assert all(f"INITIALIZE_SOLVER {name}" in listed for name in args)
+    old = "| `INITIALIZE_SOLVER wake_termination_x` |"
+    assert old in text
+    problems = _audit_problems(text.replace(old, "| `INITIALIZE_SOLVER wake_term` |", 1))
+    assert any("does not list argument 'wake_termination_x'" in p for p in problems), problems
+
+
+def test_the_wake_end_plane_row_states_its_measured_reason_and_the_release_owed():
+    """FR-319: wake_termination_x is written DEFAULT, has no key, and is owed to 0.34."""
+    rows = {row["command"]: row for row in _rows(REPORT.read_text(encoding="utf-8"))}
+    row = rows["INITIALIZE_SOLVER wake_termination_x"]
+    assert row["status"] == "cannot be covered"
+    assert "DEFAULT" in row["where"]
+    assert "reports/probes/RPT-066_2026-09-24_evidence.yaml" in row["did"]
+    assert "0.34" in row["did"] and "WAKE-LENGTH" in row["did"]
 
 
 def _hard_coded(source: str, commands: set[str]) -> list[str]:

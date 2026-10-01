@@ -2340,7 +2340,7 @@
    "text": "Read with PFS-2074, PFS-2074.12 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: an author decision of 2026-09-30 that every setting of the solver's setup and advanced settings be reached by the workflow, and that a setting that cannot be is listed with its measured reason for a decision rather than deferred silently. Evidence: reports/RPT-106_setup-key-audit_2026-09-30.md; tests/tier1_offline/test_fr319_setup_key_audit.py::test_every_choosable_command_of_the_five_chapters_has_a_key_or_a_reason, ::test_each_audit_defect_is_caught, ::test_no_emitter_hard_codes_a_choosable_value_of_the_five_chapters, ::test_the_keys_given_now_are_routed_to_their_commands_on_26124, ::test_a_marching_row_registers_the_setups_actions_and_a_steady_row_refuses_them.*",
+   "evidence": "*Origin: an author decision of 2026-09-30 that every setting of the solver's setup and advanced settings be reached by the workflow, and that a setting that cannot be is listed with its measured reason for a decision rather than deferred silently. Evidence: reports/RPT-106_setup-key-audit_2026-09-30.md; tests/tier1_offline/test_fr319_setup_key_audit.py::test_every_choosable_command_of_the_five_chapters_has_a_key_or_a_reason, ::test_each_audit_defect_is_caught, ::test_no_emitter_hard_codes_a_choosable_value_of_the_five_chapters, ::test_every_argument_of_initialize_solver_has_a_row, ::test_the_wake_end_plane_row_states_its_measured_reason_and_the_release_owed, ::test_the_keys_given_now_are_routed_to_their_commands_on_26124, ::test_a_marching_row_registers_the_setups_actions_and_a_steady_row_refuses_them.*",
    "verification": "test"
   },
   {
