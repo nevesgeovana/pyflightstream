@@ -3,11 +3,12 @@
 Marker P0340-T1-PROBE-SPECS, arm RG of GOAL-039, package QA-SPECS (PFS-2073.06). The census of R1
 is read from the byte-identity goldens of the workflows (``tests/tier1_offline/goldens/workflows``):
 every command a golden renders, on the build the golden is rendered for, that the build's database
-holds. Counted when the package started, six commands had no catalog entry: ROTATE_SURFACE,
-SURFACE_ROTATE, SONIC_VELOCITY, SET_MOTION_ANGULAR_VELOCITY, SET_MOTION_IS_ROTOR and
-SET_NEW_UNSTEADY_SOLVER_ACTION. SONIC_VELOCITY is in no build's database view, so no probe could
-run it and the census leaves it out; the other five carry entries, two of them on 26.124. The
-tier-2 verdicts are the session's (RPT-127); each recorded status must follow the run's report.
+holds. Counted when the package started, five commands had no catalog entry: ROTATE_SURFACE,
+SURFACE_ROTATE, SET_MOTION_ANGULAR_VELOCITY, SET_MOTION_IS_ROTOR and
+SET_NEW_UNSTEADY_SOLVER_ACTION; three carry entries now, two of them on 26.124. The two motion
+commands exist only in builds before 26.101, so no authorised run can judge them, and
+SONIC_VELOCITY, which the 25.100 and 26.000 goldens also render, is in no database view at all.
+The tier-2 verdicts are the session's (RPT-127); each recorded status must follow the run's report.
 """
 
 from __future__ import annotations
@@ -38,9 +39,9 @@ CENSUS = {
     "SET_NEW_UNSTEADY_SOLVER_ACTION": ("26.122", "26.123", "26.124"),
 }
 ON_26124 = ("ROTATE_SURFACE", "SET_NEW_UNSTEADY_SOLVER_ACTION")
-#: Rendered by the goldens of builds before 26.101, held by no database view of 26.120 or later
-#: (SONIC_VELOCITY by none at all), so no authorised run can judge them and they carry no entry.
-UNREACHABLE = ("SET_MOTION_ANGULAR_VELOCITY", "SET_MOTION_IS_ROTOR", "SONIC_VELOCITY")
+#: Rendered by the goldens of builds before 26.101 and held by no database view of 26.120 or
+#: later, so no authorised run can judge them and they carry no entry.
+UNREACHABLE = ("SET_MOTION_ANGULAR_VELOCITY", "SET_MOTION_IS_ROTOR")
 
 
 def emitted_by_the_goldens() -> dict[str, set[str]]:
@@ -75,7 +76,7 @@ def unspecified(
 def test_the_census_finds_no_emitted_command_without_an_entry_fr_342():
     """FR-342 R1 and R2, marker P0340-T1-PROBE-SPECS: the goldens render nothing the catalog lacks.
 
-    The three commands of the builds no authorised run reaches are the only ones left, named.
+    The two commands of the builds no authorised run reaches are the only ones left, named.
     """
     missing = unspecified(emitted_by_the_goldens(), specs.PROBE_SPECS)
     assert set(missing) == set(UNREACHABLE), missing
