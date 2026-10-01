@@ -399,7 +399,9 @@ def pin_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     instead, as ``.gitattributes`` makes the committed fixtures LF on every
     checkout. Only the default is filled: a write that states its own line
     end (``newline=""`` for the CSV writer, or ``"\\r\\n"``) keeps it, so the
-    line end a product chooses is still compared.
+    line end a product chooses is still compared. The pin reaches this
+    process only: the stub solver of the ``additional`` campaign runs as its
+    own process and writes LF itself (``test_additional_post.a_stub``).
 
     THE OPERATOR IS :data:`OPERATOR`. A run records who ran it
     (``workspace.naming.submitted_by``, ``getpass.getuser`` over these

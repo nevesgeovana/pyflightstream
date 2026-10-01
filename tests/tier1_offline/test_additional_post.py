@@ -594,6 +594,11 @@ def a_stub(tmp_path: Path, **by_verb: str) -> CountingStub:
     saving ANOTHER state passes ``SAVEAS=...``). It writes where the script
     says, relative to the folder it runs in, which is how an extraction lands
     in its own folder.
+
+    It writes LF on every platform, as the committed fixtures are: it runs as
+    its own process, and the products digest what it writes (the
+    ``source_sha256`` of the VTK a Tecplot is translated from), so a text mode
+    line end would make those digests differ between Windows and Linux.
     """
     table = tmp_path / f"stub_exports_{len(list(tmp_path.glob('stub_exports_*')))}.json"
     table.write_text(
@@ -615,7 +620,8 @@ def a_stub(tmp_path: Path, **by_verb: str) -> CountingStub:
         f"table = json.loads(pathlib.Path({str(table)!r}).read_text(encoding='utf-8')); "
         "verbs = {kind[2] for kind in EXPORT_KINDS}; "
         "lines = pathlib.Path(sys.argv[1]).read_text().splitlines(); "
-        "[pathlib.Path(lines[i + 1]).write_text(table.get(line.split(' ')[0], 'DATA')) "
+        "[pathlib.Path(lines[i + 1]).write_text(table.get(line.split(' ')[0], 'DATA'), "
+        "newline=chr(10)) "
         "for i, line in enumerate(lines) "
         "if line.split(' ')[0] in verbs and i + 1 < len(lines)]"
     )
