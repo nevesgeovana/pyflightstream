@@ -3918,6 +3918,8 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-96 A row may ask to continue a run the wall clock stopped <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2074.26 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     *Origin: the owning seat's decision of 2026-09-12, that the word RESTART
     is reused for continuity, and its measurement of 2026-09-13 that the
     solver resumes an unsteady march from a saved file. Evidence:
@@ -6728,6 +6730,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-153 Probes and volume sections write sampled velocity fields <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2074.27 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     *Origin: the sampled-field need of the 0.29.0 quality gate. Evidence:
     `tests/tier1_offline/test_f01_probe_source.py`,
     `tests/tier1_offline/test_approved_capabilities_029.py` and, for R1,
@@ -8021,6 +8025,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (release 0.33.0): the audit report RPT-106, the routing table in `pyflightstream.cases._setup_keys`, and the field `SolverSettings.unsteady_solver_actions`, registered by `pyflightstream.cases._setup_link.emit_setup_extras`.
 
 !!! requirement "FR-320 The plan names each family a row's geometry does not carry, and never refuses for it <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2074.13 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     *Origin: a defect measured on 0.32.0 with a real plan, fixed under the 0.33.0 rule that a defect found may be fixed. One pproc declared a `[[sections.distributions]]` entry over the families `Blade1` to `Blade5`; the matrix held sector rows whose mesh carries `Blade1` alone and wheel rows carrying all five. Every row planned READY, the sector scripts cut one blade and the wheel scripts five, and the plan named no family, no blade and no skip. Evidence: `tests/tier1_offline/test_fr320_skipped_families_warn.py::test_a_sector_row_lacking_four_blades_is_named_once_per_blade_fr_320`, `::test_a_mistyped_family_warns_naming_the_word_and_the_row_fr_320`, `::test_a_row_carrying_every_family_gives_no_warning_fr_320`, `::test_the_plan_still_plans_ready_and_refuses_only_when_asked_fr_320`, `::test_a_numbered_name_is_lacking_where_only_its_family_answers_fr_320`, `::test_the_refusals_reading_is_unchanged_by_the_move_fr_320`, `::test_a_force_plot_group_is_said_the_same_way_fr_320`, `::test_a_local_axis_entry_names_the_blade_through_the_rotor_it_cites_fr_320`, `::test_the_words_that_name_no_set_and_the_guessing_selectors_are_never_said_fr_320`, `::test_a_plan_that_raises_warns_nothing_and_a_note_outside_a_plan_is_dropped_fr_320`, `::test_a_nested_plan_keeps_its_own_collection_fr_320`, `::test_two_families_both_reach_a_user_and_point_at_the_plans_caller_fr_320`; the workflow goldens, unchanged.*
 
