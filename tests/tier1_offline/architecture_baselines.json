@@ -5,7 +5,7 @@
   "cases/matrix.py": 1808,
   "cases/workflows.py": 8876,
   "post/corrections.py": 1006,
-  "post/products.py": 5673,
+  "post/products.py": 5670,
   "qa/specs.py": 1334,
   "run/__init__.py": 4512,
   "run/cli.py": 2005,
@@ -17,7 +17,7 @@
  },
  "function_lines": {
   "post/products.py:_rotor_tables": 292,
-  "post/products.py:_sim_products": 826,
+  "post/products.py:_sim_products": 823,
   "post/products.py:_write_the_products": 259,
   "post/section_distributions.py:_matching_distributions": 328,
   "post/section_distributions.py:write_section_distributions": 257,
@@ -1177,7 +1177,7 @@
    "positional": 1
   },
   "script/motion.py:resolve_frame_motion": {
-   "complexity": 12,
+   "complexity": 11,
    "branches": 11,
    "statements": 24,
    "positional": 1

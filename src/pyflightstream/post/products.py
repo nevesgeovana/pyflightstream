@@ -5897,24 +5897,21 @@ def _sim_products(
         return _refuse_an_existing_product(path, archive=archive, stamp=archive_stamp)
 
     def _write_fields(table: Path, point_name: str, *, step_source: Path | None = None) -> None:
-        from pyflightstream.post.probe_fields import write_recorded_probe_fields
+        from pyflightstream.post.probe_fields import point_field_products
 
         record = record_of.get(point_name)
         if record is None or not record.probe_field_layout:
             return
         try:
-            fields = write_recorded_probe_fields(
-                table, record, out / "fields", point_name, prepare=_target, step_source=step_source
+            fields = point_field_products(
+                table, record, out, point_name, prepare=_target, step_source=step_source
             )
         except (ValueError, OSError) as error:
             skipped[f"fields/{point_name}"] = str(error)
             return
-        for path in fields:
+        for path, entry in fields.items():
             written.append(path)
-            written_names[path.relative_to(out).as_posix()] = {
-                "runs": sources[point_name],
-                "kind": "probe-field",
-            }
+            written_names[path.relative_to(out).as_posix()] = {"runs": sources[point_name], **entry}
 
     # PFS-2038.03, GEO-039-F03. HERE, before the first product of this
     # simulation is written, and not in the reduction loop where the first

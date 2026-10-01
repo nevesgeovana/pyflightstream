@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.59.0 |
+| Version | 1.61.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -98,6 +98,8 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.61.0 | 2026-09-30 | **FR-153 R1 COVERS A ROTATING SAMPLING FRAME.** A field sampled in a rotating frame on another build of a measured solver version and unit is written with the rotation timing measured on the registered build instead of being refused as an unknown sampling frame; the one warning per point says the timing is also unproven, and the `products.json` entry records `rotation_timing` beside `velocity_convention`. Another version or unit is refused as before. |
+| 1.60.0 | 2026-09-30 | **FR-153 WRITES A FIELD OF ANOTHER BUILD, WITH A WARNING.** R1: a run of a measured solver version, export kind and unit on another build gets the velocity convention measured on the registered build; one warning per point names both builds and the field's `products.json` entry records `proven` false. Another version or unit is refused as before; the measured build is unchanged. The measured conventions are one table, so registering a build is one row. |
 | 1.59.0 | 2026-09-30 | **THE FUNCTIONAL RANGE READS FR-01 TO FR-320**: FR-320 (the plan names, once per pproc artifact and per family, each family a section distribution declares that a row's geometry does not carry, naming the rows, and never refuses for it) joins the functional chapter for 0.33.0, a defect fix: until 0.32.0 the skip of FR-73 said nothing whenever the entry still emitted something, and a misspelled family beside a good one vanished the same way. FR-73's refusal keeps its reading. NFR-27 records the type-checker re-count of the branch, 1133 errors in 18 of 159 modules, its one new module clean. |
 | 1.58.0 | 2026-09-30 | **FR-311 CITES ITS FIRST REAL CLUSTER FOLDER, AND STAYS PENDING.** RPT-108 records the names and sizes of the three files one real job left on the owner's cluster and shows that the documented `job_end_files` and `native_log` patterns match them; the job ended with its log, so a job that ended without one is still owed, and moving the status is the owner's acceptance. |
 | 1.57.0 | 2026-09-30 | **THE NON-FUNCTIONAL RANGE READS NFR-01 TO NFR-31**: NFR-31 (the public tree carries no identity of a user's machine, an author decision of the day) enters as pending for 0.33.0. The executable digests of every build in the identity baseline, 25.000 to 26.124, leave every tracked file: reports, compatibility, physics and probe records and fixtures state the build, and a digest field reads `withheld; build <build>`. Absolute machine paths leave the reports, the probe records, the test fixtures and the C01 instrument; a report names its files inside `<workspace>` or `<local probe folder>`, and the examples of the documentation and the guide use a neutral root. The compatibility, physics and drift writers and the C01 instrument write the build and never a digest. The package's evidence for an executable is keyed by version, build and unit, and a run still records its own digest. A tier-1 guard (P0330-NO-EXE-HASH) refuses a labelled executable digest of any build, a withheld digest anywhere, and an absolute user path, in any tracked text file. |

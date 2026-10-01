@@ -45,8 +45,10 @@ simulations. Fluid-plot command vertices use metres in both cases; the saved
 layout retains native coordinates for frame placement. The measured velocity
 components are already absolute REFERENCE components in m/s, even when the sampling
 frame rotates. Applying the sampling-frame rotation to those components again
-would be incorrect. Another export family, build, executable or unit needs its
-own evidence; the diagnostic identifies a missing convention.
+would be incorrect. Another export family, solver version or unit needs its
+own evidence; the diagnostic identifies a missing convention. Another build of
+26.124 in a measured unit is written with a warning, as
+[A run on another build](#a-run-on-another-build) describes.
 
 Steady probe exports have a separate control on that exact build. Their XYZ and
 velocity components are REFERENCE values regardless of the analysis frame.
@@ -75,6 +77,95 @@ python examples/sampled_field_export.py --output /absolute/path/to/new-output
 It writes one VTK field, one Tecplot field and one reusable inflow with matching
 provenance. The numerical source is saved beside them so the file hashes and
 values can be inspected independently.
+
+## A run on another build
+
+The velocity conventions above were measured on FlightStream 26.124 build
+8172026. A run of 26.124 in METER or MILLIMETER on another build, for example
+a cluster build run with `--accept-unregistered-build`, still gets its fields.
+The post writes them with the convention measured on build 8172026 and adds one
+warning per point to `post.log` and to the warnings the console prints, naming
+the build the convention was measured on and the build the run reports. Each
+field's entry in `products.json` records the same:
+
+```json
+"velocity_convention": {"measured_on_build": "8172026", "run_build": "<the run's build>", "proven": false}
+```
+
+A field sampled in a frame that turns needs one more measurement: the frame's
+rotation timing, the rotation sense and the time origin of the STEP count. It
+was measured on the same build, in METER and MILLIMETER. On another build of
+26.124 such a field is written with that timing too, and the same one warning
+per point says the timing is also unproven on the run's build. The entry then
+records both:
+
+```json
+"velocity_convention": {"measured_on_build": "8172026", "run_build": "<the run's build>", "proven": false},
+"rotation_timing": {"measured_on_build": "8172026", "run_build": "<the run's build>", "proven": false}
+```
+
+A delayed motion start has no measured timing on any build and is still
+refused. A run of another solver version, another unit or another export family
+has no evidence at all, and its fields are still refused with "native velocity
+convention has no evidence for this export/build/unit", or, for a rotating
+frame, as an unknown sampling frame (FR-153).
+
+**How the convention was established.** One unsteady rotor run sampled VX, VY
+and VZ at nineteen positions over six actual STEPs: an axis sample, and
+coincident samples in a fixed frame and in a frame that turns with the rotor,
+among them a twelve-point off-axis ring. The rotor turned 30 degrees per STEP
+(-800 rev/min, 0.00625 s), so each moving ring sample lay on a fixed ring
+sample at every STEP. The exported components of every coinciding pair were
+equal: the components are absolute velocities in REFERENCE axes, in m/s, with
+no origin shift, no rotation into the local basis and no subtraction of the
+angular velocity crossed with the radius. A MILLIMETER twin of the run matched
+the METER run in all 76 columns. [RPT-083](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-083_probe-frames-and-temporal-export-limits_2026-09-27.md)
+records the comparison and its receipts.
+
+**Measuring it on your build.** Run, on that build, an unsteady rotor row whose
+rotor turns one ring spacing per STEP, 30 degrees for a ring of twelve:
+
+```text
+VELOCITY: 30.0 / RPM: 800 / ROTOR_AXIS: X / BLADES: 4 / DELTA_THETA: 30 / REVOLUTIONS: 1
+```
+
+Its pproc samples the same ring twice: once in the rotor's hub frame `SMRP`,
+which stays fixed, and once in its turning frame `RMRP`, which starts on it and
+turns with the motion. Write the ring about the rotor axis, clear of the
+blades, in the hub frame's coordinates; the numbers below assume the hub
+frame's x axis is the rotor axis and are to be adapted to your rotor:
+
+```toml
+[groups]
+"1" = "all"
+
+[[probes]]
+frame = "SMRP"
+parameters = ["VX", "VY", "VZ"]
+circles = [{center = [-0.5, 0, 0], normal = [1, 0, 0], radius = 0.3, points_radial = 2, points_azimuth = 12}]
+
+[[probes]]
+frame = "RMRP"
+parameters = ["VX", "VY", "VZ"]
+circles = [{center = [-0.5, 0, 0], normal = [1, 0, 0], radius = 0.3, points_radial = 2, points_azimuth = 12}]
+```
+
+At every STEP, compare in the point's plots export the VX, VY and VZ of each
+moving sample with those of the fixed sample it lies on. The convention above
+holds on your build when every coinciding pair is equal; repeat the row on a
+MILLIMETER geometry for that unit. The same run measures the rotation timing:
+the moving ring samples land on the fixed ones at the STEPs the emitted speed
+and time step predict, which fixes the rotation sense and the time origin of
+the STEP count.
+
+**Registering the build.** The package reads the measured conventions from one
+table, `VELOCITY_EVIDENCE` in `pyflightstream.post.field_frames`: one row per
+solver version, build, export family and unit, holding the factor to m/s and
+the comparison that established it. The rotation timing is the same kind of
+table in `pyflightstream.script.motion`, one row per solver version, unit and
+build. Registering your build is one row in each, citing your comparison, in a
+change to the package. A run of a registered build is proven, and its fields
+carry no warning.
 
 ## Surface-property histories
 

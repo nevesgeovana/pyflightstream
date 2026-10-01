@@ -234,61 +234,67 @@ def field_in_reference(
     return reference_native * scale, reference_velocity
 
 
+#: FR-153: the native velocity conventions measured, one row per solver version,
+#: build, export kind and length unit, each the factor to m/s and the comparison
+#: that established it. Registering a build measured as the sampled-fields page
+#: describes is one row here. Fluid-plot evidence does not establish steady probe
+#: or surface-vector conventions, and metre controls do not establish millimetres.
+_FLUID_METER = {
+    "receipt": "GOAL-033/g61-velocity-comparison",
+    "receipt_sha256": "af4cc684043546188b4de86320c00b8a45041d7da40b6b2cd62b0172cf55130b",
+    "native_plot_sha256": "2f34cf5dd7053a462f19fd618757c274bd4e076d01059e7c38d43d3bcf139a29",
+    "comparison": "nineteen coincident fixed/moving samples at six actual STEPs",
+}
+_FLUID_MILLIMETER = {
+    "receipt": "GOAL-033/g61-moving-millimeter-fluid-si-comparison",
+    "receipt_sha256": "4193840726b01d12b9cfd81c854636ed5b9328a431d315020f5cde8b505c62b6",
+    "native_plot_sha256": "effbbb615dc64144fe0e7f685f8f6c2f8b966532db16ffe3f3b1029b8fed7f33",
+    "comparison": "all76 columns at six STEPs exactly match the METER control",
+}
+_STEADY_PROBE = {
+    "receipt": "GOAL-033/g61-probe-basis-comparison",
+    "receipt_sha256": "58b314eaf3aa7ce2cb7823255b8b8031e99bc6b67664cae000b17c321316e9cb",
+    "comparison": "same four samples under reference, fixed and rotating analysis frames",
+}
+VELOCITY_EVIDENCE: dict[tuple[str, str, str, str], tuple[float, dict[str, str]]] = {
+    ("26.124", "8172026", "unsteady-fluid-plot", "METER"): (1.0, _FLUID_METER),
+    ("26.124", "8172026", "unsteady-fluid-plot", "MILLIMETER"): (1.0, _FLUID_MILLIMETER),
+    ("26.124", "8172026", "steady-probe", "METER"): (1.0, _STEADY_PROBE),
+    ("26.124", "8172026", "steady-probe", "MILLIMETER"): (0.001, _STEADY_PROBE),
+}
+
+
 def native_velocity_proof(
     motion_record: Mapping[str, Any],
     *,
     solver_identity: Mapping[str, Any],
     export_kind: str,
 ) -> dict[str, Any]:
-    """Return only the convention measured for this exact native export/build.
+    """Return the convention measured for this export, unit and solver version (FR-153).
 
-    Fluid-plot evidence does not establish steady probe or surface-vector
-    conventions, and metre controls do not establish millimetre behavior.
+    A row of ``VELOCITY_EVIDENCE`` naming the run's own build proves it. A run
+    of a measured solver version and unit on another build gets the convention
+    measured on the registered build, with ``proven`` False and both builds
+    named, so its field is written with a warning rather than withheld.
+    Another version, unit or export kind, and a run that recorded no
+    executable digest or build, are refused: there is no evidence at all.
     """
-    # NFR-31: build 8172026 of 26.124 identifies the measured executable; the run's
-    # own recorded digest is required and echoed, never compared with a constant.
+    # NFR-31: the build identifies the measured executable; the run's own
+    # recorded digest is required and echoed, never compared with a constant.
     digest = solver_identity.get("fs_exe_sha256")
     unit = motion_record.get("length_unit")
-    if (
-        motion_record.get("solver_version") != "26.124"
-        or not isinstance(digest, str)
-        or not digest
-        or solver_identity.get("fs_build") != "8172026"
-    ):
+    build = solver_identity.get("fs_build")
+    exact = (motion_record.get("solver_version"), build, export_kind, unit)
+    measured = [k for k in VELOCITY_EVIDENCE if k[0] == exact[0] and k[2:] == exact[2:]]
+    if not isinstance(digest, str) or not digest or not build or not measured:
         raise ProductError("native velocity convention has no evidence for this export/build/unit")
-    if export_kind == "unsteady-fluid-plot" and unit == "METER":
-        scale = 1.0
-        evidence = {
-            "receipt": "GOAL-033/g61-velocity-comparison",
-            "receipt_sha256": "af4cc684043546188b4de86320c00b8a45041d7da40b6b2cd62b0172cf55130b",
-            "native_plot_sha256": (
-                "2f34cf5dd7053a462f19fd618757c274bd4e076d01059e7c38d43d3bcf139a29"
-            ),
-            "comparison": "nineteen coincident fixed/moving samples at six actual STEPs",
-        }
-    elif export_kind == "unsteady-fluid-plot" and unit == "MILLIMETER":
-        scale = 1.0
-        evidence = {
-            "receipt": "GOAL-033/g61-moving-millimeter-fluid-si-comparison",
-            "receipt_sha256": "4193840726b01d12b9cfd81c854636ed5b9328a431d315020f5cde8b505c62b6",
-            "native_plot_sha256": (
-                "effbbb615dc64144fe0e7f685f8f6c2f8b966532db16ffe3f3b1029b8fed7f33"
-            ),
-            "comparison": "all76 columns at six STEPs exactly match the METER control",
-        }
-    elif export_kind == "steady-probe" and unit in ("METER", "MILLIMETER"):
-        scale = 1.0 if unit == "METER" else 0.001
-        evidence = {
-            "receipt": "GOAL-033/g61-probe-basis-comparison",
-            "receipt_sha256": "58b314eaf3aa7ce2cb7823255b8b8031e99bc6b67664cae000b17c321316e9cb",
-            "comparison": "same four samples under reference, fixed and rotating analysis frames",
-        }
-    else:
-        raise ProductError("native velocity convention has no evidence for this export/build/unit")
+    key = exact if exact in VELOCITY_EVIDENCE else measured[0]
+    scale, evidence = VELOCITY_EVIDENCE[key]
+    caveat = {"measured_on_build": key[1], "run_build": build, "proven": False}
     return {
         "state": "known",
         "fs_exe_sha256": digest,
-        "fs_build": "8172026",
+        "fs_build": build,
         "length_unit": unit,
         "export_kind": export_kind,
         "coordinate_to_m": 1.0 if unit == "METER" else 0.001,
@@ -296,5 +302,6 @@ def native_velocity_proof(
         "components": "REFERENCE",
         "velocity_kind": "absolute",
         "origin_rule": "none",
-        "evidence": evidence,
+        "evidence": dict(evidence),
+        **({} if key == exact else caveat),
     }

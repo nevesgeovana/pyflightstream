@@ -172,7 +172,8 @@ def test_velocity_convention_is_keyed_by_build_and_echoes_the_run_digest():
     """NFR-31: build 8172026 of 26.124 identifies the executable, not a constant digest.
 
     Any digest the run recorded is accepted and echoed back as the run's own;
-    another build, and a run that recorded no digest, are refused.
+    a run that recorded no digest is refused. Another build of 26.124 gets the
+    measured convention marked unproven (FR-153, test_fr153_field_build_warning.py).
     """
     from pyflightstream._errors import ProductError
     from pyflightstream.post.field_frames import native_velocity_proof
@@ -185,8 +186,14 @@ def test_velocity_convention_is_keyed_by_build_and_echoes_the_run_digest():
             export_kind="unsteady-fluid-plot",
         )
         assert proof["fs_exe_sha256"] == digest and proof["fs_build"] == "8172026"
+        assert "proven" not in proof
+    other = native_velocity_proof(
+        motion,
+        solver_identity={"fs_exe_sha256": "a" * 64, "fs_build": "8112026"},
+        export_kind="unsteady-fluid-plot",
+    )
+    assert other["proven"] is False and other["measured_on_build"] == "8172026"
     for identity in (
-        {"fs_exe_sha256": "a" * 64, "fs_build": "8112026"},
         {"fs_exe_sha256": None, "fs_build": "8172026"},
         {"fs_exe_sha256": "", "fs_build": "8172026"},
     ):
