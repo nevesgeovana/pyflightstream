@@ -121,6 +121,11 @@ PUBLIC_MODULES = [
     # 0.33.0 (AD-11): the input template, cut out of post.guides, which
     # re-exports every public name of it at its 0.32.0 path.
     "pyflightstream.post.input_template",
+    # 0.33.0 (AD-13, WP5): the product families cut out of post.products, which
+    # re-exports every name of their __all__ at its 0.32.0 path; with polar,
+    # rotor_table and unsteady_polar below.
+    "pyflightstream.post.point_tables",
+    "pyflightstream.post.polar",
     "pyflightstream.post.probe_fields",
     "pyflightstream.post.products",
     "pyflightstream.post.provenance",
@@ -131,6 +136,7 @@ PUBLIC_MODULES = [
     # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
     "pyflightstream.post.qsteady_noise",
     "pyflightstream.post.reductions",
+    "pyflightstream.post.rotor_table",
     "pyflightstream.post.section_distributions",
     "pyflightstream.post.series",
     "pyflightstream.post.settings_table",
@@ -140,6 +146,7 @@ PUBLIC_MODULES = [
     # take of per-step exports of her own, with the writer every Tecplot uses.
     "pyflightstream.post.surfaces",
     "pyflightstream.post.unsteady",
+    "pyflightstream.post.unsteady_polar",
     "pyflightstream.post.writers",
     "pyflightstream.probes",
     "pyflightstream.probes.errors",

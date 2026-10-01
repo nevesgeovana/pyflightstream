@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-import pyflightstream.post.products as products_module
+import pyflightstream.post._stage as stage_module
 import pyflightstream.workspace as workspace_module
 from pyflightstream.post.products import write_campaign_products
 from pyflightstream.run.cli import _build_parser, main
@@ -78,7 +78,9 @@ def test_both_modes_read_the_log_to_explain_doubts(tmp_path, monkeypatch):
         calls.append((log_path, steady))
         return None
 
-    monkeypatch.setattr(products_module, "freeze_of_log", spy)
+    # Patched at the name's one home, where both the campaign stage and the
+    # simulation stage look it up since WP5 of 0.33.0.
+    monkeypatch.setattr(stage_module, "freeze_of_log", spy)
     workspace = _post_workspace(tmp_path / "off", 2413, (60, 61))
     write_campaign_products(workspace)
     assert calls, "since 0.26.0 the native log is read to warn by default"

@@ -5,7 +5,6 @@
   "cases/matrix.py": 1808,
   "cases/workflows.py": 8876,
   "post/corrections.py": 1006,
-  "post/products.py": 5670,
   "qa/specs.py": 1334,
   "run/__init__.py": 4474,
   "run/cli.py": 2004,
@@ -16,8 +15,7 @@
   "workspace/storage.py": 1487
  },
  "function_lines": {
-  "post/products.py:_rotor_tables": 292,
-  "post/products.py:_sim_products": 823,
+  "post/_rotor_plan.py:_rotor_tables": 292,
   "post/products.py:_write_the_products": 259,
   "post/section_distributions.py:_matching_distributions": 328,
   "post/section_distributions.py:write_section_distributions": 257,
@@ -360,6 +358,72 @@
    "statements": 62,
    "positional": 2
   },
+  "post/_additional.py:_additional_products": {
+   "complexity": 16,
+   "branches": 15,
+   "statements": 43,
+   "positional": 6
+  },
+  "post/_condition.py:clock_rotor_facts": {
+   "complexity": 12,
+   "branches": 10,
+   "statements": 33,
+   "positional": 3
+  },
+  "post/_condition.py:point_condition": {
+   "complexity": 15,
+   "branches": 14,
+   "statements": 30,
+   "positional": 1
+  },
+  "post/_reduction_stage.py:_point_reductions": {
+   "complexity": 31,
+   "branches": 31,
+   "statements": 94,
+   "positional": 3
+  },
+  "post/_reduction_stage.py:_write_the_per_revolution_products": {
+   "complexity": 12,
+   "branches": 11,
+   "statements": 45,
+   "positional": 4
+  },
+  "post/_rotor_plan.py:_rotor_tables": {
+   "complexity": 39,
+   "branches": 25,
+   "statements": 134,
+   "positional": 15
+  },
+  "post/_rotor_plan.py:rotor_plot_source": {
+   "complexity": 14,
+   "branches": 13,
+   "statements": 44,
+   "positional": 2
+  },
+  "post/_rotor_products.py:_point_series": {
+   "complexity": 12,
+   "branches": 12,
+   "statements": 59,
+   "positional": 4
+  },
+  "post/_rotor_products.py:_qsteady_products": {
+   "complexity": 16,
+   "branches": 15,
+   "statements": 53,
+   "positional": 3
+  },
+  "post/_rotor_products.py:_qsteady_sections": {
+   "complexity": 11,
+   "branches": 10,
+   "statements": 21,
+   "positional": 5
+  },
+  "post/_stage.py:_window_the_reduction_reads": {
+   "complexity": 2,
+   "branches": 2,
+   "statements": 9,
+   "positional": 7
+  },
   "post/acoustics.py:read_acoustic_signals": {
    "complexity": 19,
    "branches": 15,
@@ -438,65 +502,11 @@
    "statements": 100,
    "positional": 4
   },
-  "post/products.py:_additional_products": {
-   "complexity": 16,
-   "branches": 15,
-   "statements": 43,
-   "positional": 6
-  },
   "post/products.py:_campaign_products": {
    "complexity": 30,
    "branches": 30,
    "statements": 90,
    "positional": 1
-  },
-  "post/products.py:_point_reductions": {
-   "complexity": 31,
-   "branches": 31,
-   "statements": 94,
-   "positional": 3
-  },
-  "post/products.py:_point_series": {
-   "complexity": 12,
-   "branches": 12,
-   "statements": 59,
-   "positional": 4
-  },
-  "post/products.py:_qsteady_products": {
-   "complexity": 16,
-   "branches": 15,
-   "statements": 53,
-   "positional": 3
-  },
-  "post/products.py:_qsteady_sections": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 21,
-   "positional": 5
-  },
-  "post/products.py:_rotor_tables": {
-   "complexity": 39,
-   "branches": 25,
-   "statements": 134,
-   "positional": 15
-  },
-  "post/products.py:_sim_products": {
-   "complexity": 85,
-   "branches": 77,
-   "statements": 314,
-   "positional": 4
-  },
-  "post/products.py:_window_the_reduction_reads": {
-   "complexity": 2,
-   "branches": 2,
-   "statements": 9,
-   "positional": 7
-  },
-  "post/products.py:_write_the_per_revolution_products": {
-   "complexity": 12,
-   "branches": 11,
-   "statements": 47,
-   "positional": 4
   },
   "post/products.py:_write_the_products": {
    "complexity": 31,
@@ -504,40 +514,10 @@
    "statements": 97,
    "positional": 9
   },
-  "post/products.py:clock_rotor_facts": {
-   "complexity": 12,
-   "branches": 10,
-   "statements": 33,
-   "positional": 3
-  },
-  "post/products.py:point_condition": {
-   "complexity": 15,
-   "branches": 14,
-   "statements": 30,
-   "positional": 1
-  },
-  "post/products.py:rotor_plot_source": {
-   "complexity": 14,
-   "branches": 13,
-   "statements": 44,
-   "positional": 2
-  },
   "post/products.py:write_campaign_products": {
    "complexity": 13,
    "branches": 16,
    "statements": 52,
-   "positional": 1
-  },
-  "post/products.py:write_rotor_table": {
-   "complexity": 10,
-   "branches": 9,
-   "statements": 60,
-   "positional": 1
-  },
-  "post/products.py:write_unsteady_polar": {
-   "complexity": 22,
-   "branches": 21,
-   "statements": 73,
    "positional": 1
   },
   "post/provenance.py:prov_document": {
@@ -569,6 +549,12 @@
    "branches": 0,
    "statements": 28,
    "positional": 6
+  },
+  "post/rotor_table.py:write_rotor_table": {
+   "complexity": 10,
+   "branches": 9,
+   "statements": 60,
+   "positional": 1
   },
   "post/section_distributions.py:_distributions": {
    "complexity": 13,
@@ -671,6 +657,12 @@
    "branches": 12,
    "statements": 53,
    "positional": 2
+  },
+  "post/unsteady_polar.py:write_unsteady_polar": {
+   "complexity": 22,
+   "branches": 21,
+   "statements": 73,
+   "positional": 1
   },
   "probes/__init__.py:ProbeLattice._geometry_is_physical": {
    "complexity": 11,
@@ -1416,7 +1408,7 @@
  ],
  "fan_out": {
   "exceptions.py": 36,
-  "post/products.py": 32
+  "post/products.py": 27
  },
  "fan_out_deferred": {},
  "private_test_names": {
@@ -1480,9 +1472,13 @@
   "pyflightstream.cases.workflows": 3,
   "pyflightstream.fsi.centrifugal": 3,
   "pyflightstream.fsi.driver": 1,
+  "pyflightstream.post._rotor_plan": 1,
+  "pyflightstream.post._sim": 1,
+  "pyflightstream.post._stage": 1,
   "pyflightstream.post.glossary": 1,
+  "pyflightstream.post.point_tables": 1,
   "pyflightstream.post.probe_fields": 1,
-  "pyflightstream.post.products": 7,
+  "pyflightstream.post.products": 3,
   "pyflightstream.qa.cli": 3,
   "pyflightstream.qa.physics": 1,
   "pyflightstream.results.core": 1,

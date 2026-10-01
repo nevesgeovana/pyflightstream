@@ -1,0 +1,8 @@
+## Added
+
+- Four public modules hold the product families `pyflightstream.post.products` wrote in one module of 9082 lines (AD-13, P0330-WP5): `pyflightstream.post.polar` (the group polar, its rows and `write_recorded_polar`), `pyflightstream.post.rotor_table` (the rotor coefficient table and the shaft loads), `pyflightstream.post.unsteady_polar` (the time-averaged polar of an unsteady simulation and its axes) and `pyflightstream.post.point_tables` (the sections, plots, probes, reduction and per-revolution tables of a point), each with an exact `__all__`. `pyflightstream.post.products` stays a module, re-exports every name of their `__all__`, and keeps its own `__all__` in content and order; every 0.32.0 import path keeps working.
+- `pyflightstream.post.polar.group_polar_rows`, the coefficient rows of one boundary group over the points of a polar, published: the post stage, `write_recorded_polar` and a product over the polar rows build a group's rows through it. It was the private `_polar_rows` of `post.products`.
+
+## Changed
+
+- The post of one simulation is a first part that resolves what its records state into one frozen `SimContext` and six steps that write the product families from it in the order the manifest has always had (AD-13); the function that did it all was 1183 lines with twelve parameters. A byte snapshot of the products of twenty-five recorded offline campaigns, taken before the first move (`tests/tier1_offline/fixtures/products_snapshot/`, P0330-PRODUCTS-SNAPSHOT), is unchanged: every product, `products.json`, `post.log` and `post.log.json` byte for byte.

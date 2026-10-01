@@ -159,7 +159,9 @@ def test_recorded_polar_refuses_vectors_in_a_rotated_analysis_frame(tmp_path):
 
 
 def test_rotor_table_keeps_the_reference_aliases_when_summing_loads(tmp_path, monkeypatch):
-    from pyflightstream.post import products
+    # Patched where the rotor tables' plan looks the reference up (WP5 of 0.33.0
+    # moved it out of post.products).
+    import pyflightstream.post._rotor_plan as rotor_plan
 
     rotor = SimpleNamespace(
         alias="PROP",
@@ -173,7 +175,7 @@ def test_rotor_table_keeps_the_reference_aliases_when_summing_loads(tmp_path, mo
         z_m=0.0,
     )
     monkeypatch.setattr(
-        products, "resolve_reference", lambda *args: SimpleNamespace(rotors={"PROP": rotor})
+        rotor_plan, "resolve_reference", lambda *args: SimpleNamespace(rotors={"PROP": rotor})
     )
     zero = dict.fromkeys(("Cx", "Cy", "Cz", "CMx", "CMy", "CMz"), 0.0)
     loads = replace(
