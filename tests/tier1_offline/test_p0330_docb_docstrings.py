@@ -61,13 +61,14 @@ FACADE_HELD = {
 #: `results.log`, `workspace.hpc` and `workspace.sidecars`, which are pinned
 #: in their stead; no function joined the pending set. The `results` root
 #: and `run.records`, whose definitions left, pass and leave the list.
+#: `cases/workflows.py`, cut by WP4 into the package `cases/workflows/` whose
+#: modules all pass, leaves this list and the examples list.
 NUMPYDOC_PENDING = {
     "cases/__init__.py",
     "farfield/__init__.py",
     "probes/__init__.py",
     "results/sectional_loads.py",
     "cases/windows.py",
-    "cases/workflows.py",
     "post/field_frames.py",
     "post/glossary.py",
     "post/guides.py",
@@ -96,7 +97,6 @@ NUMPYDOC_PENDING = {
 EXAMPLES_PENDING = {
     "cases/__init__.py",
     "script/__init__.py",
-    "cases/workflows.py",
     "post/probe_fields.py",
     "results/exports.py",
     "results/loads.py",
