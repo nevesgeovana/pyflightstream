@@ -189,6 +189,10 @@ def point_condition(
     cell : mapping, optional
         The matrix row's flight condition, for the keys no export reports --
         the altitude among them.
+    clock : mapping, optional
+        The clock rotor's facts, as :func:`clock_rotor_facts` returns them: its
+        ``rpm`` and ``diameter_m``. They add the measured ``RPM_CLOCK`` and
+        ``J_CLOCK`` keys; left out, those keys are absent.
 
     Returns
     -------

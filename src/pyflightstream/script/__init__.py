@@ -876,15 +876,6 @@ class Script:
         database instead (PFS-2012.05), so a manifest could carry an
         availability, a default and an evidence sentence from a database
         no line of the script was checked against.
-
-    Examples
-    --------
-    >>> script = Script("26.120")
-    >>> script.emit("SET_FREESTREAM", "CONSTANT")
-    >>> script.render().splitlines()
-    ['SET_FREESTREAM CONSTANT']
-    >>> script.raw_flag
-    False
     """
 
     def __init__(self, version: str | FsVersion, registry: CommandRegistry | None = None):

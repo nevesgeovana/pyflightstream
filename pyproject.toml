@@ -391,6 +391,8 @@ force-exclude = true
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "N", "D"]
+# NFR-30 R1: the numpy convention switches D417 off, so it is selected back.
+extend-select = ["D417"]
 # N803/N806 exempted so aerodynamic symbols (CL, CDi, J, alpha_deg) keep
 # their standard names (SAD Section 12).
 ignore = ["N803", "N806"]

@@ -970,14 +970,20 @@
     part 1 completed R2 to R4 on every module but the fifteen the other
     0.33.0 packages were cutting and the four package roots the facade
     ratchet (AD-08, G8) holds at their entry, which a tier-1 test pins and
-    part 2 and the facade cuts empty; R1 waits for part 2, because D417 is selected once it
-    reports nothing over the whole tree. Evidence:
+    part 2 and the facade cuts empty. Part 2 then documented every module
+    part 1 left: the numpydoc list holds four package roots, `cases`,
+    `farfield`, `probes` and `workspace`, and the examples list three,
+    `cases`, `script` and `workspace`, each held by the facade ratchet, which
+    admits no growth, until its definitions move to a module; the entry points
+    whose example needs the solver or a recorded workspace number eighteen,
+    each named with its reason; and ruff's D417 is selected in
+    `pyproject.toml` and reports nothing over the whole tree. Evidence:
     `tests/tier1_offline/test_p0330_docb_docstrings.py`, whose
     P0330-DOCSTRINGS-NUMPYDOC walks every exported function for R2,
     P0330-DOC-EXAMPLES the documented tier for R3 against the
     executable-examples step, and P0330-DOC-REDUCTIONS-HOME the pages
-    for R4, each with a planted-defect control. Owed: part 2 and the
-    ruff configuration with its clean run.*
+    for R4, each with a planted-defect control. Owed: the docstrings of
+    the held roots, completed as each becomes a facade.*
 
     Read with PFS-2074, PFS-2074.24 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 

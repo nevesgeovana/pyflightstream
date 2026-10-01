@@ -50,6 +50,7 @@ FACADE_HELD = {
     "farfield/__init__.py",
     "probes/__init__.py",
     "script/__init__.py",
+    "workspace/__init__.py",
 }
 
 #: Modules (paths under ``src/pyflightstream``) whose exported functions do not
@@ -66,17 +67,19 @@ FACADE_HELD = {
 #: (AD-14) moved the pending functions of the `run` root into `run._campaign`,
 #: `run._executors`, `run._identity` and `run._plan`, pinned in its stead; the
 #: root, a facade now, leaves the list.
-#: DOC-B part 2 group g1: `cases`, `cases.windows`, `farfield` and `probes` leave the list.
+#: DOC-B part 2 group g1: `cases.windows` left the list; the roots `cases`, `farfield` and
+#: `probes` stay pinned, held by the facade ratchet (FACADE_HELD).
 #: DOC-B part 2 g3 documented `results.sectional_loads`, `results.core`, `results.log` and the four
 #: `post` family modules, which left.
 #: `results.loads`, `results.native_surface`, `results.surface` and `results.tables` are
 #: complete and left it (DOC-B part 2, g4).
-#: DOC-B part 2 completed `workspace` (its root, `hpc`, `inputs` and
-#: `sidecars`), which leave the list.
+#: DOC-B part 2 completed `workspace.hpc`, `workspace.inputs` and `workspace.sidecars`, which
+#: leave the list. The `workspace` root stays pinned: it is a held facade root (FACADE_HELD).
 NUMPYDOC_PENDING = {
     "cases/__init__.py",
     "farfield/__init__.py",
     "probes/__init__.py",
+    "workspace/__init__.py",
     # WP5 (AD-13) moved the pending functions of `post.products` into the four
     # family modules, which are pinned in their stead.
 }
@@ -88,12 +91,17 @@ NUMPYDOC_PENDING = {
 #: leaves the list. Those WP6 moved out of the `run` root are pinned in
 #: `run._assessment`, `run._campaign`, `run._executors`, `run._identity` and
 #: `run._plan`, and the root leaves the list.
-#: DOC-B part 2 group g1: `cases` and `script` leave the list.
+#: DOC-B part 2 group g1 wrote the examples of `cases` and `script`; the integration took them
+#: out again, because the facade ratchet admits no growth in those held roots, so both stay.
 #: `results.exports`, `results.loads`, `results.surface` and `results.tables` carry theirs
 #: and left it (DOC-B part 2, g4).
 #: The `run` modules above and `run.cli` left it in DOC-B part 2, group 5.
-#: `workspace` and `workspace.inputs` carry their examples and leave the list.
-EXAMPLES_PENDING = {}
+#: `workspace.inputs` carries its examples and leaves the list; the `workspace` root stays.
+EXAMPLES_PENDING = {
+    "cases/__init__.py",
+    "script/__init__.py",
+    "workspace/__init__.py",
+}
 
 #: Documented entry points whose example cannot run offline without the solver
 #: or a recorded workspace, with the reason. Each still has no Examples
