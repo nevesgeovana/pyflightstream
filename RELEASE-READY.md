@@ -1,4 +1,4 @@
-# v0.33.0 is released by this sequence, followed as written
+# pyflightstream 0.33.0 is released and archived; the next release follows this sequence as written
 
 0.33.0 is the release of THE ORGANISED HOUSE: the two matrix homes and one lookup,
 `pyfs-matrix mark-failed` and the FAILED_MARKED status, `inventory --clean` for saved
@@ -6,6 +6,11 @@ solver actions, row setup keys, the architecture split into typed modules (the
 run facade, the workflow package, the post product families), and the documentation
 and traceability tightened. The change log's `[0.33.0]` section is the record;
 `docs/migrating-to-0.33.0.md` says what a reader's files must change.
+
+The version this file describes is the package's version without a development
+suffix (`pyproject.toml`), and a test reads it (FR-346). The commands of the
+sequence below were written for that version: the next release reads its own
+version in their place and re-titles this file at step 1.
 
 **THIS FILE IS RE-TITLED AND RE-MEASURED PER TAG.** It carried the v0.22.0 title,
 commands and readings through the whole 0.23.0 release, and it carried the v0.24.0
@@ -132,13 +137,19 @@ change log's `[0.33.0]` section 2026-10-01, moves `CITATION.cff` to 0.33.0 with
 its `date-released`, names v0.33.0 on both front pages and keeps the guide's
 cover at 0.33.0. Its tests are recorded with that commit.
 
-PENDING, and not claimed by this file until its evidence is attached to the
-commit it names:
+THE RELEASE IS COMPLETE, and each half of that is readable from the tree rather
+than claimed here:
 
-- **The full tier-1 suite over the release commit.**
-- **The review attestation over the release range** (step 2) and **the
-  independent reading of GitHub main** on the pushed commit (step 4).
-- **CI green on the commit to be tagged**, including the release workflow's single
-  build and its clean installed-wheel jobs.
-- **The tag, its PyPI publication, the release object and the Zenodo version
-  DOI** (steps 5 to 10). The v0.33.0 archive row is owed in the change log.
+- **The tag.** `git rev-parse v0.33.0^{commit}` reads `7177abd4`, the commit the
+  tag names.
+- **The archive.** `CITATION.cff` records the version DOI of v0.33.0,
+  10.5281/zenodo.23089060, and the change log's `Owed` section holds no line for
+  it: the version's archive entry is paid, not owed.
+- **The archive of the releases** is named by the concept DOI that `CITATION.cff`
+  carries, 10.5281/zenodo.21482924, which resolves to the newest archived
+  version. Cite a release by its own version DOI and the series by this one.
+- **The publication** (PyPI and the release object) is confirmed by
+  `python scripts/check_release_published.py`, which asks both halves online.
+
+Nothing of the sequence is pending for 0.33.0. The next release writes its own
+readings here.

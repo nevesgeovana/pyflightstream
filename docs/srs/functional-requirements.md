@@ -8488,11 +8488,11 @@ Requirements written after the specification was last reconciled with the packag
 
     Solution (planned for 0.34.0): the test module of the report index.
 
-!!! requirement "FR-346 The release-state file states no owed archive row <span class='srs-pending'>pending</span>"
+!!! requirement "FR-346 The release-state file states no owed archive row <span class='srs-implemented'>implemented</span>"
 
     Read with PFS-2075, PFS-2075.17 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: the `RELEASE-READY.md` item of the 0.34.0 scope (GEO-071, section 4.4; confirmed for 0.34.0 by the author decision of 2026-10-01): the file still says "archive row owed", false since the Zenodo archive row entered. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-RELEASE-READY; read at 0.34.0 (GOAL-039, arm RG). Pending: no rewrite yet. Verification method: a tier-1 test carrying the marker. Evidence owed: a test that `RELEASE-READY.md` does not contain the phrase, names the version it describes equal to the package's version without a development suffix, and names the archive by the concept DOI that `CITATION.cff` carries; a file with the phrase merely deleted and no archive named fails it.*
+    *Origin: the `RELEASE-READY.md` item of the 0.34.0 scope (GEO-071, section 4.4; confirmed for 0.34.0 by the author decision of 2026-10-01): the file still says "archive row owed", false since the Zenodo archive row entered. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-RELEASE-READY; read at 0.34.0 (GOAL-039, arm RG). Built in 0.34.0. Verification method: a tier-1 test carrying the marker. Evidence: `tests/tier1_offline/test_p0340_release_ready.py` holds a test that `RELEASE-READY.md` does not contain the phrase, names the version it describes equal to the package's version without a development suffix, and names the archive by the concept DOI that `CITATION.cff` carries; a file with the phrase merely deleted and no archive named fails it.*
 
     Need: A state file that contradicts the state misleads the next release.
 
@@ -8502,4 +8502,4 @@ Requirements written after the specification was last reconciled with the packag
     - R2 The file names the version it describes, equal to the package's version without a development suffix, and a test reads it.
     - R3 The file names the archive of the releases by the concept DOI that `CITATION.cff` carries, and a test compares the two.
 
-    Solution (planned for 0.34.0): the rewrite of `RELEASE-READY.md` in the release documentation.
+    Solution (release 0.34.0): the rewrite of `RELEASE-READY.md` in the release documentation, and `tests/tier1_offline/test_p0340_release_ready.py`.
