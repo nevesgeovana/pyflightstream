@@ -19,12 +19,31 @@ from pyflightstream.cases.workflows import (
 )
 from pyflightstream.workspace.setup_standards import setup_entry_evidence
 
+__all__ = [
+    "inspect_case_setup",
+    "setup_inspection_block",
+    "setup_inspection_summary",
+]
+
 
 def inspect_case_setup(case: SimCase, version: str) -> dict[str, Any]:
     """Return typed values, provenance, evidence and aliases from one resolved case.
 
     The result is a row-level configuration inspection. Point-dependent quantities
     and native effective defaults remain identified rather than guessed.
+
+    Parameters
+    ----------
+    case : SimCase
+        The resolved case.
+    version : str
+        The build the settings are judged against.
+
+    Returns
+    -------
+    dict of str to object
+        The case's id, setup and build, each setting with its value, provenance and evidence, and
+        the aliases.
     """
     values = case.solver.model_dump(mode="json")
     explicit = case.solver.model_fields_set
@@ -90,6 +109,16 @@ def setup_inspection_summary(records: Sequence[Mapping[str, Any]]) -> str:
 
     A row declaring a Tecplot surface also says whether that surface carries
     the nodal ``Singularity_strength`` (SS1 of 0.30.0).
+
+    Parameters
+    ----------
+    records : sequence of mapping
+        The inspection records of :func:`inspect_case_setup`, one per case.
+
+    Returns
+    -------
+    str
+        One line per record.
     """
     lines = []
     for record in records:
@@ -110,6 +139,16 @@ def setup_inspection_block(records: Sequence[Mapping[str, Any]]) -> list[str]:
     heading line per case, then its settings, its aliases and, on a row
     declaring a Tecplot surface, whether the surface carries the nodal
     ``Singularity_strength``, each on its own line indented under the heading.
+
+    Parameters
+    ----------
+    records : sequence of mapping
+        The inspection records of :func:`inspect_case_setup`, one per case.
+
+    Returns
+    -------
+    list of str
+        The block's lines.
     """
     lines: list[str] = []
     for record in records:

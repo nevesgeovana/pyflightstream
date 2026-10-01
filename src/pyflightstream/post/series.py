@@ -111,6 +111,20 @@ def stamped_exports(
     ``_cp``, ``_sloads`` or ``_probes`` otherwise; the extension ``txt`` or
     ``dat``. The pattern is the one the tier-3 actions test reads the same
     folder with.
+
+    Parameters
+    ----------
+    sim_dir : Path
+        The simulation folder.
+    stem : str
+        The point's file stem.
+    *more : Path
+        Further folders to look in.
+
+    Returns
+    -------
+    dict of (str, str) to dict of int to Path
+        (suffix, extension) to the file of each step.
     """
     pattern = re.compile(
         rf"{re.escape(stem)}(_cp|_sloads|_probes)?_iteration=(\d+)\.(txt|dat|vtk|csv)$"
@@ -131,7 +145,21 @@ def stamped_exports(
 
 
 def surface_export_metadata(record: RunRecord, *, step: int | None = None) -> dict[str, object]:
-    """Describe a native surface export from the run's immutable averaging request."""
+    """Describe a native surface export from the run's immutable averaging request.
+
+    Parameters
+    ----------
+    record : RunRecord
+        The point's run record.
+    step : int, optional
+        The step of the export described.
+
+    Returns
+    -------
+    dict of str to object
+        ``{'kind': 'average', 'window': ...}``, ``{'kind': 'instant'}``, or why the export is
+        skipped.
+    """
     stated = record.surface_time_averaging
     if stated is None:
         return {"kind": "instant"}
@@ -168,6 +196,18 @@ def translated_surface(record: RunRecord | AdditionalRecord, path: Path) -> dict
     itself states it (``NA`` where the file cannot be read); ``location``
     ``cell-centred``; ``frame`` ``reference``; and ``not_carried``, the solver
     Tecplot's variables the VTK does not hold.
+
+    Parameters
+    ----------
+    record : RunRecord or AdditionalRecord
+        The record whose run wrote the file.
+    path : Path
+        The Tecplot file.
+
+    Returns
+    -------
+    dict of str to object
+        The translation's metadata; empty for a Tecplot the solver wrote.
     """
     translations = record.surface_translations or []
     stamped = _STAMPED.match(path.stem)
@@ -232,6 +272,16 @@ def run_clock(record: RunRecord) -> tuple[float | None, float | None]:
     correction was applied to `_lead` alone when it was first made, in this
     same module, which is how one of two functions on one path ends up
     describing a product the other one writes.
+
+    Parameters
+    ----------
+    record : RunRecord
+        The point's run record.
+
+    Returns
+    -------
+    tuple of (float or None, float or None)
+        The time step in seconds and the azimuth step in degrees, None where not known.
     """
     window = record.export_window or {}
     delta = window.get("delta_time_s")
@@ -452,6 +502,16 @@ def write_point_series(
         of the stage follows. The products stage passes its archiver, which
         moves an existing table into ``series/archive/<day and hour>/``, or,
         called with ``archive=False``, leaves it to be overwritten.
+    condition : mapping of str to object, optional
+        The point's condition, as every product of it states it.
+    reference : mapping of str to object, optional
+        The point's reference dimensions.
+    rotors : mapping of str to mapping, optional
+        What the sections identity needs of each rotor.
+    skipped : dict of str to str, optional
+        Receives the reason a kind is not written, under the table's name.
+    surface_exports : dict of str to dict, optional
+        Receives the manifest entries of the native Tecplot, VTK and CSV files.
 
     Returns
     -------
@@ -462,6 +522,13 @@ def write_point_series(
         window states, and on the loads entry the sections (``_cp``) and
         Tecplot (``.dat``) files of the window by path, under
         ``sections_files`` and ``tecplot_files``.
+
+    Raises
+    ------
+    ProductError
+        If a step of the window was deleted by ``free-space`` and no ``skipped`` is given.
+    ProductExistsError
+        If a table exists, no ``target`` is given and ``overwrite`` is not set.
     """
     window = record.export_window
     if not window:

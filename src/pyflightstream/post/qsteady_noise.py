@@ -187,6 +187,20 @@ def fit_azimuthal_series(
     ``orders`` harmonics need ``2 orders + 1`` distinct azimuths; by default
     the fit takes the most the samples carry, ``(distinct - 1) // 2``.
 
+    Parameters
+    ----------
+    azimuths_deg : array_like
+        Each sample's azimuth, in degrees.
+    values : array_like
+        The value at each azimuth.
+    orders : int, optional
+        The harmonics fitted; the most the samples carry when None.
+
+    Returns
+    -------
+    AzimuthalSeries
+        The mean and the cosine and sine coefficients of each order.
+
     Raises
     ------
     ProductError
@@ -274,6 +288,26 @@ def rotating_components(
     ``F_r`` are the force along the axis, ``e_t`` and ``e_r``; ``M_a`` and
     ``M_t`` the moment about the axis and about ``e_t``. For a force applied at
     ``r e_r``, ``M_a = r F_t`` and ``M_t = -r F_a``.
+
+    Parameters
+    ----------
+    azimuths_deg : array_like
+        Each sample's azimuth, in degrees.
+    forces : array_like
+        The blade's force at each sample, one row of three per sample, in newtons in the fixed
+        frame.
+    moments : array_like
+        The blade's moment about the hub at each sample, one row of three per sample, in N m in the
+        fixed frame.
+    axis : array_like
+        The rotor's axis, a vector of three in the fixed frame.
+    reference : array_like
+        The direction of azimuth zero, its part square to the axis, in the fixed frame.
+
+    Returns
+    -------
+    Array
+        One row ``(F_a, F_t, F_r, M_a, M_t)`` per sample.
     """
     e_a, e_1, e_2 = _frame(axis, reference)
     psi = np.radians(np.asarray(azimuths_deg, dtype=float).reshape(-1))
@@ -302,6 +336,22 @@ def azimuth_from_moment(
     azimuth. It neglects the in-plane moment of the in-plane force (a blade
     whose load centroid sits off the disc plane); used where a record gives
     the loads but not the blade's position (the unsteady run of RPT-099).
+
+    Parameters
+    ----------
+    moment : array_like
+        The blade's moment about the hub, three components in the fixed frame.
+    axial_force : float
+        The blade's axial force F_a, in newtons.
+    axis : array_like
+        The rotor's axis, a vector of three in the fixed frame.
+    reference : array_like
+        The direction of azimuth zero, its part square to the axis, in the fixed frame.
+
+    Returns
+    -------
+    float
+        The azimuth in degrees in [0, 360).
 
     Raises
     ------
@@ -337,6 +387,32 @@ def reconstruct_blade_load(
     fitted by :func:`fit_azimuthal_series` (``orders`` as there) and the
     radii are the centroids of the mean loads, ``r_a = -mean(M_t) / mean(F_a)``
     and ``r_t = mean(M_a) / mean(F_t)``, unless stated.
+
+    Parameters
+    ----------
+    azimuths_deg : array_like
+        Each sample's azimuth, in degrees.
+    forces : array_like
+        The blade's force at each sample, one row of three per sample, in newtons in the fixed
+        frame.
+    moments : array_like
+        The blade's moment about the hub at each sample, one row of three per sample, in N m in the
+        fixed frame.
+    axis : array_like
+        The rotor's axis, a vector of three in the fixed frame.
+    reference : array_like
+        The direction of azimuth zero, its part square to the axis, in the fixed frame.
+    orders : int, optional
+        The harmonics fitted, as :func:`fit_azimuthal_series` takes them.
+    axial_radius_m : float, optional
+        The radius of the axial force, in metres; the load centroid when None.
+    inplane_radius_m : float, optional
+        The radius of the in-plane force, in metres; the load centroid when None.
+
+    Returns
+    -------
+    BladeLoad
+        The axial, tangential and radial force series and the two radii.
 
     Raises
     ------
@@ -401,6 +477,24 @@ def emission_times(
     ``observer_positions_m`` holds the observer's position at each of its
     times, one row of three per time.
 
+    Parameters
+    ----------
+    observer_times_s : array_like
+        The observer times, in seconds.
+    observer_positions_m : array_like
+        The observer's position at each of its times, one row of three per time, in metres.
+    position : Trajectory
+        The source's position as a function of time.
+    c0 : float
+        The speed of sound, in m/s.
+    max_speed_m_s : float
+        The source's largest speed, in m/s, which must be below ``c0``.
+
+    Returns
+    -------
+    Array
+        The emission time of each observer time, in seconds.
+
     Raises
     ------
     ProductError
@@ -438,6 +532,22 @@ def loading_noise(
 
     The equation is in the module docstring; ``observer_positions_m`` holds
     the observer's position at each of its times.
+
+    Parameters
+    ----------
+    observer_times_s : array_like
+        The observer times, in seconds.
+    observer_positions_m : array_like
+        The observer's position at each of its times, one row of three per time, in metres.
+    source : PointForce
+        The compact source: its force on the fluid and its trajectory.
+    c0 : float
+        The speed of sound, in m/s.
+
+    Returns
+    -------
+    Array
+        The pressure at each observer time, in Pa.
     """
     times = np.asarray(observer_times_s, dtype=float).reshape(-1)
     observer = np.asarray(observer_positions_m, dtype=float).reshape(times.size, 3)
@@ -554,6 +664,18 @@ def rotor_point_forces(motion: RotorMotion, load: BladeLoad) -> list[PointForce]
     centroid radius, turning with the blade; the blade's load is the series
     evaluated at the blade's own azimuth.
 
+    Parameters
+    ----------
+    motion : RotorMotion
+        The rotor's motion.
+    load : BladeLoad
+        One blade's load against azimuth.
+
+    Returns
+    -------
+    list of PointForce
+        Per blade, its axial then its in-plane source.
+
     Raises
     ------
     ProductError
@@ -589,6 +711,26 @@ def rotor_loading_noise(
     ``observer_velocity_m_s`` through the medium (the hub's velocity for an
     observer carried with the aircraft). The sum of :func:`loading_noise`
     over :func:`rotor_point_forces`.
+
+    Parameters
+    ----------
+    observer_times_s : array_like
+        The observer times, in seconds.
+    observer_position_m : array_like
+        The observer's position at time zero, in metres.
+    motion : RotorMotion
+        The rotor's motion: its hub, axis, speed and blades.
+    load : BladeLoad
+        One blade's load against azimuth.
+    c0 : float
+        The speed of sound, in m/s.
+    observer_velocity_m_s : array_like, optional
+        The observer's velocity through the medium, in m/s.
+
+    Returns
+    -------
+    Array
+        The pressure at each observer time, in Pa.
     """
     times = np.asarray(observer_times_s, dtype=float).reshape(-1)
     start = _vector(observer_position_m, "observer position")
@@ -627,6 +769,34 @@ def gutin_harmonic_rms(
     harmonic that is not a multiple of ``blades``. The sign convention of the
     forces cancels in the amplitude as long as both are on the blade or both
     on the fluid.
+
+    Parameters
+    ----------
+    harmonic : int
+        The shaft harmonic.
+    blades : int
+        The blade count.
+    omega_rad_s : float
+        The rotor's angular speed, in rad/s, positive.
+    c0 : float
+        The speed of sound, in m/s.
+    distance_m : float
+        The observer's distance from the hub, in metres.
+    theta_rad : float
+        The observer's angle from the rotor's axis, in radians.
+    axial_force_n : float
+        Each blade's steady axial force, in newtons.
+    tangential_force_n : float
+        Each blade's steady tangential force, along the rotation, in newtons.
+    axial_radius_m : float
+        The radius the axial force acts at, in metres.
+    inplane_radius_m : float
+        The radius the tangential force acts at, in metres.
+
+    Returns
+    -------
+    float
+        The rms amplitude in Pa; 0.0 for a harmonic that is not a multiple of ``blades``.
 
     Examples
     --------
@@ -676,6 +846,18 @@ def compare_signals(
     reference: Sequence[float] | Array, predicted: Sequence[float] | Array
 ) -> SignalComparison:
     """Return the :class:`SignalComparison` of two records sampled at the same times.
+
+    Parameters
+    ----------
+    reference : sequence of float or Array
+        The reference pressure record, in Pa.
+    predicted : sequence of float or Array
+        The predicted record at the same times, in Pa.
+
+    Returns
+    -------
+    SignalComparison
+        The rms ratio, the level difference in dB and the correlation of the two records.
 
     Raises
     ------

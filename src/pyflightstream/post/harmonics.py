@@ -174,6 +174,16 @@ def distinct_azimuths(azimuths_deg: Sequence[float]) -> int:
     Two azimuths within :data:`AZIMUTH_TOLERANCE_DEG` of each other, 360 and 0
     included, are one.
 
+    Parameters
+    ----------
+    azimuths_deg : sequence of float
+        The samples' azimuths, in degrees.
+
+    Returns
+    -------
+    int
+        The number of distinct azimuths; 0 for no sample.
+
     Examples
     --------
     >>> distinct_azimuths([0.0, 360.0, 90.0, 90.0, 180.0])
@@ -212,6 +222,19 @@ def fit_harmonics(azimuths_deg: Sequence[float], values: Sequence[float]) -> Har
     azimuths or more, 1P with three or more, ``H0`` alone below that; a
     harmonic left out is None. ``RESIDUAL_RMS`` is the root mean square of
     the samples less the fit that was made.
+
+    Parameters
+    ----------
+    azimuths_deg : sequence of float
+        The samples' azimuths, in degrees.
+    values : sequence of float
+        The value at each azimuth.
+
+    Returns
+    -------
+    HarmonicFit
+        The sample counts, ``H0``, the amplitude and phase [deg] of each harmonic fitted (None for
+        one left out) and ``RESIDUAL_RMS``.
 
     Raises
     ------
@@ -270,6 +293,20 @@ def last_complete_revolution(
     its first row, with ``N`` the steps per revolution rounded to a whole
     step; the last one whose steps all lie inside the history is returned.
 
+    Parameters
+    ----------
+    first_step : int
+        The history's first step.
+    last_step : int
+        The history's last step.
+    steps_per_revolution : float
+        The rotor's clock, in steps per revolution.
+
+    Returns
+    -------
+    tuple of (int, int) or None
+        The first and last step of that revolution, or None where no revolution is complete.
+
     Examples
     --------
     >>> last_complete_revolution(3, 13, 4.0)
@@ -294,6 +331,16 @@ def load_quantities(columns: Sequence[str]) -> list[str]:
     place (``Offset``, ``Chord``, ``X_QC``, ``Z_QC``) nor one the post adds
     (the clocking, the reduced frequency, the validity, the integrated
     strips): ``Fx``, ``Fz`` and ``Moment`` on today's export.
+
+    Parameters
+    ----------
+    columns : sequence of str
+        The sections table's columns.
+
+    Returns
+    -------
+    list of str
+        The load columns, in the table's order.
     """
     names = list(columns)
     start = max((names.index(name) for name in CONTEXT_COLUMNS if name in names), default=-1)
@@ -305,7 +352,20 @@ def load_quantities(columns: Sequence[str]) -> list[str]:
 
 
 def blade_of(families: Sequence[str], rotor: HarmonicRotor) -> int | None:
-    """Return the blade of ``rotor`` (from 1) whose families include every one given, or None."""
+    """Return the blade of ``rotor`` (from 1) whose families include every one given, or None.
+
+    Parameters
+    ----------
+    families : sequence of str
+        The families of one block of the table.
+    rotor : HarmonicRotor
+        The rotor, with its blades' families.
+
+    Returns
+    -------
+    int or None
+        The blade's number, from 1, or None where no blade carries every family.
+    """
     if not families:
         return None
     for number, members in enumerate(rotor.blades, start=1):
@@ -317,7 +377,21 @@ def blade_of(families: Sequence[str], rotor: HarmonicRotor) -> int | None:
 def sample_blocks(
     rows: Sequence[Mapping[str, str]], sample_column: str
 ) -> list[list[Mapping[str, str]]]:
-    """Split the table into its blocks: consecutive rows of one sample and one distribution."""
+    """Split the table into its blocks: consecutive rows of one sample and one distribution.
+
+    Parameters
+    ----------
+    rows : sequence of mapping of str to str
+        The table's rows as :func:`~pyflightstream.post.products.read_csv_table` reads them, cut to
+        the samples wanted.
+    sample_column : str
+        The column that tells one sample from the next, ``CLOCKING`` or ``STEP``.
+
+    Returns
+    -------
+    list of list of mapping
+        The blocks, each the consecutive rows of one sample and one distribution, in table order.
+    """
     blocks: list[list[Mapping[str, str]]] = []
     key: tuple[str, str, str, str] | None = None
     for row in rows:
@@ -356,6 +430,23 @@ def station_harmonics(
     radius differs from the first sample's by more than
     :data:`STATION_MATCH_TOLERANCE` of the first sample's largest radius is
     skipped by name, and the others are fitted.
+
+    Parameters
+    ----------
+    columns : sequence of str
+        The sections table's columns.
+    rows : sequence of mapping of str to str
+        The table's rows as :func:`~pyflightstream.post.products.read_csv_table` reads them, cut to
+        the samples wanted.
+    rotors : mapping of str to HarmonicRotor
+        The rotors to fit, by alias.
+    sample_column : str
+        The column that tells one sample from the next, ``CLOCKING`` or ``STEP``.
+
+    Returns
+    -------
+    StationHarmonics
+        The fit of every station of every rotor fitted, and what was skipped and why.
     """
     result = StationHarmonics()
     quantities = load_quantities(columns)
@@ -464,7 +555,24 @@ def _fit_rotor(
 def write_harmonics_table(
     path: Path, *, pol: str, context: Sequence[object], result: StationHarmonics
 ) -> Path:
-    """Write the harmonic product: ``POL``, the condition, then :data:`HARMONIC_COLUMNS`."""
+    """Write the harmonic product: ``POL``, the condition, then :data:`HARMONIC_COLUMNS`.
+
+    Parameters
+    ----------
+    path : Path
+        The table to write.
+    pol : str
+        The polar the point belongs to, written as ``POL``.
+    context : sequence of object
+        The point's condition values, written after ``POL``.
+    result : StationHarmonics
+        The fits of :func:`station_harmonics`.
+
+    Returns
+    -------
+    Path
+        The written table.
+    """
     return write_csv_table(
         path,
         HARMONICS_COLUMNS,

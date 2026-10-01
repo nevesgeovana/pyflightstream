@@ -39,6 +39,19 @@ except ModuleNotFoundError as exc:  # pragma: no cover - exercised only without 
         purpose="pyflightstream.fsi.beam",
     ) from exc
 
+__all__ = [
+    "ModalResult",
+    "StaticBeamSolution",
+    "apply_station_loads",
+    "build_beam_model",
+    "extract_solution",
+    "lumped_station_masses",
+    "modal_frequencies",
+    "solve_static",
+    "station_name",
+    "tributary_lengths",
+]
+
 logger = logging.getLogger(__name__)
 
 _COMBO = "structural"
@@ -55,7 +68,18 @@ _TWIST_DOF = _DOF_ORDER.index("RX")
 
 
 def station_name(i: int) -> str:
-    """Return the model node name of radial station ``i`` (root is 0)."""
+    """Return the model node name of radial station ``i`` (root is 0).
+
+    Parameters
+    ----------
+    i : int
+        The station's index, 0 at the root.
+
+    Returns
+    -------
+    str
+        ``S`` followed by the index on three digits, for example ``S007``.
+    """
     return f"S{i:03d}"
 
 
@@ -120,6 +144,21 @@ def build_beam_model(cfg: FsiConfig) -> "FEModel3D":
     FEModel3D
         Model ready for loading and analysis; the load combination
         ``"structural"`` is registered.
+
+    Examples
+    --------
+    >>> from pyflightstream.fsi.config import FsiConfig
+    >>> from pyflightstream.fsi.sections import blade_properties_from_sections
+    >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
+    >>> blade = blade_properties_from_sections(
+    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
+    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ... )
+    >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
+    >>> from pyflightstream.fsi import beam
+    >>> model = beam.build_beam_model(cfg)
+    >>> sorted(model.nodes)[:2]
+    ['S000', 'S001']
     """
     blade = cfg.blade
     model = FEModel3D()
@@ -176,6 +215,28 @@ def apply_station_loads(
         Distributed axial (spanwise) force at each station [N/m],
         positive toward the tip; the centrifugal tension enters here
         and stiffens the beam through P-Delta (FSI-R05).
+
+    Raises
+    ------
+    FsiInputError
+        If a load distribution's length is not the configuration's station count.
+
+    Examples
+    --------
+    >>> from pyflightstream.fsi.config import FsiConfig
+    >>> from pyflightstream.fsi.sections import blade_properties_from_sections
+    >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
+    >>> blade = blade_properties_from_sections(
+    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
+    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ... )
+    >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
+    >>> from pyflightstream.fsi import beam
+    >>> model = beam.build_beam_model(cfg)
+    >>> beam.apply_station_loads(model, cfg, flap_load_n_per_m=[10.0] * 3)
+    >>> beam.solve_static(model)
+    >>> round(float(beam.extract_solution(model, cfg).flap_deflection_m[-1]) * 1e3, 2)
+    1.32
     """
     radii = cfg.blade.station_radii_m
     n = len(radii)
@@ -217,6 +278,23 @@ def solve_static(model: "FEModel3D", p_delta: bool = False) -> None:
         tension stiffens bending with no manual correction terms
         (FSI-R05). The linear analysis is the right choice only when
         no axial load is present.
+
+    Examples
+    --------
+    >>> from pyflightstream.fsi.config import FsiConfig
+    >>> from pyflightstream.fsi.sections import blade_properties_from_sections
+    >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
+    >>> blade = blade_properties_from_sections(
+    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
+    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ... )
+    >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
+    >>> from pyflightstream.fsi import beam
+    >>> model = beam.build_beam_model(cfg)
+    >>> beam.apply_station_loads(model, cfg, flap_load_n_per_m=[10.0] * 3)
+    >>> beam.solve_static(model)
+    >>> round(float(beam.extract_solution(model, cfg).flap_deflection_m[-1]) * 1e3, 2)
+    1.32
     """
     if p_delta:
         model.analyze_PDelta(log=False, sparse=True)
@@ -225,7 +303,39 @@ def solve_static(model: "FEModel3D", p_delta: bool = False) -> None:
 
 
 def extract_solution(model: "FEModel3D", cfg: FsiConfig) -> StaticBeamSolution:
-    """Read (w, theta) at every station from an analyzed model."""
+    """Read (w, theta) at every station from an analyzed model.
+
+    Parameters
+    ----------
+    model : FEModel3D
+        The beam model from :func:`build_beam_model`, analyzed by :func:`solve_static`.
+    cfg : FsiConfig
+        The configuration providing the station radii.
+
+    Returns
+    -------
+    StaticBeamSolution
+        The station radii [m], the flap deflection [m] and the elastic twist [rad] at every
+        station.
+
+    Examples
+    --------
+    >>> from pyflightstream.fsi.config import FsiConfig
+    >>> from pyflightstream.fsi.sections import blade_properties_from_sections
+    >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
+    >>> blade = blade_properties_from_sections(
+    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
+    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ... )
+    >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
+    >>> from pyflightstream.fsi import beam
+    >>> model = beam.build_beam_model(cfg)
+    >>> beam.apply_station_loads(model, cfg, flap_load_n_per_m=[10.0] * 3)
+    >>> beam.solve_static(model)
+    >>> solution = beam.extract_solution(model, cfg)
+    >>> solution.station_radii_m, float(solution.flap_deflection_m[0])
+    ((0.1, 0.3, 0.5), 0.0)
+    """
     radii = cfg.blade.station_radii_m
     w = []
     theta = []
@@ -282,6 +392,29 @@ def modal_frequencies(
     -------
     ModalResult
         Ascending frequencies with flap or torsion classification.
+
+    Raises
+    ------
+    FsiInputError
+        If ``twist_stiffness_n_m_per_rad`` does not have one entry per station, or an eigenvalue is
+        negative: the axial state is beyond buckling or the model is not analyzed.
+
+    Examples
+    --------
+    >>> from pyflightstream.fsi.config import FsiConfig
+    >>> from pyflightstream.fsi.sections import blade_properties_from_sections
+    >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
+    >>> blade = blade_properties_from_sections(
+    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
+    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ... )
+    >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
+    >>> from pyflightstream.fsi import beam
+    >>> model = beam.build_beam_model(cfg)
+    >>> beam.solve_static(model)
+    >>> modes = beam.modal_frequencies(model, cfg, n_modes=2)
+    >>> modes.kinds, [round(f) for f in modes.frequencies_rad_per_s]
+    (('flap', 'flap'), [115, 595])
     """
     stiffness = np.array(model.Ke(_COMBO, log=False, check_stability=False, sparse=True).todense())
     if include_geometric_stiffness:
@@ -392,7 +525,18 @@ def lumped_station_masses(cfg: FsiConfig) -> tuple[list[float], list[float]]:
 
 
 def tributary_lengths(radii: Sequence[float]) -> list[float]:
-    """Return the half-bay tributary length of every station [m]."""
+    """Return the half-bay tributary length of every station [m].
+
+    Parameters
+    ----------
+    radii : sequence of float
+        The station radii [m], root to tip.
+
+    Returns
+    -------
+    list of float
+        The tributary length of every station [m], half bays at the two ends.
+    """
     n = len(radii)
     lengths = []
     for i in range(n):

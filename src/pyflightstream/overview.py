@@ -26,6 +26,12 @@ import tempfile
 import webbrowser
 from pathlib import Path
 
+__all__ = [
+    "markdown_overview",
+    "overview",
+    "render_overview_html",
+]
+
 _STYLE = """
 body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 70rem;
        color: #1c2733; background: #ffffff; }

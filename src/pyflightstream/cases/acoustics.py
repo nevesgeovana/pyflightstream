@@ -80,6 +80,41 @@ if TYPE_CHECKING:
     from pyflightstream.cases import SimCase
     from pyflightstream.script import Script
 
+__all__ = [
+    "ACOUSTICS_DIR",
+    "ACOUSTIC_KEYS",
+    "ACOUSTIC_KEY_MEANINGS",
+    "ACOUSTIC_OBSERVERS_FILE_VARIABLE",
+    "ACOUSTIC_OBSERVERS_VARIABLE",
+    "ACOUSTIC_OBSERVER_TIME_VARIABLE",
+    "ACOUSTIC_SECTION_NOTE",
+    "ACOUSTIC_SECTION_SUFFIX",
+    "ACOUSTIC_SECTION_VARIABLE",
+    "ACOUSTIC_SIGNALS_SUFFIX",
+    "ACOUSTIC_SOURCES_VARIABLE",
+    "AcousticObserver",
+    "AcousticRequest",
+    "AcousticSection",
+    "AcousticSignal",
+    "OBSERVERS_COPY_SUFFIX",
+    "ObserverTime",
+    "REFERENCE_FRAME_INDEX",
+    "SECTION_KEYS",
+    "SECTION_PLANES",
+    "SOURCE_MODES",
+    "acoustic_request",
+    "acoustic_section_leftovers",
+    "acoustic_section_outputs",
+    "acoustic_signals_output",
+    "emit_acoustic_setup",
+    "emit_acoustic_signals",
+    "is_acoustic_output",
+    "read_observers_file",
+    "refuse_acoustics_on_a_continuation",
+    "resolve_observers_file",
+    "with_acoustic_signals",
+]
+
 #: The end of the name of a point's acoustic export, written beside its
 #: other exports as ``<point><suffix>``. Confirmed by the round-1 probe A1 on
 #: 26.124: the solver writes the export to the path it is given, and the file
@@ -532,6 +567,21 @@ def with_acoustic_signals(outputs: Sequence[str], case: SimCase, stem: str) -> l
     looks for the file the script writes. Declared last so the loads table,
     which :func:`~pyflightstream.cases.classify_outputs` finds by its ``.txt``,
     is claimed first; the classifier leaves the acoustic export out anyway.
+
+    Parameters
+    ----------
+    outputs : sequence of str
+        The point's declared outputs.
+    case : SimCase
+        The point's case.
+    stem : str
+        The point's rendered file stem.
+
+    Returns
+    -------
+    list of str
+        ``outputs`` with the signals export appended when the case declares one and it is not
+        already listed.
     """
     name = acoustic_signals_output(case, stem)
     listed = list(outputs)
@@ -546,6 +596,16 @@ def is_acoustic_output(name: str | PurePath) -> bool:
     The signals export ends in ``.txt`` like the loads table, and a section's
     files end in ``.vtk`` like the surface export, so the classifier asks this
     before it pairs a name with a kind.
+
+    Parameters
+    ----------
+    name : str or PurePath
+        A declared or recorded output name.
+
+    Returns
+    -------
+    bool
+        True for the signals export and for any file inside an acoustic section folder.
     """
     path = PurePosixPath(str(name).replace("\\", "/"))
     if path.name.lower().endswith(ACOUSTIC_SIGNALS_SUFFIX):
@@ -560,6 +620,11 @@ def refuse_acoustics_on_a_continuation(case: SimCase) -> None:
     steps it owes; whether the sources recorded before the stop survive the
     save is not measured, so a signal computed at its end could cover part of
     the march with nothing saying which part.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case of the continuation.
 
     Raises
     ------
@@ -704,6 +769,21 @@ def emit_acoustic_signals(
     :data:`ACOUSTIC_SECTION_NOTE` into it. The analysis phase, before the
     point's other exports. A case stating no observer emits nothing.
 
+    Parameters
+    ----------
+    case : SimCase
+        The point's case, carrying its acoustic keys.
+    script : Script
+        The script being built; the commands are appended to it.
+    unsteady : bool
+        Whether the run is unsteady; a steady run with acoustic keys is refused.
+    frames : mapping of str to object, or None
+        The frames this run creates, by name, each with its index; a section stated in a frame the
+        run does not create is refused, and one stating none is placed in the reference frame.
+    from_metres : callable
+        The builder's factor from metres to the simulation's length unit, asked with a description
+        of what is converted.
+
     Raises
     ------
     CampaignConfigError
@@ -770,6 +850,11 @@ def read_observers_file(path: str | Path) -> tuple[tuple[float, float, float], .
 
     The form the manual gives ``ACOUSTIC_OBSERVERS_IMPORT`` and the round-1
     probe A1 imported on 26.124. Blank lines are skipped.
+
+    Parameters
+    ----------
+    path : str or Path
+        The observer file.
 
     Returns
     -------

@@ -172,6 +172,16 @@ _SECTION_DERIVED: Mapping[str, tuple[str, ...]] = {
 def corrected_name(relative: str) -> str:
     """Return the corrected file's name beside a raw file's.
 
+    Parameters
+    ----------
+    relative : str
+        The raw file's path, relative to the products folder.
+
+    Returns
+    -------
+    str
+        The path with ``_corrected`` before its extension.
+
     Examples
     --------
     >>> corrected_name("polars/P7001-PROP_rotor.csv")
@@ -270,6 +280,18 @@ def _bessel(order: int, x: float) -> tuple[float, float]:
 def bessel_j(order: int, x: float) -> float:
     """Return the Bessel function of the first kind ``J_n(x)``, n in (0, 1), x > 0.
 
+    Parameters
+    ----------
+    order : int
+        The order n, 0 or 1.
+    x : float
+        The argument, positive.
+
+    Returns
+    -------
+    float
+        ``J_n(x)``.
+
     Examples
     --------
     >>> round(bessel_j(0, 1.0), 12), round(bessel_j(1, 1.0), 12)
@@ -280,6 +302,18 @@ def bessel_j(order: int, x: float) -> float:
 
 def bessel_y(order: int, x: float) -> float:
     """Return the Bessel function of the second kind ``Y_n(x)``, n in (0, 1), x > 0.
+
+    Parameters
+    ----------
+    order : int
+        The order n, 0 or 1.
+    x : float
+        The argument, positive.
+
+    Returns
+    -------
+    float
+        ``Y_n(x)``.
 
     Examples
     --------
@@ -294,6 +328,21 @@ def theodorsen(k: float) -> complex:
 
     ``C(k) = H1(k) / (H1(k) + i H0(k))``, with ``Hn = Jn - i Yn`` the Hankel
     function of the second kind; ``C(0) = 1``. Its phase is a lag (negative).
+
+    Parameters
+    ----------
+    k : float
+        The reduced frequency, a finite number >= 0.
+
+    Returns
+    -------
+    complex
+        ``C(k)``.
+
+    Raises
+    ------
+    ProductError
+        If ``k`` is not a finite number >= 0.
 
     Examples
     --------
@@ -316,6 +365,16 @@ def sears(k: float) -> complex:
     """Sears's function ``S(k)`` at the reduced frequency ``k``, the gust referred to mid-chord.
 
     ``S(k) = (J0(k) - i J1(k)) C(k) + i J1(k)``; ``S(0) = 1``.
+
+    Parameters
+    ----------
+    k : float
+        The reduced frequency, a finite number >= 0.
+
+    Returns
+    -------
+    complex
+        ``S(k)``.
 
     Examples
     --------
@@ -861,6 +920,35 @@ def write_qsteady_corrections(
     file's path relative to ``out``; the raw files are read back from ``out``
     and never rewritten. Returns each file written with its entry. What is not
     written is named in ``skipped`` and warned; nothing raises.
+
+    Parameters
+    ----------
+    spec : QsteadyCorrectionSpec
+        The row's ``[qsteady_correction]`` choice.
+    sim_id : str
+        The simulation, named in the warnings.
+    inputs_dir : Path
+        The workspace's inputs folder, where the calibration files are.
+    out : Path
+        The products folder the raw files are read from and the corrected ones written to.
+    wheel_points : sequence of WheelPointRef
+        The simulation's quasi-steady wheel points.
+    written_names : mapping of str to mapping
+        The simulation's manifest entries so far, by path relative to ``out``.
+    known_runs : collection of str, or None
+        The run ids of the workspace's ``runs.json``; a sector-offset calibration naming another
+        source run is warned. None skips that check.
+    target : callable
+        Prepare a destination path, applying the caller's archive policy.
+    skipped : dict of str to str
+        Mutable mapping of product names to skip reasons.
+    sections_dir : str, optional
+        The folder under ``out`` that holds the sections tables.
+
+    Returns
+    -------
+    list of tuple of (Path, dict)
+        Each file written with its manifest entry.
     """
     written: list[tuple[Path, dict[str, object]]] = []
     if not wheel_points or (spec.route == "none" and spec.diagnostic == "none"):
@@ -1192,6 +1280,37 @@ def sector_offset_calibration(
     when a run is not in ``runs.json``, not a row of one rotor table, not
     axial, at another ``J``, or when the file exists and ``overwrite`` is
     False. The route is NOT VALIDATED. Returns the file written.
+
+    Parameters
+    ----------
+    workspace : CampaignWorkspace
+        The workspace whose ``runs.json`` and products are read.
+    wheel_run_id : str
+        The run id of the quasi-steady wheel point.
+    sector_run_id : str
+        The run id of the axial unsteady sector point.
+    calibration_id : str
+        The calibration's id, its file name without the suffix.
+    rotor : str, optional
+        The rotor alias whose table is read, where a run is a row of more than one.
+    matrix_stem : str, optional
+        The matrix whose products folder holds the rotor tables.
+    j_tolerance : float, optional
+        The largest difference in advance ratio the two points may have.
+    overwrite : bool, optional
+        Replace an existing file of that id.
+
+    Returns
+    -------
+    Path
+        The calibration file written.
+
+    Raises
+    ------
+    CalibrationError
+        If a run is not in ``runs.json``, is not a row of exactly one rotor table, is not axial,
+        the two points are at different advance ratios, or the file exists and ``overwrite`` is
+        False.
     """
     from pyflightstream.workspace import CampaignWorkspace
 

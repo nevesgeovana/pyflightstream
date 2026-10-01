@@ -693,6 +693,14 @@ def plan_matrix(
         suggested ``PASSAGE_POSITIONS >= n_max / N + 1``, WARNED when the row
         states fewer. With it the reduced-frequency warning reads ``k_eff``.
         The command line spells it ``--inflow-fft`` (0.30.0).
+    name_from : str, optional
+        Where the campaign name came from, ``option`` or ``directory``, recorded in the plan and
+        the run records; None when the caller does not say.
+    cost : bool, optional
+        Also compute the cost table of every point (FR-82) into the plan's ``costs``.
+    accept_unregistered_build : bool, optional
+        Run on an installed build other than the one registered for the version a row names instead
+        of refusing it; the run warns and every record says the flag was used.
 
     Returns
     -------
@@ -854,6 +862,9 @@ def _campaign_executor(
         Keep the run on this machine, as ``run_matrix(local=True)``.
     hidden : bool or None
         Windowless solver runs; None lets the matrix decide.
+    progress_every : int, optional
+        How often a local unsteady point says its progress, in completed time steps; 0 to say
+        nothing.
 
     Returns
     -------
@@ -1220,6 +1231,12 @@ def run_matrix(
         saying 0 makes the whole campaign visible. An explicit True or
         False wins over the column, because a caller who names it means
         it.
+    name_from : str, optional
+        Where the campaign name came from, ``option`` or ``directory``, recorded in the plan and
+        the run records; None when the caller does not say.
+    accept_unregistered_build : bool, optional
+        Run on an installed build other than the one registered for the version a row names instead
+        of refusing it; the run warns and every record says the flag was used.
 
     Returns
     -------
@@ -2256,7 +2273,29 @@ def record_additional_extraction(
     original: Path,
     outputs: list[str] | None = None,
 ) -> AdditionalRecord:
-    """Hash the original again, then write the record; an original that moved fails it."""
+    """Hash the original again, then write the record; an original that moved fails it.
+
+    Parameters
+    ----------
+    workspace : CampaignWorkspace
+        The workspace whose manifest of additional records is appended to.
+    base : mapping of str to object
+        The record's fields so far, with the ``sim_id`` and the original's ``fsm_sha256`` before
+        the extraction.
+    status : ExtractionStatus
+        The extraction's status; FAILED_EXECUTION when the original moved.
+    error : str or None
+        What went wrong, if anything.
+    original : Path
+        The original saved simulation, hashed again.
+    outputs : list of str, optional
+        The files the extraction wrote, in the simulation folder; each is hashed into the record.
+
+    Returns
+    -------
+    AdditionalRecord
+        The record, appended to the workspace.
+    """
     sim_dir = workspace.sim_dir(str(base["sim_id"]))
     after = optional_file_sha256(original)
     if after != base["fsm_sha256"]:

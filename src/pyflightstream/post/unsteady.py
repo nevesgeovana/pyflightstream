@@ -567,6 +567,22 @@ def revolution_drift_warnings(
     column that is no load, whose group has no finite nonzero mean, or whose own
     means are not numbers is never warned about.
 
+    Parameters
+    ----------
+    previous : mapping of str to float
+        Each column's mean over the previous revolution.
+    current : mapping of str to float
+        Each column's mean over the last revolution.
+    shown : mapping of str to str
+        Each column's name as the table prints it.
+    limit_pct : float
+        The drift allowed, in per cent of the scale.
+
+    Returns
+    -------
+    list of str
+        One clause per warned column, in column order.
+
     Examples
     --------
     >>> before = {"FX_P": 100.0, "FY_P": 0.02, "MACH_P1": 0.1}
@@ -746,6 +762,27 @@ def blade_one_azimuth(
     being blade one's azimuth at step zero and ``sense`` the sign of the rotor's
     speed, all of THAT rotor.
 
+    Parameters
+    ----------
+    step : float
+        The time step.
+    datum_deg : float
+        Blade one's azimuth at step zero, in degrees.
+    sense : float
+        The sign of the rotor's speed.
+    steps_per_revolution : float
+        The rotor's clock, in steps per revolution.
+
+    Returns
+    -------
+    float
+        The azimuth in degrees, wrapped to one turn.
+
+    Raises
+    ------
+    ProductError
+        If the step, the datum and the steps per revolution do not state a clock.
+
     Examples
     --------
     >>> blade_one_azimuth(3, datum_deg=10.0, sense=-1.0, steps_per_revolution=8.0)
@@ -829,6 +866,12 @@ def phase_locked_rows(
     read_steps : set of int or None
         Collect the plotted steps contributing to the interpolation. Every
         nonzero interpolation weight counts, without a tolerance cutoff.
+
+    Returns
+    -------
+    list of dict of str to object
+        One row per azimuth of the last revolution, with ``AZIMUTH``, ``REVOLUTIONS`` and the mean
+        of each column.
 
     Raises
     ------

@@ -28,6 +28,17 @@ from pyflightstream.commands import (
 )
 from pyflightstream.versions import FsVersion, known_versions, manual_editions, resolve
 
+__all__ = [
+    "CONVENTIONS",
+    "conventions_markdown",
+    "help",
+    "markdown_build_table",
+    "markdown_compatibility_matrix",
+    "markdown_reference_pages",
+    "percent_script_markdown",
+    "render_html",
+]
+
 _STYLE = """
 body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 70rem;
        color: #1c2733; background: #ffffff; }
@@ -850,6 +861,16 @@ def help(  # noqa: A001
     -------
     Path
         Location of the written HTML file.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> from pyflightstream import reference
+    >>> page = reference.help("26.124", path=Path(tempfile.mkdtemp()) / "commands.html",
+    ...                       open_browser=False)
+    >>> page.name
+    'commands.html'
     """
     if path is None:
         suffix = resolve(version).canonical if version is not None else "all"

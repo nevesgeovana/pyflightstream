@@ -306,6 +306,20 @@ def free_stream(
         CUSTOM only: path of the velocity profile file.
     filetype : str, optional
         CUSTOM only: ``STRUCTURED`` or ``UNSTRUCTURED`` profile file.
+
+    Raises
+    ------
+    CommandArgumentError
+        If the arguments do not match ``kind``: CONSTANT takes none, ROTATION exactly ``frame``,
+        ``axis`` and ``rpm``, CUSTOM exactly ``filetype`` and ``profile``.
+
+    Examples
+    --------
+    >>> from pyflightstream.script import Script, helpers
+    >>> script = Script(version="26.124")
+    >>> helpers.free_stream(script)
+    >>> script.render().splitlines()
+    ['SET_FREESTREAM CONSTANT']
     """
     upper = kind.upper()
     rotation_given = [frame is not None, axis is not None, rpm is not None]
@@ -347,6 +361,16 @@ def fluid_fifth_property(script: Script) -> str:
 
     So the question is answerable here, where the view belongs, and a
     caller one layer up chooses instead of guessing or catching.
+
+    Parameters
+    ----------
+    script : Script
+        The script whose build is asked.
+
+    Returns
+    -------
+    str
+        ``specific_heat_ratio`` on builds from 26.100 on, ``sonic_velocity`` before.
     """
     return (
         "specific_heat_ratio"
@@ -421,6 +445,21 @@ def atmosphere(
         where it is an input rather than a derived quantity; the newer
         builds compute it from temperature and specific heat ratio and
         have no such argument.
+
+    Raises
+    ------
+    CommandArgumentError
+        If an altitude and fluid properties are both given, the explicit properties are incomplete
+        or include the one the build does not take, or the build reads the altitude in feet and
+        ``altitude_units`` is not ``FEET``.
+
+    Examples
+    --------
+    >>> from pyflightstream.script import Script, helpers
+    >>> script = Script(version="26.124")
+    >>> helpers.atmosphere(script, altitude=1000.0)
+    >>> script.render().splitlines()
+    ['AIR_ALTITUDE 1000.0 METERS']
     """
     takes_ratio = "specific_heat_ratio" in {
         arg.name for arg in script._view["FLUID_PROPERTIES"].args
@@ -720,6 +759,13 @@ def actuator_disc(
     -------
     int
         Index of the created actuator, for later citations.
+
+    Raises
+    ------
+    CommandArgumentError
+        If not exactly one thrust specification is given, a profile file lacks ``n_blades`` or is
+        refused on the script's build, ``profile_text`` comes without ``profile`` or names a path
+        the script already writes differently, or ``swirl`` is outside [0, 1].
     """
     enable = _read("actuator_disc", "enable", enable)
     if (thrust is None) == (profile is None):
@@ -1431,6 +1477,25 @@ def solver_settings(
     SolverSetup
         The snapshot of effective flag values and provenance, also
         attached to the script as ``script.solver_setup``.
+
+    Raises
+    ------
+    CommandArgumentError
+        If the unsteady arguments and ``mode`` disagree, ``delete_separations`` is neither a
+        1-based index nor ``all``, an assignment list is empty, or a flag or field is one the
+        script's build does not take.
+
+    Examples
+    --------
+    >>> from pyflightstream.script import Script, helpers
+    >>> script = Script(version="26.124")
+    >>> setup = helpers.solver_settings(script, aoa=2.0, velocity=30.0, iterations=500)
+    >>> for line in script.render().splitlines():
+    ...     print(line)
+    SOLVER_SET_AOA 2.0
+    SOLVER_SET_VELOCITY 30.0
+    SOLVER_SET_ITERATIONS 500
+    SOLVER_MINIMUM_CP -100
     """
     _reject_bare_label(
         "solver_settings", "vorticity_drag_boundaries", vorticity_drag_boundaries, allows_all=True
@@ -1934,6 +1999,15 @@ def start_solver(script: Script) -> None:
     ----------
     script : Script
         Script under construction.
+
+    Examples
+    --------
+    >>> from pyflightstream.script import Script, helpers
+    >>> script = Script(version="26.124")
+    >>> helpers.initialize_solver(script, symmetry="NONE")
+    >>> helpers.start_solver(script)
+    >>> script.render().splitlines()[-1]
+    'START_SOLVER'
     """
     script.emit("START_SOLVER")
     _flush_pending_vorticity(script)
@@ -1989,6 +2063,14 @@ def initialize_solver(
         SOLVER_MODEL, so the defaults here would bind two names it does
         not carry. Refused at entry, before anything is emitted, and the
         message points at ``script.emit`` (SRC-749 p.298).
+
+    Examples
+    --------
+    >>> from pyflightstream.script import Script, helpers
+    >>> script = Script(version="26.124")
+    >>> helpers.initialize_solver(script, symmetry="NONE")
+    >>> script.render().splitlines()[:2]
+    ['INITIALIZE_SOLVER', 'SOLVER_MODEL INCOMPRESSIBLE']
     """
     # THIS HELPER CANNOT EXPRESS THE 25.000 GRAMMAR, and says so here
     # rather than letting the binder refuse a keyword the caller never
@@ -2104,6 +2186,20 @@ def sweep(
         earliest legal position in a sweeper script.
     export_spreadsheet : str, optional
         Path of the sweep results spreadsheet export.
+
+    Raises
+    ------
+    CommandArgumentError
+        If no axis is given (``aoa``, ``beta`` or ``velocity_file``).
+
+    Examples
+    --------
+    >>> from pyflightstream.script import Script, helpers
+    >>> script = Script(version="26.124")
+    >>> helpers.initialize_solver(script, symmetry="NONE")
+    >>> helpers.sweep(script, aoa=[0.0, 2.0, 4.0])
+    >>> script.render().splitlines()[-2:]
+    ['SWEEPER_SET_AOA_SWEEP CUSTOM 0.0 2.0 4.0', 'SWEEPER_START']
     """
     if aoa is None and beta is None and velocity_file is None:
         raise CommandArgumentError(

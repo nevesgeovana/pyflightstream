@@ -63,6 +63,13 @@ class WingSpec:
     n_span : int
         Spanwise panel count over the full span; a half wing uses half
         of them.
+
+    Examples
+    --------
+    >>> from pyflightstream.qa.geometry import WingSpec
+    >>> spec = WingSpec(naca="0012", chord_m=1.0, span_m=4.0, n_chord=5, n_span=4)
+    >>> spec.chord_m, spec.span_m
+    (1.0, 4.0)
     """
 
     naca: str = "0012"
@@ -116,6 +123,12 @@ def naca4_contour(naca: str, n_chord: int) -> np.ndarray:
         traversing the lower surface from the trailing edge to the
         leading edge and the upper surface back; first and last point
         are both the trailing edge, so the polygon is closed.
+
+    Examples
+    --------
+    >>> contour = naca4_contour("0012", 21)
+    >>> contour.shape, float(contour[0, 0])
+    ((43, 2), 1.0)
     """
     m = int(naca[0]) / 100.0
     p = int(naca[1]) / 10.0
@@ -254,6 +267,13 @@ def wing_triangles(
     numpy.ndarray
         Shape ``(n_triangles, 3, 3)`` vertex array in meters; every
         triangle winds counterclockwise seen from outside the wing.
+
+    Examples
+    --------
+    >>> from pyflightstream.qa.geometry import WingSpec
+    >>> spec = WingSpec(naca="0012", chord_m=1.0, span_m=4.0, n_chord=5, n_span=4)
+    >>> wing_triangles(spec).shape
+    (100, 3, 3)
     """
     contour = naca4_contour(spec.naca, spec.n_chord) * spec.chord_m
     if half:
@@ -540,6 +560,16 @@ def generate_wing_stl(
     -------
     Path
         The written path.
+
+    Examples
+    --------
+    >>> from pyflightstream.qa.geometry import WingSpec
+    >>> spec = WingSpec(naca="0012", chord_m=1.0, span_m=4.0, n_chord=5, n_span=4)
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> path = generate_wing_stl(spec, Path(tempfile.mkdtemp()) / "wing.stl")
+    >>> path.read_text(encoding="utf-8").splitlines()[0]
+    'solid naca0012_full'
     """
     label = name or f"naca{spec.naca}_{'half' if half else 'full'}"
     return write_stl(wing_triangles(spec, half=half, translation_m=translation_m), path, name=label)

@@ -139,6 +139,16 @@ def observe(paths: Iterable[Path]) -> dict[str, Stamp | None]:
 
     NONE IS A REAL ANSWER HERE and not an error: the whole point of this
     stage is that it runs while the files are still missing.
+
+    Parameters
+    ----------
+    paths : iterable of Path
+        The files to stamp.
+
+    Returns
+    -------
+    dict of str to Stamp or None
+        Path to its size and modification time, or None where it does not exist.
     """
     seen: dict[str, Stamp | None] = {}
     for path in paths:
@@ -157,6 +167,18 @@ def settled(before: Mapping[str, Stamp | None], after: Mapping[str, Stamp | None
     A path missing from either observation is NOT settled, which is the
     branch that carries the "presence" half of the condition; a path whose
     size or mtime moved between them is still being written.
+
+    Parameters
+    ----------
+    before : mapping of str to Stamp or None
+        The first observation, from :func:`observe`.
+    after : mapping of str to Stamp or None
+        The second observation.
+
+    Returns
+    -------
+    bool
+        True when every path is present in both and unchanged.
     """
     if set(before) != set(after):
         return False
@@ -353,6 +375,18 @@ def assess_collected(record: RunRecord, sim_dir: Path) -> tuple[RunStatus, str |
     question, answered before this runs, and a scheduler's own exit status is
     not visible to a stage that deliberately watches the workspace instead of
     the queue.
+
+    Parameters
+    ----------
+    record : RunRecord
+        The SUBMITTED record of the point.
+    sim_dir : Path
+        The point's simulation folder, where the collected files are.
+
+    Returns
+    -------
+    tuple of (RunStatus, str or None)
+        The point's status and the error that explains it, None when there is none.
     """
     assessment = assessment_of_collected(record, sim_dir)
     return assessment.status, assessment.error
@@ -369,6 +403,18 @@ def assessment_of_collected(record: RunRecord, sim_dir: Path) -> Assessment:
     of the evidence, because there is no process here to report on -- the
     record was the only place those numbers could land, and until 0.21.0 they
     landed nowhere.
+
+    Parameters
+    ----------
+    record : RunRecord
+        The SUBMITTED record of the point.
+    sim_dir : Path
+        The point's simulation folder, where the collected files are.
+
+    Returns
+    -------
+    Assessment
+        The status, the error and the evidence read from the log.
     """
     from pyflightstream.run import LoadsAssessor
 
@@ -731,6 +777,17 @@ def collect_once(
         of these simulations; every other record is left untouched and is not
         counted as outstanding. A simulation no record holds is refused by
         name before anything is swept. None sweeps every record.
+
+    Returns
+    -------
+    CollectReport
+        The points the sweep collected, failed, left waiting, and could not wait for because their
+        record declares no outputs.
+
+    Raises
+    ------
+    WorkspaceError
+        If the manifest cannot be read, or ``sims`` names a simulation no record holds.
     """
     report = CollectReport()
     try:
@@ -1478,6 +1535,38 @@ def collect_and_post(
     those simulations (:func:`collect_once`) and the post to the same
     simulations: ``post`` is then called with the keyword ``sims`` too, and
     ``post_matrix`` with ``sims`` naming the ones of that matrix.
+
+    Parameters
+    ----------
+    workspace : CampaignWorkspace
+        The campaign workspace whose manifest is swept.
+    watch : bool, optional
+        Sweep until nothing is outstanding or ``rounds`` sweeps have run; one sweep when false.
+    interval : float, optional
+        Seconds between the two observations that decide settled.
+    watch_interval : float, optional
+        Seconds between two sweeps of a watch.
+    rounds : int, optional
+        The most sweeps a watch runs; None for no bound.
+    sleep : callable, optional
+        The clock, injected so a test runs with none.
+    post : callable, optional
+        Called with the workspace once per sweep that collected something.
+    post_matrix : callable, optional
+        Called once per matrix a sweep collected a record of, with the workspace and the matrix
+        stem.
+    observer : callable, optional
+        Stamps the paths, :func:`observe` by default.
+    assessor : callable, optional
+        Judges a collected point, :func:`assess_collected` by default.
+    sims : collection of str, optional
+        Limit every sweep and the post to the SUBMITTED records of these simulations.
+
+    Returns
+    -------
+    CollectReport
+        The points every sweep collected and failed, and the points the last sweep left waiting or
+        could not wait for.
     """
     selected = None
     if sims is not None:

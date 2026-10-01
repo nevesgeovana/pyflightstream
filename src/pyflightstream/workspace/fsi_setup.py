@@ -29,6 +29,19 @@ from pyflightstream.fsi.materials import (
     material,
 )
 
+__all__ = [
+    "FSI_TEMPLATE",
+    "FsiSetupError",
+    "FsiSetupSpec",
+    "ResolvedFsiSetup",
+    "SolidSections",
+    "fsi_input_payloads",
+    "load_fsi_setup",
+    "resolve_fsi_setup",
+    "resolve_row_fsi",
+    "stage_fsi_setup",
+]
+
 
 class FsiSetupError(PyflightstreamError, ValueError):
     """An FSI artifact cannot define an admissible existing beam model."""
@@ -165,6 +178,26 @@ def resolve_fsi_setup(
 
     Source material and derived properties cannot both be calibrated along the
     same dependency. The existing solve-time stiffness scale must remain unity.
+
+    Parameters
+    ----------
+    path : str or Path
+        The FSI input artifact.
+    matrix_calibration : mapping of str to float, optional
+        The calibration factors the matrix row states, each replacing the file's factor of the same
+        name.
+
+    Returns
+    -------
+    ResolvedFsiSetup
+        The source and its digest, the mode, the base and effective configurations, the factors and
+        where each came from.
+
+    Raises
+    ------
+    FsiSetupError
+        If the mode and the artifact's content disagree, a factor calibrates one property twice, or
+        the effective inertias are out of order.
     """
     source = Path(path).resolve()
     raw = source.read_bytes()
@@ -274,14 +307,47 @@ def resolve_fsi_setup(
 def load_fsi_setup(
     path: str | Path, *, matrix_calibration: Mapping[str, float] | None = None
 ) -> FsiConfig:
-    """Load the effective config for the established FSI driver."""
+    """Load the effective config for the established FSI driver.
+
+    Parameters
+    ----------
+    path : str or Path
+        The FSI input artifact.
+    matrix_calibration : mapping of str to float, optional
+        The calibration factors the matrix row states, each replacing the file's factor of the same
+        name.
+
+    Returns
+    -------
+    FsiConfig
+        The effective configuration.
+    """
     return resolve_fsi_setup(path, matrix_calibration=matrix_calibration).effective
 
 
 def resolve_row_fsi(
     inputs_dir: str | Path, variables: Mapping[str, Any]
 ) -> ResolvedFsiSetup | None:
-    """Resolve ``FSI: f001`` and named factor keys from the matrix free cell."""
+    """Resolve ``FSI: f001`` and named factor keys from the matrix free cell.
+
+    Parameters
+    ----------
+    inputs_dir : str or Path
+        The workspace's inputs folder.
+    variables : mapping of str to object
+        The row's free-cell variables.
+
+    Returns
+    -------
+    ResolvedFsiSetup or None
+        The resolved input, or None when the row states no ``FSI``.
+
+    Raises
+    ------
+    FsiSetupError
+        If the code is not an f-prefixed name, resolves outside the inputs folder, a factor key is
+        unknown or not a finite positive number, or factors are stated without an FSI input.
+    """
     code = str(variables.get("FSI", "")).strip()
     factor_cells = {key: value for key, value in variables.items() if key.startswith("FSI_")}
     unknown = set(factor_cells) - set(MATRIX_FACTORS)
@@ -317,7 +383,20 @@ def resolve_row_fsi(
 
 
 def stage_fsi_setup(resolved: ResolvedFsiSetup, run_dir: str | Path) -> tuple[Path, Path]:
-    """Stage the driver config and full provenance without running the solver."""
+    """Stage the driver config and full provenance without running the solver.
+
+    Parameters
+    ----------
+    resolved : ResolvedFsiSetup
+        The resolved input.
+    run_dir : str or Path
+        The run folder the files are written into.
+
+    Returns
+    -------
+    tuple of (Path, Path)
+        The configuration file and the provenance receipt written.
+    """
     directory = Path(run_dir)
     directory.mkdir(parents=True, exist_ok=True)
     config = directory / "config.json"
@@ -328,7 +407,20 @@ def stage_fsi_setup(resolved: ResolvedFsiSetup, run_dir: str | Path) -> tuple[Pa
 
 
 def fsi_input_payloads(config: FsiConfig, provenance: Mapping[str, Any]) -> dict[str, str]:
-    """Return files for the run layer's existing per-point input writer and hashes."""
+    """Return files for the run layer's existing per-point input writer and hashes.
+
+    Parameters
+    ----------
+    config : FsiConfig
+        The effective configuration.
+    provenance : mapping of str to object
+        Its provenance.
+
+    Returns
+    -------
+    dict of str to str
+        File name to text: ``config.json`` and ``fsi-provenance.json``.
+    """
     return {
         "config.json": config.model_dump_json(indent=2) + "\n",
         "fsi-provenance.json": json.dumps(dict(provenance), indent=2) + "\n",

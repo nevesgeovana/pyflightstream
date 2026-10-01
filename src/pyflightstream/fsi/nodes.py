@@ -82,6 +82,34 @@ from pyflightstream.fsi.config import FsiConfig, frame_embedding
 from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.kinematics import NODE_ROLES
 
+__all__ = [
+    "ELASTIC_AXIS_CHORD_FRACTION_WINDOW",
+    "ELASTIC_AXIS_FALLBACK_CHORD_FRACTION",
+    "EMBEDDINGS",
+    "LEADING_EDGE_NODE_CHORD_FRACTION",
+    "MIN_NODE_CLEARANCE_M",
+    "MIN_NODE_CLEARANCE_THICKNESS_FRACTION",
+    "NodeClearance",
+    "NodeOrderingMap",
+    "TRAILING_EDGE_NODE_CHORD_FRACTION",
+    "camber_point",
+    "config_triads",
+    "flatten_blade_translations",
+    "generate_node_layout",
+    "load_node_map",
+    "node_clearances",
+    "node_positions",
+    "read_fsidisp",
+    "refuse_nodes_outside_sections",
+    "render_node_file",
+    "section_chord_fraction",
+    "station_triads",
+    "unflatten_translations",
+    "write_fsidisp",
+    "write_node_file",
+    "write_node_map",
+]
+
 #: Recognized geometric embeddings of the section frame (module docstring).
 EMBEDDINGS = ("section_frame", "rotor_frame", "wing_frame")
 
@@ -577,6 +605,11 @@ def node_clearances(
     -------
     list of NodeClearance
         One entry per node row, in the node file's row order.
+
+    Raises
+    ------
+    FsiInputError
+        If the number of sections differs from the map's station count.
     """
     if len(sections_m) != node_map.station_count:
         raise FsiInputError(
@@ -688,6 +721,17 @@ def config_triads(cfg: FsiConfig) -> np.ndarray:
     placing any node, so a caller that needs only the axes (the wing's
     weight, :func:`pyflightstream.fsi.wing.weight_loads`) reads the same
     embedding the node file is written in.
+
+    Parameters
+    ----------
+    cfg : FsiConfig
+        The configuration whose embedding and pitch give the axes.
+
+    Returns
+    -------
+    numpy.ndarray
+        Shape ``(station_count, 3, 3)``: per station the toward-leading-edge, toward-suction and
+        span unit vectors.
     """
     embedding = frame_embedding(cfg)
     turned = embedding in ("rotor_frame", "wing_frame")
@@ -753,7 +797,18 @@ def node_positions(node_map: NodeOrderingMap) -> np.ndarray:
 
 
 def render_node_file(node_map: NodeOrderingMap) -> str:
-    """Render the existing import CSV without writing a planning-time file."""
+    """Render the existing import CSV without writing a planning-time file.
+
+    Parameters
+    ----------
+    node_map : NodeOrderingMap
+        The layout whose nodes are rendered.
+
+    Returns
+    -------
+    str
+        The node CSV :func:`write_node_file` writes, one X,Y,Z row per node, ending in a newline.
+    """
     lines = [",".join(_NODE_FORMAT.format(v) for v in row) for row in node_positions(node_map)]
     return "\n".join(lines) + "\n"
 
@@ -796,6 +851,11 @@ def load_node_map(path: str | Path) -> NodeOrderingMap:
     ----------
     path : str or Path
         JSON written by :func:`write_node_map`.
+
+    Returns
+    -------
+    NodeOrderingMap
+        The validated map.
     """
     return NodeOrderingMap.model_validate_json(Path(path).read_text(encoding="utf-8"))
 
@@ -821,6 +881,12 @@ def flatten_blade_translations(
         role, matching the import order (FSI-R14), with the section
         components embedded along the station triads into the import
         frame.
+
+    Raises
+    ------
+    FsiInputError
+        If the number of blades differs from the map's, or a blade's array is not shaped
+        ``(n_stations, 3, 3)``.
     """
     if len(per_blade_translations) != node_map.blade_count:
         raise FsiInputError(
@@ -864,6 +930,11 @@ def unflatten_translations(node_map: NodeOrderingMap, flat: np.ndarray) -> list[
         back in section components (the exact inverse of the
         embedding: components extract by dot products with the
         station triads).
+
+    Raises
+    ------
+    FsiInputError
+        If ``flat`` is not shaped ``(total_nodes, 3)`` for the map.
     """
     flat = np.asarray(flat, dtype=float)
     if flat.shape != (node_map.total_nodes, 3):
@@ -894,6 +965,11 @@ def write_fsidisp(path: str | Path, translations: np.ndarray) -> None:
     translations : numpy.ndarray
         Shape ``(total_nodes, 3)`` from
         :func:`flatten_blade_translations`, in meters, blade frame.
+
+    Raises
+    ------
+    FsiInputError
+        If ``translations`` is not shaped ``(n_nodes, 3)`` or holds a non-finite displacement.
     """
     translations = np.asarray(translations, dtype=float)
     if translations.ndim != 2 or translations.shape[1] != 3:
@@ -944,6 +1020,12 @@ def read_fsidisp(path: str | Path, expected_rows: int | None = None) -> np.ndarr
     -------
     numpy.ndarray
         Shape ``(n_rows, 3)`` in file order.
+
+    Raises
+    ------
+    FsiInputError
+        If a line does not hold three values, a field is empty, or ``expected_rows`` is given and
+        the row count differs.
     """
     rows = []
     for line_number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):

@@ -32,6 +32,20 @@ from pathlib import Path
 from pyflightstream._cli import cli_entrypoint
 from pyflightstream.fsi.state import DISPLACEMENT_FILE, LOADS_FILE
 
+__all__ = [
+    "ARCHIVE_DIR",
+    "ARCHIVE_PATTERNS",
+    "CALL_LOG",
+    "COUPLED_CONFIG",
+    "DUMMY_CONFIG",
+    "ERROR_LOG",
+    "STATE_FILE",
+    "coupled_step",
+    "dummy_step",
+    "init_dummy",
+    "main",
+]
+
 COUPLED_CONFIG = "config.json"
 
 DUMMY_CONFIG = "pyfs_fsi_dummy.json"
@@ -71,6 +85,18 @@ def coupled_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
     the outcome. Any failure writes its traceback to the error log
     and returns a nonzero exit code, which aborts the FlightStream
     coupling instead of silently continuing rigid.
+
+    Parameters
+    ----------
+    cwd : Path
+        The coupling working directory.
+    received_argv : tuple of str, optional
+        The arguments the solver passed, recorded in the call log as evidence.
+
+    Returns
+    -------
+    int
+        0 when the step succeeded, 1 when it failed and its traceback was written to the error log.
     """
     stamp = datetime.datetime.now().isoformat(timespec="milliseconds")
     argv_note = f"argv {list(received_argv)}" if received_argv else "argv none"
@@ -106,6 +132,18 @@ def dummy_step(cwd: Path, received_argv: tuple[str, ...] = ()) -> int:
     and appends to the call log. The working directory and any
     received arguments are recorded on every call: both are open
     questions of the WP1 dry run. Returns a process exit code.
+
+    Parameters
+    ----------
+    cwd : Path
+        The coupling working directory.
+    received_argv : tuple of str, optional
+        The arguments the solver passed, recorded in the call log as evidence.
+
+    Returns
+    -------
+    int
+        0 when the call succeeded, 1 when it failed.
     """
     stamp = datetime.datetime.now().isoformat(timespec="milliseconds")
     argv_note = f"argv {list(received_argv)}" if received_argv else "argv none"
@@ -196,7 +234,19 @@ def _build_parser() -> argparse.ArgumentParser:
 
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
-    """Entry point of the ``pyfs-fsi`` console script."""
+    """Entry point of the ``pyfs-fsi`` console script.
+
+    Parameters
+    ----------
+    argv : list of str, optional
+        The command-line arguments, ``sys.argv[1:]`` by default. With none, or with arguments of an
+        unknown convention, one coupling step runs in the working directory.
+
+    Returns
+    -------
+    int
+        The process exit code, 0 on success.
+    """
     argv = sys.argv[1:] if argv is None else argv
     if not argv:
         # FlightStream calls the executable bare: one coupling step,

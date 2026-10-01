@@ -28,6 +28,15 @@ import yaml
 
 from pyflightstream._errors import PyflightstreamError
 
+__all__ = [
+    "AmbiguousVersionAliasError",
+    "FsVersion",
+    "UnknownVersionError",
+    "known_versions",
+    "manual_editions",
+    "resolve",
+]
+
 _CANONICAL_PATTERN = re.compile(r"^\d{2}\.\d{3}$")
 
 
@@ -471,6 +480,12 @@ def resolve(version: str | FsVersion) -> FsVersion:
     matched exhaustively rather than first-wins, which is what turns a
     duplicate into a refusal instead of into whichever build the
     ordered list happens to reach first.
+
+    Examples
+    --------
+    >>> version = resolve("26.124")
+    >>> str(version), version.build
+    ('26.124', '8172026')
     """
     if isinstance(version, FsVersion):
         # Reconcile against the registry rather than hand the caller's

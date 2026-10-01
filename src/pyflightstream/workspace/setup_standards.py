@@ -17,6 +17,15 @@ from pyflightstream.commands import CommandRegistry
 from pyflightstream.script.solver_setup import FLAG_SPECS
 from pyflightstream.versions import resolve
 
+__all__ = [
+    "SetupStandard",
+    "render_guidelines",
+    "render_standard",
+    "setup_entry_evidence",
+    "setup_standards",
+    "write_setup_library",
+]
+
 
 @dataclass(frozen=True)
 class SetupStandard:
@@ -389,7 +398,13 @@ _MEANINGS: dict[str, str] = {
 
 
 def setup_standards() -> tuple[SetupStandard, ...]:
-    """Return explicit study choices with a stated, applicable comparison baseline."""
+    """Return explicit study choices with a stated, applicable comparison baseline.
+
+    Returns
+    -------
+    tuple of SetupStandard
+        The combined standard, then one standard per single choice.
+    """
     base: dict[str, Any] = {
         "iterations": 500,
         "convergence": 1e-5,
@@ -534,7 +549,20 @@ def _literal(value: Any) -> str:
 
 @lru_cache(maxsize=1024)
 def setup_entry_evidence(key: str, version: str) -> tuple[bool, str]:
-    """Return build availability and cited evidence for one setup field."""
+    """Return build availability and cited evidence for one setup field.
+
+    Parameters
+    ----------
+    key : str
+        A solver setting's key.
+    version : str
+        The build asked about.
+
+    Returns
+    -------
+    tuple of (bool, str)
+        Whether the build carries the setting, and the evidence cited.
+    """
     registry = CommandRegistry.load()
     command = SOLVER_SETTING_COMMANDS.get(key)
     if command is None:
@@ -563,7 +591,20 @@ def setup_entry_evidence(key: str, version: str) -> tuple[bool, str]:
 
 
 def render_standard(standard: SetupStandard, fs_version: str) -> str:
-    """Render all typed keys, commenting out unavailable or unselected controls."""
+    """Render all typed keys, commenting out unavailable or unselected controls.
+
+    Parameters
+    ----------
+    standard : SetupStandard
+        The study choice to render.
+    fs_version : str
+        The FlightStream version the settings are rendered for.
+
+    Returns
+    -------
+    str
+        The setup file's TOML text.
+    """
     version = resolve(fs_version).canonical
     SolverSettings.model_validate(standard.settings)
     lines = [
@@ -617,7 +658,18 @@ def render_standard(standard: SetupStandard, fs_version: str) -> str:
 
 
 def render_guidelines(fs_version: str) -> str:
-    """Render scenario recommendations, interpretation and complete command inventory."""
+    """Render scenario recommendations, interpretation and complete command inventory.
+
+    Parameters
+    ----------
+    fs_version : str
+        The FlightStream version the settings are rendered for.
+
+    Returns
+    -------
+    str
+        The guidelines page, Markdown.
+    """
     version = resolve(fs_version).canonical
     standards = setup_standards()
     lines = [
@@ -893,6 +945,22 @@ def write_setup_library(
 
     No existing file is overwritten. This includes collisions with user-owned s9XX files.
     Exclusive creation protects against a file appearing between inspection and writing.
+
+    Parameters
+    ----------
+    workspace : str or Path
+        The workspace root; the files go under ``inputs/setups/``.
+    fs_version : str
+        The FlightStream version the settings are rendered for.
+    guidelines : bool, optional
+        Write ``SETUP_GUIDELINES.md``.
+    standards : bool, optional
+        Write one ``<code>.toml`` per standard.
+
+    Returns
+    -------
+    dict of str to str
+        File name to ``created``, ``unchanged`` or ``preserved``; empty when nothing was asked.
     """
     destination = Path(workspace) / "inputs" / "setups"
     payloads: dict[str, str] = {}

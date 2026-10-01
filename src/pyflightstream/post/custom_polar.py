@@ -87,12 +87,38 @@ class CustomPolarTable:
 
 
 def custom_polar_file_name(polar: str | int, *, mach: float, group: str | int) -> str:
-    """``<polar>_M<mach code:02d>_g<group:02d>.dat``: the custom format beside the polar table."""
+    """``<polar>_M<mach code:02d>_g<group:02d>.dat``: the custom format beside the polar table.
+
+    Parameters
+    ----------
+    polar : str or int
+        The polar's number.
+    mach : float
+        The Mach number, written as its two-digit code.
+    group : str or int
+        The plot group's number.
+
+    Returns
+    -------
+    str
+        The ``.dat`` file name beside the polar table.
+    """
     return polar_file_name(polar, mach, group)[: -len(".csv")] + ".dat"
 
 
 def custom_field(value: object) -> str:
-    """Right-align one custom polar field to the fixed format width."""
+    """Right-align one custom polar field to the fixed format width.
+
+    Parameters
+    ----------
+    value : object
+        The field's value.
+
+    Returns
+    -------
+    str
+        The value as text, right-aligned to the format's width.
+    """
     return f"{value!s:>{CUSTOM_WIDTH}}"
 
 
@@ -105,6 +131,23 @@ def group_number(group: str | int, *, position: int | None = None) -> int:
     a pproc naming its groups and asking for this format stopped the whole stage.
     A named group states its 1-based POSITION in the ``[groups]`` table, which is
     the number it would have had; the file's NAME carries the alias.
+
+    Parameters
+    ----------
+    group : str or int
+        The group: a number, or a name.
+    position : int, optional
+        A named group's 1-based position in the ``[groups]`` table.
+
+    Returns
+    -------
+    int
+        The group's number, or its position for a named group.
+
+    Raises
+    ------
+    ProductError
+        If the group is a name and no position is given.
     """
     try:
         return int(group)
@@ -201,6 +244,9 @@ def write_custom_polar_format(
         The row's `CONFIGURATION` label (FR-94), appended to the title of
         line 1 after ` - `. Absent from the title when the row states
         none, so a file written by a row without one is unchanged.
+    group_number : int, optional
+        The number line 4 states for a named group, its 1-based position in the ``[groups]`` table
+        (:func:`group_number`).
 
     Returns
     -------
@@ -242,7 +288,29 @@ def write_custom_polar_format(
 
 
 def custom_count(line: str, path: Path, number: int, what: str) -> int:
-    """Read a count from a custom polar line, naming malformed input."""
+    """Read a count from a custom polar line, naming malformed input.
+
+    Parameters
+    ----------
+    line : str
+        The line read.
+    path : Path
+        The file, named in the refusal.
+    number : int
+        The line's number, named in the refusal.
+    what : str
+        What the count counts, named in the refusal.
+
+    Returns
+    -------
+    int
+        The count.
+
+    Raises
+    ------
+    ProductError
+        If the line does not open with the count as digits.
+    """
     try:
         return int(line.split()[0])
     except (IndexError, ValueError):

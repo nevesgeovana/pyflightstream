@@ -21,6 +21,21 @@ from pyflightstream.cases.matrix import (
     RECOGNIZED_MATRIX_LAYOUTS as SUPPORTED_LAYOUTS,
 )
 
+__all__ = [
+    "ApplyResult",
+    "Cell",
+    "Change",
+    "DictionaryEntry",
+    "ExcelSyncError",
+    "SUPPORTED_COLUMNS",
+    "SyncPreview",
+    "WorkbookSnapshot",
+    "apply_preview",
+    "dictionary_mapping",
+    "preview_sync",
+    "three_way_action",
+]
+
 SUPPORTED_COLUMNS = tuple(dict.fromkeys(name for layout in SUPPORTED_LAYOUTS for name in layout))
 
 
@@ -162,7 +177,24 @@ def _every_matrix_name(root: Path) -> list[str]:
 
 
 def dictionary_mapping(snapshot: WorkbookSnapshot) -> dict[str, str]:
-    """Return the validated ASCII-to-Excel mapping, without guessing names or positions."""
+    """Return the validated ASCII-to-Excel mapping, without guessing names or positions.
+
+    Parameters
+    ----------
+    snapshot : WorkbookSnapshot
+        The workbook snapshot.
+
+    Returns
+    -------
+    dict of str to str
+        ASCII name to Excel header.
+
+    Raises
+    ------
+    ExcelSyncError
+        If the Runs headers are blank, repeated or narrower than a row, or the Dictionary is
+        ambiguous, misses MATRIX or POL, or names a field the matrix reader does not support.
+    """
     if any(not header.strip() for header in snapshot.headers):
         raise ExcelSyncError("Runs contains a blank header; name every column before Preview.")
     if len(set(snapshot.headers)) != len(snapshot.headers):
@@ -319,7 +351,22 @@ def _empty_matrix() -> _Matrix:
 
 
 def three_way_action(base: str | None, source: str, target: str) -> str:
-    """Keep target-only changes; refuse different changes on both sides."""
+    """Keep target-only changes; refuse different changes on both sides.
+
+    Parameters
+    ----------
+    base : str or None
+        The value at the last synchronization; None when there was none.
+    source : str
+        The value on the side being read.
+    target : str
+        The value on the side being written.
+
+    Returns
+    -------
+    str
+        ``UNCHANGED``, ``UPDATE`` or ``CONFLICT``.
+    """
     if source == target or (base is not None and source == base):
         return "UNCHANGED"
     if base is None:
@@ -334,7 +381,31 @@ def preview_sync(
     direction: Literal["read", "write"],
     matrices: list[str] | None = None,
 ) -> SyncPreview:
-    """Capture an immutable review batch. This function writes nothing."""
+    """Capture an immutable review batch. This function writes nothing.
+
+    Parameters
+    ----------
+    workspace : str or Path
+        The workspace whose matrices are compared.
+    snapshot : WorkbookSnapshot
+        The workbook snapshot.
+    direction : str
+        ``read`` (matrices to workbook) or ``write`` (workbook to matrices).
+    matrices : list of str, optional
+        The matrix files to compare. None compares every matrix of the workspace when reading, and
+        the matrices the Runs rows name when writing.
+
+    Returns
+    -------
+    SyncPreview
+        The batch: every change with its action, the mappings, the counts and a token.
+
+    Raises
+    ------
+    ExcelSyncError
+        If the direction is unknown, a selected matrix does not exist or is ambiguous, or a new
+        field collides with an unmapped Runs column.
+    """
     if direction not in ("read", "write"):
         raise ExcelSyncError(f"direction {direction!r}; accepted: read or write.")
     root = Path(workspace).resolve()
@@ -526,6 +597,26 @@ def apply_preview(preview: SyncPreview, snapshot: WorkbookSnapshot) -> ApplyResu
 
     A write failure returns completed files and their recovery paths. There is
     deliberately no claim of a filesystem-wide atomic transaction.
+
+    Parameters
+    ----------
+    preview : SyncPreview
+        The reviewed preview.
+    snapshot : WorkbookSnapshot
+        The workbook as it is now, checked against the preview.
+
+    Returns
+    -------
+    ApplyResult
+        The files written and their backups, the headers and mappings returned to the workbook, and
+        the error of a partial write.
+
+    Raises
+    ------
+    ExcelSyncError
+        If the preview holds INVALID or CONFLICT rows, or the workbook or a matrix changed after
+        the preview. A matrix that changes during the apply is not raised: the result's
+        ``error`` names it, with the files already written and their backups.
     """
     if not preview.applicable:
         raise ExcelSyncError(

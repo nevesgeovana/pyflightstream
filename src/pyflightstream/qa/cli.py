@@ -69,6 +69,10 @@ from pyflightstream.qa.reports import refuse_existing_report, resolve_report_dat
 from pyflightstream.versions import AmbiguousVersionAliasError, UnknownVersionError, resolve
 from pyflightstream.workspace import CampaignWorkspace, InputArtifactError, WorkspaceError
 
+__all__ = [
+    "main",
+]
+
 #: The refusals the run layer raises BEFORE anything executes, caught the
 #: way ``pyfs-matrix run`` catches them, plus the workspace's own refusal
 #: of a recorded point re-run without --resume, which is the one a reader
@@ -305,7 +309,18 @@ def _build_parser() -> argparse.ArgumentParser:
 
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
-    """Run ``pyfs-qa``; returns the process exit code."""
+    """Run ``pyfs-qa``; returns the process exit code.
+
+    Parameters
+    ----------
+    argv : list of str, optional
+        The command-line arguments, ``sys.argv[1:]`` by default.
+
+    Returns
+    -------
+    int
+        The process exit code of the subcommand that ran.
+    """
     args = _build_parser().parse_args(argv)
     if args.subcommand == "probe":
         return _cmd_probe(args)

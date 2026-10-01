@@ -42,21 +42,6 @@ PACKAGE = "pyflightstream"
 TIER_USED = "Used in the guides"
 TIER_ADVANCED = "Advanced"
 
-#: Public functions whose docstring the numpydoc parser cannot read cleanly:
-#: prose follows the Parameters section with no heading of its own, so the
-#: parser takes its words for parameters and the strict build refuses. The
-#: docstrings are the work of DOC-B (NFR-30), not of this reference; until it
-#: lands, these entries render with the parser's warnings off. A tier-1 test
-#: fails the day a docstring here parses cleanly, so the list only shrinks.
-DOCSTRING_DEFECTS = {
-    "pyflightstream.post.acoustics.write_acoustic_products": (
-        "a paragraph after Parameters is read as the parameters Nothing and table"
-    ),
-    "pyflightstream.post.section_distributions.write_section_distributions": (
-        "two paragraphs after Parameters are read as parameters"
-    ),
-}
-
 _DIRECTIVE = re.compile(r"^::: ([\w.]+)\s*$", re.MULTILINE)
 _WORD = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _FENCE = re.compile(r"^```python[^\n]*\n(.*?)^```", re.MULTILINE | re.DOTALL)
@@ -236,16 +221,6 @@ def _shadows_a_submodule(module_name: str, name: str) -> bool:
 
 
 def _entry(module_name: str, name: str) -> list[str]:
-    if f"{module_name}.{name}" in DOCSTRING_DEFECTS:
-        # Rendered in full; only the parser's warnings about the misplaced
-        # prose are silenced, so the strict build stays strict elsewhere.
-        return [
-            f"::: {module_name}.{name}",
-            "    options:",
-            "      docstring_options:",
-            "        warnings: false",
-            "",
-        ]
     if not _shadows_a_submodule(module_name, name):
         return [f"::: {module_name}.{name}", ""]
     # The package re-exports a function under the name of its own submodule

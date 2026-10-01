@@ -127,6 +127,11 @@ def physics_matrix(root: str | Path, matrix: str = DEFAULT_MATRIX) -> Path:
         so a path elsewhere would name rows that the workspace's manifest
         cannot record; a path is read relative to the root, as before.
 
+    Returns
+    -------
+    Path
+        The matrix file the workspace holds under that name.
+
     Raises
     ------
     PhysicsEnvironmentError
@@ -153,7 +158,19 @@ def physics_matrix(root: str | Path, matrix: str = DEFAULT_MATRIX) -> Path:
 
 
 def case_of_row(row: MatrixRow) -> str | None:
-    """Return the case id a row names at the head of its DESCRIPTION, or None."""
+    """Return the case id a row names at the head of its DESCRIPTION, or None.
+
+    Parameters
+    ----------
+    row : MatrixRow
+        A row of the physics matrix.
+
+    Returns
+    -------
+    str or None
+        The case id at the head of the row's DESCRIPTION, for example ``PHY-01``; None when it
+        names none.
+    """
     match = _CASE_ID.match(row.description)
     return match.group(1) if match else None
 
@@ -165,6 +182,16 @@ def physics_build(matrix: str | Path) -> str:
     build, so the pre-flight that protects a licensed seat has to know it
     before anything runs. Two builds in one matrix is a comparison, which
     is what ``drift`` is for.
+
+    Parameters
+    ----------
+    matrix : str or Path
+        The physics matrix file.
+
+    Returns
+    -------
+    str
+        The canonical build identifier the active rows name.
 
     Raises
     ------
@@ -277,6 +304,19 @@ def point_result(workspace: CampaignWorkspace, record: RunRecord) -> PointResult
     judged with the log when one was exported. This is the ``_point`` of
     the tier-3 physics test, moved into the package so the driver and
     the test read a record the same way.
+
+    Parameters
+    ----------
+    workspace : CampaignWorkspace
+        The workspace whose manifest holds the record.
+    record : RunRecord
+        One recorded point.
+
+    Returns
+    -------
+    PointResult
+        The point's angle of attack, its Total loads row, its iteration count, its label and its
+        convergence word.
     """
     report = parse_run_loads(workspace, record)
     return PointResult(
@@ -416,6 +456,16 @@ def physics_rows(matrix: str | Path) -> dict[str, list[MatrixRow]]:
     mirrored half). The release review of 2026-09-09 measured the second
     refusal firing only in the reduction, after every point of the matrix
     had spent its seat.
+
+    Parameters
+    ----------
+    matrix : str or Path
+        The physics matrix file.
+
+    Returns
+    -------
+    dict of str to list of MatrixRow
+        Case id to the active rows that name it, in file order.
 
     Raises
     ------
@@ -672,6 +722,11 @@ def drift_from_workspace(
     references_dir : str or Path, optional
         Alternative reference directory, used by tests; the diff itself
         needs no reference.
+
+    Returns
+    -------
+    DriftRun
+        The diff of the two reductions, as :func:`pyflightstream.qa.drift.diff_runs` returns it.
 
     Raises
     ------

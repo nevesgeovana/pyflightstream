@@ -6,6 +6,10 @@ Its own module for the same reason as ``probes/errors.py``: the package
 
 from pyflightstream._errors import PyflightstreamError
 
+__all__ = [
+    "QaEvidenceError",
+]
+
 
 class QaEvidenceError(PyflightstreamError, ValueError):
     """A committed QA artifact cannot be read as the evidence it claims.

@@ -95,6 +95,21 @@ from pyflightstream.fsi.state import (
     write_state_atomic,
 )
 
+__all__ = [
+    "ALLOW_CONFIG_CHANGE_FILE",
+    "CONFIG_FILE",
+    "FAMILY_MAP_FILE",
+    "FIXED_WING_PHASE",
+    "FROZEN_FILE",
+    "LOG_FILE",
+    "QUASI_STEADY_ROTOR_PHASE",
+    "STATE_FILE",
+    "StepResult",
+    "coupling_step",
+    "relax_displacements",
+    "revolutions_per_step",
+]
+
 logger = logging.getLogger(__name__)
 
 CONFIG_FILE = "config.json"
@@ -169,6 +184,23 @@ def revolutions_per_step(omega_rad_per_s: float, time_increment_s: float) -> flo
 
     Source: DLV-007 Section 4.5 (phase schedule in revolutions);
     elementary kinematics of rotation at constant angular speed.
+
+    Parameters
+    ----------
+    omega_rad_per_s : float
+        The rotor's angular speed [rad/s], positive.
+    time_increment_s : float
+        The unsteady time step [s], positive.
+
+    Returns
+    -------
+    float
+        Omega dt / (2 pi), in revolutions.
+
+    Raises
+    ------
+    FsiInputError
+        If the angular speed or the time step is not positive.
     """
     if omega_rad_per_s <= 0.0 or time_increment_s <= 0.0:
         raise FsiInputError(
@@ -190,6 +222,20 @@ def relax_displacements(
     displacements unchanged, the phase 4 behavior (FSI-R07).
 
     Source: DLV-007 Section 4.5 (relaxation and phases).
+
+    Parameters
+    ----------
+    previous : numpy.ndarray
+        The displacements of the previous coupling call, d_old [m].
+    computed : numpy.ndarray
+        The displacements the structural solve computed, d_calc [m].
+    relaxation : float
+        The relaxation factor lambda; 1 returns ``computed``.
+
+    Returns
+    -------
+    numpy.ndarray
+        The relaxed displacements d_new [m].
     """
     previous = np.asarray(previous, dtype=float)
     computed = np.asarray(computed, dtype=float)

@@ -28,6 +28,12 @@ from pathlib import Path
 from pyflightstream._errors import ProductError
 from pyflightstream.workspace.naming import ARCHIVE_STAMP
 
+__all__ = [
+    "RenamedProduct",
+    "rename_group_products",
+    "unmapped_group_numbers",
+]
+
 #: The suffix the numbered era wrote, which is what this migration reads.
 _NUMBERED_SUFFIX = "_g"
 
@@ -178,6 +184,13 @@ def unmapped_group_numbers(root: str | Path, groups: Mapping[int, str]) -> dict[
     So the report is its own call, and it takes the same mapping as the
     migration so the two answer about the same thing. Run it before the
     migration, or after it, or both; it reads the disk and changes nothing.
+
+    Parameters
+    ----------
+    root : str or Path
+        The folder whose products are read.
+    groups : mapping of int to str
+        Group number to name, as the migration takes it.
 
     Returns
     -------

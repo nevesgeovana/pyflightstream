@@ -289,6 +289,19 @@ def airfoil_section_contour(
     numpy.ndarray, shape (n, 2)
         (chordwise toward the leading edge, normal toward the suction
         side) [m], origin on the pitch axis.
+
+    Raises
+    ------
+    FsiInputError
+        If the contour is not an (n, 2) array, the chord is not a positive length, or the
+        pitch-axis fraction is outside [0, 1].
+
+    Examples
+    --------
+    >>> from pyflightstream.qa.geometry import naca4_contour
+    >>> contour = airfoil_section_contour(naca4_contour("0012", 21), chord_m=0.1)
+    >>> contour.shape, round(float(contour[:, 0].max()), 4), round(float(contour[:, 0].min()), 4)
+    ((43, 2), 0.025, -0.075)
     """
     points = np.asarray(unit_contour, dtype=float)
     if points.ndim != 2 or points.shape[1] != 2:
@@ -407,6 +420,12 @@ def torsion_constant(
     -------
     TorsionConstant
         J [m^4], with the grid it was computed on.
+
+    Raises
+    ------
+    FsiInputError
+        If ``grid_cells`` is not an integer of at least 8, or the grid places no node inside the
+        section.
     """
     if isinstance(grid_cells, bool) or not isinstance(grid_cells, int) or grid_cells < 8:
         raise FsiInputError(
@@ -542,6 +561,11 @@ def thin_section_torsion_estimate(contour_m: ArrayLike, samples: int = 4096) -> 
     -------
     float
         The estimate [m^4].
+
+    Raises
+    ------
+    FsiInputError
+        If ``samples`` is not an integer of at least 2.
     """
     if isinstance(samples, bool) or not isinstance(samples, int) or samples < 2:
         raise FsiInputError(f"samples must be an integer of at least 2, got {samples!r}")
@@ -578,6 +602,13 @@ def solid_section_properties(
     -------
     SolidSectionProperties
         The exact moments, the numerical J and the thin-section estimate.
+
+    Examples
+    --------
+    >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
+    >>> properties = solid_section_properties(plate)
+    >>> round(properties.moments.area_m2, 8), f"{properties.torsion.torsion_constant_m4:.3e}"
+    (0.00016, '7.993e-10')
     """
     return SolidSectionProperties(
         moments=polygon_area_moments(contour_m),
@@ -657,6 +688,12 @@ def blade_properties_from_sections(
     BladeProperties
         Validated distributions with their provenance, carrying the
         contours as ``section_contours_m``.
+
+    Raises
+    ------
+    FsiInputError
+        If a per-station sequence has a different count than the radii, ``geometry_source`` is
+        empty, or ``geometry_file`` is not a file.
 
     Examples
     --------

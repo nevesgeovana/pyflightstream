@@ -30,6 +30,15 @@ if TYPE_CHECKING:
     from pyflightstream.cases import PprocSpec
     from pyflightstream.workspace import RunRecord
 
+__all__ = [
+    "BL_COLUMNS",
+    "BL_FIELDS",
+    "BoundaryLayerSamples",
+    "sample_boundary_layer",
+    "write_boundary_layer_products",
+    "write_boundary_layer_table",
+]
+
 BL_FIELDS = (
     "BL_Thickness",
     "BL_displacement_thickness",
@@ -136,6 +145,36 @@ def sample_boundary_layer(
     index; Boundary_Index remains the raw solver scalar, with no inferred name.
     Shared edges produce one row per incident cell. Missing scalar fields are
     None (NA in CSV); missing geometry or placement is refused explicitly.
+
+    Parameters
+    ----------
+    surface : VtkSurface
+        The point's surface VTK export, with its boundary-layer cell data.
+    sections : sequence of SurfaceSection
+        The surface section cuts, with their point positions.
+    surface_frame : SurfaceFrame
+        The placement that carries the surface's coordinates into the reference frame.
+    section_frames : mapping of int to SurfaceFrame
+        Each section's placement into the reference frame, by section index.
+    section_normals : mapping of int to sequence of float, optional
+        Each section's cut normal, by section index; with it a cut point is also associated with a
+        cell whose chord along the cut it lies on.
+    tolerance : float, optional
+        The distance within which a cut point lies on a cell, in the simulation length unit; a
+        ten-millionth of the surface's extent when None.
+
+    Returns
+    -------
+    BoundaryLayerSamples
+        One row per cut point and incident cell, the fields available and missing, and the
+        tolerance used.
+
+    Raises
+    ------
+    ProductError
+        If the VTK carries no boundary-layer cell data or no cells, a field is not one finite value
+        per cell, the tolerance is not finite and positive, a section has no placement, a cut
+        normal is not a finite non-zero three-vector, or a cut point has no incident cell.
     """
     available = tuple(name for name in BL_FIELDS if name in surface.cell_data)
     missing = tuple(name for name in BL_FIELDS if name not in surface.cell_data)
@@ -214,6 +253,18 @@ def write_boundary_layer_table(path: str | Path, samples: BoundaryLayerSamples) 
     """Write raw cell values with round-trip float precision and explicit NA fields.
 
     The caller applies its archive/overwrite policy before invoking this writer.
+
+    Parameters
+    ----------
+    path : str or Path
+        The table to write.
+    samples : BoundaryLayerSamples
+        The samples of :func:`sample_boundary_layer`.
+
+    Returns
+    -------
+    Path
+        The written table.
     """
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -281,6 +332,32 @@ def write_boundary_layer_products(
     Missing source fields are named in the manifest and written NA. Missing
     placement, cut coordinates, state or original-cell association skips this
     product explicitly. No solver is run and no nearest-cell substitute is used.
+
+    Parameters
+    ----------
+    sim_dir : Path
+        Simulation directory containing the recorded exports.
+    record : RunRecord
+        Run metadata, including outputs, section layout and export clock.
+    stem : str
+        Point's export filename stem.
+    out : Path
+        Root directory for the products.
+    target : callable
+        Prepare a destination path, applying the caller's archive policy.
+    skipped : dict of str to str
+        Mutable mapping of product names to skip reasons.
+    step : int or None
+        The point's final step, recorded with the product.
+    pproc : PprocSpec or None
+        The recorded post-processing specification; a point that declares no boundary-layer product
+        writes nothing.
+
+    Returns
+    -------
+    tuple of (list of Path, dict of str to dict)
+        The written path and its product-manifest entry; both empty when the product is not
+        written, the reason then named in ``skipped``.
     """
     if pproc is None or not pproc.products.boundary_layer_integrals:
         return [], {}

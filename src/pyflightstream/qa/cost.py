@@ -576,7 +576,12 @@ def cost_view(source: CostSource) -> CostView:
 
     Examples
     --------
-    See this module's top docstring for a runnable example.
+    A campaign with no recorded run is an empty view, not a fast one; this
+    module's top docstring compares two builds.
+
+    >>> view = cost_view([])
+    >>> view.builds, view.points
+    ((), ())
     """
     records = _records(source)
     builds: set[BuildKey] = set()

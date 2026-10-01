@@ -131,6 +131,15 @@ from pyflightstream._atmosphere import (
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases.matrix import VELOCITY_KEYS
 
+__all__ = [
+    "DENSITY_KEY",
+    "FlightConditionError",
+    "PINNED_KEYS",
+    "ResolvedCondition",
+    "canonical_condition_defaults",
+    "resolve_flight_condition",
+]
+
 # The keys that fix velocity, VELOCITY_KEYS, of which exactly one is required,
 # always, have their one home in the matrix reader (AD-10).
 

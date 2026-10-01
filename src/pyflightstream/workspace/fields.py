@@ -135,6 +135,13 @@ class Field:
         ``"Npts Mpts"`` of a STRUCTURED field, None for an UNSTRUCTURED one.
     source : str or None
         The file the field was read from, named in every refusal.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.fields import Field
+    >>> field = Field("UNSTRUCTURED", ((0.0, 1.0, 0.0, 10.0, 2.0, 0.0),))
+    >>> field.form, len(field.rows)
+    ('UNSTRUCTURED', 1)
     """
 
     form: str
@@ -225,6 +232,16 @@ def read_field(path: str | Path) -> Field:
     numbers, and a STRUCTURED file opens with two positive counts whose
     product is its number of rows.
 
+    Parameters
+    ----------
+    path : str or Path
+        The field file, ``.txt`` or ``.dat``.
+
+    Returns
+    -------
+    Field
+        The field, its form, rows, header and source.
+
     Raises
     ------
     WorkspaceError
@@ -289,10 +306,22 @@ def mirror_field(field: Field, *, plane: str) -> Field:
         ``"x"``, ``"y"`` or ``"z"``: the plane ``x = 0``, ``y = 0`` or
         ``z = 0``.
 
+    Returns
+    -------
+    Field
+        The mirrored field.
+
     Raises
     ------
     WorkspaceError
         If ``plane`` names none of the three.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.fields import Field
+    >>> field = Field("UNSTRUCTURED", ((0.0, 1.0, 0.0, 10.0, 2.0, 0.0),))
+    >>> mirror_field(field, plane="y").rows
+    ((0.0, -1.0, 0.0, 10.0, -2.0, 0.0),)
     """
     axis = MIRROR_PLANES.get(plane.strip().lower())
     if axis is None:
@@ -324,10 +353,31 @@ def move_field(
     since a translation turns no vector. Both points are keyword-only, so
     the two cannot be swapped by position.
 
+    Parameters
+    ----------
+    field : Field
+        The field to translate.
+    source_point_m : sequence of float
+        The point of the field that moves, (x, y, z) in metres.
+    target_point_m : sequence of float
+        Where it lands, (x, y, z) in metres.
+
+    Returns
+    -------
+    Field
+        The translated field.
+
     Raises
     ------
     WorkspaceError
         If either point is not three finite numbers.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.fields import Field
+    >>> field = Field("UNSTRUCTURED", ((0.0, 1.0, 0.0, 10.0, 2.0, 0.0),))
+    >>> move_field(field, source_point_m=(0.0, 0.0, 0.0), target_point_m=(1.0, 0.0, 0.0)).rows
+    ((1.0, 1.0, 0.0, 10.0, 2.0, 0.0),)
     """
     source = _point(source_point_m, "source point")
     target = _point(target_point_m, "target point")
@@ -420,6 +470,22 @@ def subtract_fields(
     induced-only (a field with its free stream taken out), and the result is
     the plain difference ``total - other``.
 
+    Parameters
+    ----------
+    total : Field
+        The field the induced velocity is removed from.
+    other : Field
+        The field whose induced velocity is removed; the same grid as ``total``.
+    reference_m_s : sequence of float
+        The uniform velocity ``other`` was solved in, (vx, vy, vz) in m/s.
+    tolerance_m : float, optional
+        The distance in metres within which two positions are the same point, along each axis.
+
+    Returns
+    -------
+    Field
+        ``total - (other - reference)`` on ``total``'s positions.
+
     Raises
     ------
     WorkspaceError
@@ -427,6 +493,14 @@ def subtract_fields(
         either with no point of the other), naming both fields and the
         first point that has no partner; if a field holds one point twice;
         or if the reference is not three finite numbers.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace.fields import Field
+    >>> field = Field("UNSTRUCTURED", ((0.0, 1.0, 0.0, 10.0, 2.0, 0.0),))
+    >>> other = Field("UNSTRUCTURED", ((0.0, 1.0, 0.0, 12.0, 0.0, 0.0),))
+    >>> subtract_fields(field, other, reference_m_s=(10.0, 0.0, 0.0)).rows
+    ((0.0, 1.0, 0.0, 8.0, 2.0, 0.0),)
     """
     tolerance = _tolerance(tolerance_m)
     reference = _point(reference_m_s, "reference velocity")
@@ -474,7 +548,18 @@ def subtract_fields(
 
 
 def step_of(path: str | Path) -> float | None:
-    """Return the step a per-step field file names, ``..._step_<N>.inflow.dat``, or None."""
+    """Return the step a per-step field file names, ``..._step_<N>.inflow.dat``, or None.
+
+    Parameters
+    ----------
+    path : str or Path
+        A field file.
+
+    Returns
+    -------
+    float or None
+        The step the name states, or None when it states none or it is not finite.
+    """
     match = _STEP_IN_NAME.search(Path(path).name)
     if match is None:
         return None
@@ -487,6 +572,18 @@ def step_of(path: str | Path) -> float | None:
 
 def read_step_fields(paths: Sequence[str | Path], *, last: int | None = None) -> list[StepField]:
     """Read per-step field files, ordered by the step each names, keeping the ``last`` ones.
+
+    Parameters
+    ----------
+    paths : sequence of str or Path
+        The per-step field files, ``..._step_<N>.inflow.dat``.
+    last : int, optional
+        Keep only the last this many steps; every step when None.
+
+    Returns
+    -------
+    list of StepField
+        The fields ordered by step.
 
     Raises
     ------
@@ -531,6 +628,18 @@ def time_mean_fields(
     one run), and the steps must be equally spaced, so the arithmetic mean
     of the samples is the time mean over their span. The result keeps the
     earliest step's positions, form and header.
+
+    Parameters
+    ----------
+    fields : sequence of StepField
+        The per-step fields of one run.
+    tolerance_m : float, optional
+        The distance in metres within which two positions are the same point, along each axis.
+
+    Returns
+    -------
+    Field
+        The time-mean field.
 
     Raises
     ------
@@ -602,6 +711,19 @@ def fluctuation_report(
     probe's time mean and population standard deviation are taken per
     component; the magnitude combines the three.
 
+    Parameters
+    ----------
+    fields : sequence of StepField
+        The per-step fields, each with its step.
+    tolerance_m : float, optional
+        The distance in metres within which two positions are the same point, along each axis.
+
+    Returns
+    -------
+    FluctuationReport
+        Per probe its position and the standard deviation of each velocity component and of the
+        magnitude, with the steps and the source files.
+
     Raises
     ------
     WorkspaceError
@@ -652,14 +774,36 @@ def fluctuation_report(
 
 
 def render_fluctuation(report: FluctuationReport) -> str:
-    """Return the text of ``<stem>.fluctuation.csv``: ``x,y,z,std_vx,...,std_mag``, ``%.9g``."""
+    """Return the text of ``<stem>.fluctuation.csv``: ``x,y,z,std_vx,...,std_mag``, ``%.9g``.
+
+    Parameters
+    ----------
+    report : FluctuationReport
+        The report of :func:`fluctuation_report`.
+
+    Returns
+    -------
+    str
+        The CSV text, ending in a newline.
+    """
     lines = ["x,y,z,std_vx,std_vy,std_vz,std_mag"]
     lines.extend(",".join(format(v, ".9g") for v in row) for row in report.rows)
     return "\n".join(lines) + "\n"
 
 
 def fluctuation_extent(report: FluctuationReport) -> tuple[float, float]:
-    """Return the largest ``std_mag`` over the probes and its root mean square, in m/s."""
+    """Return the largest ``std_mag`` over the probes and its root mean square, in m/s.
+
+    Parameters
+    ----------
+    report : FluctuationReport
+        The report of :func:`fluctuation_report`.
+
+    Returns
+    -------
+    tuple of (float, float)
+        The largest ``std_mag`` and the root mean square of ``std_mag`` over the probes, in m/s.
+    """
     magnitudes = [row[6] for row in report.rows]
     return max(magnitudes), math.sqrt(math.fsum(m * m for m in magnitudes) / len(magnitudes))
 
@@ -672,6 +816,13 @@ def fill_interior(field: Field, *, r_body_m: float = DEFAULT_R_BODY_M) -> tuple[
     the smallest radius on the same azimuth ray (``atan2(z, y)`` within
     :data:`FILL_AZIMUTH_TOLERANCE_RAD`). Positions never change. A probe on
     the axis itself has azimuth 0 by ``atan2``.
+
+    Parameters
+    ----------
+    field : Field
+        The field to fill.
+    r_body_m : float, optional
+        The body radius about the x axis, in metres; the probes inside it are replaced.
 
     Returns
     -------
@@ -722,7 +873,18 @@ def fill_interior(field: Field, *, r_body_m: float = DEFAULT_R_BODY_M) -> tuple[
 
 
 def render_field(field: Field) -> str:
-    """Return the file text of a field: the header of a STRUCTURED one, then its rows."""
+    """Return the file text of a field: the header of a STRUCTURED one, then its rows.
+
+    Parameters
+    ----------
+    field : Field
+        The field to render.
+
+    Returns
+    -------
+    str
+        The file text, ending in a newline.
+    """
     lines = [] if field.header is None else [field.header]
     lines.extend(" ".join(format(value, ".17g") for value in row) for row in field.rows)
     return "\n".join(lines) + "\n"
@@ -796,6 +958,33 @@ def write_freestream(
     written beside the field as ``<stem><suffix>`` (0.32.0): each is subject
     to the same overwrite rule and is named in the record, with its sha256,
     under ``"sidecars"``.
+
+    Parameters
+    ----------
+    root : str or Path
+        The workspace root.
+    stem : str
+        The name the files are written under, a plain name.
+    field : Field
+        The field to write.
+    operation : str
+        The field operation that made it, recorded in the provenance.
+    parameters : mapping of str to object
+        The operation's parameters, recorded in the provenance.
+    inputs : sequence of str or Path
+        Every input file, recorded in the provenance with its sha256.
+    apply : bool, optional
+        Write the files; without it nothing is written and the same refusals fire.
+    overwrite : bool, optional
+        Replace a file or record that already exists instead of refusing it.
+    sidecars : mapping of str to str, optional
+        Suffix to the text of a file written beside the field.
+
+    Returns
+    -------
+    FieldWrite
+        The field's path, its provenance record's path and content, the field, whether it was
+        written, and the files it replaced.
 
     Raises
     ------
@@ -873,6 +1062,29 @@ def write_fluctuation(
     The files are ``<root>/inputs/freestreams/<stem>.fluctuation.csv`` and
     ``<stem>.fluctuation.provenance.json`` (no field is written, so the stem
     names no free stream). The overwrite rule is :func:`write_freestream`'s.
+
+    Parameters
+    ----------
+    root : str or Path
+        The workspace root.
+    stem : str
+        The name the files are written under, a plain name.
+    report : FluctuationReport
+        The report of :func:`fluctuation_report`.
+    parameters : mapping of str to object
+        The operation's parameters, recorded in the provenance.
+    inputs : sequence of str or Path
+        Every input file, recorded in the provenance with its sha256.
+    apply : bool, optional
+        Write the files; without it nothing is written and the same refusals fire.
+    overwrite : bool, optional
+        Replace a file or record that already exists instead of refusing it.
+
+    Returns
+    -------
+    FluctuationWrite
+        The report's path, its provenance record's path and content, whether it was written, and
+        the files it replaced.
 
     Raises
     ------

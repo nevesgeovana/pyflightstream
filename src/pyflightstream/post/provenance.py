@@ -76,6 +76,19 @@ def product_archive_dir(path: Path, *, now: datetime | None = None) -> Path:
     product sat in below the matrix". That is a different layout from the
     one the body returns and from the one the tier-1 case asserts, and the
     sentence read as a design nobody had built (the QA lens).
+
+    Parameters
+    ----------
+    path : Path
+        The product about to be rewritten.
+    now : datetime, optional
+        The rebuild's stamp; the current time when None.
+
+    Returns
+    -------
+    Path
+        ``<the product's folder>/archive/<day and hour>/``; the product's own folder when it
+        already sits inside an archive.
     """
     stamp = (now or datetime.now()).strftime(PRODUCT_ARCHIVE_STAMP)
     for parent in path.parents:
@@ -124,6 +137,20 @@ def refuse_an_existing_product(
     existed to stop a rebuild destroying a product silently, and archiving
     answers that better: a refusal makes the user delete the file, which
     destroys it just as thoroughly and puts the work on them.
+
+    Parameters
+    ----------
+    path : Path
+        The product's destination.
+    archive : bool, optional
+        Move an existing product into the archive; when false it is removed.
+    stamp : datetime, optional
+        The rebuild's stamp, which names the archive folder.
+
+    Returns
+    -------
+    Path
+        ``path``, now free.
     """
     if not path.exists():
         return path
@@ -189,6 +216,16 @@ def point_name_of(record: RunRecord) -> str | None:
     file of the point carries. A record whose script is not named the way
     this package writes one answers None, and the caller keeps the run
     id, which is what every document was named before 0.16.0.
+
+    Parameters
+    ----------
+    record : RunRecord
+        The run's record.
+
+    Returns
+    -------
+    str or None
+        The point name, or None where the script is not named the way this package writes one.
     """
     declared = record.script_path
     if not declared:
@@ -212,13 +249,36 @@ def provenance_file_name(run_id: str, *, point_name: str | None = None) -> str:
     manifest and it is a field inside the document, under
     ``pyfs:run_id``, and it is the identifier of the activity. What moves
     is a file name, which this package never parses for meaning.
+
+    Parameters
+    ----------
+    run_id : str
+        The run's id.
+    point_name : str, optional
+        The point's name, where it is known.
+
+    Returns
+    -------
+    str
+        The document's file name.
     """
     stem = run_id if point_name is None else point_name
     return stem.replace("/", "_") + PROVENANCE_SUFFIX
 
 
 def attributes(**pairs: object) -> dict[str, object]:
-    """Return the attributes of one PROV node, a None value left out rather than written."""
+    """Return the attributes of one PROV node, a None value left out rather than written.
+
+    Parameters
+    ----------
+    **pairs : object
+        The attributes, by name.
+
+    Returns
+    -------
+    dict of str to object
+        The attributes whose value is not None.
+    """
     return {name: value for name, value in pairs.items() if value is not None}
 
 
@@ -234,6 +294,16 @@ def operator_agent(name: str | None) -> dict[str, object]:
     nobody recorded it for the simulations that already finished; it cannot be
     recovered and none is invented. The field is PRESENT and reads `NA`, so a
     reader tells a run that predates this release from a document that forgot.
+
+    Parameters
+    ----------
+    name : str or None
+        The operator the record names; None for a run recorded before the field existed.
+
+    Returns
+    -------
+    dict of str to object
+        The ``prov:Person`` node, its ``pyfs:submitted_by`` the name or ``NA``.
     """
     stated = (name or "").strip()
     return {
@@ -272,6 +342,18 @@ def prov_document(record: RunRecord, sim_dir: Path) -> dict[str, object]:
     it, it ``wasAssociatedWith`` both agents, the outputs are attributed
     to the solver and the script to the package. Standard library only:
     the document is a mapping :mod:`json` writes.
+
+    Parameters
+    ----------
+    record : RunRecord
+        The run's record.
+    sim_dir : Path
+        The simulation folder, where the outputs are hashed when still present.
+
+    Returns
+    -------
+    dict of str to object
+        The PROV-JSON document.
     """
     activity_id = f"pyfs:run/{record.run_id}"
     package_id = f"pyfs:package/pyflightstream/{record.package_version}"
@@ -498,6 +580,33 @@ def run_provenance(
     With ``sims`` (0.33.0, FR-307, ``post --sims``) only the records of those
     simulations are written and returned; the names are still measured over
     every record given, so each document keeps the name a whole post gives it.
+
+    Parameters
+    ----------
+    workspace : CampaignWorkspace
+        The workspace.
+    records : sequence of RunRecord
+        The records to write a document for.
+    out : Path
+        The products folder; the documents go under ``out/provenance``.
+    overwrite : bool, optional
+        With ``archive`` false, replace an existing document.
+    archive : bool, optional
+        Archive an existing document before it is replaced.
+    archive_stamp : datetime, optional
+        The rebuild's stamp, which names the archive folder.
+    sims : collection of str, optional
+        Write only the records of these simulations.
+
+    Returns
+    -------
+    dict of str to str
+        Run id to the document's path relative to ``out``.
+
+    Raises
+    ------
+    ProductExistsError
+        If a document exists, ``archive`` is false and ``overwrite`` is not set.
     """
     # A POINT NAME NEED NOT BE UNIQUE AND A RUN ID IS (FR-86). The
     # default naming template is `{point}`, which carries no sim id, so

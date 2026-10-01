@@ -256,6 +256,27 @@ def write_output_pair(
     Both destinations are tested BEFORE either is written, so a refusal
     never leaves half a pair behind: a data file whose record belongs to
     a different run is worse than no file at all.
+
+    Parameters
+    ----------
+    destination : Path
+        The data file.
+    text : str
+        The data file's text.
+    provenance : OutputProvenance
+        The settings record written beside it.
+    overwrite : bool
+        Replace files that exist.
+
+    Returns
+    -------
+    tuple of (Path, Path)
+        The data file and its record.
+
+    Raises
+    ------
+    OutputExistsError
+        If either file exists and ``overwrite`` is false; nothing is written then.
     """
     record = provenance_path(destination)
     _refuse_existing(destination, overwrite)

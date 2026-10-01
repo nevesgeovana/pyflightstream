@@ -7,6 +7,11 @@ from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
 
+__all__ = [
+    "MotionLedger",
+    "resolve_frame_motion",
+]
+
 # Exact version, simulation unit and solver build (NFR-31: the build identifies the
 # measured executable; the package carries no executable digest). A run must still
 # have recorded its own executable digest. Delayed starts remain unproved.
@@ -78,7 +83,23 @@ def _basis(placement: Any) -> tuple[Any, Any]:
 def resolve_frame_motion(
     record: Mapping[str, Any], *, solver_identity: Mapping[str, Any]
 ) -> dict[str, Any]:
-    """Resolve recorded timing against exact native identity without mutating facts."""
+    """Resolve recorded timing against exact native identity without mutating facts.
+
+    Parameters
+    ----------
+    record : mapping of str to object
+        One frame-motion record of the ledger, with its trajectory and the reason its timing is
+        unresolved.
+    solver_identity : mapping of str to object
+        The run's solver identity, with its ``fs_build`` and recorded ``fs_exe_sha256``.
+
+    Returns
+    -------
+    dict of str to object
+        A copy of the record; where a measured proof exists for its version, unit and build, the
+        trajectory gains its signed angular speed and step time origin and the record the proof.
+        The record passed in is never changed.
+    """
     result = deepcopy(dict(record))
     trajectory = result.get("trajectory", {})
     if result.get("reason") not in {
