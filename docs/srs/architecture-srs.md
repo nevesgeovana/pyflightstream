@@ -186,7 +186,7 @@ package owed; all eight are implemented, accepted on 2026-10-01 after the
 0.33.0 release. None changes what the package does: AD-15 states what every
 one of them keeps.
 
-!!! decision "AD-08 The architecture guards <span class='srs-implemented'>implemented</span>\"
+!!! decision "AD-08 The architecture guards <span class='srs-implemented'>implemented</span>"
     *Work package WP0 of the 0.33.0 scope, which lands before any other
     package so that every later one is measured. Evidence owed: the
     tier-1 tests of G1 to G8 below, each with its non-vacuity condition,
@@ -300,7 +300,7 @@ one of them keeps.
     percent above is the review's measure in lines; the records count
     code lines.
 
-!!! decision "AD-09 The row order: run above workspace <span class='srs-implemented'>implemented</span>\"
+!!! decision "AD-09 The row order: run above workspace <span class='srs-implemented'>implemented</span>"
     *Work package WP1 of the 0.33.0 scope (decision 4 of the scope).
     Evidence owed: the layer guards of NFR-23 reading the new table, the
     test that holds this chapter's table, the user-guide diagram and the
@@ -335,7 +335,7 @@ one of them keeps.
     As WP1 landed, the count is 0 on the merged tree (2 on v0.32.0,
     `reports/RPT-100`), held as an exact ratchet.
 
-!!! decision "AD-10 One home per constant, and the loads cycle removed <span class='srs-implemented'>implemented</span>\"
+!!! decision "AD-10 One home per constant, and the loads cycle removed <span class='srs-implemented'>implemented</span>"
     *Work package WP2 of the 0.33.0 scope (decision 15). Evidence owed:
     G6 green with an empty allowlist, and G3 finding no component that
     holds `fsi.loads` and `results.tables`.*
@@ -379,7 +379,7 @@ one of them keeps.
     `fsi.loads` nor `results.tables` (`reports/RPT-119`; two on
     v0.32.0).
 
-!!! decision "AD-11 The four cheap extractions <span class='srs-implemented'>implemented</span>\"
+!!! decision "AD-11 The four cheap extractions <span class='srs-implemented'>implemented</span>"
     *Work package WP3 of the 0.33.0 scope. Evidence owed: G1 and G8
     entries lowered for each module named here, every public import path
     kept (AD-15), and the tests of this chapter's module lists updated
@@ -434,7 +434,7 @@ one of them keeps.
     `results` root) and 899 (`workspace.inputs`) code lines, from 2729,
     1954, 1583 and 1831 on v0.32.0.
 
-!!! decision "AD-12 cases/workflows is a package with a guarded order <span class='srs-implemented'>implemented</span>\"
+!!! decision "AD-12 cases/workflows is a package with a guarded order <span class='srs-implemented'>implemented</span>"
     *Work package WP4 of the 0.33.0 scope. Evidence owed: G3(b) for the
     package, the 29 goldens and the tier-3 golden diff unchanged, and G1
     for every module of the package.*
@@ -488,7 +488,7 @@ one of them keeps.
     modules the depth rule does not hold, and a retired path in it holds
     nothing, since the module cannot return beside the package.
 
-!!! decision "AD-13 The post families are sibling modules <span class='srs-implemented'>implemented</span>\"
+!!! decision "AD-13 The post families are sibling modules <span class='srs-implemented'>implemented</span>"
     *Work package WP5 of the 0.33.0 scope (decisions 5, 8 and 15).
     Evidence owed: the byte snapshot of the products, taken before the
     first move and compared after every move, and the surface test of
@@ -548,7 +548,7 @@ one of them keeps.
     stage's class carries the products' resolved state and the cases one
     the run's, and converging them is not a structural move.
 
-!!! decision "AD-14 run is a facade over private modules and leaves the type-check exemptions <span class='srs-implemented'>implemented</span>\"
+!!! decision "AD-14 run is a facade over private modules and leaves the type-check exemptions <span class='srs-implemented'>implemented</span>"
     *Work package WP6 of the 0.33.0 scope (decision 7). Evidence owed:
     G8 for `run/__init__.py`, G3(b) for the package, and the type-check
     exemption list one module shorter in `pyproject.toml` and in the
@@ -584,7 +584,7 @@ one of them keeps.
     static type checker exempts seventeen modules, eighteen before; the
     integration recount of NFR-27 states the errors inside them.
 
-!!! decision "AD-15 The evolution policy of 0.33.0 <span class='srs-implemented'>implemented</span>\"
+!!! decision "AD-15 The evolution policy of 0.33.0 <span class='srs-implemented'>implemented</span>"
     *All work packages of the 0.33.0 scope and its integration recount
     (WPX; decisions 6, 9 and 15). Evidence owed: the parity receipt of
     the release, produced by a committed script comparing tag `v0.32.0`
