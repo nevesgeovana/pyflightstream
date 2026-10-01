@@ -82,20 +82,37 @@ def test_rpt096_states_no_length_and_no_dimensional_value_of_a_blade():
         assert chr(0x2014) not in text and chr(0x2013) not in text, path.name
 
 
+def release_section_carrying(changelog: str, needle: str) -> str:
+    """The release section of ``changelog`` whose body contains ``needle``.
+
+    A section opens at a ``## [`` heading and ends at the next one. It is found
+    by what it carries, never by its title, so a new section opened above it,
+    empty or not, changes nothing (FR-345, P0340-RELEASE-TITLE).
+    """
+    sections = ("\n" + changelog).split("\n## [")[1:]
+    carrying = [section for section in sections if needle in section]
+    assert carrying, f"no section of the change log carries {needle}"
+    return carrying[0]
+
+
 def test_rpt096_is_indexed_where_the_tree_indexes_reports():
+    """The report is indexed and the change log's section that carries it names it.
+
+    FR-345, P0340-RELEASE-TITLE: the section is the one that carries the report,
+    found by the report's identifier, and no release title is written here.
+    """
     index = (REPO / "reports" / "README.md").read_text(encoding="utf-8")
     assert f"[RPT-096]({STEM}.md)" in index
     # Before the integration the entry is the R1 fragment; scripts/assemble_changelog.py
     # then folds it into the change log's [Unreleased] section and deletes the fragment,
-    # and the release commit moves that section under [0.32.0]: read the section that
-    # carries the release the report belongs to.
+    # and the release commit moves that section under its release title: read the
+    # section that carries the report, whichever title it has.
     fragment_path = REPO / "changelog.d" / "R1.md"
     if fragment_path.is_file():
         fragment = fragment_path.read_text(encoding="utf-8")
     else:
         changelog = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
-        heading = "## [0.32.0]" if "\n## [0.32.0]" in changelog else "## [Unreleased]"
-        fragment = changelog.split(heading, 1)[1].split("\n## [", 1)[0]
+        fragment = release_section_carrying(changelog, "reports/RPT-096")
     assert "reports/RPT-096" in fragment
 
 

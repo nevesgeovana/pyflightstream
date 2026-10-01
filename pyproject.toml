@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyflightstream"
-version = "0.33.1"
+version = "0.34.0.dev0"
 description = "Version-aware, didactic Python driver for the FlightStream panel-method solver"
 readme = "README.md"
 license = {text = "MIT"}
@@ -123,12 +123,6 @@ dev = [
     # suite's runtime and a developer running one test file does not need
     # a whole-package number. The job passes --cov explicitly.
     "pytest-cov",
-    # Parallel tier 1: CI and the release gates run `pytest -n auto`, in place
-    # of a serial run of about 36 minutes, the 0.33.0 release gate's serial
-    # run (GOAL-039 arm H4). MIT, as is
-    # its one dependency, execnet: the cards are in
-    # reports/RPT-138_pytest-xdist-licence_2026-10-01.md.
-    "pytest-xdist",
     # The NFR-27 type-check ratchet; config in [tool.mypy] below.
     "mypy",
     # Executable examples in CI: docstring doctests and markdown code
