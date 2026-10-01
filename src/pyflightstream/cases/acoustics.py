@@ -562,7 +562,7 @@ def acoustic_signals_output(case: SimCase, stem: str) -> str | None:
 def with_acoustic_signals(outputs: Sequence[str], case: SimCase, stem: str) -> list[str]:
     """Return a point's outputs with its acoustic export declared last, where it has one.
 
-    The run layer's one hook (``run._point_names``), for the plan and the run
+    The run layer's one hook (``run._ids._point_names``), for the plan and the run
     alike, so the plan judges the script the run will execute and the collect
     looks for the file the script writes. Declared last so the loads table,
     which :func:`~pyflightstream.cases.classify_outputs` finds by its ``.txt``,

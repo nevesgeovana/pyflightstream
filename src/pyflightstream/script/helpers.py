@@ -651,7 +651,7 @@ def _same_file(parked: str, path: str) -> bool:
     names, and a path equal to another but for case is the same file on a
     case-insensitive file system, as on Windows, as is a name Windows reads as
     another's alias (a trailing dot or space); the run's writer holds every
-    parked file to the same rule (run._write_pending_files).
+    parked file to the same rule (run._pending._write_pending_files).
     """
     return one_file_key(parked) == one_file_key(path)
 

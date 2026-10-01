@@ -42,7 +42,7 @@ MORE points looks slower for having done more.
 
 Units and frames: every duration in this module is a wall-clock
 duration in SECONDS, measured around the solver process by the run layer
-(``run/__init__.py``) with ``time.perf_counter``. It is not CPU time,
+(``run/_executors.py``) with ``time.perf_counter``. It is not CPU time,
 it includes process start-up and file IO, and it is therefore only
 comparable between runs taken on the same machine under a comparable
 load. No reference frame applies; nothing here is a physical quantity.

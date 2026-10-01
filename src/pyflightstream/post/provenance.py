@@ -197,7 +197,7 @@ PROV_PREFIX = {
 
 
 #: The extension every generated point script is written under
-#: (``run._run_point``: ``write_script(sim_id, f"{stem}.txt", ...)``), and
+#: (``run._points._execute_point``: ``write_script(sim_id, f"{stem}.txt", ...)``), and
 #: therefore the one this module strips to recover a point's own name
 #: from the script the record already names. Stripped by this exact
 #: literal rather than by `Path.stem`, because a point stem carries dots

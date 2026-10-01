@@ -33,7 +33,7 @@ def test_owned_modal_terminates_solver_and_preserves_diagnostic(tmp_path, monkey
         observed.append(pid)
         return ("FlightStream Error\nThe requested command cannot run",)
 
-    monkeypatch.setattr(run, "_owned_solver_dialogs", dialogs, raising=False)
+    monkeypatch.setattr(run, "_owned_solver_dialogs", dialogs)
     result = run._run_with_progress(["fake"], tmp_path, 5, tmp_path / "count", 2, 1)
     assert process.killed, "the solver must not continue or wait forever behind its modal"
     assert observed == [4321]
@@ -65,9 +65,7 @@ def test_an_unwritable_modal_log_and_a_closed_stderr_keep_the_failed_result(tmp_
             self.returncode = -9
 
     monkeypatch.setattr(run.subprocess, "Popen", lambda *_args, **_kwargs: Process())
-    monkeypatch.setattr(
-        run, "_owned_solver_dialogs", lambda pid: ("FlightStream Error\nblocked",), raising=False
-    )
+    monkeypatch.setattr(run, "_owned_solver_dialogs", lambda pid: ("FlightStream Error\nblocked",))
     (tmp_path / "pyfs-modal-error.log").mkdir()  # the log cannot be opened for append
     closed = io.StringIO()
     closed.close()
@@ -99,7 +97,7 @@ def test_modal_selection_never_accepts_another_process_or_normal_window():
 def test_owned_solver_dialogs_reads_no_windows_off_windows(monkeypatch):
     """GOAL-034 Q8 QA8-1: the os.name guard at owned_solver_dialogs' own entry.
 
-    Both tests above replace run._owned_solver_dialogs itself, so no tier-1
+    Both tests above replace run._executors._owned_solver_dialogs itself, so no tier-1
     test previously called owned_solver_dialogs or _native_windows and their
     non-Windows guards could be deleted with no tier-1 test failing. This
     machine may itself be Windows, so the proof is not "no windows came
