@@ -2,7 +2,7 @@
 """Compare the post stage's products with the committed byte snapshot (GOAL-038 arm A4).
 
     python scripts/products_snapshot.py --out <release folder>/wp5_snapshot.json
-    python scripts/products_snapshot.py --write
+    python scripts/products_snapshot.py --write --out <release folder>/wp5_snapshot.json
 
 The snapshot and its campaigns are defined in
 ``tests/tier1_offline/test_products_snapshot.py`` (P0330-PRODUCTS-SNAPSHOT);
