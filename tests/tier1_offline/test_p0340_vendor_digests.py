@@ -160,3 +160,15 @@ def test_nfr_31_r1_points_to_fr_344_instead_of_excluding_the_documentation():
     assert old not in box
     assert "documentation (manual, release notes, licence agreement)" in box
     assert "FR-344" in box
+
+
+def test_the_reworded_prose_no_longer_says_a_report_records_the_digests():
+    """P0340-VENDOR-DIGESTS, FR-344 R3: the two rewordings stay, with a planted control."""
+    stale = re.compile(r"every file's digest, RPT-050|RPT-050 records both digests")
+    assert stale.search("IT IS THE SRC-751 FILE (RPT-050 records both digests).")
+    assert stale.search("carried forward (every file's digest, RPT-050) and")
+    for relative in ("docs/release-notes.md", "src/pyflightstream/commands/_meta.yaml"):
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        assert not stale.search(" ".join(text.split())), relative
+    notes = " ".join((ROOT / "docs" / "release-notes.md").read_text(encoding="utf-8").split())
+    assert "every file's size and equal reading, RPT-050" in notes

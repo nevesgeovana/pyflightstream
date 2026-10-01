@@ -8499,7 +8499,7 @@ Requirements written after the specification was last reconciled with the packag
     Requirement: `RELEASE-READY.md`, rewritten for 0.34.0, does not say "archive row owed" and names the release it describes.
 
     - R1 The phrase "archive row owed" appears nowhere in the file.
-    - R2 The file names the version it describes, equal to the package's version without a development suffix, and a test reads it.
+    - R2 The file names the version it describes, equal to the package's version without a development suffix, and a test reads it; the re-title of the file and the change of the package's version are one commit.
     - R3 The file names the archive of the releases by the concept DOI that `CITATION.cff` carries, and a test compares the two.
 
     Solution (release 0.34.0): the rewrite of `RELEASE-READY.md` in the release documentation, and `tests/tier1_offline/test_p0340_release_ready.py`.

@@ -6,6 +6,10 @@ version it describes (the package's version without a development suffix) and
 must name the archive of the releases by the concept DOI that ``CITATION.cff``
 carries. A file with the phrase merely deleted and no archive named fails the
 check, which the control below plants.
+
+The title is compared with the package's version, so the re-title of the file
+and the bump of ``pyproject.toml`` away from the released version are ONE
+commit (FR-346 R2); a bump alone fails this test by design.
 """
 
 import re

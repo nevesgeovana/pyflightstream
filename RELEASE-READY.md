@@ -10,7 +10,7 @@ and traceability tightened. The change log's `[0.33.0]` section is the record;
 The version this file describes is the package's version without a development
 suffix (`pyproject.toml`), and a test reads it (FR-346). The commands of the
 sequence below were written for that version: the next release reads its own
-version in their place and re-titles this file at step 1.
+version in their place and re-titles this file at step 1, in the same commit as any change of the version in `pyproject.toml` (the test compares the two, so a bump without the re-title fails it).
 
 **THIS FILE IS RE-TITLED AND RE-MEASURED PER TAG.** It carried the v0.22.0 title,
 commands and readings through the whole 0.23.0 release, and it carried the v0.24.0
