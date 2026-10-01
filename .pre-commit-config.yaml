@@ -80,7 +80,8 @@ repos:
   # Guard: licensed or binary documents never enter Git (invariant 1).
   # The eight guide decks, 00 to 07, are the one exemption, by the owner's decision:
   # their compiled PDFs, guide/pyfts-guide-0N-*.pdf, and the figure PDFs their
-  # sources include, guide/latex-sources/0N-*/figures/*.pdf; no other pdf,
+  # sources include, guide/latex-sources/0N-*/figures/*.pdf, and since 0.33.0
+  # the compiled cheatsheet, guide/pyfts-cheatsheet-pyfs-matrix.pdf; no other pdf,
   # guide/ included. The suffix is matched case-insensitively and the
   # exemption case-sensitively. The tier-1 twin with the mutation proof is
   # tests/tier1_offline/test_house_style.py (PDF_ALLOWED), and the CI guard
@@ -92,7 +93,7 @@ repos:
         entry: pdf files never enter Git but the guide decks' own (invariant 1)
         language: fail
         files: '(?i)\.pdf$'
-        exclude: '^guide/(pyfts-guide-0[0-7]-[a-z0-9-]+|latex-sources/0[0-7]-[a-z0-9-]+/figures/[A-Za-z0-9_.-]+)\.pdf$'
+        exclude: '^guide/(pyfts-guide-0[0-7]-[a-z0-9-]+|pyfts-cheatsheet-pyfs-matrix|latex-sources/0[0-7]-[a-z0-9-]+/figures/[A-Za-z0-9_.-]+)\.pdf$'
       - id: forbid-notebooks
         name: forbid notebooks
         entry: examples are percent-format .py, notebooks never enter Git (invariant 7)

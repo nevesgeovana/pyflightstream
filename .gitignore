@@ -37,6 +37,8 @@ guide/*.pdf
 # ignored.
 !guide/pyfts-guide-0[0-7]-*.pdf
 !guide/latex-sources/0[0-7]-*/figures/*.pdf
+# And since 0.33.0 the compiled pyfs-matrix cheatsheet, beside the decks.
+!guide/pyfts-cheatsheet-pyfs-matrix.pdf
 guide/*.aux
 guide/*.log
 guide/*.nav

@@ -195,12 +195,16 @@ def test_every_deck_has_its_pdf_and_ends_on_its_references():
         assert "\\begin{frame}{References}" in text and "\\begin{reflist}" in text, (
             f"{deck.name} has no numbered references frame"
         )
+    # The one-page cheatsheet sits beside the decks with its compiled PDF.
+    sheet = "pyfts-cheatsheet-pyfs-matrix"
+    assert (SOURCES / "cheatsheet" / f"{sheet}.tex").is_file()
+    assert (GUIDE / f"{sheet}.pdf").is_file(), f"guide/{sheet}.pdf is missing"
 
 
 def test_no_compiled_deck_carries_a_path_of_the_machine_that_built_it():
     carriers = [
         path.name
-        for path in sorted(GUIDE.glob("pyfts-guide-*.pdf"))
+        for path in sorted(GUIDE.glob("pyfts-*.pdf"))
         if b"/PTEX.FileName" in path.read_bytes()
     ]
     assert not carriers, (
