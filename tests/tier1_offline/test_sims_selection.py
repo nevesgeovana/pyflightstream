@@ -34,6 +34,7 @@ from tests.tier1_offline.test_post_superfile import _workspace
 _CL = "+0.1620516"
 _CL_AGAIN = "+0.2620516"
 _SECOND = datetime(2026, 9, 30, 12, 0, 0)
+_THIRD = datetime(2026, 9, 30, 13, 0, 0)
 
 
 def _three_sims(tmp_path: Path) -> CampaignWorkspace:
@@ -478,3 +479,7 @@ def test_post_sims_does_not_name_the_stop_of_another_simulations_chain_fr_307(tm
     )
     skipped = _document(workspace.products_dir("matriz")).get("skipped", {})
     assert f"runs/{stopped.run_id}" not in skipped, skipped
+    # The control: the same write without sims does name the stop.
+    write_campaign_products(workspace, matrix_stem="matriz", overwrite=True, archive_stamp=_THIRD)
+    skipped_all = _document(workspace.products_dir("matriz")).get("skipped", {})
+    assert f"runs/{stopped.run_id}" in skipped_all, skipped_all

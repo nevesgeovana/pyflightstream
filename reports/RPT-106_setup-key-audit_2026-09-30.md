@@ -1,5 +1,7 @@
 # RPT-106: setup-key audit of the solver chapters (2026-09-30)
 
+Amended 2026-10-01: the INITIALIZE_SOLVER surfaces and surface_toggles rows record the decision that every workflow initializes all boundaries (-1) (SRS revision 1.66.0); every other row is as audited on 2026-09-30.
+
 Every command of the Solver Settings, Advanced Settings, Runtime Settings,
 Unsteady Solver, Solver Analysis and Solver Initialization chapters, and whether
 the value a user can choose for it reaches a script through a key, an argument
@@ -132,8 +134,8 @@ workflow goldens, and the parity check of the release).
 | `SET_VORTICITY_LIFT_MODEL` | Solver Analysis | covered | setup: vorticity_lift_model | cases/workflows.py `_lift_and_coupling`; removed on 26.124 (RPT-068), refused there | none needed |
 | `INITIALIZE_SOLVER` | Solver Initialization | covered | setup: solver_model | script/helpers.py `initialize_solver`, from cases/workflows/_skeleton.py, in every workflow; a keyword block, so the raw route cannot replace it (single lines only). Each of its arguments is a row below | none needed |
 | `INITIALIZE_SOLVER solver_model` | Solver Initialization | covered | setup: solver_model | cases/workflows/_skeleton.py, `initialize_solver(solver_model=...)`; unstated, INCOMPRESSIBLE | none needed |
-| `INITIALIZE_SOLVER surfaces` | Solver Initialization | cannot be covered | none | cases/workflows/_skeleton.py: always `-1`, every boundary | no measurement states a reason to leave a boundary out of the solution, and no cell or key names one; the package fixes the value on purpose: every workflow initializes all boundaries (`-1`), a design decision recorded on 2026-10-01 |
-| `INITIALIZE_SOLVER surface_toggles` | Solver Initialization | cannot be covered | none | nowhere: written only with a chosen subset of surfaces, which no workflow states | the per-surface quad mesher flag exists only beside a chosen subset, so it follows the design decision of `surfaces` (all boundaries, `-1`, decided on 2026-10-01), and no workflow writes it |
+| `INITIALIZE_SOLVER surfaces` | Solver Initialization | cannot be covered | none | cases/workflows/_skeleton.py: always `-1`, every boundary | no measurement states a reason to leave a boundary out of the solution, and no cell or key names one; the package fixes the value on purpose: every workflow initializes all boundaries (`-1`), a design decision recorded in SRS revision 1.66.0 (docs/srs/index.md) |
+| `INITIALIZE_SOLVER surface_toggles` | Solver Initialization | cannot be covered | none | nowhere: written only with a chosen subset of surfaces, which no workflow states | the per-surface quad mesher flag exists only beside a chosen subset, so it follows the design decision of `surfaces` (all boundaries, `-1`, recorded in SRS revision 1.66.0, docs/srs/index.md), and no workflow writes it |
 | `INITIALIZE_SOLVER wake_termination_x` | Solver Initialization | cannot be covered | none | script/helpers.py `initialize_solver`, from cases/workflows/_skeleton.py: `DEFAULT` in every workflow | has no setup key, and the raw route cannot change it (a keyword block, refused). Measured on 26.124 (reports/probes/RPT-066_2026-09-24_evidence.yaml): under `DEFAULT` the solver places the end plane of the wake (the Trefftz plane) at a default distance it computes from the model (40.000 on one geometry, 8.000 on another), and a rotor wake measured later on 26.124 was bounded by that plane, so it cannot be made longer than it; that later measurement is registered with the 0.34 item and not yet a committed report. A setup key placed at least at the requested wake length with margin, and a plan warning when it is closer, is owed to 0.34 (item WAKE-LENGTH) |
 | `INITIALIZE_SOLVER symmetry` | Solver Initialization | covered | row: SYMMETRY | cases/workflows/_skeleton.py, `initialize_solver(symmetry=...)`; unstated, NONE; the accepted modes are read from the build's own command database | none needed |
 | `INITIALIZE_SOLVER symmetry_copies` | Solver Initialization | covered | row: PERIODIC_COPIES | cases/workflows/_skeleton.py, `initialize_solver(periodic_copies=...)`; required with PERIODIC and refused otherwise | none needed |
@@ -159,8 +161,8 @@ workflow goldens, and the parity check of the release).
   WAKE-LENGTH), not to this release.
 - `INITIALIZE_SOLVER surfaces` and `INITIALIZE_SOLVER surface_toggles`: every
   workflow initializes all boundaries (`-1`), and the per-surface quad mesher
-  flag exists only beside a chosen subset. This is a design decision recorded
-  on 2026-10-01: the value is fixed on purpose, so neither argument has a setup
+  flag exists only beside a chosen subset. This is a design decision recorded in
+  SRS revision 1.66.0 (docs/srs/index.md): the value is fixed on purpose, so neither argument has a setup
   key, and `surface_toggles` is never written.
 - `SOLVER_INITIALIZATION`: no entry in the command database. GEO-068 found the
   name in the manual's Script Index only, with no description and no grammar,

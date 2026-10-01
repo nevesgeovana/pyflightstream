@@ -244,9 +244,14 @@ def test_a_digest_beside_a_solver_package_file_is_found(tmp_path):
     clean.write_text(text, encoding="utf-8")
     assert scan([clean]) == ([], 1)
     cell = "digest withheld (NFR-31)"
-    assert cell in text and "`liblmx-altair.dll`" in text
+    lines = text.splitlines(keepends=True)
+    row = next(i for i, line in enumerate(lines) if "`liblmx-altair.dll`" in line)
+    assert cell in lines[row], "the withheld cell sits on the line of the library file"
+    lines[row] = lines[row].replace(cell, f"`{token}`", 1)
+    assert token in lines[row] and "`liblmx-altair.dll`" in lines[row]
+    report = "".join(lines)
     planted = {
-        "report.md": text.replace(cell, f"`{token}`", 1),
+        "report.md": report,
         "dll.md": f"| `libfoo.dll` | `{token}` | the same | 12 |\n",
         "exe.md": f"| `tool.EXE` | {token.upper()} |\n",
         "so.md": f"libfoo.so: {token}\n",

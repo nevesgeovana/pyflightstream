@@ -176,8 +176,9 @@ def test_fr311_a_declared_log_present_without_a_native_match_is_not_failed(tmp_p
     (work / "FTS9001.o3714205").write_text("job summary\n", encoding="utf-8")
     (work / "FTS9001.e3714205").write_bytes(ERROR_TEXT)
     (work / "P9001-AL+000_log.txt").write_text(_log(), encoding="utf-8")
-    collect_once(workspace, interval=0.0, sleep=_no_sleep)
-    assert workspace.read_manifest()[0].status is not RunStatus.FAILED_EXECUTION
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
+    assert [outcome.state for outcome in report.collected] == ["COLLECTED"], report.lines()
+    assert workspace.read_manifest()[0].status is RunStatus.CONVERGED
 
 
 def test_fr311_a_point_declaring_no_log_is_never_failed_by_its_end_files(tmp_path):
@@ -188,5 +189,6 @@ def test_fr311_a_point_declaring_no_log_is_never_failed_by_its_end_files(tmp_pat
     (work / "loads.txt").write_text(_loads(2.0), encoding="utf-8")
     (work / "FTS9001.o3714205").write_text("job summary\n", encoding="utf-8")
     (work / "FTS9001.e3714205").write_bytes(ERROR_TEXT)
-    collect_once(workspace, interval=0.0, sleep=_no_sleep)
-    assert workspace.read_manifest()[0].status is not RunStatus.FAILED_EXECUTION
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
+    assert [outcome.state for outcome in report.collected] == ["COLLECTED"], report.lines()
+    assert workspace.read_manifest()[0].status is RunStatus.CONVERGED
