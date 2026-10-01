@@ -2217,6 +2217,44 @@ def test_the_plan_validates_each_case_against_its_own_build(tmp_path):
     )
 
 
+def test_the_plan_validates_a_row_against_the_version_read_for_it(tmp_path):
+    """The row's build decides, then the version read for the row, then the campaign's.
+
+    The order of the three, pinned in both directions: with no build, the
+    version the matrix read for the row is the one its commands are checked
+    against (BLOCKED on 26.120, READY on 26.121), the other row keeps the
+    campaign's, and a build the row names outranks the version read for it.
+    """
+    built = _two_build_campaign(tmp_path, second_recipe="wake_decay")
+    campaign = built.model_copy(
+        update={"sims": [case.model_copy(update={"fs_build": None}) for case in built.sims]}
+    )
+    recipes = {"steady": steady_recipe, "wake_decay": wake_decay_recipe}
+
+    def plan_for(plan_of, version, root, **kwargs):
+        plan = plan_campaign(
+            plan_of,
+            CampaignWorkspace(tmp_path / root),
+            recipes=recipes,
+            write_plan=False,
+            versions={"9002": version},
+            **kwargs,
+        )
+        return {point.sim_id: point for point in plan.points}
+
+    older = plan_for(campaign, "26.120", "older")
+    assert older["9002"].status is PlanStatus.BLOCKED
+    assert _ONLY_ON_26121 in (older["9002"].error or "")
+    newer = plan_for(campaign, "26.121", "newer")
+    assert newer["9001"].status is PlanStatus.READY
+    assert newer["9002"].status is PlanStatus.READY, newer["9002"].error
+    second = SolverBuild(
+        fs_exe=Path(sys.executable), fs_version="26.121", executor=StubSolver(WRITES_LOADS)
+    )
+    ranked = plan_for(built, "26.120", "ranked", builds={"second": second})
+    assert ranked["9002"].status is PlanStatus.READY, "the row's build outranks its read version"
+
+
 def test_the_plan_refuses_a_case_naming_an_unsupplied_build(tmp_path):
     """The pre-flight cannot pass a configuration the run will reject.
 

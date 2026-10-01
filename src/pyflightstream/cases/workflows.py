@@ -142,9 +142,8 @@ from pyflightstream.cases import windows as _windows
 from pyflightstream.cases._ccs import CCS_FORMATS, CCS_SHEDDING_VARIABLE
 from pyflightstream.cases._setup_link import LOADS_SELECTION_KEYS
 from pyflightstream.cases._skipped_families import (
-    declared_names_the_geometry_lacks,
     names_no_boundary_answers,
-    note_the_families_a_row_lacks,
+    saying_the_families_each_row_skips,
 )
 from pyflightstream.cases._unsteady_actions import (
     UNSTEADY_ACTION_COUNT,
@@ -7514,6 +7513,7 @@ def _and_the_frame_it_turned_from(
     return [(frame, families, label), (kept, families, label)]
 
 
+@saying_the_families_each_row_skips(_the_names_a_rotor_answers_to, _artifact_of)  # FR-320
 def pproc_emissions(
     case: SimCase,
     frame: str,
@@ -10706,11 +10706,6 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
                     surfaces=len(indices),
                     surface_indices=indices,
                 )
-        # FR-320: the skip of a family this geometry lacks is SAID, once per
-        # matrix at plan, naming the rows; no byte above depends on it.
-        names = _the_names_a_rotor_answers_to(case)
-        lacked = declared_names_the_geometry_lacks(entry.families, inventory, names)
-        note_the_families_a_row_lacks(case.sim_id, _artifact_of(case), what, lacked)
 
 
 #: The section command, and the argument only the builds from 26.120 take. The

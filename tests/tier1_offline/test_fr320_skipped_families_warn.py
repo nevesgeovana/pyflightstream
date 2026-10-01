@@ -24,14 +24,21 @@ from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases._skipped_families import (
     declared_names_the_geometry_lacks,
     names_no_boundary_answers,
+    note_the_families_a_row_lacks,
+    noting_the_families_rows_lack,
 )
 from pyflightstream.cases.matrix import MATRIX_COLUMNS
-from pyflightstream.cases.workflows import workflow_registry
+from pyflightstream.cases.workflows import pproc_emissions, workflow_registry
 from pyflightstream.run import PlanStatus
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.workspace import CampaignWorkspace
 from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
 from tests.tier1_offline.test_matrix_run import RECIPES, make_library, stage_geometry
+from tests.tier1_offline.test_pproc_by_frame import (
+    INVENTORY,
+    every_rotor_frame_placed,
+    expanding_case,
+)
 from tests.tier1_offline.test_workflows import _saved_simulation
 
 BUILD = "26.124"
@@ -54,8 +61,26 @@ def sections(families: list[str]) -> str:
     )
 
 
+#: The columns that make a row unsteady, which is where force plots are emitted.
+UNSTEADY = {
+    "WORKFLOW": "unsteady",
+    "VAR_NAMES_VALUES": "VELOCITY: 30.0 / DELTA_TIME: 0.001 / TIME_ITERATIONS: 3 "
+    "/ LAST_ITERS_AVG: 3",
+}
+
+
+def plots(families: list[str]) -> str:
+    """A pproc of one force plot group over ``families``, in the moment frame."""
+    listed = ", ".join(f'"{name}"' for name in families)
+    return f'[plots]\n[[plots.groups]]\nname = "BLADES"\nfamilies = [{listed}]\nframe = "MRP"\n'
+
+
 def a_campaign(
-    tmp_path: Path, families: list[str], rows: list[tuple[str, str, list[str]]]
+    tmp_path: Path,
+    families: list[str],
+    rows: list[tuple[str, str, list[str]]],
+    pproc=sections,
+    columns: dict[str, str] | None = None,
 ) -> tuple[CampaignWorkspace, Path]:
     """A workspace and a matrix of ``rows`` (POL, geometry, its boundaries), one pproc."""
     workspace = make_library(tmp_path, register_build=(BUILD, "C:/fs/FS.exe"))
@@ -66,7 +91,7 @@ def a_campaign(
     (inputs / "references" / "r050.toml").write_text(
         "area_m2 = 50.0\nchord_m = 2.526\nspan_m = 20.0\n", encoding="utf-8"
     )
-    (inputs / "pproc" / "p020.toml").write_text(sections(families), encoding="utf-8")
+    (inputs / "pproc" / "p020.toml").write_text(pproc(families), encoding="utf-8")
     workspace = CampaignWorkspace(
         workspace.root, naming=NamingTemplate(point_name=MATRIX_POINT_NAME)
     )
@@ -88,6 +113,7 @@ def a_campaign(
             "FS_BUILD": BUILD,
             "WORKFLOW": "steady",
             "VAR_NAMES_VALUES": "",
+            **(columns or {}),
         }
         lines.append(" | ".join(cells.get(name, "-") for name in MATRIX_COLUMNS))
     path = workspace.root / "families.fs"
@@ -95,9 +121,9 @@ def a_campaign(
     return workspace, path
 
 
-def planned(tmp_path: Path, families: list[str], rows, **kwargs):
+def planned(tmp_path: Path, families: list[str], rows, pproc=sections, columns=None, **kwargs):
     """Plan the matrix and return the plan and the FR-320 warnings it raised."""
-    workspace, path = a_campaign(tmp_path, families, rows)
+    workspace, path = a_campaign(tmp_path, families, rows, pproc, columns)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         plan = plan_matrix(
@@ -202,3 +228,119 @@ def test_the_refusals_reading_is_unchanged_by_the_move_fr_320():
     assert names_no_boundary_answers(
         ["PROP", "Bladee2", "Blade2", "TAIL", "each"], inventory, aliases, lambda n: "Blade" in n
     ) == [(None, "Bladee2"), ("TAIL", "Fin")]
+
+
+@pytest.mark.requirement("FR-320")
+def test_a_force_plot_group_is_said_the_same_way_fr_320(tmp_path):
+    """The other entry that names families: a plot group skips a blade the sector lacks too."""
+    plan, said = planned(tmp_path, FIVE, [SECTOR, WHEEL], pproc=plots, columns=UNSTEADY)
+    assert plan.points
+    assert [point.status for point in plan.points] == [PlanStatus.READY] * len(plan.points)
+    assert len(said) == 4, said
+    for blade, message in zip(FIVE[1:], said, strict=True):
+        assert f"plot group 'BLADES' cites {blade!r}" in message, message
+        assert repr(SECTOR[0]) in message and repr(WHEEL[0]) not in message
+
+
+def local_axis_over(inventory: list[str]):
+    """Expand a ``LOCAL_AXIS`` entry citing the rotor ``PUSHER`` over ``inventory``."""
+    return pproc_emissions(
+        expanding_case(),
+        "LOCAL_AXIS",
+        "PUSHER",
+        inventory,
+        lambda name: "B_" in name,
+        "a plot group",
+        every_rotor_frame_placed(),
+    )
+
+
+@pytest.mark.requirement("FR-320")
+def test_a_local_axis_entry_names_the_blade_through_the_rotor_it_cites_fr_320():
+    """The per-blade rotor path: a rotor's own name is an alias, and the warning says so."""
+    sector = [name for name in INVENTORY if name not in {"PB_2", "PB_3"}]
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with noting_the_families_rows_lack():
+            whole = local_axis_over(INVENTORY)
+            cut = local_axis_over(sector)
+    assert [label for _, _, label in whole] == ["PB_1", "PB_2", "PB_3", "PUSHER"]
+    assert [label for _, _, label in cut] == ["PB_1", "PUSHER"]
+    said = [str(item.message) for item in caught if "FR-320" in str(item.message)]
+    assert len(said) == 2, said
+    assert "a plot group (through 'PUSHER') cites 'PB_2'" in said[0], said[0]
+    assert "a plot group (through 'PUSHER') cites 'PB_3'" in said[1], said[1]
+    assert all("of row '9201'" in message for message in said), said
+
+
+@pytest.mark.requirement("FR-320")
+def test_the_words_that_name_no_set_and_the_guessing_selectors_are_never_said_fr_320():
+    """``all``, ``each``, ``each_blade``, ``airframe`` and ``blades`` name no family to lack."""
+    words = ["all", "each", "each_blade", "airframe", "blades", "ALL", "Blades"]
+    assert declared_names_the_geometry_lacks(words, ["Hub"], {}) == []
+    assert declared_names_the_geometry_lacks([*words, "Fin"], ["Hub"], {}) == [(None, "Fin")]
+
+
+def noting(*rows_and_names: tuple[str, str]) -> None:
+    """Note each (row, name) for one artifact, as the expansion does inside a plan."""
+    for row, name in rows_and_names:
+        note_the_families_a_row_lacks(row, "p020", "section distribution 1", [(None, name)])
+
+
+@pytest.mark.requirement("FR-320")
+def test_a_plan_that_raises_warns_nothing_and_a_note_outside_a_plan_is_dropped_fr_320():
+    """The refusal is what a failed plan says; a script built on its own notes nowhere."""
+
+    @noting_the_families_rows_lack()
+    def failing_plan():
+        noting(("3301", "Blade2"))
+        raise RuntimeError("the plan stopped")
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(RuntimeError, match="the plan stopped"):
+            failing_plan()
+        noting(("3301", "Blade3"))
+        with noting_the_families_rows_lack():
+            pass
+    assert [str(item.message) for item in caught] == []
+
+
+@pytest.mark.requirement("FR-320")
+def test_a_nested_plan_keeps_its_own_collection_fr_320():
+    """An inner block warns what IT noted; the outer block warns only its own."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with noting_the_families_rows_lack():
+            noting(("3301", "Blade2"))
+            with noting_the_families_rows_lack():
+                noting(("3302", "Blade3"))
+            inner = [str(item.message) for item in caught]
+    outer = [str(item.message) for item in caught][len(inner) :]
+    assert len(inner) == 1 and "'Blade3'" in inner[0] and "'3302'" in inner[0], inner
+    assert len(outer) == 1 and "'Blade2'" in outer[0] and "'3301'" in outer[0], outer
+
+
+@pytest.mark.requirement("FR-320")
+def test_two_families_both_reach_a_user_and_point_at_the_plans_caller_fr_320():
+    """Outside every sink, under the default filter, each family is its own warning.
+
+    The default filter shows a warning once per text and location, so both
+    must reach the user, and the location is the line that called the plan,
+    not a line of contextlib or of the decorator.
+    """
+
+    @noting_the_families_rows_lack()
+    def plan():
+        noting(("3301", "Blade2"), ("3301", "Blade3"))
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.resetwarnings()
+        warnings.simplefilter("default")
+        plan()
+    said = [item for item in caught if "FR-320" in str(item.message)]
+    assert [("'Blade2'" in str(i.message), "'Blade3'" in str(i.message)) for i in said] == [
+        (True, False),
+        (False, True),
+    ]
+    assert {Path(item.filename).resolve() for item in said} == {Path(__file__).resolve()}

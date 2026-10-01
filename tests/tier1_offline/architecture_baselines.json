@@ -3,7 +3,7 @@
  "module_code_lines": {
   "cases/__init__.py": 2316,
   "cases/matrix.py": 1808,
-  "cases/workflows.py": 8879,
+  "cases/workflows.py": 8876,
   "post/corrections.py": 1006,
   "post/guides.py": 2658,
   "post/products.py": 5673,

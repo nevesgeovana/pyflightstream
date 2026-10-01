@@ -12,9 +12,11 @@ beside a good one vanished the same way.
 
 The skip stays the default and is never a refusal. What this module adds is
 the sentence: while a campaign is planned, whatever ``--ignore-missing-families``
-says, every section distribution of a row the plan did not refuse notes,
-row by row, each name it declares that the row's geometry does not carry
-(:func:`note_the_families_a_row_lacks`), and at the end of the plan ONE
+says, every pproc entry that names families (a section distribution and a
+force plot group, both expanded by the one expansion this module decorates,
+:func:`saying_the_families_each_row_skips`) notes, row by row, each name it
+declares that the row's geometry does not carry and that the expansion did
+not refuse (:func:`note_the_families_a_row_lacks`), and at the end of the plan ONE
 warning is raised per pproc artifact and per missing family, naming the
 entries that declare it and the rows that lack it
 (:func:`noting_the_families_rows_lack`). A row that carries the family is
@@ -35,6 +37,9 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
+from functools import wraps
+from inspect import signature
+from typing import Any, TypeVar, cast
 
 from pyflightstream._errors import PyflightstreamWarning, warn
 from pyflightstream._fsm import family_of, names_of
@@ -46,6 +51,7 @@ __all__ = [
     "names_no_boundary_answers",
     "note_the_families_a_row_lacks",
     "noting_the_families_rows_lack",
+    "saying_the_families_each_row_skips",
 ]
 
 #: The words a families entry may write that name no set of their own, so
@@ -64,6 +70,10 @@ Lacked = tuple[str | None, str]
 #: and the rows lacking it, each in the order first met. None outside a plan.
 _Noted = dict[tuple[str, str], tuple[list[str], list[str]]]
 _NOTED: ContextVar[_Noted | None] = ContextVar("pyflightstream_skipped_families", default=None)
+#: The frames between the warning and the caller of the decorated plan: this
+#: generator, contextlib's exit, the decorator's wrapper, then the caller.
+_THE_PLANS_CALLER = 4
+_Expansion = TypeVar("_Expansion", bound=Callable[..., Any])
 
 
 def _cited(selection: str | Sequence[str]) -> list[str]:
@@ -230,7 +240,61 @@ def noting_the_families_rows_lack() -> Iterator[None]:
     finally:
         _NOTED.reset(token)
     for (artifact, name), (entries, rows) in noted.items():
-        warn(_the_warning(artifact, name, entries, rows), PyflightstreamWarning, stacklevel=3)
+        warn(
+            _the_warning(artifact, name, entries, rows),
+            PyflightstreamWarning,
+            stacklevel=_THE_PLANS_CALLER,
+        )
+
+
+def saying_the_families_each_row_skips(
+    names_of_row: Callable[[Any], Mapping[str, Sequence[str]]],
+    artifact_of_row: Callable[[Any], str],
+) -> Callable[[_Expansion], _Expansion]:
+    """Decorate the expansion of a pproc entry so each row notes the names it lacks.
+
+    The expansion takes the parameters ``case``, ``families``, ``inventory``
+    and ``what``, by position or by name, which is how every consumer of a
+    section distribution or a force plot group calls it. After it RETURNS,
+    inside a plan, the names the entry declares and the row's geometry does
+    not carry are noted for the row; an expansion that refuses notes nothing,
+    so a refused row is not also warned about. Outside a plan the expansion
+    runs alone.
+
+    Parameters
+    ----------
+    names_of_row : callable
+        The names a row can cite, from the row: its aliases and each rotor's
+        own name for its families.
+    artifact_of_row : callable
+        The row's pproc artifact, as a message names it.
+
+    Returns
+    -------
+    callable
+        The decorator, which keeps the expansion's signature and result.
+    """
+
+    def decorate(expansion: _Expansion) -> _Expansion:
+        parameters = signature(expansion)
+
+        @wraps(expansion)
+        def noting(*args: Any, **options: Any) -> Any:
+            emitted = expansion(*args, **options)
+            if _NOTED.get() is not None:
+                given = parameters.bind(*args, **options).arguments
+                case, inventory = given["case"], given["inventory"]
+                lacked = declared_names_the_geometry_lacks(
+                    given["families"], inventory, names_of_row(case)
+                )
+                note_the_families_a_row_lacks(
+                    case.sim_id, artifact_of_row(case), given["what"], lacked
+                )
+            return emitted
+
+        return cast(_Expansion, noting)
+
+    return decorate
 
 
 def _the_warning(artifact: str, name: str, entries: Sequence[str], rows: Sequence[str]) -> str:
