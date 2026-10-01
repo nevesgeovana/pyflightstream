@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 269,
+  "cited_by_a_test": 271,
   "total": 355,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -2428,7 +2428,7 @@
    "text": "Read with PFS-2075, PFS-2075.04 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the degenerate-geometry item of the 0.34.0 scope (GEO-071, sections 4.10 and 4.11) and the author decision of 2026-10-01 that a command at the level of inventory creates degenerate geometries, the thin blade first. Marker P0340-THIN-BLADE; read at 0.34.0 (GOAL-039, arm MT). Pending: no code yet. Verification method: tier-1 tests carrying the marker, on synthetic blade meshes the tests build. Evidence owed: a test that, on a synthetic blade whose two sides are mirror images about a known surface, the derived surface lies on that surface within 1e-9 of the blade's span (round-off); a test that its root is moved outward by the stated offset; a test that the surface and its boundary inventory are written beside the source; a test that a mesh the command cannot read, or whose two sides it cannot separate, is refused, the message naming the file and the reason, writing nothing; a test that the source is never modified; and a test that the CLI reference and the cheatsheet name the command.*",
+   "evidence": "*Origin: the degenerate-geometry item of the 0.34.0 scope (GEO-071, sections 4.10 and 4.11) and the author decision of 2026-10-01 that a command at the level of inventory creates degenerate geometries, the thin blade first. Marker P0340-THIN-BLADE; read at 0.34.0 (GOAL-039, arm MT). Pending: no code yet. Verification method: tier-1 tests carrying the marker, on synthetic blade meshes the tests build. Evidence owed: a test that, on a synthetic blade whose two sides are mirror images about a known surface, the derived surface lies on that surface within 1e-9 of the blade's span (round-off); a test that its root is moved outward by the stated offset; a test that the surface and its boundary inventory are written beside the source; a test that a mesh the command cannot read, or whose two sides it cannot separate, is refused, the message naming the file and the reason, writing nothing; a test that the source is never modified; and a test that the CLI reference and the cheatsheet name the command. Evidence so far, the library core of R2 to R6 (pyflightstream.workspace._degenerate, package THIN-CORE): tests/tier1_offline/test_p0340_thin_blade.py; the command of R1 and the naming of R7 are owed by the command's package.*",
    "verification": "none"
   },
   {
