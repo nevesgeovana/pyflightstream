@@ -373,6 +373,48 @@ def _averaged_history(history: list[LoadSample]) -> tuple[np.ndarray, np.ndarray
     return flap, torsion
 
 
+def _refuse_a_log_this_run_cannot_append_to(log_path: Path, state_path: Path) -> None:
+    """Refuse a convergence log the rows of this call would not belong to.
+
+    Two cases, both before the call writes anything. A log with no
+    ``state.json`` beside it is a previous run's history in a folder being
+    reused (PFS-2011.02): the log APPENDS, so this run's rows would land
+    under the other run's with nothing separating them. A log whose column
+    line is not this package's is a run started by another release and
+    resumed by this one (FR-339): 0.33.0 wrote thirteen columns, so a row
+    of fourteen under that header would file its last value under no name
+    and the file would mix two layouts with nothing marking the switch.
+
+    Raises
+    ------
+    FsiInputError
+        In either case, naming the file and what to do with it.
+    """
+    if not log_path.is_file():
+        return
+    if not state_path.is_file():
+        raise FsiInputError(
+            f"{log_path} exists and {state_path.name} does not, so this folder holds "
+            "a previous run's convergence history and no state to resume from. The "
+            "log APPENDS, so continuing would write this run's rows under the other "
+            "run's, with nothing in the file separating them. Use a fresh working "
+            f"directory, or move {log_path.name} aside if the previous history is "
+            "wanted."
+        )
+    columns = _LOG_HEADER.splitlines()[-1]
+    with log_path.open(encoding="utf-8") as handle:
+        found = next((line.rstrip("\r\n") for line in handle if not line.startswith("#")), "")
+    if found and found != columns:
+        raise FsiInputError(
+            f"{log_path} was started under the columns {found!r}, and this release "
+            f"writes {columns!r} (FR-339 added tip_flap_signed_m as the last one). "
+            "Appending would put rows of one layout under the header of another. Move "
+            f"{log_path.name} aside to resume this run (its rows so far stay in the moved "
+            "file, and the resumed rows start a new log with this release's header), or "
+            "resume it under the release that started it."
+        )
+
+
 def _append_log(run_dir: Path, row: dict[str, object]) -> None:
     """Append one convergence-log row, writing the header on first use."""
     path = run_dir / LOG_FILE
@@ -800,6 +842,9 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         on every call after the first, and refusing that would refuse the
         normal case.
 
+        Also if the log's column line is not this release's: a run
+        started under 0.33.0 and resumed under 0.34.0 (FR-339).
+
         Also if the loads export carries no time increment, so it comes
         from a steady solve.
     StaleLoadsError
@@ -815,16 +860,7 @@ def coupling_step(run_dir: str | Path) -> StepResult:
     # call of a second run. `state.json` can: it is written atomically at
     # the end of every call and removed by nothing, so a log without it
     # is a previous run's history in a folder being reused.
-    log_path = run_dir / LOG_FILE
-    if not state_path.is_file() and log_path.is_file():
-        raise FsiInputError(
-            f"{log_path} exists and {state_path.name} does not, so this folder holds "
-            "a previous run's convergence history and no state to resume from. The "
-            "log APPENDS, so continuing would write this run's rows under the other "
-            "run's, with nothing in the file separating them. Use a fresh working "
-            f"directory, or move {log_path.name} aside if the previous history is "
-            "wanted."
-        )
+    _refuse_a_log_this_run_cannot_append_to(run_dir / LOG_FILE, state_path)
     state = load_state(state_path) if state_path.is_file() else initial_state()
     # PYFS-012: a resumed state must describe the configured blade. Checked
     # here, at the single point where a persisted state meets its config,
