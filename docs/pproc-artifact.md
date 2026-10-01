@@ -107,7 +107,14 @@ per family the geometry carries, the name carrying `{family}`). A family
 the geometry does not carry is left out, which is how one artifact serves
 a wing-body and an isolated rotor, and an entry that resolves to nothing
 is skipped; pass `--ignore-missing-families false` to `pyfs-matrix plan`
-or `run` to hear about both instead of having them pass in silence. The word
+or `run` to have a name no boundary answers refused instead. The skip is
+never silent for a section distribution (since 0.33.0, FR-320): the plan
+prints one warning per pproc artifact and per family that an entry declares
+and the geometry of some row does not carry, naming the entry and every row
+that lacks it, and every such row still plans READY. A numbered name counts
+by itself: `Blade2` is missing on a sector whose mesh carries `Blade1` alone,
+and a misspelled `Bladee2` beside `Blade1` is named the same way. A row that
+carries every family is named in no warning. The word
 is read: `true`, `yes` and `1` mean yes, `false`, `no` and `0` mean no, and
 anything else is refused naming the flag and the word rather than quietly
 meaning yes.
