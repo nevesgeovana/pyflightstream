@@ -301,6 +301,24 @@ def read_native_tecplot_surface(source: str | Path) -> VtkSurface:
     interpolation. A second zone, connected boundaries and cell-centred
     strength are refused; the zones of a periodic row are read by
     :func:`read_native_tecplot_zones`.
+
+    Parameters
+    ----------
+    source : str or pathlib.Path
+        The native Tecplot export (``<stem>_native_tecplot.dat``).
+
+    Returns
+    -------
+    VtkSurface
+        The single zone, carrying its nodal ``Singularity_strength``.
+
+    Raises
+    ------
+    MalformedOutputError
+        If the file holds another number of zones than one, or is not the
+        measured BLOCK FEPolygon layout.
+    IncompleteOutputError
+        If the file ends inside the zone.
     """
     return read_native_tecplot_zones(source, zones=1)[0]
 
@@ -333,6 +351,11 @@ def native_match_tolerance(points: np.ndarray, *, printed_digits: int | None = N
     -------
     numpy.ndarray
         Three limits, along X, Y and Z, in the unit of ``points``.
+
+    Raises
+    ------
+    MalformedOutputError
+        If ``printed_digits`` is not a whole number or is below 1.
     """
     measurable = bool(len(points)) and bool(np.isfinite(points).all())
     extent = float(np.linalg.norm(np.ptp(points, axis=0))) if measurable else 0.0
@@ -377,6 +400,16 @@ def native_printed_digits(source: str | Path) -> int | None:
     under :data:`_MIN_PRINTED_DIGITS` is a file of short exact numbers (whole
     coordinates, say), not a print precision: read as one it would grant half
     the coordinate as slack, so it also states nothing.
+
+    Parameters
+    ----------
+    source : str or pathlib.Path
+        The native Tecplot export to read.
+
+    Returns
+    -------
+    int or None
+        The significant digits, or None when the file states none.
     """
     try:
         with Path(source).open(encoding="utf-8-sig") as stream:
@@ -440,6 +473,29 @@ def attach_native_strength_by_copy(
     keeps the unique coordinate and topology match. With one zone this is
     :func:`attach_native_strength` itself, record and all. The tolerance is
     resolved once, from every zone's nodes together, when none is given.
+
+    Parameters
+    ----------
+    surface : VtkSurface
+        The whole VTK surface, the modelled sector first and its images after.
+    zones : sequence of VtkSurface
+        The native zones in file order, in the same frame as ``surface``.
+    coordinate_tolerance : float or numpy.ndarray, optional
+        Absolute match tolerance in the surfaces' length unit, a scalar or an
+        X, Y, Z array. When None it is resolved from every zone's nodes by
+        :func:`native_match_tolerance`.
+
+    Returns
+    -------
+    tuple of (VtkSurface, dict)
+        ``surface`` with the native nodal strength attached, and the record of
+        the node mapping.
+
+    Raises
+    ------
+    MalformedOutputError
+        If there is no zone, the zones' node and polygon counts do not add up
+        to the VTK's, or a copy cannot be matched uniquely.
     """
     if len(zones) == 1:
         return attach_native_strength(surface, zones[0], coordinate_tolerance=coordinate_tolerance)
@@ -529,6 +585,30 @@ def attach_native_strength(
     or derives a strength from Cp. The resolved limits are returned in the
     mapping record as ``coordinate_tolerance_by_axis`` ([X, Y, Z], in the
     input length unit); ``coordinate_tolerance`` is their maximum.
+
+    Parameters
+    ----------
+    surface : VtkSurface
+        The VTK surface whose nodes receive the strength.
+    native : VtkSurface
+        The native surface carrying nodal ``Singularity_strength``, in the
+        same frame and length unit as ``surface``.
+    coordinate_tolerance : float or numpy.ndarray, optional
+        Absolute match tolerance, a scalar or an X, Y, Z array in the
+        surfaces' length unit. When None it is :func:`native_match_tolerance`.
+
+    Returns
+    -------
+    tuple of (VtkSurface, dict)
+        ``surface`` with ``Singularity_strength`` attached as point data, and
+        the mapping record, including ``coordinate_tolerance_by_axis``.
+
+    Raises
+    ------
+    MalformedOutputError
+        If the tolerance is not a positive finite scalar or XYZ array, the
+        counts do not form a bijection, the native strength is missing or
+        mis-sized, a coordinate is not finite, or the match is not unique.
     """
     if coordinate_tolerance is None:
         coordinate_tolerance = native_match_tolerance(native.points)

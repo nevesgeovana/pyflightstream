@@ -327,6 +327,14 @@ def to_table(result: object) -> pd.DataFrame:
     pandas.DataFrame
         Tidy table, one observation per row; write it with
         :func:`to_csv` or :func:`write_table`.
+
+    Raises
+    ------
+    MalformedOutputError
+        If a report with pinned columns carries other columns than the
+        solver's layout.
+    UnsupportedResultTypeError
+        If ``result`` is not one of the kinds above.
     """
     if isinstance(result, LoadsReport):
         return _loads_frame(result)
@@ -461,7 +469,7 @@ def write_table(frame: pd.DataFrame, path: str | Path, *, overwrite: bool = True
 
 
 def to_csv(result: object, path: str | Path) -> Path:
-    """Write one parsed FlightStream result as a csv file.
+    r"""Write one parsed FlightStream result as a csv file.
 
     The tidy table of :func:`to_table` is written without the
     positional index, so the csv holds exactly the documented columns
@@ -481,6 +489,19 @@ def to_csv(result: object, path: str | Path) -> Path:
     -------
     Path
         The written file.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> from pyflightstream.results import parse_unsteady_plots
+    >>> text = "Time (sec), CL\n.000, +2.3500000E-3\n.004, +2.1000000E-3\n"
+    >>> report = parse_unsteady_plots(text)
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     written = to_csv(report, Path(folder) / "plots.csv")
+    ...     header = written.read_text(encoding="utf-8").splitlines()[0]
+    >>> header.split(',')[:2]
+    ['Time (sec)', 'CL']
     """
     return write_table(to_table(result), path)
 
@@ -714,6 +735,17 @@ def superseded_by_a_continuation(records: Iterable[_ManifestRecord]) -> dict[str
     and that statement is the ONLY thing read here: two runs that merely
     resemble each other are both kept. A record written before 0.24.0 states
     nothing and is never dropped.
+
+    Parameters
+    ----------
+    records : iterable of manifest records
+        The run records of a workspace, each with a ``run_id`` and, for a
+        continuation, the ``continues`` it states.
+
+    Returns
+    -------
+    dict of str to str
+        Each continued run's id mapped to the id of the run that continued it.
     """
     superseded: dict[str, str] = {}
     for record in records:

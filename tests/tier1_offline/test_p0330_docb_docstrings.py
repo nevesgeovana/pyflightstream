@@ -65,7 +65,8 @@ FACADE_HELD = {
 #: modules all pass, leaves this list and the examples list. WP6
 #: (AD-14) moved the pending functions of the `run` root into `run._campaign`,
 #: `run._executors`, `run._identity` and `run._plan`, pinned in its stead; the
-#: root, a facade now, leaves the list.
+#: root, a facade now, leaves the list. `results.loads`, `results.native_surface`,
+#: `results.surface` and `results.tables` are complete and left it (DOC-B part 2, g4).
 NUMPYDOC_PENDING = {
     "cases/__init__.py",
     "farfield/__init__.py",
@@ -85,11 +86,7 @@ NUMPYDOC_PENDING = {
     "post/rotor_table.py",
     "post/unsteady_polar.py",
     "results/core.py",
-    "results/loads.py",
     "results/log.py",
-    "results/native_surface.py",
-    "results/surface.py",
-    "results/tables.py",
     "run/_campaign.py",
     "run/_executors.py",
     "run/_identity.py",
@@ -107,15 +104,12 @@ NUMPYDOC_PENDING = {
 #: `results.exports` and `results.loads`, and the root, which keeps none,
 #: leaves the list. Those WP6 moved out of the `run` root are pinned in
 #: `run._assessment`, `run._campaign`, `run._executors`, `run._identity` and
-#: `run._plan`, and the root leaves the list.
+#: `run._plan`, and the root leaves the list. `results.exports`, `results.loads`,
+#: `results.surface` and `results.tables` carry theirs and left it (DOC-B part 2, g4).
 EXAMPLES_PENDING = {
     "cases/__init__.py",
     "script/__init__.py",
     "post/probe_fields.py",
-    "results/exports.py",
-    "results/loads.py",
-    "results/surface.py",
-    "results/tables.py",
     "run/_assessment.py",
     "run/_campaign.py",
     "run/_executors.py",

@@ -153,7 +153,7 @@ def _parse_solver_flag(token: str | None, label: str) -> bool | None:
 
 
 def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> LoadsReport:
-    """Parse one aerodynamic loads spreadsheet.
+    r"""Parse one aerodynamic loads spreadsheet.
 
     Parameters
     ----------
@@ -172,6 +172,44 @@ def parse_loads(text: str, requested_version: str | FsVersion | None = None) -> 
         Typed report; the footer and the table terminator are
         structural, so an incomplete file raises
         :class:`IncompleteOutputError` instead of returning less.
+
+    Raises
+    ------
+    IncompleteOutputError
+        If the software footer or the closing Total row is missing, so the
+        solver stopped before finishing the export.
+    MalformedOutputError
+        If a second export follows the first, a column or a surface name
+        repeats, there is more than one Total row, or a row holds a number
+        of values other than the header names.
+
+    Examples
+    --------
+    >>> text = (
+    ...     "Angle of attack (Deg)  2.000\n"
+    ...     "Side-slip angle (Deg)  .000\n"
+    ...     "Freestream velocity (m/s)  30.000\n"
+    ...     "Requested solver iterations  500\n"
+    ...     "Solver convergence limit  1.000E-05\n"
+    ...     "Force solver to run all iterations  F\n"
+    ...     "Solver mode:  Steady\n"
+    ...     "Current solver iteration number:  312\n"
+    ...     "Surface, Cx, Cy, Cz, CL, CDi, CDo, CMx, CMy, CMz\n"
+    ...     "-----------------\n"
+    ...     "Wing,+0.01,+0.0,+0.43,+0.43,+0.009,+0.006,+0.0,-0.09,+0.0\n"
+    ...     "Total,+0.01,+0.0,+0.43,+0.43,+0.009,+0.006,+0.0,-0.09,+0.0\n"
+    ...     "-----------------\n"
+    ...     "Force Units: Coefficients\n"
+    ...     "Moment Units: Coefficients\n"
+    ...     "Software : Flightstream version 26.1, build #7012026\n"
+    ... )
+    >>> report = parse_loads(text)
+    >>> report.angle_of_attack_deg
+    2.0
+    >>> list(report.surfaces)
+    ['Wing']
+    >>> report.total['CL']
+    0.43
     """
     software = SOFTWARE_LINE.search(text)
     if software is None:
@@ -368,6 +406,17 @@ def parse_probe_points(text: str, requested_version=None) -> ProbePointsReport:
     -------
     ProbePointsReport
         Typed table plus the solution metadata.
+
+    Raises
+    ------
+    AnchorNotFoundError
+        If a printed label or the table header the parser anchors on is
+        absent.
+    IncompleteOutputError
+        If the software footer is missing, so the export ended early.
+    MalformedOutputError
+        If the declared point count differs from the rows parsed, or a row
+        does not match the header.
     """
     text = text.replace("\x00", "")
     software = SOFTWARE_LINE.search(text)

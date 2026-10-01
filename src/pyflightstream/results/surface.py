@@ -234,6 +234,18 @@ class VtkSurface:
         One value per polygon for each cell scalar, in the file's order.
     title : str
         The file's title line.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> quad = VtkSurface(
+    ...     points=np.array([[0.0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]),
+    ...     offsets=np.array([0, 4]),
+    ...     connectivity=np.array([0, 1, 2, 3]),
+    ...     cell_data={"Cp": np.array([0.25])},
+    ... )
+    >>> quad.n_points, quad.n_cells
+    (4, 1)
     """
 
     points: np.ndarray
@@ -804,6 +816,60 @@ def translate_vtk_surface(
     a native file holding another number of
     zones is refused naming both counts. None, or 1, is the one-zone export of
     every other row.
+
+    Parameters
+    ----------
+    vtk : str or pathlib.Path
+        The VTK surface export to translate.
+    dat : str or pathlib.Path
+        The Tecplot file to write, in the reference frame.
+    frame : SurfaceFrame
+        Where the frame the VTK was written in stands in the reference frame.
+    overwrite : bool
+        Whether an existing ``dat`` may be replaced. False by default.
+    native_tecplot : str or pathlib.Path, optional
+        The same point's native Tecplot export, whose nodal strength is
+        matched to the VTK. None carries no native strength.
+    periodic_copies : int, optional
+        Copy count of a ``SYMMETRY PERIODIC`` row, the zones the native file
+        must hold. None or 1 is a one-zone export.
+
+    Returns
+    -------
+    dict
+        What was done: the source and its digest, the frame, the location of
+        the values, the variables, what is not carried, the native record when
+        one was matched, and ``output_sha256`` of the file written.
+
+    Raises
+    ------
+    ProductError
+        If the native source and the destination are the same file.
+    IncompleteOutputError
+        If the native source named is not a file.
+    MalformedOutputError
+        If the VTK or the native source changed during translation, or the
+        native zones cannot be matched to the VTK.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> import numpy as np
+    >>> quad = VtkSurface(
+    ...     points=np.array([[0.0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]),
+    ...     offsets=np.array([0, 4]),
+    ...     connectivity=np.array([0, 1, 2, 3]),
+    ...     cell_data={"Cp": np.array([0.25])},
+    ... )
+    >>> frame = SurfaceFrame(origin=(0.0, 0.0, 0.0),
+    ...     axes=((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)))
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     vtk = write_vtk_surface(Path(folder) / "a.vtk", quad, title="demo")
+    ...     record = translate_vtk_surface(vtk, Path(folder) / "a.dat", frame=frame)
+    ...     written = (Path(folder) / "a.dat").is_file()
+    >>> written, record["variables"], record["not_carried"]
+    (True, ['Cp'], ['Singularity_strength'])
     """
     source = Path(vtk)
     digest = file_sha256(source)
@@ -885,6 +951,20 @@ def translate_vtk_surface(
 
 def stamped_translation(vtk: str, dat: str, step: int) -> tuple[str, str]:
     """Return the names one step's VTK and its Tecplot carry (RPT-041 finding 3).
+
+    Parameters
+    ----------
+    vtk : str
+        The VTK file name.
+    dat : str
+        The Tecplot file name.
+    step : int
+        The solver step the files belong to.
+
+    Returns
+    -------
+    tuple of (str, str)
+        The VTK and Tecplot names with ``_iteration=<step>`` before the suffix.
 
     Examples
     --------
@@ -1071,7 +1151,24 @@ def translate_surface_exports(
     *,
     frame: Mapping[str, object] | None = None,
 ) -> list[dict[str, object]]:
-    """Translate one point's surface batch and record elapsed time and problems."""
+    """Translate one point's surface batch and record elapsed time and problems.
+
+    Parameters
+    ----------
+    folder : str or pathlib.Path
+        Where the solver wrote the VTK files, the point's working directory.
+    translations : sequence of mapping
+        What the script recorded: ``vtk``, ``dat`` and ``frame`` for each.
+    frame : mapping, optional
+        The frame to use where a translation states no placement.
+
+    Returns
+    -------
+    list of dict
+        Each translation as recorded, with ``written``, the ``.dat`` names
+        written or found written, and ``problems``, one sentence per file
+        that could not be written.
+    """
     with activity_stage(
         "translation",
         point_folder=str(folder),
