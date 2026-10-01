@@ -37,8 +37,6 @@ guide/*.pdf
 # ignored.
 !guide/pyfts-guide-0[1-9]-*.pdf
 !guide/latex-sources/0[1-9]-*/figures/*.pdf
-# And since 0.34.0 the compiled cheatsheet by stage, beside it.
-!guide/pyfts-cheatsheet-by-stage.pdf
 guide/*.aux
 guide/*.log
 guide/*.nav

@@ -16,6 +16,7 @@ descriptions on the pages are true.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -28,6 +29,7 @@ from tests.tier1_offline.test_p0330_cheatsheet import (
     _generator,
     _names,
     _pdf_pages,
+    _sections,
     _source,
     _tools,
     _walk,
@@ -77,8 +79,8 @@ OLD_OVERVIEW = "pyfts-guide-0" + "0"
 HISTORICAL = (
     "CHANGELOG.md",
     "changelog.d/",
-    "docs/migrating-to-",
-    "docs/srs/",
+    *(f"docs/migrating-to-0.{minor}." for minor in range(21, 34)),
+    "docs/srs/functional-requirements.md",
     "reports/",
     "tests/tier1_offline/test_goal033_delivery.py",
 )
@@ -92,12 +94,14 @@ def _sheet_source() -> str:
 
 
 def omitted_from_source(tools: dict[str, argparse.ArgumentParser], source: str) -> list[str]:
-    """Return every tool, subcommand and option of the parsers the source never names."""
+    """Return every tool, subcommand and option the source never names in the tool's own part."""
     generator = _generator()
     found: list[str] = []
+    sections = _sections(source)
     for tool, parser in tools.items():
         if tool not in source:
             found.append(f"{tool}: not named")
+        part = sections.get(tool, "")
         helps = {
             option
             for action in parser._actions
@@ -109,12 +113,12 @@ def omitted_from_source(tools: dict[str, argparse.ArgumentParser], source: str) 
         ]
         for name, each in parsers:
             if name != tool and not re.search(
-                rf"(?<![\w-]){re.escape(name.split()[-1])}(?![\w-])", source
+                rf"(?<![\w-]){re.escape(name.split()[-1])}(?![\w-])", part
             ):
                 found.append(f"{name}: not named")
             for action in generator.options(each):
                 for option in action.option_strings:
-                    if option not in helps and not _names(option, source):
+                    if option not in helps and not _names(option, part):
                         found.append(f"{name}: {option}")
     return list(dict.fromkeys(found))
 
@@ -196,6 +200,10 @@ def test_a_planted_flag_command_or_cut_line_is_named_by_the_walk():
     assert source.count("--identity-only") == 1
     cut = source.replace("--identity-only", "")
     assert omitted_from_source(_tools(), cut) == ["pyfs-qa probe: --identity-only"]
+    # The same option named in another tool's band does not stand in for it.
+    elsewhere = cut.replace("\\tool{pyfs-manual}{", "\\tool{pyfs-manual}{--identity-only ", 1)
+    assert elsewhere != cut
+    assert omitted_from_source(_tools(), elsewhere) == ["pyfs-qa probe: --identity-only"]
     # A name no parser has, in the stage pages and in the tools part.
     stale = BY_STAGE.read_text(encoding="utf-8").replace(
         "\\hd{Where to read more}", "\\cmd{pyfs-matrix nothing}\n\\hd{Where to read more}", 1
@@ -215,7 +223,13 @@ def _naming_old_overview(entries: list[tuple[str, str]]) -> list[str]:
 
 def _tracked_entries() -> list[tuple[str, str]]:
     names = (
-        subprocess.run(["git", "ls-files", "-z"], cwd=REPO, capture_output=True, check=True)
+        subprocess.run(
+            ["git", "ls-files", "-z"],
+            cwd=REPO,
+            capture_output=True,
+            check=True,
+            env=dict(os.environ),
+        )
         .stdout.decode("utf-8")
         .split("\0")
     )
@@ -247,8 +261,17 @@ def test_no_tracked_file_names_pyfts_guide_00_outside_the_historical_records():
         (f"guide/{OLD_OVERVIEW}-x.pdf", ""),
         ("CHANGELOG.md", OLD_OVERVIEW),
         ("docs/migrating-to-0.31.0.md", OLD_OVERVIEW),
+        ("docs/migrating-to-0.34.0.md", OLD_OVERVIEW),
+        ("docs/srs/index.md", OLD_OVERVIEW),
     ]
-    assert _naming_old_overview(planted) == sorted(["guide/x.md", f"guide/{OLD_OVERVIEW}-x.pdf"])
+    assert _naming_old_overview(planted) == sorted(
+        [
+            "guide/x.md",
+            f"guide/{OLD_OVERVIEW}-x.pdf",
+            "docs/migrating-to-0.34.0.md",
+            "docs/srs/index.md",
+        ]
+    )
 
 
 def test_the_guides_are_01_to_09_with_the_cheatsheet_as_04():
@@ -285,7 +308,7 @@ def test_every_place_that_names_a_guide_names_the_same_nine():
     for rel in (".gitignore", ".pre-commit-config.yaml", ".github/workflows/ci.yml"):
         text = (REPO / rel).read_text(encoding="utf-8")
         assert "pyfts-guide-0[1-9]-" in text, rel
-        assert "0[0-7]" not in text and "cheatsheet-pyfs" not in text, rel
+        assert "0[0-7]" not in text and "pyfts-cheatsheet" not in text, rel
     for rel in ("guide/README.md", "guide/LICENSE-AND-AUTHORSHIP.md", "docs/guides.md"):
         text = (REPO / rel).read_text(encoding="utf-8")
         wanted = (

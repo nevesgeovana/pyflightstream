@@ -847,13 +847,10 @@ def test_the_spreadsheet_guard_fires_on_what_it_exists_to_catch(monkeypatch):
 #
 # A pdf never entered Git until 0.30.0: a licensed manual arrives as one, and
 # NFR-03 keeps the manual out of the repository. The owner then admitted the
-# guide DECKS, eight of them, 00 to 07: their compiled PDFs beside their LaTeX sources, and the
-# figure PDFs those sources include. Since 0.33.0 one more file, the
-# compiled pyfs-matrix cheatsheet, guide/pyfts-cheatsheet-pyfs-matrix.pdf,
-# beside its source in guide/latex-sources/cheatsheet/, and since 0.34.0 the
-# compiled cheatsheet by stage, guide/pyfts-cheatsheet-by-stage.pdf, which the
-# owner asked for on 2026-10-01. Nothing else, not any
-# pdf under guide/: the exemption names the guide files (the cheatsheet is guide 04)
+# guide DECKS and, since 0.34.0, the cheatsheet: nine guides, 01 to 09, the
+# cheatsheet being guide 04, each compiled PDF beside its LaTeX source, and the
+# figure PDFs those sources include (FR-329). Nothing else, not any
+# pdf under guide/: the exemption names the guide files
 # and the figures folder of a deck. Three
 # mechanisms state the rule and must agree: the forbid-pdf hook (`files` with
 # `exclude`), the CI guard job's two greps, and this walk over the tracked
