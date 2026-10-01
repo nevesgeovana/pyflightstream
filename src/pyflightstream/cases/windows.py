@@ -41,6 +41,7 @@ __all__ = [
     "LAST_REVS_AVG",
     "averaging_span",
     "averaging_steps",
+    "march_end",
     "passages",
     "phase_locked_entry",
     "phase_locked_plan",
@@ -357,6 +358,55 @@ def replan(
             gate=gate,
         )
     return fresh
+
+
+def march_end(plan: Mapping[str, object] | None, *, last_step: int) -> dict[str, object] | None:
+    """Return the recorded ``plan`` with every window moved to end at ``last_step``.
+
+    A CONTINUATION RECORDS THE ROW'S CLOCK (FR-96, 0.33.0): its plan states the
+    row's ``time_iterations``, which is the last step of the run it continues
+    and not of the march it extends. Every window here is the LAST part of the
+    run (``LAST_REVS_AVG``, ``LAST_ITERS_AVG``, the last revolution, the passages
+    and the phase-locked revolutions that end with them), so each is moved by
+    the same number of steps, keeping its length, to end at the last step of
+    the whole march; the plan's ``time_iterations`` becomes that step, so
+    :func:`replan` and :func:`regate` cut from it too. A window that would
+    begin before step 1 begins at step 1. The record is never rewritten: the
+    result is a new mapping.
+
+    Returns None where there is nothing to move: no plan, no last step in it,
+    or one already ending there.
+
+    Examples
+    --------
+    >>> plan = {"time_iterations": 720, "time_average": {"windows": [[596, 720]]}}
+    >>> march_end(plan, last_step=1220)["time_average"]["windows"]
+    [[1096, 1220]]
+    >>> march_end(plan, last_step=720) is None
+    True
+    """
+    if not isinstance(plan, Mapping):
+        return None
+    last = _number(plan.get("time_iterations"))
+    if last is None or last <= 0 or int(last) == int(last_step) or last_step <= 0:
+        return None
+    fresh: dict[str, object] = copy.deepcopy(dict(plan))
+    fresh["time_iterations"] = int(last_step)
+    _move_windows(fresh, int(last_step) - int(last))
+    return fresh
+
+
+def _move_windows(block: dict[str, object], by: int) -> None:
+    """Move every ``windows`` list under ``block`` by ``by`` steps, in place."""
+    for key, value in block.items():
+        if key == "windows" and isinstance(value, list):
+            block[key] = [
+                [max(int(first) + by, 1), int(end) + by]
+                for first, end in value
+                if int(end) + by >= 1
+            ]
+        elif isinstance(value, dict):
+            _move_windows(value, by)
 
 
 def phase_locked_entry(

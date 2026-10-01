@@ -1083,6 +1083,8 @@ class RunRecord(BaseModel):
     #: what lets a reader tell a chain from two runs of one point and take the
     #: end of it; the continuation resolver knew the answer and nothing kept it.
     continues: str | None = None
+    #: FR-96 (0.33.0): the RESTART request a continuation answered, form and value.
+    restart: dict[str, Any] | None = None
     #: FR-98: the wall clock the ROW stated, in seconds, and the margin the
     #: SETUP stated, on a run that registered the watchdog. Both are written
     #: because neither can be recovered afterwards: the row may have been
@@ -1230,7 +1232,7 @@ class RunRecord(BaseModel):
     ) -> dict[str, Any]:
         """Write none of the keys a reader older than their release may not know, where unstated.
 
-        ``inventory``, ``mesh_import``, ``rotor_mach`` and ``clocking_verdicts``.
+        ``inventory``, ``mesh_import``, ``rotor_mach``, ``clocking_verdicts``, FR-96's ``restart``.
 
         R03 and G01 of 0.27.0, and M1 and the L1 fixes of 0.30.0.
 
@@ -1242,10 +1244,8 @@ class RunRecord(BaseModel):
         pydantic 2.11 where this package's floor is pydantic 2.
         """
         data: dict[str, Any] = handler(self)
-        for key in ("inventory", "mesh_import", "rotor_mach", "clocking_verdicts", "marked"):
-            if data.get(key) is None:
-                data.pop(key, None)
-        return data
+        keys = ("inventory", "mesh_import", "rotor_mach", "clocking_verdicts", "marked", "restart")
+        return {key: value for key, value in data.items() if value is not None or key not in keys}
 
     #: How the solver was called (PFS-2012.04), None where no solver ran
     #: and on every row written before the field existed.

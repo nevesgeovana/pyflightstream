@@ -11,15 +11,20 @@ Since 0.33.0 (AD-10) the post's one CSV reader, :func:`read_csv_table`, and
 the plots-table readers (:func:`plots_table_series` and the step clock it
 reads) are defined here too, so :mod:`pyflightstream.post.corrections`, which
 :mod:`pyflightstream.post.products` imports, reads a table without importing
-that module back.
+that module back. Since 0.33.0 (FR-96) so is the plots history of a continued
+point over its whole march (:func:`_march_history`), which the products stage
+reads through :func:`_march_records` and :func:`_march_plots_text` and does not
+re-export.
 """
 
 from __future__ import annotations
 
 import csv
 import math
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -30,6 +35,7 @@ import numpy as np
 # raises them and `workspace.rename_groups` does too.
 from pyflightstream._errors import ProductError as ProductError
 from pyflightstream._errors import ProductExistsError as ProductExistsError
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream._tokens import ADVANCE_RATIO_COLUMN as ADVANCE_RATIO_COLUMN
 from pyflightstream._tokens import CONTEXT_COLUMNS as CONTEXT_COLUMNS
 from pyflightstream._tokens import FLIGHT_CONDITION_COLUMNS as FLIGHT_CONDITION_COLUMNS
@@ -39,8 +45,13 @@ from pyflightstream._tokens import NOT_APPLICABLE as NOT_APPLICABLE
 # rule every cell is written by. The products take them from the floor themselves.
 from pyflightstream._tokens import POLAR_ID_COLUMN, plain_cell
 from pyflightstream._tokens import REFERENCE_LENGTH_COLUMNS as REFERENCE_LENGTH_COLUMNS
+from pyflightstream.cases import classify_outputs
+from pyflightstream.cases.windows import march_end
 from pyflightstream.post.axes import blade_azimuth_deg, placed_blade_azimuth_deg
 from pyflightstream.post.unsteady import TimestepSeries
+from pyflightstream.results import labeled_value, parse_unsteady_plots
+from pyflightstream.workspace import CampaignWorkspace, RunRecord
+from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP
 
 #: The spellings a RUN recorded, mapped to the product column they mean.
 #:
@@ -710,3 +721,296 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
         fields={name: values[:, index][:, None] for index, name in enumerate(columns)},
         sources=(Path(path),),
     )
+
+
+# --- the whole march of a continued point (0.33.0, FR-96) ---------------------
+#
+# A continuation reopens the saved simulation of the run it continues and
+# marches on; that run's outputs are archived under the datapoint's
+# ``archive/<stamp>/``, the stamp being the one the continuation's run id
+# carries (``<campaign>/sim_<id>/r<stamp>/<point>``). Whether the solver's plots
+# export of a continuation holds the whole march or the continuation's steps
+# only is not on record (no licensed continuation has been read), so the post
+# reads both shapes by their step numbers and says which it met.
+
+#: The run types that march in time; only their records are continued.
+_MARCHING = ("unsteady", "unsteady_rotor")
+#: The banner labels a plots export scales its coefficients by; two exports
+#: are one history only when they state the same two.
+_SCALE_LABELS = ("Freestream velocity (m/s)", "Reference velocity (m/s)")
+_TIME_COLUMNS = ("Time (sec)", "Time")
+_RULE = re.compile(r"^-{4,}$")
+
+
+@dataclass(frozen=True)
+class _PlotsExport:
+    """One plots export split into its banner, its rows and what follows them."""
+
+    head: list[str]
+    rows: list[str]
+    tail: list[str]
+    columns: tuple[str, ...]
+    values: np.ndarray
+    steps: np.ndarray
+    scale: tuple[str | None, ...]
+
+
+@dataclass(frozen=True)
+class _MarchHistory:
+    """The plots history of a continued point over its whole march (FR-96).
+
+    Attributes
+    ----------
+    text : str
+        The export the plots table is written from: the continuation's banner
+        and footer around the rows of every run of the chain, in step order.
+    last_step : int
+        The last step the history holds, where the averaging window ends.
+    said : str
+        What the post log states about how the history was put together.
+    """
+
+    text: str
+    last_step: int
+    said: str
+
+
+def _plots_export(path: Path) -> _PlotsExport | None:
+    """Read one plots export as rows of text and numbers, or None where it cannot be.
+
+    The rows are found as :func:`~pyflightstream.results.parse_unsteady_plots`
+    finds them: the header is the first line carrying a comma, then every
+    line that is neither blank nor a dashed rule, until the rule that closes
+    the table.
+    """
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        report = parse_unsteady_plots(text)
+    except (OSError, PyflightstreamError):
+        return None
+    scale = tuple(_printed(text, label) for label in _SCALE_LABELS)
+    lines = text.split("\n")
+    header = next(index for index, line in enumerate(lines) if "," in line)
+    at: list[int] = []
+    for index in range(header + 1, len(lines)):
+        stripped = lines[index].strip()
+        if stripped and _RULE.match(stripped):
+            if at:
+                break
+        elif stripped:
+            at.append(index)
+    values = np.asarray(report.values, dtype=float)
+    if len(at) != len(values):
+        return None
+    return _PlotsExport(
+        head=lines[: at[0]],
+        rows=[lines[index] for index in at],
+        tail=lines[at[-1] + 1 :],
+        columns=tuple(report.columns),
+        values=values,
+        steps=_stated_steps(report.columns, values, len(at)),
+        scale=scale,
+    )
+
+
+def _printed(text: str, label: str) -> str | None:
+    """Return the value a banner prints after ``label``, or None where it prints none."""
+    try:
+        return labeled_value(text, label)
+    except (PyflightstreamError, ValueError):
+        return None
+
+
+def _renumbered(export: _PlotsExport, by_step: int, by_time: float) -> list[str]:
+    """Return the export's rows with the step and the time moved on by the given amounts."""
+    columns = export.columns
+    moved = {_PLOTS_STEP_COLUMN: float(by_step)} if _PLOTS_STEP_COLUMN in columns else {}
+    moved.update({name: by_time for name in _TIME_COLUMNS if name in columns})
+    rows = []
+    for row, values in zip(export.rows, export.values, strict=True):
+        cells = row.strip().split(",")
+        for name, by in moved.items():
+            index = columns.index(name)
+            cells[index] = f"{values[index] + by:.10G}"
+        rows.append(",".join(cells))
+    return rows
+
+
+_History = tuple[list[str], np.ndarray, np.ndarray]
+
+
+def _join(before: _History, after: _PlotsExport) -> tuple[_History, str] | None:
+    """Join a history and the export of the run that continued it, at an exact seam.
+
+    The rule, by step number: an export whose first step comes after the
+    history's last continues the numbering and is appended; one that starts
+    inside the history and repeats its rows there restates the march and is
+    taken from where it starts; one that starts again at step 1 with rows of
+    its own restarted the count and is numbered on from the history's last
+    step, its time too. Anything else is not joined (None): a seam that
+    cannot be placed exactly is not a history.
+    """
+    rows, values, steps = before
+    last, first = int(steps[-1]), int(after.steps[0])
+    if first > last:
+        gap = "" if first == last + 1 else f" (steps {last + 1} to {first - 1} in neither)"
+        stacked = np.vstack([values, after.values])
+        return (rows + after.rows, stacked, np.concatenate([steps, after.steps])), (
+            f"numbered on from step {first}{gap}"
+        )
+    where = {int(step): index for index, step in enumerate(steps)}
+    shared = [
+        (index, where.get(int(step))) for index, step in enumerate(after.steps) if step <= last
+    ]
+    if all(
+        mine is not None and np.allclose(after.values[index], values[mine], rtol=1e-6, atol=1e-12)
+        for index, mine in shared
+    ):
+        keep = int(np.searchsorted(steps, first))
+        stacked = np.vstack([values[:keep], after.values])
+        return (rows[:keep] + after.rows, stacked, np.concatenate([steps[:keep], after.steps])), (
+            f"restating the march from step {first}"
+        )
+    if first != 1:
+        return None
+    columns = list(after.columns)
+    time = next((columns.index(name) for name in _TIME_COLUMNS if name in columns), None)
+    by_time = 0.0
+    if time is not None and after.values[0, time] <= values[-1, time]:
+        by_time = float(values[-1, time])
+    moved = after.values.copy()
+    if _PLOTS_STEP_COLUMN in columns:
+        moved[:, columns.index(_PLOTS_STEP_COLUMN)] += last
+    if time is not None:
+        moved[:, time] += by_time
+    stacked = np.vstack([values, moved])
+    return (
+        rows + _renumbered(after, last, by_time),
+        stacked,
+        np.concatenate([steps, after.steps + last]),
+    ), (f"counting again from 1, numbered on from step {last + 1}")
+
+
+def _plots_output(record: RunRecord | None) -> str | None:
+    """Return the recorded output of a run that is its plots export, or None."""
+    outputs = [str(name) for name in (record.outputs if record is not None else ())]
+    name = classify_outputs([Path(output).name for output in outputs]).get("plots")
+    return next((output for output in outputs if Path(output).name == name), None)
+
+
+def _stamp_of(run_id: str) -> str | None:
+    """Return the archive stamp a continuation's run id carries, or None."""
+    parts = run_id.rsplit("/", 2)
+    stamp = parts[-2][1:].split(".")[0] if len(parts) == 3 and parts[-2][:1] == "r" else ""
+    try:
+        datetime.strptime(stamp, ARCHIVE_STAMP)
+    except ValueError:
+        return None
+    return stamp
+
+
+def _chain(
+    sim_dir: Path,
+    record: RunRecord,
+    output: str,
+    end: _PlotsExport,
+    manifest: Mapping[str, RunRecord],
+) -> tuple[list[tuple[str, _PlotsExport]], str]:
+    """Return the exports of the runs ``record`` continues, oldest first, and what was not found."""
+    chain: list[tuple[str, _PlotsExport]] = []
+    later = record
+    while later.continues and len(chain) < len(manifest):
+        earlier, stamp = manifest.get(later.continues), _stamp_of(later.run_id)
+        name = Path(_plots_output(earlier) or output).name
+        path = (sim_dir / output).parent / ARCHIVE_DIR / str(stamp) / name
+        found = _plots_export(path) if stamp else None
+        alike = found is not None and (found.scale, found.columns) == (end.scale, end.columns)
+        if earlier is None or found is None or not alike:
+            return chain, f"the history of {later.continues!r} is not readable at {path}"
+        chain.insert(0, (str(later.continues), found))
+        later = earlier
+    return chain, ""
+
+
+def _march_history(
+    sim_dir: Path, record: RunRecord, manifest: Mapping[str, RunRecord]
+) -> _MarchHistory | None:
+    """Return the plots history of a continued point over its whole march, or None.
+
+    None where the record continues nothing, is not a march, or has no
+    readable plots export. Otherwise the chain of runs it continues is walked
+    through ``continues`` in ``manifest`` (run id to record), each run's
+    export read from the archive the next one moved it into, and the exports
+    joined by :func:`_join`. A run of the chain whose export is not found, or
+    cannot be joined, ends the walk there: the history then begins after it,
+    and ``said`` names the file and what posting again after restoring it
+    gives. The averaging window ends at the history's last step.
+    """
+    output = _plots_output(record)
+    if not record.continues or record.recipe not in _MARCHING or output is None:
+        return None
+    end = _plots_export(sim_dir / output)
+    if end is None:
+        return None
+    chain, missing = _chain(sim_dir, record, output, end, manifest)
+    history: _History | None = None
+    told: list[str] = []
+    for run_id, export in [*chain, (record.run_id, end)]:
+        joined = _join(history, export) if history is not None else None
+        if joined is None:
+            if history is not None:
+                missing = f"the export of {run_id!r} cannot be joined to the run before it"
+            history = (export.rows, export.values, export.steps)
+            told = [f"{run_id!r} steps {int(export.steps[0])} to {int(export.steps[-1])}"]
+            continue
+        history, how = joined
+        told.append(f"{run_id!r} {how} to step {int(history[2][-1])}")
+    rows, _, steps = history if history is not None else (end.rows, end.values, end.steps)
+    said = (
+        f"point={record.run_id} product=plots: this run continues {record.continues!r}, and "
+        f"its plots table is the march as joined here: {'; '.join(told)}. "
+        + (
+            f"Not joined: {missing}, so the steps before it are not in the table; restore that "
+            "file and post again to average over the whole march. "
+            if missing
+            else ""
+        )
+        + f"The averaging window ends at step {int(steps[-1])}, the last step the table holds."
+    )
+    return _MarchHistory("\n".join([*end.head, *rows, *end.tail]), int(steps[-1]), said)
+
+
+def _march_records(workspace: CampaignWorkspace, records: Sequence[RunRecord]) -> list[RunRecord]:
+    """Return ``records`` with each continuation's windows ending at its march's last step.
+
+    FR-96, 0.33.0: a continuation records the row's clock, so its windows end
+    at the last step of the run it continues; they are moved, keeping their
+    lengths, to end at the last step of the whole march (:func:`_march_history`,
+    :func:`~pyflightstream.cases.windows.march_end`). Every other record is
+    returned as it is, and no record is rewritten.
+    """
+    if not any(record.continues for record in records):
+        return list(records)
+    manifest = {record.run_id: record for record in workspace.read_manifest()}
+    moved = []
+    for record in records:
+        march = _march_history(workspace.sim_dir(record.sim_id), record, manifest)
+        plan = march_end(record.reductions, last_step=march.last_step) if march else None
+        moved.append(record.model_copy(update={"reductions": plan}) if plan else record)
+    return moved
+
+
+def _march_plots_text(workspace: CampaignWorkspace, record: RunRecord | None, path: Path) -> str:
+    """Return the plots export a point's table is written from: the whole march, continued.
+
+    A point that continues nothing reads its own export, as before 0.33.0. A
+    continuation reads :func:`_march_history`, and the post log says how it was
+    put together and where the averaging window ends.
+    """
+    if record is not None and record.continues:
+        manifest = {entry.run_id: entry for entry in workspace.read_manifest()}
+        march = _march_history(workspace.sim_dir(record.sim_id), record, manifest)
+        if march is not None:
+            warn(march.said, PyflightstreamWarning, stacklevel=2)
+            return march.text
+    return path.read_text(encoding="utf-8", errors="replace")

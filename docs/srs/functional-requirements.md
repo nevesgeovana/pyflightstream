@@ -3949,7 +3949,8 @@ requirement below is one seam of that division.
     the matrix again does not continue a continuation that already completed,
     and is REFUSED BY NAME when its most recent run failed, at plan and at the
     run's pre-flight, because a failed continuation is not retried and must
-    never be passed over in silence.
+    never be passed over in silence. Amended in 0.33.0 (below): a CONVERGED
+    march is continued, once per request, and every skip is said.
 
     THE OUTPUTS A CONTINUATION REPLACES ARE ARCHIVED, not overwritten, into
     `archive/<day and hour>/` under that datapoint's own folder. The stamp is
@@ -3967,6 +3968,88 @@ requirement below is one seam of that division.
     NAME at plan, naming this release. A refusal at plan spends nothing;
     accepting the key and ignoring it spends a licensed seat re-running a
     point that was nearly done, which is what it did until 2026-09-13.
+
+    AMENDED IN 0.33.0: A CONVERGED MARCH IS CONTINUED, ONCE PER REQUEST.
+    *Origin: a defect measured on 2026-09-30. `{ADDITIONAL_REVS=n}` continued
+    only a run recorded `WALLTIME_REACHED` or `COMPLETED_MAX_ITER`, and a point
+    whose latest run had CONVERGED was passed over in silence, the plan listing
+    it as recorded. For a march, CONVERGED is the residual test at its last
+    step, so the scheme for marching the revolutions an average needs did
+    nothing on a converged point. Evidence:
+    `tests/tier1_offline/test_fr96_converged_continuation.py`, every test named
+    `..._fr_96`, each rule with a mutant it catches;
+    `tests/tier1_offline/test_goal021_swept_row.py::test_goal021_swept_row_a_finished_continuation_is_not_continued_again`.*
+
+    Need: a finished unsteady campaign needs more revolutions for its averages
+    without marching every point again from the mesh.
+
+    Requirement: `{ADDITIONAL_REVS=n}` and `{ADDITIONAL_ITERS=n}` continue a
+    converged march, once per request, and its averaging window ends at the
+    last step of the whole march.
+
+    - R1 A point of a `RESTART` row whose latest record is CONVERGED, of the
+      run type `unsteady` or `unsteady_rotor`, is continued by
+      `{ADDITIONAL_REVS=n}` or `{ADDITIONAL_ITERS=n}` exactly as a run its wall
+      clock stopped is continued: it reopens that run's saved simulation,
+      marches the steps the request states, archives what it replaces, and its
+      record names the run it continues in `continues`.
+    - R2 `{ADDITIONAL_REVS=n}` turns revolutions into steps by the azimuthal
+      step of the record's export window and, on a record that states none (a
+      row that exports nothing per step), by the steps per revolution of the
+      record's reductions plan, which is the row's clock.
+    - R3 A continuation's record states the request it answered under
+      `restart` (`form` and `value`); no other record carries the key. A point
+      whose latest record is a completed continuation (CONVERGED or
+      COMPLETED_MAX_ITER) of the same request, the same form and number, is not
+      continued again, so running the matrix again never re-marches what a
+      continuation added; a different request continues it again. A
+      continuation recorded before 0.33.0 states no request and is treated as
+      answering the request its row carries now when it marched the steps that
+      request asks of the run it continues: the same request is then not
+      continued again, and a changed one (another number, or another key that
+      marches another count) continues it exactly as it continues a 0.33.0
+      continuation. One whose script or predecessor cannot be read is taken to
+      answer the request, so running an existing matrix again never adds
+      revolutions.
+    - R4 `{FINISH_PENDING}` does not continue a CONVERGED run, which has
+      nothing pending, and says so, naming `ADDITIONAL_REVS` and
+      `ADDITIONAL_ITERS`. A CONVERGED run of a run type that does not march is
+      not continued by any request. A run its wall clock stopped is continued
+      as in 0.32.0, whatever request it answered.
+    - R5 Every point of a `RESTART` row that is not continued is said with the
+      reason, in the plan (the point's `continuation` entry and the plan's
+      `Continuations (RESTART)` block) and in the run (a `not run` line); none
+      is passed over in silence. A continued point states what the
+      continuation does, for example `continuing a CONVERGED unsteady run,
+      <run id>, by 1 revolution(s)`. A point nothing records, or whose latest
+      run failed, is refused by name as before.
+    - R6 The averaging window of a continued point (`LAST_REVS_AVG`,
+      `LAST_ITERS_AVG` and every reduction cut from them) ends at the last step
+      of the WHOLE march, keeping its length. The post joins the plots history
+      of every run of the chain, each read from the archive the next run moved
+      it into, by step number: an export whose first step follows the
+      history's last is appended; one that starts inside the history and
+      repeats its rows there restates the march and is taken from where it
+      starts; one that starts again at step 1 with rows of its own is numbered
+      on from the history's last step, its time with it. No step is repeated or
+      missing at a seam. The post log says how the history was joined and
+      where the window ends; a history that cannot be found or joined is said
+      there, naming the file, and the table then holds the continuation's own
+      export.
+    - R7 A point that continues nothing is posted as in 0.32.0.
+
+    Solution (release 0.33.0): `pyflightstream.run._continuation_frame`
+    (`continuation_verdict`, `restart_steps`, `refuse_what_cannot_continue`),
+    the record field `RunRecord.restart`, and the march of a continued point,
+    `pyflightstream.post._tables._march_history` with
+    `pyflightstream.cases.windows.march_end`.
+
+    Owed: which history the solver's plots export of a continuation holds,
+    the whole march or the continuation's steps only, and how it numbers
+    them, is not on record; R6 reads each shape and is correct in each. The
+    licensed confirmation, a CONVERGED `unsteady_rotor` point continued by
+    `{ADDITIONAL_REVS=1}` on 26.124 with its plots export read, is owed to the
+    licensed round of 0.33.0.
 
 !!! requirement "FR-97 A run needs a plan, and the plan is pinned to the matrix it read <span class='srs-implemented'>implemented</span>"
 

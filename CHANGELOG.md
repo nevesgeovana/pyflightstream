@@ -33,8 +33,13 @@ FlightStream versions.
 
 ### Changed
 
-- mypy recount 2026-09-30: 1130 errors in 18 of 173 modules, on `rel/0-33`
-  with work package WP3 (AD-11) and the fix of FR-320 merged. WP3's fourteen
+- mypy recount 2026-10-01: 1122 errors in 18 of 173 modules, on `rel/0-33`
+  with work package WP3 (AD-11), the fix of FR-320 and the amendment of
+  FR-96 merged. The branch of FR-96 alone read 1125 in 18 of 158 and adds
+  no module, and `rel/0-33` before it was merged, at `a5e66d9a`, read 1130
+  in 18 of 173; the eight fewer are all in the exempted `run` root (938 to
+  930), whose code FR-96 reworked, and `run/_continuation_frame.py` stays
+  clean. WP3's fourteen
   modules, cut out of `post.guides`, the `results` root, `run.records` and
   `workspace.inputs`, arrived clean; three errors of the code that left the
   exempted `workspace.inputs` for `workspace/sidecars.py` were fixed in the

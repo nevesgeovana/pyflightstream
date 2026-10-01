@@ -143,7 +143,7 @@ them; a row marks base regions on either.
 | Submit to a cluster | `pyfs-matrix run` on Linux with an HPC profile under `inputs/hpc/`, then `pyfs-matrix collect`; row keys `NCPUS` and `WALLTIME` ([where a submitted point runs](workflow-builds-and-hpc.md#where-a-submitted-point-runs)) | none | none |
 | Stop an unsteady run before its wall clock does, so it can be continued | row key `WALLTIME`, with its unit; setup key `walltime_margin_s` | `SET_NEW_UNSTEADY_SOLVER_ACTION`, `STOP` | none |
 | Run a script or a shell command of your own after every time step of an unsteady run | setup key `unsteady_solver_actions`, an array of tables each with `type`, `name` and `filename` ([setup standards](setup-standards.md)) | `SET_NEW_UNSTEADY_SOLVER_ACTION` | none |
-| Continue an unsteady run where it stopped | row key `RESTART`: `{FINISH_PENDING}`, `{ADDITIONAL_ITERS=n}` or `{ADDITIONAL_REVS=n}` | `OPEN`, `SET_SOLVER_UNSTEADY` | 26.100 to 26.124 |
+| Continue an unsteady run where it stopped, or march a converged one further (see Continuation and recovery) | row key `RESTART`: `{FINISH_PENDING}`, `{ADDITIONAL_ITERS=n}` or `{ADDITIONAL_REVS=n}` | `OPEN`, `SET_SOLVER_UNSTEADY` | 26.100 to 26.124 |
 | Limit one point's wall clock on this machine | setup key `timeout_s`, which pyfs enforces around the solver process | none | none |
 | Run only the points not run yet | `pyfs-matrix run --resume` | none | none |
 | Redo a point already run | `pyfs-matrix run --force-rerun <point>` ([redoing a point whose row was wrong](workflow-run-matrix.md#redoing-a-point-whose-row-was-wrong)) | none | none |

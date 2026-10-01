@@ -89,7 +89,9 @@
 > (`feat/0-33-famwarn`, from `rel/0-33` with all three branches merged),
 > whose one new module, `cases/_skipped_families.py`, brought it from 158
 > to 159, and by the run of 2026-09-30 on `rel/0-33` with WP3 and FR-320
-> merged, which holds the 158 and all fifteen new modules, 173. (An
+> merged, which holds the 158 and all fifteen new modules, 173, which the
+> run of 2026-10-01 on `rel/0-33` with FR-96 also merged, adding no module,
+> reads again. (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
 > modules and the 0.24.0 tree at 661 in 18 of 93; the 0.28.0 release tree read
 > 863 errors in 18 of 104 on 2026-09-25; the 0.29.0 quality-gate candidate
@@ -103,24 +105,25 @@
 > 1137 in 18 of 153 and `rel/0-33` with WP1, WP2 and FR-310 to FR-314 merged
 > 1133 in 18 of 155, `rel/0-33` with all three branches merged 1133 in
 > 18 of 158, the branch of WP3 1130 in 18 of 172, the branch of FR-320
-> 1133 in 18 of 159 and `rel/0-33` with WP3 merged 1130 in 18 of 172,
-> all on 2026-09-30;
+> 1133 in 18 of 159, `rel/0-33` with WP3 merged 1130 in 18 of 172 and
+> `rel/0-33` with WP3 and FR-320 merged 1130 in 18 of 173, all on
+> 2026-09-30, and the branch of FR-96 1125 in 18 of 158 on 2026-10-01;
 > measurements of different
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 1130 errors in 18 files (checked 173 source files)
+>     Found 1122 errors in 18 files (checked 173 source files)
 >     Success: no issues found in 173 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-09-30: 1130 errors in 18 of 173 modules.**
+**mypy recount 2026-10-01: 1122 errors in 18 of 173 modules.**
 
 The module total is the 173 the tracked package holds on `rel/0-33` with
-work package WP3 and FR-320 merged, fifteen more than the 158 of
-`rel/0-33` with work packages WP1 and WP2, FR-310 to FR-314 and FR-316 to
+work package WP3, FR-320 and FR-96 merged (FR-96 adds no module),
+fifteen more than the 158 of `rel/0-33` with work packages WP1 and WP2, FR-310 to FR-314 and FR-316 to
 FR-319 merged, each of the fifteen clean (the fourteen modules AD-11 cut
 out of `post.guides`, the `results` root, `run.records` and
 `workspace.inputs`, and `cases/_skipped_families.py` from FR-320); those
@@ -415,7 +418,7 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 1130 errors in 18 files (checked 173 source files)
+    Found 1122 errors in 18 files (checked 173 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
@@ -1062,4 +1065,22 @@ still reads 18. The error count is WP3's 1130: the branch of FR-320 alone
 read 1133 in 18 of 159 over the 1133 of its base, so it adds none, and the
 three WP3 fixed in the move from `workspace.inputs` stay fixed. The shipped
 configuration is green over all 173. The quoted mypy lines and the sentence
-at the top of this report are this run's.
+at the top of this report were this run's until the run below.
+
+## Re-measured 2026-10-01, `rel/0-33` with FR-96 also merged: no module added, eight errors fewer
+
+`python scripts/mypy_recount.py` on 2026-10-01, on `rel/0-33` with the merges
+of WP3, FR-320, FR-153 and the setup-link fix committed (`a5e66d9a`) and the
+merge of `feat/0-33-contrevs` (the continuation of a CONVERGED unsteady run,
+FR-96) resolved in the working tree and not yet committed, as the script
+reported, with python 3.12.0, numpy 2.5.3, xarray 2026.7.0, pandas 3.0.6 and
+pydantic 2.13.5 (the script printed mypy's version as unknown): 1122 errors
+in 18 of 173 modules on 189 distinct source lines. The same script read 1130
+in 18 of 173 on 196 lines at `a5e66d9a`, and 1125 in 18 of 158 on 192 lines
+on the branch of FR-96 alone (`feat/0-33-contrevs` at `3f370448`, the tree
+committed and clean). FR-96 adds no module; the eight errors fewer are all in
+the exempted `pyflightstream.run` root, 938 before and 930 after, whose code
+the branch reworked, and `run/_continuation_frame.py`, which it extends,
+stays clean. The dirty count still reads 18 and the shipped configuration is
+green over all 173. The quoted mypy lines and the sentence at the top of
+this report are this run's.

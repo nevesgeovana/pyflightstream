@@ -48,3 +48,43 @@ The example prints the resolved saved state and recovery evidence. Its same
 entry point is exercised by test_g58_documented_example_executes_without_a_solver.
 For handwritten recipes, call resolve_continuation with the actual recipe
 callable, as the normal campaign runner does.
+
+## What a RESTART row continues (0.33.0)
+
+A row stating `RESTART` continues, point by point, the latest recorded run
+of each point (FR-96):
+
+| latest run of the point | `{FINISH_PENDING}` | `{ADDITIONAL_ITERS=n}`, `{ADDITIONAL_REVS=n}` |
+|---|---|---|
+| stopped by its wall clock (`WALLTIME_REACHED`) | continued by the steps the row still owes | continued by n steps or n revolutions |
+| at its iteration cap (`COMPLETED_MAX_ITER`) | refused: nothing records where it stopped | continued |
+| `CONVERGED`, run type `unsteady` or `unsteady_rotor` | not run: nothing is pending | continued |
+| `CONVERGED`, any other run type | not run: nothing to march | not run: nothing to march |
+| a completed continuation of the same request | not run | not run: already continued |
+| `SUBMITTED` | not run: collect it first | not run: collect it first |
+| failed, or no run recorded | refused by name | refused by name |
+
+**A converged march is continued, once per request.** For an unsteady run,
+`CONVERGED` is the residual test at the last time step; an average may still
+need more revolutions, and `{ADDITIONAL_REVS=n}` marches them from the saved
+simulation instead of running the point again from the mesh. A revolution is
+counted on the row's own clock, read from the record. The continuation's
+record states the request it answered under `restart`, so running the matrix
+again with the same request continues nothing more (the plan and the run say
+`already continued by ADDITIONAL_REVS=1`); write another number to march
+further. A continuation recorded before 0.33.0 states no request and is read
+off the steps it marched: it answered the request the row carries now when
+that request asks the same steps of the run it continues, so running the same
+matrix again adds nothing, and a changed number continues it as it continues
+any other continuation.
+
+**Every point that is not continued is said.** `pyfs-matrix plan` lists each
+point of a RESTART row under `Continuations (RESTART)`, with what the
+continuation does (`continuing a CONVERGED unsteady run, <run id>, by 1
+revolution(s)`) or why it is not run, and `pyfs-matrix run` prints a `not run`
+line for each point it does not continue.
+
+**The average covers the end of the whole march.** The post joins the plots
+history of the run and of each continuation, and every averaging window of the
+point ends at the last step of the march; see
+[the averaging window](post-processing-definitions.md#the-averaging-window).
