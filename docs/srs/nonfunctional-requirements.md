@@ -693,6 +693,8 @@
     `::test_the_results_tables_module_imports_the_workspace_layer_nowhere_at_runtime`,
     each marked with this requirement.*
 
+    Read with PFS-2075, PFS-2075.22, PFS-2075.23, PFS-2075.24 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     Read with PFS-2074, PFS-2074.15, PFS-2074.16, PFS-2074.17, PFS-2074.18, PFS-2074.19, PFS-2074.20, PFS-2074.21 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     Read with PFS-2054, PFS-2054.06, PFS-2054.07 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
@@ -1081,6 +1083,8 @@
     products snapshot comparing line ends on Linux and Windows; the
     parity receipt naming the difference under this requirement; the
     paragraph of the migration page.*
+
+    Read with PFS-2075, PFS-2075.12 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
     Every text file the package writes ends its lines with LF on every
     platform, through one write route that a guard holds.

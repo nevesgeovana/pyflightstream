@@ -648,6 +648,8 @@ diff, the products snapshot, the record fixtures and
     exemption list not grown, the oracles above unchanged, and the
     package record RPT-120.*
 
+    Read with PFS-2075.22 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     Read at 0.34.0 (GOAL-039, arm W8).
 
     Measured at v0.33.0: `cases/__init__.py` holds 2316 code lines, the
@@ -697,6 +699,8 @@ diff, the products snapshot, the record fixtures and
     and the tier-3 golden diff unchanged, and the package record
     RPT-121.*
 
+    Read with PFS-2075.23 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     Read at 0.34.0 (GOAL-039, arm W9).
 
     Measured at v0.33.0: `script/helpers.py` holds 1678 code lines and
@@ -726,6 +730,8 @@ diff, the products snapshot, the record fixtures and
     table, `_build_parser` out of the G2 length table, the command-line
     parity of `scripts/check_parity.py` (every console tool, subcommand,
     option and choice) unchanged, and the package record RPT-122.*
+
+    Read with PFS-2075.24 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
     Read at 0.34.0 (GOAL-039, arm W9).
 

@@ -3918,6 +3918,8 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-96 A row may ask to continue a run the wall clock stopped <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2075, PFS-2075.19 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     Read with PFS-2074.26 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     *Origin: the owning seat's decision of 2026-09-12, that the word RESTART
@@ -6730,6 +6732,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-153 Probes and volume sections write sampled velocity fields <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2075, PFS-2075.20 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     Read with PFS-2074.27 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     *Origin: the sampled-field need of the 0.29.0 quality gate. Evidence:
@@ -7878,6 +7882,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-312 A geometry file can be reduced to its meshes and applied boundary conditions <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2075, PFS-2075.21 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     Read with PFS-2074, PFS-2074.08 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     *Origin: item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3), the part of the clean beyond the saved actions of FR-308. Pending: built on 2026-09-30 over the measurement of R2; the paired measurement named below (a simulation carrying every block against the same mesh freshly imported) and the licensed confirmation are still owed, and no fresh import of 26.124 is committed. Evidence so far: `tests/tier1_offline/test_fr312_inventory_clean.py`. Evidence owed: the dated report of that measurement (a simulation carrying every block against the same mesh freshly imported with the same boundary conditions, the builds compared named); tier-1 tests on recorded fixtures, each with a control; and the licensed confirmation, on 26.124, that the solver opens and runs a cleaned file (licensed round L1 of the 0.33.0 release), without which the claim of R1 is unverified.*
@@ -7989,6 +7995,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-318 On a row turning a rotor, the moments model follows the vorticity drag <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2075, PFS-2075.18 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     Read with PFS-2074, PFS-2074.12 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     *Origin: an author requirement of 2026-09-30, set from a prior measurement made outside this package: on a propeller run with the induced drag by vorticity and the moments by pressure, the thrust came from the vorticity integration and the torque from the pressure integration. The requirement is that on a rotor the two settings are one decision; it asserts no solver behaviour of its own. Evidence: `tests/tier1_offline/test_fr317_fr318_moments_model.py::test_on_a_rotor_vorticity_drag_implies_vorticity_moments_warned_and_recorded`, `::test_on_a_rotor_pressure_moments_beside_vorticity_drag_are_refused`, `::test_the_link_holds_only_on_a_rotor_and_only_with_a_drag_list`, `::test_a_rotor_row_is_recognised_by_the_builder`. Owed: the licensed confirmation of R5, registered in RPT-106.*
@@ -8044,6 +8052,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-321 A rotor row's wake termination can be stated as a wake length in rotor radii, 4R by default <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2075, PFS-2075.01 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     *Origin: item WAKE-LENGTH of the 0.34.0 scope (scope record GEO-071, section 4.7) and the author decisions of 2026-10-01 that set its default (L = 4R, a recommendation the user may change, kept for its computational cost). Marker P0340-WAKE-LENGTH; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker, and the licensed confirmation of a long wake on 26.124 (RPT-130). Evidence owed: tier-1 tests that convert a stated length into steps from V_ax, Omega and the step angle and assert the emitted `SET_WAKE_TERMINATION_TIME_STEPS` line, with a row stating steps as the control; a test that a rotor row stating no termination gets the 4R default and that the run record carries the three recorded values; the parity entry naming the scripts the default changes; and RPT-130, which measures V_ax on a run before the default formula is chosen (R3).*
 
     Need: The wake termination counts time steps or revolutions (`wake_termination_steps`, `wake_termination_revolutions`), while what matters is the length of wake the solver keeps behind the rotor, and that length changes with the rotor speed, the free-stream speed and the step angle. One revolution of termination at a moderate advance ratio keeps a wake of about 1.6 rotor radii, which ends before a probe line one diameter downstream; two revolutions without a limit reach about 3.2 radii.
@@ -8061,6 +8071,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-322 One key states a row's wake termination, and two are refused <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2075, PFS-2075.01 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     *Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7, and the design rules of the 0.34.0 planning inbox: one key only, length or steps or revolutions, and the plan refuses two). Marker P0340-WAKE-ONE-KEY; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker. Evidence owed: a test per pair of the three keys, stated in one setup, in the preset and the row, and in the row alone, each refused at plan naming both keys and where each comes from, with a row stating one key as the control.*
 
     Need: Three keys can now state the same termination (length, steps, revolutions), and two of them can only disagree.
@@ -8075,6 +8087,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (planned for 0.34.0): the refusal beside `_wake_termination` of `pyflightstream.cases.workflows`, raised at plan.
 
 !!! requirement "FR-323 A wake length on a hover row uses the induced velocity or a declared revolution cap, and says which <span class='srs-pending'>pending</span>"
+
+    Read with PFS-2075, PFS-2075.01 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
     *Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7, and the design rules of the 0.34.0 planning inbox). Marker P0340-WAKE-HOVER; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker. Evidence owed: tests on a row with zero free-stream speed stating a thrust, stating a revolution cap, and stating neither (refused), each asserting the emitted steps and the rule the record names, with a forward-flight row as the control.*
 
@@ -8092,6 +8106,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-324 A setup places the solver's wake end plane <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2075, PFS-2075.01 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     *Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7, its complement of 2026-10-01) and the author decision of 2026-10-01 to keep L = 4R and offer an option that moves the Trefftz plane; the setup key audit of FR-319 (RPT-106) lists the wake end plane as owed to 0.34. Marker P0340-WAKE-TREFFTZ; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker and the parity script. Evidence owed: a test that a stated plane writes `WAKE_TERMINATION_X <value>` in `INITIALIZE_SOLVER` and changes no other line, a test that an unstated key leaves every script byte-identical to 0.33.0 (`DEFAULT`), and a refusal test for a value the command does not take.*
 
     Need: Every workflow writes `WAKE_TERMINATION_X DEFAULT`, and the solver's default plane limits the wake whatever the termination says. On 26.124 the default plane was measured at 5.5 rotor radii downstream on a rotor case and at 2.1 radii on a blades-only wheel, where it cut the wake; no setup key reaches the argument, and the raw command route cannot replace one argument of a keyword block.
@@ -8106,6 +8122,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (planned for 0.34.0): the key in the setup key registry and its emission through the per-family emitter of AD-17; the row of RPT-106 moves from owed to covered.
 
 !!! requirement "FR-325 The plan always warns when a rotor row's wake cannot reach its length <span class='srs-pending'>pending</span>"
+
+    Read with PFS-2075, PFS-2075.01 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
     *Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7) and the author decisions of 2026-10-01 that the plan warns always, at the 4R recommendation and at any larger length asked, and when the Trefftz plane sits before the length. Marker P0340-WAKE-PLAN-WARN; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker. Evidence owed: tests over a rotor row and a blades-only wheel (the two measured plane placements of FR-324 as fixtures), at L = 4R and at a larger L, with too few revolutions and with enough, with the plane stated before L, after L and left at `DEFAULT`; each asserting the warning text where owed, its absence where not, an exit status of 0 and the same plan written as without the warning.*
 
@@ -8122,6 +8140,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (planned for 0.34.0): a warning of `pyfs-matrix plan` in `pyflightstream.run._plan`, over the conversion of FR-321.
 
 !!! requirement "FR-326 One new point is planned and run without editing the matrix <span class='srs-pending'>pending</span>"
+
+    Read with PFS-2075, PFS-2075.02 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
     *Origin: item (1) of the run-usability items of the 0.34.0 scope (GEO-071, section 4.8), measured on a real map run in which a single test point could only be planned by setting RUN 0 on every other row. Marker P0340-RUN-ONE-POINT; read at 0.34.0 (GOAL-039, arm MU). Pending: no code yet. Verification method: tier-1 tests carrying the marker, through `main`. Evidence owed: tests that `plan` and `run` with a simulation id, and with a simulation id and a point, plan and run only that selection; that the matrix file is byte-identical before and after; that an id or a point the matrix does not carry is refused before anything runs; that a selected point already recorded is refused as 0.33.0 refuses it; and that `run --sims` with `--force-rerun-all` keeps its 0.33.0 reading, as the control.*
 
@@ -8140,6 +8160,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-327 A second run of a matrix without --resume names the exact command to continue <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2075, PFS-2075.03 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     *Origin: item (2) of the run-usability items of the 0.34.0 scope (GEO-071, section 4.8): a second `run` of the same matrix without `--resume` failed instead of saying what to do. Marker P0340-RUN-AGAIN; read at 0.34.0 (GOAL-039, arm MU). Pending: no code yet. Verification method: tier-1 tests carrying the marker, through `main`. Evidence owed: a test that runs a matrix, adds a point, runs again without `--resume`, and asserts the printed command is the invoked one with `--resume` added and that running the printed command runs exactly the new point; a test that the exit status stays non-zero; and a control where nothing is recorded, which runs without the message.*
 
     Need: The refusal of a second run explains `--resume` and `--force-rerun` in words, so a person must rebuild the command line by hand.
@@ -8155,6 +8177,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (planned for 0.34.0): the refusal of `pyflightstream.run._campaign.run_campaign` and the command-line rendering in the parser module of AD-18.
 
 !!! requirement "FR-328 The cheatsheet is one ten-page document carrying every command and option of every console tool <span class='srs-pending'>pending</span>"
+
+    Read with PFS-2075, PFS-2075.13 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
     *Origin: items (1) and (2) of the guides item of the 0.34.0 scope (GEO-071, section 4.9) and the author decisions of 2026-10-01 that the cheatsheet is one document, its first page the current cheatsheet, then the pages by stage, ten pages in all, every command-line command included. Marker P0340-CHEATSHEET-ONE; read at 0.34.0 (GOAL-039, arm MG). Pending: built in part on a branch of 2026-10-01 (two sheets, not yet one document). Verification method: tier-1 tests carrying the marker. Evidence owed: a test that the compiled PDF has ten pages; a test that walks the parser of every console tool and refuses the source when a command or an option is missing, or names one no parser has, with a planted flag, a planted command and a cut line as controls; and a test that each of the eight stage pages names its stage.*
 
@@ -8172,6 +8196,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-329 The guides are numbered from 01 and the cheatsheet is guide 04 <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2075, PFS-2075.14 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     *Origin: item (3) of the guides item of the 0.34.0 scope (GEO-071, section 4.9) and the author decision of 2026-10-01 that the guide numbers start at 1 and the cheatsheet enters as 04. Marker P0340-GUIDES-FROM-ONE; read at 0.34.0 (GOAL-039, arm MG). Pending: no code yet. Verification method: tier-1 tests carrying the marker and a scan of the tracked tree. Evidence owed: a test that no tracked file names `pyfts-guide-00`; a test that the guide decks are `pyfts-guide-01` to `pyfts-guide-09` with the cheatsheet as `pyfts-guide-04`; and a test that the build scripts, the admitted-PDF list (the house-style walk, the ignore file, the pre-commit hook and the CI guard), the guide tests and the pages that link the guides name the same set.*
 
     Need: The decks start at `pyfts-guide-00`, which reads oddly, and the cheatsheet is not numbered with them.
@@ -8186,6 +8212,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (planned for 0.34.0): the renaming under `guide/`, its build scripts, the admitted-PDF list and the linking pages.
 
 !!! requirement "FR-330 A command at the level of inventory derives a thin blade from a blade mesh <span class='srs-pending'>pending</span>"
+
+    Read with PFS-2075, PFS-2075.04 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
     *Origin: the degenerate-geometry item of the 0.34.0 scope (GEO-071, sections 4.10 and 4.11) and the author decision of 2026-10-01 that a command at the level of `inventory` creates degenerate geometries, the thin blade first. Marker P0340-THIN-BLADE; read at 0.34.0 (GOAL-039, arm MT). Pending: no code yet. Verification method: tier-1 tests carrying the marker, on synthetic blade meshes the tests build. Evidence owed: tests that the derived surface lies midway between the two sides of a synthetic blade within a stated tolerance; that its root is moved outward by the stated offset; that the boundaries are written beside the source; that a mesh the command cannot read is refused by name, writing nothing; that the source is never modified; and that the CLI reference and the cheatsheet name the command.*
 
@@ -8204,6 +8232,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-331 An actuator disc with rpm_sign +1 swirls the way a rotor with rpm_sign +1 turns <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2075, PFS-2075.05 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     *Origin: the actuator-disc findings of the 0.34.0 scope (GEO-071, section 4.11) and the author decision of 2026-10-01 to fix the swirl sign with a test and document the rest. Measured on 26.124: a disc with `rpm_sign +1` swirled against a rotor with `rpm_sign +1`, contrary to the docstring, and needed -1. Marker P0340-ACT-SWIRL-SIGN; read at 0.34.0 (GOAL-039, arm MA). Pending: no code yet. Verification method: a tier-1 test carrying the marker that pins the emitted sign, the parity script's named difference, and the actuator-disc report RPT-137. Evidence owed: the test pinning the sign of the emitted disc speed for `rpm_sign +1` and `-1`; the parity entry naming the changed actuator lines under this requirement; the migration page's paragraph; and RPT-137 stating the measurement the sign rests on.*
 
     Need: A disc written with the same hand as the rotor it stands for swirls the wake the other way, so a disc study compares against the wrong rotor.
@@ -8218,6 +8248,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (planned for 0.34.0): the disc emission of `pyflightstream.cases.workflows._actuator` (the only module reading `rpm_sign` for a disc).
 
 !!! requirement "FR-332 The measured actuator-disc behaviours are documented, and a RELAXED disc naming a profile is warned about <span class='srs-pending'>pending</span>"
+
+    Read with PFS-2075, PFS-2075.06 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
     *Origin: the actuator-disc findings of the 0.34.0 scope (GEO-071, section 4.11) and the author decision of 2026-10-01 to document the findings other than the sign and guard them where sensible. Marker P0340-ACT-DOCS; read at 0.34.0 (GOAL-039, arm MA). Pending: no code yet. Verification method: tier-1 tests carrying the marker (the warning, and the presence of each statement on its page), and RPT-137. Evidence owed: a test that the plan warns on a RELAXED disc naming a profile, never refuses, and writes the same plan, with a RIGID disc naming a profile and a RELAXED disc with a thrust as controls; and a test that each documented statement of R1 to R4 is on its page.*
 
@@ -8235,6 +8267,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-333 The acoustic, CCS, surface-removal and wake commands are promoted through pyfs-qa <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2075, PFS-2075.07, PFS-2075.25 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     *Origin: the first CCS and noise item of the 0.34.0 scope (GEO-071, section 4.1): the commands ran on 26.124 through the 0.32.0 release harness (RPT-096 to RPT-098), not through `pyfs-qa probe`, and stay `documented`. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-QA-PROMOTE; read at 0.34.0 (GOAL-039, arm CN). Pending: no code yet. Verification method: tier-1 tests carrying the marker over the catalog and the command database, and the licensed probe run reported in RPT-126. Evidence owed: a test that each command of R1 has a catalog entry in `pyflightstream.qa.specs` (or the catalog module the cut of `qa/specs.py` creates); a test that each such command's 26.124 status in the command database equals the verdict of RPT-126; and RPT-126 itself, from a `pyfs-qa probe` run on 26.124, far field 5.*
 
     Need: The command database marks commands that ran on 26.124 as `documented`, because the run was not the probe tool's; promoting them needs catalog entries and one licensed probe run.
@@ -8250,6 +8284,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-334 The surface-sections, CCS-wing and boundary-layer commands are probed and promoted <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2075, PFS-2075.08 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     *Origin: planning item PFS-2001.05, carried into the 0.34.0 scope (GEO-071, section 4.1): three commands the package emits on a reading of the manual alone; RPT-096 probed the CCS-wing command only. Marker P0340-PROBE-2001-05; read at 0.34.0 (GOAL-039, arm CN), PFS-2001.05 moving to 0.34.0. Pending: no code yet. Verification method: tier-1 tests carrying the marker and the licensed probe run of RPT-126. Evidence owed: probe specifications for the three, the verdicts in the command database and in RPT-126, and a test that each status equals its verdict.*
 
     Need: If the solver silently rejects the grammar of one of these commands, a person finds out when a run dies halfway.
@@ -8263,6 +8299,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (planned for 0.34.0): the catalog entries and the promotion, in the run shared with FR-333.
 
 !!! requirement "FR-335 The command database states the measured arity of the two CCS export commands <span class='srs-pending'>pending</span>"
+
+    Read with PFS-2075, PFS-2075.09 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
     *Origin: planning item PFS-2003.06, carried into the 0.34.0 scope (GEO-071, section 4.1): the database emits the six arguments of the signature header while the parameter table of the same manual page documents four. Marker P0340-ARITY-2003-06; read at 0.34.0 (GOAL-039, arm CN), PFS-2003.06 moving to 0.34.0. Pending: no code yet. Verification method: a tier-1 test carrying the marker over the command database and the emitter, and the licensed probe of RPT-126. Evidence owed: RPT-126 stating the arity measured on 26.124 (the file each command writes, read on disk); the database entry carrying that arity; and a test that the emitted line of each command has that many arguments.*
 
@@ -8278,6 +8316,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-336 The cause of the REAL control-surface failure is separated by a probe and stated <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2075, PFS-2075.10 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     *Origin: CCS-2 of the 0.34.0 scope (GEO-071, section 4.1): the REAL bounds form failed on 26.124 (`FAILED_EXECUTION`, RPT-097) and the package refuses it by name (FR-295 to FR-297); its cause is not investigated. Marker P0340-CCS2-REAL; read at 0.34.0 (GOAL-039, arm CN). Pending: no code yet. Verification method: the licensed probe of RPT-126, and a tier-1 test carrying the marker that the refusal holds unless RPT-126 shows a working form. Evidence owed: RPT-126 stating the probes run (each varying one thing) and the cause they separate; the test of the refusal, or of the re-admitted form with its control.*
 
     Need: The REAL form is refused without knowing why it fails, so the refusal cannot say whether a REAL form can ever work.
@@ -8291,6 +8331,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (planned for 0.34.0): RPT-126 and, if a form is measured to work, the CCS wing emitter.
 
 !!! requirement "FR-337 The sign of the quasi-steady noise route against its unsteady reference is studied in an exploratory report <span class='srs-pending'>pending</span>"
+
+    Read with PFS-2075, PFS-2075.11 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
     *Origin: QS-NOISE of the 0.34.0 scope (GEO-071, section 4.1): route A agrees with the unsteady reference in level and in shape but not in sign (RPT-099), and the author left QS-NOISE exploratory, with no threshold and no gate. Marker P0340-QSNOISE-SIGN; read at 0.34.0 (GOAL-039, arm CN). Pending: no study yet. Verification method: review of RPT-132, and a tier-1 test carrying the marker that RPT-132 exists, states that it is exploratory, and that no check gates on it. Evidence owed: RPT-132.*
 
@@ -8391,6 +8433,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-344 No tracked file carries a digest of the solver's documentation <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2075, PFS-2075.15 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     *Origin: the author decision of 2026-10-01 that the digests of the solver's manual, release notes and licence agreement leave RPT-050 in 0.34.0 (GEO-071, section 4.10). It extends what NFR-31 R1 covers, which excludes the documentation's digests; NFR-31 itself is unchanged. Marker P0340-VENDOR-DIGESTS; read at 0.34.0 (GOAL-039, arm RG). Pending: no code yet. Verification method: a tier-1 guard carrying the marker, with a planted control. Evidence owed: a guard that refuses the digests RPT-050 recorded for those files, anywhere in the tracked tree, and a 64-hex value on the same line as the name of a manual, release-notes or licence-agreement file of the solver package; its control plants one; RPT-050's dated amendment line.*
 
     Need: The digests identify the vendor's documentation files and need not be published; the private corpus keeps the manual's digest.
@@ -8406,6 +8450,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-345 The report-index test reads the release section that carries its report <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2075, PFS-2075.16 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     *Origin: the `test_rpt096` item of the 0.34.0 scope (GEO-071, section 4.3; confirmed for 0.34.0 by the author decision of 2026-10-01): the test looked for a fixed release title and failed the tag CI of 0.32.0 when a new section opened. Marker P0340-RELEASE-TITLE; read at 0.34.0 (GOAL-039, arm RG). Pending: no code yet. Verification method: a tier-1 test carrying the marker. Evidence owed: the retargeted test passing with a new, empty release section added above the one that carries its report, which fails the 0.33.0 form, as the control.*
 
     Need: A test that names a release title breaks the moment the next release section opens.
@@ -8418,6 +8464,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (planned for 0.34.0): the test module of the report index.
 
 !!! requirement "FR-346 The release-state file states no owed archive row <span class='srs-pending'>pending</span>"
+
+    Read with PFS-2075, PFS-2075.17 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
     *Origin: the `RELEASE-READY.md` item of the 0.34.0 scope (GEO-071, section 4.4; confirmed for 0.34.0 by the author decision of 2026-10-01): the file still says "archive row owed", false since the Zenodo archive row entered. Marker P0340-RELEASE-READY; read at 0.34.0 (GOAL-039, arm RG). Pending: no rewrite yet. Verification method: a tier-1 test carrying the marker. Evidence owed: a test that `RELEASE-READY.md` does not contain the phrase and names the release it describes.*
 
