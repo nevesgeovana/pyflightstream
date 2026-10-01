@@ -491,7 +491,7 @@ def test_an_unstated_probe_frame_is_the_rotor_this_row_turns(tmp_path):
     rotor when there is no rotor of that name at all (the interface lens, on
     the fix).
     """
-    from pyflightstream.cases.workflows import _the_probe_frame
+    from pyflightstream.cases.workflows._probes import _the_probe_frame
 
     case = expanding_case(motions=[{"MOVING_BC_ALIAS": "PUSHER", "RPM": "2200"}])
     assert _the_probe_frame(case, "") == "PUSHER_SMRP"
@@ -507,7 +507,7 @@ def test_an_unstated_probe_frame_on_a_row_turning_several_is_refused(tmp_path):
     candidates, which is the useful half.
     """
     from pyflightstream.cases import CampaignConfigError
-    from pyflightstream.cases.workflows import _the_probe_frame
+    from pyflightstream.cases.workflows._probes import _the_probe_frame
 
     case = expanding_case(
         motions=[
@@ -525,7 +525,7 @@ def test_the_clock_answers_it_where_a_row_turns_several(tmp_path):
     Without this arm the refusal above is a wall on every multirotor row,
     which is the shape the fix it replaced already had.
     """
-    from pyflightstream.cases.workflows import _the_probe_frame
+    from pyflightstream.cases.workflows._probes import _the_probe_frame
 
     case = expanding_case(
         variables={"CLOCK_MOTION": "PUSHER"},
@@ -541,7 +541,7 @@ def test_a_rotorless_row_lays_its_lines_in_the_moment_frame():
     """Where a row turns nothing there is no hub, and MRP is where an unstated
     frame put them on a rotorless run before this release too."""
     from pyflightstream.cases import SimCase, SweepAxis
-    from pyflightstream.cases.workflows import _the_probe_frame
+    from pyflightstream.cases.workflows._probes import _the_probe_frame
 
     plain = SimCase(
         sim_id="9401",

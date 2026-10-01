@@ -247,13 +247,15 @@ def test_goal023_told_not_hidden_the_label_is_what_the_script_registers(build, l
 def test_goal023_told_not_hidden_a_label_that_disagrees_with_the_script_is_refused(monkeypatch):
     """Architect lens F1: build_script holds the label and the script together."""
     from pyflightstream.cases import workflows
+    from pyflightstream.cases.workflows import _registry
 
-    monkeypatch.setattr(workflows, "march_strategy", lambda case, **_: MARCH_ACTIONS)
+    # build_script looks the strategy up in its own module of the package (AD-12).
+    monkeypatch.setattr(_registry, "march_strategy", lambda case, **_: MARCH_ACTIONS)
     with pytest.raises(workflows.WorkflowCoverageError, match="internal defect"):
         build_script(unsteady_case(), Script("26.123"))
     # The other direction (qa lens, round two): a single march whose script
     # registers actions is refused too.
-    monkeypatch.setattr(workflows, "march_strategy", lambda case, **_: MARCH_SINGLE)
+    monkeypatch.setattr(_registry, "march_strategy", lambda case, **_: MARCH_SINGLE)
     with pytest.raises(workflows.WorkflowCoverageError, match="internal defect"):
         build_script(unsteady_case(EXPORT_UNSTEADY_AFTER_ITER="2"), Script("26.123"))
 
@@ -413,7 +415,7 @@ def test_goal023_support_matrix_every_run_type_renders_on_every_build(name, buil
 
 def test_goal023_support_matrix_the_euclidean_rotor_is_decided_once():
     """Architect lens F2: coverage and the helper read one predicate, over every build."""
-    from pyflightstream.cases.workflows import _carried
+    from pyflightstream.cases.workflows._conventions import _carried
     from pyflightstream.script import rotor_vocabulary as vocabulary
 
     registry = CommandRegistry.load()
@@ -447,7 +449,8 @@ def test_goal023_support_matrix_the_euclidean_rotor_is_decided_once():
     # QA-2: the unmarked predicate decides the vocabulary, never whether the
     # build runs a rotor, so a build with the angular velocity and no
     # CREATE_NEW_MOTION is still refused on the motion, as 25.000 is.
-    from pyflightstream.cases.workflows import _missing_commands, resolve_workflow
+    from pyflightstream.cases.workflows import resolve_workflow
+    from pyflightstream.cases.workflows._conventions import _missing_commands
     from pyflightstream.versions import resolve
 
     packaged = CommandRegistry.load()

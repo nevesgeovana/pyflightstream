@@ -9,7 +9,7 @@ probes. SRC-003 p.347 has only the eight non-BL fluid parameters.
 import pytest
 
 from pyflightstream.cases import CampaignConfigError, SimCase, SweepAxis
-from pyflightstream.cases.workflows import _pproc_probes
+from pyflightstream.cases.workflows._probes import _pproc_probes
 from pyflightstream.script import CommandArgumentError, Script
 from pyflightstream.workspace.inputs import resolve_pproc
 

@@ -146,7 +146,7 @@ def test_goal024_closing_round_export_log_refuses_a_word_it_does_not_know(meter_
     The permissive side is the one that hurts: a typo read as "yes, export it"
     puts `EXPORT_LOG` back in the script on a machine that aborts at it.
     """
-    from pyflightstream.cases.workflows import _exports_its_log
+    from pyflightstream.cases.workflows._exports import _exports_its_log
 
     case = _case("flase", meter_geometry=meter_geometry)
 
@@ -158,7 +158,7 @@ def test_goal024_closing_round_export_log_refuses_a_word_it_does_not_know(meter_
 
 def test_goal024_closing_round_export_log_reads_the_words_it_does_know(meter_geometry):
     """THE CONTROL for the refusal above: `false` and `true` are read, and are opposite."""
-    from pyflightstream.cases.workflows import _exports_its_log
+    from pyflightstream.cases.workflows._exports import _exports_its_log
 
     assert _exports_its_log(_case("false", meter_geometry=meter_geometry)) is False
     assert _exports_its_log(_case("true", meter_geometry=meter_geometry)) is True

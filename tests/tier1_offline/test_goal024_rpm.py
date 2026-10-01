@@ -128,7 +128,7 @@ def _motion_speed(workspace, matrix) -> float:
     that had stopped doing it, which is the reason for going through the seam
     rather than around it.
     """
-    from pyflightstream.cases.workflows import _optional_rotor_speed
+    from pyflightstream.cases.workflows._motion import _optional_rotor_speed
 
     speed = _optional_rotor_speed(_case_of(workspace, matrix))
     assert speed is not None, "the row resolves no rotor speed at all"

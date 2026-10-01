@@ -7,7 +7,7 @@ import numpy as np
 
 from pyflightstream.cases import SimCase
 from pyflightstream.cases.matrix import _COLUMNS, read_matrix
-from pyflightstream.cases.workflows import _the_custom_freestream
+from pyflightstream.cases.workflows._freestream import _the_custom_freestream
 from pyflightstream.post import OutputProvenance, write_probe_field
 from pyflightstream.script.solver_setup import SolverSetup
 from pyflightstream.workspace import CampaignWorkspace

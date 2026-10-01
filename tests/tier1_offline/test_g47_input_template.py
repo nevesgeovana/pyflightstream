@@ -41,11 +41,11 @@ from pyflightstream.cases import SolverSettings
 from pyflightstream.cases.matrix import _COLUMNS, read_matrix
 from pyflightstream.cases.workflows import (
     FREESTREAM_FORMS,
-    _read_custom_freestream,
-    _read_probe_profile,
     read_actuator_profile,
     workflow_registry,
 )
+from pyflightstream.cases.workflows._freestream import _read_custom_freestream
+from pyflightstream.cases.workflows._probes import _read_probe_profile
 from pyflightstream.run import PlanStatus, render_descriptor
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.workspace import (

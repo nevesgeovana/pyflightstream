@@ -16,7 +16,7 @@ from pyflightstream.cases import (
     RawMeshConditions,
     SolverSettings,
 )
-from pyflightstream.cases.workflows import _script_init
+from pyflightstream.cases.workflows._skeleton import _script_init
 from pyflightstream.fsi import nodes
 from pyflightstream.run import _write_pending_files
 from pyflightstream.script import Script

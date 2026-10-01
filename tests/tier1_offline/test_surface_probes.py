@@ -4,7 +4,8 @@ import pytest
 from pydantic import ValidationError
 
 from pyflightstream.cases import CampaignConfigError, PprocSpec
-from pyflightstream.cases.workflows import _pproc_probes, build_script
+from pyflightstream.cases.workflows import build_script
+from pyflightstream.cases.workflows._probes import _pproc_probes
 from pyflightstream.script import Script
 from tests.tier1_offline.test_g05_volume_section import _steady
 from tests.tier1_offline.test_workflows import unsteady_case

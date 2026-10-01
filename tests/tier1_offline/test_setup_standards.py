@@ -8,7 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from pyflightstream.cases import SimCase, SolverSettings, SweepAxis
-from pyflightstream.cases.workflows import _settings
+from pyflightstream.cases.workflows._solver_settings import _settings
 from pyflightstream.run.cli import _build_parser
 from pyflightstream.script import Script
 
@@ -150,7 +150,7 @@ def test_explicit_no_trailing_edge_is_preserved_and_emits_no_detection(tmp_path)
     # GOAL033:capability_ids:items:G17
     from pyflightstream._errors import PyflightstreamWarning
     from pyflightstream.cases import RawMeshConditions
-    from pyflightstream.cases.workflows import _raw_mesh_boundary_conditions
+    from pyflightstream.cases.workflows._geometry import _raw_mesh_boundary_conditions
     from pyflightstream.workspace.inputs import InputArtifactError
     from pyflightstream.workspace.sidecars import _read_trailing_edges
 
@@ -199,7 +199,7 @@ def test_rotor_shedding_matrix_key_is_refused_without_changing_helper():
 def test_multiple_actuator_records_have_independent_speed_and_loading():
     # GOAL033:capability_ids:items:G21
     from pyflightstream.cases import CampaignConfigError
-    from pyflightstream.cases.workflows import _actuator_disc, _the_actuator_the_row_names
+    from pyflightstream.cases.workflows._actuator import _actuator_disc, _the_actuator_the_row_names
     from pyflightstream.script import helpers
 
     case = SimCase(
@@ -237,7 +237,8 @@ def test_multiple_actuator_records_have_independent_speed_and_loading():
 def test_inlet_outlet_ownership_preserves_order_and_normal_velocity(tmp_path):
     from pyflightstream._errors import PyflightstreamWarning
     from pyflightstream.cases import RawMeshConditions
-    from pyflightstream.cases.workflows import _raw_mesh_boundary_conditions, _settings
+    from pyflightstream.cases.workflows._geometry import _raw_mesh_boundary_conditions
+    from pyflightstream.cases.workflows._solver_settings import _settings
     from pyflightstream.workspace.inputs import read_raw_mesh_conditions
     from pyflightstream.workspace.matrix import _bind_setup_ports
 
@@ -285,7 +286,7 @@ def test_inlet_outlet_ownership_preserves_order_and_normal_velocity(tmp_path):
 def test_rotor_shedding_refused_by_registered_builder_guard(workflow):
     # GOAL033:capability_ids:items:G35
     from pyflightstream.cases import CampaignConfigError
-    from pyflightstream.cases.workflows import _refuse_unregistered_keys
+    from pyflightstream.cases.workflows._rows import _refuse_unregistered_keys
 
     case = SimCase(
         sim_id="9001",
@@ -350,7 +351,7 @@ def test_full_inspection_and_saved_plan_share_the_same_resolved_records(tmp_path
 
 
 def test_multiple_profile_inputs_survive_the_pending_input_writer(tmp_path):
-    from pyflightstream.cases.workflows import _actuator_disc, _the_actuator_the_row_names
+    from pyflightstream.cases.workflows._actuator import _actuator_disc, _the_actuator_the_row_names
     from pyflightstream.run import _write_pending_files
     from pyflightstream.script import helpers
 
@@ -394,7 +395,7 @@ def test_synthetic_duct_import_emits_ports_after_geometry(tmp_path):
     from pathlib import Path
 
     from pyflightstream._errors import PyflightstreamWarning
-    from pyflightstream.cases.workflows import _open_geometry
+    from pyflightstream.cases.workflows._geometry import _open_geometry
     from pyflightstream.workspace.inputs import read_raw_mesh_conditions
     from pyflightstream.workspace.matrix import _bind_setup_ports
     from tests.tier3_licensed.duct import write_duct_obj

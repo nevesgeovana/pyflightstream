@@ -381,7 +381,7 @@ def _matching_distributions(
     if geometry is not None and boundary_labels(list(geometry))[1]:
         # A NAME TWO BOUNDARIES CARRY SETTLES NOTHING (the pre-push read of
         # block 3, both lenses). The builder leaves such a name out of its
-        # label map (`_inventory(script)` in cases/workflows.py), so the names
+        # label map (`_inventory(script)` in cases/workflows/_names.py), so the names
         # left no longer say what `all` or a stem selected: over them an `all`
         # block read as the one uniquely named boundary, a `Wing` request
         # integrated a block that covered every boundary, and a legacy split
@@ -431,7 +431,7 @@ def _matching_distributions(
         # nothing here can tell which reading ran. The match is 0.26.0's.
         geometry = None
     # THE BUILDER'S INVENTORY, REBUILT: the labels the script declared at
-    # OPEN in index order (`_inventory(script)` in cases/workflows.py).
+    # OPEN in index order (`_inventory(script)` in cases/workflows/_names.py).
     exact = (
         None
         if geometry is None

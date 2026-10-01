@@ -36,10 +36,10 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.cases import CampaignConfigError
-from pyflightstream.cases import workflows as workflows_module
 from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.cases.workflows import (
     WORKFLOW_KEY,
+    _vocabulary,
     build_script,
     build_steady_sweep,
     workflow_registry,
@@ -171,7 +171,7 @@ def test_a_raw_mesh_whose_sidecar_declares_no_trailing_edge_is_refused_at_plan(t
         assert needle in message, f"the refusal does not name {needle!r}: {message}"
     # THE PAGE'S OWN WORDS: the refusal says which sentence to search for, and
     # a quoted phrase the page does not carry sends a blocked user nowhere.
-    anchor = workflows_module._CONDITIONS_PAGE_ANCHOR
+    anchor = _vocabulary._CONDITIONS_PAGE_ANCHOR
     assert anchor in message, message
     page = Path(__file__).resolve().parents[2] / "docs" / "mesh-inputs.md"
     assert anchor in page.read_text(encoding="utf-8"), f"{page.name} does not carry {anchor!r}"

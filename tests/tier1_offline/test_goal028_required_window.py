@@ -13,7 +13,7 @@ from __future__ import annotations
 import pytest
 
 from pyflightstream.cases import CampaignConfigError, SimCase, SweepAxis
-from pyflightstream.cases.workflows import _require_the_averaging_window
+from pyflightstream.cases.workflows._rows import _require_the_averaging_window
 
 
 def _case(recipe: str, **variables: str) -> SimCase:

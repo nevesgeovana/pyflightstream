@@ -33,8 +33,12 @@ FlightStream versions.
 
 ### Changed
 
-- mypy recount 2026-10-01: 1122 errors in 18 of 173 modules, on `rel/0-33`
-  with work package WP3 (AD-11), the fix of FR-320 and the amendment of
+- mypy recount 2026-10-01: 1122 errors in 18 of 196 modules, on `rel/0-33`
+  with work package WP4 (AD-12) merged: `cases/workflows.py` cut into the
+  package `cases/workflows/` of 24 modules, each clean, twenty-three more
+  than before, so the error total and the dirty count are those of the base.
+  Before it, `rel/0-33` read 1122 in 18 of 173 with work package WP3 (AD-11),
+  the fix of FR-320 and the amendment of
   FR-96 merged. The branch of FR-96 alone read 1125 in 18 of 158 and adds
   no module, and `rel/0-33` before it was merged, at `a5e66d9a`, read 1130
   in 18 of 173; the eight fewer are all in the exempted `run` root (938 to

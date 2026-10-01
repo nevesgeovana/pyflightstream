@@ -12,8 +12,8 @@ from pyflightstream.cases import (
     ProbesSpec,
     ReferenceData,
     RotorBlock,
-    workflows,
 )
+from pyflightstream.cases.workflows import _frames, _probes
 from pyflightstream.script import Script, helpers
 
 
@@ -46,7 +46,7 @@ def test_reference_origins_are_metres(unit, factor, which, point):
     # GOAL033:capability_ids:items:G34
     script = Script("26.124")
     script.emit("SET_SIMULATION_LENGTH_UNITS", unit)
-    index = getattr(workflows, which)(_case(), script)
+    index = getattr(_frames, which)(_case(), script)
     assert script.frame_placements[index].origin == pytest.approx(tuple(v * factor for v in point))
 
 
@@ -55,16 +55,16 @@ def test_probe_metres_become_native_coordinates_once(unsteady):
     case = _case()
     script = Script("26.124")
     script.emit("SET_SIMULATION_LENGTH_UNITS", "MILLIMETER")
-    frame = workflows._moment_frame(case, script)
+    frame = _frames._moment_frame(case, script)
     probes = ProbesSpec(
         frame="MRP",
         parameters=["VELOCITY"],
         points=2,
         lines=[ProbeLine(start=(0.1, 0.0, 0.0), end=(0.2, 0.0, 0.0))],
     )
-    workflows._emit_one_probe_table(case, script, {"MRP": frame}, probes, 0, unsteady=unsteady)
+    _probes._emit_one_probe_table(case, script, {"MRP": frame}, probes, 0, unsteady=unsteady)
     assert script.probe_points[0][1:4] == pytest.approx((100.0, 0.0, 0.0))
-    placed = workflows._in_the_reference_frame(case, script, frame, "MRP", [100.0, 0.0, 0.0])
+    placed = _probes._in_the_reference_frame(case, script, frame, "MRP", [100.0, 0.0, 0.0])
     assert placed == pytest.approx((350.0, -100.0, 20.0))
 
 
@@ -109,7 +109,7 @@ def test_saved_unit_metadata_also_controls_later_origin_commands(tmp_path):
     case = _case()
     case.geometry = geometry
     script = Script("26.124")
-    frame = workflows._moment_frame(case, script)
+    frame = _frames._moment_frame(case, script)
     assert script.simulation_length_unit == "MILLIMETER"
     assert script.frame_placements[frame].origin == pytest.approx((250.0, -100.0, 20.0))
     script.emit("SET_COORDINATE_SYSTEM_ORIGIN", frame=frame, x=0.35, y=0, z=0, units="METER")
@@ -132,8 +132,8 @@ def test_declared_rotor_and_custom_frame_origins_use_metres():
     case.frames = [FrameSpec(name="CUSTOM", origin=(0.1, 0.2, 0.3))]
     script = Script("26.124")
     script.emit("SET_SIMULATION_LENGTH_UNITS", "MILLIMETER")
-    rotor = workflows._rotor_frame(case, script)
-    frame = workflows._setup_frames(case, script)["CUSTOM"]
+    rotor = _frames._rotor_frame(case, script)
+    frame = _frames._setup_frames(case, script)["CUSTOM"]
     assert script.frame_placements[rotor].origin == pytest.approx((400.0, -300.0, 200.0))
     assert script.frame_placements[frame].origin == pytest.approx((100.0, 200.0, 300.0))
 
@@ -143,7 +143,7 @@ def test_legacy_rotor_origin_variable_retains_its_native_unit_contract():
     case.variables = {"ROTOR_ORIGIN": "2,3,4"}
     script = Script("26.124")
     script.emit("SET_SIMULATION_LENGTH_UNITS", "MILLIMETER")
-    frame = workflows._rotor_frame(case, script)
+    frame = _frames._rotor_frame(case, script)
     assert script.frame_placements[frame].origin == (2.0, 3.0, 4.0)
 
 
@@ -160,7 +160,7 @@ def test_fluid_plot_vertices_are_si_but_recorded_positions_remain_native(unit, f
     case = _case()
     script = Script("26.124")
     script.emit("SET_SIMULATION_LENGTH_UNITS", unit)
-    frame = workflows._moment_frame(case, script)
+    frame = _frames._moment_frame(case, script)
     geometry = (
         {"lines": [ProbeLine(start=(0.1, 0.2, 0.3), end=(0.2, 0.2, 0.3))]}
         if shape == "line"
@@ -177,7 +177,7 @@ def test_fluid_plot_vertices_are_si_but_recorded_positions_remain_native(unit, f
         }
     )
     probes = ProbesSpec(frame="MRP", parameters=["VX"], points=2, **geometry)
-    workflows._emit_one_probe_table(case, script, {"MRP": frame}, probes, 0, unsteady=True)
+    _probes._emit_one_probe_table(case, script, {"MRP": frame}, probes, 0, unsteady=True)
     emitted = [line for line in script.render().splitlines() if line.startswith("VERTEX ")]
     assert tuple(map(float, emitted[0].split()[1:])) == pytest.approx((0.1, 0.2, 0.3))
     assert script.probe_points[0][1:4] == pytest.approx((0.1 * factor, 0.2 * factor, 0.3 * factor))

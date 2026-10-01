@@ -3,7 +3,7 @@
 import pytest
 
 from pyflightstream.cases import SolverSettings
-from pyflightstream.cases.workflows import _settings
+from pyflightstream.cases.workflows._solver_settings import _settings
 from pyflightstream.script import Script
 from tests.tier1_offline.test_boundary_setup_coverage import _case
 
@@ -76,7 +76,7 @@ def _resolved_mach_case(**updates):
 
 
 def test_mach_route_uses_the_same_resolved_condition_without_velocity_setter():
-    from pyflightstream.cases.workflows import _fluid
+    from pyflightstream.cases.workflows._freestream import _fluid
 
     case = _resolved_mach_case()
     script = Script("26.124")

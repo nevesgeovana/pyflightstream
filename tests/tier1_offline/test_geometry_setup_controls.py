@@ -2,7 +2,8 @@
 
 import pytest
 
-from pyflightstream.cases import MeshImport, ReferenceData, SolverSettings, workflows
+from pyflightstream.cases import MeshImport, ReferenceData, SolverSettings
+from pyflightstream.cases.workflows import _frames, _geometry, _solver_settings
 from pyflightstream.script import Script
 from tests.tier1_offline.test_cad_import import _case
 
@@ -42,8 +43,8 @@ def test_geometry_controls_precede_detection_and_dimensional_frames(tmp_path, un
         }
     )
     script = Script("26.124")
-    workflows._open_geometry(case, script)
-    frame = workflows._moment_frame(case, script)
+    _geometry._open_geometry(case, script)
+    frame = _frames._moment_frame(case, script)
     text = script.render()
     unit_line = f"SET_SIMULATION_LENGTH_UNITS {unit}"
     assert text.count(unit_line) == 1
@@ -80,7 +81,7 @@ def test_geometry_settings_refuse_unmeasured_units_and_invalid_bounds(settings):
 
 def test_unstated_geometry_controls_preserve_existing_cad_script(tmp_path):
     script = Script("26.124")
-    workflows._open_geometry(_case(tmp_path), script)
+    _geometry._open_geometry(_case(tmp_path), script)
     text = script.render()
     assert text.count("SET_SIMULATION_LENGTH_UNITS METER") == 1
     assert "SET_VERTEX_MERGE_TOLERANCE" not in text
@@ -96,7 +97,7 @@ def test_geometric_bluntness_does_not_silently_use_legacy_command(tmp_path):
         }
     )
     with pytest.raises(Exception, match="SET_GEOMETRIC_EDGE_BLUNTNESS_ANGLE"):
-        workflows._open_geometry(case, Script("26.120"))
+        _geometry._open_geometry(case, Script("26.120"))
 
 
 @pytest.mark.parametrize("unit,factor", [("METER", 1), ("MILLIMETER", 1000)])
@@ -119,8 +120,8 @@ def test_runtime_speeds_are_si_but_authored_reference_dimensions_remain_native(
         }
     )
     script = Script("26.124")
-    workflows._open_geometry(case, script)
-    workflows._settings(case, script)
+    _geometry._open_geometry(case, script)
+    _solver_settings._settings(case, script)
     lines = script.render().splitlines()
     emitted = {
         line.split()[0]: float(line.split()[1])
@@ -151,7 +152,7 @@ def test_workspace_reference_si_is_explicit_and_converts_at_effective_unit(tmp_p
     script = Script("26.124")
     script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
     script.emit("SET_SIMULATION_LENGTH_UNITS", unit)
-    workflows._settings(case, script)
+    _solver_settings._settings(case, script)
     lines = script.render().splitlines()
     emitted = {
         line.split()[0]: float(line.split()[1])

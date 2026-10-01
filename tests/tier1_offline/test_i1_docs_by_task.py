@@ -194,8 +194,11 @@ def test_the_recorded_only_list_keeps_the_merge_h_correction():
 
 def test_the_qsteady_refusal_names_the_page_that_explains_the_passage_positions():
     from pyflightstream.cases import workflows
+    from pyflightstream.cases.workflows import _qsteady_rotor
 
-    source = Path(workflows.__file__).read_text(encoding="utf-8")
+    # The refusal is the quasi-steady builder's, in its module of the package
+    # cases/workflows/ since 0.33.0 (AD-12).
+    source = Path(_qsteady_rotor.__file__).read_text(encoding="utf-8")
     match = re.search(r"the in-plane loads \((docs/[\w-]+\.md), RPT-089\)", source)
     assert match, "the refusal no longer cites a page"
     page = REPO / match.group(1)

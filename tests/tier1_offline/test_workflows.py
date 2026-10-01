@@ -89,6 +89,8 @@ from pyflightstream.cases.workflows import (
     ReductionPlan,
     WorkflowConventions,
     WorkflowCoverageError,
+    _freestream,
+    _vocabulary,
     accepted_symmetry,
     build_script,
     covered_builds,
@@ -337,18 +339,34 @@ def test_a_workflow_resolves_by_table_lookup_and_never_by_import():
         resolve_workflow("pyflightstream.script.helpers:free_stream")
     assert "unsteady_rotor" in str(raised.value)
 
-    tree = ast.parse((SRC / "cases" / "workflows.py").read_text(encoding="utf-8"))
-    imported: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            imported.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom):
-            imported.add(node.module or "")
-            imported.update(alias.name for alias in node.names)
-    assert not {"importlib", "import_module", "__import__"} & imported, (
-        "cases/workflows.py reaches for the import machinery; a workflow that can be "
-        "imported by reference is a recipe with a different name"
-    )
+    for path, tree in _workflows_package():
+        imported: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.update(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom):
+                imported.add(node.module or "")
+                imported.update(alias.name for alias in node.names)
+        assert not {"importlib", "import_module", "__import__"} & imported, (
+            f"{path} reaches for the import machinery; a workflow that can be "
+            "imported by reference is a recipe with a different name"
+        )
+
+
+def _workflows_package() -> list[tuple[str, ast.Module]]:
+    """Every module of the package ``cases/workflows/``, parsed (AD-12).
+
+    The module became a package at 0.33.0; the two guards that read its
+    source walk every module of it, which is the same assertion made of the
+    same code at its new path.
+    """
+    package = SRC / "cases" / "workflows"
+    found = [
+        (f"cases/workflows/{path.name}", ast.parse(path.read_text(encoding="utf-8")))
+        for path in sorted(package.glob("*.py"))
+    ]
+    assert found, f"no module under {package}"
+    return found
 
 
 def test_every_workflow_in_the_table_satisfies_the_recipe_protocol():
@@ -425,16 +443,18 @@ def test_cases_workflows_imports_nothing_above_its_own_layer():
     same rule asserted where the item can see it, because a new module
     at the `cases` layer is exactly where an upward reach is tempting.
     """
-    tree = ast.parse((SRC / "cases" / "workflows.py").read_text(encoding="utf-8"))
     above = {"post", "qa", "run", "workspace", "fsi"}
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("pyflightstream"):
-            parts = (node.module or "").split(".")
-            assert len(parts) < 2 or parts[1] not in above, (
-                f"cases/workflows.py imports {node.module}, which sits at or above the "
-                "run layer; deferring it to a function body would not change its "
-                "direction either"
-            )
+    for path, tree in _workflows_package():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and (node.module or "").startswith(
+                "pyflightstream"
+            ):
+                parts = (node.module or "").split(".")
+                assert len(parts) < 2 or parts[1] not in above, (
+                    f"{path} imports {node.module}, which sits at or above the "
+                    "run layer; deferring it to a function body would not change its "
+                    "direction either"
+                )
 
 
 # --- PFS-2025.18: the build is an input, and an uncovered one is refused -----
@@ -2255,16 +2275,16 @@ def test_the_documented_route_the_refusal_names_really_exists():
     # neither was wrong alone; the pair sent a blocked user searching a
     # long page for a string that was not on it. Asserting that the file
     # exists and says ".fsm" could not see it.
-    assert workflows_module._MESH_PAGE_ANCHOR in body, (
+    assert _vocabulary._MESH_PAGE_ANCHOR in body, (
         f"the refusal tells the user to look on {page.name} under "
-        f"{workflows_module._MESH_PAGE_ANCHOR!r}, and that sentence is not on the page"
+        f"{_vocabulary._MESH_PAGE_ANCHOR!r}, and that sentence is not on the page"
     )
     refusal = ""
     try:
         rendered(steady_case(geometry="runs/7002/inputs/blade.stl"))
     except CampaignConfigError as error:
         refusal = str(error)
-    assert workflows_module._MESH_PAGE_ANCHOR in refusal, (
+    assert _vocabulary._MESH_PAGE_ANCHOR in refusal, (
         "the refusal no longer quotes the anchor this guard pins, so the pair it "
         "protects is no longer the pair that ships"
     )
@@ -3383,7 +3403,7 @@ def test_a_wake_termination_with_no_rotor_speed_is_refused():
     stepping = rotor_time_stepping(case)
     assert stepping.rpm is None, "the clock must carry no speed for this arm to exist"
     with pytest.raises(CampaignConfigError) as raised:
-        workflows_module._wake_termination(case, stepping)
+        _freestream._wake_termination(case, stepping)
     assert "has no length in time steps here" in str(raised.value)
 
 

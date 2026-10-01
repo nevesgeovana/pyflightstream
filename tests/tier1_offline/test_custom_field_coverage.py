@@ -87,7 +87,7 @@ def test_unknown_motion_refuses_a_coverage_claim():
 def test_unknown_motion_reaches_the_workflow_coverage_check(monkeypatch):
     # Q0 CX-5: the workflow returned before the envelope whenever no frame
     # carried a motion index, so the unknown motion was never looked at.
-    from pyflightstream.cases import workflows
+    from pyflightstream.cases.workflows import _freestream
     from pyflightstream.script import Script
     from tests.tier1_offline.test_workflows import steady_case
 
@@ -95,18 +95,18 @@ def test_unknown_motion_reaches_the_workflow_coverage_check(monkeypatch):
     monkeypatch.setattr(
         Script, "frame_motions", property(lambda self: {1: fixed, 2: UNKNOWN_MOTION})
     )
-    monkeypatch.setattr(workflows, "_body_vertices_m", lambda case: ((0, -2, 0), (1, 2, 0)))
+    monkeypatch.setattr(_freestream, "_body_vertices_m", lambda case: ((0, -2, 0), (1, 2, 0)))
     script = Script("26.124")
     script.custom_field_extent_m = (-3, 3, -1, 1)
     with pytest.warns(UserWarning, match="coverage is not checked"):
-        workflows._finish_custom_field_coverage(steady_case(), script)
+        _freestream._finish_custom_field_coverage(steady_case(), script)
     assert script.custom_field_coverage is not None
     assert script.custom_field_coverage["state"] == "unknown"
 
 
 def test_actual_emitted_translation_reaches_final_workflow_coverage(monkeypatch):
     # GOAL033:capability_ids:items:G50
-    from pyflightstream.cases import workflows
+    from pyflightstream.cases.workflows import _freestream
     from pyflightstream.script import Script
     from tests.tier1_offline.test_workflows import steady_case
 
@@ -124,9 +124,9 @@ def test_actual_emitted_translation_reaches_final_workflow_coverage(monkeypatch)
         split_vertices="DISABLE",
     )
     script.custom_field_extent_m = (-2, 2, -2, 2)
-    monkeypatch.setattr(workflows, "_body_vertices_m", lambda case: ((0, -1, -1), (1, 1, 1)))
+    monkeypatch.setattr(_freestream, "_body_vertices_m", lambda case: ((0, -1, -1), (1, 1, 1)))
     with pytest.warns(UserWarning, match="conservative transformed-body"):
-        workflows._finish_custom_field_coverage(steady_case(), script)
+        _freestream._finish_custom_field_coverage(steady_case(), script)
     record = script.custom_field_coverage
     assert record["state"] == "envelope-exceeds-grid"
     assert record["body_envelope_yz_m"] == pytest.approx((19, 21, -1, 1))

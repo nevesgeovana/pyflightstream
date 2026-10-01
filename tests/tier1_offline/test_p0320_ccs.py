@@ -291,7 +291,7 @@ def test_p0320_ccs1_a_key_the_kind_does_not_read_is_refused_at_binding(tmp_path,
 
 def test_p0320_ccs1_ccs_options_beside_a_raw_mesh_are_refused(tmp_path):
     """P0320-CCS1-WING: an ``[import.ccs]`` table beside a mesh that is not a CCS file."""
-    from pyflightstream.cases.workflows import _open_geometry
+    from pyflightstream.cases.workflows._geometry import _open_geometry
     from tests.tier1_offline.test_workflows import steady_case
 
     mesh = tmp_path / "wing.stl"
@@ -306,7 +306,7 @@ def test_p0320_ccs1_ccs_options_beside_a_raw_mesh_are_refused(tmp_path):
 
 def test_p0320_ccs1_an_unopenable_suffix_is_told_of_the_ccs_route(tmp_path):
     """P0320-CCS1-WING: the refusal of a suffix no workflow reads names the CCS files too."""
-    from pyflightstream.cases.workflows import _open_geometry
+    from pyflightstream.cases.workflows._geometry import _open_geometry
     from tests.tier1_offline.test_workflows import steady_case
 
     shape = tmp_path / "wing.txt"

@@ -14,9 +14,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from pyflightstream.cases import PprocSpec, workflows
+from pyflightstream.cases import PprocSpec
 from pyflightstream.cases.freestream import prepare_field
-from pyflightstream.cases.workflows import _read_custom_freestream, build_script
+from pyflightstream.cases.workflows import _frames, build_script
+from pyflightstream.cases.workflows._freestream import _read_custom_freestream
 from pyflightstream.fsi.config import load_config
 from pyflightstream.post import OutputProvenance, write_probe_field
 from pyflightstream.post.guides import input_template_markdown
@@ -71,7 +72,7 @@ def test_g34_metre_reference_origins_reach_a_millimetre_simulation_scaled():
         for builder, point in declared.items():
             script = Script("26.124")
             script.emit("SET_SIMULATION_LENGTH_UNITS", unit)
-            index = getattr(workflows, builder)(_units_case(), script)
+            index = getattr(_frames, builder)(_units_case(), script)
             expected = tuple(value * factor for value in point)
             assert script.frame_placements[index].origin == pytest.approx(expected), (
                 unit,

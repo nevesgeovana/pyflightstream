@@ -32,13 +32,8 @@ from pyflightstream._errors import (
 )
 from pyflightstream._fsm import MESH_MARKER
 from pyflightstream.cases import BladeDatum, ReferenceData, RotorBlock, SimCase, SweepAxis
-from pyflightstream.cases.workflows import (
-    ROTATE_VARIABLE,
-    WORKFLOW_KEY,
-    _motion_view,
-    build_script,
-    rotor_speed,
-)
+from pyflightstream.cases.workflows import ROTATE_VARIABLE, WORKFLOW_KEY, build_script, rotor_speed
+from pyflightstream.cases.workflows._motion import _motion_view
 from pyflightstream.script import Script
 
 #: The two rotors of the use case, cut to what one row needs: a lifter of
@@ -643,7 +638,7 @@ def test_one_ratio_gives_two_rotors_two_speeds_when_their_diameters_differ(tmp_p
             ]
         }
     )
-    from pyflightstream.cases.workflows import _motion_view
+    from pyflightstream.cases.workflows._motion import _motion_view
 
     speeds = [rotor_speed(_motion_view(case, record)).rpm for record in case.motions]
     assert speeds[0] != speeds[1], speeds
@@ -845,7 +840,7 @@ def test_the_clock_follows_the_named_motion_and_not_the_fastest(tmp_path):
     rather than asserting a number, so it cannot be satisfied by a
     constant.
     """
-    from pyflightstream.cases.workflows import _clock_speed, _motion_view
+    from pyflightstream.cases.workflows._motion import _clock_speed, _motion_view
 
     base = two_rotor_case(tmp_path)
     base = base.model_copy(
@@ -880,7 +875,7 @@ def test_a_motions_row_without_a_clock_is_refused_naming_what_it_could_choose(tm
     silence. The refusal names the motions the row states, so the author
     can choose without opening the reference.
     """
-    from pyflightstream.cases.workflows import _clock_speed, _motion_view
+    from pyflightstream.cases.workflows._motion import _clock_speed, _motion_view
 
     case = two_rotor_case(tmp_path)
     case = case.model_copy(
@@ -903,7 +898,7 @@ def test_a_row_stating_its_rotor_in_the_flat_keys_needs_no_clock(tmp_path):
     and refusing it would have cost the author's the comparison to buy a key that
     decides nothing.
     """
-    from pyflightstream.cases.workflows import _clock_speed
+    from pyflightstream.cases.workflows._motion import _clock_speed
 
     case = two_rotor_case(tmp_path)
     flat = case.model_copy(
@@ -921,7 +916,7 @@ def test_a_row_stating_its_rotor_in_the_flat_keys_needs_no_clock(tmp_path):
 
 
 def test_a_clock_naming_a_motion_the_row_does_not_state_is_refused(tmp_path):
-    from pyflightstream.cases.workflows import _clock_speed, _motion_view
+    from pyflightstream.cases.workflows._motion import _clock_speed, _motion_view
 
     case = two_rotor_case(tmp_path)
     views = [_motion_view(case, record) for record in case.motions]
@@ -982,7 +977,7 @@ def test_an_incidence_the_row_states_reaches_the_solver(tmp_path):
     sets the variable directly, so it measures the reader that consumes
     it rather than the writer that will fill it.
     """
-    from pyflightstream.cases.workflows import _angle
+    from pyflightstream.cases.workflows._rows import _angle
 
     # A J SWEEP: the point carries the ratio and no angle, which is the
     # shape the defect was measured in.
@@ -1028,7 +1023,7 @@ def test_a_record_still_naming_its_boundaries_is_refused_from_the_ledger(tmp_pat
     words the ledger records cannot disagree.
     """
     from pyflightstream._deprecations import ROW_MOVING_BOUNDARIES, refusal_text
-    from pyflightstream.cases.workflows import _motion_view
+    from pyflightstream.cases.workflows._motion import _motion_view
 
     case = two_rotor_case(tmp_path).model_copy(
         update={"rotors": {}, "motions": [{"MOVING_BOUNDARIES": "LB_L1_1", "RPM": "2200"}]}

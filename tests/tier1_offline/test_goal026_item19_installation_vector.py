@@ -176,7 +176,7 @@ def test_the_shaft_basis_is_the_identity_only_when_the_datum_is_x():
 def test_a_rotor_stating_a_letter_keeps_the_identity_orientation():
     """The branch that actually protects every reference written before 0.23.0."""
     from pyflightstream.cases import BladeDatum
-    from pyflightstream.cases.workflows import _hub_basis
+    from pyflightstream.cases.workflows._frames import _hub_basis
 
     for zero in ("X", "Y"):
         block = RotorBlock(
@@ -191,7 +191,7 @@ def test_a_rotor_stating_a_letter_keeps_the_identity_orientation():
 
 def test_a_rotor_stating_a_vector_gets_a_frame_built_on_its_shaft():
     """The other half: the branch must not refuse everything into the old path."""
-    from pyflightstream.cases.workflows import _hub_basis
+    from pyflightstream.cases.workflows._frames import _hub_basis
 
     block = _rotor([0.0, 0.2, 0.98], zero="X")
     x_axis, y_axis = _hub_basis(block)
@@ -299,7 +299,7 @@ def _emitted_blade_frames(rotor, units="METER"):
     this estate calls measuring the mention instead of the carrier.
     """
     from pyflightstream.cases import SimCase, SweepAxis
-    from pyflightstream.cases.workflows import _hub_basis, _rotor_blade_frames
+    from pyflightstream.cases.workflows._frames import _hub_basis, _rotor_blade_frames
     from pyflightstream.script import Script, helpers
 
     view = SimCase(

@@ -7,7 +7,8 @@ from __future__ import annotations
 import pytest
 
 from pyflightstream.cases import BladeDatum, ReferenceData, RotorBlock, SimCase, SweepAxis
-from pyflightstream.cases.workflows import QSTEADY_ROTOR, WORKFLOW_KEY, _qsteady_speed
+from pyflightstream.cases.workflows import QSTEADY_ROTOR, WORKFLOW_KEY
+from pyflightstream.cases.workflows._rows import _qsteady_speed
 
 BLOCK_DIAMETER = 2.0
 TOP_LEVEL_DIAMETER = 5.0

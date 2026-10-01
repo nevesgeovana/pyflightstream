@@ -40,9 +40,10 @@ CHAPTERS = (
 #: database does not carry, each a row of the audit.
 CENSUS_ONLY = frozenset({"SOLVER_INITIALIZATION"})
 STATUSES = ("covered", "given a key now", "not a choosable value", "cannot be covered")
-#: The emitters a hard-coded choosable value would sit in.
+#: The emitters a hard-coded choosable value would sit in: every module of the
+#: package ``cases/workflows/`` (a module until 0.33.0, AD-12) and the setup link.
 EMITTERS = (
-    REPO / "src" / "pyflightstream" / "cases" / "workflows.py",
+    *sorted((REPO / "src" / "pyflightstream" / "cases" / "workflows").glob("*.py")),
     REPO / "src" / "pyflightstream" / "cases" / "_setup_link.py",
 )
 #: The keyword of each analysis helper argument, and the command it reaches.

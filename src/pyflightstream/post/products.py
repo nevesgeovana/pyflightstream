@@ -1130,7 +1130,7 @@ class RotorShaftLoads:
 #: `MRP` IS IN THE LIST AND WAS LEFT OUT, and leaving it out would have denied
 #: `ETAW` on exactly the campaign item 6 exists for. This package POINTS THE
 #: ANALYSIS AT MRP ITSELF whenever the reference states a moment point
-#: (`cases.workflows._moment_frame`, then `_analysis(loads_frame=...)`), and it
+#: (`cases.workflows._frames._moment_frame`, then `_analysis(loads_frame=...)`), and it
 #: builds that frame with `x_axis = (1,0,0)` and `y_axis = (0,1,0)` -- the origin
 #: moves and the AXES DO NOT. A pure translation leaves every force direction
 #: unchanged, so the rotation is valid in it.
@@ -1549,7 +1549,7 @@ def rotor_coefficients(
 
 
 # `unsteady_window` WAS HERE AND IS DELETED, with item 16 landing through
-# `cases.workflows._averaging_window` and `_stated_window` below instead.
+# `cases.workflows._reductions._averaging_window` and `_stated_window` below instead.
 #
 # IT NEVER HAD A CALLER. It was written to give a caller to a window function of
 # `post.unsteady` that had none (deleted in 0.24.0, CR-05: its rule discarded the

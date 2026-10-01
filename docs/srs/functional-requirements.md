@@ -1700,7 +1700,7 @@ nodes.
     artifact stating one on an unsteady row is accepted (FR-133; the code:
     `cases/__init__.py:default_outputs` leaves out of an unsteady point
     only `STEADY_ONLY_EXPORT_KINDS`, which holds `probes` alone, and
-    `cases/workflows.py:END_OF_RUN_EXPORT_KINDS` saves the plots once at
+    `cases/workflows/_vocabulary.py:END_OF_RUN_EXPORT_KINDS` saves the plots once at
     the end of the run). Measured on 26.124 (RPT-067): the files are the plotted
     series as text, and the solve and its exports are unchanged by the
     saves.

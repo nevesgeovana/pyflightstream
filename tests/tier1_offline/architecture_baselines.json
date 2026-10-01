@@ -3,7 +3,6 @@
  "module_code_lines": {
   "cases/__init__.py": 2316,
   "cases/matrix.py": 1808,
-  "cases/workflows.py": 8876,
   "post/corrections.py": 1006,
   "post/products.py": 5670,
   "qa/specs.py": 1334,
@@ -22,9 +21,9 @@
   "post/section_distributions.py:_matching_distributions": 328,
   "post/section_distributions.py:write_section_distributions": 257,
   "run/__init__.py:LoadsAssessor.__call__": 271,
-  "run/__init__.py:_execute_point": 466,
+  "run/__init__.py:_execute_point": 445,
   "run/__init__.py:_execute_sweep": 348,
-  "run/__init__.py:run_campaign": 423,
+  "run/__init__.py:run_campaign": 422,
   "run/cli.py:_build_parser": 556,
   "script/helpers.py:solver_settings": 461,
   "workspace/setup_standards.py:render_guidelines": 263
@@ -148,180 +147,6 @@
    "complexity": 11,
    "branches": 10,
    "statements": 35,
-   "positional": 2
-  },
-  "cases/workflows.py:_actuator_disc": {
-   "complexity": 17,
-   "branches": 17,
-   "statements": 41,
-   "positional": 4
-  },
-  "cases/workflows.py:_blade_stations_from_the_mesh": {
-   "complexity": 15,
-   "branches": 16,
-   "statements": 38,
-   "positional": 2
-  },
-  "cases/workflows.py:_build_qsteady_rotor": {
-   "complexity": 9,
-   "branches": 7,
-   "statements": 63,
-   "positional": 3
-  },
-  "cases/workflows.py:_emit_one_probe_table": {
-   "complexity": 20,
-   "branches": 20,
-   "statements": 39,
-   "positional": 5
-  },
-  "cases/workflows.py:_free_stream": {
-   "complexity": 12,
-   "branches": 12,
-   "statements": 38,
-   "positional": 4
-  },
-  "cases/workflows.py:_plot_each_rotors_own_history": {
-   "complexity": 15,
-   "branches": 14,
-   "statements": 39,
-   "positional": 5
-  },
-  "cases/workflows.py:_pproc_plots": {
-   "complexity": 14,
-   "branches": 14,
-   "statements": 33,
-   "positional": 3
-  },
-  "cases/workflows.py:_pproc_probes": {
-   "complexity": 13,
-   "branches": 12,
-   "statements": 34,
-   "positional": 3
-  },
-  "cases/workflows.py:_raw_mesh_boundary_conditions": {
-   "complexity": 12,
-   "branches": 13,
-   "statements": 33,
-   "positional": 2
-  },
-  "cases/workflows.py:_read_custom_freestream": {
-   "complexity": 14,
-   "branches": 13,
-   "statements": 37,
-   "positional": 2
-  },
-  "cases/workflows.py:_refuse_what_the_geometry_does_not_carry": {
-   "complexity": 8,
-   "branches": 7,
-   "statements": 21,
-   "positional": 7
-  },
-  "cases/workflows.py:_resolved_native_mach": {
-   "complexity": 12,
-   "branches": 11,
-   "statements": 32,
-   "positional": 2
-  },
-  "cases/workflows.py:_rotations": {
-   "complexity": 16,
-   "branches": 15,
-   "statements": 43,
-   "positional": 5
-  },
-  "cases/workflows.py:_rotor_motions": {
-   "complexity": 6,
-   "branches": 5,
-   "statements": 51,
-   "positional": 7
-  },
-  "cases/workflows.py:_rotors_the_entry_cites": {
-   "complexity": 13,
-   "branches": 12,
-   "statements": 28,
-   "positional": 2
-  },
-  "cases/workflows.py:_script_init": {
-   "complexity": 17,
-   "branches": 17,
-   "statements": 45,
-   "positional": 3
-  },
-  "cases/workflows.py:_settings": {
-   "complexity": 16,
-   "branches": 16,
-   "statements": 42,
-   "positional": 2
-  },
-  "cases/workflows.py:_setup_ports": {
-   "complexity": 18,
-   "branches": 17,
-   "statements": 46,
-   "positional": 2
-  },
-  "cases/workflows.py:_surface_export": {
-   "complexity": 11,
-   "branches": 11,
-   "statements": 27,
-   "positional": 4
-  },
-  "cases/workflows.py:_the_actuator_the_row_names": {
-   "complexity": 14,
-   "branches": 15,
-   "statements": 49,
-   "positional": 1
-  },
-  "cases/workflows.py:_the_axis_in_reference_axes": {
-   "complexity": 3,
-   "branches": 2,
-   "statements": 9,
-   "positional": 6
-  },
-  "cases/workflows.py:_the_custom_freestream": {
-   "complexity": 12,
-   "branches": 11,
-   "statements": 32,
-   "positional": 1
-  },
-  "cases/workflows.py:_translations": {
-   "complexity": 16,
-   "branches": 17,
-   "statements": 53,
-   "positional": 4
-  },
-  "cases/workflows.py:build_script": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 30,
-   "positional": 2
-  },
-  "cases/workflows.py:pproc_emissions": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 29,
-   "positional": 7
-  },
-  "cases/workflows.py:reduction_windows": {
-   "complexity": 18,
-   "branches": 21,
-   "statements": 76,
-   "positional": 1
-  },
-  "cases/workflows.py:restart_iterations": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 27,
-   "positional": 2
-  },
-  "cases/workflows.py:rotor_speed": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 26,
-   "positional": 1
-  },
-  "cases/workflows.py:unsteady_export_threshold": {
-   "complexity": 13,
-   "branches": 14,
-   "statements": 45,
    "positional": 2
   },
   "commands/__init__.py:_check_layout_rules": {
@@ -495,7 +320,7 @@
   "post/products.py:_write_the_per_revolution_products": {
    "complexity": 12,
    "branches": 11,
-   "statements": 47,
+   "statements": 45,
    "positional": 4
   },
   "post/products.py:_write_the_products": {
@@ -853,9 +678,9 @@
    "positional": 6
   },
   "run/__init__.py:_plan_point": {
-   "complexity": 9,
-   "branches": 8,
-   "statements": 29,
+   "complexity": 8,
+   "branches": 7,
+   "statements": 28,
    "positional": 7
   },
   "run/__init__.py:_prepare_case": {
@@ -909,7 +734,7 @@
   "run/_continuation_frame.py:_rebuild": {
    "complexity": 3,
    "branches": 2,
-   "statements": 17,
+   "statements": 16,
    "positional": 6
   },
   "run/_continuation_frame.py:recover_frame": {
@@ -1178,8 +1003,8 @@
   },
   "script/motion.py:resolve_frame_motion": {
    "complexity": 11,
-   "branches": 11,
-   "statements": 24,
+   "branches": 10,
+   "statements": 23,
    "positional": 1
   },
   "script/solver_setup.py:SolverSetup.explicit_kwargs": {
@@ -1397,6 +1222,180 @@
    "branches": 10,
    "statements": 32,
    "positional": 1
+  },
+  "cases/workflows/_actuator.py:_actuator_disc": {
+   "complexity": 17,
+   "branches": 17,
+   "statements": 41,
+   "positional": 4
+  },
+  "cases/workflows/_actuator.py:_the_actuator_the_row_names": {
+   "complexity": 14,
+   "branches": 15,
+   "statements": 49,
+   "positional": 1
+  },
+  "cases/workflows/_clock.py:unsteady_export_threshold": {
+   "complexity": 13,
+   "branches": 14,
+   "statements": 45,
+   "positional": 2
+  },
+  "cases/workflows/_exports.py:_surface_export": {
+   "complexity": 11,
+   "branches": 11,
+   "statements": 27,
+   "positional": 4
+  },
+  "cases/workflows/_frames.py:_rotations": {
+   "complexity": 16,
+   "branches": 15,
+   "statements": 43,
+   "positional": 5
+  },
+  "cases/workflows/_frames.py:_the_axis_in_reference_axes": {
+   "complexity": 3,
+   "branches": 2,
+   "statements": 9,
+   "positional": 6
+  },
+  "cases/workflows/_frames.py:_translations": {
+   "complexity": 16,
+   "branches": 17,
+   "statements": 53,
+   "positional": 4
+  },
+  "cases/workflows/_freestream.py:_free_stream": {
+   "complexity": 12,
+   "branches": 12,
+   "statements": 38,
+   "positional": 4
+  },
+  "cases/workflows/_freestream.py:_read_custom_freestream": {
+   "complexity": 14,
+   "branches": 13,
+   "statements": 37,
+   "positional": 2
+  },
+  "cases/workflows/_freestream.py:_the_custom_freestream": {
+   "complexity": 12,
+   "branches": 11,
+   "statements": 32,
+   "positional": 1
+  },
+  "cases/workflows/_geometry.py:_raw_mesh_boundary_conditions": {
+   "complexity": 12,
+   "branches": 13,
+   "statements": 33,
+   "positional": 2
+  },
+  "cases/workflows/_geometry.py:_setup_ports": {
+   "complexity": 18,
+   "branches": 17,
+   "statements": 46,
+   "positional": 2
+  },
+  "cases/workflows/_names.py:_refuse_what_the_geometry_does_not_carry": {
+   "complexity": 3,
+   "branches": 2,
+   "statements": 10,
+   "positional": 7
+  },
+  "cases/workflows/_names.py:_rotors_the_entry_cites": {
+   "complexity": 13,
+   "branches": 12,
+   "statements": 28,
+   "positional": 2
+  },
+  "cases/workflows/_pproc.py:_plot_each_rotors_own_history": {
+   "complexity": 15,
+   "branches": 14,
+   "statements": 39,
+   "positional": 5
+  },
+  "cases/workflows/_pproc.py:_pproc_plots": {
+   "complexity": 14,
+   "branches": 14,
+   "statements": 33,
+   "positional": 3
+  },
+  "cases/workflows/_pproc.py:pproc_emissions": {
+   "complexity": 11,
+   "branches": 10,
+   "statements": 29,
+   "positional": 7
+  },
+  "cases/workflows/_probes.py:_emit_one_probe_table": {
+   "complexity": 20,
+   "branches": 20,
+   "statements": 39,
+   "positional": 5
+  },
+  "cases/workflows/_probes.py:_pproc_probes": {
+   "complexity": 13,
+   "branches": 12,
+   "statements": 34,
+   "positional": 3
+  },
+  "cases/workflows/_qsteady_rotor.py:_blade_stations_from_the_mesh": {
+   "complexity": 15,
+   "branches": 16,
+   "statements": 38,
+   "positional": 2
+  },
+  "cases/workflows/_qsteady_rotor.py:_build_qsteady_rotor": {
+   "complexity": 9,
+   "branches": 7,
+   "statements": 63,
+   "positional": 3
+  },
+  "cases/workflows/_reductions.py:reduction_windows": {
+   "complexity": 18,
+   "branches": 21,
+   "statements": 76,
+   "positional": 1
+  },
+  "cases/workflows/_registry.py:build_script": {
+   "complexity": 11,
+   "branches": 10,
+   "statements": 30,
+   "positional": 2
+  },
+  "cases/workflows/_rotor.py:_rotor_motions": {
+   "complexity": 6,
+   "branches": 5,
+   "statements": 51,
+   "positional": 7
+  },
+  "cases/workflows/_rows.py:restart_iterations": {
+   "complexity": 11,
+   "branches": 10,
+   "statements": 27,
+   "positional": 2
+  },
+  "cases/workflows/_rows.py:rotor_speed": {
+   "complexity": 11,
+   "branches": 10,
+   "statements": 26,
+   "positional": 1
+  },
+  "cases/workflows/_skeleton.py:_script_init": {
+   "complexity": 17,
+   "branches": 17,
+   "statements": 45,
+   "positional": 3
+  },
+  "cases/workflows/_solver_settings.py:_resolved_native_mach": {
+   "complexity": 12,
+   "branches": 11,
+   "statements": 32,
+   "positional": 2
+  },
+  "cases/workflows/_solver_settings.py:_settings": {
+   "complexity": 16,
+   "branches": 16,
+   "statements": 42,
+   "positional": 2
   }
  },
  "baseline_sccs": [
@@ -1425,7 +1424,20 @@
   "pyflightstream.cases.matrix": 19,
   "pyflightstream.cases.qsteady": 1,
   "pyflightstream.cases.setup_surfaces": 1,
-  "pyflightstream.cases.workflows": 46,
+  "pyflightstream.cases.workflows._actuator": 2,
+  "pyflightstream.cases.workflows._clock": 1,
+  "pyflightstream.cases.workflows._conventions": 2,
+  "pyflightstream.cases.workflows._exports": 1,
+  "pyflightstream.cases.workflows._frames": 7,
+  "pyflightstream.cases.workflows._freestream": 8,
+  "pyflightstream.cases.workflows._geometry": 4,
+  "pyflightstream.cases.workflows._motion": 3,
+  "pyflightstream.cases.workflows._names": 2,
+  "pyflightstream.cases.workflows._probes": 6,
+  "pyflightstream.cases.workflows._rows": 5,
+  "pyflightstream.cases.workflows._skeleton": 1,
+  "pyflightstream.cases.workflows._solver_settings": 2,
+  "pyflightstream.cases.workflows._vocabulary": 2,
   "pyflightstream.fsi.driver": 5,
   "pyflightstream.fsi.loads": 1,
   "pyflightstream.options": 2,
@@ -1477,7 +1489,9 @@
   "pyflightstream.cases.fsi_workspace": 1,
   "pyflightstream.cases.qsteady": 1,
   "pyflightstream.cases.windows": 1,
-  "pyflightstream.cases.workflows": 3,
+  "pyflightstream.cases.workflows._frames": 1,
+  "pyflightstream.cases.workflows._freestream": 1,
+  "pyflightstream.cases.workflows._registry": 1,
   "pyflightstream.fsi.centrifugal": 3,
   "pyflightstream.fsi.driver": 1,
   "pyflightstream.post.glossary": 1,
@@ -1679,13 +1693,42 @@
   "workspace/trailing_edges.py",
   "workspace/wake_edges.py"
  ],
- "package_order": {},
+ "package_order": {
+  "pyflightstream.cases.workflows": {
+   "order": [
+    "__init__",
+    "_additional",
+    "_registry",
+    "_qsteady_rotor",
+    "_rotor",
+    "_unsteady",
+    "_steady",
+    "_skeleton",
+    "_pproc",
+    "_probes",
+    "_clock",
+    "_exports",
+    "_reductions",
+    "_freestream",
+    "_solver_settings",
+    "_frames",
+    "_geometry",
+    "_names",
+    "_timing",
+    "_motion",
+    "_actuator",
+    "_rows",
+    "_conventions",
+    "_vocabulary"
+   ]
+  }
+ },
  "metrics": {
-  "top1_share": 10.8,
-  "top5_share": 28.3,
-  "top13_share": 43.0,
-  "modules_over_1000": 14,
-  "modules_over_2000": 5,
+  "top1_share": 6.7,
+  "top5_share": 19.4,
+  "top13_share": 32.8,
+  "modules_over_1000": 13,
+  "modules_over_2000": 4,
   "functions_over_100": 74,
   "functions_over_200": 18,
   "functions_over_300": 7,
