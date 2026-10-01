@@ -92,5 +92,5 @@ saved its simulation.
 
 Numbers and files are in the sidecar
 `RPT-098_acoustic-chain-wake-and-surface-removal-round-3-on-26124_2026-09-30.json`;
-the round's own files are `C:/WORK/release-0320/probes/round3/` (`README.md`,
+the round's own files are `<local probe folder>/round3/` (`README.md`,
 `verdicts_e2.json`, `verdicts_h.json`, `sims/`, `logs/`).

@@ -1578,7 +1578,7 @@ def test_two_runs_of_one_basename_are_told_apart_by_the_report_alone(tmp_path):
         version="26.122",
         solver_identity=("FlightStream version 26.1 build #7012026",),
         fs_exe_name="Flightstream_2612.exe",
-        fs_exe_sha256="75668a514d1887db2f94a97e3d57662888029e3e9e0b5e8f5611ac7082b15690",
+        fs_exe_sha256="1" * 64,
         package_version="0.0.1.dev0",
         results=(),
     )
@@ -1586,7 +1586,7 @@ def test_two_runs_of_one_basename_are_told_apart_by_the_report_alone(tmp_path):
         version="26.123",
         solver_identity=("FlightStream version 26.1 build #8112026",),
         fs_exe_name="Flightstream_2612.exe",
-        fs_exe_sha256="213c854a3f6569d74c760fda93b51dadef3a85a4cb724efa18f79b60fce84348",
+        fs_exe_sha256="2" * 64,
         package_version="0.0.1.dev0",
         results=(),
     )
@@ -1594,9 +1594,12 @@ def test_two_runs_of_one_basename_are_told_apart_by_the_report_alone(tmp_path):
     for run in (first, second):
         yaml_path, md_path = write_compat_report(run, tmp_path, date="2026-08-19")
         documents.append(yaml.safe_load(yaml_path.read_text(encoding="utf-8")))
-        assert run.fs_exe_sha256 in md_path.read_text(encoding="utf-8")
+        text = md_path.read_text(encoding="utf-8")
+        # NFR-31: the committed report states the build and never the digest.
+        assert run.fs_exe_sha256 not in text and run.fs_exe_sha256 not in yaml_path.read_text()
     assert documents[0]["fs_exe"] == documents[1]["fs_exe"]
-    assert documents[0]["fs_exe_sha256"] != documents[1]["fs_exe_sha256"]
+    assert documents[0]["fs_exe_sha256"] == "withheld; build 8092026"
+    assert documents[1]["fs_exe_sha256"] == "withheld; build 8112026"
 
 
 def test_an_unrecorded_digest_is_written_as_absent_and_never_as_a_hash(tmp_path):

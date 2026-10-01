@@ -481,16 +481,20 @@ def test_the_physics_report_names_the_executable_by_hash_as_well_as_by_name(tmp_
     assert "sha256" in rows[0], rows[0]
 
 
-def test_a_physics_run_carrying_a_digest_writes_it_to_both_faces(tmp_path):
-    """The digest travels to the YAML and to the rendered table."""
+def test_a_physics_run_carrying_a_digest_writes_its_build_to_both_faces(tmp_path):
+    """NFR-31: both faces state the build; the digest stays in the run record."""
     import dataclasses
 
-    digest = "213c854a3f6569d74c760fda93b51dadef3a85a4cb724efa18f79b60fce84348"
+    from pyflightstream.versions import resolve
+
+    digest = "5" * 64
     run = dataclasses.replace(make_run(tmp_path), fs_exe_sha256=digest)
     yaml_path, md_path = write_physics_report(run, tmp_path, date="2026-08-19", label="hash")
     document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
-    assert document["fs_exe_sha256"] == digest
-    assert digest in md_path.read_text(encoding="utf-8")
+    stated = f"withheld; build {resolve(run.version).build}"
+    assert document["fs_exe_sha256"] == stated
+    text = md_path.read_text(encoding="utf-8")
+    assert stated in text and digest not in text
 
 
 def test_a_physics_run_without_a_digest_says_so(tmp_path):

@@ -12,7 +12,7 @@ k r, t/T (T one revolution), pressures over the free-stream dynamic pressure
 `q`, ratios, correlations and counts. The sidecar
 `RPT-099_qsteady-noise-route-a-against-round-3_2026-09-30.json` holds every
 number below and the five records as p/q against t/T; the script that wrote it
-is `C:/WORK/release-0320/probes/round3/rpt099_route_a.py`, run with this
+is `<local probe folder>/round3/rpt099_route_a.py`, run with this
 branch's `src` on `PYTHONPATH`.
 
 ## 1. The model (FR-300 to FR-303)
@@ -52,7 +52,7 @@ are each killed by the suite.
 
 ## 2. The reference
 
-POL 3201 of licensed round 3 (`C:/WORK/release-0320/probes/round3/`): the
+POL 3201 of licensed round 3 (`<local probe folder>/round3/`): the
 `unsteady_rotor` row of package E2 on FlightStream 26.124, build 8172026,
 executable SHA-256
 withheld from the public tree per NFR-31. The

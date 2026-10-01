@@ -37,6 +37,7 @@ from pyflightstream.qa.physics import (
     registered_cases,
 )
 from pyflightstream.qa.reports import (
+    public_executable_identity,
     refuse_existing_report,
     report_paths,
     resolve_report_date,
@@ -327,7 +328,11 @@ def write_drift_report(
         # Written even when a value is None, on the compat writer's
         # reasoning: an absent key reads as an older schema, and a
         # reader cannot tell that from a digest nobody took.
-        "fs_exe_sha256s": dict(run.fs_exe_sha256s),
+        # The BUILD, never the digest (NFR-31): the report is committed.
+        "fs_exe_sha256s": {
+            version: public_executable_identity(digest, version)
+            for version, digest in run.fs_exe_sha256s.items()
+        },
         "executor": _executor_sentence(run),
         "solver_identity": list(run.solver_identity),
         "summary": counts,
@@ -394,9 +399,11 @@ def _render_markdown(run: DriftRun, date: str, counts: dict[str, int]) -> str:
         "| Item | Value |",
         "|---|---|",
         f"| Baseline (A) | FlightStream {a}, {run.fs_exe_names.get(a, '?')} "
-        f"(sha256 {run.fs_exe_sha256s.get(a) or 'not recorded'}, local, `_private/exe/`) |",
+        f"(sha256 {public_executable_identity(run.fs_exe_sha256s.get(a), a) or 'not recorded'}, "
+        "local, `_private/exe/`) |",
         f"| Compared (B) | FlightStream {b}, {run.fs_exe_names.get(b, '?')} "
-        f"(sha256 {run.fs_exe_sha256s.get(b) or 'not recorded'}, local, `_private/exe/`) |",
+        f"(sha256 {public_executable_identity(run.fs_exe_sha256s.get(b), b) or 'not recorded'}, "
+        "local, `_private/exe/`) |",
         f"| Executor | {_executor_sentence(run, markdown=True)} |",
         f"| Package | pyflightstream {run.package_version} |",
         f"| Solver identity | {'; '.join(run.solver_identity) or 'none captured'} |",

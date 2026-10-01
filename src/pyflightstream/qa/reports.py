@@ -148,6 +148,37 @@ def _validated_date(date: str) -> str:
     return date
 
 
+def public_executable_identity(digest: str | None, version: object) -> str | None:
+    """Return what a committed report states for the executable a run hashed.
+
+    A report is committed and the remote is public, so it names the
+    executable by its solver build and never by its digest (NFR-31): the
+    digest identifies the user's machine and stays in the run record. A run
+    that recorded no digest still reads as ``None``, so "nobody measured it"
+    stays distinguishable from "measured and withheld".
+
+    Parameters
+    ----------
+    digest : str or None
+        The run's own ``fs_exe_sha256``, or ``None`` when none was taken.
+    version : str or FsVersion
+        The version the run used; its registered build is stated.
+
+    Returns
+    -------
+    str or None
+        ``"withheld; build <build>"``, or ``None`` for an unrecorded digest.
+
+    Raises
+    ------
+    UnknownVersionError
+        When ``version`` is not a registered build.
+    """
+    if not digest:
+        return None
+    return f"withheld; build {resolve(str(version)).build or 'unregistered'}"
+
+
 def _canonical(version: object) -> str:
     """Return one version's canonical identifier with its dots stripped.
 

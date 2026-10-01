@@ -8,9 +8,9 @@
   "repost_for_THRUST_PCT_and_TORQUE_PCT": "this branch at f64d888c (post only, on a plain copy of the workspace, no solver); the run's own post on 8d0c8827 left both null"
  },
  "files_read": {
-  "runs.json": "C:/WORK/pfs0310-l1-ws/runs.json (run record, clocking_verdicts)",
-  "repost": "C:/WORK/pfs0310-l1-repost/post/l1_g1/ (sections, polars, products.json) and the validity file under sims/sim_9311/datapoints",
-  "script": "C:/WORK/pfs0310-l1-ws/sims/sim_9311/scripts/P9311-M144RE438AL+050BE+000RPM<n>.txt"
+  "runs.json": "<workspace>/runs.json (run record, clocking_verdicts)",
+  "repost": "<repost workspace>/post/l1_g1/ (sections, polars, products.json) and the validity file under sims/sim_9311/datapoints",
+  "script": "<workspace>/sims/sim_9311/scripts/P9311-M144RE438AL+050BE+000RPM<n>.txt"
  },
  "run": {
   "pol": 9311,

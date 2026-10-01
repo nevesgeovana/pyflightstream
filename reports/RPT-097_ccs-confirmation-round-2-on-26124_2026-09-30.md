@@ -109,5 +109,5 @@ in the PARAMETRIC form (CCS2-PARAMETRIC), and the G35 axial and azimuth files
 
 Numbers and files are in the sidecar
 `RPT-097_ccs-confirmation-round-2-on-26124_2026-09-30.json`; the round's own
-files are `C:/WORK/release-0320/probes/round2/ccs/` (`README.md`,
+files are `<local probe folder>/round2/ccs/` (`README.md`,
 `verdicts_ccs.json`, `ws/` with the records and logs).

@@ -961,30 +961,44 @@
       definition.
 
 !!! requirement "NFR-31 The public tree carries no identity of a user's machine <span class='srs-pending'>pending</span>"
-    *Origin: an author decision of 2026-09-30 for 0.33.0. Pending: the
-    first sweep is built (the executable digest of FlightStream 26.124
-    left every tracked file, and the workspace paths left RPT-095; the
-    paths other reports still name, and the digests of other builds, are
-    not yet swept), and moving the status is the owner's acceptance. Evidence: the tier-1
-    guard `tests/tier1_offline/test_p0330_no_executable_hash.py`
-    (P0330-NO-EXE-HASH), which scans every tracked text file for
-    64-character hexadecimal tokens and refuses the withheld digest,
-    compared by its own SHA-256 so the guard does not carry it.*
+    *Origin: an author decision of 2026-09-30 for 0.33.0. Pending: it is
+    built, and moving the status is the owner's acceptance. Evidence: the
+    tier-1 guard `tests/tier1_offline/test_p0330_no_executable_hash.py`
+    (P0330-NO-EXE-HASH) for R1 and R2, with a mutant control per shape;
+    the tests of the three report writers and of the C01 instrument for
+    R4.*
 
-    What is committed (reports, compatibility and probe records,
-    fixtures, source and tests) identifies the solver by its version and
-    build, never by the machine it ran on.
+    What is committed (reports, compatibility, physics, drift and probe
+    records, fixtures, source, scripts and tests) identifies the solver by
+    its version and build, never by the machine it ran on.
 
-    - R1 No tracked file carries the SHA-256 of a user's solver
-      executable; the solver build identifies the executable (for
-      example FlightStream 26.124, build 8172026), and a record states
-      the digest as `withheld; build <build>` where its format has a
-      digest field.
-    - R2 No tracked file carries a user's folder path, host name, licence
-      server or licence detail; a report names a file by its path inside
-      the run's workspace.
+    - R1 No tracked file carries the SHA-256 of a solver executable, of
+      any build. The solver build identifies the executable (for example
+      FlightStream 26.124, build 8172026), and a record states the digest
+      as `withheld; build <build>` where its format has a digest field.
+      The guard refuses a 64-hex value next to a label that names the
+      executable (`fs_exe_sha256`, `exe_sha256`, `executable_sha256`, an
+      `.exe` file name, the word executable) on its line, at the end of
+      the line before it, as the key of the YAML or JSON block it sits in,
+      or as the header of its Markdown table column; and it refuses the
+      digests the executable identity baseline once recorded, anywhere,
+      compared by their own SHA-256. A synthetic digest is one hexadecimal
+      digit repeated, which the guard allows by rule.
+    - R2 No tracked file carries an absolute user path: a user-profile or
+      home folder, a OneDrive folder, or the work or estate root of a
+      measuring machine. A report names a file by its path inside the
+      run's workspace (`<workspace>/...`) or the local probe folder
+      (`<local probe folder>/...`). No tracked file carries a host name,
+      licence server or licence detail either; no committed shape exists
+      for these, so they are kept out by review.
     - R3 A run record keeps its own `fs_exe_sha256`: it is written on
       the user's machine into the workspace, which is not committed, and
       the products carry it from there. The package holds no copy of it:
       evidence measured on one executable is keyed by the version, the
       build and the unit, and requires the run to have recorded a digest.
+    - R4 Every writer of a committed report states the build and never a
+      digest or a machine path: the compatibility, physics and drift
+      reports write `withheld; build <build>` for a recorded digest (and
+      "not recorded" for a run that took none), and the C01 instrument does the
+      same in the receipt copies it commits. The executable baseline is
+      read from a local, uncommitted copy when bytes must be compared.

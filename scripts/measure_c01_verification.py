@@ -25,11 +25,15 @@ from collections.abc import Callable, Iterator
 from datetime import date, datetime
 from pathlib import Path, PureWindowsPath
 
+from pyflightstream.qa.reports import public_executable_identity
+
 REMEDY = (
     "The package refuses the pproc [time_averaging] key at plan on a build where "
     "SOLVER_TIME_AVERAGING is not verified."
 )
-PROBES = Path("C:/WORK/codex-rel0250/probe_time_averaging")
+#: The probe workspace, by default beside the current directory; never a machine path
+#: (NFR-31). Pass ``--probe-workspace`` to read another.
+PROBES = Path("probe_time_averaging")
 RECEIPTS = Path(__file__).resolve().parents[1] / "reports/pfs0250/time_averaging"
 
 
@@ -293,7 +297,9 @@ def _probe_receipt(probes: Path, receipts: Path, variant: str) -> dict:
         raise ValueError(f"{variant}: receipt script digest mismatch")
     if not isinstance(receipt["fs_exe"], str) or not receipt["fs_exe"]:
         raise ValueError(f"{variant}: missing executable identity")
-    if not re.fullmatch(r"[0-9a-f]{64}", str(receipt["fs_exe_sha256"])):
+    # A workspace receipt carries the digest; the committed copy states the build
+    # instead (NFR-31), so either form identifies the executable.
+    if not re.fullmatch(r"[0-9a-f]{64}|withheld; build \d+", str(receipt["fs_exe_sha256"])):
         raise ValueError(f"{variant}: invalid executable digest")
     if not isinstance(receipt["measured_at"], str):
         raise ValueError(f"{variant}: missing measurement date")
@@ -349,6 +355,10 @@ def solver_time_averaging(
         if refresh_receipts:
             source = {name: _probe_receipt(probes, probes, name) for name in variants}
             for name, receipt in source.items():
+                # The copy is committed: the build, never the digest (NFR-31).
+                receipt["fs_exe_sha256"] = public_executable_identity(
+                    receipt["fs_exe_sha256"], "26.124"
+                )
                 path = destination / name / "receipt.json"
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(

@@ -8,7 +8,7 @@
   "package_version": "0.31.0",
   "package_commit": "822660ce54bddca330327e1b00f07d46010bf590"
  },
- "script": "C:/WORK/release-0320/probes/round3/rpt099_route_a.py",
+ "script": "<local probe folder>/round3/rpt099_route_a.py",
  "condition": {
   "tip_mach": 0.16320882649276144,
   "flight_mach": 0.1441,

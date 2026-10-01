@@ -31,6 +31,7 @@ from pyflightstream.commands import CommandEntry, CommandRegistry, Status
 from pyflightstream.qa.errors import QaEvidenceError
 from pyflightstream.qa.probes import ProbeOutcome, ProbeRun
 from pyflightstream.qa.reports import (
+    public_executable_identity,
     refuse_existing_report,
     report_paths,
     resolve_report_date,
@@ -148,7 +149,8 @@ def write_compat_report(
         # key that appears only when a digest was taken makes absence
         # look like an older schema, and a reader cannot tell "nobody
         # measured it" from "this file predates the field".
-        "fs_exe_sha256": run.fs_exe_sha256,
+        # The BUILD, never the digest (NFR-31): the report is committed.
+        "fs_exe_sha256": public_executable_identity(run.fs_exe_sha256, run.version),
         "executor": describe_invocation(run.executor),
         "solver_identity": list(run.solver_identity),
         "summary": counts,
@@ -191,7 +193,7 @@ def _render_markdown(run: ProbeRun, date: str, counts: dict[str, int]) -> str:
         "| Item | Value |",
         "|---|---|",
         f"| Executable | {run.fs_exe_name} "
-        f"(sha256 {run.fs_exe_sha256 or 'not recorded'}, "
+        f"(sha256 {public_executable_identity(run.fs_exe_sha256, run.version) or 'not recorded'}, "
         "local, `_private/exe/`, never committed) |",
         f"| Executor | {describe_invocation(run.executor, markdown=True)} |",
         f"| Package | pyflightstream {run.package_version} |",
@@ -1032,10 +1034,11 @@ def _validate_chapter(chapter_name: str, text: str, names: list[str]) -> None:
 # PFS-2026.15: one cheap question, asked before a seat is spent
 # --------------------------------------------------------------------------
 
-#: Where the digests of the executables in hand are recorded, relative to
-#: the repository root. A narrative report rather than a machine series
-#: because CMP, PHY and DRF each assert that a solver ran, and this one
-#: is measured by hashing files with the solver never started.
+#: Where the executables in hand are recorded by build, relative to the
+#: repository root, their digests withheld (NFR-31). A narrative report
+#: rather than a machine series because CMP, PHY and DRF each assert that a
+#: solver ran, and this one is measured by hashing files with the solver
+#: never started.
 EXECUTABLE_BASELINE_REPORT = "reports/RPT-032_executable-identity-baseline_2026-08-19.md"
 
 #: How a baseline cell begins when the public tree withholds that build's

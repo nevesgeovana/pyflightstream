@@ -6,10 +6,10 @@
  "executable_sha256": "withheld; build 8172026",
  "route": "package route: pyfs-matrix plan, then pyfs-matrix run --local, one matrix per item, serial",
  "files_read": {
-  "readme": "C:/WORK/release-0320/probes/round2/ccs/README.md",
-  "verdicts": "C:/WORK/release-0320/probes/round2/ccs/verdicts_ccs.json",
-  "workspace": "C:/WORK/release-0320/probes/round2/ccs/ws/",
-  "summary": "C:/WORK/release-0320/probes/round23_done.txt"
+  "readme": "<local probe folder>/round2/ccs/README.md",
+  "verdicts": "<local probe folder>/round2/ccs/verdicts_ccs.json",
+  "workspace": "<local probe folder>/round2/ccs/ws/",
+  "summary": "<local probe folder>/round23_done.txt"
  },
  "totals": {"items": 7, "confirmed": 6, "not_confirmed": 1},
  "items": [
