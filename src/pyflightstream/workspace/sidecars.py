@@ -107,7 +107,18 @@ GEOMETRIES_README = "README.md"
 
 
 def inventory_sidecar(geometry: str | Path) -> Path:
-    """Return the sidecar path beside ``geometry``, whether or not it exists."""
+    """Return the sidecar path beside ``geometry``, whether or not it exists.
+
+    Parameters
+    ----------
+    geometry : str or Path
+        The geometry file.
+
+    Returns
+    -------
+    Path
+        The ``<stem>.boundaries.toml`` path beside it.
+    """
     path = Path(geometry)
     return path.with_name(path.stem + INVENTORY_SUFFIX)
 
@@ -226,6 +237,25 @@ def obj_boundary_names(path: str | Path) -> tuple[str, ...]:
     Repeated g groups remain separate boundaries; ambiguous labels must be
     selected by position downstream. Reverse g-to-o transitions, repeated
     o names, unnamed groups and multiword o names remain unmeasured here.
+
+    Parameters
+    ----------
+    path : str or Path
+        The OBJ mesh file, read as UTF-8 text.
+
+    Returns
+    -------
+    tuple of str
+        The group names in the order the file opens them, repeated names kept.
+
+    Raises
+    ------
+    InputArtifactError
+        If the file cannot be read as text, holds no face under a measured
+        group, or uses a variant that has not been measured (a group with no
+        name or several words after ``o``, a face before the first group, an
+        ``o`` after ``g``, or a name reopened where an ``o`` is involved). The
+        message points to writing the names by hand in the sidecar.
     """
     mesh = Path(path)
     by_hand = (
@@ -446,6 +476,16 @@ def _sidecar_data(sidecar: Path) -> dict[str, Any]:
 
 def read_inventory(sidecar: str | Path) -> tuple[str, ...]:
     """Return the ordered boundary names a sidecar states.
+
+    Parameters
+    ----------
+    sidecar : str or Path
+        The ``<stem>.boundaries.toml`` file.
+
+    Returns
+    -------
+    tuple of str
+        The boundary names in the order the sidecar lists them.
 
     Raises
     ------

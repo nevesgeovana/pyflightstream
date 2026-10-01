@@ -156,6 +156,19 @@ def descriptor_name_refusal(name: str, source: object) -> str | None:
     is a plain file name: no folder, no parent folder, and no form Windows
     reads as another file's, any of which would put it on a file another
     point's record names. ``source`` names the profile in the sentence.
+
+    Parameters
+    ----------
+    name : str
+        The descriptor name the profile states.
+    source : object
+        The profile (usually its path), named in the refusal sentence.
+
+    Returns
+    -------
+    str or None
+        The sentence that says why ``name`` is refused, or None when it is an
+        acceptable file name.
     """
     alias = aliased_name_fault(name)
     if (
@@ -174,7 +187,20 @@ def descriptor_name_refusal(name: str, source: object) -> str | None:
 
 
 def hpc_profiles(inputs_dir: str | Path) -> list[Path]:
-    """Every HPC profile a workspace carries, sorted."""
+    """Every HPC profile a workspace carries, sorted.
+
+    Parameters
+    ----------
+    inputs_dir : str or Path
+        The workspace ``inputs/`` directory; the profiles are the ``*.toml``
+        files of its ``hpc/`` folder.
+
+    Returns
+    -------
+    list of Path
+        The profile files in name order; empty when the folder is absent or
+        holds none.
+    """
     directory = Path(inputs_dir) / HPC_DIR
     if not directory.is_dir():
         return []
@@ -189,6 +215,23 @@ def resolve_hpc_profile(inputs_dir: str | Path) -> HpcProfile | None:
     queue. If a study ever needs two clusters the selector is a question to
     answer then, with the case in hand, rather than a mechanism invented
     for a problem nobody has.
+
+    Parameters
+    ----------
+    inputs_dir : str or Path
+        The workspace ``inputs/`` directory.
+
+    Returns
+    -------
+    HpcProfile or None
+        The profile of the one cluster the workspace carries, or None when it
+        carries no profile.
+
+    Raises
+    ------
+    InputArtifactError
+        If the folder holds more than one profile, or the one profile is
+        refused by :func:`read_hpc_profile`.
     """
     found = hpc_profiles(inputs_dir)
     if not found:
@@ -273,7 +316,27 @@ def _refuse_a_misplaced_key(target: Path, table: Mapping[str, object]) -> None:
 
 
 def read_hpc_profile(path: str | Path) -> HpcProfile:
-    """Read one HPC profile, refusing what it cannot act on."""
+    """Read one HPC profile, refusing what it cannot act on.
+
+    Parameters
+    ----------
+    path : str or Path
+        The profile file, a TOML document.
+
+    Returns
+    -------
+    HpcProfile
+        The profile read from the file.
+
+    Raises
+    ------
+    InputArtifactError
+        If the file is not valid TOML, lacks the scheduler's application name,
+        asks for a descriptor format or walltime arithmetic this package does
+        not write, names a descriptor that is not a plain file name, lists no
+        descriptor fields or no submit command, or states a key this package
+        does not read (or one it owns under the wrong table).
+    """
     target = Path(path)
     table = load_toml(target, "hpc profile")
     for key in HPC_REQUIRED:

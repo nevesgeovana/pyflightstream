@@ -65,7 +65,8 @@ FACADE_HELD = {
 #: modules all pass, leaves this list and the examples list. WP6
 #: (AD-14) moved the pending functions of the `run` root into `run._campaign`,
 #: `run._executors`, `run._identity` and `run._plan`, pinned in its stead; the
-#: root, a facade now, leaves the list.
+#: root, a facade now, leaves the list. DOC-B part 2 completed `workspace`
+#: (its root, `hpc`, `inputs` and `sidecars`), which leave the list.
 NUMPYDOC_PENDING = {
     "cases/__init__.py",
     "farfield/__init__.py",
@@ -95,10 +96,6 @@ NUMPYDOC_PENDING = {
     "run/_identity.py",
     "run/_plan.py",
     "run/cli.py",
-    "workspace/__init__.py",
-    "workspace/hpc.py",
-    "workspace/inputs.py",
-    "workspace/sidecars.py",
 }
 
 #: Modules whose documented entry points do not yet all carry an Examples
@@ -107,7 +104,8 @@ NUMPYDOC_PENDING = {
 #: `results.exports` and `results.loads`, and the root, which keeps none,
 #: leaves the list. Those WP6 moved out of the `run` root are pinned in
 #: `run._assessment`, `run._campaign`, `run._executors`, `run._identity` and
-#: `run._plan`, and the root leaves the list.
+#: `run._plan`, and the root leaves the list. `workspace` and
+#: `workspace.inputs` carry their examples and leave the list.
 EXAMPLES_PENDING = {
     "cases/__init__.py",
     "script/__init__.py",
@@ -122,8 +120,6 @@ EXAMPLES_PENDING = {
     "run/_identity.py",
     "run/_plan.py",
     "run/cli.py",
-    "workspace/__init__.py",
-    "workspace/inputs.py",
 }
 
 #: Documented entry points whose example cannot run offline without the solver

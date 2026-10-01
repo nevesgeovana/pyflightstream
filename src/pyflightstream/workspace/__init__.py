@@ -523,6 +523,16 @@ class RunStatus(enum.StrEnum):
 
     Every executed point lands in exactly one of these; a silent skip
     is structurally impossible in the campaign loop.
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace import RunStatus
+    >>> RunStatus.CONVERGED.value
+    'CONVERGED'
+    >>> RunStatus("WALLTIME_REACHED") is RunStatus.WALLTIME_REACHED
+    True
+    >>> str(RunStatus.FAILED_MARKED).startswith("FAILED")
+    True
     """
 
     CONVERGED = "CONVERGED"
@@ -625,14 +635,34 @@ _POST_STAGES: list[Callable[..., list[Path]]] = []
 
 
 def register_post_stage(stage: Callable[..., list[Path]]) -> Callable[..., list[Path]]:
-    """Register a post stage the campaign loop runs after collection; returns it."""
+    """Register a post stage the campaign loop runs after collection; returns it.
+
+    Parameters
+    ----------
+    stage : callable
+        The stage, taking the workspace, ``overwrite`` and ``matrix_stem`` and
+        returning the list of paths it wrote. Registering the same callable
+        twice keeps one entry.
+
+    Returns
+    -------
+    callable
+        ``stage`` itself, so the function can be used as a decorator.
+    """
     if stage not in _POST_STAGES:
         _POST_STAGES.append(stage)
     return stage
 
 
 def post_stages() -> tuple[Callable[..., list[Path]], ...]:
-    """Return the registered post stages, in registration order."""
+    """Return the registered post stages, in registration order.
+
+    Returns
+    -------
+    tuple of callable
+        The stages registered with :func:`register_post_stage`; empty when
+        none is registered.
+    """
     return tuple(_POST_STAGES)
 
 
@@ -645,6 +675,27 @@ def selected_sims(
     raised before either touches anything. ``records`` are the records the
     command may select from (one matrix's for the post), and ``scope`` says
     which in the refusal, for example ``"of matrix 'matriz'"``.
+
+    Parameters
+    ----------
+    records : iterable of RunRecord
+        The records the command may select from.
+    sims : iterable of str
+        The simulation ids named on the command line. Blank entries are
+        dropped and duplicates are kept once, in the order given.
+    scope : str
+        The phrase that says in the refusal which records were searched.
+
+    Returns
+    -------
+    frozenset of str
+        The simulation ids named, each one held by ``records``.
+
+    Raises
+    ------
+    WorkspaceError
+        If ``sims`` names no simulation, or names one that ``records`` do not
+        hold. Nothing has been done when it is raised.
     """
     named = list(dict.fromkeys(str(sim).strip() for sim in sims if str(sim).strip()))
     if not named:
@@ -671,14 +722,43 @@ _POST_DIAGNOSTICS: Callable[[Sequence[Path]], str] | None = None
 def register_post_diagnostics(
     renderer: Callable[[Sequence[Path]], str],
 ) -> Callable[[Sequence[Path]], str]:
-    """Register the renderer of recorded post logs; return the renderer."""
+    """Register the renderer of recorded post logs; return the renderer.
+
+    Parameters
+    ----------
+    renderer : callable
+        A function taking the paths of the recorded post logs and returning
+        the diagnostic text. A later registration replaces an earlier one.
+
+    Returns
+    -------
+    callable
+        ``renderer`` itself.
+    """
     global _POST_DIAGNOSTICS
     _POST_DIAGNOSTICS = renderer
     return renderer
 
 
 def post_diagnostics(log_paths: Sequence[Path]) -> str:
-    """Render saved diagnostics through the post layer without running stages."""
+    """Render saved diagnostics through the post layer without running stages.
+
+    Parameters
+    ----------
+    log_paths : sequence of Path
+        The recorded post logs to render.
+
+    Returns
+    -------
+    str
+        The diagnostic text the registered renderer produced.
+
+    Raises
+    ------
+    WorkspaceError
+        If no renderer has been registered with
+        :func:`register_post_diagnostics`.
+    """
     if _POST_DIAGNOSTICS is None:
         raise WorkspaceError("No recorded post-diagnostics renderer is registered.")
     return _POST_DIAGNOSTICS(log_paths)
@@ -696,6 +776,18 @@ def register_input_guide(writer: Callable[[Path], list[Path]]) -> Callable[[Path
 
     A writer takes the workspace's ``inputs`` directory and returns the pages it
     actually CHANGED, none when they already say what it would write.
+
+    Parameters
+    ----------
+    writer : callable
+        The writer, taking the ``inputs`` directory as a Path and returning the
+        list of pages it changed. Registering the same callable twice keeps one
+        entry.
+
+    Returns
+    -------
+    callable
+        ``writer`` itself, so the function can be used as a decorator.
     """
     if writer not in _INPUT_GUIDES:
         _INPUT_GUIDES.append(writer)
@@ -709,6 +801,17 @@ def write_input_guides(inputs_dir: str | Path) -> list[Path]:
     :meth:`CampaignWorkspace.init`, by the matrix plan and by the post stage, so
     the guides reach a new workspace, one made before they existed, and one
     whose pproc gained a ``[glossary]``.
+
+    Parameters
+    ----------
+    inputs_dir : str or Path
+        The workspace ``inputs/`` directory the guides are written under.
+
+    Returns
+    -------
+    list of Path
+        The pages that changed, in registration order; empty when every page
+        already said what its writer would write.
     """
     changed: list[Path] = []
     for writer in _INPUT_GUIDES:
@@ -720,6 +823,22 @@ class RunRecord(BaseModel):
     """One manifest record: a single executed campaign point.
 
     The record plus the staged inputs reproduce the run (NFR-07).
+
+    Examples
+    --------
+    >>> from pyflightstream.workspace import RunRecord, RunStatus
+    >>> record = RunRecord(
+    ...     run_id="campaign/sim_9001/a+02.0_b+00.0",
+    ...     sim_id="9001",
+    ...     point={"alpha": 2.0, "beta": 0.0},
+    ...     fs_version_requested="26.124",
+    ...     script_sha256="0" * 64,
+    ...     raw_flag=False,
+    ...     status=RunStatus.CONVERGED,
+    ...     package_version="0.33.0",
+    ... )
+    >>> record.sim_id, record.point["alpha"], record.status.value
+    ('9001', 2.0, 'CONVERGED')
 
     Attributes
     ----------
@@ -1797,6 +1916,17 @@ def matrix_files(root: str | Path) -> list[Path]:
     read this list, so they cannot disagree about which matrices exist. A file
     that is a link or junction is never followed and is not listed; each
     folder is listed in name order, the root first.
+
+    Parameters
+    ----------
+    root : str or Path
+        The workspace root.
+
+    Returns
+    -------
+    list of Path
+        The matrix files found, the root's first and each folder in name order;
+        empty when neither folder holds one.
     """
     base = Path(root)
     found: list[Path] = []
@@ -1829,6 +1959,16 @@ def matrix_by_stem(root: str | Path) -> dict[str, Path]:
     naming both paths, because which one ran cannot be told. The files are
     the ones :func:`matrix_files` lists.
 
+    Parameters
+    ----------
+    root : str or Path
+        The workspace root.
+
+    Returns
+    -------
+    dict of str to Path
+        The path of each matrix, by file-name stem.
+
     Raises
     ------
     WorkspaceError
@@ -1847,6 +1987,18 @@ def find_matrix(root: str | Path, stem: str) -> Path | None:
 
     The rule of :func:`matrix_by_stem` asked of ONE stem, so a differing pair
     of another stem does not refuse this lookup.
+
+    Parameters
+    ----------
+    root : str or Path
+        The workspace root.
+    stem : str
+        The file-name stem of the matrix, without ``.fs``.
+
+    Returns
+    -------
+    Path or None
+        The matrix file, or None when the workspace holds none of that stem.
 
     Raises
     ------
@@ -2182,6 +2334,22 @@ class CampaignWorkspace:
         correctness property rather than a convenience.
     naming : NamingTemplate
         The active naming template.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> from pyflightstream.workspace import CampaignWorkspace
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     workspace = CampaignWorkspace.init(folder)
+    ...     print(workspace.root == Path(folder).resolve())
+    ...     print((workspace.root / "sims").is_dir())
+    ...     print(workspace.manifest_path.name)
+    ...     print(workspace.sim_dir("9001").name)
+    True
+    True
+    runs.json
+    sim_9001
     """
 
     def __init__(self, root: str | Path, naming: NamingTemplate | None = None):
@@ -2374,6 +2542,9 @@ class CampaignWorkspace:
             File name stem under ``inputs/pproc/``.
         name : str
             Group to expand, and the stem of the generated names.
+        boundaries : mapping of str to int, optional
+            The opened geometry's boundary inventory, label to 1-based index,
+            through which a member written as a name resolves.
 
         Returns
         -------
