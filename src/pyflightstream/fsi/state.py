@@ -371,12 +371,12 @@ def check_state_matches_config(
 
     Raises
     ------
-    ValueError
+    FsiInputError
         If any persisted array disagrees with the configured shape, or
         if the state was created under a different configuration and
         ``allow_config_change`` is not set. The message names the array
         and both shapes, because the usual cause is resuming into a run
-        directory whose config was edited.
+        directory whose config was edited. It is a ``ValueError``.
     """
     problems: list[str] = []
 

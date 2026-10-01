@@ -779,6 +779,13 @@ def coupling_step(run_dir: str | Path) -> StepResult:
         than the presence of the log: within one run the log is present
         on every call after the first, and refusing that would refuse the
         normal case.
+
+        Also if the loads export carries no time increment, so it comes
+        from a steady solve.
+    StaleLoadsError
+        If the loads export's solver iteration is not ahead of the
+        previous call's: the solver is running more than one FSI
+        iteration per time step (FSI-R12).
     """
     run_dir = Path(run_dir)
     cfg = load_config(run_dir / CONFIG_FILE)

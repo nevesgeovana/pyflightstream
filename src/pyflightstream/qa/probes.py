@@ -1104,10 +1104,12 @@ def probe_version(
     Raises
     ------
     ProbeEnvironmentError
-        When the baseline probe fails or a probe directory cannot be
-        prepared; no command evidence is produced in that case.
-    ValueError
-        When ``commands`` names a command outside the version's view.
+        When no executor and no ``fs_exe`` is given, when ``fsm`` names
+        no file, or when the baseline probe fails or a probe directory
+        cannot be prepared; no command evidence is produced in that case.
+    QaEvidenceError
+        When ``commands`` names a command outside the version's view
+        (a ``ValueError``).
     """
     resolved = resolve(version)
     view = (registry or CommandRegistry.load()).for_version(resolved)

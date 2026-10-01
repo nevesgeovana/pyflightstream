@@ -263,10 +263,11 @@ def apply_geometry_gate(
 
     Raises
     ------
-    ValueError
+    ProbeGeometryError
         If the grid asks for refinement, or a positive standoff is
         requested, without a mesh: both are measured from the
-        surface, so they cannot exist without one.
+        surface, so they cannot exist without one. Also if the
+        standoff is negative. It is a ``ValueError``.
     """
     resolved_path = str(mesh_path) if mesh_path is not None else None
     if mesh is None and mesh_path is not None:

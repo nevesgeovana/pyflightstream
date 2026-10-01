@@ -273,8 +273,9 @@ def read_compat_report(path: str | Path) -> dict:
 
     Raises
     ------
-    ValueError
-        When the file does not carry the compat report schema marker.
+    QaEvidenceError
+        When the file does not carry the compat report schema marker
+        (a ``ValueError``).
     """
     document = _load_yaml(Path(path))
     if not isinstance(document, dict) or document.get("schema") != COMPAT_SCHEMA:
