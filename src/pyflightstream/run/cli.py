@@ -66,10 +66,7 @@ from pyflightstream._console import (
     table,
     wrap,
 )
-from pyflightstream._errors import (
-    PyflightstreamError,
-    PyflightstreamWarning,
-)
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
 from pyflightstream._progress import (
     LIVE_LOG_COMMANDS,
     command_console,
@@ -98,6 +95,7 @@ from pyflightstream.run import (
     qsteady_validity_line,
 )
 from pyflightstream.run import records as run_records
+from pyflightstream.run._continuation_frame import continuation_block
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -2397,6 +2395,7 @@ def _plan_blocks(plan: CampaignPlan, *, cost: bool) -> list[tuple[str, list[str]
     return [
         ("Cases", cases),
         (f"Blocked points ({len(plan.blocked)})", blocked),
+        ("Continuations (RESTART)", continuation_block(plan.points)),
         ("Rotor Mach numbers", _rotor_mach_block(plan)),
         ("Quasi-steady validity per point", validity),
         ("Solver setup per case", setup_inspection_block(plan.setup_inspections)),

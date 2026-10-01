@@ -9,12 +9,12 @@
   "post/products.py": 5673,
   "qa/specs.py": 1334,
   "results/__init__.py": 1583,
-  "run/__init__.py": 4513,
-  "run/cli.py": 2005,
+  "run/__init__.py": 4491,
+  "run/cli.py": 2004,
   "run/matrix.py": 1304,
   "run/records.py": 1933,
   "script/helpers.py": 1678,
-  "workspace/__init__.py": 1609,
+  "workspace/__init__.py": 1608,
   "workspace/inputs.py": 1817,
   "workspace/matrix.py": 1377,
   "workspace/storage.py": 1487
@@ -900,9 +900,9 @@
    "positional": 3
   },
   "run/__init__.py:run_campaign": {
-   "complexity": 46,
-   "branches": 46,
-   "statements": 190,
+   "complexity": 44,
+   "branches": 44,
+   "statements": 187,
    "positional": 3
   },
   "run/_continuation_frame.py:_rebuild": {
@@ -1512,7 +1512,7 @@
   "post/__init__.py": 13,
   "probes/__init__.py": 441,
   "results/__init__.py": 3001,
-  "run/__init__.py": 7936,
+  "run/__init__.py": 7879,
   "script/__init__.py": 1954,
   "workspace/__init__.py": 3625
  },

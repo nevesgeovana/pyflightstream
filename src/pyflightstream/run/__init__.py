@@ -99,7 +99,7 @@ import subprocess
 import tempfile
 import time
 import warnings
-from collections.abc import Collection, Iterable, Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -181,7 +181,6 @@ from pyflightstream.cases.workflows import (
     qsteady_validity,
     read_a_choice,
     reduction_windows,
-    restart_iterations,
     rotor_machs,
     row_ncpus,
     row_walltime_s,
@@ -207,7 +206,19 @@ from pyflightstream.results import (
 from pyflightstream.results.conditions import ConditionBinding, bind_conditions
 from pyflightstream.results.tables import sweep_table, write_table
 from pyflightstream.run._actions_counter import stage_counter
-from pyflightstream.run._continuation_frame import recover_frame as _recover_continuation_frame
+from pyflightstream.run._continuation_frame import CONTINUABLE as CONTINUABLE
+from pyflightstream.run._continuation_frame import (
+    continuation_verdict,
+    pending_restart_points,
+    refuse_what_cannot_continue,
+    request_record,
+    restart_request,
+    restart_steps,
+)
+from pyflightstream.run._continuation_frame import latest_record_of_point as _latest_record_of_point
+from pyflightstream.run._continuation_frame import (
+    recover_frame as _recover_continuation_frame,
+)
 from pyflightstream.run._solver_windows import owned_solver_dialogs as _owned_solver_dialogs
 from pyflightstream.run._solver_windows import spared_solver_windows as _spared_solver_windows
 from pyflightstream.run._step_exports import missing_step_warning, untranslated_surfaces
@@ -3692,10 +3703,10 @@ def run_campaign(
         # continuably, when nothing records it at all, or when its most recent
         # run FAILED, and in the last two the continuation resolver refuses it
         # by name rather than skipping it in silence (the quality and V&V
-        # lenses, closing round). A point whose most recent run finished, or is
-        # still in a queue, is done for now, so running the matrix again does
-        # not continue a continuation that already completed.
-        continuing = _states_restart(case)
+        # lenses, closing round). FR-96, 0.33.0: a CONVERGED march continues
+        # once per request (`continuation_verdict`), so a completed continuation
+        # is not continued again, and a point not continued is said.
+        continuing = restart_request(case) is not None
         redoing = False
         if already and force_rerun:
             asked = _points_asked_to_redo(campaign, case, force_rerun)
@@ -3813,13 +3824,12 @@ def run_campaign(
                 "this one."
             )
         if continuing:
-            pending = []
-            for point, run_id in zip(case_points, run_ids, strict=True):
-                latest = _latest_record_of_point(
-                    manifest.values(), case.sim_id, point_name(case, point)
-                )
-                if _restart_point_is_pending(latest):
-                    pending.append((point, run_id))
+            pending = pending_restart_points(
+                case,
+                list(zip(case_points, run_ids, strict=True)),
+                manifest.values(),
+                lambda text: _say(text, quiet=quiet),
+            )
         else:
             pending = [
                 (point, run_id)
@@ -4635,6 +4645,11 @@ class PointPlan:
         :func:`pyflightstream.cases.workflows.qsteady_validity` states them,
         or a ``note`` saying why the chord is not known at plan time. Empty on
         every other point.
+    continuation : str or None
+        On a point of a row stating ``RESTART`` (FR-96, 0.33.0), what the
+        continuation does (``continuing a CONVERGED unsteady run, <run id>, by
+        1 revolution(s)``) or why the request cannot continue the point; None
+        on every other point and where the resolver's refusal is the error.
     """
 
     run_id: str
@@ -4648,6 +4663,7 @@ class PointPlan:
     march_strategy: MarchStrategy | None = None
     rotor_mach: dict[str, dict[str, object]] = field(default_factory=dict)
     qsteady_validity: dict[str, object] = field(default_factory=dict)
+    continuation: str | None = None
 
 
 @dataclass(frozen=True)
@@ -5643,18 +5659,25 @@ def _plan_point(
     # spend a destructive act on a rehearsal, and `plan` promises to spend
     # nothing.
     #
-    # A POINT WHOSE LATEST RUN FINISHED, OR IS STILL QUEUED, IS RECORDED, not
-    # blocked: a RESTART row names the points it continues, and once a
-    # continuation has completed there is nothing left to continue. A point
+    # A POINT ITS REQUEST CANNOT CONTINUE IS RECORDED, not blocked, AND SAID
+    # (FR-96, 0.33.0): a completed continuation of the same request, a
+    # FINISH_PENDING on a CONVERGED run, a steady run, a queued one. A point
     # whose latest run FAILED goes on to the resolver, which refuses it by
     # name, so the plan reports it BLOCKED with the reason instead of recorded.
-    restarting = _states_restart(case)
-    if restarting:
-        latest = _latest_record_of_point(
-            workspace.read_manifest(), case.sim_id, point_name(case, point)
+    restarting = (request := restart_request(case)) is not None
+    verdict = (
+        continuation_verdict(
+            request,
+            _latest_record_of_point(
+                workspace.read_manifest(), case.sim_id, point_name(case, point)
+            ),
         )
-        if not _restart_point_is_pending(latest):
-            return PointPlan(**base, script_name=script_name, status=PlanStatus.ALREADY_RECORDED)
+        if request
+        else None
+    )
+    base["continuation"] = verdict.said if verdict else None
+    if verdict is not None and not verdict.pending:
+        return PointPlan(**base, script_name=script_name, status=PlanStatus.ALREADY_RECORDED)
     try:
         # An unreadable COLD_START is refused here, where the plan reports it
         # BLOCKED, and not first inside run_campaign's loop after earlier
@@ -7324,13 +7347,6 @@ def workflow_conventions_for(case: SimCase) -> WorkflowConventions:
     return WorkflowConventions.for_case(case)
 
 
-#: The statuses a continuation may continue FROM. A run that converged has
-#: nothing left to march and a run that failed has no state worth resuming;
-#: these two stopped with their outputs written and their step recorded,
-#: which is exactly what `restart_iterations` subtracts from.
-CONTINUABLE = (RunStatus.WALLTIME_REACHED, RunStatus.COMPLETED_MAX_ITER)
-
-
 def continuation_run_id(run_id: str, stamp: datetime) -> str:
     """Return the run id of a continuation of ``run_id``.
 
@@ -7404,30 +7420,15 @@ def resolve_continuation(
     # 0.18.1, so a point whose continuation had since FINISHED was continued
     # again from the run before it, re-marching steps the finished run had
     # already done (GOAL-021, found beside the item 2 measurement).
-    previous = _latest_record_of_point(workspace.read_manifest(), case.sim_id, tag)
-    if previous is None or previous.status not in CONTINUABLE:
-        latest = (
-            "records no run of it"
-            if previous is None
-            else f"records its latest run, {previous.run_id!r}, as {previous.status}"
-        )
-        failed = previous is not None and previous.status in _FAILED_STATUSES
-        remedy = (
-            " A failed continuation is not retried: the saved simulation of the stop it "
-            "continued is kept under this point's archive/ folder. Find why it failed, "
-            "then restore that file and its record by hand, or remove the "
-            f"{RESTART_VARIABLE} key to march the point from the start."
-            if failed
-            else ""
-        )
-        raise CampaignConfigError(
-            f"case {case.sim_id!r} point {tag} states {RESTART_VARIABLE} and this workspace "
-            f"{latest}, which is not a run that STOPPED with more to do.{remedy} A continuation "
-            "continues a recorded run whose latest status is one of "
-            f"{', '.join(str(s) for s in CONTINUABLE)}; run the row once, or remove the "
-            f"{RESTART_VARIABLE} key to march it from the start."
-        )
-    iterations = restart_iterations(request, previous.model_dump(mode="json"))
+    # FR-96, 0.33.0: a CONVERGED unsteady march is continued by ADDITIONAL_REVS
+    # or ADDITIONAL_ITERS, once per request; everything else as before.
+    previous = refuse_what_cannot_continue(
+        case.sim_id,
+        tag,
+        request,
+        _latest_record_of_point(workspace.read_manifest(), case.sim_id, tag),
+    )
+    iterations = restart_steps(request, previous)
     saved = next(
         (name for name in previous.outputs if str(name).lower().endswith(SIMULATION_SUFFIX)),
         None,
@@ -7472,6 +7473,7 @@ def resolve_continuation(
         "iterations": iterations,
         "saved": str(saved),
         "form": request.form,
+        "restart": request_record(request),
         **recovery,
     }
 
@@ -7529,11 +7531,6 @@ def _refuse_a_field_the_stopped_run_did_not_read(
     )
 
 
-#: Every status a run ends in when it FAILED, read off the enum by name so a
-#: failure status added there is covered here without an edit.
-_FAILED_STATUSES = tuple(status for status in RunStatus if status.name.startswith("FAILED_"))
-
-
 def _queued_record_of_point(
     workspace: CampaignWorkspace, sim_id: str, name: str
 ) -> RunRecord | None:
@@ -7551,68 +7548,6 @@ def _queued_record_of_point(
         ):
             return record
     return None
-
-
-def _restart_point_is_pending(latest: RunRecord | None) -> bool:
-    """Whether a point of a RESTART row goes on to the continuation resolver.
-
-    It does when nothing records it, when its most recent run stopped with
-    more to do, and when its most recent run FAILED: the first and the last
-    are refused there BY NAME, so no point of a RESTART row is ever skipped
-    in silence. It does not when the most recent run finished or is still in
-    a queue, because there is nothing to continue yet or any more.
-    """
-    return latest is None or latest.status in CONTINUABLE or latest.status in _FAILED_STATUSES
-
-
-def _states_restart(case: SimCase) -> bool:
-    """Whether a case's row states RESTART, without raising on a malformed cell.
-
-    A malformed cell is the continuation resolver's to refuse, per point and by
-    name; campaign scheduling only needs to know whether the row is one.
-    """
-    try:
-        return parse_restart(case) is not None
-    except CampaignConfigError:
-        return False
-
-
-def _latest_record_of_point(
-    records: Iterable[RunRecord], sim_id: str, name: str
-) -> RunRecord | None:
-    """Return the most recent record of one point, in file order, whatever its status.
-
-    A continuation's run id is ``<campaign>/sim_<id>/r<stamp>/<name>``, so the
-    point name still ENDS every run id of the point, which is what this reads.
-    """
-    latest = None
-    for record in records:
-        if _is_a_continuation_that_never_started(record):
-            continue
-        if record.sim_id == sim_id and record.run_id.endswith(f"/{name}"):
-            latest = record
-    return latest
-
-
-def _is_a_continuation_that_never_started(record: RunRecord) -> bool:
-    """Whether a record is `run_campaign`'s note that a continuation was refused.
-
-    Such a row says an attempt was made and why it could not start; it built no
-    script, archived nothing and touched no folder, so it is NOT the state of the
-    point and the run before it still is. Read as the latest run it would turn a
-    refusal whose remedy is "restore the saved simulation" into one that can
-    never be lifted, because the next attempt would find a FAILED run and be
-    told that a failed continuation is not retried.
-
-    It is told apart by what it lacks: every record `_execute_point` builds
-    names its recipe, including the four that fail before a script exists, and
-    this one reached no recipe.
-    """
-    return (
-        record.status is RunStatus.FAILED_SCRIPT
-        and not record.script_sha256
-        and record.recipe is None
-    )
 
 
 def _profile_of(executor: object) -> HpcProfile | None:
@@ -7858,6 +7793,7 @@ def _execute_point(
         # that fails says so as well: the chain is a fact about the attempt,
         # not about its success. None for every point that continues nothing.
         "continues": continues,
+        "restart": (recovered_continuation or {}).get("restart") if continues else None,
         "fs_version_requested": canonical,
         "package_version": pyflightstream.__version__,
         "package_commit": package_commit,

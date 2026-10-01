@@ -160,6 +160,8 @@ from pyflightstream.post._tables import (
     SECTION_COLUMNS,
     ProductError,
     ProductExistsError,
+    _march_plots_text,
+    _march_records,
     context_row,
     plots_table_series,
     read_csv_table,
@@ -168,9 +170,7 @@ from pyflightstream.post._tables import (
     section_identity,
     write_csv_table,
 )
-from pyflightstream.post._tables import (
-    _DECIMALS as _DECIMALS,
-)
+from pyflightstream.post._tables import _DECIMALS as _DECIMALS
 from pyflightstream.post._tables import _PLOTS_STEP_COLUMN as PLOTS_STEP_COLUMN
 from pyflightstream.post._tables import _REFERENCE_COLUMNS as _REFERENCE_COLUMNS
 from pyflightstream.post._tables import COEFFICIENT_COLUMNS as COEFFICIENT_COLUMNS
@@ -6305,7 +6305,7 @@ def _sim_products(
             try:
                 done = write_plots_table(
                     target,
-                    plots_path.read_text(encoding="utf-8", errors="replace"),
+                    _march_plots_text(workspace, record_of.get(point.name), plots_path),
                     pol=sim_id,
                 )
             except (ProductError, OSError) as error:
@@ -8734,7 +8734,7 @@ def _write_the_products(
             files, names, reductions_skipped = _sim_products(
                 workspace,
                 sim_id,
-                sim_records,
+                _march_records(workspace, sim_records),
                 out,
                 overwrite=overwrite,
                 archive=archive,

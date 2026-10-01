@@ -1085,6 +1085,25 @@ for revolutions; divide degrees by 360. A new unsteady plan requires one of
 these current keys. Older records retain the window the run was given, with
 a warning naming the steps when no current averaging key was recorded.
 
+**A continued point is averaged over the last steps of its WHOLE march**
+(since 0.33.0, FR-96). A continuation (`RESTART`) records the row's clock, so
+its window as recorded ends at the last step of the run it continues; the post
+moves every window of the point, keeping its length, to end at the last step
+of the march, so `LAST_REVS_AVG: 1` averages the last revolution the solver
+turned, in the continuation. The plots table of such a point is the history of
+the whole march: the post reads the plots export of each run of the chain from
+the archive the next run moved it into (`datapoints/DP-<point>/archive/<stamp>/`)
+and joins them by step number. An export whose first step follows the
+history's last is appended; one that starts inside the history and repeats its
+rows there restates the march and is taken from where it starts; one that
+starts again at step 1 with rows of its own is numbered on from the history's
+last step, its time with it. No step is repeated or missing at a seam, and
+`post.log` says how the history was joined and the step the window ends at. A
+history that cannot be found or joined is said there, naming the file, and the
+table then holds the continuation's own export, as it states its steps. Which
+of these the solver writes is not yet read on a licensed run, so each is read.
+A point that continues nothing is averaged exactly as before.
+
 ---
 
 ## Native surface flow exports
