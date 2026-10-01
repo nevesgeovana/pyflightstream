@@ -6,6 +6,11 @@
 # and a GitHub environment named pypi. Triggered by version tags only;
 # the tag is cut once the gates below are green.
 #
+# A push to a branch named dry-run/** runs build, test-artifact (both
+# runners) and gates exactly as a tag does, and skips the tag-only steps
+# (the tag-to-version check and the publish job), so a release is rehearsed
+# on the real runners before any tag exists (FR-345, P0340-RELEASE-TITLE).
+#
 # A 2026-08 review changed the SHAPE of this workflow. It used to build, run
 # `twine check`, and publish on the strength of the build job alone, so
 # a tag could publish while ci.yml was failing, and the artifact that
@@ -29,6 +34,7 @@ name: Release
 on:
   push:
     tags: ["v*"]
+    branches: ["dry-run/**"]
 
 # Least privilege at workflow scope: only the publish job needs the OIDC
 # token, and it asks for it itself. Granting id-token at workflow scope
@@ -58,6 +64,7 @@ jobs:
           python -m build
           twine check dist/*
       - name: Verify tag matches the package version
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           # pyflightstream single-sources the version in pyproject.toml
           # (there is no version.py; __version__ derives from the
@@ -181,6 +188,8 @@ jobs:
     # Every gate, not just the build. A tag used to publish while ci.yml
     # was red because nothing here waited for it.
     needs: [build, test-artifact, gates]
+    # Only a v* tag publishes; a dry-run/** branch stops after the gates.
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     environment:
       name: pypi
