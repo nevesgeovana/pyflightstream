@@ -379,6 +379,34 @@ one of them keeps.
     are the review's; a package that changes one records it in the 0.33.0
     section of this chapter.
 
+    As WP3 landed: `post.glossary` holds the input glossary and the parts
+    the three generated pages share (the names of the pproc guides, the
+    banner, the idempotent write, the documentation link), so that
+    `post.input_template`, whose sections are one data table, and
+    `post.guides`, which keeps the pproc guides, import it and it imports
+    neither; `post.input_template` stays within the lens by its
+    `Size exemption:` line, not by its count, because the table is the
+    text of the examples in the order the generated template prints them.
+    The `results` root is a facade of imports and `__all__`: its
+    errors, primitives and codes stay in its public face and are defined
+    in `results.core`, below `results.loads`, `results.log` and
+    `results.exports`, because a root that defined them would be imported
+    by its own leaves, which is the cycle; no module of the layer imports
+    the root. `run.records` keeps `restore` and `mark_failed` and every
+    public name of the family; the rebuild is `run._rebuild`, what it reads
+    and compares `run._rebuild_evidence` (the rebuild alone is over the
+    lens), the assembly `run._assemble`, and the record files, their
+    archives, the lease and `RecordsError` are `run._record_files`, which
+    `records` and the rebuild share so that neither imports the other.
+    `workspace.inputs` keeps the artifact resolvers and an `__all__` of
+    every public name it held; besides `workspace.sidecars` and
+    `workspace.hpc`, the build registry is `workspace.builds` and the rule
+    on empty entity selections `workspace.selections`, because the review's
+    two cuts left it over the lens once its `__all__` was written. The five
+    modules beyond the review's names are `results.core`,
+    `run._record_files`, `run._rebuild_evidence`, `workspace.builds` and
+    `workspace.selections`.
+
 !!! decision "AD-12 cases/workflows is a package with a guarded order <span class='srs-pending'>pending</span>"
     *Work package WP4 of the 0.33.0 scope. Evidence owed: G3(b) for the
     package, the 29 goldens and the tier-3 golden diff unchanged, and G1
@@ -815,15 +843,19 @@ bodies and those under `TYPE_CHECKING` included.
 
 ### The modules and their rows
 
-- `run/records.py`, in the run row, imports the floors `_digest` and
-  `_errors`, `cases`, `cases.matrix`, `cases.windows`, `results`,
-  `workspace`, `workspace.flight_condition`, `workspace.inputs`,
-  `workspace.matrix`, `workspace.naming` and `workspace.storage`, and inside
-  function bodies `_progress`, `cases.workflows`, `run` and `run.collect`. It
-  holds the operations on a workspace's records: the exact restore of a
-  records file from the archive, the rebuild of run records from the
-  simulation folders and the records a post assembles from them; it
-  re-exports which manifest a command reads, defined in `workspace.naming`.
+- `run/records.py`, in the run row, imports the floor `_errors`, the four
+  private modules of the records family (`run._record_files`,
+  `run._rebuild_evidence`, `run._rebuild` and `run._assemble`, since
+  0.33.0, AD-11), `workspace.naming` and `workspace.storage`, and inside a
+  function body `workspace`. It holds the operations on a workspace's
+  records: the exact restore of a records file from the archive and the
+  mark-failed, and through the four modules it re-exports the rebuild of
+  run records from the simulation folders and the records a post assembles
+  from them; it re-exports which manifest a command reads, defined in
+  `workspace.naming`. Until 0.33.0 the rebuild and the assembly were this
+  module's own, and it imported the floor `_digest`, `cases`,
+  `cases.matrix`, `cases.windows`, `results`, `workspace.flight_condition`,
+  `workspace.inputs` and `workspace.matrix` for them.
   Until 0.33.0, `workspace.storage` reached this module inside two function
   bodies, for the manifest name and for the sync's rebuild. Since 0.33.0
   (AD-09, P0330-WP1) the manifest name is resolved in `workspace.naming`, and

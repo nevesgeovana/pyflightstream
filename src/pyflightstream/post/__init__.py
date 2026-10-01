@@ -112,7 +112,11 @@ module, which is stated rather than left to be discovered:
   and since 0.27.0 the input glossary ``INPUTS.md``, every key an input
   artifact may state (G08); since 0.28.0 also the input template
   ``input_template.md`` at the root of ``inputs/``, a complete example of
-  every kind of input file (G47). Re-exported here;
+  every kind of input file (G47). Re-exported here. Since 0.33.0 (AD-11) it
+  writes the two pproc guides itself and re-exports the other two pages,
+  :mod:`pyflightstream.post.glossary`, the input glossary with the parts the
+  three pages share, and :mod:`pyflightstream.post.input_template`, the input
+  template;
 * :mod:`pyflightstream.post._tables` is PRIVATE: the table primitives
   (the condition block, the CSV writer, the column renaming) the product
   modules share, so that no two of them import each other.

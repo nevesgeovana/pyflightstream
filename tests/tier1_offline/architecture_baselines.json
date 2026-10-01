@@ -5,22 +5,17 @@
   "cases/matrix.py": 1808,
   "cases/workflows.py": 8883,
   "post/corrections.py": 1006,
-  "post/guides.py": 2658,
   "post/products.py": 5673,
   "qa/specs.py": 1334,
-  "results/__init__.py": 1583,
   "run/__init__.py": 4513,
   "run/cli.py": 2005,
   "run/matrix.py": 1304,
-  "run/records.py": 1933,
   "script/helpers.py": 1678,
   "workspace/__init__.py": 1609,
-  "workspace/inputs.py": 1817,
   "workspace/matrix.py": 1377,
   "workspace/storage.py": 1487
  },
  "function_lines": {
-  "post/guides.py:_template_sections": 685,
   "post/products.py:_rotor_tables": 292,
   "post/products.py:_sim_products": 826,
   "post/products.py:_write_the_products": 259,
@@ -761,28 +756,28 @@
    "statements": 28,
    "positional": 1
   },
-  "results/__init__.py:frozen_time_steps": {
-   "complexity": 13,
-   "branches": 12,
-   "statements": 45,
-   "positional": 1
-  },
-  "results/__init__.py:parse_off_body_streamlines": {
+  "results/exports.py:parse_off_body_streamlines": {
    "complexity": 12,
    "branches": 8,
    "statements": 43,
    "positional": 1
   },
-  "results/__init__.py:parse_surface_sections": {
+  "results/exports.py:parse_surface_sections": {
    "complexity": 12,
    "branches": 8,
    "statements": 44,
    "positional": 1
   },
-  "results/__init__.py:parse_unsteady_plots": {
+  "results/loads.py:parse_unsteady_plots": {
    "complexity": 13,
    "branches": 12,
    "statements": 34,
+   "positional": 1
+  },
+  "results/log.py:frozen_time_steps": {
+   "complexity": 13,
+   "branches": 12,
+   "statements": 45,
    "positional": 1
   },
   "results/native_surface.py:_read_zone": {
@@ -905,6 +900,12 @@
    "statements": 190,
    "positional": 3
   },
+  "run/_assemble.py:assemble_records": {
+   "complexity": 11,
+   "branches": 10,
+   "statements": 32,
+   "positional": 2
+  },
   "run/_continuation_frame.py:_rebuild": {
    "complexity": 3,
    "branches": 2,
@@ -927,6 +928,66 @@
    "complexity": 11,
    "branches": 10,
    "statements": 27,
+   "positional": 2
+  },
+  "run/_rebuild.py:_finalise": {
+   "complexity": 12,
+   "branches": 14,
+   "statements": 75,
+   "positional": 6
+  },
+  "run/_rebuild.py:_mint": {
+   "complexity": 7,
+   "branches": 6,
+   "statements": 43,
+   "positional": 8
+  },
+  "run/_rebuild.py:_rebuild_all": {
+   "complexity": 14,
+   "branches": 15,
+   "statements": 54,
+   "positional": 4
+  },
+  "run/_rebuild.py:_rebuild_one": {
+   "complexity": 13,
+   "branches": 13,
+   "statements": 55,
+   "positional": 8
+  },
+  "run/_rebuild.py:_refuse_before_any_work": {
+   "complexity": 8,
+   "branches": 7,
+   "statements": 16,
+   "positional": 6
+  },
+  "run/_rebuild.py:rebuild": {
+   "complexity": 23,
+   "branches": 24,
+   "statements": 83,
+   "positional": 1
+  },
+  "run/_rebuild.py:summary_lines": {
+   "complexity": 13,
+   "branches": 14,
+   "statements": 29,
+   "positional": 1
+  },
+  "run/_rebuild_evidence.py:_collect_read_only": {
+   "complexity": 11,
+   "branches": 3,
+   "statements": 23,
+   "positional": 0
+  },
+  "run/_rebuild_evidence.py:_drift": {
+   "complexity": 11,
+   "branches": 12,
+   "statements": 40,
+   "positional": 3
+  },
+  "run/_rebuild_evidence.py:collect_without_writing": {
+   "complexity": 13,
+   "branches": 2,
+   "statements": 24,
    "positional": 2
   },
   "run/_solver_windows.py:_native_windows": {
@@ -1031,77 +1092,11 @@
    "statements": 37,
    "positional": 2
   },
-  "run/records.py:_collect_read_only": {
-   "complexity": 11,
-   "branches": 3,
-   "statements": 23,
-   "positional": 0
-  },
-  "run/records.py:_drift": {
-   "complexity": 11,
-   "branches": 12,
-   "statements": 40,
-   "positional": 3
-  },
-  "run/records.py:_finalise": {
-   "complexity": 12,
-   "branches": 14,
-   "statements": 75,
-   "positional": 6
-  },
-  "run/records.py:_mint": {
-   "complexity": 7,
-   "branches": 6,
-   "statements": 43,
-   "positional": 8
-  },
-  "run/records.py:_rebuild_all": {
-   "complexity": 14,
-   "branches": 15,
-   "statements": 54,
-   "positional": 4
-  },
-  "run/records.py:_rebuild_one": {
-   "complexity": 13,
-   "branches": 13,
-   "statements": 55,
-   "positional": 8
-  },
-  "run/records.py:_refuse_before_any_work": {
-   "complexity": 8,
-   "branches": 7,
-   "statements": 16,
-   "positional": 6
-  },
-  "run/records.py:assemble_records": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 32,
-   "positional": 2
-  },
-  "run/records.py:collect_without_writing": {
-   "complexity": 13,
-   "branches": 2,
-   "statements": 24,
-   "positional": 2
-  },
-  "run/records.py:rebuild": {
-   "complexity": 23,
-   "branches": 24,
-   "statements": 83,
-   "positional": 1
-  },
   "run/records.py:restore": {
    "complexity": 16,
    "branches": 18,
    "statements": 56,
    "positional": 2
-  },
-  "run/records.py:summary_lines": {
-   "complexity": 13,
-   "branches": 14,
-   "statements": 29,
-   "positional": 1
   },
   "run/rename.py:_rename_workspace_locked": {
    "complexity": 25,
@@ -1253,6 +1248,12 @@
    "statements": 22,
    "positional": 1
   },
+  "workspace/builds.py:resolve_build": {
+   "complexity": 14,
+   "branches": 14,
+   "statements": 38,
+   "positional": 3
+  },
   "workspace/excel.py:create_workbook": {
    "complexity": 11,
    "branches": 10,
@@ -1301,35 +1302,17 @@
    "statements": 48,
    "positional": 1
   },
-  "workspace/inputs.py:_split_reference_tables": {
-   "complexity": 24,
-   "branches": 23,
-   "statements": 63,
-   "positional": 2
-  },
-  "workspace/inputs.py:_stated_empty_selections": {
-   "complexity": 12,
-   "branches": 11,
-   "statements": 19,
-   "positional": 2
-  },
-  "workspace/inputs.py:obj_boundary_names": {
-   "complexity": 16,
-   "branches": 15,
-   "statements": 47,
-   "positional": 1
-  },
-  "workspace/inputs.py:read_hpc_profile": {
+  "workspace/hpc.py:read_hpc_profile": {
    "complexity": 11,
    "branches": 10,
    "statements": 34,
    "positional": 1
   },
-  "workspace/inputs.py:resolve_build": {
-   "complexity": 14,
-   "branches": 14,
-   "statements": 38,
-   "positional": 3
+  "workspace/inputs.py:_split_reference_tables": {
+   "complexity": 24,
+   "branches": 23,
+   "statements": 63,
+   "positional": 2
   },
   "workspace/matrix.py:_bind_setup_ports": {
    "complexity": 11,
@@ -1366,6 +1349,18 @@
    "branches": 10,
    "statements": 31,
    "positional": 2
+  },
+  "workspace/selections.py:_stated_empty_selections": {
+   "complexity": 12,
+   "branches": 11,
+   "statements": 19,
+   "positional": 2
+  },
+  "workspace/sidecars.py:obj_boundary_names": {
+   "complexity": 16,
+   "branches": 15,
+   "statements": 47,
+   "positional": 1
   },
   "workspace/storage.py:_products_of": {
    "complexity": 11,
@@ -1411,6 +1406,9 @@
    "pyflightstream.post.guides",
    "pyflightstream.post.products",
    "pyflightstream.run",
+   "pyflightstream.run._assemble",
+   "pyflightstream.run._rebuild",
+   "pyflightstream.run._rebuild_evidence",
    "pyflightstream.run.collect",
    "pyflightstream.run.matrix",
    "pyflightstream.run.records"
@@ -1434,7 +1432,7 @@
   "pyflightstream.overview": 5,
   "pyflightstream.post": 1,
   "pyflightstream.post._tables": 1,
-  "pyflightstream.post.guides": 1,
+  "pyflightstream.post.glossary": 1,
   "pyflightstream.post.harmonics": 1,
   "pyflightstream.post.products": 28,
   "pyflightstream.post.section_distributions": 1,
@@ -1448,11 +1446,13 @@
   "pyflightstream.results.tables": 3,
   "pyflightstream.run": 24,
   "pyflightstream.run._continuation_frame": 1,
+  "pyflightstream.run._rebuild": 2,
+  "pyflightstream.run._rebuild_evidence": 3,
   "pyflightstream.run._solver_windows": 1,
   "pyflightstream.run.cli": 13,
   "pyflightstream.run.collect": 6,
   "pyflightstream.run.matrix": 5,
-  "pyflightstream.run.records": 6,
+  "pyflightstream.run.records": 1,
   "pyflightstream.run.rename": 1,
   "pyflightstream.script": 7,
   "pyflightstream.script.entities": 1,
@@ -1462,9 +1462,9 @@
   "pyflightstream.workspace": 4,
   "pyflightstream.workspace._links": 1,
   "pyflightstream.workspace.cli": 1,
-  "pyflightstream.workspace.inputs": 3,
   "pyflightstream.workspace.matrix": 13,
   "pyflightstream.workspace.naming": 1,
+  "pyflightstream.workspace.sidecars": 3,
   "pyflightstream.workspace.storage": 5,
   "pyflightstream.workspace.wake_edges": 1
  },
@@ -1480,19 +1480,20 @@
   "pyflightstream.cases.workflows": 3,
   "pyflightstream.fsi.centrifugal": 3,
   "pyflightstream.fsi.driver": 1,
-  "pyflightstream.post.guides": 1,
+  "pyflightstream.post.glossary": 1,
   "pyflightstream.post.probe_fields": 1,
   "pyflightstream.post.products": 7,
   "pyflightstream.qa.cli": 3,
   "pyflightstream.qa.physics": 1,
-  "pyflightstream.results": 1,
+  "pyflightstream.results.core": 1,
   "pyflightstream.results.tables": 3,
   "pyflightstream.run": 9,
+  "pyflightstream.run._rebuild": 1,
   "pyflightstream.run._solver_windows": 2,
   "pyflightstream.run.cli": 10,
   "pyflightstream.run.collect": 4,
   "pyflightstream.run.matrix": 8,
-  "pyflightstream.run.records": 3,
+  "pyflightstream.run.records": 2,
   "pyflightstream.run.rename": 1,
   "pyflightstream.utils.manual": 1,
   "pyflightstream.versions": 1,
@@ -1511,7 +1512,6 @@
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,
   "probes/__init__.py": 441,
-  "results/__init__.py": 3001,
   "run/__init__.py": 7936,
   "script/__init__.py": 1954,
   "workspace/__init__.py": 3625

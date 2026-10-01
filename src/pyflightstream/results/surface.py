@@ -58,7 +58,7 @@ import numpy as np
 from pyflightstream._digest import file_sha256
 from pyflightstream._errors import ProductError, ProductExistsError
 from pyflightstream._progress import activity_stage
-from pyflightstream.results import IncompleteOutputError, MalformedOutputError
+from pyflightstream.results.core import IncompleteOutputError, MalformedOutputError
 
 __all__ = [
     "NOT_CARRIED_BY_THE_VTK",

@@ -72,8 +72,6 @@ from pyflightstream.cases.workflows import RATE_VARIABLES, RAW_VARIABLE, WORKFLO
 from pyflightstream.commands import CommandRegistry
 from pyflightstream.workspace.flight_condition import PINNED_KEYS
 from pyflightstream.workspace.inputs import (
-    _DETECT_KEYS,
-    _TRAILING_EDGE_KEYS,
     FLAGS_TABLE,
     IMPORT_TABLE,
     RAW_MESH_CONDITION_TABLES,
@@ -88,6 +86,7 @@ from pyflightstream.workspace.matrix import (
     _PRESET_RECORDED_ONLY,
     _PRESET_RECORDED_ONLY_KEY,
 )
+from pyflightstream.workspace.sidecars import _DETECT_KEYS, _TRAILING_EDGE_KEYS
 from tests.tier1_offline._workflow_docs import workflow_docs_text
 
 REPO = Path(__file__).resolve().parents[2]

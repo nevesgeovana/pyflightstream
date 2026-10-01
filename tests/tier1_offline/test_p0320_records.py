@@ -34,6 +34,11 @@ import pytest
 
 import pyflightstream
 from pyflightstream.run import LoadsAssessor, SubmittingExecutor, records
+
+# The rebuild and what it reads are private modules of run since 0.33.0 (AD-11).
+from pyflightstream.run import _rebuild as rebuild_module
+from pyflightstream.run import _rebuild_evidence as evidence
+from pyflightstream.run import _record_files as record_files
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.inputs import read_hpc_profile
@@ -520,7 +525,7 @@ def test_rst5_a_cluster_run_restored_on_windows_keeps_the_runs_own_root(tmp_path
     assert not [text for text in everywhere if "\\" in text.split(posix, 1)[1]], everywhere
     # Any other field naming the shadow's root takes the run's, in the run's style.
     shadow = "C:\\Temp\\pyfs-rebuild-x"
-    moved = records._substitute(
+    moved = rebuild_module._substitute(
         {"a": shadow + "\\sims\\sim_5001\\inputs\\wing.fsm", "b": ["C:/Temp/pyfs-rebuild-x/p"]},
         [(shadow, posix), ("C:/Temp/pyfs-rebuild-x", posix)],
     )
@@ -629,19 +634,19 @@ def test_rst8_each_drift_class_is_named_with_the_input_it_comes_from(tmp_path):
         "SET_PLOT_TYPE LOADS",
         "CLOSE_FLIGHTSTREAM",
     ]
-    comparison = records._compare_scripts("\n".join(renders), "\n".join(ran), shadow)
+    comparison = evidence._compare_scripts("\n".join(renders), "\n".join(ran), shadow)
     assert not comparison.same
     assert comparison.run_root == str(tmp_path / "run").replace("\\", "/") or (
         comparison.run_root == str(tmp_path / "run")
     )
-    detail = records._drift(comparison, inputs, ["references/r003.toml", "pproc/p001.toml"])
+    detail = evidence._drift(comparison, inputs, ["references/r003.toml", "pproc/p001.toml"])
     for words in ("pproc group renamed", "loads frame line", "VTK export line", "plot type line"):
         assert words in detail, detail
     (renamed,) = [part for part in detail.split("; ") if "ROTOR_PUSHER" in part]
     assert renamed.endswith("(pproc group renamed, from inputs/pproc/p001.toml)"), renamed
     (frame,) = [part for part in detail.split("; ") if "LOADS_FRAME" in part]
     assert "candidates" in frame, "a class no changed word names claims a certain input"
-    same = records._compare_scripts("\n".join(renders), "\n".join(renders), shadow)
+    same = evidence._compare_scripts("\n".join(renders), "\n".join(renders), shadow)
     assert same.same
 
 
@@ -651,6 +656,8 @@ def test_the_archive_spellings_are_the_workspaces(tmp_path):
     from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP
 
     assert (records.ARCHIVE_DIR, records.ARCHIVE_STAMP) == (ARCHIVE_DIR, ARCHIVE_STAMP)
+    # The stamp is written by the record files module since 0.33.0 (AD-11).
+    assert record_files.ARCHIVE_STAMP == ARCHIVE_STAMP
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     workspace.manifest_path.write_text(
         '[{"run_id": "c/sim_1/P", "sim_id": "1"}]\n', encoding="utf-8"
@@ -707,6 +714,9 @@ def test_rst6_restore_writes_holding_the_runs_lease_and_the_records_own(
         held["own"] = target.with_name(target.name + ".lock").exists()
         real(target, payload)
 
+    # The restore writes through this module's binding; since 0.33.0 (AD-11)
+    # the rebuild writes through run._rebuild's, so a spy that must see every
+    # writer patches run._record_files and both importers instead.
     monkeypatch.setattr(records, "_replace_bytes", spy)
     records.restore(tmp_path, kind, apply=True, matrix="matrix-lnx")
     assert held["runs"], "the restore wrote without the runs.json lease a sync holds"
@@ -755,7 +765,7 @@ def test_rebuild_writes_nothing_when_the_workspace_changed_meanwhile(tmp_path, m
     """P0320-REBUILD-SIMS: another writer during the rebuild refuses the apply; nothing written."""
     workspace, _matrix_path, _original = _local_campaign(tmp_path, monkeypatch)
     _lose_the_manifest(workspace)
-    real = records.collect_without_writing
+    real = evidence.collect_without_writing
 
     def meanwhile(root, record, *, staging):
         intruder = Path(root) / "post" / "written-meanwhile.txt"
@@ -763,7 +773,8 @@ def test_rebuild_writes_nothing_when_the_workspace_changed_meanwhile(tmp_path, m
         intruder.write_text("another process", encoding="utf-8")
         return real(root, record, staging=staging)
 
-    monkeypatch.setattr(records, "collect_without_writing", meanwhile)
+    # The rebuild looks the read-only collect up in its own module.
+    monkeypatch.setattr(rebuild_module, "collect_without_writing", meanwhile)
     with pytest.raises(records.RecordsError, match="changed during the rebuild"):
         records.rebuild(workspace.root, apply=True)
     assert not workspace.manifest_path.exists()

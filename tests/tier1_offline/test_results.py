@@ -288,7 +288,8 @@ def test_a_coarse_mismatch_still_warns_where_no_build_is_registered(monkeypatch)
     registered before it is ever run, and the whole evening of
     2026-08-09 had three builds in exactly this state.
     """
-    from pyflightstream import results as results_module
+    # The version cross-check lives in results.core since 0.33.0 (AD-11).
+    from pyflightstream.results import core as results_module
     from pyflightstream.versions import FsVersion
 
     unrecorded = FsVersion(canonical="26.000", alias="26.0", index=2, build=None)
@@ -316,7 +317,8 @@ def test_the_coarse_fallback_is_silent_when_the_version_string_agrees(monkeypatc
     """
     import warnings
 
-    from pyflightstream import results as results_module
+    # The version cross-check lives in results.core since 0.33.0 (AD-11).
+    from pyflightstream.results import core as results_module
     from pyflightstream.versions import FsVersion
 
     text = read_fixture("loads_steady_26.120.txt").replace("26.1", "27.9")

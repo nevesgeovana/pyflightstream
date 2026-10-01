@@ -821,7 +821,9 @@ _RATCHET = {
     # anyway: both refuse to promote a committed report's evidence, which
     # is what `QaEvidenceError` is for, and it was already imported in
     # that module for the sibling refusal three lines away.
-    "pyflightstream.results._parse_solver_flag -> ValueError",
+    # `_parse_solver_flag` moved with `parse_loads` from the results root to
+    # `results.loads` in 0.33.0 (AD-11); the entry followed it, count unchanged.
+    "pyflightstream.results.loads._parse_solver_flag -> ValueError",
     "pyflightstream.results.tables._as_record -> ValueError",
     "pyflightstream.results.tables._check_point_printback -> ValueError",
     "pyflightstream.results.tables._run_row -> ValueError",
@@ -854,7 +856,7 @@ _RATCHET_COUNTS = {
     "pyflightstream.overview._module_doc -> RuntimeError": 1,
     "pyflightstream.post.writers._checked -> ValueError": 2,
     "pyflightstream.probes.planar._unit -> ValueError": 1,
-    "pyflightstream.results._parse_solver_flag -> ValueError": 1,
+    "pyflightstream.results.loads._parse_solver_flag -> ValueError": 1,
     "pyflightstream.results.tables._as_record -> ValueError": 1,
     "pyflightstream.results.tables._check_point_printback -> ValueError": 1,
     "pyflightstream.results.tables._run_row -> ValueError": 2,

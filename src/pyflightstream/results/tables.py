@@ -82,36 +82,40 @@ import pandas as pd
 from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream._tokens import POLAR_ID_COLUMN, plain_cell
 from pyflightstream.extras import missing_extra
-from pyflightstream.results import (
+from pyflightstream.results.conditions import bind_conditions
+from pyflightstream.results.core import (
     DATA_ORIGIN_CODES,
     DATA_ORIGIN_COLUMN,
-    FORCE_DISTRIBUTION_COLUMNS,
-    OFF_BODY_STREAMLINE_COLUMNS,
     PROVENANCE_COLUMNS,
     REDUCTION_CODES,
     REDUCTION_COLUMN,
     REDUCTION_WINDOW_CODES,
     REDUCTION_WINDOW_COLUMN,
+    IncompleteOutputError,
+    MalformedOutputError,
+    UnsupportedResultTypeError,
+    reduction_for_solver_mode,
+    window_for_reduction,
+)
+from pyflightstream.results.exports import (
+    FORCE_DISTRIBUTION_COLUMNS,
+    OFF_BODY_STREAMLINE_COLUMNS,
     SOLVER_ANALYSIS_CSV_COLUMNS,
     SURFACE_SECTION_COLUMNS,
     SWEEP_COLUMNS,
     ForceDistributionReport,
-    IncompleteOutputError,
-    LoadsReport,
-    MalformedOutputError,
     OffBodyStreamlinesReport,
-    ProbePointsReport,
-    ResidualSample,
     SolverAnalysisCsvReport,
     SurfaceSectionsReport,
     SweepSpreadsheetReport,
-    UnsteadyPlotsReport,
-    UnsupportedResultTypeError,
-    parse_loads,
-    reduction_for_solver_mode,
-    window_for_reduction,
 )
-from pyflightstream.results.conditions import bind_conditions
+from pyflightstream.results.loads import (
+    LoadsReport,
+    ProbePointsReport,
+    UnsteadyPlotsReport,
+    parse_loads,
+)
+from pyflightstream.results.log import ResidualSample
 from pyflightstream.results.sectional_loads import SectionalLoadsReport
 
 
