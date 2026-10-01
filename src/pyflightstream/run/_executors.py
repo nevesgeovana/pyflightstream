@@ -16,6 +16,7 @@ import os
 import platform
 import re
 import subprocess
+import sys
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -60,6 +61,15 @@ from pyflightstream.workspace import (
 from pyflightstream.workspace.inputs import HPC_BUILD_ALIAS, HpcProfile
 
 _LOG_NAME = SOLVER_OWN_LOG
+
+#: The creation flag that keeps the solver from opening a console window.
+#: ``subprocess.CREATE_NO_WINDOW`` exists only on Windows, so it is read in a
+#: ``sys.platform`` branch, the form a type checker resolves per platform; every
+#: other platform passes 0, the default, as it did before.
+if sys.platform == "win32":
+    _NO_WINDOW = subprocess.CREATE_NO_WINDOW
+else:
+    _NO_WINDOW = 0
 
 
 #: The suffix of the solver log among a point's declared outputs, the one the
@@ -1054,7 +1064,7 @@ def _run_until_the_analysis_ends(
             stderr=err_file,
             text=True,
             env=os.environ.copy(),
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+            creationflags=_NO_WINDOW,
         )
         code, timed_out, note = wait_for_the_end(process)
     # The files are closed here, so they can be read whole and removed.
@@ -1087,7 +1097,7 @@ def _run_with_progress(
         stderr=subprocess.PIPE,
         text=True,
         env=os.environ.copy(),
-        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        creationflags=_NO_WINDOW,
     )
     said = 0
     spared_said: set[str] = set()
