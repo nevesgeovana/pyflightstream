@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import enum
 import json
+import warnings
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -23,6 +24,7 @@ import pyflightstream
 from pyflightstream._digest import (
     file_sha256,
 )
+from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._tokens import NOT_APPLICABLE
 from pyflightstream.cases import (
     Campaign,
@@ -40,10 +42,13 @@ from pyflightstream.cases.qsteady import (
     summarise_inflow_harmonics,
 )
 from pyflightstream.cases.workflows import (
+    ACTUATOR_VARIABLE,
+    PROFILE_VARIABLE,
     RAW_MESH_FORMATS,
     RESTART_FROM_VARIABLE,
     RESTART_ITERATIONS_VARIABLE,
     STEADY_RUN_TYPES,
+    actuator_records,
     qsteady_validity,
     rotor_machs,
 )
@@ -990,6 +995,13 @@ def plan_campaign(
     ExecutorConfigurationError
         When a case names an ``fs_build`` that ``builds`` does not
         carry.
+
+    Warns
+    -----
+    PyflightstreamWarning
+        A row whose actuator disc is RELAXED and names a loading profile
+        (FR-332, :func:`_warn_on_relaxed_discs_naming_a_profile`); the
+        point plans as it would without the warning.
     """
     canonical = resolve(campaign.fs_version).canonical
     # Before the first folder is allocated, for the reason run_campaign
@@ -1043,6 +1055,7 @@ def plan_campaign(
                     inflow_fft=inflow_fft,
                 )
             )
+    _warn_on_relaxed_discs_naming_a_profile(campaign.sims)
     groups = _build_groups(campaign)
     plan_file = None
     if write_plan:
@@ -1107,6 +1120,54 @@ def _plan_case_error(
             "it from the workspace geometry library)."
         )
     return None
+
+
+def _discs_naming_a_profile(case: SimCase) -> list[tuple[str, str]]:
+    """Return ``(disc, profile stem)`` for every disc of the row that names a profile.
+
+    The flat form (``ACTUATOR: <block> / PROFILE: <stem>``) and the brace
+    records alike. A row the builder would refuse yields nothing here: the
+    point is reported BLOCKED with the builder's own reason.
+    """
+    try:
+        records = actuator_records(case)
+    except CampaignConfigError:
+        return []
+    if not records:
+        records = [
+            {key: str(case.variables.get(key, "")) for key in (ACTUATOR_VARIABLE, PROFILE_VARIABLE)}
+        ]
+    return [
+        (record[ACTUATOR_VARIABLE].strip(), record[PROFILE_VARIABLE].strip())
+        for record in records
+        if record.get(ACTUATOR_VARIABLE, "").strip() and record.get(PROFILE_VARIABLE, "").strip()
+    ]
+
+
+def _warn_on_relaxed_discs_naming_a_profile(cases: Sequence[SimCase]) -> None:
+    """Warn, and never refuse, on a RELAXED disc whose row names a loading profile (FR-332 R5).
+
+    Measured on 26.124 (RPT-137): a disc of wake type RELAXED gave the same
+    wake for every loading profile and for the native ELLIPTICAL model, and
+    carried about half of the thrust asked, so the profile the row names
+    does not reach the wake. The warning names the row, the disc and the
+    report; the plan, its statuses and its file are what they would be
+    without it. A RIGID disc naming a profile, and a RELAXED disc loaded by
+    its net thrust, are not warned about.
+    """
+    for case in cases:
+        for name, profile in _discs_naming_a_profile(case):
+            block = case.actuators.get(name)
+            if block is None or block.wake_type != "RELAXED":
+                continue
+            warnings.warn(
+                f"row {case.sim_id!r}: the actuator disc {name!r} has wake_type RELAXED and "
+                f"names the loading profile {profile!r}. Measured on 26.124 (RPT-137), a "
+                "RELAXED disc ignored a custom loading profile and carried about half of the "
+                "thrust asked; the run goes ahead as planned. A RIGID disc reads the profile.",
+                PyflightstreamWarning,
+                stacklevel=3,
+            )
 
 
 def _plan_point(

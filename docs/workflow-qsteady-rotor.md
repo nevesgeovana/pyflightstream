@@ -281,3 +281,15 @@ claiming both runs. That is refused at plan time, before anything runs,
 as it was before this release; what changed is the reason, not the rule.
 Two outputs of ONE point may not share a name either, and there the old
 reason still holds: they land in one folder under one base name.
+
+**The probe velocities are in the blade's frame.** The run holds the blades
+still and turns the free stream, so the probe velocities of a quasi-steady run
+are expressed in the rotating frame of the blade: the velocity a probe reports
+carries minus the rotation times its radius, and a fixed-frame field is that
+velocity with the rotation times the radius added back. Measured on 26.124
+(build 8172026) by the research study
+[RPT-137](https://github.com/nevesgeovana/pyflightstream/blob/main/reports/RPT-137_actuator-disc-measured-behaviour-on-26124_2026-10-01.md)
+summarises, where a probe at 1.5 rotor radii read a tangential velocity of
+-2.618 times the free-stream speed at an advance ratio of 1.8. The probe frame
+is described with the other probe conventions in
+[sampled velocity fields](sampled-fields.md).
