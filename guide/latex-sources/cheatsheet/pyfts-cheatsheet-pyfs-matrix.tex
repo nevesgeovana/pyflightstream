@@ -8,8 +8,12 @@
 % and refuses a subcommand or an option this page does not name in that
 % subcommand's own entry, so a new option cannot ship without its line here.
 %
-% Build, from this folder:  latexmk -pdf -outdir=build pyfts-cheatsheet-pyfs-matrix.tex
+% Built with the decks by ../build-all.ps1 or ../build-all.sh, which copy the
+% PDF to guide/pyfts-cheatsheet-pyfs-matrix.pdf; alone, from this folder:
+%   latexmk -pdf -outdir=build pyfts-cheatsheet-pyfs-matrix.tex
 \documentclass[a4paper,landscape]{article}
+% No absolute path of the building machine in the PDF, as in the decks.
+\ifdefined\pdfsuppressptexinfo \pdfsuppressptexinfo=-1 \fi
 \usepackage[margin=5mm,top=4mm,bottom=4mm]{geometry}
 \usepackage{multicol}
 \raggedcolumns

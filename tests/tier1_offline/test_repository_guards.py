@@ -234,7 +234,12 @@ def test_no_forbidden_identifier_in_the_versioned_tree() -> None:
     # 188 on the 0.33.0 branch, the author's authorisation of 2026-09-30
     # ("Sim, 188"): docs/ gained guides.md and tutorial-python-api.md (NFR-29),
     # and no exemption line was added or widened.
-    assert numbers["exempt"] <= 188, (
+    # 191 on the 0.33.0 branch, a decision taken on the author's behalf on
+    # 2026-10-01 under her rule for the night: docs/ gained
+    # migrating-to-0.33.0.md (every release has one) and guide/ gained the
+    # pyfs-matrix cheatsheet she asked for (GEO-073), its source and its PDF;
+    # no exemption line was added or widened.
+    assert numbers["exempt"] <= 191, (
         f"{numbers['exempt']} files exempt, up from the 149 measured at 0.30.0. "
         "An exemption was widened, or a tree grew by more than a release's own "
         "pages; widen this number in the same commit and say why in "

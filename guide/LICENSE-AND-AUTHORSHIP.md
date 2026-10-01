@@ -13,7 +13,7 @@ Keep this file with the folder.
 |---|---|
 | `pyfts-guide-00-fts-overview.pdf` to `pyfts-guide-07-python-environment-offline.pdf`: the eight guides, 0 to 7 (slide decks) | Creative Commons Attribution 4.0 International (CC BY 4.0) |
 | `latex-sources/`: the LaTeX sources of those guides, their figures and their build recipe | CC BY 4.0 |
-| `latex-sources/cheatsheet/`: the one-page `pyfs-matrix` cheatsheet, and the PDF built from it | CC BY 4.0 |
+| `pyfts-cheatsheet-pyfs-matrix.pdf` and its source, `latex-sources/cheatsheet/`: the one-page `pyfs-matrix` cheatsheet | CC BY 4.0 |
 | `README.md` and `LICENSE-AND-AUTHORSHIP.md` (this file) | CC BY 4.0 |
 | `pyflightstream_user_guide.tex`: the guide to the Python library | MIT License, as the rest of the repository (`LICENSE` at its root) |
 

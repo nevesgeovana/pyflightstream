@@ -41,10 +41,10 @@ overfull boxes per deck, which must be zero.
 landscape: every subcommand and every option of `pyfs-matrix`, by stage, for
 the version `latex-sources/shared/info.tex` names. A tier-1 test
 (`tests/tier1_offline/test_p0330_cheatsheet.py`) walks the parser and refuses
-the page when a subcommand or an option is missing from its entry. Build it
-from its folder with
-`latexmk -pdf -outdir=build pyfts-cheatsheet-pyfs-matrix.tex`; the PDF is
-written to `build/`, which is never versioned, and the build must report no
-overfull box, so the page stays one sheet.
+the page when a subcommand or an option is missing from its entry. Its PDF,
+`pyfts-cheatsheet-pyfs-matrix.pdf`, is tracked here beside the decks'.
+`latex-sources/build-all.ps1` and `build-all.sh` build it with the decks and
+copy it here; the argument `cheatsheet` builds it alone. The build must
+report no overfull box, so the page stays one sheet.
 
 The authorship and license of this folder are in `LICENSE-AND-AUTHORSHIP.md`.
