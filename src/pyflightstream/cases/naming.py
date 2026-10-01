@@ -44,6 +44,14 @@ __all__ = [
 #: :func:`multiplied_sweep`.
 _TAG_PREFIXES = (("alpha", "a"), ("beta", "b"), ("advance_ratio", "j"))
 
+#: The axis half of :data:`_TAG_PREFIXES`, published for the one reader
+#: outside this module: the held-coordinate check of
+#: :class:`pyflightstream.cases.SweepAxis`, which refuses a held key that
+#: no point tag can name. A public name so that no layer imports the
+#: private prefix table; it stays out of ``__all__`` because it is a rule
+#: of the package, not a user's vocabulary.
+TAG_AXES: tuple[str, ...] = tuple(axis for axis, _ in _TAG_PREFIXES)
+
 #: The case variable naming a rigid-body rotation of the geometry held
 #: FIXED for the whole case: one angle in degrees, about the axis the
 #: recipe or the workflow applies it to. This is the form that composes

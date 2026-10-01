@@ -130,12 +130,12 @@ from pyflightstream.cases.mesh import PortBoundary as PortBoundary
 from pyflightstream.cases.mesh import RadialBoundaryMesh as RadialBoundaryMesh
 from pyflightstream.cases.mesh import TrailingEdgeRoute as TrailingEdgeRoute
 from pyflightstream.cases.naming import (
-    _TAG_PREFIXES,
     POINT_AXIS_KEYS,
     POINT_NAME_FIELDS,
     ROTATION_OFFSET_KEY,
     ROTATION_SWEEP_KEY,
     SWEEP_NAME_VALUE,
+    TAG_AXES,
     NameField,
     geometric_sweep_values,
     multiplied_sweep,
@@ -456,7 +456,7 @@ class SweepAxis(BaseModel):
         twice has said something it cannot mean and a silent winner is
         how the wrong one gets run.
         """
-        axes = {axis for axis, _ in _TAG_PREFIXES}
+        axes = set(TAG_AXES)
         for key in self.held:
             if key not in axes:
                 raise CampaignConfigError(
