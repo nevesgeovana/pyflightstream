@@ -907,13 +907,13 @@
     a reproduction record, whose receipt is then retaken, or becomes a
     plain example is the design decision and is asked in GOAL-011.
 
-!!! requirement "NFR-29 The documentation reference covers every public name and every command-line option <span class='srs-pending'>pending</span>"
+!!! requirement "NFR-29 The documentation reference covers every public name and every command-line option <span class='srs-implemented'>implemented</span>\"
     *Origin: item DOC-A of the 0.33.0 scope (GEO-071, section 3.3, and
     its decisions 10, 11, 13 and 14), from the documentation audit of
     v0.32.0, which found no Python API reference, 427 of 577 exported
     names on no page and 30 of 112 command-line options on no page.
-    Pending: built by DOC-A; the status stays pending until the
-    requirement is accepted. It reverses the position of v0.3.0, when mkdocstrings
+    Built by DOC-A; accepted on 2026-10-01 after the 0.33.0 release,
+    and implemented. It reverses the position of v0.3.0, when mkdocstrings
     was evaluated and declined and the site was to gain no Python API
     reference; NFR-19 is reworded to match. Evidence offered for the
     acceptance: `tests/tier1_offline/test_p0330_doca_reference.py` (R1
@@ -966,12 +966,13 @@
     [architecture chapter](architecture-srs.md) that says which pages are
     generated; and the revision history of this SRS.
 
-!!! requirement "NFR-30 Every exported function documents its parameters, result and failures in numpydoc form <span class='srs-pending'>pending</span>"
+!!! requirement "NFR-30 Every exported function documents its parameters, result and failures in numpydoc form <span class='srs-implemented'>implemented</span>\"
     *Origin: item DOC-B of the 0.33.0 scope (GEO-071, section 3.3), from
     the same audit, which found 64 percent of docstrings describing their
     parameters and result and 15 percent also carrying Raises and
     Examples, and the unsteady reductions explained on three pages that
-    contradict one another. Pending: DOC-B is built in two parts, and
+    contradict one another. DOC-B was built in two parts, accepted on
+    2026-10-01 after the 0.33.0 release, and
     part 1 completed R2 to R4 on every module but the fifteen the other
     0.33.0 packages were cutting and the four package roots the facade
     ratchet (AD-08, G8) holds at their entry, which a tier-1 test pins and
@@ -1009,9 +1010,9 @@
       other page that mentions them links to it and restates no
       definition.
 
-!!! requirement "NFR-31 The public tree carries no identity of a user's machine <span class='srs-pending'>pending</span>"
-    *Origin: an author decision of 2026-09-30 for 0.33.0. Pending: it is
-    built, and moving the status is the owner's acceptance. Evidence: the
+!!! requirement "NFR-31 The public tree carries no identity of a user's machine <span class='srs-implemented'>implemented</span>\"
+    *Origin: an author decision of 2026-09-30 for 0.33.0. It is
+    built and was accepted on 2026-10-01 after the 0.33.0 release. Evidence: the
     tier-1 guard `tests/tier1_offline/test_p0330_no_executable_hash.py`
     (P0330-NO-EXE-HASH) for R1 and R2, with a mutant control per shape;
     the tests of the three report writers and of the C01 instrument for
