@@ -10,6 +10,8 @@ from typing import Any
 # Exact version, simulation unit and solver build (NFR-31: the build identifies the
 # measured executable; the package carries no executable digest). A run must still
 # have recorded its own executable digest. Delayed starts remain unproved.
+# FR-153: another build of a measured version and unit gets the measured row,
+# marked unproven; registering a measured build is one row here.
 _ROTARY_PROOFS: dict[tuple[str, str, str], dict[str, Any]] = {
     (
         "26.124",
@@ -75,6 +77,30 @@ def _basis(placement: Any) -> tuple[Any, Any]:
     return origin, axes if valid else None
 
 
+def _rotary_proof(
+    record: Mapping[str, Any], solver_identity: Mapping[str, Any]
+) -> dict[str, Any] | None:
+    """Return the timing proof of the run's version, unit and build (FR-153).
+
+    A run of a measured version and unit on another build gets the timing
+    measured on the registered build, with ``proven`` False and both builds
+    named. A run that recorded no digest or build, and another version or
+    unit, get none.
+    """
+    build = solver_identity.get("fs_build")
+    if not build or not solver_identity.get("fs_exe_sha256"):
+        return None
+    version, unit = str(record.get("solver_version", "")), str(record.get("length_unit", ""))
+    exact = _ROTARY_PROOFS.get((version, unit, str(build)))
+    if exact is not None:
+        return exact if exact.get("fs_build") == build else None
+    measured = [proof for key, proof in _ROTARY_PROOFS.items() if key[:2] == (version, unit)]
+    if not measured:
+        return None
+    caveat = {"measured_on_build": measured[0]["fs_build"], "run_build": build, "proven": False}
+    return {**measured[0], "fs_build": build, **caveat}
+
+
 def resolve_frame_motion(
     record: Mapping[str, Any], *, solver_identity: Mapping[str, Any]
 ) -> dict[str, Any]:
@@ -88,16 +114,8 @@ def resolve_frame_motion(
         return result
     if trajectory.get("kind") != "constant_rotation":
         return result
-    proof = _ROTARY_PROOFS.get(
-        (
-            str(result.get("solver_version", "")),
-            str(result.get("length_unit", "")),
-            str(solver_identity.get("fs_build", "")),
-        )
-    )
-    if proof is None or proof.get("fs_build") != solver_identity.get("fs_build"):
-        return result
-    if not solver_identity.get("fs_build") or not solver_identity.get("fs_exe_sha256"):
+    proof = _rotary_proof(result, solver_identity)
+    if proof is None:
         return result
     vectors = [result.get(k) for k in ("origin_native", "x_axis", "y_axis", "z_axis")]
     vectors += [trajectory.get(k) for k in ("center_native", "axis_reference")]

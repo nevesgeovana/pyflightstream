@@ -117,7 +117,7 @@ def test_exact_solver_identity_is_required_for_synthetic_timing(monkeypatch):
     assert record["trajectory"]["step_time_origin"] == 1
 
 
-def test_saved_timing_resolution_keeps_original_and_refuses_other_build(monkeypatch):
+def test_saved_timing_resolution_keeps_original_and_marks_other_build_unproven(monkeypatch):
     from pyflightstream.script import motion
 
     digest = "b" * 64
@@ -142,10 +142,15 @@ def test_saved_timing_resolution_keeps_original_and_refuses_other_build(monkeypa
     )
     helpers.unsteady_solver(script, time_iterations=6, delta_time=0.00625)
     original = script.frame_motions[moving]
+    # FR-153: another build of the measured version and unit borrows the first
+    # measured row, marked unproven and naming both builds.
     wrong = motion.resolve_frame_motion(
         original, solver_identity={"fs_exe_sha256": "c" * 64, "fs_build": "other"}
     )
-    assert wrong["state"] == "unknown"
+    assert wrong["state"] == "known"
+    assert wrong["proof"]["timing"]["proven"] is False
+    assert wrong["proof"]["timing"]["measured_on_build"] == "8172026"
+    assert wrong["proof"]["timing"]["run_build"] == "other"
     unrecorded = motion.resolve_frame_motion(
         original, solver_identity={"fs_exe_sha256": None, "fs_build": "synthetic"}
     )
@@ -214,8 +219,14 @@ def test_measured_timing_is_bound_to_executable_build_and_unit():
     assert resolve_frame_motion(unmeasured, solver_identity=identity)["state"] == "unknown"
     delayed = {**original, "trajectory": {**original["trajectory"], "start_time_s": 1}}
     assert resolve_frame_motion(delayed, solver_identity=identity)["state"] == "unknown"
+    # FR-153: another build is resolved with the measured timing, marked unproven;
+    # the measured build carries no such mark.
+    assert "proven" not in resolved["proof"]["timing"]
     other = {**identity, "fs_build": "other"}
-    assert resolve_frame_motion(original, solver_identity=other)["state"] == "unknown"
+    borrowed = resolve_frame_motion(original, solver_identity=other)
+    assert borrowed["state"] == "known" and borrowed["proof"]["timing"]["proven"] is False
+    older = {**original, "solver_version": "26.122"}
+    assert resolve_frame_motion(older, solver_identity=other)["state"] == "unknown"
     # NFR-31: the build identifies the executable, so another recorded digest
     # of the same build resolves, and a run that recorded no digest does not.
     rebuilt = {**identity, "fs_exe_sha256": "8" * 64}

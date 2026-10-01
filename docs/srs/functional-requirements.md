@@ -6661,13 +6661,21 @@ Requirements written after the specification was last reconciled with the packag
       `post.log` and to the warnings the console prints, naming the build the
       convention was measured on and the build the run reports, and the field's
       `products.json` entry records `velocity_convention` with
-      `measured_on_build`, `run_build` and `proven` false. A run of a solver
-      version, export kind or unit with no measured build is refused as before,
-      and a field of a measured build is written as before, byte for byte.
+      `measured_on_build`, `run_build` and `proven` false. A field sampled in a
+      rotating frame whose rotation timing (rotation sense and STEP time
+      origin) is measured for the run's solver version and length unit on
+      another build is likewise written with that timing instead of being
+      refused as an unknown sampling frame: the same one warning per point says
+      the timing is also unproven on the run's build, and the entry records
+      `rotation_timing` with the same three keys beside `velocity_convention`.
+      A run of a solver version, export kind or unit with no measured build is
+      refused as before, and a field of a measured build is written as before,
+      byte for byte.
 
     **Solution (0.29.0).** `docs/sampled-fields.md` and the writers behind it.
     R1 (0.33.0): the table `pyflightstream.post.field_frames.VELOCITY_EVIDENCE`
-    read by `native_velocity_proof`, and
+    read by `native_velocity_proof`, the rotation timing table of
+    `pyflightstream.script.motion` read by `resolve_frame_motion`, and
     `pyflightstream.post.probe_fields.point_field_products`.
     **Trace.** The test files above.
 

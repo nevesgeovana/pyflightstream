@@ -92,9 +92,23 @@ field's entry in `products.json` records the same:
 "velocity_convention": {"measured_on_build": "8172026", "run_build": "<the run's build>", "proven": false}
 ```
 
-A run of another solver version, another unit or another export family has no
-evidence at all, and its fields are still refused with "native velocity
-convention has no evidence for this export/build/unit" (FR-153).
+A field sampled in a frame that turns needs one more measurement: the frame's
+rotation timing, the rotation sense and the time origin of the STEP count. It
+was measured on the same build, in METER and MILLIMETER. On another build of
+26.124 such a field is written with that timing too, and the same one warning
+per point says the timing is also unproven on the run's build. The entry then
+records both:
+
+```json
+"velocity_convention": {"measured_on_build": "8172026", "run_build": "<the run's build>", "proven": false},
+"rotation_timing": {"measured_on_build": "8172026", "run_build": "<the run's build>", "proven": false}
+```
+
+A delayed motion start has no measured timing on any build and is still
+refused. A run of another solver version, another unit or another export family
+has no evidence at all, and its fields are still refused with "native velocity
+convention has no evidence for this export/build/unit", or, for a rotating
+frame, as an unknown sampling frame (FR-153).
 
 **How the convention was established.** One unsteady rotor run sampled VX, VY
 and VZ at nineteen positions over six actual STEPs: an axis sample, and
@@ -139,16 +153,19 @@ circles = [{center = [-0.5, 0, 0], normal = [1, 0, 0], radius = 0.3, points_radi
 At every STEP, compare in the point's plots export the VX, VY and VZ of each
 moving sample with those of the fixed sample it lies on. The convention above
 holds on your build when every coinciding pair is equal; repeat the row on a
-MILLIMETER geometry for that unit. A field sampled in a frame that turns also
-needs that frame's rotation timing measured on the build, which is separate
-evidence: without it such a field is refused as an unknown sampling frame.
+MILLIMETER geometry for that unit. The same run measures the rotation timing:
+the moving ring samples land on the fixed ones at the STEPs the emitted speed
+and time step predict, which fixes the rotation sense and the time origin of
+the STEP count.
 
 **Registering the build.** The package reads the measured conventions from one
 table, `VELOCITY_EVIDENCE` in `pyflightstream.post.field_frames`: one row per
 solver version, build, export family and unit, holding the factor to m/s and
-the comparison that established it. Registering your build is one row there,
-citing your comparison, in a change to the package. A run of a registered build
-is proven, and its fields carry no warning.
+the comparison that established it. The rotation timing is the same kind of
+table in `pyflightstream.script.motion`, one row per solver version, unit and
+build. Registering your build is one row in each, citing your comparison, in a
+change to the package. A run of a registered build is proven, and its fields
+carry no warning.
 
 ## Surface-property histories
 
