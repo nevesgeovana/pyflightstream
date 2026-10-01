@@ -766,11 +766,11 @@ diff, the products snapshot, the record fixtures and
     functions (`_add_workspace_parsers`, `_add_storage_parsers`,
     `_add_records_parsers`, `_add_convert_parsers`, `_add_plan_parsers`,
     `_add_run_parsers`, `_add_run_option_parsers`, `_add_collect_parsers`,
-    `_add_post_parsers`, `_add_post_selection_parsers`), none over 120 code
-    lines and the new ones under 100, so that no function joins the list of
+    `_add_post_parsers`, `_add_post_selection_parsers`), each of the new ones
+    under 100 code lines, so that no function joins the list of
     functions over 100 code lines. The generated command-line reference is
-    byte-identical to the one of the tree before the cut. The five print
-    helpers of plan and of the storage commands moved to `run/_cli_print.py`.
+    byte-identical to the one of the tree before the cut. The eight print
+    functions of plan and of the storage commands moved to `run/_cli_print.py`.
 
     Evidence: tests/tier1_offline/test_p0340_cli_cut.py.
 

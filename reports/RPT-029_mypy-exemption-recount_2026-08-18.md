@@ -120,18 +120,18 @@ error total from 1122 to 192. (An
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 192 errors in 17 files (checked 219 source files)
->     Success: no issues found in 219 source files
+>     Found 192 errors in 17 files (checked 220 source files)
+>     Success: no issues found in 220 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-10-01: 192 errors in 17 of 219 modules.**
+**mypy recount 2026-10-01: 192 errors in 17 of 220 modules.**
 
-The module total is the 219 the tracked package holds with work packages WP4,
-WP5 and WP6 merged into `rel/0-33`, twenty-three more than the 196 of the
-tree with WP4 alone, each of the twenty-three reported clean. The error total
+The module total is the 220 the tracked package holds on `feat/0-34-wp9b` (the 219 of `rel/0-33` plus `run/_cli_print.py` of WP9b, clean, the error total unchanged), with work packages WP4,
+WP5 and WP6 merged into `rel/0-33`, twenty-four more than the 196 of the
+tree with WP4 alone, each of the twenty-four reported clean. The error total
 fell from 1122 to 192 and the dirty count from 18 to 17 because WP6 made
 `pyflightstream.run` a facade over typed modules and deleted its override
 (decision 7): the run root carried 930 of the 1122 errors and now reports
@@ -156,7 +156,7 @@ v0.31.0's own 139 were five more than
 v0.30.0's 134, each of the five clean;
 the error total sits inside the exempted set, the number of modules holding
 an exemption fell from eighteen to seventeen with WP6, and the shipped
-configuration is green over all 219. The run at 139 was taken by `python scripts/mypy_recount.py`
+configuration is green over all 220. The run at 139 was taken by `python scripts/mypy_recount.py`
 on the 0.31.0 release candidate at `33c1d7ef`, which the script reported
 clean, and the runs at 149 and 150 are stated in their own sections at the end; the v0.30.0 release tree's reading, 1065 errors in 18 of 134, is
 stated in its own section below.
@@ -435,11 +435,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 192 errors in 17 files (checked 219 source files)
+    Found 192 errors in 17 files (checked 220 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 219 source files
+    Success: no issues found in 220 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -1121,8 +1121,8 @@ sentence at the top of this report are this run's.
 (the merges of WP4, WP5, WP6 and D1 committed, the tree clean, as the script
 reported), with python 3.12.0, numpy 2.5.3, xarray 2026.7.0, pandas 3.0.6 and
 pydantic 2.13.5 (the script printed mypy's version as unknown): 192 errors
-in 17 of 219 modules on 98 distinct source lines. The tracked package holds
-219 modules, twenty-three more than the 196 of the WP4 run, each reported
+in 17 of 220 modules on 98 distinct source lines. The tracked package holds
+220 modules (219 on `rel/0-33`, plus `run/_cli_print.py` of WP9b), twenty-four more than the 196 of the WP4 run, each reported
 clean. WP6 made `pyflightstream.run` a facade over typed modules and
 deleted its `[[tool.mypy.overrides]]` entry (decision 7), so the exempted set
 shrank from eighteen to seventeen modules and the 930 errors the run root
@@ -1133,5 +1133,5 @@ carried left the debt: 1122 less 930 is 192. The 192 are in
 (`commands`, `farfield`, `post.writers`, `probes.geometry`,
 `workspace.naming`) and two with one (`fsi.driver`, `script.entities`).
 `module = "pyflightstream.run"` is absent from the override list of
-`pyproject.toml`, and the shipped configuration is green over all 219. The
+`pyproject.toml`, and the shipped configuration is green over all 220. The
 quoted mypy lines and the sentence at the top of this report are this run's.
