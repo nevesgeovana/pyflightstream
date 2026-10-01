@@ -1,6 +1,6 @@
 # RPT-118: architecture metrics (2026-10-01)
 
-Architecture metrics 2026-10-01: 184 modules, 156105 lines, 82943 code lines; the largest 1, 5 and 13 modules hold 10.7, 24.5 and 37.5 percent of the code lines.
+Architecture metrics 2026-10-01: 184 modules, 156108 lines, 82944 code lines; the largest 1, 5 and 13 modules hold 10.7, 24.5 and 37.5 percent of the code lines.
 
 Written by `python scripts/arch_metrics.py report --number 118 --date 2026-10-01`; every number below is that run's. The unit of module and function size is the code line of the review lens: a line holding a token other than a comment, docstring lines excluded. The tier-1 test `test_architecture_metrics.py::test_the_record_agrees_with_the_tree` re-measures the tree and refuses a disagreement with the numbers of the newest record, and refuses a record or a baseline table worse than the first record.
 
@@ -9,8 +9,8 @@ Written by `python scripts/arch_metrics.py report --number 118 --date 2026-10-01
 | metric | value |
 |---|---:|
 | module_count | 184 |
-| total_lines | 156105 |
-| code_lines | 82943 |
+| total_lines | 156108 |
+| code_lines | 82944 |
 | top1_share | 10.7 |
 | top5_share | 24.5 |
 | top13_share | 37.5 |
@@ -40,7 +40,7 @@ One row per top-level package (a single-file module counts as its own), the unit
 |---|---:|---:|---:|---:|---:|---:|
 | `cases` | 19 | 17226 | 20.8 | 3 | 43 | 67 |
 | `post` | 29 | 17057 | 20.6 | 3 | 52 | 34 |
-| `run` | 27 | 12786 | 15.4 | 2 | 47 | 57 |
+| `run` | 27 | 12787 | 15.4 | 2 | 47 | 57 |
 | `workspace` | 26 | 11967 | 14.4 | 3 | 28 | 29 |
 | `qa` | 12 | 5330 | 6.4 | 1 | 10 | 10 |
 | `results` | 10 | 3814 | 4.6 | 0 | 11 | 3 |
@@ -95,7 +95,7 @@ The size table of `tests/tier1_offline/architecture_baselines.json` freezes ever
 | `workspace/matrix.py` | 1377 | 2696 | no |
 | `qa/specs.py` | 1334 | 1708 | no |
 | `run/matrix.py` | 1304 | 2325 | yes |
-| `run/cli.py` | 1200 | 1710 | yes |
+| `run/cli.py` | 1201 | 1713 | yes |
 | `post/corrections.py` | 1006 | 1374 | no |
 
 ## Functions
@@ -237,7 +237,7 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
 <!-- arch-metrics:begin -->
 ```json
 {
-  "code_lines": 82943,
+  "code_lines": 82944,
   "cross_package_sccs": 1,
   "functions_over_100": 74,
   "functions_over_200": 18,
@@ -271,7 +271,7 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
   "top13_share": 37.5,
   "top1_share": 10.7,
   "top5_share": 24.5,
-  "total_lines": 156105,
+  "total_lines": 156108,
   "workspace_to_run_imports": 0
 }
 ```
