@@ -729,8 +729,13 @@ diff, the products snapshot, the record fixtures and
     `InputKey` and `RawCommand` still reads the root. The field
     WAKE-LENGTH adds to `SolverSettings` lands in `cases/settings.py`. The
     modules that import a moved name still import it through the root at
-    0.34.0: moving those imports edits files other packages of the same
-    wave edit, so it is left to the 0.35.0 cuts that open those files.
+    0.34.0, and the docstrings of modules outside the six still cite a
+    moved name by its root path (34 citations in 20 modules, counted at
+    the cut; each resolves through the re-export, and the pages under
+    `docs/` cite none): moving those imports and repointing those
+    citations edits files other packages of the same wave edit, so both
+    are left to the 0.35.0 cuts that open those files. The API reference
+    pages and the six modules' own docstrings cite the new modules.
 
 !!! decision "AD-17 The solver settings are emitted by family, behind the facade of solver_settings <span class='srs-pending'>pending</span>"
     *Work package WP9a of the 0.34.0 scope (GEO-072, section 4.7), which

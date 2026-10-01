@@ -2,7 +2,7 @@
 
 Architecture metrics 2026-10-01: 225 modules, 161743 lines, 85451 code lines; the largest 1, 5 and 13 modules hold 2.1, 9.4 and 20.0 percent of the code lines.
 
-Written by `python scripts/arch_metrics.py report --number 120 --date 2026-10-01`; every number below is that run's. The unit of module and function size is the code line of the review lens: a line holding a token other than a comment, docstring lines excluded. The tier-1 test `test_architecture_metrics.py::test_the_record_agrees_with_the_tree` re-measures the tree and refuses a disagreement with the numbers of the newest record, and refuses a record or a baseline table worse than the first record.
+Written by `python scripts/arch_metrics.py report --number 120 --date 2026-10-01 --since v0.33.0`; every number below is that run's (the tool's template omits `--since`, which this run passed, as the section of modules created since v0.33.0 shows). The unit of module and function size is the code line of the review lens: a line holding a token other than a comment, docstring lines excluded. The tier-1 test `test_architecture_metrics.py::test_the_record_agrees_with_the_tree` re-measures the tree and refuses a disagreement with the numbers of the newest record, and refuses a record or a baseline table worse than the first record.
 
 ## Numbers
 
