@@ -29,16 +29,19 @@ hands the arguments it received, unchanged, to
 A later setup key of the solver chapters lands as a row of its family's
 table, without growing the facade.
 
-The other helpers that set up a run moved here with it, whole and
-unchanged, and are still imported from ``pyflightstream.script.helpers``,
-their public path: the flow conditions (:func:`free_stream`,
-:func:`fluid_fifth_property`, :func:`atmosphere`), the time regime alone
-(:func:`unsteady_solver`), and the solver initialization
-(:func:`initialize_solver`, which carries the wake termination plane, and
-:func:`start_solver`). The deferred induced-drag selection has one home
-here too: ``solver_settings`` records it and :func:`_flush_pending_vorticity`
-lands it, for :func:`start_solver` and for the sweep, analysis and export
-helpers that stay in ``helpers``.
+The other helpers that set up a run moved here with it, unchanged apart
+from type annotations, and are still imported from
+``pyflightstream.script.helpers``, their public path: the flow conditions
+(:func:`free_stream`, :func:`fluid_fifth_property`, :func:`atmosphere`),
+the time regime alone (:func:`unsteady_solver`), and the solver
+initialization (:func:`initialize_solver`, which carries the wake
+termination plane, and :func:`start_solver`). So did the toggle readers
+the helpers share (:func:`_read`, :func:`_optional_toggle`,
+:func:`_toggle`), which a private module may offer to every helper and
+the public :mod:`pyflightstream.script.toggles` may not. The deferred
+induced-drag selection has one home here too: ``solver_settings`` records
+it and :func:`_flush_pending_vorticity` lands it, for :func:`start_solver`
+and for the sweep, analysis and export helpers that stay in ``helpers``.
 
 Nothing here imports ``cases`` or ``workspace``, and nothing here imports
 :mod:`pyflightstream.script.helpers`, which imports this module.
@@ -199,7 +202,14 @@ ADVANCED_FAMILY = (
 
 #: The toggles read before the first emission, in the order they are read,
 #: so a value in neither vocabulary refuses on an untouched script and the
-#: snapshot records booleans whichever vocabulary the caller wrote.
+#: snapshot records booleans whichever vocabulary the caller wrote. Five
+#: toggle rows of ADVANCED_FAMILY are NOT here, as they were not in 0.33.0:
+#: valarezo_criterion, wake_relaxation, wake_streamwise_agglomeration,
+#: adverse_gradient_boundary_layer and vortex_ring_normalization. They reach
+#: :func:`_toggle` as the caller wrote them, so a string decides the flag by
+#: truthiness ('DISABLE' writes ENABLE) and the snapshot records the string.
+#: That is a defect of 0.33.0 the cut keeps, because fixing it changes the
+#: emitted bytes; it is reported for a release of its own.
 READ_TOGGLES = (
     "forced_iterations",
     "viscous_coupling",
@@ -249,10 +259,11 @@ def _optional_toggle(helper: str, argument: str, value: Toggle | None) -> bool |
 def _toggle(value: bool) -> str:
     """Render a resolved toggle as the solver writes it.
 
-    Takes a bool only: every helper resolves its toggles through
-    :func:`_read` or :func:`_optional_toggle` before emitting, so a
-    string never reaches this function and truthiness is never the
-    thing that decides a flag.
+    Meant for a bool only: the helpers resolve their toggles through
+    :func:`_read` or :func:`_optional_toggle` before emitting, so that
+    truthiness never decides a flag. The exception is the five toggle
+    rows of :data:`ADVANCED_FAMILY` that :data:`READ_TOGGLES` leaves out,
+    which reach this function unresolved, as they did in 0.33.0.
     """
     return "ENABLE" if value else "DISABLE"
 
@@ -260,13 +271,16 @@ def _toggle(value: bool) -> str:
 def _flush_pending_vorticity(script: Script) -> None:
     """Emit the deferred induced-drag boundary selection, if one waits.
 
-    :func:`solver_settings` records the selection it was given but
-    cannot emit it in place: SET_VORTICITY_DRAG_BOUNDARIES is an
-    analysis-phase command (SRC-003 p.350) and the settings are emitted
-    in the init phase, before the solver starts. The selection is
-    therefore flushed by :func:`start_solver`, by :func:`sweep` right
-    after SWEEPER_START, and by the first :func:`analysis_setup` or
-    :func:`export_results` call that reaches the analysis phase.
+    :func:`pyflightstream.script.helpers.solver_settings` records the
+    selection it was given but cannot emit it in place:
+    SET_VORTICITY_DRAG_BOUNDARIES is an analysis-phase command (SRC-003
+    p.350) and the settings are emitted in the init phase, before the
+    solver starts. The selection is therefore flushed by
+    :func:`start_solver`, by :func:`pyflightstream.script.helpers.sweep`
+    right after SWEEPER_START, and by the first
+    :func:`pyflightstream.script.helpers.analysis_setup` or
+    :func:`pyflightstream.script.helpers.export_results` call that
+    reaches the analysis phase.
     """
     pending = script._pending_vorticity
     if pending is None:

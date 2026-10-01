@@ -1,6 +1,6 @@
 # RPT-121: architecture metrics (2026-10-01)
 
-Architecture metrics 2026-10-01: 221 modules, 161302 lines, 85203 code lines; the largest 1, 5 and 13 modules hold 2.7, 10.2 and 20.9 percent of the code lines.
+Architecture metrics 2026-10-01: 221 modules, 161316 lines, 85203 code lines; the largest 1, 5 and 13 modules hold 2.7, 10.2 and 20.9 percent of the code lines.
 
 Written by `python scripts/arch_metrics.py report --number 121 --date 2026-10-01`; every number below is that run's. The unit of module and function size is the code line of the review lens: a line holding a token other than a comment, docstring lines excluded. The tier-1 test `test_architecture_metrics.py::test_the_record_agrees_with_the_tree` re-measures the tree and refuses a disagreement with the numbers of the newest record, and refuses a record or a baseline table worse than the first record.
 
@@ -9,7 +9,7 @@ Written by `python scripts/arch_metrics.py report --number 121 --date 2026-10-01
 | metric | value |
 |---|---:|
 | module_count | 221 |
-| total_lines | 161302 |
+| total_lines | 161316 |
 | code_lines | 85203 |
 | top1_share | 2.7 |
 | top5_share | 10.2 |
@@ -282,7 +282,7 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
   "top13_share": 20.9,
   "top1_share": 2.7,
   "top5_share": 10.2,
-  "total_lines": 161302,
+  "total_lines": 161316,
   "workspace_to_run_imports": 0
 }
 ```
