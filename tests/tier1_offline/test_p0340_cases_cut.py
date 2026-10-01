@@ -21,6 +21,7 @@ P0340-CASES-CUT and the decision AD-16 in its own source:
 from __future__ import annotations
 
 import ast
+import fnmatch
 import importlib
 import json
 import tomllib
@@ -394,15 +395,40 @@ def test_the_six_form_no_import_cycle_and_settings_reads_mesh_one_way():
 def test_the_six_are_not_exempt_from_the_type_checker():
     # P0340-CASES-CUT (AD-16): the root is exempt and the six are not; the
     # override list of pyproject.toml names none of them.
+    # A pattern is read by mypy's own rule, so a wildcard such as
+    # "pyflightstream.cases.*" counts as naming all six.
     config = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
     overrides = config["tool"]["mypy"].get("overrides", [])
-    exempt = set()
+    patterns: list[str] = []
     for entry in overrides:
         modules = entry["module"]
-        exempt.update([modules] if isinstance(modules, str) else modules)
-    assert ROOT in exempt, "the control: the root is still exempt at 0.34.0"
-    named = sorted(f"{ROOT}.{name}" for name in SIX if f"{ROOT}.{name}" in exempt)
+        patterns.extend([modules] if isinstance(modules, str) else modules)
+    assert _covered(ROOT, patterns), "the control: the root is still exempt at 0.34.0"
+    planted = [f"{ROOT}.*"]
+    assert all(_covered(f"{ROOT}.{name}", planted) for name in SIX), (
+        "the control: a planted wildcard override must count as naming all six"
+    )
+    named = sorted(f"{ROOT}.{name}" for name in SIX if _covered(f"{ROOT}.{name}", patterns))
     assert named == [], f"the exemption list names {named}"
+
+
+def _covered(module: str, patterns: list[str]) -> bool:
+    """Return whether a mypy override pattern list covers ``module``.
+
+    mypy's rule: a name matches itself, and a pattern ending in ``.*`` also
+    matches the package it names and every submodule; a ``*`` inside a
+    pattern stands for one or more components.
+    """
+    for pattern in patterns:
+        if pattern == module:
+            return True
+        if "*" not in pattern:
+            continue
+        if pattern.endswith(".*") and module == pattern[:-2]:
+            return True
+        if fnmatch.fnmatchcase(module, pattern):
+            return True
+    return False
 
 
 def test_the_root_left_the_size_table_and_its_facade_entry_fell():
