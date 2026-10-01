@@ -239,7 +239,9 @@ def test_no_forbidden_identifier_in_the_versioned_tree() -> None:
     # migrating-to-0.33.0.md (every release has one) and guide/ gained the
     # pyfs-matrix cheatsheet she asked for (GEO-073), its source and its PDF;
     # no exemption line was added or widened.
-    assert numbers["exempt"] <= 191, (
+    # 192 on the 0.33.1 branch: docs/ gained migrating-to-0.33.1.md (every
+    # release has one); no exemption line was added or widened.
+    assert numbers["exempt"] <= 192, (
         f"{numbers['exempt']} files exempt, up from the 149 measured at 0.30.0. "
         "An exemption was widened, or a tree grew by more than a release's own "
         "pages; widen this number in the same commit and say why in "

@@ -433,12 +433,21 @@ _MIGRATION_NAMES_0_33_0 = {
     "Every unsteady row registers the step counter.": ("step counter", "26.122"),
 }
 
+_MIGRATION_NAMES_0_33_1 = {
+    "The tier 1 suite runs in parallel.": ("pytest-xdist", "-n auto"),
+    "FSI on `unsteady_rotor` is still refused by the plan.": (
+        "`unsteady_rotor`",
+        "still in debug on this release",
+    ),
+}
+
 _MIGRATION_NAMES_BY_RELEASE = {
     "0.29.0": _MIGRATION_NAMES_0_29_0,
     "0.30.0": _MIGRATION_NAMES_0_30_0,
     "0.31.0": _MIGRATION_NAMES_0_31_0,
     "0.32.0": _MIGRATION_NAMES_0_32_0,
     "0.33.0": _MIGRATION_NAMES_0_33_0,
+    "0.33.1": _MIGRATION_NAMES_0_33_1,
 }
 
 #: The inputs each release's summary refuses, each of which its section and
@@ -454,6 +463,7 @@ _REFUSED_BY_RELEASE = {
     "0.31.0": ("unsteady_rotor",),
     "0.32.0": ("unsteady_rotor",),
     "0.33.0": ("unsteady_rotor",),
+    "0.33.1": ("unsteady_rotor",),
 }
 _PAGE_WORDS_BY_RELEASE = {
     # The unreleased sidecar form the 0.29.0 Added list says is refused.
@@ -462,6 +472,7 @@ _PAGE_WORDS_BY_RELEASE = {
     "0.31.0": ("PASSAGE_POSITIONS", "qsteady_rotor", "--apply"),
     "0.32.0": ("--apply", "REBUILT"),
     "0.33.0": ("FAILED_MARKED", "--clean", "inputs/matrices"),
+    "0.33.1": ("FAILED_INCOMPLETE_OUTPUT", "CONVERGED", "pyfs-matrix post"),
 }
 _MIGRATION_NAMES = _MIGRATION_NAMES_BY_RELEASE.get(RELEASED, {})
 
