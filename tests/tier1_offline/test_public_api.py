@@ -43,6 +43,8 @@ PUBLIC_MODULES = [
     "pyflightstream.cases.fsi_workspace",
     "pyflightstream.cases.matrix",
     # 0.34.0 (AD-16): a model module cut out of the root, which re-exports its names.
+    "pyflightstream.cases.naming",
+    # 0.34.0 (AD-16): a model module cut out of the root, which re-exports its names.
     "pyflightstream.cases.pproc",
     # 0.30.0: the quasi-steady rotor's arithmetic, clocking and 1P reduced
     # frequency. PUBLIC deliberately: a user checking a blade's k by hand, or the
