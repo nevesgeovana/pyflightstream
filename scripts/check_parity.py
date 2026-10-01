@@ -72,6 +72,17 @@ MATRIX_CONSOLE = "pyfs-matrix"
 #: Base names that may be absent at the release, with the decision that removed them.
 API_EXEMPT = {"stamp_derived_campaign": "0.33 scope decision 9 deletes it"}
 
+#: The message of a per-revolution drift warning, old or new wording: the column
+#: drifts by a percentage of itself or, for a force or moment column, of the
+#: scale of its group, between two revolutions, over the limit.
+_DRIFT_MESSAGE = (
+    r"rotor '[^']*' column \w+ drifts [+-][\d.]+ per cent "
+    r"(?:of its scale [\d.eE+-]+ \(the magnitude of \w+, the largest (?:force|moment) mean "
+    r"of its group in the earlier revolution; a change of [+-][\d.eE+-]+\) )?"
+    r"between revolution \d+ and revolution \d+, over the drift limit of [\d.]+ per cent "
+    r"\(\[per_revolution\] drift_limit_pct\): the last revolution is still moving"
+)
+
 #: Differences a named 0.33 requirement states. ``kind`` is "scripts" or "post";
 #: ``pattern`` is an fnmatch glob over the render name or the post-relative file;
 #: ``lines``, when given, is a regex every changed line must match; ``block``,
@@ -101,6 +112,42 @@ NAMED_DIFFERENCES: list[dict[str, str]] = [
             "every unsteady row registers the step counter; a row asking no per-step "
             "export gains the count-only counter's registration, on a build that "
             "documents the unsteady solver action"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/post.log",
+        # Only a per-revolution drift WARNING record: the whole line, down to
+        # the closing clause. A changed line of any other warning, or of this
+        # warning with another wording, does not match and fails.
+        "lines": (
+            r"^WARNING point=\S+ product=probes/\S+_per_revolution_\S+\.csv: "
+            rf"{_DRIFT_MESSAGE}$"
+        ),
+        "requirement": "FR-180",
+        "why": (
+            "a force or moment column's per-revolution drift is judged against the "
+            "scale of its group, so the warning records are worded and counted anew; "
+            "the products are byte-identical"
+        ),
+    },
+    {
+        "kind": "post",
+        "pattern": "*/post.log.json",
+        # The record's own fixed lines as the log writes them (indent 1 and 3),
+        # its point, its per-revolution product, its message and its constant
+        # category. A line of any other record, or of another level, fails.
+        "lines": (
+            r"^(  \{|  \},?"
+            r'|   "point": "P\d+-[^"]*",'
+            r'|   "product": "probes/[^"]*_per_revolution_[^"]*\.csv",'
+            rf'|   "message": "{_DRIFT_MESSAGE}",'
+            r'|   "remedy": null,|   "category": "postprocessing",|   "severity": "warning")$'
+        ),
+        "requirement": "FR-180",
+        "why": (
+            "the machine-readable form of the same per-revolution drift warning "
+            "records, which FR-180 words and counts anew"
         ),
     },
 ]
