@@ -6,7 +6,8 @@ facade over the per-family emitters of the private module
 ``script/_relaxed_te.py``. What the cut must not change is pinned here
 against the 0.33.0 tree, not against the code it tests: the signature (all
 61 parameters, their order and their defaults), the emitted lines and their
-order on three builds whose grammars differ, the one home of every keyword,
+order on four builds whose grammars differ, the order of the separation
+models, the order of the argument refusals, the one home of every keyword,
 and the public path of every name that moved.
 """
 
@@ -16,7 +17,7 @@ import inspect
 
 import pytest
 
-from pyflightstream.script import Script, helpers
+from pyflightstream.script import CommandArgumentError, Script, ScriptReferenceError, helpers
 from pyflightstream.script._settings import (
     ADVANCED_FAMILY,
     BOUNDARY_LAYER_FAMILY,
@@ -170,6 +171,12 @@ EVERY = {
     "adverse_gradient_boundary_layer": False,
     "vortex_ring_normalization": True,
     "vorticity_drag_boundaries": [1, "tail"],
+    "bulk_separation": {
+        "name": "b1",
+        "separation_type": "CYLINDRICAL",
+        "diameter": 0.2,
+        "boundaries": [1, 2],
+    },
 }
 
 #: The keywords each build refuses, measured on the 0.33.0 tree.
@@ -225,6 +232,23 @@ REFUSED = {
         "delete_separations",
         "disable_ref_velocity",
     },
+    "26.121": {
+        "adverse_gradient_boundary_layer",
+        "axial_separation_boundaries",
+        "axial_vortex_separation",
+        "crossflow_separation_axisymmetric",
+        "crossflow_separation_boundaries",
+        "crossflow_separation_diameter",
+        "crossflow_separation_mean_diameter",
+        "cylindrical_bulk_separation",
+        "jet_wake_filaments_grid_induction",
+        "solver_model",
+        "valarezo_criterion",
+        "valarezo_separation_boundaries",
+        "vortex_ring_normalization",
+        "wake_relaxation",
+        "wake_streamwise_agglomeration",
+    },
     "26.124": {
         "adverse_gradient_boundary_layer",
         "axial_separation_boundaries",
@@ -256,6 +280,21 @@ _HEAD = (
     "SET_SURFACE_ROUGHNESS 0.0\n"
 )
 _TAIL = "START_SOLVER\nSET_VORTICITY_DRAG_BOUNDARIES 2\n1,3\n\n"
+#: The 26.12x assignment models and advanced settings, after the erase.
+_MODELS_26_12X = (
+    "CREATE_AIRFOIL_SEPARATION s1 2 DISABLE\n1,2\n\n"
+    + "CREATE_STRATFORD_BULK_SEPARATION s1 2\n1,2\n\n"
+    + "SET_SOLVER_CONVERGENCE_ITERATIONS 3\nSOLVER_MINIMUM_CP -50.0\n"
+    + "REYNOLDS_AVERAGED_DRAG_FORCES ENABLE\nSOLVER_SET_MESH_INDUCED_WAKE_VELOCITY DISABLE\n"
+    + "SOLVER_SET_FARFIELD_LAYERS 5\nSOLVER_UNSTEADY_PRESSURE_AND_KUTTA ENABLE\n"
+    + "SET_WAKE_TERMINATION_TIME_STEPS 120\nSET_WAKE_ON_WAKE_INDUCTION DISABLE\n"
+    + "ADDITIONAL_WAKE_RELAXATION_ITERATION ENABLE\nLAMINAR_SEPARATION DISABLE\n"
+    + "AEROELASTIC_RBF_TYPE GAUSSIAN\nKUTTA_JOUKOWSKI_LIFT_FORCES ENABLE\n"
+    + "PRINT_ROTOR_INDUCED_VELOCITIES DISABLE\nSET_ADAPTIVE_FIELD_GRID_REFINEMENT ENABLE\n"
+    + "ROTOR_INDUCED_VELOCITY_BLENDING 0.3\nSET_WAKE_NUMERICAL_RELAXATION 0.1\n"
+    + "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH 50.0\nSET_WAKE_DECAY_CONSTANT 19.1\n"
+    + "SOLVER_STABILIZATION 0.5\nDISABLE_SOLVER_REF_VELOCITY\n"
+)
 
 #: The script each build rendered on the 0.33.0 tree (tag v0.33.0) for EVERY
 #: minus the keywords it refuses, then start_solver: the oracle of the cut.
@@ -284,21 +323,16 @@ V0330_SCRIPTS = {
     + "KUTTA_JOUKOWSKI_LIFT_FORCES ENABLE\nPRINT_ROTOR_INDUCED_VELOCITIES DISABLE\n"
     + "SET_ADAPTIVE_FIELD_GRID_REFINEMENT ENABLE\n"
     + _TAIL,
+    "26.121": _HEAD
+    + "SET_THIN_BOUNDARIES -1\n\n"
+    + "DELETE_SEPARATION -1\n"
+    + "CREATE_BULK_SEPARATION b1 CYLINDRICAL 2 0.2\n1,2\n\n"
+    + _MODELS_26_12X
+    + _TAIL,
     "26.124": _HEAD
     + "SET_THIN_BOUNDARIES -1\n\n"
     + "DELETE_SEPARATION -1\n"
-    + "CREATE_AIRFOIL_SEPARATION s1 2 DISABLE\n1,2\n\n"
-    + "CREATE_STRATFORD_BULK_SEPARATION s1 2\n1,2\n\n"
-    + "SET_SOLVER_CONVERGENCE_ITERATIONS 3\nSOLVER_MINIMUM_CP -50.0\n"
-    + "REYNOLDS_AVERAGED_DRAG_FORCES ENABLE\nSOLVER_SET_MESH_INDUCED_WAKE_VELOCITY DISABLE\n"
-    + "SOLVER_SET_FARFIELD_LAYERS 5\nSOLVER_UNSTEADY_PRESSURE_AND_KUTTA ENABLE\n"
-    + "SET_WAKE_TERMINATION_TIME_STEPS 120\nSET_WAKE_ON_WAKE_INDUCTION DISABLE\n"
-    + "ADDITIONAL_WAKE_RELAXATION_ITERATION ENABLE\nLAMINAR_SEPARATION DISABLE\n"
-    + "AEROELASTIC_RBF_TYPE GAUSSIAN\nKUTTA_JOUKOWSKI_LIFT_FORCES ENABLE\n"
-    + "PRINT_ROTOR_INDUCED_VELOCITIES DISABLE\nSET_ADAPTIVE_FIELD_GRID_REFINEMENT ENABLE\n"
-    + "ROTOR_INDUCED_VELOCITY_BLENDING 0.3\nSET_WAKE_NUMERICAL_RELAXATION 0.1\n"
-    + "SET_JET_WAKE_DECAY_NORMALIZED_LENGTH 50.0\nSET_WAKE_DECAY_CONSTANT 19.1\n"
-    + "SOLVER_STABILIZATION 0.5\nDISABLE_SOLVER_REF_VELOCITY\n"
+    + _MODELS_26_12X
     + _TAIL,
 }
 
@@ -340,11 +374,13 @@ def test_p0340_settings_cut_keeps_the_v0330_signature():
 def test_p0340_settings_cut_emits_every_family_in_the_v0330_order(version):
     """AD-17 (WP9a): every family emits its lines in the 0.33.0 order, byte for byte.
 
-    One call with every keyword the build takes, on three builds whose
+    One call with every keyword the build takes, on four builds whose
     grammars differ (the pre-26.100 flags, the 26.100 separation lists, the
-    26.12x assignment models), against the script the 0.33.0 tree rendered.
-    The snapshot records the same call: the four boolean toggles read ahead
-    of the first emission and the deferred selection by index.
+    26.12x assignment models, and on 26.121 the four-argument bulk model
+    between the erase and the assignments), against the script the 0.33.0
+    tree rendered. The snapshot records the same call: the four boolean
+    toggles read ahead of the first emission and the deferred selection by
+    index.
     """
     script = Script(version=version)
     script.declare_existing(boundaries={"wing": 1, "body": 2, "tail": 3})
@@ -355,6 +391,140 @@ def test_p0340_settings_cut_emits_every_family_in_the_v0330_order(version):
     assert setup is script.solver_setup
     assert setup.flags["SET_VORTICITY_DRAG_BOUNDARIES"].value == [1, 3]
     assert setup.flags["SOLVER_SET_MESH_INDUCED_WAKE_VELOCITY"].value is False
+    if "bulk_separation" not in REFUSED[version]:
+        assert setup.flags["CREATE_BULK_SEPARATION"].emitted is True
+
+
+#: Every separation model at once, one call: the erase by index, the bulk
+#: model with labels, and two airfoil models, one axial vortex, one
+#: cylindrical bulk and one Stratford bulk model.
+EVERY_MODEL = {
+    "delete_separations": 2,
+    "bulk_separation": {
+        "name": "b1",
+        "separation_type": "FLAT_PLATE",
+        "diameter": 0.2,
+        "boundaries": ["wing", 2],
+    },
+    "airfoil_separation": [
+        {"name": "a1", "valarezo_criterion": True, "boundaries": [1]},
+        {"name": "a2", "boundaries": "all"},
+    ],
+    "axial_vortex_separation": [
+        {
+            "name": "v1",
+            "diameter": 0.1,
+            "body_axis": "Y",
+            "sharp_nose_vortices": True,
+            "boundaries": [2],
+        }
+    ],
+    "cylindrical_bulk_separation": [{"name": "c1", "diameter": 0.3, "boundaries": [3]}],
+    "stratford_bulk_separation": [{"name": "t1", "boundaries": ["tail"]}],
+}
+
+#: What the 0.33.0 tree rendered for EVERY_MODEL on 26.121 and on 26.122.
+V0330_EVERY_MODEL = (
+    "DELETE_SEPARATION 2\n"
+    "CREATE_BULK_SEPARATION b1 FLAT_PLATE 2 0.2\n1,2\n\n"
+    "CREATE_AIRFOIL_SEPARATION a1 1 ENABLE\n1\n\n"
+    "CREATE_AIRFOIL_SEPARATION a2 -1 DISABLE\n\n"
+    "CREATE_AXIAL_VORTEX_SEPARATION v1 1 1 Y 0.1 ENABLE\n2\n\n"
+    "CREATE_CYLINDRICAL_BULK_SEPARATION c1 1 0.3\n3\n\n"
+    "CREATE_STRATFORD_BULK_SEPARATION t1 1\n3\n\n"
+    "SOLVER_MINIMUM_CP -100\n"
+)
+
+
+@pytest.mark.parametrize("version", ["26.121", "26.122"])
+def test_p0340_settings_cut_emits_every_separation_model_in_the_v0330_order(version):
+    """AD-17 (WP9a): the erase, then the bulk model, then the four assignment kinds.
+
+    The two builds that take the four-argument bulk model, with every
+    separation keyword in one call, against the script the 0.33.0 tree
+    rendered: a bulk model moved after the assignments, or two assignment
+    kinds swapped, fails here.
+    """
+    script = Script(version=version)
+    script.declare_existing(boundaries={"wing": 1, "body": 2, "tail": 3})
+    setup = helpers.solver_settings(script, **EVERY_MODEL)
+    assert script.render() == V0330_EVERY_MODEL
+    emitted = [command for command, record in setup.flags.items() if record.emitted]
+    assert "CREATE_BULK_SEPARATION" in emitted
+    assert "DELETE_SEPARATION" in emitted
+
+
+#: One argument fault per refusal stage of solver_settings, in the order the
+#: 0.33.0 tree refused them, each with a fragment of its own message: the
+#: bare labels and boundary lists, the separation erase, the assignment
+#: models, the toggles, the time regime, the bulk model, the no-boundary
+#: assignment, the bulk form the build lacks, the induced-drag selection.
+REFUSAL_ORDER = (
+    ("vorticity_drag_boundaries", "wing", "vorticity_drag_boundaries takes a sequence"),
+    ("viscous_excluded", "wing", "viscous_excluded takes a sequence"),
+    ("thin_boundaries", "wing", "thin_boundaries takes a sequence"),
+    ("axial_separation_boundaries", "wing", "axial_separation_boundaries takes a sequence"),
+    (
+        "crossflow_separation_boundaries",
+        "wing",
+        "crossflow_separation_boundaries takes a sequence",
+    ),
+    ("delete_separations", "bogus", "delete_separations takes the 1-based index"),
+    ("airfoil_separation", [], "airfoil_separation=[] is an empty sequence"),
+    ("stratford_bulk_separation", [], "stratford_bulk_separation=[] is an empty sequence"),
+    ("forced_iterations", "bogus", "forced_iterations takes True or False"),
+    (
+        "jet_wake_filaments_grid_induction",
+        "bogus",
+        "jet_wake_filaments_grid_induction takes True or False",
+    ),
+    ("mode", "sideways", "mode takes STEADY or UNSTEADY"),
+    ("bulk_separation", {"name": "b1"}, "bulk_separation takes a BulkSeparation"),
+    (
+        "cylindrical_bulk_separation",
+        [{"name": "c1", "diameter": 0.3, "boundaries": []}],
+        "the separation assignment 'c1' selects no boundary",
+    ),
+    (
+        "bulk_separation",
+        {"name": "b1", "separation_type": "CYLINDRICAL", "diameter": 0.2, "boundaries": [1]},
+        "bulk_separation carries separation_type",
+    ),
+    ("vorticity_drag_boundaries", ["nowhere"], "cites unknown mesh boundary label 'nowhere'"),
+)
+
+
+def _refusal(**kwargs: object) -> tuple[type[Exception], str, str]:
+    """Run one refused call on 26.101; its error type, message and script."""
+    script = Script(version="26.101")
+    script.declare_existing(boundaries={"wing": 1, "body": 2, "tail": 3})
+    untouched = script.render()
+    with pytest.raises((CommandArgumentError, ScriptReferenceError)) as caught:
+        helpers.solver_settings(script, **kwargs)
+    assert script.render() == untouched, "an argument refusal left lines in the script"
+    return type(caught.value), str(caught.value), script.render()
+
+
+@pytest.mark.parametrize("stage", range(len(REFUSAL_ORDER) - 1))
+def test_p0340_settings_cut_refuses_in_the_v0330_order(stage):
+    """AD-17 (WP9a): of two argument faults, the one 0.33.0 refused first wins.
+
+    Each adjacent pair of refusal stages, carried by one call on 26.101 (the
+    build whose bulk form the bulk-form refusal names): the error is the
+    earlier stage's, message for message, and the script is untouched. The
+    pairs and their fragments were measured on the 0.33.0 tree, which
+    raised the same error for every pair; reading the toggles after the
+    time regime, for one, fails the pair of the last toggle and the mode.
+    """
+    first_argument, first_value, first_fragment = REFUSAL_ORDER[stage]
+    second_argument, second_value, second_fragment = REFUSAL_ORDER[stage + 1]
+    alone = _refusal(**{first_argument: first_value})
+    both = _refusal(**{first_argument: first_value, second_argument: second_value})
+    assert first_fragment in both[1], both[1]
+    assert second_fragment not in both[1], both[1]
+    assert both == alone
+    last_argument, last_value, last_fragment = REFUSAL_ORDER[-1]
+    assert last_fragment in _refusal(**{last_argument: last_value})[1]
 
 
 def test_p0340_settings_cut_gives_every_keyword_one_home():
