@@ -24,10 +24,12 @@ WHAT IS COMPUTED, in the mesh's own frame and length unit:
    mesh at :data:`SPAN_STATIONS` evenly spaced stations, the last one
    :data:`TIP_MARGIN` of the span below the tip, where a closed tip cap
    leaves no chord.
-3. THE SECTIONS. Each station's plane cuts the surface in a closed loop.
-   Its two ends are the two loop points farthest apart (the leading and the
-   trailing edge, in either order), and the two halves of the loop between
-   them are the blade's two sides.
+3. THE SECTIONS. Each station's plane cuts the surface in one closed loop,
+   the vertices an export writes once per side (an unwelded trailing edge)
+   merged first, so such an edge is joined. Its two ends are the two loop
+   points farthest apart (the leading and the trailing edge, in either
+   order), and the two halves of the loop between them are the blade's two
+   sides.
 4. THE MEAN SURFACE. Each side is projected on its chord, resampled at the
    cosine stations ``(1 - cos(pi k / n)) / 2`` of :data:`CHORD_PANELS`
    panels, and the thin blade's point at each station is the mean of the two
@@ -37,14 +39,19 @@ WHAT IS COMPUTED, in the mesh's own frame and length unit:
 WHAT IS WRITTEN. ``<stem>_thin_blade.obj`` beside the source, one group named
 as the source's boundary, in triangles; and its ``<stem>_thin_blade.boundaries.toml``
 naming that group, stating the root offset used and, where the source states
-it, the ``[import]`` length unit. The source is only read (FR-330 R4).
+it, the ``[import]`` table: the saved simulation's length unit, or the OBJ
+sidecar's unit and mesh operations whole, because the thin blade lies in the
+blade's own frame and the same operations place it. The source is only read
+(FR-330 R4).
 
 WHAT IS REFUSED, by name and with the reason, before anything is written
 (FR-330 R6): a file that is not a saved simulation or an OBJ, one that cannot
-be read, one holding more than one boundary, a root offset that is not a
-positive length shorter than the blade, a section that is not one closed
-loop (an open surface, such as a sheet already without thickness), and a
-section whose two sides cannot be separated. An existing output is refused
+be read, one holding more than one boundary, an OBJ whose sidecar states a
+CAD or CCS conversion, a root offset that is not a positive length shorter
+than the blade, a blade whose root cannot be told from its tip, a section
+that is not one closed loop (an open surface, such as a sheet already without
+thickness, or a plane that cuts another closed body in the same group), and
+a section whose two sides cannot be separated. An existing output is refused
 unless ``overwrite`` is given.
 
 WHAT IT IS NOT. The derived geometry is a modelling choice of the user; this
@@ -72,6 +79,7 @@ from pyflightstream._fsm import (
     saved_mesh_coordinate_unit,
     surface_mesh,
 )
+from pyflightstream.cases import MeshOperation
 from pyflightstream.workspace.sidecars import inventory_sidecar, read_mesh_import
 
 __all__ = [
@@ -194,6 +202,8 @@ class _Blade:
     faces: Faces
     boundary: str
     unit: str | None
+    #: The source sidecar's mesh operations, carried to the thin blade's (FR-330 R5).
+    operations: tuple[MeshOperation, ...] = ()
 
 
 def _read_fsm(source: Path) -> _Blade:
@@ -242,6 +252,10 @@ def _obj_statements(text: str) -> tuple[list[list[float]], dict[str, list[list[i
         if not words:
             continue
         if words[0] == "v":
+            if len(words) < 4:
+                raise ValueError(
+                    f"line {number} states a vertex of {len(words) - 1} coordinates, not three"
+                )
             vertices.append([float(word) for word in words[1:4]])
         elif words[0] in ("o", "g") and len(words) > 1:
             current = words[1]
@@ -267,12 +281,47 @@ def _read_obj(source: Path) -> _Blade:
         )
     sidecar = inventory_sidecar(source)
     stated = read_mesh_import(sidecar) if sidecar.is_file() else None
+    if stated is not None and (stated.cad is not None or stated.ccs is not None):
+        table = "[import.cad]" if stated.cad is not None else "[import.ccs]"
+        raise _refuse(
+            source,
+            f"its sidecar {sidecar.name} states {table}, a conversion of a CAD or CCS "
+            "file, which a mesh read as an OBJ does not take",
+        )
     name, faces = next(iter(groups.items()), ("", []))
     return _Blade(
         numpy.asarray(vertices, dtype=float).reshape(-1, 3),
         numpy.asarray(faces, dtype=numpy.int64).reshape(-1, 3),
         name or source.stem,
         stated.units if stated is not None else None,
+        stated.operations if stated is not None else (),
+    )
+
+
+def _welded(blade: _Blade) -> _Blade:
+    """Return the blade with coincident vertices merged, in their first order.
+
+    An export that writes a vertex once per side (an unwelded trailing edge)
+    leaves the surface open along that edge; merging the copies closes it.
+    The faces a merge collapses to a line are dropped. A mesh with no
+    coincident vertices is returned with its vertices and faces unchanged.
+    """
+    _, first, inverse = numpy.unique(blade.vertices, axis=0, return_index=True, return_inverse=True)
+    if len(first) == len(blade.vertices):
+        return blade
+    order = numpy.argsort(first)
+    rank = numpy.empty_like(order)
+    rank[order] = numpy.arange(len(order))
+    faces = rank[inverse.reshape(-1)][blade.faces]
+    kept = (
+        (faces[:, 0] != faces[:, 1]) & (faces[:, 1] != faces[:, 2]) & (faces[:, 2] != faces[:, 0])
+    )
+    return _Blade(
+        blade.vertices[first[order]],
+        faces[kept],
+        blade.boundary,
+        blade.unit,
+        blade.operations,
     )
 
 
@@ -291,7 +340,7 @@ def _read_blade(source: Path) -> _Blade:
         raise _refuse(source, "it holds no surface mesh of a blade (fewer than four faces)")
     if not bool(numpy.isfinite(blade.vertices).all()):
         raise _refuse(source, "a vertex coordinate is not a finite number")
-    return blade
+    return _welded(blade)
 
 
 # --- the span ----------------------------------------------------------------------
@@ -430,24 +479,22 @@ def _loops(
     return loops
 
 
-def _section(local: Points, faces: Faces, station: float, tolerance: float) -> Points | None:
-    """Return the largest closed loop the plane of ``station`` cuts, None if any loop is open."""
+def _section(local: Points, faces: Faces, station: float, tolerance: float) -> list[Points] | None:
+    """Return every closed loop the plane of ``station`` cuts; None if one is open or none cut."""
     d = local[:, 2] - station
     d[numpy.abs(d) <= tolerance] = 0.0
     loops = _loops(_crossings(faces, d >= 0.0))
     if not loops:
         return None
-    best = None
+    sections = []
     for loop in loops:
         i = numpy.asarray([edge[0] for edge in loop])
         j = numpy.asarray([edge[1] for edge in loop])
         t = d[i] / (d[i] - d[j])  # a crossed edge has one end on each side, so never 0 / 0
         points = local[i, :2] + t[:, None] * (local[j, :2] - local[i, :2])
         keep = numpy.linalg.norm(points - numpy.roll(points, 1, axis=0), axis=1) > tolerance
-        points = points[keep] if keep.any() else points[:1]
-        if best is None or len(points) > len(best):
-            best = points
-    return best
+        sections.append(points[keep] if keep.any() else points[:1])
+    return sections
 
 
 def _ends(points: Points) -> tuple[int, int]:
@@ -493,14 +540,23 @@ def _mean_surface(source: Path, blade: _Blade, frame: _Frame, stations: Points) 
     tolerance = SPAN_TOLERANCE * float(numpy.ptp(local[:, 2]))
     rows = []
     for station in stations:
-        where = f"the section at span {station!r} (along {frame.span.round(6).tolist()})"
-        loop = _section(local, blade.faces, float(station), tolerance)
-        if loop is None:
+        where = f"the section at span {float(station)!r} (along {frame.span.round(6).tolist()})"
+        loops = _section(local, blade.faces, float(station), tolerance)
+        if loops is None:
             raise _refuse(
                 source,
-                f"{where} is not one closed loop: the surface is open there, as a sheet "
-                "already without thickness is, so its two sides cannot be separated",
+                f"{where} is not one closed loop: the surface is open there (a sheet already "
+                "without thickness, or two sides not joined along an edge), so its two "
+                "sides cannot be separated",
             )
+        if len(loops) > 1:
+            raise _refuse(
+                source,
+                f"{where} is not one closed loop: its plane cuts {len(loops)} closed loops, "
+                "so the group holds another closed body beside the blade and the blade's "
+                "two sides cannot be separated from it",
+            )
+        loop = loops[0]
         line = _mean_line(loop, CHORD_PANELS)
         if line is None:
             raise _refuse(
@@ -548,13 +604,36 @@ def _sidecar_text(source: Path, mesh: Path, blade: _Blade, root_offset: float) -
         lines.append(
             f"# {source.name} states no length unit; write [import] units beneath this list."
         )
-    else:
-        lines += ["", "[import]", f'units = "{blade.unit}"']
+        return "\n".join(lines) + "\n"
+    lines += [
+        "",
+        f"# The [import] table is {source.name}'s: the thin blade lies in the blade's own",
+        "# frame, so the same unit and mesh operations place it as they place the blade.",
+        "[import]",
+        f"units = {json.dumps(blade.unit, ensure_ascii=False)}",
+    ]
+    for operation in blade.operations:
+        lines += ["", "[[import.operations]]"]
+        for key, value in operation.model_dump(exclude_none=True).items():
+            lines.append(f"{key} = {_toml_value(value)}")
     return "\n".join(lines) + "\n"
+
+
+def _toml_value(value: object) -> str:
+    """Return a mesh operation's value as TOML: a string, a number or a list of numbers."""
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, (list, tuple)):
+        return "[" + ", ".join(_toml_value(item) for item in value) + "]"
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return repr(float(value))
+    raise TypeError(f"a mesh operation holds {value!r}, which the sidecar does not write")
 
 
 def _checked_offset(source: Path, root_offset: float) -> float:
     """Return the root offset as a float, refusing one that is not a positive length."""
+    if isinstance(root_offset, (bool, str, bytes)):
+        raise _refuse(source, f"the root offset {root_offset!r} is not a number")
     try:
         offset = float(root_offset)
     except (TypeError, ValueError) as error:
@@ -596,10 +675,12 @@ def derive_thin_blade(
     InputArtifactError
         Naming the source and the reason, with nothing written: a file that
         is not a saved simulation or an OBJ or cannot be read, one holding
-        more than one boundary, a root offset that is not a positive length
-        shorter than the blade, a blade whose root cannot be told from its
-        tip, a section that is not one closed loop or whose two sides
-        cannot be separated, and an existing output without ``overwrite``.
+        more than one boundary, an OBJ whose sidecar states a CAD or CCS
+        conversion, a root offset that is not a positive length shorter
+        than the blade, a blade whose root cannot be told from its tip, a
+        section that is not one closed loop (open, or one of several) or
+        whose two sides cannot be separated, and an existing output without
+        ``overwrite``.
     """
     source = Path(geometry)
     mesh = thin_blade_path(source)

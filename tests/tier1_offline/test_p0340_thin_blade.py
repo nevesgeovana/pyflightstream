@@ -80,7 +80,7 @@ def _chord(z: numpy.ndarray | float, taper: float) -> numpy.ndarray | float:
 
 
 def _blade(
-    *, jitter: float = 0.0, closed: bool = True, taper: float = 0.0
+    *, jitter: float = 0.0, closed: bool = True, taper: float = 0.0, unwelded: bool = False
 ) -> tuple[numpy.ndarray, list]:
     """Return the vertices and the triangles of the test blade, spanning z = ROOT to TIP.
 
@@ -89,8 +89,13 @@ def _blade(
     length, so the mesh is no longer built in rings. ``closed=False`` keeps the
     upper side only, an open sheet. ``taper`` shrinks the chord linearly along
     the span, each vertex scaled by the chord at its own span coordinate.
+    ``unwelded=True`` writes the trailing edge twice, once per side, with no
+    face between the two copies, as an export that does not weld it does.
     """
     section = _section() if closed else numpy.column_stack([_stations(), _camber(_stations())])
+    te = SIDE_POINTS  # the trailing edge's index in the closed section
+    if unwelded:
+        section = numpy.insert(section, te + 1, section[te], axis=0)
     n = len(section)
     rng = numpy.random.default_rng(7)
     vertices = []
@@ -102,13 +107,20 @@ def _blade(
     count = n if closed else n - 1
     for k in range(RINGS - 1):
         for j in range(count):
+            if unwelded and j == te:
+                continue
             a, b = k * n + j, k * n + (j + 1) % n
             faces += [[a, b, b + n], [a, b + n, a + n]]
     if closed:
         for k, z in ((0, ROOT), (RINGS - 1, TIP)):
             centre = len(vertices)
-            vertices.append([*(section.mean(axis=0) - [0.25, 0.0]) * _chord(z, taper), z])
-            faces += [[centre, k * n + (j + 1) % n, k * n + j] for j in range(n)]
+            middle = numpy.delete(section, te + 1, axis=0) if unwelded else section
+            vertices.append([*(middle.mean(axis=0) - [0.25, 0.0]) * _chord(z, taper), z])
+            faces += [
+                [centre, k * n + (j + 1) % n, k * n + j]
+                for j in range(n)
+                if not (unwelded and j == te)
+            ]
     return numpy.asarray(vertices), faces
 
 
@@ -204,6 +216,11 @@ def test_the_root_is_moved_outward_along_the_span_by_the_offset(tmp_path):
         assert result.span_direction == (0.0, 0.0, 1.0)
         assert (result.root_span, result.root_offset) == (pytest.approx(ROOT + offset), offset)
         assert f"# root_offset = {offset!r}," in result.sidecar.read_text(encoding="utf-8")
+    # the root is the end nearer the origin, whichever way the span points
+    mirrored = _write_obj(tmp_path / "mirrored.obj", vertices * [1.0, 1.0, -1.0], faces)
+    below = derive_thin_blade(mirrored, root_offset=0.05)
+    assert below.span_direction == (0.0, 0.0, -1.0)
+    assert _read_obj(below.mesh)[:, 2].max() == pytest.approx(-(ROOT + 0.05), abs=1e-12)
     # off the rings the root is still the lowest vertex plus the offset
     vertices, faces = _blade(jitter=0.01)
     loose = derive_thin_blade(_write_obj(tmp_path / "loose.obj", vertices, faces), root_offset=0.05)
@@ -285,6 +302,11 @@ def test_the_source_is_never_modified_and_an_output_is_not_overwritten_unasked(t
     ("name", "content", "reason"),
     [
         ("garbage.obj", "v 0 0 zero\nf 1 2 3\n", "cannot be read as an OBJ"),
+        (
+            "short.obj",
+            "v 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n",
+            "line 1 states a vertex of 2 coordinates",
+        ),
         ("blade.stl", "solid x\nendsolid x\n", "is a .stl"),
         ("nothing.obj", "o Blade1\nv 0 0 0\n", "holds no surface mesh of a blade"),
         ("broken.fsm", "26,1\n8172026\n", "its mesh block cannot be read"),
@@ -316,6 +338,7 @@ def test_a_mesh_whose_two_sides_cannot_be_separated_is_refused(tmp_path):
     ) as refused:
         derive_thin_blade(sheet, root_offset=0.05)
     assert str(sheet) in str(refused.value)
+    assert "the section at span 0.25 (along" in str(refused.value)  # a plain number
     vertices, faces = _blade()
     two = tmp_path / "two.obj"
     _write_obj(two, vertices, faces)
@@ -334,6 +357,9 @@ def test_a_root_offset_that_is_not_a_length_inside_the_blade_is_refused(tmp_path
     for bad in (0.0, -0.05, math.nan):
         with pytest.raises(InputArtifactError, match="is not a positive length"):
             derive_thin_blade(source, root_offset=bad)
+    for word in ("0.05", True):  # a length is parsed before it is passed, never coerced here
+        with pytest.raises(InputArtifactError, match="is not a number"):
+            derive_thin_blade(source, root_offset=word)  # type: ignore[arg-type]
     with pytest.raises(InputArtifactError, match="reaches the blade's last section"):
         derive_thin_blade(source, root_offset=TIP - ROOT)
     middle = vertices - [0.0, 0.0, 0.5 * (ROOT + TIP)]
@@ -341,3 +367,78 @@ def test_a_root_offset_that_is_not_a_length_inside_the_blade_is_refused(tmp_path
     with pytest.raises(InputArtifactError, match="cannot be told from its tip"):
         derive_thin_blade(centred, root_offset=0.05)
     assert sorted(p.name for p in tmp_path.iterdir()) == ["blade.obj", "centred.obj"]
+
+
+def _box(low: list, high: list, start: int) -> tuple[list, list]:
+    """A closed box between two corners, its faces numbered from ``start``."""
+    (x0, y0, z0), (x1, y1, z1) = low, high
+    corners = [[x, y, z] for z in (z0, z1) for y in (y0, y1) for x in (x0, x1)]
+    quads = [(0, 2, 3, 1), (4, 5, 7, 6), (0, 1, 5, 4), (2, 6, 7, 3), (0, 4, 6, 2), (1, 3, 7, 5)]
+    faces = []
+    for a, b, c, d in quads:
+        faces += [[start + a, start + b, start + c], [start + a, start + c, start + d]]
+    return corners, faces
+
+
+def test_a_section_that_also_cuts_another_closed_body_is_refused(tmp_path):
+    """FR-330 R6 (P0340-THIN-BLADE): a blade and another closed body (a spinner
+    exported in the same group) give a plane two closed loops; the blade's two
+    sides cannot be separated from the other body's, so it is refused, by name."""
+    # P0340-THIN-BLADE, FR-330 R6: one closed loop per section, never the largest of several.
+    vertices, faces = _blade()
+    corners, box = _box([0.4, -0.05, 0.3], [0.5, 0.05, 0.6], len(vertices))
+    both = _write_obj(tmp_path / "both.obj", numpy.vstack([vertices, corners]), faces + box)
+    with pytest.raises(InputArtifactError, match="its plane cuts 2 closed loops") as refused:
+        derive_thin_blade(both, root_offset=0.05)
+    assert str(both) in str(refused.value) and "Nothing was written" in str(refused.value)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["both.obj"]
+
+
+def test_an_unwelded_trailing_edge_is_joined_before_the_sections_are_cut(tmp_path):
+    """FR-330 R2 and R6 (P0340-THIN-BLADE): an export that writes the trailing
+    edge once per side gives the same thin blade as the welded mesh, rather than
+    a refusal of a surface open along that edge."""
+    # P0340-THIN-BLADE, FR-330 R2/R6: coincident vertices are merged before cutting.
+    vertices, faces = _blade()
+    welded = derive_thin_blade(_write_obj(tmp_path / "w.obj", vertices, faces), root_offset=0.05)
+    vertices, faces = _blade(unwelded=True)
+    assert len(vertices) == RINGS * (2 * SIDE_POINTS + 1) + 2
+    loose = derive_thin_blade(_write_obj(tmp_path / "u.obj", vertices, faces), root_offset=0.05)
+    assert loose.stations == welded.stations
+    assert numpy.allclose(_read_obj(loose.mesh), _read_obj(welded.mesh), rtol=0, atol=1e-12)
+
+
+def test_the_source_import_table_is_carried_whole_to_the_thin_blade(tmp_path):
+    """FR-330 R5 (P0340-THIN-BLADE): the thin blade lies in the blade's own
+    frame, so its sidecar states the source's unit and mesh operations, in
+    order; a sidecar stating a CAD conversion is refused, nothing written."""
+    # P0340-THIN-BLADE, FR-330 R5: units and [[import.operations]] carried, never dropped.
+    vertices, faces = _blade()
+    source = _write_obj(tmp_path / "blade.obj", vertices, faces, group="naca")
+    inventory_sidecar(source).write_text(
+        'boundaries = ["naca"]\n\n[import]\nunits = "millimeter"\n\n'
+        '[[import.operations]]\nop = "translate"\nvector = [0, 0, 250]\n\n'
+        '[[import.operations]]\nop = "rotate"\naxis = "X"\nangle_deg = 90\n\n'
+        '[[import.operations]]\nop = "rename"\nsurface = "naca"\nto = "Blade1"\n\n'
+        '[[import.operations]]\nop = "scale"\nfactors = [0.5, 1.0, 2.0]\n',
+        encoding="utf-8",
+    )
+    result = derive_thin_blade(source, root_offset=0.05)
+    stated, carried = read_mesh_import(inventory_sidecar(source)), read_mesh_import(result.sidecar)
+    assert stated is not None and carried == stated
+    assert [operation.op for operation in carried.operations] == [
+        "translate",
+        "rotate",
+        "rename",
+        "scale",
+    ]
+    assert carried.names_after_renames(read_inventory(result.sidecar)) == ("Blade1",)
+    cad = _write_obj(tmp_path / "cad.obj", vertices, faces)
+    inventory_sidecar(cad).write_text(
+        'boundaries = ["Blade1"]\n\n[import]\nunits = "FILE"\n\n'
+        '[import.cad]\ntessellation_density = "LOW"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(InputArtifactError, match=r"states \[import.cad\]") as refused:
+        derive_thin_blade(cad, root_offset=0.05)
+    assert str(cad) in str(refused.value) and not thin_blade_path(cad).exists()
