@@ -32,8 +32,18 @@ from pathlib import Path
 
 import griffe
 
+import pyflightstream
+
 REPO = Path(__file__).resolve().parents[2]
+#: The source tree, for what is read as files of the checkout: the CLI text and
+#: the paths the root conftest's executable-examples gate collects (it reads
+#: ``src/pyflightstream``, so it is asked about the checkout's paths).
 SRC = REPO / "src" / "pyflightstream"
+#: The root of the package these tests import: ``src/pyflightstream`` from the
+#: source tree, site-packages when release.yml's test-artifact job runs them
+#: against the installed wheel. Module paths taken from imported objects are
+#: made relative to it, so the pins below name the same modules either way.
+PKG = Path(pyflightstream.__file__).resolve().parent
 DOCS = REPO / "docs"
 
 #: Package roots that still define functions and classes of their own. The
@@ -337,7 +347,7 @@ def numpydoc_gaps(node: ast.FunctionDef | ast.AsyncFunctionDef, doc: str) -> lis
 
 
 def _definition(function) -> tuple[str, ast.FunctionDef | ast.AsyncFunctionDef]:
-    """The function's module path under ``src/pyflightstream`` and its ``def`` node."""
+    """The function's module path under the imported package and its ``def`` node."""
     path = Path(inspect.getsourcefile(function)).resolve()
     first = function.__code__.co_firstlineno
     for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
@@ -346,7 +356,7 @@ def _definition(function) -> tuple[str, ast.FunctionDef | ast.AsyncFunctionDef]:
             and node.name == function.__name__
             and first in (node.lineno, *(d.lineno for d in node.decorator_list))
         ):
-            return path.relative_to(SRC.resolve()).as_posix(), node
+            return path.relative_to(PKG).as_posix(), node
     raise AssertionError(f"no def of {function.__qualname__} in {path}")
 
 
@@ -372,7 +382,7 @@ def _functions():
 def _pending_failures(pending: set[str], failures: dict[str, list[str]]) -> list[str]:
     """Why the pinned list is wrong: a pinned module that now passes, or is gone."""
     wrong = [f"{rel} passes now: take it off the list" for rel in sorted(pending - set(failures))]
-    return wrong + [f"{rel} is no module" for rel in sorted(pending) if not (SRC / rel).is_file()]
+    return wrong + [f"{rel} is no module" for rel in sorted(pending) if not (PKG / rel).is_file()]
 
 
 # ----------------------------------------------------------------- R1 and R2
@@ -591,7 +601,7 @@ def _documented_entry_points() -> list[tuple[str, object, str]]:
         if id(obj) not in used or (inspect.isclass(obj) and issubclass(obj, BaseException)):
             continue
         path = Path(inspect.getsourcefile(obj)).resolve()
-        found.append((dotted, obj, path.relative_to(SRC.resolve()).as_posix()))
+        found.append((dotted, obj, path.relative_to(PKG).as_posix()))
     return found
 
 
