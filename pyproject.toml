@@ -124,8 +124,9 @@ dev = [
     # a whole-package number. The job passes --cov explicitly.
     "pytest-cov",
     # Parallel tier 1: CI and the release gates run `pytest -n auto`, which
-    # cut the 36 minute serial suite of v0.33.0 (GOAL-039 arm H4). MIT, the
-    # card is in reports/RPT-033. Its one dependency, execnet, is MIT too.
+    # cut the 36 minute serial suite of v0.33.0 (GOAL-039 arm H4). MIT, as is
+    # its one dependency, execnet: the cards are in
+    # reports/RPT-138_pytest-xdist-licence_2026-10-01.md.
     "pytest-xdist",
     # The NFR-27 type-check ratchet; config in [tool.mypy] below.
     "mypy",
