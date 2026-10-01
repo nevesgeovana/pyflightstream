@@ -83,6 +83,17 @@ def stated_key(variables: Mapping[str, object]) -> tuple[str, float] | None:
     None where the row states neither key, states one that is not a positive
     number (the unstated cell ``-`` among them), or states BOTH: two ways to say
     one window are a contradiction, and picking one would hide it.
+
+    Parameters
+    ----------
+    variables : mapping
+        The matrix row's variables, keyed by their upper-case names.
+
+    Returns
+    -------
+    tuple of (str, float) or None
+        The key (``LAST_REVS_AVG`` or ``LAST_ITERS_AVG``) and its positive value,
+        or None.
     """
     revs = _positive(variables, LAST_REVS_AVG)
     iters = _positive(variables, LAST_ITERS_AVG)
@@ -97,6 +108,20 @@ def averaging_steps(variables: Mapping[str, object], *, per_revolution: float | 
     A count of iterations is already in steps and is the same for every rotor. A
     count of revolutions has no length without a clock, and resolves to None
     rather than to a guess.
+
+    Parameters
+    ----------
+    variables : mapping
+        The matrix row's variables, keyed by their upper-case names.
+    per_revolution : float or None
+        Solver steps in one revolution of the rotor whose clock counts the
+        window. None where the row has no clock.
+
+    Returns
+    -------
+    int or None
+        The window's length in steps, at least 1, or None where the row states
+        no usable key or a count of revolutions meets no clock.
     """
     stated = stated_key(variables)
     if stated is None:
@@ -115,6 +140,22 @@ def averaging_span(
     """Return the inclusive, 1-based window ``(first, last)`` ending at ``last_step``.
 
     Longer than the run is the whole run, never a step before the first.
+
+    Parameters
+    ----------
+    variables : mapping
+        The matrix row's variables, keyed by their upper-case names.
+    last_step : int
+        The last solver step of the run, 1-based. The window ends here.
+    per_revolution : float or None
+        Solver steps in one revolution of the clock rotor; None where there is
+        none.
+
+    Returns
+    -------
+    tuple of (int, int) or None
+        The inclusive 1-based ``(first, last)`` steps of the window, or None
+        where the length is unknown or ``last_step`` is not positive.
 
     Examples
     --------
@@ -142,6 +183,32 @@ def surface_averaging_window(
     unsteady time iteration without distinguishing time steps from inner
     iterations, which awaits licensed verification. This is the sole
     conversion to the command's bounds.
+
+    Parameters
+    ----------
+    last_step : int
+        The last solver step of the run, 1-based.
+    per_revolution : float, optional
+        Solver steps in one revolution of the rotor clock. Required with
+        ``last_revs``.
+    last_revs : float, optional
+        The window as a count of revolutions (``LAST_REVS_AVG``).
+    last_iters : int, optional
+        The window as a count of solver steps (``LAST_ITERS_AVG``).
+
+    Returns
+    -------
+    SurfaceAveragingWindow
+        The inclusive ``iterations`` bounds, their ``iteration_unit``, the
+        ``verification`` state ``UNVERIFIED`` and the clock the window was
+        stated on (``last_revs`` with ``steps_per_revolution``, or
+        ``last_iters``).
+
+    Raises
+    ------
+    CampaignConfigError
+        When both or neither of ``last_revs`` and ``last_iters`` are given, or
+        when the window has no clock to resolve on.
 
     Examples
     --------
@@ -188,6 +255,30 @@ def surface_average_window(
     step, clipped at step 1. The package counts these steps itself and averages
     the exports stamped with them, so the window carries no verification.
 
+    Parameters
+    ----------
+    last_step : int
+        The last solver step of the run, 1-based.
+    per_revolution : float, optional
+        Solver steps in one revolution of the rotor clock. Required with
+        ``last_revs``.
+    last_revs : float, optional
+        The window as a count of revolutions (``LAST_REVS_AVG``).
+    last_iters : int, optional
+        The window as a count of solver steps (``LAST_ITERS_AVG``).
+
+    Returns
+    -------
+    SurfaceAverageWindow
+        The inclusive ``iterations`` bounds, their ``iteration_unit`` and the
+        clock the window was stated on, without a ``verification`` key.
+
+    Raises
+    ------
+    CampaignConfigError
+        When both or neither of ``last_revs`` and ``last_iters`` are given, or
+        when the window has no clock to resolve on.
+
     Examples
     --------
     >>> surface_average_window(last_step=144, last_revs=1.5, per_revolution=36)["iterations"]
@@ -218,6 +309,18 @@ def passages(window: tuple[int, int], period: int) -> list[tuple[int, int]]:
 
     From the first step forward, a trailing partial passage dropped rather than
     averaged against a shorter one.
+
+    Parameters
+    ----------
+    window : tuple of (int, int)
+        The inclusive ``(first, last)`` steps to cut.
+    period : int
+        Steps in one passage. A value below 1 gives no passage.
+
+    Returns
+    -------
+    list of tuple of (int, int)
+        The inclusive ``(first, last)`` steps of each whole passage, in order.
     """
     first, last = window
     cut: list[tuple[int, int]] = []
@@ -311,6 +414,11 @@ def replan(
         a recorded gate or azimuthal window is preserved. Supplying the table
         re-cuts and gates each rotor in one operation.
 
+    Returns
+    -------
+    dict or None
+        A new plan with every window re-cut, or None where the recorded plan
+        stands.
     """
     if not isinstance(plan, Mapping) or not isinstance(variables, Mapping):
         return None
@@ -377,6 +485,19 @@ def march_end(plan: Mapping[str, object] | None, *, last_step: int) -> dict[str,
     Returns None where there is nothing to move: no plan, no last step in it,
     or one already ending there.
 
+    Parameters
+    ----------
+    plan : mapping or None
+        The ``reductions`` of ONE run record.
+    last_step : int
+        The last step of the whole march, 1-based.
+
+    Returns
+    -------
+    dict or None
+        A new plan with every window moved to end at ``last_step``, or None
+        where there is nothing to move.
+
     Examples
     --------
     >>> plan = {"time_iterations": 720, "time_average": {"windows": [[596, 720]]}}
@@ -424,6 +545,25 @@ def phase_locked_entry(
     ``last_revolutions_avg`` revolutions of that rotor ending at the run's last
     step, and ``shape`` :data:`AZIMUTHAL`: the products stage averages ACROSS
     those revolutions at each azimuth and writes one row per azimuthal position.
+
+    Parameters
+    ----------
+    gate : object
+        The ``[phase_locked]`` table, with ``min_revolutions``,
+        ``last_revolutions_avg`` and ``generated_for(revolutions=...)``.
+    last_step : float
+        The last solver step of the run.
+    per_revolution : float
+        Solver steps in one revolution of this rotor.
+    who : str
+        The rotor's name, written into the entry's provenance text.
+
+    Returns
+    -------
+    dict
+        Either ``windows``, ``shape``, ``revolutions``, ``steps_per_revolution``
+        and ``window_from``, or ``skipped`` with ``min_revolutions`` and
+        ``revolutions_turned``.
 
     Examples
     --------
@@ -481,6 +621,28 @@ def phase_locked_plan(
     A declared table gates on total revolutions and selects an azimuthal mean.
     Without a table, the row's window supplies complete blade passages.
     Other reductions are independent of this decision.
+
+    Parameters
+    ----------
+    gate : object or None
+        The ``[phase_locked]`` table, or None where the pproc declares none.
+    last_step : float
+        The last solver step of the run.
+    per_revolution : float
+        Solver steps in one revolution of this rotor.
+    who : str
+        The rotor's name, written into the entry's provenance text.
+    span : tuple of (int, int)
+        The row's inclusive averaging window, cut into passages when there is
+        no table.
+    period : int
+        Steps in one blade passage of this rotor.
+
+    Returns
+    -------
+    dict
+        The plan entry: ``windows`` with their provenance, or ``skipped`` with
+        the reason.
     """
     if gate is not None:
         return phase_locked_entry(gate, last_step=last_step, per_revolution=per_revolution, who=who)
@@ -524,6 +686,19 @@ def regate(plan: Mapping[str, object] | None, gate: object | None) -> dict[str, 
     window; any other block is left exactly as recorded.
 
     Returns None where there is nothing to move, so a caller keeps its plan.
+
+    Parameters
+    ----------
+    plan : mapping or None
+        The ``reductions`` of ONE run record.
+    gate : object or None
+        The current ``[phase_locked]`` table; None where the pproc has none.
+
+    Returns
+    -------
+    dict or None
+        A new plan with the phase-locked reduction moved, or None where
+        nothing moves.
     """
     if not isinstance(plan, Mapping):
         return None
