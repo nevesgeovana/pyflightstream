@@ -8338,11 +8338,11 @@ Requirements written after the specification was last reconciled with the packag
 
     Solution (planned for 0.34.0): RPT-126 and, if a form is measured to work, the CCS wing emitter.
 
-!!! requirement "FR-337 The sign of the quasi-steady noise route against its unsteady reference is studied in an exploratory report <span class='srs-pending'>pending</span>"
+!!! requirement "FR-337 The sign of the quasi-steady noise route against its unsteady reference is studied in an exploratory report <span class='srs-implemented'>implemented</span>"
 
     Read with PFS-2075, PFS-2075.11 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: QS-NOISE of the 0.34.0 scope (GEO-071, section 4.1): route A agrees with the unsteady reference in level and in shape but not in sign (RPT-099), and the author left QS-NOISE exploratory, with no threshold and no gate. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-QSNOISE-SIGN; read at 0.34.0 (GOAL-039, arm CN). Pending: no study yet. Verification method: review of RPT-132, and a tier-1 test carrying the marker. Evidence owed: RPT-132, whose front matter states `exploratory: true`; and a tier-1 test that RPT-132 exists with that field, and that no file under `src/`, `scripts/` or `tests/` other than the marker test names RPT-132, so no check, gate or plan status can read it, with a planted reference as its control.*
+    *Origin: QS-NOISE of the 0.34.0 scope (GEO-071, section 4.1): route A agrees with the unsteady reference in level and in shape but not in sign (RPT-099), and the author left QS-NOISE exploratory, with no threshold and no gate. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-QSNOISE-SIGN; read at 0.34.0 (GOAL-039, arm CN). Verification method: review of RPT-132, and a tier-1 test carrying the marker. Evidence: RPT-132 (`reports/RPT-132_qsnoise-route-a-sign_2026-10-01.md`, front matter `exploratory: true`, with its sidecar); `tests/tier1_offline/test_p0340_qsnoise_sign.py::test_rpt132_is_exploratory_and_states_what_it_tested_found_and_left_open_fr_337`, `::test_nothing_under_src_scripts_or_tests_but_this_test_names_rpt132_fr_337` (a planted reference as its control).*
 
     Need: Route A, the quasi-steady noise route of FR-300 (a compact-source model fed by the blade loads of a quasi-steady run), disagrees in sign with the unsteady reference of RPT-099; the disagreement is measured and not explained, and the other route, B, is blocked by the solver.
 
@@ -8352,7 +8352,7 @@ Requirements written after the specification was last reconciled with the packag
     - R2 No check, gate or plan status reads RPT-132; the noise product of FR-300 is unchanged unless a later requirement says otherwise.
     - R3 The study needs no licensed run.
 
-    Solution (planned for 0.34.0): RPT-132.
+    Solution (release 0.34.0): RPT-132, offline from the files of licensed round 3: the solver's `PL` is the negative of route A in every term measured (both compact sources, the near and far brackets together, at three radii), with the rotation sense and the frame agreeing and a remaining lag of one time step; which of the two conventions that negate every term (the load on the body, or the pressure counted as `p0 - p`) is left to a licensed record with a nonzero thickness column. The noise product of FR-300 is unchanged.
 
 !!! requirement "FR-338 Why CDo reads zero in the coupled FSI exports is measured, and fixed where the cause is the package's order <span class='srs-pending'>pending</span>"
 
