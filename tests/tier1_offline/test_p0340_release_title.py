@@ -14,11 +14,14 @@ import inspect
 import re
 from pathlib import Path
 
+import yaml
+
 from tests.tier1_offline import test_rpt096
 from tests.tier1_offline.test_rpt096 import release_section_carrying
 
 REPO = Path(__file__).resolve().parents[2]
 CHANGELOG = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
+RELEASE_YML = REPO / ".github" / "workflows" / "release.yml"
 NEEDLE = "reports/RPT-096"
 EMPTY_SECTION = "## [99.0.0] - 2099-01-01\n\n"
 
@@ -66,3 +69,26 @@ def test_the_report_index_test_writes_no_release_title_fr_345():
     ):
         source = inspect.getsource(function)
         assert not re.search(r"\d+\.\d+\.\d+", source), function.__name__
+
+
+def test_the_first_of_several_carrying_sections_is_the_one_chosen_fr_345():
+    """P0340-RELEASE-TITLE, R2: with the report in two sections, the newest (first) is found."""
+    log = f"# Log\n\n## [B]\n\n- {NEEDLE} newest\n\n## [A]\n\n- {NEEDLE} older\n"
+    assert "newest" in release_section_carrying(log, NEEDLE)
+
+
+def test_a_dry_run_branch_rehearses_the_release_and_only_a_tag_publishes_fr_345():
+    """P0340-RELEASE-TITLE, R3: dry-run/** triggers; publish and the version check are tag-gated."""
+    document = yaml.safe_load(RELEASE_YML.read_text(encoding="utf-8"))
+    trigger = document.get("on", document.get(True))
+    assert "dry-run/**" in trigger["push"]["branches"]
+    assert "v*" in trigger["push"]["tags"]
+    tag_only = "startsWith(github.ref, 'refs/tags/v')"
+    assert document["jobs"]["publish"]["if"] == tag_only
+    gated = [
+        step
+        for job in document["jobs"].values()
+        for step in job.get("steps", [])
+        if "tag matches the package version" in step.get("name", "")
+    ]
+    assert gated and all(step.get("if") == tag_only for step in gated)
