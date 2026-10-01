@@ -33,7 +33,6 @@ FlightStream versions.
 ### Changed
 
 - **The tier 1 suite runs in parallel.** `pytest-xdist` joins the dev extra, and the CI and release workflows run tier 1 and the coverage floor with `-n auto`, so the 36 minute serial run of 0.33.0 is no longer the wall time of a gate (no requirement: development tooling, not a library behaviour).
-- **FSI on `unsteady_rotor` is still refused by the plan.** Unchanged in 0.33.1: the plan refuses a fluid-structure row on `unsteady_rotor`, which is still in debug on this release (no requirement: a standing statement; the migration page is [Migrating to 0.33.1](docs/migrating-to-0.33.1.md)).
 
 ### Fixed
 
@@ -44,6 +43,7 @@ FlightStream versions.
 
 - Points that read FAILED_INCOMPLETE_OUTPUT falsely now read CONVERGED: from the second point on, a steady row importing its trailing edges from a file whose run converged (a sweep's points 2 to n on the solver-log route), and every point of a body row whose pproc artifact plots wing sections, whose outputs no longer list `{name}_plot_cp_sections.txt`. Nothing in a matrix or an artifact changes, and the only script change is the section Cp plot export left out of such a row.
 - A record written before 0.33.1 keeps the status it was written with, for both causes, as the two tests of an old record in `tests/tier1_offline/test_p0331_false_failures.py` measure. Its products need nothing: `pyfs-matrix post` writes a point recorded FAILED_INCOMPLETE_OUTPUT into the products from its outputs on disk, its polar row included, warning of the status in `post.log`, and 0.33.1 changes no post code. Its status stays until the point runs again: post and collect leave it (collect completes only SUBMITTED records), `pyfs-matrix rebuild` refuses a record another version wrote, and `pyfs-matrix run <matrix> --force-rerun <run_id>` runs it again with 0.33.1 and records it CONVERGED, archiving the old record and outputs first and spending a licensed seat per job.
+- FSI on `unsteady_rotor` is still refused by the plan, unchanged in 0.33.1: the plan refuses a fluid-structure row on `unsteady_rotor`, which is still in debug on this release. The migration page is [Migrating to 0.33.1](docs/migrating-to-0.33.1.md).
 
 ## [0.33.0] - 2026-10-01
 

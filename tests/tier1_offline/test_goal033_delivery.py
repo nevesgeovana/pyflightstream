@@ -435,10 +435,6 @@ _MIGRATION_NAMES_0_33_0 = {
 
 _MIGRATION_NAMES_0_33_1 = {
     "The tier 1 suite runs in parallel.": ("pytest-xdist", "-n auto"),
-    "FSI on `unsteady_rotor` is still refused by the plan.": (
-        "`unsteady_rotor`",
-        "still in debug on this release",
-    ),
 }
 
 _MIGRATION_NAMES_BY_RELEASE = {
@@ -472,7 +468,16 @@ _PAGE_WORDS_BY_RELEASE = {
     "0.31.0": ("PASSAGE_POSITIONS", "qsteady_rotor", "--apply"),
     "0.32.0": ("--apply", "REBUILT"),
     "0.33.0": ("FAILED_MARKED", "--clean", "inputs/matrices"),
-    "0.33.1": ("FAILED_INCOMPLETE_OUTPUT", "CONVERGED", "pyfs-matrix post"),
+    # The FSI refusal is a standing statement, not a change: its sentence is in
+    # the section's Migration list (the review of 2026-10-01, TW-4), so its words
+    # are held here rather than to a ### Changed head.
+    "0.33.1": (
+        "FAILED_INCOMPLETE_OUTPUT",
+        "CONVERGED",
+        "pyfs-matrix post",
+        "`unsteady_rotor`",
+        "still in debug on this release",
+    ),
 }
 _MIGRATION_NAMES = _MIGRATION_NAMES_BY_RELEASE.get(RELEASED, {})
 
