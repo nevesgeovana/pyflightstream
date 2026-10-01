@@ -436,7 +436,14 @@ def describe_invocation(
 #: cell that gets forgotten, and a forgotten one on a cluster means a
 #: laptop-shaped run holding a login node for the night.
 def on_a_cluster() -> bool:
-    """Whether this machine submits rather than executes (FR-99)."""
+    """Whether this machine submits rather than executes (FR-99).
+
+    Returns
+    -------
+    bool
+        True on Linux, where a cluster scheduler takes the job, and False
+        on any other platform, where the solver runs as a local process.
+    """
     return platform.system().lower() == "linux"
 
 
@@ -465,6 +472,28 @@ def render_descriptor(profile, values: Mapping[str, object]) -> str:
     else. A substitution the values cannot supply is refused rather than
     written empty, because a descriptor with a blank where a job name goes
     is a job the scheduler names for you.
+
+    Parameters
+    ----------
+    profile : HpcProfile
+        The cluster profile: its field table, its descriptor format
+        (``json``, ``text``, ``toml`` or ``yaml``) and the path it was
+        read from.
+    values : mapping of str to object
+        This point's values, keyed by the placeholder names the profile's
+        templates use (for example ``sim``, ``point``, ``fs_build``,
+        ``ncpus``).
+
+    Returns
+    -------
+    str
+        The descriptor text, newline terminated, in the profile's format.
+
+    Raises
+    ------
+    CampaignConfigError
+        When a field of the profile asks for a placeholder that ``values``
+        does not carry.
     """
     lines: list[str] = []
     rendered: dict[str, str] = {}
@@ -587,6 +616,24 @@ def bind_submission_values(executor, case, point_case) -> None:
     A VALUE THAT CANNOT BE RESOLVED IS OMITTED, never written empty. An
     absent key makes `render_descriptor` refuse by name, which is a
     message; an empty string is a scheduler field with nothing in it.
+
+    Parameters
+    ----------
+    executor : Executor
+        The campaign's executor. Nothing happens unless it submits through
+        a scheduler.
+    case : SimCase
+        The row's case; supplies the simulation id, the build and the
+        solver's thread count.
+    point_case : SimCase
+        The case specialized to this point; supplies the point name, the
+        processor count and the wall clock the row states.
+
+    Returns
+    -------
+    None
+        The executor is updated in place with the values for this point's
+        descriptor.
     """
     if not isinstance(executor, Submitting):
         return
@@ -1138,6 +1185,24 @@ class LocalExecutor:
         solver, its standard output then its standard error; with nothing
         captured the point is judged from its loads export and its record says
         why it has no log.
+    progress_every : int
+        Keyword only. Time steps between two progress lines; 0 says
+        nothing. A negative value is refused.
+
+    Examples
+    --------
+    The executable is only checked for existence, so a stand-in file shows
+    the constructor offline:
+
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> from pyflightstream.run import LocalExecutor
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     exe = Path(folder) / "FlightStream.exe"
+    ...     _ = exe.write_text("stand-in")
+    ...     executor = LocalExecutor(exe)
+    ...     (executor.fs_exe.name, executor.hidden, executor.forced_local)
+    ('FlightStream.exe', True, False)
     """
 
     def __init__(
@@ -1328,6 +1393,17 @@ def action_count(path: Path) -> int | None:
     replacing the previous one, and ``count`` is the number of times the
     solver ran it, which is the number of time steps it completed
     (RPT-041 finding 2).
+
+    Parameters
+    ----------
+    path : Path
+        The JSON file the counter program writes.
+
+    Returns
+    -------
+    int or None
+        The number of times the solver ran the program, or None when the
+        file does not exist.
     """
     if not path.is_file():
         return None

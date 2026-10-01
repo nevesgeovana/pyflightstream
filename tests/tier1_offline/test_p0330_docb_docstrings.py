@@ -90,11 +90,6 @@ NUMPYDOC_PENDING = {
     "results/native_surface.py",
     "results/surface.py",
     "results/tables.py",
-    "run/_campaign.py",
-    "run/_executors.py",
-    "run/_identity.py",
-    "run/_plan.py",
-    "run/cli.py",
     "workspace/__init__.py",
     "workspace/hpc.py",
     "workspace/inputs.py",
@@ -107,7 +102,8 @@ NUMPYDOC_PENDING = {
 #: `results.exports` and `results.loads`, and the root, which keeps none,
 #: leaves the list. Those WP6 moved out of the `run` root are pinned in
 #: `run._assessment`, `run._campaign`, `run._executors`, `run._identity` and
-#: `run._plan`, and the root leaves the list.
+#: `run._plan`, and the root leaves the list; they and `run.cli` left it in
+#: DOC-B part 2, group 5.
 EXAMPLES_PENDING = {
     "cases/__init__.py",
     "script/__init__.py",
@@ -116,12 +112,6 @@ EXAMPLES_PENDING = {
     "results/loads.py",
     "results/surface.py",
     "results/tables.py",
-    "run/_assessment.py",
-    "run/_campaign.py",
-    "run/_executors.py",
-    "run/_identity.py",
-    "run/_plan.py",
-    "run/cli.py",
     "workspace/__init__.py",
     "workspace/inputs.py",
 }
@@ -149,6 +139,12 @@ NO_OFFLINE_EXAMPLE = {
     "pyflightstream.post.corrections.sector_offset_calibration": "reads the rotor tables of "
     "a posted workspace",
     "pyflightstream.run.matrix.plan_additional_post": "reads the recorded runs of a workspace",
+    "pyflightstream.run._campaign.run_campaign": "drives the solver through an executor over "
+    "a managed campaign root",
+    "pyflightstream.run._identity.reconstruct": "reads the recorded runs of a workspace",
+    "pyflightstream.run._plan.plan_campaign": "pre-flights the cases and geometry files of a "
+    "workspace against a recorded manifest",
+    "pyflightstream.run.cli.main": "the pyfs-matrix console entry; the CLI reference documents it",
     "pyflightstream.workspace.fsi_setup.resolve_fsi_setup": "reads an FSI artifact of a "
     "workspace's inputs",
     "pyflightstream.workspace.fsi_setup.resolve_row_fsi": "reads an FSI artifact of a "

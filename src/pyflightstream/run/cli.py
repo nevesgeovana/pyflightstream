@@ -216,7 +216,20 @@ def _confirmed_destruction(yes: bool) -> bool:
 
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
-    """Run ``pyfs-matrix``; returns the process exit code."""
+    """Run ``pyfs-matrix``; returns the process exit code.
+
+    Parameters
+    ----------
+    argv : list of str, optional
+        The command line without the program name; None reads
+        ``sys.argv``.
+
+    Returns
+    -------
+    int
+        The process exit code: 0 on success, 2 for a refused argument or
+        recipe, and the code the chosen subcommand returns otherwise.
+    """
     parser = _build_parser()
     args = parser.parse_args(_storage_flag_form(argv))
     # THE CONSOLE CONTRACT (0.32.0, FR-200 to FR-204): a titled opening block,
