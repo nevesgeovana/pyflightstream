@@ -20,7 +20,7 @@ average: item 16 is a window and a routing, never a second averaging routine.
 
 from __future__ import annotations
 
-from pyflightstream.post.products import _matrix_window
+from pyflightstream.post._condition import _matrix_window
 from pyflightstream.post.unsteady import blade_passage_average
 
 

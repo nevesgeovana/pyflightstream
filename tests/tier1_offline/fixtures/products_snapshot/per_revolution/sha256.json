@@ -1,0 +1,10 @@
+{
+ "products/polars/P7001_AL-020_uns_avg.csv": "32a83e75912755cc71c0659c69ca9c7068fd661ed8a376faf6c003d6d13a7391",
+ "products/post.log": "303f50b6bd376699e0ed062e7f0c009333f26c921f7ce33b11dc12e1e961fbe8",
+ "products/post.log.json": "e8be4d6ae3f145c809b3c055649acdb098645fae4b822a60dc42a16e7b7eee59",
+ "products/probes/AL-020_per_revolution_PROP.csv": "9803cfae6827128d44a3d95b23b00a718190dfc0f291c10d956c5709fdad2794",
+ "products/probes/AL-020_plots.csv": "2cc1e28f940348fc34d7fec8461e3f1af292ea0e82f66c233225425cff1da14e",
+ "products/probes/AL-020_time_average.csv": "518cceb9a23bffdc4a8e1839a75e02ce4729e642e551469c6fd629e85bb5c5a3",
+ "products/products.json": "2f40adaec166a964e34d121015b0d0a24d8b39d9b41e4ba99caff085aa86f8d9",
+ "products/provenance/camp_sim_7001_AL-020.prov.json": "4e3c045c194907396c0e31e944d16f799c0169387e93096b554d3a4425afd957"
+}

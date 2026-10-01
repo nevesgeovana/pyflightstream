@@ -1,0 +1,65 @@
+{
+ "version": "<VERSION>",
+ "workspace": "<ROOT>",
+ "matrix": null,
+ "time": "<TIME>",
+ "check_frozen": false,
+ "records": [
+  {
+   "point": "p",
+   "product": "acoustics",
+   "message": "the record states no rotor with blades and speed: the blade-passage harmonics are NA",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "campaign",
+   "product": "stage",
+   "message": "sections/p_cp#distributions not written: distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
+   "remedy": null,
+   "category": "section-layout",
+   "severity": "warning"
+  },
+  {
+   "point": "campaign",
+   "product": "stage",
+   "message": "sections/p_sloads#distributions not written: distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
+   "remedy": null,
+   "category": "section-layout",
+   "severity": "warning"
+  },
+  {
+   "point": "../../sims/sim_7010/p.vtk",
+   "product": "../../sims/sim_7010/p.vtk",
+   "message": "the recorded vtk surface export is missing: <ROOT>\\sims\\sim_7010\\p.vtk",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "translation",
+   "severity": "warning"
+  },
+  {
+   "point": "sections/p_sloads#distributions",
+   "product": "sections/p_sloads#distributions",
+   "message": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "section-layout",
+   "severity": "warning"
+  },
+  {
+   "point": "sections/p_cp#distributions",
+   "product": "sections/p_cp#distributions",
+   "message": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "section-layout",
+   "severity": "warning"
+  },
+  {
+   "point": "runs/camp/sim_7010/AL+000",
+   "product": "runs/camp/sim_7010/AL+000",
+   "message": "the run has status CONVERGED and no pproc, Mach or reference metadata, so it cannot supply a product row; collect its complete run metadata",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "reference-frame",
+   "severity": "warning"
+  }
+ ]
+}

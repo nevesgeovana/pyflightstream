@@ -796,7 +796,7 @@ def test_the_sections_validity_wins_the_plan_in_the_super_file_row(tmp_path):
     from types import SimpleNamespace
 
     from pyflightstream.post import qsteady as post_qsteady
-    from pyflightstream.post.products import _qsteady_super_cells
+    from pyflightstream.post._rotor_products import _qsteady_super_cells
 
     loads = tmp_path / "DP.txt"
     # 0.31.0: the record on disk is the whole record the builder writes, which

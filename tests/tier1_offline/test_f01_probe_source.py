@@ -211,14 +211,16 @@ def test_steady_post_uses_probe_export_even_when_plots_exist(tmp_path, monkeypat
 
 
 def test_unsteady_post_never_reads_the_probe_instant(tmp_path, monkeypatch):
-    import pyflightstream.post.products as products
+    # Patched where the probe-points writer looks it up (WP5 of 0.33.0 moved the
+    # point tables out of post.products).
+    import pyflightstream.post.point_tables as point_tables
 
     workspace = _post_workspace(tmp_path, monkeypatch)
 
     def forbidden(_text):
         pytest.fail("the unsteady probe instant was read")
 
-    monkeypatch.setattr(products, "parse_probe_points", forbidden)
+    monkeypatch.setattr(point_tables, "parse_probe_points", forbidden)
     write_campaign_products(workspace)
     _, rows = read_csv_table(workspace.root / "post/products/probes/AL-020_probes.csv")
     assert len(rows) == 8

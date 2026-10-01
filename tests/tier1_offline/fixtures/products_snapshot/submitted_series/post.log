@@ -1,0 +1,15 @@
+pyflightstream <VERSION> post
+workspace=<ROOT>
+matrix=None
+time=<TIME>
+check_frozen=False (refuse instead of warn)
+WARNING point=AL-020 product=sections/AL-020_harmonics.csv: the point's record states no rotor whose blades and clock the fit can read
+WARNING point=AL-020 product=sections/AL-020_disc_: no disc map: the point's record states no rotor whose blades and clock the fit can read
+WARNING point=campaign product=stage: sections/AL-020_cp#distributions not written: distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.
+WARNING point=campaign product=stage: sections/AL-020_disc_ not written: no disc map: the point's record states no rotor whose blades and clock the fit can read
+WARNING point=campaign product=stage: sections/AL-020_harmonics.csv not written: the point's record states no rotor whose blades and clock the fit can read
+WARNING point=campaign product=stage: sections/AL-020_sloads#distributions not written: distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.
+WARNING point=sections/AL-020_sloads#distributions product=sections/AL-020_sloads#distributions: distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout. Remedy: restore the required data or correct the stated inputs and post again.
+WARNING point=sections/AL-020_cp#distributions product=sections/AL-020_cp#distributions: distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout. Remedy: restore the required data or correct the stated inputs and post again.
+WARNING point=sections/AL-020_harmonics.csv product=sections/AL-020_harmonics.csv: the point's record states no rotor whose blades and clock the fit can read Remedy: restore the required data or correct the stated inputs and post again.
+WARNING point=sections/AL-020_disc_ product=sections/AL-020_disc_: no disc map: the point's record states no rotor whose blades and clock the fit can read Remedy: restore the required data or correct the stated inputs and post again.

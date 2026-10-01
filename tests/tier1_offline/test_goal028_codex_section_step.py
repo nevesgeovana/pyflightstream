@@ -4,7 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from pyflightstream.post.products import _last_time_step, read_csv_table, write_sections_table
+from pyflightstream.post._condition import _last_time_step
+from pyflightstream.post.products import read_csv_table, write_sections_table
 
 
 @pytest.mark.parametrize("stopped,expected", [({}, 144), ({"step": 96}, 96)])
@@ -29,7 +30,7 @@ def test_a_legacy_clock_labels_the_end_export_without_a_reduction_plan(tmp_path,
 
 
 def test_an_unrecorded_time_step_is_not_replaced_by_inner_iterations(tmp_path):
-    from pyflightstream.post.products import _sim_products
+    from pyflightstream.post._sim import _sim_products
     from tests.tier1_offline.test_post_products import SLOADS, _unsteady_workspace
 
     workspace = _unsteady_workspace(tmp_path, reductions=None)

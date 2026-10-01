@@ -1,0 +1,97 @@
+{
+ "products": {
+  "series/AL-020_loads_series.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "steps": [
+    3,
+    5
+   ],
+   "steps_tabled": [
+    3,
+    4,
+    5
+   ],
+   "clock": {
+    "delta_time_s": 0.01,
+    "step_deg": 30.0
+   },
+   "sections_files": [],
+   "tecplot_files": [],
+   "vtk_files": [],
+   "csv_files": []
+  },
+  "series/AL-020_sections_series.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "steps": [
+    3,
+    5
+   ],
+   "steps_tabled": [
+    3,
+    4,
+    5
+   ],
+   "clock": {
+    "delta_time_s": 0.01,
+    "step_deg": 30.0
+   }
+  },
+  "series/AL-020_probes_series.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "steps": [
+    3,
+    5
+   ],
+   "steps_tabled": [
+    3,
+    4,
+    5
+   ],
+   "clock": {
+    "delta_time_s": 0.01,
+    "step_deg": 30.0
+   }
+  },
+  "polars/P7001-AL-020_g01.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ]
+  },
+  "polars/SUPER-7001-AL-020_g01.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "group": "1",
+   "rows": 1
+  }
+ },
+ "log": "post.log",
+ "log_json": "post.log.json",
+ "superfile_report": "reports/superfile-<TAG>.json",
+ "skipped": {
+  "sections/AL-020_sloads#distributions": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
+  "sections/AL-020_cp#distributions": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
+  "sections/AL-020_harmonics.csv": "the point's record states no rotor whose blades and clock the fit can read",
+  "sections/AL-020_disc_": "no disc map: the point's record states no rotor whose blades and clock the fit can read"
+ },
+ "provenance": {
+  "camp/sim_7001/AL-020": "provenance/camp_sim_7001_AL-020.prov.json"
+ },
+ "complete": true
+}

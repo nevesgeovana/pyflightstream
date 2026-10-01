@@ -1,0 +1,171 @@
+{
+ "products": {
+  "sections/AL-020_sections.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "kind": "instant"
+  },
+  "probes/AL-020_plots.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ]
+  },
+  "probes/AL-020_time_average.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "reduction": "time_average",
+   "windows": [
+    [
+     60,
+     61
+    ]
+   ],
+   "window_from": null
+  },
+  "probes/AL-020_phase_locked.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "reduction": "phase_locked",
+   "windows": [
+    [
+     60,
+     61
+    ]
+   ],
+   "window_from": null,
+   "steps_per_revolution": 4.0
+  },
+  "probes/AL-020_per_revolution.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "reduction": "per_revolution",
+   "windows": [
+    [
+     1,
+     4
+    ],
+    [
+     5,
+     8
+    ],
+    [
+     9,
+     12
+    ],
+    [
+     13,
+     16
+    ],
+    [
+     17,
+     20
+    ],
+    [
+     21,
+     24
+    ],
+    [
+     25,
+     28
+    ],
+    [
+     29,
+     32
+    ],
+    [
+     33,
+     36
+    ],
+    [
+     37,
+     40
+    ],
+    [
+     41,
+     44
+    ],
+    [
+     45,
+     48
+    ],
+    [
+     49,
+     52
+    ],
+    [
+     53,
+     56
+    ],
+    [
+     57,
+     60
+    ]
+   ],
+   "window_from": "the plots table cut into complete revolutions of 4 solver steps",
+   "steps_per_revolution": 4.0
+  },
+  "polars/P7001-PUSHER_rotor.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "rotor": "PUSHER",
+   "source": "the unsteady plots, time-averaged, of plot group HUB_PUSHER",
+   "window": [
+    60,
+    61
+   ],
+   "windows": {
+    "AL-020": [
+     60,
+     61
+    ]
+   }
+  },
+  "polars/P7001_AL-020_uns_avg.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "source": "the unsteady plots, time-averaged",
+   "window": [
+    60,
+    61
+   ],
+   "windows": {
+    "AL-020": [
+     60,
+     61
+    ]
+   }
+  }
+ },
+ "log": "post.log",
+ "log_json": "post.log.json",
+ "skipped": {
+  "sections/AL-020_sloads#distributions": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
+  "sections/AL-020_cp#distributions": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
+  "probes/AL-020_per_blade.csv": "the plots table holds no column of a blade family of rotor 'PUSHER' (its blades are ['B']), so there is no blade to give a row to. A blade's plots are the ones named for its family: declare a plot group with families = \"each\" or frame = \"LOCAL_AXIS\" over the rotor in the pproc artifact. It takes a new run; the script defines what the solver plots.",
+  "probes/AL-020_per_revolution.csv#partial": "the plots table holds 61 time steps, 15 complete revolution(s) of 4 and 1 step(s) of a partial one, which is NOT averaged: a mean of part of a revolution is a mean of another thing"
+ },
+ "provenance": {
+  "camp/sim_7001/AL-020": "provenance/camp_sim_7001_AL-020.prov.json"
+ },
+ "complete": true
+}

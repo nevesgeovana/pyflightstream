@@ -1,0 +1,14 @@
+{
+ "products/acoustics/p_01_PYFS_OBS1_pressure.csv": "1d2f58ec92223045ace62d84e9822dda3c3ca6dae0fed11027f0a819019b4b9f",
+ "products/acoustics/p_01_PYFS_OBS1_spectrum.csv": "ed05afc4ed0912cd414bdff0efdaffb11918d286dc6e01ad5626d205d20a2636",
+ "products/acoustics/p_02_Observer_2_pressure.csv": "be5cb8eda81872b93eb796359fd6250c1b5cf669f8173ae8c3940fe5fa694dfd",
+ "products/acoustics/p_02_Observer_2_spectrum.csv": "d034f84f0411168396abe23d7a5de09ee0212e0b59dc43ee7d117d0f6444250a",
+ "products/acoustics/p_03_Observer_3_pressure.csv": "9a81a12893fe018cff1dd59e041108561e8107995a24a5762282b0bfacff4826",
+ "products/acoustics/p_03_Observer_3_spectrum.csv": "7eebc69f68c8c3960f946526bb5288b054f8ec9efee53527ce1513baf7df7d41",
+ "products/acoustics/p_acoustics_bpf.csv": "56b6e9d430923eca333a78f8d38fd6e0ffe8abaee9fe02870d75224ddc925743",
+ "products/acoustics/p_acoustics_summary.csv": "dd200d159a5d0000b7c9ed968889526cf3e86cfef3b387f5386c6251d00aeee2",
+ "products/post.log": "5ff455df342211826b45a1ca17ddac0ae9e3bcec93d139ab69e5cf7023ad1d87",
+ "products/post.log.json": "e720e1c6f9e5905aa3dab60e7ef14bd62d34f1ecbfc1c5b57a3d99e9cb007b5d",
+ "products/products.json": "ac4f162dc75e1cdde87308f48178206e46174732e7d692c2c68a2159a03d8068",
+ "products/provenance/camp_sim_7010_AL+000.prov.json": "da1922319101de7dc84306aefe1c14fe875842b9408ea3777b98fd0162962933"
+}

@@ -178,6 +178,71 @@ def test_extracted_product_modules_preserve_the_public_surface():
             },
         ),
         ("section_distributions", {"write_section_distributions"}),
+        # 0.33.0 (AD-13, WP5): a product family cut out of post.products.
+        (
+            "polar",
+            {
+                "GEOMETRY_ANALYSIS_FRAMES",
+                "POLAR_COLUMNS",
+                "SWEEP_AXES",
+                "GroupCoefficients",
+                "PolarPoint",
+                "declined_induced_drag",
+                "group_coefficients",
+                "group_polar_rows",
+                "polar_row",
+                "polar_table_rows",
+                "swept_axes",
+                "swept_polar_file_name",
+                "write_polar_table",
+                "write_recorded_polar",
+            },
+        ),
+        # 0.33.0 (AD-13, WP5): a product family cut out of post.products.
+        (
+            "rotor_table",
+            {
+                "ROTOR_COEFFICIENT_COLUMNS",
+                "ROTOR_IN_PLANE_COLUMNS",
+                "RotorShaftLoads",
+                "rotor_coefficient_columns",
+                "rotor_coefficients",
+                "rotor_shaft_loads",
+                "write_rotor_table",
+            },
+        ),
+        # 0.33.0 (AD-13, WP5): a product family cut out of post.products.
+        (
+            "unsteady_polar",
+            {
+                "UNSTEADY_AXIS_COLUMNS",
+                "global_frame_plot_groups",
+                "unsteady_polar_file_name",
+                "write_unsteady_polar",
+            },
+        ),
+        # 0.33.0 (AD-13, WP5): a product family cut out of post.products.
+        (
+            "point_tables",
+            {
+                "DRIFT_SUFFIX",
+                "PER_BLADE_COLUMNS",
+                "PER_REVOLUTION_COLUMNS",
+                "PHASE_LOCKED_COLUMNS",
+                "PROBE_SPINE",
+                "is_force_or_moment_column",
+                "per_revolution_table",
+                "read_probe_positions",
+                "revolution_drift_pct",
+                "write_per_blade_table",
+                "write_phase_locked_table",
+                "write_plots_table",
+                "write_probes_table",
+                "write_reduction_table",
+                "write_sections_table",
+                "write_unsteady_probes_table",
+            },
+        ),
     ],
 )
 def test_product_module_export_inventory(module_name, expected):

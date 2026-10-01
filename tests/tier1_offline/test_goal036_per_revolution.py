@@ -111,10 +111,11 @@ def test_the_drift_limit_default_has_one_home_both_layers_read():
     from pyflightstream import cases
     from pyflightstream.cases import PerRevolutionSpec
     from pyflightstream.post import products
+    from pyflightstream.post._reduction_stage import _drift_limit_pct
 
     assert products.DEFAULT_DRIFT_LIMIT_PCT is cases.DEFAULT_DRIFT_LIMIT_PCT
     assert PerRevolutionSpec().drift_limit_pct == cases.DEFAULT_DRIFT_LIMIT_PCT
-    assert products._drift_limit_pct(PprocSpec()) == cases.DEFAULT_DRIFT_LIMIT_PCT
+    assert _drift_limit_pct(PprocSpec()) == cases.DEFAULT_DRIFT_LIMIT_PCT
 
 
 def test_each_revolution_is_one_row_with_exact_means_and_drifts(tmp_path):
@@ -175,7 +176,7 @@ def test_each_revolution_is_one_row_with_exact_means_and_drifts(tmp_path):
 
 def test_it_is_read_from_the_written_table_alone(tmp_path):
     # P0310-G2-PER-REV
-    from pyflightstream.post.products import _point_reductions
+    from pyflightstream.post._reduction_stage import _point_reductions
 
     # A WRITTEN plots table and NO raw export anywhere: whatever is read is the table.
     table = tmp_path / "probes" / "P-1_plots.csv"

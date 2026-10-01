@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import pytest
 
-from pyflightstream.post.products import _matrix_window, _stated_window
+from pyflightstream.post._condition import _matrix_window, _stated_window
 
 
 class _Row:

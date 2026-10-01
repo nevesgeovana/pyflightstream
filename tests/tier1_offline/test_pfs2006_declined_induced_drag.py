@@ -100,11 +100,11 @@ def _point(tmp_path: Path, selection: object) -> PolarPoint:
 
 
 def _row(point: PolarPoint) -> dict[str, float]:
-    from pyflightstream.post.products import _polar_rows
+    from pyflightstream.post.polar import group_polar_rows
     from tests.tier1_offline.test_post_products import REFERENCE
 
     # An empty member list is every family on the artifact's path: W and B.
-    (row,) = _polar_rows([point], [], mach=0.2, reference=REFERENCE)
+    (row,) = group_polar_rows([point], [], mach=0.2, reference=REFERENCE)
     return dict(zip(COEFFICIENT_COLUMNS, row, strict=True))
 
 
@@ -230,7 +230,7 @@ def test_under_sideslip_the_wind_axis_side_force_is_declined_too(tmp_path):
     the wind-axis side force as well, and a declined drag makes it NA. The same
     point with the surface off the list keeps a number there.
     """
-    from pyflightstream.post.products import _polar_rows
+    from pyflightstream.post.polar import group_polar_rows
     from tests.tier1_offline.test_post_products import LOADS, REFERENCE
 
     level = "     Side-slip angle (Deg)                       .000"
@@ -248,7 +248,7 @@ def test_under_sideslip_the_wind_axis_side_force_is_declined_too(tmp_path):
             loads_path=path,
             vorticity_selection=selection,
         )
-        (values,) = _polar_rows([point], [], mach=0.2, reference=REFERENCE)
+        (values,) = group_polar_rows([point], [], mach=0.2, reference=REFERENCE)
         return dict(zip(COEFFICIENT_COLUMNS, values, strict=True))
 
     declined, kept = row("all"), row([1])

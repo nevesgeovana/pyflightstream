@@ -27,11 +27,8 @@ import pytest
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import SimCase, SweepAxis
 from pyflightstream.cases.workflows import rotor_mach_numbers, rotor_machs, workflow_registry
-from pyflightstream.post.products import (
-    _free_stream_and_sound,
-    read_csv_table,
-    write_rotor_table,
-)
+from pyflightstream.post._condition import _free_stream_and_sound
+from pyflightstream.post.products import read_csv_table, write_rotor_table
 from pyflightstream.run import CampaignErrors
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.workspace import RunRecord
@@ -390,8 +387,8 @@ def test_the_stage_hands_each_row_its_own_points_air(tmp_path):
     PUSHER of 1.2 m). Each record states its own condition, so a borrowed air
     shows as the first point's sound speed on the second row.
     """
+    from pyflightstream.post._rotor_plan import _rotor_tables as rotor_tables
     from pyflightstream.post.products import PolarPoint, matrix_rows
-    from pyflightstream.post.products import _rotor_tables as rotor_tables
     from pyflightstream.results import parse_loads
     from tests.tier1_offline.test_post_products import LOADS
     from tests.tier1_offline.test_post_superfile import _workspace

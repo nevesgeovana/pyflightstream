@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.cases.windows import surface_averaging_window
-from pyflightstream.post.products import _surface_export_skip
+from pyflightstream.post._stage import _surface_export_skip
 from pyflightstream.post.series import surface_export_metadata
 from pyflightstream.results import frozen_time_steps
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus, WorkspaceError

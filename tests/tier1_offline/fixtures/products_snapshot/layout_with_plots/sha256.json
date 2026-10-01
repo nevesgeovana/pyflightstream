@@ -1,0 +1,14 @@
+{
+ "matriz/polars/P0001-M150AL+020BE+000J+sweep_g01.csv": "48e22672fade40e113533bb6619c1ee69d9861e190f45e2852a49c0fc4bcc063",
+ "matriz/polars/P0001-M150AL+020BE+000J+sweep_g01.dat": "fcd104fdd144d00bfe44339281c9a6b7c53a58d1715ab94c3e91c66a70832040",
+ "matriz/polars/SUPER-0001-M150AL+020BE+000J+sweep_g01.csv": "be5c87a2d3f1487fd3ab0ed5cdc8bac5534772d41eb8d291b6cd2a57e40c0b1b",
+ "matriz/post.log": "9607b67994d36cd233ce336b067f15ce92b392996e821bb05853aa8b49e3f334",
+ "matriz/post.log.json": "c06955a915ffc99b28b8da004dacff860fac5cc8ac4753ec1356e1e0fba70897",
+ "matriz/probes/POLAR-0001_M15AL+020BE+000J+100_plots.csv": "83173c4bfe67f3b5d537dee69988f71d242db33de85771874b124e89b716de0d",
+ "matriz/probes/POLAR-0001_M15AL+020BE+000J+150_plots.csv": "83173c4bfe67f3b5d537dee69988f71d242db33de85771874b124e89b716de0d",
+ "matriz/probes/POLAR-0001_M15AL+020BE+000J+200_plots.csv": "83173c4bfe67f3b5d537dee69988f71d242db33de85771874b124e89b716de0d",
+ "matriz/products.json": "88622832cbbcf85ac61d9bbcc58783548e6a6cfd6237832cc4d26a01027e4628",
+ "matriz/provenance/POLAR-0001_M15AL+020BE+000J+100.prov.json": "bac9d898132dd27643a04b809b818b3bbb6951818efe5abae0f06f633fac9bc0",
+ "matriz/provenance/POLAR-0001_M15AL+020BE+000J+150.prov.json": "d06dd79ea5d78d10e71f5b22faac5eb471a1c95d231a212120fb29588bb73856",
+ "matriz/provenance/POLAR-0001_M15AL+020BE+000J+200.prov.json": "6f8e63ea27585b8f320ee19dcdadc913e95bd7078396cc970b08c199d23ac845"
+}

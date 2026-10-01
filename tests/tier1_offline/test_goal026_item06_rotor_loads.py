@@ -432,8 +432,8 @@ def test_an_unsteady_rotor_table_is_the_window_average_and_not_the_last_step(tmp
     delivered, which is this release's own recurring finding.
     """
 
+    from pyflightstream.post._rotor_plan import _rotor_tables as rotor_tables
     from pyflightstream.post.products import PolarPoint, matrix_rows, write_rotor_table
-    from pyflightstream.post.products import _rotor_tables as rotor_tables
     from pyflightstream.results import parse_loads
     from pyflightstream.workspace import RunRecord
     from tests.tier1_offline.test_post_products import LOADS
@@ -562,8 +562,8 @@ def test_every_row_is_dimensionalised_from_its_own_points_record(tmp_path):
     the ETAW sign.
     """
 
+    from pyflightstream.post._rotor_plan import _rotor_tables as rotor_tables
     from pyflightstream.post.products import PolarPoint
-    from pyflightstream.post.products import _rotor_tables as rotor_tables
     from pyflightstream.results import parse_loads
     from pyflightstream.workspace import RunRecord
     from tests.tier1_offline.test_post_products import LOADS
@@ -852,7 +852,9 @@ def test_a_refused_row_leaves_nothing_behind_in_the_products_folder(tmp_path):
     polars.mkdir()
     target = polars / "P0001-M150_PUSHER_rotor.csv"
 
-    from pyflightstream.post import products as module
+    # The rotor table's own module, where the writer looks the columns up since
+    # WP5 of 0.33.0 moved the family out of post.products.
+    from pyflightstream.post import rotor_table as module
 
     # A row narrower than the header is what the funnel refuses.
     original = module.rotor_coefficient_columns

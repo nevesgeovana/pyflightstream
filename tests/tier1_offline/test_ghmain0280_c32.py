@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-import pyflightstream.post.products as products_module
+import pyflightstream.post._stage as stage_module
 from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.results import FrozenSolve
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
@@ -131,7 +131,8 @@ def _frozen_post(tmp_path, monkeypatch, *, check_frozen):
     translate_surface_exports(sim, [{"vtk": "p.vtk", "dat": "p.dat", "frame": MRP}])
     workspace.append_record(record)
     # The solve froze from time step 4, inside the window 3 to 6.
-    monkeypatch.setattr(products_module, "freeze_of_log", lambda *a, **k: FrozenSolve(4, 3))
+    # Patched at the name's one home, where every stage looks it up (WP5 of 0.33.0).
+    monkeypatch.setattr(stage_module, "freeze_of_log", lambda *a, **k: FrozenSolve(4, 3))
     written = write_campaign_products(workspace, overwrite=True, check_frozen=check_frozen)
     return workspace.products_dir(None), written
 

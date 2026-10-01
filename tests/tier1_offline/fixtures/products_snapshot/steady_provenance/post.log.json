@@ -1,0 +1,25 @@
+{
+ "version": "<VERSION>",
+ "workspace": "<ROOT>",
+ "matrix": null,
+ "time": "<TIME>",
+ "check_frozen": false,
+ "records": [
+  {
+   "point": "camp/sim_3207/AL+020",
+   "product": "available-exports",
+   "message": "the recorded status is FAILED_EXECUTION. Collect complete outputs or run the point again to settle its status.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "runs/camp/sim_3207/AL+020",
+   "product": "runs/camp/sim_3207/AL+020",
+   "message": "this run has status FAILED_EXECUTION and names no output file, so no product holds a row of it; collect it, or look at how it was submitted",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  }
+ ]
+}

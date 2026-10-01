@@ -1,0 +1,19 @@
+{
+ "extracted/additional/p002/polars/P3207-M200RE230AL+sweep_g01.csv": "4cc0acf79b4305e53771d230c42d139a26d407b1bf2f552fd7018b36ff0d2647",
+ "extracted/additional/p002/sections/P3207-M200RE230AL+000_sections.csv": "9d2fe5618d16b5aa233ba352bf764186b2c7be5733ec475a2e48a8817945f92f",
+ "extracted/additional/p002/sections/P3207-M200RE230AL-020_sections.csv": "9d2fe5618d16b5aa233ba352bf764186b2c7be5733ec475a2e48a8817945f92f",
+ "extracted/archive/<STAMP>/post.log": "e7935a141850fae4ecd79c5dd016a854f1ee34c72fdbb24cbc033fea7f8fe190",
+ "extracted/archive/<STAMP>/post.log.json": "47622df468be502e19be9b8f157e1abd7205731f16e9d5377e19945c19060f72",
+ "extracted/archive/<STAMP>/products.json": "6d4d6475bd78cf95eb60c477c68e748871daec94a8c00695d5e0bcde9d691d19",
+ "extracted/polars/P3207-M200RE230AL+sweep_g01.csv": "9a89c66235ef6233375e23627c20b7dd3e2ff3e93bf20ad5d0eaa04a9f536e4b",
+ "extracted/polars/SUPER-3207-M200RE230AL+sweep_g01.csv": "5c5fb1ef26690ad0395a16c46b7442da24f7fde3fe3fd17e9cfdc060143b0694",
+ "extracted/polars/archive/<STAMP>/P3207-M200RE230AL+sweep_g01.csv": "9a89c66235ef6233375e23627c20b7dd3e2ff3e93bf20ad5d0eaa04a9f536e4b",
+ "extracted/polars/archive/<STAMP>/SUPER-3207-M200RE230AL+sweep_g01.csv": "5c5fb1ef26690ad0395a16c46b7442da24f7fde3fe3fd17e9cfdc060143b0694",
+ "extracted/post.log": "e7935a141850fae4ecd79c5dd016a854f1ee34c72fdbb24cbc033fea7f8fe190",
+ "extracted/post.log.json": "47622df468be502e19be9b8f157e1abd7205731f16e9d5377e19945c19060f72",
+ "extracted/products.json": "6e4c26960e091de97b54989b5f2414e7f3b6e00be10bca158dced826d60c1e0b",
+ "extracted/sections/P3207-M200RE230AL+000_sections.csv": "9d2fe5618d16b5aa233ba352bf764186b2c7be5733ec475a2e48a8817945f92f",
+ "extracted/sections/P3207-M200RE230AL-020_sections.csv": "9d2fe5618d16b5aa233ba352bf764186b2c7be5733ec475a2e48a8817945f92f",
+ "extracted/sections/archive/<STAMP>/P3207-M200RE230AL+000_sections.csv": "9d2fe5618d16b5aa233ba352bf764186b2c7be5733ec475a2e48a8817945f92f",
+ "extracted/sections/archive/<STAMP>/P3207-M200RE230AL-020_sections.csv": "9d2fe5618d16b5aa233ba352bf764186b2c7be5733ec475a2e48a8817945f92f"
+}

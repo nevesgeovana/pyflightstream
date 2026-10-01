@@ -545,7 +545,10 @@ def test_no_module_outside_the_model_reads_the_recorded_rotor_block():
     # COLUMN KEY and not this block at all.
     admitted = {
         package / "workspace" / "matrix.py": {"rotor"},
-        package / "post" / "products.py": {"rotor"},
+        # The manifest entries of a rotor table and of a per-rotor reduction,
+        # written by post._sim and post._reduction_stage since WP5 of 0.33.0.
+        package / "post" / "_sim.py": {"rotor"},
+        package / "post" / "_reduction_stage.py": {"rotor"},
     }
     scanned = 0
     offenders: list[str] = []

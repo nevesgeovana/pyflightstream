@@ -1,0 +1,145 @@
+{
+ "version": "<VERSION>",
+ "workspace": "<ROOT>",
+ "matrix": "products",
+ "time": "<TIME>",
+ "check_frozen": true,
+ "records": [
+  {
+   "point": "campaign",
+   "product": "stage",
+   "message": "sections/AL-020_cp#distributions not written: distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
+   "remedy": null,
+   "category": "section-layout",
+   "severity": "warning"
+  },
+  {
+   "point": "campaign",
+   "product": "stage",
+   "message": "sections/AL-020_sloads#distributions not written: distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
+   "remedy": null,
+   "category": "section-layout",
+   "severity": "warning"
+  },
+  {
+   "point": "AL-020",
+   "product": "native-log",
+   "message": "frozen solve: first frozen time step 60; 2 frozen steps. Recollect the native log or run the point again to settle it.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "AL-020",
+   "product": "probes/AL-020_time_average.csv",
+   "message": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61. Recollect the native log or run the point again to settle this average.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "AL-020",
+   "product": "probes/AL-020_phase_locked.csv",
+   "message": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61. Recollect the native log or run the point again to settle this average.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "AL-020",
+   "product": "probes/AL-020_per_blade.csv",
+   "message": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61. Recollect the native log or run the point again to settle this average.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "AL-020",
+   "product": "probes/AL-020_per_revolution.csv",
+   "message": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 1 to 60. Recollect the native log or run the point again to settle this average.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "AL-020",
+   "product": "polars/P7001-PUSHER_rotor.csv",
+   "message": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61. Recollect the native log or run the point again to settle this average.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "AL-020",
+   "product": "<ROOT>\\post\\products\\polars\\P7001_AL-020_uns_avg.csv",
+   "message": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61. Recollect the native log or run the point again to settle this average.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "sections/AL-020_sloads#distributions",
+   "product": "sections/AL-020_sloads#distributions",
+   "message": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "section-layout",
+   "severity": "warning"
+  },
+  {
+   "point": "sections/AL-020_cp#distributions",
+   "product": "sections/AL-020_cp#distributions",
+   "message": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "section-layout",
+   "severity": "warning"
+  },
+  {
+   "point": "probes/AL-020_time_average.csv",
+   "product": "probes/AL-020_time_average.csv",
+   "message": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "probes/AL-020_phase_locked.csv",
+   "product": "probes/AL-020_phase_locked.csv",
+   "message": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "probes/AL-020_per_blade.csv",
+   "product": "probes/AL-020_per_blade.csv",
+   "message": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "probes/AL-020_per_revolution.csv",
+   "product": "probes/AL-020_per_revolution.csv",
+   "message": "frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 1 to 60",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "polars/P7001-PUSHER_rotor.csv",
+   "product": "polars/P7001-PUSHER_rotor.csv",
+   "message": "these points of the sweep are not rows of the PUSHER rotor table: AL-020: frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "polars/P7001_AL-020_uns_avg.csv",
+   "product": "polars/P7001_AL-020_uns_avg.csv",
+   "message": "these points of the sweep are not rows of the unsteady polar: AL-020: frozen solve: first frozen time step 60; 2 frozen steps; averaging samples span steps 60 to 61",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  }
+ ]
+}

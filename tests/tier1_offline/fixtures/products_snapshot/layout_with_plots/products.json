@@ -1,0 +1,69 @@
+{
+ "products": {
+  "polars/P0001-M150AL+020BE+000J+sweep_g01.csv": {
+   "sim_id": "0001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_0001/M150AL+020BE+000J+100",
+    "camp/sim_0001/M150AL+020BE+000J+150",
+    "camp/sim_0001/M150AL+020BE+000J+200"
+   ]
+  },
+  "polars/P0001-M150AL+020BE+000J+sweep_g01.dat": {
+   "sim_id": "0001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_0001/M150AL+020BE+000J+100",
+    "camp/sim_0001/M150AL+020BE+000J+150",
+    "camp/sim_0001/M150AL+020BE+000J+200"
+   ]
+  },
+  "probes/POLAR-0001_M15AL+020BE+000J+100_plots.csv": {
+   "sim_id": "0001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_0001/M150AL+020BE+000J+100"
+   ]
+  },
+  "probes/POLAR-0001_M15AL+020BE+000J+150_plots.csv": {
+   "sim_id": "0001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_0001/M150AL+020BE+000J+150"
+   ]
+  },
+  "probes/POLAR-0001_M15AL+020BE+000J+200_plots.csv": {
+   "sim_id": "0001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_0001/M150AL+020BE+000J+200"
+   ]
+  },
+  "polars/SUPER-0001-M150AL+020BE+000J+sweep_g01.csv": {
+   "sim_id": "0001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_0001/M150AL+020BE+000J+100",
+    "camp/sim_0001/M150AL+020BE+000J+150",
+    "camp/sim_0001/M150AL+020BE+000J+200"
+   ],
+   "group": "1",
+   "rows": 3
+  }
+ },
+ "log": "post.log",
+ "log_json": "post.log.json",
+ "superfile_report": "reports/superfile-<TAG>.json",
+ "skipped": {
+  "probes/POLAR-0001_M15AL+020BE+000J+100_time_average.csv": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states.",
+  "probes/POLAR-0001_M15AL+020BE+000J+150_time_average.csv": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states.",
+  "probes/POLAR-0001_M15AL+020BE+000J+200_time_average.csv": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states.",
+  "polars/0001#rotor_tables": "no matrix row for this simulation; rotor tables cannot be planned"
+ },
+ "provenance": {
+  "camp/sim_0001/M150AL+020BE+000J+100": "provenance/POLAR-0001_M15AL+020BE+000J+100.prov.json",
+  "camp/sim_0001/M150AL+020BE+000J+150": "provenance/POLAR-0001_M15AL+020BE+000J+150.prov.json",
+  "camp/sim_0001/M150AL+020BE+000J+200": "provenance/POLAR-0001_M15AL+020BE+000J+200.prov.json"
+ },
+ "complete": true
+}

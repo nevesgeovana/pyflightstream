@@ -1,0 +1,73 @@
+{
+ "version": "<VERSION>",
+ "workspace": "<ROOT>",
+ "matrix": null,
+ "time": "<TIME>",
+ "check_frozen": false,
+ "records": [
+  {
+   "point": "AL-020",
+   "product": "probes/AL-020_per_revolution_PROP.csv",
+   "message": "the plots table holds 14 time steps, 3 complete revolution(s) of 4 and 2 step(s) of a partial one, which is NOT averaged: a mean of part of a revolution is a mean of another thing",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "campaign",
+   "product": "stage",
+   "message": "polars/P7001_AL-020_uns_avg.csv: the axis coefficients are not written: the plots hold FX, FY, FZ, MX, MY and MZ of no plot group in the global MRP frame (looked for: ['MRP_TOTAL']; a rotor's own frame is not the geometry's axes). Declare a [[plots.groups]] entry with frame = \"MRP\" and those six parameters; it takes a new run, the script defines what the solver plots.",
+   "remedy": null,
+   "category": "reference-frame",
+   "severity": "warning"
+  },
+  {
+   "point": "probes/AL-020_phase_locked.csv",
+   "product": "probes/AL-020_phase_locked.csv",
+   "message": "the row names its rotors: the per-rotor files are probes/AL-020_phase_locked_PROP.csv.",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "probes/AL-020_per_blade.csv",
+   "product": "probes/AL-020_per_blade.csv",
+   "message": "the row names its rotors: the per-rotor files are probes/AL-020_per_blade_PROP.csv.",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "probes/AL-020_phase_locked_PROP.csv",
+   "product": "probes/AL-020_phase_locked_PROP.csv",
+   "message": "not under test",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "probes/AL-020_per_blade_PROP.csv",
+   "product": "probes/AL-020_per_blade_PROP.csv",
+   "message": "not under test",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "probes/AL-020_per_revolution_PROP.csv#partial",
+   "product": "probes/AL-020_per_revolution_PROP.csv#partial",
+   "message": "the plots table holds 14 time steps, 3 complete revolution(s) of 4 and 2 step(s) of a partial one, which is NOT averaged: a mean of part of a revolution is a mean of another thing",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "polars/P7001_AL-020_uns_avg.csv#axes",
+   "product": "polars/P7001_AL-020_uns_avg.csv#axes",
+   "message": "the axis coefficients are not written: the plots hold FX, FY, FZ, MX, MY and MZ of no plot group in the global MRP frame (looked for: ['MRP_TOTAL']; a rotor's own frame is not the geometry's axes). Declare a [[plots.groups]] entry with frame = \"MRP\" and those six parameters; it takes a new run, the script defines what the solver plots.",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "reference-frame",
+   "severity": "warning"
+  }
+ ]
+}

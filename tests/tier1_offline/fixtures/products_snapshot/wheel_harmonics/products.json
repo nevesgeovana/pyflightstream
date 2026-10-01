@@ -1,0 +1,176 @@
+{
+ "products": {
+  "sections/DP_sloads_Blade1.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/DP"
+   ],
+   "distribution": 1,
+   "families": [
+    "Blade1"
+   ],
+   "steps_tabled": [
+    154,
+    154
+   ],
+   "kind": "instant"
+  },
+  "sections/DP_sloads_Blade2.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/DP"
+   ],
+   "distribution": 2,
+   "families": [
+    "Blade2"
+   ],
+   "steps_tabled": [
+    154,
+    154
+   ],
+   "kind": "instant"
+  },
+  "sections/DP_sloads_Blade3.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/DP"
+   ],
+   "distribution": 3,
+   "families": [
+    "Blade3"
+   ],
+   "steps_tabled": [
+    154,
+    154
+   ],
+   "kind": "instant"
+  },
+  "sections/DP_sloads_Blade4.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/DP"
+   ],
+   "distribution": 4,
+   "families": [
+    "Blade4"
+   ],
+   "steps_tabled": [
+    154,
+    154
+   ],
+   "kind": "instant"
+  },
+  "sections/DP_sloads_Blade5.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/DP"
+   ],
+   "distribution": 5,
+   "families": [
+    "Blade5"
+   ],
+   "steps_tabled": [
+    154,
+    154
+   ],
+   "kind": "instant"
+  },
+  "sections/DP_sloads_Blade6.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/DP"
+   ],
+   "distribution": 6,
+   "families": [
+    "Blade6"
+   ],
+   "steps_tabled": [
+    154,
+    154
+   ],
+   "kind": "instant"
+  },
+  "sections/DP_sections.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/DP"
+   ],
+   "kind": "instant"
+  },
+  "sections/DP_harmonics.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/DP"
+   ],
+   "kind": "harmonics",
+   "source": "wheel clockings",
+   "samples": 12,
+   "samples_by_rotor": {
+    "PROP": 12
+   },
+   "clockings": 2
+  },
+  "sections/DP_disc_PROP_Fx.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/DP"
+   ],
+   "kind": "disc_map",
+   "source": "wheel clockings",
+   "samples": 12,
+   "rotor": "PROP",
+   "quantity": "Fx",
+   "clockings": 2
+  },
+  "sections/DP_disc_PROP_Fz.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/DP"
+   ],
+   "kind": "disc_map",
+   "source": "wheel clockings",
+   "samples": 12,
+   "rotor": "PROP",
+   "quantity": "Fz",
+   "clockings": 2
+  },
+  "sections/DP_disc_PROP_Moment.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/DP"
+   ],
+   "kind": "disc_map",
+   "source": "wheel clockings",
+   "samples": 12,
+   "rotor": "PROP",
+   "quantity": "Moment",
+   "clockings": 2
+  }
+ },
+ "log": "post.log",
+ "log_json": "post.log.json",
+ "skipped": {
+  "sections/DP_cp_Blade1.csv": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+  "sections/DP_cp_Blade2.csv": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+  "sections/DP_cp_Blade3.csv": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+  "sections/DP_cp_Blade4.csv": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+  "sections/DP_cp_Blade5.csv": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+  "sections/DP_cp_Blade6.csv": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+  "polars/P7001-PROP_qs_positions.csv": "these quasi-steady points are not rows of the clockings tables: DP: the point states no density"
+ },
+ "provenance": {
+  "camp/sim_7001/DP": "provenance/camp_sim_7001_DP.prov.json"
+ },
+ "complete": true
+}

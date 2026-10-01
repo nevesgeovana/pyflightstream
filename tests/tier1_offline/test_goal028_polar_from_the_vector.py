@@ -32,12 +32,8 @@ import pytest
 Rotation = pytest.importorskip("scipy.spatial.transform").Rotation
 
 
-from pyflightstream.post.products import (  # noqa: E402
-    PolarPoint,
-    _polar_rows,
-    group_coefficients,
-    polar_row,
-)
+from pyflightstream.post.polar import group_polar_rows  # noqa: E402
+from pyflightstream.post.products import PolarPoint, group_coefficients, polar_row  # noqa: E402
 from pyflightstream.results import parse_loads  # noqa: E402
 from tests.tier1_offline.test_post_products import LOADS, REFERENCE  # noqa: E402
 
@@ -146,7 +142,7 @@ def test_a_point_under_sideslip_gets_its_polar_row(tmp_path):
     loads = parse_loads(_under_both_angles())
     path = tmp_path / "P.txt"
     point = PolarPoint(name="P", loads=loads, loads_path=path, point={"alpha": 4.0, "beta": 6.0})
-    (row,) = _polar_rows([point], ["W"], mach=0.2, reference=REFERENCE)
+    (row,) = group_polar_rows([point], ["W"], mach=0.2, reference=REFERENCE)
     stated = dict(zip(NAMES, row, strict=True))
     assert stated["BETA"] == 6.0
     assert stated["CYW"] != 0.0 and stated["CYW"] != stated["CYB"]

@@ -128,7 +128,8 @@ def test_a_module_with_no_caller_is_not_described_as_a_step_of_the_plan():
 
 def test_the_caller_detector_sees_a_caller():
     """P0320-ARCH-INFLOW: the detector is not a green no-op."""
-    assert "post/products.py" in _callers("post.acoustics")
+    # post._rotor_products writes the acoustic products since WP5 of 0.33.0 (AD-13).
+    assert "post/_rotor_products.py" in _callers("post.acoustics")
     assert _callers("post.qsteady_noise") == []
 
 

@@ -52,3 +52,4 @@ tests/tier3_licensed/goldens/** text eol=lf
 guide/**/*.pdf binary
 guide/latex-sources/** text eol=lf
 guide/latex-sources/**/*.pdf binary
+tests/tier1_offline/fixtures/products_snapshot/** text eol=lf

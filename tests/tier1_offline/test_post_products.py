@@ -448,8 +448,8 @@ def test_a_point_under_sideslip_is_a_row_stating_its_sideslip(tmp_path):
     the recorded exports, whose own drag is the wind-axis drag of their own vector
     under sideslip too. So the point is a row like any other.
     """
+    from pyflightstream.post.polar import group_polar_rows as polar_rows
     from pyflightstream.post.products import PolarPoint
-    from pyflightstream.post.products import _polar_rows as polar_rows
 
     text = LOADS.replace(
         "Side-slip angle (Deg)                       .000",
@@ -464,7 +464,7 @@ def test_a_point_under_sideslip_is_a_row_stating_its_sideslip(tmp_path):
 
 
 def test_the_mach_code_rounds_rather_than_truncates():
-    from pyflightstream.post.products import _mach_code
+    from pyflightstream.post._tables import _mach_code
 
     assert _mach_code(0.1465) == 15 and _mach_code(0.1441) == 14 and _mach_code(0.2) == 20
 
@@ -2228,10 +2228,10 @@ def test_goal019_bandd_two_rotor_names_one_file_name_refuses_before_any_write(tm
     collision-resistant filename encoding, because the readable name is a
     deliberate convention of this release.
     """
-    from pyflightstream.post.products import ProductError
-    from pyflightstream.post.products import (
+    from pyflightstream.post._stage import (
         _refuse_aliases_a_file_name_cannot_tell_apart as preflight,
     )
+    from pyflightstream.post.products import ProductError
 
     plan = {
         "rotors": {
@@ -2253,7 +2253,7 @@ def test_goal019_bandd_rotor_names_that_differ_after_sanitizing_are_left_alone(t
     are letters and underscores only. A preflight that refused those
     would have taken a product away from every rotor row here.
     """
-    from pyflightstream.post.products import (
+    from pyflightstream.post._stage import (
         _refuse_aliases_a_file_name_cannot_tell_apart as preflight,
     )
 

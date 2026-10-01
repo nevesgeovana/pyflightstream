@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from pyflightstream.post.products import _rotor_surfaces_carried
+from pyflightstream.post._rotor_plan import _rotor_surfaces_carried
 
 SURFACES = {"Spinner": {}, "Blade1": {}, "Blade2": {}, "Wing": {}}
 

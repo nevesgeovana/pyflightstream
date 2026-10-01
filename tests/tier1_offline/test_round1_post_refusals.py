@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from pyflightstream.post import products
+from pyflightstream.post import _sim
 from pyflightstream.post.products import ProductError, read_csv_table, write_campaign_products
 from pyflightstream.workspace import CampaignWorkspace, RunStatus
 from tests.tier1_offline.test_b01_frozen_solve import _log, _post_workspace
@@ -93,7 +93,8 @@ def test_probe_writer_refusal_does_not_abort_other_products(tmp_path, monkeypatc
     def refuse(*args, **kwargs):
         raise ProductError("bad probe history; restore the plots export")
 
-    monkeypatch.setattr(products, "write_unsteady_probes_table", refuse)
+    # Patched where the simulation stage looks it up (post._sim since WP5 of 0.33.0).
+    monkeypatch.setattr(_sim, "write_unsteady_probes_table", refuse)
     write_campaign_products(workspace)
     manifest = _products_manifest(workspace)
     assert "probes/AL-020_probes.csv" in manifest["skipped"], "probe refusal escaped its product"

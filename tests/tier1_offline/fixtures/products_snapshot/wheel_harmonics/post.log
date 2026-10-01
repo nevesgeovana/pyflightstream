@@ -1,0 +1,18 @@
+pyflightstream <VERSION> post
+workspace=<ROOT>
+matrix=None
+time=<TIME>
+check_frozen=False (refuse instead of warn)
+WARNING point=campaign product=stage: sections/DP_cp_Blade1.csv not written: no DP_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders
+WARNING point=campaign product=stage: sections/DP_cp_Blade2.csv not written: no DP_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders
+WARNING point=campaign product=stage: sections/DP_cp_Blade3.csv not written: no DP_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders
+WARNING point=campaign product=stage: sections/DP_cp_Blade4.csv not written: no DP_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders
+WARNING point=campaign product=stage: sections/DP_cp_Blade5.csv not written: no DP_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders
+WARNING point=campaign product=stage: sections/DP_cp_Blade6.csv not written: no DP_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders
+WARNING point=sections/DP_cp_Blade1.csv product=sections/DP_cp_Blade1.csv: no DP_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders Remedy: restore the required data or correct the stated inputs and post again.
+WARNING point=sections/DP_cp_Blade2.csv product=sections/DP_cp_Blade2.csv: no DP_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders Remedy: restore the required data or correct the stated inputs and post again.
+WARNING point=sections/DP_cp_Blade3.csv product=sections/DP_cp_Blade3.csv: no DP_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders Remedy: restore the required data or correct the stated inputs and post again.
+WARNING point=sections/DP_cp_Blade4.csv product=sections/DP_cp_Blade4.csv: no DP_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders Remedy: restore the required data or correct the stated inputs and post again.
+WARNING point=sections/DP_cp_Blade5.csv product=sections/DP_cp_Blade5.csv: no DP_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders Remedy: restore the required data or correct the stated inputs and post again.
+WARNING point=sections/DP_cp_Blade6.csv product=sections/DP_cp_Blade6.csv: no DP_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders Remedy: restore the required data or correct the stated inputs and post again.
+WARNING point=polars/P7001-PROP_qs_positions.csv product=polars/P7001-PROP_qs_positions.csv: these quasi-steady points are not rows of the clockings tables: DP: the point states no density Remedy: restore the required data or correct the stated inputs and post again.

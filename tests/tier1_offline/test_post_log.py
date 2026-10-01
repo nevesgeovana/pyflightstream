@@ -285,7 +285,7 @@ def test_failed_incomplete_point_keeps_computable_products_by_default(tmp_path):
 def test_guard_judges_the_sample_set_not_its_envelope():
     import numpy as np
 
-    from pyflightstream.post.products import _frozen_window_reason, _window_the_reduction_reads
+    from pyflightstream.post._stage import _frozen_window_reason, _window_the_reduction_reads
     from pyflightstream.post.unsteady import TimestepSeries
 
     steps = np.array([1, 59, 60, 61])
@@ -427,9 +427,9 @@ def _witness(point):
     Not a warning written in the test: the route under test is the one the
     package's own sites take, so the witness takes it too, on either tree.
     """
-    from pyflightstream.post import products
+    from pyflightstream.post._stage import _judge_average
 
-    products._judge_average(UnjudgeableSolve(1, 1, steps=(1,)), {1}, point=point, product="probe")
+    _judge_average(UnjudgeableSolve(1, 1, steps=(1,)), {1}, point=point, product="probe")
 
 
 def _post_in_threads(workspaces, first, second, entered, ended=None):
@@ -653,7 +653,7 @@ def test_a_warning_keeps_its_point_when_the_campaign_name_has_a_space():
     with no whitespace, so such a warning fell back to `point=campaign
     product=stage` in both logs, its identity buried in the message.
     """
-    from pyflightstream.post.products import _warning_record
+    from pyflightstream.post._stage import _warning_record
 
     record = _warning_record(
         "point=wind tunnel/sim_7001/AL-020 product=available-exports: the recorded status is "

@@ -1,0 +1,373 @@
+{
+ "products": {
+  "polars/P6001-M200RE1177AL+sweepBE+000_g01.csv": {
+   "sim_id": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ]
+  },
+  "polars/P6001-M200RE1177AL+sweepBE+000_g02.csv": {
+   "sim_id": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ]
+  },
+  "polars/P6001-M200RE1177AL+sweepBE+000_PROP.csv": {
+   "sim_id": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ]
+  },
+  "polars/P6001-PROP_rotor.csv": {
+   "sim_id": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "rotor": "PROP",
+   "source": "mean of 2 clockings",
+   "clockings": 2
+  },
+  "polars/P6001-PROP_qs_positions.csv": {
+   "sim_id": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "rotor": "PROP",
+   "kind": "clockings",
+   "source": "the loads export of each steady clocking of a quasi-steady rotor",
+   "validity_files": {
+    "POLAR-6001_M20AL+000BE+000": "../../sims/sim_6001/outputs/POLAR-6001_M20AL+000BE+000_qsteady_validity.json",
+    "POLAR-6001_M20AL-020BE+000": "../../sims/sim_6001/outputs/POLAR-6001_M20AL-020BE+000_qsteady_validity.json"
+   }
+  },
+  "polars/P6001-PROP_qs_avg.csv": {
+   "sim_id": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "rotor": "PROP",
+   "kind": "average",
+   "source": "the mean of the steady clockings of a quasi-steady rotor",
+   "validity_files": {
+    "POLAR-6001_M20AL+000BE+000": "../../sims/sim_6001/outputs/POLAR-6001_M20AL+000BE+000_qsteady_validity.json",
+    "POLAR-6001_M20AL-020BE+000": "../../sims/sim_6001/outputs/POLAR-6001_M20AL-020BE+000_qsteady_validity.json"
+   }
+  },
+  "polars/P6001-PROP_rotor_corrected.csv": {
+   "sim_id": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "kind": "corrected",
+   "raw": "polars/P6001-PROP_rotor.csv",
+   "route": "table",
+   "calibration": "inputs/calibrations/c001.toml",
+   "calibration_sha256": "e636d7ecd4e1add97da3231191f28a790691dffd8076feb8a39ec8d16d2eb687",
+   "validation": "not validated",
+   "note": "corrected by route 'table' of the calibration 'c001', beside the raw file; the route is not validated",
+   "cells": [
+    {
+     "point": "POLAR-6001_M20AL-020BE+000",
+     "component": "CT",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    },
+    {
+     "point": "POLAR-6001_M20AL-020BE+000",
+     "component": "CQ",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    },
+    {
+     "point": "POLAR-6001_M20AL+000BE+000",
+     "component": "CT",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    },
+    {
+     "point": "POLAR-6001_M20AL+000BE+000",
+     "component": "CQ",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    }
+   ],
+   "derived_na": [
+    "CP_PROP",
+    "ETAW_PROP",
+    "ETA_PROP"
+   ],
+   "rotor": "PROP"
+  },
+  "polars/P6001-PROP_qs_avg_corrected.csv": {
+   "sim_id": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "kind": "corrected",
+   "raw": "polars/P6001-PROP_qs_avg.csv",
+   "route": "table",
+   "calibration": "inputs/calibrations/c001.toml",
+   "calibration_sha256": "e636d7ecd4e1add97da3231191f28a790691dffd8076feb8a39ec8d16d2eb687",
+   "validation": "not validated",
+   "note": "corrected by route 'table' of the calibration 'c001', beside the raw file; the route is not validated",
+   "cells": [
+    {
+     "point": "POLAR-6001_M20AL-020BE+000",
+     "component": "THRUST",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    },
+    {
+     "point": "POLAR-6001_M20AL-020BE+000",
+     "component": "TORQUE",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    },
+    {
+     "point": "POLAR-6001_M20AL-020BE+000",
+     "component": "CT",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    },
+    {
+     "point": "POLAR-6001_M20AL+000BE+000",
+     "component": "THRUST",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    },
+    {
+     "point": "POLAR-6001_M20AL+000BE+000",
+     "component": "TORQUE",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    },
+    {
+     "point": "POLAR-6001_M20AL+000BE+000",
+     "component": "CT",
+     "cell": {
+      "J": [
+       1.7
+      ],
+      "ALPHA": [
+       -4.0,
+       4.0
+      ],
+      "K_1P": [
+       0.0
+      ]
+     }
+    }
+   ],
+   "derived_na": [
+    "CHI_DEG",
+    "CT_ROTOR",
+    "LAMBDA_I"
+   ],
+   "rotor": "PROP"
+  },
+  "polars/P6002-M144RE438AL+000BE+000J+170_g01.csv": {
+   "sim_id": "6002",
+   "pproc": "p002",
+   "runs": [
+    "camp/sim_6002/M144RE438AL+000BE+000J+170"
+   ]
+  },
+  "polars/P6002-M144RE438AL+000BE+000J+170_g02.csv": {
+   "sim_id": "6002",
+   "pproc": "p002",
+   "runs": [
+    "camp/sim_6002/M144RE438AL+000BE+000J+170"
+   ]
+  },
+  "probes/POLAR-6002_M14AL+000BE+000J+170_plots.csv": {
+   "sim_id": "6002",
+   "pproc": "p002",
+   "runs": [
+    "camp/sim_6002/M144RE438AL+000BE+000J+170"
+   ]
+  },
+  "probes/POLAR-6002_M14AL+000BE+000J+170_per_revolution_PUSHER.csv": {
+   "sim_id": "6002",
+   "pproc": "p002",
+   "runs": [
+    "camp/sim_6002/M144RE438AL+000BE+000J+170"
+   ],
+   "reduction": "per_revolution",
+   "windows": [
+    [
+     1,
+     2
+    ]
+   ],
+   "window_from": "the plots table cut into complete revolutions of 2 solver steps",
+   "steps_per_revolution": 2.0,
+   "rotor": "PUSHER"
+  },
+  "polars/SUPER-6001-M200RE1177AL+sweepBE+000_g01.csv": {
+   "sim_id": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "group": "1",
+   "rows": 2
+  },
+  "polars/SUPER-6001-M200RE1177AL+sweepBE+000_g02.csv": {
+   "sim_id": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "group": "2",
+   "rows": 2
+  },
+  "polars/SUPER-6001-M200RE1177AL+sweepBE+000_PROP.csv": {
+   "sim_id": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "group": "PROP",
+   "rows": 2
+  },
+  "polars/SUPER-6002-M144RE438AL+000BE+000J+sweep_g01.csv": {
+   "sim_id": "6002",
+   "pproc": "p002",
+   "runs": [
+    "camp/sim_6002/M144RE438AL+000BE+000J+170"
+   ],
+   "group": "1",
+   "rows": 1
+  },
+  "polars/SUPER-6002-M144RE438AL+000BE+000J+sweep_g02.csv": {
+   "sim_id": "6002",
+   "pproc": "p002",
+   "runs": [
+    "camp/sim_6002/M144RE438AL+000BE+000J+170"
+   ],
+   "group": "2",
+   "rows": 1
+  }
+ },
+ "log": "post.log",
+ "log_json": "post.log.json",
+ "superfile_report": "reports/superfile-<TAG>.json",
+ "skipped": {
+  "polars/6002#rotor_tables": "reference 'r002' cannot be resolved; rotor tables cannot be planned: no reference artifact with id 'r002'; available reference ids: r001"
+ },
+ "provenance": {
+  "camp/sim_6001/M200RE1177AL-020BE+000": "provenance/camp_sim_6001_M200RE1177AL-020BE+000.prov.json",
+  "camp/sim_6001/M200RE1177AL+000BE+000": "provenance/camp_sim_6001_M200RE1177AL+000BE+000.prov.json",
+  "camp/sim_6002/M144RE438AL+000BE+000J+170": "provenance/camp_sim_6002_M144RE438AL+000BE+000J+170.prov.json"
+ },
+ "complete": true
+}

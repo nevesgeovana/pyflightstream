@@ -1,0 +1,17 @@
+{
+ "version": "<VERSION>",
+ "workspace": "<ROOT>",
+ "matrix": "matriz",
+ "time": "<TIME>",
+ "check_frozen": false,
+ "records": [
+  {
+   "point": "polars/6002#rotor_tables",
+   "product": "polars/6002#rotor_tables",
+   "message": "reference 'r002' cannot be resolved; rotor tables cannot be planned: no reference artifact with id 'r002'; available reference ids: r001",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "reference-frame",
+   "severity": "warning"
+  }
+ ]
+}

@@ -203,7 +203,7 @@ def test_a_total_with_no_sign_is_na_and_said(tmp_path):
 def test_the_post_says_a_share_it_cannot_take_in_its_log(tmp_path):
     """The product stage turns each note into a WARNING line naming the point (post.log)."""
     # P0310-THRUST-AXIS
-    from pyflightstream.post.products import _qsteady_sections
+    from pyflightstream.post._rotor_products import _qsteady_sections
 
     record = _record(letter="X", axis=(1.0, 0.0, 0.0))
     (tmp_path / "DP_qsteady.json").write_text(record.to_text(), encoding="utf-8")

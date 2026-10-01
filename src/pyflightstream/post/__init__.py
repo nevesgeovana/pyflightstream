@@ -1,8 +1,8 @@
 """Results into engineering data.
 
 Pipeline role: the top of the pipeline, where parsed solver output
-becomes something a report can carry. Public modules and one
-private one, and the list is what EXISTS rather than what is planned
+becomes something a report can carry. Public modules and private
+ones, and the list is what EXISTS rather than what is planned
 (a tier-1 test holds it to the modules on disk).
 Each says whether it is reached through this package or through its own
 module, which is stated rather than left to be discovered:
@@ -77,7 +77,15 @@ module, which is stated rather than left to be discovered:
   per recorded run (PFS-2012.08.01). Its other writers (the polar row, the
   rotor table, the per-blade table, the unsteady polar) and the header of an
   unsteady polar's axes are reached through :mod:`pyflightstream.post.products`
-  itself and are not re-exported here.
+  itself and are not re-exported here. Since 0.33.0 (AD-13) it is the campaign
+  stage and the facade of the product FAMILIES, sibling modules each reached
+  through its own module or through ``products``, which re-exports every name of
+  their ``__all__`` at its 0.32.0 path:
+  :mod:`pyflightstream.post.polar` (the group polar and its rows),
+  :mod:`pyflightstream.post.rotor_table` (one coefficient table per rotor),
+  :mod:`pyflightstream.post.unsteady_polar` (the time-averaged polar of an
+  unsteady simulation) and :mod:`pyflightstream.post.point_tables` (the
+  sections, plots, probes, reduction and per-revolution tables of a point);
 * :mod:`pyflightstream.post.superfile` writes the SUPERFILE of each polar
   and group beside the polar table (FR-89), one row per converged point
   whose column set is a superset of everything the workspace knows about
@@ -119,7 +127,21 @@ module, which is stated rather than left to be discovered:
   template;
 * :mod:`pyflightstream.post._tables` is PRIVATE: the table primitives
   (the condition block, the CSV writer, the column renaming) the product
-  modules share, so that no two of them import each other.
+  modules share, so that no two of them import each other;
+* the PRIVATE modules of the post stage since 0.33.0 (AD-13), below the
+  families or between them and the campaign stage:
+  :mod:`pyflightstream.post._stage` (the products layout, the verdict of a
+  frozen solve, the names a file may carry, the post log records and the
+  partial post), :mod:`pyflightstream.post._condition` (what a recorded point
+  states: its condition, state, clock, windows and reference),
+  :mod:`pyflightstream.post._admit` (which records of a simulation can supply a
+  product row), :mod:`pyflightstream.post._sim` (one simulation's post over its
+  frozen context, the families called in the manifest's order),
+  :mod:`pyflightstream.post._rotor_plan` (where each rotor table's rows come
+  from), :mod:`pyflightstream.post._reduction_stage` (the reductions of a
+  point's plots table), :mod:`pyflightstream.post._rotor_products` (a point's
+  series and its quasi-steady, harmonic, noise and disc-map products) and
+  :mod:`pyflightstream.post._additional` (the products of the additional post).
 
 WHAT THIS LAYER DOES NOT HAVE, said plainly because this docstring
 advertised it for three releases and a reader has no other way to find

@@ -121,7 +121,7 @@ def test_the_stage_takes_a_rotors_families_from_the_reference_and_its_clock_from
     """
     from types import SimpleNamespace
 
-    from pyflightstream.post.products import _section_rotors
+    from pyflightstream.post._condition import _section_rotors
 
     live = SimpleNamespace(
         rotors={
