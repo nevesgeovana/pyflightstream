@@ -73,7 +73,9 @@ def _expected_subpackages() -> list[str]:
     return ["pyflightstream", *PUBLIC_MODULES]
 
 
-#: The public modules that declare no ``__all__`` at 0.33.0, 51 of 122. Their
+#: The public modules that declare no ``__all__`` at 0.33.0, 51 of 122, and 50
+#: of 133 after WP3 (AD-11), whose ten new public modules each declare one and
+#: which gave ``workspace.inputs`` one. Their
 #: surface is the public names they define (R2 as amended in SRS 1.53.0). The
 #: list only shrinks: a new public module declares ``__all__`` (R8), and a
 #: module listed here that gains one leaves the list in the same change.
@@ -124,7 +126,6 @@ MODULES_WITHOUT_ALL = {
     "pyflightstream.workspace.excel_sync",
     "pyflightstream.workspace.flight_condition",
     "pyflightstream.workspace.fsi_setup",
-    "pyflightstream.workspace.inputs",
     "pyflightstream.workspace.naming",
     "pyflightstream.workspace.rename_groups",
     "pyflightstream.workspace.setup_inspection",

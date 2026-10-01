@@ -747,17 +747,21 @@ def test_g47_the_page_links_the_glossary_and_real_pages_and_names_no_machine_pat
 
 def test_g47_without_the_metadata_a_page_is_named_by_its_file(monkeypatch):
     """The source tree imported with nothing installed names each page by its file."""
+    import pyflightstream.post.glossary as glossary
     import pyflightstream.post.guides as guides
 
+    # Since 0.33.0 (AD-11) the documentation-site lookup lives in post.glossary,
+    # beside the parts the generated pages share; the page is still read
+    # through its 0.32.0 path.
     def not_installed(_name):
-        raise guides.PackageNotFoundError(_name)
+        raise glossary.PackageNotFoundError(_name)
 
-    monkeypatch.setattr(guides, "distribution_metadata", not_installed)
-    guides._documentation_site.cache_clear()
+    monkeypatch.setattr(glossary, "distribution_metadata", not_installed)
+    glossary._documentation_site.cache_clear()
     try:
         text = guides.input_template_markdown()
     finally:
-        guides._documentation_site.cache_clear()
+        glossary._documentation_site.cache_clear()
     assert _declared_site() not in text
     named = set(re.findall(r"\(`docs/([a-z0-9-]+)\.md`\)", text))
     assert named and all((REPO / "docs" / f"{page}.md").is_file() for page in named), named

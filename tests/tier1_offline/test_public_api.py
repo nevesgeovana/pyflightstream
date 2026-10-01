@@ -108,6 +108,9 @@ PUBLIC_MODULES = [
     # test refused the other placement -- deferring an import to call time
     # does not change its direction.
     "pyflightstream.post.field_frames",
+    # 0.33.0 (AD-11): the input glossary, cut out of post.guides, which
+    # re-exports every public name of it at its 0.32.0 path.
+    "pyflightstream.post.glossary",
     "pyflightstream.post.guides",
     # 0.31.0 (P0310-HARMONICS): the per-station harmonic product. PUBLIC
     # deliberately: its least-squares fit is what a user checks a station of
@@ -115,6 +118,9 @@ PUBLIC_MODULES = [
     "pyflightstream.post.harmonics",
     # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
     "pyflightstream.post.inflow_tools",
+    # 0.33.0 (AD-11): the input template, cut out of post.guides, which
+    # re-exports every public name of it at its 0.32.0 path.
+    "pyflightstream.post.input_template",
     "pyflightstream.post.probe_fields",
     "pyflightstream.post.products",
     "pyflightstream.post.provenance",
@@ -156,6 +162,13 @@ PUBLIC_MODULES = [
     "pyflightstream.reference",
     "pyflightstream.results",
     "pyflightstream.results.conditions",
+    # 0.33.0 (AD-11): the four modules cut out of the results root (core,
+    # exports, loads, log), which re-exports every public name of them at
+    # its 0.32.0 path.
+    "pyflightstream.results.core",
+    "pyflightstream.results.exports",
+    "pyflightstream.results.loads",
+    "pyflightstream.results.log",
     # G45 of 0.28.0: the surface solution read from the solver's VTK and written
     # as Tecplot. PUBLIC deliberately: the translation a campaign runs on every
     # point is one a user can run on a VTK of her own, and the time-averaged
@@ -197,6 +210,9 @@ PUBLIC_MODULES = [
     "pyflightstream.utils.manual",
     "pyflightstream.versions",
     "pyflightstream.workspace",
+    # 0.33.0 (AD-11): the build registry, cut out of workspace.inputs, which
+    # re-exports every public name of it at its 0.32.0 path.
+    "pyflightstream.workspace.builds",
     "pyflightstream.workspace.cli",
     "pyflightstream.workspace.excel",
     "pyflightstream.workspace.excel_bridge",
@@ -209,6 +225,9 @@ PUBLIC_MODULES = [
     "pyflightstream.workspace.fields",
     "pyflightstream.workspace.flight_condition",
     "pyflightstream.workspace.fsi_setup",
+    # 0.33.0 (AD-11): the HPC profile, cut out of workspace.inputs, which
+    # re-exports every public name of it at its 0.32.0 path.
+    "pyflightstream.workspace.hpc",
     "pyflightstream.workspace.inputs",
     "pyflightstream.workspace.matrix",
     "pyflightstream.workspace.naming",
@@ -222,8 +241,14 @@ PUBLIC_MODULES = [
     # NOT in EXTRA_GATED_MODULES: after the trimesh promotion it must
     # import on a base install with no extras, which is the whole point
     # of the promotion and what PFS-2025.20.03 measures.
+    # 0.33.0 (AD-11): the rule on empty entity selections, cut out of
+    # workspace.inputs, which re-exports every public name of it.
+    "pyflightstream.workspace.selections",
     "pyflightstream.workspace.setup_inspection",
     "pyflightstream.workspace.setup_standards",
+    # 0.33.0 (AD-11): the geometry sidecars, cut out of workspace.inputs,
+    # which re-exports every public name of them at their 0.32.0 path.
+    "pyflightstream.workspace.sidecars",
     # 0.30.0: the four `pyfs-matrix` storage commands (space-in-use,
     # free-space, delete-sims, sync). PUBLIC deliberately: it is the home of
     # the storage/sync functions a script calls directly, the same reason

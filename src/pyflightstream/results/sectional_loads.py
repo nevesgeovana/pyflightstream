@@ -34,7 +34,7 @@ from typing import Protocol
 import numpy as np
 
 from pyflightstream._errors import FsiInputError, PyflightstreamError
-from pyflightstream.results import (
+from pyflightstream.results.core import (
     AnchorNotFoundError,
     IncompleteOutputError,
     delimited_table,

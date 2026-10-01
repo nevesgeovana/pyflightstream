@@ -25,6 +25,7 @@ from pathlib import Path
 import pyflightstream
 from pyflightstream import exceptions
 from pyflightstream.overview import _CORE_LAYERS
+from pyflightstream.run import _record_files as record_files
 from pyflightstream.run import records
 from pyflightstream.workspace import naming
 
@@ -234,7 +235,8 @@ def test_the_archive_stamp_pattern_matches_its_spelling():
     # Negative controls: a pattern that took anything would pass the line above.
     for wrong in ("2026-09-30", "20260930_070509", "20260930-0705", "2026093-0070509", ""):
         assert not re.fullmatch(naming.ARCHIVE_STAMP_PATTERN, wrong), wrong
-    assert records.ARCHIVE_STAMP == naming.ARCHIVE_STAMP
+    # Since 0.33.0 (AD-11) the stamp is written by run._record_files, under records.
+    assert record_files.ARCHIVE_STAMP == naming.ARCHIVE_STAMP
     assert records.ARCHIVE_DIR == naming.ARCHIVE_DIR == "archive"
 
 

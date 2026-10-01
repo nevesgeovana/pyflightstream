@@ -27,6 +27,8 @@ from pathlib import Path
 
 import pytest
 
+# The rebuild and what it reads are private modules of run since 0.33.0 (AD-11).
+from pyflightstream.run import _rebuild as rebuild_module
 from pyflightstream.run import cli, records
 from pyflightstream.run.collect import collect_once
 from pyflightstream.workspace import CampaignWorkspace, WorkspaceError
@@ -520,6 +522,6 @@ def test_p0320_from_sims_leaves_the_rebuilds_row_inputs_in_place(tmp_path):
     definition would replace the rebuild's and break its drift report.
     """
     workspace = _from_sims_workspace(tmp_path)
-    names = records._row_inputs(workspace.root / "matriz.fs", "6001")
+    names = rebuild_module._row_inputs(workspace.root / "matriz.fs", "6001")
     assert "references/r001.toml" in names
     assert any(name.startswith("setups/") for name in names)

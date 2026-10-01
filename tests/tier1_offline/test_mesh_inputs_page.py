@@ -49,7 +49,10 @@ from pyflightstream.cases.workflows import SIMULATION_LENGTH_UNIT, build_script
 from pyflightstream.run.cli import main as pyfs_matrix
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace
-from pyflightstream.workspace import inputs as sidecar_reader
+
+# The sidecar readers are workspace.sidecars since 0.33.0 (AD-11); workspace.inputs
+# re-exports their public names.
+from pyflightstream.workspace import sidecars as sidecar_reader
 from pyflightstream.workspace.matrix import resolve_matrix
 from pyflightstream.workspace.naming import SIM_DATAPOINTS_DIR, PointName, datapoint_dir_name
 

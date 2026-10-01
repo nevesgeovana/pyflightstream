@@ -35,6 +35,9 @@ import pytest
 from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.run import cli as matrix_cli
 from pyflightstream.run import records as run_records
+
+# The rebuild and what it reads are private modules of run since 0.33.0 (AD-11).
+from pyflightstream.run._rebuild_evidence import _matrices
 from pyflightstream.workspace import WorkspaceError, find_matrix, matrix_by_stem
 from pyflightstream.workspace import storage as storage_module
 from pyflightstream.workspace.naming import ARCHIVE_DIR
@@ -671,11 +674,11 @@ def test_p0320_merge_b1_b2_rebuild_and_the_two_homes_agree_on_the_path(tmp_path)
     _write(root / "m.fs", "same")
     _write(root / "inputs" / "matrices" / "m.fs", "same")
     _write(root / "inputs" / "matrices" / "n.fs", "only here")
-    chosen = run_records._matrices(root, None)
+    chosen = _matrices(root, None)
     assert chosen == [path.resolve() for path in matrix_by_stem(root).values()]
     _write(root / "inputs" / "matrices" / "m.fs", "different")
     with pytest.raises(WorkspaceError):
         matrix_by_stem(root)
     with pytest.raises(WorkspaceError) as refused:
-        run_records._matrices(root, None)
+        _matrices(root, None)
     assert "m.fs" in str(refused.value) and "matrices" in str(refused.value), requirement

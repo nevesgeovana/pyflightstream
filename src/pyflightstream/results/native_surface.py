@@ -34,7 +34,7 @@ from pathlib import Path
 
 import numpy as np
 
-from pyflightstream.results import IncompleteOutputError, MalformedOutputError
+from pyflightstream.results.core import IncompleteOutputError, MalformedOutputError
 from pyflightstream.results.surface import VtkSurface
 
 _STRENGTH = "Singularity_strength"

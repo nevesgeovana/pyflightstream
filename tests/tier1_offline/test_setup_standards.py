@@ -151,7 +151,8 @@ def test_explicit_no_trailing_edge_is_preserved_and_emits_no_detection(tmp_path)
     from pyflightstream._errors import PyflightstreamWarning
     from pyflightstream.cases import RawMeshConditions
     from pyflightstream.cases.workflows import _raw_mesh_boundary_conditions
-    from pyflightstream.workspace.inputs import InputArtifactError, _read_trailing_edges
+    from pyflightstream.workspace.inputs import InputArtifactError
+    from pyflightstream.workspace.sidecars import _read_trailing_edges
 
     try:
         marking = _read_trailing_edges(tmp_path / "body.boundaries.toml", {"none": True})

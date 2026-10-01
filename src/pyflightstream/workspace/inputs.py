@@ -63,16 +63,22 @@ The library tree, created by ``CampaignWorkspace.init``:
   is a bare path string, or a table carrying that path and, optionally,
   the FlightStream version the build's scripts are emitted under
   (:func:`resolve_build`).
+
+FIVE MODULES SINCE 0.33.0 (AD-11). The files beside a geometry (the
+boundary inventory, the provenance record, the raw-mesh sidecar and the
+layout migration) are :mod:`pyflightstream.workspace.sidecars`; the HPC
+profile is :mod:`pyflightstream.workspace.hpc`; the build registry is
+:mod:`pyflightstream.workspace.builds`; the rule on empty entity selections
+is :mod:`pyflightstream.workspace.selections`. This module resolves the
+artifacts and re-exports every name of the four at its 0.32.0 path, which
+its ``__all__`` lists.
 """
 
 from __future__ import annotations
 
-import json
 import re
-import sys
-import tomllib
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path, PurePath, PurePosixPath
 from typing import Any
 
@@ -93,28 +99,21 @@ from pydantic import (
 # alone is what the five call-time imports of `cases/matrix.py` were.
 # Nothing about the class changed: same two bases, same three attributes,
 # same public spelling.
-from pyflightstream._digest import aliased_name_fault, file_sha256
-from pyflightstream._errors import InputArtifactError, PyflightstreamWarning, warn
-from pyflightstream._fsm import MeshReadError, boundary_names
+from pyflightstream._errors import InputArtifactError
 from pyflightstream._retired_names import (
     BLOCK_KIND_ENGINE,
     POINT_KIND_ENGINE,
     retired_key,
 )
 from pyflightstream.cases import (
-    EVERY_SURFACE,
     ActuatorBlock,
     BoundaryAliases,
     CampaignConfigError,
     CustomFlag,
     FrameSpec,
-    InputKey,
-    MeshImport,
     PprocSpec,
     RawCommand,
-    RawMeshConditions,
     RotorBlock,
-    TrailingEdgeMarking,
 )
 
 # DOWNWARD, and the two imports in this module that leave the workspace
@@ -133,15 +132,144 @@ from pyflightstream.cases.matrix import CODE_COLUMNS, rewrite_codes
 # registry at the moment it is read, rather than at the moment a run
 # emits a script under it. The sister module `wake_edges` already reaches
 # down to `commands` for the same kind of reason (PFS-2009.05).
-from pyflightstream.versions import (
-    AmbiguousVersionAliasError,
-    UnknownVersionError,
-    resolve,
-)
 from pyflightstream.workspace._geometry_clean import CleanedGeometry as CleanedGeometry
 from pyflightstream.workspace._geometry_clean import (
     clean_saved_actions as clean_saved_actions,
 )
+from pyflightstream.workspace.builds import (
+    EXECUTABLE_ENTRY_KEYS,
+    EXECUTABLES_FILE,
+    LOCAL_EXECUTABLES_FILE,
+    RegisteredBuild,
+    resolve_build,
+    resolve_executable,
+)
+from pyflightstream.workspace.hpc import (
+    HPC_BUILD_ALIAS,
+    HPC_DIR,
+    HPC_FORMATS,
+    HPC_LOG_KEYS,
+    HPC_PROFILE_KEYS,
+    HPC_REQUIRED,
+    WALLTIME_ARITHMETIC,
+    HpcProfile,
+    descriptor_name_refusal,
+    hpc_profiles,
+    read_hpc_profile,
+    resolve_hpc_profile,
+)
+from pyflightstream.workspace.selections import (
+    ALIASES_TABLE,
+    ENTITY_SELECTIONS,
+    EntitySelection,
+    refuse_empty_selections,
+)
+from pyflightstream.workspace.sidecars import (
+    BASE_REGIONS_TABLE,
+    DETECT_EVERYWHERE,
+    GEOMETRIES_README,
+    GEOMETRY_SIDECAR_KEYS,
+    IMPORT_TABLE,
+    INVENTORY_SUFFIX,
+    OBJ_SUFFIX,
+    PROVENANCE_SUFFIX,
+    RAW_MESH_CONDITION_KEYS,
+    RAW_MESH_CONDITION_TABLES,
+    SIDECAR_SUFFIXES,
+    TRAILING_EDGE_DETECT_KEYS,
+    TRAILING_EDGES_TABLE,
+    WAKE_TERMINATION_TABLE,
+    GeometryMigration,
+    _is_sidecar,
+    _load_toml,
+    ensure_inventory,
+    inventory_sidecar,
+    migrate_geometry_layout,
+    obj_boundary_names,
+    read_inventory,
+    read_mesh_import,
+    read_raw_mesh_conditions,
+    write_inventory,
+)
+
+__all__ = [
+    "ACTUATOR_KIND",
+    "ALIASES_TABLE",
+    "BASE_REGIONS_TABLE",
+    "DETECT_EVERYWHERE",
+    "ENTITY_SELECTIONS",
+    "EXECUTABLES_FILE",
+    "EXECUTABLE_ENTRY_KEYS",
+    "FLAGS_TABLE",
+    "FRAMES_TABLE",
+    "GEOMETRIES_README",
+    "GEOMETRY_SIDECAR_KEYS",
+    "GROUPS_LETTER",
+    "HPC_BUILD_ALIAS",
+    "HPC_DIR",
+    "HPC_FORMATS",
+    "HPC_LOG_KEYS",
+    "HPC_PROFILE_KEYS",
+    "HPC_REQUIRED",
+    "IMPORT_TABLE",
+    "INPUT_KINDS",
+    "INVENTORY_SUFFIX",
+    "KIND_COLUMNS",
+    "KIND_LETTERS",
+    "LOCAL_EXECUTABLES_FILE",
+    "OBJ_SUFFIX",
+    "POINT_KINDS",
+    "PROVENANCE_SUFFIX",
+    "RAW_MESH_CONDITION_KEYS",
+    "RAW_MESH_CONDITION_TABLES",
+    "RAW_TABLE",
+    "ROTOR_FACT_KEYS",
+    "SIDECAR_SUFFIXES",
+    "TRAILING_EDGES_TABLE",
+    "TRAILING_EDGE_DETECT_KEYS",
+    "WAKE_TERMINATION_TABLE",
+    "WALLTIME_ARITHMETIC",
+    "CleanedGeometry",
+    "EntitySelection",
+    "GeometryMigration",
+    "HpcProfile",
+    "IdMigration",
+    "InputArtifactError",
+    "PointXyz",
+    "PprocArtifact",
+    "ReferenceArtifact",
+    "RegisteredBuild",
+    "RotorReference",
+    "SetupArtifact",
+    "available_ids",
+    "clean_saved_actions",
+    "descriptor_name_refusal",
+    "ensure_inventory",
+    "hpc_profiles",
+    "inventory_sidecar",
+    "is_valid_artifact_id",
+    "migrate_geometry_layout",
+    "migrate_groups_to_pproc",
+    "migrate_input_ids",
+    "obj_boundary_names",
+    "read_hpc_profile",
+    "read_inventory",
+    "read_mesh_import",
+    "read_raw_mesh_conditions",
+    "refuse_empty_selections",
+    "resolve_build",
+    "resolve_executable",
+    "resolve_geometry",
+    "resolve_hpc_profile",
+    "resolve_pproc",
+    "resolve_profile",
+    "resolve_reference",
+    "resolve_setup",
+    "rotor_integration_groups",
+    "strip_rotor_facts",
+    "write_inventory",
+]
+
 
 INPUT_KINDS = (
     "geometries",
@@ -156,21 +284,6 @@ INPUT_KINDS = (
     "matrices",
     "management",
 )
-EXECUTABLES_FILE = "executables.toml"
-#: This machine's overlay of the build registry (PFS-2031.15). A workspace
-#: kept in version control carries placeholder paths in the registry,
-#: because where a solver is installed is machine configuration; the
-#: overlay beside it, gitignored, supplies the real path of a build id. A
-#: bare path keeps the committed entry's declared version, a table replaces
-#: the entry, and a build id the overlay is silent on reads as committed.
-LOCAL_EXECUTABLES_FILE = "executables.local.toml"
-
-#: Every key a TABLE-valued entry of the build registry carries, and the
-#: only ones read. A key outside this tuple is REFUSED naming itself
-#: rather than ignored: a silently dropped ``verison`` leaves a registry
-#: that looks correct and a run emitted under the campaign default, and
-#: the two look identical from the manifest (PFS-2009.05).
-EXECUTABLE_ENTRY_KEYS = ("path", "version")
 
 _ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
@@ -586,10 +699,6 @@ RAW_TABLE = "raw"
 #: One record per flag: the word a matrix row writes, and the
 #: FlightStream command it becomes.
 FLAGS_TABLE = "flags"
-#: The table of a setup artifact that names groups of boundaries (the reference
-#: decision of 2026-09-09): ``[aliases]``, one key per alias, a list of
-#: boundary names or families. Read by the documentation.
-ALIASES_TABLE = "aliases"
 
 
 class PprocArtifact(PprocSpec):
@@ -764,18 +873,6 @@ def _miss(
     )
 
 
-def _load_toml(path: Path, kind: str) -> dict[str, Any]:
-    """Read one TOML artifact file, naming the file on a syntax error."""
-    try:
-        with open(path, "rb") as handle:
-            return tomllib.load(handle)
-    except tomllib.TOMLDecodeError as error:
-        raise InputArtifactError(
-            f"the {kind} artifact {path} is not valid TOML: {error}. Artifacts are "
-            "declarative TOML files, one artifact per file."
-        ) from error
-
-
 def _validate(model: type[BaseModel], data: dict[str, Any], path: Path, kind: str) -> BaseModel:
     """Validate one artifact table, naming the file on a model error."""
     try:
@@ -784,230 +881,6 @@ def _validate(model: type[BaseModel], data: dict[str, Any], path: Path, kind: st
         raise InputArtifactError(
             f"the {kind} artifact {path} does not validate: {error}"
         ) from error
-
-
-@dataclass(frozen=True)
-class EntitySelection:
-    """One artifact key whose list selects the entities a command applies to.
-
-    PFS-2005.02. Handing such a key an empty list looks like stating no
-    preference, and it is not: the command the list feeds is either not
-    emitted at all, which is the solver's own default and is asked for
-    by dropping the key, or emitted naming nothing, and either way the
-    run proceeds against a setup nobody selected and still reports
-    numbers. Whether an empty list can mean anything is decided one key
-    at a time, by the domain seat, and the decision is written beside
-    the key so the refusal can say whose it is.
-
-    Attributes
-    ----------
-    kind : str
-        The artifact kind the key lives in, ``setup`` or ``pproc``.
-    key : str
-        The key as the file spells it; a placeholder marks a table whose
-        every entry is a selection (``groups.<name>``) or a list of
-        tables (``plots.groups[].families``).
-    consumer : str
-        What the list feeds: the FlightStream command, or the product
-        this package writes from it.
-    empty_admitted : bool or None
-        True where an empty list has a documented meaning and is
-        accepted, False where it is refused on the manual's word, and
-        None where the domain seat has not yet decided, in which case it
-        is refused until the owning seat rules.
-    reason : str
-        The sentence the refusal prints beside the verdict: what the
-        manual says, or that nothing does yet.
-    """
-
-    kind: str
-    key: str
-    consumer: str
-    empty_admitted: bool | None
-    reason: str
-
-
-_VORTICITY_EMPTY = (
-    "The solver's default, surface pressure integration on every boundary, is "
-    "expressed by never emitting the command (SRC-003 p.202), so a stated empty list "
-    "asks for a selection and names none, and the run would converge and publish "
-    "induced drag against a setup nobody selected."
-)
-
-_ANALYSIS_EMPTY = (
-    "The command enables the boundaries it lists and leaves every other one out of the "
-    "analysis (SRC-003 p.351), and every boundary entering the loads, the solver's "
-    "default, is expressed by never emitting it; so a stated empty list asks for a "
-    "selection and names none, and the loads table would sum a setup nobody selected."
-)
-
-#: Every artifact key that selects entities, with the domain seat's verdict on
-#: an empty list beside it. The readers consult this table; the docs page
-#: repeats it. A key that is not here is not an entity selection, and a new
-#: one enters here with its verdict before its reader accepts it.
-ENTITY_SELECTIONS: tuple[EntitySelection, ...] = (
-    EntitySelection(
-        "setup",
-        "vorticity_drag_boundaries",
-        "SET_VORTICITY_DRAG_BOUNDARIES",
-        False,
-        _VORTICITY_EMPTY,
-    ),
-    EntitySelection(
-        "setup",
-        "set_vorticity_drag_boundaries",
-        "SET_VORTICITY_DRAG_BOUNDARIES",
-        False,
-        _VORTICITY_EMPTY,
-    ),
-    EntitySelection(
-        "setup", "vorticity_drag_families", "SET_VORTICITY_DRAG_BOUNDARIES", False, _VORTICITY_EMPTY
-    ),
-    EntitySelection(
-        "setup", "analysis_families", "SET_SOLVER_ANALYSIS_BOUNDARIES", False, _ANALYSIS_EMPTY
-    ),
-    EntitySelection(
-        "setup",
-        "set_solver_analysis_boundaries",
-        "SET_SOLVER_ANALYSIS_BOUNDARIES",
-        False,
-        _ANALYSIS_EMPTY,
-    ),
-    EntitySelection(
-        "setup",
-        "aliases.<name>",
-        "every boundary-citing key of a row naming this preset",
-        False,
-        "An alias stands for the boundary names or families listed after it, and over none "
-        "it would name nothing while reading as though it named a set; the empty list that "
-        "means every family is the pproc group's, one line below.",
-    ),
-    EntitySelection(
-        "pproc",
-        "groups.<name>",
-        "the polar table written per group (products.polars)",
-        True,
-        "An empty group is every family the geometry carries, the design decision of "
-        "2026-09-09: the polar table sums every surface row of the loads table, and a "
-        "motion naming the group moves every boundary of the file.",
-    ),
-    EntitySelection(
-        "pproc",
-        "plots.groups[].families",
-        "UNSTEADY_SOLVER_NEW_FORCE_PLOT",
-        False,
-        "The entry exists to emit one plot per parameter over the families it names; "
-        "over none it would emit nothing while reading as though it had. A family "
-        "the geometry does not carry is left out at emission, which is the documented "
-        "way an entry resolves to fewer families than it names.",
-    ),
-    EntitySelection(
-        "pproc",
-        "sections.distributions[].families",
-        "NEW_SURFACE_SECTION_DISTRIBUTION",
-        False,
-        "The entry exists to emit one distribution per plane over the families it "
-        "names; over none it would emit nothing while reading as though it had. A "
-        "family the geometry does not carry is left out at emission, which is the "
-        "documented way an entry resolves to fewer families than it names.",
-    ),
-    EntitySelection(
-        "pproc",
-        "base_regions",
-        "DETECT_BASE_REGIONS_BY_SURFACE",
-        True,
-        "An empty list is the documented off switch of the base-region autodetect "
-        "(PFS-2029.10): none means no detection, and the row's BASE_REGIONS key is "
-        "how one row turns it on.",
-    ),
-)
-
-_SELECTION_BY_KEY = {(rule.kind, rule.key): rule for rule in ENTITY_SELECTIONS}
-
-
-def _stated_empty_selections(
-    kind: str, data: Mapping[str, Any]
-) -> list[tuple[str, EntitySelection]]:
-    """Return every entity-selecting key the file states as an empty list.
-
-    Walks the shapes the table names: a plain key of a setup, the
-    ``[groups]`` table of a pproc artifact, and the ``families`` of its
-    plot groups and section distributions. Returns the key as the file
-    spells it beside the table entry that judges it.
-    """
-    found: list[tuple[str, EntitySelection]] = []
-    if kind == "setup":
-        for rule in ENTITY_SELECTIONS:
-            if rule.kind == kind and data.get(rule.key) == []:
-                found.append((rule.key, rule))
-        aliases = data.get(ALIASES_TABLE)
-        if isinstance(aliases, Mapping):
-            rule = _SELECTION_BY_KEY[("setup", "aliases.<name>")]
-            found.extend(
-                (f'{ALIASES_TABLE}."{name}"', rule)
-                for name, members in aliases.items()
-                if members == []
-            )
-        return found
-    groups = data.get("groups")
-    if isinstance(groups, Mapping):
-        for name, members in groups.items():
-            if members == []:
-                found.append((f'groups."{name}"', _SELECTION_BY_KEY[("pproc", "groups.<name>")]))
-    for table, entries, key in (
-        ("plots", "groups", "plots.groups[].families"),
-        ("sections", "distributions", "sections.distributions[].families"),
-    ):
-        section = data.get(table)
-        listed = section.get(entries) if isinstance(section, Mapping) else None
-        if not isinstance(listed, list):
-            continue
-        for position, entry in enumerate(listed):
-            if isinstance(entry, Mapping) and entry.get("families") == []:
-                found.append(
-                    (f"{table}.{entries}[{position}].families", _SELECTION_BY_KEY[("pproc", key)])
-                )
-    return found
-
-
-def refuse_empty_selections(kind: str, path: Path, data: Mapping[str, Any]) -> None:
-    """Refuse an artifact stating an empty list for an entity-selecting key.
-
-    PFS-2005.02. Called by the readers before the model validates, so the
-    refusal names the artifact FILE, the key as the file spells it, and
-    what the empty list would have disabled, with the domain seat's
-    verdict beside it. The model's own validators stay: they guard the
-    Python path, and this guards the file a matrix row names.
-
-    Parameters
-    ----------
-    kind : str
-        ``setup`` or ``pproc``.
-    path : Path
-        The artifact file, for the message.
-    data : mapping
-        The file's TOML table as loaded.
-
-    Raises
-    ------
-    InputArtifactError
-        The first key stated empty whose verdict is not "admitted".
-    """
-    for key, rule in _stated_empty_selections(kind, data):
-        if rule.empty_admitted:
-            continue
-        if rule.empty_admitted is None:
-            verdict = (
-                "Whether an empty list can mean anything here is the domain seat's call, "
-                "not yet decided, and it is refused until that is settled"
-            )
-        else:
-            verdict = "An empty list is refused"
-        raise InputArtifactError(
-            f"the {kind} artifact {path} states {key} = [], an empty list, and that list "
-            f"selects what {rule.consumer} applies to. {rule.reason} {verdict}. Name the "
-            "entities, or drop the key."
-        )
 
 
 def resolve_reference(inputs_dir: Path, artifact_id: str) -> ReferenceArtifact:
@@ -1712,11 +1585,6 @@ def resolve_geometry(inputs_dir: Path, name: str) -> Path:
     return found[name]
 
 
-def _is_sidecar(name: str) -> bool:
-    """Whether a file name is a geometry's inventory or provenance record."""
-    return name.endswith(SIDECAR_SUFFIXES)
-
-
 def _staged_geometries(directory: Path) -> dict[str, Path]:
     """Map every staged geometry file name to its path, both layouts read.
 
@@ -1777,272 +1645,6 @@ def resolve_profile(inputs_dir: Path, artifact_id: str) -> Path:
         ambiguous stem shared by several files.
     """
     return _resolve_file(inputs_dir, "profile", "profiles", artifact_id)
-
-
-@dataclass(frozen=True)
-class RegisteredBuild:
-    """One entry of the workspace build registry, as the registry states it.
-
-    Attributes
-    ----------
-    fs_exe : Path
-        The executable this build id names. Existence is checked by the
-        executor at construction, so a campaign can be authored away
-        from the licensed machine.
-    fs_version : str or None
-        The FlightStream version the registry DECLARES this build's
-        scripts are emitted under, canonical identifier (``"26.123"``)
-        or a vendor release name that resolves to exactly one registered
-        build. None means the registry declares none, and the caller's
-        campaign default answers for it.
-
-        It is a DECLARATION and never an inference. Nothing here reads a
-        version out of the executable path or out of the build id, which
-        is the rule :class:`pyflightstream.run.SolverBuild` exists to
-        state: a build id is a key of this registry, and which command
-        database a build carries is a fact only its owner knows.
-    """
-
-    fs_exe: Path
-    fs_version: str | None
-
-
-def _refuse_declared_version(version: str, build_id: str, registry_path: Path) -> None:
-    """Refuse a declared version the version registry does not carry.
-
-    The check happens where the version is READ rather than where a
-    script is emitted under it, so a typed identifier is refused with the
-    file and the build id in the message instead of surfacing much later
-    as an unknown-version error from the script layer.
-
-    Parameters
-    ----------
-    version : str
-        The version string the registry entry declares.
-    build_id : str
-        The build id whose entry declares it, for the message.
-    registry_path : Path
-        The registry file, for the message.
-
-    Raises
-    ------
-    InputArtifactError
-        The identifier names no registered version, or names a vendor
-        release name that more than one registered build carries. The
-        chained message lists the registered versions or the candidates.
-    """
-    try:
-        resolve(version)
-    except (UnknownVersionError, AmbiguousVersionAliasError) as error:
-        raise InputArtifactError(
-            f"the registry entry for build {build_id!r} in {registry_path} declares "
-            f"version {version!r}, which this package cannot resolve to one registered "
-            "FlightStream version. The version decides which command database the "
-            "build's scripts are emitted against, so it is never guessed from the "
-            f"build id or the executable path. {error}"
-        ) from error
-
-
-def resolve_build(
-    inputs_dir: Path, build_id: str, override: str | Path | None = None
-) -> RegisteredBuild:
-    """Read the registry entry of one build id: its executable and its version.
-
-    Two explicit modes, translated from the run matrix's MANUAL pattern:
-
-    - Registry mode (default): the build id must exist in
-      ``inputs/executables.toml``, a top-level TOML table mapping build
-      ids to entries.
-    - Override mode: an explicit ``override`` path wins over the
-      registry and is the only way to run an unregistered build; it is
-      never guessed from the environment. An override declares NO
-      version, because it is a bare path with no registry entry behind
-      it to carry one.
-
-    TWO ENTRY SHAPES, and the difference is what a build may say about
-    itself:
-
-    - ``"26.120" = "C:/fs26120/FlightStream.exe"`` is the shape this
-      registry has always had and means exactly what it meant: the build
-      id names an executable and declares no version, so a campaign that
-      sends a row to it emits that row's script under the campaign
-      default version.
-    - ``"26.123" = { path = "C:/fs26123/FlightStream.exe", version =
-      "26.123" }`` declares the version as well, which is what lets ONE
-      run matrix send its rows to two solver builds and record each row
-      against the version its own build emits under (PFS-2009.05).
-
-    The table is where the declaration lives because it is already the
-    file in which the user says what a build id MEANS on this machine.
-    Deriving the version from the build id instead would be the
-    inference :class:`pyflightstream.run.SolverBuild` refuses, and the
-    two are not the same thing: a registry key is a name the campaign
-    user chose, and nothing stops it naming an installation whose
-    command database is anything at all.
-
-    Parameters
-    ----------
-    inputs_dir : Path
-        The workspace ``inputs/`` directory.
-    build_id : str
-        Build identifier key of the registry, for example ``"26.120"``.
-    override : str or Path, optional
-        Explicit executable path bypassing the registry.
-
-    Returns
-    -------
-    RegisteredBuild
-        The executable, and the declared version or None.
-
-    Raises
-    ------
-    InputArtifactError
-        Registry file missing; build id not registered (the message
-        lists the registered build ids and the override mode); an entry
-        that is neither a path string nor a table; a table with no
-        ``path``; a table carrying a key outside
-        :data:`EXECUTABLE_ENTRY_KEYS`; or a declared version the version
-        registry does not carry.
-
-    Examples
-    --------
-    >>> from pyflightstream.workspace.inputs import resolve_build
-    >>> build = resolve_build(workspace.inputs_dir, "26.123")  # doctest: +SKIP
-    >>> build.fs_version                                       # doctest: +SKIP
-    '26.123'
-    """
-    if override is not None:
-        return RegisteredBuild(fs_exe=Path(override), fs_version=None)
-    registry_path = Path(inputs_dir) / EXECUTABLES_FILE
-    if not registry_path.is_file():
-        raise InputArtifactError(
-            f"no executable registry at {registry_path}; register builds as "
-            '"<build_id>" = "<path>" entries in that TOML file (this machine\'s paths may '
-            f"go in {LOCAL_EXECUTABLES_FILE} beside it, read over the registry, but the "
-            "registry itself must exist), or pass the explicit override path. The "
-            "executable is always explicit input, never guessed."
-        )
-    table = _load_toml(registry_path, "executables")
-    overlay_path = registry_path.with_name(LOCAL_EXECUTABLES_FILE)
-    #: Which file each build id's entry came from, so a refusal about an
-    #: entry names the file the user has to edit (a review of 2026-09-08
-    #: found the overlay's own mistakes reported against the registry).
-    source_of: dict[str, Path] = dict.fromkeys(table, registry_path)
-    if overlay_path.is_file():
-        for key, local in _load_toml(overlay_path, "executables").items():
-            committed = table.get(key)
-            if committed is None:
-                # The committed registry is the declaration of which builds
-                # this workspace knows; the overlay supplies paths for them
-                # and may not add one, or a row would run on one machine
-                # and be refused as unregistered on another from the same
-                # tree, with the file that explains it gitignored.
-                raise InputArtifactError(
-                    f"{overlay_path} supplies build {key!r}, which {registry_path.name} "
-                    f"does not register (registered: "
-                    f"{', '.join(sorted(table)) if table else 'none yet'}). The overlay "
-                    "gives this machine's path for a build the committed registry "
-                    "declares; declare the build there first, with a placeholder path."
-                )
-            if isinstance(local, str) and isinstance(committed, dict):
-                table[key] = {**committed, "path": local}
-            else:
-                table[key] = local
-            source_of[key] = overlay_path
-    entry = table.get(build_id)
-    entry_path = source_of.get(build_id, registry_path)
-    if entry is None:
-        # BOTH shapes count as registered. Listing only the string entries,
-        # which is what this did while a string was the only shape, would
-        # tell a user with a table-valued registry that nothing is
-        # registered at all.
-        registered = sorted(key for key, value in table.items() if isinstance(value, (str, dict)))
-        listing = ", ".join(registered) if registered else "none yet"
-        raise InputArtifactError(
-            f"build id {build_id!r} is not in the executable registry "
-            f"{registry_path} (registered: {listing}); add it there, or pass the "
-            "explicit override path to run an unregistered build."
-        )
-    if isinstance(entry, str):
-        return RegisteredBuild(fs_exe=Path(entry), fs_version=None)
-    if not isinstance(entry, dict):
-        raise InputArtifactError(
-            f"the registry entry for build {build_id!r} in {entry_path} must be "
-            f"a path string or a table, got {type(entry).__name__}; write "
-            f'"{build_id}" = "C:/path/to/FlightStream.exe" for a build whose scripts '
-            f'are emitted under the campaign default version, or "{build_id}" = '
-            '{ path = "C:/path/to/FlightStream.exe", version = "26.123" } to declare '
-            "the version this build's scripts are emitted under."
-        )
-    unknown = sorted(key for key in entry if key not in EXECUTABLE_ENTRY_KEYS)
-    if unknown:
-        raise InputArtifactError(
-            f"the registry entry for build {build_id!r} in {entry_path} carries "
-            f"key(s) {', '.join(unknown)}, and a build entry reads "
-            f"{', '.join(EXECUTABLE_ENTRY_KEYS)} and nothing else. The key is refused "
-            "rather than ignored because an ignored one is invisible: a misspelled "
-            "version key leaves the registry looking correct and every row of this "
-            "build emitted under the campaign default. Correct the spelling, or "
-            "remove the key."
-        )
-    path_value = entry.get("path")
-    if not isinstance(path_value, str):
-        stated = "declares no path" if path_value is None else f"declares path {path_value!r}"
-        raise InputArtifactError(
-            f"the registry entry for build {build_id!r} in {entry_path} {stated}, "
-            "and a table entry must carry path as a string; write "
-            f'"{build_id}" = {{ path = "C:/path/to/FlightStream.exe" }}. The '
-            "executable is always explicit input, never guessed."
-        )
-    version = entry.get("version")
-    if version is None:
-        return RegisteredBuild(fs_exe=Path(path_value), fs_version=None)
-    if not isinstance(version, str):
-        raise InputArtifactError(
-            f"the registry entry for build {build_id!r} in {entry_path} declares "
-            f"version {version!r} of type {type(version).__name__}, and a FlightStream "
-            'version is written as a string: version = "26.123". A bare 26.123 is a '
-            "TOML float and loses the three-digit form the canonical identifier is."
-        )
-    _refuse_declared_version(version, build_id, registry_path)
-    return RegisteredBuild(fs_exe=Path(path_value), fs_version=version)
-
-
-def resolve_executable(inputs_dir: Path, build_id: str, override: str | Path | None = None) -> Path:
-    """Resolve the FlightStream executable of one build id.
-
-    The path half of :func:`resolve_build`, which is where the registry
-    is read and where both entry shapes are described. This is the call
-    for a caller who wants the executable and nothing else; a caller who
-    also needs the version the build declares calls
-    :func:`resolve_build` instead, because the two facts come from one
-    entry and reading it twice is how they would drift apart.
-
-    Existence of the executable is checked by the executor at
-    construction (so campaigns can be authored away from the licensed
-    machine), not here.
-
-    Parameters
-    ----------
-    inputs_dir : Path
-        The workspace ``inputs/`` directory.
-    build_id : str
-        Build identifier key of the registry, for example ``"26.120"``.
-    override : str or Path, optional
-        Explicit executable path bypassing the registry.
-
-    Returns
-    -------
-    Path
-        The executable path.
-
-    Raises
-    ------
-    InputArtifactError
-        Every refusal of :func:`resolve_build`: registry file missing,
-        build id not registered, or a malformed entry.
-    """
-    return resolve_build(inputs_dir, build_id, override=override).fs_exe
 
 
 @dataclass(frozen=True)
@@ -2207,1314 +1809,6 @@ def migrate_input_ids(
         for name, text in rewritten.items():
             Path(name).write_bytes(text)
     return IdMigration(renames=tuple(renames), cells=cells, applied=apply)
-
-
-# --- the boundary inventory sidecar (PFS-2029.06) ------------------------------------
-
-#: Suffix of the sidecar that states a geometry's boundary order, appended
-#: to the geometry's stem: ``30_WB.fsm`` has ``30_WB.boundaries.toml``.
-INVENTORY_SUFFIX = ".boundaries.toml"
-#: Suffix of the record that says where a geometry came from, appended to
-#: its stem the same way. The package writes none: the tier-3 preparer and
-#: a user do, and the library carries it beside the file it describes.
-PROVENANCE_SUFFIX = ".provenance.toml"
-#: The two files that belong to a geometry and are never geometries
-#: themselves: the resolver leaves them out of what a cell could name and
-#: the layout migration moves them with their geometry (PFS-2032.05).
-SIDECAR_SUFFIXES = (INVENTORY_SUFFIX, PROVENANCE_SUFFIX)
-#: The page ``init`` leaves in the geometry library saying where a mesh goes
-#: (PFS-2032.07). It lives HERE, beside the suffixes, rather than beside the
-#: text it names, because the resolver and the writer are the two ends of one
-#: spelling: the resolver must leave this file out of what a GEOMETRY cell
-#: could name, and a second spelling of it is how that stops being true.
-GEOMETRIES_README = "README.md"
-
-
-def inventory_sidecar(geometry: str | Path) -> Path:
-    """Return the sidecar path beside ``geometry``, whether or not it exists."""
-    path = Path(geometry)
-    return path.with_name(path.stem + INVENTORY_SUFFIX)
-
-
-def write_inventory(geometry: str | Path, *, overwrite: bool = False) -> Path:
-    """Write ``<stem>.boundaries.toml`` beside a saved simulation.
-
-    THE ORDER IS READ, NEVER STATED (PFS-2029.06.02). Until 0.11.0 a
-    setup preset could carry ``mesh_order_list``, an order typed by hand
-    for one mesh into a file several meshes shared, and nothing checked
-    it against any of them. The sidecar is produced from the mesh block
-    of the file it sits beside, and a run whose sidecar disagrees with
-    the file is refused before the solver starts (:func:`read_inventory`
-    and the workflow builder), so the two cannot drift apart silently.
-
-    AN OBJ IS READ FROM ITS GROUPS (G30). It carries no mesh block, and
-    its sidecar is written through :func:`ensure_inventory`, the function
-    the matrix binding reaches it through as well, so ``pyfs-matrix
-    inventory`` and a plan write the same file. An OBJ's existing sidecar
-    is refused with ``overwrite`` too: beside a raw mesh it also carries
-    the ``[import]`` table and the trailing edges, which a rewrite of the
-    list would lose. An STL, which names no group, is refused as before.
-
-    Parameters
-    ----------
-    geometry : str or Path
-        A saved simulation file carrying a mesh block, or an OBJ.
-    overwrite : bool
-        Rewrite a saved simulation's sidecar that already exists. Without
-        it an existing sidecar is refused, because the file may have been
-        edited by the user after it was written.
-
-    Returns
-    -------
-    Path
-        The sidecar written.
-
-    Raises
-    ------
-    InputArtifactError
-        A geometry that cannot be read, that carries no mesh block, or
-        whose block does not hold its shape, each naming the file; a
-        sidecar that already exists, naming it and ``--overwrite``; an
-        OBJ's sidecar that already exists, with ``overwrite`` or without;
-        an OBJ whose groups cannot be read (:func:`obj_boundary_names`).
-    """
-    path = Path(geometry)
-    sidecar = inventory_sidecar(path)
-    if not path.is_file():
-        raise InputArtifactError(
-            f"{path} is not a file, so no boundary inventory can be read from it."
-        )
-    if path.suffix.lower() == OBJ_SUFFIX:
-        if sidecar.exists():
-            raise InputArtifactError(
-                f"{sidecar} already exists, and the sidecar of an OBJ is never rewritten, "
-                "overwrite (CLI: --overwrite) or not: beside a raw mesh it also carries the "
-                "[import] table and the trailing edges, which a rewrite of the list would "
-                f"lose. A plan compares its boundaries with the groups of {path.name} and "
-                "warns naming both lists when they differ; correct the list by hand, or "
-                "move the file aside, run this again and copy its tables beneath the new "
-                "list (docs/mesh-inputs.md)."
-            )
-        return ensure_inventory(path)
-    if sidecar.exists() and not overwrite:
-        raise InputArtifactError(
-            f"{sidecar} already exists; pass overwrite (CLI: --overwrite) to rewrite it "
-            "from the mesh block, after checking that the file is the one the sidecar "
-            "should describe."
-        )
-    try:
-        names = boundary_names(path)
-    except MeshReadError as error:
-        raise InputArtifactError(f"{path.name}: {error}") from error
-    if not names:
-        raise InputArtifactError(
-            f"{path} carries no mesh block, so it states no boundary order to write. "
-            "A saved simulation (.fsm) carries one; a raw mesh (.obj, .stl) does not, so "
-            f"write its surface names by hand in {sidecar.name}, in the file's order, "
-            "beside the [import] table that states its units (docs/mesh-inputs.md)."
-        )
-    body = [
-        f"# Boundary inventory of {path.name}, read from its mesh block by "
-        "`pyfs-matrix inventory`.",
-        "# The solver's own order: the name at position i is boundary i (1-based).",
-        f'file = "{path.name}"',
-        "boundaries = [",
-        *[f'    "{name}",' for name in names],
-        "]",
-    ]
-    sidecar.write_text("\n".join(body) + "\n", encoding="utf-8")
-    return sidecar
-
-
-# --- an OBJ's surface names, read from its groups (G30, RPT-078) ---------------------
-
-#: The raw-mesh suffix whose surface names are read from the file itself. An
-#: OBJ names its groups, and the solver makes one boundary of each group that
-#: holds a face, named by the group, in the order of the file (RPT-078). An
-#: STL names no group, so its names stay written by hand.
-OBJ_SUFFIX = ".obj"
-
-#: The two statements that open a group of an OBJ. RPT-078 measured both,
-#: each alone in its file; a file mixing them is refused.
-_OBJ_GROUP_STATEMENTS = ("o", "g")
-
-
-def obj_boundary_names(path: str | Path) -> tuple[str, ...]:
-    """Return measured OBJ boundary names in native order, preserving duplicates.
-
-    RPT-078 established face-bearing groups. GOAL-033 controls on 26.124,
-    build 8172026 additionally measured an o-to-g transition, repeated g
-    groups, a face prefix before the first g, and multiple names in a g
-    statement. The latter uses only its first name, with a warning.
-
-    Repeated g groups remain separate boundaries; ambiguous labels must be
-    selected by position downstream. Reverse g-to-o transitions, repeated
-    o names, unnamed groups and multiword o names remain unmeasured here.
-    """
-    mesh = Path(path)
-    by_hand = (
-        "The surface names of such a file are not read from it: write them by hand in "
-        f"{inventory_sidecar(mesh).name} beside it, as boundaries = [...] in the order the "
-        "solver numbers the surfaces (docs/mesh-inputs.md)."
-    )
-    names: list[str] = []
-    opened: dict[str, tuple[str, int]] = {}
-    previous: tuple[str, int] | None = None
-    current: str | None = None
-    holds_face = False
-    prefix_face_line: int | None = None
-    try:
-        with mesh.open(encoding="utf-8") as lines:
-            for number, line in enumerate(lines, start=1):
-                if line.startswith("v"):
-                    continue
-                words = line.split("#", 1)[0].split()
-                if not words:
-                    continue
-                if words[0] == "f":
-                    if current is None and prefix_face_line is None:
-                        prefix_face_line = number
-                    holds_face = True
-                    continue
-                if words[0] not in _OBJ_GROUP_STATEMENTS:
-                    continue
-                statement = words[0]
-                if len(words) < 2 or (statement == "o" and len(words) != 2):
-                    stated = "no group" if len(words) == 1 else "a group of several words"
-                    raise InputArtifactError(
-                        f"{mesh}: line {number}, {line.strip()!r}, names {stated}, and how "
-                        f"the solver names such a group is not measured. {by_hand}"
-                    )
-                if prefix_face_line is not None and previous is None and statement != "g":
-                    raise InputArtifactError(
-                        f"{mesh}: line {prefix_face_line} writes a face before the first "
-                        f"{statement!r} group; that variant is not measured. {by_hand}"
-                    )
-                if previous is not None and previous[0] == "g" and statement == "o":
-                    raise InputArtifactError(
-                        f"{mesh}: line {number} opens a group with `o` after `g` at "
-                        f"line {previous[1]}; this transition is not measured. {by_hand}"
-                    )
-                name = words[1]
-                if name in opened and (statement != "g" or opened[name][0] != "g"):
-                    raise InputArtifactError(
-                        f"{mesh}: line {number} opens the group {name!r} again, first opened "
-                        f"at line {opened[name][1]}: a group in two places involving an "
-                        f"`o` statement is not measured. {by_hand}"
-                    )
-                if len(words) > 2:
-                    warn(
-                        f"{mesh}: line {number} names multiple OBJ groups; the measured "
-                        f"native importer uses only the first, {name!r}.",
-                        PyflightstreamWarning,
-                        stacklevel=2,
-                    )
-                opened.setdefault(name, (statement, number))
-                if holds_face:
-                    names.append(current if current is not None else "Boundary-1")
-                current, holds_face = name, False
-                previous = (statement, number)
-    except (OSError, UnicodeDecodeError) as error:
-        raise InputArtifactError(
-            f"{mesh} cannot be read as the text of an OBJ: {error}. {by_hand}"
-        ) from error
-    if current is not None and holds_face:
-        names.append(current)
-    if not names:
-        raise InputArtifactError(
-            f"{mesh} holds no face under any measured `o` or `g` group, so no "
-            f"boundary inventory is established; check the mesh. {by_hand}"
-        )
-    return tuple(names)
-
-
-def ensure_inventory(geometry: str | Path) -> Path:
-    """Return the boundary sidecar beside a geometry, writing an OBJ's from its groups (G30).
-
-    THE ONE PLACE A SIDECAR IS ASKED FOR. The matrix binding, which
-    ``pyfs-matrix plan`` and ``pyfs-matrix run`` both pass through, and
-    ``pyfs-matrix inventory`` (:func:`write_inventory`) reach the sidecar
-    through this function, so an OBJ is treated alike wherever a user
-    meets it:
-
-    * an OBJ with no sidecar gets one, its ``boundaries`` read by
-      :func:`obj_boundary_names` under a comment header naming the file's
-      sha256 and RPT-078, and a line on stderr says so. It carries the
-      list and nothing else: the ``[import]`` units and the trailing
-      edges, which only the user can state, go beneath it.
-    * an OBJ with a sidecar keeps it, never rewritten, because the file
-      may carry tables and names the user wrote. When its ``boundaries``
-      differ from the groups, in names or in order, the run cites the
-      sidecar's, as before, and a warning names both lists; when the
-      groups cannot be read, the sidecar written by hand is that file's
-      route and nothing is said.
-    * any other geometry is left as it was: a saved simulation's sidecar
-      is written by ``pyfs-matrix inventory`` from its mesh block, and an
-      STL's by hand.
-
-    Parameters
-    ----------
-    geometry : str or Path
-        The geometry the sidecar sits beside.
-
-    Returns
-    -------
-    Path
-        The sidecar beside ``geometry``, which exists for every OBJ this
-        returns for; for another geometry it exists only if written.
-
-    Raises
-    ------
-    InputArtifactError
-        An OBJ with no sidecar whose groups cannot be read
-        (:func:`obj_boundary_names`), naming the line and the sidecar to
-        write by hand; an OBJ whose sidecar states no ``boundaries`` list,
-        naming the list its groups make.
-
-    Warns
-    -----
-    PyflightstreamWarning
-        An OBJ whose sidecar's ``boundaries`` differ from its groups,
-        naming both lists.
-    """
-    path = Path(geometry)
-    sidecar = inventory_sidecar(path)
-    if path.suffix.lower() != OBJ_SUFFIX or not path.is_file():
-        return sidecar
-    if sidecar.exists():
-        _compare_with_the_groups(path, sidecar)
-        return sidecar
-    names = obj_boundary_names(path)
-    body = [
-        f"# Written by pyflightstream from the groups of {path.name}, which had no sidecar;",
-        f"# the OBJ's sha256 was {file_sha256(path)}.",
-        "# One boundary per `o` or `g` group holding a face, named by the group, in the",
-        "# order of the file: how the solver numbers an OBJ's surfaces on import",
-        "# (RPT-078). The package never rewrites this file. Add the [import] table with",
-        "# the file's units, and the [trailing_edges] table, beneath the list",
-        "# (docs/mesh-inputs.md).",
-        "boundaries = [",
-        *[f"    {_toml_string(name)}," for name in names],
-        "]",
-    ]
-    sidecar.write_text("\n".join(body) + "\n", encoding="utf-8")
-    print(
-        f"wrote {sidecar}: the boundaries of {path.name}, read from its groups in the "
-        f"order of the file (RPT-078): {', '.join(names)}. Add its [import] units and its "
-        "[trailing_edges] beneath them.",
-        file=sys.stderr,
-        flush=True,
-    )
-    return sidecar
-
-
-def _compare_with_the_groups(mesh: Path, sidecar: Path) -> None:
-    """Warn when an OBJ's own sidecar lists other boundaries than its groups make (G30)."""
-    stated = _sidecar_data(sidecar).get("boundaries")
-    try:
-        groups = obj_boundary_names(mesh)
-    except InputArtifactError:
-        # The file is one whose names are not read from it, so the list
-        # written by hand is its route, and there is nothing to compare.
-        return
-    listed = ", ".join(groups)
-    if not isinstance(stated, list) or not stated or not all(isinstance(n, str) for n in stated):
-        written = ", ".join(_toml_string(name) for name in groups)
-        raise InputArtifactError(
-            f"{sidecar} does not state `boundaries` as a non-empty list of strings. The "
-            f"groups of {mesh.name} that hold a face, in the order the solver numbers "
-            f"them on import (RPT-078), are {listed}: write boundaries = [{written}] at "
-            "the top of the file. It is never rewritten by the package, because it may "
-            "carry tables you wrote (docs/mesh-inputs.md)."
-        )
-    if tuple(stated) != groups:
-        warn(
-            f"{sidecar.name} lists the boundaries of {mesh.name} as {', '.join(stated)}, and "
-            "its groups that hold a face, in the order the solver numbers them on import "
-            f"(RPT-078), are {listed}. The run cites the sidecar's list as written, so a "
-            "surface it names at a position where the file holds another is cited at the "
-            "wrong one. Correct the list, or move the sidecar aside, plan again to have it "
-            "written from the groups, and copy its tables beneath the new list.",
-            PyflightstreamWarning,
-            stacklevel=3,
-        )
-
-
-def _toml_string(name: str) -> str:
-    """Quote one name as a TOML basic string; JSON's escapes are TOML's."""
-    return json.dumps(name, ensure_ascii=False)
-
-
-#: The table of a geometry's sidecar that states how a raw mesh is imported
-#: (G01): ``[import]``, holding ``units``.
-IMPORT_TABLE = "import"
-
-
-def _sidecar_data(sidecar: Path) -> dict[str, Any]:
-    """Parse one geometry sidecar, refusing a file that does not read as TOML, by name.
-
-    ONE PARSE, ONE READER PER TABLE. The sidecar holds the boundary order
-    (``boundaries``) and, beside a raw mesh, the ``[import]`` table; each
-    is read by its own function over this parse, and no reader refuses a
-    table it does not read. A table added to the file later is therefore
-    one more reader beside these, and the readers already here are left as
-    they are.
-    """
-    try:
-        return tomllib.loads(sidecar.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError) as error:
-        raise InputArtifactError(
-            f"{sidecar} cannot be read as a geometry sidecar: {error}"
-        ) from error
-
-
-def read_inventory(sidecar: str | Path) -> tuple[str, ...]:
-    """Return the ordered boundary names a sidecar states.
-
-    Raises
-    ------
-    InputArtifactError
-        A sidecar without a ``boundaries`` list of strings, naming it.
-    """
-    path = Path(sidecar)
-    names = _sidecar_data(path).get("boundaries")
-    if not isinstance(names, list) or not names or not all(isinstance(n, str) for n in names):
-        raise InputArtifactError(
-            f"{path} does not state `boundaries` as a non-empty list of strings; "
-            "for a saved simulation, rewrite it from the file with `pyfs-matrix "
-            "inventory <geometry>`, overwrite (CLI: --overwrite); for a raw mesh (.obj, "
-            ".stl), write its surface names in the order the solver numbers them "
-            "(docs/mesh-inputs.md)."
-        )
-    return tuple(names)
-
-
-def read_mesh_import(sidecar: str | Path) -> MeshImport | None:
-    """Return the ``[import]`` table a geometry's sidecar states, or None (G01, G03).
-
-    The table states the length unit a raw mesh is written in, and the
-    mesh operations applied right after the import, in the order written::
-
-        boundaries = ["naca"]
-
-        [import]
-        units = "MILLIMETER"
-
-        [[import.operations]]
-        op = "rename"
-        surface = "naca"
-        to = "Wing"
-
-    Read at binding, beside :func:`read_inventory`, so a table that does
-    not hold its shape is refused with the row before any seat is spent,
-    an operation named by its position. Whether the unit is one ``IMPORT``
-    takes, whether the geometry is a raw mesh at all, and whether each
-    cited surface exists at its step, is the builder's to judge, per build.
-
-    Parameters
-    ----------
-    sidecar : str or Path
-        The ``<stem>.boundaries.toml`` beside the geometry.
-
-    Returns
-    -------
-    MeshImport or None
-        None when the file holds no ``[import]`` table.
-
-    Raises
-    ------
-    InputArtifactError
-        A file that does not read as TOML, an ``import`` key that is not a
-        table, a table that states no ``units`` or a key it does not read,
-        or an operation that does not hold its shape (its own keys, finite
-        numbers, scale factors above zero, a named surface for a rename or
-        a mirror), each naming the sidecar and the operation's position.
-    """
-    path = Path(sidecar)
-    table = _sidecar_data(path).get(IMPORT_TABLE)
-    if table is None:
-        return None
-    if not isinstance(table, dict):
-        raise InputArtifactError(
-            f"{path} states `{IMPORT_TABLE}` as a {type(table).__name__}; write it as the "
-            f'table [{IMPORT_TABLE}], with units = "MILLIMETER" (the unit the mesh file is '
-            "written in) beneath it."
-        )
-    try:
-        return MeshImport.model_validate(table)
-    except ValidationError as error:
-        missing = any(
-            item["type"] == "missing" and tuple(item["loc"]) == ("units",)
-            for item in error.errors()
-        )
-        if missing:
-            raise InputArtifactError(
-                f"{path}: the [{IMPORT_TABLE}] table does not state `units`, the length "
-                "unit the mesh file is written in; write it beneath the table, as "
-                'units = "MILLIMETER". A unit is never assumed (docs/mesh-inputs.md).'
-            ) from error
-        problems = "; ".join(
-            f"{_where_in_the_import_table(item['loc'])}: "
-            f"{str(item['msg']).removeprefix('Value error, ')}"
-            for item in error.errors()
-        )
-        raise InputArtifactError(
-            f"{path}: the [{IMPORT_TABLE}] table is refused: {problems}. It holds `units`, "
-            "the length unit the mesh file is written in, and the mesh operations of the "
-            f"import as [[{IMPORT_TABLE}.operations]], numbered in the order written "
-            "(docs/mesh-inputs.md)."
-        ) from error
-
-
-#: The tables of a geometry's sidecar that declare a raw mesh's boundary
-#: conditions (G02): the trailing edge, which every raw mesh a workflow
-#: imports declares, and two options that apply only when written.
-TRAILING_EDGES_TABLE = "trailing_edges"
-WAKE_TERMINATION_TABLE = "wake_termination"
-BASE_REGIONS_TABLE = "base_regions"
-RAW_MESH_CONDITION_TABLES = (TRAILING_EDGES_TABLE, WAKE_TERMINATION_TABLE, BASE_REGIONS_TABLE)
-
-#: The word a ``detect`` key takes for detection over every surface.
-DETECT_EVERYWHERE = "auto"
-
-#: WHAT A GEOMETRY'S SIDECAR MAY HOLD AT ITS TOP LEVEL, each with what it
-#: sets, for the generated input glossary ``INPUTS.md`` (G08 of 0.27.0). The
-#: tables' own keys are in the registries below, which are the ones their
-#: readers read, so a key a reader gains is a key the glossary states.
-GEOMETRY_SIDECAR_KEYS: Mapping[str, InputKey] = {
-    "ports": InputKey(
-        "Stable port identity to exact surface name; conditions belong to setup and MATRIX.",
-        'a table such as [ports] with feed = "Inlet"',
-    ),
-    "boundaries": InputKey(
-        "The mesh's boundary names in the solver's order, the name at position i being "
-        "boundary i; read from a saved simulation by pyfs-matrix inventory, read from an "
-        "OBJ's groups by the plan when it has no sidecar, written by hand for an STL.",
-        "a list of names",
-    ),
-    "file": InputKey(
-        "The file the inventory was read from, as pyfs-matrix inventory writes it; "
-        "nothing reads it back.",
-        "a file name",
-    ),
-    IMPORT_TABLE: InputKey(
-        "How a raw mesh is imported: the unit it is written in and the operations "
-        "applied right after.",
-        "a table; see `[import]` below",
-        "IMPORT",
-    ),
-    TRAILING_EDGES_TABLE: InputKey(
-        "How a raw mesh's trailing edges are marked, which every raw mesh a workflow "
-        "imports declares.",
-        "a table; see `[trailing_edges]` below",
-        "IMPORT_WAKE_EDGES_FROM_FILE, AUTO_DETECT_TRAILING_EDGES, DETECT_TRAILING_EDGES_BY_SURFACE",
-    ),
-    WAKE_TERMINATION_TABLE: InputKey(
-        "Detects a raw mesh's wake-termination nodes, only when written.",
-        "a table; see `[wake_termination]` below",
-        "AUTO_DETECT_WAKE_TERMINATION_NODES, DETECT_WAKE_TERMINATION_NODES_BY_SURFACE",
-    ),
-    BASE_REGIONS_TABLE: InputKey(
-        "Detects a raw mesh's base regions over the whole mesh, only when written.",
-        "a table; see `[base_regions]` below",
-        "AUTO_DETECT_BASE_REGIONS",
-    ),
-}
-
-#: THE KEYS EACH BOUNDARY-CONDITION TABLE OF A SIDECAR READS, each with what it
-#: sets. The readers below read THESE: a key outside its table's entry is
-#: refused naming itself, so a key added here is read and stated at once, and
-#: one read without a meaning cannot exist.
-RAW_MESH_CONDITION_KEYS: Mapping[str, Mapping[str, InputKey]] = {
-    TRAILING_EDGES_TABLE: {
-        "none": InputKey(
-            "Explicitly declares a body without a trailing edge; no wake is generated by it.",
-            "true, alone in the table",
-            "",
-        ),
-        "file": InputKey(
-            "The points file beside the sidecar holding the mid-point of every "
-            "trailing-edge mesh edge, under a line naming their length unit; the "
-            "default route.",
-            "a file name",
-            "IMPORT_WAKE_EDGES_FROM_FILE",
-        ),
-        "type": InputKey(
-            "The edge type every point of the file is given.",
-            'text, default `"STANDARD"`',
-            "IMPORT_WAKE_EDGES_FROM_FILE",
-        ),
-        "tolerance": InputKey(
-            "The distance within which an edge's mid-point counts as a point of the file.",
-            "m, > 0, default `0.0001`",
-            "IMPORT_WAKE_EDGES_FROM_FILE",
-        ),
-        "detect": InputKey(
-            "Marks the edges by the solver's detection instead of a file, over every "
-            "surface or on the surfaces named.",
-            '`"auto"`, or a table; see `detect = { ... }` below',
-            "AUTO_DETECT_TRAILING_EDGES, DETECT_TRAILING_EDGES_BY_SURFACE",
-        ),
-    },
-    WAKE_TERMINATION_TABLE: {
-        "detect": InputKey(
-            "Detects the wake-termination nodes over every surface, or on the surfaces named.",
-            '`"auto"`, or `{ surfaces = ["<name>"] }`',
-            "AUTO_DETECT_WAKE_TERMINATION_NODES, DETECT_WAKE_TERMINATION_NODES_BY_SURFACE",
-        ),
-    },
-    BASE_REGIONS_TABLE: {
-        "detect": InputKey(
-            "Detects the base regions over the whole mesh; a named boundary is the "
-            "row's BASE_REGIONS key's.",
-            '`"auto"`',
-            "AUTO_DETECT_BASE_REGIONS",
-        ),
-    },
-}
-
-#: The keys a ``detect = { ... }`` table of ``[trailing_edges]`` reads, with
-#: what each sets, read by :func:`_read_trailing_edge_detection`.
-TRAILING_EDGE_DETECT_KEYS: Mapping[str, InputKey] = {
-    "surfaces": InputKey(
-        "The surfaces to detect on, by the sidecar's names.",
-        'a list of names, or `"all"` for every surface',
-        "DETECT_TRAILING_EDGES_BY_SURFACE",
-    ),
-    "sweep_angle": InputKey(
-        "The sweep angle set before the detection, only when stated.",
-        "deg",
-        "SET_TRAILING_EDGE_SWEEP_ANGLE",
-    ),
-}
-
-#: The keys ``[trailing_edges]`` reads: ``file`` with ``type`` and
-#: ``tolerance``, the default route, or ``detect`` alone.
-_TRAILING_EDGE_KEYS = tuple(RAW_MESH_CONDITION_KEYS[TRAILING_EDGES_TABLE])
-
-#: The keys a ``detect = { ... }`` table of ``[trailing_edges]`` reads.
-_DETECT_KEYS = tuple(TRAILING_EDGE_DETECT_KEYS)
-
-_TRAILING_EDGE_ROUTES = (
-    'file = "<points file>", the default route: the mid-point of every trailing-edge '
-    'mesh edge, under a line naming their length unit; or detect = "auto" or '
-    'detect = { surfaces = ["<name>"], sweep_angle = <degrees> }, detection, which '
-    "applies only when written (docs/mesh-inputs.md)"
-)
-
-
-def read_raw_mesh_conditions(sidecar: str | Path) -> RawMeshConditions | None:
-    """Return the boundary conditions a raw mesh's sidecar declares, or None (G02).
-
-    Three tables, each read only when written::
-
-        [trailing_edges]
-        file = "wing.te.txt"      # the default route: a points file
-        type = "STANDARD"         # optional, the edge type of every point
-        tolerance = 0.0001        # optional, in the simulation's length unit
-
-        # or detection, only when written:
-        # detect = "auto"
-        # detect = { surfaces = ["Wing"], sweep_angle = 60 }
-
-        [wake_termination]
-        detect = "auto"           # or { surfaces = ["Wing"] }
-
-        [base_regions]
-        detect = "auto"
-
-    Read at binding, beside :func:`read_mesh_import`, so a table that does
-    not hold its shape is refused with the row before any seat is spent.
-    ``file`` is resolved against the sidecar's folder here; its points are
-    read and checked against the mesh by the binding, which knows the
-    mesh's unit, and whether the geometry is a raw mesh at all is the
-    builder's to judge.
-
-    Parameters
-    ----------
-    sidecar : str or Path
-        The ``<stem>.boundaries.toml`` beside the geometry.
-
-    Returns
-    -------
-    RawMeshConditions or None
-        None when the file holds none of the three tables. A file route's
-        ``points_m`` are empty here and ``points_file`` names the file.
-
-    Raises
-    ------
-    InputArtifactError
-        A table written as anything but a table, a key a table does not
-        read, a ``[trailing_edges]`` stating both ``file`` and ``detect`` or
-        neither, a ``type`` or ``tolerance`` beside ``detect``, a ``detect``
-        of a shape its table does not take, an empty surface list, or a
-        tolerance that is not a positive number; each naming the sidecar
-        and the table.
-    """
-    path = Path(sidecar)
-    data = _sidecar_data(path)
-    if any(name in data for name in ("inlets", "outlets")):
-        raise InputArtifactError(
-            f"{path}: inlet/outlet conditions belong to setup [[ports]] and MATRIX values; "
-            "keep only [ports] identity-to-surface mappings in this geometry sidecar."
-        )
-    ports = data.get("ports", {})
-    if not isinstance(ports, dict) or any(
-        not isinstance(key, str)
-        or not key.strip()
-        or not isinstance(value, str)
-        or not value.strip()
-        for key, value in ports.items()
-    ):
-        raise InputArtifactError(f"{path}: [ports] maps each nonempty identity to a surface name")
-    tables: dict[str, dict[str, Any] | None] = {}
-    for name in RAW_MESH_CONDITION_TABLES:
-        table = data.get(name)
-        if table is not None and not isinstance(table, dict):
-            raise InputArtifactError(
-                f"{path} states `{name}` as a {type(table).__name__}; write it as the table "
-                f"[{name}] with its keys beneath it (docs/mesh-inputs.md)."
-            )
-        tables[name] = table
-    if all(table is None for table in tables.values()) and not ports:
-        return None
-    trailing = tables[TRAILING_EDGES_TABLE]
-    wake = tables[WAKE_TERMINATION_TABLE]
-    base = tables[BASE_REGIONS_TABLE]
-    try:
-        return RawMeshConditions(
-            trailing_edges=None if trailing is None else _read_trailing_edges(path, trailing),
-            wake_termination=(
-                None
-                if wake is None
-                else _read_detection(path, WAKE_TERMINATION_TABLE, wake, by_surface=True)
-            ),
-            base_regions=(
-                None
-                if base is None
-                else _read_detection(path, BASE_REGIONS_TABLE, base, by_surface=False)
-            ),
-            ports=ports,
-        )
-    except ValueError as exc:
-        raise InputArtifactError(f"{path}: invalid mesh boundary conditions: {exc}") from exc
-
-
-def _read_trailing_edges(path: Path, table: Mapping[str, Any]) -> TrailingEdgeMarking:
-    """Read ``[trailing_edges]``: one route, file or detect, and the keys of that route."""
-    where = f"{path}: the [{TRAILING_EDGES_TABLE}] table"
-    if "none" in table:
-        if table != {"none": True} or table["none"] is not True:
-            raise InputArtifactError(f"{where}: none = true must be the only trailing-edge choice")
-        return TrailingEdgeMarking(route="none")
-    foreign = sorted(set(table) - set(_TRAILING_EDGE_KEYS))
-    if foreign:
-        raise InputArtifactError(
-            f"{where} does not read {', '.join(foreign)}; it reads {_TRAILING_EDGE_ROUTES}, "
-            "with type and tolerance beside file."
-        )
-    if ("file" in table) == ("detect" in table):
-        stated = "both file and detect" if "file" in table else "neither file nor detect"
-        raise InputArtifactError(
-            f"{where} states {stated}, and a trailing edge is marked by one of them: "
-            f"{_TRAILING_EDGE_ROUTES}."
-        )
-    tolerance = table.get("tolerance", 0.0001)
-    if isinstance(tolerance, bool) or not isinstance(tolerance, (int, float)):
-        raise InputArtifactError(
-            f"{where} states tolerance = {tolerance!r}; write the distance, in the "
-            "simulation's length unit, within which an edge's mid-point counts as a point "
-            "of the file, as a number such as 0.0001."
-        )
-    fields: dict[str, Any] = {}
-    if "file" in table:
-        written = table["file"]
-        if not isinstance(written, str) or not written.strip():
-            raise InputArtifactError(
-                f"{where} states file = {written!r}; write the name of the points file, "
-                'beside the sidecar, as file = "wing.te.txt".'
-            )
-        fields = {
-            "route": "file",
-            "edge_type": table.get("type", "STANDARD"),
-            "tolerance": float(tolerance),
-            "points_file": str(path.parent / written.strip()),
-        }
-    else:
-        stated = sorted(key for key in ("type", "tolerance") if key in table)
-        if stated:
-            raise InputArtifactError(
-                f"{where} states {' and '.join(stated)} beside detect, and detection reads "
-                "neither: it gives every edge it marks the STANDARD type and matches no "
-                "points. Delete them, or mark the edges by a points file (file = ...)."
-            )
-        fields = {"route": "detect", **_read_trailing_edge_detection(where, table["detect"])}
-    try:
-        return TrailingEdgeMarking.model_validate(fields)
-    except ValidationError as error:
-        problems = "; ".join(
-            str(item["msg"]).removeprefix("Value error, ") for item in error.errors()
-        )
-        raise InputArtifactError(f"{where} is refused: {problems}.") from error
-
-
-def _read_trailing_edge_detection(where: str, detect: object) -> dict[str, Any]:
-    """Read ``detect``: ``"auto"``, or a table of surfaces and an optional sweep angle."""
-    if detect == DETECT_EVERYWHERE:
-        return {}
-    if not isinstance(detect, dict):
-        raise InputArtifactError(
-            f'{where} states detect = {detect!r}; write detect = "{DETECT_EVERYWHERE}" for '
-            'detection over every surface, or detect = { surfaces = ["<name>"], '
-            "sweep_angle = <degrees> } for detection on the surfaces named."
-        )
-    foreign = sorted(set(detect) - set(_DETECT_KEYS))
-    if foreign:
-        raise InputArtifactError(
-            f"{where}: detect does not read {', '.join(foreign)}; it reads surfaces and, "
-            "optionally, sweep_angle."
-        )
-    surfaces = detect.get("surfaces")
-    fields: dict[str, Any] = {"detect_surfaces": _surface_names(where, surfaces, every=True)}
-    if "sweep_angle" in detect:
-        angle = detect["sweep_angle"]
-        if isinstance(angle, bool) or not isinstance(angle, (int, float)):
-            raise InputArtifactError(
-                f"{where}: detect states sweep_angle = {angle!r}; write it in degrees, as a number."
-            )
-        fields["sweep_angle_deg"] = float(angle)
-    return fields
-
-
-def _surface_names(where: str, surfaces: object, *, every: bool) -> tuple[str, ...]:
-    """Read a ``surfaces`` list of sidecar names; ``"all"`` is every surface where ``every``."""
-    if every and surfaces == EVERY_SURFACE:
-        return ()
-    if (
-        not isinstance(surfaces, list)
-        or not surfaces
-        or not all(isinstance(name, str) and name.strip() for name in surfaces)
-    ):
-        written = "is not stated" if surfaces is None else f"= {surfaces!r}"
-        also = f', or "{EVERY_SURFACE}" for every surface' if every else ""
-        raise InputArtifactError(
-            f"{where}: detect's surfaces {written}; write the surfaces to detect on as a "
-            f'non-empty list of the sidecar\'s names, surfaces = ["<name>"]{also}.'
-        )
-    return tuple(name.strip() for name in surfaces)
-
-
-def _read_detection(
-    path: Path, name: str, table: Mapping[str, Any], *, by_surface: bool
-) -> str | tuple[str, ...]:
-    """Read ``[wake_termination]`` or ``[base_regions]``: one ``detect`` key."""
-    where = f"{path}: the [{name}] table"
-    shapes = f'detect = "{DETECT_EVERYWHERE}"' + (
-        ' or detect = { surfaces = ["<name>"] }' if by_surface else ""
-    )
-    foreign = sorted(set(table) - set(RAW_MESH_CONDITION_KEYS[name]))
-    if foreign or "detect" not in table:
-        stated = f"reads no {', '.join(foreign)}" if foreign else "states no detect"
-        raise InputArtifactError(f"{where} {stated}; it reads one key, {shapes}.")
-    detect = table["detect"]
-    if detect == DETECT_EVERYWHERE:
-        return DETECT_EVERYWHERE
-    if by_surface and isinstance(detect, dict) and set(detect) == {"surfaces"}:
-        return _surface_names(where, detect["surfaces"], every=False)
-    why = (
-        ""
-        if by_surface
-        else ". A base region is detected on a named boundary by the row's BASE_REGIONS "
-        "key, which names the boundary that becomes the base"
-    )
-    raise InputArtifactError(f"{where} states detect = {detect!r}; it takes {shapes}{why}.")
-
-
-def _where_in_the_import_table(loc: Sequence[int | str]) -> str:
-    """Name a place of the ``[import]`` table as its reader counts it: ``operation 2 (factors)``."""
-    if len(loc) >= 2 and loc[0] == "operations" and isinstance(loc[1], int):
-        rest = ".".join(str(part) for part in loc[2:])
-        return f"operation {loc[1] + 1}" + (f" ({rest})" if rest else "")
-    return ".".join(str(part) for part in loc) or "the table"
-
-
-# --- one subfolder per geometry (PFS-2032.05) ----------------------------------------
-
-
-@dataclass(frozen=True)
-class GeometryMigration:
-    """What :func:`migrate_geometry_layout` did to one library.
-
-    Attributes
-    ----------
-    moved : tuple of (Path, Path)
-        Every file moved, as ``(where it was, where it is)``, in the order
-        the moves were made: each geometry file, then the sidecars that
-        carry its stem.
-    kept : tuple of str
-        The stems whose folder already existed and was left alone, a flat
-        file of that stem included: the folder is the reading's first
-        answer, so the migration does not decide which of the two the
-        owner meant.
-    """
-
-    moved: tuple[tuple[Path, Path], ...]
-    kept: tuple[str, ...]
-
-
-def migrate_geometry_layout(inputs_dir: str | Path) -> GeometryMigration:
-    """Move a flat geometry library into one folder per geometry, idempotently.
-
-    Every ``geometries/<stem>.<ext>`` directly under the library moves to
-    ``geometries/<stem>/<stem>.<ext>``, and its ``<stem>.boundaries.toml``
-    and ``<stem>.provenance.toml`` move with it, so what belongs to one
-    geometry sits in one place (PFS-2032.05, design 68 section A3). A
-    folder that already exists is left alone with whatever it holds, and a
-    second run over the same library moves nothing: nothing here decides
-    for the user. The run records of a workspace are untouched and keep
-    reading, because a record names its inputs by file name and hashes
-    their bytes, and neither moved.
-
-    Nothing migrates by itself: the resolver reads both layouts, and the
-    flat one is not deprecated.
-
-    Parameters
-    ----------
-    inputs_dir : str or Path
-        The workspace ``inputs/`` directory.
-
-    Returns
-    -------
-    GeometryMigration
-        The files moved and the folders left alone.
-
-    Raises
-    ------
-    InputArtifactError
-        A root with no ``inputs/geometries``: there is no library to move,
-        and creating one here would hide a wrong path.
-    """
-    directory = Path(inputs_dir) / "geometries"
-    if not directory.is_dir():
-        raise InputArtifactError(
-            f"{directory} does not exist, so there is no geometry library to migrate: "
-            "the root of a campaign workspace carries inputs/geometries (create the "
-            "tree with pyfs-workspace init), and the path given holds none.",
-            kind="geometry",
-            artifact_id=None,
-        )
-    entries = sorted(directory.iterdir())
-    kept = tuple(entry.name for entry in entries if entry.is_dir())
-    created: set[Path] = set()
-    moved: list[tuple[Path, Path]] = []
-    for entry in entries:
-        # THE LIBRARY'S OWN README IS NOT A GEOMETRY and is left where it is.
-        # `init` writes one here (PFS-2032.07), and without this line the
-        # migration filed the instruction page under `geometries/README/`,
-        # which both hides the page from the person it was written for and
-        # creates a folder the resolver then reads as a geometry's home.
-        if not entry.is_file() or _is_sidecar(entry.name) or entry.name == GEOMETRIES_README:
-            continue
-        folder = directory / entry.stem
-        if folder.exists() and folder not in created:
-            continue
-        if folder not in created:
-            folder.mkdir()
-            created.add(folder)
-        sidecars = [directory / (entry.stem + suffix) for suffix in SIDECAR_SUFFIXES]
-        for source in (entry, *[sidecar for sidecar in sidecars if sidecar.is_file()]):
-            target = folder / source.name
-            source.rename(target)
-            moved.append((source, target))
-    return GeometryMigration(moved=tuple(moved), kept=kept)
-
-
-# --- FR-99: the HPC profile ---------------------------------
-
-#: Where a workspace keeps the profile of the cluster it may be opened on.
-HPC_DIR = "hpc"
-
-#: The one field a profile MUST carry: the scheduler's own name for the
-#: application. It is the only field nothing else in the workspace can
-#: supply, which is what makes it mandatory and the rest not.
-HPC_REQUIRED = ("application_id",)
-
-#: The descriptor formats the package can write. `text` writes the fields
-#: as `key: value` lines with no quoting, for a scheduler that reads a
-#: plain list.
-HPC_FORMATS = ("yaml", "json", "toml", "text")
-
-#: The substitution a descriptor field writes to name the build the way THIS
-#: scheduler names it, read from the profile's ``[builds]`` table.
-HPC_BUILD_ALIAS = "fs_build_alias"
-
-
-@dataclass(frozen=True)
-class HpcProfile:
-    """How ONE cluster is asked to run a job (FR-99).
-
-    NO ROW CITES THIS. The code sees Linux and
-    that is the cluster, so a study moves between machines by being opened
-    on the other one and changing no cell.
-
-    Attributes
-    ----------
-    application_id : str
-        The scheduler's own name for the application.
-    descriptor_format : str
-        One of :data:`HPC_FORMATS`. What the descriptor file IS, so the
-        package writes it rather than the study pasting a template.
-    descriptor_name : str
-        What it is called inside the simulation folder.
-    fields : dict of str to str
-        The keys THIS cluster expects, in the order they are written, and
-        what pyflightstream puts in each. A value in braces is substituted.
-        A cluster that spells `cpus` or `queue` is served by editing this
-        table and nothing else.
-    submit : tuple of str
-        The command, argument by argument, never one string through a
-        shell: a path with a space in it is then not a second argument.
-    defaults : dict of str to object
-        The floor for a resource a row may state. `ncpus` is deliberately
-        not among them: there is one processor count and it lives in the
-        matrix row.
-    path : Path
-        Where this was read from, for a refusal that has to name it.
-    builds : dict of str to str
-        What this scheduler calls each canonical build, read from the
-        ``[builds]`` table and written into a descriptor by the
-        ``{fs_build_alias}`` substitution. KEYED BY BUILD, because the
-        relation is many-to-one: a family name such as ``26.1`` covers two
-        registered builds, so a table keyed by the scheduler's name could not
-        say which build a row meant. The matrix cell names the build and
-        stays the same on every machine; this table translates it for one
-        cluster. It is a DECLARATION and verifies nothing: which build the
-        scheduler actually starts is known only from the build number in a
-        collected log.
-    """
-
-    application_id: str
-    descriptor_format: str
-    descriptor_name: str
-    fields: dict
-    submit: tuple
-    defaults: dict
-    path: Path
-    builds: dict = field(default_factory=dict)
-    #: WHAT THE DESCRIPTOR'S WALLTIME FIELD CARRIES (0.21.0). ``wall`` is the row's
-    #: cell as written, which is what a scheduler taking ``4h`` wants; ``seconds``
-    #: is the whole clock in integer seconds, which is what this package wrote until 0.20.x and what
-    #: a scheduler with a numeric field wants. The arithmetic a particular
-    #: cluster needs is configured here explicitly, and an
-    #: unknown value is refused by name rather than silently taken as one of
-    #: these two.
-    walltime_arithmetic: str = "wall"
-    #: WHETHER THE SCRIPT EXPORTS THE SOLVER LOG (0.21.0). Some machines abort at
-    #: ``EXPORT_LOG`` and write their own log beside the run instead, so the profile
-    #: says it rather than the package assuming one shape of machine.
-    export_log: bool = True
-    #: THE LOG THAT MACHINE WRITES ITSELF, as a glob relative to the run's
-    #: working directory, for example ``FTS{sim}.l*``. `collect` copies the one
-    #: file matching it to the standard log name, so everything downstream
-    #: reads one file whatever the scheduler called it. None where the
-    #: scheduler writes none.
-    native_log: str | None = None
-    #: THE FILES THE SCHEDULER WRITES WHEN A JOB ENDS (FR-311), as globs relative
-    #: to the run's working directory with the placeholders of ``native_log``
-    #: (``{sim}``, ``{point}``); the job id, which the package never learns, is
-    #: matched by the glob. When every one matches and the solver log does not,
-    #: `collect` records the point FAILED_EXECUTION. Empty: `collect` waits.
-    job_end_files: tuple[str, ...] = ()
-
-    def __post_init__(self) -> None:
-        """Refuse a descriptor name that is not a plain file name.
-
-        A PROFILE BUILT IN PYTHON IS HELD TO THE RULE A FILE IS: the executor
-        writes the descriptor at ``working_dir / descriptor_name``, so the name
-        is checked where every route to the executor passes, not only where a
-        TOML file is read.
-        """
-        refusal = descriptor_name_refusal(str(self.descriptor_name), self.path)
-        if refusal is not None:
-            raise InputArtifactError(refusal)
-
-
-def descriptor_name_refusal(name: str, source: object) -> str | None:
-    """Why ``name`` cannot name a submission descriptor, or None when it can.
-
-    The descriptor is written in the folder each point runs in, so its name
-    is a plain file name: no folder, no parent folder, and no form Windows
-    reads as another file's, any of which would put it on a file another
-    point's record names. ``source`` names the profile in the sentence.
-    """
-    alias = aliased_name_fault(name)
-    if (
-        name.strip()
-        and not any(sep in name for sep in "/\\")
-        and name not in (".", "..")
-        and alias is None
-    ):
-        return None
-    return (
-        f"the HPC profile {source} names its descriptor {name!r}; the "
-        "descriptor is written in the folder each point runs in, so its name "
-        "is a plain file name, with no folder, no parent folder and no form "
-        "Windows reads as another file's" + (f" (it {alias})" if alias else "") + "."
-    )
-
-
-def hpc_profiles(inputs_dir: str | Path) -> list[Path]:
-    """Every HPC profile a workspace carries, sorted."""
-    directory = Path(inputs_dir) / HPC_DIR
-    if not directory.is_dir():
-        return []
-    return sorted(directory.glob("*.toml"))
-
-
-def resolve_hpc_profile(inputs_dir: str | Path) -> HpcProfile | None:
-    """Return the profile of the cluster this workspace is on, or None.
-
-    ONE PROFILE NEEDS NO SELECTOR. A workspace carrying several and no way
-    to say which is REFUSED rather than guessed, because guessing spends a
-    queue. If a study ever needs two clusters the selector is a question to
-    answer then, with the case in hand, rather than a mechanism invented
-    for a problem nobody has.
-    """
-    found = hpc_profiles(inputs_dir)
-    if not found:
-        return None
-    if len(found) > 1:
-        raise InputArtifactError(
-            f"{Path(inputs_dir) / HPC_DIR} holds {len(found)} profiles "
-            f"({', '.join(path.name for path in found)}) and nothing says which cluster "
-            "this machine is. One profile needs no selector; several need one, and "
-            "guessing spends a queue."
-        )
-    return read_hpc_profile(found[0])
-
-
-#: What a profile may ask the descriptor's walltime field to carry.
-WALLTIME_ARITHMETIC: frozenset[str] = frozenset({"wall", "seconds"})
-
-#: THE KEYS A PROFILE MAY CARRY, and the keys its ``[log]`` table may carry.
-#: Both sets are CLOSED, for the reason the flight-condition cell's set is
-#: closed: a mistyped or misplaced key costs a message rather than a job that
-#: aborts at EXPORT_LOG with a profile that looks right in the file. Measured
-#: by the interface lens, 2026-09-16: ``export_log`` written at the top level
-#: read as True, and ``native_logs`` read as absent.
-HPC_PROFILE_KEYS: frozenset[str] = frozenset(
-    {"application_id", "descriptor", "submit", "defaults", "builds", "walltime_arithmetic", "log"}
-)
-HPC_LOG_KEYS: frozenset[str] = frozenset({"export_log", "native_log", "job_end_files"})
-
-
-def _refuse_unknown_keys(
-    target: Path, table: Mapping[str, object], allowed: frozenset[str], where: str
-) -> None:
-    """Refuse a key this package does not read, naming it and the set it is not in."""
-    unknown = sorted(str(key) for key in table if str(key) not in allowed)
-    if not unknown:
-        return
-    raise InputArtifactError(
-        f"the HPC profile {target} states {', '.join(unknown)} {where}, and this package "
-        f"reads {', '.join(sorted(allowed))} there. A key nothing reads is a key that looks "
-        "like it works: a misplaced export_log leaves EXPORT_LOG in the script on the very "
-        "machine the table exists for. Correct the spelling, or move the key to the table "
-        "that takes it."
-    )
-
-
-def _refuse_a_misplaced_key(target: Path, table: Mapping[str, object]) -> None:
-    """Refuse a key this package OWNS that is written under some other table.
-
-    The top level and ``[log]`` are closed sets; the tables between them are the
-    user's own (``[submit]`` carries the submission's fields, ``[descriptor]``
-    the descriptor's names), so closing those would refuse working profiles.
-    What is refused here is narrower and is the mistake people actually make:
-    a key this package reads, written where this package does not read it.
-
-    WHY IT IS THE LIKELY SPELLING, measured by the qa lens of the closing round
-    (2026-09-16): appending ``export_log = false`` to the END of a profile file
-    is, in TOML, writing it into the LAST TABLE, which in the documented example
-    is ``[submit]``. That was accepted in silence while the message beside it
-    told the user to move the key to the table that takes it.
-    """
-    for name, value in table.items():
-        if str(name) == "log" or not isinstance(value, Mapping):
-            continue
-        for owned in sorted(HPC_LOG_KEYS):
-            if owned in value:
-                raise InputArtifactError(
-                    f"the HPC profile {target} states {owned} under [{name}], and this "
-                    f"package reads it under [log]. A key nothing reads is a key that "
-                    f"looks like it works: appending a line to the end of the file puts "
-                    f"it in the last table, not at the top level. Move {owned} under "
-                    f"[log]."
-                )
-        for nested, deeper in value.items():
-            if isinstance(deeper, Mapping):
-                for owned in sorted(HPC_LOG_KEYS):
-                    if owned in deeper:
-                        raise InputArtifactError(
-                            f"the HPC profile {target} states {owned} under "
-                            f"[{name}.{nested}], and this package reads it under [log]. "
-                            f"Move it there."
-                        )
-
-
-def read_hpc_profile(path: str | Path) -> HpcProfile:
-    """Read one HPC profile, refusing what it cannot act on."""
-    target = Path(path)
-    table = _load_toml(target, "hpc profile")
-    for key in HPC_REQUIRED:
-        if not str(table.get(key) or "").strip():
-            raise InputArtifactError(
-                f"the HPC profile {target} states no {key!r}. It is the scheduler's own "
-                "name for the application and the one field nothing else in the "
-                "workspace can supply, which is why it is the only mandatory one."
-            )
-    descriptor = table.get("descriptor") or {}
-    fmt = str(descriptor.get("format") or "yaml").strip().lower()
-    if fmt not in HPC_FORMATS:
-        raise InputArtifactError(
-            f"the HPC profile {target} asks for a {fmt!r} descriptor; this package "
-            f"writes {', '.join(HPC_FORMATS)}."
-        )
-    # THE DESCRIPTOR IS A FILE OF THE POINT'S FOLDER, named plainly: a name with a
-    # folder in it, a parent folder, or a form Windows reads as another file's
-    # would write it over a file another point's record names. HpcProfile
-    # refuses the same name however it is built; this names the file it came from.
-    stated_name = descriptor.get("name")
-    if stated_name is not None:
-        refusal = descriptor_name_refusal(str(stated_name), target)
-        if refusal is not None:
-            raise InputArtifactError(refusal)
-    fields = descriptor.get("fields") or {}
-    if not isinstance(fields, dict) or not fields:
-        raise InputArtifactError(
-            f"the HPC profile {target} lists no descriptor fields, so the file it "
-            "writes would be empty. The fields table is what this cluster expects and "
-            "what makes the profile portable."
-        )
-    submit = (table.get("submit") or {}).get("command") or []
-    if not isinstance(submit, list) or not submit:
-        raise InputArtifactError(
-            f"the HPC profile {target} states no submit command. Write it argument by "
-            'argument, for example command = ["esub", "{descriptor_path}"]: one string '
-            "through a shell splits a path that has a space in it."
-        )
-    builds = _read_build_aliases(target, table.get("builds"))
-    arithmetic = str(table.get("walltime_arithmetic") or "wall").strip().lower()
-    if arithmetic not in WALLTIME_ARITHMETIC:
-        raise InputArtifactError(
-            f"the HPC profile {target} states walltime_arithmetic = {arithmetic!r}, and "
-            f"this package writes {', '.join(sorted(WALLTIME_ARITHMETIC))}. 'wall' puts "
-            "the row's cell in the descriptor as written (4h stays 4h); 'seconds' puts "
-            "the whole clock in integer seconds, which is what this package wrote until "
-            "0.20.x. Whatever your scheduler's field means, it is stated here and never "
-            "in the row: the row's cell is the wall clock and the watchdog counts down "
-            "to it either way."
-        )
-    _refuse_unknown_keys(target, table, HPC_PROFILE_KEYS, "at its top level")
-    _refuse_a_misplaced_key(target, table)
-    log = table.get("log") or {}
-    if not isinstance(log, Mapping):
-        raise InputArtifactError(
-            f"the HPC profile {target} has a log entry that is not a table. Write it as "
-            "[log], with export_log and native_log under it."
-        )
-    _refuse_unknown_keys(target, log, HPC_LOG_KEYS, "under [log]")
-    export_log = bool(log.get("export_log", True))
-    native_log = str(log.get("native_log") or "").strip() or None
-    if not export_log and native_log is None:
-        raise InputArtifactError(
-            f"the HPC profile {target} states export_log = false and no native_log, which "
-            "asks for a run with no log at all. This package judges an unsteady run BY its "
-            "log -- the time loop always reaches its prescribed end, so without one every "
-            "such run is recorded COMPLETED_MAX_ITER whether it converged at every step or "
-            'at none. Name the log your scheduler writes, as native_log = "FTS{sim}.l*", '
-            "or leave export_log alone and let the script write it."
-        )
-    return HpcProfile(
-        walltime_arithmetic=arithmetic,
-        export_log=export_log,
-        native_log=native_log,
-        job_end_files=_job_end_files(target, log.get("job_end_files", [])),
-        builds=builds,
-        application_id=str(table["application_id"]),
-        descriptor_format=fmt,
-        # THE DEFAULT FOLLOWS THE FORMAT, not the word yaml. A profile
-        # stating format = "json" and no name used to write JSON into a
-        # file called submit.yaml: two fields of one artifact, one
-        # silently overriding the other's meaning, and the person
-        # debugging a rejected submission opens the file and cannot tell
-        # which of the two is authoritative (the interface lens,
-        # 2026-09-13). An explicit `name` still wins.
-        descriptor_name=str(descriptor.get("name") or f"submit.{'txt' if fmt == 'text' else fmt}"),
-        fields={str(k): str(v) for k, v in fields.items()},
-        submit=tuple(str(part) for part in submit),
-        defaults=dict(table.get("defaults") or {}),
-        path=target,
-    )
-
-
-def _job_end_files(target: Path, ends: object) -> tuple[str, ...]:
-    """Read ``[log] job_end_files`` (FR-311): a list of globs with native_log's placeholders."""
-    try:
-        valid = isinstance(ends, list) and all(
-            str(pattern.format(sim="s", point="p")).strip() for pattern in ends
-        )
-    except (AttributeError, IndexError, KeyError, ValueError):
-        valid = False
-    if not valid or not isinstance(ends, list):
-        raise InputArtifactError(
-            f"the HPC profile {target} states job_end_files = {ends!r}. It is a list of the "
-            "file names the scheduler writes when a job ends, as globs with the placeholders "
-            'of native_log, {sim} and {point}, for example ["FTS{sim}.o*", "FTS{sim}.e*"].'
-        )
-    return tuple(str(pattern).strip() for pattern in ends)
-
-
-def _read_build_aliases(target: Path, table: object) -> dict[str, str]:
-    """Read a profile's ``[builds]`` table, refusing a key that is not one build.
-
-    A KEY MUST BE A CANONICAL BUILD, and that is the whole reason the table
-    is keyed this way round. ``26.1`` is a family: it resolves to more than
-    one registered build and is refused by :func:`resolve` for exactly that
-    reason, so a table keyed by it could not say which build a row meant.
-    The scheduler's name is the VALUE, where several builds may share one.
-    """
-    if table is None:
-        return {}
-    if not isinstance(table, Mapping):
-        raise InputArtifactError(
-            f"the HPC profile {target} has a builds entry that is not a table. Write it as "
-            '[builds] with one line per canonical build, for example "26.123" = "26.1".'
-        )
-    aliases: dict[str, str] = {}
-    for key, value in table.items():
-        build = str(key).strip()
-        try:
-            canonical = resolve(build).canonical
-        except (AmbiguousVersionAliasError, UnknownVersionError) as error:
-            raise InputArtifactError(
-                f"the HPC profile {target} maps {build!r} in its [builds] table, and a key "
-                "there must name ONE registered build, because several builds can share one "
-                f"scheduler name and only the build says which: {error}"
-            ) from None
-        if canonical != build:
-            raise InputArtifactError(
-                f"the HPC profile {target} maps {build!r} in its [builds] table; write the "
-                f"canonical build {canonical!r}, which is how a matrix row names it."
-            )
-        alias = str(value).strip() if isinstance(value, str) else ""
-        if not alias:
-            raise InputArtifactError(
-                f"the HPC profile {target} maps build {build!r} to {value!r}; the value is "
-                "the name this scheduler gives that build, as text, and it cannot be empty."
-            )
-        aliases[canonical] = alias
-    return aliases
 
 
 def rotor_integration_groups(
