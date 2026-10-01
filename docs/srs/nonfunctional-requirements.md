@@ -1081,8 +1081,11 @@
     owed: the writer census of R7; a guard that walks `src/` and refuses
     a text write that bypasses the one LF route, with a planted bypass as
     its control; a test that a campaign posted on Windows holds no CR byte
-    in any product and that its emitted scripts hold none; the products
-    snapshot comparing line ends on Linux and Windows; the parity receipt
+    in any product and that its emitted scripts hold none, run with text
+    mode forced to write CRLF as Windows does, so that it fails on Linux
+    too when a writer bypasses the route; the products snapshot comparing
+    line ends on Linux and Windows, which is evidence of the `ci.yml`
+    matrix (the `windows-latest` runner), not of a Linux-only tier 1; the parity receipt
     naming the difference under this requirement; the paragraph of the
     migration page.*
 
