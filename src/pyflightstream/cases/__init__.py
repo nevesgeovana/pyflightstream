@@ -53,6 +53,28 @@ the sidecar's ``[import.ccs]`` table in the private ``cases._ccs``; and
 :mod:`pyflightstream.cases.setup_surfaces` removes the surfaces a setup names,
 renumbering the inventory as the solver does, and emits the slipstream wake
 stabilization of each rotor motion.
+
+The 0.33 layout of this layer: :mod:`pyflightstream.cases.workflows` is a
+package. Its root keeps every public name and nothing else, and its private
+modules import one another only in a declared order, from the extraction
+script of a saved simulation and the run-type registry at the top, through
+the builders of each run type, the script skeleton, the post-processing,
+probe, clock, export, reduction, free-stream, settings, frame, geometry,
+name, timing, motion and actuator emission, down to the typed readers of a
+row's keys, the conventions and the row vocabulary at the bottom. The
+run-type table is one object created empty below the builders and filled by
+the registry when the package is imported. A new run type is a builder
+module and one registry entry; a row key is registered in the vocabulary and
+read by the row readers. Four private modules carry the 0.33 features of
+this layer: ``cases._setup_keys`` (the setup keys of a preset and the
+command each reaches), ``cases._setup_link`` (the analysis settings of a
+setup: the loads selections, the moments model and its rotor link, the
+unsteady solver actions), ``cases._skipped_families`` (each family a row's
+geometry does not carry, named once per matrix at plan) and
+``cases._unsteady_actions`` (the step counter and the per-step actions every
+unsteady march registers). The unit that names no length has one home, the
+floor :mod:`pyflightstream._lengths`, and the flag phases one home, this
+package.
 """
 
 from __future__ import annotations

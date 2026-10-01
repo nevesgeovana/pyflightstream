@@ -285,6 +285,20 @@ one of them keeps.
     The guards run in the existing `test` job of continuous integration;
     they are tier-1 tests.
 
+    As WP0 landed and the integration recount measured: the guards are
+    `tests/tier1_offline/test_architecture_metrics.py` over the baselines
+    of `tests/tier1_offline/architecture_baselines.json`, and
+    `python scripts/arch_metrics.py check` runs G1 to G6 and G8 alone.
+    The freeze record is `reports/RPT-100` (the tree of v0.32.0: 150
+    modules, 79,704 code lines, the largest 13 holding 48.2 percent of
+    them, 17 modules over 1000 code lines and 6 over 2000, two
+    cross-package components); the newest is the integration recount of
+    the merged 0.33.0 tree, `reports/RPT-119` (219 modules, 85,208 code
+    lines, the largest 13 holding 21.7 percent, 11 modules over 1000
+    code lines and 1 over 2000, one cross-package component). The 47.7
+    percent above is the review's measure in lines; the records count
+    code lines.
+
 !!! decision "AD-09 The row order: run above workspace <span class='srs-pending'>pending</span>"
     *Work package WP1 of the 0.33.0 scope (decision 4 of the scope).
     Evidence owed: the layer guards of NFR-23 reading the new table, the
@@ -317,6 +331,8 @@ one of them keeps.
     table, the user-guide diagram, the layer table of
     `pyflightstream.overview` and the guards state the same rows, and
     the interim count of `workspace` to `run` imports of guard G3 is 0.
+    As WP1 landed, the count is 0 on the merged tree (2 on v0.32.0,
+    `reports/RPT-100`), held as an exact ratchet.
 
 !!! decision "AD-10 One home per constant, and the loads cycle removed <span class='srs-pending'>pending</span>"
     *Work package WP2 of the 0.33.0 scope (decision 15). Evidence owed:
@@ -356,6 +372,11 @@ one of them keeps.
     `results.tables`; the coupling's refusal `FsiInputError`, which the
     parser raises too, is defined in the floor `_errors` because two
     layers name it, and `fsi.errors` re-exports it.
+
+    As WP2 landed: G6 holds with an empty allowlist, and G3 finds one
+    cross-package component on the merged tree, which holds neither
+    `fsi.loads` nor `results.tables` (`reports/RPT-119`; two on
+    v0.32.0).
 
 !!! decision "AD-11 The four cheap extractions <span class='srs-pending'>pending</span>"
     *Work package WP3 of the 0.33.0 scope. Evidence owed: G1 and G8
@@ -407,7 +428,10 @@ one of them keeps.
     two cuts left it over the lens once its `__all__` was written. The five
     modules beyond the review's names are `results.core`,
     `run._record_files`, `run._rebuild_evidence`, `workspace.builds` and
-    `workspace.selections`.
+    `workspace.selections`. Measured on the merged tree, the four cut
+    modules hold 441 (`post.guides`), 289 (`run.records`), 203 (the
+    `results` root) and 899 (`workspace.inputs`) code lines, from 2729,
+    1954, 1583 and 1831 on v0.32.0.
 
 !!! decision "AD-12 cases/workflows is a package with a guarded order <span class='srs-pending'>pending</span>"
     *Work package WP4 of the 0.33.0 scope. Evidence owed: G3(b) for the
@@ -454,7 +478,10 @@ one of them keeps.
     `_probes`. The module of the settings is `_solver_settings` and that of
     the quasi-steady builder `_qsteady_rotor`, because `_settings` and
     `_qsteady` are names the code already binds (a function and an import
-    alias). Each module is within the lens and deep; the record is RPT-114.
+    alias). Each module is within the lens and deep; the record of the
+    package is RPT-116, and on the merged tree its 24 modules hold 10,492
+    code lines, the largest 910 (`_rows`), where `cases/workflows.py`
+    held 9,000 in one module on v0.32.0.
     The `modules_at_freeze` list of the baselines keeps `cases/workflows.py`:
     it is the snapshot of the tree at the freeze, read only as the set of
     modules the depth rule does not hold, and a retired path in it holds
@@ -551,6 +578,11 @@ one of them keeps.
     `pyfs-matrix` is `run/_cli_parsers.py`, which brings `run/cli.py`
     under the hard limit.
 
+    As WP6 landed: the root holds 149 code lines (4,539 on v0.32.0),
+    `run/cli.py` 1,201 with its `Size exemption:` line (2,018), and the
+    static type checker exempts seventeen modules, eighteen before; the
+    integration recount of NFR-27 states the errors inside them.
+
 !!! decision "AD-15 The evolution policy of 0.33.0 <span class='srs-pending'>pending</span>"
     *All work packages of the 0.33.0 scope and its integration recount
     (WPX; decisions 6, 9 and 15). Evidence owed: the parity receipt of
@@ -584,6 +616,10 @@ one of them keeps.
       merges: the module count, the type-check exemption list, the
       metrics record of G7, the change log and this chapter's section of
       0.33.0, which the integration writes.
+
+    The committed script is `scripts/check_parity.py`, described in the
+    0.33.0 section of this chapter; the receipt of the release is
+    produced on the release commit.
 
 ## Command-line surface
 
@@ -1121,3 +1157,109 @@ rotor's own speed and diameter. The requirements of the capabilities of
 from 0.25.0 on names the requirement that states it, which a tier-1 test
 holds. The documentation site is organized by task, each run type and topic
 on a page of its own.
+
+## The 0.33.0 additions and their limits
+
+This section records what 0.33.0 changes in the structure above and the limit
+each change keeps. The tracked package holds 219 modules: seventy arrived and
+one, `cases/workflows.py`, became a package, so the count is sixty-nine more
+than 0.32.0. The release moves code and changes no product, emitted script or
+console behaviour for the sake of a move: the decisions AD-08 to AD-15 above
+state each move and what it keeps, and this section adds what was measured
+once every work package had merged. Every new module sits in the row of its
+package; the layer guards of NFR-23 (module level and function bodies) and,
+inside the two packages that declare an order, guard G3(b) hold on the merged
+tree.
+
+### The measured structure
+
+The freeze record measured the tree of v0.32.0; the integration recount
+measured the merged 0.33.0 tree with the same reader. Sizes are code lines,
+docstring and comment lines excluded.
+
+| measure | v0.32.0 (`reports/RPT-100`) | 0.33.0 (`reports/RPT-119`) |
+|---|---:|---:|
+| modules | 150 | 219 |
+| code lines | 79,704 | 85,208 |
+| share of the largest module | 11.3 percent | 2.7 percent |
+| share of the largest 5 modules | 30.6 percent | 10.4 percent |
+| share of the largest 13 modules | 48.2 percent | 21.7 percent |
+| modules over 1000 code lines | 17 | 11 |
+| modules over 2000 code lines | 6 | 1 |
+| functions over a limit of G2 | 230 | 227 |
+| cross-package import components | 2 | 1 |
+| `workspace` to `run` imports | 2 | 0 |
+| package-root lines beyond a facade | 23,961 | 12,834 |
+| private names reached by tests | 242 | 240 |
+
+The one module over 2000 code lines is `cases/__init__.py`, a baseline entry
+that may only fall. The one cross-package component left joins the package
+root, `post` and `run` (the root imports them so that their registrations run);
+it is the frozen baseline's and may not gain a member.
+
+### The modules and their rows
+
+- The cases row: `cases.workflows` is a package of 24 modules, its root a
+  facade and its 23 private modules in the declared order of AD-12. Four
+  private modules carry the 0.33.0 features of the row: `cases._setup_keys`
+  (the setup keys of a preset and the command each reaches, FR-316, FR-317,
+  FR-319), `cases._setup_link` (the analysis settings of a setup: the loads
+  selections, the moments model and its rotor link, the unsteady solver
+  actions, FR-317, FR-318), `cases._skipped_families` (each family a row's
+  geometry does not carry, named once per matrix at plan, FR-320) and
+  `cases._unsteady_actions` (the step counter and the per-step actions every
+  unsteady march registers, FR-314).
+- The workspace row: `workspace.sidecars`, `workspace.hpc`,
+  `workspace.builds` and `workspace.selections` (AD-11), and three private
+  modules: `workspace._matrix_homes` (the one lookup of a matrix by name over
+  both homes, which every command that takes a matrix reads, FR-310),
+  `workspace._row_setup` (the setup keys a row states over its preset,
+  FR-316) and `workspace._geometry_clean` (a geometry reduced to its meshes and
+  boundary conditions, and the plan warning that asks for it, FR-308, FR-312,
+  FR-313).
+- The run row: the four private modules of the records family (AD-11), the
+  ten private modules of the facade and `run._cli_parsers`, the parser of
+  `pyfs-matrix` (AD-14). The package's declared order puts `run.cli`,
+  `run.rename`, `run.records`, `run.collect` and `run.matrix` above the root,
+  because they import it, and the private modules below it.
+- The results row: `results.core`, `results.loads`, `results.log` and
+  `results.exports` under a facade root (AD-11), and
+  `results.sectional_loads`, the parser the structural side branch now
+  re-exports (AD-10).
+- The post row: `post.glossary` and `post.input_template` (AD-11); the public
+  family modules `post.polar`, `post.rotor_table`, `post.unsteady_polar` and
+  `post.point_tables`, and eight private modules of the stage (AD-13).
+- Beside the private reader of a saved simulation, `_fsm_fresh` states what a
+  freshly imported simulation holds, block by block, for the geometry clean of
+  FR-312; it imports only `_errors`.
+
+### The parity of the release
+
+`scripts/check_parity.py` is the committed script of AD-15. It exports two
+trees from git, the tag `v0.32.0` and the release commit, never a working
+tree, runs each in an interpreter of its own and compares four things: every
+public name, including those of a module without `__all__`, at the same
+dotted path; every console tool, subcommand, option and choice of the
+argument parsers; the emitted scripts of the golden and tier-3 campaign set,
+byte for byte; and every byte a post over one recorded workspace writes,
+`products.json` included, with only the measured wall-clock stamps of the
+post log normalized. A difference in the scripts or the products passes only
+when the script names it with a requirement this SRS defines, and only when
+every changed line matches that entry's lines, in order and number. Two
+requirements are named: FR-314 (every unsteady script gains the three lines
+of the step counter's registration and nothing else) and FR-180 (the
+per-revolution drift warnings of the post log are worded and counted anew;
+the products are byte-identical). Each run plants one difference per
+comparison and fails unless every planted difference is caught, and its
+receipt names the digest of the script that produced it. The receipt of the
+release is produced on the release commit.
+
+### What moved and was not reduced
+
+The long functions of the run and post stages moved whole into the modules
+that hold them now, and keep their sizes and their baseline entries:
+`run_campaign`, `_execute_point`, `_execute_sweep`, the assessor's verdict,
+the `pyfs-matrix` parser builder, the rotor tables' plan and the campaign
+loop of the post stage. Nine package roots still hold statements beyond a
+facade and stay in the G8 table, each entry only falling. Decomposing them is
+later work, and this release does not claim it.

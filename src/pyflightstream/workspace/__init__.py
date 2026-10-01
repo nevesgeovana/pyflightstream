@@ -95,7 +95,25 @@ not, skips every folder named ``archive`` unless asked, holds the
 under a temporary name that is renamed in place once its digest matches.
 The long commands write a live log ``logs/<command>-<stamp>.log`` beside the
 activity log while they run. A manifest other than ``runs.json`` may sit in
-the root, read when a command names it (:mod:`pyflightstream.run.records`).
+the root, read when a command names it (resolved since 0.33.0 by
+:func:`pyflightstream.workspace.naming.resolve_manifest`).
+
+The 0.33 workspace sits one row below the run layer: nothing of it imports
+``run``, at module level, inside a function or for the type checker. The
+rebuild of orphaned records that ``sync --restore`` asks for is registered
+with :mod:`pyflightstream.workspace.storage` by the run layer when it loads,
+and the sync calls it after it has released the ``runs.json`` lease. The
+input library is cut along its kinds: :mod:`pyflightstream.workspace.inputs`
+keeps the artifact resolvers and every name it offered, the files beside a
+geometry are :mod:`pyflightstream.workspace.sidecars`, the HPC profile
+:mod:`pyflightstream.workspace.hpc`, the build registry
+:mod:`pyflightstream.workspace.builds` and the rule on empty entity
+selections :mod:`pyflightstream.workspace.selections`. Three private modules
+carry 0.33 features: ``workspace._matrix_homes``, the one lookup of a matrix
+by name over both homes, which every command that takes a matrix reads;
+``workspace._row_setup``, the setup keys a matrix row states over its
+preset; and ``workspace._geometry_clean``, a geometry reduced to its meshes
+and boundary conditions and the plan warning that asks for it.
 """
 
 from __future__ import annotations
