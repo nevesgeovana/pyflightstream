@@ -361,6 +361,11 @@ def support_level(
     -------
     SupportLevel
         The derived level.
+
+    Examples
+    --------
+    >>> support_level("26.124").value
+    'operational'
     """
     return version_support(version, registry=registry).level
 

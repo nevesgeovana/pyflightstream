@@ -16,9 +16,29 @@ from pathlib import Path
 from pyflightstream._cli import post_warning_policy
 from pyflightstream._errors import ProductArgumentError, ProductError
 
+__all__ = [
+    "render_post_diagnostics",
+    "report_post_warnings",
+    "warning_category",
+]
+
 
 def warning_category(product: str, message: str) -> str:
-    """Assign a stable presentation category without changing warning detail."""
+    """Assign a stable presentation category without changing warning detail.
+
+    Parameters
+    ----------
+    product : str
+        The product the warning is about.
+    message : str
+        The warning's text.
+
+    Returns
+    -------
+    str
+        One of ``configuration``, ``convergence``, ``missing-data``, ``postprocessing``,
+        ``reference-frame`` and ``section-layout``.
+    """
     text = f"{product} {message}".lower()
     if any(word in text for word in ("section", "distribution", "layout", "block")):
         return "section-layout"
@@ -36,7 +56,15 @@ def warning_category(product: str, message: str) -> str:
 
 
 def report_post_warnings(records: Sequence[Mapping[str, str | None]], log_path: Path) -> None:
-    """Print category totals only when this CLI invocation opted in."""
+    """Print category totals only when this CLI invocation opted in.
+
+    Parameters
+    ----------
+    records : sequence of mapping
+        The diagnostic records of the invocation, each with its category and severity.
+    log_path : Path
+        The log holding the details, named in each line.
+    """
     if post_warning_policy() is not True:
         return
     counts = Counter(
@@ -54,6 +82,21 @@ def render_post_diagnostics(log_paths: Sequence[Path]) -> str:
     The function returns Markdown and performs no writes. Older logs without
     categories remain readable; their classification is presentation only.
     Malformed logs raise a named argument error rather than report a clean run.
+
+    Parameters
+    ----------
+    log_paths : sequence of Path
+        The post logs to read, one section each.
+
+    Returns
+    -------
+    str
+        The Markdown report.
+
+    Raises
+    ------
+    ProductArgumentError
+        If a log cannot be read, or is not an object holding a list of records.
     """
     lines = [
         "# Recorded postprocessing diagnostics",

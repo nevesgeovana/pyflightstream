@@ -49,6 +49,23 @@ from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
+__all__ = [
+    "ArgSpec",
+    "ArgType",
+    "CommandDatabaseError",
+    "CommandEntry",
+    "CommandNotInVersionError",
+    "CommandRegistry",
+    "EntityKind",
+    "Evidence",
+    "Layout",
+    "ListSeparator",
+    "Phase",
+    "Status",
+    "VersionStatus",
+    "VersionView",
+]
+
 _MANUAL_REF_PATTERN = re.compile(r"^SRC-\d{3} pp?\.\d+")
 _PROBE_REF_PATTERN = re.compile(r"^reports/[\w./-]+\.md$")
 # A note claiming the solver was OBSERVED, in the wordings this database

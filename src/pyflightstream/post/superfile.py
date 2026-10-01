@@ -151,6 +151,21 @@ def release_tag(version: str) -> str:
     0.8.0 is `080`. The goal's own reports are named the same way, which
     is why this function exists at all: the measurement this module
     writes has to land where the arm that reads it looks.
+
+    Parameters
+    ----------
+    version : str
+        A package version.
+
+    Returns
+    -------
+    str
+        Its major, minor and patch numbers written one after another.
+
+    Raises
+    ------
+    ProductError
+        If the version has no major, minor and patch, or a part carries no digits.
     """
     parts = version.split(".")
     if len(parts) < 3:
@@ -181,6 +196,22 @@ def super_file_name(
     (``RunRecord.sweep_name``), each swept field written ``<code>+sweep``: the
     stem of the polar table beside it with the one word that tells the two
     apart in front.
+
+    Parameters
+    ----------
+    sim : str
+        The simulation id.
+    sweep : str
+        The name of the case's whole sweep.
+    group : str or int
+        The group's name, or its number.
+    suffix : str, optional
+        The file's extension.
+
+    Returns
+    -------
+    str
+        The super file's name.
     """
     # THROUGH THE SAME TOKEN AS THE POLAR BESIDE IT, and not a second
     # `int(group)`: the super file's stem is the polar's stem with one word in
@@ -211,6 +242,18 @@ def matrix_rows(root: Path, matrix_stem: str | None) -> dict[str, MatrixRow]:
     cell was set back to 0 after it ran, and the records of that run are
     in the manifest either way; a superfile of a recorded point must be
     able to say what its row said.
+
+    Parameters
+    ----------
+    root : Path
+        The workspace root.
+    matrix_stem : str or None
+        The matrix stem the records name.
+
+    Returns
+    -------
+    dict of str to MatrixRow
+        Every row by POL; empty when the matrix is not found or is refused.
     """
     if not matrix_stem:
         return {}
@@ -354,6 +397,26 @@ def superfile_row(
     file whose claim is that it says everything about that simulation. The
     first writing of the campaign path did borrow, as
     ``by_run.get(run_id, records[0])``.
+
+    Parameters
+    ----------
+    polar_columns : sequence of str
+        The polar table's columns.
+    polar_values : sequence of object
+        The point's values of those columns.
+    matrix_row : MatrixRow or None
+        The point's row of the matrix.
+    record : object or None
+        The point's manifest record; None where it has none.
+    sweep_row : mapping of str to object, or None
+        The point's row of the campaign sweep table.
+    plots_row : mapping of str to str, or None
+        The last row of the point's plots table.
+
+    Returns
+    -------
+    dict of str to str
+        The row, column to cell.
     """
     row: dict[str, str] = {}
     # 1. THE POLAR TABLE'S OWN ROW, verbatim and at its own precision, so
@@ -522,6 +585,16 @@ def plots_last_row(rows: Sequence[Mapping[str, str]]) -> Mapping[str, str] | Non
 
     The step it came from is not a guess: ``Time-step`` is a column of the
     plots table and travels with the rest.
+
+    Parameters
+    ----------
+    rows : sequence of mapping of str to str
+        A plots table's rows, read back.
+
+    Returns
+    -------
+    mapping of str to str or None
+        The last row, or None for no row.
     """
     return rows[-1] if rows else None
 
@@ -570,6 +643,25 @@ def write_superfiles(
     writes exactly what it wrote before.
 
     Returns the files written, their manifest entries and the columns.
+
+    Parameters
+    ----------
+    drafts : sequence of SuperfileDraft
+        The campaign's superfiles before the column set is known.
+    target : callable
+        Called with each file's path before it is written; the file goes to the path it returns.
+    fmt : str, optional
+        The format, one of :data:`SUPERFILE_FORMATS`.
+
+    Returns
+    -------
+    tuple of (list of Path, dict of Path to dict, tuple of str)
+        The files written, their manifest entries and the columns.
+
+    Raises
+    ------
+    ProductError
+        If the format is not one this package writes.
     """
     if fmt not in SUPERFILE_FORMATS:
         # ProductError AND NOT A BARE ValueError, which the exceptions catalogue
@@ -741,6 +833,26 @@ def union_the_workspace_knows(
     them from another manifest than ``runs.json`` or holds no manifest file
     (0.32.0, ``post --runs NAME`` and ``post --from-sims``); None reads
     ``runs.json`` beside ``root``.
+
+    Parameters
+    ----------
+    root : Path
+        The workspace root.
+    out : Path
+        The matrix's products folder.
+    matrix_stem : str or None
+        The matrix stem.
+    polars_dir : str
+        The folder under ``out`` holding the polar tables.
+    probes_dir : str
+        The folder under ``out`` holding the probe tables.
+    raw_records : sequence of mapping, optional
+        The manifest's rows as written; ``runs.json`` beside ``root`` is read when None.
+
+    Returns
+    -------
+    set of str
+        Every field the workspace's files carry.
     """
     known: set[str] = set()
     for table in sorted((out / polars_dir).glob(POLAR_TABLE_GLOB)):
@@ -801,6 +913,22 @@ def write_superfile_report(
     own field rather than letting the reader derive one, because an arm
     that decided the union itself would be deciding by judgement exactly
     what this requirement takes out of anyone's judgement.
+
+    Parameters
+    ----------
+    root : Path
+        The workspace root; the report goes under its reports folder.
+    version : str
+        The package version, which names the report.
+    files : iterable of (Path, sequence of str, int)
+        Each superfile written, with its columns and its row count.
+    known : iterable of str
+        The union of what the workspace knows.
+
+    Returns
+    -------
+    Path
+        The report written.
     """
     payload = {
         "files": [

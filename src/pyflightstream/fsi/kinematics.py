@@ -32,6 +32,14 @@ import numpy as np
 
 from pyflightstream.fsi.errors import FsiInputError
 
+__all__ = [
+    "NODE_ROLES",
+    "decode_station_translations",
+    "encode_station_translations",
+    "station_normal_translation",
+    "twist_from_node_translations",
+]
+
 #: Per-station node roles, in the encoding order used everywhere.
 NODE_ROLES = ("elastic_axis", "leading_edge", "trailing_edge")
 
@@ -53,6 +61,20 @@ def station_normal_translation(
     Source: DLV-007 Section 4.4 (twist encoded as differential
     translations, EA node receives w, offset nodes w plus theta cross
     d).
+
+    Parameters
+    ----------
+    flap_deflection_m : numpy.ndarray
+        The flap deflection w [m].
+    elastic_twist_rad : numpy.ndarray
+        The elastic twist theta [rad], positive nose up.
+    chordwise_offset_m : numpy.ndarray
+        The node's chordwise offset d from the elastic axis [m], positive toward the leading edge.
+
+    Returns
+    -------
+    numpy.ndarray
+        The normal translation dy = w + theta d [m].
     """
     return np.asarray(flap_deflection_m, dtype=float) + np.asarray(
         elastic_twist_rad, dtype=float
@@ -74,6 +96,22 @@ def twist_from_node_translations(
 
     Source: DLV-007 Section 4.4 (inverse of the differential
     translation encoding).
+
+    Parameters
+    ----------
+    normal_translation_le_m : numpy.ndarray
+        The leading-edge node's normal translation dy_LE [m].
+    normal_translation_te_m : numpy.ndarray
+        The trailing-edge node's normal translation dy_TE [m].
+    le_offset_m : numpy.ndarray
+        The leading-edge node's chordwise offset d_LE [m].
+    te_offset_m : numpy.ndarray
+        The trailing-edge node's chordwise offset d_TE [m].
+
+    Returns
+    -------
+    numpy.ndarray
+        The elastic twist theta [rad].
     """
     return (
         np.asarray(normal_translation_le_m, dtype=float)
@@ -140,6 +178,11 @@ def decode_station_translations(
     -------
     tuple of numpy.ndarray
         ``(flap_deflection_m, elastic_twist_rad)`` per station.
+
+    Raises
+    ------
+    FsiInputError
+        If ``translations`` is not shaped ``(n_stations, 3, 3)``.
     """
     translations = np.asarray(translations, dtype=float)
     if translations.ndim != 3 or translations.shape[1:] != (len(NODE_ROLES), 3):

@@ -117,6 +117,11 @@ def installed_frame_columns(
         ``FX``, ``FZ`` and ``Moment`` are NOT negated by default because the
         section axes' orientation is not settled.
 
+    Returns
+    -------
+    ColumnClassification
+        The columns negated and the columns mapped, in the table's order.
+
     Raises
     ------
     ProductError
@@ -306,6 +311,12 @@ def blade_view_harmonics(
     samples : int
         Azimuths per revolution.
 
+    Returns
+    -------
+    tuple of StationHarmonics
+        One entry per radius, in the order given: ``n95``, the per-harmonic shares, the
+        perturbation's size and, with chords, ``k_1p`` and ``k_eff``.
+
     Raises
     ------
     ProductError
@@ -405,6 +416,29 @@ def inflow_harmonics_map(
     ----------
     sense : int
         ``+1`` for a rotor right-handed about +X, ``-1`` for the other hand.
+    rows : sequence of (x, y, z, vx, vy, vz)
+        The field, metres and m/s, global frame.
+    hub : (x, y, z)
+        A point of the shaft, in metres.
+    axis : (x, y, z)
+        The shaft's direction; it must be along X.
+    radii_m : sequence of float
+        The stations, in metres.
+    diameter_m : float
+        The rotor's diameter D, in metres.
+    v_inf_m_s : float
+        The free-stream speed V, in m/s.
+    advance_ratios : sequence of float
+        The advance ratios J mapped.
+    blades : int
+        The blade count.
+    chords_m : sequence of float, optional
+        The chord at each station, in metres; without it ``k_1p`` and ``k_eff`` are None.
+
+    Returns
+    -------
+    HarmonicsMap
+        The stations of every J, with the diameter, the speed and the blade count.
 
     Raises
     ------
@@ -444,6 +478,20 @@ def write_inflow_harmonics(
     dalpha_half_ptp_deg, n95, k_1P, k_eff, share_n1 ... share_n8``, the second
     ``J, r_over_R, n95, k_1P, k_eff, dalpha_rms_deg``, one row per ``(J,
     radius)`` in both (values ``%.9g``, a blank where the chord is unknown).
+
+    Parameters
+    ----------
+    folder : str or Path
+        The folder the two files are written into.
+    result : HarmonicsMap
+        The map of :func:`inflow_harmonics_map`.
+    overwrite : bool, optional
+        Replace files that exist.
+
+    Returns
+    -------
+    tuple of (Path, Path)
+        The full table and the short one.
 
     Raises
     ------

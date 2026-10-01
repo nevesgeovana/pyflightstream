@@ -63,6 +63,10 @@ from pyflightstream.workspace import (
 )
 from pyflightstream.workspace import fields as _fields
 
+__all__ = [
+    "main",
+]
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -301,7 +305,18 @@ def _add_field_commands(subparsers: argparse._SubParsersAction) -> None:
 
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
-    """Run ``pyfs-workspace``; returns the process exit code."""
+    """Run ``pyfs-workspace``; returns the process exit code.
+
+    Parameters
+    ----------
+    argv : list of str, optional
+        The command-line arguments, ``sys.argv[1:]`` by default.
+
+    Returns
+    -------
+    int
+        The process exit code of the subcommand that ran.
+    """
     parser = _build_parser()
     args = parser.parse_args(argv)
     # THE CONSOLE CONTRACT (0.32.0, FR-200, FR-201): a titled opening block

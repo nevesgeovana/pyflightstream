@@ -98,6 +98,17 @@ def unsteady_action_command_line(interpreter: str = sys.executable) -> str:
     the one the run layer names when it writes the program, so the line
     the solver runs and the program it runs agree on which Python. On Windows,
     its existing pythonw.exe sibling prevents a console per callback.
+
+    Parameters
+    ----------
+    interpreter : str, optional
+        The Python executable building the script; ``sys.executable`` by default. On Windows its
+        pythonw.exe sibling is used where it exists.
+
+    Returns
+    -------
+    str
+        The interpreter and the action program, each in double quotes.
     """
     return f'"{action_interpreter(interpreter)}" "{UNSTEADY_ACTION_PROGRAM}"'
 

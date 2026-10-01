@@ -1681,21 +1681,21 @@
  ],
  "package_order": {},
  "metrics": {
-  "top1_share": 11.3,
-  "top5_share": 30.5,
-  "top13_share": 48.0,
-  "modules_over_1000": 17,
-  "modules_over_2000": 6,
-  "functions_over_100": 75,
-  "functions_over_200": 19,
-  "functions_over_300": 8,
-  "functions_over_limits": 229,
+  "top1_share": 10.8,
+  "top5_share": 28.3,
+  "top13_share": 43.0,
+  "modules_over_1000": 14,
+  "modules_over_2000": 5,
+  "functions_over_100": 74,
+  "functions_over_200": 18,
+  "functions_over_300": 7,
+  "functions_over_limits": 228,
   "cross_package_sccs": 1,
   "largest_fan_out": 36,
-  "largest_fan_out_deferred": 11,
-  "private_test_names": 242,
+  "largest_fan_out_deferred": 10,
+  "private_test_names": 241,
   "monkeypatch_targets": 83,
   "workspace_to_run_imports": 0,
-  "root_facade_lines": 23872
+  "root_facade_lines": 20683
  }
 }

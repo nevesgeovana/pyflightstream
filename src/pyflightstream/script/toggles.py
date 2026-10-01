@@ -54,12 +54,11 @@ def resolve_toggle(value: object, *, context: str = "a solver toggle") -> bool:
 
     Raises
     ------
-    ValueError
+    CommandArgumentError
         If the value is neither a bool nor one of the solver's words.
-        Callers in the script layer re-raise this as
-        :class:`~pyflightstream.script.CommandArgumentError`; inside a
-        pydantic model it surfaces as a ``ValidationError`` naming the
-        field, and the message below is what survives.
+        It is a ``ValueError``, so inside a pydantic model it surfaces
+        as a ``ValidationError`` naming the field, and the message below
+        is what survives.
 
     Examples
     --------

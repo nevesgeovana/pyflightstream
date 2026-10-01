@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 268,
+  "cited_by_a_test": 269,
   "total": 328,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -2620,7 +2620,7 @@
    "text": "Read with PFS-2074, PFS-2074.24 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: item DOC-B of the 0.33.0 scope (GEO-071, section 3.3), from the same audit, which found 64 percent of docstrings describing their parameters and result and 15 percent also carrying Raises and Examples, and the unsteady reductions explained on three pages that contradict one another. Pending: nothing of it is built. Evidence owed: the ruff configuration and its clean run, a tier-1 test over the exported functions for R2, and the documentation tests for R3.*",
+   "evidence": "*Origin: item DOC-B of the 0.33.0 scope (GEO-071, section 3.3), from the same audit, which found 64 percent of docstrings describing their parameters and result and 15 percent also carrying Raises and Examples, and the unsteady reductions explained on three pages that contradict one another. Pending: DOC-B is built in two parts, and part 1 completed R2 to R4 on every module but the fifteen the other 0.33.0 packages were cutting and the four package roots the facade ratchet (AD-08, G8) holds at their entry, which a tier-1 test pins and part 2 and the facade cuts empty; R1 waits for part 2, because D417 is selected once it reports nothing over the whole tree. Evidence: tests/tier1_offline/test_p0330_docb_docstrings.py, whose P0330-DOCSTRINGS-NUMPYDOC walks every exported function for R2, P0330-DOC-EXAMPLES the documented tier for R3 against the executable-examples step, and P0330-DOC-REDUCTIONS-HOME the pages for R4, each with a planted-defect control. Owed: part 2 and the ruff configuration with its clean run.*",
    "verification": "none"
   },
   {

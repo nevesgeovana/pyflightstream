@@ -29,6 +29,22 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.fsi.errors import FsiInputError
 
+__all__ = [
+    "DISPLACEMENT_FILE",
+    "FsiState",
+    "LOADS_FILE",
+    "LoadSample",
+    "QUASI_STEADY_ROTOR_FILE",
+    "RecordedTwist",
+    "RevolutionSample",
+    "StaleLoadsError",
+    "TwistIterationError",
+    "check_state_matches_config",
+    "initial_state",
+    "load_state",
+    "write_state_atomic",
+]
+
 #: The run-folder marker of a quasi-steady rotor sector (0.30.0). Its presence
 #: says the run is a STEADY coupled run of a ROTATING structure, whose loads
 #: export carries no time increment; the driver then solves the rotating blade
@@ -265,7 +281,13 @@ class FsiState(BaseModel):
 
 
 def initial_state() -> FsiState:
-    """Return the state of a run before its first coupling call."""
+    """Return the state of a run before its first coupling call.
+
+    Returns
+    -------
+    FsiState
+        The empty state.
+    """
     return FsiState()
 
 
@@ -278,6 +300,11 @@ def load_state(path: str | Path) -> FsiState:
         State file written by :func:`write_state_atomic`, or by any
         earlier release: a file carrying the pre-0.8.0 digest key is
         migrated on load by :class:`FsiState`'s validation alias.
+
+    Returns
+    -------
+    FsiState
+        The validated state.
     """
     return FsiState.model_validate_json(Path(path).read_text(encoding="utf-8"))
 
@@ -344,12 +371,12 @@ def check_state_matches_config(
 
     Raises
     ------
-    ValueError
+    FsiInputError
         If any persisted array disagrees with the configured shape, or
         if the state was created under a different configuration and
         ``allow_config_change`` is not set. The message names the array
         and both shapes, because the usual cause is resuming into a run
-        directory whose config was edited.
+        directory whose config was edited. It is a ``ValueError``.
     """
     problems: list[str] = []
 

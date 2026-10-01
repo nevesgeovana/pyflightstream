@@ -10,6 +10,14 @@ from pathlib import Path
 from pyflightstream._lengths import scale
 from pyflightstream.cases import CampaignConfigError
 
+__all__ = [
+    "PreparedField",
+    "field_rows_in_metres",
+    "prepare_field",
+    "prepare_rotating_field",
+    "read_field_rows",
+]
+
 
 @dataclass(frozen=True)
 class PreparedField:
@@ -33,6 +41,48 @@ def prepare_field(
     measured METER/MILLIMETER custom-file boundary, all six use native length
     units (seconds are unchanged). Multiplication changes representation only.
     It never rotates vectors or coordinates, and never writes the source.
+
+    Parameters
+    ----------
+    path : Path
+        The custom field file.
+    form : str
+        The field's form, ``STRUCTURED`` (a header line, then the rows) or ``UNSTRUCTURED``.
+    source_units : str or None
+        The row's ``FREESTREAM_UNITS``: ``SI``, ``NATIVE``, or None where the row does not declare
+        it.
+    native_unit : str or None
+        The simulation's measured length unit, ``METER`` or ``MILLIMETER``.
+
+    Returns
+    -------
+    PreparedField
+        The file the solver reads (the source itself where nothing is converted, otherwise a
+        converted copy and its bytes) and the provenance of both.
+
+    Raises
+    ------
+    CampaignConfigError
+        If ``source_units`` is not SI, NATIVE or omitted, or an SI field cannot be converted: the
+        simulation unit is not measured, or the file has no header, a bad row count or grid count,
+        a non-numeric value or a row of other than six finite columns.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> path = Path(tempfile.mkdtemp()) / "field.dat"
+    >>> with path.open("w", encoding="utf-8") as stream:
+    ...     print("0 0 0 10 0 0", file=stream)
+    ...     print("1 0 0 10 0 0", file=stream)
+    >>> kept = prepare_field(path, form="UNSTRUCTURED", source_units=None,
+    ...                      native_unit="MILLIMETER")
+    >>> kept.path == str(path), kept.payload
+    (True, None)
+    >>> converted = prepare_field(path, form="UNSTRUCTURED", source_units="SI",
+    ...                           native_unit="MILLIMETER")
+    >>> converted.payload.decode().splitlines()
+    ['0 0 0 10000 0 0', '1000 0 0 10000 0 0']
     """
     if source_units not in {None, "SI", "NATIVE"}:
         raise CampaignConfigError("FREESTREAM_UNITS must be SI or NATIVE, or omitted.")
@@ -100,6 +150,25 @@ def read_field_rows(path: Path, *, form: str) -> tuple[str | None, list[list[flo
 
     The form was checked by the builder's reader before this is asked; this
     reads the numbers and refuses only what would make them unusable.
+
+    Parameters
+    ----------
+    path : Path
+        The custom field file.
+    form : str
+        The field's form, ``STRUCTURED`` (a header line, then the rows) or ``UNSTRUCTURED``.
+
+    Returns
+    -------
+    tuple of (str or None, list of list of float)
+        The header line (None for an unstructured field) and the rows, six numbers each, as
+        written.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the form is unknown, a structured field has no header, the file holds no row, a value is
+        not numeric, or a row is not six finite columns.
     """
     lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
     header = None
@@ -135,6 +204,30 @@ def field_rows_in_metres(
     in, and the rotational velocity the quasi-steady rotor removes from it,
     composing the relative free stream the fixed blades see, is in metres per
     second.
+
+    Parameters
+    ----------
+    path : Path
+        The custom field file.
+    form : str
+        The field's form, ``STRUCTURED`` (a header line, then the rows) or ``UNSTRUCTURED``.
+    source_units : str or None
+        The row's ``FREESTREAM_UNITS``: ``SI``, ``NATIVE``, or None where the row does not declare
+        it.
+    native_unit : str or None
+        The simulation's measured length unit, ``METER`` or ``MILLIMETER``.
+
+    Returns
+    -------
+    tuple of (str or None, list of list of float)
+        The header line (None for an unstructured field) and the rows, positions in metres and
+        velocities in metres per second.
+
+    Raises
+    ------
+    CampaignConfigError
+        If a NATIVE field's simulation unit is neither the metre nor the millimetre, an undeclared
+        field sits on a simulation not in metres, or :func:`read_field_rows` refuses the file.
     """
     header, rows = read_field_rows(path, form=form)
     if source_units == "NATIVE":
@@ -183,6 +276,37 @@ def prepare_rotating_field(
     provenance says what was added. The rotation is the free stream's meaning
     applied to the file (the air seen from the turning blade); no licensed run
     has compared this field with ``SET_FREESTREAM ROTATION`` yet.
+
+    Parameters
+    ----------
+    path : Path
+        The custom field file.
+    form : str
+        The field's form, ``STRUCTURED`` (a header line, then the rows) or ``UNSTRUCTURED``.
+    source_units : str or None
+        The row's ``FREESTREAM_UNITS``: ``SI``, ``NATIVE``, or None where the row does not declare
+        it.
+    native_unit : str or None
+        The simulation's measured length unit, ``METER`` or ``MILLIMETER``.
+    hub_m : tuple of float
+        A point of the shaft, (x, y, z) in metres, in the field's frame.
+    axis : tuple of float
+        The shaft's direction, a unit vector in the field's frame.
+    omega_rad_s : float
+        The rotor's angular speed in radians per second, right-hand about ``axis`` and signed by
+        the rotor's hand.
+
+    Returns
+    -------
+    PreparedField
+        The new field file named by its own digest, its bytes in the simulation's unit, and its
+        provenance.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the simulation's unit names no scale, or the file is refused as
+        :func:`field_rows_in_metres` refuses it.
     """
     header, rows = field_rows_in_metres(
         path, form=form, source_units=source_units, native_unit=native_unit

@@ -12,11 +12,39 @@ from pyflightstream.cases.matrix import MATRIX_COLUMNS
 from pyflightstream.extras import missing_extra
 from pyflightstream.workspace.excel_sync import ExcelSyncError
 
+__all__ = [
+    "create_workbook",
+    "main",
+]
+
 
 def create_workbook(
     path: str | Path, *, workspace: str | Path, python: str | Path = sys.executable
 ) -> Path:
-    """Create a new macro-free .xlsx; synchronize saved files through the CLI."""
+    """Create a new macro-free .xlsx; synchronize saved files through the CLI.
+
+    Parameters
+    ----------
+    path : str or Path
+        The new ``.xlsx`` file; an existing file is refused.
+    workspace : str or Path
+        The workspace the workbook synchronizes with.
+    python : str or Path, optional
+        The Python executable the workbook names for the synchronization, ``sys.executable`` by
+        default.
+
+    Returns
+    -------
+    Path
+        The created workbook, resolved.
+
+    Raises
+    ------
+    ExcelSyncError
+        If the path is not a new ``.xlsx`` file.
+    MissingExtraError
+        If XlsxWriter, of the ``excel`` extra, is not installed.
+    """
     output = Path(path).resolve()
     if output.suffix.lower() != ".xlsx" or output.exists():
         raise ExcelSyncError(
@@ -109,7 +137,19 @@ def create_workbook(
 
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
-    """Create or explicitly synchronize a saved macro-free workbook."""
+    """Create or explicitly synchronize a saved macro-free workbook.
+
+    Parameters
+    ----------
+    argv : list of str, optional
+        The command-line arguments, ``sys.argv[1:]`` by default.
+
+    Returns
+    -------
+    int
+        0 on success, 1 when an apply reports a partial write, 2 when the command was not
+        completed.
+    """
     from pyflightstream.workspace.excel_file import (
         apply_batch,
         cancel_batch,

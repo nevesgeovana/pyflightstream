@@ -27,6 +27,15 @@ from pyflightstream.workspace.excel_sync import (
     preview_sync,
 )
 
+__all__ = [
+    "apply_batch",
+    "cancel_batch",
+    "check_file",
+    "patch_cells",
+    "preview_file",
+    "read_snapshot",
+]
+
 _NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 _REL = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
 
@@ -94,7 +103,24 @@ def _table(archive: ZipFile, path: str, strings: list[str]) -> dict[tuple[int, i
 
 
 def read_snapshot(path: str | Path) -> WorkbookSnapshot:
-    """Read saved values and formula text without recalculating or opening Excel."""
+    """Read saved values and formula text without recalculating or opening Excel.
+
+    Parameters
+    ----------
+    path : str or Path
+        The saved ``.xlsx`` workbook.
+
+    Returns
+    -------
+    WorkbookSnapshot
+        The Runs headers and rows, the Dictionary entries and the baseline values.
+
+    Raises
+    ------
+    ExcelSyncError
+        If the workbook lacks its Runs, Dictionary or _Baseline worksheet, or a header or
+        Dictionary mapping is not unique literal text.
+    """
     with ZipFile(path) as archive:
         parts = _parts(archive)
         if not {"Runs", "Dictionary", "_Baseline"} <= parts.keys():
@@ -151,7 +177,13 @@ def read_snapshot(path: str | Path) -> WorkbookSnapshot:
 
 
 def check_file(path: Path) -> None:
-    """Validate saved workbook identity and Dictionary mappings."""
+    """Validate saved workbook identity and Dictionary mappings.
+
+    Parameters
+    ----------
+    path : Path
+        The saved macro-free ``.xlsx`` workbook.
+    """
     dictionary_mapping(read_snapshot(path))
 
 
@@ -251,7 +283,15 @@ def _replace(path: Path, raw: bytes) -> None:
 
 
 def patch_cells(path: Path, changes: dict[str, dict[tuple[int, int], str]]) -> None:
-    """Apply explicit literal cell edits, preserving all unrelated package members."""
+    """Apply explicit literal cell edits, preserving all unrelated package members.
+
+    Parameters
+    ----------
+    path : Path
+        The saved macro-free ``.xlsx`` workbook.
+    changes : dict of str to dict of (int, int) to str
+        Worksheet name to the cells to set, (row, column) to literal text.
+    """
     _replace(path, _patched(path.read_bytes(), changes))
 
 
@@ -263,7 +303,32 @@ def preview_file(
     batch: Path,
     matrices: list[str] | None = None,
 ) -> Path:
-    """Save a reviewable transaction and HTML preview without changing either input."""
+    """Save a reviewable transaction and HTML preview without changing either input.
+
+    Parameters
+    ----------
+    path : Path
+        The saved macro-free ``.xlsx`` workbook.
+    workspace : Path
+        The workspace whose matrices are compared.
+    direction : str
+        ``read`` (matrices to workbook) or ``write`` (workbook to matrices).
+    batch : Path
+        A new preview batch file; an existing one is refused.
+    matrices : list of str, optional
+        The matrix files to compare. None compares every matrix of the workspace when reading, and
+        the matrices the Runs rows name when writing.
+
+    Returns
+    -------
+    Path
+        The HTML preview written beside the batch.
+
+    Raises
+    ------
+    ExcelSyncError
+        If the workbook is not a ``.xlsx`` file, or the batch or its HTML preview already exists.
+    """
     path, batch = path.resolve(), batch.resolve()
     if path.suffix.lower() != ".xlsx":
         raise ExcelSyncError("Use a macro-free .xlsx workbook.")
@@ -323,14 +388,39 @@ def _load_batch(path: Path) -> dict:
 
 
 def cancel_batch(path: Path) -> None:
-    """Mark a pending preview cancelled; never modify the workbook or matrices."""
+    """Mark a pending preview cancelled; never modify the workbook or matrices.
+
+    Parameters
+    ----------
+    path : Path
+        The preview batch file :func:`preview_file` wrote.
+    """
     payload = _load_batch(path)
     payload["status"] = "cancelled"
     _replace(path, json.dumps(payload, ensure_ascii=False, indent=2).encode())
 
 
 def apply_batch(path: Path) -> dict:
-    """Apply one fresh preview, retaining exact originals and partial-write details."""
+    """Apply one fresh preview, retaining exact originals and partial-write details.
+
+    Parameters
+    ----------
+    path : Path
+        The preview batch file :func:`preview_file` wrote.
+
+    Returns
+    -------
+    dict
+        The files written, their backups, the workbook's backup and the error of a partial write,
+        if any.
+
+    Raises
+    ------
+    ExcelSyncError
+        If the workbook, the matrices or the preview changed after the preview, or the preview
+        holds INVALID or CONFLICT rows. A workbook that changes during the apply is not raised:
+        the returned ``error`` names it and the original is kept.
+    """
     payload = _load_batch(path)
     workbook = Path(payload["workbook"])
     original = workbook.read_bytes()

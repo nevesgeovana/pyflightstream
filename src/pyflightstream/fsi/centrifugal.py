@@ -31,6 +31,21 @@ from pyflightstream.fsi import beam
 from pyflightstream.fsi.config import FsiConfig
 from pyflightstream.fsi.errors import FsiInputError
 
+__all__ = [
+    "CampbellData",
+    "RotatingSolution",
+    "axial_load_distribution",
+    "axial_tension",
+    "campbell_sweep",
+    "in_plane_softening_coefficients",
+    "propeller_moment_distribution",
+    "propeller_moment_twist_stiffness",
+    "rotating_frequencies",
+    "solve_rotating_static",
+    "southwell_fit",
+    "total_pitch_rad",
+]
+
 logger = logging.getLogger(__name__)
 
 # Twist stabilization tolerance of the inner iteration: three orders of
@@ -112,6 +127,18 @@ def total_pitch_rad(cfg: FsiConfig, elastic_twist_rad: Sequence[float]) -> list[
 
     Source: FSI Blade Coupling Plan rev. 2 (July 2026), definition of
     the total pitch entering the propeller moment (FSI-R06).
+
+    Parameters
+    ----------
+    cfg : FsiConfig
+        The configuration providing the geometric pitch [deg] per station.
+    elastic_twist_rad : sequence of float
+        The elastic twist per station [rad].
+
+    Returns
+    -------
+    list of float
+        The total pitch per station [rad].
     """
     return [
         math.radians(geometric) + elastic
@@ -468,6 +495,20 @@ def campbell_sweep(
     -------
     CampbellData
         Frequency tracks of the sweep.
+
+    Examples
+    --------
+    >>> from pyflightstream.fsi.config import FsiConfig
+    >>> from pyflightstream.fsi.sections import blade_properties_from_sections
+    >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
+    >>> blade = blade_properties_from_sections(
+    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
+    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ... )
+    >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
+    >>> data = campbell_sweep(cfg, [0.0, 100.0, 200.0], n_modes=2)
+    >>> [round(f) for f in data.family_track("flap")]
+    [115, 165, 261]
     """
     # Every point is validated BEFORE the first solve, not per iteration.
     # Validating inside the loop refused a bad Omega only after paying for
@@ -521,6 +562,18 @@ def southwell_fit(
     -------
     tuple of float
         (omega_0 [rad/s], Southwell coefficient S, r_squared of the fit).
+
+    Raises
+    ------
+    FsiInputError
+        If the sweep has fewer than three points, or not one frequency per rotor speed.
+
+    Examples
+    --------
+    >>> import math
+    >>> track = [10.0, math.sqrt(102.0), math.sqrt(108.0)]
+    >>> [round(value, 6) for value in southwell_fit([0.0, 1.0, 2.0], track)]
+    [10.0, 2.0, 1.0]
     """
     if len(omegas_rad_per_s) != len(frequencies_rad_per_s) or len(omegas_rad_per_s) < 3:
         raise FsiInputError(

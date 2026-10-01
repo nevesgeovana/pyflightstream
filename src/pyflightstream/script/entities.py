@@ -23,6 +23,15 @@ from collections.abc import Mapping
 
 from pyflightstream._errors import PyflightstreamError
 
+__all__ = [
+    "CREATED_KINDS",
+    "ENTITY_KINDS",
+    "EntityRegistry",
+    "ScriptDeclarationTypeError",
+    "ScriptLabelError",
+    "ScriptReferenceError",
+]
+
 #: Entity kinds the registry tracks, in the vocabulary of the builder.
 ENTITY_KINDS = ("frames", "actuators", "motions", "boundaries")
 

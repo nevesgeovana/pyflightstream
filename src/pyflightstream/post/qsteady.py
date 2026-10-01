@@ -87,6 +87,42 @@ from pyflightstream.post.axes import (
 )
 from pyflightstream.results import parse_loads
 
+__all__ = [
+    "AVERAGE_SPINE",
+    "AVERAGE_SUFFIX",
+    "CLOCKING_COLUMN",
+    "ClockedSections",
+    "Clocking",
+    "ClockingMean",
+    "GEOMETRY_SECTION_FRAMES",
+    "LOAD_NAMES",
+    "POSITIONS_SUFFIX",
+    "POSITION_SPINE",
+    "PointValidity",
+    "RotorState",
+    "STATE_COLUMNS",
+    "STATION_COLUMN",
+    "STATION_TOLERANCE",
+    "SURFACE_COMPONENTS",
+    "ShaftLoads",
+    "VALIDITY_COLUMNS",
+    "WheelPoint",
+    "add_clockings_to_sections",
+    "add_reduced_frequency_to_sections",
+    "clocking_section_export",
+    "clockings_of",
+    "load_columns",
+    "mean_clocking_surfaces",
+    "rotor_speed",
+    "rotor_state",
+    "shaft_in_section_frame",
+    "validity_cells",
+    "validity_of_the_plan",
+    "wheel_block_identity",
+    "write_point_validity_file",
+    "write_qsteady_tables",
+]
+
 #: The point's validity, carried by every quasi-steady product of the point.
 VALIDITY_COLUMNS: tuple[str, ...] = (
     "K_1P_MIN",
@@ -159,6 +195,18 @@ def rotor_speed(record: QsteadyRecord, alias: str) -> float | None:
     is of another rotor. The record is read by
     :func:`pyflightstream.cases.qsteady.read_qsteady_record`, which refuses one
     that states no number.
+
+    Parameters
+    ----------
+    record : QsteadyRecord
+        The point's quasi-steady record.
+    alias : str
+        The rotor's alias.
+
+    Returns
+    -------
+    float or None
+        The signed speed in rev/min, or None where the record is of another rotor.
     """
     if record.rotor_alias != str(alias):
         return None
@@ -208,7 +256,19 @@ class PointValidity:
 
 
 def validity_of_the_plan(record: QsteadyRecord) -> PointValidity:
-    """Return the validity the plan estimated from the mesh, the shares not known."""
+    """Return the validity the plan estimated from the mesh, the shares not known.
+
+    Parameters
+    ----------
+    record : QsteadyRecord
+        The point's quasi-steady record.
+
+    Returns
+    -------
+    PointValidity
+        The plan's reduced-frequency summary, its source ``mesh`` and no shares; empty where the
+        record holds no plan.
+    """
     plan = record.validity or {}
     if not isinstance(plan, Mapping) or plan.get("note") or "k_min" not in plan:
         return PointValidity({})
@@ -225,7 +285,18 @@ def validity_of_the_plan(record: QsteadyRecord) -> PointValidity:
 
 
 def validity_cells(validity: PointValidity) -> dict[str, str]:
-    """Return the point's validity as cells of :data:`VALIDITY_COLUMNS`, ``NA`` where unknown."""
+    """Return the point's validity as cells of :data:`VALIDITY_COLUMNS`, ``NA`` where unknown.
+
+    Parameters
+    ----------
+    validity : PointValidity
+        The point's validity.
+
+    Returns
+    -------
+    dict of str to str
+        Column of :data:`VALIDITY_COLUMNS` to its cell.
+    """
     return {
         column: _cell(value) if value is not None else NOT_APPLICABLE
         for column, value in zip(VALIDITY_COLUMNS, validity.cells(), strict=True)
@@ -251,6 +322,17 @@ def write_point_validity_file(
     rewritten by every post. Since 0.31.0 it carries the point's rotor state
     (``rotor_state``, the values of :data:`STATE_COLUMNS`, null where not
     known or where ``state`` is not given).
+
+    Parameters
+    ----------
+    loads_path : Path
+        The point's own loads export; the file is written beside it.
+    record : QsteadyRecord
+        The point's quasi-steady record.
+    validity : PointValidity
+        The point's validity.
+    state : RotorState, optional
+        The point's rotor state; its values are null where not given.
 
     Returns
     -------
@@ -288,6 +370,18 @@ def clocking_section_export(position: QsteadyClocking, kind: str) -> str | None:
     ``plot_sections_cp``). None for a kind the clocking did not export and for
     every record written before 0.31.0, whose wheel exported its sections at
     clocking 0 only.
+
+    Parameters
+    ----------
+    position : QsteadyClocking
+        One clocking of the record.
+    kind : str
+        The export kind, ``sectional_loads``, ``sections`` or ``plot_sections_cp``.
+
+    Returns
+    -------
+    str or None
+        The export's file name, or None.
     """
     exports = position.section_exports
     if exports is None:
@@ -306,6 +400,20 @@ def wheel_block_identity(
     (:func:`~pyflightstream.post.axes.clocked_blade_azimuth_deg`); any other
     block of the rotor states where blade one is, which is what ``AZIMUTH``
     means in every other sections table; a block no rotor owns states none.
+
+    Parameters
+    ----------
+    record : QsteadyRecord
+        The point's quasi-steady record.
+    families : sequence of str
+        The families of the block.
+    clocking : int
+        The clocking the block was cut at.
+
+    Returns
+    -------
+    tuple of (str or None, float or None)
+        The rotor alias and the azimuth in degrees; ``(None, None)`` for a block no rotor owns.
     """
     blades = list(record.families_blades)
     owned = {*blades, *record.families_general}
@@ -379,6 +487,23 @@ def add_clockings_to_sections(
     :data:`STATION_TOLERANCE` of the largest offset) is named in the result
     and its rows are kept. A clocking whose export is not named, not on disk
     or not readable is named and left out, and the table keeps the others.
+
+    Parameters
+    ----------
+    path : Path
+        The sections table written from clocking 0's export, rewritten in place.
+    record : QsteadyRecord
+        The point's quasi-steady record.
+    folder : Path
+        The folder holding the point's exports.
+    tabled : callable
+        The product stage's writer of a sections table, called with a scratch path and an export's
+        text; it returns the path written, or None.
+
+    Returns
+    -------
+    ClockedSections
+        The clockings left out and why, and the clockings whose stations differ from clocking 0's.
     """
     columns, rows = _read_table(path)
     index = {name: at for at, name in enumerate(columns)}
@@ -462,6 +587,18 @@ def shaft_in_section_frame(record: QsteadyRecord, frame: str) -> tuple[float, fl
     which the axis is ``axis_vector`` itself. Any other frame (one a setup
     creates, a hub frame kept from before a row's rotation) is None: its axes
     are not the package's to know.
+
+    Parameters
+    ----------
+    record : QsteadyRecord
+        The point's quasi-steady record.
+    frame : str
+        The section frame's name, as the layout records it.
+
+    Returns
+    -------
+    tuple of float or None
+        The rotor's axis in the frame's axes, or None for a frame whose axes are not known.
     """
     name = str(frame).strip().upper()
     clocked = _CLOCKING_FRAME.match(name)
@@ -538,6 +675,18 @@ def add_reduced_frequency_to_sections(
     shares are taken over whose ``Fx``, ``Fz`` or ``Offset`` is ``NA`` or
     unreadable makes BOTH shares ``NA``, with a note naming the station
     (invariant 8: an ``NA`` is never read as a zero load).
+
+    Parameters
+    ----------
+    path : Path
+        The point's sections table, rewritten in place.
+    record : QsteadyRecord
+        The point's quasi-steady record.
+    velocity_m_per_s : float
+        The point's free-stream speed, in m/s.
+    layout : sequence of mapping, optional
+        The run's ``sections_layout``; without it the sections are taken as cut in the rotor's own
+        frames.
 
     Returns
     -------
@@ -771,6 +920,26 @@ def clockings_of(
     ``datum + sign(rpm) * theta_i``, so a left-hand wheel's clocking turns
     blade one backwards here as it does there. Until 0.31.0 this added
     ``theta_i`` unsigned, and the two tables of one left-hand wheel disagreed.
+
+    Parameters
+    ----------
+    record : QsteadyRecord
+        The point's quasi-steady record.
+    folder : Path
+        The folder holding the point's exports.
+    reference : object
+        The point's reference block, its lengths and moment point; None where the run recorded
+        none.
+    density_kg_m3 : float
+        The point's density, in kg/m3.
+    shaft_loads : callable
+        Takes the rotor's and each blade's loads from an export's surfaces.
+
+    Returns
+    -------
+    list of Clocking or str
+        The clockings' loads, by clocking index; or the reason, naming the clocking, when one
+        cannot be read.
     """
     families = list(record.families_blades)
     members = [*record.families_general, *families]
@@ -859,6 +1028,22 @@ def mean_clocking_surfaces(
     reference velocity, is in another analysis frame than clocking 0's, or
     lists other surfaces, is the reason returned: the point is not a row,
     because a mean of the other clockings is not the point's mean.
+
+    Parameters
+    ----------
+    record : QsteadyRecord
+        The point's quasi-steady record.
+    folder : Path
+        The folder holding the point's exports.
+    speed_m_s : float
+        The point's own free-stream speed, in m/s, which every clocking's coefficients are taken
+        back to.
+
+    Returns
+    -------
+    ClockingMean or str
+        The surfaces' loads averaged over the clockings and the number of clockings; or the reason
+        the point is not a row.
     """
     positions = sorted(record.positions, key=lambda entry: entry.index)
     read: list[tuple[int, dict[str, dict[str, float]], float, object]] = []
@@ -961,6 +1146,27 @@ def rotor_state(
     a thrust not known at every clocking, a density, speed or rotor that is
     not stated, or an induced inflow that does not converge (and ``CHI_DEG``
     with it).
+
+    Parameters
+    ----------
+    record : QsteadyRecord
+        The point's quasi-steady record.
+    clockings : sequence of Clocking
+        The point's clockings, from :func:`clockings_of`.
+    density_kg_m3 : float or None
+        The point's density, in kg/m3.
+    velocity_m_s : float or None
+        The point's free-stream speed, in m/s.
+    alpha_deg : float
+        The point's angle of attack, in degrees.
+    beta_deg : float
+        The point's sideslip angle, in degrees.
+
+    Returns
+    -------
+    RotorState
+        The values of :data:`STATE_COLUMNS`, None where they cannot be taken, and the notes that
+        say why.
     """
     alias = record.rotor_alias
     notes: list[str] = []
@@ -1011,7 +1217,19 @@ def rotor_state(
 
 
 def load_columns(record: QsteadyRecord) -> tuple[str, ...]:
-    """Return the loads columns of a rotor's tables: the rotor's, then each blade's."""
+    """Return the loads columns of a rotor's tables: the rotor's, then each blade's.
+
+    Parameters
+    ----------
+    record : QsteadyRecord
+        The point's quasi-steady record.
+
+    Returns
+    -------
+    tuple of str
+        Each load name of :data:`LOAD_NAMES` suffixed by the rotor alias, then by each blade
+        family.
+    """
     alias = record.rotor_alias
     families = list(record.families_blades)
     return tuple(f"{name}_{owner}" for owner in (alias, *families) for name in LOAD_NAMES)
@@ -1078,6 +1296,23 @@ def write_qsteady_tables(
     """Write the clockings table and the average table of one rotor of one simulation.
 
     Returns None, writing nothing, where no point holds a clocking.
+
+    Parameters
+    ----------
+    positions_path : Path
+        The clockings table to write.
+    average_path : Path
+        The average table to write.
+    points : sequence of WheelPoint
+        The rotor's wheel points of the simulation.
+    reference : object
+        The point's reference block, its lengths and moment point; None where the run recorded
+        none.
+
+    Returns
+    -------
+    tuple of (Path, Path) or None
+        The two tables written, or None where no point holds a clocking.
     """
     usable = [point for point in points if point.clockings]
     if not usable:

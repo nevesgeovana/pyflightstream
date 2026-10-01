@@ -32,6 +32,19 @@ from pydantic import (
 
 from pyflightstream._atmosphere import ISA
 
+__all__ = [
+    "BladeProperties",
+    "BladePropertiesProvenance",
+    "FixedWing",
+    "FsiConfig",
+    "MaterialProvenance",
+    "PhaseSchedule",
+    "config_sha256",
+    "dump_config",
+    "frame_embedding",
+    "load_config",
+]
+
 logger = logging.getLogger(__name__)
 
 _STATION_ARRAY_FIELDS = (
@@ -210,6 +223,20 @@ class BladeProperties(BaseModel):
         that states it. None when no section geometry is known, and
         then it is not serialised, for the reason given for
         ``provenance``.
+
+    Examples
+    --------
+    >>> from pyflightstream.fsi.config import BladeProperties
+    >>> blade = BladeProperties(
+    ...     station_radii_m=[0.1, 0.5], chord_m=[0.04] * 2,
+    ...     mass_per_length_kg_per_m=[0.7] * 2, inertia_major_kg_m=[1e-4] * 2,
+    ...     inertia_minor_kg_m=[1e-6] * 2, bending_stiffness_n_m2=[25.0] * 2,
+    ...     torsion_stiffness_n_m2=[35.0] * 2, elastic_axis_offset_chordwise_m=[0.0] * 2,
+    ...     elastic_axis_offset_normal_m=[0.0] * 2, cg_offset_chordwise_m=[0.0] * 2,
+    ...     cg_offset_normal_m=[0.0] * 2, geometric_pitch_deg=[20.0, 10.0],
+    ... )
+    >>> blade.station_radii_m
+    [0.1, 0.5]
     """
 
     # allow_inf_nan=False closes the SCALAR half of PYFS-012. The list guard
@@ -561,6 +588,19 @@ class FsiConfig(BaseModel):
         and then it is not serialised, for the reason given for
         ``BladeProperties.provenance``. A wing states ``omega_rad_per_s =
         0`` and ``blade_count = 1``.
+
+    Examples
+    --------
+    >>> from pyflightstream.fsi.config import FsiConfig
+    >>> from pyflightstream.fsi.sections import blade_properties_from_sections
+    >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
+    >>> blade = blade_properties_from_sections(
+    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
+    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ... )
+    >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
+    >>> cfg.blade_count, frame_embedding(cfg)
+    (2, 'section_frame')
     """
 
     # allow_inf_nan=False closes the SCALAR half of PYFS-012. The list guard
@@ -635,6 +675,11 @@ def frame_embedding(cfg: FsiConfig) -> str:
     ----------
     cfg : FsiConfig
         Validated configuration.
+
+    Returns
+    -------
+    str
+        ``wing_frame``, ``rotor_frame`` or ``section_frame``.
     """
     if cfg.wing is not None:
         return "wing_frame"
@@ -653,6 +698,23 @@ def load_config(path: str | Path) -> FsiConfig:
     -------
     FsiConfig
         Validated configuration.
+
+    Examples
+    --------
+    >>> from pyflightstream.fsi.config import FsiConfig
+    >>> from pyflightstream.fsi.sections import blade_properties_from_sections
+    >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
+    >>> blade = blade_properties_from_sections(
+    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
+    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ... )
+    >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> path = Path(tempfile.mkdtemp()) / "config.json"
+    >>> dump_config(cfg, path)
+    >>> config_sha256(load_config(path)) == config_sha256(cfg)
+    True
     """
     path = Path(path)
     cfg = FsiConfig.model_validate_json(path.read_text(encoding="utf-8"))
@@ -669,6 +731,23 @@ def dump_config(cfg: FsiConfig, path: str | Path) -> None:
         Configuration to persist.
     path : str or Path
         Destination file; overwritten if present.
+
+    Examples
+    --------
+    >>> from pyflightstream.fsi.config import FsiConfig
+    >>> from pyflightstream.fsi.sections import blade_properties_from_sections
+    >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
+    >>> blade = blade_properties_from_sections(
+    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
+    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ... )
+    >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> path = Path(tempfile.mkdtemp()) / "config.json"
+    >>> dump_config(cfg, path)
+    >>> load_config(path) == cfg
+    True
     """
     Path(path).write_text(cfg.model_dump_json(indent=2) + "\n", encoding="utf-8")
 
@@ -705,6 +784,20 @@ def config_sha256(cfg: FsiConfig) -> str:
     -------
     str
         Lowercase hexadecimal sha256 digest.
+
+    Examples
+    --------
+    >>> from pyflightstream.fsi.config import FsiConfig
+    >>> from pyflightstream.fsi.sections import blade_properties_from_sections
+    >>> plate = [(0.02, 0.002), (-0.02, 0.002), (-0.02, -0.002), (0.02, -0.002)]
+    >>> blade = blade_properties_from_sections(
+    ...     [0.1, 0.3, 0.5], [plate] * 3, [0.04] * 3, [10.0] * 3,
+    ...     "ti-6al-4v-grade5-annealed", geometry_source="a flat 40 x 4 mm plate",
+    ... )
+    >>> cfg = FsiConfig(blade_count=2, omega_rad_per_s=0.0, blade=blade)
+    >>> digest = config_sha256(cfg)
+    >>> len(digest), digest == config_sha256(cfg.model_copy())
+    (64, True)
     """
     canonical = json.dumps(cfg.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

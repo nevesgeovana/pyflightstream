@@ -39,6 +39,28 @@ from pyflightstream.qa.reports import (
 from pyflightstream.run import describe_invocation
 from pyflightstream.versions import resolve
 
+__all__ = [
+    "COMPAT_SCHEMA",
+    "CORROBORATED",
+    "EXECUTABLE_BASELINE_REPORT",
+    "ExecutableIdentity",
+    "ExecutableVerdict",
+    "Judgment",
+    "LicenceCandidate",
+    "MEASURED_STATUSES",
+    "PROMOTABLE_OUTCOMES",
+    "WITHHELD_DIGEST",
+    "apply_compat",
+    "classify_executable",
+    "compat_report_paths",
+    "contradicting_evidence",
+    "licence_sensitive_candidates",
+    "read_compat_report",
+    "read_compat_reports",
+    "read_executable_baseline",
+    "write_compat_report",
+]
+
 COMPAT_SCHEMA = "pyflightstream-compat-report/1"
 
 
@@ -251,8 +273,9 @@ def read_compat_report(path: str | Path) -> dict:
 
     Raises
     ------
-    ValueError
-        When the file does not carry the compat report schema marker.
+    QaEvidenceError
+        When the file does not carry the compat report schema marker
+        (a ``ValueError``).
     """
     document = _load_yaml(Path(path))
     if not isinstance(document, dict) or document.get("schema") != COMPAT_SCHEMA:
@@ -347,6 +370,11 @@ def read_compat_reports(
     dict
         ``(command, fs_version)`` to the judgments of that pair, oldest
         first. A pair no report judges promotably is absent.
+
+    Raises
+    ------
+    QaEvidenceError
+        If ``reports_dir`` is given explicitly and is not a directory.
     """
     root = Path(repo_root).resolve()
     # Defaulting here rather than only in apply_compat: every caller of

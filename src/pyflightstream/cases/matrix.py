@@ -1579,6 +1579,31 @@ def read_matrix(path: str | Path, *, active_only: bool = True) -> list[MatrixRow
     -------
     list of MatrixRow
         Parsed rows in file order.
+
+    Raises
+    ------
+    MatrixError
+        If the file carries the column layout of an earlier release, or a LEGACY row states a raw
+        command, a rotation or a translation.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> from pyflightstream.cases.matrix import MATRIX_COLUMNS
+    >>> cells = dict.fromkeys(MATRIX_COLUMNS, "NA")
+    >>> cells.update(
+    ...     POL="9001", HIDDEN="0", RUN="1", AIRCRAFT="Wing", DESCRIPTION="POLAR",
+    ...     FLIGHT_CONDITION="MACH:0.1, ALPHA:sweep", SWEEP_VALUES="0.0,2.0",
+    ...     FS_BUILD="MANUAL", WORKFLOW="LEGACY",
+    ...     VAR_NAMES_VALUES="OUTPUTS: loads_{point}.txt / RECIPE: 003",
+    ... )
+    >>> path = Path(tempfile.mkdtemp()) / "matrix.fs"
+    >>> with path.open("w", encoding="utf-8") as stream:
+    ...     print(" | ".join(cells), file=stream)
+    ...     print(" | ".join(cells.values()), file=stream)
+    >>> [(row.pol, row.run) for row in read_matrix(path)]
+    [('9001', 1)]
     """
     lines = Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
     content = [line for line in lines if line.strip() and not set(line.strip()) <= {"-"}]
@@ -2989,6 +3014,8 @@ def _declared_outputs(row: MatrixRow, *, required: bool = True) -> list[str]:
     ----------
     row : MatrixRow
         One active row.
+    required : bool, optional
+        Whether a row that declares no outputs is refused; the migration tool passes False.
 
     Returns
     -------
@@ -3111,6 +3138,12 @@ def to_campaign(
         RECIPE code (a LEGACY row's) to recipe reference (``module:function`` or a
         name registered with the campaign loop); replaces the
         import-by-number system (PP-7, FR-12).
+    require_outputs : bool, optional
+        Refuse a row that declares no outputs (the default); :func:`convert_matrix`, the migration
+        tool, passes False.
+    defer_raw_files : bool, optional
+        Leave out a raw-command record that names a file instead of refusing it; only the caller
+        that resolves those files against a workspace passes True.
 
     Returns
     -------
@@ -3119,6 +3152,13 @@ def to_campaign(
         variables (``matrix_ref``, ``matrix_set``, ``matrix_pproc``,
         ``matrix_fs_script``, ``matrix_fs_build``, ``matrix_hidden``,
         ``matrix_workflow``) so the conversion is lossless (FR-11).
+
+    Raises
+    ------
+    MatrixError
+        If a LEGACY row's RECIPE code is missing or not in ``recipes``, a row declares no outputs
+        while ``require_outputs`` is true, or a raw-command record names a file while
+        ``defer_raw_files`` is false.
     """
     rows = read_matrix(path)
     # Read once and judged before anything is built, so the refusal below
@@ -3262,6 +3302,46 @@ def convert_matrix(
     loads back through :func:`pyflightstream.cases.load_campaign`, so
     migration is one call and reversible only in the sense that the
     matrix file itself stays untouched and readable forever (FR-10).
+
+    Parameters
+    ----------
+    path : str or Path
+        Matrix location; only RUN = 1 rows convert.
+    name : str
+        Campaign name, as :func:`to_campaign` takes it.
+    fs_version : str
+        FlightStream version, as :func:`to_campaign` takes it.
+    fs_exe : str
+        Explicit executable path.
+    recipes : mapping of str to str
+        RECIPE code to recipe reference, as :func:`to_campaign` takes it.
+
+    Returns
+    -------
+    str
+        The ``campaign.toml`` text, ending in a newline. A row that declares no outputs converts to
+        a case that declares none, with a warning naming it.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> from pyflightstream.cases.matrix import MATRIX_COLUMNS
+    >>> cells = dict.fromkeys(MATRIX_COLUMNS, "NA")
+    >>> cells.update(
+    ...     POL="9001", HIDDEN="0", RUN="1", AIRCRAFT="Wing", DESCRIPTION="POLAR",
+    ...     FLIGHT_CONDITION="MACH:0.1, ALPHA:sweep", SWEEP_VALUES="0.0,2.0",
+    ...     FS_BUILD="MANUAL", WORKFLOW="LEGACY",
+    ...     VAR_NAMES_VALUES="OUTPUTS: loads_{point}.txt / RECIPE: 003",
+    ... )
+    >>> path = Path(tempfile.mkdtemp()) / "matrix.fs"
+    >>> with path.open("w", encoding="utf-8") as stream:
+    ...     print(" | ".join(cells), file=stream)
+    ...     print(" | ".join(cells.values()), file=stream)
+    >>> text = convert_matrix(path, name="polar", fs_version="26.124",
+    ...                       fs_exe="FlightStream.exe", recipes={"003": "recipes:build"})
+    >>> text.splitlines()[:3]
+    ['[campaign]', 'name = "polar"', 'fs_version = "26.124"']
     """
     # require_outputs=False: this is the migration tool. A row that
     # declares none converts to a sim that declares none, and the

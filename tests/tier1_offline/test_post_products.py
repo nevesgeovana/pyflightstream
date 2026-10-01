@@ -726,10 +726,13 @@ def test_pyfs_matrix_post_writes_every_reduction_beside_the_plots_table(tmp_path
     )
     assert _skipped_besides_the_axes(manifest) == {}
 
-    # The docs name the files a user meets beside the plots table.
-    page = workflow_docs_text()
+    # The docs name the files a user meets beside the plots table, on the one
+    # page that defines the reductions (NFR-30 R4); the workflow pages link there.
+    page = (
+        Path(__file__).resolve().parents[2] / "docs" / "post-processing-definitions.md"
+    ).read_text(encoding="utf-8")
     for name in ("<point>_time_average.csv", "<point>_phase_locked.csv", "<point>_per_blade.csv"):
-        assert name in page, f"docs/workspace-and-workflows.md does not name {name}"
+        assert name in page, f"docs/post-processing-definitions.md does not name {name}"
 
 
 def test_a_rotorless_unsteady_point_gets_the_time_average_alone(tmp_path):

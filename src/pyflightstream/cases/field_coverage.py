@@ -10,6 +10,11 @@ from typing import Any
 from pyflightstream._lengths import scale
 from pyflightstream.cases import CampaignConfigError
 
+__all__ = [
+    "Point",
+    "spatial_envelope",
+]
+
 Point = tuple[float, float, float]
 
 
@@ -73,6 +78,28 @@ def spatial_envelope(
     original and transformed envelope because no face-association is assumed.
     Rotation includes both angular signs; a full rotor sweep is independent of
     direction and STEP convention. Unknown transformations yield no claim.
+
+    Parameters
+    ----------
+    points_m : iterable of sequence of float
+        The body's points before any operation, (x, y, z) in metres.
+    operations : sequence of mapping
+        The emitted surface transforms, in order, each with its ``command``, ``arguments``,
+        ``frame`` and, where stated, ``length_unit`` and ``boundary_count``.
+    motions : sequence of mapping
+        The moving-frame records, each with its ``motion_index``, ``trajectory``, ``reason`` and
+        ``length_unit``.
+
+    Returns
+    -------
+    tuple of (tuple of float, list of str)
+        The bounds (y min, y max, z min, z max) in metres, and the notes that qualify them.
+
+    Raises
+    ------
+    CampaignConfigError
+        If a transform is not one the rule knows, has no frame, a rotation is not finite, or a
+        moving frame's trajectory is unknown, has no proved rule or moves its centre.
     """
     points = _corners(points_m)
     notes = ["conservative bounding-box envelope; excess is not proof of a missed surface"]

@@ -51,6 +51,52 @@ from typing import Any, ClassVar
 from pyflightstream._errors import PyflightstreamError
 from pyflightstream.cases import CampaignConfigError
 
+__all__ = [
+    "AXISYMMETRY_RADIUS_TOLERANCE",
+    "AXISYMMETRY_SPEED_TOLERANCE",
+    "AZIMUTH_SAMPLES",
+    "DEFAULT_STATIONS",
+    "HARMONIC_AMPLITUDE_FLOOR_DEG",
+    "HARMONIC_VARIANCE_SHARE",
+    "INFLOW_ITERATIONS",
+    "INFLOW_TOLERANCE",
+    "InflowHarmonics",
+    "POSITION_SUFFIX",
+    "QsteadyClocking",
+    "QsteadyRecord",
+    "QsteadyRecordError",
+    "RECORD_CASES",
+    "RECORD_RUN_TYPE",
+    "RECORD_SCHEMA_VERSION",
+    "RECORD_SUFFIX",
+    "REDUCED_FREQUENCY_LIMIT",
+    "REDUCED_FREQUENCY_WATCH",
+    "ReducedFrequencies",
+    "VALIDITY_FILE_SUFFIX",
+    "Vector",
+    "azimuthal_variation",
+    "blade_inflow_angles",
+    "blade_inflow_harmonics",
+    "blade_stations",
+    "clocking_angles",
+    "glauert_induced_inflow",
+    "harmonic_order",
+    "harmonic_variance_shares",
+    "obj_group_vertices",
+    "position_export_name",
+    "position_loads_name",
+    "qsteady_record_rotor_alias",
+    "read_qsteady_record",
+    "record_file_name",
+    "reduced_frequencies",
+    "reduced_frequency",
+    "strip_lengths",
+    "suggested_passage_positions",
+    "summarise",
+    "summarise_inflow_harmonics",
+    "validity_file_name",
+]
+
 Vector = tuple[float, float, float]
 
 #: The reduced frequency above which the plan warns and the products count a
@@ -163,6 +209,17 @@ def strip_lengths(radii: Sequence[float]) -> tuple[float, ...]:
     A strip runs from the midpoint to the previous station to the midpoint to
     the next; the first and the last are half strips. The stations are read in
     the order given, which is ascending radius.
+
+    Parameters
+    ----------
+    radii : sequence of float
+        The stations' radii, ascending, in any length unit.
+
+    Returns
+    -------
+    tuple of float
+        The span each station stands for, in the radii's unit; ``(0.0,)`` for one station and empty
+        for none.
     """
     count = len(radii)
     if count == 0:
@@ -211,6 +268,25 @@ def glauert_induced_inflow(
     number, or where an input is not one: momentum theory then states no
     inflow, which is typical of a rotor descending into its own wake, and a
     caller writes ``NA`` rather than the last iterate.
+
+    Parameters
+    ----------
+    ct : float
+        Thrust coefficient in rotor convention, ``T / (rho A (Omega R)^2)``.
+    mu : float
+        Advance ratio over the tip speed.
+    lambda_c : float
+        Climb inflow over the tip speed.
+    tolerance : float, optional
+        The largest Newton step taken as converged, :data:`INFLOW_TOLERANCE` by default.
+    iterations : int, optional
+        The most Newton steps taken, :data:`INFLOW_ITERATIONS` where not given.
+
+    Returns
+    -------
+    float or None
+        ``lambda_i``, 0.0 for zero thrust, or None where the iteration does not converge or an
+        input or step is not finite.
 
     Examples
     --------
@@ -318,6 +394,24 @@ def reduced_frequencies(
     source: str,
 ) -> ReducedFrequencies:
     """Return the reduced frequency of every station, sorted by radius.
+
+    Parameters
+    ----------
+    radii_m : sequence of float
+        The stations' radii, in metres.
+    chords_m : sequence of float
+        The chord at each station, in metres.
+    omega_rad_s : float
+        The rotor's angular speed in radians per second.
+    velocity_m_per_s : float
+        The free-stream speed in metres per second.
+    source : str
+        Where the chords came from, ``mesh`` or ``sections``.
+
+    Returns
+    -------
+    ReducedFrequencies
+        The stations sorted by radius with their chords, reduced frequencies and strip lengths.
 
     Raises
     ------
@@ -451,6 +545,18 @@ def obj_group_vertices(path: str | Path, *, metres_per_unit: float) -> dict[str,
     A vertex belongs to a group when a face of that group cites it; a vertex
     cited by two groups is in both. Negative (relative) face indices are read
     as the format defines them. A line the reader does not use is passed over.
+
+    Parameters
+    ----------
+    path : str or Path
+        The OBJ file.
+    metres_per_unit : float
+        The file's length unit in metres; every vertex is multiplied by it.
+
+    Returns
+    -------
+    dict of str to list of (float, float, float)
+        Group name to the vertices its faces cite, in metres, in index order.
 
     Raises
     ------
@@ -594,6 +700,17 @@ def _number(record: Mapping[str, object], key: str) -> float:
 def summarise(record: Mapping[str, object]) -> str:
     """Return the four values the plan shows for one point, in one line.
 
+    Parameters
+    ----------
+    record : mapping of str to object
+        One point's reduced-frequency record, with ``span_pct_k_gt_0_1``, ``k_min``, ``k_max`` and
+        ``k_mean``.
+
+    Returns
+    -------
+    str
+        The four values in one line.
+
     Examples
     --------
     >>> summarise({"span_pct_k_gt_0_1": 12.5, "k_min": 0.01, "k_max": 0.2, "k_mean": 0.05})
@@ -622,6 +739,18 @@ VALIDITY_FILE_SUFFIX = "_qsteady_validity.json"
 def position_loads_name(loads: str, index: int) -> str:
     """Return the loads export of clocking ``index``, beside the point's own loads export.
 
+    Parameters
+    ----------
+    loads : str
+        The point's own loads export.
+    index : int
+        The clocking's index, written with two digits.
+
+    Returns
+    -------
+    str
+        The loads export's name with ``_qs<index>`` before its suffix.
+
     Examples
     --------
     >>> position_loads_name("DP_AL+050.txt", 3)
@@ -639,6 +768,20 @@ def position_export_name(name: str, suffix: str, index: int) -> str:
     ``_qs<i>`` goes in front of that suffix and never after it: a sectional
     loads export of clocking 2 still ends ``_sloads.txt``. For the loads table
     (suffix ``.txt``) this is :func:`position_loads_name`.
+
+    Parameters
+    ----------
+    name : str
+        The point's export name.
+    suffix : str
+        The suffix that says which kind of export it is.
+    index : int
+        The clocking's index, written with two digits.
+
+    Returns
+    -------
+    str
+        The name with ``_qs<index>`` in front of ``suffix``.
 
     Raises
     ------
@@ -662,6 +805,16 @@ def position_export_name(name: str, suffix: str, index: int) -> str:
 def validity_file_name(loads: str) -> str:
     """Return the post's per-point validity file's name, beside the point's own loads export.
 
+    Parameters
+    ----------
+    loads : str
+        The point's own loads export.
+
+    Returns
+    -------
+    str
+        ``<loads stem>_qsteady_validity.json`` in the loads export's folder.
+
     Examples
     --------
     >>> validity_file_name("DP_AL+050.txt")
@@ -673,6 +826,16 @@ def validity_file_name(loads: str) -> str:
 
 def record_file_name(loads: str) -> str:
     """Return the quasi-steady record's name, beside the point's own loads export.
+
+    Parameters
+    ----------
+    loads : str
+        The point's own loads export.
+
+    Returns
+    -------
+    str
+        ``<loads stem>_qsteady.json`` in the loads export's folder.
 
     Examples
     --------
@@ -863,6 +1026,16 @@ def qsteady_record_rotor_alias(data: Mapping[str, Any]) -> str:
     (PFS-2030.03.02). The record's reader takes it here, and every other
     module reads :attr:`QsteadyRecord.rotor_alias`.
 
+    Parameters
+    ----------
+    data : mapping of str to object
+        The record's JSON object.
+
+    Returns
+    -------
+    str
+        The rotor alias under ``rotor``.
+
     Raises
     ------
     QsteadyRecordError
@@ -1033,6 +1206,11 @@ def read_qsteady_record(loads_path: Path) -> QsteadyRecord:
     loads_path : Path
         The point's own loads export; the record is read from beside it.
 
+    Returns
+    -------
+    QsteadyRecord
+        The parsed record.
+
     Raises
     ------
     QsteadyRecordError
@@ -1100,6 +1278,19 @@ def harmonic_variance_shares(signal: Sequence[float], *, floor: float = 0.0) -> 
     with no variation, or none above ``floor``, gives all zeros; fewer than
     two samples give an empty array.
 
+    Parameters
+    ----------
+    signal : sequence of float
+        One revolution sampled uniformly in azimuth.
+    floor : float, optional
+        The amplitude below which a harmonic is not counted, in the signal's units.
+
+    Returns
+    -------
+    ndarray
+        The share of the counted variance each harmonic 1, 2, ... holds; all zeros with no counted
+        harmonic, empty for fewer than two samples.
+
     Examples
     --------
     >>> import math
@@ -1140,6 +1331,20 @@ def harmonic_order(
     not counted, and the share is of the harmonics that are. A signal with no
     variation, or none above ``floor``, holds no harmonic and gives 0.
 
+    Parameters
+    ----------
+    signal : sequence of float
+        One revolution sampled uniformly in azimuth.
+    share : float, optional
+        The share of the variance to hold, :data:`HARMONIC_VARIANCE_SHARE` by default.
+    floor : float, optional
+        The amplitude below which a harmonic is not counted, in the signal's units.
+
+    Returns
+    -------
+    int
+        ``n95``, or 0 for a signal with no harmonic above ``floor``.
+
     Examples
     --------
     >>> import math
@@ -1166,6 +1371,18 @@ def suggested_passage_positions(n_max: int, blades: int) -> int:
     harmonics, and the clockings sample one blade passage, so ``k`` clockings
     resolve the rotor-total harmonics up to about ``(k - 1) N``; the count
     that reaches ``n_max`` is the smallest whole ``k >= n_max / N + 1``.
+
+    Parameters
+    ----------
+    n_max : int
+        The highest per-blade harmonic to hold.
+    blades : int
+        The blade count N.
+
+    Returns
+    -------
+    int
+        The smallest whole ``k >= n_max / N + 1``; 1 where ``n_max`` is not positive.
 
     Examples
     --------
@@ -1308,6 +1525,21 @@ def blade_inflow_angles(
     w_tangential)`` taken with the tangential component counted against the
     blade's motion. The azimuth is positive in the sense of ``omega_rad_s``.
 
+    Parameters
+    ----------
+    rows : sequence of (x, y, z, vx, vy, vz)
+        The field, in metres and metres per second, in one frame.
+    hub : (x, y, z)
+        A point of the shaft, in metres, in that frame.
+    axis : (x, y, z)
+        The shaft's direction in that frame.
+    omega_rad_s : float
+        The rotor's angular speed in radians per second, signed by its hand about ``axis``.
+    radius_m : float
+        The radius the blade section is carried round at, in metres.
+    samples : int, optional
+        Azimuths per revolution, :data:`AZIMUTH_SAMPLES` by default.
+
     Returns
     -------
     (ndarray, ndarray)
@@ -1423,6 +1655,17 @@ class InflowHarmonics:
 
 def summarise_inflow_harmonics(record: Mapping[str, object]) -> str:
     """Return the words the plan prints for one point's ``inflow_fft`` record.
+
+    Parameters
+    ----------
+    record : mapping of str to object
+        One point's ``inflow_fft`` record.
+
+    Returns
+    -------
+    str
+        The harmonic order and the suggested clockings, then the effective reduced frequency or why
+        it was not computed, separated by a semicolon.
 
     Examples
     --------

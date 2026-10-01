@@ -519,6 +519,11 @@ def propose_layout(command: ManualCommand) -> tuple[str, str]:
     own vocabulary: ``bare``, ``inline``, ``param_lines``,
     ``payload_lines`` and ``keyword_block``.
 
+    Parameters
+    ----------
+    command : ManualCommand
+        The command as the manual reader parsed it.
+
     Returns
     -------
     tuple of str
@@ -2183,7 +2188,22 @@ def render_chapter(
     source: str,
     versions: Mapping[str, str],
 ) -> str:
-    """Render several entries as one chapter file body, sorted by name."""
+    """Render several entries as one chapter file body, sorted by name.
+
+    Parameters
+    ----------
+    commands : iterable of ManualCommand
+        The entries to render.
+    source : str
+        Manual source id for the citation, for example ``SRC-741``.
+    versions : mapping of str to str
+        Canonical version to status, as :func:`render_entry` takes it.
+
+    Returns
+    -------
+    str
+        The chapter header, then one entry per command, sorted by name.
+    """
     ordered = sorted(commands, key=lambda c: c.name)
     header = (
         f"# Drafted from {source} by pyflightstream.utils.manual.\n"

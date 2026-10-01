@@ -88,6 +88,22 @@ def blade_azimuth_deg(
     steps per revolution or a non-zero ``rpm`` that is not a number. A caller
     publishes that as not applicable, never as zero.
 
+    Parameters
+    ----------
+    datum_deg : object
+        Where the blade sits at step zero, in degrees.
+    step : object
+        The time step.
+    steps_per_revolution : object
+        The rotor's clock, in time steps per revolution.
+    rpm : object
+        The rotor's signed speed in rev/min; only its sign is read.
+
+    Returns
+    -------
+    float or None
+        The azimuth in degrees in [0, 360), or None where the clock is not stated.
+
     Examples
     --------
     >>> blade_azimuth_deg(10.0, step=18, steps_per_revolution=72, rpm=2000.0)
@@ -135,6 +151,26 @@ def clocked_blade_azimuth_deg(
     blades or of clockings that is not a positive integer, a clocking that is
     not an integer, or an ``rpm`` that is zero or not a number.
 
+    Parameters
+    ----------
+    datum_deg : object
+        Blade one's datum at clocking zero, in degrees.
+    blade : object
+        The blade, from 1 to ``blades``.
+    blades : object
+        The wheel's blade count N.
+    clocking : object
+        The clocking i, from 0.
+    positions : object
+        The number of clockings k.
+    rpm : object
+        The rotor's signed speed in rev/min; only its sign is read.
+
+    Returns
+    -------
+    float or None
+        The azimuth psi in degrees in [0, 360), or None where anything is not stated.
+
     Examples
     --------
     >>> clocked_blade_azimuth_deg(0.0, blade=2, blades=3, clocking=1, positions=3, rpm=1200.0)
@@ -175,6 +211,20 @@ def placed_blade_azimuth_deg(
 
     None where anything is not stated: an azimuth that is not a number, a
     blade from 1 to N, or a count of blades that is not a positive integer.
+
+    Parameters
+    ----------
+    blade_one_deg : object
+        Blade one's azimuth, in degrees.
+    blade : object
+        The blade, from 1 to ``blades``.
+    blades : object
+        The blade count N.
+
+    Returns
+    -------
+    float or None
+        The blade's azimuth in degrees in [0, 360), or None where anything is not stated.
 
     Examples
     --------
@@ -250,6 +300,18 @@ def velocity_in_body_frame(alpha_deg: float, beta_deg: float) -> Vector:
 
     Sideslip is turned about body z first and incidence second, so the vector
     is ``(ca cb, ca sb, sa)``; see the module docstring for the measurement.
+
+    Parameters
+    ----------
+    alpha_deg : float
+        Angle of attack as the solver was given it, in degrees.
+    beta_deg : float
+        Sideslip angle as the solver was given it, in degrees.
+
+    Returns
+    -------
+    Vector
+        The unit vector ``(ca cb, ca sb, sa)``.
     """
     a = math.radians(float(alpha_deg))
     b = math.radians(float(beta_deg))
@@ -262,6 +324,18 @@ def wind_angles(alpha_deg: float, beta_deg: float) -> tuple[float, float]:
     ``alpha_s`` turns the body axes onto the stability axes and ``beta_w`` turns
     those onto the wind axes. They equal the written angles when either is zero.
 
+    Parameters
+    ----------
+    alpha_deg : float
+        Angle of attack as the solver was given it, in degrees.
+    beta_deg : float
+        Sideslip angle as the solver was given it, in degrees.
+
+    Returns
+    -------
+    tuple of (float, float)
+        ``(alpha_s, beta_w)`` in radians.
+
     Examples
     --------
     >>> import math
@@ -273,13 +347,40 @@ def wind_angles(alpha_deg: float, beta_deg: float) -> tuple[float, float]:
 
 
 def body_to_stability(alpha_deg: float, beta_deg: float = 0.0) -> Matrix:
-    """Return ``C_s/b = C2(-alpha_s)``: body axes to stability axes."""
+    """Return ``C_s/b = C2(-alpha_s)``: body axes to stability axes.
+
+    Parameters
+    ----------
+    alpha_deg : float
+        Angle of attack as the solver was given it, in degrees.
+    beta_deg : float, optional
+        Sideslip angle as the solver was given it, in degrees; it enters through ``alpha_s``
+        (:func:`wind_angles`).
+
+    Returns
+    -------
+    Matrix
+        The 3 by 3 direction cosine matrix.
+    """
     alpha_s, _beta_w = wind_angles(alpha_deg, beta_deg)
     return dcm(_Y, -alpha_s)
 
 
 def body_to_wind(alpha_deg: float, beta_deg: float) -> Matrix:
-    """Return ``C_w/b = C3(beta_w) C2(-alpha_s)``: body axes to wind axes."""
+    """Return ``C_w/b = C3(beta_w) C2(-alpha_s)``: body axes to wind axes.
+
+    Parameters
+    ----------
+    alpha_deg : float
+        Angle of attack as the solver was given it, in degrees.
+    beta_deg : float
+        Sideslip angle as the solver was given it, in degrees.
+
+    Returns
+    -------
+    Matrix
+        The 3 by 3 direction cosine matrix.
+    """
     alpha_s, beta_w = wind_angles(alpha_deg, beta_deg)
     return dcm(_Z, beta_w) @ dcm(_Y, -alpha_s)
 
@@ -290,6 +391,18 @@ def free_stream_in_export_frame(alpha_deg: float, beta_deg: float) -> Vector:
     It is the aircraft's velocity reversed and carried back to the export frame,
     ``(ca cb, -ca sb, sa)``: aft, against the sideslip, and UP at positive
     incidence. A force's projection on it is the drag along the free stream.
+
+    Parameters
+    ----------
+    alpha_deg : float
+        Angle of attack as the solver was given it, in degrees.
+    beta_deg : float
+        Sideslip angle as the solver was given it, in degrees.
+
+    Returns
+    -------
+    Vector
+        The unit vector ``(ca cb, -ca sb, sa)``.
     """
     return EXPORT_TO_BODY.T @ (-velocity_in_body_frame(alpha_deg, beta_deg))
 
@@ -306,6 +419,20 @@ def wind_force_coefficients(
     """Return ``(CD, CY, CL)`` in WIND axes of a force stated in the export frame.
 
     Works on coefficients and on Newtons alike: the rotation does not care.
+
+    Parameters
+    ----------
+    force_in_export_frame : sequence of float
+        The force (x, y, z) in the export frame, as coefficients or in newtons.
+    alpha_deg : float
+        Angle of attack as the solver was given it, in degrees.
+    beta_deg : float
+        Sideslip angle as the solver was given it, in degrees.
+
+    Returns
+    -------
+    tuple of float
+        ``(CD, CY, CL)``, in the unit of the force given.
     """
     force = np.asarray(force_in_export_frame, dtype=float)
     return _forward_right_down_to_drag_side_lift(
@@ -316,7 +443,23 @@ def wind_force_coefficients(
 def stability_force_coefficients(
     force_in_export_frame: Sequence[float], alpha_deg: float, beta_deg: float = 0.0
 ) -> tuple[float, float, float]:
-    """Return ``(CD, CY, CL)`` in STABILITY axes of a force stated in the export frame."""
+    """Return ``(CD, CY, CL)`` in STABILITY axes of a force stated in the export frame.
+
+    Parameters
+    ----------
+    force_in_export_frame : sequence of float
+        The force (x, y, z) in the export frame, as coefficients or in newtons.
+    alpha_deg : float
+        Angle of attack as the solver was given it, in degrees.
+    beta_deg : float, optional
+        Sideslip angle as the solver was given it, in degrees; it enters through ``alpha_s``
+        (:func:`wind_angles`).
+
+    Returns
+    -------
+    tuple of float
+        ``(CD, CY, CL)``, in the unit of the force given.
+    """
     force = np.asarray(force_in_export_frame, dtype=float)
     return _forward_right_down_to_drag_side_lift(
         body_to_stability(alpha_deg, beta_deg) @ EXPORT_TO_BODY @ force
@@ -410,6 +553,16 @@ def rotor_in_plane_axes(axis: Sequence[float]) -> tuple[Vector, Vector, Vector] 
     None where the direction is undefined: an axis of no length, or one along
     UP, whose square part is shorter than :data:`ROTOR_NORMAL_FLOOR`.
 
+    Parameters
+    ----------
+    axis : sequence of float
+        The rotor's axis in the export frame, in the sense its thrust is counted positive.
+
+    Returns
+    -------
+    tuple of Vector or None
+        ``(T, S, N)``, or None where the direction is undefined.
+
     Examples
     --------
     >>> t, s, n = rotor_in_plane_axes((-1.0, 0.0, 0.0))
@@ -442,6 +595,21 @@ def rotor_in_plane_loads(
     both in the export frame; ``N`` and ``S`` are the force along the normal
     and the side axes of :func:`rotor_in_plane_axes`, ``MN`` and ``MS`` the
     moment about them. None where those axes are undefined.
+
+    Parameters
+    ----------
+    force : sequence of float
+        The rotor's force in the export frame.
+    moment : sequence of float
+        The rotor's moment about the hub in the export frame.
+    axis : sequence of float
+        The rotor's axis in the export frame, in the sense its thrust is counted positive.
+
+    Returns
+    -------
+    tuple of float or None
+        ``(N, S, MN, MS)`` in the units of the force and the moment, or None where the axes are
+        undefined.
 
     Examples
     --------
@@ -508,6 +676,24 @@ def section_station_shaft_loads(
     None where the plane is not one whose force axes are known or the shaft
     names no direction.
 
+    Parameters
+    ----------
+    force_x : float
+        The station's ``Fx``, per unit span.
+    force_z : float
+        The station's ``Fz``, per unit span.
+    offset : float
+        The station's ``Offset`` from the frame's origin.
+    plane : str
+        The cut's plane in the section frame, ``XZ`` or ``XY``.
+    shaft : sequence of float
+        The rotor's axis in the section frame's axes, in the sense its thrust is counted positive.
+
+    Returns
+    -------
+    tuple of (float, float) or None
+        ``(axial, torque)`` per unit span, or None where the plane or the shaft is unknown.
+
     Examples
     --------
     A blade frame whose x is the shaft: the export's Fx is the thrust and
@@ -559,6 +745,20 @@ def free_stream_on_rotor_axis(
     angle, so an axis along a geometry axis gives them exactly.
 
     None where the axis names no direction.
+
+    Parameters
+    ----------
+    axis : sequence of float
+        The rotor's axis in the export frame, in the sense its thrust is counted positive.
+    alpha_deg : float
+        Angle of attack as the solver was given it, in degrees.
+    beta_deg : float
+        Sideslip angle as the solver was given it, in degrees.
+
+    Returns
+    -------
+    tuple of (float, float) or None
+        ``(cos alpha_p, sin alpha_p)``, or None where the axis names no direction.
 
     Examples
     --------

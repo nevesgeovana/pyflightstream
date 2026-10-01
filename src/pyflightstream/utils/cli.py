@@ -82,6 +82,10 @@ from pyflightstream.utils.manual import (
 )
 from pyflightstream.versions import known_versions
 
+__all__ = [
+    "main",
+]
+
 #: Shown as the epilog of ``sweep --help``. A maintainer writing their
 #: first manifest should not have to read the library to learn its shape,
 #: and the shape cannot be shown by a committed sample file: a real one
@@ -749,6 +753,11 @@ def _register(parser: argparse.ArgumentParser, args: argparse.Namespace) -> int:
 @cli_entrypoint
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the command line and return a process exit code.
+
+    Parameters
+    ----------
+    argv : sequence of str, optional
+        The command-line arguments, ``sys.argv[1:]`` by default.
 
     Returns
     -------

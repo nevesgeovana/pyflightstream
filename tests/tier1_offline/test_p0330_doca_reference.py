@@ -16,7 +16,6 @@ from __future__ import annotations
 import argparse
 import functools
 import importlib.util
-import logging
 import re
 import sys
 import tomllib
@@ -73,63 +72,23 @@ def _expected_subpackages() -> list[str]:
     return ["pyflightstream", *PUBLIC_MODULES]
 
 
-#: The public modules that declare no ``__all__`` at 0.33.0, 51 of 122, and 50
-#: of 133 after WP3 (AD-11), whose ten new public modules each declare one and
-#: which gave ``workspace.inputs`` one. Their
-#: surface is the public names they define (R2 as amended in SRS 1.53.0). The
-#: list only shrinks: a new public module declares ``__all__`` (R8), and a
-#: module listed here that gains one leaves the list in the same change.
+#: The public modules that declare no ``__all__``: 51 of 122 when DOC-A
+#: measured it, 7 once DOC-B part 1 gave the others one and WP3 (AD-11) gave
+#: ``workspace.inputs`` one, its ten new public modules each declaring their
+#: own. Their surface is the public names they define (R2 as amended in SRS
+#: 1.53.0). The list only shrinks: a new public module declares ``__all__``
+#: (R8), and a module listed here that gains one leaves the list in the same
+#: change. Six of the seven are the modules DOC-B part 2 completes;
+#: ``script.helpers`` stays because it sits at its module-size baseline
+#: entry, which an ``__all__`` would exceed.
 MODULES_WITHOUT_ALL = {
-    "pyflightstream.cases.acoustics",
-    "pyflightstream.cases.field_coverage",
-    "pyflightstream.cases.freestream",
-    "pyflightstream.cases.fsi_workspace",
-    "pyflightstream.cases.qsteady",
-    "pyflightstream.cases.setup_surfaces",
-    "pyflightstream.commands",
-    "pyflightstream.fsi.beam",
-    "pyflightstream.fsi.centrifugal",
-    "pyflightstream.fsi.cli",
-    "pyflightstream.fsi.config",
-    "pyflightstream.fsi.driver",
-    "pyflightstream.fsi.kinematics",
-    "pyflightstream.fsi.loads",
-    "pyflightstream.fsi.nodes",
-    "pyflightstream.fsi.state",
-    "pyflightstream.fsi.wing",
-    "pyflightstream.options",
-    "pyflightstream.overview",
-    "pyflightstream.post.boundary_layer",
-    "pyflightstream.post.diagnostics",
     "pyflightstream.post.field_frames",
     "pyflightstream.post.probe_fields",
-    "pyflightstream.post.qsteady",
-    "pyflightstream.probes.errors",
-    "pyflightstream.qa.cli",
-    "pyflightstream.qa.compat",
-    "pyflightstream.qa.errors",
-    "pyflightstream.qa.probes",
-    "pyflightstream.reference",
     "pyflightstream.results.native_surface",
     "pyflightstream.results.tables",
     "pyflightstream.run.cli",
     "pyflightstream.run.records",
-    "pyflightstream.script.entities",
     "pyflightstream.script.helpers",
-    "pyflightstream.script.motion",
-    "pyflightstream.utils.cli",
-    "pyflightstream.versions",
-    "pyflightstream.workspace.cli",
-    "pyflightstream.workspace.excel",
-    "pyflightstream.workspace.excel_bridge",
-    "pyflightstream.workspace.excel_file",
-    "pyflightstream.workspace.excel_sync",
-    "pyflightstream.workspace.flight_condition",
-    "pyflightstream.workspace.fsi_setup",
-    "pyflightstream.workspace.naming",
-    "pyflightstream.workspace.rename_groups",
-    "pyflightstream.workspace.setup_inspection",
-    "pyflightstream.workspace.setup_standards",
 }
 
 
@@ -175,15 +134,16 @@ def _entries(page: str, module_name: str) -> set[str]:
     return found
 
 
-def _entry_defects(page: str, module_name: str, generator) -> list[str]:
+def _entry_defects(page: str, module_name: str) -> list[str]:
     """Why an entry of the page would render less than its object, or nothing.
 
     Each entry must resolve, in the renderer's own reading of the sources, to
-    an object; and only two option blocks are allowed on a name's entry: the
+    an object; and only one option block is allowed on a name's entry: the
     one that names the function a package re-exports under its submodule's
-    name, and the one that silences the docstring parser for a listed defect.
-    Anything else (``members: false``, a filter) could hide what the entry is
-    for, so it is refused here rather than trusted.
+    name. The block that silenced the docstring parser for a listed defect
+    left with the last defect (DOC-B, NFR-30). Anything else
+    (``members: false``, a filter) could hide what the entry is for, so it
+    is refused here rather than trusted.
     """
     package = _static_package()
     defects = []
@@ -199,8 +159,6 @@ def _entry_defects(page: str, module_name: str, generator) -> list[str]:
             continue
         name = target.rpartition(".")[2]
         allowed = {"", f"    options:\n      members: [{name}]\n"}
-        if target in generator.DOCSTRING_DEFECTS:
-            allowed.add("    options:\n      docstring_options:\n        warnings: false\n")
         if options not in allowed:
             defects.append(f"{target} carries options that may hide it: {options!r}")
     return defects
@@ -243,7 +201,7 @@ def test_the_api_reference_carries_every_public_name_and_nothing_else():
         missing, extra = _api_differences(page, module_name, expected)
         if missing or extra:
             failures.append(f"{module_name}: missing {sorted(missing)}, extra {sorted(extra)}")
-        failures += _entry_defects(page, module_name, generator)
+        failures += _entry_defects(page, module_name)
     assert not failures, "\n".join(failures)
     # Non-vacuity: 123 modules and 1894 names measured at 0.33.0 development;
     # the floor leaves room for the one name decision 9 deletes and little more.
@@ -267,15 +225,15 @@ def test_the_api_reference_carries_every_public_name_and_nothing_else():
     }
     # And the entry check refuses an entry that resolves to nothing and one
     # whose options would render less than its object.
-    assert _entry_defects(page, "pyflightstream.script", generator) == []
+    assert _entry_defects(page, "pyflightstream.script") == []
     dangling = page + "\n::: pyflightstream.script.NoSuchName\n"
-    assert len(_entry_defects(dangling, "pyflightstream.script", generator)) == 1
+    assert len(_entry_defects(dangling, "pyflightstream.script")) == 1
     hidden = page.replace(
         "::: pyflightstream.script.Script\n",
         "::: pyflightstream.script.Script\n    options:\n      members: false\n",
         1,
     )
-    assert len(_entry_defects(hidden, "pyflightstream.script", generator)) == 1
+    assert len(_entry_defects(hidden, "pyflightstream.script")) == 1
 
 
 def test_the_built_reference_holds_every_public_name():
@@ -307,23 +265,6 @@ def test_the_built_reference_holds_every_public_name():
     if not built.is_file() or built.stat().st_mtime < max(p.stat().st_mtime for p in sources):
         pytest.skip("no site built after the last source change; the docs job checks it")
     assert generator.missing_from_inventory(generator.inventory_names(built.read_bytes())) == []
-
-
-def test_every_silenced_docstring_is_still_defective(caplog):
-    """NFR-29 R2: the list of docstrings rendered with warnings off only shrinks.
-
-    P0330-DOC-API-COMPLETE
-    """
-    # P0330-DOC-API-COMPLETE: an entry silenced for a docstring DOC-B has not
-    # yet fixed must still be defective, or it leaves the list.
-    generator = _script("gen_api_reference")
-    assert generator.DOCSTRING_DEFECTS, "the list is empty: remove this test's reason to exist"
-    for dotted in generator.DOCSTRING_DEFECTS:
-        obj = _static_package()[dotted.split(".", 1)[1]]
-        caplog.clear()
-        with caplog.at_level(logging.WARNING, logger="griffe"):
-            griffe.parse_numpy(obj.docstring)
-        assert caplog.records, f"{dotted} now parses cleanly: take it off DOCSTRING_DEFECTS"
 
 
 # --------------------------------------------------------------------- the CLI

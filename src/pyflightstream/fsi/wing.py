@@ -35,6 +35,11 @@ from pyflightstream.fsi.errors import FsiInputError
 from pyflightstream.fsi.loads import transfer_moment_to_elastic_axis
 from pyflightstream.fsi.nodes import config_triads
 
+__all__ = [
+    "solve_wing_static",
+    "weight_loads",
+]
+
 
 def _require_a_wing(cfg: FsiConfig) -> None:
     if cfg.wing is None:
@@ -125,6 +130,11 @@ def solve_wing_static(
     -------
     beam.StaticBeamSolution
         Flap deflection and elastic twist at the stations.
+
+    Raises
+    ------
+    FsiInputError
+        If a load distribution's length is not the configuration's station count.
     """
     weight_flap, weight_torsion = weight_loads(cfg)
     n = len(weight_flap)

@@ -255,7 +255,23 @@ def _archive_rows(workspace: CampaignWorkspace, path: Path, stamp: str) -> str:
 
 
 def read_storage_calls(root: str | Path) -> list[dict[str, Any]]:
-    """Every call recorded in ``storage_management.json``, oldest first."""
+    """Every call recorded in ``storage_management.json``, oldest first.
+
+    Parameters
+    ----------
+    root : str or Path
+        The workspace root.
+
+    Returns
+    -------
+    list of dict
+        The recorded calls, oldest first; empty when the file does not exist.
+
+    Raises
+    ------
+    StorageError
+        If the file is not a storage record.
+    """
     path = Path(root) / STORAGE_FILE
     if not path.is_file():
         return []
@@ -273,6 +289,18 @@ def record_storage_call(root: str | Path, entry: dict[str, Any]) -> int:
 
     The write is atomic and serialised by the workspace's own manifest lock on
     the storage file, so two commands cannot interleave their entries.
+
+    Parameters
+    ----------
+    root : str or Path
+        The workspace root.
+    entry : dict of str to object
+        The call's entry.
+
+    Returns
+    -------
+    int
+        The entry's index in the file.
     """
     workspace = _workspace(root)
     path = workspace.root / STORAGE_FILE
@@ -362,7 +390,18 @@ def _measure(root: Path) -> SpaceReport:
 
 
 def space_in_use(root: str | Path) -> SpaceReport:
-    """Measure the workspace and record the call (the report changes no file)."""
+    """Measure the workspace and record the call (the report changes no file).
+
+    Parameters
+    ----------
+    root : str or Path
+        The workspace root.
+
+    Returns
+    -------
+    SpaceReport
+        The space each part of the workspace uses.
+    """
     workspace = _workspace(root)
     report = _measure(workspace.root)
     record_storage_call(
@@ -504,6 +543,25 @@ def ensure_sim_expanded(workspace: CampaignWorkspace, sim_id: str, *, reason: st
     simulation, so a compacted simulation is read as if it had never been
     compacted. Returns True when a restore happened; the restore is recorded
     in ``storage_management.json`` and the folder stays expanded.
+
+    Parameters
+    ----------
+    workspace : CampaignWorkspace
+        The workspace.
+    sim_id : str
+        The simulation.
+    reason : str
+        The command asking, recorded with the restore.
+
+    Returns
+    -------
+    bool
+        True when a restore happened.
+
+    Raises
+    ------
+    StorageError
+        If a member of the archive leaves the folder or does not match its recorded hash.
     """
     folder = workspace.sim_dir(sim_id)
     archive = _zip_path(workspace, sim_id)
@@ -906,6 +964,27 @@ def free_space(
     SUBMITTED in either is left alone, so naming a manifest never protects
     less than the default (P0320-RUNS-NAME). Returns the entry recorded in
     ``storage_management.json``.
+
+    Parameters
+    ----------
+    root : str or Path
+        The workspace root.
+    recipe : str
+        The recipe's name, ``m<id>``, under ``inputs/management/``.
+    apply : bool, optional
+        Write the files; without it nothing is written and the same refusals fire.
+    runs : str, optional
+        Another manifest in the root whose records are read as well as ``runs.json``'s.
+
+    Returns
+    -------
+    dict of str to object
+        The entry recorded in ``storage_management.json``.
+
+    Raises
+    ------
+    StorageError
+        If the recipe is invalid, would delete a saved simulation, or a run is in progress.
     """
     workspace = _workspace(root)
     manifest = resolve_manifest(workspace.root, runs)
@@ -1130,6 +1209,36 @@ def delete_sims(
     A simulation with a record still SUBMITTED is refused unless ``force``
     (CLI: ``--force``), which deletes it whatever the status of its records
     (FR-306); the entry then states ``force`` and each simulation's statuses.
+
+    Parameters
+    ----------
+    root : str or Path
+        The workspace root.
+    sim_ids : sequence of str
+        The simulations to delete.
+    matrix_products : str, optional
+        What happens to a product shared with other simulations, ``points-only`` or ``regenerate``;
+        required with ``apply`` when one is.
+    apply : bool, optional
+        Write the files; without it nothing is written and the same refusals fire.
+    caller : str, optional
+        Who asked, recorded in the entry; the operating-system user when None.
+    runs : str, optional
+        Another manifest in the root, by name; ``runs.json`` when None.
+    force : bool, optional
+        Delete a simulation with a record still SUBMITTED.
+
+    Returns
+    -------
+    dict of str to object
+        The entry recorded in ``storage_management.json``.
+
+    Raises
+    ------
+    StorageError
+        If no simulation is named, one is unknown or still SUBMITTED without ``force``,
+        ``matrix_products`` is missing or unknown where a product is shared, or ``regenerate`` is
+        asked with ``runs``.
     """
     workspace = _workspace(root)
     manifest = resolve_manifest(workspace.root, runs)
@@ -1650,6 +1759,16 @@ def sync_summary_lines(entry: Mapping[str, Any]) -> list[str]:
     simulation folders of both sides and those no record carries
     (P0320-SYNC-ALL-FOLDERS), and what the restore did or would do
     (P0320-SYNC-RESTORE-OPTIN). An entry written before 0.32.0 gives none.
+
+    Parameters
+    ----------
+    entry : mapping of str to object
+        One entry :func:`sync_workspaces` returned.
+
+    Returns
+    -------
+    list of str
+        The lines; none for an entry written before 0.32.0.
     """
     lines: list[str] = []
     skipped = entry.get("files", {}).get("archives_skipped")
@@ -1925,6 +2044,34 @@ def sync_workspaces(
     ``runs`` (CLI: ``--runs NAME``) names the manifest of main the records
     merge into; the other workspace's ``runs.json`` is the source.
 
+    Parameters
+    ----------
+    root : str or Path
+        The main workspace.
+    level : str
+        ``runs``, ``post``, ``fsm`` or ``all``.
+    source : str, optional
+        The one workspace of ``sync-workspaces.toml`` to bring from; every other one when None.
+    apply : bool, optional
+        Write the files; without it nothing is written and the same refusals fire.
+    prefer_other : bool, optional
+        Where a record differs, keep the other workspace's; main's is kept otherwise, unless it is
+        SUBMITTED.
+    overwrite : bool, optional
+        Replace a file of main that differs from the other workspace's instead of reporting a
+        conflict.
+    restore : bool, optional
+        Rebuild the records of the simulation folders no record carries.
+    include_archives : bool, optional
+        Copy the folders named ``archive`` too.
+    runs : str, optional
+        The manifest of main the records merge into; ``runs.json`` when None.
+
+    Returns
+    -------
+    list of dict
+        One recorded entry per source workspace.
+
     Raises
     ------
     RunsManifestError
@@ -1994,6 +2141,20 @@ def disk_estimate(
     The estimate is the mean size of a recorded datapoint folder in this
     workspace times the number of points the plan will run; the answer is
     False when that, plus a margin of the disk's free space, exceeds it.
+
+    Parameters
+    ----------
+    workspace : CampaignWorkspace
+        The workspace.
+    pending_points : int
+        The points the plan will run.
+    margin : float, optional
+        The share of the free space held back.
+
+    Returns
+    -------
+    tuple of (str, bool)
+        The line the plan prints, and whether the points fit.
     """
     free = shutil.disk_usage(workspace.root).free
     sizes = []

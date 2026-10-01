@@ -42,6 +42,14 @@ if TYPE_CHECKING:
     from pyflightstream.cases import SimCase
     from pyflightstream.script import Script
 
+__all__ = [
+    "DELETE_SURFACES_KEY",
+    "WAKE_STABILIZATION_KEY",
+    "emit_setup_surfaces",
+    "emit_wake_stabilization",
+    "refuse_setup_keys_that_reached_nothing",
+]
+
 #: The setup key naming the surfaces to remove.
 DELETE_SURFACES_KEY = "delete_surfaces"
 
@@ -167,6 +175,13 @@ def refuse_setup_keys_that_reached_nothing(script: Script, case: SimCase) -> Non
 
     Called after the workflow's builder, because only then is it known
     whether the row opened a geometry and created a rotor motion.
+
+    Parameters
+    ----------
+    script : Script
+        The finished script, after the workflow's builder.
+    case : SimCase
+        The case whose setup keys are checked.
 
     Raises
     ------

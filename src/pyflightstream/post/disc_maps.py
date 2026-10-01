@@ -100,6 +100,20 @@ def disc_map_name(point: str, rotor: str, quantity: str) -> str:
 
     Characters a file name should not carry are written ``_``.
 
+    Parameters
+    ----------
+    point : str
+        The point's file stem.
+    rotor : str
+        The rotor's alias.
+    quantity : str
+        The mapped quantity.
+
+    Returns
+    -------
+    str
+        ``<point>_disc_<rotor>_<quantity>.csv``.
+
     Examples
     --------
     >>> disc_map_name("DP_AL+000", "PROP", "Fz")
@@ -130,6 +144,22 @@ def disc_map_rows(
     each of its rows a station at the radius ``|Offset|``. A row whose radius
     or load is not a number keeps its place and states ``NA``; a block that
     states no azimuth, or that is no blade of the rotor, is not a sample.
+
+    Parameters
+    ----------
+    columns : sequence of str
+        The sections table's columns.
+    rows : sequence of mapping of str to str
+        The table's rows, cut to the samples wanted.
+    rotors : mapping of str to HarmonicRotor
+        The rotors to map, by alias.
+    sample_column : str
+        The column that tells one sample from the next.
+
+    Returns
+    -------
+    DiscMaps
+        The maps by rotor and quantity, the sample counts and what could not be mapped.
     """
     result = DiscMaps()
     quantities = load_quantities(columns)
@@ -206,6 +236,26 @@ def write_disc_maps(
     The header is ``POL``, the condition, then the map's own columns; a radius
     that is not a number is written ``NA``. ``target``, where given, maps each
     path to the one written (the stage's guard against replacing a product).
+
+    Parameters
+    ----------
+    rows_of : DiscMaps
+        The maps of :func:`disc_map_rows`.
+    point : str
+        The point's file stem.
+    pol : str
+        The polar the point belongs to, written as ``POL``.
+    context : sequence of object
+        The point's condition values, written after ``POL``.
+    out_dir : str or Path
+        The folder the maps are written into.
+    target : callable, optional
+        Maps each path to the one written.
+
+    Returns
+    -------
+    tuple of Path
+        The written maps.
     """
     folder = Path(out_dir)
     place = target if target is not None else (lambda path: path)

@@ -387,6 +387,16 @@ def phy01_metrics(points: list[PointResult]) -> dict[str, float]:
     The lift slope comes from a least-squares line over the whole
     sweep, in per-radian units so it lands next to the finite-wing
     anchor 2*pi / (1 + 2/AR).
+
+    Parameters
+    ----------
+    points : list of PointResult
+        The PHY-01 sweep's points.
+
+    Returns
+    -------
+    dict of str to float
+        Metric name to value.
     """
     metrics: dict[str, float] = {}
     for point in points:
@@ -406,6 +416,18 @@ def phy02_metrics(full: PointResult, half: PointResult) -> dict[str, float]:
     Both models use the full planform reference area, so the mirrored
     half must reproduce the full-span coefficients; the deltas are the
     physics content and sit near zero, hence absolute bands.
+
+    Parameters
+    ----------
+    full : PointResult
+        The full-span model's point.
+    half : PointResult
+        The mirrored half model's point.
+
+    Returns
+    -------
+    dict of str to float
+        The full and half lift coefficients and their deltas, by metric name.
     """
     return {
         "CL_full_a4": full.total["CL"],
@@ -424,6 +446,16 @@ def phy05_metrics(point: PointResult) -> dict[str, float]:
     viscous drag and the pitching moment. The tier-3 test carried this
     selection inline until 0.13.0; it lives here so the driver and the
     test reduce the same way.
+
+    Parameters
+    ----------
+    point : PointResult
+        The PHY-05 run's final step.
+
+    Returns
+    -------
+    dict of str to float
+        The four aggregated coefficients of the Total row, by name.
     """
     return {name: point.total[name] for name in _TOTAL_METRIC_NAMES}
 
@@ -446,6 +478,11 @@ def phy06_metrics(steady: list[PointResult], unsteady: list[PointResult]) -> dic
     unsteady : list of PointResult
         The unsteady-final polar, the PHY-06 row's points, at the same
         angles.
+
+    Returns
+    -------
+    dict of str to float
+        Metric name to value.
 
     Raises
     ------
@@ -835,7 +872,18 @@ def build_smi_script(
 
 
 def smi_metrics(point: PointResult) -> dict[str, float]:
-    """Reduce one SMI point to its aggregated coefficient metrics."""
+    """Reduce one SMI point to its aggregated coefficient metrics.
+
+    Parameters
+    ----------
+    point : PointResult
+        The recorded point, as :func:`pyflightstream.qa.matrix.point_result` reads it.
+
+    Returns
+    -------
+    dict of str to float
+        The aggregated coefficients of the Total row, by name.
+    """
     return {name: point.total[name] for name in _TOTAL_METRIC_NAMES}
 
 
@@ -882,6 +930,11 @@ def load_reference(case_id: str, references_dir: str | Path | None = None) -> Ca
     -------
     CaseReference or None
         The stored reference, or None before the first seeding.
+
+    Raises
+    ------
+    QaEvidenceError
+        If the file exists and does not carry the physics reference schema.
     """
     directory = Path(references_dir) if references_dir else _references_dir()
     path = directory / f"{case_id}.yaml"
@@ -917,6 +970,18 @@ def compare_metrics(
 
     A metric missing from the reference (new metric, old reference)
     judges ``NO_REFERENCE`` rather than guessing a band.
+
+    Parameters
+    ----------
+    measured : dict of str to float
+        Metric name to measured value.
+    reference : CaseReference or None
+        The case's stored reference; None before the first seeding.
+
+    Returns
+    -------
+    dict of str to Verdict
+        Metric name to its verdict; ``NO_REFERENCE`` for every metric without a band.
     """
     if reference is None:
         return {name: Verdict.NO_REFERENCE for name in measured}

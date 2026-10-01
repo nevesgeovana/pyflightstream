@@ -50,6 +50,19 @@ from typing import Any
 
 from pyflightstream._errors import PyflightstreamError
 
+__all__ = [
+    "OptionError",
+    "RegisteredOption",
+    "describe_option",
+    "get_option",
+    "non_empty_path_text",
+    "option_context",
+    "positive_seconds",
+    "register_option",
+    "reset_option",
+    "set_option",
+]
+
 
 class OptionError(PyflightstreamError, KeyError):
     """An option key is unknown, or a value fails its validator.
@@ -202,6 +215,11 @@ def set_option(key: str, value: Any) -> None:
 def reset_option(key: str) -> None:
     """Return one option to its registered default (exact key).
 
+    Parameters
+    ----------
+    key : str
+        The option's exact registered key.
+
     Raises
     ------
     OptionError
@@ -257,6 +275,11 @@ def option_context(*pairs: Any) -> Iterator[None]:
         Alternating key and value arguments, pandas style:
         ``option_context("qa.probe_timeout_s", 10.0, ...)``.
 
+    Yields
+    ------
+    None
+        Control returns to the ``with`` block with the options set; they are restored on exit.
+
     Raises
     ------
     OptionError
@@ -293,13 +316,37 @@ _MISSING = object()
 
 
 def positive_seconds(value: Any) -> None:
-    """Accept a strictly positive real number of seconds."""
+    """Accept a strictly positive real number of seconds.
+
+    Parameters
+    ----------
+    value : object
+        The value an option is being set to.
+
+    Raises
+    ------
+    ValueError
+        If the value is not a strictly positive real number; the registry reports it as an
+        :class:`OptionError`.
+    """
     if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
         raise ValueError("a strictly positive number of seconds is required")
 
 
 def non_empty_path_text(value: Any) -> None:
-    """Accept a non-empty string or path-like filesystem path."""
+    """Accept a non-empty string or path-like filesystem path.
+
+    Parameters
+    ----------
+    value : object
+        The value an option is being set to.
+
+    Raises
+    ------
+    ValueError
+        If the value is not a non-empty string or path; the registry reports it as an
+        :class:`OptionError`.
+    """
     if isinstance(value, os.PathLike):
         value = os.fspath(value)
     if not isinstance(value, str) or not value.strip():

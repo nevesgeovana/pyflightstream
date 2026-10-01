@@ -8,6 +8,10 @@ package base, so every probe module can reach it.
 
 from pyflightstream._errors import PyflightstreamError
 
+__all__ = [
+    "ProbeGeometryError",
+]
+
 
 class ProbeGeometryError(PyflightstreamError, ValueError):
     """Survey geometry that does not describe a measurable arrangement.

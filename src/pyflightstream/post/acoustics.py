@@ -206,6 +206,17 @@ def spectrum_of(signal: AcousticSignal) -> Spectrum:
     below the Nyquist bin is ``2 |Xk| / N`` and the Nyquist bin of an even
     ``N`` is ``|Xk| / N``, so a cosine of amplitude ``A`` on a bin reads ``A``.
 
+    Parameters
+    ----------
+    signal : AcousticSignal
+        One observer's record: its time [s] and pressure [Pa] samples.
+
+    Returns
+    -------
+    Spectrum
+        The frequencies [Hz] and amplitudes [Pa], the sampling rate, the bin width and the sample
+        count.
+
     Raises
     ------
     ProductError
@@ -251,6 +262,16 @@ def oaspl_db(signal: AcousticSignal) -> float | None:
     ``20 log10(p_rms / 20e-6 Pa)``, ``p_rms`` the root mean square of the
     pressure about its mean over the whole record (the fluctuation). None for
     a silent record (``p_rms`` zero), which the caller states as ``NA``.
+
+    Parameters
+    ----------
+    signal : AcousticSignal
+        One observer's record: its time [s] and pressure [Pa] samples.
+
+    Returns
+    -------
+    float or None
+        The level in dB re 20 uPa, or None for a silent record.
     """
     pressure = np.asarray(signal.pressure_pa, dtype=float)
     if pressure.size == 0:
@@ -270,6 +291,27 @@ def blade_passage_harmonics(
     level are None (``NA``) when the frequency is above the Nyquist frequency
     of the record or below its bin width (the record holds less than one
     period of it).
+
+    Parameters
+    ----------
+    spectrum : Spectrum
+        The observer's spectrum, from :func:`spectrum_of`.
+    blades : int
+        The rotor's blade count.
+    rpm : float
+        The rotor's speed in rev/min; its sign is left out.
+    harmonics : int, optional
+        How many harmonics are read.
+
+    Returns
+    -------
+    list of tuple
+        One row per harmonic, ``(n, frequency_hz, bin_hz, amplitude_pa, level_db)``.
+
+    Raises
+    ------
+    ProductError
+        If ``blades`` and ``rpm`` state no blade-passage frequency.
     """
     if blades < 1 or not abs(rpm) > 0.0:
         raise ProductError(f"blades={blades} and rpm={rpm} state no blade-passage frequency")
@@ -314,6 +356,17 @@ def arc_of(signals: Sequence[AcousticSignal]) -> ArcFit | None:
     They form an arc when there are at least :data:`MINIMUM_ARC_OBSERVERS`, they
     are coplanar and lie on one circle, both to a relative tolerance of
     ``1e-3`` (of the extent, and of the radius).
+
+    Parameters
+    ----------
+    signals : sequence of AcousticSignal
+        The point's observers, with their positions.
+
+    Returns
+    -------
+    ArcFit or None
+        The arc's centre, its radius and each observer's angle on it; None when the observers form
+        no arc.
     """
     if len(signals) < MINIMUM_ARC_OBSERVERS:
         return None
@@ -372,17 +425,30 @@ def write_acoustic_products(
     ``<stem>_acoustics_bpf.csv`` (blade-passage harmonics per rotor and observer)
     and, when the observers form an arc, ``<stem>_acoustics_directivity.csv``.
 
+    Nothing blocks: an observer whose spectrum cannot be read keeps its pressure
+    table and its OASPL, and is named in the notes.
+
     Parameters
     ----------
+    signals : sequence of AcousticSignal
+        The point's observer signals, numbered in this order in the file names.
+    out_dir : str or Path
+        The folder the products are written into.
+    stem : str
+        The point's file stem every product name starts with.
     rotors : mapping, optional
         Rotor alias to ``(blades, rpm)``. A rotor lacking either, or no rotor
         at all, gives ``NA`` harmonics and a line in the returned notes.
+    harmonics : int, optional
+        How many blade-passage harmonics are tabled per rotor and observer.
     target : callable, optional
         Maps a path to the path to write (the archive-or-refuse rule of the
         other products).
 
-    Nothing blocks: an observer whose spectrum cannot be read keeps its pressure
-    table and its OASPL, and is named in the notes.
+    Returns
+    -------
+    AcousticProducts
+        The files written and the notes the post log owes.
     """
     folder = Path(out_dir)
     result = AcousticProducts()

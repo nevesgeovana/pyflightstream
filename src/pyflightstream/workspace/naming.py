@@ -46,6 +46,35 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 from pyflightstream._errors import ProductError, PyflightstreamError, PyflightstreamWarning, warn
 
+__all__ = [
+    "ADDITIONAL_DIR",
+    "ARCHIVE_DIR",
+    "ARCHIVE_STAMP",
+    "ARCHIVE_STAMP_PATTERN",
+    "DATAPOINT_PREFIX",
+    "DEFAULT_MANIFEST",
+    "MACH_POINT_KEY",
+    "MATRIX_POINT_NAME",
+    "NamingTemplate",
+    "NamingTemplateError",
+    "POINT_FILE_PREFIX",
+    "PointName",
+    "RunsManifestError",
+    "SIM_DATAPOINTS_DIR",
+    "SUPER_FILE_PREFIX",
+    "archive_previous",
+    "datapoint_dir_name",
+    "datapoint_name_of",
+    "free_matrix_archive",
+    "free_root_archive",
+    "group_token",
+    "is_portable_name",
+    "point_file_stem",
+    "resolve_manifest",
+    "submitted_by",
+    "sweep_file_stem",
+]
+
 _POINT_PLACEHOLDERS = (
     "campaign",
     "sim",
@@ -103,6 +132,16 @@ class PointName(str):
     that is already there is its opposite. That function answers None rather
     than raising for anything it cannot check, which is what keeps this class's
     refusal out of a caller that could not handle it.
+
+    Examples
+    --------
+    >>> PointName("M144AL+020")
+    'M144AL+020'
+    >>> try:
+    ...     PointName("a b")
+    ... except ValueError as error:
+    ...     print(type(error).__name__)
+    NamingTemplateError
     """
 
     def __new__(cls, value: str) -> PointName:  # noqa: D102 -- the class docstring states the check
@@ -211,6 +250,20 @@ def free_root_archive(base: Path, name: str, stamp: str) -> Path:
     A second copy within one stamp is numbered ``.2``, ``.3``. This is the ONE
     home of the spelling: ``run.records.restore`` reads what it names and every
     writer of a restorable file archives through it.
+
+    Parameters
+    ----------
+    base : Path
+        The workspace root.
+    name : str
+        The file's name; its stem names the copy.
+    stamp : str
+        The archive stamp, :data:`ARCHIVE_STAMP` applied to the moment of the copy.
+
+    Returns
+    -------
+    Path
+        A path no file holds yet.
     """
     stem = Path(name).stem
     folder = base / ARCHIVE_DIR
@@ -223,7 +276,25 @@ def free_root_archive(base: Path, name: str, stamp: str) -> Path:
 
 
 def free_matrix_archive(base: Path, stem: str, name: str, stamp: str) -> Path:
-    """Return the free archive path of a matrix file: ``post/<stem>/archive/<stamp>/<name>``."""
+    """Return the free archive path of a matrix file: ``post/<stem>/archive/<stamp>/<name>``.
+
+    Parameters
+    ----------
+    base : Path
+        The workspace root.
+    stem : str
+        The matrix stem.
+    name : str
+        The file's name.
+    stamp : str
+        The archive stamp, :data:`ARCHIVE_STAMP` applied to the moment of the copy.
+
+    Returns
+    -------
+    Path
+        A path no file holds yet; a second copy within one stamp goes under ``<stamp>.2``,
+        ``<stamp>.3``.
+    """
     folder = base / "post" / stem / ARCHIVE_DIR
     target = folder / stamp / name
     index = 2
@@ -242,6 +313,20 @@ def archive_previous(base: Path, path: Path, *, matrix: str | None = None) -> Pa
     previous file. A copy that fails is warned and never raised: the writer goes
     on, and the archive is a courtesy the write does not depend on. Returns the
     copy, or ``None``.
+
+    Parameters
+    ----------
+    base : Path
+        The workspace root.
+    path : Path
+        The file about to be rewritten.
+    matrix : str, optional
+        The matrix stem of a kind kept per matrix; None for a root kind.
+
+    Returns
+    -------
+    Path or None
+        The archived copy, or None when there was nothing to copy or the copy failed.
     """
     try:
         if not path.is_file():
@@ -303,6 +388,11 @@ def datapoint_name_of(folder: str) -> PointName | None:
     rule and its inverse drifting apart is the defect this module already
     records for :data:`ARCHIVE_STAMP`.
 
+    Parameters
+    ----------
+    folder : str
+        A folder name read off disk.
+
     Returns
     -------
     PointName or None
@@ -328,7 +418,20 @@ def datapoint_name_of(folder: str) -> PointName | None:
 
 
 def point_file_stem(sim: str, name: PointName) -> str:
-    """Return the stem of every file of one point: ``P<sim>-<point name>`` (0.21.0)."""
+    """Return the stem of every file of one point: ``P<sim>-<point name>`` (0.21.0).
+
+    Parameters
+    ----------
+    sim : str
+        The simulation id.
+    name : PointName
+        The point's name.
+
+    Returns
+    -------
+    str
+        ``P<sim>-<name>``.
+    """
     return f"{POINT_FILE_PREFIX}{sim}-{name}"
 
 
@@ -348,6 +451,22 @@ def group_token(group: str | int) -> str:
     conventions -- which is the drift a technical-writing lens flagged, since
     the migration page's whole promise is that the renamed file IS the file the
     next post writes.
+
+    Parameters
+    ----------
+    group : str or int
+        The polar group: its name, or its number in a product written before names.
+
+    Returns
+    -------
+    str
+        The name, or ``gNN`` for a number.
+
+    Raises
+    ------
+    ProductError
+        If the group has no name, or its name has the shape of the numbered tokens it would be
+        confused with.
     """
     token = str(group).strip()
     if not token:
@@ -365,7 +484,22 @@ def group_token(group: str | int) -> str:
 
 
 def sweep_file_stem(sim: str, sweep: str, *, prefix: str = POINT_FILE_PREFIX) -> str:
-    """Return the stem of a file about a whole sweep: ``P<sim>-<sweep>`` or ``SUPER-<sim>-...``."""
+    """Return the stem of a file about a whole sweep: ``P<sim>-<sweep>`` or ``SUPER-<sim>-...``.
+
+    Parameters
+    ----------
+    sim : str
+        The simulation id.
+    sweep : str
+        The sweep's name.
+    prefix : str, optional
+        ``P`` for a sweep file, ``SUPER-`` for a super file.
+
+    Returns
+    -------
+    str
+        ``<prefix><sim>-<sweep>``.
+    """
     return f"{prefix}{sim}-{sweep}"
 
 
@@ -380,7 +514,18 @@ _UNSAFE_CHARS = re.compile(r'[<>:"/\\|?*\s]')
 
 
 def is_portable_name(text: str) -> bool:
-    """Whether ``text`` is a plain file-name-safe token: no separators, no whitespace, not empty."""
+    """Whether ``text`` is a plain file-name-safe token: no separators, no whitespace, not empty.
+
+    Parameters
+    ----------
+    text : str
+        The candidate name.
+
+    Returns
+    -------
+    bool
+        True when the text is not empty and holds no separator or whitespace.
+    """
     return bool(text) and _UNSAFE_CHARS.search(text) is None
 
 
@@ -415,6 +560,13 @@ class NamingTemplate(BaseModel):
         ``{sim}`` apply (an archive spans every point of a
         simulation). Default ``"sim_{sim}"`` reproduces the historical
         zip names.
+
+    Examples
+    --------
+    >>> template = NamingTemplate()
+    >>> template.render_output("loads_{point}.txt", campaign="polar", sim="9001",
+    ...                         point={"alpha": 2.0}, point_name="AL+020")
+    'loads_AL+020.txt'
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -508,6 +660,12 @@ class NamingTemplate(BaseModel):
             Declared output name, possibly holding placeholders.
         campaign, sim, point, mach
             Same meaning as in :meth:`render_point`.
+        stem : str, optional
+            The point's rendered stem, for ``{name}``.
+        point_name : str, optional
+            The point's name, for ``{point}`` and ``{polar}``.
+        advance_ratio : float, optional
+            The case's advance ratio for ``{advance_ratio}`` when the sweep does not vary it.
 
         Returns
         -------
@@ -745,6 +903,11 @@ def submitted_by() -> str | None:
     a defensive one: a batch submission with a scrubbed environment and no
     password entry reaches it, and inventing a name there would put a false
     claim into the one artifact whose purpose is to be believed.
+
+    Returns
+    -------
+    str or None
+        The operator's name, or None when the host names nobody.
     """
     try:
         who = _getuser()

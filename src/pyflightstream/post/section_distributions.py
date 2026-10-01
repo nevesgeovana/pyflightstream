@@ -1049,6 +1049,13 @@ def write_section_distributions(
     A bad or missing export skips its kind by name without costing the other
     kind. Layout counts must cover every section before any split is written.
 
+    A quasi-steady WHEEL point exports its distributions at every clocking
+    (0.31.0): each file then holds every clocking's rows, clocking 0 first,
+    with a ``CLOCKING`` column after the export's own and ``AZIMUTH`` stating
+    each block's blade at that clocking
+    (:func:`pyflightstream.post.qsteady.wheel_block_identity`). A clocking whose
+    export is missing is named and the others are written.
+
     Parameters
     ----------
     sim_dir : Path
@@ -1126,13 +1133,6 @@ def write_section_distributions(
         See
         `Integrated sectional loads
         <../post-processing-definitions.md#integrated-sectional-loads-since-0260>`_.
-
-    A quasi-steady WHEEL point exports its distributions at every clocking
-    (0.31.0): each file then holds every clocking's rows, clocking 0 first,
-    with a ``CLOCKING`` column after the export's own and ``AZIMUTH`` stating
-    each block's blade at that clocking
-    (:func:`pyflightstream.post.qsteady.wheel_block_identity`). A clocking whose
-    export is missing is named and the others are written.
 
     Returns
     -------

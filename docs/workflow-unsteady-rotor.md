@@ -1,6 +1,6 @@
 # The unsteady rotor workflow
 
-The `unsteady_rotor` run type: a blade-resolved rotor, how a rotor row states its decisions, several rotors in one row, the exports that begin after a threshold and the four reductions of an unsteady rotor case.
+The `unsteady_rotor` run type: a blade-resolved rotor, how a rotor row states its decisions, several rotors in one row, the exports that begin after a threshold and the reductions of an unsteady rotor case.
 
 `unsteady_rotor` is a blade-resolved rotor run: a rotor coordinate
 system at the hub the row declares, one rotary motion turning at the
@@ -567,27 +567,13 @@ by surface and section by section, over the exported window. The series
 rest on the stamped files and the record alone, so a simulation whose
 polar the stage refuses keeps them.
 
-## The four reductions of an unsteady case
+## The reductions of an unsteady rotor case
 
-An unsteady rotor case asks for four things and gets four files: the
-**raw series**, the **time average** over [the window](workflow-plan-and-cost.md#the-window-said-once), the
-**phase-locked** average (the same average, once per blade passage) and
-the **per-blade split**. The raw series is written first and ships
-beside all three; it is never replaced by them, so an average always has
-its history next to it.
-
-`reduction_plan(case)` is what says WHICH windows those are, off the
-row: one revolution is `60 / (RPM * DELTA_TIME)` solver steps and one
-blade passage is that divided by the blade count, which a row naming its
-rotors takes from each rotor's own block and a row naming none takes from
-`BLADES`. The averaging itself is
-`pyflightstream.post.unsteady.blade_passage_average`, the one
-implementation of that average in the package, and writing one is
-`pyflightstream.post.reductions`, which refuses to write a reduction
-over a file it read.
-
-What does NOT ship yet is the step that runs those four automatically
-after a campaign. The composition is executed in the suite, so the path
-is proven; wiring it into the run is the next item, and the reason it is
-not here is the layer order rather than an oversight (post-processing
-sits above execution, so the runner cannot call it).
+The post writes the reductions of an unsteady rotor point beside its plots
+table, the raw series, which is never replaced by them. Which reductions a
+rotor row gets, over which windows, and how a row naming its rotors reduces
+per rotor are defined on [the definition of
+record](post-processing-definitions.md#the-reductions-of-an-unsteady-point);
+[the unsteady workflow](workflow-unsteady.md#the-reductions-of-an-unsteady-point)
+shows them on a worked example. In the code, `reduction_plan(case)` resolves
+a row's windows and `pyflightstream.post.reductions` writes them.

@@ -21,16 +21,47 @@ from pyflightstream.workspace.excel_sync import (
     preview_sync,
 )
 
+__all__ = [
+    "bridge",
+    "escape",
+    "main",
+    "preview_from_json",
+    "read_request",
+    "unescape",
+]
+
 
 def escape(value: str) -> str:
-    """Encode delimiters without losing literal text or backslashes."""
+    """Encode delimiters without losing literal text or backslashes.
+
+    Parameters
+    ----------
+    value : str
+        Literal text.
+
+    Returns
+    -------
+    str
+        The text with backslashes, tabs, carriage returns and newlines escaped.
+    """
     return (
         value.replace("\\", "\\\\").replace("\t", "\\t").replace("\r", "\\r").replace("\n", "\\n")
     )
 
 
 def unescape(value: str) -> str:
-    """Decode the bridge's reversible text encoding."""
+    """Decode the bridge's reversible text encoding.
+
+    Parameters
+    ----------
+    value : str
+        Text :func:`escape` encoded.
+
+    Returns
+    -------
+    str
+        The literal text.
+    """
     result = []
     index = 0
     while index < len(value):
@@ -46,7 +77,23 @@ def unescape(value: str) -> str:
 
 
 def read_request(path: Path) -> tuple[dict[str, str], WorkbookSnapshot]:
-    """Read a UTF-8 snapshot written by VBA, never a workbook file."""
+    """Read a UTF-8 snapshot written by VBA, never a workbook file.
+
+    Parameters
+    ----------
+    path : Path
+        The snapshot file the workbook's macro wrote.
+
+    Returns
+    -------
+    tuple of (dict of str to str, WorkbookSnapshot)
+        The request's metadata and the workbook snapshot it carries.
+
+    Raises
+    ------
+    ExcelSyncError
+        If the file holds a record kind this runtime does not know.
+    """
     metadata: dict[str, str] = {}
     headers: list[str] = []
     dictionary = []
@@ -83,7 +130,18 @@ def _write_response(path: Path, records: list[list[str]]) -> None:
 
 
 def preview_from_json(data: dict[str, Any]) -> SyncPreview:
-    """Reconstruct the captured synchronization decision without recomputing it."""
+    """Reconstruct the captured synchronization decision without recomputing it.
+
+    Parameters
+    ----------
+    data : dict of str to object
+        A preview as the batch file stores it.
+
+    Returns
+    -------
+    SyncPreview
+        The preview, its changes and mappings rebuilt as objects.
+    """
     return SyncPreview(
         **{
             **data,
@@ -94,7 +152,25 @@ def preview_from_json(data: dict[str, Any]) -> SyncPreview:
 
 
 def bridge(action: str, request: Path, response: Path, batch: Path) -> int:
-    """Execute only the explicitly selected action and write a reviewable response."""
+    """Execute only the explicitly selected action and write a reviewable response.
+
+    Parameters
+    ----------
+    action : str
+        ``check``, ``preview`` or ``apply``.
+    request : Path
+        The UTF-8 snapshot the workbook's macro wrote.
+    response : Path
+        Where the reviewable response is written.
+    batch : Path
+        The preview batch: written by ``preview``, read back by ``apply``.
+
+    Returns
+    -------
+    int
+        0 when the action ran; 1 when it was refused, the reason written to the response and
+        nothing changed by the refused step.
+    """
     try:
         metadata, snapshot = read_request(request)
         records = []
@@ -197,7 +273,18 @@ def bridge(action: str, request: Path, response: Path, batch: Path) -> int:
 
 @cli_entrypoint
 def main(argv: list[str] | None = None) -> int:
-    """Handle one explicitly selected workbook bridge operation."""
+    """Handle one explicitly selected workbook bridge operation.
+
+    Parameters
+    ----------
+    argv : list of str, optional
+        The command-line arguments, ``sys.argv[1:]`` by default.
+
+    Returns
+    -------
+    int
+        The exit code :func:`bridge` returns.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("preview", "apply", "check"))
     parser.add_argument("--request", type=Path, required=True)

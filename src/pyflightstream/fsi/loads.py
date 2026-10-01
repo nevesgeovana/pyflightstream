@@ -78,6 +78,17 @@ from pyflightstream.results.sectional_loads import (
     parse_sectional_loads as parse_sectional_loads,
 )
 
+__all__ = [
+    "ElasticAxisLoads",
+    "SectionFamily",
+    "SectionFamilyMap",
+    "cross_check_totals",
+    "project_rotor_frame_loads",
+    "project_wing_frame_loads",
+    "to_elastic_axis",
+    "transfer_moment_to_elastic_axis",
+]
+
 # Fraction of the blade span the parsed section radii may exceed the
 # configured [root, tip] interval before the config is rejected as not
 # describing the blade the sections were cut on.
@@ -218,6 +229,24 @@ def transfer_moment_to_elastic_axis(
 
     Source: DLV-007 Section 4.3 (FSI-R04); pitch-axis moment reference
     confirmed by the WP1 dry run (reports/RPT-005 finding 4).
+
+    Parameters
+    ----------
+    moment_pa_nm : numpy.ndarray
+        The pitch-axis moment M_PA, positive nose up [N m, or N m / m for a density].
+    force_chordwise_n : numpy.ndarray
+        The chordwise force F_c [N, or N/m].
+    force_normal_n : numpy.ndarray
+        The normal force F_n [N, or N/m].
+    ea_offset_chordwise_m : numpy.ndarray
+        The chordwise offset e_c from the pitch axis to the elastic axis [m].
+    ea_offset_normal_m : numpy.ndarray
+        The normal offset e_n from the pitch axis to the elastic axis [m].
+
+    Returns
+    -------
+    numpy.ndarray
+        The elastic-axis moment M_EA = M_PA + e_c F_n - e_n F_c, in the unit of ``moment_pa_nm``.
     """
     return (
         np.asarray(moment_pa_nm, dtype=float)
@@ -248,6 +277,22 @@ def project_rotor_frame_loads(
 
     Source: rigid-section geometry of the rotor-frame embedding
     (RPT-006 finding 3); load assembly of DLV-007 Section 4.2.
+
+    Parameters
+    ----------
+    fx_n_per_m : numpy.ndarray
+        The cut-plane Fx force density [N/m].
+    fz_n_per_m : numpy.ndarray
+        The cut-plane Fz force density [N/m].
+    moment_qc_nm_per_m : numpy.ndarray
+        The export's quarter-chord moment density [N m / m], positive about +Z.
+    blade_angle_rad : numpy.ndarray
+        The local blade angle b [rad].
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        ``(f_chordwise, f_normal, m_nose_up)``, in N/m, N/m and N m / m.
     """
     fx = np.asarray(fx_n_per_m, dtype=float)
     fz = np.asarray(fz_n_per_m, dtype=float)
@@ -282,6 +327,22 @@ def project_wing_frame_loads(
 
     Source: rigid-section geometry of the wing-frame embedding; the moment
     convention by analogy with :func:`project_rotor_frame_loads`.
+
+    Parameters
+    ----------
+    fx_n_per_m : numpy.ndarray
+        The x force density of the XZ cut [N/m].
+    fz_n_per_m : numpy.ndarray
+        The z force density of the XZ cut [N/m].
+    moment_qc_nm_per_m : numpy.ndarray
+        The export's quarter-chord moment density [N m / m], read as positive about +y.
+    section_pitch_rad : numpy.ndarray
+        The section's nose-up pitch b [rad].
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        ``(f_chordwise, f_normal, m_nose_up)``, in N/m, N/m and N m / m.
     """
     fx = np.asarray(fx_n_per_m, dtype=float)
     fz = np.asarray(fz_n_per_m, dtype=float)
@@ -381,6 +442,12 @@ def to_elastic_axis(block: SectionBlock, cfg: FsiConfig) -> ElasticAxisLoads:
     ElasticAxisLoads
         Load densities about the elastic axis at the section radii,
         in section components.
+
+    Raises
+    ------
+    FsiInputError
+        If the family's sections span a range other than the configured blade's, or cover too
+        little of it.
     """
     stations = np.asarray(cfg.blade.station_radii_m, dtype=float)
     embedding = frame_embedding(cfg)
@@ -499,6 +566,11 @@ def cross_check_totals(
     -------
     dict of str to float
         Relative deltas per component (``"fx"``, ``"fz"``).
+
+    Raises
+    ------
+    FsiInputError
+        If a component's integrated density disagrees with the export's total beyond ``rel_tol``.
     """
     ascending = np.sort(block.offset_m)
     widths = _tributary_widths(ascending)

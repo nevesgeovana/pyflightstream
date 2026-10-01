@@ -133,6 +133,21 @@ def context_row(
     The lookup is CASE-INSENSITIVE on purpose: a record writes ``alpha`` and a
     column is ``ALPHA``, and requiring the two to agree makes every caller
     remember a convention that this function can simply apply.
+
+    Parameters
+    ----------
+    condition : mapping of str to object, optional
+        The point's recorded condition.
+    reference : mapping of str to object, optional
+        The point's recorded reference dimensions.
+    columns : sequence of str, optional
+        The columns to read, :data:`CONTEXT_COLUMNS` by default.
+
+    Returns
+    -------
+    tuple of object
+        One value per column, looked up without regard to case in the condition and the reference;
+        None where the run recorded none.
     """
     folded: dict[str, object] = {}
     for source in (condition or {}, reference or {}):
@@ -157,6 +172,20 @@ def rotor_advance_ratio(speed_m_s: object, rpm: object, diameter_m: object) -> f
     in rev/s and its MAGNITUDE, because the hand of the rotation is the rotor's
     and ``RPM_CLOCK`` carries it. None, and not a guess, where the speed, the
     free stream or the diameter is missing, not a number or not positive.
+
+    Parameters
+    ----------
+    speed_m_s : object
+        The free-stream speed in m/s.
+    rpm : object
+        The rotor's speed in rev/min; its sign is left out.
+    diameter_m : object
+        The rotor's diameter in metres.
+
+    Returns
+    -------
+    float or None
+        ``J``, or None where an input is missing, not a number or not positive.
     """
     values = []
     for value in (speed_m_s, rpm, diameter_m):
@@ -336,6 +365,25 @@ def write_csv_table(
 
     The header names pass the cells' rule too (G16): no name holds a comma or a
     double quote, so nothing on any line is quoted.
+
+    Parameters
+    ----------
+    path : str or Path
+        The table to write.
+    columns : sequence of str
+        The header names.
+    rows : sequence of sequence of object
+        The rows, one value per column; None is written as ``NA``.
+
+    Returns
+    -------
+    Path
+        The written table.
+
+    Raises
+    ------
+    ProductError
+        If a row's width differs from the header's.
     """
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -361,6 +409,23 @@ def renamed_columns(
     ``printed`` is what the plots export prints, which is what a dictionary's
     left side may name. THE WHOLE DICTIONARY APPLIES OR NONE OF IT DOES: half a
     dictionary applied is a file nobody can predict.
+
+    Parameters
+    ----------
+    columns : sequence of str
+        The table's columns.
+    names : mapping of str to str, or None
+        The pproc's ``[names]`` dictionary, printed name to new name; None or empty leaves the
+        columns as they are.
+    printed : sequence of str
+        The columns the plots export prints.
+    where : str
+        What the refusal names as the place of the dictionary.
+
+    Returns
+    -------
+    tuple of str
+        The columns, each renamed where the dictionary names it.
 
     Raises
     ------
@@ -415,6 +480,27 @@ def section_identity(
 
     A layout whose counts do not add up to the export is NOT applied: a row given
     its neighbour's family is worse than a row given none.
+
+    Parameters
+    ----------
+    n_rows : int
+        The export's number of rows.
+    layout : sequence of mapping, or None
+        The recorded sections layout, one block per distribution with its ``count``, ``families``
+        and ``plane``.
+    rotors : mapping of str to mapping, or None
+        Rotor alias to its recorded metadata, which says which rotor owns a block and where its
+        blade is.
+    step : int or None
+        The export's time step, for the azimuth at it.
+    azimuth_deg : float or None
+        The azimuth every row carries where the layout is not applied, in degrees.
+
+    Returns
+    -------
+    list of tuple
+        One ``(FAMILY, PLANE, ROTOR, AZIMUTH)`` per row; None for the first three of every row
+        where the layout is missing or its counts do not add up.
     """
     unknown: list[tuple[object, object, object, object]] = [
         (None, None, None, azimuth_deg)
@@ -596,6 +682,20 @@ def polar_file_name(polar: str | int, mach: float, group: str | int) -> str:
     the recorded tables under it and is compared with what those files name for
     name, which is why it stays. A polar table of a WORKSPACE is named by
     :func:`swept_polar_file_name`, the standard point convention (FR-85).
+
+    Parameters
+    ----------
+    polar : str or int
+        The polar's number.
+    mach : float
+        The Mach number, written as its two-digit code.
+    group : str or int
+        The plot group's number.
+
+    Returns
+    -------
+    str
+        The polar table's file name.
     """
     return f"{polar}_M{_mach_code(mach):02d}_g{int(group):02d}.csv"
 
@@ -616,6 +716,23 @@ def read_csv_table(
     since 0.27.0 has one (G16): its first line is the header and its first
     column `POL`. A rotor table written by 0.23.0 to 0.26.x leads with its
     rotor's alias alone on the first line, and ``skip=1`` reads it.
+
+    Parameters
+    ----------
+    path : str or Path
+        The CSV table.
+    skip : int, optional
+        Lines dropped before the header.
+
+    Returns
+    -------
+    tuple of (tuple of str, list of dict of str to str)
+        The columns and the rows, each a mapping of column to the text written.
+
+    Raises
+    ------
+    ProductError
+        If the file is empty, or a row's width differs from the header's, naming the line.
     """
     target = Path(path)
     with target.open("r", encoding="utf-8", newline="") as handle:
@@ -705,6 +822,11 @@ def plots_table_series(path: str | Path) -> tuple[tuple[str, ...], TimestepSerie
     no field of any sample: it is left out of the columns and of the series,
     so no reduction averages it and no reduction states it twice. A table
     written before 0.27.0 carries no such column and reads as it always did.
+
+    Parameters
+    ----------
+    path : str or Path
+        A plots table the post wrote.
 
     Returns
     -------

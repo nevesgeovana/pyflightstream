@@ -270,6 +270,17 @@ def write_surface_average(
     the writer of every point's Tecplot, and says in its ``DATASETAUXDATA`` what
     it is an average of. The VTK, in the reference frame, is the same surface.
 
+    Parameters
+    ----------
+    dat : str or Path
+        The Tecplot file to write.
+    average : SurfaceAverage
+        The averaged surface.
+    vtk : str or Path, optional
+        The VTK file to write as well.
+    overwrite : bool, optional
+        Replace files that exist.
+
     Returns
     -------
     list of pathlib.Path

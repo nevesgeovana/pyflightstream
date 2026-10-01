@@ -187,6 +187,16 @@ def unoffered_route(route: str) -> str | None:
     Route 1 in any spelling that names Theodorsen, Sears or the lift
     deficiency, and route 3 by any of its four names, each with the reason.
 
+    Parameters
+    ----------
+    route : str
+        A correction route as a row or a calibration states it.
+
+    Returns
+    -------
+    str or None
+        The reason the route is not offered, naming it; None where it may be.
+
     Examples
     --------
     >>> unoffered_route("table") is None
@@ -427,12 +437,42 @@ class Calibration:
 
 
 def calibration_path(inputs_dir: str | Path, calibration_id: str) -> Path:
-    """Return ``<inputs_dir>/calibrations/<id>.toml``."""
+    """Return ``<inputs_dir>/calibrations/<id>.toml``.
+
+    Parameters
+    ----------
+    inputs_dir : str or Path
+        The workspace's inputs folder.
+    calibration_id : str
+        The calibration's id, its file name without the suffix.
+
+    Returns
+    -------
+    Path
+        ``<inputs_dir>/calibrations/<calibration_id>.toml``.
+    """
     return Path(inputs_dir) / CALIBRATIONS_DIR / f"{calibration_id}.toml"
 
 
 def read_calibration(path: str | Path) -> Calibration:
-    """Read and validate a calibration file; refuse it whole with :class:`CalibrationError`."""
+    """Read and validate a calibration file; refuse it whole with :class:`CalibrationError`.
+
+    Parameters
+    ----------
+    path : str or Path
+        The calibration file.
+
+    Returns
+    -------
+    Calibration
+        The validated calibration, its id the file's stem and its digest that of the file's text.
+
+    Raises
+    ------
+    CalibrationError
+        If the file cannot be read, is not UTF-8 text, or its text is refused by
+        :func:`parse_calibration`.
+    """
     target = Path(path)
     try:
         data = target.read_bytes()
@@ -478,7 +518,30 @@ def parse_calibration(
     calibration_id: str = "<text>",
     sha256: str | None = None,
 ) -> Calibration:
-    """Parse and validate a calibration file's text; refuse it whole, naming the line."""
+    """Parse and validate a calibration file's text; refuse it whole, naming the line.
+
+    Parameters
+    ----------
+    text : str
+        The file's text, TOML.
+    path : Path, optional
+        Where the text was read from, named in a refusal.
+    calibration_id : str, optional
+        The calibration's id; ``<text>`` where the text has no file.
+    sha256 : str, optional
+        The text's SHA-256 where the caller already has it; computed from ``text`` otherwise.
+
+    Returns
+    -------
+    Calibration
+        The validated calibration: its id, route, rows, grids and digest.
+
+    Raises
+    ------
+    CalibrationError
+        If the text is not TOML, states an unknown key or route, no rows, a row that does not
+        validate, or a ``sector_offset`` route without its ``source_run_id``, naming the line.
+    """
     where = str(path) if path is not None else f"calibration {calibration_id!r}"
 
     def refuse(message: str, line: int | None) -> CalibrationError:
@@ -679,6 +742,25 @@ def calibration_text(
     description: str | None = None,
 ) -> str:
     """Return a calibration file's text, which :func:`parse_calibration` reads back unchanged.
+
+    Parameters
+    ----------
+    route : str
+        The calibration's route, one of :data:`CALIBRATION_ROUTES`.
+    rows : sequence of CalibrationRow
+        The rows, written in the order given.
+    source_run_id : str, optional
+        The run id of the axial unsteady sector run the offsets were taken from; a
+        ``sector_offset`` calibration names it.
+    wheel_run_id : str, optional
+        The run id of the quasi-steady wheel run, written where given.
+    description : str, optional
+        Free text written into the file where given.
+
+    Returns
+    -------
+    str
+        The TOML text, ending in a newline.
 
     Examples
     --------

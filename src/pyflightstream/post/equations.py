@@ -40,6 +40,18 @@ __all__ = ["apply_equations", "derived_column", "resolve_symbol"]
 def derived_column(name: str, alias: str) -> str:
     """Return the column an equation adds: its own name, then the alias it is about.
 
+    Parameters
+    ----------
+    name : str
+        The equation's name.
+    alias : str
+        The alias it is about.
+
+    Returns
+    -------
+    str
+        ``<name>_<alias>``.
+
     Examples
     --------
     >>> derived_column("CTX", "PUSHER")
@@ -61,6 +73,22 @@ def resolve_symbol(
     The order is the module's: ``<symbol>_<alias>_<frame>`` and
     ``<symbol>_<frame>_<alias>`` where a frame is stated, then
     ``<symbol>_<alias>``, then the exact name.
+
+    Parameters
+    ----------
+    symbol : str
+        The symbol an expression reads.
+    alias : str
+        The equation's alias.
+    frame : str or None
+        The equation's frame, where it states one.
+    columns : sequence of str
+        The table's columns.
+
+    Returns
+    -------
+    str or None
+        The column read, or None where no spelling is a column.
 
     Examples
     --------
@@ -126,6 +154,26 @@ def apply_equations(
     the quantity does not apply to) gets no number from that equation either, and
     neither does a row where the arithmetic has no answer, a division by zero or
     the root of a negative; ``notes`` receives one sentence per such equation.
+
+    Parameters
+    ----------
+    rows : sequence of mapping of str to object
+        The table's rows.
+    equations : mapping of str to object
+        Equation name to its specification.
+    order : sequence of str
+        The order the equations are evaluated in.
+    columns : sequence of str
+        The table's header, which the symbols are resolved against.
+    where : str
+        The file, named in the refusal.
+    notes : list of str, optional
+        Receives one sentence per equation a row got no number from.
+
+    Returns
+    -------
+    tuple of (list of str, list of dict)
+        The columns added, and per row the value of each, None where there is none.
 
     Raises
     ------

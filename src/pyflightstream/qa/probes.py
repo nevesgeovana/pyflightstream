@@ -65,6 +65,29 @@ from pyflightstream.script import CommandArgumentError, Script
 from pyflightstream.script.helpers import initialize_solver
 from pyflightstream.versions import FsVersion, known_versions, resolve
 
+__all__ = [
+    "DEFAULT_ERROR_PATTERNS",
+    "ProbeArtifacts",
+    "ProbeEnvironmentError",
+    "ProbeOutcome",
+    "ProbeResult",
+    "ProbeRun",
+    "ProbeSpec",
+    "Requires",
+    "dump_changed",
+    "dump_gained",
+    "emit_solver_setup",
+    "emit_tier_prelude",
+    "file_effect",
+    "fsm_changed",
+    "fsm_gained",
+    "generate_probe_script",
+    "printed_line",
+    "probe_version",
+    "region_printed",
+    "unrecognised_commands",
+]
+
 _BEGIN = "PYFS_PROBE_BEGIN"
 _END = "PYFS_PROBE_END"
 _BASELINE_MARKER = "PYFS_BASELINE_ALIVE"
@@ -528,6 +551,11 @@ def file_effect(name: str) -> Callable[[ProbeArtifacts], bool]:
     ----------
     name : str
         File name relative to the probe working directory.
+
+    Returns
+    -------
+    callable
+        The assertion: True when the file exists and is not empty.
     """
 
     def check(artifacts: ProbeArtifacts) -> bool:
@@ -763,6 +791,12 @@ def dump_gained(token: str, strict: bool = False) -> Callable[[ProbeArtifacts], 
         Distinctive text expected in the dump after the command.
     strict : bool
         Whether absence breaks instead of recording unprobed.
+
+    Returns
+    -------
+    callable
+        The assertion: True when the token is in the dump after the target; otherwise False when
+        ``strict``, None when not.
     """
 
     def check(artifacts: ProbeArtifacts) -> bool | None:
@@ -782,6 +816,12 @@ def dump_changed() -> Callable[[ProbeArtifacts], bool | None]:
     A difference proves the command acted; an identical dump proves
     nothing (the dump may simply not expose that state), so it records
     None (unprobed), never False.
+
+    Returns
+    -------
+    callable
+        The assertion: True when the dump after the target differs from the one before, None
+        otherwise.
     """
 
     def check(artifacts: ProbeArtifacts) -> bool | None:
@@ -795,7 +835,18 @@ def dump_changed() -> Callable[[ProbeArtifacts], bool | None]:
 
 
 def region_printed(marker: str) -> Callable[[ProbeArtifacts], bool]:
-    """Make an effect assertion: a marker was printed in the target region."""
+    """Make an effect assertion: a marker was printed in the target region.
+
+    Parameters
+    ----------
+    marker : str
+        The text expected in the log between the BEGIN and END sentinels.
+
+    Returns
+    -------
+    callable
+        The assertion: True when the marker was printed in the target region.
+    """
 
     def check(artifacts: ProbeArtifacts) -> bool:
         return printed_line(artifacts.target_region(), marker)
@@ -809,6 +860,11 @@ def emit_solver_setup(script: Script) -> None:
     Constant free stream, sea-level standard atmosphere, and a short
     iteration budget: the smallest state in which the solver
     initializes and runs on an opened simulation (M2 pipeline shape).
+
+    Parameters
+    ----------
+    script : Script
+        The probe script, after its simulation was opened.
     """
     script.emit("SET_FREESTREAM", "CONSTANT")
     # AIR_ALTITUDE is recorded broken on 26.120 (the solver reads its
@@ -908,6 +964,11 @@ def generate_probe_script(
     -------
     Script
         The rendered-ready probe script.
+
+    Raises
+    ------
+    ProbeEnvironmentError
+        If the spec's prelude tier opens a simulation file and ``fsm`` is not given.
     """
     # The solver runs inside the probe directory, but log exports and
     # support files are addressed absolutely so the script is valid
@@ -1043,10 +1104,12 @@ def probe_version(
     Raises
     ------
     ProbeEnvironmentError
-        When the baseline probe fails or a probe directory cannot be
-        prepared; no command evidence is produced in that case.
-    ValueError
-        When ``commands`` names a command outside the version's view.
+        When no executor and no ``fs_exe`` is given, when ``fsm`` names
+        no file, or when the baseline probe fails or a probe directory
+        cannot be prepared; no command evidence is produced in that case.
+    QaEvidenceError
+        When ``commands`` names a command outside the version's view
+        (a ``ValueError``).
     """
     resolved = resolve(version)
     view = (registry or CommandRegistry.load()).for_version(resolved)

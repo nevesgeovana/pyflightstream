@@ -53,6 +53,17 @@ def euclidean_rotor(view: VersionView) -> bool:
     ``cases.workflows`` derives coverage from it. True when the build
     documents no rotary rotor speed and documents the whole Euclidean rotor
     (:data:`EUCLIDEAN_ROTOR_COMMANDS`).
+
+    Parameters
+    ----------
+    view : VersionView
+        The command view of the script's build.
+
+    Returns
+    -------
+    bool
+        True when the build documents no rotary rotor speed and every command of
+        :data:`EUCLIDEAN_ROTOR_COMMANDS`.
     """
     return "SET_MOTION_ROTOR_RPM" not in view and all(
         name in view for name in EUCLIDEAN_ROTOR_COMMANDS
@@ -68,6 +79,17 @@ def unmarked_euclidean_rotor(view: VersionView) -> bool:
     prints (RPT-049). The motion is written with no mark, so the solver is
     never told the motion is a rotor (RPT-051). :func:`euclidean_rotor` and
     this function never both hold on one build.
+
+    Parameters
+    ----------
+    view : VersionView
+        The command view of the script's build.
+
+    Returns
+    -------
+    bool
+        True when the build documents no rotary rotor speed, documents the angular velocity, and
+        carries no ``SET_MOTION_IS_ROTOR``.
     """
     return (
         "SET_MOTION_ROTOR_RPM" not in view

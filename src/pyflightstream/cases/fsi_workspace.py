@@ -46,6 +46,39 @@ from pyflightstream.versions import FsVersion
 
 from . import CampaignConfigError, RotorBlock, SimCase
 
+__all__ = [
+    "BEAM_LINE_RBF_TYPE",
+    "CALLBACK_FILE",
+    "DEFORMED_SURFACE_FILE",
+    "FAMILY_FILE",
+    "FIXED_WING_WORKFLOWS",
+    "FSI_ROTOR_IN_DEBUG",
+    "FSI_WORKFLOW_STATE",
+    "IMPORT_BOUNDARY_ID_OFFSET",
+    "NODES_FILE",
+    "POST_FILE",
+    "QUASI_STEADY_WORKFLOW",
+    "STEADY_AEROELASTIC_COMPLETION",
+    "STEADY_AEROELASTIC_ITERATIONS",
+    "aeroelastic_post",
+    "aeroelastic_post_script",
+    "aeroelastic_rbf_type",
+    "aeroelastic_surface_ids",
+    "emit_aeroelastic_rbf_type",
+    "emit_steady_aeroelastic_analysis",
+    "fsi_workflow_refusal",
+    "is_steady_aeroelastic_script",
+    "patch_structural_node_frame",
+    "quasi_steady_fsi_config",
+    "refuse_lines_after_steady_analysis",
+    "steady_aeroelastic_finished",
+    "structural_node_layout",
+    "validate_workspace_fsi",
+    "wire_fixed_wing_fsi",
+    "wire_quasi_steady_sector_fsi",
+    "wire_workspace_fsi",
+]
+
 NODES_FILE = "fsi_nodes.csv"
 FAMILY_FILE = "fsi_family_map.json"
 POST_FILE = "fsi_post.txt"
@@ -191,6 +224,16 @@ def structural_node_layout(cfg: FsiConfig) -> NodeOrderingMap:
     needs is the configuration's sections, and the imported mesh is not
     read here.
 
+    Parameters
+    ----------
+    cfg : FsiConfig
+        The structural configuration.
+
+    Returns
+    -------
+    NodeOrderingMap
+        The node layout of :func:`pyflightstream.fsi.nodes.generate_node_layout`.
+
     Raises
     ------
     CampaignConfigError
@@ -231,7 +274,15 @@ def aeroelastic_rbf_type(case: SimCase) -> str:
 
 
 def emit_aeroelastic_rbf_type(case: SimCase, script: Script) -> None:
-    """Emit the beam-line kernel unless the row's setup already emitted its own."""
+    """Emit the beam-line kernel unless the row's setup already emitted its own.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case; its solver settings say whether the setup emitted a kernel of its own.
+    script : Script
+        The script being built.
+    """
     if case.solver.aeroelastic_rbf_type is None:
         script.emit("AEROELASTIC_RBF_TYPE", aeroelastic_rbf_type(case))
 
@@ -419,12 +470,22 @@ def emit_steady_aeroelastic_analysis(script: Script) -> None:
     :func:`steady_aeroelastic_finished` reads the completion line.
     :func:`refuse_lines_after_steady_analysis` holds the order on the
     finished script.
+
+    Parameters
+    ----------
+    script : Script
+        The steady coupled script, at its end.
     """
     script.emit("EXECUTE_AEROELASTIC_ANALYSIS")
 
 
 def refuse_lines_after_steady_analysis(rendered: str) -> None:
     """Refuse a steady coupled script with any command after its analysis.
+
+    Parameters
+    ----------
+    rendered : str
+        The rendered script text.
 
     Raises
     ------
@@ -446,7 +507,18 @@ def refuse_lines_after_steady_analysis(rendered: str) -> None:
 
 
 def steady_aeroelastic_finished(native_output: str) -> bool:
-    """Whether a steady coupled run's output shows its analysis finished."""
+    """Whether a steady coupled run's output shows its analysis finished.
+
+    Parameters
+    ----------
+    native_output : str
+        What the solver process printed so far.
+
+    Returns
+    -------
+    bool
+        True when the output carries :data:`STEADY_AEROELASTIC_COMPLETION`.
+    """
     return STEADY_AEROELASTIC_COMPLETION in native_output
 
 
@@ -457,6 +529,16 @@ def is_steady_aeroelastic_script(rendered: str) -> bool:
     exits by itself (:data:`STEADY_AEROELASTIC_COMPLETION`), so it is waited
     on until the solver prints the completion line and then stopped.
     Comment lines and blank lines are not commands.
+
+    Parameters
+    ----------
+    rendered : str
+        The rendered script text.
+
+    Returns
+    -------
+    bool
+        True when the script's last command is ``EXECUTE_AEROELASTIC_ANALYSIS``.
     """
     lines = [
         line.strip()
@@ -477,6 +559,24 @@ def validate_workspace_fsi(
 
     The workflow is judged first (:func:`fsi_workflow_refusal`), so a row
     FSI is refused on in this release hears why before any other check.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case; ``case.fsi`` states the FSI input.
+    script : Script
+        The script built so far.
+    workflow : str
+        The row's workflow, judged first by :func:`fsi_workflow_refusal`.
+    continuation : bool
+        Whether the point continues a stopped run.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the workflow is refused for FSI, the point is a continuation, the script carries raw
+        commands or custom flags, the mesh is not freshly imported, blades or sections rely on
+        symmetry copies, or the rotor speed is not positive.
     """
     if case.fsi is None:
         return
@@ -544,7 +644,35 @@ def wire_workspace_fsi(
     frames: Mapping[str, int | None | Mapping[str, int]],
     interpreter: str,
 ) -> None:
-    """Stage one structural source and emit the native unsteady callback contract."""
+    """Stage one structural source and emit the native unsteady callback contract.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case; ``case.fsi`` states the FSI input.
+    script : Script
+        The unsteady rotor script, after its section distributions.
+    rotor : RotorBlock
+        The resolved rotor block.
+    rpm : float
+        The rotor speed in revolutions per minute; its magnitude must match the configuration's
+        angular speed.
+    delta_time_s : float
+        The resolved time increment in seconds, positive.
+    frames : mapping
+        The frames the script created, by name, each blade's rotating frame ``<alias>_RMRP<n>``
+        among them.
+    interpreter : str
+        The Python the structural callback runs under.
+
+    Raises
+    ------
+    CampaignConfigError
+        If the configuration's speed or blade count differs from the resolved rotor, the time
+        increment is not positive, the blade, frame and boundary mapping is not one to one, a blade
+        has other than one section distribution, or the rotor frame is not shaft X with blade datum
+        Z.
+    """
     cfg = case.fsi
     if cfg is None:
         return
@@ -721,6 +849,21 @@ def quasi_steady_fsi_config(case: SimCase, *, rpm: float, quiet: bool = False) -
     point at its own speed. ``quiet`` leaves the warning to the builder, which
     says it once at plan and once at run; the run's staging asks it quietly.
 
+    Parameters
+    ----------
+    case : SimCase
+        The case; ``case.fsi`` states the FSI input.
+    rpm : float
+        The row's rotor speed in revolutions per minute; its magnitude sets the configuration's
+        angular speed.
+    quiet : bool, optional
+        Leave out the warning when the input states another speed; the run's staging asks quietly.
+
+    Returns
+    -------
+    FsiConfig
+        The input's configuration with ``omega_rad_per_s`` set to ``|rpm| pi / 30``.
+
     Raises
     ------
     CampaignConfigError
@@ -822,6 +965,23 @@ def wire_quasi_steady_sector_fsi(
     (:func:`aeroelastic_surface_ids`), the nodes are placed inside its sections
     (:func:`structural_node_layout`) and the kernel is the beam line's
     (:data:`BEAM_LINE_RBF_TYPE`).
+
+    Parameters
+    ----------
+    case : SimCase
+        The case; ``case.fsi`` states the FSI input.
+    script : Script
+        The script, after the section distributions were emitted.
+    config : FsiConfig
+        The rotating blade's configuration, from :func:`quasi_steady_fsi_config`.
+    rotor : RotorBlock
+        The rotor block the sector was built for.
+    interpreter : str
+        The Python the structural callback runs under.
+    exports : callable or None
+        Emits the exports the post-processing script carries.
+    updates : callable, optional
+        Emits the updates those exports read, as :func:`aeroelastic_post` takes them.
 
     Returns
     -------
