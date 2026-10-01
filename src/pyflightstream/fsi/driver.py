@@ -131,7 +131,7 @@ _LOG_HEADER = (
     "# n Omega / omega_n stays at or below about 0.3 (DLV-007 Section 4.1)\n"
     "call,step,phase,revolutions,solver_iteration,total_normal_force_n,"
     "tip_flap_m,tip_twist_deg,inner_solves,twist_residual_rad,"
-    "twist_tolerance_rad,relaxation,config_sha256\n"
+    "twist_tolerance_rad,relaxation,config_sha256,tip_flap_signed_m\n"
 )
 
 
@@ -381,13 +381,31 @@ def _append_log(run_dir: Path, row: dict[str, object]) -> None:
         f"{row['solver_iteration']},{row['total_normal_force_n']},"
         f"{row['tip_flap_m']},{row['tip_twist_deg']},{row['inner_solves']},"
         f"{row['twist_residual_rad']},{row['twist_tolerance_rad']},"
-        f"{row['relaxation']},{row['config_sha256']}\n"
+        f"{row['relaxation']},{row['config_sha256']},{row['tip_flap_signed_m']}\n"
     )
     if not path.is_file():
         path.write_text(_LOG_HEADER + line, encoding="utf-8")
     else:
         with path.open("a", encoding="utf-8") as handle:
             handle.write(line)
+
+
+def _tip_columns(tip_flap_m: Sequence[float], tip_twist_deg: Sequence[float]) -> dict[str, str]:
+    """Return the convergence log's tip columns from the tip value of each blade.
+
+    ``tip_flap_m`` and ``tip_twist_deg`` keep their reading: the largest
+    magnitude over the blades. ``tip_flap_signed_m`` (FR-339, the last
+    column) is the deflection of that same blade with its sign, the sign the
+    displacement file carries: positive along the section's normal toward
+    the suction side, so a wing bending down under its weight reads negative.
+    The first of equal magnitudes is the one written.
+    """
+    signed = max(tip_flap_m, key=abs)
+    return {
+        "tip_flap_m": f"{abs(signed):.6e}",
+        "tip_twist_deg": f"{max(abs(v) for v in tip_twist_deg):.6e}",
+        "tip_flap_signed_m": f"{signed:.6e}",
+    }
 
 
 def _verified_layout(cfg: FsiConfig, run_dir: Path) -> nodes.NodeOrderingMap:
@@ -439,6 +457,7 @@ def _frozen_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResult:
             "twist_tolerance_rad": "",
             "relaxation": "",
             "config_sha256": config_sha256(cfg),
+            "tip_flap_signed_m": "",
         },
     )
     write_state_atomic(state, run_dir / STATE_FILE)
@@ -671,9 +690,9 @@ def _quasi_steady_rotor_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> 
             solutions=solutions,
             total_normal_force_n=total_normal_force,
             log={
-                "tip_flap_m": f"{max(abs(s.flap_deflection_m[-1]) for s in solutions):.6e}",
-                "tip_twist_deg": (
-                    f"{max(abs(math.degrees(s.elastic_twist_rad[-1])) for s in solutions):.6e}"
+                **_tip_columns(
+                    [s.flap_deflection_m[-1] for s in solutions],
+                    [math.degrees(s.elastic_twist_rad[-1]) for s in solutions],
                 ),
                 "inner_solves": max(result.inner_solves for result in solved),
                 "twist_residual_rad": f"{max(r.twist_residual_rad for r in solved):.3e}",
@@ -727,8 +746,9 @@ def _fixed_wing_step(run_dir: Path, cfg: FsiConfig, state: FsiState) -> StepResu
             solutions=(solution,),
             total_normal_force_n=total_normal_force,
             log={
-                "tip_flap_m": f"{abs(solution.flap_deflection_m[-1]):.6e}",
-                "tip_twist_deg": f"{abs(math.degrees(solution.elastic_twist_rad[-1])):.6e}",
+                **_tip_columns(
+                    [solution.flap_deflection_m[-1]], [math.degrees(solution.elastic_twist_rad[-1])]
+                ),
                 "inner_solves": 1,
                 "twist_residual_rad": "",
                 "twist_tolerance_rad": "",
@@ -1059,8 +1079,7 @@ def coupling_step(run_dir: str | Path) -> StepResult:
             "revolutions": f"{revolutions:.6f}",
             "solver_iteration": report.current_iteration,
             "total_normal_force_n": f"{total_normal_force:.6f}",
-            "tip_flap_m": f"{max(abs(v) for v in tip_flap_m):.6e}",
-            "tip_twist_deg": f"{max(abs(v) for v in tip_twist_deg):.6e}",
+            **_tip_columns(tip_flap_m, tip_twist_deg),
             "inner_solves": inner_solves,
             "twist_residual_rad": "" if twist_residual is None else f"{twist_residual:.6e}",
             "twist_tolerance_rad": ("" if twist_tolerance is None else f"{twist_tolerance:.1e}"),
