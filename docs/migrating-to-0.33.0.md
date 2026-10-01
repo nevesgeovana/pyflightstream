@@ -232,10 +232,9 @@ compares a binary by its bytes.
 ## The documentation
 
 The site is grouped into Tutorials, How-to guides, Reference, Explanation and
-Project, and its reference is generated from the code: a
-[Python API reference](api/index.md) and a
-[command-line reference](cli/index.md) that carry every public name and every
-option (NFR-29). Exported functions document their parameters, results and
+Project, and its reference is generated from the code: the Python API
+reference and the command-line reference, under Reference in the menu, carry
+every public name and every option (NFR-29). Exported functions document their parameters, results and
 failures in numpydoc form (NFR-30). No page moved, so a link or a bookmark
 to a page still lands on it. A one-page `pyfs-matrix` cheatsheet, every
 subcommand and option by stage, joins the [PDF guides](guides.md).

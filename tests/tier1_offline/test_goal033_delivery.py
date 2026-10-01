@@ -304,10 +304,7 @@ def test_every_documented_page_is_built_and_reachable():
         re.findall(r"\]\(([\w./-]+\.md)(?:#[\w-]+)?\)", MIGRATION.read_text(encoding="utf-8"))
     )
     assert f"migrating-to-{RELEASED}.md" in cited
-    # A directory entry of the menu (`api/`, `cli/`) is generated at build time
-    # and reaches every page under it.
-    folders = tuple(target for target in targets if target.endswith("/"))
-    absent = sorted(page for page in cited if page not in targets and not page.startswith(folders))
+    absent = sorted(page for page in cited if page not in targets)
     assert not absent, f"pages the {RELEASED} notes cite that the menu lacks: {absent}"
 
 
@@ -511,14 +508,9 @@ def test_the_migration_page_names_every_reader_facing_change():
     for word in _PAGE_WORDS_BY_RELEASE[RELEASED]:
         assert word in page, word
 
-    # The menu's directory entries are generated at build time, so a link into one
-    # has no committed file to find.
-    generated_folders = tuple(t for t in _nav_targets(_config()["nav"]) if t.endswith("/"))
     broken = []
     for target, anchor in re.findall(r"\]\(([\w./-]+\.md)(?:#([\w-]+))?\)", page):
         linked = DOCS / target
-        if target.startswith(generated_folders):
-            continue
         if not linked.is_file():
             broken.append(target)
             continue

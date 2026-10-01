@@ -1197,7 +1197,7 @@ that may only fall. The one cross-package component left joins the package
 root, `post` and `run` (the root imports them so that their registrations run);
 it is the frozen baseline's and may not gain a member.
 
-### The modules and their rows
+### The 0.33.0 modules and their rows
 
 - The cases row: `cases.workflows` is a package of 24 modules, its root a
   facade and its 23 private modules in the declared order of AD-12. Four
