@@ -12,7 +12,8 @@ file could not be checked, and a converged point was recorded
 FAILED_INCOMPLETE_OUTPUT with its log on disk. The log the stand-in writes for
 point 2 is the recorded one of such a job on 26.124 (the licence lines dropped
 and the script path neutral): 8 trailing edges imported, a solve of 28
-iterations, then one of 25.
+iterations, then one of 25. RPT-139 is the measurement of that behaviour and
+names the source of this log by its digest.
 
 The second, below: a post-processing artifact whose section distributions cut
 a wing, cited by a row whose geometry is a body alone. The builder leaves every

@@ -1922,12 +1922,18 @@ nodes.
     unverified on every geometry tried; and a saved simulation whose
     sidecar states any of the three tables is refused.
 
-    AMENDED 0.33.1 (2026-10-01): the log a point on the `file` route is
-    held to is, where none of its collected outputs reads as the residual
-    history of one solve, the point's one collected `_log.txt`, because
-    every point of a steady job exports the session's log so far and the
-    log of point k holds k solves; two such files name no log. Evidence:
-    `tests/tier1_offline/test_p0331_false_failures.py`.
+    AMENDED 0.33.1 (2026-10-01): a point's collected solver log is, where
+    none of its collected outputs reads as the residual history of one
+    solve, the point's one collected `_log.txt`, because every point of a
+    steady job exports the session's log so far and the log of point k
+    holds k solves (RPT-139, measured on 26.124); two such files name no
+    log. The rule is the package's one way of finding the collected log, so
+    it serves every reader of it and not the `file` route alone: the
+    wake-edge verdict of a point run on its own and of a point of a steady
+    job, the actuator-profile verdict on both paths, and the same verdicts
+    in `pyfs-matrix collect`. Evidence:
+    `tests/tier1_offline/test_p0331_false_failures.py` and
+    `reports/RPT-139_steady-job-cumulative-log_2026-10-01.md`.
 
     AMENDED 0.27.0 (RPT-066), pending with it: the families a row or
     artifact names for base-region detection are the boundaries that
