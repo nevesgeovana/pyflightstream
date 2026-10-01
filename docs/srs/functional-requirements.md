@@ -7256,9 +7256,8 @@ Requirements written after the specification was last reconciled with the packag
     The guides are decks in `guide/` with their LaTeX sources
     (`guide/latex-sources/`), their build recipe and their compiled PDFs, each
     ending on numbered references, licensed CC BY 4.0
-    (`guide/LICENSE-AND-AUTHORSHIP.md`). Since 0.31.0 they are eight, named
-    `pyfts-guide-00` to `pyfts-guide-07`, guide 00 being the overview read
-    first. A PDF may be tracked under `guide/` and nowhere else: the
+    (`guide/LICENSE-AND-AUTHORSHIP.md`). Since 0.34.0 they are nine, numbered
+    from 01 with the cheatsheet as guide 04 (FR-329). A PDF may be tracked under `guide/` and nowhere else: the
     forbid-pdf hook, the CI guard job and the tier-1 walk of the tracked files
     carry the same exemption, and a test shows the hook and the job refuse
     exactly what the walk refuses.
@@ -8183,7 +8182,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2075, PFS-2075.13 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: items (1) and (2) of the guides item of the 0.34.0 scope (GEO-071, section 4.9) and the author decisions of 2026-10-01 that the cheatsheet is one document, its first page the current cheatsheet, then the pages by stage, ten pages in all, every command-line command included. Marker P0340-CHEATSHEET-ONE; read at 0.34.0 (GOAL-039, arm MG). Pending: built in part on a branch of 2026-10-01 (two sheets, not yet one document). Verification method: tier-1 tests carrying the marker, each R-item verified on its own. Evidence owed: a test that the tracked compiled PDF under `guide/` (FR-177 admits it) has ten pages, so the count needs no LaTeX toolchain in tier 1; a test that walks the parser of every console tool and refuses the source when a command or an option is missing, or names one no parser has, with a planted flag, a planted command and a cut line as controls; and a test that each of the eight stage pages names its stage.*
+    *Origin: items (1) and (2) of the guides item of the 0.34.0 scope (GEO-071, section 4.9) and the author decisions of 2026-10-01 that the cheatsheet is one document, its first page the current cheatsheet, then the pages by stage, ten pages in all, every command-line command included. Marker P0340-CHEATSHEET-ONE; read at 0.34.0 (GOAL-039, arm MG). Evidence: `tests/tier1_offline/test_p0340_guides.py`, `tests/tier1_offline/test_p0330_cheatsheet.py` and `tests/tier1_offline/test_p0340_cheatsheet_by_stage.py`; built as one document of ten pages. Verification method: tier-1 tests carrying the marker, each R-item verified on its own. Evidence owed: a test that the tracked compiled PDF under `guide/` (FR-177 admits it) has ten pages, so the count needs no LaTeX toolchain in tier 1; a test that walks the parser of every console tool and refuses the source when a command or an option is missing, or names one no parser has, with a planted flag, a planted command and a cut line as controls; and a test that each of the eight stage pages names its stage.*
 
     Need: The 0.33.0 cheatsheet covers `pyfs-matrix` on one page; the other tools and the explanation of each stage are elsewhere or nowhere.
 
@@ -8201,7 +8200,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2075, PFS-2075.14 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: item (3) of the guides item of the 0.34.0 scope (GEO-071, section 4.9) and the author decision of 2026-10-01 that the guide numbers start at 1 and the cheatsheet enters as 04. Marker P0340-GUIDES-FROM-ONE; read at 0.34.0 (GOAL-039, arm MG). Pending: no code yet. Verification method: tier-1 tests carrying the marker and a scan of the tracked tree. Evidence owed: a test that no tracked file names `pyfts-guide-00`; a test that the guide decks are `pyfts-guide-01` to `pyfts-guide-09` with the cheatsheet as `pyfts-guide-04`; and a test that the build scripts, the admitted-PDF list (the house-style walk, the ignore file, the pre-commit hook and the CI guard), the guide tests and the pages that link the guides name the same set.*
+    *Origin: item (3) of the guides item of the 0.34.0 scope (GEO-071, section 4.9) and the author decision of 2026-10-01 that the guide numbers start at 1 and the cheatsheet enters as 04. Marker P0340-GUIDES-FROM-ONE; read at 0.34.0 (GOAL-039, arm MG). Evidence: `tests/tier1_offline/test_p0340_guides.py`, with `tests/tier1_offline/test_guide_decks.py` and `tests/tier1_offline/test_house_style.py`. Verification method: tier-1 tests carrying the marker and a scan of the tracked tree. Evidence owed: a test that no tracked file names `pyfts-guide-00`; a test that the guide decks are `pyfts-guide-01` to `pyfts-guide-09` with the cheatsheet as `pyfts-guide-04`; and a test that the build scripts, the admitted-PDF list (the house-style walk, the ignore file, the pre-commit hook and the CI guard), the guide tests and the pages that link the guides name the same set.*
 
     Need: The decks start at `pyfts-guide-00`, which reads oddly, and the cheatsheet is not numbered with them.
 

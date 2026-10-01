@@ -1,15 +1,15 @@
 """Tier 1, 0.34.0: the cheatsheet by stage is eight pages and names only real commands (NFR-29).
 
 Pipeline role: quality gate on the expanded cheatsheet of the guide folder,
-``guide/latex-sources/cheatsheet/pyfts-cheatsheet-by-stage.tex`` and its
-compiled ``guide/pyfts-cheatsheet-by-stage.pdf``: one page per stage of the
+``guide/latex-sources/04-cheatsheet/text/02-by-stage.tex`` and its
+compiled ``guide/pyfts-guide-04-cheatsheet.pdf``: one page per stage of the
 campaign workflow, each with what the stage is for, its commands and options,
 the files it reads and writes, its common errors and a figure. The sheet is
 written by hand; what keeps it true is this walk of the parsers the tools
 really use, captured as the command-line reference captures them
 (``scripts/gen_cli_reference.py``), never rebuilt.
 
-What it holds: the compiled PDF exists, is eight pages and carries the same
+What it holds: the compiled PDF exists, is ten pages and carries the same
 author metadata as the one-page cheatsheet; the source has eight stage pages;
 every command the sheet names, as ``\\cmd{<tool> <subcommand>}``, as a
 ``cmdblock`` or in running text, exists in a parser; every option inside a
@@ -38,9 +38,10 @@ from tests.tier1_offline.test_p0330_cheatsheet import (
 )
 
 REPO = Path(__file__).resolve().parents[2]
-BY_STAGE = REPO / "guide" / "latex-sources" / "cheatsheet" / "pyfts-cheatsheet-by-stage.tex"
-BY_STAGE_PDF = REPO / "guide" / "pyfts-cheatsheet-by-stage.pdf"
+BY_STAGE = REPO / "guide" / "latex-sources" / "04-cheatsheet" / "text" / "02-by-stage.tex"
+BY_STAGE_PDF = CHEATSHEET_PDF
 STAGES = 8
+SHEET_PAGES = 10
 
 _CMD = re.compile(r"\\cmd\{([^{}]*)\}")
 _BLOCK = re.compile(r"\\begin\{cmdblock\}\{([^{}]*)\}(.*?)\\end\{cmdblock\}", re.S)
@@ -62,12 +63,9 @@ def _commands(tools: dict[str, argparse.ArgumentParser]) -> dict[str, argparse.A
 
 
 def _body(text: str) -> str:
-    """The sheet as a reader sees it, from ``\\begin{document}``: the preamble's
-    macro definitions name no command."""
-    page = _source(text)
-    start = page.find("\\begin{document}")
-    assert start >= 0, "the sheet has no \\begin{document}"
-    return page[start:]
+    """The stage pages as a reader sees them: the macro definitions are in main.tex
+    and name no command."""
+    return _source(text)
 
 
 def _options(parser: argparse.ArgumentParser) -> set[str]:
@@ -144,10 +142,10 @@ def test_the_cheatsheet_by_stage_is_eight_pages_with_the_decks_metadata():
     assert _source(text).count("\\stagepage{") == STAGES, "one \\stagepage per stage"
     assert BY_STAGE_PDF.is_file(), (
         f"{BY_STAGE_PDF.relative_to(REPO).as_posix()} is missing: run "
-        "guide/latex-sources/build-all.ps1 -Only cheatsheet"
+        "guide/latex-sources/build-all.ps1 -Only 04"
     )
-    assert _pdf_pages(BY_STAGE_PDF) == STAGES, (
-        f"{BY_STAGE_PDF.name} is not {STAGES} pages: a stage overflowed its page; "
+    assert _pdf_pages(BY_STAGE_PDF) == SHEET_PAGES, (
+        f"{BY_STAGE_PDF.name} is not {SHEET_PAGES} pages: a stage overflowed its page; "
         "shorten it and rebuild"
     )
     assert _pdf_author(BY_STAGE_PDF) == _pdf_author(CHEATSHEET_PDF)

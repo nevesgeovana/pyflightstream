@@ -1,0 +1,136 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 04-cheatsheet/main.tex
+%
+% Guide 4 of the pyflightstream guides: the cheatsheet. One document of ten
+% pages, A4 landscape, for the version shared/info.tex names. Page 1 is
+% pyfs-matrix, every subcommand and every option; page 2 is every other
+% command-line tool (pyfs-workspace, pyfs-qa, pyfs-fsi, pyfs-manual and the
+% python -m entries); pages 3 to 10 are the eight stages of the campaign
+% workflow, one page each. The pages are in text/ and are read by tier-1 tests
+% that walk every parser of every console script
+% (tests/tier1_offline/test_p0330_cheatsheet.py and
+% test_p0340_cheatsheet_by_stage.py), so a command or option cannot ship
+% without its line here. Built by ../build-all.ps1 (or build-all.sh) with this
+% folder and ../shared/ as include directories; alone, from shared/:
+%   pdflatex -jobname=pyfts-guide-04-cheatsheet ../04-cheatsheet/main.tex
+%
+% No em dashes and no en dashes.
+\documentclass[a4paper,landscape]{article}
+% No absolute path of the building machine in the PDF, as in the decks.
+\ifdefined\pdfsuppressptexinfo \pdfsuppressptexinfo=-1 \fi
+% Page objects stay uncompressed, so the tier-1 test counts the pages
+% without a PDF library.
+\ifdefined\pdfobjcompresslevel \pdfobjcompresslevel=0 \fi
+\usepackage[margin=5mm,top=4mm,bottom=4mm]{geometry}
+\usepackage{multicol}
+\raggedcolumns
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\DisableLigatures[-]{family=tt*}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{array}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,calc,shapes.geometric}
+\usepackage{url}
+\input{info.tex}
+\usepackage[hidelinks,pdfauthor={\pkgauthor},pdftitle={Guide 4: Cheatsheet, \pkgname},pdfsubject={Copyright (c) 2026 \pkgauthor, CC BY 4.0}]{hyperref}
+\urlstyle{tt}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+\setlength{\columnseprule}{0.2pt}
+% ----------------------------------- macros of pages 1 and 2 (\sheetmatrix) --
+\newcommand{\fl}[1]{\textcolor{flag}{\texttt{#1}}}
+\newcommand{\cmd}[1]{\textcolor{acc}{\textbf{\texttt{#1}}}}
+\newcommand{\stage}[1]{\vspace{1.2pt}{\color{white}\colorbox{acc}{\parbox{\dimexpr\linewidth-2\fboxsep}{\raggedright\bfseries\scriptsize #1}}}\par\vspace{0.6pt}}
+\newenvironment{flags}{\begin{itemize}[leftmargin=2.2mm,itemsep=-0.4pt,topsep=0pt,parsep=0pt,label={\tiny$\bullet$}]}{\end{itemize}}
+\newcommand{\sub}[2]{\vspace{1.4pt}\cmd{#1}\ {\itshape #2}\par}
+% Page 2: one band per command-line tool; its entries follow it.
+\definecolor{tool}{HTML}{2E5E2E}
+\newcommand{\tool}[2]{\vspace{2pt}{\color{white}\colorbox{tool}{\parbox{\dimexpr\linewidth-2\fboxsep}{\raggedright\bfseries\small\texttt{#1}}}}\par\vspace{0.6pt}{\itshape #2}\par}
+
+% -------------------------------------- macros of pages 3 to 10 (\sheetstage) --
+\definecolor{acc}{HTML}{1F4E79}
+\definecolor{flag}{HTML}{7A2E00}
+\definecolor{ok}{HTML}{2E5E2E}
+\definecolor{bad}{HTML}{8B1A1A}
+\definecolor{wait}{HTML}{8A6D00}
+\definecolor{soft}{HTML}{EEF3F8}
+% A command, written as typed: <tool> <subcommand>.
+% An option, as typed.
+% A file or folder of the workspace; breaks after a slash.
+\newcommand{\file}[1]{{\upshape\nolinkurl{#1}}}
+% A path inside a figure.
+\newcommand{\pth}[1]{\texttt{\detokenize{#1}}}
+% Headings and the title band: one size above the body, still drawn from the
+% 8 point design, so the PDF embeds no further font.
+\newcommand{\midsize}{\fontsize{8.4}{10}\selectfont}
+\newcommand{\hd}[1]{\par\vspace{3pt}{\color{acc}\bfseries\midsize #1}\par\vspace{1pt}}
+% One command: its name, its positional arguments, what it does; its
+% options follow as \opt lines and belong to it.
+\newenvironment{cmdblock}[3]{\par\vspace{2.5pt}\noindent\cmd{#1}\ifx\relax#2\relax\else\ \texttt{\detokenize{#2}}\fi\par{\color{black!75}#3}\par}{\par}
+\newcommand{\opt}[2]{{\par\hangindent=3mm\hangafter=1\noindent\hspace*{1.2mm}\fl{#1}\ #2\par}}
+% A file the stage reads (R) or writes (W).
+\newcommand{\rd}[2]{{\par\hangindent=6mm\hangafter=1\noindent\colorbox{ok!15}{\scriptsize\bfseries R}\ \file{#1}\ #2\par}}
+\newcommand{\wf}[2]{{\par\hangindent=6mm\hangafter=1\noindent\colorbox{flag!15}{\scriptsize\bfseries W}\ \file{#1}\ #2\par}}
+\newcommand{\err}[2]{{\par\hangindent=3mm\hangafter=1\noindent\textcolor{bad}{\textbf{!}}\ #1\par\hangindent=3mm\hangafter=0\noindent\textcolor{ok}{Fix:} #2\par\vspace{1pt}}}
+\tikzset{
+  box/.style={draw=acc,fill=soft,rounded corners=1.5pt,inner sep=2pt,font=\scriptsize,align=center},
+  note/.style={font=\scriptsize,align=left,inner sep=1pt,execute at begin node={\hyphenpenalty=10000}},
+  arr/.style={-{Stealth[length=4pt]},thick,acc},
+  tree/.style={acc!70,thin},
+}
+% A folder tree, drawn row by row: \tn{depth}{row}{name}{what it is}.
+\newcommand{\tn}[4]{%
+  \node[anchor=west,inner sep=0.6pt,font=\ttfamily\scriptsize] (t#2) at ({#1*0.36+0.08},{-#2*0.31}) {\detokenize{#3}};
+  \node[anchor=west,inner sep=0.6pt,font=\scriptsize,text=black!60] at ($(t#2.east)+(0.08,0)$) {#4};
+  \ifnum#1>0 \draw[tree] ({#1*0.36-0.2},{-#2*0.31}) -- ({#1*0.36+0.08},{-#2*0.31});\fi}
+% The vertical line of a folder from its first child row to its last.
+\newcommand{\tv}[3]{\draw[tree] ({#1*0.36+0.16},{-#2*0.31+0.13}) -- ({#1*0.36+0.16},{-#3*0.31});}
+% The strip of the eight stages, the current one filled.
+\newcommand{\stagestrip}[1]{%
+  \begin{tikzpicture}
+  \foreach \i/\name in {1/Workspace and inputs,2/Run matrix,3/Reference setup pproc,4/Plan,5/Run,6/Collect and records,7/Post and products,8/Maintenance}{
+    \ifnum\i=#1
+      \node[draw=acc,fill=acc,text=white,rounded corners=1.5pt,minimum width=3.15cm,minimum height=4.2mm,font=\scriptsize\bfseries] (s\i) at (\i*3.45,0) {\i. \name};
+    \else
+      \node[draw=acc!60,fill=soft,text=acc,rounded corners=1.5pt,minimum width=3.15cm,minimum height=4.2mm,font=\scriptsize] (s\i) at (\i*3.45,0) {\i. \name};
+    \fi
+  }
+  \foreach \i [evaluate=\i as \j using int(\i+1)] in {1,...,7}{\draw[-{Stealth[length=3pt]},acc!70] (s\i.east) -- (s\j.west);}
+  \end{tikzpicture}}
+\newcommand{\stagepage}[3]{%
+  \clearpage
+  \begin{tcolorbox}[colback=acc!8,colframe=acc,boxrule=0.4pt,left=3pt,right=3pt,top=1pt,bottom=1pt]
+  {\Large\bfseries\color{acc} #1. #2} \hfill {\midsize \pkgname{} \textbf{\pkgversion} \quad the campaign workflow by stage, stage #1 of 8}\\[1pt]
+  {\midsize #3}
+  \end{tcolorbox}
+  \vspace{-3pt}\centerline{\stagestrip{#1}}\vspace{1pt}}
+\newcommand{\foot}{\vfill{\scriptsize \guidefootnotice. \pkgrepo. Every command and option: \texttt{<tool> <cmd> -h}, or pages 1 and 2 of this cheatsheet.}}
+
+
+% The two parts were written with two meanings of \cmd and \fl; each part
+% switches to its own at its start.
+\newcommand{\sheetmatrix}{%
+  \setlength{\columnsep}{3.5mm}%
+  \renewcommand{\cmd}[1]{\textcolor{acc}{\textbf{\texttt{##1}}}}%
+  \renewcommand{\fl}[1]{\textcolor{flag}{\texttt{##1}}}}
+\newcommand{\sheetstage}{%
+  \setlength{\columnsep}{5mm}%
+  \renewcommand{\cmd}[1]{\textcolor{acc}{\upshape\texttt{\detokenize{##1}}}}%
+  \renewcommand{\fl}[1]{\textcolor{flag}{\upshape\texttt{##1}}}}
+
+\begin{document}
+\sheetmatrix
+\input{text/01-matrix-and-tools.tex}
+% The stage pages use wider margins; \newgeometry starts the next page.
+\clearpage
+\newgeometry{margin=7mm,top=6mm,bottom=6mm}
+\sheetstage
+\input{text/02-by-stage.tex}
+\end{document}

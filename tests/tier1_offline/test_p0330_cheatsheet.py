@@ -1,7 +1,7 @@
 """Tier 1, 0.33.0 and 0.34.0: the cheatsheet names every subcommand and option (NFR-29).
 
 Pipeline role: quality gate on the cheatsheet of the guide folder,
-``guide/latex-sources/cheatsheet/pyfts-cheatsheet-pyfs-matrix.tex``. The
+``guide/latex-sources/04-cheatsheet/text/01-matrix-and-tools.tex``. The
 sheet is written by hand, condensed for print, so nothing generates it; what
 keeps it current is this walk of the parsers the tools really use, captured
 the way the command-line reference captures them (``scripts/gen_cli_reference.py``),
@@ -37,8 +37,9 @@ from collections.abc import Iterator
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-CHEATSHEET = REPO / "guide" / "latex-sources" / "cheatsheet" / "pyfts-cheatsheet-pyfs-matrix.tex"
-CHEATSHEET_PDF = REPO / "guide" / "pyfts-cheatsheet-pyfs-matrix.pdf"
+CHEATSHEET_DIR = REPO / "guide" / "latex-sources" / "04-cheatsheet"
+CHEATSHEET = CHEATSHEET_DIR / "text" / "01-matrix-and-tools.tex"
+CHEATSHEET_PDF = REPO / "guide" / "pyfts-guide-04-cheatsheet.pdf"
 ENTRY_POINT = "pyflightstream.run.cli:main"
 #: The tool page 1 belongs to: everything before the first ``\tool{...}`` band.
 PAGE_ONE_TOOL = "pyfs-matrix"
@@ -403,7 +404,7 @@ def test_the_cheatsheet_names_every_subcommand_and_option_of_every_tool():
     """Every console script and python -m entry, each subcommand in its own entry.
 
     Page 2 of the sheet holds the tools other than pyfs-matrix (0.34.0); the
-    compiled sheet is two pages, so page 1 still holds pyfs-matrix alone.
+    cheatsheet's first two pages are this part, so page 1 holds pyfs-matrix alone.
 
     P0340-CHEATSHEET-ALL
     """
@@ -428,9 +429,6 @@ def test_the_cheatsheet_names_every_subcommand_and_option_of_every_tool():
         + f"\n\nAdd each to its tool's part of {CHEATSHEET.relative_to(REPO).as_posix()} "
         "(pyfs-matrix on page 1, every other tool under its \\tool band on page 2) "
         "and rebuild it."
-    )
-    assert _pdf_pages(CHEATSHEET_PDF) == 2, (
-        f"{CHEATSHEET_PDF.name} is not two pages: rebuild it, and keep pyfs-matrix to page 1"
     )
 
 
