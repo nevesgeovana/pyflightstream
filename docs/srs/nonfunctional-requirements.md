@@ -693,6 +693,8 @@
     `::test_the_results_tables_module_imports_the_workspace_layer_nowhere_at_runtime`,
     each marked with this requirement.*
 
+    Read with PFS-2075, PFS-2075.22, PFS-2075.23, PFS-2075.24 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     Read with PFS-2074, PFS-2074.15, PFS-2074.16, PFS-2074.17, PFS-2074.18, PFS-2074.19, PFS-2074.20, PFS-2074.21 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     Read with PFS-2054, PFS-2054.06, PFS-2054.07 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
@@ -1067,3 +1069,63 @@
       "not recorded" for a run that took none), and the C01 instrument does the
       same in the receipt copies it commits. The executable baseline is
       read from a local, uncommitted copy when bytes must be compared.
+
+!!! requirement "NFR-32 Every text file the package writes has LF line ends on every platform <span class='srs-pending'>pending</span>"
+    *Origin: the author decision of 2026-10-01 to standardise LF in every
+    product (scope record GEO-071, section 4.10), a behaviour change with a
+    migration note. Marker P0340-LF-PRODUCTS; read at 0.34.0 (GOAL-039,
+    arm LF). Pending: no code yet. Verification method: a tier-1 guard
+    carrying the marker, with a planted control; the products snapshot
+    judged on both platforms; the parity receipt of the release; and, for
+    the files the solver reads, the licensed runs of R6. Evidence
+    owed: the writer census of R7; a guard that walks `src/` and refuses
+    a text write that bypasses the one LF route, with a planted bypass as
+    its control; a test that a campaign posted on Windows holds no CR byte
+    in any product and that its emitted scripts hold none, run with text
+    mode forced to write CRLF as Windows does, so that it fails on Linux
+    too when a writer bypasses the route; the products snapshot comparing
+    line ends on Linux and Windows, which is evidence of the `ci.yml`
+    matrix (the `windows-latest` runner), not of a Linux-only tier 1; the parity receipt
+    naming the difference under this requirement; the paragraph of the
+    migration page.*
+
+    Read with PFS-2075, PFS-2075.12 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
+    Every text file the package writes ends its lines with LF on every
+    platform, through one write route that a guard holds.
+
+    Why: a file written in text mode gets CRLF on Windows and LF on Linux,
+    so the same campaign posted on two platforms can give different bytes
+    and a byte snapshot cannot be portable. Which writers produce CRLF on
+    Windows today is not yet measured; the census of R7 measures it.
+
+    - R1 Every text file the package writes is written with LF line ends
+      on every platform, with no CR byte: the products, `products.json`,
+      the post log and its JSON, records, plans, receipts, the emitted
+      solver scripts, the input files written for the solver to read, and
+      every other text output.
+    - R2 Every text write of the package goes through one route that
+      writes LF, in the private floor module `pyflightstream._textio`; a
+      tier-1 guard walks `src/` and refuses a text write that bypasses it,
+      and a planted bypass is its control.
+    - R3 A campaign posted on Windows holds no CR byte in any product or
+      emitted script; the products snapshot judges line ends and compares
+      equal on Linux and on Windows.
+    - R4 Compared with 0.33.0, a file the package writes differs only by
+      the CR bytes removed before LF; the parity script compares the post
+      of a recorded workspace and the emitted scripts after removing CR
+      before LF on the 0.33.0 side, and its `NAMED_DIFFERENCES` name that
+      difference under this requirement.
+    - R5 This is a behaviour change, permanent from 0.34.0, with no
+      switch that restores CRLF: the migration page of 0.34.0 states it
+      first among the behaviour changes (a reader that split lines on
+      CRLF reads LF now).
+    - R6 The files the solver reads are inside R1. The evidence that the
+      solver reads LF is that the licensed probes of RPT-070 found that
+      line ends change nothing in the disc profile file the solver reads;
+      the licensed runs of 0.34.0 made after this requirement is
+      implemented run LF scripts on 26.124 and are its confirmation, each
+      of their reports stating that the scripts it ran were LF.
+    - R7 The writers that produce CRLF on Windows in 0.33.0 are measured
+      at the start of the work package (the writer census) and listed in
+      its record, with the platforms the measurement ran on.
