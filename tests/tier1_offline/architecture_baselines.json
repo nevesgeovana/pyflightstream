@@ -4,6 +4,7 @@
   "cases/__init__.py": 2316,
   "cases/matrix.py": 1808,
   "post/corrections.py": 1006,
+  "post/input_template.py": 1455,
   "qa/specs.py": 1334,
   "run/cli.py": 1201,
   "run/matrix.py": 1304,
