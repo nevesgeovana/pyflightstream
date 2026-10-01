@@ -33,10 +33,15 @@ FlightStream versions.
 
 ### Changed
 
-- mypy recount 2026-09-30: 1133 errors in 18 of 158 modules, on the 0.33.0
-  branch with work packages WP1 and WP2 (AD-09, AD-10), FR-310 to FR-314 and
-  FR-316 to FR-319 merged, against the 1112 in 18 of 150 recorded for the
-  integrated 0.32.0 branch. The base of the branch read 1137 in 18 of 150 on
+- mypy recount 2026-09-30: 1130 errors in 18 of 172 modules, on the 0.33.0
+  branch of work package WP3 (AD-11), whose fourteen modules, cut out of
+  `post.guides`, the `results` root, `run.records` and `workspace.inputs`,
+  arrived clean; three errors of the code that left the exempted
+  `workspace.inputs` for `workspace/sidecars.py` were fixed in the move, and
+  the dirty count still reads 18. Its base, the 0.33.0 branch with work
+  packages WP1 and WP2 (AD-09, AD-10), FR-310 to FR-314 and FR-316 to
+  FR-319 merged, read 1133 in 18 of 158, against the 1112 in 18 of 150
+  recorded for the integrated 0.32.0 branch. The base of that branch read 1137 in 18 of 150 on
   the same environment. WP1 and WP2 alone read 1137 in 18 of 151, their one
   new module, `results/sectional_loads.py`, clean; FR-310 to FR-314 alone
   read 1133 in 18 of 154, their four new modules, `_fsm_fresh.py`,
