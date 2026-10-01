@@ -119,6 +119,32 @@ def test_a_record_already_marked_is_left_as_it_is_fr_309(tmp_path):
     assert workspace.manifest_path.read_bytes() == after_first
 
 
+def test_a_deleted_simulation_record_is_never_marked_fr_309(tmp_path):
+    # Verifies FR-309. delete-sims leaves a tombstone row naming the simulation it
+    # retired; marking the same id, run again after the deletion, marks the live
+    # record only and leaves the tombstone as it was.
+    workspace = _workspace(tmp_path)
+    delete_sims(workspace.root, ["2008"], apply=True)
+    tombstones = [row for row in _rows(workspace) if row.get("deleted_sim") == "2008"]
+    assert len(tombstones) == 1
+    workspace.append_record(_record("2008", "camp/sim_2008/AL+010", RunStatus.CONVERGED))
+    entry = mark_failed(workspace.root, ["2008"], apply=True)
+    assert [item["run_id"] for item in entry["marked"]] == ["camp/sim_2008/AL+010"]
+    rows = {row["run_id"]: row for row in _rows(workspace)}
+    assert rows["camp/sim_2008/AL+010"]["status"] == "FAILED_MARKED"
+    assert rows[tombstones[0]["run_id"]] == tombstones[0]
+
+
+def test_a_simulation_that_is_only_deleted_is_refused_fr_309(tmp_path):
+    # Verifies FR-309. Its records are all retired, so there is nothing to mark.
+    workspace = _workspace(tmp_path)
+    delete_sims(workspace.root, ["2008"], apply=True)
+    before = workspace.manifest_path.read_bytes()
+    with pytest.raises(RunsManifestError, match="simulation\\(s\\) 2008; nothing was marked"):
+        mark_failed(workspace.root, ["2008"], apply=True)
+    assert workspace.manifest_path.read_bytes() == before
+
+
 def test_a_marked_record_is_a_failure_to_every_reader_fr_309(tmp_path):
     # Verifies FR-309.
     assert RunStatus.FAILED_MARKED.startswith("FAILED")
