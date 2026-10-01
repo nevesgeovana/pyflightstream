@@ -240,6 +240,10 @@ def test_every_catalog_spec_builds_a_validated_script(tmp_path):
         workdir = tmp_path / spec.command
         workdir.mkdir()
         version = "26.120" if spec.command in flagship else "26.124"
+        if spec.command not in CommandRegistry.load().for_version(version):
+            # A command the manual dropped at 26.12 (VOLUME_SECTION_BOUNDARY_LAYER, FR-334)
+            # is built on the last build whose database holds it.
+            version = "26.101"
         script = generate_probe_script(spec, version, workdir, fsm=fsm)
         assert not script.raw_flag, spec.command
         text = script.render()
@@ -1201,23 +1205,26 @@ def test_the_argument_bearing_split_is_derived_rather_than_written_down():
     where = f"{script.name}, VERSION = {module.VERSION}"
     # 113 since 0.27.0 G02: the wake-edge import probe, which lands in
     # needs_prelude on 26.122 because its line carries the 26.124 third token.
-    assert len(PROBE_SPECS) == 113, (
-        f"the catalog holds {len(PROBE_SPECS)} specifications, not 113. Adding one is "
+    # 164 since 0.34.0 (FR-333, FR-334, FR-335): 51 entries for the CCS, acoustic and
+    # surface-removal commands, 140 of them rendering in isolation, 92 with arguments, and two
+    # outside the 26.122 view (VOLUME_SECTION_BOUNDARY_LAYER and the one already there).
+    assert len(PROBE_SPECS) == 164, (
+        f"the catalog holds {len(PROBE_SPECS)} specifications, not 164. Adding one is "
         f"fine; update this number and the three sentences that quote it ({where})"
     )
-    assert renders == 90, (
-        f"{renders} specifications render their target line in isolation, not 90. This "
+    assert renders == 140, (
+        f"{renders} specifications render their target line in isolation, not 140. This "
         f"figure depends on the STATUS VIEW as well as the catalog ({where}): a "
         "promotion that removes a command from the view, or marks it broken, moves it"
     )
-    assert len(groups["with_arguments"]) == 49, (
-        f"{len(groups['with_arguments'])} carry arguments on the target line, not 49. "
+    assert len(groups["with_arguments"]) == 92, (
+        f"{len(groups['with_arguments'])} carry arguments on the target line, not 92. "
         "That is the population a bare-token detector would have missed (RPT-026)"
     )
     # Split by CAUSE, because one bucket called "needs prelude" hid
     # three: a command out of this build's view, one the emitter refuses
     # as broken, and one whose target cites an entity nothing created.
-    assert len(groups["not_in_this_view"]) == 1, groups["not_in_this_view"]
+    assert len(groups["not_in_this_view"]) == 2, groups["not_in_this_view"]
     assert len(groups["refused_as_broken"]) == 2, groups["refused_as_broken"]
     assert len(groups["needs_prelude"]) == 20, groups["needs_prelude"]
     assert not groups["did_not_emit_the_command"], groups["did_not_emit_the_command"]

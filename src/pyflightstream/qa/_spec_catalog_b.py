@@ -563,12 +563,19 @@ _motion_setter(
     4567.8,
     note="the rotor rpm is stored in binary form; no instrument yet",
 )
-_motion_setter(
-    "SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION",
-    1,
-    "ENABLE",
-    6,
-    note="the wake-stabilization state is stored in binary form; no instrument yet",
+_spec(
+    command="SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION",
+    build_target=_emit("SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION", 1, "DISABLE", 1),
+    requires=Requires.SIM,
+    prelude=_seq(
+        _MOTION_PRELUDE, _emit("SET_MOTION_SLIPSTREAM_WAKE_STABILIZATION", 1, "ENABLE", 1)
+    ),
+    save_state=True,
+    assert_effect=fsm_changed(),
+    effect_note=(
+        "DISABLE after ENABLE changes the saved simulation, which stores the key "
+        "(the one-line difference of the 0.32.0 round 1, RPT-096)"
+    ),
 )
 _motion_setter(
     "DELETE_MOTION",
