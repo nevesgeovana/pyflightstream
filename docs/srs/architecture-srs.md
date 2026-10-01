@@ -192,6 +192,8 @@ one of them keeps.
     `scripts/arch_metrics.py`, and the architecture metrics report under
     `reports/`.*
 
+    Read with PFS-2074, PFS-2074.15 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     The concentration measured on v0.32.0 (13 modules holding 47.7
     percent of 146,463 lines, 17 modules over 2,000 lines) does not come
     back, because each rule below is a tier-1 test whose baseline is the
@@ -290,6 +292,8 @@ one of them keeps.
     generated overview to the module data, and a count of zero
     `workspace` to `run` imports.*
 
+    Read with PFS-2074, PFS-2074.16 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     The layered pipeline has seven rows, from the top: `post` and `qa`;
     `run` alone; `workspace` alone; `cases`; `script` and `results`;
     `commands`; `versions`; with the two floors `_atmosphere` and
@@ -318,6 +322,8 @@ one of them keeps.
     *Work package WP2 of the 0.33.0 scope (decision 15). Evidence owed:
     G6 green with an empty allowlist, and G3 finding no component that
     holds `fsi.loads` and `results.tables`.*
+
+    Read with PFS-2074, PFS-2074.17 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     Each of the nine constants that v0.32.0 defines twice has one
     defining module, and every other module imports it from there:
@@ -357,6 +363,8 @@ one of them keeps.
     kept (AD-15), and the tests of this chapter's module lists updated
     with them.*
 
+    Read with PFS-2074, PFS-2074.18 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     Four modules are cut along the clusters the review measured, each
     public path kept by a facade and each new module within the lens:
     `post.guides` (the input template and the glossary each move to a
@@ -376,6 +384,8 @@ one of them keeps.
     package, the 29 goldens and the tier-3 golden diff unchanged, and G1
     for every module of the package.*
 
+    Read with PFS-2074, PFS-2074.19 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     `pyflightstream.cases.workflows` becomes a package cut along the
     measured clusters (the vocabulary, the conventions, the row readers,
     the names, the geometry, the frames, the settings, the free stream,
@@ -392,6 +402,8 @@ one of them keeps.
     Evidence owed: the byte snapshot of the products, taken before the
     first move and compared after every move, and the surface test of
     `post.products` extended to each public family module.*
+
+    Read with PFS-2074, PFS-2074.20 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     The product families of `post/products.py` become sibling modules
     under `post/` (the polar, the rotor table, the unsteady polar, the
@@ -417,6 +429,8 @@ one of them keeps.
     exemption list one module shorter in `pyproject.toml` and in the
     recount records of NFR-27.*
 
+    Read with PFS-2074, PFS-2074.21 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     `pyflightstream.run` becomes a facade over private modules (the
     executors, the assessment, the solver identity, the plan, the
     campaign, the points, the continuation and the surface-mesh export),
@@ -434,6 +448,8 @@ one of them keeps.
     (WPX; decisions 6, 9 and 15). Evidence owed: the parity receipt of
     the release, produced by a committed script comparing tag `v0.32.0`
     with the release commit, and the recount records.*
+
+    Read with PFS-2074, PFS-2074.22 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     0.33.0 does everything 0.32.0 does. The rules that keep it so, while
     [NFR-20](nonfunctional-requirements.md) does not yet bind:

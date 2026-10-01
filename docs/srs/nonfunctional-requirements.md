@@ -516,6 +516,8 @@
     reordered in the middle fails the suite rather than passing the
     per-name lookups.*
 
+    Read with PFS-2074, PFS-2074.20 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     Every table the results layer produces exposes a documented column
     schema. Where this requirement additionally promises STABILITY, in
     the scope stated below, a change to that schema is announced in the
@@ -567,6 +569,8 @@
     is at 0.x; the recorded-promise mechanism it relies on is already
     shipped and guarded (the ledger in `pyflightstream._deprecations`
     and the Tier 1 deadline guard `tests/tier1_offline/test_deprecation_deadline.py`).*
+
+    Read with PFS-2074, PFS-2074.22 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     **This policy takes effect at 1.0.** From 1.0, a public API element
     (function, parameter, CLI flag, manifest key, or result column) is
@@ -688,6 +692,8 @@
     `::test_the_matrix_reader_imports_nothing_above_the_cases_layer` and
     `::test_the_results_tables_module_imports_the_workspace_layer_nowhere_at_runtime`,
     each marked with this requirement.*
+
+    Read with PFS-2074, PFS-2074.15, PFS-2074.16, PFS-2074.17, PFS-2074.18, PFS-2074.19, PFS-2074.20, PFS-2074.21 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     Read with PFS-2054, PFS-2054.06, PFS-2054.07 at 0.32.0 (GOAL-037): the 0.32.0 package work reads this requirement.
 
@@ -822,6 +828,8 @@
     Evidence: `[tool.mypy]` in `pyproject.toml`; the `types` job of
     `.github/workflows/ci.yml`.*
 
+    Read with PFS-2074, PFS-2074.21, PFS-2074.22 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     A static type checker runs over the whole package in CI, and the
     modules it does not yet pass are exempted BY NAME rather than by a
     blanket setting, so the exemption list is the debt and shrinks.
@@ -897,6 +905,8 @@
     check that the built inventory holds every public name, and the
     licence card RPT-101 of R7.*
 
+    Read with PFS-2074, PFS-2074.23 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     The documentation site is organized by kind of page and its
     reference is generated from the code, so that every public name and
     every command-line option is documented where a reader looks for it.
@@ -949,6 +959,8 @@
     owed: the ruff configuration and its clean run, a tier-1 test over
     the exported functions for R2, and the documentation tests for R3.*
 
+    Read with PFS-2074, PFS-2074.24 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     The docstring of every exported function says what it takes, what
     it returns and how it fails, in the numpydoc form, and its examples
     run.
@@ -973,6 +985,8 @@
     (P0330-NO-EXE-HASH) for R1 and R2, with a mutant control per shape;
     the tests of the three report writers and of the C01 instrument for
     R4.*
+
+    Read with PFS-2074, PFS-2074.25 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     What is committed (reports, compatibility, physics, drift and probe
     records, fixtures, source, scripts and tests) identifies the solver by

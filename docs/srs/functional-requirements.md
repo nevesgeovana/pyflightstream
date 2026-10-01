@@ -7204,6 +7204,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-180 An unsteady rotor point writes a per-revolution product with its drift <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2074, PFS-2074.14 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     *Origin: G2 of the 0.31.0 scope (P0310-G2-PER-REV). Evidence:
     `tests/tier1_offline/test_goal036_per_revolution.py`.*
 
@@ -7637,6 +7639,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-305 The free-space command lists the paths it touches <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2074, PFS-2074.01 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     *Origin: the 0.33.0 development cycle, the free-space preview of `pyfs-matrix`. Evidence: `tests/tier1_offline/test_free_space_list.py::test_list_shows_every_path_of_the_four_tables_in_a_preview_fr_305`, `::test_list_after_apply_says_what_was_done_fr_305`, `::test_the_output_without_list_is_the_old_output_byte_for_byte_fr_305`, `::test_dropping_one_list_branch_turns_the_check_red_fr_305`.*
 
     Need: Before a recipe is applied, the person running it wants to see which folders and files it would delete or compact, not only how many and how large; the preview of the archived post folders showed counts and bytes alone.
@@ -7646,6 +7650,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (release 0.33.0): the `--list` option of `pyfs-matrix free-space` and `pyflightstream.run.cli._print_free_space_paths`.
 
 !!! requirement "FR-306 The delete-sims command can delete a simulation whose run is still SUBMITTED <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2074, PFS-2074.02 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     *Origin: the 0.33.0 development cycle, `pyfs-matrix delete-sims` (item DELETE-SIMS-FORCE of the 0.33.0 scope, which asked for a flag bypassing any status). Evidence: `tests/tier1_offline/test_delete_sims_force.py::test_refused_without_force_with_the_same_text`, `::test_force_preview_names_the_submitted_sim_and_changes_nothing`, `::test_force_apply_deletes_folder_products_records_and_records_the_call`, `::test_without_force_the_call_records_force_false`, `::test_cli_force_flag_reaches_the_library`, `::test_mutant_ignoring_force_turns_the_check_red`.*
 
@@ -7663,6 +7669,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-307 The post and collect commands can be limited to named simulations <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2074, PFS-2074.03 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     *Origin: the 0.33.0 development cycle, the post and collect stages of `pyfs-matrix`. Evidence: `tests/tier1_offline/test_sims_selection.py::test_post_sims_rewrites_only_the_named_simulation_fr_307`, `::test_post_sims_replaces_only_the_named_entries_and_skips_fr_307`, `::test_post_sims_leaves_the_super_files_and_says_so_fr_307`, `::test_post_without_sims_is_the_whole_post_fr_307`, `::test_post_sims_refuses_an_unknown_simulation_before_any_work_fr_307`, `::test_post_sims_refuses_a_simulation_of_another_matrix_fr_307`, `::test_cli_post_sims_reaches_the_stage_in_both_forms_fr_307`, `::test_the_sims_parser_has_one_home_fr_307`, `::test_collect_sims_collects_only_the_named_simulation_fr_307`, `::test_collect_sims_limits_its_post_to_the_same_simulations_fr_307`, `::test_collect_sims_refuses_an_unknown_simulation_fr_307`, `::test_cli_collect_sims_reaches_the_sweep_and_the_post_fr_307`, `::test_mutant_ignoring_post_sims_turns_the_check_red_fr_307`, `::test_mutant_ignoring_collect_sims_turns_the_check_red_fr_307`.*
 
     Need: After a few simulations of a matrix are run again or collected, the person wants to rebuild and collect those simulations alone, without rewriting the products of every other simulation of the matrix.
@@ -7679,6 +7687,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (release 0.33.0): the `sims` keyword of `pyflightstream.post.products.write_campaign_products`, `pyflightstream.run.collect.collect_once` and `collect_and_post`, `pyflightstream.workspace.selected_sims`, and the `--sims` option of `pyfs-matrix post` and `pyfs-matrix collect`.
 
 !!! requirement "FR-308 The inventory names the solver actions saved in a geometry and removes them on request <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2074, PFS-2074.04 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     *Origin: the 0.33.0 development cycle, `pyfs-matrix inventory`. Evidence: `tests/tier1_offline/test_fsm_saved_actions.py::test_reader_names_each_saved_action_fr_308`, `::test_reader_reads_no_action_and_no_block_fr_308`, `::test_reader_refuses_a_count_that_disagrees_fr_308`, `::test_every_tier3_geometry_carries_no_saved_action_fr_308`, `::test_inventory_warns_and_names_clean_by_default_fr_308`, `::test_inventory_is_silent_on_a_clean_geometry_fr_308`, `::test_clean_removes_only_the_actions_and_keeps_a_copy_fr_308`, `::test_clean_of_a_clean_geometry_writes_nothing_fr_308`, `::test_clean_refuses_a_shape_it_cannot_read_fr_308`, `::test_mutant_keeping_the_count_turns_the_check_red_fr_308`.*
 
@@ -7700,6 +7710,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-309 A run can be marked failed after it completed <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2074, PFS-2074.05 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     *Origin: the 0.33.0 development cycle, the run records of `pyfs-matrix`. Evidence: `tests/tier1_offline/test_mark_failed.py::test_preview_names_each_record_and_writes_nothing_fr_309`, `::test_apply_marks_keeps_the_history_and_archives_fr_309`, `::test_an_unknown_simulation_is_refused_before_any_write_fr_309`, `::test_a_record_already_marked_is_left_as_it_is_fr_309`, `::test_a_marked_record_is_a_failure_to_every_reader_fr_309`, `::test_cli_marks_through_the_library_fr_309`, `::test_mutant_leaving_the_status_turns_the_check_red_fr_309`; `tests/tier1_offline/test_workspace.py::test_the_terminal_status_set_is_exactly_the_nine_it_declares`.*
 
     Need: A run can end converged and still be wrong, which the person finds only later, reading its products, and a run whose job died can stay SUBMITTED. The person needs to record that verdict from the command line, so that the post and a delete treat the run as failed, without deleting its history.
@@ -7719,6 +7731,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-310 Every command that takes a run matrix finds it in either matrix home <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2074, PFS-2074.06 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     *Origin: item MATRIX-HOMES-ALL of the 0.33.0 scope (scope record GEO-071, section 2.1). Built on 2026-09-30; the status stays pending until accepted. Evidence: `tests/tier1_offline/test_fr310_matrix_homes_all.py::test_fr310_every_matrix_argument_of_the_parsers_joins_the_one_lookup`, `::test_fr310_each_command_resolves_its_matrix_over_both_homes` (every matrix argument of the parsers, in the four layouts, with the path as given as the control), `::test_fr310_a_path_that_names_its_folder_is_read_as_given`, `::test_fr310_upgrade_reads_a_bare_name_from_either_home`, `::test_fr310_the_physics_matrix_of_qa_is_found_in_either_home`, `::test_fr310_the_physics_matrix_in_neither_home_is_refused_the_control`, `::test_fr310_the_excel_read_finds_the_matrix_in_either_home`, `::test_fr310_the_rebuild_sweep_reads_one_matrix_per_stem`, `::test_fr310_rename_reads_the_matrix_from_either_home`, `::test_fr310_rename_with_the_matrix_in_neither_home_is_refused_the_control`, `::test_fr310_no_other_routine_lists_the_matrices_of_a_workspace`, `::test_fr310_main_refuses_a_differing_pair_for_every_command` (through `main`, `post --additional-pproc` included), `::test_fr310_main_hands_the_command_the_file_in_inputs_matrices`, `::test_fr310_a_bare_name_in_a_home_and_in_the_working_directory`.*
 
     Need: A run matrix may sit in the workspace root or in `inputs/matrices/`. Since 0.32.0 the restore, the post (`--from-sims` and `collect --post` included), the plan's census and the sync find it in both homes, while the other commands read the path as given or read the root alone, so a matrix one command accepts is one another command cannot find.
@@ -7734,6 +7748,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (release 0.33.0): `pyflightstream.workspace._matrix_homes.matrix_path` over `pyflightstream.workspace.find_matrix`, and its callers: `resolve_matrix_arguments` in `pyfs-matrix` before any command runs, `every_matrix` for the rebuild's scan and the Excel read, `matrix_to_write` for the Excel write.
 
 !!! requirement "FR-311 The collect command recognises a job that ended without its solver log <span class='srs-pending'>pending</span>"
+
+    Read with PFS-2074, PFS-2074.07 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     *Origin: item COLLECT-JOB-ENDED of the 0.33.0 scope (GEO-071, section 2.2). Pending: built on 2026-09-30 and verified on recorded folders (`tests/tier1_offline/test_fr311_collect_job_ended.py`), and the file naming is confirmed from one real cluster folder (`reports/RPT-108_cluster-job-end-files_2026-09-30.md`, 2026-09-30: three files of one job that ended with its log), which does not close the requirement. Evidence owed, in two tiers: tier-1 tests on recorded folders (every listed file present and no log, recorded FAILED_EXECUTION with the tail in the record; only some of the files present, still SUBMITTED; the files of another profile's patterns present, still SUBMITTED; the log present, collected as before), asserting the status and the recorded text rather than an exception type; and a dated receipt of a real cluster folder that shows the files the patterns name: received as RPT-108 for a job that ended with its log; the cluster's user reports that a job that never starts leaves only the two end-of-job files and no log, which is the case R2 records, reported and not observed in a folder; still owed, a real cluster folder of a job that ended WITHOUT its log.*
 
@@ -7753,6 +7769,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-312 A geometry file can be reduced to its meshes and applied boundary conditions <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2074, PFS-2074.08 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     *Origin: item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3), the part of the clean beyond the saved actions of FR-308. Pending: built on 2026-09-30 over the measurement of R2; the paired measurement named below (a simulation carrying every block against the same mesh freshly imported) and the licensed confirmation are still owed, and no fresh import of 26.124 is committed. Evidence so far: `tests/tier1_offline/test_fr312_inventory_clean.py`. Evidence owed: the dated report of that measurement (a simulation carrying every block against the same mesh freshly imported with the same boundary conditions, the builds compared named); tier-1 tests on recorded fixtures, each with a control; and the licensed confirmation, on 26.124, that the solver opens and runs a cleaned file (licensed round L1 of the 0.33.0 release), without which the claim of R1 is unverified.*
 
     Need: A saved simulation carries the state of the run that saved it, and that state takes precedence over what the script sets (the saved actions of FR-308 are one case of it). A geometry meant as an input should hold only the meshes and the boundary conditions already set (the base, the trailing edges and the others), so that everything else comes from the script.
@@ -7770,6 +7788,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-313 The plan warns when the geometry of an unsteady row carries saved solver actions <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2074, PFS-2074.09 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     *Origin: the plan check of item INVENTORY-CLEAN of the 0.33.0 scope (GEO-071, section 2.3; PLAN-FSM-WARN in the release's map of scope items), which asks that every unsteady row of the plan check its geometry and only warn. Built on 2026-09-30; the status stays pending until accepted. Evidence: `tests/tier1_offline/test_fr313_plan_geometry_warning.py::test_fr313_the_plan_warns_and_writes_the_same_plan`, `::test_fr313_the_command_exits_as_the_clean_plan_does`, `::test_fr313_one_warning_per_geometry_names_every_row_that_opens_it`, `::test_fr313_a_continuation_of_an_unsteady_row_is_read`, `::test_fr313_a_row_that_is_not_unsteady_is_not_read_the_control`, `::test_fr313_a_raw_mesh_or_a_row_with_no_geometry_is_not_read`. Evidence asked: a tier-1 test parametrized over the unsteady run types and over a clean, a dirty and an unreadable geometry, asserting in every case that the plan is written and its exit status is 0, and the warning text in the dirty and unreadable cases and its absence in the clean one.*
 
     Need: A saved action takes precedence over the script's action of the same name (FR-308), so an unsteady row can run a command the person never wrote; the plan is the last step before a run is spent.
@@ -7785,6 +7805,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (release 0.33.0): the geometry check of `pyfs-matrix plan` (`pyflightstream.workspace._geometry_clean.warn_saved_actions_of_unsteady_rows`, over `pyflightstream._fsm.saved_solver_actions`).
 
 !!! requirement "FR-314 Every unsteady row registers the step counter <span class='srs-pending'>pending</span>"
+
+    Read with PFS-2074, PFS-2074.10 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     *Origin: item PROGRESS-ALL-UNSTEADY of the 0.33.0 scope (GEO-071, section 2.3). Built on 2026-09-30; the status stays pending until accepted. Evidence: `tests/tier1_offline/test_fr314_counter_everywhere.py` (every run type and a continuation on 26.123 and 26.124, the 26.120 control, the count-only program run by the real interpreter, the local-run bar read off it), `tests/tier1_offline/test_unsteady_actions.py::test_a_row_stating_no_threshold_registers_the_counter_alone`, `::test_a_run_without_a_threshold_records_the_count_only_program`, the 18 regenerated tier-1 goldens and the 10 tier-3 goldens, whose diff against 0.32.0 is the counter's three lines, `::test_fr314_every_golden_differs_from_0320_only_by_the_counter_registration` (every unsteady tier-1 golden and every tier-3 golden against the sha256 of v0.32.0 recorded in `tests/tier1_offline/fixtures/goldens_v0320_sha256.json`: unchanged, or changed by exactly one counter registration, and the changed set is every unsteady run type on 26.122 to 26.124 and the ten tier-3 scripts of rows without per-step export), and the FR-314 entry of `scripts/check_parity.py`, which holds each changed script to those three lines in order. Evidence asked: a tier-1 test that every unsteady run type is covered by a golden and that the diff of each regenerated golden against the golden of v0.32.0 is confined to the counter lines; the parity receipt of the release listing each changed golden against this requirement; and the licensed run of an unsteady row without per-step export on 26.124 (licensed round L1), which is the only evidence that the solver accepts the counter on such a row. A golden regenerated in the same commit as the code verifies the emitter and nothing about the solver.*
 
@@ -7802,6 +7824,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-315 Every command ends with the signature on standard error <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2074, PFS-2074.11 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     *Origin: an author decision of 2026-09-30 about the signature of FR-178: it appears at the end of every command, always. Evidence: `tests/tier1_offline/test_p0330_signature_always.py::test_every_console_script_is_wrapped_fr_315`, `::test_every_outcome_signs_on_a_non_terminal_stderr_fr_315`, `::test_an_ascii_stderr_still_carries_the_signature_fr_315`, `::test_mutant_without_the_fallback_loses_the_signature_fr_315`.*
 
     Need: The signature closes every command and is meant to appear every time. Until 0.32.0 a standard error whose encoding could not encode the drawing printed nothing, and a failure while drawing was swallowed with it.
@@ -7817,6 +7841,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (release 0.33.0): `pyflightstream._cli.cli_entrypoint`, which signs through one function with the fallback of R4.
 
 !!! requirement "FR-316 A matrix row states native setup keys over its preset <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2074, PFS-2074.12 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     *Origin: an author decision of 2026-09-30, for a per-build setup study whose matrix gives every row one basic preset and one setup factor, the factor named by its native setup key; the default that a row never overwrites a value its preset states is part of the same decision. Measured before it on 0.32.0: a row stating `viscous_coupling`, `wake_on_wake_induction` or `reynolds_averaged_drag` in its cell was refused by the run type as a key of no run type. Evidence: `tests/tier1_offline/test_fr316_row_setup_keys.py::test_a_key_the_preset_lacks_is_added_for_that_row_only_and_warned`, `::test_an_equal_value_is_accepted_with_the_warning`, `::test_a_differing_value_for_a_key_the_preset_states_is_refused`, `::test_a_solver_alias_is_a_setup_key_and_follows_the_same_rule`, `::test_an_unstated_row_resolves_its_preset_unchanged`, `::test_an_unknown_key_is_still_refused`, `::test_a_table_valued_key_is_refused_naming_what_a_row_can_carry`, `::test_a_list_of_names_is_carried_comma_separated`, `::test_one_setting_in_both_vocabularies_is_refused_as_ambiguous`, `::test_an_invalid_value_is_refused_by_the_presets_own_loader`, `::test_the_row_keys_reach_the_setup_snapshot_of_the_run_record`.*
 
@@ -7837,6 +7863,8 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-317 The moments model is a setup key <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2074, PFS-2074.12 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     *Origin: an author decision of 2026-09-30 asking for a key for the moments model, which every builder wrote as `SET_ANALYSIS_MOMENTS_MODEL PRESSURE` with no key; found missing by the audit of FR-319. Evidence: `tests/tier1_offline/test_fr317_fr318_moments_model.py::test_an_unstated_moments_model_leaves_the_script_byte_identical`, `::test_a_stated_moments_model_changes_that_line_and_no_other`, `::test_a_moments_model_the_command_does_not_take_is_refused`, `::test_a_stated_moments_model_is_emitted_where_no_frame_is_placed`; the workflow goldens, unchanged.*
 
     Need: The moments model is a choice of the analysis, and a hard-coded value is a setting nobody can change.
@@ -7851,6 +7879,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (release 0.33.0): the field `SolverSettings.moments_model` and `pyflightstream.cases._setup_link.analysis_frame_and_moments`.
 
 !!! requirement "FR-318 On a row turning a rotor, the moments model follows the vorticity drag <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2074, PFS-2074.12 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     *Origin: an author requirement of 2026-09-30, set from a prior measurement made outside this package: on a propeller run with the induced drag by vorticity and the moments by pressure, the thrust came from the vorticity integration and the torque from the pressure integration. The requirement is that on a rotor the two settings are one decision; it asserts no solver behaviour of its own. Evidence: `tests/tier1_offline/test_fr317_fr318_moments_model.py::test_on_a_rotor_vorticity_drag_implies_vorticity_moments_warned_and_recorded`, `::test_on_a_rotor_pressure_moments_beside_vorticity_drag_are_refused`, `::test_the_link_holds_only_on_a_rotor_and_only_with_a_drag_list`, `::test_a_rotor_row_is_recognised_by_the_builder`. Owed: the licensed confirmation of R5, registered in RPT-106.*
 
@@ -7867,6 +7897,8 @@ Requirements written after the specification was last reconciled with the packag
     Solution (release 0.33.0): `pyflightstream.cases._setup_link.moments_model_of`, called at the analysis settings of every run type.
 
 !!! requirement "FR-319 Every choosable command of the solver chapters has a setup key, or a measured reason for none <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2074, PFS-2074.12 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     *Origin: an author decision of 2026-09-30 that every setting of the solver's setup and advanced settings be reached by the workflow, and that a setting that cannot be is listed with its measured reason for a decision rather than deferred silently. Evidence: `reports/RPT-106_setup-key-audit_2026-09-30.md`; `tests/tier1_offline/test_fr319_setup_key_audit.py::test_every_choosable_command_of_the_five_chapters_has_a_key_or_a_reason`, `::test_each_audit_defect_is_caught`, `::test_no_emitter_hard_codes_a_choosable_value_of_the_five_chapters`, `::test_the_keys_given_now_are_routed_to_their_commands_on_26124`, `::test_a_marching_row_registers_the_setups_actions_and_a_steady_row_refuses_them`.*
 
