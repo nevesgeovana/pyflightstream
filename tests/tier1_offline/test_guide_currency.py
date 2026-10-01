@@ -138,15 +138,24 @@ def curated_helper_names() -> set[str]:
     can be right while the guide's enumerated list is short: it listed
     sixteen after the release added five, so the tour was missing exactly
     the new capability while any count check would have agreed.
+
+    The definition site is helpers OR one of the two private modules its
+    helpers moved to in 0.34.0 (AD-17), whose functions it offers as its
+    own: `script._settings` and `script._relaxed_te`. Without them the cut
+    would have shrunk the count by eight while the module still offers all
+    of them.
     """
     import inspect
 
+    homes = {
+        helpers.__name__,
+        "pyflightstream.script._settings",
+        "pyflightstream.script._relaxed_te",
+    }
     return {
         name
         for name, value in vars(helpers).items()
-        if not name.startswith("_")
-        and inspect.isfunction(value)
-        and value.__module__ == helpers.__name__
+        if not name.startswith("_") and inspect.isfunction(value) and value.__module__ in homes
     }
 
 
