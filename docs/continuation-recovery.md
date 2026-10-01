@@ -72,8 +72,11 @@ counted on the row's own clock, read from the record. The continuation's
 record states the request it answered under `restart`, so running the matrix
 again with the same request continues nothing more (the plan and the run say
 `already continued by ADDITIONAL_REVS=1`); write another number to march
-further. A continuation recorded before 0.33.0 states no request and is taken
-to answer the one its row carries.
+further. A continuation recorded before 0.33.0 states no request and is read
+off the steps it marched: it answered the request the row carries now when
+that request asks the same steps of the run it continues, so running the same
+matrix again adds nothing, and a changed number continues it as it continues
+any other continuation.
 
 **Every point that is not continued is said.** `pyfs-matrix plan` lists each
 point of a RESTART row under `Continuations (RESTART)`, with what the

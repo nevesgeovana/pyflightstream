@@ -208,14 +208,13 @@ from pyflightstream.results.tables import sweep_table, write_table
 from pyflightstream.run._actions_counter import stage_counter
 from pyflightstream.run._continuation_frame import CONTINUABLE as CONTINUABLE
 from pyflightstream.run._continuation_frame import (
-    continuation_verdict,
     pending_restart_points,
+    point_verdict,
     refuse_what_cannot_continue,
     request_record,
     restart_request,
     restart_steps,
 )
-from pyflightstream.run._continuation_frame import latest_record_of_point as _latest_record_of_point
 from pyflightstream.run._continuation_frame import (
     recover_frame as _recover_continuation_frame,
 )
@@ -3827,7 +3826,7 @@ def run_campaign(
             pending = pending_restart_points(
                 case,
                 list(zip(case_points, run_ids, strict=True)),
-                manifest.values(),
+                workspace,
                 lambda text: _say(text, quiet=quiet),
             )
         else:
@@ -5664,17 +5663,7 @@ def _plan_point(
     # FINISH_PENDING on a CONVERGED run, a steady run, a queued one. A point
     # whose latest run FAILED goes on to the resolver, which refuses it by
     # name, so the plan reports it BLOCKED with the reason instead of recorded.
-    restarting = (request := restart_request(case)) is not None
-    verdict = (
-        continuation_verdict(
-            request,
-            _latest_record_of_point(
-                workspace.read_manifest(), case.sim_id, point_name(case, point)
-            ),
-        )
-        if request
-        else None
-    )
+    restarting = (verdict := point_verdict(workspace, case, point)) is not None
     base["continuation"] = verdict.said if verdict else None
     if verdict is not None and not verdict.pending:
         return PointPlan(**base, script_name=script_name, status=PlanStatus.ALREADY_RECORDED)
@@ -7415,19 +7404,9 @@ def resolve_continuation(
     if request is None:
         return None
     tag = point_name(case, point)
-    # THE MOST RECENT RECORD OF THE POINT, WHATEVER IT SAYS, and only then is
-    # it asked whether it stopped. This read the latest STOPPED record until
-    # 0.18.1, so a point whose continuation had since FINISHED was continued
-    # again from the run before it, re-marching steps the finished run had
-    # already done (GOAL-021, found beside the item 2 measurement).
     # FR-96, 0.33.0: a CONVERGED unsteady march is continued by ADDITIONAL_REVS
     # or ADDITIONAL_ITERS, once per request; everything else as before.
-    previous = refuse_what_cannot_continue(
-        case.sim_id,
-        tag,
-        request,
-        _latest_record_of_point(workspace.read_manifest(), case.sim_id, tag),
-    )
+    previous = refuse_what_cannot_continue(workspace, case.sim_id, tag, request)
     iterations = restart_steps(request, previous)
     saved = next(
         (name for name in previous.outputs if str(name).lower().endswith(SIMULATION_SUFFIX)),

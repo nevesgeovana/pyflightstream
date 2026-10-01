@@ -301,22 +301,68 @@ def _by(request: RestartRequest) -> str:
     return f"by {request.value:g} {unit}"
 
 
-def _answered(request: RestartRequest, latest: RunRecord) -> bool:
+#: How a continuation recorded before 0.33.0, which states no request, is asked
+#: whether it answered one: :func:`recorded_requests` builds it from a workspace.
+Unstated = Callable[[RunRecord, RestartRequest], bool]
+
+
+def _answered(request: RestartRequest, latest: RunRecord, unstated: Unstated | None) -> bool:
     """Whether the latest record is a completed continuation of this same request.
 
-    A continuation recorded before 0.33.0 states no request and is taken to
-    answer the one its row carries, so running an existing matrix again never
-    adds revolutions to a point.
+    A continuation recorded before 0.33.0 states no request. It answered this
+    one when it marched the steps this request asks of the run it continues
+    (``unstated``, :func:`recorded_requests`), and where that cannot be read it
+    is taken to answer it, so running an existing matrix again never adds
+    revolutions to a point while a changed request continues it.
     """
     if latest.continues is None or latest.status not in _COMPLETED:
         return False
     stated = latest.restart
-    return stated is None or (
-        stated.get("form") == request.form and stated.get("value") == request.value
-    )
+    if stated is None:
+        return unstated(latest, request) if unstated is not None else True
+    return stated.get("form") == request.form and stated.get("value") == request.value
 
 
-def continuation_verdict(request: RestartRequest, latest: RunRecord | None) -> ContinuationVerdict:
+def _marched_steps(sim_dir: Path, record: RunRecord) -> int | None:
+    """Return the time steps a run's script marched (``SET_SOLVER_UNSTEADY``), or None."""
+    try:
+        lines = (sim_dir / str(record.script_path)).read_text(encoding="utf-8").splitlines()
+    except (OSError, TypeError):
+        return None
+    for at, line in enumerate(lines[:-1]):
+        words = lines[at + 1].split()
+        if line.strip() == "SET_SOLVER_UNSTEADY" and words[:1] == ["TIME_ITERATIONS"]:
+            return int(words[1]) if len(words) == 2 and words[1].isdigit() else None
+    return None
+
+
+def recorded_requests(workspace: CampaignWorkspace, records: Iterable[RunRecord]) -> Unstated:
+    """Return whether a continuation recorded before 0.33.0 answered a request (FR-96).
+
+    Such a record states no request, so it is read off what it did: it
+    answered the request whose steps, asked of the run it continues, are the
+    steps its script marched. The same request is then not continued twice and
+    a changed one (another number, or a key that marches another count) is. A
+    record whose script or predecessor cannot be read is taken to answer it.
+    """
+    by_id = {record.run_id: record for record in records}
+
+    def answered(latest: RunRecord, request: RestartRequest) -> bool:
+        earlier = by_id.get(str(latest.continues))
+        marched = _marched_steps(workspace.sim_dir(latest.sim_id), latest)
+        if earlier is None or marched is None:
+            return True
+        try:
+            return restart_steps(request, earlier) == marched
+        except CampaignConfigError:
+            return True
+
+    return answered
+
+
+def continuation_verdict(
+    request: RestartRequest, latest: RunRecord | None, unstated: Unstated | None = None
+) -> ContinuationVerdict:
     """Judge one point of a ``RESTART`` row by its latest record (FR-96).
 
     A run the wall clock stopped, and one recorded at its iteration cap, are
@@ -353,16 +399,16 @@ def continuation_verdict(request: RestartRequest, latest: RunRecord | None) -> C
                 f"{{{RESTART_ADDITIONAL_REVS}=n}} or {{{RESTART_ADDITIONAL_ITERS}=n}}",
             )
         return ContinuationVerdict(True, None)
-    if _answered(request, latest):
-        unstated = (
+    if _answered(request, latest, unstated):
+        before = (
             ""
             if latest.restart
-            else " (recorded before 0.33.0, it states no request and is taken to answer this one)"
+            else " (recorded before 0.33.0, it states no request and marched what this one asks)"
         )
         return ContinuationVerdict(
             False,
             f"already continued by {_asked(request)}: its latest run, {run!r}, continues "
-            f"{latest.continues!r} and ended {status}{unstated}; change the request to march "
+            f"{latest.continues!r} and ended {status}{before}; change the request to march "
             "further",
         )
     if latest.status is RunStatus.COMPLETED_MAX_ITER:
@@ -379,10 +425,17 @@ def continuation_verdict(request: RestartRequest, latest: RunRecord | None) -> C
 
 
 def refuse_what_cannot_continue(
-    sim_id: str, tag: str, request: RestartRequest, previous: RunRecord | None
+    workspace: CampaignWorkspace, sim_id: str, tag: str, request: RestartRequest
 ) -> RunRecord:
-    """Return the record a point's ``RESTART`` request continues, or raise why it cannot."""
-    verdict = continuation_verdict(request, previous)
+    """Return the record a point's ``RESTART`` request continues, or raise why it cannot.
+
+    The point's MOST RECENT record, whatever it says, is the one asked: this read
+    the latest STOPPED record until 0.18.1, so a point whose continuation had
+    since finished was continued again from the run before it (GOAL-021).
+    """
+    records = workspace.read_manifest()
+    previous = latest_record_of_point(records, sim_id, tag)
+    verdict = continuation_verdict(request, previous, recorded_requests(workspace, records))
     if previous is not None and previous.status not in FAILED_STATUSES:
         if verdict.pending:
             return previous
@@ -467,10 +520,22 @@ def _is_a_continuation_that_never_started(record: RunRecord) -> bool:
     )
 
 
+def point_verdict(
+    workspace: CampaignWorkspace, case: SimCase, point: Mapping[str, float]
+) -> ContinuationVerdict | None:
+    """Judge one point of a row by its latest record, or None where the row states no RESTART."""
+    request = restart_request(case)
+    if request is None:
+        return None
+    records = workspace.read_manifest()
+    latest = latest_record_of_point(records, case.sim_id, point_name(case, point))
+    return continuation_verdict(request, latest, recorded_requests(workspace, records))
+
+
 def pending_restart_points(
     case: SimCase,
     points: Sequence[tuple[dict[str, float], str]],
-    records: Iterable[RunRecord],
+    workspace: CampaignWorkspace,
     say: Callable[[str], None],
 ) -> list[tuple[dict[str, float], str]]:
     """Return the points of a ``RESTART`` row the run goes on with, saying every other one.
@@ -479,14 +544,9 @@ def pending_restart_points(
     that is not is named with the reason, so a run never passes one over in
     silence (FR-96).
     """
-    request = restart_request(case)
-    manifest = list(records)
     pending = []
     for point, run_id in points:
-        latest = latest_record_of_point(manifest, case.sim_id, point_name(case, point))
-        verdict = (
-            continuation_verdict(request, latest) if request else ContinuationVerdict(True, None)
-        )
+        verdict = point_verdict(workspace, case, point) or ContinuationVerdict(True, None)
         if verdict.pending:
             pending.append((point, run_id))
         else:

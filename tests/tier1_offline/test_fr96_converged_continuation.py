@@ -168,10 +168,9 @@ def test_finish_pending_on_a_converged_run_is_refused_with_the_reason_fr_96(tmp_
     assert records == [] and stub.invocations == []
     assert "nothing is pending" in "".join(capsys.readouterr())
     # THE RESOLVER REFUSES IT, the run's own pre-flight and the library's entry.
-    (converged,) = workspace.read_manifest()
     request = parse_restart(_Case("FINISH_PENDING"))
     with pytest.raises(CampaignConfigError, match="nothing is pending") as raised:
-        refuse_what_cannot_continue("7001", TAG, request, converged)
+        refuse_what_cannot_continue(workspace, "7001", TAG, request)
     assert "finishes only a run its wall clock stopped" in str(raised.value)
 
 
@@ -226,12 +225,48 @@ def test_a_point_its_request_cannot_continue_is_said_not_passed_over_fr_96(tmp_p
     assert POINT in block and "SUBMITTED" in block, block
 
 
-def test_a_continuation_recorded_before_0_33_answers_the_request_its_row_carries_fr_96():
+def test_a_continuation_recorded_before_0_33_that_cannot_be_read_is_not_continued_fr_96():
+    # With nothing to read its request off (no script, no predecessor), a
+    # continuation recorded before 0.33.0 is taken to answer the request.
     old = _record(RunStatus.CONVERGED, continues=POINT, run_id="rotor/sim_7001/r20260901-100000/x")
     verdict = _verdict("ADDITIONAL_REVS=3", old)
     assert not verdict.pending and "recorded before 0.33.0" in verdict.said, verdict
     capped = old.model_copy(update={"status": RunStatus.COMPLETED_MAX_ITER})
     assert not _verdict("ADDITIONAL_REVS=3", capped).pending
+
+
+def _as_recorded_before_0_33(workspace):
+    """Remove the stated request from every record, as a 0.32 manifest has none."""
+    manifest = workspace.root / "runs.json"
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    for entry in data["runs"] if isinstance(data, dict) else data:
+        entry.pop("restart", None)
+    manifest.write_text(json.dumps(data, indent=1), encoding="utf-8")
+    assert all(record.restart is None for record in workspace.read_manifest())
+
+
+def test_a_continuation_recorded_before_0_33_skips_the_same_request_continues_a_new_one_fr_96(
+    tmp_path, capsys
+):
+    workspace = _converged(tmp_path)
+    first, _ = _continue(workspace, _restart(tmp_path, "ADDITIONAL_REVS=1"))
+    _as_recorded_before_0_33(workspace)
+    capsys.readouterr()
+    # THE SAME REQUEST: the record marched the 500 steps it asks, so it answered it.
+    again, stub = _continue(workspace, _restart(tmp_path, "ADDITIONAL_REVS=1"), resume=True)
+    assert again == [] and stub.invocations == [], [(r.run_id, r.status) for r in again]
+    said = "".join(capsys.readouterr())
+    assert "already continued by ADDITIONAL_REVS=1" in said, said
+    assert "recorded before 0.33.0, it states no request" in said, said
+    (entry,) = _plan(workspace, _restart(tmp_path, "ADDITIONAL_REVS=1")).points
+    assert entry.status is PlanStatus.ALREADY_RECORDED, entry
+    # A CHANGED n continues it, exactly as a 0.33 continuation is continued.
+    (entry,) = _plan(workspace, _restart(tmp_path, "ADDITIONAL_REVS=2")).points
+    assert entry.status is PlanStatus.READY, (entry.status, entry.error)
+    second, _ = _continue(workspace, _restart(tmp_path, "ADDITIONAL_REVS=2"))
+    (record,) = second
+    assert record.continues == first[0].run_id
+    assert record.restart == {"form": "ADDITIONAL_REVS", "value": 2.0}
 
 
 def test_the_walltime_continuation_of_0_32_is_unchanged_control_fr_96():

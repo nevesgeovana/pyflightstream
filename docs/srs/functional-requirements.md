@@ -4003,8 +4003,14 @@ requirement below is one seam of that division.
       COMPLETED_MAX_ITER) of the same request, the same form and number, is not
       continued again, so running the matrix again never re-marches what a
       continuation added; a different request continues it again. A
-      continuation recorded before 0.33.0 states no request and is taken to
-      answer the one its row carries.
+      continuation recorded before 0.33.0 states no request and is treated as
+      answering the request its row carries now when it marched the steps that
+      request asks of the run it continues: the same request is then not
+      continued again, and a changed one (another number, or another key that
+      marches another count) continues it exactly as it continues a 0.33.0
+      continuation. One whose script or predecessor cannot be read is taken to
+      answer the request, so running an existing matrix again never adds
+      revolutions.
     - R4 `{FINISH_PENDING}` does not continue a CONVERGED run, which has
       nothing pending, and says so, naming `ADDITIONAL_REVS` and
       `ADDITIONAL_ITERS`. A CONVERGED run of a run type that does not march is
