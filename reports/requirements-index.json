@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 269,
+  "cited_by_a_test": 273,
   "total": 355,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -2539,9 +2539,9 @@
    "id": "FR-344",
    "text": "Read with PFS-2075, PFS-2075.15 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: the author decision of 2026-10-01 that the digests of the solver's manual, release notes and licence agreement leave RPT-050 in 0.34.0 (GEO-071, section 4.10). It extends what NFR-31 R1 covers, which excludes the documentation's digests (R5 says how the two are reconciled). Marker P0340-VENDOR-DIGESTS; read at 0.34.0 (GOAL-039, arm RG). Pending: no code yet. Verification method: a tier-1 guard carrying the marker, with a planted control. Evidence owed: a guard that refuses the digests RPT-050 recorded for the four files of R1, anywhere in the tracked tree, compared by their own SHA-256, and a 64-hex value on the same line as the name of such a file; its control plants one, and its negative control keeps a 40-hex commit id beside such a name and a 64-hex value beside a name that is not one of the four, both passing; RPT-050's dated amendment line.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: the author decision of 2026-10-01 that the digests of the solver's manual, release notes and licence agreement leave RPT-050 in 0.34.0 (GEO-071, section 4.10). It extends what NFR-31 R1 covers, which excludes the documentation's digests (R5 says how the two are reconciled). Marker P0340-VENDOR-DIGESTS; read at 0.34.0 (GOAL-039, arm RG). Built in 0.34.0. Verification method: a tier-1 guard carrying the marker, with a planted control. Evidence: tests/tier1_offline/test_p0340_vendor_digests.py holds a guard that refuses the digests RPT-050 recorded for the four files of R1, anywhere in the tracked tree, compared by their own SHA-256, and a 64-hex value on the same line as the name of such a file; its control plants one, and its negative control keeps a 40-hex commit id beside such a name and a 64-hex value beside a name that is not one of the four, both passing; RPT-050's dated amendment line (2026-10-01).*",
+   "verification": "test"
   },
   {
    "id": "FR-345",

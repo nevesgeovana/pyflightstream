@@ -8455,11 +8455,11 @@ Requirements written after the specification was last reconciled with the packag
 
     Solution (planned for 0.34.0): RPT-131, its test and the citations.
 
-!!! requirement "FR-344 No tracked file carries a digest of the solver package's documentation files <span class='srs-pending'>pending</span>"
+!!! requirement "FR-344 No tracked file carries a digest of the solver package's documentation files <span class='srs-implemented'>implemented</span>"
 
     Read with PFS-2075, PFS-2075.15 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: the author decision of 2026-10-01 that the digests of the solver's manual, release notes and licence agreement leave RPT-050 in 0.34.0 (GEO-071, section 4.10). It extends what NFR-31 R1 covers, which excludes the documentation's digests (R5 says how the two are reconciled). Marker P0340-VENDOR-DIGESTS; read at 0.34.0 (GOAL-039, arm RG). Pending: no code yet. Verification method: a tier-1 guard carrying the marker, with a planted control. Evidence owed: a guard that refuses the digests RPT-050 recorded for the four files of R1, anywhere in the tracked tree, compared by their own SHA-256, and a 64-hex value on the same line as the name of such a file; its control plants one, and its negative control keeps a 40-hex commit id beside such a name and a 64-hex value beside a name that is not one of the four, both passing; RPT-050's dated amendment line.*
+    *Origin: the author decision of 2026-10-01 that the digests of the solver's manual, release notes and licence agreement leave RPT-050 in 0.34.0 (GEO-071, section 4.10). It extends what NFR-31 R1 covers, which excludes the documentation's digests (R5 says how the two are reconciled). Marker P0340-VENDOR-DIGESTS; read at 0.34.0 (GOAL-039, arm RG). Built in 0.34.0. Verification method: a tier-1 guard carrying the marker, with a planted control. Evidence: `tests/tier1_offline/test_p0340_vendor_digests.py` holds a guard that refuses the digests RPT-050 recorded for the four files of R1, anywhere in the tracked tree, compared by their own SHA-256, and a 64-hex value on the same line as the name of such a file; its control plants one, and its negative control keeps a 40-hex commit id beside such a name and a 64-hex value beside a name that is not one of the four, both passing; RPT-050's dated amendment line (2026-10-01).*
 
     Need: The digests identify the vendor's documentation files and need not be published; the private corpus keeps the manual's digest.
 
@@ -8471,7 +8471,7 @@ Requirements written after the specification was last reconciled with the packag
     - R4 Past commits are not rewritten (the author decision of 2026-10-01 on git history): the digests stay in the history of the repository, and only the tree from 0.34.0 on is clean.
     - R5 This requirement amends NFR-31 R1: the commit that implements it replaces NFR-31's sentence "The digests of the package's documentation (manual, release notes, licence agreement) are not covered." with a pointer to FR-344, so the two read the same way; NFR-31 otherwise keeps its reading.
 
-    Solution (planned for 0.34.0): the amendment of RPT-050 and the guard beside the NFR-31 guard.
+    Solution (release 0.34.0): the amendment of RPT-050 and `tests/tier1_offline/test_p0340_vendor_digests.py`, beside the NFR-31 guard.
 
 !!! requirement "FR-345 The report-index test reads the release section that carries its report <span class='srs-pending'>pending</span>"
 
