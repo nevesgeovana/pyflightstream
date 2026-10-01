@@ -96,8 +96,30 @@ _DRIFT_MESSAGE = (
 #: ``lines``, when given, is a regex every changed line must match; ``block``,
 #: when given, is a regex the changed lines of one file, joined by line feeds,
 #: must match whole, so a difference is held to its lines, their order and
-#: their number.
+#: their number; ``release_lacks``, when given, is a regex the release's own
+#: text must NOT match, so a difference that removes lines is held to its
+#: direction and to the state the requirement names.
 NAMED_DIFFERENCES: list[dict[str, str]] = [
+    {
+        "kind": "scripts",
+        "pattern": "*",
+        # The section Cp plot's three export lines and the blank line closing
+        # them, REMOVED from a script that cuts no section: the release must
+        # carry neither a section command nor a section Cp plot, so a drop from
+        # a row that still cuts a section, or an added plot, does not match.
+        "lines": r"^(SET_PLOT_TYPE SECTIONS_CP|SAVE_PLOT_TO_FILE|.+_plot_cp_sections\.txt|)$",
+        "block": (
+            r"(SET_PLOT_TYPE SECTIONS_CP\nSAVE_PLOT_TO_FILE\n[^\n]+_plot_cp_sections\.txt\n"
+            r"|\nSET_PLOT_TYPE SECTIONS_CP\nSAVE_PLOT_TO_FILE\n[^\n]+_plot_cp_sections\.txt)"
+        ),
+        "release_lacks": r"(?m)^(NEW_SURFACE_SECTION_DISTRIBUTION|SET_PLOT_TYPE SECTIONS_CP)\b",
+        "requirement": "FR-51",
+        "why": (
+            "P0331-SECTIONS-ABSENT-FAMILY: a row whose geometry carries no family a "
+            "section distribution of its artifact cuts declares and exports no section "
+            "Cp plot; the solver writes no such file with no section to plot"
+        ),
+    },
     {
         "kind": "scripts",
         "pattern": "*",
@@ -573,6 +595,9 @@ def name_difference(
             continue
         block = named.get("block")
         if block and not re.fullmatch(block, "\n".join(lines)):
+            continue
+        lacks = named.get("release_lacks")
+        if lacks and re.search(lacks, new):
             continue
         if named["requirement"] not in defined:
             entry["unnamed_because"] = f"{named['requirement']} is not defined in the release SRS"
