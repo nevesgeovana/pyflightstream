@@ -376,7 +376,10 @@ one of them keeps.
     banner, the idempotent write, the documentation link), so that
     `post.input_template`, whose sections are one data table, and
     `post.guides`, which keeps the pproc guides, import it and it imports
-    neither. The `results` root is a facade of imports and `__all__`: its
+    neither; `post.input_template` stays within the lens by its
+    `Size exemption:` line, not by its count, because the table is the
+    text of the examples in the order the generated template prints them.
+    The `results` root is a facade of imports and `__all__`: its
     errors, primitives and codes stay in its public face and are defined
     in `results.core`, below `results.loads`, `results.log` and
     `results.exports`, because a root that defined them would be imported

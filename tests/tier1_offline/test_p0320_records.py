@@ -655,8 +655,9 @@ def test_the_archive_spellings_are_the_workspaces(tmp_path):
     from pyflightstream.workspace import CampaignWorkspace
     from pyflightstream.workspace.naming import ARCHIVE_DIR, ARCHIVE_STAMP
 
+    assert (records.ARCHIVE_DIR, records.ARCHIVE_STAMP) == (ARCHIVE_DIR, ARCHIVE_STAMP)
     # The stamp is written by the record files module since 0.33.0 (AD-11).
-    assert (records.ARCHIVE_DIR, record_files.ARCHIVE_STAMP) == (ARCHIVE_DIR, ARCHIVE_STAMP)
+    assert record_files.ARCHIVE_STAMP == ARCHIVE_STAMP
     workspace = CampaignWorkspace.init(tmp_path / "camp")
     workspace.manifest_path.write_text(
         '[{"run_id": "c/sim_1/P", "sim_id": "1"}]\n', encoding="utf-8"
@@ -713,6 +714,9 @@ def test_rst6_restore_writes_holding_the_runs_lease_and_the_records_own(
         held["own"] = target.with_name(target.name + ".lock").exists()
         real(target, payload)
 
+    # The restore writes through this module's binding; since 0.33.0 (AD-11)
+    # the rebuild writes through run._rebuild's, so a spy that must see every
+    # writer patches run._record_files and both importers instead.
     monkeypatch.setattr(records, "_replace_bytes", spy)
     records.restore(tmp_path, kind, apply=True, matrix="matrix-lnx")
     assert held["runs"], "the restore wrote without the runs.json lease a sync holds"

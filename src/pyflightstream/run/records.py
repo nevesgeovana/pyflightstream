@@ -119,7 +119,9 @@ from pyflightstream.workspace.naming import (
 )
 
 # Since 0.33.0 (AD-09) the manifest-name rule lives in the workspace layer,
-# which names the files of a workspace root; its 0.32.0 path is kept here.
+# which names the files of a workspace root; its 0.32.0 path is kept here,
+# as is the archive stamp's, which run._record_files writes (AD-11).
+from pyflightstream.workspace.naming import ARCHIVE_STAMP as ARCHIVE_STAMP
 from pyflightstream.workspace.naming import DEFAULT_MANIFEST as DEFAULT_MANIFEST
 from pyflightstream.workspace.naming import RunsManifestError as RunsManifestError
 from pyflightstream.workspace.naming import resolve_manifest as resolve_manifest
