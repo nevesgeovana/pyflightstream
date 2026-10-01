@@ -1,11 +1,14 @@
 """The licensed run LQ1 of 0.34.0: why CDo reads zero (FR-338) and the XZ moment (FR-340).
 
 GOAL-039, arm FS, package FSI-OFF; the report it feeds is RPT-128. One
-geometry serves both questions, so the run is two points of one matrix, one
-solver instance at a time, FlightStream 26.124, far field 5 layers:
+geometry serves both questions, so the run is three points, one solver
+instance at a time, FlightStream 26.124, far field 5 layers:
 
 * ``9341``, the rigid wing (no FSI);
-* ``9342``, the same wing coupled (``FSI: f340``, the fixed-wing route).
+* ``9342``, the same wing coupled (``FSI: f340``, the fixed-wing route);
+* ``9343``, the coupled point again with its coupling capped at ONE
+  iteration, in a matrix of its own (:data:`CAPPED_MATRIX`), planned and
+  run by ``plan-capped`` and ``run-capped``.
 
 The wing is the closed right half of a synthetic NACA 4412 wing (public shape
 law, :func:`pyflightstream.qa.geometry.naca4_contour`), chord 1 m, semi-span
@@ -19,19 +22,40 @@ the sections, computes their loads and updates the probe points BEFORE its
 loads spreadsheet, exactly as the coupled row's aeroelastic post does
 (measured offline on the emitted scripts, 2026-10-01): the order of the
 updates against the spreadsheet is the same in both, and the rigid run of
-RPT-092 read CDo 0.0093534. So the coupled point here runs the 0.33.0 post
-with ONE line pair added at its head, before any update:
-``EXPORT_SOLVER_ANALYSIS_SPREADSHEET`` to :data:`CDO_FIRST`. The point then
-leaves two loads spreadsheets of the same coupled solve:
+RPT-092 read CDo 0.0093534. So both coupled points run the 0.33.0 post
+with ONE line pair added at its head, before the post's own updates:
+``EXPORT_SOLVER_ANALYSIS_SPREADSHEET`` to :data:`CDO_FIRST`. Each pass of
+the post leaves two loads spreadsheets of the same coupled solve:
+:data:`CDO_FIRST`, at its head, and the row's own ``P93..-...txt``, written
+where 0.33.0 writes it.
 
-* :data:`CDO_FIRST`, written before the post updates anything;
-* the row's own ``P9342-...txt``, written where 0.33.0 writes it.
+The post runs after EVERY coupling iteration (RPT-092 records 20 on its
+coupled point) and each pass overwrites the same names, so the files left
+by ``9342`` come from its LAST pass: its head export follows the updates of
+every earlier pass and the solves after them, and cannot tell the post's
+updates from the coupled analysis. It is reported, named as "the last pass,
+after the updates of the passes before it", and decides nothing.
 
-``cdo_first != 0`` and the row's ``== 0``: the package's order zeroes it
-(``package_order``). Both 0, the rigid one not: the coupled analysis
-itself carries no viscous drag (``solver``). Anything else is reported as
-undetermined, and RPT-128 says so. The added line pair is this probe's, made
-by :func:`run` patching the post in its own process; nothing in the package
+``9343`` isolates the first pass. Capped at one coupling iteration, its
+post runs once, before the only structural call: no update of the package
+precedes its head export. That it ran once is MEASURED, not assumed: its
+convergence log holds exactly one row, and the sectional loads export left
+on disk (written by the same pass of the post, after the head export)
+carries the solver iteration that row records. Then, with the rigid CDo
+non-zero and ``9342``'s zero:
+
+* the capped head export reads 0: the coupled analysis carries no viscous
+  drag before the package's post touches anything (``solver``);
+* the capped head reads non-zero and the capped row's own export reads 0:
+  the post's updates, before its export, zero it (``package_order``);
+* both capped exports non-zero: the zero arises across passes, from the
+  re-solve after an earlier pass's updates or from the morph, which this
+  probe does not separate (``undetermined``).
+
+Any other combination, a capped log without exactly one row, or a loads
+export from another iteration is ``undetermined``, and RPT-128 says so.
+The added line pair and the cap are this probe's, made by :func:`run`
+patching the post and the cap in its own process; nothing in the package
 changes.
 
 THE XZ RATIOS OF FR-340 (R2, fixed before the run): on each point, the
@@ -47,16 +71,19 @@ Commands (from the worktree root, with the package's Python)::
     python -m tests.tier3_licensed.fsi_lq1 build C:/WORK/release-0340/lq1-fsi-ws
     python -m tests.tier3_licensed.fsi_lq1 plan  C:/WORK/release-0340/lq1-fsi-ws
     python -m tests.tier3_licensed.fsi_lq1 run   C:/WORK/release-0340/lq1-fsi-ws
+    python -m tests.tier3_licensed.fsi_lq1 plan-capped C:/WORK/release-0340/lq1-fsi-ws
+    python -m tests.tier3_licensed.fsi_lq1 run-capped  C:/WORK/release-0340/lq1-fsi-ws
     python -m tests.tier3_licensed.fsi_lq1 analyze C:/WORK/release-0340/lq1-fsi-ws
 
 ``analyze`` also reads RPT-092's own workspace as a control
-(``--rigid 9211 --coupled 9212``), where it must print the 44 and 98.4
-percent of that report.
+(``--rigid 9211 --coupled 9212 --capped none``), where it must print the 44
+and 98.4 percent of that report.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import re
 import sys
@@ -66,9 +93,12 @@ import numpy as np
 
 #: The loads spreadsheet the probe adds at the head of the coupled point's post.
 CDO_FIRST = "lq1_cdo_first.txt"
-#: The two points of the matrix.
-RIGID_POL, COUPLED_POL = "9341", "9342"
+#: The two points of the matrix, and the capped coupled point of its own matrix.
+RIGID_POL, COUPLED_POL, CAPPED_POL = "9341", "9342", "9343"
 MATRIX = "lq1_fsi.fs"
+CAPPED_MATRIX = "lq1_capped.fs"
+#: The capped point's coupling iterations: one, so its post runs once.
+CAPPED_ITERATIONS = 1
 GEOMETRY = "61_WING4412_HALF_OBJ"
 NACA = "4412"
 CHORD_M, SEMI_SPAN_M, N_CHORD, N_SPAN = 1.0, 4.0, 25, 20
@@ -174,8 +204,12 @@ def wing_obj() -> tuple[str, int]:
     for triangle in triangles:
         ids = []
         for point in triangle:
-            key = (round(float(point[0]), 9), round(float(point[1]), 9), round(float(point[2]), 9))
-            key = tuple(0.0 if v == 0.0 else v for v in key)  # no negative zero
+            # Adding 0.0 turns a negative zero into zero and leaves every other value.
+            key = (
+                round(float(point[0]), 9) + 0.0,
+                round(float(point[1]), 9) + 0.0,
+                round(float(point[2]), 9) + 0.0,
+            )
             if key not in index:
                 index[key] = len(vertices) + 1
                 vertices.append(key)
@@ -259,7 +293,13 @@ def build(workspace: Path, exe: str) -> None:
         + " FSI: f340\n"
     )
     (workspace / MATRIX).write_text(matrix, encoding="utf-8")
-    print(f"built {workspace} ({count} vertices, matrix {MATRIX})")
+    capped = (
+        _MATRIX_HEADER
+        + row.format(pol=CAPPED_POL, desc="LQ1_WING4412_FSI_TI_ONE_PASS")
+        + " FSI: f340\n"
+    )
+    (workspace / CAPPED_MATRIX).write_text(capped, encoding="utf-8")
+    print(f"built {workspace} ({count} vertices, matrices {MATRIX} and {CAPPED_MATRIX})")
 
 
 class _EarlyExport:
@@ -290,11 +330,24 @@ def install_probe_post() -> None:
     fsi_workspace.aeroelastic_post = aeroelastic_post  # type: ignore[assignment]
 
 
-def _patched_cli(argv: list[str]) -> int:
-    """Run ``pyfs-matrix`` in this process with the probe's post (the coupled point only)."""
+def install_cap(iterations: int) -> None:
+    """Cap every steady coupled point this process emits at ``iterations`` coupling iterations."""
+    from pyflightstream.cases import fsi_workspace
+
+    fsi_workspace.STEADY_AEROELASTIC_ITERATIONS = iterations  # type: ignore[misc]
+
+
+def _patched_cli(argv: list[str], *, capped: bool = False) -> int:
+    """Run ``pyfs-matrix`` in this process with the probe's post (coupled points only).
+
+    ``capped`` also caps the coupling at :data:`CAPPED_ITERATIONS`: the
+    capped matrix holds only ``9343``, so no other point is emitted with it.
+    """
     from pyflightstream.run import cli
 
     install_probe_post()
+    if capped:
+        install_cap(CAPPED_ITERATIONS)
     return cli.main(argv)
 
 
@@ -361,34 +414,90 @@ def xz_verdict(moment_ratio: float, force_ratio: float) -> str:
     return "confirmed" if abs(moment_ratio - 1.0) <= abs(force_ratio - 1.0) else "refuted"
 
 
-def cdo_reading(rigid: float, coupled: float, coupled_first: float | None) -> str:
-    """The cause FR-338 names from the three CDo values, or ``undetermined``."""
-    if coupled_first is None:
+def cdo_reading(
+    rigid: float,
+    coupled: float,
+    capped_head: float | None,
+    capped_own: float | None,
+    one_pass: bool,
+) -> str:
+    """The cause FR-338 names, or ``undetermined`` (the module docstring's table).
+
+    ``capped_head`` and ``capped_own`` are the CDo of the capped point's head
+    export and of its own export; ``one_pass`` is the measured fact that its
+    post ran once, before the only structural call.
+    """
+    if rigid == 0.0 or coupled != 0.0:
         return "undetermined"
-    if rigid != 0.0 and coupled == 0.0 and coupled_first != 0.0:
-        return "package_order"
-    if rigid != 0.0 and coupled == 0.0 and coupled_first == 0.0:
+    if not one_pass or capped_head is None or capped_own is None:
+        return "undetermined"
+    if capped_head == 0.0:
         return "solver"
+    if capped_own == 0.0:
+        return "package_order"
     return "undetermined"
 
 
-def analyze(workspace: Path, rigid_pol: str, coupled_pol: str) -> dict[str, object]:
-    """Read both points and print the fields RPT-128's front matter states."""
+def _one_file(folder: Path, name: str) -> Path | None:
+    found = sorted(folder.rglob(name))
+    return found[0] if len(found) == 1 else None
+
+
+def one_pass(folder: Path) -> tuple[bool, str]:
+    """Whether the capped point's post ran once, and the evidence read.
+
+    One row in its convergence log, and the sectional loads export left on
+    disk carrying the solver iteration that row records: the last pass of the
+    post is the one the only structural call read.
+    """
+    from pyflightstream.fsi.driver import LOADS_FILE, LOG_FILE
+
+    log, loads = _one_file(folder, LOG_FILE), _one_file(folder, LOADS_FILE)
+    if log is None or loads is None:
+        return False, f"{folder}: not exactly one {LOG_FILE} and one {LOADS_FILE}"
+    body = [line for line in log.read_text(encoding="utf-8").splitlines() if line[:1] != "#"]
+    rows = list(csv.DictReader(body))
+    found = re.search(
+        r"Current solver iteration number:\s+(\d+)", loads.read_text(encoding="utf-8")
+    )
+    iteration = found.group(1) if found else None
+    evidence = f"{len(rows)} log row(s); the loads export left on disk is iteration {iteration}"
+    if len(rows) != 1 or iteration is None:
+        return False, evidence
+    return rows[0]["solver_iteration"].strip() == iteration, (
+        evidence + f", the row records {rows[0]['solver_iteration'].strip()}"
+    )
+
+
+def _cdo(folder: Path, name: str | None = None) -> float | None:
+    if name is not None and not (folder / name).is_file():
+        return None
+    return float(_loads(folder, name).total["CDo"])  # type: ignore[attr-defined]
+
+
+def analyze(
+    workspace: Path, rigid_pol: str, coupled_pol: str, capped_pol: str | None
+) -> dict[str, object]:
+    """Read the points and print the fields RPT-128's front matter states."""
     rigid_dir = _datapoint(workspace, rigid_pol)
     coupled_dir = _datapoint(workspace, coupled_pol)
-    cdo_rigid = float(_loads(rigid_dir).total["CDo"])  # type: ignore[attr-defined]
-    cdo_coupled = float(_loads(coupled_dir).total["CDo"])  # type: ignore[attr-defined]
-    first = coupled_dir / CDO_FIRST
-    cdo_first = (
-        float(_loads(coupled_dir, CDO_FIRST).total["CDo"])  # type: ignore[attr-defined]
-        if first.is_file()
-        else None
-    )
+    cdo_rigid = _cdo(rigid_dir) or 0.0
+    cdo_coupled = _cdo(coupled_dir) or 0.0
+    capped_head = capped_own = None
+    single, evidence = False, "no capped point"
+    if capped_pol is not None:
+        capped_dir = _datapoint(workspace, capped_pol)
+        capped_head, capped_own = _cdo(capped_dir, CDO_FIRST), _cdo(capped_dir)
+        single, evidence = one_pass(capped_dir)
     result: dict[str, object] = {
         "cdo_rigid": cdo_rigid,
         "cdo_coupled": cdo_coupled,
-        "cdo_coupled_first": cdo_first,
-        "cdo_cause": cdo_reading(cdo_rigid, cdo_coupled, cdo_first),
+        "cdo_coupled_head_of_last_pass": _cdo(coupled_dir, CDO_FIRST),
+        "cdo_capped_head": capped_head,
+        "cdo_capped_own": capped_own,
+        "capped_one_pass": single,
+        "capped_one_pass_evidence": evidence,
+        "cdo_cause": cdo_reading(cdo_rigid, cdo_coupled, capped_head, capped_own, single),
     }
     for name, folder in (("rigid", rigid_dir), ("coupled", coupled_dir)):
         ratios = xz_ratios(folder)
@@ -402,20 +511,29 @@ def analyze(workspace: Path, rigid_pol: str, coupled_pol: str) -> dict[str, obje
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="fsi_lq1", description=__doc__.splitlines()[0])
-    parser.add_argument("action", choices=("build", "plan", "run", "analyze"))
+    parser.add_argument(
+        "action", choices=("build", "plan", "run", "plan-capped", "run-capped", "analyze")
+    )
     parser.add_argument("workspace", type=Path)
     parser.add_argument("--exe", default=DEFAULT_EXE, help="the 26.124 executable (build)")
     parser.add_argument("--rigid", default=RIGID_POL, help="the rigid point's POL (analyze)")
     parser.add_argument("--coupled", default=COUPLED_POL, help="the coupled point's POL (analyze)")
+    parser.add_argument(
+        "--capped", default=CAPPED_POL, help="the capped point's POL, or 'none' (analyze)"
+    )
     args = parser.parse_args(argv)
     workspace = args.workspace.resolve()
     if args.action == "build":
         build(workspace, args.exe)
         return 0
     if args.action == "analyze":
-        analyze(workspace, args.rigid, args.coupled)
+        capped = None if args.capped.lower() == "none" else args.capped
+        analyze(workspace, args.rigid, args.coupled, capped)
         return 0
-    return _patched_cli([args.action, str(workspace / MATRIX), "--workspace", str(workspace)])
+    capped_run = args.action.endswith("-capped")
+    matrix = workspace / (CAPPED_MATRIX if capped_run else MATRIX)
+    action = args.action.removesuffix("-capped")
+    return _patched_cli([action, str(matrix), "--workspace", str(workspace)], capped=capped_run)
 
 
 if __name__ == "__main__":
