@@ -61,6 +61,62 @@ def write_probe_field(
     interpolation or moving-frame transform is inferred. Reusable inflow is an
     unstructured global YZ-plane profile; the user validates and installs it.
     Every file carries solver setup and a source-byte hash in its provenance.
+
+    Parameters
+    ----------
+    stem : str or pathlib.Path
+        Output path without extension; ``.vtk``, ``.dat`` and ``.inflow.dat``
+        are appended for the selected products.
+    points_m : numpy.ndarray
+        Sample positions, finite, shape (N, 3), in metres.
+    velocity_m_s : numpy.ndarray
+        Absolute sample velocities, finite, shape (N, 3), in m/s.
+    source : str or pathlib.Path
+        The file the samples were read from; its name and SHA-256 are recorded.
+    provenance : OutputProvenance
+        Run identity and solver setup written into every file's record.
+    frame : str, default "REFERENCE"
+        The frame of the samples; only ``"REFERENCE"`` is accepted.
+    formats : sequence of str, default ("vtk",)
+        Distinct field formats to write, from ``"vtk"`` and ``"tecplot"``.
+    reusable_inflow : bool, default False
+        Also write the unstructured YZ-plane custom inflow profile. It needs
+        one constant x, distinct positions and a two-dimensional survey.
+    sample_metadata : mapping, optional
+        Extra entries merged into the recorded ``sampling`` block.
+    overwrite : bool, default False
+        Replace existing files; otherwise an existing file refuses the write.
+
+    Returns
+    -------
+    list of pathlib.Path
+        Each file written, products and their provenance records.
+
+    Raises
+    ------
+    ProductError
+        If the frame, shapes, finiteness, formats or inflow conditions are not
+        met; nothing is written then.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> import numpy as np
+    >>> from pyflightstream.post import OutputProvenance
+    >>> from pyflightstream.script import Script, helpers
+    >>> setup = helpers.solver_settings(Script(version="26.120"), velocity=30.0)
+    >>> provenance = OutputProvenance(run_id="probe/sim_1/a+00.0", setup=setup)
+    >>> folder = Path(tempfile.mkdtemp())
+    >>> source = folder / "samples.csv"
+    >>> _ = source.write_text("PROBE,X,Y,Z", encoding="utf-8")
+    >>> points = np.array([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+    >>> velocity = np.array([[30.0, 0.0, 0.0], [30.0, 0.0, 0.0]])
+    >>> written = write_probe_field(
+    ...     folder / "field", points, velocity, source=source, provenance=provenance
+    ... )
+    >>> sorted(path.name for path in written)
+    ['field.vtk', 'field.vtk.provenance.json']
     """
     points, velocity = _validate_field(points_m, velocity_m_s, frame, formats, reusable_inflow)
     metadata = {
@@ -133,7 +189,40 @@ def write_recorded_probe_fields(
     prepare=None,
     step_source=None,
 ):
-    """Export complete recorded samples; preserve each actual STEP separately."""
+    """Export complete recorded samples; preserve each actual STEP separately.
+
+    Parameters
+    ----------
+    table : str or pathlib.Path
+        The probe table, a CSV with ``PROBE``, ``X``, ``Y``, ``Z``, ``VX``,
+        ``VY`` and ``VZ`` columns and optionally ``STEP`` and ``FRAME``.
+    record : RunRecord
+        The point's run record, holding the recorded solver setup, the
+        ``probe_field_layout`` and, for native exports, the frame motions and
+        executable identity.
+    directory : str or pathlib.Path
+        The folder the field files are written to; created when needed.
+    point_name : str
+        The point the files are named for.
+    prepare : callable, optional
+        Called with each destination path (and its provenance record path)
+        before it is written, so the caller may clear an earlier file.
+    step_source : str or pathlib.Path, optional
+        A table whose ``Time-step`` column holds the native STEP values; the
+        table's STEP values must match it exactly.
+
+    Returns
+    -------
+    list of pathlib.Path
+        Every file written; empty when the record has no probe field layout.
+
+    Raises
+    ------
+    ProductError
+        If the run has no recorded solver setup, the table or its STEP, sample
+        identity, unit conversion or frame is invalid, a native proof or frame
+        trajectory is missing, or two outputs would share a name.
+    """
     import csv
 
     from pyflightstream.script.solver_setup import SolverSetup

@@ -576,6 +576,43 @@ def write_campaign_products(
     post wrote them and named under ``partial.not_rebuilt`` and in the log. A
     simulation with no record of the matrix is refused by name before
     anything is written. None, the default, is the whole post.
+
+    Parameters
+    ----------
+    workspace : CampaignWorkspace
+        The campaign workspace whose recorded runs are posted.
+    overwrite : bool, default False
+        Rebuild when the post log already exists; otherwise that is refused.
+    archive : bool, default True
+        Move the files a rebuild replaces into the products archive, under
+        one stamp, instead of overwriting them.
+    archive_stamp : datetime.datetime, optional
+        The stamp of the archive; the current time when omitted.
+    matrix_stem : str, optional
+        The matrix whose products are written; None for the workspace's own
+        products folder.
+    check_frozen : bool, default False
+        Refuse a post whose recorded doubts, named in the log, are not
+        resolved, instead of writing with them logged.
+    sims : collection of str, optional
+        Limit the rebuild to these simulations of the matrix, in place; None
+        is the whole post.
+
+    Returns
+    -------
+    list of pathlib.Path
+        Every file the post wrote, the post log and ``products.json`` among
+        them.
+
+    Raises
+    ------
+    ProductExistsError
+        If the post log already exists and ``overwrite`` is false.
+    ProductError
+        If ``check_frozen`` is true and a point's evidence is in doubt, or the
+        manifest holds no record of ``matrix_stem``.
+    WorkspaceError
+        If ``sims`` is empty or names a simulation the matrix has no record of.
     """
     import pyflightstream
 
