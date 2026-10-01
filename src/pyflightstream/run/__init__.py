@@ -74,7 +74,8 @@ ran.
 
 Since 0.32, :mod:`pyflightstream.run.records` holds the operations on the
 records themselves: which manifest a command reads (``runs.json``, or
-another file of the workspace root named by ``--runs``), the exact restore
+another file of the workspace root named by ``--runs``; resolved in
+:mod:`pyflightstream.workspace.naming` since 0.33.0), the exact restore
 of a records file from the workspace's archive (``pyfs-matrix restore``),
 and the rebuild of run records from the folders under ``sims/``
 (``pyfs-matrix rebuild``), which runs each row again in a throwaway copy
@@ -92,6 +93,17 @@ plan, its cost and its receipt), ``_continuation``, ``_identity`` (the
 package and the solver build, and :func:`reconstruct`), ``_assessment``,
 ``_executors`` and ``_ids`` (the run ids and :class:`CampaignErrors`). Every
 name keeps its 0.32.0 path here.
+
+The records family is cut the same way since 0.33.0 (AD-11):
+:mod:`pyflightstream.run.records` keeps the restore and the mark-failed and
+re-exports the rest from ``_rebuild`` (the rebuild), ``_rebuild_evidence``
+(what a rebuild reads and compares), ``_assemble`` (the in-memory records of
+``--runs`` and ``--from-sims``) and ``_record_files`` (the record files,
+their archives and lease), and it registers its rebuild with
+:mod:`pyflightstream.workspace.storage` when it loads, so the workspace row
+never imports this one. The ``pyfs-matrix`` argument parser, every
+subcommand, option and help text, is ``_cli_parsers``;
+:mod:`pyflightstream.run.cli` keeps the commands.
 """
 
 from __future__ import annotations

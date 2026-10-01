@@ -17,11 +17,24 @@ Pipeline layers, dependencies flowing strictly downward:
 - ``script``: the validating ASCII script builder.
 - ``results``: anchor-based parsers for solver output files.
 - ``cases``: simulation and campaign definitions.
-- ``run`` and ``workspace``: execution, run manifest, and the managed
-  workspace (input-artifact library plus run layout). The old
-  ``files`` name was a deprecation shim and was removed at v0.4.0.
+- ``workspace``: the managed workspace (input-artifact library plus run
+  layout) and the run manifest. The old ``files`` name was a
+  deprecation shim and was removed at v0.4.0.
+- ``run``: execution and the campaign loop, one row above ``workspace``
+  since 0.33.0: ``run`` imports ``workspace``, and nothing of
+  ``workspace`` imports ``run``.
 - ``post``: results into engineering data (sweep assembly, exports).
 - ``qa``: probe harness and physics regression tooling.
+
+Since 0.33.0 the largest modules are packages or facades over
+private modules: ``cases.workflows`` is a package whose modules import
+one another in a declared order, the roots of ``run`` and ``results``
+and the module ``post.products`` keep every public name over modules
+of their own, and every public name of 0.32.0 still imports from its
+0.32.0 path. Tier-1 architecture guards hold module size, function
+limits, import cycles, fan-out, private-name coupling of the tests,
+one home per constant and facade roots to ratchets that only fall,
+measured by ``scripts/arch_metrics.py``.
 
 Side packages follow the same downward-only rule:
 

@@ -60,7 +60,10 @@ and the code vocabularies are :mod:`pyflightstream.results.core`; the loads,
 probe-points and unsteady-plots parsers :mod:`pyflightstream.results.loads`;
 the solver log's :mod:`pyflightstream.results.log`; the export tables
 :mod:`pyflightstream.results.exports`. Every name keeps its 0.32.0 path here,
-and no module of the layer imports this root.
+and no module of the layer imports this root. The sectional loads export's
+parser is :mod:`pyflightstream.results.sectional_loads` since 0.33.0 (AD-10):
+the structural side branch re-exports it, so the branch and this layer no
+longer import each other in a cycle.
 """
 
 from __future__ import annotations
