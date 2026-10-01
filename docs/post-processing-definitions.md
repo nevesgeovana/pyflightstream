@@ -12,7 +12,7 @@ them was inferred from an implementation.
 !!! note "For whoever maintains this package"
     Read this page before changing any reduction, any averaging window, or any
     product's column set. A reduction whose meaning you reconstructed from
-    `workflows.py` is a reduction you are about to get subtly wrong: three of
+    `cases/workflows/` is a reduction you are about to get subtly wrong: three of
     the definitions below were implemented as a declared field with no caller,
     which reads exactly like a finished feature.
 

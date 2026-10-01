@@ -455,6 +455,10 @@ one of them keeps.
     the quasi-steady builder `_qsteady_rotor`, because `_settings` and
     `_qsteady` are names the code already binds (a function and an import
     alias). Each module is within the lens and deep; the record is RPT-114.
+    The `modules_at_freeze` list of the baselines keeps `cases/workflows.py`:
+    it is the snapshot of the tree at the freeze, read only as the set of
+    modules the depth rule does not hold, and a retired path in it holds
+    nothing, since the module cannot return beside the package.
 
 !!! decision "AD-13 The post families are sibling modules <span class='srs-pending'>pending</span>"
     *Work package WP5 of the 0.33.0 scope (decisions 5, 8 and 15).
