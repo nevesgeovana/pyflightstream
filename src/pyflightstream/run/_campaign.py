@@ -219,6 +219,9 @@ def _leave_sweep_table(
     workspace : CampaignWorkspace
         The managed campaign root whose manifest is tabulated and under
         whose ``post/`` folder the file lands.
+    matrix_stem : str or None
+        The run matrix's file name without extension, which names the
+        ``post/<matrix>/`` folder; None for a campaign authored in Python.
     target : str or Path, optional
         Where the caller chose to have the table INSTEAD of the default
         place. The table is written once: a chosen path replaces the default
@@ -385,6 +388,24 @@ def run_campaign(
         across two builds no longer has to lie about which one produced
         a point. A case naming a build this mapping does not carry is
         refused before anything executes.
+    preflight : bool
+        With True (the default), every installation that still has work is
+        asked which build it is before the first point executes, and the
+        whole campaign is refused when one answers wrongly. With False the
+        identity check is skipped; the parse-time cross-check of each
+        result against the registered build still applies.
+    name_from : str, optional
+        Where the campaign name came from, ``option`` or ``directory``,
+        recorded in every run record; None when the caller does not say.
+    quiet : bool
+        With True, the progress lines, the per-row lines and the closing
+        summary table are not printed; the activity log still receives
+        them. Default False.
+    accept_unregistered_build : bool
+        With True, an installed build other than the one registered for the
+        version a row names is accepted instead of refused by the identity
+        check, and every record of the run says the flag was used.
+        Default False.
     sweep_csv : str or Path, optional
         Where to leave the campaign's sweep table instead of
         ``post/<matrix stem>/`` under :data:`SWEEP_TABLE_NAME`. ONE table is

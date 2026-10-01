@@ -94,6 +94,14 @@ class PlanStatus(enum.StrEnum):
     solver could run; the plan carries the error text.
     ALREADY_RECORDED: the manifest already holds this ``run_id``, so
     ``run_campaign(..., resume=True)`` would skip it.
+
+    Examples
+    --------
+    >>> from pyflightstream.run import PlanStatus
+    >>> [status.value for status in PlanStatus]
+    ['READY', 'BLOCKED', 'ALREADY_RECORDED']
+    >>> PlanStatus.READY == "READY"
+    True
     """
 
     READY = "READY"
@@ -376,6 +384,28 @@ def estimate_point_cost(
     will calibrate it; until then the instruction is to estimate from
     whatever the workspace already holds, so a reader gets a number with
     its sample size attached, or no number at all.
+
+    Parameters
+    ----------
+    case : SimCase
+        The point's case, specialized to the point; supplies the run type,
+        the geometry, the solver settings and the time steps.
+    run_id : str
+        Manifest identity of the point, carried into the row.
+    recorded : list of dict
+        The workspace's recorded runs, as manifest rows; those of the same
+        run type that state a wall time (``wall_time_s``, seconds) are the
+        samples.
+    steps_by_run : dict of str to int or None, optional
+        Time steps of each run id the plan holds, used to scale an unsteady
+        sample; a run id mapped to None, or absent, is left out of the fit.
+
+    Returns
+    -------
+    PlannedPointCost
+        The point's row: the measured figures, the expected time in seconds
+        (None when no comparable run exists), the number of samples and the
+        sentence naming the basis.
     """
     solver = getattr(case, "solver", None)
     unsteady = case.recipe not in STEADY_RUN_TYPES
@@ -574,7 +604,19 @@ def _elide(text: str, width: int) -> str:
 
 
 def format_cost_table(costs: list[PlannedPointCost]) -> str:
-    """Render the cost table FR-82 asks for, with its basis under it."""
+    """Render the cost table FR-82 asks for, with its basis under it.
+
+    Parameters
+    ----------
+    costs : list of PlannedPointCost
+        One row per point, as :func:`estimate_point_cost` returns them.
+
+    Returns
+    -------
+    str
+        The fixed-width table, one line per point, followed by one basis
+        line per distinct run type; an empty list gives the header alone.
+    """
     header = (
         f"{'point':38} {'mesh':>8} {'TEs':>5} {'layers':>7} {'visc':>5} "
         f"{'type':>9} {'steps':>7} {'procs':>6} {'expected':>10} {'samples':>8}"
@@ -800,6 +842,22 @@ def plan_receipt_error(
       because the plan measured a different study. A plan that predates
       the pin carries None and is refused the same way, which is right:
       it cannot say what it read.
+
+    Parameters
+    ----------
+    workspace : CampaignWorkspace
+        The campaign root whose plan folder is searched for ``plan.json``.
+    matrix_path : str or Path, optional
+        The matrix file the run reads; None for a campaign authored in
+        Python.
+    matrix_stem : str, optional
+        The matrix file name without extension, which names the plan
+        folder under ``post/``.
+
+    Returns
+    -------
+    str or None
+        The refusal text, or None when the run may proceed.
     """
     if matrix_path is None:
         return None
@@ -882,6 +940,9 @@ def plan_campaign(
         for a campaign converted from a run matrix and in the campaign
         root otherwise (overwritten on each call; a convenience report,
         never an identity source). Default True.
+    name_from : str, optional
+        Where the campaign name came from, ``option`` or ``directory``,
+        recorded in the plan; None when the caller does not say.
     builds : mapping of str to SolverBuild, optional
         As in :func:`run_campaign`, and pre-flighting is where it earns
         its keep: a case sent to a second build has its dry-run script
@@ -903,6 +964,20 @@ def plan_campaign(
         is 26.120 was BLOCKED for a command 26.120 lacks and 26.123
         carries).
         ``builds`` wins where both name a build.
+    matrix_path : str or Path, optional
+        The matrix file the campaign was converted from. Its SHA-256 is
+        written into ``plan.json`` so ``run`` can refuse a plan that
+        measured a different study; None for a campaign authored in Python.
+    accept_unregistered_build : bool
+        Recorded in ``plan.json`` so the plan rehearses the command line
+        ``run`` executes; no solver is launched here, so no check changes.
+        Default False.
+    setup_inspections : sequence of dict, optional
+        The setup inspections to carry into the plan and its
+        ``plan.json``; None for none.
+    inflow_fft : bool
+        With True, each quasi-steady wheel point in a custom inflow also
+        carries the harmonic content of that inflow. Default False.
 
     Returns
     -------

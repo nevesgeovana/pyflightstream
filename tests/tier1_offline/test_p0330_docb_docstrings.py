@@ -77,11 +77,6 @@ NUMPYDOC_PENDING = {
     "probes/__init__.py",
     # WP5 (AD-13) moved the pending functions of `post.products` into the four
     # family modules, which are pinned in their stead.
-    "run/_campaign.py",
-    "run/_executors.py",
-    "run/_identity.py",
-    "run/_plan.py",
-    "run/cli.py",
     "workspace/__init__.py",
     "workspace/hpc.py",
     "workspace/inputs.py",
@@ -98,13 +93,8 @@ NUMPYDOC_PENDING = {
 #: DOC-B part 2 group g1: `cases` and `script` leave the list.
 #: `results.exports`, `results.loads`, `results.surface` and `results.tables` carry theirs
 #: and left it (DOC-B part 2, g4).
+#: The `run` modules above and `run.cli` left it in DOC-B part 2, group 5.
 EXAMPLES_PENDING = {
-    "run/_assessment.py",
-    "run/_campaign.py",
-    "run/_executors.py",
-    "run/_identity.py",
-    "run/_plan.py",
-    "run/cli.py",
     "workspace/__init__.py",
     "workspace/inputs.py",
 }
@@ -136,6 +126,12 @@ NO_OFFLINE_EXAMPLE = {
     "workspace's inputs",
     "pyflightstream.workspace.fsi_setup.resolve_row_fsi": "reads an FSI artifact of a "
     "workspace's inputs",
+    "pyflightstream.run._campaign.run_campaign": "drives the solver through an executor over "
+    "a managed campaign root",
+    "pyflightstream.run._identity.reconstruct": "reads the recorded runs of a workspace",
+    "pyflightstream.run._plan.plan_campaign": "pre-flights the cases and geometry files of a "
+    "workspace against a recorded manifest",
+    "pyflightstream.run.cli.main": "the pyfs-matrix console entry; the CLI reference documents it",
 }
 
 #: Exported functions whose own ``raise`` lets a catalogued error reach the
