@@ -73,8 +73,9 @@ for the body row). The answer is the same for both causes.
 ## The tier 1 suite runs in parallel
 
 For contributors only. `pytest-xdist` joins the `dev` extra, and the CI and
-release workflows run tier 1 and the coverage floor with `-n auto`, so the
-serial run of 0.33.0, 36 minutes, is no longer the wall time of a gate. To run
+release workflows run tier 1 and the coverage floor with `-n auto`, so a
+serial run of about 36 minutes, the 0.33.0 release gate's serial run, is no
+longer the wall time of a gate. To run
 the suite the same way, install the extra and add `-n auto` (or a worker
 count, `-n 4`) to the `pytest` command. A user of the package, with no `dev`
 extra, sees no change.
