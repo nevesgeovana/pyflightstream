@@ -138,10 +138,13 @@ def test_no_report_writer_restates_the_invocation_as_a_literal():
     # `cases/` and `workspace/`; a report writer one directory down
     # survived it.
     package = Path(__file__).resolve().parents[2] / "src" / "pyflightstream"
-    home = package / "run" / "__init__.py"
+    # The home is the text of the run root, cut in 0.33.0 (AD-14): the
+    # sentence's own module, and the campaign loop whose docstring names the
+    # executor beside the --sweep-csv flag, as the root's did.
+    homes = {package / "run" / "_executors.py", package / "run" / "_campaign.py"}
     offenders = []
     for path in sorted(package.rglob("*.py")):
-        if path == home:
+        if path in homes:
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):

@@ -47,7 +47,8 @@ from pyflightstream.cases.workflows import (
 from pyflightstream.post import qsteady as post_qsteady
 from pyflightstream.post._tables import ReferenceValues
 from pyflightstream.post.products import rotor_shaft_loads
-from pyflightstream.run import _recorded_is_unsteady, qsteady_validity_line
+from pyflightstream.run import qsteady_validity_line
+from pyflightstream.run._plan import _recorded_is_unsteady
 from pyflightstream.script import Script
 
 #: The rotor of every case here: three blades on X, hub at the origin, 2 m.

@@ -647,7 +647,7 @@ def test_the_run_layers_provenance_digest_answers_none_rather_than_raising(tmp_p
     so the policy was owned by a function nobody checked was the one
     being called. The mutant is the whole point.
     """
-    from pyflightstream.run import _file_digest
+    from pyflightstream.run._identity import _file_digest
 
     present = tmp_path / "FlightStream.exe"
     present.write_bytes(b"not really an executable")

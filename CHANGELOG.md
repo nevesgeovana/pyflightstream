@@ -64,6 +64,15 @@ FlightStream versions.
   `cases/_setup_keys.py`, `cases/_setup_link.py` and
   `workspace/_row_setup.py`, clean (RPT-029).
 
+### Fixed
+
+- The continuation of a row asked `SimCase` for a `fs_version` it does not
+  have whenever no version was passed to `resolve_continuation`, and raised
+  `AttributeError` there; it reads the build the case names, `fs_build`,
+  then the version the stopped run requested. The campaign loop and the
+  plan pass the row's version, so only a caller passing none reached it
+  (WP6, found by typing the run root).
+
 ## [0.32.0] - 2026-09-30
 
 ### Added

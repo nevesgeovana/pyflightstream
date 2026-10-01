@@ -5,8 +5,7 @@
   "cases/matrix.py": 1808,
   "post/corrections.py": 1006,
   "qa/specs.py": 1334,
-  "run/__init__.py": 4474,
-  "run/cli.py": 2004,
+  "run/cli.py": 1201,
   "run/matrix.py": 1304,
   "script/helpers.py": 1678,
   "workspace/__init__.py": 1608,
@@ -17,14 +16,14 @@
   "post/products.py:_write_the_products": 259,
   "post/section_distributions.py:_matching_distributions": 328,
   "post/section_distributions.py:write_section_distributions": 257,
-  "run/__init__.py:LoadsAssessor.__call__": 271,
-  "run/__init__.py:_execute_point": 445,
-  "run/__init__.py:_execute_sweep": 348,
-  "run/__init__.py:run_campaign": 422,
-  "run/cli.py:_build_parser": 556,
   "script/helpers.py:solver_settings": 461,
   "workspace/setup_standards.py:render_guidelines": 263,
-  "post/_rotor_plan.py:_rotor_tables": 292
+  "post/_rotor_plan.py:_rotor_tables": 292,
+  "run/_assessment.py:LoadsAssessor.__call__": 271,
+  "run/_campaign.py:run_campaign": 423,
+  "run/_cli_parsers.py:_build_parser": 556,
+  "run/_points.py:_execute_point": 466,
+  "run/_sweep.py:_execute_sweep": 348
  },
  "function_limits": {
   "_deprecations.py:_promise_text": {
@@ -561,84 +560,6 @@
    "statements": 20,
    "positional": 1
   },
-  "run/__init__.py:CampaignPlan.summary": {
-   "complexity": 11,
-   "branches": 10,
-   "statements": 19,
-   "positional": 0
-  },
-  "run/__init__.py:LoadsAssessor.__call__": {
-   "complexity": 31,
-   "branches": 32,
-   "statements": 85,
-   "positional": 3
-  },
-  "run/__init__.py:_execute_point": {
-   "complexity": 44,
-   "branches": 45,
-   "statements": 159,
-   "positional": 0
-  },
-  "run/__init__.py:_execute_sweep": {
-   "complexity": 31,
-   "branches": 31,
-   "statements": 125,
-   "positional": 0
-  },
-  "run/__init__.py:_judge_the_clockings": {
-   "complexity": 14,
-   "branches": 14,
-   "statements": 47,
-   "positional": 6
-  },
-  "run/__init__.py:_plan_point": {
-   "complexity": 8,
-   "branches": 7,
-   "statements": 28,
-   "positional": 7
-  },
-  "run/__init__.py:_prepare_case": {
-   "complexity": 15,
-   "branches": 15,
-   "statements": 34,
-   "positional": 4
-  },
-  "run/__init__.py:_run_until_the_analysis_ends": {
-   "complexity": 16,
-   "branches": 0,
-   "statements": 54,
-   "positional": 3
-  },
-  "run/__init__.py:_run_with_progress": {
-   "complexity": 13,
-   "branches": 12,
-   "statements": 47,
-   "positional": 6
-  },
-  "run/__init__.py:_staged_inputs_conflict": {
-   "complexity": 7,
-   "branches": 6,
-   "statements": 15,
-   "positional": 6
-  },
-  "run/__init__.py:_write_pending_files": {
-   "complexity": 33,
-   "branches": 32,
-   "statements": 99,
-   "positional": 2
-  },
-  "run/__init__.py:check_solver_identity": {
-   "complexity": 11,
-   "branches": 12,
-   "statements": 37,
-   "positional": 3
-  },
-  "run/__init__.py:run_campaign": {
-   "complexity": 44,
-   "branches": 44,
-   "statements": 187,
-   "positional": 3
-  },
   "run/_assemble.py:assemble_records": {
    "complexity": 11,
    "branches": 10,
@@ -734,12 +655,6 @@
    "branches": 4,
    "statements": 62,
    "positional": 1
-  },
-  "run/cli.py:_build_parser": {
-   "complexity": 3,
-   "branches": 2,
-   "statements": 76,
-   "positional": 0
   },
   "run/cli.py:_cmd_plan": {
    "complexity": 13,
@@ -1388,6 +1303,90 @@
    "branches": 21,
    "statements": 73,
    "positional": 1
+  },
+  "run/_assessment.py:LoadsAssessor.__call__": {
+   "complexity": 31,
+   "branches": 32,
+   "statements": 85,
+   "positional": 3
+  },
+  "run/_assessment.py:_judge_the_clockings": {
+   "complexity": 14,
+   "branches": 14,
+   "statements": 47,
+   "positional": 6
+  },
+  "run/_campaign.py:_prepare_case": {
+   "complexity": 15,
+   "branches": 15,
+   "statements": 34,
+   "positional": 4
+  },
+  "run/_campaign.py:run_campaign": {
+   "complexity": 44,
+   "branches": 44,
+   "statements": 187,
+   "positional": 3
+  },
+  "run/_cli_parsers.py:_build_parser": {
+   "complexity": 3,
+   "branches": 2,
+   "statements": 76,
+   "positional": 0
+  },
+  "run/_executors.py:_run_until_the_analysis_ends": {
+   "complexity": 16,
+   "branches": 0,
+   "statements": 54,
+   "positional": 3
+  },
+  "run/_executors.py:_run_with_progress": {
+   "complexity": 13,
+   "branches": 12,
+   "statements": 47,
+   "positional": 6
+  },
+  "run/_identity.py:check_solver_identity": {
+   "complexity": 11,
+   "branches": 12,
+   "statements": 37,
+   "positional": 3
+  },
+  "run/_pending.py:_write_pending_files": {
+   "complexity": 33,
+   "branches": 32,
+   "statements": 99,
+   "positional": 2
+  },
+  "run/_plan.py:CampaignPlan.summary": {
+   "complexity": 11,
+   "branches": 10,
+   "statements": 19,
+   "positional": 0
+  },
+  "run/_plan.py:_plan_point": {
+   "complexity": 9,
+   "branches": 8,
+   "statements": 29,
+   "positional": 7
+  },
+  "run/_plan.py:_staged_inputs_conflict": {
+   "complexity": 7,
+   "branches": 6,
+   "statements": 15,
+   "positional": 6
+  },
+  "run/_points.py:_execute_point": {
+   "complexity": 44,
+   "branches": 45,
+   "statements": 159,
+   "positional": 0
+  },
+  "run/_sweep.py:_execute_sweep": {
+   "complexity": 31,
+   "branches": 31,
+   "statements": 125,
+   "positional": 0
   }
  },
  "baseline_sccs": [
@@ -1398,8 +1397,13 @@
    "pyflightstream.post.products",
    "pyflightstream.run",
    "pyflightstream.run._assemble",
+   "pyflightstream.run._campaign",
+   "pyflightstream.run._identity",
+   "pyflightstream.run._plan",
+   "pyflightstream.run._points",
    "pyflightstream.run._rebuild",
    "pyflightstream.run._rebuild_evidence",
+   "pyflightstream.run._sweep",
    "pyflightstream.run.collect",
    "pyflightstream.run.matrix",
    "pyflightstream.run.records"
@@ -1448,12 +1452,11 @@
   "pyflightstream.qa.probes": 3,
   "pyflightstream.reference": 9,
   "pyflightstream.results.tables": 3,
-  "pyflightstream.run": 24,
   "pyflightstream.run._continuation_frame": 1,
   "pyflightstream.run._rebuild": 2,
   "pyflightstream.run._rebuild_evidence": 3,
   "pyflightstream.run._solver_windows": 1,
-  "pyflightstream.run.cli": 13,
+  "pyflightstream.run.cli": 12,
   "pyflightstream.run.collect": 6,
   "pyflightstream.run.matrix": 5,
   "pyflightstream.run.records": 1,
@@ -1476,7 +1479,16 @@
   "pyflightstream.post._rotor_plan": 3,
   "pyflightstream.post._rotor_products": 3,
   "pyflightstream.post._sim": 1,
-  "pyflightstream.post._stage": 7
+  "pyflightstream.post._stage": 7,
+  "pyflightstream.run._assessment": 4,
+  "pyflightstream.run._campaign": 1,
+  "pyflightstream.run._cli_parsers": 1,
+  "pyflightstream.run._continuation": 1,
+  "pyflightstream.run._executors": 4,
+  "pyflightstream.run._identity": 2,
+  "pyflightstream.run._ids": 3,
+  "pyflightstream.run._pending": 4,
+  "pyflightstream.run._plan": 5
  },
  "monkeypatch_targets": 83,
  "monkeypatch_targets_by_module": {
@@ -1499,7 +1511,6 @@
   "pyflightstream.qa.physics": 1,
   "pyflightstream.results.core": 1,
   "pyflightstream.results.tables": 3,
-  "pyflightstream.run": 9,
   "pyflightstream.run._rebuild": 1,
   "pyflightstream.run._solver_windows": 2,
   "pyflightstream.run.cli": 10,
@@ -1517,7 +1528,13 @@
   "pyflightstream.post._rotor_plan": 1,
   "pyflightstream.post._sim": 1,
   "pyflightstream.post._stage": 1,
-  "pyflightstream.post.point_tables": 1
+  "pyflightstream.post.point_tables": 1,
+  "pyflightstream.run._assessment": 1,
+  "pyflightstream.run._campaign": 3,
+  "pyflightstream.run._executors": 1,
+  "pyflightstream.run._identity": 2,
+  "pyflightstream.run._ids": 1,
+  "pyflightstream.run._pending": 1
  },
  "one_home_allowlist": [],
  "facade_lines": {
@@ -1528,7 +1545,6 @@
   "fsi/__init__.py": 25,
   "post/__init__.py": 13,
   "probes/__init__.py": 441,
-  "run/__init__.py": 7857,
   "script/__init__.py": 1954,
   "workspace/__init__.py": 3625
  },
@@ -1723,6 +1739,37 @@
     "_conventions",
     "_vocabulary"
    ]
+  },
+  "pyflightstream.run": {
+   "order": [
+    "cli",
+    "_cli_parsers",
+    "rename",
+    "records",
+    "_rebuild",
+    "_rebuild_evidence",
+    "_record_files",
+    "_assemble",
+    "collect",
+    "matrix",
+    "__init__",
+    "_campaign",
+    "_sweep",
+    "_points",
+    "_pending",
+    "_plan",
+    "_continuation",
+    "_identity",
+    "_assessment",
+    "_executors",
+    "_ids",
+    "_continuation_frame",
+    "_field_motion",
+    "_actions_counter",
+    "_step_exports",
+    "_solver_windows",
+    "_wake_edge_verdict"
+   ]
   }
  },
  "metrics": {
@@ -1741,6 +1788,6 @@
   "private_test_names": 241,
   "monkeypatch_targets": 83,
   "workspace_to_run_imports": 0,
-  "root_facade_lines": 20683
+  "root_facade_lines": 12834
  }
 }

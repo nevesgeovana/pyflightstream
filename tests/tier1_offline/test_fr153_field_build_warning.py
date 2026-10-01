@@ -215,7 +215,7 @@ def test_fr153_another_solver_version_or_unit_is_refused_as_before(tmp_path, ver
 
 def test_fr153_the_post_writes_one_warning_line_and_the_manifest_entry(tmp_path, monkeypatch):
     from pyflightstream.post.products import write_campaign_products
-    from pyflightstream.run import _write_probe_points
+    from pyflightstream.run._pending import _write_probe_points
     from pyflightstream.workspace import CampaignWorkspace
     from tests.tier1_offline.test_f01_probe_source import _post_workspace
     from tests.tier1_offline.test_post_products import PLOTS_HEADER

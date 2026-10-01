@@ -17,7 +17,7 @@ never needs the library; resolution applies only when the matrix is
 about to be planned or run.
 
 THE GEOMETRY ARRIVED LAST AND IT IS WHY 0.8.1 EXISTS. The run layer had
-always done its half: :func:`pyflightstream.run._prepare_case` stages
+always done its half: :func:`pyflightstream.run._campaign._prepare_case` stages
 :attr:`pyflightstream.cases.SimCase.geometry`, hashes it into the
 record, and rewrites the field to the STAGED path before the builder is
 called. Nothing ever ASSIGNED that field from a matrix, so a row could

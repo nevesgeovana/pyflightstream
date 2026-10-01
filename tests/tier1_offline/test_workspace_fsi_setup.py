@@ -143,7 +143,7 @@ def test_existing_run_writer_stages_and_hashes_fsi_per_point(tmp_path: Path) -> 
     # GOAL033:fsi:checks:resolved_provenance
     from pyflightstream._digest import file_sha256
     from pyflightstream.cases import SimCase, SweepAxis
-    from pyflightstream.run import _write_pending_files
+    from pyflightstream.run._pending import _write_pending_files
     from pyflightstream.script import Script
 
     source = tmp_path / "f001.toml"

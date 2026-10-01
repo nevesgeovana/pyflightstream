@@ -1092,10 +1092,11 @@ def test_an_unreadable_cold_start_blocks_the_plan(tmp_path):
 def test_an_unreadable_cold_start_is_a_recorded_failure_of_its_row_at_run(tmp_path, monkeypatch):
     """Q0-src-run-2: the run loop records the refusal instead of escaping it."""
     import pyflightstream.run as run_mod
+    import pyflightstream.run._ids as ids_mod
     from pyflightstream.cases import CampaignConfigError
 
     workspace, matrix = _steady_sweep_matrix(tmp_path)
-    real = run_mod._is_cold_start
+    real = ids_mod._is_cold_start
 
     def refuses_at_run(case):
         # The plan's check passes; the run loop's own check refuses, which is
@@ -1104,7 +1105,7 @@ def test_an_unreadable_cold_start_is_a_recorded_failure_of_its_row_at_run(tmp_pa
             raise CampaignConfigError("COLD_START must be true or false; got 'maybe'")
         return real(case)
 
-    monkeypatch.setattr(run_mod, "_is_cold_start", refuses_at_run)
+    monkeypatch.setattr(ids_mod, "_is_cold_start", refuses_at_run)
     stub = CountingStub(WRITES_EVERY_EXPORT)
     # Raised AFTER the loop, with the failure already in the manifest.
     with pytest.raises(run_mod.CampaignErrors) as raised:
@@ -2170,14 +2171,14 @@ def count_identity_probes(monkeypatch):
     a stylistic one; the campaign loop asks once per installation that
     still has work, keyed by the case's ``fs_build``.
     """
-    import pyflightstream.run as run_module
+    import pyflightstream.run._identity as identity_module
 
     calls = []
 
     def counting(executor, version, workdir, **_accept):
         calls.append(version)
 
-    monkeypatch.setattr(run_module, "check_solver_identity", counting)
+    monkeypatch.setattr(identity_module, "check_solver_identity", counting)
     return calls
 
 
@@ -2213,7 +2214,7 @@ def test_a_mixed_matrix_asks_its_one_installation_once_per_source(tmp_path, monk
     at all, being refused for naming two FS_BUILD values, one of which
     was the empty string. The structural fix is to group by the resolved
     EXECUTABLE rather than by the key, which lives in
-    ``pyflightstream.run._check_scheduled_builds``. If this number drops
+    ``pyflightstream.run._identity._check_scheduled_builds``. If this number drops
     to 1, that fix landed: lower it here rather than deleting the test.
     """
     calls = count_identity_probes(monkeypatch)
@@ -5810,9 +5811,17 @@ def test_goal019_hpc_the_queued_point_refusal_is_gone_because_its_cause_is():
     of one row, each into its own folder, and keeps the swept-steady job, which
     never had the refusal, running in the simulation folder.
     """
+    import importlib
+    import pkgutil
+
     import pyflightstream.run as run_module
 
-    assert not hasattr(run_module, "_a_point_is_already_queued"), (
+    modules = [run_module] + [
+        importlib.import_module(f"pyflightstream.run.{info.name}")
+        for info in pkgutil.iter_modules(run_module.__path__)
+    ]
+    assert len(modules) > 20, [m.__name__ for m in modules]
+    assert not any(hasattr(m, "_a_point_is_already_queued") for m in modules), (
         "the queued-point refusal is back; its cause was removed at 0.18.1, and a refusal "
         "of a second submitted point would refuse the swept row the release exists to submit"
     )

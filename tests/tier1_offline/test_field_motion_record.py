@@ -104,7 +104,7 @@ def test_continuation_preserves_predecessor_motion_without_replacing_history(tmp
             "trajectory": {"kind": "constant_rotation", "dt_s": 0.001},
         }
     }
-    from pyflightstream.run import _write_probe_points
+    from pyflightstream.run._pending import _write_probe_points
     from pyflightstream.script import Script, helpers
 
     layout = [

@@ -9,7 +9,7 @@ import pytest
 from pyflightstream.cases import CampaignConfigError, PprocSpec, default_outputs
 from pyflightstream.cases.workflows import WorkflowConventions, action_export_lines, build_script
 from pyflightstream.post.products import read_csv_table, write_campaign_products
-from pyflightstream.run import _write_probe_points
+from pyflightstream.run._pending import _write_probe_points
 from pyflightstream.script import Script
 from pyflightstream.workspace import CampaignWorkspace
 from tests.tier1_offline.test_post_products import (

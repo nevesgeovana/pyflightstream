@@ -295,7 +295,7 @@ _DECIMALS = 5
 #: file format users already read. IT IS DECIDED: every surface converges on
 #: `NA`.
 #:
-#: The five were the printed plan and cost table (`run/__init__`, FR-82), the
+#: The five were the printed plan and cost table (`run/_plan`, FR-82), the
 #: QA physics, drift and CLI tables, and `cases.matrix.UNSTATED_CELL`. All five
 #: now WRITE `NA`, and every READER still accepts `-`, so a matrix or a product
 #: written by an earlier release is read exactly as it was.

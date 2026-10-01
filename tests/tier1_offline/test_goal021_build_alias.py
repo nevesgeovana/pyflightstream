@@ -21,7 +21,8 @@ import pytest
 
 from pyflightstream.cases import CampaignConfigError
 from pyflightstream.exceptions import InputArtifactError
-from pyflightstream.run import SubmittingExecutor, _unmapped_build_refusal
+from pyflightstream.run import SubmittingExecutor
+from pyflightstream.run._executors import _unmapped_build_refusal
 from pyflightstream.workspace.inputs import read_hpc_profile
 from tests.tier1_offline._workflow_docs import WORKFLOW_DOCS
 
@@ -154,7 +155,7 @@ def test_goal021_build_alias_the_same_matrix_submits_both_rows_when_both_are_map
     profile = documented_profile().replace(
         '"26.123" = "26.1"', '"26.123" = "26.1"\n"26.120" = "26.1"'
     )
-    import pyflightstream.run as run_module
+    import pyflightstream.run._executors as executors_module
     from pyflightstream.run import CampaignErrors
 
     workspace, matrix = _two_build_cluster(tmp_path, monkeypatch, profile)
@@ -165,7 +166,7 @@ def test_goal021_build_alias_the_same_matrix_submits_both_rows_when_both_are_map
     # rejected and the campaign raises after recording both; the descriptor is
     # written BEFORE the scheduler is called, which is what this control measures.
     submitted = []
-    real_run = run_module.subprocess.run
+    real_run = executors_module.subprocess.run
 
     def no_scheduler(argv, **kwargs):
         if not (isinstance(argv, list) and argv and argv[0] == "esub"):
@@ -173,7 +174,7 @@ def test_goal021_build_alias_the_same_matrix_submits_both_rows_when_both_are_map
         submitted.append(list(argv))
         raise OSError("no scheduler in a tier-1 test")
 
-    monkeypatch.setattr(run_module.subprocess, "run", no_scheduler)
+    monkeypatch.setattr(executors_module.subprocess, "run", no_scheduler)
     with pytest.raises(CampaignErrors):
         _run_on_the_cluster(workspace, matrix)
     assert len(workspace.read_manifest()) == 2, workspace.read_manifest()

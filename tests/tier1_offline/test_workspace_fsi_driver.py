@@ -10,7 +10,7 @@ from pyflightstream.cases import SimCase, SweepAxis
 from pyflightstream.fsi import cli, driver, nodes
 from pyflightstream.fsi.config import config_sha256, load_config
 from pyflightstream.fsi.state import load_state
-from pyflightstream.run import _write_pending_files
+from pyflightstream.run._pending import _write_pending_files
 from pyflightstream.script import Script
 from pyflightstream.workspace.fsi_setup import resolve_row_fsi
 from tests.tier1_offline.test_fsi_driver import FAMILY_MAP, driver_config, write_loads

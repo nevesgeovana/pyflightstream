@@ -109,7 +109,8 @@
 > 18 of 158, the branch of WP3 1130 in 18 of 172, the branch of FR-320
 > 1133 in 18 of 159, `rel/0-33` with WP3 merged 1130 in 18 of 172 and
 > `rel/0-33` with WP3 and FR-320 merged 1130 in 18 of 173, all on
-> 2026-09-30, and the branch of FR-96 1125 in 18 of 158 on 2026-10-01;
+> 2026-09-30, and the branch of FR-96 1125 in 18 of 158 and `rel/0-33`
+> with FR-96 merged 1122 in 18 of 173 on 2026-10-01;
 > measurements of different
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):

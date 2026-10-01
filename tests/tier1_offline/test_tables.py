@@ -714,7 +714,7 @@ def test_the_reader_and_the_assessor_reach_the_same_verdict_on_velocity(tmp_path
     same requested speed against the same parsed export.
     """
     from pyflightstream.cases import SimCase, SweepAxis
-    from pyflightstream.run import _bind_case_conditions
+    from pyflightstream.run._assessment import _bind_case_conditions
 
     export = read_fixture("loads_steady_26.120.txt")
     report = parse_loads(export, requested_version="26.120")

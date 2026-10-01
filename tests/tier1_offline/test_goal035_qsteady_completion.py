@@ -52,7 +52,7 @@ from pyflightstream.cases.workflows import (
 )
 from pyflightstream.fsi import centrifugal, driver, nodes
 from pyflightstream.fsi.config import FsiConfig
-from pyflightstream.run import _write_pending_files
+from pyflightstream.run._pending import _write_pending_files
 from pyflightstream.script import Script
 from tests.tier1_offline._workflow_docs import workflow_docs_text
 from tests.tier1_offline.conftest import make_uniform_blade_config

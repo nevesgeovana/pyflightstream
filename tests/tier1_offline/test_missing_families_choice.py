@@ -33,8 +33,8 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases.workflows import IGNORE_MISSING_FAMILIES_VARIABLE, read_a_choice
 from pyflightstream.cases.workflows._names import _ignore_missing_families, _selected_families
+from pyflightstream.run._cli_parsers import _a_word_that_means_false
 from pyflightstream.run.cli import (
-    _a_word_that_means_false,
     _build_parser,
     _the_missing_family_choice,
 )

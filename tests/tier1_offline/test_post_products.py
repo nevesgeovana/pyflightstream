@@ -1847,7 +1847,7 @@ def test_the_probe_positions_the_record_names_reach_the_delivered_table(tmp_path
     fails. The frame likewise: `PUSHER_SMRP` appears nowhere else.
     """
     from pyflightstream.post.products import read_csv_table, write_campaign_products
-    from pyflightstream.run import _write_probe_points
+    from pyflightstream.run._pending import _write_probe_points
     from pyflightstream.workspace import RunRecord
 
     workspace = _unsteady_workspace(tmp_path, reductions=None)
@@ -1968,7 +1968,7 @@ def test_an_unsteady_point_with_a_steady_probe_export_gets_the_history_table(tmp
     is always the plots history, and the steady export is never read for it.
     """
     from pyflightstream.post.products import read_csv_table, write_campaign_products
-    from pyflightstream.run import _write_probe_points
+    from pyflightstream.run._pending import _write_probe_points
     from pyflightstream.workspace import RunRecord
 
     workspace = _unsteady_workspace(tmp_path, reductions=None)

@@ -35,7 +35,9 @@ from pyflightstream.cases import fsi_workspace as ws
 from pyflightstream.fsi import beam, centrifugal, driver, nodes, wing
 from pyflightstream.fsi.config import BladeProperties, FixedWing, FsiConfig, dump_config
 from pyflightstream.fsi.errors import FsiInputError
-from pyflightstream.run import _is_one_job, _run_until_the_analysis_ends, _write_pending_files
+from pyflightstream.run._executors import _run_until_the_analysis_ends
+from pyflightstream.run._ids import _is_one_job
+from pyflightstream.run._pending import _write_pending_files
 from pyflightstream.script import Script
 from tests.tier1_offline.test_g06_actuator_disc import _lines
 from tests.tier1_offline.test_workflows import steady_case, unsteady_case

@@ -18,7 +18,7 @@ from pyflightstream.cases import (
 )
 from pyflightstream.cases.workflows._skeleton import _script_init
 from pyflightstream.fsi import nodes
-from pyflightstream.run import _write_pending_files
+from pyflightstream.run._pending import _write_pending_files
 from pyflightstream.script import Script
 from tests.tier1_offline.conftest import make_uniform_blade_config
 from tests.tier1_offline.test_g06_actuator_disc import _lines

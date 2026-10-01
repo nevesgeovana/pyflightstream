@@ -664,7 +664,7 @@ def test_a_run_id_is_never_rendered_wider_than_the_column(tmp_path):
     38 so nothing reaches it today, and a bound nothing enforces is the half
     that gets reached later.
     """
-    from pyflightstream.run import _elide
+    from pyflightstream.run._plan import _elide
 
     long_id = "pfs0160/sim_6002/a+00.0_b+00.0_j+01.7"
     for width in range(0, 45):

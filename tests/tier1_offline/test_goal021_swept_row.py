@@ -488,7 +488,7 @@ def test_goal021_swept_row_the_staged_input_check_reads_the_name_the_file_system
     from types import SimpleNamespace
 
     from pyflightstream.cases import SimCase, SweepAxis
-    from pyflightstream.run import _staged_inputs_conflict
+    from pyflightstream.run._plan import _staged_inputs_conflict
 
     source = tmp_path / "models" / spelling
     source.parent.mkdir()

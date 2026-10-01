@@ -4,7 +4,7 @@ import pytest
 
 from pyflightstream.cases import SimCase, SweepAxis
 from pyflightstream.cases.workflows import build_steady_sweep
-from pyflightstream.run import _is_cold_start
+from pyflightstream.run._ids import _is_cold_start
 from pyflightstream.script import Script
 
 

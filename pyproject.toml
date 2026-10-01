@@ -252,7 +252,8 @@ exclude_also = [
 # down: `pyflightstream.results.tables` was excused on 2026-08-03 and is
 # clean now, so its override was deleted on evidence (see the note where it
 # stood, below). That is the direction this header has promised since the
-# ratchet was written, happening for the first time. Every one of the 18
+# ratchet was written, happening for the first time, and again at 0.33.0, when
+# WP6 typed the run root and deleted its override. Every one of the 17
 # modules exempted below still reports at least one error (re-counted with the
 # sentence above). The per-module figures, the
 # reproduction command and the dependency versions the count rests on are in
@@ -337,10 +338,6 @@ ignore_errors = true
 # off. This is the direction the header comment above promises, an
 # exemption removed as its module is typed and never added, and it is the
 # first one this project has been able to remove on evidence.
-
-[[tool.mypy.overrides]]
-module = "pyflightstream.run"
-ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = "pyflightstream.script"

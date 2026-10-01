@@ -59,7 +59,7 @@ def test_goal024_unregistered_build_flag_the_registered_build_is_silent_either_w
 def test_goal024_unregistered_build_flag_run_passes_it_and_every_record_says_so(
     tmp_path, monkeypatch, accepted
 ):
-    import pyflightstream.run as run_module
+    import pyflightstream.run._identity as identity_module
     from tests.tier1_offline.test_matrix_run import (
         REGISTRY_FIXTURE,
         make_library,
@@ -72,7 +72,7 @@ def test_goal024_unregistered_build_flag_run_passes_it_and_every_record_says_so(
     def spy(executor, version, workdir, **options):
         seen.append(options.get("accept_unregistered_build"))
 
-    monkeypatch.setattr(run_module, "check_solver_identity", spy)
+    monkeypatch.setattr(identity_module, "check_solver_identity", spy)
     exe = real_executable(tmp_path)
     workspace = make_library(tmp_path, register_build=("26.120", exe.as_posix()))
     records = run_for_records(REGISTRY_FIXTURE, workspace, accept_unregistered_build=accepted)

@@ -2,7 +2,7 @@
 
 import json
 
-from pyflightstream.run import _walltime_stop
+from pyflightstream.run._pending import _walltime_stop
 
 
 def test_callbacks_after_clock_fired_do_not_claim_stopped_step(tmp_path):

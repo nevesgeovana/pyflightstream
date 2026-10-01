@@ -62,7 +62,10 @@ FACADE_HELD = {
 #: in their stead; no function joined the pending set. The `results` root
 #: and `run.records`, whose definitions left, pass and leave the list.
 #: `cases/workflows.py`, cut by WP4 into the package `cases/workflows/` whose
-#: modules all pass, leaves this list and the examples list.
+#: modules all pass, leaves this list and the examples list. WP6
+#: (AD-14) moved the pending functions of the `run` root into `run._campaign`,
+#: `run._executors`, `run._identity` and `run._plan`, pinned in its stead; the
+#: root, a facade now, leaves the list.
 NUMPYDOC_PENDING = {
     "cases/__init__.py",
     "farfield/__init__.py",
@@ -87,7 +90,10 @@ NUMPYDOC_PENDING = {
     "results/native_surface.py",
     "results/surface.py",
     "results/tables.py",
-    "run/__init__.py",
+    "run/_campaign.py",
+    "run/_executors.py",
+    "run/_identity.py",
+    "run/_plan.py",
     "run/cli.py",
     "workspace/__init__.py",
     "workspace/hpc.py",
@@ -99,7 +105,9 @@ NUMPYDOC_PENDING = {
 #: section. DOC-B part 2 completes them; the list only shrinks. The entry
 #: points WP3 moved out of the `results` root are pinned in their new homes,
 #: `results.exports` and `results.loads`, and the root, which keeps none,
-#: leaves the list.
+#: leaves the list. Those WP6 moved out of the `run` root are pinned in
+#: `run._assessment`, `run._campaign`, `run._executors`, `run._identity` and
+#: `run._plan`, and the root leaves the list.
 EXAMPLES_PENDING = {
     "cases/__init__.py",
     "script/__init__.py",
@@ -108,7 +116,11 @@ EXAMPLES_PENDING = {
     "results/loads.py",
     "results/surface.py",
     "results/tables.py",
-    "run/__init__.py",
+    "run/_assessment.py",
+    "run/_campaign.py",
+    "run/_executors.py",
+    "run/_identity.py",
+    "run/_plan.py",
     "run/cli.py",
     "workspace/__init__.py",
     "workspace/inputs.py",
