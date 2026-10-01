@@ -33,6 +33,27 @@ REPO = Path(__file__).resolve().parents[2]
 EXAMPLES = REPO / "examples"
 PACKAGE = REPO / "src" / "pyflightstream"
 
+
+def _child_environment() -> dict[str, str]:
+    """The environment of a child interpreter, importing the package THIS one imports.
+
+    A child process imports whatever its interpreter finds first, and an
+    editable install of another checkout in the same venv is found before
+    this tree's ``src``: the child then ran a different package from the
+    one under test, and a module this tree added was missing there. So the
+    child's path starts where this process imports the package from: the
+    checkout's ``src`` under ``pythonpath = ["src"]``, site-packages in the
+    installed-wheel job.
+    """
+    import pyflightstream
+
+    environment = os.environ.copy()
+    root = str(Path(pyflightstream.__file__).resolve().parent.parent)
+    inherited = environment.get("PYTHONPATH")
+    environment["PYTHONPATH"] = root + (os.pathsep + inherited if inherited else "")
+    return environment
+
+
 #: The extras each example needs, declared rather than inferred, so a
 #: new import that reaches into an extra has to be a deliberate edit
 #: here as well. ``test_each_example_needs_only_the_extras_it_declares``
@@ -240,7 +261,7 @@ def test_each_example_runs(name, tmp_path):
     deprecations, which costs nothing here, because what is asserted is
     the absence of OUR class names and not the absence of output.
     """
-    environment = os.environ.copy()
+    environment = _child_environment()
     environment["PYTHONWARNINGS"] = "default::DeprecationWarning"
     result = subprocess.run(
         [sys.executable, str(EXAMPLES / name), *_example_arguments(name, tmp_path)],
@@ -287,7 +308,7 @@ def test_the_additional_post_example_leaves_a_continuation_that_binds(tmp_path):
     from pyflightstream.workspace import CampaignWorkspace
     from pyflightstream.workspace.naming import MATRIX_POINT_NAME, NamingTemplate
 
-    environment = os.environ.copy()
+    environment = _child_environment()
     for variable in ("TMPDIR", "TEMP", "TMP"):
         environment[variable] = str(tmp_path)
     result = subprocess.run(
@@ -1068,7 +1089,7 @@ def test_the_stderr_scan_sees_every_category_and_not_only_the_hierarchy_root(tmp
         "catch. Either the walk stopped resolving categories or the hierarchy is flat"
     )
 
-    environment = os.environ.copy()
+    environment = _child_environment()
     environment["PYTHONWARNINGS"] = "default::DeprecationWarning"
     for cls in classes:
         library = tmp_path / f"ops200602_lib_{cls.__name__}.py"
