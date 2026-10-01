@@ -456,7 +456,13 @@ def test_a_steady_coupled_process_is_stopped_after_its_completion_line(tmp_path)
         "sys.stdout.flush()\n"
         "time.sleep(600)\n"
     )
-    argv = [sys.executable, "-c", program]
+    # The base interpreter, not the venv launcher: on Windows a venv's
+    # python.exe starts the interpreter as a child that inherits the stdout
+    # handle and still holds it for a moment after the launcher is killed, so
+    # the removal of the stdout file can miss. Measured: 2 of 10 and 3 of 20
+    # leftover files through the launcher, 0 of 20 with the base interpreter.
+    interpreter = getattr(sys, "_base_executable", None) or sys.executable
+    argv = [interpreter, "-c", program]
     code, out, err, timed_out = _run_until_the_analysis_ends(argv, tmp_path, 60.0)
     assert (code, timed_out) == (0, False)
     assert ws.STEADY_AEROELASTIC_COMPLETION in out
