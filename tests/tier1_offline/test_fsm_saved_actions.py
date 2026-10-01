@@ -159,3 +159,13 @@ def test_mutant_keeping_the_count_turns_the_check_red_fr_308(tmp_path):
         assert saved_solver_actions(tmp_path / "fixed.fsm") == ()
     finally:
         sys.modules.pop("fsm_mutant_count", None)
+
+
+def test_reader_refuses_an_action_whose_command_length_disagrees_fr_308(tmp_path):
+    # Verifies FR-308.
+    geometry = _saved_simulation(tmp_path / "d.fsm", ACTIONS[:1])
+    stated = f"{len(CLOCK)},1, F".encode()
+    assert stated in geometry.read_bytes()
+    geometry.write_bytes(geometry.read_bytes().replace(stated, f"{len(CLOCK) + 1},1, F".encode()))
+    with pytest.raises(MeshReadError):
+        saved_solver_actions(geometry)

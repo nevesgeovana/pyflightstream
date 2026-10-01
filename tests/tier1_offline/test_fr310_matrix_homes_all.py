@@ -351,3 +351,14 @@ def test_fr310_a_bare_name_in_a_home_and_in_the_working_directory(same, tmp_path
     said = str(caught.value)
     assert str(local.resolve()) in said and str(placed["inputs"]) in said, (requirement, said)
     assert resolve_matrix_arguments(args) == 2, requirement
+
+
+def test_fr310_a_relative_path_that_names_its_folder_is_read_as_given(tmp_path, monkeypatch):
+    # Verifies FR-310.
+    ws = tmp_path / "ws"
+    _place(ws, "both-different", b"POL | RUN\n1 | 1\n")
+    monkeypatch.chdir(ws)
+    given = f"inputs/matrices/{NAME}"
+    args = _build_parser().parse_args(["plan", given, "--workspace", str(ws)])
+    assert resolve_matrix_arguments(args) is None
+    assert Path(args.matrix) == Path(given)

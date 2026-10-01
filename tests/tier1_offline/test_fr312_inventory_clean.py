@@ -192,3 +192,25 @@ def test_fr312_a_measured_build_missing_a_block_is_refused_writing_nothing(tmp_p
         clean_saved_actions(target, stamp="20260930-000000")
     assert target.read_bytes() == before, requirement
     assert not list(tmp_path.glob("*.bak-*"))
+
+
+def test_fr312_a_clean_that_changes_a_mesh_line_is_put_back_and_refused(tmp_path, monkeypatch):
+    # Verifies FR-312.
+    import os
+
+    from tests.tier1_offline.test_fsm_saved_actions import ACTIONS, _saved_simulation
+
+    geometry = _saved_simulation(tmp_path / "01_ROTOR.fsm", ACTIONS)
+    original = geometry.read_bytes()
+    real = os.replace
+
+    def replacing_then_corrupting(source, target):
+        real(source, target)
+        target = Path(target)
+        target.write_bytes(target.read_bytes().replace(b".500,.500,.500", b".600,.500,.500", 1))
+
+    monkeypatch.setattr(os, "replace", replacing_then_corrupting)
+    with pytest.raises(InputArtifactError, match="put back"):
+        clean_saved_actions(geometry, stamp="20261001-000000")
+    monkeypatch.undo()
+    assert geometry.read_bytes() == original

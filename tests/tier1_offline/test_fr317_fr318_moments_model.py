@@ -30,7 +30,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases._setup_link import analysis_frame_and_moments, moments_model_of
 from pyflightstream.cases.workflows import build_script
 from pyflightstream.script import Script, helpers
-from tests.tier1_offline.test_workflows import rotor_case
+from tests.tier1_offline.test_workflows import WORKFLOW_KEY, rotor_case
 
 BUILD = "26.124"
 
@@ -175,3 +175,25 @@ def test_a_rotor_row_is_recognised_by_the_builder(tmp_path):
         i for i, line in enumerate(lines) if line.startswith("SET_VORTICITY_DRAG_BOUNDARIES")
     )
     assert drag > start
+
+
+def test_a_steady_row_stating_a_rotor_speed_follows_the_vorticity_link(tmp_path):
+    # Verifies FR-318.
+    case = rotor_case(**{WORKFLOW_KEY: None}).model_copy(
+        update={
+            "recipe": "steady",
+            "geometry": str(tmp_path / "rotor.obj"),
+            "inventory": ("Blade", "Hub"),
+            "inventory_source": "sidecar",
+            "mesh_import": MeshImport(units="METER"),
+            "raw_mesh_conditions": RawMeshConditions(
+                trailing_edges=TrailingEdgeMarking(route="detect")
+            ),
+            "reference": ReferenceData(area=1.0, length=0.1, span_m=1.0),
+            "solver": SolverSettings(vorticity_drag_families=["Blade"]),
+        }
+    )
+    script = Script(BUILD)
+    with pytest.warns(PyflightstreamWarning, match="FR-318"):
+        build_script(case, script)
+    assert "SET_ANALYSIS_MOMENTS_MODEL VORTICITY" in script.render().splitlines()

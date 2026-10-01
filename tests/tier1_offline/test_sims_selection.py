@@ -400,3 +400,81 @@ def test_mutant_ignoring_collect_sims_turns_the_check_red_fr_307(tmp_path, monke
     workspace = _submitted(tmp_path)
     report = collect_once(workspace, interval=0.0, sleep=_no_sleep, sims=["9001"])
     assert _collect_check(workspace, report) != []
+
+
+def test_collect_sims_passes_the_simulations_to_the_workspace_post_fr_307(tmp_path):
+    # Verifies FR-307.
+    workspace = _submitted(tmp_path)
+    posted: list[object] = []
+    collect_and_post(
+        workspace,
+        interval=0.0,
+        sleep=_no_sleep,
+        sims=["9001"],
+        post=lambda _ws, **options: posted.append(options.get("sims")),
+    )
+    assert posted == [["9001"]]
+
+
+def test_collect_sims_posts_each_matrix_only_its_own_simulations_fr_307(tmp_path):
+    # Verifies FR-307.
+    workspace = _submitted(tmp_path)
+    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    for row in rows:
+        if row["sim_id"] == "9002":
+            row["matrix_stem"] = "other"
+    workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    posted: list[tuple[str | None, object]] = []
+    collect_and_post(
+        workspace,
+        interval=0.0,
+        sleep=_no_sleep,
+        sims=["9001", "9002"],
+        post_matrix=lambda _ws, stem, **options: posted.append((stem, options.get("sims"))),
+    )
+    assert sorted(posted) == [("matriz", ["9001"]), ("other", ["9002"])], posted
+
+
+def test_collect_sims_leaves_another_simulations_additional_extraction_submitted_fr_307(tmp_path):
+    # Verifies FR-307.
+    from pyflightstream.workspace import AdditionalRecord, ExtractionStatus
+
+    workspace = _submitted(tmp_path)
+    workspace.append_additional(
+        AdditionalRecord(
+            extraction_id="x9002",
+            run_id="camp/sim_9002/AL+000",
+            sim_id="9002",
+            pproc="p",
+            fsm="a.fsm",
+            fsm_sha256="0" * 64,
+            fs_version_requested="26.124",
+            package_version="0.33.0",
+            script_path="s.txt",
+            script_sha256="1" * 64,
+            working_dir="w",
+            declared_outputs=["extra.txt"],
+            status=ExtractionStatus.SUBMITTED,
+        )
+    )
+    collect_once(workspace, interval=0.0, sleep=_no_sleep, sims=["9001"])
+    latest = {record.extraction_id: record for record in workspace.read_additional()}
+    assert latest["x9002"].status is ExtractionStatus.SUBMITTED, latest["x9002"]
+    assert len(workspace.read_additional()) == 1
+
+
+def test_post_sims_does_not_name_the_stop_of_another_simulations_chain_fr_307(tmp_path):
+    # Verifies FR-307.
+    workspace = _three_sims(tmp_path)
+    _post_whole(workspace)
+    stopped = next(r for r in workspace.read_manifest() if r.sim_id == "6009")
+    workspace.append_record(
+        stopped.model_copy(
+            update={"run_id": f"{stopped.run_id}-continued", "continues": stopped.run_id}
+        )
+    )
+    write_campaign_products(
+        workspace, matrix_stem="matriz", overwrite=True, archive_stamp=_SECOND, sims=["6001"]
+    )
+    skipped = _document(workspace.products_dir("matriz")).get("skipped", {})
+    assert f"runs/{stopped.run_id}" not in skipped, skipped

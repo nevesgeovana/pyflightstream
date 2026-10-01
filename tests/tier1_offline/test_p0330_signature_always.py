@@ -170,3 +170,13 @@ def test_mutant_without_the_fallback_loses_the_signature_fr_315(monkeypatch):
     monkeypatch.setattr("sys.stderr", err2)
     _cli.cli_entrypoint(lambda argv: 0)([])
     assert SEES_YOU in raw2.getvalue().decode("ascii")
+
+
+def test_a_nested_entrypoint_signs_once_fr_315(monkeypatch):
+    # Verifies FR-315.
+    err = io.StringIO()
+    monkeypatch.setattr("sys.stderr", err)
+    inner = _cli.cli_entrypoint(lambda argv: 0)
+    outer = _cli.cli_entrypoint(lambda argv: inner(argv))
+    assert outer([]) == 0
+    assert err.getvalue().count(_signature.SEES_YOU) == 1, err.getvalue()

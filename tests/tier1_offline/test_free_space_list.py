@@ -161,3 +161,37 @@ def test_dropping_one_list_branch_turns_the_check_red_fr_305(tmp_path, capsys, m
     assert _checks(out) == ["archives: a folder"]
     with pytest.raises(AssertionError):
         assert _checks(out) == []
+
+
+def _workspace_with_a_protected_step_file(tmp_path: Path) -> CampaignWorkspace:
+    """Sim 5004 holds three per-step files and a record naming the first as an output."""
+    workspace = _workspace(tmp_path)
+    point = workspace.sim_dir("5004") / "datapoints" / "DP-1"
+    for step in (1, 2, 3):
+        _write(point / f"loads_iteration={step}.txt", "x" * 100 * step)
+    workspace.append_record(_record("5004", outputs=["datapoints/DP-1/loads_iteration=1.txt"]))
+    _write(
+        workspace.root / storage_module.MANAGEMENT_DIR / "m001.toml",
+        '[[prune_step_exports]]\nsims = ["5004"]\n',
+    )
+    return workspace
+
+
+def test_list_names_a_per_step_file_a_record_protects_as_kept_fr_305(tmp_path, capsys):
+    # Verifies FR-305.
+    workspace = _workspace_with_a_protected_step_file(tmp_path)
+    out = _run(workspace, capsys, "--list")
+    assert "loads_iteration=1.txt  kept (a record names it as an output)" in out, out
+    assert "loads_iteration=2.txt  200 B  would delete (step 2)" in out, out
+
+
+def test_list_of_a_compacting_archive_step_says_would_be_compacted_fr_305(tmp_path, capsys):
+    # Verifies FR-305.
+    workspace = _workspace(tmp_path)
+    _write(
+        workspace.root / storage_module.MANAGEMENT_DIR / "m001.toml",
+        '[[post_archives]]\naction = "compact"\nkeep_latest = 1\n',
+    )
+    out = _run(workspace, capsys, "--list")
+    assert "20260101-000000  40 B  would be compacted" in out, out
+    assert "would delete" not in out, out

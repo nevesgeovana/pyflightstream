@@ -161,3 +161,9 @@ def test_the_row_keys_reach_the_setup_snapshot_of_the_run_record(tmp_path):
     _settings(_resolve(tmp_path / "b", _row("9413", ""))["9413"], bare)
     assert bare.solver_setup is not None
     assert "from_row" not in bare.solver_setup.model_dump(mode="json")
+
+
+def test_one_setting_in_two_spellings_of_a_row_is_refused_as_stated_twice(tmp_path):
+    # Verifies FR-316.
+    with pytest.raises(MatrixError, match="twice"):
+        _resolve(tmp_path, _row("9414", "iterations: 800 / NITER: 800"))

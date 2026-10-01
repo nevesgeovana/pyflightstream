@@ -344,3 +344,13 @@ def test_two_families_both_reach_a_user_and_point_at_the_plans_caller_fr_320():
         (False, True),
     ]
     assert {Path(item.filename).resolve() for item in said} == {Path(__file__).resolve()}
+
+
+def test_fr320_a_row_of_two_points_is_named_once_not_twice(tmp_path):
+    # Verifies FR-320.
+    plan, said = planned(
+        tmp_path, FIVE, [SECTOR], pproc=plots, columns={**UNSTEADY, "SWEEP_VALUES": "0.0, 2.0"}
+    )
+    assert len(plan.points) == 2, plan.points
+    assert len(said) == 4, said
+    assert all("the geometry of row '3301' does not carry it" in line for line in said), said

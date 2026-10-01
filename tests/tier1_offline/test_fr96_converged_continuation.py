@@ -384,3 +384,24 @@ def test_a_point_that_continues_nothing_posts_as_before_control_fr_96(tmp_path):
     manifest, _, series, said = _posted(workspace)
     assert list(series.steps) == list(range(1, 9)) and said == []
     assert manifest["products"]["probes/AL-020_time_average.csv"]["windows"] == [[5, 8]]
+
+
+def _march_with(tmp_path, exported):
+    workspace = _continued_workspace(tmp_path, "numbered on")
+    (workspace.sim_dir("7001") / "outputs" / "AL-020_plots.txt").write_text(
+        exported, encoding="utf-8"
+    )
+    return _posted(workspace)
+
+
+def test_an_export_restating_only_the_last_step_keeps_the_seam_exact_fr_96(tmp_path):
+    # Verifies FR-96.
+    _, _, series, said = _march_with(tmp_path, _export(range(8, 13)))
+    assert list(series.steps) == list(range(1, 13)), (list(series.steps), said)
+
+
+def test_an_export_starting_inside_the_history_with_other_values_is_not_joined_fr_96(tmp_path):
+    # Verifies FR-96.
+    _, _, series, said = _march_with(tmp_path, _export(range(3, 7), offset=100))
+    assert list(series.steps) == [3, 4, 5, 6], (list(series.steps), said)
+    assert "cannot be joined" in said[0], said

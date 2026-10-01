@@ -156,3 +156,9 @@ def test_fr313_a_raw_mesh_or_a_row_with_no_geometry_is_not_read(tmp_path):
     mesh = tmp_path / "wing.stl"
     mesh.write_text("solid wing\nendsolid wing\n", encoding="utf-8")
     assert _warned([_row("7001", mesh), _row("7002", None)]) == [], requirement
+
+
+def test_fr313_a_raw_mesh_is_never_opened_for_saved_actions(tmp_path):
+    # Verifies FR-313.
+    mesh = _saved_simulation(tmp_path / "wing.stl", ACTIONS)
+    assert _warned([_row("7001", mesh)]) == []
