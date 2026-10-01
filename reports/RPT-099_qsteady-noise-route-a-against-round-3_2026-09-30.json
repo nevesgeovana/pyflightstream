@@ -4,11 +4,11 @@
   "run_id": "round3/sim_3201/M144RE438AL+000BE+000",
   "fs_version_reported": "26.1",
   "fs_build": "8172026",
-  "fs_exe_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+  "fs_exe_sha256": "withheld; build 8172026",
   "package_version": "0.31.0",
   "package_commit": "822660ce54bddca330327e1b00f07d46010bf590"
  },
- "script": "C:/WORK/release-0320/probes/round3/rpt099_route_a.py",
+ "script": "<local probe folder>/round3/rpt099_route_a.py",
  "condition": {
   "tip_mach": 0.16320882649276144,
   "flight_mach": 0.1441,

@@ -166,3 +166,31 @@ def test_invalid_basis_is_not_silently_orthogonalized():
     motion["y_axis"] = [1, 1, 0]
     with pytest.raises(ValueError, match="basis"):
         _convert([[1, 2, 3]], [[11, 3, 5]], motion)
+
+
+def test_velocity_convention_is_keyed_by_build_and_echoes_the_run_digest():
+    """NFR-31: build 8172026 of 26.124 identifies the executable, not a constant digest.
+
+    Any digest the run recorded is accepted and echoed back as the run's own;
+    another build, and a run that recorded no digest, are refused.
+    """
+    from pyflightstream._errors import ProductError
+    from pyflightstream.post.field_frames import native_velocity_proof
+
+    motion = {"solver_version": "26.124", "length_unit": "METER"}
+    for digest in ("a" * 64, "7" * 64):
+        proof = native_velocity_proof(
+            motion,
+            solver_identity={"fs_exe_sha256": digest, "fs_build": "8172026"},
+            export_kind="unsteady-fluid-plot",
+        )
+        assert proof["fs_exe_sha256"] == digest and proof["fs_build"] == "8172026"
+    for identity in (
+        {"fs_exe_sha256": "a" * 64, "fs_build": "8112026"},
+        {"fs_exe_sha256": None, "fs_build": "8172026"},
+        {"fs_exe_sha256": "", "fs_build": "8172026"},
+    ):
+        with pytest.raises(ProductError, match="no evidence"):
+            native_velocity_proof(
+                motion, solver_identity=identity, export_kind="unsteady-fluid-plot"
+            )

@@ -1,7 +1,7 @@
 # RPT-086 - The windows FlightStream 26.124 shows when launched with its GUI (2026-09-28)
 
 A no-solve probe on **FlightStream 26.124, build 8172026**, executable SHA-256
-`68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65` (the
+withheld from the public tree per NFR-31 (the
 executable of [RPT-085](RPT-085_native-workspace-evidence_2026-09-27.md)). It
 establishes which top-level windows that build opens in the first 40 s after a
 launch WITHOUT `-hidden` and without a script, which is how a matrix row

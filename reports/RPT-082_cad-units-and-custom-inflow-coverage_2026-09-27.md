@@ -8,7 +8,7 @@ conversion on one executable. Spatial diagnostics use conservative envelopes.
 ## IGES import and physical scale
 
 Measured on FlightStream 26.124, build 8172026, executable SHA-256
-`68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65`.
+withheld from the public tree per NFR-31.
 The control reused an existing wing IGES import and changed only its global
 unit flag/name from millimetres to metres. Scale parameter 13 remained 1.0,
 and all non-global IGES sections were byte-identical. The same coordinate

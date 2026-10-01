@@ -10,7 +10,7 @@ Software copyrights: Altair, 2024-2026.
 
 Date: 9/11/2026, Time: 0147 hours (local)
 
-Running script file: C:\GeoverseGoddess\GeoverseResearch\tools\fts_workspace\pfs0160\sims\sim_6001\scripts\POLAR-6001_M20AL-020BE+000.txt
+Running script file: C:\cases\pfs0160\sims\sim_6001\scripts\POLAR-6001_M20AL-020BE+000.txt
 
 
 
@@ -18,7 +18,7 @@ Simulation file saved in version: 26.1, build #2122026 and opening in version: 2
 
 Simulation file opened from following location:
 
-C:\GeoverseGoddess\GeoverseResearch\tools\fts_workspace\pfs0160\sims\sim_6001\inputs\30_WB.fsm
+C:\cases\pfs0160\sims\sim_6001\inputs\30_WB.fsm
 
 
 

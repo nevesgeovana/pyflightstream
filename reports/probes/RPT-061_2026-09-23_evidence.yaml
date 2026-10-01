@@ -4,7 +4,7 @@ question: where IMPORT_WAKE_EDGES_FROM_FILE reads its node list on 26.124, and w
 where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
 geometry: the tier-3 10_WING mesh, 816 faces, 16 trailing-edge edges at x = 1, z = 0
 executable_sha256:
-  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+  '26.124': 'withheld; build 8172026'
 package:
   version: 0.27.0.dev0
   commit: 2f3c10e

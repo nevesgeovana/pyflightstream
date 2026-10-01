@@ -323,3 +323,17 @@ def test_probe_verdict_uses_receipted_measurements(tmp_path):
     assert measured["fs_exe_sha256"] == "a" * 64
     assert measured["positions_tried"] == 1
     assert instrument.solver_time_averaging(tmp_path, remedy="")["verdict"] == "failed"
+
+
+def test_committed_receipt_copies_state_the_build_and_never_the_digest(tmp_path):
+    """NFR-31: the copy under reports/ names the build; the workspace keeps the digest."""
+    _receipted_probes(tmp_path)
+    copies = tmp_path / "copies"
+    check = _instrument().solver_time_averaging(tmp_path, receipts=copies, refresh_receipts=True)
+    assert check["verdict"] == "refused-by-measurement"
+    assert check["measured"]["fs_exe_sha256"] == "withheld; build 8172026"
+    for variant in ("without", "with"):
+        copied = json.loads((copies / variant / "receipt.json").read_text(encoding="utf-8"))
+        assert copied["fs_exe_sha256"] == "withheld; build 8172026"
+        source = json.loads((tmp_path / variant / "receipt.json").read_text(encoding="utf-8"))
+        assert source["fs_exe_sha256"] == "a" * 64

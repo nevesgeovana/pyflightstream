@@ -42,10 +42,11 @@ from tests.tier1_offline.test_matrix_run import RECIPES, STUB_BODY, CountingStub
 FIXTURES = Path(__file__).parent / "fixtures"
 
 #: The build and version the velocity convention of a steady probe export is
-#: measured for (post/field_frames.py), and the executable digest it names.
+#: measured for (post/field_frames.py). The build identifies the executable
+#: (NFR-31); the run must still have recorded a digest of its own.
 BUILD = "8172026"
 VERSION = "26.124"
-MEASURED_EXE_SHA256 = "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65"
+RECORDED_EXE_SHA256 = "9" * 64
 
 PPROC = (
     '[groups]\n"1" = "all"\n\n'
@@ -207,9 +208,9 @@ def _rewrite_row(workspace: CampaignWorkspace, **fields: object) -> None:
 def test_the_post_writes_each_point_s_volume_section_from_the_job(tmp_path):
     """Row 5007 end to end: every point of the job gets its ``_vsec`` file."""
     workspace, record, _ = _run(tmp_path, {0.0: BUILD, 2.0: BUILD})
-    # THE ONE FIELD A STUB CANNOT EARN: the digest of the licensed executable.
+    # THE ONE FIELD A STUB CANNOT EARN: a recorded digest of the executable.
     # Every other field the post reads is the run's own.
-    _rewrite_row(workspace, fs_exe_sha256=MEASURED_EXE_SHA256)
+    _rewrite_row(workspace, fs_exe_sha256=RECORDED_EXE_SHA256)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", PyflightstreamWarning)
         write_campaign_products(workspace, matrix_stem=record.matrix_stem, overwrite=True)

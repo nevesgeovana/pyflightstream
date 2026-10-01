@@ -329,7 +329,7 @@ def test_the_identifier_guard_fires_on_what_it_exists_to_catch():
     # Assembled, never written literally, for the reason PROFILE_PATH_SHAPE gives.
     users = "Users"
     profiles = (
-        "/c/" + users + "/someone/OneDrive/tree",
+        "/c/" + users + "/someone/" + "One" + "Drive/tree",
         "C:" + chr(92) + users + chr(92) + "someone",
         "%" + "USER" + "PROFILE%",
     )

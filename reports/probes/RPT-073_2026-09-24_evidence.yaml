@@ -5,7 +5,7 @@ question: does every tier-3 point whose script changed since 0.26.0 converge on 
   recorded run (T12)
 where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
 executable_sha256:
-  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+  '26.124': 'withheld; build 8172026'
 pass_condition: 'set before the run: every point converges, or completes its declared time steps if unsteady, and
   collects every declared output; a coefficient delta above 5 percent against the recorded run is a finding to investigate,
   reported with the two causes known in advance (far field: every setup states five layers, where the records stated

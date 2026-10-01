@@ -3,7 +3,7 @@ fs_version: '26.120'
 date: '2026-09-09'
 package_version: 0.13.0.dev0
 fs_exe: FlightStream_26120.exe
-fs_exe_sha256: ec89fe59712e49242a22e64b949acc293616182ca656de79be95d462021dae7b
+fs_exe_sha256: 'withheld; build 7012026'
 executor: LocalExecutor, -hidden -script (mechanism SRC-003 pp.279-280; argument spelling RPT-023)
 source: matriz_physics.fs in workspace tier3_licensed
 solver_identity:

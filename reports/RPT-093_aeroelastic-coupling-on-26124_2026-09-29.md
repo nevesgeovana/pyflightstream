@@ -1,7 +1,7 @@
 # RPT-093 - The Aeroelastic Coupling Toolbox on 26.124: nine measured facts (2026-09-29)
 
 A synthesis of licensed probes on **FlightStream 26.124, build 8172026**, executable
-SHA-256 `68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65` (the same
+SHA-256 withheld from the public tree per NFR-31 (the same
 executable as [RPT-086](RPT-086_gui-launch-windows_2026-09-28.md) and
 [RPT-087](RPT-087_periodic-native-tecplot-one-zone-per-copy_2026-09-28.md)). It
 records what the Aeroelastic Coupling Toolbox does on a fixed wing, on a fixed

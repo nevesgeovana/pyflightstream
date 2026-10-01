@@ -18,7 +18,7 @@ not turn the field; and a sheared field changes the loads.**
 
 ## What was run
 
-FlightStream 26.124 (build 8172026, executable sha256 68e64e66...), five
+FlightStream 26.124 (build 8172026, executable sha256 withheld per NFR-31), five
 steady points of one wing (`12_WING_PHY.fsm`, reference r008, setup s010 with
 `SOLVER_SET_FARFIELD_LAYERS 5`, pproc p002), 30 m/s, sea-level density,
 launched in one detached run with no solver alive before it. Each row moves

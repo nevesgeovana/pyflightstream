@@ -2,7 +2,7 @@
 
 These controls used synthetic wing, rotor, duct and body fixtures on
 **FlightStream 26.124, build 8172026**, executable SHA-256
-`68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65`.
+withheld from the public tree per NFR-31.
 They establish the stated operational effects on that executable. They do not
 establish aerodynamic accuracy, convergence, a full rotor revolution, or
 behavior on another build.

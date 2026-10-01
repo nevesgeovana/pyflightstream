@@ -4,7 +4,7 @@ question: do the volume section and the actuator disc (by net thrust and by a ra
   back on 26.124, and in what form does the build read a profile file
 where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
 executable_sha256:
-  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+  '26.124': 'withheld; build 8172026'
 volume_section:
   first_run: both points of 5007 exported 25 points and 16 cells, every cell value 0.0, byte-identical
   after_UPDATE_ALL_VOLUME_SECTIONS: 96 non-zero cell values per point; the two points differ

@@ -4,7 +4,7 @@ question: does SET_FREESTREAM CUSTOM STRUCTURED run on 26.124, how is its file r
   turn a custom field (T14)
 where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
 executable_sha256:
-  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+  '26.124': 'withheld; build 8172026'
 reference_velocity_m_s: 30.0
 scripts_sha256:
   P5010-V0300RHO12250AL+040.txt: 949005098e3991a22d3a2161d1afe94ef1043504a1d972a49cb333be1e798c82

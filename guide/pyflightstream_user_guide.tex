@@ -399,7 +399,7 @@ from pyflightstream.script import Script
 script = Script(version="26.120")        # canonical identifier
 script.comment("my first validated script")
 script.emit("NEW_SIMULATION")
-script.emit("IMPORT", "METER", "STL", "C:/work/wing.stl", clear=True)
+script.emit("IMPORT", "METER", "STL", "C:/cases/wing.stl", clear=True)
 script.emit("SET_SIMULATION_LENGTH_UNITS", "METER")
 script.emit("AUTO_DETECT_TRAILING_EDGES")
 text = script.render()                  # complete ASCII script
@@ -451,7 +451,7 @@ from pathlib import Path
 from pyflightstream.run import LocalExecutor
 from pyflightstream.results import parse_loads
 
-workdir = Path("C:/work/run1"); workdir.mkdir(exist_ok=True)
+workdir = Path("C:/cases/run1"); workdir.mkdir(exist_ok=True)
 script_path = (workdir / "case.txt").resolve()   # absolute!
 script_path.write_text(script.render(), encoding="utf-8")
 
@@ -907,7 +907,7 @@ from pyflightstream.run import (LocalExecutor, run_campaign,
 campaign = load_campaign("campaign.toml")
 records = run_campaign(campaign,
     executor=LocalExecutor(campaign.fs_exe),
-    workspace=CampaignWorkspace("C:/work/campaign_root"),
+    workspace=CampaignWorkspace("C:/cases/campaign_root"),
     assess=LoadsAssessor())   # judges whichever collected
                               # output reads as a loads table
 \end{lstlisting}

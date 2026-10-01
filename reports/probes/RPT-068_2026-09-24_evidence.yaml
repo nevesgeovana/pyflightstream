@@ -3,7 +3,7 @@ date: '2026-09-24'
 question: does FlightStream 26.124 answer SET_VORTICITY_LIFT_MODEL and SET_UNSTEADY_VISCOUS_COUPLING_ITERATION
 where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
 executable_sha256:
-  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+  '26.124': 'withheld; build 8172026'
 before:
   solver_processes: 0
   free_gb: 2.32

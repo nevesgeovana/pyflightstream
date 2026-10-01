@@ -15,7 +15,7 @@ input_mesh_sha256: # the inputs/30_WB.fsm of each simulation, measured 2026-09-1
   sim_4102: 3a5f174c594e6cd6b47517da4da9b633ea4c95cf9f00d17f4ddfd5d1539bd00a
   sim_4103: 3a5f174c594e6cd6b47517da4da9b633ea4c95cf9f00d17f4ddfd5d1539bd00a
 executable_sha256:
-  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+  '26.124': 'withheld; build 8172026'
 command_measured: SET_FREESTREAM ROTATION
 free_stream_line_per_simulation:
   sim_4101: SET_FREESTREAM CONSTANT
@@ -91,8 +91,8 @@ script_diff: # every line that differs between sim_4101 and sim_4102, the two
   # command, two are the input-mesh path (which follows from the simulation id,
   # and whose two files are byte-identical above), and fourteen are export names
   # (seven names, each on both sides), which follow from the point name (0.21.0).
-  - '-C:/GeoverseGoddess/GeoverseResearch/tools/fts_workspace/pfs0210-probe-rotation/sims/sim_4101/inputs/30_WB.fsm'
-  - '+C:/GeoverseGoddess/GeoverseResearch/tools/fts_workspace/pfs0210-probe-rotation/sims/sim_4102/inputs/30_WB.fsm'
+  - '-<workspace>/sims/sim_4101/inputs/30_WB.fsm'
+  - '+<workspace>/sims/sim_4102/inputs/30_WB.fsm'
   - '-SET_FREESTREAM CONSTANT'
   - '+SET_FREESTREAM ROTATION 2 Y 0.6666666666666666'
   - '-P4101-M200RE1177AL+020BE+000Q+000.fsm'
@@ -111,8 +111,8 @@ script_diff: # every line that differs between sim_4101 and sim_4102, the two
   - '+P4102-M200RE1177AL+020BE+000Q+040_log.txt'
 script_diff_4101_4103: # the same control for the pair that carries the verdict,
   # measured 2026-09-16. Eighteen lines, the same three kinds.
-  - '-C:/GeoverseGoddess/GeoverseResearch/tools/fts_workspace/pfs0210-probe-rotation/sims/sim_4101/inputs/30_WB.fsm'
-  - '+C:/GeoverseGoddess/GeoverseResearch/tools/fts_workspace/pfs0210-probe-rotation/sims/sim_4103/inputs/30_WB.fsm'
+  - '-<workspace>/sims/sim_4101/inputs/30_WB.fsm'
+  - '+<workspace>/sims/sim_4103/inputs/30_WB.fsm'
   - '-SET_FREESTREAM CONSTANT'
   - '+SET_FREESTREAM ROTATION 2 Y 6.666666666666666'
   - '-P4101-M200RE1177AL+020BE+000Q+000.fsm'

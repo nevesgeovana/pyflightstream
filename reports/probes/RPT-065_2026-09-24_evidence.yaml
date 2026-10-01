@@ -3,7 +3,7 @@ date: '2026-09-24'
 question: what trailing-edge detection marks, whole and by surface, with the angle, and what INITIALIZE_SOLVER marks
 where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
 executable_sha256:
-  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+  '26.124': 'withheld; build 8172026'
 states:
   W: the tier-3 wing STL imported and saved with no detection (816 faces, 16 trailing-edge edges by construction)
   B: the tier-3 blade STL imported and saved with no detection

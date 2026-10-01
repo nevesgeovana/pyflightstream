@@ -3,13 +3,13 @@
  "title": "pyflightstream 0.32 round 3 on FlightStream 26.124: the acoustic chain, the wake stabilisation and the surface removal",
  "release": "0.32",
  "build": "26.124 build 8172026",
- "executable_sha256": "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65",
+ "executable_sha256": "withheld; build 8172026",
  "route": "package route: pyfs-matrix plan, then pyfs-matrix run --local, two matrices, serial",
  "files_read": {
-  "readme": "C:/WORK/release-0320/probes/round3/README.md",
-  "verdicts": ["C:/WORK/release-0320/probes/round3/verdicts_e2.json", "C:/WORK/release-0320/probes/round3/verdicts_h.json"],
-  "sims": "C:/WORK/release-0320/probes/round3/sims/",
-  "summary": "C:/WORK/release-0320/probes/round23_done.txt"
+  "readme": "<local probe folder>/round3/README.md",
+  "verdicts": ["<local probe folder>/round3/verdicts_e2.json", "<local probe folder>/round3/verdicts_h.json"],
+  "sims": "<local probe folder>/round3/sims/",
+  "summary": "<local probe folder>/round23_done.txt"
  },
  "totals": {"rows": 9, "e2_expectations_held": "30 of 30", "h_expectations_held": "39 of 40", "h_expectation_failed": "3301 status is COMPLETED_MAX_ITER, the short march, not a G9 defect"},
  "acoustic_chain": {

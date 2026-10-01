@@ -159,8 +159,8 @@ def test_the_drift_report_identifies_both_executables_by_hash(tmp_path):
 
 
 def test_the_drift_digests_come_from_the_two_runs_compared(tmp_path):
-    a = "75668a514d1887db2f94a97e3d57662888029e3e9e0b5e8f5611ac7082b15690"
-    b = "213c854a3f6569d74c760fda93b51dadef3a85a4cb724efa18f79b60fce84348"
+    a = "3" * 64
+    b = "4" * 64
     metrics = {"CL_a4": 0.337}
     drift = diff_runs(
         physics_run_with_digest("26.122", metrics, a),
@@ -169,9 +169,14 @@ def test_the_drift_digests_come_from_the_two_runs_compared(tmp_path):
     assert drift.fs_exe_sha256s == {"26.122": a, "26.123": b}
     yaml_path, md_path = write_drift_report(drift, tmp_path, date="2026-08-19", label="hashes")
     document = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
-    assert document["fs_exe_sha256s"] == {"26.122": a, "26.123": b}
+    # NFR-31: the committed report states each build and never a digest.
+    assert document["fs_exe_sha256s"] == {
+        "26.122": "withheld; build 8092026",
+        "26.123": "withheld; build 8112026",
+    }
     text = md_path.read_text(encoding="utf-8")
-    assert a in text and b in text
+    assert a not in text and b not in text
+    assert "withheld; build 8092026" in text and "withheld; build 8112026" in text
 
 
 def test_an_undigested_drift_pair_records_absence_rather_than_a_hash(tmp_path):

@@ -120,7 +120,7 @@ Re-measured at the moment of this amendment, with the command beside it:
 ```
 python scripts/count_deprecated_spellings.py --root ../GeoverseResearch/tools/fts_workspace
 
-  walking C:\GeoverseGoddess\pyflightstream
+  walking <repository root>
   walking ..\GeoverseResearch\tools\fts_workspace
 MOVING_BOUNDARIES      52 occurrence(s) in  16 file(s)
 ROTOR_AXIS             53 occurrence(s) in  17 file(s)

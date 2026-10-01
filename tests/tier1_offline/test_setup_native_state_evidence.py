@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 RECEIPT_SHA256 = "328411cacd8f2ff346248b9339cda5540f2ec0912d76ce568aaed6c1a91df1e5"
-EXECUTABLE_SHA256 = "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65"
 
 
 def _artifact(case_name, suffix):
@@ -18,7 +17,9 @@ def _artifact(case_name, suffix):
     raw = Path(location).read_bytes()
     assert hashlib.sha256(raw).hexdigest() == RECEIPT_SHA256
     receipt = json.loads(raw)
-    assert receipt["exe_sha256"] == EXECUTABLE_SHA256
+    # The receipt's bytes are pinned above; its executable digest stays in
+    # the private receipt and is never repeated here (NFR-31).
+    assert len(str(receipt["exe_sha256"])) == 64
     case = next(item for item in receipt["cases"] if item["name"] == case_name)
     output = next(item for item in case["outputs"] if item["name"] == case_name + suffix)
     data = (Path(case["working_directory"]) / output["name"]).read_bytes()

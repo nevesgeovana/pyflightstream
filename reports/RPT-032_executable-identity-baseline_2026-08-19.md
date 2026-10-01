@@ -33,16 +33,16 @@ and names both files.
 
 | Version | Build | Names | sha256 | Bytes |
 |---|---|---|---|---|
-| 25.000 | 12162024 | FlightStream.exe, FlightStream_25000.exe | `1e3dc751a470cb3a0f85abad4fec60dcfdfe931d1f5a2d737e889d7512a2efa2` | 17003336 |
-| 25.100 | 5062025 | FlightStream_25_1.exe, FlightStream_25100.exe | `69bf13a1edee0279c084f4d0a2b247e43541991df7258f5c1f2d3572a5925b7f` | 17088336 |
-| 26.000 | 10202025 | FlightStream.exe, FlightStream_26000.exe | `a0a131ee9c89c315ac5004b864bf26f5e7a689320ef4768f74cac9a16a0a2d70` | 17006984 |
-| 26.100 | 2122026 | FlightStream_26_1.exe, FlightStream_26100.exe | `4dc55b6b2d3a3ca20592bf0b5747cf665401fc2a703544183b5d7551e47a33ed` | 18011528 |
-| 26.101 | 5012026 | FlightStream.exe, FlightStream_26101.exe | `f5ef1b107314277ca1095bb4c6b50d8c87067824cce7e8da2a6ada6dc95c94f7` | 18939720 |
-| 26.120 | 7012026 | Flightstream_2612.exe, FlightStream_26120.exe | `ec89fe59712e49242a22e64b949acc293616182ca656de79be95d462021dae7b` | 18992520 |
-| 26.121 | 7262026 | Flightstream_2612.exe, FlightStream_26121.exe | `d318da05d4df3f7fca57c565bab6da9712b11b256dda93a691e74cd7d027afec` | 19134856 |
-| 26.122 | 8092026 | Flightstream_2612.exe, FlightStream_26122.exe | `75668a514d1887db2f94a97e3d57662888029e3e9e0b5e8f5611ac7082b15690` | 19169160 |
-| 26.123 | 8112026 | Flightstream_2612.exe, FlightStream_26123.exe | `213c854a3f6569d74c760fda93b51dadef3a85a4cb724efa18f79b60fce84348` | 19194760 |
-| 26.124 | 8172026 | Flightstream_26124.exe | `68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65` | 19197320 |
+| 25.000 | 12162024 | FlightStream.exe, FlightStream_25000.exe | withheld; build 12162024 | 17003336 |
+| 25.100 | 5062025 | FlightStream_25_1.exe, FlightStream_25100.exe | withheld; build 5062025 | 17088336 |
+| 26.000 | 10202025 | FlightStream.exe, FlightStream_26000.exe | withheld; build 10202025 | 17006984 |
+| 26.100 | 2122026 | FlightStream_26_1.exe, FlightStream_26100.exe | withheld; build 2122026 | 18011528 |
+| 26.101 | 5012026 | FlightStream.exe, FlightStream_26101.exe | withheld; build 5012026 | 18939720 |
+| 26.120 | 7012026 | Flightstream_2612.exe, FlightStream_26120.exe | withheld; build 7012026 | 18992520 |
+| 26.121 | 7262026 | Flightstream_2612.exe, FlightStream_26121.exe | withheld; build 7262026 | 19134856 |
+| 26.122 | 8092026 | Flightstream_2612.exe, FlightStream_26122.exe | withheld; build 8092026 | 19169160 |
+| 26.123 | 8112026 | Flightstream_2612.exe, FlightStream_26123.exe | withheld; build 8112026 | 19194760 |
+| 26.124 | 8172026 | Flightstream_26124.exe | withheld; build 8172026 | 19197320 |
 
 The 26.124 row was ADDED ON 2026-09-14, when that build was registered, from
 the digest its identity run recorded (`reports/compat/CMP-26124_2026-09-14.yaml`);
@@ -50,6 +50,18 @@ its size is not in that file and is read in
 `reports/RPT-050_the-26124-package-against-26123_2026-09-15.md`, which measures
 the whole package. Every other row is this report's own measurement of
 2026-08-19.
+
+EVERY DIGEST IS WITHHELD from the public tree since 2026-09-30 (NFR-31):
+the public tree carries no identity of a user's machine, and each row states
+its build, which identifies that executable. The ten digests were measured
+and still exist on the measuring machine; only their committed copies are
+gone. `read_executable_baseline` reads a cell that starts with `withheld` as a
+row whose digest is not public, so `classify_executable` compares a binary by
+its build (the identity-only probe) instead of by its bytes; a byte
+comparison reads the same table from a local, uncommitted copy that keeps the
+digests (for example under `_private/exe/`). The findings below are
+unchanged: they were measured on the digests, and the table keeps the names,
+builds and sizes they rest on.
 
 The Build column is the registry's number for that canonical version, not
 a second measurement: it is reproduced here so the two sides of a future

@@ -29,7 +29,7 @@ states `SOLVER_SET_FARFIELD_LAYERS 5` first.
     instrument  which lines of the saved file move between the two saves, setting
                 aside the header value of order 1e-309 that differs between saves
                 (RPT-061); flag rows are counted by their 1s or Ts
-    build       FlightStream 26.124 (build 8172026, executable sha256 68e64e66...)
+    build       FlightStream 26.124 (build 8172026, executable sha256 withheld per NFR-31)
 
 ## What came back
 

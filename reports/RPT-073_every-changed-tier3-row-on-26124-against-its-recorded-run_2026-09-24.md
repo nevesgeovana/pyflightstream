@@ -31,7 +31,7 @@ and the nine points it moved ran again within the pass condition.**
 
 ## What was run
 
-FlightStream 26.124 (build 8172026, executable sha256 68e64e66...), detached,
+FlightStream 26.124 (build 8172026, executable sha256 withheld per NFR-31), detached,
 one solver at a time, no solver alive before each launch, in a fresh copy of
 `tests/tier3_licensed` with no run state. A local executables overlay sent every
 build id the rows name (26.120, 26.123 and 26.124) to the 26.124 executable. No

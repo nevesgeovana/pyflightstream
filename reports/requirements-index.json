@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 266,
-  "total": 326,
+  "cited_by_a_test": 267,
+  "total": 327,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -2613,6 +2613,14 @@
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: item DOC-B of the 0.33.0 scope (GEO-071, section 3.3), from the same audit, which found 64 percent of docstrings describing their parameters and result and 15 percent also carrying Raises and Examples, and the unsteady reductions explained on three pages that contradict one another. Pending: nothing of it is built. Evidence owed: the ruff configuration and its clean run, a tier-1 test over the exported functions for R2, and the documentation tests for R3.*",
+   "verification": "none"
+  },
+  {
+   "id": "NFR-31",
+   "text": "What is committed (reports, compatibility, physics, drift and probe records, fixtures, source, scripts and tests) identifies the solver by its version and build, never by the machine it ran on.",
+   "priority": "M",
+   "status": "pending",
+   "evidence": "*Origin: an author decision of 2026-09-30 for 0.33.0. Pending: it is built, and moving the status is the owner's acceptance. Evidence: the tier-1 guard tests/tier1_offline/test_p0330_no_executable_hash.py (P0330-NO-EXE-HASH) for R1 and R2, with a mutant control per shape; the tests of the three report writers and of the C01 instrument for R4.*",
    "verification": "none"
   }
  ]

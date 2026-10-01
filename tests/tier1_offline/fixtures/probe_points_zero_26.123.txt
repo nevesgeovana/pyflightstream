@@ -5,7 +5,7 @@
                               FlightStream Probe Points
 
 
-     Simulation file:                            C:\GeoverseGoddess\pyflightstream\tests\tier3_licensed\sims\sim_6002\inputs\10_WING.fsm
+     Simulation file:                            C:\cases\tier3_licensed\sims\sim_6002\inputs\10_WING.fsm
      Angle of attack (Deg)                       2.000
      Side-slip angle (Deg)                       .000
      Freestream velocity (m/s)                   34.029

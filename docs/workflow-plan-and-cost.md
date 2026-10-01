@@ -17,7 +17,7 @@ pyfs-matrix plan
 
 Warnings (2)
 [warning] named.fs lies outside the workspace's matrix folders
-          (C:\work\camp and C:\work\camp\inputs\matrices): `sync` and the
+          (C:\cases\camp and C:\cases\camp\inputs\matrices): `sync` and the
           repeated-POL census do not see it. Move it into one of the two folders.
 
 [warning] helical Mach >= 1 on 2 polar point(s): POL 9001 point M144RE438AL+000RPM06000,
@@ -51,7 +51,7 @@ Solver setup per case
     ...
 
 Files written
-  plan: C:\work\camp\post\named\plan.json
+  plan: C:\cases\camp\post\named\plan.json
 ```
 
 What each block says:

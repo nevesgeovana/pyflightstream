@@ -16,7 +16,9 @@ STEM = "RPT-096_probe-round-1-on-26124_2026-09-30"
 MD = REPO / "reports" / f"{STEM}.md"
 SIDECAR = REPO / "reports" / f"{STEM}.json"
 
-EXE_SHA = "68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65"
+#: NFR-31: the report names the build and withholds the executable digest.
+EXE_IDENTITY = "withheld; build 8172026"
+WITHHELD_WORDS = "withheld from the public tree per NFR-31"
 #: The L1 arm's own pattern for a length of a blade or geometry with a unit.
 LENGTH = re.compile(r"(?i)(diameter|chord|radius|span)[^.\n]{0,40}\d+(\.\d+)?\s?(m|mm)\b")
 #: The 0.31 reports' guard for a dimensional value of a propeller or its run.
@@ -42,7 +44,7 @@ PROBES = (
 
 def test_rpt096_names_the_build_the_hash_and_the_release():
     text = MD.read_text(encoding="utf-8")
-    assert "26.124" in text and "8172026" in text and EXE_SHA in text
+    assert "26.124" in text and "8172026" in text and WITHHELD_WORDS in text
     assert re.search(r"(?<![\d.])0\.32(?![\d])", text)
     for word in ("probe", "ACOUSTIC", "CCS", "DELETE_SURFACES", "DISABLE"):
         assert word in text, word
@@ -52,7 +54,7 @@ def test_rpt096_has_one_row_per_probe_and_its_sidecar_agrees():
     text = MD.read_text(encoding="utf-8")
     data = json.loads(SIDECAR.read_text(encoding="utf-8"))
     assert data["report"] == "RPT-096"
-    assert data["executable_sha256"] == EXE_SHA
+    assert data["executable_sha256"] == EXE_IDENTITY
     assert [p["id"] for p in data["probes"]] == list(PROBES)
     for probe in PROBES:
         assert probe in text, probe

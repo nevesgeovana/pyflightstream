@@ -2,7 +2,7 @@ schema: pyflightstream-compat-report/1
 fs_version: '26.122'
 date: '2026-09-25'
 fs_exe: FlightStream_26122.exe
-fs_exe_sha256: 75668a514d1887db2f94a97e3d57662888029e3e9e0b5e8f5611ac7082b15690
+fs_exe_sha256: 'withheld; build 8092026'
 measured_at: '2026-09-25T03:23:09-0300'
 source: >
   Transcription of the licensed probe T21 of the 0.28.0 work, reported as RPT-079

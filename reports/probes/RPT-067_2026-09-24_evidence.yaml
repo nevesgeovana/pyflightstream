@@ -4,7 +4,7 @@ question: do SET_PLOT_TYPE (RESIDUALS, LOADS, SECTIONS_CP) and SAVE_PLOT_TO_FILE
   what do they leave
 where_the_raw_files_are: The solver outputs stayed on the measuring machine and are not committed (invariant 5).
 executable_sha256:
-  '26.124': 68e64e666fad6e403a6c6747b20c263f5c9f3e4c7542eebe253397bedcc30c65
+  '26.124': 'withheld; build 8172026'
 base: 'RPT-060''s control point: the half wing-body of RPT-052, alpha 2, a steady solve, farfield layers 5, 12 sections'
 variants: the control adds nothing; each variant adds one plot type and its save after the exports
 checks:
