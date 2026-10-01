@@ -53,7 +53,7 @@ jobs:
       - name: Format check
         run: ruff format --check .
       - name: Tier 1 tests
-        run: pytest
+        run: pytest -n auto
       - name: Executable examples
         # Sybil runs the docstring doctests and the python code blocks
         # in the root README and docs/ (INB-006 item 1e, decision
@@ -84,7 +84,7 @@ jobs:
       - name: Install package with dev extras
         run: pip install -e .[dev,fsi,geom,excel]
       - name: Tier 1 with the coverage floor
-        run: pytest --cov --cov-branch --cov-report=term-missing
+        run: pytest -n auto --cov --cov-branch --cov-report=term-missing
 
   test-all-extras:
     # Named for the measurement rather than the subject: a red "extras"
@@ -134,7 +134,7 @@ jobs:
         # that have nothing to do with extras (a licensed solver, an
         # absent fixture). What this leg buys is that the extra-gated
         # ones are not among them.
-        run: pytest
+        run: pytest -n auto
 
   test-lean:
     # PFS-2025.20.03: the leg that installs NO user-facing extra, and the

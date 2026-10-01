@@ -123,6 +123,10 @@ dev = [
     # suite's runtime and a developer running one test file does not need
     # a whole-package number. The job passes --cov explicitly.
     "pytest-cov",
+    # Parallel tier 1: CI and the release gates run `pytest -n auto`, which
+    # cut the 36 minute serial suite of v0.33.0 (GOAL-039 arm H4). MIT, the
+    # card is in reports/RPT-033. Its one dependency, execnet, is MIT too.
+    "pytest-xdist",
     # The NFR-27 type-check ratchet; config in [tool.mypy] below.
     "mypy",
     # Executable examples in CI: docstring doctests and markdown code

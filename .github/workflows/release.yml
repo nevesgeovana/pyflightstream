@@ -148,7 +148,7 @@ jobs:
       - name: Tier 1 tests against the wheel
         env:
           PYFLIGHTSTREAM_TEST_INSTALLED: "1"
-        run: pytest -o pythonpath=
+        run: pytest -n auto -o pythonpath=
       - name: Executable examples against the wheel
         env:
           PYFLIGHTSTREAM_TEST_INSTALLED: "1"
@@ -173,7 +173,7 @@ jobs:
       - name: Type check
         run: mypy
       - name: Coverage floor
-        run: pytest --cov --cov-branch --cov-report=term-missing
+        run: pytest -n auto --cov --cov-branch --cov-report=term-missing
       - name: Docs build
         run: properdocs build --strict
 

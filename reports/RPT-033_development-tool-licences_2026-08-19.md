@@ -119,6 +119,20 @@ MIT-equivalent in substance.
 
 The coverage floor of NFR-16, run by the CI `coverage` job.
 
+### pytest-xdist
+
+| Field | Value |
+|---|---|
+| Version read | 3.8.0 |
+| Field read | `License-Expression` |
+| Value | `MIT` |
+| SPDX identifier | MIT |
+| MIT-compatible | yes, identical licence |
+
+The parallel run of tier 1 (`pytest -n auto`) in CI and in the release
+gates. Its only dependency besides pytest is `execnet` 2.1.2, read from
+installed metadata as `License-Expression` `MIT`.
+
 ### mypy
 
 | Field | Value |
