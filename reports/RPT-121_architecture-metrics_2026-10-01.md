@@ -1,6 +1,6 @@
 # RPT-121: architecture metrics (2026-10-01)
 
-Architecture metrics 2026-10-01: 220 modules, 161170 lines, 85226 code lines; the largest 1, 5 and 13 modules hold 2.7, 10.3 and 21.6 percent of the code lines.
+Architecture metrics 2026-10-01: 220 modules, 161180 lines, 85232 code lines; the largest 1, 5 and 13 modules hold 2.7, 10.3 and 21.6 percent of the code lines.
 
 Written by `python scripts/arch_metrics.py report --number 121 --date 2026-10-01`; every number below is that run's. The unit of module and function size is the code line of the review lens: a line holding a token other than a comment, docstring lines excluded. The tier-1 test `test_architecture_metrics.py::test_the_record_agrees_with_the_tree` re-measures the tree and refuses a disagreement with the numbers of the newest record, and refuses a record or a baseline table worse than the first record.
 
@@ -9,8 +9,8 @@ Written by `python scripts/arch_metrics.py report --number 121 --date 2026-10-01
 | metric | value |
 |---|---:|
 | module_count | 220 |
-| total_lines | 161170 |
-| code_lines | 85226 |
+| total_lines | 161180 |
+| code_lines | 85232 |
 | top1_share | 2.7 |
 | top5_share | 10.3 |
 | top13_share | 21.6 |
@@ -44,7 +44,7 @@ One row per top-level package (a single-file module counts as its own), the unit
 | `workspace` | 26 | 11967 | 14.0 | 3 | 28 | 29 |
 | `qa` | 12 | 5330 | 6.3 | 1 | 10 | 10 |
 | `results` | 10 | 3814 | 4.5 | 0 | 11 | 3 |
-| `script` | 9 | 3683 | 4.3 | 1 | 15 | 10 |
+| `script` | 9 | 3689 | 4.3 | 1 | 15 | 10 |
 | `fsi` | 15 | 3222 | 3.8 | 0 | 5 | 6 |
 | `utils` | 5 | 1829 | 2.1 | 0 | 6 | 0 |
 | `reference` | 1 | 885 | 1.0 | 0 | 2 | 9 |
@@ -87,7 +87,7 @@ The size table of `tests/tier1_offline/architecture_baselines.json` freezes ever
 | `cases/__init__.py` | 2316 | 5643 | no |
 | `cases/matrix.py` | 1808 | 3433 | no |
 | `workspace/__init__.py` | 1608 | 4166 | no |
-| `script/helpers.py` | 1572 | 3574 | no |
+| `script/helpers.py` | 1567 | 3554 | no |
 | `workspace/storage.py` | 1487 | 2179 | no |
 | `post/input_template.py` | 1455 | 1676 | yes |
 | `workspace/matrix.py` | 1377 | 2696 | no |
@@ -250,7 +250,7 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
 <!-- arch-metrics:begin -->
 ```json
 {
-  "code_lines": 85226,
+  "code_lines": 85232,
   "cross_package_sccs": 1,
   "functions_over_100": 73,
   "functions_over_200": 17,
@@ -284,7 +284,7 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
   "top13_share": 21.6,
   "top1_share": 2.7,
   "top5_share": 10.3,
-  "total_lines": 161170,
+  "total_lines": 161180,
   "workspace_to_run_imports": 0
 }
 ```

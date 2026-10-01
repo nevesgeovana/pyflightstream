@@ -76,3 +76,33 @@ def resolve_toggle(value: object, *, context: str = "a solver toggle") -> bool:
     raise CommandArgumentError(
         f"{context} takes True or False, or the solver's own ENABLE or DISABLE; got {value!r}"
     )
+
+
+# The readers the curated helpers share, here since 0.34.0 (AD-17) so that
+# script.helpers and its private family modules read toggles from one home.
+
+
+def _read(helper: str, argument: str, value: Toggle) -> bool:
+    """Resolve one toggle, re-raising in the script layer's vocabulary."""
+    try:
+        return resolve_toggle(value, context=f"{helper}: {argument}")
+    except ValueError as error:
+        raise CommandArgumentError(str(error)) from error
+
+
+def _optional_toggle(helper: str, argument: str, value: Toggle | None) -> bool | None:
+    """Resolve an optional toggle up front, before the helper emits."""
+    if value is None:
+        return None
+    return _read(helper, argument, value)
+
+
+def _toggle(value: bool) -> str:
+    """Render a resolved toggle as the solver writes it.
+
+    Takes a bool only: every helper resolves its toggles through
+    :func:`_read` or :func:`_optional_toggle` before emitting, so a
+    string never reaches this function and truthiness is never the
+    thing that decides a flag.
+    """
+    return "ENABLE" if value else "DISABLE"
