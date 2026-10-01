@@ -31,12 +31,8 @@ from pyflightstream.cases import (
     SweepAxis,
     alias_members_missing,
 )
-from pyflightstream.cases.workflows import (
-    IGNORE_MISSING_FAMILIES_VARIABLE,
-    _ignore_missing_families,
-    _selected_families,
-    read_a_choice,
-)
+from pyflightstream.cases.workflows import IGNORE_MISSING_FAMILIES_VARIABLE, read_a_choice
+from pyflightstream.cases.workflows._names import _ignore_missing_families, _selected_families
 from pyflightstream.run.cli import (
     _a_word_that_means_false,
     _build_parser,

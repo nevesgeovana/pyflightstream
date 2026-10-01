@@ -306,9 +306,13 @@ def test_the_dead_private_helpers_are_gone():
     # tombstone only: it holds the deletion, not the absence of a caller,
     # which rests on the git grep of the tracked files named in the WP2
     # review-fix commit message (no caller of any of the three).
-    for relative, definition in (
-        ("cases/workflows.py", "def _passages("),
-        ("cases/workflows.py", "def _output("),
-        ("cases/matrix.py", "def _cell_value("),
+    # cases/workflows.py is the package cases/workflows/ since 0.33.0 (AD-12):
+    # the tombstone reads every module of it.
+    workflows = sorted((_SRC / "cases" / "workflows").glob("*.py"))
+    assert workflows
+    for path, definition in (
+        *((path, "def _passages(") for path in workflows),
+        *((path, "def _output(") for path in workflows),
+        (_SRC / "cases" / "matrix.py", "def _cell_value("),
     ):
-        assert definition not in (_SRC / relative).read_text(encoding="utf-8"), relative
+        assert definition not in path.read_text(encoding="utf-8"), path

@@ -335,7 +335,7 @@ def test_cli_subtract_builds_the_corrected_inflow_and_its_file_is_read_by_the_bu
     tmp_path, capsys
 ):
     # P0310-G3-SUBTRACT
-    from pyflightstream.cases.workflows import _read_custom_freestream
+    from pyflightstream.cases.workflows._freestream import _read_custom_freestream
 
     # The use case: a total field, mirrored through y = 0 and moved onto the
     # grid of a body-only field solved in the free stream (30, 0, 0) m/s;

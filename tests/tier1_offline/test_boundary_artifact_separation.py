@@ -1,7 +1,8 @@
 import pytest
 
 from pyflightstream.cases import SimCase, SolverSettings, SweepAxis
-from pyflightstream.cases.workflows import _raw_mesh_boundary_conditions, _settings
+from pyflightstream.cases.workflows._geometry import _raw_mesh_boundary_conditions
+from pyflightstream.cases.workflows._solver_settings import _settings
 from pyflightstream.script import Script
 from pyflightstream.workspace.inputs import InputArtifactError, read_raw_mesh_conditions
 
@@ -293,7 +294,7 @@ def test_each_application_choice_is_independent_and_false_never_clears(tmp_path)
 
 
 def test_saved_fsm_with_disabled_definitions_is_opened_without_redefinition(tmp_path):
-    from pyflightstream.cases.workflows import _open_geometry
+    from pyflightstream.cases.workflows._geometry import _open_geometry
 
     case = _case(
         tmp_path,

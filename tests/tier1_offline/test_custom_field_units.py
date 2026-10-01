@@ -88,7 +88,7 @@ def test_unstructured_si_conversion_has_no_invented_header(tmp_path):
 def test_workflow_emits_declared_file_and_writer_hashes_both_inputs(tmp_path, declaration):
     import json
 
-    from pyflightstream.cases.workflows import _free_stream, _the_custom_freestream
+    from pyflightstream.cases.workflows._freestream import _free_stream, _the_custom_freestream
     from pyflightstream.run import _write_pending_files
     from pyflightstream.script import Script
     from tests.tier1_offline.test_g15_custom_freestream import field, with_field
@@ -133,7 +133,7 @@ def test_generated_field_provenance_carries_no_authoring_metadata(tmp_path):
     user's run; nothing of that kind may reach a generated input."""
     import json
 
-    from pyflightstream.cases.workflows import _free_stream, _the_custom_freestream
+    from pyflightstream.cases.workflows._freestream import _free_stream, _the_custom_freestream
     from pyflightstream.script import Script
     from tests.tier1_offline.test_g15_custom_freestream import field, with_field
     from tests.tier1_offline.test_workflows import steady_case
@@ -191,7 +191,7 @@ def test_si_field_on_an_opened_saved_simulation_reads_its_unit(tmp_path, head, f
 
 def test_matrix_unit_key_and_python_declaration_must_agree(tmp_path):
     from pyflightstream.cases import CampaignConfigError
-    from pyflightstream.cases.workflows import _the_custom_freestream
+    from pyflightstream.cases.workflows._freestream import _the_custom_freestream
     from tests.tier1_offline.test_g15_custom_freestream import field, with_field
     from tests.tier1_offline.test_workflows import steady_case
 
@@ -205,7 +205,7 @@ def test_matrix_unit_key_and_python_declaration_must_agree(tmp_path):
 
 def test_unit_declaration_without_field_is_refused():
     from pyflightstream.cases import CampaignConfigError
-    from pyflightstream.cases.workflows import _the_custom_freestream
+    from pyflightstream.cases.workflows._freestream import _the_custom_freestream
     from tests.tier1_offline.test_workflows import steady_case
 
     case = steady_case().model_copy(update={"freestream_units": "SI"})
@@ -247,7 +247,7 @@ def test_undeclared_mm_field_warning_reaches_the_sink_despite_caller_filter(tmp_
     import warnings
 
     from pyflightstream._errors import PyflightstreamWarning, collecting_warnings
-    from pyflightstream.cases.workflows import _free_stream, _the_custom_freestream
+    from pyflightstream.cases.workflows._freestream import _free_stream, _the_custom_freestream
     from pyflightstream.script import Script
     from tests.tier1_offline.test_g15_custom_freestream import field, with_field
     from tests.tier1_offline.test_workflows import steady_case

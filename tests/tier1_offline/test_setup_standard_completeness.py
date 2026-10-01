@@ -5,7 +5,10 @@ import tomllib
 import pytest
 
 from pyflightstream.cases import SimCase, SolverSettings, SweepAxis
-from pyflightstream.cases.workflows import _refuse_the_loads_selections_on_a_march, _settings
+from pyflightstream.cases.workflows._solver_settings import (
+    _refuse_the_loads_selections_on_a_march,
+    _settings,
+)
 from pyflightstream.script import Script
 from pyflightstream.workspace.setup_standards import (
     render_guidelines,

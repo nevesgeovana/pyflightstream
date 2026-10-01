@@ -52,9 +52,9 @@ def test_native_proof_refusal_keeps_valueerror():
 
 
 def test_action_interpreter_refusal_keeps_valueerror(tmp_path, monkeypatch):
-    import pyflightstream.cases.workflows as workflows
+    import pyflightstream.cases._unsteady_actions as actions
 
-    monkeypatch.setattr(workflows.sys, "platform", "win32")
+    monkeypatch.setattr(actions.sys, "platform", "win32")
     with pytest.raises(CampaignConfigError, match="pythonw.exe") as caught:
         unsteady_action_command_line(str(tmp_path / "python.exe"))
     assert isinstance(caught.value, ValueError)

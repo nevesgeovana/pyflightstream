@@ -613,7 +613,7 @@ def test_goal022_frames_move_the_ledger_forgets_what_it_does_not_follow():
 def test_goal022_frames_move_a_frame_moved_behind_the_ledger_is_refused_not_moved(tmp_path):
     """End to end through the builder: a frame a command moved in a way the ledger does
     not follow is refused by the translation that would place it."""
-    from pyflightstream.cases.workflows import _translations
+    from pyflightstream.cases.workflows._frames import _translations
     from pyflightstream.script import helpers
 
     script = Script("26.123")
@@ -675,7 +675,7 @@ def test_goal022_frames_move_every_frame_command_is_followed_forgotten_or_neutra
 def test_goal022_frames_move_an_alias_frame_it_cannot_place_says_it_cannot_be_left_behind(
     tmp_path,
 ):
-    from pyflightstream.cases.workflows import _translations
+    from pyflightstream.cases.workflows._frames import _translations
     from pyflightstream.script import helpers
 
     case = moving_rotor(tmp_path, "{DISTANCE: 0.05 / AXIS: MRP-X / ALIAS: PUSHER}")
@@ -705,11 +705,13 @@ def test_goal022_emission_a_boundary_resolved_twice_moves_once(tmp_path, monkeyp
     """The emission loop's own guard, pinned at the loop: the alias resolution already
     drops a repeated member, so the resolver is made to repeat one here, which is the
     route by which a boundary moved twice would split its vertices twice."""
-    import pyflightstream.cases.workflows as workflows
+    # The emission loop of `_translations` looks the resolver up in its own
+    # module of the package (AD-12), so the patch is made there.
+    import pyflightstream.cases.workflows._frames as frames
 
-    real = workflows._resolve_token
+    real = frames._resolve_token
     monkeypatch.setattr(
-        workflows, "_resolve_token", lambda *args, **kwargs: [*real(*args, **kwargs)] * 2
+        frames, "_resolve_token", lambda *args, **kwargs: [*real(*args, **kwargs)] * 2
     )
     case = wing_case(
         tmp_path, translations=translations("{DISTANCE: 0.5 / AXIS: NAC-X / ALIAS: Wing}")

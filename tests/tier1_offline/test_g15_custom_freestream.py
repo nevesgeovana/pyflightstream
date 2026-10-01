@@ -898,7 +898,7 @@ def test_g18_an_obj_in_millimetres_is_measured_in_metres(tmp_path, recwarn, ys, 
     case = steady_case().model_copy(
         update={"geometry": str(obj), "mesh_import": MeshImport(units="MILLIMETER")}
     )
-    from pyflightstream.cases.workflows import _warn_when_the_field_misses_the_body
+    from pyflightstream.cases.workflows._freestream import _warn_when_the_field_misses_the_body
 
     _warn_when_the_field_misses_the_body(case, "FREESTREAM: cut", (ys[0], ys[-1], -1.0, 1.0))
     said = [str(w.message) for w in recwarn if "is not loaded by the field" in str(w.message)]
@@ -912,7 +912,7 @@ def test_g18_a_row_that_moves_the_body_is_told_its_coverage_was_not_checked(recw
     translates the wing 20 m out of a field that covers the file's wing was told nothing.
     A row that moves the body is now told the coverage was not checked, naming what
     moves it; the same field over the unmoved wing still says nothing."""
-    from pyflightstream.cases.workflows import _warn_when_the_field_misses_the_body
+    from pyflightstream.cases.workflows._freestream import _warn_when_the_field_misses_the_body
 
     grid = (-8.0, 8.0, -5.0, 5.0)
     still = steady_case().model_copy(update={"geometry": str(WING_PHY)})

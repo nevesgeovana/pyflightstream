@@ -255,7 +255,7 @@ def test_steady_volume_layout_round_trips_through_field_writer(tmp_path):
 
 
 def test_millimeter_volume_fluid_plot_vertex_is_si_but_record_is_native():
-    from pyflightstream.cases.workflows import _pproc_sampled_volume
+    from pyflightstream.cases.workflows._probes import _pproc_sampled_volume
 
     spec = PprocSpec.model_validate(
         {

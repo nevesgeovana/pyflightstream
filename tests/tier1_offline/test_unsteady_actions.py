@@ -1018,11 +1018,8 @@ def test_goal019_watchdog_the_rescue_and_the_counter_export_the_same_lines(tmp_p
     The two actions that export from inside a run must write the same
     thing, or the one that fires rarely is the one that is wrong.
     """
-    from pyflightstream.cases.workflows import (
-        WALLTIME_STOP_VERB,
-        _per_step_exports,
-        walltime_stop_text,
-    )
+    from pyflightstream.cases.workflows import WALLTIME_STOP_VERB, walltime_stop_text
+    from pyflightstream.cases.workflows._clock import _per_step_exports
 
     case, conventions = _conventions_for(
         ["loads_{point}.txt", "loads_{point}_cp.txt", "loads_{point}_probes.txt"]
@@ -1049,11 +1046,8 @@ def test_goal019_watchdog_the_rescue_writes_the_whole_run_exports_too(tmp_path):
     rescue is the opposite case, the LAST thing a stopped run does, and it
     needs them most. A row declaring a plots export and a log got neither.
     """
-    from pyflightstream.cases.workflows import (
-        WALLTIME_STOP_VERB,
-        _per_step_exports,
-        walltime_stop_text,
-    )
+    from pyflightstream.cases.workflows import WALLTIME_STOP_VERB, walltime_stop_text
+    from pyflightstream.cases.workflows._clock import _per_step_exports
 
     case, conventions = _conventions_for(
         [

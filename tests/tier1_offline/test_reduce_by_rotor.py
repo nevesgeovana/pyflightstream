@@ -491,7 +491,7 @@ def test_a_row_turning_several_rotors_still_has_to_name_its_clock(tmp_path):
     and so it cannot be undone by accident.
     """
     from pyflightstream.cases import CampaignConfigError
-    from pyflightstream.cases.workflows import _optional_rotor_speed
+    from pyflightstream.cases.workflows._motion import _optional_rotor_speed
 
     flat = {
         "WORKFLOW": "unsteady_rotor",

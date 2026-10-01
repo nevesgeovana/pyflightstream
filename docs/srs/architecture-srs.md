@@ -427,6 +427,35 @@ one of them keeps.
     objects, never rebuilt. Its modules import one another only in the
     declared order of G3(b), module-level and deferred imports alike.
 
+    As WP4 landed: the root holds the module docstring, the re-exports and
+    `__all__`, and nothing else (G8). Its 23 private modules, in the
+    declared order from the top (the `package_order` entry of
+    `tests/tier1_offline/architecture_baselines.json`), are `_additional`
+    (the extraction script of a saved simulation), `_registry` (the entries
+    of the run-type table, `build_script`, `workflow_registry`), the
+    builders `_qsteady_rotor`, `_rotor`, `_unsteady` and `_steady`,
+    `_skeleton` (initialization, solve, tail), `_pproc` (entries, plots,
+    sections), `_probes` (probes and the sampled volume), `_clock` (export
+    threshold, rotor clock, action counter, wall clock), `_exports`,
+    `_reductions`, `_freestream`, `_solver_settings`, `_frames`,
+    `_geometry`, `_names`, `_timing` (time stepping, `march_strategy`),
+    `_motion` (the rotor a row turns, its clock speed and Mach numbers),
+    `_actuator`, `_rows` (the typed readers of the row's keys),
+    `_conventions` (the `Workflow` type, the conventions, selection and
+    build coverage) and `_vocabulary`, the leaf. The run-type table is one
+    dict created empty in `_conventions` and filled by `_registry` when the
+    package is imported: the entries name the builders and the readers of
+    the table sit below them, and one object filled at import is what lets
+    both hold with no import pointing up; the root exports that object. A
+    new run type is a builder module and one entry of `_registry`; a row
+    key is registered in `_vocabulary` (`ROW_KEY_MEANINGS`) and read in
+    `_rows`; an export kind is emitted by `_exports`; a geometry operation
+    by `_geometry`; a post-processing block by `_pproc`, a probe kind by
+    `_probes`. The module of the settings is `_solver_settings` and that of
+    the quasi-steady builder `_qsteady_rotor`, because `_settings` and
+    `_qsteady` are names the code already binds (a function and an import
+    alias). Each module is within the lens and deep; the record is RPT-114.
+
 !!! decision "AD-13 The post families are sibling modules <span class='srs-pending'>pending</span>"
     *Work package WP5 of the 0.33.0 scope (decisions 5, 8 and 15).
     Evidence owed: the byte snapshot of the products, taken before the

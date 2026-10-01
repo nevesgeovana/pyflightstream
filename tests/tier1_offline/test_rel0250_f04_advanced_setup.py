@@ -5,7 +5,8 @@
 import pytest
 
 from pyflightstream.cases import SimCase, SweepAxis
-from pyflightstream.cases.workflows import _settings, build_script
+from pyflightstream.cases.workflows import build_script
+from pyflightstream.cases.workflows._solver_settings import _settings
 from pyflightstream.commands import CommandNotInVersionError
 from pyflightstream.post.settings_table import FLAG_IDS, settings_table
 from pyflightstream.script import Script

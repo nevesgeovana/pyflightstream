@@ -3,7 +3,10 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.cases import RawMeshConditions, SimCase, SolverSettings, SweepAxis
-from pyflightstream.cases.workflows import _detect_base_regions, _raw_mesh_boundary_conditions
+from pyflightstream.cases.workflows._geometry import (
+    _detect_base_regions,
+    _raw_mesh_boundary_conditions,
+)
 from pyflightstream.script import Script, ScriptOrderError
 
 

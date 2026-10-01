@@ -3,7 +3,9 @@ from hashlib import sha256
 import pytest
 
 from pyflightstream.cases import SimCase, SolverSettings, SweepAxis
-from pyflightstream.cases.workflows import _settings, _setup_ports, build_script
+from pyflightstream.cases.workflows import build_script
+from pyflightstream.cases.workflows._geometry import _setup_ports
+from pyflightstream.cases.workflows._solver_settings import _settings
 from pyflightstream.script import Script
 from pyflightstream.workspace.inputs import read_raw_mesh_conditions
 from pyflightstream.workspace.matrix import _bind_setup_ports

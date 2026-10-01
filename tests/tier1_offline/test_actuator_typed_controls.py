@@ -1,7 +1,7 @@
 import pytest
 
 from pyflightstream.cases import ActuatorBlock, SolverSettings
-from pyflightstream.cases.workflows import _actuator_disc
+from pyflightstream.cases.workflows._actuator import _actuator_disc
 from pyflightstream.script import Script
 from tests.tier1_offline.test_g06_actuator_disc import PROP, _lines, _with_disc
 from tests.tier1_offline.test_workflows import steady_case

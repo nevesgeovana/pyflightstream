@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from pyflightstream import cases
-from pyflightstream.cases.workflows import _open_geometry
+from pyflightstream.cases.workflows._geometry import _open_geometry
 from pyflightstream.script import Script
 from pyflightstream.workspace.inputs import read_mesh_import
 from tests.tier1_offline.test_workflows import steady_case

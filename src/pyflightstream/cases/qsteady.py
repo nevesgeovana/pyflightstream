@@ -986,7 +986,7 @@ class QsteadyRecord:
 
         Clocking 0 is solved LAST, with the point's full export set, so that
         the solver log and the loads export the run judges the point by are
-        of one solve (``cases/workflows.py::_build_qsteady_rotor``).
+        of one solve (``cases/workflows/_qsteady_rotor.py::_build_qsteady_rotor``).
         """
         by_index = sorted(self.positions, key=lambda clocking: clocking.index)
         return (*by_index[1:], *by_index[:1])
@@ -1020,7 +1020,7 @@ def qsteady_record_rotor_alias(data: Mapping[str, Any]) -> str:
     """Return the rotor alias a quasi-steady record's JSON object names.
 
     ``rotor`` in ``<point>_qsteady.json`` is the alias the builder
-    (``cases/workflows.py::_park_the_qsteady_record``) wrote, the NAME of the
+    (``cases/workflows/_qsteady_rotor.py::_park_the_qsteady_record``) wrote, the NAME of the
     rotor block the point was built for; it is not a read of the recorded
     rotor block itself and shares that word by coincidence of vocabulary
     (PFS-2030.03.02). The record's reader takes it here, and every other

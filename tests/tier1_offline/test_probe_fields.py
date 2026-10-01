@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 import pyflightstream.post as post
-from pyflightstream.cases.workflows import _read_custom_freestream
+from pyflightstream.cases.workflows._freestream import _read_custom_freestream
 from pyflightstream.script import Script, helpers
 
 

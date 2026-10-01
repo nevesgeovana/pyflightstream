@@ -498,11 +498,8 @@ def test_the_two_steppers_agree_on_a_rotor_rows_step_count(tmp_path):
     that makes the two interchangeable TODAY, so if it ever stops holding,
     it stops loudly here rather than quietly in a cost column.
     """
-    from pyflightstream.cases.workflows import (
-        _optional_rotor_speed,
-        rotor_time_stepping,
-        unsteady_time_stepping,
-    )
+    from pyflightstream.cases.workflows import rotor_time_stepping, unsteady_time_stepping
+    from pyflightstream.cases.workflows._motion import _optional_rotor_speed
 
     geometry = saved_simulation(tmp_path / "rotor.fsm", ["Blade1", "S", "N"])
     case = rotor_case(geometry)

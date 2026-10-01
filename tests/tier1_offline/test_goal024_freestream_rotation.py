@@ -302,7 +302,7 @@ def test_goal024_freestream_rotation_a_rate_sweeps_like_any_other_variable(tmp_p
 def test_goal024_freestream_rotation_a_case_authored_in_python_is_refused_too(tmp_path):
     """The matrix reader is one door; a case built in Python meets the same rule."""
     from pyflightstream.cases import ReferenceData, SimCase, SweepAxis
-    from pyflightstream.cases.workflows import _turning_rate
+    from pyflightstream.cases.workflows._rows import _turning_rate
 
     case = SimCase(
         sim_id="3207",

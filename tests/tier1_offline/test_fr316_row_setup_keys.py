@@ -17,7 +17,7 @@ import pytest
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream.cases import SimCase
 from pyflightstream.cases.matrix import MatrixError
-from pyflightstream.cases.workflows import _settings
+from pyflightstream.cases.workflows._solver_settings import _settings
 from pyflightstream.script import Script
 from pyflightstream.workspace._row_setup import structured_setup_keys
 from pyflightstream.workspace.matrix import resolve_matrix
