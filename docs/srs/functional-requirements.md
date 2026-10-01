@@ -8252,7 +8252,7 @@ Requirements written after the specification was last reconciled with the packag
     - R4 The emitted actuator lines of 0.34.0 differ from those of 0.33.0 by that sign only. This is a behaviour change, permanent from 0.34.0: the `NAMED_DIFFERENCES` of the parity script name it under this requirement, and the migration page of 0.34.0 states it among the first changes.
     - R5 The measurement is of one build (26.124); on another build the sign is the same rule, unmeasured, and RPT-137 says so.
 
-    Solution (planned for 0.34.0): the disc emission of `pyflightstream.cases.workflows._actuator` (the only module reading `rpm_sign` for a disc).
+    Solution (planned for 0.34.0): the disc emission of `pyflightstream.cases.workflows._actuator` (the only module turning `rpm_sign` into the solver's disc speed). `pyflightstream.cases.workflows._motion` also reads the hand of a disc, for the signed `rpm` of its Mach record in the plan and the run record, and keeps it as the block's hand times the speed, the opposite sign of the script's `SET_PROP_ACTUATOR_RPM` since 0.34.0.
 
 !!! requirement "FR-332 The measured actuator-disc behaviours are documented, and a RELAXED disc naming a profile is warned about <span class='srs-pending'>pending</span>"
 

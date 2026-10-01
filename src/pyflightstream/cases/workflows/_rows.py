@@ -734,7 +734,9 @@ class RotorMach:
         rotor its reference does not declare), or the actuator disc, by the
         name of its reference block.
     rpm : float or None
-        The speed in rev/min, signed by the hand, as the run turns it.
+        The speed in rev/min, signed by the hand, as the run turns it; a
+        disc's is its block's ``rpm_sign`` times the speed, the opposite of
+        the speed its script hands the solver since 0.34.0 (FR-331).
     diameter_m : float or None
         The diameter the numbers were taken at: a rotor block's
         ``diameter_m``, else the reference's ``rotor_diameter_m``; a disc's
