@@ -71,16 +71,14 @@ FACADE_HELD = {
 #: `post` family modules, which left.
 #: `results.loads`, `results.native_surface`, `results.surface` and `results.tables` are
 #: complete and left it (DOC-B part 2, g4).
+#: DOC-B part 2 completed `workspace` (its root, `hpc`, `inputs` and
+#: `sidecars`), which leave the list.
 NUMPYDOC_PENDING = {
     "cases/__init__.py",
     "farfield/__init__.py",
     "probes/__init__.py",
     # WP5 (AD-13) moved the pending functions of `post.products` into the four
     # family modules, which are pinned in their stead.
-    "workspace/__init__.py",
-    "workspace/hpc.py",
-    "workspace/inputs.py",
-    "workspace/sidecars.py",
 }
 
 #: Modules whose documented entry points do not yet all carry an Examples
@@ -94,10 +92,8 @@ NUMPYDOC_PENDING = {
 #: `results.exports`, `results.loads`, `results.surface` and `results.tables` carry theirs
 #: and left it (DOC-B part 2, g4).
 #: The `run` modules above and `run.cli` left it in DOC-B part 2, group 5.
-EXAMPLES_PENDING = {
-    "workspace/__init__.py",
-    "workspace/inputs.py",
-}
+#: `workspace` and `workspace.inputs` carry their examples and leave the list.
+EXAMPLES_PENDING = {}
 
 #: Documented entry points whose example cannot run offline without the solver
 #: or a recorded workspace, with the reason. Each still has no Examples

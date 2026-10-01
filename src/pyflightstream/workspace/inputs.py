@@ -476,6 +476,17 @@ def strip_rotor_facts(inputs_dir: Path) -> dict[str, list[str]]:
     staying as written, so the diff a reader sees is the four lines and
     nothing else. Returns, per file, the keys removed; a file carrying
     none is not rewritten.
+
+    Parameters
+    ----------
+    inputs_dir : Path
+        The workspace ``inputs/`` directory.
+
+    Returns
+    -------
+    dict of str to list of str
+        The keys removed, by the name of the reference file they were removed
+        from; empty when the folder is absent or no file carried a key.
     """
     directory = Path(inputs_dir) / "references"
     removed: dict[str, list[str]] = {}
@@ -1548,6 +1559,24 @@ def resolve_geometry(inputs_dir: Path, name: str) -> Path:
         A bare stem (no extension), naming every staged file that carries
         that stem so the cell can be completed; a name the library does
         not hold, naming the files it does; a path, which is never an id.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> from pyflightstream._errors import InputArtifactError
+    >>> from pyflightstream.workspace.inputs import resolve_geometry
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     geometries = Path(folder) / "geometries"
+    ...     geometries.mkdir()
+    ...     _ = (geometries / "wing.fsm").write_text("")
+    ...     print(resolve_geometry(Path(folder), "wing.fsm").name)
+    ...     try:
+    ...         resolve_geometry(Path(folder), "wing")
+    ...     except InputArtifactError:
+    ...         print("a bare stem is refused")
+    wing.fsm
+    a bare stem is refused
     """
     directory = Path(inputs_dir) / "geometries"
     if "/" in name or "\\" in name:
@@ -1852,6 +1881,21 @@ def rotor_integration_groups(
 
     A GROUP THE USER DECLARED IS NEVER REPLACED. Creation fills a gap; it does
     not overrule what the user wrote.
+
+    Parameters
+    ----------
+    rotors : mapping of str to object
+        The pproc's rotor blocks by alias; each block's ``members`` are the
+        rotor's families.
+    declared : mapping of str to sequence of int or str
+        The groups the pproc declares, by name, with their members. A group
+        whose only member names a rotor is read as that rotor's families.
+
+    Returns
+    -------
+    dict of str to list of int or str
+        The declared groups, with each rotor's integration group added under the
+        rotor's alias when none was declared.
 
     Raises
     ------
