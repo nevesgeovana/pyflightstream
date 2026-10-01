@@ -32,10 +32,20 @@ import sys
 import warnings
 from pathlib import Path
 
-from pyflightstream.cases import EXPORT_KINDS
+import pytest
+
+from pyflightstream.cases import (
+    EXPORT_KINDS,
+    PprocSpec,
+    RotorBlock,
+    SimCase,
+    SweepAxis,
+    default_outputs,
+)
 from pyflightstream.cases.matrix import MATRIX_COLUMNS
-from pyflightstream.cases.workflows import workflow_registry
+from pyflightstream.cases.workflows import row_outputs, workflow_registry
 from pyflightstream.run import Assessment, CampaignErrors, LocalExecutor
+from pyflightstream.run._wake_edge_verdict import collected_solver_log
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.workspace import RunStatus
 from pyflightstream.workspace.matrix import resolve_matrix
@@ -140,6 +150,28 @@ def test_point_2_of_a_steady_job_reads_its_cumulative_log_and_converges(tmp_path
         record.error,
     )
     assert "no solver log was read" not in (record.error or ""), record.error
+
+
+def _first_solve(text: str) -> str:
+    """The log as it stood after the first solve: the fixture cut at its second solve."""
+    first = text.index("Angle of attack (Deg)")
+    return text[: text.index("Angle of attack (Deg)", first + 1)]
+
+
+def test_two_collected_logs_neither_one_solve_is_no_log_one_that_is_is_the_log(tmp_path):
+    # P0331-SWEEP-LOG (FR-55, amended 0.33.1): the fallback takes the ONE
+    # collected _log.txt when no collected file parses as one solve. Two such
+    # files, each holding the two-solve fixture text, are still a guess, and
+    # the answer is None. Control: where one of the two holds a single solve,
+    # the content rule finds it and that file is returned.
+    text = TWO_SOLVES.read_text(encoding="utf-8")
+    for name in ("a_log.txt", "b_log.txt"):
+        (tmp_path / name).write_text(text, encoding="utf-8")
+    assert collected_solver_log(tmp_path, ["a_log.txt", "b_log.txt"], None) is None
+
+    one = _first_solve(text)
+    (tmp_path / "a_log.txt").write_text(one, encoding="utf-8")
+    assert collected_solver_log(tmp_path, ["a_log.txt", "b_log.txt"], None) == one
 
 
 # --- the second: the section Cp plot of a family the geometry does not carry ----------
@@ -277,3 +309,90 @@ def test_a_body_row_declares_and_exports_no_section_plot_its_wing_body_control_k
         collected = [name for entry in record.points_ran for name in entry["outputs"]]
         plots = [name for name in collected if name.endswith("_plot_cp_sections.txt")]
         assert len(plots) == (2 if cuts else 0), (sim_id, plots)
+
+
+# --- row_outputs, one case per branch -------------------------------------------------
+
+#: The declared name of the section Cp plot.
+PLOT = "{name}_plot_cp_sections.txt"
+
+#: A rotor whose one blade family is Blade1.
+PROP = RotorBlock(alias="PROP", axis="Z", diameter_m=1.0, families_blades=["Blade1"])
+
+
+def _artifact(families: str | list[str], frame: str = "MRP", **exports: bool) -> PprocSpec:
+    """An artifact of one section distribution over ``families`` in ``frame``."""
+    entry = {"families": families, "frame": frame, "planes": ["XZ"]}
+    table: dict[str, object] = {"sections": {"distributions": [entry]}}
+    if exports:
+        table["exports"] = exports
+    return PprocSpec.model_validate(table)
+
+
+def _row(pproc: PprocSpec | None, inventory: tuple[str, ...] | None, rotor: bool = False):
+    """A bound row over ``inventory`` citing ``pproc``, carrying PROP where asked."""
+    return SimCase(
+        sim_id="5301",
+        aircraft="Rig",
+        sweep=SweepAxis(type="alpha", values=[0.0]),
+        recipe="steady",
+        pproc=pproc,
+        inventory=inventory,
+        rotors={"PROP": PROP} if rotor else {},
+    )
+
+
+#: id -> (row, run type, whether the plot is declared). Every case but the
+#: first expects the artifact's own outputs with or without the plot.
+ROW_OUTPUT_CASES = {
+    "pproc-none-default-outputs": (_row(None, ("Wing",)), "unsteady_rotor", False),
+    "inventory-none-keeps-plot": (_row(_artifact(["Wing"]), None), "steady", True),
+    "artifact-declares-no-plot": (
+        _row(_artifact(["Wing"], plot_sections_cp=False), ("Fuselage",)),
+        "steady",
+        False,
+    ),
+    "expanding-frame-rotor-carried-keeps": (
+        _row(_artifact(["Blade1"], "LOCAL_AXIS"), ("Blade1", "Fuselage"), rotor=True),
+        "steady",
+        True,
+    ),
+    "expanding-frame-no-rotor-family-drops": (
+        _row(_artifact(["Blade1"], "LOCAL_AXIS"), ("Fuselage",), rotor=True),
+        "steady",
+        False,
+    ),
+    "selector-refused-keeps-plot": (_row(_artifact("airframe"), ("Fuselage",)), "steady", True),
+    "rotor-alias-honoured-keeps": (
+        _row(_artifact(["PROP"]), ("Blade1", "Fuselage"), rotor=True),
+        "steady",
+        True,
+    ),
+    "common-frame-absent-family-drops": (_row(_artifact(["Wing"]), ("Fuselage",)), "steady", False),
+    "common-frame-carried-family-keeps": (
+        _row(_artifact(["Wing"]), ("Wing", "Fuselage")),
+        "steady",
+        True,
+    ),
+}
+
+
+@pytest.mark.parametrize("label", list(ROW_OUTPUT_CASES))
+def test_row_outputs_leaves_the_section_plot_out_only_where_no_section_is_cut(label):
+    # P0331-SECTIONS-ABSENT-FAMILY (FR-51, amended 0.33.1): one case per branch
+    # of row_outputs and _cuts_a_section. No artifact gives the defaults of the
+    # run type; an unknown inventory, an expanding frame over a carried rotor
+    # family, a selector the builder refuses, a rotor's name read as its alias
+    # and a common-frame family the geometry carries all keep the plot; an
+    # expanding frame with no rotor family and a common-frame family the
+    # geometry lacks drop it; an artifact declaring no plot is returned as is.
+    case, workflow, declared = ROW_OUTPUT_CASES[label]
+    unsteady = workflow.startswith("unsteady")
+    got = row_outputs(case, workflow)
+    if case.pproc is None:
+        assert got == default_outputs(unsteady), got
+        return
+    full = case.pproc.outputs(unsteady)
+    expected = full if declared else [name for name in full if name != PLOT]
+    assert got == expected, (label, got)
+    assert (PLOT in got) is declared, (label, got)
