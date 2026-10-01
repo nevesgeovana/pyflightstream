@@ -105,10 +105,14 @@ def campaign_executor(
     Parameters
     ----------
     workspace : pyflightstream.workspace.CampaignWorkspace
+        The campaign root, whose submission profile a cluster reads.
     resolved : pyflightstream.workspace.matrix.ResolvedMatrix
+        The bound matrix; its ``fs_exe`` is the campaign's own executable.
     path : str or Path
         The matrix file.
     executor : pyflightstream.run.Executor, optional
+        An executor that answers for every build; left out, the cluster rule and
+        the matrix's HIDDEN column decide.
     """
     from pyflightstream.run import matrix as run_matrix
 

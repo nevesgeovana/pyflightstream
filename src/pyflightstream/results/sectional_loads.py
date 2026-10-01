@@ -340,6 +340,23 @@ def parse_sectional_loads(text: str) -> SectionalLoadsReport:
         structural completeness checks (declared count, closing
         separator, units footer) run here; a file failing any of them
         raises instead of returning less.
+
+    Raises
+    ------
+    AnchorNotFoundError
+        If the table header, or a labeled value other than the SI ones,
+        is missing.
+    UnitsError
+        If an SI label of the header is missing, the force unit is not
+        Newtons or the moment unit is not Newton-Meter.
+    IncompleteOutputError
+        If the units footer is missing or the table holds fewer rows
+        than the file declares.
+    FsiInputError
+        If the table columns are not the expected ones, or a row has the
+        wrong width or an empty field.
+    MalformedOutputError
+        If a printed number or count cannot be read.
     """
     freestream = _si_labeled_number(text, "Freestream velocity (m/s)")
     reference_area = _si_labeled_number(text, "Reference area (m^2)")

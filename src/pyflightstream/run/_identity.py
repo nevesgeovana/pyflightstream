@@ -430,6 +430,9 @@ def check_solver_identity(
         Scratch directory for the sentinel script and its log.
     timeout_s : float, keyword-only
         Wall-clock limit for the sentinel run, in seconds.
+    accept_unregistered_build : bool, keyword-only
+        With True, an installed build other than the registered one is
+        warned about and accepted instead of refused. Default False.
 
     Raises
     ------
@@ -664,6 +667,9 @@ def _check_scheduled_builds(
     scheduled : list of (SimCase, SolverBuild or None)
         The cases that have at least one point left to run, paired with
         the build each resolved to.
+    accept_unregistered_build : bool, keyword-only
+        With True, an installed build other than the registered one is
+        warned about and accepted instead of refused. Default False.
 
     Raises
     ------

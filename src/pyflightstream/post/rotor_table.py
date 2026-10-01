@@ -96,6 +96,22 @@ def rotor_coefficient_columns(alias: str) -> tuple[str, ...]:
     summed into one CT is not a worse CT, it is not a CT at all -- the diameters and
     the speeds that normalise it are different numbers. The alias in every
     column name is what makes summing them impossible by accident.
+
+    Parameters
+    ----------
+    alias : str
+        The rotor's alias, stripped of surrounding blanks.
+
+    Returns
+    -------
+    tuple of str
+        ``J``, ``CT``, ``CQ``, ``CP``, ``ETA`` and ``ETAW``, each followed by
+        ``_`` and the alias.
+
+    Raises
+    ------
+    ProductError
+        If the alias is empty (a ``ValueError``).
     """
     token = str(alias).strip()
     if not token:
@@ -177,6 +193,39 @@ def rotor_shaft_loads(
     ONLY THE ROTOR'S OWN FAMILIES ARE SUMMED. The airframe sits in the same
     table, and a rotor's thrust is its own -- which is the same reason item 6
     suffixes every column with the alias.
+
+    Parameters
+    ----------
+    surfaces : mapping of str to mapping of str to float
+        The loads table by surface name: the coefficients ``Cx, Cy, Cz, CMx,
+        CMy, CMz`` of each surface.
+    rotor : object
+        The rotor, read for its ``axis_vector``, ``members`` (families), and
+        hub position ``x_m``, ``y_m`` and ``z_m``.
+    reference : ReferenceValues
+        Reference area, length and moment point the export's coefficients were
+        taken against.
+    density_kg_m3 : float
+        Air density in kg/m^3.
+    speed_m_s : float
+        Free-stream speed in m/s; zero or below gives NaN loads.
+    aliases : mapping of str to sequence of str, optional
+        The boundary aliases a rotor member may name.
+    alpha_deg : float, optional
+        Angle of attack in degrees, for the angle to the free stream.
+    beta_deg : float, optional
+        Sideslip angle in degrees.
+    analysis_frame : str, optional
+        The frame the export states its loads in; one that is not the
+        geometry's axes gives NaN loads.
+
+    Returns
+    -------
+    RotorShaftLoads
+        Thrust and torque about the shaft in N and N m, the angle between the
+        shaft and the stream, the force along the stream, and the surfaces
+        summed. The loads are NaN at rest and in a frame other than the
+        geometry's.
     """
     shaft = _unit(getattr(rotor, "axis_vector", (0.0, 0.0, 1.0)))
     # THROUGH THE PACKAGE'S ONE RESOLVER, not an exact-name match. A rotor's
@@ -440,6 +489,37 @@ def rotor_coefficients(
     and the stream are already aligned, which is the case that needs no
     correction.
 
+    Parameters
+    ----------
+    thrust_n : float
+        Thrust along the shaft in N.
+    torque_nm : float
+        Torque about the shaft in N m, signed about the fixed rotor axis.
+    rps : float
+        Signed revolutions per second; the sign is the sense of rotation.
+    diameter_m : float
+        Rotor diameter in m.
+    density_kg_m3 : float
+        Air density in kg/m^3.
+    speed_m_s : float
+        Free-stream speed in m/s.
+    shaft_angle_deg : float, optional
+        Angle between the shaft and the free stream in degrees; reported
+        beside the coefficients and used in none of them.
+    wind_force_n : float, optional
+        The rotor's force along the free stream in N; ``ETAW`` reads ``NA``
+        where it is None or not finite.
+    in_plane_loads : sequence of float, optional
+        Normal force, side force, and the moments about the normal and side
+        axes at the hub, in N and N m; the four in-plane columns read ``NA``
+        where it is None or does not hold four finite numbers.
+
+    Returns
+    -------
+    dict of str to float or str
+        ``J``, ``CT``, ``CQ``, ``CP``, ``ETA``, ``ETAW``, ``CN``, ``CS``,
+        ``CMN`` and ``CMS``; a coefficient that cannot be formed reads ``NA``.
+
     Raises
     ------
     ZeroDivisionError
@@ -573,6 +653,38 @@ def write_rotor_table(
     Returns None without writing when no row states a speed, since every
     coefficient here divides by one: there is no table to write rather than a
     table of `NA`.
+
+    Parameters
+    ----------
+    path : str or Path
+        Destination file.
+    rotor : object
+        The rotor, read for its ``alias``, ``diameter_m``, ``axis_vector`` and
+        hub position.
+    rows : sequence of mapping
+        One mapping per run, holding its ``run_id``, ``rpm``, ``density``,
+        ``speed``, ``condition``, ``air``, ``surfaces``, ``aliases`` and
+        ``frame`` where it has them.
+    reference : ReferenceValues
+        The reference lengths and moment point of the run.
+    left_out : list of tuple of str, optional
+        Receives ``(run_id, reason)`` for every row refused.
+    written_runs : list of str, optional
+        Receives the run id of every row written.
+    pol : str or int, optional
+        The polar the rows come from, written first in every row; ``NA`` where
+        None.
+
+    Returns
+    -------
+    Path or None
+        The file written, or None when no row states a speed.
+
+    Raises
+    ------
+    ProductError
+        If the rotor has no alias to carry in the column names (a
+        ``ValueError``).
     """
     alias = str(getattr(rotor, "alias", "") or "")
     # 0.24.0: THE SPEED AND THE DIAMETER THE COEFFICIENTS DIVIDED BY, beside them.

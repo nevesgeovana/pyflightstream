@@ -1003,6 +1003,11 @@ def input_glossary_markdown() -> str:
     each row a key with its meaning, its unit or values, where it is accepted
     and the command it reaches. Generated from the code on every call.
 
+    Returns
+    -------
+    str
+        The Markdown page, ending with a newline.
+
     Examples
     --------
     >>> text = input_glossary_markdown()
@@ -1054,6 +1059,12 @@ def write_input_glossary(folder: str | Path, *, changed: list[Path] | None = Non
     -------
     pathlib.Path
         The page, written or not.
+
+    Raises
+    ------
+    InputArtifactError
+        If the existing page holds the generated-block markers more than once,
+        or in reversed order, so the block cannot be refreshed safely.
 
     Examples
     --------
@@ -1108,6 +1119,16 @@ def write_workspace_input_glossary(inputs_dir: str | Path) -> list[Path]:
     :func:`pyflightstream.workspace.register_input_guide` beside the pproc
     guides, which is how ``pyfs-workspace init``, ``pyfs-matrix plan`` and
     ``pyfs-matrix post`` reach it.
+
+    Parameters
+    ----------
+    inputs_dir : str or pathlib.Path
+        The workspace's ``inputs`` root; created if absent.
+
+    Returns
+    -------
+    list of pathlib.Path
+        The page when this call wrote it, otherwise an empty list.
     """
     changed: list[Path] = []
     write_input_glossary(Path(inputs_dir), changed=changed)

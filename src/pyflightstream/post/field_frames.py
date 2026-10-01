@@ -77,6 +77,12 @@ def frame_pose(
     -------
     FramePose
         Native-unit origin and basis columns, with angular velocity in rad/s.
+
+    Raises
+    ------
+    ProductError
+        If the frame ledger is not resolved as known, has no geometry evidence,
+        or carries a malformed origin or axis vector.
     """
     motion_record = resolve_frame_motion(motion_record, solver_identity=solver_identity)
     if motion_record.get("state") != "known":
@@ -169,6 +175,13 @@ def field_in_reference(
     -------
     tuple of numpy.ndarray
         Reference-frame positions in metres and absolute velocity in m/s.
+
+    Raises
+    ------
+    ProductError
+        If the coordinate conversion is not positive, the arrays are not
+        matching finite N by 3 arrays, or the frame, STEP or velocity proof
+        does not support the conversion.
     """
     scale = _number(native_to_m, "coordinate conversion")
     if scale <= 0:
@@ -278,6 +291,28 @@ def native_velocity_proof(
     named, so its field is written with a warning rather than withheld.
     Another version, unit or export kind, and a run that recorded no
     executable digest or build, are refused: there is no evidence at all.
+
+    Parameters
+    ----------
+    motion_record
+        The recorded frame ledger; its ``solver_version`` and ``length_unit``
+        select the measured convention.
+    solver_identity
+        The run's ``fs_exe_sha256`` and ``fs_build``.
+    export_kind
+        Native export family, for example ``steady-probe``.
+
+    Returns
+    -------
+    dict
+        The velocity convention: state, executable identity, units, scale to
+        metres per second, component basis and the evidence; with the
+        measured and run builds and ``proven`` False when it is borrowed.
+
+    Raises
+    ------
+    ProductError
+        If no measured convention exists for the export, build and unit.
     """
     # NFR-31: the build identifies the measured executable; the run's own
     # recorded digest is required and echoed, never compared with a constant.

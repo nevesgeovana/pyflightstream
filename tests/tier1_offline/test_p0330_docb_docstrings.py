@@ -50,6 +50,7 @@ FACADE_HELD = {
     "farfield/__init__.py",
     "probes/__init__.py",
     "script/__init__.py",
+    "workspace/__init__.py",
 }
 
 #: Modules (paths under ``src/pyflightstream``) whose exported functions do not
@@ -66,39 +67,21 @@ FACADE_HELD = {
 #: (AD-14) moved the pending functions of the `run` root into `run._campaign`,
 #: `run._executors`, `run._identity` and `run._plan`, pinned in its stead; the
 #: root, a facade now, leaves the list.
+#: DOC-B part 2 group g1: `cases.windows` left the list; the roots `cases`, `farfield` and
+#: `probes` stay pinned, held by the facade ratchet (FACADE_HELD).
+#: DOC-B part 2 g3 documented `results.sectional_loads`, `results.core`, `results.log` and the four
+#: `post` family modules, which left.
+#: `results.loads`, `results.native_surface`, `results.surface` and `results.tables` are
+#: complete and left it (DOC-B part 2, g4).
+#: DOC-B part 2 completed `workspace.hpc`, `workspace.inputs` and `workspace.sidecars`, which
+#: leave the list. The `workspace` root stays pinned: it is a held facade root (FACADE_HELD).
 NUMPYDOC_PENDING = {
     "cases/__init__.py",
     "farfield/__init__.py",
     "probes/__init__.py",
-    "results/sectional_loads.py",
-    "cases/windows.py",
-    "post/field_frames.py",
-    "post/glossary.py",
-    "post/guides.py",
-    "post/input_template.py",
-    "post/probe_fields.py",
-    "post/products.py",
+    "workspace/__init__.py",
     # WP5 (AD-13) moved the pending functions of `post.products` into the four
     # family modules, which are pinned in their stead.
-    "post/point_tables.py",
-    "post/polar.py",
-    "post/rotor_table.py",
-    "post/unsteady_polar.py",
-    "results/core.py",
-    "results/loads.py",
-    "results/log.py",
-    "results/native_surface.py",
-    "results/surface.py",
-    "results/tables.py",
-    "run/_campaign.py",
-    "run/_executors.py",
-    "run/_identity.py",
-    "run/_plan.py",
-    "run/cli.py",
-    "workspace/__init__.py",
-    "workspace/hpc.py",
-    "workspace/inputs.py",
-    "workspace/sidecars.py",
 }
 
 #: Modules whose documented entry points do not yet all carry an Examples
@@ -108,22 +91,16 @@ NUMPYDOC_PENDING = {
 #: leaves the list. Those WP6 moved out of the `run` root are pinned in
 #: `run._assessment`, `run._campaign`, `run._executors`, `run._identity` and
 #: `run._plan`, and the root leaves the list.
+#: DOC-B part 2 group g1 wrote the examples of `cases` and `script`; the integration took them
+#: out again, because the facade ratchet admits no growth in those held roots, so both stay.
+#: `results.exports`, `results.loads`, `results.surface` and `results.tables` carry theirs
+#: and left it (DOC-B part 2, g4).
+#: The `run` modules above and `run.cli` left it in DOC-B part 2, group 5.
+#: `workspace.inputs` carries its examples and leaves the list; the `workspace` root stays.
 EXAMPLES_PENDING = {
     "cases/__init__.py",
     "script/__init__.py",
-    "post/probe_fields.py",
-    "results/exports.py",
-    "results/loads.py",
-    "results/surface.py",
-    "results/tables.py",
-    "run/_assessment.py",
-    "run/_campaign.py",
-    "run/_executors.py",
-    "run/_identity.py",
-    "run/_plan.py",
-    "run/cli.py",
     "workspace/__init__.py",
-    "workspace/inputs.py",
 }
 
 #: Documented entry points whose example cannot run offline without the solver
@@ -153,6 +130,12 @@ NO_OFFLINE_EXAMPLE = {
     "workspace's inputs",
     "pyflightstream.workspace.fsi_setup.resolve_row_fsi": "reads an FSI artifact of a "
     "workspace's inputs",
+    "pyflightstream.run._campaign.run_campaign": "drives the solver through an executor over "
+    "a managed campaign root",
+    "pyflightstream.run._identity.reconstruct": "reads the recorded runs of a workspace",
+    "pyflightstream.run._plan.plan_campaign": "pre-flights the cases and geometry files of a "
+    "workspace against a recorded manifest",
+    "pyflightstream.run.cli.main": "the pyfs-matrix console entry; the CLI reference documents it",
 }
 
 #: Exported functions whose own ``raise`` lets a catalogued error reach the

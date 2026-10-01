@@ -2364,9 +2364,8 @@ class CampaignWorkspace:
     ) -> dict[str, int]:
         """Expand one named boundary group into its per-member names.
 
-        The group ``Blade`` of the descriptor becomes ``Blade1`` through
-        ``BladeN`` over the members' 1-based positions. See
-        :func:`expand_group`, which this loads the artifact for.
+        The group ``Blade`` becomes ``Blade1`` through ``BladeN`` over the members'
+        1-based positions. See :func:`expand_group`, which this loads the artifact for.
 
         Parameters
         ----------
@@ -2374,6 +2373,8 @@ class CampaignWorkspace:
             File name stem under ``inputs/pproc/``.
         name : str
             Group to expand, and the stem of the generated names.
+        boundaries : mapping of str to int, optional
+            Boundary label to 1-based index; members written as names resolve through it.
 
         Returns
         -------
@@ -2383,8 +2384,7 @@ class CampaignWorkspace:
         Raises
         ------
         InputArtifactError
-            Unknown artifact id, unknown group name, or a group whose
-            members are boundary labels rather than indices.
+            Unknown artifact or group, or members that are labels with no inventory.
         """
         return expand_group(
             self.resolve_pproc(artifact_id), name, artifact_id, boundaries=boundaries

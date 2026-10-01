@@ -566,6 +566,17 @@ def write_workspace_pproc_guides(inputs_dir: str | Path) -> list[Path]:
     entry naming the artifact it came from. An artifact that does not parse is
     left to the stage that reads it, which names the fault; it costs the guides
     nothing but its own glossary.
+
+    Parameters
+    ----------
+    inputs_dir : str or pathlib.Path
+        The workspace's ``inputs`` root; the guides go into its ``pproc``
+        folder, created if absent.
+
+    Returns
+    -------
+    list of pathlib.Path
+        The pages this call wrote, none when nothing would change.
     """
     folder = Path(inputs_dir) / "pproc"
     pairs: list[tuple[str, str]] = []

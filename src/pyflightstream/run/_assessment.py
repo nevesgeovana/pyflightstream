@@ -345,6 +345,16 @@ class LoadsAssessor:
     is a physical outcome, and attributing one to a case that never
     produced the file is a worse error than reporting that the evidence
     could not be matched to the case.
+
+    Examples
+    --------
+    The assessor is built once per campaign and handed to the loop, which
+    calls it for each executed point; building it reads nothing:
+
+    >>> from pyflightstream.run import LoadsAssessor
+    >>> assess = LoadsAssessor(log_file="solver_log.txt")
+    >>> (assess.loads_file, assess.log_file, assess.requested_version)
+    (None, 'solver_log.txt', None)
     """
 
     def __init__(

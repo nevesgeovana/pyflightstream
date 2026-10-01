@@ -81,6 +81,18 @@ def unsteady_polar_file_name(sim_id: str | int, *, name: str) -> str:
     because its source, the loads export, states loads PER FAMILY. This one's
     source is the plots history, whose columns are whatever the run defined as
     plots, so there is one table per simulation and one row per point.
+
+    Parameters
+    ----------
+    sim_id : str or int
+        The simulation's identifier, written as it stands after the ``P``.
+    name : str
+        The name the file carries between the simulation and ``uns_avg``.
+
+    Returns
+    -------
+    str
+        The file name, ``P<sim_id>_<name>_uns_avg.csv``, without a directory.
     """
     # NOT `group_token`, which is the GROUP rule: it prefixes a bare number with
     # `g` so a named group can never be told from the numbered era's suffix. A
@@ -193,6 +205,65 @@ def write_unsteady_polar(
 
     ``contributor_path``, when supplied, chooses the destination from the names
     of the points that actually yield rows, before the table is written.
+
+    Parameters
+    ----------
+    path : str or Path
+        Destination of the table; replaced by ``contributor_path``'s answer
+        when that is given.
+    points : sequence of object
+        The points of the simulation, in row order; each is read by its
+        ``name`` attribute.
+    plots : mapping of str to Path
+        The plots history file of each point, by point name.
+    window : tuple of int
+        First and last time step of the averaging window, shared by the
+        points that ``windows`` does not name.
+    conditions : sequence of mapping
+        The condition block of each point, in the order of ``points`` (the
+        two must have the same length).
+    reference : ReferenceValues or None
+        Reference lengths and moment point of the run; None writes no
+        reference columns and no axis block.
+    left_out : list of str, optional
+        Receives one reason for each point left out of the table.
+    windows : mapping of str to tuple of int, optional
+        A window of a point's own, by point name.
+    setup : mapping of str to mapping, optional
+        The super content of each point, by point name, added as columns.
+    notes : list of str, optional
+        Receives the reason the axis block could not be written.
+    axes_groups : sequence of str, optional
+        The plot groups, in the global frame, that supply the axis block.
+    names : mapping of str to str, optional
+        The pproc dictionary renaming columns of the heading.
+    name_notes : list of str, optional
+        Receives the refusal of the dictionary instead of raising it.
+    equations : mapping of str to object, optional
+        The pproc ``[equations]`` evaluated into extra columns.
+    equation_order : sequence of str, optional
+        The order the equations are evaluated in; the mapping's own order
+        where omitted.
+    equation_notes : list of str, optional
+        Receives the refusal of the equation block instead of raising it.
+    frozen : mapping of str to FrozenSolve, optional
+        Native-log freeze evidence by point name.
+    contributor_path : callable, optional
+        Chooses the destination from the names of the points that yield rows.
+    pol : str or int, optional
+        The simulation's polar, written first in every row; ``NA`` where None.
+
+    Returns
+    -------
+    Path or None
+        The file written, or None when no point yields a row.
+
+    Raises
+    ------
+    ProductError
+        If the equation block or the column dictionary is refused and the
+        matching ``equation_notes`` or ``name_notes`` list is not given
+        (a ``ValueError``).
     """
     path = Path(path)
     columns: list[str] = []
@@ -384,6 +455,23 @@ def global_frame_plot_groups(
     that name is what is looked for; a run made before 0.24.0 has no such columns
     and its polar says so. A template also suppresses that automatic group, but
     its unresolved names cannot supply an axes block; that block is a named skip.
+
+    Parameters
+    ----------
+    pproc : object
+        The pproc artifact, read for its ``plots`` declarations and its
+        ``is_blade`` test.
+    inventory : sequence of str, optional
+        The surface names of the run, used to decide which groups the
+        automatic plot can emit.
+    aliases : mapping of str to sequence of str, optional
+        The family aliases of the run.
+
+    Returns
+    -------
+    tuple of str
+        The names of the plot groups whose six components are in the global
+        frame; empty when the artifact's own groups shadow the automatic one.
     """
     plots = getattr(pproc, "plots", None)
     parameters = set(getattr(plots, "parameters", ()) or ())

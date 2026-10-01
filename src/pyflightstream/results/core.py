@@ -176,6 +176,11 @@ def labeled_value(text: str, label: str) -> str:
     -------
     str
         The remainder of the line after the label, stripped.
+
+    Raises
+    ------
+    AnchorNotFoundError
+        If no line of ``text`` starts with ``label`` (a ``ValueError``).
     """
     for line in text.splitlines():
         stripped = line.strip()
@@ -200,6 +205,21 @@ def parse_number(token: str) -> float:
 
     Accepts the solver's forms: ``.000``, ``4380000.``, ``1.000E-05``,
     and signed values such as ``+0.0002056``.
+
+    Parameters
+    ----------
+    token : str
+        The printed number, as it stands in the file.
+
+    Returns
+    -------
+    float
+        The value of the token.
+
+    Raises
+    ------
+    MalformedOutputError
+        If the token is not a number (a ``ValueError``).
     """
     try:
         return float(token)
@@ -229,10 +249,15 @@ def reject_duplicate_columns(columns: Sequence[str], *, what: str) -> None:
     what : str
         Name of the export, for the error message.
 
+    Returns
+    -------
+    None
+        The header is acceptable when the call returns.
+
     Raises
     ------
-    ValueError
-        If any normalized name appears more than once.
+    MalformedOutputError
+        If any normalized name appears more than once (a ``ValueError``).
     """
     seen: dict[str, str] = {}
     repeated: set[str] = set()
@@ -270,10 +295,15 @@ def reject_trailing_export(text: str, *, what: str) -> None:
     what : str
         Name of the export, for the error message.
 
+    Returns
+    -------
+    None
+        The file is acceptable when the call returns.
+
     Raises
     ------
-    ValueError
-        If the file holds more than one software footer.
+    MalformedOutputError
+        If the file holds more than one software footer (a ``ValueError``).
 
     Notes
     -----
@@ -342,9 +372,9 @@ def parse_count(token: str, *, label: str, minimum: int = 0, counts: str = "iter
 
     Raises
     ------
-    ValueError
+    MalformedOutputError
         If the token is not a number at all, is a number with a
-        fractional part, or is below ``minimum``.
+        fractional part, or is below ``minimum`` (a ``ValueError``).
     """
     value = parse_number(token)
     whole = int(value)
@@ -926,6 +956,13 @@ def delimited_table(text: str, header_anchor: str, delimiter: str | None = ",") 
     -------
     list of list of str
         One list of stripped cells per data row.
+
+    Raises
+    ------
+    AnchorNotFoundError
+        If no line starts with ``header_anchor``.
+    IncompleteOutputError
+        If the text ends before the closing separator line.
     """
     lines = iter(text.splitlines())
     for line in lines:

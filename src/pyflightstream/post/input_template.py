@@ -1582,6 +1582,11 @@ def input_template_markdown() -> str:
     file the package reads as it stands, and the keys an example leaves out are
     named with the reason. Generated on every call.
 
+    Returns
+    -------
+    str
+        The Markdown page, ending with a newline.
+
     Examples
     --------
     >>> text = input_template_markdown()
@@ -1655,6 +1660,16 @@ def write_workspace_input_template(inputs_dir: str | Path) -> list[Path]:
     :func:`pyflightstream.workspace.register_input_guide` beside the glossary,
     which is how ``pyfs-workspace init``, ``pyfs-matrix plan`` and
     ``pyfs-matrix post`` reach it.
+
+    Parameters
+    ----------
+    inputs_dir : str or pathlib.Path
+        The workspace's ``inputs`` root; created if absent.
+
+    Returns
+    -------
+    list of pathlib.Path
+        The page when this call wrote it, otherwise an empty list.
     """
     changed: list[Path] = []
     write_input_template(inputs_dir, changed=changed)

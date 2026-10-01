@@ -111,6 +111,14 @@ def parse_residual_history(text: str) -> list[ResidualSample]:
         The history in iteration order; the first three columns of
         each row (iteration, velocity residual, pressure residual)
         are parsed, further columns vary with the run setup.
+
+    Raises
+    ------
+    IncompleteOutputError
+        If the log holds no residual table (a ``ValueError``).
+    MalformedOutputError
+        If a row cannot be read, or the iteration counter does not
+        increase down the table (a ``ValueError``).
     """
     # Real hidden-mode log exports carry stray NUL bytes between lines
     # (observed on 26.120 build 7012026); scrub them before parsing.
@@ -347,6 +355,30 @@ def frozen_time_steps(log_text: str, *, unjudged: list[int] | None = None) -> Fr
     A skipped block is not evidence of a healthy step and must never be read as
     one: it breaks the streak, so it can neither begin nor extend a freeze, and
     the caller is handed the step numbers to refuse the windows they fall in.
+
+    Parameters
+    ----------
+    log_text : str
+        Complete text of an unsteady solver log.
+    unjudged : list of int, optional
+        When given, the tolerant mode described above: the number of
+        every block whose residual pages cannot be read is appended to
+        this list instead of raising.
+
+    Returns
+    -------
+    FrozenSolve or None
+        The first frozen step and the count of frozen steps, or None
+        when no stretch of two consecutive steps is frozen.
+
+    Raises
+    ------
+    IncompleteOutputError
+        If a block has no readable residual page and ``unjudged`` is
+        None (a ``ValueError``).
+    MalformedOutputError
+        If a residual page of a block cannot be parsed and ``unjudged``
+        is None (a ``ValueError``).
     """
     clean = log_text.replace("\x00", "")
     markers = list(re.finditer(r"Solving unsteady time-step iteration \((\d+)/(\d+)\)", clean))

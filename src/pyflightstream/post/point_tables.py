@@ -195,6 +195,53 @@ def write_sections_table(
     reference should write `NA` rather than be refused a product it can
     otherwise make, and a run's reference is recorded beside its outputs
     rather than inside this export.
+
+    Parameters
+    ----------
+    path : str or Path
+        Destination CSV.
+    export_text : str
+        Complete text of the sectional loads export.
+    mach : float
+        Mach number of the point, for the condition block when ``condition``
+        is not given.
+    step : int, optional
+        Solver step the distribution was sampled at; read from the export's
+        header on a steady export when omitted, ``NA`` on an unsteady one.
+    iteration : object, optional
+        Removed in 0.26.0; passing any value raises.
+    unsteady : bool, optional
+        Whether the export is of an unsteady run, whose header counts inner
+        iterations rather than time steps.
+    azimuth_deg : float, optional
+        Azimuth in degrees stated for every row, for a caller holding one
+        export of one rotor and no layout.
+    reference : ReferenceValues, optional
+        Reference lengths written beside each row; ``NA`` where None.
+    advance_ratio : float, optional
+        Advance ratio of the point, used only when ``condition`` is not given.
+    condition : mapping, optional
+        The point's condition as :func:`point_condition` assembles it.
+    layout : sequence of mapping, optional
+        The distribution blocks of the run's script, in order, as the run
+        record states them.
+    rotors : mapping of str to mapping, optional
+        Each rotor's alias to its ``families``, ``steps_per_revolution``,
+        ``blade1_azimuth_deg`` and signed ``rpm``.
+    pol : str or int, optional
+        The polar the point belongs to, written first in every row.
+
+    Returns
+    -------
+    Path or None
+        The file written, or None when the export declares no section.
+
+    Raises
+    ------
+    ProductArgumentError
+        If ``iteration`` is passed.
+    ProductError
+        If the export cannot be read or carries fewer than seven columns.
     """
     if iteration is not _ITERATION_UNSET:
         raise ProductArgumentError(
@@ -270,6 +317,25 @@ def write_plots_table(
     since 0.27.0 (G16), `NA` where the caller states none, and the export's own
     header follows it unchanged; :func:`plots_table_series` reads every column
     AFTER it back as a plotted quantity.
+
+    Parameters
+    ----------
+    path : str or Path
+        Destination CSV; also named in the refusal message.
+    export_text : str
+        Complete text of the unsteady plots export.
+    pol : str or int, optional
+        The polar the point belongs to, written first in every row.
+
+    Returns
+    -------
+    Path or None
+        The file written, or None when the export holds no step.
+
+    Raises
+    ------
+    ProductError
+        If the export cannot be read.
     """
     try:
         report: UnsteadyPlotsReport = parse_unsteady_plots(export_text)
@@ -356,6 +422,11 @@ def read_probe_positions(path: str | Path) -> dict[int, tuple[float, float, floa
     are different and must not read alike, or a positions file this
     release wrote and a crash truncated produces a table of empty
     coordinates with nothing anywhere saying so.
+
+    Parameters
+    ----------
+    path : str or Path
+        The positions file of the run.
 
     Returns
     -------
@@ -483,6 +554,10 @@ def write_probes_table(
 
     Parameters
     ----------
+    path : str or Path
+        Destination CSV; also named in the refusal message.
+    export_text : str
+        Complete text of the probe points export.
     positions : mapping, optional
         Vertex number to ``(x, y, z, frame)``, from
         :func:`read_probe_positions`. Absent for every run recorded
@@ -491,6 +566,22 @@ def write_probes_table(
         0.23.0; the producer still returns a blank there and the funnel in
         :mod:`pyflightstream.post._tables` renders it, so this says what the
         user opens rather than what the tuple carries.
+    condition : mapping, optional
+        The point's condition block, written in every row.
+    reference : ReferenceValues, optional
+        Reference lengths written beside each row.
+    pol : str or int, optional
+        The polar the point belongs to, written first in every row.
+
+    Returns
+    -------
+    Path or None
+        The file written, or None when the export holds no probe point.
+
+    Raises
+    ------
+    ProductError
+        If the export cannot be read.
     """
     try:
         report = parse_probe_points(export_text)
@@ -567,6 +658,26 @@ def write_unsteady_probes_table(
     from is not a guess. A plots table carrying no such column falls back to
     the ordinal, because a product is better than a refusal there and the two
     agree on every export that begins at one and steps by one.
+
+    Parameters
+    ----------
+    path : str or Path
+        Destination CSV.
+    plots_table : str or Path
+        The plots table written for the same point.
+    positions : mapping
+        Vertex number to ``(x, y, z, frame)``, from
+        :func:`read_probe_positions`.
+    parameters : sequence of str
+        The probe parameters the artifact declares, for example ``MACH``.
+    condition : mapping, optional
+        The point's condition block, written in every row.
+    reference : ReferenceValues, optional
+        Reference lengths written beside each row.
+    notes : list of str, optional
+        Receives the recorded vertices the table has no history for.
+    pol : str or int, optional
+        The polar the point belongs to, written first in every row.
 
     Returns
     -------
@@ -713,6 +824,21 @@ def write_reduction_table(
         ``time_average``, ``phase_locked`` or ``per_blade``.
     windows : sequence of (first, last)
         Inclusive solver-step windows, 1-based, each inside the table.
+    names : mapping of str to str, optional
+        The pproc dictionary renaming columns of the heading.
+    condition : mapping, optional
+        The point's condition block, written in every row.
+    reference : ReferenceValues, optional
+        Reference lengths and moment point written beside each row.
+    rotor : str, optional
+        The alias the reduction is cut for; ``NA`` for the time average.
+    pol : str or int, optional
+        The polar the point belongs to, written first in every row.
+
+    Returns
+    -------
+    Path
+        The file written, one row per window.
 
     Raises
     ------
@@ -826,6 +952,35 @@ def write_per_blade_table(
 
     Until 0.24.0 this file was one row with the time average's shape under the
     per-blade name.
+
+    Parameters
+    ----------
+    path : str or Path
+        Destination CSV.
+    series : TimestepSeries
+        The plots table as :func:`plots_table_series` reads it.
+    columns : sequence of str
+        The plots table's columns, in its order.
+    window : sequence of int
+        First and last solver step of the window every blade shares.
+    rotor : str or None
+        The rotor's alias, named in the refusal and written in each row.
+    blades : int
+        The rotor's blade count, which spaces the blades in azimuth.
+    facts : mapping
+        What the run states of the rotor: ``families``,
+        ``steps_per_revolution``, ``blade1_azimuth_deg`` and ``rpm``.
+    condition : mapping, optional
+        The point's condition block, written in every row.
+    reference : ReferenceValues, optional
+        Reference lengths and moment point written beside each row.
+    pol : str or int, optional
+        The polar the point belongs to, written first in every row.
+
+    Returns
+    -------
+    Path
+        The file written, one row per blade.
 
     Raises
     ------
@@ -973,6 +1128,39 @@ def write_phase_locked_table(
     keep the names the plots export prints, all in one file: a blade's end in its
     family, a rotor's in the group the pproc named for it.
 
+    Parameters
+    ----------
+    path : str or Path
+        Destination CSV.
+    series : TimestepSeries
+        The plots table as :func:`plots_table_series` reads it.
+    columns : sequence of str
+        The plots table's columns, in its order.
+    window : sequence of int
+        First and last solver step of the window.
+    revolutions : float
+        How many of the last revolutions enter each mean.
+    steps_per_revolution : float
+        Solver steps in one revolution.
+    rotor : str or None
+        The rotor's alias, written in each row.
+    blades : int
+        The rotor's blade count.
+    facts : mapping
+        What the run states of the rotor: ``families``,
+        ``blade1_azimuth_deg`` and ``rpm``.
+    condition : mapping, optional
+        The point's condition block, written in every row.
+    reference : ReferenceValues, optional
+        Reference lengths and moment point written beside each row.
+    pol : str or int, optional
+        The polar the point belongs to, written first in every row.
+
+    Returns
+    -------
+    Path
+        The file written, one row per azimuth.
+
     Raises
     ------
     ProductError
@@ -1069,6 +1257,17 @@ def is_force_or_moment_column(name: str) -> bool:
     and the four force coefficients. The parameter is what is asked, so a group
     that happens to begin with `F` is not mistaken for a force.
 
+    Parameters
+    ----------
+    name : str
+        A column name of the plots table.
+
+    Returns
+    -------
+    bool
+        True when the part of the name before the first underscore is one of
+        the solver's force plot parameters.
+
     Examples
     --------
     >>> is_force_or_moment_column("FX_MRP_TOTAL"), is_force_or_moment_column("CDI_WING")
@@ -1097,11 +1296,27 @@ def per_revolution_table(
     NOT averaged: its length differs, so its mean would be the mean of another
     thing under the same name.
 
+    Parameters
+    ----------
+    series : TimestepSeries
+        The plots table as :func:`plots_table_series` reads it.
+    columns : sequence of str
+        The columns to average.
+    revolution_steps : int
+        Solver steps in one revolution; at least one.
+    read_steps : set of int, optional
+        Receives the steps the averages read.
+
     Returns
     -------
     tuple
         The (first, last) step of each complete revolution, each revolution's
         mean by column, and the number of rows left over in the partial one.
+
+    Raises
+    ------
+    ProductError
+        If ``revolution_steps`` is below one.
     """
     if revolution_steps < 1:
         raise ProductError("a revolution of under one solver step cannot be cut")
@@ -1124,6 +1339,18 @@ def revolution_drift_pct(current: float, previous: float) -> float | None:
     ``(current - previous) / |previous| * 100``: the sign says whether the mean
     rose or fell whatever the sign of the quantity. None where the previous mean
     is zero, which has no relative change, and where either mean is not a number.
+
+    Parameters
+    ----------
+    current : float
+        The mean of the revolution.
+    previous : float
+        The mean of the revolution before it.
+
+    Returns
+    -------
+    float or None
+        The drift in per cent, or None where it is undefined.
 
     Examples
     --------
