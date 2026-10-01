@@ -46,6 +46,9 @@ DOCS = REPO / "docs"
 #: pending and is tied to the facade baselines; ``NUMPYDOC_PENDING`` is the
 #: ratchet, and a held root that is complete leaves it like any other module.
 FACADE_HELD = {
+    "cases/__init__.py",
+    "farfield/__init__.py",
+    "probes/__init__.py",
     "script/__init__.py",
 }
 
@@ -62,19 +65,13 @@ FACADE_HELD = {
 #: modules all pass, leaves this list and the examples list. WP6
 #: (AD-14) moved the pending functions of the `run` root into `run._campaign`,
 #: `run._executors`, `run._identity` and `run._plan`, pinned in its stead; the
-#: root, a facade now, leaves the list. DOC-B part 2 group g1: `cases`,
-#: `cases.windows`, `farfield` and `probes` leave the list.
+#: root, a facade now, leaves the list.
+#: DOC-B part 2 group g1: `cases`, `cases.windows`, `farfield` and `probes` leave the list.
 NUMPYDOC_PENDING = {
     "cases/__init__.py",
     "farfield/__init__.py",
     "probes/__init__.py",
     "results/sectional_loads.py",
-    "post/field_frames.py",
-    "post/glossary.py",
-    "post/guides.py",
-    "post/input_template.py",
-    "post/probe_fields.py",
-    "post/products.py",
     # WP5 (AD-13) moved the pending functions of `post.products` into the four
     # family modules, which are pinned in their stead.
     "post/point_tables.py",
@@ -104,10 +101,9 @@ NUMPYDOC_PENDING = {
 #: `results.exports` and `results.loads`, and the root, which keeps none,
 #: leaves the list. Those WP6 moved out of the `run` root are pinned in
 #: `run._assessment`, `run._campaign`, `run._executors`, `run._identity` and
-#: `run._plan`, and the root leaves the list. DOC-B part 2 group g1: `cases`
-#: and `script` leave the list.
+#: `run._plan`, and the root leaves the list.
+#: DOC-B part 2 group g1: `cases` and `script` leave the list.
 EXAMPLES_PENDING = {
-    "post/probe_fields.py",
     "results/exports.py",
     "results/loads.py",
     "results/surface.py",
