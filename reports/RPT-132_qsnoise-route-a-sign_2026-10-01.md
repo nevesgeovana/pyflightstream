@@ -17,8 +17,11 @@ RPT-099.
 Only nondimensional values are stated: the tip and flight Mach numbers, r/R,
 k r, angles, ratios and correlations. The sidecar
 `RPT-132_qsnoise-route-a-sign_2026-10-01.json` holds every number below. The
-script that wrote it, `rpt132_sign.py`, reads every dimensional value from the
-round's own files and states none; it stays with the round's local files
+script that wrote it, `rpt132_sign.py` (sha256 `4b5df69b1abbbd7b`...`d8cb83b76f8570c1`),
+writes the whole sidecar, its provenance header included, so nothing in the
+sidecar is added by hand; re-run, it reproduces the committed sidecar byte for
+byte (line endings aside). It reads every dimensional value from the round's
+own files and states none; it stays with the round's local files
 (`<local probe folder>/round3/`), as the script of RPT-099 does, and runs with
 this branch's `src` on `PYTHONPATH`.
 
@@ -81,7 +84,9 @@ file k holds observer time k. The outer ring's point at azimuth 0 is MIC_P's
 point, and its value equals MIC_P's sample k in all 16 files to the last digit
 written (largest relative difference 0). The in-plane test therefore has 25
 records (four observers and 21 section points) at three values of k r (0.45,
-0.67 and 0.89), and MIC_UP on the axis upstream hears the axial source alone.
+0.67 and 0.89), and MIC_UP on the axis upstream hears almost only the axial
+source: there the in-plane source's far and near parts (+0.26 and -0.23 of the
+reference's mean) nearly cancel, leaving about +0.03.
 
 **The hypotheses.** Each changes one thing of the model and is scored against
 the reference by the pooled in-plane normalised rms difference (each record
@@ -117,12 +122,17 @@ size).
    negating the far bracket alone leaves 111, 91 and 75 deg, the near and
    motion brackets alone -69, -89 and -105 deg, a drift of 37 deg that the
    reference does not show. The least-squares gains of the far and near
-   brackets are -1.00 and -0.90 (the motion bracket held at +1; -1.03 and
-   -0.91 held at -1): both negative and both of unit size.
+   brackets, taken at the one-step azimuth shift of finding 5, are -1.00 and
+   -0.90 (the motion bracket held at +1; -1.03 and -0.91 held at -1): both
+   negative and both of unit size. Without that shift, all three brackets
+   free, they read -1.41 (far), -0.74 (near) and +1.92 (motion), residual
+   0.119: the far and near gains are negative there too, and they come to unit
+   size only once the lag of finding 5 is removed.
 
 3. **Both sources flip.** In the plane the axial force radiates little, so
    negating the in-plane source alone (H3, 0.373) fits as well as negating
-   everything (H1, 0.366). MIC_UP decides: it hears the axial source alone,
+   everything (H1, 0.366). MIC_UP decides: it hears almost only the axial
+   source (the in-plane share of its mean is about +0.03 of the reference's),
    and H3 leaves its mean with the wrong sign (-1.79) where H1 gives the right
    one. The axial and the in-plane sources both carry the flip.
 
@@ -146,7 +156,9 @@ size).
 6. **The sizes.** At the best shift the in-plane source's gain is -0.92 and the
    axial source's -0.61; the per-point first-harmonic amplitude ratios,
    reference over model, are 0.80 to 1.09. The factor 1.73 between the on-axis
-   means (RPT-099) is the axial source's alone: the reference's axial loading
+   means (RPT-099) is almost all the axial source's (the in-plane source adds
+   about +0.03 of the reference's mean, which is why H1 and H2 read 1.73 and
+   1.79): the reference's axial loading
    noise is about 0.6 of the model's, its in-plane loading noise about 0.9.
 
 **The answer to the two questions.** The model's convention is the textbook
@@ -170,9 +182,10 @@ whole loading term, and not a defect of one term of route A.
   that RPT-099 proposes would confirm the negation free of any azimuth or time
   origin, but it cannot separate the two conventions either.
 - **The motion bracket's sign.** In the plane its rms is 0.046 of the near
-  bracket's (the far bracket's is 0.52). Left free, its gain reads +3.8 and
-  the residual falls to 0.037; held at +1 the residual is 0.129, held at -1 it
-  is 0.208. A component of that shape about four times the bracket's size,
+  bracket's (the far bracket's is 0.52). At the one-step shift of finding 5,
+  left free, its gain reads +3.8 and the residual falls to 0.037; held at +1
+  the residual is 0.129, held at -1 it is 0.208. Unshifted and left free it
+  reads +1.92, residual 0.119. A component of that shape about four times the bracket's size,
   with the sign of the unnegated model, is in the reference; whether it is the
   solver's motion term, an effect of a distributed source the compact model
   lacks, or the starting transient is not decided.
