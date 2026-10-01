@@ -64,8 +64,9 @@ for the body row). The answer is the same for both causes.
   `pyfs-matrix run <matrix> --force-rerun <run_id>`, with the `run_id` that
   `runs.json` records (for a steady row, the job's, which names every point of
   it). It archives the record and the collected outputs before it runs, and it
-  spends a licensed seat per job. `--resume` skips a recorded point and so
-  leaves its status.
+  spends a licensed seat per job for a steady row (the row runs as one job),
+  per point for any other row. `--resume` skips a recorded point and so leaves
+  its status, as the `run_matrix` docstring states of `resume`.
 - Re-run only where the status in `runs.json` is what you need: the products
   do not wait on it. A point that truly lacks an output still reads
   `FAILED_INCOMPLETE_OUTPUT` after the re-run.
