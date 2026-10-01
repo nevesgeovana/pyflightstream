@@ -415,19 +415,32 @@ def test_row_outputs_leaves_the_section_plot_out_only_where_no_section_is_cut(la
 # --- a record 0.33.0 wrote: what post, collect, rebuild and a re-run do with it --------
 #
 # docs/migrating-to-0.33.1.md and the change log's [0.33.1] Migration cite these
-# two tests (FR-55 and FR-51). Each makes the record as 0.33.0 made it: the run
-# goes through 0.33.0's rule for its cause, the stand-ins write a real loads
-# table, and every record of runs.json is stamped package_version 0.33.0 as a
-# 0.33.0 run stamps it. Measured: post writes the failed points' polar rows
-# and warns of their status; collect sweeps only SUBMITTED records and leaves
-# the record as it is; the rebuild refuses the simulation and writes nothing;
-# re-running the point with 0.33.1 (run --force-rerun) records it CONVERGED.
+# two tests (FR-55 and FR-51). Each runs the row with 0.33.1, whose stand-ins
+# write a real loads table, and then writes runs.json as 0.33.0 wrote it for
+# its cause: the statuses and the error 0.33.0 recorded (its own wording, from
+# the replay of 2026-10-01), and package_version 0.33.0 on every record.
+# Measured: post writes the failed points' polar rows and warns of their
+# status; collect sweeps only SUBMITTED records and leaves the record as it
+# is; the rebuild refuses the simulation and writes nothing; re-running the
+# point with 0.33.1 (run --force-rerun) records it CONVERGED.
 
 #: The loads table the stand-ins write, so that the post has rows to tabulate.
 LOADS_TABLE = FIXTURES / "loads_steady_26.120.txt"
 
 #: The warning the post writes for a point recorded failed (post.log).
 FAILED_STATUS_WARNING = "the recorded status is FAILED_INCOMPLETE_OUTPUT"
+
+#: What 0.33.0 recorded for point 2 of a steady job on the file route (FR-55).
+SWEEP_LOG_ERROR_0330 = (
+    "{tag}: the script imported 8 trailing-edge points and no solver log was read, so "
+    "whether the file marked anything cannot be told: a file whose points match no edge "
+    "marks nothing and says nothing. Export the solver log among the row's outputs"
+)
+
+#: What 0.33.0 recorded for every point of a body row citing wing sections (FR-51).
+SECTION_PLOT_ERROR_0330 = (
+    "{tag}: declared outputs were not produced: {sim_dir}/{tag}_plot_cp_sections.txt"
+)
 
 
 def _with_loads(stub: str, placeholder: str, read: str) -> str:
@@ -436,12 +449,23 @@ def _with_loads(stub: str, placeholder: str, read: str) -> str:
     return stub.replace(placeholder, read)
 
 
-def _stamped_0330(workspace) -> None:
-    """Stamp every record of runs.json with the package_version a 0.33.0 run writes."""
+def _as_0330_recorded(workspace, sim: str, failed: list[int], error: str) -> None:
+    """Write runs.json as 0.33.0 wrote it: ``failed`` points of ``sim`` FAILED, version 0.33.0.
+
+    ``error`` is formatted with the first failed point's tag and the
+    simulation folder, as 0.33.0 named the first failure.
+    """
     rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
     assert isinstance(rows, list) and rows, rows
     for row in rows:
         row["package_version"] = "0.33.0"
+        if row["sim_id"] != sim:
+            continue
+        for index in failed:
+            row["points_ran"][index]["status"] = RunStatus.FAILED_INCOMPLETE_OUTPUT.value
+        tag = row["points_ran"][failed[0]]["tag"]
+        row["status"] = RunStatus.FAILED_INCOMPLETE_OUTPUT.value
+        row["error"] = error.format(tag=tag, sim_dir=workspace.sim_dir(sim).as_posix())
     workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
 
 
@@ -494,26 +518,19 @@ def _old_record_through_the_commands(workspace, matrix: Path, sim: str, capsys) 
     return refusals
 
 
-def test_an_old_sweep_record_keeps_its_status_until_its_job_is_run_again(
-    tmp_path, monkeypatch, capsys
-):
+def test_an_old_sweep_record_keeps_its_status_until_its_job_is_run_again(tmp_path, capsys):
     # FR-55 (amended 0.33.1), cause 1: point 2 of a steady job recorded
     # FAILED_INCOMPLETE_OUTPUT by 0.33.0, its cumulative log among its outputs.
-    # 0.33.0's rule: no fallback to the one collected _log.txt.
-    monkeypatch.setattr(
-        "pyflightstream.run._wake_edge_verdict._LOG_SUFFIX", "\0 no fallback in 0.33.0"
-    )
     stub = _with_loads(
         JOB_STUB,
         'write_text("LOADS", encoding="utf-8")',
         f"write_text(pathlib.Path({str(LOADS_TABLE)!r}).read_text(encoding='utf-8'))",
     )
     workspace, record = _steady_job_of_two_points(tmp_path, stub)
-    monkeypatch.undo()
-    statuses = [entry["status"] for entry in record.points_ran]
-    assert statuses == [RunStatus.CONVERGED.value, RunStatus.FAILED_INCOMPLETE_OUTPUT.value]
-    assert "no solver log was read" in (record.error or ""), record.error
-    _stamped_0330(workspace)
+    assert [entry["status"] for entry in record.points_ran] == [RunStatus.CONVERGED.value] * 2
+    collected = [name for entry in record.points_ran for name in entry["outputs"]]
+    assert sum(name.endswith("_log.txt") for name in collected) == 2, collected
+    _as_0330_recorded(workspace, record.sim_id, [1], SWEEP_LOG_ERROR_0330)
 
     _old_record_through_the_commands(workspace, tmp_path / "job.fs", record.sim_id, capsys)
 
@@ -522,17 +539,10 @@ def test_an_old_sweep_record_keeps_its_status_until_its_job_is_run_again(
     assert again.package_version != "0.33.0", again.package_version
 
 
-def test_an_old_body_row_record_keeps_its_status_until_it_is_run_again(
-    tmp_path, monkeypatch, capsys
-):
+def test_an_old_body_row_record_keeps_its_status_until_it_is_run_again(tmp_path, capsys):
     # FR-51 (amended 0.33.1), cause 2: every point of a body row recorded
-    # FAILED_INCOMPLETE_OUTPUT by 0.33.0, its declared outputs listing the
-    # section Cp plot the solver could not write. 0.33.0's rule: the row
-    # declares the artifact's outputs whatever its geometry carries.
-    monkeypatch.setattr(
-        "pyflightstream.workspace.matrix.row_outputs",
-        lambda case, workflow: case.pproc.outputs(unsteady=workflow.startswith("unsteady")),
-    )
+    # FAILED_INCOMPLETE_OUTPUT by 0.33.0, for the section Cp plot it declared
+    # and the solver could not write.
     workspace, matrix = _body_and_wing_body(tmp_path)
     verbs = sorted({kind[2] for kind in EXPORT_KINDS})
     body = (
@@ -559,14 +569,11 @@ def test_an_old_body_row_record_keeps_its_status_until_it_is_run_again(
             pass  # a failed point is recorded in the manifest, which is what is read
         return {record.sim_id: record for record in workspace.read_manifest()}
 
-    records = run()
-    monkeypatch.undo()
-    old = records["5201"]
-    assert "_plot_cp_sections.txt" in (old.error or ""), old.error
-    assert [entry["status"] for entry in old.points_ran] == [
-        RunStatus.FAILED_INCOMPLETE_OUTPUT.value
-    ] * 2, (old.points_ran, old.error)
-    _stamped_0330(workspace)
+    old = run()["5201"]
+    assert [entry["status"] for entry in old.points_ran] == [RunStatus.CONVERGED.value] * 2
+    _as_0330_recorded(workspace, "5201", [0, 1], SECTION_PLOT_ERROR_0330)
+    written = {record.sim_id: record for record in workspace.read_manifest()}
+    assert "_plot_cp_sections.txt" in (written["5201"].error or ""), written["5201"].error
 
     (refusal,) = _old_record_through_the_commands(workspace, matrix, "5201", capsys)
     assert "recorded by pyflightstream 0.33.0" in refusal, refusal
