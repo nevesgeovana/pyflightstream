@@ -3918,6 +3918,8 @@ requirement below is one seam of that division.
 
 !!! requirement "FR-96 A row may ask to continue a run the wall clock stopped <span class='srs-implemented'>implemented</span>"
 
+    Read with PFS-2074.26 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
+
     *Origin: the owning seat's decision of 2026-09-12, that the word RESTART
     is reused for continuity, and its measurement of 2026-09-13 that the
     solver resumes an unsteady march from a saved file. Evidence:
@@ -6727,6 +6729,8 @@ Requirements written after the specification was last reconciled with the packag
     sidecar reader. **Trace.** The test files above.
 
 !!! requirement "FR-153 Probes and volume sections write sampled velocity fields <span class='srs-implemented'>implemented</span>"
+
+    Read with PFS-2074.27 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
     *Origin: the sampled-field need of the 0.29.0 quality gate. Evidence:
     `tests/tier1_offline/test_f01_probe_source.py`,
