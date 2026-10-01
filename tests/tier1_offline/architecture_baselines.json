@@ -22,7 +22,6 @@
   "post/_rotor_plan.py:_rotor_tables": 292,
   "run/_assessment.py:LoadsAssessor.__call__": 271,
   "run/_campaign.py:run_campaign": 422,
-  "run/_cli_parsers.py:_build_parser": 556,
   "run/_points.py:_execute_point": 449,
   "run/_sweep.py:_execute_sweep": 348
  },
@@ -1328,12 +1327,6 @@
    "branches": 44,
    "statements": 187,
    "positional": 3
-  },
-  "run/_cli_parsers.py:_build_parser": {
-   "complexity": 3,
-   "branches": 2,
-   "statements": 76,
-   "positional": 0
   },
   "run/_executors.py:_run_until_the_analysis_ends": {
    "complexity": 16,
