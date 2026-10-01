@@ -26,6 +26,7 @@ each planted copy is found.
 """
 
 import hashlib
+import os
 import re
 import subprocess
 import sys
@@ -77,7 +78,12 @@ FILES_READ_FLOOR = 1000
 
 def _tracked() -> list[Path]:
     result = subprocess.run(
-        ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, text=True, check=False
+        ["git", "ls-files", "-z"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=os.environ.copy(),
     )
     assert result.returncode == 0, (
         f"git could not list the tracked files (exit {result.returncode}: "
