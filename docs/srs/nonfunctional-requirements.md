@@ -1035,6 +1035,16 @@
       digests the executable identity baseline once recorded, anywhere,
       compared by their own SHA-256. A synthetic digest is one hexadecimal
       digit repeated, which the guard allows by rule.
+
+      **AMENDED 2026-10-01: R1 covers the digests of solver-package files
+      too.** No tracked file carries the SHA-256 of a file of the solver
+      installation (a library, an executable, the sample script), whatever
+      its build: a record states the file, its size and whether two packages
+      agree, and withholds the digest. The guard refuses a 64-hex value on
+      the same line as a `.dll`, `.exe` or `.so` file name or `Script.txt`,
+      with a mutant control that plants one. The digest of a script or
+      product the package wrote is not a solver-package file and stays
+      allowed.
     - R2 No tracked file carries an absolute user path: a user-profile or
       home folder, a OneDrive folder, or the work or estate root of a
       measuring machine. A report names a file by its path inside the

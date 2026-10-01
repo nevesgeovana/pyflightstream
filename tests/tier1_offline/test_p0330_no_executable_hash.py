@@ -3,7 +3,7 @@
 The solver build identifies the executable (FlightStream 26.124 is build
 8172026); the SHA-256 of the executable a run used stays in that run's record
 on the machine that ran it, and so do the folders it ran in. This guard reads
-every tracked text file and refuses three shapes:
+every tracked text file and refuses four shapes:
 
 1. A labelled executable digest: a 64-hex token on a line that names the
    executable (``fs_exe_sha256``, ``exe_sha256``, ``executable_sha256``, an
@@ -13,7 +13,13 @@ every tracked text file and refuses three shapes:
    any machine: the value is refused for where it stands, not for what it is.
 2. A withheld digest anywhere, compared by the SHA-256 of its lowercase form so
    this file never carries the value it refuses.
-3. An absolute user path: a user-profile folder, a home folder, a OneDrive
+3. A digest of a solver-package file: a 64-hex token on the same line as the
+   name of a file of the solver installation (a ``.dll``, ``.exe`` or ``.so``
+   file, or ``Script.txt``, the sample script of the package). The digest of a
+   script or product the package wrote stands on a line that names no such file
+   and is allowed. A wrapped line is not followed; the other shapes cover the
+   executable there.
+4. An absolute user path: a user-profile folder, a home folder, a OneDrive
    folder, or the work and estate roots of a measuring machine.
 
 A digest-shaped value made of one repeated hexadecimal digit (``"a" * 64``) is
@@ -60,6 +66,9 @@ HEX_TOKEN = re.compile(r"(?<![0-9A-Fa-f])[0-9A-Fa-f]{64}(?![0-9A-Fa-f])")
 #: What names the executable: a field such as fs_exe_sha256, exe_sha256 or
 #: executable_sha256, an .exe file name, or the word executable.
 LABEL = re.compile(r"(?i)(?:\bexe\b|_exe\b|\bexe_|\.exe\b|executable|fs_exe)")
+#: The name of a file of the solver installation: a library or executable by its
+#: extension, or the package's sample script.
+PACKAGE_FILE = re.compile(r"(?i)(?:\.(?:dll|exe|so)\b|\bScript\.txt\b)")
 #: A YAML or JSON key that opens a block (``key:`` or ``"key": {``).
 BLOCK_KEY = re.compile(r"""^(\s*)["']?([A-Za-z0-9_.-]+)["']?\s*:\s*[{\[]?\s*$""")
 #: Absolute user paths: a profile folder, a home folder, a OneDrive folder, and
@@ -145,6 +154,17 @@ def _labelled(text: str) -> list[str]:
     return found
 
 
+def _package_file_digests(text: str) -> list[str]:
+    found = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        if not PACKAGE_FILE.search(line):
+            continue
+        for match in HEX_TOKEN.finditer(line):
+            if not _synthetic(match.group()):
+                found.append(f"a digest of a solver-package file on line {number}")
+    return found
+
+
 def _user_paths(text: str) -> list[str]:
     return [f"a user path ({match.group()})" for match in USER_PATH.finditer(text)]
 
@@ -160,7 +180,7 @@ def scan(paths: list[Path]) -> tuple[list[str], int]:
             continue  # binary
         read += 1
         text = data.decode("utf-8", errors="ignore")
-        found = _withheld(text) + _labelled(text) + _user_paths(text)
+        found = _withheld(text) + _labelled(text) + _package_file_digests(text) + _user_paths(text)
         if found:
             offenders.append(f"{path.as_posix()}: {'; '.join(found)}")
     return offenders, read
@@ -211,6 +231,42 @@ def test_a_labelled_digest_of_any_build_is_found(tmp_path):
     offenders, read = scan(paths)
     assert read == 1 + len(planted)
     assert _names(offenders) == list(planted)
+
+
+def test_a_digest_beside_a_solver_package_file_is_found(tmp_path):
+    # P0330-NO-EXE-HASH: mutant control, a digest planted on the row of each kind
+    # of package file, against the unmutated report and against allowed digests.
+    token = hashlib.sha256(b"P0330-NO-EXE-HASH package file").hexdigest()
+    assert hashlib.sha256(token.encode()).hexdigest() not in WITHHELD_DIGESTS
+    source = next((ROOT / "reports").glob("RPT-050_*.md"))
+    text = source.read_text(encoding="utf-8")
+    clean = tmp_path / "clean.md"
+    clean.write_text(text, encoding="utf-8")
+    assert scan([clean]) == ([], 1)
+    cell = "digest withheld (NFR-31)"
+    assert cell in text and "`liblmx-altair.dll`" in text
+    planted = {
+        "report.md": text.replace(cell, f"`{token}`", 1),
+        "dll.md": f"| `libfoo.dll` | `{token}` | the same | 12 |\n",
+        "exe.md": f"| `tool.EXE` | {token.upper()} |\n",
+        "so.md": f"libfoo.so: {token}\n",
+        "script.md": f"| `Script.txt` (the sample script) | `{token}` | 212 |\n",
+    }
+    paths = [clean]
+    for name, body in planted.items():
+        paths.append(tmp_path / name)
+        paths[-1].write_text(body, encoding="utf-8")
+    offenders, read = scan(paths)
+    assert read == 1 + len(planted)
+    assert _names(offenders) == list(planted)
+    allowed = tmp_path / "allowed.md"
+    allowed.write_text(
+        f"| `loads.csv` | `{token}` | a product the package wrote |\n"
+        f"| `x.dll` | `{'a' * 64}` | synthetic |\n"
+        "the file libfoo.dll is described without a digest\n",
+        encoding="utf-8",
+    )
+    assert scan([allowed]) == ([], 1)
 
 
 def test_a_withheld_digest_is_found_anywhere_by_its_own_digest(tmp_path, monkeypatch):
@@ -266,4 +322,5 @@ def test_the_guard_carries_no_withheld_digest_itself():
     # P0330-NO-EXE-HASH: the guard's own source holds only digests of digests.
     own = Path(__file__).read_text(encoding="utf-8")
     assert _withheld(own) == [] and _labelled(own) == [] and _user_paths(own) == []
+    assert _package_file_digests(own) == []
     assert all(len(value) == 64 for value in WITHHELD_DIGESTS)
