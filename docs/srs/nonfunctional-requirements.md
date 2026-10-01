@@ -872,7 +872,9 @@
     with WP3 and FR-320 merged read 1130 in 18 of 173; the branch of FR-96
     read 1125 in 18 of 158 on 2026-10-01, adding no module; and `rel/0-33`
     with WP3, FR-320 and FR-96 merged read 1122 in 18 of 173 on the same
-    date.
+    date; `rel/0-33` with WP4 (AD-12) also merged, `cases/workflows.py`
+    cut into the package `cases/workflows/` of 24 modules each clean, read
+    1122 in 18 of 196 on 2026-10-01.
     The eighteen exempted modules are the same set, every module a release
     adds is clean, and the shipped configuration is green over all of them.
     The count of errors inside the exempted set grows with the code those
