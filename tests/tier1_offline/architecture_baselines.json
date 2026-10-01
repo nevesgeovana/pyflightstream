@@ -8,7 +8,7 @@
   "qa/specs.py": 1334,
   "run/cli.py": 1201,
   "run/matrix.py": 1304,
-  "script/helpers.py": 1567,
+  "script/helpers.py": 1128,
   "workspace/__init__.py": 1608,
   "workspace/matrix.py": 1377,
   "workspace/storage.py": 1487
@@ -17,7 +17,6 @@
   "post/products.py:_write_the_products": 259,
   "post/section_distributions.py:_matching_distributions": 328,
   "post/section_distributions.py:write_section_distributions": 257,
-  "script/helpers.py:solver_settings": 461,
   "workspace/setup_standards.py:render_guidelines": 263,
   "post/_rotor_plan.py:_rotor_tables": 292,
   "run/_assessment.py:LoadsAssessor.__call__": 271,
@@ -811,12 +810,6 @@
    "complexity": 11,
    "branches": 13,
    "statements": 37,
-   "positional": 1
-  },
-  "script/helpers.py:solver_settings": {
-   "complexity": 76,
-   "branches": 79,
-   "statements": 195,
    "positional": 1
   },
   "script/motion.py:MotionLedger.follow": {
