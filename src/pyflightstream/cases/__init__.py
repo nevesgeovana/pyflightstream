@@ -331,6 +331,12 @@ class SweepAxis(BaseModel):
         there would rename every run that has one. Empty for a row that
         holds nothing, and omitted from a written ``campaign.toml`` when
         it is.
+
+    Examples
+    --------
+    >>> axis = SweepAxis(type="alpha", values=[0.0, 2.0, 4.0])
+    >>> axis.type, axis.values
+    ('alpha', [0.0, 2.0, 4.0])
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -3567,10 +3573,34 @@ def point_name(case: SimCase, point: Mapping[str, float]) -> str:
     then by the axes of its point. It ends the ``run_id``, names the datapoint
     folder ``DP-<name>`` and is the stem of every file ``P<POL>-<name>``.
 
+    Parameters
+    ----------
+    case : SimCase
+        The case whose FLIGHT_CONDITION names the variables.
+    point : mapping of str to float
+        The point's own values, keyed by axis.
+
+    Returns
+    -------
+    str
+        The point's name.
+
     Raises
     ------
     CampaignConfigError
         If a declared variable has no value on this point or no code.
+
+    Examples
+    --------
+    >>> case = SimCase(
+    ...     sim_id="wing",
+    ...     aircraft="demo",
+    ...     sweep=SweepAxis(type="alpha", values=[0.0, 2.0]),
+    ...     recipe="steady",
+    ...     mach=0.1,
+    ... )
+    >>> point_name(case, {"alpha": 2.0})
+    'M100AL+020'
     """
     return "".join(
         name_field(key, _name_value(case, point, key)) for key in _name_order(case, point)
@@ -4002,6 +4032,12 @@ class SolverSettings(BaseModel):
     reads both and stores the bool
     (:func:`pyflightstream.script.toggles.resolve_toggle`). Any other
     string is refused by name.
+
+    Examples
+    --------
+    >>> settings = SolverSettings(iterations=100, convergence=1e-4)
+    >>> settings.iterations, settings.convergence
+    (100, 0.0001)
     """
 
     # PYFS-016. Every bound below was measured ACCEPTED before it was
@@ -4447,6 +4483,35 @@ def case_at_point(case: SimCase, point: Mapping[str, float], **update: object) -
     replaces the row's. Without it a MACH sweep would emit the first point's
     Mach number on every point of the row, which is the defect that makes the
     feature a lie rather than a limitation.
+
+    Parameters
+    ----------
+    case : SimCase
+        The case of the sweep.
+    point : mapping of str to float
+        The point's own values, keyed by axis.
+    **update : object
+        Further fields of the case to set on the returned copy.
+
+    Returns
+    -------
+    SimCase
+        A copy of ``case`` carrying the point and, where the row swept a flow
+        variable, the state that point resolved to. ``case`` is not changed.
+
+    Examples
+    --------
+    >>> case = SimCase(
+    ...     sim_id="wing",
+    ...     aircraft="demo",
+    ...     sweep=SweepAxis(type="alpha", values=[0.0, 2.0]),
+    ...     recipe="steady",
+    ... )
+    >>> at = case_at_point(case, {"alpha": 2.0})
+    >>> at.point
+    {'alpha': 2.0}
+    >>> at is case
+    False
     """
     fields: dict[str, object] = {"point": dict(point), **update}
     state = case.point_states.get(point_state_key(point))
@@ -4581,6 +4646,12 @@ class CadImportOptions(BaseModel):
 
     The source file supplies its own units. These controls select how its
     bodies become a mesh; successful conversion does not establish mesh quality.
+
+    Examples
+    --------
+    >>> options = CadImportOptions(tessellation_density="HIGH")
+    >>> options.tessellation_density, options.body_index
+    ('HIGH', -1)
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -4632,6 +4703,11 @@ class MeshImport(BaseModel):
     operations : tuple of MeshOperation
         The mesh operations applied right after the import, in the order
         written.
+
+    Examples
+    --------
+    >>> MeshImport(units=" millimeter ").units
+    'MILLIMETER'
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -4712,6 +4788,11 @@ class TrailingEdgeMarking(BaseModel):
     names, and is empty for every surface; ``sweep_angle_deg`` is set
     before the detection when stated. Detection gives every edge the
     STANDARD type and reads no tolerance.
+
+    Examples
+    --------
+    >>> TrailingEdgeMarking(route="detect").route
+    'detect'
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -4890,6 +4971,12 @@ class RawMeshConditions(BaseModel):
     wake-termination nodes, ``"auto"`` over every surface or by the
     surfaces named; ``base_regions = "auto"`` detects base regions over
     the whole mesh. Both are None unless written.
+
+    Examples
+    --------
+    >>> conditions = RawMeshConditions(base_regions="auto")
+    >>> conditions.base_regions, conditions.trailing_edges
+    ('auto', None)
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -5018,6 +5105,17 @@ class SimCase(BaseModel):
         a machine path in every stored ``campaign.toml``, and the point
         of the id is that the same campaign file runs on a second
         machine whose installations sit elsewhere.
+
+    Examples
+    --------
+    >>> case = SimCase(
+    ...     sim_id="wing",
+    ...     aircraft="demo",
+    ...     sweep=SweepAxis(type="alpha", values=[0.0, 2.0, 4.0]),
+    ...     recipe="steady",
+    ... )
+    >>> case.sim_id, case.sweep.values
+    ('wing', [0.0, 2.0, 4.0])
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -5345,6 +5443,20 @@ class Campaign(BaseModel):
     by :func:`load_campaign`, so a campaign file cannot declare a source
     it did not come from, and the ``campaign.toml`` surface is untouched
     by it.
+
+    Examples
+    --------
+    >>> case = SimCase(
+    ...     sim_id="wing",
+    ...     aircraft="demo",
+    ...     sweep=SweepAxis(type="alpha", values=[0.0]),
+    ...     recipe="steady",
+    ... )
+    >>> campaign = Campaign(
+    ...     name="demo", fs_version="26.124", fs_exe="FlightStream.exe", sims=[case]
+    ... )
+    >>> campaign.name, campaign.fs_version, [sim.sim_id for sim in campaign.sims]
+    ('demo', '26.124', ['wing'])
     """
 
     model_config = ConfigDict(extra="forbid")
