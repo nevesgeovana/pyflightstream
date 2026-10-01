@@ -33,9 +33,25 @@ FlightStream versions.
 
 ### Changed
 
-- mypy recount 2026-10-01: 1122 errors in 18 of 173 modules, on `rel/0-33`
-  with work package WP3 (AD-11), the fix of FR-320 and the amendment of
-  FR-96 merged. The branch of FR-96 alone read 1125 in 18 of 158 and adds
+- `pyflightstream.run` is a facade since 0.33.0 (AD-14): its definitions
+  live in private modules of the package (`_campaign`, `_sweep`, `_points`,
+  `_pending`, `_plan`, `_continuation`, `_identity`, `_assessment`,
+  `_executors`, `_ids`), and the parser of `pyfs-matrix` in
+  `run/_cli_parsers.py`. Every name of its `__all__`, and every other public
+  name it defined, imports from `pyflightstream.run` as before, and the
+  command line is unchanged. A name the root had imported from another
+  layer (`RunStatus`, `Campaign`, `collection_name` and the like) is no
+  longer reachable through it: import it from its own layer. A class's
+  `__module__` names the private module that defines it.
+  `ExecutionResult.argv` is the tuple its type has always stated; the two
+  executors built it as a list (WP6).
+- mypy recount 2026-10-01: 192 errors in 17 of 184 modules, on the 0.33.0
+  branch of work package WP6, whose eleven new modules arrived clean and
+  which took `pyflightstream.run` off the exempted list, typed: the dirty
+  count falls from 18 to 17 for the first time since the list was written,
+  and the 930 errors the root held go with it. Its base, `rel/0-33` with
+  work package WP3 (AD-11), the fix of FR-320 and the amendment of FR-96
+  merged, read 1122 in 18 of 173. The branch of FR-96 alone read 1125 in 18 of 158 and adds
   no module, and `rel/0-33` before it was merged, at `a5e66d9a`, read 1130
   in 18 of 173; the eight fewer are all in the exempted `run` root (938 to
   930), whose code FR-96 reworked, and `run/_continuation_frame.py` stays
@@ -59,6 +75,15 @@ FlightStream versions.
   FR-316 to FR-319 alone read 1137 in 18 of 153, their three new modules,
   `cases/_setup_keys.py`, `cases/_setup_link.py` and
   `workspace/_row_setup.py`, clean (RPT-029).
+
+### Fixed
+
+- The continuation of a row asked `SimCase` for a `fs_version` it does not
+  have whenever no version was passed to `resolve_continuation`, and raised
+  `AttributeError` there; it reads the build the case names, `fs_build`,
+  then the version the stopped run requested. The campaign loop and the
+  plan pass the row's version, so only a caller passing none reached it
+  (WP6, found by typing the run root).
 
 ## [0.32.0] - 2026-09-30
 

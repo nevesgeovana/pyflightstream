@@ -872,9 +872,14 @@
     with WP3 and FR-320 merged read 1130 in 18 of 173; the branch of FR-96
     read 1125 in 18 of 158 on 2026-10-01, adding no module; and `rel/0-33`
     with WP3, FR-320 and FR-96 merged read 1122 in 18 of 173 on the same
-    date.
-    The eighteen exempted modules are the same set, every module a release
-    adds is clean, and the shipped configuration is green over all of them.
+    date; and the 0.33.0 branch of work package WP6, which typed the `run`
+    root and cut it into a facade over ten private modules, and the parser
+    of `run/cli.py` into `run/_cli_parsers.py` (AD-14), read 192 in 17 of
+    184 on the same date, every one of the eleven modules it added clean.
+    The exempted set shrank from eighteen modules to seventeen when
+    `pyflightstream.run` left it at 0.33.0 (decision 7); every module a
+    release adds is clean, and the shipped configuration is green over all
+    of them.
     The count of errors inside the exempted set grows with the code those
     modules gain and is a measurement, not a promise; the requirement is that
     the set of modules does not grow. `py.typed` is still not shipped.

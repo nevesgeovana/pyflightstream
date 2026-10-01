@@ -473,6 +473,17 @@ one of them keeps.
     `run.collect`, `run.records` and `run.cli` keep importing from
     `pyflightstream.run`.
 
+    The cut of WP6 holds ten private modules, in the declared order:
+    `_campaign` (the loop and the case preparation), `_sweep` (a steady
+    row run as one job), `_points` (one point), `_pending` (the files a
+    run writes before the solver starts), `_plan` (the plan, its cost
+    table and receipt), `_continuation`, `_identity` (the package and
+    solver-build checks and `reconstruct`), `_assessment`, `_executors`
+    (the surface-mesh export with them) and `_ids` at the bottom (run ids,
+    point names, job shape and `CampaignErrors`); the parser of
+    `pyfs-matrix` is `run/_cli_parsers.py`, which brings `run/cli.py`
+    under the hard limit.
+
 !!! decision "AD-15 The evolution policy of 0.33.0 <span class='srs-pending'>pending</span>"
     *All work packages of the 0.33.0 scope and its integration recount
     (WPX; decisions 6, 9 and 15). Evidence owed: the parity receipt of

@@ -1729,11 +1729,11 @@
   }
  },
  "metrics": {
-  "top1_share": 10.8,
-  "top5_share": 28.3,
-  "top13_share": 43.0,
-  "modules_over_1000": 14,
-  "modules_over_2000": 5,
+  "top1_share": 10.7,
+  "top5_share": 24.5,
+  "top13_share": 37.5,
+  "modules_over_1000": 13,
+  "modules_over_2000": 3,
   "functions_over_100": 74,
   "functions_over_200": 18,
   "functions_over_300": 7,
@@ -1744,6 +1744,6 @@
   "private_test_names": 241,
   "monkeypatch_targets": 83,
   "workspace_to_run_imports": 0,
-  "root_facade_lines": 20683
+  "root_facade_lines": 12834
  }
 }

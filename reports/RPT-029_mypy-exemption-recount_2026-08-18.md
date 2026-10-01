@@ -91,7 +91,9 @@
 > to 159, and by the run of 2026-09-30 on `rel/0-33` with WP3 and FR-320
 > merged, which holds the 158 and all fifteen new modules, 173, which the
 > run of 2026-10-01 on `rel/0-33` with FR-96 also merged, adding no module,
-> reads again. (An
+> reads again, and by the run of 2026-10-01 on the 0.33.0 branch of work
+> package WP6 (`feat/0-33-wp6`), whose eleven new modules, cut out of the
+> `run` root and `run/cli.py` (AD-14), brought it from 173 to 184. (An
 > earlier run of 2026-09-19 measured the 0.20.0 tree at 617 errors in 18 of 85
 > modules and the 0.24.0 tree at 661 in 18 of 93; the 0.28.0 release tree read
 > 863 errors in 18 of 104 on 2026-09-25; the 0.29.0 quality-gate candidate
@@ -107,22 +109,28 @@
 > 18 of 158, the branch of WP3 1130 in 18 of 172, the branch of FR-320
 > 1133 in 18 of 159, `rel/0-33` with WP3 merged 1130 in 18 of 172 and
 > `rel/0-33` with WP3 and FR-320 merged 1130 in 18 of 173, all on
-> 2026-09-30, and the branch of FR-96 1125 in 18 of 158 on 2026-10-01;
+> 2026-09-30, and the branch of FR-96 1125 in 18 of 158 and `rel/0-33`
+> with FR-96 merged 1122 in 18 of 173 on 2026-10-01;
 > measurements of different
 > trees fall on one date, so each is named by its tree rather than by the date
 > alone.):
 >
->     Found 1122 errors in 18 files (checked 173 source files)
->     Success: no issues found in 173 source files
+>     Found 192 errors in 17 files (checked 184 source files)
+>     Success: no issues found in 184 source files
 >
 > Every figure below is that re-measurement.
 
 The result, in the sentence every record of it carries:
 
-**mypy recount 2026-10-01: 1122 errors in 18 of 173 modules.**
+**mypy recount 2026-10-01: 192 errors in 17 of 184 modules.**
 
-The module total is the 173 the tracked package holds on `rel/0-33` with
-work package WP3, FR-320 and FR-96 merged (FR-96 adds no module),
+The module total is the 184 the tracked package holds on the 0.33.0
+branch of work package WP6, eleven more than the 173 of `rel/0-33` with
+work package WP3, FR-320 and FR-96 merged, each of the eleven clean (the
+ten private modules AD-14 cut out of the `run` root, `_campaign`,
+`_sweep`, `_points`, `_pending`, `_plan`, `_continuation`, `_identity`,
+`_assessment`, `_executors` and `_ids`, and `run/_cli_parsers.py` cut out
+of `run/cli.py`); those 173 (FR-96 adds no module) were
 fifteen more than the 158 of `rel/0-33` with work packages WP1 and WP2, FR-310 to FR-314 and FR-316 to
 FR-319 merged, each of the fifteen clean (the fourteen modules AD-11 cut
 out of `post.guides`, the `results` root, `run.records` and
@@ -138,8 +146,9 @@ clean
 v0.31.0's own 139 were five more than
 v0.30.0's 134, each of the five clean;
 the error total sits inside the exempted set, the number of modules holding
-an exemption is unchanged at eighteen, and the shipped configuration is
-green over all 173. The run at 139 was taken by `python scripts/mypy_recount.py`
+an exemption falls from eighteen to seventeen, `pyflightstream.run` leaving
+it typed (its 930 errors were the root's), and the shipped configuration is
+green over all 184. The run at 139 was taken by `python scripts/mypy_recount.py`
 on the 0.31.0 release candidate at `33c1d7ef`, which the script reported
 clean, and the runs at 149 and 150 are stated in their own sections at the end; the v0.30.0 release tree's reading, 1065 errors in 18 of 134, is
 stated in its own section below.
@@ -418,11 +427,11 @@ configuration to be in a state the repository does not ship:
 
 The final line of that run is the measurement:
 
-    Found 1122 errors in 18 files (checked 173 source files)
+    Found 192 errors in 17 files (checked 184 source files)
 
 The same run with the shipped configuration, overrides and all, is green:
 
-    Success: no issues found in 173 source files
+    Success: no issues found in 184 source files
 
 mypy walks the FILESYSTEM rather than the git index, so the state of the
 working tree is part of the measurement, and this report has already been
@@ -1084,3 +1093,26 @@ the branch reworked, and `run/_continuation_frame.py`, which it extends,
 stays clean. The dirty count still reads 18 and the shipped configuration is
 green over all 173. The quoted mypy lines and the sentence at the top of
 this report are this run's.
+
+## Re-measured 2026-10-01, the 0.33.0 branch of WP6: `run` leaves the exempted set
+
+`python scripts/mypy_recount.py` on 2026-10-01, on the 0.33.0 branch of work
+package WP6 (`feat/0-33-wp6` at `18d963d7`, the tree committed and clean, as
+the script reported), with python 3.12.0, numpy 2.5.3, xarray 2026.7.0,
+pandas 3.0.6 and pydantic 2.13.5 (the script printed mypy's version as
+unknown): 192 errors in 17 of 184 modules on 98 distinct source lines. Its
+base, `rel/0-33` at `56f7b8bd`, read 1122 in 18 of 173 on the same
+environment, `pyflightstream.run` holding 930 of them on 91 lines. The
+branch cuts the `run` root into ten private modules and a facade and
+`run/cli.py`'s parser builders into `run/_cli_parsers.py` (AD-14), and
+deletes the root's override: every moved line is typed, so none of the
+eleven new modules is exempted and the tool reports each CLEAN. Most of the
+930 were one construct, a keyword bag typed `dict[str, object]` unpacked into
+a record constructor, which reports once per field it fills (29 on each
+`RunRecord(**base)`); those bags are `dict[str, Any]` with the reason. The
+rest were fixed in place (casts with their reason, an except binding renamed,
+the declared tuple built), and one was a defect: `resolve_continuation` read
+`case.fs_version`, which `SimCase` does not have. The other 192 errors and
+seventeen modules are the base's, unchanged. The shipped configuration is
+green over all 184. The quoted mypy lines and the sentence at the top of this
+report are this run's.
