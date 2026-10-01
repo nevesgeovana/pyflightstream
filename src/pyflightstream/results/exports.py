@@ -808,6 +808,15 @@ class SurfaceSection:
     values : numpy.ndarray
         The cut points, shape ``(edges, 20)``, in printed order.
         Columns, units and frame are :data:`SURFACE_SECTION_COLUMNS`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> section = SurfaceSection(index=1, edges=2, values=np.arange(40.0).reshape(2, 20))
+    >>> section.count
+    2
+    >>> section.positions.shape
+    (2, 3)
     """
 
     index: int

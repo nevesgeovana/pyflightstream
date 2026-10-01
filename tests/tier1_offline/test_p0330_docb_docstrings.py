@@ -69,16 +69,14 @@ FACADE_HELD = {
 #: DOC-B part 2 group g1: `cases`, `cases.windows`, `farfield` and `probes` leave the list.
 #: DOC-B part 2 g3 documented `results.sectional_loads`, `results.core`, `results.log` and the four
 #: `post` family modules, which left.
+#: `results.loads`, `results.native_surface`, `results.surface` and `results.tables` are
+#: complete and left it (DOC-B part 2, g4).
 NUMPYDOC_PENDING = {
     "cases/__init__.py",
     "farfield/__init__.py",
     "probes/__init__.py",
     # WP5 (AD-13) moved the pending functions of `post.products` into the four
     # family modules, which are pinned in their stead.
-    "results/loads.py",
-    "results/native_surface.py",
-    "results/surface.py",
-    "results/tables.py",
     "run/_campaign.py",
     "run/_executors.py",
     "run/_identity.py",
@@ -98,11 +96,9 @@ NUMPYDOC_PENDING = {
 #: `run._assessment`, `run._campaign`, `run._executors`, `run._identity` and
 #: `run._plan`, and the root leaves the list.
 #: DOC-B part 2 group g1: `cases` and `script` leave the list.
+#: `results.exports`, `results.loads`, `results.surface` and `results.tables` carry theirs
+#: and left it (DOC-B part 2, g4).
 EXAMPLES_PENDING = {
-    "results/exports.py",
-    "results/loads.py",
-    "results/surface.py",
-    "results/tables.py",
     "run/_assessment.py",
     "run/_campaign.py",
     "run/_executors.py",
