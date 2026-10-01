@@ -8438,11 +8438,11 @@ Requirements written after the specification was last reconciled with the packag
 
     Solution (planned for 0.34.0): catalog entries after the cut of `qa/specs.py`, and RPT-127.
 
-!!! requirement "FR-343 The PHASE3 evidence the specification relies on is a summary report in the repository <span class='srs-pending'>pending</span>"
+!!! requirement "FR-343 The PHASE3 evidence the specification relies on is a summary report in the repository <span class='srs-implemented'>implemented</span>"
 
     Read with PFS-2073, PFS-2073.05 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: planning item PFS-2073.05 (L4) of the 0.34.0 scope (GEO-071, section 4.3) and the author decision of 2026-10-01 that the evidence lives as a summary receipt in the repository. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-PHASE3-RPT; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.05. Pending: no report yet. Verification method: tier-1 tests carrying the marker, and review of RPT-131. Evidence owed: RPT-131; a test that its facts table has exactly the columns of R1 and a non-empty number, date, build and command in every row (the one table of the report, read as a Markdown table); a test that the SRS cites it; the scan of R4 with its planted control; and the confidentiality guard of NFR-31 passing over it.*
+    *Origin: planning item PFS-2073.05 (L4) of the 0.34.0 scope (GEO-071, section 4.3) and the author decision of 2026-10-01 that the evidence lives as a summary receipt in the repository. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-PHASE3-RPT; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.05. Built in 0.34.0. Verification method: tier-1 tests carrying the marker, and review of RPT-131. Evidence: `reports/RPT-131_phase3-probe-campaign-summary_2026-10-01.md`; `tests/tier1_offline/test_p0340_phase3_rpt.py` holds a test that its facts table has exactly the columns of R1 and a non-empty number, date, build and command in every row (the one table of the report, read as a Markdown table); a test that the SRS cites it; the scan of R4 with its planted control; and the confidentiality guard of NFR-31 passing over it.*
 
     Need: RPT-093 cites a results file of a private licensed campaign that the repository does not keep, so the facts it carries cannot be reproduced or checked from here.
 
@@ -8453,7 +8453,7 @@ Requirements written after the specification was last reconciled with the packag
     - R3 RPT-131 satisfies NFR-31 (no machine identity, no executable digest), as every report of 0.34.0 does: the NFR-31 guard walks every tracked file.
     - R4 A tier-1 test scans RPT-131 for the forbidden identifiers the repository's own house-style guard already holds (the forbidden names, the personal-identifier shapes and the private ledger identifiers of `tests/tier1_offline/test_house_style.py`), with a planted identifier as its control; NFR-31 does not cover geometry or research data, and the table form of R1 is what keeps them out.
 
-    Solution (planned for 0.34.0): RPT-131, its test and the citations.
+    Solution (release 0.34.0): RPT-131, `tests/tier1_offline/test_p0340_phase3_rpt.py` and the citations in RPT-089 and RPT-093.
 
 !!! requirement "FR-344 No tracked file carries a digest of the solver package's documentation files <span class='srs-implemented'>implemented</span>"
 

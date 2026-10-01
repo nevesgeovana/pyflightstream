@@ -1,4 +1,6 @@
-# RPT-089 - The quasi-steady rotor against the unsteady rotor, measured (2026-09-29)
+# RPT-089 - The quasi-steady rotor against the unsteady rotor, measured (2026-09-29, amended 2026-10-01)
+
+Amended 2026-10-01: the facts taken from the private campaign's results file are summarised, with their number, date, build and command, in RPT-131; no measurement of this report changed.
 
 A summary of licensed runs on **FlightStream 26.124, build #8172026**, made on
 this machine on 2026-09-28 and 2026-09-29 to decide how the `qsteady_rotor`
@@ -7,7 +9,7 @@ needs. The geometry is a six-blade research propeller: one blade mesh copied
 six times about the shaft by rotating its vertices in steps of 60 deg, one
 body per blade, no spinner and no nacelle, no symmetry, trailing edges by the
 solver's detection. Its geometry is not published; this report states only
-the numbers it produced. Every run was one launch, serial, far field 5 layers.
+the numbers it produced (the private results file they come from is summarised in RPT-131). Every run was one launch, serial, far field 5 layers.
 
 ## 1. The rotating free stream stands for the turning blade (steady)
 

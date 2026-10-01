@@ -2531,9 +2531,9 @@
    "id": "FR-343",
    "text": "Read with PFS-2073, PFS-2073.05 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
-   "status": "pending",
-   "evidence": "*Origin: planning item PFS-2073.05 (L4) of the 0.34.0 scope (GEO-071, section 4.3) and the author decision of 2026-10-01 that the evidence lives as a summary receipt in the repository. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-PHASE3-RPT; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.05. Pending: no report yet. Verification method: tier-1 tests carrying the marker, and review of RPT-131. Evidence owed: RPT-131; a test that its facts table has exactly the columns of R1 and a non-empty number, date, build and command in every row (the one table of the report, read as a Markdown table); a test that the SRS cites it; the scan of R4 with its planted control; and the confidentiality guard of NFR-31 passing over it.*",
-   "verification": "none"
+   "status": "implemented",
+   "evidence": "*Origin: planning item PFS-2073.05 (L4) of the 0.34.0 scope (GEO-071, section 4.3) and the author decision of 2026-10-01 that the evidence lives as a summary receipt in the repository. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-PHASE3-RPT; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.05. Built in 0.34.0. Verification method: tier-1 tests carrying the marker, and review of RPT-131. Evidence: reports/RPT-131_phase3-probe-campaign-summary_2026-10-01.md; tests/tier1_offline/test_p0340_phase3_rpt.py holds a test that its facts table has exactly the columns of R1 and a non-empty number, date, build and command in every row (the one table of the report, read as a Markdown table); a test that the SRS cites it; the scan of R4 with its planted control; and the confidentiality guard of NFR-31 passing over it.*",
+   "verification": "test"
   },
   {
    "id": "FR-344",
