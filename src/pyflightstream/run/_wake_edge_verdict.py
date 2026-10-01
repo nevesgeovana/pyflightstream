@@ -172,6 +172,16 @@ def collected_solver_log(folder: Path, collected: Sequence[str], named: str | No
     edge was recorded FAILED_INCOMPLETE_OUTPUT with the remedy to export the
     log it had exported (the qa lens, 2026-09-24).
 
+    THE LOG OF A STEADY JOB IS CUMULATIVE (0.33.1). A steady row's points run
+    in one solver session, and each point's ``EXPORT_LOG`` writes the session's
+    log so far: point k's log holds k solves, the counter starting again at 1
+    for each. The content rule above reads one solve only, so from point 2 on
+    no collected output parsed as the log and the trailing-edge count, logged
+    once at the import, was never read: every such point was recorded
+    FAILED_INCOMPLETE_OUTPUT with its log on disk. When the content rule finds
+    none, the point's ONE collected ``_log.txt`` is its log; two of them are
+    still a guess, and None.
+
     Parameters
     ----------
     folder : Path
@@ -185,8 +195,8 @@ def collected_solver_log(folder: Path, collected: Sequence[str], named: str | No
     -------
     str or None
         The log's text; None when no collected output is the log, or when
-        several parse as one, since which of them is this point's would be a
-        guess.
+        several parse as one, or when none parses as one and several carry the
+        log's suffix, since which of them is this point's would be a guess.
     """
     paths = [folder / entry for entry in collected]
     if named:
@@ -194,6 +204,8 @@ def collected_solver_log(folder: Path, collected: Sequence[str], named: str | No
             if path.name == named and path.is_file():
                 return path.read_text(encoding="utf-8", errors="replace")
     candidates = [path for path in paths if path.is_file() and reads_as_residual_history(path)]
+    if not candidates:
+        candidates = [path for path in paths if path.name.endswith(_LOG_SUFFIX) and path.is_file()]
     if len(candidates) == 1:
         return candidates[0].read_text(encoding="utf-8", errors="replace")
     return None

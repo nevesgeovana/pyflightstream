@@ -14,6 +14,7 @@ from collections.abc import (
 )
 
 from pyflightstream._errors import (
+    PyflightstreamError,
     PyflightstreamWarning,
     warn,
 )
@@ -24,7 +25,10 @@ from pyflightstream.cases import (
     FORCE_PLOT_PARAMETERS,
     ROTOR_PLOT_GROUP_PREFIX,
     CampaignConfigError,
+    PprocSpec,
     SimCase,
+    classify_outputs,
+    default_outputs,
     global_frame_plot_declarations,
     select_families,
 )
@@ -532,6 +536,76 @@ def _pproc_sections(case: SimCase, script: Script, frames: Frames) -> None:
                     surfaces=len(indices),
                     surface_indices=indices,
                 )
+
+
+def row_outputs(case: SimCase, workflow: str) -> list[str]:
+    """Return the outputs a matrix row naming a run type declares, over its geometry.
+
+    The pproc artifact's :meth:`~pyflightstream.cases.PprocSpec.outputs` for
+    the row's run type, with ONE RULE FOR THE SECTION Cp PLOT AND ITS EXPORT
+    (0.33.1): the plot is left out where no section distribution of the
+    artifact cuts a family the row's geometry carries, which is where
+    :func:`_pproc_sections` leaves every entry out. The builders export what a
+    row declares, so the export goes with the declaration. Until this, a body
+    row citing an artifact whose distributions cut a wing declared the plot and
+    exported it, the solver wrote no file with no section to plot, and every
+    point was recorded FAILED_INCOMPLETE_OUTPUT for it. Every other output is
+    the artifact's, unchanged, and so is the plot where any section is cut or
+    the geometry's inventory is not known.
+
+    Parameters
+    ----------
+    case : SimCase
+        The bound row: its pproc artifact, inventory, aliases and rotors.
+    workflow : str
+        The row's run type; one starting with ``unsteady`` is unsteady.
+
+    Returns
+    -------
+    list of str
+        The declared output names, their ``{name}`` placeholder unrendered.
+    """
+    unsteady = workflow.startswith("unsteady")
+    pproc = case.pproc
+    if pproc is None:
+        return default_outputs(unsteady)
+    names = pproc.outputs(unsteady)
+    plot = classify_outputs(names).get("plot_sections_cp")
+    if plot is None or case.inventory is None or _cuts_a_section(case, pproc, case.inventory):
+        return names
+    return [name for name in names if name != plot]
+
+
+def _cuts_a_section(case: SimCase, pproc: PprocSpec, inventory: Sequence[str]) -> bool:
+    """Whether a section distribution of ``pproc`` can cut a surface of ``inventory``.
+
+    The builder's rule, read before the script exists. An entry in a common
+    frame selects its families as :func:`_pproc_sections` does, through
+    :func:`~pyflightstream.cases.select_families` with the same aliases, and
+    cuts nothing where that selects none. An entry in a frame per rotor or per
+    blade expands over the frames the run places, which are not known here, so
+    it counts as cutting wherever a rotor family is carried; an entry the
+    selector refuses counts too, so that the builder refuses it as before. The
+    plot is left out only where no section can be cut.
+    """
+    names = _the_names_a_rotor_answers_to(case)
+    carried = {name.casefold() for name in inventory}
+    on_a_rotor = any(
+        family.casefold() in carried
+        for block in case.rotors.values()
+        for family in (*block.families_general, *block.families_blades)
+    )
+    for entry in pproc.sections.distributions:
+        if entry.frame.strip().upper() in EXPANDING_FRAMES:
+            if on_a_rotor:
+                return True
+            continue
+        try:
+            if select_families(entry.families, inventory, pproc.is_blade, aliases=names):
+                return True
+        except PyflightstreamError:
+            return True
+    return False
 
 
 #: The section command, and the argument only the builds from 26.120 take. The

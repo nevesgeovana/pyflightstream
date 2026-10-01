@@ -1705,6 +1705,15 @@ nodes.
     series as text, and the solve and its exports are unchanged by the
     saves.
 
+    AMENDED 0.33.1 (2026-10-01): "where the post-processing artifact
+    declares sections" is read over the row's geometry. A row declares the
+    section Cp plot, and so exports it, only where a section distribution
+    of its artifact can cut a family the geometry carries, by the same
+    family selection the builder makes; where every entry is left out,
+    the builder still warns that it is, and neither the plot nor its
+    `SECTIONS_CP` export is in the row. Evidence:
+    `tests/tier1_offline/test_p0331_false_failures.py`.
+
     AMENDED 0.27.0 (G10), pending with it: the artifact may opt a row of
     any run type into the per-panel force distribution of every surface
     (`force_distributions`, `_force_distributions.txt`), off by default as
@@ -1912,6 +1921,13 @@ nodes.
     `[base_regions]` (automatic) apply only when written, the first
     unverified on every geometry tried; and a saved simulation whose
     sidecar states any of the three tables is refused.
+
+    AMENDED 0.33.1 (2026-10-01): the log a point on the `file` route is
+    held to is, where none of its collected outputs reads as the residual
+    history of one solve, the point's one collected `_log.txt`, because
+    every point of a steady job exports the session's log so far and the
+    log of point k holds k solves; two such files name no log. Evidence:
+    `tests/tier1_offline/test_p0331_false_failures.py`.
 
     AMENDED 0.27.0 (RPT-066), pending with it: the families a row or
     artifact names for base-region detection are the boundaries that

@@ -117,6 +117,7 @@ from pyflightstream.cases.workflows import (
     read_actuator_profile,
     refuse_an_additional_post_build,
     refuse_what_a_saved_point_cannot_give,
+    row_outputs,
 )
 
 # `wake_edges` is SIDEWAYS, to the module of this layer that owns a
@@ -2620,9 +2621,7 @@ def resolve_matrix(
                 reference_length_m=resolved.reference_length_m,
             )
         if row.workflow != LEGACY_WORKFLOW:
-            update["outputs"] = pprocs[row.pproc_code].outputs(
-                unsteady=row.workflow.startswith("unsteady")
-            )
+            update["outputs"] = row_outputs(case.model_copy(update=update), row.workflow)
         sims.append(_bind_setup_ports(case.model_copy(update=update), workspace.inputs_dir))
     return ResolvedMatrix(
         campaign=campaign.model_copy(update={"sims": sims}),

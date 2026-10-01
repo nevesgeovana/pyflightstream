@@ -156,6 +156,9 @@ from ._pproc import (
 from ._pproc import (
     pproc_emissions as pproc_emissions,
 )
+from ._pproc import (
+    row_outputs as row_outputs,
+)
 from ._probes import (
     PROBE_POSITION_COLUMNS,
     PROBE_PROFILE_DIR,
