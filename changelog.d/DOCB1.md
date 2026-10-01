@@ -1,0 +1,11 @@
+## Changed
+
+- Docstrings state what a function takes, returns and raises (NFR-30, DOC-B part 1). Every exported function outside the modules DOC-B part 2 completes, and outside the package roots `cases` and `farfield`, which keep their definitions until they become facades, carries numpydoc `Parameters` naming every parameter, `Returns` or `Yields` where it gives a value, and `Raises` where it raises a catalogued error; every exported docstring parses cleanly, so the API reference renders none with the parser's warnings off. A tier-1 test (P0330-DOCSTRINGS-NUMPYDOC) walks every exported function, the modules left pinned on a list that only shrinks.
+- Forty-three public modules declare `__all__`, naming exactly the public names they define; a module-level `logger` is not listed. Every name a module exported before still imports from the same path, and the API reference pages carry the same names but the five FSI modules' `logger`.
+- The documented entry points carry an `Examples` section the executable-examples step runs: the solver helpers, `resolve`, `support_level`, the matrix reader and converter, the field operations, the FSI configuration, beam and sections, the test-wing geometry and the naming template. Fourteen whose example would need the solver, a workbook or a recorded workspace are named with the reason (P0330-DOC-EXAMPLES).
+- The reductions of an unsteady point are defined on one page, the definitions page, under "The reductions of an unsteady point"; the unsteady workflow page links to it and keeps its worked example, and the unsteady-rotor page links to both (P0330-DOC-REDUCTIONS-HOME).
+
+## Fixed
+
+- The unsteady-rotor workflow page no longer says the reductions are not yet run after a campaign: the post writes them, and the page now links to their definitions.
+- The field operations page no longer says the field operations replace no point inside a body: `field fill-interior` does, and the sentence now says so.

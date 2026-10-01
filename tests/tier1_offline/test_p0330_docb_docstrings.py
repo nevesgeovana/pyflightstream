@@ -1,0 +1,566 @@
+"""Tier 1, 0.33.0 package DOC-B: numpydoc docstrings, runnable examples, one home (NFR-30).
+
+Each test names its requirement in its own source, because the goal's checker
+reads function sources. The exported functions are walked the way the API
+reference walks them (``scripts/gen_api_reference.py``: every public module and
+its public surface), so a function the reference shows is a function checked
+here. Each check also runs once on a planted defect, so a check that accepts
+everything cannot pass.
+
+DOC-B is cut in two parts. Part 1 completed every module but the ones other
+packages of 0.33.0 were cutting at the time, and four package roots the
+facade ratchet holds; those are pinned below, and the pins only shrink: a
+pinned module that passes leaves its list in the same change, and part 2
+and the facade cuts empty the lists.
+"""
+
+from __future__ import annotations
+
+import ast
+import doctest
+import functools
+import importlib
+import importlib.util
+import inspect
+import json
+import logging
+import re
+import sys
+import textwrap
+from pathlib import Path
+
+import griffe
+
+REPO = Path(__file__).resolve().parents[2]
+SRC = REPO / "src" / "pyflightstream"
+DOCS = REPO / "docs"
+
+#: Package roots that still define functions and classes of their own. The
+#: facade ratchet of the architecture guards (G8) counts every statement line
+#: of such a root, docstring lines included, and its entries only shrink, so
+#: their docstrings are completed when each root becomes a facade and its
+#: definitions move to a module (the cuts of 0.33.0), not by growing the root.
+#: What ``probes`` holds back is the Raises section of ``write_points_csv``,
+#: which this test does not enforce, so it is pinned on neither list below.
+FACADE_HELD = {
+    "cases/__init__.py",
+    "farfield/__init__.py",
+    "probes/__init__.py",
+    "script/__init__.py",
+}
+
+#: Modules (paths under ``src/pyflightstream``) whose exported functions do not
+#: yet all document their parameters and result. DOC-B part 2 completes them;
+#: the list only shrinks.
+NUMPYDOC_PENDING = {
+    "cases/__init__.py",
+    "farfield/__init__.py",
+    "cases/windows.py",
+    "cases/workflows.py",
+    "post/field_frames.py",
+    "post/guides.py",
+    "post/probe_fields.py",
+    "post/products.py",
+    "results/__init__.py",
+    "results/native_surface.py",
+    "results/surface.py",
+    "results/tables.py",
+    "run/__init__.py",
+    "run/cli.py",
+    "run/records.py",
+    "workspace/__init__.py",
+    "workspace/inputs.py",
+}
+
+#: Modules whose documented entry points do not yet all carry an Examples
+#: section. DOC-B part 2 completes them; the list only shrinks.
+EXAMPLES_PENDING = {
+    "cases/__init__.py",
+    "script/__init__.py",
+    "cases/workflows.py",
+    "post/probe_fields.py",
+    "results/__init__.py",
+    "results/surface.py",
+    "results/tables.py",
+    "run/__init__.py",
+    "run/cli.py",
+    "workspace/__init__.py",
+    "workspace/inputs.py",
+}
+
+#: Documented entry points whose example cannot run offline without the solver
+#: or a recorded workspace, with the reason. Each still has no Examples
+#: section; one that gains it leaves this table.
+NO_OFFLINE_EXAMPLE = {
+    "pyflightstream.fsi.cli.main": "the pyfs-fsi console entry, called by the solver; the CLI "
+    "reference documents it",
+    "pyflightstream.qa.cli.main": "the pyfs-qa console entry; the CLI reference documents it",
+    "pyflightstream.utils.cli.main": "the pyfs-utils console entry; the CLI reference documents it",
+    "pyflightstream.workspace.cli.main": "the pyfs-workspace console entry; the CLI reference "
+    "documents it",
+    "pyflightstream.workspace.excel.main": "the Excel workbook command; the CLI reference "
+    "documents it",
+    "pyflightstream.workspace.excel_bridge.main": "the bridge the workbook's macro calls; it "
+    "reads a snapshot the macro wrote",
+    "pyflightstream.workspace.excel_file.read_snapshot": "reads a saved Excel workbook",
+    "pyflightstream.workspace.excel_file.patch_cells": "rewrites a saved Excel workbook",
+    "pyflightstream.post.boundary_layer.sample_boundary_layer": "reads the surface VTK export "
+    "and the section cuts of a run",
+    "pyflightstream.post.boundary_layer.write_boundary_layer_table": "writes the samples "
+    "sample_boundary_layer reads off a run's exports",
+    "pyflightstream.post.corrections.sector_offset_calibration": "reads the rotor tables of "
+    "a posted workspace",
+    "pyflightstream.run.matrix.plan_additional_post": "reads the recorded runs of a workspace",
+    "pyflightstream.workspace.fsi_setup.resolve_fsi_setup": "reads an FSI artifact of a "
+    "workspace's inputs",
+    "pyflightstream.workspace.fsi_setup.resolve_row_fsi": "reads an FSI artifact of a "
+    "workspace's inputs",
+}
+
+_HEADER = re.compile(r"^([A-Z][A-Za-z ]+)\n-{3,}[ \t]*$", re.MULTILINE)
+
+
+def _script(name: str):
+    spec = importlib.util.spec_from_file_location(name, REPO / "scripts" / f"{name}.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+@functools.cache
+def _generator():
+    return _script("gen_api_reference")
+
+
+def _sections(doc: str) -> dict[str, str]:
+    """Each numpydoc section of a docstring, by its header, to its body."""
+    marks = list(_HEADER.finditer(doc))
+    return {
+        mark.group(1).strip(): doc[
+            mark.end() : marks[i + 1].start() if i + 1 < len(marks) else None
+        ]
+        for i, mark in enumerate(marks)
+    }
+
+
+def _documented_parameters(body: str) -> set[str]:
+    """The names a Parameters section documents: its lines at the section's own indent."""
+    lines = [line for line in body.split("\n") if line.strip()]
+    if not lines:
+        return set()
+    indent = min(len(line) - len(line.lstrip()) for line in lines)
+    names: set[str] = set()
+    for line in lines:
+        if len(line) - len(line.lstrip()) == indent:
+            head = line.strip().split(" : ")[0].rstrip(":")
+            names.update(part.strip().lstrip("*") for part in head.split(","))
+    return names
+
+
+def _own_nodes(node: ast.AST):
+    """Every node of a function's own body, nested functions and classes left out."""
+    stack = list(getattr(node, "body", []))
+    while stack:
+        current = stack.pop()
+        yield current
+        stack += [
+            child
+            for child in ast.iter_child_nodes(current)
+            if not isinstance(
+                child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
+            )
+        ]
+
+
+def numpydoc_gaps(node: ast.FunctionDef | ast.AsyncFunctionDef, doc: str) -> list[str]:
+    """What a function's docstring lacks of NFR-30 R2: Parameters and Returns.
+
+    Every parameter but ``self`` and ``cls`` is named in ``Parameters``
+    (``*args`` and ``**kwargs`` with or without their stars, and several names
+    on one line separated by commas). A generator states ``Yields`` or
+    ``Returns``; any other function annotated with something other than None,
+    or returning a value, states ``Returns``.
+    """
+    sections = _sections(doc)
+    arguments = node.args
+    names = [a.arg for a in (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs)]
+    names += [a.arg for a in (arguments.vararg, arguments.kwarg) if a is not None]
+    names = [name for name in names if name not in ("self", "cls")]
+    gaps = []
+    if names:
+        documented = _documented_parameters(sections.get("Parameters", ""))
+        missing = [name for name in names if name not in documented]
+        if missing:
+            gaps.append(f"Parameters does not name {missing}")
+    own = list(_own_nodes(node))
+    annotation = node.returns
+    returns_none = annotation is not None and (
+        (isinstance(annotation, ast.Constant) and annotation.value is None)
+        or (isinstance(annotation, ast.Name) and annotation.id in ("None", "NoReturn", "Never"))
+    )
+    if any(isinstance(n, (ast.Yield, ast.YieldFrom)) for n in own):
+        if "Yields" not in sections and "Returns" not in sections:
+            gaps.append("no Yields section")
+    elif not returns_none and (
+        annotation is not None
+        or any(isinstance(n, ast.Return) and n.value is not None for n in own)
+    ):
+        if "Returns" not in sections:
+            gaps.append("no Returns section")
+    return gaps
+
+
+def _definition(function) -> tuple[str, ast.FunctionDef | ast.AsyncFunctionDef]:
+    """The function's module path under ``src/pyflightstream`` and its ``def`` node."""
+    path = Path(inspect.getsourcefile(function)).resolve()
+    first = function.__code__.co_firstlineno
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == function.__name__
+            and first in (node.lineno, *(d.lineno for d in node.decorator_list))
+        ):
+            return path.relative_to(SRC.resolve()).as_posix(), node
+    raise AssertionError(f"no def of {function.__qualname__} in {path}")
+
+
+@functools.cache
+def _exported() -> tuple[tuple[str, object], ...]:
+    """Every exported function and class once, as (dotted path where defined, object)."""
+    generator = _generator()
+    found: dict[str, object] = {}
+    for module_name in generator.public_subpackages():
+        module = importlib.import_module(module_name)
+        for name in generator.public_surface(module_name):
+            obj = getattr(module, name, None)
+            target = inspect.unwrap(obj) if inspect.isfunction(obj) else obj
+            if inspect.isfunction(target) or inspect.isclass(target):
+                found.setdefault(f"{target.__module__}.{target.__qualname__}", target)
+    return tuple(sorted(found.items()))
+
+
+def _functions():
+    return [(dotted, obj) for dotted, obj in _exported() if inspect.isfunction(obj)]
+
+
+def _pending_failures(pending: set[str], failures: dict[str, list[str]]) -> list[str]:
+    """Why the pinned list is wrong: a pinned module that now passes, or is gone."""
+    wrong = [f"{rel} passes now: take it off the list" for rel in sorted(pending - set(failures))]
+    return wrong + [f"{rel} is no module" for rel in sorted(pending) if not (SRC / rel).is_file()]
+
+
+# ----------------------------------------------------------------- R1 and R2
+
+
+def test_every_exported_function_documents_its_parameters_and_result():
+    """NFR-30 R1 and R2: Parameters names every parameter, Returns where a value returns.
+
+    P0330-DOCSTRINGS-NUMPYDOC
+    """
+    # P0330-DOCSTRINGS-NUMPYDOC
+    functions = _functions()
+    # The floor: 767 exported functions when part 1 landed. A walk that stops
+    # resolving finds few and would pass over nothing.
+    assert len(functions) >= 700, f"only {len(functions)} exported functions were walked"
+    failures: dict[str, list[str]] = {}
+    for dotted, function in functions:
+        rel, node = _definition(function)
+        gaps = numpydoc_gaps(node, inspect.getdoc(function) or "")
+        if gaps:
+            failures.setdefault(rel, []).append(f"{dotted}: {'; '.join(gaps)}")
+    outside = [
+        line for rel, lines in failures.items() if rel not in NUMPYDOC_PENDING for line in lines
+    ]
+    assert outside == [], "exported functions without numpydoc sections:\n" + "\n".join(outside)
+    assert _pending_failures(NUMPYDOC_PENDING, failures) == []
+    # A root is held only while the facade ratchet tables it.
+    baselines = json.loads(
+        (REPO / "tests" / "tier1_offline" / "architecture_baselines.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert sorted(FACADE_HELD - set(baselines["facade_lines"])) == []
+
+
+def test_every_exported_docstring_parses_cleanly(caplog):
+    """NFR-30 R2: the numpydoc parser the reference renders with reads every one cleanly.
+
+    P0330-DOCSTRINGS-NUMPYDOC
+    """
+    # P0330-DOCSTRINGS-NUMPYDOC: prose after a section with no heading of its
+    # own is read as parameters, which is the defect the reference silenced
+    # until DOC-B fixed its two docstrings.
+    package = griffe.load("pyflightstream", search_paths=[str(REPO / "src")], resolve_aliases=False)
+    warned = []
+    checked = 0
+    for dotted, _obj in _exported():
+        docstring = package[dotted.split(".", 1)[1]].docstring
+        if docstring is None:
+            continue
+        checked += 1
+        caplog.clear()
+        with caplog.at_level(logging.WARNING, logger="griffe"):
+            griffe.parse_numpy(docstring)
+        warned += [f"{dotted}: {record.getMessage()}" for record in caplog.records]
+    assert checked >= 900, f"only {checked} docstrings were parsed"
+    assert warned == [], "\n".join(warned)
+
+    planted = griffe.Docstring(
+        "Do a thing.\n\nParameters\n----------\nx : int\n    The x.\n\n"
+        "A paragraph that is no parameter.\n",
+        parent=package["versions"],
+    )
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="griffe"):
+        griffe.parse_numpy(planted)
+    assert caplog.records, "the control: prose after Parameters must warn"
+
+
+def test_the_numpydoc_check_refuses_planted_defects():
+    """NFR-30 R2: the check is shown to refuse each defect it exists for.
+
+    P0330-DOCSTRINGS-NUMPYDOC
+    """
+    # P0330-DOCSTRINGS-NUMPYDOC: controls, so a check that accepts everything fails.
+    complete = textwrap.dedent(
+        '''
+        def f(a, b=1, *args, c, **kwargs) -> int:
+            """Summary.
+
+            Parameters
+            ----------
+            a : int
+                The a.
+            b, c : int
+                Two on one line.
+            *args
+                More.
+            **kwargs
+                Keywords.
+
+            Returns
+            -------
+            int
+                The value.
+            """
+            return a
+        '''
+    )
+
+    def gaps(source: str) -> list[str]:
+        node = ast.parse(source).body[0]
+        assert isinstance(node, ast.FunctionDef)
+        return numpydoc_gaps(node, ast.get_docstring(node) or "")
+
+    assert gaps(complete) == []
+    # `complete` is dedented: its docstring lines sit four spaces in.
+    assert gaps(complete.replace("    b, c : int\n", "    b : int\n")) == [
+        "Parameters does not name ['c']"
+    ]
+    no_returns = complete.split("    Returns")[0] + '    """\n    return a\n'
+    assert gaps(no_returns) == ["no Returns section"]
+    generator = (
+        'def g(n) -> Iterator[int]:\n    """Summary.\n\n    Parameters\n    ----------\n'
+        '    n : int\n        How many.\n    """\n    yield n\n'
+    )
+    assert gaps(generator) == ["no Yields section"]
+    nothing = (
+        'def h(x) -> None:\n    """Summary.\n\n    Parameters\n    ----------\n'
+        '    x : int\n        The x.\n    """\n'
+    )
+    assert gaps(nothing) == []
+
+    # And on a real exported function with its Parameters section cut out.
+    from pyflightstream.versions import resolve
+
+    _, node = _definition(resolve)
+    doc = inspect.getdoc(resolve) or ""
+    assert numpydoc_gaps(node, doc) == []
+    cut = doc.replace("Parameters\n----------", "Parameter list\n--------------")
+    assert numpydoc_gaps(node, cut) and "Parameters does not name" in numpydoc_gaps(node, cut)[0]
+
+
+# ----------------------------------------------------------------- R3
+
+
+def _example_gaps(doc: str) -> list[str]:
+    """What a docstring lacks of R3: an Examples section holding doctest examples."""
+    section = _sections(doc).get("Examples")
+    if section is None:
+        return ["no Examples section"]
+    if not doctest.DocTestParser().get_examples(textwrap.dedent(section)):
+        return ["an Examples section with no >>> example"]
+    return []
+
+
+def _documented_entry_points() -> list[tuple[str, object, str]]:
+    """The reference's documented tier: (dotted, object, module path), exceptions left out."""
+    generator = _generator()
+    words = generator.guide_words(REPO)
+    used = set()
+    for module_name in generator.public_subpackages():
+        module = importlib.import_module(module_name)
+        for name in generator.public_surface(module_name):
+            if name in words:
+                obj = getattr(module, name, None)
+                target = inspect.unwrap(obj) if inspect.isfunction(obj) else obj
+                used.add(id(target))
+    found = []
+    for dotted, obj in _exported():
+        if id(obj) not in used or (inspect.isclass(obj) and issubclass(obj, BaseException)):
+            continue
+        path = Path(inspect.getsourcefile(obj)).resolve()
+        found.append((dotted, obj, path.relative_to(SRC.resolve()).as_posix()))
+    return found
+
+
+def _root_conftest():
+    spec = importlib.util.spec_from_file_location("_docb_root_conftest", REPO / "conftest.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_documented_entry_points_carry_examples_the_gate_runs():
+    """NFR-30 R3: every documented entry point carries examples, and CI runs them.
+
+    P0330-DOC-EXAMPLES
+    """
+    # P0330-DOC-EXAMPLES
+    entry_points = _documented_entry_points()
+    assert len(entry_points) >= 60, f"only {len(entry_points)} documented entry points"
+    failures: dict[str, list[str]] = {}
+    exempt_but_documented = []
+    for dotted, obj, rel in entry_points:
+        gaps = _example_gaps(inspect.getdoc(obj) or "")
+        if dotted in NO_OFFLINE_EXAMPLE:
+            if not gaps:
+                exempt_but_documented.append(dotted)
+            continue
+        if gaps:
+            failures.setdefault(rel, []).append(f"{dotted}: {gaps[0]}")
+    outside = [
+        line for rel, lines in failures.items() if rel not in EXAMPLES_PENDING for line in lines
+    ]
+    assert outside == [], "documented entry points without examples:\n" + "\n".join(outside)
+    assert _pending_failures(EXAMPLES_PENDING, failures) == []
+    assert exempt_but_documented == [], (
+        f"take these off NO_OFFLINE_EXAMPLE: {exempt_but_documented}"
+    )
+    tier = {dotted for dotted, _obj, _rel in entry_points}
+    assert set(NO_OFFLINE_EXAMPLE) <= tier, sorted(set(NO_OFFLINE_EXAMPLE) - tier)
+
+    # The gate: the CI step runs the docstring examples of the package source,
+    # and the root conftest's docstring collector reads every module defining one.
+    ci = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert re.search(r"run: pytest src/pyflightstream\b", ci), (
+        "the executable-examples step is gone"
+    )
+    conftest = _root_conftest()
+    if getattr(conftest, "_SYBIL", False):
+        docstrings = conftest.EXAMPLE_SYBILS[0]
+        for _dotted, _obj, rel in entry_points:
+            assert docstrings.should_parse(SRC / rel), f"the examples gate does not read {rel}"
+
+
+def test_the_examples_check_refuses_planted_defects():
+    """NFR-30 R3: the examples check refuses a missing section and an empty one.
+
+    P0330-DOC-EXAMPLES
+    """
+    # P0330-DOC-EXAMPLES: controls.
+    good = "Summary.\n\nExamples\n--------\n>>> 1 + 1\n2\n"
+    assert _example_gaps(good) == []
+    assert _example_gaps("Summary.\n\nReturns\n-------\nint\n    One.\n") == ["no Examples section"]
+    assert _example_gaps("Summary.\n\nExamples\n--------\nCall it with one.\n") == [
+        "an Examples section with no >>> example"
+    ]
+    from pyflightstream.versions import resolve
+
+    assert _example_gaps(inspect.getdoc(resolve) or "") == []
+    assert _example_gaps((inspect.getdoc(resolve) or "").split("Examples\n--------")[0]) == [
+        "no Examples section"
+    ]
+
+
+# ----------------------------------------------------------------- R4
+
+#: The page that defines the reductions, and the section that lists them.
+REDUCTIONS_HOME = "post-processing-definitions.md"
+REDUCTIONS_ANCHOR = "the-reductions-of-an-unsteady-point"
+REDUCTIONS = ("time_average", "per_blade", "phase_locked", "per_revolution")
+_REDUCTION_FILE = re.compile(r"_(time_average|phase_locked|per_blade|per_revolution|harmonics)\b")
+_REDUCTION_NAMED = re.compile(
+    r"`(time_average|per_blade|phase_locked|per_revolution)`"
+    r"|_(time_average|phase_locked|per_blade|per_revolution)[._<\[]"
+)
+#: A claim a page once made against the definition of record (GEO-072 docs audit, item 6).
+_STALE_CLAIMS = ("What does NOT ship yet is the step that runs those four",)
+
+
+def _user_pages() -> dict[str, str]:
+    """Every hand-written user page but the home: the release records are history."""
+    return {
+        path.name: path.read_text(encoding="utf-8")
+        for path in sorted(DOCS.glob("*.md"))
+        if path.name != REDUCTIONS_HOME
+        and not path.name.startswith(("migrating-to-", "release-notes"))
+    }
+
+
+def reductions_restated(name: str, text: str) -> list[str]:
+    """Why a page other than the home defines the reductions instead of linking to them."""
+    found = [
+        f"{name}: a table row defines a reduction file: {line.strip()[:80]}"
+        for line in text.splitlines()
+        if line.lstrip().startswith("|") and _REDUCTION_FILE.search(line)
+    ]
+    found += [f"{name}: {claim!r}" for claim in _STALE_CLAIMS if claim in text]
+    if _REDUCTION_NAMED.search(text) and REDUCTIONS_HOME not in text:
+        found.append(f"{name}: names a reduction and does not link to {REDUCTIONS_HOME}")
+    return found
+
+
+def test_the_unsteady_reductions_have_one_home():
+    """NFR-30 R4: the definitions page defines the reductions; every other page links to it.
+
+    P0330-DOC-REDUCTIONS-HOME
+    """
+    # P0330-DOC-REDUCTIONS-HOME
+    home = (DOCS / REDUCTIONS_HOME).read_text(encoding="utf-8")
+    heading = "## The reductions of an unsteady point\n"
+    assert heading in home, f"{REDUCTIONS_HOME} has no section listing the reductions"
+    section = home.split(heading, 1)[1].split("\n## ", 1)[0]
+    for anchor in (*REDUCTIONS, "the-per-station-harmonics", "the-averaging-window"):
+        assert f"(#{anchor})" in section, f"the section does not link to #{anchor}"
+    for reduction in REDUCTIONS:
+        assert f"\n## `{reduction}`\n" in home, f"{REDUCTIONS_HOME} does not define {reduction}"
+    assert f"[`{REDUCTIONS[0]}`](#{REDUCTIONS[0]})" in section
+
+    pages = _user_pages()
+    naming = [name for name, text in pages.items() if _REDUCTION_NAMED.search(text)]
+    assert len(naming) >= 4, f"only {naming} name a reduction; the walk has lost its pages"
+    for linked in ("workflow-unsteady.md", "workflow-unsteady-rotor.md"):
+        assert f"{REDUCTIONS_HOME}#{REDUCTIONS_ANCHOR}" in pages[linked], linked
+    restated = [line for name, text in pages.items() for line in reductions_restated(name, text)]
+    assert restated == [], "\n".join(restated)
+
+
+def test_the_reductions_check_refuses_planted_defects():
+    """NFR-30 R4: a restated table, a stale claim and a missing link are each refused.
+
+    P0330-DOC-REDUCTIONS-HOME
+    """
+    # P0330-DOC-REDUCTIONS-HOME: controls on the real page.
+    page = (DOCS / "workflow-unsteady.md").read_text(encoding="utf-8")
+    assert reductions_restated("workflow-unsteady.md", page) == []
+    row = "| `probes/<point>_time_average.csv` | `unsteady` | the averaging window |\n"
+    assert len(reductions_restated("planted", page + row)) == 1
+    assert len(reductions_restated("planted", page + _STALE_CLAIMS[0])) == 1
+    unlinked = page.replace(REDUCTIONS_HOME, "elsewhere.md")
+    assert reductions_restated("planted", unlinked) == [
+        f"planted: names a reduction and does not link to {REDUCTIONS_HOME}"
+    ]

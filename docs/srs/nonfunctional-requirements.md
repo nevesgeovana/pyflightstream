@@ -945,9 +945,18 @@
     the same audit, which found 64 percent of docstrings describing their
     parameters and result and 15 percent also carrying Raises and
     Examples, and the unsteady reductions explained on three pages that
-    contradict one another. Pending: nothing of it is built. Evidence
-    owed: the ruff configuration and its clean run, a tier-1 test over
-    the exported functions for R2, and the documentation tests for R3.*
+    contradict one another. Pending: DOC-B is built in two parts, and
+    part 1 completed R2 to R4 on every module but the fifteen the other
+    0.33.0 packages were cutting and the four package roots the facade
+    ratchet (AD-08, G8) holds at their entry, which a tier-1 test pins and
+    part 2 and the facade cuts empty; R1 waits for part 2, because D417 is selected once it
+    reports nothing over the whole tree. Evidence:
+    `tests/tier1_offline/test_p0330_docb_docstrings.py`, whose
+    P0330-DOCSTRINGS-NUMPYDOC walks every exported function for R2,
+    P0330-DOC-EXAMPLES the documented tier for R3 against the
+    executable-examples step, and P0330-DOC-REDUCTIONS-HOME the pages
+    for R4, each with a planted-defect control. Owed: part 2 and the
+    ruff configuration with its clean run.*
 
     The docstring of every exported function says what it takes, what
     it returns and how it fails, in the numpydoc form, and its examples
