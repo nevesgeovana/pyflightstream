@@ -22,12 +22,18 @@ test already pins.
 WHAT IS NORMALISED, and only this, on both sides (:func:`normalise`): the
 wall-clock stamp of each log record (the one difference the parity script
 measured between two posts of one workspace), the temporary folder the
-campaign was built in, the package version and the release tag derived from
-it, the wall-clock name of an archive folder a rebuild moves the replaced
-products into, the date line of the custom polar format (the wall clock
-again), and the line end the platform's text mode writes. One
-campaign leaves out files no normalisation makes stable (:data:`VOLATILE`,
-with its reason). Nothing else may differ.
+campaign was built in and the separator of a path inside it, the package
+version and the release tag derived from it, the wall-clock name of an
+archive folder a rebuild moves the replaced products into, and the date line
+of the custom polar format (the wall clock again). One campaign leaves out
+files no normalisation makes stable (:data:`VOLATILE`, with its reason).
+Nothing else may differ.
+
+WHAT IS PINNED, because it is an input of the build rather than a field of a
+product (:func:`pin_environment`): the line end of a text write, whose bytes
+the products digest, and the operator's name, which a run records. The
+snapshot was first stored on Windows; run on Linux it differed by these two
+and by the separator, and by nothing else (measured 2026-10-01).
 
 Also ``.gitattributes``: the stored texts are pinned to LF like the goldens.
 
@@ -286,6 +292,16 @@ CAMPAIGNS: dict[str, Builder] = {
 }
 
 
+#: A path inside the build folder after the folder itself became ``<ROOT>``: its
+#: separators, one backslash in a text and two in a JSON string on Windows, one
+#: slash elsewhere, up to the first character no path segment here carries.
+_ROOTED_PATH = re.compile(r"<ROOT>((?:(?:\\\\|\\|/)[^\s\\/\"',;:()\[\]]+)+)")
+
+
+def _posix_separators(match: re.Match[str]) -> str:
+    return "<ROOT>" + re.sub(r"\\\\|\\", "/", match.group(1))
+
+
 def normalise(name: str, data: bytes, root: Path) -> bytes:
     """Rewrite the volatile fields of one post file: stamps, the build folder, the version."""
     from pyflightstream import __version__
@@ -295,11 +311,19 @@ def normalise(name: str, data: bytes, root: Path) -> bytes:
         text = data.decode("utf-8")
     except UnicodeDecodeError:
         return data
-    # The line end the platform's text mode writes (CRLF on Windows): the
-    # snapshot is the same on every machine the suite runs on.
-    text = text.replace("\r\n", "\n")
+    # No line end is rewritten: the build writes LF in text mode on every
+    # platform (pin_environment), so a CRLF here is one a product chose.
     for form in {str(root), root.as_posix(), json.dumps(str(root))[1:-1]}:
         text = text.replace(form, "<ROOT>")
+    # The separator of a path inside the build folder: a message names a file
+    # of the workspace through ``str(path)``, which is ``os.sep`` (a backslash
+    # on Windows, doubled inside a JSON string). Measured on ubuntu-latest,
+    # 2026-10-01: every post.log, post.log.json and products.json that names
+    # such a path differed by this and nothing else. Only the separators of a
+    # path that starts at ``<ROOT>`` are rewritten, so the path's segments
+    # (which file a message names) are still compared, and a backslash
+    # anywhere else is kept.
+    text = _ROOTED_PATH.sub(_posix_separators, text)
     text = text.replace(__version__, "<VERSION>")
     text = text.replace(f"-{release_tag(__version__)}.json", "-<TAG>.json")
     text = _ARCHIVE.sub("<STAMP>", text)
@@ -343,6 +367,57 @@ def _scratch() -> Iterator[Path]:
 VOLATILE: dict[str, tuple[str, ...]] = {"additional": ("*provenance/*.prov.json",)}
 
 
+#: The operator every build runs as (:func:`pin_environment`).
+OPERATOR = "operator"
+_OPERATOR_VARIABLES = ("LOGNAME", "USER", "LNAME", "USERNAME")
+
+
+def _lf_text_writes(open_):
+    """``open_`` with LF as the default line end of a text file opened to write."""
+
+    def opened(file, mode="r", buffering=-1, encoding=None, errors=None, newline=None, *a, **k):
+        if newline is None and "b" not in mode and any(flag in mode for flag in "wax"):
+            newline = "\n"
+        return open_(file, mode, buffering, encoding, errors, newline, *a, **k)
+
+    return opened
+
+
+def pin_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Give a build the same environment on every platform: these are its INPUTS.
+
+    Each pin, with the difference it removes (measured on ubuntu-latest and
+    windows-latest against a snapshot stored on Windows, 2026-10-01):
+
+    THE LINE END OF A TEXT WRITE IS LF. The builders write the campaign's
+    recorded exports, records and calibration files with ``Path.write_text``,
+    whose text mode writes CRLF on Windows and LF elsewhere, and the products
+    RECORD THE SHA-256 OF THOSE INPUTS: each provenance file's
+    ``pyfs:sha256`` of an output read from its file, and the corrected polars'
+    and ``products.json``'s ``calibration_sha256``. A digest is a product
+    value and is never rewritten, so the input it digests is made the same
+    instead, as ``.gitattributes`` makes the committed fixtures LF on every
+    checkout. Only the default is filled: a write that states its own line
+    end (``newline=""`` for the CSV writer, or ``"\\r\\n"``) keeps it, so the
+    line end a product chooses is still compared.
+
+    THE OPERATOR IS :data:`OPERATOR`. A run records who ran it
+    (``workspace.naming.submitted_by``, ``getpass.getuser`` over these
+    variables), and the polars of the ``additional`` campaign carry it in
+    ``submitted_by``: the owner's login where the snapshot was stored, the
+    runner's in CI. The name is still written and compared; it is the same
+    name everywhere.
+    """
+    import builtins
+    import io
+
+    lf_open = _lf_text_writes(io.open)
+    monkeypatch.setattr(io, "open", lf_open)
+    monkeypatch.setattr(builtins, "open", lf_open)
+    for variable in _OPERATOR_VARIABLES:
+        monkeypatch.setenv(variable, OPERATOR)
+
+
 def regenerate(name: str, monkeypatch: pytest.MonkeyPatch) -> dict[str, bytes]:
     """Build and post one campaign and return its normalised post files.
 
@@ -352,7 +427,11 @@ def regenerate(name: str, monkeypatch: pytest.MonkeyPatch) -> dict[str, bytes]:
     over its text (``post.diagnostics.warning_category``), so a folder called
     ``section_distributions`` turned a ``convergence`` record into a
     ``section-layout`` one. Measured on the first stored snapshot, 2026-10-01.
+
+    The environment is pinned first (:func:`pin_environment`), so the build is
+    the same on every platform the suite runs on.
     """
+    pin_environment(monkeypatch)
     with _scratch() as scratch:
         root = CAMPAIGNS[name](scratch / "w", monkeypatch)
         volatile = VOLATILE.get(name, ())
@@ -410,6 +489,46 @@ def text_differences(texts: dict[str, str], files: dict[str, bytes]) -> list[str
             )
             out.append(f"{match[0]}: text differs from line {first + 1}")
     return out
+
+
+#: How much of a file stored only as a digest a failure prints, as regenerated.
+_SHOWN_LINES = 150
+
+
+def _first_difference(stored_text: str, new: str) -> str:
+    old_lines, new_lines = stored_text.splitlines(), new.splitlines()
+    for number, (old, now) in enumerate(zip(old_lines, new_lines, strict=False), start=1):
+        if old != now:
+            return f"line {number}:\n    stored: {old!r}\n    now:    {now!r}"
+    number = min(len(old_lines), len(new_lines)) + 1
+    return f"line {number}: stored {len(old_lines)} lines, now {len(new_lines)}"
+
+
+def explain(index: dict[str, str], texts: dict[str, str], files: dict[str, bytes]) -> str:
+    """Every difference, and WHERE each changed file differs, for a failure message.
+
+    A file whose text is stored (:data:`TEXT_FILES`) is compared line by line
+    and its first differing line is printed on both sides. A file stored only
+    as a digest has nothing to compare a line with, so its regenerated text is
+    printed (its first :data:`_SHOWN_LINES` lines) for a reader to compare with
+    a regeneration on the machine the snapshot was stored on.
+    """
+    out = []
+    for difference in differences(index, files) + text_differences(texts, files):
+        out.append(difference)
+        name = difference.split(": ", 1)[0]
+        if not difference.endswith("bytes differ") or name not in files:
+            continue
+        base = name.rsplit("/", 1)[-1]
+        unique = sum(n.rsplit("/", 1)[-1] == base for n in files) == 1
+        new = files[name].decode("utf-8", "replace")
+        if base in texts and unique:
+            out.append("  first difference, " + _first_difference(texts[base], new))
+        else:
+            lines = new.splitlines()
+            out.append(f"  stored as a digest only; as regenerated ({len(lines)} lines):")
+            out += [f"  | {line}" for line in lines[:_SHOWN_LINES]]
+    return "\n".join(out)
 
 
 def write_snapshot(name: str, files: dict[str, bytes]) -> None:
@@ -515,8 +634,8 @@ def test_the_products_of_a_recorded_campaign_are_byte_for_byte_the_stored_ones(n
     files = regenerate(name, monkeypatch)
     index, texts = stored(name)
     assert files, f"{name}: the post wrote nothing"
-    assert not differences(index, files), differences(index, files)
-    assert not text_differences(texts, files), text_differences(texts, files)
+    assert not differences(index, files), explain(index, texts, files)
+    assert not text_differences(texts, files), explain(index, texts, files)
 
 
 def test_a_planted_difference_in_the_products_is_caught(monkeypatch):
@@ -525,8 +644,8 @@ def test_a_planted_difference_in_the_products_is_caught(monkeypatch):
     unplanted tree is none, so the test above can fail."""
     name = "unsteady_rotor"
     files = regenerate(name, monkeypatch)
-    index, _ = stored(name)
-    assert not differences(index, files)
+    index, texts = stored(name)
+    assert not differences(index, files), explain(index, texts, files)
     for label, copy in _planted(files):
         assert differences(index, copy), f"the comparison did not catch {label}"
 
@@ -554,3 +673,43 @@ def test_the_normalisation_rewrites_only_the_volatile_fields(tmp_path):
     )
     row = b"ALPHA,CL\n-2.00000,0.41234\n"
     assert normalise("products/polars/P1.csv", row, root) == row
+    crlf = row.replace(b"\n", b"\r\n")
+    assert normalise("products/polars/P1.csv", crlf, root) == crlf, "a chosen CRLF is compared"
+
+
+def test_the_separator_of_a_path_in_the_build_folder_is_the_only_path_change(tmp_path):
+    """P0330-PRODUCTS-SNAPSHOT. A path inside the build folder reads the same with
+    either separator, in a text and in a JSON string; a different file in it is
+    still a difference, and a backslash outside such a path is kept."""
+    root = tmp_path / "camp"
+
+    def norm(text: str) -> bytes:
+        return normalise("products/post.log", text.encode(), root)
+
+    posix = "no export found in <ROOT>/sims/sim_7001 or its outputs"
+    assert norm(posix.replace("/", "\\")) == norm(posix) == posix.encode()
+    json_posix = '"message": "missing: <ROOT>/sims/sim_7010/p.vtk",'
+    assert norm(json_posix.replace("/", "\\\\")) == norm(json_posix)
+    assert norm(f"in {root / 'sims' / 'sim_7001'} or") == b"in <ROOT>/sims/sim_7001 or"
+    assert norm("<ROOT>\\sims\\sim_7002 or") != norm(posix)
+    kept = "a separator a\\b outside the build folder"
+    assert norm(kept) == kept.encode()
+
+
+def test_the_pinned_environment_fills_only_defaults(tmp_path, monkeypatch):
+    """P0330-PRODUCTS-SNAPSHOT. Under the pin a text write with no stated line end
+    writes LF and the operator is :data:`OPERATOR`; a write that states its line
+    end keeps it, so a product's own CRLF is still compared, not hidden."""
+    import getpass
+
+    from pyflightstream.workspace.naming import submitted_by
+
+    pin_environment(monkeypatch)
+    (tmp_path / "default.txt").write_text("a\nb\n", encoding="utf-8")
+    with open(tmp_path / "opened.txt", "w", encoding="utf-8") as handle:
+        handle.write("a\n")
+    (tmp_path / "stated.txt").write_text("a\n", encoding="utf-8", newline="\r\n")
+    assert (tmp_path / "default.txt").read_bytes() == b"a\nb\n"
+    assert (tmp_path / "opened.txt").read_bytes() == b"a\n"
+    assert (tmp_path / "stated.txt").read_bytes() == b"a\r\n"
+    assert getpass.getuser() == submitted_by() == OPERATOR

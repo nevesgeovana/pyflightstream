@@ -161,12 +161,12 @@
  "log": "post.log",
  "log_json": "post.log.json",
  "skipped": {
-  "sections/DP_cp_Blade1.csv": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
-  "sections/DP_cp_Blade2.csv": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
-  "sections/DP_cp_Blade3.csv": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
-  "sections/DP_cp_Blade4.csv": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
-  "sections/DP_cp_Blade5.csv": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
-  "sections/DP_cp_Blade6.csv": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+  "sections/DP_cp_Blade1.csv": "no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
+  "sections/DP_cp_Blade2.csv": "no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
+  "sections/DP_cp_Blade3.csv": "no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
+  "sections/DP_cp_Blade4.csv": "no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
+  "sections/DP_cp_Blade5.csv": "no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
+  "sections/DP_cp_Blade6.csv": "no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
   "polars/P7001-PROP_qs_positions.csv": "these quasi-steady points are not rows of the clockings tables: DP: the point states no density"
  },
  "provenance": {

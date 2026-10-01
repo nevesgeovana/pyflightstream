@@ -7,12 +7,12 @@
  "matriz/polars/SUPER-6001-M200RE1177AL+sweepBE+000_WING.csv": "b8d09efd2c842013e17c1d802eab8696467dd798c7b20e86bd8365d0ee9a09b1",
  "matriz/polars/SUPER-6002-M144RE438AL+000BE+000J+sweep_PUSHER.csv": "10a76a2b2e96c06dc7cc644616a18c399e634a3721615dd07b9987862f3c08a0",
  "matriz/polars/SUPER-6002-M144RE438AL+000BE+000J+sweep_WING.csv": "d971bc7bffd96ffd5d8fdf527a778e168c610898eb7feb03948514046b977bd6",
- "matriz/post.log": "1c303596b14b69cad2266516b4ac1748ad041870aff6599b5f8b1123ada3fee0",
- "matriz/post.log.json": "461353f3bd5ee0c291a7056fba1b3465dd7fa5b7807f8aecc0d0fa0b27c16bd0",
+ "matriz/post.log": "cd2fc9154afcc43d90a632506267b9a831437b267f7ee25b143c83a6275b0d1a",
+ "matriz/post.log.json": "201a797fcbc00e67d93d5ffd1da01ab971601f9c609edc8dc518f6b9e43bca0c",
  "matriz/probes/POLAR-6002_M14AL+000BE+000J+170_per_revolution_PUSHER.csv": "d05860435e2e2622c070b71c216604bcdcea5625c23fc2d174c6d97015a7277e",
  "matriz/probes/POLAR-6002_M14AL+000BE+000J+170_plots.csv": "7d3c3351945ec28e6a54b7521854d23319529ed7233d51f199a1ec9aee0de9ee",
- "matriz/products.json": "507321a87584a0bd9a587d2d3e0f87a859928905feb9e472d9627e3f5ee25505",
- "matriz/provenance/camp_sim_6001_M200RE1177AL+000BE+000.prov.json": "be5fc867ca36d4c6510bc2c8a099258b427749558db294df0597f5c9991a545a",
- "matriz/provenance/camp_sim_6001_M200RE1177AL-020BE+000.prov.json": "b0778c90e00a6680233725e442fa67fedb8ba0ea4f45f64e6211d5ea593fcc2a",
- "matriz/provenance/camp_sim_6002_M144RE438AL+000BE+000J+170.prov.json": "b7a90af3426eb6ddccf67e0837fb0d46692008af64920d73916bdb88b4160168"
+ "matriz/products.json": "96777908f1a532eb8d470687689993e63644bedff7444365e945a7bbc5bb4d14",
+ "matriz/provenance/camp_sim_6001_M200RE1177AL+000BE+000.prov.json": "a8c43cced8be4b52b1ba290b732a0bdbd65f97c7c0e2b70c2ca1f846b659fb57",
+ "matriz/provenance/camp_sim_6001_M200RE1177AL-020BE+000.prov.json": "b6da674a925b673e45f7757618f320e68caac340fd3c39d5d4ba9c803cf4d0a7",
+ "matriz/provenance/camp_sim_6002_M144RE438AL+000BE+000J+170.prov.json": "29a4c3cd0e19d44b7845d378169f02d26483761da60eab856387d5d3c7debf09"
 }

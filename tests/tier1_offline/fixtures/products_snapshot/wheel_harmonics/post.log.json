@@ -8,7 +8,7 @@
   {
    "point": "campaign",
    "product": "stage",
-   "message": "sections/DP_cp_Blade1.csv not written: no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "sections/DP_cp_Blade1.csv not written: no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": null,
    "category": "section-layout",
    "severity": "warning"
@@ -16,7 +16,7 @@
   {
    "point": "campaign",
    "product": "stage",
-   "message": "sections/DP_cp_Blade2.csv not written: no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "sections/DP_cp_Blade2.csv not written: no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": null,
    "category": "section-layout",
    "severity": "warning"
@@ -24,7 +24,7 @@
   {
    "point": "campaign",
    "product": "stage",
-   "message": "sections/DP_cp_Blade3.csv not written: no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "sections/DP_cp_Blade3.csv not written: no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": null,
    "category": "section-layout",
    "severity": "warning"
@@ -32,7 +32,7 @@
   {
    "point": "campaign",
    "product": "stage",
-   "message": "sections/DP_cp_Blade4.csv not written: no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "sections/DP_cp_Blade4.csv not written: no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": null,
    "category": "section-layout",
    "severity": "warning"
@@ -40,7 +40,7 @@
   {
    "point": "campaign",
    "product": "stage",
-   "message": "sections/DP_cp_Blade5.csv not written: no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "sections/DP_cp_Blade5.csv not written: no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": null,
    "category": "section-layout",
    "severity": "warning"
@@ -48,7 +48,7 @@
   {
    "point": "campaign",
    "product": "stage",
-   "message": "sections/DP_cp_Blade6.csv not written: no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "sections/DP_cp_Blade6.csv not written: no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": null,
    "category": "section-layout",
    "severity": "warning"
@@ -56,7 +56,7 @@
   {
    "point": "sections/DP_cp_Blade1.csv",
    "product": "sections/DP_cp_Blade1.csv",
-   "message": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "section-layout",
    "severity": "warning"
@@ -64,7 +64,7 @@
   {
    "point": "sections/DP_cp_Blade2.csv",
    "product": "sections/DP_cp_Blade2.csv",
-   "message": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "section-layout",
    "severity": "warning"
@@ -72,7 +72,7 @@
   {
    "point": "sections/DP_cp_Blade3.csv",
    "product": "sections/DP_cp_Blade3.csv",
-   "message": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "section-layout",
    "severity": "warning"
@@ -80,7 +80,7 @@
   {
    "point": "sections/DP_cp_Blade4.csv",
    "product": "sections/DP_cp_Blade4.csv",
-   "message": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "section-layout",
    "severity": "warning"
@@ -88,7 +88,7 @@
   {
    "point": "sections/DP_cp_Blade5.csv",
    "product": "sections/DP_cp_Blade5.csv",
-   "message": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "section-layout",
    "severity": "warning"
@@ -96,7 +96,7 @@
   {
    "point": "sections/DP_cp_Blade6.csv",
    "product": "sections/DP_cp_Blade6.csv",
-   "message": "no DP_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "no DP_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "section-layout",
    "severity": "warning"

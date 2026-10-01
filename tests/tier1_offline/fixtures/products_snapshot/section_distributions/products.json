@@ -126,7 +126,7 @@
  "log": "post.log",
  "log_json": "post.log.json",
  "skipped": {
-  "series/AL-020_probes_series.csv": "no AL-020_probes_iteration=<step>.txt of steps 3 to 5 is in <ROOT>\\sims\\sim_7001, so there is no row to table"
+  "series/AL-020_probes_series.csv": "no AL-020_probes_iteration=<step>.txt of steps 3 to 5 is in <ROOT>/sims/sim_7001, so there is no row to table"
  },
  "provenance": {
   "camp/sim_7001/AL-020": "provenance/camp_sim_7001_AL-020.prov.json"

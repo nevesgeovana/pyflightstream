@@ -8,7 +8,7 @@
   {
    "point": "campaign",
    "product": "stage",
-   "message": "sections/AL-020_cp_Blade1.csv not written: no AL-020_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "sections/AL-020_cp_Blade1.csv not written: no AL-020_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": null,
    "category": "section-layout",
    "severity": "warning"
@@ -128,7 +128,7 @@
   {
    "point": "campaign",
    "product": "stage",
-   "message": "sections/AL-020_cp_Blade2.csv not written: no AL-020_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "sections/AL-020_cp_Blade2.csv not written: no AL-020_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": null,
    "category": "section-layout",
    "severity": "warning"
@@ -248,7 +248,7 @@
   {
    "point": "campaign",
    "product": "stage",
-   "message": "sections/AL-020_cp_Blade3.csv not written: no AL-020_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "sections/AL-020_cp_Blade3.csv not written: no AL-020_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": null,
    "category": "section-layout",
    "severity": "warning"
@@ -368,7 +368,7 @@
   {
    "point": "campaign",
    "product": "stage",
-   "message": "series/AL-020_loads_series.csv not written: no AL-020_iteration=<step>.txt of steps 1 to 14 is in <ROOT>\\sims\\sim_7001, so there is no row to table",
+   "message": "series/AL-020_loads_series.csv not written: no AL-020_iteration=<step>.txt of steps 1 to 14 is in <ROOT>/sims/sim_7001, so there is no row to table",
    "remedy": null,
    "category": "convergence",
    "severity": "warning"
@@ -376,7 +376,7 @@
   {
    "point": "campaign",
    "product": "stage",
-   "message": "series/AL-020_probes_series.csv not written: no AL-020_probes_iteration=<step>.txt of steps 1 to 14 is in <ROOT>\\sims\\sim_7001, so there is no row to table",
+   "message": "series/AL-020_probes_series.csv not written: no AL-020_probes_iteration=<step>.txt of steps 1 to 14 is in <ROOT>/sims/sim_7001, so there is no row to table",
    "remedy": null,
    "category": "convergence",
    "severity": "warning"
@@ -768,7 +768,7 @@
   {
    "point": "sections/AL-020_cp_Blade1.csv",
    "product": "sections/AL-020_cp_Blade1.csv",
-   "message": "no AL-020_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "no AL-020_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "section-layout",
    "severity": "warning"
@@ -776,7 +776,7 @@
   {
    "point": "sections/AL-020_cp_Blade2.csv",
    "product": "sections/AL-020_cp_Blade2.csv",
-   "message": "no AL-020_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "no AL-020_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "section-layout",
    "severity": "warning"
@@ -784,7 +784,7 @@
   {
    "point": "sections/AL-020_cp_Blade3.csv",
    "product": "sections/AL-020_cp_Blade3.csv",
-   "message": "no AL-020_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+   "message": "no AL-020_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "section-layout",
    "severity": "warning"
@@ -792,7 +792,7 @@
   {
    "point": "series/AL-020_loads_series.csv",
    "product": "series/AL-020_loads_series.csv",
-   "message": "no AL-020_iteration=<step>.txt of steps 1 to 14 is in <ROOT>\\sims\\sim_7001, so there is no row to table",
+   "message": "no AL-020_iteration=<step>.txt of steps 1 to 14 is in <ROOT>/sims/sim_7001, so there is no row to table",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "convergence",
    "severity": "warning"
@@ -800,7 +800,7 @@
   {
    "point": "series/AL-020_probes_series.csv",
    "product": "series/AL-020_probes_series.csv",
-   "message": "no AL-020_probes_iteration=<step>.txt of steps 1 to 14 is in <ROOT>\\sims\\sim_7001, so there is no row to table",
+   "message": "no AL-020_probes_iteration=<step>.txt of steps 1 to 14 is in <ROOT>/sims/sim_7001, so there is no row to table",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "convergence",
    "severity": "warning"

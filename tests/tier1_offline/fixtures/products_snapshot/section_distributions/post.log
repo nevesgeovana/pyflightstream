@@ -3,5 +3,5 @@ workspace=<ROOT>
 matrix=None
 time=<TIME>
 check_frozen=False (refuse instead of warn)
-WARNING point=campaign product=stage: series/AL-020_probes_series.csv not written: no AL-020_probes_iteration=<step>.txt of steps 3 to 5 is in <ROOT>\sims\sim_7001, so there is no row to table
-WARNING point=series/AL-020_probes_series.csv product=series/AL-020_probes_series.csv: no AL-020_probes_iteration=<step>.txt of steps 3 to 5 is in <ROOT>\sims\sim_7001, so there is no row to table Remedy: restore the required data or correct the stated inputs and post again.
+WARNING point=campaign product=stage: series/AL-020_probes_series.csv not written: no AL-020_probes_iteration=<step>.txt of steps 3 to 5 is in <ROOT>/sims/sim_7001, so there is no row to table
+WARNING point=series/AL-020_probes_series.csv product=series/AL-020_probes_series.csv: no AL-020_probes_iteration=<step>.txt of steps 3 to 5 is in <ROOT>/sims/sim_7001, so there is no row to table Remedy: restore the required data or correct the stated inputs and post again.

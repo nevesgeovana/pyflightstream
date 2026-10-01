@@ -32,7 +32,7 @@
   {
    "point": "../../sims/sim_7010/p.vtk",
    "product": "../../sims/sim_7010/p.vtk",
-   "message": "the recorded vtk surface export is missing: <ROOT>\\sims\\sim_7010\\p.vtk",
+   "message": "the recorded vtk surface export is missing: <ROOT>/sims/sim_7010/p.vtk",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "translation",
    "severity": "warning"

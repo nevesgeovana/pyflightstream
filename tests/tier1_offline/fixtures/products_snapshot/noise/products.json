@@ -84,7 +84,7 @@
  "log": "post.log",
  "log_json": "post.log.json",
  "skipped": {
-  "../../sims/sim_7010/p.vtk": "the recorded vtk surface export is missing: <ROOT>\\sims\\sim_7010\\p.vtk",
+  "../../sims/sim_7010/p.vtk": "the recorded vtk surface export is missing: <ROOT>/sims/sim_7010/p.vtk",
   "sections/p_sloads#distributions": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
   "sections/p_cp#distributions": "distribution split needs the recorded sections_layout; never guessed. A new run is needed to record the missing layout.",
   "runs/camp/sim_7010/AL+000": "the run has status CONVERGED and no pproc, Mach or reference metadata, so it cannot supply a product row; collect its complete run metadata"

@@ -97,8 +97,8 @@
  "log_json": "post.log.json",
  "superfile_report": "reports/superfile-<TAG>.json",
  "skipped": {
-  "polars/6001#rotor_tables": "reference 'r001' cannot be resolved; rotor tables cannot be planned: no reference artifact with id 'r001'; the library directory <ROOT>\\inputs\\references holds no reference artifacts yet (create it with CampaignWorkspace.init or pyfs-workspace init, then add the artifact file)",
-  "polars/6002#rotor_tables": "reference 'r002' cannot be resolved; rotor tables cannot be planned: no reference artifact with id 'r002'; the library directory <ROOT>\\inputs\\references holds no reference artifacts yet (create it with CampaignWorkspace.init or pyfs-workspace init, then add the artifact file)"
+  "polars/6001#rotor_tables": "reference 'r001' cannot be resolved; rotor tables cannot be planned: no reference artifact with id 'r001'; the library directory <ROOT>/inputs/references holds no reference artifacts yet (create it with CampaignWorkspace.init or pyfs-workspace init, then add the artifact file)",
+  "polars/6002#rotor_tables": "reference 'r002' cannot be resolved; rotor tables cannot be planned: no reference artifact with id 'r002'; the library directory <ROOT>/inputs/references holds no reference artifacts yet (create it with CampaignWorkspace.init or pyfs-workspace init, then add the artifact file)"
  },
  "provenance": {
   "camp/sim_6001/M200RE1177AL-020BE+000": "provenance/camp_sim_6001_M200RE1177AL-020BE+000.prov.json",

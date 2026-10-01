@@ -3,7 +3,7 @@ workspace=<ROOT>
 matrix=None
 time=<TIME>
 check_frozen=False (refuse instead of warn)
-WARNING point=campaign product=stage: sections/AL-020_cp_Blade1.csv not written: no AL-020_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders
+WARNING point=campaign product=stage: sections/AL-020_cp_Blade1.csv not written: no AL-020_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade1.csv#step=1 not written: missing AL-020_cp_iteration=1.txt
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade1.csv#step=10 not written: missing AL-020_cp_iteration=10.txt
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade1.csv#step=11 not written: missing AL-020_cp_iteration=11.txt
@@ -18,7 +18,7 @@ WARNING point=campaign product=stage: sections/AL-020_cp_Blade1.csv#step=6 not w
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade1.csv#step=7 not written: missing AL-020_cp_iteration=7.txt
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade1.csv#step=8 not written: missing AL-020_cp_iteration=8.txt
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade1.csv#step=9 not written: missing AL-020_cp_iteration=9.txt
-WARNING point=campaign product=stage: sections/AL-020_cp_Blade2.csv not written: no AL-020_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders
+WARNING point=campaign product=stage: sections/AL-020_cp_Blade2.csv not written: no AL-020_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade2.csv#step=1 not written: missing AL-020_cp_iteration=1.txt
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade2.csv#step=10 not written: missing AL-020_cp_iteration=10.txt
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade2.csv#step=11 not written: missing AL-020_cp_iteration=11.txt
@@ -33,7 +33,7 @@ WARNING point=campaign product=stage: sections/AL-020_cp_Blade2.csv#step=6 not w
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade2.csv#step=7 not written: missing AL-020_cp_iteration=7.txt
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade2.csv#step=8 not written: missing AL-020_cp_iteration=8.txt
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade2.csv#step=9 not written: missing AL-020_cp_iteration=9.txt
-WARNING point=campaign product=stage: sections/AL-020_cp_Blade3.csv not written: no AL-020_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders
+WARNING point=campaign product=stage: sections/AL-020_cp_Blade3.csv not written: no AL-020_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade3.csv#step=1 not written: missing AL-020_cp_iteration=1.txt
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade3.csv#step=10 not written: missing AL-020_cp_iteration=10.txt
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade3.csv#step=11 not written: missing AL-020_cp_iteration=11.txt
@@ -48,8 +48,8 @@ WARNING point=campaign product=stage: sections/AL-020_cp_Blade3.csv#step=6 not w
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade3.csv#step=7 not written: missing AL-020_cp_iteration=7.txt
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade3.csv#step=8 not written: missing AL-020_cp_iteration=8.txt
 WARNING point=campaign product=stage: sections/AL-020_cp_Blade3.csv#step=9 not written: missing AL-020_cp_iteration=9.txt
-WARNING point=campaign product=stage: series/AL-020_loads_series.csv not written: no AL-020_iteration=<step>.txt of steps 1 to 14 is in <ROOT>\sims\sim_7001, so there is no row to table
-WARNING point=campaign product=stage: series/AL-020_probes_series.csv not written: no AL-020_probes_iteration=<step>.txt of steps 1 to 14 is in <ROOT>\sims\sim_7001, so there is no row to table
+WARNING point=campaign product=stage: series/AL-020_loads_series.csv not written: no AL-020_iteration=<step>.txt of steps 1 to 14 is in <ROOT>/sims/sim_7001, so there is no row to table
+WARNING point=campaign product=stage: series/AL-020_probes_series.csv not written: no AL-020_probes_iteration=<step>.txt of steps 1 to 14 is in <ROOT>/sims/sim_7001, so there is no row to table
 WARNING point=AL-020 product=probes/AL-020_per_revolution_PROP.csv: the plots table holds 14 time steps, 2 complete revolution(s) of 6 and 2 step(s) of a partial one, which is NOT averaged: a mean of part of a revolution is a mean of another thing
 WARNING point=AL-020 product=probes/AL-020_per_revolution_PROP.csv: rotor 'PROP' column CL_MRP_TOTAL drifts +171.4286 per cent of its scale 1.4 (the magnitude of CL_MRP_TOTAL, the largest coefficient mean of its group in the earlier revolution; a change of +2.4) between revolution 1 and revolution 2, over the drift limit of 1 per cent ([per_revolution] drift_limit_pct): the last revolution is still moving
 WARNING point=AL-020 product=probes/AL-020_per_revolution_PROP.csv: rotor 'PROP' column CDI_MRP_TOTAL drifts +17.1429 per cent of its scale 1.4 (the magnitude of CL_MRP_TOTAL, the largest coefficient mean of its group in the earlier revolution; a change of +0.24) between revolution 1 and revolution 2, over the drift limit of 1 per cent ([per_revolution] drift_limit_pct): the last revolution is still moving
@@ -98,11 +98,11 @@ WARNING point=sections/AL-020_cp_Blade3.csv#step=13 product=sections/AL-020_cp_B
 WARNING point=sections/AL-020_cp_Blade1.csv#step=14 product=sections/AL-020_cp_Blade1.csv#step=14: missing AL-020_cp_iteration=14.txt Remedy: restore the required data or correct the stated inputs and post again.
 WARNING point=sections/AL-020_cp_Blade2.csv#step=14 product=sections/AL-020_cp_Blade2.csv#step=14: missing AL-020_cp_iteration=14.txt Remedy: restore the required data or correct the stated inputs and post again.
 WARNING point=sections/AL-020_cp_Blade3.csv#step=14 product=sections/AL-020_cp_Blade3.csv#step=14: missing AL-020_cp_iteration=14.txt Remedy: restore the required data or correct the stated inputs and post again.
-WARNING point=sections/AL-020_cp_Blade1.csv product=sections/AL-020_cp_Blade1.csv: no AL-020_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders Remedy: restore the required data or correct the stated inputs and post again.
-WARNING point=sections/AL-020_cp_Blade2.csv product=sections/AL-020_cp_Blade2.csv: no AL-020_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders Remedy: restore the required data or correct the stated inputs and post again.
-WARNING point=sections/AL-020_cp_Blade3.csv product=sections/AL-020_cp_Blade3.csv: no AL-020_cp export found in <ROOT>\sims\sim_7001 or its recorded output folders Remedy: restore the required data or correct the stated inputs and post again.
-WARNING point=series/AL-020_loads_series.csv product=series/AL-020_loads_series.csv: no AL-020_iteration=<step>.txt of steps 1 to 14 is in <ROOT>\sims\sim_7001, so there is no row to table Remedy: restore the required data or correct the stated inputs and post again.
-WARNING point=series/AL-020_probes_series.csv product=series/AL-020_probes_series.csv: no AL-020_probes_iteration=<step>.txt of steps 1 to 14 is in <ROOT>\sims\sim_7001, so there is no row to table Remedy: restore the required data or correct the stated inputs and post again.
+WARNING point=sections/AL-020_cp_Blade1.csv product=sections/AL-020_cp_Blade1.csv: no AL-020_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders Remedy: restore the required data or correct the stated inputs and post again.
+WARNING point=sections/AL-020_cp_Blade2.csv product=sections/AL-020_cp_Blade2.csv: no AL-020_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders Remedy: restore the required data or correct the stated inputs and post again.
+WARNING point=sections/AL-020_cp_Blade3.csv product=sections/AL-020_cp_Blade3.csv: no AL-020_cp export found in <ROOT>/sims/sim_7001 or its recorded output folders Remedy: restore the required data or correct the stated inputs and post again.
+WARNING point=series/AL-020_loads_series.csv product=series/AL-020_loads_series.csv: no AL-020_iteration=<step>.txt of steps 1 to 14 is in <ROOT>/sims/sim_7001, so there is no row to table Remedy: restore the required data or correct the stated inputs and post again.
+WARNING point=series/AL-020_probes_series.csv product=series/AL-020_probes_series.csv: no AL-020_probes_iteration=<step>.txt of steps 1 to 14 is in <ROOT>/sims/sim_7001, so there is no row to table Remedy: restore the required data or correct the stated inputs and post again.
 WARNING point=probes/AL-020_phase_locked.csv product=probes/AL-020_phase_locked.csv: the row names its rotors: the per-rotor files are probes/AL-020_phase_locked_PROP.csv. Remedy: restore the required data or correct the stated inputs and post again.
 WARNING point=probes/AL-020_per_blade.csv product=probes/AL-020_per_blade.csv: the row names its rotors: the per-rotor files are probes/AL-020_per_blade_PROP.csv. Remedy: restore the required data or correct the stated inputs and post again.
 WARNING point=probes/AL-020_phase_locked_PROP.csv product=probes/AL-020_phase_locked_PROP.csv: not under test Remedy: restore the required data or correct the stated inputs and post again.

@@ -8,7 +8,7 @@
   {
    "point": "polars/6001#rotor_tables",
    "product": "polars/6001#rotor_tables",
-   "message": "reference 'r001' cannot be resolved; rotor tables cannot be planned: no reference artifact with id 'r001'; the library directory <ROOT>\\inputs\\references holds no reference artifacts yet (create it with CampaignWorkspace.init or pyfs-workspace init, then add the artifact file)",
+   "message": "reference 'r001' cannot be resolved; rotor tables cannot be planned: no reference artifact with id 'r001'; the library directory <ROOT>/inputs/references holds no reference artifacts yet (create it with CampaignWorkspace.init or pyfs-workspace init, then add the artifact file)",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "reference-frame",
    "severity": "warning"
@@ -16,7 +16,7 @@
   {
    "point": "polars/6002#rotor_tables",
    "product": "polars/6002#rotor_tables",
-   "message": "reference 'r002' cannot be resolved; rotor tables cannot be planned: no reference artifact with id 'r002'; the library directory <ROOT>\\inputs\\references holds no reference artifacts yet (create it with CampaignWorkspace.init or pyfs-workspace init, then add the artifact file)",
+   "message": "reference 'r002' cannot be resolved; rotor tables cannot be planned: no reference artifact with id 'r002'; the library directory <ROOT>/inputs/references holds no reference artifacts yet (create it with CampaignWorkspace.init or pyfs-workspace init, then add the artifact file)",
    "remedy": "restore the required data or correct the stated inputs and post again.",
    "category": "reference-frame",
    "severity": "warning"
