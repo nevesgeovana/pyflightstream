@@ -1,0 +1,180 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 01-fts-overview/text/04-pyfs.tex
+%
+% Part 4: how pyflightstream carries the workflow of Part 3 in a workspace:
+% the matrix, the three input files a row cites, the four stages of a run,
+% the four workflows, and storage and sync. Every statement here is defined
+% in Guides 2 to 9 and in the package pages [1-4]; this part only places it.
+
+\section{pyflightstream on the workflow}
+
+\begin{frame}{What pyflightstream is}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\begin{itemize}\small
+  \item A Python driver for FlightStream, MIT licensed, installed from PyPI
+        (\code{pip install pyflightstream}). FlightStream itself, and its
+        licence, are separate.
+  \item It \textbf{writes} the solver script from a command database per
+        build, \textbf{runs} it, \textbf{reads} what the solver exported, and
+        \textbf{post-processes} it into tables with their provenance.
+  \item A study is a \textbf{workspace}: a folder with a run matrix and the
+        input files the matrix cites. No Python is written to run it.
+\end{itemize}
+\end{column}
+\begin{column}{0.44\textwidth}
+\slidefig[0.56]{g01-pyfs-layers}
+\end{column}
+\end{columns}
+\begin{takeaway}A row names things, and the package makes the link: a row never
+carries a path.\end{takeaway}
+\end{frame}
+
+\begin{frame}{The workspace}
+\slidefig[0.80]{guide-workspace-tree}
+\end{frame}
+
+\begin{frame}{The ten stages, and where each one lives}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.08}
+\begin{tabularx}{\linewidth}{@{}P{0.25\linewidth}RP{0.10\linewidth}@{}}
+\toprule
+\textbf{Stage} & \textbf{In the workspace} & \textbf{Guide} \\
+\midrule
+1, 2 Scope and matrix & one row of \code{matriz.fs} per study point or sweep:
+  \code{DESCRIPTION}, \code{FLIGHT\_CONDITION}, \code{SWEEP\_VALUES},
+  \code{RUN} & 1 \\
+3, 4 Geometry and mesh & made outside the package; the file sits in
+  \code{inputs/geometries/}, the row names it in \code{GEOMETRY};
+  \pyfs{pyfs-matrix inventory} reads its boundaries & 1, 2 \\
+5 Boundary conditions & the trailing edge by file or by detection, base
+  regions and wake nodes as keys; rotors and actuator discs in the
+  reference file & 2, 3 \\
+6 Solver setup & \code{inputs/setups/s<id>.toml} (column \code{SET}); lengths,
+  moment point and frames in \code{inputs/references/r<id>.toml} (\code{REF});
+  \code{SYMMETRY} and \code{WORKFLOW} on the row & 3, 4 \\
+7 Execution & \pyfs{plan}, \pyfs{run}, \pyfs{collect}; \code{FS\_BUILD},
+  \code{NCPUS}, \code{WALLTIME} on the row & 1, 7 \\
+8 Output definition & \code{inputs/pproc/p<id>.toml} (\code{PPROC}): what the
+  run exports, declared before it runs & 4, 5 \\
+9, 10 Verification and analyses & \pyfs{post} writes \code{post/}: polars,
+  series, sections, probes, provenance; FSI couples a structure & 5, 6 \\
+\bottomrule
+\end{tabularx}}
+\end{frame}
+
+\begin{frame}{The row names things, the files define them}
+\slidefig[0.60]{guide-inputs-into-run}
+\begin{takeaway}\code{REF}, \code{SET} and \code{PPROC} carry a file stem and
+\code{GEOMETRY} names the mesh: stated once, in one file, and every row citing
+it demonstrably used it.\end{takeaway}
+\end{frame}
+
+\begin{frame}{Reference, setup, pproc: three files a row cites}
+\begin{columns}[T]
+\begin{column}{0.32\textwidth}
+\begin{block}{\code{r<id>.toml}}
+\small \textbf{What the coefficients divide by, and about which point}:
+reference area and lengths, the moment point, aliases for groups of
+surfaces, custom frames, and one block per rotor or actuator disc
+(Guide 5).
+\end{block}
+\end{column}
+\begin{column}{0.32\textwidth}
+\begin{block}{\code{s<id>.toml}}
+\small \textbf{How hard to solve and when to stop}: iterations and
+convergence, the boundary layer and its coupling, the model and its
+initialisation, wake settings, and a raw table for any command without a key
+(Guide 6).
+\end{block}
+\end{column}
+\begin{column}{0.32\textwidth}
+\begin{block}{\code{p<id>.toml}}
+\small \textbf{What the run exports, and how post reads it}: loads, sections,
+probes, plots, the log last; the groups and derived columns post reduces
+with. The averaging window belongs to the row (Guides 6, 7).
+\end{block}
+\end{column}
+\end{columns}
+\vspace{2mm}
+\begin{itemize}\small
+  \item The flight condition is a cell of the row, not a file: Mach, speed,
+        Reynolds number, altitude, a temperature offset, each a constraint on
+        one flow state [1].
+  \item Any key only some rows need goes in the row's free cell,
+        \code{VAR\_NAMES\_VALUES}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Four stages of a run}
+\slidefig[0.40]{guide-stage-flow}
+\begin{lstlisting}[style=ftsbase]
+pyfs-matrix plan    matriz.fs --workspace . --fs-version 26.123   # no seat, no queue
+pyfs-matrix run     matriz.fs --workspace . --fs-version 26.123   # solves, or submits
+pyfs-matrix collect --workspace .                                 # cluster: settled outputs
+pyfs-matrix post    matriz.fs --workspace .                       # rebuilds the products
+\end{lstlisting}
+{\small \pyfs{plan} validates every row against the build's command database
+and writes the receipt \pyfs{run} refuses to start without (Guide 2).\par}
+\end{frame}
+
+\begin{frame}{Four workflows, one per kind of physics}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.10}
+\begin{tabularx}{\linewidth}{@{}P{0.17\linewidth}P{0.27\linewidth}RP{0.12\linewidth}@{}}
+\toprule
+\textbf{\code{WORKFLOW}} & \textbf{What is solved} & \textbf{The physics of Part 2} & \textbf{Cost} \\
+\midrule
+\code{steady} & one converged steady solve per point; a sweep is one job &
+  the steady problem: tangency, Kutta, the fixed wake & seconds per point \\
+\code{unsteady} & a march in physical time, nothing turning & Kelvin and
+  the starting vortex; the step as a wake dimension; a window to average &
+  minutes \\
+\code{unsteady\_rotor} & the blades turn, the wake is shed in time & the
+  helical wake; degrees per step, revolutions, a per-revolution window; the
+  reference for any rotor & minutes to hours \\
+\code{qsteady\_rotor} & blades held still, the free stream turning about the
+  shaft; sector or wheel & an isolated, axisymmetric rotor where the reduced
+  frequency is small & seconds \\
+\bottomrule
+\end{tabularx}}
+\vspace{1mm}
+\begin{itemize}\small
+  \item The row names its workflow; a key another workflow owns is refused by
+        name at \pyfs{plan}. Costs are orders of magnitude on one
+        workstation [20].
+  \item Guide 2 carries the decision chart, the quasi-steady rotor in depth,
+        and when its answer stands for the turning blade.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Storage and sync}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{What a run leaves}
+\begin{itemize}\small
+  \item \code{sims/}: one folder per matrix row, \code{sim\_<POL>}, with the
+        scripts and one datapoint folder per point: the saved simulation and
+        the solver's exports.
+  \item \code{post/}: the products, rebuilt by \pyfs{post} with no seat.
+  \item \code{archive/}: whatever a rebuild replaced.
+  \item \code{runs.json}: the record of every run, with its state.
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{Two workspaces, one main}
+\begin{itemize}\small
+  \item A workstation workspace for planning, one point, looking at results;
+        a cluster workspace for long marches and many points.
+  \item \pyfs{pyfs-matrix sync}, run on the main, brings the cluster's runs
+        home at a chosen level; it previews unless told \code{--apply}, and
+        never copies a mesh [2].
+\end{itemize}
+\end{block}
+\end{column}
+\end{columns}
+\begin{takeaway}You never edit anything under \code{sims/} or \code{post/}. If a
+number there is wrong, an input is wrong.\end{takeaway}
+\end{frame}

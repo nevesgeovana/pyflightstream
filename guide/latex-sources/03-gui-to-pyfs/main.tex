@@ -1,0 +1,125 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 03-gui-to-pyfs/main.tex
+%
+% Guide 3 of the pyflightstream guides: From the GUI to pyfs. Built by ../build-all.ps1
+% (or build-all.sh) with this folder and ../shared/ as include directories.
+%
+% No em dashes and no en dashes. No underscores in frame or section titles
+% outside \code: beamer writes titles to .nav and .toc.
+
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\input{preamble-slides.tex}
+\input{hooks-slides.tex}
+\ftsinput{boxes}
+\ftsinput{hooks-contract}
+
+\usepackage[nohyphen]{underscore}
+
+\input{info.tex}
+\guidepdftitle{3}{From the GUI to pyfs}
+
+% One table shape for every stage: the GUI step, what takes it in pyfs, and
+% the builds on which the command database records a probe run of the
+% commands it writes. Column types and a header macro rather than an
+% environment around tabularx, which scans its body for its own \end and does
+% not survive being wrapped.
+\newcolumntype{J}{>{\RaggedRight\arraybackslash}p{0.29\linewidth}}
+\newcolumntype{K}{>{\RaggedRight\arraybackslash}X}
+\newcolumntype{Z}{>{\RaggedRight\arraybackslash}p{0.17\linewidth}}
+\newcommand{\guihead}{\toprule
+  \textbf{In the GUI} & \textbf{In pyfs} & \textbf{Verified on} \\ \midrule}
+
+% The source line at the foot of a frame.
+\newcommand{\guisource}[1]{%
+  \par\vfill
+  {\sloppy\tiny\color{SoftGray} Source: \code{docs/gui-to-pyfs.md}, #1.\par}}
+
+\begin{document}
+
+\guidetitleframe{3}{From the GUI to pyfs}{From the GUI to pyfs}
+  {Every step of a GUI session, and the key that does it in the workspace}
+  {Source: the package page ``From the GUI to pyfs'' [1].}
+
+\input{text/01-reading.tex}
+
+\begin{frame}{Contents}
+\small
+\begin{multicols}{2}
+\tableofcontents
+\end{multicols}
+\end{frame}
+
+\input{text/02-geometry.tex}
+\input{text/03-boundary-conditions.tex}
+\input{text/04-frames-motion.tex}
+\input{text/05-flight-and-solver.tex}
+\input{text/06-the-run.tex}
+\input{text/07-basic-post.tex}
+\input{text/08-raw-route.tex}
+
+\begin{frame}{The physics behind the steps, and where to read it}
+\relax
+{\ftstablesize\renewcommand{\arraystretch}{1.12}
+\begin{tabularx}{\linewidth}{@{}p{0.30\linewidth}K@{}}
+\toprule
+\textbf{Step} & \textbf{The physics, and its origin} \\
+\midrule
+The surface mesh and its solve & a panel method: singularities on the surface
+  panels, one boundary condition per panel [3, 4] \\
+Trailing edges and wake nodes & the Kutta condition fixes the circulation at a
+  sharp trailing edge, and the wake carries it downstream [4, 5] \\
+Wake relaxation, wake termination & the wake is force-free: it is moved with the
+  local velocity until it stops changing [4] \\
+The compressibility model & the linearised subsonic correction of Prandtl and
+  Glauert [6] \\
+The boundary layer and its coupling & a viscous layer solved on the inviscid
+  pressure and fed back to it [7, 8] \\
+The separation models and criteria & turbulent separation by a pressure-gradient
+  criterion, and a maximum-lift criterion [9, 10] \\
+An actuator disc & the momentum theory of a propeller: a pressure jump and a
+  swirl across a disc [11] \\
+A body rate & the free stream seen from axes that turn with the aircraft [12] \\
+\bottomrule
+\end{tabularx}}
+\end{frame}
+
+\begin{frame}{References}
+\begin{reflist}
+  \bibitem{g02r01} \docref{gui-to-pyfs}{From the GUI to pyfs}
+  \bibitem{g02r02} \recordsref
+  \bibitem{g02r03} J. L. Hess, A. M. O. Smith, ``Calculation of potential flow about
+        arbitrary bodies'', \emph{Progress in Aerospace Sciences}, 8,
+        pp. 1-138, 1967.
+  \bibitem{g02r04} J. Katz, A. Plotkin, \emph{Low-Speed Aerodynamics}, 2nd ed.,
+        Cambridge University Press, Cambridge, 2001.
+  \bibitem{g02r05} W. M. Kutta, ``Auftriebskr\"afte in str\"omenden Fl\"ussigkeiten'',
+        \emph{Illustrierte Aeronautische Mitteilungen}, 6, pp. 133-135, 1902.
+  \bibitem{g02r06} H. Glauert, ``The effect of compressibility on the lift of an
+        aerofoil'', \emph{Proceedings of the Royal Society of London, Series
+        A}, 118(779), pp. 113-119, 1928.
+  \bibitem{g02r07} H. Schlichting, K. Gersten, \emph{Boundary-Layer Theory}, 9th ed.,
+        Springer, Berlin, 2017.
+\end{reflist}
+\end{frame}
+
+\begin{frame}{References (continued)}
+\begin{reflist}
+  \setcounter{enumi}{7}
+  \bibitem{g02r08} M. Drela, M. B. Giles, ``Viscous-inviscid analysis of transonic and
+        low Reynolds number airfoils'', \emph{AIAA Journal}, 25(10),
+        pp. 1347-1355, 1987.
+  \bibitem{g02r09} B. S. Stratford, ``The prediction of separation of the turbulent
+        boundary layer'', \emph{Journal of Fluid Mechanics}, 5(1), pp. 1-16,
+        1959.
+  \bibitem{g02r10} W. O. Valarezo, V. D. Chin, ``Method for the prediction of wing
+        maximum lift'', \emph{Journal of Aircraft}, 31(1), pp. 103-109, 1994.
+  \bibitem{g02r11} H. Glauert, \emph{The Elements of Aerofoil and Airscrew Theory}, 2nd
+        ed., Cambridge University Press, Cambridge, 1947.
+  \bibitem{g02r12} B. Etkin, L. D. Reid, \emph{Dynamics of Flight: Stability and
+        Control}, 3rd ed., Wiley, New York, 1996.
+\end{reflist}
+\end{frame}
+
+\end{document}

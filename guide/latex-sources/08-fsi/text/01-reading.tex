@@ -1,0 +1,77 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% fsi/text/01-reading.tex
+
+\begin{frame}{What FSI means here, and how to read this deck}
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+\begin{itemize}\small
+  \item \textbf{FSI} couples the aerodynamic loads on a blade or a wing to
+        its structural deflection: FlightStream solves the flow, \pkgname{}
+        solves the structure, and the solver deforms its surface with the
+        displacements it is handed.
+  \item The structure is \textbf{one Euler beam per blade}, or one along the
+        wing (PyNite [5]), in flap and torsion, solved quasi-statically at
+        every coupling call.
+  \item A matrix row selects its structure by name, \code{FSI: f001}, and
+        calibrates it from the matrix.
+  \item Each frame names its source at its foot: the examples' numbers are
+        the package's, on synthetic blades; the solver's behaviour is measured
+        on 26.124 [2].
+\end{itemize}
+\end{column}
+\begin{column}{0.41\textwidth}
+\begin{block}{The optional extra}
+\small The beam needs PyNite, from the \code{[fsi]} extra:
+\code{pip install pyflightstream[fsi]}. Without it the package says how to
+install it.
+\end{block}
+\begin{takeaway}
+FSI runs on \code{steady}, \code{qsteady\_rotor} (sector) and \code{unsteady}
+rows. A turning rotor, \code{unsteady\_rotor}, is refused: that coupling is
+still being debugged.
+\end{takeaway}
+\end{column}
+\end{columns}
+\fsisource{FSI tutorial (\code{src/pyflightstream/fsi/README.md});
+  \code{fsi/beam.py}; \code{extras.py}; the page ``FSI in a workspace''}
+\end{frame}
+
+% Re-checked against the merged FSI-1, FSI-GUARD and FSI-G code
+% (cases/fsi_workspace.py FSI_WORKFLOW_STATE, validate_workspace_fsi,
+% wire_fixed_wing_fsi). The qsteady_rotor sector row states the sector
+% structural route that lands with the qsteady_rotor FSI wiring of this
+% release.
+\begin{frame}{Where FSI runs, and what the structure carries}
+\relax % a body opening with a brace group would be read as the frame subtitle
+{\ftstablesize\renewcommand{\arraystretch}{1.02}
+\begin{tabularx}{\linewidth}{@{}P{0.20\linewidth}P{0.10\linewidth}R@{}}
+\toprule
+\textbf{Workflow} & \textbf{FSI} & \textbf{What the structure carries, and why} \\
+\midrule
+\code{steady} & allowed & a fixed wing, one clamped beam: the aerodynamic
+  loads and the structure's \textbf{own weight}; nothing turns, so no
+  centrifugal load. At most 50 coupling iterations \\
+\code{qsteady\_rotor}, sector & allowed & one blade held still in a free stream
+  turning at the rotor's speed: the structural solver applies the
+  \textbf{centrifugal} loads and stiffening at the \textbf{free-stream
+  rotation's} rpm, \(\Omega = |\mathrm{rpm}|\,\pi/30\) \\
+\code{qsteady\_rotor}, wheel & refused & several steady clockings averaged; a
+  blade deformed once per clocking is not the state of one structure \\
+\code{unsteady} & allowed & a fixed wing, nothing turning: the loads and its
+  own weight, one coupling call per time step \\
+\code{unsteady\_rotor} & refused & \says{FSI on unsteady\_rotor is still in
+  debug on this release}: on 26.124 the morph of a turning blade is applied
+  to the blade at its imported azimuth [2] \\
+\bottomrule
+\end{tabularx}}
+\par\vspace{1mm}
+{\scriptsize A fixed wing's FSI input states \code{[config.wing]} and couples
+on \code{steady} or \code{unsteady} only; a blade's input, without it, couples
+on the rotor route only. A quasi-steady answer is valid only for an isolated,
+axisymmetric rotor, and only while the flow at each station changes slowly
+beside the revolution (Guide 2, the workflows; Guide 7).\par}
+\fsisource{\code{cases/fsi\_workspace.py}, \code{FSI\_WORKFLOW\_STATE},
+  \code{validate\_workspace\_fsi}, \code{STEADY\_AEROELASTIC\_ITERATIONS};
+  \code{cases/workflows.py}; RPT-093 [2]}
+\end{frame}

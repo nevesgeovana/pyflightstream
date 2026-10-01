@@ -1,4 +1,4 @@
-"""Tier 1: the eight guide decks, 00 to 07, under guide/ are complete, current and clean.
+"""Tier 1: the guides, 01 to 09, under guide/ are complete, current and clean.
 
 Pipeline role: quality gate on the didactic material, beside
 ``test_guide_currency.py`` and ``test_guide_api_names.py``, which guard the
@@ -60,13 +60,19 @@ def _citation_author() -> str:
 
 NOTICE = f"Copyright (c) 2026 {_citation_author()}. Licensed under CC BY 4.0"
 TEXT_SUFFIXES = {".tex", ".sh", ".ps1", ".md"}
-DECK_FOLDER = re.compile(r"^0[0-7]-[a-z0-9-]+$")
+DECK_FOLDER = re.compile(r"^0[1-9]-[a-z0-9-]+$")
+#: Guide 04 is the cheatsheet: a document, not a slide deck, so the deck walks
+#: (one title frame, a references frame) leave it out and its own tests
+#: (test_p0340_guides.py) hold it.
+CHEATSHEET_FOLDER = "04-cheatsheet"
 DOCREF = re.compile(r"\\docref\{([^}]*)\}")
 
 
 def _deck_folders() -> list[Path]:
     return sorted(
-        path for path in SOURCES.iterdir() if path.is_dir() and DECK_FOLDER.match(path.name)
+        path
+        for path in SOURCES.iterdir()
+        if path.is_dir() and DECK_FOLDER.match(path.name) and path.name != CHEATSHEET_FOLDER
     )
 
 
@@ -104,9 +110,9 @@ def _base_version() -> str:
 
 
 def test_the_deck_walk_has_something_to_check():
-    """A floor: eight decks, 00 to 07, and their shared layer, so a moved folder
-    cannot pass as clean."""
-    expected = ["00", "01", "02", "03", "04", "05", "06", "07"]
+    """A floor: eight decks, 01 to 09 without the cheatsheet, and their shared layer,
+    so a moved folder cannot pass as clean."""
+    expected = ["01", "02", "03", "05", "06", "07", "08", "09"]
     assert [path.name[:2] for path in _deck_folders()] == expected
     assert len(_text_files()) >= 60
 
@@ -184,7 +190,7 @@ def test_the_decks_state_the_version_this_tree_releases_once():
 
 
 def test_every_deck_has_its_pdf_and_ends_on_its_references():
-    decks = {deck.name for deck in _deck_folders()}
+    decks = {deck.name for deck in _deck_folders()} | {CHEATSHEET_FOLDER}
     prefix = "pyfts-guide-"
     pdfs = {path.name[len(prefix) : -len(".pdf")] for path in GUIDE.glob(f"{prefix}*.pdf")}
     assert pdfs == decks, (
@@ -195,10 +201,8 @@ def test_every_deck_has_its_pdf_and_ends_on_its_references():
         assert "\\begin{frame}{References}" in text and "\\begin{reflist}" in text, (
             f"{deck.name} has no numbered references frame"
         )
-    # The one-page cheatsheet sits beside the decks with its compiled PDF.
-    sheet = "pyfts-cheatsheet-pyfs-matrix"
-    assert (SOURCES / "cheatsheet" / f"{sheet}.tex").is_file()
-    assert (GUIDE / f"{sheet}.pdf").is_file(), f"guide/{sheet}.pdf is missing"
+    # The cheatsheet, guide 04, has its source and its PDF beside the decks.
+    assert (SOURCES / CHEATSHEET_FOLDER / "main.tex").is_file()
 
 
 def test_no_compiled_deck_carries_a_path_of_the_machine_that_built_it():

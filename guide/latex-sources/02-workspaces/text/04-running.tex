@@ -1,0 +1,438 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 02-workspaces/text/04-running.tex
+
+\section{Running}
+
+\begin{frame}{Four stages}
+\slidefig[0.50]{guide-stage-flow}
+{\ftstablesize
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Stage} & \textbf{Windows} & \textbf{Cluster} \\
+\midrule
+\pyfs{plan}    & required, no seat & required, no queue \\
+\pyfs{run}     & solves, then returns & submits, returns at once, \code{SUBMITTED} \\
+\pyfs{collect} & not needed & waits for settled outputs, judges them \\
+\pyfs{post}    & rebuilds the products & the same \\
+\bottomrule
+\end{tabular}}
+\end{frame}
+
+\begin{frame}{One matrix, any build}
+\relax
+\small
+\begin{tabular}{@{}lllll@{}}
+\toprule
+ & 25.000 & 25.100, 26.000 & 26.100 & 26.101 and later \\
+\midrule
+\code{steady} & refused & runs & runs & runs \\
+\code{unsteady} & refused & single march & single march & single march, or actions \\
+\code{unsteady\_rotor} & refused & Euclidean rotor & unmarked, rev/min & rotary, or actions \\
+\bottomrule
+\end{tabular}
+
+\vspace{2mm}
+\begin{itemize}
+  \item Only \code{FS\_BUILD} changes. Actions exist from 26.122.
+  \item Without actions: \code{WALLTIME}, the snapshot thresholds and
+  \code{FINISH\_PENDING}/\code{ADDITIONAL\_REVS} are \textbf{refused by name} at plan.
+  \item \code{march\_strategy} in \code{plan.json}, the record and the superfile.
+  \item A preset or pproc file can still block an older build: \textbf{plan first}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Tip and helical Mach, on every rotor point}
+\[ \Omega = \frac{2\pi\,\mathrm{RPM}}{60}, \qquad
+   M_\mathrm{tip} = \frac{\Omega R}{a}, \qquad
+   M_\mathrm{hel} = \frac{\sqrt{V^2 + (\Omega R)^2}}{a} \]
+\begin{itemize}\small
+  \item For each rotor an \code{unsteady\_rotor} or \code{qsteady\_rotor} row
+        turns, a \code{steady} row that states \code{RPM}, and each actuator
+        disc a row names. \(R\)
+        is the rotor's half diameter or the disc's tip radius; \(V\) and
+        \(a\) are the point's own resolved free stream and speed of sound.
+  \item \pyfs{plan} prints both per rotor and per point, and \textbf{warns},
+        naming the point, when \(M_\mathrm{hel} \ge 1\): the tip is sonic or
+        supersonic, where the linearised compressibility of a panel method
+        stops holding [4, 12, 13]. A warning, never a refusal.
+  \item The rotor table ends with \code{MTIP\_<alias>} and
+        \code{MHEL\_<alias>}. Both are geometric: \(V\) is the free stream
+        alone, without the rotor's own induced velocity.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{\pyfs{run}, on each machine}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{Windows}
+\begin{itemize}\small
+  \item A steady angle sweep is \textbf{one job over all its points}; each
+        point starts cold. \code{COLD\_START: false} starts each point from
+        the previous one.
+  \item \code{WALLTIME} arms a clock; a run it stopped is
+        \code{WALLTIME\_REACHED}, \textbf{not a failure}.
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{Cluster}
+\begin{itemize}\small
+  \item An unsteady point is \textbf{its own job}, in its own datapoint folder
+        with its descriptor, action program and clock.
+  \item A steady angle sweep is one job; a flow-variable sweep is one per point.
+  \item A point already queued is refused a second submission. Collect it
+        first.
+\end{itemize}
+\end{block}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{\pyfs{collect} watches the workspace, not the scheduler}
+\begin{lstlisting}[style=ftsbase]
+pyfs-matrix collect --workspace .            # one sweep, what a cron wants
+pyfs-matrix collect --workspace . --watch    # loop until nothing is outstanding
+*/15 * * * *  cd <study> && $FTS/py-venv/(*@\envname@*)/bin/pyfs-matrix collect --workspace .
+\end{lstlisting}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{Settled is two signals}
+\small Size and time stable across two looks, \textbf{and} the log present,
+because the log is declared last.
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+{\ftstablesize
+\begin{tabular}{@{}cl@{}}
+\toprule
+\textbf{Exit} & \textbf{Meaning} \\
+\midrule
+0 & everything settled and collected \\
+1 & a point it could not complete \\
+3 & still outstanding \\
+\bottomrule
+\end{tabular}}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{\code{RESTART}: continuing a march that stopped}
+% \relax first: a brace group right after the title is read as a subtitle.
+\relax
+{\ftstablesize
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Write in the free cell} & \textbf{When} \\
+\midrule
+\code{RESTART: \{FINISH\_PENDING\}}     & a run the \emph{clock} stopped \\
+\code{RESTART: \{ADDITIONAL\_ITERS=n\}} & any continuable run, $n$ more steps \\
+\code{RESTART: \{ADDITIONAL\_REVS=n\}}  & any continuable run, $n$ more revolutions \\
+\bottomrule
+\end{tabular}}
+\vspace{3mm}
+\begin{itemize}
+  \item You write \code{RESTART} and nothing else; the manifest says which run
+        and how many steps are left. The count is a \textbf{remainder}.
+  \item It continues the point's \textbf{most recent} run. A finished point is
+        refused; a failed continuation is not retried.
+  \item What it replaces is archived first, under a day and hour stamp.
+\end{itemize}
+\begin{takeaway}On the cluster this is the ordinary case: the queue enforces
+the wall clock, so \code{\{FINISH\_PENDING\}} is the form you will use most.\end{takeaway}
+\end{frame}
+
+\begin{frame}[fragile]{Points already run, and a Linux run kept local}
+\begin{lstlisting}[style=ftsbase]
+pyfs-matrix run matriz.fs --workspace . --resume
+pyfs-matrix run matriz.fs --workspace . --force-rerun '<point name or run id>'
+pyfs-matrix run matriz.fs --workspace . --local
+\end{lstlisting}
+\begin{itemize}\small
+  \item A recorded point is refused before anything runs; \pyfs{plan} marks it
+        \code{ALREADY\_RECORDED}.
+  \item \code{--resume}: only the new points of a matrix that grew.
+  \item \code{--force-rerun}: redo a named point; its old record and outputs
+        move to \code{archive/}, nothing is deleted. Plan again first.
+        Not together with \code{--resume}.
+  \item \code{--local}: on Linux with a profile, run here instead of
+        submitting; the record says \code{forced\_local}. Elsewhere it changes
+        nothing.
+\end{itemize}
+\begin{alertblock}{Redo on purpose}
+\small A recorded point is never solved again by \code{--resume}. A point
+whose inputs were wrong is redone by name with \code{--force-rerun}.
+\end{alertblock}
+\end{frame}
+
+\begin{frame}[fragile]{The additional post}
+\begin{lstlisting}[style=ftsbase]
+ADDITIONAL_PPROC: p002                        # free cell; the run is unchanged
+pyfs-matrix post matriz.fs --workspace . --additional-pproc
+\end{lstlisting}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+{\ftstablesize
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Reopened \code{.fsm}, no solve} & \textbf{Measured [3]} \\
+\midrule
+total loads, surface, sections & identical \\
+sectional loads & identical once computed \\
+unsteady plots history & identical \\
+probe points off the body & \alert{not identical} \\
+\bottomrule
+\end{tabular}}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{itemize}\small
+  \item Opens a copy, cuts the sections, exports, closes. Never solves or saves.
+  \item \code{p002} may ask sections, their loads and the surface only.
+  \item 26.124 only. Unsteady: the last instant.
+  \item On the cluster: submitted, recorded \code{SUBMITTED};
+        \pyfs{collect} records \code{EXTRACTED}.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\section{What a run leaves}
+
+\begin{frame}{A simulation folder}
+\begin{columns}[c]
+\begin{column}{0.58\textwidth}
+\slidefig[0.88]{guide-sims-anatomy}
+\end{column}
+\begin{column}{0.40\textwidth}
+\begin{itemize}\small
+  \item \code{inputs/}: a link to the mesh's library folder.
+  \item \code{scripts/}: what the solver was handed. The fastest answer to
+        \emph{what did this run really do}.
+  \item \code{profiles/}: where the probes were placed.
+  \item \code{datapoints/DP-<tag>/}: one folder per point.
+\end{itemize}
+\begin{takeaway}Nothing here is edited. Everything here is reproducible from
+the inputs.\end{takeaway}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Inside a datapoint: what can be deleted}
+% \relax first: a brace group right after the title is read as a subtitle.
+\relax
+{\ftstablesize
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{File} & \textbf{Holds} & \textbf{Read afterwards by} \\
+\midrule
+\code{<stem>.fsm}         & saved simulation & \code{RESTART}. Delete it and the point cannot continue \\
+\code{<stem>.txt}         & loads            & \code{polars/}, \code{campaign\_sweep.csv}, the judge \\
+\code{<stem>\_sloads.txt} & sectional loads  & \code{sections/} \\
+\code{<stem>\_probes.txt} & probe samples    & \code{probes/} \\
+\code{<stem>\_plots.txt}  & per-step plots (unsteady) & polar, rotor averages, reductions \\
+\code{<stem>\_cp.txt}, \code{<stem>.dat} & section pressures, Tecplot & nothing: a viewer \\
+\code{<stem>\_log.txt}    & solver log       & \code{collect}; the first file to open \\
+\bottomrule
+\end{tabular}}
+\vspace{2mm}
+\small The stem is \code{P<POL>-<point name>}, for example
+\code{P6112-M200AL+020BE+000}; the name follows the declared condition keys.
+\end{frame}
+
+\begin{frame}{Eight states, and four are not failures}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+{\ftstablesize
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Not a failure} & \\
+\midrule
+\code{CONVERGED}           & reached its criterion \\
+\code{COMPLETED\_MAX\_ITER} & reached its cap \\
+\code{WALLTIME\_REACHED}    & clock stopped it \\
+\code{SUBMITTED}           & in the queue \\
+\bottomrule
+\end{tabular}}
+\end{column}
+\begin{column}{0.48\textwidth}
+{\ftstablesize
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Failure} & \\
+\midrule
+\code{FAILED\_DIVERGED}           & diverged \\
+\code{FAILED\_EXECUTION}          & solver did not run \\
+\code{FAILED\_SCRIPT}             & script rejected \\
+\code{FAILED\_INCOMPLETE\_OUTPUT} & outputs missing \\
+\bottomrule
+\end{tabular}}
+\end{column}
+\end{columns}
+\vspace{3mm}
+\begin{takeaway}\code{WALLTIME\_REACHED} and \code{COMPLETED\_MAX\_ITER} carry real
+numbers, and are read wrongly more often than any real failure.\end{takeaway}
+\end{frame}
+
+\section{What post-processing leaves}
+
+\begin{frame}{Who writes the products}
+\slidefig[0.42]{guide-post-anatomy}
+{\ftstablesize
+\begin{tabular}{@{}ll@{}}
+\toprule
+\pyfs{run}     & at its end, unless it submitted; no flag turns it off \\
+\pyfs{collect} & after a sweep that collected something, and only then; \code{--no-post} \\
+\pyfs{post}    & when you ask; no seat, no solver \\
+\bottomrule
+\end{tabular}}
+\vspace{1mm}
+
+\small All three \textbf{archive} what they replace, into
+\code{archive/<day and hour>/}. Only \code{--force-overwrite} keeps no copy, and it
+asks first. It is not part of a routine. \code{series/} is archived too.
+\end{frame}
+
+\begin{frame}{The five product folders}
+% \relax first: a brace group right after the title is read as a subtitle.
+\relax
+{\ftstablesize
+\begin{tabular}{@{}p{0.16\linewidth}p{0.50\linewidth}p{0.26\linewidth}@{}}
+\toprule
+\textbf{Folder} & \textbf{Answers} & \textbf{Plot against} \\
+\midrule
+\code{polars/}     & what the coefficients do as the condition changes; one file per group,
+                     body, stability and wind axes & \code{ALPHA} or \code{BETA} \\
+\code{series/}     & how it got there: loads, sections and probes per step & \code{azimuth\_deg} \\
+\code{sections/}   & sectional loads, in each declared frame & \code{Offset} \\
+\code{probes/}     & the flow samples, and time-average, phase-locked, per-blade reductions & \code{STEP}, \code{AZIMUTH}, \code{BLADE} \\
+\code{provenance/} & inputs, script, outputs with sha256, argv, build & makes a plot defensible \\
+\bottomrule
+\end{tabular}}
+\vspace{3mm}
+\begin{itemize}\small
+  \item A rotor row reduces \textbf{per rotor}: \code{<point>\_per\_blade\_<ALIAS>.csv}.
+  \item In \code{campaign\_sweep.csv}, check \code{fs\_build} first: the build
+        the solver reported.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{\code{additional/}, and what the products hold}
+\begin{itemize}\small
+  \item \code{post/<matrix>/additional/<pid>/}: the additional post's polars,
+        sections and, unsteady, plots reductions. Every \code{products.json}
+        entry says \code{"additional": true}, \code{pproc},
+        \code{extraction}, \code{derives\_from}; filter on it.
+  \item Its sections table keeps the run's rows first, then the new ones;
+        \code{leading\_sections} counts the run's.
+  \item An induced drag nobody computed is \code{NA}, with the axis columns it
+        reaches. A steady probe line is exported once.
+  \item Unsteady \code{series/<point>\_loads\_series.csv}: moments about the
+        moment point.
+  \item \code{post.log.json} beside \code{post.log}. Post a workspace with
+        the package version that ran it.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Vector loads and window averages}
+\begin{itemize}\small
+\item Steady polar axes use the exported force and moment vectors.
+\code{CDB = Cx}, \code{CLB = Cz}; sideslip points get rows.
+\item \code{CLS}/\code{CLW} fall by 0.10 to 0.25 per cent on 27 of 28 recorded
+lifting exports, including zero sideslip; one differs by 0.71 per cent.
+The cause of the export's lift discrepancy is unknown.
+\item Unsteady rotor tables are window averages of all six global
+\code{MRP} components over exactly the rotor's families. Missing history is a
+skip, never a last-step fallback. A run adds \code{ROTOR\_<ALIAS>} if needed.
+\item \code{RPM\_<alias>} and \code{DIAMETER\_<alias>} join the rotor header;
+\code{J\_<alias>} uses the free stream. $\mathrm{ETAW}=J\,\mathrm{CTW}/\mathrm{CP}$
+uses the whole force in wind axes and equals \code{ETA} along the stream.
+\item \code{ETAW} and the shaft angle follow the stream direction at
+incidence or sideslip; a re-post needs no solver.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Read columns by name}
+\begin{itemize}\small
+\item Condition: \code{ALPHA, BETA, MACH, RE, VINF, VREF, ALT, RHO, TEMP, MU,}
+\code{J, SREF, CREF, BREF}. Plots keep the export's own headings.
+\item Unsteady polar: \code{P<sim>\_<name>\_uns\_avg.csv}, beginning with
+\code{FIRST\_STEP, LAST\_STEP, STEPS}; adds moment point, group-suffixed axes,
+equations and super-file content.
+\item Axes need all six global \code{MRP} plots. A new run supplies
+\code{MRP\_TOTAL} if absent; a history without them has a \code{\#axes} skip.
+\item Reductions carry \code{ROTOR} and \code{XMOM, YMOM, ZMOM}, not
+\code{Time-step} and \code{Time (sec)}.
+\item Sections: \code{STEP, FAMILY, PLANE, ROTOR, AZIMUTH}; still one instant.
+Azimuth is blade one of that row's rotor, or \code{NA} without one.
+\item Series use \code{STEP}, add the condition block; probes add \code{PROBE}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{One row per blade, or per azimuth}
+\begin{itemize}\small
+\item \code{per\_blade}: one row per blade, each blade's own rotor clock and matrix window,
+\code{BLADE, FAMILY, AZIMUTH\_START, AZIMUTH\_END}. A blade's family suffix is
+removed from its own plot columns so all blades share headings.
+\item Declared \code{[phase\_locked]}: one row per azimuth of the last
+revolution, averaged across the requested revolutions. Blade columns align by
+each blade's own azimuth; other columns use blade one.
+\item The row's total revolutions must be \emph{at least}
+\code{min\_revolutions}. A shorter run loses only that table. Without the
+pproc declaration, the file remains a passage series.
+\item Editing the matrix window moves the reductions together at post;
+editing the pproc gate or depth also needs no new solver run. Records stay as written.
+\item Read \code{products.json}: \code{complete}, \code{interrupted}, sources,
+windows and skips. \code{\#axes}, \code{\#equations}, \code{\#names} count for
+\code{post --strict} even if the rest of the file was written.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Collection and manifest limits}
+\begin{itemize}
+\item An early export at an iteration-limit run, confirmed by the solver log,
+and a velocity mismatch are failures and leave the products.
+\item A continuation's \code{continues} field excludes its predecessor from
+products and the sweep table.
+\item Stamped series exports are found in both simulation and datapoint
+folders; a missing kind is a skip, not a header-only product.
+\end{itemize}
+\begin{alertblock}{Manifest ownership}
+A live writer renews its owned lock every 5 seconds. Takeover requires a dead
+local owner or a heartbeat older than 300 seconds. Finish every older writer
+before a newer one uses the same workspace.
+\end{alertblock}
+\end{frame}
+
+\begin{frame}{Reading a result honestly}
+\begin{itemize}
+  \item For unsteady, \code{CONVERGED} checks the last time step's inner
+        iterations. Whether the history has settled is the user's judgement.
+        It does not mean the mesh was
+        fine, the reference right, or the physics the one you meant.
+  \item A curve that stops early at \code{WALLTIME\_REACHED} is real up to that
+        step. Continue it, do not repeat it.
+  \item One diverged point in a swept row is judged on its own.
+\end{itemize}
+\begin{ftslimit}
+The workspace makes a study reproducible and traceable. That is not the same
+as correct, and no amount of green status is evidence of the second.
+\end{ftslimit}
+\end{frame}
+
+\begin{frame}{Re-posting a recorded campaign}
+\begin{itemize}\small
+  \item Run \code{pyfs-matrix post --workspace <root>} without a solver.
+        Records remain unchanged; each product is written or skipped with its reason.
+  \item Nothing blocks by default: frozen-solve averages are
+        WARNED in \code{post.log} and written; \code{--check-frozen} withholds
+        them. The unsteady polar's \code{ADVANCE\_RATIO} states the point's \code{J}.
+  \item Every unsteady probe uses fluid plots. A cited profile recorded only
+        as an instant needs a new run for its missing history.
+  \item Each distribution gains \code{\_sloads\_<name>.csv} and
+        \code{\_cp\_<name>.csv}, with every available exported \code{STEP}.
+  \item New VTK/CSV exports and the pproc surface-averaging window need a new
+        solver run. Guides 6 and 7 have the keys [4].
+  \item \code{integrate = true} on a sections entry adds the
+        strip force and moment columns on re-post, without a solver run.
+\end{itemize}
+\end{frame}

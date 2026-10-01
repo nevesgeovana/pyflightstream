@@ -1,0 +1,25 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 01-fts-overview/tikz/g01-trust-region.tex
+% Lift curve and drag polar with the region where an inviscid panel method is trustworthy marked.
+% Shared fragment: no sectioning, no frame, no size command, no float. Wrapped by the caller.
+\begin{tikzpicture}[scale=0.60, font=\scriptsize]
+% CL vs alpha with trust region
+\draw[-{Stealth}] (0,0) -- (4.4,0) node[below left] {$\alpha$};
+\draw[-{Stealth}] (0,0) -- (0,2.9) node[below left] {$C_L$};
+\fill[darkgreen!12] (0,0) rectangle (2.8,2.9);
+\draw[thick, myblue] (0,0.2) -- (2.8,2.3);
+\draw[thick, myblue, dashed] (2.8,2.3) to[out=36, in=180] (3.6,2.55) to[out=0, in=120] (4.2,2.2);
+\node[darkgreen, align=center] at (1.4,2.6) {trusted:\\attached flow};
+\node[gray, align=center] at (3.7,1.5) {not\\trusted};
+\begin{scope}[xshift=6.4cm]
+% drag polar with trust region
+\draw[-{Stealth}] (0,0) -- (4.0,0) node[below left] {$C_D$};
+\draw[-{Stealth}] (0,0) -- (0,2.9) node[below left] {$C_L$};
+\fill[darkgreen!12] (0,0) rectangle (4.0,2.2);
+\draw[thick, myblue] (0.5,0) parabola (2.6,2.2);
+\draw[thick, myblue, dashed] (2.6,2.2) to[out=75, in=250] (3.3,2.75);
+\node[darkgreen, align=center] at (1.2,1.9) {trusted};
+\node[gray] at (3.5,2.4) {not trusted};
+\end{scope}
+\end{tikzpicture}

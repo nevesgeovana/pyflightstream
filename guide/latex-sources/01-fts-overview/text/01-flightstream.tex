@@ -1,0 +1,137 @@
+% Copyright (c) 2026 Geovana Neves. Licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). See LICENSE-AND-AUTHORSHIP.md.
+%
+% 01-fts-overview/text/01-flightstream.tex
+%
+% Part 1: what FlightStream is, where it sits on the fidelity ladder, what it
+% will not do, why the build is part of every answer, and the published
+% record of the method. Manual pages are those of build 26121 [6].
+
+\section{FlightStream}
+
+\begin{frame}{Where a panel method sits}
+\begin{columns}[T]
+\begin{column}{0.46\textwidth}
+\begin{itemize}\small
+  \item Aerodynamic tools form a \textbf{fidelity ladder}: each level resolves
+        more physics and costs more per case.
+  \item A panel method sits in the middle: the \textbf{whole configuration} in
+        three dimensions, in seconds to minutes per point on a workstation.
+  \item That is the regime of \textbf{interference and installation}: where a
+        propeller sits, what a fuselage does to a wing, a pitching moment slope.
+\end{itemize}
+\end{column}
+\begin{column}{0.52\textwidth}
+\slidefig[0.52]{g01-fidelity-ladder}
+\end{column}
+\end{columns}
+\begin{takeaway}A panel method buys full-configuration aerodynamics at a cost
+that still allows design iteration.\end{takeaway}
+\end{frame}
+
+\begin{frame}{What FlightStream is}
+\begin{columns}[T]
+\begin{column}{0.54\textwidth}
+\begin{itemize}\small
+  \item A \textbf{surface vorticity} panel solver: the potential-flow problem,
+        with vorticity carried on the surface mesh [7, 8]. It tolerates
+        unstructured, engineering-quality meshes and reads the common exchange
+        formats [6, pp.~72-75].
+  \item The core is \textbf{inviscid}. The rest is correction models on top of
+        it: a boundary layer, with optional viscous coupling, for friction drag
+        and decambering [6, pp.~204-211]; subsonic compressibility, chosen at
+        initialisation [6, pp.~218-221], [12].
+  \item Steady, unsteady and rotating solutions, driven from a graphical
+        interface or from a \textbf{script} of commands.
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\begin{alertblock}{Out of scope by construction}
+\begin{itemize}\small
+  \item Massively separated flow, deep stall, buffet.
+  \item Transonic shocks.
+  \item Acoustics.
+\end{itemize}
+\end{alertblock}
+\begin{alertblock}{And it does not warn you}
+\small A case that leaves the validity envelope still converges and still
+prints coefficients.
+\end{alertblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{The build number is part of the answer}
+\begin{itemize}\small
+  \item FlightStream is released as \textbf{builds}; this series names build
+        \fsbuild{} in its examples. The scripting language changes between
+        builds of one version: a command that runs on one build may be absent,
+        renamed or spelled differently on another.
+  \item The manual ships inside each build, and \textbf{editions are not page
+        aligned}. A page number is quoted with its edition, or not at all.
+  \item A coefficient without the build that produced it is \textbf{not
+        reproducible}. Record the build next to every result.
+\end{itemize}
+\begin{block}{How pyflightstream holds this}
+\small Every command it writes comes from a \textbf{command database per
+build}, and every row of a study names its build in the column
+\code{FS\_BUILD}. \pyfs{plan} checks the whole study against that build's
+database before any seat is spent (Part 4, Guide 2).
+\end{block}
+\end{frame}
+
+\begin{frame}{The tool's own view of the workflow}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\begin{itemize}\small
+  \item The manual closes with three checklists: the \textbf{general}
+        workflow [6, p.~411], the workflow from \textbf{CAD cross sections}
+        (CCS) [6, p.~412], and the \textbf{rotor and turbine} workflow
+        [6, p.~413].
+  \item The general one has five steps: geometry preparation, half-model
+        setup, surface detection, boundary conditions, simulation setup.
+  \item Boundary conditions come \textbf{before} anything a user would call
+        setup. Part 3 explains why: initialisation locks them.
+\end{itemize}
+\end{column}
+\begin{column}{0.46\textwidth}
+\begin{block}{A half model is expected}
+\small The manual recommends the half model under a mirror plane, and free
+edges along that plane are \textbf{expected}, not a defect [6, p.~411].
+\end{block}
+\begin{block}{A reference case ships with it}
+\small A rotor in hover and cruise [6, p.~401]: the fastest check that an
+installation behaves.
+\end{block}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{The method, and where it has been measured}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{What it solves}
+\begin{itemize}\small
+  \item The integrated-circulation formulation, in full [7].
+  \item The surface vorticity panel method in the archival literature: the
+        reference to cite when someone asks what FlightStream solves [8].
+  \item The classical panel-method background: [9, 10].
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{Where it has been compared with experiment}
+\begin{itemize}\small
+  \item Stability and control of a vehicle against wind-tunnel data:
+        derivatives agree acceptably, control effectiveness is overpredicted,
+        propellers off [13].
+  \item A high-lift wing with distributed propulsion, against experiment: the
+        closest published case to a powered airframe [14].
+\end{itemize}
+\end{block}
+\end{column}
+\end{columns}
+\vspace{1mm}
+\begin{takeaway}Convergence against a theoretical anchor is
+\emph{verification}; agreement with measured data is \emph{validation}. Say
+which one a result shows.\end{takeaway}
+\end{frame}

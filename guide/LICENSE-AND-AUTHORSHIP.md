@@ -11,13 +11,12 @@ Keep this file with the folder.
 
 | Material | License |
 |---|---|
-| `pyfts-guide-00-fts-overview.pdf` to `pyfts-guide-07-python-environment-offline.pdf`: the eight guides, 0 to 7 (slide decks) | Creative Commons Attribution 4.0 International (CC BY 4.0) |
+| `pyfts-guide-01-fts-overview.pdf` to `pyfts-guide-09-python-environment-offline.pdf`: the nine guides, 1 to 9 (eight slide decks and the cheatsheet) | Creative Commons Attribution 4.0 International (CC BY 4.0) |
 | `latex-sources/`: the LaTeX sources of those guides, their figures and their build recipe | CC BY 4.0 |
-| `pyfts-cheatsheet-pyfs-matrix.pdf` and `pyfts-cheatsheet-by-stage.pdf` and their sources, `latex-sources/cheatsheet/`: the command-line cheatsheet and the cheatsheet by stage | CC BY 4.0 |
 | `README.md` and `LICENSE-AND-AUTHORSHIP.md` (this file) | CC BY 4.0 |
 | `pyflightstream_user_guide.tex`: the guide to the Python library | MIT License, as the rest of the repository (`LICENSE` at its root) |
 
-Every file of the eight guides repeats, in its first lines, who wrote it and
+Every file of the nine guides repeats, in its first lines, who wrote it and
 under which license it is published; each PDF carries the notice on its title
 page, on the foot of every page and in its metadata.
 
