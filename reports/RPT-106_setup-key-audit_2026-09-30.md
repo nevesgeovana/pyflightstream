@@ -1,21 +1,23 @@
 # RPT-106: setup-key audit of the solver chapters (2026-09-30)
 
 Every command of the Solver Settings, Advanced Settings, Runtime Settings,
-Unsteady Solver and Solver Analysis chapters, and whether the value a user can
-choose for it reaches a script through a key. 84 rows: 71 covered, 2 given a
-key by this audit (FR-317, FR-319), 7 not a choosable value, 4 that cannot be
-covered now, each with its measured reason and awaiting a decision. Requirement
+Unsteady Solver, Solver Analysis and Solver Initialization chapters, and whether
+the value a user can choose for it reaches a script through a key, an argument
+of a command with several choices being a row of its own. 98 rows: 78 covered,
+2 given a key by this audit (FR-317, FR-319), 11 not a choosable value, 7 that
+cannot be covered now, each with its measured reason and awaiting a decision
+or owed to a named release. Requirement
 FR-319; its tier-1 test, `tests/tier1_offline/test_fr319_setup_key_audit.py`,
 reads this table.
 
 ## Method
 
-The command list is the union of two sources: every entry of the five
+The command list is the union of two sources: every entry of the six
 chapters of the command database (`src/pyflightstream/commands/runtime_settings.yaml`,
 `solver_settings.yaml`, `advanced_settings.yaml`, `unsteady_solver.yaml`,
-`solver_analysis.yaml`), and every command the coverage census of 26.124
+`solver_analysis.yaml`, `solver_initialization.yaml`), and every command the coverage census of 26.124
 (GEO-068, `GEO-068_command-census.json` of the coordination reports) files under
-those five manual sections. A command the census lists and the database does
+those manual sections. A command the census lists and the database does
 not carry is a row too (`SOLVER_INITIALIZATION`).
 
 For each command the key column names where its value is chosen:
@@ -30,7 +32,9 @@ A value the workflows emit hard-coded counts as MISSING even where the census
 says covered: the one found was `SET_ANALYSIS_MOMENTS_MODEL PRESSURE`, written
 by every builder beside the loads frame, now the setup key `moments_model`
 (FR-317). A command with no argument is an action, not a value, and is listed
-as such. Status values: `covered`, `given a key now`, `not a choosable value`,
+as such. `INITIALIZE_SOLVER` is a keyword block whose arguments are each a
+choice, so each argument of the current grammar is a row (`INITIALIZE_SOLVER
+<argument>`), and the tier-1 test requires one for each. Status values: `covered`, `given a key now`, `not a choosable value`,
 `cannot be covered`.
 
 The defaults of the keys given now are today's emitted values: an unstated
@@ -126,9 +130,39 @@ workflow goldens, and the parity check of the release).
 | `SET_SOLVER_ANALYSIS_LOADS_FRAME` | Solver Analysis | covered | reference: moment_point | cases/setup_link.py `analysis_frame_and_moments`, before START_SOLVER | none needed |
 | `SET_VORTICITY_DRAG_BOUNDARIES` | Solver Analysis | covered | setup: vorticity_drag_families | script/helpers.py `start_solver`, after START_SOLVER | FR-318 links it to the moments model on a rotor |
 | `SET_VORTICITY_LIFT_MODEL` | Solver Analysis | covered | setup: vorticity_lift_model | cases/workflows.py `_lift_and_coupling`; removed on 26.124 (RPT-068), refused there | none needed |
+| `INITIALIZE_SOLVER` | Solver Initialization | covered | setup: solver_model | script/helpers.py `initialize_solver`, from cases/workflows/_skeleton.py, in every workflow; a keyword block, so the raw route cannot replace it (single lines only). Each of its arguments is a row below | none needed |
+| `INITIALIZE_SOLVER solver_model` | Solver Initialization | covered | setup: solver_model | cases/workflows/_skeleton.py, `initialize_solver(solver_model=...)`; unstated, INCOMPRESSIBLE | none needed |
+| `INITIALIZE_SOLVER surfaces` | Solver Initialization | cannot be covered | none | cases/workflows/_skeleton.py: always `-1`, every boundary | no measurement states a reason to leave a boundary out of the solution, and no cell or key names one; which boundaries a run initializes, and how a row states them, is a design decision. Awaiting a decision |
+| `INITIALIZE_SOLVER surface_toggles` | Solver Initialization | cannot be covered | none | nowhere: written only with a chosen subset of surfaces, which no workflow states | the per-surface quad mesher flag exists only beside a chosen subset, so it follows the design decision of `surfaces`. Awaiting a decision |
+| `INITIALIZE_SOLVER wake_termination_x` | Solver Initialization | cannot be covered | none | script/helpers.py `initialize_solver`, from cases/workflows/_skeleton.py: `DEFAULT` in every workflow | has no setup key, and the raw route cannot change it (a keyword block, refused). Measured on 26.124 (reports/probes/RPT-066_2026-09-24_evidence.yaml): under `DEFAULT` the solver places the end plane of the wake (the Trefftz plane) at a default distance it computes from the model (40.000 on one geometry, 8.000 on another), and a rotor wake measured later on 26.124 was bounded by that plane, so it cannot be made longer than it; that later measurement is registered with the 0.34 item and not yet a committed report. A setup key placed at least at the requested wake length with margin, and a plan warning when it is closer, is owed to 0.34 (item WAKE-LENGTH) |
+| `INITIALIZE_SOLVER symmetry` | Solver Initialization | covered | row: SYMMETRY | cases/workflows/_skeleton.py, `initialize_solver(symmetry=...)`; unstated, NONE; the accepted modes are read from the build's own command database | none needed |
+| `INITIALIZE_SOLVER symmetry_copies` | Solver Initialization | covered | row: PERIODIC_COPIES | cases/workflows/_skeleton.py, `initialize_solver(periodic_copies=...)`; required with PERIODIC and refused otherwise | none needed |
+| `INITIALIZE_SOLVER wall_collision_avoidance` | Solver Initialization | covered | setup: wall_collision_avoidance | cases/workflows/_skeleton.py, `initialize_solver(wall_collision_avoidance=...)`; unstated, not written | none needed |
+| `SOLVER_PROXIMAL_BOUNDARIES` | Solver Initialization | covered | setup: proximal_boundaries | cases/workflows/_solver_settings.py `_settings`, before INITIALIZE_SOLVER | none needed |
+| `REMOVE_INITIALIZATION` | Solver Initialization | covered | setup: remove_initialization | cases/workflows/_solver_settings.py `_settings` | none needed |
+| `START_SOLVER` | Solver Initialization | not a choosable value | none | script/helpers.py `start_solver`, in every workflow | no argument: an action, not a value |
+| `CLEAR_SOLUTION` | Solver Initialization | not a choosable value | none | cases/workflows/_steady.py, between the points of a warm sweep | no argument: an action, not a value |
+| `SOLVER_UNINITIALIZE` | Solver Initialization | not a choosable value | none | not emitted by a workflow | no argument: an action, not a value; the 25.000 spelling of `REMOVE_INITIALIZATION` |
+| `SOLVER_CLEAR` | Solver Initialization | not a choosable value | none | not emitted by a workflow | no argument: an action, not a value; printed by 25.000 only, `CLEAR_SOLUTION` in its place |
 
 ## Cannot be covered now, awaiting a decision
+(or owed to a named release)
 
+- `INITIALIZE_SOLVER wake_termination_x`: written `DEFAULT` by every workflow,
+  with no setup key, and not changeable by the raw route, which takes single
+  lines and refuses keyword blocks. Measured on 26.124
+  (`reports/probes/RPT-066_2026-09-24_evidence.yaml`): under `DEFAULT` the
+  solver places the end plane of the wake at a default distance it computes
+  from the model (40.000 on one geometry, 8.000 on another), and a rotor wake
+  measured later on 26.124 was bounded by that plane, so it cannot be made
+  longer than it. The key, placed at least at the requested wake length with
+  margin, and a plan warning when the plane is closer, is owed to 0.34 (item
+  WAKE-LENGTH), not to this release.
+- `INITIALIZE_SOLVER surfaces` and `INITIALIZE_SOLVER surface_toggles`: every
+  workflow initializes all boundaries (`-1`), and the per-surface quad mesher
+  flag exists only beside a chosen subset. No measurement is cited for these:
+  which boundaries a run initializes, and how a row states them, is a design
+  decision.
 - `SOLVER_INITIALIZATION`: no entry in the command database. GEO-068 found the
   name in the manual's Script Index only, with no description and no grammar,
   so there is nothing to emit. The load of a saved initialization is the
