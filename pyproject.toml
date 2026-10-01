@@ -243,11 +243,13 @@ exclude_also = [
 # RE-COUNTED at 0.8.0.dev0 (OPS-2006.11.01), because the sentence above is a
 # fact about 2026-08-03 and was being read as a fact about today. With every
 # override below turned off:
-#     mypy recount 2026-10-01: 1122 errors in 18 of 196 modules, the
-#     0.33.0 branch rel/0-33 with work package WP4 (AD-12) merged:
-#     cases/workflows.py cut into the package cases/workflows/ of 24
-#     modules, each clean (1122 in 18 of 173 before WP4)
-# The package has grown from the 53 modules of the first run to 196, and no
+#     mypy recount 2026-10-01: 192 errors in 17 of 219 modules, the
+#     0.33.0 branch rel/0-33 with work packages WP4, WP5 and WP6 merged:
+#     the exempted set shrank from eighteen to seventeen modules because
+#     pyflightstream.run left it (decision 7), taking its 930 errors with it
+#     (the run before WP5 and WP6 read 1122 in 18 of 196, with WP4 (AD-12)
+#     merged, and 1122 in 18 of 173 before WP4)
+# The package has grown from the 53 modules of the first run to 219, and no
 # module outside the exempted set is dirty. THE EXEMPTED SET DID MOVE, and
 # down: `pyflightstream.results.tables` was excused on 2026-08-03 and is
 # clean now, so its override was deleted on evidence (see the note where it

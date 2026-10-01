@@ -218,10 +218,11 @@ def test_the_marker_is_registered_so_a_typo_is_not_silent():
 #: Re-counted at 0.8.0.dev0, and the SET DID move: one name left it, which
 #: the comment inside this frozenset records and this line denied until
 #: 2026-08-20. What did not move is the count of DIRTY modules:
-#: mypy recount 2026-10-01: 1122 errors in 18 of 196 modules, the 0.33.0
-#: branch rel/0-33 with work package WP4 (AD-12) merged: cases/workflows.py
-#: cut into the package cases/workflows/ of 24 modules, each clean (1122 in
-#: 18 of 173 before WP4)
+#: mypy recount 2026-10-01: 192 errors in 17 of 219 modules, the 0.33.0
+#: branch rel/0-33 with work packages WP4, WP5 and WP6 merged: the exempted
+#: set shrank from eighteen to seventeen modules when pyflightstream.run left
+#: it (decision 7) with its 930 errors (the run before WP5 and WP6 read 1122
+#: in 18 of 196, and 1122 in 18 of 173 before WP4)
 #: (reports/RPT-029).
 #: Removing one means deleting its override AND its line here, in the same
 #: commit.

@@ -1,5 +1,5 @@
 {
- "about": "Baselines of the architecture guards G1 to G8 (AD-08, work package WP0 of 0.33.0), measured on 2026-09-30 by scripts/arch_metrics.py on the tree of rel/0-33 at 692fee7a. Sizes are code lines without docstrings (the review lens). Every entry only moves down, by hand, in the commit that earns it; a stale entry fails until it is deleted. function_lines and function_limits are at-most ratchets (AD-08 G2: 'at most the recorded value'); module_code_lines, fan_out, fan_out_deferred and facade_lines click: an entry may not grow and a fall fails until the entry is lowered; baseline_sccs, same_row_cross_imports, private_test_names, monkeypatch_targets, monkeypatch_targets_by_module and one_home_allowlist are exact; facade_lines lists every package root holding anything beyond its docstring, imports, __all__ and a lazy __getattr__, and a root absent from it holds none (AD-08 G8); facade_definitions only shrinks; package_order is declared by the packages AD-12 and AD-14 order. metrics is the committed table of the numbers of the architecture metrics record that may only improve (G7). 'python scripts/arch_metrics.py check' runs the guards; 'tables' prints what the tree measures today.",
+ "about": "Baselines of the architecture guards G1 to G8 (AD-08, work package WP0 of 0.33.0), measured on 2026-09-30 by scripts/arch_metrics.py on the tree of rel/0-33 at 692fee7a and lowered on 2026-10-01 on the tree of rel/0-33 at f888d704 with WP4, WP5 and WP6 merged. Sizes are code lines without docstrings (the review lens). Every entry only moves down, by hand, in the commit that earns it; a stale entry fails until it is deleted. function_lines and function_limits are at-most ratchets (AD-08 G2: 'at most the recorded value'); module_code_lines, fan_out, fan_out_deferred and facade_lines click: an entry may not grow and a fall fails until the entry is lowered; baseline_sccs, same_row_cross_imports, private_test_names, monkeypatch_targets, monkeypatch_targets_by_module and one_home_allowlist are exact; facade_lines lists every package root holding anything beyond its docstring, imports, __all__ and a lazy __getattr__, and a root absent from it holds none (AD-08 G8); facade_definitions only shrinks; package_order is declared by the packages AD-12 and AD-14 order. metrics is the committed table of the numbers of the architecture metrics record that may only improve (G7). 'python scripts/arch_metrics.py check' runs the guards; 'tables' prints what the tree measures today.",
  "module_code_lines": {
   "cases/__init__.py": 2316,
   "cases/matrix.py": 1808,
@@ -20,9 +20,9 @@
   "workspace/setup_standards.py:render_guidelines": 263,
   "post/_rotor_plan.py:_rotor_tables": 292,
   "run/_assessment.py:LoadsAssessor.__call__": 271,
-  "run/_campaign.py:run_campaign": 423,
+  "run/_campaign.py:run_campaign": 422,
   "run/_cli_parsers.py:_build_parser": 556,
-  "run/_points.py:_execute_point": 466,
+  "run/_points.py:_execute_point": 449,
   "run/_sweep.py:_execute_sweep": 348
  },
  "function_limits": {
@@ -1365,9 +1365,9 @@
    "positional": 0
   },
   "run/_plan.py:_plan_point": {
-   "complexity": 9,
-   "branches": 8,
-   "statements": 29,
+   "complexity": 8,
+   "branches": 7,
+   "statements": 28,
    "positional": 7
   },
   "run/_plan.py:_staged_inputs_conflict": {
@@ -1773,19 +1773,19 @@
   }
  },
  "metrics": {
-  "top1_share": 6.7,
-  "top5_share": 19.4,
-  "top13_share": 32.8,
-  "modules_over_1000": 13,
-  "modules_over_2000": 4,
-  "functions_over_100": 74,
-  "functions_over_200": 18,
-  "functions_over_300": 7,
-  "functions_over_limits": 228,
+  "top1_share": 2.7,
+  "top5_share": 10.4,
+  "top13_share": 21.7,
+  "modules_over_1000": 11,
+  "modules_over_2000": 1,
+  "functions_over_100": 73,
+  "functions_over_200": 17,
+  "functions_over_300": 6,
+  "functions_over_limits": 227,
   "cross_package_sccs": 1,
   "largest_fan_out": 36,
   "largest_fan_out_deferred": 10,
-  "private_test_names": 241,
+  "private_test_names": 240,
   "monkeypatch_targets": 83,
   "workspace_to_run_imports": 0,
   "root_facade_lines": 12834
