@@ -17,6 +17,12 @@ deck is written for one version of the package, and its title page says which.
 | [6, FSI](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/pyfts-guide-06-fsi.pdf) | Fluid-structure interaction: the loop, the structural input, calibration, refusals, examples and limits |
 | [7, An offline Python environment](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/pyfts-guide-07-python-environment-offline.pdf) | Python, a virtual environment and the package on a machine with no internet, Windows and Linux |
 
+A one-page cheatsheet of `pyfs-matrix`, every subcommand and option by
+stage, is kept beside the decks: its LaTeX source is in the
+[cheatsheet folder](https://github.com/nevesgeovana/pyflightstream/tree/main/guide/latex-sources/cheatsheet),
+and the guide folder's README says how to build it. The
+[command-line reference](cli/index.md) gives the full text of each option.
+
 On this site, the same workflow starts at [Getting started](getting-started.md)
 for the workspace and at
 [Your first session with the Python API](tutorial-python-api.md) for the

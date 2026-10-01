@@ -35,4 +35,16 @@ with beamer, tcolorbox, listings, tikz, adjustbox, microtype and underscore.
 The build refuses a source with an em or en dash, and prints the number of
 overfull boxes per deck, which must be zero.
 
+## The pyfs-matrix cheatsheet
+
+`latex-sources/cheatsheet/pyfts-cheatsheet-pyfs-matrix.tex` is one page, A4
+landscape: every subcommand and every option of `pyfs-matrix`, by stage, for
+the version `latex-sources/shared/info.tex` names. A tier-1 test
+(`tests/tier1_offline/test_p0330_cheatsheet.py`) walks the parser and refuses
+the page when a subcommand or an option is missing from its entry. Build it
+from its folder with
+`latexmk -pdf -outdir=build pyfts-cheatsheet-pyfs-matrix.tex`; the PDF is
+written to `build/`, which is never versioned, and the build must report no
+overfull box, so the page stays one sheet.
+
 The authorship and license of this folder are in `LICENSE-AND-AUTHORSHIP.md`.
