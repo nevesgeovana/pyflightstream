@@ -28,6 +28,8 @@ declaration.
 
 from __future__ import annotations
 
+import csv
+import json
 import sys
 import warnings
 from pathlib import Path
@@ -45,6 +47,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases.matrix import MATRIX_COLUMNS
 from pyflightstream.cases.workflows import row_outputs, workflow_registry
 from pyflightstream.run import Assessment, CampaignErrors, LocalExecutor
+from pyflightstream.run import cli as matrix_cli
 from pyflightstream.run._wake_edge_verdict import collected_solver_log
 from pyflightstream.run.matrix import run_matrix
 from pyflightstream.workspace import RunStatus
@@ -102,33 +105,43 @@ def _names_no_log(case, execution, sim_dir):
     return Assessment(status=RunStatus.CONVERGED, iterations=25, residual=None)
 
 
-def _steady_job_of_two_points(tmp_path):
+#: The logs the job stand-in writes, in order: after one solve, after two.
+JOB_LOGS = ("log_after_one_solve.txt", "log_after_two_solves.txt")
+
+
+def _steady_job_of_two_points(tmp_path, job_stub=JOB_STUB):
     """Run a two-point steady job importing 8 trailing edges; return its workspace and record."""
     workspace = _library(tmp_path, FILE_ROUTE, points=_points_text(MIDPOINTS[:8]))
     text = TWO_SOLVES.read_text(encoding="utf-8")
     first = text.index("Angle of attack (Deg)")
-    logs = [tmp_path / "log_after_one_solve.txt", tmp_path / "log_after_two_solves.txt"]
+    logs = [tmp_path / name for name in JOB_LOGS]
     logs[0].write_text(text[: text.index("Angle of attack (Deg)", first + 1)], encoding="utf-8")
     logs[1].write_text(text, encoding="utf-8")
-    stub = tmp_path / "job_stub.py"
-    stub.write_text(JOB_STUB, encoding="utf-8")
+    (tmp_path / "job_stub.py").write_text(job_stub, encoding="utf-8")
     row = ROW.format(build="26.124", outputs=WITH_LOG, geometry="wing.stl", tail="")
-    matrix = write_matrix(tmp_path / "job.fs", [row.replace("| AL | 0.0 |", "| AL | 0.0,2.0 |")])
+    write_matrix(tmp_path / "job.fs", [row.replace("| AL | 0.0 |", "| AL | 0.0,2.0 |")])
+    return workspace, _run_steady_job(tmp_path, workspace)
+
+
+def _run_steady_job(tmp_path, workspace, **again):
+    """Run, or with ``again`` re-run, the job of ``tmp_path``; return its one record."""
+    logs = [tmp_path / name for name in JOB_LOGS]
     try:
         run_matrix(
-            matrix,
+            tmp_path / "job.fs",
             workspace,
             name="matrix",
             default_fs_version="26.124",
             recipes=RECIPES,
             assess=_names_no_log,
-            executor=_JobSolver(stub, logs),
+            executor=_JobSolver(tmp_path / "job_stub.py", logs),
             recipe_registry=workflow_registry(),
+            **again,
         )
     except CampaignErrors:
         pass  # a failed point is recorded in the manifest, which is what is read
     (record,) = workspace.read_manifest()
-    return workspace, record
+    return record
 
 
 def test_point_2_of_a_steady_job_reads_its_cumulative_log_and_converges(tmp_path):
@@ -396,3 +409,168 @@ def test_row_outputs_leaves_the_section_plot_out_only_where_no_section_is_cut(la
     expected = full if declared else [name for name in full if name != PLOT]
     assert got == expected, (label, got)
     assert (PLOT in got) is declared, (label, got)
+
+
+# --- a record 0.33.0 wrote: what post, collect, rebuild and a re-run do with it --------
+#
+# docs/migrating-to-0.33.1.md and the change log's [0.33.1] Migration cite these
+# two tests (FR-55 and FR-51). Each makes the record as 0.33.0 made it: the run
+# goes through 0.33.0's rule for its cause, the stand-ins write a real loads
+# table, and every record of runs.json is stamped package_version 0.33.0 as a
+# 0.33.0 run stamps it. Measured: post writes the failed points' polar rows
+# and warns of their status; collect sweeps only SUBMITTED records and leaves
+# the record as it is; the rebuild refuses the simulation and writes nothing;
+# re-running the point with 0.33.1 (run --force-rerun) records it CONVERGED.
+
+#: The loads table the stand-ins write, so that the post has rows to tabulate.
+LOADS_TABLE = FIXTURES / "loads_steady_26.120.txt"
+
+#: The warning the post writes for a point recorded failed (post.log).
+FAILED_STATUS_WARNING = "the recorded status is FAILED_INCOMPLETE_OUTPUT"
+
+
+def _with_loads(stub: str, placeholder: str, read: str) -> str:
+    """Return ``stub`` with ``placeholder`` replaced by ``read``, which reads the table."""
+    assert stub.count(placeholder) == 1, placeholder
+    return stub.replace(placeholder, read)
+
+
+def _stamped_0330(workspace) -> None:
+    """Stamp every record of runs.json with the package_version a 0.33.0 run writes."""
+    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    assert isinstance(rows, list) and rows, rows
+    for row in rows:
+        row["package_version"] = "0.33.0"
+    workspace.manifest_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+
+
+def _statuses(workspace) -> dict[str, list[str]]:
+    return {
+        record.sim_id: [entry["status"] for entry in record.points_ran]
+        for record in workspace.read_manifest()
+    }
+
+
+def _old_record_through_the_commands(workspace, matrix: Path, sim: str, capsys) -> list[str]:
+    """Run post, collect and rebuild over the old record; return the rebuild's refusals.
+
+    Asserts what each command does: post writes one polar row per point, the
+    failed ones included, and warns of their status; neither post nor collect
+    changes a status; the rebuild refuses ``sim`` and writes nothing.
+    """
+    recorded = _statuses(workspace)
+    failed = recorded[sim].count(RunStatus.FAILED_INCOMPLETE_OUTPUT.value)
+    assert failed, recorded
+
+    assert matrix_cli.main(["post", str(matrix), "--workspace", str(workspace.root)]) == 0
+    post = workspace.root / "post" / matrix.stem
+    (polar,) = sorted((post / "polars").glob(f"P{sim}-*_g01.csv"))
+    with polar.open(encoding="utf-8", newline="") as handle:
+        rows = [row for row in csv.DictReader(handle) if row["POL"] == sim]
+    assert len(rows) == len(recorded[sim]), (polar.name, len(rows), recorded[sim])
+    warned = [
+        line
+        for line in (post / "post.log").read_text(encoding="utf-8").splitlines()
+        if f"/sim_{sim}/" in line and FAILED_STATUS_WARNING in line
+    ]
+    assert len(warned) == failed, warned
+    assert _statuses(workspace) == recorded, "post changed a recorded status"
+
+    assert matrix_cli.main(["collect", "--workspace", str(workspace.root), "--no-post"]) == 0
+    assert _statuses(workspace) == recorded, "collect changed a recorded status"
+
+    capsys.readouterr()
+    rebuild = ["rebuild", "--workspace", str(workspace.root), "--out", "rebuilt.json"]
+    rebuild += ["--all-sims", "--matrix", str(matrix)]
+    assert matrix_cli.main(rebuild) == 0
+    said = capsys.readouterr().out.splitlines()
+    assert any("0 record(s) rebuilt" in line for line in said), said
+    refusals = [line for line in said if line.strip().startswith(f"sim_{sim}: NOT RECOVERABLE")]
+    assert len(refusals) == 1, said
+    assert matrix_cli.main([*rebuild, "--apply"]) == 2
+    assert not (workspace.root / "rebuilt.json").exists()
+    assert _statuses(workspace) == recorded, "the rebuild changed a recorded status"
+    return refusals
+
+
+def test_an_old_sweep_record_keeps_its_status_until_its_job_is_run_again(
+    tmp_path, monkeypatch, capsys
+):
+    # FR-55 (amended 0.33.1), cause 1: point 2 of a steady job recorded
+    # FAILED_INCOMPLETE_OUTPUT by 0.33.0, its cumulative log among its outputs.
+    # 0.33.0's rule: no fallback to the one collected _log.txt.
+    monkeypatch.setattr(
+        "pyflightstream.run._wake_edge_verdict._LOG_SUFFIX", "\0 no fallback in 0.33.0"
+    )
+    stub = _with_loads(
+        JOB_STUB,
+        'write_text("LOADS", encoding="utf-8")',
+        f"write_text(pathlib.Path({str(LOADS_TABLE)!r}).read_text(encoding='utf-8'))",
+    )
+    workspace, record = _steady_job_of_two_points(tmp_path, stub)
+    monkeypatch.undo()
+    statuses = [entry["status"] for entry in record.points_ran]
+    assert statuses == [RunStatus.CONVERGED.value, RunStatus.FAILED_INCOMPLETE_OUTPUT.value]
+    assert "no solver log was read" in (record.error or ""), record.error
+    _stamped_0330(workspace)
+
+    _old_record_through_the_commands(workspace, tmp_path / "job.fs", record.sim_id, capsys)
+
+    again = _run_steady_job(tmp_path, workspace, force_rerun=[record.run_id])
+    assert [entry["status"] for entry in again.points_ran] == [RunStatus.CONVERGED.value] * 2
+    assert again.package_version != "0.33.0", again.package_version
+
+
+def test_an_old_body_row_record_keeps_its_status_until_it_is_run_again(
+    tmp_path, monkeypatch, capsys
+):
+    # FR-51 (amended 0.33.1), cause 2: every point of a body row recorded
+    # FAILED_INCOMPLETE_OUTPUT by 0.33.0, its declared outputs listing the
+    # section Cp plot the solver could not write. 0.33.0's rule: the row
+    # declares the artifact's outputs whatever its geometry carries.
+    monkeypatch.setattr(
+        "pyflightstream.workspace.matrix.row_outputs",
+        lambda case, workflow: case.pproc.outputs(unsteady=workflow.startswith("unsteady")),
+    )
+    workspace, matrix = _body_and_wing_body(tmp_path)
+    verbs = sorted({kind[2] for kind in EXPORT_KINDS})
+    body = (
+        f"(pathlib.Path({str(LOADS_TABLE)!r}).read_text(encoding='utf-8') "
+        f"if line.split(' ')[0] == 'EXPORT_SOLVER_ANALYSIS_SPREADSHEET' else {STUB_BODY})"
+    )
+    stub = tmp_path / "sections_stub.py"
+    stub.write_text(SECTIONS_STUB.format(verbs=verbs, body=body), encoding="utf-8")
+
+    def run(**again):
+        try:
+            run_matrix(
+                matrix,
+                workspace,
+                name="sections",
+                default_fs_version="26.120",
+                recipes=RECIPES,
+                recipe_registry=workflow_registry(),
+                assess=_converged,
+                executor=_SectionsSolver(stub),
+                **again,
+            )
+        except CampaignErrors:
+            pass  # a failed point is recorded in the manifest, which is what is read
+        return {record.sim_id: record for record in workspace.read_manifest()}
+
+    records = run()
+    monkeypatch.undo()
+    old = records["5201"]
+    assert "_plot_cp_sections.txt" in (old.error or ""), old.error
+    assert [entry["status"] for entry in old.points_ran] == [
+        RunStatus.FAILED_INCOMPLETE_OUTPUT.value
+    ] * 2, (old.points_ran, old.error)
+    _stamped_0330(workspace)
+
+    (refusal,) = _old_record_through_the_commands(workspace, matrix, "5201", capsys)
+    assert "recorded by pyflightstream 0.33.0" in refusal, refusal
+    assert "rebuilt only by the version that ran" in refusal, refusal
+
+    again = run(force_rerun=[old.run_id])["5201"]
+    assert [entry["status"] for entry in again.points_ran] == [RunStatus.CONVERGED.value] * 2
+    assert not any(name.endswith("_plot_cp_sections.txt") for name in again.outputs), again

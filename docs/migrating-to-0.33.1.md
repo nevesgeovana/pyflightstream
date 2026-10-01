@@ -42,16 +42,33 @@ left out of such a row.
 ## What to do with an old `runs.json`
 
 A record written before 0.33.1 keeps the status it was written with: the
-release does not rewrite a `runs.json`. Nothing needs to rerun, because the
-solver outputs of those points are on disk and were complete.
+release does not rewrite a `runs.json`, and no command of 0.33.1 judges such a
+record again. What each command does with one was measured on a record of each
+cause written as 0.33.0 writes it, by the two tests of an old record in
+`tests/tier1_offline/test_p0331_false_failures.py`
+(`test_an_old_sweep_record_keeps_its_status_until_its_job_is_run_again` for
+the steady sweep, `test_an_old_body_row_record_keeps_its_status_until_it_is_run_again`
+for the body row). The answer is the same for both causes.
 
-- For a point whose run ended and whose files are in place, post the
-  workspace again with `pyfs-matrix post`, or collect it again with
-  `pyfs-matrix collect`, using 0.33.1; the point is read again and a point
-  that converged now reads `CONVERGED`.
-- Do not delete the simulations or resubmit the job on account of these two
-  statuses. A point that truly lacks an output still reads
-  `FAILED_INCOMPLETE_OUTPUT`.
+- **Its products need nothing.** `pyfs-matrix post` writes a point recorded
+  `FAILED_INCOMPLETE_OUTPUT` into the products from its outputs on disk, its
+  polar row included, and says so once for each such point in `post.log`:
+  "the recorded status is FAILED_INCOMPLETE_OUTPUT". 0.33.1 changes no post
+  code, so a post already run on the workspace wrote those rows too.
+- **Its status stays until the point runs again.** `pyfs-matrix post` and
+  `pyfs-matrix collect` leave every status as recorded, since collect
+  completes only `SUBMITTED` records. `pyfs-matrix rebuild` refuses a
+  simulation whose record another version wrote ("a record is rebuilt only by
+  the version that ran") and writes nothing. The one way to a `CONVERGED`
+  record is to run the point again with 0.33.1:
+  `pyfs-matrix run <matrix> --force-rerun <run_id>`, with the `run_id` that
+  `runs.json` records (for a steady row, the job's, which names every point of
+  it). It archives the record and the collected outputs before it runs, and it
+  spends a licensed seat per job. `--resume` skips a recorded point and so
+  leaves its status.
+- Re-run only where the status in `runs.json` is what you need: the products
+  do not wait on it. A point that truly lacks an output still reads
+  `FAILED_INCOMPLETE_OUTPUT` after the re-run.
 
 ## The tier 1 suite runs in parallel
 
