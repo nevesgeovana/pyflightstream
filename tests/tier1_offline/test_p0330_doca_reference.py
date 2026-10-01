@@ -563,10 +563,15 @@ def test_the_nav_is_the_four_quadrants_and_project_with_the_srs_under_project():
     guides = (DOCS / "guides.md").read_text(encoding="utf-8")
     pdfs = sorted(p.name for p in (REPO / "guide").glob("pyfts-guide-*.pdf"))
     assert len(pdfs) >= 8, pdfs
+    # The repository URL is read from pyproject's [project.urls], its one
+    # home, rather than written here: the shipped-surface guard keeps
+    # identifiers out of the versioned tree outside the exempted files.
+    config = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
+    repository = config["project"]["urls"]["Repository"].rstrip("/")
     for pdf in pdfs:
-        assert f"](https://github.com/nevesgeovana/pyflightstream/blob/main/guide/{pdf})" in guides
+        assert f"]({repository}/blob/main/guide/{pdf})" in guides
     home = (DOCS / "index.md").read_text(encoding="utf-8")
-    assert "](https://github.com/nevesgeovana/pyflightstream/tree/main/guide)" in home
+    assert f"]({repository}/tree/main/guide)" in home
 
 
 def test_the_renderer_is_a_docs_dependency_with_its_licence_card():

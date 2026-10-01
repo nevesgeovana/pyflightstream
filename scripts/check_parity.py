@@ -277,7 +277,14 @@ def child(mode: str, tree: Path, out: Path, argument: Path | None) -> int:
 
 def git(*args: str, binary: bool = False) -> Any:
     """Run git in this repository and return its output."""
-    done = subprocess.run(["git", "-C", str(REPO), *args], check=True, capture_output=True)
+    done = subprocess.run(
+        ["git", "-C", str(REPO), *args],
+        check=True,
+        capture_output=True,
+        # Explicit, and identical to the inherited default: git needs the
+        # ambient environment to find its own configuration.
+        env=os.environ.copy(),
+    )
     return done.stdout if binary else done.stdout.decode("utf-8").strip()
 
 
