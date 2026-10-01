@@ -8,8 +8,9 @@ the log present (collected as before), another profile's files (still
 waiting), and a profile without the key (the control: 0.32.0 waited forever).
 
 The file names ``FTS<sim>.o<id>`` and ``FTS<sim>.e<id>`` used here are the
-ones reported for one cluster on 2026-09-30; they are not confirmed from a
-real cluster folder, and FR-311 stays pending until a dated receipt is.
+ones of one real cluster folder (RPT-108, 2026-09-30, a job that ended with its
+log); FR-311 stays pending until a folder of a job that ended without its log is
+received.
 """
 
 from __future__ import annotations
@@ -116,3 +117,54 @@ def test_fr311_the_key_is_read_into_the_profile(tmp_path):
     workspace, _work = _workspace(tmp_path)
     profile = read_hpc_profile(workspace.inputs_dir / "hpc" / "h001.toml")
     assert profile.job_end_files == ("FTS{sim}.o*", "FTS{sim}.e*"), requirement
+
+
+# ----------------------------------------------- the names of one real cluster folder
+# RPT-108 records one real job folder (simulation 2013, job id 6708564): the file
+# names and sizes only. The content here is synthetic, written for these tests.
+
+REAL_NAMES = ("FTS2013.o6708564", "FTS2013.e6708564", "FTS2013.l6708564")
+
+
+def _workspace_of_sim_2013(tmp_path):
+    """The shared fixture moved to simulation 2013, the one the real folder came from."""
+    import json
+    import shutil
+
+    workspace, work = _workspace(tmp_path)
+    old = workspace.sim_dir("9001")
+    new = old.parent / old.name.replace("9001", "2013")
+    shutil.move(str(old), str(new))
+    rows = json.loads(workspace.manifest_path.read_text(encoding="utf-8"))
+    for row in rows:
+        row["sim_id"] = "2013"
+        row["run_id"] = row["run_id"].replace("9001", "2013")
+        row["submission"]["descriptor"] = row["submission"]["descriptor"].replace("9001", "2013")
+    workspace.manifest_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    return workspace, new / "datapoints" / work.name
+
+
+def test_fr311_the_names_of_a_real_folder_without_a_log_record_failed_execution(tmp_path):
+    requirement = "FR-311"
+    workspace, work = _workspace_of_sim_2013(tmp_path)
+    (work / REAL_NAMES[0]).write_text("synthetic job summary\n", encoding="utf-8")
+    (work / REAL_NAMES[1]).write_bytes(ERROR_TEXT)
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
+    assert [outcome.state for outcome in report.failed] == ["FAILED"], report.lines()
+    record = workspace.read_manifest()[0]
+    assert record.sim_id == "2013"
+    assert record.status is RunStatus.FAILED_EXECUTION, requirement
+    error = record.error or ""
+    assert "FTS2013.o6708564" in error and "FTS2013.e6708564" in error, error
+    assert "error line 25" in error and "error line 6\n" not in error, error
+
+
+def test_fr311_the_names_of_a_real_folder_with_its_log_are_collected_the_control(tmp_path):
+    requirement = "FR-311"
+    workspace, work = _workspace_of_sim_2013(tmp_path)
+    (work / REAL_NAMES[0]).write_text("synthetic job summary\n", encoding="utf-8")
+    (work / REAL_NAMES[1]).write_bytes(ERROR_TEXT)
+    (work / REAL_NAMES[2]).write_text(_log(), encoding="utf-8")
+    report = collect_once(workspace, interval=0.0, sleep=_no_sleep)
+    assert [outcome.state for outcome in report.collected] == ["COLLECTED"], report.lines()
+    assert workspace.read_manifest()[0].status is RunStatus.CONVERGED, requirement
