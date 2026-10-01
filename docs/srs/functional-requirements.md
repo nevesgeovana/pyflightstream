@@ -1913,6 +1913,13 @@ nodes.
     unverified on every geometry tried; and a saved simulation whose
     sidecar states any of the three tables is refused.
 
+    AMENDED 0.33.1 (2026-10-01): the log a point on the `file` route is
+    held to is, where none of its collected outputs reads as the residual
+    history of one solve, the point's one collected `_log.txt`, because
+    every point of a steady job exports the session's log so far and the
+    log of point k holds k solves; two such files name no log. Evidence:
+    `tests/tier1_offline/test_p0331_false_failures.py`.
+
     AMENDED 0.27.0 (RPT-066), pending with it: the families a row or
     artifact names for base-region detection are the boundaries that
     become the base regions, never the body that carries them, because
