@@ -731,6 +731,36 @@ diff, the products snapshot, the record fixtures and
     0.35.0 cut of `workspace/matrix.py` (its setup binding) calls the
     facade as it does today.
 
+    As WP9a landed (GOAL-039, arm W9; record RPT-121), in code lines of the
+    AD-08 unit: `script/helpers.py` holds 951 and leaves the G1 table;
+    `solver_settings` is 67 code lines long with its 61 parameters and
+    leaves the G2 length and limits tables. `script/_settings.py` (587)
+    holds `emit_solver_settings`, which reads every argument before the
+    first emission in the 0.33.0 order, then emits the time regime and
+    the five family tables (the runtime settings, the boundary layer,
+    separation, convergence and the advanced settings, each a table of
+    rows whose order is the emission order) with the separation models
+    and the minimum-Cp default between them, then builds the snapshot;
+    `script/_relaxed_te.py` (119) holds the relaxed trailing edge. The
+    cut of the function and of the relaxed trailing edge alone left
+    `helpers.py` at 1,128 code lines, so the helpers that set up a run
+    moved to `script/_settings.py` with it, whole and unchanged: the flow
+    conditions (`free_stream`, `fluid_fifth_property`, `atmosphere`),
+    `unsteady_solver`, and the solver initialization
+    (`initialize_solver`, whose arguments carry `WAKE_TERMINATION_X`, and
+    `start_solver` with the flush of the deferred induced-drag
+    selection); the toggle readers the helpers share moved to
+    `script/toggles.py`. The wake keys therefore have one module: the
+    `SET_WAKE_TERMINATION_TIME_STEPS` row of the advanced family and the
+    wake termination plane of `initialize_solver`.
+    `pyflightstream.script.helpers` imports every moved name, so every
+    public path of 0.33.0 is kept. Evidence:
+    tests/tier1_offline/test_p0340_settings_cut.py (the 0.33.0
+    signature; the emission of three builds against the scripts the
+    0.33.0 tree rendered; one family per keyword; the public path of
+    every moved name), and the goldens of
+    tests/tier1_offline/test_workflows.py unchanged.
+
 !!! decision "AD-18 The parser of pyfs-matrix is built by family, and run/cli.py leaves its size exemption <span class='srs-pending'>pending</span>"
     *Work package WP9b of the 0.34.0 scope (GEO-072, section 4.7), which
     lands before the run-usability commands (FR-326, FR-327) and the
