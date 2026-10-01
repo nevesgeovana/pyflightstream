@@ -35,7 +35,10 @@ THE CONTROL. A comparator that cannot see a difference would pass any
 refactoring, so :func:`snapshot_receipt` plants three differences into a
 regenerated tree (one changed byte of a product, a product removed, a
 product added) and requires the comparison to catch each:
-``caught 3 of 3``. ``scripts/products_snapshot.py`` writes that receipt
+``caught 3 of 3``. Those prove the comparison only, so a second control
+changes BEHAVIOUR (:func:`behaviour_differences`): one campaign is posted
+with a probe value shifted in the code the products are written from, and
+its probes table must differ. ``scripts/products_snapshot.py`` writes that receipt
 for the goal arm; ``--write`` there regenerates the stored snapshot, which
 is done only when a release changes a product on purpose and names it.
 """
@@ -434,8 +437,48 @@ def _planted(files: dict[str, bytes]) -> list[tuple[str, dict[str, bytes]]]:
     return [("a changed byte", changed), ("a product removed", removed), ("a product added", added)]
 
 
+#: The campaign and the product the behaviour control changes through the code.
+BEHAVIOUR_CAMPAIGN = "steady_probes"
+BEHAVIOUR_PRODUCT = "products/probes/AL-020_probes.csv"
+
+
+def behaviour_differences(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Post one campaign with one changed value in the product code; return what was caught.
+
+    The planted copies of :func:`_planted` change bytes AFTER the post wrote
+    them, so they prove the comparison and not the path from the code to the
+    compared bytes (the build, the normalisation, the file selection). This
+    one changes behaviour instead: ``point_tables`` reads the probe export
+    through a ``parse_probe_points`` whose values are shifted by 1e-3, which
+    the five-decimal probes table must show, and nothing else is touched.
+    """
+    import dataclasses
+
+    from pyflightstream.post import point_tables
+
+    original = point_tables.parse_probe_points
+
+    def shifted(text, *args, **kwargs):
+        report = original(text, *args, **kwargs)
+        return dataclasses.replace(report, values=report.values + 1e-3)
+
+    monkeypatch.setattr(point_tables, "parse_probe_points", shifted)
+    index, _ = stored(BEHAVIOUR_CAMPAIGN)
+    return differences(index, regenerate(BEHAVIOUR_CAMPAIGN, monkeypatch))
+
+
+def _behaviour_caught(found: list[str]) -> bool:
+    """Whether the behaviour control's changed product is among the differences."""
+    return f"{BEHAVIOUR_PRODUCT}: bytes differ" in found
+
+
 def snapshot_receipt(write: bool = False) -> dict[str, object]:
-    """Regenerate every campaign, compare (or store, with ``write``), and run the control."""
+    """Regenerate every campaign, compare (or store, with ``write``), and run the controls.
+
+    ``control`` counts the planted copies of every campaign and the one
+    behaviour control together; ``behaviour_control`` reports the latter
+    alone, so a receipt says which kind of control it carries.
+    """
     checked = 0
     differing: list[str] = []
     caught = planted = 0
@@ -453,11 +496,14 @@ def snapshot_receipt(write: bool = False) -> dict[str, object]:
             for _label, copy in _planted(files):
                 planted += 1
                 caught += bool(differences(index, copy))
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        behaviour = int(_behaviour_caught(behaviour_differences(monkeypatch)))
     return {
         "files_checked": checked,
         "campaigns": len(CAMPAIGNS),
         "differing": differing,
-        "control": f"caught {caught} of {planted}",
+        "control": f"caught {caught + behaviour} of {planted + 1}",
+        "behaviour_control": f"caught {behaviour} of 1",
     }
 
 
@@ -483,6 +529,15 @@ def test_a_planted_difference_in_the_products_is_caught(monkeypatch):
     assert not differences(index, files)
     for label, copy in _planted(files):
         assert differences(index, copy), f"the comparison did not catch {label}"
+
+
+def test_a_changed_value_in_the_product_code_is_caught(monkeypatch):
+    """P0330-PRODUCTS-SNAPSHOT. The behaviour control: the probe values the
+    product code reads, shifted by 1e-3, change the stored probes table's bytes,
+    so a refactoring that changes a value cannot pass the snapshot through the
+    build or the normalisation."""
+    found = behaviour_differences(monkeypatch)
+    assert _behaviour_caught(found), found
 
 
 def test_the_normalisation_rewrites_only_the_volatile_fields(tmp_path):

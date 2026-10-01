@@ -15,8 +15,10 @@ writes the receipt the goal arm reads::
 ``differing`` names every file that is missing, added or changed against the
 stored digests and texts; ``control`` counts the planted differences (a
 changed byte, a removed and an added product per campaign) the comparison
-caught. The receipt also records whether ``src/`` and ``tests/`` were clean
-at that SHA, because a comparison of a dirty tree is not one of the SHA.
+caught, plus the one behaviour control (a probe value shifted in the product
+code), which ``behaviour_control`` also reports alone. The receipt also
+records whether ``src/`` and ``tests/`` were clean at that SHA, because a
+comparison of a dirty tree is not one of the SHA.
 
 ``--write`` stores the snapshot anew from the current tree: done once before
 the first move of WP5, and afterwards only when a release changes a product
