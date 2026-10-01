@@ -468,7 +468,7 @@ one of them keeps.
     harmonic, noise and disc-map products) and `post._additional`. A
     private helper two modules share lives in a private module, because a
     private name is never imported out of a public one. `post.products`
-    keeps the campaign stage (952 code lines) and `_sim_products` is 68
+    keeps the campaign stage (931 code lines) and `_sim_products` is 68
     lines. The byte snapshot (P0330-PRODUCTS-SNAPSHOT) was taken from the
     tree of `rel/0-33` at 56f7b8bd, after the product changes of FR-314
     and FR-180, over 25 recorded offline campaigns of the tier-1 suite and
