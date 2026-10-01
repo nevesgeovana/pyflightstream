@@ -39,10 +39,9 @@ refused, naming the key, because it has no time step.
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Sequence
 
-from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning
+from pyflightstream._errors import PyflightstreamError, PyflightstreamWarning, warn
 from pyflightstream.cases import CampaignConfigError, SimCase
 from pyflightstream.cases._setup_keys import DEFAULT_MOMENTS_MODEL
 from pyflightstream.script import Script, helpers
@@ -232,7 +231,7 @@ def moments_model_of(case: SimCase, *, rotor: bool) -> tuple[str | None, bool]:
         return stated, False
     families = ", ".join(solver.vorticity_drag_families)
     if stated is None:
-        warnings.warn(
+        warn(
             f"case {case.sim_id!r} turns a rotor and its setup states "
             f"vorticity_drag_families ({families}) and no moments_model, so its moments "
             f"model is {LINKED_MOMENTS_MODEL} too: on a rotor the two are linked, so the "
