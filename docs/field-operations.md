@@ -166,6 +166,7 @@ assert corrected.rows[0] == (0.0, 1.0, 0.5, 40.75, -0.5, 0.0)
 ## What it does not do
 
 It does not interpolate: a field is subtracted or averaged only over the
-points both inputs hold. It does not replace points that lie inside a body,
-where a survey carries no flow; the field is written as sampled. It does not
-install anything into a row: a row names the result by its stem.
+points both inputs hold. Only `fill-interior` replaces the points that lie
+inside a body, where a survey carries no flow, by the rule its paragraph above
+states; every other operation writes the field as sampled.
+It does not install anything into a row: a row names the result by its stem.

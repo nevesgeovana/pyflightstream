@@ -143,7 +143,7 @@ IT**: `LAST_REVS_AVG` on an `unsteady_rotor` row, a count of the last
 revolutions that accepts a float, and `LAST_ITERS_AVG` on an `unsteady` row, a
 count of the last iterations. `pyfs-matrix plan` refuses a new unsteady row that
 states NO window key. A retired `WINDOW_*` key is refused since 0.26.0. It is the one window the unsteady polar, the time average and
-`per_blade` use. A window longer than the run is the whole run rather than a
+`per_blade` use ([the reductions](post-processing-definitions.md#the-reductions-of-an-unsteady-point)). A window longer than the run is the whole run rather than a
 refusal.
 
 Row 7001 states `LAST_REVS_AVG: 0.25`, the last quarter revolution counted
