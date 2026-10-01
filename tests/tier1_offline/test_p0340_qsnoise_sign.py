@@ -24,7 +24,8 @@ NEEDLE = b"RPT-132"
 SCANNED = ("src", "scripts", "tests")
 LENGTH = re.compile(r"(?i)(diameter|chord|radius|span)[^.\n]{0,40}\d+(\.\d+)?\s?(m|mm)\b")
 DIMENSIONAL = re.compile(
-    r"\d\s?(?:N m|N|m/s|kg/m3|rev/min|Pa)\b|RPM\d|\"rpm\"|_Nm?\"|delta_time_s|velocity_m_s"
+    r"\d\s?(?:N m|N|m/s|kg/m3|rev/min|Pa|kHz|Hz|dB|mm|m|s|kg)\b"
+    r"|RPM\d|\"rpm\"|_Nm?\"|delta_time_s|velocity_m_s"
 )
 
 
@@ -79,6 +80,47 @@ def test_rpt132_is_exploratory_and_states_what_it_tested_found_and_left_open_fr_
         assert not LENGTH.search(body), path.name
         assert not DIMENSIONAL.search(body), path.name
         assert chr(0x2014) not in body and chr(0x2013) not in body, path.name
+
+
+def test_the_dimensional_guard_finds_each_unit_form_and_passes_ratios_fr_337():
+    """P0340-QSNOISE-SIGN, FR-337 R1: the guard's control, one planted value per unit form.
+
+    Each planted dimensional value is found by the length or the unit pattern,
+    and the nondimensional values the report does state are not.
+    """
+    planted = (
+        "a diameter of 1.2 m",
+        "a chord of 80 mm",
+        "a bare 0.75 m",
+        "12 N",
+        "3.4 N m",
+        "50 m/s",
+        "1.225 kg/m3",
+        "2400 rev/min",
+        "101325 Pa",
+        "160 Hz",
+        "1.5 kHz",
+        "92 dB",
+        "0.02 s",
+        "3 kg",
+        "RPM2400",
+        '"rpm"',
+        'thrust_N"',
+        "delta_time_s",
+        "velocity_m_s",
+    )
+    for value in planted:
+        assert LENGTH.search(value) or DIMENSIONAL.search(value), value
+    for value in (
+        "r/R 2.73",
+        "k r 0.45",
+        "15.0 deg",
+        "16 samples",
+        "1.00 step",
+        "a gain of -0.93",
+        "tip Mach 0.5",
+    ):
+        assert not LENGTH.search(value) and not DIMENSIONAL.search(value), value
 
 
 def test_nothing_under_src_scripts_or_tests_but_this_test_names_rpt132_fr_337(tmp_path):
