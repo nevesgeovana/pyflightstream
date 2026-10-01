@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from pyflightstream._digest import file_sha256
-from pyflightstream._errors import ProductError
+from pyflightstream._errors import ProductError, PyflightstreamWarning, warn
 from pyflightstream.post.field_frames import field_in_reference, native_velocity_proof
 from pyflightstream.post.writers import (
     OutputProvenance,
@@ -300,3 +300,57 @@ def write_recorded_probe_fields(
             )
         )
     return written
+
+
+def point_field_products(table, record, out, point_name, *, prepare=None, step_source=None):
+    """Write one point's sampled fields and return each file's manifest entry (FR-153).
+
+    Parameters
+    ----------
+    table : path-like
+        The point's probe table, as for :func:`write_recorded_probe_fields`.
+    record : RunRecord
+        The point's run record.
+    out : path-like
+        The products folder; the fields go to its ``fields`` folder.
+    point_name : str
+        The point the files are named for.
+    prepare, step_source
+        As for :func:`write_recorded_probe_fields`.
+
+    Returns
+    -------
+    dict
+        Each file written, to its ``products.json`` entry: ``kind`` and, where
+        the velocity convention was measured on another build of the run's
+        solver version and unit, ``velocity_convention`` naming both builds
+        with ``proven`` False. Such a point warns once, naming both builds.
+    """
+    paths = write_recorded_probe_fields(
+        table, record, Path(out) / "fields", point_name, prepare=prepare, step_source=step_source
+    )
+    entry: dict[str, object] = {"kind": "probe-field"}
+    identity = {key: getattr(record, key, None) for key in ("fs_exe_sha256", "fs_build")}
+    motions = getattr(record, "frame_motions", None) or {}
+    for layout in record.probe_field_layout:
+        reference = layout.get("coordinate_source") == "native-export-reference"
+        motion = motions.get(1 if reference else layout.get("frame_index"))
+        if layout.get("export_kind") and motion is not None:
+            proof = native_velocity_proof(
+                motion, solver_identity=identity, export_kind=layout["export_kind"]
+            )
+            if proof.get("proven") is False:
+                keys = ("measured_on_build", "run_build", "proven")
+                entry["velocity_convention"] = {key: proof[key] for key in keys}
+    caveat = entry.get("velocity_convention")
+    if isinstance(caveat, dict) and paths:
+        warn(
+            f"point={point_name} product=fields/{point_name}: the native velocity convention "
+            f"of these fields was measured on build {caveat['measured_on_build']} and this run "
+            f"reports build {caveat['run_build']}; the fields are written with the measured "
+            "convention, not proven for this build (FR-153). Measuring it on this build lifts "
+            "this warning: see 'A run on another build' in docs/sampled-fields.md",
+            PyflightstreamWarning,
+            stacklevel=2,
+        )
+    return {path: dict(entry) for path in paths}

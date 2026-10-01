@@ -10,7 +10,7 @@ requirements trace to evidence. It follows the reference SRS template
 | Field | Value |
 |---|---|
 | Document | pyflightstream Software Requirements Specification |
-| Version | 1.58.0 |
+| Version | 1.59.0 |
 | Status | Living document |
 | Author | Geovana Neves |
 | First published | 2026-07-22 |
@@ -98,6 +98,7 @@ ledger and its deadline guard exist, and the policy itself starts at
 
 | Version | Date | Change |
 |---|---|---|
+| 1.59.0 | 2026-09-30 | **FR-153 WRITES A FIELD OF ANOTHER BUILD, WITH A WARNING.** R1: a run of a measured solver version, export kind and unit on another build gets the velocity convention measured on the registered build; one warning per point names both builds and the field's `products.json` entry records `proven` false. Another version or unit is refused as before; the measured build is unchanged. The measured conventions are one table, so registering a build is one row. |
 | 1.58.0 | 2026-09-30 | **FR-311 CITES ITS FIRST REAL CLUSTER FOLDER, AND STAYS PENDING.** RPT-108 records the names and sizes of the three files one real job left on the owner's cluster and shows that the documented `job_end_files` and `native_log` patterns match them; the job ended with its log, so a job that ended without one is still owed, and moving the status is the owner's acceptance. |
 | 1.57.0 | 2026-09-30 | **THE NON-FUNCTIONAL RANGE READS NFR-01 TO NFR-31**: NFR-31 (the public tree carries no identity of a user's machine, an author decision of the day) enters as pending for 0.33.0. The executable digests of every build in the identity baseline, 25.000 to 26.124, leave every tracked file: reports, compatibility, physics and probe records and fixtures state the build, and a digest field reads `withheld; build <build>`. Absolute machine paths leave the reports, the probe records, the test fixtures and the C01 instrument; a report names its files inside `<workspace>` or `<local probe folder>`, and the examples of the documentation and the guide use a neutral root. The compatibility, physics and drift writers and the C01 instrument write the build and never a digest. The package's evidence for an executable is keyed by version, build and unit, and a run still records its own digest. A tier-1 guard (P0330-NO-EXE-HASH) refuses a labelled executable digest of any build, a withheld digest anywhere, and an absolute user path, in any tracked text file. |
 | 1.56.0 | 2026-09-30 | **THE FUNCTIONAL RANGE READS FR-01 TO FR-319**: four requirements join the functional chapter for 0.33.0, each an author decision of the day for a per-build setup study. FR-316 (a matrix row states native setup keys over its preset, warned at plan, refused where it would change a value the preset states), FR-317 (the moments model is a setup key, `PRESSURE` unstated as before), FR-318 (on a row turning a rotor the moments model follows the vorticity drag list; the two do not yet reach the same step exports, and the licensed confirmation is registered) and FR-319 (every choosable command of the five solver chapters has a key or a measured reason for none, in the audit RPT-106). NFR-27 records the type-checker re-count of the branch with WP1, WP2, FR-310 to FR-314 and FR-316 to FR-319 merged, 1133 errors in 18 of 158 modules. |

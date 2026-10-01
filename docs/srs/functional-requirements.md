@@ -6646,15 +6646,29 @@ Requirements written after the specification was last reconciled with the packag
 !!! requirement "FR-153 Probes and volume sections write sampled velocity fields <span class='srs-implemented'>implemented</span>"
 
     *Origin: the sampled-field need of the 0.29.0 quality gate. Evidence:
-    `tests/tier1_offline/test_f01_probe_source.py` and
-    `tests/tier1_offline/test_approved_capabilities_029.py`.*
+    `tests/tier1_offline/test_f01_probe_source.py`,
+    `tests/tier1_offline/test_approved_capabilities_029.py` and, for R1,
+    `tests/tier1_offline/test_fr153_field_build_warning.py`.*
 
     Probes and volume sections write package-built VTK or Tecplot point
     fields whose provenance states the source, the position, the frame and the
     velocity components. Reusable inflow is offered only from an appropriate
     global YZ survey; a point sample never invents a volume-cell topology.
 
+    - R1 (0.33.0) A field whose native velocity convention is measured for the
+      run's solver version, export kind and length unit on another build is
+      written with that convention. The post adds one warning line per point to
+      `post.log` and to the warnings the console prints, naming the build the
+      convention was measured on and the build the run reports, and the field's
+      `products.json` entry records `velocity_convention` with
+      `measured_on_build`, `run_build` and `proven` false. A run of a solver
+      version, export kind or unit with no measured build is refused as before,
+      and a field of a measured build is written as before, byte for byte.
+
     **Solution (0.29.0).** `docs/sampled-fields.md` and the writers behind it.
+    R1 (0.33.0): the table `pyflightstream.post.field_frames.VELOCITY_EVIDENCE`
+    read by `native_velocity_proof`, and
+    `pyflightstream.post.probe_fields.point_field_products`.
     **Trace.** The test files above.
 
 !!! requirement "FR-154 Boundary-layer products are separate: section integrals from the surface, profiles refused <span class='srs-implemented'>implemented</span>"
