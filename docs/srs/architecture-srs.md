@@ -647,7 +647,8 @@ diff, the products snapshot, the record fixtures and
     2000 code lines, out of the table or carrying a stated `Size
     exemption:` line), its G8 facade entry lower, the type-check
     exemption list not grown, the oracles above unchanged, and the
-    package record RPT-120.*
+    package record RPT-120. Evidence:
+    `tests/tier1_offline/test_p0340_cases_cut.py`.*
 
     Read with PFS-2075.22 at 0.34.0 (GOAL-039, arm W8): the 0.34.0 package work reads this decision.
 
@@ -698,6 +699,38 @@ diff, the products snapshot, the record fixtures and
     the root, so the 0.35.0 cuts of `cases/matrix.py` and of the
     `workspace` root read the models from their homes and the root adds
     no import edge from `workspace` to `cases`.
+
+    Measured at the cut (work package WP8, 2026-10-01, record RPT-120):
+    `cases/__init__.py` holds 632 code lines and is off the G1 table, its
+    G8 facade entry falls from 4916 to 1128, and the six modules hold 855
+    (`pproc`), 201 (`reference_blocks`), 222 (`settings`), 265 (`mesh`),
+    188 (`naming`) and 214 (`selection`) code lines, each within the lens
+    and deep. Two placements differ from the list above, because a model
+    the six hold reads them and none of the six may import the root:
+    `CampaignConfigError` is defined in `cases/reference_blocks.py`, the
+    floor of the six, beside `AliasCycleError`, since `frame_basis_for_shaft`,
+    the selection and the naming raise it; and the exports vocabulary
+    (`EXPORT_KINDS` to `classify_outputs`) is defined in `cases/pproc.py`,
+    since `PprocSpec` reads it. The root re-exports both at their 0.33.0
+    paths, as it does every moved name. `SweepAxis` and `SimCase` stay in
+    the root; the naming functions read a case and a sweep through two
+    private protocols of `cases/naming.py`, which state the attributes they
+    use. The six import one another in one order, `reference_blocks`,
+    `selection`, `pproc`, `naming`, `mesh`, `settings`, each only those
+    before it.
+
+    The 0.35.0 cut this keeps easy is the cut of `cases/matrix.py` (WP9d,
+    1808 code lines): of the names the matrix reader takes from the root,
+    the naming ones (`POINT_AXIS_KEYS`, the two rotation keys and
+    `multiplied_sweep`) and the exports vocabulary (`default_outputs`) now
+    have homes below the root, so the modules that cut makes for the
+    sweep names and the default outputs import those homes and not the
+    root; only the part that builds `SimCase`, `Campaign`, `SweepAxis`,
+    `InputKey` and `RawCommand` still reads the root. The field
+    WAKE-LENGTH adds to `SolverSettings` lands in `cases/settings.py`. The
+    modules that import a moved name still import it through the root at
+    0.34.0: moving those imports edits files other packages of the same
+    wave edit, so it is left to the 0.35.0 cuts that open those files.
 
 !!! decision "AD-17 The solver settings are emitted by family, behind the facade of solver_settings <span class='srs-pending'>pending</span>"
     *Work package WP9a of the 0.34.0 scope (GEO-072, section 4.7), which
