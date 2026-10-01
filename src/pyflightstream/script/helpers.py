@@ -78,7 +78,6 @@ from pyflightstream.script import (
     Script,
     ScriptReferenceError,
     UnsteadyActionUse,
-    _settings,
 )
 from pyflightstream.script._relaxed_te import (  # noqa: F401  (this module is the public path)
     DEFAULT_SHEDDING_DIRECTION,
@@ -92,8 +91,11 @@ from pyflightstream.script._relaxed_te import (  # noqa: F401  (this module is t
 )
 from pyflightstream.script._settings import (  # noqa: F401  (this module is the public path)
     _flush_pending_vorticity,
+    _optional_toggle,
+    _read,
     _reject_bare_label,
     _reject_empty_selection,
+    _toggle,
     atmosphere,
     fluid_fifth_property,
     free_stream,
@@ -101,6 +103,7 @@ from pyflightstream.script._settings import (  # noqa: F401  (this module is the
     start_solver,
     unsteady_solver,
 )
+from pyflightstream.script._settings import emit_solver_settings as _emit_solver_settings
 from pyflightstream.script.rotor_vocabulary import (
     EUCLIDEAN_ROTOR_UNIT,
     UNMARKED_EUCLIDEAN_ROTOR_UNIT,
@@ -121,9 +124,6 @@ from pyflightstream.script.solver_setup import (  # noqa: F401  (this module is 
 )
 from pyflightstream.script.toggles import (  # noqa: F401  (resolve_toggle: the public path)
     Toggle,
-    _optional_toggle,
-    _read,
-    _toggle,
     resolve_toggle,
 )
 from pyflightstream.versions import known_versions
@@ -1071,7 +1071,7 @@ def solver_settings(
     # family emitters of script._settings, which emit in the 0.33.0 order.
     arguments = dict(locals())
     del arguments["script"]
-    return _settings.emit_solver_settings(script, arguments)
+    return _emit_solver_settings(script, arguments)
 
 
 def sweep(

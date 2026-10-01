@@ -61,7 +61,7 @@ from pyflightstream.script.solver_setup import (
     SolverSetup,
     build_setup,
 )
-from pyflightstream.script.toggles import Toggle, _optional_toggle, _read, _toggle
+from pyflightstream.script.toggles import Toggle, resolve_toggle
 
 
 class Row(NamedTuple):
@@ -224,6 +224,37 @@ class _Prepared:
     models: dict[str, list[dict[str, Any]]]
     bulk: dict[str, Any] | None
     selection: list[int] | Literal["all"] | None
+
+
+# The toggle readers the curated helpers share. They live in this private
+# module, which every helper of the script package may import from, rather
+# than in the public `toggles` module (AD-17).
+
+
+def _read(helper: str, argument: str, value: Toggle) -> bool:
+    """Resolve one toggle, re-raising in the script layer's vocabulary."""
+    try:
+        return resolve_toggle(value, context=f"{helper}: {argument}")
+    except ValueError as error:
+        raise CommandArgumentError(str(error)) from error
+
+
+def _optional_toggle(helper: str, argument: str, value: Toggle | None) -> bool | None:
+    """Resolve an optional toggle up front, before the helper emits."""
+    if value is None:
+        return None
+    return _read(helper, argument, value)
+
+
+def _toggle(value: bool) -> str:
+    """Render a resolved toggle as the solver writes it.
+
+    Takes a bool only: every helper resolves its toggles through
+    :func:`_read` or :func:`_optional_toggle` before emitting, so a
+    string never reaches this function and truthiness is never the
+    thing that decides a flag.
+    """
+    return "ENABLE" if value else "DISABLE"
 
 
 def _flush_pending_vorticity(script: Script) -> None:
