@@ -99,12 +99,22 @@ from pydantic import (
 # alone is what the five call-time imports of `cases/matrix.py` were.
 # Nothing about the class changed: same two bases, same three attributes,
 # same public spelling.
+# The names below are imported only because 0.32.0 offered them from this
+# module, which had no __all__; each keeps importing from here (a release
+# does everything the previous one did, as scripts/check_parity.py checks).
+from pyflightstream._digest import aliased_name_fault as aliased_name_fault
+from pyflightstream._digest import file_sha256 as file_sha256
 from pyflightstream._errors import InputArtifactError
+from pyflightstream._errors import PyflightstreamWarning as PyflightstreamWarning
+from pyflightstream._errors import warn as warn
+from pyflightstream._fsm import MeshReadError as MeshReadError
+from pyflightstream._fsm import boundary_names as boundary_names
 from pyflightstream._retired_names import (
     BLOCK_KIND_ENGINE,
     POINT_KIND_ENGINE,
     retired_key,
 )
+from pyflightstream.cases import EVERY_SURFACE as EVERY_SURFACE
 from pyflightstream.cases import (
     ActuatorBlock,
     BoundaryAliases,
@@ -115,6 +125,10 @@ from pyflightstream.cases import (
     RawCommand,
     RotorBlock,
 )
+from pyflightstream.cases import InputKey as InputKey
+from pyflightstream.cases import MeshImport as MeshImport
+from pyflightstream.cases import RawMeshConditions as RawMeshConditions
+from pyflightstream.cases import TrailingEdgeMarking as TrailingEdgeMarking
 
 # DOWNWARD, and the two imports in this module that leave the workspace
 # layer: `cases` sits below `workspace` in the house order, and the
@@ -125,6 +139,9 @@ from pyflightstream.cases import (
 # would put a second reader of the pipe-delimited layout in the package
 # (PFS-2009.03).
 from pyflightstream.cases.matrix import CODE_COLUMNS, rewrite_codes
+from pyflightstream.versions import AmbiguousVersionAliasError as AmbiguousVersionAliasError
+from pyflightstream.versions import UnknownVersionError as UnknownVersionError
+from pyflightstream.versions import resolve as resolve
 
 # DOWNWARD as well, and the lowest layer of the stack: `versions` sits
 # below `commands`, which sits below everything else. It is imported so a

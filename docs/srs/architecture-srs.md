@@ -399,7 +399,9 @@ one of them keeps.
     archives, the lease and `RecordsError` are `run._record_files`, which
     `records` and the rebuild share so that neither imports the other.
     `workspace.inputs` keeps the artifact resolvers and an `__all__` of
-    every public name it held; besides `workspace.sidecars` and
+    every public name it held, and, like `run.records`, still imports
+    every other name 0.32.0 offered from it, so each keeps importing from
+    there; besides `workspace.sidecars` and
     `workspace.hpc`, the build registry is `workspace.builds` and the rule
     on empty entity selections `workspace.selections`, because the review's
     two cuts left it over the lens once its `__all__` was written. The five
@@ -855,7 +857,12 @@ bodies and those under `TYPE_CHECKING` included.
   `workspace.naming`. Until 0.33.0 the rebuild and the assembly were this
   module's own, and it imported the floor `_digest`, `cases`,
   `cases.matrix`, `cases.windows`, `results`, `workspace.flight_condition`,
-  `workspace.inputs` and `workspace.matrix` for them.
+  `workspace.inputs` and `workspace.matrix` for them. It still imports the
+  floor `_digest`, `cases`, `cases.matrix`, `cases.windows`, `results`,
+  `workspace`, `workspace.flight_condition`, `workspace.inputs` and
+  `workspace.matrix`, for one reason only: every name 0.32.0 offered from
+  this module, which had no `__all__`, keeps importing from it, and the
+  parity check (`scripts/check_parity.py`) holds each one.
   Until 0.33.0, `workspace.storage` reached this module inside two function
   bodies, for the manifest name and for the sync's rebuild. Since 0.33.0
   (AD-09, P0330-WP1) the manifest name is resolved in `workspace.naming`, and

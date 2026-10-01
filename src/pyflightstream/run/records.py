@@ -77,7 +77,27 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+# The names below are imported only because 0.32.0 offered them from this
+# module, which had no __all__; each keeps importing from here (a release
+# does everything the previous one did, as scripts/check_parity.py checks).
+from pyflightstream._digest import file_sha256 as file_sha256
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream._errors import PyflightstreamWarning as PyflightstreamWarning
+from pyflightstream._errors import warn as warn
+from pyflightstream.cases import EXPORT_KINDS as EXPORT_KINDS
+from pyflightstream.cases import POINT_AXIS_KEYS as POINT_AXIS_KEYS
+from pyflightstream.cases import POINT_NAME_FIELDS as POINT_NAME_FIELDS
+from pyflightstream.cases import SWEEP_NAME_VALUE as SWEEP_NAME_VALUE
+from pyflightstream.cases import classify_outputs as classify_outputs
+from pyflightstream.cases.matrix import ATTITUDE_KEYS as ATTITUDE_KEYS
+from pyflightstream.cases.matrix import UNSTATED_CELLS as UNSTATED_CELLS
+from pyflightstream.cases.matrix import MatrixRow as MatrixRow
+from pyflightstream.cases.matrix import read_matrix as read_matrix
+from pyflightstream.cases.windows import LAST_REVS_AVG as LAST_REVS_AVG
+from pyflightstream.cases.windows import replan as replan
+from pyflightstream.cases.windows import stated_key as stated_key
+from pyflightstream.results import parse_loads as parse_loads
+from pyflightstream.results import parse_unsteady_plots as parse_unsteady_plots
 
 # Since 0.33.0 (AD-11) the rebuild, what it reads, the assembly and the record
 # files are private modules of this package; every public name of them keeps
@@ -112,6 +132,22 @@ from pyflightstream.run._record_files import (
     _root_archives,
     manifest_lock,
 )
+
+# More of the names 0.32.0 offered from this module, kept for the same reason.
+from pyflightstream.workspace import AdditionalRecord as AdditionalRecord
+from pyflightstream.workspace import CampaignWorkspace as CampaignWorkspace
+from pyflightstream.workspace import RunRecord as RunRecord
+from pyflightstream.workspace import RunStatus as RunStatus
+from pyflightstream.workspace import WorkspaceError as WorkspaceError
+from pyflightstream.workspace import find_matrix as find_matrix
+from pyflightstream.workspace.flight_condition import (
+    canonical_condition_defaults as canonical_condition_defaults,
+)
+from pyflightstream.workspace.flight_condition import (
+    resolve_flight_condition as resolve_flight_condition,
+)
+from pyflightstream.workspace.inputs import ReferenceArtifact as ReferenceArtifact
+from pyflightstream.workspace.matrix import condition_defaults_origin as condition_defaults_origin
 from pyflightstream.workspace.naming import (
     ARCHIVE_DIR,
     free_matrix_archive,
@@ -123,7 +159,9 @@ from pyflightstream.workspace.naming import (
 # as is the archive stamp's, which run._record_files writes (AD-11).
 from pyflightstream.workspace.naming import ARCHIVE_STAMP as ARCHIVE_STAMP
 from pyflightstream.workspace.naming import DEFAULT_MANIFEST as DEFAULT_MANIFEST
+from pyflightstream.workspace.naming import PointName as PointName
 from pyflightstream.workspace.naming import RunsManifestError as RunsManifestError
+from pyflightstream.workspace.naming import datapoint_name_of as datapoint_name_of
 from pyflightstream.workspace.naming import resolve_manifest as resolve_manifest
 from pyflightstream.workspace.storage import register_records_rebuild
 
