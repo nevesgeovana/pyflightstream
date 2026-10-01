@@ -3,8 +3,8 @@
 0.33.1 is the PATCH RELEASE OF THE TWO FALSE FAILED_INCOMPLETE_OUTPUT READINGS: a steady
 row's points 2 to n on the solver-log route, and a body row whose pproc artifact
 plots wing sections, no longer read FAILED_INCOMPLETE_OUTPUT falsely, and the tier 1
-suite runs in parallel with pytest-xdist.
-its Migration section says what a reader's files must change.
+suite runs in parallel with pytest-xdist. The change log's `[0.33.1]` section is the
+record; `docs/migrating-to-0.33.1.md` says what a reader's files must change.
 
 **THIS FILE IS RE-TITLED AND RE-MEASURED PER TAG.** It carried the v0.22.0 title,
 commands and readings through the whole 0.23.0 release, and it carried the v0.24.0
