@@ -622,6 +622,132 @@ one of them keeps.
     0.33.0 section of this chapter; the receipt of the release is
     produced on the release commit.
 
+### The 0.34.0 architecture decisions
+
+The decisions below are the three cuts of the 0.34.0 scope (scope record
+GEO-071, section 4.11; the release goal GOAL-039, arms W8 and W9): only
+the cuts that the release's features must wait for, by the rule that a
+module or function in the size tables of AD-08 may only shrink, so a
+feature that would add lines to one lands after its cut, in the cut's new
+home. The other cuts the architecture review GEO-072 proposed are 0.35.0
+work. Each decision is pending until its work package lands and is
+accepted; each keeps everything 0.33.0 does, under the evolution policy of
+AD-15 carried into 0.34.0 (every public path and every `__all__` in content
+and order kept, a facade may re-export a private name under the G5
+ratchet until the tag, one recount per package and per wave), and each is
+proved by the oracles of the review (the 29 goldens, the tier-3 golden
+diff, the products snapshot, the record fixtures and
+`scripts/check_parity.py`), run in the commit that could break them.
+
+!!! decision "AD-16 The models of the cases root leave for six modules <span class='srs-pending'>pending</span>"
+    *Work package WP8 of the 0.34.0 scope (GEO-072, section 4.6), which
+    lands before WAKE-LENGTH (FR-321 to FR-325) because `SolverSettings`
+    holds the wake keys. Evidence owed: G1 for `cases/__init__.py` (under
+    2000 code lines, out of the table or carrying a stated `Size
+    exemption:` line), its G8 facade entry lower, the type-check
+    exemption list not grown, the oracles above unchanged, and the
+    package record RPT-120.*
+
+    Read at 0.34.0 (GOAL-039, arm W8).
+
+    Measured at v0.33.0: `cases/__init__.py` holds 2316 code lines, the
+    one module of the package over the hard limit of AD-08, and its G8
+    facade entry is 4916 lines. The models leave the root for six
+    modules of `pyflightstream.cases`:
+
+    - `cases/pproc.py`: `PprocSpec` and its parts,
+      `global_frame_plot_declarations` and the group-alias rule;
+    - `cases/reference_blocks.py`: `RotorBlock`, `ActuatorBlock`,
+      `BladeDatum`, `frame_basis_for_shaft`, `AliasCycleError` and
+      `AXIS_UNIT_VECTORS`;
+    - `cases/settings.py`: `SolverSettings`, `SOLVER_SETTING_COMMANDS`,
+      `FluidState`, `PointState`, `point_state_key` and `ReferenceData`;
+    - `cases/mesh.py`: `MeshOperation`, `CadImportOptions`, `MeshImport`,
+      `TrailingEdgeMarking`, `RawMeshConditions`, `BaseRegionOperation`
+      and `PortBoundary`;
+    - `cases/naming.py` and `cases/selection.py`: the naming and the
+      selection models of the root.
+
+    The root keeps `InputKey`, `CampaignConfigError`, `ScriptRecipe`,
+    `SweepAxis`, the exports vocabulary, `CustomFlag`, `RawCommand`,
+    `FrameSpec`, `SimCase`, `Campaign` and the recipes, and re-exports
+    every name it exported, its `__all__` unchanged in content and
+    order. The forward references between `SolverSettings`,
+    `PortBoundary` and `BaseRegionOperation` become imports from
+    `cases/mesh.py` into `cases/settings.py`, in that direction only.
+    `pyflightstream.cases` is exempt from the static type checker and
+    the six modules are not: every moved line is typed, and a construct
+    that resists is narrowed with a stated reason rather than given an
+    exemption. Each new module is public, declares `__all__` and has its
+    page in the API reference (NFR-29).
+
+    For the backlog: the six homes are where the 0.34.0 features add
+    their fields (the wake keys of FR-321 to FR-324 in `settings`), so
+    the root does not grow again; and the modules of the package that
+    use a moved name import it from its new module rather than through
+    the root, so the 0.35.0 cuts of `cases/matrix.py` and of the
+    `workspace` root read the models from their homes and the root adds
+    no import edge from `workspace` to `cases`.
+
+!!! decision "AD-17 The solver settings are emitted by family, behind the facade of solver_settings <span class='srs-pending'>pending</span>"
+    *Work package WP9a of the 0.34.0 scope (GEO-072, section 4.7), which
+    lands before WAKE-LENGTH because the wake emission is in
+    `solver_settings`. Evidence owed: `script/helpers.py` out of the G1
+    table, `solver_settings` out of the G2 length table, the 29 goldens
+    and the tier-3 golden diff unchanged, and the package record
+    RPT-121.*
+
+    Read at 0.34.0 (GOAL-039, arm W9).
+
+    Measured at v0.33.0: `script/helpers.py` holds 1678 code lines and
+    `solver_settings` is 461 lines with 61 parameters. The function
+    `pyflightstream.script.helpers.solver_settings` keeps its signature,
+    its defaults, its docstring's contract and its public path, and
+    becomes the facade over per-family emitters in a private module
+    `script/_settings.py`, one emitter per family of settings, each
+    called in the order the 0.33.0 function emitted, so the emitted
+    lines and their order are byte-identical. The relaxed trailing edge
+    emission moves to a private module `script/_relaxed_te.py`.
+    `solver_settings` leaves the G2 length table; its parameter count is
+    its public signature and stays.
+
+    For the backlog: the wake emission of FR-321 and FR-324 lands in the
+    wake family's emitter, and a later setup key of the solver chapters
+    (the audit of FR-319) lands in its family's emitter without growing
+    the facade; the families do not import `cases` or `workspace`, so the
+    0.35.0 cut of `workspace/matrix.py` (its setup binding) calls the
+    facade as it does today.
+
+!!! decision "AD-18 The parser of pyfs-matrix is built by family, and run/cli.py leaves its size exemption <span class='srs-pending'>pending</span>"
+    *Work package WP9b of the 0.34.0 scope (GEO-072, section 4.7), which
+    lands before the run-usability commands (FR-326, FR-327) and the
+    thin-blade command (FR-330). Evidence owed: `run/cli.py` under 1000
+    code lines with its `Size exemption:` line removed and out of the G1
+    table, `_build_parser` out of the G2 length table, the command-line
+    parity of `scripts/check_parity.py` (every console tool, subcommand,
+    option and choice) unchanged, and the package record RPT-122.*
+
+    Read at 0.34.0 (GOAL-039, arm W9).
+
+    Measured at v0.33.0: `run/cli.py` holds 1201 code lines under a
+    `Size exemption:` line, and `_build_parser` of `run/_cli_parsers.py`
+    is 556 lines. `_build_parser` becomes a short function that calls
+    one `_add_<family>_parsers` function per family of subcommands, in
+    the pattern of `_add_storage_parsers` and `_add_records_parsers`,
+    adding the subcommands in the order 0.33.0 added them, so the help
+    text and every accepted command line are unchanged. The print
+    helpers of `run/cli.py` move to a private module `run/_cli_print.py`.
+    `run.cli.main` and every public name of `run.cli` keep their path;
+    the tests that patch or import private names of `run.cli` are
+    retargeted before the tag.
+
+    For the backlog: the selection options of FR-326, the message of
+    FR-327 and the thin-blade subcommand of FR-330 land in their family
+    functions, and each later subcommand adds one family function or
+    extends one, so `run/cli.py` and `_build_parser` do not grow back;
+    the cheatsheet test of FR-328 walks the same parser and is unchanged
+    by the cut.
+
 ## Command-line surface
 
 Five console entry points, one per operational concern: `pyfs-qa`

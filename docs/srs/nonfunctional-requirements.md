@@ -1067,3 +1067,51 @@
       "not recorded" for a run that took none), and the C01 instrument does the
       same in the receipt copies it commits. The executable baseline is
       read from a local, uncommitted copy when bytes must be compared.
+
+!!! requirement "NFR-32 Every text file the package writes has LF line ends on every platform <span class='srs-pending'>pending</span>"
+    *Origin: the author decision of 2026-10-01 to standardise LF in every
+    product (scope record GEO-071, section 4.10), a behaviour change with a
+    migration note. Marker P0340-LF-PRODUCTS; read at 0.34.0 (GOAL-039,
+    arm LF). Pending: no code yet. Verification method: a tier-1 guard
+    carrying the marker, with a planted control; the products snapshot
+    judged on both platforms; the parity receipt of the release. Evidence
+    owed: a guard that walks `src/` and refuses a text write that bypasses
+    the one LF route, with a planted bypass as its control; a test that a
+    campaign posted on Windows holds no CR byte in any product; the
+    products snapshot comparing line ends on Linux and Windows; the
+    parity receipt naming the difference under this requirement; the
+    paragraph of the migration page.*
+
+    Every text file the package writes ends its lines with LF on every
+    platform, through one write route that a guard holds.
+
+    Why: the products CSV is written with LF, while the JSON files, logs
+    and other text files go through text mode and get CRLF on Windows, so
+    the same campaign posted on two platforms gives different bytes and a
+    byte snapshot cannot be portable.
+
+    - R1 Every text file the package writes (products, `products.json`,
+      the post log and its JSON, records, plans, receipts and the other
+      text outputs) is written with LF line ends on every platform, with
+      no CR byte.
+    - R2 Every text write of the package goes through one route that
+      writes LF (a floor helper, its home fixed by the implementation); a
+      tier-1 guard walks `src/` and refuses a text write that bypasses it,
+      and a planted bypass is its control.
+    - R3 A campaign posted on Windows holds no CR byte in any product; the
+      products snapshot judges line ends and compares equal on Linux and
+      on Windows.
+    - R4 Compared with 0.33.0, a product differs only by the CR bytes
+      removed; the parity script compares the post of a recorded workspace
+      after removing CR before LF on the 0.33.0 side, and names that
+      difference under this requirement.
+    - R5 The migration page of 0.34.0 states the change first among the
+      behaviour changes: a reader that split lines on CRLF reads LF now.
+    - R6 Files the solver reads (the emitted scripts and the input files
+      written for it) keep the bytes 0.33.0 wrote for them unless the
+      release's licensed runs on 26.124 run them in the new form; which
+      writers produce CRLF today is measured at the start of the work
+      package and listed in its record. Whether the solver-read files are
+      in the scope of R1 is an open point listed for the owner; until she
+      answers, R1 covers them and R6 is the condition under which they
+      change.
