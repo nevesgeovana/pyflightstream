@@ -304,7 +304,10 @@ def test_every_documented_page_is_built_and_reachable():
         re.findall(r"\]\(([\w./-]+\.md)(?:#[\w-]+)?\)", MIGRATION.read_text(encoding="utf-8"))
     )
     assert f"migrating-to-{RELEASED}.md" in cited
-    absent = sorted(page for page in cited if page not in targets)
+    # A directory entry of the menu (`api/`, `cli/`) is generated at build time
+    # and reaches every page under it.
+    folders = tuple(target for target in targets if target.endswith("/"))
+    absent = sorted(page for page in cited if page not in targets and not page.startswith(folders))
     assert not absent, f"pages the {RELEASED} notes cite that the menu lacks: {absent}"
 
 
@@ -429,11 +432,16 @@ _MIGRATION_NAMES_0_32_0 = {
     ),
 }
 
+_MIGRATION_NAMES_0_33_0 = {
+    "Every unsteady row registers the step counter.": ("step counter", "26.122"),
+}
+
 _MIGRATION_NAMES_BY_RELEASE = {
     "0.29.0": _MIGRATION_NAMES_0_29_0,
     "0.30.0": _MIGRATION_NAMES_0_30_0,
     "0.31.0": _MIGRATION_NAMES_0_31_0,
     "0.32.0": _MIGRATION_NAMES_0_32_0,
+    "0.33.0": _MIGRATION_NAMES_0_33_0,
 }
 
 #: The inputs each release's summary refuses, each of which its section and
@@ -448,6 +456,7 @@ _REFUSED_BY_RELEASE = {
     "0.30.0": ("unsteady_rotor",),
     "0.31.0": ("unsteady_rotor",),
     "0.32.0": ("unsteady_rotor",),
+    "0.33.0": ("unsteady_rotor",),
 }
 _PAGE_WORDS_BY_RELEASE = {
     # The unreleased sidecar form the 0.29.0 Added list says is refused.
@@ -455,6 +464,7 @@ _PAGE_WORDS_BY_RELEASE = {
     "0.30.0": ("PASSAGE_POSITIONS", "prune_step_exports", "--apply"),
     "0.31.0": ("PASSAGE_POSITIONS", "qsteady_rotor", "--apply"),
     "0.32.0": ("--apply", "REBUILT"),
+    "0.33.0": ("FAILED_MARKED", "--clean", "inputs/matrices"),
 }
 _MIGRATION_NAMES = _MIGRATION_NAMES_BY_RELEASE.get(RELEASED, {})
 
@@ -501,9 +511,14 @@ def test_the_migration_page_names_every_reader_facing_change():
     for word in _PAGE_WORDS_BY_RELEASE[RELEASED]:
         assert word in page, word
 
+    # The menu's directory entries are generated at build time, so a link into one
+    # has no committed file to find.
+    generated_folders = tuple(t for t in _nav_targets(_config()["nav"]) if t.endswith("/"))
     broken = []
     for target, anchor in re.findall(r"\]\(([\w./-]+\.md)(?:#([\w-]+))?\)", page):
         linked = DOCS / target
+        if target.startswith(generated_folders):
+            continue
         if not linked.is_file():
             broken.append(target)
             continue

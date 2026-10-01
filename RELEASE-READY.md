@@ -1,13 +1,11 @@
-# v0.32.0 is released by this sequence, followed as written
+# v0.33.0 is released by this sequence, followed as written
 
-0.32.0 is the release of THE WORKSPACE'S RESTORE, REBUILD AND SYNC MACHINERY,
-THE CONSOLE'S TITLED BLOCKS AND PROGRESS, AND THE DOCUMENTATION RESTRUCTURED
-BY TASK: `pyfs-matrix restore` and `rebuild` bring run records back from the
-workspace's archive or from the folders under `sims/`, `sync` names every
-simulation folder and can rebuild what it copies, the long commands show
-their progress and keep a live log, and the site's navigation is organised
-by task. The change log's `[0.32.0]` section is the record;
-`docs/migrating-to-0.32.0.md` says what a reader's files must change.
+0.33.0 is the release of THE ORGANISED HOUSE: the two matrix homes and one lookup,
+`pyfs-matrix mark-failed` and the FAILED_MARKED status, `inventory --clean` for saved
+solver actions, row setup keys, the architecture split into typed modules (the
+run facade, the workflow package, the post product families), and the documentation
+and traceability tightened. The change log's `[0.33.0]` section is the record;
+`docs/migrating-to-0.33.0.md` says what a reader's files must change.
 
 **THIS FILE IS RE-TITLED AND RE-MEASURED PER TAG.** It carried the v0.22.0 title,
 commands and readings through the whole 0.23.0 release, and it carried the v0.24.0
@@ -15,17 +13,17 @@ title and readings up to the eve of v0.25.0, where the INDEPENDENT REVIEW OF Git
 main caught it (finding 6, 2026-09-20): a reader following it would have tagged the
 previous release. Whether it is re-titled each time or split into a version-free
 sequence plus a per-release readings file is still the owner's call; until she
-rules, it is re-titled. The v0.31.0 edition is in the history of this file
-(`git show v0.31.0:RELEASE-READY.md`).
+rules, it is re-titled. The v0.32.0 edition is in the history of this file
+(`git show v0.32.0:RELEASE-READY.md`).
 
 ## The sequence, in order, and the steps that were missed before
 
 ```
 # 1. the release commit: set the version and CONFIRM the change log's date.
-#    pyproject.toml says 0.32.0.devN (the development tree) until this step, deliberately: a tree that
-#    already said 0.32.0 would have every run made from it reporting the released
+#    pyproject.toml says 0.33.0.devN (the development tree) until this step, deliberately: a tree that
+#    already said 0.33.0 would have every run made from it reporting the released
 #    version while being a different tree.
-#    (pyproject.toml: version = "0.32.0")
+#    (pyproject.toml: version = "0.33.0")
 #
 #    AND BOTH FRONT PAGES NAME THE NEW VERSION: the status line of README.md,
 #    which is the PyPI project page, and of docs/index.md.
@@ -52,7 +50,7 @@ rules, it is re-titled. The v0.31.0 edition is in the history of this file
 #    the rule inside the bullet: a footnote mentioning `owed` satisfies the guard
 #    on its own. IT GOES UNDER [Unreleased] -> Owed, not under the dated section:
 #    under the dated section the tag fails its own archive gate.
-git commit -m "chore: v0.32.0"
+git commit -m "chore: v0.33.0"
 
 # 2. THE INTERNAL REVIEW ROUND over the release range, every finding fixed or
 #    registered, recorded in the lane's rounds ledger.
@@ -82,22 +80,22 @@ git push origin main
 #    two rounds and thirty-one findings, three of them behaviour.
 
 # 5. the tag, annotated, on the reviewed commit, once CI is green on it
-git tag -a v0.32.0 -m "v0.32.0"
+git tag -a v0.33.0 -m "v0.33.0"
 
 # 6. push the tag. THIS PUBLISHES TO PyPI and nothing else.
-git push origin v0.32.0
+git push origin v0.33.0
 
 # 7. THE RELEASE OBJECT. This is the step that was missed at v0.17.0.
-gh release create v0.32.0 --title "v0.32.0" --notes-file <the section body and its limits>
+gh release create v0.33.0 --title "v0.33.0" --notes-file <the section body and its limits>
 
 # 8. the archive DOI. Zenodo's webhook fires on the RELEASE OBJECT of step 7,
 #    not on the tag of step 6. Read the new version DOI off the Zenodo record.
 
 # 9. the citation row, one commit after the tag
 #    CITATION.cff gains the version DOI from step 8, and the Owed line for
-#    v0.32.0 leaves the change log in the same commit. THE TREE MOVES TO THE NEXT
+#    v0.33.0 leaves the change log in the same commit. THE TREE MOVES TO THE NEXT
 #    .dev0 IN THAT COMMIT: the post-tag dev bump was missed after v0.21.1.
-git commit -m "chore: the v0.32.0 archive row"
+git commit -m "chore: the v0.33.0 archive row"
 
 # 10. confirm, rather than assume
 python scripts/check_release_published.py    # online is the default; --offline skips the network
@@ -129,10 +127,10 @@ Every number comes from a command run at the moment this file was written, with
 the command beside it. A reading of an earlier commit is evidence only for that
 commit, and no count of 0.31.0 is reused here.
 
-The release-cut commit sets the version (`pyproject.toml` 0.32.0), dates the
-change log's `[0.32.0]` section 2026-09-30, moves `CITATION.cff` to 0.32.0 with
-its `date-released`, names v0.32.0 on both front pages and keeps the guide's
-cover at 0.32.0. Its tests are recorded with that commit.
+The release-cut commit sets the version (`pyproject.toml` 0.33.0), dates the
+change log's `[0.33.0]` section 2026-10-01, moves `CITATION.cff` to 0.33.0 with
+its `date-released`, names v0.33.0 on both front pages and keeps the guide's
+cover at 0.33.0. Its tests are recorded with that commit.
 
 PENDING, and not claimed by this file until its evidence is attached to the
 commit it names:
@@ -143,4 +141,4 @@ commit it names:
 - **CI green on the commit to be tagged**, including the release workflow's single
   build and its clean installed-wheel jobs.
 - **The tag, its PyPI publication, the release object and the Zenodo version
-  DOI** (steps 5 to 10). The v0.32.0 archive row is owed in the change log.
+  DOI** (steps 5 to 10). The v0.33.0 archive row is owed in the change log.
