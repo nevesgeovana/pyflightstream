@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from pyflightstream.run import _cli_print
 from pyflightstream.run import cli as matrix_cli
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace import storage as storage_module
@@ -88,7 +89,7 @@ def test_force_preview_names_the_submitted_sim_and_changes_nothing(tmp_path, cap
     assert workspace.sim_dir("6001").exists() and workspace.sim_dir("6002").exists()
     assert workspace.manifest_path.read_bytes() == before
     assert (workspace.root / "post" / "matriz" / "sim_6001_diag.csv").exists()
-    matrix_cli._print_delete_sims(entry)
+    _cli_print._print_delete_sims(entry)
     assert "sim 6001: still SUBMITTED, deleted because of --force" in capsys.readouterr().out
 
 

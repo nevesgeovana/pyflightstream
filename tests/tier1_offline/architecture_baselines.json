@@ -6,7 +6,6 @@
   "post/corrections.py": 1006,
   "post/input_template.py": 1455,
   "qa/specs.py": 1334,
-  "run/cli.py": 1201,
   "run/matrix.py": 1304,
   "script/helpers.py": 1678,
   "workspace/__init__.py": 1608,
@@ -674,19 +673,19 @@
    "statements": 23,
    "positional": 1
   },
-  "run/cli.py:_plan_blocks": {
+  "run/_cli_print.py:_plan_blocks": {
    "complexity": 11,
    "branches": 10,
    "statements": 31,
    "positional": 1
   },
-  "run/cli.py:_print_free_space_paths": {
+  "run/_cli_print.py:_print_free_space_paths": {
    "complexity": 15,
    "branches": 17,
    "statements": 24,
    "positional": 2
   },
-  "run/cli.py:_print_sync": {
+  "run/_cli_print.py:_print_sync": {
    "complexity": 15,
    "branches": 14,
    "statements": 31,
@@ -1450,7 +1449,7 @@
   "pyflightstream.run._rebuild": 2,
   "pyflightstream.run._rebuild_evidence": 3,
   "pyflightstream.run._solver_windows": 1,
-  "pyflightstream.run.cli": 12,
+  "pyflightstream.run.cli": 9,
   "pyflightstream.run.collect": 6,
   "pyflightstream.run.matrix": 5,
   "pyflightstream.run.records": 1,
@@ -1477,6 +1476,7 @@
   "pyflightstream.run._assessment": 4,
   "pyflightstream.run._campaign": 1,
   "pyflightstream.run._cli_parsers": 1,
+  "pyflightstream.run._cli_print": 3,
   "pyflightstream.run._continuation": 1,
   "pyflightstream.run._executors": 4,
   "pyflightstream.run._identity": 2,
@@ -1507,7 +1507,8 @@
   "pyflightstream.results.tables": 3,
   "pyflightstream.run._rebuild": 1,
   "pyflightstream.run._solver_windows": 2,
-  "pyflightstream.run.cli": 10,
+  "pyflightstream.run._cli_print": 1,
+  "pyflightstream.run.cli": 9,
   "pyflightstream.run.collect": 4,
   "pyflightstream.run.matrix": 8,
   "pyflightstream.run.records": 2,
@@ -1738,6 +1739,7 @@
    "order": [
     "cli",
     "_cli_parsers",
+    "_cli_print",
     "rename",
     "records",
     "_rebuild",
