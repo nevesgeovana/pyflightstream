@@ -142,3 +142,24 @@ def test_p0340_act_swirl_sign_parity_names_the_sign_flip_alone(new, named):
         "a disc of rpm_sign -1 changes from -2400.0 to 2400.0, which is the same flip",
         backwards,
     )
+
+
+#: The same emission for a disc of rpm_sign -1 in 0.33.0, its speed handed negative.
+OLD_MINUS = OLD.replace("RPM 1 2400.0", "RPM 1 -2400.0")
+
+
+@pytest.mark.parametrize(
+    ("new", "named"),
+    [
+        (OLD, True),
+        (OLD.replace("RPM 1 2400.0", "RPM 2 2400.0"), False),
+        (OLD.replace("RPM 1 2400.0", "RPM 1 2500.0"), False),
+    ],
+    ids=["sign-flip", "index", "magnitude"],
+)
+def test_p0340_act_swirl_sign_parity_minus_first_holds_index_and_magnitude(new, named):
+    """P0340-ACT-SWIRL-SIGN, FR-331 R4: from a 0.33.0 disc speed handed negative, the
+    flip to positive is named, and a flip that also moves the disc index or the magnitude
+    stays unnamed, so the minus-first branch of the block holds the index and the speed."""
+    entry = _parity().name_difference("scripts", "P5008-x.txt", OLD_MINUS, new, {"FR-331"})
+    assert (entry.get("requirement") == "FR-331") is named, entry
