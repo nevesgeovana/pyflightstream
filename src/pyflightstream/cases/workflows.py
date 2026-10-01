@@ -71,6 +71,7 @@ from pathlib import Path, PurePath
 from types import MappingProxyType
 from typing import Literal, NoReturn
 
+import pyflightstream.cases._setup_link as _setup_link
 from pyflightstream._atmosphere import ISA
 from pyflightstream._deprecations import (
     ROW_MOVING_BOUNDARIES,
@@ -126,7 +127,6 @@ from pyflightstream.cases import (
     ScriptRecipe,
     SimCase,
     TrailingEdgeMarking,
-    _setup_link,
     alias_members_missing,
     classify_outputs,
     frame_basis_for_shaft,
