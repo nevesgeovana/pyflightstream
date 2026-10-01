@@ -3,7 +3,6 @@
 import inspect
 import json
 import warnings
-from pathlib import Path
 
 import pytest
 
@@ -1142,16 +1141,18 @@ def test_every_separation_model_appears_in_all_four_parallel_lists():
     )
     keywords = set(inspect.signature(helpers.solver_settings).parameters)
     assert set(SEPARATION_MODELS) <= keywords
-    # The emission loop is source, not data, so it is read as source.
-    source = Path(helpers.__file__).read_text(encoding="utf-8")
-    emission = source.split('("airfoil_separation", "CREATE_AIRFOIL_SEPARATION")', 1)[1][:400]
+    # The emission tuple was source inside solver_settings and was read as
+    # source; since 0.34.0 (AD-17) it is the data table of the separation
+    # family in script/_settings.py, so it is read as data, exactly.
+    from pyflightstream.script._settings import ASSIGNMENT_COMMANDS
+
+    emitted = [keyword for keyword, command in ASSIGNMENT_COMMANDS if command.startswith("CREATE")]
     for keyword in SEPARATION_MODELS:
-        assert keyword in source, keyword
-        if keyword != "airfoil_separation":
-            assert f'("{keyword}", "CREATE' in emission, (
-                f"{keyword} is a separation model keyword with no row in the emission "
-                "tuple of solver_settings, so it would validate and emit nothing"
-            )
+        assert keyword in emitted, (
+            f"{keyword} is a separation model keyword with no row in the emission "
+            "tuple of solver_settings, so it would validate and emit nothing"
+        )
+    assert len(emitted) == len(ASSIGNMENT_COMMANDS) == len(SEPARATION_MODELS)
 
 
 @pytest.mark.parametrize(
