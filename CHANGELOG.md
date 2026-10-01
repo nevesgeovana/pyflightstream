@@ -9,6 +9,11 @@ FlightStream versions.
 
 ### Owed
 
+- **The Zenodo archive row of v0.33.1 is owed.** A version DOI is minted from
+  the GitHub release object and recorded one commit after the tag, so between
+  the tag and that commit this release has no archive row; cite the concept DOI
+  until it lands.
+
 - **The Zenodo archive of v0.14.0 DOES NOT EXIST**, re-measured against
   Zenodo's own API on 2026-09-14, when the v0.18.0 archive row was paid: the
   concept record lists NINETEEN archived versions and v0.14.0 is not among
@@ -22,6 +27,21 @@ FlightStream versions.
   Until that row lands this section says so, because a shipped release that
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
+
+## [0.33.1] - 2026-10-01
+
+### Changed
+
+- The tier 1 suite runs in parallel: `pytest-xdist` joins the dev extra, and the CI and release workflows run tier 1 and the coverage floor with `-n auto`, so the 36 minute serial run of 0.33.0 is no longer the wall time of a gate (no requirement: development tooling, not a library behaviour).
+
+### Fixed
+
+- From its second point on, a steady row that imports its trailing edges from a file is no longer recorded FAILED_INCOMPLETE_OUTPUT with "no solver log was read" while its log is on disk (FR-55). The points of a steady row run as one job in one solver session, and each point's exported log holds every solve of the session so far, which the package did not read as a log. Where no collected output reads as the log of one solve, the point's one collected `_log.txt` is now its log, so its trailing-edge count is read and the point keeps its verdict; two such files still name no log. The residual of points 2 onward is unchanged.
+- A row whose geometry carries none of the families its pproc artifact's section distributions cut, a body row citing an artifact that cuts the wing, no longer declares the section Cp plot `{name}_plot_cp_sections.txt` nor exports it with `SECTIONS_CP`, so its points are no longer recorded FAILED_INCOMPLETE_OUTPUT for a plot the solver cannot write with no section to plot (FR-51). The declaration follows the family selection the builder makes over the row's geometry, the builder still warns that the distribution is left out, and a row whose geometry carries a cut family, or whose inventory is not known, declares and exports the plot as before.
+
+### Migration
+
+- Points that read FAILED_INCOMPLETE_OUTPUT falsely now read CONVERGED: from the second point on, a steady row importing its trailing edges from a file whose run converged (a sweep's points 2 to n on the solver-log route), and every point of a body row whose pproc artifact plots wing sections, whose outputs no longer list `{name}_plot_cp_sections.txt`. A record written before 0.33.1 keeps the status it was written with; nothing in a matrix or an artifact changes, and the only script change is the section Cp plot export left out of such a row.
 
 ## [0.33.0] - 2026-10-01
 
@@ -13849,7 +13869,8 @@ the repository seeding and this tag (milestones M0 through M5).
 * 26.000: registered, no recorded evidence yet (honest empty column;
   backfill planned for v0.2+).
 
-[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.33.0...HEAD
+[Unreleased]: https://github.com/nevesgeovana/pyflightstream/compare/v0.33.1...HEAD
+[0.33.1]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.33.1
 [0.33.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.33.0
 [0.32.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.32.0
 [0.31.0]: https://github.com/nevesgeovana/pyflightstream/releases/tag/v0.31.0

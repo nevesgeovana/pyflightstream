@@ -62,8 +62,8 @@ license: MIT
 # tag was missed (RELEASE-READY.md says so); the v0.31.0 release was the
 # FORTY-FIFTH move; 0.32.0.dev0 OPENED 0.32.0 DEVELOPMENT, the FORTY-SIXTH
 # move, the v0.32.0 release was the FORTY-SEVENTH; 0.33.0.dev0 OPENED 0.33.0
-# DEVELOPMENT, the FORTY-EIGHTH move, and THIS COMMIT IS THE v0.33.0
-# RELEASE, the FORTY-NINTH, and the paragraph is re-stated with it
+# DEVELOPMENT, the FORTY-EIGHTH move, the v0.33.0 release the FORTY-NINTH, and
+# THIS COMMIT IS THE v0.33.1 RELEASE, the FIFTIETH, and the paragraph is re-stated with it
 # because a tally naming a bump three releases old as "this" one is the
 # same staleness from the other side (the independent review of GitHub
 # main, 2026-09-22). A FOURTH
@@ -103,7 +103,7 @@ license: MIT
 # v0.17.0 for a day. Older ones
 # stay, because those releases did happen and are still what a citation
 # of them should resolve to.
-version: 0.33.0
+version: 0.33.1
 date-released: 2026-10-01
 repository-code: "https://github.com/nevesgeovana/pyflightstream"
 identifiers:

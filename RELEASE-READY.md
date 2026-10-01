@@ -1,11 +1,10 @@
-# v0.33.0 is released by this sequence, followed as written
+# v0.33.1 is released by this sequence, followed as written
 
-0.33.0 is the release of THE ORGANISED HOUSE: the two matrix homes and one lookup,
-`pyfs-matrix mark-failed` and the FAILED_MARKED status, `inventory --clean` for saved
-solver actions, row setup keys, the architecture split into typed modules (the
-run facade, the workflow package, the post product families), and the documentation
-and traceability tightened. The change log's `[0.33.0]` section is the record;
-`docs/migrating-to-0.33.0.md` says what a reader's files must change.
+0.33.1 is the PATCH RELEASE OF THE TWO FALSE FAILED_INCOMPLETE_OUTPUT READINGS: a steady
+row's points 2 to n on the solver-log route, and a body row whose pproc artifact
+plots wing sections, no longer read FAILED_INCOMPLETE_OUTPUT falsely, and the tier 1
+suite runs in parallel with pytest-xdist.
+its Migration section says what a reader's files must change.
 
 **THIS FILE IS RE-TITLED AND RE-MEASURED PER TAG.** It carried the v0.22.0 title,
 commands and readings through the whole 0.23.0 release, and it carried the v0.24.0
@@ -20,10 +19,10 @@ rules, it is re-titled. The v0.32.0 edition is in the history of this file
 
 ```
 # 1. the release commit: set the version and CONFIRM the change log's date.
-#    pyproject.toml says 0.33.0.devN (the development tree) until this step, deliberately: a tree that
-#    already said 0.33.0 would have every run made from it reporting the released
+#    pyproject.toml says 0.33.1.devN (the development tree) until this step, deliberately: a tree that
+#    already said 0.33.1 would have every run made from it reporting the released
 #    version while being a different tree.
-#    (pyproject.toml: version = "0.33.0")
+#    (pyproject.toml: version = "0.33.1")
 #
 #    AND BOTH FRONT PAGES NAME THE NEW VERSION: the status line of README.md,
 #    which is the PyPI project page, and of docs/index.md.
@@ -50,7 +49,7 @@ rules, it is re-titled. The v0.32.0 edition is in the history of this file
 #    the rule inside the bullet: a footnote mentioning `owed` satisfies the guard
 #    on its own. IT GOES UNDER [Unreleased] -> Owed, not under the dated section:
 #    under the dated section the tag fails its own archive gate.
-git commit -m "chore: v0.33.0"
+git commit -m "chore: v0.33.1"
 
 # 2. THE INTERNAL REVIEW ROUND over the release range, every finding fixed or
 #    registered, recorded in the lane's rounds ledger.
@@ -80,22 +79,22 @@ git push origin main
 #    two rounds and thirty-one findings, three of them behaviour.
 
 # 5. the tag, annotated, on the reviewed commit, once CI is green on it
-git tag -a v0.33.0 -m "v0.33.0"
+git tag -a v0.33.1 -m "v0.33.1"
 
 # 6. push the tag. THIS PUBLISHES TO PyPI and nothing else.
-git push origin v0.33.0
+git push origin v0.33.1
 
 # 7. THE RELEASE OBJECT. This is the step that was missed at v0.17.0.
-gh release create v0.33.0 --title "v0.33.0" --notes-file <the section body and its limits>
+gh release create v0.33.1 --title "v0.33.1" --notes-file <the section body and its limits>
 
 # 8. the archive DOI. Zenodo's webhook fires on the RELEASE OBJECT of step 7,
 #    not on the tag of step 6. Read the new version DOI off the Zenodo record.
 
 # 9. the citation row, one commit after the tag
 #    CITATION.cff gains the version DOI from step 8, and the Owed line for
-#    v0.33.0 leaves the change log in the same commit. THE TREE MOVES TO THE NEXT
+#    v0.33.1 leaves the change log in the same commit. THE TREE MOVES TO THE NEXT
 #    .dev0 IN THAT COMMIT: the post-tag dev bump was missed after v0.21.1.
-git commit -m "chore: the v0.33.0 archive row"
+git commit -m "chore: the v0.33.1 archive row"
 
 # 10. confirm, rather than assume
 python scripts/check_release_published.py    # online is the default; --offline skips the network
@@ -127,10 +126,10 @@ Every number comes from a command run at the moment this file was written, with
 the command beside it. A reading of an earlier commit is evidence only for that
 commit, and no count of 0.31.0 is reused here.
 
-The release-cut commit sets the version (`pyproject.toml` 0.33.0), dates the
-change log's `[0.33.0]` section 2026-10-01, moves `CITATION.cff` to 0.33.0 with
-its `date-released`, names v0.33.0 on both front pages and keeps the guide's
-cover at 0.33.0. Its tests are recorded with that commit.
+The release-cut commit sets the version (`pyproject.toml` 0.33.1), dates the
+change log's `[0.33.1]` section 2026-10-01, moves `CITATION.cff` to 0.33.1 with
+its `date-released`, names v0.33.1 on both front pages and keeps the guide's
+cover at 0.33.1. Its tests are recorded with that commit.
 
 PENDING, and not claimed by this file until its evidence is attached to the
 commit it names:
@@ -141,4 +140,4 @@ commit it names:
 - **CI green on the commit to be tagged**, including the release workflow's single
   build and its clean installed-wheel jobs.
 - **The tag, its PyPI publication, the release object and the Zenodo version
-  DOI** (steps 5 to 10). The v0.33.0 archive row is owed in the change log.
+  DOI** (steps 5 to 10). The v0.33.1 archive row is owed in the change log.
