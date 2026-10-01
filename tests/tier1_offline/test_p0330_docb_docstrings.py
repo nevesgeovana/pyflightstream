@@ -65,12 +65,13 @@ FACADE_HELD = {
 #: modules all pass, leaves this list and the examples list. WP6
 #: (AD-14) moved the pending functions of the `run` root into `run._campaign`,
 #: `run._executors`, `run._identity` and `run._plan`, pinned in its stead; the
-#: root, a facade now, leaves the list.
+#: root, a facade now, leaves the list. DOC-B part 2 g3 documented
+#: `results.sectional_loads`, `results.core`, `results.log` and the four
+#: `post` family modules, which left.
 NUMPYDOC_PENDING = {
     "cases/__init__.py",
     "farfield/__init__.py",
     "probes/__init__.py",
-    "results/sectional_loads.py",
     "cases/windows.py",
     "post/field_frames.py",
     "post/glossary.py",
@@ -80,13 +81,7 @@ NUMPYDOC_PENDING = {
     "post/products.py",
     # WP5 (AD-13) moved the pending functions of `post.products` into the four
     # family modules, which are pinned in their stead.
-    "post/point_tables.py",
-    "post/polar.py",
-    "post/rotor_table.py",
-    "post/unsteady_polar.py",
-    "results/core.py",
     "results/loads.py",
-    "results/log.py",
     "results/native_surface.py",
     "results/surface.py",
     "results/tables.py",
