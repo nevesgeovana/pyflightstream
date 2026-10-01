@@ -60,8 +60,18 @@ from dataclasses import dataclass
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+# PyflightstreamError and the six names from pyflightstream.results are
+# imported only because 0.32.0 offered them from this module; each keeps
+# importing from here (a release does everything the previous one did).
+from pyflightstream._errors import PyflightstreamError as PyflightstreamError
 from pyflightstream.fsi.config import FsiConfig, frame_embedding
 from pyflightstream.fsi.errors import FsiInputError
+from pyflightstream.results import AnchorNotFoundError as AnchorNotFoundError
+from pyflightstream.results import IncompleteOutputError as IncompleteOutputError
+from pyflightstream.results import delimited_table as delimited_table
+from pyflightstream.results import labeled_value as labeled_value
+from pyflightstream.results import parse_count as parse_count
+from pyflightstream.results import parse_number as parse_number
 
 # The parser of the export and the report it returns are defined in the
 # results row since 0.33.0 (AD-10), which removed the cycle between this
