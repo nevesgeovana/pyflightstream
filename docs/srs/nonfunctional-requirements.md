@@ -880,7 +880,12 @@
     merged read 192 errors in 17 of 219 modules on 2026-10-01, the
     exempted set shrinking from eighteen to seventeen modules because WP6
     made `pyflightstream.run` a facade over typed modules and deleted its
-    override (decision 7), its 930 errors leaving the debt with it.
+    override (decision 7), its 930 errors leaving the debt with it; and
+    the 0.34.0 branch of work package WP8 read 184 errors in 17 of 225
+    modules on 2026-10-01, the six model modules AD-16 cut out of the
+    `cases` root each clean and not exempted, and the root, still exempt,
+    reporting 1 error where it reported 9 because every moved line was
+    typed.
     The seventeen exempted modules are the set of the eighteen less
     `pyflightstream.run`, every module a release
     adds is clean, and the shipped configuration is green over all of them.
