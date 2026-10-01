@@ -10,8 +10,11 @@ own interpreter process whose ``pyflightstream`` is asserted to be imported
 from that tree:
 
 1. **api**: every name in every ``__all__`` of the base still imports from the
-   same dotted path at the release. ``stamp_derived_campaign`` is the one
-   exemption, deleted by decision 9 of the 0.33 scope.
+   same dotted path at the release, and so does every public name a base module
+   WITHOUT ``__all__`` offers (bound at module level, not starting with ``_``,
+   not a module, not imported from outside the package; see
+   :func:`offered_names`). ``stamp_derived_campaign`` is the one exemption,
+   deleted by decision 9 of the 0.33 scope.
 2. **cli**: every console script of the base ``pyproject.toml``, every
    subcommand, every option string and every ``choices`` value is still in the
    release parser (a parser diff; each parser is captured at the moment its
@@ -30,8 +33,10 @@ pattern, only when every changed line matches it. Anything else is a failure.
 
 CONTROLS. A comparator that cannot see a difference would report parity for
 everything, so each run plants one difference per comparison into the real
-observations (a name no module exports, a flag no parser has, one changed line
-of a render, one changed byte of a product) and requires each to be caught. The
+observations (a name no module exports, a name a module without ``__all__``
+lacks, a flag no parser has, one changed line of a render, one changed byte of
+a product) and requires each to be caught; the reader of a module without
+``__all__`` is also run over a planted module whose offered names are known. The
 receipt records ``caught <k> of <k>``; anything less is PARITY: FAIL.
 
 TEMPORARY FILES. The exported trees, the renders and the workspace copy live in
@@ -45,11 +50,13 @@ receipt would otherwise claim a script that did not produce it.
 from __future__ import annotations
 
 import argparse
+import ast
 import datetime as dt
 import difflib
 import fnmatch
 import hashlib
 import importlib
+import inspect
 import io
 import json
 import os
@@ -60,6 +67,7 @@ import sys
 import tarfile
 import tempfile
 import tomllib
+import types
 from pathlib import Path
 from typing import Any
 
@@ -173,6 +181,8 @@ POST_NORMALIZE: list[tuple[str, str, str, str]] = [
 TEXT_SUFFIXES = {".csv", ".json", ".log", ".txt", ".md", ".dat", ".vtk", ".toml", ".fs"}
 PLANTED_NAME = "__parity_control_name__"
 PLANTED_FLAG = "--parity-control-flag"
+#: The planted controls a run must catch: three api, one cli, one scripts, one post.
+CONTROLS = 6
 
 
 # --------------------------------------------------------------------------- collectors
@@ -186,10 +196,130 @@ def _assert_tree(tree: Path) -> None:
         raise SystemExit(f"{PACKAGE} imported from {where}, not from the tree {tree}")
 
 
+def _is_package_import(node: ast.ImportFrom) -> bool:
+    """Return whether a ``from ... import`` statement reads from this package."""
+    module = node.module or ""
+    return node.level > 0 or module == PACKAGE or module.startswith(f"{PACKAGE}.")
+
+
+def _module_bindings(source: str) -> dict[str, set[str]]:
+    """Map every name bound at module level to how it is bound.
+
+    The kinds are ``defined`` (a def, a class, an assignment or any other
+    binding statement), ``package`` (imported from this package) and
+    ``outside`` (imported from anywhere else). Statements nested in a module
+    level ``if``, ``try`` or ``with`` count; function and class bodies do not.
+    """
+    kinds: dict[str, set[str]] = {}
+
+    def bind(name: str, kind: str) -> None:
+        kinds.setdefault(name, set()).add(kind)
+
+    def targets(node: ast.AST) -> None:
+        for sub in ast.walk(node):
+            if isinstance(sub, ast.Name):
+                bind(sub.id, "defined")
+
+    def visit(body: list[ast.stmt]) -> None:
+        for node in body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                bind(node.name, "defined")
+            elif isinstance(node, ast.ImportFrom):
+                kind = "package" if _is_package_import(node) else "outside"
+                for alias in node.names:
+                    if alias.name != "*":
+                        bind(alias.asname or alias.name, kind)
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    bind(alias.asname or alias.name.partition(".")[0], "outside")
+            elif isinstance(node, ast.Assign):
+                for target in node.targets:
+                    targets(target)
+            elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+                targets(node.target)
+            elif isinstance(node, (ast.For, ast.AsyncFor)):
+                targets(node.target)
+                visit(node.body + node.orelse)
+            elif isinstance(node, (ast.With, ast.AsyncWith)):
+                for item in node.items:
+                    if item.optional_vars is not None:
+                        targets(item.optional_vars)
+                visit(node.body)
+            elif isinstance(node, ast.If):
+                visit(node.body + node.orelse)
+            elif isinstance(node, ast.Try):
+                handlers = [stmt for h in node.handlers for stmt in h.body]
+                visit(node.body + handlers + node.orelse + node.finalbody)
+
+    visit(ast.parse(source).body)
+    return kinds
+
+
+def offered_names(module: Any, source: str) -> list[str]:
+    """Return the public names a module without ``__all__`` offers.
+
+    A name is offered when it is bound at module level, does not start with
+    ``_``, is not a module object, and is not imported from outside this
+    package: it is defined in the module, or re-exported from another module of
+    the package. A function or class re-exported from the package whose own
+    ``__module__`` lies outside it (``Path`` passed along by a sibling) is not
+    offered by the package, and neither is a name the source never binds
+    unless its object's ``__module__`` is in the package.
+    """
+    kinds = _module_bindings(source)
+    offered = []
+    for name, value in vars(module).items():
+        if name.startswith("_") or inspect.ismodule(value):
+            continue
+        bound = kinds.get(name, set())
+        owner = getattr(value, "__module__", None)
+        named_object = inspect.isclass(value) or inspect.isroutine(value)
+        foreign = (
+            named_object
+            and isinstance(owner, str)
+            and owner != PACKAGE
+            and not owner.startswith(f"{PACKAGE}.")
+        )
+        if "defined" in bound:
+            offered.append(name)
+        elif "package" in bound:
+            if not foreign:
+                offered.append(name)
+        elif not bound and named_object and not foreign:
+            offered.append(name)
+    return sorted(offered)
+
+
+#: The classifier's control: a planted module source and the names it must offer.
+_CLASSIFIER_SOURCE = (
+    "from __future__ import annotations\n"
+    "import os\n"
+    "from pathlib import Path\n"
+    f"from {PACKAGE} import __name__ as package_name\n"
+    "LIMIT = 3\n"
+    "def act() -> None: ...\n"
+    "class Kind: ...\n"
+    "_hidden = 1\n"
+)
+_CLASSIFIER_OFFERS = ["Kind", "LIMIT", "act", "package_name"]
+
+
+def classifier_control() -> bool:
+    """Run :func:`offered_names` over a planted module; return whether it is exact."""
+    planted = types.ModuleType(f"{PACKAGE}._parity_control_module")
+    exec(compile(_CLASSIFIER_SOURCE, "<parity control>", "exec"), planted.__dict__)  # noqa: S102
+    return offered_names(planted, _CLASSIFIER_SOURCE) == _CLASSIFIER_OFFERS
+
+
 def collect_api(tree: Path) -> dict[str, Any]:
-    """Every ``__all__`` of the tree, by module, and the modules that do not import."""
+    """Every ``__all__`` of the tree, the names of each module without one, and failures.
+
+    ``exports`` holds each ``__all__`` by module; ``offered`` holds, for every
+    module that has no ``__all__``, the public names :func:`offered_names` finds.
+    """
     src = tree / "src"
     exports: dict[str, list[str]] = {}
+    offered: dict[str, list[str]] = {}
     unimportable: dict[str, str] = {}
     for path in sorted((src / PACKAGE).rglob("*.py")):
         rel = path.relative_to(src).with_suffix("")
@@ -205,7 +335,14 @@ def collect_api(tree: Path) -> dict[str, Any]:
         names = getattr(module, "__all__", None)
         if names is not None:
             exports[name] = sorted(str(n) for n in names)
-    return {"exports": exports, "unimportable": unimportable}
+        else:
+            offered[name] = offered_names(module, path.read_text(encoding="utf-8"))
+    return {
+        "exports": exports,
+        "offered": offered,
+        "unimportable": unimportable,
+        "classifier_control": classifier_control(),
+    }
 
 
 def resolve_api(pairs: list[list[str]]) -> list[str]:
@@ -472,9 +609,9 @@ def srs_ids(tree: Path) -> set[str]:
     return set(re.findall(r"\b(?:FR|NFR|IR|DR|AD|CR|SR|QR)-\d+[a-z]?\b", text))
 
 
-def api_pairs(api: dict[str, Any]) -> list[list[str]]:
-    """Flatten the collected exports into ``[module, name]`` pairs."""
-    return [[m, n] for m, names in sorted(api["exports"].items()) for n in names]
+def api_pairs(api: dict[str, Any], key: str = "exports") -> list[list[str]]:
+    """Flatten the collected ``exports`` (or ``offered``) into ``[module, name]`` pairs."""
+    return [[m, n] for m, names in sorted(api[key].items()) for n in names]
 
 
 def as_text(files: dict[str, bytes]) -> dict[str, str]:
@@ -519,9 +656,16 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
 
         export(release_sha, tree)
         (temp / "release").mkdir()
-        pairs = [p for p in api_pairs(api_base) if p[1] not in API_EXEMPT]
-        exempt = [f"{m}.{n}" for m, n in api_pairs(api_base) if n in API_EXEMPT]
-        planted = [*pairs, [PACKAGE, PLANTED_NAME]]
+        listed = api_pairs(api_base)
+        offered = api_pairs(api_base, "offered")
+        listed_pairs = [p for p in listed if p[1] not in API_EXEMPT]
+        offered_pairs = [p for p in offered if p[1] not in API_EXEMPT]
+        pairs = [*listed_pairs, *offered_pairs]
+        exempt = [f"{m}.{n}" for m, n in [*listed, *offered] if n in API_EXEMPT]
+        # The second planted name sits in the first module without __all__, so
+        # the path that reads such modules is itself shown able to fail.
+        planted_module = min(api_base["offered"], default=PACKAGE)
+        planted = [*pairs, [PACKAGE, PLANTED_NAME], [planted_module, PLANTED_NAME]]
         request = temp / "release" / "pairs.json"
         request.write_text(json.dumps(planted), encoding="utf-8")
         missing_api = run_child(python, "resolve", tree, temp / "release", request)
@@ -540,13 +684,28 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
 
     controls: list[str] = []
     planted_key = f"{PACKAGE}.{PLANTED_NAME}"
+    planted_offered = f"{planted_module}.{PLANTED_NAME}"
     if planted_key in missing_api:
         controls.append("api: a name no module exports was reported missing")
-    missing_api = [m for m in missing_api if m != planted_key]
+    if planted_module != PACKAGE and planted_offered in missing_api:
+        controls.append(
+            f"api: a name {planted_module} (no __all__) lacks at the release was reported missing"
+        )
+    if api_base.get("classifier_control") is True:
+        controls.append(
+            "api: the reader of a module without __all__ offered exactly its defined and "
+            "package names of a planted module, and none of its outside imports"
+        )
+    missing_api = [m for m in missing_api if m not in (planted_key, planted_offered)]
+    offered_keys = {f"{m}.{n}" for m, n in offered_pairs}
     api = {
         "checked": len(pairs),
+        "checked_from_all": len(listed_pairs),
+        "checked_without_all": len(offered_pairs),
         "modules": len(api_base["exports"]),
+        "modules_without_all": len(api_base["offered"]),
         "missing": missing_api,
+        "missing_without_all": [m for m in missing_api if m in offered_keys],
         "exempt": {name: API_EXEMPT[name.rsplit(".", 1)[1]] for name in exempt},
         "unimportable_at_base": api_base["unimportable"],
     }
@@ -607,8 +766,8 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
             failures.append(f"{len(loose)} {kind} differ without a named requirement: {loose[:3]}")
     if post["exit"] != {"base": 0, "release": 0}:
         failures.append(f"post exited {post['exit']}")
-    if len(controls) != 4:
-        failures.append(f"the planted controls caught {len(controls)} of 4")
+    if len(controls) != CONTROLS:
+        failures.append(f"the planted controls caught {len(controls)} of {CONTROLS}")
 
     return {
         "script": SCRIPT,
@@ -624,7 +783,7 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         "scripts": scripts,
         "post": post,
         "named_differences": NAMED_DIFFERENCES,
-        "controls": {"caught": f"caught {len(controls)} of 4", "detail": controls},
+        "controls": {"caught": f"caught {len(controls)} of {CONTROLS}", "detail": controls},
         "failures": failures,
         "verdict": "PARITY: FAIL" if failures else "PARITY: PASS",
     }
