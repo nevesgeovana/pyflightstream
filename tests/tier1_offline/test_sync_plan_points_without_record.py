@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 
-from pyflightstream.run import cli as matrix_cli
+from pyflightstream.run import _cli_print
 from pyflightstream.workspace import storage as storage_module
 from tests.tier1_offline.test_goal035_storage import _record, _sync_pair
 
@@ -36,7 +36,7 @@ def test_sync_names_the_planned_points_no_merged_record_carries(tmp_path, capsys
     assert report == {"hpc": {"planned": 10, "without_record": PLANNED[6:]}}
     recorded = storage_module.read_storage_calls(main.root)[-1]
     assert recorded["plan_points_without_record"] == report
-    matrix_cli._print_sync(entry)
+    _cli_print._print_sync(entry)
     out = capsys.readouterr().out
     assert "PLANNED WITHOUT RECORD hpc: 4 of 10 planned point(s)" in out
     assert "campo/sim_4016/J07" in out and "campo/sim_4016/J10" in out
@@ -51,7 +51,7 @@ def test_a_point_main_already_records_is_not_reported(tmp_path, capsys):
         main.append_record(_record("4016", run_id))
     (entry,) = storage_module.sync_workspaces(main.root, "runs", apply=False)
     assert entry["plan_points_without_record"] == {"hpc": {"planned": 10, "without_record": []}}
-    matrix_cli._print_sync(entry)
+    _cli_print._print_sync(entry)
     assert "plan hpc: all 10 planned point(s) have a record" in capsys.readouterr().out
 
 

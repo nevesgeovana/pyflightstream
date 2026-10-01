@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from pyflightstream.run import _cli_print
 from pyflightstream.run import cli as matrix_cli
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace import storage as storage_module
@@ -150,13 +151,13 @@ def test_the_output_without_list_is_the_old_output_byte_for_byte_fr_305(tmp_path
 def test_dropping_one_list_branch_turns_the_check_red_fr_305(tmp_path, capsys, monkeypatch):
     # Verifies FR-305.
     workspace = _workspace(tmp_path)
-    real = matrix_cli._print_free_space_paths
+    real = _cli_print._print_free_space_paths
 
     def mutant(step, applied):
         if step["mode"] != "post_archives":
             real(step, applied)
 
-    monkeypatch.setattr(matrix_cli, "_print_free_space_paths", mutant)
+    monkeypatch.setattr(_cli_print, "_print_free_space_paths", mutant)
     out = _run(workspace, capsys, "--list")
     assert _checks(out) == ["archives: a folder"]
     with pytest.raises(AssertionError):

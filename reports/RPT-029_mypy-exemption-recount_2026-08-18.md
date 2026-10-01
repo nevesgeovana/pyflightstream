@@ -1131,8 +1131,8 @@ sentence at the top of this report are this run's.
 (the merges of WP4, WP5, WP6 and D1 committed, the tree clean, as the script
 reported), with python 3.12.0, numpy 2.5.3, xarray 2026.7.0, pandas 3.0.6 and
 pydantic 2.13.5 (the script printed mypy's version as unknown): 192 errors
-in 17 of 219 modules on 98 distinct source lines. The tracked package holds
-219 modules, twenty-three more than the 196 of the WP4 run, each reported
+in 17 of 220 modules on 98 distinct source lines. The tracked package holds
+220 modules (219 on `rel/0-33`, plus `run/_cli_print.py` of WP9b), twenty-four more than the 196 of the WP4 run, each reported
 clean. WP6 made `pyflightstream.run` a facade over typed modules and
 deleted its `[[tool.mypy.overrides]]` entry (decision 7), so the exempted set
 shrank from eighteen to seventeen modules and the 930 errors the run root

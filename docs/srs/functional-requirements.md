@@ -7782,7 +7782,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Requirement: `pyfs-matrix free-space --list` prints, after the summary of each recipe step, every path the step would touch (preview) or touched (`--apply`), relative to the workspace, with its size and what happens to it: each post archive folder deleted or compacted (and the zip written), each file `delete_extensions` deletes and each it keeps with the reason, each per-step export `prune_step_exports` deletes or keeps, and each simulation `compact_sims` compacts with its folder size and, after `--apply`, the size of the zip it was compacted into. The four step names are the recipe steps defined on the [storage and sync page](../storage-and-sync.md#the-recipe-file). The lines are read from the entry `free_space` returns, nothing is recomputed, and a preview changes nothing on disk. Without `--list` the output is unchanged.
 
-    Solution (release 0.33.0): the `--list` option of `pyfs-matrix free-space` and `pyflightstream.run.cli._print_free_space_paths`.
+    Solution (release 0.33.0): the `--list` option of `pyfs-matrix free-space` and `pyflightstream.run._cli_print._print_free_space_paths`.
 
 !!! requirement "FR-306 The delete-sims command can delete a simulation whose run is still SUBMITTED <span class='srs-implemented'>implemented</span>"
 

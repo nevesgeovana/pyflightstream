@@ -4,7 +4,6 @@
   "cases/matrix.py": 1808,
   "post/corrections.py": 1006,
   "post/input_template.py": 1455,
-  "run/cli.py": 1201,
   "run/matrix.py": 1304,
   "workspace/__init__.py": 1608,
   "workspace/matrix.py": 1376,
@@ -18,7 +17,6 @@
   "post/_rotor_plan.py:_rotor_tables": 292,
   "run/_assessment.py:LoadsAssessor.__call__": 271,
   "run/_campaign.py:run_campaign": 422,
-  "run/_cli_parsers.py:_build_parser": 556,
   "run/_points.py:_execute_point": 449,
   "run/_sweep.py:_execute_sweep": 348
  },
@@ -671,19 +669,19 @@
    "statements": 23,
    "positional": 1
   },
-  "run/cli.py:_plan_blocks": {
+  "run/_cli_print.py:_plan_blocks": {
    "complexity": 11,
    "branches": 10,
    "statements": 31,
    "positional": 1
   },
-  "run/cli.py:_print_free_space_paths": {
+  "run/_cli_print.py:_print_free_space_paths": {
    "complexity": 15,
    "branches": 17,
    "statements": 24,
    "positional": 2
   },
-  "run/cli.py:_print_sync": {
+  "run/_cli_print.py:_print_sync": {
    "complexity": 15,
    "branches": 14,
    "statements": 31,
@@ -1319,12 +1317,6 @@
    "statements": 187,
    "positional": 3
   },
-  "run/_cli_parsers.py:_build_parser": {
-   "complexity": 3,
-   "branches": 2,
-   "statements": 76,
-   "positional": 0
-  },
   "run/_executors.py:_run_until_the_analysis_ends": {
    "complexity": 16,
    "branches": 0,
@@ -1447,7 +1439,7 @@
   "pyflightstream.run._rebuild": 2,
   "pyflightstream.run._rebuild_evidence": 3,
   "pyflightstream.run._solver_windows": 1,
-  "pyflightstream.run.cli": 12,
+  "pyflightstream.run.cli": 9,
   "pyflightstream.run.collect": 6,
   "pyflightstream.run.matrix": 5,
   "pyflightstream.run.records": 1,
@@ -1474,6 +1466,7 @@
   "pyflightstream.run._assessment": 4,
   "pyflightstream.run._campaign": 1,
   "pyflightstream.run._cli_parsers": 1,
+  "pyflightstream.run._cli_print": 3,
   "pyflightstream.run._continuation": 1,
   "pyflightstream.run._executors": 4,
   "pyflightstream.run._identity": 2,
@@ -1504,7 +1497,8 @@
   "pyflightstream.results.tables": 3,
   "pyflightstream.run._rebuild": 1,
   "pyflightstream.run._solver_windows": 2,
-  "pyflightstream.run.cli": 10,
+  "pyflightstream.run._cli_print": 1,
+  "pyflightstream.run.cli": 9,
   "pyflightstream.run.collect": 4,
   "pyflightstream.run.matrix": 8,
   "pyflightstream.run.records": 2,
@@ -1735,6 +1729,7 @@
    "order": [
     "cli",
     "_cli_parsers",
+    "_cli_print",
     "rename",
     "records",
     "_rebuild",

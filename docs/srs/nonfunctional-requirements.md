@@ -877,7 +877,7 @@
     date; `rel/0-33` with WP4 (AD-12) also merged, `cases/workflows.py`
     cut into the package `cases/workflows/` of 24 modules each clean, read
     1122 in 18 of 196 on 2026-10-01; and `rel/0-33` with WP4, WP5 and WP6
-    merged read 192 errors in 17 of 219 modules on 2026-10-01, the
+    merged read 192 errors in 17 of 220 modules on 2026-10-01, the
     exempted set shrinking from eighteen to seventeen modules because WP6
     made `pyflightstream.run` a facade over typed modules and deleted its
     override (decision 7), its 930 errors leaving the debt with it; and

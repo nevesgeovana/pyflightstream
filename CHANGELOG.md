@@ -125,12 +125,12 @@ See [the migration guide](docs/migrating-to-0.33.0.md) for the matrix homes, the
 
 ### Changed (the type-checker debt, re-measured on the release tree)
 
-- mypy recount 2026-10-01: 192 errors in 17 of 219 modules, on `rel/0-33`
+- mypy recount 2026-10-01: 192 errors in 17 of 220 modules, on `rel/0-33`
   with work packages WP4, WP5 and WP6 merged: the exempted set shrank from
   eighteen to seventeen modules because WP6 made `pyflightstream.run` a
   facade over typed modules and deleted its override (decision 7), and with
   it its 930 errors left the debt (1122 to 192). The shipped configuration is
-  green over all 219 modules. Before WP5 and WP6, `rel/0-33` with work
+  green over all 220 modules. Before WP5 and WP6, `rel/0-33` with work
   package WP4 (AD-12) merged read 1122 in 18 of 196: `cases/workflows.py`
   cut into the package `cases/workflows/` of 24 modules, each clean,
   twenty-three more than before, so the error total and the dirty count were
