@@ -2356,7 +2356,7 @@
    "text": "Read with PFS-2075, PFS-2075.01 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: item WAKE-LENGTH of the 0.34.0 scope (scope record GEO-071, section 4.7) and the author decisions of 2026-10-01 that set its default (L = 4R, a recommendation the user may change, kept for its computational cost). Marker P0340-WAKE-LENGTH; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker, and the licensed confirmation of a long wake on 26.124 (RPT-130). Evidence owed: tier-1 tests that convert a stated length into steps from V_ax, Omega and the step angle and assert the emitted SET_WAKE_TERMINATION_TIME_STEPS line, with a row stating steps as the control; a test that a rotor row stating no termination gets the 4R default and that the run record carries the three recorded values; the parity entry naming the scripts the default changes; and RPT-130, which measures V_ax on a run before the default formula is chosen (R3).*",
+   "evidence": "*Origin: item WAKE-LENGTH of the 0.34.0 scope (scope record GEO-071, section 4.7) and the author decisions of 2026-10-01 that set its default (L = 4R, a recommendation the user may change, kept for its computational cost). Marker P0340-WAKE-LENGTH; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker, and the licensed confirmation of a long wake on 26.124 reported in RPT-130 (tier 3, a run of the package's own workflow; the tier-1 tests check the conversion, the emitted line and the recorded values, never the solver). Evidence owed: tier-1 tests that convert a stated length into steps from V_ax, Omega and the step angle and assert the emitted SET_WAKE_TERMINATION_TIME_STEPS line, with a row stating steps as the control; a test that a rotor row stating no termination gets the 4R default and that the run record carries the three recorded values; the parity entry naming the scripts the default changes; and RPT-130, read before this requirement leaves pending, R3 being amended by a dated line where RPT-130 changes the default.*",
    "verification": "none"
   },
   {
@@ -2364,7 +2364,7 @@
    "text": "Read with PFS-2075, PFS-2075.01 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7, and the design rules of the 0.34.0 planning inbox: one key only, length or steps or revolutions, and the plan refuses two). Marker P0340-WAKE-ONE-KEY; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker. Evidence owed: a test per pair of the three keys, stated in one setup, in the preset and the row, and in the row alone, each refused at plan naming both keys and where each comes from, with a row stating one key as the control.*",
+   "evidence": "*Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7, and the design rules of the 0.34.0 planning inbox: one key only, length or steps or revolutions, and the plan refuses two at the same time). Marker P0340-WAKE-ONE-KEY; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker. Evidence owed: a test per pair of the three keys, stated in one setup, in the preset and the row, and in the row alone, each refused at plan naming both keys and where each comes from, with a row stating one key as the control.*",
    "verification": "none"
   },
   {
@@ -2372,7 +2372,7 @@
    "text": "Read with PFS-2075, PFS-2075.01 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7, and the design rules of the 0.34.0 planning inbox). Marker P0340-WAKE-HOVER; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker. Evidence owed: tests on a row with zero free-stream speed stating a thrust, stating a revolution cap, and stating neither (refused), each asserting the emitted steps and the rule the record names, with a forward-flight row as the control.*",
+   "evidence": "*Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7, and the design rules of the 0.34.0 planning inbox: near hover the momentum-theory induced velocity or a declared revolution cap, the package saying which). Marker P0340-WAKE-HOVER; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker. Evidence owed: tests on a row with zero free-stream speed stating a thrust, stating a revolution cap, and stating neither (refused); on a row with a small positive free-stream speed and a stated thrust whose induced velocity exceeds it; and on a forward-flight row as the control; each asserting the emitted steps and the rule the record names.*",
    "verification": "none"
   },
   {
@@ -2388,7 +2388,7 @@
    "text": "Read with PFS-2075, PFS-2075.01 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7) and the author decisions of 2026-10-01 that the plan warns always, at the 4R recommendation and at any larger length asked, and when the Trefftz plane sits before the length. Marker P0340-WAKE-PLAN-WARN; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker. Evidence owed: tests over a rotor row and a blades-only wheel (the two measured plane placements of FR-324 as fixtures), at L = 4R and at a larger L, with too few revolutions and with enough, with the plane stated before L, after L and left at DEFAULT; each asserting the warning text where owed, its absence where not, an exit status of 0 and the same plan written as without the warning.*",
+   "evidence": "*Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7) and the author decisions of 2026-10-01 that the plan warns always, at the 4R recommendation and at any larger length asked, and when the Trefftz plane sits before the length. Marker P0340-WAKE-PLAN-WARN; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker. Evidence owed: tests over a rotor row and a blades-only wheel (the two measured plane placements of FR-324 as fixtures), at L = 4R and at a larger L, with too few revolutions and with enough, with a row stating a step count, with the plane stated before L, after L and left at DEFAULT; each asserting the warning text where owed, its absence where not, an exit status of 0 and the same plan written as without the warning.*",
    "verification": "none"
   },
   {
@@ -2404,7 +2404,7 @@
    "text": "Read with PFS-2075, PFS-2075.03 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: item (2) of the run-usability items of the 0.34.0 scope (GEO-071, section 4.8): a second run of the same matrix without --resume failed instead of saying what to do. Marker P0340-RUN-AGAIN; read at 0.34.0 (GOAL-039, arm MU). Pending: no code yet. Verification method: tier-1 tests carrying the marker, through main. Evidence owed: a test that runs a matrix, adds a point, runs again without --resume, and asserts the printed command is the invoked one with --resume added and that running the printed command runs exactly the new point; a test that the exit status stays non-zero; and a control where nothing is recorded, which runs without the message.*",
+   "evidence": "*Origin: item (2) of the run-usability items of the 0.34.0 scope (GEO-071, section 4.8): a second run of the same matrix without --resume failed instead of saying what to do; the item admits either the exact command in the message or an offer to continue, and the message is the form chosen. Marker P0340-RUN-AGAIN; read at 0.34.0 (GOAL-039, arm MU). Pending: no code yet. Verification method: tier-1 tests carrying the marker, through main. Evidence owed: a test that runs a matrix, adds a point, runs again without --resume, and asserts the printed command is the invoked one with --resume added and that running the printed command runs exactly the new point; a test that the exit status stays non-zero; and a control where nothing is recorded, which runs without the message.*",
    "verification": "none"
   },
   {
@@ -2412,7 +2412,7 @@
    "text": "Read with PFS-2075, PFS-2075.13 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: items (1) and (2) of the guides item of the 0.34.0 scope (GEO-071, section 4.9) and the author decisions of 2026-10-01 that the cheatsheet is one document, its first page the current cheatsheet, then the pages by stage, ten pages in all, every command-line command included. Marker P0340-CHEATSHEET-ONE; read at 0.34.0 (GOAL-039, arm MG). Pending: built in part on a branch of 2026-10-01 (two sheets, not yet one document). Verification method: tier-1 tests carrying the marker. Evidence owed: a test that the compiled PDF has ten pages; a test that walks the parser of every console tool and refuses the source when a command or an option is missing, or names one no parser has, with a planted flag, a planted command and a cut line as controls; and a test that each of the eight stage pages names its stage.*",
+   "evidence": "*Origin: items (1) and (2) of the guides item of the 0.34.0 scope (GEO-071, section 4.9) and the author decisions of 2026-10-01 that the cheatsheet is one document, its first page the current cheatsheet, then the pages by stage, ten pages in all, every command-line command included. Marker P0340-CHEATSHEET-ONE; read at 0.34.0 (GOAL-039, arm MG). Pending: built in part on a branch of 2026-10-01 (two sheets, not yet one document). Verification method: tier-1 tests carrying the marker, each R-item verified on its own. Evidence owed: a test that the compiled PDF has ten pages; a test that walks the parser of every console tool and refuses the source when a command or an option is missing, or names one no parser has, with a planted flag, a planted command and a cut line as controls; and a test that each of the eight stage pages names its stage.*",
    "verification": "none"
   },
   {
@@ -2428,7 +2428,7 @@
    "text": "Read with PFS-2075, PFS-2075.04 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the degenerate-geometry item of the 0.34.0 scope (GEO-071, sections 4.10 and 4.11) and the author decision of 2026-10-01 that a command at the level of inventory creates degenerate geometries, the thin blade first. Marker P0340-THIN-BLADE; read at 0.34.0 (GOAL-039, arm MT). Pending: no code yet. Verification method: tier-1 tests carrying the marker, on synthetic blade meshes the tests build. Evidence owed: tests that the derived surface lies midway between the two sides of a synthetic blade within a stated tolerance; that its root is moved outward by the stated offset; that the boundaries are written beside the source; that a mesh the command cannot read is refused by name, writing nothing; that the source is never modified; and that the CLI reference and the cheatsheet name the command.*",
+   "evidence": "*Origin: the degenerate-geometry item of the 0.34.0 scope (GEO-071, sections 4.10 and 4.11) and the author decision of 2026-10-01 that a command at the level of inventory creates degenerate geometries, the thin blade first. Marker P0340-THIN-BLADE; read at 0.34.0 (GOAL-039, arm MT). Pending: no code yet. Verification method: tier-1 tests carrying the marker, on synthetic blade meshes the tests build. Evidence owed: a test that, on a synthetic blade whose two sides are mirror images about a known surface, the derived surface lies on that surface within 1e-9 of the blade's span (round-off); a test that its root is moved outward by the stated offset; a test that the surface and its boundary inventory are written beside the source; a test that a mesh the command cannot read, or whose two sides it cannot separate, is refused by name, writing nothing; a test that the source is never modified; and a test that the CLI reference and the cheatsheet name the command.*",
    "verification": "none"
   },
   {
@@ -2436,7 +2436,7 @@
    "text": "Read with PFS-2075, PFS-2075.05 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the actuator-disc findings of the 0.34.0 scope (GEO-071, section 4.11) and the author decision of 2026-10-01 to fix the swirl sign with a test and document the rest. Measured on 26.124: a disc with rpm_sign +1 swirled against a rotor with rpm_sign +1, contrary to the docstring, and needed -1. Marker P0340-ACT-SWIRL-SIGN; read at 0.34.0 (GOAL-039, arm MA). Pending: no code yet. Verification method: a tier-1 test carrying the marker that pins the emitted sign, the parity script's named difference, and the actuator-disc report RPT-137. Evidence owed: the test pinning the sign of the emitted disc speed for rpm_sign +1 and -1; the parity entry naming the changed actuator lines under this requirement; the migration page's paragraph; and RPT-137 stating the measurement the sign rests on.*",
+   "evidence": "*Origin: the actuator-disc findings of the 0.34.0 scope (GEO-071, section 4.11) and the author decision of 2026-10-01 to fix the swirl sign with a test and document the rest. Measured on 26.124 by a research study of the actuator disc: a disc with rpm_sign +1 swirled against a rotor with rpm_sign +1, contrary to the docstring, and needed -1. RPT-137 is the summary report of that measured study: no new licensed run, nondimensional, no geometry. Marker P0340-ACT-SWIRL-SIGN; read at 0.34.0 (GOAL-039, arm MA). Pending: no code yet. Verification method: a tier-1 test carrying the marker that pins the emitted sign (it checks the code path, not the solver), the parity script's named difference, and RPT-137. Evidence owed: the test pinning the sign of the emitted disc speed for rpm_sign +1 and -1; the parity entry naming the changed actuator lines under this requirement; the migration page's paragraph; and RPT-137 stating the measurement the sign rests on.*",
    "verification": "none"
   },
   {
@@ -2444,7 +2444,7 @@
    "text": "Read with PFS-2075, PFS-2075.06 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the actuator-disc findings of the 0.34.0 scope (GEO-071, section 4.11) and the author decision of 2026-10-01 to document the findings other than the sign and guard them where sensible. Marker P0340-ACT-DOCS; read at 0.34.0 (GOAL-039, arm MA). Pending: no code yet. Verification method: tier-1 tests carrying the marker (the warning, and the presence of each statement on its page), and RPT-137. Evidence owed: a test that the plan warns on a RELAXED disc naming a profile, never refuses, and writes the same plan, with a RIGID disc naming a profile and a RELAXED disc with a thrust as controls; and a test that each documented statement of R1 to R4 is on its page.*",
+   "evidence": "*Origin: the actuator-disc findings of the 0.34.0 scope (GEO-071, section 4.11) and the author decision of 2026-10-01 to document the findings other than the sign and guard them where sensible. The four behaviours were measured on 26.124 by the research study of the actuator disc that RPT-137 summarises (no new licensed run, nondimensional, no geometry). Marker P0340-ACT-DOCS; read at 0.34.0 (GOAL-039, arm MA). Pending: no code yet. Verification method: tier-1 tests carrying the marker, each R-item verified on its own (R1 to R4 by a test reading each statement on its page, R5 by the warning test), and RPT-137. Evidence owed: a test that the plan warns on a RELAXED disc naming a profile, never refuses, and writes the same plan, with a RIGID disc naming a profile and a RELAXED disc with a thrust as controls; and a test that each documented statement of R1 to R4 is on its page and cites RPT-137.*",
    "verification": "none"
   },
   {
@@ -2452,7 +2452,7 @@
    "text": "Read with PFS-2075, PFS-2075.07, PFS-2075.25 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the first CCS and noise item of the 0.34.0 scope (GEO-071, section 4.1): the commands ran on 26.124 through the 0.32.0 release harness (RPT-096 to RPT-098), not through pyfs-qa probe, and stay documented. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-QA-PROMOTE; read at 0.34.0 (GOAL-039, arm CN). Pending: no code yet. Verification method: tier-1 tests carrying the marker over the catalog and the command database, and the licensed probe run reported in RPT-126. Evidence owed: a test that each command of R1 has a catalog entry in pyflightstream.qa.specs (or the catalog module the cut of qa/specs.py creates); a test that each such command's 26.124 status in the command database equals the verdict of RPT-126; and RPT-126 itself, from a pyfs-qa probe run on 26.124, far field 5.*",
+   "evidence": "*Origin: the first CCS and noise item of the 0.34.0 scope (GEO-071, section 4.1): the commands ran on 26.124 through the 0.32.0 release harness (RPT-096 to RPT-098), not through pyfs-qa probe, and stay documented. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-QA-PROMOTE; read at 0.34.0 (GOAL-039, arm CN). Pending: no code yet. Verification method: tier-1 tests carrying the marker over the catalog and the command database (they check the catalog, the promotion path and the recorded verdict), and the licensed probe run reported in RPT-126 (tier 2, a pyfs-qa probe run; the tiers are defined in docs/tiers.md). Evidence owed: a test that each command of R1 has a catalog entry in pyflightstream.qa.specs (or the catalog module the cut of qa/specs.py creates); a test that each such command's 26.124 status in the command database equals the verdict of RPT-126; a test that a promotion from an incomplete report changes nothing, with a complete report as the control; and RPT-126 itself, from a pyfs-qa probe run on 26.124, far field 5.*",
    "verification": "none"
   },
   {
@@ -2460,7 +2460,7 @@
    "text": "Read with PFS-2075, PFS-2075.08 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: planning item PFS-2001.05, carried into the 0.34.0 scope (GEO-071, section 4.1): three commands the package emits on a reading of the manual alone; RPT-096 probed the CCS-wing command only. Marker P0340-PROBE-2001-05; read at 0.34.0 (GOAL-039, arm CN), PFS-2001.05 moving to 0.34.0. Pending: no code yet. Verification method: tier-1 tests carrying the marker and the licensed probe run of RPT-126. Evidence owed: probe specifications for the three, the verdicts in the command database and in RPT-126, and a test that each status equals its verdict.*",
+   "evidence": "*Origin: planning item PFS-2001.05, carried into the 0.34.0 scope (GEO-071, section 4.1): three commands the package emits on a reading of the manual alone, each database entry citing the manual page its emitted form rests on; RPT-096 probed the CCS-wing command only. Marker P0340-PROBE-2001-05; read at 0.34.0 (GOAL-039, arm CN), PFS-2001.05 moving to 0.34.0. Pending: no code yet. Verification method: tier-1 tests carrying the marker (the catalog and the recorded verdicts) and the licensed probe run of RPT-126 (tier 2). Evidence owed: probe specifications for the three, the verdicts in the command database and in RPT-126, and a test that each status equals its verdict.*",
    "verification": "none"
   },
   {
@@ -2468,7 +2468,7 @@
    "text": "Read with PFS-2075, PFS-2075.09 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: planning item PFS-2003.06, carried into the 0.34.0 scope (GEO-071, section 4.1): the database emits the six arguments of the signature header while the parameter table of the same manual page documents four. Marker P0340-ARITY-2003-06; read at 0.34.0 (GOAL-039, arm CN), PFS-2003.06 moving to 0.34.0. Pending: no code yet. Verification method: a tier-1 test carrying the marker over the command database and the emitter, and the licensed probe of RPT-126. Evidence owed: RPT-126 stating the arity measured on 26.124 (the file each command writes, read on disk); the database entry carrying that arity; and a test that the emitted line of each command has that many arguments.*",
+   "evidence": "*Origin: planning item PFS-2003.06, carried into the 0.34.0 scope (GEO-071, section 4.1): for EXPORT_FUSELAGE_CCS_FILE and EXPORT_REVOLVE_CCS_FILE the database emits the six arguments of the manual's signature heading, while the parameter table of the same page documents four (no row for MARK_TRAILING_EDGES or TE_GEOMETRY); the pages are those the command database cites for 26.124 (pages 306 and 309 of the 26.124 manual), paraphrased here and never reproduced. Marker P0340-ARITY-2003-06; read at 0.34.0 (GOAL-039, arm CN), PFS-2003.06 moving to 0.34.0. Pending: no code yet. Verification method: a tier-1 test carrying the marker over the command database and the emitter (it checks the recorded arity and the emitted line, not the solver), and the licensed probe of RPT-126 (tier 2). Evidence owed: RPT-126 stating the arity measured on 26.124 (the file each command writes, read on disk); the database entry carrying that arity; and a test that the emitted line of each command has that many arguments.*",
    "verification": "none"
   },
   {
@@ -2476,7 +2476,7 @@
    "text": "Read with PFS-2075, PFS-2075.10 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: CCS-2 of the 0.34.0 scope (GEO-071, section 4.1): the REAL bounds form failed on 26.124 (FAILED_EXECUTION, RPT-097) and the package refuses it by name (FR-295 to FR-297); its cause is not investigated. Marker P0340-CCS2-REAL; read at 0.34.0 (GOAL-039, arm CN). Pending: no code yet. Verification method: the licensed probe of RPT-126, and a tier-1 test carrying the marker that the refusal holds unless RPT-126 shows a working form. Evidence owed: RPT-126 stating the probes run (each varying one thing) and the cause they separate; the test of the refusal, or of the re-admitted form with its control.*",
+   "evidence": "*Origin: CCS-2 of the 0.34.0 scope (GEO-071, section 4.1): the REAL form of a control surface's spanwise limits failed on 26.124 (FAILED_EXECUTION, RPT-097) and the package refuses it by name (FR-295 to FR-297); its cause is not investigated. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-CCS2-REAL; read at 0.34.0 (GOAL-039, arm CN). Pending: no code yet. Verification method: the licensed probe of RPT-126 (tier 2), and a tier-1 test carrying the marker that the refusal holds unless RPT-126 shows a working form (it checks the code path and the recorded verdict). Evidence owed: RPT-126 stating the probes run (each varying one thing) and the cause they separate; the test of the refusal, or of the re-admitted form with its control.*",
    "verification": "none"
   },
   {
@@ -2484,20 +2484,20 @@
    "text": "Read with PFS-2075, PFS-2075.11 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: QS-NOISE of the 0.34.0 scope (GEO-071, section 4.1): route A agrees with the unsteady reference in level and in shape but not in sign (RPT-099), and the author left QS-NOISE exploratory, with no threshold and no gate. Marker P0340-QSNOISE-SIGN; read at 0.34.0 (GOAL-039, arm CN). Pending: no study yet. Verification method: review of RPT-132, and a tier-1 test carrying the marker that RPT-132 exists, states that it is exploratory, and that no check gates on it. Evidence owed: RPT-132.*",
+   "evidence": "*Origin: QS-NOISE of the 0.34.0 scope (GEO-071, section 4.1): route A agrees with the unsteady reference in level and in shape but not in sign (RPT-099), and the author left QS-NOISE exploratory, with no threshold and no gate. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-QSNOISE-SIGN; read at 0.34.0 (GOAL-039, arm CN). Pending: no study yet. Verification method: review of RPT-132, and a tier-1 test carrying the marker that RPT-132 exists, states that it is exploratory, and that no check gates on it. Evidence owed: RPT-132.*",
    "verification": "none"
   },
   {
    "id": "FR-338",
-   "text": "Need: CDo reads zero in the coupled FSI exports. It may be the order of the aeroelastic post, which updates the sections before the first export, or a real effect; until measured, the column must not be used.",
+   "text": "Read with PFS-2073, PFS-2073.01 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: planning item PFS-2073.01 of the 0.34.0 scope (GEO-071, section 4.2), from the measurements of RPT-092. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-FSI-CDO; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.01. Pending: no measurement yet. Verification method: the licensed probe reported in RPT-128, and a tier-1 test carrying the marker. Evidence owed: RPT-128 stating the cause; where the cause is the package's order, a tier-1 test that the order of the exports is the corrected one, with the 0.33.0 order as the control; otherwise a test that the FSI page and the product state the column's meaning.*",
+   "evidence": "*Origin: planning item PFS-2073.01 of the 0.34.0 scope (GEO-071, section 4.2), from the measurements of RPT-092 (a rigid, synthetic NACA 0012 wing under its own weight, FlightStream 26.124 build 8172026, far field 5): the rigid run's loads export gives CDo 0.0093534 and the coupled run's 0. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-FSI-CDO; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.01. Pending: no measurement yet. Verification method: the licensed probe reported in RPT-128 (tier 3, a run of the FSI workflow), and a tier-1 test carrying the marker (it checks the code path and the recorded verdict); R1 is verified by RPT-128, and R2 or R3 by its own test. Evidence owed: RPT-128 stating the cause; where the cause is the package's order, a tier-1 test that the order of the exports is the corrected one, with the 0.33.0 order as the control; otherwise a test that the FSI page and the product state the column's meaning.*",
    "verification": "none"
   },
   {
    "id": "FR-339",
-   "text": "Need: A log column without its sign misleads the person reading it.",
+   "text": "Read with PFS-2073, PFS-2073.02 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
    "evidence": "*Origin: planning item PFS-2073.02 of the 0.34.0 scope (GEO-071, section 4.2): tip_flap_m records the magnitude of the tip flap deflection (abs(...) in pyflightstream.fsi.driver), so a wing bending down reads positive; the sign exists in the solver's displacement file and agrees with the package's own structural solution under weight alone (RPT-092). Marker P0340-FSI-TIP-SIGN; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.02. Pending: no code yet. Verification method: tier-1 tests carrying the marker, offline. Evidence owed: a test that the log's last column is the signed deflection, positive and negative cases both, read from a displacement file the test writes; and a test that every earlier column keeps its name, its position and its value.*",
@@ -2505,34 +2505,34 @@
   },
   {
    "id": "FR-340",
-   "text": "Need: The package reads the Moment of an XZ cut as positive about +y, and the FSI route takes the torsion it applies from it; the risk is the magnitude.",
+   "text": "Read with PFS-2073, PFS-2073.03 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: planning item PFS-2073.03 of the 0.34.0 scope (GEO-071, section 4.2): on a rigid symmetric wing the sum of the 20 XZ cuts gives the same sign as the solver's total moment but 44 percent of its size, while the cut forces sum to 98.4 percent of the lift (RPT-092); a symmetric profile cannot decide the question. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-FSI-XZ; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.03. Pending: no measurement yet. Verification method: the licensed run reported in RPT-128, and a tier-1 test carrying the marker. Evidence owed: RPT-128 stating the ratio of the summed cut moments to the solver's total on a cambered profile, and the verdict; a test of the reading the verdict leaves (R2 or R3).*",
+   "evidence": "*Origin: planning item PFS-2073.03 of the 0.34.0 scope (GEO-071, section 4.2): on the rigid, synthetic NACA 0012 wing of RPT-092 (FlightStream 26.124 build 8172026, far field 5; section \"The two checks the route's memory asked of this run\", check (a)), the 20 XZ cuts integrate to a moment of the same sign as the solver's total moment about the same line but 44 percent of its size, while the cut forces sum to 98.4 percent of the lift; a symmetric profile cannot decide the question. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-FSI-XZ; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.03. Pending: no measurement yet. Verification method: the licensed run reported in RPT-128 (tier 3, a run of the FSI workflow), and a tier-1 test carrying the marker (it checks the code path and the recorded verdict). Evidence owed: RPT-128 stating the two ratios on a cambered profile and the verdict by the criterion of R2; a test of the reading the verdict leaves (R3 or R4).*",
    "verification": "none"
   },
   {
    "id": "FR-341",
-   "text": "Need: Direct morphing is the route C of the coupling design, which the FSI scope sends to this release; it has not been tested.",
+   "text": "Read with PFS-2073, PFS-2073.04 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: planning item PFS-2073.04 of the 0.34.0 scope (GEO-071, section 4.2), route C of the coupling design. Licensed runs authorised by the author decision of 2026-10-01. Marker P0340-FSI-MODAL; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.04. Pending: design only. Verification method: tier-1 tests carrying the marker, offline, and the licensed truncation test reported in RPT-129. Evidence owed: RPT-129 stating the truncation test (arbitrary displacements, two loop cycles) on 26.124; tier-1 tests that the option is accepted, written to the FSI state, refused where its preconditions fail, and that the existing routes are byte-identical when it is not chosen.*",
+   "evidence": "*Origin: planning item PFS-2073.04 of the 0.34.0 scope (GEO-071, section 4.2), route C of the coupling design. Licensed runs authorised by the author decision of 2026-10-01. Marker P0340-FSI-MODAL; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.04. Pending: design only. Verification method: tier-1 tests carrying the marker, offline (they check the option, its refusals and the unchanged routes), and the licensed truncation test reported in RPT-129 (tier 3, a run of the FSI workflow). Evidence owed: RPT-129 stating the truncation test (arbitrary displacements, two loop cycles) on 26.124 and its verdict by R2; tier-1 tests that the option is accepted, written to the FSI state, refused where its preconditions fail, and that the existing routes are byte-identical when it is not chosen.*",
    "verification": "none"
   },
   {
    "id": "FR-342",
-   "text": "Need: A command the package emits that has no probe specification is never re-measured, so a change in the solver would not be seen.",
+   "text": "Read with PFS-2073, PFS-2073.06, PFS-2075, PFS-2075.25 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: planning item PFS-2073.06 (T1) of the 0.34.0 scope (GEO-071, section 4.3): tier 2 measures only what has a specification, and four commands have none. Native run authorised by the author decision of 2026-10-01. Marker P0340-T1-PROBE-SPECS; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.06. Pending: no code yet. Verification method: a tier-1 test carrying the marker, and the tier-2 native run reported in RPT-127. Evidence owed: the census naming the commands; a test that each has a catalog entry; RPT-127 with the tier-2 verdicts on 26.124.*",
+   "evidence": "*Origin: planning item PFS-2073.06 of the 0.34.0 scope, \"T1: probe specifications for the four commands that have none, for tier 2\" (GEO-071, section 4.3): tier 2 (the pyfs-qa probe tier defined in docs/tiers.md) measures only what has a specification. Native run authorised by the author decision of 2026-10-01. Marker P0340-T1-PROBE-SPECS; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.06. Pending: no code yet. Verification method: a tier-1 test carrying the marker (the catalog), and the tier-2 native run reported in RPT-127. Evidence owed: the census of R1; a test that each command of it has a catalog entry; RPT-127 with the tier-2 verdicts on 26.124.*",
    "verification": "none"
   },
   {
    "id": "FR-343",
-   "text": "Need: RPT-093 cites a results file of a private licensed campaign that the repository does not keep, so the facts it carries cannot be reproduced or checked from here.",
+   "text": "Read with PFS-2073, PFS-2073.05 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: planning item PFS-2073.05 (L4) of the 0.34.0 scope (GEO-071, section 4.3) and the author decision of 2026-10-01 that the evidence lives as a summary receipt in the repository. Marker P0340-PHASE3-RPT; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.05. Pending: no report yet. Verification method: a tier-1 test carrying the marker, and review of RPT-131. Evidence owed: RPT-131; a test that it carries a date, a build and a command for every number, that the SRS cites it, and that the confidentiality guard of NFR-31 passes over it.*",
+   "evidence": "*Origin: planning item PFS-2073.05 (L4) of the 0.34.0 scope (GEO-071, section 4.3) and the author decision of 2026-10-01 that the evidence lives as a summary receipt in the repository. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-PHASE3-RPT; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.05. Pending: no report yet. Verification method: tier-1 tests carrying the marker, and review of RPT-131. Evidence owed: RPT-131; a test that its facts table has exactly the columns of R1 and a date, a build and a command in every row; a test that the SRS cites it; the scan of R4 with its planted control; and the confidentiality guard of NFR-31 passing over it.*",
    "verification": "none"
   },
   {
@@ -2540,7 +2540,7 @@
    "text": "Read with PFS-2075, PFS-2075.15 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the author decision of 2026-10-01 that the digests of the solver's manual, release notes and licence agreement leave RPT-050 in 0.34.0 (GEO-071, section 4.10). It extends what NFR-31 R1 covers, which excludes the documentation's digests; NFR-31 itself is unchanged. Marker P0340-VENDOR-DIGESTS; read at 0.34.0 (GOAL-039, arm RG). Pending: no code yet. Verification method: a tier-1 guard carrying the marker, with a planted control. Evidence owed: a guard that refuses the digests RPT-050 recorded for those files, anywhere in the tracked tree, and a 64-hex value on the same line as the name of a manual, release-notes or licence-agreement file of the solver package; its control plants one; RPT-050's dated amendment line.*",
+   "evidence": "*Origin: the author decision of 2026-10-01 that the digests of the solver's manual, release notes and licence agreement leave RPT-050 in 0.34.0 (GEO-071, section 4.10). It extends what NFR-31 R1 covers, which excludes the documentation's digests (R5 says how the two are reconciled). Marker P0340-VENDOR-DIGESTS; read at 0.34.0 (GOAL-039, arm RG). Pending: no code yet. Verification method: a tier-1 guard carrying the marker, with a planted control. Evidence owed: a guard that refuses the digests RPT-050 recorded for the four files of R1, anywhere in the tracked tree, compared by their own SHA-256, and a 64-hex value on the same line as the name of such a file; its control plants one; RPT-050's dated amendment line.*",
    "verification": "none"
   },
   {
@@ -2548,7 +2548,7 @@
    "text": "Read with PFS-2075, PFS-2075.16 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the test_rpt096 item of the 0.34.0 scope (GEO-071, section 4.3; confirmed for 0.34.0 by the author decision of 2026-10-01): the test looked for a fixed release title and failed the tag CI of 0.32.0 when a new section opened. Marker P0340-RELEASE-TITLE; read at 0.34.0 (GOAL-039, arm RG). Pending: no code yet. Verification method: a tier-1 test carrying the marker. Evidence owed: the retargeted test passing with a new, empty release section added above the one that carries its report, which fails the 0.33.0 form, as the control.*",
+   "evidence": "*Origin: the test_rpt096 item of the 0.34.0 scope (GEO-071, section 4.3; confirmed for 0.34.0 by the author decision of 2026-10-01): the test looked for a fixed release title and failed the tag CI of 0.32.0 when a new section opened. A maintenance requirement on the repository's tests, not on the package's behaviour. Marker P0340-RELEASE-TITLE; read at 0.34.0 (GOAL-039, arm RG). Pending: no code yet. Verification method: a tier-1 test carrying the marker. Evidence owed: the retargeted test passing with a new, empty release section added above the one that carries its report, which fails the 0.33.0 form, as the control.*",
    "verification": "none"
   },
   {
@@ -2556,7 +2556,7 @@
    "text": "Read with PFS-2075, PFS-2075.17 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the RELEASE-READY.md item of the 0.34.0 scope (GEO-071, section 4.4; confirmed for 0.34.0 by the author decision of 2026-10-01): the file still says \"archive row owed\", false since the Zenodo archive row entered. Marker P0340-RELEASE-READY; read at 0.34.0 (GOAL-039, arm RG). Pending: no rewrite yet. Verification method: a tier-1 test carrying the marker. Evidence owed: a test that RELEASE-READY.md does not contain the phrase and names the release it describes.*",
+   "evidence": "*Origin: the RELEASE-READY.md item of the 0.34.0 scope (GEO-071, section 4.4; confirmed for 0.34.0 by the author decision of 2026-10-01): the file still says \"archive row owed\", false since the Zenodo archive row entered. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-RELEASE-READY; read at 0.34.0 (GOAL-039, arm RG). Pending: no rewrite yet. Verification method: a tier-1 test carrying the marker. Evidence owed: a test that RELEASE-READY.md does not contain the phrase and names the release it describes.*",
    "verification": "none"
   },
   {
@@ -2844,7 +2844,7 @@
    "text": "Read with PFS-2075, PFS-2075.12 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: the author decision of 2026-10-01 to standardise LF in every product (scope record GEO-071, section 4.10), a behaviour change with a migration note. Marker P0340-LF-PRODUCTS; read at 0.34.0 (GOAL-039, arm LF). Pending: no code yet. Verification method: a tier-1 guard carrying the marker, with a planted control; the products snapshot judged on both platforms; the parity receipt of the release. Evidence owed: a guard that walks src/ and refuses a text write that bypasses the one LF route, with a planted bypass as its control; a test that a campaign posted on Windows holds no CR byte in any product; the products snapshot comparing line ends on Linux and Windows; the parity receipt naming the difference under this requirement; the paragraph of the migration page.*",
+   "evidence": "*Origin: the author decision of 2026-10-01 to standardise LF in every product (scope record GEO-071, section 4.10), a behaviour change with a migration note. Marker P0340-LF-PRODUCTS; read at 0.34.0 (GOAL-039, arm LF). Pending: no code yet. Verification method: a tier-1 guard carrying the marker, with a planted control; the products snapshot judged on both platforms; the parity receipt of the release; and, for the files the solver reads, the licensed runs of R6. Evidence owed: the writer census of R7; a guard that walks src/ and refuses a text write that bypasses the one LF route, with a planted bypass as its control; a test that a campaign posted on Windows holds no CR byte in any product and that its emitted scripts hold none; the products snapshot comparing line ends on Linux and Windows; the parity receipt naming the difference under this requirement; the paragraph of the migration page.*",
    "verification": "none"
   }
  ]

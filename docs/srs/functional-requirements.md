@@ -8054,18 +8054,18 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2075, PFS-2075.01 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: item WAKE-LENGTH of the 0.34.0 scope (scope record GEO-071, section 4.7) and the author decisions of 2026-10-01 that set its default (L = 4R, a recommendation the user may change, kept for its computational cost). Marker P0340-WAKE-LENGTH; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker, and the licensed confirmation of a long wake on 26.124 (RPT-130). Evidence owed: tier-1 tests that convert a stated length into steps from V_ax, Omega and the step angle and assert the emitted `SET_WAKE_TERMINATION_TIME_STEPS` line, with a row stating steps as the control; a test that a rotor row stating no termination gets the 4R default and that the run record carries the three recorded values; the parity entry naming the scripts the default changes; and RPT-130, which measures V_ax on a run before the default formula is chosen (R3).*
+    *Origin: item WAKE-LENGTH of the 0.34.0 scope (scope record GEO-071, section 4.7) and the author decisions of 2026-10-01 that set its default (L = 4R, a recommendation the user may change, kept for its computational cost). Marker P0340-WAKE-LENGTH; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker, and the licensed confirmation of a long wake on 26.124 reported in RPT-130 (tier 3, a run of the package's own workflow; the tier-1 tests check the conversion, the emitted line and the recorded values, never the solver). Evidence owed: tier-1 tests that convert a stated length into steps from V_ax, Omega and the step angle and assert the emitted `SET_WAKE_TERMINATION_TIME_STEPS` line, with a row stating steps as the control; a test that a rotor row stating no termination gets the 4R default and that the run record carries the three recorded values; the parity entry naming the scripts the default changes; and RPT-130, read before this requirement leaves pending, R3 being amended by a dated line where RPT-130 changes the default.*
 
-    Need: The wake termination counts time steps or revolutions (`wake_termination_steps`, `wake_termination_revolutions`), while what matters is the length of wake the solver keeps behind the rotor, and that length changes with the rotor speed, the free-stream speed and the step angle. One revolution of termination at a moderate advance ratio keeps a wake of about 1.6 rotor radii, which ends before a probe line one diameter downstream; two revolutions without a limit reach about 3.2 radii.
+    Need: The wake termination counts time steps or revolutions (`wake_termination_steps`, `wake_termination_revolutions`), while what matters is the length of wake the solver keeps behind the rotor, and that length changes with the rotor speed, the free-stream speed and the step angle. A setup studied on 26.124 by a research study (advance ratio J = 0.8007, step angle 4 degrees, two revolutions per run) shows the size of the effect: with the free-stream speed alone as the convection speed, N_rev = L / (J D), one revolution of termination keeps about 1.6 rotor radii of wake, which ends before a probe line one diameter downstream, and two revolutions without a limit keep at most about 3.2 radii. These figures are calculated from the free-stream speed alone, not measured on the wake; since axial induction speeds the wake up in forward flight, they are lower-bound estimates.
 
     Requirement: a setup states the wake termination of a rotor row as a length of wake in rotor radii, and the package converts it into the number of termination steps the solver takes.
 
-    - R1 The setup key `wake_termination_length` (or the spelling the implementation fixes, recorded here when it lands) takes a length L in rotor radii, a positive number. R is the tip radius of the rotor the row turns (its reference block's `tip_radius_m`).
-    - R2 The steps are n = ceil(L R Omega / (V_ax dtheta)), with Omega the rotor speed in rad/s, dtheta the step angle in rad and V_ax the axial convection speed of the wake; rounding is upward, so the wake kept is never shorter than L.
-    - R3 V_ax is the free-stream speed V_inf, or V_inf plus the momentum-theory induced velocity; which of the two is the default is fixed by the measurement of RPT-130 (V_ax read on a licensed run, for example from the tip-vortex position on the probes) before this requirement is implemented, and this requirement is then amended to name it. Until that measurement, the conservative V_inf alone is used, since it gives a wake longer than L.
-    - R4 A rotor row whose setup and preset state no wake termination at all gets L = 4.0; a stated length, step count or revolution count is used as stated (FR-322).
-    - R5 The run record of every point whose termination was converted carries the L asked, the V_ax used with the rule that gave it (free stream, free stream plus induced velocity, or the hover rule of FR-323) and the steps emitted; the plan states the same three values for each such row.
-    - R6 Only the scripts of rotor rows that state no termination differ from 0.33.0, and only in the termination line; the parity script names that difference under this requirement.
+    - R1 The setup key `wake_termination_length` takes a length L in rotor radii, a positive number. R is the tip radius of the rotor the row turns (its reference block's `tip_radius_m`), in metres.
+    - R2 The steps are n = ceil(L R Omega / (V_ax dtheta)), with R in metres, Omega the rotor speed in rad/s, dtheta the step angle in rad and V_ax the axial convection speed of the wake in m/s; rounding is upward, so the wake kept at V_ax is never shorter than L.
+    - R3 V_ax is the free-stream speed V_inf, except on the rows FR-323 governs. V_inf alone is expected to keep a wake at least L long, because axial induction in forward flight speeds the wake up; RPT-130 confirms or refutes that expectation by reading the convection speed on the licensed long-wake run (for example from the tip-vortex position on the probes). Where RPT-130 measures a convection speed closer to V_inf plus the momentum-theory induced velocity than to V_inf, the default becomes V_inf plus that velocity by a dated amendment of this item citing RPT-130, made before this requirement leaves pending; otherwise V_inf stays.
+    - R4 A rotor row of a run type that marches in time, whose setup, preset and row state no wake termination at all, gets L = 4.0; a stated length, step count or revolution count is used as stated (FR-322). A run type without a time step gets no default.
+    - R5 The run record of every point whose termination was converted carries the L asked, the V_ax used with the rule that gave it (free stream, the induced velocity of FR-323, or the revolution cap of FR-323) and the steps emitted; the plan states the same three values for each such row.
+    - R6 Only the scripts of rotor rows that state no termination differ from 0.33.0, and only in the termination line. This is a behaviour change, permanent from 0.34.0 (a row that wants the 0.33.0 bytes states its termination): the migration page of 0.34.0 names it, and where the golden set or the tier-3 matrices carry such rows, the `NAMED_DIFFERENCES` of the parity script name the changed lines under this requirement.
 
     Solution (planned for 0.34.0): the conversion beside `_wake_termination` of `pyflightstream.cases.workflows`, the key in the setup key registry (`cases/_setup_keys.py`), the field on `SolverSettings` in the home the cut of AD-16 gives it, and the emission through the per-family emitter of AD-17.
 
@@ -8073,34 +8073,35 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2075, PFS-2075.01 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7, and the design rules of the 0.34.0 planning inbox: one key only, length or steps or revolutions, and the plan refuses two). Marker P0340-WAKE-ONE-KEY; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker. Evidence owed: a test per pair of the three keys, stated in one setup, in the preset and the row, and in the row alone, each refused at plan naming both keys and where each comes from, with a row stating one key as the control.*
+    *Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7, and the design rules of the 0.34.0 planning inbox: one key only, length or steps or revolutions, and the plan refuses two at the same time). Marker P0340-WAKE-ONE-KEY; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker. Evidence owed: a test per pair of the three keys, stated in one setup, in the preset and the row, and in the row alone, each refused at plan naming both keys and where each comes from, with a row stating one key as the control.*
 
     Need: Three keys can now state the same termination (length, steps, revolutions), and two of them can only disagree.
 
     Requirement: a row's wake termination is stated by at most one of `wake_termination_length`, `wake_termination_steps` and `wake_termination_revolutions`, and the plan refuses a row that states two.
 
     - R1 Two or three of the keys reaching one row, from its setup, its preset or the row itself, are refused at plan before any script is written, naming each key, its value and the file or column it comes from.
-    - R2 The refusal of 0.33.0 for a preset stating revolutions and steps keeps its reading and joins this rule.
-    - R3 The 4R default of FR-321 R4 is not a stated key: it applies only where none of the three is stated, and never conflicts.
-    - R4 A row key does not silently replace a preset key of another of the three: the two are refused together as R1 says. Whether a row's length should instead override a preset's revolutions or steps is an open question to the owner, and this stricter reading holds until she answers.
+    - R2 The refusal of 0.33.0 for a preset stating both revolutions and steps (in `pyflightstream.cases.workflows._freestream`) keeps its reading and joins this rule.
+    - R3 The 4R default of FR-321 R4 is not a stated key: it applies only where none of the three is stated, and never conflicts. The two keys of FR-323 bound a converted length and are not termination keys.
+    - R4 A length stated on a row beside a revolution or step count stated by its preset, or the reverse, is refused as R1 says, naming both keys: a row key never silently replaces a preset key of another of the three.
 
     Solution (planned for 0.34.0): the refusal beside `_wake_termination` of `pyflightstream.cases.workflows`, raised at plan.
 
-!!! requirement "FR-323 A wake length on a hover row uses the induced velocity or a declared revolution cap, and says which <span class='srs-pending'>pending</span>"
+!!! requirement "FR-323 A wake length near hover uses the induced velocity or a declared revolution cap, and says which <span class='srs-pending'>pending</span>"
 
     Read with PFS-2075, PFS-2075.01 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7, and the design rules of the 0.34.0 planning inbox). Marker P0340-WAKE-HOVER; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker. Evidence owed: tests on a row with zero free-stream speed stating a thrust, stating a revolution cap, and stating neither (refused), each asserting the emitted steps and the rule the record names, with a forward-flight row as the control.*
+    *Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7, and the design rules of the 0.34.0 planning inbox: near hover the momentum-theory induced velocity or a declared revolution cap, the package saying which). Marker P0340-WAKE-HOVER; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker. Evidence owed: tests on a row with zero free-stream speed stating a thrust, stating a revolution cap, and stating neither (refused); on a row with a small positive free-stream speed and a stated thrust whose induced velocity exceeds it; and on a forward-flight row as the control; each asserting the emitted steps and the rule the record names.*
 
-    Need: At or near hover the free-stream speed goes to zero and the conversion of FR-321 R2 divides by it.
+    Need: At or near hover the free-stream speed goes to zero and the conversion of FR-321 R2 divides by it, so the step count grows without bound.
 
-    Requirement: a wake length on a row whose free-stream speed is zero is converted with the momentum-theory induced velocity, or bounded by a revolution cap the setup declares, and the package says which it used.
+    Requirement: where the free-stream speed is small against the rotor's induced velocity, a wake length is converted with the momentum-theory induced velocity, or bounded by a revolution cap the setup declares, and the package says which it used.
 
-    - R1 On a row whose free-stream speed is zero, V_ax is the induced velocity v_i = sqrt(T / (2 rho A)), with T a thrust the row or its setup states (key spelling fixed by the implementation), rho the row's density and A the disc area pi R^2.
-    - R2 Where no thrust is stated, the steps are those of the revolution cap the setup declares for hover rows (key spelling fixed by the implementation).
-    - R3 Where neither is stated, the plan refuses the row, naming both ways out.
-    - R4 The plan and the run record name the rule used (induced velocity or revolution cap) and its inputs.
-    - R5 A row with a positive free-stream speed follows FR-321; the advance ratio below which a row counts as near hover, if any, is not decided, and until it is only a zero free-stream speed takes this requirement (an open point of the scope, listed for the owner).
+    - R1 The key `wake_termination_thrust_n` states a thrust T in newtons; with it, the induced velocity is v_i = sqrt(T / (2 rho A)) in m/s, with rho the row's density in kg/m^3 and A = pi R^2 the disc area in m^2.
+    - R2 Where T is stated and v_i exceeds the free-stream speed V_inf, V_ax is v_i; otherwise V_ax follows FR-321 R3. The induced velocity at the disc, v_i, is used rather than the far-wake value 2 v_i because the slower convection gives the longer wake, the conservative side. This is a modelling convention, not a measured solver behaviour: RPT-130 measures forward flight only, and the hover rule stays unmeasured until a later report measures it.
+    - R3 The key `wake_termination_revolutions_cap` states a positive number of revolutions; with it, the converted steps never exceed that number of revolutions at the row's step angle, and the record says when the cap set them.
+    - R4 A row whose free-stream speed is zero and which states neither key is refused at plan, naming both keys.
+    - R5 A row with a positive free-stream speed that states neither key follows FR-321; where its converted steps exceed the run's own steps, the termination never acts, and FR-325 R1 warns.
+    - R6 The two keys bound a length only: stated on a row whose termination is a step or revolution count, they are refused at plan, naming both keys. The plan and the run record name the rule used (free stream, induced velocity or revolution cap) and its inputs.
 
     Solution (planned for 0.34.0): the hover branch of the conversion of FR-321.
 
@@ -8110,36 +8111,37 @@ Requirements written after the specification was last reconciled with the packag
 
     *Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7, its complement of 2026-10-01) and the author decision of 2026-10-01 to keep L = 4R and offer an option that moves the Trefftz plane; the setup key audit of FR-319 (RPT-106) lists the wake end plane as owed to 0.34. Marker P0340-WAKE-TREFFTZ; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker and the parity script. Evidence owed: a test that a stated plane writes `WAKE_TERMINATION_X <value>` in `INITIALIZE_SOLVER` and changes no other line, a test that an unstated key leaves every script byte-identical to 0.33.0 (`DEFAULT`), and a refusal test for a value the command does not take.*
 
-    Need: Every workflow writes `WAKE_TERMINATION_X DEFAULT`, and the solver's default plane limits the wake whatever the termination says. On 26.124 the default plane was measured at 5.5 rotor radii downstream on a rotor case and at 2.1 radii on a blades-only wheel, where it cut the wake; no setup key reaches the argument, and the raw command route cannot replace one argument of a keyword block.
+    Need: Every workflow writes `WAKE_TERMINATION_X DEFAULT`, and the solver's default plane limits the wake whatever the termination says. Research studies measured the default plane on 26.124 at 5.5 rotor radii downstream of the rotor on a rotor case and at 2.1 radii on a blades-only wheel, where it cut the wake; the placements are stated nondimensionally, the second summarised in RPT-137 and the first stated beside its own run in RPT-130. No setup key reaches the argument, and the raw command route cannot replace one argument of a keyword block.
 
     Requirement: a setup key states the `wake_termination_x` argument of `INITIALIZE_SOLVER`.
 
-    - R1 The key (spelling fixed by the implementation and recorded here) takes `DEFAULT` or an X coordinate in the row's length unit, the form the command database documents for the argument.
+    - R1 The key `wake_termination_x` takes `DEFAULT` or an X coordinate in metres in the reference frame of the simulation, the solver's own form of the argument.
     - R2 A setup that does not state the key writes `DEFAULT`, so its scripts are byte-identical to those of 0.33.0.
     - R3 A value the command does not take is refused at plan, naming the key and the accepted forms.
-    - R4 Whether the key should also take a distance downstream of the rotor in radii (for example L plus a margin) is an open point listed for the owner; until it is decided, only the solver's own form of R1 is taken.
+    - R4 No other form is taken: a distance downstream of the rotor in radii is not a value of this key.
 
     Solution (planned for 0.34.0): the key in the setup key registry and its emission through the per-family emitter of AD-17; the row of RPT-106 moves from owed to covered.
 
-!!! requirement "FR-325 The plan always warns when a rotor row's wake cannot reach its length <span class='srs-pending'>pending</span>"
+!!! requirement "FR-325 The plan always warns when a rotor row's wake may not reach its length <span class='srs-pending'>pending</span>"
 
     Read with PFS-2075, PFS-2075.01 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7) and the author decisions of 2026-10-01 that the plan warns always, at the 4R recommendation and at any larger length asked, and when the Trefftz plane sits before the length. Marker P0340-WAKE-PLAN-WARN; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker. Evidence owed: tests over a rotor row and a blades-only wheel (the two measured plane placements of FR-324 as fixtures), at L = 4R and at a larger L, with too few revolutions and with enough, with the plane stated before L, after L and left at `DEFAULT`; each asserting the warning text where owed, its absence where not, an exit status of 0 and the same plan written as without the warning.*
+    *Origin: item WAKE-LENGTH of the 0.34.0 scope (GEO-071, section 4.7) and the author decisions of 2026-10-01 that the plan warns always, at the 4R recommendation and at any larger length asked, and when the Trefftz plane sits before the length. Marker P0340-WAKE-PLAN-WARN; read at 0.34.0 (GOAL-039, arm MW). Pending: no code yet. Verification method: tier-1 tests carrying the marker. Evidence owed: tests over a rotor row and a blades-only wheel (the two measured plane placements of FR-324 as fixtures), at L = 4R and at a larger L, with too few revolutions and with enough, with a row stating a step count, with the plane stated before L, after L and left at `DEFAULT`; each asserting the warning text where owed, its absence where not, an exit status of 0 and the same plan written as without the warning.*
 
-    Need: A matrix that runs every row with two revolutions keeps, at a moderate advance ratio, about 3.2 radii of wake, so a wake termination of 2.5 revolutions or no termination at all never takes effect, and nothing said so.
+    Need: A matrix that runs every row with two revolutions keeps, at J = 0.8007 and a step angle of 4 degrees, at most about 3.2 radii of wake (the free-stream-only lower-bound estimate of FR-321), so a wake termination of 2.5 revolutions or no termination at all never takes effect, and nothing said so.
 
-    Requirement: the plan warns, and never refuses, on every rotor row whose run cannot keep a wake of the length it asks or defaults to.
+    Requirement: the plan warns, and never refuses, on every rotor row whose run may not keep a wake of the length it asks or defaults to.
 
-    - R1 The plan warns when the run's revolutions are fewer than the revolutions the wake length L needs, n_rev = L R Omega / (2 pi V_ax), at the 4R default and at any L stated, naming the row, L, the revolutions needed and the revolutions the run has.
-    - R2 The plan warns when a stated wake end plane (FR-324) sits upstream of the rotor's position plus L R along the free stream.
-    - R3 On a rotor row whose plane is `DEFAULT`, whose position the plan cannot know, the plan warns that the solver's default plane may cut the wake before L, citing the two measured placements (5.5R on a rotor case, 2.1R on a blades-only wheel), and naming the key of FR-324.
-    - R4 The same rules apply to a rotor row and to a blades-only wheel.
-    - R5 The warnings change neither the plan's exit status nor what it writes.
+    - R1 For a row whose termination is a length (stated, or the 4R default), the plan warns when the run's revolutions are fewer than the revolutions the length needs, n_rev = L R Omega / (2 pi V_ax), at the 4R default and at any L stated, naming the row, L, the revolutions needed and the revolutions the run has.
+    - R2 For a row whose termination is a step or revolution count, the plan states the length that count keeps at V_ax, L_kept = n V_ax dtheta / (Omega R) radii for n steps, and warns when L_kept, or the length the run's own revolutions keep, is below the 4R recommendation.
+    - R3 The plan warns when a stated wake end plane (FR-324) lies downstream of the rotor hub by less than L R along X, X in metres in the simulation's frame and downstream being the sense of the free stream's X component; on a row with zero free-stream speed it warns on a stated plane within L R of the hub along X on either side.
+    - R4 On a rotor row whose plane is `DEFAULT`, whose position the plan cannot know, the plan warns that the solver's default plane may cut the wake before L, citing the two placements measured on 26.124 (5.5R on a rotor case, 2.1R on a blades-only wheel) and the reports that state them (RPT-130 and RPT-137, committed before the tag), and naming the key of FR-324.
+    - R5 The same rules apply to a rotor row and to a blades-only wheel.
+    - R6 The warnings change neither the plan's exit status nor what it writes; they are computed from values the plan already holds and add no solver call and no file read.
 
     Solution (planned for 0.34.0): a warning of `pyfs-matrix plan` in `pyflightstream.run._plan`, over the conversion of FR-321.
 
-!!! requirement "FR-326 One new point is planned and run without editing the matrix <span class='srs-pending'>pending</span>"
+!!! requirement "FR-326 A selection of the matrix, a simulation or a simulation and its points, is planned and run without editing the matrix <span class='srs-pending'>pending</span>"
 
     Read with PFS-2075, PFS-2075.02 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
@@ -8147,14 +8149,15 @@ Requirements written after the specification was last reconciled with the packag
 
     Need: `--sims` of `run` names the simulations to redo with `--force-rerun-all` only, and `plan` takes no selection, so running one new test point before the batch means editing the matrix.
 
-    Requirement: `pyfs-matrix plan` and `pyfs-matrix run` plan and run a selection of the matrix, a simulation (POL) or a simulation and a point, without the matrix being edited.
+    Requirement: `pyfs-matrix plan` and `pyfs-matrix run` plan and run a selection of the matrix, a simulation (POL) or a simulation and some of its points, without the matrix being edited.
 
-    - R1 `plan` and `run` take `--sims SIM [SIM ...]`, the simulation ids as the matrix spells them, the form `run --sims` takes in 0.33.0; with it, only the active points of those simulations are planned or run. `run --sims` without `--force-rerun-all` takes this reading.
-    - R2 Both take `--points POINT [POINT ...]`, accepted only with `--sims`, naming points of the selected simulations by their point name or their run id as the plan prints them; only those points are planned or run.
+    - R1 `plan` and `run` take `--sims SIM [SIM ...]`, the simulation ids as the matrix spells them, the form `run --sims` takes in 0.33.0; with it, only the active points of those simulations are planned or run. `run --sims` without `--force-rerun-all`, which 0.33.0 refuses (FR-131), takes this reading: a behaviour change, a refusal becoming a selection, stated in the migration page of 0.34.0.
+    - R2 Both take `--points POINT [POINT ...]`, accepted only with `--sims`, naming points of the selected simulations by the point name the plan prints for each; only those points are planned or run.
     - R3 An id or a point the matrix does not carry is refused before anything runs, naming it and the ids or points that exist.
     - R4 Every point not selected is left untouched: not planned, not staged, not run, its record unchanged. The matrix file is not written.
     - R5 A selected point already recorded follows the rules of 0.33.0 (refused, `--resume`, `--force-rerun`); `--force-rerun-all --sims` keeps its 0.33.0 meaning.
-    - R6 These option spellings are fixed by the SRS review of 0.34.0; a change of spelling at implementation amends this requirement in the same commit, and the cheatsheet (FR-328) carries them.
+    - R6 The spellings `--sims` and `--points` are fixed by this requirement; a change of spelling at implementation amends it in the same commit, and the cheatsheet (FR-328) carries them.
+    - R7 This requirement amends FR-131: the commit that implements it removes "when `--sims` stands alone" from the refusals FR-131 lists and points there to FR-326; FR-131 otherwise keeps its reading.
 
     Solution (planned for 0.34.0): the selection in the parsers of `plan` and `run`, built by the family functions of AD-18, and in `pyflightstream.run._plan` and `pyflightstream.run._campaign`.
 
@@ -8162,7 +8165,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2075, PFS-2075.03 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: item (2) of the run-usability items of the 0.34.0 scope (GEO-071, section 4.8): a second `run` of the same matrix without `--resume` failed instead of saying what to do. Marker P0340-RUN-AGAIN; read at 0.34.0 (GOAL-039, arm MU). Pending: no code yet. Verification method: tier-1 tests carrying the marker, through `main`. Evidence owed: a test that runs a matrix, adds a point, runs again without `--resume`, and asserts the printed command is the invoked one with `--resume` added and that running the printed command runs exactly the new point; a test that the exit status stays non-zero; and a control where nothing is recorded, which runs without the message.*
+    *Origin: item (2) of the run-usability items of the 0.34.0 scope (GEO-071, section 4.8): a second `run` of the same matrix without `--resume` failed instead of saying what to do; the item admits either the exact command in the message or an offer to continue, and the message is the form chosen. Marker P0340-RUN-AGAIN; read at 0.34.0 (GOAL-039, arm MU). Pending: no code yet. Verification method: tier-1 tests carrying the marker, through `main`. Evidence owed: a test that runs a matrix, adds a point, runs again without `--resume`, and asserts the printed command is the invoked one with `--resume` added and that running the printed command runs exactly the new point; a test that the exit status stays non-zero; and a control where nothing is recorded, which runs without the message.*
 
     Need: The refusal of a second run explains `--resume` and `--force-rerun` in words, so a person must rebuild the command line by hand.
 
@@ -8171,8 +8174,8 @@ Requirements written after the specification was last reconciled with the packag
     - R1 The message prints the command as it was invoked, every argument kept, with `--resume` added, quoted so that it can be pasted into the shell it was run from.
     - R2 The message says how many points are recorded and how many would run with that command.
     - R3 The refusal keeps its exit status and runs nothing; no point is staged.
-    - R4 The run does not prompt for an answer: a run may be detached or scripted, and a prompt would hang it. Whether an interactive offer to continue should be added for a terminal session is an open point listed for the owner.
-    - R5 The refusal is reworded in place or extracted into a helper of `pyflightstream.run._campaign`, which keeps `run_campaign` from growing (decision 6 of the release).
+    - R4 The run does not prompt for an answer: a run may be detached or scripted, and a prompt would hang it; the printed command is the way to continue.
+    - R5 The refusal is reworded in place or extracted into a helper of `pyflightstream.run._campaign`, which keeps `run_campaign` from growing (the G2 rule of AD-08: a function in the length table may only shrink).
 
     Solution (planned for 0.34.0): the refusal of `pyflightstream.run._campaign.run_campaign` and the command-line rendering in the parser module of AD-18.
 
@@ -8180,7 +8183,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2075, PFS-2075.13 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: items (1) and (2) of the guides item of the 0.34.0 scope (GEO-071, section 4.9) and the author decisions of 2026-10-01 that the cheatsheet is one document, its first page the current cheatsheet, then the pages by stage, ten pages in all, every command-line command included. Marker P0340-CHEATSHEET-ONE; read at 0.34.0 (GOAL-039, arm MG). Pending: built in part on a branch of 2026-10-01 (two sheets, not yet one document). Verification method: tier-1 tests carrying the marker. Evidence owed: a test that the compiled PDF has ten pages; a test that walks the parser of every console tool and refuses the source when a command or an option is missing, or names one no parser has, with a planted flag, a planted command and a cut line as controls; and a test that each of the eight stage pages names its stage.*
+    *Origin: items (1) and (2) of the guides item of the 0.34.0 scope (GEO-071, section 4.9) and the author decisions of 2026-10-01 that the cheatsheet is one document, its first page the current cheatsheet, then the pages by stage, ten pages in all, every command-line command included. Marker P0340-CHEATSHEET-ONE; read at 0.34.0 (GOAL-039, arm MG). Pending: built in part on a branch of 2026-10-01 (two sheets, not yet one document). Verification method: tier-1 tests carrying the marker, each R-item verified on its own. Evidence owed: a test that the compiled PDF has ten pages; a test that walks the parser of every console tool and refuses the source when a command or an option is missing, or names one no parser has, with a planted flag, a planted command and a cut line as controls; and a test that each of the eight stage pages names its stage.*
 
     Need: The 0.33.0 cheatsheet covers `pyfs-matrix` on one page; the other tools and the explanation of each stage are elsewhere or nowhere.
 
@@ -8190,7 +8193,7 @@ Requirements written after the specification was last reconciled with the packag
     - R2 Page 2 is the other console tools, `pyfs-workspace`, `pyfs-qa`, `pyfs-fsi` and `pyfs-manual`: every subcommand and every option.
     - R3 Pages 3 to 10 are the eight stages of the campaign workflow, one page each, with what the stage is for, its commands and options, explanations and figures: the workspace and its input library; the run matrix and its two homes; the reference, setup and pproc artifacts; plan; run; collect and the run records; post and products; maintenance.
     - R4 A tier-1 test walks the parser of every console tool and refuses a command or an option the document omits, and one it names that no parser has; a command or option added later updates the document in the same commit.
-    - R5 The source is LaTeX under `guide/latex-sources/`, built by the guide build scripts with the decks, licensed CC BY 4.0, and the compiled PDF is admitted as the guides are (FR-177).
+    - R5 The source is LaTeX under `guide/latex-sources/`, built by the guide build scripts with the decks and released under the licence CC BY 4.0, and the compiled PDF is admitted as the guides are (FR-177).
 
     Solution (planned for 0.34.0): the merge of the two sheets of the 0.34.0 cheatsheet branch into one source and one PDF, and its parser-walking test.
 
@@ -8204,10 +8207,11 @@ Requirements written after the specification was last reconciled with the packag
 
     Requirement: the guides are numbered from 01, with no `pyfts-guide-00`, and the cheatsheet of FR-328 is `pyfts-guide-04`; every place that names a guide agrees.
 
-    - R1 The numbering is: 01 overview (was 00), 02 workspaces (01), 03 GUI to pyfs (02), 04 the cheatsheet, 05 references (03), 06 solver setup (04), 07 pproc definitions (05), 08 FSI (06), 09 the Python environment for offline machines (07); the guides keep their relative order around the cheatsheet.
+    - R1 The new numbers, each followed by the number the guide had in 0.33.0: 01 overview, formerly 00; 02 workspaces, formerly 01; 03 GUI to pyfs, formerly 02; 04 the cheatsheet, new as a numbered guide; 05 references, formerly 03; 06 solver setup, formerly 04; 07 pproc definitions, formerly 05; 08 FSI, formerly 06; 09 the Python environment for offline machines, formerly 07. The guides keep their relative order around the cheatsheet.
     - R2 No tracked file names `pyfts-guide-00`.
     - R3 The build scripts, the admitted-PDF list, the guide tests, the documentation kit's rules and the pages that link the guides name the same set of numbers.
-    - R4 FR-177 states the 0.31.0 numbering; the commit that implements this requirement amends FR-177's naming sentence to this one, and FR-177 otherwise keeps its reading.
+    - R4 This requirement amends FR-177: the commit that implements it replaces FR-177's naming sentence ("named `pyfts-guide-00` to `pyfts-guide-07`, guide 00 being the overview read first") with the numbering of R1 and a pointer to FR-329; FR-177 otherwise keeps its reading.
+    - R5 This is a behaviour change of the documentation, permanent from 0.34.0: the old file names do not resolve, the migration page of 0.34.0 gives the map of R1, and the `NAMED_DIFFERENCES` of the parity script name the renamed guides under this requirement.
 
     Solution (planned for 0.34.0): the renaming under `guide/`, its build scripts, the admitted-PDF list and the linking pages.
 
@@ -8215,35 +8219,38 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2075, PFS-2075.04 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: the degenerate-geometry item of the 0.34.0 scope (GEO-071, sections 4.10 and 4.11) and the author decision of 2026-10-01 that a command at the level of `inventory` creates degenerate geometries, the thin blade first. Marker P0340-THIN-BLADE; read at 0.34.0 (GOAL-039, arm MT). Pending: no code yet. Verification method: tier-1 tests carrying the marker, on synthetic blade meshes the tests build. Evidence owed: tests that the derived surface lies midway between the two sides of a synthetic blade within a stated tolerance; that its root is moved outward by the stated offset; that the boundaries are written beside the source; that a mesh the command cannot read is refused by name, writing nothing; that the source is never modified; and that the CLI reference and the cheatsheet name the command.*
+    *Origin: the degenerate-geometry item of the 0.34.0 scope (GEO-071, sections 4.10 and 4.11) and the author decision of 2026-10-01 that a command at the level of `inventory` creates degenerate geometries, the thin blade first. Marker P0340-THIN-BLADE; read at 0.34.0 (GOAL-039, arm MT). Pending: no code yet. Verification method: tier-1 tests carrying the marker, on synthetic blade meshes the tests build. Evidence owed: a test that, on a synthetic blade whose two sides are mirror images about a known surface, the derived surface lies on that surface within 1e-9 of the blade's span (round-off); a test that its root is moved outward by the stated offset; a test that the surface and its boundary inventory are written beside the source; a test that a mesh the command cannot read, or whose two sides it cannot separate, is refused by name, writing nothing; a test that the source is never modified; and a test that the CLI reference and the cheatsheet name the command.*
 
     Need: A thin-blade study (the blade replaced by its mean surface, in a quasi-steady run, a transient sector or a transient wheel) needs the degenerate geometry built from the blade mesh, which today is done by hand.
 
-    Requirement: a `pyfs-matrix` command at the level of `inventory` derives a thin blade from the surface mesh of a blade and writes it, with its boundaries, beside the source.
+    Requirement: the subcommand `pyfs-matrix degenerate`, beside `inventory`, derives a thin blade from the surface mesh of a blade and writes it, with its boundaries, beside the source.
 
-    - R1 The thin blade is the mean surface of the blade: the surface midway between its two sides, from the root to the tip.
-    - R2 Its root is moved outward along the span by an offset the command takes as an option, so that the surface does not cross the spinner; the default offset is fixed by the implementation and recorded here, and the offset used is written in the output's sidecar.
-    - R3 The command writes the thin blade and its boundary inventory (the sidecar the raw-mesh route reads, FR-55) beside the source mesh, under a name derived from the source's stem; it never modifies the source and refuses to overwrite an existing output unless asked.
-    - R4 A mesh it cannot read, or one whose two sides it cannot separate, is refused by name, with the reason, before anything is written.
-    - R5 The command's spelling is fixed by the implementation (it sits beside `inventory` in the parser built by AD-18); the CLI reference and the cheatsheet (FR-328) name it.
-    - R6 The derived geometry is a modelling choice of the user; the package makes no claim about the solver's behaviour on it, which a run confirms.
+    - R1 The command is `pyfs-matrix degenerate GEOMETRY --kind thin-blade --root-offset LENGTH [--overwrite]`, GEOMETRY being a blade mesh in a form `inventory` reads; `thin-blade` is the one kind of 0.34.0 and the default of `--kind`, and a later kind of degenerate geometry is a new choice of `--kind`.
+    - R2 The thin blade is the mean surface of the blade: the surface midway between its two sides, from the root to the tip.
+    - R3 Its root is moved outward along the span, the direction from the blade's root to its tip, by `--root-offset`, a length in the mesh's own length unit that the command requires, so that the surface does not cross the spinner; the offset used is written in the output's sidecar.
+    - R4 The command writes the thin blade beside the source mesh, under a name derived from the source's stem; it never modifies the source and refuses to overwrite an existing output unless `--overwrite` is given.
+    - R5 It writes the thin blade's boundary inventory, the sidecar the raw-mesh route reads (FR-55), beside the output.
+    - R6 A mesh it cannot read, or one whose two sides it cannot separate, is refused by name, with the reason, before anything is written.
+    - R7 The CLI reference and the cheatsheet (FR-328) name the command and its options.
+    - R8 The derived geometry is a modelling choice of the user; the package makes no claim about the solver's behaviour on it, which a run confirms.
 
-    Solution (planned for 0.34.0): a private module beside `pyflightstream.workspace._geometry_clean`, reading through `pyflightstream._fsm` where the source is a saved simulation, and the subcommand beside `inventory`.
+    Solution (planned for 0.34.0): a private module beside `pyflightstream.workspace._geometry_clean`, reading through `pyflightstream._fsm` where the source is a saved simulation, and the subcommand beside `inventory` in the parser family of AD-18.
 
 !!! requirement "FR-331 An actuator disc with rpm_sign +1 swirls the way a rotor with rpm_sign +1 turns <span class='srs-pending'>pending</span>"
 
     Read with PFS-2075, PFS-2075.05 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: the actuator-disc findings of the 0.34.0 scope (GEO-071, section 4.11) and the author decision of 2026-10-01 to fix the swirl sign with a test and document the rest. Measured on 26.124: a disc with `rpm_sign +1` swirled against a rotor with `rpm_sign +1`, contrary to the docstring, and needed -1. Marker P0340-ACT-SWIRL-SIGN; read at 0.34.0 (GOAL-039, arm MA). Pending: no code yet. Verification method: a tier-1 test carrying the marker that pins the emitted sign, the parity script's named difference, and the actuator-disc report RPT-137. Evidence owed: the test pinning the sign of the emitted disc speed for `rpm_sign +1` and `-1`; the parity entry naming the changed actuator lines under this requirement; the migration page's paragraph; and RPT-137 stating the measurement the sign rests on.*
+    *Origin: the actuator-disc findings of the 0.34.0 scope (GEO-071, section 4.11) and the author decision of 2026-10-01 to fix the swirl sign with a test and document the rest. Measured on 26.124 by a research study of the actuator disc: a disc with `rpm_sign +1` swirled against a rotor with `rpm_sign +1`, contrary to the docstring, and needed -1. RPT-137 is the summary report of that measured study: no new licensed run, nondimensional, no geometry. Marker P0340-ACT-SWIRL-SIGN; read at 0.34.0 (GOAL-039, arm MA). Pending: no code yet. Verification method: a tier-1 test carrying the marker that pins the emitted sign (it checks the code path, not the solver), the parity script's named difference, and RPT-137. Evidence owed: the test pinning the sign of the emitted disc speed for `rpm_sign +1` and `-1`; the parity entry naming the changed actuator lines under this requirement; the migration page's paragraph; and RPT-137 stating the measurement the sign rests on.*
 
     Need: A disc written with the same hand as the rotor it stands for swirls the wake the other way, so a disc study compares against the wrong rotor.
 
-    Requirement: an actuator disc whose reference block states `rpm_sign +1` swirls its wake in the sense a rotor of `rpm_sign +1` (the right-hand rule about its axis) turns.
+    Requirement: an actuator disc whose reference block states `rpm_sign +1` swirls its wake in the sense in which a rotor of `rpm_sign +1` turns.
 
-    - R1 The emitted disc speed carries the sign that makes this requirement hold on 26.124, as measured; the docstring of the reference block and the actuator pages say the same.
-    - R2 A tier-1 test pins the emitted sign for both hands.
-    - R3 The emitted actuator lines of 0.34.0 differ from those of 0.33.0 by that sign only; the parity script names the difference under this requirement, and the migration page states it among the first changes.
-    - R4 The measurement is of one build (26.124); on another build the sign is the same rule, unmeasured, and RPT-137 says so.
+    - R1 The sense of `rpm_sign` is that of the reference block: `+1` is a positive rotation about the block's `axis` by the right-hand rule, `axis` being stated in the reference frame of the simulation, and `-1` the opposite rotation; a disc's swirl follows its block's sign as a rotor's rotation does.
+    - R2 The disc speed handed to the disc emitter is minus `rpm_sign` times the row's disc speed magnitude, where 0.33.0 handed plus `rpm_sign` times it; the emitted disc line therefore carries, for the same block, the opposite sign of the line 0.33.0 wrote, which is the sign measured on 26.124 to swirl with the rotor. The docstring of the reference block and the actuator pages say the same.
+    - R3 A tier-1 test pins the emitted sign for both hands.
+    - R4 The emitted actuator lines of 0.34.0 differ from those of 0.33.0 by that sign only. This is a behaviour change, permanent from 0.34.0: the `NAMED_DIFFERENCES` of the parity script name it under this requirement, and the migration page of 0.34.0 states it among the first changes.
+    - R5 The measurement is of one build (26.124); on another build the sign is the same rule, unmeasured, and RPT-137 says so.
 
     Solution (planned for 0.34.0): the disc emission of `pyflightstream.cases.workflows._actuator` (the only module reading `rpm_sign` for a disc).
 
@@ -8251,34 +8258,34 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2075, PFS-2075.06 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: the actuator-disc findings of the 0.34.0 scope (GEO-071, section 4.11) and the author decision of 2026-10-01 to document the findings other than the sign and guard them where sensible. Marker P0340-ACT-DOCS; read at 0.34.0 (GOAL-039, arm MA). Pending: no code yet. Verification method: tier-1 tests carrying the marker (the warning, and the presence of each statement on its page), and RPT-137. Evidence owed: a test that the plan warns on a RELAXED disc naming a profile, never refuses, and writes the same plan, with a RIGID disc naming a profile and a RELAXED disc with a thrust as controls; and a test that each documented statement of R1 to R4 is on its page.*
+    *Origin: the actuator-disc findings of the 0.34.0 scope (GEO-071, section 4.11) and the author decision of 2026-10-01 to document the findings other than the sign and guard them where sensible. The four behaviours were measured on 26.124 by the research study of the actuator disc that RPT-137 summarises (no new licensed run, nondimensional, no geometry). Marker P0340-ACT-DOCS; read at 0.34.0 (GOAL-039, arm MA). Pending: no code yet. Verification method: tier-1 tests carrying the marker, each R-item verified on its own (R1 to R4 by a test reading each statement on its page, R5 by the warning test), and RPT-137. Evidence owed: a test that the plan warns on a RELAXED disc naming a profile, never refuses, and writes the same plan, with a RIGID disc naming a profile and a RELAXED disc with a thrust as controls; and a test that each documented statement of R1 to R4 is on its page and cites RPT-137.*
 
     Need: Four behaviours measured on 26.124 contradict what a reader would assume and are written nowhere.
 
     Requirement: the documentation states four measured behaviours, and the plan warns on the one a row can trigger by mistake.
 
-    - R1 The probe velocities of a quasi-steady run are expressed in the rotating frame of the blade, stated on the probes and quasi-steady pages.
-    - R2 The swirl of a disc is one global factor, not a radial distribution, stated on the actuator page.
-    - R3 The ELLIPTICAL thrust model places about 0.62 of the thrust asked into the wake, as measured on 26.124 (RPT-137), stated on the actuator page.
-    - R4 The RELAXED wake type ignores a custom loading profile and carries about half of the thrust, as measured on 26.124 (RPT-137), stated on the actuator page.
+    - R1 The probe velocities of a quasi-steady run are expressed in the rotating frame of the blade, stated on the probes and quasi-steady pages, citing RPT-137.
+    - R2 The swirl of a disc is one global factor, not a radial distribution, stated on the actuator page, citing RPT-137.
+    - R3 The ELLIPTICAL thrust model placed 0.62 of the thrust asked into the wake on the one case RPT-137 summarises (26.124), stated on the actuator page as a measured value, not a guaranteed one.
+    - R4 The RELAXED wake type ignored a custom loading profile and carried about half of the thrust on the same case (RPT-137), stated on the actuator page as a measured value, not a guaranteed one.
     - R5 The plan warns, and never refuses, on a disc whose wake type is RELAXED and which names a loading profile, naming the row, the disc and RPT-137.
 
     Solution (planned for 0.34.0): the actuator, probes and quasi-steady pages, and a warning in `pyflightstream.run._plan`.
 
-!!! requirement "FR-333 The acoustic, CCS, surface-removal and wake commands are promoted through pyfs-qa <span class='srs-pending'>pending</span>"
+!!! requirement "FR-333 The acoustic, CCS, surface-removal and wake commands are probed through pyfs-qa, their status following the verdict <span class='srs-pending'>pending</span>"
 
     Read with PFS-2075, PFS-2075.07, PFS-2075.25 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: the first CCS and noise item of the 0.34.0 scope (GEO-071, section 4.1): the commands ran on 26.124 through the 0.32.0 release harness (RPT-096 to RPT-098), not through `pyfs-qa probe`, and stay `documented`. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-QA-PROMOTE; read at 0.34.0 (GOAL-039, arm CN). Pending: no code yet. Verification method: tier-1 tests carrying the marker over the catalog and the command database, and the licensed probe run reported in RPT-126. Evidence owed: a test that each command of R1 has a catalog entry in `pyflightstream.qa.specs` (or the catalog module the cut of `qa/specs.py` creates); a test that each such command's 26.124 status in the command database equals the verdict of RPT-126; and RPT-126 itself, from a `pyfs-qa probe` run on 26.124, far field 5.*
+    *Origin: the first CCS and noise item of the 0.34.0 scope (GEO-071, section 4.1): the commands ran on 26.124 through the 0.32.0 release harness (RPT-096 to RPT-098), not through `pyfs-qa probe`, and stay `documented`. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-QA-PROMOTE; read at 0.34.0 (GOAL-039, arm CN). Pending: no code yet. Verification method: tier-1 tests carrying the marker over the catalog and the command database (they check the catalog, the promotion path and the recorded verdict), and the licensed probe run reported in RPT-126 (tier 2, a `pyfs-qa probe` run; the tiers are defined in `docs/tiers.md`). Evidence owed: a test that each command of R1 has a catalog entry in `pyflightstream.qa.specs` (or the catalog module the cut of `qa/specs.py` creates); a test that each such command's 26.124 status in the command database equals the verdict of RPT-126; a test that a promotion from an incomplete report changes nothing, with a complete report as the control; and RPT-126 itself, from a `pyfs-qa probe` run on 26.124, far field 5.*
 
     Need: The command database marks commands that ran on 26.124 as `documented`, because the run was not the probe tool's; promoting them needs catalog entries and one licensed probe run.
 
-    Requirement: the six acoustic commands, the CCS commands, `DELETE_SURFACES` and the wake commands carry probe specifications, are run by `pyfs-qa probe` on 26.124, and the command database records each verdict.
+    Requirement: the six acoustic commands, the CCS commands, `DELETE_SURFACES` and the wake commands that ran in RPT-096 to RPT-098 carry probe specifications, are run by `pyfs-qa probe` on 26.124, and the command database records each verdict.
 
-    - R1 The set of commands is fixed by a census at the start of the work package, from the command database and the 0.32.0 harness reports, and listed in RPT-126.
+    - R1 The set is every command whose 26.124 status is `documented` and which ran on 26.124 in RPT-096, RPT-097 or RPT-098, less the CCS-wing command, which FR-334 owns; it is counted at the start of the work package and listed in RPT-126.
     - R2 Each command of the set has a probe specification in the catalog that `pyfs-qa probe` runs.
     - R3 A licensed `pyfs-qa probe` run on 26.124 (build 8172026), far field 5, judges each; its committed compatibility report and RPT-126 carry each verdict.
-    - R4 Each command's 26.124 status in the command database is promoted, kept or demoted by that verdict alone, through the promotion tool (the add-command rule of FR-299); a command the run did not judge keeps its status and RPT-126 says why.
+    - R4 Each command's 26.124 status in the command database is promoted, kept or demoted by that verdict alone, through the promotion tool (the add-command rule of FR-299); a command the run did not judge keeps its status and RPT-126 says why. The database is written only from a complete committed report: a failed or partial run leaves it unchanged.
 
     Solution (planned for 0.34.0): catalog entries in the probe catalog after the cut of `qa/specs.py`, and the promotion of `commands/*.yaml` from the run's report.
 
@@ -8286,14 +8293,14 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2075, PFS-2075.08 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: planning item PFS-2001.05, carried into the 0.34.0 scope (GEO-071, section 4.1): three commands the package emits on a reading of the manual alone; RPT-096 probed the CCS-wing command only. Marker P0340-PROBE-2001-05; read at 0.34.0 (GOAL-039, arm CN), PFS-2001.05 moving to 0.34.0. Pending: no code yet. Verification method: tier-1 tests carrying the marker and the licensed probe run of RPT-126. Evidence owed: probe specifications for the three, the verdicts in the command database and in RPT-126, and a test that each status equals its verdict.*
+    *Origin: planning item PFS-2001.05, carried into the 0.34.0 scope (GEO-071, section 4.1): three commands the package emits on a reading of the manual alone, each database entry citing the manual page its emitted form rests on; RPT-096 probed the CCS-wing command only. Marker P0340-PROBE-2001-05; read at 0.34.0 (GOAL-039, arm CN), PFS-2001.05 moving to 0.34.0. Pending: no code yet. Verification method: tier-1 tests carrying the marker (the catalog and the recorded verdicts) and the licensed probe run of RPT-126 (tier 2). Evidence owed: probe specifications for the three, the verdicts in the command database and in RPT-126, and a test that each status equals its verdict.*
 
     Need: If the solver silently rejects the grammar of one of these commands, a person finds out when a run dies halfway.
 
     Requirement: the surface-sections, CCS-wing and boundary-layer commands carry probe specifications, are run on 26.124 by `pyfs-qa probe` in the run of FR-333, and their verdicts are committed in the command database and in a report.
 
     - R1 Each of the three has a catalog entry.
-    - R2 Each verdict is committed in the compatibility report of the run and in RPT-126, and applied to the command database by the promotion tool.
+    - R2 Each verdict is committed in the compatibility report of the run and in RPT-126, and applied to the command database by the promotion tool, under the rule of FR-333 R4.
     - R3 A command the solver refuses keeps an emitted form only with a stated reason, or is refused by the package at plan, the choice recorded in RPT-126.
 
     Solution (planned for 0.34.0): the catalog entries and the promotion, in the run shared with FR-333.
@@ -8302,11 +8309,11 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2075, PFS-2075.09 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: planning item PFS-2003.06, carried into the 0.34.0 scope (GEO-071, section 4.1): the database emits the six arguments of the signature header while the parameter table of the same manual page documents four. Marker P0340-ARITY-2003-06; read at 0.34.0 (GOAL-039, arm CN), PFS-2003.06 moving to 0.34.0. Pending: no code yet. Verification method: a tier-1 test carrying the marker over the command database and the emitter, and the licensed probe of RPT-126. Evidence owed: RPT-126 stating the arity measured on 26.124 (the file each command writes, read on disk); the database entry carrying that arity; and a test that the emitted line of each command has that many arguments.*
+    *Origin: planning item PFS-2003.06, carried into the 0.34.0 scope (GEO-071, section 4.1): for `EXPORT_FUSELAGE_CCS_FILE` and `EXPORT_REVOLVE_CCS_FILE` the database emits the six arguments of the manual's signature heading, while the parameter table of the same page documents four (no row for MARK_TRAILING_EDGES or TE_GEOMETRY); the pages are those the command database cites for 26.124 (pages 306 and 309 of the 26.124 manual), paraphrased here and never reproduced. Marker P0340-ARITY-2003-06; read at 0.34.0 (GOAL-039, arm CN), PFS-2003.06 moving to 0.34.0. Pending: no code yet. Verification method: a tier-1 test carrying the marker over the command database and the emitter (it checks the recorded arity and the emitted line, not the solver), and the licensed probe of RPT-126 (tier 2). Evidence owed: RPT-126 stating the arity measured on 26.124 (the file each command writes, read on disk); the database entry carrying that arity; and a test that the emitted line of each command has that many arguments.*
 
     Need: If the solver reads four arguments, the package writes two tokens it misreads on every line of these commands.
 
-    Requirement: a licensed probe on 26.124 measures whether the two CCS export commands take six arguments or four, and the command database states the measured arity for that build.
+    Requirement: a licensed probe on 26.124 measures whether `EXPORT_FUSELAGE_CCS_FILE` and `EXPORT_REVOLVE_CCS_FILE` take six arguments or four, and the command database states the measured arity for that build.
 
     - R1 RPT-126 states, per command, the arity measured and how (the file written and its content).
     - R2 The 26.124 entry of each command states that arity; the emitter writes it.
@@ -8318,11 +8325,11 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2075, PFS-2075.10 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: CCS-2 of the 0.34.0 scope (GEO-071, section 4.1): the REAL bounds form failed on 26.124 (`FAILED_EXECUTION`, RPT-097) and the package refuses it by name (FR-295 to FR-297); its cause is not investigated. Marker P0340-CCS2-REAL; read at 0.34.0 (GOAL-039, arm CN). Pending: no code yet. Verification method: the licensed probe of RPT-126, and a tier-1 test carrying the marker that the refusal holds unless RPT-126 shows a working form. Evidence owed: RPT-126 stating the probes run (each varying one thing) and the cause they separate; the test of the refusal, or of the re-admitted form with its control.*
+    *Origin: CCS-2 of the 0.34.0 scope (GEO-071, section 4.1): the REAL form of a control surface's spanwise limits failed on 26.124 (`FAILED_EXECUTION`, RPT-097) and the package refuses it by name (FR-295 to FR-297); its cause is not investigated. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-CCS2-REAL; read at 0.34.0 (GOAL-039, arm CN). Pending: no code yet. Verification method: the licensed probe of RPT-126 (tier 2), and a tier-1 test carrying the marker that the refusal holds unless RPT-126 shows a working form (it checks the code path and the recorded verdict). Evidence owed: RPT-126 stating the probes run (each varying one thing) and the cause they separate; the test of the refusal, or of the re-admitted form with its control.*
 
-    Need: The REAL form is refused without knowing why it fails, so the refusal cannot say whether a REAL form can ever work.
+    Need: A control surface of a CCS wing states its spanwise limits `v0` and `v1` in one of two forms, chosen by its `space` argument: PARAMETRIC, the default, as positions along the wing's span parameter, or REAL, as lengths (FR-295). The REAL form is refused without knowing why it fails, so the refusal cannot say whether a REAL form can ever work.
 
-    Requirement: a licensed probe on 26.124 separates why the REAL form of the control-surface bounds fails, and RPT-126 states the cause.
+    Requirement: a licensed probe on 26.124 separates why the REAL form of the control-surface limits fails, and RPT-126 states the cause.
 
     - R1 Each probe changes one thing against the PARAMETRIC form that runs, so the cause is separated rather than guessed.
     - R2 The refusal of FR-295 to FR-297 stays, its message citing RPT-126, unless RPT-126 shows a REAL form that runs; a form re-admitted is admitted only in the measured shape and on the measured build, with a tier-1 test and its control.
@@ -8334,9 +8341,9 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2075, PFS-2075.11 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: QS-NOISE of the 0.34.0 scope (GEO-071, section 4.1): route A agrees with the unsteady reference in level and in shape but not in sign (RPT-099), and the author left QS-NOISE exploratory, with no threshold and no gate. Marker P0340-QSNOISE-SIGN; read at 0.34.0 (GOAL-039, arm CN). Pending: no study yet. Verification method: review of RPT-132, and a tier-1 test carrying the marker that RPT-132 exists, states that it is exploratory, and that no check gates on it. Evidence owed: RPT-132.*
+    *Origin: QS-NOISE of the 0.34.0 scope (GEO-071, section 4.1): route A agrees with the unsteady reference in level and in shape but not in sign (RPT-099), and the author left QS-NOISE exploratory, with no threshold and no gate. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-QSNOISE-SIGN; read at 0.34.0 (GOAL-039, arm CN). Pending: no study yet. Verification method: review of RPT-132, and a tier-1 test carrying the marker that RPT-132 exists, states that it is exploratory, and that no check gates on it. Evidence owed: RPT-132.*
 
-    Need: The sign disagreement of RPT-099 is measured and not explained, and route B is blocked by the solver.
+    Need: Route A, the quasi-steady noise route of FR-300 (a compact-source model fed by the blade loads of a quasi-steady run), disagrees in sign with the unsteady reference of RPT-099; the disagreement is measured and not explained, and the other route, B, is blocked by the solver.
 
     Requirement: an exploratory report, RPT-132, studies the sign disagreement of route A (FR-300) against the unsteady reference, offline, from the records already measured.
 
@@ -8348,9 +8355,11 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-338 Why CDo reads zero in the coupled FSI exports is measured, and fixed where the cause is the package's order <span class='srs-pending'>pending</span>"
 
-    *Origin: planning item PFS-2073.01 of the 0.34.0 scope (GEO-071, section 4.2), from the measurements of RPT-092. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-FSI-CDO; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.01. Pending: no measurement yet. Verification method: the licensed probe reported in RPT-128, and a tier-1 test carrying the marker. Evidence owed: RPT-128 stating the cause; where the cause is the package's order, a tier-1 test that the order of the exports is the corrected one, with the 0.33.0 order as the control; otherwise a test that the FSI page and the product state the column's meaning.*
+    Read with PFS-2073, PFS-2073.01 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    Need: `CDo` reads zero in the coupled FSI exports. It may be the order of the aeroelastic post, which updates the sections before the first export, or a real effect; until measured, the column must not be used.
+    *Origin: planning item PFS-2073.01 of the 0.34.0 scope (GEO-071, section 4.2), from the measurements of RPT-092 (a rigid, synthetic NACA 0012 wing under its own weight, FlightStream 26.124 build 8172026, far field 5): the rigid run's loads export gives CDo 0.0093534 and the coupled run's 0. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-FSI-CDO; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.01. Pending: no measurement yet. Verification method: the licensed probe reported in RPT-128 (tier 3, a run of the FSI workflow), and a tier-1 test carrying the marker (it checks the code path and the recorded verdict); R1 is verified by RPT-128, and R2 or R3 by its own test. Evidence owed: RPT-128 stating the cause; where the cause is the package's order, a tier-1 test that the order of the exports is the corrected one, with the 0.33.0 order as the control; otherwise a test that the FSI page and the product state the column's meaning.*
+
+    Need: `CDo`, the viscous (profile) drag coefficient of the loads export, reads zero in the coupled FSI exports. It may be the order of the aeroelastic post, which updates the sections before the first export, or a real effect; until measured, the column must not be used.
 
     Requirement: a short licensed probe on 26.124 states why `CDo` reads zero in the coupled FSI exports, and the package fixes it where the cause is its own ordering.
 
@@ -8362,13 +8371,15 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-339 The FSI convergence log records the signed tip deflection in a new last column <span class='srs-pending'>pending</span>"
 
+    Read with PFS-2073, PFS-2073.02 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
     *Origin: planning item PFS-2073.02 of the 0.34.0 scope (GEO-071, section 4.2): `tip_flap_m` records the magnitude of the tip flap deflection (`abs(...)` in `pyflightstream.fsi.driver`), so a wing bending down reads positive; the sign exists in the solver's displacement file and agrees with the package's own structural solution under weight alone (RPT-092). Marker P0340-FSI-TIP-SIGN; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.02. Pending: no code yet. Verification method: tier-1 tests carrying the marker, offline. Evidence owed: a test that the log's last column is the signed deflection, positive and negative cases both, read from a displacement file the test writes; and a test that every earlier column keeps its name, its position and its value.*
 
     Need: A log column without its sign misleads the person reading it.
 
     Requirement: `fsi_convergence_log.csv` carries the signed tip flap deflection as a new last column and keeps every earlier column as it is.
 
-    - R1 The new column (name fixed by the implementation and recorded here; for example `tip_flap_signed_m`) is the last column of the log, in metres, with the sign the solver's displacement file carries, its convention stated on the FSI page.
+    - R1 The new column, `tip_flap_signed_m`, is the last column of the log, in metres, with the sign the solver's displacement file carries, its convention stated on the FSI page.
     - R2 `tip_flap_m` and every other column keep their name, position and value.
     - R3 A reader of a 0.33.0 log, which lacks the column, keeps reading it.
 
@@ -8376,75 +8387,87 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-340 The magnitude of the XZ cut moment is confirmed or refuted on a cambered profile <span class='srs-pending'>pending</span>"
 
-    *Origin: planning item PFS-2073.03 of the 0.34.0 scope (GEO-071, section 4.2): on a rigid symmetric wing the sum of the 20 XZ cuts gives the same sign as the solver's total moment but 44 percent of its size, while the cut forces sum to 98.4 percent of the lift (RPT-092); a symmetric profile cannot decide the question. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-FSI-XZ; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.03. Pending: no measurement yet. Verification method: the licensed run reported in RPT-128, and a tier-1 test carrying the marker. Evidence owed: RPT-128 stating the ratio of the summed cut moments to the solver's total on a cambered profile, and the verdict; a test of the reading the verdict leaves (R2 or R3).*
+    Read with PFS-2073, PFS-2073.03 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    Need: The package reads the `Moment` of an XZ cut as positive about +y, and the FSI route takes the torsion it applies from it; the risk is the magnitude.
+    *Origin: planning item PFS-2073.03 of the 0.34.0 scope (GEO-071, section 4.2): on the rigid, synthetic NACA 0012 wing of RPT-092 (FlightStream 26.124 build 8172026, far field 5; section "The two checks the route's memory asked of this run", check (a)), the 20 XZ cuts integrate to a moment of the same sign as the solver's total moment about the same line but 44 percent of its size, while the cut forces sum to 98.4 percent of the lift; a symmetric profile cannot decide the question. Licensed run authorised by the author decision of 2026-10-01. Marker P0340-FSI-XZ; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.03. Pending: no measurement yet. Verification method: the licensed run reported in RPT-128 (tier 3, a run of the FSI workflow), and a tier-1 test carrying the marker (it checks the code path and the recorded verdict). Evidence owed: RPT-128 stating the two ratios on a cambered profile and the verdict by the criterion of R2; a test of the reading the verdict leaves (R3 or R4).*
+
+    Need: An XZ cut is a section of the wing by a plane parallel to the simulation's XZ plane at one spanwise station; the package reads the `Moment` of each cut as positive about +y, nose up (the reading RPT-092 states and found consistent in sign), and the FSI route takes the torsion it applies from it. The risk is the magnitude.
 
     Requirement: a short licensed run on a cambered profile confirms or refutes the magnitude of the XZ cut moment the package reads, and the result is a committed report.
 
-    - R1 RPT-128 states the profile (a public or synthetic shape), the ratio measured and the verdict.
-    - R2 Where confirmed, the reading stays and the FSI page cites RPT-128.
-    - R3 Where refuted, the torsion the FSI route takes from that moment is corrected with a tier-1 test in this release, or, if the correction is not understood, the route warns on every coupled run naming RPT-128; it never applies the refuted reading silently. Which of the two is an open point listed for the owner, and the warning is the reading until she decides.
+    - R1 RPT-128 states the profile (a public or synthetic shape), the ratio of the summed cut moments to the solver's total moment, the ratio of the summed cut forces to the solver's lift on the same run, and the verdict.
+    - R2 The magnitude is confirmed when the moment ratio lies at least as close to 1 as the force ratio of the same run does, and refuted otherwise; the criterion is fixed here, before the run.
+    - R3 Where confirmed, the reading stays and the FSI page cites RPT-128.
+    - R4 Where refuted, the route warns on every coupled run, naming RPT-128, and never applies the refuted reading silently; the correction of the torsion is a later item, registered from RPT-128.
 
     Solution (planned for 0.34.0): RPT-128 and the cut reader of the FSI route.
 
 !!! requirement "FR-341 The modal FSI backend, route C by direct morphing, is a formal option after the truncation test <span class='srs-pending'>pending</span>"
 
-    *Origin: planning item PFS-2073.04 of the 0.34.0 scope (GEO-071, section 4.2), route C of the coupling design. Licensed runs authorised by the author decision of 2026-10-01. Marker P0340-FSI-MODAL; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.04. Pending: design only. Verification method: tier-1 tests carrying the marker, offline, and the licensed truncation test reported in RPT-129. Evidence owed: RPT-129 stating the truncation test (arbitrary displacements, two loop cycles) on 26.124; tier-1 tests that the option is accepted, written to the FSI state, refused where its preconditions fail, and that the existing routes are byte-identical when it is not chosen.*
+    Read with PFS-2073, PFS-2073.04 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    Need: Direct morphing is the route C of the coupling design, which the FSI scope sends to this release; it has not been tested.
+    *Origin: planning item PFS-2073.04 of the 0.34.0 scope (GEO-071, section 4.2), route C of the coupling design. Licensed runs authorised by the author decision of 2026-10-01. Marker P0340-FSI-MODAL; read at 0.34.0 (GOAL-039, arm FS), PFS-2073.04. Pending: design only. Verification method: tier-1 tests carrying the marker, offline (they check the option, its refusals and the unchanged routes), and the licensed truncation test reported in RPT-129 (tier 3, a run of the FSI workflow). Evidence owed: RPT-129 stating the truncation test (arbitrary displacements, two loop cycles) on 26.124 and its verdict by R2; tier-1 tests that the option is accepted, written to the FSI state, refused where its preconditions fail, and that the existing routes are byte-identical when it is not chosen.*
+
+    Need: Route C of the coupling design moves the solver's surface mesh directly by the displacements of a modal structural model (direct morphing). The FSI scope sends it to this release, and it has not been tested. The truncation test applies arbitrary displacements, not ones a structural solution produced, through two loop cycles, to see whether the solver keeps what it is given.
 
     Requirement: the modal backend (route C, direct morphing) becomes a formal option of the FSI workflow once a licensed truncation test with arbitrary displacements and two loop cycles passes on 26.124.
 
     - R1 RPT-129 states the truncation test: the displacements applied, the two loop cycles and what the solver returned.
-    - R2 The option is selectable in the FSI configuration (spelling fixed by the implementation and recorded here); a configuration that does not select it behaves as in 0.33.0.
-    - R3 The option is refused, naming the reason, where its preconditions fail (a build or a geometry the test did not cover).
-    - R4 If the vendor's answer on the displacement file format blocks the route, the work stops and the owner is asked; this requirement changes only by her word.
+    - R2 The test passes when, in both loop cycles, the solver completes with the displacements applied and the surface positions it reports after each morph equal the applied ones to the precision of the file format the solver writes; otherwise it fails and the option is not added.
+    - R3 The option is selectable in the FSI configuration under the name the work package records in this item in the commit that adds it; a configuration that does not select it behaves as in 0.33.0.
+    - R4 The option is refused, naming the reason, where its preconditions fail (a build or a geometry the test did not cover).
+    - R5 If the vendor's answer on the displacement file format blocks the route, the work stops and the option is not added; this requirement then changes only by a dated product decision.
 
     Solution (planned for 0.34.0): a new module of `pyflightstream.fsi` and the workflow state of `pyflightstream.cases.fsi_workspace`.
 
 !!! requirement "FR-342 The commands without a probe specification carry one, and tier 2 re-measures them <span class='srs-pending'>pending</span>"
 
-    *Origin: planning item PFS-2073.06 (T1) of the 0.34.0 scope (GEO-071, section 4.3): tier 2 measures only what has a specification, and four commands have none. Native run authorised by the author decision of 2026-10-01. Marker P0340-T1-PROBE-SPECS; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.06. Pending: no code yet. Verification method: a tier-1 test carrying the marker, and the tier-2 native run reported in RPT-127. Evidence owed: the census naming the commands; a test that each has a catalog entry; RPT-127 with the tier-2 verdicts on 26.124.*
+    Read with PFS-2073, PFS-2073.06, PFS-2075, PFS-2075.25 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
+    *Origin: planning item PFS-2073.06 of the 0.34.0 scope, "T1: probe specifications for the four commands that have none, for tier 2" (GEO-071, section 4.3): tier 2 (the `pyfs-qa probe` tier defined in `docs/tiers.md`) measures only what has a specification. Native run authorised by the author decision of 2026-10-01. Marker P0340-T1-PROBE-SPECS; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.06. Pending: no code yet. Verification method: a tier-1 test carrying the marker (the catalog), and the tier-2 native run reported in RPT-127. Evidence owed: the census of R1; a test that each command of it has a catalog entry; RPT-127 with the tier-2 verdicts on 26.124.*
 
     Need: A command the package emits that has no probe specification is never re-measured, so a change in the solver would not be seen.
 
-    Requirement: every command that PFS-2073.06 names carries a probe specification in the probe catalog, and a tier-2 native run on 26.124 re-measures it.
+    Requirement: every command the package emits that has no probe specification carries one in the probe catalog, and a tier-2 native run on 26.124 re-measures it.
 
-    - R1 The commands are fixed by a census at the start of the work package (four when the item was written; no source names them), listed in RPT-127.
+    - R1 The set is every command the package's emitters write whose `pyfs-qa probe` outcome is `unprobed` for want of a probe specification (`pyflightstream.qa.probes`), counted at the start of the work package on the 0.34.0 base (four when the item was written) and listed in RPT-127.
     - R2 Each has a catalog entry; the census test refuses a command of the set without one.
-    - R3 A tier-2 native run on 26.124, far field 5, re-measures them; RPT-127 carries the verdicts and the command database follows them through the promotion tool.
+    - R3 A tier-2 native run on 26.124, far field 5, re-measures them; RPT-127 carries the verdicts and the command database follows them through the promotion tool, under the rule of FR-333 R4.
 
     Solution (planned for 0.34.0): catalog entries after the cut of `qa/specs.py`, and RPT-127.
 
 !!! requirement "FR-343 The PHASE3 evidence the specification relies on is a summary report in the repository <span class='srs-pending'>pending</span>"
 
-    *Origin: planning item PFS-2073.05 (L4) of the 0.34.0 scope (GEO-071, section 4.3) and the author decision of 2026-10-01 that the evidence lives as a summary receipt in the repository. Marker P0340-PHASE3-RPT; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.05. Pending: no report yet. Verification method: a tier-1 test carrying the marker, and review of RPT-131. Evidence owed: RPT-131; a test that it carries a date, a build and a command for every number, that the SRS cites it, and that the confidentiality guard of NFR-31 passes over it.*
+    Read with PFS-2073, PFS-2073.05 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+
+    *Origin: planning item PFS-2073.05 (L4) of the 0.34.0 scope (GEO-071, section 4.3) and the author decision of 2026-10-01 that the evidence lives as a summary receipt in the repository. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-PHASE3-RPT; read at 0.34.0 (GOAL-039, arm RG), PFS-2073.05. Pending: no report yet. Verification method: tier-1 tests carrying the marker, and review of RPT-131. Evidence owed: RPT-131; a test that its facts table has exactly the columns of R1 and a date, a build and a command in every row; a test that the SRS cites it; the scan of R4 with its planted control; and the confidentiality guard of NFR-31 passing over it.*
 
     Need: RPT-093 cites a results file of a private licensed campaign that the repository does not keep, so the facts it carries cannot be reproduced or checked from here.
 
     Requirement: a summary report, RPT-131, carries the facts of that private campaign that committed reports and requirements use, and every citation of the file outside the repository resolves to it.
 
-    - R1 RPT-131 states, for each fact used, the number, the date, the solver build and the command or script step that produced it, and nothing else: no geometry, no research data, no project or order identifier.
+    - R1 RPT-131 states its facts in one table whose columns are exactly the fact, its number, the date, the solver build and the command or script step that produced it, and nothing else: no geometry, no research data, no project or order identifier.
     - R2 Every report or requirement that takes a fact from that campaign cites RPT-131.
-    - R3 RPT-131 satisfies NFR-31 (no machine identity, no executable digest).
+    - R3 RPT-131 satisfies NFR-31 (no machine identity, no executable digest), as every report of 0.34.0 does: the NFR-31 guard walks every tracked file.
+    - R4 A tier-1 test scans RPT-131 for the forbidden identifiers the repository's own house-style guard already holds (the forbidden names, the personal-identifier shapes and the private ledger identifiers of `tests/tier1_offline/test_house_style.py`), with a planted identifier as its control; NFR-31 does not cover geometry or research data, and the table form of R1 is what keeps them out.
 
-    Solution (planned for 0.34.0): RPT-131 and the citations.
+    Solution (planned for 0.34.0): RPT-131, its test and the citations.
 
-!!! requirement "FR-344 No tracked file carries a digest of the solver's documentation <span class='srs-pending'>pending</span>"
+!!! requirement "FR-344 No tracked file carries a digest of the solver package's documentation files <span class='srs-pending'>pending</span>"
 
     Read with PFS-2075, PFS-2075.15 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: the author decision of 2026-10-01 that the digests of the solver's manual, release notes and licence agreement leave RPT-050 in 0.34.0 (GEO-071, section 4.10). It extends what NFR-31 R1 covers, which excludes the documentation's digests; NFR-31 itself is unchanged. Marker P0340-VENDOR-DIGESTS; read at 0.34.0 (GOAL-039, arm RG). Pending: no code yet. Verification method: a tier-1 guard carrying the marker, with a planted control. Evidence owed: a guard that refuses the digests RPT-050 recorded for those files, anywhere in the tracked tree, and a 64-hex value on the same line as the name of a manual, release-notes or licence-agreement file of the solver package; its control plants one; RPT-050's dated amendment line.*
+    *Origin: the author decision of 2026-10-01 that the digests of the solver's manual, release notes and licence agreement leave RPT-050 in 0.34.0 (GEO-071, section 4.10). It extends what NFR-31 R1 covers, which excludes the documentation's digests (R5 says how the two are reconciled). Marker P0340-VENDOR-DIGESTS; read at 0.34.0 (GOAL-039, arm RG). Pending: no code yet. Verification method: a tier-1 guard carrying the marker, with a planted control. Evidence owed: a guard that refuses the digests RPT-050 recorded for the four files of R1, anywhere in the tracked tree, compared by their own SHA-256, and a 64-hex value on the same line as the name of such a file; its control plants one; RPT-050's dated amendment line.*
 
     Need: The digests identify the vendor's documentation files and need not be published; the private corpus keeps the manual's digest.
 
-    Requirement: no tracked file carries the SHA-256 of the solver's user manual (pdf or chm), release notes or licence agreement.
+    Requirement: no tracked file carries the SHA-256 of the four documentation files of the solver package: the user manual as a pdf file, the user manual as a chm file, the release notes and the licence agreement.
 
     - R1 RPT-050 withholds those four digests, each row keeping its file, size and equal-or-different reading, and carries a dated amendment line saying so.
-    - R2 A tier-1 guard refuses the withdrawn digests anywhere in the tracked tree, and a 64-hex value on the same line as such a file name, with a planted control.
+    - R2 A tier-1 guard refuses the withdrawn digests anywhere in the tracked tree, and a 64-hex value on the same line as such a file name, with a planted control. As NFR-31 R1 does for the executable baseline, the guard holds and compares the SHA-256 of each withdrawn digest, never the digest itself.
     - R3 Any tracked text that says a report records those digests is reworded.
-    - R4 Past commits are not rewritten (the author decision of 2026-10-01 on git history).
+    - R4 Past commits are not rewritten (the author decision of 2026-10-01 on git history): the digests stay in the history of the repository, and only the tree from 0.34.0 on is clean.
+    - R5 This requirement amends NFR-31 R1: the commit that implements it replaces NFR-31's sentence "The digests of the package's documentation (manual, release notes, licence agreement) are not covered." with a pointer to FR-344, so the two read the same way; NFR-31 otherwise keeps its reading.
 
     Solution (planned for 0.34.0): the amendment of RPT-050 and the guard beside the NFR-31 guard.
 
@@ -8452,7 +8475,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2075, PFS-2075.16 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: the `test_rpt096` item of the 0.34.0 scope (GEO-071, section 4.3; confirmed for 0.34.0 by the author decision of 2026-10-01): the test looked for a fixed release title and failed the tag CI of 0.32.0 when a new section opened. Marker P0340-RELEASE-TITLE; read at 0.34.0 (GOAL-039, arm RG). Pending: no code yet. Verification method: a tier-1 test carrying the marker. Evidence owed: the retargeted test passing with a new, empty release section added above the one that carries its report, which fails the 0.33.0 form, as the control.*
+    *Origin: the `test_rpt096` item of the 0.34.0 scope (GEO-071, section 4.3; confirmed for 0.34.0 by the author decision of 2026-10-01): the test looked for a fixed release title and failed the tag CI of 0.32.0 when a new section opened. A maintenance requirement on the repository's tests, not on the package's behaviour. Marker P0340-RELEASE-TITLE; read at 0.34.0 (GOAL-039, arm RG). Pending: no code yet. Verification method: a tier-1 test carrying the marker. Evidence owed: the retargeted test passing with a new, empty release section added above the one that carries its report, which fails the 0.33.0 form, as the control.*
 
     Need: A test that names a release title breaks the moment the next release section opens.
 
@@ -8467,11 +8490,11 @@ Requirements written after the specification was last reconciled with the packag
 
     Read with PFS-2075, PFS-2075.17 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
 
-    *Origin: the `RELEASE-READY.md` item of the 0.34.0 scope (GEO-071, section 4.4; confirmed for 0.34.0 by the author decision of 2026-10-01): the file still says "archive row owed", false since the Zenodo archive row entered. Marker P0340-RELEASE-READY; read at 0.34.0 (GOAL-039, arm RG). Pending: no rewrite yet. Verification method: a tier-1 test carrying the marker. Evidence owed: a test that `RELEASE-READY.md` does not contain the phrase and names the release it describes.*
+    *Origin: the `RELEASE-READY.md` item of the 0.34.0 scope (GEO-071, section 4.4; confirmed for 0.34.0 by the author decision of 2026-10-01): the file still says "archive row owed", false since the Zenodo archive row entered. A maintenance requirement on the repository's records, not on the package's behaviour. Marker P0340-RELEASE-READY; read at 0.34.0 (GOAL-039, arm RG). Pending: no rewrite yet. Verification method: a tier-1 test carrying the marker. Evidence owed: a test that `RELEASE-READY.md` does not contain the phrase and names the release it describes.*
 
     Need: A state file that contradicts the state misleads the next release.
 
-    Requirement: `RELEASE-READY.md`, rewritten for 0.34.0, does not say "archive row owed" and states only what the release records show.
+    Requirement: `RELEASE-READY.md`, rewritten for 0.34.0, does not say "archive row owed" and names the release it describes.
 
     - R1 The phrase "archive row owed" appears nowhere in the file.
     - R2 The file names the release it describes, and a test reads that name.

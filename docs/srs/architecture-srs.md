@@ -634,7 +634,8 @@ work. Each decision is pending until its work package lands and is
 accepted; each keeps everything 0.33.0 does, under the evolution policy of
 AD-15 carried into 0.34.0 (every public path and every `__all__` in content
 and order kept, a facade may re-export a private name under the G5
-ratchet until the tag, one recount per package and per wave), and each is
+ratchet until the tag and none re-exported through a facade at the tag
+v0.34.0, as at v0.33.0, one recount per package and per wave), and each is
 proved by the oracles of the review (the 29 goldens, the tier-3 golden
 diff, the products snapshot, the record fixtures and
 `scripts/check_parity.py`), run in the commit that could break them.
@@ -648,13 +649,14 @@ diff, the products snapshot, the record fixtures and
     exemption list not grown, the oracles above unchanged, and the
     package record RPT-120.*
 
-    Read with PFS-2075.22 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+    Read with PFS-2075.22 at 0.34.0 (GOAL-039, arm W8): the 0.34.0 package work reads this decision.
 
-    Read at 0.34.0 (GOAL-039, arm W8).
-
-    Measured at v0.33.0: `cases/__init__.py` holds 2316 code lines, the
-    one module of the package over the hard limit of AD-08, and its G8
-    facade entry is 4916 lines. The models leave the root for six
+    Measured at v0.33.0, in the unit of the AD-08 tables (code lines
+    without docstrings, counted by `scripts/arch_metrics.py` into
+    `tests/tier1_offline/architecture_baselines.json`):
+    `cases/__init__.py` holds 2316 code lines, the one module of the
+    package over the hard limit of AD-08, and its G8 facade entry is
+    4916. The models leave the root for six
     modules of `pyflightstream.cases`:
 
     - `cases/pproc.py`: `PprocSpec` and its parts,
@@ -677,11 +679,17 @@ diff, the products snapshot, the record fixtures and
     order. The forward references between `SolverSettings`,
     `PortBoundary` and `BaseRegionOperation` become imports from
     `cases/mesh.py` into `cases/settings.py`, in that direction only.
+    None of the six imports the root `pyflightstream.cases`, and the six
+    form no import cycle among themselves, module-level and deferred
+    imports alike; a tier-1 test of the work package asserts both, with
+    a planted import of the root as its control.
     `pyflightstream.cases` is exempt from the static type checker and
     the six modules are not: every moved line is typed, and a construct
     that resists is narrowed with a stated reason rather than given an
     exemption. Each new module is public, declares `__all__` and has its
-    page in the API reference (NFR-29).
+    page in the API reference (NFR-29). A moved name is supported at both
+    paths, the root re-export and its new module; the documentation cites
+    the new module, and no removal of the root re-export is planned.
 
     For the backlog: the six homes are where the 0.34.0 features add
     their fields (the wake keys of FR-321 to FR-324 in `settings`), so
@@ -699,12 +707,13 @@ diff, the products snapshot, the record fixtures and
     and the tier-3 golden diff unchanged, and the package record
     RPT-121.*
 
-    Read with PFS-2075.23 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+    Read with PFS-2075.23 at 0.34.0 (GOAL-039, arm W9): the 0.34.0 package work reads this decision.
 
-    Read at 0.34.0 (GOAL-039, arm W9).
-
-    Measured at v0.33.0: `script/helpers.py` holds 1678 code lines and
-    `solver_settings` is 461 lines with 61 parameters. The function
+    Measured at v0.33.0, in the unit of the AD-08 tables (code lines
+    without docstrings, counted by `scripts/arch_metrics.py` into
+    `tests/tier1_offline/architecture_baselines.json`):
+    `script/helpers.py` holds 1678 code lines and `solver_settings` is
+    461 code lines long with 61 parameters. The function
     `pyflightstream.script.helpers.solver_settings` keeps its signature,
     its defaults, its docstring's contract and its public path, and
     becomes the facade over per-family emitters in a private module
@@ -731,13 +740,12 @@ diff, the products snapshot, the record fixtures and
     parity of `scripts/check_parity.py` (every console tool, subcommand,
     option and choice) unchanged, and the package record RPT-122.*
 
-    Read with PFS-2075.24 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.
+    Read with PFS-2075.24 at 0.34.0 (GOAL-039, arm W9): the 0.34.0 package work reads this decision.
 
-    Read at 0.34.0 (GOAL-039, arm W9).
-
-    Measured at v0.33.0: `run/cli.py` holds 1201 code lines under a
-    `Size exemption:` line, and `_build_parser` of `run/_cli_parsers.py`
-    is 556 lines. `_build_parser` becomes a short function that calls
+    Measured at v0.33.0, in the unit of the AD-08 tables (code lines
+    without docstrings, counted by `scripts/arch_metrics.py`):
+    `run/cli.py` holds 1201 code lines under a `Size exemption:` line,
+    and `_build_parser` of `run/_cli_parsers.py` is 556 code lines long. `_build_parser` becomes a short function that calls
     one `_add_<family>_parsers` function per family of subcommands, in
     the pattern of `_add_storage_parsers` and `_add_records_parsers`,
     adding the subcommands in the order 0.33.0 added them, so the help
