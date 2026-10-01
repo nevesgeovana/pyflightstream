@@ -462,6 +462,21 @@ def _actuator_disc(
             script.emit(command, index, name)
 
 
+def _solver_disc_speed(block: ActuatorBlock, rpm: float) -> float:
+    """Return the signed speed the disc command is handed, in rev/min (FR-331).
+
+    THE SOLVER'S DISC SPEED IS THE OPPOSITE OF THE BLOCK'S HAND. ``rpm_sign``
+    is the hand a rotor block states, ``+1`` the right-hand rule about the
+    block's ``axis``, and a disc whose block states it swirls its wake the way
+    a rotor of that sign turns. Measured on 26.124 (RPT-137), a disc handed
+    ``+rpm`` swirled AGAINST a rotor of ``rpm_sign +1`` and a disc handed
+    ``-rpm`` swirled with it, so the emitted speed is minus the hand times the
+    magnitude. 0.33.0 and earlier handed plus the hand. On another build the
+    rule is the same and unmeasured.
+    """
+    return -block.rpm_sign * rpm
+
+
 def _emit_actuator_disc(
     case: SimCase,
     script: Script,
@@ -522,7 +537,7 @@ def _emit_actuator_disc(
         offset=block.offset_m * factor,
         r_tip=block.tip_radius_m * factor,
         r_hub=block.hub_radius_m * factor,
-        rpm=block.rpm_sign * disc.rpm,
+        rpm=_solver_disc_speed(block, disc.rpm),
         thrust=disc.thrust,
         thrust_type=block.thrust_units,
         profile=copy,

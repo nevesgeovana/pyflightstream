@@ -2249,8 +2249,8 @@ class ActuatorBlock(BaseModel):
     hub_radius_m : float
         The disc's inner radius, ``0 <= hub < tip``.
     rpm_sign : int
-        ``+1`` is the right-hand rule about ``axis``, as a rotor block's; the
-        row's ``ACTUATOR_RPM`` is a magnitude and this is its hand.
+        ``+1`` is the right-hand rule about ``axis``, and the disc swirls as a
+        rotor of this sign turns (FR-331, RPT-137); ``ACTUATOR_RPM`` is the magnitude.
     blades : int, optional
         The blade count a profile file's distribution is read per; required
         by a row stating ``PROFILE``.
