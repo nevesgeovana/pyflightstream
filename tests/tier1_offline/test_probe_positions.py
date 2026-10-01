@@ -47,7 +47,7 @@ from pyflightstream.post.products import (
     write_probes_table,
     write_unsteady_probes_table,
 )
-from pyflightstream.run import _write_probe_points
+from pyflightstream.run._pending import _write_probe_points
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

@@ -891,11 +891,11 @@ def _rendered(root, matrix):
     The hook the offline renderer of tier 3 uses, so a test reads what the
     solver would receive rather than what a builder was told.
     """
-    import pyflightstream.run as prun
+    import pyflightstream.run._plan as plan_module
     from pyflightstream.script import Script
 
     rendered = {}
-    original = prun._plan_point
+    original = plan_module._plan_point
 
     def hooked(campaign, case, point, ws, recipe, case_error, recorded, *, fs_version, **options):
         plan = original(
@@ -910,17 +910,17 @@ def _rendered(root, matrix):
             **options,
         )
         if plan.status.name in ("READY", "ALREADY_RECORDED") and recipe is not None:
-            stem, outputs = prun._point_names(campaign, case, point, ws)
+            stem, outputs = plan_module._point_names(campaign, case, point, ws)
             script = Script(version=fs_version)
             recipe(case.model_copy(update={"point": dict(point), "outputs": outputs}), script)
             rendered[stem] = script.render()
         return plan
 
-    prun._plan_point = hooked
+    plan_module._plan_point = hooked
     try:
         plan = _plan(root, matrix)
     finally:
-        prun._plan_point = original
+        plan_module._plan_point = original
     return plan, rendered
 
 

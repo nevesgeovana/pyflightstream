@@ -19,6 +19,9 @@ import pandas as pd
 import pytest
 
 import pyflightstream.run as run_module
+import pyflightstream.run._assessment as assessment_module
+import pyflightstream.run._campaign as campaign_module
+import pyflightstream.run._identity as identity_module
 from pyflightstream.cases import Campaign, SimCase, SweepAxis
 from pyflightstream.exceptions import PyflightstreamWarning
 from pyflightstream.results import (
@@ -34,12 +37,12 @@ from pyflightstream.run import (
     LocalExecutor,
     PlanStatus,
     SolverBuild,
-    _recipe_digest,
     package_vcs_state,
     plan_campaign,
     reconstruct,
     run_campaign,
 )
+from pyflightstream.run._identity import _recipe_digest
 from pyflightstream.script import Script, helpers
 from pyflightstream.script.solver_setup import VORTICITY_COMMAND
 from pyflightstream.versions import resolve as version_resolve
@@ -683,7 +686,7 @@ def test_the_plan_and_the_collection_agree_on_the_collected_name():
     question differently, so the cheap boundary passed what the
     expensive one refused. This asserts they share the function.
     """
-    from pyflightstream.run import collection_name as from_run
+    from pyflightstream.run._plan import collection_name as from_run
     from pyflightstream.workspace import collection_name as from_workspace
 
     assert from_run is from_workspace
@@ -1375,7 +1378,7 @@ def test_the_vcs_pair_is_none_together_and_never_guesses(tmp_path, monkeypatch):
     """
     package_vcs_state.cache_clear()
     monkeypatch.setattr(
-        "pyflightstream.run.subprocess.run",
+        "pyflightstream.run._identity.subprocess.run",
         lambda *args, **kwargs: (_ for _ in ()).throw(OSError("no git here")),
     )
     try:
@@ -1895,13 +1898,13 @@ def _second_build(tmp_path):
 
 def _record_identity_checks(monkeypatch, seen):
     """Record every pre-flight the loop fires, still running the real one."""
-    real_check = run_module.check_solver_identity
+    real_check = identity_module.check_solver_identity
 
     def recording(executor, version, workdir, **kwargs):
         seen.append((version.canonical, id(executor)))
         return real_check(executor, version, workdir, **kwargs)
 
-    monkeypatch.setattr(run_module, "check_solver_identity", recording)
+    monkeypatch.setattr(identity_module, "check_solver_identity", recording)
 
 
 def test_a_case_records_the_build_it_actually_ran_on(tmp_path):
@@ -2287,7 +2290,7 @@ class _PrintedConditions:
 
 def _velocity_check(case, *, printed_velocity):
     """Bind one case against an export printing ``printed_velocity``."""
-    binding = run_module._bind_case_conditions(
+    binding = assessment_module._bind_case_conditions(
         case, _PrintedConditions(alpha=0.0, velocity=printed_velocity)
     )
     return {check.axis: check for check in binding.checks}["velocity"]
@@ -2334,7 +2337,7 @@ def test_the_case_velocity_fills_in_when_the_point_supplies_none():
 
 def test_a_case_supplying_no_velocity_at_all_requests_none():
     """Absent is not zero: nothing was asked, so nothing is compared."""
-    binding = run_module._bind_case_conditions(
+    binding = assessment_module._bind_case_conditions(
         _velocity_case(velocity=None), _PrintedConditions(alpha=0.0, velocity=30.0)
     )
     assert [check.axis for check in binding.checks] == ["alpha"]
@@ -2768,7 +2771,7 @@ def test_a_row_under_the_previous_manifest_stamp_still_reconstructs(tmp_path):
     Nothing in this package migrates a manifest, so a reader that refused
     every older stamp would make the bump equivalent to deleting them.
     """
-    assert "pyfs-manifest/1" in run_module.KNOWN_MANIFEST_SCHEMAS
+    assert "pyfs-manifest/1" in identity_module.KNOWN_MANIFEST_SCHEMAS
     assert MANIFEST_SCHEMA != "pyfs-manifest/1", (
         "this test is about reading the PREVIOUS stamp; the constant did not move"
     )
@@ -3101,7 +3104,7 @@ def test_an_unforeseen_write_error_does_not_swallow_the_campaign_failures(tmp_pa
     def explodes(frame, path, **kwargs):
         raise RuntimeError("the writer broke in a way nobody predicted")
 
-    monkeypatch.setattr(run_module, "write_table", explodes)
+    monkeypatch.setattr(campaign_module, "write_table", explodes)
     campaign = make_campaign(tmp_path, alphas=(0.0,))
     workspace = CampaignWorkspace(tmp_path / "camp")
     with pytest.warns(PyflightstreamWarning, match="RuntimeError"):
@@ -3147,7 +3150,7 @@ def test_the_preflight_names_its_own_failure_rather_than_blaming_the_solver(
             )
 
     monkeypatch.chdir(tmp_path)
-    with pytest.warns(run_module.VersionMismatchWarning) as caught:
+    with pytest.warns(identity_module.VersionMismatchWarning) as caught:
         run_module.check_solver_identity(
             FailingSolver(), version_resolve("26.120"), tmp_path / "pre"
         )
@@ -3934,7 +3937,7 @@ def test_goal019_record_a_job_reports_the_worst_of_its_points_not_the_last(tmp_p
     This drives the fold directly rather than through a solver, because
     what is under test is the ORDER and not the run.
     """
-    from pyflightstream.run import _STATUS_SEVERITY, _worse_of
+    from pyflightstream.run._assessment import _STATUS_SEVERITY, _worse_of
     from pyflightstream.workspace import RunStatus
 
     # The order itself, which is the contract: every status is placed, and
@@ -4019,7 +4022,7 @@ def test_g43_a_continuation_refused_before_it_was_built_is_numbered_and_counted(
     campaign = _two_build_campaign(tmp_path)
     workspace = CampaignWorkspace(tmp_path / "camp")
     _, second = _second_build(tmp_path)
-    real = run_module.resolve_continuation
+    real = campaign_module.resolve_continuation
 
     # The stand-in takes the resolver's whole signature: since G58 of 0.29.0
     # (e9fa00ec) run_campaign also passes the row's recipe and build version, so
@@ -4029,7 +4032,7 @@ def test_g43_a_continuation_refused_before_it_was_built_is_numbered_and_counted(
             raise CampaignConfigError("the saved simulation to continue is gone (stand-in)")
         return real(workspace, case, point, run_id=run_id, recipe=recipe, fs_version=fs_version)
 
-    monkeypatch.setattr(run_module, "resolve_continuation", gone_for_the_first)
+    monkeypatch.setattr(campaign_module, "resolve_continuation", gone_for_the_first)
     capsys.readouterr()
     with pytest.raises(CampaignErrors):
         run_campaign(

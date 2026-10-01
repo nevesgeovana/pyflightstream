@@ -33,7 +33,8 @@ from pyflightstream.cases.qsteady import (
     read_qsteady_record,
 )
 from pyflightstream.cases.workflows import QSTEADY_ROTOR
-from pyflightstream.run import Assessment, LoadsAssessor, _wheel_clockings, run_campaign
+from pyflightstream.run import Assessment, LoadsAssessor, run_campaign
+from pyflightstream.run._assessment import _wheel_clockings
 from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from tests.tier1_offline.test_goal035_l1_defects import _PROP_REFERENCE, _clocked_wheel
 from tests.tier1_offline.test_goal035_qsteady_rotor import _case, _lines

@@ -141,7 +141,8 @@ def test_g58_existing_recorded_frame_keeps_its_current_route(tmp_path):
 
 def test_g58_plan_uses_the_same_recovery_without_archiving(tmp_path):
     from pyflightstream.cases import Campaign
-    from pyflightstream.run import PlanStatus, _plan_point
+    from pyflightstream.run import PlanStatus
+    from pyflightstream.run._plan import _plan_point
 
     workspace, case, _, _ = _old_run(tmp_path)
     campaign = Campaign(name="camp", fs_version="26.123", fs_exe="unused.exe", sims=[case])

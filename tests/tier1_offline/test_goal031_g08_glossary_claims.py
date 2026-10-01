@@ -71,7 +71,7 @@ from pyflightstream.cases.workflows import (
     select_workflow,
 )
 from pyflightstream.post.guides import input_glossary_markdown
-from pyflightstream.run import _is_cold_start
+from pyflightstream.run._ids import _is_cold_start
 from pyflightstream.script import Script
 from pyflightstream.workspace.fsi_setup import resolve_row_fsi
 from pyflightstream.workspace.inputs import read_raw_mesh_conditions

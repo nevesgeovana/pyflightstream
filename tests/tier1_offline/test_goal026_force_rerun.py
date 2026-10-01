@@ -246,7 +246,7 @@ def test_goal026_the_pair_is_refused_before_anything_is_read(tmp_path):
 
 def _an_empty_campaign():
     """A campaign with no simulations, which the per-case loop never visits."""
-    from pyflightstream.run import Campaign
+    from pyflightstream.cases import Campaign
 
     return Campaign(name="empty", sims=[], fs_version="26.120", fs_exe="C:/fs/FS.exe")
 

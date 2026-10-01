@@ -23,6 +23,10 @@ with no solve, choosing the executor as :func:`run_matrix` does.
 :mod:`pyflightstream.run` deliberately does NOT import this module, so
 importing it can never be part of an import cycle: the dependency runs
 one way, from here into the campaign loop.
+
+Size exemption: the plan, run and additional-post entry points share one resolved-matrix binding.
+Each binds the matrix rows to builds, executors and recipes the same way; parting the
+additional post from the run is a cut of its own, not the facade cut of 0.33.0 (AD-14).
 """
 
 from __future__ import annotations

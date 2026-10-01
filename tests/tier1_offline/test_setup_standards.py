@@ -351,7 +351,7 @@ def test_full_inspection_and_saved_plan_share_the_same_resolved_records(tmp_path
 
 def test_multiple_profile_inputs_survive_the_pending_input_writer(tmp_path):
     from pyflightstream.cases.workflows import _actuator_disc, _the_actuator_the_row_names
-    from pyflightstream.run import _write_pending_files
+    from pyflightstream.run._pending import _write_pending_files
     from pyflightstream.script import helpers
 
     profiles = {}

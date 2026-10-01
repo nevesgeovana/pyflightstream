@@ -145,7 +145,7 @@ def test_an_unwritable_log_does_not_stop_a_progress_line(tmp_path, capsys):
     The log is made unwritable for real (a directory where the file goes), so
     the test does not depend on which name a module imported.
     """
-    from pyflightstream.run import _say
+    from pyflightstream.run._ids import _say
 
     (tmp_path / "logs" / "activity.log.jsonl").mkdir(parents=True)
 
@@ -164,7 +164,7 @@ def test_an_unwritable_log_and_a_closed_stderr_still_keep_the_stage_result(tmp_p
     import io
     import sys
 
-    from pyflightstream.run import _say
+    from pyflightstream.run._ids import _say
 
     (tmp_path / "logs" / "activity.log.jsonl").mkdir(parents=True)
     closed = io.StringIO()

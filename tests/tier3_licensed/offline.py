@@ -21,7 +21,7 @@ the goldens are compared with every absolute path of this folder replaced by
 ``<tier3>``; a clone elsewhere then reads the same golden.
 
 THE GOLDEN IS THE PLAN-TIME RENDER, NOT THE RUN'S BYTES, and the two differ
-in the known ways ``pyflightstream.run._plan_point`` states beside its own
+in the known ways ``pyflightstream.run._plan._plan_point`` states beside its own
 render: the plan renders ``OPEN <library path>`` where the run renders
 ``OPEN <staged copy>``; a data file the run writes where the point runs (a
 raw mesh's trailing-edge node file, an actuator profile's copy) is named by
@@ -92,7 +92,7 @@ def render(matrix: Path) -> tuple[int, dict[str, str]]:
     for entry in (str(REPO / "src"), str(REPO)):
         if entry not in sys.path:
             sys.path.insert(0, entry)
-    import pyflightstream.run as prun
+    import pyflightstream.run._plan as plan_module
     from pyflightstream.cases import workflows
     from pyflightstream.run.matrix import plan_matrix
     from pyflightstream.script import Script
@@ -106,7 +106,7 @@ def render(matrix: Path) -> tuple[int, dict[str, str]]:
     ensure_mesh_inputs()
 
     rendered: dict[str, str] = {}
-    original = prun._plan_point
+    original = plan_module._plan_point
 
     def hooked(campaign, case, point, ws, recipe, case_error, recorded, *, fs_version, **options):
         plan = original(
@@ -121,7 +121,7 @@ def render(matrix: Path) -> tuple[int, dict[str, str]]:
             **options,
         )
         if plan.status.name in ("READY", "ALREADY_RECORDED") and recipe is not None:
-            stem, outputs = prun._point_names(campaign, case, point, ws)
+            stem, outputs = plan_module._point_names(campaign, case, point, ws)
             point_case = case.model_copy(update={"point": dict(point), "outputs": outputs})
             script = Script(version=fs_version)
             recipe(point_case, script)
@@ -135,7 +135,7 @@ def render(matrix: Path) -> tuple[int, dict[str, str]]:
     # render is a plan and never a campaign, so nothing reads that log.
     from pyflightstream._progress import _ACTIVE
 
-    prun._plan_point = hooked
+    plan_module._plan_point = hooked
     with tempfile.TemporaryDirectory(prefix="pyfs-offline-activity-") as activity:
         token = _ACTIVE.set(Path(activity))
         try:
@@ -149,7 +149,7 @@ def render(matrix: Path) -> tuple[int, dict[str, str]]:
             )
         finally:
             _ACTIVE.reset(token)
-            prun._plan_point = original
+            plan_module._plan_point = original
     blocked = [p for p in plan.points if p.status.name not in ("READY", "ALREADY_RECORDED")]
     if blocked:
         first = blocked[0]

@@ -2,7 +2,7 @@
 
 import subprocess
 
-from pyflightstream import run
+from pyflightstream.run import _executors as run
 from pyflightstream.run._solver_windows import _native_windows, owned_solver_dialogs
 
 

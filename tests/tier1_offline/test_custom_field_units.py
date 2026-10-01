@@ -89,7 +89,7 @@ def test_workflow_emits_declared_file_and_writer_hashes_both_inputs(tmp_path, de
     import json
 
     from pyflightstream.cases.workflows import _free_stream, _the_custom_freestream
-    from pyflightstream.run import _write_pending_files
+    from pyflightstream.run._pending import _write_pending_files
     from pyflightstream.script import Script
     from tests.tier1_offline.test_g15_custom_freestream import field, with_field
     from tests.tier1_offline.test_workflows import steady_case
@@ -227,7 +227,7 @@ def test_continuation_refuses_changed_unit_declaration_even_with_identical_bytes
     from types import SimpleNamespace
 
     from pyflightstream.cases import CampaignConfigError
-    from pyflightstream.run import _refuse_a_field_the_stopped_run_did_not_read
+    from pyflightstream.run._continuation import _refuse_a_field_the_stopped_run_did_not_read
     from tests.tier1_offline.test_g15_custom_freestream import field, with_field
     from tests.tier1_offline.test_workflows import steady_case
 

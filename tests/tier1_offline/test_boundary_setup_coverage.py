@@ -94,7 +94,7 @@ def test_profile_changed_after_binding_is_refused(tmp_path):
 
 
 def test_inlet_profile_pending_writer_preserves_and_hashes_exact_bytes(tmp_path):
-    from pyflightstream.run import _write_pending_files
+    from pyflightstream.run._pending import _write_pending_files
 
     case, profile = _port_case(tmp_path)
     script = _port_script()

@@ -41,9 +41,9 @@ def _run_with_a_refused_write(tmp_path, monkeypatch, *, target: str, refused: in
 
         monkeypatch.setattr(workspace, "write_script", refusing)
     else:
-        import pyflightstream.run as run_module
+        import pyflightstream.run._pending as pending_module
 
-        real_pending = run_module._write_pending_files
+        real_pending = pending_module._write_pending_files
 
         def refusing_pending(*args, **kwargs):
             calls["n"] += 1
@@ -51,7 +51,7 @@ def _run_with_a_refused_write(tmp_path, monkeypatch, *, target: str, refused: in
                 raise OSError(5, "Input/output error on the share")
             return real_pending(*args, **kwargs)
 
-        monkeypatch.setattr(run_module, "_write_pending_files", refusing_pending)
+        monkeypatch.setattr(pending_module, "_write_pending_files", refusing_pending)
     with pytest.raises(CampaignErrors) as caught:
         run_campaign(
             campaign,

@@ -151,7 +151,7 @@ def test_goal024_collect_and_times_a_cut_log_is_unusable_evidence_and_not_an_exc
     tmp_path, monkeypatch
 ):
     """The assessor's freeze read is wrapped: a cut is FAILED_INCOMPLETE_OUTPUT."""
-    import pyflightstream.run as run_module
+    import pyflightstream.run._assessment as assessment_module
     from pyflightstream.results import IncompleteOutputError
     from pyflightstream.workspace import RunStatus
     from tests.tier1_offline.test_run_campaign import FIXTURES, _assess_log
@@ -161,7 +161,7 @@ def test_goal024_collect_and_times_a_cut_log_is_unusable_evidence_and_not_an_exc
             "time step 54 ends before its Iteration anchor; recollect the log"
         )
 
-    monkeypatch.setattr(run_module, "frozen_time_steps", cut)
+    monkeypatch.setattr(assessment_module, "frozen_time_steps", cut)
     text = (FIXTURES / "log_residuals_26.120.txt").read_text(encoding="utf-8") + UNSTEADY_LINES
     assessment = _assess_log(tmp_path, text)
     assert assessment.status is RunStatus.FAILED_INCOMPLETE_OUTPUT, assessment

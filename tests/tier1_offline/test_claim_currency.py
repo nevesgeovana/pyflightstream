@@ -377,7 +377,8 @@ def test_no_live_prose_states_the_script_argument_with_two_dashes() -> None:
     # One file may write another spelling, and only one: the home of the
     # constant, where the difference between them is the subject.
     # Anywhere else it is an instruction, and a reader follows it.
-    home = Path("src/pyflightstream/run/__init__.py")
+    # The constant's home since 0.33.0 (AD-14), where the run root's text went.
+    home = Path("src/pyflightstream/run/_executors.py")
     written = re.compile(r"-{1,2}script\w*")
     offenders = []
     for path in _live_prose_files():
@@ -400,12 +401,12 @@ def test_no_live_prose_states_the_script_argument_with_two_dashes() -> None:
 def test_the_home_of_the_constant_still_explains_the_other_spelling() -> None:
     """The one exemption above must be earning itself.
 
-    `run/__init__.py` is allowed to write the two-dash form because it
+    `run/_executors.py` is allowed to write the two-dash form because it
     is where the difference is explained. If that explanation is ever
     deleted, the exemption becomes a hole rather than a carve-out, and
     the file could quietly go back to instructing readers wrongly.
     """
-    home = Path(__file__).resolve().parents[2] / "src" / "pyflightstream" / "run" / "__init__.py"
+    home = Path(__file__).resolve().parents[2] / "src" / "pyflightstream" / "run" / "_executors.py"
     text = home.read_text(encoding="utf-8")
     assert "--script" in text, (
         "the constant's home no longer discusses the two-dash spelling, so the "

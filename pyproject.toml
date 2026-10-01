@@ -337,10 +337,6 @@ ignore_errors = true
 # first one this project has been able to remove on evidence.
 
 [[tool.mypy.overrides]]
-module = "pyflightstream.run"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
 module = "pyflightstream.script"
 ignore_errors = true
 

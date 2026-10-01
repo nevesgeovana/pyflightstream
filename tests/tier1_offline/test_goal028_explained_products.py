@@ -42,7 +42,7 @@ def _give(workspace, **update):
 
 def test_a_default_unsteady_row_gets_its_probe_table(tmp_path):
     from pyflightstream.post.products import read_csv_table, write_campaign_products
-    from pyflightstream.run import _write_probe_points
+    from pyflightstream.run._pending import _write_probe_points
 
     workspace = _unsteady_workspace(tmp_path, reductions=None)
     (workspace.inputs_dir / "pproc" / "p001.toml").write_text(

@@ -87,7 +87,7 @@ def test_restore_paragraph_names_the_archive_home_every_writer_calls() -> None:
     writers = {
         "storage record": PACKAGE / "workspace" / "storage.py",
         "additional-post record": PACKAGE / "workspace" / "__init__.py",
-        "plan receipt": PACKAGE / "run" / "__init__.py",
+        "plan receipt": PACKAGE / "run" / "_plan.py",
         "plan receipt on rename": PACKAGE / "run" / "rename.py",
         "products record": PACKAGE / "post" / "products.py",
     }

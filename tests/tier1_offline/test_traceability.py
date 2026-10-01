@@ -241,7 +241,6 @@ MYPY_EXEMPTIONS = frozenset(
         # asserts this set equals the config's and a name kept here would
         # be the drift it exists to catch. Deleting `_as_workspace` took
         # the module's last type error with it.
-        "pyflightstream.run",
         "pyflightstream.script",
         "pyflightstream.script.entities",
         "pyflightstream.script.helpers",

@@ -896,16 +896,16 @@ def test_the_rebuild_command_a_failed_products_write_offers_is_one_post_accepts(
     """
     import re
 
-    import pyflightstream.run as run_module
+    import pyflightstream.run._campaign as campaign_module
     from pyflightstream.run.cli import _build_parser
 
     def failing_stage(workspace, **_kwargs):
         raise OSError("disk full")
 
-    monkeypatch.setattr(run_module, "post_stages", lambda: (failing_stage,))
+    monkeypatch.setattr(campaign_module, "post_stages", lambda: (failing_stage,))
     workspace = CampaignWorkspace.init(tmp_path / "camp")
 
-    message = run_module._leave_products(workspace, None)
+    message = campaign_module._leave_products(workspace, None)
 
     assert message is not None and "disk full" in message, message
     offered = re.search(r"rebuild them with `([^`]+)`", message)

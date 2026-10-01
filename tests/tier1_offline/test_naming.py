@@ -17,9 +17,9 @@ from pathlib import Path
 import pytest
 
 from pyflightstream.cases import Campaign, SimCase, SweepAxis, point_name
-from pyflightstream.run import RunStatus, run_campaign
+from pyflightstream.run import run_campaign
 from pyflightstream.run.cli import _build_parser
-from pyflightstream.workspace import CampaignWorkspace
+from pyflightstream.workspace import CampaignWorkspace, RunStatus
 from pyflightstream.workspace.naming import (
     MATRIX_POINT_NAME,
     NamingTemplate,

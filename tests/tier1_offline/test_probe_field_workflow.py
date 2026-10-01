@@ -101,7 +101,7 @@ def test_fields_with_general_plots_disabled(tmp_path, monkeypatch):
     import json
 
     from pyflightstream.post.products import write_campaign_products
-    from pyflightstream.run import _write_probe_points
+    from pyflightstream.run._pending import _write_probe_points
     from pyflightstream.script import Script, helpers
     from pyflightstream.workspace import CampaignWorkspace
     from tests.tier1_offline.test_f01_probe_source import _post_workspace
