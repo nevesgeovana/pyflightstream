@@ -1,0 +1,11 @@
+{
+ "products/polars/P7001-AL-020_g01.csv": "e4ee5f3a5821c0201be2f34cac24174d9894d3d26b258768edfb5b725d929d08",
+ "products/polars/SUPER-7001-AL-020_g01.csv": "1224f4bfbd88aa8c47b0592d18f848b88d492e13a564ab6064d5453b1f0d9768",
+ "products/post.log": "8b4d1bd93ae3853b3d17356c5da6515431f4191250037defb020eb8ac26b57ea",
+ "products/post.log.json": "1949fbe07662f47eefa1ee432d95763aa8b87fd990fe52bb7d034862af3b1208",
+ "products/products.json": "6b69095460e1147eafc6d4da90b0d9aa2010d931de3e2ea3dbbd7d120cf46f66",
+ "products/provenance/camp_sim_7001_AL-020.prov.json": "07a9b082d722614e3c55f5101869caff8a84056e75007f977799a05ebc802286",
+ "products/series/AL-020_loads_series.csv": "c210c91c80f3f76a2660196a02c7ad69c758184d60b2aba5492b7a8dbb0f3db6",
+ "products/series/AL-020_probes_series.csv": "5367861b1c0cf9f95ee38f76da40f13a6bf54af38e07e8eb8dc3ecee2cda3718",
+ "products/series/AL-020_sections_series.csv": "51c1f2d0fe0ea9f36ab022c669693d32f85d3a9db0448139bce924f9693674df"
+}

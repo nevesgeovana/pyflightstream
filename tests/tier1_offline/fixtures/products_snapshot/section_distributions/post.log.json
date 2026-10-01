@@ -1,0 +1,25 @@
+{
+ "version": "<VERSION>",
+ "workspace": "<ROOT>",
+ "matrix": null,
+ "time": "<TIME>",
+ "check_frozen": false,
+ "records": [
+  {
+   "point": "campaign",
+   "product": "stage",
+   "message": "series/AL-020_probes_series.csv not written: no AL-020_probes_iteration=<step>.txt of steps 3 to 5 is in <ROOT>\\sims\\sim_7001, so there is no row to table",
+   "remedy": null,
+   "category": "convergence",
+   "severity": "warning"
+  },
+  {
+   "point": "series/AL-020_probes_series.csv",
+   "product": "series/AL-020_probes_series.csv",
+   "message": "no AL-020_probes_iteration=<step>.txt of steps 3 to 5 is in <ROOT>\\sims\\sim_7001, so there is no row to table",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "convergence",
+   "severity": "warning"
+  }
+ ]
+}

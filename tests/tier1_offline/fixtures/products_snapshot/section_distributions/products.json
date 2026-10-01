@@ -1,0 +1,135 @@
+{
+ "products": {
+  "sections/AL-020_sloads_wing.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "distribution": 1,
+   "families": "wing",
+   "steps_tabled": [
+    3,
+    4,
+    5
+   ],
+   "kind": "history"
+  },
+  "sections/AL-020_sloads_Blade1-Blade2.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "distribution": 2,
+   "families": [
+    "Blade1",
+    "Blade2"
+   ],
+   "steps_tabled": [
+    3,
+    4,
+    5
+   ],
+   "kind": "history"
+  },
+  "sections/AL-020_cp_wing.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "distribution": 1,
+   "families": "wing",
+   "steps_tabled": [
+    3,
+    4,
+    5
+   ],
+   "kind": "history"
+  },
+  "sections/AL-020_cp_Blade1-Blade2.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "distribution": 2,
+   "families": [
+    "Blade1",
+    "Blade2"
+   ],
+   "steps_tabled": [
+    3,
+    4,
+    5
+   ],
+   "kind": "history"
+  },
+  "series/AL-020_loads_series.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "steps": [
+    3,
+    5
+   ],
+   "steps_tabled": [
+    3,
+    4,
+    5
+   ],
+   "clock": {
+    "delta_time_s": 0.01,
+    "step_deg": null
+   },
+   "sections_files": [
+    "sims/sim_7001/AL-020_cp_iteration=3.txt",
+    "sims/sim_7001/AL-020_cp_iteration=4.txt",
+    "sims/sim_7001/AL-020_cp_iteration=5.txt"
+   ],
+   "tecplot_files": [],
+   "vtk_files": [],
+   "csv_files": []
+  },
+  "series/AL-020_sections_series.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "steps": [
+    3,
+    5
+   ],
+   "steps_tabled": [
+    3,
+    4,
+    5
+   ],
+   "clock": {
+    "delta_time_s": 0.01,
+    "step_deg": null
+   }
+  },
+  "sections/AL-020_sections.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "kind": "instant"
+  }
+ },
+ "log": "post.log",
+ "log_json": "post.log.json",
+ "skipped": {
+  "series/AL-020_probes_series.csv": "no AL-020_probes_iteration=<step>.txt of steps 3 to 5 is in <ROOT>\\sims\\sim_7001, so there is no row to table"
+ },
+ "provenance": {
+  "camp/sim_7001/AL-020": "provenance/camp_sim_7001_AL-020.prov.json"
+ },
+ "complete": true
+}

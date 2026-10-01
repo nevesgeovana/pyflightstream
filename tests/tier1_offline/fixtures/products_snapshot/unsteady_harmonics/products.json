@@ -1,0 +1,334 @@
+{
+ "products": {
+  "sections/AL-020_sloads_Blade1.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "distribution": 1,
+   "families": [
+    "Blade1"
+   ],
+   "steps_tabled": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+   ],
+   "kind": "history"
+  },
+  "sections/AL-020_sloads_Blade2.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "distribution": 2,
+   "families": [
+    "Blade2"
+   ],
+   "steps_tabled": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+   ],
+   "kind": "history"
+  },
+  "sections/AL-020_sloads_Blade3.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "distribution": 3,
+   "families": [
+    "Blade3"
+   ],
+   "steps_tabled": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+   ],
+   "kind": "history"
+  },
+  "series/AL-020_sections_series.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "steps": [
+    1,
+    14
+   ],
+   "steps_tabled": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14
+   ],
+   "clock": {
+    "delta_time_s": 0.01,
+    "step_deg": 60.0
+   }
+  },
+  "sections/AL-020_harmonics.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "kind": "harmonics",
+   "source": "unsteady last revolution",
+   "samples": 18,
+   "samples_by_rotor": {
+    "PROP": 18
+   },
+   "revolution": {
+    "PROP": [
+     7,
+     12
+    ]
+   },
+   "steps_per_revolution": {
+    "PROP": 6.0
+   }
+  },
+  "sections/AL-020_disc_PROP_Fx.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "kind": "disc_map",
+   "source": "unsteady last revolution",
+   "samples": 18,
+   "rotor": "PROP",
+   "quantity": "Fx",
+   "revolution": {
+    "PROP": [
+     7,
+     12
+    ]
+   },
+   "steps_per_revolution": {
+    "PROP": 6.0
+   }
+  },
+  "sections/AL-020_disc_PROP_Fz.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "kind": "disc_map",
+   "source": "unsteady last revolution",
+   "samples": 18,
+   "rotor": "PROP",
+   "quantity": "Fz",
+   "revolution": {
+    "PROP": [
+     7,
+     12
+    ]
+   },
+   "steps_per_revolution": {
+    "PROP": 6.0
+   }
+  },
+  "sections/AL-020_disc_PROP_Moment.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "kind": "disc_map",
+   "source": "unsteady last revolution",
+   "samples": 18,
+   "rotor": "PROP",
+   "quantity": "Moment",
+   "revolution": {
+    "PROP": [
+     7,
+     12
+    ]
+   },
+   "steps_per_revolution": {
+    "PROP": 6.0
+   }
+  },
+  "sections/AL-020_sections.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "kind": "instant"
+  },
+  "probes/AL-020_plots.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ]
+  },
+  "probes/AL-020_time_average.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "reduction": "time_average",
+   "windows": [
+    [
+     1,
+     14
+    ]
+   ],
+   "window_from": "the whole run"
+  },
+  "probes/AL-020_per_revolution_PROP.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "reduction": "per_revolution",
+   "windows": [
+    [
+     1,
+     6
+    ],
+    [
+     7,
+     12
+    ]
+   ],
+   "window_from": "the plots table cut into complete revolutions of 6 solver steps",
+   "steps_per_revolution": 6.0,
+   "rotor": "PROP"
+  },
+  "polars/P7001_AL-020_uns_avg.csv": {
+   "sim_id": "7001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_7001/AL-020"
+   ],
+   "source": "the unsteady plots, time-averaged",
+   "window": [
+    1,
+    14
+   ],
+   "windows": {
+    "AL-020": [
+     1,
+     14
+    ]
+   }
+  }
+ },
+ "log": "post.log",
+ "log_json": "post.log.json",
+ "skipped": {
+  "sections/AL-020_cp_Blade1.csv#step=1": "missing AL-020_cp_iteration=1.txt",
+  "sections/AL-020_cp_Blade2.csv#step=1": "missing AL-020_cp_iteration=1.txt",
+  "sections/AL-020_cp_Blade3.csv#step=1": "missing AL-020_cp_iteration=1.txt",
+  "sections/AL-020_cp_Blade1.csv#step=2": "missing AL-020_cp_iteration=2.txt",
+  "sections/AL-020_cp_Blade2.csv#step=2": "missing AL-020_cp_iteration=2.txt",
+  "sections/AL-020_cp_Blade3.csv#step=2": "missing AL-020_cp_iteration=2.txt",
+  "sections/AL-020_cp_Blade1.csv#step=3": "missing AL-020_cp_iteration=3.txt",
+  "sections/AL-020_cp_Blade2.csv#step=3": "missing AL-020_cp_iteration=3.txt",
+  "sections/AL-020_cp_Blade3.csv#step=3": "missing AL-020_cp_iteration=3.txt",
+  "sections/AL-020_cp_Blade1.csv#step=4": "missing AL-020_cp_iteration=4.txt",
+  "sections/AL-020_cp_Blade2.csv#step=4": "missing AL-020_cp_iteration=4.txt",
+  "sections/AL-020_cp_Blade3.csv#step=4": "missing AL-020_cp_iteration=4.txt",
+  "sections/AL-020_cp_Blade1.csv#step=5": "missing AL-020_cp_iteration=5.txt",
+  "sections/AL-020_cp_Blade2.csv#step=5": "missing AL-020_cp_iteration=5.txt",
+  "sections/AL-020_cp_Blade3.csv#step=5": "missing AL-020_cp_iteration=5.txt",
+  "sections/AL-020_cp_Blade1.csv#step=6": "missing AL-020_cp_iteration=6.txt",
+  "sections/AL-020_cp_Blade2.csv#step=6": "missing AL-020_cp_iteration=6.txt",
+  "sections/AL-020_cp_Blade3.csv#step=6": "missing AL-020_cp_iteration=6.txt",
+  "sections/AL-020_cp_Blade1.csv#step=7": "missing AL-020_cp_iteration=7.txt",
+  "sections/AL-020_cp_Blade2.csv#step=7": "missing AL-020_cp_iteration=7.txt",
+  "sections/AL-020_cp_Blade3.csv#step=7": "missing AL-020_cp_iteration=7.txt",
+  "sections/AL-020_cp_Blade1.csv#step=8": "missing AL-020_cp_iteration=8.txt",
+  "sections/AL-020_cp_Blade2.csv#step=8": "missing AL-020_cp_iteration=8.txt",
+  "sections/AL-020_cp_Blade3.csv#step=8": "missing AL-020_cp_iteration=8.txt",
+  "sections/AL-020_cp_Blade1.csv#step=9": "missing AL-020_cp_iteration=9.txt",
+  "sections/AL-020_cp_Blade2.csv#step=9": "missing AL-020_cp_iteration=9.txt",
+  "sections/AL-020_cp_Blade3.csv#step=9": "missing AL-020_cp_iteration=9.txt",
+  "sections/AL-020_cp_Blade1.csv#step=10": "missing AL-020_cp_iteration=10.txt",
+  "sections/AL-020_cp_Blade2.csv#step=10": "missing AL-020_cp_iteration=10.txt",
+  "sections/AL-020_cp_Blade3.csv#step=10": "missing AL-020_cp_iteration=10.txt",
+  "sections/AL-020_cp_Blade1.csv#step=11": "missing AL-020_cp_iteration=11.txt",
+  "sections/AL-020_cp_Blade2.csv#step=11": "missing AL-020_cp_iteration=11.txt",
+  "sections/AL-020_cp_Blade3.csv#step=11": "missing AL-020_cp_iteration=11.txt",
+  "sections/AL-020_cp_Blade1.csv#step=12": "missing AL-020_cp_iteration=12.txt",
+  "sections/AL-020_cp_Blade2.csv#step=12": "missing AL-020_cp_iteration=12.txt",
+  "sections/AL-020_cp_Blade3.csv#step=12": "missing AL-020_cp_iteration=12.txt",
+  "sections/AL-020_cp_Blade1.csv#step=13": "missing AL-020_cp_iteration=13.txt",
+  "sections/AL-020_cp_Blade2.csv#step=13": "missing AL-020_cp_iteration=13.txt",
+  "sections/AL-020_cp_Blade3.csv#step=13": "missing AL-020_cp_iteration=13.txt",
+  "sections/AL-020_cp_Blade1.csv#step=14": "missing AL-020_cp_iteration=14.txt",
+  "sections/AL-020_cp_Blade2.csv#step=14": "missing AL-020_cp_iteration=14.txt",
+  "sections/AL-020_cp_Blade3.csv#step=14": "missing AL-020_cp_iteration=14.txt",
+  "sections/AL-020_cp_Blade1.csv": "no AL-020_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+  "sections/AL-020_cp_Blade2.csv": "no AL-020_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+  "sections/AL-020_cp_Blade3.csv": "no AL-020_cp export found in <ROOT>\\sims\\sim_7001 or its recorded output folders",
+  "series/AL-020_loads_series.csv": "no AL-020_iteration=<step>.txt of steps 1 to 14 is in <ROOT>\\sims\\sim_7001, so there is no row to table",
+  "series/AL-020_probes_series.csv": "no AL-020_probes_iteration=<step>.txt of steps 1 to 14 is in <ROOT>\\sims\\sim_7001, so there is no row to table",
+  "probes/AL-020_phase_locked.csv": "the row names its rotors: the per-rotor files are probes/AL-020_phase_locked_PROP.csv.",
+  "probes/AL-020_per_blade.csv": "the row names its rotors: the per-rotor files are probes/AL-020_per_blade_PROP.csv.",
+  "probes/AL-020_phase_locked_PROP.csv": "not under test",
+  "probes/AL-020_per_blade_PROP.csv": "not under test",
+  "probes/AL-020_per_revolution_PROP.csv#partial": "the plots table holds 14 time steps, 2 complete revolution(s) of 6 and 2 step(s) of a partial one, which is NOT averaged: a mean of part of a revolution is a mean of another thing",
+  "polars/P7001_AL-020_uns_avg.csv#axes": "the axis coefficients are not written: the plots hold FX, FY, FZ, MX, MY and MZ of no plot group in the global MRP frame (looked for: ['MRP_TOTAL']; a rotor's own frame is not the geometry's axes). Declare a [[plots.groups]] entry with frame = \"MRP\" and those six parameters; it takes a new run, the script defines what the solver plots."
+ },
+ "provenance": {
+  "camp/sim_7001/AL-020": "provenance/camp_sim_7001_AL-020.prov.json"
+ },
+ "complete": true
+}

@@ -1,0 +1,31 @@
+{
+ "products": {
+  "polars/P3207-AL-020_g01.csv": {
+   "sim_id": "3207",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_3207/AL-020"
+   ]
+  },
+  "polars/SUPER-3207-AL-020_g01.csv": {
+   "sim_id": "3207",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_3207/AL-020"
+   ],
+   "group": "1",
+   "rows": 1
+  }
+ },
+ "log": "post.log",
+ "log_json": "post.log.json",
+ "superfile_report": "reports/superfile-<TAG>.json",
+ "skipped": {
+  "runs/camp/sim_3207/AL+020": "this run has status FAILED_EXECUTION and names no output file, so no product holds a row of it; collect it, or look at how it was submitted"
+ },
+ "provenance": {
+  "camp/sim_3207/AL-020": "provenance/camp_sim_3207_AL-020.prov.json",
+  "camp/sim_3207/AL+020": "provenance/camp_sim_3207_AL+020.prov.json"
+ },
+ "complete": true
+}

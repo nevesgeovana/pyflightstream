@@ -1,0 +1,109 @@
+{
+ "products": {
+  "polars/P6001-M200RE1177AL+sweepBE+000_g01.csv": {
+   "sim_id": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ]
+  },
+  "polars/P6001-M200RE1177AL+sweepBE+000_g02.csv": {
+   "sim_id": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ]
+  },
+  "polars/P6002-M144RE438AL+000BE+000J+170_g01.csv": {
+   "sim_id": "6002",
+   "pproc": "p002",
+   "runs": [
+    "camp/sim_6002/M144RE438AL+000BE+000J+170"
+   ]
+  },
+  "polars/P6002-M144RE438AL+000BE+000J+170_g02.csv": {
+   "sim_id": "6002",
+   "pproc": "p002",
+   "runs": [
+    "camp/sim_6002/M144RE438AL+000BE+000J+170"
+   ]
+  },
+  "probes/POLAR-6002_M14AL+000BE+000J+170_plots.csv": {
+   "sim_id": "6002",
+   "pproc": "p002",
+   "runs": [
+    "camp/sim_6002/M144RE438AL+000BE+000J+170"
+   ]
+  },
+  "probes/POLAR-6002_M14AL+000BE+000J+170_per_revolution_PUSHER.csv": {
+   "sim_id": "6002",
+   "pproc": "p002",
+   "runs": [
+    "camp/sim_6002/M144RE438AL+000BE+000J+170"
+   ],
+   "reduction": "per_revolution",
+   "windows": [
+    [
+     1,
+     2
+    ]
+   ],
+   "window_from": "the plots table cut into complete revolutions of 2 solver steps",
+   "steps_per_revolution": 2.0,
+   "rotor": "PUSHER"
+  },
+  "polars/SUPER-6001-M200RE1177AL+sweepBE+000_g01.csv": {
+   "sim_id": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "group": "1",
+   "rows": 2
+  },
+  "polars/SUPER-6001-M200RE1177AL+sweepBE+000_g02.csv": {
+   "sim_id": "6001",
+   "pproc": "p001",
+   "runs": [
+    "camp/sim_6001/M200RE1177AL-020BE+000",
+    "camp/sim_6001/M200RE1177AL+000BE+000"
+   ],
+   "group": "2",
+   "rows": 2
+  },
+  "polars/SUPER-6002-M144RE438AL+000BE+000J+sweep_g01.csv": {
+   "sim_id": "6002",
+   "pproc": "p002",
+   "runs": [
+    "camp/sim_6002/M144RE438AL+000BE+000J+170"
+   ],
+   "group": "1",
+   "rows": 1
+  },
+  "polars/SUPER-6002-M144RE438AL+000BE+000J+sweep_g02.csv": {
+   "sim_id": "6002",
+   "pproc": "p002",
+   "runs": [
+    "camp/sim_6002/M144RE438AL+000BE+000J+170"
+   ],
+   "group": "2",
+   "rows": 1
+  }
+ },
+ "log": "post.log",
+ "log_json": "post.log.json",
+ "superfile_report": "reports/superfile-<TAG>.json",
+ "skipped": {
+  "polars/6001#rotor_tables": "reference 'r001' cannot be resolved; rotor tables cannot be planned: no reference artifact with id 'r001'; the library directory <ROOT>\\inputs\\references holds no reference artifacts yet (create it with CampaignWorkspace.init or pyfs-workspace init, then add the artifact file)",
+  "polars/6002#rotor_tables": "reference 'r002' cannot be resolved; rotor tables cannot be planned: no reference artifact with id 'r002'; the library directory <ROOT>\\inputs\\references holds no reference artifacts yet (create it with CampaignWorkspace.init or pyfs-workspace init, then add the artifact file)"
+ },
+ "provenance": {
+  "camp/sim_6001/M200RE1177AL-020BE+000": "provenance/camp_sim_6001_M200RE1177AL-020BE+000.prov.json",
+  "camp/sim_6001/M200RE1177AL+000BE+000": "provenance/camp_sim_6001_M200RE1177AL+000BE+000.prov.json",
+  "camp/sim_6002/M144RE438AL+000BE+000J+170": "provenance/camp_sim_6002_M144RE438AL+000BE+000J+170.prov.json"
+ },
+ "complete": true
+}

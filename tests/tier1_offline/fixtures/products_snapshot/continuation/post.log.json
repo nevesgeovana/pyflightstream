@@ -1,0 +1,41 @@
+{
+ "version": "<VERSION>",
+ "workspace": "<ROOT>",
+ "matrix": null,
+ "time": "<TIME>",
+ "check_frozen": false,
+ "records": [
+  {
+   "point": "camp/sim_7001/r20261001-120000/AL-020",
+   "product": "plots",
+   "message": "this run continues 'camp/sim_7001/AL-020', and its plots table is the march as joined here: 'camp/sim_7001/AL-020' steps 1 to 8; 'camp/sim_7001/r20261001-120000/AL-020' restating the march from step 1 to step 12. The averaging window ends at step 12, the last step the table holds.",
+   "remedy": null,
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "campaign",
+   "product": "stage",
+   "message": "polars/P7001_AL-020_uns_avg.csv: the axis coefficients are not written: the plots hold FX, FY, FZ, MX, MY and MZ of no plot group in the global MRP frame (looked for: ['MRP_TOTAL']; a rotor's own frame is not the geometry's axes). Declare a [[plots.groups]] entry with frame = \"MRP\" and those six parameters; it takes a new run, the script defines what the solver plots.",
+   "remedy": null,
+   "category": "reference-frame",
+   "severity": "warning"
+  },
+  {
+   "point": "runs/camp/sim_7001/AL-020",
+   "product": "runs/camp/sim_7001/AL-020",
+   "message": "this run was continued by camp/sim_7001/r20261001-120000/AL-020, which wrote into the same folder, so its record names the files of its continuation; the products hold the point once, from the end of the chain",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "polars/P7001_AL-020_uns_avg.csv#axes",
+   "product": "polars/P7001_AL-020_uns_avg.csv#axes",
+   "message": "the axis coefficients are not written: the plots hold FX, FY, FZ, MX, MY and MZ of no plot group in the global MRP frame (looked for: ['MRP_TOTAL']; a rotor's own frame is not the geometry's axes). Declare a [[plots.groups]] entry with frame = \"MRP\" and those six parameters; it takes a new run, the script defines what the solver plots.",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "reference-frame",
+   "severity": "warning"
+  }
+ ]
+}

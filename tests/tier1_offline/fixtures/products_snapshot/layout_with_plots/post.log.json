@@ -1,0 +1,49 @@
+{
+ "version": "<VERSION>",
+ "workspace": "<ROOT>",
+ "matrix": "matriz",
+ "time": "<TIME>",
+ "check_frozen": false,
+ "records": [
+  {
+   "point": "campaign",
+   "product": "stage",
+   "message": "the matrix matriz.fs is in neither the workspace root nor inputs/matrices/. Every post-only choice falls back to the run records, and the rotor tables, which take their geometry from the row's reference, are not written.",
+   "remedy": null,
+   "category": "reference-frame",
+   "severity": "warning"
+  },
+  {
+   "point": "probes/POLAR-0001_M15AL+020BE+000J+100_time_average.csv",
+   "product": "probes/POLAR-0001_M15AL+020BE+000J+100_time_average.csv",
+   "message": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states.",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "probes/POLAR-0001_M15AL+020BE+000J+150_time_average.csv",
+   "product": "probes/POLAR-0001_M15AL+020BE+000J+150_time_average.csv",
+   "message": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states.",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "probes/POLAR-0001_M15AL+020BE+000J+200_time_average.csv",
+   "product": "probes/POLAR-0001_M15AL+020BE+000J+200_time_average.csv",
+   "message": "the run record carries no reduction windows, so no reduction of the plots table can say which steps it averaged; the record was written before the field existed or by hand. Rerun the row, and the record will carry the windows its row states.",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  },
+  {
+   "point": "polars/0001#rotor_tables",
+   "product": "polars/0001#rotor_tables",
+   "message": "no matrix row for this simulation; rotor tables cannot be planned",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  }
+ ]
+}

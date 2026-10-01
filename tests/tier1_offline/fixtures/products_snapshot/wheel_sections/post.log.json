@@ -1,0 +1,57 @@
+{
+ "version": "<VERSION>",
+ "workspace": "<ROOT>",
+ "matrix": null,
+ "time": "<TIME>",
+ "check_frozen": false,
+ "records": [
+  {
+   "point": "DP",
+   "product": "sections",
+   "message": "THRUST_PCT_K_GT_0_1 reads NA: the total over the stations of rotor PROP is zero",
+   "remedy": null,
+   "category": "section-layout",
+   "severity": "warning"
+  },
+  {
+   "point": "DP",
+   "product": "sections",
+   "message": "TORQUE_PCT_K_GT_0_1 reads NA: the total over the stations of rotor PROP is zero",
+   "remedy": null,
+   "category": "section-layout",
+   "severity": "warning"
+  },
+  {
+   "point": "DP",
+   "product": "sections/DP_harmonics.csv",
+   "message": "station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 1e-06 of the largest radius 0.2899 m apart",
+   "remedy": null,
+   "category": "section-layout",
+   "severity": "warning"
+  },
+  {
+   "point": "sections/DP_harmonics.csv#rotor=PROP#station=1",
+   "product": "sections/DP_harmonics.csv#rotor=PROP#station=1",
+   "message": "station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 1e-06 of the largest radius 0.2899 m apart",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "section-layout",
+   "severity": "warning"
+  },
+  {
+   "point": "sections/DP_harmonics.csv",
+   "product": "sections/DP_harmonics.csv",
+   "message": "no station of any rotor could be fitted: station 1 of rotor 'PROP' is at r = 0.2899 m in the first sample and at [0.321] m in 3 other(s), more than 1e-06 of the largest radius 0.2899 m apart",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "section-layout",
+   "severity": "warning"
+  },
+  {
+   "point": "polars/P7001-PROP_qs_positions.csv",
+   "product": "polars/P7001-PROP_qs_positions.csv",
+   "message": "these quasi-steady points are not rows of the clockings tables: DP: the point states no density",
+   "remedy": "restore the required data or correct the stated inputs and post again.",
+   "category": "postprocessing",
+   "severity": "warning"
+  }
+ ]
+}
