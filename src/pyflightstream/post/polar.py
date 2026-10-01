@@ -227,6 +227,32 @@ def group_coefficients(
     that took it as one would be a number a reader believes. ``force`` keeps the
     printed ``Cx``; a NaN there would reach, through the turn, columns the x
     force does not touch, so :func:`polar_row` masks exactly the ones it does.
+
+    Parameters
+    ----------
+    loads : LoadsReport
+        The parsed loads table, one row per surface.
+    families : sequence of int or str
+        The group's members: surface names, aliases or families.
+    bref_m : float
+        Reference span in metres, which the rolling and yawing moments are
+        scaled to.
+    aliases : mapping of str to sequence of str, optional
+        The boundary aliases a member may name.
+    empty_is_every : bool, optional
+        Whether an empty ``families`` means every surface; False sums to zero.
+    declined : collection of str, optional
+        The surfaces whose induced drag was not computed.
+
+    Returns
+    -------
+    GroupCoefficients
+        The summed coefficients and the names of the surfaces summed.
+
+    Raises
+    ------
+    ProductError
+        If the loads table states no reference length.
     """
     cref = loads.reference_length
     if cref is None:
@@ -290,6 +316,19 @@ def declined_induced_drag(loads: LoadsReport, selection: object) -> tuple[str, .
 
     A trailing-edged surface whose induced drag rounds to zero at the printed
     precision is declined too; ``SET_SIGNIFICANT_DIGITS`` narrows that band.
+
+    Parameters
+    ----------
+    loads : LoadsReport
+        The parsed loads table, one row per surface in the solver's order.
+    selection : object
+        The recorded value of ``SET_VORTICITY_DRAG_BOUNDARIES``: ``"all"``, a
+        list of 1-based boundary indices, or an empty or other value.
+
+    Returns
+    -------
+    tuple of str
+        The names of the declined surfaces, in table order; empty when none.
     """
     names = list(loads.surfaces)
     if isinstance(selection, str):
@@ -346,6 +385,30 @@ def polar_row(
     IS ``CDi + CDo``), so it is short by exactly what was not computed. The
     columns it does not reach, the moments and ``CLB`` among them, keep their
     numbers.
+
+    Parameters
+    ----------
+    alpha_deg : float
+        Angle of attack in degrees.
+    mach : float
+        Mach number of the point.
+    reynolds_millions : float
+        Reynolds number in millions.
+    coefficients : GroupCoefficients
+        The group's summed coefficients, from :func:`group_coefficients`.
+    cref_m : float
+        Reference chord in metres.
+    bref_m : float
+        Reference span in metres.
+    beta_deg : float, optional
+        Sideslip angle in degrees; zero where omitted.
+
+    Returns
+    -------
+    tuple of float
+        The values under the coefficient columns of the polar table: the two
+        angles, Mach, Reynolds, the axis coefficients, then ``CD0`` and
+        ``CDI``.
     """
     g = coefficients
     axes = polar_axis_coefficients(
@@ -372,6 +435,18 @@ def swept_axes(points: Sequence[Mapping[str, float]]) -> tuple[str, ...]:
     to a single value is named for the value it actually has. Compared at
     the precision the name itself writes, because two advance ratios that
     round to one field are one field.
+
+    Parameters
+    ----------
+    points : sequence of mapping of str to float
+        The sweep points, each holding some of ``alpha``, ``beta`` and
+        ``advance_ratio``.
+
+    Returns
+    -------
+    tuple of str
+        The axes whose values differ across the points, in the order of
+        :data:`SWEEP_AXES`.
     """
     varying = []
     for axis in SWEEP_AXES:
@@ -406,6 +481,22 @@ def swept_polar_file_name(
     refusal carried no file, no group and no fix. The matrix binder refused the
     same pproc one stage earlier, so the feature this release is named for was
     refused at BOTH ends.
+
+    Parameters
+    ----------
+    sim : str
+        The simulation identifier the name opens with.
+    name : str
+        The recorded sweep or point name.
+    group : str or int
+        The pproc group, named or numbered.
+    suffix : str, optional
+        The file extension, with its dot.
+
+    Returns
+    -------
+    str
+        The file name, without a directory.
     """
     return f"{sweep_file_stem(sim, name)}_{group_token(group)}{suffix}"
 
@@ -466,6 +557,36 @@ def polar_table_rows(
     this one is exactly the shape that broke `legacy_products.py` on
     2026-09-10, where a column inserted in one assembly reached the other
     as a value under its neighbour's name.
+
+    Parameters
+    ----------
+    polar : str or int
+        The polar's identifier, written as ``POL`` in every row.
+    description : str
+        Free text describing the polar, written in every row.
+    group : str or int
+        The pproc group the rows belong to.
+    reference : ReferenceValues
+        The reference lengths and moment point, written in every row.
+    rows : sequence of sequence of float
+        The coefficient values of each point, as :func:`polar_row` returns
+        them.
+    advance_ratios : sequence of float or None, optional
+        The advance ratio of each row; None entries read ``NA``.
+    conditions : sequence of mapping, optional
+        The flight condition of each row, in row order.
+
+    Returns
+    -------
+    list of tuple
+        One full row per input row, ready under :data:`POLAR_COLUMNS`.
+
+    Raises
+    ------
+    ProductError
+        If both ``advance_ratios`` and ``conditions`` are given, the number
+        of conditions differs from the number of rows, or a row does not
+        hold one value per coefficient column.
     """
     if advance_ratios is not None and conditions is not None:
         raise ProductError(
@@ -518,6 +639,35 @@ def write_polar_table(
     distinguishable -- from a zero, from a value that went missing, or from
     a column that never applied. This is the worked example the change log
     uses, `...,0.00000,NA,-2.00000,...` on a steady row.
+
+    Parameters
+    ----------
+    path : str or Path
+        Destination file.
+    polar : str or int
+        The polar's identifier, written as ``POL`` in every row.
+    description : str
+        Free text describing the polar, written in every row.
+    group : str or int
+        The pproc group the rows belong to.
+    reference : ReferenceValues
+        The reference lengths and moment point, written in every row.
+    rows : sequence of sequence of float
+        The coefficient values of each point, as :func:`polar_row` returns
+        them.
+    advance_ratios : sequence of float or None, optional
+        The advance ratio of each row; None entries read ``NA``.
+
+    Returns
+    -------
+    Path
+        The file written.
+
+    Raises
+    ------
+    ProductError
+        As :func:`polar_table_rows`: a row of the wrong width or an
+        advance-ratio count that differs from the rows.
     """
     full = polar_table_rows(
         polar=polar,
@@ -650,6 +800,41 @@ def write_recorded_polar(
     boundaries were on the vorticity induced-drag list: every printed ``CDi``
     is summed as printed, a zero included. The campaign stage, which holds the
     record, writes `NA` for an induced drag the solver declined (PFS-2006.03).
+
+    Parameters
+    ----------
+    polar_dir : str or Path
+        The ``POLAR-<n>`` folder of point folders.
+    out_dir : str or Path
+        Folder the products are written under.
+    groups : mapping of str to sequence of str
+        The pproc ``[groups]`` table: group name to its families.
+    reference : mapping of str to float or ReferenceValues
+        The reference lengths and moment point of the run.
+    description : str
+        Free text describing the polar, written in every row.
+    mach : float
+        The simulation's Mach number.
+    sections : bool, optional
+        Whether to write a sections table for each point that has sectional
+        loads.
+    plots : bool, optional
+        Whether to write a plots table for each point that has a plots export.
+    aliases : mapping of str to sequence of str, optional
+        The boundary aliases a group member may name.
+
+    Returns
+    -------
+    list of Path
+        The files written, in order.
+
+    Raises
+    ------
+    ProductError
+        If a point's loads table cannot be read, the folder holds no point,
+        a point's loads are in a frame other than the geometry's axes or state
+        no Reynolds number, or the reference differs from the one the solver
+        used.
     """
     polar_dir = Path(polar_dir)
     out = Path(out_dir)
