@@ -42,10 +42,22 @@ PUBLIC_MODULES = [
     "pyflightstream.cases.freestream",
     "pyflightstream.cases.fsi_workspace",
     "pyflightstream.cases.matrix",
+    # 0.34.0 (AD-16): a model module cut out of the root, which re-exports its names.
+    "pyflightstream.cases.mesh",
+    # 0.34.0 (AD-16): a model module cut out of the root, which re-exports its names.
+    "pyflightstream.cases.naming",
+    # 0.34.0 (AD-16): a model module cut out of the root, which re-exports its names.
+    "pyflightstream.cases.pproc",
     # 0.30.0: the quasi-steady rotor's arithmetic, clocking and 1P reduced
     # frequency. PUBLIC deliberately: a user checking a blade's k by hand, or the
     # clockings of a wheel, calls it.
     "pyflightstream.cases.qsteady",
+    # 0.34.0 (AD-16): a model module cut out of the root, which re-exports its names.
+    "pyflightstream.cases.reference_blocks",
+    # 0.34.0 (AD-16): a model module cut out of the root, which re-exports its names.
+    "pyflightstream.cases.selection",
+    # 0.34.0 (AD-16): a model module cut out of the root, which re-exports its names.
+    "pyflightstream.cases.settings",
     # 0.32.0 preparation (P0): a contract module, its body filled by its work package.
     "pyflightstream.cases.setup_surfaces",
     # 0.24.0: the one resolver of an unsteady row's averaging window. PUBLIC

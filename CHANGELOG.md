@@ -28,6 +28,16 @@ FlightStream versions.
   quietly stops being citable is the gap PFS-2024.09 is about. Cite that
   release by the concept DOI, which resolves to the newest archived version.
 
+### Changed (the type-checker debt, re-measured)
+
+- mypy recount 2026-10-01: 184 errors in 17 of 225 modules, on the 0.34.0
+  branch of work package WP8 (AD-16): the six model modules cut out of the
+  `cases` root are clean and not exempted, and the root, still exempt,
+  reports 1 error where it reported 9, because every moved line was typed.
+  The override list is unchanged and the shipped configuration is green over
+  all 225 modules. `rel/0-33` with WP4, WP5 and WP6 merged read 192 in 17 of
+  219 (the 0.33.0 section below).
+
 ## [0.33.1] - 2026-10-01
 
 ### Changed
