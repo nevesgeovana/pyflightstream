@@ -90,7 +90,7 @@ def test_before_start_solver_the_step_exports_answer_r5_as_rpt_133_recorded_fr_3
 def test_the_package_still_emits_the_order_rpt_133_measured_as_arm_a_fr_318(tmp_path):
     """Arm A is the package's order: the list after START_SOLVER, the moments model before it.
 
-    If 0.35.0 moves the list (GOAL-040), this test moves with it and RPT-133's arm B is its
+    If 0.35.0 moves the list, this test moves with it and RPT-133's arm B is its
     evidence; until then a change of order is a change RPT-133 did not measure.
     """
     # Verifies FR-318.
