@@ -9,7 +9,8 @@ order and imports no module of the package.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import replace
 
 from pyflightstream._errors import (
     PyflightstreamError,
@@ -27,6 +28,7 @@ from pyflightstream.cases import (
 from pyflightstream.cases.acoustics import (
     with_acoustic_signals,
 )
+from pyflightstream.cases.matrix import MatrixError
 from pyflightstream.cases.workflows import (
     COLD_START_VARIABLE,
     carries_singularity_strength,
@@ -37,7 +39,9 @@ from pyflightstream.workspace import JOB_TAG as _WORKSPACE_JOB_TAG
 from pyflightstream.workspace import (
     CampaignWorkspace,
     RunRecord,
+    WorkspaceError,
 )
+from pyflightstream.workspace.matrix import ResolvedMatrix
 
 
 class CampaignErrors(PyflightstreamError, RuntimeError):  # noqa: N818 (the SAD Section 7 name)
@@ -330,4 +334,169 @@ def _is_cold_start(case: SimCase) -> bool:
     raise CampaignConfigError(
         f"case {case.sim_id!r}: COLD_START must be true or false; got {stated!r}. "
         "Cold is the default; false explicitly opts into warm steady starts."
+    )
+
+
+# FR-327 (0.34.0, P0340-RUN-AGAIN): the refusal of a second run counts what continuing does.
+class _AlreadyRecordedError(WorkspaceError):
+    """A point of the matrix is already in the manifest and no way to continue was chosen.
+
+    Attributes
+    ----------
+    recorded : int
+        The points of the campaign the manifest already carries.
+    would_run : int
+        The points of the campaign no record carries, which ``--resume`` would run.
+    """
+
+    def __init__(self, message: str, *, recorded: int, would_run: int) -> None:
+        super().__init__(message)
+        self.recorded = recorded
+        self.would_run = would_run
+
+
+def _recorded_and_new(campaign: Campaign, manifest: Mapping[str, RunRecord]) -> tuple[int, int]:
+    """Count the points of the campaign the manifest carries and the points it does not."""
+    recorded = new = 0
+    for case in campaign.sims:
+        ran = _points_the_recorded_job_ran(campaign, case, manifest)
+        for point in case.sweep.points():
+            if ran is not None:
+                # A steady row is one job: its points are recorded under the job's id.
+                is_recorded = point_name(case, point) in ran
+            else:
+                is_recorded = _run_id(campaign, case, point) in manifest
+            recorded += is_recorded
+            new += not is_recorded
+    return recorded, new
+
+
+def already_recorded_error(
+    campaign: Campaign, manifest: Mapping[str, RunRecord], run_id: str, root: object
+) -> _AlreadyRecordedError:
+    """Return the refusal of a run whose point ``run_id`` is already in the manifest.
+
+    Parameters
+    ----------
+    campaign : Campaign
+        The campaign about to run, after any selection.
+    manifest : mapping of str to RunRecord
+        The records of the workspace, keyed by run id.
+    run_id : str
+        The first recorded run id the run met.
+    root : object
+        The workspace root, named in the message.
+
+    Returns
+    -------
+    _AlreadyRecordedError
+        The error to raise: nothing was staged or run, and it counts the recorded points and
+        the points ``--resume`` would run.
+    """
+    recorded, new = _recorded_and_new(campaign, manifest)
+    return _AlreadyRecordedError(
+        f"run_id {run_id!r} is already in the manifest of {root}; re-running a "
+        f"recorded point would fork the run identity. {recorded} point(s) of this run are "
+        f"recorded and {new} would run with resume=True (CLI: --resume), which SKIPS the "
+        "recorded ones and does not re-run this one. To REDO it instead, name it: "
+        f"force_rerun=[{run_id!r}] (CLI: --force-rerun {run_id}), which archives that "
+        "record and that point's collected outputs and then runs it, leaving every point "
+        "it does not name alone.",
+        recorded=recorded,
+        would_run=new,
+    )
+
+
+# FR-326 (0.34.0, P0340-RUN-ONE-POINT): a selection of the matrix, planned or run alone.
+def _names_of(case: SimCase) -> list[str]:
+    """Return the point names of one case, in sweep order, as the plan prints them."""
+    return [point_name(case, point) for point in case.sweep.points()]
+
+
+def _only_these_points(case: SimCase, wanted: set[str]) -> SimCase | None:
+    """Return the case reduced to the points ``wanted`` names, or None where it has none."""
+    kept = [
+        value
+        for value, name in zip(case.sweep.values, _names_of(case), strict=True)
+        if name in wanted
+    ]
+    if not kept:
+        return None
+    return case.model_copy(update={"sweep": case.sweep.model_copy(update={"values": kept})})
+
+
+def narrow_to_selection(
+    resolved: ResolvedMatrix,
+    sims: Sequence[str] | None,
+    points: Sequence[str] | None,
+    *,
+    redoing: bool = False,
+) -> ResolvedMatrix:
+    """Return the matrix reduced to the simulations ``sims`` and the points ``points`` name.
+
+    Parameters
+    ----------
+    resolved : ResolvedMatrix
+        The matrix bound to the workspace.
+    sims : sequence of str, optional
+        The simulation ids as the matrix spells them; None or empty selects every one.
+    points : sequence of str, optional
+        Point names, accepted only with ``sims``: only those points of the selected
+        simulations remain, and a simulation carrying none of them is left out.
+    redoing : bool
+        True under ``force_rerun_all``, which redoes recorded points by simulation and
+        refuses a point selection (``--force-rerun`` names points to redo).
+
+    Returns
+    -------
+    ResolvedMatrix
+        The same object when nothing is selected, otherwise a copy whose campaign carries
+        the selected simulations and points, with ``row_builds`` kept in step.
+
+    Raises
+    ------
+    MatrixError
+        When ``points`` comes without ``sims`` or with ``redoing``, or names a simulation
+        or a point the matrix does not carry; raised before anything runs.
+    """
+    if not sims:
+        if points:
+            raise MatrixError(
+                "points (CLI: --points) name points of the simulations sims (CLI: --sims) "
+                "names; give --sims too, or leave --points out. Nothing was run."
+            )
+        return resolved
+    if points and redoing:
+        raise MatrixError(
+            "points (CLI: --points) cannot be combined with force_rerun_all (CLI: "
+            "--force-rerun-all), which redoes whole simulations; name the recorded point "
+            "to redo with force_rerun (CLI: --force-rerun). Nothing was run."
+        )
+    campaign = resolved.campaign
+    carried = [case.sim_id for case in campaign.sims]
+    unknown = [sim for sim in sims if sim not in carried]
+    if unknown:
+        raise MatrixError(
+            f"sims names {', '.join(unknown)}, which this matrix does not carry; it "
+            f"carries {', '.join(carried)}. Nothing was run."
+        )
+    chosen = [case for case in campaign.sims if case.sim_id in set(sims)]
+    if points:
+        existing = [name for case in chosen for name in _names_of(case)]
+        missing = [name for name in points if name not in existing]
+        if missing:
+            raise MatrixError(
+                f"points names {', '.join(missing)}, which simulation(s) {', '.join(sims)} "
+                f"do not carry; they carry {', '.join(existing)}. Nothing was run."
+            )
+        reduced = [_only_these_points(case, set(points)) for case in chosen]
+        chosen = [case for case in reduced if case is not None]
+    keep = [case.sim_id in {c.sim_id for c in chosen} for case in campaign.sims]
+    by_id = {case.sim_id: case for case in chosen}
+    return replace(
+        resolved,
+        campaign=campaign.model_copy(
+            update={"sims": [by_id[sim] for sim in carried if sim in by_id]}
+        ),
+        row_builds=tuple(b for b, kept in zip(resolved.row_builds, keep, strict=True) if kept),
     )

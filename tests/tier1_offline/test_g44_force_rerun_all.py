@@ -128,11 +128,16 @@ def test_g44_points_recorded_one_by_one_are_counted_as_the_one_job_that_reruns_t
     assert len(stub.invocations) == 1, stub.invocations
 
 
-def test_g44_sims_alone_and_an_empty_manifest_are_refused(tmp_path):
+def test_g44_points_beside_the_redo_and_an_empty_manifest_are_refused(tmp_path):
+    """FR-326 R7 retargets the refusal of `--sims` alone, which is a selection since 0.34.0.
+
+    What stays refused is the redo of a selection of points, which `--force-rerun` names, and the
+    redo of an empty manifest; both before anything runs.
+    """
     workspace, matrix = _steady_sweep_matrix(tmp_path)
     stub = CountingStub(WRITES_EVERY_EXPORT)
-    with pytest.raises(MatrixError, match=r"chooses the simulations of force_rerun_all"):
-        _run(workspace, matrix, stub, sims=["5001"])
+    with pytest.raises(MatrixError, match=r"cannot be combined with force_rerun_all"):
+        _run(workspace, matrix, stub, force_rerun_all=True, sims=["5001"], points=["X"])
     with pytest.raises(MatrixError, match=r"found no recorded point"):
         _run(workspace, matrix, stub, force_rerun_all=True)
     assert stub.invocations == []
