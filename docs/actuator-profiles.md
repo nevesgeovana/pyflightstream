@@ -42,8 +42,11 @@ when the disc is read from a reference.
 `post/<matrix>/sections/<point>_sloads_<family>.csv` (a pproc with
 `products.sections = true` and a `[[sections.distributions]]` of the blade's
 family). `--pol POL` finds it in the post's `products.json`, family `Blade1`
-unless `--family` says otherwise, and a POL with more than one such table
-(several points or matrices) is refused, naming each: name the table instead.
+unless `--family` says otherwise (`products.json` may state the families as a
+list or as one name, and `Blade1` is never taken for `Blade12`), and a POL with
+more than one such table (several points or matrices) is refused, naming each:
+name the table instead. `--family` is read only with `--pol`; beside a named
+table it is refused.
 The radius is the `Offset` column. The thrust is `-Fx` by default, the axial
 force of a blade whose rotor turns about x and pushes towards -x; `--component
 Fz` and `--sign 1` read another column or sign. The table of an unsteady run
@@ -51,13 +54,14 @@ that averaged its last revolutions is one set of stations and is read as it
 is; a table of several steps is refused unless `--last K` says how many of the
 last steps are averaged, station by station. A station whose thrust is
 negative is set to zero, and the count is recorded. The profile is then
-`(0, 0)`, `(hub, 0)`, the stations, `(tip, 0)`; a station at or inside the hub
-radius, or at or beyond the tip, is refused.
+`(0, 0)`, `(hub - 1e-4 m, 0)`, the stations, `(tip, 0)`; a station at or
+inside the hub radius, or at or beyond the tip, is refused.
 
 **uni** samples `--stations N` radii (61 by default) from the hub to the tip,
 `F = c r`: a uniform jump `dp` loads each blade with `F = dp 2 pi r / B`. The
-profile is zero inside the hub, with its inner zero at `hub - 1e-4 R`, so the
-step at the hub lies between two radii.
+profile is zero inside the hub, with its inner zero at `hub - 1e-4 m`, so the
+step at the hub lies between two radii. Every shape puts its inner zero there,
+1e-4 m inside the hub radius, as the profiles RPT-137 summarises were written.
 
 **bp** samples the same radii with Prandtl's tip and hub factors for `B`
 blades, `f = (2/pi) acos(exp(-B d / (2 r_ref sin(phi))))`, `d` the distance to
@@ -91,7 +95,8 @@ Only `--apply` writes. `--out STEM` names the file, and a row then states
 `PROFILE: STEM`. The provenance record states the shape and its parameters,
 the disc and where it came from, the target and how it was stated, the scale,
 the integral, every input with its sha256 (the sections table, the reference
-file) and the sha256 of the file written. An existing file or record is
+file; each relative to the workspace when it lies inside it) and the sha256 of
+the file written. An existing file or record is
 replaced only with `--overwrite`, and a stem the folder already holds in
 another file is refused, since a row's `PROFILE` names one file. `--workspace`
 names the campaign workspace (the current directory by default). A refusal is

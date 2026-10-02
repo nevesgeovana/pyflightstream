@@ -86,6 +86,9 @@ a person. Both write only with an explicit `--write`.
 * [Boundary conditions](boundary-conditions.md): typed setup and mesh-sidecar inputs.
 * [Field operations](field-operations.md): mirror, move, subtract and time-mean
   fields into a custom free-stream file, previewed before `--apply`.
+* [Actuator-disc profiles](actuator-profiles.md): the radial thrust profile a
+  row's `PROFILE` names, from a POL's written sections or a generic shape,
+  scaled to a thrust or a CT, previewed before `--apply`.
 * [Sampled fields](sampled-fields.md), [surface translation](surface-translation.md),
   [boundary-layer products](boundary-layer-products.md) and
   [unsteady plots and averages](unsteady-postprocessing.md): source association,
