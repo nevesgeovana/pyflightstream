@@ -507,6 +507,7 @@ Which run it was (\texttt{run\_id}, \texttt{point\_name}, \texttt{sweep\_name}),
 \hd{Commands}
 \begin{cmdblock}{pyfs-matrix collect}{}{Collect the outputs of every SUBMITTED record when they land, then post.}
 \opt{--watch}{keep sweeping until nothing is outstanding (default: one sweep).}
+\opt{--discard-walltime}{mark clock-stopped points failed before post; keep outputs. Grouped plans rerun them from the start; default-mode plans need an explicit rerun.}
 \opt{--watch-interval S}{seconds between sweeps under watch (default 60).}
 \opt{--interval S}{seconds between the two observations that decide settled (default 2).}
 \opt{--rounds N}{stop a watch after N sweeps.}

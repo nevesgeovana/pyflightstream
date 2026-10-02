@@ -711,12 +711,6 @@
    "statements": 13,
    "positional": 6
   },
-  "run/collect.py:collect_and_post": {
-   "complexity": 11,
-   "branches": 11,
-   "statements": 33,
-   "positional": 1
-  },
   "run/collect.py:collect_once": {
    "complexity": 11,
    "branches": 12,
@@ -1732,10 +1726,10 @@
     "records",
     "_rebuild",
     "_rebuild_evidence",
-    "_record_files",
     "_assemble",
     "collect",
     "_batch_collect",
+    "_record_files",
     "matrix",
     "__init__",
     "_grouped",

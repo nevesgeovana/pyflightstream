@@ -1240,9 +1240,7 @@ class RunRecord(BaseModel):
         return data
 
     @model_serializer(mode="wrap")
-    def _leave_the_unrecorded_0270_keys_out(
-        self, handler: SerializerFunctionWrapHandler
-    ) -> dict[str, Any]:
+    def _omit_unrecorded_keys(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
         """Write none of the keys a reader older than their release may not know, where unstated.
 
         ``inventory``, ``mesh_import``, ``rotor_mach``, ``clocking_verdicts``, FR-96's ``restart``.
@@ -1256,9 +1254,10 @@ class RunRecord(BaseModel):
         A serializer rather than ``Field(exclude_if=...)``, which needs
         pydantic 2.11 where this package's floor is pydantic 2.
         """
-        data: dict[str, Any] = handler(self)
-        keys = ("inventory", "mesh_import", "rotor_mach", "clocking_verdicts", "marked", "restart")
-        return {key: value for key, value in data.items() if value is not None or key not in keys}
+        keys = (
+            "inventory mesh_import rotor_mach clocking_verdicts marked restart discarded_by".split()
+        )
+        return {key: v for key, v in handler(self).items() if v is not None or key not in keys}
 
     #: How the solver was called (PFS-2012.04), None where no solver ran
     #: and on every row written before the field existed.
@@ -1373,10 +1372,11 @@ class RunRecord(BaseModel):
     #: the identity of a row rather than a guess.
     sections_layout: list[dict[str, object]] | None = None
     error: str | None = None
-    #: FR-309: on a record marked FAILED_MARKED, the status it had (``from``),
-    #: when it was marked (``at``) and the reason given (``reason``, or None).
-    #: Written only where recorded, so every other record is unchanged.
+    #: FR-309: marking keeps the prior status, timestamp and reason in ``marked``.
+    #: FR-400: ``discarded_by`` names the collect option that discarded the point.
+    #: Both fields are omitted when unset, so every other record is unchanged.
     marked: dict[str, Any] | None = None
+    discarded_by: str | None = None
     #: The two files of a row stating an export threshold (PFS-2031.18),
     #: relative to the simulation folder, and the count the program
     #: reached; None on every record written before 0.13.0 and on a row

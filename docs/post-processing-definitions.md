@@ -2660,3 +2660,12 @@ named simulations are collected. The post that follows (unless `--no-post`) is
 limited to the same simulations. An id no record carries is refused before
 anything is swept. In Python the keyword is `sims` of
 `write_campaign_products`, `collect_once` and `collect_and_post` (FR-307).
+
+`pyfs-matrix collect --discard-walltime` marks each latest WALLTIME_REACHED
+record in that scope FAILED_MARKED after the sweep, before post, including
+records from an earlier collect. Under `--watch` it does this after every
+pass. It keeps the previous status in `marked.from` and records
+`discarded_by: "collect --discard-walltime"`. Outputs stay on disk. A grouped
+plan takes the point again from the start automatically, and its run archives
+the old record and outputs; a default-mode plan needs `--force-rerun`.
+Without the option collect behaves as before (FR-400).

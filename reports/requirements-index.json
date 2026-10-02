@@ -2,8 +2,8 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 328,
-  "total": 408,
+  "cited_by_a_test": 329,
+  "total": 409,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
  "requirements": [
@@ -2982,6 +2982,14 @@
    "status": "pending",
    "evidence": "",
    "verification": "none"
+  },
+  {
+   "id": "FR-400",
+   "text": "Requirement: pyfs-matrix collect --discard-walltime shall mark each point in its scope whose latest record is WALLTIME_REACHED as FAILED_MARKED, so the next grouped plan runs it again from the start.",
+   "priority": "M",
+   "status": "implemented",
+   "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_collect_discard.py.*",
+   "verification": "test"
   },
   {
    "id": "NFR-01",
