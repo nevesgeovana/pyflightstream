@@ -81,6 +81,7 @@ from pyflightstream.run._ids import (
     _points_the_recorded_job_ran,
     _run_id,
     _say,
+    already_recorded_error,
 )
 from pyflightstream.run._plan import (
     _output_collision,
@@ -641,17 +642,8 @@ def run_campaign(
         # the refusal below, which exists for a re-run nobody asked for, must
         # not fire on them.
         if already and not resume and not continuing and not redoing:
-            raise WorkspaceError(
-                f"run_id {already[0]!r} is already in the manifest of "
-                f"{workspace.root}; re-running a recorded point would fork the "
-                "run identity. To REDO it, name it: force_rerun="
-                f"[{already[0]!r}] (CLI: --force-rerun {already[0]}), which "
-                "archives that record and that point's collected outputs and "
-                "then runs it, leaving every point it does not name alone. To "
-                "run only the points that are NEW, pass resume=True (CLI: "
-                "--resume), which SKIPS the recorded ones and does not re-run "
-                "this one."
-            )
+            # FR-327: the refusal counts the recorded points and the ones --resume runs.
+            raise already_recorded_error(campaign, manifest, already[0], workspace.root)
         if continuing:
             pending = pending_restart_points(
                 case,

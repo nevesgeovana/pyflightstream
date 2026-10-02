@@ -13,6 +13,11 @@ command that reads a manifest takes ``--runs NAME`` from one list.
 from __future__ import annotations
 
 import argparse
+import os
+import shlex
+import subprocess
+import sys
+from collections.abc import Sequence
 from typing import Any
 
 from pyflightstream.cases.workflows import (
@@ -45,6 +50,37 @@ def _a_word_that_means_false(word: str) -> bool:
         return read_a_choice(word, context="--ignore-missing-families")
     except ValueError as error:
         raise argparse.ArgumentTypeError(str(error)) from None
+
+
+def _add_selection_arguments(parser: argparse.ArgumentParser) -> None:
+    """Declare --sims and --points of ``plan`` and ``run`` (FR-326, P0340-RUN-ONE-POINT).
+
+    The one home of the spelling, so the two commands take the same selection: a
+    simulation (POL), or a simulation and some of its points, planned or run without
+    the matrix being edited.
+    """
+    parser.add_argument(
+        "--sims",
+        dest="sims",
+        nargs="+",
+        metavar="SIM",
+        default=None,
+        help="plan or run only these simulations, by their ids as the matrix spells them "
+        "(for example --sims 2031 2032 2033); every other simulation is left untouched. "
+        "With `run --force-rerun-all`, the simulations to redo. An id the matrix does not "
+        "carry is refused before anything runs",
+    )
+    parser.add_argument(
+        "--points",
+        dest="points",
+        nargs="+",
+        metavar="POINT",
+        default=None,
+        help="with --sims, plan or run only these points of those simulations, by the "
+        "point name the plan prints for each; the matrix file is not edited and no other "
+        "point is planned, staged or run. A point the matrix does not carry is refused "
+        "before anything runs",
+    )
 
 
 def _add_the_missing_family_choice(parser: argparse.ArgumentParser) -> None:
@@ -120,8 +156,32 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+class _InvokedParser(argparse.ArgumentParser):
+    """The parser, which keeps the command line it was given as ``invoked_argv`` (FR-327)."""
+
+    def parse_args(  # type: ignore[override]
+        self, args: Sequence[str] | None = None, namespace: argparse.Namespace | None = None
+    ) -> argparse.Namespace:
+        """Parse as :class:`argparse.ArgumentParser` does, and record what was parsed."""
+        parsed = super().parse_args(args, namespace)
+        parsed.invoked_argv = list(sys.argv[1:] if args is None else args)
+        return parsed
+
+
+def resume_hint(argv: Sequence[str]) -> str:
+    """Return the sentence naming the command that continues a refused second run (FR-327).
+
+    The command is the one invoked, every argument kept, with ``--resume`` added, quoted for
+    the shell it was typed in: the Windows command-line rule on Windows and the POSIX rule
+    elsewhere. Nothing is asked of the user; a run may be detached or scripted.
+    """
+    words = ["pyfs-matrix", *argv, "--resume"]
+    line = subprocess.list2cmdline(words) if os.name == "nt" else shlex.join(words)
+    return f"To continue with the points that are new, run:\n  {line}"
+
+
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = _InvokedParser(
         prog="pyfs-matrix",
         description=(
             "Run-matrix tooling: the matrix is a first-class interface of the "
@@ -562,6 +622,7 @@ def _add_plan_parsers(subparsers: Any) -> None:
         "the build the solver printed. `plan` launches no solver and records the flag in "
         "plan.json, so it rehearses the same command line `run` executes",
     )
+    _add_selection_arguments(plan)
     plan.add_argument(
         "--verbose",
         action="store_true",
@@ -662,16 +723,7 @@ def _add_run_option_parsers(subparsers: Any) -> None:
         help="on a local unsteady point, say how far the run is every N completed time "
         "steps, read from the run's own step counter (default 10; 0 says nothing)",
     )
-    run.add_argument(
-        "--sims",
-        dest="sims",
-        nargs="+",
-        metavar="SIM",
-        default=None,
-        help="with --force-rerun-all, the simulations to redo, by their ids as the matrix "
-        "spells them (for example --sims 2031 2032 2033); the run then touches those "
-        "simulations only. An id the matrix does not carry is refused before anything runs",
-    )
+    _add_selection_arguments(run)
     run.add_argument(
         "--sweep-csv",
         help="write the campaign sweep table here (default: "

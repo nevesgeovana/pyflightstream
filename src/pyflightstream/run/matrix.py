@@ -36,7 +36,7 @@ import shutil
 import sys
 import warnings
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import zip_longest
 from pathlib import Path, PurePath
@@ -100,6 +100,7 @@ from pyflightstream.run import (
     run_campaign,
     runs_as_one_job,
 )
+from pyflightstream.run._ids import narrow_to_selection
 from pyflightstream.script import Script
 from pyflightstream.versions import resolve
 from pyflightstream.workspace import (
@@ -636,6 +637,8 @@ def plan_matrix(
     cost: bool = False,
     accept_unregistered_build: bool = False,
     inflow_fft: bool = False,
+    sims: Sequence[str] | None = None,
+    points: Sequence[str] | None = None,
 ) -> CampaignPlan:
     """Pre-flight a run matrix without executing anything.
 
@@ -685,6 +688,9 @@ def plan_matrix(
         :func:`pyflightstream.workspace.matrix.resolve_matrix`
         (PFS-2035.13); the command line spells it
         ``--ignore-missing-families``.
+    sims, points : sequence of str, optional
+        Plan only these simulations, or these points of them (FR-326), as
+        :func:`run_matrix` runs them; the matrix file is not written.
     inflow_fft : bool
         For every quasi-steady WHEEL point in a custom inflow, read the
         inflow's harmonic content as ONE BLADE meets it over a revolution
@@ -762,6 +768,7 @@ def plan_matrix(
         fs_exe=fs_exe,
         ignore_missing_families=ignore_missing_families,
     )
+    resolved = narrow_to_selection(resolved, sims, points)  # FR-326
     warn_a_matrix_outside_the_homes(path, workspace.root)
     _warn_the_legacy_rows_saving_no_simulation(resolved)
     _warn_the_rows_whose_additional_post_is_one_instant(resolved)
@@ -1044,17 +1051,7 @@ def _everything_recorded(
             + ". Give one or the other."
         )
     campaign = resolved.campaign
-    carried = [case.sim_id for case in campaign.sims]
-    if sims:
-        unknown = [sim for sim in sims if sim not in carried]
-        if unknown:
-            raise MatrixError(
-                f"sims names {', '.join(unknown)}, which this matrix does not carry; it "
-                f"carries {', '.join(carried)}. Nothing was run."
-            )
-        wanted = set(sims)
-    else:
-        wanted = set(carried)
+    wanted = set(sims or (case.sim_id for case in campaign.sims))
     recorded = {record.run_id for record in workspace.read_manifest()}
     names: list[str] = []
     points = jobs = archived = 0
@@ -1094,19 +1091,6 @@ def _everything_recorded(
         file=sys.stderr,
         flush=True,
     )
-    if sims:
-        keep = [case.sim_id in wanted for case in campaign.sims]
-        resolved = replace(
-            resolved,
-            campaign=campaign.model_copy(
-                update={
-                    "sims": [case for case, kept in zip(campaign.sims, keep, strict=True) if kept]
-                }
-            ),
-            row_builds=tuple(
-                build for build, kept in zip(resolved.row_builds, keep, strict=True) if kept
-            ),
-        )
     return names, resolved
 
 
@@ -1125,6 +1109,7 @@ def run_matrix(
     force_rerun: Sequence[str] | None = None,
     force_rerun_all: bool = False,
     sims: Sequence[str] | None = None,
+    points: Sequence[str] | None = None,
     progress_every: int = PROGRESS_EVERY_DEFAULT,
     hidden: bool | None = None,
     fs_version: str | None = None,
@@ -1196,10 +1181,15 @@ def run_matrix(
         time steps, read from the run's own step counter (G43 of 0.28.0);
         10 by default, 0 to say nothing.
     sims : sequence of str, optional
-        With ``force_rerun_all``, the simulations to redo, by their ids as
-        the matrix spells them (leading zeros kept); the run then touches
-        those simulations only. An id the matrix does not carry is refused
-        before anything runs.
+        The simulations to run, by their ids as the matrix spells them (leading
+        zeros kept); the run then touches those simulations only (FR-326). With
+        ``force_rerun_all``, the simulations to redo. An id the matrix does not
+        carry is refused before anything runs.
+    points : sequence of str, optional
+        With ``sims``, the points of those simulations to run, by the point
+        names the plan prints (FR-326); every other point is left untouched. A
+        point the matrix does not carry is refused before anything runs, and
+        ``force_rerun_all`` refuses a selection of points.
     resume : bool
         With True, points already in the manifest are skipped, so a
         grown matrix re-runs only its new points; with False (the
@@ -1309,14 +1299,10 @@ def run_matrix(
         fs_exe=fs_exe,
         ignore_missing_families=ignore_missing_families,
     )
+    resolved = narrow_to_selection(resolved, sims, points, redoing=force_rerun_all)  # FR-326
     if force_rerun_all:
         force_rerun, resolved = _everything_recorded(
             resolved, workspace, sims=sims, force_rerun=force_rerun, resume=resume
-        )
-    elif sims:
-        raise MatrixError(
-            "sims (CLI: --sims) chooses the simulations of force_rerun_all (CLI: "
-            "--force-rerun-all); give it with force_rerun_all, or leave it out."
         )
     # FR-97. THE GATE IS ON THE COMMAND, not here. The CLI
     # requires a plan receipt; the library API does not: this

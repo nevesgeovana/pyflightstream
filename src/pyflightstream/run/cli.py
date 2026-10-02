@@ -94,13 +94,14 @@ from pyflightstream.run import (
     plan_receipt_error,
 )
 from pyflightstream.run import records as run_records
-from pyflightstream.run._cli_parsers import _build_parser
+from pyflightstream.run._cli_parsers import _build_parser, resume_hint
 from pyflightstream.run._cli_print import (
     _print_delete_sims,
     _print_free_space,
     _print_plan,
     _print_sync,
 )
+from pyflightstream.run._ids import _AlreadyRecordedError
 from pyflightstream.run.matrix import plan_matrix, run_matrix
 from pyflightstream.workspace import (
     CampaignWorkspace,
@@ -1243,6 +1244,8 @@ def _cmd_plan(args: argparse.Namespace, recipes: dict[str, str]) -> int:
                 inflow_fft=getattr(args, "inflow_fft", False),  # 0.30.0
                 write_plan=args.subcommand != "inspect-setups",
                 accept_unregistered_build=args.accept_unregistered_build,
+                sims=args.sims,  # FR-326
+                points=args.points,
             )
     except (MatrixError, InputArtifactError, OSError, ValueError) as error:
         release_warnings(held)
@@ -1308,6 +1311,7 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             force_rerun=args.force_rerun,
             force_rerun_all=args.force_rerun_all,
             sims=args.sims,
+            points=args.points,  # FR-326
             progress_every=args.progress_every,
             ignore_missing_families=_the_missing_family_choice(args),
             accept_unregistered_build=args.accept_unregistered_build,
@@ -1318,6 +1322,10 @@ def _cmd_run(args: argparse.Namespace, recipes: dict[str, str]) -> int:
             # from this command, against a help text promising one.
             sweep_csv=args.sweep_csv,
         )
+    except _AlreadyRecordedError as error:
+        # FR-327: the refusal of a second run names the command that continues it.
+        print(f"matrix not run: {error}\n{resume_hint(args.invoked_argv)}", file=sys.stderr)
+        return 2
     except CampaignErrors as error:
         # SEPARATED FROM THE OTHERS on purpose. Every arm below this one
         # is a refusal BEFORE the campaign ran, and leaves nothing to

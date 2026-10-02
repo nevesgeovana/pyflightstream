@@ -199,6 +199,10 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # THIS call rebuilds or sweeps, the same SUBJECT; a default would limit
     # every post of a machine to simulations a registry happened to hold.
     ("pyfs-matrix", "sims"): SUBJECT,
+    # 0.34.0 (FR-326): `plan --sims` and `run --sims` name the simulations THIS call
+    # plans or runs, the same SUBJECT, and `--points` names the points of those
+    # simulations: what the command works on, never a machine knob.
+    ("pyfs-matrix", "points"): SUBJECT,
     # 0.28.0, G43: how often THIS local run says its progress. A SWITCH of the
     # invocation: how much a person wants to read, not a machine setting.
     ("pyfs-matrix", "progress_every"): SWITCH,
@@ -428,8 +432,18 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "force_rerun"): frozenset({"run"}),
     ("pyfs-matrix", "force_rerun_all"): frozenset({"run"}),
     ("pyfs-matrix", "sims"): frozenset(
-        {"collect", "delete-sims", "mark-failed", "post", "rebuild", "run"}
+        {
+            "collect",
+            "delete-sims",
+            "inspect-setups",
+            "mark-failed",
+            "plan",
+            "post",
+            "rebuild",
+            "run",
+        }
     ),
+    ("pyfs-matrix", "points"): frozenset({"inspect-setups", "plan", "run"}),
     ("pyfs-matrix", "progress_every"): frozenset({"run"}),
     ("pyfs-matrix", "cost"): frozenset({"inspect-setups", "plan"}),
     ("pyfs-matrix", "inflow_fft"): frozenset({"inspect-setups", "plan"}),

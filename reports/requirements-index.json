@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 289,
+  "cited_by_a_test": 291,
   "total": 355,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -2396,7 +2396,7 @@
    "text": "Read with PFS-2075, PFS-2075.02 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: item (1) of the run-usability items of the 0.34.0 scope (GEO-071, section 4.8), measured on a real map run in which a single test point could only be planned by setting RUN 0 on every other row. Marker P0340-RUN-ONE-POINT; read at 0.34.0 (GOAL-039, arm MU). Pending: no code yet. Verification method: tier-1 tests carrying the marker, through main. Evidence owed: tests that plan and run with a simulation id, and with a simulation id and a point, plan and run only that selection; that the matrix file is byte-identical before and after; that an id or a point the matrix does not carry is refused before anything runs, the message naming it and the ids or points that exist; that a selected point already recorded is refused as 0.33.0 refuses it; and that run --sims with --force-rerun-all keeps its 0.33.0 reading, as the control.*",
+   "evidence": "*Origin: item (1) of the run-usability items of the 0.34.0 scope (GEO-071, section 4.8), measured on a real map run in which a single test point could only be planned by setting RUN 0 on every other row. Marker P0340-RUN-ONE-POINT; read at 0.34.0 (GOAL-039, arm MU). Built on 2026-10-01; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, through main. Evidence: tests/tier1_offline/test_p0340_run_usability.py (plan and run of one simulation and one point through main, the matrix bytes before and after, the refusals of an unknown id, an unknown point and --points without --sims for both commands, a recorded selected point refused and then resumed, --force-rerun of a selected point beside an unselected record that stays byte for byte unchanged, and run --force-rerun-all --sims as the control; the --sims-alone refusal test of FR-131 in tests/tier1_offline/test_g44_force_rerun_all.py is retargeted to the refusal of --points beside --force-rerun-all and to the empty-manifest refusal).*",
    "verification": "none"
   },
   {
@@ -2404,7 +2404,7 @@
    "text": "Read with PFS-2075, PFS-2075.03 at 0.34.0 (GOAL-039): the 0.34.0 package work reads this requirement.",
    "priority": "M",
    "status": "pending",
-   "evidence": "*Origin: item (2) of the run-usability items of the 0.34.0 scope (GEO-071, section 4.8): a second run of the same matrix without --resume failed instead of saying what to do; the item admits either the exact command in the message or an offer to continue, and the message is the form chosen. Marker P0340-RUN-AGAIN; read at 0.34.0 (GOAL-039, arm MU). Pending: no code yet. Verification method: tier-1 tests carrying the marker, through main. Evidence owed: a test that runs a matrix, adds a point, runs again without --resume, and asserts the printed command is the invoked one with --resume added and that running the printed command runs exactly the new point; a test that the exit status stays non-zero; and a control where nothing is recorded, which runs without the message.*",
+   "evidence": "*Origin: item (2) of the run-usability items of the 0.34.0 scope (GEO-071, section 4.8): a second run of the same matrix without --resume failed instead of saying what to do; the item admits either the exact command in the message or an offer to continue, and the message is the form chosen. Marker P0340-RUN-AGAIN; read at 0.34.0 (GOAL-039, arm MU). Built on 2026-10-01; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, through main. Evidence: tests/tier1_offline/test_p0340_run_usability.py (a matrix run, two points added, a second run without --resume refused with exit status 2, the counts, the printed command parsed back as the shell does and equal to the invoked one with --resume added, and running it runs exactly the two new points; the control with nothing recorded prints no command; the library error carries the counts; a steady row recorded as one job of three points that gains a fourth is counted 3 recorded and 1 new).*",
    "verification": "none"
   },
   {
