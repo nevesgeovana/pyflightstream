@@ -36,6 +36,7 @@ from tests.tier1_offline.test_matrix_run import (
     make_library,
     stage_geometry,
 )
+from tests.tier1_offline.test_p0350_batch_script import relative_paths
 
 BUILD = "26.123"
 MATRIX = "rotor"
@@ -225,6 +226,8 @@ def _files(folder: Path) -> list[str]:
 def test_p0350_run_fr351_fr358_fr374_a_batch_lives_in_its_folder(tmp_path):
     """P0350-RUN-BATCH, P0350-BATCH-POINT-SCRIPTS (FR-351, FR-356, FR-357, FR-358, FR-374).
 
+    P0350-BATCH-ABSOLUTE (FR-359): scan every generated job line for relative paths.
+
     ``run --batch 1`` leaves the job script, its descriptor and ``actions/`` in
     ``sims/batch/<matrix>_b1/``, every point's script and datapoint folder under
     the batch's ``sim_<id>/``, and nothing under ``sims/sim_<id>/``.
@@ -252,10 +255,15 @@ def test_p0350_run_fr351_fr358_fr374_a_batch_lives_in_its_folder(tmp_path):
     # FR-356: the per-point scripts the job was spliced from are kept.
     script = (job_dir / "BATCH-7001-7003.txt").read_text(encoding="utf-8")
     assert script.count("CLOSE_FLIGHTSTREAM") == 1
+    assert not relative_paths(script), relative_paths(script)
+    assert str(job_dir / "actions/pfs_unsteady_actions.py") in script
 
 
 def test_p0350_run_fr350_fr357_a_polar_sweep_runs_from_its_sim(tmp_path):
-    """P0350-RUN-POLAR-SWEEP (FR-350, FR-357): the job script, descriptor and actions in the sim."""
+    """P0350-RUN-POLAR-SWEEP (FR-350, FR-357): the job script, descriptor and actions in the sim.
+
+    P0350-BATCH-ABSOLUTE (FR-359): every path in each FULL-POLAR script is absolute.
+    """
     workspace, profile, argv_file = _workspace(tmp_path)
     matrix = _matrix(tmp_path)
     _plan(workspace, matrix, mode="polar_sweep", batch=None)
@@ -265,6 +273,9 @@ def test_p0350_run_fr350_fr357_a_polar_sweep_runs_from_its_sim(tmp_path):
         assert (sim_dir / "FULL-POLAR.txt").is_file()
         assert (sim_dir / "submit.yaml").is_file()
         assert (sim_dir / "actions").is_dir()
+        script = (sim_dir / "FULL-POLAR.txt").read_text(encoding="utf-8")
+        assert not relative_paths(script), relative_paths(script)
+        assert str(sim_dir / "actions/pfs_unsteady_actions.py") in script
     assert not (workspace.root / "sims" / "batch").exists()
     assert len(json.loads(argv_file.read_text(encoding="utf-8"))) == 2  # one job per polar
     assert all("batch" not in r.submission for r in records)

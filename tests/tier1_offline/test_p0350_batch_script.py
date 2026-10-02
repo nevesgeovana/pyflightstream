@@ -13,11 +13,12 @@ from __future__ import annotations
 
 import re
 from dataclasses import replace
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import pytest
 
 from pyflightstream.cases import CampaignConfigError
+from pyflightstream.cases.workflows import build_script
 from pyflightstream.cases.workflows._batch_script import (
     JobPoint,
     JobPolar,
@@ -38,6 +39,109 @@ ROOT = PurePosixPath("/ws/sims/batch/mtx_b1")
 ACTION_HEAD = "SET_NEW_UNSTEADY_SOLVER_ACTION"
 #: The commands whose next line is a path (the geometry and every target).
 PATH_HEADS = ("OPEN", "SAVEAS", "SAVE_PLOT_TO_FILE", "UNSTEADY_SOLVER_EXPORT_PLOTS")
+
+
+def relative_paths(text: str) -> list[tuple[int, str]]:
+    """Scan every line independently of the emitter's output inventory and command database."""
+    found = []
+    for number, line in enumerate(text.splitlines(), 1):
+        tokens = re.findall(r'"[^"]*"|\'[^\']*\'|[^\s"\']+', line)
+        if PurePosixPath(line).is_absolute() or PureWindowsPath(line).is_absolute():
+            tokens = [line]  # Native path-only lines may contain unquoted spaces.
+        for word in tokens:
+            token = word.strip("\"'")
+            pathlike = (
+                "/" in token
+                or "\\" in token
+                or token.lower().endswith((".py", ".txt", ".fsm", ".csv", ".json", ".dat"))
+            )
+            absolute = PurePosixPath(token).is_absolute() or PureWindowsPath(token).is_absolute()
+            if pathlike and (not absolute or ".." in token.replace("\\", "/").split("/")):
+                found.append((number, line))
+    return found
+
+
+@pytest.mark.parametrize("kind", ["batch", "polar_sweep"])
+@pytest.mark.parametrize("exports", [False, True])
+@pytest.mark.parametrize("root", [ROOT, PureWindowsPath("Q:/scratch/job with spaces")])
+def test_p0350_script_fr359_all_path_tokens_absolute(kind, exports, root):
+    """P0350-BATCH-ABSOLUTE (FR-359): scan BATCH and FULL-POLAR, including action arguments.
+
+    Reproduction: build two unsteady rotor polars with WALLTIME and ordinary
+    exports. Without a per-step threshold the old splice leaves exactly the
+    counter, clock and stop-file lines relative; with one it also leaves the
+    exports action relative. The single-point text stays byte-for-byte intact.
+    """
+    polars = []
+    originals = []
+    for sim in ("7101", "7102"):
+        case = rotor_case(WALLTIME="4m", EXPORT_UNSTEADY_AFTER_ITER=2 if exports else None)
+        case = case.model_copy(update={"sim_id": sim, "outputs": ["point.txt", "point.fsm"]})
+        script = Script(BUILD)
+        build_script(case, script)
+        original = script.render()
+        point = job_point(
+            case,
+            run_id=f"mtx/sim_{sim}/DP-a00",
+            text=original,
+            datapoint_dir=root / f"sim_{sim}/datapoints/DP-a00",
+            version=BUILD,
+        )
+        polars.append(JobPolar(sim, (point,)))
+        originals.append(original)
+    job = assemble_job(polars, kind=kind, version=BUILD, job_log=None, job_dir=root)
+    assert not relative_paths(job.text), relative_paths(job.text)
+    for polar, original in zip(polars, originals, strict=True):
+        assert polar.points[0].text == original
+    for name in ("pfs_unsteady_actions.py", "pfs_walltime_clock.py", "pfs_walltime_stop.txt"):
+        assert str(root / "actions" / name) in job.text
+    if exports:
+        assert str(root / "actions/pfs_unsteady_exports.txt") in job.text
+
+
+@pytest.mark.parametrize("quote", ["", '"', "'"])
+@pytest.mark.parametrize(
+    ("command", "name"),
+    [
+        ("SET_INLET_CUSTOM_PROFILE 1", "pfs_inlet_1_abcd.txt"),
+        ("IMPORT_WAKE_EDGES_FROM_FILE STANDARD 0.0001 METER", "wing.wake_nodes.txt"),
+        ("SET_PROP_ACTUATOR_PROFILE 1 NEWTONS 2", "disc.actuator_profile.txt"),
+        ("SET_FREESTREAM CUSTOM UNSTRUCTURED", "converted field.dat"),
+        ("SET_FREESTREAM CUSTOM STRUCTURED", "converted_field.txt"),
+        ("OPEN", "geometry.fsm"),
+        ("IMPORT\nUNITS METER\nFILE_TYPE OBJ\nFILE", "mesh.obj"),
+    ],
+)
+def test_p0350_script_fr359_point_inputs_are_absolute(command, name, quote):
+    """P0350-BATCH-ABSOLUTE (FR-359): each emitter's local input follows its datapoint.
+
+    These are the relative input forms of _geometry, _actuator and _freestream;
+    FSI and user actions are refused by the grouped planner. The normal run
+    already binds geometry and wake/profile paths absolutely; the splice must
+    also handle their relative forms without changing the saved point text.
+    """
+    case = rotor_case()
+    script = Script(BUILD)
+    build_script(case, script)
+    separator = " " if command.endswith("FILE") else "\n"
+    text = f"{command}{separator}{quote}{name}{quote}\n\n" + script.render()
+    point = job_point(
+        case,
+        run_id="mtx/sim_7001/DP-a00",
+        text=text,
+        datapoint_dir=ROOT / "sim_7001/datapoints/DP-a00",
+        version=BUILD,
+    )
+    job = assemble_job(
+        [JobPolar(case.sim_id, (point,))],
+        kind="batch",
+        version=BUILD,
+        job_dir=ROOT,
+        job_log=None,
+    )
+    assert not relative_paths(job.text), relative_paths(job.text)
+    assert f"{quote}{point.datapoint_dir / name}{quote}" in job.text
+    assert point.text == text
 
 
 def _text(name: str, geometry: str) -> str:
@@ -102,7 +206,7 @@ def test_p0350_script_fr352_a_reinit_splice_equals_arm_a():
     """
     first, second = _same_polar()
     job = assemble_job(
-        [JobPolar("9811", (first, second))], kind="batch", version=BUILD, job_log=None
+        [JobPolar("9811", (first, second))], kind="batch", version=BUILD, job_log=None, job_dir=ROOT
     )
     arm_a = _normalized((SCRIPTS / "armA.txt").read_text(encoding="utf-8"))
     assert _normalized(job.text) == arm_a
@@ -115,7 +219,7 @@ def test_p0350_script_fr352_a_reinit_splice_equals_arm_a():
     mutant = _point("", sim="9811", folder="DP-a20", text=moved)
     assert restate_anchor(first, mutant) == "SET_MOTION_ROTOR_RPM"
     control = assemble_job(
-        [JobPolar("9811", (first, mutant))], kind="batch", version=BUILD, job_log=None
+        [JobPolar("9811", (first, mutant))], kind="batch", version=BUILD, job_log=None, job_dir=ROOT
     )
     assert _normalized(control.text) != arm_a
 
@@ -132,7 +236,11 @@ def test_p0350_script_fr352_the_anchor_follows_the_first_difference():
     high = _point("p9821_j190.txt", sim="9821", folder="DP-j190", geometry=geometry)
     assert restate_anchor(low, high) == "SET_MOTION_ROTOR_RPM"
     job = assemble_job(
-        [JobPolar("9821", (low, high))], kind="polar_sweep", version=BUILD, job_log=None
+        [JobPolar("9821", (low, high))],
+        kind="polar_sweep",
+        version=BUILD,
+        job_log=None,
+        job_dir=ROOT,
     )
     assert _normalized(job.text) == _normalized((SCRIPTS / "armD.txt").read_text(encoding="utf-8"))
     assert restate_anchor(*_same_polar()) == "SET_SOLVER_UNSTEADY"
@@ -158,6 +266,7 @@ def test_p0350_script_fr353_fr354_a_refresh_equals_arm_e():
         kind="batch",
         version=BUILD,
         job_log=None,
+        job_dir=ROOT,
     )
     arm_e = _normalized((SCRIPTS / "armE.txt").read_text(encoding="utf-8"))
     assert _normalized(job.text) == arm_e
@@ -209,7 +318,7 @@ def test_p0350_script_fr359_fr360_every_target_absolute_in_its_folder():
     """
     first, second = _same_polar()
     job = assemble_job(
-        [JobPolar("9811", (first, second))], kind="batch", version=BUILD, job_log=None
+        [JobPolar("9811", (first, second))], kind="batch", version=BUILD, job_log=None, job_dir=ROOT
     )
     assert job.targets == write_targets(job.text, BUILD)
     for point in (first, second):
@@ -225,7 +334,13 @@ def test_p0350_script_fr359_fr360_every_target_absolute_in_its_folder():
 
     short = replace(second, outputs=second.outputs[1:])
     with pytest.raises(CampaignConfigError, match="relative"):
-        assemble_job([JobPolar("9811", (first, short))], kind="batch", version=BUILD, job_log=None)
+        assemble_job(
+            [JobPolar("9811", (first, short))],
+            kind="batch",
+            version=BUILD,
+            job_log=None,
+            job_dir=ROOT,
+        )
 
 
 def _without_log(point: JobPoint) -> JobPoint:
@@ -239,13 +354,15 @@ def test_p0350_script_fr357_job_end():
     first, second = _same_polar()
     log = ROOT / "BATCH-9811-9811.job-log.txt"
     job = assemble_job(
-        [JobPolar("9811", (first, second))], kind="batch", version=BUILD, job_log=log
+        [JobPolar("9811", (first, second))], kind="batch", version=BUILD, job_log=log, job_dir=ROOT
     )
     assert job.text.endswith(f"EXPORT_LOG\n{log}\n\nCLOSE_FLIGHTSTREAM\n")
     assert job.text.count("CLOSE_FLIGHTSTREAM") == 1
 
     quiet = [_without_log(first), _without_log(second)]
-    bare = assemble_job([JobPolar("9811", tuple(quiet))], kind="batch", version=BUILD, job_log=log)
+    bare = assemble_job(
+        [JobPolar("9811", tuple(quiet))], kind="batch", version=BUILD, job_log=log, job_dir=ROOT
+    )
     assert "EXPORT_LOG" not in bare.text
     assert bare.text.rstrip("\n").splitlines()[-1] == "CLOSE_FLIGHTSTREAM"
 

@@ -27,6 +27,7 @@ and E). Every rule below was measured there:
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import PurePath
@@ -488,12 +489,90 @@ def _parts(polars: Sequence[JobPolar], block: str) -> list[tuple[JobPoint, Trans
     return parts
 
 
+def _absolute_path_token(token: str, point_dir: PurePath, job_dir: PurePath) -> str:
+    """Resolve one quoted or bare path, preserving quotes and absolute spellings."""
+    quote = token[:1] if token.startswith(('"', "'")) and token[-1:] == token[:1] else ""
+    bare = token[1:-1] if quote else token
+    portable = bare.replace("\\", "/")
+    if ".." in portable.split("/"):
+        raise CampaignConfigError(f"path {token!r} contains '..'; a job needs absolute paths.")
+    if is_absolute_target(bare):
+        return token
+    root = job_dir if portable.startswith("actions/") else point_dir
+    return f"{quote}{root / portable}{quote}"
+
+
+def _path_line_indices(lines: list[str], version: str) -> Iterable[tuple[int, str, bool]]:
+    """Locate path arguments with the database, including keyword blocks and shell actions."""
+    view = CommandRegistry.load().for_version(version)
+    for index, line in enumerate(lines):
+        words = line.split()
+        if not words or words[0] not in view or _is_target_command(words[0]):
+            continue
+        entry = view[words[0]]
+        shell = words[:2] == [helpers.UNSTEADY_ACTION_COMMAND, "COMMAND_LINE"]
+        for offset, arg in enumerate(_line_args(entry), 1):
+            if arg.type == "path" and index + offset < len(lines):
+                yield index + offset, "", shell
+        if entry.layout is Layout.KEYWORD_BLOCK:
+            keys = {arg.name.upper() for arg in entry.args if arg.type == "path"}
+            for offset, argument in enumerate(lines[index + 1 :], index + 1):
+                if not argument.strip():
+                    break
+                key, separator, _ = argument.partition(" ")
+                if key in keys and separator:
+                    yield offset, key + separator, False
+
+
+def _absolute_splice(
+    lines: list[str], point_dir: PurePath, job_dir: PurePath, version: str
+) -> list[str]:
+    """Resolve the remaining per-point paths after the job registrations are spliced.
+
+    Relative-token inventory from the single-point emitters:
+
+    - ``_unsteady_actions``: ``actions/pfs_unsteady_actions.py``,
+      ``actions/pfs_unsteady_exports.txt``, ``actions/pfs_walltime_clock.py``,
+      ``actions/pfs_walltime_stop.txt``;
+    - ``_geometry``: ``pfs_inlet_<index>_<sha16>.txt``, ``<stem>.wake_nodes.txt``,
+      and the case's geometry path (normally already bound absolutely);
+    - ``_actuator``: ``<profile stem>.actuator_profile.txt``;
+    - ``_freestream`` / ``prepare_field``: ``pfs-field-<sha24>.txt`` or ``.dat``
+      for converted fields, otherwise the bound source path.
+
+    FSI and user actions are refused by the grouped planner. Non-action inputs
+    belong to the point's working folder. Count/state/provenance files are not
+    named in the emitted solver text; the action programs locate their own files.
+    Geometry imports may be whole-line or keyword-block paths. Save/export paths
+    have already passed ``absolutize_outputs``, including the cumulative log rule.
+    Read the grammar rather than guessing extensions; a path can contain spaces.
+    """
+    out = lines.copy()
+    for index, prefix, shell in _path_line_indices(lines, version):
+        value = lines[index][len(prefix) :].strip()
+        # Optional own-line arguments are absent on e.g. SET_FREESTREAM DEFAULT.
+        # Never turn the following blank or command into a filename.
+        if not value or value.split()[0] in CommandRegistry.load().commands:
+            continue
+        if shell:
+            value = re.sub(
+                r'"[^"]*"|\'[^\']*\'|[^\s"\']+',
+                lambda match: _absolute_path_token(match[0], point_dir, job_dir),
+                value,
+            )
+        else:
+            value = _absolute_path_token(value, point_dir, job_dir)
+        out[index] = prefix + value
+    return out
+
+
 def assemble_job(
     polars: Sequence[JobPolar],
     *,
     kind: JobKind,
     version: str,
     job_log: PurePath | None,
+    job_dir: PurePath,
     walltime: bool = True,
 ) -> JobScript:
     """Return the job script that runs every point of ``polars`` in one solver instance.
@@ -509,6 +588,8 @@ def assemble_job(
     job_log : PurePath or None
         The job's own final log, absolute; written only when the points
         export their logs.
+    job_dir : PurePath
+        The job's absolute runtime folder, where its shared ``actions/`` lives.
     walltime : bool, optional
         Whether the job registers the clock pair; True by default, and a
         schedule without a deadline never fires it.
@@ -531,6 +612,7 @@ def assemble_job(
     lines: list[str] = []
     blocks: list[JobBlock] = []
     for point, transition, part in _parts(polars, block):
+        part = _absolute_splice(part, point.datapoint_dir, job_dir, version)
         lead = next(polar.points[0] for polar in polars if point in polar.points)
         anchor = restate_anchor(lead, point) if transition == "reinit" else None
         blocks.append(
