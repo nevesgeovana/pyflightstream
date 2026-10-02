@@ -77,6 +77,7 @@ from typing import TYPE_CHECKING
 
 from pyflightstream._errors import PyflightstreamWarning
 from pyflightstream._progress import tracked, workspace_activity
+from pyflightstream.run._batch_collect import clock_stop_update, prepare_grouped_points
 from pyflightstream.run._step_exports import missing_step_warning, untranslated_surfaces
 from pyflightstream.workspace.storage import ensure_sim_expanded
 
@@ -745,6 +746,46 @@ def _of_the_simulations(records: list[RunRecord], sims: frozenset[str] | None) -
     return records if sims is None else [record for record in records if record.sim_id in sims]
 
 
+def _records_after_grouped_jobs(
+    workspace: CampaignWorkspace,
+    report: CollectReport,
+    *,
+    sims: Collection[str] | None,
+    interval: float,
+    sleep: Callable[[float], None],
+    observer: Callable[[Iterable[Path]], dict[str, Stamp | None]],
+) -> list[RunRecord]:
+    """Read the manifest after the prepare step of the grouped jobs (0.35.0, FR-367 to FR-370).
+
+    Every point of a grouped job (``--batch``, ``--polar-sweep``) is copied or
+    moved home and given its own log by
+    :func:`pyflightstream.run._batch_collect.prepare_grouped_points`, so the
+    loop below completes it as a point that ran alone. A manifest with no
+    grouped point comes back as read, untouched. A point the step completed
+    as failed is reported here and not swept again; a note (a file the move
+    replaced) is a warning.
+    """
+    sweep = prepare_grouped_points(
+        workspace,
+        workspace.read_manifest(),
+        sims=sims,
+        observer=observer,
+        settled=settled,
+        sleep=sleep,
+        interval=interval,
+    )
+    for run_id, detail in sweep.failed:
+        report.failed.append(CollectOutcome(run_id=run_id, state="FAILED", detail=detail))
+    for note in sweep.notes:
+        warnings.warn(note, PyflightstreamWarning, stacklevel=3)
+    failed = {run_id for run_id, _ in sweep.failed}
+    return [
+        record
+        for record in sweep.records
+        if not (record.status is RunStatus.SUBMITTED and record.run_id in failed)
+    ]
+
+
 @workspace_activity("collection")
 def collect_once(
     workspace: CampaignWorkspace,
@@ -791,7 +832,9 @@ def collect_once(
     """
     report = CollectReport()
     try:
-        records = workspace.read_manifest()
+        records = _records_after_grouped_jobs(
+            workspace, report, sims=sims, interval=interval, sleep=sleep, observer=observer
+        )
     except (WorkspaceError, CampaignConfigError) as error:
         raise WorkspaceError(f"the manifest could not be read: {error}") from error
 
@@ -1058,6 +1101,7 @@ def _complete(
         "status": status,
         "outputs": list(collected),
         "error": verdict,
+        **clock_stop_update(record, _working_dir(workspace, record), status),
     }
     from pyflightstream.cases.workflows import UNSTEADY_ACTION_COUNT
     from pyflightstream.run import action_count

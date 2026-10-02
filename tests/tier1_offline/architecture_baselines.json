@@ -1734,6 +1734,7 @@
     "_record_files",
     "_assemble",
     "collect",
+    "_batch_collect",
     "matrix",
     "__init__",
     "_campaign",
