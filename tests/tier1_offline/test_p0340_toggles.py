@@ -1,6 +1,6 @@
 """The five solver-settings toggles that ignored their value (FR-349, WP9a finding).
 
-``solver_settings`` resolved eight of its toggle keywords through the shared
+``solver_settings`` resolved thirteen of its toggle keywords through the shared
 reader before emitting and left five out: ``valarezo_criterion``,
 ``wake_relaxation``, ``wake_streamwise_agglomeration``,
 ``adverse_gradient_boundary_layer`` and ``vortex_ring_normalization``. A string
@@ -72,7 +72,7 @@ def test_p0340_toggles_fr349_each_keyword_emits_what_was_asked(keyword, state):
 def test_p0340_toggles_fr349_a_value_in_neither_vocabulary_refuses_before_emitting(keyword):
     """FR-349 P0340-TOGGLES: a value that is no toggle refuses on an untouched script.
 
-    The five keywords now share the refusal of the other eight: a stray word
+    The five keywords now share the refusal of the other thirteen: a stray word
     raises the script layer's error naming the helper and the keyword, and
     nothing was emitted by the call.
     """
