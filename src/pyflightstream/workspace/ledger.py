@@ -58,6 +58,17 @@ from pyflightstream.workspace import (
 )
 from pyflightstream.workspace._batches import batch_sim_dirs
 from pyflightstream.workspace._effective import effective_points
+from pyflightstream.workspace._ledger_api import (
+    activity_rows,
+    additional_rows,
+    diff,
+    history,
+    point_card,
+    point_rows,
+    post_log_groups,
+    status_rows,
+    trace_product,
+)
 from pyflightstream.workspace.naming import resolve_manifest
 from pyflightstream.workspace.storage import COMPACTED_SUFFIX, DELETED_SIM_KEY
 
@@ -67,6 +78,15 @@ __all__ = [
     "STATUS_COLUMNS",
     "STATUS_SCHEMA",
     "Ledger",
+    "activity_rows",
+    "additional_rows",
+    "diff",
+    "history",
+    "point_card",
+    "point_rows",
+    "post_log_groups",
+    "status_rows",
+    "trace_product",
     "listed_sims",
     "matrix_stem",
     "read_ledger",
@@ -290,6 +310,20 @@ class Ledger:
     _plans: dict[str, _Plan]
     _records: tuple[RunRecord, ...]
     _products: dict[str, dict[str, Any]]
+
+    def records(self) -> list[dict[str, Any]]:
+        """Return every valid present record, before effective-point selection.
+
+        Returns
+        -------
+        list of dict
+            Independent JSON-serializable copies in manifest order.
+
+        Examples
+        --------
+        >>> read_ledger("campaign").records()  # doctest: +SKIP
+        """
+        return [record.model_dump(mode="json") for record in self._records]
 
     def status(
         self,

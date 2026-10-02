@@ -633,12 +633,6 @@
    "statements": 23,
    "positional": 0
   },
-  "run/_rebuild_evidence.py:_drift": {
-   "complexity": 11,
-   "branches": 12,
-   "statements": 40,
-   "positional": 3
-  },
   "run/_rebuild_evidence.py:collect_without_writing": {
    "complexity": 13,
    "branches": 2,
@@ -1722,6 +1716,7 @@
     "_cli_print",
     "_cli_query",
     "_cli_query_point",
+    "_cli_query_history",
     "_batch_run",
     "rename",
     "_batch_plan",

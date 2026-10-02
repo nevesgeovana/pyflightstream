@@ -41,10 +41,13 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
-import xarray as xr
 from pydantic import BaseModel, ConfigDict
+
+if TYPE_CHECKING:
+    import xarray as xr
 
 import pyflightstream._textio as _textio
 from pyflightstream._errors import PyflightstreamError

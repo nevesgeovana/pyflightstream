@@ -341,6 +341,9 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # mode of this call; `--build-alias` states the scheduler name a build
     # ran under, a fact of the recorded run the rebuilt record carries.
     ("pyfs-matrix", "runs"): SUBJECT,
+    # FR-390/FR-391: the history subject and the two compared run identities.
+    ("pyfs-matrix", "run_a"): SUBJECT,
+    ("pyfs-matrix", "run_b"): SUBJECT,
     # 0.35.0, the read-only `status` (FR-379 to FR-385). `--status WORD` and
     # `--failed` select WHICH polars this call shows, a SUBJECT like `--sims`;
     # `--points`, `--json` and `--csv` are the form of this one answer.
@@ -438,7 +441,7 @@ def test_every_console_script_builds_its_parser_in_a_callable_function():
 #: stops appearing on a subcommand it used to cover.
 COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "additional"): frozenset({"status"}),
-    ("pyfs-matrix", "target"): frozenset({"show"}),
+    ("pyfs-matrix", "target"): frozenset({"show", "history"}),
     ("pyfs-matrix", "point"): frozenset({"show"}),
     ("pyfs-matrix", "product"): frozenset({"trace"}),
     ("pyfs-matrix", "run"): frozenset({"log", "trace"}),
@@ -549,6 +552,8 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
             "show",
             "log",
             "trace",
+            "history",
+            "diff",
             "collect",
             "delete-sims",
             "free-space",
@@ -577,13 +582,27 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "prefer_other"): frozenset({"sync"}),
     ("pyfs-matrix", "matrix_products"): frozenset({"delete-sims"}),
     ("pyfs-matrix", "runs"): frozenset(
-        {"collect", "delete-sims", "free-space", "post", "status", "sync", "show", "log", "trace"}
+        {
+            "collect",
+            "delete-sims",
+            "free-space",
+            "post",
+            "status",
+            "sync",
+            "show",
+            "log",
+            "trace",
+            "history",
+            "diff",
+        }
     ),
+    ("pyfs-matrix", "run_a"): frozenset({"diff"}),
+    ("pyfs-matrix", "run_b"): frozenset({"diff"}),
     ("pyfs-matrix", "statuses"): frozenset({"status"}),
     ("pyfs-matrix", "failed"): frozenset({"status"}),
     ("pyfs-matrix", "per_point"): frozenset({"status"}),
-    ("pyfs-matrix", "json"): frozenset({"status", "show", "log", "trace"}),
-    ("pyfs-matrix", "csv"): frozenset({"status", "show", "log", "trace"}),
+    ("pyfs-matrix", "json"): frozenset({"status", "show", "log", "trace", "history", "diff"}),
+    ("pyfs-matrix", "csv"): frozenset({"status", "show", "log", "trace", "history", "diff"}),
     ("pyfs-matrix", "kind"): frozenset({"degenerate", "restore"}),
     ("pyfs-matrix", "stamp"): frozenset({"restore"}),
     ("pyfs-matrix", "out"): frozenset({"rebuild"}),

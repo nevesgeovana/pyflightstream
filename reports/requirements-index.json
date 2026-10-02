@@ -2,7 +2,7 @@
  "source": "docs/srs",
  "generated_by": "scripts/gen_requirements_index.py",
  "traceability": {
-  "cited_by_a_test": 347,
+  "cited_by_a_test": 349,
   "total": 409,
   "method": "upper bound: an id mentioned anywhere in tests/**/*.py excluding conftest.py, which is not the marked falsifying test NFR-13 asks for"
  },
@@ -2889,7 +2889,7 @@
   },
   {
    "id": "FR-388",
-   "text": "Requirement: Each query shall be available in pyflightstream.workspace.ledger as a function that returns the rows its --json form prints, as plain dictionaries, without requiring pandas.",
+   "text": "Evidence: tests/tier1_offline/test_p0350_query_history.py::test_python_query_results_are_plain_json_data and ::test_machine_renderers_carry_the_same_rows; ::test_queries_write_nothing_and_keep_the_additional_register proves FR-383 for both verbs.",
    "priority": "M",
    "status": "pending",
    "evidence": "",
@@ -2905,19 +2905,19 @@
   },
   {
    "id": "FR-390",
-   "text": "Requirement: pyfs-matrix history <simulation or point> shall print every record the point ever had, including those in archived manifests and in datapoint archives.",
+   "text": "Evidence: tests/tier1_offline/test_p0350_query_history.py::test_history_reads_present_archived_and_datapoint_records, ::test_history_has_its_own_batch_transparency_test, ::test_archives_in_a_compacted_sim_are_read_without_expansion and ::test_missing_ambiguous_and_unreadable_records_are_named; ::test_queries_write_nothing_and_keep_the_additional_register proves FR-383 for both verbs.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-391",
-   "text": "Requirement: pyfs-matrix diff <run a> <run b> shall print what differs between two runs: versions, digests, solver flags, flight condition and outcome.",
+   "text": "Evidence: tests/tier1_offline/test_p0350_query_history.py::test_diff_compares_recorded_fields_and_attributes_script_lines, ::test_diff_has_its_own_batch_transparency_test and ::test_diff_refuses_to_compare_a_script_with_the_wrong_digest; ::test_queries_write_nothing_and_keep_the_additional_register proves FR-383 for both verbs.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-392",

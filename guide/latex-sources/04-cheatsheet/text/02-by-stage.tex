@@ -671,6 +671,14 @@ Run the preview, read it, then apply. Every storage call, the preview included, 
 
 \columnbreak
 \hd{Commands}
+\begin{cmdblock}{pyfs-matrix history}{<simulation or point>}{Every present and archived record, continuation link and archive stamp; reads batch folders and compacted simulations in place.}
+\opt{--workspace DIR}{workspace root; \fl{--runs NAME} selects another manifest and its archives.}
+\opt{--json, --csv}{the same rows as machine data; writes nothing.}
+\end{cmdblock}
+\begin{cmdblock}{pyfs-matrix diff}{<run-a> <run-b>}{Compare versions, digests, solver flags, flight condition and outcome. A run id with \texttt{@<archive stamp>} selects an archived copy.}
+\opt{--workspace DIR}{workspace root; \fl{--runs NAME} selects another manifest.}
+\opt{--json, --csv}{the same changes as machine data; script changes name lines and inputs.}
+\end{cmdblock}
 \begin{cmdblock}{pyfs-matrix space-in-use}{}{Sizes on disk by top folder, by \file{sims/sim_*}, by extension; changes nothing.}
 \opt{--top N}{rows per grouping (default 15). \fl{--workspace DIR}.}
 \end{cmdblock}

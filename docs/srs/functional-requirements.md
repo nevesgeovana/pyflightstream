@@ -9051,6 +9051,10 @@ Requirements written after the specification was last reconciled with the packag
 
 !!! requirement "FR-388 The query functions in Python without pandas <span class='srs-pending'>pending</span>"
 
+    Evidence: `tests/tier1_offline/test_p0350_query_history.py::test_python_query_results_are_plain_json_data and ::test_machine_renderers_carry_the_same_rows`; `::test_queries_write_nothing_and_keep_the_additional_register` proves FR-383 for both verbs.
+
+    Integration remaining: QV1 owns the richer show, log and trace rows. Their CLI readers must share the public Python wrappers before R3 is evidenced; status, history and diff already share theirs. The Python data functions and the no-pandas import path are implemented and tested here.
+
     Requirement: Each query shall be available in `pyflightstream.workspace.ledger` as a function that returns the rows its `--json` form prints, as plain dictionaries, without requiring pandas.
 
     - R1 The module offers a function for the status rows by polar, the per-point rows, one datapoint's card, the activity rows, the post-log groups and the trace of a product.
@@ -9077,7 +9081,9 @@ Requirements written after the specification was last reconciled with the packag
 
     Verification: tier 1, a test carrying the marker P0350-QUERY-TRACE; release 0.35.0.
 
-!!! requirement "FR-390 pyfs-matrix history prints every record a point had <span class='srs-pending'>pending</span>"
+!!! requirement "FR-390 pyfs-matrix history prints every record a point had <span class='srs-implemented'>implemented</span>"
+
+    Evidence: `tests/tier1_offline/test_p0350_query_history.py::test_history_reads_present_archived_and_datapoint_records, ::test_history_has_its_own_batch_transparency_test, ::test_archives_in_a_compacted_sim_are_read_without_expansion and ::test_missing_ambiguous_and_unreadable_records_are_named`; `::test_queries_write_nothing_and_keep_the_additional_register` proves FR-383 for both verbs.
 
     Requirement: `pyfs-matrix history <simulation or point>` shall print every record the point ever had, including those in archived manifests and in datapoint archives.
 
@@ -9089,7 +9095,9 @@ Requirements written after the specification was last reconciled with the packag
 
     Verification: tier 1, a test carrying the marker P0350-QUERY-HISTORY; release 0.35.0.
 
-!!! requirement "FR-391 pyfs-matrix diff compares two runs <span class='srs-pending'>pending</span>"
+!!! requirement "FR-391 pyfs-matrix diff compares two runs <span class='srs-implemented'>implemented</span>"
+
+    Evidence: `tests/tier1_offline/test_p0350_query_history.py::test_diff_compares_recorded_fields_and_attributes_script_lines, ::test_diff_has_its_own_batch_transparency_test and ::test_diff_refuses_to_compare_a_script_with_the_wrong_digest`; `::test_queries_write_nothing_and_keep_the_additional_register` proves FR-383 for both verbs.
 
     Requirement: `pyfs-matrix diff <run a> <run b>` shall print what differs between two runs: versions, digests, solver flags, flight condition and outcome.
 
