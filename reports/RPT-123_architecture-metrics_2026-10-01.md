@@ -1,25 +1,25 @@
 # RPT-123: architecture metrics (2026-10-01)
 
-Architecture metrics 2026-10-01: 224 modules, 162443 lines, 86163 code lines; the largest 1, 5 and 13 modules hold 2.7, 10.3 and 21.0 percent of the code lines.
+Architecture metrics 2026-10-01: 234 modules, 164208 lines, 86961 code lines; the largest 1, 5 and 13 modules hold 2.1, 8.9 and 18.0 percent of the code lines.
 
-Written by `python scripts/arch_metrics.py report --number 123 --date 2026-10-01`; every number below is that run's. The unit of module and function size is the code line of the review lens: a line holding a token other than a comment, docstring lines excluded. The tier-1 test `test_architecture_metrics.py::test_the_record_agrees_with_the_tree` re-measures the tree and refuses a disagreement with the numbers of the newest record, and refuses a record or a baseline table worse than the first record.
+Written by `python scripts/arch_metrics.py report --number 123 --date 2026-10-01 --since v0.33.0`; every number below is that run's. The unit of module and function size is the code line of the review lens: a line holding a token other than a comment, docstring lines excluded. The tier-1 test `test_architecture_metrics.py::test_the_record_agrees_with_the_tree` re-measures the tree and refuses a disagreement with the numbers of the newest record, and refuses a record or a baseline table worse than the first record.
 
 ## Numbers
 
 | metric | value |
 |---|---:|
-| module_count | 224 |
-| total_lines | 162443 |
-| code_lines | 86163 |
-| top1_share | 2.7 |
-| top5_share | 10.3 |
-| top13_share | 21.0 |
-| modules_over_1000 | 10 |
-| modules_over_2000 | 1 |
-| functions_over_100 | 73 |
-| functions_over_200 | 17 |
-| functions_over_300 | 6 |
-| functions_over_limits | 227 |
+| module_count | 234 |
+| total_lines | 164208 |
+| code_lines | 86961 |
+| top1_share | 2.1 |
+| top5_share | 8.9 |
+| top13_share | 18.0 |
+| modules_over_1000 | 7 |
+| modules_over_2000 | 0 |
+| functions_over_100 | 71 |
+| functions_over_200 | 15 |
+| functions_over_300 | 4 |
+| functions_over_limits | 225 |
 | cross_package_sccs | 1 |
 | largest_fan_out | 36 |
 | largest_fan_out_module | exceptions.py |
@@ -28,7 +28,7 @@ Written by `python scripts/arch_metrics.py report --number 123 --date 2026-10-01
 | private_test_names | 240 |
 | monkeypatch_targets | 83 |
 | workspace_to_run_imports | 0 |
-| root_facade_lines | 12834 |
+| root_facade_lines | 9046 |
 
 Thresholds the guards read: soft_lines 1000, hard_lines 2000, deep_min_lines 60, deep_min_defs 2, facade_cap 300, function_floor 250, fan_out_cap 25; function limits complexity 10, branches 12, statements 50, positional 5.
 
@@ -38,21 +38,21 @@ One row per top-level package (a single-file module counts as its own), the unit
 
 | package | modules | code lines | share | over 1000 | functions over a G2 limit | private names reached by tests |
 |---|---:|---:|---:|---:|---:|---:|
-| `cases` | 42 | 18842 | 21.9 | 2 | 43 | 67 |
-| `post` | 41 | 17705 | 20.5 | 2 | 51 | 33 |
-| `run` | 27 | 12792 | 14.8 | 2 | 47 | 57 |
-| `workspace` | 26 | 11967 | 13.9 | 3 | 28 | 29 |
-| `qa` | 17 | 6280 | 7.3 | 0 | 10 | 10 |
+| `cases` | 48 | 19119 | 22.0 | 1 | 43 | 67 |
+| `post` | 41 | 17705 | 20.4 | 2 | 51 | 33 |
+| `run` | 28 | 12856 | 14.8 | 1 | 46 | 57 |
+| `workspace` | 27 | 12411 | 14.3 | 3 | 28 | 29 |
+| `qa` | 17 | 6280 | 7.2 | 0 | 10 | 10 |
 | `results` | 10 | 3814 | 4.4 | 0 | 11 | 3 |
-| `script` | 8 | 3670 | 4.3 | 1 | 15 | 10 |
-| `fsi` | 15 | 3222 | 3.7 | 0 | 5 | 6 |
+| `script` | 10 | 3660 | 4.2 | 0 | 14 | 10 |
+| `fsi` | 15 | 3245 | 3.7 | 0 | 5 | 6 |
 | `utils` | 5 | 1829 | 2.1 | 0 | 6 | 0 |
 | `reference` | 1 | 885 | 1.0 | 0 | 2 | 9 |
 | `probes` | 4 | 606 | 0.7 | 0 | 2 | 2 |
 | `_progress` | 1 | 532 | 0.6 | 0 | 1 | 3 |
 | `commands` | 1 | 532 | 0.6 | 0 | 1 | 0 |
 | `_fsm` | 1 | 430 | 0.5 | 0 | 3 | 0 |
-| `_deprecations` | 1 | 391 | 0.5 | 0 | 1 | 0 |
+| `_deprecations` | 1 | 391 | 0.4 | 0 | 1 | 0 |
 | `_signature` | 1 | 296 | 0.3 | 0 | 0 | 0 |
 | `_fsm_fresh` | 1 | 257 | 0.3 | 0 | 0 | 0 |
 | `farfield` | 1 | 255 | 0.3 | 0 | 0 | 0 |
@@ -84,28 +84,23 @@ The size table of `tests/tier1_offline/architecture_baselines.json` freezes ever
 
 | module | code lines | lines | size exemption |
 |---|---:|---:|---|
-| `cases/__init__.py` | 2316 | 5643 | no |
 | `cases/matrix.py` | 1808 | 3433 | no |
-| `script/helpers.py` | 1678 | 3908 | no |
 | `workspace/__init__.py` | 1608 | 4166 | no |
 | `workspace/storage.py` | 1487 | 2179 | no |
 | `post/input_template.py` | 1455 | 1676 | yes |
-| `workspace/matrix.py` | 1377 | 2696 | no |
+| `workspace/matrix.py` | 1376 | 2695 | no |
 | `run/matrix.py` | 1304 | 2325 | yes |
-| `run/cli.py` | 1201 | 1726 | yes |
 | `post/corrections.py` | 1006 | 1374 | no |
 
 ## Functions
 
-Over 100 code lines: 73.
-Over 200 code lines: 17.
-Over 300 code lines: 6.
-Over a limit of G2 (complexity 10, branches 12, statements 50, positional 5): 227.
+Over 100 code lines: 71.
+Over 200 code lines: 15.
+Over 300 code lines: 4.
+Over a limit of G2 (complexity 10, branches 12, statements 50, positional 5): 225.
 
 | function over 250 code lines | code lines |
 |---|---:|
-| `run/_cli_parsers.py:_build_parser` | 556 |
-| `script/helpers.py:solver_settings` | 461 |
 | `run/_points.py:_execute_point` | 449 |
 | `run/_campaign.py:run_campaign` | 422 |
 | `run/_sweep.py:_execute_sweep` | 348 |
@@ -188,6 +183,7 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
 | `pyflightstream.run._assessment` | 4 | 1 |
 | `pyflightstream.run._campaign` | 1 | 3 |
 | `pyflightstream.run._cli_parsers` | 1 | 0 |
+| `pyflightstream.run._cli_print` | 3 | 1 |
 | `pyflightstream.run._continuation` | 1 | 0 |
 | `pyflightstream.run._continuation_frame` | 1 | 0 |
 | `pyflightstream.run._executors` | 4 | 1 |
@@ -198,7 +194,7 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
 | `pyflightstream.run._rebuild` | 2 | 1 |
 | `pyflightstream.run._rebuild_evidence` | 3 | 0 |
 | `pyflightstream.run._solver_windows` | 1 | 2 |
-| `pyflightstream.run.cli` | 12 | 10 |
+| `pyflightstream.run.cli` | 9 | 9 |
 | `pyflightstream.run.collect` | 6 | 4 |
 | `pyflightstream.run.matrix` | 5 | 8 |
 | `pyflightstream.run.records` | 1 | 2 |
@@ -224,10 +220,10 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
 
 | root | statement lines beyond the facade |
 |---|---:|
-| `cases/__init__.py` | 4916 |
 | `workspace/__init__.py` | 3625 |
 | `script/__init__.py` | 1954 |
 | `commands/__init__.py` | 1199 |
+| `cases/__init__.py` | 1128 |
 | `farfield/__init__.py` | 644 |
 | `probes/__init__.py` | 441 |
 | `fsi/__init__.py` | 25 |
@@ -239,40 +235,34 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
 | `results/__init__.py` | 0 |
 | `utils/__init__.py` | 0 |
 
-## Modules created since v0.32.0 under 150 code lines
+## Modules created since v0.33.0 under 150 code lines
 
-75 modules created since v0.32.0; 9 under 150 code lines.
-- `cases/_skipped_families.py` 137
-- `cases/_unsteady_actions.py` 88
+15 modules created since v0.33.0; 3 under 150 code lines.
 - `qa/_spec_kit.py` 94
 - `qa/_spec_t1.py` 69
-- `run/_ids.py` 141
-- `run/_record_files.py` 80
-- `workspace/_geometry_clean.py` 103
-- `workspace/_matrix_homes.py` 91
-- `workspace/builds.py` 120
+- `script/_relaxed_te.py` 119
 
 ## The numbers, as the tool wrote them
 
 <!-- arch-metrics:begin -->
 ```json
 {
-  "code_lines": 86163,
+  "code_lines": 86961,
   "cross_package_sccs": 1,
-  "functions_over_100": 73,
-  "functions_over_200": 17,
-  "functions_over_300": 6,
-  "functions_over_limits": 227,
+  "functions_over_100": 71,
+  "functions_over_200": 15,
+  "functions_over_300": 4,
+  "functions_over_limits": 225,
   "largest_fan_out": 36,
   "largest_fan_out_deferred": 10,
   "largest_fan_out_deferred_module": "run/_rebuild.py",
   "largest_fan_out_module": "exceptions.py",
-  "module_count": 224,
-  "modules_over_1000": 10,
-  "modules_over_2000": 1,
+  "module_count": 234,
+  "modules_over_1000": 7,
+  "modules_over_2000": 0,
   "monkeypatch_targets": 83,
   "private_test_names": 240,
-  "root_facade_lines": 12834,
+  "root_facade_lines": 9046,
   "thresholds": {
     "deep_min_defs": 2,
     "deep_min_lines": 60,
@@ -288,10 +278,10 @@ Largest fan-out at module level: `exceptions.py` 36; deferred: `run/_rebuild.py`
     },
     "soft_lines": 1000
   },
-  "top13_share": 21.0,
-  "top1_share": 2.7,
-  "top5_share": 10.3,
-  "total_lines": 162443,
+  "top13_share": 18.0,
+  "top1_share": 2.1,
+  "top5_share": 8.9,
+  "total_lines": 164208,
   "workspace_to_run_imports": 0
 }
 ```

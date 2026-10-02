@@ -1,7 +1,7 @@
 """Measure the architecture of pyflightstream, and write the architecture metrics record.
 
     python scripts/arch_metrics.py summary
-    python scripts/arch_metrics.py report --number 100 --date 2026-09-30
+    python scripts/arch_metrics.py report --number 100 --date 2026-09-30 --since v0.32.0
     python scripts/arch_metrics.py tables
     python scripts/arch_metrics.py check
 
@@ -702,7 +702,7 @@ def render_report(
         headline(numbers, date),
         "",
         "Written by `python scripts/arch_metrics.py report "
-        f"--number {number} --date {date}`; every number below is that run's. "
+        f"--number {number} --date {date} --since {since}`; every number below is that run's. "
         "The unit of module and function size is the code line of the review lens: a line "
         "holding a token other than a comment, docstring lines excluded. The tier-1 test "
         "`test_architecture_metrics.py::test_the_record_agrees_with_the_tree` "
