@@ -2587,73 +2587,73 @@
    "id": "FR-350",
    "text": "Need: A polar of unsteady points submitted as one job per point pays the start of a solver instance and a licence checkout for every point, and the points queue separately.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-RUN-POLAR-SWEEP; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-351",
    "text": "Need: A run that regroups the matrix by itself could differ from the split and the estimate the user was shown.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-RUN-BATCH; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-352",
    "text": "Need: Reopening the geometry for every point repeats the open, the coordinate systems, the force plots, the fluid properties and the motion, and costs time that grows with the mesh; measured on FlightStream 26.124 (build 8172026), removing the initialization and initializing again left a result identical to a fresh instance, licensed confirmation owed, RPT-141.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-SAME-POLAR; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-353",
    "text": "Need: A new polar may carry another geometry and another setup; the state of the previous one must not reach it; measured on FlightStream 26.124 (build 8172026), NEW_SIMULATION then OPEN of the next simulation matched a fresh instance, licensed confirmation owed, RPT-141.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-NEW-POLAR; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-354",
    "text": "Need: An action registered again after a re-initialization or a reset would run twice per step.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ACTIONS-ONCE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-355",
    "text": "Need: The programs registered once outlive the point that started them; a stop text or a revolution threshold left from an earlier point would write into the earlier point's folder.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ACTIONS-ONCE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-356",
    "text": "Need: The record of what each point was told must not diverge from what the job ran.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-POINT-SCRIPTS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-357",
    "text": "Need: A job script found by name must say what it runs.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-RUN-POLAR-SWEEP and P0350-RUN-BATCH; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-358",
    "text": "Need: Two batches sharing a working directory would write one descriptor, one native log and one set of action files over the other.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-RUN-BATCH and P0350-BATCH-RECEIPT; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-359",
@@ -2667,105 +2667,105 @@
    "id": "FR-360",
    "text": "Need: A point's files must be where a point run alone leaves them, and the .fsm marks the point done.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ABSOLUTE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-361",
    "text": "Need: A save into a folder that does not exist opens a modal dialog that holds the solver until the scheduler kills the job; measured on FlightStream 26.124 (build 8172026), 611 s until killed.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-FOLDERS-FIRST; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-362",
    "text": "Need: The split, its estimate and its total time must be shown to the user before any submission, and one rule must decide it.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-SPLIT and P0350-BATCH-TABLE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-363",
    "text": "Need: The walltime of a batch must rest on the cost of its points and on what grouping adds.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ESTIMATE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-364",
    "text": "Need: The walltime must be a request the user can read and the queue accepts.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-WALLTIME; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-365",
    "text": "Need: A run must execute the batches the plan estimated and no others.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECEIPT; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-366",
    "text": "Need: Every reader of a point record must read a batched point unchanged.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECORDS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-367",
    "text": "Need: A point must be usable as soon as its files settle, and the folder of a running instance must never be changed under it.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-COLLECT-COPY-MOVE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-368",
    "text": "Need: The solver's exported log is cumulative over the instance; each point's record must read its own log as a point run alone does.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-COLLECT-LOG-SLICE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-369",
    "text": "Need: One diverged point must not cost the points after it.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECORDS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-370",
    "text": "Need: The scheduler's kill at the walltime would lose the current point's files; points never started must be resumable by the usual commands.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECORDS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-371",
    "text": "Need: The count of FR-314 is the time step of the point; a job-wide count would break it for every point after the first.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECORDS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-372",
    "text": "Need: A grouped run must be transparent to every other command; what a grouped job adds is limited to additions a reader can ignore.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-TRANSPARENT and P0350-BATCH-SUBMIT; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-373",
@@ -2779,97 +2779,97 @@
    "id": "FR-374",
    "text": "Need: A batch must be one self-contained folder that can be copied in and synced back whole.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-RUN-BATCH; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-375",
    "text": "Need: One local instance holding the licence for a whole polar or batch avoids a licence checkout per point.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-LOCAL; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-376",
    "text": "Need: Posting inside a grouped job would read points before collect has completed them.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RUN-ONLY; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-377",
    "text": "Need: The limit of the queue belongs to the workspace, beside the submit list that already names the cluster.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-WALLTIME; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-378",
    "text": "Need: A batch always opens the pristine input geometry, never a saved datapoint .fsm: a saved simulation carries the unsteady actions of its run, and opening it would register them a second time; measured on FlightStream 26.124 (build 8172026), a different geometry opened after NEW_SIMULATION matched a fresh instance, licensed confirmation owed, RPT-141.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "*Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a --polar-sweep or --batch job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-PRISTINE-FSM; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-379",
    "text": "Requirement: pyfs-matrix status shall print one row per polar of the workspace, a polar being one simulation and its sweep.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-380",
    "text": "Requirement: pyfs-matrix status shall accept --sims, --matrix, --status and --failed to narrow the rows it prints.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-381",
    "text": "Requirement: Every query shall count a datapoint once, by its effective record, and the rules that choose that record shall have one home shared with the run, the post and the sweep table.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-382",
    "text": "Requirement: pyfs-matrix status shall show by default the planned points that no record carries, with the status planned, and shall state the freshness of the files it read.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-383",
    "text": "Requirement: A query command shall change no file, shall create no file or folder in the workspace, shall take no lock and wait on none, and shall expand no compacted simulation.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-384",
    "text": "Requirement: A query shall print each status exactly as it is recorded, and shall print a state it derives in a form no recorded status takes.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-385",
    "text": "Requirement: --json and --csv shall print the rows of the table to standard output and nothing else there.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-386",
@@ -2947,9 +2947,9 @@
    "id": "FR-395",
    "text": "Requirement: Every datapoint shall have the alias <sim>_<index>, where <index> is the 1-based position of the datapoint in its polar's sweep order as the plan lists the points, derived and never stored.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-396",
@@ -2963,32 +2963,32 @@
    "id": "FR-397",
    "text": "Requirement: pyfs-matrix post shall write no archive/ folder by default.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-398",
    "text": "Requirement: A workspace may carry a cost file inputs/costs/c<NNN>.toml, read by plan --cost and by the plan --batch estimate when it is present.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-399",
    "text": "Requirement: The nested pytest runs of the examples test shall use their own root and their own base temporary folder.",
    "priority": "M",
-   "status": "pending",
+   "status": "implemented",
    "evidence": "",
-   "verification": "none"
+   "verification": "review"
   },
   {
    "id": "FR-400",
    "text": "Requirement: pyfs-matrix collect --discard-walltime shall mark each point in its scope whose latest record is WALLTIME_REACHED as FAILED_MARKED, so the next grouped plan runs it again from the start.",
    "priority": "M",
    "status": "implemented",
-   "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_collect_discard.py.*",
+   "evidence": "*Origin: owner request of 2026-10-02. Evidence: tests/tier1_offline/test_p0350_collect_discard.py::test_off_by_default, ::test_discard_is_per_point_and_keeps_outputs, ::test_earlier_collect_is_discarded_once_by_cli, ::test_default_mode_and_sims_scope, ::test_grouped_plan_and_run_archive_the_discarded_point, ::test_discard_precedes_post, ::test_watch_discards_after_each_pass, ::test_help_explains_default_mode_rerun.*",
    "verification": "test"
   },
   {
