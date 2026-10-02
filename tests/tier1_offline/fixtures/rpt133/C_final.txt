@@ -1,0 +1,37 @@
+
+
+
+
+                              Aerodynamic loads
+
+
+     Simulation file:                            P9332-M144RE438AL+000BE+000.fsm
+     Angle of attack (Deg)                       .000
+     Side-slip angle (Deg)                       .000
+     Freestream velocity (m/s)                   49.036
+     Requested solver iterations                 300
+     Solver convergence limit                     1.000E-05
+     Force solver to run all iterations           F
+     Time increment (sec)                        .011
+     Solver model:                               Subsonic (Prandtl-Glauert)
+     Solver mode:                                Unsteady
+     Reference velocity (m/s)                    49.036
+     Reference length (m)                        2.000
+     Reference area (m^2)                        10.000
+     Altitude (ft)                               .000
+                                                  
+     Wake refinement size (% average mesh size)  1000.000
+     Reynolds Number                             4380000.
+     Coordinate frame for analysis:              MRP
+     Current solver iteration number:            462
+     ----------------------------------------------------------------------------------------------------
+     Surface, Cx, Cy, Cz, CL, CDi, CDo, CMx, CMy, CMz
+     ----------------------------------------------------------------------------------------------------
+     Blade1,-0.0419517,+0.0466161,-0.0003996,-0.0003636,-0.0423971,+0.0004453,-0.0278370,-0.0267665,+0.0045802
+     Total,-0.0419517,+0.0466161,-0.0003996,-0.0003636,-0.0423971,+0.0004453,-0.0278370,-0.0267665,+0.0045802
+     ----------------------------------------------------------------------------------------------------
+     Force Units: Coefficients
+     Moment Units: Coefficients
+     Software : Flightstream version 26.1, build #8172026
+     Company  : Altair
+     Date: 10/2/2026, Time: 1430 hours (local)
