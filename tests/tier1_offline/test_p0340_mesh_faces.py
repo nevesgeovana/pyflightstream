@@ -341,6 +341,51 @@ def test_the_post_never_counts_and_a_missing_count_is_na_fr_348(tmp_path, monkey
         sidecar.write_bytes(inventory)
 
 
+def _inventory(path: Path, faces: int, digest: str) -> Path:
+    path.write_text(f'mesh_faces = {faces}\nmesh_sha256 = "{digest}"\n', encoding="utf-8")
+    return path
+
+
+def test_an_inventory_of_the_recorded_bytes_wins_over_an_earlier_stale_one_fr_348(tmp_path):
+    """P0340-MESH-FACES, FR-348 R3: the library's inventory, looked up first, was counted in
+    other bytes (5 faces); the staged copy's states the sha256 the run recorded (7 faces). The
+    count is the staged one's, with no mismatch to warn about."""
+    from pyflightstream.workspace.sidecars import recorded_mesh_faces
+
+    requirement = "FR-348"
+    recorded = "b" * 64
+    stale = _inventory(tmp_path / "library.boundaries.toml", 5, "a" * 64)
+    staged = _inventory(tmp_path / "staged.boundaries.toml", 7, recorded)
+    found = recorded_mesh_faces({"wing.fsm": recorded}, lambda name: [stale, staged])
+    assert found is not None, requirement
+    assert (found.mesh_faces, found.sidecar, found.same_bytes) == (7, staged, True), found
+    # The control: the stale inventory alone still gives its count, flagged as other bytes.
+    alone = recorded_mesh_faces({"wing.fsm": recorded}, lambda name: [stale])
+    assert alone is not None and (alone.mesh_faces, alone.same_bytes) == (5, False), alone
+
+
+def test_a_staged_name_with_a_directory_part_is_never_looked_up_fr_348(tmp_path):
+    """P0340-MESH-FACES, FR-348 R3: a record naming ``sub/wing.fsm`` or ``../wing.fsm`` is not
+    a geometry staged beside the simulation, so no inventory is read for it and the count is
+    NA; the bare name with the same inventory is the control."""
+    from pyflightstream.workspace.sidecars import recorded_mesh_faces
+
+    requirement = "FR-348"
+    digest = "c" * 64
+    inventory = _inventory(tmp_path / "wing.boundaries.toml", 7, digest)
+    asked: list[str] = []
+
+    def sidecars_of(name: str) -> list[Path]:
+        asked.append(name)
+        return [inventory]
+
+    for name in ("sub/wing.fsm", "../wing.fsm"):
+        assert recorded_mesh_faces({name: digest}, sidecars_of) is None, (requirement, name)
+    assert asked == [], (requirement, asked)
+    found = recorded_mesh_faces({"wing.fsm": digest}, sidecars_of)
+    assert found is not None and found.mesh_faces == 7, (requirement, found)
+
+
 def _parity():
     spec = importlib.util.spec_from_file_location(
         "check_parity_mesh_faces", REPO / "scripts" / "check_parity.py"

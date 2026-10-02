@@ -211,6 +211,28 @@ def test_p0340_adprof_the_uniform_and_betz_prandtl_shapes(tmp_path):
     assert math.isclose(BLADES * _trapezoid(rows), 50.0, rel_tol=1e-12)
 
 
+def test_p0340_adprof_a_betz_prandtl_disc_whose_hub_is_the_axis_is_zero_on_it():
+    """P0340-ADPROF, FR-347 R2: with hub radius 0 the first station is r = 0, where
+    F = r f_tip is zero; the row is (0, 0) and no row is put inside a hub there is none of."""
+    # P0340-ADPROF FR-347
+    bp = betz_prandtl_profile(DiscGeometry(TIP, 0.0, BLADES), advance_ratio=1.2, stations=5)
+    assert bp.rows[0] == (0.0, 0.0), bp.rows[:2]
+    assert [r for r, _ in bp.rows] == pytest.approx([0.0, 0.125, 0.25, 0.375, 0.5])
+    assert all(f > 0.0 for _, f in bp.rows[1:-1]), bp.rows
+
+
+def test_p0340_adprof_a_station_at_zero_thrust_is_not_counted_as_clipped(tmp_path):
+    """P0340-ADPROF, FR-347 R1: of a station at exactly 0 N/m and one at -1 N/m (as -Fx),
+    only the negative one is set to zero and counted; the zero one already is zero."""
+    # P0340-ADPROF FR-347
+    path = tmp_path / "P7_sloads_Blade1.csv"
+    table = "POL,STEP,Offset,Fx\n7,1,0.2,0.0\n7,1,0.3,1.0\n7,1,0.4,-2.0\n"
+    path.write_text(table, encoding="utf-8")
+    loads = read_section_loads(path)
+    assert loads.stations == ((0.2, 0.0), (0.3, 0.0), (0.4, 2.0)), loads.stations
+    assert loads.clipped == 1, loads
+
+
 def test_p0340_adprof_the_target_is_a_thrust_or_a_ct_never_both(tmp_path, capsys):
     """P0340-ADPROF, FR-347 R3: a CT is worked out as T = CT rho n^2 D^4, D twice the tip
     radius; both, neither, or a CT without its density and speed are refused with exit 2."""

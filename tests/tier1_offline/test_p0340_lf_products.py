@@ -14,10 +14,12 @@ the release (R4); the writers that produced CRLF are listed in RPT-140 (R7).
 
 The guard (:func:`text_write_bypasses`) reads the SYNTAX of every module under
 ``src/`` and refuses a text write that does not go through the route: a
-``write_text``, an ``open`` in a text writing mode, a ``csv`` writer, a
-``write_bytes`` of text encoded on the spot, a text ``os.fdopen`` or temporary
-file. Its control plants ten bypasses and requires each to be caught
-(:func:`guard_control`, ``caught 10 of 10``), and the clean forms to pass. What it
+``write_text``, an ``open`` in a text writing mode (the builtin's, ``io``'s,
+``builtins``' or ``codecs``'), a ``csv`` writer, a pandas ``to_csv`` that states
+no LF line terminator, a ``write_bytes`` or an ``os.write`` of text encoded on the
+spot, a ``TextIOWrapper``, a text ``os.fdopen`` or temporary file. Its control
+plants fifteen bypasses and requires each to be caught
+(:func:`guard_control`, ``caught 15 of 15``), and the clean forms to pass. What it
 does not read: a binary write of bytes it cannot see are text (a byte-exact copy,
 a workbook), and the source of the programs the solver runs, which are checked as
 text by :func:`program_bypasses` on their rendered form.
@@ -110,24 +112,51 @@ def _encodes_text(node: ast.AST) -> bool:
     )
 
 
+def _states_lf_terminator(call: ast.Call) -> bool:
+    """True when a ``to_csv`` call states LF: ``"\\n"`` or the route's ``LINE_END``."""
+    node = _keyword(call, "lineterminator")
+    if isinstance(node, ast.Constant):
+        return node.value == "\n"
+    if isinstance(node, ast.Name):
+        return node.id == "LINE_END"
+    return isinstance(node, ast.Attribute) and _callee(node) == ("LINE_END", "_textio")
+
+
+#: The modules whose ``open`` is the builtin text open, mode second (G2 of the deep QA pass).
+_BUILTIN_OPEN_BASES = ("io", "builtins")
+
+
 def _bypass(call: ast.Call, program: bool) -> str | None:
     name, base = _callee(call.func)
     if name == "write_text" and base != "_textio":
         return None if program and _states_lf(call) else "write_text outside the route"
     is_open = (name == "open" and base is None and isinstance(call.func, ast.Name)) or (
-        name == "open" and base == "io"
+        name == "open" and base in _BUILTIN_OPEN_BASES
     )
     if is_open and _text_write_mode(_mode_node(call, 1), strict=True):
         return None if program and _states_lf(call) else "open in a text writing mode"
-    if name == "open" and isinstance(call.func, ast.Attribute) and base != "io":
+    if name == "open" and base == "codecs" and _text_write_mode(_mode_node(call, 1), strict=True):
+        return "codecs.open in a text writing mode"
+    if name == "TextIOWrapper" and base in (None, "io"):
+        return None if program and _states_lf(call) else "a TextIOWrapper outside the route"
+    if (
+        name == "open"
+        and isinstance(call.func, ast.Attribute)
+        and base not in (*_BUILTIN_OPEN_BASES, "codecs")
+    ):
         if _text_write_mode(_mode_node(call, 0), strict=False):
             return None if program and _states_lf(call) else "Path.open in a text writing mode"
     if program:
         return None
+    if name == "to_csv" and isinstance(call.func, ast.Attribute):
+        if not _states_lf_terminator(call):
+            return "a pandas to_csv that states no LF line terminator"
     if name in ("writer", "DictWriter") and base == "csv":
         return "a csv writer outside the route"
     if name == "write_bytes" and call.args and _encodes_text(call.args[0]):
         return "text encoded and written as bytes"
+    if name == "write" and base == "os" and len(call.args) > 1 and _encodes_text(call.args[1]):
+        return "text encoded and written by os.write"
     if name == "fdopen" and base == "os" and _text_write_mode(_mode_node(call, 1), strict=False):
         return "os.fdopen in a text writing mode"
     if name in ("NamedTemporaryFile", "TemporaryFile", "SpooledTemporaryFile"):
@@ -171,6 +200,12 @@ PLANTED = {
     "os.fdopen w": 'import os\nh = os.fdopen(fd, "w")\n',
     "NamedTemporaryFile w": 'import tempfile\nh = tempfile.NamedTemporaryFile("w")\n',
     "io.open w": 'import io\nh = io.open("x", "w")\n',
+    # The five forms the deep QA mutation pass of 0.34.0 wave 2 found the walk blind to.
+    "pandas to_csv": "frame.to_csv(p, index=False)\n",
+    "codecs.open w": 'import codecs\nh = codecs.open(p, "w", encoding="utf-8")\n',
+    "builtins.open w": 'import builtins\nh = builtins.open(p, "w")\n',
+    "os.write of text": 'import os\nos.write(fd, t.encode("utf-8"))\n',
+    "io.TextIOWrapper": 'import io\nh = io.TextIOWrapper(open(p, "wb"), encoding="utf-8")\n',
 }
 CLEAN = {
     "the route": 'from pyflightstream import _textio\n_textio.write_text(p, "a")\n',
@@ -180,6 +215,15 @@ CLEAN = {
     "a read": 'from pathlib import Path\nPath("x").read_text(encoding="utf-8")\nopen("x")\n',
     "a binary write": 'from pathlib import Path\nPath("x").write_bytes(blob)\nopen("x", "wb")\n',
     "a workspace open": "CampaignWorkspace.open(root, naming)\n",
+    "a to_csv stating the route's LF": (
+        "from pyflightstream import _textio\n"
+        "frame.to_csv(p, index=False, lineterminator=_textio.LINE_END)\n"
+        'frame.to_csv(p, lineterminator="\\n")\n'
+    ),
+    "a codecs and a builtins read": (
+        'import builtins, codecs\ncodecs.open(p, "r", encoding="utf-8")\nbuiltins.open(p)\n'
+    ),
+    "an os.write of bytes": "import os\nos.write(fd, blob)\n",
 }
 
 
@@ -215,9 +259,9 @@ def test_every_text_write_under_src_goes_through_the_one_lf_route() -> None:
 
 
 def test_a_planted_bypass_of_every_kind_is_caught_and_the_clean_forms_pass() -> None:
-    """P0340-LF-PRODUCTS, NFR-32 R2: the control of the guard, caught 10 of 10."""
+    """P0340-LF-PRODUCTS, NFR-32 R2: the control of the guard, caught 15 of 15."""
     caught, planted = guard_control()
-    assert planted == 10
+    assert planted == 15
     assert caught == planted, f"caught {caught} of {planted}"
 
 
@@ -274,11 +318,44 @@ def test_the_route_writes_lf_with_text_mode_forced_to_crlf(tmp_path: Path) -> No
     assert (tmp_path / "table.csv").read_bytes() == b"x,y\n1,2\n"
     assert (tmp_path / "dict.csv").read_bytes() == b"x,y\n1,2\n"
     assert (tmp_path / "doc.json").read_bytes().endswith(b"]\n}\n")
+    # append_lines APPENDS: the file holds the two lines written first and the one after.
+    assert (tmp_path / "lines.txt").read_bytes() == b"a\nb\nc\n"
+    # The instrument can say NO: a CR is counted, in bytes and in the forced CRLF file.
+    assert _textio.count_cr(b"a\r\nb\r") == 2
+    assert _textio.file_cr_count(plain) == 2
     assert _textio.lf("a\r\nb\rc\n") == "a\nb\nc\n"
     for refused in ("r", "wb", "rb", "r+"):
         with pytest.raises(ValueError):
             _textio.open_text(tmp_path / "never.txt", refused)
     assert not (tmp_path / "never.txt").exists()
+
+
+def test_the_campaign_sweep_table_a_run_writes_holds_no_cr_with_crlf_forced(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P0340-LF-PRODUCTS, NFR-32 R1: the sweep table the RUN writes is LF where Windows is CRLF.
+
+    ``campaign_sweep.csv`` is written by the run stage (``write_table``, after the points
+    ran), so the campaigns posted above never read it. pandas ends a row with
+    ``os.linesep`` unless told otherwise, which is set to CRLF here as Windows has it,
+    beside text mode forced to CRLF. The control: under the same forcing a ``to_csv``
+    that states no line terminator writes a CR, so the check can fail.
+    """
+    import pandas as pd
+
+    from pyflightstream.run import SWEEP_TABLE_NAME
+    from tests.tier1_offline.test_goal028_hpc_sweep_csv import _run
+    from tests.tier1_offline.test_products_snapshot import crlf_text_mode
+
+    monkeypatch.setattr(os, "linesep", "\r\n")
+    with crlf_text_mode():
+        workspace = _run(tmp_path)
+        control = tmp_path / "control.csv"
+        pd.DataFrame({"a": [1]}).to_csv(control, index=False)
+    data = (workspace.sweep_dir("warm") / SWEEP_TABLE_NAME).read_bytes()
+    assert data.count(b"\n") >= 2, data[:200]
+    assert _textio.count_cr(data) == 0, data[:200]
+    assert _textio.file_cr_count(control) == 2, "the forcing does not reach pandas: no control"
 
 
 @contextmanager
@@ -497,7 +574,7 @@ def test_the_lf_receipt_script_posts_a_campaign_and_writes_the_lines_the_goal_re
     assert fields["PLATFORM"] in ("linux", "win32")
     assert int(fields["FILES_CHECKED"]) > 0 and int(fields["SCRIPTS_CHECKED"]) > 0
     assert fields["CR_FILES"] == "0"
-    assert fields["GUARD_CONTROL"] == "caught 10 of 10"
+    assert fields["GUARD_CONTROL"] == "caught 15 of 15"
     assert fields["GUARD_BYPASSES_IN_SRC"] == "0"
     # PASS names a SHA the tree must be at: a tree with changes (a rehearsal) ends in FAIL.
     verdict = "PASS" if fields["TREE_CLEAN"] == "yes" else "FAIL"
@@ -540,10 +617,15 @@ def test_the_change_log_fragment_names_the_lf_change_first_in_its_migration() ->
         "Every text file the package writes has LF line ends on every platform",
         "The products snapshot judges line ends",
         "`scripts/check_parity.py` compares the post of 0.33.1 with CR before LF removed",
+        # The Fixed bullet of the wave-2 fragment 0-34-killw2.md, folded at its merge.
+        "The campaign sweep table `campaign_sweep.csv`, which a run writes",
     ):
         carrying = [line for line in bullets if marker in line]
         assert len(carrying) == 1, f"the 0.34.0 section has {len(carrying)} bullets of {marker!r}"
         assert "NFR-32" in carrying[0], f"a bullet cites no requirement: {carrying[0][:60]}"
+    # The guard's control the folded bullet names is the one guard_control plants.
+    textio = next(line for line in bullets if "`pyflightstream._textio`, the one floor" in line)
+    assert "with fifteen planted bypasses" in textio and len(PLANTED) == 15
 
 
 def test_the_census_note_lists_the_writers_that_gave_crlf_on_windows() -> None:
