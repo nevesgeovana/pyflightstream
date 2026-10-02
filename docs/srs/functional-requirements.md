@@ -8612,3 +8612,313 @@ Requirements written after the specification was last reconciled with the packag
     - R4 The only emitted bytes that change from 0.33.0 are a toggle line of these five commands that asked DISABLE; the change is named in the parity script under this requirement and in the migration page.
 
     Solution (release 0.34.0): the five keywords join the toggles read ahead of the first emission in `script/_settings.py` (`READ_TOGGLES`), and the entry of `scripts/check_parity.py` that names the difference.
+
+## 0.35.0 batched cluster runs
+
+!!! requirement "FR-350 `pyfs-matrix run --polar-sweep` submits one cluster job per polar <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-RUN-POLAR-SWEEP; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: A polar of unsteady points submitted as one job per point pays the start of a solver instance and a licence checkout for every point, and the points queue separately.
+
+    Requirement: `pyfs-matrix run` shall accept `--polar-sweep`, which submits one cluster job per simulation (polar) of the selection, the job running every pending unsteady point of that polar, in order, in one FlightStream instance.
+
+    - R1 `plan --polar-sweep` shall write the same plan receipt as `plan --batch <n>`, in the mode `polar_sweep`, with one job per polar (no batch ID, the job's label the sim id, its directory `sims/sim_<id>/`, its script `sims/sim_<id>/FULL-POLAR.txt`); `run --polar-sweep` shall require it and refuse to run without it, as FR-365 requires of `run --batch <n>`. This R-item is a design proposal; it stays pending until accepted.
+
+    Verification: The marker P0350-RUN-POLAR-SWEEP: a tier-1 test builds a matrix of two polars and asserts that the submission lists exactly two jobs, each script holding every pending point of its own polar and no point of the other.
+
+!!! requirement "FR-351 `pyfs-matrix run --batch <n>` submits exactly the jobs the plan receipt lists <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-RUN-BATCH; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: A run that regroups the matrix by itself could differ from the split and the estimate the user was shown.
+
+    Requirement: `pyfs-matrix run` shall accept `--batch <n>`, which submits exactly the n jobs (batches) the plan receipt of `plan --batch <n>` lists, each running its polars, in order, in one FlightStream instance; it shall not compute a split of its own.
+
+    Verification: The marker P0350-RUN-BATCH: a tier-1 test plans a matrix, runs it, and asserts that the submitted jobs equal the receipt's batches one to one, in sims, script names and working directories.
+
+!!! requirement "FR-352 Between two points of one polar the instance removes only the solver initialization <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-SAME-POLAR; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: Reopening the geometry for every point repeats the open, the coordinate systems, the force plots, the fluid properties and the motion, and costs time that grows with the mesh; measured on FlightStream 26.124 (build 8172026), removing the initialization and initializing again left a result identical to a fresh instance, licensed confirmation owed, RPT-141.
+
+    Requirement: Between two unsteady points of the same polar inside one instance, the job script shall emit `REMOVE_INITIALIZATION`, then `INITIALIZE_SOLVER`, with the geometry left loaded, then restate the next point from `SET_SOLVER_UNSTEADY` (from `SET_MOTION_ROTOR_RPM` when the advance ratio changes) through its exports; it shall not repeat the open, the coordinate systems, the force plots, the fluid properties or the motion.
+
+    Verification: The marker P0350-BATCH-SAME-POLAR: a tier-1 test reads the job script of a polar of three points and asserts the two transitions carry exactly those commands in that order and that none of the commands named above appears after the first point; the licensed confirmation is owed, RPT-141.
+
+!!! requirement "FR-353 Between two polars of a batch the instance is refreshed, never closed <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-NEW-POLAR; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: A new polar may carry another geometry and another setup; the state of the previous one must not reach it; measured on FlightStream 26.124 (build 8172026), `NEW_SIMULATION` then `OPEN` of the next simulation matched a fresh instance, licensed confirmation owed, RPT-141.
+
+    Requirement: When the next point of a `--batch` job belongs to another polar, the job script shall emit `NEW_SIMULATION`, then `OPEN` of that polar's simulation, without `CLOSE_FLIGHTSTREAM`. `--polar-sweep`, whose job holds one polar, shall never emit this transition.
+
+    Verification: The marker P0350-BATCH-NEW-POLAR: a tier-1 test reads the job script of a batch of two polars and asserts the transition between them, that no `CLOSE_FLIGHTSTREAM` precedes the last point, and that a `--polar-sweep` script holds no `NEW_SIMULATION`.
+
+!!! requirement "FR-354 The unsteady-solver actions are registered once per instance <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ACTIONS-ONCE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: An action registered again after a re-initialization or a reset would run twice per step.
+
+    Requirement: A job script shall register the unsteady-solver actions once, before the first point, and shall not register them again after a re-initialization or a reset; the step counter and the wall clock programs are written once per job.
+
+    Verification: The marker P0350-BATCH-ACTIONS-ONCE: a tier-1 test counts the registrations in the script of a batch of two polars of three points each and asserts the count equals the count of a single point run alone.
+
+!!! requirement "FR-355 At the start of each point the clock program checks its inherited state and rewrites its configuration <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ACTIONS-ONCE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: The programs registered once outlive the point that started them; a stop text or a revolution threshold left from an earlier point would write into the earlier point's folder.
+
+    Requirement: At the first iteration of each point, when its wall clock starts, the clock program shall check that the previous point's action state (the step counter, the wall clock and the stop text) is clean, so that no command of an earlier point's script is carried into this point, and shall rewrite the configuration read by the export-after-revolutions program so that its threshold counts from this point's own first step and its export goes into this point's own folder.
+
+    Verification: The marker P0350-BATCH-ACTIONS-ONCE: a tier-1 test asserts the check and the rewrite in the text of the programs for a point that is not the first, and a licensed confirmation of the clock-start reset on FlightStream 26.124 is owed, RPT-141.
+
+!!! requirement "FR-356 The per-point scripts are still written, and the job script is built from the same builder output <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-POINT-SCRIPTS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: The record of what each point was told must not diverge from what the job ran.
+
+    Requirement: In `--polar-sweep` and `--batch`, the per-point scripts shall still be written to `sims/sim_<id>/scripts/`, with their digests in each point's record, and the job script shall be built from the same per-point builder output; the plan's dry run shall build the job script too, and a block that does not build shall be refused before anything is submitted.
+
+    Verification: The marker P0350-BATCH-POINT-SCRIPTS: a tier-1 test asserts that every point's script exists with its digest in the record, that the job script holds each point's builder output, and that a point whose block does not build refuses the plan.
+
+!!! requirement "FR-357 The job scripts are named by their polar or their batch <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-RUN-POLAR-SWEEP and P0350-RUN-BATCH; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: A job script found by name must say what it runs.
+
+    Requirement: `--polar-sweep` shall write its job script as `FULL-POLAR.txt` at the root of `sims/sim_<id>/`; `--batch` shall write each batch's script as `BATCH-<first sim>-<last sim>.txt` inside the batch's working directory `sims/batch/<matrix>_b<ID>/`, the two names being a true range of consecutive sims.
+
+    Verification: The markers P0350-RUN-POLAR-SWEEP and P0350-RUN-BATCH: tier-1 tests assert the path and the name of each script, the name being the first and the last sim of the batch the receipt lists.
+
+!!! requirement "FR-358 Each batch carries a package-assigned ID and its own working directory <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-RUN-BATCH and P0350-BATCH-RECEIPT; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: Two batches sharing a working directory would write one descriptor, one native log and one set of action files over the other.
+
+    Requirement: Each batch shall carry a batch ID that the package assigns and the user never types; `plan --batch <n>` shall assign the IDs and record each in the plan receipt; the batch's working directory shall be `sims/batch/<matrix>_b<ID>/` and shall hold the batch script, its action programs and, while the batch runs, its sims; no two batches shall share a working directory.
+
+    Verification: The markers P0350-RUN-BATCH and P0350-BATCH-RECEIPT: tier-1 tests assert that the IDs are distinct, are written to the receipt, and that two plans of the same matrix never name one directory twice.
+
+!!! requirement "FR-359 Every save and export in a job script names an absolute path <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ABSOLUTE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: A relative name resolves against the working directory of the solver process, which in a grouped job is not the point's folder; measured on FlightStream 26.124 (build 8172026), the absolute form saved and exported correctly from a batch folder, licensed confirmation owed, RPT-141.
+
+    Requirement: The `FULL-POLAR` and `BATCH` scripts, and every per-point save and export inside them, shall name absolute paths; no relative path, and no path containing `..`, into a datapoint folder shall be written.
+
+    Verification: The marker P0350-BATCH-ABSOLUTE: a tier-1 test scans every path argument of a job script and asserts each is absolute and none contains `..`, with a script written with a relative path as the control that the scan refuses.
+
+!!! requirement "FR-360 Each point saves its `.fsm` and outputs into its own datapoint folder as it finishes <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ABSOLUTE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: A point's files must be where a point run alone leaves them, and the `.fsm` marks the point done.
+
+    Requirement: Every point inside a grouped job shall save its `.fsm` and its declared outputs into its own datapoint folder (inside the batch's working directory while a batch runs), by absolute paths into the job's node-local copy (FR-359, FR-373), as soon as that point finishes, the save of the `.fsm` coming last.
+
+    Verification: The marker P0350-BATCH-ABSOLUTE: a tier-1 test asserts for each point of a job script that the targets are the point's own folder and that the `.fsm` save follows the exports.
+
+!!! requirement "FR-361 The datapoint folders exist before the launch, and every save target is checked <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-FOLDERS-FIRST; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: A save into a folder that does not exist opens a modal dialog that holds the solver until the scheduler kills the job; measured on FlightStream 26.124 (build 8172026), 611 s until killed.
+
+    Requirement: Before a grouped job is submitted, every datapoint folder it writes into shall exist, created from Python, and every save and export target of its script shall be checked to name an existing folder; a target that does not shall be refused before the submission.
+
+    Verification: The marker P0350-BATCH-FOLDERS-FIRST: a tier-1 test asserts that the folders exist at submission and that a script with a target in a missing folder is refused, with a script whose targets all exist as the control.
+
+!!! requirement "FR-362 `plan --batch <n>` decides the split and prints it as a table <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-SPLIT and P0350-BATCH-TABLE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: The split, its estimate and its total time must be shown to the user before any submission, and one rule must decide it.
+
+    Requirement: `pyfs-matrix plan --batch <n>` shall decide the split of the selected polars: grouped by `NCPUS` first, one `NCPUS` per batch; contiguous, each batch taking consecutive sims, with the cuts placed so that the largest batch estimate is the smallest possible; whole polars only, a polar never spanning two batches; with n above the number of polars, a warning and only the batches needed; one solver build per batch, a row of another build refused for that batch by name. It shall print the split as a table with one row per batch (batch ID, sims, cpus, points, estimated time, walltime and its source, `matrix` or `BEST`) and a total line.
+
+    - R1 The grouping shall be by `NCPUS` AND solver build: the polars are grouped by the pair, in matrix order, so that no job mixes two builds. Every group gets at least one job; the jobs beyond the number of groups go one at a time to the group whose longest job estimate is longest, while a polar can still be split off a job; a polar is never cut; a warning is printed for n above the number of polars and for n below the number of groups. This R-item is a design proposal; it stays pending until accepted.
+    - R2 The grouped plan (`--batch` and `--polar-sweep`) shall take unsteady and unsteady-rotor polars only, and shall name every polar it leaves out with the reason, in its table and in its receipt, never refusing for it. The reasons are: a steady row, a quasi-steady row, a `RESTART` row (it opens a datapoint's own `.fsm`), a coupled structural row, an acoustic row, a row whose setup states `unsteady_solver_actions`, a row whose post asks `[time_averaging]`, a build that does not document the action command, and a polar whose points do not splice into one script. The refusal of FR-378 is not a reason to leave out: it blocks the plan. This R-item is a design proposal; it stays pending until accepted.
+
+    Verification: The markers P0350-BATCH-SPLIT and P0350-BATCH-TABLE: tier-1 tests with synthetic costs assert the grouping, the contiguity, the optimal cut against a brute-force partition, the warning for n above the polars, the refusal of a second build, and the rows and total line of the printed table.
+
+!!! requirement "FR-363 `plan --batch <n>` estimates each batch from its points and the measured overheads <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ESTIMATE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: The walltime of a batch must rest on the cost of its points and on what grouping adds.
+
+    Requirement: `plan --batch <n>` shall estimate each batch's time as the sum of its points' estimates plus the start, re-initialization, reset and save overheads, falling back to the row's `WALLTIME` cell as the budget of a point that has no estimate, and shall name each batch that rests on the fallback. A recorded point that ran inside a batch shall enter the cost fit as one point, never the whole batch as one sample.
+
+    - R1 The receipt shall carry, with the overheads it used, one sentence stating their basis: what was measured and on which build, and what was not measured (the `OPEN` of a production-size mesh), so that a reader of the estimate can see which term rests on a measurement. This R-item is a design proposal; it stays pending until accepted.
+
+    Verification: The marker P0350-BATCH-ESTIMATE: a tier-1 test computes the expected estimate by hand from a synthetic fit and overheads and asserts equality, asserts the fallback and its naming, and asserts the fit reads a batched point as one sample.
+
+!!! requirement "FR-364 A batch's walltime is the matrix value or `BEST`, bounded by `max_walltime` <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-WALLTIME; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: The walltime must be a request the user can read and the queue accepts.
+
+    Requirement: When the matrix `WALLTIME` cell reads `BEST`, the package shall compute each batch's walltime as the estimate times 1.25 plus the walltime margin, rounded up to the next minute, written with its unit under the profile's `walltime_arithmetic`, and shall warn and suggest a larger n when it exceeds `max_walltime`. When the cell holds a walltime, the plan shall use it for every batch whose estimate times 1.25 plus the margin fits under it, shall name each batch that does not, with its estimate, the cell's value and the shortfall, and shall refuse a cell value above `max_walltime`. `max_walltime = "HH:MM:SS"` shall be read from `inputs/hpc/<cluster>.toml`, beside `submit`; without it no limit applies.
+
+    - R1 When the rows of one job state different `WALLTIME` cells, or a mix of values and `BEST`: if every row reads `BEST` the job is `BEST`; otherwise the job takes the smallest stated cell (source `matrix`), with a warning naming the rows and their values when they differ, and its `BEST` rows follow that value; a job whose profile asks for a walltime and whose rows state none is blocked at the plan. This R-item is a design proposal; it stays pending until accepted.
+    - R2 A point with no estimate in a job whose walltime is `BEST` is named `unestimated`; the job shall take the profile's `max_walltime` (source `max_walltime`) with a warning naming the points; without `max_walltime` the grouped plan shall be blocked, naming the points and the two remedies: state a walltime with its unit in those rows, or run one point of the row first so that the fit has a sample. This R-item is a design proposal; it stays pending until accepted.
+    - R3 A `WALLTIME` cell reading `BEST` in the default mode (neither `--polar-sweep` nor `--batch`) shall be refused, by name of the row, with the message that `BEST` is a grouped-mode value. This R-item is a design proposal; it stays pending until accepted.
+
+    Verification: The marker P0350-BATCH-WALLTIME: tier-1 tests compute the expected walltime by hand and assert the round-up to the minute, the `BEST` warning above the limit, the refusal of a cell value above it, the naming of a batch that does not fit with its shortfall, and the absence of any limit without the key.
+
+!!! requirement "FR-365 The plan receipt records every batch and gates `run --batch` <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECEIPT; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: A run must execute the batches the plan estimated and no others.
+
+    Requirement: The plan receipt `post/<matrix>/plan.json` shall record, per batch: name, batch ID, working directory, script, sims, points, build, cpus, estimate and its basis, fallback points, overheads, factor, margin, walltime and its source (`matrix` or `BEST`), and the total estimate; `run --batch <n>` shall refuse a receipt without batches, of another n, or of another matrix.
+
+    Verification: The marker P0350-BATCH-RECEIPT: tier-1 tests assert every field of the receipt and the three refusals, with a matching receipt as the control that the run accepts.
+
+!!! requirement "FR-366 At submission each point of a grouped job is recorded as a point run alone is, naming its batch <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECORDS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: Every reader of a point record must read a batched point unchanged.
+
+    Requirement: At submission, each point of a grouped job shall be recorded `SUBMITTED` with the batch name and the job's folder in its submission entry (`submission.batch`); a steady polar inside a batch shall keep its one job record; every other field shall equal what the same point run alone records, with the same run id and the same status words.
+
+    Verification: The marker P0350-BATCH-RECORDS: a tier-1 test records the same point alone and in a batch and asserts that the two records differ only in the submission entry.
+
+!!! requirement "FR-367 `collect` completes a grouped job's points while it runs, and copies, then moves, its sims <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-COLLECT-COPY-MOVE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: A point must be usable as soon as its files settle, and the folder of a running instance must never be changed under it.
+
+    Requirement: `collect` shall read a grouped job's descriptor, native log and job end files from the job's folder and each point's outputs from its datapoint folder, and shall complete each point as soon as its files settle while the job still runs, recording the time of the point with the basis it was measured from. While a batch has not finished, `collect` shall COPY each finished sim from `sims/batch/<matrix>_b<ID>/sim_<id>/` to `sims/sim_<id>/` and shall not modify the batch folder in any way; once the batch has finished, `collect` shall MOVE it, and a later `collect` shall reconcile the earlier copies with the final contents.
+
+    - R1 `collect` shall copy point by point, as each point settles, and a sim shall be complete in `sims/sim_<id>/` once its last point has been copied; a point's records complete when its own files have settled, not when its whole polar has finished. This R-item is a design proposal; it stays pending until accepted.
+    - R2 A batch has ended when any one of these holds, tried in this order: the local end record the run writes when its process returns; the job's final log, present and settled; every `job_end_files` pattern of the HPC profile matching in the job folder; the clock state of a point saying that the job clock fired, with that point's files settled. When none holds the batch is running and `collect` only copies. When the profile states `export_log = false` and no `job_end_files`, only the fired clock can show the end, and `plan --batch` shall warn that such a batch is moved only if its clock fires and that `job_end_files` makes the move possible. This R-item is a design proposal; it stays pending until accepted.
+
+    Verification: The marker P0350-COLLECT-COPY-MOVE: tier-1 tests on a synthetic batch folder assert the copy with the batch folder byte-identical before and after (control: a collector that moves), the move after the end marker, and the reconciliation of a point written again after its copy.
+
+!!! requirement "FR-368 `collect` slices a grouped job's cumulative log into one log per point <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-COLLECT-LOG-SLICE; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: The solver's exported log is cumulative over the instance; each point's record must read its own log as a point run alone does.
+
+    Requirement: `pyfs-matrix collect` shall slice the job's cumulative log when it is called and write each point's own `.log` into `datapoints/DP-<pt>/`, idempotently, cutting at the solver's lines "Solution cleared. Initialization removed." at each re-initialization and at the `NEW_SIMULATION` line at each polar change, or at a line the job script writes before each point. On a machine whose profile states `export_log = false`, the job script shall not write `EXPORT_LOG` and `collect` shall cut the job's native log the same way.
+
+    - R1 The log written for a point of a grouped job shall be its polar's preamble followed by the point's own segment: the preamble is the polar's first segment up to the first line of this point's segment, so that the lines of the opening of the geometry and the import counts that a point run alone logs are present for every point; a segment is complete when a later marker follows it or the job has ended; a point whose segment is not complete is not written. This R-item is a design proposal; it stays pending until accepted.
+
+    Verification: The marker P0350-COLLECT-LOG-SLICE: tier-1 tests on a synthetic cumulative log assert each point's slice, that a second `collect` leaves every file byte-identical, and the native-log case with `export_log = false`.
+
+!!! requirement "FR-369 A point that fails without stopping the instance does not stop the job <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECORDS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: One diverged point must not cost the points after it.
+
+    Requirement: A point that fails inside a grouped job without stopping the instance (a divergence, a maximum of iterations, incomplete output) shall not stop the job; the job script shall go on to the next point, and the failed point's record shall carry its own status from its files.
+
+    Verification: The marker P0350-BATCH-RECORDS: a tier-1 test collects a synthetic batch with one diverged point among three and asserts the statuses of all three.
+
+!!! requirement "FR-370 A grouped job carries one wall clock, and the points never started are named <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECORDS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: The scheduler's kill at the walltime would lose the current point's files; points never started must be resumable by the usual commands.
+
+    Requirement: A grouped job shall carry one wall clock for the job, firing at the batch walltime minus the margin and writing the exports and the `.fsm` of the CURRENT point, naming that point in its stop text; the point running then shall be recorded `WALLTIME_REACHED` with its `.fsm`, and each point after it shall be recorded `FAILED_EXECUTION` with the reason "the batch ended before this point started" and the field `batch_not_started: true`, which the next `plan --batch <n>` shall treat as not recorded, so that those points enter new batches.
+
+    Verification: The marker P0350-BATCH-RECORDS: a tier-1 test collects a synthetic batch stopped at its second point and asserts the three records, then plans again and asserts the unstarted points are split into a new batch.
+
+!!! requirement "FR-371 The step counter of a grouped job reports each point's own time step <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RECORDS; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: The count of FR-314 is the time step of the point; a job-wide count would break it for every point after the first.
+
+    Requirement: The step counter of a grouped job shall be written once per job with the step count of each point, and shall map the cumulative count to the pair (point, step), so that the count reported for a point is that point's own time step.
+
+    Verification: The marker P0350-BATCH-RECORDS: a tier-1 test evaluates the mapping for a batch of points of different step counts at the boundaries between points and asserts the pair at each.
+
+!!! requirement "FR-372 The other commands read a batched point as a point run alone <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-TRANSPARENT and P0350-BATCH-SUBMIT; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: A grouped run must be transparent to every other command; what a grouped job adds is limited to additions a reader can ignore.
+
+    Requirement: Once `collect` has brought a batch's sims to `sims/`, `post`, `mark-failed`, `RESTART`, `rename`, `rebuild`, `delete-sims`, `sync`, `post --from-sims`, `free-space` and `run --force-rerun` shall read a batched point as they read a point run alone, and shall recognize the job's files and the batch the point belongs to; while a batch runs, `status`, the query verbs, `delete-sims` and `mark-failed` shall also find a sim inside `sims/batch/*/sim_*/`. A site sync flag is given as one entry of the HPC profile's submit list; no new mechanism is added.
+
+    Verification: The marker P0350-BATCH-TRANSPARENT: one tier-1 test per command named above, each reading the same point recorded alone and in a batch and asserting the same result. The marker P0350-BATCH-SUBMIT: a tier-1 test asserts that a flag in the profile's submit list reaches the submission command of every job and that no other key was added.
+
+!!! requirement "FR-373 A grouped job runs in node-local storage and syncs each finished point back <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-ABSOLUTE and P0350-BATCH-SUBMIT; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: Many small writes on a network share slow the solver, and the point files must still reach the network as each point finishes.
+
+    Requirement: A grouped job may run in a copy of its folder on node-local storage; every path the job script names is absolute (FR-359), pointing into that copy; each finished point shall reach the network as it finishes, by a site sync flag given as one entry of the HPC profile's submit list, no new mechanism being added.
+
+    - R1 The HPC profile shall accept a key `job_root`, default `{work_dir}`, with the placeholders `{work_dir}`, `{batch}` and `{sim}`; the absolute paths of a job script shall start at the root it gives; the point's record shall keep the root used; and the check of FR-361 shall run on the folders as the workspace sees them, which the scheduler copies. A profile that states no `job_root` keeps `{work_dir}`, the job folder as the workspace sees it. This R-item is a design proposal; it stays pending until accepted.
+
+    Verification: The marker P0350-BATCH-ABSOLUTE: a tier-1 test asserts that every path of a job script is absolute and independent of where the folder was copied from; the marker P0350-BATCH-SUBMIT: a tier-1 test asserts the profile entry reaches every grouped submission. The licensed rehearsal of a batch run on the cluster is owed, RPT-142.
+
+!!! requirement "FR-374 While a batch runs, its sims live in its own folder <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-RUN-BATCH; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: A batch must be one self-contained folder that can be copied in and synced back whole.
+
+    Requirement: While a batch runs, its simulations shall live in `sims/batch/<matrix>_b<ID>/sim_<id>/`, each with its own `datapoints/DP-<pt>/` folders, and shall reach `sims/sim_<id>/` only through `collect` (FR-367).
+
+    Verification: The marker P0350-RUN-BATCH: a tier-1 test asserts the layout of a planned and prepared batch and that `run` writes no sim outside the batch folder.
+
+!!! requirement "FR-375 `--local` combines with `--polar-sweep` and `--batch` <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-LOCAL; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: One local instance holding the licence for a whole polar or batch avoids a licence checkout per point.
+
+    Requirement: `--local` shall combine with `--polar-sweep` and with `--batch <n>`: one local FlightStream instance runs the whole polar or batch, holding one licence, with the same scripts and records; the batches of a `--local` run shall run one at a time.
+
+    Verification: The marker P0350-BATCH-LOCAL: a tier-1 test with the solver launcher replaced by a recorder asserts one launch per polar or batch, in sequence, and the same scripts as the cluster mode.
+
+!!! requirement "FR-376 With `--polar-sweep` or `--batch`, `run` runs the solver only <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-RUN-ONLY; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: Posting inside a grouped job would read points before `collect` has completed them.
+
+    Requirement: With `--polar-sweep` or `--batch`, including under `--local`, `run` shall run the solver only and shall not post; the products shall come from `collect`, then `post`.
+
+    Verification: The marker P0350-BATCH-RUN-ONLY: a tier-1 test asserts that no post product exists after a grouped `run`, including under `--local`, and that `collect` then `post` writes them.
+
+!!! requirement "FR-377 `plan --batch <n>` reads the queue's maximum walltime from the HPC profile <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-WALLTIME; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: The limit of the queue belongs to the workspace, beside the submit list that already names the cluster.
+
+    Requirement: `plan --batch <n>` shall read `max_walltime` from `inputs/hpc/<cluster>.toml`, in the form `HH:MM:SS`, and shall apply FR-364 against it; a value that does not parse shall be refused naming the key.
+
+    Verification: The marker P0350-BATCH-WALLTIME: a tier-1 test asserts the reading of the key, the application of FR-364 against it, and the refusal of a value that does not parse.
+
+!!! requirement "FR-378 `plan --batch` refuses a batch whose geometry carries saved unsteady actions <span class='srs-pending'>pending</span>"
+
+    *Origin: the batched cluster runs of the 0.35.0 scope (GOAL-040, arms BP, BR and BC): the first rule is that a point run inside a `--polar-sweep` or `--batch` job leaves exactly what the same point run alone leaves. Marker P0350-BATCH-PRISTINE-FSM; read at 0.35.0. Pending: no code yet; the status stays pending until accepted. Verification method: tier-1 tests carrying the marker, on synthetic fixtures only; the licensed confirmation, where stated, is owed. Evidence owed: the tier-1 tests carrying the marker, in test modules the build adds.*
+
+    Need: A batch always opens the pristine input geometry, never a saved datapoint `.fsm`: a saved simulation carries the unsteady actions of its run, and opening it would register them a second time; measured on FlightStream 26.124 (build 8172026), a different geometry opened after `NEW_SIMULATION` matched a fresh instance, licensed confirmation owed, RPT-141.
+
+    Requirement: `plan --batch` shall refuse, naming the row and the file, a batch whose `.fsm` to OPEN carries saved unsteady actions, read from the action count line of its SOLVER block; a batch shall always OPEN the pristine input geometry of its polar, never a saved datapoint `.fsm`; geometry files shall be compared block by block, never by hash.
+
+    Verification: The marker P0350-BATCH-PRISTINE-FSM: a tier-1 test plans a batch whose geometry is a synthetic `.fsm` with a planted action count line and asserts the refusal, with the same file without the count as the control that the plan accepts.

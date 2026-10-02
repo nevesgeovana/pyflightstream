@@ -1,0 +1,78 @@
+{
+  "P0350-BATCH-SPLIT": [
+    "FR-362"
+  ],
+  "P0350-BATCH-ESTIMATE": [
+    "FR-363"
+  ],
+  "P0350-BATCH-WALLTIME": [
+    "FR-364",
+    "FR-377"
+  ],
+  "P0350-BATCH-RECEIPT": [
+    "FR-365",
+    "FR-358"
+  ],
+  "P0350-BATCH-TABLE": [
+    "FR-362"
+  ],
+  "P0350-BATCH-PRISTINE-FSM": [
+    "FR-378"
+  ],
+  "P0350-RUN-POLAR-SWEEP": [
+    "FR-350",
+    "FR-357"
+  ],
+  "P0350-RUN-BATCH": [
+    "FR-351",
+    "FR-357",
+    "FR-358",
+    "FR-374"
+  ],
+  "P0350-BATCH-SAME-POLAR": [
+    "FR-352"
+  ],
+  "P0350-BATCH-NEW-POLAR": [
+    "FR-353"
+  ],
+  "P0350-BATCH-ACTIONS-ONCE": [
+    "FR-354",
+    "FR-355"
+  ],
+  "P0350-BATCH-POINT-SCRIPTS": [
+    "FR-356"
+  ],
+  "P0350-BATCH-ABSOLUTE": [
+    "FR-359",
+    "FR-360",
+    "FR-373"
+  ],
+  "P0350-BATCH-FOLDERS-FIRST": [
+    "FR-361"
+  ],
+  "P0350-BATCH-RECORDS": [
+    "FR-366",
+    "FR-369",
+    "FR-370",
+    "FR-371"
+  ],
+  "P0350-BATCH-LOCAL": [
+    "FR-375"
+  ],
+  "P0350-BATCH-RUN-ONLY": [
+    "FR-376"
+  ],
+  "P0350-BATCH-SUBMIT": [
+    "FR-372",
+    "FR-373"
+  ],
+  "P0350-COLLECT-COPY-MOVE": [
+    "FR-367"
+  ],
+  "P0350-COLLECT-LOG-SLICE": [
+    "FR-368"
+  ],
+  "P0350-BATCH-TRANSPARENT": [
+    "FR-372"
+  ]
+}
