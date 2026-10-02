@@ -185,6 +185,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # value on a shared filesystem is not the right value on a local disk,
     # which is exactly why no registry default can know which this is.
     ("pyfs-matrix", "watch"): SWITCH,
+    ("pyfs-matrix", "discard_walltime"): SWITCH,
     ("pyfs-matrix", "post"): SWITCH,
     # Since 0.26.0 both modes read the log and warn. This invocation's
     # switch asks to refuse affected averages instead of warning alone.
@@ -479,6 +480,7 @@ COVERS: dict[tuple[str, str], frozenset[str]] = {
     ("pyfs-matrix", "archive"): frozenset({"post"}),
     ("pyfs-matrix", "yes"): frozenset({"post"}),
     ("pyfs-matrix", "watch"): frozenset({"collect"}),
+    ("pyfs-matrix", "discard_walltime"): frozenset({"collect"}),
     ("pyfs-matrix", "post"): frozenset({"collect"}),
     ("pyfs-matrix", "check_frozen"): frozenset({"collect", "post"}),
     ("pyfs-matrix", "local"): frozenset({"post", "run"}),

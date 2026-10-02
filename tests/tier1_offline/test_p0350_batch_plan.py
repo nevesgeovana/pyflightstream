@@ -152,6 +152,38 @@ def test_p0350_plan_fr365_the_receipt_holds_every_field(tmp_path):
     assert plan.grouping is not None and not plan.blocked
 
 
+def test_p0350_plan_fr362_failed_points_are_pending_again(tmp_path):
+    """P0350-BATCH-SPLIT (FR-362): a FAILED point is pending again for a grouped plan."""
+    workspace, matrix = _fixture(tmp_path, walltimes=("1h", "1h"))
+    assert workspace.read_manifest() == []
+    control = _plan(workspace, matrix, batch=1)
+    assert not control.blocked
+    assert [job.sims for job in control.grouping.jobs] == [("7001", "7002")]
+    assert control.grouping.left_out == ()
+    for point in control.points:
+        workspace.append_record(
+            RunRecord(
+                run_id=point.run_id,
+                sim_id=point.sim_id,
+                fs_version_requested="26.123",
+                package_version="0.35.0.dev0",
+                script_sha256="c" * 64,
+                raw_flag=False,
+                status=(
+                    RunStatus.FAILED_EXECUTION if point.sim_id == "7001" else RunStatus.CONVERGED
+                ),
+                recipe="unsteady_rotor",
+            )
+        )
+    plan = _plan(workspace, matrix, batch=1)
+    assert not plan.blocked
+    assert [job.sims for job in plan.grouping.jobs] == [("7001",)]
+    assert plan.grouping.jobs[0].points == tuple(
+        point.run_id for point in control.points if point.sim_id == "7001"
+    )
+    assert plan.grouping.left_out == ({"sim": "7002", "reason": "every point is already recorded"},)
+
+
 def test_p0350_plan_fr362_the_table(tmp_path):
     """P0350-BATCH-TABLE (FR-362):
     one row per job and a total line; a polar sweep one row per polar."""

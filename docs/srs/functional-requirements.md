@@ -8770,6 +8770,7 @@ Requirements written after the specification was last reconciled with the packag
     - R1 When the rows of one job state different `WALLTIME` cells, or a mix of values and `BEST`: if every row reads `BEST` the job is `BEST`; otherwise the job takes the smallest stated cell (source `matrix`), with a warning naming the rows and their values when they differ, and its `BEST` rows follow that value; a job whose profile asks for a walltime and whose rows state none is blocked at the plan. This R-item is a design proposal; it stays pending until accepted.
     - R2 A point with no estimate in a job whose walltime is `BEST` is named `unestimated`; the job shall take the profile's `max_walltime` (source `max_walltime`) with a warning naming the points; without `max_walltime` the grouped plan shall be blocked, naming the points and the two remedies: state a walltime with its unit in those rows, or run one point of the row first so that the fit has a sample. This R-item is a design proposal; it stays pending until accepted.
     - R3 A `WALLTIME` cell reading `BEST` in the default mode (neither `--polar-sweep` nor `--batch`) shall be refused, by name of the row, with the message that `BEST` is a grouped-mode value. This R-item is a design proposal; it stays pending until accepted.
+    - R4 (2026-10-02, the owner's decision) A row's WALLTIME cell is the budget of one of its datapoints; a grouped job asks the sum over its points of their rows' cells, capped at max_walltime with a warning suggesting a larger n; one row's cell above max_walltime is refused.
 
     Verification: The marker P0350-BATCH-WALLTIME: tier-1 tests compute the expected walltime by hand and assert the round-up to the minute, the `BEST` warning above the limit, the refusal of a cell value above it, the naming of a batch that does not fit with its shortfall, and the absence of any limit without the key.
 
@@ -9190,3 +9191,20 @@ Requirements written after the specification was last reconciled with the packag
     Rationale: A nested run that lists the system temporary folder can fail on files that are not the package's.
 
     Verification: tier 1, a test carrying the marker P0350-NESTED-PYTEST; release 0.35.0.
+
+!!! requirement "FR-400 collect discards a point its clock stopped, on request <span class='srs-implemented'>implemented</span>"
+
+    *Origin: owner request of 2026-10-02. Evidence: `tests/tier1_offline/test_p0350_collect_discard.py`.*
+
+    Requirement: `pyfs-matrix collect --discard-walltime` shall mark each point in its scope whose latest record is WALLTIME_REACHED as FAILED_MARKED, so the next grouped plan runs it again from the start.
+
+    - R1 The option is off by default; without it collect behaves as before.
+    - R2 After each collect pass, including every pass of `--watch`, the latest WALLTIME_REACHED records in the workspace, narrowed by `--sims` when given, are marked per run. The record uses the same fields as `mark_failed`: `marked.from` keeps WALLTIME_REACHED, with the marking time and reason, and `discarded_by` is `collect --discard-walltime`. The previous manifest is archived, keeping one current record per run identity. Other points of the same simulation are untouched.
+    - R3 Collect retains the outputs on disk; the grouped run archives the old record and outputs before preparing the point again from the start.
+    - R4 The summary prints one line per discarded point: `discarded WALLTIME_REACHED: sim <sim> <run_id> (stopped at <stopped_at or "?">); a grouped plan runs it again`. It prints no discard line when none is discarded.
+    - R5 Records completed by an earlier collect and records of default-mode runs are treated the same way. Help explains that a grouped plan takes the point again automatically, while a default-mode plan needs `--force-rerun`.
+    - R6 When collect posts, discard happens first, including when only earlier-collected records were discarded.
+
+    Rationale: A point interrupted by the job clock must be rerun from the start in the next batch when the owner requests it.
+
+    Verification: tier 1, `tests/tier1_offline/test_p0350_collect_discard.py`, carrying the marker P0350-COLLECT-DISCARD (FR-400); release 0.35.0.

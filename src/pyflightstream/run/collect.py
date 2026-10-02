@@ -222,6 +222,7 @@ class CollectReport:
     #: release note told to expect this stage. Found by the interface lens of
     #: the 0.18.0 release round, 2026-09-14.
     unknown: list[CollectOutcome] = field(default_factory=list)
+    discarded: list[RunRecord] = field(default_factory=list)
 
     @property
     def outstanding(self) -> int:
@@ -239,6 +240,11 @@ class CollectReport:
         out: list[str] = []
         for outcome in [*self.collected, *self.failed, *self.waiting, *self.unknown]:
             out.append(f"  {outcome.state:9} {outcome.run_id}: {outcome.detail}")
+        for record in self.discarded:
+            out.append(
+                f"discarded WALLTIME_REACHED: sim {record.sim_id} {record.run_id} "
+                f"(stopped at {record.stopped_at or '?'}); a grouped plan runs it again"
+            )
         return out
 
 
@@ -1134,7 +1140,7 @@ def _complete(
     return CollectOutcome(
         run_id=record.run_id,
         state="COLLECTED",
-        detail=f"{len(collected)} output(s) collected, recorded {status}"
+        detail=f"{len(collected)} output(s) collected, recorded {completed.status}"
         + ("; WARNING: " + "; ".join(status_warnings) if status_warnings else ""),
         record=completed,
     )
@@ -1537,6 +1543,7 @@ def collect_and_post(
     workspace: CampaignWorkspace,
     *,
     watch: bool = False,
+    discard_walltime: bool = False,
     interval: float = DEFAULT_SETTLE_INTERVAL_S,
     watch_interval: float = DEFAULT_WATCH_INTERVAL_S,
     rounds: int | None = None,
@@ -1554,21 +1561,21 @@ def collect_and_post(
     assessor: Callable[[RunRecord, Path], tuple[RunStatus, str | None]] | None = None,
     sims: Collection[str] | None = None,
 ) -> CollectReport:
-    """Collect, and post-process once something was collected.
+    """Collect, then post-process after collection or an explicit walltime discard.
 
     THE LOOP AROUND THE PRIMITIVE. With ``watch`` false this is one sweep,
     which is what a cron wants. With ``watch`` true it sweeps until nothing
     is outstanding, or until ``rounds`` sweeps have run, which is the bound
     that stops a test or a mistake becoming an endless loop.
 
-    THE POST RUNS ONLY WHERE SOMETHING WAS COLLECTED. A sweep that found
+    THE POST RUNS ONLY WHERE SOMETHING CHANGED. A sweep that found
     nothing new must not rewrite the products: rebuilding archives the
     previous ones by design, so a watch that posted every minute would fill
     the archive with copies of an unchanged answer.
 
-    ``post`` is called once per sweep that collected something, with the
+    ``post`` is called once per sweep that collected or discarded something, with the
     workspace alone. ``post_matrix`` is called once per MATRIX that sweep
-    collected a record of, with the matrix stem the record names (None for a
+    collected or discarded a record of, with the matrix stem the record names (None for a
     record that names none), in the order first collected. The products of a
     workspace are rebuilt per matrix, so a caller that rebuilds them needs the
     second: the command line's own post called the stage with no matrix, and
@@ -1586,6 +1593,9 @@ def collect_and_post(
         The campaign workspace whose manifest is swept.
     watch : bool, optional
         Sweep until nothing is outstanding or ``rounds`` sweeps have run; one sweep when false.
+    discard_walltime : bool, optional
+        Mark the latest WALLTIME_REACHED records in scope FAILED_MARKED after
+        each sweep, before post. Keep their outputs for the next run to archive.
     interval : float, optional
         Seconds between the two observations that decide settled.
     watch_interval : float, optional
@@ -1595,9 +1605,9 @@ def collect_and_post(
     sleep : callable, optional
         The clock, injected so a test runs with none.
     post : callable, optional
-        Called with the workspace once per sweep that collected something.
+        Called with the workspace once per sweep that collected or discarded something.
     post_matrix : callable, optional
-        Called once per matrix a sweep collected a record of, with the workspace and the matrix
+        Called once per matrix a sweep changed a record of, with the workspace and the matrix
         stem.
     observer : callable, optional
         Stamps the paths, :func:`observe` by default.
@@ -1609,8 +1619,8 @@ def collect_and_post(
     Returns
     -------
     CollectReport
-        The points every sweep collected and failed, and the points the last sweep left waiting or
-        could not wait for.
+        The points every sweep collected, failed and discarded, and the points the last sweep
+        left waiting or could not wait for.
     """
     selected = None
     if sims is not None:
@@ -1627,29 +1637,15 @@ def collect_and_post(
             assessor=assessor,
             sims=selected,
         )
+        if discard_walltime:
+            report.discarded = _discard_walltime(workspace, selected)
+        total.discarded.extend(report.discarded)
         total.collected.extend(report.collected)
         total.failed.extend(report.failed)
         total.waiting = list(report.waiting)
         total.unknown = list(report.unknown)
         swept += 1
-        if report.collected and post is not None:
-            if selected is None:
-                post(workspace)
-            else:
-                post(workspace, sims=sorted(selected))  # type: ignore[call-arg]
-        if report.collected and post_matrix is not None:
-            stems = [
-                outcome.record.matrix_stem
-                for outcome in report.collected
-                if outcome.record is not None
-            ]
-            recorded = workspace.read_manifest() if selected is not None else []
-            for stem in dict.fromkeys(stems):
-                if selected is None:
-                    post_matrix(workspace, stem)
-                    continue
-                of_matrix = {record.sim_id for record in recorded if record.matrix_stem == stem}
-                post_matrix(workspace, stem, sims=sorted(selected & of_matrix))  # type: ignore[call-arg]
+        _post_sweep(workspace, report, selected=selected, post=post, post_matrix=post_matrix)
         if not watch:
             break
         if report.outstanding == 0:
@@ -1658,3 +1654,52 @@ def collect_and_post(
             break
         sleep(watch_interval)
     return total
+
+
+def _discard_walltime(
+    workspace: CampaignWorkspace, selected: frozenset[str] | None
+) -> list[RunRecord]:
+    """Discard clock-stopped current records within this collect's scope."""
+    from pyflightstream.run._record_files import mark_runs_failed
+
+    latest = {record.run_id: record for record in workspace.read_manifest()}
+    run_ids = [
+        record.run_id
+        for record in _of_the_simulations(list(latest.values()), selected)
+        if record.status is RunStatus.WALLTIME_REACHED
+    ]
+    return mark_runs_failed(
+        workspace,
+        run_ids,
+        reason="collect --discard-walltime",
+        discarded_by="collect --discard-walltime",
+    )
+
+
+def _post_sweep(
+    workspace: CampaignWorkspace,
+    report: CollectReport,
+    *,
+    selected: frozenset[str] | None,
+    post: Callable[[CampaignWorkspace], None] | None,
+    post_matrix: Callable[[CampaignWorkspace, str | None], None] | None,
+) -> None:
+    """Post matrices changed by collection or discard after their records are written."""
+    if not report.collected and not report.discarded:
+        return
+    if post is not None:
+        if selected is None:
+            post(workspace)
+        else:
+            post(workspace, sims=sorted(selected))  # type: ignore[call-arg]
+    if post_matrix is None:
+        return
+    records = [outcome.record for outcome in report.collected if outcome.record is not None]
+    stems = [record.matrix_stem for record in [*records, *report.discarded]]
+    recorded = workspace.read_manifest() if selected is not None else []
+    for stem in dict.fromkeys(stems):
+        if selected is None:
+            post_matrix(workspace, stem)
+            continue
+        of_matrix = {record.sim_id for record in recorded if record.matrix_stem == stem}
+        post_matrix(workspace, stem, sims=sorted(selected & of_matrix))  # type: ignore[call-arg]

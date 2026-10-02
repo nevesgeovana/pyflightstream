@@ -694,6 +694,7 @@ def _cmd_collect(args: argparse.Namespace) -> int:
             report = collect_and_post(
                 workspace,
                 watch=args.watch,
+                discard_walltime=args.discard_walltime,
                 interval=interval,
                 watch_interval=watch_interval,
                 rounds=args.rounds,

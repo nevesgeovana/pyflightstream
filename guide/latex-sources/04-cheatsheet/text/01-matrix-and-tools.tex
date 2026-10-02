@@ -100,6 +100,7 @@
 \sub{collect}{for every SUBMITTED record, wait until its outputs are present and SETTLED, collect, assess, update the record, then post; HPC \texttt{job\_end\_files} present, no solver log: FAILED\_EXECUTION}
 \begin{flags}
 \item \fl{--watch} keep sweeping until nothing is outstanding (default: one sweep)
+\item \fl{--discard-walltime} mark clock-stopped points failed before post; grouped plans rerun them from the start, default-mode plans need an explicit rerun; keep outputs
 \item \fl{--watch-interval S} seconds between sweeps (default 60)
 \item \fl{--interval S} seconds between the two size/time observations (default 2)
 \item \fl{--rounds N} stop a watch after N sweeps

@@ -133,6 +133,9 @@ from pyflightstream.run._record_files import (
     _root_archives,
     manifest_lock,
 )
+from pyflightstream.run._record_files import (
+    mark_runs_failed as mark_runs_failed,
+)
 
 # More of the names 0.32.0 offered from this module, kept for the same reason.
 from pyflightstream.workspace import AdditionalRecord as AdditionalRecord

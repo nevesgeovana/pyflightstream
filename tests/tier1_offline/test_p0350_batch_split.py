@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import itertools
 
+import pytest
+
 from pyflightstream.run._batch_split import (
     MEASURED_OVERHEADS,
     JobSplit,
@@ -19,6 +21,7 @@ from pyflightstream.run._batch_split import (
     split_polars,
     walltime_text,
 )
+from tests.tier1_offline.test_p0350_batch_plan import _fixture, _plan
 
 HOUR = 3600.0
 
@@ -166,7 +169,8 @@ def test_p0350_split_fr364_best_walltime() -> None:
     """P0350-BATCH-WALLTIME (FR-364, FR-377): 3 h 05 m and a 1200 s margin ask 252 minutes."""
     assert best_walltime_s(3 * HOUR + 5 * 60, 1200.0) == 252 * 60
     assert walltime_text(252 * 60) == "252m"
-    assert walltime_text(15075) == "252m"
+    # 2026-10-02: the owner's matrices state a per-datapoint WALLTIME; the job asks the sum.
+    assert walltime_text(15075) == "15075s"
     unit = _unit("2001", 1, 0.0, seconds=(3 * HOUR + 5 * 60,))
     split = JobSplit((unit,))
     seconds, source, fits, short, warnings, refusal = job_walltime(
@@ -180,6 +184,26 @@ def test_p0350_split_fr364_best_walltime() -> None:
         [],
         None,
     )
+
+
+@pytest.mark.parametrize(("cell", "cell_s"), [("68s", 68), ("4h", 14400)])
+def test_p0350_split_fr364_matrix_walltime_keeps_the_cell(tmp_path, cell, cell_s):
+    """P0350-BATCH-WALLTIME (FR-364): keep the stated cell; only BEST rounds to minutes."""
+    unit = _unit("2001", 1, 0.0, cell_s=cell_s, cell_text=cell, best=False)
+    split = JobSplit((unit,))
+    seconds, source, *_ = job_walltime(split, 68.0, max_walltime_s=None)
+    assert seconds == cell_s and source == "matrix"
+    # 2026-10-02: the owner's matrices state a per-datapoint WALLTIME; the job asks the sum.
+    assert walltime_text(seconds, split=split) == ("68s" if cell == "68s" else "240m")
+    workspace, matrix = _fixture(tmp_path, walltimes=(cell,))
+    (job,) = _plan(workspace, matrix, batch=1).grouping.jobs
+    assert job.walltime_written == ("204s" if cell == "68s" else "720m")
+    assert job.walltime_s == 3 * cell_s
+    assert job.walltime_source == "matrix"
+    best = JobSplit((_unit("2001", 1, 0.0, seconds=(68.0,)),))
+    rounded, source, *_ = job_walltime(best, 68.0, max_walltime_s=None)
+    assert rounded == 1320 and source == "BEST"
+    assert walltime_text(rounded, split=best) == "22m"
 
 
 def test_p0350_split_fr364_best_above_the_maximum_warns_and_suggests_a_larger_n() -> None:
@@ -221,11 +245,51 @@ def test_p0350_split_fr364_mixed_cells_and_unestimated_best() -> None:
     seconds, source, _, _, warnings, _ = job_walltime(
         JobSplit((a, b)), 2 * HOUR, max_walltime_s=None
     )
-    assert (seconds, source) == (7200, "matrix")
-    assert "2001: 4h" in warnings[0] and "2002: 2h" in warnings[0]
+    # 2026-10-02: the owner's matrices state a per-datapoint WALLTIME; the job asks the sum.
+    assert (seconds, source) == (21600, "matrix")
+    assert warnings == []
     bare = JobSplit((_unit("2003", 3, 0.0, seconds=(None,)),))
     seconds, source, _, _, warnings, refusal = job_walltime(bare, None, max_walltime_s=5 * HOUR)
     assert (seconds, source, refusal) == (18000, "max_walltime", None)
     assert "m/sim_2003/p0" in warnings[0]
     _, _, _, _, _, refusal = job_walltime(bare, None, max_walltime_s=None)
     assert refusal is not None and "m/sim_2003/p0" in refusal
+
+
+def test_p0350_split_fr364_matrix_walltime_sums_points_and_caps_at_maximum() -> None:
+    """P0350-BATCH-WALLTIME (FR-364): a matrix cell is per datapoint; the job asks the sum"""
+    units = tuple(
+        PolarUnit(
+            sim_id=sim,
+            order=order,
+            ncpus=16,
+            fs_build="26.124",
+            run_ids=tuple(f"m/sim_{sim}/p{i}" for i in range(points)),
+            point_seconds=(HOUR,) * points,
+            walltime_cell_s=hours * HOUR,
+            walltime_cell_text=f"{hours}h",
+            best=False,
+            margin_s=1200.0,
+        )
+        for order, sim, points, hours in ((1, "2001", 3, 4), (2, "2002", 2, 2))
+    )
+    split = JobSplit(units)
+    seconds, source, fits, shortfall, warnings, refusal = job_walltime(
+        split, 5 * HOUR, max_walltime_s=None
+    )
+    assert (seconds, source, fits, shortfall, warnings, refusal) == (
+        57600,
+        "matrix",
+        True,
+        None,
+        [],
+        None,
+    )
+    assert walltime_text(seconds, split=split) == "960m"
+    seconds, source, fits, shortfall, warnings, refusal = job_walltime(
+        split, 5 * HOUR, max_walltime_s=10 * HOUR
+    )
+    assert (seconds, source, fits, shortfall, refusal) == (36000, "max_walltime", False, None, None)
+    assert walltime_text(seconds, split=split) == "600m"
+    assert len(warnings) == 1
+    assert "max_walltime" in warnings[0] and "larger --batch n" in warnings[0]

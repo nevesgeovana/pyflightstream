@@ -20,15 +20,19 @@ import dataclasses
 import datetime as dt
 import os
 import re
+import shutil
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 from pyflightstream._errors import PyflightstreamError
+from pyflightstream.workspace import CampaignWorkspace, RunRecord, RunStatus
 from pyflightstream.workspace.naming import (
     ARCHIVE_DIR,
     ARCHIVE_STAMP,
     ARCHIVE_STAMP_PATTERN,
     DEFAULT_MANIFEST,
+    free_root_archive,
 )
 
 #: The file kinds :func:`~pyflightstream.run.records.restore` brings back from ``archive/``.
@@ -170,3 +174,54 @@ def manifest_lock(root: str | Path, manifest: str | Path | None = None) -> Any:
 
     workspace = CampaignWorkspace(Path(root))
     return workspace._manifest_lock(None if manifest is None else Path(manifest))
+
+
+def mark_runs_failed(
+    workspace: CampaignWorkspace,
+    run_ids: Sequence[str],
+    *,
+    reason: str | None = None,
+    discarded_by: str | None = None,
+) -> list[RunRecord]:
+    """Mark selected runs failed, preserving the previous manifest and all outputs.
+
+    Parameters
+    ----------
+    workspace : CampaignWorkspace
+        Workspace whose current manifest is updated under its own lease.
+    run_ids : sequence of str
+        Run identities to mark; absent and already marked runs are left alone.
+    reason : str, optional
+        Explanation recorded with the previous status and timestamp.
+    discarded_by : str, optional
+        Command that requested the discard, when applicable.
+
+    Returns
+    -------
+    list of RunRecord
+        The updated records. Each identity keeps one current manifest row,
+        as with ``mark_failed``; its previous row remains in the archive.
+    """
+    chosen = set(run_ids)
+    with manifest_lock(workspace.root, workspace.manifest_path):
+        rows = workspace.read_raw_manifest()
+        todo = [
+            row
+            for row in rows
+            if row.get("run_id") in chosen
+            and row.get("deleted_sim") is None
+            and row.get("status") != RunStatus.FAILED_MARKED
+        ]
+        if not todo:
+            return []
+        archived = free_root_archive(workspace.root, workspace.manifest_path.name, _now_stamp())
+        archived.parent.mkdir(exist_ok=True)
+        shutil.copy2(workspace.manifest_path, archived)
+        at = dt.datetime.now(dt.UTC).isoformat()
+        for row in todo:
+            row["marked"] = {"from": row.get("status"), "at": at, "reason": reason}
+            row["status"] = str(RunStatus.FAILED_MARKED)
+            if discarded_by is not None:
+                row["discarded_by"] = discarded_by
+        workspace._replace_manifest(rows)
+    return [RunRecord.model_validate(row) for row in todo]

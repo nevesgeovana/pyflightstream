@@ -939,6 +939,13 @@ def _add_collect_parsers(subparsers: Any) -> None:
         help="keep sweeping until no submitted point is outstanding, instead of once",
     )
     collect.add_argument(
+        "--discard-walltime",
+        action="store_true",
+        help="mark each WALLTIME_REACHED point FAILED_MARKED after every sweep, before post; "
+        "keep its outputs. A grouped plan takes it again from the start automatically; "
+        "a default-mode plan needs --force-rerun",
+    )
+    collect.add_argument(
         "--interval",
         type=float,
         default=None,
