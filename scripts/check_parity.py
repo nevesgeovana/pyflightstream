@@ -222,11 +222,23 @@ POST_NORMALIZE: list[tuple[str, str, str, str]] = [
     ),
 ]
 
+#: The one difference of NFR-32, named whole: a text file of 0.33.0 holds CR before LF where
+#: Windows wrote it in text mode, and the file of 0.34.0 holds LF. The comparison removes CR before
+#: LF on the 0.33.0 side (:func:`lf`), so a file that differs ONLY by it is equal; it is listed in
+#: the receipt under ``cr_removed`` with this requirement, and a file that differs by anything
+#: else still goes through :data:`NAMED_DIFFERENCES`.
+LF_REQUIREMENT = "NFR-32"
+LF_WHY = (
+    "LF line ends in every text file the package writes: 0.33.0 wrote CRLF on Windows where "
+    "the text mode of the platform ended a line, 0.34.0 writes LF on every platform"
+)
+
 TEXT_SUFFIXES = {".csv", ".json", ".log", ".txt", ".md", ".dat", ".vtk", ".toml", ".fs"}
 PLANTED_NAME = "__parity_control_name__"
 PLANTED_FLAG = "--parity-control-flag"
-#: The planted controls a run must catch: three api, one cli, one scripts, one post.
-CONTROLS = 6
+#: The planted controls a run must catch: three api, one cli, one scripts, two post (a changed
+#: byte and a planted CR).
+CONTROLS = 7
 
 
 # --------------------------------------------------------------------------- collectors
@@ -592,6 +604,20 @@ def normalize(name: str, data: bytes) -> bytes:
     return text.encode("utf-8")
 
 
+def lf(data: bytes | str) -> Any:
+    """Remove CR before LF, the 0.33.0 side's line end on Windows (NFR-32 R4)."""
+    if isinstance(data, str):
+        return data.replace("\r\n", "\n")
+    return data.replace(b"\r\n", b"\n")
+
+
+def count_cr_files(files: dict[str, bytes]) -> int:
+    """Count the text products of ``files`` that hold a CR byte (NFR-32 R3)."""
+    return sum(
+        1 for n, d in files.items() if Path(n).suffix.lower() in TEXT_SUFFIXES and b"\r" in d
+    )
+
+
 def changed_lines(old: str, new: str) -> list[str]:
     """Return the removed and added lines between two texts."""
     diff = difflib.unified_diff(old.splitlines(), new.splitlines(), lineterm="", n=0)
@@ -635,15 +661,20 @@ def compare_texts(
 ) -> dict[str, Any]:
     """Compare every base item with its release counterpart, naming each difference."""
     differing = []
+    cr_removed = []
     for name in sorted(base):
         new = release.get(name)
-        if new == base[name]:
+        old = lf(base[name])
+        if old != base[name]:
+            cr_removed.append({key: name, "requirement": LF_REQUIREMENT})
+        if new == old:
             continue
-        differing.append({key: name, **name_difference(kind, name, base[name], new, defined)})
+        differing.append({key: name, **name_difference(kind, name, old, new, defined)})
     return {
         "checked": len(base),
         "differing": differing,
         "added_at_release": sorted(set(release) - set(base)),
+        "cr_removed": cr_removed,
     }
 
 
@@ -721,8 +752,10 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         post_run_release = run_post(python, tree, args.workspace, ws, temp / "post-release")
         defined = srs_ids(tree)
 
-        post_base = as_text(read_tree(temp / "post-base"))
-        post_release = as_text(read_tree(temp / "post-release"))
+        post_base_raw = read_tree(temp / "post-base")
+        post_release_raw = read_tree(temp / "post-release")
+        post_base = as_text(post_base_raw)
+        post_release = as_text(post_release_raw)
     finally:
         if args.keep:
             print(f"kept {temp}")
@@ -772,6 +805,9 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
     scripts = compare_texts("scripts", "name", scripts_base, scripts_release, defined)
     post = compare_texts("post", "file", post_base, post_release, defined)
     post["workspace"] = str(args.workspace)
+    post["cr_normalised"] = True
+    post["cr_in_release"] = count_cr_files(post_release_raw)
+    post["cr_in_base"] = count_cr_files(post_base_raw)
     post["exit"] = {"base": post_run_base["exit"], "release": post_run_release["exit"]}
     for side, run in (("base", post_run_base), ("release", post_run_release)):
         if run["exit"] != 0:
@@ -795,6 +831,13 @@ def parity(args: argparse.Namespace) -> dict[str, Any]:
         if [d["file"] for d in probe if "requirement" not in d] == [victim]:
             controls.append(f"post: a changed byte of {victim} was reported unnamed")
 
+    if post_release_raw:
+        victim = next(iter(sorted(post_release_raw)))
+        planted_cr = {**post_release_raw, "planted.csv": post_release_raw[victim] + b"\r\n"}
+        if count_cr_files(planted_cr) == post["cr_in_release"] + 1:
+            controls.append("post: a planted CR in a release product was counted")
+    if post["cr_in_release"]:
+        failures.append(f"{post['cr_in_release']} release products hold a CR byte (NFR-32)")
     if not pairs:
         failures.append("no public name was compared")
     if missing_api:
