@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import os
 import subprocess
 import sys
 from collections.abc import Iterator, Mapping
@@ -386,7 +387,13 @@ def test_the_programs_the_solver_runs_state_lf_for_every_file_they_write(tmp_pat
     program = tmp_path / "pfs_unsteady_actions.py"
     _textio.write_text(program, programs["counter"])
     for _ in range(2):
-        subprocess.run([sys.executable, str(program)], cwd=tmp_path, check=True, timeout=60)
+        subprocess.run(
+            [sys.executable, str(program)],
+            cwd=tmp_path,
+            check=True,
+            timeout=60,
+            env=dict(os.environ),
+        )
     made = [p for p in tmp_path.iterdir() if p != program and p.is_file()]
     assert len(made) >= 2, [p.name for p in made]
     assert [p.name for p in made if _textio.file_cr_count(p)] == []
@@ -456,7 +463,9 @@ def test_the_lf_receipt_script_posts_a_campaign_and_writes_the_lines_the_goal_re
         "additional",
         "--allow-dirty",
     ]
-    done = subprocess.run(command, cwd=REPO, capture_output=True, text=True, timeout=600)
+    done = subprocess.run(
+        command, cwd=REPO, capture_output=True, text=True, timeout=600, env=dict(os.environ)
+    )
     data = out.read_bytes()
     assert b"\r" not in data, "the receipt is not LF"
     lines = data.decode("utf-8").splitlines()
