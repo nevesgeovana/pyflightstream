@@ -8301,7 +8301,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Need: The command database marks commands that ran on 26.124 as `documented`, because the run was not the probe tool's; promoting them needs catalog entries and one licensed probe run.
 
-    Requirement: the six acoustic commands, the CCS commands, `DELETE_SURFACES` and the wake commands that ran in RPT-096 to RPT-098 carry probe specifications, are run by `pyfs-qa probe` on 26.124, and the command database records each verdict.
+    Requirement: the seven acoustic commands (`ACOUSTIC_SOURCES`, `CREATE_NEW_ACOUSTIC_OBSERVER`, `ACOUSTIC_OBSERVERS_IMPORT`, `SET_ACOUSTIC_OBSERVER_TIME`, `COMPUTE_ACOUSTIC_SIGNALS`, `EXPORT_ACOUSTIC_SIGNALS` and `CREATE_ACOUSTIC_SECTION`, the count of the reports and of the command database), the CCS commands, `DELETE_SURFACES` and the wake commands that ran in RPT-096 to RPT-098 carry probe specifications, are run by `pyfs-qa probe` on 26.124, and the command database records each verdict.
 
     - R1 The set is every command whose 26.124 status is `documented` and which ran on 26.124 in RPT-096, RPT-097 or RPT-098, less the CCS-wing command, which FR-334 owns; it is counted at the start of the work package and listed in RPT-126.
     - R2 Each command of the set has a probe specification in the catalog that `pyfs-qa probe` runs.
@@ -8455,7 +8455,7 @@ Requirements written after the specification was last reconciled with the packag
 
     Requirement: every command the package emits that has no probe specification carries one in the probe catalog, and a tier-2 native run on 26.124 re-measures it.
 
-    - R1 The set is every command the package's emitters write whose `pyfs-qa probe` outcome is `unprobed` for want of a probe specification (`pyflightstream.qa.probes`), counted at the start of the work package on the 0.34.0 base (four when the item was written) and listed in RPT-127.
+    - R1 The set is every command the package's emitters write whose `pyfs-qa probe` outcome is `unprobed` for want of a probe specification (`pyflightstream.qa.probes`), counted at the start of the work package on the 0.34.0 base (four when the item was written; five by the work package's census, the commands the committed workflow goldens render on the build of each golden, held by that build's database, with no catalog entry: `ROTATE_SURFACE` and `SURFACE_ROTATE`, one rotation command by build, `SET_NEW_UNSTEADY_SOLVER_ACTION`, `SET_MOTION_ANGULAR_VELOCITY` and `SET_MOTION_IS_ROTOR`, of which `ROTATE_SURFACE` and `SET_NEW_UNSTEADY_SOLVER_ACTION` exist on 26.124) and listed in RPT-127.
     - R2 Each has a catalog entry; the census test refuses a command of the set without one.
     - R3 A tier-2 native run on 26.124, far field 5, re-measures them; RPT-127 carries the verdicts and the command database follows them through the promotion tool, under the rule of FR-333 R4.
 
