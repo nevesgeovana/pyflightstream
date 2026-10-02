@@ -52,6 +52,38 @@ def _a_word_that_means_false(word: str) -> bool:
         raise argparse.ArgumentTypeError(str(error)) from None
 
 
+def _batch_count(text: str) -> int:
+    """Parse the N of ``--batch N``: a whole number of at least 1."""
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"--batch takes a whole number, not {text!r}") from None
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"--batch takes a whole number of at least 1, not {value}")
+    return value
+
+
+def _add_grouping_arguments(parser: argparse.ArgumentParser) -> None:
+    """Declare --polar-sweep and --batch N of ``plan`` and ``run`` (0.35.0).
+
+    Mutually exclusive: a run is one grouping or the other, never both.
+    """
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--polar-sweep",
+        action="store_true",
+        help="run each simulation's points as ONE solver job (one polar per job). Combines "
+        "with --local; unsteady rows only",
+    )
+    group.add_argument(
+        "--batch",
+        type=_batch_count,
+        metavar="N",
+        help="run the simulations' points as N solver jobs, polars split across them. "
+        "Combines with --local; unsteady rows only",
+    )
+
+
 def _add_selection_arguments(parser: argparse.ArgumentParser) -> None:
     """Declare --sims and --points of ``plan`` and ``run`` (FR-326, P0340-RUN-ONE-POINT).
 
@@ -677,6 +709,7 @@ def _add_plan_parsers(subparsers: Any) -> None:
         "plan.json, so it rehearses the same command line `run` executes",
     )
     _add_selection_arguments(plan)
+    _add_grouping_arguments(plan)
     plan.add_argument(
         "--verbose",
         action="store_true",
@@ -778,6 +811,7 @@ def _add_run_option_parsers(subparsers: Any) -> None:
         "steps, read from the run's own step counter (default 10; 0 says nothing)",
     )
     _add_selection_arguments(run)
+    _add_grouping_arguments(run)
     run.add_argument(
         "--sweep-csv",
         help="write the campaign sweep table here (default: "

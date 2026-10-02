@@ -68,6 +68,8 @@
 \item \fl{--setup-standards} write commented s9XX setup standards
 \item \fl{--sims SIM [SIM ...]} plan only these simulations, e.g. \texttt{--sims 2031 2032}
 \item \fl{--points POINT [POINT ...]} with \fl{--sims}: only these points, by the point name the plan prints; the matrix is not edited
+\item \fl{--polar-sweep} plan each simulation as ONE solver job; unsteady rows; with \fl{--local}
+\item \fl{--batch N} plan the simulations as N solver jobs; unsteady rows; not with \fl{--polar-sweep}
 \item \fl{--verbose} full warnings (all detail also in \texttt{logs/activity.log})
 \end{flags}
 
@@ -81,6 +83,8 @@
 \item \fl{--sims SIM [SIM ...]} run only these simulations, space separated, e.g. \texttt{--sims 2031 2032}; with \fl{--force-rerun-all}, redo only these
 \item \fl{--points POINT [POINT ...]} with \fl{--sims}: run only these points, by the point name the plan prints (not with \fl{--force-rerun-all})
 \item \fl{--local} run on THIS machine instead of submitting (Linux workstation or smoke test)
+\item \fl{--polar-sweep} run each simulation as ONE solver job; unsteady rows; with \fl{--local}
+\item \fl{--batch N} run the simulations as N solver jobs; unsteady rows; not with \fl{--polar-sweep}
 \item \fl{--progress-every N} local unsteady progress every N steps (default 10; 0 = silent)
 \item \fl{--sweep-csv FILE} sweep table path (default \texttt{post/<matrix>/campaign\_sweep.csv})
 \item \fl{--workflow CODE=NAME} run type: \texttt{steady}, \texttt{unsteady}, \texttt{unsteady\_rotor}, \texttt{qsteady\_rotor}

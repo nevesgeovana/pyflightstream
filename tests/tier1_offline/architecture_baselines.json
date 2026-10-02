@@ -1724,6 +1724,7 @@
     "cli",
     "_cli_parsers",
     "_cli_print",
+    "_grouped",
     "rename",
     "records",
     "_rebuild",
