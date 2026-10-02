@@ -14,12 +14,12 @@ from __future__ import annotations
 import dataclasses
 import json
 from collections.abc import Mapping, Sequence
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, Literal, cast
 
 from pyflightstream import _textio
 from pyflightstream._console import table
-from pyflightstream.cases import ScriptRecipe, SimCase, resolve_recipe
+from pyflightstream.cases import ScriptRecipe, SimCase, case_at_point, resolve_recipe
 from pyflightstream.cases._unsteady_actions import documents_actions
 from pyflightstream.cases.acoustics import acoustic_request
 from pyflightstream.cases.workflows import (
@@ -27,6 +27,11 @@ from pyflightstream.cases.workflows import (
     parse_restart,
     row_ncpus,
     walltime_margin_s,
+)
+from pyflightstream.cases.workflows._batch_script import (
+    JobPoint,
+    job_point,
+    refuse_unspliceable,
 )
 from pyflightstream.cases.workflows._rows import (
     row_walltime_is_best,
@@ -44,7 +49,7 @@ from pyflightstream.run._batch_split import (
     walltime_text,
 )
 from pyflightstream.run._grouped import grouped_case
-from pyflightstream.run._ids import narrow_to_selection
+from pyflightstream.run._ids import _point_names, narrow_to_selection
 from pyflightstream.run._plan import (
     CampaignPlan,
     PlannedPointCost,
@@ -54,7 +59,7 @@ from pyflightstream.run._plan import (
 )
 from pyflightstream.run.matrix import plan_matrix
 from pyflightstream.script import Script
-from pyflightstream.workspace import CampaignWorkspace
+from pyflightstream.workspace import SIM_DATAPOINTS_DIR, CampaignWorkspace
 from pyflightstream.workspace._batches import (
     GROUPING_SCHEMA,
     GroupedJob,
@@ -314,6 +319,53 @@ def _rejudged(
     return judged
 
 
+def _splice_refusal(
+    resolved: ResolvedMatrix,
+    case: SimCase,
+    pending: Sequence[PointPlan],
+    *,
+    workspace: CampaignWorkspace,
+    version: str,
+    registry: Mapping[str, ScriptRecipe] | None,
+) -> str | None:
+    """Dry-splice a polar: render each pending point and refuse the first that cannot splice.
+
+    Each point is rendered as the plan renders it, without its WALLTIME, turned into a
+    :class:`~pyflightstream.cases.workflows._batch_script.JobPoint` under the datapoint folder
+    it would run in, and compared with the polar's first pending point.
+
+    Returns
+    -------
+    str or None
+        The refusal naming the line, or None when every point splices.
+    """
+    own = grouped_case(case)
+    recipe = (registry or {}).get(case.recipe) or cast(ScriptRecipe, resolve_recipe(case.recipe))
+    first: JobPoint | None = None
+    try:
+        for entry in pending:
+            stem, outputs = _point_names(resolved.campaign, own, entry.point, workspace)
+            point_case = case_at_point(own, entry.point, outputs=outputs)
+            script = Script(version=version)
+            recipe(point_case, script)
+            point = job_point(
+                point_case,
+                run_id=entry.run_id,
+                text=script.render(),
+                datapoint_dir=PurePath(workspace.sim_dir(case.sim_id))
+                / SIM_DATAPOINTS_DIR
+                / f"DP-{entry.run_id.rpartition('/')[2]}",
+                version=version,
+            )
+            if first is None:
+                first = point
+            else:
+                refuse_unspliceable(first, point)
+    except Exception as error:  # recipes are user code; a polar that cannot splice is left out
+        return f"its points do not splice into one instance: {error}"
+    return None
+
+
 def _block(plan: CampaignPlan, run_ids: Sequence[str], error: str) -> None:
     """Mark the points BLOCKED with ``error`` in the plan, in place."""
     wanted = set(run_ids)
@@ -358,6 +410,12 @@ def _eligible_units(
         refusal = _pristine_refusal(case)
         if refusal is not None:
             _block(plan, [entry.run_id for entry in pending], refusal)
+            continue
+        unspliceable = _splice_refusal(
+            resolved, case, pending, workspace=workspace, version=version, registry=registry
+        )
+        if unspliceable is not None:
+            left_out.append({"sim": case.sim_id, "reason": unspliceable})
             continue
         build = case.fs_build or plan.fs_version
         units.append(_unit_of(case, pending, costs, build, order))
