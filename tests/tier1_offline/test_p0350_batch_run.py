@@ -381,7 +381,8 @@ def test_p0350_run_fr372_driveg_is_one_submit_entry(tmp_path):
     descriptor = (job_dir / "submit.yaml").read_text(encoding="utf-8")
     assert (job_dir / "BATCH-7001-7003.txt").as_posix() in descriptor
     assert job_dir.as_posix() in descriptor
-    assert f"FTS{MATRIX}_b1" in descriptor
+    # Her rule of 2026-10-02: a batch job is named by its first polar (FTS<first sim>).
+    assert "FTS7001" in descriptor and f"FTS{MATRIX}_b1" not in descriptor
     assert {r.submission["descriptor"] for r in records} == {(job_dir / "submit.yaml").as_posix()}
 
 

@@ -281,10 +281,12 @@ def _job_root(job: GroupedJob, root: Path, profile: HpcProfile | None, submits: 
 def job_values(job: GroupedJob, *, profile: HpcProfile | None) -> dict[str, object]:
     """Return the placeholders a job's descriptor is formatted with (IMPL-0350 reading 9).
 
-    ``sim`` is the job's label (``<matrix>_b<ID>``, or the simulation id of a
-    polar sweep) and ``point`` its name (``BATCH-<a>-<b>``, ``FULL-POLAR``), so
-    a profile's ``job_name = "FTS{sim}"`` names the job and its ``native_log``
-    finds the job's log. A batch adds ``batch`` and ``batch_id``; every job adds
+    ``sim`` is the job's FIRST simulation id (a batch runs its polars in order,
+    so ``job_name = "FTS{sim}"`` names a batch by the polar it starts with; for a
+    polar sweep it is that polar) and ``point`` its name (``BATCH-<a>-<b>``,
+    ``FULL-POLAR``), so the profile's ``native_log`` finds the job's log in the
+    job's own folder. The batch label ``<matrix>_b<ID>`` is ``batch``. A batch adds
+    ``batch`` and ``batch_id``; every job adds
     ``sims``, ``first_sim``, ``last_sim``, ``fs_build`` and ``ncpus``, and the
     walltime in the three spellings a point offers, when the job has one.
 
@@ -301,7 +303,7 @@ def job_values(job: GroupedJob, *, profile: HpcProfile | None) -> dict[str, obje
         The values; a value the job does not have is omitted, never empty.
     """
     values: dict[str, object] = {
-        "sim": job.label,
+        "sim": job.sims[0] if job.sims else job.label,
         "point": job.name,
         "sims": ",".join(job.sims),
         "first_sim": job.sims[0] if job.sims else "",
