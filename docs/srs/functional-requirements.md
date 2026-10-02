@@ -3944,6 +3944,12 @@ requirement below is one seam of that division.
 
     Read with PFS-2074.26 at 0.33.0 (GOAL-038): the 0.33.0 package work reads this requirement.
 
+    Known defect on 26.124 (RPT-134, 2026-10-02): the continuation the package
+    emits re-initialises the reopened state and re-marches from step 1; the fix
+    is 0.35.0 scope, and the requirement stays implemented by decision of
+    2026-10-02. The continuation of a run the wall clock stopped shares the
+    emission path and is not measured.
+
     *Origin: the owning seat's decision of 2026-09-12, that the word RESTART
     is reused for continuity, and its measurement of 2026-09-13 that the
     solver resumes an unsteady march from a saved file. Evidence:
